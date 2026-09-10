@@ -338,10 +338,14 @@ async function runGrpcSuite() {
 }
 
 if (require.main === module) {
-  runGrpcSuite().catch((err) => {
-    console.error('FAILED gRPC test suite:', err.stack || err);
-    process.exit(1);
-  });
+  runGrpcSuite()
+    .then(() => {
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error('FAILED gRPC test suite:', err.stack || err);
+      process.exit(1);
+    });
 }
 
 module.exports = { runGrpcSuite };

@@ -92,7 +92,7 @@ async function executeToolLogic(toolName, args, runLocal) {
     }
   }
   if (toolName === 'genos_synaptic_stdp_update') {
-    const strategyExecutionAdapter = require('./strategyExecutionAdapter');
+    const strategyExecutionAdapter = require('../../strategyExecutionAdapter');
     const primitiveArgs = {
       sourceId: args.source_id || args.sourceId || args.causeId,
       targetId: args.target_id || args.targetId || args.effectId,
@@ -111,7 +111,7 @@ async function executeToolLogic(toolName, args, runLocal) {
     const agentId = args.agent_id || args.agentId;
     const orgId = args.organization_id || args.organizationId;
     const projId = args.project_id || args.projectId;
-    const db = await require('../db').getDatabase();
+    const db = await require('../../../db').getDatabase();
     let prunedCount = 0;
     if (db) {
       let sql = 'DELETE FROM memory_synapses WHERE (ABS(weight) < ? OR (c3_opsonization > 0.5 AND cd47_expression < 0.5))';
@@ -225,7 +225,7 @@ async function executeToolLogic(toolName, args, runLocal) {
     }
   }
   if (toolName === 'genos_biomimicry_hippocampal_consolidate') {
-    const episodicMemoryService = require('./episodicMemoryService');
+    const episodicMemoryService = require('../../episodicMemoryService');
     try {
       const score = Number.isFinite(Number(args.success_score)) ? Number(args.success_score) : 1.0;
       let consolidationResult = null;
@@ -291,16 +291,16 @@ async function executeToolLogic(toolName, args, runLocal) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
-  const bioResult = await require('./mcpBioTools').executeBioTool(toolName, args, { timeoutMs: 30000 });
+  const bioResult = await require('../../mcpBioTools').executeBioTool(toolName, args, { timeoutMs: 30000 });
   if (bioResult) return bioResult;
-  const stratResult = await require('./mcpStrategyTools').executeStrategyTool(toolName, args, { timeoutMs: 30000 });
+  const stratResult = await require('../../mcpStrategyTools').executeStrategyTool(toolName, args, { timeoutMs: 30000 });
   if (stratResult) return stratResult;
   const transport = require('../../mcpExecutor').configuredTransport();
   if (transport?.type === 'invalid') return { configured: false, success: false, status: 'invalid_config', error: transport.error };
   if (!transport) return { configured: false, success: false, status: 'unavailable', error: 'No MCP transport configured. Set GENOS_MCP_URL or GENOS_MCP_COMMAND.' };
   const result = transport.type === 'http'
-    ? await require('./transports/http').callHttpFn(transport.url, toolName, { args, timeoutMs: 30000 })
-    : await require('./transports/stdio').callStdioFn(transport, toolName, { args, timeoutMs: 30000 });
+    ? await require('./http').callHttpFn(transport.url, toolName, { args, timeoutMs: 30000 })
+    : await require('./stdio').callStdioFn(transport, toolName, { args, timeoutMs: 30000 });
   const isError = result.isError === true;
   return { configured: true, success: !isError, status: isError ? 'tool_error' : 'completed', transport: transport.type, output: result.structuredContent ?? result.content ?? result };
 }

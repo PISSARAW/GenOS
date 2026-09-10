@@ -314,7 +314,7 @@ async function execute(executionRequest) {
   await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', agentId, agentId, 'WORKFLOW_TOOL_CALL', toolName, policy.decision, policy.reason, JSON.stringify({ args, taints, organizationId, projectId, policy }));
   if (policy.decision !== 'allow') return { success: false, status: policy.decision, policy };
   const tool = await db.get('SELECT * FROM mcp_tools WHERE name = ?', toolName);
-  if (!tool && !require('./mcpStrategyTools').isStrategyTool(toolName)) return { success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` };
+  if (!tool && !require('./mcpStrategyTools').isStrategyTool(toolName) && !require('./mcpBioTools').isBioTool(toolName)) return { success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` };
   if (tool && tool.is_locked === 1) return { success: false, status: 'circuit_open', error: `Tool '${toolName}' is persisted in quarantine.` };
   const circuit = circuitBreaker.canExecute(toolName, 'operator', circuitScope, args);
   if (!circuit.allowed) return { success: false, status: 'circuit_open', error: circuit.message };

@@ -6,13 +6,13 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
-const { TEST_ADMIN_TOKEN } = require('./testAuth');
-const { createApp } = require('./src/app');
-const { getDatabase, closeDatabase } = require('./src/db');
-const circuitBreaker = require('./src/services/circuitBreaker');
-const { hashKey } = require('./src/middleware/auth');
+const { TEST_ADMIN_TOKEN } = require('../testAuth');
+const { createApp } = require('../../src/app');
+const { getDatabase, closeDatabase } = require('../../src/db');
+const circuitBreaker = require('../../src/services/circuitBreaker');
+const { hashKey } = require('../../src/middleware/auth');
 const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
-const { sanitizeString } = require('./src/middleware/security');
+const { sanitizeString } = require('../../src/middleware/security');
 
 
 const TEST_PORT = 4199;

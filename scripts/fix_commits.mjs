@@ -9,10 +9,10 @@ const translate = (text) => {
     t = t.replace("pour les Concepts", "for Concepts");
     t = t.replace("ajout du Lot", "Add Lot");
     t = t.replace("concepts nouvellement impl??ment??s", "newly implemented concepts");
-    t = t.replace("concepts nouvellement implémentés", "newly implemented concepts");
+    t = t.replace("concepts nouvellement implÃ©mentÃ©s", "newly implemented concepts");
     t = t.replace("ajout des explications sur", "Add explanations on");
     t = t.replace("Int??gration de la validation empirique", "Integrate empirical validation");
-    t = t.replace("Intégration de la validation empirique", "Integrate empirical validation");
+    t = t.replace("IntÃ©gration de la validation empirique", "Integrate empirical validation");
     t = t.replace("et du protocole de test pour Agent IA", "and test protocol for AI Agent");
     return t;
 };

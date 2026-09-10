@@ -54,7 +54,6 @@ function evaluateBranch(state, metrics = {}) {
 
   state.dissonanceLevel = Math.max(0, state.dissonanceLevel + penalty - relief);
   state.currentBudget = Math.max(0, state.currentBudget - 1.0);
-  state.revision = Math.max(0, Math.floor(Number(state.revision) || 0)) + 1;
 
   let apoptoticTriggered = false;
   if (state.dissonanceLevel >= state.maxDissonanceThreshold || state.currentBudget <= 0) {
@@ -88,7 +87,6 @@ function triggerEureka(state, options = {}) {
   state.eurekaMoments += 1;
   state.dissonanceLevel = Math.max(0, state.dissonanceLevel / 2.0);
   state.currentBudget = Math.min(state.baselineBudget, state.currentBudget + 50.0);
-  state.revision = Math.max(0, Math.floor(Number(state.revision) || 0)) + 1;
   return state;
 }
 

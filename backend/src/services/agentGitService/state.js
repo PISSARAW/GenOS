@@ -1,6 +1,6 @@
 async function applyState(..._args) {
   const [db, req, targetAgentId, state, sections] = _args;
-
+  const { loadAgent } = require('./index');
   const target = await loadAgent(db, req, targetAgentId);
   if (!target) throw Object.assign(new Error('Target agent is not available in the current tenant.'), { code: 'AGENT_NOT_FOUND' });
   const selected = new Set(sections || ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']);

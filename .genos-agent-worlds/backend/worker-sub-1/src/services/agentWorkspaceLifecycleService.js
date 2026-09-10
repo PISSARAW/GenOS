@@ -62,7 +62,8 @@ async function removeSensitiveFiles(root) {
 }
 
 async function withGitRepoLock(repoPath, fn) {
-  const key = path.resolve(repoPath);
+  const resolved = path.resolve(repoPath);
+  const key = process.platform === 'win32' ? resolved.toLowerCase() : resolved;
   let previous = gitRepoMutexes.get(key) || Promise.resolve();
   let release;
   const current = new Promise((resolve) => { release = resolve; });
@@ -297,16 +298,17 @@ function runCommand(command, args, { cwd, input, timeoutMs = 120000 } = {}) {
 async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride) {
   const source = path.resolve(sourceRoot);
   const normalizedWorkerId = normalizeRelativePath(String(workerId || ''), 'worker id');
-  if (normalizedWorkerId.includes('/')) throw new Error('worker id must be a single safe path segment.');
+  if (normalizedWorkerId.includes('/') || normalizedWorkerId.includes('\\')) throw new Error('worker id must be a single safe path segment.');
   // Keep capsules beside (not inside) the source workspace: fs.cp rejects a
   // destination nested under its source and this also keeps the parent clean.
   const capsuleRoot = capsuleRootOverride || process.env.GENOS_CAPSULE_ROOT || path.join(path.dirname(source), '.genos-agent-worlds');
+  const samePath = (a, b) => a && b && (process.platform === 'win32' ? path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase() : path.resolve(a) === path.resolve(b));
   if (capsuleRootOverride) {
     const resolvedOverride = path.resolve(capsuleRootOverride);
     const configuredRoot = process.env.GENOS_CAPSULE_ROOT ? path.resolve(process.env.GENOS_CAPSULE_ROOT) : null;
     const siblingRoot = path.resolve(path.dirname(source));
     const defaultWorldRoot = path.join(siblingRoot, '.genos-agent-worlds');
-    if (resolvedOverride !== configuredRoot && resolvedOverride !== siblingRoot && resolvedOverride !== defaultWorldRoot) {
+    if (!samePath(resolvedOverride, configuredRoot) && !samePath(resolvedOverride, siblingRoot) && !samePath(resolvedOverride, defaultWorldRoot)) {
       throw new Error(`Capsule root '${resolvedOverride}' is outside the source workspace boundary.`);
     }
   }
@@ -333,7 +335,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   }
   try {
     const { stdout: gitTopLevel } = await runCommand('git', ['rev-parse', '--show-toplevel'], { cwd: source });
-    if (path.resolve(gitTopLevel.trim()) !== source) {
+    if (!samePath(gitTopLevel.trim(), source)) {
       throw new Error(`Mission workspace ${source} is nested inside ${gitTopLevel.trim()}; copy only the mission scope.`);
     }
     let hasHead = true;

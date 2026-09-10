@@ -11,7 +11,14 @@ function decodeEmbeddingBlob(blob) {
   try {
     if (Buffer.isBuffer(blob)) {
       const float32 = new Float32Array(blob.buffer, blob.byteOffset, Math.floor(blob.byteLength / 4));
-      return Array.from(float32);
+      let hasNonZero = false;
+      for (let i = 0; i < float32.length; i++) {
+        if (float32[i] !== 0) {
+          hasNonZero = true;
+          break;
+        }
+      }
+      return hasNonZero ? Array.from(float32) : [];
     }
   } catch (_) {}
   return [];

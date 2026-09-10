@@ -350,8 +350,8 @@ async function main() {
       reusedWorker = Boolean(reusable);
       await workerGarage.requireAvailableSlot(db, orchestratorId, reusedWorker ? id : null);
       const name = String(request.name || workerGarage.workerName({ role, mission: task }));
-      const sourceWorkspace = parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../..');
-      if (request.workspace_root && path.resolve(request.workspace_root) !== path.resolve(sourceWorkspace)) {
+      const samePath = (a, b) => a && b && (process.platform === 'win32' ? path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase() : path.resolve(a) === path.resolve(b));
+      if (request.workspace_root && !samePath(request.workspace_root, sourceWorkspace)) {
         throw new Error(`Requested workspace root does not match orchestrator workspace '${sourceWorkspace}'.`);
       }
       const capsuleId = reusedWorker ? `${id}_run_${Date.now()}` : id;

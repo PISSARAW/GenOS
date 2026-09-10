@@ -14,7 +14,7 @@ function declaredToolNames() {
 
 function isRegisteredTool(toolName) {
   const normalized = normalizeToolName(toolName);
-  return declaredToolNames().includes(normalized) || mcpStrategyTools.isStrategyTool(normalized);
+  return declaredToolNames().includes(normalized) || mcpStrategyTools.isStrategyTool(normalized) || mcpBioTools.isBioTool(normalized);
 }
 
 function detectExecutionKind(toolName) {
@@ -23,7 +23,7 @@ function detectExecutionKind(toolName) {
   if (!isRegisteredTool(normalized)) return 'unsupported';
 
   if (mcpStrategyTools.isStrategyTool(normalized)) return 'strategy';
-  if (normalized.startsWith('genos_biomimicry_') || normalized.includes('conscience') || normalized.includes('entropy')) return 'bio';
+  if (mcpBioTools.isBioTool(normalized) || normalized.startsWith('genos_biomimicry_') || normalized.includes('conscience') || normalized.includes('entropy')) return 'bio';
   if (normalized.startsWith('genos_')) return 'cli';
   return 'unsupported';
 }

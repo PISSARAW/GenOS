@@ -63,12 +63,12 @@ async function callStdioFn(transport, toolName, options = {}) {
   });
   try {
     const initializedPromise = waitFor(1);
-    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'genos-backend', version: '1.0.0' } } })}\n`);
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'genos-backend', version: '1.0.0' } } })}\n`);
     const initialized = await initializedPromise;
     if (initialized.error) throw new Error(initialized.error.message || 'MCP STDIO initialize failed.');
     child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} })}\n`);
     const responsePromise = waitFor(2);
-    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: toolName, arguments: toolArgs } })}\n`);
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: toolName, arguments: toolArgs } })}\n`);
     const response = await responsePromise;
     if (response.error) throw new Error(response.error.message || 'MCP STDIO tools/call failed.');
     return response.result || response;

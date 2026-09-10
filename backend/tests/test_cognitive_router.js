@@ -1,4 +1,4 @@
-const router = require('./src/services/modelRouter');
+const router = require('../src/services/modelRouter');
 
 async function runTests() {
   console.log('🧪 Lancement des tests du Routeur Cognitif...\n');

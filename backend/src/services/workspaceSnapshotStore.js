@@ -113,12 +113,24 @@ async function collectFiles(root, limits = snapshotLimits()) {
       if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) await walk(absolute, childRelative);
       else if (entry.isFile() && isSafeRelative(childRelative)) {
-        const stat = await fsp.stat(absolute);
+        let stat;
+        try {
+          stat = await fsp.stat(absolute);
+        } catch (err) {
+          if (err.code === 'ENOENT') continue;
+          throw err;
+        }
         if (stat.size > limits.maxFileBytes) throw new Error(`Snapshot file exceeds the ${limits.maxFileBytes}-byte limit: ${childRelative}`);
         if (files.length >= limits.maxFiles) throw new Error(`Snapshot exceeds the ${limits.maxFiles}-file limit.`);
         totalBytes += stat.size;
         if (totalBytes > limits.maxBytes) throw new Error(`Snapshot exceeds the ${limits.maxBytes}-byte limit.`);
-        const bytes = await fsp.readFile(absolute);
+        let bytes;
+        try {
+          bytes = await fsp.readFile(absolute);
+        } catch (err) {
+          if (err.code === 'ENOENT') continue;
+          throw err;
+        }
         files.push({ path: childRelative.split(path.sep).join('/'), hash: sha256(bytes), size: stat.size, mode: stat.mode & 0o777 });
       }
     }
@@ -156,8 +168,18 @@ async function copyManifestPayload(workspacePath, root, hash, files, manifestDat
     await fsp.rename(staging, path.join(root, hash));
     return payloadRoot;
   } catch (error) {
+    if (['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code)) {
+      if (await exists(path.join(root, hash, 'manifest.json'))) {
+        await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
+        return payloadRoot;
+      }
+      try {
+        await fsp.rm(path.join(root, hash), { recursive: true, force: true });
+        await fsp.rename(staging, path.join(root, hash));
+        return payloadRoot;
+      } catch (_) {}
+    }
     await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
-    if (['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code) && await exists(path.join(root, hash, 'manifest.json'))) return payloadRoot;
     throw error;
   }
 }

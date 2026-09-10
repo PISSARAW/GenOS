@@ -1,4 +1,4 @@
-﻿import os
+import os
 import re
 
 directories = ['crates/genos-core/src', 'crates/genos-core/tests']

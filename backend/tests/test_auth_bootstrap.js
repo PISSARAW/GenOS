@@ -12,8 +12,8 @@ process.env.NODE_ENV = 'test';
 process.env.GENOS_ADMIN_TOKEN = ADMIN_SECRET;
 process.env.GENOS_DB_PATH = DB_PATH;
 
-const { createApp } = require('./src/app');
-const { getDatabase, closeDatabase } = require('./src/db');
+const { createApp } = require('../src/app');
+const { getDatabase, closeDatabase } = require('../src/db');
 
 function request(port, token) {
   const body = JSON.stringify({ token });

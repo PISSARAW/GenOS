@@ -96,6 +96,10 @@ class CircuitBreakerService {
   }
 
   checkState(scope = 'global') {
+    if (scope !== 'global') {
+      const globalState = this.checkState('global');
+      if (globalState === 'OPEN') return 'OPEN';
+    }
     const state = this.context(scope);
     const now = Date.now();
     if (state.state === 'OPEN' && now - state.lastStateChange > this.cooldownMs) {
@@ -158,7 +162,13 @@ class CircuitBreakerService {
       }
     }
 
-    const state = this.checkState(scope);
+    const globalState = this.checkState('global');
+    const scopedState = scope === 'global' ? globalState : this.checkState(scope);
+    const effectiveState = (globalState === 'OPEN' || scopedState === 'OPEN')
+      ? 'OPEN'
+      : (globalState === 'HALF-OPEN' || scopedState === 'HALF-OPEN')
+        ? 'HALF-OPEN'
+        : scopedState;
     const stateContext = this.context(scope);
     const isDestructive = this.isDestructive(toolName);
 
@@ -166,18 +176,18 @@ class CircuitBreakerService {
       return { allowed: false, reason: 'INSUFFICIENT_ROLE', message: `High-risk tool '${toolName}' requires Level 5 Admin role.` };
     }
 
-    if (state === 'OPEN' && isDestructive) {
+    if (effectiveState === 'OPEN' && isDestructive) {
       return { allowed: false, reason: 'CIRCUIT_OPEN', message: `Circuit breaker is OPEN. High-risk tools are quarantined.` };
     }
 
-    if (state === 'HALF-OPEN' && isDestructive) {
+    if (effectiveState === 'HALF-OPEN' && isDestructive) {
       if (stateContext.halfOpenProbe) {
         return { allowed: false, reason: 'CANARY_IN_PROGRESS', message: `Circuit breaker canary '${stateContext.halfOpenProbe}' is already in progress.` };
       }
       stateContext.halfOpenProbe = toolName;
     }
 
-    return { allowed: true, state };
+    return { allowed: true, state: effectiveState };
   }
 
   recordSuccess(toolName, scope = 'global') {

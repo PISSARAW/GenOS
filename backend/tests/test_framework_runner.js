@@ -1,5 +1,5 @@
 const assert = require('assert/strict');
-const { body, execute, traceparent } = require('./src/services/frameworkRunner');
+const { body, execute, traceparent } = require('../src/services/frameworkRunner');
 
 async function main() {
   assert.deepEqual(body('langgraph', { question: 'why?' }, { thread: 'a' }), { input: { question: 'why?' }, config: { thread: 'a' } });

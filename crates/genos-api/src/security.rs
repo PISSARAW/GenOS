@@ -54,4 +54,8 @@ impl TenantAuth {
     pub fn verify_key<'a>(&'a self, api_key: &str) -> Option<&'a str> {
         self.keys.get(api_key).map(|s| s.as_str())
     }
+
+    pub fn has_keys(&self) -> bool {
+        !self.keys.is_empty()
+    }
 }

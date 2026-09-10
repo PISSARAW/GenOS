@@ -18,7 +18,7 @@ EXCLUDED_PARTS = {
 
 def is_source(path: Path) -> bool:
     return path.suffix.lower() in SOURCE_EXTENSIONS and not any(
-        part in EXCLUDED_PARTS or part.startswith('.genos-') for part in path.parts
+        part in EXCLUDED_PARTS or part.startswith('.genos-') or part.startswith('worker-') or part.startswith('worker_') for part in path.parts
     )
 
 
@@ -164,7 +164,15 @@ def staged_paths(root: Path) -> list[Path]:
 
 
 def all_paths(root: Path) -> list[Path]:
-    return [path for path in root.rglob('*') if path.is_file() and is_source(path)]
+    import os
+    paths = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in EXCLUDED_PARTS and not d.startswith('.genos-')]
+        for filename in filenames:
+            p = Path(dirpath) / filename
+            if is_source(p):
+                paths.append(p)
+    return paths
 
 
 def commit_paths(root: Path) -> list[Path]:

@@ -4,8 +4,8 @@ function getConscienceStateArgs(args) {
 }
 
 async function handleConscienceState(args) {
-  const agentConscience = require('./agentConscienceService');
-  const { getDatabase } = require('../db');
+  const agentConscience = require('../../agentConscienceService');
+  const { getDatabase } = require('../../../db');
   try {
     const db = await getDatabase();
     const state = await agentConscience.loadConscienceState(db, getConscienceStateArgs(args).agentId);
@@ -19,8 +19,8 @@ async function handleConscienceHistory(args) {
   const agentId = args.agent_id || args.agentId || 'griot-01';
   const limit = Number(args.limit) || 20;
   const offset = Number(args.offset) || 0;
-  const agentConscience = require('./agentConscienceService');
-  const { getDatabase } = require('../db');
+  const agentConscience = require('../../agentConscienceService');
+  const { getDatabase } = require('../../../db');
   try {
     const db = await getDatabase();
     const transitions = await agentConscience.getConscienceTransitions(db, agentId, { limit, offset });
@@ -32,9 +32,9 @@ async function handleConscienceHistory(args) {
 
 async function handleSwarmEntropy(args) {
   const agentId = args.agent_id || args.agentId;
-  const swarmMetrics = require('./swarmMetricsService');
-  const swarmSentinel = require('./swarmSentinelService');
-  const { getDatabase } = require('../db');
+  const swarmMetrics = require('../../swarmMetricsService');
+  const swarmSentinel = require('../../swarmSentinelService');
+  const { getDatabase } = require('../../../db');
   try {
     const db = await getDatabase();
     const events = await db.all('SELECT action as type, event_type as action, agent_id, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 50');

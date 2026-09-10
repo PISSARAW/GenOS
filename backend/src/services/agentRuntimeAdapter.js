@@ -330,6 +330,26 @@ async function reconcilePersistedRuntimes(db) {
       reconciled += 1;
     }
   }
+
+  // Reconcile workers whose parent orchestrator has terminated or suffered apoptosis
+  const deadOrchestratorWorkers = await db.run(`
+    UPDATE agents
+    SET status = 'terminated', current_task = 'Terminated following parent orchestrator termination/apoptosis',
+        runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP
+    WHERE parent_agent_id IN (
+      SELECT id FROM agents WHERE execution_mode = 'orchestrator' AND (status IN ('apoptosis', 'terminated', 'completed', 'error') OR is_apoptotic = 1)
+    ) AND execution_mode = 'worker' AND status IN ('running', 'blocked')
+  `);
+  if (deadOrchestratorWorkers?.changes) reconciled += deadOrchestratorWorkers.changes;
+
+  // Reconcile orphaned running agents without PID or with invalid PID
+  const orphanedRunning = await db.run(`
+    UPDATE agents
+    SET status = 'error', current_task = 'Orphaned runtime without PID reconciled', runtime_pid = NULL, updated_at = CURRENT_TIMESTAMP
+    WHERE status = 'running' AND (runtime_pid IS NULL OR runtime_pid = '')
+  `);
+  if (orphanedRunning?.changes) reconciled += orphanedRunning.changes;
+
   return reconciled;
 }
 
