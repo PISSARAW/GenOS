@@ -17,7 +17,10 @@ pub fn public_tool_specs() -> Vec<Value> {
     let lease = configured_tool_set("GENOS_MCP_LEASE");
     let disabled = configured_tool_set("GENOS_MCP_DISABLED_TOOLS").unwrap_or_default();
 
-    let expose_all = matches!(env::var("GENOS_MCP_EXPOSE_ALL").as_deref(), Ok(value) if value.eq_ignore_ascii_case("1") || value.eq_ignore_ascii_case("true"));
+    let expose_all = !matches!(
+        env::var("GENOS_MCP_EXPOSE_ALL").as_deref(),
+        Ok(value) if value == "0" || value.eq_ignore_ascii_case("false")
+    );
 
     let all_tools = vec![
         json!({

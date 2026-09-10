@@ -157,8 +157,25 @@ fn find_genos_binary(workspace: &Path) -> Option<PathBuf> {
         if candidate.is_file() {
             return Some(candidate);
         }
+        if let Some(parent) = current.parent() {
+            if let Some(repo_root) = parent.parent().and_then(|p| p.parent()) {
+                for sub in &["target/release", "target/debug"] {
+                    let candidate = repo_root.join(sub).join(exe_name);
+                    if candidate.is_file() {
+                        return Some(candidate);
+                    }
+                }
+            }
+        }
     }
-    for sub in &["target/debug", "target/release", "../target/debug", "../../target/debug"] {
+    for sub in &[
+        "target/debug",
+        "target/release",
+        "../target/debug",
+        "../target/release",
+        "../../target/debug",
+        "../../target/release",
+    ] {
         let candidate = workspace.join(sub).join(exe_name);
         if candidate.is_file() {
             return Some(candidate);
@@ -174,7 +191,25 @@ fn resolve_bridge_path(workspace: &Path) -> PathBuf {
             return p;
         }
     }
-    workspace.join("backend/bin/genos-orchestrate.cjs")
+    let local = workspace.join("backend/bin/genos-orchestrate.cjs");
+    if local.is_file() {
+        return local;
+    }
+    if let Ok(current) = env::current_exe() {
+        if let Some(parent) = current.parent() {
+            if let Some(repo_root) = parent.parent().and_then(|p| p.parent()) {
+                let candidate = repo_root.join("backend/bin/genos-orchestrate.cjs");
+                if candidate.is_file() {
+                    return candidate;
+                }
+            }
+            let candidate = parent.join("backend/bin/genos-orchestrate.cjs");
+            if candidate.is_file() {
+                return candidate;
+            }
+        }
+    }
+    local
 }
 
 fn execute_orchestrator(bridge: &Path, payload: &Value, workspace: &Path) -> (i32, String) {
@@ -237,7 +272,25 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
         "genos_biomimicry" => {
             let feat = args.get("feature").and_then(Value::as_str).unwrap_or("sar");
             let act = args.get("action").and_then(Value::as_str).unwrap_or("prime");
-            vec!["biomimicry".into(), "bio-feature".into(), "--feature".into(), feat.into(), "--action".into(), act.into()]
+            let mut v = vec![
+                "biomimicry".into(),
+                "bio-feature".into(),
+                "--feature".into(),
+                feat.into(),
+                "--action".into(),
+                act.into(),
+            ];
+            if let Some(params) = args.get("params").and_then(Value::as_object) {
+                for (k, val) in params {
+                    let s = match val {
+                        Value::String(str_val) => format!("{k}={str_val}"),
+                        other => format!("{k}={other}"),
+                    };
+                    v.push("--param".into());
+                    v.push(s);
+                }
+            }
+            v
         }
         "genos_v2_init" => vec!["init".into()],
         "genos_v2_fork" => {
