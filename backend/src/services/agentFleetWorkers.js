@@ -116,7 +116,7 @@ async function createWorker(workerContext) {
   await agentEvolution.recordWorkerLineage(db, { agentId: id, name: identity.name, role: assignment.role, workspaceId: parent.workspace_id }, { parentId: parent.id, genes: evolution.genes, parents: evolution.parents, predictedFitness: evolution.predictedFitness });
   const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, mission.capsuleRoot);
   await persistWorker(db, { id, identity, assignment, parent, route, conscience, prompt, assignedTokens, perWorkerCognitiveBudget });
-  return formatWorker({ id, identity, assignment, parent, plan, mission, route, workspaceRoot, prompt, assignedTokens, index, evolution, orchestrator });
+  return formatWorker({ id, identity, assignment, parent, plan, mission, route, workspaceRoot, prompt, assignedTokens, index, evolution, orchestrator, assignments: workerContext.assignments || plan.dispatchWorkers });
 }
 
 function validatePromptBudget(details) {
@@ -145,7 +145,8 @@ function workerInsertValues(details) {
 function formatWorker(details) {
   const { id, identity, assignment, parent, plan, mission, route, workspaceRoot, prompt, assignedTokens, index, evolution, orchestrator } = details;
   const toolLease = workerToolLease(assignment.role);
-  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease }), executionPolicy: mission.executionPolicy, executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens, index, assignmentCount: details.assignments.length }), orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }, genome: evolution.genes, predictedFitness: evolution.predictedFitness };
+  const assignmentList = details.assignments || plan?.dispatchWorkers || [];
+  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, assignments: assignmentList }), executionPolicy: mission.executionPolicy, executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens, index, assignmentCount: assignmentList.length || 1 }), orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }, genome: evolution.genes, predictedFitness: evolution.predictedFitness };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
   return worker;
 }
@@ -156,8 +157,9 @@ function workerIdentity(details) {
 }
 
 function workerRuntime(details) {
-  const { parent, route, workspaceRoot, toolLease } = details;
-  return { workspaceRoot, workspaceProvisioned: true, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, toolLease, workspaceIsolation: parent.isolation_mode };
+  const { parent, route, workspaceRoot, toolLease, assignments } = details;
+  const inProcessWorker = process.env.GENOS_IN_PROCESS_WORKERS === '1' || (Array.isArray(assignments) && assignments.length > 12);
+  return { workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, toolLease, workspaceIsolation: parent.isolation_mode };
 }
 
 function buildExecutionBudget(details) {

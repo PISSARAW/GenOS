@@ -182,7 +182,12 @@ async function startMissionInternal(mission) {
       silent: silentUpdates
     });
   }
-  console.log("adapter: localModel"); assertNotCancelled(); if (normalizedMission.localModel && (normalizedMission.localRuntime === true || isLocalRuntime(executable))) {
+  console.log("adapter: localModel"); assertNotCancelled();
+  const inProcessWorker = (dispatchedAgent.execution_mode === 'worker' && (
+    process.env.GENOS_IN_PROCESS_WORKERS === '1' ||
+    normalizedMission.inProcessWorker === true
+  )) || (normalizedMission.localModel && (normalizedMission.localRuntime === true || isLocalRuntime(executable)));
+  if (inProcessWorker) {
     await trackWorkspace(agentId, normalizedMission.workspaceRoot);
     return runLocalWorker(db, normalizedMission, executionRun);
   }

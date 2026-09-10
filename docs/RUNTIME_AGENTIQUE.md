@@ -78,6 +78,16 @@ Le runtime principal lance Codex comme sous-processus puis traduit son flux en e
 
 [backend/bin/local-codex-runtime.cjs](../backend/bin/local-codex-runtime.cjs) passe par [backend/src/services/modelRouter.js](../backend/src/services/modelRouter.js). Les URIs locales reconnues sont `ollama://`, `lmstudio://`, `vllm://` et `openai-compatible://`. La selection peut venir d'une politique en SQLite, des variables d'environnement ou de la decouverte locale. Pour les workers, le plancher de competence local depend du role : 7B parametres pour un worker generaliste, 14B pour implementation/coder et 20B pour planification/frontier. `GENOS_DISABLE_LOCAL_MODELS=1` les desactive.
 
+### Mode In-Process pour Flottes Massives (100+ agents)
+
+Le lancement de 100 sous-processus OS distincts (`child_process.spawn`) entraîne une contention sévère sur la table des descripteurs, la mémoire vive (plusieurs Go d'empreinte Node.js) et le planificateur du noyau.
+
+Pour surmonter cette limite, GenOS introduit le mode d'exécution **In-Process** :
+- **Activation** : `GENOS_IN_PROCESS_WORKERS=1`, `mission.inProcessWorker = true`, ou automatiquement activé dès lors qu'un essaim dépasse 12 agents ouvriers.
+- **Fonctionnement** : Les agents s'exécutent comme des coroutines asynchrones légères au sein de la boucle d'événements principale Node.js.
+- **Routage cognitif** : Chaque ouvrier interroge directement `modelRouter.generate()` (modèle local ou passerelle d'inférence), applique les garde-fous immunitaires (`phagocytoseCodexReport`) et génère son dossier de preuves sans aucun sous-processus OS.
+- **Isolation et Conscience** : L'état de conscience métacognitif et le budget cognitif hérité restent strictement isolés par identifiant d'agent en mémoire et en base de données.
+
 ### Modèles distants et replis
 
 Les routes distantes sont des URIs telles que `openai://`, `anthropic://`, `gemini://`, `mistral://`, `groq://`, `deepseek://`, `together://` ou `openrouter://`. Une politique contient `primary`, `fallbacks`, `mode`, `preferLocal` et eventuellement `parallelReview`. En mode `fallback`, chaque candidat est essaye dans l'ordre ; chaque echec produit `MODEL_ROUTE_FAILED` puis la route suivante est essayee. Un echec local force une nouvelle decouverte avant de continuer.
