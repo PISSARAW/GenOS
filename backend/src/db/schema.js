@@ -13,6 +13,22 @@ const { readSqliteMmapSize, readSqliteSynchronous } = require('../services/runti
 
 const CREATE_TABLES_SQL = TABLES_CORE + "\n" + TABLES_EXTENSIONS;
 
+const OPTIONAL_COLUMN_STATEMENTS = [
+  'ALTER TABLE rag_chunks ADD COLUMN embedding_blob BLOB;',
+  'ALTER TABLE swarm_proposals ADD COLUMN consensus_type TEXT DEFAULT "simple";',
+  'ALTER TABLE swarm_votes ADD COLUMN weight REAL DEFAULT 1.0;',
+  'ALTER TABLE swarm_votes ADD COLUMN brier_score REAL;',
+  'ALTER TABLE workflow_runs ADD COLUMN claim_token TEXT;',
+  'ALTER TABLE evaluation_jobs ADD COLUMN claim_token TEXT;',
+  'ALTER TABLE model_jobs ADD COLUMN claim_token TEXT;'
+];
+
+async function addOptionalColumns(db, statements) {
+  for (const statement of statements) {
+    try { await db.exec(statement); } catch (_) {}
+  }
+}
+
 async function initializeSchema(db) {
   await db.exec('PRAGMA journal_mode = WAL;');
   const busyTimeout = Math.max(1000, Number(process.env.GENOS_SQLITE_BUSY_TIMEOUT_MS) || 30000);
@@ -23,10 +39,7 @@ async function initializeSchema(db) {
   await db.exec('PRAGMA temp_store = MEMORY;'); // Use RAM for temp tables and indices
   await migrateLegacySchema(db);
   await db.exec(CREATE_TABLES_SQL);
-  try { await db.exec('ALTER TABLE rag_chunks ADD COLUMN embedding_blob BLOB;'); } catch (_) {}
-  try { await db.exec('ALTER TABLE swarm_proposals ADD COLUMN consensus_type TEXT DEFAULT "simple";'); } catch (_) {}
-  try { await db.exec('ALTER TABLE swarm_votes ADD COLUMN weight REAL DEFAULT 1.0;'); } catch (_) {}
-  try { await db.exec('ALTER TABLE swarm_votes ADD COLUMN brier_score REAL;'); } catch (_) {}
+  await addOptionalColumns(db, OPTIONAL_COLUMN_STATEMENTS);
   await applyVersionedMigrations(db);
   await db.run('INSERT OR IGNORE INTO resilience_policies (id) VALUES (1)');
   for (const eventType of ['error', 'cognitive_drift', 'budget', 'blocked', 'human_escalation']) {
