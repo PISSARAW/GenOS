@@ -21,7 +21,14 @@ const trinityMonitorServer = require('./src/services/trinityMonitorServer');
 const PORT = readPort('PORT', process.env.PORT, 4000);
 
 function forkClusterWorker(isJobWorker) {
-  return cluster.fork({ GENOS_JOB_WORKER: isJobWorker ? '1' : '0' });
+  return cluster.fork({
+    GENOS_JOB_WORKER: isJobWorker ? '1' : '0',
+    // Only the designated leader performs heavy reconciliation and schema
+    // maintenance; otherwise every worker races on the same FTS/vector rebuild
+    // and process recovery.
+    GENOS_SCHEMA_MAINTENANCE: isJobWorker ? '1' : '0',
+    GENOS_RUNTIME_MAINTENANCE: isJobWorker ? '1' : '0'
+  });
 }
 
 function bootstrapClusterWorkers(numCPUs) {
@@ -78,9 +85,18 @@ async function reconcileDetachedProcesses(db) {
   for (const row of detached) {
     let alive = true;
     try { process.kill(Number(row.pid), 0); } catch (_) { alive = false; }
-    const matches = alive && processMatches(row.pid, row.command);
-    const terminated = matches ? terminatePid(row.pid) : false;
-    if (!alive || (matches && terminated)) {
+    if (!alive) {
+      await db.run('DELETE FROM detached_processes WHERE id = ?', row.id);
+      continue;
+    }
+    // If the PID no longer matches the recorded command it was reused by an
+    // unrelated process: the tracked process is gone, so drop the stale record
+    // instead of retaining it forever.
+    if (!processMatches(row.pid, row.command)) {
+      await db.run('DELETE FROM detached_processes WHERE id = ?', row.id);
+      continue;
+    }
+    if (terminatePid(row.pid)) {
       await db.run('DELETE FROM detached_processes WHERE id = ?', row.id);
     } else {
       console.warn(`[GenOS Recovery] Could not terminate detached process ${row.pid}; retaining its recovery record.`);
@@ -91,13 +107,18 @@ async function reconcileDetachedProcesses(db) {
 async function bootstrapWorkerDatabase() {
   console.log(`[GenOS Backend] Worker ${process.pid} connecting to SQLite...`);
   const db = await getDatabase();
-  await circuitBreaker.hydrateToolLocks(db);
-  await runtimeAdapter.reconcilePersistedRuntimes(db);
-  await reconcileDetachedProcesses(db);
-  await require('./src/services/agentWorkspaceLifecycleService').reconcileWorkspaceCleanup(db);
-  await workspaceSnapshotStore.reconcileSnapshotArtifacts(db).catch((error) => {
-    console.warn(`[GenOS Backend] Snapshot artifact reconciliation skipped: ${error.message}`);
-  });
+  // Reconciliation touches every live runtime / detached PID, so exactly one
+  // worker (the leader) may run it. Running it on all workers caused SQLITE_BUSY
+  // storms and duplicated taskkill calls against the same PID.
+  if (process.env.GENOS_RUNTIME_MAINTENANCE === '1') {
+    await circuitBreaker.hydrateToolLocks(db);
+    await runtimeAdapter.reconcilePersistedRuntimes(db);
+    await reconcileDetachedProcesses(db);
+    await require('./src/services/agentWorkspaceLifecycleService').reconcileWorkspaceCleanup(db);
+    await workspaceSnapshotStore.reconcileSnapshotArtifacts(db).catch((error) => {
+      console.warn(`[GenOS Backend] Snapshot artifact reconciliation skipped: ${error.message}`);
+    });
+  }
   if (process.env.GENOS_JOB_WORKER === '1') { // One explicitly assigned worker processes background jobs.
     jobWorker.startJobWorker();
   }
