@@ -70,6 +70,18 @@ const MODE_DEFINITIONS = {
   }
 };
 
+// Coordination/authority roles run on the frontier tier. Keying this off role
+// identity (instead of declaration index) keeps the tier stable if a mode's
+// role order ever changes.
+const FRONTIER_ROLES = new Set([
+  'environment_mapper', 'population_specialist',
+  'shared_state_coordinator', 'consistency_guardian',
+  'host_orchestrator', 'immune_symbiont',
+  'community_facilitator', 'adversarial_reviewer',
+  'rootless_coordinator', 'local_bridge',
+  'population_isolator', 'synaptic_adaptor'
+]);
+
 function definitionFor(mode) {
   const key = String(mode || '').trim().toLowerCase();
   if (!MODE_DEFINITIONS[key]) throw Object.assign(new Error(`Unknown biological mode '${mode}'.`), { code: 'BIOLOGICAL_MODE_UNKNOWN' });
@@ -83,7 +95,7 @@ function compose(mode, mission) {
   return definition.roles.map((role, index) => ({
     role,
     mechanisms: definition.mechanisms || [],
-    modelTier: index === 0 || index === 2 ? 'frontier' : 'standard',
+    modelTier: FRONTIER_ROLES.has(role) ? 'frontier' : 'standard',
     memberNumber: index + 1,
     // Holobionte Symbiotes run on a local inference runtime (see symbioteRuntimeService); other modes stay cloud.
     engine: symbioteRuntime.engineFor(role),
