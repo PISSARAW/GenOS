@@ -10,6 +10,7 @@ const { emit, workerToolLease } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');
 const agentConscience = require('./agentConscienceService');
 const agentEvolution = require('./agentEvolutionService');
+const { withTransaction } = require('../db');
 
 function calculateInheritedCognitiveBudget(parentBudget, workerShare, workerCount) {
   const normalizedParentBudget = Math.max(0, Number(parentBudget ?? 100));
@@ -103,7 +104,13 @@ function buildWorkerPrompt(details) {
 }
 
 async function createWorker(workerContext) {
-  const { db, orchestrator, assignment, index, usedNames, parent, plan, mission, sourceWorkspace, initialWorkerTokens, perWorkerTokens, perWorkerCognitiveBudget } = workerContext;
+  const assets = await prepareWorkerAssets(workerContext);
+  await persistWorker(assets.db, assets);
+  return formatWorker(assets);
+}
+
+async function prepareWorkerAssets(workerContext) {
+  const { db, orchestrator, assignment, index, usedNames, parent, plan, mission, initialWorkerTokens, perWorkerTokens, perWorkerCognitiveBudget } = workerContext;
   const assignedTokens = initialWorkerTokens?.[index] || perWorkerTokens;
   const id = autonomousWorkerId(orchestrator.id, index + 1);
   const identity = agentIdentity.generateAgentIdentity({ preferredName: assignment.preferredName || assignment.name, role: assignment.role, excludeNames: usedNames, stableKey: id });
@@ -113,13 +120,18 @@ async function createWorker(workerContext) {
   const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
   const route = await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
+  const workspaceRoot = await createWorkerWorkspace(workerContext, id);
+  return { ...workerContext, id, identity, conscience, prompt, assignedTokens, route, workspaceRoot, evolution, mission };
+}
+
+function createWorkerWorkspace(workerContext, id) {
+  const { assignment, mission, sourceWorkspace } = workerContext;
   const isVfsWorker = !/coder|developer|implementation/i.test(assignment.role || '');
-  const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, {
+  const assignments = workerContext.assignments || [];
+  return createIsolatedWorkspace(sourceWorkspace, id, {
     capsuleRoot: mission.capsuleRoot,
-    vfs: mission.vfsWorkspace === true || (workerContext.assignments?.length > 12 && isVfsWorker)
+    vfs: mission.vfsWorkspace === true || (assignments.length > 12 && isVfsWorker)
   });
-  await persistWorker(db, { id, identity, assignment, parent, route, conscience, prompt, assignedTokens, perWorkerCognitiveBudget });
-  return formatWorker({ id, identity, assignment, parent, plan, mission, route, workspaceRoot, prompt, assignedTokens, index, evolution, orchestrator, assignments: workerContext.assignments || plan.dispatchWorkers });
 }
 
 function validatePromptBudget(details) {
@@ -131,13 +143,16 @@ function validatePromptBudget(details) {
 }
 
 async function persistWorker(db, details) {
-  const { id, identity, assignment, parent, route, conscience, prompt, assignedTokens, perWorkerCognitiveBudget } = details;
-  await db.run(`INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, dissonance_level, eureka_count, cognitive_budget, is_apoptotic) VALUES (?, ?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?, ?, ?, ?, ?)`, ...workerInsertValues(details));
-  const debit = await db.run(`UPDATE agents SET cognitive_budget = ROUND(MAX(0, COALESCE(cognitive_budget, 0) - ?), 6), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND (cognitive_budget >= ? OR (? - cognitive_budget) < 0.0001)`, perWorkerCognitiveBudget, parent.id, perWorkerCognitiveBudget, perWorkerCognitiveBudget);
-  if (debit.changes !== 1) {
-    await db.run('DELETE FROM agents WHERE id = ?', id).catch(() => {});
-    throw Object.assign(new Error(`Unable to debit inherited cognitive budget from orchestrator '${parent.id}'.`), { code: 'BUDGET_INHERITANCE_FAILURE' });
-  }
+  const { parent, perWorkerCognitiveBudget } = details;
+  // The worker INSERT and the parent budget debit must be one atomic unit:
+  // otherwise two concurrent workers each read the same balance and over-allocate.
+  await withTransaction(db, async () => {
+    await db.run(`INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, dissonance_level, eureka_count, cognitive_budget, is_apoptotic) VALUES (?, ?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?, ?, ?, ?, ?)`, ...workerInsertValues(details));
+    const debit = await db.run(`UPDATE agents SET cognitive_budget = ROUND(MAX(0, COALESCE(cognitive_budget, 0) - ?), 6), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND (cognitive_budget >= ? OR (? - cognitive_budget) < 0.0001)`, perWorkerCognitiveBudget, parent.id, perWorkerCognitiveBudget, perWorkerCognitiveBudget);
+    if (debit.changes !== 1) {
+      throw Object.assign(new Error(`Unable to debit inherited cognitive budget from orchestrator '${parent.id}'.`), { code: 'BUDGET_INHERITANCE_FAILURE' });
+    }
+  });
 }
 
 function workerInsertValues(details) {
