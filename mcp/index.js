@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
+import { createToolCallHandler } from "./toolCallHandler.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,7 +54,7 @@ function resolveGenosBin() {
   return null;
 }
 
-function runExecutable(cmd, args, cwd, timeoutMs = toolTimeoutMs()) {
+function runExecutable({ cmd, args, cwd, timeoutMs = toolTimeoutMs() }) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, shell: false, detached: process.platform !== "win32" });
     let out = "";
@@ -88,20 +89,20 @@ function runExecutable(cmd, args, cwd, timeoutMs = toolTimeoutMs()) {
 async function runGenosCli(args) {
   const genosBin = resolveGenosBin();
   if (genosBin) {
-    return runExecutable(genosBin, args, repoRoot);
+    return runExecutable({ cmd: genosBin, args, cwd: repoRoot });
   }
   const cargoPath = process.platform === "win32" ? "cargo.exe" : "cargo";
   const manifest = path.join(repoRoot, "Cargo.toml");
-  return runExecutable(
-    cargoPath,
-    ["run", "-q", "--manifest-path", manifest, "-p", "genos-cli", "--", ...args],
-    repoRoot
-  );
+  return runExecutable({
+    cmd: cargoPath,
+    args: ["run", "-q", "--manifest-path", manifest, "-p", "genos-cli", "--", ...args],
+    cwd: repoRoot
+  });
 }
 
 async function runOrchestrator(payload) {
   const bridge = process.env.GENOS_ORCHESTRATOR_BRIDGE || path.join(repoRoot, "backend/bin/genos-orchestrate.cjs");
-  return runExecutable(process.execPath, [bridge, JSON.stringify(payload)], repoRoot);
+  return runExecutable({ cmd: process.execPath, args: [bridge, JSON.stringify(payload)], cwd: repoRoot });
 }
 
 const ALL_TOOLS = [
@@ -340,93 +341,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args = {} } = request.params;
-  if (!toolIsLeased(name, ALL_TOOLS)) {
-    return {
-      content: [{ type: "text", text: `Tool '${name}' is outside the active GenOS MCP lease.` }],
-      isError: true,
-    };
-  }
-  try {
-    let result = "";
-    switch (name) {
-      case "genos_execute_primitive": {
-        const primitiveArgs = {
-          ...args,
-          primitive: args.primitive || args.primitive_name || args.name,
-        };
-        const execution = await strategyTools.executeStrategyTool(name, primitiveArgs);
-        if (!execution) throw new Error(`Strategy tool '${name}' is unavailable.`);
-        if (!execution.success) throw new Error(execution.output?.error || `Primitive '${args.primitive_name || args.primitive || args.name || ''}' failed.`);
-        result = JSON.stringify(execution.output);
-        break;
-      }
-      case "genos_orchestrate":
-        result = await runOrchestrator({ action: "orchestrate", ...args });
-        break;
-      case "genos_delegate_worker":
-        result = await runOrchestrator({ action: "dispatch_worker", background: false, ...args });
-        break;
-      case "genos_change_strategy":
-        result = await runOrchestrator({ action: "change_strategy", ...args });
-        break;
-      case "genos_report_progress":
-        result = await runOrchestrator({ action: "report_progress", ...args });
-        break;
-      case "genos_change_organization":
-        result = await runOrchestrator({ action: "change_organization", ...args });
-        break;
-      case "genos_organization_state":
-        result = await runOrchestrator({ action: "organization_state", ...args });
-        break;
-      case "genos_worker_publish":
-        result = await runOrchestrator({ action: "organization_publish", ...args });
-        break;
-      case "genos_worker_inbox":
-        result = await runOrchestrator({ action: "organization_inbox", ...args });
-        break;
-      case "genos_trinity_launch":
-        result = await runOrchestrator({ action: "dispatch_trinity", ...args });
-        break;
-      case "genos_a_team_preview":
-        result = await runOrchestrator({ action: "dispatch_team", ...args });
-        break;
-      case "genos_biological_mode":
-        result = await runOrchestrator({ action: "dispatch_biological", ...args });
-        break;
-      case "genos_snapshot":
-        result = await runGenosCli(["snapshot", "create", "--agent", args.agent, "--out", args.out]);
-        break;
-      case "genos_replay":
-        if (!args.snapshot) throw new Error("genos_replay requires a snapshot reference.");
-        result = await runGenosCli(["replay", "basic", "--snapshot", args.snapshot]);
-        break;
-      case "genos_capsule_create":
-        result = await runGenosCli(["capsule", "create", "--snapshot", args.snapshot_id || "ROOT", ...(args.seed ? ["--seed", args.seed] : [])]);
-        break;
-      case "genos_merge":
-        result = await runGenosCli(["merge", args.branch_id, ...(args.conditions ? ["--conditions", args.conditions] : [])]);
-        break;
-      case "genos_audit":
-        result = await runGenosCli(["audit", args.snapshot_id, "--output", args.output || "audit.log"]);
-        break;
-      case "genos_biomimicry":
-        result = await runGenosCli(["biomimicry", "bio-feature", "--feature", args.feature, "--action", args.action]);
-        break;
-      case "genos_v2_init":
-        result = await runGenosCli(["init"]);
-        break;
-      case "genos_v2_fork":
-        result = await runGenosCli(["agent", "fork", "--parent-id", args.parent_id || "ROOT"]);
-        break;
-      default:
-        throw new Error(`Unsupported MCP tool '${name}'.`);
-        break;
-    }
-    return { content: [{ type: "text", text: result }] };
-  } catch (e) {
-    return { content: [{ type: "text", text: e.message }], isError: true };
-  }
+  const { name } = request.params;
+  if (!toolIsLeased(name, ALL_TOOLS)) return {
+    content: [{ type: "text", text: `Tool '${name}' is outside the active GenOS MCP lease.` }], isError: true
+  };
+  return createToolCallHandler({ runOrchestrator, runGenosCli, executeStrategyTool: strategyTools.executeStrategyTool })(request);
 });
 
 const transport = new StdioServerTransport();
