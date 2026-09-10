@@ -118,7 +118,7 @@ function validateToolArguments(toolName, args = {}) {
   }
 
   const enumValues = {
-    backend: ['directory', 'hardlink', 'copy_on_write'],
+    backend: ['directory', 'hardlink', 'copy_on_write', 'cow'],
     strategy: ['canary', 'ab']
   };
   for (const [field, values] of Object.entries(enumValues)) {
