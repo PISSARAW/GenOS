@@ -27,14 +27,13 @@ function isPathWithinRoot(root, candidate, { allowRoot = true } = {}) {
   let realRoot;
   let realCandidate;
   try {
+    // Resolve symlinks on BOTH sides. If either path cannot be resolved we
+    // treat the candidate as outside the root: a lexical fallback could
+    // silently follow a symlink that escapes the trusted directory.
     realRoot = fs.realpathSync(path.resolve(root));
     realCandidate = fs.realpathSync(path.resolve(candidate));
   } catch (_) {
-    const resolvedRoot = path.resolve(root);
-    const resolvedCandidate = path.resolve(candidate);
-    const relative = path.relative(resolvedRoot, resolvedCandidate);
-    if (relative === '') return Boolean(allowRoot);
-    return !relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative);
+    return false;
   }
   const relative = path.relative(realRoot, realCandidate);
   if (relative === '') return Boolean(allowRoot);
