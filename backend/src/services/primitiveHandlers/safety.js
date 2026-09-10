@@ -5,6 +5,40 @@
 const telemetry = require('../telemetryObserver');
 const genosCli = require('../genosCli');
 const { getDatabase } = require('../../db');
+const { releaseQuarantine, unquarantine } = require('./safetyRelease');
+
+function controlTargetOf(context) {
+  return context.targetId || context.agentId;
+}
+
+function controlActorOf(context) {
+  return context.actorId || context.orchestratorId || context.agentId;
+}
+
+async function authorizeControlTarget(db, targetId, context) {
+  const authority = require('../agentAuthorityService');
+  try {
+    const agent = await authority.authorizeAgentControl(db, targetId, controlActorOf(context), context.workspaceId || null);
+    return { authorized: true, agent };
+  } catch (error) {
+    return { authorized: false, code: error.code, error: error.message };
+  }
+}
+
+async function stopTargetRuntime(targetId) {
+  const runtimeAdapter = require('../agentRuntimeAdapter');
+  return Boolean(await runtimeAdapter.stopMission(targetId));
+}
+
+async function fossilizeTerminatedTarget(targetId, reason) {
+  try {
+    const fossilRes = await genosCli.runFossilize(targetId, reason);
+    if (fossilRes.ok && fossilRes.data) return { fossilRecord: fossilRes.data };
+    return { fossilRecord: null };
+  } catch (err) {
+    return { fossilRecord: null, error: `Fossilization failed: ${err.message}` };
+  }
+}
 
 async function circuitBreakerOpen(context) {
   // Ouvre le circuit breaker pour bloquer toute exécution destructrice.
@@ -41,40 +75,34 @@ async function circuitBreakerHalfOpen(context) {
 async function apoptosis(context) {
   // Suicide contrôlé d'un agent défaillant : le tue proprement et enregistre la cause.
   const db = await getDatabase();
-  const targetId = context.targetId || context.agentId;
+  const targetId = controlTargetOf(context);
   if (!targetId) {
     return { success: false, error: 'targetId required for apoptosis.' };
   }
-  const authority = require('../agentAuthorityService');
-  let agent;
-  try { agent = await authority.authorizeAgentControl(db, targetId, context.actorId || context.orchestratorId || context.agentId, context.workspaceId || null); }
-  catch (error) { return { success: false, code: error.code, error: error.message }; }
+  const auth = await authorizeControlTarget(db, targetId, context);
+  if (!auth.authorized) {
+    return { success: false, code: auth.code, error: auth.error };
+  }
   const reason = context.reason || 'Strategy-triggered apoptosis (unrecoverable failure).';
   await db.run(
     "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = ? WHERE id = ?",
     '[APOPTOSIS] ' + reason, targetId
   );
-  const runtimeAdapter = require('../agentRuntimeAdapter');
-  const runtimeStopped = Boolean(await runtimeAdapter.stopMission(targetId));
+  const runtimeStopped = await stopTargetRuntime(targetId);
   telemetry.emitEvent({
     eventType: 'AGENT_APOPTOSIS',
     agentId: targetId,
     action: 'TERMINATE',
     detail: 'Agent ' + targetId + ' terminated by apoptosis: ' + reason,
     severity: 'critical',
-    payload: { targetId, reason, previousStatus: agent.status, runtimeStopped }
+    payload: { targetId, reason, previousStatus: auth.agent.status, runtimeStopped }
   });
 
-  let fossilRecord = null;
-  try {
-    const fossilRes = await genosCli.runFossilize(targetId, reason);
-    if (fossilRes.ok && fossilRes.data) {
-      fossilRecord = fossilRes.data;
-    }
-  } catch (err) {
-    return { success: false, terminated: targetId, reason, error: `Fossilization failed: ${err.message}` };
+  const fossil = await fossilizeTerminatedTarget(targetId, reason);
+  if (fossil.error) {
+    return { success: false, terminated: targetId, reason, error: fossil.error };
   }
-  return { success: true, terminated: targetId, reason, fossilRecord, runtimeStopped };
+  return { success: true, terminated: targetId, reason, fossilRecord: fossil.fossilRecord, runtimeStopped };
 }
 
 async function fossilize(context) {
@@ -106,29 +134,28 @@ async function listFossils() {
 async function quarantine(context) {
   // Mise en quarantaine d'un agent suspect : il est isolé mais pas détruit.
   const db = await getDatabase();
-  const targetId = context.targetId || context.agentId;
+  const targetId = controlTargetOf(context);
   if (!targetId) {
     return { success: false, error: 'targetId required for quarantine.' };
   }
-  const authority = require('../agentAuthorityService');
-  let agent;
-  try { agent = await authority.authorizeAgentControl(db, targetId, context.actorId || context.orchestratorId || context.agentId, context.workspaceId || null); }
-  catch (error) { return { success: false, code: error.code, error: error.message }; }
+  const auth = await authorizeControlTarget(db, targetId, context);
+  if (!auth.authorized) {
+    return { success: false, code: auth.code, error: auth.error };
+  }
   const reason = context.reason || 'Suspicious behavior detected.';
   await db.run(
     "UPDATE agents SET status = 'blocked', isolation_mode = 'Quarantine', current_task = ? WHERE id = ?",
     '[QUARANTINE] ' + reason,
     targetId
   );
-  const runtimeAdapter = require('../agentRuntimeAdapter');
-  const runtimeStopped = Boolean(await runtimeAdapter.stopMission(targetId));
+  const runtimeStopped = await stopTargetRuntime(targetId);
   telemetry.emitEvent({
     eventType: 'AGENT_QUARANTINED',
     agentId: targetId,
     action: 'QUARANTINE',
     detail: 'Agent ' + targetId + ' quarantined: ' + reason,
     severity: 'warning',
-    payload: { targetId, reason, previousStatus: agent.status, runtimeStopped }
+    payload: { targetId, reason, previousStatus: auth.agent.status, runtimeStopped }
   });
   return { success: true, quarantined: targetId, reason, runtimeStopped };
 }
@@ -157,27 +184,68 @@ async function sandbox(context) {
   }
 }
 
+async function persistedToolLock(db, toolName) {
+  if (!toolName) return null;
+  return db.get('SELECT is_locked FROM mcp_tools WHERE name = ?', toolName);
+}
+
+function lockedToolVerdict(toolName, isDestructive) {
+  return { success: false, allowed: false, isDestructive, circuitState: { allowed: false, reason: 'TOOL_LOCKED', message: `Tool '${toolName}' is manually locked in quarantine.` } };
+}
+
+function evaluateCircuitVerdict(context, toolName, isDestructive) {
+  const circuitBreaker = require('../circuitBreaker');
+  const scope = context.scope || 'default';
+  const agentType = context.agentType || 'GenOS';
+  const circuit = circuitBreaker.canExecute(toolName, agentType, scope, context.args || null);
+  return { toolName, circuit, allowed: circuit.allowed && !isDestructive, isDestructive };
+}
+
+function emitPermissionTelemetry(context, verdict) {
+  telemetry.emitEvent({
+    eventType: verdict.allowed ? 'PERMISSION_GRANTED' : 'PERMISSION_DENIED',
+    agentId: context.agentId || 'strategy_adapter',
+    action: 'PERMISSION_CHECK',
+    detail: (verdict.allowed ? 'Allowed' : 'Denied') + ' execution of ' + verdict.toolName,
+    severity: verdict.allowed ? 'info' : 'warning',
+    payload: { toolName: verdict.toolName, isDestructive: verdict.isDestructive, circuitState: verdict.circuit }
+  });
+}
+
 async function permissionCheck(context) {
   // Vérifie les permissions avant d'autoriser une action destructrice.
   const circuitBreaker = require('../circuitBreaker');
   const toolName = context.tool || context.action || '';
   const isDestructive = circuitBreaker.isDestructive(toolName);
   const db = await getDatabase();
-  const persistedTool = toolName ? await db.get('SELECT is_locked FROM mcp_tools WHERE name = ?', toolName) : null;
+  const persistedTool = await persistedToolLock(db, toolName);
   if (persistedTool?.is_locked === 1) {
-    return { success: false, allowed: false, isDestructive, circuitState: { allowed: false, reason: 'TOOL_LOCKED', message: `Tool '${toolName}' is manually locked in quarantine.` } };
+    return lockedToolVerdict(toolName, isDestructive);
   }
-  const circuit = circuitBreaker.canExecute(toolName, context.agentType || 'GenOS', context.scope || 'default', context.args || null);
-  const allowed = circuit.allowed && !isDestructive;
-  telemetry.emitEvent({
-    eventType: allowed ? 'PERMISSION_GRANTED' : 'PERMISSION_DENIED',
-    agentId: context.agentId || 'strategy_adapter',
-    action: 'PERMISSION_CHECK',
-    detail: (allowed ? 'Allowed' : 'Denied') + ' execution of ' + toolName,
-    severity: allowed ? 'info' : 'warning',
-    payload: { toolName, isDestructive, circuitState: circuit }
-  });
-  return { success: allowed, allowed, isDestructive, circuitState: circuit };
+  const verdict = evaluateCircuitVerdict(context, toolName, isDestructive);
+  emitPermissionTelemetry(context, verdict);
+  return { success: verdict.allowed, allowed: verdict.allowed, isDestructive, circuitState: verdict.circuit };
+}
+
+function messageSourceOf(msg) {
+  const source = msg.from || msg.sender || msg.agentId || msg.source || 'agent';
+  return String(source).trim();
+}
+
+function messageTargetOf(msg) {
+  const target = msg.to || msg.recipient || msg.receiver || msg.target || msg.tool || 'system';
+  return String(target).trim();
+}
+
+function touchGraphNode(nodes, id, field) {
+  if (!nodes.has(id)) nodes.set(id, { id, sent: 0, received: 0 });
+  nodes.get(id)[field] += 1;
+}
+
+function touchGraphEdge(edges, from, to) {
+  const edgeKey = `${from}->${to}`;
+  if (!edges.has(edgeKey)) edges.set(edgeKey, { source: from, target: to, count: 0 });
+  edges.get(edgeKey).count += 1;
 }
 
 /**
@@ -189,18 +257,11 @@ async function messageGraph(context = {}) {
   const edges = new Map();
 
   for (const msg of rawMessages) {
-    const from = String(msg.from || msg.sender || msg.agentId || msg.source || 'agent').trim();
-    const to = String(msg.to || msg.recipient || msg.receiver || msg.target || msg.tool || 'system').trim();
-    if (!nodes.has(from)) nodes.set(from, { id: from, sent: 0, received: 0 });
-    if (!nodes.has(to)) nodes.set(to, { id: to, sent: 0, received: 0 });
-    nodes.get(from).sent++;
-    nodes.get(to).received++;
-
-    const edgeKey = `${from}->${to}`;
-    if (!edges.has(edgeKey)) {
-      edges.set(edgeKey, { source: from, target: to, count: 0 });
-    }
-    edges.get(edgeKey).count++;
+    const from = messageSourceOf(msg);
+    const to = messageTargetOf(msg);
+    touchGraphNode(nodes, from, 'sent');
+    touchGraphNode(nodes, to, 'received');
+    touchGraphEdge(edges, from, to);
   }
 
   return {
@@ -228,6 +289,8 @@ module.exports = {
   circuitBreakerHalfOpen,
   apoptosis,
   quarantine,
+  releaseQuarantine,
+  unquarantine,
   sandbox,
   permissionCheck,
   fossilize,

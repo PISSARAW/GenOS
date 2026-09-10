@@ -1,3 +1,5 @@
+const leasePolicy = require('./toolLeasePolicy');
+
 const EXECUTION_MODES = Object.freeze(['orchestrator', 'worker']);
 
 function normalizeExecutionMode(value) {
@@ -46,10 +48,20 @@ async function authorizeWorker(db, agent, orchestratorAgentId) {
   return agent;
 }
 
+function assertToolLeaseFresh(agent, toolLease, plan) {
+  if (!Array.isArray(toolLease)) return;
+  if (toolLease.length === 0) return;
+  const stale = leasePolicy.staleLeaseTools({ execution_mode: agent.execution_mode, role: agent.role, plan }, toolLease);
+  if (stale.length === 0) return;
+  throw authorityError('AGENT_TOOL_LEASE_STALE', `Tool lease for agent '${agent.id}' is stale for role '${agent.role}': ${stale.join(', ')} falls outside the current policy.`);
+}
+
 async function authorizeMission(db, agentOrOptions, ...legacyArgs) {
-  const { agentId, orchestratorAgentId, workspaceId } = normalizeMissionArgs(agentOrOptions, legacyArgs);
-  const agent = await db.get('SELECT id, name, execution_mode, parent_agent_id, workspace_id, status, isolation_mode FROM agents WHERE id = ?', agentId);
+  const options = normalizeMissionArgs(agentOrOptions, legacyArgs);
+  const { agentId, orchestratorAgentId, workspaceId } = options;
+  const agent = await db.get('SELECT id, name, execution_mode, parent_agent_id, workspace_id, status, isolation_mode, role FROM agents WHERE id = ?', agentId);
   assertMissionAgent(agent, agentId, workspaceId);
+  assertToolLeaseFresh(agent, options.toolLease, options.plan || options.autonomyPlan);
   if (agent.execution_mode === 'orchestrator') return agent;
   return authorizeWorker(db, agent, orchestratorAgentId);
 }
@@ -72,4 +84,4 @@ async function authorizeAgentControl(db, targetOrOptions, ...legacyArgs) {
   return target;
 }
 
-module.exports = { EXECUTION_MODES, normalizeExecutionMode, requireOrchestrator, authorizeMission, authorizeAgentControl };
+module.exports = { EXECUTION_MODES, normalizeExecutionMode, requireOrchestrator, authorizeMission, authorizeAgentControl, assertToolLeaseFresh };
