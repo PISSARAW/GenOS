@@ -21,6 +21,8 @@ function applyDelete(text, index, len) {
 }
 
 function applyKind(state, kind) {
+  // Ops without a well-formed `kind` must be ignored, never crash the server.
+  if (!kind || typeof kind.type !== 'string') return;
   if (kind.type === 'insert_text') {
     state.text = applyInsert(state.text, kind.index || 0, kind.text || '');
   } else if (kind.type === 'delete_text') {
