@@ -9,6 +9,7 @@ La garantie depend donc du chemin emprunte :
 | Chemin | Finalite | Frontiere effective |
 | --- | --- | --- |
 | VFS | prevoir un diff et manipuler des fichiers virtuels | etat en memoire, sans effet sur le disque hote |
+| Capsule VFS essaim (100 agents) | isoler l'espace des ouvriers de revue sans contention git | manifeste virtuel en mémoire sans clone/worktree physique |
 | Worker de code local | appliquer un petit correctif et lancer des tests autorises | politique de chemins, fichiers et commandes dans une capsule/worktree hote |
 | Plugin Docker | executer un plugin declaratif | conteneur Docker sans reseau, en lecture seule et avec quotas |
 

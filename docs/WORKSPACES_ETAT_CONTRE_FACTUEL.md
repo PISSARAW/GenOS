@@ -46,7 +46,8 @@ Le système distingue plusieurs formes de séparation :
 3. Copies non-Git : copies directes de répertoire pour un dépôt non versionné ;
 4. Snapshots : instantanés checksumés de fichiers ;
 5. Branches / forks : états de travail distincts, souvent comparés sur base causale ;
-6. Counterfactual states : variantes alternative d’un même flux de calcul à tester sans écraser le parent.
+6. Counterfactual states : variantes alternative d’un même flux de calcul à tester sans écraser le parent ;
+7. Capsules VFS légères (Copy-On-Write / Ephemeral) : espaces virtuels ultralégers évitant la saturation des entrées/sorties disque physique et la contention du verrou `.git/index.lock` lors du déploiement simultané de 100 agents.
 
 ---
 
@@ -98,14 +99,15 @@ Le mécanisme :
 
 Le code explicite clairement une contrainte de sécurité : le snapshot ne doit pas refléter des chemins arbitraires ni des fichiers sensibles.
 
-### 3.3 Capsules isolées et worktrees
+### 3.3 Capsules isolées, worktrees et VFS (100 agents)
 
 Le service [backend/src/services/agentWorkspaceLifecycleService.js](../backend/src/services/agentWorkspaceLifecycleService.js) crée pour les agents des environnements d’exécution isolés.
 
-Il prend deux formes :
+Il prend trois formes adaptatives :
 
-- worktree Git si le repo est Git ;
-- copie de dossier si le projet n’est pas Git.
+- **Worktree Git** : clones de travail légers partageant la base d'objets Git pour les ouvriers de modification de code (`GENOS_ALLOW_LOCAL_CODE_WORKERS=1`) ;
+- **Copie de dossier** : copie directe si le projet n’est pas géré par Git ;
+- **Capsule VFS légère (Virtual Memory Workspace)** : activée via `GENOS_VFS_WORKSPACES=1` ou automatiquement pour les flottes massives (> 12 workers) dédiées à l'analyse, la critique, l'évaluation et la synthèse. Elle évite la contention du verrou `.git/index.lock` et la création de 100 arborescences physiques sur le disque hôte.
 
 Les principes sont :
 

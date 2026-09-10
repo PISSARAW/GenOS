@@ -304,10 +304,12 @@ function runCommand(command, args, { cwd, input, timeoutMs = 120000 } = {}) {
   });
 }
 
-async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride) {
+async function createIsolatedWorkspace(sourceRoot, workerId, optionsOverride) {
   const source = path.resolve(sourceRoot);
   const normalizedWorkerId = normalizeRelativePath(String(workerId || ''), 'worker id');
   if (normalizedWorkerId.includes('/') || normalizedWorkerId.includes('\\')) throw new Error('worker id must be a single safe path segment.');
+  const capsuleRootOverride = typeof optionsOverride === 'string' ? optionsOverride : optionsOverride?.capsuleRoot;
+  const useVfs = (typeof optionsOverride === 'object' && optionsOverride?.vfs === true) || process.env.GENOS_VFS_WORKSPACES === '1';
   // Keep capsules beside (not inside) the source workspace: fs.cp rejects a
   // destination nested under its source and this also keeps the parent clean.
   const capsuleRoot = capsuleRootOverride || process.env.GENOS_CAPSULE_ROOT || path.join(path.dirname(source), '.genos-agent-worlds');
@@ -333,6 +335,18 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     ? resolveContainedPath(capsuleRoot, normalizedWorkerId, 'capsule path')
     : resolveContainedPath(path.join(capsuleRoot, path.basename(source)), normalizedWorkerId, 'capsule path');
   await fs.mkdir(path.dirname(destination), { recursive: true });
+
+  if (useVfs) {
+    await fs.mkdir(destination, { recursive: true });
+    await fs.writeFile(path.join(destination, '.genos-vfs.json'), JSON.stringify({
+      vfs: true,
+      sourceWorkspace: source,
+      workerId: normalizedWorkerId,
+      createdAt: new Date().toISOString()
+    }, null, 2));
+    await trackWorkspace(workerId, destination);
+    return destination;
+  }
   // Git worktrees share the object database and prevent a multi-gigabyte copy
   // of dependencies. Replay the tracked dirty diff so the capsule starts from
   // the caller's real working state without altering that source workspace.
