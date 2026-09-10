@@ -233,7 +233,6 @@ function withTimeout(promise, timeoutMs) {
 }
 
 async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000 }) {
-  timeoutMs = normalizeMcpTimeout(timeoutMs);
   const registry = getToolRegistry();
   const normalizedToolName = String(toolName || '').trim();
   const executionKind = registry.detectExecutionKind(normalizedToolName);
