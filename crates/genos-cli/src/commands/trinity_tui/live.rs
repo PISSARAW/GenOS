@@ -8,6 +8,10 @@ use serde_json::Value;
 
 const RECONNECT_DELAY: Duration = Duration::from_millis(1500);
 const RECONNECT_MAX_DELAY: Duration = Duration::from_millis(30_000);
+// A silent server must not freeze the UI in "Connected" forever.
+const READ_TIMEOUT: Duration = Duration::from_secs(30);
+// Drain at most this many buffered events per frame to avoid UI jank.
+const MAX_EVENTS_PER_FRAME: usize = 500;
 
 /// Connection lifecycle notifications surfaced to the UI thread.
 pub enum ConnectionStatus {
@@ -33,14 +37,19 @@ impl LiveMonitor {
             // Resolve the subscription once. "latest" is re-sent on every
             // reconnect, so the monitor server re-resolves the newest mission.
             let subscribe_mission = mission_id.unwrap_or_else(|| "latest".to_string());
+            let auth_token = std::env::var("GENOS_TRINITY_MONITOR_TOKEN").ok();
             let mut backoff = RECONNECT_DELAY;
             loop {
                 let mut received_any = false;
                 let mut dropped_lines: u64 = 0;
                 match TcpStream::connect((host.as_str(), port)) {
                     Ok(mut stream) => {
+                        let _ = stream.set_read_timeout(Some(READ_TIMEOUT));
                         let _ = status_tx.send(ConnectionStatus::Connected);
-                        let subscribe = serde_json::json!({ "subscribe": &subscribe_mission });
+                        let subscribe = match auth_token.as_deref() {
+                            Some(token) => serde_json::json!({ "subscribe": &subscribe_mission, "token": token }),
+                            None => serde_json::json!({ "subscribe": &subscribe_mission }),
+                        };
                         if writeln!(stream, "{}", subscribe).is_err() {
                             let _ = status_tx.send(ConnectionStatus::Disconnected("write failed".to_string()));
                             thread::sleep(backoff);
@@ -105,10 +114,12 @@ impl LiveMonitor {
         Self { events_rx, status_rx }
     }
 
-    /// Drain every buffered event without blocking the render loop.
+    /// Drain buffered events without blocking the render loop. Bounded per
+    /// frame so a burst cannot stall rendering; the remainder is drained next
+    /// frame.
     pub fn drain_events(&self) -> Vec<Value> {
         let mut events = Vec::new();
-        loop {
+        while events.len() < MAX_EVENTS_PER_FRAME {
             match self.events_rx.try_recv() {
                 Ok(value) => events.push(value),
                 Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
@@ -117,12 +128,13 @@ impl LiveMonitor {
         events
     }
 
-    /// Return the most recent connection status transition, if any occurred.
-    pub fn latest_status(&self) -> Option<ConnectionStatus> {
-        let mut last = None;
+    /// Return every connection status transition since the last drain, in
+    /// order, so no transition is silently dropped.
+    pub fn drain_statuses(&self) -> Vec<ConnectionStatus> {
+        let mut statuses = Vec::new();
         while let Ok(status) = self.status_rx.try_recv() {
-            last = Some(status);
+            statuses.push(status);
         }
-        last
+        statuses
     }
 }
