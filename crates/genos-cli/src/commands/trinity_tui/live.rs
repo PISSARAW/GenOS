@@ -30,6 +30,9 @@ impl LiveMonitor {
         let host = host.to_string();
 
         thread::spawn(move || {
+            // Resolve the subscription once. "latest" is re-sent on every
+            // reconnect, so the monitor server re-resolves the newest mission.
+            let subscribe_mission = mission_id.unwrap_or_else(|| "latest".to_string());
             let mut backoff = RECONNECT_DELAY;
             loop {
                 let mut received_any = false;
@@ -37,7 +40,7 @@ impl LiveMonitor {
                 match TcpStream::connect((host.as_str(), port)) {
                     Ok(mut stream) => {
                         let _ = status_tx.send(ConnectionStatus::Connected);
-                        let subscribe = serde_json::json!({ "subscribe": mission_id.clone().unwrap_or_else(|| "latest".to_string()) });
+                        let subscribe = serde_json::json!({ "subscribe": &subscribe_mission });
                         if writeln!(stream, "{}", subscribe).is_err() {
                             let _ = status_tx.send(ConnectionStatus::Disconnected("write failed".to_string()));
                             thread::sleep(backoff);
