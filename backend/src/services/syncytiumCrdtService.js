@@ -45,6 +45,18 @@ function updateCursor(state, op) {
   };
 }
 
+// Deterministic total order for replay: time first, then Lamport clock, then
+// stable identity tie-breakers. Without this, two replicas that receive the
+// same ops in a different order replay them differently and diverge.
+function orderOps(ops) {
+  return [...ops].sort((a, b) =>
+    (a.timestampMs - b.timestampMs) ||
+    (a.lamport - b.lamport) ||
+    String(a.agentId).localeCompare(String(b.agentId)) ||
+    String(a.opId).localeCompare(String(b.opId))
+  );
+}
+
 function updateInvariant(state, op) {
   if (op.kind?.type !== 'check_invariant') return;
   state.invariants[op.kind.name] = {
@@ -63,14 +75,21 @@ class SyncytiumCrdt {
     this.stepCounter = 0;
   }
 
-  nextLamport() {
-    this.lamportClock += 1;
-    return this.lamportClock;
-  }
-
   applyOp(op) {
-    const lamport = op.lamport || this.nextLamport();
-    const timestampMs = op.timestampMs || Date.now();
+    // Lamport receive rule: advance the local clock past any remote timestamp,
+    // then stamp local events with max(local, remote) + 1. A remote op keeps
+    // its own stamp.
+    const remoteLamport = Number.isInteger(op.lamport) ? op.lamport : 0;
+    let lamport;
+    if (remoteLamport > 0) {
+      this.lamportClock = Math.max(this.lamportClock, remoteLamport);
+      lamport = remoteLamport;
+    } else {
+      this.lamportClock += 1;
+      lamport = this.lamportClock;
+    }
+    // `??` so an explicit 0 timestamp is honored instead of replaced.
+    const timestampMs = op.timestampMs ?? Date.now();
     const recordedOp = { ...op, lamport, timestampMs };
     this.opLog.push(recordedOp);
     this.stepCounter += 1;
@@ -81,7 +100,7 @@ class SyncytiumCrdt {
     const state = { text: '', fields: {}, cursors: {}, invariants: {} };
     let lastMs = 0;
 
-    for (const op of this.opLog) {
+    for (const op of orderOps(this.opLog)) {
       if (targetMs !== null && op.timestampMs > targetMs) continue;
       lastMs = Math.max(lastMs, op.timestampMs);
       applyKind(state, op.kind);
