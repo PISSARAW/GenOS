@@ -1,6 +1,40 @@
 use crate::{api_is_healthy, api_port, cargo_program, command_error, exit_on_command_failure};
 use crate::commands::core::CoreCommands;
 
+/// Command line of a running process, when the OS exposes it.
+fn process_command_line(pid: u32) -> Option<String> {
+    #[cfg(windows)]
+    {
+        let script = format!(
+            "(Get-CimInstance Win32_Process -Filter \"ProcessId = {}\").CommandLine",
+            pid
+        );
+        let output = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .output()
+            .ok()?;
+        Some(String::from_utf8_lossy(&output.stdout).to_string())
+    }
+    #[cfg(not(windows))]
+    {
+        std::fs::read_to_string(format!("/proc/{}/cmdline", pid))
+            .ok()
+            .map(|value| value.replace('\0', " "))
+    }
+}
+
+/// A stale `.genos_server.pid` can point at a PID that the OS has since reused.
+/// Never kill unless the process really looks like the GenOS server.
+fn is_genos_server_process(pid: u32) -> bool {
+    match process_command_line(pid) {
+        Some(line) => {
+            let lower = line.to_lowercase();
+            lower.contains("genos")
+        }
+        None => false,
+    }
+}
+
 pub fn handle_core(cmd: &CoreCommands, _yes: bool) {
     match cmd {
         CoreCommands::Start => {
@@ -29,6 +63,13 @@ pub fn handle_core(cmd: &CoreCommands, _yes: bool) {
                 if !api_is_healthy() {
                     let _ = std::fs::remove_file(".genos_server.pid");
                     command_error(format!("le serveur est déjà arrêté; PID stale supprimé ({})", pid));
+                }
+                if !is_genos_server_process(pid) {
+                    let _ = std::fs::remove_file(".genos_server.pid");
+                    command_error(format!(
+                        "refus d'arrêter le PID {}: il ne correspond pas à un serveur GenOS (PID possiblement réutilisé); fichier PID supprimé",
+                        pid
+                    ));
                 }
                 let status = {
                     #[cfg(windows)]
