@@ -5,6 +5,7 @@
 
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
+const circuitBreakerShared = require('./circuitBreakerShared');
 const fs = require('fs');
 const path = require('path');
 
@@ -29,7 +30,7 @@ class CircuitBreakerService {
     this.cooldownMs = 60000;
     this.lastFailureTime = 0;
     this.lastStateChange = Date.now();
-    const persistedHalt = this.loadPersistedHalt();
+    const persistedHalt = circuitBreakerShared.loadPersistedHalt();
     this.isHalted = Boolean(persistedHalt);
     this.haltReason = persistedHalt?.reason || null;
     this.haltTimestamp = persistedHalt?.haltedAt || null;
@@ -39,40 +40,11 @@ class CircuitBreakerService {
     this.executionHistory = new Map();
     this.maxExecutionScopes = 1000;
     this.maxConsecutiveToolCalls = 6;
-  }
-
-  loadPersistedHalt() {
-    const root = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
-    const haltFile = path.join(root, '.genos', 'mcp.halted');
-    try {
-      if (!fs.existsSync(haltFile)) return null;
-      const data = JSON.parse(fs.readFileSync(haltFile, 'utf8'));
-      return { reason: data.reason || 'Persisted emergency halt', haltedAt: data.haltedAt || null };
-    } catch (_) {
-      return { reason: 'Persisted emergency halt', haltedAt: null };
-    }
-  }
-
-  persistHalt(reason, haltedAt) {
-    const root = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
-    const haltFile = path.join(root, '.genos', 'mcp.halted');
-    try {
-      fs.mkdirSync(path.dirname(haltFile), { recursive: true });
-      fs.writeFileSync(haltFile, JSON.stringify({ reason, haltedAt }), 'utf8');
-    } catch (_) {}
-  }
-
-  refreshPersistedHalt() {
-    const persisted = this.loadPersistedHalt();
-    if (persisted) {
-      this.isHalted = true;
-      this.haltReason = persisted.reason;
-      this.haltTimestamp = persisted.haltedAt;
-    } else if (this.isHalted) {
-      this.isHalted = false;
-      this.haltReason = null;
-      this.haltTimestamp = null;
-    }
+    // Cluster workers share breaker/lock state through a small file + the
+    // mcp_tools table. Opt-in so unit tests keep pure in-memory semantics.
+    this.sharedState = process.env.GENOS_CIRCUIT_BREAKER_SHARED === '1';
+    this.lastSharedSync = 0;
+    this.lastToolLockSync = 0;
   }
 
   context(scope = 'global') {
@@ -117,7 +89,9 @@ class CircuitBreakerService {
   }
 
   canExecute(toolName, userRole = 'viewer', scope = 'global', args = null) {
-    this.refreshPersistedHalt();
+    circuitBreakerShared.refreshPersistedHalt(this);
+    circuitBreakerShared.syncSharedState(this);
+    circuitBreakerShared.maybeRefreshToolLocks(this);
     if (this.isHalted) {
       return { allowed: false, reason: 'SYSTEM_HALTED', message: `Execution blocked. System is halted: ${this.haltReason}` };
     }
@@ -240,6 +214,7 @@ class CircuitBreakerService {
         state.lastFailureTime = 0;
       }
     }
+    circuitBreakerShared.persistSharedState(this);
   }
 
   recordFailure(toolName, errorDetail, scope = 'global') {
@@ -284,6 +259,7 @@ class CircuitBreakerService {
         severity: 'critical'
       });
     }
+    circuitBreakerShared.persistSharedState(this);
   }
 
   trip(scope = 'global', reason = 'manual') {
@@ -299,11 +275,16 @@ class CircuitBreakerService {
       detail: `Circuit breaker manually tripped for scope '${scope}': ${reason}`,
       severity: 'critical'
     });
+    circuitBreakerShared.persistSharedState(this);
     return state.state;
   }
 
   toggleToolLock(toolName, locked, reason = '') {
     this.toolLockOverrides.set(toolName, locked);
+    // Persist so other cluster workers observe the quarantine.
+    getDatabase()
+      .then((db) => db.run('UPDATE mcp_tools SET is_locked = ? WHERE name = ?', locked ? 1 : 0, toolName))
+      .catch(() => {});
     telemetry.emitEvent({
       eventType: 'TOOL_QUARANTINE_TOGGLE',
       agentId: 'circuit_breaker',
@@ -315,7 +296,13 @@ class CircuitBreakerService {
 
   async hydrateToolLocks(db) {
     const lockedTools = await db.all('SELECT name FROM mcp_tools WHERE is_locked = 1');
-    for (const tool of lockedTools) this.toolLockOverrides.set(tool.name, true);
+    const lockedNames = new Set(lockedTools.map((tool) => tool.name));
+    // Reconcile both directions: drop locally-locked tools that were unlocked
+    // elsewhere, and adopt locks set by another worker.
+    for (const name of [...this.toolLockOverrides.keys()]) {
+      if (this.toolLockOverrides.get(name) && !lockedNames.has(name)) this.toolLockOverrides.delete(name);
+    }
+    for (const name of lockedNames) this.toolLockOverrides.set(name, true);
     return lockedTools.length;
   }
 
@@ -323,7 +310,7 @@ class CircuitBreakerService {
     this.isHalted = true;
     this.haltReason = reason;
     this.haltTimestamp = new Date().toISOString();
-    this.persistHalt(reason, this.haltTimestamp);
+    circuitBreakerShared.persistHalt(reason, this.haltTimestamp);
 
     telemetry.emitEvent({
       eventType: 'KILL_SWITCH_ENGAGED',
@@ -358,6 +345,7 @@ class CircuitBreakerService {
       severity: 'info'
     });
 
+    circuitBreakerShared.persistSharedState(this);
     return { status: 'resumed', state: this.state };
   }
 

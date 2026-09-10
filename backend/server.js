@@ -27,7 +27,10 @@ function forkClusterWorker(isJobWorker) {
     // maintenance; otherwise every worker races on the same FTS/vector rebuild
     // and process recovery.
     GENOS_SCHEMA_MAINTENANCE: isJobWorker ? '1' : '0',
-    GENOS_RUNTIME_MAINTENANCE: isJobWorker ? '1' : '0'
+    GENOS_RUNTIME_MAINTENANCE: isJobWorker ? '1' : '0',
+    // All workers share breaker/lock state so a trip on one is not bypassed by
+    // a round-robin retry landing on another.
+    GENOS_CIRCUIT_BREAKER_SHARED: '1'
   });
 }
 
