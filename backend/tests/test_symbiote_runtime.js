@@ -27,6 +27,7 @@ async function main() {
   assert.equal(emptyEmbedding.engine, 'local');
   assert.equal(emptyEmbedding.embedding, null);
   assert.equal(emptyEmbedding.skipped, true);
+  assert.equal(emptyEmbedding.errorCode, 'EMPTY_TEXT');
 
   // A non-loopback configured endpoint must not throw out of the service; it
   // is reported as an embedding error instead.
@@ -38,6 +39,7 @@ async function main() {
     assert.equal(invalidEndpoint.embedding, null);
     assert.equal(typeof invalidEndpoint.error, 'string');
     assert.match(invalidEndpoint.error, /loopback|Local provider/i);
+    assert.equal(invalidEndpoint.errorCode, 'INVALID_EMBEDDING_ENDPOINT');
   } finally {
     if (previousUrl === undefined) delete process.env.GENOS_EMBEDDING_URL;
     else process.env.GENOS_EMBEDDING_URL = previousUrl;
