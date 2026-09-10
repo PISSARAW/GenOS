@@ -71,6 +71,8 @@ async function runSuite() {
   assert.strictEqual(bisectResult.bisectionComplete, true);
   assert.strictEqual(bisectResult.anomalyFound, true);
   assert.strictEqual(bisectResult.culpritReport.stepNumber, 5, `Expected culprit step 5, got ${bisectResult.culpritReport.stepNumber}`);
+  assert.strictEqual(bisectResult.culpritReport.lastHealthy?.stepNumber, 4, `Rollback must target the latest verified-healthy step 4, got ${bisectResult.culpritReport.lastHealthy?.stepNumber}`);
+  assert.notStrictEqual(bisectResult.culpritReport.lastHealthy?.snapshotHash, bisectResult.culpritReport.snapshotHash, 'Rollback target must never be the failing culprit snapshot');
   assert.ok(
     bisectResult.bisectionIterationsRequired <= Math.ceil(Math.log2(snapshotTimeline.length)) + 1,
     `Bisection should require at most O(log N) iterations. Got ${bisectResult.bisectionIterationsRequired}`
