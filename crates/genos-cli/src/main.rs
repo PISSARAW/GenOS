@@ -104,6 +104,7 @@ fn main() {
         Some(Commands::CostAccounting(cmd)) => platform::handle_cost_accounting(&cmd.agent_id, cmd.timeframe.as_deref()),
         Some(Commands::Desktop(cmd)) => desktop::execute(cmd.subcommand),
         Some(Commands::Run(cmd)) => handle_run_cmd(cmd),
+        Some(Commands::InjectChaos(cmd)) | Some(Commands::Chaos(cmd)) => commands::chaos::handle_inject_chaos(&cmd),
         Some(Commands::LoopDetection(cmd)) => {
             capsule::handle_loop_detection(&cmd)
         }

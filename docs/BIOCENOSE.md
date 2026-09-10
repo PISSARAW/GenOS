@@ -905,7 +905,31 @@ Biocénose est décentralisée (pas de Solver avec plus de pouvoir qu'un autre),
 
 ---
 
-## 18. Comparaison avec Trinity et A-Team
+## 18. Compute Tokenomics : Ordonnanceur Token Bucket en Rust
+
+Pour gérer la rareté du calcul et pénaliser les agents produisant du déchet (hallucinations, preuves invalides, boucles infinies), le runtime Rust intègre un ordonnanceur natif de type **Token Bucket** (`crates/genos-orchestrator/src/token_bucket.rs`).
+
+### Modèle Mathématique de Survie
+
+Chaque agent $i$ dispose d'un bucket de calcul $B_i = (T_i, C_i, r_i)$ :
+- $T_i$ : jetons de calcul CPU disponibles ;
+- $C_i$ : capacité maximale de calcul (headroom burst) ;
+- $r_i$ : taux de régénération baseline.
+
+### Dynamique d'Allouage et de Rareté
+
+1. **Consommation de Quantum CPU :** L'agent consomme $k$ jetons pour obtenir un intervalle d'exécution CPU ($\text{time\_slice\_ms}$).
+2. **Récompense sur Preuve Valide (Evidence Inflow) :** À chaque preuve solide soumise ($E \ge E_{\text{threshold}}$) :
+   $$\Delta T = \text{base\_reward} \times E_i$$
+   Si le score est exemplaire ($E_i \ge 0.85$), la capacité maximale $C_i$ est augmentée (burst d'exploration).
+3. **Pénalité sur Déchet (Waste Drain & Starvation) :** Si l'agent produit du déchet ($W_i > 0$) :
+   $$\Delta T_{\text{waste}} = \text{waste\_cost} \times (1.0 + W_i)$$
+   - Si les jetons diminuent sous le seuil d'épuisement, l'agent est mis en sommeil (`Throttled / sleep`).
+   - Si l'agent persiste à épuiser son budget ($T_i \le 0$), il subit la famine computationnelle (`Starvation`) et son thread est terminé par apoptose (`Apoptotic`).
+
+---
+
+## 19. Comparaison avec Trinity et A-Team
 
 | Aspect | Trinity | A-Team | Biocénose |
 |--------|---------|--------|-----------|
