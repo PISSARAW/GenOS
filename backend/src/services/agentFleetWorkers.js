@@ -113,8 +113,11 @@ async function createWorker(workerContext) {
   const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
   const route = await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
-  await agentEvolution.recordWorkerLineage(db, { agentId: id, name: identity.name, role: assignment.role, workspaceId: parent.workspace_id }, { parentId: parent.id, genes: evolution.genes, parents: evolution.parents, predictedFitness: evolution.predictedFitness });
-  const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, mission.capsuleRoot);
+  const isVfsWorker = !/coder|developer|implementation/i.test(assignment.role || '');
+  const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, {
+    capsuleRoot: mission.capsuleRoot,
+    vfs: mission.vfsWorkspace === true || (workerContext.assignments?.length > 12 && isVfsWorker)
+  });
   await persistWorker(db, { id, identity, assignment, parent, route, conscience, prompt, assignedTokens, perWorkerCognitiveBudget });
   return formatWorker({ id, identity, assignment, parent, plan, mission, route, workspaceRoot, prompt, assignedTokens, index, evolution, orchestrator, assignments: workerContext.assignments || plan.dispatchWorkers });
 }
