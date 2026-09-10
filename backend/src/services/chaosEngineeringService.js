@@ -39,27 +39,38 @@ function resolveWorkerPid(agentId) {
 async function executeChaosKill(target, options = {}) {
   const { dryRun = false, reason = 'Chaos Engineering Drill' } = options;
   const { pid, child } = resolveWorkerPid(target.id);
-  const targetPid = pid || (process.platform === 'win32' ? 99999 : 65534);
 
+  let terminated = false;
   if (!dryRun) {
     if (child) {
-      terminateChild(child);
+      terminated = terminateChild(child);
     } else if (pid) {
-      terminatePid(pid);
+      terminated = terminatePid(pid);
     }
   }
 
+  const eventType = dryRun ? 'CHAOS_PLAN_VALIDATED' : (terminated ? 'CHAOS_INJECTED' : 'CHAOS_INJECTION_FAILED');
+  let detail;
+  if (dryRun) {
+    detail = `Chaos plan validated for agent '${target.id}' (${reason}); no process terminated.`;
+  } else if (terminated) {
+    detail = `Chaos injected: killed worker PID ${pid} for agent '${target.id}' (${reason}).`;
+  } else {
+    detail = `Chaos injection failed: no live process for agent '${target.id}' (${reason}).`;
+  }
+
   const orchestratorId = target.parent_agent_id || target.id;
-  emit(orchestratorId, 'CHAOS_INJECTED', 'INJECT_CHAOS', `Chaos injected: killed worker PID ${targetPid} for agent '${target.id}' (${reason}).`, {
+  emit(orchestratorId, eventType, 'INJECT_CHAOS', detail, {
     targetAgentId: target.id,
     targetRole: target.role,
-    killedPid: targetPid,
+    killedPid: terminated ? pid : null,
+    resolvedPid: pid,
     lineageRelation: target.lineage_relation,
     dryRun,
     reason
   }, 'warning');
 
-  return targetPid;
+  return { pid, terminated };
 }
 
 async function readAgentLineage(db, agent) {
@@ -130,28 +141,37 @@ async function injectChaos(options = {}) {
 
   const target = workers[0];
   const lineage = await readAgentLineage(db, target);
-  const targetPid = await executeChaosKill(target, options);
+  const kill = await executeChaosKill(target, options);
+  const dryRun = Boolean(options.dryRun);
+  const success = dryRun || kill.terminated;
 
-  return {
-    success: true,
+  const result = {
+    success,
     operation: 'inject_chaos',
     mode: options.mode || 'kill_worker_pid',
-    dryRun: Boolean(options.dryRun),
+    dryRun,
     targetAgent: {
       id: target.id,
       name: target.name,
       role: target.role,
       status: target.status,
-      pid: targetPid
+      pid: kill.pid
     },
     lineage,
     regenerationSteward: {
-      activated: true,
+      activated: kill.terminated,
       strategy: 'lineage_reconstruction',
       lineageId: lineage.parentAgentId ? `lineage_${lineage.parentAgentId}` : `lineage_${target.id}`,
-      missionPreserved: true
+      missionPreserved: null
     }
   };
+
+  if (!success) {
+    result.error = 'NO_ACTIVE_PROCESS';
+    result.message = `No live process found for worker '${target.id}'; nothing was terminated.`;
+  }
+
+  return result;
 }
 
 module.exports = {
