@@ -77,8 +77,10 @@ async function callStdioFn(transport, toolName, options = {}) {
       clearTimeout(pending.timer);
       pending = null;
     }
-    if (!child.stdin.destroyed) child.stdin.end();
-    if (!child.killed) {
+    try {
+      if (!child.stdin.destroyed && child.stdin.writable) child.stdin.end();
+    } catch (_) {}
+    if (!child.killed && child.exitCode === null) {
       terminateChild(child);
     } else {
       clearTerminationTimer(child);
