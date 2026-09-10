@@ -264,6 +264,18 @@ const ALL_TOOLS = [
     },
   },
   {
+    name: "genos_biological_mode",
+    description: "Deploy a Biome, Syncytium, Holobiont, or Biocenosis collective for a mission.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mode: { type: "string", enum: ["biome", "syncytium", "holobionte", "biocenose"], description: "Biological organization mode." },
+        mission: { type: "string", description: "Mission shared by the collective." },
+      },
+      required: ["mode", "mission"],
+    },
+  },
+  {
     name: "genos_merge",
     description: "Merge an isolated branch under invariants.",
     inputSchema: {
@@ -378,6 +390,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case "genos_a_team_preview":
         result = await runOrchestrator({ action: "dispatch_team", ...args });
+        break;
+      case "genos_biological_mode":
+        result = await runOrchestrator({ action: "dispatch_biological", ...args });
         break;
       case "genos_snapshot":
         result = await runGenosCli(["snapshot", "create", "--agent", args.agent, "--out", args.out]);

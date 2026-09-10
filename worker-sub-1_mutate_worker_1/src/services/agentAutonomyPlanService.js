@@ -7,6 +7,7 @@ const { buildAutonomyPlan } = require('./autonomousOrchestrationService');
 const { buildAllocation } = require('./tokenAllocationService');
 const trinityService = require('./trinityService');
 const aTeamService = require('./aTeamService');
+const biologicalMode = require('./biologicalModeService');
 const dynamicOrganization = require('./dynamicOrganizationService');
 const { emit } = require('./agentOrchestrationState');
 const { consultLocalModels } = require('./agentModelRoutingService');
@@ -65,12 +66,44 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
       autonomyPlan.trinity.reason = `Trinity needs ${trinityWorkerCount} workers, but the token budget funds only ${affordableTrinityMembers}.`;
       emit(agentId, 'TRINITY_SKIPPED', 'BUDGET_GUARD', autonomyPlan.trinity.reason, autonomyPlan.trinity, 'warning');
     }
+    const biologicalMission = normalizedMission.prompt || normalizedMission.currentTask || '';
+    const biologicalWorkerCount = 4;
+    const affordableBiologicalMembers = Math.floor(
+      (autonomyPlan.tokenPolicy.total * effectiveWorkerShare) / autonomyPlan.tokenPolicy.minimumWorkerTokens
+    );
+    let biologicalModeActivated = false;
+    autonomyPlan.biologicalModes = biologicalMode.listModes().map((mode) => biologicalMode.analyzeMission(mode, biologicalMission));
+    const biologicalModeRequested = autonomyPlan.biologicalModes.some((modeAnalysis) => modeAnalysis.explicitlyRequested);
+    for (const modeAnalysis of autonomyPlan.biologicalModes) {
+      modeAnalysis.budgetPermitsLaunch = affordableBiologicalMembers >= biologicalWorkerCount;
+      modeAnalysis.activated = !autonomyPlan.trinity.recommended
+        && modeAnalysis.explicitlyRequested
+        && modeAnalysis.budgetPermitsLaunch;
+      if (modeAnalysis.activated) {
+        autonomyPlan.workers = modeAnalysis.members;
+        autonomyPlan.dispatchWorkers = modeAnalysis.members;
+        autonomyPlan.tokenPolicy.workerShare = effectiveWorkerShare;
+        autonomyPlan.tokenPolicy.orchestratorReserve = effectiveOrchestratorReserve;
+        autonomyPlan.tokenPolicy.rounds = buildAllocation({
+          totalTokens: autonomyPlan.tokenPolicy.total,
+          workerShare: autonomyPlan.tokenPolicy.workerShare,
+          workerCount: biologicalWorkerCount,
+          minimumWorkerTokens: autonomyPlan.tokenPolicy.minimumWorkerTokens,
+          mode: autonomyPlan.tokenPolicy.allocation
+        });
+        biologicalModeActivated = true;
+        emit(agentId, 'BIOLOGICAL_MODE_PLANNED', 'COMPOSE_BIOLOGICAL_MODE', `${modeAnalysis.label} collective planned with four specialized members.`, modeAnalysis, 'info');
+        break;
+      }
+    }
     autonomyPlan.aTeam = aTeamService.analyzeMission(normalizedMission.prompt || normalizedMission.currentTask || '');
     const aTeamWorkerCount = autonomyPlan.aTeam.members.length;
     const affordableAteamMembers = Math.floor(
       (autonomyPlan.tokenPolicy.total * effectiveWorkerShare) / autonomyPlan.tokenPolicy.minimumWorkerTokens
     );
     autonomyPlan.aTeam.activated = !autonomyPlan.trinity.recommended
+      && !biologicalModeRequested
+      && !biologicalModeActivated
       && autonomyPlan.aTeam.recommended
       && affordableAteamMembers >= aTeamWorkerCount;
     if (autonomyPlan.aTeam.activated) {

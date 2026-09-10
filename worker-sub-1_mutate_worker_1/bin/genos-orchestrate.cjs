@@ -9,6 +9,7 @@ const contracts = require('../src/services/strategyContractService');
 const workerGarage = require('../src/services/workerGarageService');
 const aTeamService = require('../src/services/aTeamService');
 const trinityService = require('../src/services/trinityService');
+const biologicalMode = require('../src/services/biologicalModeService');
 const dynamicOrganization = require('../src/services/dynamicOrganizationService');
 const telemetry = require('../src/services/telemetryObserver');
 const strategyAdaptation = require('../src/services/strategyAdaptationService');
@@ -280,6 +281,34 @@ async function main() {
       process.stdout.write(JSON.stringify({
         orchestratorId,
         aTeam: { status: 'accepted', projectGoal: request.project_goal, capacity: workerGarage.MAX_ACTIVE_WORKERS, members: accepted }
+      }));
+      return;
+    }
+    if (action === 'dispatch_biological') {
+      const parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+      if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
+      if (!await contracts.getLatestContract(db, orchestratorId)) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
+      const mode = String(request.mode || '').trim().toLowerCase();
+      const members = biologicalMode.compose(mode, request.mission);
+      const garage = await workerGarage.state(db, orchestratorId);
+      if (garage.available < members.length) {
+        const error = new Error(`${mode} requires ${members.length} free worker slots, but only ${garage.available} are available.`);
+        error.code = 'WORKER_GARAGE_FULL';
+        throw error;
+      }
+      const accepted = members.map((member, index) => {
+        const workerId = `worker_${orchestratorId}_${Date.now()}_${index + 1}_${Math.random().toString(36).slice(2, 6)}`;
+        const runner = spawn(process.execPath, [__filename, JSON.stringify({
+          action: 'dispatch_worker', background: false, orchestratorId, workerId,
+          mission: member.mission, role: member.role, model_tier: member.modelTier,
+          workspace_root: request.workspace_root, reuseChecked: true
+        })], { cwd: path.resolve(__dirname, '../..'), detached: true, stdio: 'ignore' });
+        runner.unref();
+        return { workerId, memberNumber: member.memberNumber, role: member.role, modelTier: member.modelTier, status: 'accepted' };
+      });
+      process.stdout.write(JSON.stringify({
+        orchestratorId,
+        biologicalMode: { status: 'accepted', mode, mission: request.mission, members: accepted }
       }));
       return;
     }
