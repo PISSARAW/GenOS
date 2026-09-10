@@ -327,7 +327,7 @@ async function main() {
           : typeof (request.sub_systems || request.subsystems) === 'string'
             ? (request.sub_systems || request.subsystems).split(',').map((s) => s.trim()).filter(Boolean)
             : [];
-      const projectGoal = request.project_goal || request.projectGoal || request.goal || request.mission;
+      const projectGoal = request.project_goal || request.projectGoal || request.goal || request.mission || task;
       const members = aTeamService.compose({
         projectGoal,
         subSystems,

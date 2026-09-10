@@ -249,8 +249,16 @@ function startMission(mission) {
         agentId,
         reason: 'runtime shutdown completed; review queued worker recovery if any'
       }, 'info');
-      await dispatchWorkerRecovery(agentId);
-      dispatchPendingContinuation(agentId);
+      try {
+        await dispatchWorkerRecovery(agentId);
+      } catch (err) {
+        console.error(`[AgentRuntimeAdapter] Error in dispatchWorkerRecovery for ${agentId}:`, err);
+      }
+      try {
+        dispatchPendingContinuation(agentId);
+      } catch (err) {
+        console.error(`[AgentRuntimeAdapter] Error in dispatchPendingContinuation for ${agentId}:`, err);
+      }
     } else {
       pendingContinuations.delete(agentId);
       pendingWorkerRecoveries.delete(agentId);

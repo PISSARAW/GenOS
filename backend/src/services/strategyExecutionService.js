@@ -371,7 +371,7 @@ async function approveRun(db, id, options = {}) {
   await db.run("UPDATE strategy_execution_runs SET status = 'completed', completed_at = ? WHERE id = ? AND status = 'awaiting_approval'", now, id);
 
   try {
-    const agentMemory = require('./agentMemoryService');
+    const agentMemory = require('./agentMemoryContext');
     await agentMemory.compileExecutionMemory(
       agent?.name || row.agent_id,
       task,

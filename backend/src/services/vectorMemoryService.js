@@ -131,11 +131,13 @@ class VectorMemoryService {
         for (const item of scoredItems) {
           if (inhibitedIds.has(item.id)) item.inhibitorySignal = 'active';
         }
-        topItems = topItems.map(item => inhibitedIds.has(item.id)
-          ? { ...item, inhibitorySignal: 'active' }
-          : item);
-        const selectedIds = new Set(topItems.map(item => item.id));
-        topItems.push(...scoredItems.filter(item => inhibitedIds.has(item.id) && !selectedIds.has(item.id)));
+        if (!options.includeInhibited) {
+          topItems = scoredItems.filter(item => !inhibitedIds.has(item.id)).slice(0, limitToUse);
+        } else {
+          topItems = topItems.map(item => inhibitedIds.has(item.id)
+            ? { ...item, inhibitorySignal: 'active' }
+            : item);
+        }
       } catch {}
     }
 

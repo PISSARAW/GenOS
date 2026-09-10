@@ -29,9 +29,7 @@ function checkChromatinLock(agentId, toolName) {
   for (const [locus, gene] of Object.entries(genes)) {
     const normLocus = String(locus).toLowerCase().trim();
     const isMatch = normLocus === normalizedTool ||
-      normLocus.replace(/^genos_/, '') === normalizedTool.replace(/^genos_/, '') ||
-      normalizedTool.includes(normLocus) ||
-      normLocus.includes(normalizedTool);
+      normLocus.replace(/^genos_/, '') === normalizedTool.replace(/^genos_/, '');
     if (isMatch) {
       const isLocked = gene.developmentally_locked === true ||
         (gene.chromatin_state && String(gene.chromatin_state).toLowerCase() !== 'euchromatin');

@@ -152,17 +152,20 @@ function analyzeMission(mission) {
   };
 }
 
-function compose({ projectGoal, subSystems, assignedRoles = [], modelTiers = [], available = 3 }) {
+function compose({ projectGoal, subSystems, assignedRoles = [], modelTiers = [], available = 3 } = {}) {
   const goal = String(projectGoal || '').trim();
   const systems = [...new Set((Array.isArray(subSystems) ? subSystems : []).map((value) => String(value).trim()).filter(Boolean))];
+  const roles = Array.isArray(assignedRoles) ? assignedRoles : [];
+  const tiers = Array.isArray(modelTiers) ? modelTiers : [];
+  const freeSlots = Number.isFinite(Number(available)) ? Number(available) : MAX_MEMBERS;
   if (!goal) throw Object.assign(new Error('A-Team project_goal is required.'), { code: 'A_TEAM_GOAL_REQUIRED' });
   if (systems.length < 2) throw Object.assign(new Error('A-Team requires at least two distinct competency domains.'), { code: 'A_TEAM_MULTIDISCIPLINARY_REQUIRED' });
   if (systems.length > MAX_MEMBERS) throw Object.assign(new Error('A-Team is limited to three active competency domains.'), { code: 'A_TEAM_CAPACITY_EXCEEDED' });
-  if (systems.length > available) throw Object.assign(new Error(`A-Team requires ${systems.length} free slots but only ${available} are available.`), { code: 'WORKER_GARAGE_FULL' });
+  if (systems.length > freeSlots) throw Object.assign(new Error(`A-Team requires ${systems.length} free slots but only ${freeSlots} are available.`), { code: 'WORKER_GARAGE_FULL' });
   return systems.map((subSystem, index) => ({
     subSystem,
-    role: String(assignedRoles[index] || `${subSystem}_specialist`).trim(),
-    modelTier: String(modelTiers[index] || 'standard').trim(),
+    role: String(roles[index] || `${subSystem}_specialist`).trim(),
+    modelTier: String(tiers[index] || 'standard').trim(),
     mission: `Project goal: ${goal}\nOwned competency domain: ${subSystem}\nWork only on this bounded domain and return evidence plus integration constraints to the orchestrator.`
   }));
 }

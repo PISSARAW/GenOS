@@ -6,6 +6,7 @@ const os = require('os');
 const { getDatabase } = require('../db');
 const modelProvider = require('../services/modelProvider');
 const localModelDiscovery = require('../services/localModelDiscovery');
+const { sanitizeString } = require('../middleware/security');
 
 const tenantConfig = new Map();
 function configFor(req) {
@@ -88,7 +89,7 @@ function updateProfile(req, res) {
   const config = configFor(req);
   const { username } = req.body || {};
   if (username === undefined || !String(username).trim()) return res.status(400).json({ error: { code: 'USERNAME_REQUIRED', message: 'username is required.' } });
-  config.customUsername = String(username).trim();
+  config.customUsername = sanitizeString(String(username)).trim();
   res.json({ success: true, username: config.customUsername || 'operator' });
 }
 

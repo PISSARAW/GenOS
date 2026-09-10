@@ -145,6 +145,9 @@ fn handle_mutate(agent_id: &str, trait_name: &str, outcome: f64) -> Result<(), S
                 } else if let Ok(mut val) = serde_yaml::from_str::<serde_json::Value>(&content) {
                     if let Some(obj) = val.as_object_mut() {
                         obj.insert(format!("trait_{}", trait_name), json!(outcome));
+                        if let Some(meta) = obj.get_mut("metadata").and_then(|m| m.as_object_mut()) {
+                            meta.insert("last_mutation".to_string(), json!({ "trait": trait_name, "outcome": outcome }));
+                        }
                     }
                     if let Ok(saved) = serde_yaml::to_string(&val) {
                         fs::write(path, saved).map_err(|error| error.to_string()).map(|()| modified_file = Some(path.to_string_lossy().to_string())).unwrap_or_else(|error| write_error = Some(error));

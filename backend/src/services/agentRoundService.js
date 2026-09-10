@@ -5,7 +5,7 @@
 const { selectSurvivors } = require('./tokenAllocationService');
 const {
   activeProcesses, missionStarts, pendingContinuations, autonomousRounds,
-  activeWorkerBarriers, emit
+  activeWorkerBarriers, emit, updateAgent
 } = require('./agentOrchestrationState');
 const { evidenceScore, extractEvidenceReport } = require('./agentEvidenceService');
 const crypto = require('crypto');
@@ -114,7 +114,10 @@ function dispatchPendingContinuation(agentId) {
   startMission(mission).catch((error) => {
     const attempts = Number(mission.continuationDispatchAttempts || 0) + 1;
     emit(mission.orchestratorAgentId || agentId, 'TOKEN_ROUND_DISPATCH_FAILED', 'SUCCESSIVE_HALVING', error.message, { workerId: agentId, attempts }, 'error');
-    if (attempts >= MAX_CONTINUATION_DISPATCH_ATTEMPTS) return;
+    if (attempts >= MAX_CONTINUATION_DISPATCH_ATTEMPTS) {
+      updateAgent(agentId, 'error', error.message).catch(() => {});
+      return;
+    }
     pendingContinuations.set(agentId, { ...mission, continuationDispatchAttempts: attempts });
     setTimeout(() => dispatchPendingContinuation(agentId), 50 * (2 ** (attempts - 1))).unref();
   });

@@ -2,6 +2,7 @@
  * GenOS Swarm Consensus & Biomimicry Controller
  */
 
+const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const { sanitizeString } = require('../middleware/security');
@@ -246,7 +247,7 @@ async function createProposal(req, res) {
     expiresAt = new Date(Date.now() + Number(ttlHours) * 3600000).toISOString();
   }
 
-  const id = `prop-${Date.now()}`;
+  const id = `prop-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
 
   const db = await getDatabase();
   const workspace = req.tenant

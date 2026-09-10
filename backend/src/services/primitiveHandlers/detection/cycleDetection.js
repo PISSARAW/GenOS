@@ -57,7 +57,7 @@ function dfsCycleDetection(adj) {
         loopType = 'agent_ping_pong';
         const cycleStart = path.indexOf(neighbor);
         cycleParticipants = cycleStart >= 0 ? path.slice(cycleStart) : [neighbor, node];
-        detectedCycle = path.slice(cycleStart);
+        detectedCycle = cycleParticipants;
         return true;
       }
     }

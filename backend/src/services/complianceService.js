@@ -26,7 +26,7 @@ async function buildReport(framework, workspaceId, generatedBy = 'studio', scope
     db.get(scoped ? 'SELECT COUNT(*) AS count FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE w.organization_id = ? AND w.project_id = ?' : 'SELECT COUNT(*) AS count FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE w.organization_id IS NULL AND w.project_id IS NULL', ...params)
   ]);
   const evidence = evidenceFor({ events: events.count, workspaces: workspaces.count, snapshots: snapshots.count }, FRAMEWORKS[framework]);
-  const score = Math.round((evidence.filter((item) => item.status === 'pass').length / evidence.length) * 100);
+  const score = evidence.length > 0 ? Math.round((evidence.filter((item) => item.status === 'pass').length / evidence.length) * 100) : 0;
   const report = { id: `cmp_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`, framework, title: FRAMEWORKS[framework].title, workspaceId: workspaceId || null, score, evidence, findings: evidence.filter((item) => item.status !== 'pass'), generatedBy };
   await db.run('INSERT INTO compliance_reports (id, framework, workspace_id, organization_id, project_id, score, findings_json, evidence_json, generated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', report.id, framework, workspaceId || null, scope.organizationId || null, scope.projectId || null, score, JSON.stringify(report.findings), JSON.stringify(evidence), generatedBy);
   return report;

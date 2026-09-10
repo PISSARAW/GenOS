@@ -46,9 +46,14 @@ async function runSleepCycle(db = null, options = {}) {
     let exosomeStats = { success: true, absorbedCount: 0, engramsStored: 0, plasmidsAssimilated: 0, errors: [] };
 
     await withTransaction(database, async (tx) => {
-      // 1. Natural asymptotic decay on decisions without artificial 0.15 clamp
+      // 1. Natural asymptotic decay on non-protected decisions, preserving core foundations
       await tx.run(
-        'UPDATE genome_decisions SET synaptic_weight = ROUND(synaptic_weight * ?, 4)',
+        `UPDATE genome_decisions 
+         SET synaptic_weight = CASE 
+           WHEN category IN ('core', 'golden_path', 'architecture', 'invariant') THEN MAX(1.0, ROUND(synaptic_weight * ?, 4))
+           ELSE ROUND(synaptic_weight * ?, 4)
+         END`,
+        weightDecayFactor,
         weightDecayFactor
       );
 
@@ -86,12 +91,13 @@ async function runSleepCycle(db = null, options = {}) {
       // Reset activity history across all remaining synapses for the next wake cycle
       await tx.run('UPDATE memory_synapses SET activity_history = 0');
 
-      // 4. Select orphaned weak memories with no remaining active synapses
+      // 4. Select orphaned weak memories with no remaining active synapses (exempting core categories)
       const doomed = await tx.all(`
         SELECT g.id 
         FROM genome_decisions g
         LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
         WHERE g.synaptic_weight < ?
+          AND (g.category IS NULL OR g.category NOT IN ('core', 'golden_path', 'architecture', 'invariant'))
         GROUP BY g.id
         HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
       `, orphanWeightThreshold);

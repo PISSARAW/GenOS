@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use serde_json::json;
 
 pub fn handle_cost_accounting(agent_id: &str, timeframe: Option<&str>) -> Result<(), String> {
@@ -57,10 +57,28 @@ fn parse_turn_timestamp(turn: &serde_json::Value) -> Option<i64> {
 }
 
 pub fn compute_agent_tokens(agent_id: &str, timeframe: Option<&str>) -> Result<(usize, usize), String> {
-    let trajectory_path = PathBuf::from(format!(".genos/trajectories/{}.json", agent_id));
-    if !trajectory_path.exists() {
-        return Err(format!("Trajectory file not found for agent '{}' at {}", agent_id, trajectory_path.display()));
+    let candidates = [
+        std::env::var("GENOS_WORKSPACE_ROOT").ok().map(PathBuf::from),
+        std::env::var("GENOS_ROOT").ok().map(PathBuf::from),
+        Some(PathBuf::from(".")),
+        std::env::current_dir().ok().and_then(|p| p.parent().map(|parent| parent.to_path_buf())),
+    ];
+
+    let mut found_path = None;
+    for cand in candidates.into_iter().flatten() {
+        let p = cand.join(".genos").join("trajectories").join(format!("{}.json", agent_id));
+        if p.exists() {
+            found_path = Some(p);
+            break;
+        }
     }
+
+    let trajectory_path = match found_path {
+        Some(p) => p,
+        None => {
+            return Err(format!("Trajectory file not found for agent '{}' at .genos/trajectories/{}.json", agent_id, agent_id));
+        }
+    };
 
     let content = fs::read_to_string(&trajectory_path)
         .map_err(|e| format!("Failed to read trajectory for agent '{}': {}", agent_id, e))?;
@@ -142,6 +160,7 @@ pub fn compute_agent_tokens(agent_id: &str, timeframe: Option<&str>) -> Result<(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn test_cost_accounting_missing_trajectory() {

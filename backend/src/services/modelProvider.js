@@ -163,17 +163,22 @@ async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
       if (payload.usage) usage = payload.usage;
     }
   };
-  while (true) {
-    let idleTimer;
-    const idleTimeout = new Promise((_, reject) => {
-      idleTimer = setTimeout(() => reject(new Error(`Model stream idle timeout after ${idleTimeoutMs}ms.`)), idleTimeoutMs);
-    });
-    const next = await Promise.race([reader.read(), idleTimeout]);
-    clearTimeout(idleTimer);
-    if (next.done) break;
-    await consume(next.value);
+  try {
+    while (true) {
+      let idleTimer;
+      const idleTimeout = new Promise((_, reject) => {
+        idleTimer = setTimeout(() => reject(new Error(`Model stream idle timeout after ${idleTimeoutMs}ms.`)), idleTimeoutMs);
+      });
+      const next = await Promise.race([reader.read(), idleTimeout]);
+      clearTimeout(idleTimer);
+      if (next.done) break;
+      await consume(next.value);
+    }
+    if (buffer.startsWith('data:')) await consume(new TextEncoder().encode(`${buffer}\n`));
+  } finally {
+    try { reader.releaseLock(); } catch (_) {}
+    try { await reader.cancel(); } catch (_) {}
   }
-  if (buffer.startsWith('data:')) await consume(new TextEncoder().encode(`${buffer}\n`));
   return { text, usage, servedModel };
 }
 
@@ -203,15 +208,20 @@ async function readOllamaStream(response, onToken, idleTimeoutMs = 30000) {
       }
     }
   };
-  while (true) {
-    let idleTimer;
-    const idleTimeout = new Promise((_, reject) => { idleTimer = setTimeout(() => reject(new Error(`Model stream idle timeout after ${idleTimeoutMs}ms.`)), idleTimeoutMs); });
-    const next = await Promise.race([reader.read(), idleTimeout]);
-    clearTimeout(idleTimer);
-    if (next.done) break;
-    await consume(next.value);
+  try {
+    while (true) {
+      let idleTimer;
+      const idleTimeout = new Promise((_, reject) => { idleTimer = setTimeout(() => reject(new Error(`Model stream idle timeout after ${idleTimeoutMs}ms.`)), idleTimeoutMs); });
+      const next = await Promise.race([reader.read(), idleTimeout]);
+      clearTimeout(idleTimer);
+      if (next.done) break;
+      await consume(next.value);
+    }
+    if (buffer.trim()) await consume(new TextEncoder().encode(`${buffer}\n`));
+  } finally {
+    try { reader.releaseLock(); } catch (_) {}
+    try { await reader.cancel(); } catch (_) {}
   }
-  if (buffer.trim()) await consume(new TextEncoder().encode(`${buffer}\n`));
   return { text, usage, servedModel };
 }
 
@@ -245,7 +255,7 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     if (provider === 'anthropic') {
       body = {
         model: modelName,
-        max_tokens: outputLimit || 2048,
+        max_tokens: outputLimit || 8192,
         messages: [{ role: 'user', content: prompt }],
         ...(computerUse ? { tools: [{ type: "computer_20241022", name: "computer", display_width_px: displayWidth, display_height_px: displayHeight, display_number: 1 }] } : {})
       };
@@ -265,12 +275,13 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
       throw new Error(`Model provider returned HTTP ${response.status}.${detail ? ` ${detail.slice(0, 500)}` : ''}`);
     }
     const contentType = response.headers?.get?.('content-type') || '';
+    const streamIdleTimeout = Math.max(30000, Number(timeoutMs) || 30000);
     if (nativeOllama && stream) {
-      const streamed = await readOllamaStream(response, onToken, Math.min(timeoutMs, 30000));
+      const streamed = await readOllamaStream(response, onToken, streamIdleTimeout);
       return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens ?? estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens ?? estimateTokenCount(streamed.text), provider, servedModel: streamed.servedModel || modelName };
     }
     if (stream && provider !== 'anthropic' && provider !== 'gemini' && /(?:text\/event-stream|application\/x-ndjson|application\/ndjson)/i.test(contentType)) {
-      const streamed = await readStreamingResponse(response, onToken, Math.min(timeoutMs, 30000));
+      const streamed = await readStreamingResponse(response, onToken, streamIdleTimeout);
       return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens ?? estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens ?? estimateTokenCount(streamed.text), provider, servedModel: streamed.servedModel || modelName };
     }
     const payload = await response.json();

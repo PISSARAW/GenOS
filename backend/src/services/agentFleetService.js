@@ -133,7 +133,6 @@ async function runLocalWorker(db, mission, executionRun) {
       throw Object.assign(new Error('Local code worker tests failed; capsule changes were rolled back.'), { code: 'WORKER_TESTS_FAILED', proposal });
     }
     let evidenceReport;
-    let partialBarrier = false;
     const immuneReport = immuneSystem.phagocytoseCodexReport(String(result.text || ''), {
       agentName,
       nameMeaning,
@@ -278,6 +277,14 @@ async function executeWorkerPipeline(pipelineContext) {
       if (result.status === 'fulfilled') continue;
       const worker = stageWorkers[index];
       await updateAgent(worker.agentId, 'error', result.reason.message).catch(() => {});
+      const garage = await workerGarage.state(db, orchestratorId).catch(() => null);
+      emit(orchestratorId, 'WORKER_SLOT_RELEASED', 'GARAGE', `Worker '${worker.name || worker.agentId}' released its active slot after failed dispatch.`, {
+        workerId: worker.agentId,
+        capacity: garage?.capacity || workerGarage.MAX_ACTIVE_WORKERS,
+        occupied: garage?.occupied,
+        available: garage?.available
+      }, 'warning');
+      await scheduleWorkspaceCleanup(worker.agentId).catch(() => {});
       emit(orchestratorId, 'AUTONOMOUS_WORKER_DISPATCH_FAILED', 'DISPATCH', result.reason.message, { workerId: worker.agentId, stage }, 'error');
       await advanceAutonomousRound(worker, { eventType: 'AGENT_RUNTIME_ERROR', payload: {}, detail: result.reason.message });
     }
@@ -297,6 +304,7 @@ async function executeWorkerPipeline(pipelineContext) {
  */
 async function runEvidenceBarrier(barrierContext) {
   const { db, agentId, normalizedMission, autonomyPlan, contractRecord, autonomousWorkers } = barrierContext;
+  let partialBarrier = false;
   if (autonomousWorkers.length) {
     const barrier = {
       cancelled: false,
@@ -328,16 +336,16 @@ async function runEvidenceBarrier(barrierContext) {
           workerIds: autonomousWorkers.map((worker) => worker.agentId)
         }, 'warning', 'running');
       } else {
-      const cancelled = error.code === 'WORKER_BARRIER_CANCELLED';
-      const { stopMission } = require('./agentRuntimeAdapter');
-      for (const worker of autonomousWorkers) stopMission(worker.agentId);
-      await updateAgent(agentId, cancelled ? 'blocked' : 'error', error.message);
-      emit(agentId, cancelled ? 'WORKER_EVIDENCE_BARRIER_HALTED' : 'WORKER_EVIDENCE_BARRIER_FAILED', cancelled ? 'STOP' : 'WAIT_FOR_WORKERS', error.message, {
-        workerIds: autonomousWorkers.map((worker) => worker.agentId)
-      }, cancelled ? 'warning' : 'error', cancelled ? 'blocked' : 'error');
-      activeWorkerBarriers.delete(agentId);
-      workerEvidenceRounds.delete(agentId);
-      throw error;
+        const cancelled = error.code === 'WORKER_BARRIER_CANCELLED';
+        const { stopMission } = require('./agentRuntimeAdapter');
+        await Promise.allSettled(autonomousWorkers.map((worker) => stopMission(worker.agentId)));
+        await updateAgent(agentId, cancelled ? 'blocked' : 'error', error.message);
+        emit(agentId, cancelled ? 'WORKER_EVIDENCE_BARRIER_HALTED' : 'WORKER_EVIDENCE_BARRIER_FAILED', cancelled ? 'STOP' : 'WAIT_FOR_WORKERS', error.message, {
+          workerIds: autonomousWorkers.map((worker) => worker.agentId)
+        }, cancelled ? 'warning' : 'error', cancelled ? 'blocked' : 'error');
+        activeWorkerBarriers.delete(agentId);
+        workerEvidenceRounds.delete(agentId);
+        throw error;
       }
     }
     const dossiers = workerEvidenceDossiers(agentId, autonomousWorkers);

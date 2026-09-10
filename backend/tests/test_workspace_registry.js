@@ -31,6 +31,9 @@ try {
   assert.strictEqual(workspaceIdForPath(rustProject), workspaceIdForPath(path.join(root, '.', 'rust-project')));
   assert.strictEqual(isPathWithinRoot(root, rustProject), true);
   assert.strictEqual(isPathWithinRoot(root, path.resolve(root, '..')), false);
+  assert.strictEqual(isPathWithinRoot(root, root), true);
+  assert.strictEqual(isPathWithinRoot(root, root, { allowRoot: false }), false);
+  assert.strictEqual(isPathWithinRoot(root, rustProject, { allowRoot: false }), true);
 
   const rowsById = new Map();
   const database = {

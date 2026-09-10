@@ -9,23 +9,29 @@ const { initializeSchema } = require('./schema');
 const { seedDatabase } = require('./seed');
 
 const sqliteVec = require('sqlite-vec');
+const { AsyncLocalStorage } = require('async_hooks');
 
 let dbInstance = null;
+let currentDbPath = null;
 let dbInitialization = null;
 const transactionTails = new WeakMap();
+const transactionStorage = new AsyncLocalStorage();
 
 async function getDatabase(dbFilePath) {
+  const defaultPath = process.env.GENOS_DB_PATH || path.resolve(__dirname, '../../genos.db');
+  const filename = dbFilePath ? path.resolve(dbFilePath) : path.resolve(defaultPath);
+
   if (dbInstance) {
-    return dbInstance;
+    if (currentDbPath === filename) {
+      return dbInstance;
+    }
+    await closeDatabase();
   }
 
   // Requests may reach the backend while it is still bootstrapping.  Reuse the
   // same connection/bootstrap promise instead of running two seed passes in
   // parallel inside one Node process.
   if (dbInitialization) return dbInitialization;
-
-  const defaultPath = process.env.GENOS_DB_PATH || path.resolve(__dirname, '../../genos.db');
-  const filename = dbFilePath || defaultPath;
 
   dbInitialization = (async () => {
     const db = await open({
@@ -42,6 +48,7 @@ async function getDatabase(dbFilePath) {
       await initializeSchema(db);
       await seedDatabase(db);
       dbInstance = db;
+      currentDbPath = filename;
       return dbInstance;
     } catch (error) {
       await db.close();
@@ -61,10 +68,16 @@ async function closeDatabase() {
   if (dbInstance) {
     await dbInstance.close();
     dbInstance = null;
+    currentDbPath = null;
   }
 }
 
 async function withTransaction(db, callback) {
+  const activeTxDb = transactionStorage.getStore();
+  if (activeTxDb === db) {
+    return await callback(db);
+  }
+
   const currentTail = transactionTails.get(db) || Promise.resolve();
   let release;
   const nextTail = new Promise(resolve => {
@@ -76,7 +89,7 @@ async function withTransaction(db, callback) {
   try {
     await db.exec('BEGIN IMMEDIATE;');
     try {
-      const result = await callback(db);
+      const result = await transactionStorage.run(db, () => callback(db));
       await db.exec('COMMIT;');
       return result;
     } catch (err) {

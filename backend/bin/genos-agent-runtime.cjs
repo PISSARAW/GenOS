@@ -321,10 +321,14 @@ process.stdin.on('end', async () => {
   };
   const accountEvent = (event, rawLine) => {
     eventCount += 1;
-    estimatedTokens += Math.ceil(Buffer.byteLength(rawLine || '', 'utf8') / 4);
     const usage = event.usage || event.payload?.usage || {};
     const reportedTokens = Number(usage.total_tokens || (Number(usage.input_tokens || 0) + Number(usage.output_tokens || 0)) || 0);
-    if (reportedTokens > 0) exactTokens = Math.max(exactTokens, reportedTokens);
+    if (reportedTokens > 0) {
+      exactTokens = Math.max(exactTokens, reportedTokens);
+    } else if (event.type === 'agent_message' || event.item?.type === 'agent_message') {
+      const messageText = String(event.item?.text || event.text || '');
+      estimatedTokens += Math.ceil(Buffer.byteLength(messageText, 'utf8') / 4);
+    }
     observedCostUsd += Number(event.cost_usd || usage.cost_usd || 0);
     const observedTokens = exactTokens || estimatedTokens;
     if (observedTokens > budgetLimit('tokens')) stopForBudget('tokens', observedTokens, budgetLimit('tokens'));

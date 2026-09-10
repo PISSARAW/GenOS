@@ -521,7 +521,10 @@ async function stopJobWorker({ drain = true, timeoutMs = 30000 } = {}) {
   if (!drain) return;
   const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
   while (inFlightJobs.size > 0 && Date.now() < deadline) {
-    await Promise.race([...inFlightJobs, new Promise((resolve) => setTimeout(resolve, 50))]);
+    await Promise.race([
+      ...Array.from(inFlightJobs).map((p) => Promise.resolve(p).catch(() => {})),
+      new Promise((resolve) => setTimeout(resolve, 50))
+    ]);
   }
 }
 
@@ -544,4 +547,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, runMemoryConsolidationOnce, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, updateCampaignStatus, executeWorkflow, executeEvaluation, executeModelJob, withRetry, isRetryableJobError };
+module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, inFlightJobs, runMemoryConsolidationOnce, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, updateCampaignStatus, executeWorkflow, executeEvaluation, executeModelJob, withRetry, isRetryableJobError };

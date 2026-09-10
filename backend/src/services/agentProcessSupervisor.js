@@ -380,46 +380,69 @@ async function superviseMission(options) {
     emitTracked('AGENT_RUNTIME_ERROR', 'STDIN', error.message, {}, 'error', 'error');
   });
   child.on('error', async (error) => {
-    if (termination) return;
-    terminalEventSeen = true;
-    await updateAgent(agentId, 'error', error.message);
-    emitTracked('AGENT_RUNTIME_ERROR', 'ERROR', error.message, {}, 'error', 'error');
+    try {
+      if (termination) return;
+      terminalEventSeen = true;
+      await updateAgent(agentId, 'error', error.message);
+      emitTracked('AGENT_RUNTIME_ERROR', 'ERROR', error.message, {}, 'error', 'error');
+    } catch (err) {
+      console.error(`[AgentSupervisor] Error handling child process error for ${agentId}:`, err);
+    }
   });
   child.on('close', async (code, signal) => {
-    clearTerminationTimer(child);
-    await executionQueue;
-    const drainDeadline = Date.now() + 30000;
-    while ((isProcessingEvents || eventQueue.length > 0) && Date.now() < drainDeadline) {
-      await new Promise((resolve) => setImmediate(resolve));
-    }
-    // Keep the process visible to the orchestration barrier until every final
-    // event (including continuation selection) has been recorded.
-    activeProcesses.delete(agentId);
-    await db.run('UPDATE agents SET runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL WHERE id = ?', agentId);
-    swarmSentinel.clearAgent(agentId);
-    // The capsule outlives the process only by the GC grace delay, so
-    // evidence-aware merging can finish reading it before reclamation.
-    await workspaceLifecycle.scheduleWorkspaceCleanup(agentId);
-    const operatorStop = child.genosStopRequested ? { kind: 'operator', reason: 'Stopped from Studio' } : null;
-    const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer, missionDomainState);
-    const persistedAgent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', agentId);
-    const apoptosisTerminal = persistedAgent?.status === 'apoptosis' || Boolean(persistedAgent?.is_apoptotic);
-    if ((!terminalEventSeen || termination || operatorStop) && !apoptosisTerminal) {
-      await updateAgent(agentId, outcome.status, outcome.task);
-      emitTracked(outcome.eventType, outcome.action, outcome.detail, outcome.payload, outcome.severity, outcome.status);
+    try {
+      clearTerminationTimer(child);
       await executionQueue;
+      const drainDeadline = Date.now() + 30000;
+      while ((isProcessingEvents || eventQueue.length > 0) && Date.now() < drainDeadline) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+    } catch (err) {
+      console.error(`[AgentSupervisor] Error draining event queue for ${agentId}:`, err);
+    } finally {
+      // Keep the process visible to the orchestration barrier until every final
+      // event (including continuation selection) has been recorded.
+      activeProcesses.delete(agentId);
+      swarmSentinel.clearAgent(agentId);
     }
-    if (dispatchedAgent.execution_mode === 'worker') {
-      const garage = await workerGarage.state(db, dispatchedAgent.parent_agent_id).catch(() => null);
-      emit(dispatchedAgent.parent_agent_id, 'WORKER_SLOT_RELEASED', 'GARAGE', `Worker '${normalizedMission.name || dispatchedAgent.name}' released its active slot.`, {
-        workerId: agentId,
-        capacity: garage?.capacity || workerGarage.MAX_ACTIVE_WORKERS,
-        occupied: garage?.occupied,
-        available: garage?.available
-      }, 'info');
+
+    try {
+      await db.run('UPDATE agents SET runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL WHERE id = ?', agentId);
+      // The capsule outlives the process only by the GC grace delay, so
+      // evidence-aware merging can finish reading it before reclamation.
+      await workspaceLifecycle.scheduleWorkspaceCleanup(agentId);
+      const operatorStop = child.genosStopRequested ? { kind: 'operator', reason: 'Stopped from Studio' } : null;
+      const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer, missionDomainState);
+      const persistedAgent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', agentId);
+      const apoptosisTerminal = persistedAgent?.status === 'apoptosis' || Boolean(persistedAgent?.is_apoptotic);
+      if ((!terminalEventSeen || termination || operatorStop) && !apoptosisTerminal) {
+        await updateAgent(agentId, outcome.status, outcome.task);
+        emitTracked(outcome.eventType, outcome.action, outcome.detail, outcome.payload, outcome.severity, outcome.status);
+        await executionQueue;
+      }
+      if (dispatchedAgent.execution_mode === 'worker') {
+        const garage = await workerGarage.state(db, dispatchedAgent.parent_agent_id).catch(() => null);
+        emit(dispatchedAgent.parent_agent_id, 'WORKER_SLOT_RELEASED', 'GARAGE', `Worker '${normalizedMission.name || dispatchedAgent.name}' released its active slot.`, {
+          workerId: agentId,
+          capacity: garage?.capacity || workerGarage.MAX_ACTIVE_WORKERS,
+          occupied: garage?.occupied,
+          available: garage?.available
+        }, 'info');
+      }
+    } catch (err) {
+      console.error(`[AgentSupervisor] Error finalizing agent process close for ${agentId}:`, err);
+    } finally {
+      try {
+        await dispatchWorkerRecovery(agentId);
+      } catch (err) {
+        console.error(`[AgentSupervisor] Error dispatching worker recovery for ${agentId}:`, err);
+      }
+      try {
+        dispatchPendingContinuation(agentId);
+      } catch (err) {
+        console.error(`[AgentSupervisor] Error dispatching pending continuation for ${agentId}:`, err);
+      }
     }
-    await dispatchWorkerRecovery(agentId);
-    dispatchPendingContinuation(agentId);
   });
   await updateAgent(agentId, 'running', normalizedMission.prompt);
   emitTracked('WORKER_RUNTIME_CAPABILITIES', 'LEASE', 'Worker runtime capabilities activated.', {

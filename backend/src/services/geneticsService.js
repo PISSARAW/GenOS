@@ -244,8 +244,9 @@ function crossoverGenome(parentA, parentB, options = {}) {
     if (key === 'tools') {
       const toolSet = new Set(pickA ? toolsA : toolsB);
       // Horizontal gene transfer
+      const donorTools = pickA ? toolsB : toolsA;
       if (deterministicUnit(`${reproducibilitySeed}:horizontal-tools`) < 0.5) {
-        toolSet.add(toolsB[0] || 'genos_inspect');
+        toolSet.add(donorTools[0] || 'genos_inspect');
       }
       childGenes.tools = Array.from(toolSet);
     } else {

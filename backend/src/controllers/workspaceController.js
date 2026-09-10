@@ -8,6 +8,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const { getDatabase } = require('../db');
+const { sanitizeString } = require('../middleware/security');
 const telemetry = require('../services/telemetryObserver');
 const snapshotStore = require('../services/workspaceSnapshotStore');
 const {
@@ -31,7 +32,8 @@ async function findWorkspace(db, req, reference) {
   } else {
     workspace = await db.get('SELECT * FROM workspaces WHERE (id = ? OR name = ?) AND organization_id IS NULL AND project_id IS NULL', reference, reference);
   }
-  return workspace && isPathWithinRoot(WORKSPACES_ROOT, workspace.path) ? workspace : null;
+  const root = resolveWorkspacesRoot();
+  return workspace && isPathWithinRoot(root, workspace.path) ? workspace : null;
 }
 
 async function getWorkspaceFiles(req, res) {
@@ -134,12 +136,20 @@ async function listWorkspaces(req, res) {
 }
 
 async function createWorkspace(req, res) {
-  const { name, language = 'TypeScript', description = '', visibility = 'Private' } = req.body || {};
+  let { name, language = 'TypeScript', description = '', visibility = 'Private', tags } = req.body || {};
+  if (typeof name === 'string') name = sanitizeString(name).trim();
+  if (typeof description === 'string') description = sanitizeString(description);
+  if (typeof language === 'string') language = sanitizeString(language).trim();
   if (typeof name !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/.test(name) || path.basename(name) !== name || name === '.' || name === '..') {
     return res.status(400).json({ error: { code: 'INVALID_NAME', message: 'Workspace name must be 1-128 safe filename characters.' } });
   }
-  if (typeof language !== 'string' || !language.trim() || language.length > 64 || typeof description !== 'string' || description.length > 10_000 || !['Private', 'Public'].includes(visibility)) {
+  if (typeof language !== 'string' || !language || language.length > 64 || typeof description !== 'string' || description.length > 10_000 || !['Private', 'Public'].includes(visibility)) {
     return res.status(400).json({ error: { code: 'INVALID_WORKSPACE_FIELDS', message: 'language, description, and visibility are invalid.' } });
+  }
+
+  let cleanTags = [language.toLowerCase()];
+  if (Array.isArray(tags)) {
+    cleanTags = tags.map(t => (typeof t === 'string' ? sanitizeString(t) : String(t)));
   }
 
   const db = await getDatabase();
@@ -167,7 +177,7 @@ async function createWorkspace(req, res) {
   await db.run(
     `INSERT INTO workspaces (id, name, path, visibility, language, description, tags, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET name=excluded.name, path=excluded.path, visibility=excluded.visibility, language=excluded.language, description=excluded.description, tags=excluded.tags, updated_at=CURRENT_TIMESTAMP`,
-    id, name, wsPath, visibility, language, description, JSON.stringify([language.toLowerCase()]), req.tenant?.organizationId || null, req.tenant?.projectId || null
+    id, name, wsPath, visibility, language, description, JSON.stringify(cleanTags), req.tenant?.organizationId || null, req.tenant?.projectId || null
   );
 
   telemetry.emitEvent({
@@ -336,12 +346,21 @@ async function bisect(req, res, next) {
     const db = await getDatabase();
     const workspace = await findWorkspace(db, req, workspaceId);
     if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${workspaceId}` } });
-    const rows = await db.all('SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC LIMIT ?', workspace.id, MAX_BISECTION_SNAPSHOTS + 1);
+    const rows = await db.all(
+      'SELECT s.*, w.path AS workspace_path FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE s.workspace_id = ? ORDER BY s.step_number ASC LIMIT ?',
+      workspace.id,
+      MAX_BISECTION_SNAPSHOTS + 1
+    );
     if (rows.length > MAX_BISECTION_SNAPSHOTS) {
       return res.status(413).json({ error: { code: 'BISECTION_HISTORY_TOO_LARGE', message: `Snapshot history exceeds the ${MAX_BISECTION_SNAPSHOTS}-snapshot bisection limit.` } });
     }
     const history = rows.filter((row) => {
-      try { const metadata = JSON.parse(row.metadata || '{}'); return metadata.storage === 'durable-filesystem' && metadata.manifestPath; } catch (_) { return false; }
+      try {
+        const metadata = JSON.parse(row.metadata || '{}');
+        return metadata.storage === 'durable-filesystem' && metadata.manifestPath && fs.existsSync(metadata.manifestPath);
+      } catch (_) {
+        return false;
+      }
     });
     if (history.length < 2) return res.status(409).json({ error: { code: 'NO_DURABLE_SNAPSHOTS', message: 'Capture at least two durable snapshots before running bisection.' } });
     const result = await bisectionService.autoBisectWorkspaceAnomaly(db, {

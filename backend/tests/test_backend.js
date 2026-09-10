@@ -62,6 +62,7 @@ function request(options, body = null) {
 async function runTests() {
   console.log('=== STARTING GENOS BACKEND VERIFICATION SUITE ===\n');
   const testDbPath = path.resolve(__dirname, `test_genos_${process.pid}.db`);
+  const coreWorkspacePath = path.join(__dirname, `.tmp-ws-genos-core-${process.pid}`);
   process.env.GENOS_DB_PATH = testDbPath;
   for (const ext of ['', '-wal', '-shm']) {
     const p = testDbPath + ext;
@@ -109,8 +110,8 @@ async function runTests() {
     // Workspace used by the resilience and rollback sections; scoped endpoints
     // require the workspace row to exist, and durable snapshots require a real
     // directory on disk.
-    const coreWorkspacePath = path.join(__dirname, '.tmp-ws-genos-core');
     fs.rmSync(coreWorkspacePath, { recursive: true, force: true });
+    await db.run("DELETE FROM workspace_snapshots WHERE workspace_id = 'ws-genos-core'");
     fs.mkdirSync(path.join(coreWorkspacePath, 'src'), { recursive: true });
     fs.writeFileSync(path.join(coreWorkspacePath, 'src', 'parser.js'), 'function parse(input){ if (!input) return null; return input; }\n');
     // Bisection runs only allow-listed test commands now, so give the
@@ -272,7 +273,7 @@ async function runTests() {
       headers: { ...authHeaders, ...smokeTenantHeaders }
     }, { label: 'Step 1 baseline', reason: 'Bisection baseline' });
     assert(baselineSnapshotRes.status === 201 || baselineSnapshotRes.status === 200, `Baseline snapshot creation succeeded (${baselineSnapshotRes.status}: ${JSON.stringify(baselineSnapshotRes.body)})`);
-    fs.writeFileSync(path.join(__dirname, '.tmp-ws-genos-core', 'src', 'parser.js'), 'function parse(input){ return input.deep.property; }\n');
+    fs.writeFileSync(path.join(coreWorkspacePath, 'src', 'parser.js'), 'function parse(input){ return input.deep.property; }\n');
     const regressionSnapshotRes = await request({
       method: 'POST',
       path: '/api/workspaces/ws-genos-core/snapshots',
@@ -343,7 +344,9 @@ async function runTests() {
         try { fs.unlinkSync(p); } catch (e) {}
       }
     }
-    fs.rmSync(path.join(__dirname, '.tmp-ws-genos-core'), { recursive: true, force: true });
+    if (coreWorkspacePath && fs.existsSync(coreWorkspacePath)) {
+      fs.rmSync(coreWorkspacePath, { recursive: true, force: true });
+    }
   }
 
   if (failedCount > 0) {

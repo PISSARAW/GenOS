@@ -92,7 +92,20 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
       const child = spawn(shellExecutable, shellArgs, {
         cwd: workingDirectory,
         detached: process.platform !== 'win32',
-        env: { PATH: process.env.PATH || '/usr/bin:/bin', CI: '1', GENOS_ISOLATED_RUNNER: '1', TMPDIR: runnerRoot },
+        env: {
+          PATH: process.env.PATH || '/usr/bin:/bin',
+          CI: '1',
+          GENOS_ISOLATED_RUNNER: '1',
+          TMPDIR: runnerRoot,
+          ...(process.platform === 'win32' ? {
+            SystemRoot: process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows',
+            SystemDrive: process.env.SystemDrive || 'C:',
+            PATHEXT: process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD',
+            ComSpec: process.env.ComSpec || 'cmd.exe',
+            TEMP: runnerRoot,
+            TMP: runnerRoot
+          } : {})
+        },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsVerbatimArguments: useWindowsShell
       });
@@ -115,5 +128,4 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
   }
 }
 
-
-module.exports = { restore, restoreUnlocked };
+module.exports = { restore, restoreUnlocked, preview, runInSnapshot };

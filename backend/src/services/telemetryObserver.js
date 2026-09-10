@@ -150,6 +150,7 @@ class TelemetryObserver extends EventEmitter {
 
   async drainPersistQueue() {
     this.persisting = true;
+    let abortDueToClosedDb = false;
     try {
       while (this.persistQueue.length) {
         const queuedEvent = this.persistQueue.shift();
@@ -175,11 +176,16 @@ class TelemetryObserver extends EventEmitter {
         } catch (err) {
           this.persistenceErrors += 1;
           console.error('[TelemetryObserver] Event persistence failed:', err.message);
+          if (err.message && (err.message.includes('SQLITE_MISUSE') || err.message.includes('Database handle is closed') || err.message.includes('cannot operate on a closed database'))) {
+            this.persistQueue.unshift(queuedEvent);
+            abortDueToClosedDb = true;
+            break;
+          }
         }
       }
     } finally {
       this.persisting = false;
-      if (this.persistQueue.length) setImmediate(() => this.drainPersistQueue());
+      if (!abortDueToClosedDb && this.persistQueue.length) setImmediate(() => this.drainPersistQueue());
     }
   }
 

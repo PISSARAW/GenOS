@@ -6,7 +6,7 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
-const { TEST_ADMIN_TOKEN } = require('../testAuth');
+const { TEST_ADMIN_TOKEN } = require('../../testAuth');
 const { createApp } = require('../../src/app');
 const { getDatabase, closeDatabase } = require('../../src/db');
 const circuitBreaker = require('../../src/services/circuitBreaker');
@@ -70,6 +70,15 @@ async function setupTestKeys() {
     'INSERT OR REPLACE INTO access_keys (id, key_hash, label, role, permissions, is_active) VALUES (?, ?, ?, ?, ?, ?)',
     'key-operator-01', hashKey(operatorKey), 'Operator Node', 'operator', '["read", "workspace:write", "experiment:write", "experiment:run", "swarm:vote", "swarm:propose", "mcp:execute_safe", "emergency_kill"]', 1
   );
+  await db.run("INSERT OR IGNORE INTO organizations (id, name) VALUES ('org-stress', 'Stress Test Organization')");
+  await db.run("INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES ('proj-stress', 'org-stress', 'Stress Test Project')");
+  await db.run("INSERT OR IGNORE INTO workspaces (id, name, path, organization_id, project_id) VALUES ('ws-stress', 'Stress Workspace', ?, 'org-stress', 'proj-stress')", path.resolve(__dirname));
+  await db.run("INSERT OR IGNORE INTO organization_memberships (principal_id, organization_id, role) VALUES ('key-operator-01', 'org-stress', 'member')");
+  await db.run("INSERT OR IGNORE INTO project_memberships (principal_id, project_id, role) VALUES ('key-operator-01', 'proj-stress', 'member')");
+  await db.run(
+    `INSERT OR IGNORE INTO swarm_proposals (id, workspace_id, proposer_agent_id, title, status, quorum_threshold)
+     VALUES ('prop-001', 'ws-stress', 'admin', 'Stress Proposal', 'open', 0.5)`
+  );
   return { viewerKey, operatorKey };
 }
 
@@ -119,8 +128,12 @@ async function testRbacBoundaries(keys) {
     assert(res.status === 403, `Viewer access to ${r.method} ${r.path} rejected with 403 Forbidden`, res.body);
   }
 
-  const opHeaders = { Authorization: `Bearer ${keys.operatorKey}` };
-  const opAllowedRes = await request({ method: 'POST', path: '/api/deploy', headers: opHeaders }, { name: 'op-agent-1' });
+  const opHeaders = {
+    Authorization: `Bearer ${keys.operatorKey}`,
+    'X-Organization-Id': 'org-stress',
+    'X-Project-Id': 'proj-stress'
+  };
+  const opAllowedRes = await request({ method: 'POST', path: '/api/deploy', headers: opHeaders }, { name: 'op-agent-1', workspaceId: 'ws-stress' });
   assert(opAllowedRes.status === 200 || opAllowedRes.status === 201, 'Operator successfully deploys agent (workspace:write)');
 
   const opCmdRes = await request({ method: 'POST', path: '/api/command', headers: opHeaders }, { action: 'inspect_state' });
@@ -173,7 +186,11 @@ async function testCsrfProtection() {
   const csrfPassRes = await request({
     method: 'POST',
     path: '/api/workspaces',
-    headers: { Origin: 'http://localhost:3000', 'X-CSRF-Token': 'valid-csrf-token' }
+    headers: {
+      Origin: 'http://localhost:3000',
+      'X-CSRF-Token': 'valid-csrf-token',
+      Cookie: 'genos_csrf=valid-csrf-token'
+    }
   }, { name: 'valid-csrf-ws' });
   assert(csrfPassRes.status === 401, 'Request with valid CSRF token passed CSRF check (reached auth check: 401)');
 
@@ -187,7 +204,11 @@ async function testCsrfProtection() {
 
 async function testXssSanitization() {
   console.log('\n--- 4. XSS Payload Sanitization & Injection Defense ---');
-  const adminHeaders = { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` };
+  const adminHeaders = {
+    Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`,
+    'X-Organization-Id': 'org-stress',
+    'X-Project-Id': 'proj-stress'
+  };
 
   const maliciousProfile = {
     username: 'Commander<script>alert("XSS")</script>'
@@ -328,6 +349,7 @@ async function runAllStressTests() {
   console.log('===============================================================\n');
 
   const testDbPath = path.resolve(__dirname, 'stress_genos.db');
+  process.env.GENOS_DB_PATH = testDbPath;
   if (fs.existsSync(testDbPath)) {
     try { fs.unlinkSync(testDbPath); } catch (e) {}
   }
@@ -359,6 +381,7 @@ async function runAllStressTests() {
   }
 
   if (failedCount > 0) process.exit(1);
+  process.exit(0);
 }
 
 runAllStressTests().catch(err => {

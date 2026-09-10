@@ -27,7 +27,7 @@ async function deleteProjectResources(db, project) {
 	const skippedPaths = [];
 	for (const workspace of workspaces) {
 		const workspacePath = path.resolve(workspace.path);
-		if (!isPathWithinRoot(root, workspacePath)) { skippedPaths.push(workspace.path); continue; }
+		if (workspacePath === path.resolve(root) || !isPathWithinRoot(root, workspacePath, { allowRoot: false })) { skippedPaths.push(workspace.path); continue; }
 		fs.rmSync(workspacePath, { recursive: true, force: true });
 	}
 	return { workspaceCount: workspaces.length, stoppedAgentCount: agents.length, skippedPaths };
