@@ -1,130 +1,108 @@
 /**
- * Lot 5 Primitives: Swarm Consensus & Quorum
- * (brier_scores, quorum, weighted_quorum)
+ * Lot 5 primitives: swarm consensus and quorum (brier_scores, quorum, weighted_quorum).
+ * Policy (threshold 0.5, EPSILON 1e-9, participation floor, continuous Brier
+ * weights, 'tied') lives in ./quorumPolicy; this module wires storage to it.
  */
 const telemetry = require('../telemetryObserver');
 const { getDatabase } = require('../../db');
+const qp = require('./quorumPolicy');
 
-function brierScoreToWeight(brier) {
-  if (!Number.isFinite(brier)) return 1.0;
-  if (brier >= 1.0) return 0.0;
-  if (brier >= 0.5) {
-    return Math.max(0, 0.1 * (1 - brier));
-  }
-  return Math.pow(1 - brier, 2);
+const SQL_ORG_VOTES = `SELECT sender_agent_id, payload_json FROM agent_organization_messages WHERE orchestrator_id = ? AND kind = 'vote' AND (json_extract(payload_json, '$.issue') = ? OR json_extract(payload_json, '$.issue') IS NULL) ORDER BY id DESC`;
+const SQL_FIND_PROPOSAL = 'SELECT id FROM swarm_proposals WHERE id = ? OR title = ? ORDER BY created_at DESC LIMIT 1';
+const SQL_SWARM_VOTES = 'SELECT agent_id, vote FROM swarm_votes WHERE proposal_id = ?';
+const SQL_SWARM_VOTES_WEIGHTED = 'SELECT agent_id, vote, weight, brier_score FROM swarm_votes WHERE proposal_id = ?';
+const SQL_CALIB_AVG = 'SELECT AVG(brier_score) as avg_brier FROM evaluation_runs WHERE agent_id = ? AND brier_score IS NOT NULL';
+function safeContext(context) {
+  if (context !== null && typeof context === 'object') return context;
+  return {};
+}
+function round6(value) {
+  return Number(value.toFixed(6));
 }
 
-function calculateItemBrierScore(item) {
-  if (!item) return NaN;
-
-  // Case 1: Multi-class array [p1, p2, ...]
-  if (Array.isArray(item.prediction)) {
-    const p = item.prediction.map(Number);
-    if (p.length < 2 || p.some(v => !Number.isFinite(v) || v < 0 || v > 1) || Math.abs(p.reduce((sum, value) => sum + value, 0) - 1) > 1e-6) return NaN;
-
-    let o;
-    if (Array.isArray(item.outcome)) {
-      o = item.outcome.map(Number);
-      if (o.length !== p.length || o.some(v => !Number.isFinite(v) || (v !== 0 && v !== 1))) return NaN;
-    } else if (Number.isInteger(Number(item.outcome)) && Number(item.outcome) >= 0 && Number(item.outcome) < p.length) {
-      const idx = Number(item.outcome);
-      o = p.map((_, i) => (i === idx ? 1 : 0));
-    } else {
-      return NaN;
-    }
-
-    const sumSq = p.reduce((acc, prob, i) => acc + (prob - o[i]) ** 2, 0);
-    return sumSq / 2; // Normalized multiclass Brier score in [0, 1]
+function observationsFor(context, agentId) {
+  const all = context.calibrationObservations;
+  if (!Array.isArray(all)) return [];
+  const out = [];
+  for (const item of all) {
+    if (item !== null && typeof item === 'object' && item.agentId === agentId) out.push(item);
   }
-
-  // Case 2: Multi-class object { classA: 0.8, classB: 0.2 }
-  if (item.prediction && typeof item.prediction === 'object') {
-    const keys = Object.keys(item.prediction);
-    if (keys.length < 2) return NaN;
-    const p = keys.map(k => Number(item.prediction[k]));
-    if (p.some(v => !Number.isFinite(v) || v < 0 || v > 1) || Math.abs(p.reduce((sum, value) => sum + value, 0) - 1) > 1e-6) return NaN;
-
-    let o;
-    if (typeof item.outcome === 'string' && keys.includes(item.outcome)) {
-      o = keys.map(k => (k === item.outcome ? 1 : 0));
-    } else if (item.outcome && typeof item.outcome === 'object') {
-      o = keys.map(k => Number(item.outcome[k] || 0));
-      if (o.some(v => !Number.isFinite(v) || (v !== 0 && v !== 1)) || o.reduce((sum, value) => sum + value, 0) !== 1) return NaN;
-    } else {
-      return NaN;
-    }
-
-    const sumSq = p.reduce((acc, prob, i) => acc + (prob - o[i]) ** 2, 0);
-    return sumSq / 2;
-  }
-
-  // Case 3: Binary scalar
-  const prediction = Number(item.prediction);
-  const outcome = Number(item.outcome);
-  if (!Number.isFinite(prediction) || prediction < 0 || prediction > 1 || !Number.isFinite(outcome) || (outcome !== 0 && outcome !== 1)) {
-    return NaN;
-  }
-  return (prediction - outcome) ** 2;
+  return out;
 }
 
-async function brierScores(context = {}) {
-  const agentIds = context.agentIds || [];
-  if (agentIds.length === 0) return { success: true, scores: {} };
-  const observations = context.calibrationObservations || [];
-  const suppliedScores = context.calibrationScores || {};
-  const scores = {};
-  const db = await getDatabase();
+function suppliedScoreFor(context, agentId) {
+  const table = context.calibrationScores;
+  if (table === null || table === undefined) return NaN;
+  return Number(table[agentId]);
+}
 
-  for (const id of agentIds) {
-    const agentObservations = observations.filter((item) => item.agentId === id);
-    let score = agentObservations.length > 0
-      ? agentObservations.reduce((sum, item) => sum + calculateItemBrierScore(item), 0) / agentObservations.length
-      : Number(suppliedScores[id]);
+function defaultScoreOf(context) {
+  const raw = Number(context.defaultScore);
+  if (Number.isFinite(raw)) return raw;
+  return 0.25;
+}
 
-    if (!Number.isFinite(score) || score < 0 || score > 1) {
-      if (db) {
-        try {
-          const runRow = await db.get(
-            'SELECT AVG(brier_score) as avg_brier FROM evaluation_runs WHERE agent_id = ? AND brier_score IS NOT NULL',
-            id
-          );
-          if (runRow && Number.isFinite(runRow.avg_brier) && runRow.avg_brier >= 0 && runRow.avg_brier <= 1) {
-            score = Number(runRow.avg_brier);
-          }
-        } catch (_) {}
-      }
-    }
-
-    if (!Number.isFinite(score) || score < 0 || score > 1) {
-      if (context.allowDefaults || context.fallbackDefault) {
-        score = Number(context.defaultScore ?? 0.25);
-      } else {
-        return { success: false, error: 'Calibration observations or scores required for every agent.' };
-      }
-    }
-    scores[id] = Number(score.toFixed(6));
+async function dbFallbackBrier(pack) {
+  try {
+    const row = await pack.db.get(SQL_CALIB_AVG, pack.agentId);
+    if (row === null || row === undefined) return null;
+    const raw = row.avg_brier;
+    if (raw === null || raw === undefined) return null;
+    const average = Number(raw);
+    if (Number.isFinite(average) && average >= 0 && average <= 1) return average;
+    return null;
+  } catch (_) {
+    return null;
   }
+}
 
+async function scoreOneAgent(pack) {
+  const items = observationsFor(pack.context, pack.agentId);
+  if (items.length > 0) {
+    const mean = qp.meanFiniteBrier(items);
+    if (Number.isFinite(mean)) return { ok: true, value: round6(mean) };
+  }
+  const supplied = suppliedScoreFor(pack.context, pack.agentId);
+  if (Number.isFinite(supplied) && supplied >= 0 && supplied <= 1) return { ok: true, value: round6(supplied) };
+  const fallback = await dbFallbackBrier(pack);
+  if (fallback !== null) return { ok: true, value: round6(fallback) };
+  if (pack.context.allowDefaults || pack.context.fallbackDefault) return { ok: true, value: round6(defaultScoreOf(pack.context)) };
+  return { ok: false, error: { success: false, error: 'Calibration observations or scores required for every agent.' } };
+}
+
+function emitBrierTelemetry(context, scores) {
   telemetry.emitEvent({
     eventType: 'SWARM_BRIER_SCORES',
     agentId: context.orchestratorId || 'strategy_adapter',
     action: 'BRIER_SCORES',
-    detail: `Calculated Brier scores for ${agentIds.length} agents.`,
+    detail: 'Calculated Brier scores.',
     severity: 'info',
     payload: { scores }
   });
+}
+
+async function brierScores(context = {}) {
+  const safe = safeContext(context);
+  const ids = safe.agentIds;
+  if (!Array.isArray(ids) || ids.length === 0) return { success: true, scores: {} };
+  const scores = {};
+  const db = await getDatabase();
+  for (const id of ids) {
+    const scored = await scoreOneAgent({ context: safe, db, agentId: id });
+    if (scored.ok) scores[id] = scored.value;
+    else return scored.error;
+  }
+  emitBrierTelemetry(safe, scores);
   return { success: true, scores };
 }
 
 async function recordConsensusMessage({ db, orchestratorId, kind, issue, decision, quorumReached, data = {} }) {
   if (!db) return;
   try {
-    const state = await db.get('SELECT organization, version FROM agent_organization_state WHERE orchestrator_id = ?', orchestratorId);
-    await db.run(
-      `INSERT INTO agent_organization_messages (orchestrator_id, organization, organization_version, sender_agent_id, recipient_agent_id, channel, kind, content, payload_json)
-       VALUES (?, ?, ?, ?, NULL, 'consensus', ?, ?, ?)`,
+    const state = await db.get('SELECT organization, version FROM agent_organization_state WHERE orchestrator_id = ?', orchestratorId) || {};
+    await db.run(`INSERT INTO agent_organization_messages (orchestrator_id, organization, organization_version, sender_agent_id, recipient_agent_id, channel, kind, content, payload_json) VALUES (?, ?, ?, ?, NULL, 'consensus', ?, ?, ?)`,
       orchestratorId,
-      state?.organization || 'collective', state?.version || 1,
+      state.organization || 'collective', state.version || 1,
       orchestratorId,
       kind,
       quorumReached ? `Consensus reached on ${issue}: ${decision}` : `Consensus not reached on ${issue}`,
@@ -133,246 +111,287 @@ async function recordConsensusMessage({ db, orchestratorId, kind, issue, decisio
   } catch (_) {}
 }
 
-async function quorum(context = {}) {
-  const db = await getDatabase();
+function resolveIds(context) {
   const orchestratorId = context.orchestratorId;
-  const issue = context.issue || 'default_issue';
-  if (!orchestratorId) return { success: false, error: 'orchestratorId required.' };
+  if (!orchestratorId) return { error: { success: false, error: 'orchestratorId required.' } };
+  const rawIssue = context.issue;
+  let issue = 'default_issue';
+  if (typeof rawIssue === 'string' && rawIssue.length > 0) issue = rawIssue;
+  return { orchestratorId, issue };
+}
 
+function parseVotePayload(text) {
   try {
-    const rows = await db.all(
-      `SELECT sender_agent_id, payload_json FROM agent_organization_messages 
-       WHERE orchestrator_id = ? AND kind = 'vote'
-         AND (json_extract(payload_json, '$.issue') = ? OR json_extract(payload_json, '$.issue') IS NULL)
-       ORDER BY id DESC`,
-      orchestratorId, issue
-    );
+    const payload = JSON.parse(text);
+    if (payload !== null && typeof payload === 'object') return payload;
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
 
-    const votes = {};
-    const hasVoted = new Set();
-    for (const row of rows) {
-      if (hasVoted.has(row.sender_agent_id)) continue;
-      try {
-        const payload = JSON.parse(row.payload_json);
-        if (payload.issue === issue && payload.vote !== undefined && payload.vote !== null) {
-          const voteStr = String(payload.vote).trim();
-          if (voteStr.toLowerCase() !== 'abstain') {
-            votes[voteStr] = (votes[voteStr] || 0) + 1;
-          }
-          hasVoted.add(row.sender_agent_id);
-        }
-      } catch (_) {}
-    }
+function freshTallyAcc() {
+  return { tally: {}, seen: {}, voterIds: [], participationCount: 0, expressedCount: 0, abstainCount: 0, expressedWeight: 0 };
+}
 
-    // Interoperabilite : integrer les votes de swarm_votes si la proposition correspondante existe
-    if (db) {
-      try {
-        const proposal = await db.get(
-          'SELECT id FROM swarm_proposals WHERE id = ? OR title = ? ORDER BY created_at DESC LIMIT 1',
-          issue, issue
-        );
-        if (proposal) {
-          const restVotes = await db.all(
-            'SELECT agent_id, vote FROM swarm_votes WHERE proposal_id = ?',
-            proposal.id
-          );
-          for (const rv of restVotes) {
-            if (hasVoted.has(rv.agent_id)) continue;
-            if (rv.vote !== undefined && rv.vote !== null) {
-              const rvVoteStr = String(rv.vote).trim();
-              if (rvVoteStr.toLowerCase() !== 'abstain') {
-                votes[rvVoteStr] = (votes[rvVoteStr] || 0) + 1;
-              }
-              hasVoted.add(rv.agent_id);
-            }
-          }
-        }
-      } catch (_) {}
-    }
+function absorbCountedVote(acc, senderId, rawVote) {
+  if (acc.seen[senderId]) return;
+  if (rawVote === undefined || rawVote === null) return;
+  const text = qp.normalizeVoteText(rawVote);
+  if (text === '') return;
+  acc.seen[senderId] = true;
+  acc.voterIds.push(senderId);
+  acc.participationCount += 1;
+  if (qp.isAbstentionText(text)) {
+    acc.abstainCount += 1;
+    return;
+  }
+  acc.tally[text] = acc.tally[text] || 0;
+  acc.tally[text] += 1;
+  acc.expressedCount += 1;
+}
 
-    const minParticipation = context.minVotes !== undefined ? context.minVotes : (context.minParticipation !== undefined ? context.minParticipation : 1);
-    const threshold = Number.isFinite(context.threshold) ? context.threshold : (Number.isFinite(context.quorumThreshold) ? context.quorumThreshold : 0.5);
+function absorbMessageRow(acc, issue, row) {
+  const payload = parseVotePayload(row.payload_json);
+  const text = qp.voteTextForIssue(payload, issue);
+  if (text === null) return;
+  absorbCountedVote(acc, row.sender_agent_id, text);
+}
 
-    const totalExpressed = Object.values(votes).reduce((sum, val) => sum + val, 0);
-    const abstentions = hasVoted.size - totalExpressed;
-    const sortedOptions = Object.keys(votes).sort((a, b) => {
-      const diff = votes[b] - votes[a];
-      if (diff !== 0) return diff;
-      return a.localeCompare(b);
-    });
-    const topOption = sortedOptions.length > 0 ? sortedOptions[0] : null;
-    const topVotes = topOption ? (votes[topOption] || 0) : 0;
-    const approvalRate = totalExpressed > 0 ? topVotes / totalExpressed : 0;
+function collectMessageVotes(rows, issue) {
+  const acc = freshTallyAcc();
+  for (const row of rows) absorbMessageRow(acc, issue, row);
+  return acc;
+}
 
-    const quorumReached = hasVoted.size >= minParticipation && totalExpressed > 0 && approvalRate >= threshold;
-    const decision = quorumReached ? topOption : null;
+async function mergeInteropVotes(pack) {
+  try {
+    const proposal = await pack.db.get(SQL_FIND_PROPOSAL, pack.issue, pack.issue);
+    if (!proposal) return;
+    const restVotes = await pack.db.all(SQL_SWARM_VOTES, proposal.id);
+    for (const rest of restVotes) absorbCountedVote(pack.acc, rest.agent_id, rest.vote);
+  } catch (_) {}
+}
 
-    telemetry.emitEvent({
-      eventType: 'SWARM_QUORUM',
-      agentId: orchestratorId,
-      action: 'QUORUM',
-      detail: quorumReached ? `Quorum reached on ${issue}: ${decision}` : `Quorum not reached on ${issue}`,
-      severity: 'info',
-      payload: { issue, decision, quorumReached, votes, totalVotes: hasVoted.size, expressedVotes: totalExpressed, abstentions, approvalRate }
-    });
+function distinctVoterIds(rows, issue) {
+  const seen = {};
+  const out = [];
+  for (const row of rows) {
+    if (seen[row.sender_agent_id]) continue;
+    const payload = parseVotePayload(row.payload_json);
+    if (qp.voteTextForIssue(payload, issue) === null) continue;
+    seen[row.sender_agent_id] = true;
+    out.push(row.sender_agent_id);
+  }
+  return out;
+}
 
-    await recordConsensusMessage({ db, orchestratorId, kind: 'consensus_resolution', issue, decision, quorumReached, data: {
-      votes, totalVotes: hasVoted.size, expressedVotes: totalExpressed, abstentions, approvalRate
-    } });
+function absorbWeightedRow(pack, row) {
+  const acc = pack.acc;
+  if (acc.seen[row.sender_agent_id]) return;
+  const payload = parseVotePayload(row.payload_json);
+  const text = qp.voteTextForIssue(payload, pack.issue);
+  if (text === null) return;
+  acc.seen[row.sender_agent_id] = true;
+  acc.voterIds.push(row.sender_agent_id);
+  acc.participationCount += 1;
+  if (qp.isAbstentionText(text)) {
+    acc.abstainCount += 1;
+    return;
+  }
+  let score = 0.25;
+  if (pack.scores !== null && pack.scores !== undefined) {
+    const raw = Number(pack.scores[row.sender_agent_id]);
+    if (Number.isFinite(raw)) score = raw;
+  }
+  const weight = qp.brierScoreToWeight(score);
+  acc.tally[text] = acc.tally[text] || 0;
+  acc.tally[text] += weight;
+  acc.expressedWeight += weight;
+  acc.expressedCount += 1;
+}
 
-    return {
-      success: true,
-      issue,
-      decision,
-      quorumReached,
-      votes,
-      totalVotes: hasVoted.size,
-      expressedVotes: totalExpressed,
-      abstentions,
-      approvalRate,
-      ...(quorumReached ? {} : { error: 'Quorum not reached' })
-    };
+function collectWeightedVotes(rows, issue, scores) {
+  const pack = { acc: freshTallyAcc(), issue, scores };
+  for (const row of rows) absorbWeightedRow(pack, row);
+  return pack.acc;
+}
+function restVoteWeight(entry) {
+  const brier = Number(entry.brier_score);
+  if (Number.isFinite(brier)) return qp.brierScoreToWeight(brier);
+  const direct = Number(entry.weight);
+  if (Number.isFinite(direct)) return direct;
+  return 1;
+}
+
+function absorbWeightedRestVote(acc, entry) {
+  if (acc.seen[entry.agent_id]) return;
+  if (entry.vote === undefined || entry.vote === null) return;
+  const text = qp.normalizeVoteText(entry.vote);
+  if (text === '') return;
+  acc.seen[entry.agent_id] = true;
+  acc.voterIds.push(entry.agent_id);
+  acc.participationCount += 1;
+  if (qp.isAbstentionText(text)) {
+    acc.abstainCount += 1;
+    return;
+  }
+  const weight = restVoteWeight(entry);
+  acc.tally[text] = acc.tally[text] || 0;
+  acc.tally[text] += weight;
+  acc.expressedWeight += weight;
+  acc.expressedCount += 1;
+}
+
+async function mergeInteropWeightedVotes(pack) {
+  try {
+    const proposal = await pack.db.get(SQL_FIND_PROPOSAL, pack.issue, pack.issue);
+    if (!proposal) return;
+    const restVotes = await pack.db.all(SQL_SWARM_VOTES_WEIGHTED, proposal.id);
+    for (const rest of restVotes) absorbWeightedRestVote(pack.acc, rest);
+  } catch (_) {}
+}
+
+async function persistQuorumResolution(pack, verdict) {
+  const counts = {
+    totalVotes: pack.acc.participationCount,
+    expressedVotes: pack.acc.expressedCount,
+    abstentions: pack.acc.abstainCount,
+    approvalRate: verdict.approvalRate
+  };
+  if (pack.weighted) {
+    await recordConsensusMessage({ db: pack.db, orchestratorId: pack.orchestratorId, kind: 'weighted_consensus_resolution', issue: pack.issue, decision: verdict.decision, quorumReached: verdict.quorumReached, data: { weightedVotes: pack.acc.tally, totalWeight: qp.tallyTotal(pack.acc.tally), ...counts } });
+    await recordConsensusMessage({ db: pack.db, orchestratorId: pack.orchestratorId, kind: 'consensus_resolution', issue: pack.issue, decision: verdict.decision, quorumReached: verdict.quorumReached, data: { weightedVotes: pack.acc.tally, totalWeight: qp.tallyTotal(pack.acc.tally), approvalRate: verdict.approvalRate } });
+    return;
+  }
+  await recordConsensusMessage({ db: pack.db, orchestratorId: pack.orchestratorId, kind: 'consensus_resolution', issue: pack.issue, decision: verdict.decision, quorumReached: verdict.quorumReached, data: { votes: pack.acc.tally, ...counts } });
+}
+
+function emitTallyTelemetry(pack, verdict, total) {
+  let eventType = 'SWARM_QUORUM';
+  let action = 'QUORUM';
+  if (pack.weighted) {
+    eventType = 'SWARM_WEIGHTED_QUORUM';
+    action = 'WEIGHTED_QUORUM';
+  }
+  telemetry.emitEvent({
+    eventType,
+    agentId: pack.orchestratorId,
+    action,
+    detail: verdict.quorumReached ? `Quorum reached on ${pack.issue}: ${verdict.decision}` : `Quorum not reached on ${pack.issue}`,
+    severity: 'info',
+    payload: { issue: pack.issue, decision: verdict.decision, quorumReached: verdict.quorumReached, status: verdict.status, votes: pack.acc.tally, totalVotes: pack.acc.participationCount, expressedVotes: pack.acc.expressedCount, abstentions: pack.acc.abstainCount, totalWeight: total, approvalRate: verdict.approvalRate }
+  });
+}
+
+function simpleResultOf(pack, verdict) {
+  const result = {
+    success: true,
+    issue: pack.issue,
+    decision: verdict.decision,
+    quorumReached: verdict.quorumReached,
+    status: verdict.status,
+    votes: pack.acc.tally,
+    totalVotes: pack.acc.participationCount,
+    expressedVotes: pack.acc.expressedCount,
+    abstentions: pack.acc.abstainCount,
+    participationCount: pack.acc.participationCount,
+    requiredVotes: verdict.requiredVotes,
+    approvalRate: verdict.approvalRate
+  };
+  if (!verdict.quorumReached) result.error = 'Quorum not reached';
+  return result;
+}
+
+function weightedResultOf(pack, verdict, total) {
+  const result = {
+    success: true,
+    issue: pack.issue,
+    decision: verdict.decision,
+    quorumReached: verdict.quorumReached,
+    status: verdict.status,
+    weightedVotes: pack.acc.tally,
+    weightedTally: pack.acc.tally,
+    totalVotes: pack.acc.participationCount,
+    expressedVotes: pack.acc.expressedCount,
+    abstentions: pack.acc.abstainCount,
+    participationCount: pack.acc.participationCount,
+    requiredVotes: verdict.requiredVotes,
+    totalWeight: total,
+    approvalRate: verdict.approvalRate
+  };
+  if (!verdict.quorumReached) result.error = 'Quorum not reached';
+  return result;
+}
+
+function buildTallyResult(pack, verdict, total) {
+  if (pack.weighted) return weightedResultOf(pack, verdict, total);
+  return simpleResultOf(pack, verdict);
+}
+async function finishTallyQuorum(pack) {
+  const total = qp.tallyTotal(pack.acc.tally);
+  let threshold = qp.DEFAULT_THRESHOLD;
+  const directThreshold = Number(pack.context.threshold);
+  if (Number.isFinite(directThreshold)) threshold = directThreshold;
+  else {
+    const alternate = Number(pack.context.quorumThreshold);
+    if (Number.isFinite(alternate)) threshold = alternate;
+  }
+  let active = null;
+  const directActive = Number(pack.context.activeCount);
+  if (Number.isFinite(directActive)) active = directActive;
+  else {
+    const nodes = Number(pack.context.activeNodeCount);
+    if (Number.isFinite(nodes)) active = nodes;
+  }
+  const verdict = qp.evaluateQuorum({
+    tally: pack.acc.tally,
+    participationCount: pack.acc.participationCount,
+    expressedCount: pack.acc.expressedCount,
+    activeCount: active,
+    threshold,
+    minVotes: pack.context.minVotes,
+    minParticipation: pack.context.minParticipation
+  });
+  await persistQuorumResolution(pack, verdict);
+  emitTallyTelemetry(pack, verdict, total);
+  return buildTallyResult(pack, verdict, total);
+}
+
+async function quorum(context = {}) {
+  const safe = safeContext(context);
+  try {
+    const db = await getDatabase();
+    const ids = resolveIds(safe);
+    if (ids.error) return ids.error;
+    const rows = await db.all(SQL_ORG_VOTES, ids.orchestratorId, ids.issue);
+    const acc = collectMessageVotes(rows, ids.issue);
+    await mergeInteropVotes({ db, issue: ids.issue, acc });
+    return finishTallyQuorum({ db, context: safe, orchestratorId: ids.orchestratorId, issue: ids.issue, acc, weighted: false });
   } catch (err) {
     return { success: false, error: err.message };
   }
 }
 
 async function weightedQuorum(context = {}) {
-  const db = await getDatabase();
-  const orchestratorId = context.orchestratorId;
-  const issue = context.issue || 'default_issue';
-  if (!orchestratorId) return { success: false, error: 'orchestratorId required.' };
-
+  const safe = safeContext(context);
   try {
-    const rows = await db.all(
-      `SELECT sender_agent_id, payload_json FROM agent_organization_messages 
-       WHERE orchestrator_id = ? AND kind = 'vote'
-         AND (json_extract(payload_json, '$.issue') = ? OR json_extract(payload_json, '$.issue') IS NULL)
-       ORDER BY id DESC`,
-      orchestratorId, issue
-    );
-
-    const relevantVoterIds = [];
-    for (const row of rows) {
-      try {
-        const payload = JSON.parse(row.payload_json);
-        if (payload.issue === issue && payload.vote) {
-          relevantVoterIds.push(row.sender_agent_id);
-        }
-      } catch (_) {}
-    }
-
-    const agentIds = [...new Set(relevantVoterIds)];
+    const db = await getDatabase();
+    const ids = resolveIds(safe);
+    if (ids.error) return ids.error;
+    const rows = await db.all(SQL_ORG_VOTES, ids.orchestratorId, ids.issue);
+    const voterIds = distinctVoterIds(rows, ids.issue);
     const brierRes = await brierScores({
-      agentIds,
-      calibrationScores: context.calibrationScores,
-      calibrationObservations: context.calibrationObservations,
+      agentIds: voterIds,
+      calibrationScores: safe.calibrationScores,
+      calibrationObservations: safe.calibrationObservations,
       allowDefaults: true,
-      defaultScore: context.defaultScore ?? 0.25
+      defaultScore: defaultScoreOf(safe)
     });
     if (!brierRes.success) return brierRes;
-    const bScores = brierRes.scores || {};
-
-    const weightedVotes = {};
-    const hasVoted = new Set();
-    let expressedVoters = 0;
-
-    for (const row of rows) {
-      if (hasVoted.has(row.sender_agent_id)) continue;
-      try {
-        const payload = JSON.parse(row.payload_json);
-        if (payload.issue === issue && payload.vote !== undefined && payload.vote !== null) {
-          const voteStr = String(payload.vote).trim();
-          if (voteStr.toLowerCase() !== 'abstain') {
-            const brier = bScores[row.sender_agent_id] !== undefined ? bScores[row.sender_agent_id] : 0.25;
-            const weight = brierScoreToWeight(brier);
-            weightedVotes[voteStr] = (weightedVotes[voteStr] || 0) + weight;
-            expressedVoters += 1;
-          }
-          hasVoted.add(row.sender_agent_id);
-        }
-      } catch (_) {}
-    }
-
-    // Interoperabilite : integrer les votes de swarm_votes si la proposition correspondante existe
-    if (db) {
-      try {
-        const proposal = await db.get(
-          'SELECT id FROM swarm_proposals WHERE id = ? OR title = ? ORDER BY created_at DESC LIMIT 1',
-          issue, issue
-        );
-        if (proposal) {
-          const restVotes = await db.all(
-            'SELECT agent_id, vote, weight, brier_score FROM swarm_votes WHERE proposal_id = ?',
-            proposal.id
-          );
-          for (const rv of restVotes) {
-            if (hasVoted.has(rv.agent_id)) continue;
-            if (rv.vote !== undefined && rv.vote !== null) {
-              const rvVoteStr = String(rv.vote).trim();
-              if (rvVoteStr.toLowerCase() !== 'abstain') {
-                let weight = 1.0;
-                if (Number.isFinite(rv.brier_score)) {
-                  weight = brierScoreToWeight(rv.brier_score);
-                } else if (Number.isFinite(rv.weight)) {
-                  weight = Number(rv.weight);
-                }
-                weightedVotes[rvVoteStr] = (weightedVotes[rvVoteStr] || 0) + weight;
-                expressedVoters += 1;
-              }
-              hasVoted.add(rv.agent_id);
-            }
-          }
-        }
-      } catch (_) {}
-    }
-
-    const minParticipation = context.minVotes !== undefined ? context.minVotes : (context.minParticipation !== undefined ? context.minParticipation : 1);
-    const threshold = Number.isFinite(context.threshold) ? context.threshold : (Number.isFinite(context.quorumThreshold) ? context.quorumThreshold : 0.5);
-
-    const totalExpressedWeight = Object.values(weightedVotes).reduce((sum, w) => sum + w, 0);
-    const abstentions = Math.max(0, hasVoted.size - expressedVoters);
-    const sortedOptions = Object.keys(weightedVotes).sort((a, b) => {
-      const diff = weightedVotes[b] - weightedVotes[a];
-      if (Math.abs(diff) > 1e-9) return diff;
-      return a.localeCompare(b);
-    });
-    const topOption = sortedOptions.length > 0 ? sortedOptions[0] : null;
-    const topWeight = topOption ? (weightedVotes[topOption] || 0) : 0;
-    const approvalRate = totalExpressedWeight > 0 ? topWeight / totalExpressedWeight : 0;
-
-    const quorumReached = hasVoted.size >= minParticipation && totalExpressedWeight > 0 && approvalRate >= threshold;
-    const decision = quorumReached ? topOption : null;
-
-    telemetry.emitEvent({
-      eventType: 'SWARM_WEIGHTED_QUORUM',
-      agentId: orchestratorId,
-      action: 'WEIGHTED_QUORUM',
-      detail: quorumReached ? `Weighted quorum reached on ${issue}: ${decision}` : `Weighted quorum not reached on ${issue}`,
-      severity: 'info',
-      payload: { issue, decision, quorumReached, weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, abstentions, approvalRate }
-    });
-
-    await recordConsensusMessage({ db, orchestratorId, kind: 'weighted_consensus_resolution', issue, decision, quorumReached, data: {
-      weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, abstentions, approvalRate
-    } });
-    await recordConsensusMessage({ db, orchestratorId, kind: 'consensus_resolution', issue, decision, quorumReached, data: {
-      weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, approvalRate
-    } });
-
-    return {
-      success: true,
-      issue,
-      decision,
-      quorumReached,
-      weightedVotes,
-      weightedTally: weightedVotes,
-      totalVotes: hasVoted.size,
-      abstentions,
-      totalWeight: totalExpressedWeight,
-      approvalRate,
-      ...(quorumReached ? {} : { error: 'Quorum not reached' })
-    };
+    const acc = collectWeightedVotes(rows, ids.issue, brierRes.scores);
+    await mergeInteropWeightedVotes({ db, issue: ids.issue, acc });
+    return finishTallyQuorum({ db, context: safe, orchestratorId: ids.orchestratorId, issue: ids.issue, acc, weighted: true });
   } catch (err) {
     return { success: false, error: err.message };
   }
