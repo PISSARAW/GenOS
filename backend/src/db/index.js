@@ -78,6 +78,23 @@ async function closeDatabase() {
   }
 }
 
+async function withWriteRetry(fn, options = {}) {
+  const maxRetries = Number(process.env.GENOS_SQLITE_MAX_RETRIES) || options.maxRetries || 5;
+  const baseDelay = options.baseDelayMs || 50;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const isLock = err?.code === 'SQLITE_BUSY' || /busy|locked/i.test(err?.message || '');
+      if (!isLock || attempt === maxRetries) {
+        throw err;
+      }
+      const delay = Math.min(1000, baseDelay * Math.pow(2, attempt)) + Math.floor(Math.random() * 50);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 async function withTransaction(db, callback) {
   const activeTxDb = transactionStorage.getStore();
   if (activeTxDb === db) {
@@ -93,10 +110,10 @@ async function withTransaction(db, callback) {
 
   await currentTail;
   try {
-    await db.exec('BEGIN IMMEDIATE;');
+    await withWriteRetry(() => db.exec('BEGIN IMMEDIATE;'));
     try {
       const result = await transactionStorage.run(db, () => callback(db));
-      await db.exec('COMMIT;');
+      await withWriteRetry(() => db.exec('COMMIT;'));
       return result;
     } catch (err) {
       try {
@@ -112,5 +129,6 @@ async function withTransaction(db, callback) {
 module.exports = {
   getDatabase,
   closeDatabase,
-  withTransaction
+  withTransaction,
+  withWriteRetry
 };

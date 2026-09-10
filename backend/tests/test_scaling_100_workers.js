@@ -110,6 +110,24 @@ async function run() {
     const finalOrchestrator = await db.get("SELECT cognitive_budget FROM agents WHERE id = 'orchestrator-100'");
     assert.ok(Math.abs(finalOrchestrator.cognitive_budget - 40.0) < 0.01, `Remaining budget should be ~40, got ${finalOrchestrator.cognitive_budget}`);
 
+    console.log('--- 6. Testing 100 Concurrent withTransaction Writes ---');
+    const { withTransaction, withWriteRetry } = require('../src/db');
+    assert.equal(typeof withWriteRetry, 'function', 'withWriteRetry must be exported');
+
+    // Launch 100 concurrent write transactions at the exact same moment
+    await Promise.all(
+      Array.from({ length: 100 }, (_, i) =>
+        withTransaction(db, async (txDb) => {
+          await txDb.run(
+            "UPDATE agents SET eureka_count = eureka_count + 1 WHERE id = 'orchestrator-100'"
+          );
+        })
+      )
+    );
+
+    const updatedOrchestrator = await db.get("SELECT eureka_count FROM agents WHERE id = 'orchestrator-100'");
+    assert.equal(updatedOrchestrator.eureka_count, 100, `Expected 100 successful transactional increments, got ${updatedOrchestrator.eureka_count}`);
+
   } finally {
     await closeDatabase();
     if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);

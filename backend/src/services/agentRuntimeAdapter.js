@@ -1,18 +1,6 @@
 /**
  * Provider-neutral bridge between Studio deployments and a real GenOS agent runtime.
- * The configured executable receives one framed protobuf mission on stdin and emits framed
- * protobuf events on stdout. Each event is forwarded to the Studio telemetry bus and agent state.
- *
- * Cohesion map (each concern lives in its own service):
- * - agentOrchestrationState: shared mission maps, telemetry/database bridge, tool leases
- * - agentEvidenceService:    worker evidence dossiers and scoring
- * - agentRoundService:       successive-halving rounds and continuations
- * - agentRecoveryService:    worker failure recovery decisions and dispatches
- * - agentFleetService:       autonomous worker fleets and the evidence barrier
- * - agentModelRoutingService: local/frontier model routing
- * - agentWorkspaceLifecycleService: capsule provisioning and worktree reclamation
- * - agentAutonomyPlanService: orchestrator autonomy planning
- * - agentProcessSupervisor:   child process spawn, event wiring, exit outcome
+ * Coordinates orchestration state, evidence, rounds, fleet, workspaces and process supervisor.
  */
 const { spawnSync } = require('child_process');
 const path = require('path');
