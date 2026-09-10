@@ -7,8 +7,8 @@
  * - Formatage introspectif pour sensibiliser l'agent à son état cognitif
  */
 
-const DEFAULT_MAX_DISSONANCE = 50.0;
-const DEFAULT_BASELINE_BUDGET = 100.0;
+const DEFAULT_MAX_DISSONANCE = Math.max(1.0, Number(process.env.GENOS_MAX_DISSONANCE) || 50.0);
+const DEFAULT_BASELINE_BUDGET = Math.max(1.0, Number(process.env.GENOS_BASELINE_BUDGET) || 100.0);
 const DEFAULT_EUREKA_WINDOW_MS = 60 * 1000;
 const DEFAULT_EUREKA_LIMIT = 3;
 const persistTails = new Map();
@@ -37,6 +37,10 @@ function createConscienceState(initial = {}) {
 function evaluateBranch(state, metrics = {}) {
   if (state.isApoptotic) {
     return { state, apoptoticTriggered: false, harmony: 0 };
+  }
+
+  if (metrics.isWaitingQueue || metrics.inQueue) {
+    return { state, apoptoticTriggered: false, harmony: 100 };
   }
 
   const errorsInLoop = Math.max(0, Number(metrics.errorsInLoop) || 0);

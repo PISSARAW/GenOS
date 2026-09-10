@@ -2,7 +2,9 @@ const { listStrategies } = require('../strategies/strategyRegistry');
 const { buildAllocation } = require('./tokenAllocationService');
 const { ORGANIZATIONS } = require('./dynamicOrganizationService');
 
-const MAX_WORKERS = Math.max(1, Number(process.env.GENOS_MAX_WORKERS || process.env.GENOS_MAX_AUTONOMOUS_WORKERS || process.env.GENOS_MAX_ACTIVE_WORKERS) || 8);
+function maxWorkers() {
+  return Math.max(1, Number(process.env.GENOS_MAX_WORKERS || process.env.GENOS_MAX_AUTONOMOUS_WORKERS || process.env.GENOS_MAX_ACTIVE_WORKERS) || 8);
+}
 
 const PRIMITIVE_ALIASES = {
   search_failures: ['diagnose', 'search_memory', 'falsifiable_hypothesis_tree', 'hypotheses', 'hypothesis_evidence', 'probe'],
@@ -75,7 +77,7 @@ function buildAutonomyPlan(contract, budget = {}) {
   const security = profile.type === 'security';
   const competition = selected(contract, 'strategy_arena') || selected(contract, 'genetic_strategy_algorithm') || hasTrait(contract, 'multi_objective');
   const evolution = selected(contract, 'genetic_strategy_algorithm') || hasTrait(contract, 'mutation');
-  const branchCount = security || complex || uncertain ? MAX_WORKERS : 1;
+  const branchCount = security || complex || uncertain ? maxWorkers() : 1;
 
   const phases = [
     phase('retrieve_and_diagnose', ['genos_search_failures', 'genos_diagnose'], 'Retrieve negative knowledge and establish falsifiable hypotheses.'),
@@ -107,8 +109,8 @@ function buildAutonomyPlan(contract, budget = {}) {
     : branches.map((branch, index) => workerRole(branch.label, branch.hypothesis, index === 0 ? 'implementation' : 'independent_reviewer', index === 0 ? 'frontier' : 'standard'));
 
   const requiredTools = [...new Set(realizable.flatMap((entry) => entry.requiredTools))];
-  const totalTokens = Number(budget.tokens ?? 500000);
-  const minimumWorkerTokens = Number(budget.minimumWorkerTokens ?? 8000);
+  const totalTokens = Number(budget.tokens ?? (workers.length > 10 ? Math.max(500000, workers.length * 20000) : 500000));
+  const minimumWorkerTokens = Number(budget.minimumWorkerTokens ?? (workers.length > 10 ? 1000 : 8000));
   const workerShare = Number.isFinite(Number(budget.workerShare))
     ? Math.max(0, Math.min(1, Number(budget.workerShare)))
     : (Number.isFinite(Number(budget.tokenPolicy?.workerShare))
@@ -233,4 +235,10 @@ function buildAutonomyPlan(contract, budget = {}) {
   };
 }
 
-module.exports = { buildAutonomyPlan };
+module.exports = {
+  get MAX_WORKERS() {
+    return maxWorkers();
+  },
+  maxWorkers,
+  buildAutonomyPlan
+};

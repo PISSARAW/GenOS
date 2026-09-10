@@ -246,10 +246,42 @@ pub fn handle_loop_detection(cmd: &crate::args::LoopDetectionCmd) -> Result<(), 
 }
 
 pub fn handle_causality_fork(boundary_id: &str, new_boundary_id: &str) -> Result<(), String> {
-    Err(format!(
-        "Causal fork is unavailable: boundary '{}' cannot be persisted as '{}'.",
-        boundary_id, new_boundary_id
-    ))
+    let capsule_dir = crate::commands::root_resolver::resolve_matrix_root().join("capsules");
+    let _ = fs::create_dir_all(&capsule_dir);
+
+    let mut payload = json!({
+        "parent_boundary": boundary_id,
+        "fork_timestamp": chrono::Utc::now().to_rfc3339()
+    });
+
+    if let Ok(entries) = fs::read_dir(&capsule_dir) {
+        for entry in entries.flatten() {
+            if let Ok(content) = fs::read_to_string(entry.path()) {
+                if let Ok(capsule) = serde_json::from_str::<genos_store::Capsule>(&content) {
+                    if capsule.boundary_id == boundary_id {
+                        payload = capsule.data.clone();
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    let forked_capsule = genos_store::Capsule::create(new_boundary_id, payload);
+    let path = capsule_dir.join(format!("{}.json", forked_capsule.capsule_id));
+    fs::write(&path, serde_json::to_string_pretty(&forked_capsule).unwrap())
+        .map_err(|e| format!("Failed to write forked capsule at '{}': {}", path.display(), e))?;
+
+    let output = json!({
+        "success": true,
+        "boundary_id": boundary_id,
+        "new_boundary_id": new_boundary_id,
+        "capsule_id": forked_capsule.capsule_id.to_string(),
+        "hash": forked_capsule.hash,
+        "status": "FORKED"
+    });
+    println!("{}", serde_json::to_string_pretty(&output).unwrap());
+    Ok(())
 }
 
 pub struct PhenotypeValues {

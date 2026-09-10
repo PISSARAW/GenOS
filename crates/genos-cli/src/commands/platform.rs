@@ -117,7 +117,21 @@ pub struct WorldParams<'a> {
 }
 
 pub fn handle_world_create(provider: &str, root: &str, params: WorldParams) -> Result<(), String> {
-    Err(format!("World creation is unavailable: provider '{}' has no persisted world backend for '{}' at '{}'.", provider, params.world_id, root))
+    let world_path = std::path::Path::new(root).join(params.world_id);
+    std::fs::create_dir_all(&world_path)
+        .map_err(|e| format!("Failed to create world directory at '{}': {}", world_path.display(), e))?;
+    let manifest = json!({
+        "world_id": params.world_id,
+        "provider": provider,
+        "seed": params.seed.unwrap_or("default"),
+        "created_at": chrono::Utc::now().to_rfc3339(),
+        "status": "READY"
+    });
+    let manifest_path = world_path.join("world.json");
+    std::fs::write(&manifest_path, serde_json::to_string_pretty(&manifest).unwrap())
+        .map_err(|e| format!("Failed to write world manifest at '{}': {}", manifest_path.display(), e))?;
+    println!("{}", serde_json::to_string_pretty(&manifest).unwrap());
+    Ok(())
 }
 
 pub fn handle_world_run(world_id: &str, command: &str, sandbox: &str) -> Result<(), String> {
