@@ -67,6 +67,20 @@ async function resolveTargetProcess(db, target) {
   return { pid: row.runtime_pid, child: null, persisted: true };
 }
 
+async function recordChaosAudit(db, target, state) {
+  if (!db) return;
+  const { actor, dryRun, reason, pid, terminated } = state;
+  try {
+    await db.run(
+      'INSERT INTO audit_logs (actor, agent_id, action, resource, decision, reason, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      actor || 'system', target.id, 'CHAOS_INJECT', 'worker', terminated ? 'allow' : 'deny', reason,
+      JSON.stringify({ targetAgentId: target.id, pid, dryRun, terminated })
+    );
+  } catch (error) {
+    console.warn('[Chaos] audit log write failed:', error.message);
+  }
+}
+
 function chaosOutcomeDetail(target, state) {
   const { dryRun, terminated, pid, reason } = state;
   if (dryRun) return `Chaos plan validated for agent '${target.id}' (${reason}); no process terminated.`;
@@ -93,6 +107,8 @@ async function executeChaosKill(target, options = {}, db = null) {
       target.id
     );
   }
+
+  await recordChaosAudit(db, target, { actor: options.actor, dryRun, reason, pid, terminated });
 
   const eventType = dryRun ? 'CHAOS_PLAN_VALIDATED' : (terminated ? 'CHAOS_INJECTED' : 'CHAOS_INJECTION_FAILED');
   const detail = chaosOutcomeDetail(target, { dryRun, terminated, pid, reason });
