@@ -1,3 +1,6 @@
+const { getDatabase } = require('../../../db');
+const telemetry = require('../../telemetryObserver');
+
 function detectSequentialCycle(sequence, maxRepeats) {
   if (sequence.length < 2) return { hasCycle: false };
   for (let period = 1; period <= Math.min(4, Math.floor(sequence.length / 2)); period++) {
@@ -119,8 +122,8 @@ async function cycleDetection(context = {}) {
 
   let budgetPenalized = 0;
   if (hasCycle) {
-    budgetPenalized = await penalizeBudget(getDatabase(), context.agentId || context.targetId, cycleParticipants);
-    const telemetry = require('../telemetryObserver');
+    const db = await getDatabase();
+    budgetPenalized = await penalizeBudget(db, context.agentId || context.targetId, cycleParticipants);
     telemetry.emitEvent({
       eventType: 'COMMUNICATION_CYCLE_DETECTED',
       agentId: context.agentId || context.orchestratorId || 'strategy_adapter',

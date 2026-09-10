@@ -49,7 +49,7 @@ async function directCallGuard(toolName, args) {
   if (!directToolLeaseAllows(toolName)) throw Object.assign(new Error(`Tool '${toolName}' is outside the active MCP lease.`), { code: 'MCP_TOOL_LEASE_DENIED' });
   const argumentError = validateToolArguments(toolName, args);
   if (argumentError) throw argumentError;
-  const circuit = circuitBreaker.canExecute(toolName, 'operator');
+  const circuit = circuitBreaker.canExecute(toolName, 'operator', 'global', args);
   if (!circuit.allowed) throw Object.assign(new Error(circuit.message), { code: circuit.reason || 'MCP_CIRCUIT_OPEN' });
   return circuit;
 }

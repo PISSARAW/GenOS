@@ -12,7 +12,7 @@ use std::os::unix::process::CommandExt;
 
 const DEFAULT_TOOL_TIMEOUT_MS: u64 = 30_000;
 const MAX_OUTPUT_BYTES: usize = 1024 * 1024;
-const PATH_ARGUMENTS: &[&str] = &["agent", "out", "output", "history_file", "input_file", "manifest", "graph_file"];
+const PATH_ARGUMENTS: &[&str] = &["agent", "out", "output", "history_file", "input_file", "manifest", "graph_file", "snapshot"];
 
 fn validate_path_arguments(args: &Value) -> Result<(), String> {
     let Some(object) = args.as_object() else { return Err("Tool arguments must be a JSON object.".into()); };
@@ -445,7 +445,7 @@ fn process_request(line: &str, workspace: &Path) -> Option<Value> {
         }))
     };
 
-    if id.is_none() || method.starts_with("notifications/") {
+    if id.is_none() || id.as_ref().map_or(false, Value::is_null) || method.starts_with("notifications/") || method.starts_with("$/") {
         return None;
     }
 
