@@ -24,9 +24,32 @@ const WORKER_EVIDENCE_EVENTS = new Set([
   'APOPTOSIS_TRIGGERED', 'CELLULAR_APOPTOSIS'
 ]);
 
+// Resolves the two calling conventions used across the codebase:
+//   emit(id, type, action, detail, payload, severity?, status?)
+//   emit(id, type, action, detail, { payload, severity, status })
+// The first is the common form (and previously lost both payload and
+// severity because they were passed as extra positional arguments).
+function resolveEmitArgs(optionsOrPayload = {}, severityArg, statusArg) {
+  const isOptionsStyle = optionsOrPayload !== null
+    && typeof optionsOrPayload === 'object'
+    && Object.prototype.hasOwnProperty.call(optionsOrPayload, 'payload');
+  if (isOptionsStyle) {
+    return {
+      payload: optionsOrPayload.payload || {},
+      severity: severityArg || optionsOrPayload.severity || 'info',
+      status: statusArg !== undefined ? statusArg : optionsOrPayload.status
+    };
+  }
+  return {
+    payload: optionsOrPayload || {},
+    severity: severityArg || 'info',
+    status: statusArg
+  };
+}
+
 function emit(..._args) {
-  const [agentId, eventType, action, detail, options = {}] = _args;
-  const { payload = {}, severity = 'info', status } = options;
+  const [agentId, eventType, action, detail, optionsOrPayload = {}, severityArg, statusArg] = _args;
+  const { payload, severity, status } = resolveEmitArgs(optionsOrPayload, severityArg, statusArg);
   const sessionId = payload.sessionId || payload.executionRunId || payload.runId || `agent-session-${agentId}`;
   return telemetry.emitEvent({ eventType, agentId, action, detail, payload: { ...payload, sessionId }, sessionId, severity, status });
 }
