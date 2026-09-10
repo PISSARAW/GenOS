@@ -1,11 +1,14 @@
 ﻿use serde_json::json;
 use crate::args::{BiologicalCmd, RhizomeCmd, RhizomeSubcommands};
-use crate::commands::rhizome_telemetry;
+use crate::commands::{rhizome_telemetry, syncytium_crdt};
 
 pub fn handle(cmd: &BiologicalCmd) -> Result<(), String> {
     let mode = cmd.mode.trim().to_ascii_lowercase();
 
     if cmd.serve {
+        if mode == "syncytium" {
+            return syncytium_crdt::run(cmd.port, &cmd.mission);
+        }
         return rhizome_telemetry::run(cmd.port);
     }
 

@@ -21,3 +21,5 @@ pub mod desktop;
 pub mod world_runner;
 pub mod trinity_tui;
 pub mod rhizome_telemetry;
+pub mod syncytium_crdt;
+pub mod chaos;

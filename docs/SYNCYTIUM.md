@@ -900,6 +900,52 @@ export GENOS_MIN_TOKENS_PER_WORKER=8000
 export GENOS_SYNCYTIUM_CONVERGENCE_TIMEOUT=60000  # ms
 ```
 
+---
+
+## 17. Édition d'État par CRDTs (Conflict-free Replicated Data Types)
+
+Pour permettre une collaboration multi-agents à haute fréquence ($< 1\text{ s}$ sans blocage ni corruption mémoire), l'état du Syncytium s'appuie sur une structure **CRDT** (Conflict-free Replicated Data Types) en Rust avec horloges de Lamport et journalisation causale.
+
+### 17.1 Architecture Sans Verrou (Non-blocking Convergence)
+
+- **Commutativité et Idempotence** : Le *Parallel Executor* et le *Consistency Guardian* appliquent leurs deltas textuels et mutations de clés-valeurs sans lock bloquant.
+- **Lamport Clocks & Causal Vector** : Chaque opération $\Delta_i$ porte un identifiant unique `op_id`, un compteur Lamport monotone et un horodatage milliseconde.
+- **Suivi des 4 Curseurs d'Agents** : Les curseurs et sélections des 4 agents sont synchronisés en direct avec code couleur dédié :
+  - 🔵 **Shared State Coordinator** (`#3b82f6`)
+  - 🟢 **Parallel Executor** (`#10b981`)
+  - 🟡 **Consistency Guardian** (`#f59e0b`)
+  - 🟣 **Integration Executor** (`#8b5cf6`)
+
+### 17.2 Moteur Time-Travel Milliseconde par Milliseconde
+
+Grâce au journal d'opérations causales immuable, l'état partagé devient intégralement **Time-Travel ready** :
+
+$$
+S(t) = \text{replay}\left(\{ \Delta_i \in \text{OpLog} \mid \text{timestamp}(\Delta_i) \le t \}\right)
+$$
+
+Il est possible de rembobiner l'état exact du document et des variables à n'importe quelle milliseconde pour inspecter où et quand un agent a introduit un bug ou violé un invariant.
+
+---
+
+## 18. Serveur WebSocket et Intégration Éditeur (Monaco Editor)
+
+Le binaire `genos` expose un serveur HTTP et WebSocket temps réel dédié au Syncytium.
+
+```bash
+# Lancer le serveur Syncytium CRDT avec dashboard web et WebSocket
+genos biological --mode syncytium --serve --port 4791
+```
+
+### Endpoints exposés
+
+- `GET /` : Dashboard web interactif avec éditeur collaboratif, badges curseurs et réglette Time-Travel.
+- `GET /ws` : Flux WebSocket bidirectionnel pour synchronisation temps réel sub-seconde des deltas CRDT.
+- `GET /api/syncytium/state` : Snapshot JSON actuel de l'état partagé, texte et curseurs.
+- `GET /api/syncytium/history` : Journal complet des opérations causales avec attribution agent.
+- `POST /api/syncytium/rewind` : Rembobinage de l'état à un `target_ms` ou numéro de step spécifique.
+- `POST /api/syncytium/op` : Injection programmatique d'une opération CRDT.
+
 ### Tuning de synchronisation
 
 Pour missions avec forte contention (beaucoup de conflits) :
