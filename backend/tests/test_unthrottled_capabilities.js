@@ -22,7 +22,7 @@ async function testGabaergicInhibitionFilter() {
     await db.run("INSERT INTO memory_synapses (source_id, target_id, weight, transmitter_type) VALUES ('good-mem-1', 'bad-mem-1', -1.5, 'gaba')");
 
     const res = await vectorMemory.searchMemory('recursion', { limit: 5 }, db);
-    const resultIds = res.map(r => r.id);
+    const resultIds = (res.allScoredExperiences || []).map(r => r.id);
     assert.strictEqual(resultIds.includes('bad-mem-1'), false, 'Inhibited memory bad-mem-1 must be filtered out of active retrieval');
   } finally {
     await closeDatabase();
@@ -59,9 +59,9 @@ async function testMctsSelectDeterministicNonVisitedSort() {
   const db = await getDatabase(tmpDbPath);
   try {
     // Insert 3 nodes with visits = 0 and distinct heuristic values
-    await db.run("INSERT INTO lineage_nodes (id, score, visits, metadata) VALUES ('node-low', 1.0, 0, '{}')");
-    await db.run("INSERT INTO lineage_nodes (id, score, visits, metadata) VALUES ('node-high', 9.0, 0, '{}')");
-    await db.run("INSERT INTO lineage_nodes (id, score, visits, metadata) VALUES ('node-mid', 5.0, 0, '{}')");
+    await db.run("INSERT INTO lineage_nodes (id, label, node_type, score, visits, metadata) VALUES ('node-low', 'Low Node', 'agent', 1.0, 0, '{}')");
+    await db.run("INSERT INTO lineage_nodes (id, label, node_type, score, visits, metadata) VALUES ('node-high', 'High Node', 'agent', 9.0, 0, '{}')");
+    await db.run("INSERT INTO lineage_nodes (id, label, node_type, score, visits, metadata) VALUES ('node-mid', 'Mid Node', 'agent', 5.0, 0, '{}')");
 
     const selectRes = await mctsSelect({ candidates: ['node-low', 'node-high', 'node-mid'] });
     assert.strictEqual(selectRes.success, true);

@@ -10,7 +10,9 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const plan = options.plan || options;
   const mission = options.mission || (arguments[3] || {});
   const assignments = plan.dispatchWorkers || [];
-  const MAX_AUTONOMOUS_WORKERS = 3;
+  const workerGarage = require('./workerGarageService');
+  const configuredMax = Number(process.env.GENOS_MAX_AUTONOMOUS_WORKERS || process.env.GENOS_MAX_ACTIVE_WORKERS);
+  const MAX_AUTONOMOUS_WORKERS = Number.isFinite(configuredMax) && configuredMax > 0 ? Math.floor(configuredMax) : workerGarage.maxActiveWorkers();
   if (!assignments.length) return [];
   if (assignments.length > MAX_AUTONOMOUS_WORKERS) {
     throw Object.assign(new Error(`Autonomous worker fan-out exceeds the ${MAX_AUTONOMOUS_WORKERS}-worker limit.`), { code: 'WORKER_FANOUT_LIMIT' });
@@ -106,10 +108,11 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
     );
     const debit = await db.run(
       `UPDATE agents
-       SET cognitive_budget = MAX(0, COALESCE(cognitive_budget, 0) - ?), updated_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND cognitive_budget >= ?`,
+       SET cognitive_budget = ROUND(MAX(0, COALESCE(cognitive_budget, 0) - ?), 6), updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND (cognitive_budget >= ? OR (? - cognitive_budget) < 0.0001)`,
       perWorkerCognitiveBudget,
       parent.id,
+      perWorkerCognitiveBudget,
       perWorkerCognitiveBudget
     );
     if (debit.changes !== 1) {

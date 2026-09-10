@@ -15,7 +15,8 @@ const CREATE_TABLES_SQL = TABLES_CORE + "\n" + TABLES_EXTENSIONS;
 
 async function initializeSchema(db) {
   await db.exec('PRAGMA journal_mode = WAL;');
-  await db.exec('PRAGMA busy_timeout = 5000;');
+  const busyTimeout = Math.max(1000, Number(process.env.GENOS_SQLITE_BUSY_TIMEOUT_MS) || 30000);
+  await db.exec(`PRAGMA busy_timeout = ${busyTimeout};`);
   await db.exec(`PRAGMA synchronous = ${readSqliteSynchronous(process.env.GENOS_SQLITE_SYNCHRONOUS)};`);
   await db.exec('PRAGMA foreign_keys = ON;');
   await db.exec(`PRAGMA mmap_size = ${readSqliteMmapSize(process.env.GENOS_SQLITE_MMAP_SIZE)};`);

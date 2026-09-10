@@ -2,7 +2,7 @@ const { listStrategies } = require('../strategies/strategyRegistry');
 const { buildAllocation } = require('./tokenAllocationService');
 const { ORGANIZATIONS } = require('./dynamicOrganizationService');
 
-const MAX_WORKERS = Math.max(1, Number(process.env.GENOS_MAX_WORKERS) || 8);
+const MAX_WORKERS = Math.max(1, Number(process.env.GENOS_MAX_WORKERS || process.env.GENOS_MAX_AUTONOMOUS_WORKERS || process.env.GENOS_MAX_ACTIVE_WORKERS) || 8);
 
 const PRIMITIVE_ALIASES = {
   search_failures: ['diagnose', 'search_memory', 'falsifiable_hypothesis_tree', 'hypotheses', 'hypothesis_evidence', 'probe'],

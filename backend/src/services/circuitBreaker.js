@@ -128,7 +128,7 @@ class CircuitBreakerService {
     }
 
     // Anti-loop protection: detect identical consecutive executions even for non-destructive tools
-    const isLoopExempt = /^(?:genos_)?(?:organization_state|worker_inbox|report_progress)$/i.test(toolName);
+    const isLoopExempt = /^(?:genos_)?(?:organization_state|worker_inbox|report_progress|worker_deployment)$/i.test(toolName);
     if (!isLoopExempt) {
       const argSig = this.argumentSignature(args);
       const callSig = `${toolName}:${argSig}`;

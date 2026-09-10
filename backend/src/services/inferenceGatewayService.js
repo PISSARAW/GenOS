@@ -48,6 +48,11 @@ const state = {
   perProvider: new Map()
 };
 
+function activeWorkerScale() {
+  const workers = Number(process.env.GENOS_MAX_ACTIVE_WORKERS || process.env.GENOS_MAX_AUTONOMOUS_WORKERS || process.env.GENOS_MAX_WORKERS);
+  return Number.isFinite(workers) && workers > 0 ? Math.floor(workers) : 3;
+}
+
 function limit() {
   const configured = Number(process.env.GENOS_INFERENCE_MAX_CONCURRENT);
   return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 4;
@@ -55,17 +60,20 @@ function limit() {
 
 function queueCapacity() {
   const configured = Number(process.env.GENOS_INFERENCE_QUEUE_CAPACITY);
-  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 256;
+  const defaultCapacity = Math.max(256, activeWorkerScale() * 4);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : defaultCapacity;
 }
 
 function fairnessCapacity() {
   const configured = Number(process.env.GENOS_INFERENCE_TENANT_QUEUE_CAPACITY);
-  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 64;
+  const defaultFairness = Math.max(64, activeWorkerScale() * 2);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : defaultFairness;
 }
 
 function queueTimeoutMs() {
   const configured = Number(process.env.GENOS_INFERENCE_QUEUE_TIMEOUT_MS);
-  return Number.isFinite(configured) && configured >= 0 ? Math.floor(configured) : 120000;
+  const defaultTimeout = activeWorkerScale() > 10 ? 600000 : 120000;
+  return Number.isFinite(configured) && configured >= 0 ? Math.floor(configured) : defaultTimeout;
 }
 
 function queueDepth() {

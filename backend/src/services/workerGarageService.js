@@ -1,8 +1,14 @@
-const MAX_ACTIVE_WORKERS = 3;
+const DEFAULT_MAX_ACTIVE_WORKERS = 3;
+const MAX_ACTIVE_WORKERS = DEFAULT_MAX_ACTIVE_WORKERS;
+
+function maxActiveWorkers() {
+  const configured = Number(process.env.GENOS_MAX_ACTIVE_WORKERS);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : DEFAULT_MAX_ACTIVE_WORKERS;
+}
 
 function projectCapacity() {
   const configured = Number(process.env.GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT);
-  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 12;
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : Math.max(12, maxActiveWorkers());
 }
 
 const MISSION_STOP_WORDS = new Set([
@@ -120,7 +126,7 @@ async function state(db, orchestratorId) {
   const isParentDead = parent && (Boolean(parent.is_apoptotic) || ['apoptosis', 'terminated', 'completed', 'error'].includes(parent.status));
   if (isParentDead) {
     return {
-      capacity: MAX_ACTIVE_WORKERS,
+      capacity: maxActiveWorkers(),
       occupied: 0,
       available: 0,
       activeWorkers: [],
@@ -138,11 +144,12 @@ async function state(db, orchestratorId) {
     orchestratorId
   );
   const activeWorkers = dbWorkers;
+  const capacity = maxActiveWorkers();
 
   return {
-    capacity: MAX_ACTIVE_WORKERS,
+    capacity,
     occupied: activeWorkers.length,
-    available: Math.max(0, MAX_ACTIVE_WORKERS - activeWorkers.length),
+    available: Math.max(0, capacity - activeWorkers.length),
     activeWorkers: activeWorkers.map((worker, index) => ({ ...worker, slot: index + 1 }))
   };
 }
@@ -150,8 +157,9 @@ async function state(db, orchestratorId) {
 async function requireAvailableSlot(db, orchestratorId, workerId = null) {
   const garage = await state(db, orchestratorId);
   const alreadyActive = workerId && garage.activeWorkers.some((worker) => worker.id === workerId);
+  const limit = maxActiveWorkers();
   if (!alreadyActive && garage.available === 0) {
-    const error = new Error(`Orchestrator '${orchestratorId}' already has ${MAX_ACTIVE_WORKERS} active workers. Complete or stop one worker before dispatching another.`);
+    const error = new Error(`Orchestrator '${orchestratorId}' already has ${limit} active workers. Complete or stop one worker before dispatching another.`);
     error.code = 'WORKER_GARAGE_FULL';
     error.garage = garage;
     throw error;
@@ -197,6 +205,7 @@ async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }
     throw error;
   }
   await requireAvailableSlot(db, orchestratorId, workerId);
+  const limit = maxActiveWorkers();
   const reservation = await db.run(
     `UPDATE agents SET name = ?, role = ?, current_task = ?, status = 'running', updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'idle' AND (
@@ -204,10 +213,10 @@ async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }
        WHERE active.parent_agent_id = ? AND active.execution_mode = 'worker'
          AND (active.status = 'running' OR (active.status = 'blocked' AND active.current_task = 'Stopping on operator request'))
     ) < ?`,
-    name, role, mission, workerId, orchestratorId, orchestratorId, MAX_ACTIVE_WORKERS
+    name, role, mission, workerId, orchestratorId, orchestratorId, limit
   );
   if (!reservation.changes) {
-    const error = new Error(`All ${MAX_ACTIVE_WORKERS} worker slots are occupied.`);
+    const error = new Error(`All ${limit} worker slots are occupied.`);
     error.code = 'WORKER_GARAGE_FULL';
     error.garage = await state(db, orchestratorId);
     throw error;
@@ -221,7 +230,10 @@ async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }
 }
 
 module.exports = {
-  MAX_ACTIVE_WORKERS,
+  get MAX_ACTIVE_WORKERS() {
+    return maxActiveWorkers();
+  },
+  maxActiveWorkers,
   projectCapacity,
   workerName,
   missionTokens,
