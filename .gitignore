@@ -35,3 +35,4 @@ mcp/mcp-debug.log
 .genos_thalamus_cache.json
 test-repo/
 test_thalamus.rs
+backend/tests/.tmp-*
