@@ -148,7 +148,12 @@ async function main() {
       }
     }
     if (action === 'report_progress') {
-      const parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+      let parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+      if (!parent) {
+        await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
+          VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
+        parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+      }
       if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
       const result = userProgress.report({
         orchestratorId,
@@ -238,11 +243,17 @@ async function main() {
         : await dynamicOrganization.inbox(db, {
           orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit
         });
-      process.stdout.write(JSON.stringify(result));
+      process.stdout.write(JSON.stringify(result || {
+        orchestratorId,
+        organization: 'specialist_expert_committee',
+        version: 0,
+        policy: { topology: 'hub_and_spoke', exchange: 'indirect', visibility: 'attributed', routing: 'orchestrator' },
+        reason: 'Default initial topology'
+      }));
       return;
     }
     if (action === 'dispatch_trinity') {
-      const parent = await db.get("SELECT id, workspace_root FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+      const parent = await db.get("SELECT a.id, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
       if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
       if (!await contracts.getLatestContract(db, orchestratorId)) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
       const garage = await workerGarage.state(db, orchestratorId);
@@ -280,7 +291,7 @@ async function main() {
       return;
     }
     if (action === 'dispatch_team') {
-      const parent = await db.get("SELECT id, workspace_root FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+      const parent = await db.get("SELECT a.id, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
       if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
       if (!await contracts.getLatestContract(db, orchestratorId)) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
       const garage = await workerGarage.state(db, orchestratorId);

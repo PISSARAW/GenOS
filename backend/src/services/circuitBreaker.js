@@ -124,35 +124,38 @@ class CircuitBreakerService {
     }
 
     // Anti-loop protection: detect identical consecutive executions even for non-destructive tools
-    const argSig = this.argumentSignature(args);
-    const callSig = `${toolName}:${argSig}`;
-    const history = this.executionHistory.get(scope) || { callSig: '', count: 0 };
+    const isLoopExempt = /^genos_(?:organization_state|worker_inbox|report_progress)$/i.test(toolName);
+    if (!isLoopExempt) {
+      const argSig = this.argumentSignature(args);
+      const callSig = `${toolName}:${argSig}`;
+      const history = this.executionHistory.get(scope) || { callSig: '', count: 0 };
 
-    if (history.callSig === callSig) {
-      history.count += 1;
-    } else {
-      history.callSig = callSig;
-      history.count = 1;
-    }
-    if (!this.executionHistory.has(scope) && this.executionHistory.size >= this.maxExecutionScopes) {
-      const oldestScope = this.executionHistory.keys().next().value;
-      this.executionHistory.delete(oldestScope);
-    }
-    this.executionHistory.set(scope, history);
+      if (history.callSig === callSig) {
+        history.count += 1;
+      } else {
+        history.callSig = callSig;
+        history.count = 1;
+      }
+      if (!this.executionHistory.has(scope) && this.executionHistory.size >= this.maxExecutionScopes) {
+        const oldestScope = this.executionHistory.keys().next().value;
+        this.executionHistory.delete(oldestScope);
+      }
+      this.executionHistory.set(scope, history);
 
-    if (history.count >= this.maxConsecutiveToolCalls) {
-      telemetry.emitEvent({
-        eventType: 'CIRCUIT_BREAKER_TOOL_LOOP',
-        agentId: typeof scope === 'string' ? scope : 'circuit_breaker',
-        action: 'TOOL_LOOP_TRIP',
-        detail: `Tool '${toolName}' executed identically ${history.count} consecutive times in scope '${scope}'. Throttling loop.`,
-        severity: 'warning'
-      });
-      return {
-        allowed: false,
-        reason: 'TOOL_EXECUTION_LOOP',
-        message: `Execution of tool '${toolName}' blocked: repeated identically ${history.count} consecutive times.`
-      };
+      if (history.count >= this.maxConsecutiveToolCalls) {
+        telemetry.emitEvent({
+          eventType: 'CIRCUIT_BREAKER_TOOL_LOOP',
+          agentId: typeof scope === 'string' ? scope : 'circuit_breaker',
+          action: 'TOOL_LOOP_TRIP',
+          detail: `Tool '${toolName}' executed identically ${history.count} consecutive times in scope '${scope}'. Throttling loop.`,
+          severity: 'warning'
+        });
+        return {
+          allowed: false,
+          reason: 'TOOL_EXECUTION_LOOP',
+          message: `Execution of tool '${toolName}' blocked: repeated identically ${history.count} consecutive times.`
+        };
+      }
     }
 
     const state = this.checkState(scope);

@@ -161,7 +161,7 @@ async function executeTool(req, res) {
     return res.status(202).json({ success: false, approvalRequired: true, approvalId, policy: zeroTrust });
   }
 
-  const check = circuitBreaker.canExecute(toolName, userRole);
+  const check = circuitBreaker.canExecute(toolName, userRole, agentId || 'global', args);
   if (!check.allowed) {
     return mcpError(res, 503, check.reason || 'CIRCUIT_OPEN', check.message);
   }
@@ -186,7 +186,7 @@ async function dryRun(req, res, next) {
     const db = await getDatabase();
     const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
     if (!tool) return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool: ${toolName}` } });
-    const check = circuitBreaker.canExecute(toolName, (req.user && req.user.role) || 'viewer');
+    const check = circuitBreaker.canExecute(toolName, (req.user && req.user.role) || 'viewer', 'global', args);
     if (!check.allowed) return res.status(503).json({ error: { code: check.reason, message: check.message } });
     const result = vfsSandboxService.simulateDryRun(toolName, args, vfsState);
     circuitBreaker.recordSuccess(toolName);
