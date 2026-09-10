@@ -154,9 +154,28 @@ function validateDossierInfluence(report, workerIds, options = {}) {
   return true;
 }
 
+function clusterWorkerDossiers(dossiers, clusterSize = 10) {
+  const clusters = [];
+  const normalizedSize = Math.max(1, clusterSize);
+  for (let i = 0; i < dossiers.length; i += normalizedSize) {
+    const chunk = dossiers.slice(i, i + normalizedSize);
+    const clusterIndex = Math.floor(i / normalizedSize) + 1;
+    clusters.push({
+      clusterId: `tissue_cluster_${clusterIndex}`,
+      workerCount: chunk.length,
+      workerIds: chunk.map((d) => d.workerId),
+      roles: [...new Set(chunk.map((d) => d.role).filter(Boolean))],
+      digest: dossierDigest(chunk)
+    });
+  }
+  return clusters;
+}
+
 function buildWorkerSynthesisPrompt(originalPrompt, dossiers) {
   const isLargeFleet = dossiers.length > (Number(process.env.GENOS_MAX_STRICT_DOSSIER_INFLUENCE) || 12);
-  const serializedDossiers = isLargeFleet ? JSON.stringify(dossierDigest(dossiers)) : JSON.stringify(dossiers);
+  const serializedDossiers = isLargeFleet
+    ? JSON.stringify(clusterWorkerDossiers(dossiers, 10))
+    : JSON.stringify(dossiers);
   const influenceInstruction = isLargeFleet
     ? `Your JSON evidence report MUST include dossierInfluence: objects for the key contributing, pivotal, or rejected workers with a non-empty influence string and usedClaims array (covering at least the primary evidence used). The runtime verifies this invariant.`
     : 'Your JSON evidence report MUST include dossierInfluence: one object per workerId with a non-empty influence string and usedClaims array. A rejected dossier still needs an influence entry explaining what was rejected and why. The runtime verifies this invariant.';
@@ -270,6 +289,7 @@ module.exports = {
   validateWorkerDossiers,
   validateDossierInfluence,
   buildWorkerSynthesisPrompt,
+  clusterWorkerDossiers,
   dossierDigest,
   boundedScore,
   evidenceScore

@@ -71,6 +71,13 @@ async function run() {
   const prompt = agentEvidence.buildWorkerSynthesisPrompt('Original user task', manyDossiers);
   assert.ok(prompt.includes('MANDATORY FINAL SYNTHESIS PHASE'));
   assert.ok(prompt.includes('key contributing, pivotal, or rejected workers'));
+  assert.ok(prompt.includes('tissue_cluster_1'));
+
+  const clusters = agentEvidence.clusterWorkerDossiers(manyDossiers, 10);
+  assert.equal(clusters.length, 5, `Expected 5 clusters of 10 workers for 50 dossiers, got ${clusters.length}`);
+  assert.equal(clusters[0].clusterId, 'tissue_cluster_1');
+  assert.equal(clusters[0].workerCount, 10);
+  assert.equal(clusters[0].workerIds.length, 10);
 
   console.log('--- 3. Testing Token Allocation Scaling for 100 Workers ---');
   // Plan with 100 branches
