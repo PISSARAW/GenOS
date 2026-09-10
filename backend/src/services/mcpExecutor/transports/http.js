@@ -16,10 +16,7 @@ async function callHttpFn(url, toolName, options = {}) {
     const initPayload = assertRpcResponse(initResponse.payload, 1, 'initialize');
     const sessionHeaders = initResponse.sessionId ? { 'Mcp-Session-Id': initResponse.sessionId } : {};
     if (initPayload.error) throw new Error(initPayload.error.message || 'MCP initialize failed.');
-    await fetchHttpPhase(url, { method: 'POST', headers: { 'content-type': 'application/json', ...protocolHeaders, ...sessionHeaders, ...leaseHeaders, ...auth }, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) }, deadlineAt, 'initialized notification', async (response) => {
-      if (!response.ok) throw new Error(await describeHttpError(response, 'initialized notification'));
-      return null;
-    });
+    await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...protocolHeaders, ...sessionHeaders, ...leaseHeaders, ...auth }, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }), signal: AbortSignal.timeout(Math.max(1000, deadlineAt - Date.now())) });
     const payload = assertRpcResponse(await fetchHttpPhase(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...protocolHeaders, ...sessionHeaders, ...leaseHeaders, ...auth }, body: JSON.stringify(rpcRequest(2, 'tools/call', { name: toolName, arguments: args })) }, deadlineAt, 'tools/call', async (response) => {
       if (!response.ok) throw new Error(await describeHttpError(response, 'tools/call'));
       return readMcpHttpResponse(response);
