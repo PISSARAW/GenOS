@@ -1,5 +1,5 @@
 const assert = require('assert');
-const aTeam = require('./src/services/aTeamService');
+const aTeam = require('../src/services/aTeamService');
 
 const analysis = aTeam.analyzeMission('Construire une interface React, une API Express et sécuriser OAuth avec des tests.');
 assert.equal(analysis.recommended, true);

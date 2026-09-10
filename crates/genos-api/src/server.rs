@@ -87,6 +87,10 @@ pub fn handle_http_request(
                 }).to_string());
             }
             auth.verify_key(&token).unwrap_or("anonymous").to_string()
+        } else if auth.has_keys() {
+            return (401, vec![("Content-Type".into(), "application/json".into())], json!({
+                "error": { "message": "Authentication is required for this API endpoint", "type": "authentication_error" }
+            }).to_string());
         } else {
             "anonymous".to_string()
         };

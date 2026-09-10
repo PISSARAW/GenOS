@@ -3,7 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const agentCapsules = require('./src/services/agentCapsuleService');
+const agentCapsules = require('../src/services/agentCapsuleService');
 
 async function run() {
   const capsuleRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-capsule-bootstrap-'));

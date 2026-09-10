@@ -14,7 +14,7 @@ const circuitBreaker = require('../src/services/circuitBreaker');
 const { hashKey } = require('../src/middleware/auth');
 const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
-const TEST_PORT = 4499;
+const TEST_PORT = 4501;
 let server = null;
 let db = null;
 let totalTests = 0;

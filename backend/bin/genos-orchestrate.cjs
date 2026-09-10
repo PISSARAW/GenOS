@@ -63,10 +63,19 @@ function tokenUsage(runs) {
 async function main() {
   const initDb = await getDatabase();
   try {
+    await runtime.reconcilePersistedRuntimes(initDb);
+    const topLevelMissionActions = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity']);
     if (!orchestratorId) {
-      if (action !== 'orchestrate') {
-        const recent = await initDb.get("SELECT id FROM agents WHERE execution_mode = 'orchestrator' ORDER BY created_at DESC LIMIT 1");
-        if (recent) orchestratorId = recent.id;
+      if (!topLevelMissionActions.has(action)) {
+        const active = await initDb.get(`
+          SELECT a.id FROM agents a
+          WHERE a.execution_mode = 'orchestrator'
+            AND a.status NOT IN ('completed', 'terminated', 'apoptosis', 'error')
+            AND (a.is_apoptotic = 0 OR a.is_apoptotic IS NULL)
+          ORDER BY a.updated_at DESC, a.created_at DESC
+          LIMIT 1
+        `);
+        if (active) orchestratorId = active.id;
       }
       if (!orchestratorId) orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     }
@@ -253,9 +262,17 @@ async function main() {
       return;
     }
     if (action === 'dispatch_trinity') {
-      const parent = await db.get("SELECT a.id, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
+      let parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
+      if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error'].includes(parent.status))) {
+        orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
+          VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
+        parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
+      }
       if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
-      if (!await contracts.getLatestContract(db, orchestratorId)) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
+      if (!await contracts.getLatestContract(db, orchestratorId)) {
+        await contracts.saveContract(db, { agentId: orchestratorId, problem: task, createdBy: 'mcp_' + action });
+      }
       const garage = await workerGarage.state(db, orchestratorId);
       if (garage.available < 3) {
         const error = new Error(`Trinity requires three free worker slots, but only ${garage.available} are available.`);
@@ -291,9 +308,17 @@ async function main() {
       return;
     }
     if (action === 'dispatch_team') {
-      const parent = await db.get("SELECT a.id, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
+      let parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
+      if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error'].includes(parent.status))) {
+        orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
+          VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
+        parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
+      }
       if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
-      if (!await contracts.getLatestContract(db, orchestratorId)) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
+      if (!await contracts.getLatestContract(db, orchestratorId)) {
+        await contracts.saveContract(db, { agentId: orchestratorId, problem: task, createdBy: 'mcp_' + action });
+      }
       const garage = await workerGarage.state(db, orchestratorId);
       const subSystems = Array.isArray(request.sub_systems)
         ? request.sub_systems
@@ -395,7 +420,7 @@ async function main() {
     }
     await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
       VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, task);
-    await db.run(`UPDATE agents SET status = 'idle', current_task = ? WHERE id = ?`, task, id);
+    await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ? WHERE id = ?`, task, id);
     const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
     await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task,
       modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: request.executionBudget || {},

@@ -1,7 +1,7 @@
 const assert = require('assert/strict');
 process.env.GENOS_SECRET_KEY = 'saml-validation-test-key';
-const vault = require('./src/services/secretVault');
-const { buildSaml } = require('./src/routes/ssoRoutes');
+const vault = require('../src/services/secretVault');
+const { buildSaml } = require('../src/routes/ssoRoutes');
 
 const provider = {
   id: 'saml-test',

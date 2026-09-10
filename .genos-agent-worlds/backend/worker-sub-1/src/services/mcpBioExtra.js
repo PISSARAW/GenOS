@@ -1,4 +1,4 @@
-const { handleBioExtraTool } = require('./handlers/extraHandlers');
+const { handleBioExtraTool } = require('./mcpBioExtra/handlers/extraHandlers');
 const { runGenosSync } = require('./genosCli');
 
 function handleBioCall(cmd, timeoutMs) {

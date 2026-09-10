@@ -1,4 +1,4 @@
-const { handleBioExtraTool } = require('./handlers/extraHandlers');
+const { handleBioExtraTool, BIO_EXTRA_HANDLERS } = require('./mcpBioExtra/handlers/extraHandlers');
 const { runGenosSync } = require('./genosCli');
 
 function handleBioCall(cmd, timeoutMs) {
@@ -80,12 +80,13 @@ function getToolHandler(toolName) {
   return handlers[toolName];
 }
 
-async function executeBioExtra(toolName, args = {}, options = {}) {
+function executeBioExtra(toolName, args = {}, options = {}) {
   const timeoutMs = Math.max(1, Number(options.timeoutMs) || 30000);
   if (!toolName.startsWith('genos_')) return null;
 
-  const extraHandler = await handleBioExtraTool(toolName, args, timeoutMs);
-  if (extraHandler !== null) return extraHandler;
+  if (BIO_EXTRA_HANDLERS && BIO_EXTRA_HANDLERS[toolName]) {
+    return handleBioExtraTool(toolName, args, timeoutMs);
+  }
 
   const handler = getToolHandler(toolName);
   if (handler) return handler(args, timeoutMs);
@@ -155,4 +156,22 @@ async function executeBioExtra(toolName, args = {}, options = {}) {
   return null;
 }
 
-module.exports = { executeBioExtra };
+function isBioExtraTool(toolName) {
+  const name = String(toolName || '').trim();
+  if (!name) return false;
+  if (Boolean(getToolHandler(name))) return true;
+  const inMemory = [
+    'genos_quantitative_genetics', 'genos_coevolution', 'genos_lamarckian_mutation',
+    'genos_dna_methylation', 'genos_molecular_chaperone', 'genos_necrosis_ledger',
+    'genos_multisensory_integration', 'genos_thalamic_filtering', 'genos_social_trust',
+    'genos_routing_algorithm'
+  ];
+  if (inMemory.includes(name)) return true;
+  try {
+    const { BIO_EXTRA_HANDLERS } = require('./mcpBioExtra/handlers/extraHandlers');
+    if (BIO_EXTRA_HANDLERS && BIO_EXTRA_HANDLERS[name]) return true;
+  } catch (_) {}
+  return false;
+}
+
+module.exports = { executeBioExtra, isBioExtraTool };

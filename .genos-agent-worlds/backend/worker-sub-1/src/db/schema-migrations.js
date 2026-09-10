@@ -103,6 +103,10 @@ async function applyVersionedMigrations(db) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
     await db.run('UPDATE OR IGNORE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
   }
+  await db.run(`UPDATE global_alerts
+    SET organization_id = (SELECT organization_id FROM workspaces WHERE workspaces.name = global_alerts.workspace_name GROUP BY workspaces.name HAVING COUNT(*) = 1),
+        project_id = (SELECT project_id FROM workspaces WHERE workspaces.name = global_alerts.workspace_name GROUP BY workspaces.name HAVING COUNT(*) = 1)
+    WHERE organization_id IS NULL OR project_id IS NULL`);
   await migrateTenantScopes(db);
 
   const evaluationColumns = await db.all('PRAGMA table_info(evaluation_jobs)');
@@ -158,6 +162,10 @@ async function applyVersionedMigrations(db) {
   }
 }
 
-module.exports = { applyVersionedMigrations, migrateLegacySchema };
+module.exports = {
+  applyVersionedMigrations,
+  migrateLegacySchema,
+  migrateNotificationPreferenceScope
+};
 
 async function migrateLegacySchema(db) {}

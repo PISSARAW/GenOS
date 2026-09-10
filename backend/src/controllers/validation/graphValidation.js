@@ -1,3 +1,5 @@
+const { validateWorkflowCondition } = require('../../services/workflowConditions');
+
 function validateGraphStructure(graph) {
   const errors = [];
   if (!graph || typeof graph !== 'object') errors.push('Workflow graph must be an object.');
@@ -57,14 +59,14 @@ function validateConditionsAndIterations(nodes, errors) {
   });
 }
 
-function validateIncomingEdges(nodes, edges, errors) {
+function validateIncomingEdges(validNodes, edges, errors) {
   const incoming = new Set(edges.filter((edge) => Boolean(edge && typeof edge === 'object')).map((edge) => edge.target));
-  if (nodes.length > 1 && validNodes.some((node) => !incoming.has(node.id) && node.type !== 'trigger' && node.type !== 'input')) {
+  if (validNodes.length > 1 && validNodes.some((node) => !incoming.has(node.id) && node.type !== 'trigger' && node.type !== 'input')) {
     errors.push('Every non-trigger node must have an incoming edge.');
   }
 }
 
-function validateModelRequirements(nodes, errors) {
+function validateModelRequirements(validNodes, errors) {
   const requiresModel = (node) => /\b(llm|agent|model)\b/i.test([node.kind, node.data?.kind, node.data?.label, node.type].filter(Boolean).join(' '));
   validNodes.filter(requiresModel).forEach((node) => {
     if (!(node.model || node.data?.model || node.modelRouting?.primary || node.data?.modelRouting?.primary || process.env.GENOS_DEFAULT_MODEL)) {
@@ -81,8 +83,8 @@ function validateGraph(graph) {
   validateEdges(edges, ids, errors);
   if (detectCycleInGraph(validNodes, edges)) errors.push('Workflow graph must be acyclic.');
   validateConditionsAndIterations(nodes, errors);
-  validateIncomingEdges(nodes, edges, errors);
-  validateModelRequirements(nodes, errors);
+  validateIncomingEdges(validNodes, edges, errors);
+  validateModelRequirements(validNodes, errors);
   return { valid: errors.length === 0, errors, nodeCount: nodes.length, edgeCount: edges.length };
 }
 

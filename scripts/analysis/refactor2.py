@@ -1,4 +1,4 @@
-﻿import os
+import os
 import re
 
 fields = ['nervous_system', 'astrocyte', 'myelinator', 'microglia', 'ependymal', 'mind', 'cilia', 'vacuole', 'autonomic_ns', 'muscle']

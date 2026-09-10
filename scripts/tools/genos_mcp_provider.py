@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 import json
 import urllib.request
 import argparse

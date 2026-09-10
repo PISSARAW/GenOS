@@ -12,6 +12,7 @@ const { getDatabase, closeDatabase, withTransaction } = require('../src/db');
 const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
 const TEST_PORT = 4099;
+let actualPort = TEST_PORT;
 let server = null;
 let db = null;
 let passedCount = 0;
@@ -35,7 +36,7 @@ function request(options, body = null) {
   return new Promise((resolve, reject) => {
     const req = http.request({
       hostname: 'localhost',
-      port: TEST_PORT,
+      port: actualPort,
       ...reqOptions,
       headers: {
         'Content-Type': 'application/json',
@@ -60,14 +61,36 @@ function request(options, body = null) {
 
 async function runTests() {
   console.log('=== STARTING GENOS BACKEND VERIFICATION SUITE ===\n');
-  const testDbPath = path.resolve(__dirname, 'test_genos.db');
-  if (fs.existsSync(testDbPath)) fs.unlinkSync(testDbPath);
+  const testDbPath = path.resolve(__dirname, `test_genos_${process.pid}.db`);
+  for (const ext of ['', '-wal', '-shm']) {
+    const p = testDbPath + ext;
+    if (fs.existsSync(p)) {
+      try { fs.unlinkSync(p); } catch (_) {}
+    }
+  }
 
   db = await getDatabase(testDbPath);
   const app = createApp();
   server = http.createServer(app);
-  await new Promise(resolve => server.listen(TEST_PORT, resolve));
-  console.log(`Test server active on port ${TEST_PORT}\n`);
+  await new Promise((resolve, reject) => {
+    server.once('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        const fallbackServer = http.createServer(app);
+        server = fallbackServer;
+        fallbackServer.listen(0, () => {
+          actualPort = fallbackServer.address().port;
+          resolve();
+        });
+      } else {
+        reject(err);
+      }
+    });
+    server.listen(TEST_PORT, () => {
+      actualPort = server.address().port;
+      resolve();
+    });
+  });
+  console.log(`Test server active on port ${actualPort}\n`);
 
   try {
     // 1. SQLite WAL Mode & Transaction Integrity
@@ -86,6 +109,7 @@ async function runTests() {
     // require the workspace row to exist, and durable snapshots require a real
     // directory on disk.
     const coreWorkspacePath = path.join(__dirname, '.tmp-ws-genos-core');
+    fs.rmSync(coreWorkspacePath, { recursive: true, force: true });
     fs.mkdirSync(path.join(coreWorkspacePath, 'src'), { recursive: true });
     fs.writeFileSync(path.join(coreWorkspacePath, 'src', 'parser.js'), 'function parse(input){ if (!input) return null; return input; }\n');
     // Bisection runs only allow-listed test commands now, so give the
@@ -312,8 +336,11 @@ async function runTests() {
   } finally {
     server.close();
     await closeDatabase();
-    if (fs.existsSync(testDbPath)) {
-      try { fs.unlinkSync(testDbPath); } catch (e) {}
+    for (const ext of ['', '-wal', '-shm']) {
+      const p = testDbPath + ext;
+      if (fs.existsSync(p)) {
+        try { fs.unlinkSync(p); } catch (e) {}
+      }
     }
     fs.rmSync(path.join(__dirname, '.tmp-ws-genos-core'), { recursive: true, force: true });
   }
@@ -321,6 +348,7 @@ async function runTests() {
   if (failedCount > 0) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 runTests().catch(err => {

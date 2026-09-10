@@ -1,7 +1,7 @@
 {
-  "agent_id": "76e1f9ee-1bcf-4612-91fb-650d28ab71db",
-  "branch_id": "branch-ee87a363",
-  "created_at": "2026-09-10T05:11:35.148253900+00:00",
+  "agent_id": "3c886647-2f6a-4ee9-8850-c5a5efbb22b1",
+  "branch_id": "branch-e7890aee",
+  "created_at": "2026-09-10T05:22:15.182187700+00:00",
   "genome": {
     "apiVersion": "v0alpha1",
     "bud_scars": 0,
@@ -10,7 +10,7 @@
       "reason",
       "mutate"
     ],
-    "cell_id": "76e1f9ee-1bcf-4612-91fb-650d28ab71db",
+    "cell_id": "3c886647-2f6a-4ee9-8850-c5a5efbb22b1",
     "cognition": {
       "conscience": {
         "baseline_budget": 100.0,
@@ -34,7 +34,7 @@
     },
     "hayflick_limit": 50,
     "identity": {
-      "cell_id": "76e1f9ee-1bcf-4612-91fb-650d28ab71db",
+      "cell_id": "3c886647-2f6a-4ee9-8850-c5a5efbb22b1",
       "name": "gRPC worker",
       "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
       "role": "worker"
@@ -88,12 +88,12 @@
       ]
     }
   },
-  "snapshot_id": "snap-ee87a363714d4ef7bf4e3ab980457531",
+  "snapshot_id": "snap-e7890aee698842d9bb233f77b8dccf77",
   "state": {
     "dissonance": 0.0,
     "entropy": 0.42,
     "execution_status": "quiescent",
-    "genesis_hash": "717a30e61203d3384e744a8e985aca9660f4a00e8c4bb067bf607aed29259b86",
+    "genesis_hash": "78233ad9d1dce9a6afffd7c7b119859e32667024aa622a001b5e6e050030c142",
     "working_memory": []
   },
   "world_id": "world-matrix-0"

@@ -4,7 +4,7 @@ const os = require('os');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
-const { initializeSchema } = require('./src/db/schema');
+const { initializeSchema } = require('../src/db/schema');
 
 async function main() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-agent-status-'));

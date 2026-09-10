@@ -116,6 +116,19 @@ async function findReusableWorker(db, orchestratorId, { mission, role } = {}) {
 }
 
 async function state(db, orchestratorId) {
+  const parent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', orchestratorId);
+  const isParentDead = parent && (Boolean(parent.is_apoptotic) || ['apoptosis', 'terminated', 'completed', 'error'].includes(parent.status));
+  if (isParentDead) {
+    return {
+      capacity: MAX_ACTIVE_WORKERS,
+      occupied: 0,
+      available: 0,
+      activeWorkers: [],
+      orchestratorStatus: parent.status,
+      isApoptotic: Boolean(parent.is_apoptotic)
+    };
+  }
+
   const dbWorkers = await db.all(
     `SELECT id, name, role, current_task as currentTask, status, created_at as createdAt
      FROM agents
@@ -147,7 +160,14 @@ async function requireAvailableSlot(db, orchestratorId, workerId = null) {
   if (project?.project_id) {
     const activeProject = await db.get(`SELECT COUNT(*) AS count
       FROM agents a JOIN workspaces w ON w.id = a.workspace_id
-      WHERE a.execution_mode = 'worker' AND a.status IN ('running', 'blocked')
+      WHERE a.execution_mode = 'worker'
+        AND (a.status = 'running' OR (a.status = 'blocked' AND a.current_task = 'Stopping on operator request'))
+        AND a.parent_agent_id IN (
+          SELECT o.id FROM agents o
+          WHERE o.execution_mode = 'orchestrator'
+            AND o.status NOT IN ('completed', 'terminated', 'apoptosis', 'error')
+            AND (o.is_apoptotic = 0 OR o.is_apoptotic IS NULL)
+        )
         AND w.organization_id = ? AND w.project_id = ?`, project.organization_id, project.project_id);
     if (!alreadyActive && Number(activeProject?.count || 0) >= projectCapacity()) {
       const error = new Error(`Project '${project.project_id}' already has ${projectCapacity()} active workers.`);

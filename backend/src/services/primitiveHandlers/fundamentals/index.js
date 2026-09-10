@@ -103,7 +103,7 @@ async function fork(context) {
       role: context.role || 'worker',
       mission: context.mission || 'strategy_fork'
     });
-    const agentWorkspaceLifecycle = require('../agentWorkspaceLifecycleService');
+    const agentWorkspaceLifecycle = require('../../agentWorkspaceLifecycleService');
     const sourceRoot = parent.workspace_root || context.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
     const workerWorkspaceRoot = await agentWorkspaceLifecycle.createIsolatedWorkspace(sourceRoot, id, context.capsuleRoot);
     
@@ -234,7 +234,7 @@ async function slmRoute(context = {}) {
 }
 
 async function bisectAgent(context) {
-  const bisectService = require('../bisectionService');
+  const bisectService = require('../../bisectionService');
   const workspaceId = context.workspaceId || context.agent_id;
   if (workspaceId && (Array.isArray(context.snapshotHistory) || context.testCommand || context.bugTrigger)) {
     if (context.predicate !== undefined && typeof context.predicate !== 'function') {
@@ -259,7 +259,7 @@ function entropyCheck(context) {
   if (!context || !Array.isArray(context.actionHistory) || context.actionHistory.length === 0) {
     return { success: false, error: 'actionHistory required for entropy check.' };
   }
-  const swarmMetricsService = require('../swarmMetricsService');
+  const swarmMetricsService = require('../../swarmMetricsService');
   const metrics = swarmMetricsService.calculateShannonEntropy(context.actionHistory);
   return {
     success: true,
@@ -362,7 +362,7 @@ async function verify(context) {
 }
 
 async function vfsDryRun(context) {
-  const vfs = require('../vfsSandboxService');
+  const vfs = require('../../vfsSandboxService');
   if (context.workspaceId && context.patch) {
     try {
       const res = vfs.dryRunPatch(context.workspaceId, context.patch, context.vfsState || {});
@@ -478,7 +478,7 @@ async function cryptobiosisThaw(context) {
 }
 
 async function worktreeCleanup(context) {
-  const wsMod = require('../agentWorkspaceLifecycleService');
+  const wsMod = require('../../agentWorkspaceLifecycleService');
   const db = await getDatabase();
   const count = await wsMod.reconcileWorkspaceCleanup(db);
   return { success: true, count, detail: `Scheduled ${count} workspaces for cleanup.` };

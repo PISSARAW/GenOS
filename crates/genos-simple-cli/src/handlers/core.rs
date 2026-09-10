@@ -1,7 +1,7 @@
-use crate::{api_base_url, api_is_healthy, api_port, cargo_program, command_error, ensure_cargo_on_path, exit_on_command_failure};
+use crate::{api_is_healthy, api_port, cargo_program, command_error, exit_on_command_failure};
 use crate::commands::core::CoreCommands;
 
-pub fn handle_core(cmd: &CoreCommands, yes: bool) {
+pub fn handle_core(cmd: &CoreCommands, _yes: bool) {
     match cmd {
         CoreCommands::Start => {
             println!("Démarrage du serveur GenOS API...");

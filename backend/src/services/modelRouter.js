@@ -222,23 +222,38 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     }
     const bufferedTokens = [];
     const startedAt = Date.now();
-    const result = await runWithDeadline(modelProvider.generate({
-      model: uri,
-      prompt,
-      timeoutMs: attemptTimeout,
-      maxTokens,
-      endpoint: registered?.endpoint || discoveredEndpoint || undefined,
-      priority,
-      agentId,
-      organizationId,
-      projectId,
-      seed,
-      stream,
-      signal,
-      displayWidth,
-      displayHeight,
-      onToken: (token) => { bufferedTokens.push(token); }
-    }), attemptTimeout, uri);
+    const attemptController = new AbortController();
+    let deadlineExpired = false;
+    const abortAttempt = () => attemptController.abort();
+    if (signal?.aborted) abortAttempt();
+    else signal?.addEventListener('abort', abortAttempt, { once: true });
+    const deadlineTimer = setTimeout(() => { deadlineExpired = true; attemptController.abort(); }, Math.max(1, attemptTimeout));
+    let result;
+    try {
+      result = await modelProvider.generate({
+        model: uri,
+        prompt,
+        timeoutMs: attemptTimeout,
+        maxTokens,
+        endpoint: registered?.endpoint || discoveredEndpoint || undefined,
+        priority,
+        agentId,
+        organizationId,
+        projectId,
+        seed,
+        stream,
+        signal: attemptController.signal,
+        displayWidth,
+        displayHeight,
+        onToken: (token) => { bufferedTokens.push(token); }
+      });
+    } catch (error) {
+      if (deadlineExpired) throw Object.assign(new Error(`Model route '${uri}' exceeded its remaining deadline.`), { code: 'MODEL_ROUTE_DEADLINE_EXCEEDED' });
+      throw error;
+    } finally {
+      clearTimeout(deadlineTimer);
+      signal?.removeEventListener('abort', abortAttempt);
+    }
     const latencyMs = Date.now() - startedAt;
     const costUsd = estimateCostUsd(registered?.cost_input, registered?.cost_output, result.inputTokens, result.outputTokens);
     spentCostUsd += costUsd;
@@ -285,7 +300,7 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       const { bufferedTokens: _bufferedTokens, ...cleanResult } = result;
       return { ...cleanResult, route: { mode: 'fallback', selectedModel: uri, attempts } };
     } catch (error) {
-      attempts.push({ model: uri, status: 'failed', error: error.message });
+      attempts.push({ model: uri, status: 'failed', error: error.message, code: error.code });
       telemetry.emitEvent({
         eventType: 'MODEL_ROUTE_FAILED',
         agentId: agentId || 'model-router',
@@ -300,7 +315,14 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       }
     }
   }
-  throw new Error(`Every model route failed. ${attempts.map((item) => `${item.model}: ${item.error}`).join('; ')}`);
+  const lastAttempt = attempts[attempts.length - 1];
+  const finalError = new Error(`Every model route failed. ${attempts.map((item) => `${item.model}: ${item.error}`).join('; ')}`);
+  if (attempts.length > 0 && attempts.every((attempt) => attempt.code === 'MODEL_ROUTE_DEADLINE_EXCEEDED')) {
+    finalError.code = 'MODEL_ROUTE_DEADLINE_EXCEEDED';
+  } else if (lastAttempt?.code) {
+    finalError.code = lastAttempt.code;
+  }
+  throw finalError;
 }
 
 module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };

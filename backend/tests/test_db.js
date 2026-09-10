@@ -1,6 +1,6 @@
-const { embed } = require('./src/services/embeddingProvider');
+const { embed } = require('../src/services/embeddingProvider');
 async function test() {
-  const { getDatabase } = require('./src/db');
+  const { getDatabase } = require('../src/db');
   const realDb = await getDatabase();
   const query = 'Who is Alex';
   const vec = await embed(query);

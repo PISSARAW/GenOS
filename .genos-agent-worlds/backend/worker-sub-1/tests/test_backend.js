@@ -61,7 +61,9 @@ function request(options, body = null) {
 async function runTests() {
   console.log('=== STARTING GENOS BACKEND VERIFICATION SUITE ===\n');
   const testDbPath = path.resolve(__dirname, 'test_genos.db');
-  if (fs.existsSync(testDbPath)) fs.unlinkSync(testDbPath);
+  if (fs.existsSync(testDbPath)) {
+    try { fs.unlinkSync(testDbPath); } catch (_) {}
+  }
 
   db = await getDatabase(testDbPath);
   const app = createApp();

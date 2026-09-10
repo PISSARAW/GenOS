@@ -35,8 +35,8 @@ async function runDeadEndsSuite() {
 
   const db = await getDatabase();
 
-  // --- 1. Persistance des échecs et trajectoires rejetées ---
-  console.log('--- 1. Persistance réelle des échecs & trajectoires rejetées ---');
+  // --- 1. Persistance des Ã©checs et trajectoires rejetÃ©es ---
+  console.log('--- 1. Persistance rÃ©elle des Ã©checs & trajectoires rejetÃ©es ---');
   const failureId = `mem_fail_${Date.now()}`;
   await vectorMemory.storeMemory('worker-test', 'Recursive rewrite blew the stack budget in parseTree()', null, {
     id: failureId,
@@ -64,8 +64,8 @@ async function runDeadEndsSuite() {
   assert.strictEqual(trajRow.status, 'rejected', 'Trajectory status must be rejected');
   pass('Failed mission recorded as rejected trajectory in database');
 
-  // --- 2. avoid_known_dead_ends sémantique actif ---
-  console.log('\n--- 2. avoid_known_dead_ends sémantique vectoriel ---');
+  // --- 2. avoid_known_dead_ends sÃ©mantique actif ---
+  console.log('\n--- 2. avoid_known_dead_ends sÃ©mantique vectoriel ---');
   const similarContext = {
     task: 'Refactor parser with deep recursive AST transform',
     action: 'recursive rewrite of parseTree',
@@ -92,8 +92,8 @@ async function runDeadEndsSuite() {
   assert.strictEqual(adapterResult.isDeadEndRisk, true, 'Adapter must invoke avoidKnownDeadEnds correctly');
   pass('strategyAdapter.executePrimitive("avoid_known_dead_ends") works');
 
-  // --- 3. Intégrité des Pitfalls dans vectorMemoryService ---
-  console.log('\n--- 3. Intégrité des Pitfalls & non-éviction par les succès ---');
+  // --- 3. IntÃ©gritÃ© des Pitfalls dans vectorMemoryService ---
+  console.log('\n--- 3. IntÃ©gritÃ© des Pitfalls & non-Ã©viction par les succÃ¨s ---');
   for (let i = 0; i < 6; i++) {
     await vectorMemory.storeMemory('worker-test', `Optimal success solution ${i} for parser AST caching`, null, {
       id: `mem_succ_${Date.now()}_${i}`,
@@ -107,8 +107,8 @@ async function runDeadEndsSuite() {
   assert.strictEqual(searchMem.pitfallsToAvoid[0].status, 'FAILURE', 'Pitfall item status must be FAILURE');
   pass('topPitfalls preserved directly from scored corpus despite 6 higher-scoring successes');
 
-  // --- 4. Vérité du statut Failure dans GraphRAG ---
-  console.log('\n--- 4. Vérité des statuts Failure dans GraphRAG ---');
+  // --- 4. VÃ©ritÃ© du statut Failure dans GraphRAG ---
+  console.log('\n--- 4. VÃ©ritÃ© des statuts Failure dans GraphRAG ---');
   const anchorNode = {
     id: failureId,
     title: 'Failure: Stack overflow in parser rewrite',
@@ -124,8 +124,8 @@ async function runDeadEndsSuite() {
   }
   pass('GraphRAG correctly maps Failure category to status FAILURE instead of hardcoding SUCCESS');
 
-  // --- 5. MCTS Select : Exclusion des nœuds élagués ---
-  console.log('\n--- 5. MCTS Select : Exclusion stricte des nœuds élagués ---');
+  // --- 5. MCTS Select : Exclusion des nÂœuds Ã©laguÃ©s ---
+  console.log('\n--- 5. MCTS Select : Exclusion stricte des nÂœuds Ã©laguÃ©s ---');
   const nodeAlive = `node_alive_${Date.now()}`;
   const nodePruned = `node_pruned_${Date.now()}`;
 
@@ -147,8 +147,8 @@ async function runDeadEndsSuite() {
   assert.ok(!mctsRes.allScored.some(s => s.id === nodePruned), 'Pruned node must be excluded from scored candidates');
   pass('MCTS ignores pruned dead-end node even with 0 visits (avoids Infinity bug)');
 
-  // --- 6. Backpropagate : Remontée du graphe de lignée & pénalité d\'échec ---
-  console.log('\n--- 6. Primitive backpropagate : Remontée de lignée & pénalisation ---');
+  // --- 6. Backpropagate : RemontÃ©e du graphe de lignÃ©e & pÃ©nalitÃ© d\'Ã©chec ---
+  console.log('\n--- 6. Primitive backpropagate : RemontÃ©e de lignÃ©e & pÃ©nalisation ---');
   const parentNodeId = `node_parent_${Date.now()}`;
   const childNodeId = `node_child_${Date.now()}`;
 
@@ -187,8 +187,8 @@ async function runDeadEndsSuite() {
   assert.strictEqual(childMeta.pruned, true, 'Child node pruned after reaching pruneThreshold');
   pass('backpropagate successfully updated ancestors and pruned failing child node');
 
-  // --- 7. Détection des boucles de communication (Ping-Pong & Outils) ---
-  console.log('\n--- 7. Détection des boucles de communication (message_graph & cycle_detection) ---');
+  // --- 7. DÃ©tection des boucles de communication (Ping-Pong & Outils) ---
+  console.log('\n--- 7. DÃ©tection des boucles de communication (message_graph & cycle_detection) ---');
   const pingPongMessages = [
     { from: 'AgentA', to: 'AgentB', content: 'What is the parser status?' },
     { from: 'AgentB', to: 'AgentA', content: 'Checking AST...' },
@@ -220,7 +220,7 @@ async function runDeadEndsSuite() {
   assert.strictEqual(toolCycle.loopType, 'repetitive_action');
   pass('cycle_detection detected repetitive tool loop');
 
-  // --- 8. Diagnostic et falsification d\'hypothèses ---
+  // --- 8. Diagnostic et falsification d\'hypothÃ¨ses ---
   console.log('\n--- 8. diagnose & hypothesis_evidence ---');
   const diagRes = await strategyAdapter.executePrimitive('diagnose', {
     task: 'Parser stack overflow crash',
@@ -252,10 +252,14 @@ async function runDeadEndsSuite() {
 }
 
 if (require.main === module) {
-  runDeadEndsSuite().catch(err => {
-    console.error('Test failed with error:', err);
-    process.exit(1);
-  });
+  runDeadEndsSuite()
+    .then(() => {
+      process.exit(0);
+    })
+    .catch(err => {
+      console.error('Test failed with error:', err);
+      process.exit(1);
+    });
 }
 
-module.exports = { runDeadEndsSuite };
+module.exports = { runDeadEndsSuite };

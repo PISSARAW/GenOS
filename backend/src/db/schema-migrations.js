@@ -93,6 +93,7 @@ async function applyVersionedMigrations(db) {
   if (!cryptoColsNow.has('thawed_by')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN thawed_by TEXT');
 
   await migrateWorkspaceNameConstraint(db);
+  await migrateNotificationPreferenceScope(db);
   await db.exec(`CREATE TABLE IF NOT EXISTS workflow_versions (id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, version INTEGER NOT NULL, graph_json TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[]}', metadata_json TEXT NOT NULL DEFAULT '{}', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE, UNIQUE(workflow_id, version)); INSERT OR IGNORE INTO workflow_versions (id, workflow_id, version, graph_json, metadata_json, created_at) SELECT 'wfv-' || id, id, version, graph_json, metadata_json, COALESCE(updated_at, CURRENT_TIMESTAMP) FROM workflows; CREATE INDEX IF NOT EXISTS idx_workflow_versions_workflow ON workflow_versions(workflow_id, version DESC);`);
 
   const organizationCount = await db.get('SELECT COUNT(*) AS count FROM organizations');
@@ -103,6 +104,10 @@ async function applyVersionedMigrations(db) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
     await db.run('UPDATE OR IGNORE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
   }
+  await db.run(`UPDATE global_alerts
+    SET organization_id = (SELECT organization_id FROM workspaces WHERE workspaces.name = global_alerts.workspace_name GROUP BY workspaces.name HAVING COUNT(*) = 1),
+        project_id = (SELECT project_id FROM workspaces WHERE workspaces.name = global_alerts.workspace_name GROUP BY workspaces.name HAVING COUNT(*) = 1)
+    WHERE organization_id IS NULL OR project_id IS NULL`);
   await migrateTenantScopes(db);
 
   const evaluationColumns = await db.all('PRAGMA table_info(evaluation_jobs)');
@@ -158,6 +163,10 @@ async function applyVersionedMigrations(db) {
   }
 }
 
-module.exports = { applyVersionedMigrations, migrateLegacySchema };
+module.exports = {
+  applyVersionedMigrations,
+  migrateLegacySchema,
+  migrateNotificationPreferenceScope
+};
 
 async function migrateLegacySchema(db) {}

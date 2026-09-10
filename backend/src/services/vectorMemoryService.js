@@ -226,8 +226,8 @@ class VectorMemoryService {
     return synapticTransmission.releaseVesicles(engrams, options);
   }
 
-  async uptakeVesicles(targetAgentId = null) {
-    return synapticTransmission.uptakeVesicles(targetAgentId);
+  async uptakeVesicles(targetAgentId = null, options = {}) {
+    return synapticTransmission.uptakeVesicles(targetAgentId, options);
   }
 
   async depositExosome(params = {}) {
