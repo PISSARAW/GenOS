@@ -107,6 +107,11 @@ async function withTransaction(db, callback) {
   if (activeTxDb === db) {
     return await callback(db);
   }
+  // Lightweight/mocked connections may not expose exec(); run without an
+  // explicit transaction rather than throwing. Real sqlite connections do.
+  if (typeof db.exec !== 'function') {
+    return await callback(db);
+  }
 
   const currentTail = transactionTails.get(db) || Promise.resolve();
   let release;
