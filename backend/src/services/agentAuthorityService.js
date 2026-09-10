@@ -41,7 +41,7 @@ async function authorizeWorker(db, agent, orchestratorAgentId) {
   if (!orchestratorAgentId) throw authorityError('WORKER_REQUIRES_ORCHESTRATOR', `Worker '${agent.name}' cannot start itself; its orchestrator must dispatch the mission.`);
   if (agent.parent_agent_id !== orchestratorAgentId) throw authorityError('WORKER_ORCHESTRATOR_MISMATCH', `Worker '${agent.name}' is not assigned to orchestrator '${orchestratorAgentId}'.`);
   const parent = await db.get('SELECT workspace_id FROM agents WHERE id = ? AND execution_mode = \'orchestrator\'', orchestratorAgentId);
-  if (!parent || parent.workspace_id !== agent.workspace_id) throw authorityError('ORCHESTRATOR_WORKSPACE_MISMATCH', `Worker '${agent.id}' and orchestrator '${orchestratorAgentId}' are not in the same workspace.`);
+  if (!parent || (parent.workspace_id || null) !== (agent.workspace_id || null)) throw authorityError('ORCHESTRATOR_WORKSPACE_MISMATCH', `Worker '${agent.id}' and orchestrator '${orchestratorAgentId}' are not in the same workspace.`);
   await requireOrchestrator(db, orchestratorAgentId);
   return agent;
 }

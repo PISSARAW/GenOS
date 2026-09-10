@@ -197,6 +197,8 @@ test('Weighted Quorum & Brier Consensus Comprehensive Suite', async (t) => {
     assert.strictEqual(proposalData.success, true);
     const proposalId = proposalData.proposalId;
     assert.strictEqual(proposalData.consensusType, 'brier_weighted');
+    await db.run('INSERT INTO evaluation_runs(id, benchmark, agent_id, brier_score) VALUES(?, ?, ?, ?)', `brier-expert-${Date.now()}`, 'test', 'agent_expert', 0.1);
+    await db.run('INSERT INTO evaluation_runs(id, benchmark, agent_id, brier_score) VALUES(?, ?, ?, ?)', `brier-poor-${Date.now()}`, 'test', 'agent_poor', 0.9);
 
     // 2. Cast weighted vote from expert agent (Brier 0.1 => weight 0.81)
     let vote1Data = null;

@@ -19,7 +19,7 @@ const workerGarage = require('./workerGarageService');
 const {
   activeProcesses, activeWorkerBarriers, workerEvidenceRounds, emit, updateAgent
 } = require('./agentOrchestrationState');
-const { recordWorkerEvidence, validateDossierInfluence, extractEvidenceReport } = require('./agentEvidenceService');
+const { recordWorkerEvidence, validateDossierInfluence, extractEvidenceReport, hasDecisionEvidence, decisionEvidenceFailure } = require('./agentEvidenceService');
 const { advanceAutonomousRound, dispatchPendingContinuation } = require('./agentRoundService');
 const { queueWorkerRecovery, dispatchWorkerRecovery, applyOrganizationDecision } = require('./agentRecoveryService');
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
@@ -29,7 +29,7 @@ const swarmSentinel = require('./swarmSentinelService');
 const { terminateChild, clearTerminationTimer } = require('./processTermination');
 
 const SAFE_RUNTIME_ENV = new Set([
-  'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE',
+  'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE', 'CODEX_EXECUTABLE',
   'LANG', 'LC_ALL', 'NODE_ENV'
 ]);
 
@@ -51,6 +51,26 @@ function buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdate
     ...environment,
     GENOS_WORKSPACE_ROOT: workspaceRoot,
     GENOS_SILENT_UPDATES: silentUpdates ? 'true' : 'false'
+  };
+}
+
+function buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord, autonomyPlan, runtimeBudget, runtimeEnvironment, workspaceRoot, resolvedExecutable }) {
+  const safeEnvironment = buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, false);
+  return {
+    sessionId: executionRun.id,
+    agentId,
+    prompt: String(normalizedMission.prompt || normalizedMission.currentTask || ''),
+    role: normalizedMission.role || null,
+    model: normalizedMission.localModel || normalizedMission.model || null,
+    executionRunId: executionRun.id,
+    contractId: contractRecord.id,
+    contractVersion: contractRecord.version,
+    budget: runtimeBudget || null,
+    executionPolicy: normalizedMission.executionPolicy || null,
+    autonomyPlan: autonomyPlan || null,
+    workspaceRoot,
+    executable: resolvedExecutable,
+    environmentKeys: Object.keys(safeEnvironment || {}).sort()
   };
 }
 
@@ -167,7 +187,12 @@ async function superviseMission(options) {
         workerId: agentId, proof: report.noAnswerProof
       }, 'info');
     }
-    const decision = workerFailure ? null : decideFromEvent(event);
+    const decision = workerFailure || !hasDecisionEvidence(event) ? null : decideFromEvent(event);
+    if (!workerFailure && !hasDecisionEvidence(event)) {
+      emit(normalizedMission.orchestratorAgentId || agentId, 'ORCHESTRATION_DECISION_BLOCKED', 'EVIDENCE_GATE', decisionEvidenceFailure(event), {
+        sourceAgentId: agentId, sourceEvent: eventType
+      }, 'warning', 'blocked');
+    }
     if (decision) {
       db.get('SELECT parent_agent_id FROM agents WHERE id = ?', agentId).then((agent) => {
         const ownerId = agent?.parent_agent_id || agentId;
@@ -185,6 +210,7 @@ async function superviseMission(options) {
         capacity: maxEventQueue,
         droppedEventType: event.eventType
       }, 'critical', 'error');
+      haltRuntime('event_queue_overflow', 'Runtime event queue capacity exceeded.', 'Runtime halted because event persistence could no longer keep up with the child process.', { droppedEventCount, capacity: maxEventQueue });
     }
     processEventQueue();
     return event;
@@ -362,6 +388,10 @@ async function superviseMission(options) {
   child.on('close', async (code, signal) => {
     clearTerminationTimer(child);
     await executionQueue;
+    const drainDeadline = Date.now() + 30000;
+    while ((isProcessingEvents || eventQueue.length > 0) && Date.now() < drainDeadline) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
     // Keep the process visible to the orchestration barrier until every final
     // event (including continuation selection) has been recorded.
     activeProcesses.delete(agentId);
@@ -392,7 +422,17 @@ async function superviseMission(options) {
     dispatchPendingContinuation(agentId);
   });
   await updateAgent(agentId, 'running', normalizedMission.prompt);
-  emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, { executable: resolvedExecutable, executionRunId: executionRun.id, autonomyPlan }, 'info', 'running');
+  emitTracked('WORKER_RUNTIME_CAPABILITIES', 'LEASE', 'Worker runtime capabilities activated.', {
+    toolLease: normalizedMission.toolLease || [],
+    runtimeMode: isLocalRuntime(resolvedExecutable) ? 'local' : 'supervised',
+    capabilityCount: Array.isArray(normalizedMission.toolLease) ? normalizedMission.toolLease.length : 0
+  }, 'info', 'running');
+  emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, {
+    executable: resolvedExecutable,
+    executionRunId: executionRun.id,
+    autonomyPlan,
+    replayManifest: buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord, autonomyPlan, runtimeBudget, runtimeEnvironment, workspaceRoot, resolvedExecutable })
+  }, 'info', 'running');
   if (isLocalRuntime(resolvedExecutable) && !normalizedMission.localRoutingPolicy) {
     const workspace = normalizedMission.workspaceId
       ? await db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', normalizedMission.workspaceId)
@@ -425,4 +465,4 @@ async function superviseMission(options) {
   return { started: true, executionRun };
 }
 
-module.exports = { superviseMission, runtimeExitOutcome };
+module.exports = { superviseMission, runtimeExitOutcome, buildReplayManifest };

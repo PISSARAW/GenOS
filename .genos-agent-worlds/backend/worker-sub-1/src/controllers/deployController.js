@@ -30,7 +30,7 @@ function normalizeAgentType(value) {
   return AGENT_TYPES.includes(candidate) ? candidate : 'Other';
 }
 
-async function deployAgent(req, res) {
+async function deployAgent(req, res, next) {
   try {
     let executionMode = agentAuthority.normalizeExecutionMode(req.body?.executionMode);
     const resolvedAgentType = normalizeAgentType(req.body?.agentType);
@@ -74,11 +74,11 @@ async function deployAgent(req, res) {
       dispatchRequired: executionMode === 'worker'
     });
   } catch (error) {
-    res.status(500).json({ error: { message: error.message } });
+    next(error);
   }
 }
 
-async function deployTrinity(req, res) {
+async function deployTrinity(req, res, next) {
   try {
     const resolvedAgentType = normalizeAgentType(req.body?.agentType);
     const runtime = runtimeAdapter.runtimeAvailability();
@@ -106,7 +106,7 @@ async function deployTrinity(req, res) {
       agents: result.agentIds
     });
   } catch (error) {
-    res.status(500).json({ error: { message: error.message } });
+    next(error);
   }
 }
 
@@ -127,7 +127,7 @@ async function deleteAgent(req, res, next) {
     const persistedRuntime = await db.get('SELECT runtime_pid FROM agents WHERE id = ?', req.params.id);
     const stopped = runtimeAdapter.stopMission(req.params.id) || Boolean(persistedRuntime?.runtime_pid);
     await db.run("DELETE FROM agents WHERE id = ?", req.params.id);
-    telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: req.params.id, action: 'DELETE', detail: `Agent deleted by ${req.user?.username || 'operator'}.`, severity: 'warning', payload: { actor: req.user?.username || null, tenant: req.tenant || null, stopped } });
+    telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: req.params.id, action: 'DELETE', detail: `Agent deleted by ${req.user?.keyId || req.user?.username || 'operator'}.`, severity: 'warning', payload: { actorPrincipalId: req.user?.keyId || null, actorLabel: req.user?.username || null, tenant: req.tenant || null, stopped } });
     res.json({ success: true, agentId: req.params.id, stopped });
   } catch (error) { next(error); }
 }

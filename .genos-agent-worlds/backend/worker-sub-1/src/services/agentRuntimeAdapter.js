@@ -31,16 +31,38 @@ const { localWorkerRoute } = require('./agentModelRoutingService');
 const { dispatchPendingContinuation } = require('./agentRoundService');
 const { dispatchWorkerRecovery } = require('./agentRecoveryService');
 const {
-  provisionMissionWorkspace, createIsolatedWorkspace
+  provisionMissionWorkspace, createIsolatedWorkspace, trackWorkspace
 } = require('./agentWorkspaceLifecycleService');
 const {
   runLocalWorker, createAutonomousWorkers, runEvidenceBarrier
 } = require('./agentFleetService');
 const { buildAutonomyPlanForMission } = require('./agentAutonomyPlanService');
 const { superviseMission, runtimeExitOutcome } = require('./agentProcessSupervisor');
-const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability } = require('./agentRuntimeExecutable');
+const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability, isLocalRuntime } = require('./agentRuntimeExecutable');
 const { terminateChild, terminatePid, processMatches } = require('./processTermination');
 const { validateBudgetCoherence, normalizeMissionBudget } = require('./budgetCoherenceService');
+const agentMemoryContext = require('./agentMemoryContext');
+
+async function attachMissionMemoryContext(normalizedMission, agentId) {
+  const task = normalizedMission.prompt || normalizedMission.currentTask || '';
+  if (!task.trim() || normalizedMission.useMemoryContext === false) return normalizedMission;
+  try {
+    const memoryPrompt = await agentMemoryContext.formatCognitiveMemoryPrompt(agentId, task, {
+      organizationId: normalizedMission.organizationId,
+      projectId: normalizedMission.projectId,
+      sessionId: normalizedMission.sessionId,
+      taskId: normalizedMission.taskId
+    });
+    if (memoryPrompt && memoryPrompt.trim()) {
+      normalizedMission.prompt = `${task}\n\nGENOS MEMORY CONTEXT\n${memoryPrompt}`;
+      normalizedMission.memoryContextAttached = true;
+    }
+  } catch (error) {
+    normalizedMission.memoryContextAttached = false;
+    normalizedMission.memoryContextError = error.message;
+  }
+  return normalizedMission;
+}
 
 async function startMissionInternal(mission) {
   const agentId = mission.agentId || mission.id;
@@ -114,6 +136,7 @@ async function startMissionInternal(mission) {
   await db.run('UPDATE agents SET hallucination_monitoring = 1, hallucination_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', agentId);
   emit(agentId, 'HALLUCINATION_MONITORING_ENABLED', 'MONITOR', 'Evidence-bound hallucination monitoring enabled for this mission.', {}, 'info');
   console.log("adapter: plan"); const autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
+  await attachMissionMemoryContext(normalizedMission, agentId);
   assertNotCancelled();
   const silentUpdates = userProgress.silenceRequested(
     normalizedMission.prompt || normalizedMission.currentTask || '',
@@ -159,7 +182,10 @@ async function startMissionInternal(mission) {
       silent: silentUpdates
     });
   }
-  console.log("adapter: localModel"); assertNotCancelled(); if (normalizedMission.localModel) return runLocalWorker(db, normalizedMission, executionRun);
+  console.log("adapter: localModel"); assertNotCancelled(); if (normalizedMission.localModel && (normalizedMission.localRuntime === true || isLocalRuntime(executable))) {
+    await trackWorkspace(agentId, normalizedMission.workspaceRoot);
+    return runLocalWorker(db, normalizedMission, executionRun);
+  }
 
   // The orchestrator creates and dispatches its own bounded worker fleet. A worker
   // never recurses here: authority is deliberately one-way.
@@ -287,7 +313,7 @@ function stopAllMissions() {
 }
 
 async function reconcilePersistedRuntimes(db) {
-  const rows = await db.all("SELECT id, status, runtime_pid, runtime_executable FROM agents WHERE status IN ('running', 'apoptosis') AND runtime_pid IS NOT NULL");
+  const rows = await db.all("SELECT id, status, runtime_pid, runtime_executable FROM agents WHERE status != 'terminated' AND runtime_pid IS NOT NULL");
   let reconciled = 0;
   for (const row of rows) {
     let alive = true;
@@ -327,5 +353,6 @@ module.exports = {
   modelUsage: require('./agentModelRoutingService').modelUsage,
   autonomousRoundOutcome: require('./agentRoundService').autonomousRoundOutcome,
   buildWorkerSynthesisPrompt: require('./agentEvidenceService').buildWorkerSynthesisPrompt,
-  waitForAutonomousWorkerQuiescence: require('./agentFleetService').waitForAutonomousWorkerQuiescence
+  waitForAutonomousWorkerQuiescence: require('./agentFleetService').waitForAutonomousWorkerQuiescence,
+  attachMissionMemoryContext
 };

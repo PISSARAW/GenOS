@@ -161,7 +161,9 @@ function issueCsrfToken(req, res) {
   // SameSite=Lax keeps the value away from cross-site requests; the browser
   // never needs to send it automatically because the Studio echoes the body
   // token back in the X-CSRF-Token header.
-  res.setHeader('Set-Cookie', `genos_csrf=${token}; Path=/; SameSite=Lax`);
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  const secure = req.secure === true || req.protocol === 'https' || forwardedProto === 'https';
+  res.setHeader('Set-Cookie', `genos_csrf=${token}; Path=/; SameSite=Lax${secure ? '; Secure' : ''}`);
   return res.json({ csrfToken: token });
 }
 

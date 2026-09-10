@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { runFullAudit } = require('./proactiveGitHubAnalyst');
+const { runFleetDaemonCycle } = require('./daemonRepoWorkerService');
 
 const repoRoot = path.resolve(__dirname, '../../..');
 const configDir = path.join(repoRoot, '.genos');
@@ -18,8 +19,8 @@ const DEFAULT_CONFIG = {
   personality: "Analyste architectural proactif et gardien vigilant de l'écosystème GitHub. Précis, méthodique et prévenant.",
   role: 'Autonomous GitHub Auditor & Sentinel',
   githubDir: '',
-  openTerminalOnStartup: true,
-  enabled: true,
+  openTerminalOnStartup: false,
+  enabled: false,
   checkIntervalMinutes: 60,
   lastRun: null
 };
@@ -100,12 +101,11 @@ function enableAutostart(customConfig = {}) {
     const autostartFile = path.join(startupDir, 'GenOS_Sentinel_Daemon.bat');
     const runnerScript = path.join(repoRoot, 'backend/bin/genos-daemon.cjs');
 
-    // Le script .bat lance le daemon Node avec ouverture de terminal interactif
+    // The Startup folder must launch a durable, non-interactive process.
     const batchContent = [
       '@echo off',
-      `title GenOS Sentinel Daemon`,
       `cd /d "${repoRoot}"`,
-      `start "GenOS Sentinel" cmd.exe /k "node backend\\bin\\genos-daemon.cjs --interactive"`,
+      `start "GenOS Sentinel" /b node "${runnerScript}" --daemon --no-color`,
       ''
     ].join('\r\n');
 
@@ -152,7 +152,7 @@ function enableAutostartIfConfigured() {
   }
 }
 
-function runProactiveCycle(options = {}) {
+async function runProactiveCycle(options = {}) {
   const config = getDaemonConfig();
   const agentConfig = {
     name: options.name || config.name,
@@ -162,8 +162,21 @@ function runProactiveCycle(options = {}) {
   const githubDir = options.githubDir || config.githubDir || null;
   const auditResult = runFullAudit(agentConfig, githubDir);
 
+  // Beyond reporting: keep working on each repo's dedicated daemon branch,
+  // rebase it onto the branch the human is actively using, apply a verified
+  // fix per cycle, and open a merge request once commits are ready.
+  // Opt-in only (options.autofix === true): the plain on-demand audit
+  // endpoint/tests stay side-effect-free; the `genos-daemon` executable
+  // itself requests autofix explicitly for both its one-shot and
+  // continuous `--daemon` modes.
+  let maintenance = [];
+  if (options.autofix === true) {
+    const repos = auditResult.analyses.map((analysis) => ({ name: analysis.name, path: analysis.path }));
+    maintenance = await runFleetDaemonCycle(repos);
+  }
+
   saveDaemonConfig({ lastRun: new Date().toISOString() });
-  return { config: { ...config, ...agentConfig }, audit: auditResult };
+  return { config: { ...config, ...agentConfig }, audit: auditResult, maintenance };
 }
 
 module.exports = {

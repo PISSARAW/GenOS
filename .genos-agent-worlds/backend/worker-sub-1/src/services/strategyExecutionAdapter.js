@@ -20,12 +20,54 @@ const collective = require('./primitiveHandlers/collective');
 const temporal = require('./primitiveHandlers/temporal');
 const search = require('./primitiveHandlers/search');
 const computerUse = require('./primitiveHandlers/computerUse');
+const resilience = require('./resilienceService');
+const modelRouter = require('./modelRouter');
+const advanced = require('./primitiveHandlers/strategyAdvanced');
+const planning = require('./primitiveHandlers/strategyPlanning');
+const optimization = require('./primitiveHandlers/strategyOptimization');
+const swarm = require('./primitiveHandlers/strategySwarm');
+const governance = require('./primitiveHandlers/strategyGovernance');
+const collectiveAdvanced = require('./primitiveHandlers/strategyCollectiveAdvanced');
+const remaining = require('./primitiveHandlers/strategyRemaining');
+
+async function snapshotTest(context = {}) {
+  const snapshotResult = await fundamentals.snapshot(context);
+  if (!snapshotResult.success) return snapshotResult;
+  const verification = await fundamentals.verify(context);
+  return { success: verification.success, snapshot: snapshotResult, verification };
+}
+
+async function autopsy(context = {}) {
+  const report = await resilience.evaluateApoptosis(
+    context.agentId || context.targetId || 'strategy_adapter',
+    context.metrics || context.triggerMetrics || {},
+    context.db || null,
+    context.policy || {}
+  );
+  return { success: true, autopsy: report, apoptosisExecuted: report.apoptosisExecuted };
+}
+
+async function providerFallback(context = {}) {
+  const models = Array.isArray(context.models)
+    ? context.models.filter(Boolean)
+    : [context.model, ...(Array.isArray(context.fallbacks) ? context.fallbacks : [])].filter(Boolean);
+  if (!models.length) return { success: false, error: 'model and fallbacks are required.' };
+  const result = await modelRouter.generate({
+    ...context,
+    model: models[0],
+    policy: { primary: models[0], fallbacks: models.slice(1), mode: 'fallback' }
+  });
+  return { success: true, ...result };
+}
 
 // Registre plat : primitive string → handler async function
 const HANDLERS = {
   // Lot 1 — Fondamentales
   snapshot: fundamentals.snapshot,
   checkpoint: fundamentals.snapshot,
+  production_snapshot: fundamentals.snapshot,
+  last_good_snapshot: fundamentals.snapshot,
+  snapshot_test: snapshotTest,
   cryptobiosis_freeze: fundamentals.cryptobiosisFreeze,
   freeze_spore: fundamentals.cryptobiosisFreeze,
   cryptobiosis_thaw: fundamentals.cryptobiosisThaw,
@@ -37,12 +79,84 @@ const HANDLERS = {
   recursive_fork: fundamentals.recursiveFork,
   slm_route: fundamentals.slmRoute,
   provider_route: fundamentals.slmRoute,
+  provider_fallback: providerFallback,
+  fallback_chain: providerFallback,
+  degraded_mode: providerFallback,
+  independent_reports: advanced.independentReports,
+  neutral_observer: advanced.neutralObserver,
+  synthesis: advanced.synthesizeReports,
+  security_coevolution: advanced.securityCoevolution,
+  plan: planning.plan,
+  role_forks: planning.roleForks,
+  common_probes: planning.commonProbes,
+  probe: planning.commonProbes,
+  evidence: planning.evidence,
+  conditional_mutation: planning.conditionalMutation,
+  belief_update: planning.beliefUpdate,
+  expected_information_gain: planning.expectedInformationGain,
+  next_probe: planning.nextProbe,
+  analyze_trajectory: planning.analyzeTrajectory,
+  rank_states: optimization.rankStates,
+  preserve_losers: optimization.preserveLosers,
+  variance_analysis: optimization.varianceAnalysis,
+  temperature_schedule: optimization.temperatureSchedule,
+  resource_shift: optimization.resourceShift,
+  separation: swarm.flocking,
+  alignment: swarm.flocking,
+  cohesion: swarm.flocking,
+  weighted_barycenter: swarm.weightedBarycenter,
+  path_conductivity: swarm.pathConductivity,
+  role_gradient: swarm.roleGradient,
+  energy_observe: swarm.energyObserve,
+  elo: swarm.elo,
+  uncertainty_gate: governance.uncertaintyGate,
+  active_refusal: governance.activeRefusal,
+  approval_request: governance.approvalRequest,
+  drift_threshold: governance.driftThreshold,
+  dead_letter_queue: governance.deadLetterQueue,
+  alpha_beta_delta: collectiveAdvanced.greyWolf,
+  position_update: collectiveAdvanced.positionUpdate,
+  capability_route: collectiveAdvanced.capabilityRoute,
+  knowledge_transfer: collectiveAdvanced.knowledgeTransfer,
+  dynamic_assignment: collectiveAdvanced.dynamicAssignment,
+  local_buffer: collectiveAdvanced.networkSilence,
+  critical_or_success_flush: collectiveAdvanced.networkSilence,
+  solver_tournament: collectiveAdvanced.solverTournament,
+  frontier_escalation: remaining.frontierEscalation,
+  impact_graph: remaining.impactGraph,
+  invalidate_assumption: remaining.invalidateAssumption,
+  paired_evaluation: remaining.pairedEvaluation,
+  heredity_experiment: remaining.heredityExperiment,
+  branch_evolution: remaining.branchEvolution,
+  adversarial_review: remaining.adversarialReview,
+  blind_critics: remaining.blindCritics,
+  context_compaction: remaining.contextCompaction,
+  experience_packets: remaining.experiencePackets,
+  knowledge_graph: remaining.knowledgeGraph,
+  reviewed_apply: remaining.reviewedApply,
+  infer_traits: remaining.inferTraits,
+  replicate: remaining.replicate,
+  promote_trait: remaining.promoteTrait,
+  phenotype_evidence: remaining.phenotypeEvidence,
+  validate_child: remaining.validateChild,
+  alternate_genome: remaining.alternateGenome,
+  hot_spare: remaining.hotSpare,
+  health_switch: remaining.healthSwitch,
+  decoy_branch: remaining.decoyBranch,
+  observe: remaining.observe,
+  destroy_decoy: remaining.destroyDecoy,
   bisect_agent: fundamentals.bisectAgent,
   entropy_check: fundamentals.entropyCheck,
+  shannon_entropy: fundamentals.entropyCheck,
   evaluate: fundamentals.evaluate,
+  minimum_evaluation: fundamentals.evaluate,
   verify: fundamentals.verify,
+  tests: fundamentals.verify,
+  independent_verify: fundamentals.verify,
   vfs_dry_run: fundamentals.vfsDryRun,
+  blast_radius: fundamentals.vfsDryRun,
   safe_revert: fundamentals.safeRevert,
+  restore: fundamentals.safeRevert,
   run: fundamentals.run,
   worktree_cleanup: fundamentals.worktreeCleanup,
   cas_gc: fundamentals.casGc,
@@ -94,6 +208,8 @@ const HANDLERS = {
   half_open: safety.circuitBreakerHalfOpen,
   terminate: safety.apoptosis,
   apoptosis: safety.apoptosis,
+  autopsy,
+  forensic_autopsy: autopsy,
   fossilize: safety.fossilize,
   fossil_record: safety.fossilize,
   fossil_list: safety.listFossils,
@@ -133,6 +249,7 @@ const HANDLERS = {
 
   // Lot 6 — Temporel & Causal
   causal_replay_intervention: temporal.causalReplay,
+  intervene: temporal.causalReplay,
   causal_replay: temporal.causalReplay,
   replay: temporal.causalReplay,
   golden_path_replay: temporal.causalReplay,
@@ -146,11 +263,13 @@ const HANDLERS = {
   dependency_matrix: temporal.dependencyMatrix,
   lineage: temporal.provenance,
   provenance: temporal.provenance,
+  audit: temporal.provenance,
   preserve_provenance: temporal.provenance,
   preserveProvenance: temporal.provenance,
   blame: temporal.provenance,
   state_fold: temporal.stateFold,
   causal_diff: temporal.causalDiff,
+  diff: temporal.causalDiff,
   replay_dependencies: temporal.replayDependencies,
   signature_match: temporal.signatureMatch,
   recursive_refinement: temporal.recursiveRefinement,
@@ -161,6 +280,8 @@ const HANDLERS = {
 
   // Lot 7 — Recherche Profonde & Budget
   mcts_select: search.mctsSelect,
+  beam_search: search.prune,
+  budget_allocation: search.reallocate,
   expand: search.mctsSelect,
   schizogony: search.schizogonyBurst,
   schizogony_burst: search.schizogonyBurst,
@@ -175,6 +296,7 @@ const HANDLERS = {
   token_limit: search.budgetLimit,
   time_limit: search.budgetLimit,
   iteration_limit: search.budgetLimit,
+  uncertainty_limit: search.budgetLimit,
   prm_evaluate: search.prmEvaluate,
   score_partial_repro: search.prmEvaluate,
   backpropagate: search.backpropagate,

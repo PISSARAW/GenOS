@@ -1,4 +1,5 @@
-const AUTHENTICATED_STATUS = 16;
+const UNAUTHENTICATED_STATUS = 16;
+const PERMISSION_DENIED_STATUS = 7;
 
 function configuredSecret() {
   return String(process.env.GENOS_GRPC_SHARED_SECRET || '').trim();
@@ -20,11 +21,19 @@ function isAuthorized(call) {
   return candidates.includes(secret);
 }
 
+function hasCredentials(call) {
+  return metadataValues(call, 'x-genos-grpc-key').length > 0
+    || metadataValues(call, 'authorization').some((value) => /^Bearer\s+/i.test(value));
+}
+
 function guardHandler(handler) {
   if (typeof handler !== 'function') return handler;
   return function guardedGrpcHandler(call, callback) {
     if (!isAuthorized(call)) {
-      callback({ code: AUTHENTICATED_STATUS, message: 'gRPC authentication is required.' });
+      callback({
+        code: hasCredentials(call) ? PERMISSION_DENIED_STATUS : UNAUTHENTICATED_STATUS,
+        message: hasCredentials(call) ? 'gRPC credentials were rejected.' : 'gRPC authentication is required.'
+      });
       return;
     }
     return handler.call(this, call, callback);
@@ -35,4 +44,4 @@ function guardService(service) {
   return Object.fromEntries(Object.entries(service || {}).map(([name, handler]) => [name, guardHandler(handler)]));
 }
 
-module.exports = { configuredSecret, isAuthorized, guardHandler, guardService };
+module.exports = { configuredSecret, isAuthorized, hasCredentials, guardHandler, guardService };

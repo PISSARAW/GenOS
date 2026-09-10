@@ -2,8 +2,8 @@ const assert = require('assert');
 const { buildAllocation, selectSurvivors } = require('../src/services/tokenAllocationService');
 
 const staged = buildAllocation({ totalTokens: 500000, workerShare: 0.6, workerCount: 3, minimumWorkerTokens: 8000, mode: 'successive_halving_with_reallocation' });
-assert.deepStrictEqual(staged.initial, { workerCount: 3, pool: 100000, perWorkerTokens: 33333, remainderTokens: 1 });
-assert.deepStrictEqual(staged.continuation, { survivorCount: 2, pool: 200000, perWorkerTokens: 100000, remainderTokens: 0 });
+assert.deepStrictEqual(staged.initial, { workerCount: 3, pool: 100000, perWorkerTokens: 33333, remainderTokens: 1, workerTokens: [33334, 33333, 33333] });
+assert.deepStrictEqual(staged.continuation, { survivorCount: 2, pool: 200000, perWorkerTokens: 100000, remainderTokens: 0, workerTokens: [100000, 100000] });
 assert.deepStrictEqual(
   selectSurvivors([
     { agentId: 'a', status: 'completed', evidenceScore: 1 },

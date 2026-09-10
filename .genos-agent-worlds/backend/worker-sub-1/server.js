@@ -12,10 +12,12 @@ const telemetry = require('./src/services/telemetryObserver');
 const jobWorker = require('./src/services/jobWorker');
 const { enableGriotAutostart } = require('./src/services/griotAutostart');
 const runtimeAdapter = require('./src/services/agentRuntimeAdapter');
+const workspaceSnapshotStore = require('./src/services/workspaceSnapshotStore');
 const { terminatePid, processMatches } = require('./src/services/processTermination');
 const circuitBreaker = require('./src/services/circuitBreaker');
+const { readPort } = require('./src/services/runtimeConfig');
 
-const PORT = process.env.PORT || 4000;
+const PORT = readPort('PORT', process.env.PORT, 4000);
 
 async function startServer() {
   if (cluster.isPrimary) {
@@ -24,19 +26,36 @@ async function startServer() {
     // Fork workers for each CPU core (cap at 4 to preserve resources for LLMs)
     const numCPUs = Math.min(os.cpus().length, 4);
     const jobWorkerPids = new Set();
+    const workers = new Set();
+    let shuttingDown = false;
     for (let i = 0; i < numCPUs; i++) {
       const worker = cluster.fork({ GENOS_JOB_WORKER: i === 0 ? '1' : '0' });
+      workers.add(worker);
       if (i === 0) jobWorkerPids.add(worker.process.pid);
     }
 
     cluster.on('exit', (worker, code, signal) => {
+      workers.delete(worker);
+      if (shuttingDown) return;
       console.log(`[GenOS Cluster] Worker ${worker.process.pid} died. Booting replacement...`);
       const wasJobWorker = jobWorkerPids.delete(worker.process.pid);
       const replacement = cluster.fork({ GENOS_JOB_WORKER: wasJobWorker ? '1' : '0' });
+      workers.add(replacement);
       if (wasJobWorker) jobWorkerPids.add(replacement.process.pid);
     });
+
+    const shutdownPrimary = (signal) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      console.log(`[GenOS Cluster] Received ${signal}; stopping ${workers.size} workers.`);
+      for (const worker of workers) worker.process.kill(signal);
+    };
+    process.once('SIGTERM', shutdownPrimary);
+    process.once('SIGINT', shutdownPrimary);
     
-    enableGriotAutostart();
+    if (process.env.GENOS_ENABLE_AUTOSTART === '1') {
+      enableGriotAutostart();
+    }
     return;
   }
 
@@ -53,11 +72,19 @@ async function startServer() {
       for (const row of detached) {
         let alive = true;
         try { process.kill(Number(row.pid), 0); } catch (_) { alive = false; }
-        if (alive && processMatches(row.pid, row.command)) terminatePid(row.pid);
-        await db.run('DELETE FROM detached_processes WHERE id = ?', row.id);
+        const matches = alive && processMatches(row.pid, row.command);
+        const terminated = matches ? terminatePid(row.pid) : false;
+        if (!alive || (matches && terminated)) {
+          await db.run('DELETE FROM detached_processes WHERE id = ?', row.id);
+        } else {
+          console.warn(`[GenOS Recovery] Could not terminate detached process ${row.pid}; retaining its recovery record.`);
+        }
       }
     }
     await require('./src/services/agentWorkspaceLifecycleService').reconcileWorkspaceCleanup(db);
+    await require('./src/services/workspaceSnapshotStore').reconcileSnapshotArtifacts(db).catch((error) => {
+      console.warn(`[GenOS Backend] Snapshot artifact reconciliation skipped: ${error.message}`);
+    });
     if (process.env.GENOS_JOB_WORKER === '1') { // One explicitly assigned worker processes background jobs.
         jobWorker.startJobWorker();
     }
@@ -69,6 +96,7 @@ async function startServer() {
     // 2. Create Express App
     const app = createApp();
     const server = http.createServer(app);
+    let grpcServer = null;
 
     // 2.5 Create gRPC Server (Microservices Architecture)
     if (process.env.GENOS_JOB_WORKER === '1') {
@@ -78,28 +106,32 @@ async function startServer() {
       const { readPrivateTlsPair } = require('./src/services/tlsConfig');
       
       const protoDescriptors = loadAllProtos();
-      const grpcServer = new grpc.Server();
+      grpcServer = new grpc.Server();
       
       // Auto-register all microservices and core services
       for (const [serviceName, descriptor] of Object.entries(protoDescriptors)) {
         registerAllServices(grpcServer, descriptor);
       }
       
-      const GRPC_PORT = process.env.GRPC_PORT || 50051;
+      const GRPC_PORT = readPort('GRPC_PORT', process.env.GRPC_PORT, 50051);
       const tlsKey = process.env.GENOS_GRPC_TLS_KEY;
       const tlsCert = process.env.GENOS_GRPC_TLS_CERT;
       const tlsPair = readPrivateTlsPair(tlsKey, tlsCert);
+      const bindAddress = process.env.GRPC_BIND_ADDRESS || (tlsPair ? '0.0.0.0' : '127.0.0.1');
+      const loopback = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+      if (!tlsPair && !loopback.has(bindAddress)) {
+        throw new Error('Refusing insecure gRPC on a non-loopback bind address; configure GENOS_GRPC_TLS_KEY/CERT.');
+      }
       const credentials = tlsPair
         ? grpc.ServerCredentials.createSsl(null, [tlsPair], false)
         : grpc.ServerCredentials.createInsecure();
-      const bindAddress = tlsKey && tlsCert ? (process.env.GRPC_BIND_ADDRESS || '0.0.0.0') : (process.env.GRPC_BIND_ADDRESS || '127.0.0.1');
-      grpcServer.bindAsync(`${bindAddress}:${GRPC_PORT}`, credentials, (err, boundPort) => {
-        if (err) {
-          console.warn(`[GenOS gRPC] Warning: could not bind port ${GRPC_PORT}:`, err.message);
-        } else {
+      await new Promise((resolve, reject) => {
+        grpcServer.bindAsync(`${bindAddress}:${GRPC_PORT}`, credentials, (err, boundPort) => {
+          if (err) return reject(new Error(`gRPC bind failed on ${bindAddress}:${GRPC_PORT}: ${err.message}`));
           grpcServer.start();
           console.log(`[GenOS gRPC] Microservices & Core services listening on port ${boundPort}`);
-        }
+          resolve();
+        });
       });
     }
 
@@ -115,13 +147,18 @@ async function startServer() {
       });
     });
 
+    let shuttingDown = false;
     const shutdown = async (signal) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
       console.log(`[GenOS Backend] Received ${signal}; draining requests.`);
-      jobWorker.stopJobWorker();
-      server.close(async () => {
-        await closeDatabase();
-        console.log('[GenOS Backend] Shutdown complete.');
-      });
+      await jobWorker.stopJobWorker({ drain: true, timeoutMs: 30000 });
+      await telemetry.flush(5000);
+      if (grpcServer) await new Promise((resolve) => grpcServer.tryShutdown(() => resolve()));
+      await new Promise((resolve) => server.close(() => resolve()));
+      await telemetry.flush(1000);
+      await closeDatabase();
+      console.log('[GenOS Backend] Shutdown complete.');
     };
     process.once('SIGTERM', shutdown);
     process.once('SIGINT', shutdown);

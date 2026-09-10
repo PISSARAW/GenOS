@@ -17,6 +17,8 @@ message AgentEvent {
   string severity = 5;
   string status = 6;
   string payload_json = 7;
+  string organization_id = 8;
+  string project_id = 9;
 }
 message EmitResponse { bool success = 1; }
 message TelemetryMetricsResponse { float entropy = 1; string state = 2; }

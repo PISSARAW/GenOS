@@ -1,12 +1,16 @@
 /**
- * GenOS MCP Strategy Tools — Direct execution bridge for 79 strategies & 97 primitives.
+ * GenOS MCP Strategy Tools — Direct execution bridge for 79 strategies and 189 referenced primitives.
  */
 const strategyExecutionAdapter = require('./strategyExecutionAdapter');
+const { validateToolArguments } = require('./mcpArgumentValidation');
+const { MCP_TOOLS_LIST } = require('../db/seedTools');
+
+const REGISTERED_STRATEGY_TOOLS = new Set((MCP_TOOLS_LIST || []).map((tool) => tool.name).filter((name) => name.startsWith('genos_strat_')));
 
 function isStrategyTool(toolName) {
   if (!toolName || typeof toolName !== 'string') return false;
   return (
-    toolName.startsWith('genos_strat_') ||
+    REGISTERED_STRATEGY_TOOLS.has(toolName) ||
     toolName === 'genos_resilience_hypermutation' ||
     toolName === 'genos_execute_primitive' ||
     toolName === 'genos_execute_strategy_pipeline' ||
@@ -14,13 +18,31 @@ function isStrategyTool(toolName) {
     toolName === 'genos_compile_memory' ||
     toolName === 'genos_synaptic_stdp_update' ||
     toolName === 'genos_synaptic_prune_scale'
+    || toolName === 'genos_blame'
+    || toolName === 'genos_lineage'
   );
 }
 
 async function executeStrategyTool(toolName, args = {}) {
   if (!isStrategyTool(toolName)) return null;
+  const argumentError = validateToolArguments(toolName, args);
+  if (argumentError) return { configured: true, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code };
 
   try {
+    if (toolName === 'genos_blame' || toolName === 'genos_lineage') {
+      return {
+        configured: true,
+        success: true,
+        status: 'completed',
+        transport: 'strategy_primitive',
+        output: {
+          tool: toolName,
+          targetId: args.target_id || args.targetId || null,
+          evidence: [],
+          provenance: { source: 'local_strategy_bridge', complete: false }
+        }
+      };
+    }
     if (toolName === 'genos_record_experience') {
       const res = await strategyExecutionAdapter.executePrimitive('record_experience', args);
       const ok = res && res.success !== false;
@@ -44,9 +66,20 @@ async function executeStrategyTool(toolName, args = {}) {
       };
     }
     if (toolName === 'genos_resilience_hypermutation') {
+      if (args.genes && typeof args.genes === 'object') {
+        const genetics = require('./geneticsService');
+        const result = genetics.somaticHypermutate(args.genes, {
+          seed: args.seed,
+          mutationRate: args.mutationRate,
+          stressLevel: args.stressLevel
+        });
+        return { configured: true, success: true, status: 'completed', transport: 'strategy_primitive', output: result };
+      }
       const mutations = Array.isArray(args.mutations) ? args.mutations : [];
       const res = await strategyExecutionAdapter.executePrimitive('mutate', {
         ...args,
+        agentId: args.agentId || args.agent_id,
+        orchestratorId: args.orchestratorId || args.orchestrator_id,
         mutations,
         hypermutation: true,
         mutationRate: args.mutationRate ?? 0.35
@@ -82,7 +115,6 @@ async function executeStrategyTool(toolName, args = {}) {
         learningRate: args.learning_rate || args.learningRate,
         transmitterType: args.transmitter_type || args.transmitterType,
         agentId: args.agent_id || args.agentId,
-        ...args
       };
       const res = await strategyExecutionAdapter.executePrimitive('stdp_update', primitiveArgs);
       const ok = res && res.success !== false;

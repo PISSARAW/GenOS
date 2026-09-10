@@ -10,6 +10,16 @@ const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/rustBridgeController');
 const { requirePermission } = require('../middleware/auth');
+const { requireTenantScope } = require('../middleware/tenant');
+
+async function requireBridgeTenant(req, res, next) {
+	await requireTenantScope()(req, res, (error) => {
+		if (error) return next(error);
+		if (!req.tenant) return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'Rust bridge operations require an explicit organization and project scope.' } });
+		next();
+	});
+}
+router.use(requireBridgeTenant);
 
 router.get('/status', requirePermission('read'), controller.getStatus);
 router.get('/snapshots', requirePermission('read'), controller.listSnapshots);

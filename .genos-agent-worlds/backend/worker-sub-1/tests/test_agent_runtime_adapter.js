@@ -28,7 +28,7 @@ try {
   const supervisorSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentProcessSupervisor.js'), 'utf8');
   const roundSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentRoundService.js'), 'utf8');
   assert(supervisorSource.includes("currentEvent.action === 'VERIFY'") || adapterSource.includes("event.action === 'VERIFY'"), 'a completed Codex turn must not be killed after reporting aggregate usage');
-  assert(adapterSource.includes("dispatchedAgent.execution_mode === 'worker' && !normalizedMission.localModel"), 'every delegated worker must pass through local-model routing, not only autonomous workers');
+  assert(adapterSource.includes('normalizedMission.localModel && (normalizedMission.localRuntime === true || isLocalRuntime(executable))'), 'local workers must be explicit rather than inferred from model discovery');
   assert(runtimeSource.includes('GENOS_EXECUTION_MODE: executionMode'), 'runtime children must receive their authority mode');
   assert(runtimeSource.includes('GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)}'), 'the leased MCP server must receive the same authority mode');
   assert(runtimeSource.includes('autonomyPlan.synthesisOnly'), 'the official root turn must use synthesis-only authority');

@@ -3,6 +3,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+process.env.NODE_ENV = 'test';
+process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || `test-${crypto.randomBytes(16).toString('hex')}`;
 const { decide } = require('../src/controllers/releaseController');
 const releases = require('../src/controllers/releaseController');
 const { getDatabase, closeDatabase } = require('../src/db');
@@ -62,6 +64,9 @@ async function e2e() {
   const outcome = await invoke(releases.decideRollout, { params: { rolloutId: rollout.body.id }, tenant });
   assert.equal(outcome.body.status, 'promoted');
   assert.equal(outcome.body.selectedVariant, 'candidate');
+  const persistedRelease = await db.get('SELECT status, environment FROM releases WHERE id = ?', create.body.id);
+  assert.equal(persistedRelease.status, 'active');
+  assert.equal(persistedRelease.environment, 'production');
   const report = await invoke(releases.chargeback, { tenant });
   assert.equal(report.body.totalCostUsd, 0.02);
   await closeDatabase();

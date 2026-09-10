@@ -12,7 +12,7 @@ module.exports = {
         threats: scan.threats || []
       });
     } catch (err) {
-      callback(null, { threat_count: 0, threats: [] });
+      callback({ code: 13, message: err.message || 'Immune vulnerability scan failed.' });
     }
   },
 

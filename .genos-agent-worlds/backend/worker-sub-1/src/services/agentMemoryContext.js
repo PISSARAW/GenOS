@@ -4,6 +4,7 @@
  */
 
 const vectorMemory = require('./vectorMemoryService');
+const episodicMemory = require('./episodicMemoryService');
 const { getDatabase } = require('../db');
 
 function truncateWords(text = '', maxLen = 250) {
@@ -28,6 +29,15 @@ async function retrieveAgentMemories(agentId = '', task = '', options = {}) {
   const experiences = allScored.filter(e => e.id !== 'signal_ignorance' && e.status !== 'FAILURE').slice(0, 4);
   const pitfalls = searchRes.pitfallsToAvoid || [];
   const goldenPaths = searchRes.topSuccessfulGoldenPaths || [];
+  let episodes = [];
+  try {
+    episodes = await episodicMemory.getRecentEpisodes({
+      agentId,
+      taskId: options.taskId,
+      sessionId: options.sessionId,
+      limit: options.episodicLimit || 5
+    });
+  } catch {}
 
   // Also query relevant failures from genome_decisions if pitfalls are empty
   let additionalFailures = [];
@@ -46,7 +56,8 @@ async function retrieveAgentMemories(agentId = '', task = '', options = {}) {
   return {
     experiences,
     pitfalls: combinedPitfalls.slice(0, 3),
-    goldenPaths: goldenPaths.slice(0, 2)
+    goldenPaths: goldenPaths.slice(0, 2),
+    episodes: episodes.filter((episode) => Number(episode.rewardScore) >= 0.7).slice(0, 4)
   };
 }
 
@@ -66,13 +77,13 @@ function formatGoldenPath(g) {
  */
 async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}) {
   try {
-    const { experiences, pitfalls, goldenPaths } = await retrieveAgentMemories(agentId, task, options);
+    const { experiences, pitfalls, goldenPaths, episodes } = await retrieveAgentMemories(agentId, task, options);
     const sections = [];
 
     // Uptake synaptic vesicles from the synaptic cleft
     let vesicleEngrams = [];
     try {
-      vesicleEngrams = await vectorMemory.uptakeVesicles(agentId, { peek: true });
+      vesicleEngrams = await vectorMemory.uptakeVesicles(agentId, { peek: options.peekVesicles === true });
     } catch {}
 
     let epistemicShield = null;
@@ -113,6 +124,11 @@ async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}
     if (goldenPaths.length > 0) {
       const gpLines = goldenPaths.map(g => `  * 🎯 ${formatGoldenPath(g)}`);
       sections.push(`- Golden Paths Connus :\n${gpLines.join('\n')}`);
+    }
+
+    if (episodes.length > 0) {
+      const episodeLines = episodes.map((episode) => `  * [${episode.actionType}] ${truncateWords(episode.observationOutput || episode.actionInput, 220)} (récompense: ${Number(episode.rewardScore).toFixed(2)})`);
+      sections.push(`- Épisodes récents consolidés :\n${episodeLines.join('\n')}`);
     }
 
     if (sections.length === 0 && !epistemicShield) return '';

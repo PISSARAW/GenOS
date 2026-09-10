@@ -8,9 +8,13 @@ const {
   WORKER_EVIDENCE_EVENTS
 } = require('./agentOrchestrationState');
 
+const MAX_WORKER_DOSSIER_EVENTS = Math.max(4, Number(process.env.GENOS_MAX_WORKER_DOSSIER_EVENTS) || 32);
+
 function recordWorkerEvidence(mission, event) {
-  const orchestratorId = mission.orchestratorAgentId;
-  if (!orchestratorId || !WORKER_EVIDENCE_EVENTS.has(event.eventType)) return;
+  const orchestratorId = mission.orchestratorAgentId || mission.orchestratorId;
+  if (!orchestratorId || !event || !WORKER_EVIDENCE_EVENTS.has(event.eventType)) return;
+  const report = extractEvidenceReport(event.payload);
+  const claims = Array.isArray(report?.claims) ? report.claims : [];
   const round = workerEvidenceRounds.get(orchestratorId);
   if (!round) return;
   const workerId = mission.agentId || mission.id;
@@ -24,7 +28,6 @@ function recordWorkerEvidence(mission, event) {
     });
   }
   const events = round.events.get(workerId) || [];
-  const report = extractEvidenceReport(event.payload);
   const normalizedFailure = event.payload?.failure || (['APOPTOSIS_TRIGGERED', 'CELLULAR_APOPTOSIS'].includes(event.eventType)
     ? { category: 'apoptosis', reason: String(event.detail || 'Agent entered apoptosis.') }
     : (['AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(event.eventType)
@@ -38,7 +41,7 @@ function recordWorkerEvidence(mission, event) {
     ...(normalizedFailure ? { failure: normalizedFailure } : {}),
     ...(event.payload?.noAnswerProof ? { noAnswerProof: event.payload.noAnswerProof } : {})
   });
-  round.events.set(workerId, events.slice(-4));
+  round.events.set(workerId, events.slice(-MAX_WORKER_DOSSIER_EVENTS));
 }
 
 function workerEvidenceDossiers(orchestratorId, workers) {
@@ -94,17 +97,27 @@ function validateWorkerDossierCoherence(dossier, worker, contract = {}) {
   return true;
 }
 
-function validateDossierInfluence(report, workerIds) {
+function validateDossierInfluence(report, workerIds, options = {}) {
   const entries = Array.isArray(report?.dossierInfluence) ? report.dossierInfluence : [];
+  const dossiers = Array.isArray(options.dossiers) ? options.dossiers : [];
+  const claimsByWorker = new Map(dossiers.map((dossier) => [dossier.workerId, new Set(
+    (dossier.events || []).flatMap((event) => {
+      const evidenceReport = event.evidenceReport || event.payload?.evidenceReport || {};
+      return Array.isArray(evidenceReport.claims) ? evidenceReport.claims.map((claim) => claim?.statement).filter(Boolean) : [];
+    })
+  )]));
   const byWorker = new Map(entries.map((entry) => [entry.workerId, entry]));
   const missing = workerIds.filter((workerId) => !byWorker.has(workerId));
   const invalid = workerIds.filter((workerId) => {
     const entry = byWorker.get(workerId);
+    const citedClaims = claimsByWorker.get(workerId);
+    const citationsValid = !citedClaims || entry.usedClaims.every((claim) => citedClaims.has(claim));
     return !entry
       || typeof entry.influence !== 'string'
       || !/[A-Za-z0-9]/.test(entry.influence)
       || !Array.isArray(entry.usedClaims)
-      || entry.usedClaims.some((claim) => typeof claim !== 'string' || !claim.trim());
+      || entry.usedClaims.some((claim) => typeof claim !== 'string' || !claim.trim())
+      || !citationsValid;
   });
   const unexpected = entries.filter((entry) => !workerIds.includes(entry?.workerId)).map((entry) => entry?.workerId || 'unknown');
   const duplicate = entries.map((entry) => entry?.workerId).filter((id, index, all) => id && all.indexOf(id) !== index);
@@ -152,6 +165,24 @@ function extractEvidenceReport(value) {
   return value;
 }
 
+function hasDecisionEvidence(event = {}) {
+  const payload = event.payload || {};
+  const report = extractEvidenceReport(payload);
+  const claims = Array.isArray(report?.claims) ? report.claims : [];
+  const substantiatedClaim = claims.some((claim) => Array.isArray(claim?.evidence) && claim.evidence.some((item) => {
+    return (typeof item === 'string' && item.trim()) || (item && typeof item === 'object' && Object.keys(item).length > 0);
+  }));
+  const noAnswerProof = report?.outcome === 'no_answer' && Array.isArray(report.noAnswerProof?.evidence)
+    && report.noAnswerProof.evidence.some((item) => typeof item === 'string' && item.trim());
+  const failureEvidence = Boolean(payload.failure || payload.noAnswerProof)
+    || ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'AGENT_HALTED'].includes(event.eventType);
+  return substantiatedClaim || noAnswerProof || failureEvidence;
+}
+
+function decisionEvidenceFailure(event = {}) {
+  return `Collective decision blocked: agent event '${event.eventType || 'unknown'}' contains no substantiated evidence.`;
+}
+
 function boundedScore(value) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, Math.min(1, number)) : 0;
@@ -176,8 +207,12 @@ function evidenceScore(payload = {}, context = {}) {
     || context.artifact === 'creative'
     || /author|literary|dramaturg|creative/i.test(context.role || '');
   if (!creative) {
-    const score = claims.reduce((count, claim) => count + (Array.isArray(claim.evidence) ? claim.evidence.length * 10 : 0), 0)
-      + claims.length * 2
+    const score = claims.reduce((count, claim) => {
+      const evidence = Array.isArray(claim?.evidence)
+        ? claim.evidence.filter((item) => (typeof item === 'string' && item.trim()) || (item && typeof item === 'object' && Object.keys(item).length > 0))
+        : [];
+      return count + evidence.length * 10 + (evidence.length > 0 ? 2 : 0);
+    }, 0)
       - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 3 : 0);
     return boundedEvidenceScore(score);
   }
@@ -194,7 +229,10 @@ function evidenceScore(payload = {}, context = {}) {
 }
 
 module.exports = {
+  MAX_WORKER_DOSSIER_EVENTS,
   extractEvidenceReport,
+  hasDecisionEvidence,
+  decisionEvidenceFailure,
   validateWorkerDossierCoherence,
   recordWorkerEvidence,
   workerEvidenceDossiers,

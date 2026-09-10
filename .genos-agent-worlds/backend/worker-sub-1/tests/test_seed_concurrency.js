@@ -4,8 +4,9 @@ const os = require('os');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
-const { initializeSchema } = require('./src/db/schema');
-const { seedDatabase, workspaceInitializationAlertId } = require('./src/db/seed');
+process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'test-only';
+const { initializeSchema } = require('../src/db/schema');
+const { seedDatabase, workspaceInitializationAlertId } = require('../src/db/seed');
 
 async function openDatabase(filename) {
   return open({ filename, driver: sqlite3.Database });

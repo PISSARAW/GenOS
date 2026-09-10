@@ -6,8 +6,30 @@ const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const { ROLE_PERMISSIONS, resolveUserFromHeaders, hashKey } = require('../middleware/auth');
 const { verifyPassword } = require('./password');
+const telemetry = require('../services/telemetryObserver');
+const verifyAttempts = new Map();
+const VERIFY_WINDOW_MS = 60 * 1000;
+const VERIFY_LIMIT = 20;
+
+function verifyRateLimit(req) {
+  const key = String(req.ip || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
+  const now = Date.now();
+  const entry = verifyAttempts.get(key);
+  if (!entry || now - entry.startedAt >= VERIFY_WINDOW_MS) {
+    verifyAttempts.set(key, { startedAt: now, count: 1 });
+    return null;
+  }
+  entry.count += 1;
+  if (entry.count > VERIFY_LIMIT) return Math.max(1, Math.ceil((VERIFY_WINDOW_MS - (now - entry.startedAt)) / 1000));
+  return null;
+}
 
 async function verifyToken(req, res) {
+  const retryAfter = verifyRateLimit(req);
+  if (retryAfter) {
+    res.setHeader('Retry-After', String(retryAfter));
+    return res.status(429).json({ error: { code: 'AUTH_RATE_LIMITED', message: 'Too many token verification attempts.' } });
+  }
   const token = (req.body && req.body.token) || req.headers.authorization || req.headers['x-access-key'];
 
   if (!token) {
@@ -26,6 +48,7 @@ async function verifyToken(req, res) {
   );
 
   if (keyRecord) {
+    verifyAttempts.delete(String(req.ip || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim());
     const rolePerms = ROLE_PERMISSIONS[keyRecord.role] || [];
     let extraPerms = [];
     try {
@@ -34,6 +57,7 @@ async function verifyToken(req, res) {
     } catch (e) {}
 
     await db.run('UPDATE access_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?', keyRecord.id);
+    telemetry.emitEvent({ eventType: 'AUTH_TOKEN_VERIFIED', action: 'AUTH', detail: 'Access key verified.', payload: { principalId: keyRecord.id, kind: 'access_key' } });
     return res.json({
       valid: true,
       role: keyRecord.role,
@@ -47,6 +71,8 @@ async function verifyToken(req, res) {
     tokenHash
   );
   if (session) {
+      telemetry.emitEvent({ eventType: 'AUTH_TOKEN_VERIFIED', action: 'AUTH', detail: 'Session verified.', payload: { principalId: session.id, kind: 'session' } });
+    verifyAttempts.delete(String(req.ip || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim());
     return res.json({
       valid: true,
       role: session.role,
@@ -55,6 +81,7 @@ async function verifyToken(req, res) {
     });
   }
 
+  telemetry.emitEvent({ eventType: 'AUTH_TOKEN_REJECTED', action: 'AUTH', detail: 'Invalid credential rejected.', severity: 'warning', payload: { ip: req.ip || null } });
   return res.status(401).json({
     valid: false,
     error: { code: 'INVALID_TOKEN', message: 'Supplied token or access key is invalid or inactive' }
@@ -109,6 +136,7 @@ async function loginWithPassword(req, res) {
      VALUES (?, ?, ?, ?, datetime('now', '+${SESSION_TTL_HOURS} hours'))`,
     id, hashKey(rawToken), user.role, user.username
   );
+  telemetry.emitEvent({ eventType: 'AUTH_KEY_CREATED', action: 'CREDENTIAL', detail: `Access key ${id} created.`, payload: { principalId: id, role, label } });
   await db.run('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', user.id);
 
   return res.json({
@@ -144,7 +172,7 @@ async function createKey(req, res) {
 
   const rawKey = `genos_sk_${role}_${crypto.randomBytes(16).toString('hex')}`;
   const keyHash = hashKey(rawKey);
-  const id = `key-${Date.now()}`;
+  const id = `key-${crypto.randomUUID()}`;
 
   const db = await getDatabase();
   await db.run(
@@ -157,11 +185,48 @@ async function createKey(req, res) {
   });
 }
 
+async function revokeKey(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const result = await db.run('UPDATE access_keys SET is_active = 0 WHERE id = ? AND is_active = 1', req.params.id);
+    if (result.changes !== 1) return res.status(404).json({ error: { code: 'KEY_NOT_FOUND', message: 'Active access key not found.' } });
+    telemetry.emitEvent({ eventType: 'AUTH_KEY_REVOKED', action: 'CREDENTIAL', detail: `Access key ${req.params.id} revoked.`, payload: { principalId: req.params.id } });
+    res.json({ success: true, id: req.params.id, revoked: true });
+  } catch (error) { next(error); }
+}
+
+async function rotateKey(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const existing = await db.get('SELECT label, role, permissions, expires_at FROM access_keys WHERE id = ? AND is_active = 1', req.params.id);
+    if (!existing) return res.status(404).json({ error: { code: 'KEY_NOT_FOUND', message: 'Active access key not found.' } });
+    const rawKey = `genos_sk_${existing.role}_${crypto.randomBytes(16).toString('hex')}`;
+    const id = `key-${crypto.randomUUID()}`;
+    await db.run('UPDATE access_keys SET is_active = 0 WHERE id = ?', req.params.id);
+    await db.run('INSERT INTO access_keys (id, key_hash, label, role, permissions, expires_at) VALUES (?, ?, ?, ?, ?, ?)', id, hashKey(rawKey), existing.label, existing.role, existing.permissions, existing.expires_at);
+    telemetry.emitEvent({ eventType: 'AUTH_KEY_ROTATED', action: 'CREDENTIAL', detail: `Access key ${req.params.id} rotated.`, payload: { principalId: id, rotatedFrom: req.params.id } });
+    res.status(201).json({ key: { id, label: existing.label, role: existing.role, permissions: JSON.parse(existing.permissions || '[]'), expiresAt: existing.expires_at, rawKey }, rotatedFrom: req.params.id });
+  } catch (error) { next(error); }
+}
+
+async function revokeSession(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const result = await db.run('UPDATE sessions SET revoked = 1 WHERE id = ? AND revoked = 0', req.params.id);
+    if (result.changes !== 1) return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'Active session not found.' } });
+    telemetry.emitEvent({ eventType: 'AUTH_SESSION_REVOKED', action: 'CREDENTIAL', detail: `Session ${req.params.id} revoked.`, payload: { principalId: req.params.id } });
+    res.json({ success: true, id: req.params.id, revoked: true });
+  } catch (error) { next(error); }
+}
+
 module.exports = {
   verifyToken,
   getSession,
   login,
   loginWithPassword,
   listKeys,
-  createKey
+  createKey,
+  revokeKey,
+  rotateKey,
+  revokeSession
 };

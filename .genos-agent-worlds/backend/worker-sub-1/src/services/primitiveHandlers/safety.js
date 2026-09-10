@@ -120,15 +120,17 @@ async function quarantine(context) {
     '[QUARANTINE] ' + reason,
     targetId
   );
+  const runtimeAdapter = require('../agentRuntimeAdapter');
+  const runtimeStopped = Boolean(runtimeAdapter.stopMission(targetId));
   telemetry.emitEvent({
     eventType: 'AGENT_QUARANTINED',
     agentId: targetId,
     action: 'QUARANTINE',
     detail: 'Agent ' + targetId + ' quarantined: ' + reason,
     severity: 'warning',
-    payload: { targetId, reason, previousStatus: agent.status }
+    payload: { targetId, reason, previousStatus: agent.status, runtimeStopped }
   });
-  return { success: true, quarantined: targetId, reason };
+  return { success: true, quarantined: targetId, reason, runtimeStopped };
 }
 
 async function sandbox(context) {
@@ -209,129 +211,13 @@ async function messageGraph(context = {}) {
   };
 }
 
+const { cycleDetection: detectCycle } = require('./detection/cycleDetection');
+
 /**
  * Détecte les cycles d'échange (ping-pong entre agents ou boucle répétitive d'outils)
  */
 async function cycleDetection(context = {}) {
-  const rawMessages = context.messages || context.turns || context.history || [];
-  const maxRepeats = Number.isInteger(context.maxRepeats) ? context.maxRepeats : 2;
-
-  let hasCycle = false;
-  let cycleParticipants = [];
-  let loopType = 'none';
-  let detectedCycle = null;
-
-  // 1. Détection séquentielle temporelle
-  const sequence = rawMessages.map(m => {
-    if (typeof m === 'string') return m;
-    const actor = m.from || m.sender || m.agentId || m.action || m.tool || 'unknown';
-    const target = m.to || m.recipient || m.tool || '';
-    return target ? `${actor}->${target}` : actor;
-  });
-
-  if (sequence.length >= 2) {
-    for (let period = 1; period <= Math.min(4, Math.floor(sequence.length / 2)); period++) {
-      let repeated = 0;
-      for (let i = sequence.length - 1; i >= period; i -= period) {
-        let match = true;
-        for (let k = 0; k < period; k++) {
-          if (sequence[i - k] !== sequence[i - k - period]) {
-            match = false;
-            break;
-          }
-        }
-        if (match) repeated++;
-        else break;
-      }
-      if (repeated >= maxRepeats) {
-        hasCycle = true;
-        detectedCycle = sequence.slice(sequence.length - period);
-        cycleParticipants = [...new Set(detectedCycle)];
-        loopType = period === 1 ? 'repetitive_action' : 'agent_ping_pong';
-        break;
-      }
-    }
-  }
-
-  // 2. Détection par graphe d'adjacence orienté (DFS)
-  if (!hasCycle && rawMessages.length >= 2) {
-    const adj = new Map();
-    for (const msg of rawMessages) {
-      const from = String(msg.from || msg.sender || msg.agentId || 'A').trim();
-      const to = String(msg.to || msg.recipient || msg.target || 'B').trim();
-      if (from && to && from !== to) {
-        if (!adj.has(from)) adj.set(from, new Set());
-        adj.get(from).add(to);
-      }
-    }
-
-    const visited = new Set();
-    const recStack = new Set();
-
-    function dfs(node, path = []) {
-      visited.add(node);
-      recStack.add(node);
-      path.push(node);
-
-      const neighbors = adj.get(node) || new Set();
-      for (const neighbor of neighbors) {
-        if (!visited.has(neighbor)) {
-          if (dfs(neighbor, [...path])) return true;
-        } else if (recStack.has(neighbor)) {
-          hasCycle = true;
-          loopType = 'agent_ping_pong';
-          const cycleStart = path.indexOf(neighbor);
-          cycleParticipants = cycleStart >= 0 ? path.slice(cycleStart) : [neighbor, node];
-          return true;
-        }
-      }
-
-      recStack.delete(node);
-      return false;
-    }
-
-    for (const node of adj.keys()) {
-      if (!visited.has(node)) {
-        if (dfs(node, [])) break;
-      }
-    }
-  }
-
-  let budgetPenalized = 0;
-  if (hasCycle) {
-    try {
-      const db = await getDatabase();
-      const targetAgentId = context.agentId || context.targetId || (cycleParticipants.length === 1 ? cycleParticipants[0] : null);
-      if (targetAgentId) {
-        await db.run(
-          "UPDATE agents SET cognitive_budget = MAX(0, COALESCE(cognitive_budget, 100) - 15) WHERE id = ?",
-          targetAgentId
-        );
-        budgetPenalized = 15;
-      }
-    } catch (_) {}
-
-    telemetry.emitEvent({
-      eventType: 'COMMUNICATION_CYCLE_DETECTED',
-      agentId: context.agentId || context.orchestratorId || 'strategy_adapter',
-      action: 'BREAK_LOOP',
-      detail: `Cycle detected in agent communication (${loopType}): ${cycleParticipants.join(' <-> ')}`,
-      severity: 'warning',
-      payload: { loopType, cycleParticipants, detectedCycle, budgetPenalized }
-    });
-  }
-
-  return {
-    success: true,
-    hasCycle,
-    action: hasCycle ? 'BREAK_LOOP' : 'CONTINUE',
-    intervention: hasCycle,
-    loopType,
-    cycleParticipants,
-    detectedCycle,
-    budgetPenalized,
-    recommendation: hasCycle ? 'Break communication loop: mandate external decision or inject novel evidence' : 'No cycle detected'
-  };
+  return detectCycle(context);
 }
 
 const { diagnose, hypothesisEvidence, beliefProvenance, contradictionCheck, beliefGate } = require('./safetyHypothesis');

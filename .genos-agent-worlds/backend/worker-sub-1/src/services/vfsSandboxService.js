@@ -4,8 +4,12 @@
  */
 
 const { normalizeRelativePath } = require('./pathSafety');
-const virtualFiles = new Map();
-let virtualFileBytes = 0;
+const fs = require('fs');
+const path = require('path');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileAsync = promisify(execFile);
+const virtualFilesByWorkspace = new Map();
 const DEFAULT_MAX_VFS_FILE_BYTES = 8 * 1024 * 1024;
 const DEFAULT_MAX_VFS_BYTES = 64 * 1024 * 1024;
 const DEFAULT_MAX_VFS_FILES = 10000;
@@ -137,6 +141,15 @@ function normalizeWorkspacePath(value) {
   }
 }
 
+function normalizeFileArguments(args = {}) {
+  if (Object.prototype.hasOwnProperty.call(args, 'TargetFile') || Object.prototype.hasOwnProperty.call(args, 'CodeContent')) {
+    throw new Error('VFS file tools require canonical path and content fields.');
+  }
+  if (typeof args.path !== 'string' || !args.path.trim()) throw new Error('VFS file tools require a non-empty path field.');
+  if (typeof args.content !== 'string') throw new Error('VFS file tools require a string content field.');
+  return { path: normalizeWorkspacePath(args.path), content: args.content };
+}
+
 /**
  * Simulates dry-run execution against an in-memory Virtual File System (VFS)
  */
@@ -156,13 +169,14 @@ function simulateDryRun(toolName, args = {}, vfsState = {}) {
   // Intercept file and execution operations
   if (tool === 'genos_create' || tool === 'replace_file_content' || tool === 'write_to_file') {
     requiredRole = 'operator';
-    const targetPath = normalizeWorkspacePath(args.path || args.TargetFile || 'virtual_file.txt');
+    const fileArgs = normalizeFileArguments(args);
+    const targetPath = fileArgs.path;
     if (vfs[targetPath]) {
       filesModified.push(targetPath);
-      vfs[targetPath] = args.content || args.CodeContent || '';
+      vfs[targetPath] = fileArgs.content;
     } else {
       filesCreated.push(targetPath);
-      vfs[targetPath] = args.content || args.CodeContent || '';
+      vfs[targetPath] = fileArgs.content;
     }
   } else if (tool === 'genos_restore' || tool === 'genos_rollback') {
     requiredRole = 'operator';
@@ -183,6 +197,9 @@ function simulateDryRun(toolName, args = {}, vfsState = {}) {
   return {
     toolName: tool,
     dryRun: true,
+    executionMode: 'simulation',
+    executed: false,
+    requiresExplicitExecution: true,
     timestamp: new Date().toISOString(),
     requiredPrivilege: requiredRole,
     isDestructive,
@@ -290,7 +307,19 @@ function virtualPath(value) {
   return normalizeWorkspacePath(value);
 }
 
-async function executeVfsOperation(operation, filePath, content = '') {
+function workspaceVfs(workspaceId = 'legacy') {
+  const key = String(workspaceId || 'legacy');
+  let state = virtualFilesByWorkspace.get(key);
+  if (!state) {
+    state = { files: new Map(), bytes: 0 };
+    virtualFilesByWorkspace.set(key, state);
+  }
+  return state;
+}
+
+async function executeVfsOperation(operation, filePath, content = '', workspaceId = 'legacy') {
+  const state = workspaceVfs(workspaceId);
+  const virtualFiles = state.files;
   const target = virtualPath(filePath);
   if (!target) throw new Error('A file path is required.');
   const op = String(operation || '').toLowerCase();
@@ -302,21 +331,22 @@ async function executeVfsOperation(operation, filePath, content = '') {
     if (bytes > limits.maxFileBytes) throw new Error(`VFS file exceeds the ${limits.maxFileBytes}-byte limit.`);
     if (!virtualFiles.has(target) && virtualFiles.size >= limits.maxFiles) throw new Error(`VFS exceeds the ${limits.maxFiles}-file limit.`);
     const previousBytes = virtualFiles.has(target) ? Buffer.byteLength(virtualFiles.get(target), 'utf8') : 0;
-    if (virtualFileBytes - previousBytes + bytes > limits.maxBytes) throw new Error(`VFS exceeds the ${limits.maxBytes}-byte limit.`);
+    if (state.bytes - previousBytes + bytes > limits.maxBytes) throw new Error(`VFS exceeds the ${limits.maxBytes}-byte limit.`);
     virtualFiles.set(target, value);
-    virtualFileBytes = virtualFileBytes - previousBytes + bytes;
+    state.bytes = state.bytes - previousBytes + bytes;
     return { success: true, message: `Wrote ${target}` };
   }
   if (['delete', 'remove', 'delete_file'].includes(op)) {
     if (!virtualFiles.has(target)) return { success: false, message: `File not found: ${target}` };
-    virtualFileBytes -= Buffer.byteLength(virtualFiles.get(target), 'utf8');
+    state.bytes -= Buffer.byteLength(virtualFiles.get(target), 'utf8');
     virtualFiles.delete(target);
     return { success: true, message: `Deleted ${target}` };
   }
   throw new Error(`Unsupported VFS operation: ${operation}`);
 }
 
-function inspectVfs(directory = '/') {
+function inspectVfs(directory = '/', workspaceId = 'legacy') {
+  const virtualFiles = workspaceVfs(workspaceId).files;
   const prefix = virtualPath(directory);
   const entries = new Set();
   for (const filePath of virtualFiles.keys()) {
@@ -328,6 +358,87 @@ function inspectVfs(directory = '/') {
   return [...entries].sort();
 }
 
+function resolveRealWorkspace(workspaceRoot) {
+  if (typeof workspaceRoot !== 'string' || !workspaceRoot.trim()) {
+    throw new Error('workspaceRoot is required for real sandbox execution.');
+  }
+  const root = path.resolve(workspaceRoot);
+  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
+    throw new Error(`workspaceRoot is not an existing directory: ${workspaceRoot}`);
+  }
+  return root;
+}
+
+async function executeSandboxed(workspaceId, command, options = {}) {
+  if (!workspaceId) throw new Error('workspaceId is required for sandbox execution.');
+  if (typeof command !== 'string' || !command.trim()) throw new Error('command is required for sandbox execution.');
+  const simulation = simulateDryRun('genos_run', { command }, {});
+  if (options.mode !== 'real') {
+    return {
+      success: true,
+      dryRun: true,
+      executionMode: 'simulation',
+      executed: false,
+      requiresExplicitExecution: true,
+      workspaceId,
+      command,
+      blastRadiusScore: simulation.blastRadiusScore,
+      sideEffects: simulation.sideEffects
+    };
+  }
+  if (options.allowRealExecution !== true) {
+    return {
+      success: false,
+      dryRun: false,
+      executionMode: 'blocked',
+      executed: false,
+      workspaceId,
+      command,
+      error: 'Real sandbox execution requires allowRealExecution=true.'
+    };
+  }
+  const cwd = resolveRealWorkspace(options.workspaceRoot);
+  const timeout = Math.max(1, Math.min(Number(options.timeoutMs) || 5000, 120000));
+  const startedAt = Date.now();
+  try {
+    const result = await execFileAsync(process.platform === 'win32' ? 'cmd.exe' : 'sh',
+      process.platform === 'win32' ? ['/d', '/s', '/c', command] : ['-lc', command],
+      { cwd, timeout, windowsHide: true, maxBuffer: 1024 * 1024, env: options.env });
+    return {
+      success: true,
+      dryRun: false,
+      executionMode: 'real',
+      executed: true,
+      workspaceId,
+      command,
+      cwd,
+      durationMs: Date.now() - startedAt,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: 0,
+      blastRadiusScore: simulation.blastRadiusScore,
+      sideEffects: simulation.sideEffects
+    };
+  } catch (error) {
+    return {
+      success: false,
+      dryRun: false,
+      executionMode: 'real',
+      executed: true,
+      workspaceId,
+      command,
+      cwd,
+      durationMs: Date.now() - startedAt,
+      stdout: error.stdout || '',
+      stderr: error.stderr || error.message,
+      exitCode: Number.isInteger(error.code) ? error.code : 1,
+      timedOut: error.killed === true,
+      blastRadiusScore: simulation.blastRadiusScore,
+      sideEffects: simulation.sideEffects
+    };
+  }
+}
+
 module.exports = {
   getToolSchema,
   simulateDryRun,
@@ -336,4 +447,6 @@ module.exports = {
   dryRunPatch,
   executeVfsOperation,
   inspectVfs
+  ,executeSandboxed,
+  normalizeFileArguments
 };

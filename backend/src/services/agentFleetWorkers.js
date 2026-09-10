@@ -41,8 +41,8 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   };
   const workers = [];
   const sourceWorkspace = parent.workspace_path || mission.workspaceRoot;
-  if (!sourceWorkspace) throw new Error(`Orchestrator '${parent.id}' has no filesystem path to clone.`);
-  if (parent.workspace_path && mission.workspaceRoot && path.resolve(mission.workspaceRoot) !== path.resolve(parent.workspace_path)) {
+  const samePath = (a, b) => a && b && (process.platform === 'win32' ? path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase() : path.resolve(a) === path.resolve(b));
+  if (parent.workspace_path && mission.workspaceRoot && !samePath(mission.workspaceRoot, parent.workspace_path)) {
     throw Object.assign(new Error(`Mission workspace root does not match workspace '${parent.workspace_id}'.`), { code: 'WORKSPACE_ROOT_MISMATCH' });
   }
   const usedNames = [];

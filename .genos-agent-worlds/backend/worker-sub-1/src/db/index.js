@@ -38,12 +38,6 @@ async function getDatabase(dbFilePath) {
       console.warn('[DB] sqlite-vec extension could not be loaded:', err.message);
     }
 
-    // Optimisations d'architecture (Single-writer, WAL, Timeout)
-    await db.exec('PRAGMA journal_mode = WAL');
-    await db.exec('PRAGMA busy_timeout = 5000');
-    await db.exec('PRAGMA mmap_size = 268435456');
-    await db.exec('PRAGMA synchronous = NORMAL');
-
     try {
       await initializeSchema(db);
       await seedDatabase(db);

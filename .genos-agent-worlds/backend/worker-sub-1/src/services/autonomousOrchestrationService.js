@@ -73,6 +73,10 @@ function buildAutonomyPlan(contract, budget = {}) {
   // If a phase requires primitives not in the portfolio, skip it.
   // This ensures the autonomy plan adapts to the actual portfolio capabilities.
   const realizable = filterPhasesToPortfolio(phases, contract.strategy_portfolio || []);
+  const phaseValidation = validatePhasesVsPortfolio(phases, contract.strategy_portfolio || []);
+  const omittedPhases = phases
+    .filter((entry) => phaseValidation.missingByPhase[entry.key])
+    .map((entry) => ({ key: entry.key, missingTools: phaseValidation.missingByPhase[entry.key], required: entry.required }));
 
   const branches = (contract.branches || []).slice(0, branchCount);
   const workers = security
@@ -96,13 +100,22 @@ function buildAutonomyPlan(contract, budget = {}) {
     : (Number.isFinite(Number(budget.tokenPolicy?.orchestratorReserve))
       ? Math.max(0, Math.min(1, Number(budget.tokenPolicy?.orchestratorReserve)))
       : (1 - workerShare));
-  const affordableWorkers = Math.max(0, Math.floor((totalTokens * workerShare) / minimumWorkerTokens));
+  const minimumViableWorkerShare = workers.length && totalTokens >= minimumWorkerTokens
+    ? minimumWorkerTokens / totalTokens
+    : workerShare;
+  const effectiveWorkerShare = Math.max(workerShare, minimumViableWorkerShare);
+  const affordableWorkers = Math.max(0, Math.floor((totalTokens * effectiveWorkerShare) / minimumWorkerTokens));
   const dispatchWorkers = workers.slice(0, Math.min(workers.length, affordableWorkers));
   const allocation = complex || uncertain ? 'successive_halving_with_reallocation' : 'equal_minimum_then_score_weighted';
   const rounds = buildAllocation({
-    totalTokens, workerShare: dispatchWorkers.length ? workerShare : 0, workerCount: dispatchWorkers.length,
+    totalTokens, workerShare: dispatchWorkers.length ? effectiveWorkerShare : 0, workerCount: dispatchWorkers.length,
     minimumWorkerTokens, mode: allocation
   });
+  const executionStatus = realizable.length === 0
+    ? 'blocked'
+    : omittedPhases.length
+      ? 'degraded'
+      : 'ready';
 
   return {
     schema: 'genos.autonomous-orchestration/v1alpha1',
@@ -163,6 +176,21 @@ function buildAutonomyPlan(contract, budget = {}) {
       }
     ],
     phases: realizable,
+    executionStatus,
+    executionBlockers: executionStatus === 'blocked'
+      ? [{ code: 'NO_REALIZABLE_PHASES', message: 'The selected strategy portfolio cannot execute any autonomy phase.' }]
+      : [],
+    omittedPhases,
+    exploration: {
+      requestedBranches: workers.length,
+      selectedBranches: dispatchWorkers.length,
+      available: dispatchWorkers.length > 1,
+      reason: dispatchWorkers.length > 1
+        ? 'multiple_workers_budgeted'
+        : workers.length
+          ? 'budget_or_capacity_allows_at_most_one_worker'
+          : 'no_independent_branches_declared'
+    },
     requiredTools,
     workers,
     dispatchWorkers,
@@ -176,7 +204,7 @@ function buildAutonomyPlan(contract, budget = {}) {
     parasitism: { enabled: highRisk || security, mode: 'adversarial_parasite_branch', action: 'isolate_and_score_parasitic_trajectories' },
     tokenPolicy: {
       total: totalTokens,
-      workerShare: dispatchWorkers.length ? workerShare : 0,
+      workerShare: dispatchWorkers.length ? effectiveWorkerShare : 0,
       orchestratorReserve: dispatchWorkers.length ? orchestratorReserve : 1,
       allocation,
       minimumWorkerTokens,

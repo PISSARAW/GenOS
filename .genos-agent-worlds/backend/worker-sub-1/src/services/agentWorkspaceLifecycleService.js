@@ -1,3 +1,4 @@
+const { walk, spawnGit } = require('../utils/fs');
 /**
  * Worktree lifecycle for isolated agent capsules.
  *
@@ -18,7 +19,6 @@
 const fs = require('fs/promises');
 const fsSync = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
 const { appendBounded } = require('./boundedOutput');
 const { getDatabase } = require('../db');
 const { terminateChild } = require('./processTermination');
@@ -31,6 +31,8 @@ const CLEANUP_RETRY_DELAY_MS = 30 * 1000;
 const MAX_COPY_DEPTH = 32;
 const MAX_COPY_ENTRIES = 100000;
 const DEFAULT_MAX_COPY_BYTES = 1024 * 1024 * 1024;
+const SENSITIVE_COPY_FILES = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa(?:\..*)?|known_hosts(?:\..*)?|.*\.(?:pem|key|p12|pfx)|credentials(?:\..*)?|secrets?(?:\..*)?|vault(?:\..*)?)$/i;
+const SENSITIVE_BASENAME = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa(?:\..*)?|known_hosts(?:\..*)?|.*\.(?:pem|key|p12|pfx)|credentials(?:\..*)?|secrets?(?:\..*)?|vault(?:\..*)?)$/i;
 
 function maxCopyBytes() {
   const configured = Number(process.env.GENOS_MAX_WORKSPACE_COPY_BYTES);
@@ -44,6 +46,19 @@ function addCopyBytes(state, bytes) {
     error.code = 'WORKSPACE_COPY_SIZE_LIMIT';
     throw error;
   }
+}
+
+function isSensitivePath(relativePath) {
+  return String(relativePath).split(/[\\/]/).some((part) => SENSITIVE_BASENAME.test(part));
+}
+
+async function removeSensitiveFiles(root) {
+  await walk(root, '', async (entry, childRelative, childPath) => {
+    if (isSensitivePath(childRelative)) {
+      await fs.rm(childPath, { recursive: true, force: true });
+      return 'skip';
+    }
+  });
 }
 
 async function withGitRepoLock(repoPath, fn) {
@@ -92,12 +107,7 @@ function gcDelayMs() {
   return Number.isFinite(configured) ? configured : DEFAULT_GC_DELAY_MS;
 }
 
-function spawnGit(cwd, args) {
-  return runCommand('git', ['-C', cwd, ...args], { timeoutMs: 120000 });
-}
-
 /**
- * Free space under `directory`, or Infinity when the platform cannot report
  * it (fs.statfs is unavailable on some Windows/Node combinations and on
  * exotic mounts). Callers treat Infinity as "skip the disk-space guard"
  * rather than failing an otherwise valid launch.
@@ -348,6 +358,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     const untrackedFiles = untracked.split(/\r?\n/).filter(Boolean).map((file) => normalizeRelativePath(file, 'untracked file'));
     const copyState = { bytes: 0, limit: maxCopyBytes() };
     for (const file of untrackedFiles) {
+      if (isSensitivePath(file)) continue;
       const srcPath = path.join(source, file);
       const destPath = path.join(destination, file);
       try {
@@ -360,6 +371,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
         if (error.code === 'WORKSPACE_COPY_SIZE_LIMIT') throw error;
       }
     }
+    await removeSensitiveFiles(destination);
     return destination;
   } catch (gitError) {
     // Rollback partially initialized worktree to avoid orphaned registrations in .git/worktrees
@@ -381,12 +393,14 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     throw new Error('Insufficient disk space for a non-Git isolated workspace; free at least 1 GiB or use a Git workspace.');
   }
   const excluded = new Set(['.git', '.genos', '.genos-agent-worlds', 'node_modules', 'target']);
-  const isExcluded = (name) => excluded.has(name) || /\.(db-shm|db-wal|db-journal)$/i.test(name);
+  const isExcluded = (name) => excluded.has(name)
+    || SENSITIVE_COPY_FILES.test(name)
+    || /\.(db-shm|db-wal|db-journal)$/i.test(name);
   let copiedEntries = 0;
   const copyState = { bytes: 0, limit: maxCopyBytes() };
   async function copyTree(sourcePath, destinationPath, relative = '') {
     const baseName = path.basename(sourcePath);
-    if (isExcluded(baseName)) return;
+    if (isExcluded(baseName) || isSensitivePath(relative || baseName)) return;
     const sourceStat = await fs.lstat(sourcePath);
     if (sourceStat.isSymbolicLink()) return;
     if (sourceStat.isDirectory()) {
@@ -409,6 +423,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   }
   try {
     await copyTree(source, destination);
+    await removeSensitiveFiles(destination);
   } catch (error) {
     await fs.rm(destination, { recursive: true, force: true }).catch(() => {});
     throw error;
@@ -435,7 +450,6 @@ module.exports = {
   provisionMissionWorkspace,
   runCommand,
   scheduleWorkspaceCleanup,
-  spawnGit,
   trackWorkspace,
   trackedWorkspaces
 };

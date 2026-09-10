@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { selectStrategyPortfolio } = require('../strategies/strategySelector');
-const { listStrategies } = require('../strategies/strategyRegistry');
+const { listStrategies, registryHealth } = require('../strategies/strategyRegistry');
 
 function getStrategyHandlers() {
   return require('./strategyExecutionAdapter').getHandlers();
@@ -43,6 +43,7 @@ function buildStrategyContract(input = {}) {
     strategy_registry: {
       total: selection.decisions.length,
       selection_complete: selection.decisions.length === listStrategies().length,
+      registry_hash: registryHealth().registryHash,
       endpoint: '/api/strategies'
     },
     strategy_decisions: selection.decisions.map((decision) => ({
@@ -78,6 +79,9 @@ function validateContract(contract) {
     throw new Error('selected_strategy.fallback must include requested, selected, and reason');
   }
   const registryIds = new Set(listStrategies().map((strategy) => strategy.id));
+  if (contract.strategy_registry?.registry_hash && contract.strategy_registry.registry_hash !== registryHealth().registryHash) {
+    throw Object.assign(new Error('Strategy registry changed since this contract was selected.'), { code: 'STRATEGY_REGISTRY_CHANGED' });
+  }
   if (!registryIds.has(contract.selected_strategy.primary)) throw new Error(`Unknown primary strategy '${contract.selected_strategy.primary}'`);
   if (!Array.isArray(contract.strategy_portfolio)) throw new Error('strategy_portfolio must be an array');
   const portfolioIds = new Set(contract.strategy_portfolio.map((strategy) => strategy.id));
@@ -91,6 +95,13 @@ function validateContract(contract) {
   const decisionIds = new Set((contract.strategy_decisions || []).map((decision) => decision.id));
   if (decisionIds.size !== registryIds.size || [...registryIds].some((id) => !decisionIds.has(id))) {
     throw new Error(`strategy_decisions must contain the complete ${registryIds.size}-strategy registry`);
+  }
+  const primaryDecision = (contract.strategy_decisions || []).find((decision) => decision.id === contract.selected_strategy.primary);
+  if (!primaryDecision || primaryDecision.status !== 'selected') throw new Error('selected_strategy.primary must have a selected strategy_decisions entry.');
+  if ((typeof primaryDecision.score !== 'number' && typeof primaryDecision.score !== 'string') || String(primaryDecision.score).trim() === '' || !Number.isFinite(Number(primaryDecision.score))) throw new Error('selected primary strategy must have a finite score.');
+  for (const decision of contract.strategy_decisions || []) {
+    const current = listStrategies().find((strategy) => strategy.id === decision.id);
+    if (current && decision.maturity !== current.maturity) throw new Error(`Strategy maturity mismatch for '${decision.id}'.`);
   }
   if (!Array.isArray(contract.branches)) throw new Error('branches must be an array');
   if (!contract.branches.length) throw new Error('branches must contain at least one hypothesis');

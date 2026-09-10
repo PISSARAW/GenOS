@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
+const os = require('node:os');
 const { getDatabase, closeDatabase } = require('../src/db');
 const strategyContracts = require('../src/services/strategyContractService');
 const strategyService = require('../src/services/strategyExecutionService');
@@ -20,11 +21,44 @@ async function run() {
     }
   };
 
-  const mergeBlocked = await promotionPolicy.applyPostPromotionPolicies(null, {
-    promotion: { merge_workspace_automatically: true }
-  }, { winnerWorkspaceRoot: '/tmp/winner', targetWorkspaceRoot: '/tmp/target' });
-  assert.equal(mergeBlocked.success, false);
-  assert.equal(mergeBlocked.actionsTaken[0].merged, false);
+  const mergeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-promotion-merge-'));
+  const winnerWorkspaceRoot = path.join(mergeRoot, 'winner');
+  const targetWorkspaceRoot = path.join(mergeRoot, 'target');
+  fs.mkdirSync(path.join(winnerWorkspaceRoot, 'nested'), { recursive: true });
+  fs.mkdirSync(targetWorkspaceRoot, { recursive: true });
+  fs.writeFileSync(path.join(winnerWorkspaceRoot, 'nested', 'promoted.txt'), 'winner change');
+  fs.writeFileSync(path.join(targetWorkspaceRoot, 'existing.txt'), 'target content');
+  try {
+    const merged = await promotionPolicy.applyPostPromotionPolicies(null, {
+      promotion: { merge_workspace_automatically: true }
+    }, { winnerWorkspaceRoot, targetWorkspaceRoot });
+    assert.equal(merged.success, true);
+    assert.equal(merged.actionsTaken[0].merged, true);
+    assert.equal(fs.readFileSync(path.join(targetWorkspaceRoot, 'nested', 'promoted.txt'), 'utf8'), 'winner change');
+    assert.equal(fs.readFileSync(path.join(targetWorkspaceRoot, 'existing.txt'), 'utf8'), 'target content');
+
+    const causalBaseWorkspaceRoot = path.join(mergeRoot, 'base');
+    fs.mkdirSync(causalBaseWorkspaceRoot, { recursive: true });
+    fs.writeFileSync(path.join(causalBaseWorkspaceRoot, 'causal.txt'), 'base version');
+    fs.writeFileSync(path.join(targetWorkspaceRoot, 'causal.txt'), 'base version');
+    fs.writeFileSync(path.join(winnerWorkspaceRoot, 'causal.txt'), 'winner version');
+    const causallyMerged = await promotionPolicy.applyPostPromotionPolicies(null, {
+      promotion: { merge_workspace_automatically: true }
+    }, { winnerWorkspaceRoot, targetWorkspaceRoot, causalBaseWorkspaceRoot });
+    assert.equal(causallyMerged.success, true);
+    assert.equal(fs.readFileSync(path.join(targetWorkspaceRoot, 'causal.txt'), 'utf8'), 'winner version');
+
+    fs.writeFileSync(path.join(winnerWorkspaceRoot, 'conflict.txt'), 'winner version');
+    fs.writeFileSync(path.join(targetWorkspaceRoot, 'conflict.txt'), 'target version');
+    const conflicted = await promotionPolicy.applyPostPromotionPolicies(null, {
+      promotion: { merge_workspace_automatically: true }
+    }, { winnerWorkspaceRoot, targetWorkspaceRoot });
+    assert.equal(conflicted.success, false);
+    assert.equal(conflicted.actionsTaken[0].status, 'conflict');
+    assert.equal(fs.readFileSync(path.join(targetWorkspaceRoot, 'conflict.txt'), 'utf8'), 'target version');
+  } finally {
+    fs.rmSync(mergeRoot, { recursive: true, force: true });
+  }
 
   const evalFail = promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
     replayVerified: false,
@@ -39,7 +73,13 @@ async function run() {
   const evalPass = promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
     replayVerified: true,
     independentVerification: true,
-    humanApproved: true
+    humanApprovalReceipt: {
+      approved: true,
+      approvalId: 'approval-test',
+      approverId: 'reviewer-test',
+      approvedAt: new Date().toISOString(),
+      payloadHash: 'a'.repeat(64)
+    }
   });
   assert.equal(evalPass.eligible, true);
   assert.equal(evalPass.violations.length, 0);
@@ -47,11 +87,33 @@ async function run() {
     promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
       replayVerified: true,
       report: { claims: [{ statement: 'unsupported claim' }] },
-      humanApproved: true
+      humanApprovalReceipt: {
+        approved: true,
+        approvalId: 'approval-test',
+        approverId: 'reviewer-test',
+        approvedAt: new Date().toISOString(),
+        payloadHash: 'a'.repeat(64)
+      }
     }).eligible,
     false,
     'Claims without evidence must not satisfy independent verification'
   );
+  assert.equal(promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
+    replayVerified: true,
+    verifiedClaims: ['fake'],
+    humanApproved: true
+  }).eligible, false, 'Unstructured verified claims must not satisfy independent verification');
+  assert.equal(promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
+    replayVerified: true,
+    workerDossiers: [{ evidence: ['independent receipt'] }],
+    humanApprovalReceipt: {
+      approved: true,
+      approvalId: 'approval-test',
+      approverId: 'reviewer-test',
+      approvedAt: new Date().toISOString(),
+      payloadHash: 'a'.repeat(64)
+    }
+  }).eligible, true, 'Structured worker evidence should satisfy independent verification');
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: {} }).eligible, false);
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED' } }).eligible, true);
   console.log('✓ Point 3.1: evaluatePromotionGate correctly enforces replay and verification');
@@ -74,6 +136,9 @@ async function run() {
     const preservedEvents = await db.all("SELECT * FROM telemetry_events WHERE event_type = 'BRANCH_PRESERVED'");
     assert.equal(preservedEvents.length, 2);
     console.log('✓ Point 3.2: applyPostPromotionPolicies preserves rejected branches');
+    const failedPreservation = await promotionPolicy.applyPostPromotionPolicies({ run: async () => { throw new Error('telemetry unavailable'); } }, contractWithPolicies, { rejectedBranchIds: ['branch-failed'] });
+    assert.equal(failedPreservation.success, false);
+    assert.equal(failedPreservation.actionsTaken[0].preserved, false);
 
     // Test 3: Integration with recordExecutionEvent
     await db.run("INSERT OR REPLACE INTO agents (id, name, role, status, execution_mode) VALUES ('agent-policy-test', 'Policy Agent', 'orchestrator', 'running', 'orchestrator')");

@@ -33,6 +33,25 @@ function printBanner(config, useColor) {
   console.log(`\x1b[35m💭 Voix & Philosophie :\x1b[0m\n   \x1b[3m"${config.personality}"\x1b[0m\n`);
 }
 
+function formatMaintenanceSummary(maintenance, useColor) {
+  const lines = ['🧑\u200d🔧 Maintenance autonome (branches daemon) :'];
+  for (const entry of maintenance) {
+    if (entry.status === 'skipped' || entry.status === 'error') {
+      lines.push(`  - ${entry.repo}: ${entry.status} (${entry.reason || 'n/a'})`);
+      continue;
+    }
+    const fixLine = entry.lastFix?.applied
+      ? `fix committed on ${entry.branch} (${entry.lastFix.file})`
+      : `watching (${entry.lastFix?.reason || 'no change this cycle'})`;
+    const mrLine = entry.mergeRequest?.opened
+      ? `MR ready${entry.mergeRequest.url ? ': ' + entry.mergeRequest.url : ''}`
+      : (entry.mergeRequest ? `MR pending (${entry.mergeRequest.reason || 'n/a'})` : 'no MR yet');
+    lines.push(`  - ${entry.repo}: ${entry.status} — ${fixLine} — ${mrLine}`);
+  }
+  const text = lines.join('\n');
+  return useColor ? `\x1b[36m${text}\x1b[0m` : text;
+}
+
 function formatReportForTerminal(report, useColor) {
   if (!useColor) return report;
   return report
@@ -50,6 +69,8 @@ async function main() {
   const isEnable = args.includes('--enable-autostart') || args.includes('--enable');
   const isDisable = args.includes('--disable-autostart') || args.includes('--disable');
   const isScanOnly = args.includes('--scan-only') || args.includes('--quiet');
+  const isDaemon = args.includes('--daemon');
+  const isReportOnly = args.includes('--report-only');
   const useColor = !args.includes('--no-color') && process.stdout.isTTY;
   const isInteractive = args.includes('--interactive') || (!isStatus && !isEnable && !isDisable && !isScanOnly && process.stdin.isTTY && process.stdout.isTTY);
 
@@ -79,7 +100,7 @@ async function main() {
     console.log(useColor ? `\x1b[34m${scanMessage}\x1b[0m\n` : scanMessage);
   }
 
-  const result = runProactiveCycle();
+  const result = await runProactiveCycle({ autofix: !isReportOnly });
 
   // Consolidation synaptique & élagage automatique lors du cycle de la sentinelle
   let sleepReport = null;
@@ -103,8 +124,38 @@ async function main() {
     const sleepMsg = `🧠 [Consolidation Synaptique] Cycle de veille effectué : ${sleepReport.apoptosisCount || 0} souvenir(s) élagué(s), ${sleepReport.prunedTrajectories || 0} trajectoire(s) purgée(s).`;
     console.log(useColor ? `\x1b[35m${sleepMsg}\x1b[0m\n` : `${sleepMsg}\n`);
   }
+  if (!isScanOnly && result.maintenance && result.maintenance.length > 0) {
+    console.log(formatMaintenanceSummary(result.maintenance, useColor));
+  }
+
   const reportMessage = `📄 Rapport complet sauvegardé dans : ${result.audit.savedFiles.latestFile}`;
   console.log(useColor ? `\n\x1b[90m${reportMessage}\x1b[0m\n` : `\n${reportMessage}\n`);
+
+  if (isDaemon) {
+    const intervalMinutes = Math.max(1, Number(config.checkIntervalMinutes) || 60);
+    const intervalMs = intervalMinutes * 60 * 1000;
+    console.log(`[${config.name}] Daemon active; next cycle in ${intervalMinutes} minute(s).`);
+    const timer = setInterval(async () => {
+      try {
+        const scheduled = await runProactiveCycle({ autofix: !isReportOnly });
+        await vectorMemoryService.sleepCycle();
+        if (scheduled.maintenance && scheduled.maintenance.length > 0) {
+          console.log(formatMaintenanceSummary(scheduled.maintenance, useColor));
+        }
+        console.log(`[${config.name}] Scheduled cycle completed.`);
+      } catch (error) {
+        console.error(`[${config.name}] Scheduled cycle failed:`, error.message);
+      }
+    }, intervalMs);
+    const stop = () => {
+      clearInterval(timer);
+      console.log(`[${config.name}] Daemon stopped.`);
+      process.exit(0);
+    };
+    process.once('SIGTERM', stop);
+    process.once('SIGINT', stop);
+    return;
+  }
 
   if (isInteractive) {
     console.log('\x1b[33m────────────────────────────────────────────────────────────────\x1b[0m');

@@ -4,8 +4,13 @@
  * Pareto candidates and identifies the optimal Knee-Point recommendation.
  */
 
+const crypto = require('crypto');
 const { calculateParetoFront, calculateElo } = require('./arenaService');
-const { evidencePresent } = require('./hallucinationMonitoringService');
+
+function stableCandidateId(dossier, options) {
+  const payload = JSON.stringify({ dossier, options });
+  return `candidate-${crypto.createHash('sha256').update(payload).digest('hex').slice(0, 24)}`;
+}
 
 function nonNegativeNumber(value, fallback) {
   const number = Number(value);
@@ -30,13 +35,24 @@ function extractDossierReport(dossier) {
 function testResultPassed(test) {
   if (typeof test === 'boolean') return test;
   if (test && typeof test === 'object') {
-    if (test.passed === true || test.ok === true || test.exitCode === 0) return true;
-    if (test.passed === false || test.ok === false || (test.exitCode !== null && test.exitCode !== undefined && Number(test.exitCode) !== 0)) return false;
+    const exitCode = test.exitCode ?? test.exit_code;
+    if (test.passed === true || test.ok === true || (exitCode !== null && exitCode !== undefined && Number(exitCode) === 0)) return true;
+    if (test.passed === false || test.ok === false || (exitCode !== null && exitCode !== undefined && Number(exitCode) !== 0)) return false;
     return false;
   }
   const text = String(test || '').trim().toLowerCase();
   if (!text || /\b(?:not\s+(?:ok|pass(?:ed)?|successful)|fail(?:ed|ure)?|error|exception|exit\s+code\s+[1-9]\d*)\b/.test(text)) return false;
   return /\b(?:ok|passed|pass|successful|success|exit\s+code\s+0)\b/.test(text);
+}
+
+function tangibleEvidence(value) {
+  const items = Array.isArray(value) ? value : [value];
+  return items.filter((item) => item && typeof item === 'object').filter((item) =>
+    typeof item.receiptHash === 'string'
+      && /^[a-f0-9]{64}$/i.test(item.receiptHash)
+      && typeof item.source === 'string'
+      && item.source.trim()
+  );
 }
 
 function dossierToCandidate(dossier, options = {}) {
@@ -45,7 +61,7 @@ function dossierToCandidate(dossier, options = {}) {
   const uncertainties = Array.isArray(report.uncertainties) ? report.uncertainties : [];
   const tests = Array.isArray(report.tests) ? report.tests : [];
   const noAnswerEvidence = report.outcome === 'no_answer' && report.noAnswerProof && Array.isArray(report.noAnswerProof.evidence)
-    ? report.noAnswerProof.evidence.filter((item) => typeof item === 'string' && item.trim()).length
+    ? tangibleEvidence(report.noAnswerProof.evidence).length
     : 0;
 
   // Compute adversarial pass rate from verified tests
@@ -53,10 +69,6 @@ function dossierToCandidate(dossier, options = {}) {
   if (tests.length > 0) {
     const passed = tests.filter(testResultPassed).length;
     passRate = Number(((passed / tests.length) * 100).toFixed(1));
-  } else if (report.outcome === 'success') {
-    passRate = 90;
-  } else if (report.outcome === 'no_answer' && report.noAnswerProof) {
-    passRate = 85;
   } else if (report.outcome === 'failed') {
     passRate = 20;
   }
@@ -64,7 +76,7 @@ function dossierToCandidate(dossier, options = {}) {
   // Compute fitness score based on verified claims and penalty on uncertainties
   const suppliedFitness = boundedPercentage(options.fitnessScore ?? dossier.fitnessScore);
   const claimScore = noAnswerEvidence > 0 ? Math.min(40, 20 + noAnswerEvidence * 10) : Math.max(-40, Math.min(40, claims.reduce((acc, c) => {
-    const hasEvidence = evidencePresent(c?.evidence || c?.receipts || c?.sourceRefs);
+    const hasEvidence = tangibleEvidence(c?.evidence || c?.receipts || c?.sourceRefs).length > 0;
     return acc + (hasEvidence ? 15 : -10);
   }, 0)));
   const uncertaintyPenalty = uncertainties.length * 3;
@@ -74,20 +86,32 @@ function dossierToCandidate(dossier, options = {}) {
     || Boolean(report.failure)
     || (Array.isArray(dossier?.events) && dossier.events.some((event) => event.failure || event.payload?.failure || ['AGENT_FAILED', 'WORKER_TASK_FAILED', 'AGENT_RUNTIME_ERROR'].includes(event.eventType)));
   if (isFailed) calculatedFitness = Math.min(15, calculatedFitness);
-  const rawFitness = suppliedFitness === null ? calculatedFitness : Math.min(suppliedFitness, calculatedFitness);
+  const evidenceBackedClaims = claims.some((claim) => {
+    const evidence = claim?.evidence || claim?.receipts || claim?.sourceRefs;
+    return Array.isArray(evidence) && evidence.some((item) => item && (typeof item === 'string' ? item.trim() : typeof item === 'object'));
+  });
+  const rawFitness = suppliedFitness === null
+    ? calculatedFitness
+    : isFailed
+      ? Math.min(suppliedFitness, calculatedFitness)
+      : evidenceBackedClaims
+        ? suppliedFitness
+        : Math.min(suppliedFitness, calculatedFitness);
 
   const latencyMs = nonNegativeNumber(options.executionTimeMs ?? dossier.executionTimeMs, 25);
   const tokens = nonNegativeNumber(options.tokens ?? dossier.tokens, 1500);
   const costUSD = nonNegativeNumber(options.tokenCostUSD ?? dossier.tokenCostUSD, Number((tokens * 0.000003).toFixed(5)));
 
   return {
-    candidateId: dossier.workerId || dossier.id || `candidate-${Date.now()}`,
+    candidateId: dossier.workerId || dossier.id || stableCandidateId(dossier, options),
     name: dossier.name || dossier.workerId || 'Worker Candidate',
     role: dossier.role || 'specialist',
     executionTimeMs: latencyMs,
     tokenCostUSD: costUSD,
     fitnessScore: rawFitness,
     adversarialPassRate: passRate,
+    adversarialPassRateSource: tests.length > 0 ? 'executed_tests' : 'not_measured',
+    qualityGuarantee: false,
     claimsCount: claims.length,
     testsCount: tests.length,
     report

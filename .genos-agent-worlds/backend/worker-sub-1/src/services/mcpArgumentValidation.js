@@ -26,7 +26,7 @@ const REQUIRED_STRINGS = {
 
 const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'patterns_detected', 'facts', 'steps', 'preconditions']);
 const NON_NEGATIVE_FIELDS = new Set(['budget_steps', 'exact_match', 'stagnation', 'similarity', 'expected', 'observed', 'tolerance', 'injection_step', 'iteration', 'tokens', 'elapsed', 'uncertainty', 'confidence']);
-const FREEFORM_FIELDS = new Set(['command', 'conditions', 'document', 'query', 'predicate', 'claim', 'source', 'artifact', 'strategies', 'focus', 'request', 'details', 'task', 'role', 'description', 'plan_action', 'expected', 'option_a', 'option_b', 'threat_context', 'target_path', 'target_process', 'target_file', 'action_id', 'payload', 'signals_json', 'intensity_or_signal', 'action_script', 'substrate_signature']);
+const FREEFORM_FIELDS = new Set(['command', 'conditions', 'document', 'query', 'predicate', 'claim', 'source', 'artifact', 'strategies', 'focus', 'request', 'details', 'task', 'role', 'description', 'plan_action', 'expected', 'option_a', 'option_b', 'threat_context', 'target_path', 'target_process', 'target_file', 'action_id', 'payload', 'signals_json', 'intensity_or_signal', 'action_script', 'substrate_signature', 'action', 'observation', 'outcome', 'context', 'content', 'mission', 'message', 'reason', 'project_goal', 'prompt', 'goal']);
 const MAX_STRING_LENGTH = 64 * 1024;
 
 function invalid(field, message) {
@@ -48,6 +48,33 @@ function validateString(value, field, required = false) {
 function validateToolArguments(toolName, args = {}) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return invalid('args', 'must be an object.');
 
+  if (toolName === 'genos_synaptic_stdp_update') {
+    const aliasGroups = [
+      ['source_id', 'sourceId', 'causeId'],
+      ['target_id', 'targetId', 'effectId'],
+      ['pre_spike_at', 'preSpikeAt'],
+      ['post_spike_at', 'postSpikeAt'],
+      ['learning_rate', 'learningRate', 'outcome_score'],
+      ['transmitter_type', 'transmitterType', 'trait'],
+      ['agent_id', 'agentId']
+    ];
+    for (const aliases of aliasGroups) {
+      const provided = aliases.filter((alias) => args[alias] !== undefined && args[alias] !== null);
+      const values = [...new Set(provided.map((alias) => String(args[alias])))];
+      if (values.length > 1) return invalid(aliases[0], `conflicting aliases supplied: ${provided.join(', ')}.`);
+    }
+    const legacyAliases = ['sourceId', 'targetId', 'preSpikeAt', 'postSpikeAt', 'learningRate', 'transmitterType', 'agentId'];
+    if (legacyAliases.some((field) => Object.prototype.hasOwnProperty.call(args, field))) {
+      return invalid('args', `MCP uses snake_case fields; use ${legacyAliases.map((field) => field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)).join(', ')}.`);
+    }
+  }
+  if (toolName === 'genos_cell_division') {
+    const legacyAliases = ['agentId', 'daughterVolume', 'mutationRate', 'hayflickLimit', 'merozoiteCount'];
+    if (legacyAliases.some((field) => Object.prototype.hasOwnProperty.call(args, field))) {
+      return invalid('args', 'MCP uses snake_case fields for cell division.');
+    }
+  }
+
   for (const field of REQUIRED_STRINGS[toolName] || []) {
     const error = validateString(args[field], field, true);
     if (error) return error;
@@ -55,6 +82,12 @@ function validateToolArguments(toolName, args = {}) {
 
   if (toolName === 'genos_replay' && args.snapshot === undefined && args.snapshot_id === undefined) {
     return invalid('snapshot', 'snapshot or snapshot_id is required.');
+  }
+  if (toolName === 'genos_execute_primitive' && typeof args.primitive !== 'string' && typeof args.primitive_name !== 'string' && typeof args.name !== 'string') {
+    return invalid('primitive', 'primitive, primitive_name, or name is required.');
+  }
+  if (toolName === 'genos_execute_strategy_pipeline' && !Array.isArray(args.primitives || args.pipeline)) {
+    return invalid('primitives', 'primitives or pipeline must be an array.');
   }
   if (toolName === 'genos_deterministic_sha256_rag') {
     if (!['ingest', 'search'].includes(args.action)) return invalid('action', 'must be ingest or search.');
@@ -65,8 +98,11 @@ function validateToolArguments(toolName, args = {}) {
 
   for (const [field, value] of Object.entries(args)) {
     if (typeof value === 'string') {
-      if (value.includes('\0') || /[\r\n]/.test(value) || /["'`\\;|&<>$]/.test(value)) return invalid(field, 'contains forbidden command characters.');
-      if (!FREEFORM_FIELDS.has(field) && /\s/.test(value)) return invalid(field, 'must not contain whitespace.');
+      if (value.includes('\0')) return invalid(field, 'contains null bytes.');
+      if (!FREEFORM_FIELDS.has(field)) {
+        if (/[\r\n]/.test(value) || /["'`\\;|&<>$]/.test(value)) return invalid(field, 'contains forbidden command characters.');
+        if (/\s/.test(value)) return invalid(field, 'must not contain whitespace.');
+      }
     }
     if (ARRAY_FIELDS.has(field) && value !== undefined && !Array.isArray(value)) return invalid(field, 'must be an array.');
     if (ARRAY_FIELDS.has(field) && Array.isArray(value) && value.some((item) => typeof item !== 'string' || /[\r\n"'`\\;|&<>$]/.test(item))) return invalid(field, 'must contain only safe strings.');

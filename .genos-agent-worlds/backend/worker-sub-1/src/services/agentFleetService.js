@@ -1,3 +1,4 @@
+const { createAutonomousWorkers } = require("./agentFleetWorkers");
 /**
  * Autonomous worker fleets: creation from a strategy plan, the sequential
  * specialist pipeline, local-model workers, and the evidence barrier that
@@ -17,18 +18,21 @@ const {
   pendingContinuations, pendingWorkerRecoveries, activeWorkerRecoveryDispatches
 } = require('./agentOrchestrationState');
 const {
-  recordWorkerEvidence, workerEvidenceDossiers, validateWorkerDossiers, buildWorkerSynthesisPrompt
+  recordWorkerEvidence, workerEvidenceDossiers, validateWorkerDossiers, buildWorkerSynthesisPrompt,
+  hasDecisionEvidence, decisionEvidenceFailure
 } = require('./agentEvidenceService');
 const { localWorkerRoute } = require('./agentModelRoutingService');
 const { advanceAutonomousRound, autonomousWorkerId } = require('./agentRoundService');
 const { queueWorkerRecovery } = require('./agentRecoveryService');
-const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
+const { createIsolatedWorkspace, scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
 const { workerToolLease } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');
 const agentConscience = require('./agentConscienceService');
 const agentEvolution = require('./agentEvolutionService');
+const immuneSystem = require('./immuneSystem');
 
-async function waitForAutonomousWorkerQuiescence(db, orchestratorId, initialWorkerIds, options = {}) {
+async function waitForAutonomousWorkerQuiescence(..._args) {
+  const [db, orchestratorId, initialWorkerIds, options = {}] = _args;
   const timeoutMs = Number(options.timeoutMs || process.env.GENOS_WORKER_BARRIER_TIMEOUT_MS || 60 * 1000);
   const pollMs = Number(options.pollMs || 100);
   const startTime = Date.now();
@@ -87,7 +91,9 @@ async function waitForAutonomousWorkerQuiescence(db, orchestratorId, initialWork
     }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
-  throw new Error(`Timed out waiting for all autonomous workers of '${orchestratorId}' to become quiescent.`);
+  const error = new Error(`Timed out waiting for all autonomous workers of '${orchestratorId}' to become quiescent.`);
+  error.code = 'WORKER_BARRIER_TIMEOUT';
+  throw error;
 }
 async function runLocalWorker(db, mission, executionRun) {
   await updateAgent(mission.agentId, 'running', mission.prompt);
@@ -110,6 +116,7 @@ async function runLocalWorker(db, mission, executionRun) {
       db, agentId: mission.agentId, model: mission.localModel, timeoutMs: Number(mission.executionBudget?.latencyMs || 30000),
       priority: 'bulk',
       maxTokens: tokenBudget > 0 ? tokenBudget - promptTokenEstimate : undefined,
+      maxCostUsd: Number.isFinite(Number(mission.executionBudget?.costUsd)) ? Number(mission.executionBudget.costUsd) : undefined,
       policy: mission.localRoutingPolicy || { primary: mission.localModel, preferLocal: true },
       prompt: codeWorker
         ? `${selfIntro}\n${conscienceBlock}\nYou are a bounded GenOS local code worker (${agentName}). Return only strict JSON {"format":"genos.file-replacement/v1","patches":[{"path":"relative/source/file","content":"complete replacement content"}],"tests":["cargo test --quiet"],"evidence":"brief proof"}. One or two allow-listed tests are mandatory. You may alter only source files, never tests, manifests, secrets, locks, or configuration. Your changes stay in the isolated capsule and are never merged automatically. Branch mission:\n${mission.prompt}`
@@ -117,14 +124,23 @@ async function runLocalWorker(db, mission, executionRun) {
           ? `${selfIntro}\n${conscienceBlock}\nYou are a GenOS orchestrator (${agentName}). Mission:\n${mission.prompt}`
           : `${selfIntro}\n${conscienceBlock}\nYou are a bounded GenOS local worker (${agentName}). Do not modify files or spawn agents. Analyse this assigned branch, identify risks, tests, counterexamples, and evidence for the orchestrator. Branch mission:\n${mission.prompt}`
     });
+    const consumedTokens = Number(result.inputTokens || 0) + Number(result.outputTokens || 0);
+    if (tokenBudget > 0 && consumedTokens > tokenBudget) {
+      throw Object.assign(new Error(`Local worker consumed ${consumedTokens} tokens above its ${tokenBudget}-token budget.`), { code: 'BUDGET_EXHAUSTED' });
+    }
     const proposal = codeWorker ? await localCodeWorker.executeProposal({ workspaceRoot: mission.workspaceRoot, text: result.text }) : null;
     if (proposal?.testStatus === 'failed') {
       throw Object.assign(new Error('Local code worker tests failed; capsule changes were rolled back.'), { code: 'WORKER_TESTS_FAILED', proposal });
     }
     let evidenceReport;
-    try {
-      evidenceReport = JSON.parse(String(result.text || '').match(/\{[\s\S]*\}/)?.[0] || '');
-    } catch (_) { throw new Error('Local worker did not return a structured JSON evidence report.'); }
+    let partialBarrier = false;
+    const immuneReport = immuneSystem.phagocytoseCodexReport(String(result.text || ''), {
+      agentName,
+      nameMeaning,
+      role: mission.role
+    });
+    if (!immuneReport.ok) throw Object.assign(new Error(immuneReport.error || 'Local worker did not return a repairable evidence report.'), { code: 'IMMUNE_OUTPUT_REJECTED', painSignal: immuneReport.painSignal });
+    evidenceReport = immuneReport.report;
     if (proposal?.tests?.length) evidenceReport.tests = proposal.tests;
     const workerRecovery = require('./workerFailureRecoveryService');
     const { evidencePresent } = require('./hallucinationMonitoringService');
@@ -151,7 +167,7 @@ async function runLocalWorker(db, mission, executionRun) {
         evidenceReport,
         noAnswerProof: isNoAnswer ? noAnswerProof : undefined,
         proposal,
-        usage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens }
+        usage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens, cost_usd: result.costUsd || 0, tokens: consumedTokens }
       },
       'info',
       'completed'
@@ -161,12 +177,18 @@ async function runLocalWorker(db, mission, executionRun) {
     if (milestone) userProgress.report({ orchestratorId: mission.orchestratorAgentId || mission.agentId, sourceAgentId: mission.agentId, ...milestone, silent: mission.executionPolicy?.silentUpdates === true });
     await strategyExecution.recordExecutionEvent(db, mission.agentId, completed);
     await advanceAutonomousRound(mission, completed);
-    const decision = decideFromEvent(completed);
+    const decision = hasDecisionEvidence(completed) ? decideFromEvent(completed) : null;
+    if (!hasDecisionEvidence(completed)) {
+      emit(mission.orchestratorAgentId || mission.agentId, 'ORCHESTRATION_DECISION_BLOCKED', 'EVIDENCE_GATE', decisionEvidenceFailure(completed), {
+        sourceAgentId: mission.agentId, sourceEvent: completed.eventType
+      }, 'warning', 'blocked');
+    }
     if (decision) {
       const ownerId = mission.orchestratorAgentId || mission.agentId;
-      emit(ownerId, 'ORCHESTRATION_DECISION', decision.action, decision.reason, { sourceAgentId: mission.agentId, sourceEvent: completed.eventType, ...decision }, 'info');
+      emit(ownerId, 'ORCHESTRATION_DECISION_GATE', decision.action, decision.reason, { gateId: decision.gateId || null, sourceAgentId: mission.agentId, sourceEvent: completed.eventType, ...decision }, 'info');
       actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: mission.agentId, decision, event: completed, workspaceRoot: mission.workspaceRoot }).catch(() => {});
     }
+    await scheduleWorkspaceCleanup(mission.agentId);
     return { started: true, executionRun, local: true, result };
   } catch (error) {
     const budgetBlocked = error.code === 'BUDGET_EXHAUSTED' || /budget|timeout/i.test(error.message);
@@ -186,127 +208,24 @@ async function runLocalWorker(db, mission, executionRun) {
     await strategyExecution.recordExecutionEvent(db, mission.agentId, failed);
     await advanceAutonomousRound(mission, failed);
     if (!budgetBlocked) queueWorkerRecovery(mission, failed);
+    await scheduleWorkspaceCleanup(mission.agentId);
     return { started: false, executionRun, local: true, error: error.message };
   }
 }
 
-async function createAutonomousWorkers(db, orchestrator, options = {}) {
-  const circuitBreaker = require('./circuitBreaker');
-  const circuit = circuitBreaker.canExecute('worker_deployment', orchestrator.agent_type);
-  if (!circuit.allowed) {
-    throw new Error(`Worker deployment rejected: ${circuit.message}`);
-  }
-  
-  const plan = options.plan || options;
-  const mission = options.mission || (arguments[3] || {});
-  const assignments = plan.dispatchWorkers || [];
-  const MAX_AUTONOMOUS_WORKERS = 3;
-  if (!assignments.length) return [];
-  if (assignments.length > MAX_AUTONOMOUS_WORKERS) {
-    throw Object.assign(new Error(`Autonomous worker fan-out exceeds the ${MAX_AUTONOMOUS_WORKERS}-worker limit.`), { code: 'WORKER_FANOUT_LIMIT' });
-  }
-  const parent = await db.get(
-        `SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, a.current_task,
-          w.path AS workspace_path, w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`,
-    orchestrator.id
-  );
-  if (!parent) throw new Error(`Orchestrator '${orchestrator.id}' disappeared before worker creation`);
-  const initialRound = plan.tokenPolicy?.rounds?.initial;
-  const initialWorkerTokens = initialRound?.workerTokens;
-  if (initialWorkerTokens && initialWorkerTokens.length !== assignments.length) {
-    throw Object.assign(new Error('Initial worker allocation does not match dispatch assignments.'), { code: 'INVALID_WORKER_ALLOCATION' });
-  }
-  const perWorkerTokens = Math.max(1, initialRound?.perWorkerTokens || Math.floor(((plan.tokenPolicy?.total || 10000) * (plan.tokenPolicy?.workerShare || 0.6)) / assignments.length));
-  const splitBudget = (value, index) => {
-    const total = Number(value);
-    if (!Number.isFinite(total) || total <= 0) return undefined;
-    const base = Math.floor(total / assignments.length);
-    return base + (index < total - (base * assignments.length) ? 1 : 0);
-  };
-  const workers = [];
-  const sourceWorkspace = parent.workspace_path;
-  if (!sourceWorkspace) throw new Error(`Workspace '${parent.workspace_id}' has no filesystem path.`);
-  if (mission.workspaceRoot && path.resolve(mission.workspaceRoot) !== path.resolve(sourceWorkspace)) {
-    throw Object.assign(new Error(`Mission workspace root does not match workspace '${parent.workspace_id}'.`), { code: 'WORKSPACE_ROOT_MISMATCH' });
-  }
-  const usedNames = [];
-  for (const [index, assignment] of assignments.entries()) {
-    const assignedTokens = initialWorkerTokens?.[index] || perWorkerTokens;
-    const id = autonomousWorkerId(orchestrator.id, index + 1);
-    const identity = agentIdentity.generateAgentIdentity({
-      preferredName: assignment.preferredName || assignment.name,
-      role: assignment.role,
-      excludeNames: usedNames
-    });
-    usedNames.push(identity.name);
-    const name = identity.name;
-    const nameMeaning = identity.name_meaning;
-    const evolution = agentEvolution.evolveWorkerGenome(parent, assignment, {
-      strategy: plan.strategyContract?.primary || 'tree-search'
-    });
-    const initialConscience = agentConscience.createConscienceState();
-    const localRoute = await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
-    const prompt = [
-      identity.introduction,
-      agentConscience.formatConsciencePrompt(initialConscience),
-      mission.prompt || parent.current_task || 'Autonomous task execution',
-      `Assigned branch: ${assignment.label}.`,
-      Array.isArray(assignment.capabilities) && assignment.capabilities.length
-        ? `Owned capabilities: ${assignment.capabilities.join(', ')}.`
-        : null,
-      `Hypothesis: ${assignment.hypothesis}`,
-      assignment.artifact === 'creative' || /author|literary|dramaturg/i.test(assignment.role || '')
-        ? 'Creative evidence must include artifact="creative", artifactText, and creativeEvaluation with a 0..1 rubric for craft, coherence, originality, emotionalImpact, and constraintCoverage; include revisions and criticEvidence when available.'
-        : null,
-      plan.tokenPolicy.allocation === 'successive_halving_with_reallocation'
-        ? `Budget round: initial screening. Use at most ${perWorkerTokens} tokens.`
-        : `Budget allocation: ${perWorkerTokens} tokens.`
-    ].filter(Boolean).join('\n');
-    const promptTokenEstimate = Math.ceil(Buffer.byteLength(prompt, 'utf8') / 4);
-    if (assignedTokens > 0 && promptTokenEstimate >= assignedTokens) {
-      throw Object.assign(new Error(`Worker '${assignment.label || id}' prompt consumes its token budget before generation (${promptTokenEstimate} >= ${assignedTokens}).`), { code: 'WORKER_PROMPT_BUDGET_EXCEEDED' });
-    }
-    await agentEvolution.recordWorkerLineage(db, {
-      agentId: id, name, role: assignment.role, workspaceId: parent.workspace_id
-    }, {
-      parentId: parent.id,
-      genes: evolution.genes,
-      parents: evolution.parents,
-      predictedFitness: evolution.predictedFitness
-    });
-    const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, mission.capsuleRoot);
-    await db.run(
-      `INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, dissonance_level, eureka_count, cognitive_budget, is_apoptotic)
-       VALUES (?, ?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?, ?, ?, ?, ?)`,
-      id, name, nameMeaning, assignment.role, parent.agent_type || 'GenOS',
-      parent.workspace_id || null, parent.fleet_id || null, localRoute.selectedModel || assignment.modelTier || parent.model_tier || 'standard',
-      parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id,
-      `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt,
-      initialConscience.dissonanceLevel, initialConscience.eurekaMoments, initialConscience.currentBudget, initialConscience.isApoptotic ? 1 : 0
-    );
-    workers.push({
-      agentId: id, label: assignment.label || id, name, nameMeaning, introduction: identity.introduction, role: assignment.role, prompt,
-      branchAssignment: `${assignment.label}: ${assignment.hypothesis}`,
-      artifact: assignment.artifact || plan.aTeam?.artifact || plan.trinity?.artifact || null,
-      pipelineStage: Math.max(0, Number(assignment.pipelineStage || 0)),
-      dependsOn: Array.isArray(assignment.dependsOn) ? assignment.dependsOn : [],
-      modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode,
-      workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type,
-      workspaceRoot, workspaceProvisioned: true, localModel: localRoute.selectedModel, localRoutingPolicy: localRoute.policy, localRoutingCriteria: localRoute.criteria, toolLease: workerToolLease(assignment.role),
-      executionPolicy: mission.executionPolicy,
-      executionBudget: {
-        ...mission.executionBudget,
-        tokens: assignedTokens,
-        ...(splitBudget(mission.executionBudget?.costUsd, index) !== undefined ? { costUsd: splitBudget(mission.executionBudget.costUsd, index) } : {}),
-        ...(splitBudget(mission.executionBudget?.events, index) !== undefined ? { events: splitBudget(mission.executionBudget.events, index) } : {})
-      }, orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id },
-      genome: evolution.genes, predictedFitness: evolution.predictedFitness
-    });
-  }
-  return workers;
+
+
+function calculateInheritedCognitiveBudget(parentBudget, workerShare, workerCount) {
+  const normalizedParentBudget = Math.max(0, Number(parentBudget ?? 100));
+  const normalizedWorkerShare = Number.isFinite(Number(workerShare))
+    ? Math.max(0, Math.min(1, Number(workerShare)))
+    : 0.6;
+  const normalizedWorkerCount = Math.max(1, Math.floor(Number(workerCount) || 1));
+  return (normalizedParentBudget * normalizedWorkerShare) / normalizedWorkerCount;
 }
 
-async function executeWorkerPipeline({ db, orchestratorId, workers, contract, barrier, timeoutMs }) {
+async function executeWorkerPipeline(pipelineContext) {
+  const { db, orchestratorId, workers, contract, barrier, timeoutMs } = pipelineContext;
   const { startMission } = require('./agentRuntimeAdapter');
   const byKey = new Map(workers.flatMap((worker) => [[worker.agentId, worker], [worker.label, worker]]));
   for (const worker of workers) {
@@ -376,7 +295,8 @@ async function executeWorkerPipeline({ db, orchestratorId, workers, contract, ba
  * Run the delegated fleet to quiescence, then attach every collected dossier
  * to the orchestrator's official synthesis prompt.
  */
-async function runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan, contractRecord, autonomousWorkers }) {
+async function runEvidenceBarrier(barrierContext) {
+  const { db, agentId, normalizedMission, autonomyPlan, contractRecord, autonomousWorkers } = barrierContext;
   if (autonomousWorkers.length) {
     const barrier = {
       cancelled: false,
@@ -402,6 +322,12 @@ async function runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan
         timeoutMs: normalizedMission.workerBarrierTimeoutMs
       });
     } catch (error) {
+      if (error.code === 'WORKER_BARRIER_TIMEOUT') {
+        partialBarrier = true;
+        emit(agentId, 'WORKER_EVIDENCE_BARRIER_PARTIAL', 'SYNTHESIZE_PARTIAL', error.message, {
+          workerIds: autonomousWorkers.map((worker) => worker.agentId)
+        }, 'warning', 'running');
+      } else {
       const cancelled = error.code === 'WORKER_BARRIER_CANCELLED';
       const { stopMission } = require('./agentRuntimeAdapter');
       for (const worker of autonomousWorkers) stopMission(worker.agentId);
@@ -412,32 +338,43 @@ async function runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan
       activeWorkerBarriers.delete(agentId);
       workerEvidenceRounds.delete(agentId);
       throw error;
+      }
     }
     const dossiers = workerEvidenceDossiers(agentId, autonomousWorkers);
-    validateWorkerDossiers(dossiers, autonomousWorkers, { contract: contractRecord?.contract });
+    if (!partialBarrier) validateWorkerDossiers(dossiers, autonomousWorkers, { contract: contractRecord?.contract });
+    const usableDossiers = partialBarrier
+      ? dossiers.filter((dossier) => dossier.events.some((event) => event.evidenceReport || event.failure || event.noAnswerProof))
+      : dossiers;
+    if (partialBarrier && !usableDossiers.length) {
+      activeWorkerBarriers.delete(agentId);
+      workerEvidenceRounds.delete(agentId);
+      throw Object.assign(new Error('Worker evidence barrier timed out before any usable dossier was collected.'), { code: 'WORKER_BARRIER_NO_EVIDENCE' });
+    }
     normalizedMission.prompt = buildWorkerSynthesisPrompt(
       normalizedMission.prompt || normalizedMission.currentTask || '',
-      dossiers
+      usableDossiers
     );
     const delegationTools = new Set(['genos_delegate_worker', 'genos_trinity_launch']);
     normalizedMission.toolLease = (normalizedMission.toolLease || []).filter((tool) => !delegationTools.has(tool));
     autonomyPlan.synthesisOnly = true;
-    autonomyPlan.completedWorkerIds = dossiers.map((dossier) => dossier.workerId);
+    autonomyPlan.completedWorkerIds = usableDossiers.map((dossier) => dossier.workerId);
     autonomyPlan.dispatchWorkers = [];
     autonomyPlan.mandatoryTools = (autonomyPlan.mandatoryTools || []).filter((tool) => !delegationTools.has(tool));
     emit(agentId, 'WORKER_EVIDENCE_DOSSIERS_ATTACHED', 'ATTACH_DOSSIERS', `Persisted and attached ${dossiers.length} worker evidence dossiers to synthesis prompt.`, {
       workerIds: autonomousWorkers.map((worker) => worker.agentId),
-      dossierCount: dossiers.length,
-      dossiers
+      dossierCount: usableDossiers.length,
+      partial: partialBarrier,
+      dossiers: usableDossiers
     }, 'info', 'running');
     emit(agentId, 'WORKER_EVIDENCE_BARRIER_SATISFIED', 'SYNTHESIZE', 'Every delegated worker is terminal and all collected dossiers were attached to the official root synthesis.', {
       workerIds: autonomousWorkers.map((worker) => worker.agentId),
-      dossierCount: dossiers.length,
-      evidenceEventCount: dossiers.reduce((sum, dossier) => sum + dossier.events.length, 0)
+      dossierCount: usableDossiers.length,
+      partial: partialBarrier,
+      evidenceEventCount: usableDossiers.reduce((sum, dossier) => sum + dossier.events.length, 0)
     }, 'info', 'running');
     activeWorkerBarriers.delete(agentId);
     workerEvidenceRounds.delete(agentId);
   }
 }
 
-module.exports = { waitForAutonomousWorkerQuiescence, runLocalWorker, createAutonomousWorkers, executeWorkerPipeline, runEvidenceBarrier };
+module.exports = { waitForAutonomousWorkerQuiescence, runLocalWorker, createAutonomousWorkers, calculateInheritedCognitiveBudget, executeWorkerPipeline, runEvidenceBarrier };

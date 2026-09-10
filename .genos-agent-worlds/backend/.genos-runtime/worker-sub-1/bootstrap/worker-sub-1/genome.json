@@ -6,7 +6,7 @@
     "reason",
     "mutate"
   ],
-  "cell_id": "8f922067-7ed4-4f50-90e6-a957d15107dd",
+  "cell_id": "76e1f9ee-1bcf-4612-91fb-650d28ab71db",
   "cognition": {
     "conscience": {
       "baseline_budget": 100.0,
@@ -30,7 +30,7 @@
   },
   "hayflick_limit": 50,
   "identity": {
-    "cell_id": "8f922067-7ed4-4f50-90e6-a957d15107dd",
+    "cell_id": "76e1f9ee-1bcf-4612-91fb-650d28ab71db",
     "name": "gRPC worker",
     "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
     "role": "worker"

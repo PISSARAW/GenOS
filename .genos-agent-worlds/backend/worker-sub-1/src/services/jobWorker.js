@@ -7,13 +7,17 @@ const { parseWorkflowCondition } = require('./workflowConditions');
 const { validateGraph } = require('../controllers/workflowController');
 const { exactMatch, groundedness, safety, parseJudgeResponse } = require('./evaluationGraders');
 const { jobTimeoutMs } = require('../controllers/argumentBounds');
+const vectorMemory = require('./vectorMemoryService');
 
 let timer = null;
+let memoryTimer = null;
+let memoryCycleRunning = false;
 let busy = false;
 const busyTables = new Set();
 let recovered = false;
 let lastRecoveryAt = 0;
 const lastScopeByTable = new Map();
+const inFlightJobs = new Set();
 const MAX_WORKFLOW_NODES = 10000;
 const MAX_WORKFLOW_DEPTH = 256;
 const MAX_PARALLEL_BRANCHES = 32;
@@ -35,17 +39,24 @@ function selectFairWorkflow(rows = [], table = 'workflow_runs') {
   return next;
 }
 
-function summarizeEvaluationGraders(results, graders) {
+function summarizeEvaluationGraders(results, graders, expectedTotal = results.length) {
+  const total = Math.max(0, Number(expectedTotal) || 0);
   return Object.fromEntries(graders.map((grader) => {
     const values = results.map((result) => result.graders[grader]).filter(Boolean);
     const passed = values.filter((value) => value.passed === true).length;
     const scores = values.map((value) => Number(value.score)).filter(Number.isFinite);
+    const missing = Math.max(0, total - values.length);
     return [grader, {
       total: values.length,
       passed,
       failed: values.length - passed,
-      score: values.length ? Number((passed / values.length).toFixed(4)) : 0,
-      meanScore: scores.length ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(4)) : null
+      missing: Math.max(0, total - values.length),
+      complete: missing === 0,
+      score: total ? Number((passed / total).toFixed(4)) : 0,
+      meanScore: scores.length ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(4)) : null,
+      kind: 'metric',
+            qualityGuarantee: false,
+      ...(grader === 'llm_judge' ? { calibration: 'not_calibrated' } : {})
     }];
   }));
 }
@@ -161,6 +172,7 @@ async function executeWorkflow(db, run) {
           prompt: resolveTemplate(promptTemplate, { input, workflow: { id: workflow.id, name: workflow.name }, node: node.data || {}, outputs: output }),
           timeoutMs: Math.min(Number(node.timeout_ms || node.data?.timeoutMs || 30000), Math.max(1, workflowDeadline - Date.now())),
           policy: node.modelRouting || node.data?.modelRouting,
+          requiredCapabilities: node.requiredCapabilities || node.data?.requiredCapabilities || [],
           onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'WORKFLOW_MODEL_TOKEN', agentId: node.id, action: 'MODEL_TOKEN', detail: token, payload: { runId: run.id, traceId, nodeId: node.id, model: selectedModel } })
         });
         nodeOutput = { status: 'completed', model: generated.model, provider: generated.provider, text: generated.text, inputTokens: generated.inputTokens, outputTokens: generated.outputTokens, route: generated.route };
@@ -185,7 +197,13 @@ async function executeWorkflow(db, run) {
         nodeOutput = { status: 'completed', parallelBranches: branches.length };
       }
       output[node.id] = nodeOutput;
-      await db.run('UPDATE workflow_runs SET output_json = ?, claimed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = \'running\'', JSON.stringify({ traceId, completedNodes: [...visited], skippedNodes: [...skipped], output }), run.id);
+      const checkpointUpdate = await db.run('UPDATE workflow_runs SET output_json = ?, claimed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = \'running\'', JSON.stringify({ traceId, completedNodes: [...visited], skippedNodes: [...skipped], output }), run.id);
+      if (checkpointUpdate.changes !== 1) {
+        const state = await db.get('SELECT status FROM workflow_runs WHERE id = ?', run.id);
+        const error = new Error(state?.status === 'cancelled' ? 'Workflow run was cancelled.' : 'Workflow checkpoint could not be persisted.');
+        error.code = state?.status === 'cancelled' ? 'WORKFLOW_CANCELLED' : 'WORKFLOW_CHECKPOINT_CONFLICT';
+        throw error;
+      }
       await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, inputs_json, outputs_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, JSON.stringify(input), JSON.stringify(nodeOutput), run.organization_id || workflow.organization_id || null, run.project_id || workflow.project_id || null);
       await db.run('UPDATE trace_spans SET end_time = ? WHERE id = ?', Date.now(), spanId);
       telemetry.emitEvent({ eventType: 'WORKFLOW_NODE_COMPLETED', agentId: node.id, action: 'WORKFLOW_STEP', detail: `Completed workflow node ${node.id}`, payload: { runId: run.id, traceId, nodeId: node.id } });
@@ -247,8 +265,12 @@ async function executeEvaluation(db, job) {
   const rubric = config.rubric || 'Score correctness, groundedness and safety from 0 to 1.';
   let checkpoint = {};
   try { checkpoint = JSON.parse(job.result_json || '{}'); } catch (_) {}
-  let passed = Number(checkpoint.passed) || 0;
-  const results = Array.isArray(checkpoint.cases) ? checkpoint.cases : [];
+  const knownCases = new Map(cases.map((item) => [item.id, item]));
+  const checkpointResults = Array.isArray(checkpoint.cases) ? checkpoint.cases : [];
+  const results = [...new Map(checkpointResults
+    .filter((result) => result && knownCases.has(result.id))
+    .map((result) => [result.id, result])).values()];
+  let passed = results.filter((result) => result.passed === true).length;
   const completed = new Set(results.map((result) => result.id));
   for (const item of cases) {
     const activeJob = await db.get('SELECT status FROM evaluation_jobs WHERE id = ?', job.id);
@@ -293,27 +315,37 @@ async function executeEvaluation(db, job) {
         ].join('\n');
         const judgeResult = await modelRouter.generate({ db, agentId: config.judgeAgentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model: judgeModel, prompt: judgePrompt, timeoutMs: jobTimeoutMs(config.timeoutMs), seed: config.seed, onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'GRADER_TOKEN', agentId: job.id, action: 'JUDGE_STREAM', detail: token, payload: { jobId: job.id, caseId: item.id, model: selectedModel } }) });
         judge = parseJudgeResponse(judgeResult.text ?? judgeResult.content ?? '');
-      } catch (error) { judge = { score: 0, passed: false, reason: `Judge unavailable or invalid: ${error.message}` }; }
+      } catch (error) {
+        const judgeError = new Error(`LLM judge failed for evaluation case '${item.id}': ${error.message}`);
+        judgeError.code = 'EVALUATION_JUDGE_ERROR';
+        judgeError.retryable = true;
+        judgeError.caseId = item.id;
+        throw judgeError;
+      }
     }
     const graderResults = {
-      exact_match: { passed: exact },
-      groundedness: grounding,
-      safety: safetyResult,
-      ...(judge ? { llm_judge: judge } : {})
+      exact_match: { passed: exact, score: exact ? 1 : 0, kind: 'metric', qualityGuarantee: false },
+      groundedness: { ...grounding, kind: 'metric', qualityGuarantee: false },
+      safety: { ...safetyResult, kind: 'metric', qualityGuarantee: false },
+      ...(judge ? { llm_judge: { ...judge, kind: 'metric', qualityGuarantee: false, calibration: 'not_calibrated' } } : {})
     };
     const ok = graders.every((grader) => graderResults[grader]?.passed === true);
     if (ok) passed++;
     results.push({ id: item.id, passed: ok, source: evaluationSource, graders: graderResults });
     completed.add(item.id);
-    await db.run('UPDATE evaluation_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ total: cases.length, passed, failed: results.length - passed, score: results.length ? passed / results.length : 0, graders, cases: results }), job.id);
+    await db.run('UPDATE evaluation_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ total: cases.length, passed, failed: results.length - passed, score: cases.length ? passed / cases.length : 0, graders, cases: results }), job.id);
   }
   const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, graderSummary: summarizeEvaluationGraders(results, graders), cases: results };
   await db.run("UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", 'completed', JSON.stringify(result), job.id);
 }
 
-async function updateCampaignStatus(db, campaignId) {
+async function updateCampaignStatus(db, campaignId, organizationId = null, projectId = null) {
   if (!campaignId) return;
-  const jobs = await db.all('SELECT status FROM evaluation_jobs WHERE campaign_id = ?', campaignId);
+  const scoped = organizationId !== null || projectId !== null;
+  if (scoped && (!organizationId || !projectId)) throw new Error('organizationId and projectId must be provided together.');
+  const scopeClause = scoped ? ' AND organization_id = ? AND project_id = ?' : '';
+  const scopeParams = scoped ? [campaignId, organizationId, projectId] : [campaignId];
+  const jobs = await db.all(`SELECT status FROM evaluation_jobs WHERE campaign_id = ?${scopeClause}`, ...scopeParams);
   if (!jobs.length) return;
   const status = jobs.some((job) => job.status === 'failed')
     ? 'failed'
@@ -322,7 +354,8 @@ async function updateCampaignStatus(db, campaignId) {
     : jobs.every((job) => job.status === 'completed')
       ? 'completed'
       : 'running';
-  await db.run('UPDATE evaluation_campaigns SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', status, campaignId);
+  await db.run(`UPDATE evaluation_campaigns SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?${scoped ? ' AND organization_id = ? AND project_id = ?' : ''}`,
+    status, ...(scoped ? [campaignId, organizationId, projectId] : [campaignId]));
 }
 
 async function executeModelJobBody(db, job) {
@@ -350,7 +383,7 @@ async function executeModelJobBody(db, job) {
       error.code = 'MODEL_JOB_TIMEOUT';
       throw error;
     }
-    const generated = await modelRouter.generate({ db, agentId: config.agentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model, prompt: job.prompt, timeoutMs: remainingTimeout, deadlineAt, policy: config.modelRouting, onToken: async (token, selectedModel) => { const tokenModel = selectedModel || modelKey; tokens.push(token); await db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', job.id, tokenModel, tokens.length - 1, token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model: tokenModel, index: tokens.length - 1 } }); } });
+    const generated = await modelRouter.generate({ db, agentId: config.agentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model, prompt: job.prompt, timeoutMs: remainingTimeout, deadlineAt, policy: config.modelRouting, requiredCapabilities: config.requiredCapabilities || [], onToken: async (token, selectedModel) => { const tokenModel = selectedModel || modelKey; tokens.push(token); await db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', job.id, tokenModel, tokens.length - 1, token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model: tokenModel, index: tokens.length - 1 } }); } });
     if (Date.now() >= deadlineAt) {
       const error = new Error(`Model job exceeded its total timeout of ${totalTimeoutMs}ms.`);
       error.code = 'MODEL_JOB_TIMEOUT';
@@ -412,7 +445,10 @@ async function withRetry(db, table, job, executor) {
       }
       if (attempt === max || !isRetryableJobError(error)) {
         const status = error.code === 'WORKFLOW_CANCELLED' ? 'cancelled' : 'failed';
-        await db.run(`UPDATE ${table} SET status = ?, error_json = ?, completed_at = CURRENT_TIMESTAMP, claimed_at = NULL WHERE id = ?`, status, JSON.stringify({ message: error.message, code: error.code || null, attempts: attempt, retryable: isRetryableJobError(error), cancelled: status === 'cancelled' }), job.id);
+        const retryable = isRetryableJobError(error);
+        const deadLetter = status === 'failed' && retryable && attempt >= max;
+        await db.run(`UPDATE ${table} SET status = ?, error_json = ?, completed_at = CURRENT_TIMESTAMP, claimed_at = NULL, next_attempt_at = NULL WHERE id = ?`, status, JSON.stringify({ message: error.message, code: error.code || null, attempts: attempt, retryable, deadLetter, cancelled: status === 'cancelled' }), job.id);
+        if (deadLetter) telemetry.emitEvent({ eventType: 'JOB_DEAD_LETTERED', action: 'JOB_DEAD_LETTER', detail: `${table} job ${job.id} exhausted its retry budget.`, severity: 'error', payload: { table, jobId: job.id, attempt, maxAttempts: max, error: error.message } });
         telemetry.emitEvent({ eventType: 'JOB_FAILED', action: 'JOB_FAIL', detail: `Failed ${table} job ${job.id}: ${error.message}`, severity: 'error', payload: { table, jobId: job.id, attempt, maxAttempts: max, retryable: isRetryableJobError(error) } });
       } else {
         telemetry.emitEvent({ eventType: 'JOB_RETRY_SCHEDULED', action: 'JOB_RETRY', detail: `Retry scheduled for ${table} job ${job.id}: ${error.message}`, severity: 'warning', payload: { table, jobId: job.id, attempt, maxAttempts: max } });
@@ -434,7 +470,13 @@ async function processOnce() {
   try {
     const db = await getDatabase();
     if (!recovered || Date.now() - lastRecoveryAt >= 60000) { await recoverInterruptedJobs(db); recovered = true; lastRecoveryAt = Date.now(); }
-    await Promise.all(['workflow_runs', 'evaluation_jobs', 'model_jobs'].map((table) => processTable(db, table)));
+    const executions = ['workflow_runs', 'evaluation_jobs', 'model_jobs'].map((table) => {
+      let execution;
+      execution = processTable(db, table).finally(() => inFlightJobs.delete(execution));
+      inFlightJobs.add(execution);
+      return execution;
+    });
+    await Promise.all(executions);
   } finally { busy = false; }
 }
 
@@ -465,10 +507,34 @@ function startJobWorker(intervalMs = 250) {
   if (timer) return timer;
   timer = setInterval(() => processOnce().catch((error) => telemetry.emitEvent({ eventType: 'JOB_WORKER_TICK_FAILED', agentId: 'system', action: 'JOB_WORKER', detail: error.message, severity: 'error', payload: { code: error.code || null } })), intervalMs);
   timer.unref?.();
+  const sleepInterval = Math.max(60_000, Number(process.env.GENOS_MEMORY_SLEEP_INTERVAL_MS) || 60 * 60 * 1000);
+  memoryTimer = setInterval(() => runMemoryConsolidationOnce().catch(() => {}), sleepInterval);
+  memoryTimer.unref?.();
   return timer;
 }
 
-function stopJobWorker() { if (timer) clearInterval(timer); timer = null; }
+async function stopJobWorker({ drain = true, timeoutMs = 30000 } = {}) {
+  if (timer) clearInterval(timer);
+  if (memoryTimer) clearInterval(memoryTimer);
+  timer = null;
+  memoryTimer = null;
+  if (!drain) return;
+  const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+  while (inFlightJobs.size > 0 && Date.now() < deadline) {
+    await Promise.race([...inFlightJobs, new Promise((resolve) => setTimeout(resolve, 50))]);
+  }
+}
+
+async function runMemoryConsolidationOnce() {
+  if (memoryCycleRunning) return { success: false, skipped: true, reason: 'cycle_in_progress' };
+  memoryCycleRunning = true;
+  try {
+    const db = await getDatabase();
+    const result = await vectorMemory.sleepCycle(db);
+    telemetry.emitEvent({ eventType: 'MEMORY_SLEEP_CYCLE_COMPLETED', agentId: 'memory_consolidator', action: 'CONSOLIDATE', detail: 'Automatic memory sleep cycle completed.', payload: result });
+    return result;
+  } finally { memoryCycleRunning = false; }
+}
 
 function getWorkerStatus() {
   return {
@@ -478,4 +544,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, executeWorkflow, executeEvaluation, executeModelJob, withRetry, isRetryableJobError };
+module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, runMemoryConsolidationOnce, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, updateCampaignStatus, executeWorkflow, executeEvaluation, executeModelJob, withRetry, isRetryableJobError };

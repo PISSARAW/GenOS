@@ -35,7 +35,7 @@ async function resolveTenant(req) {
        FROM organization_memberships om
        LEFT JOIN project_memberships pm ON pm.project_id = ? AND pm.principal_id = om.principal_id
       WHERE om.principal_id = ? AND om.organization_id = ?
-        AND (pm.project_id IS NOT NULL OR om.role IN ('owner', 'admin'))`,
+        AND pm.project_id IS NOT NULL`,
     projectId, principalId(user), organizationId
   );
   if (!membership) return null;

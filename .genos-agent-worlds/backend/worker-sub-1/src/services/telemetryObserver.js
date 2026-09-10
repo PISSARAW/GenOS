@@ -17,6 +17,22 @@ const STREAM_CANDIDATE_FILES = [
   path.resolve(__dirname, '../../../.agents/telemetry_observer_5/telemetry_stream.json'),
   path.resolve(__dirname, '../../../.agents/telemetry_observer/telemetry_stream.json')
 ];
+const SENSITIVE_KEY = /(token|secret|password|passwd|api[-_]?key|authorization|cookie|credential)/i;
+
+function redactObservability(value) {
+  if (Array.isArray(value)) return value.map(redactObservability);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, SENSITIVE_KEY.test(key) ? '[REDACTED]' : redactObservability(item)]));
+}
+
+function telemetryScope(eventData = {}) {
+  const payload = eventData.payload || {};
+  const tenant = payload.tenant || eventData.tenant || {};
+  return {
+    organizationId: payload.organizationId || payload.organization_id || tenant.organizationId || tenant.organization_id || eventData.organizationId || eventData.organization_id || null,
+    projectId: payload.projectId || payload.project_id || tenant.projectId || tenant.project_id || eventData.projectId || eventData.project_id || null
+  };
+}
 
 class TelemetryObserver extends EventEmitter {
   constructor() {
@@ -27,6 +43,8 @@ class TelemetryObserver extends EventEmitter {
     this.persisting = false;
     this.maxPersistQueue = Math.max(1, Number(process.env.GENOS_TELEMETRY_QUEUE_CAPACITY) || 4096);
     this.persistedEvents = 0;
+    this.droppedEvents = 0;
+    this.persistenceErrors = 0;
     this.maxTelemetryRows = Math.max(1000, Number(process.env.GENOS_TELEMETRY_RETENTION_ROWS) || 100000);
     this.maxTraceRows = Math.max(1000, Number(process.env.GENOS_TRACE_RETENTION_ROWS) || 100000);
     this.maxTokenRows = Math.max(1000, Number(process.env.GENOS_TOKEN_RETENTION_ROWS) || 500000);
@@ -73,12 +91,16 @@ class TelemetryObserver extends EventEmitter {
     const traceId = store ? store.get('traceId') : null;
     const reqId = store ? store.get('requestId') : null;
 
-    const payload = eventData.payload || {};
+    const payload = redactObservability(eventData.payload || {});
+    const scope = telemetryScope({ ...eventData, payload });
+    if (scope.organizationId) payload.organizationId = scope.organizationId;
+    if (scope.projectId) payload.projectId = scope.projectId;
     if (traceId && !payload.traceId) payload.traceId = traceId;
     if (reqId && !payload.requestId) payload.requestId = reqId;
 
     const event = {
       id: eventData.id || `evt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      sessionId: eventData.sessionId || payload.sessionId || payload.executionRunId || payload.runId || `agent-session-${eventData.agentId || 'system'}`,
       timestamp: eventData.timestamp || new Date().toISOString(),
       eventType: eventData.eventType || 'AGENT_EVENT',
       agentId: eventData.agentId || 'system',
@@ -100,23 +122,27 @@ class TelemetryObserver extends EventEmitter {
   broadcastSSE(event) {
     const payload = `data: ${JSON.stringify(event)}\n\n`;
     for (const client of this.sseClients) {
+      const eventOrg = event.payload?.organizationId || event.payload?.organization_id;
+      const eventProject = event.payload?.projectId || event.payload?.project_id;
+      if (!client.scope || eventOrg !== client.scope.organizationId || eventProject !== client.scope.projectId) continue;
       try {
-        client.write(payload);
+        client.res.write(payload);
       } catch (err) {
         this.sseClients.delete(client);
       }
     }
   }
 
-  addSSEClient(res) {
-    this.sseClients.add(res);
+  addSSEClient(res, scope = null) {
+    const client = { res, scope };
+    this.sseClients.add(client);
     res.on('close', () => {
-      this.sseClients.delete(res);
+      this.sseClients.delete(client);
     });
   }
 
   persistAsync(event) {
-    if (this.persistQueue.length >= this.maxPersistQueue) this.persistQueue.shift();
+    if (this.persistQueue.length >= this.maxPersistQueue) { this.persistQueue.shift(); this.droppedEvents += 1; }
     this.persistQueue.push(event);
     if (this.persisting) return;
     setImmediate(() => this.drainPersistQueue());
@@ -130,9 +156,11 @@ class TelemetryObserver extends EventEmitter {
         try {
           const db = await getDatabase();
           await db.run(
-          `INSERT OR IGNORE INTO telemetry_events (event_id, session_id, agent_id, event_type, action, detail, payload_json, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT OR IGNORE INTO telemetry_events (event_id, session_id, agent_id, event_type, action, detail, payload_json, severity, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             queuedEvent.id, queuedEvent.sessionId || 'session_live', queuedEvent.agentId, queuedEvent.eventType,
-            queuedEvent.action, queuedEvent.detail, JSON.stringify(queuedEvent.payload), queuedEvent.severity
+            queuedEvent.action, queuedEvent.detail, JSON.stringify(queuedEvent.payload), queuedEvent.severity,
+            queuedEvent.payload?.organizationId || queuedEvent.payload?.organization_id || null,
+            queuedEvent.payload?.projectId || queuedEvent.payload?.project_id || null
           );
           this.persistedEvents += 1;
           if (this.persistedEvents % 1000 === 0) await this.pruneHistory(db);
@@ -140,12 +168,13 @@ class TelemetryObserver extends EventEmitter {
           if (provenanceTypes.has(queuedEvent.eventType)) {
             const payloadJson = JSON.stringify({ eventId: queuedEvent.id, eventType: queuedEvent.eventType, agentId: queuedEvent.agentId, action: queuedEvent.action, detail: queuedEvent.detail, payload: queuedEvent.payload });
             const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
-            await db.run('INSERT OR IGNORE INTO provenance_records (id, subject_type, subject_id, payload_hash, payload_json) VALUES (?, ?, ?, ?, ?)', `prov-event-${queuedEvent.id}`, queuedEvent.eventType.toLowerCase(), queuedEvent.id, payloadHash, payloadJson);
+            await db.run('INSERT OR IGNORE INTO provenance_records (id, subject_type, subject_id, payload_hash, payload_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)', `prov-event-${queuedEvent.id}`, queuedEvent.eventType.toLowerCase(), queuedEvent.id, payloadHash, payloadJson, queuedEvent.payload?.organizationId || null, queuedEvent.payload?.projectId || null);
           }
           await this.persistWorkspaceMilestone(db, queuedEvent);
           if (queuedEvent.eventType === 'AGENT_COMPLETED') await this.generateWorkspaceReadme(db, queuedEvent.agentId);
         } catch (err) {
-          // Persistence must not block the live runtime.
+          this.persistenceErrors += 1;
+          console.error('[TelemetryObserver] Event persistence failed:', err.message);
         }
       }
     } finally {
@@ -154,10 +183,19 @@ class TelemetryObserver extends EventEmitter {
     }
   }
 
+  async flush(timeoutMs = 5000) {
+    const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+    while ((this.persisting || this.persistQueue.length > 0) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    return { flushed: !this.persisting && this.persistQueue.length === 0, pending: this.persistQueue.length };
+  }
+
   async pruneHistory(db) {
     await db.run('DELETE FROM telemetry_events WHERE id NOT IN (SELECT id FROM telemetry_events ORDER BY id DESC LIMIT ?)', this.maxTelemetryRows);
     await db.run('DELETE FROM trace_spans WHERE id NOT IN (SELECT id FROM trace_spans ORDER BY created_at DESC LIMIT ?)', this.maxTraceRows);
     await db.run('DELETE FROM model_job_tokens WHERE id NOT IN (SELECT id FROM model_job_tokens ORDER BY id DESC LIMIT ?)', this.maxTokenRows);
+    await db.run('DELETE FROM audit_logs WHERE id NOT IN (SELECT id FROM audit_logs ORDER BY id DESC LIMIT ?)', this.maxTelemetryRows);
   }
 
   async persistWorkspaceMilestone(db, event) {
@@ -231,12 +269,23 @@ class TelemetryObserver extends EventEmitter {
     fs.writeFileSync(path.join(workspace.path, existingReadme ? 'GENOS_REPORT.md' : 'README.md'), `${lines.join('\n')}\n`, 'utf8');
   }
 
-  getRecentEvents(limit = 100, filterType = null) {
+  getRecentEvents(limit = 100, filterType = null, scope = null) {
     let result = [...this.ringBuffer];
     if (filterType) {
       result = result.filter(e => e.eventType === filterType);
     }
+    if (scope) {
+      result = result.filter((event) => {
+        const organizationId = event.payload?.organizationId || event.payload?.organization_id;
+        const projectId = event.payload?.projectId || event.payload?.project_id;
+        return organizationId === scope.organizationId && projectId === scope.projectId;
+      });
+    }
     return result.slice(-limit).reverse();
+  }
+
+  getPersistenceStatus() {
+    return { queued: this.persistQueue.length, persisting: this.persisting, persisted: this.persistedEvents, dropped: this.droppedEvents, persistenceErrors: this.persistenceErrors };
   }
 }
 

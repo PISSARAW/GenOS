@@ -224,7 +224,7 @@ async function stdpUpdate(context) {
       severity: 'info',
       payload: { agentId: context.agentId }
     });
-    return { success: true, skipped: true, reason: 'Distinct sourceId and targetId required for STDP.' };
+    return { success: false, skipped: true, status: 'skipped', reason: 'Distinct sourceId and targetId required for STDP.' };
   }
 
   if (!Number.isFinite(preSpikeAt) || !Number.isFinite(postSpikeAt) || preSpikeAt === postSpikeAt) {
@@ -259,8 +259,15 @@ async function stdpUpdate(context) {
   if (!sRow || !tRow) {
     return { success: false, error: `Invalid foreign keys for STDP: sourceId=${sourceId}, targetId=${targetId}` };
   }
-  const orgId = context.organizationId || sRow.organization_id || tRow.organization_id || null;
-  const projId = context.projectId || sRow.project_id || tRow.project_id || null;
+  const orgId = context.organizationId || sRow.organization_id || null;
+  const projId = context.projectId || sRow.project_id || null;
+  if (sRow.organization_id !== tRow.organization_id || sRow.project_id !== tRow.project_id) {
+    return { success: false, error: 'STDP source and target memories must belong to the same tenant.' };
+  }
+  if ((context.organizationId && context.organizationId !== sRow.organization_id)
+    || (context.projectId && context.projectId !== sRow.project_id)) {
+    return { success: false, error: 'STDP memories are outside the requested tenant.' };
+  }
 
   let row;
   await withTransaction(db, async (tx) => {

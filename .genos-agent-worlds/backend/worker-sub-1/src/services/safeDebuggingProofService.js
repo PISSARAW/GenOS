@@ -62,9 +62,9 @@ async function generateProof(featureId = 'safe-debugging', executionId = null) {
     hash,
     evidence,
     claims: [
-      { id: 'claim-parallel-isolation', verified: evidence.baseline.reproduced === true, rule: 'directory_isolation' },
-      { id: 'claim-boundary-test', verified: winner.tests_passed > 0 && winner.exit_code === 0, rule: 'unit_test_gate' },
-      { id: 'claim-replay-diff-zero', verified: evidence.selection.replay_verified === true, rule: 'deterministic_replay' }
+      { id: 'claim-parallel-isolation', verified: evidence.baseline.reproduced === true, rule: 'directory_isolation', kind: 'metric', qualityGuarantee: false },
+      { id: 'claim-boundary-test', verified: winner.tests_passed > 0 && winner.exit_code === 0, rule: 'unit_test_gate', kind: 'metric', qualityGuarantee: false },
+      { id: 'claim-replay-diff-zero', verified: evidence.selection.replay_verified === true, rule: 'deterministic_replay', kind: 'metric', qualityGuarantee: false }
     ]
   };
 }

@@ -10,6 +10,7 @@ const diff = diffWorkspaces('base', 'target', {
 
 assert.strictEqual(diff.totalAdditions, 3);
 assert.strictEqual(diff.totalDeletions, 1);
+assert.strictEqual(diff.totalFilesChanged, 1);
 assert.deepStrictEqual(diff.churnHeatmap.map((entry) => entry.collisionRisk), ['HIGH', 'HIGH']);
 assert.throws(() => diffWorkspaces('base', 'target', { diffEntries: [{ file: 'bad.js', additions: NaN, deletions: 0 }] }), /Diff counts must be non-negative numbers/);
 
@@ -27,6 +28,10 @@ Promise.resolve(bisection.bisectAnomalyAsync([
 }).then((result) => {
   assert.strictEqual(result.bisectionComplete, false);
   assert.match(result.reason, /boolean health/);
+  return bisection.bisectAnomalyAsync([{ step: 1, healthy: false }, { step: 2, healthy: false }]);
+}).then((result) => {
+  assert.strictEqual(result.bisectionComplete, false);
+  assert.match(result.reason, /healthy baseline/);
   let evaluations = 0;
   return bisection.bisectAnomalyAsync(
     [{ step: 1 }, { step: 2 }],
@@ -35,6 +40,10 @@ Promise.resolve(bisection.bisectAnomalyAsync([
 }).then((result) => {
   assert.strictEqual(result.bisectionComplete, false);
   assert.match(result.reason, /unstable/);
+  return bisection.bisectAnomalyAsync([{ step: 1, healthy: true }, { step: 2, healthy: false }]);
+}).then((result) => {
+  assert.equal(result.evidenceLevel, 'regression_indicator');
+  assert.equal(result.causalGuarantee, false);
   console.log('Bisection monotonicity, evidence, and stability checks passed.');
 }).catch((error) => {
   console.error(error);

@@ -2,7 +2,7 @@
  * GenOS Vector Memory - Corpus Fetching & Hybrid Search Hydration
  */
 const SEED_EXPERIENCES = [
-  { id: 'exp-001', title: 'Enabled SQLite WAL for concurrent agents', category: 'Database', status: 'SUCCESS', summary: 'Switched the journal mode to wal so multiple agent workers can read while one writes without locking timeouts.', tags: ['sqlite', 'wal', 'concurrency'], author: 'memory_seed', createdAt: '2026-09-01T08:00:00.000Z' },
+  { id: 'exp-001', title: 'Enabled SQLite WAL for concurrent agents', category: 'Database', status: 'SUCCESS', summary: 'Switched the journal mode to wal so multiple agent workers can read while one writes without locking timeouts.', tags: ['sqlite', 'wal', 'concurrency', 'golden_path'], author: 'memory_seed', createdAt: '2026-09-01T08:00:00.000Z' },
   { id: 'seed-exp-bisect', title: 'Causal bisection isolated timeout culprit', category: 'Resilience', status: 'SUCCESS', summary: 'Ran bisection over workspace snapshots to isolate the commit that introduced the recursion timeout.', tags: ['bisection', 'timeout', 'tree'], author: 'memory_seed', createdAt: '2026-09-02T10:30:00.000Z' },
   { id: 'seed-exp-rbac', title: 'Hardened RBAC with CSRF double submit', category: 'Security', status: 'SUCCESS', summary: 'Enforced per-route permissions and backend-minted csrf tokens across the control plane.', tags: ['security', 'rbac', 'csrf'], author: 'memory_seed', createdAt: '2026-09-03T14:15:00.000Z' },
   { id: 'seed-exp-entropy', title: 'Detected swarm cognitive drift via Shannon entropy', category: 'Swarm', status: 'SUCCESS', summary: 'Watched shannon entropy of agent action distributions and throttled runaway diversity.', tags: ['entropy', 'shannon', 'pareto'], author: 'memory_seed', createdAt: '2026-09-04T09:00:00.000Z' },
@@ -24,7 +24,9 @@ async function fetchCorpus(db, query, queryVec, options = {}) {
   if (!db) return [];
   const ownerId = String(options.ownerId || '').trim();
   const orgId = String(options.organizationId || '').trim();
+  const projectId = String(options.projectId || '').trim();
   const orgFilter = orgId ? ' AND (t.organization_id = ? OR t.organization_id IS NULL)' : '';
+  const projectFilter = projectId ? ' AND (t.project_id = ? OR t.project_id IS NULL)' : '';
   const ownerFilter = ownerId ? ' AND t.created_by = ?' : '';
   const validVec = Array.isArray(queryVec) && queryVec.length === 768 ? queryVec : null;
   const queryVecJson = validVec ? JSON.stringify(Array.from(validVec)) : null;
@@ -43,7 +45,7 @@ async function fetchCorpus(db, query, queryVec, options = {}) {
   if (queryVecJson) {
     try {
       const vRows = await db.all(
-        `SELECT rowid, distance FROM trajectories_vec WHERE embedding MATCH ? AND k = 50`,
+        `SELECT rowid, distance FROM trajectories_vec WHERE embedding MATCH ? AND k = 1000`,
         [queryVecJson]
       );
       vRows.forEach((r, idx) => {
@@ -55,7 +57,7 @@ async function fetchCorpus(db, query, queryVec, options = {}) {
 
     try {
       const vRows = await db.all(
-        `SELECT rowid, distance FROM genome_decisions_vec WHERE embedding MATCH ? AND k = 50`,
+        `SELECT rowid, distance FROM genome_decisions_vec WHERE embedding MATCH ? AND k = 1000`,
         [queryVecJson]
       );
       vRows.forEach((r, idx) => {
@@ -74,7 +76,7 @@ async function fetchCorpus(db, query, queryVec, options = {}) {
       const fRows = await db.all(
         `SELECT rowid, -bm25(trajectories_fts) as f_score 
          FROM trajectories_fts WHERE trajectories_fts MATCH ? 
-         ORDER BY f_score DESC LIMIT 50`,
+         ORDER BY f_score DESC LIMIT 1000`,
         [ftsMatch]
       );
       fRows.forEach((r, idx) => {
@@ -88,7 +90,7 @@ async function fetchCorpus(db, query, queryVec, options = {}) {
       const fRows = await db.all(
         `SELECT rowid, -bm25(genome_decisions_fts) as f_score 
          FROM genome_decisions_fts WHERE genome_decisions_fts MATCH ? 
-         ORDER BY f_score DESC LIMIT 50`,
+         ORDER BY f_score DESC LIMIT 1000`,
         [ftsMatch]
       );
       fRows.forEach((r, idx) => {
@@ -115,8 +117,9 @@ async function fetchCorpus(db, query, queryVec, options = {}) {
         queryParams.push(ownerId);
       }
       if (orgId) {
-        sql += ' AND (t.workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?) OR t.workspace_id IS NULL)';
+        sql += ' AND (t.workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?' + (projectId ? ' AND project_id = ?' : '') + ') OR t.workspace_id IS NULL)';
         queryParams.push(orgId);
+        if (projectId) queryParams.push(projectId);
       }
       const rows = await db.all(sql, queryParams);
       for (const item of rows) {
@@ -152,10 +155,9 @@ async function fetchCorpus(db, query, queryVec, options = {}) {
       const queryParams = [...decRowIds];
       let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob 
                  FROM genome_decisions t WHERE rowid IN (${placeholders})`;
-      if (orgId) {
-        sql += orgFilter;
-        queryParams.push(orgId);
-      }
+      if (ownerId) { sql += ' AND t.created_by = ?'; queryParams.push(ownerId); }
+      if (orgId) { sql += orgFilter; queryParams.push(orgId); }
+      if (projectId) { sql += projectFilter; queryParams.push(projectId); }
       const rows = await db.all(sql, queryParams);
       for (const item of rows) {
         const v = decVectorMap.get(item.rowid);

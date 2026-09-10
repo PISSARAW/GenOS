@@ -1,6 +1,8 @@
 const { MCP_TOOLS_LIST } = require('../db/seedTools');
 const mcpStrategyTools = require('./mcpStrategyTools');
 const mcpBioTools = require('./mcpBioTools');
+const { validateToolArguments } = require('./mcpArgumentValidation');
+const circuitBreaker = require('./circuitBreaker');
 
 function normalizeToolName(toolName) {
   return String(toolName || '').trim();
@@ -36,14 +38,23 @@ function isSupportedTool(toolName) {
 async function dispatchTool(toolName, args = {}) {
   const normalized = normalizeToolName(toolName);
   const kind = detectExecutionKind(normalized);
+  if (!isSupportedTool(normalized)) return { kind: 'unsupported', result: { configured: false, success: false, status: 'unsupported', error: `Tool '${normalized}' is not registered.` } };
+  const argumentError = validateToolArguments(normalized, args);
+  if (argumentError) return { kind, result: { configured: true, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code } };
+  const circuit = circuitBreaker.canExecute(normalized, 'operator');
+  if (!circuit.allowed) return { kind, result: { configured: true, success: false, status: 'circuit_open', error: circuit.message, code: circuit.reason } };
 
   if (kind === 'strategy') {
     const result = await mcpStrategyTools.executeStrategyTool(normalized, args || {});
+    if (result?.success) circuitBreaker.recordSuccess(normalized);
+    else if (result?.configured) circuitBreaker.recordFailure(normalized, result?.error || 'MCP strategy tool failed.');
     return { kind, result };
   }
 
   if (kind === 'bio') {
     const result = await mcpBioTools.executeBioTool(normalized, args || {});
+    if (result?.success) circuitBreaker.recordSuccess(normalized);
+    else if (result?.configured) circuitBreaker.recordFailure(normalized, result?.error || 'MCP bio tool failed.');
     return { kind, result };
   }
 

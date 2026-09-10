@@ -64,9 +64,11 @@ async function recordEpisode(episode = {}, dbOverride = null) {
   if ([contextState, actionInput, observationOutput].reduce((total, value) => total + Buffer.byteLength(value, 'utf8'), 0) > limits.maxBytes) {
     throw new Error(`Episode exceeds the ${limits.maxBytes}-byte limit.`);
   }
-  const rewardScore = typeof (episode.reward_score ?? episode.rewardScore) === 'number'
-    ? (episode.reward_score ?? episode.rewardScore)
-    : 0.0;
+  const rawReward = episode.reward_score ?? episode.rewardScore ?? 0;
+  const rewardScore = Number(rawReward);
+  if (!Number.isFinite(rewardScore) || rewardScore < 0 || rewardScore > 1) {
+    throw new Error('rewardScore must be a finite number between 0 and 1.');
+  }
   const isConsolidated = (episode.is_consolidated ?? episode.isConsolidated) ? 1 : 0;
   const createdAt = episode.created_at || episode.createdAt || new Date().toISOString();
 
@@ -107,7 +109,7 @@ async function getRecentEpisodes(options = {}, dbOverride = null) {
   const db = dbOverride || await getDatabase();
   const { agentId, sessionId, taskId, unconsolidatedOnly = false, limit = 50, offset = 0 } = options;
 
-  let query = 'SELECT * FROM episodic_memories WHERE 1=1';
+  let query = 'SELECT * FROM episodic_memories WHERE is_purged = 0';
   const params = [];
 
   if (agentId) {
@@ -156,6 +158,10 @@ async function getRecentEpisodes(options = {}, dbOverride = null) {
 async function consolidateEpisodes(options = {}, dbOverride = null) {
   const db = dbOverride || await getDatabase();
   const { agentId, sessionId, scoreThreshold = 0.7, purgeBelowThreshold = true } = options;
+  if (!Number.isFinite(Number(scoreThreshold)) || Number(scoreThreshold) < 0 || Number(scoreThreshold) > 1) {
+    throw new Error('scoreThreshold must be a finite number between 0 and 1.');
+  }
+  const threshold = Number(scoreThreshold);
 
   let query = 'SELECT id, reward_score FROM episodic_memories WHERE is_consolidated = 0';
   const params = [];
@@ -175,7 +181,7 @@ async function consolidateEpisodes(options = {}, dbOverride = null) {
   const purgedIds = [];
 
   for (const ep of unconsolidated) {
-    if (ep.reward_score >= scoreThreshold) {
+    if (ep.reward_score >= threshold) {
       consolidatedIds.push(ep.id);
     } else if (purgeBelowThreshold) {
       purgedIds.push(ep.id);
@@ -193,7 +199,7 @@ async function consolidateEpisodes(options = {}, dbOverride = null) {
   if (purgedIds.length > 0) {
     const placeholders = purgedIds.map(() => '?').join(',');
     await db.run(
-      `DELETE FROM episodic_memories WHERE id IN (${placeholders})`,
+      `UPDATE episodic_memories SET is_purged = 1, purged_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
       ...purgedIds
     );
   }

@@ -6,6 +6,7 @@ const geneticsService = require('../src/services/geneticsService');
 
 async function runTests() {
   console.log('=== Test Suite : Reconnexion de genos-reproduction & Moteur Génétique ===\n');
+  const runId = Date.now();
   assert.strictEqual(geneticsService.crossoverGenome({ genes: { role: 'a', strategy: 'a', tools: ['genos_inspect'], temp: 0.1, topP: 0.9 } }, { genes: { role: 'b', strategy: 'b', tools: ['genos_test'], temp: 0.2, topP: 0.8 } }, { mutationRate: 0 }).mutationRateApplied, 0);
   assert.throws(() => geneticsService.crossoverGenome({}, {}, { mutationRate: 1.01 }), /mutationRate must be between 0 and 1/);
 
@@ -32,7 +33,7 @@ async function runTests() {
   // --- 2. Test CLI Rust : Cell Division (Mitosis & Binary Fission) ---
   console.log('\n--- 2. Testing Rust Native Cell Division Modes ---');
   const mitosisResult = await genosCli.runCellDivision({
-    agentId: 'cell_division_stem_01',
+    agentId: `cell_division_stem_01_${runId}`,
     mode: 'mitosis'
   });
   assert(mitosisResult.ok, `CLI mitosis failed: ${mitosisResult.stderr}`);
@@ -47,14 +48,14 @@ async function runTests() {
   console.log(`  ✅ PASS: Mitosis produced attested twin clones: ${mitosisResult.json.clone_genome_id} (attestation: ${mitosisResult.json.attestation_hash.slice(0, 12)}...)`);
 
   const mcpBioExtra = require('../src/services/mcpBioExtra');
-  const mcpMitosisRes = await mcpBioExtra.executeBioExtra('genos_cell_division', { agent_id: 'mcp_stem_01' });
+  const mcpMitosisRes = await mcpBioExtra.executeBioExtra('genos_cell_division', { agent_id: `mcp_stem_01_${runId}` });
   assert(mcpMitosisRes && mcpMitosisRes.success, `MCP cell division mitosis failed: ${mcpMitosisRes?.error}`);
   assert.strictEqual(mcpMitosisRes.division_mode, 'mitosis');
   assert.strictEqual(mcpMitosisRes.amitosis_rejected, true);
   console.log(`  ✅ PASS: MCP genos_cell_division routed to mitosis with attestation: ${mcpMitosisRes.attestation_hash?.slice(0, 12)}...`);
 
   const fissionResult = await genosCli.runCellDivision({
-    agentId: 'cell_fission_02',
+    agentId: `cell_fission_02_${runId}`,
     mode: 'binary_fission',
     mutationRate: 0.08
   });
@@ -68,7 +69,7 @@ async function runTests() {
   console.log(`  ✅ PASS: Binary fission completed with 2 daughter cells: ${fissionResult.json.daughter_a_id} and ${fissionResult.json.daughter_b_id}`);
 
   const buddingResult = await genosCli.runCellDivision({
-    agentId: 'cell_budding_mother_01',
+    agentId: `cell_budding_mother_01_${runId}`,
     mode: 'budding',
     daughterVolume: 0.25,
     hayflickLimit: 5
@@ -83,7 +84,7 @@ async function runTests() {
   console.log(`  ✅ PASS: Asymmetric budding produced ephemeral bud ${buddingResult.json.daughter_genome_id} (scars: ${buddingResult.json.mother_scars_count})`);
 
   const meiosisResult = await genosCli.runCellDivision({
-    agentId: 'cell_meiosis_mother_01',
+    agentId: `cell_meiosis_mother_01_${runId}`,
     mode: 'meiosis'
   });
   assert(meiosisResult.ok, `CLI meiosis failed: ${meiosisResult.stderr}`);
@@ -94,7 +95,7 @@ async function runTests() {
   console.log(`  ✅ PASS: Meiosis produced 4 recombinant haploid gametes: ${meiosisResult.json.gamete_genome_ids.join(', ')}`);
 
   const schizogonyResult = await genosCli.runCellDivision({
-    agentId: 'cell_schizogony_mother_01',
+    agentId: `cell_schizogony_mother_01_${runId}`,
     mode: 'schizogony',
     merozoiteCount: 4,
     mutationRate: 0.05,
