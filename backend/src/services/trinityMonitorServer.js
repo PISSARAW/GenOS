@@ -82,6 +82,9 @@ class TrinityMonitorServer {
     this.snapshotTimer = null;
     this.indexTimer = null;
     this.snapshotInFlight = false;
+    // Monotone server sequence stamped on every emitted payload so the TUI
+    // can drop stale re-deliveries (see trinity_tui/model/live_contract.rs).
+    this.monitorSeq = 0;
     this.authToken = process.env.GENOS_TRINITY_MONITOR_TOKEN || null;
     this.telemetryHandler = (event) => this.handleTelemetryEvent(event).catch(() => {});
   }
@@ -225,8 +228,14 @@ class TrinityMonitorServer {
     socket.write(line);
   }
 
+  stamp(payload) {
+    this.monitorSeq += 1;
+    payload.seq = this.monitorSeq;
+    return payload;
+  }
+
   broadcast(missionId, payload) {
-    const line = `${JSON.stringify(payload)}\n`;
+    const line = `${JSON.stringify(this.stamp(payload))}\n`;
     for (const client of this.clients) {
       if (client.missionId === 'latest' || client.missionId === missionId) {
         this.writeToClient(client, line);
@@ -249,7 +258,7 @@ class TrinityMonitorServer {
         if (!missionId) continue;
         const snapshot = await this.buildSnapshot(missionId).catch(() => null);
         if (!snapshot) continue;
-        const line = `${JSON.stringify(snapshot)}\n`;
+        const line = `${JSON.stringify(this.stamp(snapshot))}\n`;
         for (const client of this.clients) {
           const resolved = client.missionId === 'latest' ? latestMissionId : client.missionId;
           if (resolved === missionId) this.writeToClient(client, line);

@@ -4,13 +4,14 @@
  */
 
 const fs = require('fs');
-const crypto = require('crypto');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { EventEmitter } = require('events');
-const { getDatabase } = require('../db');
 const webhookService = require('./webhookService');
 const snapshotStore = require('./workspaceSnapshotStore');
+const telemetryContract = require('./telemetryEventContract');
+const telemetryFanout = require('./telemetryFanout');
+const telemetryPersist = require('./telemetryPersist');
 
 const MAX_RING_BUFFER_SIZE = 10000;
 const STREAM_CANDIDATE_FILES = [
@@ -19,19 +20,15 @@ const STREAM_CANDIDATE_FILES = [
 ];
 const SENSITIVE_KEY = /(token|secret|password|passwd|api[-_]?key|authorization|cookie|credential)/i;
 
+function redactEntry([key, item]) {
+  if (SENSITIVE_KEY.test(key)) return [key, '[REDACTED]'];
+  return [key, redactObservability(item)];
+}
+
 function redactObservability(value) {
   if (Array.isArray(value)) return value.map(redactObservability);
   if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, SENSITIVE_KEY.test(key) ? '[REDACTED]' : redactObservability(item)]));
-}
-
-function telemetryScope(eventData = {}) {
-  const payload = eventData.payload || {};
-  const tenant = payload.tenant || eventData.tenant || {};
-  return {
-    organizationId: payload.organizationId || payload.organization_id || tenant.organizationId || tenant.organization_id || eventData.organizationId || eventData.organization_id || null,
-    projectId: payload.projectId || payload.project_id || tenant.projectId || tenant.project_id || eventData.projectId || eventData.project_id || null
-  };
+  return Object.fromEntries(Object.entries(value).map(redactEntry));
 }
 
 class TelemetryObserver extends EventEmitter {
@@ -87,35 +84,14 @@ class TelemetryObserver extends EventEmitter {
 
   emitEvent(eventData) {
     const { asyncLocalStorage } = require('./asyncContext');
-    const store = asyncLocalStorage.getStore();
-    const traceId = store ? store.get('traceId') : null;
-    const reqId = store ? store.get('requestId') : null;
-
-    const payload = redactObservability(eventData.payload || {});
-    const scope = telemetryScope({ ...eventData, payload });
-    if (scope.organizationId) payload.organizationId = scope.organizationId;
-    if (scope.projectId) payload.projectId = scope.projectId;
-    if (traceId && !payload.traceId) payload.traceId = traceId;
-    if (reqId && !payload.requestId) payload.requestId = reqId;
-
-    const event = {
-      id: eventData.id || `evt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      sessionId: eventData.sessionId || payload.sessionId || payload.executionRunId || payload.runId || `agent-session-${eventData.agentId || 'system'}`,
-      timestamp: eventData.timestamp || new Date().toISOString(),
-      eventType: eventData.eventType || 'AGENT_EVENT',
-      agentId: eventData.agentId || 'system',
-      action: eventData.action || 'EXECUTE',
-      detail: eventData.detail || eventData.message || '',
-      severity: eventData.severity || 'info',
-      status: eventData.status || 'SUCCESS',
-      payload
-    };
+    const payload = redactObservability((eventData || {}).payload || {});
+    const trace = telemetryContract.readTraceContext(asyncLocalStorage);
+    const event = telemetryContract.buildEvent(eventData || {}, payload, trace);
 
     this.pushToBuffer(event);
     this.broadcastSSE(event);
     this.persistAsync(event);
-    this.emit('telemetry', event);
-    webhookService.dispatch(event);
+    telemetryFanout.fanout(this, webhookService, event);
     return event;
   }
 
@@ -152,37 +128,7 @@ class TelemetryObserver extends EventEmitter {
     this.persisting = true;
     let abortDueToClosedDb = false;
     try {
-      while (this.persistQueue.length) {
-        const queuedEvent = this.persistQueue.shift();
-        try {
-          const db = await getDatabase();
-          await db.run(
-          `INSERT OR IGNORE INTO telemetry_events (event_id, session_id, agent_id, event_type, action, detail, payload_json, severity, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            queuedEvent.id, queuedEvent.sessionId || 'session_live', queuedEvent.agentId, queuedEvent.eventType,
-            queuedEvent.action, queuedEvent.detail, JSON.stringify(queuedEvent.payload), queuedEvent.severity,
-            queuedEvent.payload?.organizationId || queuedEvent.payload?.organization_id || null,
-            queuedEvent.payload?.projectId || queuedEvent.payload?.project_id || null
-          );
-          this.persistedEvents += 1;
-          if (this.persistedEvents % 1000 === 0) await this.pruneHistory(db);
-          const provenanceTypes = new Set(['BELIEF_CREATED', 'BELIEF_UPDATED', 'AGENT_COMPLETED', 'AGENT_FAILED', 'TOOL_CALL_COMPLETED', 'MCTS_NODE_PRUNED', 'EVALUATION_COMPLETED']);
-          if (provenanceTypes.has(queuedEvent.eventType)) {
-            const payloadJson = JSON.stringify({ eventId: queuedEvent.id, eventType: queuedEvent.eventType, agentId: queuedEvent.agentId, action: queuedEvent.action, detail: queuedEvent.detail, payload: queuedEvent.payload });
-            const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
-            await db.run('INSERT OR IGNORE INTO provenance_records (id, subject_type, subject_id, payload_hash, payload_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)', `prov-event-${queuedEvent.id}`, queuedEvent.eventType.toLowerCase(), queuedEvent.id, payloadHash, payloadJson, queuedEvent.payload?.organizationId || null, queuedEvent.payload?.projectId || null);
-          }
-          await this.persistWorkspaceMilestone(db, queuedEvent);
-          if (queuedEvent.eventType === 'AGENT_COMPLETED') await this.generateWorkspaceReadme(db, queuedEvent.agentId);
-        } catch (err) {
-          this.persistenceErrors += 1;
-          console.error('[TelemetryObserver] Event persistence failed:', err.message);
-          if (err.message && (err.message.includes('SQLITE_MISUSE') || err.message.includes('Database handle is closed') || err.message.includes('cannot operate on a closed database'))) {
-            this.persistQueue.unshift(queuedEvent);
-            abortDueToClosedDb = true;
-            break;
-          }
-        }
-      }
+      abortDueToClosedDb = await telemetryPersist.drain(this);
     } finally {
       this.persisting = false;
       if (!abortDueToClosedDb && this.persistQueue.length) setImmediate(() => this.drainPersistQueue());
