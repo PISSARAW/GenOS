@@ -1,4 +1,4 @@
-function handleTrailSelection(args, strategyAdapter) {
+async function handleTrailSelection(args, strategyAdapter) {
   const res = await strategyAdapter.executePrimitive('trail_selection', args || {});
   return {
     configured: true,

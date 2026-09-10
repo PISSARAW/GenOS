@@ -1,4 +1,4 @@
-function handleSynapticPruneScale(args, run, getDatabase) {
+async function handleSynapticPruneScale(args, run, getDatabase) {
   const db = await getDatabase();
   const threshold = Number(args.threshold ?? 0.1) * Number(args.scale ?? 1.0);
   const agentId = args.agent_id || args.agentId;

@@ -1,4 +1,4 @@
-function handleEvaporation(args, strategyAdapter) {
+async function handleEvaporation(args, strategyAdapter) {
   const res = await strategyAdapter.executePrimitive('evaporation', args || {});
   return {
     configured: true,

@@ -1,9 +1,9 @@
 const { spawn } = require('child_process');
-const { parseArgs, mcpTransportEnvironment, normalizeMcpTimeout } = require('../../mcpExecutor');
 const { appendBounded } = require('../../boundedOutput');
 const { terminateChild, clearTerminationTimer } = require('../../processTermination');
 
 async function callStdioFn(transport, toolName, options = {}) {
+  const { parseArgs, mcpTransportEnvironment, normalizeMcpTimeout } = require('../../mcpExecutor');
   const { command: commandLine, args: cmdArgs = [] } = transport;
   const { args: toolArgs = {} } = options;
   const timeoutMs = normalizeMcpTimeout(options.timeoutMs);

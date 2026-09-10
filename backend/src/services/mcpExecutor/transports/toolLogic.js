@@ -1,4 +1,8 @@
-const { runSafeSync } = require('../../mcpExecutor');
+const { runGenosSync } = require('../../genosCli');
+
+function runSafeSync(commandLine, timeoutMs) {
+  return runGenosSync(commandLine, typeof timeoutMs === 'number' ? { timeoutMs } : timeoutMs);
+}
 
 async function executeToolLogic(toolName, args, runLocal) {
   if (toolName === 'genos_agent_world_capsule') {

@@ -5,7 +5,7 @@ function runGenosSync(command, timeoutMs) {
 }
 const { getDatabase } = require('../db');
 const { terminateChild } = require('./processTermination');
-const { TOOL_HANDLERS } = require('./handlers');
+const { TOOL_HANDLERS } = require('./mcpBioTools/handlers');
 
 let echolocationProcess = null;
 let echolocationProcessId = null;
@@ -33,10 +33,10 @@ async function executeBioTool(toolName, args, options = {}) {
   if (toolName === 'genos_biomimicry_echolocation') {
     try {
       if (args.action === 'listen') {
-        const result = require('./handlers/echolocation').handleEcholocationListen(args, cp, getDatabase, run);
+        const result = require('./mcpBioTools/handlers/echolocation').handleEcholocationListen(args, cp, getDatabase, run);
         return result;
       }
-      const result = require('./handlers/echolocation').handleEcholocationBeep(args, cp, run);
+      const result = require('./mcpBioTools/handlers/echolocation').handleEcholocationBeep(args, cp, run);
       return result;
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.message };
