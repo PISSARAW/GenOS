@@ -12,6 +12,9 @@ const SYNCYTIUM_SIGNALS = [
   /\btime[ -]?travel\b/i
 ];
 
+// A single keyword is too weak a signal to spin up four synchronized agents.
+const MIN_SYNCYTIUM_SIGNALS = 2;
+
 function countMatches(text) {
   return SYNCYTIUM_SIGNALS.reduce((count, regex) => count + (regex.test(text) ? 1 : 0), 0);
 }
@@ -19,13 +22,13 @@ function countMatches(text) {
 function analyzeMission(mission) {
   const text = String(mission || '');
   const score = countMatches(text);
-  const recommended = score >= 1;
+  const recommended = score >= MIN_SYNCYTIUM_SIGNALS;
   const composition = recommended ? biologicalMode.compose('syncytium', text) : [];
   return {
     recommended,
     mode: 'syncytium',
-    crdtReady: true,
-    frequency: '< 1s',
+    crdtReady: recommended,
+    frequency: recommended ? '< 1s' : 'not recommended',
     signalsCount: score,
     roles: [
       'shared_state_coordinator',
