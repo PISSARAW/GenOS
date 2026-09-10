@@ -66,7 +66,15 @@ fn terminate_process_group(child: &mut Child) {
     {
         unsafe { libc::kill(-(child.id() as i32), libc::SIGTERM); }
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    {
+        let pid = child.id();
+        let _ = Command::new("taskkill")
+            .args(["/F", "/T", "/PID", &pid.to_string()])
+            .output();
+        let _ = child.kill();
+    }
+    #[cfg(all(not(unix), not(windows)))]
     {
         let _ = child.kill();
     }
@@ -218,6 +226,8 @@ fn execute_orchestrator(bridge: &Path, payload: &Value, workspace: &Path) -> (i3
     cmd.arg(bridge)
         .arg(&payload_str)
         .current_dir(workspace);
+
+    cmd.env("GENOS_WORKSPACE_ROOT", workspace);
 
     if let Ok(mode) = env::var("GENOS_EXECUTION_MODE") {
         cmd.env("GENOS_EXECUTION_MODE", mode);
@@ -435,17 +445,27 @@ fn process_request(line: &str, workspace: &Path) -> Option<Value> {
         }))
     };
 
+    if id.is_none() || method.starts_with("notifications/") {
+        return None;
+    }
+
     match method {
-        "initialize" => Some(json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": {
-                "protocolVersion": "2025-06-18",
-                "capabilities": { "tools": { "listChanged": false } },
-                "serverInfo": { "name": "genos-mcp", "version": "3.0.0" },
-                "instructions": "GenOS autonomous agent runtime tools."
-            }
-        })),
+        "initialize" => {
+            let client_version = req.get("params")
+                .and_then(|p| p.get("protocolVersion"))
+                .and_then(Value::as_str)
+                .unwrap_or("2024-11-05");
+            Some(json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "result": {
+                    "protocolVersion": client_version,
+                    "capabilities": { "tools": { "listChanged": false } },
+                    "serverInfo": { "name": "genos-mcp", "version": "3.0.0" },
+                    "instructions": "GenOS autonomous agent runtime tools."
+                }
+            }))
+        }
         "notifications/initialized" => None,
         "ping" => Some(json!({ "jsonrpc": "2.0", "id": id, "result": {} })),
         "tools/list" => Some(json!({
