@@ -915,6 +915,8 @@ Trinity ne vote pas. Elle compare. La décision finale est basée sur un scoring
 
 GenOS intègre une interface terminal interactive temps réel (développée en Rust avec [ratatui](https://crates.io/crates/ratatui) et [crossterm](https://crates.io/crates/crossterm)) permettant de visualiser l'exécution contrefactuelle des 3 mondes en simultané sur 3 colonnes dédiées.
 
+Cette section décrit le mode **démo scripté** (`--simulation`, activé par défaut) qui rejoue une narration déterministe utile pour la présentation et les tests. Pour un moniteur branché sur une mission Trinity réelle, voir la [section 20](#20-moniteur-tui-natif-en-direct-genos-run---mode-trinity---monitor).
+
 ### Le Hook X & Positionnement
 
 > **"Stop relying on a single agent chain. Here is what counterfactual multi-agent execution looks like in real time. 3 worlds, 3 cognitive hypotheses, 1 unified evidence barrier."**
@@ -953,6 +955,49 @@ genos trinity split-screen --prompt "Implémenter un parser Bencode en Rust avec
 
 ---
 
+## 20. Moniteur TUI natif en direct (`genos run --mode trinity --monitor`)
+
+Au-delà de la démo scriptée, `genos-cli` peut se brancher sur une mission Trinity **réelle** en cours d'exécution côté backend Node.js, sans rejouer aucune narration : chaque colonne, log et verdict provient d'événements produits par le runtime lui-même.
+
+### Architecture
+
+```text
+backend/src/services/trinityMonitorServer.js (Node.js)
+  |
+  +--> écoute les événements de telemetryObserver (logs, statuts, barrière)
+  +--> interroge trinity_worlds / agents toutes les 500 ms (snapshot)
+  +--> diffuse du NDJSON sur un socket TCP loopback (127.0.0.1:4590 par défaut)
+  |     (ou un socket UNIX via GENOS_TRINITY_MONITOR_SOCKET sur POSIX)
+  v
+genos-tui (Rust / ratatui) — crates/genos-cli/src/commands/trinity_tui/
+  |
+  +--> live.rs      : client TCP en fil de fond, reconnexion automatique
+  +--> model.rs     : applique les messages snapshot / log / barrier au modèle
+  +--> view.rs       : rend les 3 colonnes + le panneau Barrière d'Évidence
+```
+
+Le serveur de monitoring démarre automatiquement avec le backend (`backend/server.js`), sur le worker de cluster désigné (`GENOS_JOB_WORKER=1`), et peut être désactivé via `GENOS_TRINITY_MONITOR_ENABLED=0`.
+
+### Protocole NDJSON
+
+Chaque ligne reçue par `genos-tui` est un objet JSON parmi :
+
+- `{"type":"snapshot", missionId, prompt, worlds:[...], barrier:{status, detail}}` — état complet, envoyé périodiquement.
+- `{"type":"log", missionId, worldNumber, line, severity, timestamp}` — une ligne de log réelle pour un monde.
+- `{"type":"barrier", missionId, status, detail}` — transition de la barrière d'évidence (`WAITING`, `SATISFIED`, `PARTIAL`, `HALTED`, `FAILED`).
+
+### Commande CLI
+
+```bash
+# Se brancher sur la dernière mission Trinity déployée
+genos run --mode trinity --monitor
+
+# Se brancher sur une mission précise, hôte/port personnalisés
+genos run --mode trinity --monitor --mission-id trinity_1234567890_ab12 --host 127.0.0.1 --port 4590
+```
+
+En mode `--monitor`, les raccourcis `q`/`Esc` restent actifs pour quitter ; `r` (réinitialisation de la démo) est ignoré puisqu'il n'y a rien à "rejouer" côté données réelles.
+
 ## Références internes
 
 - [ORCHESTRATION.md](ORCHESTRATION.md) : orchestration générale, gates et phases
@@ -963,5 +1008,7 @@ genos trinity split-screen --prompt "Implémenter un parser Bencode en Rust avec
 - [trinityDeploy.service.js](../backend/src/services/deploy/trinityDeploy.service.js) : déploiement des trois mondes
 - [agentAutonomyPlanService.js](../backend/src/services/agentAutonomyPlanService.js) : activation et allocation
 - CLI TUI Rust : [crates/genos-cli/src/commands/trinity_tui/](../crates/genos-cli/src/commands/trinity_tui/)
+- Serveur de monitoring live : [backend/src/services/trinityMonitorServer.js](../backend/src/services/trinityMonitorServer.js)
+- Client TCP du moniteur natif : [crates/genos-cli/src/commands/trinity_tui/live.rs](../crates/genos-cli/src/commands/trinity_tui/live.rs)
 - Tests : [backend/tests/test_trinity_intent.js](../backend/tests/test_trinity_intent.js)
 
