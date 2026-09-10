@@ -4,8 +4,31 @@
 
 const crypto = require('crypto');
 const { getDatabase } = require('../../db');
-const { workspaceScope, loadAgentForScope, readString } = require('./helpers');
+const { workspaceScope, loadAgentForScope, readString, orDefault, nullish } = require('./helpers');
 const { applySnapshotState } = require('./snapshots');
+
+// Projection of a live agent row onto the exact state shape that
+// applySnapshotState writes, with identical defaults. Verification compares
+// the snapshot digest against the LIVE row (or the re-read row after apply),
+// never the snapshot against itself.
+function projectAgentState(agent) {
+  return {
+    name: agent.name,
+    name_meaning: agent.name_meaning,
+    role: agent.role,
+    model_tier: agent.model_tier,
+    language: agent.language,
+    isolation_mode: agent.isolation_mode,
+    dissonance_level: orDefault(agent.dissonance_level, 0),
+    eureka_count: orDefault(agent.eureka_count, 0),
+    cognitive_budget: nullish(agent.cognitive_budget, 0),
+    cognitive_baseline_budget: nullish(agent.cognitive_baseline_budget, 0),
+    cognitive_max_dissonance: nullish(agent.cognitive_max_dissonance, 50),
+    is_apoptotic: orDefault(agent.is_apoptotic, 0),
+    status: agent.status,
+    current_task: agent.current_task
+  };
+}
 
 function nestedStateValue(state, field) {
   return String(field).split('.').reduce((value, key) => value == null ? undefined : value[key], state);
@@ -33,7 +56,11 @@ async function replayAgentState(req, res) {
   const state = JSON.parse(snapshot.state_json);
   const digest = stateDigest(state);
   const applied = await maybeApplySnapshot(db, { body: req.body, state, agentId });
-  return res.json({ success: true, replayVerified: digest === stateDigest(JSON.parse(snapshot.state_json)), agentId, snapshotId, state, stateDigest: digest, applied, mode: applied ? 'applied' : 'preview' });
+  const liveAgent = applied
+    ? await loadAgentForScope(db, scope, agentId)
+    : agent;
+  const liveDigest = liveAgent ? stateDigest(projectAgentState(liveAgent)) : null;
+  return res.json({ success: true, replayVerified: liveDigest === digest, agentId, snapshotId, state, stateDigest: digest, liveDigest, applied, mode: applied ? 'applied' : 'preview' });
 }
 
 function findBisectCulprit(rows, matches) {
