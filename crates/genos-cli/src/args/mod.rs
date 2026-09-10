@@ -5,6 +5,7 @@ pub mod store_extra;
 pub mod subcommands;
 pub mod trinity;
 pub mod rhizome;
+pub mod run;
 
 use clap::{Parser, Subcommand};
 pub use biomimicry::*;
@@ -14,6 +15,7 @@ pub use store_extra::*;
 pub use subcommands::*;
 pub use trinity::*;
 pub use rhizome::*;
+pub use run::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "genos")]
@@ -89,4 +91,6 @@ pub enum Commands {
     Serve(ServeCmd),
     /// System control commands
     Desktop(DesktopCmd),
+    /// Unified execution entrypoint (e.g. `genos run --mode trinity --monitor`)
+    Run(RunCmd),
 }

@@ -1,5 +1,7 @@
 use std::time::Instant;
 
+mod simulation;
+
 #[derive(Clone, Debug)]
 pub struct WorldState {
     pub id: u8,
@@ -64,7 +66,15 @@ pub struct TrinityApp {
     pub show_dashboard: bool,
     pub focused_world: Option<u8>,
     pub start_time: Instant,
+    /// True when driven by real backend events instead of the scripted demo.
+    pub live: bool,
+    pub connected: bool,
+    pub connection_message: String,
+    pub barrier_status: String,
+    pub barrier_detail: String,
 }
+
+const MAX_LIVE_LOG_LINES: usize = 200;
 
 impl TrinityApp {
     pub fn new(mission_id: &str, prompt: &str) -> Self {
@@ -81,6 +91,108 @@ impl TrinityApp {
             show_dashboard: false,
             focused_world: None,
             start_time: Instant::now(),
+            live: false,
+            connected: false,
+            connection_message: "Simulation mode".to_string(),
+            barrier_status: "PENDING".to_string(),
+            barrier_detail: String::new(),
+        }
+    }
+
+    /// Build an app driven by live NDJSON events from `trinityMonitorServer.js`
+    /// instead of the scripted demo narrative.
+    pub fn new_live(mission_id: &str) -> Self {
+        let mut app = Self::new(mission_id, "Waiting for live mission data...");
+        app.live = true;
+        app.connected = false;
+        app.connection_message = "Connecting to genos-tui monitor server...".to_string();
+        for world in &mut app.worlds {
+            world.status = "WAITING".to_string();
+        }
+        app
+    }
+
+    pub fn set_connection_status(&mut self, connected: bool, message: String) {
+        self.connected = connected;
+        self.connection_message = message;
+    }
+
+    /// Apply one NDJSON message emitted by the Trinity monitor server.
+    pub fn apply_live_message(&mut self, value: &serde_json::Value) {
+        match value.get("type").and_then(|v| v.as_str()) {
+            Some("snapshot") => self.apply_snapshot(value),
+            Some("log") => self.apply_log(value),
+            Some("barrier") => self.apply_barrier(value),
+            _ => {}
+        }
+    }
+
+    fn world_mut(&mut self, world_number: u8) -> Option<&mut WorldState> {
+        self.worlds.iter_mut().find(|w| w.id == world_number)
+    }
+
+    fn apply_snapshot(&mut self, value: &serde_json::Value) {
+        if let Some(mission_id) = value.get("missionId").and_then(|v| v.as_str()) {
+            self.mission_id = mission_id.to_string();
+        }
+        if let Some(prompt) = value.get("prompt").and_then(|v| v.as_str()) {
+            self.prompt = prompt.to_string();
+        }
+        if let Some(worlds) = value.get("worlds").and_then(|v| v.as_array()) {
+            for world_value in worlds {
+                self.apply_world_snapshot(world_value);
+            }
+            self.worlds.sort_by_key(|w| w.id);
+        }
+        self.apply_barrier(value.get("barrier").unwrap_or(&serde_json::Value::Null));
+        self.refresh_completion();
+    }
+
+    fn apply_world_snapshot(&mut self, world_value: &serde_json::Value) {
+        let Some(world_number) = world_value.get("worldNumber").and_then(|v| v.as_u64()) else { return };
+        let world_number = world_number as u8;
+        if self.worlds.iter().all(|w| w.id != world_number) {
+            self.worlds.push(WorldState::new(world_number, "World", ""));
+        }
+        let Some(world) = self.world_mut(world_number) else { return };
+        let name = world_value.get("name").and_then(|v| v.as_str()).unwrap_or("World");
+        world.title = format!("World {world_number}: {name}");
+        world.strategy = world_value.get("strategy").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        world.hypothesis = world_value.get("hypothesis").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        world.model_tier = world_value.get("modelTier").and_then(|v| v.as_str()).unwrap_or("Standard").to_string();
+        world.status = world_value.get("status").and_then(|v| v.as_str()).unwrap_or("queued").to_uppercase();
+        world.progress = world_value.get("progress").and_then(|v| v.as_u64()).unwrap_or(0) as u16;
+        world.evidence_score = world_value.get("evidenceScore").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        world.verdict = world_value.get("verdict").and_then(|v| v.as_str()).unwrap_or("PENDING").to_string();
+    }
+
+    fn refresh_completion(&mut self) {
+        self.completed = !self.worlds.is_empty() && self.worlds.iter().all(|w| {
+            matches!(w.status.as_str(), "COMPLETED" | "ERROR" | "TERMINATED" | "APOPTOSIS" | "QUARANTINED" | "BLOCKED" | "IDLE")
+        });
+        if self.completed {
+            self.show_dashboard = true;
+        }
+    }
+
+    fn apply_log(&mut self, value: &serde_json::Value) {
+        let Some(world_number) = value.get("worldNumber").and_then(|v| v.as_u64()) else { return };
+        let Some(line) = value.get("line").and_then(|v| v.as_str()) else { return };
+        if let Some(world) = self.world_mut(world_number as u8) {
+            world.logs.push(line.to_string());
+            if world.logs.len() > MAX_LIVE_LOG_LINES {
+                let overflow = world.logs.len() - MAX_LIVE_LOG_LINES;
+                world.logs.drain(0..overflow);
+            }
+        }
+    }
+
+    fn apply_barrier(&mut self, value: &serde_json::Value) {
+        if let Some(status) = value.get("status").and_then(|v| v.as_str()) {
+            self.barrier_status = status.to_uppercase();
+        }
+        if let Some(detail) = value.get("detail").and_then(|v| v.as_str()) {
+            self.barrier_detail = detail.to_string();
         }
     }
 
@@ -89,9 +201,9 @@ impl TrinityApp {
             return;
         }
         self.step += 1;
-        self.apply_world_1_step(self.step);
-        self.apply_world_2_step(self.step);
-        self.apply_world_3_step(self.step);
+        for world in &mut self.worlds {
+            simulation::advance_world(world, self.step);
+        }
 
         if self.step >= self.max_steps {
             self.completed = true;
@@ -112,158 +224,14 @@ impl TrinityApp {
     }
 
     pub fn restart(&mut self) {
+        if self.live {
+            return; // Restarting the demo narrative is meaningless while streaming live data.
+        }
         let mission_id = self.mission_id.clone();
         let prompt = self.prompt.clone();
         *self = Self::new(&mission_id, &prompt);
     }
 
-    fn apply_world_1_step(&mut self, step: usize) {
-        let w = &mut self.worlds[0];
-        w.tokens += 185;
-        w.progress = (step * 10).min(100) as u16;
-        match step {
-            1 => {
-                w.status = "SPAWNING".to_string();
-                w.logs.push("[0.2s] 🚀 VFS capsule provisioned (ephemeral scratch)".to_string());
-            }
-            2 => {
-                w.status = "RUNNING".to_string();
-                w.logs.push("[0.6s] ⚡ Direct prompt parse: scanning for 'i', 'l', 'd'".to_string());
-            }
-            3 => {
-                w.logs.push("[1.0s] 📝 Implementing naive recursive descent parser".to_string());
-            }
-            4 => {
-                w.logs.push("[1.4s] 🔨 parse_int: handles 'i42e' -> Ok(42)".to_string());
-            }
-            5 => {
-                w.logs.push("[1.9s] 🔨 parse_string: handles '4:spam' -> Ok(\"spam\")".to_string());
-            }
-            6 => {
-                w.logs.push("[2.4s] 🔨 parse_list: recursive call for items".to_string());
-            }
-            7 => {
-                w.logs.push("[2.9s] ⚠️ WARNING: No recursion depth limit configured!".to_string());
-            }
-            8 => {
-                w.logs.push("[3.3s] ⚠️ WARNING: 'i03e' accepted (leading zero bug)".to_string());
-            }
-            9 => {
-                w.logs.push("[3.8s] 🧪 Basic tests: 12/15 passed. Edge cases failed.".to_string());
-            }
-            _ => {
-                w.status = "FINISHED".to_string();
-                w.evidence_score = 0.72;
-                w.verdict = "REJECTED (INCOMPLETE)".to_string();
-                w.key_findings = vec![
-                    "Recursion stack overflow risk".to_string(),
-                    "Missing BEP 0003 leading zero checks".to_string(),
-                    "Unsorted dict keys tolerated".to_string(),
-                ];
-                w.logs.push("[4.2s] 📊 Dossier sealed: 0.72 score (3 critical flaws)".to_string());
-            }
-        }
-    }
-
-    fn apply_world_2_step(&mut self, step: usize) {
-        let w = &mut self.worlds[1];
-        w.tokens += 420;
-        w.progress = (step * 10).min(100) as u16;
-        match step {
-            1 => {
-                w.status = "DECOMPOSING".to_string();
-                w.logs.push("[0.2s] 📐 Invariant analysis from BEP 0003 specification".to_string());
-            }
-            2 => {
-                w.logs.push("[0.7s] 📐 Spec rule 1: No leading zeroes allowed in integers".to_string());
-            }
-            3 => {
-                w.status = "MODELING".to_string();
-                w.logs.push("[1.1s] 📐 Spec rule 2: Negative zero ('i-0e') strictly illegal".to_string());
-            }
-            4 => {
-                w.logs.push("[1.6s] 🏗️ Zero-copy AST design: enum BencodeValue<'a>".to_string());
-            }
-            5 => {
-                w.status = "EXECUTING".to_string();
-                w.logs.push("[2.1s] 🛡️ Iterative parser with MAX_DEPTH = 128 guardrail".to_string());
-            }
-            6 => {
-                w.logs.push("[2.6s] 🔍 Lexicographical key sort validator implemented".to_string());
-            }
-            7 => {
-                w.logs.push("[3.1s] 🧪 Running 18 canonical BEP 0003 test vectors".to_string());
-            }
-            8 => {
-                w.logs.push("[3.6s] ✔️ All 18 canonical specification tests passed".to_string());
-            }
-            9 => {
-                w.status = "VERIFYING".to_string();
-                w.logs.push("[4.1s] 📜 Formal invariant claims generated for dossier".to_string());
-            }
-            _ => {
-                w.status = "FINISHED".to_string();
-                w.evidence_score = 0.94;
-                w.verdict = "COMPATIBLE".to_string();
-                w.key_findings = vec![
-                    "Zero-copy slice representation".to_string(),
-                    "100% BEP 0003 grammar compliance".to_string(),
-                    "Iterative depth protection (128)".to_string(),
-                ];
-                w.logs.push("[4.5s] 📊 Dossier sealed: 0.94 score (18/18 tests pass)".to_string());
-            }
-        }
-    }
-
-    fn apply_world_3_step(&mut self, step: usize) {
-        let w = &mut self.worlds[2];
-        w.tokens += 510;
-        w.progress = (step * 10).min(100) as u16;
-        match step {
-            1 => {
-                w.status = "CHALLENGING".to_string();
-                w.logs.push("[0.2s] ⚔️ Autonomous adversarial fuzzer generator launched".to_string());
-            }
-            2 => {
-                w.logs.push("[0.7s] 💥 Fuzz attack 1: integer overflow i9223372036854775808e".to_string());
-            }
-            3 => {
-                w.status = "REPAIRING".to_string();
-                w.logs.push("[1.2s] 🔧 Patch applied: checked_add overflow detection".to_string());
-            }
-            4 => {
-                w.logs.push("[1.7s] 💥 Fuzz attack 2: truncated payload '10:abc'".to_string());
-            }
-            5 => {
-                w.logs.push("[2.2s] 🔧 Patch applied: UnexpectedEof with exact byte index".to_string());
-            }
-            6 => {
-                w.logs.push("[2.7s] 💥 Fuzz attack 3: non-canonical unsorted dictionary".to_string());
-            }
-            7 => {
-                w.status = "REPAIRING".to_string();
-                w.logs.push("[3.2s] 🔧 Patch applied: pairwise byte order comparator".to_string());
-            }
-            8 => {
-                w.logs.push("[3.7s] 🛡️ 4/4 adversarial vectors neutralized and verified".to_string());
-            }
-            9 => {
-                w.status = "VERIFYING".to_string();
-                w.logs.push("[4.2s] 🔐 Cryptographic test receipts compiled to evidence".to_string());
-            }
-            _ => {
-                w.status = "FINISHED".to_string();
-                w.evidence_score = 0.98;
-                w.verdict = "WINNER (PROMOTED)".to_string();
-                w.key_findings = vec![
-                    "Overflow & truncated EOF defended".to_string(),
-                    "Lexicographic dict key enforcement".to_string(),
-                    "Cryptographic falsification receipts".to_string(),
-                ];
-                w.logs.push("[4.8s] 🏆 Dossier sealed: 0.98 score (Vulnerabilities neutralized)".to_string());
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -309,5 +277,37 @@ mod tests {
         app.restart();
         assert_eq!(app.step, 0);
         assert_eq!(app.worlds[0].progress, 0);
+    }
+
+    #[test]
+    fn test_live_snapshot_and_log_and_barrier() {
+        let mut app = TrinityApp::new_live("trinity_123");
+        assert!(app.live);
+        assert!(!app.connected);
+
+        let snapshot = serde_json::json!({
+            "type": "snapshot",
+            "missionId": "trinity_123",
+            "prompt": "Implement a parser",
+            "worlds": [
+                { "worldNumber": 1, "name": "Naive", "strategy": "basic_implementation", "hypothesis": "raw need", "modelTier": "Standard", "status": "running", "progress": 40, "evidenceScore": 0.0, "verdict": "PENDING" },
+                { "worldNumber": 2, "name": "Planned", "strategy": "planned_implementation", "hypothesis": "spec-driven", "modelTier": "Pro", "status": "completed", "progress": 100, "evidenceScore": 0.9, "verdict": "STRONG" },
+                { "worldNumber": 3, "name": "Self-correcting", "strategy": "self_correcting", "hypothesis": "adversarial", "modelTier": "Pro", "status": "running", "progress": 60, "evidenceScore": 0.0, "verdict": "PENDING" }
+            ],
+            "barrier": { "status": "waiting", "detail": "Waiting for 2 workers" }
+        });
+        app.apply_live_message(&snapshot);
+        assert_eq!(app.mission_id, "trinity_123");
+        assert_eq!(app.worlds[1].status, "COMPLETED");
+        assert_eq!(app.barrier_status, "WAITING");
+        assert!(!app.completed);
+
+        let log = serde_json::json!({ "type": "log", "missionId": "trinity_123", "worldNumber": 1, "line": "[10:00:00] running step" });
+        app.apply_live_message(&log);
+        assert_eq!(app.worlds[0].logs.last().unwrap(), "[10:00:00] running step");
+
+        let barrier = serde_json::json!({ "type": "barrier", "missionId": "trinity_123", "status": "satisfied", "detail": "All workers terminal" });
+        app.apply_live_message(&barrier);
+        assert_eq!(app.barrier_status, "SATISFIED");
     }
 }

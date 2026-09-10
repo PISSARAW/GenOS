@@ -1,5 +1,6 @@
 pub mod model;
 pub mod view;
+pub mod live;
 
 use std::io::stdout;
 use std::time::{Duration, Instant};
@@ -11,6 +12,7 @@ use crossterm::{
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
 
+use self::live::{ConnectionStatus, LiveMonitor};
 use self::model::TrinityApp;
 
 struct TerminalCleaner;
@@ -86,4 +88,45 @@ pub fn run(mission_id: &str, prompt: &str, _simulation: bool) -> Result<(), Stri
 
     while !process_step(&mut terminal, &mut app, &mut last_tick)? {}
     Ok(())
+}
+
+/// Live monitor entry point for `genos run --mode trinity --monitor`.
+/// Connects to `trinityMonitorServer.js` over TCP and renders real NDJSON
+/// events from the 3 isolated worlds instead of the scripted demo.
+pub fn run_live(host: &str, port: u16, mission_id: Option<&str>) -> Result<(), String> {
+    let _cleaner = TerminalCleaner;
+    let mut terminal = setup_terminal()?;
+    let mut app = TrinityApp::new_live(mission_id.unwrap_or("latest"));
+    let monitor = LiveMonitor::connect(host, port, mission_id.map(|s| s.to_string()));
+    let mut last_tick = Instant::now();
+    let tick_rate = Duration::from_millis(200);
+
+    loop {
+        terminal.draw(|frame| view::render(frame, &app)).map_err(|e| format!("Draw error: {e}"))?;
+
+        for message in monitor.drain_events() {
+            app.apply_live_message(&message);
+        }
+        match monitor.latest_status() {
+            Some(ConnectionStatus::Connected) => {
+                app.set_connection_status(true, format!("Connected to {host}:{port}"));
+            }
+            Some(ConnectionStatus::Disconnected(reason)) => {
+                app.set_connection_status(false, format!("Disconnected ({reason}); retrying..."));
+            }
+            None => {}
+        }
+
+        let timeout = tick_rate.saturating_sub(last_tick.elapsed());
+        if event::poll(timeout).unwrap_or(false) {
+            if let Ok(Event::Key(key)) = event::read() {
+                if handle_key_code(&mut app, key.code) {
+                    return Ok(());
+                }
+            }
+        }
+        if last_tick.elapsed() >= tick_rate {
+            last_tick = Instant::now();
+        }
+    }
 }

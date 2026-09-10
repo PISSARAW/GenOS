@@ -50,6 +50,21 @@ fn handle_trinity_cmd(subcommand: TrinitySubcommands) -> Result<(), String> {
     }
 }
 
+fn handle_run_cmd(cmd: args::RunCmd) -> Result<(), String> {
+    match cmd.mode.as_str() {
+        "trinity" => {
+            if cmd.monitor {
+                commands::trinity_tui::run_live(&cmd.host, cmd.port, cmd.mission_id.as_deref())
+            } else {
+                let mission_id = cmd.mission_id.unwrap_or_else(|| "mission-bencode-parser".to_string());
+                let prompt = cmd.prompt.unwrap_or_else(|| "Implémenter un parser Bencode en Rust avec gestion d'erreurs stricte".to_string());
+                commands::trinity_tui::run(&mission_id, &prompt, true)
+            }
+        }
+        other => Err(format!("Unsupported run mode '{}'. Supported modes: trinity.", other)),
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -88,6 +103,7 @@ fn main() {
         Some(Commands::Merge(cmd)) => capsule::handle_merge(&cmd.branch_id, cmd.conditions.as_deref()),
         Some(Commands::CostAccounting(cmd)) => platform::handle_cost_accounting(&cmd.agent_id, cmd.timeframe.as_deref()),
         Some(Commands::Desktop(cmd)) => desktop::execute(cmd.subcommand),
+        Some(Commands::Run(cmd)) => handle_run_cmd(cmd),
         Some(Commands::LoopDetection(cmd)) => {
             capsule::handle_loop_detection(&cmd)
         }

@@ -22,7 +22,7 @@ pub fn render(frame: &mut Frame, app: &TrinityApp) {
 
     render_header(frame, chunks[0], app);
 
-    if app.show_dashboard && app.completed {
+    if !app.live && app.show_dashboard && app.completed {
         render_full_dashboard(frame, chunks[1], app);
     } else {
         render_columns(frame, chunks[1], app);
@@ -37,6 +37,19 @@ fn render_header(frame: &mut Frame, area: Rect, app: &TrinityApp) {
     let status_str = if app.completed { "✔ COMPLETED" } else { "● EXECUTING" };
     let status_color = if app.completed { Color::Green } else { Color::Cyan };
 
+    let mode_line = if app.live {
+        let (dot, color) = if app.connected { ("● LIVE", Color::Green) } else { ("○ RECONNECTING", Color::Red) };
+        Line::from(vec![
+            Span::styled(format!(" {dot} "), Style::default().fg(color).add_modifier(Modifier::BOLD)),
+            Span::styled(app.connection_message.clone(), Style::default().fg(Color::DarkGray)),
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled(" ○ SIMULATION ", Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)),
+            Span::styled("Deterministic demo narrative (not connected to a live mission)", Style::default().fg(Color::DarkGray)),
+        ])
+    };
+
     let header_text = vec![
         Line::from(vec![
             Span::styled(" ⚡ GENOS TRINITY ", Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)),
@@ -44,10 +57,7 @@ fn render_header(frame: &mut Frame, area: Rect, app: &TrinityApp) {
             Span::styled(format!("[{status_str} | {elapsed}s] "), Style::default().fg(status_color).add_modifier(Modifier::BOLD)),
             Span::styled(format!("Mission: {} ", app.mission_id), Style::default().fg(Color::DarkGray)),
         ]),
-        Line::from(vec![
-            Span::styled("Hook X: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-            Span::styled("\"Stop relying on a single agent chain. 3 worlds, 3 cognitive hypotheses, 1 unified evidence barrier.\"", Style::default().fg(Color::LightCyan).add_modifier(Modifier::ITALIC)),
-        ]),
+        mode_line,
         Line::from(vec![
             Span::styled("Prompt: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
             Span::styled(&app.prompt, Style::default().fg(Color::LightYellow)),
@@ -64,7 +74,7 @@ fn render_header(frame: &mut Frame, area: Rect, app: &TrinityApp) {
 fn render_columns(frame: &mut Frame, area: Rect, app: &TrinityApp) {
     if let Some(focused) = app.focused_world {
         let idx = (focused.saturating_sub(1) as usize).min(app.worlds.len() - 1);
-        render_single_world(frame, area, &app.worlds[idx], true);
+        render_single_world(frame, area, &app.worlds[idx]);
         return;
     }
 
@@ -79,12 +89,12 @@ fn render_columns(frame: &mut Frame, area: Rect, app: &TrinityApp) {
 
     for (i, world) in app.worlds.iter().enumerate() {
         if i < col_chunks.len() {
-            render_single_world(frame, col_chunks[i], world, false);
+            render_single_world(frame, col_chunks[i], world);
         }
     }
 }
 
-fn render_single_world(frame: &mut Frame, area: Rect, world: &WorldState, _is_focused: bool) {
+fn render_single_world(frame: &mut Frame, area: Rect, world: &WorldState) {
     let border_color = match world.id {
         1 => Color::Yellow,
         2 => Color::Blue,
@@ -166,10 +176,21 @@ fn render_single_world(frame: &mut Frame, area: Rect, world: &WorldState, _is_fo
 }
 
 fn render_summary_dashboard(frame: &mut Frame, area: Rect, app: &TrinityApp) {
+    let title = if app.live {
+        format!(" [ EVIDENCE BARRIER — {} ] {} ", app.barrier_status, app.barrier_detail)
+    } else {
+        " [ UNIFIED EVIDENCE BARRIER & DIVERGENCE DASHBOARD ] ".to_string()
+    };
+    let barrier_color = match app.barrier_status.as_str() {
+        "SATISFIED" => Color::Green,
+        "PARTIAL" | "WAITING" => Color::Yellow,
+        "HALTED" | "FAILED" => Color::Red,
+        _ => Color::Magenta,
+    };
     let block = Block::default()
-        .title(" [ UNIFIED EVIDENCE BARRIER & DIVERGENCE DASHBOARD ] ")
+        .title(title)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Magenta));
+        .border_style(Style::default().fg(if app.live { barrier_color } else { Color::Magenta }));
 
     let header_cells = ["World", "Strategy", "Findings & Defense", "Evidence Score", "Verdict"]
         .into_iter()
