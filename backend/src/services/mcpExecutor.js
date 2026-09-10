@@ -91,9 +91,41 @@ function configuredTransport() {
 }
 
 function parseArgs(value) {
-  const args = []; const matcher = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^']*)'|([^\s]+)/g;
-  let match;
-  while ((match = matcher.exec(value))) args.push(match[1] ?? match[2] ?? match[3]);
+  const args = [];
+  let current = '';
+  let inSingle = false;
+  let inDouble = false;
+  let escape = false;
+
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if (escape) {
+      current += ch;
+      escape = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escape = true;
+      continue;
+    }
+    if (ch === '"' && !inSingle) {
+      inDouble = !inDouble;
+      continue;
+    }
+    if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+      continue;
+    }
+    if ((ch === ' ' || ch === '\t') && !inSingle && !inDouble) {
+      if (current.length) {
+        args.push(current);
+        current = '';
+      }
+      continue;
+    }
+    current += ch;
+  }
+  if (current.length) args.push(current);
   return args;
 }
 
