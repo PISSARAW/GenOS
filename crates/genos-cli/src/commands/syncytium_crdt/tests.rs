@@ -153,6 +153,29 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_duplicate_op_id_is_idempotent() {
+        let engine = SyncytiumEngine::new();
+        let make = || CrdtOp {
+            op_id: "dup-op-1".to_string(),
+            lamport: 0,
+            timestamp_ms: 1,
+            agent_id: "agent".to_string(),
+            role: "parallel_executor".to_string(),
+            kind: CrdtOpKind::InsertText {
+                index: 0,
+                text: "X".to_string(),
+            },
+        };
+
+        engine.apply_op(make()).await;
+        engine.apply_op(make()).await;
+
+        let snap = engine.snapshot().await;
+        assert_eq!(snap.text_content, "X", "replaying an op_id must not duplicate text");
+        assert_eq!(snap.total_ops, 1);
+    }
+
+    #[tokio::test]
     async fn test_replay_is_order_independent() {
         fn op(id: &str, ts: u64, lamport: u64, text: &str) -> CrdtOp {
             CrdtOp {

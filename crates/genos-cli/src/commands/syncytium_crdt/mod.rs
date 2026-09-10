@@ -21,6 +21,11 @@ pub fn run(port: u16, mission: &str) -> Result<(), String> {
         // auth, so it must not be reachable from the network unless the
         // operator explicitly opts in with GENOS_SYNCYTIUM_BIND.
         let bind_host = std::env::var("GENOS_SYNCYTIUM_BIND").unwrap_or_else(|_| "127.0.0.1".to_string());
+        let is_loopback = bind_host == "localhost" || bind_host == "::1" || bind_host == "[::1]" || bind_host.starts_with("127.");
+        let has_token = std::env::var("GENOS_SYNCYTIUM_TOKEN").map(|token| !token.is_empty()).unwrap_or(false);
+        if !is_loopback && !has_token {
+            return Err("Refusing to bind Syncytium to a non-loopback address without GENOS_SYNCYTIUM_TOKEN.".to_string());
+        }
         let addr = format!("{bind_host}:{port}");
         let listener = tokio::net::TcpListener::bind(&addr)
             .await
