@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+mod live_contract;
 mod simulation;
 
 #[derive(Clone, Debug)]
@@ -72,6 +73,8 @@ pub struct TrinityApp {
     pub connection_message: String,
     pub barrier_status: String,
     pub barrier_detail: String,
+    /// Last server `seq` applied; stale re-deliveries (seq < this) are dropped.
+    pub last_live_seq: Option<u64>,
 }
 
 const MAX_LIVE_LOG_LINES: usize = 200;
@@ -96,6 +99,7 @@ impl TrinityApp {
             connection_message: "Simulation mode".to_string(),
             barrier_status: "PENDING".to_string(),
             barrier_detail: String::new(),
+            last_live_seq: None,
         }
     }
 
@@ -131,9 +135,32 @@ impl TrinityApp {
         self.worlds.iter_mut().find(|w| w.id == world_number)
     }
 
+    /// Contract gate shared by snapshot/log/barrier: drop stale sequences
+    /// and foreign missions, adopt the first mission while unset.
+    fn gate_live_message(&mut self, value: &serde_json::Value) -> bool {
+        match live_contract::gate_message(&self.mission_id, self.last_live_seq, value) {
+            live_contract::GateAction::Reject => false,
+            live_contract::GateAction::Adopt(mission) => {
+                self.mission_id = mission;
+                self.note_live_seq(value);
+                true
+            }
+            live_contract::GateAction::Accept => {
+                self.note_live_seq(value);
+                true
+            }
+        }
+    }
+
+    fn note_live_seq(&mut self, value: &serde_json::Value) {
+        if let Some(seq) = live_contract::message_seq(value) {
+            self.last_live_seq = Some(seq);
+        }
+    }
+
     fn apply_snapshot(&mut self, value: &serde_json::Value) {
-        if let Some(mission_id) = value.get("missionId").and_then(|v| v.as_str()) {
-            self.mission_id = mission_id.to_string();
+        if !self.gate_live_message(value) {
+            return;
         }
         if let Some(prompt) = value.get("prompt").and_then(|v| v.as_str()) {
             self.prompt = prompt.to_string();
@@ -176,6 +203,9 @@ impl TrinityApp {
     }
 
     fn apply_log(&mut self, value: &serde_json::Value) {
+        if !self.gate_live_message(value) {
+            return;
+        }
         let Some(world_number) = value.get("worldNumber").and_then(|v| v.as_u64()) else { return };
         let Some(line) = value.get("line").and_then(|v| v.as_str()) else { return };
         if let Some(world) = self.world_mut(world_number as u8) {
@@ -188,6 +218,9 @@ impl TrinityApp {
     }
 
     fn apply_barrier(&mut self, value: &serde_json::Value) {
+        if !self.gate_live_message(value) {
+            return;
+        }
         if let Some(status) = value.get("status").and_then(|v| v.as_str()) {
             self.barrier_status = status.to_uppercase();
         }
@@ -309,5 +342,27 @@ mod tests {
         let barrier = serde_json::json!({ "type": "barrier", "missionId": "trinity_123", "status": "satisfied", "detail": "All workers terminal" });
         app.apply_live_message(&barrier);
         assert_eq!(app.barrier_status, "SATISFIED");
+    }
+
+    #[test]
+    fn test_live_stale_and_foreign_messages_ignored() {
+        let mut app = TrinityApp::new_live("latest");
+        let first = serde_json::json!({
+            "type": "snapshot", "missionId": "m1", "seq": 10, "prompt": "fresh",
+            "worlds": [], "barrier": { "status": "waiting", "detail": "" }
+        });
+        app.apply_live_message(&first);
+        assert_eq!(app.mission_id, "m1");
+
+        let stale = serde_json::json!({
+            "type": "snapshot", "missionId": "m1", "seq": 9, "prompt": "stale",
+            "worlds": [], "barrier": { "status": "waiting", "detail": "" }
+        });
+        app.apply_live_message(&stale);
+        assert_eq!(app.prompt, "fresh");
+
+        let foreign = serde_json::json!({ "type": "barrier", "missionId": "m2", "seq": 11, "status": "satisfied", "detail": "x" });
+        app.apply_live_message(&foreign);
+        assert_eq!(app.barrier_status, "WAITING");
     }
 }
