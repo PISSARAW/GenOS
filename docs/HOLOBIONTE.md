@@ -929,6 +929,47 @@ L'Immune Symbiont reçoit modèle frontier parce que :
 
 ---
 
+## 19. SymbioteRuntime : orchestration hybride Cloud + Local (faible latence)
+
+Le concept de satellites (Symbiotes) gravitant autour d'un noyau massif (Host) exige une différenciation stricte des moteurs d'inférence : un Host connecté à un modèle lourd, et des Symbiotes qui ne doivent jamais payer la latence réseau ni le coût par jeton de leurs tâches à haute fréquence.
+
+### Principe : deux moteurs, une seule collectivité
+
+- **Host Orchestrator** → moteur `cloud` : modèle frontier (GPT-4 / Claude 3.5 ou équivalent), pour l'autorité et la décision complexe.
+- **Specialist Symbiont**, **Immune Symbiont**, **Memory Symbiont** → moteur `local` : runtime d'inférence local (Ollama, ou MLX via son serveur compatible OpenAI sur Apple Silicon), pour les tâches rapides et répétées.
+
+Cette asymétrie est portée par [backend/src/services/symbioteRuntimeService.js](../backend/src/services/symbioteRuntimeService.js) :
+
+- `engineFor(role)` retourne `'cloud'` pour `host_orchestrator` et `'local'` pour les trois Symbiotes ;
+- `embedForSymbiote(role, text)` calcule un embedding **local uniquement** (jamais de repli cloud, donc jamais de coût API) en quelques millisecondes, utilisé par les Symbiotes pour indexer contexte, mémoire ou évidence avant de les transmettre au Host ;
+- `validateSchemaLocally(value, schema)` valide un schéma JSON entièrement en process (aucun aller-retour réseau), utilisé typiquement par l'Immune Symbiont pour rejeter une sortie malformée avant qu'elle n'atteigne le Host ;
+- `localRouteFor(db, { role, agentId })` calcule la politique de routage vers les modèles de chat locaux découverts (Ollama/MLX) pour les propres appels d'un Symbiote.
+
+`biologicalModeService.compose('holobionte', mission)` expose désormais ce choix de moteur directement dans chaque membre composé :
+
+```javascript
+biologicalModeService.compose('holobionte', 'Deploy a critical security patch.');
+// [
+//   { role: 'host_orchestrator',   modelTier: 'frontier', engine: 'cloud', ... },
+//   { role: 'specialist_symbiont', modelTier: 'standard', engine: 'local', ... },
+//   { role: 'immune_symbiont',     modelTier: 'frontier', engine: 'local', ... },
+//   { role: 'memory_symbiont',     modelTier: 'standard', engine: 'local', ... }
+// ]
+```
+
+### Pourquoi Ollama ou MLX
+
+- **Ollama** est déjà le runtime local de référence de GenOS (voir [MODELES_PROVIDERS.md](MODELES_PROVIDERS.md)) : `ollama://model-name`, découverte automatique via [localModelDiscovery.js](../backend/src/services/localModelDiscovery.js).
+- **MLX** (Apple Silicon) expose typiquement un serveur compatible OpenAI (`mlx_lm.server`) ; il est donc joignable sans code supplémentaire via le provider générique `openai-compatible://`, en pointant `GENOS_OPENAI_COMPATIBLE_ENDPOINT` vers ce serveur — tirant pleinement parti de l'accélération matérielle unifiée sans dépendance native additionnelle.
+
+### Valeur ajoutée
+
+- **Coût** : les Symbiotes ne consomment aucun jeton d'API pour l'embedding et la validation, qui représentent la majorité de leurs appels ;
+- **Latence** : embedding et validation de schéma s'exécutent en quelques millisecondes, contre des centaines de millisecondes pour un aller-retour cloud ;
+- **Autorité préservée** : le Host reste seul décideur sur un modèle frontier ; le passage au local ne concerne que les tâches mécaniques des Symbiotes, jamais le jugement final.
+
+---
+
 ## Références internes
 
 - [ORCHESTRATION.md](ORCHESTRATION.md) : orchestration générale, gates et phases
@@ -936,7 +977,9 @@ L'Immune Symbiont reçoit modèle frontier parce que :
 - [TRINITY.md](TRINITY.md) : orchestration comparative
 - [BIOCENOSE.md](BIOCENOSE.md) : orchestration communautaire
 - [BIOLOGIE_COMPUTATIONNELLE.md](BIOLOGIE_COMPUTATIONNELLE.md) : cadre biologique général
+- [MODELES_PROVIDERS.md](MODELES_PROVIDERS.md) : routage de modèles, providers locaux et cloud
 - [biologicalModeService.js](../backend/src/services/biologicalModeService.js) : implémentation des quatre modes
+- [symbioteRuntimeService.js](../backend/src/services/symbioteRuntimeService.js) : routage d'inférence asymétrique Cloud + Local des Symbiotes
 - [holobionteService.js](../backend/src/services/holobionteService.js) : service Holobionte
 - [immuneSystem.js](../backend/src/services/immuneSystem.js) : système immunitaire logique
 - [agentOrchestrationState.js](../backend/src/services/agentOrchestrationState.js) : état partagé
