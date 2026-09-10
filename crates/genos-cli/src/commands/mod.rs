@@ -4,6 +4,7 @@ pub mod api_server;
 pub mod biomimicry;
 pub mod biomimicry_features;
 pub mod biomimicry_ops;
+pub mod biological;
 pub mod capsule;
 pub mod compliance;
 pub mod hallucination;

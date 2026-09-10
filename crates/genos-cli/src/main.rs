@@ -10,7 +10,7 @@ use args::{
     StrategySubcommands, RebaseSubcommands, WorldSubcommands
 };
 use commands::{
-    agent, api_server, biomimicry, capsule, experiments, hallucination, platform, replay, snapshot, store_ops, desktop,
+    agent, api_server, biomimicry, biological, capsule, experiments, hallucination, platform, replay, snapshot, store_ops, desktop,
 };
 use genos_immune::{AntibodyDetector, Antigen, ClonalSelection};
 use std::path::PathBuf;
@@ -92,6 +92,7 @@ fn main() {
         Some(Commands::Trinity(cmd)) => match cmd.subcommand {
             TrinitySubcommands::Deploy { mission_id, strategies } => platform::handle_trinity(&mission_id, &strategies),
         },
+        Some(Commands::Biological(cmd)) => biological::handle(&cmd.mode, &cmd.mission),
         Some(Commands::Swarm(cmd)) => match cmd.subcommand {
             SwarmSubcommands::AlleleAnalyzer { swarm_id } => platform::handle_swarm_alleles(&swarm_id),
         },

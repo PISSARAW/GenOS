@@ -55,6 +55,8 @@ pub enum Commands {
     Phenotype(PhenotypeCmd),
     /// Trinity multi-world deployment
     Trinity(TrinityCmd),
+    /// Biological collective deployment
+    Biological(BiologicalCmd),
     /// Swarm telemetry and analysis
     Swarm(SwarmCmd),
     /// Compliance report generation
