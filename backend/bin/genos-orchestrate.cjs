@@ -218,7 +218,7 @@ async function main() {
       return;
     }
     if (action === 'organization_publish') {
-      const senderAgentId = process.env.GENOS_AGENT_ID || request.senderAgentId;
+      const senderAgentId = process.env.GENOS_AGENT_ID || request.senderAgentId || orchestratorId;
       const published = await dynamicOrganization.publish(db, {
         orchestratorId, senderAgentId, recipientAgentId: request.recipientAgentId || request.recipient_agent_id,
         kind: request.kind, content: request.content, payload: request.payload
@@ -232,7 +232,7 @@ async function main() {
       return;
     }
     if (action === 'organization_inbox' || action === 'organization_state') {
-      const requesterAgentId = process.env.GENOS_AGENT_ID || request.requesterAgentId;
+      const requesterAgentId = process.env.GENOS_AGENT_ID || request.requesterAgentId || orchestratorId;
       const result = action === 'organization_state'
         ? await dynamicOrganization.getStateForMember(db, orchestratorId, requesterAgentId)
         : await dynamicOrganization.inbox(db, {
