@@ -128,6 +128,10 @@ class TrinityDeployService {
       agentType: resolvedAgentType, strategyContract: orchestratorContract.contract
     }).catch(async (error) => {
       await db.run("UPDATE agents SET status='error', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", error.message, orchestratorId).catch(() => {});
+      for (const id of agentIds) {
+        await db.run("UPDATE agents SET status='error', current_task='Orchestrator launch failed', updated_at=CURRENT_TIMESTAMP WHERE id=?", id).catch(() => {});
+        await db.run("UPDATE trinity_worlds SET status='error', updated_at=CURRENT_TIMESTAMP WHERE agent_id=?", id).catch(() => {});
+      }
       telemetry.emitEvent({ eventType: 'AGENT_RUNTIME_ERROR', agentId: orchestratorId, action: 'ERROR', detail: error.message, severity: 'error', status: 'error' });
     });
 

@@ -123,4 +123,4 @@ function validateToolArguments(toolName, args = {}) {
   return null;
 }
 
-module.exports = { validateToolArguments };
+module.exports = { validateToolArguments, REQUIRED_STRINGS };

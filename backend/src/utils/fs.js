@@ -18,7 +18,9 @@ async function walk(directory, relative = '') {
   return results;
 }
 
-function spawnGit(args, cwd) {
+function spawnGit(first, second) {
+  const args = Array.isArray(first) ? first : second;
+  const cwd = Array.isArray(first) ? second : first;
   return new Promise((resolve, reject) => {
     const child = spawn('git', args, { cwd });
     let stdout = '';

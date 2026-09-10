@@ -8,13 +8,15 @@ function normalizeToolName(toolName) {
   return String(toolName || '').trim();
 }
 
+const { REQUIRED_STRINGS } = require('./mcpArgumentValidation');
+
 function declaredToolNames() {
   return [...new Set((MCP_TOOLS_LIST || []).map((tool) => normalizeToolName(tool.name)).filter(Boolean))];
 }
 
 function isRegisteredTool(toolName) {
   const normalized = normalizeToolName(toolName);
-  return declaredToolNames().includes(normalized) || mcpStrategyTools.isStrategyTool(normalized) || mcpBioTools.isBioTool(normalized);
+  return declaredToolNames().includes(normalized) || mcpStrategyTools.isStrategyTool(normalized) || mcpBioTools.isBioTool(normalized) || Boolean(REQUIRED_STRINGS?.[normalized]);
 }
 
 function detectExecutionKind(toolName) {

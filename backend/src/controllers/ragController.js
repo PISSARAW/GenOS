@@ -117,7 +117,8 @@ async function search(req, res, next) {
     const store = configuredStore();
     let candidates = [];
 
-    if (store && queryVector) {
+    const sDoc = scopeSql(req, 'd');
+    if (store && queryVector && req.tenant) {
       candidates = await store.search({
         organizationId: req.tenant.organizationId,
         projectId: req.tenant.projectId,
@@ -139,9 +140,9 @@ async function search(req, res, next) {
           FROM vector_matches vm
           JOIN rag_chunks c ON c.rowid = vm.rowid
           JOIN rag_documents d ON d.id = c.document_id
-          WHERE d.organization_id = ? AND d.project_id = ?
+          WHERE ${sDoc.clause}
           ORDER BY vm.distance ASC LIMIT 20
-        `, queryVecJson, req.tenant.organizationId, req.tenant.projectId);
+        `, queryVecJson, ...sDoc.params);
 
         candidates = rows.map(r => {
           const lexicalScore = terms.reduce((n, t) => n + (String(r.content || '').toLowerCase().includes(t) ? 1 : 0), 0) / Math.max(terms.length, 1);

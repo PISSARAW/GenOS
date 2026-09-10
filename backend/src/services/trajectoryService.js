@@ -101,8 +101,8 @@ function stableSerialize(value) {
 }
 
 function counterfactualReplay(originalTrajectory = {}, stepIndex = 1, alterations = {}) {
-  const source = (originalTrajectory && (originalTrajectory.id || originalTrajectory.turns)) ? originalTrajectory : {
-    id: 'traj_default_simulation',
+  const source = (originalTrajectory && typeof originalTrajectory === 'object' && (originalTrajectory.id || originalTrajectory.turns || originalTrajectory.diff_lines || originalTrajectory.diffLines)) ? originalTrajectory : {
+    id: typeof originalTrajectory === 'string' ? originalTrajectory : 'traj_default_simulation',
     turns: [
       { step: 1, action: 'init', success: true },
       { step: 2, action: 'process', error: 'fail' },
@@ -110,7 +110,15 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 1, alteration
     ],
     status: 'FAILURE'
   };
-  const turns = source.turns || source.diffLines || [];
+  let turns = source.turns || source.diffLines || source.diff_lines || [];
+  if (typeof turns === 'string') {
+    try { turns = JSON.parse(turns); } catch (_) { turns = []; }
+  } else if (Buffer.isBuffer(turns) || (source.diff_lines_msgpack && (!Array.isArray(turns) || turns.length === 0))) {
+    try {
+      const { unpack } = require('msgpackr');
+      turns = unpack(Buffer.isBuffer(turns) ? turns : source.diff_lines_msgpack);
+    } catch (_) {}
+  }
   if (!Array.isArray(turns) || turns.length === 0) {
     throw new Error('A persisted trajectory with recorded steps is required for counterfactual replay.');
   }

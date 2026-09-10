@@ -191,7 +191,9 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
       } catch (_) {}
 
       const executionDir = commonGitDir ? path.dirname(commonGitDir) : process.cwd();
-      await spawnGit(executionDir, ['worktree', 'remove', '--force', workspaceRoot]);
+      await withGitRepoLock(executionDir, async () => {
+        await spawnGit(executionDir, ['worktree', 'remove', '--force', workspaceRoot]);
+      });
       removedVia = 'worktree-removed';
     }
   } catch (_) { /* fall through to the filesystem removal */ }
@@ -202,7 +204,10 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
 
   if (commonGitDir) {
     try {
-      await runCommand('git', ['--git-dir', commonGitDir, 'worktree', 'prune'], { cwd: process.cwd() });
+      const repoDir = path.dirname(commonGitDir);
+      await withGitRepoLock(repoDir, async () => {
+        await runCommand('git', ['--git-dir', commonGitDir, 'worktree', 'prune'], { cwd: process.cwd() });
+      });
     } catch (_) {}
   } else {
     try {
@@ -210,7 +215,9 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
       const match = workspaceRoot.match(/^(.*)[\/\\](\.genos-agent-worlds|\.genos-snapshot-worktrees|snapshot-worktrees|genos-snapshots)[\/\\]([^\/\\]+)[\/\\]/);
       const guessedRepo = match ? path.join(match[1], match[3]) : parentDir;
       if (fsSync.existsSync(path.join(guessedRepo, '.git'))) {
-        await spawnGit(guessedRepo, ['worktree', 'prune']);
+        await withGitRepoLock(guessedRepo, async () => {
+          await spawnGit(guessedRepo, ['worktree', 'prune']);
+        });
       }
     } catch (_) {}
   }
@@ -310,7 +317,12 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     const configuredRoot = process.env.GENOS_CAPSULE_ROOT ? path.resolve(process.env.GENOS_CAPSULE_ROOT) : null;
     const siblingRoot = path.resolve(path.dirname(source));
     const defaultWorldRoot = path.join(siblingRoot, '.genos-agent-worlds');
-    if (!samePath(resolvedOverride, configuredRoot) && !samePath(resolvedOverride, siblingRoot) && !samePath(resolvedOverride, defaultWorldRoot)) {
+    const isInside = (child, parent) => {
+      if (!child || !parent) return false;
+      const rel = path.relative(path.resolve(parent), path.resolve(child));
+      return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+    };
+    if (!samePath(resolvedOverride, configuredRoot) && !samePath(resolvedOverride, siblingRoot) && !isInside(resolvedOverride, defaultWorldRoot) && !isInside(resolvedOverride, configuredRoot)) {
       throw new Error(`Capsule root '${resolvedOverride}' is outside the source workspace boundary.`);
     }
   }
@@ -376,12 +388,15 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
       }
     }
     await removeSensitiveFiles(destination);
+    await trackWorkspace(workerId, destination);
     return destination;
   } catch (gitError) {
     // Rollback partially initialized worktree to avoid orphaned registrations in .git/worktrees
     try {
-      await runCommand('git', ['worktree', 'remove', '--force', destination], { cwd: source });
-      await runCommand('git', ['worktree', 'prune'], { cwd: source });
+      await withGitRepoLock(source, async () => {
+        await runCommand('git', ['worktree', 'remove', '--force', destination], { cwd: source });
+        await runCommand('git', ['worktree', 'prune'], { cwd: source });
+      });
     } catch (_) {}
     try {
       await fs.rm(destination, { recursive: true, force: true });
@@ -428,6 +443,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   try {
     await copyTree(source, destination);
     await removeSensitiveFiles(destination);
+    await trackWorkspace(workerId, destination);
   } catch (error) {
     await fs.rm(destination, { recursive: true, force: true }).catch(() => {});
     throw error;
