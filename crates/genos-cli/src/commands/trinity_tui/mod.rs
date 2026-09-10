@@ -107,14 +107,15 @@ pub fn run_live(host: &str, port: u16, mission_id: Option<&str>) -> Result<(), S
         for message in monitor.drain_events() {
             app.apply_live_message(&message);
         }
-        match monitor.latest_status() {
-            Some(ConnectionStatus::Connected) => {
-                app.set_connection_status(true, format!("Connected to {host}:{port}"));
+        for status in monitor.drain_statuses() {
+            match status {
+                ConnectionStatus::Connected => {
+                    app.set_connection_status(true, format!("Connected to {host}:{port}"));
+                }
+                ConnectionStatus::Disconnected(reason) => {
+                    app.set_connection_status(false, format!("Disconnected ({reason}); retrying..."));
+                }
             }
-            Some(ConnectionStatus::Disconnected(reason)) => {
-                app.set_connection_status(false, format!("Disconnected ({reason}); retrying..."));
-            }
-            None => {}
         }
 
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());

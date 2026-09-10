@@ -28,13 +28,25 @@ assert.equal(typeof monitor.formatLogTimestamp(new Date().toISOString()), 'strin
     detail: 'evidence',
     severity: 'info',
     timestamp: new Date().toISOString(),
-    payload: {}
+    payload: { evidenceReport: { claims: [{ claim: 'x', evidence: ['proof-1'] }] } }
   });
 
   assert.ok(
     instance.evidenceByAgent.has('agent-evidence-test'),
     'evidence must be tracked without connected clients'
   );
+
+  // An evidence-less event must NOT overwrite the good score with 0.
+  const goodScore = instance.evidenceByAgent.get('agent-evidence-test');
+  await instance.handleTelemetryEvent({
+    agentId: 'agent-evidence-test',
+    eventType: 'EVIDENCE_REPORT',
+    detail: 'empty',
+    severity: 'info',
+    timestamp: new Date().toISOString(),
+    payload: {}
+  });
+  assert.equal(instance.evidenceByAgent.get('agent-evidence-test'), goodScore, 'empty payload must not zero a good score');
   instance.agentIndex.delete('agent-evidence-test');
   instance.evidenceByAgent.delete('agent-evidence-test');
 
