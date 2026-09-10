@@ -37,6 +37,7 @@ function getToolInputSchema(toolName, baseSchema = {}) {
     schema.anyOf = [{ required: ['snapshot'] }, { required: ['snapshot_id'] }];
     schema.properties.snapshot = { type: 'string' };
     schema.properties.snapshot_id = { type: 'string' };
+    schema.required = [];
   }
   if (toolName === 'genos_execute_primitive') {
     schema.properties.primitive_name = { type: 'string' };

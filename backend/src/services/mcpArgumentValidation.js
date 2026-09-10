@@ -81,7 +81,7 @@ function validateToolArguments(toolName, args = {}) {
   }
 
   if (toolName === 'genos_replay' && args.snapshot === undefined && args.snapshot_id === undefined) {
-    return invalid('snapshot', 'snapshot or snapshot_id is required.');
+    return invalid('snapshot', 'snapshot or snapshot_id is required (at least one).');
   }
   if (toolName === 'genos_execute_primitive' && typeof args.primitive !== 'string' && typeof args.primitive_name !== 'string' && typeof args.name !== 'string') {
     return invalid('primitive', 'primitive, primitive_name, or name is required.');
