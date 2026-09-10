@@ -6,12 +6,16 @@
  */
 
 const { getDatabase } = require('../db');
-const { activeProcesses, emit } = require('./agentOrchestrationState');
+const { activeProcesses, emit, TERMINAL_AGENT_STATUSES } = require('./agentOrchestrationState');
 const { terminateChild, terminatePid } = require('./processTermination');
 
 async function findEligibleWorkers(db, filter = {}) {
-  const params = [];
-  let query = "SELECT id, name, role, status, execution_mode, parent_agent_id, lineage_relation, workspace_id, fleet_id FROM agents WHERE execution_mode = 'worker'";
+  // Never offer an already-terminal worker as a chaos target: it has no live
+  // process and killing it would be a no-op reported as success.
+  const terminal = [...TERMINAL_AGENT_STATUSES];
+  const terminalPlaceholders = terminal.map(() => '?').join(', ');
+  const params = [...terminal];
+  let query = `SELECT id, name, role, status, execution_mode, parent_agent_id, lineage_relation, workspace_id, fleet_id FROM agents WHERE execution_mode = 'worker' AND status NOT IN (${terminalPlaceholders})`;
   if (filter.agentId) {
     query += ' AND id = ?';
     params.push(filter.agentId);
@@ -74,10 +78,14 @@ async function executeChaosKill(target, options = {}) {
 }
 
 async function readAgentLineage(db, agent) {
+  // lineage_nodes.agent_id is always populated with the owning agent id
+  // (including auto-provisioned parents), so the previous `OR id = agent.id`
+  // term only ever matched a node whose own id happened to equal the agent id.
+  // Let database errors surface instead of masking them as "no lineage".
   const nodes = await db.all(
-    'SELECT id, label, node_type FROM lineage_nodes WHERE agent_id = ? OR id = ?',
-    agent.id, agent.id
-  ).catch(() => []);
+    'SELECT id, label, node_type FROM lineage_nodes WHERE agent_id = ?',
+    agent.id
+  );
 
   return {
     parentAgentId: agent.parent_agent_id || null,
