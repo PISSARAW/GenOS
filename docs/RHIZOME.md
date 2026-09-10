@@ -655,6 +655,63 @@ Le choix peut se résumer ainsi :
 
 ---
 
+## 19. Simulation visuelle du Rhizome : Bourgeonnement & Contraction Dynamique
+
+GenOS intègre une simulation visuelle interactive (dans le terminal via Ratatui et sous forme de GIF animé haute fidélité) illustrant la plasticité topologique du runtime Rhizome lorsqu'une lacune d'infrastructure ou d'API est rencontrée.
+
+### Le Hook X
+
+> **"What if your agent graph wasn't static? Watch our Rhizome runtime dynamically spawn capability offshoots when it hits a boundary."**
+
+### Le Concept & Cycle de Plasticité
+
+```text
+[1. Topologie Initiale]          [2. Lacune Détectée]           [3. Bourgeonnement Éphémère]
+Coordinator <───> Scout   ───>   Scout heurte une API   ───>   Spawn Capability Offshoot
+                                (OAuth2 / Ingestion)            + Spawn Local Bridge
+                                                                         │
+[5. Contraction Harmonique]       [4. Validation de Preuve]               │
+Coordinator <───> Scout   <───   Preuve cryptographique <────────────────┘
+(Capacité scellée en cache)     (Score d'évidence: 0.99)
+```
+
+1. **Topologie initiale au repos :** Le réseau commence avec ses nœuds pérennes (`Rootless Coordinator` et `Boundary Scout`).
+2. **Détection d'une lacune de frontière :** Le `Boundary Scout` identifie une dépendance externe manquante (ex. rotation automatique des tokens OAuth2 et pagination de charge).
+3. **Bourgeonnement dynamique (*Spawning*) :** Sans attendre d'autorisation centralisée, le Rhizome fait croître deux nœuds spécialisés :
+   - `Capability Offshoot` : Synthétise l'adaptateur de code et le composant manquant.
+   - `Local Bridge` : Établit une route de contournement décentralisée garantissant le débit et la tolérance aux pannes.
+4. **Validation de preuve (*Evidence Barrier*) :** Les vecteurs d'intégration passent à 100%, générant un reçu cryptographique auditable (score 0.99).
+5. **Contraction harmonique (*Pruning*) :** La capacité étant validée et absorbée dans le substrat mémoire, l'Offshoot et le Bridge se replient et se dissolvent, restaurant une topologie épurée et efficace.
+
+### Visualisation GIF Animée
+
+![Simulation Rhizome : Bourgeonnement et Contraction](assets/rhizome_simulation.gif)
+
+### Commandes CLI
+
+```bash
+# Lancer la simulation interactive en direct dans le terminal
+genos biological --mode rhizome --visualize
+
+# Générer et exporter le GIF animé
+genos biological --mode rhizome --gif artifacts/rhizome_simulation.gif
+
+# Raccourci dédié
+genos rhizome visualize
+genos rhizome gif --output artifacts/rhizome_simulation.gif
+```
+
+### Raccourcis Clavier du TUI
+
+| Touche | Action |
+| :--- | :--- |
+| `q` / `Esc` | Quitter la simulation et restaurer le terminal |
+| `r` | Réinitialiser et relancer le cycle de bourgeonnement |
+| `g` | Exporter instantanément le GIF animé dans `artifacts/` |
+| `Space` | Avancer pas à pas dans les phases de la simulation |
+
+---
+
 ## Références internes
 
 - [ORCHESTRATION.md](ORCHESTRATION.md) : orchestration générale, budgets, gates et preuves
@@ -666,6 +723,7 @@ Le choix peut se résumer ainsi :
 - [BIOME.md](BIOME.md) : orchestration par environnement et populations spécialisées
 - [BIOLOGIE_COMPUTATIONNELLE.md](BIOLOGIE_COMPUTATIONNELLE.md) : cadre biologique général
 - [biologicalModeService.js](../backend/src/services/biologicalModeService.js) : définition et composition des rôles Rhizome
+- Module TUI & GIF Rust : [crates/genos-cli/src/commands/rhizome_sim/](../crates/genos-cli/src/commands/rhizome_sim/)
 - [agentAutonomyPlanService.js](../backend/src/services/agentAutonomyPlanService.js) : plan d'autonomie
 - [agentFleetService.js](../backend/src/services/agentFleetService.js) : fleet de workers et barrière d'évidence
 - [agentOrchestrationState.js](../backend/src/services/agentOrchestrationState.js) : état et télémétrie de mission
