@@ -1,5 +1,8 @@
+const { getDatabase: defaultGetDatabase } = require('../../../db');
+
 async function handleSynapticPruneScale(args, run, getDatabase) {
-  const db = await getDatabase();
+  const dbGetter = typeof getDatabase === 'function' ? getDatabase : defaultGetDatabase;
+  const db = await dbGetter();
   const threshold = Number(args.threshold ?? 0.1) * Number(args.scale ?? 1.0);
   const agentId = args.agent_id || args.agentId;
   const orgId = args.organization_id || args.organizationId;
@@ -23,13 +26,30 @@ async function handleSynapticPruneScale(args, run, getDatabase) {
     const res = await db.run(sql, ...params);
     prunedCount = res?.changes || 0;
 
-    const doomed = await db.all(`
+    const doomedParams = [];
+    let doomedSql = `
       SELECT g.id FROM genome_decisions g
       LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
       WHERE g.synaptic_weight < 0.1
+        AND LOWER(COALESCE(g.category, 'general')) NOT IN ('core', 'golden_path', 'architecture', 'invariant')
+    `;
+    if (orgId) {
+      doomedSql += ' AND (g.organization_id = ? OR g.organization_id IS NULL)';
+      doomedParams.push(orgId);
+    }
+    if (projId) {
+      doomedSql += ' AND (g.project_id = ? OR g.project_id IS NULL)';
+      doomedParams.push(projId);
+    }
+    if (agentId && agentId !== 'global' && agentId !== 'default-agent') {
+      doomedSql += ' AND g.created_by = ?';
+      doomedParams.push(agentId);
+    }
+    doomedSql += `
       GROUP BY g.id
       HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
-    `);
+    `;
+    const doomed = await db.all(doomedSql, ...doomedParams);
     if (doomed && doomed.length > 0) {
       const doomedIds = doomed.map(d => d.id);
       const placeholders = doomedIds.map(() => '?').join(',');

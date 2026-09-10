@@ -2,7 +2,7 @@
  * Lot 3 : Primitives d'Évolution (mutate, breed, select, pareto, speciation)
  */
 const telemetry = require('../telemetryObserver');
-const { getDatabase } = require('../../db');
+const { getDatabase, withTransaction } = require('../../db');
 const geneticsService = require('../geneticsService');
 const agentEvolutionService = require('../agentEvolutionService');
 const genosCli = require('../genosCli');
@@ -109,22 +109,21 @@ async function mutate(context) {
   }
   const mutatedTask = (parent.current_task || 'task') + ' [MUTATION: ' + mutations.join('; ') + ']';
   const mutantId = 'mutant_' + crypto.randomUUID();
-  await db.run('BEGIN');
   let lineageResult;
   try {
-    await db.run(
-      "INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, ?, 'mutant', 'idle', 'GenOS', 'worker', ?, ?, ?, 'mutation', ?)",
-      mutantId, 'Mutant of ' + agentId, parent.name_meaning || `Descendant identity of ${parent.name || agentId}`, parent.workspace_id, parent.model_tier || 'standard', agentId, mutatedTask
-    );
-    lineageResult = await agentEvolutionService.recordWorkerLineage(
-      db,
-      { agentId: mutantId, workspaceId: parent.workspace_id, name: 'Mutant of ' + agentId, role: 'mutant' },
-      { parentId: agentId, genes: descriptorResult.genes, mutations: [...mutations, ...evolved.mutations, ...descriptorResult.applied], predictedFitness: evolved.predictedFitness }
-    );
-    if (!lineageResult.success) throw new Error(`Mutation lineage persistence failed: ${lineageResult.error}`);
-    await db.run('COMMIT');
+    await withTransaction(db, async () => {
+      await db.run(
+        "INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, ?, 'mutant', 'idle', 'GenOS', 'worker', ?, ?, ?, 'mutation', ?)",
+        mutantId, 'Mutant of ' + agentId, parent.name_meaning || `Descendant identity of ${parent.name || agentId}`, parent.workspace_id, parent.model_tier || 'standard', agentId, mutatedTask
+      );
+      lineageResult = await agentEvolutionService.recordWorkerLineage(
+        db,
+        { agentId: mutantId, workspaceId: parent.workspace_id, name: 'Mutant of ' + agentId, role: 'mutant' },
+        { parentId: agentId, genes: descriptorResult.genes, mutations: [...mutations, ...evolved.mutations, ...descriptorResult.applied], predictedFitness: evolved.predictedFitness }
+      );
+      if (!lineageResult.success) throw new Error(`Mutation lineage persistence failed: ${lineageResult.error}`);
+    });
   } catch (error) {
-    await db.run('ROLLBACK').catch(() => {});
     return { success: false, error: error.message };
   }
   telemetry.emitEvent({

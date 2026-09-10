@@ -58,7 +58,8 @@ class VectorMemoryService {
     const buffer = Buffer.from(float32.buffer);
     await db.run(
       `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET synaptic_weight = excluded.synaptic_weight`,
       id, title, normalizedContent, buffer, agentId, category, synapticWeight,
       orgId, projId
     );

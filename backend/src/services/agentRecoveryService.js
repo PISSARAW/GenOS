@@ -203,7 +203,15 @@ async function dispatchWorkerRecovery(sourceAgentId) {
       slot: garage.slot, capacity: garage.capacity, decision
     }, 'info');
     if (recoveryBarrier?.cancelled) {
+      if (workspaceRoot) await cleanupWorkspace(workspaceRoot, capsuleName || targetId).catch(() => {});
       await updateAgent(targetId, 'blocked', 'Recovery stopped with the orchestrator evidence barrier');
+      const garage = await workerGarage.state(db, orchestratorId).catch(() => null);
+      emit(orchestratorId, 'WORKER_SLOT_RELEASED', 'GARAGE', `Worker '${name}' released its active slot due to recovery barrier cancellation.`, {
+        workerId: targetId,
+        capacity: garage?.capacity || workerGarage.MAX_ACTIVE_WORKERS,
+        occupied: garage?.occupied,
+        available: garage?.available
+      }, 'info');
       return false;
     }
     await startMission({

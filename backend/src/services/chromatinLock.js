@@ -3,6 +3,8 @@ const path = require('path');
 
 function checkChromatinLock(agentId, toolName) {
   if (!agentId || !toolName) return null;
+  const safeAgentId = path.basename(String(agentId).replace(/[^\w.-]/g, '_'));
+  if (!safeAgentId) return null;
   const repositoryRoot = path.resolve(__dirname, '../../..');
   const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || repositoryRoot;
   const candidateDirs = [
@@ -15,7 +17,7 @@ function checkChromatinLock(agentId, toolName) {
   ];
   let chromatinData = null;
   for (const dir of candidateDirs) {
-    const filePath = path.join(dir, `${agentId}.json`);
+    const filePath = path.join(dir, `${safeAgentId}.json`);
     if (fs.existsSync(filePath)) {
       try {
         chromatinData = JSON.parse(fs.readFileSync(filePath, 'utf8'));

@@ -8,10 +8,19 @@ const modelProvider = require('../services/modelProvider');
 const localModelDiscovery = require('../services/localModelDiscovery');
 const { sanitizeString } = require('../middleware/security');
 
+const MAX_CACHED_CONFIGS = 512;
 const tenantConfig = new Map();
 function configFor(req) {
-  const key = `${req.tenant.organizationId}:${req.tenant.projectId}`;
-  if (!tenantConfig.has(key)) tenantConfig.set(key, { customUsername: null, maxTokens: 500000, waveTime: 42 });
+  const org = req.tenant?.organizationId || 'default';
+  const proj = req.tenant?.projectId || 'default';
+  const key = `${org}:${proj}`;
+  if (!tenantConfig.has(key)) {
+    tenantConfig.set(key, { customUsername: null, maxTokens: 500000, waveTime: 42 });
+    while (tenantConfig.size > MAX_CACHED_CONFIGS) {
+      const oldestKey = tenantConfig.keys().next().value;
+      tenantConfig.delete(oldestKey);
+    }
+  }
   return tenantConfig.get(key);
 }
 
@@ -110,8 +119,8 @@ async function updateBudget(req, res, next) {
   try {
     const db = await getDatabase();
     const usageRow = await db.get(`SELECT COALESCE(SUM(COALESCE(json_extract(payload_json, '$.tokens'), 0) + COALESCE(json_extract(payload_json, '$.totalTokens'), 0) + COALESCE(json_extract(payload_json, '$.usage.total_tokens'), 0)), 0) AS usedTokens FROM telemetry_events WHERE organization_id = ? AND project_id = ?`, req.tenant.organizationId, req.tenant.projectId);
-    const usedTokens = Number(usageRow?.usedTokens || 0);
-    return res.json({ success: true, maxTokens: config.maxTokens, usedTokens: usedTokens > 0 ? usedTokens : null, percent: usedTokens > 0 ? Math.min(100, Math.round((usedTokens / config.maxTokens) * 100)) : null });
+    const percent = (usedTokens > 0 && config.maxTokens > 0) ? Math.min(100, Math.round((usedTokens / config.maxTokens) * 100)) : null;
+    return res.json({ success: true, maxTokens: config.maxTokens, usedTokens: usedTokens > 0 ? usedTokens : null, percent });
   } catch (error) { return next(error); }
 }
 

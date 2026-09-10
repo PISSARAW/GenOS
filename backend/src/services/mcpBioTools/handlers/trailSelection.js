@@ -1,5 +1,10 @@
+const strategyExecutionAdapter = require('../../strategyExecutionAdapter');
+
 async function handleTrailSelection(args, strategyAdapter) {
-  const res = await strategyAdapter.executePrimitive('trail_selection', args || {});
+  const adapter = (strategyAdapter && typeof strategyAdapter.executePrimitive === 'function')
+    ? strategyAdapter
+    : strategyExecutionAdapter;
+  const res = await adapter.executePrimitive('trail_selection', args || {});
   return {
     configured: true,
     success: res.success !== false,

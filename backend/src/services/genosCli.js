@@ -61,13 +61,20 @@ function parseCommandLine(commandLine) {
   const args = [];
   let current = '';
   let quote = null;
-  let escaping = false;
-  for (const char of String(commandLine)) {
-    if (escaping) {
-      current += char;
-      escaping = false;
-    } else if (char === '\\' && quote !== "'") {
-      escaping = true;
+  const str = String(commandLine);
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    const nextChar = str[i + 1];
+
+    if (char === '\\') {
+      if (quote === "'") {
+        current += char;
+      } else if (nextChar === '"' || nextChar === '\\' || (quote === null && /\s/.test(nextChar))) {
+        current += nextChar;
+        i++;
+      } else {
+        current += char;
+      }
     } else if (quote) {
       if (char === quote) quote = null;
       else current += char;
@@ -82,7 +89,6 @@ function parseCommandLine(commandLine) {
       current += char;
     }
   }
-  if (escaping) current += '\\';
   if (quote) throw new Error('Unterminated quote in GenOS CLI command.');
   if (current) args.push(current);
   return args;
