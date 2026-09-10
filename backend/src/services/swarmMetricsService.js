@@ -95,7 +95,23 @@ function calculateShannonEntropy(actionEvents = [], windowSize = 50) {
 
   const totalActions = sample.length;
   if (totalActions === 0) {
-    return { entropy: 0, normalizedEntropy: 0, state: 'IDLE', uniqueActions: 0, sampleSize: 0 };
+    return {
+      entropy: 0,
+      rawEntropy: 0,
+      normalizedEntropy: 0,
+      maxPossibleEntropy: 0,
+      state: 'IDLE',
+      cognitiveDriftState: 'IDLE',
+      diagnosticRecommendation: 'No action events provided to compute entropy.',
+      uniqueActions: 0,
+      uniqueActionCount: 0,
+      sampleSize: 0,
+      dominanceRatio: 0,
+      transitionEntropy: 0,
+      isPeriodicCycle: false,
+      cycleLength: 0,
+      sparkline: []
+    };
   }
 
   let { entropy, normalizedEntropy, uniqueActions, dominanceRatio } = getEntropyStats(sample);
@@ -134,16 +150,19 @@ function calculateShannonEntropy(actionEvents = [], windowSize = 50) {
   }
 
   return {
+    entropy: Number(entropy.toFixed(3)),
     rawEntropy: Number(entropy.toFixed(3)),
     normalizedEntropy,
     maxPossibleEntropy: Number(maxEntropy.toFixed(3)),
+    state: driftState,
+    cognitiveDriftState: driftState,
+    uniqueActions,
     uniqueActionCount: uniqueActions,
     sampleSize: totalActions,
     dominanceRatio: Number(dominanceRatio.toFixed(3)),
     transitionEntropy,
     isPeriodicCycle,
     cycleLength,
-    cognitiveDriftState: driftState,
     diagnosticRecommendation: diagnostic,
     sparkline
   };
@@ -156,9 +175,11 @@ function detectDeadlocks(messageQueue = [], chattyThreshold = 6) {
   const interactions = {};
   const messageGraph = {};
 
-  const queue = messageQueue;
+  const queue = Array.isArray(messageQueue) ? messageQueue : [];
 
   for (const msg of queue) {
+    if (!msg || typeof msg !== 'object') continue;
+    if (!msg.sender || !msg.recipient) continue;
     const key = [msg.sender, msg.recipient].sort().join('<->');
     if (!msg.hasDiff) {
       interactions[key] = (interactions[key] || 0) + 1;

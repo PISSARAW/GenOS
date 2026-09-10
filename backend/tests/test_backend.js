@@ -62,6 +62,7 @@ function request(options, body = null) {
 async function runTests() {
   console.log('=== STARTING GENOS BACKEND VERIFICATION SUITE ===\n');
   const testDbPath = path.resolve(__dirname, `test_genos_${process.pid}.db`);
+  process.env.GENOS_DB_PATH = testDbPath;
   for (const ext of ['', '-wal', '-shm']) {
     const p = testDbPath + ext;
     if (fs.existsSync(p)) {

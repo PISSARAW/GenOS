@@ -1,5 +1,5 @@
 use std::process::Command;
-use crate::{cargo_program, command_error, exit_on_command_failure};
+use crate::{cargo_program, exit_on_command_failure};
 use crate::commands::advanced::AdvancedCommands;
 
 pub fn handle_advanced(cmd: &AdvancedCommands, _yes: bool) {

@@ -41,9 +41,10 @@ function controllerResponse(resolve) {
   };
 }
 
-async function handleCommand(req, res) {
-  const { action, agentId, workspaceId, params } = req.body || {};
-  const db = await getDatabase();
+async function handleCommand(req, res, next) {
+  try {
+    const { action, agentId, workspaceId, params } = req.body || {};
+    const db = await getDatabase();
 
   telemetry.emitEvent({
     eventType: 'COMMAND_DISPATCHED',
@@ -107,6 +108,9 @@ async function handleCommand(req, res) {
 
     default:
       return res.status(400).json({ error: { code: 'UNSUPPORTED_COMMAND', message: `Unsupported command action: ${action}` } });
+    }
+  } catch (error) {
+    next(error);
   }
 }
 
@@ -123,38 +127,42 @@ async function updateAgentStatus(db, agentId, status, currentTask, req) {
   );
 }
 
-async function handleTerminal(req, res) {
-  const { command } = req.body || {};
-  const cmd = (command || '').trim().toLowerCase();
-  const db = await getDatabase();
+async function handleTerminal(req, res, next) {
+  try {
+    const { command } = req.body || {};
+    const cmd = (command || '').trim().toLowerCase();
+    const db = await getDatabase();
 
-  let output = '';
-  if (cmd === 'help') {
-    output = 'GenOS Terminal Available Commands:\n  status   - Show current backend and breaker status\n  halt     - Block new MCP tool invocations through the kill switch\n  resume   - Reset the MCP kill switch\n  agents   - List persisted agents\n  ping     - Show backend health\n  clear    - Clear terminal buffer';
-  } else if (cmd === 'status') {
-    const cb = circuitBreaker.getStatus();
-    const tools = await db.get('SELECT COUNT(*) as count FROM mcp_tools');
-    const agents = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
-    const systemState = cb.isHalted ? 'HALTED' : 'OK';
-    output = `[SYSTEM ${systemState}] MCP Tools: ${tools?.count || 0} | Active Agents: ${agents?.count || 0} | Breaker: ${cb.isHalted ? 'HALTED' : cb.state} | Halted: ${cb.isHalted} | Failures: ${cb.failureCount}`;
-  } else if (cmd === 'halt' || cmd === 'abort') {
-    circuitBreaker.triggerHalt('Terminal user command', 'terminal_user');
-    output = '[HALT ENGAGED] New MCP tool invocations are blocked by the backend kill switch. Existing external runtimes are not terminated by this command.';
-  } else if (cmd === 'resume') {
-    circuitBreaker.resetHalt('terminal_user');
-    output = '[RESUMED] Backend kill switch reset. MCP tool invocations may resume.';
-  } else if (cmd === 'agents') {
-    const agents = await db.all("SELECT id, name, status FROM agents WHERE status != 'terminated' ORDER BY created_at DESC");
-    output = agents.length > 0 ? agents.map((agent) => `${agent.name || agent.id} [${agent.status}]`).join('\n') : 'No persisted agents.';
-  } else if (cmd === 'ping') {
-    output = `[PONG] Backend online | Uptime: ${Math.floor(process.uptime())}s`;
-  } else if (cmd === 'clear') {
-    output = '';
-  } else {
-    return res.status(400).json({ error: { code: 'UNSUPPORTED_COMMAND', message: `Unsupported terminal command: ${command}` } });
+    let output = '';
+    if (cmd === 'help') {
+      output = 'GenOS Terminal Available Commands:\n  status   - Show current backend and breaker status\n  halt     - Block new MCP tool invocations through the kill switch\n  resume   - Reset the MCP kill switch\n  agents   - List persisted agents\n  ping     - Show backend health\n  clear    - Clear terminal buffer';
+    } else if (cmd === 'status') {
+      const cb = circuitBreaker.getStatus();
+      const tools = await db.get('SELECT COUNT(*) as count FROM mcp_tools');
+      const agents = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
+      const systemState = cb.isHalted ? 'HALTED' : 'OK';
+      output = `[SYSTEM ${systemState}] MCP Tools: ${tools?.count || 0} | Active Agents: ${agents?.count || 0} | Breaker: ${cb.isHalted ? 'HALTED' : cb.state} | Halted: ${cb.isHalted} | Failures: ${cb.failureCount}`;
+    } else if (cmd === 'halt' || cmd === 'abort') {
+      circuitBreaker.triggerHalt('Terminal user command', 'terminal_user');
+      output = '[HALT ENGAGED] New MCP tool invocations are blocked by the backend kill switch. Existing external runtimes are not terminated by this command.';
+    } else if (cmd === 'resume') {
+      circuitBreaker.resetHalt('terminal_user');
+      output = '[RESUMED] Backend kill switch reset. MCP tool invocations may resume.';
+    } else if (cmd === 'agents') {
+      const agents = await db.all("SELECT id, name, status FROM agents WHERE status != 'terminated' ORDER BY created_at DESC");
+      output = agents.length > 0 ? agents.map((agent) => `${agent.name || agent.id} [${agent.status}]`).join('\n') : 'No persisted agents.';
+    } else if (cmd === 'ping') {
+      output = `[PONG] Backend online | Uptime: ${Math.floor(process.uptime())}s`;
+    } else if (cmd === 'clear') {
+      output = '';
+    } else {
+      return res.status(400).json({ error: { code: 'UNSUPPORTED_COMMAND', message: `Unsupported terminal command: ${command}` } });
+    }
+
+    res.json({ output });
+  } catch (error) {
+    next(error);
   }
-
-  res.json({ output });
 }
 
 module.exports = {

@@ -26,7 +26,10 @@ impl RateLimiter {
     }
 
     pub fn refill(&mut self, seconds: u32) {
-        self.tokens = (self.tokens + seconds * self.refill_per_sec).min(self.capacity);
+        self.tokens = self
+            .tokens
+            .saturating_add(seconds.saturating_mul(self.refill_per_sec))
+            .min(self.capacity);
     }
 }
 

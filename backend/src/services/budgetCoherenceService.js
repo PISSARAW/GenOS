@@ -8,8 +8,24 @@ function normalizeMissionBudget(raw = {}) {
   const latencyMs = Number.isFinite(rawLatency) && rawLatency > 0 ? rawLatency : 60000;
   const rawEvents = Number(executionBudget.events ?? raw.events);
   const events = Number.isFinite(rawEvents) && rawEvents > 0 ? rawEvents : 100;
-  const workerShare = Number(executionBudget.workerShare ?? raw.workerShare ?? 0.6);
-  const orchestratorReserve = Number(executionBudget.orchestratorReserve ?? raw.orchestratorReserve ?? 0.4);
+  const rawWorkerShare = executionBudget.workerShare ?? raw.workerShare;
+  const rawOrchestratorReserve = executionBudget.orchestratorReserve ?? raw.orchestratorReserve;
+  let workerShare;
+  let orchestratorReserve;
+
+  if (rawWorkerShare !== undefined && rawOrchestratorReserve !== undefined) {
+    workerShare = Number(rawWorkerShare);
+    orchestratorReserve = Number(rawOrchestratorReserve);
+  } else if (rawWorkerShare !== undefined) {
+    workerShare = Number(rawWorkerShare);
+    orchestratorReserve = Number.isFinite(workerShare) ? 1.0 - workerShare : 0.4;
+  } else if (rawOrchestratorReserve !== undefined) {
+    orchestratorReserve = Number(rawOrchestratorReserve);
+    workerShare = Number.isFinite(orchestratorReserve) ? 1.0 - orchestratorReserve : 0.6;
+  } else {
+    workerShare = 0.6;
+    orchestratorReserve = 0.4;
+  }
 
   return {
     tokens,
@@ -25,8 +41,23 @@ function validateBudgetCoherence({ executionBudget = {}, autonomyPlan = {}, scop
   const normalized = normalizeMissionBudget(executionBudget);
   const tokenPolicy = autonomyPlan.tokenPolicy || {};
   const total = Number(tokenPolicy.total ?? normalized.tokens ?? 0);
-  const workerShare = Number(tokenPolicy.workerShare ?? normalized.workerShare ?? 0.6);
-  const orchestratorReserve = Number(tokenPolicy.orchestratorReserve ?? normalized.orchestratorReserve ?? 0.4);
+  const rawPolicyWorkerShare = tokenPolicy.workerShare;
+  const rawPolicyOrchestratorReserve = tokenPolicy.orchestratorReserve;
+  let workerShare;
+  let orchestratorReserve;
+  if (rawPolicyWorkerShare !== undefined && rawPolicyOrchestratorReserve !== undefined) {
+    workerShare = Number(rawPolicyWorkerShare);
+    orchestratorReserve = Number(rawPolicyOrchestratorReserve);
+  } else if (rawPolicyWorkerShare !== undefined) {
+    workerShare = Number(rawPolicyWorkerShare);
+    orchestratorReserve = Number.isFinite(workerShare) ? 1.0 - workerShare : normalized.orchestratorReserve;
+  } else if (rawPolicyOrchestratorReserve !== undefined) {
+    orchestratorReserve = Number(rawPolicyOrchestratorReserve);
+    workerShare = Number.isFinite(orchestratorReserve) ? 1.0 - orchestratorReserve : normalized.workerShare;
+  } else {
+    workerShare = normalized.workerShare;
+    orchestratorReserve = normalized.orchestratorReserve;
+  }
   const rounds = tokenPolicy.rounds || {};
   const initialPool = Number(rounds.initial?.pool ?? 0);
   const continuationPool = Number(rounds.continuation?.pool ?? 0);

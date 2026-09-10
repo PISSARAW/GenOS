@@ -1,5 +1,5 @@
 function normalizeBounds(fallbackOrOptions, bounds) {
-  return typeof fallbackOrOptions === 'object'
+  return (fallbackOrOptions && typeof fallbackOrOptions === 'object')
     ? fallbackOrOptions
     : { fallback: fallbackOrOptions, minimum: bounds[0], maximum: bounds[1] };
 }

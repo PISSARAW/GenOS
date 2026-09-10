@@ -12,10 +12,17 @@ use std::os::unix::process::CommandExt;
 
 const DEFAULT_TOOL_TIMEOUT_MS: u64 = 30_000;
 const MAX_OUTPUT_BYTES: usize = 1024 * 1024;
-const PATH_ARGUMENTS: &[&str] = &["agent", "out", "output", "history_file", "input_file", "manifest", "graph_file", "snapshot"];
+const PATH_ARGUMENTS: &[&str] = &[
+    "agent", "out", "output", "history_file", "input_file", "manifest",
+    "graph_file", "snapshot", "snapshot_id", "branch_id", "parent_id",
+];
 
 fn validate_path_arguments(args: &Value) -> Result<(), String> {
-    let Some(object) = args.as_object() else { return Err("Tool arguments must be a JSON object.".into()); };
+    let object = match args {
+        Value::Null => return Ok(()),
+        Value::Object(map) => map,
+        _ => return Err("Tool arguments must be a JSON object.".into()),
+    };
     for key in PATH_ARGUMENTS {
         let Some(value) = object.get(*key).and_then(Value::as_str) else { continue; };
         let path = std::path::Path::new(value);
@@ -148,7 +155,12 @@ mod tests {
         assert!(validate_path_arguments(&json!({ "out": "../../outside.json" })).is_err());
         assert!(validate_path_arguments(&json!({ "agent": "/etc/passwd" })).is_err());
         assert!(validate_path_arguments(&json!({ "output": "C:/outside.log" })).is_err());
+        assert!(validate_path_arguments(&json!({ "snapshot_id": "../outside.json" })).is_err());
+        assert!(validate_path_arguments(&json!({ "branch_id": "/var/tmp" })).is_err());
+        assert!(validate_path_arguments(&json!({ "parent_id": "..\\forbidden" })).is_err());
         assert!(validate_path_arguments(&json!({ "out": "reports/result.json" })).is_ok());
+        assert!(validate_path_arguments(&serde_json::Value::Null).is_ok());
+        assert!(validate_path_arguments(&json!({})).is_ok());
     }
 }
 
@@ -477,7 +489,10 @@ fn process_request(line: &str, workspace: &Path) -> Option<Value> {
             let params = req.get("params");
             let name = params.and_then(|p| p.get("name")).and_then(Value::as_str).unwrap_or("");
             let empty_args = json!({});
-            let args = params.and_then(|p| p.get("arguments")).unwrap_or(&empty_args);
+            let args = match params.and_then(|p| p.get("arguments")) {
+                Some(Value::Null) | None => &empty_args,
+                Some(val) => val,
+            };
             if let Err(error) = validate_path_arguments(args) {
                 return Some(json!({
                     "jsonrpc": "2.0",

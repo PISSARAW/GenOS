@@ -35,6 +35,10 @@ async function checkHealth(timeoutMs = 1500) {
   }
 }
 
+function escapeRegExp(string) {
+  return String(string || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Heuristic fallback extraction when Python microservice is offline
  * @param {string} text
@@ -52,7 +56,7 @@ function heuristicExtract(text = '') {
   }
 
   for (const tech of KNOWN_TECH) {
-    const regex = new RegExp(`\\b${tech}\\b`, 'i');
+    const regex = new RegExp(`\\b${escapeRegExp(tech)}\\b`, 'i');
     if (regex.test(content) && !entities.some(e => e.text.toLowerCase() === tech.toLowerCase())) {
       entities.push({ text: tech, label: 'Technology' });
     }

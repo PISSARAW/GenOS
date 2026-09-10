@@ -28,7 +28,7 @@ function getToolHandler(toolName) {
       return handleBioCall(`genos biomimicry bioluminescence --agent-id ${args.agent_id || 'griot-01'} --color ${args.color || 'green'} --organelle "${args.organelle || 'mitochondria'}" --event-type "${args.event_type || 'TELEMETRY'}" --details "${args.details || ''}"`, timeoutMs);
     },
     'genos_biomimicry_anti_collusion': (args, timeoutMs) => {
-      return handleBioCall(`genos biomimicry anti-collision --agent-id ${args.agent_id || 'griot-01'} --consumed-tokens ${args.consumed_tokens || 600} ${args.physical_test_passed ? '--physical-test-passed' : ''}`.trim(), timeoutMs);
+      return handleBioCall(`genos biomimicry anti-collusion --agent-id ${args.agent_id || 'griot-01'} --consumed-tokens ${args.consumed_tokens || 600} ${args.physical_test_passed ? '--physical-test-passed' : ''}`.trim(), timeoutMs);
     },
     'genos_biomimicry_redundancy': (args, timeoutMs) => {
       return handleBioCall(`genos biomimicry redundancy --expected-tool "${args.expected_tool || 'default_tool'}" --mutated-tool "${args.mutated_tool || args.expected_tool || 'default_tool'}" ${args.fallback ? '--fallback' : ''}`.trim(), timeoutMs);

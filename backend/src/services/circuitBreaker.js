@@ -128,7 +128,7 @@ class CircuitBreakerService {
     }
 
     // Anti-loop protection: detect identical consecutive executions even for non-destructive tools
-    const isLoopExempt = /^genos_(?:organization_state|worker_inbox|report_progress)$/i.test(toolName);
+    const isLoopExempt = /^(?:genos_)?(?:organization_state|worker_inbox|report_progress)$/i.test(toolName);
     if (!isLoopExempt) {
       const argSig = this.argumentSignature(args);
       const callSig = `${toolName}:${argSig}`;
@@ -181,10 +181,18 @@ class CircuitBreakerService {
     }
 
     if (effectiveState === 'HALF-OPEN' && isDestructive) {
-      if (stateContext.halfOpenProbe) {
+      if (globalState === 'HALF-OPEN' && this.halfOpenProbe) {
+        return { allowed: false, reason: 'CANARY_IN_PROGRESS', message: `Circuit breaker canary '${this.halfOpenProbe}' is already in progress.` };
+      }
+      if (scopedState === 'HALF-OPEN' && stateContext.halfOpenProbe) {
         return { allowed: false, reason: 'CANARY_IN_PROGRESS', message: `Circuit breaker canary '${stateContext.halfOpenProbe}' is already in progress.` };
       }
-      stateContext.halfOpenProbe = toolName;
+      if (globalState === 'HALF-OPEN') {
+        this.halfOpenProbe = toolName;
+      }
+      if (scopedState === 'HALF-OPEN') {
+        stateContext.halfOpenProbe = toolName;
+      }
     }
 
     return { allowed: true, state: effectiveState };
@@ -192,12 +200,15 @@ class CircuitBreakerService {
 
   recordSuccess(toolName, scope = 'global') {
     const state = this.context(scope);
-    if (state.state === 'HALF-OPEN' && state.halfOpenProbe === toolName) {
-      state.state = 'CLOSED';
-      state.failureCount = 0;
-      state.failureTimes = [];
-      state.halfOpenProbe = null;
-      state.lastStateChange = Date.now();
+    const globalCanaryMatch = this.state === 'HALF-OPEN' && this.halfOpenProbe === toolName;
+    const scopedCanaryMatch = scope !== 'global' && state.state === 'HALF-OPEN' && state.halfOpenProbe === toolName;
+
+    if (globalCanaryMatch) {
+      this.state = 'CLOSED';
+      this.failureCount = 0;
+      this.failureTimes = [];
+      this.halfOpenProbe = null;
+      this.lastStateChange = Date.now();
       telemetry.emitEvent({
         eventType: 'CIRCUIT_BREAKER_RESET',
         agentId: 'circuit_breaker',
@@ -205,12 +216,29 @@ class CircuitBreakerService {
         detail: `Canary execution of '${toolName}' succeeded. Circuit breaker reset to CLOSED.`,
         severity: 'info'
       });
-      return;
     }
-    if (state.state === 'CLOSED') {
+
+    if (scopedCanaryMatch) {
+      state.state = 'CLOSED';
       state.failureCount = 0;
       state.failureTimes = [];
-      state.lastFailureTime = 0;
+      state.halfOpenProbe = null;
+      state.lastStateChange = Date.now();
+      telemetry.emitEvent({
+        eventType: 'CIRCUIT_BREAKER_RESET',
+        agentId: typeof scope === 'string' ? scope : 'circuit_breaker',
+        action: 'RESET',
+        detail: `Canary execution of '${toolName}' succeeded. Scoped circuit breaker for '${scope}' reset to CLOSED.`,
+        severity: 'info'
+      });
+    }
+
+    if (!globalCanaryMatch && !scopedCanaryMatch) {
+      if (state.state === 'CLOSED') {
+        state.failureCount = 0;
+        state.failureTimes = [];
+        state.lastFailureTime = 0;
+      }
     }
   }
 
@@ -224,11 +252,25 @@ class CircuitBreakerService {
 
     telemetry.emitEvent({
       eventType: 'TOOL_FAILURE',
-      agentId: 'circuit_breaker',
+      agentId: typeof scope === 'string' ? scope : 'circuit_breaker',
       action: 'FAILURE_RECORDED',
       detail: `Tool '${toolName}' failed (${state.failureCount}/3). Error: ${errorDetail}`,
       severity: 'warning'
     });
+
+    const isGlobalCanaryFailure = this.state === 'HALF-OPEN' && this.halfOpenProbe === toolName;
+    if (isGlobalCanaryFailure) {
+      this.state = 'OPEN';
+      this.halfOpenProbe = null;
+      this.lastStateChange = now;
+      telemetry.emitEvent({
+        eventType: 'CIRCUIT_BREAKER_TRIPPED',
+        agentId: 'circuit_breaker',
+        action: 'TRIP',
+        detail: `Global circuit breaker TRIPPED to OPEN after canary tool failure: ${toolName}`,
+        severity: 'critical'
+      });
+    }
 
     if (state.failureCount >= 3 || (state.state === 'HALF-OPEN' && state.halfOpenProbe === toolName)) {
       state.state = 'OPEN';
@@ -236,7 +278,7 @@ class CircuitBreakerService {
       state.lastStateChange = now;
       telemetry.emitEvent({
         eventType: 'CIRCUIT_BREAKER_TRIPPED',
-        agentId: 'circuit_breaker',
+        agentId: typeof scope === 'string' ? scope : 'circuit_breaker',
         action: 'TRIP',
         detail: `Circuit breaker TRIPPED to OPEN after tool failure: ${toolName}`,
         severity: 'critical'

@@ -14,6 +14,7 @@ async function run() {
 
   const dbPath = path.resolve(__dirname, 'worker-garage-test.db');
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+  process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'test-admin-password';
   const db = await getDatabase(dbPath);
   try {
     process.env.GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT = '3';

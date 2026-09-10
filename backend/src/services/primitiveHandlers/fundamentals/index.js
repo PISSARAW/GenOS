@@ -150,8 +150,8 @@ async function getLineageDepth(db, agentId) {
 }
 
 async function enforceReproductionLimits(db, parentId, context = {}) {
-  const requestedDepth = Number(context.maxDepth || context.max_depth || DEFAULT_HAYFLICK_MAX_DEPTH);
-  const requestedBuds = Number(context.maxBuds || context.max_buds || context.hayflickLimit || DEFAULT_HAYFLICK_MAX_BUDS);
+  const requestedDepth = Number(context.maxDepth || context.max_depth || context.hayflickMaxDepth || context.hayflick_max_depth || DEFAULT_HAYFLICK_MAX_DEPTH);
+  const requestedBuds = Number(context.maxBuds || context.max_buds || context.hayflickLimit || context.hayflick_limit || DEFAULT_HAYFLICK_MAX_BUDS);
   const maxDepth = Number.isFinite(requestedDepth) ? Math.max(1, Math.min(HARD_HAYFLICK_MAX_DEPTH, Math.floor(requestedDepth))) : DEFAULT_HAYFLICK_MAX_DEPTH;
   const maxBuds = Number.isFinite(requestedBuds) ? Math.max(1, Math.min(HARD_HAYFLICK_MAX_BUDS, Math.floor(requestedBuds))) : DEFAULT_HAYFLICK_MAX_BUDS;
   const currentDepth = await getLineageDepth(db, parentId);
@@ -416,7 +416,7 @@ async function cryptobiosisFreeze(context) {
   const agent = await db.get('SELECT id, workspace_id, status FROM agents WHERE id = ?', agentId);
   if (!agent) return { success: false, error: `Agent '${agentId}' not found.` };
   const state = context.state || context.snapshot || { agentId, workspaceId: agent.workspace_id, frozenAt: Date.now() };
-  const runtimeStopped = runtimeAdapter.stopMission(agentId);
+  const runtimeStopped = Boolean(await runtimeAdapter.stopMission(agentId));
   try {
     const res = await genosCli.runCryptobiosisFreeze(agentId, { state });
     const data = res.data;

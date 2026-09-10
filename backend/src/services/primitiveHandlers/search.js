@@ -289,7 +289,7 @@ async function prmEvaluate(context) {
 async function schizogonyBurst(context = {}) {
   const db = await getDatabase();
   const agentId = context.agentId || context.orchestratorId || context.nodeId || 'schizont_root';
-  const merozoiteCount = Number(context.merozoiteCount || context.count || 4);
+  const merozoiteCount = Number(context.merozoiteCount ?? context.count ?? 4);
   const mutationRate = Number(context.mutationRate !== undefined ? context.mutationRate : 0.05);
   const seed = context.seed || 'mcts_schizogony_burst';
   const workspaceId = context.workspaceId || 'workspace-default';

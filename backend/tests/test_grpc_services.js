@@ -31,9 +31,20 @@ async function runGrpcSuite() {
     registerAllServices(server, desc);
   }
 
+  let actualGrpcPort = TEST_PORT;
   await new Promise((resolve, reject) => {
     server.bindAsync(`127.0.0.1:${TEST_PORT}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
-      if (err) return reject(err);
+      if (err || port === 0) {
+        server.bindAsync('127.0.0.1:0', grpc.ServerCredentials.createInsecure(), (err2, port2) => {
+          if (err2 || port2 === 0) return reject(err2 || new Error('Failed to bind gRPC port'));
+          actualGrpcPort = port2;
+          server.start();
+          console.log(`[gRPC Test] Server listening on fallback port ${port2}`);
+          resolve();
+        });
+        return;
+      }
+      actualGrpcPort = port;
       server.start();
       console.log(`[gRPC Test] Server listening on port ${port}`);
       resolve();
@@ -42,7 +53,7 @@ async function runGrpcSuite() {
 
   const clients = [];
   function createClient(serviceDef) {
-    const client = new serviceDef(`127.0.0.1:${TEST_PORT}`, grpc.credentials.createInsecure());
+    const client = new serviceDef(`127.0.0.1:${actualGrpcPort}`, grpc.credentials.createInsecure());
     clients.push(client);
     return client;
   }
@@ -261,18 +272,18 @@ async function runGrpcSuite() {
     const orchDesc = descriptors.orchestrator.genos.orchestrator.v1;
     const orchClient = createClient(orchDesc.OrchestratorService);
     await db.run(
-      `INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id)
-       VALUES (?, ?, ?, 'idle', 'orchestrator', ?, NULL)
-       ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role, status=excluded.status, execution_mode=excluded.execution_mode, workspace_id=excluded.workspace_id, parent_agent_id=excluded.parent_agent_id`,
+      `INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id, is_apoptotic)
+       VALUES (?, ?, ?, 'idle', 'orchestrator', ?, NULL, 0)
+       ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role, status=excluded.status, execution_mode=excluded.execution_mode, workspace_id=excluded.workspace_id, parent_agent_id=excluded.parent_agent_id, is_apoptotic=0`,
       'orch-prime',
       'gRPC orchestrator',
       'orchestrator',
       'ws-test-identity'
     );
     await db.run(
-      `INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id)
-       VALUES (?, ?, ?, 'idle', 'worker', ?, ?)
-       ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role, status=excluded.status, execution_mode=excluded.execution_mode, workspace_id=excluded.workspace_id, parent_agent_id=excluded.parent_agent_id`,
+      `INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id, is_apoptotic)
+       VALUES (?, ?, ?, 'idle', 'worker', ?, ?, 0)
+       ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role, status=excluded.status, execution_mode=excluded.execution_mode, workspace_id=excluded.workspace_id, parent_agent_id=excluded.parent_agent_id, is_apoptotic=0`,
       'worker-sub-1',
       'gRPC worker',
       'worker',

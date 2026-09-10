@@ -264,35 +264,52 @@ async function stopMission(agentId) {
   pendingContinuations.delete(agentId);
   pendingWorkerRecoveries.delete(agentId);
   autonomousRounds.delete(agentId);
+  cancelledStarts.add(agentId);
+
+  let barrierStopped = false;
+  const barrier = activeWorkerBarriers.get(agentId);
+  if (barrier) {
+    barrier.cancelled = true;
+    activeWorkerBarriers.delete(agentId);
+    await Promise.all([...barrier.workerIds].map((workerId) => stopMission(workerId)));
+    barrierStopped = true;
+  }
+
+  try {
+    const db = await getDatabase();
+    const children = await db.all(
+      "SELECT id FROM agents WHERE parent_agent_id = ? AND status IN ('running', 'ready', 'active')",
+      agentId
+    );
+    if (children && children.length > 0) {
+      await Promise.all(children.map((c) => stopMission(c.id)));
+      barrierStopped = true;
+    }
+  } catch (_) {}
+
   const child = activeProcesses.get(agentId);
-  if (!child && missionStarts.has(agentId)) {
-    cancelledStarts.add(agentId);
+  if (child) {
+    child.genosStopRequested = true;
+    terminateChild(child);
     return true;
   }
-  if (!child) {
-    const barrier = activeWorkerBarriers.get(agentId);
-    if (barrier) {
-      barrier.cancelled = true;
-      await Promise.all([...barrier.workerIds].map((workerId) => stopMission(workerId)));
-      return true;
-    }
+
+  if (missionStarts.has(agentId)) {
+    return true;
   }
-  if (!child) {
+
+  try {
     const db = await getDatabase();
     const agent = await db.get('SELECT runtime_pid, runtime_executable FROM agents WHERE id = ?', agentId);
     if (agent?.runtime_pid) {
       const matches = processMatches(agent.runtime_pid, agent.runtime_executable);
       if (matches) terminatePid(agent.runtime_pid);
       await db.run("UPDATE agents SET status = ?, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", matches ? 'blocked' : 'error', matches ? 'Stopped from Studio' : 'Persisted runtime PID did not match its executable.', agentId);
+      return Boolean(matches);
     }
-    return false;
-  }
-  // The close handler recognizes this marker as an operator-requested halt,
-  // rather than reporting SIGTERM as a runtime failure.
-  cancelledStarts.add(agentId);
-  child.genosStopRequested = true;
-  terminateChild(child);
-  return true;
+  } catch (_) {}
+
+  return barrierStopped;
 }
 
 function stopAllMissions() {

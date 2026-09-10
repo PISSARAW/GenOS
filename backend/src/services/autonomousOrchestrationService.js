@@ -88,8 +88,8 @@ function buildAutonomyPlan(contract, budget = {}) {
     : branches.map((branch, index) => workerRole(branch.label, branch.hypothesis, index === 0 ? 'implementation' : 'independent_reviewer', index === 0 ? 'frontier' : 'standard'));
 
   const requiredTools = [...new Set(realizable.flatMap((entry) => entry.requiredTools))];
-  const totalTokens = Number(budget.tokens || 500000);
-  const minimumWorkerTokens = Number(budget.minimumWorkerTokens || 8000);
+  const totalTokens = Number(budget.tokens ?? 500000);
+  const minimumWorkerTokens = Number(budget.minimumWorkerTokens ?? 8000);
   const workerShare = Number.isFinite(Number(budget.workerShare))
     ? Math.max(0, Math.min(1, Number(budget.workerShare)))
     : (Number.isFinite(Number(budget.tokenPolicy?.workerShare))

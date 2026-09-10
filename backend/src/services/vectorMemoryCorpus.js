@@ -192,9 +192,36 @@ async function fetchCorpus(db, query, queryVec, options = {}) {
 
   // Fallback: standard SQL table scan
   try {
-    const ownerParams = ownerId ? [ownerId] : [];
-    const trajectories = await db.all(`SELECT id, title, status, author_name, semantic_summary, diff_lines, created_at, embedding_blob FROM trajectories${ownerId ? ' WHERE author_id = ?' : ''} ORDER BY created_at DESC LIMIT 50`, ownerParams);
-    const decisions = await db.all(`SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions${ownerFilter ? ' WHERE created_by = ?' : ''} ORDER BY created_at DESC LIMIT 50`, ownerParams);
+    const trajConditions = [];
+    const trajParams = [];
+    if (ownerId) {
+      trajConditions.push('author_id = ?');
+      trajParams.push(ownerId);
+    }
+    if (orgId) {
+      trajConditions.push('(workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?' + (projectId ? ' AND project_id = ?' : '') + ') OR workspace_id IS NULL)');
+      trajParams.push(orgId);
+      if (projectId) trajParams.push(projectId);
+    }
+    const trajWhere = trajConditions.length > 0 ? ` WHERE ${trajConditions.join(' AND ')}` : '';
+    const trajectories = await db.all(`SELECT id, title, status, author_name, semantic_summary, diff_lines, created_at, embedding_blob FROM trajectories${trajWhere} ORDER BY created_at DESC LIMIT 50`, trajParams);
+
+    const decConditions = [];
+    const decParams = [];
+    if (ownerId) {
+      decConditions.push('created_by = ?');
+      decParams.push(ownerId);
+    }
+    if (orgId) {
+      decConditions.push('(organization_id = ? OR organization_id IS NULL)');
+      decParams.push(orgId);
+    }
+    if (projectId) {
+      decConditions.push('(project_id = ? OR project_id IS NULL)');
+      decParams.push(projectId);
+    }
+    const decWhere = decConditions.length > 0 ? ` WHERE ${decConditions.join(' AND ')}` : '';
+    const decisions = await db.all(`SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions${decWhere} ORDER BY created_at DESC LIMIT 50`, decParams);
     return [
       ...trajectories.map(item => {
         let diffLines = [];
