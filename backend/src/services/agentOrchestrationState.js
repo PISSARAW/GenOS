@@ -6,6 +6,7 @@
  */
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
+const leasePolicy = require('./toolLeasePolicy');
 
 const activeProcesses = new Map();
 const missionStarts = new Map();
@@ -17,7 +18,12 @@ const workerEvidenceRounds = new Map();
 const activeWorkerRecoveryDispatches = new Set();
 const activeWorkerBarriers = new Map();
 
-const TERMINAL_AGENT_STATUSES = new Set(['idle', 'completed', 'blocked', 'error', 'terminated', 'apoptosis', 'quarantined']);
+// Terminal = no further transition is possible. `idle` is the initial and
+// re-arm state (workers are INSERTed as idle, recovery re-arms to idle) and
+// `blocked` is a budget/guard halt that recovery or release can leave, so
+// neither is terminal. Readers (worker quiescence barrier, chaos eligibility)
+// observe this set live and now wait for / consider those states correctly.
+const TERMINAL_AGENT_STATUSES = new Set(['completed', 'error', 'terminated', 'apoptosis', 'quarantined']);
 const WORKER_EVIDENCE_EVENTS = new Set([
   'EVIDENCE_REPORT', 'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED',
   'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'MISSION_NO_ANSWER_PROVEN',
@@ -55,26 +61,11 @@ function emit(..._args) {
 }
 
 function workerToolLease(role) {
-  const lease = ['genos_search_failures', 'genos_diagnose', 'genos_hypothesis_evidence', 'genos_snapshot', 'genos_run', 'genos_diff', 'genos_evaluate_trajectories', 'genos_record_experience', 'genos_replay', 'genos_organization_state', 'genos_worker_publish', 'genos_worker_inbox'];
-  if (/reviewer|observer/i.test(role || '')) lease.push('genos_adversarial_review');
-  if (/red_team|blue_team/i.test(role || '')) lease.push('genos_security_coevolution');
-  return lease;
+  return leasePolicy.workerLeaseForRole(role);
 }
 
-function orchestratorToolLease(plan = {}) {
-  const core = [
-    'genos_search_failures', 'genos_diagnose', 'genos_hypothesis_evidence',
-    'genos_snapshot', 'genos_fork', 'genos_create', 'genos_solve', 'genos_run',
-    'genos_diff', 'genos_evaluate_trajectories', 'genos_merge',
-    'genos_record_experience', 'genos_record_decision', 'genos_replay',
-    'genos_adversarial_review', 'genos_compile_memory',
-    'genos_resilience_hypermutation', 'genos_security_coevolution',
-    'genos_parasitic_pressure', 'genos_delegate_worker', 'genos_a_team_preview',
-    'genos_trinity_launch', 'genos_change_strategy', 'genos_change_organization', 'genos_organization_state',
-    'genos_worker_publish', 'genos_worker_inbox', 'genos_report_progress'
-  ];
-  return [...new Set([...core, ...(plan.requiredTools || [])])]
-    .filter((tool) => tool !== 'genos_orchestrate');
+function orchestratorToolLease(plan, knownTools) {
+  return leasePolicy.orchestratorLeaseForPlan(plan || {}, knownTools);
 }
 
 async function updateAgent(agentId, status, currentTask) {

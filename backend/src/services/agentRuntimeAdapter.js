@@ -28,8 +28,10 @@ const {
 const { orchestrateAutonomousWorkers } = require('./agentRuntimeAdapter/missionWorkers');
 const { stopMissionChildren, stopPersistedRuntime } = require('./agentRuntimeAdapter/missionShutdown');
 const {
-  reconcilePersistedRuntimeRow, reconcileDeadOrchestratorWorkers, reconcileOrphanedRunning
+  reconcilePersistedRuntimeRow, reconcileOrphanedRunning
 } = require('./agentRuntimeAdapter/missionReconcile');
+const leasePolicy = require('./toolLeasePolicy');
+const agentAuthority = require('./agentAuthorityService');
 
 async function attachMissionMemoryContext(normalizedMission, agentId) {
   const task = normalizedMission.prompt || normalizedMission.currentTask || '';
@@ -70,10 +72,47 @@ async function bootstrapMission(mission) {
   await attachMissionMemoryContext(ctx.normalizedMission, ctx.agentId);
   assertMissionNotCancelled(ctx.agentId);
   applyExecutionPolicy(ctx);
+  enforceMissionToolLease(ctx);
   computeRuntimeBudget(ctx);
   await createMissionExecutionRun(ctx);
   reportOrchestratorStart(ctx);
   return ctx;
+}
+
+// Fail-closed lease enforcement (bug #6.1): a caller-supplied toolLease can
+// only ever RESTRICT the policy-derived lease, never widen it, and every
+// `genos_orchestrate` spelling is stripped. The provided lease is verified
+// against the CURRENT role first so a lease frozen before a role mutation
+// fails with AGENT_TOOL_LEASE_STALE instead of running over-privileged.
+function enforceMissionToolLease(ctx) {
+  const dispatched = ctx.dispatchedAgent || {};
+  const mission = ctx.normalizedMission || {};
+  const role = mission.role || dispatched.role;
+  const provided = mission.toolLease;
+  agentAuthority.assertToolLeaseFresh(
+    { id: ctx.agentId, execution_mode: dispatched.execution_mode, role },
+    provided,
+    ctx.autonomyPlan
+  );
+  const policy = leasePolicy.derivePolicyLease(dispatched.execution_mode, role, ctx.autonomyPlan);
+  mission.toolLease = leasePolicy.restrictProvidedLease(provided, policy);
+  ctx.normalizedMission = mission;
+}
+
+// Cascade-of-death guard (bug #7.7): only reap `running` children of parents
+// in a DESTRUCTIVE state (apoptosis/terminated/error). A `completed` parent
+// is a success, never a kill signal, and `blocked` children are budget/guard
+// holds that must survive reconciliation.
+async function reconcileDeadOrchestratorChildren(db) {
+  const result = await db.run(`
+    UPDATE agents
+    SET status = 'terminated', current_task = 'Terminated following parent orchestrator termination/apoptosis',
+        runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP
+    WHERE parent_agent_id IN (
+      SELECT id FROM agents WHERE execution_mode = 'orchestrator' AND (status IN ('apoptosis', 'terminated', 'error') OR is_apoptotic = 1)
+    ) AND execution_mode = 'worker' AND status = 'running'
+  `);
+  return result?.changes || 0;
 }
 
 async function startMissionInternal(mission) {
@@ -187,7 +226,7 @@ async function reconcilePersistedRuntimes(db) {
     reconciled += await reconcilePersistedRuntimeRow(db, row);
   }
 
-  reconciled += await reconcileDeadOrchestratorWorkers(db);
+  reconciled += await reconcileDeadOrchestratorChildren(db);
   reconciled += await reconcileOrphanedRunning(db);
 
   return reconciled;
