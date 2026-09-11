@@ -62,6 +62,8 @@ fn apply_kind(text: &mut String, fields: &mut SharedFields, kind: &CrdtOpKind) {
         CrdtOpKind::InsertText { index, text: insert_str } => apply_insert(text, *index, insert_str),
         CrdtOpKind::DeleteText { index, len } => apply_delete(text, *index, *len),
         CrdtOpKind::SetField { key, value } => { fields.insert(key.clone(), value.clone()); },
+        CrdtOpKind::IonicFlux { ion, concentration, gradient } => { fields.insert(format!("ion:{ion}"), serde_json::json!({ "concentration": concentration, "gradient": gradient })); },
+        CrdtOpKind::CytoplasmicDiffusion { molecule, vector } => { fields.insert(format!("diffusion:{molecule}"), serde_json::json!({ "vector": vector })); },
         _ => {}
     }
 }
