@@ -746,5 +746,21 @@ flowchart TD
     Q1 & Q2 & Q3 & Q4 --> Quorum["Quorum Isogénique (Seuil >= 75%)"]
 ```
 
+### 5. Chimérisme Germinal du Ouistiti (Délégation Héréditaire Fraternelle)
+
+Le mécanisme `genos_biomimicry_marmoset_germline_chimerism` implémente le transfert de cellules germinales entre agents jumeaux. Lorsqu'un agent découvreur épuise ses ressources cognitives, son jumeau survivant prend le relais et procrée à sa place, transmettant l'intégralité du génome et des heuristiques du découvreur à la descendance.
+
+```mermaid
+flowchart LR
+    subgraph MarmosetTwins["Paire Gémellaire Ouistiti"]
+        A1["Agent A (Découvreur, Proche de l'Épuisement)"]
+        A2["Agent B (Proxy Sain, Réserve Active)"]
+    end
+
+    A1 -->|"Transfert Germinal (ADN & Synapses de A)"| A2
+    A2 -->|"Procréation par délégation"| Child["Descendant (Génération g+1 avec ADN de A)"]
+```
+
+
 
 ```
