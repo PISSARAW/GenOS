@@ -611,6 +611,27 @@ Grâce à `genos_biomimicry_heteropaternal_superfecundation`, l'orchestrateur pe
 
 L'orchestrateur injecte des agents cadets (`genos_biomimicry_superfetation_pipeline`) dans des contextes où des agents aînés ont déjà défriché l'arbre de décision. Le cadet démarre avec un différentiel d'âge gestationnel $\Delta T$, bénéficiant de l'effet d'entraînement des preuves de l'aîné sans bloquer ce dernier.
 
+## 17.sexies Pipeline Séquentiel à Diapause Embryonnaire (3-Tiers sans Creux)
+
+Inspiré du kangourou, `genos_biomimicry_embryonic_diapause_pipeline` maintient un flux d'exécution continu à 3 étages :
+1. **Étage 1 (Sortie / Production) :** Validation finale et déploiement du travail.
+2. **Étage 2 (Gestation Active / Poche) :** Élaboration et compilation du code en cours.
+3. **Étage 3 (Diapause Utérine / 0 Token) :** Embryon de tâche suivante pré-configuré mais suspendu.
+
+Dès que l'Étage 1 se termine, l'Étage 2 est promu et l'Étage 3 sort instantanément de diapause sans latence de démarrage à froid.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    state "Étage 1 : Production / Release" as E1
+    state "Étage 2 : Gestation Active (Poche)" as E2
+    state "Étage 3 : Diapause Embryonnaire (Utérus - 0 Token)" as E3
+
+    E3 --> E2 : Réveil instantané dès libération du slot
+    E2 --> E1 : Promotion post-validation
+    E1 --> [*] : Déploiement achevé
+```
+
 ---
 
 ## 18. Limites et risques
