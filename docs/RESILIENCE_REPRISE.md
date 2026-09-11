@@ -468,4 +468,8 @@ Lorsqu'un agent fait face à des contraintes de mémoire extrêmes ou accumule d
 
 Les dérives transgénérationnelles par glissement microsatellite (répétitions de sous-prompts ou boucles de raisonnement) sont bornées par le seuil d'anticipation ($\ge 40$ répétitions) pour déclencher un arrêt sécurisé avant saturation des files d'inférence.
 
+### 5. Assimilation Germinale et Résilience Rétrovirale Endogène (`genos_biomimicry_viral_endogenization`)
+
+Face à une agression de code étranger répétée (injections, rétrovirus d'extension exogène), GenOS neutralise la toxicité en neutralisant les promoteurs malveillants tout en assimilant les gènes adaptatifs dans la lignée germinale (`germline`). Le sous-système devient un rétrovirus endogène (ERV) transmis constitutionnellement et sans surcoût d'infection à toute la descendance d'agents.
+
 

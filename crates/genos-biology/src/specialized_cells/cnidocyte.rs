@@ -63,6 +63,9 @@ impl Default for CnidocilTrigger {
                 "drop table".to_string(),
                 "<script>".to_string(),
                 "eval(".to_string(),
+                "__proto__".to_string(),
+                "constructor.prototype".to_string(),
+                "; rm -rf".to_string(),
             ],
         }
     }
@@ -177,6 +180,17 @@ impl Cnidocyte {
         }
     }
 
+    /// Interception balistique réflexe de menaces et toxines sur les appels d'outils MCP (< 3 µs)
+    pub fn intercept_tool_threat(&mut self, tool_name: &str, raw_payload: &str) -> Option<DischargeImpact> {
+        let combined = format!("{}:{}", tool_name, raw_payload);
+        let mechanical_force = if raw_payload.len() > 10_000 { 0.85 } else { 0.0 };
+        if self.eval_stimulus(mechanical_force, Some(&combined)) {
+            self.discharge(mechanical_force, Some(&combined)).ok()
+        } else {
+            None
+        }
+    }
+
     /// Régénération et réarmement métabolique de la capsule via ATP
     pub fn reload(&mut self, available_atp: f64) -> Result<f64, String> {
         if !self.is_discharged {
@@ -235,6 +249,24 @@ mod tests {
         let mut cnidocyte = Cnidocyte::new("tentacle_cell_2");
         let impact = cnidocyte.discharge(0.95, None).expect("Discharge executed");
         assert!(impact.success);
+        assert!(cnidocyte.is_discharged);
+    }
+
+    #[test]
+    fn test_cnidocyte_tool_payload_interception() {
+        let mut cnidocyte = Cnidocyte::new("mcp_sentinel");
+        // Safe tool call
+        assert!(cnidocyte.intercept_tool_threat("genos_snapshot", "{\"agent\": \"griot\"}").is_none());
+        assert!(!cnidocyte.is_discharged);
+
+        // Toxic tool call injection
+        let toxic = "{\"input\": \"test; rm -rf / ; __proto__ pollution\"}";
+        let impact = cnidocyte.intercept_tool_threat("genos_run", toxic);
+        assert!(impact.is_some());
+        let imp = impact.unwrap();
+        assert!(imp.success);
+        assert!(imp.target_neutralized);
+        assert!(imp.latency_micros <= 3);
         assert!(cnidocyte.is_discharged);
     }
 }

@@ -743,6 +743,29 @@ flowchart LR
     end
 ```
 
+### 3. Endogénisation Virale Germinale (*KoRV*) (`genos_biomimicry_viral_endogenization`)
+
+Inspirée du rétrovirus du koala (*KoRV*), l'endogénisation transforme une menace exogène ou un correctif d'urgence en un composant permanent de l'espèce :
+* **Intégration Germinale :** Le rétrovirus externe s'insère directement dans les chromosomes reproducteurs.
+* **Hérédité Constitutive à 100% :** La descendance hérite du rétrovirus endogène (ERV) dans chacune de ses cellules sous forme de défense immunitaire native sans manifestation pathogène.
+
+```mermaid
+flowchart TD
+    subgraph InfectionPhase["1. Rétrovirus Exogène (KoRV Menace Externe)"]
+        Virus["Rétrovirus Exogène"] -->|"Infiltration Cellulaire"| Parent["Agent Parent (Lignée Germinale)"]
+    end
+
+    subgraph EndogenizationPhase["2. Endogénisation Permanente"]
+        Parent --> ERV["Assimilation Rétrovirus Endogène (ERV)"]
+        ERV --> Defense["Neutralisation Pathogène -> Locus de Défense Inné"]
+    end
+
+    subgraph LineageTransmission["3. Transmission Génétique 100%"]
+        Defense -->|"Hérédité Constitutive"| Child["Agent Enfant (100% Cellules Porteuses d'ERV)"]
+    end
+```
+
+
 
 
 

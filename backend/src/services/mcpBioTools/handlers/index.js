@@ -71,6 +71,7 @@ const { handleMitochondrialDnaMutation, handleMitochondrialDnaMutationError } = 
 const { handleEpigeneticMethylation, handleEpigeneticMethylationError } = require('./epigeneticMethylation');
 const { handleHorizontalGeneTransfer, handleHorizontalGeneTransferError } = require('./horizontalGeneTransfer');
 const { handleAgrobacteriumTdnaHijack, handleAgrobacteriumTdnaHijackError } = require('./agrobacteriumTdnaHijack');
+const { handleViralEndogenization, handleViralEndogenizationError } = require('./viralEndogenization');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -147,6 +148,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_epigenetic_methylation: { handle: handleEpigeneticMethylation, error: handleEpigeneticMethylationError },
   genos_biomimicry_horizontal_gene_transfer: { handle: handleHorizontalGeneTransfer, error: handleHorizontalGeneTransferError },
   genos_biomimicry_agrobacterium_tdna_hijack: { handle: handleAgrobacteriumTdnaHijack, error: handleAgrobacteriumTdnaHijackError },
+  genos_biomimicry_viral_endogenization: { handle: handleViralEndogenization, error: handleViralEndogenizationError },
 };
 
 module.exports = { TOOL_HANDLERS };

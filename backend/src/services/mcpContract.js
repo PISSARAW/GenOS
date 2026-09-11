@@ -238,4 +238,24 @@ function getFullToolSchema(toolName) {
   return getToolInputSchema(toolName, baseSchema);
 }
 
-module.exports = { MCP_CONTRACT_VERSION, getToolInputSchema, getFullToolSchema, normalizeMcpEnvelope, TOOL_BASE_SCHEMAS };
+function validateStericOrSchema(toolName, args) {
+  const { dockLigandToReceptor } = require('./mcpLigandReceptorService');
+  const docking = dockLigandToReceptor(toolName, args);
+  if (docking.reflexDischarged) {
+    return { valid: false, reflexDischarged: true, error: docking.error, docking };
+  }
+  if (docking.docked) {
+    return { valid: true, mode: 'catalytic_docking', docking };
+  }
+  return { valid: true, mode: 'fallback_json_schema', docking };
+}
+
+module.exports = {
+  MCP_CONTRACT_VERSION,
+  getToolInputSchema,
+  getFullToolSchema,
+  normalizeMcpEnvelope,
+  TOOL_BASE_SCHEMAS,
+  validateStericOrSchema
+};
+
