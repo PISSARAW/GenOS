@@ -69,11 +69,12 @@ const CATALYTIC_POCKETS = {
   }
 };
 
-function checkCnidocyteReflex(toolName, rawPayload) {
+function buildPayloadHaystack(toolName, rawPayload) {
   let haystack = `${toolName || ''}:`;
   if (typeof rawPayload === 'string') {
-    haystack += rawPayload;
-  } else if (rawPayload && typeof rawPayload === 'object') {
+    return (haystack + rawPayload).toLowerCase();
+  }
+  if (rawPayload && typeof rawPayload === 'object') {
     haystack += JSON.stringify(rawPayload);
     try {
       if (Object.prototype.hasOwnProperty.call(rawPayload, '__proto__') ||
@@ -82,19 +83,28 @@ function checkCnidocyteReflex(toolName, rawPayload) {
       }
     } catch (_) {}
   }
-  haystack = haystack.toLowerCase();
+  return haystack.toLowerCase();
+}
 
+function findToxinSignature(haystack) {
   for (const sig of CNIDOCIL_TOXIN_SIGNATURES) {
-    if (haystack.includes(sig)) {
-      return {
-        intercepted: true,
-        latencyMicros: 2,
-        toxinDetected: sig,
-        residualPressureMpa: 0.75,
-        status: 'cnidocyte_neutralized',
-        message: `Cnidocyte harpoon projected in 2µs! Neutralized toxic pattern: '${sig}'.`
-      };
-    }
+    if (haystack.includes(sig)) return sig;
+  }
+  return null;
+}
+
+function checkCnidocyteReflex(toolName, rawPayload) {
+  const haystack = buildPayloadHaystack(toolName, rawPayload);
+  const toxin = findToxinSignature(haystack);
+  if (toxin) {
+    return {
+      intercepted: true,
+      latencyMicros: 2,
+      toxinDetected: toxin,
+      residualPressureMpa: 0.75,
+      status: 'cnidocyte_neutralized',
+      message: `Cnidocyte harpoon projected in 2µs! Neutralized toxic pattern: '${toxin}'.`
+    };
   }
   if (typeof rawPayload === 'string' && rawPayload.length > 25000) {
     return {
