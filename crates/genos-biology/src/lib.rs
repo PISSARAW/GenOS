@@ -1,4 +1,4 @@
-﻿pub use genos_cell as cell;
+pub use genos_cell as cell;
 pub use genos_genome as genome;
 
 pub mod bioluminescence;
@@ -13,7 +13,10 @@ pub mod phenotype;
 pub mod quorum;
 pub use quorum::{AutoinducerType, QuorumPhenotype, QuorumSensingSystem};
 pub mod redundancy;
+pub mod sensory;
 pub mod signaling;
+pub mod specialized_cells;
+pub use specialized_cells::cnidocyte::{Cnidocyte, NematocystCapsule, ToxinPayload};
 pub mod spore;
 pub mod therapy;
 pub mod tissue;

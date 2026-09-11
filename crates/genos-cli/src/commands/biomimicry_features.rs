@@ -14,6 +14,8 @@ pub fn handle_bio_feature(feature: &str, action: &str, params: &[String]) {
         "hippocampal" => handle_hippocampal(action, params),
         "proceduralization" => handle_proceduralization(action, params),
         "gate" => handle_gate_eval(action, params),
+        "vomeronasal" | "accessory_olfactory" => handle_vomeronasal(action, params),
+        "cnidocyte" | "nematocyst" => handle_cnidocyte(action, params),
         _ => {
             println!("{}", json!({
                 "success": true, "operation": "bio_feature",
@@ -247,3 +249,106 @@ fn handle_gate_eval(action: &str, params: &[String]) {
         "params": params, "invariant_verified": true, "verdict": "PERMITTED"
     }));
 }
+
+fn handle_vomeronasal(action: &str, params: &[String]) {
+    let source_agent = extract_param(params, "agent_id")
+        .or_else(|| extract_param(params, "source_agent"))
+        .unwrap_or_else(|| "agent_0".to_string());
+    let locus = extract_param(params, "locus").unwrap_or_else(|| "global_field".to_string());
+    let ptype_str = extract_param(params, "pheromone_type").unwrap_or_else(|| "alarm".to_string());
+    let concentration: f64 = extract_param(params, "concentration")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0.8);
+    let sensitivity: f64 = extract_param(params, "sensitivity")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0.15);
+
+    let ptype = match ptype_str.to_lowercase().as_str() {
+        "alarm" => genos_biology::sensory::PheromoneType::Alarm,
+        "aggression" | "defense" | "aggression_defense" => genos_biology::sensory::PheromoneType::AggressionDefense,
+        "cooperation" | "mating" | "mating_cooperation" => genos_biology::sensory::PheromoneType::MatingCooperation,
+        "territory" | "territory_mark" => genos_biology::sensory::PheromoneType::TerritoryMark,
+        "trail" => genos_biology::sensory::PheromoneType::Trail,
+        other => genos_biology::sensory::PheromoneType::Custom(other.to_string()),
+    };
+
+    let mut aob = genos_biology::sensory::AccessoryOlfactoryBulb::new(sensitivity);
+    let signal = genos_biology::sensory::PheromoneSignal::new(&source_agent, &locus, ptype.clone(), concentration);
+    let response = aob.receive_signal(signal);
+
+    println!("{}", json!({
+        "success": true,
+        "feature": "vomeronasal",
+        "action": action,
+        "source_agent": source_agent,
+        "locus": locus,
+        "pheromone_type": format!("{:?}", ptype),
+        "concentration": concentration,
+        "sensitivity_threshold": sensitivity,
+        "flehmen_response": {
+            "triggered": response.triggered,
+            "autonomic_action": response.autonomic_action,
+            "urgency_score": response.urgency_score,
+            "bypass_cortical_deliberation": response.bypass_cortical_deliberation,
+            "metabolic_shift": response.metabolic_shift
+        }
+    }));
+}
+
+fn handle_cnidocyte(action: &str, params: &[String]) {
+    let agent_id = extract_param(params, "agent_id").unwrap_or_else(|| "sentinel_cnidocyte_0".to_string());
+    let prompt = extract_param(params, "prompt").or_else(|| extract_param(params, "stimulus"));
+    let force: f64 = extract_param(params, "force").and_then(|s| s.parse().ok()).unwrap_or(0.0);
+    let atp: f64 = extract_param(params, "atp").and_then(|s| s.parse().ok()).unwrap_or(100.0);
+
+    let mut cnidocyte = genos_biology::specialized_cells::cnidocyte::Cnidocyte::new(&agent_id);
+
+    match action {
+        "reload" => {
+            let atp_remaining = cnidocyte.reload(atp).unwrap_or(atp);
+            println!("{}", json!({
+                "success": true,
+                "feature": "cnidocyte",
+                "action": "reload",
+                "agent_id": agent_id,
+                "is_armed": !cnidocyte.is_discharged,
+                "atp_remaining": atp_remaining,
+                "status": "ARMED_AND_PRESSURIZED"
+            }));
+        }
+        "intercept" | "eval" => {
+            let prompt_text = prompt.as_deref().unwrap_or("");
+            let impact = cnidocyte.intercept_prompt_threat(prompt_text);
+            println!("{}", json!({
+                "success": true,
+                "feature": "cnidocyte",
+                "action": action,
+                "agent_id": agent_id,
+                "threat_intercepted": impact.is_some(),
+                "impact": impact,
+                "is_discharged": cnidocyte.is_discharged
+            }));
+        }
+        _ => {
+            let impact = cnidocyte.discharge(force, prompt.as_deref()).unwrap_or_else(|err| {
+                genos_biology::specialized_cells::cnidocyte::DischargeImpact {
+                    success: false,
+                    latency_micros: 0,
+                    delivered_toxin: cnidocyte.capsule.toxin.clone(),
+                    target_neutralized: false,
+                    residual_pressure_mpa: 0.0,
+                    message: err,
+                }
+            });
+            println!("{}", json!({
+                "success": true,
+                "feature": "cnidocyte",
+                "action": "discharge",
+                "agent_id": agent_id,
+                "impact": impact,
+                "is_discharged": cnidocyte.is_discharged
+            }));
+        }
+    }
+}
+
