@@ -236,7 +236,11 @@ fn main() {
             args::SynapticSubcommands::PathEvaluate { agent_id, pre_node, post_node } => {
                 let prompt = format!("Evaluate the cognitive path from node '{}' to node '{}' for agent '{}'. What is the logical deduction?", pre_node, post_node, agent_id);
                 
-                let llm_url = std::env::var("GENOS_LLM_URL").unwrap_or_else(|_| "http://127.0.0.1:8085/v1/chat/completions".to_string());
+                let llm_url = std::env::var("GENOS_LLM_URL").unwrap_or_else(|_| {
+                    let host = std::env::var("GENOS_API_HOST").or_else(|_| std::env::var("GENOS_HOST")).unwrap_or_else(|_| "127.0.0.1".to_string());
+                    let port = std::env::var("GENOS_API_PORT").or_else(|_| std::env::var("GENOS_PORT")).unwrap_or_else(|_| "8085".to_string());
+                    format!("http://{host}:{port}/v1/chat/completions")
+                });
                 let client = reqwest::blocking::Client::builder()
                     .timeout(std::time::Duration::from_millis(1500))
                     .build()

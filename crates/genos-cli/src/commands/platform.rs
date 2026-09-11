@@ -65,9 +65,11 @@ pub fn execute(cmd: PlatformSubcommands) -> Result<(), String> {
             });
             
             let score = 0.95;
-            let llm_url = std::env::var("GENOS_LLM_URL")
-                .or_else(|_| std::env::var("GENOS_PORT").map(|p| format!("http://127.0.0.1:{}/v1/chat/completions", p)))
-                .unwrap_or_else(|_| "http://127.0.0.1:8085/v1/chat/completions".to_string());
+            let llm_url = std::env::var("GENOS_LLM_URL").unwrap_or_else(|_| {
+                let host = std::env::var("GENOS_API_HOST").or_else(|_| std::env::var("GENOS_HOST")).unwrap_or_else(|_| "127.0.0.1".to_string());
+                let port = std::env::var("GENOS_API_PORT").or_else(|_| std::env::var("GENOS_PORT")).unwrap_or_else(|_| "8085".to_string());
+                format!("http://{host}:{port}/v1/chat/completions")
+            });
             let response = client.post(&llm_url).json(&body).send()
                 .map_err(|error| format!("Platform search API unavailable: {}. Is the GenOS server running?", error))?;
             if !response.status().is_success() {

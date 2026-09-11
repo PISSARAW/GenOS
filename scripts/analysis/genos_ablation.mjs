@@ -1,10 +1,10 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-const SERVER_URL = process.env.OPENCODE_SERVER_URL ?? 'http://127.0.0.1:59291';
+const SERVER_URL = process.env.GENOS_SERVER_URL ?? process.env.OPENCODE_SERVER_URL ?? 'http://127.0.0.1:59291';
 const USERNAME = process.env.OPENCODE_SERVER_USERNAME;
 const PASSWORD = process.env.OPENCODE_SERVER_PASSWORD;
-const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434';
+const OLLAMA_URL = process.env.GENOS_OLLAMA_URL ?? process.env.OLLAMA_URL ?? 'http://localhost:11434';
 
 const QUESTIONS = {
   Q1: 'Une intelligence artificielle peut-elle apprendre ?',
