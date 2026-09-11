@@ -16,6 +16,8 @@ mod tests {
             name: "Kwame".to_string(),
             role: "Architecte".to_string(),
             out: agent_file.clone(),
+            force: false,
+            parents: false,
         });
         assert!(res.is_ok());
 
@@ -27,6 +29,8 @@ mod tests {
         let res_snap = snapshot::execute(SnapshotSubcommands::Create {
             agent: agent_file,
             out: snap_file.clone(),
+            force: false,
+            parents: false,
         });
         assert!(res_snap.is_ok());
 
@@ -60,10 +64,14 @@ mod tests {
             name: "Ama".to_string(),
             role: "Analyst".to_string(),
             out: agent_file.clone(),
+            force: false,
+            parents: false,
         }).unwrap();
         snapshot::execute(SnapshotSubcommands::Create {
             agent: agent_file,
             out: snap_file.clone(),
+            force: false,
+            parents: false,
         }).unwrap();
 
         snapshot::execute(SnapshotSubcommands::RecordStep {
