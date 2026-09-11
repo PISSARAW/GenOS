@@ -952,3 +952,89 @@ Chaque agent $i$ dispose d'un bucket de calcul $B_i = (T_i, C_i, r_i)$ :
 - [biocenoseService.js](../backend/src/services/biocenoseService.js) : service Biocénose
 - [agentRuntimeAdapter.js](../backend/src/services/agentRuntimeAdapter.js) : dispatch des agents
 - Commandes CLI : `genos-cli biological deploy --mode biocenose`
+
+
+
+---
+
+## Schémas de Dynamique Écologique et Communautaire
+
+### 1. Structure d'Ordre Décentralisé de la Biocénose
+
+```mermaid
+flowchart TB
+    subgraph Communaute["Écosystème Biocénose"]
+        Facilitator["Community Facilitator (Coordination Écologique)"]
+        
+        subgraph Solvers["Pool de Solvers Indépendants (Compétition)"]
+            S1["Solver Alpha (Approche Algorithmique)"]
+            S2["Solver Beta (Approche Heuristique)"]
+            S3["Solver Gamma (Approche Brute-Force)"]
+        end
+        
+        subgraph Adversaries["Reviewers Adversariaux (Critique Sévère)"]
+            Adv1["Adversarial Auditor 1"]
+            Adv2["Adversarial Auditor 2"]
+        end
+        
+        NicheStig["Tableau Stigmergique des Tâches & Traces"]
+    end
+
+    Facilitator --> NicheStig
+    NicheStig --> S1 & S2 & S3
+    S1 & S2 & S3 --> Adversaries
+    Adversaries --> Facilitator
+```
+
+### 2. Séquence de Compétition, Revue et Sélection de Survie
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Fac as Community Facilitator
+    participant S1 as Solver Alpha
+    participant S2 as Solver Beta
+    participant Adv as Adversarial Reviewer
+    participant Ledger as Registre de Consensus
+
+    Fac->>Fac: Publication de la niche écologique (Tâche)
+    Fac->>S1: Notification
+    Fac->>S2: Notification
+    
+    par Résolution concurrente
+        S1->>S1: Génère Solution A + Métriques
+        S2->>S2: Génère Solution B + Métriques
+    end
+    
+    S1->>Adv: Soumission Solution A
+    S2->>Adv: Soumission Solution B
+    
+    activate Adv
+    Adv->>Adv: Injection de cas limites & fuzzing
+    Adv-->>Fac: Rapport comparatif (A: 98% efficacité, B: 72%)
+    deactivate Adv
+    
+    Fac->>Ledger: Enregistrement Solution A (Sélection naturelle)
+    Fac->>S1: Récompense métabolique (+Budget)
+    Fac->>S2: Élagage / Réallocation sur autre niche
+```
+
+### 3. Machine à états de Dynamique des Populations
+
+```mermaid
+stateDiagram-v2
+    [*] --> NicheVacante : Détection d'un besoin fonctionnel
+    NicheVacante --> Colonisation : Arrivée de Solvers candidats
+    
+    state Colonisation {
+        [*] --> CompetitionIntraspecifique
+        CompetitionIntraspecifique --> EmergenceDominant : Différenciation de performance
+        EmergenceDominant --> StabilisationNiche : Élimination des solutions sous-optimales
+    }
+    
+    Colonisation --> EquilibreClimax : Solution optimale adoptée
+    EquilibreClimax --> PerturbationEnvironnement : Changement de specs
+    PerturbationEnvironnement --> NicheVacante : Nouvelle dynamique
+    
+    EquilibreClimax --> [*]
+```

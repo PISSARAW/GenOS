@@ -779,3 +779,76 @@ Les principes de conception visibles dans le code sont simples et puissants :
 - instrumenter les étapes avec trace et checkpoint.
 
 Le résultat est un moteur d’exécution qui supporte à la fois le “flow orchestration” classique et une logique d’agentique / model routing avec surveillance, reprise et auditabilité.
+
+
+
+---
+
+## Schémas Complémentaires de Topologie DAG et d'Exécution de Jobs
+
+### 1. Modèle Conceptuel de Données des Workflows et Jobs
+
+```mermaid
+erDiagram
+    WORKFLOW_TEMPLATE ||--o{ WORKFLOW_EXECUTION : instantiates
+    WORKFLOW_EXECUTION ||--|{ JOB_NODE : contains
+    JOB_NODE ||--o{ JOB_STEP : executes
+    JOB_NODE ||--o{ JOB_DEPENDENCY : depends_on
+    JOB_NODE ||--o{ JOB_EVIDENCE : produces
+
+    WORKFLOW_TEMPLATE {
+        string template_id PK
+        string name
+        json dag_definition
+        int version
+    }
+    WORKFLOW_EXECUTION {
+        string execution_id PK
+        string template_id FK
+        string status
+        datetime created_at
+        datetime completed_at
+    }
+    JOB_NODE {
+        string job_id PK
+        string execution_id FK
+        string agent_type
+        string status
+        int retry_count
+    }
+    JOB_DEPENDENCY {
+        string job_id FK
+        string depends_on_job_id FK
+    }
+```
+
+### 2. Séquence de Traitement d'un DAG de Jobs avec Gestion de Concurrence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Engine as Workflow DAG Engine
+    participant Queue as File de Jobs Prioritaire
+    participant Worker1 as Worker Pool 1
+    participant Worker2 as Worker Pool 2
+    participant DB as SQLite Store
+
+    Engine->>Engine: Analyse des dépendances DAG (Topological Sort)
+    Engine->>Queue: Push des jobs initiaux sans dépendances (Job A, Job B)
+    
+    par Exécution parallèle des jobs indépendants
+        Queue->>Worker1: Dispatch Job A
+        Queue->>Worker2: Dispatch Job B
+    end
+    
+    Worker1->>DB: Job A Terminé (Status: SUCCESS)
+    Worker2->>DB: Job B Terminé (Status: SUCCESS)
+    
+    DB-->>Engine: Notification de complétion de A et B
+    activate Engine
+    Engine->>Engine: Déblocage du Job C (dépendant de A et B)
+    Engine->>Queue: Push Job C
+    deactivate Engine
+    
+    Queue->>Worker1: Dispatch Job C
+```

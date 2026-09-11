@@ -245,3 +245,62 @@ La bonne architecture est donc complémentaire : Git pour les fichiers et le cod
 ### Non-objectifs
 
 Cette transposition ne cherche pas à remplacer Git, à fournir une blockchain, à rendre une décision correcte par le seul fait qu’elle est signée, ni à donner à un agent un accès autonome illimité au dépôt ou à la production.
+
+
+
+---
+
+## Schémas d'Architecture et d'Opérations Git Transposées aux Agents
+
+### 1. Topologie des Objets et Worktrees Agentiques
+
+```mermaid
+flowchart TB
+    subgraph GitModel["Modèle Objet Git-Agent"]
+        Commit["Agent Commit (Snapshot État + Preuves + Parent)"]
+        Tree["Agent Tree (Arborescence Fichiers + Mémoire)"]
+        Blob["Agent Blob (Contenu Fichier / Épisode)"]
+        Ref["Agent Ref (Pointeur de Branche / HEAD)"]
+    end
+
+    subgraph Worktrees["Worktrees Isolés (Capsules)"]
+        WT1["Worktree Agent 1 (Branche Feature-A)"]
+        WT2["Worktree Agent 2 (Branche Fix-B)"]
+        WT3["Worktree Main (Branche Tronc)"]
+    end
+
+    Commit --> Tree
+    Tree --> Blob
+    Ref --> Commit
+    WT1 & WT2 & WT3 -.-> Ref
+```
+
+### 2. Séquence d'Isolation Contrefactuelle et Cherry-Pick de Décision
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant MainAgent as Agent Tronc (HEAD)
+    participant ForkEngine as Moteur de Worktree
+    participant ExperAgent as Agent Expérimental
+    participant Verifier as Validateur d'Intégrité
+
+    MainAgent->>ForkEngine: Création d'une branche contrefactuelle (git checkout -b hypo/x)
+    activate ForkEngine
+    ForkEngine->>ExperAgent: Instanciation dans worktree dédié (Sandbox VFS)
+    deactivate ForkEngine
+    
+    activate ExperAgent
+    ExperAgent->>ExperAgent: Test d'hypothèse risquée (Modifications fichiers + DB)
+    ExperAgent->>ExperAgent: Commit local de la découverte (c1)
+    ExperAgent->>Verifier: Soumission pour validation
+    deactivate ExperAgent
+    
+    activate Verifier
+    Verifier->>Verifier: Vérification des assertions
+    Verifier-->>MainAgent: Cherry-pick certifié du commit c1
+    deactivate Verifier
+    
+    MainAgent->>MainAgent: Application atomique sur le tronc (git cherry-pick c1)
+    MainAgent->>ForkEngine: Destruction sécurisée du worktree expérimental
+```

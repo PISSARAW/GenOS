@@ -440,3 +440,49 @@ La lecture opérationnelle correcte est la suivante :
 - stress et recovery existent mais restent ciblés ;
 - chaos engineering dédié et providers modèles live ne font pas partie de la suite standard ;
 - une suite verte atteste les propriétés précisées par ses assertions, pas une garantie générale de comportement autonome en production.
+
+
+---
+
+## Schémas Complémentaires de la Pyramide de Tests et Validation
+
+### 1. Pyramide de Tests du Dépôt GenOS
+
+```mermaid
+flowchart TB
+    subgraph TestPyramid["Pyramide de Qualification de Runtime"]
+        E2E["Niveau 4 : Tests E2E de Flottes & Simulation Nosologique (100 agents)"]
+        Integ["Niveau 3 : Tests d'Intégration gRPC / REST / SQLite WAL"]
+        Prop["Niveau 2 : Tests Basés sur les Propriétés (Proptest Rust / Fuzzing)"]
+        Unit["Niveau 1 : Tests Unitaires Déterministes (Maths, Conscience, Primitives)"]
+    end
+
+    Unit --> Prop
+    Prop --> Integ
+    Integ --> E2E
+```
+
+### 2. Séquence d'Exécution du Pipeline de Qualification Continue (CI)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Dev as Développeur / Agent
+    participant CI as Pipeline GitHub Actions
+    participant UnitRunner as Test Runner Unitaire
+    participant NosoSim as Simulateur Nosologique
+    participant AuditGate as Gate de Validation
+
+    Dev->>CI: Push de nouvelle branche
+    activate CI
+    CI->>UnitRunner: Lancement tests Rust (`cargo test --workspace`)
+    UnitRunner-->>CI: 100% PASS
+    
+    CI->>NosoSim: Lancement de la simulation d'invariants (Orage cytokinique, Hayflick)
+    NosoSim-->>CI: Homéostasie préservée (0 régression)
+    
+    CI->>AuditGate: Évaluation de couverture et preuve
+    AuditGate-->>CI: Certification PASS (Prêt pour merge)
+    CI-->>Dev: Build vert avec badge de conformité
+    deactivate CI
+```

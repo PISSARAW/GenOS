@@ -258,3 +258,64 @@ node backend/tests/test_cryptophasia.js
 ```
 
 Au 8 septembre 2026, les points 1 et 2 de `test_counterexamples_falsification.js` passent, mais son point 3 echoue sur l'assertion que la memoire initiale reste visible dans les experiences scorees. Cette regression est independante des checks de falsification executes avant elle et doit etre corrigee avant de traiter cette suite comme une validation complete. Un test reussi confirme les scenarios couverts. Il ne certifie ni la verite des claims d'un fournisseur externe, ni la completude de l'oracle metier.
+
+
+---
+
+## Modélisation Épistémique et Graphes de Falsifiabilité
+
+### 1. Architecture du Réseau de Preuves
+
+```mermaid
+graph TD
+    subgraph Observation["1. Espace Empirique"]
+        RawTrace["Traces d'Exécution Brutes"]
+        ToolOutput["Sorties d'Outils & Compilateur"]
+    end
+
+    subgraph Formulation["2. Espace Hypothétique"]
+        Hypo["Hypothèse Falsifiable (H)"]
+        Claim["Affirmation Formelle (Claim C)"]
+    end
+
+    subgraph Verification["3. Espace Critique & Falsification"]
+        CounterEx["Recherche Active de Contre-Exemples"]
+        Oracle["Vérification par Oracle / Tests Formels"]
+    end
+
+    subgraph Knowledge["4. Connaissance Validée"]
+        Proof["Preuve Irréfutable (Certificat)"]
+        PromotionGate["Gate de Promotion vers le Tronc"]
+    end
+
+    RawTrace --> Hypo
+    ToolOutput --> Hypo
+    Hypo --> Claim
+    Claim --> CounterEx
+    CounterEx --> Oracle
+    Oracle -->|Aucun contre-exemple & Tests PASS| Proof
+    Proof --> PromotionGate
+```
+
+### 2. Machine à états du Cycle de Vie d'une Claim
+
+```mermaid
+stateDiagram-v2
+    [*] --> Brouillon : Émission par l'Agent
+    Brouillon --> EnTest : Soumission au Moteur Critique
+    
+    state EnTest {
+        [*] --> RechercheContreExemple
+        RechercheContreExemple --> Falsifie : Contre-exemple découvert
+        RechercheContreExemple --> PreuveFormelleRequise : Absence de contre-exemple
+        PreuveFormelleRequise --> EpreuveDeterministe
+    }
+    
+    EnTest --> Rejete : Falsification confirmée (Score de vérité = 0)
+    EnTest --> Certifie : Épreuves passées (Score de vérité = 1.0)
+    
+    Certifie --> Promu : Passage de la Gate de Promotion
+    Rejete --> ArchiveErreur : Enregistrement pour apprentissage négatif
+    Promu --> [*]
+    ArchiveErreur --> [*]
+```

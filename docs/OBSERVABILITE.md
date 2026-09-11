@@ -227,3 +227,66 @@ node backend/tests/test_trace_replay_semantics.js
 ```
 
 Ces tests verifient les invariants applicatifs. Ils ne prouvent pas la capacite SQLite sous charge, la livraison SSE/webhook, l'absence de fuite dans un payload libre, ni les garanties d'une plateforme de monitoring externe.
+
+
+---
+
+## Schémas Complémentaires de Pipeline Télémétrique et Traçabilité
+
+### 1. Architecture du Pipeline d'Observabilité Distribuée
+
+```mermaid
+flowchart LR
+    subgraph Sources["Sources Télémétriques"]
+        RustCore["Noyau Rust (Métriques Système)"]
+        NodeBackend["Backend Node.js (Traces HTTP/gRPC)"]
+        Agents["Agents (Événements de Décision & Dissonance)"]
+    end
+
+    subgraph Ingestion["Ingestion & Régulation de Flux"]
+        RingBuffer["Ring Buffer Circulaire (Zéro allocation)"]
+        DropController["Contrôleur de Perte Contrôlée (Shedding)"]
+    end
+
+    subgraph StorageSinks["Destinations & Visualisation"]
+        Prometheus["Collecteur Métriques / Prometheus"]
+        TraceDB["Stockage de Spans & Traces (OpenTelemetry)"]
+        TUIRender["Tableau de Bord TUI / CLI"]
+    end
+
+    Sources --> RingBuffer
+    RingBuffer --> DropController
+    DropController --> Prometheus
+    DropController --> TraceDB
+    DropController --> TUIRender
+```
+
+### 2. Séquence de Corrélation de Traces Multi-Agents (Trace ID & Span ID)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Requête Client (TraceID: tr-99)
+    participant Gateway as API Gateway (Span: sp-1)
+    participant Orch as Orchestrateur (Span: sp-2)
+    participant Worker as Agent Worker (Span: sp-3)
+    participant Sink as Collecteur OTel
+
+    Client->>Gateway: Requête avec TraceParent Header
+    Gateway->>Sink: Émission Span sp-1 (Start)
+    Gateway->>Orch: Transmission TraceID: tr-99
+    
+    activate Orch
+    Orch->>Sink: Émission Span sp-2 (Child of sp-1)
+    Orch->>Worker: Délégation de tâche avec contexte de trace
+    
+    activate Worker
+    Worker->>Sink: Émission Span sp-3 (Child of sp-2)
+    Worker-->>Orch: Tâche achevée
+    deactivate Worker
+    
+    Orch-->>Gateway: Réponse consolidée
+    deactivate Orch
+    
+    Gateway-->>Client: 200 OK + Header de corrélation
+```

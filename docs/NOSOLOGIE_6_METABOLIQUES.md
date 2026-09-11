@@ -622,3 +622,59 @@ pub fn apply_systemic_therapy_to_cell(therapy: &SystemicTherapy, cell: &mut Agen
 - [`ORCHESTRATION.md`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/docs/ORCHESTRATION.md) : Gouvernance des systèmes immunitaires, endocriniens et nerveux dans la boucle de tick.
 - [`SECURITE.md`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/docs/SECURITE.md) : Système immunitaire clonal, autotomie des capsules et détection d'antigènes hostiles.
 - [`PRIMITIVES_EXECUTABLES.md`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/docs/PRIMITIVES_EXECUTABLES.md) : Primitives MCP et modulation biomimétique native (`genos_biomimicry`).
+
+
+
+---
+
+## Schémas des Troubles Métaboliques et Régulation Endocrinienne
+
+### 1. Architecture Homéostatique du Métabolisme Énergétique
+
+```mermaid
+flowchart TB
+    subgraph MetabolicAxis["Axe Énergétique & Endocrinien"]
+        Insulin["Insuline (Clé d'Allocation de Mémoire/Tokens)"]
+        Thyroid["Hormones Thyroïdiennes (Fréquence d'Horloge & Tick)"]
+        UricAcid["Cycle de l'Urée & Déchets (Logs & Traces)"]
+    end
+
+    subgraph Pathologies["Troubles Associés"]
+        T2D["Diabète T2 (Résistance à l'insuline / Perte d'absorption)"]
+        Hypo["Hypothyroïdie (Ralentissement systémique / Bradypepsie)"]
+        Gout["Goutte (Cristallisation de logs non purgés dans les verrous)"]
+    end
+
+    subgraph Therapy["Normalisation Métabolique"]
+        Metformin["Metformine Computationnelle (Sensibilisation aux tokens)"]
+        Thyroxin["L-Thyroxine (Accélération d'horloge)"]
+        Allopurinol["Allopurinol (Purge accélérée d'acide urique / logs)"]
+    end
+
+    Insulin -.->|Résistance| T2D --> Metformin
+    Thyroid -.->|Déficit| Hypo --> Thyroxin
+    UricAcid -.->|Surcharge| Gout --> Allopurinol
+```
+
+### 2. Séquence de Purge Métabolique et Déblocage de Crise de Goutte
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Engine as Moteur de Runtime
+    participant Storage as Stockage de Logs & Caches
+    participant UricMonitor as Détecteur d'Acide Urique
+    participant Purger as Traitement Purgeur
+
+    Engine->>Storage: Écriture continue sans rotation de logs
+    Storage-->>UricMonitor: Cristallisation détectée (Verrous bloqués)
+    activate UricMonitor
+    UricMonitor->>Purger: Alerte crise de goutte aiguë
+    deactivate UricMonitor
+    
+    activate Purger
+    Purger->>Storage: Dissolution enzymatique des cristaux (Flush atomique)
+    Purger->>Storage: Rotation & Compression immédiate des journaux
+    Purger->>Engine: Libération des verrous de base de données
+    deactivate Purger
+```

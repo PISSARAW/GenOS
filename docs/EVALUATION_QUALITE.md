@@ -303,3 +303,57 @@ GenOS assemble tests et datasets, checkpoints recuperables, graders complementai
 La qualite dans GenOS est un processus de mesure, de trace et de controle. Les tests construisent une base, les graders decrivent plusieurs dimensions, les checkpoints rendent l'execution recuperable, les hashes rendent les artefacts inspectables et la bisection localise une regression sous hypothese d'historique monotone.
 
 Un score est une metrique. Un test execute est une evidence conditionnelle. Une garantie n'existe que lorsqu'un controle effectif applique la propriete revendiquee. Cette distinction est ce qui permet a GenOS de rester utile a la decision sans sur-affirmer ce que ses evaluations peuvent prouver.
+
+
+---
+
+## Schémas d'Architecture d'Évaluation de la Qualité
+
+### 1. Architecture du Moteur d'Évaluation de Qualité
+
+```mermaid
+flowchart TB
+    subgraph Ingestion["Livrable Produit"]
+        Artifact["Code / Documentation / Patch"]
+        Traces["Traces d'Exécution & Métriques"]
+    end
+
+    subgraph EvalMatrix["Matrice d'Évaluation Multi-Critères"]
+        Correctness["Exactitude & Zéro Régression (Poids: 40%)"]
+        SecurityScore["Sécurité & Absence de Failles (Poids: 30%)"]
+        Clarity["Clarté & Maintenabilité (Poids: 15%)"]
+        Performance["Efficacité Métabolique / Tokens (Poids: 15%)"]
+    end
+
+    subgraph QualityVerdict["Décision de Promotion"]
+        QualityIndex["Calcul de l'Indice Global Q"]
+        PassThreshold["Seuil d'Excellence (Q >= 0.90)"]
+    end
+
+    Ingestion --> EvalMatrix
+    EvalMatrix --> QualityIndex
+    QualityIndex --> PassThreshold
+```
+
+### 2. Machine à états du Processus de Certification Qualité
+
+```mermaid
+stateDiagram-v2
+    [*] --> EvaluationInitiale : Dépôt du livrable
+    EvaluationInitiale --> GenerationCasTests : Synthèse de cas limites
+    
+    state ExecutionBatterie {
+        [*] --> TestsDeterministes
+        TestsDeterministes --> AnalyseStatique
+        AnalyseStatique --> BenchmarkPerformance
+    }
+    
+    GenerationCasTests --> ExecutionBatterie
+    ExecutionBatterie --> CalculScoreFinal : Agrégation des métriques
+    
+    CalculScoreFinal --> CertifieConforme : Score >= 0.90
+    CalculScoreFinal --> DemandeRefactor : Score < 0.90 (Feedback précis)
+    
+    DemandeRefactor --> EvaluationInitiale : Nouvelle soumission
+    CertifieConforme --> [*]
+```

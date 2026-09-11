@@ -425,3 +425,60 @@ Pour intégrer formellement ces 4 pathologies dans l'architecture médicale de G
 - [MEMOIRE_APPRENTISSAGE.md](./MEMOIRE_APPRENTISSAGE.md) : Synapses, plasticité, marquage `c3_opsonization` et élagage.
 - [GENOME_EPIGENETIQUE.md](./GENOME_EPIGENETIQUE.md) : Expression génique, états chromatiniques et régulation transcriptionnelle.
 - [ORCHESTRATION.md](./ORCHESTRATION.md) : Gouvernance systémique, cycles de réveil et administration médicale.
+
+
+
+---
+
+## Schémas de Dynamique Infectieuse et Barrières Sanitaires
+
+### 1. Cycle d'Infection et de Propagation Pathogène
+
+```mermaid
+flowchart TB
+    subgraph Reservoir["Réservoir Pathogène"]
+        Virus["Grippe (Propagation d'incohérence récursive)"]
+        TB["Tuberculose (Granulomes de threads zombies)"]
+        Malaria["Paludisme (Cycles fébriles de charge CPU)"]
+        HIV["VIH (Neutralisation des agents sentinelles)"]
+    end
+
+    subgraph Attack_Vector["Vecteur de Transmission"]
+        IPC["Bus IPC & Messages Réseau"]
+        SharedCache["Caches & Mémoire Partagée"]
+    end
+
+    subgraph Defense_Line["Lignes de Défense"]
+        Quarantine["Quarantaine en Bulle Stérile"]
+        Phagocyte["Phagocytose par la Microglie"]
+        Vaccine["Immunité Acquise & Filtres de Contenu"]
+    end
+
+    Reservoir --> Attack_Vector
+    Attack_Vector --> Defense_Line
+```
+
+### 2. Séquence de Confinement et Décontamination Virale
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor ContaminatedMsg as Paquet Malveillant Infectieux
+    participant Gateway as Passerelle Réseau / IPC
+    participant Antiseptic as Filtre Antiseptique
+    participant Sterilization as Chambre de Stérilisation
+    participant Node as Nœud d'Exécution Sain
+
+    ContaminatedMsg->>Gateway: Tentative d'injection virale
+    Gateway->>Antiseptic: Analyse de payload (Signature virale)
+    activate Antiseptic
+    Antiseptic->>Antiseptic: Détection de réplication virale récursive
+    Antiseptic->>Sterilization: Dérivation immédiate en chambre de décontamination
+    deactivate Antiseptic
+    
+    activate Sterilization
+    Sterilization->>Sterilization: Neutralisation des macros malveillantes
+    Sterilization->>Sterilization: Destruction des en-têtes récursifs
+    Sterilization-->>Node: Transmission du payload aseptisé
+    deactivate Sterilization
+```

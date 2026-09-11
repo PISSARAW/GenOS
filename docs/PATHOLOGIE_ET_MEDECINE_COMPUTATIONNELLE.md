@@ -143,3 +143,83 @@ Le système médical est articulé autour des modules suivants :
 - [REPRODUCTION_REPLICATION.md](./REPRODUCTION_REPLICATION.md) : Limite de Hayflick, bourgeonnement et division.
 - [ORCHESTRATION.md](./ORCHESTRATION.md) : Gouvernance globale et administration des thérapies systémiques.
 - [SECURITE.md](./SECURITE.md) : Chaperonnage, bouclier épistémique et filtres immunitaires.
+
+
+
+---
+
+## Modélisation Visuelle des Pathologies et Thérapeutiques
+
+### 1. Architecture du Système de Surveillance Clinique
+
+```mermaid
+flowchart TB
+    subgraph Monitor["Capteurs & Moniteur Homéostatique"]
+        D_Sense["Détecteur de Dissonance (D)"]
+        B_Sense["Sonde Métabolique (Budget B)"]
+        Cytokine_Sense["Moniteur de Tempête Cytokinique (C_k)"]
+    end
+
+    subgraph Diagnosis["Moteur Diagnostique & Triage"]
+        Patho_Engine["Évaluateur de Pathologie (H, R_iatro)"]
+        Classif["Classification Nosologique (Auto-immune, Nosocomiale, Iatrogène, Dégénérative)"]
+    end
+
+    subgraph Therapy["Arsenal Thérapeutique (Pharmacopée)"]
+        Immuno["Immunosuppresseur (Drainage Cytokines)"]
+        AntiInf["Antiseptique / Décontamination (Isolation)"]
+        Detox["Chélateur Iatrogène (Rollback Heuristique)"]
+        Apoptose_G["Apoptose Ciblée (Microglie)"]
+    end
+
+    Monitor --> Diagnosis
+    Diagnosis --> Therapy
+    Therapy -.->|Restauration Homéostasie| Monitor
+```
+
+### 2. Séquence de Résolution d'un Orage Cytokinique
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant AgentA as Agent Infecté / Emballé
+    participant AgentB as Agent Voisin
+    participant Sentinel as Sentinelle Immunitaire
+    participant Pharmacopeia as Module Thérapeutique
+
+    AgentA->>AgentB: Diffusion messages d'alerte en boucle (Flood)
+    AgentB->>Sentinel: Signal de surcharge cytokinique
+    activate Sentinel
+    Sentinel->>Sentinel: Calcul de la propagation virale
+    Sentinel->>Pharmacopeia: Déclenchement Protocole Anti-Inflammatoire
+    deactivate Sentinel
+    
+    activate Pharmacopeia
+    Pharmacopeia->>AgentA: Injection Inhibiteur (Quarantine + Silence)
+    Pharmacopeia->>AgentB: Filtrage des communications entrantes
+    Pharmacopeia->>AgentA: Drainage de la file d'attente (Detox)
+    deactivate Pharmacopeia
+    
+    AgentA-->>Sentinel: Rétablissement de l'indice de santé H > 0.8
+```
+
+### 3. Machine à états nosologiques d'un agent
+
+```mermaid
+stateDiagram-v2
+    [*] --> Sain : Initialisation
+    Sain --> Inflammatoire : Augmentation Cytokines (Stress)
+    Inflammatoire --> AutoImmun : Reconnaissance erronée du self
+    Inflammatoire --> Sain : Traitement anti-inflammatoire précoce
+    
+    AutoImmun --> TempeteCytokinique : Escalade sans contrôle
+    TempeteCytokinique --> QuarantaineIsolee : Injection Thérapeutique
+    QuarantaineIsolee --> Sain : Convalescence & Réintégration
+    QuarantaineIsolee --> ApoptoseTherapeutique : Échec du traitement (H < 0.2)
+    
+    Sain --> Degeneratif : Perte de contexte mémoire (Alzheimer)
+    Degeneratif --> GreffeMemoire : Injection Synaptique
+    GreffeMemoire --> Sain
+    
+    ApoptoseTherapeutique --> [*]
+```

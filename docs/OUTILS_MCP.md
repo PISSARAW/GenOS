@@ -376,3 +376,56 @@ La particularite n'est pas de posseder un serveur MCP, ni un catalogue d'outils.
 Les outils MCP de GenOS forment une surface d'execution gouvernee. Le catalogue repond a la question "qu'est-ce que le client peut voir ?" ; la lease, le registre, la validation et le circuit breaker repondent a la question plus importante : "qu'est-ce que le runtime accepte vraiment d'executer maintenant ?"
 
 Cette distinction rend l'integration plus robuste face aux appels directs, aux outils caches, aux entrees malformees, aux transports instables et aux boucles de defaillance. Elle place MCP au niveau d'un plan de controle operationnel, plutot qu'au niveau d'une simple liste de fonctions offertes a un modele.
+
+
+---
+
+## Schémas Complémentaires d'Intégration et de Contrôle MCP
+
+### 1. Architecture du Bus MCP et Contrôleur de Baux (Leases)
+
+```mermaid
+flowchart TB
+    subgraph AgentCore["Agent Demandeur"]
+        AgentLogic["Logique Décisionnelle"]
+        ToolRegistry["Catalogue Local d'Outils Découverts"]
+    end
+
+    subgraph MCPBus["Bus de Communication MCP (JSON-RPC)"]
+        Router["Routeur de Messages JSON-RPC"]
+        LeaseEngine["Gestionnaire de Baux (Lease Manager)"]
+        SandboxGuard["Garde-Fou de Sandbox"]
+    end
+
+    subgraph MCPServers["Serveurs d'Outils Spécialisés"]
+        FS_Server["Serveur Système de Fichiers (Sandboxed)"]
+        Git_Server["Serveur Git & Branches"]
+        Shell_Server["Serveur Shell Déterministe"]
+        Web_Server["Serveur Web Search / Scraper"]
+    end
+
+    AgentCore <--> MCPBus
+    MCPBus <--> MCPServers
+```
+
+### 2. Machine à états du Cycle de Vie d'un Bail d'Outil MCP
+
+```mermaid
+stateDiagram-v2
+    [*] --> DemandeBail : Requête d'autorisation pour un outil
+    DemandeBail --> BailActif : Droits accordés (TTL assigné)
+    DemandeBail --> RefusSecurite : Outil interdit par la politique
+    
+    state BailActif {
+        [*] --> PretAExecuter
+        PretAExecuter --> ExecutionAppel : Transmission requête JSON-RPC
+        ExecutionAppel --> PretAExecuter : Réponse reçue
+    }
+    
+    BailActif --> BailExpire : Expiration du TTL
+    BailActif --> BailRevoque : Détection de comportement anormal
+    
+    BailExpire --> [*]
+    BailRevoque --> [*]
+    RefusSecurite --> [*]
+```

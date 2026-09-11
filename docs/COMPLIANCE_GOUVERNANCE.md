@@ -199,3 +199,49 @@ node backend/tests/test_approval_payload_integrity.js
 Ces tests etablissent les contrats implementes de rapport, scope, signature/approbation, separation et integrite. Ils ne certifient pas la conformite EU AI Act, SOC 2 ou HIPAA d'un deploiement reel.
 
 Au 8 septembre 2026, `test_compliance_tenant_scope.js`, `test_approval_separation.js` et `test_approval_payload_integrity.js` passent. `test_compliance_integrations.js` echoue avant son scenario, car il importe `./src/app` depuis `backend/tests` au lieu de remonter vers `../src/app`. `test_human_approval_promotion_gate.js` echoue pour son succes attendu, car il ne fournit pas l'evidence report desormais obligatoire au controleur. Ces deux regressions de test doivent etre corrigees avant de les employer comme validation complete du workflow.
+
+
+---
+
+## Schémas Complémentaires de Conformité et de Supervision Humaine
+
+### 1. Architecture des Paliers de Risque et Gates de Gouvernance (EU AI Act)
+
+```mermaid
+flowchart TB
+    subgraph RiskTiers["Paliers de Risque & Classification"]
+        LowRisk["Risque Faible (Lecture de doc, formatage)"]
+        MedRisk["Risque Modéré (Génération de code, tests)"]
+        HighRisk["Risque Élevé (Écriture DB, modif config, déploiement)"]
+    end
+
+    subgraph GovernanceGates["Gates de Contrôle"]
+        AutoPass["Pass Automatique (Validation d'invariants)"]
+        DualCheck["Double Revue Automatisée (Trinity / Juge)"]
+        HumanOversight["Supervision Humaine Obligatoire (Human-in-the-Loop)"]
+    end
+
+    LowRisk --> AutoPass
+    MedRisk --> DualCheck
+    HighRisk --> HumanOversight
+```
+
+### 2. Séquence d'Audit Post-Exécution et Rapport de Conformité
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Auditor as Auditeur / Régulateur
+    participant AuditAPI as API de Gouvernance GenOS
+    participant Ledger as Registre Immuable d'Événements
+    participant EvidenceEngine as Moteur de Preuve
+
+    Auditor->>AuditAPI: Demande d'audit pour la Mission #42
+    activate AuditAPI
+    AuditAPI->>Ledger: Extraction de la chaîne de preuves et décisions
+    Ledger-->>AuditAPI: Données brutes horodatées
+    AuditAPI->>EvidenceEngine: Vérification des signatures d'approbation humaine
+    EvidenceEngine-->>AuditAPI: Certificat d'intégrité validé
+    AuditAPI-->>Auditor: Rapport de conformité réglementaire complet
+    deactivate AuditAPI
+```

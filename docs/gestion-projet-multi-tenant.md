@@ -578,3 +578,58 @@ Ce qui fait la force de l’implémentation n’est pas seulement la présence d
 - les garanties de sécurité implicites dans le schéma.
 
 Le système montre ainsi une vraie logique d’entreprise pour l’IA agentique : gestion de projets multi-tenant, coordination de flux, validation de preuve, expérimentation contrôlée et livraison sécurisée.
+
+
+
+---
+
+## Schémas Complémentaires de Modélisation Multi-Tenant
+
+### 1. Hiérarchie Structurelle Multi-Tenant et Isolation des Données
+
+```mermaid
+flowchart TB
+    subgraph MultiTenantHierarchy["Hiérarchie Multi-Tenant GenOS"]
+        Org["Organisation (Tenant Isolation Hermétique)"]
+        ProjA["Projet A (Applications Web)"]
+        ProjB["Projet B (Pipelines Données)"]
+        
+        Org --> ProjA
+        Org --> ProjB
+        
+        subgraph ProjA_Resources["Ressources Projet A"]
+            WS_A1["Workspace 1 (Branche Main)"]
+            WS_A2["Workspace 2 (Feature Branch)"]
+            RBAC_A["Rôles & Quotas Dédiés"]
+        end
+        
+        ProjA --> ProjA_Resources
+    end
+```
+
+### 2. Séquence d'Isolation et Cloisonnement Inter-Organisations
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor UserOrg1 as Utilisateur Org Alpha
+    participant API as Passerelle Multi-Tenant
+    participant TenantFilter as Filtre de Cloisonnement
+    participant DB as SQLite Master DB
+
+    UserOrg1->>API: Requête GET /projects/proj-beta-99
+    activate API
+    API->>TenantFilter: Vérification du contexte de tenant (Token Org Alpha)
+    activate TenantFilter
+    TenantFilter->>DB: Recherche du projet avec clause 'WHERE org_id = alpha'
+    alt Projet appartenant à Org Beta
+        DB-->>TenantFilter: Aucun enregistrement trouvé pour ce tenant
+        TenantFilter-->>API: Rejet 404 / 403 (Isolation hermétique)
+        API-->>UserOrg1: 404 Not Found (Zéro fuite d'information)
+    else Projet appartenant bien à Org Alpha
+        TenantFilter-->>API: Autorisation accordée
+        API-->>UserOrg1: Données du projet
+    end
+    deactivate TenantFilter
+    deactivate API
+```

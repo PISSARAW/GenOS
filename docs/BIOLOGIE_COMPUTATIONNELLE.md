@@ -601,3 +601,105 @@ La véritable valeur du modèle réside dans la gestion de l’incertitude, la d
 ## 20. Conclusion
 
 La biologie computationnelle dans GenOS est une architecture de gouvernance multi-agent : elle donne un vocabulaire cohérent pour parler de formation, spécialisation, épargne de ressources, santé cognitive, clôture de branchage et résilience. Elle n’est pas une fiction biologique ; elle est un système de contrainte technique, exprimé dans un langage qui aide à représenter la vie d’un essaim intelligent de façon structurée, auditable et contrôlée.
+
+
+
+---
+
+## Schémas d'Architecture et de Fonctionnement Biologique
+
+### 1. Architecture multicouche de l'organisme agentique
+
+```mermaid
+graph TD
+    subgraph Organisme["Organisme GenOS (Holobionte)"]
+        subgraph Tissus["Tissus & Flottes Spécialisées"]
+            T1["Tissu Analytique"]
+            T2["Tissu Exécution Code"]
+            T3["Tissu Audit & Sécurité"]
+        end
+        
+        subgraph Cellule["Cellule Agentique (ConscienceState)"]
+            NUC["Noyau (Prompt & Mémoire L0)"]
+            MITO["Mitochondries (Budget Métabolique B)"]
+            RIB["Ribosomes (Synthèse de Primitives)"]
+            MEMBR["Membrane (Filtres & Sandbox)"]
+        end
+        
+        subgraph Glie["Système Glial (Maintenance & Immunité)"]
+            ASTRO["Astrocytes (Régulation flux)"]
+            MICRO["Microglie (Phagocytose & Clean)"]
+            OLIGO["Oligodendrocytes (Isolation)"]
+        end
+    end
+
+    Tissus --> Cellule
+    Glie -.->|Surveillance & Apoptose| Cellule
+```
+
+### 2. Machine à états cellulaires et homéostasie
+
+```mermaid
+stateDiagram-v2
+    [*] --> Zygote : Différenciation embryonnaire
+    Zygote --> Actif : Allocation budget B_base
+    
+    state Actif {
+        [*] --> Traitement
+        Traitement --> EvaluationDissonance : Calcul D_t+1
+        EvaluationDissonance --> Eureka : Découverte majeure (D/2, B+50)
+        Eureka --> Traitement
+        EvaluationDissonance --> StressCognitif : D_t+1 > Seuil_Alerte
+        StressCognitif --> Traitement : Récupération
+    }
+    
+    Actif --> Cryptobiose : Mise en sommeil (Freeze snapshot)
+    Cryptobiose --> Actif : Signal de décongélation (Thaw)
+    
+    Actif --> Apoptose : Condition (D >= D_max) OU (B <= 0)
+    Actif --> Senescence : Hayflick limit atteint (divisions > 50)
+    
+    Apoptose --> Recyclage : Microglie (Libération mémoire)
+    Senescence --> Recyclage
+    Recyclage --> [*]
+```
+
+### 3. Diagramme de séquence du cycle métabolique et Eureka
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Runtime as GenOS Runtime
+    participant Cell as Cellule Agent
+    participant Glial as Système Glial
+    participant Store as Snapshot Store
+
+    Runtime->>Cell: Envoi de tâche (Tick t)
+    activate Cell
+    Cell->>Cell: Consommation métabolique (B = B - 1)
+    Cell->>Cell: Évaluation heuristique (Calcul Dissonance D)
+    
+    alt Dissonance critique (D >= D_max)
+        Cell-->>Glial: Émission de signal de détresse
+        Glial->>Cell: Déclenchement Apoptose forcée
+        Glial->>Store: Archivage crash-dump
+        Cell->>Cell: Destruction contrôlée
+    else Découverte / Résolution (Eureka !)
+        Cell->>Cell: E = E + 1, D = D / 2, B = min(B_base, B + 50)
+        Cell-->>Runtime: Résultat certifié avec confiance max
+    else Consommation nominale
+        Cell-->>Runtime: Progression intermédiaire
+    end
+    deactivate Cell
+```
+
+### 4. Cascade d'embryogenèse et patron HOX
+
+```mermaid
+flowchart LR
+    Zygote["Zygote (Agent Souche)"] -->|Clivage initial| Morula["Morula (Groupe non différencié)"]
+    Morula -->|Cavitation| Blastocyste["Blastocyste (Polarisation)"]
+    Blastocyste -->|Expression HOX A| Worker["Cellule Exécutrice (Worker)"]
+    Blastocyste -->|Expression HOX B| Judge["Cellule Régulatrice (Judge)"]
+    Blastocyste -->|Expression HOX C| Architect["Cellule Structurante (Architect)"]
+```

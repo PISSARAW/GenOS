@@ -583,3 +583,78 @@ C’est une architecture particulièrement adaptée à :
 
 Ces fichiers sont la base d’implémentation qui justifie la documentation ci-dessus.
 
+
+
+
+---
+
+## Schémas de Neurobiologie Computationnelle et Plasticité
+
+### 1. Architecture du Réseau Synaptique et Arborescence Dendritique
+
+```mermaid
+flowchart TB
+    subgraph DendriteTree["Arbre Dendritique (Entrées & Contexte)"]
+        D1["Branche Dendritique Alpha (Signaux de Code)"]
+        D2["Branche Dendritique Beta (Signaux d'Audit)"]
+        D3["Branche Dendritique Gamma (Signaux Métaboliques)"]
+    end
+
+    subgraph Soma["Soma & Cœur Intégrateur"]
+        Integrator["Intégrateur de Potentiel de Membrane (V_m)"]
+        Threshold["Générateur de Potentiel d'Action (Spike)"]
+    end
+
+    subgraph Axon["Axone & Faisceaux Synaptiques"]
+        Syn1["Synapse 1 (Poids w1 - Plasticité STDP)"]
+        Syn2["Synapse 2 (Poids w2 - Dépression LTD)"]
+        Syn3["Synapse 3 (Poids w3 - Potentiation LTP)"]
+    end
+
+    D1 & D2 & D3 --> Integrator
+    Integrator --> Threshold
+    Threshold --> Syn1 & Syn2 & Syn3
+```
+
+### 2. Séquence de Plasticité Synaptique STDP (Spike-Timing-Dependent Plasticity)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Pre as Neurone Pré-Synaptique
+    participant Synapse as Fente Synaptique (Poids w)
+    participant Post as Neurone Post-Synaptique
+    participant PlasticityEngine as Moteur de Plasticité
+
+    Pre->>Synapse: Émission de Spike pré-synaptique (t_pre)
+    Post->>Post: Déclenchement de Spike post-synaptique (t_post)
+    
+    activate PlasticityEngine
+    PlasticityEngine->>PlasticityEngine: Calcul delta_t = t_post - t_pre
+    alt delta_t > 0 (Causalité positive / LTP)
+        PlasticityEngine->>Synapse: Renforcement : w = w + A+ * exp(-delta_t / tau+)
+    else delta_t < 0 (Incohérence causale / LTD)
+        PlasticityEngine->>Synapse: Dépression : w = w - A- * exp(delta_t / tau-)
+    end
+    deactivate PlasticityEngine
+```
+
+### 3. Machine à états d'une Synapse Computationnelle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Naissante : Création lors du branching
+    Naissante --> ActivePotentiee : Activation corrélée répétée (LTP)
+    
+    state ActivePotentiee {
+        [*] --> HauteConductance
+        HauteConductance --> StabilisationLongTerme : Répétition continue
+    }
+    
+    ActivePotentiee --> Deprimee : Absence d'activation causale (LTD)
+    Deprimee --> ActivePotentiee : Réactivation synchrone
+    
+    Deprimee --> Elaguee : Poids w < Seuil_Pruning
+    Elaguee --> RecyclageMemoire : Libération du slot
+    RecyclageMemoire --> [*]
+```

@@ -455,3 +455,54 @@ Le point distinctif de GenOS est la coexistence d'une interface locale biomimét
 GenOS offre une expérience opérateur stratifiée : `genos` est le cœur CLI natif ; `g` améliore l'usage quotidien et protège certains gestes ; Studio expose des commandes de contrôle strictement limitées ; gRPC et les runtimes d'agents servent l'automatisation structurée.
 
 Le contrat central est celui de l'honnêteté d'exécution : les interfaces refusent les entrées hors modèle, propagent les échecs, demandent une confirmation pour les opérations désignées et distinguent, dans la mesure visible du code, une modification appliquée d'un calcul ou d'une vérification de trace. Pour les opérations à enjeu, l'opérateur doit toujours relier la réponse à sa preuve persistante et indépendante.
+
+
+---
+
+## Schémas Complémentaires de Flux Interactif CLI & TUI
+
+### 1. Architecture Modulaire de l'Interface en Ligne de Commande
+
+```mermaid
+flowchart TB
+    subgraph CLI_Interface["Interface CLI & Expérience Opérateur"]
+        ArgParser["Analyseur de Commandes & Options (Clap)"]
+        TUIRenderer["Moteur de Rendu TUI (Ratatui / Crossterm)"]
+        PromptEngine["Moteur de Prompts Interactifs & Autocomplétion"]
+    end
+
+    subgraph CoreBridge["Pont de Communication Démon"]
+        IPCClient["Client IPC Haute Performance"]
+        StreamSubscriber["Abonné aux Flux d'Événements Temps Réel"]
+    end
+
+    subgraph CoreEngine["Noyau GenOS"]
+        Daemon["Démon Local GenOS"]
+    end
+
+    CLI_Interface --> CoreBridge
+    CoreBridge --> CoreEngine
+```
+
+### 2. Machine à états de la Session Interactive TUI
+
+```mermaid
+stateDiagram-v2
+    [*] --> VueDashboard : Lancement de 'genos tui'
+    
+    state VueDashboard {
+        [*] --> SurveillanceFlotte
+        SurveillanceFlotte --> InspectionAgent : Sélection d'un agent actif
+        InspectionAgent --> SurveillanceFlotte : Retour vue globale
+    }
+    
+    VueDashboard --> ModalApprobation : Alerte 'Human-in-the-loop'
+    
+    state ModalApprobation {
+        [*] --> ExamenDiff
+        ExamenDiff --> DecisionAccepte : Validation opérateur
+        ExamenDiff --> DecisionRejet : Rejet opérateur
+    }
+    
+    ModalApprobation --> VueDashboard : Reprise du flux
+```

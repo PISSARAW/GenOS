@@ -240,3 +240,68 @@ node backend/tests/test_workspace_sensitive_files.js
 ```
 
 Ils verifient des invariants applicatifs, pas l'etancheite complete d'un noyau, de Docker Desktop, d'une image de plugin ou d'un systeme Windows/Linux configure en production. Les tests d'integration doivent confirmer les quotas observes, l'absence de reseau, la suppression effective des capsules, la terminaison de l'arbre et l'absence de secrets dans l'environnement et les logs.
+
+
+---
+
+## Schémas Complémentaires d'Isolation Sandbox et Modèle de Menace
+
+### 1. Architecture des Barrières d'Isolation (Sandboxing Multicouche)
+
+```mermaid
+flowchart TB
+    subgraph UntrustedCode["Code Généré Non Sécurisé"]
+        Script["Script / Commande Shell Proposée"]
+    end
+
+    subgraph IsolationLayer["Niveaux d'Isolation Sandboxed"]
+        subgraph Level1["Niveau 1 : Analyse Statique & AST"]
+            ASTChecker["Détecteur de commandes destructives (rm -rf, fork bombs)"]
+        end
+        subgraph Level2["Niveau 2 : Système de Fichiers Virtuel (VFS)"]
+            CoWFS["Copy-on-Write Overlay (Redirection des écritures)"]
+        end
+        subgraph Level3["Niveau 3 : Isolation Processus & Quotas"]
+            Cgroups["Limites CPU / RAM / Timeout (Seccomp / Cgroups)"]
+            NetLock["Verrouillage Réseau (Isolation loopback)"]
+        end
+    end
+
+    subgraph SafeHost["Système Hôte Protégé"]
+        RealFS["Système de Fichiers Réel Inviolable"]
+    end
+
+    UntrustedCode --> Level1
+    Level1 --> Level2
+    Level2 --> Level3
+    Level3 -.->|Accès filtré et cantonné| SafeHost
+```
+
+### 2. Séquence d'Exécution Sécurisée avec Interception d'Anomalie
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Agent Exécuteur
+    participant Sandbox as Moteur de Sandbox
+    participant Guard as Sentinelle de Ressources
+    participant Host as Système Hôte
+
+    Agent->>Sandbox: Demande d'exécution d'un script compilé
+    activate Sandbox
+    Sandbox->>Sandbox: Montage du VFS Copy-on-Write isolé
+    Sandbox->>Guard: Enregistrement des limites (500MB RAM, 5s CPU)
+    
+    activate Guard
+    Sandbox->>Sandbox: Lancement du sous-processus bridé
+    
+    alt Exécution conforme
+        Sandbox-->>Agent: Sortie standard capturée & Code retour 0
+    else Dépassement de quota (Fuite mémoire ou boucle infinie)
+        Guard->>Sandbox: SIGKILL immédiat (Quota dépassé)
+        Sandbox->>Sandbox: Démontage du VFS éphémère (Aucune trace sur l'hôte)
+        Sandbox-->>Agent: Erreur 422 : Exécution interrompue par la Sandbox
+    end
+    deactivate Guard
+    deactivate Sandbox
+```

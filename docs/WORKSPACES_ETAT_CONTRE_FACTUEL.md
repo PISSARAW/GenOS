@@ -494,3 +494,84 @@ Les références de code les plus importantes sont :
 - [backend/src/controllers/workspaceController.js](../backend/src/controllers/workspaceController.js)
 - [backend/tests/test_mirror_twin.js](../backend/tests/test_mirror_twin.js)
 - [backend/src/db/schema-tables-core.js](../backend/src/db/schema-tables-core.js)
+
+
+
+---
+
+## Schémas d'Architecture et de Gestion des Espaces Contrefactuels
+
+### 1. Architecture du Système de Snapshots et VFS Contrefactuel
+
+```mermaid
+flowchart TB
+    subgraph MasterState["État Réel / Tronc Principal"]
+        DiskFS["Système de Fichiers Physique"]
+        MasterDB["Base de Données Master (SQLite)"]
+    end
+
+    subgraph SnapshotEngine["Moteur de Snapshot & Bisection"]
+        SnapshotStore["Snapshot Store Immuable (CAS / Content Addressed)"]
+        DiffEngine["Moteur de Diff & Patch Delta"]
+    end
+
+    subgraph CounterfactualCapsules["Capsules Contrefactuelles Isolées"]
+        Cap1["Capsule Agent Alpha (CoW Virtual File System)"]
+        Cap2["Capsule Agent Beta (CoW Virtual File System)"]
+        Cap3["Capsule Agent Gamma (CoW Virtual File System)"]
+    end
+
+    MasterState --> SnapshotStore
+    SnapshotStore --> DiffEngine
+    DiffEngine --> Cap1 & Cap2 & Cap3
+```
+
+### 2. Séquence de Bisection et Rollback en Cas de Divergence Causale
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Main as Workspace Principal
+    participant SnapEngine as Moteur de Snapshot
+    participant Capsule as Capsule Contrefactuelle
+    participant Judge as Juge de Cohérence
+
+    Main->>SnapEngine: Création Snapshot de référence (Snap_0)
+    SnapEngine->>Capsule: Initialisation espace contrefactuel Copy-on-Write
+    
+    activate Capsule
+    Capsule->>Capsule: Exécution d'expérimentations destructives
+    Capsule->>Judge: Demande de promotion de l'état altéré
+    deactivate Capsule
+    
+    activate Judge
+    Judge->>Judge: Évaluation des invariants de non-régression
+    alt Violation d'invariant (Divergence causale détectée)
+        Judge-->>SnapEngine: Alerte Rejet (Blast radius contenu)
+        SnapEngine->>Capsule: Destruction immédiate de la capsule (Rollback zéro coût)
+    else Invariants respectés
+        Judge-->>Main: Application du patch delta vérifié
+    end
+    deactivate Judge
+```
+
+### 3. Machine à états d'une Capsule Contrefactuelle
+
+```mermaid
+stateDiagram-v2
+    [*] --> SnapshotInitial : Point de divergence fixé
+    SnapshotInitial --> ExecutionIsoleeCoW : Écritures virtuelles en couche haute
+    
+    state ExecutionIsoleeCoW {
+        [*] --> MutationFichiers
+        MutationFichiers --> GenerationPreuves
+    }
+    
+    ExecutionIsoleeCoW --> AuditContrefactuel : Soumission pour merge
+    
+    AuditContrefactuel --> FusionTronc : Validation des preuves
+    AuditContrefactuel --> PurgeSansTrace : Rejet / Dissonance
+    
+    FusionTronc --> [*]
+    PurgeSansTrace --> [*]
+```

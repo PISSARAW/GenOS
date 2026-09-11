@@ -366,3 +366,83 @@ Any generated patch failing these conditions is rejected by the Evidence Arbiter
 ## License
 
 GenOS is licensed under the [Apache License 2.0](LICENSE).
+
+
+
+---
+
+## Schémas d'Architecture Globale et de Fonctionnement GenOS V3
+
+### 1. Vue d'Ensemble de l'Écosystème GenOS V3
+
+```mermaid
+flowchart TB
+    subgraph UI_Layer["Expérience Utilisateur & Interfaces"]
+        CLI["CLI Rust (Interface TUI / Commandes)"]
+        IDE["Extensions IDE (VSCode / JetBrains)"]
+        Dashboard["Dashboard Web de Monitoring"]
+    end
+
+    subgraph Core_Runtime["Cœur Runtime GenOS (Rust Workspace)"]
+        Cell["genos-cell (Conscience, Homéostasie, Dissonance)"]
+        Bio["genos-biology (Embryogenèse, Tissus, Glie)"]
+        Orch["genos-orchestration (Trinity, A-Team, Biome)"]
+        Store["genos-store (Snapshots, VFS, Cryptobiose)"]
+        Prim["genos-primitives (Contrats d'Exécution)"]
+    end
+
+    subgraph Service_Control["Couche de Contrôle & Persistance (Node.js)"]
+        ExpressAPI["API Express & Contrôleurs REST"]
+        gRPCBridge["Passerelle gRPC / IPC"]
+        SQLiteDB["Persistance SQLite WAL (Événements & Preuves)"]
+    end
+
+    subgraph External_World["Outils & Modèles Externes"]
+        MCPTools["Serveurs d'Outils MCP (Sandboxed)"]
+        LLMProviders["Passerelle Multi-Modèles (Local & Frontier)"]
+    end
+
+    UI_Layer --> Service_Control
+    UI_Layer --> Core_Runtime
+    Service_Control <--> Core_Runtime
+    Core_Runtime --> External_World
+    Service_Control --> SQLiteDB
+```
+
+### 2. Séquence Globale de Traitement de Mission avec Validation de Preuve
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Opérateur Humain
+    participant CLI as CLI / IDE
+    participant Backend as Backend Node.js
+    participant RustCore as Noyau Rust
+    participant Sandbox as Sandbox MCP
+    participant EpistEngine as Moteur Épistémique
+
+    User->>CLI: Lancement d'une mission
+    CLI->>Backend: Requête de création de mission
+    Backend->>RustCore: Instanciation de la flotte d'agents
+    
+    activate RustCore
+    RustCore->>Sandbox: Exécution isolée de la solution
+    Sandbox-->>RustCore: Traces brutes & résultats
+    RustCore->>EpistEngine: Soumission de l'hypothèse & preuves
+    
+    activate EpistEngine
+    EpistEngine->>EpistEngine: Audit de falsifiabilité
+    alt Preuve validée
+        EpistEngine-->>RustCore: Certification accordée
+        RustCore->>Backend: Commit dans la base de persistance
+        Backend-->>CLI: Mission accomplie avec certificat
+        CLI-->>User: Résultat final validé
+    else Falsification constatée
+        EpistEngine-->>RustCore: Alerte de dissonance & rejet
+        RustCore->>RustCore: Apoptose / Rollback de l'espace contrefactuel
+        Backend-->>CLI: Rapport d'échec & diagnostic nosologique
+        CLI-->>User: Notification d'intervention
+    end
+    deactivate EpistEngine
+    deactivate RustCore
+```
