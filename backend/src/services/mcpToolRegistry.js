@@ -4,6 +4,21 @@ const mcpBioTools = require('./mcpBioTools');
 const { validateToolArguments } = require('./mcpArgumentValidation');
 const circuitBreaker = require('./circuitBreaker');
 
+const CATEGORY_KIND_MAP = {
+  'Strategy Primitives': 'strategy',
+  'Swarm Biomimicry': 'bio',
+  'Epigenetics': 'bio',
+  'Cellular': 'bio',
+  'Genetics': 'bio',
+  'Neurobiology': 'bio',
+  'Ecology': 'bio',
+  'Resilience & Security': 'bio',
+  'Experimental Labs': 'cli',
+  'Workspace Control': 'cli',
+  'Knowledge & Experience': 'cli',
+  'Orchestration': 'cli',
+};
+
 function normalizeToolName(toolName) {
   return String(toolName || '').trim();
 }
@@ -12,6 +27,12 @@ const { REQUIRED_STRINGS } = require('./mcpArgumentValidation');
 
 function declaredToolNames() {
   return [...new Set((MCP_TOOLS_LIST || []).map((tool) => normalizeToolName(tool.name)).filter(Boolean))];
+}
+
+function getToolCategory(toolName) {
+  const normalized = normalizeToolName(toolName);
+  const tool = (MCP_TOOLS_LIST || []).find(t => normalizeToolName(t.name) === normalized);
+  return tool?.cat || '';
 }
 
 function isRegisteredTool(toolName) {
@@ -25,9 +46,10 @@ function detectExecutionKind(toolName) {
   if (!isRegisteredTool(normalized)) return 'unsupported';
 
   if (mcpStrategyTools.isStrategyTool(normalized)) return 'strategy';
-  if (mcpBioTools.isBioTool(normalized) || normalized.startsWith('genos_biomimicry_') || normalized.includes('conscience') || normalized.includes('entropy')) return 'bio';
-  if (normalized.startsWith('genos_')) return 'cli';
-  return 'unsupported';
+  if (mcpBioTools.isBioTool(normalized)) return 'bio';
+  const category = getToolCategory(normalized);
+  if (CATEGORY_KIND_MAP[category]) return CATEGORY_KIND_MAP[category];
+  return 'cli';
 }
 
 function isSupportedTool(toolName) {
