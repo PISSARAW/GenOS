@@ -197,3 +197,8 @@ stateDiagram-v2
     Refroidissement --> AffluxIonique : Réabsorption d'eau
     AffluxIonique --> Turgescent : Réouverture progressive
 ```
+
+### 4. Chimérisme Tissulaire et Spécialisation d'Organes
+
+La primitive `genos_biomimicry_tissue_chimerism` implémente la coexistence au sein d'un même agent de tissus cellulaires issus de lignées génomiques différentes (par exemple tissu réseau sous génome sécurisé et tissu computationnel sous génome exploratoire). Chaque organe répond aux sollicitations avec son propre caryotype sans interférence croisée.
+
