@@ -228,7 +228,7 @@ const TOOL_BASE_SCHEMAS = {
 function normalizeMcpEnvelope(body = {}) {
   return {
     toolName: body.toolName ?? body.tool_name,
-    args: body.args || {},
+    args: body.args ?? body.arguments ?? {},
     timeoutMs: body.timeoutMs ?? body.timeout_ms
   };
 }
