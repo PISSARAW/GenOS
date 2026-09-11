@@ -266,24 +266,26 @@ function withTimeout(promise, timeoutMs) {
   ]);
 }
 
-async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000 }) {
+async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000, preValidated = false }) {
   const registry = getToolRegistry();
   const normalizedToolName = String(toolName || '').trim();
   const executionKind = registry.detectExecutionKind(normalizedToolName);
   if (!normalizedToolName) {
     return { configured: false, success: false, status: 'invalid_tool', error: 'toolName is required.' };
   }
-  if (!registry.isSupportedTool(normalizedToolName)) {
-    return { configured: false, success: false, status: 'unsupported', error: `Tool '${normalizedToolName}' is not supported by the runtime dispatch registry.`, executionKind };
+  if (!preValidated) {
+    if (!registry.isSupportedTool(normalizedToolName)) {
+      return { configured: false, success: false, status: 'unsupported', error: `Tool '${normalizedToolName}' is not supported by the runtime dispatch registry.`, executionKind };
+    }
+    if (!directToolLeaseAllows(normalizedToolName)) {
+      return { configured: false, success: false, status: 'lease_denied', error: `Tool '${normalizedToolName}' is outside the active MCP lease.`, code: 'MCP_TOOL_LEASE_DENIED', executionKind };
+    }
+    const argumentError = validateToolArguments(normalizedToolName, args);
+    if (argumentError) {
+      return { configured: false, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code };
+    }
+    try { validateMcpInputPaths(args); } catch (error) { return { configured: false, success: false, status: 'invalid_args', error: error.message, code: error.code }; }
   }
-  if (!directToolLeaseAllows(normalizedToolName)) {
-    return { configured: false, success: false, status: 'lease_denied', error: `Tool '${normalizedToolName}' is outside the active MCP lease.`, code: 'MCP_TOOL_LEASE_DENIED', executionKind };
-  }
-  const argumentError = validateToolArguments(normalizedToolName, args);
-  if (argumentError) {
-    return { configured: false, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code };
-  }
-  try { validateMcpInputPaths(args); } catch (error) { return { configured: false, success: false, status: 'invalid_args', error: error.message, code: error.code }; }
 
   const runLocal = (cmd) => {
     try { return { configured: true, success: true, status: 'completed', transport: 'local', output: runSafeSync(cmd, { timeoutMs }).toString() }; }
@@ -398,7 +400,7 @@ async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS)
   const db = await getDatabase();
   await db.run('INSERT INTO audit_logs (actor, agent_id, action, resource, decision, reason, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', 'mcp-direct', null, 'MCP_DIRECT_CALL', normalizedToolName, 'allow', 'direct call guarded', JSON.stringify({ args, timeoutMs }));
   try {
-    const result = await executeConfiguredTransport({ toolName: normalizedToolName, args, timeoutMs: normalizeMcpTimeout(timeoutMs) });
+    const result = await executeConfiguredTransport({ toolName: normalizedToolName, args, timeoutMs: normalizeMcpTimeout(timeoutMs), preValidated: true });
     if (result.success) circuitBreaker.recordSuccess(normalizedToolName);
     else if (result.configured) circuitBreaker.recordFailure(normalizedToolName, result.error || result.output || 'MCP tool failed.');
     if (!result.success) throw Object.assign(new Error(result.error || result.output || `MCP tool '${normalizedToolName}' failed.`), { code: result.code || 'MCP_TOOL_ERROR' });
