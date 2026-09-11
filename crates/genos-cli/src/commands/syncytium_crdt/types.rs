@@ -19,6 +19,8 @@ pub enum CrdtOpKind {
     InsertText { index: usize, text: String },
     DeleteText { index: usize, len: usize },
     SetField { key: String, value: serde_json::Value },
+    IonicFlux { ion: String, concentration: f64, gradient: f64 },
+    CytoplasmicDiffusion { molecule: String, vector: Vec<f64> },
     UpdateCursor { line: u32, column: u32, selection: Option<(u32, u32)> },
     CheckInvariant { name: String, passed: bool, error: Option<String> },
 }

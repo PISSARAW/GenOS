@@ -100,7 +100,16 @@ $$
 \text{canMerge} = \text{quiescence}(S_t) = 1 \text{ AND } \forall i : I(S_t) = 1
 $$
 
+### 3.3 Modèle Cytoplasmique Continu : Flux Ioniques et Diffusion Moléculaire
+Pour s'affranchir de la latence de sérialisation et de l'overhead de paquets JSON discrets (`SetField`), le Syncytium intègre un mode de transport cytoplasmique électrochimique continu :
+* **Flux Ioniques (`IonicFlux`)** : Les agents modulent les concentrations transmembranaires de $\text{Ca}^{2+}$, $\text{K}^+$, et $\text{Na}^+$. Les changements d'état provoquent des dépolarisations instantanées selon l'équation de Nernst-Planck :
+  $$
+  V_m = V_{\text{repos}} + \sum_j z_j \Delta c_j \cdot k_{\text{nernst}}
+  $$
+* **Diffusion Moléculaire (`CytoplasmicDiffusion`)** : La propagation de gradients de morphogènes et de métabolites (ATP, signaux régulateurs) s'effectue vectoriellement à travers les jonctions communicantes (gap junctions) sans parseur JSON (`crates/genos-cli/src/commands/syncytium_crdt/types.rs`, `backend/src/services/syncytiumCytoplasmService.js`).
+
 ---
+
 
 ## 4. Les quatre rôles et hypothèses
 
