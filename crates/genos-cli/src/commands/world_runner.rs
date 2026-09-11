@@ -4,8 +4,9 @@ use genos_cell::AgentCell;
 
 pub fn ask_agent(prompt: &str, role: &str) -> String {
     let client = reqwest::blocking::Client::new();
+    let model_name = std::env::var("GENOS_CORE_MODEL").or_else(|_| std::env::var("GENOS_MODEL")).unwrap_or_else(|_| "genos-core-v3".to_string());
     let body = json!({
-        "model": "genos-core-v3",
+        "model": model_name,
         "messages": [
             { "role": "system", "content": format!("Tu es un agent GenOS ayant le rôle de {}. Réponds de façon concise et technique.", role) },
             { "role": "user", "content": prompt }

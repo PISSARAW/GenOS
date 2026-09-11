@@ -57,8 +57,9 @@ pub fn execute(cmd: PlatformSubcommands) -> Result<(), String> {
             
             // Call the local GenOS API server
             let client = reqwest::blocking::Client::new();
+            let model_name = std::env::var("GENOS_CORE_MODEL").or_else(|_| std::env::var("GENOS_MODEL")).unwrap_or_else(|_| "genos-core-v3".to_string());
             let body = json!({
-                "model": "genos-core-v3",
+                "model": model_name,
                 "messages": [
                     { "role": "user", "content": prompt }
                 ]

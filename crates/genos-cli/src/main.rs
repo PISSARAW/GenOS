@@ -245,8 +245,9 @@ fn main() {
                     .timeout(std::time::Duration::from_millis(1500))
                     .build()
                     .unwrap_or_default();
+                let model_name = std::env::var("GENOS_CORE_MODEL").or_else(|_| std::env::var("GENOS_MODEL")).unwrap_or_else(|_| "genos-core-v3".to_string());
                 let body = serde_json::json!({
-                    "model": "genos-core-v3",
+                    "model": model_name,
                     "messages": [
                         { "role": "user", "content": prompt }
                     ]
