@@ -3,6 +3,7 @@ pub mod agent_mutate;
 pub mod accounting;
 pub mod api_server;
 pub mod biomimicry;
+pub mod biomimicry_cells;
 pub mod biomimicry_features;
 pub mod biomimicry_neural;
 pub mod biomimicry_ops;

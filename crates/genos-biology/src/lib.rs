@@ -17,6 +17,7 @@ pub mod sensory;
 pub mod signaling;
 pub mod specialized_cells;
 pub use specialized_cells::cnidocyte::{Cnidocyte, NematocystCapsule, ToxinPayload};
+pub use specialized_cells::electrocyte::{ElectricOrganStack, ElectricShockBurst, Electrocyte};
 pub mod spore;
 pub mod therapy;
 pub mod tissue;
