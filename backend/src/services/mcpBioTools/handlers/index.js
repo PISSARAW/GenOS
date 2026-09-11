@@ -57,6 +57,7 @@ const { handle: handleObligatePolyembryony } = require('./obligatePolyembryony')
 const { handle: handleMarmosetGermlineChimerism } = require('./marmosetGermlineChimerism');
 const { handle: handleFreemartinInhibition } = require('./freemartinInhibition');
 const { handle: handleEmbryonicDiapause } = require('./embryonicDiapause');
+const { handlePointMutation, handlePointMutationError } = require('./pointMutation');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -119,6 +120,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_marmoset_germline_chimerism: { handle: handleMarmosetGermlineChimerism, error: (e) => ({ configured: false, error: e.message }) },
   genos_biomimicry_freemartin_endocrine_inhibition: { handle: handleFreemartinInhibition, error: (e) => ({ configured: false, error: e.message }) },
   genos_biomimicry_embryonic_diapause_pipeline: { handle: handleEmbryonicDiapause, error: (e) => ({ configured: false, error: e.message }) },
+  genos_biomimicry_point_mutation: { handle: handlePointMutation, error: handlePointMutationError },
 };
 
 module.exports = { TOOL_HANDLERS };

@@ -581,6 +581,7 @@ flowchart TD
         H17["marmosetGermlineChimerism.js (Fraternal proxy spawn)"]
         H18["freemartinInhibition.js (Replication lock & compute boost)"]
         H19["embryonicDiapause.js (3-Tier zero-latency pipeline)"]
+        H20["pointMutation.js (Silent, missense, nonsense STOP)"]
     end
 
     Clients --> Detector
@@ -588,4 +589,5 @@ flowchart TD
     Detector --> ArgVal --> Circuit --> BioHub & StratHub & CliHub
     BioHub --> Handlers
 ```
+
 
