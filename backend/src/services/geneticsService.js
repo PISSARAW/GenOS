@@ -364,10 +364,13 @@ function somaticHypermutate(genes = {}, options = {}) {
   };
 }
 
+const nucleotideTranslation = require('./nucleotideTranslationService');
+
 module.exports = {
   getPhylogeneticTree,
   analyzeAlleles,
   crossoverGenome,
   somaticHypermutate,
-  validateCognitiveGenes
+  validateCognitiveGenes,
+  ...nucleotideTranslation
 };

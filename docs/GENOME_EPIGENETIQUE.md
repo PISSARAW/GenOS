@@ -678,6 +678,29 @@ flowchart TD
     end
 ```
 
+### 4. Épigénétique et Méthylation Réversible (`genos_biomimicry_epigenetic_methylation`)
+
+Les étiquettes épigénétiques (groupes méthyles) modifient la permissivité d'accès à des outils ou des sous-prompts sans changer un seul caractère du code génétique sous-jacent :
+* **Verrouillage sous stress environnemental :** Lors de pénurie de tokens ou de latence réseau critique, une marque de méthylation met en sommeil les outils GPU énergivores (*silenced dormant*).
+* **Transmission transgénérationnelle :** Les agents enfants héritent des marques d'adaptation de leur parent.
+* **Réversibilité totale :** Dès le retour à l'équilibre environnemental, la déméthylation rétablit instantanément l'expression nominale initiale.
+
+```mermaid
+flowchart LR
+    subgraph EnvironmentalStress["Stress Environnemental (Famine Tokens)"]
+        Tag["Apposition Marque Méthyle"] --> Silenced["Locus GPU Mis en Sommeil (Code DNA Intact)"]
+    end
+
+    subgraph TransgenerationalMemory["Transmission à l'Enfant"]
+        Silenced --> ChildEpi["Agent Enfant Hérite de la Marque Épigénétique"]
+    end
+
+    subgraph Recovery["Rétablissement Homéostasie"]
+        ChildEpi -->|"Déméthylation Réversible"| Restored["Expression Nominale Rétablie (100% Déverrouillé)"]
+    end
+```
+
+
 
 
 
