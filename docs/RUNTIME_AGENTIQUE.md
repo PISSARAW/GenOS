@@ -427,6 +427,7 @@ flowchart TD
         H24["chromosomalInversion.js (Retrograde backward reasoning)"]
         H25["chromosomalTranslocation.js (Cross-agent capability grafting)"]
         H26["aneuploidy.js (Trisomy 2/3 consensus & monosomy)"]
+        H27["polyploidy.js (Multi-layer 6n wheat strategy)"]
     end
 
     Clients --> Detector

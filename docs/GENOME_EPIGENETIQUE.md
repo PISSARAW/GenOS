@@ -577,6 +577,35 @@ flowchart TD
     DiploidState -->|"Induction Monosomie Executor"| MonosomyState
 ```
 
+### 8. Polyploïdie Génomique (`genos_biomimicry_polyploidy`)
+
+Inspirée des génomes végétaux à forte résilience et adaptabilité (comme le blé moderne hexaploïde $6n$), la polyploïdie multiplie l'intégralité du jeu de chromosomes en $N$ couches cognitives spécialisées :
+* **Couche 1 (2n) :** Cœur logique AST et exécution nominale.
+* **Couche 2 (2n) :** Garde-fous de sécurité, permissions et barrières d'invariants.
+* **Couche 3 (2n) :** Preuve formelle, fuzzing stochastique et synthèse explicative.
+
+Cette architecture multi-génomique confère à l'essaim une robustesse combinatoire inégalée et une tolérance totale aux corruptions de contexte locales.
+
+```mermaid
+flowchart TB
+    subgraph HexaploidSystem["Organisation Génomique Hexaploïde (6n - Stratégie Blé)"]
+        subgraph Layer1["Couche A (2n) : Exécution Core"]
+            L1["AST Core Logic & Algorithmes"]
+        end
+        subgraph Layer2["Couche B (2n) : Sécurité & Invariants"]
+            L2["Permissions, Checkpoints & Quarantaine"]
+        end
+        subgraph Layer3["Couche C (2n) : Épistémique & Falsification"]
+            L3["Preuve Formelle & Fuzzing Stochastique"]
+        end
+    end
+
+    Layer1 <-->|"Validation Continue"| Layer2
+    Layer2 <-->|"Audit Épistémique"| Layer3
+    Layer1 <-->|"Raffinement"| Layer3
+```
+
+
 
 
 

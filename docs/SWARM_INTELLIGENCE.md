@@ -574,4 +574,9 @@ Grâce à `genos_biomimicry_obligate_polyembryony`, l'essaim peut générer des 
 
 Pour reconfigurer dynamiquement une nuée face à un blocage cognitif inattendu, la nuée effectue une translocation chromosomique horizontale : un agent transloque son sous-module d'analyse vers un autre agent sans nécessiter la destruction ou le redémarrage des instances.
 
+### 7. Résilience Multi-Couches par Polyploïdie Génomique (`genos_biomimicry_polyploidy`)
+
+En mode mission critique, la nuée entière multiplie sa ploïdie ($2n \to 6n$), instanciant des plans d'exécution étagés (AST nominal, sécurité stricte, validation formelle) qui co-évoluent et se contre-vérifient en temps réel.
+
+
 

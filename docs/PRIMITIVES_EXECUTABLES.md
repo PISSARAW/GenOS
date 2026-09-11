@@ -582,6 +582,13 @@ flowchart TD
         H18["freemartinInhibition.js (Replication lock & compute boost)"]
         H19["embryonicDiapause.js (3-Tier zero-latency pipeline)"]
         H20["pointMutation.js (Silent, missense, nonsense STOP)"]
+        H21["frameshiftMutation.js (Indel shift & compensatory pad)"]
+        H22["chromosomalDeletion.js (Structural pipeline pruning)"]
+        H23["chromosomalDuplication.js (Tandem copy & neofunctionalization)"]
+        H24["chromosomalInversion.js (Retrograde backward reasoning)"]
+        H25["chromosomalTranslocation.js (Cross-agent capability grafting)"]
+        H26["aneuploidy.js (Trisomy 2/3 consensus & monosomy)"]
+        H27["polyploidy.js (Multi-layer 6n wheat strategy)"]
     end
 
     Clients --> Detector
@@ -589,5 +596,6 @@ flowchart TD
     Detector --> ArgVal --> Circuit --> BioHub & StratHub & CliHub
     BioHub --> Handlers
 ```
+
 
 
