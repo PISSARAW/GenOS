@@ -45,6 +45,7 @@ const { handleSomaticResonance, handleSomaticResonanceError } = require('./somat
 const { handleChimericMerge, handleChimericMergeError } = require('./chimericMerge');
 const { handlePolyovulationSpawn, handlePolyovulationSpawnError } = require('./polyovulationSpawn');
 const { handleMonozygoticSplit, handleMonozygoticSplitError } = require('./monozygoticSplit');
+const { handleHybridMultiples, handleHybridMultiplesError } = require('./hybridMultiples');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -95,6 +96,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_chimeric_merge: { handle: handleChimericMerge, error: handleChimericMergeError },
   genos_biomimicry_polyovulation_spawn: { handle: handlePolyovulationSpawn, error: handlePolyovulationSpawnError },
   genos_biomimicry_monozygotic_split: { handle: handleMonozygoticSplit, error: handleMonozygoticSplitError },
+  genos_biomimicry_hybrid_multiples: { handle: handleHybridMultiples, error: handleHybridMultiplesError },
 };
 
 module.exports = { TOOL_HANDLERS };
