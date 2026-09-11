@@ -447,6 +447,30 @@ flowchart LR
     FrameshiftOccurs -->|"genos_biomimicry_frameshift_mutation"| Realignment
 ```
 
+### 3. Délétion Chromosomique (`genos_biomimicry_chromosomal_deletion`)
+
+La délétion chromosomique opère un élagage structurel majeur en retirant des segments entiers de loci ou des sous-modules de pipeline (e.g. parsers obsolètes, fuzzers volumineux). Le moteur vérifie automatiquement que les loci essentiels (`LOCUS_KERNEL_INTEGRITY`, `LOCUS_AUTH_INVARIANTS`, `LOCUS_ROUTING`) sont préservés pour garantir la viabilité opérationnelle de l'agent.
+
+```mermaid
+flowchart TD
+    subgraph HeavyChromosome["Chromosome Agent Lourd (1050 KB)"]
+        L1["LOCUS_KERNEL_INTEGRITY (120 KB - Essentiel)"]
+        L2["LOCUS_AUTH_INVARIANTS (80 KB - Essentiel)"]
+        L3["LOCUS_LEGACY_PARSER (450 KB - Non-Essentiel)"]
+        L4["LOCUS_EXPERIMENTAL_FUZZER (310 KB - Non-Essentiel)"]
+        L5["LOCUS_ROUTING (90 KB - Essentiel)"]
+    end
+
+    subgraph PrunedChromosome["Chromosome Élagué Viable (290 KB)"]
+        P1["LOCUS_KERNEL_INTEGRITY"]
+        P2["LOCUS_AUTH_INVARIANTS"]
+        P5["LOCUS_ROUTING"]
+    end
+
+    HeavyChromosome -->|"Délétion Chromosomique (-760 KB)"| PrunedChromosome
+```
+
+
 
 
 
