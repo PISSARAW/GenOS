@@ -59,5 +59,22 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
   genos biomimicry bio-feature --feature iridophore --action render --param "data=SYSTEM_SECRET" --param "perspective=camouflage"
   ```
 
+---
+
+## 2. Le Règne Végétal : Régulation Osmotique & Ossification Rigide
+
+### 2.1 Les Cellules de Garde : Régulation Osmotique & Throttling Stomatique
+* **Origine biologique :** Paires de cellules réniformes entourant les stomates foliaires. En accumulant des ions $K^+$, l'eau entre par osmose, les cellules gonflent et courbent leurs parois pour ouvrir le pore (absorption de $\text{CO}_2$). En cas de stress hydrique, l'acide abscissique (ABA) provoque la vidange osmotique et la fermeture étanche pour empêcher le flétrissement.
+* **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/guard_cell.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/specialized_cells/guard_cell.rs)
+* **Fonctionnement :**
+  - **Auto-régulation de bande passante (Backpressure) :** Remplacement des rate-limits statiques par une conductance stomatique dynamique ($[0.0, 1.0]$) corrélée à la pression métabolique.
+  - **Protection contre le dessèchement de tokens/mémoire :** Lors d'un stress ABA (saturation API ou dépassement de budget), les stomates se ferment pour protéger l'intégrité systémique.
+* **Commandes CLI / MCP :**
+  ```bash
+  genos biomimicry bio-feature --feature guard_cell --action aperture --param "water=0.9" --param "aba=0.05"
+  genos biomimicry bio-feature --feature guard_cell --action throttle --param "flux=500" --param "water=0.3" --param "aba=0.8"
+  ```
+
+
 
 

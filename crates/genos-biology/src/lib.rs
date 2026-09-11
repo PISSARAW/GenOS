@@ -20,6 +20,7 @@ pub use specialized_cells::cnidocyte::{Cnidocyte, NematocystCapsule, ToxinPayloa
 pub use specialized_cells::electrocyte::{ElectricOrganStack, ElectricShockBurst, Electrocyte};
 pub use specialized_cells::choanocyte::{Choanocyte, ChoanodermChamber, RawSignalPacket, SiftingResult};
 pub use specialized_cells::iridophore::{GuaninePlateletLattice, Iridophore, ObserverPerspective};
+pub use specialized_cells::guard_cell::{GuardCell, StomatalPore, ThrottleResult};
 pub mod spore;
 pub mod therapy;
 pub mod tissue;
