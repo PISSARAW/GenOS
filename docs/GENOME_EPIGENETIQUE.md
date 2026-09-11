@@ -389,3 +389,8 @@ flowchart TB
     ChimericAgent -->|"Aiguillage selon le caryotype"| TissueFS
 ```
 
+### 6. Chimérisme Germinal du Ouistiti (Transmission Génétique Croisée)
+
+Le chimérisme germinal (`genos_biomimicry_marmoset_germline_chimerism`) découple l'exécution physique de l'héritage génétique. Un agent proxy peut générer un enfant portant 100% du génome d'un agent tiers de sa fratrie, préservant ainsi les lignées hautement adaptatives même après l'extinction de leur découvreur initial.
+
+
