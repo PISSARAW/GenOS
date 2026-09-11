@@ -578,5 +578,10 @@ Pour reconfigurer dynamiquement une nuée face à un blocage cognitif inattendu,
 
 En mode mission critique, la nuée entière multiplie sa ploïdie ($2n \to 6n$), instanciant des plans d'exécution étagés (AST nominal, sécurité stricte, validation formelle) qui co-évoluent et se contre-vérifient en temps réel.
 
+### 8. Régulation Épigénétique Transgénérationnelle (`genos_biomimicry_epigenetic_methylation`)
+
+Lorsque la nuée traverse une zone de contrainte réseau ou de budget tokens réduit, des étiquettes de méthylation mettent collectivement en sommeil les agents et outils les plus coûteux. Cette mémoire environnementale est transmise aux nouvelles générations d'agents et s'annule par déméthylation réversible dès le retour à la normale.
+
+
 
 

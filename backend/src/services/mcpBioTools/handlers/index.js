@@ -68,6 +68,7 @@ const { handlePolyploidy, handlePolyploidyError } = require('./polyploidy');
 const { handleTransposonJump, handleTransposonJumpError } = require('./transposonJump');
 const { handleDynamicTripletExpansion, handleDynamicTripletExpansionError } = require('./dynamicTripletExpansion');
 const { handleMitochondrialDnaMutation, handleMitochondrialDnaMutationError } = require('./mitochondrialDnaMutation');
+const { handleEpigeneticMethylation, handleEpigeneticMethylationError } = require('./epigeneticMethylation');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -141,6 +142,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_transposon_jump: { handle: handleTransposonJump, error: handleTransposonJumpError },
   genos_biomimicry_dynamic_triplet_expansion: { handle: handleDynamicTripletExpansion, error: handleDynamicTripletExpansionError },
   genos_biomimicry_mitochondrial_dna_mutation: { handle: handleMitochondrialDnaMutation, error: handleMitochondrialDnaMutationError },
+  genos_biomimicry_epigenetic_methylation: { handle: handleEpigeneticMethylation, error: handleEpigeneticMethylationError },
 };
 
 module.exports = { TOOL_HANDLERS };
