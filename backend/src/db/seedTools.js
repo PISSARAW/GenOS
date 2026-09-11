@@ -302,7 +302,8 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_biomimicry_chromosomal_duplication', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Duplicate chromosome segments in tandem for redundancy and neo-functionalization.' },
   { name: 'genos_biomimicry_chromosomal_inversion', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Invert chromosome segment sequence 180 degrees for retrograde backward reasoning.' },
   { name: 'genos_biomimicry_chromosomal_translocation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Translocate loci between heterologous agent chromosomes for cross-domain capability grafting.' },
-  { name: 'genos_biomimicry_aneuploidy', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Adjust chromosome instance counts: induce monosomy for frugality or trisomy for 2/3 majority voting.' }
+  { name: 'genos_biomimicry_aneuploidy', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Adjust chromosome instance counts: induce monosomy for frugality or trisomy for 2/3 majority voting.' },
+  { name: 'genos_biomimicry_polyploidy', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Multiply whole genome ploidy (e.g. 6n hexaploid wheat strategy) into layered specialized cognitive planes.' }
 ];
 
 async function seedMcpTools(db) {
