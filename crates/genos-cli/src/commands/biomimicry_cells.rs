@@ -9,6 +9,7 @@ pub fn handle_specialized_cell(feature: &str, action: &str, params: &[String]) {
         "iridophore" | "structural_color" => handle_iridophore(action, params),
         "guard_cell" | "stomata" => handle_guard_cell(action, params),
         "tracheid" | "xylem_wood" => handle_tracheid(action, params),
+        "prokaryote" | "plasmid_hgt" => handle_prokaryote(action, params),
         _ => {
             println!("{}", json!({
                 "success": true, "operation": "specialized_cell",
@@ -284,6 +285,70 @@ pub fn handle_tracheid(action: &str, params: &[String]) {
         }
     }
 }
+
+pub fn handle_prokaryote(action: &str, params: &[String]) {
+    let donor_id = extract_param(params, "donor_id")
+        .or_else(|| extract_param(params, "agent_id"))
+        .unwrap_or_else(|| "prokaryote_donor_0".to_string());
+    let recipient_id = extract_param(params, "recipient_id")
+        .unwrap_or_else(|| "prokaryote_recipient_0".to_string());
+    let plasmid_id = extract_param(params, "plasmid_id")
+        .unwrap_or_else(|| "pResist_anti_injection".to_string());
+    let skill_name = extract_param(params, "skill_name")
+        .unwrap_or_else(|| "ADVERSARIAL_DEFENSE".to_string());
+
+    let sample_plasmid = genos_biology::specialized_cells::prokaryote::Plasmid {
+        plasmid_id: plasmid_id.clone(),
+        skill_name,
+        executable_payload: "QUARANTINE_THREAT".to_string(),
+        resistance_marker: "AMPICILLIN_RESIST_MARKER".to_string(),
+        copy_number: 10,
+    };
+
+    let donor = genos_biology::specialized_cells::prokaryote::ProkaryoticAgent::new(&donor_id)
+        .with_plasmid(sample_plasmid);
+    let mut recipient = genos_biology::specialized_cells::prokaryote::ProkaryoticAgent::new(&recipient_id);
+
+    match action {
+        "conjugate" | "hgt" => {
+            let res = donor.conjugate_transfer_plasmid(&mut recipient, &plasmid_id);
+            match res {
+                Ok(report) => {
+                    println!("{}", json!({
+                        "success": true, "feature": "prokaryote", "action": "conjugate",
+                        "hgt_report": report,
+                        "recipient_plasmids_count": recipient.plasmids.len()
+                    }));
+                }
+                Err(err) => {
+                    println!("{}", json!({
+                        "success": false, "feature": "prokaryote", "action": "conjugate",
+                        "error": err
+                    }));
+                }
+            }
+        }
+        "fission" | "divide" => {
+            let mut cell = donor;
+            let (d1, d2) = cell.binary_fission();
+            println!("{}", json!({
+                "success": true, "feature": "prokaryote", "action": "fission",
+                "parent_id": donor_id,
+                "daughter_a": d1.id, "daughter_b": d2.id,
+                "generation": d1.generation
+            }));
+        }
+        _ => {
+            let exec = donor.execute_plasmid(&plasmid_id);
+            println!("{}", json!({
+                "success": true, "feature": "prokaryote", "action": "execute",
+                "agent_id": donor_id, "plasmid_id": plasmid_id,
+                "yield": exec
+            }));
+        }
+    }
+}
+
 
 
 
