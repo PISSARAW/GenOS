@@ -570,3 +570,8 @@ flowchart LR
 
 Grâce à `genos_biomimicry_obligate_polyembryony`, l'essaim peut générer des sous-groupes de $N=4$ ou $N=8$ répliques isogéniques strictes évaluant une hypothèse critique en parallèle. Le vote à quorum $\ge 75\%$ protège la nuée contre les hallucinations locales tout en garantissant un coût d'inférence strictement borné.
 
+### 6. Transfert Horizontal par Translocation Chromosomique (`genos_biomimicry_chromosomal_translocation`)
+
+Pour reconfigurer dynamiquement une nuée face à un blocage cognitif inattendu, la nuée effectue une translocation chromosomique horizontale : un agent transloque son sous-module d'analyse vers un autre agent sans nécessiter la destruction ou le redémarrage des instances.
+
+
