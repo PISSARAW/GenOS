@@ -234,6 +234,16 @@ Cette detection est volontairement conservative et syntaxique. Elle peut manquer
 
 Le differentiel de GenOS est la contrainte que les contributions d'une flotte deviennent explicites, citees et auditables avant une decision. Sa limite est fondamentale : aucune structure de receipts ne rend automatiquement une affirmation vraie sans observation independante et oracle metier.
 
+## Audit Chaperone des communications cryptophasiques
+
+L'usage de dialectes compressés inter-agents (`genos_biomimicry_cryptophasia`) ne doit en aucun cas créer une boîte noire opaque au détriment de l'évidence.
+
+Le système de Chaperone épistémique assure que :
+- Tout paquet d'opcodes denses (`OP_BSC_REG`, `OP_VRF_INV`, etc.) est corrélé à une intention formelle, une empreinte d'intégrité et un timestamp d'émission.
+- L'arbitre de réalité ou l'auditeur humain peut exécuter l'action `audit_trace` ou `decode_dialect` à tout moment pour restaurer l'explicabilité intégrale de la chaîne de causalité.
+
+---
+
 ## Verification
 
 Les suites proches du contrat sont :
@@ -244,6 +254,7 @@ node backend/tests/test_worker_dossiers_suite.js
 node backend/tests/test_no_answer_proof_remediation.js
 node backend/tests/test_conclusion_provenance_integrity.js
 node backend/tests/test_counterexamples_falsification.js
+node backend/tests/test_cryptophasia.js
 ```
 
 Au 8 septembre 2026, les points 1 et 2 de `test_counterexamples_falsification.js` passent, mais son point 3 echoue sur l'assertion que la memoire initiale reste visible dans les experiences scorees. Cette regression est independante des checks de falsification executes avant elle et doit etre corrigee avant de traiter cette suite comme une validation complete. Un test reussi confirme les scenarios couverts. Il ne certifie ni la verite des claims d'un fournisseur externe, ni la completude de l'oracle metier.

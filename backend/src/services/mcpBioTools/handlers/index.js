@@ -39,6 +39,7 @@ const { handleMyceliumNetwork, handleMyceliumNetworkError } = require('./myceliu
 const { handleProprioception, handleProprioceptionError } = require('./proprioception');
 const { handleEcholocationListen, handleEcholocationBeep, handleEcholocationError } = require('./echolocation');
 const { handleThalamicBridge, handleThalamicBridgeError } = require('./thalamicBridge');
+const { handleCryptophasia, handleCryptophasiaError } = require('./cryptophasia');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -83,6 +84,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_proprioception: { handle: handleProprioception, error: handleProprioceptionError },
   genos_biomimicry_echolocation: { handle: handleEcholocationListen, error: handleEcholocationError },
   genos_biomimicry_thalamic_bridge: { handle: handleThalamicBridge, error: handleThalamicBridgeError },
+  genos_biomimicry_cryptophasia: { handle: handleCryptophasia, error: handleCryptophasiaError },
 };
 
 module.exports = { TOOL_HANDLERS };
