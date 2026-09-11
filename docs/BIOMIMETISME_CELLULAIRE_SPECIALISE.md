@@ -46,4 +46,18 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
   genos biomimicry bio-feature --feature choanocyte --action sift --param "payload=CRITICAL_EVENT" --param "size_nm=180"
   ```
 
+### 1.4 Les Iridophores : Diffraction Nanocristalline & Rendu Polymorphique
+* **Origine biologique :** Cellules cutanées des caméléons et céphalopodes contenant des empilements réguliers de nanocristaux de guanine, modifiant la diffraction structurelle de la lumière par contraction/dilatation sans synthèse de pigment.
+* **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/iridophore.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/specialized_cells/iridophore.rs)
+* **Fonctionnement :**
+  - **Loi de Bragg-Snell computationnelle :** $\lambda = 2d\sqrt{n_{\text{eff}}^2 - \sin^2\theta}$ calculant la bande spectrale en temps réel.
+  - **Morphing d'interface (Generative UI) :** Adaptation dynamique du format de rendu selon l'observateur (`TuiAnsi`, `StructuredJson`, `MarkdownVisual`, `CrypticCamouflage`).
+  - **Camouflage cryptographique :** Obfuscation polymorphique du code et de l'état en transit basée sur le décalage cristallin.
+* **Commandes CLI / MCP :**
+  ```bash
+  genos biomimicry bio-feature --feature iridophore --action shift --param "spacing_nm=220"
+  genos biomimicry bio-feature --feature iridophore --action render --param "data=SYSTEM_SECRET" --param "perspective=camouflage"
+  ```
+
+
 

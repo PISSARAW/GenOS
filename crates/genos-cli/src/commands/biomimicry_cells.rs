@@ -6,6 +6,7 @@ pub fn handle_specialized_cell(feature: &str, action: &str, params: &[String]) {
         "cnidocyte" | "nematocyst" => handle_cnidocyte(action, params),
         "electrocyte" | "electric_organ" => handle_electrocyte(action, params),
         "choanocyte" | "collar_cell" => handle_choanocyte(action, params),
+        "iridophore" | "structural_color" => handle_iridophore(action, params),
         _ => {
             println!("{}", json!({
                 "success": true, "operation": "specialized_cell",
@@ -144,4 +145,47 @@ pub fn handle_choanocyte(action: &str, params: &[String]) {
         }
     }
 }
+
+pub fn handle_iridophore(action: &str, params: &[String]) {
+    let agent_id = extract_param(params, "agent_id")
+        .unwrap_or_else(|| "iridophore_0".to_string());
+    let spacing_nm: f64 = extract_param(params, "spacing_nm")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(175.0);
+    let raw_data = extract_param(params, "data").unwrap_or_else(|| "GENOS_CELLULAR_PAYLOAD".to_string());
+    let perspective_str = extract_param(params, "perspective").unwrap_or_else(|| "markdown".to_string());
+
+    let mut iridophore = genos_biology::specialized_cells::iridophore::Iridophore::new(&agent_id);
+    iridophore.shift_lattice_spacing(spacing_nm);
+
+    let perspective = match perspective_str.to_lowercase().as_str() {
+        "tui" | "ansi" => genos_biology::specialized_cells::iridophore::ObserverPerspective::TuiAnsi,
+        "json" | "machine" => genos_biology::specialized_cells::iridophore::ObserverPerspective::StructuredJson,
+        "camouflage" | "crypto" | "cloak" => genos_biology::specialized_cells::iridophore::ObserverPerspective::CrypticCamouflage,
+        _ => genos_biology::specialized_cells::iridophore::ObserverPerspective::MarkdownVisual,
+    };
+
+    match action {
+        "shift" => {
+            let lambda = iridophore.calculate_reflected_wavelength_nm();
+            let hue = iridophore.optical_hue_name();
+            println!("{}", json!({
+                "success": true, "feature": "iridophore", "action": "shift",
+                "agent_id": agent_id, "lattice_spacing_nm": iridophore.lattice.spacing_d_nm,
+                "reflected_wavelength_nm": lambda, "optical_hue": hue,
+                "osmotic_turgor": iridophore.osmotic_turgor
+            }));
+        }
+        _ => {
+            let rendered = iridophore.render_polymorphic(&raw_data, &perspective);
+            println!("{}", json!({
+                "success": true, "feature": "iridophore", "action": "render",
+                "agent_id": agent_id, "perspective": perspective_str,
+                "optical_hue": iridophore.optical_hue_name(),
+                "rendered_output": rendered
+            }));
+        }
+    }
+}
+
 
