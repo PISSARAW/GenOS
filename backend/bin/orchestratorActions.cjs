@@ -129,7 +129,9 @@ async function handleOrganizationPublish({ db, request, orchestratorId }) {
   const senderAgentId = process.env.GENOS_AGENT_ID || request.senderAgentId || orchestratorId;
   const published = await dynamicOrganization.publish(db, {
     orchestratorId, senderAgentId, recipientAgentId: request.recipientAgentId || request.recipient_agent_id,
-    kind: request.kind, content: request.content, payload: request.payload
+    kind: request.kind, content: request.content, payload: request.payload,
+    signalType: request.signalType || request.signal_type,
+    signalData: request.signalData || request.signal_data || request.signal
   });
   process.stdout.write(JSON.stringify(published));
 }
