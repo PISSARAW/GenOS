@@ -146,7 +146,17 @@ pub fn handle_compliance(standard: &str, output_file: Option<&str>, opts: &Write
 }
 
 pub fn handle_strategy_adapt(agent_id: &str, constraint: &str, target: f64) -> Result<(), String> {
-    println!("{}", json!({ "operation": "strategy_adapt", "agent_id": agent_id, "constraint": constraint, "target": target, "status": "ADAPTED" }));
+    let strat_dir = crate::commands::root_resolver::resolve_matrix_root().join("strategies");
+    let _ = std::fs::create_dir_all(&strat_dir);
+    let strat_file = strat_dir.join(format!("{}_strategy.json", agent_id));
+    let strat_data = json!({
+        "agent_id": agent_id,
+        "constraint": constraint,
+        "target": target,
+        "adapted_at": chrono::Utc::now().to_rfc3339()
+    });
+    let _ = std::fs::write(&strat_file, serde_json::to_string_pretty(&strat_data).unwrap());
+    println!("{}", json!({ "operation": "strategy_adapt", "agent_id": agent_id, "constraint": constraint, "target": target, "status": "ADAPTED", "file": strat_file.to_string_lossy() }));
     Ok(())
 }
 
