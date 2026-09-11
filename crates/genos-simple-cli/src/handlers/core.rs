@@ -31,7 +31,7 @@ fn is_genos_server_process(pid: u32) -> bool {
             let lower = line.to_lowercase();
             lower.contains("genos")
         }
-        None => false,
+        None => false, // Process doesn't exist or we can't read its cmdline
     }
 }
 
@@ -123,11 +123,53 @@ pub fn handle_core(cmd: &CoreCommands, _yes: bool) {
                         pid
                     ));
                 }
+                if !api_is_healthy() {
+                    let _ = std::fs::remove_file(".genos_server.pid");
+                    command_error(format!("le serveur est déjà arrêté; PID stale supprimé ({})", pid));
+                }
+                // Verify the PID actually belongs to a GenOS server process before killing
+                if !is_genos_server_process(pid) {
+                    let _ = std::fs::remove_file(".genos_server.pid");
+                    command_error(format!(
+                        "refus d'arrêter le PID {}: il ne correspond pas à un serveur GenOS (PID possiblement réutilisé); fichier PID supprimé",
+                        pid
+                    ));
+                }
                 let status = {
                     #[cfg(windows)]
-                    { std::process::Command::new("taskkill").args(["/F", "/T", "/PID", &pid.to_string()]).status() }
+                    {
+                        // Try graceful shutdown first (Ctrl+C equivalent)
+                        let _ = std::process::Command::new("taskkill")
+                            .args(["/PID", &pid.to_string()])
+                            .status();
+                        // Wait a bit for graceful shutdown
+                        std::thread::sleep(std::time::Duration::from_secs(2));
+                        if api_is_healthy() {
+                            // Force kill if still alive
+                            std::process::Command::new("taskkill")
+                                .args(["/F", "/T", "/PID", &pid.to_string()])
+                                .status()
+                        } else {
+                            Ok(std::process::ExitStatus::default())
+                        }
+                    }
                     #[cfg(not(windows))]
-                    { std::process::Command::new("kill").arg(pid.to_string()).status() }
+                    {
+                        // Try graceful SIGTERM first
+                        std::process::Command::new("kill")
+                            .arg(pid.to_string())
+                            .status()
+                            .ok();
+                        std::thread::sleep(std::time::Duration::from_secs(2));
+                        if api_is_healthy() {
+                            std::process::Command::new("kill")
+                                .arg("-9")
+                                .arg(pid.to_string())
+                                .status()
+                        } else {
+                            Ok(std::process::ExitStatus::default())
+                        }
+                    }
                 };
                 match status {
                     Ok(status) if status.success() => println!("Serveur arrêté (PID: {}).", pid),
