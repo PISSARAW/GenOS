@@ -8,6 +8,7 @@ pub fn handle_specialized_cell(feature: &str, action: &str, params: &[String]) {
         "choanocyte" | "collar_cell" => handle_choanocyte(action, params),
         "iridophore" | "structural_color" => handle_iridophore(action, params),
         "guard_cell" | "stomata" => handle_guard_cell(action, params),
+        "tracheid" | "xylem_wood" => handle_tracheid(action, params),
         _ => {
             println!("{}", json!({
                 "success": true, "operation": "specialized_cell",
@@ -227,6 +228,63 @@ pub fn handle_guard_cell(action: &str, params: &[String]) {
         }
     }
 }
+
+pub fn handle_tracheid(action: &str, params: &[String]) {
+    let tracheid_id = extract_param(params, "tracheid_id")
+        .or_else(|| extract_param(params, "agent_id"))
+        .unwrap_or_else(|| "tracheid_xylem_0".to_string());
+    let pipeline_id = extract_param(params, "pipeline_id")
+        .unwrap_or_else(|| "compiled_rust_static_conduit".to_string());
+    let volume: f64 = extract_param(params, "volume")
+        .or_else(|| extract_param(params, "flux"))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(100.0);
+    let tension: f64 = extract_param(params, "tension")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(-3.5);
+
+    let mut tracheid = genos_biology::specialized_cells::tracheid::Tracheid::new(&tracheid_id);
+
+    match action {
+        "ossify" | "apoptosis" => {
+            let res = tracheid.trigger_lignified_apoptosis(&pipeline_id);
+            match res {
+                Ok(report) => {
+                    println!("{}", json!({
+                        "success": true, "feature": "tracheid", "action": "ossify",
+                        "report": report
+                    }));
+                }
+                Err(err) => {
+                    println!("{}", json!({
+                        "success": false, "feature": "tracheid", "action": "ossify",
+                        "error": err
+                    }));
+                }
+            }
+        }
+        _ => {
+            // Si action transport après ossification
+            let _ = tracheid.trigger_lignified_apoptosis(&pipeline_id);
+            let yield_res = tracheid.transport_sap_stream(volume, tension);
+            match yield_res {
+                Ok(y) => {
+                    println!("{}", json!({
+                        "success": true, "feature": "tracheid", "action": "transport",
+                        "tracheid_id": tracheid_id, "transport_yield": y
+                    }));
+                }
+                Err(err) => {
+                    println!("{}", json!({
+                        "success": false, "feature": "tracheid", "action": "transport",
+                        "error": err
+                    }));
+                }
+            }
+        }
+    }
+}
+
 
 
 

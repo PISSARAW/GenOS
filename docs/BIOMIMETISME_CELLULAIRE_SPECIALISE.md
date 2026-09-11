@@ -75,6 +75,20 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
   genos biomimicry bio-feature --feature guard_cell --action throttle --param "flux=500" --param "water=0.3" --param "aba=0.8"
   ```
 
+### 2.2 Les Trachéides : Apoptose Structurante & Ossification en Pipelines Statiques
+* **Origine biologique :** Cellules conductrices du xylème végétal. À maturité, la cellule subit une mort cellulaire programmée (apoptose) complète, se vidant de son contenu protoplasmique pour laisser des parois épaissies et lignifiées (bois). Ce réseau de conduits rigides achemine la sève brute sous forte tension sans dépense énergétique métabolique active.
+* **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/tracheid.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/specialized_cells/tracheid.rs)
+* **Fonctionnement :**
+  - **Ossification logicielle post-résolution :** Une fois qu'un agent cognitif exploratoire a stabilisé un flux ou résolu une tâche, son noyau réflexif est éliminé (apoptose).
+  - **Canal statique compilé :** Remplacement par un pipeline statique natif (Rust/WASM) offrant un débit hydraulique maximal avec **0 token LLM de coût résiduel**.
+  - **Résistance à la cavitation :** Présence de ponctuations aréolées empêchant l'embolie gazeuse lors de pointes de charge.
+* **Commandes CLI / MCP :**
+  ```bash
+  genos biomimicry bio-feature --feature tracheid --action ossify --param "pipeline_id=fast_payment_flow"
+  genos biomimicry bio-feature --feature tracheid --action transport --param "volume=1000" --param "tension=-4.0"
+  ```
+
+
 
 
 

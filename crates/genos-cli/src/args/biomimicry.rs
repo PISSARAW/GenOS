@@ -236,6 +236,20 @@ pub enum BiomimicrySubcommands {
         #[arg(long, default_value_t = 0.15)]
         sensitivity: f64,
     },
+    Electrosensory {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long, default_value = "discharge_and_analyze")]
+        action: String,
+        #[arg(long, default_value_t = 800.0)]
+        frequency_hz: f64,
+        #[arg(long, default_value_t = 0.05)]
+        sensitivity: f64,
+        #[arg(long, default_value_t = 0.12)]
+        distortion_threshold: f64,
+        #[arg(long, default_value = "100.0,102.0,98.0,105.0,99.0")]
+        samples: String,
+    },
 }
 
 #[derive(Args, Debug)]

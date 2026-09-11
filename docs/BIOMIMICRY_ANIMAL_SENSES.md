@@ -21,3 +21,21 @@ Le **Bulbe Olfactif Accessoire (AOB)** et l'**Organe Voméronasal (VNO)** fourni
 - **Outil MCP :** `genos_biomimicry_vomeronasal` ou `genos_biomimicry` avec `feature: "vomeronasal"`.
 
 ---
+
+## 2. Mormyrocerebellum & Lobe Électrosensoriel (Électroréception)
+
+Inspiré du poisson-éléphant (*Gnathonemus petersii*) et des requins, ce module implémente une **détection de champ et de distorsion d'impédance**.
+
+### Rôle et Mécanisme Bio-inspiré
+- **Sensing Passif d'Infrastructure :** Analyse le bruit de fond électrosensoriel et détecte les micro-impulsions sans interroger les agents, localisant les processus silencieux, verrous (deadlocks) ou goulots d'étranglement.
+- **Sensing Actif (EOD - Electric Organ Discharge) :** Émission d'ondes de décharge et calcul de la distorsion d'impédance diélectrique ($\Delta Z$), de la réactance capacitive et du contraste spatial de l'infrastructure logicielle.
+
+### Primitives & Commandes
+- **Module Rust :** [`crates/genos-biology/src/sensory/mormyrocerebellum.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/sensory/mormyrocerebellum.rs)
+- **CLI :**
+  ```bash
+  genos biomimicry electrosensory --agent-id mormyro-01 --action discharge_and_analyze --frequency-hz 800 --sensitivity 0.05 --samples "100.0,102.0,98.0,280.0,101.0"
+  ```
+- **Outil MCP :** `genos_biomimicry_electrosensory` ou `genos_biomimicry` avec `feature: "electrosensory"`.
+
+---
