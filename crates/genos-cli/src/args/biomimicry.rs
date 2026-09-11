@@ -224,6 +224,18 @@ pub enum BiomimicrySubcommands {
         #[arg(long)]
         action_id: String,
     },
+    Vomeronasal {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long, default_value = "global")]
+        locus: String,
+        #[arg(long, default_value = "alarm")]
+        pheromone_type: String,
+        #[arg(long, default_value_t = 0.8)]
+        concentration: f64,
+        #[arg(long, default_value_t = 0.15)]
+        sensitivity: f64,
+    },
 }
 
 #[derive(Args, Debug)]
