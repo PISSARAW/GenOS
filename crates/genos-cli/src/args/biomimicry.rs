@@ -280,6 +280,18 @@ pub enum BiomimicrySubcommands {
         #[arg(long, default_value = "src/auth.rs:0.95,src/db.rs:0.2,src/api.rs:0.1")]
         thermal_readings: String,
     },
+    Echolocation {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long, default_value = "probe_echoes")]
+        action: String,
+        #[arg(long, default_value_t = 60.0)]
+        base_frequency_khz: f64,
+        #[arg(long, default_value_t = 2.5)]
+        obstacle_threshold_m: f64,
+        #[arg(long, default_value = "branch/auth:10.0:500.0:20.0,db/deadlock:40.0:-100.0:45.0")]
+        echoes: String,
+    },
 }
 
 #[derive(Args, Debug)]

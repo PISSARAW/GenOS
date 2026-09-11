@@ -85,6 +85,14 @@ function getToolHandler(toolName) {
       const thermal = args.thermal_readings || 'src/auth.rs:0.95,src/db.rs:0.2,src/api.rs:0.1';
       return handleBioCall(`genos biomimicry tectum-thermal --agent-id ${agentId} --action "${action}" --sensitivity-mk ${sensitivityMk} --fusion-weight ${fusionWeight} --threshold ${threshold} --visual-nodes "${visual}" --thermal-readings "${thermal}"`, timeoutMs);
     },
+    'genos_biomimicry_echolocation': (args, timeoutMs) => {
+      const agentId = args.agent_id || args.agentId || 'bat_0';
+      const action = args.action || 'probe_echoes';
+      const baseFreq = args.base_frequency_khz !== undefined ? args.base_frequency_khz : (args.baseFrequencyKhz || 60.0);
+      const thresholdM = args.obstacle_threshold_m !== undefined ? args.obstacle_threshold_m : (args.obstacleThresholdM || 2.5);
+      const echoes = Array.isArray(args.echoes) ? args.echoes.map(e => typeof e === 'object' ? `${e.target_locus || e.locus}:${e.time_of_flight_ms || e.tof || 10.0}:${e.doppler_shift_hz || e.doppler || 0.0}:${e.attenuation_db || e.attenuation || 20.0}` : e).join(',') : (args.echoes || 'branch/auth:10.0:500.0:20.0,db/deadlock:40.0:-100.0:45.0');
+      return handleBioCall(`genos biomimicry echolocation --agent-id ${agentId} --action "${action}" --base-frequency-khz ${baseFreq} --obstacle-threshold-m ${thresholdM} --echoes "${echoes}"`, timeoutMs);
+    },
     'genos_cell_division': (args, timeoutMs) => {
       const agentId = args.agent_id || args.agentId || 'cell_division_root';
       const mode = args.mode || 'mitosis';

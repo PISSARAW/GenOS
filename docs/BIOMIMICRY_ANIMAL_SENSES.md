@@ -76,10 +76,24 @@ Inspiré des serpents solénoglyphes et crotalidés (crotales, vipères, pythons
 
 ---
 
+## 5. Cortex d'Écholocation Hypertrophié (Sondage Doppler 3D)
 
+Inspiré des microchiroptères (chauves-souris) et des odontocètes (dauphins), le **Cortex d'Écholocation** implémente un **sondage actif haute fréquence par échos acoustiques et décalage Doppler**.
 
+### Rôle et Mécanisme Bio-inspiré
+- **Cartographie Topologique Dynamique en Temps Réel :** Émet des impulsions ultrasonores modulées en fréquence (chirps FM 20-120 kHz) et calcule la distance spatiale ($d = \frac{c \cdot \Delta t}{2}$) à partir du temps de vol (ToF).
+- **Cinématique Doppler & Détection d'Obstacles :** Calcule la vitesse radiale relative ($v = \frac{\Delta f \cdot c}{2 f_0}$) via le décalage Doppler ($\Delta f$) et la densité d'impédance relative via l'atténuation du signal, identifiant immédiatement les obstacles critiques en approche (deadlocks, collisions de branches, blocages I/O) et les corridors navigables dégagés.
+
+### Primitives & Commandes
+- **Module Rust :** [`crates/genos-biology/src/sensory/echolocation.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/sensory/echolocation.rs)
+- **CLI :**
+  ```bash
+  genos biomimicry echolocation --agent-id bat-01 --action probe_echoes --base-frequency-khz 60.0 --obstacle-threshold-m 2.5 --echoes "branch/auth:10.0:500.0:20.0,db/deadlock:40.0:-100.0:45.0"
+  ```
+- **Outil MCP :** `genos_biomimicry_echolocation` ou `genos_biomimicry` avec `feature: "echolocation"`.
 
 ---
+
 
 ## Schémas d'Architecture et d'Intégration des Super-Sens
 
