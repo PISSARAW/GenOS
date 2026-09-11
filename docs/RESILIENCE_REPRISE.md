@@ -495,4 +495,35 @@ sequenceDiagram
     ReplayAgent-->>Agent: Re-exécution à $t_0$ avec anticipation parfaite des pièges
 ```
 
+### 8. Auto-Cohérence de Novikov et Rebase Causal (`genos_temporal_novikov_causal_rebase`)
+
+Le principe d'auto-cohérence d'Igor Novikov stipule que toute intervention rétrograde sur une ligne temporelle close ne peut créer de paradoxe ($P(\text{paradoxe}) = 0$). Dans GenOS :
+* **Interdiction des Paradoxes du Grand-Père :** Une intervention qui détruit une dépendance racine inviolable ou crée une boucle auto-destructrice est formellement rejetée.
+* **Propagation Ordonnée des Deltas :** Lors d'un patch rétrospectif sur une étape $S_i$, le moteur recalcule de manière déterministe les états dépendants downstream sans divergence d'invariants.
+
+```mermaid
+flowchart TD
+    subgraph Intervention["1. Intervention Causal Rebase ($t_k < t_{now}$)"]
+        Patch["Patch Rétrospectif d'un Événement Passé"]
+    end
+
+    subgraph NovikovGate["2. Filtre d'Auto-Cohérence de Novikov"]
+        CheckRoot{"Altération de Racine Inviolable ?"}
+        CheckSelfNeg{"Boucle Auto-Négative ?"}
+        Reject["Rejet Immédiat (Status: rebase_rejected_paradox)"]
+        CheckRoot -->|Oui| Reject
+        CheckSelfNeg -->|Oui| Reject
+        CheckRoot -->|Non| CheckSelfNeg
+    end
+
+    subgraph TimelinePropagation["3. Propagation Déterministe ($P(paradox) = 0$)"]
+        DeltaProp["Propagation des Deltas d'États Downstream"]
+        Seal["Scellement de la Nouvelle Trajectoire Réconciliée"]
+        DeltaProp --> Seal
+    end
+
+    Patch --> CheckRoot
+    CheckSelfNeg -->|Non (Auto-Cohérent)| DeltaProp
+```
+
 

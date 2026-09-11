@@ -597,6 +597,10 @@ flowchart TD
         H33["agrobacteriumTdnaHijack.js (T-DNA injection & gallus quota)"]
         H34["viralEndogenization.js (Germline KoRV retroviral integration)"]
         H35["tardigradeDsupShield.js (Dsup mechanical invariant shield)"]
+        H36["turritopsisTransdifferentiation.js (Adult to polyp reversion)"]
+        H37["yamanakaReprogramming.js (OSKM factors stem reprogramming)"]
+        H38["consciousnessTransfer.js (Consciousness replay with future memory)"]
+        H39["novikovCausalRebase.js (Novikov zero-paradox causal rebase)"]
     end
 
     Clients --> Detector

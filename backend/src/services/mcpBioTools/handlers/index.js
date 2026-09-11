@@ -76,6 +76,7 @@ const { handleDsupShield, handleDsupShieldError } = require('./tardigradeDsupShi
 const { handleTransdifferentiation, handleTurritopsisError } = require('./turritopsisTransdifferentiation');
 const { handleYamanakaReprogramming, handleYamanakaError } = require('./yamanakaReprogramming');
 const { handleConsciousnessTransfer, handleConsciousnessError } = require('./consciousnessTransfer');
+const { handleNovikovCausalRebase, handleNovikovError } = require('./novikovCausalRebase');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -157,6 +158,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_turritopsis_transdifferentiation: { handle: handleTransdifferentiation, error: handleTurritopsisError },
   genos_biomimicry_yamanaka_reprogramming: { handle: handleYamanakaReprogramming, error: handleYamanakaError },
   genos_temporal_consciousness_transfer: { handle: handleConsciousnessTransfer, error: handleConsciousnessError },
+  genos_temporal_novikov_causal_rebase: { handle: handleNovikovCausalRebase, error: handleNovikovError },
 };
 
 module.exports = { TOOL_HANDLERS };
