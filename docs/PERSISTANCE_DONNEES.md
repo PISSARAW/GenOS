@@ -68,7 +68,7 @@ Le schéma est distribué entre `schema-tables-core.js` et `schema-tables-extens
 | Gouvernance | `provider_configs`, `agent_model_routing_policies`, `platform_approvals` |
 | Biologie opérationnelle | `cryptobiosis_snapshots`, plasmids, décisions génomiques et synapses |
 
-Les colonnes JSON telles que `metadata_json`, `state_json`, `payload_json`, `config_json` et `result_json` servent à conserver des données extensibles sans multiplier les migrations pour chaque attribut périphérique. Les clés et les filtres de scope restent relationnels lorsque l'isolation, les jointures ou les performances l'exigent.
+Les colonnes JSON telles que `metadata_json`, `state_json`, `payload_json`, `config_json` et `result_json` servent à conserver des données extensibles sans multiplier les migrations pour chaque attribut périphérique. Pour la biologie opérationnelle (`cryptobiosis_snapshots`), GenOS évolue vers un format binaire vitrifié (`SporeVitrifiedPayload` / BLOB) protégé au tréhalose, substituant aux dumps JSON volumineux une anhydrobiose compacte avec conditions de germination biophysique. Les clés et les filtres de scope restent relationnels lorsque l'isolation, les jointures ou les performances l'exigent.
 
 ### 3.2 Tenancy
 
