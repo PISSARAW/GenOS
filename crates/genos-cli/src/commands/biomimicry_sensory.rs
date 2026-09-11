@@ -49,6 +49,16 @@ pub fn handle_sensory_subcommands(cmd: BiomimicrySubcommands) -> Result<bool, St
             handle_sensory_feature("tectum_thermal", &action, &params);
             Ok(true)
         }
+        BiomimicrySubcommands::Echolocation { agent_id, action, base_frequency_khz, obstacle_threshold_m, echoes } => {
+            let params = vec![
+                format!("agent_id={}", agent_id),
+                format!("base_frequency_khz={}", base_frequency_khz),
+                format!("obstacle_threshold_m={}", obstacle_threshold_m),
+                format!("echoes={}", echoes),
+            ];
+            handle_sensory_feature("echolocation", &action, &params);
+            Ok(true)
+        }
         _ => Ok(false),
     }
 }
@@ -59,6 +69,7 @@ pub fn handle_sensory_feature(feature: &str, action: &str, params: &[String]) {
         "electrosensory" | "mormyrocerebellum" => handle_electrosensory(action, params),
         "cluster_n" | "magnetoreception" => handle_cluster_n(action, params),
         "tectum_thermal" | "infrared_pit" => handle_tectum_thermal(action, params),
+        "echolocation" | "ultrasonic" => handle_echolocation(action, params),
         _ => {
             println!("{}", json!({ "success": true, "feature": feature, "action": action, "status": "executed" }));
         }
@@ -188,3 +199,40 @@ fn handle_tectum_thermal(action: &str, params: &[String]) {
         "primary_strike_target": map.primary_strike_target, "fused_targets": map.fused_targets
     }));
 }
+
+fn handle_echolocation(action: &str, params: &[String]) {
+    let agent_id = extract_param(params, "agent_id").unwrap_or_else(|| "bat_0".to_string());
+    let base_freq: f64 = extract_param(params, "base_frequency_khz").and_then(|s| s.parse().ok()).unwrap_or(60.0);
+    let threshold_m: f64 = extract_param(params, "obstacle_threshold_m").and_then(|s| s.parse().ok()).unwrap_or(2.5);
+    let echoes_str = extract_param(params, "echoes").unwrap_or_else(|| "branch/auth:10.0:500.0:20.0,db/deadlock:40.0:-100.0:45.0".to_string());
+
+    let echoes: Vec<genos_biology::sensory::EchoReturn> = echoes_str
+        .split(',')
+        .filter_map(|part| {
+            let mut it = part.split(':');
+            let locus = it.next()?.trim().to_string();
+            let tof = it.next()?.trim().parse::<f64>().ok()?;
+            let doppler = it.next()?.trim().parse::<f64>().ok()?;
+            let att = it.next()?.trim().parse::<f64>().ok()?;
+            Some(genos_biology::sensory::EchoReturn {
+                target_locus: locus,
+                time_of_flight_ms: tof,
+                doppler_shift_hz: doppler,
+                attenuation_db: att,
+            })
+        })
+        .collect();
+
+    let mut cortex = genos_biology::sensory::EcholocationCortex::new(base_freq, 150.0, 340.0, threshold_m);
+    let pulse = cortex.emit_chirp(25.0, 4.0);
+    let map = cortex.process_echoes(&pulse, &echoes);
+
+    println!("{}", json!({
+        "success": true, "feature": "echolocation", "action": action,
+        "agent_id": agent_id, "pulse_frequency_khz": map.pulse_frequency_khz,
+        "echo_count": map.echo_count, "spatial_depth_meters": map.spatial_depth_meters,
+        "nearest_obstacle": map.nearest_obstacle, "high_velocity_nodes": map.high_velocity_nodes,
+        "navigable_corridors_count": map.navigable_corridors_count, "echo_nodes": map.echo_nodes
+    }));
+}
+
