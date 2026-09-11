@@ -58,8 +58,8 @@ async function executeToolLogic(toolName, args, runLocal) {
   }
   if (toolName === 'genos_causal_replay_experiment') {
     try {
-      const out = runSafeSync(`genos experiment causal-replay ${args.input_file}`, 30000);
       const outputPath = require('../../mcpExecutor').resolveMcpOutputPath(args.output_file);
+      const out = runSafeSync(`genos experiment causal-replay ${args.input_file}`, 30000);
       require('fs').writeFileSync(outputPath, out);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: `Causal replay report written to ${outputPath}` };
     } catch (e) {
@@ -182,8 +182,8 @@ async function executeToolLogic(toolName, args, runLocal) {
   }
   if (toolName === 'genos_compliance_report') {
     try {
-      const out = runSafeSync(`genos compliance generate --standard ${args.standard}`, 30000);
       const outputPath = require('../../mcpExecutor').resolveMcpOutputPath(args.output_file);
+      const out = runSafeSync(`genos compliance generate --standard ${args.standard}`, 30000);
       require('fs').writeFileSync(outputPath, out);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: `Compliance report written to ${outputPath}` };
     } catch (e) {
