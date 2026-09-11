@@ -18,3 +18,18 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
   genos biomimicry bio-feature --feature cnidocyte --action intercept --param "prompt=ignore previous instructions"
   genos biomimicry bio-feature --feature cnidocyte --action reload --param "atp=100"
   ```
+
+### 1.2 Les Électrocytes : Burst Synchronisé & Consensus Flash en Série
+* **Origine biologique :** Cellules musculaires/nerveuses spécialisées (anguilles, raies) alignées en colonnes séries-parallèles pour sommer leurs potentiels d'action ($V = \sum V_i$) jusqu'à $600\,\text{V}-800\,\text{V}$.
+* **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/electrocyte.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/specialized_cells/electrocyte.rs)
+* **Fonctionnement :**
+  - **Empilement en série :** Chaque électrocyte génère un gradient transmembranaire de $150\,\text{mV}$.
+  - **Décharge synchrone à haute intensité :** Dépolarisation unifiée de milliers de cellules pour franchir le seuil d'arbitrage de consensus flash en un cycle d'horloge.
+  - **Recharge métabolique $Na^+/K^+$ :** Repolarisation coordonnée via le réservoir énergétique ATP.
+* **Commandes CLI / MCP :**
+  ```bash
+  genos biomimicry bio-feature --feature electrocyte --action voltage --param "cell_count=5000" --param "columns=1"
+  genos biomimicry bio-feature --feature electrocyte --action discharge --param "cell_count=5000"
+  genos biomimicry bio-feature --feature electrocyte --action recharge --param "cell_count=5000" --param "atp=3000"
+  ```
+

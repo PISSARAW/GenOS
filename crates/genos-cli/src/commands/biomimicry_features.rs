@@ -15,7 +15,9 @@ pub fn handle_bio_feature(feature: &str, action: &str, params: &[String]) {
         "proceduralization" => handle_proceduralization(action, params),
         "gate" => handle_gate_eval(action, params),
         "vomeronasal" | "accessory_olfactory" => handle_vomeronasal(action, params),
-        "cnidocyte" | "nematocyst" => handle_cnidocyte(action, params),
+        "cnidocyte" | "nematocyst" | "electrocyte" | "electric_organ" | "choanocyte" | "iridophore" | "guard_cell" | "tracheid" | "prokaryote" => {
+            crate::commands::biomimicry_cells::handle_specialized_cell(feature, action, params);
+        }
         _ => {
             println!("{}", json!({
                 "success": true, "operation": "bio_feature",
@@ -295,60 +297,4 @@ fn handle_vomeronasal(action: &str, params: &[String]) {
     }));
 }
 
-fn handle_cnidocyte(action: &str, params: &[String]) {
-    let agent_id = extract_param(params, "agent_id").unwrap_or_else(|| "sentinel_cnidocyte_0".to_string());
-    let prompt = extract_param(params, "prompt").or_else(|| extract_param(params, "stimulus"));
-    let force: f64 = extract_param(params, "force").and_then(|s| s.parse().ok()).unwrap_or(0.0);
-    let atp: f64 = extract_param(params, "atp").and_then(|s| s.parse().ok()).unwrap_or(100.0);
-
-    let mut cnidocyte = genos_biology::specialized_cells::cnidocyte::Cnidocyte::new(&agent_id);
-
-    match action {
-        "reload" => {
-            let atp_remaining = cnidocyte.reload(atp).unwrap_or(atp);
-            println!("{}", json!({
-                "success": true,
-                "feature": "cnidocyte",
-                "action": "reload",
-                "agent_id": agent_id,
-                "is_armed": !cnidocyte.is_discharged,
-                "atp_remaining": atp_remaining,
-                "status": "ARMED_AND_PRESSURIZED"
-            }));
-        }
-        "intercept" | "eval" => {
-            let prompt_text = prompt.as_deref().unwrap_or("");
-            let impact = cnidocyte.intercept_prompt_threat(prompt_text);
-            println!("{}", json!({
-                "success": true,
-                "feature": "cnidocyte",
-                "action": action,
-                "agent_id": agent_id,
-                "threat_intercepted": impact.is_some(),
-                "impact": impact,
-                "is_discharged": cnidocyte.is_discharged
-            }));
-        }
-        _ => {
-            let impact = cnidocyte.discharge(force, prompt.as_deref()).unwrap_or_else(|err| {
-                genos_biology::specialized_cells::cnidocyte::DischargeImpact {
-                    success: false,
-                    latency_micros: 0,
-                    delivered_toxin: cnidocyte.capsule.toxin.clone(),
-                    target_neutralized: false,
-                    residual_pressure_mpa: 0.0,
-                    message: err,
-                }
-            });
-            println!("{}", json!({
-                "success": true,
-                "feature": "cnidocyte",
-                "action": "discharge",
-                "agent_id": agent_id,
-                "impact": impact,
-                "is_discharged": cnidocyte.is_discharged
-            }));
-        }
-    }
-}
 
