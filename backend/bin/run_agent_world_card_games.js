@@ -24,7 +24,7 @@ const aTeamService = require('../src/services/aTeamService');
 const { phaseShell, phaseDocs, phaseQA, MISSION, CONSTITUTION } = require('./card_games_shell_docs');
 const { phaseRuntimeRepair } = require('./card_games_runtime_repair');
 
-const WORLD_DIR = path.resolve(process.env.GENOS_WORLD_DIR || 'C:/Users/Shadow/Documents/GitHub/genos-card-casino');
+const WORLD_DIR = path.resolve(process.env.GENOS_WORLD_DIR || path.resolve(__dirname, '../../genos-card-casino'));
 const META_DIR = path.join(WORLD_DIR, '.genos-world');
 const STATE_FILE = path.join(META_DIR, 'state.json');
 const LOG_FILE = path.join(META_DIR, 'build.log');

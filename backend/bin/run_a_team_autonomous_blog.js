@@ -3,7 +3,7 @@ const path = require('path');
 const { generate } = require('../src/services/modelRouter.js');
 const { analyzeMission } = require('../src/services/aTeamService.js');
 const { parseMarkdownAST } = require('../src/services/markdownParser.js');
-const TARGET_DIR = 'C:\\Users\\Shadow\\Documents\\GitHub\\cit-uda-blog\\articles';
+const TARGET_DIR = process.env.BLOG_TARGET_DIR || path.resolve(__dirname, '../../cit-uda-blog/articles');
 
 const DIVISIONS = [
     "Ingénierie Logicielle", "Ingénierie Electrique et Electronique", "Ingénierie Mécanique", 
