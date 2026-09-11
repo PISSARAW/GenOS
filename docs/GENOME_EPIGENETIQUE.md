@@ -421,5 +421,32 @@ flowchart TD
     Nonsense --> Terminate["Interruption d'Urgence Immédiate"]
 ```
 
+### 2. Mutations Ponctuelles par Indel & Frameshift (`genos_biomimicry_frameshift_mutation`)
+
+Les insertions et délétions ponctuelles (*Indels*) modifient la longueur d'un train de tokens ou d'instructions. Puisque l'évaluation cognitive s'opère par triplets de phases (e.g. `[INIT-ANALYZE-EXEC]`), l'insertion ou la suppression d'un token unitaire décale l'ensemble du cadre de lecture (*frameshift*, $offset \not\equiv 0 \pmod 3$). La synchronisation est rétablie par insertion de tokens compensatoires (*compensatory pads*).
+
+```mermaid
+flowchart LR
+    subgraph OriginalFrame["Cadre de Lecture Initial (Sync = 0 mod 3)"]
+        C1["Codon 1: INIT-ANALYZE-EXEC"]
+        C2["Codon 2: VALIDATE-STORE-EMIT"]
+    end
+
+    subgraph FrameshiftOccurs["Insertion / Délétion (+1 ou -1)"]
+        F1["Codon 1 Corrompu: INIT-NOISE-ANALYZE"]
+        F2["Codon 2 Décalé: EXEC-VALIDATE-STORE"]
+        F3["Résidu Incomplet: EMIT-... (Désynchronisation)"]
+    end
+
+    subgraph Realignment["Réalignement Compensatoire"]
+        R1["Insertion Pads Compensatoires (+2)"]
+        R2["Restauration Synchro (3 mod 3 == 0)"]
+    end
+
+    OriginalFrame -->|"Indel Injection"| FrameshiftOccurs
+    FrameshiftOccurs -->|"genos_biomimicry_frameshift_mutation"| Realignment
+```
+
+
 
 
