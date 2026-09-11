@@ -133,10 +133,18 @@ pub async fn run_one_pass(graph: &Arc<RhizomeGraph>) {
 /// `GENOS_SIM_TICKS=N` (N > 0) stops after N cycles instead; unset or 0 keeps
 /// the historical infinite behavior.
 pub async fn run_forever(graph: Arc<RhizomeGraph>) {
+    let telemetry_dir = crate::commands::root_resolver::resolve_matrix_root().join("telemetry");
+    let _ = std::fs::create_dir_all(&telemetry_dir);
+    let log_file = telemetry_dir.join("rhizome.log");
+
     let max_ticks = sim_ticks();
     let mut tick = 0u64;
     loop {
         run_one_pass(&graph).await;
+        use std::io::Write;
+        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&log_file) {
+            let _ = writeln!(file, "[{}] RHIZOME_TICK {}", chrono::Utc::now().to_rfc3339(), tick);
+        }
         tick += 1;
         if max_ticks > 0 && tick >= max_ticks {
             eprintln!("[rhizome-sim] GENOS_SIM_TICKS={max_ticks} reached after {tick} ticks; stopping.");
