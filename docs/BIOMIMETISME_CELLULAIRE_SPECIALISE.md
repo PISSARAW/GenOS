@@ -183,7 +183,7 @@ sequenceDiagram
     Audit-->>Attacker: Rejet formel 403 Forbidden
 ```
 
-### 3. Machine à états des Cellules de Garde (Régulation Osmotique)
+#### 3. Machine à états des Cellules de Garde (Régulation Osmotique)
 
 ```mermaid
 stateDiagram-v2
