@@ -1,3 +1,4 @@
+const { getDatabase } = require('../db');
 const arena = require('../services/arenaService');
 
 module.exports = {
@@ -12,7 +13,13 @@ module.exports = {
     });
   },
 
-  GetTraceSpans: (call, callback) => {
-    callback(null, { spans: ['span-start', 'span-execute', 'span-finish'] });
+  GetTraceSpans: async (call, callback) => {
+    try {
+      const db = await getDatabase();
+      const spans = await db.all('SELECT name FROM trace_spans ORDER BY id DESC LIMIT 50');
+      callback(null, { spans: spans.map((s) => s.name) });
+    } catch (_) {
+      callback(null, { spans: [] });
+    }
   }
 };
