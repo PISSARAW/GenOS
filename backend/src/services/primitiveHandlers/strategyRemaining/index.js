@@ -56,8 +56,25 @@ async function contextCompaction(context = {}) {
   return { success: true, retained: items.slice(-limit), removed: Math.max(0, items.length - limit), originalCount: items.length };
 }
 
-async function experiencePackets(context = {}) { return { success: true, packets: Array.isArray(context.experiences) ? context.experiences.map((experience, index) => ({ id: String(experience.id || index + 1), experience })) : [] }; }
-async function knowledgeGraph(context = {}) { return { success: true, nodes: context.nodes || [], edges: context.edges || [] }; }
+async function experiencePackets(context = {}) {
+  const experiences = Array.isArray(context.experiences) ? context.experiences : [];
+  if (!experiences.length) return { success: false, error: 'experiences array is required.', code: 'EXPERIENCES_REQUIRED' };
+  const packets = experiences.map((exp, index) => {
+    const payload = typeof exp === 'object' && exp !== null ? exp : { content: exp };
+    const id = String(payload.id || `pkt-${index + 1}`);
+    return { id, sequence: index + 1, timestamp: payload.timestamp || new Date().toISOString(), payload };
+  });
+  return { success: true, packets, count: packets.length };
+}
+
+async function knowledgeGraph(context = {}) {
+  const nodes = Array.isArray(context.nodes) ? context.nodes : [];
+  const edges = Array.isArray(context.edges) ? context.edges : [];
+  const nodeIds = new Set(nodes.map((n) => String(typeof n === 'object' && n ? n.id || n.name : n)));
+  const validEdges = edges.filter((e) => e && nodeIds.has(String(e.source)) && nodeIds.has(String(e.target)));
+  return { success: true, nodes, edges: validEdges, nodeCount: nodes.length, edgeCount: validEdges.length, complete: validEdges.length === edges.length };
+}
+
 async function reviewedApply(context = {}) { return { success: Boolean(context.approved === true), applied: context.approved === true, reason: context.approved === true ? 'review approved' : 'review approval required' }; }
 
 async function inferTraits(context = {}) {
@@ -111,8 +128,19 @@ async function healthSwitch(context = {}) {
   return { success: Boolean(useSpare ? spare.id : primary.id), selected: useSpare ? spare : primary, switched: useSpare };
 }
 
-async function decoyBranch(context = {}) { return { success: true, decoyId: String(context.decoyId || `decoy-${Date.now()}`), isolated: true, source: context.source || null }; }
+async function decoyBranch(context = {}) {
+  const source = context.source || context.parent || {};
+  const sourceId = source.id || 'main';
+  const decoyId = String(context.decoyId || `decoy-${Date.now()}`);
+  return { success: true, decoyId, isolated: true, sourceBranch: sourceId, sandboxed: true, tokenBudget: Math.max(100, Number(context.budget || 1000)), createdAt: new Date().toISOString() };
+}
+
 async function observe(context = {}) { return { success: true, observations: Array.isArray(context.events) ? context.events : [], observed: true }; }
-async function destroyDecoy(context = {}) { return { success: Boolean(context.decoyId), destroyed: Boolean(context.decoyId), decoyId: context.decoyId || null }; }
+
+async function destroyDecoy(context = {}) {
+  const decoyId = String(context.decoyId || '').trim();
+  if (!decoyId) return { success: false, error: 'decoyId is required.', code: 'DECOY_ID_REQUIRED' };
+  return { success: true, destroyed: true, decoyId, destroyedAt: new Date().toISOString() };
+}
 
 module.exports = { frontierEscalation, impactGraph, invalidateAssumption, pairedEvaluation, heredityExperiment, branchEvolution, adversarialReview, blindCritics, contextCompaction, experiencePackets, knowledgeGraph, reviewedApply, inferTraits, replicate, promoteTrait, phenotypeEvidence, validateChild, alternateGenome, hotSpare, healthSwitch, decoyBranch, observe, destroyDecoy };
