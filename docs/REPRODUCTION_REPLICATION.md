@@ -711,4 +711,23 @@ sequenceDiagram
         ReproManager-->>Parent: Bourgeonnement accompli avec succès
     end
     deactivate ReproManager
+
+### 3. Jumeaux Sesquizygotes et Scission Dispermique
+
+Le mécanisme `genos_biomimicry_sesquizygotic_split` émule la fertilisation dispermique d'un socle maternel unique par deux vecteurs heuristiques paternels. Il génère une paire de jumeaux partageant 100% du génome maternel (invariants constitutionnels) et 50% de mélange des traits paternels (75% d'identité composite), idéal pour une exploration à haute consonance.
+
+```mermaid
+flowchart TD
+    Mat["Base Maternelle (100% Invariants & System Prompt)"]
+    PatA["Vecteur Paternel A (Heuristique Optimisation)"]
+    PatB["Vecteur Paternel B (Heuristique Sécurité)"]
+
+    Mat --> TriZygote["État Zygote Triploïde Régulé"]
+    PatA --> TriZygote
+    PatB --> TriZygote
+
+    TriZygote -->|"Résolution & Scission"| Twin1["Jumeau Sesquizygote 1\n(100% Mat + 75% Mix A/B)"]
+    TriZygote -->|"Résolution & Scission"| Twin2["Jumeau Sesquizygote 2\n(100% Mat + 75% Mix B/A)"]
+```
+
 ```
