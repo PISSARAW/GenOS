@@ -23,8 +23,44 @@ fn read_dir_recursive(dir: &Path, root: &Path, content: &mut String) {
 pub fn execute(cmd: PlatformSubcommands) -> Result<(), String> {
     match cmd {
         PlatformSubcommands::Ingest { document, index } => {
-            println!("{}", json!({ "operation": "platform_ingest", "document": document, "index": index.clone().unwrap_or_else(|| "default".to_string()), "status": "INGESTED" }));
-            return Ok(());
+            let idx = index.clone().unwrap_or_else(|| "default".to_string());
+            let index_dir = crate::commands::root_resolver::resolve_matrix_root().join("platform_indexes");
+            let _ = std::fs::create_dir_all(&index_dir);
+            let index_file = index_dir.join(format!("{}.json", idx));
+            
+            let content = if std::path::Path::new(&document).exists() {
+                std::fs::read_to_string(&document).unwrap_or_else(|_| document.clone())
+            } else {
+                document.clone()
+            };
+            
+            let mut docs: Vec<serde_json::Value> = if index_file.exists() {
+                let current = std::fs::read_to_string(&index_file).unwrap_or_else(|_| "[]".to_string());
+                serde_json::from_str(&current).unwrap_or_else(|_| vec![])
+            } else {
+                vec![]
+            };
+            
+            let doc_entry = json!({
+                "timestamp": chrono::Utc::now().to_rfc3339(),
+                "content": content,
+                "source": document
+            });
+            docs.push(doc_entry);
+            
+            match std::fs::write(&index_file, serde_json::to_string_pretty(&docs).unwrap()) {
+                Ok(_) => {
+                    println!("{}", serde_json::to_string_pretty(&json!({
+                        "operation": "platform_ingest",
+                        "document": document,
+                        "index": idx,
+                        "docs_in_index": docs.len(),
+                        "status": "INGESTED"
+                    })).unwrap());
+                    return Ok(());
+                }
+                Err(e) => return Err(format!("Failed to persist index '{}': {}", idx, e)),
+            }
         }
         PlatformSubcommands::Search { query, index } => {
             let idx = index.unwrap_or_else(|| "default".to_string());
