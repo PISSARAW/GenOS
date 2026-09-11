@@ -44,9 +44,9 @@ pub enum Commands {
     /// Replay operations
     Replay(ReplayCmd),
     /// Biomimetic cellular & swarm mechanisms
-    Biomimicry(BiomimicryCmd),
+    Biomimicry(Box<BiomimicryCmd>),
     /// Evolutionary operations
-    Evolution(EvolutionCmd),
+    Evolution(Box<EvolutionCmd>),
     /// Capsule isolation environment
     Capsule(CapsuleCmd),
     /// Audit report generation

@@ -228,6 +228,31 @@ Inspirée du phénomène linguistique gémellaire d'idioglossie autonome, la pri
 1. **Compression par Opcodes Sémantiques :** Les directives récurrentes (`OP_BSC_REG`, `OP_VRF_INV`, `OP_THL_RLY`, etc.) remplacent les invites textuelles verbeuses, réduisant la consommation de tokens de 70% à 85%.
 2. **Décodeur Chaperone Épistémique :** Pour préserver le principe de non-régression et d'auditabilité de GenOS, chaque paquet cryptophasique est audité en temps réel par un chaperone logiciel qui maintient la trace d'intention et permet le décodage immédiat lors des revues de décisions ou par l'arbitre de réalité.
 
+## Co-Inférence Conjointe (Jumeaux Siamois)
+
+La primitive `genos_biomimicry_conjoined_twin_bind` couple deux agents distincts par des organes vitaux partagés (pool de tokens atomique, relais thalamique sensoriel, verrous d'entrées/sorties synchronisés) :
+
+```mermaid
+flowchart LR
+    subgraph CONJOINED["Couple de Jumeaux Siamois (genos_biomimicry_conjoined_twin_bind)"]
+        direction LR
+        TWIN_A["Jumeau A (Génération de Code)"]
+        
+        subgraph ORGANS["Organes Vitaux Partagés"]
+            TOKEN_POOL["Pool de Tokens Indivisible (50k)"]
+            THALAMUS["Pont Thalamique Sensoriel"]
+            IO_LOCK["Verrou d'I/O Atomique"]
+        end
+        
+        TWIN_B["Jumeau B (Audit des Failles en Temps Réel)"]
+        
+        TWIN_A <==> ORGANS <==> TWIN_B
+    end
+```
+
+- **Transfusion dynamique :** Les agents s'échangent des budgets de tokens en continu sans passer par l'ordonnanceur central.
+- **Cycle de vie solidaire :** L'état de tension ou d'arrêt de l'un retentit immédiatement sur l'autre, évitant les continuations unilatérales désynchronisées.
+
 ---
 
 ## Configuration minimale
@@ -243,3 +268,74 @@ $env:GENOS_WORKTREE_GC_DELAY_MS = "600000"
 ```
 
 Verifier les comportements critiques avec les tests du backend, notamment [backend/tests/test_runtime_budget_and_influence.js](../backend/tests/test_runtime_budget_and_influence.js), [backend/tests/test_local_runtime_fallback.js](../backend/tests/test_local_runtime_fallback.js), [backend/tests/test_cryptophasia.js](../backend/tests/test_cryptophasia.js) et [backend/tests/test_agent_workspace_cleanup.js](../backend/tests/test_agent_workspace_cleanup.js). Au 8 septembre 2026, le test budget/influence echoue toutefois sur l'absence de l'evenement `BUDGET_EXHAUSTED` dans son scenario artificiel, alors que le garde est present dans le runtime ; cette divergence doit etre resolue avant d'en faire une garantie de regression. Un test passe confirme le scenario teste ; il ne transforme pas l'appel a un modele externe en operation deterministe.
+
+
+---
+
+## Schémas d'Architecture et de Cycle de Vie du Runtime
+
+### 1. Architecture Modulaire du Runtime Agentique
+
+```mermaid
+flowchart TB
+    subgraph Host["Environnement Hôte / Superviseur"]
+        Kernel["Noyau Superviseur Rust"]
+        Scheduler["Ordonnanceur de Tâches & Budgets"]
+        EventBus["Bus d'Événements & Signaux"]
+    end
+
+    subgraph AgentPool["Pool d'Agents Actifs"]
+        A1["Agent A (Architect)"]
+        A2["Agent B (Worker)"]
+        A3["Agent C (Verifier)"]
+    end
+
+    subgraph Sandboxes["Isolation & Environnements de Sandbox"]
+        SB1["Sandbox WASM"]
+        SB2["Sandbox Node / Process"]
+        SB3["Sandbox Conteneurisée"]
+    end
+
+    subgraph ProviderLayer["Passerelle Modèles & LLM"]
+        Router["Routeur de Modèles & Fallback"]
+        LocalModel["Modèle Local (Ollama / Llama)"]
+        RemoteModel["Modèle Distant (Gemini / Anthropic / OpenAI)"]
+    end
+
+    Kernel --> Scheduler
+    Scheduler --> AgentPool
+    AgentPool --> Sandboxes
+    AgentPool --> Router
+    Router --> LocalModel
+    Router --> RemoteModel
+    AgentPool --> EventBus
+```
+
+### 2. Machine à états opérationnelle d'un Worker
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle : Instanciation
+    Idle --> Initializing : Signal Start & Chargement Context
+    Initializing --> Running : Prêt à l'exécution
+    
+    state Running {
+        [*] --> Compute
+        Compute --> AwaitingExternalInput : Appel MCP / Tool
+        AwaitingExternalInput --> Compute : Résultat reçu
+        Compute --> MemoryConsolidation : Enregistrement vectoriel
+        MemoryConsolidation --> Compute
+    }
+    
+    Running --> Paused : Signal Suspend (Sauvegarde état)
+    Paused --> Running : Signal Resume
+    
+    Running --> Success : Objectif atteint avec Preuve
+    Running --> Failed : Erreur non récupérable
+    Running --> Apoptosis : Budget épuisé ou Dissonance max
+    
+    Success --> Terminated : Libération des ressources
+    Failed --> Terminated
+    Apoptosis --> Terminated
+    Terminated --> [*]
+```

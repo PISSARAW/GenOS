@@ -75,6 +75,16 @@ function getToolHandler(toolName) {
       const current = Array.isArray(args.current_vector) ? args.current_vector.join(',') : (args.current_vector || '0.96,0.15,0.0');
       return handleBioCall(`genos biomimicry cluster-n --agent-id ${agentId} --action "${action}" --sensitivity ${sensitivity} --tolerance-deg ${tolerance} --goal-vector "${goal}" --current-vector "${current}"`, timeoutMs);
     },
+    'genos_biomimicry_tectum_thermal': (args, timeoutMs) => {
+      const agentId = args.agent_id || args.agentId || 'viper_0';
+      const action = args.action || 'fuse_modalities';
+      const sensitivityMk = args.sensitivity_mk !== undefined ? args.sensitivity_mk : 3.0;
+      const fusionWeight = args.fusion_weight !== undefined ? args.fusion_weight : 0.65;
+      const threshold = args.threshold !== undefined ? args.threshold : 0.70;
+      const visual = args.visual_nodes || 'src/auth.rs:0.8,src/db.rs:0.4,src/api.rs:0.3';
+      const thermal = args.thermal_readings || 'src/auth.rs:0.95,src/db.rs:0.2,src/api.rs:0.1';
+      return handleBioCall(`genos biomimicry tectum-thermal --agent-id ${agentId} --action "${action}" --sensitivity-mk ${sensitivityMk} --fusion-weight ${fusionWeight} --threshold ${threshold} --visual-nodes "${visual}" --thermal-readings "${thermal}"`, timeoutMs);
+    },
     'genos_cell_division': (args, timeoutMs) => {
       const agentId = args.agent_id || args.agentId || 'cell_division_root';
       const mode = args.mode || 'mitosis';

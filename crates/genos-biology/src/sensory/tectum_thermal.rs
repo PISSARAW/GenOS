@@ -60,7 +60,7 @@ impl TectumOpticum {
                 ambient_thermal_baseline: 0.0,
                 max_thermal_gradient: 0.0,
                 hotspots_count: 0,
-                fused_targets: Vec::new>,
+                fused_targets: Vec::new(),
                 primary_strike_target: None,
             };
         }

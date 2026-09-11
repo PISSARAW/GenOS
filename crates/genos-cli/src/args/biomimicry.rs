@@ -264,6 +264,22 @@ pub enum BiomimicrySubcommands {
         #[arg(long, default_value = "0.96,0.15,0.0")]
         current_vector: String,
     },
+    TectumThermal {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long, default_value = "fuse_modalities")]
+        action: String,
+        #[arg(long, default_value_t = 3.0)]
+        sensitivity_mk: f64,
+        #[arg(long, default_value_t = 0.65)]
+        fusion_weight: f64,
+        #[arg(long, default_value_t = 0.70)]
+        threshold: f64,
+        #[arg(long, default_value = "src/auth.rs:0.8,src/db.rs:0.4,src/api.rs:0.3")]
+        visual_nodes: String,
+        #[arg(long, default_value = "src/auth.rs:0.95,src/db.rs:0.2,src/api.rs:0.1")]
+        thermal_readings: String,
+    },
 }
 
 #[derive(Args, Debug)]
