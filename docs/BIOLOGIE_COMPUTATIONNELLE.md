@@ -584,11 +584,15 @@ La véritable valeur du modèle réside dans la gestion de l’incertitude, la d
 ## 19. Références directes
 
 - [crates/genos-cell/src/lib.rs](../crates/genos-cell/src/lib.rs)
+- [crates/genos-cell/src/clinical.rs](../crates/genos-cell/src/clinical.rs)
 - [crates/genos-cell/src/conscience.rs](../crates/genos-cell/src/conscience.rs)
+- [crates/genos-biology/src/pathology.rs](../crates/genos-biology/src/pathology.rs)
+- [crates/genos-biology/src/therapy.rs](../crates/genos-biology/src/therapy.rs)
 - [crates/genos-biology/src/embryology.rs](../crates/genos-biology/src/embryology.rs)
 - [crates/genos-biology/src/tissue.rs](../crates/genos-biology/src/tissue.rs)
 - [crates/genos-biology/src/glial.rs](../crates/genos-biology/src/glial.rs)
 - [crates/genos-store/src/cryptobiosis.rs](../crates/genos-store/src/cryptobiosis.rs)
+- [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md](./PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md)
 - [backend/src/services/agentConscienceService.js](../backend/src/services/agentConscienceService.js)
 - [README.md](../README.md)
 
