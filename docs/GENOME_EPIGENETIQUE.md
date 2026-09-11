@@ -795,6 +795,42 @@ flowchart LR
     Absorb -.->|"Zéro Dommage Résiduel"| ProtectedGenome
 ```
 
+---
+
+## VII. Replay Biologique & Réversion Cellulaire
+
+### 1. Transdifférenciation Ontogénique (*Turritopsis dohrnii*) (`genos_biomimicry_turritopsis_transdifferentiation`)
+
+La méduse immortelle (*Turritopsis dohrnii*) possède la capacité de régresser biologiquement vers le stade polype lorsque soumise à des conditions hostiles ou à la sénescence :
+* **Purge Somatique Sélective :** L'agent résorbe ses modules de travail spécialisés et son contexte d'exécution saturé.
+* **Conservation Génomique Inviolable :** Les locus essentiels (`LOCUS_CORE_IDENTITY`, `LOCUS_KERNEL_INTEGRITY`) restent intacts.
+* **Réinitialisation en Polype Juvénile :** L'agent revient à un état de base prêt à démarrer un nouveau cycle de vie à zéro token résiduel sans recréation d'identité.
+
+```mermaid
+flowchart TD
+    subgraph AdultMedusa["1. Méduse Adulte Spécialisée"]
+        StateMedusa["Agent Actif Spécialisé (MEDUSA_ADULT)"]
+        Exhaustion["Stress / Épuisement Tokens / Limite de Hayflick"]
+        StateMedusa --> Exhaustion
+    end
+
+    subgraph TransdiffProcess["2. Transdifférenciation Ontogénique"]
+        Trigger["Déclenchement `trigger_transdifferentiation`"]
+        Purge["Purge du Contexte Épisodique & Dé-différenciation"]
+        GenomeLock["Scellement du Génome & Incrément Cycle"]
+        Trigger --> Purge --> GenomeLock
+    end
+
+    subgraph JuvenilePolyp["3. Polype Juvénile Réinitialisé"]
+        PolypState["Agent Régénéré (JUVENILE_POLYP)"]
+        Ready["Prêt pour Nouvelle Mission (0 Overhead)"]
+        PolypState --> Ready
+    end
+
+    Exhaustion --> Trigger
+    GenomeLock --> PolypState
+```
+
 
 
 
