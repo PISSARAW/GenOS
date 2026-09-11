@@ -402,6 +402,14 @@ La blast radius correspond à la quantité de surface affectée par une action. 
 
 Cette mécanique permet de stopper les mutations trop larges ou d’exiger une validation plus forte.
 
+## 11.bis Jumeaux Miroirs et Forks à Polarité Inversée (Situs Inversus)
+
+Inspirée de la gémellité monozygote en miroir (*situs inversus* des polarités organiques), la primitive `genos_biomimicry_mirror_twin_fork` formalise la double dérivation contre-factuelle :
+
+- **Jumeau Droitier (Constructif/Optimiste) :** Focalisé sur la mise en œuvre de la solution, la satisfaction des invariants positifs et l'avancement de la mission.
+- **Jumeau Gaucher (Sceptique/Adversarial - Situs Inversus) :** Possède une fonction d'évaluation inversée dédiée à l'injection de fautes aux limites, la recherche de régressions et la falsification active des propositions du jumeau droitier.
+- **Équilibre de Polarité et Réconciliation :** La promotion de l'état ne peut avoir lieu que si l'équilibre calculé démontre que les claims constructifs ont résisté aux tentatives de falsification du jumeau adverse.
+
 ---
 
 ## 12. Comparaison avec le marché
@@ -423,6 +431,7 @@ Le vrai différenciateur de GenOS est qu’il ne confond ni “copie du dépôt�
 - isole plusieurs états de travail dans des capsules ;
 - crée des snapshots durables, vérifiés par hash ;
 - permet des branches, forks et contre-factuels sans écraser le parent ;
+- instancie des jumeaux miroirs antagonistes pour la validation formelle ;
 - exécute le replay dans un environnement isolé ;
 - trouve le point de bascule avec bisection causale ;
 - restaure les états avec protection et checksum ;
@@ -448,6 +457,7 @@ Les workspaces et l’état contre-factuel de GenOS forment une couche de contr�
 - snapshot ;
 - comparaison ;
 - fork / branch ;
+- dérivation gémellaire miroir ;
 - replay ;
 - bisection causale ;
 - rollback ;
@@ -461,8 +471,10 @@ Les références de code les plus importantes sont :
 
 - [backend/src/services/workspaceSnapshotStore.js](../backend/src/services/workspaceSnapshotStore.js)
 - [backend/src/services/bisectionService.js](../backend/src/services/bisectionService.js)
+- [backend/src/services/mcpBioTools/handlers/mirrorTwinFork.js](../backend/src/services/mcpBioTools/handlers/mirrorTwinFork.js)
 - [backend/src/services/agentWorkspaceLifecycleService.js](../backend/src/services/agentWorkspaceLifecycleService.js)
 - [backend/src/services/vfsSandboxService.js](../backend/src/services/vfsSandboxService.js)
 - [backend/src/services/strategyPromotionPolicyService.js](../backend/src/services/strategyPromotionPolicyService.js)
 - [backend/src/controllers/workspaceController.js](../backend/src/controllers/workspaceController.js)
+- [backend/tests/test_mirror_twin.js](../backend/tests/test_mirror_twin.js)
 - [backend/src/db/schema-tables-core.js](../backend/src/db/schema-tables-core.js)

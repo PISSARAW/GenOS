@@ -40,6 +40,7 @@ const { handleProprioception, handleProprioceptionError } = require('./proprioce
 const { handleEcholocationListen, handleEcholocationBeep, handleEcholocationError } = require('./echolocation');
 const { handleThalamicBridge, handleThalamicBridgeError } = require('./thalamicBridge');
 const { handleCryptophasia, handleCryptophasiaError } = require('./cryptophasia');
+const { handleMirrorTwinFork, handleMirrorTwinForkError } = require('./mirrorTwinFork');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -85,6 +86,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_echolocation: { handle: handleEcholocationListen, error: handleEcholocationError },
   genos_biomimicry_thalamic_bridge: { handle: handleThalamicBridge, error: handleThalamicBridgeError },
   genos_biomimicry_cryptophasia: { handle: handleCryptophasia, error: handleCryptophasiaError },
+  genos_biomimicry_mirror_twin_fork: { handle: handleMirrorTwinFork, error: handleMirrorTwinForkError },
 };
 
 module.exports = { TOOL_HANDLERS };

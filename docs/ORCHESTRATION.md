@@ -578,6 +578,13 @@ GenOS se distingue par une combinaison rare :
 
 En d’autres termes, GenOS est moins un simple orchestrateur de tâches qu’un système de gouvernance de l’exécution multi-agent basée sur les preuves.
 
+## 17.bis Orchestration par Jumeaux Miroirs (Dualité Antagoniste)
+
+Pour les missions à haut risque ou nécessitant une preuve formelle contre-factuelle, l'orchestrateur déploie des couples de **Jumeaux Miroirs** via `genos_biomimicry_mirror_twin_fork`.
+
+- **Organisation :** L'orchestrateur alloue des quotas équilibrés au jumeau constructeur et au jumeau sceptique.
+- **Barrière d'Équilibre :** La barrière d'évidence n'est franchie que si le score d'équilibre $\ge 0.70$, garantissant que la solution a résisté aux vecteurs d'attaque et contre-exemples forgés par son jumeau inversé.
+
 ---
 
 ## 18. Limites et risques
@@ -600,6 +607,7 @@ Le point fort du système est qu’il est “honest” : il ne prétend pas qu�
 - [backend/src/services/agentRoundService.js](../backend/src/services/agentRoundService.js)
 - [backend/src/services/agentFleetService.js](../backend/src/services/agentFleetService.js)
 - [backend/src/services/agentOrchestrationState.js](../backend/src/services/agentOrchestrationState.js)
+- [backend/src/services/mcpBioTools/handlers/mirrorTwinFork.js](../backend/src/services/mcpBioTools/handlers/mirrorTwinFork.js)
 - [backend/src/services/tokenAllocationService.js](../backend/src/services/tokenAllocationService.js)
 - [backend/src/services/agentRecoveryService.js](../backend/src/services/agentRecoveryService.js)
 - [backend/src/services/workerFailureRecoveryService.js](../backend/src/services/workerFailureRecoveryService.js)
@@ -608,6 +616,7 @@ Le point fort du système est qu’il est “honest” : il ne prétend pas qu�
 - [backend/src/services/agentWorkspaceLifecycleService.js](../backend/src/services/agentWorkspaceLifecycleService.js)
 - [backend/src/services/orchestrationDecisionService.js](../backend/src/services/orchestrationDecisionService.js)
 - [backend/tests/test_orchestration_evidence_barrier.js](../backend/tests/test_orchestration_evidence_barrier.js)
+- [backend/tests/test_mirror_twin.js](../backend/tests/test_mirror_twin.js)
 - [backend/tests/test_mission_decomposition_invariants.js](../backend/tests/test_mission_decomposition_invariants.js)
 
 ---
