@@ -20,6 +20,9 @@ backend/.genos-agent-worlds/
 backend/.genos-runtime/
 backend/worker_*/
 backend/worker-sub-*_worker_*/
+worker_*/
+worker-*/
+worker-sub-*/
 .genos-matrix/
 .genos-custom-studio/
 __pycache__/
