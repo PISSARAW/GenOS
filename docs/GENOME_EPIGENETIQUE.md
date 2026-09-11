@@ -831,6 +831,40 @@ flowchart TD
     GenomeLock --> PolypState
 ```
 
+### 2. Reprogrammation Épigénétique par Facteurs de Yamanaka (`genos_biomimicry_yamanaka_reprogramming`)
+
+Inspirée des 4 facteurs de transcription de Shinya Yamanaka (**Oct4**, **Sox2**, **Klf4**, **c-Myc** - OSKM), cette primitive efface la mémoire somatique et les spécialisations figées d'un agent pour restaurer son état de cellule souche pluripotente induite (iPSC) :
+* **Effacement Épigénétique des Rôles :** Les contraintes de rôle, les biais de prompt accumulés et les marques d'inhibition sont neutralisés.
+* **Restauration de la Pluripotence ($Score = 1.0$) :** L'agent redevient capable de s'adapter sans inertie cognitive à tout nouveau mandat.
+* **Re-Différenciation en Niche Cible :** L'agent pluripotent est ensuite dirigé vers un profil spécialisé (ex: `SECURITY_AUDITOR`, `KERNEL_OPTIMIZER`, `CHAOS_TESTER`).
+
+```mermaid
+flowchart LR
+    subgraph SomaticAgent["1. Agent Somatique Différencié"]
+        FixedRole["Rôle Figé (ex: LEGACY_PARSER)"]
+        EpigeneticMarks["Marques Épigénétiques / Biais de Prompt"]
+        FixedRole --> EpigeneticMarks
+    end
+
+    subgraph YamanakaCocktail["2. Cocktail OSKM"]
+        OSKM["Facteurs Oct4 + Sox2 + Klf4 + c-Myc"]
+        Erasure["Effacement Mémoire Somatique"]
+        OSKM --> Erasure
+    end
+
+    subgraph StemState["3. Cellule Souche iPSC"]
+        Pluripotent["Agent Pluripotent (Score 1.0)"]
+    end
+
+    subgraph TargetNiche["4. Re-Différenciation"]
+        NewRole["Nouveau Rôle Spécialisé (ex: QUANTUM_SYNTH)"]
+    end
+
+    SomaticAgent --> OSKM
+    Erasure --> Pluripotent
+    Pluripotent -->|"Différenciation Ciblée"| NewRole
+```
+
 
 
 
