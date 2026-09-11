@@ -42,6 +42,7 @@ const { handleThalamicBridge, handleThalamicBridgeError } = require('./thalamicB
 const { handleCryptophasia, handleCryptophasiaError } = require('./cryptophasia');
 const { handleMirrorTwinFork, handleMirrorTwinForkError } = require('./mirrorTwinFork');
 const { handleSomaticResonance, handleSomaticResonanceError } = require('./somaticResonance');
+const { handleChimericMerge, handleChimericMergeError } = require('./chimericMerge');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -89,6 +90,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_cryptophasia: { handle: handleCryptophasia, error: handleCryptophasiaError },
   genos_biomimicry_mirror_twin_fork: { handle: handleMirrorTwinFork, error: handleMirrorTwinForkError },
   genos_biomimicry_somatic_resonance: { handle: handleSomaticResonance, error: handleSomaticResonanceError },
+  genos_biomimicry_chimeric_merge: { handle: handleChimericMerge, error: handleChimericMergeError },
 };
 
 module.exports = { TOOL_HANDLERS };

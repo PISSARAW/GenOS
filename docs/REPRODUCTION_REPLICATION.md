@@ -563,6 +563,14 @@ GenOS se distingue par une combinaison de :
 
 Cela transforme la reproduction en mécanisme de gouvernance de l’exécution, pas seulement en copie de données.
 
+## 13.bis Chimérisme Tétragamétique et Fusion Mosaïque
+
+Inspiré du chimérisme humain où deux embryons distincts fusionnent pour former un seul individu mosaïque porteur de deux ADN, la primitive `genos_biomimicry_chimeric_merge` permet de recombiner deux lignées d'agents complémentaires sans écrasement :
+
+- **Lignée Génomique Fonctionnelle (Branche A) :** Transmet le code, les outils spécialisés (`tool_ast_visitor`, `tool_bisection_engine`) et la stratégie de raisonnement.
+- **Lignée Épigénétique & Immunitaire (Branche B) :** Transmet les vaccins anti-régression, l'arbre d'évitement d'erreurs et les poids synaptiques consolidés.
+- **Cohérence Mosaïque :** L'agent chimérique résultant opère avec une double hérédité traçable, surpassant la simple sélection darwinienne unilatérale (*survival of the fittest*) en créant un composite antifragile.
+
 ---
 
 ## 14. Points forts et limites
@@ -570,6 +578,7 @@ Cela transforme la reproduction en mécanisme de gouvernance de l’exécution, 
 ### Points forts
 
 - reproduction variant selon type biologique ;
+- fusion mosaïque tétragamétique de lignées complémentaires ;
 - mécanismes de sécurité explicitement codés ;
 - parentage et lineage tracés ;
 - budget et Hayflick limit intégrés ;
@@ -590,6 +599,8 @@ Cela transforme la reproduction en mécanisme de gouvernance de l’exécution, 
 - [crates/genos-reproduction/src/division.rs](../crates/genos-reproduction/src/division.rs)
 - [crates/genos-reproduction/src/crossover.rs](../crates/genos-reproduction/src/crossover.rs)
 - [crates/genos-genome/src/genome.rs](../crates/genos-genome/src/genome.rs)
+- [backend/src/services/mcpBioTools/handlers/chimericMerge.js](../backend/src/services/mcpBioTools/handlers/chimericMerge.js)
+- [backend/tests/test_chimeric_merge.js](../backend/tests/test_chimeric_merge.js)
 - [crates/genos-cli/src/commands/reproduction.rs](../crates/genos-cli/src/commands/reproduction.rs)
 - [crates/genos-cli/src/tests.rs](../crates/genos-cli/src/tests.rs)
 - [README.md](../README.md)
@@ -600,11 +611,12 @@ Cela transforme la reproduction en mécanisme de gouvernance de l’exécution, 
 
 La reproduction et la réplication dans GenOS sont une couche de gouvernance de la duplication des agents : système des héritages, validation, sécurité, budget, et protège contre la croissance anarchique.
 
-Les mécanismes de mitose, fission, bourgeonnement, schizogonie et méiose ne sont pas décoratifs. Ils sont des garanties de structure :
+Les mécanismes de mitose, fission, bourgeonnement, schizogonie, méiose et fusion chimérique ne sont pas décoratifs. Ils sont des garanties de structure :
 
 - chaque descendant a une identité propre ;
 - chaque lignée reste traceable ;
 - chaque division est limitée par le budget et le Hayflick limit ;
+- chaque fusion mosaïque préserve le double héritage fonctionnel et immunitaire ;
 - chaque division non attestée est rejetée ;
 - chaque “spawn storm” est stoppé par construction.
 
