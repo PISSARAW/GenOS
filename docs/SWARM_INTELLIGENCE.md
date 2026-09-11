@@ -570,4 +570,3 @@ flowchart LR
 
 Grâce à `genos_biomimicry_obligate_polyembryony`, l'essaim peut générer des sous-groupes de $N=4$ ou $N=8$ répliques isogéniques strictes évaluant une hypothèse critique en parallèle. Le vote à quorum $\ge 75\%$ protège la nuée contre les hallucinations locales tout en garantissant un coût d'inférence strictement borné.
 
-

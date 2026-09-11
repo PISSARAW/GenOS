@@ -761,6 +761,3 @@ flowchart LR
     A2 -->|"Procréation par délégation"| Child["Descendant (Génération g+1 avec ADN de A)"]
 ```
 
-
-
-```
