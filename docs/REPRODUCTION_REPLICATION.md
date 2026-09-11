@@ -592,6 +592,25 @@ flowchart TD
 - **Génomes distincts :** Chaque embryon porte un `genome_id` et un `lineage_id` propres, éliminant le risque de biais cognitif uniforme.
 - **Cohabitation utérine :** Les embryons dizygotes collaborent dans le même espace virtuel sans duplication d'environnement physique.
 
+## 13.quater Scission Monozygote Précoce (Vrais Jumeaux Isogéniques)
+
+La scission monozygote précoce (`genos_biomimicry_monozygotic_split`) modélise la division d'un zygote unique en $N$ blastomères clones strictement isogéniques (100% même ADN, même snapshot de départ) :
+
+```mermaid
+flowchart TD
+    ZYGOTE["Zygote Initial : Snapshot de Base (snp-001)"]
+    ZYGOTE -->|Scission Zygotique Précoce| CLEAVAGE["Plan de Clivage Isogénique (genos_biomimicry_monozygotic_split)"]
+    
+    CLEAVAGE --> TWIN1["Jumeau Clone A (Seed 101, Temp 0.2) : Trajectoire Déterministe"]
+    CLEAVAGE --> TWIN2["Jumeau Clone B (Seed 202, Temp 0.5) : Trajectoire Exploratoire"]
+    CLEAVAGE --> TWIN3["Jumeau Clone C (Seed 303, Temp 0.8) : Trajectoire Mutationnelle"]
+    
+    TWIN1 & TWIN2 & TWIN3 --> SYNC["Synchronisation d'État & Consensus de Survie"]
+```
+
+- **Isogénie garantie :** 100% de concordance des hashes de départ, permettant la recherche stochastique arborescente (MCTS).
+- **Zéro overhead d'amorce :** Les jumeaux démarrent directement à la bifurcation sans devoir ré-exécuter le contexte amont.
+
 ---
 
 ## 14. Points forts et limites
@@ -600,6 +619,7 @@ flowchart TD
 
 - reproduction variant selon type biologique ;
 - polyovulation pour flottes hétérogènes multi-lignées ;
+- scission monozygote pour dérivation isogénique parallèle ;
 - fusion mosaïque tétragamétique de lignées complémentaires ;
 - mécanismes de sécurité explicitement codés ;
 - parentage et lineage tracés ;
