@@ -304,7 +304,8 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_biomimicry_chromosomal_translocation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Translocate loci between heterologous agent chromosomes for cross-domain capability grafting.' },
   { name: 'genos_biomimicry_aneuploidy', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Adjust chromosome instance counts: induce monosomy for frugality or trisomy for 2/3 majority voting.' },
   { name: 'genos_biomimicry_polyploidy', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Multiply whole genome ploidy (e.g. 6n hexaploid wheat strategy) into layered specialized cognitive planes.' },
-  { name: 'genos_biomimicry_transposon_jump', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Execute autonomous jumping gene mobility via cut-and-paste transposition or copy-and-paste retrotransposition.' }
+  { name: 'genos_biomimicry_transposon_jump', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Execute autonomous jumping gene mobility via cut-and-paste transposition or copy-and-paste retrotransposition.' },
+  { name: 'genos_biomimicry_dynamic_triplet_expansion', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Monitor microsatellite repeat expansions and generational anticipation thresholds to prevent runaway loops.' }
 ];
 
 async function seedMcpTools(db) {
