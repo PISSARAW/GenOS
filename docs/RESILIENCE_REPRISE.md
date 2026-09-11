@@ -380,6 +380,7 @@ Par rapport à une queue managée, GenOS apporte une reprise plus proche du rais
 
 La biologie fournit ici des modèles de comportement :
 
+- **synchronicité somatique** : propagation d'ondes d'entropie cognitive (`genos_biomimicry_somatic_resonance`) déclenchant un gel préventif coordonné avant dérive collective ;
 - **homéostasie** : heartbeats, deadlines et limites empêchent une activité hors contrôle ;
 - **cicatrisation** : une récupération tente une réparation localisée avant remplacement ;
 - **apoptose** : une branche insuffisamment saine est arrêtée proprement ;
@@ -394,10 +395,11 @@ Ces mécanismes sont des politiques logicielles explicites. Ils ne garantissent 
 
 - Configurer `GENOS_STALE_JOB_MINUTES` selon la durée maximale normale des jobs.
 - Définir des `max_attempts` réalistes et distinguer les erreurs déterministes des erreurs temporaires.
+- Activer la résonance somatique sur les flottes multi-agents à haut risque de boucle cognitive.
 - Préserver `error_json`, telemetry et snapshots avant une intervention manuelle.
 - Vérifier le manifest et relancer le test d'invariant après chaque restore.
 - Sauvegarder régulièrement la base et les artefacts de snapshots dans des emplacements séparés.
 - Traiter `JOB_DEAD_LETTERED`, `WORKER_RECOVERY_EXHAUSTED` et échecs de checksum comme des événements exigeant revue humaine.
 - Ne pas considérer un replay reconstruit ou un rollback de workspace comme un rollback de trafic de production.
 
-En résumé, GenOS construit une résilience graduée : réparer quand l'échec est temporaire, isoler et restaurer quand une régression est détectée, terminer proprement lorsqu'une branche n'est plus justifiée, puis escalader quand la continuité ne peut plus être démontrée.
+En résumé, GenOS construit une résilience graduée : réparer quand l'échec est temporaire, propager le stress cognitif par résonance somatique, isoler et restaurer quand une régression est détectée, terminer proprement lorsqu'une branche n'est plus justifiée, puis escalader quand la continuité ne peut plus être démontrée.
