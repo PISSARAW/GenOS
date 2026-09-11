@@ -33,8 +33,13 @@ pub fn thalamus_cache_key(k: &ThalamusCacheKey) -> String {
 }
 
 fn find_preferred_model(names: &[String]) -> Option<String> {
-    let preferred_keywords = ["llama3", "mistral", "mixtral", "phi3", "gemma", "qwen"];
-    for keyword in preferred_keywords {
+    let custom_pref = env::var("GENOS_PREFERRED_MODELS").ok();
+    let preferred_list: Vec<String> = custom_pref
+        .as_deref()
+        .map(|s| s.split(',').map(|w| w.trim().to_lowercase()).filter(|w| !w.is_empty()).collect())
+        .unwrap_or_else(|| vec!["llama3".into(), "mistral".into(), "mixtral".into(), "phi3".into(), "gemma".into(), "qwen".into()]);
+
+    for keyword in &preferred_list {
         for name in names {
             if name.to_lowercase().contains(keyword) {
                 return Some(name.clone());
@@ -130,30 +135,41 @@ pub fn call_llm_api(prompt: &str, rethink: bool, system_level: u8, cache_scope: 
     // 2. Complexity check
     if system_level == 1 {
         let complexity_score = evaluate_prompt_complexity(prompt);
-        if complexity_score >= 50 {
+        let threshold = env::var("GENOS_COMPLEXITY_THRESHOLD")
+            .ok()
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(50);
+        if complexity_score >= threshold {
             return format!("🧠 [Thalamus] Alerte : Requête ultra-complexe détectée (Score cognitif : {}).\nMon réflexe immédiat (Système 1) risque de produire une réponse de surface ou d'halluciner.\n\n💡 Pour engager le cortex préfrontal et la machinerie GenOS (Système 2), utilisez plutôt :\n  ./g trio --mission \"<votre_mission>\" \n  ./g auto --mission \"<votre_mission>\"", complexity_score);
         }
     }
 
     let client = Client::builder().timeout(std::time::Duration::from_secs(300)).build().unwrap();
-    let ollama_url = env::var("OLLAMA_API_URL").unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
+    let ollama_url = env::var("GENOS_OLLAMA_URL")
+        .or_else(|_| env::var("OLLAMA_API_URL"))
+        .unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
     let override_provider = env::var("LLM_PROVIDER").ok();
     let override_model = env::var("OLLAMA_MODEL").ok();
 
     let (chosen_provider, chosen_model) = if let Some(p) = override_provider {
-        (p, override_model.unwrap_or_else(|| "llama3".to_string()))
+        let def_ollama = env::var("GENOS_DEFAULT_OLLAMA_MODEL").unwrap_or_else(|_| "llama3".to_string());
+        (p, override_model.unwrap_or(def_ollama))
     } else if let Some(local_model) = thalamus_select_ollama_model(&client, &ollama_url) {
         ("ollama".to_string(), local_model)
     } else if env::var("OPENAI_API_KEY").is_ok() {
-        ("openai".to_string(), env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string()))
+        let def_openai = env::var("OPENAI_MODEL").or_else(|_| env::var("GENOS_OPENAI_MODEL")).unwrap_or_else(|_| "gpt-4o-mini".to_string());
+        ("openai".to_string(), def_openai)
     } else if env::var("ANTHROPIC_API_KEY").is_ok() {
-        ("anthropic".to_string(), env::var("ANTHROPIC_MODEL").unwrap_or_else(|_| "claude-3-5-sonnet-20241022".to_string()))
+        let def_anthropic = env::var("ANTHROPIC_MODEL").or_else(|_| env::var("GENOS_ANTHROPIC_MODEL")).unwrap_or_else(|_| "claude-3-5-sonnet-20241022".to_string());
+        ("anthropic".to_string(), def_anthropic)
     } else {
-        ("gemini".to_string(), env::var("GEMINI_MODEL").unwrap_or_else(|_| "gemini-1.5-flash".to_string()))
+        let def_gemini = env::var("GEMINI_MODEL").or_else(|_| env::var("GENOS_GEMINI_MODEL")).unwrap_or_else(|_| "gemini-1.5-flash".to_string());
+        ("gemini".to_string(), def_gemini)
     };
 
     let mut augmented_prompt = prompt.to_string();
-    if prompt.to_lowercase().contains("capitale") {
+    let demo_heuristics = env::var("GENOS_DEMO_HEURISTICS").map(|v| v == "1" || v == "true").unwrap_or(false);
+    if demo_heuristics && prompt.to_lowercase().contains("capitale") {
         augmented_prompt = format!("Contexte de notre mémoire RAG :\n- Les capitales sont souvent demandées, sois direct.\n\nQuestion: {}", prompt);
     }
 
