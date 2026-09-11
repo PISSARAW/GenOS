@@ -307,7 +307,8 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_biomimicry_transposon_jump', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Execute autonomous jumping gene mobility via cut-and-paste transposition or copy-and-paste retrotransposition.' },
   { name: 'genos_biomimicry_dynamic_triplet_expansion', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Monitor microsatellite repeat expansions and generational anticipation thresholds to prevent runaway loops.' },
   { name: 'genos_biomimicry_mitochondrial_dna_mutation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Manage circular metabolic mitochondrial DNA, energy efficiency drift, and strict matrilineal transmission.' },
-  { name: 'genos_biomimicry_epigenetic_methylation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Apply reversible epigenetic methylation tags under environmental stress and inherit transgenerational marks.' }
+  { name: 'genos_biomimicry_epigenetic_methylation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Apply reversible epigenetic methylation tags under environmental stress and inherit transgenerational marks.' },
+  { name: 'genos_biomimicry_horizontal_gene_transfer', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Execute horizontal gene transfer: bacterial plasmid conjugation via pilus and bdelloid environmental DNA absorption.' }
 ];
 
 async function seedMcpTools(db) {
