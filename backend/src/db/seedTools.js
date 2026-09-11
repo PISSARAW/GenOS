@@ -311,7 +311,8 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_biomimicry_horizontal_gene_transfer', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Execute horizontal gene transfer: bacterial plasmid conjugation via pilus and bdelloid environmental DNA absorption.' },
   { name: 'genos_biomimicry_agrobacterium_tdna_hijack', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Inject T-DNA payloads into host agents to create dedicated compute galli and synthesize opine resources.' },
   { name: 'genos_biomimicry_viral_endogenization', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Assimilate exogenous retroviruses and emergency patches into native germline chromosomes across generations.' },
-  { name: 'genos_biomimicry_tardigrade_dsup_shield', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Deploy damage suppressor (Dsup) physical coating to mechanically absorb radiation and adversarial mutation attacks.' }
+  { name: 'genos_biomimicry_tardigrade_dsup_shield', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Deploy damage suppressor (Dsup) physical coating to mechanically absorb radiation and adversarial mutation attacks.' },
+  { name: 'genos_biomimicry_turritopsis_transdifferentiation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Revert adult medusa agent to juvenile polyp stem state under critical exhaustion while preserving genome.' }
 ];
 
 async function seedMcpTools(db) {

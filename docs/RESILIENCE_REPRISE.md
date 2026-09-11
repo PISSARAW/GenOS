@@ -472,4 +472,8 @@ Les dérives transgénérationnelles par glissement microsatellite (répétition
 
 Face à une agression de code étranger répétée (injections, rétrovirus d'extension exogène), GenOS neutralise la toxicité en neutralisant les promoteurs malveillants tout en assimilant les gènes adaptatifs dans la lignée germinale (`germline`). Le sous-système devient un rétrovirus endogène (ERV) transmis constitutionnellement et sans surcoût d'infection à toute la descendance d'agents.
 
+### 6. Rajeunissement et Réversion Ontogénique (*Turritopsis dohrnii*) (`genos_biomimicry_turritopsis_transdifferentiation`)
+
+Lorsqu'un agent spécialisé approche d'une panne fatale par épuisement de son budget de tokens ou dépassement de son horloge de vie, il déclenche une transdifférenciation vers un état juvénile (`JUVENILE_POLYP`). Son contexte d'exécution pollué est purgé tout en conservant son identité et ses locus invariants pour un redémarrage instantané à zéro surcharge.
+
 
