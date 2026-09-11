@@ -221,17 +221,6 @@ async function execute(executionRequest) {
   const circuitScope = organizationId && projectId
     ? `${organizationId}:${projectId}`
     : (scopeRow?.organization_id && scopeRow?.project_id ? `${scopeRow.organization_id}:${scopeRow.project_id}` : 'global');
-  const threatScan = immuneSystem.scanThreats(JSON.stringify({ toolName, args, taints }));
-  if (threatScan.threats.length) {
-    const reason = `Immune threat scan blocked MCP execution: ${threatScan.threats.join(', ')}.`;
-    await db.run(
-      'INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      agentId || 'immune_system', agentId || null, 'WORKFLOW_TOOL_CALL', toolName, 'deny', reason,
-      JSON.stringify({ threats: threatScan.threats, organizationId, projectId })
-    );
-    telemetry.emitEvent({ eventType: 'IMMUNE_THREAT_BLOCKED', agentId: agentId || 'immune_system', action: 'MCP_EXECUTE', detail: reason, severity: 'critical', payload: { toolName, threats: threatScan.threats, organizationId, projectId } });
-    return { success: false, status: 'blocked', error: reason, reason, threats: threatScan.threats, policy: { decision: 'deny', reason: 'IMMUNE_THREAT_DETECTED' } };
-  }
   const permissionRow = organizationId && projectId
     ? await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, organizationId, projectId)
     : await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id IS NULL AND project_id IS NULL', agentId);
@@ -243,6 +232,17 @@ async function execute(executionRequest) {
   const policy = platformSafety.validateToolCall({ agentId, toolName, args, permissions, deniedTools, taints });
   await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', agentId || 'system', agentId || null, 'WORKFLOW_TOOL_CALL', toolName, policy.decision, policy.reason, JSON.stringify({ args, taints, organizationId, projectId, policy }));
   if (policy.decision !== 'allow') return { success: false, status: policy.decision, policy };
+  const threatScan = immuneSystem.scanThreats(JSON.stringify({ toolName, args, taints }));
+  if (threatScan.threats.length) {
+    const reason = `Immune threat scan blocked MCP execution: ${threatScan.threats.join(', ')}.`;
+    await db.run(
+      'INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      agentId || 'immune_system', agentId || null, 'WORKFLOW_TOOL_CALL', toolName, 'deny', reason,
+      JSON.stringify({ threats: threatScan.threats, organizationId, projectId })
+    );
+    telemetry.emitEvent({ eventType: 'IMMUNE_THREAT_BLOCKED', agentId: agentId || 'immune_system', action: 'MCP_EXECUTE', detail: reason, severity: 'critical', payload: { toolName, threats: threatScan.threats, organizationId, projectId } });
+    return { success: false, status: 'blocked', error: reason, reason, threats: threatScan.threats, policy: { decision: 'deny', reason: 'IMMUNE_THREAT_DETECTED' } };
+  }
   if (agentId) {
     const chromatinLock = checkChromatinLock(agentId, toolName);
     if (chromatinLock) {
