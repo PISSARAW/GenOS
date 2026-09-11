@@ -269,6 +269,31 @@ impl Genome {
         }
     }
 
+    pub fn express_all(&self, active_tfs: &[String]) -> BTreeMap<String, String> {
+        let mut expressed = BTreeMap::new();
+        for (locus, gene) in &self.genes {
+            let ctx = crate::gene::ExpressionContext {
+                active_tfs,
+                alternative_splicing: None,
+                micro_rnas: &[],
+            };
+            if let Ok(folded_peptide) = gene.express(ctx) {
+                expressed.insert(locus.clone(), folded_peptide);
+            }
+        }
+        expressed
+    }
+
+    pub fn to_nucleotide_strand(&self) -> DnaStrand {
+        let serialized = serde_json::to_string(self).unwrap_or_default();
+        DnaStrand::synthesize(&serialized)
+    }
+
+    pub fn from_nucleotide_strand(strand: &DnaStrand) -> Result<Self, String> {
+        let decoded = strand.decode_instruction();
+        serde_json::from_str(&decoded).map_err(|e| format!("Invalid nucleotide genome strand: {e}"))
+    }
+
     pub fn hash_library(&self) -> String {
         self.try_hash_library().expect("Genome serialization must be infallible for a valid Genome")
     }
