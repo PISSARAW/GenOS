@@ -122,7 +122,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name } = request.params;
   if (!toolIsLeased(name, ALL_TOOLS)) return {
-    content: [{ type: "text", text: `Tool '${name}' is outside the active GenOS MCP lease.` }], isError: true
+    content: [{ type: "text", text: `Tool '${name}' is outside the active GenOS MCP lease.` }],
+    isError: true,
+    _meta: { code: 'MCP_TOOL_LEASE_DENIED' }
   };
   return createToolCallHandler({ runOrchestrator, runGenosCli, executeStrategyTool: strategyTools.executeStrategyTool })(request);
 });
