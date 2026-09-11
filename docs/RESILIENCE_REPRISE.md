@@ -382,6 +382,7 @@ La biologie fournit ici des modèles de comportement :
 
 - **synchronicité somatique** : propagation d'ondes d'entropie cognitive (`genos_biomimicry_somatic_resonance`) déclenchant un gel préventif coordonné avant dérive collective ;
 - **greffe parasitaire & absorption d'organes** : assimilation de membres et outils d'un jumeau défaillant (`genos_biomimicry_parasitic_graft`) par l'autosite pour éviter la perte de capacités sans overhead ;
+- **fetus in fetu & rescue pod** : encapsulation interne d'un embryon dormant intact (`genos_biomimicry_fetus_in_fetu`) assurant une résurrection instantanée en cas de corruption fatale de l'agent hôte ;
 - **homéostasie** : heartbeats, deadlines et limites empêchent une activité hors contrôle ;
 - **cicatrisation** : une récupération tente une réparation localisée avant remplacement ;
 - **apoptose** : une branche insuffisamment saine est arrêtée proprement ;
@@ -404,3 +405,56 @@ Ces mécanismes sont des politiques logicielles explicites. Ils ne garantissent 
 - Ne pas considérer un replay reconstruit ou un rollback de workspace comme un rollback de trafic de production.
 
 En résumé, GenOS construit une résilience graduée : réparer quand l'échec est temporaire, propager le stress cognitif par résonance somatique, isoler et restaurer quand une régression est détectée, terminer proprement lorsqu'une branche n'est plus justifiée, puis escalader quand la continuité ne peut plus être démontrée.
+
+
+
+---
+
+## Schémas Complémentaires de Reprise sur Crash et Haute Disponibilité
+
+### 1. Machine à états du Cycle de Crash et de Reprise Automatique
+
+```mermaid
+stateDiagram-v2
+    [*] --> RunningNominal : Service opérationnel
+    RunningNominal --> CrashDetecte : Perte de Heartbeat (> 30s)
+    
+    state PhaseRecovery {
+        [*] --> ScanBaseDonnees : Identification des claims en vol
+        ScanBaseDonnees --> RequalificationJobs : Marquage 'INTERRUPTED'
+        RequalificationJobs --> RechargementSnapshot : Restauration du dernier checkpoint
+    }
+    
+    CrashDetecte --> PhaseRecovery
+    PhaseRecovery --> RepriseExecution : Re-dispatching vers workers sains
+    RepriseExecution --> RunningNominal : Homéostasie restaurée
+```
+
+### 2. Séquence de Récupération des Claims Interrompus lors d'un Redémarrage
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Boot as Moteur d'Initialisation (Boot)
+    participant DB as SQLite Store
+    participant JobRecover as Gestionnaire de Reprise
+    participant Worker as Nouveau Worker Pool
+
+    Boot->>DB: Scan des jobs au statut 'RUNNING' sans heartbeat récent
+    activate DB
+    DB-->>Boot: Liste des 3 jobs orphelins (J1, J2, J3)
+    deactivate DB
+    
+    Boot->>JobRecover: Mandat de récupération
+    activate JobRecover
+    loop Pour chaque job interrompu
+        JobRecover->>DB: Vérification de la politique de retry (count < max_retries)
+        alt Retry possible
+            JobRecover->>DB: Mise à jour statut -> 'PENDING_RETRY'
+            JobRecover->>Worker: Re-soumission du job avec contexte restauré
+        else Max retries dépassé
+            JobRecover->>DB: Mise à jour statut -> 'FAILED_UNRECOVERABLE'
+        end
+    end
+    deactivate JobRecover
+```

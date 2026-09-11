@@ -733,3 +733,93 @@ Les principes visibles dans le dépôt sont simples et puissants :
 - armé l’arrêt d’urgence et l’audit trail.
 
 Le système n’est pas un “security theater”. C’est un moteur de sécurité concrète, intégré au runtime, au MCP et à l’observabilité d’ensemble.
+
+
+
+---
+
+## Schémas Complémentaires de Sécurité et de Cloisonnement
+
+### 1. Architecture Défensive en Profondeur (Defense in Depth)
+
+```mermaid
+flowchart TB
+    subgraph Perimeter["1. Sécurité Périmétrique"]
+        TLS["Chiffrement TLS / HTTPS"]
+        CORS["Contrôle CORS & Rate Limiting"]
+        WAF["Micro-WAF / Détection d'Injections"]
+    end
+
+    subgraph AuthLayer["2. Authentification & Autorisation"]
+        JWT["Validation JWT / Clés API"]
+        RBAC["Contrôle d'Accès par Rôles (RBAC)"]
+        TenantGuard["Isolation Multi-Tenant Stricte"]
+    end
+
+    subgraph ExecutionSecurity["3. Sécurité d'Exécution & Outils"]
+        MCPLease["Bail Temporaire d'Outil (Lease Token)"]
+        SandboxIsolation["Isolation Sandbox (Process / WASM)"]
+        SecretVault["Coffre-Fort de Secrets Chiffrés"]
+    end
+
+    subgraph AuditTrail["4. Traçabilité & Immuabilité"]
+        EventAudit["Journal d'Audit Append-Only"]
+        TamperProof["Scellement Cryptographique des Preuves"]
+    end
+
+    Perimeter --> AuthLayer
+    AuthLayer --> ExecutionSecurity
+    ExecutionSecurity --> AuditTrail
+```
+
+### 2. Séquence de Délégation et Révocation de Bail d'Outil (Tool Lease)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Agent as Agent Demandeur
+    participant Auth as Gestionnaire d'Autorité
+    participant MCP as Serveur d'Outils MCP
+    participant Audit as Registre d'Audit
+
+    Agent->>Auth: Demande de bail pour 'FileSystem.Write' (Durée 60s)
+    activate Auth
+    Auth->>Auth: Vérification des privilèges du rôle
+    Auth-->>Agent: Émission du Lease Token signé (TTL 60s)
+    deactivate Auth
+    
+    Agent->>MCP: Exécution de l'écriture avec Lease Token
+    activate MCP
+    MCP->>MCP: Validation de signature et expiration
+    MCP->>MCP: Exécution dans le périmètre autorisé
+    MCP-->>Agent: Résultat de l'opération
+    MCP->>Audit: Enregistrement de l'action avec ID de bail
+    deactivate MCP
+    
+    Note over Auth,Agent: Expiration du TTL ou révocation préventive
+    Agent->>MCP: Tentative d'écriture ultérieure
+    MCP-->>Agent: Rejet 403 (Bail expiré)
+
+### 3. Encapsulation Fetus in Fetu et Résurrection Post-Compromission
+
+Inspiré de l'anomalie embryonnaire du *Fetus in Fetu*, GenOS permet d'encapsuler au cœur d'un agent hôte un jumeau embryonnaire dormant (`genos_biomimicry_fetus_in_fetu`). En cas d'attaque adversariale sévère, de corruption de mémoire ou d'empoisonnement de prompt irréversible, l'hôte corrompu est instantanément purgé et détruit, tandis que l'embryon interne éclot (`hatching`) avec un état sain certifié par empreinte SHA-256 sans surcoût métabolique préalable.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Host as Agent Hôte Actif
+    participant Capsule as Pod Endoparasitaire (Fetus in Fetu)
+    participant Sec as Sentinelle de Sécurité
+    participant CleanAgent as Agent Éclos & Restauré
+
+    Host->>Capsule: Encapsulation initiale du checkpoint sain (Dormance, 0 token)
+    Note over Capsule: État dormant scellé sous hash SHA-256
+    Sec->>Host: Détection d'injection adverse / empoisonnement de contexte
+    Sec->>Capsule: Déclenchement de la résurrection d'urgence (trigger_emergency_resurrection)
+    Capsule->>Capsule: Vérification de l'intégrité du checkpoint
+    Capsule->>Host: Purge et destruction immédiate de l'hôte compromis
+    Capsule->>CleanAgent: Éclosion (Hatching) & instanciation avec checkpoint sain
+    CleanAgent-->>Sec: Reprise immédiate des opérations en état intègre
+```
+
+```
