@@ -790,4 +790,9 @@ Lors de missions à forte incertitude, l'orchestrateur duplique en tandem un sou
 
 Pour diagnostiquer une régression subtile ou prouver un invariant de terminaison, l'orchestrateur inverse la séquence de tâches d'un worker à 180° : l'agent évalue en priorité la cible de validité finale et remonte la chaîne causale jusqu'aux pré-conditions d'entrée.
 
+### 6. Régulation Métabolique par ADN Mitochondrial (`genos_biomimicry_mitochondrial_dna_mutation`)
+
+L'orchestrateur supervise le génome circulaire mitochondrial des flottes d'agents pour réguler la dissipation thermique, les quotas de tokens par minute et garantir la traçabilité matrilinéaire des profils de consommation d'énergie.
+
+
 

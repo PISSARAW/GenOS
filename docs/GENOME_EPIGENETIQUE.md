@@ -8,11 +8,18 @@ Trois representations cooperent sans etre interchangeables :
 
 | Representation | Autorite | Usage |
 | --- | --- | --- |
-| Manifeste `AgentGenome` JSON/YAML | [spec/GENOME_SPEC.md](../spec/GENOME_SPEC.md) et [spec/genome.schema.json](../spec/genome.schema.json) | echange portable et validation structurelle |
+| Manifeste `AgentGenome` JSON/YAML | [spec/GENOME_SPEC.md](../spec/GENOME_SPEC.md) et [spec/genome.schema.json](../spec/genome.schema.json) | echange portable et compatibilite descendante |
+| Brin Nucléotidique 2-bit & Ribosome | [crates/genos-genome/src/dna.rs](../crates/genos-genome/src/dna.rs) et [translation.rs](../crates/genos-genome/src/translation.rs) | encodage compact haute-densite (4 nuc/octet), codons et repliement |
 | `Genome` Rust | [crates/genos-genome/src/genome.rs](../crates/genos-genome/src/genome.rs) | chromosomes, genes, chromatine, fingerprint et reproduction native |
 | Genome cognitif JavaScript | [backend/src/services/geneticsService.js](../backend/src/services/geneticsService.js) | agents backend, croisement, hypermutation et DAG de lineage |
 
 Un resultat de croisement ou un fitness predit est une hypothese. Sa promotion demande une evidence independante, par exemple un test, un compilateur ou une evaluation de domaine.
+
+### Encodage Nucléotidique 2-bit et Traduction Ribosomale
+Pour dépasser les limites de verbosité et de fragilité syntaxique du JSON, GenOS intègre la sérialisation directe du génome sous forme de brin d'ADN compact :
+- **Nucléotides 2-bits** : $A=00_2, C=01_2, G=10_2, T=11_2$, permettant de compacter 4 paires de bases par octet (`DnaStrand::synthesize` / `encodeGenesToNucleotides`).
+- **Traduction Ribosomale** : Les gènes actifs sous chromatine ouverte (`Euchromatin`) sont transcrits en ARNm (`RnaPolymerase`), filtrés par contrôle qualité NMD (*Nonsense-Mediated Decay*), puis traduits par le `Ribosome` en codons triplets (`AUG` Start, tokens peptidiques, codons Stop) et repliés via `fold()` en capacités actives sans passage par un parseur JSON.
+
 
 ## Vue d'architecture
 
@@ -650,6 +657,27 @@ flowchart LR
 
     G4 -->|"Interruption de Sécurité"| Halt["Coupure de Dérivation d'Agents"]
 ```
+
+### 3. Mutations Mitochondriales et Transmission Matrilinéaire (`genos_biomimicry_mitochondrial_dna_mutation`)
+
+L'ADN mitochondrial (ADNmt circulaire) gère le métabolisme énergétique et la consommation de tokens de l'agent. Exposé directement au stress d'inférence (taux d'erreurs, saturation de débit), il accumule des mutations métaboliques plus rapidement que le noyau. Sa transmission est **strictement matrilinéaire** : lors d'un crossover/fusion, l'ADNmt paternel est intégralement éliminé pour préserver la cohérence du budget énergétique.
+
+```mermaid
+flowchart TD
+    subgraph MaternalTransmission["Hérédité Matrilinéaire Stricte de l'ADNmt"]
+        Mother["Agent Mère (Haplogroupe Alpha, ADNmt Métabolique)"]
+        Father["Agent Père (ADN Nucléaire Seul)"]
+        
+        Mother -->|"Transmission Intégrale ADNmt"| Child["Agent Enfant"]
+        Father -.->|"Destruction ADNmt Paternel"| Purge["Purge Mitochondries Paternelles"]
+        Father -->|"50% ADN Nucléaire"| Child
+    end
+
+    subgraph StressMutation["Dérive sous Stress Oxydatif"]
+        Load["Stress Inférence Élevé (Rafales LLM)"] -->|"Mutations Métaboliques Accélérées"| Drop["Rendement Énergétique Tokens (1.0 -> 0.8)"]
+    end
+```
+
 
 
 
