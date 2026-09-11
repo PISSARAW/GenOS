@@ -730,4 +730,21 @@ flowchart TD
     TriZygote -->|"Résolution & Scission"| Twin2["Jumeau Sesquizygote 2\n(100% Mat + 75% Mix B/A)"]
 ```
 
+### 4. Polyembryonie Obligatoire du Tatou (Quadruplés/Octuplés Isogéniques Déterministes)
+
+Inspiré du tatou à neuf bandes, `genos_biomimicry_obligate_polyembryony` impose une quadri-scission (ou octa-scission) systématique dès l'initialisation du zygote. Les 4 clones isogéniques se partagent à parts égales le budget global ($25\%$ chacun) et explorent des graines stochastiques parallèles, promouvant le résultat final via un quorum isogénique strict ($\ge 75\%$).
+
+```mermaid
+flowchart TD
+    Zygote["Zygote Unique (Task & Initial Context)"] -->|"Quadri-scission obligatoire (N=4)"| Poly["Moteur de Polyembryonie"]
+    
+    Poly --> Q1["Clone 1 (25% Budget - Seed A)"]
+    Poly --> Q2["Clone 2 (25% Budget - Seed B)"]
+    Poly --> Q3["Clone 3 (25% Budget - Seed C)"]
+    Poly --> Q4["Clone 4 (25% Budget - Seed D)"]
+    
+    Q1 & Q2 & Q3 & Q4 --> Quorum["Quorum Isogénique (Seuil >= 75%)"]
+```
+
+
 ```

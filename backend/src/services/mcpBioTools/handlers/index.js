@@ -53,6 +53,7 @@ const { handle: handleSesquizygoticSplit } = require('./sesquizygoticSplit');
 const { handle: handleHeteropaternalSuperfecundation } = require('./heteropaternalSuperfecundation');
 const { handle: handleSuperfetationPipeline } = require('./superfetationPipeline');
 const { handle: handleTissueChimerism } = require('./tissueChimerism');
+const { handle: handleObligatePolyembryony } = require('./obligatePolyembryony');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -111,6 +112,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_heteropaternal_superfecundation: { handle: handleHeteropaternalSuperfecundation, error: (e) => ({ configured: false, error: e.message }) },
   genos_biomimicry_superfetation_pipeline: { handle: handleSuperfetationPipeline, error: (e) => ({ configured: false, error: e.message }) },
   genos_biomimicry_tissue_chimerism: { handle: handleTissueChimerism, error: (e) => ({ configured: false, error: e.message }) },
+  genos_biomimicry_obligate_polyembryony: { handle: handleObligatePolyembryony, error: (e) => ({ configured: false, error: e.message }) },
 };
 
 module.exports = { TOOL_HANDLERS };
