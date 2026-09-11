@@ -1,4 +1,4 @@
-﻿use clap::{Args, Subcommand};
+use clap::{Args, Subcommand};
 
 #[derive(Args, Debug)]
 pub struct TrinityCmd {
@@ -21,7 +21,7 @@ pub enum TrinitySubcommands {
         #[arg(long, short = 'p')]
         prompt: Option<String>,
         /// Run in deterministic simulation demo mode
-        #[arg(long, default_value_t = true)]
+        #[arg(long, default_value_t = false)]
         simulation: bool,
     },
     /// Interactive real-time split-screen terminal TUI (3 worlds side-by-side)
@@ -32,7 +32,7 @@ pub enum TrinitySubcommands {
         #[arg(long, short = 'p')]
         prompt: Option<String>,
         /// Run in deterministic simulation demo mode
-        #[arg(long, default_value_t = true)]
+        #[arg(long, default_value_t = false)]
         simulation: bool,
     },
 }

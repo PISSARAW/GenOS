@@ -25,4 +25,7 @@ pub struct RunCmd {
     /// Target prompt / engineering goal, used only when --monitor is not set (demo mode).
     #[arg(long, short = 'p')]
     pub prompt: Option<String>,
+    /// Run scripted simulation demo rather than connecting live
+    #[arg(long, default_value_t = false)]
+    pub simulation: bool,
 }
