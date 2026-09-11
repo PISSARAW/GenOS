@@ -166,9 +166,11 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       kind: { type: 'string', description: 'Type of publication.' },
-      content: { type: 'string', description: 'Message payload.' },
+      content: { type: 'string', description: 'Message payload or content fallback.' },
+      signal_type: { type: 'string', enum: ['ligand', 'voltage', 'pheromone', 'plasmid', 'tensor', 'text'], description: 'Biomimetic signal type.' },
+      signal_data: { type: 'object', description: 'Physico-chemical signal payload (0-token).' }
     },
-    required: ['kind', 'content'],
+    required: ['kind'],
   },
   genos_worker_inbox: {
     type: 'object',

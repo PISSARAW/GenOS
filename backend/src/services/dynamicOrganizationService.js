@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { withTransaction } = require('../db');
+const { formatSignalForTransport, unpackSignalPayload } = require('./biomimeticSignalingBus');
 
 const ORGANIZATIONS = Object.freeze({
   specialist_expert_committee: { topology: 'hub_and_spoke', exchange: 'indirect', visibility: 'attributed', routing: 'orchestrator' },
@@ -27,6 +28,15 @@ const MESSAGE_KINDS = new Set([
   'evidence', 'question', 'answer', 'challenge', 'proposal', 'vote', 'trace',
   'budget', 'critical', 'success', 'handoff'
 ]);
+
+const ROUTING_CHANNELS = Object.freeze({
+  orchestrator: 'orchestrator_handoff',
+  shared_trail: 'stigmergic_trail',
+  capability: 'capability_mesh',
+  ranked: 'ranked_handoff',
+  adversarial_pair: 'adversarial_pair'
+});
+
 const tableInitializations = new WeakMap();
 
 function organizationProfile(name) {
@@ -79,8 +89,10 @@ async function ensureTables(db) {
       recipient_agent_id TEXT,
       channel TEXT NOT NULL,
       kind TEXT NOT NULL,
-      content TEXT NOT NULL,
+      content TEXT,
       payload_json TEXT NOT NULL DEFAULT '{}',
+      signal_type TEXT NOT NULL DEFAULT 'text',
+      signal_blob BLOB,
       delivery TEXT NOT NULL DEFAULT 'delivered',
       organization_id TEXT,
       project_id TEXT,
@@ -92,6 +104,8 @@ async function ensureTables(db) {
     const columns = new Set((await db.all('PRAGMA table_info(agent_organization_messages)')).map((column) => column.name));
     if (!columns.has('organization_id')) await db.exec('ALTER TABLE agent_organization_messages ADD COLUMN organization_id TEXT');
     if (!columns.has('project_id')) await db.exec('ALTER TABLE agent_organization_messages ADD COLUMN project_id TEXT');
+    if (!columns.has('signal_type')) await db.exec("ALTER TABLE agent_organization_messages ADD COLUMN signal_type TEXT NOT NULL DEFAULT 'text'");
+    if (!columns.has('signal_blob')) await db.exec('ALTER TABLE agent_organization_messages ADD COLUMN signal_blob BLOB');
     await db.exec('CREATE INDEX IF NOT EXISTS idx_agent_org_messages_scope ON agent_organization_messages(orchestrator_id, organization_id, project_id, id)');
   }).catch((error) => {
     tableInitializations.delete(db);
@@ -131,72 +145,140 @@ async function getStateForMember(db, orchestratorId, requesterAgentId) {
   return getState(db, orchestratorId);
 }
 
-async function changeOrganization(db, { orchestratorId, organization, reason, changedBy } = {}) {
+async function fetchAgentScope(db, agentId) {
+  const row = await db.get(
+    'SELECT w.organization_id as organizationId, w.project_id as projectId FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?',
+    agentId
+  );
+  return {
+    organizationId: row ? row.organizationId : null,
+    projectId: row ? row.projectId : null
+  };
+}
+
+async function recordOrganizationTransition(tx, ctx) {
+  const { orchestratorId, organization, version, profile, reason, actor, prevOrg } = ctx;
+  await tx.run(
+    `INSERT INTO agent_organization_state(orchestrator_id, organization, version, policy_json, reason, changed_by, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(orchestrator_id) DO UPDATE SET organization = excluded.organization, version = excluded.version,
+       policy_json = excluded.policy_json, reason = excluded.reason, changed_by = excluded.changed_by, updated_at = CURRENT_TIMESTAMP`,
+    orchestratorId, organization, version, JSON.stringify(profile), reason, actor
+  );
+  await tx.run(
+    `INSERT INTO agent_organization_transitions(id, orchestrator_id, from_organization, to_organization, version, reason, changed_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `org-transition-${crypto.randomUUID()}`, orchestratorId, prevOrg, organization, version, reason, actor
+  );
+}
+
+async function flushBufferedMessages(tx, ctx) {
+  const { orchestratorId, organization, version, profile } = ctx;
+  if (organization === 'network_silence') return;
+  const flushRoute = routeMessage({ state: { policy: profile, orchestratorId }, sender: {}, recipientAgentId: null, kind: 'evidence' });
+  await tx.run(
+    "UPDATE agent_organization_messages SET delivery = ?, organization = ?, organization_version = ?, channel = ?, recipient_agent_id = ? WHERE orchestrator_id = ? AND delivery = 'buffered'",
+    flushRoute.delivery, organization, version, flushRoute.channel, flushRoute.recipientAgentId, orchestratorId
+  );
+}
+
+function buildUnchangedState(orchestratorId, current, reason) {
+  const activeReason = String(reason || (current && current.reason) || 'Organization already active.');
+  return {
+    orchestratorId,
+    previous: current.organization,
+    organization: current.organization,
+    version: current.version,
+    policy: current.policy,
+    reason: activeReason,
+    changed: false
+  };
+}
+
+async function changeOrganization(db, options = {}) {
+  const { orchestratorId, organization, reason, changedBy } = options;
   await ensureTables(db);
   await assertOrchestrator(db, orchestratorId);
   const profile = organizationProfile(organization);
   if (!profile) throw organizationError('UNKNOWN_ORGANIZATION', `Unknown GenOS organization '${organization}'.`);
   const current = await getState(db, orchestratorId);
-  if (current?.organization === organization) {
-    return {
-      orchestratorId, previous: current.organization, organization, version: current.version,
-      policy: current.policy, reason: String(reason || current.reason || 'Organization already active.'), changed: false
-    };
+  const prevOrg = current ? current.organization : null;
+  if (prevOrg === organization) {
+    return buildUnchangedState(orchestratorId, current, reason);
   }
-  const version = Number(current?.version || 0) + 1;
   const actor = changedBy || orchestratorId;
-  if (actor !== orchestratorId) throw organizationError('ORCHESTRATOR_AUTHORITY_REQUIRED', 'Only the owning orchestrator may change the organization.');
-  await withTransaction(db, async (transaction) => {
-    await transaction.run(
-      `INSERT INTO agent_organization_state(orchestrator_id, organization, version, policy_json, reason, changed_by, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-       ON CONFLICT(orchestrator_id) DO UPDATE SET organization = excluded.organization, version = excluded.version,
-         policy_json = excluded.policy_json, reason = excluded.reason, changed_by = excluded.changed_by, updated_at = CURRENT_TIMESTAMP`,
-      orchestratorId, organization, version, JSON.stringify(profile), String(reason || 'Runtime need changed.'), actor
-    );
-    await transaction.run(
-      `INSERT INTO agent_organization_transitions(id, orchestrator_id, from_organization, to_organization, version, reason, changed_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      `org-transition-${crypto.randomUUID()}`, orchestratorId, current?.organization || null, organization, version,
-      String(reason || 'Runtime need changed.'), actor
-    );
-    if (organization !== 'network_silence') {
-      const flushRoute = routeMessage({ state: { policy: profile, orchestratorId }, sender: {}, recipientAgentId: null, kind: 'evidence' });
-      await transaction.run(
-        "UPDATE agent_organization_messages SET delivery = ?, organization = ?, organization_version = ?, channel = ?, recipient_agent_id = ? WHERE orchestrator_id = ? AND delivery = 'buffered'",
-        flushRoute.delivery, organization, version, flushRoute.channel, flushRoute.recipientAgentId, orchestratorId
-      );
-    }
+  if (actor !== orchestratorId) {
+    throw organizationError('ORCHESTRATOR_AUTHORITY_REQUIRED', 'Only the owning orchestrator may change the organization.');
+  }
+  const version = Number(current ? current.version : 0) + 1;
+  const finalReason = String(reason || 'Runtime need changed.');
+  const ctx = { orchestratorId, organization, version, profile, reason: finalReason, actor, prevOrg };
+  await withTransaction(db, async (tx) => {
+    await recordOrganizationTransition(tx, ctx);
+    await flushBufferedMessages(tx, ctx);
   });
-  return { orchestratorId, previous: current?.organization || null, organization, version, policy: profile, reason: String(reason || 'Runtime need changed.'), changed: true };
+  return { orchestratorId, previous: prevOrg, organization, version, policy: profile, reason: finalReason, changed: true };
+}
+
+function resolveWorkerTarget(routing, recipientAgentId, orchestratorId) {
+  if (routing === 'orchestrator') return orchestratorId;
+  if (routing === 'ranked') return recipientAgentId || orchestratorId;
+  return null;
+}
+
+function resolveRoutingTarget(opts) {
+  const { routing, isOrchestrator, recipientAgentId, orchestratorId } = opts;
+  if (routing === 'shared_trail') return null;
+  if (isOrchestrator) return recipientAgentId || null;
+  const target = resolveWorkerTarget(routing, recipientAgentId, orchestratorId);
+  return target || recipientAgentId || null;
+}
+
+function resolveRoutingChannel(routing, topology) {
+  return ROUTING_CHANNELS[routing] || topology;
+}
+
+function isBufferedMessage(routing, kind, isOrchestrator) {
+  if (isOrchestrator || routing !== 'critical_only') return false;
+  return kind !== 'critical' && kind !== 'success';
 }
 
 function routeMessage({ state, sender, recipientAgentId, kind }) {
   const policy = state.policy;
   const isOrchestrator = sender.id === state.orchestratorId;
-  if (policy.routing === 'critical_only' && !['critical', 'success'].includes(kind) && !isOrchestrator) {
+  if (isBufferedMessage(policy.routing, kind, isOrchestrator)) {
     return { recipientAgentId: recipientAgentId || null, channel: 'local_buffer', delivery: 'buffered' };
   }
-  if (policy.routing === 'orchestrator') {
-    return { recipientAgentId: isOrchestrator ? (recipientAgentId || null) : state.orchestratorId, channel: 'orchestrator_handoff', delivery: 'delivered' };
-  }
-  if (policy.routing === 'shared_trail') {
-    return { recipientAgentId: null, channel: 'stigmergic_trail', delivery: 'delivered' };
-  }
-  if (policy.routing === 'capability') {
-    return { recipientAgentId: recipientAgentId || null, channel: 'capability_mesh', delivery: 'delivered' };
-  }
-  if (policy.routing === 'ranked') {
-    return { recipientAgentId: isOrchestrator ? (recipientAgentId || null) : (recipientAgentId || state.orchestratorId), channel: 'ranked_handoff', delivery: 'delivered' };
-  }
-  if (policy.routing === 'adversarial_pair') {
-    // If orchestrator, allow directed messages. If worker, broadcast to counterpart via adversarial_pair channel
-    return { recipientAgentId: isOrchestrator ? (recipientAgentId || null) : null, channel: 'adversarial_pair', delivery: 'delivered' };
-  }
-  return { recipientAgentId: recipientAgentId || null, channel: policy.topology, delivery: 'delivered' };
+  const targetOpts = { routing: policy.routing, isOrchestrator, recipientAgentId, orchestratorId: state.orchestratorId };
+  return {
+    recipientAgentId: resolveRoutingTarget(targetOpts),
+    channel: resolveRoutingChannel(policy.routing, policy.topology),
+    delivery: 'delivered'
+  };
 }
 
-async function publish(db, { orchestratorId, senderAgentId, recipientAgentId, kind = 'evidence', content, payload = {} } = {}) {
+function resolveSignalPayload(content, signalType, signalData) {
+  const hasSignal = signalData !== undefined && signalData !== null;
+  const rawText = String(content || '').trim();
+  if (!rawText && !hasSignal) {
+    throw organizationError('MESSAGE_REQUIRED', 'Organization messages require content or a biomimetic signal.');
+  }
+  if (rawText.length > 12000) {
+    throw organizationError('MESSAGE_TOO_LARGE', 'Organization messages are limited to 12000 characters.');
+  }
+  return formatSignalForTransport({ signalType, signalData, contentFallback: rawText });
+}
+
+function assertAdversarialRecipient(state, sender, recipientAgentId) {
+  const isAdversarial = state.policy.routing === 'adversarial_pair';
+  const isWorker = sender.id !== state.orchestratorId;
+  if (isAdversarial && isWorker && !recipientAgentId) {
+    throw organizationError('ADVERSARIAL_RECIPIENT_REQUIRED', 'Adversarial worker messages require an explicit counterpart recipient.');
+  }
+}
+
+async function publish(db, options = {}) {
+  const { orchestratorId, senderAgentId, recipientAgentId, kind = 'evidence', content, payload = {}, signalType, signalData } = options;
   await ensureTables(db);
   const state = await getState(db, orchestratorId);
   if (!state) throw organizationError('ORGANIZATION_NOT_INITIALIZED', `Orchestrator '${orchestratorId}' has no active organization.`);
@@ -204,41 +286,44 @@ async function publish(db, { orchestratorId, senderAgentId, recipientAgentId, ki
   if (recipientAgentId) await assertMember(db, orchestratorId, recipientAgentId);
   const normalizedKind = String(kind).trim().toLowerCase();
   if (!MESSAGE_KINDS.has(normalizedKind)) throw organizationError('INVALID_MESSAGE_KIND', `Unsupported organization message kind '${kind}'.`);
-  const text = String(content || '').trim();
-  if (!text) throw organizationError('MESSAGE_REQUIRED', 'Organization messages require content.');
-  if (text.length > 12000) throw organizationError('MESSAGE_TOO_LARGE', 'Organization messages are limited to 12000 characters.');
-  if (state.policy.routing === 'adversarial_pair' && sender.id !== orchestratorId && !recipientAgentId) {
-    throw organizationError('ADVERSARIAL_RECIPIENT_REQUIRED', 'Adversarial worker messages require an explicit counterpart recipient.');
-  }
+  const signalInfo = resolveSignalPayload(content, signalType, signalData);
+  assertAdversarialRecipient(state, sender, recipientAgentId);
   const route = routeMessage({ state, sender, recipientAgentId, kind: normalizedKind });
-  const scope = await db.get(
-    'SELECT w.organization_id as organizationId, w.project_id as projectId FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?',
-    orchestratorId
-  );
+  const scope = await fetchAgentScope(db, orchestratorId);
   const result = await db.run(
     `INSERT INTO agent_organization_messages(orchestrator_id, organization, organization_version, sender_agent_id,
-      recipient_agent_id, channel, kind, content, payload_json, delivery, organization_id, project_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      recipient_agent_id, channel, kind, content, payload_json, signal_type, signal_blob, delivery, organization_id, project_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     orchestratorId, state.organization, state.version, senderAgentId, route.recipientAgentId,
-    route.channel, normalizedKind, text, JSON.stringify(payload || {}), route.delivery,
-    scope?.organizationId || null, scope?.projectId || null
+    route.channel, normalizedKind, signalInfo.content, JSON.stringify(payload || {}),
+    signalInfo.signalType, signalInfo.signalBlob, route.delivery,
+    scope.organizationId, scope.projectId
   );
-  return { id: result.lastID, organization: state.organization, version: state.version, ...route, kind: normalizedKind };
+  return {
+    id: result.lastID, organization: state.organization, version: state.version,
+    ...route, kind: normalizedKind, signalType: signalInfo.signalType
+  };
 }
 
-async function inbox(db, { orchestratorId, requesterAgentId, afterId = 0, limit = 20 } = {}) {
-  await ensureTables(db);
-  const state = await getState(db, orchestratorId);
-  if (!state) throw organizationError('ORGANIZATION_NOT_INITIALIZED', `Orchestrator '${orchestratorId}' has no active organization.`);
-  await assertMember(db, orchestratorId, requesterAgentId);
-  const orchestrator = requesterAgentId === orchestratorId;
-  const scope = await db.get(
-    'SELECT w.organization_id as organizationId, w.project_id as projectId FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?',
-    orchestratorId
-  );
-  const rows = await db.all(
+function mapInboxRow(row) {
+  const signal = unpackSignalPayload(row.signalBlob, row.signalType, row.payloadJson);
+  const profile = organizationProfile(row.organization);
+  const isAnonymous = Boolean(profile && profile.visibility === 'anonymous');
+  return {
+    ...row,
+    senderAgentId: isAnonymous ? 'anonymous_worker' : row.senderAgentId,
+    payload: parsePayload(row.payloadJson),
+    signal,
+    hasBiomimeticSignal: row.signalType !== 'text' && Boolean(signal)
+  };
+}
+
+async function fetchInboxMessages(db, query) {
+  const { orchestratorId, version, scope, afterId, requesterAgentId, limit } = query;
+  return db.all(
     `SELECT m.id, m.organization, m.organization_version as organizationVersion, m.sender_agent_id as senderAgentId,
             recipient_agent_id as recipientAgentId, channel, kind, content, payload_json as payloadJson,
+            m.signal_type as signalType, m.signal_blob as signalBlob,
             m.delivery, m.created_at as createdAt, sender.name as senderName,
             sender.name_meaning as senderNameMeaning, sender.role as senderRole,
             recipient.name as recipientName, recipient.name_meaning as recipientNameMeaning
@@ -248,22 +333,34 @@ async function inbox(db, { orchestratorId, requesterAgentId, afterId = 0, limit 
     WHERE m.orchestrator_id = ? AND m.organization_version = ? AND m.organization_id IS ? AND m.project_id IS ? AND m.id > ? AND m.sender_agent_id <> ?
        AND m.delivery = 'delivered' AND (m.recipient_agent_id IS NULL OR m.recipient_agent_id = ? OR m.recipient_agent_id = 'broadcast')
      ORDER BY m.id LIMIT ?`,
-    orchestratorId, state.version, scope?.organizationId || null, scope?.projectId || null, Math.max(0, Number(afterId || 0)), requesterAgentId,
-    requesterAgentId, Math.min(50, Math.max(1, Number(limit || 20)))
+    orchestratorId, version, scope.organizationId, scope.projectId,
+    Math.max(0, Number(afterId || 0)), requesterAgentId, requesterAgentId,
+    Math.min(50, Math.max(1, Number(limit || 20)))
   );
-  const members = await db.all(
+}
+
+async function fetchOrganizationMembers(db, orchestratorId) {
+  return db.all(
     `SELECT id, name, name_meaning as nameMeaning, role, execution_mode as executionMode
        FROM agents WHERE id = ? OR parent_agent_id = ? ORDER BY execution_mode DESC, name ASC`,
     orchestratorId, orchestratorId
   );
+}
+
+async function inbox(db, options = {}) {
+  const { orchestratorId, requesterAgentId, afterId = 0, limit = 20 } = options;
+  await ensureTables(db);
+  const state = await getState(db, orchestratorId);
+  if (!state) throw organizationError('ORGANIZATION_NOT_INITIALIZED', `Orchestrator '${orchestratorId}' has no active organization.`);
+  await assertMember(db, orchestratorId, requesterAgentId);
+  const scope = await fetchAgentScope(db, orchestratorId);
+  const query = { orchestratorId, version: state.version, scope, afterId, requesterAgentId, limit };
+  const rows = await fetchInboxMessages(db, query);
+  const members = await fetchOrganizationMembers(db, orchestratorId);
   return {
     state,
     members,
-    messages: rows.map((row) => ({
-      ...row,
-      senderAgentId: organizationProfile(row.organization)?.visibility === 'anonymous' ? 'anonymous_worker' : row.senderAgentId,
-      payload: parsePayload(row.payloadJson)
-    }))
+    messages: rows.map(mapInboxRow)
   };
 }
 

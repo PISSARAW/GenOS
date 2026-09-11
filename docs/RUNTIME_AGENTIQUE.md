@@ -444,3 +444,16 @@ flowchart TD
     Router --> Handlers
 ```
 
+---
+
+## Bus de Signalisation Biomimétique (Zero-Text Inter-Agent Communication)
+
+Pour éliminer l'overhead des invites textuelles en langage naturel et des payloads JSON verbeux entre agents autonomes, GenOS implémente une architecture de communication **Zéro-Texte par Défaut** ([backend/src/services/biomimeticSignalingBus.js](../backend/src/services/biomimeticSignalingBus.js) et [backend/src/services/dynamicOrganizationService.js](../backend/src/services/dynamicOrganizationService.js)) :
+
+1. **Ligands Paracrines et Récepteurs Moléculaires** : Déclenchement par affinité chimique et seuil de concentration sans échange de prompts textuels. Les cascades intra-agents s'activent uniquement si `concentration >= threshold` et `ligand == targetLigand`.
+2. **Potentiels de Membrane Électrocytes & Synchronisation de Phase (Kuramoto)** : Consensus instantané par sommation de décharges bio-électriques ($\sum V_i \ge 300\,\text{mV}$) et cohérence d'ordre de phase $r \ge 0.70$, remplaçant les délibérations de votes textuels.
+3. **Phéromones Chimiotactiques Stigmergiques** : Guidage spatial vectoriel par attractants ($+I$) et répulsifs ($-I$) déposés sur des locus binaires (`BLOB`), assurant l'évitement d'erreurs et le routage sans aucun token LLM.
+4. **Transfert Horizontal de Plasmides** : Partage de capacités exécutables et de fragments génomiques sous forme binaire condensée (BioPolymer BLOB).
+5. **Frontière d'Incompressibilité** : Le texte est strictement réservé aux interactions avec l'utilisateur humain et à la synthèse de code source imposée par la contrainte de génération du LLM. Tous les états intermédiaires de coordination circulent sous forme de signaux physico-chimiques compacts dans `agent_organization_messages (signal_type, signal_blob)`.
+
+

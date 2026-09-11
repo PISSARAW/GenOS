@@ -595,6 +595,17 @@ Lorsque la nuée traverse une zone de contrainte réseau ou de budget tokens ré
 
 Pour propager instantanément une immunité à un nouveau type d'erreur API ou intégrer des snippets découverts dans l'environnement, la nuée utilise le transfert horizontal : conjugaison de plasmides de pair à pair et xéno-absorption bdelloïde.
 
+### 10. Communication Sub-Symbolique Zéro-Texte par Bus de Signalisation Biomimétique
+
+Au sein de la nuée, le bavardage textuel et les requêtes JSON sont abolis pour les échanges inter-agents opérationnels (`backend/src/services/biomimeticSignalingBus.js`) :
+
+- **Ligands Paracrines** : Diffusion moléculaire de signal localisé (`ligand`, `concentration`) déclenchant des cascades réactionnelles d'agents sans formulation textuelle.
+- **Potentiels Électrocytes & Synchronisation de Phase (Kuramoto)** : Sommation additive des décharges ($\sum V_i \ge 300\,\text{mV}$) et cohérence d'ordre de phase $r \ge 0.70$ pour un consensus immédiat sans délibération verbeuse.
+- **Phéromones Chimiotactiques** : Vectorisation des gradients attractants ($+I$) et répulsifs ($-I$) sur des empreintes binaires de locus (`BLOB`).
+- **Transfert Horizontal de Plasmides** : Diffusion de code compilé ou de capacités génétiques via `BioPolymer` compact.
+- **Frontière d'Incompressibilité** : Le langage naturel est strictement réservé au dialogue avec l'opérateur humain et à la synthèse de code source requise par le LLM.
+
+
 
 
 
