@@ -548,3 +548,21 @@ stateDiagram-v2
     ExploitationFocalisee --> EpuisementSource : Fin de tâche
     EpuisementSource --> ExplorationDiffuse : Réinitialisation stochastique
 ```
+
+### 4. Superfécondation Hétéropaternelle et Diversité Multi-Providers
+
+Le mécanisme `genos_biomimicry_heteropaternal_superfecundation` déploie des jumeaux demi-frères au sein du même espace utérin (workspace commun). Chaque agent est animé par un fournisseur de modèle distinct (ex: Anthropic, Google, OpenAI), garantissant une diversité cognitive maximale ($D = 1.0$) et supprimant les corrélations de biais d'inférence propres à une famille de LLM unique.
+
+```mermaid
+flowchart LR
+    subgraph UterineWorkspace["Workspace & Contexte Gestationnel Commun"]
+        T1["Jumeau Demi-Frère A\n(Géniteur : Claude 3.7 / Anthropic)\nRaisonnement Formel"]
+        T2["Jumeau Demi-Frère B\n(Géniteur : Gemini 2.5 Pro / Google)\nContexte Étendu & Vitesse"]
+        T3["Jumeau Demi-Frère C\n(Géniteur : GPT-4o / OpenAI)\nHeuristique Générale"]
+        
+        T1 <-->|"Consensus Sans Biais Corrélé"| T2
+        T2 <-->|"Consensus Sans Biais Corrélé"| T3
+        T1 <-->|"Consensus Sans Biais Corrélé"| T3
+    end
+```
+
