@@ -7,7 +7,7 @@ const circuitBreaker = require('../services/circuitBreaker');
 const telemetry = require('../services/telemetryObserver');
 const platformSafety = require('../services/platformSafetyService');
 const mcpExecutor = require('../services/mcpExecutor');
-const { MCP_CONTRACT_VERSION, getToolInputSchema, normalizeMcpEnvelope } = require('../services/mcpContract');
+const { MCP_CONTRACT_VERSION, getToolInputSchema, getFullToolSchema, normalizeMcpEnvelope } = require('../services/mcpContract');
 
 function mcpError(res, status, code, message, details = undefined) {
   return res.status(status).json({ error: { code, message, ...(details ? { details } : {}) } });
@@ -49,7 +49,7 @@ async function listTools(req, res) {
       riskLevel: risk,
       description: t.description,
       actions: actions.length > 0 ? actions : [t.name],
-      inputSchema: getToolInputSchema(t.name),
+      inputSchema: getFullToolSchema(t.name),
       isLocked,
       circuitState: cbStatus.state,
       equippedTo: equipped

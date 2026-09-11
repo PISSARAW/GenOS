@@ -74,6 +74,157 @@ function getToolInputSchema(toolName, baseSchema = {}) {
   return schema;
 }
 
+const TOOL_BASE_SCHEMAS = {
+  genos_orchestrate: {
+    type: 'object',
+    properties: {
+      mission: { type: 'string', description: 'Goal or user request to achieve.' },
+      strategy: { type: 'string', description: 'Optional strategy hint from the 78 available.' },
+      background: { type: 'boolean', description: 'True to run detached in the background.' },
+    },
+    required: ['mission'],
+  },
+  genos_delegate_worker: {
+    type: 'object',
+    properties: {
+      mission: { type: 'string', description: 'Sub-task for the delegated worker.' },
+      role: { type: 'string', description: 'Specialized role of the worker.' },
+    },
+    required: ['mission'],
+  },
+  genos_snapshot: {
+    type: 'object',
+    properties: {
+      agent: { type: 'string', description: 'Path to the agent genome input.' },
+      out: { type: 'string', description: 'Output path for the snapshot JSON.' },
+    },
+    required: ['agent', 'out'],
+  },
+  genos_replay: {
+    type: 'object',
+    properties: {
+      snapshot: { type: 'string', description: 'Snapshot path relative to the GenOS workspace root.' },
+    },
+    required: [],
+  },
+  genos_capsule_create: {
+    type: 'object',
+    properties: {
+      snapshot_id: { type: 'string', description: 'Source snapshot ID.' },
+      seed: { type: 'string', description: 'Optional seed identifier.' },
+    },
+    required: ['snapshot_id'],
+  },
+  genos_execute_primitive: {
+    type: 'object',
+    properties: {
+      primitive_name: { type: 'string', description: 'Name of the primitive (e.g. mcts_select, stdp_update).' },
+      args: { type: 'object', description: 'Input arguments for the primitive.' },
+    },
+    required: ['primitive_name'],
+  },
+  genos_change_strategy: {
+    type: 'object',
+    properties: {
+      strategy: { type: 'string', description: 'Target strategy identifier.' },
+      reason: { type: 'string', description: 'Evidence justifying the transition.' },
+    },
+    required: ['strategy', 'reason'],
+  },
+  genos_report_progress: {
+    type: 'object',
+    properties: {
+      phase: { type: 'string', description: 'Current phase name.' },
+      message: { type: 'string', description: 'Outcome and next steps.' },
+      progress_percent: { type: 'number', minimum: 0, maximum: 100 },
+    },
+    required: ['phase', 'message'],
+  },
+  genos_change_organization: {
+    type: 'object',
+    properties: {
+      organization: { type: 'string', description: 'Target organization topology.' },
+      reason: { type: 'string', description: 'Justification for topology change.' },
+    },
+    required: ['organization', 'reason'],
+  },
+  genos_organization_state: {
+    type: 'object',
+    properties: {},
+  },
+  genos_worker_publish: {
+    type: 'object',
+    properties: {
+      kind: { type: 'string', description: 'Type of publication.' },
+      content: { type: 'string', description: 'Message payload.' },
+    },
+    required: ['kind', 'content'],
+  },
+  genos_worker_inbox: {
+    type: 'object',
+    properties: {
+      after_id: { type: 'integer', description: 'Cursor offset.' },
+      limit: { type: 'integer', description: 'Max messages to return.' },
+    },
+  },
+  genos_trinity_launch: {
+    type: 'object',
+    properties: { mission: { type: 'string', description: 'Mission to analyze.' } },
+    required: ['mission'],
+  },
+  genos_a_team_preview: {
+    type: 'object',
+    properties: {
+      project_goal: { type: 'string', description: 'Overarching project goal.' },
+      sub_systems: { type: 'array', items: { type: 'string' }, description: 'Distinct subsystems.' },
+    },
+    required: ['project_goal', 'sub_systems'],
+  },
+  genos_biological_mode: {
+    type: 'object',
+    properties: {
+      mode: { type: 'string', enum: ['biome', 'syncytium', 'holobionte', 'biocenose', 'rhizome', 'metapopulation'], description: 'Biological organization mode.' },
+      mission: { type: 'string', description: 'Mission shared by the collective.' },
+    },
+    required: ['mode', 'mission'],
+  },
+  genos_merge: {
+    type: 'object',
+    properties: {
+      branch_id: { type: 'string', description: 'Branch ID to merge.' },
+      conditions: { type: 'string', description: 'Conditions to satisfy.' },
+    },
+    required: ['branch_id'],
+  },
+  genos_audit: {
+    type: 'object',
+    properties: {
+      snapshot_id: { type: 'string', description: 'Snapshot ID to audit.' },
+      output: { type: 'string', description: 'Audit output path.' },
+    },
+    required: ['snapshot_id'],
+  },
+  genos_biomimicry: {
+    type: 'object',
+    properties: {
+      feature: { type: 'string', description: 'Biomimetic feature name.' },
+      action: { type: 'string', description: 'Feature action.' },
+      params: { type: 'object', description: 'Optional feature parameters.' },
+    },
+    required: ['feature', 'action'],
+  },
+  genos_v2_init: {
+    type: 'object',
+    properties: {},
+  },
+  genos_v2_fork: {
+    type: 'object',
+    properties: {
+      parent_id: { type: 'string', description: 'Parent snapshot or branch ID.' },
+    },
+  },
+};
+
 function normalizeMcpEnvelope(body = {}) {
   return {
     toolName: body.toolName ?? body.tool_name,
@@ -82,4 +233,9 @@ function normalizeMcpEnvelope(body = {}) {
   };
 }
 
-module.exports = { MCP_CONTRACT_VERSION, getToolInputSchema, normalizeMcpEnvelope };
+function getFullToolSchema(toolName) {
+  const baseSchema = TOOL_BASE_SCHEMAS[toolName] || {};
+  return getToolInputSchema(toolName, baseSchema);
+}
+
+module.exports = { MCP_CONTRACT_VERSION, getToolInputSchema, getFullToolSchema, normalizeMcpEnvelope, TOOL_BASE_SCHEMAS };
