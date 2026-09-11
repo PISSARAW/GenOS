@@ -43,19 +43,69 @@ async function discoverProvider({ provider, endpoint, modelsPath, map }) {
   } catch (error) { return { models: [], error: `${provider} discovery failed: ${error.message}` }; }
 }
 
-async function discoverLocalModels({ force = false } = {}) {
-  const targets = [
-    { provider: 'lmstudio', endpoint: process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions', modelsPath: '/v1/models', map: (payload) => (payload.data || []).map((item) => ({ model: item.id, uri: `lmstudio://${item.id}` })) },
-    { provider: 'ollama', endpoint: process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions', modelsPath: '/api/tags', map: (payload) => (payload.models || []).filter(item => item.name && !/(embed|embedding|rerank)/i.test(item.name)).map((item) => ({ model: item.name, uri: `ollama://${item.name}`, size: item.size || null })) },
-    { provider: 'vllm', endpoint: process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions', modelsPath: '/v1/models', map: (payload) => (payload.data || []).map((item) => ({ model: item.id, uri: `vllm://${item.id}` })) },
-    { provider: 'openai-compatible', endpoint: process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT, modelsPath: '/v1/models', map: (payload) => (payload.data || []).map((item) => ({ model: item.id, uri: `openai-compatible://${item.id}` })) }
+function mapItemsToModels(payload, provider) {
+  const list = Array.isArray(payload && payload.data) ? payload.data : [];
+  return list.map((item) => ({ model: item.id, uri: `${provider}://${item.id}` }));
+}
+
+function mapOllamaModels(payload) {
+  const list = Array.isArray(payload && payload.models) ? payload.models : [];
+  return list
+    .filter((item) => item && item.name && isChatCapable(item.name))
+    .map((item) => ({ model: item.name, uri: `ollama://${item.name}`, size: item.size || null }));
+}
+
+function getDiscoveryTargets() {
+  const host = process.env.GENOS_LOCAL_HOST || 'localhost';
+  const lmPort = process.env.GENOS_LMSTUDIO_PORT || '1234';
+  const olPort = process.env.GENOS_OLLAMA_PORT || '11434';
+  const vlPort = process.env.GENOS_VLLM_PORT || '8000';
+
+  return [
+    {
+      provider: 'lmstudio',
+      endpoint: process.env.GENOS_LMSTUDIO_ENDPOINT || `http://${host}:${lmPort}/v1/chat/completions`,
+      modelsPath: '/v1/models',
+      map: (payload) => mapItemsToModels(payload, 'lmstudio')
+    },
+    {
+      provider: 'ollama',
+      endpoint: process.env.GENOS_OLLAMA_ENDPOINT || `http://${host}:${olPort}/v1/chat/completions`,
+      modelsPath: '/api/tags',
+      map: mapOllamaModels
+    },
+    {
+      provider: 'vllm',
+      endpoint: process.env.GENOS_VLLM_ENDPOINT || `http://${host}:${vlPort}/v1/chat/completions`,
+      modelsPath: '/v1/models',
+      map: (payload) => mapItemsToModels(payload, 'vllm')
+    },
+    {
+      provider: 'openai-compatible',
+      endpoint: process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT,
+      modelsPath: '/v1/models',
+      map: (payload) => mapItemsToModels(payload, 'openai-compatible')
+    }
   ];
+}
+
+function isCacheValid(cacheKey, force) {
+  if (force) return false;
+  if (cache.key !== cacheKey) return false;
+  return cache.expiresAt > Date.now();
+}
+
+async function discoverLocalModels({ force = false } = {}) {
+  const targets = getDiscoveryTargets();
   const cacheKey = targets.map((target) => `${target.provider}:${target.endpoint || ''}`).join('|');
-  if (!force && cache.key === cacheKey && cache.expiresAt > Date.now()) return cache.models;
-  const results = await Promise.all(targets.filter((target) => target.endpoint).map(discoverProvider));
+  if (isCacheValid(cacheKey, force)) return cache.models;
+
+  const activeTargets = targets.filter((target) => Boolean(target.endpoint));
+  const results = await Promise.all(activeTargets.map(discoverProvider));
   const models = results.flatMap((result) => result.models || []);
   const errors = results.flatMap((result) => result.error ? [result.error] : []);
-  cache = { expiresAt: Date.now() + (errors.length ? ERROR_CACHE_MS : CACHE_MS), key: cacheKey, models, errors };
+  const ttl = errors.length > 0 ? ERROR_CACHE_MS : CACHE_MS;
+  cache = { expiresAt: Date.now() + ttl, key: cacheKey, models, errors };
   return models;
 }
 

@@ -4,10 +4,14 @@ use std::time::Duration;
 use crate::args::chaos::InjectChaosCmd;
 
 fn resolve_backend_url() -> String {
+    if let Ok(url) = std::env::var("GENOS_API_URL") {
+        return format!("{}/api/chaos/inject", url.trim_end_matches('/'));
+    }
+    let host = std::env::var("GENOS_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = std::env::var("PORT")
         .or_else(|_| std::env::var("GENOS_PORT"))
         .unwrap_or_else(|_| "4000".to_string());
-    format!("http://127.0.0.1:{port}/api/chaos/inject")
+    format!("http://{host}:{port}/api/chaos/inject")
 }
 
 fn call_backend_chaos_at(url: &str, cmd: &InjectChaosCmd) -> Result<Value, String> {

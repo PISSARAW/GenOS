@@ -1,11 +1,14 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const SERVER_URL = process.argv.find((_, i, a) => a[i - 1] === '--server') ?? process.env.OPENCODE_SERVER_URL ?? 'http://127.0.0.1:59291';
+const SERVER_URL = process.argv.find((_, i, a) => a[i - 1] === '--server') ?? process.env.GENOS_SERVER_URL ?? process.env.OPENCODE_SERVER_URL ?? 'http://127.0.0.1:59291';
 const USERNAME = process.env.OPENCODE_SERVER_USERNAME;
 const PASSWORD = process.env.OPENCODE_SERVER_PASSWORD;
 
-const MODEL = { providerID: 'opencode', modelID: 'x-preview-f-free' };
+const MODEL = {
+  providerID: process.env.GENOS_ORCHESTRATOR_PROVIDER ?? 'opencode',
+  modelID: process.env.GENOS_ORCHESTRATOR_MODEL ?? 'x-preview-f-free'
+};
 
 const MISSION = {
   id: 'question-order-impact',

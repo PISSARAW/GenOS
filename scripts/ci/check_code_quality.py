@@ -134,12 +134,14 @@ def rust_functions(source: str) -> list[tuple[int, int, str]]:
     return functions
 
 
-def check_file(path: Path) -> list[str]:
+def check_file(path: Path, lines_only: bool = False) -> list[str]:
     try:
         source = path.read_text(encoding='utf-8')
         violations = []
         if len(source.splitlines()) > MAX_LINES:
             violations.append(f'LINES {len(source.splitlines())}>{MAX_LINES}')
+        if lines_only:
+            return violations
         try:
             functions = python_functions(source) if path.suffix == '.py' else rust_functions(source) if path.suffix == '.rs' else javascript_functions(source)
         except (SyntaxError, UnicodeDecodeError) as error:
@@ -182,11 +184,12 @@ def commit_paths(root: Path) -> list[Path]:
 
 def main() -> int:
     root = Path.cwd()
+    lines_only = '--lines-only' in sys.argv or '--size-only' in sys.argv
     paths = commit_paths(root) if '--commit' in sys.argv else staged_paths(root) if '--staged' in sys.argv else all_paths(root)
     paths = [path for path in paths if is_source(path) and path.exists()]
     failures = 0
     for path in sorted(paths):
-        for violation in check_file(path):
+        for violation in check_file(path, lines_only=lines_only):
             print(f'REJECT {path.relative_to(root)}: {violation}')
             failures += 1
     print(f'Quality gate: {len(paths)} source files checked, {failures} violations.')
