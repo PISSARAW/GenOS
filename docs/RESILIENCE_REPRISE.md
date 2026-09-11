@@ -383,6 +383,7 @@ La biologie fournit ici des modèles de comportement :
 - **synchronicité somatique** : propagation d'ondes d'entropie cognitive (`genos_biomimicry_somatic_resonance`) déclenchant un gel préventif coordonné avant dérive collective ;
 - **greffe parasitaire & absorption d'organes** : assimilation de membres et outils d'un jumeau défaillant (`genos_biomimicry_parasitic_graft`) par l'autosite pour éviter la perte de capacités sans overhead ;
 - **fetus in fetu & rescue pod** : encapsulation interne d'un embryon dormant intact (`genos_biomimicry_fetus_in_fetu`) assurant une résurrection instantanée en cas de corruption fatale de l'agent hôte ;
+- **diapause embryonnaire séquentielle** : maintien d'embryons pré-chauffés en pause à 0 token (`genos_biomimicry_embryonic_diapause_pipeline`) prêts au réveil instantané dès qu'un slot de traitement se libère ;
 - **homéostasie** : heartbeats, deadlines et limites empêchent une activité hors contrôle ;
 - **cicatrisation** : une récupération tente une réparation localisée avant remplacement ;
 - **apoptose** : une branche insuffisamment saine est arrêtée proprement ;
