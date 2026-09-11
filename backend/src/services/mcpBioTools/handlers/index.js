@@ -60,6 +60,7 @@ const { handle: handleEmbryonicDiapause } = require('./embryonicDiapause');
 const { handlePointMutation, handlePointMutationError } = require('./pointMutation');
 const { handleFrameshiftMutation, handleFrameshiftMutationError } = require('./frameshiftMutation');
 const { handleChromosomalDeletion, handleChromosomalDeletionError } = require('./chromosomalDeletion');
+const { handleChromosomalDuplication, handleChromosomalDuplicationError } = require('./chromosomalDuplication');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -125,6 +126,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_point_mutation: { handle: handlePointMutation, error: handlePointMutationError },
   genos_biomimicry_frameshift_mutation: { handle: handleFrameshiftMutation, error: handleFrameshiftMutationError },
   genos_biomimicry_chromosomal_deletion: { handle: handleChromosomalDeletion, error: handleChromosomalDeletionError },
+  genos_biomimicry_chromosomal_duplication: { handle: handleChromosomalDuplication, error: handleChromosomalDuplicationError },
 };
 
 module.exports = { TOOL_HANDLERS };

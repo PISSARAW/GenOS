@@ -781,3 +781,8 @@ stateDiagram-v2
     PromueTronc --> [*]
     ElagueeRejetee --> [*]
 ```
+
+### 4. Amplification de Pipeline par Duplication Chromosomique (`genos_biomimicry_chromosomal_duplication`)
+
+Lors de missions à forte incertitude, l'orchestrateur duplique en tandem un sous-pipeline critique : une copie exécute l'heuristique de référence éprouvée, pendant que la copie dupliquée diverge (*néo-fonctionnalisation*) pour tester des optimisations agressives sans compromettre le livrable nominal.
+

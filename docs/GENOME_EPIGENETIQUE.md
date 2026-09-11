@@ -470,6 +470,31 @@ flowchart TD
     HeavyChromosome -->|"Délétion Chromosomique (-760 KB)"| PrunedChromosome
 ```
 
+### 4. Duplication Chromosomique (`genos_biomimicry_chromosomal_duplication`)
+
+La duplication en tandem recopie un segment chromosomique complet pour amplifier sa capacité de traitement ou permettre une **néo-fonctionnalisation** : pendant que la copie originale conserve la stratégie de référence stable (e.g. déduction formelle stricte), la copie dupliquée mute librement vers une heuristique exploratoire (e.g. simulation Monte Carlo ou fuzzer stochastique).
+
+```mermaid
+flowchart LR
+    subgraph SingleCopy["Locus Unique Initial"]
+        Orig["Locus Raisonnement (#1: strict_deductive)"]
+    end
+
+    subgraph DuplicationEvent["Duplication en Tandem"]
+        C1["Copie #1: strict_deductive (Garde-fou Référence)"]
+        C2["Copie #2: strict_deductive (Duplicata Neutre)"]
+    end
+
+    subgraph NeoFunctionalization["Néo-Fonctionnalisation"]
+        F1["Copie #1: Invariant Stable"]
+        F2["Copie #2: stochastic_monte_carlo (Divergence Heuristique)"]
+    end
+
+    SingleCopy -->|"Duplication"| DuplicationEvent
+    DuplicationEvent -->|"Divergence Spéculative"| NeoFunctionalization
+```
+
+
 
 
 

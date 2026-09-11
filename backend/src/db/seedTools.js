@@ -298,7 +298,8 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_synaptic_prune_scale', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Prune and scale low-confidence memory synapses.' },
   { name: 'genos_biomimicry_point_mutation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Execute point mutations: silent, missense, and nonsense early halt.' },
   { name: 'genos_biomimicry_frameshift_mutation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Execute indel mutations with reading frame shift and compensatory realignment.' },
-  { name: 'genos_biomimicry_chromosomal_deletion', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Prune non-essential chromosome pipeline blocks to minimize memory footprint.' }
+  { name: 'genos_biomimicry_chromosomal_deletion', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Prune non-essential chromosome pipeline blocks to minimize memory footprint.' },
+  { name: 'genos_biomimicry_chromosomal_duplication', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Duplicate chromosome segments in tandem for redundancy and neo-functionalization.' }
 ];
 
 async function seedMcpTools(db) {
