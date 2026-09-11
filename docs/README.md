@@ -26,6 +26,7 @@ Cette convention permet de lire le système à plusieurs niveaux : conceptuel, t
 ### 1. Fondations conceptuelles
 
 - [BIOLOGIE_COMPUTATIONNELLE.md](BIOLOGIE_COMPUTATIONNELLE.md) — définition de la biomimétique GenOS, modèles biologiques, embryogenèse, HOX, budgets et limites réelles.
+- [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md](PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md) — nosologie computationnelle, statut clinique, maladies auto-immunes, nosocomiales, iatrogènes, dégénératives et thérapies systémiques.
 - [GENOME_EPIGENETIQUE.md](GENOME_EPIGENETIQUE.md) — génome, épigénétique, chromatine, mutation, spécification et contraintes de stabilité.
 - [RUNTIME_AGENTIQUE.md](RUNTIME_AGENTIQUE.md) — runtime agentique, frontières, exécution, états, garde-fous et contrôle en boucle.
 - [EPISTEMOLOGIE_EVIDENCE.md](EPISTEMOLOGIE_EVIDENCE.md) — preuves, état de croyance, validation, audit et séparation entre “succès technique” et “vérification réelle”.

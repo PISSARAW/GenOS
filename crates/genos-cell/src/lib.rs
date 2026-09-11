@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 pub mod conscience;
 pub use conscience::ConscienceState;
+pub mod clinical;
+pub use clinical::{ClinicalState, DiseaseCategory, Pathology};
 mod division;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -60,6 +62,8 @@ pub struct AgentCell {
     pub chromatin_state: Option<String>,
     #[serde(default)]
     pub genome_id: Option<Uuid>,
+    #[serde(default)]
+    pub clinical: ClinicalState,
 }
 
 impl Default for AgentCell {
@@ -95,6 +99,7 @@ impl Default for AgentCell {
             ephemeral_ttl: None,
             chromatin_state: None,
             genome_id: None,
+            clinical: ClinicalState::default(),
         }
     }
 }
@@ -117,6 +122,7 @@ impl AgentCell {
             ephemeral_ttl: None,
             chromatin_state: None,
             genome_id: None,
+            clinical: ClinicalState::default(),
         }
     }
 
