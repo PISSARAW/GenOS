@@ -244,6 +244,8 @@ class CircuitBreakerService {
       this.state = 'OPEN';
       this.halfOpenProbe = null;
       this.lastStateChange = now;
+      this.failureCount = 0;
+      this.failureTimes = [];
       telemetry.emitEvent({
         eventType: 'CIRCUIT_BREAKER_TRIPPED',
         agentId: 'circuit_breaker',
@@ -254,9 +256,14 @@ class CircuitBreakerService {
     }
 
     if (state.failureCount >= 3 || (state.state === 'HALF-OPEN' && state.halfOpenProbe === toolName)) {
+      const wasHalfOpen = state.state === 'HALF-OPEN';
       state.state = 'OPEN';
       state.halfOpenProbe = null;
       state.lastStateChange = now;
+      if (wasHalfOpen) {
+        state.failureCount = 0;
+        state.failureTimes = [];
+      }
       telemetry.emitEvent({
         eventType: 'CIRCUIT_BREAKER_TRIPPED',
         agentId: typeof scope === 'string' ? scope : 'circuit_breaker',
