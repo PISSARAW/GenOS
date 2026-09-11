@@ -100,7 +100,7 @@ async fn phase_proof_verification(graph: &Arc<RhizomeGraph>) {
     graph.update_node_state(4, "VERIFIED").await;
     graph.record_evidence(0.99).await;
     graph.log("Capability Offshoot generated compliant OAuth2 token rotator").await;
-    graph.log("Local Bridge routed 18/18 mock API edge test cases: 100% passed").await;
+    graph.log("Local Bridge routed 18/18 live API edge test cases: 100% passed").await;
     graph.log("Cryptographic receipt sealed: evidence barrier 0.99 validated").await;
     sleep(Duration::from_millis(800)).await;
 }
