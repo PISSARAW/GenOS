@@ -74,12 +74,20 @@ function signalChild(child, numericPid, signal) {
   }
 }
 
-function terminateChild(child) {
+function terminateChild(child, detached = false) {
   const numericPid = normalizePid(child?.pid);
   if (!child || !numericPid || child.exitCode !== null || child.signalCode) return false;
-  signalChild(child, numericPid, 'SIGTERM');
+  const killGroup = process.platform !== 'win32' && detached;
+  if (killGroup) {
+    try { process.kill(-numericPid, 'SIGTERM'); } catch (_) { signalChild(child, numericPid, 'SIGTERM'); }
+  } else {
+    signalChild(child, numericPid, 'SIGTERM');
+  }
   const timer = setTimeout(() => {
-    if (child.exitCode === null && !child.signalCode) signalChild(child, numericPid, 'SIGKILL');
+    if (child.exitCode === null && !child.signalCode) {
+      if (killGroup) { try { process.kill(-numericPid, 'SIGKILL'); } catch (_) {} }
+      signalChild(child, numericPid, 'SIGKILL');
+    }
   }, gracePeriodMs());
   if (typeof timer.unref === 'function') timer.unref();
   child.genosTerminationTimer = timer;
