@@ -80,7 +80,15 @@ fn process_step(terminal: &mut TuiTerminal, app: &mut TrinityApp, last_tick: &mu
     Ok(false)
 }
 
-pub fn run(mission_id: &str, prompt: &str, _simulation: bool) -> Result<(), String> {
+pub fn run(mission_id: &str, prompt: &str, simulation: bool) -> Result<(), String> {
+    if !simulation {
+        let host = std::env::var("GENOS_TRINITY_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+        let port = std::env::var("GENOS_TRINITY_PORT")
+            .ok()
+            .and_then(|p| p.parse().ok())
+            .unwrap_or(4590);
+        return run_live(&host, port, Some(mission_id));
+    }
     let _cleaner = TerminalCleaner;
     let mut terminal = setup_terminal()?;
     let mut app = TrinityApp::new(mission_id, prompt);

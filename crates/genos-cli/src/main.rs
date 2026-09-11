@@ -53,7 +53,7 @@ fn handle_trinity_cmd(subcommand: TrinitySubcommands) -> Result<(), String> {
 fn handle_run_cmd(cmd: args::RunCmd) -> Result<(), String> {
     match cmd.mode.as_str() {
         "trinity" => {
-            if cmd.monitor {
+            if cmd.monitor || !cmd.simulation {
                 commands::trinity_tui::run_live(&cmd.host, cmd.port, cmd.mission_id.as_deref())
             } else {
                 let mission_id = cmd.mission_id.unwrap_or_else(|| "mission-bencode-parser".to_string());
