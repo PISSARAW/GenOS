@@ -1,5 +1,42 @@
 #!/bin/sh
-set -eu
 
-echo "GenOS source quality gate"
-python scripts/ci/check_code_quality.py --staged
+echo "========================================================="
+echo "🛡️  GenOS Quality Gate : Contrôle des violations avant commit"
+echo "========================================================="
+
+# Rechercher un interpréteur Python fonctionnel (évite les stubs WindowsApps)
+PYTHON_BIN=""
+for candidate in python3 py python "$LOCALAPPDATA/Programs/Python/Python312/python.exe" "/c/Users/Shadow/AppData/Local/Programs/Python/Python312/python.exe"; do
+    if [ -n "$candidate" ] && "$candidate" -c "import sys" 2>/dev/null; then
+        PYTHON_BIN="$candidate"
+        break
+    fi
+done
+
+if [ -z "$PYTHON_BIN" ]; then
+    echo "❌ [Erreur critique] Interpréteur Python introuvable pour exécuter le Quality Gate."
+    echo "Veuillez vous assurer que Python 3 est accessible dans le PATH."
+    exit 1
+fi
+
+# Exécuter la vérification sur les fichiers indexés (staged)
+"$PYTHON_BIN" scripts/ci/check_code_quality.py --staged
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "❌ COMMIT REJETÉ : Le commit contient une ou plusieurs violations !"
+    echo "---------------------------------------------------------"
+    echo "Règles strictes GenOS (scripts/ci/check_code_quality.py) :"
+    echo "  1. Longueur max : 400 lignes par fichier (LINES > 400)"
+    echo "  2. Paramètres max : 3 par fonction (PARAMETERS > 3)"
+    echo "  3. Complexité cyclomatique max : 10 (COMPLEXITY > 10)"
+    echo "---------------------------------------------------------"
+    echo "Corrigez les violations listées ci-dessus avant de pouvoir commiter."
+    echo "========================================================="
+    exit 1
+fi
+
+echo "✅ Fichiers vérifiés avec succès (0 violation). Commit autorisé."
+echo "========================================================="
+exit 0
