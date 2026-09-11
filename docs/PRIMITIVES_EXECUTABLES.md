@@ -532,3 +532,60 @@ stateDiagram-v2
     RejeteeSecurite --> [*]
     EchecExecution --> [*]
 ```
+
+### 3. La Chaîne de Raccordement Architecturelle Complète (Pipeline d'Exécution)
+
+Ce schéma synthétise le cheminement réel d'une requête d'outil ou d'une primitive depuis les clients/agents jusqu'aux moteurs d'exécution spécialisés à travers le catalogue, la validation de contrat, le circuit breaker et le hub biomimétique :
+
+```mermaid
+flowchart TD
+    subgraph Clients["1. Invocateurs (Agents / Orchestrateur / CLI / UI)"]
+        Agent["Agent LLM (Appel d'Outil MCP)"]
+        CLI["CLI / Script d'Évolution"]
+        REST["API REST / JSON-RPC (/api/mcp/execute)"]
+    end
+
+    subgraph Registry["2. Dispatcher Central (backend/src/services/mcpToolRegistry.js)"]
+        Detector["isRegisteredTool() & detectExecutionKind() -> 'bio' / 'strategy' / 'cli'"]
+        Circuit["Circuit Breaker (Garde-fou Fail-Safe)"]
+        ArgVal["Validation des Arguments & Contrats"]
+    end
+
+    subgraph Seed["3. Catalogue & Base de Données (backend/src/db/seedTools.js)"]
+        MCPList["MCP_TOOLS_LIST (Enregistré dans SQLite mcp_tools)"]
+    end
+
+    subgraph Hub["4. Hubs d'Exécution Spécialisés"]
+        BioHub["Hub Biomimétique (backend/src/services/mcpBioTools.js)"]
+        StratHub["Hub Stratégique (backend/src/services/mcpStrategyTools.js)"]
+        CliHub["Hub CLI / Native (backend/src/services/mcpExecutor.js)"]
+    end
+
+    subgraph Handlers["5. Moteurs & Registres Spécialisés (backend/src/services/mcpBioTools/handlers/)"]
+        H1["thalamicBridge.js (Zero-copy sensory relay)"]
+        H2["cryptophasia.js (Opcode compression & chaperone)"]
+        H3["mirrorTwinFork.js (Counterfactual polar fork)"]
+        H4["somaticResonance.js (Stress & entropy telemetry)"]
+        H5["chimericMerge.js (Mosaic lineage merge)"]
+        H6["polyovulationSpawn.js (Dizygotic multi-zygote fleet)"]
+        H7["monozygoticSplit.js (Isogenic MCTS cloning)"]
+        H8["hybridMultiples.js (Macro/micro cluster matrix)"]
+        H9["conjoinedTwinBind.js (Visceral token coupling)"]
+        H10["parasiticGraft.js (Arrested twin limb harvest)"]
+        H11["fetusInFetu.js (Rescue pod & instant hatching)"]
+        H12["sesquizygoticSplit.js (Dispermic 75% identity split)"]
+        H13["heteropaternalSuperfecundation.js (Multi-vendor LLMs)"]
+        H14["superfetationPipeline.js (Asynchronous co-gestation)"]
+        H15["tissueChimerism.js (Multi-DNA compartmentalization)"]
+        H16["obligatePolyembryony.js (Deterministic 4x/8x cleavage)"]
+        H17["marmosetGermlineChimerism.js (Fraternal proxy spawn)"]
+        H18["freemartinInhibition.js (Replication lock & compute boost)"]
+        H19["embryonicDiapause.js (3-Tier zero-latency pipeline)"]
+    end
+
+    Clients --> Detector
+    Seed -.-> Detector
+    Detector --> ArgVal --> Circuit --> BioHub & StratHub & CliHub
+    BioHub --> Handlers
+```
+
