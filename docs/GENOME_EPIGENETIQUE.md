@@ -393,4 +393,33 @@ flowchart TB
 
 Le chimérisme germinal (`genos_biomimicry_marmoset_germline_chimerism`) découple l'exécution physique de l'héritage génétique. Un agent proxy peut générer un enfant portant 100% du génome d'un agent tiers de sa fratrie, préservant ainsi les lignées hautement adaptatives même après l'extinction de leur découvreur initial.
 
+---
+
+## Primitives de Mutations Biomimétiques
+
+Les mutations dans GenOS modélisent les altérations accidentelles et intentionnelles de l'ADN agentique réparties sur trois échelles d'amplitude : génique (ponctuelle), chromosomique (structurelle) et génomique (numérique).
+
+### 1. Mutations Ponctuelles par Substitution (`genos_biomimicry_point_mutation`)
+
+Les mutations ponctuelles touchent les nucléotides et micro-paramètres unitaires d'un agent. Elles se déclinent en trois régimes fonctionnels :
+* **Silencieuse (Silent) :** Substitution synonyme préservant l'invariance sémantique et la signature du contrat d'interface sans dérive d'exécution.
+* **Faux-sens (Missense) :** Altération d'un hyperparamètre (e.g. température, prompt persona, heuristique de recherche) produisant une variation comportementale ciblée.
+* **Non-sens (Nonsense) :** Insertion d'un codon STOP prématuré faisant office de coupe-circuit d'urgence (*circuit-breaker*) pour interrompre immédiatement une chaîne d'inférence corrompue.
+
+```mermaid
+flowchart TD
+    subgraph PointMutation["Mutation Ponctuelle : Substitutions Géniques"]
+        InputParam["Nucléotide / Paramètre d'Origine (e.g. Temp=0.2, Token='SEARCH')"]
+        
+        InputParam -->|"Substitution Silencieuse"| Silent["Invariance Sémantique (Signature Intacte, Score Dérive +0.02)"]
+        InputParam -->|"Substitution Faux-Sens"| Missense["Variation Comportementale (Temp=0.85, Dérive +0.35)"]
+        InputParam -->|"Substitution Non-Sens"| Nonsense["Codon STOP Prématuré (Arrêt Circuit-Breaker, Dérive = 1.0)"]
+    end
+
+    Silent --> Continue["Poursuite Normale"]
+    Missense --> Adapted["Inférence Spécialisée"]
+    Nonsense --> Terminate["Interruption d'Urgence Immédiate"]
+```
+
+
 
