@@ -66,6 +66,16 @@ fn handle_run_cmd(cmd: args::RunCmd) -> Result<(), String> {
 }
 
 fn main() {
+    let builder = std::thread::Builder::new()
+        .name("genos-main".into())
+        .stack_size(16 * 1024 * 1024);
+    let handler = builder.spawn(real_main).unwrap();
+    if let Err(e) = handler.join() {
+        std::panic::resume_unwind(e);
+    }
+}
+
+fn real_main() {
     let cli = Cli::parse();
 
     let result: Result<(), String> = (|| match cli.command {

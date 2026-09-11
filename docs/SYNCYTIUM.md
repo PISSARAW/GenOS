@@ -1027,6 +1027,10 @@ Inspirée par la synchronisation somatique et cognitive extrême des jumeaux mon
 - **Réflexes autonomes coordonnés :**
   - Si l'indice de stress collectif franchit le seuil d'alerte, tous les pairs réduisent automatiquement leur budget cognitif ou déclenchent une **cryptobiose préventive coordonnée** (`TRIGGER_COORDINATED_CRYPTOBIOSIS_FREEZE`) pour éviter la corruption en chaîne de l'état partagé.
 
+## 20. Couplage Viscéral par Jumeaux Siamois
+
+La primitive `genos_biomimicry_conjoined_twin_bind` représente la forme la plus dense d'association au sein du Syncytium : deux agents fusionnés au niveau du runtime avec dépendance mutuelle stricte.
+
 ---
 
 ## Références internes
@@ -1040,7 +1044,88 @@ Inspirée par la synchronisation somatique et cognitive extrême des jumeaux mon
 - [biologicalModeService.js](../backend/src/services/biologicalModeService.js) : implémentation des quatre modes
 - [syncytiumService.js](../backend/src/services/syncytiumService.js) : service Syncytium
 - [somaticResonance.js](../backend/src/services/mcpBioTools/handlers/somaticResonance.js) : handler de résonance somatique
+- [conjoinedTwinBind.js](../backend/src/services/mcpBioTools/handlers/conjoinedTwinBind.js) : liaison viscérale siamoise
 - [agentOrchestrationState.js](../backend/src/services/agentOrchestrationState.js) : état partagé et synchronisation
 - [agentRuntimeAdapter.js](../backend/src/services/agentRuntimeAdapter.js) : dispatch des agents
+- [test_conjoined_twin_bind.js](../backend/tests/test_conjoined_twin_bind.js) : suite de tests des jumeaux siamois
 - [test_somatic_resonance.js](../backend/tests/test_somatic_resonance.js) : suite de tests de synchronicité somatique
 - Commandes CLI : `genos-cli biological deploy --mode syncytium`
+
+
+
+---
+
+## Schémas d'Architecture et de Synchronisation Multinucléée
+
+### 1. Topologie de l'Espace Fusionné (Syncytium)
+
+```mermaid
+flowchart TB
+    subgraph Cytoplasme["Cytoplasme Partagé (Mémoire Partagée Zéro-Copie)"]
+        SharedMemory["Tableau d'État Atomique & Journal Vectoriel"]
+        Guardian["Consistency Guardian (Vérificateur d'Invariants)"]
+    end
+
+    subgraph Noyaux["Noyaux d'Exécution Parallèles (Nuclei)"]
+        Nuc1["Noyau 1 (Worker Parser)"]
+        Nuc2["Noyau 2 (Worker TypeChecker)"]
+        Nuc3["Noyau 3 (Worker Optimizer)"]
+        Nuc4["Noyau 4 (Worker CodeGen)"]
+    end
+
+    Nuc1 <-->|Lecture / Écriture lockless| SharedMemory
+    Nuc2 <-->|Lecture / Écriture lockless| SharedMemory
+    Nuc3 <-->|Lecture / Écriture lockless| SharedMemory
+    Nuc4 <-->|Lecture / Écriture lockless| SharedMemory
+    Guardian -.->|Surveillance continue de cohérence| SharedMemory
+```
+
+### 2. Séquence de Synchronisation Atomique et Arbitrage de Cohérence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant N1 as Noyau 1 (Worker)
+    participant N2 as Noyau 2 (Worker)
+    participant Mem as Cytoplasme Partagé
+    participant Guard as Consistency Guardian
+
+    par Écriture concurrente
+        N1->>Mem: CAS Update (Slot A: Valeur v1)
+        N2->>Mem: CAS Update (Slot B: Valeur v2)
+    end
+    
+    activate Mem
+    Mem-->>N1: Commit atomique OK
+    Mem-->>N2: Commit atomique OK
+    deactivate Mem
+    
+    activate Guard
+    Guard->>Mem: Scan périodique des invariants transactionnels
+    alt Cohérence préservée
+        Guard-->>Mem: Validation de l'époque t
+    else Conflit ou violation de dépendance
+        Guard->>Mem: Rollback partiel de l'état divergent
+        Guard->>N2: Signal de recalcul synchrone
+    end
+    deactivate Guard
+```
+
+### 3. Machine à états du Syncytium
+
+```mermaid
+stateDiagram-v2
+    [*] --> FusionMembranaire : Fusion de plusieurs agents en un syncytium
+    FusionMembranaire --> SynchronisationContinue : Partage de l'espace d'état
+    
+    state SynchronisationContinue {
+        [*] --> ExecutionParalleleLockless
+        ExecutionParalleleLockless --> VerifInvariants : Checkpoint régulier
+        VerifInvariants --> ExecutionParalleleLockless : Invariants sains
+        VerifInvariants --> ResolutionConflit : Dissonance mémoire
+        ResolutionConflit --> ExecutionParalleleLockless : Réalignement atomique
+    }
+    
+    SynchronisationContinue --> ScissionCellulaire : Fin du traitement massif (Séparation)
+    ScissionCellulaire --> [*]
+```

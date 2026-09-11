@@ -46,6 +46,7 @@ const { handleChimericMerge, handleChimericMergeError } = require('./chimericMer
 const { handlePolyovulationSpawn, handlePolyovulationSpawnError } = require('./polyovulationSpawn');
 const { handleMonozygoticSplit, handleMonozygoticSplitError } = require('./monozygoticSplit');
 const { handleHybridMultiples, handleHybridMultiplesError } = require('./hybridMultiples');
+const { handleConjoinedTwinBind, handleConjoinedTwinBindError } = require('./conjoinedTwinBind');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -97,6 +98,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_polyovulation_spawn: { handle: handlePolyovulationSpawn, error: handlePolyovulationSpawnError },
   genos_biomimicry_monozygotic_split: { handle: handleMonozygoticSplit, error: handleMonozygoticSplitError },
   genos_biomimicry_hybrid_multiples: { handle: handleHybridMultiples, error: handleHybridMultiplesError },
+  genos_biomimicry_conjoined_twin_bind: { handle: handleConjoinedTwinBind, error: handleConjoinedTwinBindError },
 };
 
 module.exports = { TOOL_HANDLERS };
