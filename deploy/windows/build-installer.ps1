@@ -7,10 +7,14 @@ $openSslLib = if ($env:OPENSSL_LIB_DIR) {
     $env:OPENSSL_LIB_DIR
 } elseif ($env:OPENSSL_DIR) {
     Join-Path $env:OPENSSL_DIR "lib\VC\x64\MD"
-} else {
+} elseif (Test-Path "C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD") {
     "C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD"
+} elseif ($env:ProgramFiles -and (Test-Path "${env:ProgramFiles}\OpenSSL-Win64\lib\VC\x64\MD")) {
+    "${env:ProgramFiles}\OpenSSL-Win64\lib\VC\x64\MD"
+} else {
+    $null
 }
-if (Test-Path $openSslLib) {
+if ($openSslLib -and (Test-Path $openSslLib)) {
     $env:LIB = "$openSslLib;" + $env:LIB
 }
 cargo build --release --workspace

@@ -88,7 +88,7 @@ async function testMcpBioToolsExecution() {
   };
   const stigRes = handleStigmergy({ action: 'read', target_file: 'C:\\test\\path.txt' }, mockRun);
   assert.strictEqual(stigRes.success, true);
-  assert(executedCmd.includes('--target-file "C:\\test\\path.txt"'));
+  assert(executedCmd.includes('--target-file "C:\\\\test\\\\path.txt"'));
 
   const missingFileRes = handleStigmergy({ action: 'read' }, mockRun);
   assert.strictEqual(missingFileRes.success, false);
@@ -129,12 +129,12 @@ async function testSynapticPruneScaleMultiTenantProtection() {
 }
 
 function testWindowsCliBackslashPreservation() {
-  const winCmd = 'genos command --target-file "C:\\Users\\Shadow\\Documents\\GitHub\\GenOS\\test.txt" --name "Alice"';
+  const winCmd = 'genos command --target-file "C:\\Users\\Developer\\Documents\\GitHub\\GenOS\\test.txt" --name "Alice"';
   const parsed = parseCommandLine(winCmd);
   assert.strictEqual(parsed[0], 'genos');
   assert.strictEqual(parsed[1], 'command');
   assert.strictEqual(parsed[2], '--target-file');
-  assert.strictEqual(parsed[3], 'C:\\Users\\Shadow\\Documents\\GitHub\\GenOS\\test.txt', 'Windows path backslashes must be preserved intact');
+  assert.strictEqual(parsed[3], 'C:\\Users\\Developer\\Documents\\GitHub\\GenOS\\test.txt', 'Windows path backslashes must be preserved intact');
   assert.strictEqual(parsed[4], '--name');
   assert.strictEqual(parsed[5], 'Alice');
 

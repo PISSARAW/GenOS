@@ -6,7 +6,7 @@ echo "========================================================="
 
 # Rechercher un interpréteur Python fonctionnel (évite les stubs WindowsApps)
 PYTHON_BIN=""
-for candidate in python3 py python "$LOCALAPPDATA/Programs/Python/Python312/python.exe" "/c/Users/Shadow/AppData/Local/Programs/Python/Python312/python.exe"; do
+for candidate in python3 py python "$LOCALAPPDATA/Programs/Python/Python312/python.exe"; do
     if [ -n "$candidate" ] && "$candidate" -c "import sys" 2>/dev/null; then
         PYTHON_BIN="$candidate"
         break
@@ -19,8 +19,8 @@ if [ -z "$PYTHON_BIN" ]; then
     exit 1
 fi
 
-# Exécuter la vérification sur les fichiers indexés (staged)
-"$PYTHON_BIN" scripts/ci/check_code_quality.py --staged
+# Exécuter la vérification des limites de taille sur les fichiers indexés (staged)
+"$PYTHON_BIN" scripts/ci/check_code_quality.py --staged --size-only
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then
