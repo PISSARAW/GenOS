@@ -338,4 +338,24 @@ stateDiagram-v2
     Failed --> Terminated
     Apoptosis --> Terminated
     Terminated --> [*]
+
+### 3. Pipeline de Superfétation (Gestation Asynchrone Multi-Stades)
+
+La primitive `genos_biomimicry_superfetation_pipeline` permet l'introduction asynchrone d'un nouvel agent embryonnaire cadet (étape $T_0$) dans le workspace d'un agent aîné en phase avancée (étape $T+k$). L'aîné transmet son cache de preuves et d'AST sans suspendre sa propre validation, permettant au cadet d'explorer des sous-tâches avec une rampe d'accélération cognitive.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant WS as Espace Gestationnel (Workspace)
+    participant Elder as Agent Aîné (Stade T_45)
+    participant Cadet as Agent Cadet (Stade T_0)
+
+    Elder->>WS: Exécution avancée & consolidation des preuves
+    WS->>Cadet: Injection asynchrone (Superfétation à Delta = 45 steps)
+    Elder-->>Cadet: Transfert du cache de preuves sans interruption
+    Cadet->>WS: Exploration accélérée des cas limites (Boost x1.5)
+    Elder->>WS: Finalisation de la vérification globale
+    Cadet-->>Elder: Convergence des résultats (Delta -> 0)
+```
+
 ```
