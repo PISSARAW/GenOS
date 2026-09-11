@@ -176,6 +176,19 @@ async function diffSnapshots(req, res) {
   return sendResult({ res, operation: 'diff', run });
 }
 
+async function generateModel(req, res, next) {
+  try {
+    const { prompt, agentId } = req.body;
+    if (!prompt) return res.status(400).json({ error: { code: 'MISSING_PROMPT', message: 'prompt is required.' } });
+    const modelRouter = require('../services/modelRouter');
+    const generated = await modelRouter.generate({ db: null, agentId: agentId || 'world_runner', prompt, timeoutMs: 90000 });
+    res.json({ text: generated });
+  } catch (error) {
+    if (next) return next(error);
+    throw error;
+  }
+}
+
 module.exports = {
   getStatus,
   createSnapshot,
@@ -183,5 +196,6 @@ module.exports = {
   runHallucination,
   simulateHallucination,
   replayBranch,
-  diffSnapshots
+  diffSnapshots,
+  generateModel
 };

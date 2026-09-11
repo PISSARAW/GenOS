@@ -28,5 +28,6 @@ router.post('/hallucination/:op(detect|analyze|extract)', requirePermission('rea
 router.post('/hallucination/simulate', requirePermission('experiment:run'), controller.simulateHallucination);
 router.post('/replay', requirePermission('experiment:run'), controller.replayBranch);
 router.post('/diff', requirePermission('read'), controller.diffSnapshots);
+router.post('/models/generate', requirePermission('read'), controller.generateModel);
 
 module.exports = router;

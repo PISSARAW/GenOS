@@ -30,37 +30,37 @@ pub fn ask_agent(prompt: &str, role: &str) -> String {
     }
 
     let body = json!({
-        "model": model_name,
-        "messages": [
-            { "role": "system", "content": format!("Tu es un agent GenOS (IA) ayant le rôle de {}. Compare strictement le code source fourni à la documentation. Sois factuel, concis et technique.", role) },
-            { "role": "user", "content": enriched_prompt }
-        ]
+        "agentId": role,
+        "prompt": format!("Tu es un agent GenOS (IA) ayant le rôle de {}. Compare strictement le code source fourni à la documentation. Sois factuel, concis et technique.\n\n{}", role, enriched_prompt)
     });
     
-    let llm_url = std::env::var("GENOS_LLM_URL").unwrap_or_else(|_| {
+    let llm_url = std::env::var("GENOS_API_URL").unwrap_or_else(|_| {
         let host = std::env::var("GENOS_API_HOST").or_else(|_| std::env::var("GENOS_HOST")).unwrap_or_else(|_| "127.0.0.1".to_string());
-        let port = std::env::var("GENOS_API_PORT").or_else(|_| std::env::var("GENOS_PORT")).unwrap_or_else(|_| "8085".to_string());
-        format!("http://{host}:{port}/v1/chat/completions")
+        let port = std::env::var("GENOS_API_PORT").or_else(|_| std::env::var("GENOS_PORT")).unwrap_or_else(|_| "3000".to_string());
+        format!("http://{host}:{port}/api/rust/models/generate")
     });
 
     let mut req = client.post(&llm_url).json(&body);
-    if let Ok(api_key) = std::env::var("OPENAI_API_KEY").or_else(|_| std::env::var("GENOS_API_KEY")) {
+    // L'authentification au backend local se fait typiquement avec un JWT ou est ouverte en local pour la CLI
+    if let Ok(api_key) = std::env::var("GENOS_API_KEY") {
         req = req.bearer_auth(api_key);
     }
 
     match req.send() {
         Ok(res) => {
             if let Ok(json_resp) = res.json::<serde_json::Value>() {
-                if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
+                if let Some(text) = json_resp["text"].as_str() {
                     text.trim().to_string()
+                } else if let Some(err) = json_resp["error"]["message"].as_str() {
+                    format!("[ERREUR ROUTEUR] {}", err)
                 } else {
-                    format!("[ERREUR] Réponse inattendue de l'API. JSON reçu : {}", json_resp)
+                    format!("[ERREUR] Réponse inattendue du backend. JSON reçu : {}", json_resp)
                 }
             } else {
-                "[ERREUR] Impossible de parser le JSON retourné par le LLM.".to_string()
+                "[ERREUR] Impossible de parser le JSON retourné par le backend GenOS.".to_string()
             }
         }
-        Err(e) => format!("[ERREUR RÉSEAU] Impossible de joindre l'API LLM ({}). Vérifie qu'Ollama / LM Studio tourne ou qu'une clé API est configurée. Détails: {}", llm_url, e)
+        Err(e) => format!("[ERREUR RÉSEAU] Impossible de joindre le backend GenOS ({}). Le Node.js est-il lancé ? Détails: {}", llm_url, e)
     }
 }
 

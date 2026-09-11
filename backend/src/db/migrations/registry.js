@@ -20,6 +20,10 @@ const migrationRunners = [
   createMigrationRunner('016-workflow-version-snapshots', 'Persist immutable workflow definitions for queued and historical runs', async (db) => { /* Migration 016 logic */ }),
   createMigrationRunner('017-reversible-episodic-retention', 'Keep purged episodic memories as restorable tombstones', async (db) => { /* Migration 017 logic */ }),
   createMigrationRunner('018-ide-client-identity', 'Persist IDE client identity for idempotent reconnection', async (db) => { /* Migration 018 logic */ }),
+  createMigrationRunner('019-biopolymer-blobs', 'Migrate JSON text columns to binary bio-polymer BLOBs', async (db) => {
+    const { migrateAllBioPolymers } = require('../../services/bioPolymerPersistenceService');
+    await migrateAllBioPolymers(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
