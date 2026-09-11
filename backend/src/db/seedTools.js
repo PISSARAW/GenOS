@@ -300,7 +300,8 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_biomimicry_frameshift_mutation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Execute indel mutations with reading frame shift and compensatory realignment.' },
   { name: 'genos_biomimicry_chromosomal_deletion', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Prune non-essential chromosome pipeline blocks to minimize memory footprint.' },
   { name: 'genos_biomimicry_chromosomal_duplication', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Duplicate chromosome segments in tandem for redundancy and neo-functionalization.' },
-  { name: 'genos_biomimicry_chromosomal_inversion', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Invert chromosome segment sequence 180 degrees for retrograde backward reasoning.' }
+  { name: 'genos_biomimicry_chromosomal_inversion', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Invert chromosome segment sequence 180 degrees for retrograde backward reasoning.' },
+  { name: 'genos_biomimicry_chromosomal_translocation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Translocate loci between heterologous agent chromosomes for cross-domain capability grafting.' }
 ];
 
 async function seedMcpTools(db) {

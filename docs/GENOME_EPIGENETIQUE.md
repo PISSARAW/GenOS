@@ -519,6 +519,33 @@ flowchart TD
     ForwardOrder -->|"Inversion Chromosomique 180°"| InvertedOrder
 ```
 
+### 6. Translocation Chromosomique (`genos_biomimicry_chromosomal_translocation`)
+
+La translocation chromosomique détache un locus ou un module spécialisé d'un agent donneur A (non-homologue) pour le greffer directement sur le chromosome d'un agent receveur B. Ce transfert horizontal de compétences permet de créer des profils chimériques hautement spécialisés (e.g. greffe d'un vérificateur formel Coq sur un agent de veille documentaire) sans réécriture de template.
+
+```mermaid
+flowchart LR
+    subgraph ProverAgent["Agent Donneur A (Prover)"]
+        A1["LOCUS_COQ_FORMAL_PROVER"]
+        A2["LOCUS_LEMMA_CACHE"]
+    end
+
+    subgraph ResearcherAgent["Agent Receveur B (Researcher)"]
+        B1["LOCUS_WEB_SEARCH"]
+        B2["LOCUS_SYNTHESIS"]
+    end
+
+    subgraph HybridTarget["Agent Hybride B Post-Translocation"]
+        H1["LOCUS_WEB_SEARCH"]
+        H2["LOCUS_SYNTHESIS"]
+        H3["LOCUS_COQ_FORMAL_PROVER (Greffe Transloquée)"]
+    end
+
+    A1 -->|"Translocation Inter-Chromosomique"| HybridTarget
+    ResearcherAgent --> HybridTarget
+```
+
+
 
 
 
