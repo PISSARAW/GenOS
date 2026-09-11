@@ -459,3 +459,8 @@ sequenceDiagram
     end
     deactivate JobRecover
 ```
+
+### 3. Élagage de Résilience par Délétion Chromosomique (`genos_biomimicry_chromosomal_deletion`)
+
+Lorsqu'un agent fait face à des contraintes de mémoire extrêmes ou accumule des dépendances parasites post-crash, l'élagage chromosomique purge les modules superflus tout en maintenant inviolables les invariants de viabilité (`LOCUS_KERNEL_INTEGRITY`, `LOCUS_AUTH_INVARIANTS`, `LOCUS_ROUTING`).
+
