@@ -57,7 +57,7 @@ pub fn handle_world_run(world_id: &str, _command: &str, _sandbox: &str) -> Resul
     println!("--------------------------------------------------\n");
     
     // 2. Boucle de Discussion (Thalamus/LLM)
-    let topic = "Propose une architecture haut-niveau (2 paragraphes) pour un serveur web ultra-rapide en Rust.";
+    let topic = if _command.trim().is_empty() { "Propose une architecture haut-niveau (2 paragraphes) pour un serveur web ultra-rapide en Rust." } else { _command };
     println!("🎯 OBJECTIF DE LA MISSION : {}", topic);
     
     println!("\n🟡 [Architecte] réfléchit...");
