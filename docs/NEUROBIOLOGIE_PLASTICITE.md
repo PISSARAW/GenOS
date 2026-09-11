@@ -517,6 +517,17 @@ Le repo ne prétend pas à une neurobiologie exacte et ne fait pas de promesse d
 
 ---
 
+## 10. Pont Thalamique et Partage Sensoriel Direct (Gémellité Craniopage)
+
+Inspiré du pont thalamique observé chez les jumeaux siamois craniopages (partage du thalamus comme relais d'intégration sensorielle), GenOS intègre la primitive `genos_biomimicry_thalamic_bridge`.
+
+### Mécanisme
+- **Zero-Copy Sensory Relay :** Deux agents jumeaux ou branches d'inférence partagent un plan d'attention et de tenseurs (embeddings, flux perceptifs d'AST, états d'environnement) sans recourir à une re-sérialisation textuelle ou JSON lourde en tokens LLM.
+- **Transmissions multimodales :** Prise en charge des canaux `embeddings`, `kv_cache`, `ast_percept` et `event_stream`.
+- **Économie de bande passante cognitive :** Les percepts acquis par l'agent explorateur sont immédiatement relayés et interrogeables par l'agent vérificateur avec une réduction drastique de latence.
+
+---
+
 ## 11. Forces et limites
 
 ### Forces
@@ -524,6 +535,7 @@ Le repo ne prétend pas à une neurobiologie exacte et ne fait pas de promesse d
 - mémoire causale persistée ;
 - mécanisme de renforcement et de dépression ;
 - cycle de pruning et de consolidation ;
+- pont thalamique pour co-perception multi-agent zero-copy ;
 - système de conscience et de budget ;
 - architecture cross-runtime (Rust/Node.js) ;
 - tests de cohérence et validation de sécurité.
@@ -541,7 +553,7 @@ Le repo ne prétend pas à une neurobiologie exacte et ne fait pas de promesse d
 
 La neurobiologie et la plasticité chez GenOS sont un mécanisme de gouvernance cognitive pour les agents. Les synapses ne sont pas seulement des liens mémoire : elles expriment la causalité, la force de mémorisation, la dépression, la récupération et l’élagage.
 
-Les dendrites organisent l’intégration des signaux ; la conscience mesure la tension cognitive ; les budgets limitent la charge mentale ; la mise en sommeil consolide les liens utiles ; le pruning retire les décisions faibles ou toxiques.
+Les dendrites organisent l’intégration des signaux ; la conscience mesure la tension cognitive ; les budgets limitent la charge mentale ; la mise en sommeil consolide les liens utiles ; le pont thalamique assure le partage sensoriel direct ; le pruning retire les décisions faibles ou toxiques.
 
 Dans ce sens, GenOS construit un agent qui se comporte moins comme un simple “prompt loop” et davantage comme un système de mémoire à plasticité dirigée, avec des garde-fous d’arrêt, de consolidation, de validité causale et d’intégrité de décision.
 
@@ -550,6 +562,7 @@ C’est une architecture particulièrement adaptée à :
 - la correction de boucles,
 - le raisonnement avec preuves,
 - le débogage autonome,
+- la co-inférence gémellaire temps réel,
 - la stratégie de mémoire causale,
 - la sécurité de systèmes multi-agents.
 
@@ -559,11 +572,14 @@ C’est une architecture particulièrement adaptée à :
 
 - `crates/genos-biology/src/neurobiology.rs`
 - `crates/genos-cell/src/conscience.rs`
+- `backend/src/services/mcpBioTools/handlers/thalamicBridge.js`
 - `backend/src/services/agentConscienceService.js`
 - `backend/src/services/sleepCycle.js`
 - `backend/src/services/primitiveHandlers/memory.js`
 - `backend/src/services/primitiveHandlers/temporal.js`
 - `backend/tests/test_rust_node_coherence.js`
+- `backend/tests/test_thalamic_bridge.js`
 - `backend/src/db/schema-tables-extensions.js`
 
 Ces fichiers sont la base d’implémentation qui justifie la documentation ci-dessus.
+
