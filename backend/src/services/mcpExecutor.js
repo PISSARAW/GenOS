@@ -285,7 +285,13 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
 
   const runLocal = (cmd) => {
     try { return { configured: true, success: true, status: 'completed', transport: 'local', output: runSafeSync(cmd, { timeoutMs }).toString() }; }
-    catch (e) { return { configured: true, success: false, status: e.code === 'ETIMEDOUT' ? 'timeout' : 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message }; }
+    catch (e) {
+      const isTimeout = e.code === 'ETIMEDOUT' || e.signal === 'SIGTERM';
+      const stdout = e.stdout ? (Buffer.isBuffer(e.stdout) ? e.stdout.toString() : String(e.stdout)) : '';
+      const stderr = e.stderr ? (Buffer.isBuffer(e.stderr) ? e.stderr.toString() : String(e.stderr)) : '';
+      const output = stdout || stderr || e.message;
+      return { configured: true, success: false, status: isTimeout ? 'timeout' : 'tool_error', transport: 'local', output };
+    }
   };
   if (process.env.GENOS_MCP_URL || process.env.GENOS_MCP_ENDPOINT || process.env.GENOS_MCP_COMMAND) {
     const transport = configuredTransport();
