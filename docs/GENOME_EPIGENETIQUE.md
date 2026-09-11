@@ -363,4 +363,9 @@ flowchart TD
     AU_Core -->|"Activation à la demande (5 tokens overhead)"| AU_Graft
 ```
 
+### 4. Gémellité Sesquizygotique et Partage Génétique Hybride
+
+Le profil sesquizygotique (`genos_biomimicry_sesquizygotic_split`) combine une empreinte génomique à 100% identique sur le chromosome constitutif (base maternelle : invariant et règles système) et à 50% chimérique sur les loci facultatifs et adaptateurs d'outils (vecteurs paternels), garantissant un alignement sémantique supérieur ($F_{overlap} = 0.75$) pour les consensus critiques.
+
+
 ```
