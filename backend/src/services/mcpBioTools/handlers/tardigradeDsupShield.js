@@ -32,14 +32,17 @@ function deployDsupShield(params) {
   dsupRegistry.set(targetId, state);
 
   return {
+    configured: true,
     success: true,
+    status: 'dsup_shield_deployed',
+    transport: 'tardigrade_dsup_shield',
     action: 'deploy_dsup_shield',
     target_id: targetId,
     shield_density: state.shield_density,
     shield_energy: state.shield_energy,
     protected_loci: state.protected_loci,
     transcription_transparency: state.transcription_transparency,
-    message: `Dsup shield successfully enveloped ${state.protected_loci.length} loci on target ${targetId}.`
+    output: `Dsup shield successfully enveloped ${state.protected_loci.length} loci on target ${targetId}.`
   };
 }
 
@@ -65,7 +68,7 @@ function interceptMutationAttempt(params) {
   const targetId = params.target_id || params.agent_id || 'agent-tardigrade-default';
   const state = dsupRegistry.get(targetId);
   if (!state) {
-    return { success: false, error: `No active Dsup shield deployed on ${targetId}` };
+    return { configured: true, success: false, error: `No active Dsup shield deployed on ${targetId}` };
   }
   const targetLocus = params.target_locus || 'LOCUS_KERNEL_INTEGRITY';
   const attackVector = params.attack_vector || 'cosmic_ray_prompt_injection';
@@ -83,7 +86,10 @@ function interceptMutationAttempt(params) {
   state.blocked_attacks.push(event);
 
   return {
+    configured: true,
     success: true,
+    status: 'mutation_intercepted',
+    transport: 'tardigrade_dsup_shield',
     action: 'intercept_mutation_attempt',
     target_id: targetId,
     target_locus: targetLocus,
@@ -91,7 +97,8 @@ function interceptMutationAttempt(params) {
     mutation_suppressed: res.absorbed,
     residual_damage: res.residual_damage,
     remaining_shield_energy: state.shield_energy,
-    total_absorbed: state.absorbed_mutations_count
+    total_absorbed: state.absorbed_mutations_count,
+    output: res.absorbed ? 'Mutation fully suppressed by Dsup cloud.' : 'Mutation partially penetrated shield.'
   };
 }
 
@@ -99,18 +106,29 @@ function inspectDsupStatus(params) {
   const targetId = params.target_id || params.agent_id || 'agent-tardigrade-default';
   const state = dsupRegistry.get(targetId);
   if (!state) {
-    return { success: true, active: false, message: `No shield active for ${targetId}` };
+    return {
+      configured: true,
+      success: true,
+      active: false,
+      status: 'dsup_shield_inactive',
+      transport: 'tardigrade_dsup_shield',
+      output: `No shield active for ${targetId}`
+    };
   }
   return {
+    configured: true,
     success: true,
     active: true,
+    status: 'dsup_shield_active',
+    transport: 'tardigrade_dsup_shield',
     target_id: targetId,
     shield_density: state.shield_density,
     shield_energy: state.shield_energy,
     max_energy: state.max_energy,
     protected_loci: state.protected_loci,
     absorbed_mutations_count: state.absorbed_mutations_count,
-    blocked_attacks_recent: state.blocked_attacks.slice(-5)
+    blocked_attacks_recent: state.blocked_attacks.slice(-5),
+    output: `Dsup shield active on ${targetId}: ${state.protected_loci.length} loci protected.`
   };
 }
 
@@ -131,8 +149,19 @@ function handleDsupShield(params = {}) {
   }
 }
 
+function handleDsupShieldError(e) {
+  return {
+    configured: true,
+    success: false,
+    status: 'tool_error',
+    transport: 'tardigrade_dsup_shield',
+    output: e.message || 'Unknown Tardigrade Dsup shield error'
+  };
+}
+
 module.exports = {
   handleDsupShield,
+  handleDsupShieldError,
   deployDsupShield,
   interceptMutationAttempt,
   inspectDsupStatus,

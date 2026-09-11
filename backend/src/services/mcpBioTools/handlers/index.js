@@ -72,7 +72,7 @@ const { handleEpigeneticMethylation, handleEpigeneticMethylationError } = requir
 const { handleHorizontalGeneTransfer, handleHorizontalGeneTransferError } = require('./horizontalGeneTransfer');
 const { handleAgrobacteriumTdnaHijack, handleAgrobacteriumTdnaHijackError } = require('./agrobacteriumTdnaHijack');
 const { handleViralEndogenization, handleViralEndogenizationError } = require('./viralEndogenization');
-const { handleDsupShield } = require('./tardigradeDsupShield');
+const { handleDsupShield, handleDsupShieldError } = require('./tardigradeDsupShield');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -150,7 +150,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_horizontal_gene_transfer: { handle: handleHorizontalGeneTransfer, error: handleHorizontalGeneTransferError },
   genos_biomimicry_agrobacterium_tdna_hijack: { handle: handleAgrobacteriumTdnaHijack, error: handleAgrobacteriumTdnaHijackError },
   genos_biomimicry_viral_endogenization: { handle: handleViralEndogenization, error: handleViralEndogenizationError },
-  genos_biomimicry_tardigrade_dsup_shield: { handle: handleDsupShield, error: (e) => ({ configured: false, error: e.message }) },
+  genos_biomimicry_tardigrade_dsup_shield: { handle: handleDsupShield, error: handleDsupShieldError },
 };
 
 module.exports = { TOOL_HANDLERS };
