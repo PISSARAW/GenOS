@@ -27,9 +27,19 @@ Cette convention permet de lire le système à plusieurs niveaux : conceptuel, t
 
 - [BIOLOGIE_COMPUTATIONNELLE.md](BIOLOGIE_COMPUTATIONNELLE.md) — définition de la biomimétique GenOS, modèles biologiques, embryogenèse, HOX, budgets et limites réelles.
 - [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md](PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md) — nosologie computationnelle, statut clinique, maladies auto-immunes, nosocomiales, iatrogènes, dégénératives et thérapies systémiques.
+- [NOSOLOGIE_COMPUTATIONNELLE_COMPLETE.md](NOSOLOGIE_COMPUTATIONNELLE_COMPLETE.md) — synthèse exhaustive des 9 familles nosologiques (28 maladies), pharmacopée unifiée et feuille de route.
+  - [NOSOLOGIE_1_AUTO_IMMUNES.md](NOSOLOGIE_1_AUTO_IMMUNES.md) — Lupus, polyarthrite rhumatoïde, sclérose en plaques, diabète de type 1.
+  - [NOSOLOGIE_2_DEGENERATIVES.md](NOSOLOGIE_2_DEGENERATIVES.md) — Alzheimer, Parkinson, arthrose.
+  - [NOSOLOGIE_3_INFECTIEUSES.md](NOSOLOGIE_3_INFECTIEUSES.md) — Grippe, tuberculose, paludisme, VIH.
+  - [NOSOLOGIE_4_GENETIQUES.md](NOSOLOGIE_4_GENETIQUES.md) — Mucoviscidose, drépanocytose, myopathie de Duchenne.
+  - [NOSOLOGIE_5_CANCERS.md](NOSOLOGIE_5_CANCERS.md) — Leucémie, cancer du poumon, mélanome.
+  - [NOSOLOGIE_6_METABOLIQUES.md](NOSOLOGIE_6_METABOLIQUES.md) — Diabète de type 2, hypothyroïdie, goutte.
+  - [NOSOLOGIE_7_CARDIOVASCULAIRES.md](NOSOLOGIE_7_CARDIOVASCULAIRES.md) — Hypertension, infarctus du myocarde, AVC.
+  - [NOSOLOGIE_8_PSYCHIATRIQUES.md](NOSOLOGIE_8_PSYCHIATRIQUES.md) — Dépression, schizophrénie, troubles bipolaires.
+  - [NOSOLOGIE_9_ENVIRONNEMENTALES.md](NOSOLOGIE_9_ENVIRONNEMENTALES.md) — Asbestose, saturnisme.
 - [GENOME_EPIGENETIQUE.md](GENOME_EPIGENETIQUE.md) — génome, épigénétique, chromatine, mutation, spécification et contraintes de stabilité.
 - [RUNTIME_AGENTIQUE.md](RUNTIME_AGENTIQUE.md) — runtime agentique, frontières, exécution, états, garde-fous et contrôle en boucle.
-- [EPISTEMOLOGIE_EVIDENCE.md](EPISTEMOLOGIE_EVIDENCE.md) — preuves, état de croyance, validation, audit et séparation entre “succès technique” et “vérification réelle”.
+- [EPISTEMOLOGIE_EVIDENCE.md](EPISTEMOLOGIE_EVIDENCE.md) — preuves, état de croyance, validation, audit et séparation entre "succès technique" et "vérification réelle".
 
 ### 2. Mémoire, apprentissage et neurobiologie
 
