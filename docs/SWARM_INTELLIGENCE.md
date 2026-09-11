@@ -405,6 +405,22 @@ L’intérêt n’est pas seulement “l’agent a une opinion”, mais que le s
 
 ---
 
+## 8.bis Essaims Dizygotes et Polyovulation
+
+La primitive `genos_biomimicry_polyovulation_spawn` permet d'initialiser une nuée d'agents aux génomes hétérogènes (modèles et fonctions d'objectif diverses) coexistant dans le même milieu environnemental :
+
+```mermaid
+flowchart LR
+    OV["Polyovulation Swarm Spawn"] --> A1["Agent Dizygote 1 (Symbolique)"]
+    OV --> A2["Agent Dizygote 2 (Statistique)"]
+    OV --> A3["Agent Dizygote 3 (Contre-factuel)"]
+    
+    A1 & A2 & A3 --> ENV["Milieu Stigmergique Partagé (Pheromones & Invariants)"]
+    ENV --> CONSENSUS["Consensus Pondéré & Décision Collective"]
+```
+
+---
+
 ## 9. Comparaison avec ce qui existe sur le marché
 
 ### 9.1 Par rapport aux frameworks multi-agents classiques
@@ -424,6 +440,7 @@ L’intérêt n’est pas seulement “l’agent a une opinion”, mais que le s
 L’originalité du repo n’est pas l’idée d’une nuée en soi. C’est la combinaison de :
 
 - phéromones et traces environnementales ;
+- polyovulation pour essaims multi-génomiques hétérogènes ;
 - organisation dynamique ;
 - vote pondéré et seuils explicites ;
 - gouvernance de la collaboration ;
