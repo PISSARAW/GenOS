@@ -15,7 +15,14 @@ function hashState(state) {
 }
 
 function signingSecret() {
-  return process.env.GENOS_AGENT_GIT_SIGNING_SECRET || process.env.GENOS_GRPC_SHARED_SECRET || 'genos-agent-git-development-secret';
+  const secret = process.env.GENOS_AGENT_GIT_SIGNING_SECRET || process.env.GENOS_GRPC_SHARED_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('GENOS_AGENT_GIT_SIGNING_SECRET or GENOS_GRPC_SHARED_SECRET must be configured in production');
+    }
+    return 'genos-agent-git-development-secret';
+  }
+  return secret;
 }
 
 function signingPayload(stateHash, metadata) {
