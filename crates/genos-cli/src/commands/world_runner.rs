@@ -4,12 +4,36 @@ use genos_cell::AgentCell;
 
 pub fn ask_agent(prompt: &str, role: &str) -> String {
     let client = reqwest::blocking::Client::new();
-    let model_name = std::env::var("GENOS_CORE_MODEL").or_else(|_| std::env::var("GENOS_MODEL")).unwrap_or_else(|_| "genos-core-v3".to_string());
+    let model_name = std::env::var("GENOS_CORE_MODEL").or_else(|_| std::env::var("GENOS_MODEL")).unwrap_or_else(|_| "gpt-4o-mini".to_string());
+    
+    // Inject repository context dynamically
+    let mut enriched_prompt = prompt.to_string();
+    let prompt_lower = prompt.to_lowercase();
+    if prompt_lower.contains("code") || prompt_lower.contains("doc") || prompt_lower.contains("trouve") {
+        enriched_prompt.push_str("\n\n[CONTEXTE SYSTÈME INJECTÉ PAR WORLD_RUNNER]\n");
+        if let Ok(doc) = std::fs::read_to_string("docs/CLI_EXPERIENCE_OPERATEUR.md") {
+            enriched_prompt.push_str("=== DOCUMENTATION (docs/CLI_EXPERIENCE_OPERATEUR.md) ===\n");
+            enriched_prompt.push_str(&doc);
+            enriched_prompt.push_str("\n");
+        }
+        
+        let mut add_file = |path: &str| {
+            if let Ok(content) = std::fs::read_to_string(path) {
+                enriched_prompt.push_str(&format!("=== FICHIER SOURCE: {} ===\n{}\n", path, content));
+            }
+        };
+        add_file("crates/genos-cli/src/commands/platform.rs");
+        add_file("crates/genos-cli/src/commands/capsule.rs");
+        add_file("crates/genos-cli/src/commands/world_runner.rs");
+        add_file("crates/genos-cli/src/commands/trinity.rs");
+        add_file("crates/genos-cli/src/commands/rhizome_telemetry/simulator.rs");
+    }
+
     let body = json!({
         "model": model_name,
         "messages": [
-            { "role": "system", "content": format!("Tu es un agent GenOS ayant le rôle de {}. Réponds de façon concise et technique.", role) },
-            { "role": "user", "content": prompt }
+            { "role": "system", "content": format!("Tu es un agent GenOS (IA) ayant le rôle de {}. Compare strictement le code source fourni à la documentation. Sois factuel, concis et technique.", role) },
+            { "role": "user", "content": enriched_prompt }
         ]
     });
     
@@ -19,19 +43,24 @@ pub fn ask_agent(prompt: &str, role: &str) -> String {
         format!("http://{host}:{port}/v1/chat/completions")
     });
 
-    match client.post(&llm_url).json(&body).send() {
+    let mut req = client.post(&llm_url).json(&body);
+    if let Ok(api_key) = std::env::var("OPENAI_API_KEY").or_else(|_| std::env::var("GENOS_API_KEY")) {
+        req = req.bearer_auth(api_key);
+    }
+
+    match req.send() {
         Ok(res) => {
             if let Ok(json_resp) = res.json::<serde_json::Value>() {
                 if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
                     text.trim().to_string()
                 } else {
-                    "[ERREUR] Réponse inattendue de l'API.".to_string()
+                    format!("[ERREUR] Réponse inattendue de l'API. JSON reçu : {}", json_resp)
                 }
             } else {
-                "[ERREUR] Impossible de parser le JSON.".to_string()
+                "[ERREUR] Impossible de parser le JSON retourné par le LLM.".to_string()
             }
         }
-        Err(e) => format!("[ERREUR RÉSEAU] Impossible de joindre le Thalamus. Est-ce que '.\\g start' tourne ? Détails: {}", e)
+        Err(e) => format!("[ERREUR RÉSEAU] Impossible de joindre l'API LLM ({}). Vérifie qu'Ollama / LM Studio tourne ou qu'une clé API est configurée. Détails: {}", llm_url, e)
     }
 }
 

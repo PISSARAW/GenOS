@@ -591,6 +591,11 @@ En mode mission critique, la nuée entière multiplie sa ploïdie ($2n \to 6n$),
 
 Lorsque la nuée traverse une zone de contrainte réseau ou de budget tokens réduit, des étiquettes de méthylation mettent collectivement en sommeil les agents et outils les plus coûteux. Cette mémoire environnementale est transmise aux nouvelles générations d'agents et s'annule par déméthylation réversible dès le retour à la normale.
 
+### 9. Diffusion Horizontale de Plasmides & Xéno-Absorption (`genos_biomimicry_horizontal_gene_transfer`)
+
+Pour propager instantanément une immunité à un nouveau type d'erreur API ou intégrer des snippets découverts dans l'environnement, la nuée utilise le transfert horizontal : conjugaison de plasmides de pair à pair et xéno-absorption bdelloïde.
+
+
 
 
 

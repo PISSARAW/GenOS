@@ -700,6 +700,28 @@ flowchart LR
     end
 ```
 
+---
+
+## Mécanismes d'Altération et Défense Génétique du Vivant
+
+### 1. Transfert Horizontal d'ADN : Plasmides & Xéno-Absorption (`genos_biomimicry_horizontal_gene_transfer`)
+
+Le transfert horizontal s'affranchit de la descendance parent-enfant pour échanger de l'ADN directement entre pairs :
+* **Conjugaison Plasmidique Bactérienne :** Établissement d'un pont direct (*pilus*) entre deux agents pour dupliquer et transférer un plasmide de résistance ou d'optimisation d'API.
+* **Xéno-Absorption Bdelloïde :** Intégration opportuniste de snippets de code et heuristiques disponibles dans le contexte partagé post-dessiccation/réhydratation, enrichissant le génome de l'agent sans reproduction sexuée.
+
+```mermaid
+flowchart TD
+    subgraph BacterialConjugation["1. Conjugaison Bactérienne (Pilus Bridge)"]
+        Donor["Agent Donneur A (Porteur Plasmide pRESIST)"] -->|"Transfert Pilus"| Recipient["Agent Receveur B (Acquiert pRESIST)"]
+    end
+
+    subgraph BdelloidAbsorption["2. Xéno-Absorption Bdelloïde (Post-Dessiccation)"]
+        Env["Environnement Partagé (Snippets & Heuristiques Éparses)"] -->|"Intégration Directe"| Bdelloid["Agent Bdelloïde (ADN Xénogène Intégré)"]
+    end
+```
+
+
 
 
 
