@@ -26,28 +26,6 @@ function resolveHealthyReference(culpritReport) {
   return { healthy, ref };
 }
 
-function mockRemediation(wsId, report) {
-  const step = report.stepNumber || 3;
-  const culpritFile = report.targetFile || 'src/services/parser.js';
-  return {
-    success: true,
-    remediated: true,
-    workspaceId: wsId,
-    rolledBackCulpritStep: step,
-    rollbackSnapshotHash: `snap-rollback-from-${step}-${Date.now()}`,
-    executedAt: new Date().toISOString(),
-    remediationPatch: {
-      file: culpritFile,
-      patchType: 'SURGICAL_REVERSE_DIFF',
-      preservedAgentFiles: ['src/app.js', 'src/services/circuitBreaker.js'],
-      restoredInvariants: ['AST Max Recursion Depth <= 10', 'Early return guard enabled']
-    },
-    affectedFilesCount: 1,
-    unaffectedParallelFilesPreserved: 5,
-    message: 'Invariant-preserving atomic rollback executed cleanly without disturbing parallel branch work.'
-  };
-}
-
 async function loadBisectWorkspace(db, workspaceId) {
   const workspace = await db.get('SELECT * FROM workspaces WHERE id = ?', workspaceId);
   if (!workspace) throw new Error(`Workspace '${workspaceId}' not found for causal rollback.`);
@@ -81,17 +59,11 @@ async function restoreHealthySnapshot(job) {
   };
 }
 
-function remediateRollback(db, workspaceId, culpritReport = {}) {
-  if (typeof db === 'string') {
-    const report = (workspaceId && typeof workspaceId === 'object') ? workspaceId : {};
-    return mockRemediation(db, report);
-  }
-  return (async () => {
-    if (!db || typeof db.get !== 'function') throw new Error('A database handle is required for causal rollback.');
-    const workspace = await loadBisectWorkspace(db, workspaceId);
-    const { healthy, ref } = resolveHealthyReference(culpritReport);
-    return restoreHealthySnapshot({ db, workspace, report: culpritReport, healthy, ref });
-  })();
+async function remediateRollback(db, workspaceId, culpritReport = {}) {
+  if (!db || typeof db.get !== 'function') throw new Error('A database handle is required for causal rollback.');
+  const workspace = await loadBisectWorkspace(db, workspaceId);
+  const { healthy, ref } = resolveHealthyReference(culpritReport);
+  return restoreHealthySnapshot({ db, workspace, report: culpritReport, healthy, ref });
 }
 
 async function querySnapshotHistory(db, workspaceId) {

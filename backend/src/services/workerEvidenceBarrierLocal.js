@@ -62,7 +62,7 @@ function resolveNameMeaning(mission, agentName) {
 function resolveWorkerModel(mission) {
   if (mission.localModel) return mission.localModel;
   if (mission.model) return mission.model;
-  return 'mock-local-model';
+  return process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'llama3.1:8b';
 }
 
 function isOrchestratorMission(mission) {

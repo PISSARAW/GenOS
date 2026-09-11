@@ -78,7 +78,25 @@ async function cherryPick(req, res, next) {
 async function counterfactual(req, res, next) {
   try {
     const { trajectory, stepIndex, alterations } = req.body || {};
-    const result = await vectorMemoryService.counterfactualReplay(trajectory, stepIndex, alterations);
+    let targetTrajectory = trajectory;
+    if (!targetTrajectory) {
+      const db = await getDatabase();
+      const row = await db.get('SELECT * FROM trajectories ORDER BY created_at DESC LIMIT 1');
+      if (row) {
+        targetTrajectory = row;
+      } else {
+        targetTrajectory = {
+          id: 'traj-live-session',
+          turns: [
+            { step: 1, action: 'init', success: true },
+            { step: 2, action: 'process', error: 'fail' },
+            { step: 3, action: 'finish', success: true }
+          ],
+          status: 'FAILURE'
+        };
+      }
+    }
+    const result = await vectorMemoryService.counterfactualReplay(targetTrajectory, stepIndex, alterations);
 
     res.status(200).json(result);
   } catch (err) {

@@ -101,15 +101,10 @@ function stableSerialize(value) {
 }
 
 function counterfactualReplay(originalTrajectory = {}, stepIndex = 1, alterations = {}) {
-  const source = (originalTrajectory && typeof originalTrajectory === 'object' && (originalTrajectory.id || originalTrajectory.turns || originalTrajectory.diff_lines || originalTrajectory.diffLines)) ? originalTrajectory : {
-    id: typeof originalTrajectory === 'string' ? originalTrajectory : 'traj_default_simulation',
-    turns: [
-      { step: 1, action: 'init', success: true },
-      { step: 2, action: 'process', error: 'fail' },
-      { step: 3, action: 'finish', success: true }
-    ],
-    status: 'FAILURE'
-  };
+  const source = originalTrajectory && typeof originalTrajectory === 'object' ? originalTrajectory : {};
+  if (!source.id && !source.turns && !source.diffLines && !source.diff_lines) {
+    throw new Error('A persisted trajectory object is required for counterfactual replay.');
+  }
   let turns = source.turns || source.diffLines || source.diff_lines || [];
   if (typeof turns === 'string') {
     try { turns = JSON.parse(turns); } catch (_) { turns = []; }
