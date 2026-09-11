@@ -607,6 +607,10 @@ flowchart TD
 
 Grâce à `genos_biomimicry_heteropaternal_superfecundation`, l'orchestrateur peut allouer une même sous-tâche critique à une flotte de demi-frères jumeaux opérant sur des fournisseurs de modèles hétérogènes (Anthropic, Google, OpenAI) au sein du même workspace, éliminant tout angle mort ou biais systémique de raisonnement propre à un seul modèle.
 
+## 17.quinquies Orchestration par Superfétation (Gestation Asynchrone en Cascade)
+
+L'orchestrateur injecte des agents cadets (`genos_biomimicry_superfetation_pipeline`) dans des contextes où des agents aînés ont déjà défriché l'arbre de décision. Le cadet démarre avec un différentiel d'âge gestationnel $\Delta T$, bénéficiant de l'effet d'entraînement des preuves de l'aîné sans bloquer ce dernier.
+
 ---
 
 ## 18. Limites et risques

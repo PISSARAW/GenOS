@@ -51,6 +51,7 @@ const { handleParasiticGraft, handleParasiticGraftError } = require('./parasitic
 const { handle: handleFetusInFetu } = require('./fetusInFetu');
 const { handle: handleSesquizygoticSplit } = require('./sesquizygoticSplit');
 const { handle: handleHeteropaternalSuperfecundation } = require('./heteropaternalSuperfecundation');
+const { handle: handleSuperfetationPipeline } = require('./superfetationPipeline');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -107,6 +108,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_fetus_in_fetu: { handle: handleFetusInFetu, error: (e) => ({ configured: false, error: e.message }) },
   genos_biomimicry_sesquizygotic_split: { handle: handleSesquizygoticSplit, error: (e) => ({ configured: false, error: e.message }) },
   genos_biomimicry_heteropaternal_superfecundation: { handle: handleHeteropaternalSuperfecundation, error: (e) => ({ configured: false, error: e.message }) },
+  genos_biomimicry_superfetation_pipeline: { handle: handleSuperfetationPipeline, error: (e) => ({ configured: false, error: e.message }) },
 };
 
 module.exports = { TOOL_HANDLERS };
