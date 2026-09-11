@@ -432,6 +432,10 @@ flowchart TD
         H29["dynamicTripletExpansion.js (Microsatellite anticipation)"]
         H30["mitochondrialDnaMutation.js (Matrilineal energy metabolism)"]
         H31["epigeneticMethylation.js (Reversible environmental memory)"]
+        H32["horizontalGeneTransfer.js (Plasmids & bdelloid absorption)"]
+        H33["agrobacteriumTdnaHijack.js (T-DNA injection & gallus quota)"]
+        H34["viralEndogenization.js (Germline KoRV retroviral integration)"]
+        H35["tardigradeDsupShield.js (Dsup mechanical invariant shield)"]
     end
 
     Clients --> Detector
