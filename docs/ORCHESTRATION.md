@@ -786,3 +786,8 @@ stateDiagram-v2
 
 Lors de missions à forte incertitude, l'orchestrateur duplique en tandem un sous-pipeline critique : une copie exécute l'heuristique de référence éprouvée, pendant que la copie dupliquée diverge (*néo-fonctionnalisation*) pour tester des optimisations agressives sans compromettre le livrable nominal.
 
+### 5. Raisonnement Rétrograde par Inversion Chromosomique (`genos_biomimicry_chromosomal_inversion`)
+
+Pour diagnostiquer une régression subtile ou prouver un invariant de terminaison, l'orchestrateur inverse la séquence de tâches d'un worker à 180° : l'agent évalue en priorité la cible de validité finale et remonte la chaîne causale jusqu'aux pré-conditions d'entrée.
+
+

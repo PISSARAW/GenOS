@@ -494,6 +494,32 @@ flowchart LR
     DuplicationEvent -->|"Divergence Spéculative"| NeoFunctionalization
 ```
 
+### 5. Inversion Chromosomique (`genos_biomimicry_chromosomal_inversion`)
+
+L'inversion chromosomique effectue une rotation à 180° d'un bloc de gènes ou de phases de pipeline. Elle permute l'ordre d'évaluation séquentielle, transformant une exécution progressive classique (Hypothèse $\to$ Preuves $\to$ Déduction $\to$ Validation) en un flux de **raisonnement rétrograde** (*backward chaining* / post-conditions $\to$ déduction $\to$ preuves $\to$ hypothèse), idéal pour la recherche de causes racines et le débogage d'invariants.
+
+```mermaid
+flowchart TD
+    subgraph ForwardOrder["Ordre Linéaire Direct (Forward Chaining)"]
+        D1["1. STEP_HYPOTHESIZE"]
+        D2["2. STEP_GATHER_EVIDENCE"]
+        D3["3. STEP_DEDUCE"]
+        D4["4. STEP_VALIDATE_POSTCOND"]
+        D1 --> D2 --> D3 --> D4
+    end
+
+    subgraph InvertedOrder["Ordre Rétrograde Inversé à 180° (Backward Reasoning)"]
+        R1["1. STEP_VALIDATE_POSTCOND (Vérification But Initial)"]
+        R2["2. STEP_DEDUCE (Causalité Inverse)"]
+        R3["3. STEP_GATHER_EVIDENCE (Recherche Justifications)"]
+        R4["4. STEP_HYPOTHESIZE (Identification Racine)"]
+        R1 --> R2 --> R3 --> R4
+    end
+
+    ForwardOrder -->|"Inversion Chromosomique 180°"| InvertedOrder
+```
+
+
 
 
 
