@@ -363,6 +363,16 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
         BiomimicrySubcommands::NetworkQuorum { agent_id, threshold, action_id } => {
             let _ = handle_network_quorum(&agent_id, threshold, &action_id);
         }
+        BiomimicrySubcommands::Vomeronasal { agent_id, locus, pheromone_type, concentration, sensitivity } => {
+            let params = vec![
+                format!("agent_id={}", agent_id),
+                format!("locus={}", locus),
+                format!("pheromone_type={}", pheromone_type),
+                format!("concentration={}", concentration),
+                format!("sensitivity={}", sensitivity),
+            ];
+            crate::commands::biomimicry_features::handle_bio_feature("vomeronasal", "emit_and_detect", &params);
+        }
     }
     Ok(())
 }

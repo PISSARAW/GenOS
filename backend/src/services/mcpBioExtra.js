@@ -49,6 +49,14 @@ function getToolHandler(toolName) {
     'genos_biomimicry_therapy': (args, timeoutMs) => {
       return handleBioCall(`genos biomimicry therapy --agent-id ${args.agent_id || 'griot-01'} --therapy-type "${args.therapy_type || 'targeted'}"`, timeoutMs);
     },
+    'genos_biomimicry_vomeronasal': (args, timeoutMs) => {
+      const agentId = args.agent_id || args.agentId || 'agent_0';
+      const locus = args.locus || 'global';
+      const ptype = args.pheromone_type || args.pheromoneType || 'alarm';
+      const concentration = args.concentration !== undefined ? args.concentration : 0.8;
+      const sensitivity = args.sensitivity !== undefined ? args.sensitivity : 0.15;
+      return handleBioCall(`genos biomimicry vomeronasal --agent-id ${agentId} --locus "${locus}" --pheromone-type "${ptype}" --concentration ${concentration} --sensitivity ${sensitivity}`, timeoutMs);
+    },
     'genos_cell_division': (args, timeoutMs) => {
       const agentId = args.agent_id || args.agentId || 'cell_division_root';
       const mode = args.mode || 'mitosis';
