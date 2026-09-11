@@ -476,4 +476,23 @@ Face à une agression de code étranger répétée (injections, rétrovirus d'ex
 
 Lorsqu'un agent spécialisé approche d'une panne fatale par épuisement de son budget de tokens ou dépassement de son horloge de vie, il déclenche une transdifférenciation vers un état juvénile (`JUVENILE_POLYP`). Son contexte d'exécution pollué est purgé tout en conservant son identité et ses locus invariants pour un redémarrage instantané à zéro surcharge.
 
+### 7. Transfert de Conscience et Replay Temporel (*Edge of Tomorrow*) (`genos_temporal_consciousness_transfer`)
+
+Inspiré des logiques de boucle temporelle, ce mécanisme restaure le système de fichiers physique et les dépendances du workspace au snapshot $S(t_0)$, tout en injectant dans l'agent réinstancié l'intégralité des mémoires épisodiques, des causes d'échecs et des poids synaptiques acquis jusqu'à $t_{\text{futur}}$. L'agent recommence dans un environnement vierge tout en conservant la pleine conscience de ses erreurs antérieures.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Agent Trajectoire ($t$)
+    participant Store as Snapshot Store $S(t_0)$
+    participant Engine as Consciousness Transfer Engine
+    participant ReplayAgent as Agent Réincarné ($t_0 + \mathcal{M}_{future}$)
+
+    Agent->>Agent: Exécution jusqu'à collision / bug critique à $t_{panne}$
+    Agent->>Engine: Sauvegarde des leçons d'échecs & mémoire épisodique ($\mathcal{M}_{future}$)
+    Engine->>Store: Restauration du workspace physique à l'état propre $S(t_0)$
+    Engine->>ReplayAgent: Instanciation avec $S(t_0)$ + injection $\mathcal{M}_{future}$
+    ReplayAgent-->>Agent: Re-exécution à $t_0$ avec anticipation parfaite des pièges
+```
+
 

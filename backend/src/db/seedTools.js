@@ -313,7 +313,8 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_biomimicry_viral_endogenization', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Assimilate exogenous retroviruses and emergency patches into native germline chromosomes across generations.' },
   { name: 'genos_biomimicry_tardigrade_dsup_shield', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Deploy damage suppressor (Dsup) physical coating to mechanically absorb radiation and adversarial mutation attacks.' },
   { name: 'genos_biomimicry_turritopsis_transdifferentiation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Revert adult medusa agent to juvenile polyp stem state under critical exhaustion while preserving genome.' },
-  { name: 'genos_biomimicry_yamanaka_reprogramming', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Erase differentiated role constraints using OSKM factors to restore induced pluripotency (iPSC).' }
+  { name: 'genos_biomimicry_yamanaka_reprogramming', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Erase differentiated role constraints using OSKM factors to restore induced pluripotency (iPSC).' },
+  { name: 'genos_temporal_consciousness_transfer', cat: 'Workspace Control', risk: 'Amber', desc: 'Replay agent execution at baseline S(t0) while preserving cumulative future episodic memory and failure lessons.' }
 ];
 
 async function seedMcpTools(db) {
