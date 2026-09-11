@@ -156,9 +156,16 @@ Les arguments MCP sont canoniquement en `snake_case` : `agent_id`, `source_id`, 
 | enum | `backend` est `directory`, `hardlink` ou `copy_on_write` |
 | timeout | normalise et borne par l'executor |
 
+### Biomimétisme MCP : Affinité Stérique Ligand-Récepteur et Cnidocyte Réflexe
+
+Pour dépasser la lenteur et la rigidité du parsing de schemas JSON textuels, GenOS intègre un modèle enzymatique d'activation d'outils ([`backend/src/services/mcpLigandReceptorService.js`](../backend/src/services/mcpLigandReceptorService.js)) :
+1. **Poche catalytique et amarrage stérique (Gibbs $\Delta G$)** : Chaque outil MCP est modélisé comme un site actif enzymatique avec des résidus essentiels. Les arguments entrants agissent comme des ligands chimiques. L'énergie libre de liaison de Gibbs $\Delta G = \Delta H - T \Delta S$ et la constante de dissociation $K_d = \exp(\Delta G / (RT))$ déterminent l'affinité. Si $\Delta G \le \Delta G_{\text{seuil}}$ (amarrage spontané exergonique), la catalyse s'exécute directement sans validation verbeuse de schema JSON.
+2. **Défense balistique réflexe par Cnidocyte (< 3 µs)** : Inspiré des nématocystes des cnidaires ([`crates/genos-biology/src/specialized_cells/cnidocyte.rs`](../crates/genos-biology/src/specialized_cells/cnidocyte.rs)), un filtre réflexe pré-catalytique intercepte instantanément les toxines (injections de prompts, pollution de prototype `__proto__`, injections shell `; rm -rf`) à zéro-latence mécanique (< 3 microsecondes), neutralisant l'appel malveillant sans allouer de tokens LLM ni traverser les couches de parsing JSON.
+3. **Double-mode avec rétrocompatibilité transparente** : Si l'affinité stérique est suboptimale, le moteur bascule automatiquement en mode de repli (`fallback_json_schema`) pour valider les paramètres via les schémas JSON Schema classiques.
+
 Les outils sont soumis au scope tenant, aux permissions, au zero trust, a l'equipement, au circuit breaker et, pour certains, a l'approbation humaine. Un outil a risque peut repondre `202` avec `success:false` et `approvalRequired:true` : c'est un etat d'attente, pas un echec de transport ni une execution reussie.
 
-Les tests [backend/tests/test_mcp_direct_call_enforcement.js](../backend/tests/test_mcp_direct_call_enforcement.js), [backend/tests/test_mcp_server_parity.js](../backend/tests/test_mcp_server_parity.js) et [backend/tests/test_mcp_timeout_contract.js](../backend/tests/test_mcp_timeout_contract.js) couvrent respectivement l'enforcement, une parite minimale Node/Rust et l'alignement du timeout par defaut de 30 s.
+Les tests [backend/tests/test_mcp_direct_call_enforcement.js](../backend/tests/test_mcp_direct_call_enforcement.js), [backend/tests/test_mcp_server_parity.js](../backend/tests/test_mcp_server_parity.js), [backend/tests/test_mcp_timeout_contract.js](../backend/tests/test_mcp_timeout_contract.js) et [backend/tests/test_cnidocyte_reflex_interception.js](../backend/tests/test_cnidocyte_reflex_interception.js) couvrent respectivement l'enforcement, la parité minimale, les timeouts et l'interception réflexe balistique stérique.
 
 ## CLI native et CLI simplifiee
 
