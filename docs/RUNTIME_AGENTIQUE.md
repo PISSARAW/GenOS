@@ -428,6 +428,7 @@ flowchart TD
         H25["chromosomalTranslocation.js (Cross-agent capability grafting)"]
         H26["aneuploidy.js (Trisomy 2/3 consensus & monosomy)"]
         H27["polyploidy.js (Multi-layer 6n wheat strategy)"]
+        H28["transposonJump.js (Cut-and-paste & retrotransposition)"]
     end
 
     Clients --> Detector

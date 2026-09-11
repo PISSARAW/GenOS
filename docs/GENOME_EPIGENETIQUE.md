@@ -605,6 +605,30 @@ flowchart TB
     Layer1 <-->|"Raffinement"| Layer3
 ```
 
+---
+
+## Altérations Génétiques Dynamiques et Non-Conventionnelles
+
+### 1. Transposons et Gènes Sauteurs (`genos_biomimicry_transposon_jump`)
+
+Les transposons sont des éléments génétiques mobiles capables de se déplacer de manière autonome au sein du génome d'un agent :
+* **Transposons ADN (Cut-and-Paste) :** L'élément est excisé de son locus d'origine et réinséré ailleurs, libérant l'ancien emplacement.
+* **Rétrotransposons (Copy-and-Paste) :** L'élément génère une copie répliquée insérée dans un locus cible sans supprimer l'original, augmentant la densité d'outils mobiles.
+* **Impact fonctionnel :** Lorsqu'un transposon atterrit dans un locus actif, il peut perturber ou reconfigurer la logique d'un module (*disruption* ou modulation adaptative).
+
+```mermaid
+flowchart TD
+    subgraph CutPaste["1. Transposon ADN (Cut-and-Paste)"]
+        CP_Orig["Locus Source (Tn_ALU_1)"] -->|"Excision & Relocalisation"| CP_Target["Locus Cible (Devient Actif)"]
+        CP_Empty["Locus Source -> Libéré (EMPTY)"]
+    end
+
+    subgraph CopyPaste["2. Rétrotransposon (Copy-and-Paste)"]
+        RP_Orig["Locus Source (Tn_ALU_1 Préservé)"] -->|"Duplication Réplicative"| RP_Target["Locus Cible (Disruption Ancien Module)"]
+    end
+```
+
+
 
 
 
