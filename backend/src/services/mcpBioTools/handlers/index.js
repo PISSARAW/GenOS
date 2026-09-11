@@ -63,6 +63,7 @@ const { handleChromosomalDeletion, handleChromosomalDeletionError } = require('.
 const { handleChromosomalDuplication, handleChromosomalDuplicationError } = require('./chromosomalDuplication');
 const { handleChromosomalInversion, handleChromosomalInversionError } = require('./chromosomalInversion');
 const { handleChromosomalTranslocation, handleChromosomalTranslocationError } = require('./chromosomalTranslocation');
+const { handleAneuploidy, handleAneuploidyError } = require('./aneuploidy');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -131,6 +132,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_chromosomal_duplication: { handle: handleChromosomalDuplication, error: handleChromosomalDuplicationError },
   genos_biomimicry_chromosomal_inversion: { handle: handleChromosomalInversion, error: handleChromosomalInversionError },
   genos_biomimicry_chromosomal_translocation: { handle: handleChromosomalTranslocation, error: handleChromosomalTranslocationError },
+  genos_biomimicry_aneuploidy: { handle: handleAneuploidy, error: handleAneuploidyError },
 };
 
 module.exports = { TOOL_HANDLERS };
