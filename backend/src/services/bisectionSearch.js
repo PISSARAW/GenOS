@@ -169,11 +169,8 @@ function completeResult(search) {
   };
 }
 
-function legacyRetries(legacyResults) {
-  if (legacyResults && typeof legacyResults === 'object') return legacyResults.predicateRetries;
-  return legacyResults;
-}
-
+// config is { executionResults, predicateRetries }. A Map/WeakMap passed
+// directly as 3rd arg is treated as legacy executionResults (default retries).
 function normalizeSearchConfig(config) {
   if (config && typeof config.get === 'function') {
     return { executionResults: config, predicateRetries: undefined };

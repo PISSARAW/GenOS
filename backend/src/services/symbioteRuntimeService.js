@@ -15,8 +15,8 @@ const localModelDiscovery = require('./localModelDiscovery');
 
 const HOST_ROLE = 'host_orchestrator';
 const SYMBIONT_ROLES = new Set(['specialist_symbiont', 'immune_symbiont', 'memory_symbiont']);
-const DEFAULT_LOCAL_EMBEDDING_URL = 'http://127.0.0.1:11434';
-const DEFAULT_LOCAL_EMBEDDING_MODEL = 'nomic-embed-text';
+const DEFAULT_LOCAL_EMBEDDING_URL = process.env.GENOS_DEFAULT_EMBEDDING_URL || 'http://127.0.0.1:11434';
+const DEFAULT_LOCAL_EMBEDDING_MODEL = process.env.GENOS_DEFAULT_EMBEDDING_MODEL || 'nomic-embed-text';
 
 function isHostRole(role) {
   return String(role || '').trim() === HOST_ROLE;
@@ -33,7 +33,7 @@ function engineFor(role) {
 
 /** Local-only embedding call: never falls back to a cloud provider or its cost. */
 function localEmbeddingBase() {
-  const configured = process.env.GENOS_EMBEDDING_URL || process.env.GENOS_OLLAMA_URL || process.env.OLLAMA_HOST;
+  const configured = process.env.GENOS_EMBEDDING_URL || process.env.GENOS_OLLAMA_URL || process.env.OLLAMA_HOST || process.env.GENOS_DEFAULT_EMBEDDING_URL;
   return String(configured || DEFAULT_LOCAL_EMBEDDING_URL).replace(/\/+$/, '');
 }
 

@@ -12,7 +12,10 @@ const KNOWN_TECH = [
 const KNOWN_ORGS = ['GenOS', 'Google', 'DeepMind', 'Anthropic', 'OpenAI', 'GitHub'];
 
 function getNerUrl() {
-  return process.env.GENOS_NER_URL || 'http://127.0.0.1:8000';
+  if (process.env.GENOS_NER_URL) return process.env.GENOS_NER_URL;
+  const host = process.env.GENOS_NER_HOST || '127.0.0.1';
+  const port = process.env.GENOS_NER_PORT || '8000';
+  return `http://${host}:${port}`;
 }
 
 /**
@@ -39,6 +42,47 @@ function escapeRegExp(string) {
   return String(string || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function extractOrgs(content, lower) {
+  const orgs = [];
+  for (const org of KNOWN_ORGS) {
+    if (content.includes(org) || lower.includes(org.toLowerCase())) {
+      orgs.push({ text: org, label: 'Organization' });
+    }
+  }
+  return orgs;
+}
+
+function extractTech(content) {
+  const techList = [];
+  for (const tech of KNOWN_TECH) {
+    const regex = new RegExp(`\\b${escapeRegExp(tech)}\\b`, 'i');
+    if (regex.test(content)) {
+      techList.push({ text: tech, label: 'Technology' });
+    }
+  }
+  return techList;
+}
+
+function extractFilePaths(content) {
+  const pathMatches = content.match(/[a-zA-Z0-9_./-]+\.(?:js|cjs|rs|py|json|db|proto|md)\b/g) || [];
+  return pathMatches.slice(0, 4).map((p) => ({ text: p, label: 'Location' }));
+}
+
+function buildRelations(entities, action) {
+  const relations = [];
+  if (entities.length < 2) return relations;
+  for (let i = 0; i < entities.length - 1; i++) {
+    relations.push({
+      entity_a: entities[i].text,
+      type_a: entities[i].label,
+      relation: action,
+      entity_b: entities[i + 1].text,
+      type_b: entities[i + 1].label
+    });
+  }
+  return relations;
+}
+
 /**
  * Heuristic fallback extraction when Python microservice is offline
  * @param {string} text
@@ -46,44 +90,15 @@ function escapeRegExp(string) {
  */
 function heuristicExtract(text = '') {
   const content = String(text || '');
-  const entities = [];
   const lower = content.toLowerCase();
+  const orgEntities = extractOrgs(content, lower);
+  const techEntities = extractTech(content);
+  const pathEntities = extractFilePaths(content);
+  const entities = [...orgEntities, ...techEntities, ...pathEntities];
 
-  for (const org of KNOWN_ORGS) {
-    if (content.includes(org) || lower.includes(org.toLowerCase())) {
-      entities.push({ text: org, label: 'Organization' });
-    }
-  }
-
-  for (const tech of KNOWN_TECH) {
-    const regex = new RegExp(`\\b${escapeRegExp(tech)}\\b`, 'i');
-    if (regex.test(content) && !entities.some(e => e.text.toLowerCase() === tech.toLowerCase())) {
-      entities.push({ text: tech, label: 'Technology' });
-    }
-  }
-
-  // Detect file paths / locations
-  const pathMatches = content.match(/[a-zA-Z0-9_./-]+\.(?:js|cjs|rs|py|json|db|proto|md)\b/g) || [];
-  for (const p of pathMatches.slice(0, 4)) {
-    entities.push({ text: p, label: 'Location' });
-  }
-
-  // Detect actions
   const actionMatch = content.match(/\b(build|compile|test|deploy|mutate|rollback|index|search|extract|repair)\b/i);
   const action = actionMatch ? actionMatch[1].toUpperCase() : 'RELATED_TO';
-
-  const relations = [];
-  if (entities.length >= 2) {
-    for (let i = 0; i < entities.length - 1; i++) {
-      relations.push({
-        entity_a: entities[i].text,
-        type_a: entities[i].label,
-        relation: action,
-        entity_b: entities[i + 1].text,
-        type_b: entities[i + 1].label
-      });
-    }
-  }
+  const relations = buildRelations(entities, action);
 
   return { entities, relations, source: 'heuristic_fallback' };
 }
