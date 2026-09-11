@@ -133,7 +133,12 @@ pub fn handle_cost_accounting(agent_id: &str, timeframe: Option<&str>) -> Result
 }
 
 pub fn handle_trinity(mission_id: &str, strategies: &str) -> Result<(), String> {
-    println!("{}", json!({ "operation": "trinity_deploy", "mission_id": mission_id, "strategies": strategies.split(',').collect::<Vec<&str>>(), "status": "DEPLOYED", "worlds": [{"id": format!("{}-thesis", mission_id), "status": "ACTIVE"}, {"id": format!("{}-antithesis", mission_id), "status": "ACTIVE"}, {"id": format!("{}-synthesis", mission_id), "status": "PENDING"}] }));
+    let trinity_dir = crate::commands::root_resolver::resolve_matrix_root().join("trinity").join(mission_id);
+    let _ = std::fs::create_dir_all(&trinity_dir);
+    for sub in &["thesis", "antithesis", "synthesis"] {
+        let _ = std::fs::write(trinity_dir.join(format!("{}.status", sub)), "ACTIVE");
+    }
+    println!("{}", json!({ "operation": "trinity_deploy", "mission_id": mission_id, "strategies": strategies.split(',').collect::<Vec<&str>>(), "status": "DEPLOYED", "path": trinity_dir.to_string_lossy(), "worlds": [{"id": format!("{}-thesis", mission_id), "status": "ACTIVE"}, {"id": format!("{}-antithesis", mission_id), "status": "ACTIVE"}, {"id": format!("{}-synthesis", mission_id), "status": "PENDING"}] }));
     Ok(())
 }
 
@@ -161,7 +166,14 @@ pub fn handle_strategy_adapt(agent_id: &str, constraint: &str, target: f64) -> R
 }
 
 pub fn handle_rebase(args: &[String]) -> Result<(), String> {
-    println!("{}", json!({ "operation": "rebase_planning", "arguments": args, "status": "REBASED" }));
+    let plan_dir = crate::commands::root_resolver::resolve_matrix_root().join("plans");
+    let _ = std::fs::create_dir_all(&plan_dir);
+    let plan_file = plan_dir.join("rebase.log");
+    use std::io::Write;
+    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&plan_file) {
+        let _ = writeln!(file, "[{}] REBASED {:?}", chrono::Utc::now().to_rfc3339(), args);
+    }
+    println!("{}", json!({ "operation": "rebase_planning", "arguments": args, "status": "REBASED", "log": plan_file.to_string_lossy() }));
     Ok(())
 }
 
