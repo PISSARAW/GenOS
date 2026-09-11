@@ -296,6 +296,23 @@ Le pipeline glial correspond à la partie “maintien de santé du système” :
 
 ---
 
+## 9. Cryptobiose, Vitrification Osmotique au Tréhalose et Spores Binaires
+
+La cryptobiose dans GenOS abandonne les dumps textuels JSON monolithiques au profit d'un modèle biomimétique d'anhydrobiose inspiré des tardigrades et des endospores bactériennes (*Bacillus*) :
+
+### 9.1 Mécanisme de vitrification
+Lors d'une mise en stase programmée ou d'une urgence métabolique :
+1. **Évacuation de l'eau libre ($hydrationLevel \to 0.0$)** : Les descripteurs volatils sont éliminés pour figer l'entropie interne.
+2. **Substitut osmotique au Tréhalose** : Le cytoplasme informationnel est vitrifié sous concentration protectrice de tréhalose ($\ge 0.2$, typiquement $0.85$) pour empêcher l'osmocollapse des structures synaptiques.
+3. **Capsule Spore Binaire (`SporeVitrifiedPayload`)** : L'état complet est condensé sous format binaire compact protégé par une armure de spore (`bunker_armor`) et scellé par une empreinte SHA-256 (`crates/genos-store/src/cryptobiosis.rs`, `backend/src/services/cryptobiosisSporeService.js`).
+
+### 9.2 Condition de Germination
+Le réveil (`germinate`) d'une spore vitrifiée est conditionné par un test biophysique d'environnement :
+- Présence d'un environnement favorable (`warm_and_wet == true` et `nutrients_available == true`) ;
+- En cas de milieu hostile ou sec, la spore reste vitrifiée à l'état de dormance sans gaspiller de ressources métaboliques.
+
+---
+
 ## 9. Métabolisme et budgets
 
 Les agents du repo ne sont pas seulement des prompts. Ils portent des états de capacité de travail :

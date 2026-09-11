@@ -79,4 +79,22 @@ mod tests {
         assert!(thawed.is_some());
         assert!(!vault.is_dormant("agent_chidi"));
     }
+
+    #[test]
+    fn test_cryptobiosis_vitrified_spore() {
+        let mut vault = CryptobiosisStore::new();
+        let payload = b"ACTIVE_AGENT_PROTOPLASM_AND_SYNAPSES";
+        vault.freeze_vitrified("agent_tardigrade", payload, 0.85, 500);
+        assert!(vault.is_dormant("agent_tardigrade"));
+
+        // Hostile environment (dry) fails germination
+        let failed_thaw = vault.thaw_vitrified("agent_tardigrade", false, true);
+        assert!(failed_thaw.is_err());
+
+        // Re-freeze with valid conditions
+        vault.freeze_vitrified("agent_tardigrade", payload, 0.85, 500);
+        let thawed_bytes = vault.thaw_vitrified("agent_tardigrade", true, true).expect("Vitrified spore must germinate");
+        assert_eq!(thawed_bytes, payload);
+    }
 }
+
