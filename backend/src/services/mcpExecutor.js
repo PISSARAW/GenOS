@@ -58,7 +58,7 @@ function mcpTransportEnvironment(toolName, repositoryRoot, workspaceRoot) {
     GENOS_WORKSPACE_ROOT: workspaceRoot,
     GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'),
     GENOS_MCP_CLIENT: 'genos-backend',
-    GENOS_MCP_LEASE: process.env.GENOS_MCP_LEASE
+    GENOS_MCP_LEASE: process.env.GENOS_MCP_LEASE !== undefined ? process.env.GENOS_MCP_LEASE : toolName
   };
 }
 
