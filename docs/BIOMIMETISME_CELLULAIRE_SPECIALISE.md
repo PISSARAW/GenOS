@@ -33,3 +33,17 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
   genos biomimicry bio-feature --feature electrocyte --action recharge --param "cell_count=5000" --param "atp=3000"
   ```
 
+### 1.3 Les Choanocytes : Aspiration Hydrodynamique & Tamisage de Flux Continu
+* **Origine biologique :** Cellules à collerette et flagelle des éponges (Porifera) créant un flux d'eau unidirectionnel constant pour filtrer et phagocyter les particules nutritives en rejetant les débris.
+* **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/choanocyte.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/specialized_cells/choanocyte.rs)
+* **Fonctionnement :**
+  - **Aspiration continue sans blocage :** Battement flagellaire ($30\,\text{Hz}$) générant une dépression pour ingérer les flux de télémétrie, logs ou messages MCP.
+  - **Tamisage par maillage de microvillosités :** Capture des signaux à haute densité sémantique ($\ge 0.4$) et rejet automatique du bruit de fond.
+  - **Chambre choanodermique collective :** Agrégation en essaim pour paralléliser l'ingestion de flux massifs.
+* **Commandes CLI / MCP :**
+  ```bash
+  genos biomimicry bio-feature --feature choanocyte --action flow --param "cell_count=10"
+  genos biomimicry bio-feature --feature choanocyte --action sift --param "payload=CRITICAL_EVENT" --param "size_nm=180"
+  ```
+
+
