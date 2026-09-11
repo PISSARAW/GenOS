@@ -175,6 +175,36 @@ impl StigmergyField {
         });
     }
 
+    /// Fusionne directement un autre champ stigmergique par sommation vectorielle continue
+    pub fn merge_field(&mut self, other: &StigmergyField) {
+        for (marker, phero) in &other.pheromones {
+            self.deposit(marker, phero.intensity);
+        }
+    }
+
+    /// Sélectionne le marqueur avec la plus forte intensité d'attraction
+    pub fn dominant_trail(&self) -> Option<(String, f64)> {
+        self.pheromones.iter()
+            .filter(|(_, p)| !p.is_repellent)
+            .max_by(|a, b| a.1.intensity.partial_cmp(&b.1.intensity).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(m, p)| (m.clone(), p.intensity))
+    }
+
+    /// Calcule le score global de consensus d'essaim (différence normalisée entre attraction et répulsion)
+    pub fn swarm_consensus_balance(&self) -> f64 {
+        let mut attraction = 0.0;
+        let mut repulsion = 0.0;
+        for p in self.pheromones.values() {
+            if p.is_repellent {
+                repulsion += p.intensity.abs();
+            } else {
+                attraction += p.intensity;
+            }
+        }
+        let total = attraction + repulsion;
+        if total == 0.0 { 0.0 } else { (attraction - repulsion) / total }
+    }
+
     /// Sérialisation JSON
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
