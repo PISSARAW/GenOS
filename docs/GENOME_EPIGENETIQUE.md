@@ -367,5 +367,25 @@ flowchart TD
 
 Le profil sesquizygotique (`genos_biomimicry_sesquizygotic_split`) combine une empreinte génomique à 100% identique sur le chromosome constitutif (base maternelle : invariant et règles système) et à 50% chimérique sur les loci facultatifs et adaptateurs d'outils (vecteurs paternels), garantissant un alignement sémantique supérieur ($F_{overlap} = 0.75$) pour les consensus critiques.
 
+### 5. Chimérisme Tissulaire Compartimenté (Multi-DNA Intra-Agent)
 
+À la différence de la fusion mosaïque globale, le chimérisme tissulaire (`genos_biomimicry_tissue_chimerism`) partitionne deux codes génétiques distincts au sein d'un agent monolithique unique. Chaque sous-système (réseau, filesystem, inférence) exécute une lignée génomique hermétique avec ses propres outils autorisés et contraintes de politique.
+
+```mermaid
+flowchart TB
+    subgraph ChimericAgent["Agent Chimérique Unique (Monolithe)"]
+        subgraph TissueNet["Tissu Réseau & I/O (Lignée ADN Alpha)"]
+            NetPolicy["Politique Zéro Fuite (Temp 0.05)"]
+            NetTools["Outils : http_fetch, auth_verify"]
+        end
+
+        subgraph TissueFS["Tissu FileSystem & AST (Lignée ADN Bêta)"]
+            FSPolicy["Mutation Spéculative (Temp 0.7)"]
+            FSTools["Outils : ast_transform, code_edit"]
+        end
+    end
+
+    ChimericAgent -->|"Aiguillage selon le caryotype"| TissueNet
+    ChimericAgent -->|"Aiguillage selon le caryotype"| TissueFS
 ```
+
