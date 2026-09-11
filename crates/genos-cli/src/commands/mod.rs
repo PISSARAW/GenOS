@@ -7,6 +7,7 @@ pub mod biomimicry_cells;
 pub mod biomimicry_features;
 pub mod biomimicry_neural;
 pub mod biomimicry_ops;
+pub mod biomimicry_sensory;
 pub mod biological;
 pub mod capsule;
 pub mod capsule_audit;

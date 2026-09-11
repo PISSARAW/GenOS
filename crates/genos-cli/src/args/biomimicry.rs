@@ -250,6 +250,20 @@ pub enum BiomimicrySubcommands {
         #[arg(long, default_value = "100.0,102.0,98.0,105.0,99.0")]
         samples: String,
     },
+    ClusterN {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long, default_value = "align")]
+        action: String,
+        #[arg(long, default_value_t = 0.02)]
+        sensitivity: f64,
+        #[arg(long, default_value_t = 15.0)]
+        tolerance_deg: f64,
+        #[arg(long, default_value = "1.0,0.0,0.0")]
+        goal_vector: String,
+        #[arg(long, default_value = "0.96,0.15,0.0")]
+        current_vector: String,
+    },
 }
 
 #[derive(Args, Debug)]
