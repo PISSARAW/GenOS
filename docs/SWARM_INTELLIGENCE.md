@@ -181,6 +181,15 @@ $$
 
 Le quorum pondéré fait la même chose en remplaçant les votes simples par des votes pondérés par fiabilité.
 
+### 3.5 Stigmergie Vectorielle et Consensus par Résonance de Phase de Kuramoto
+Au lieu de diffuser des messages de votes et de propositions en JSON, GenOS fournit une alternative native bio-inspirée :
+* **Gradient Phéromonal Continu (`StigmergyField`)** : Les agents déposent des intensités scalaires $I_t \in [-I_{max}, I_{max}]$. Les sentiers s'évaporent continuellement selon $I(t + \Delta t) = I(t) e^{-\lambda \Delta t}$. Le choix d'une branche se fait par sommation directe sans échange de messages discrets (`crates/genos-signal/src/stigmergy.rs`, `backend/src/services/swarmStigmergyVectorService.js`).
+* **Consensus par Phase d'Oscillateurs (Kuramoto)** : Chaque agent est doté d'une phase oscillatoire $\theta_i$. La cohérence du groupe est mesurée par le paramètre d'ordre complexe :
+  $$
+  r e^{i\psi} = \frac{1}{N}\sum_{j=1}^{N} e^{i\theta_j}
+  $$
+  Le consensus est réputé atteint dès que $r \ge 0.90$, validant la convergence collective sans centralisation ni sérialisation JSON.
+
 ---
 
 ## 4. Analogies biologiques utiles
