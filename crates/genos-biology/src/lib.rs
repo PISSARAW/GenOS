@@ -22,6 +22,7 @@ pub use specialized_cells::choanocyte::{Choanocyte, ChoanodermChamber, RawSignal
 pub use specialized_cells::iridophore::{GuaninePlateletLattice, Iridophore, ObserverPerspective};
 pub use specialized_cells::guard_cell::{GuardCell, StomatalPore, ThrottleResult};
 pub use specialized_cells::tracheid::{LigninPorousPlate, OssificationReport, SapTransportYield, Tracheid, TracheidState};
+pub use specialized_cells::prokaryote::{HgtTransferReport, Plasmid, PlasmidExecutionYield, ProkaryoticAgent};
 pub mod spore;
 pub mod therapy;
 pub mod tissue;

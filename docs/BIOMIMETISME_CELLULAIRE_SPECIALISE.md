@@ -88,6 +88,39 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
   genos biomimicry bio-feature --feature tracheid --action transport --param "volume=1000" --param "tension=-4.0"
   ```
 
+---
+
+## 3. Chez les Micro-Organismes : Architecture Acaryote & Transfert Horizontal
+
+### 3.1 Les Micro-Agents Procaryotes & Plasmides (HGT)
+* **Origine biologique :** Bactéries et archées dépourvues d'enveloppe nucléaire (génome circulaire baignant librement dans le cytoplasme). Elles échangent des gènes et des résistances de manière latérale via des plasmides (petites molécules d'ADN extrachromosomique) par conjugaison bactérienne (pilus F) ou transformation naturelle sans reproduction sexuée.
+* **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/prokaryote.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/specialized_cells/prokaryote.rs)
+* **Fonctionnement :**
+  - **Démarrage et footprint ultra-légers (< 1 ms) :** Agents acaryotes sans mémoire épisodique lourde, sans conscience introspective complexe, dédiés aux micro-tâches atomiques répétitives.
+  - **Transfert Horizontal de Gènes (HGT) :** Échange pair-à-pair de plasmides de compétences ou de signatures de défense sans remonter à l'orchestrateur central.
+  - **Division binaire instantanée :** Scissiparité accélérée permettant un essaimage massif en cas de pic de charge.
+* **Commandes CLI / MCP :**
+  ```bash
+  genos biomimicry bio-feature --feature prokaryote --action conjugate --param "donor_id=ecoli_agent" --param "recipient_id=archaea_agent" --param "plasmid_id=pResist_waf"
+  genos biomimicry bio-feature --feature prokaryote --action fission --param "donor_id=ecoli_agent"
+  genos biomimicry bio-feature --feature prokaryote --action execute --param "agent_id=ecoli_agent" --param "plasmid_id=pResist_waf"
+  ```
+
+---
+
+## 4. Synthèse Taxonomique Comparative
+
+| Modèle Cellulaire | Règne | Équivalent Humain | Fonction Biomimétique dans GenOS | Gain de Performance |
+| :--- | :--- | :--- | :--- | :--- |
+| **Cnidocyte** | Animal (Cnidaire) | Aucun | Défense balistique réflexe WAF / Anti-injection | Zéro token, réaction en microsecondes |
+| **Électrocyte** | Animal (Poisson) | Aucun | Sommation de voltage en série & Flash Consensus | Convergence synchrone de décision |
+| **Choanocyte** | Animal (Spongiaire) | Aucun | Courant d'aspiration & Tamisage continu de flux | Débit constant, élimination du bruit |
+| **Iridophore** | Animal (Reptile/Céph.)| Aucun | Diffraction structurelle & Rendu polymorphique | Adaptation optique & Obfuscation |
+| **Cellule de Garde**| Végétal | Aucun | Valve osmotique de turgescence & Backpressure | Régulation adaptative contre la famine |
+| **Trachéide** | Végétal | Aucun | Apoptose structurante & Ossification en pipeline | Réduction de 100% du coût LLM récurrent |
+| **Procaryote** | Micro-organisme | Aucun | Micro-agents acaryotes & Transfert horizontal (HGT) | Boot < 1ms, dissémination peer-to-peer |
+
+
 
 
 
