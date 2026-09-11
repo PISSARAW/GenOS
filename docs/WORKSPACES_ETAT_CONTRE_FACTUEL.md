@@ -410,6 +410,22 @@ Inspirée de la gémellité monozygote en miroir (*situs inversus* des polarité
 - **Jumeau Gaucher (Sceptique/Adversarial - Situs Inversus) :** Possède une fonction d'évaluation inversée dédiée à l'injection de fautes aux limites, la recherche de régressions et la falsification active des propositions du jumeau droitier.
 - **Équilibre de Polarité et Réconciliation :** La promotion de l'état ne peut avoir lieu que si l'équilibre calculé démontre que les claims constructifs ont résisté aux tentatives de falsification du jumeau adverse.
 
+## 11.ter Scission Monozygote et Exploration MCTS Isogénique
+
+La primitive `genos_biomimicry_monozygotic_split` permet de cliver un snapshot en $N$ worktrees virtuels ou branches d'inférence strictement isogéniques :
+
+```mermaid
+flowchart TD
+    SNAP["Snapshot Racine (Content-Addressed SHA256)"]
+    SNAP -->|genos_biomimicry_monozygotic_split| CLEAVE["Dispatch Isogénique (Copy-On-Write)"]
+    
+    CLEAVE --> W1["Worktree Clone A (Exploration Gloutonne)"]
+    CLEAVE --> W2["Worktree Clone B (Exploration Recuit Simulé)"]
+    CLEAVE --> W3["Worktree Clone C (Exploration Élagage Causal)"]
+    
+    W1 & W2 & W3 --> RES["Fusion des Évidences & Sélection du Golden Path"]
+```
+
 ---
 
 ## 12. Comparaison avec le marché
