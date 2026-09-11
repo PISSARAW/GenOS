@@ -358,4 +358,23 @@ sequenceDiagram
     Cadet-->>Elder: Convergence des résultats (Delta -> 0)
 ```
 
+### 4. Free-martinisme Bovin et Hyper-Spécialisation d'Exécution
+
+Le mécanisme `genos_biomimicry_freemartin_endocrine_inhibition` permet à un agent gouverneur d'inhiber la capacité de réplication d'un worker subordonné (`can_spawn = false`, `sterile = true`). En éliminant les métadonnées et risques de prolifération, le subordonné alloue 100% de ses ressources au calcul brut avec un gain d'efficience immédiat.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Governor as Agent Gouverneur
+    participant Freemartin as Worker Subordonné
+    participant CPU as Moteur de Calcul Brut
+
+    Governor->>Freemartin: Onde inhibitrice (apply_endocrine_inhibition)
+    Freemartin->>Freemartin: Stérilisation (can_spawn=false, can_fork=false)
+    Freemartin->>Freemartin: Réallocation complète du budget au calcul
+    Freemartin->>CPU: Traitement massif sans risque de dérive de fork
+    CPU-->>Governor: Résultats d'exécution avec débit boosté
+```
+
+
 ```

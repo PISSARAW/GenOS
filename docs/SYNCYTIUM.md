@@ -1128,4 +1128,9 @@ stateDiagram-v2
     
     SynchronisationContinue --> ScissionCellulaire : Fin du traitement massif (Séparation)
     ScissionCellulaire --> [*]
+
+### 4. Régulation Allostérique et Free-martinisme
+
+Dans les maillages denses, `genos_biomimicry_freemartin_endocrine_inhibition` permet au noyau de coordination de synchroniser les flux en inhibant la réplication des nœuds d'exécution purs. Les agents subordonnés sont rendus fonctionnellement stériles pour prévenir les forks anarchiques et focaliser l'énergie computationnelle du syncytium sur les flux de données bruts.
+
 ```
