@@ -569,7 +569,28 @@ Inspiré du chimérisme humain où deux embryons distincts fusionnent pour forme
 
 - **Lignée Génomique Fonctionnelle (Branche A) :** Transmet le code, les outils spécialisés (`tool_ast_visitor`, `tool_bisection_engine`) et la stratégie de raisonnement.
 - **Lignée Épigénétique & Immunitaire (Branche B) :** Transmet les vaccins anti-régression, l'arbre d'évitement d'erreurs et les poids synaptiques consolidés.
-- **Cohérence Mosaïque :** L'agent chimérique résultant opère avec une double hérédité traçable, surpassant la simple sélection darwinienne unilatérale (*survival of the fittest*) en créant un composite antifragile.
+## 13.ter Polyovulation et Naissances Multiples Dizygotes
+
+Inspirée de la polyovulation biologique (libération simultanée de plusieurs ovocytes fécondés par des gamètes distincts), la primitive `genos_biomimicry_polyovulation_spawn` orchestre l'éclosion d'une grappe d'agents hétérogènes partageant un utérus de calcul (un même workspace et un même contexte de mission).
+
+```mermaid
+flowchart TD
+    OVARY["Cycle d'Hyperovulation (Orchestrateur)"]
+    OVARY -->|Ovocyte 1| E1["Embryon A (Lignée 1) : Formal Prover (Claude)"]
+    OVARY -->|Ovocyte 2| E2["Embryon B (Lignée 2) : Heuristic Explorer (GPT-4o)"]
+    OVARY -->|Ovocyte 3| E3["Embryon C (Lignée 3) : Empirical Auditor (Qwen)"]
+    
+    subgraph UTERUS["Espace Utérin Partagé (Workspace & Budget de Mission)"]
+        E1
+        E2
+        E3
+    end
+    
+    UTERUS --> DIVERSITY["Indice de Diversité Génétique Maximale (Shannon H=1.0)"]
+```
+
+- **Génomes distincts :** Chaque embryon porte un `genome_id` et un `lineage_id` propres, éliminant le risque de biais cognitif uniforme.
+- **Cohabitation utérine :** Les embryons dizygotes collaborent dans le même espace virtuel sans duplication d'environnement physique.
 
 ---
 
@@ -578,6 +599,7 @@ Inspiré du chimérisme humain où deux embryons distincts fusionnent pour forme
 ### Points forts
 
 - reproduction variant selon type biologique ;
+- polyovulation pour flottes hétérogènes multi-lignées ;
 - fusion mosaïque tétragamétique de lignées complémentaires ;
 - mécanismes de sécurité explicitement codés ;
 - parentage et lineage tracés ;
