@@ -33,6 +33,7 @@ async function embedWithOpenAi(text, apiKey, endpoint, model) {
   if (embeddingModel.startsWith('text-embedding-3')) {
     body.dimensions = targetDim;
   }
+  const timeoutMs = Number(process.env.GENOS_EMBEDDING_TIMEOUT_MS) || 5000;
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -40,7 +41,7 @@ async function embedWithOpenAi(text, apiKey, endpoint, model) {
       Authorization: `Bearer ${apiKey}`
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
+    signal: AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined
   });
   if (!response.ok) return null;
   const payload = await response.json();
@@ -51,6 +52,7 @@ async function embedWithOpenAi(text, apiKey, endpoint, model) {
 async function embedWithGemini(text, apiKey, model) {
   const embeddingModel = model || 'text-embedding-004';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${embeddingModel}:embedContent`;
+  const timeoutMs = Number(process.env.GENOS_EMBEDDING_TIMEOUT_MS) || 5000;
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -61,7 +63,7 @@ async function embedWithGemini(text, apiKey, model) {
       model: `models/${embeddingModel}`,
       content: { parts: [{ text }] }
     }),
-    signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
+    signal: AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined
   });
   if (!response.ok) return null;
   const payload = await response.json();
@@ -74,6 +76,7 @@ async function embedWithOllama(text, rawUrl, model) {
   const base = rawUrl.replace(/\/+$/, '');
   validateProviderEndpoint(base, { localOnly: true });
   const targetDim = Number(process.env.GENOS_EMBEDDING_DIMENSIONS) || 768;
+  const timeoutMs = Number(process.env.GENOS_EMBEDDING_TIMEOUT_MS) || 4000;
   // Try modern /api/embed first
   try {
     const embedUrl = base.endsWith('/api/embed') ? base : `${base}/api/embed`;
@@ -81,7 +84,7 @@ async function embedWithOllama(text, rawUrl, model) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, input: text }),
-      signal: AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined
+      signal: AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined
     });
     if (response.ok) {
       const payload = await response.json();
@@ -97,7 +100,7 @@ async function embedWithOllama(text, rawUrl, model) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, prompt: text }),
-      signal: AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined
+      signal: AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined
     });
     if (response.ok) {
       const payload = await response.json();
@@ -168,13 +171,14 @@ async function embed(text) {
 async function rerank(query, documents = []) {
   const endpoint = process.env.GENOS_RERANK_ENDPOINT;
   const key = process.env.GENOS_RERANK_API_KEY || process.env.GENOS_MODEL_API_KEY;
+  const timeoutMs = Number(process.env.GENOS_RERANK_TIMEOUT_MS) || 3000;
   if (endpoint && key) {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
         body: JSON.stringify({ query, documents }),
-        signal: AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined
+        signal: AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined
       });
       if (response.ok) return (await response.json()).results || [];
     } catch (_) {}

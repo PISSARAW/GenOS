@@ -6,12 +6,12 @@ function pointId(value) {
 }
 
 class QdrantVectorStore {
-  constructor({ url, apiKey, collection = 'genos_chunks', fetchFn = fetch, timeoutMs = 15000 }) {
+  constructor({ url, apiKey, collection = 'genos_chunks', fetchFn = fetch, timeoutMs = (Number(process.env.GENOS_QDRANT_TIMEOUT_MS) || 15000) }) {
     this.url = String(url || '').replace(/\/$/, '');
     this.apiKey = apiKey;
     this.collection = collection;
     this.fetch = fetchFn;
-    this.timeoutMs = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0 ? Math.min(Number(timeoutMs), 30 * 60 * 1000) : 15000;
+    this.timeoutMs = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0 ? Math.min(Number(timeoutMs), 30 * 60 * 1000) : (Number(process.env.GENOS_QDRANT_TIMEOUT_MS) || 15000);
     this.ensuredCollections = new Set();
   }
 
