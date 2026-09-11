@@ -18,10 +18,12 @@ async function callStdioFn(transport, toolName, options = {}) {
   child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
   child.stdout.on('data', (chunk) => {
     buffer = appendBounded(buffer, chunk, 1024 * 1024);
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || '';
-    for (const line of lines) {
-      if (!line.trim()) continue;
+    while (true) {
+      const lineEnd = buffer.indexOf('\n');
+      if (lineEnd === -1) break;
+      const line = buffer.slice(0, lineEnd).trimEnd();
+      buffer = buffer.slice(lineEnd + 1);
+      if (!line) continue;
       let payload;
       try { payload = JSON.parse(line); }
       catch (_) { protocolErrors = appendBounded(protocolErrors, `MCP STDIO returned invalid JSON-RPC data: ${line.slice(0, 200)}\n`); continue; }
