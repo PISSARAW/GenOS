@@ -822,4 +822,7 @@ sequenceDiagram
     CleanAgent-->>Sec: Reprise immédiate des opérations en état intègre
 ```
 
-```
+### 4. Confinement et Contrôle de T-DNA (*Agrobacterium*) (`genos_biomimicry_agrobacterium_tdna_hijack`)
+
+Le piratage d'ADN par *Agrobacterium* est utilisé en environnement de test pour valider l'isolation des ressources : l'agent pirate injecte une charge utile T-DNA pour forcer l'hôte à héberger un sous-espace de calcul cloisonné (*galle*) et produire des opines, permettant d'auditer l'étanchéité des quotas de tokens sous condition d'infection contrôlée.
+

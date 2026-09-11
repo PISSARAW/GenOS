@@ -308,7 +308,8 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_biomimicry_dynamic_triplet_expansion', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Monitor microsatellite repeat expansions and generational anticipation thresholds to prevent runaway loops.' },
   { name: 'genos_biomimicry_mitochondrial_dna_mutation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Manage circular metabolic mitochondrial DNA, energy efficiency drift, and strict matrilineal transmission.' },
   { name: 'genos_biomimicry_epigenetic_methylation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Apply reversible epigenetic methylation tags under environmental stress and inherit transgenerational marks.' },
-  { name: 'genos_biomimicry_horizontal_gene_transfer', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Execute horizontal gene transfer: bacterial plasmid conjugation via pilus and bdelloid environmental DNA absorption.' }
+  { name: 'genos_biomimicry_horizontal_gene_transfer', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Execute horizontal gene transfer: bacterial plasmid conjugation via pilus and bdelloid environmental DNA absorption.' },
+  { name: 'genos_biomimicry_agrobacterium_tdna_hijack', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Inject T-DNA payloads into host agents to create dedicated compute galli and synthesize opine resources.' }
 ];
 
 async function seedMcpTools(db) {

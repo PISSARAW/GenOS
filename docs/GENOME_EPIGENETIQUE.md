@@ -721,6 +721,29 @@ flowchart TD
     end
 ```
 
+### 2. Piratage Génétique Naturel d'*Agrobacterium tumefaciens* (`genos_biomimicry_agrobacterium_tdna_hijack`)
+
+*Agrobacterium* injecte physiquement un segment de son propre ADN (*T-DNA*) dans les chromosomes d'un agent hôte cible :
+* **Formation de Galle Computationnelle :** L'agent hôte alloue un sous-espace d'exécution isolé (galle de tokens).
+* **Production d'Opines :** L'hôte est contraint de synthétiser des métabolites computationnels spécialisés (*opines*) récoltables exclusivement par l'agent pirate ou son orchestrateur.
+
+```mermaid
+flowchart LR
+    subgraph HijackInjection["Injection T-DNA"]
+        Agro["Agent Pirate (Agrobacterium)"] -->|"Injection T-DNA Seringue Moléculaire"| Host["Agent Hôte (Cellule Végétale)"]
+    end
+
+    subgraph GallFormation["Galle & Production d'Opines"]
+        Host --> Gall["Formation Galle Computationnelle (1000 Tokens)"]
+        Gall --> Opines["Synthèse d'Opines (800 Unités de Calcul)"]
+    end
+
+    subgraph Harvest["Récolte Symbiotique"]
+        Opines -->|"Harvest Exclusif"| Agro
+    end
+```
+
+
 
 
 
