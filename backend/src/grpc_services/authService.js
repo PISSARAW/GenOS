@@ -13,7 +13,7 @@ module.exports = {
       if (user && verifyPassword(password, user.password_hash)) {
         const token = `grpc-${crypto.randomBytes(32).toString('base64url')}`;
         await db.run(
-          'INSERT INTO access_keys (id, key_hash, label, role, permissions) VALUES (?, ?, ?, ?, ?)',
+          "INSERT INTO access_keys (id, key_hash, label, role, permissions, expires_at) VALUES (?, ?, ?, ?, ?, datetime('now', '+30 days'))",
           `grpc-${crypto.randomUUID()}`, hashKey(token), `grpc:${user.username}`, user.role, '[]'
         );
         callback(null, { authenticated: true, token, role: user.role });
