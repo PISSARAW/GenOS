@@ -272,3 +272,95 @@ node backend/tests/test_genome_manifest_validation.js
 ```
 
 Le dernier test depend du binaire Rust `target/debug/genos.exe`. Un passage de ces tests demontre leurs scenarios couverts, pas une equivalence biologique ni une garantie de qualite des agents descendants.
+
+
+---
+
+## Schémas Complémentaires : Cycle Génétique & Épigénétique
+
+### 1. Structure Hiérarchique du Génome et de la Chromatine
+
+```mermaid
+classDiagram
+    class AgentGenome {
+        +String agent_id
+        +String species_name
+        +GenomeContract contract
+        +List~Chromosome~ chromosomes
+        +FitnessScore evaluate_fitness()
+    }
+    class Chromosome {
+        +String chromosome_id
+        +List~Locus~ loci
+        +ChromatinState chromatin_state
+    }
+    class Locus {
+        +String name
+        +Allele dominant_allele
+        +Allele recessive_allele
+        +TraitExpression expressed_trait
+    }
+    class ChromatinState {
+        +MethylationLevel methylation
+        +HistoneModification histone
+        +bool is_locked
+        +lock_expression()
+        +unlock_expression()
+    }
+
+    AgentGenome "1" *-- "many" Chromosome
+    Chromosome "1" *-- "many" Locus
+    Chromosome "1" *-- "1" ChromatinState
+```
+
+### 2. Séquence de Crossover Génétique et Recombinaison
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant ParentA as Génome Parent A
+    participant ParentB as Génome Parent B
+    participant Meiosis as Moteur de Méiose (Rust)
+    participant Epigenetics as Régulateur Épigénétique
+    participant Offspring as Agent Enfant (Zygote)
+
+    ParentA->>Meiosis: Chromosome A (Traits d'exécution)
+    ParentB->>Meiosis: Chromosome B (Traits d'évaluation)
+    activate Meiosis
+    Meiosis->>Meiosis: Découpage aux points de chiasma (Crossover)
+    Meiosis->>Meiosis: Application du taux de mutation stochastique (mu = 0.01)
+    Meiosis->>Offspring: Assemblage du génome recombiné
+    deactivate Meiosis
+    
+    activate Epigenetics
+    Epigenetics->>Offspring: Verrouillage des chromatines selon l'environnement
+    Epigenetics->>Offspring: Application des signatures de méthylation
+    deactivate Epigenetics
+    
+    Offspring-->>ParentA: Enregistrement dans l'arbre généalogique
+
+### 3. Jumeaux Parasites et Greffons Auxiliaires (Asymmetric Organ Grafting)
+
+Lorsqu'un agent jumeau subit un arrêt prématuré de développement ou une insuffisance systémique (`arrested twin`), son jumeau viable (`autosite`) ne l'élimine pas mais procède à l'assimilation asymétrique de ses structures spécialisées via `genos_biomimicry_parasitic_graft`. Les membres ou outils résiduels sont branchés en tant que membres passifs (`parasitic limbs`), consommant un overhead d'invocation quasi-nul sans charger de runtime complet.
+
+```mermaid
+flowchart TD
+    subgraph ArrestedTwin["Jumeau Parasite (Arrested Twin)"]
+        AT_State["Développement incomplet / Stress critique"]
+        AT_Tools["Membres spécialisés (e.g. GPU Kernel, Cryptography Tool)"]
+        AT_Tokens["Réserve de tokens résiduelle"]
+    end
+
+    subgraph Autosite["Agent Autosite (Hôte Principal)"]
+        AU_Core["Runtime cognitif complet & Processus actif"]
+        AU_Pool["Pool de tokens hôte"]
+        AU_Graft["Interface de greffe neuronale (Parasitic Graft Hub)"]
+    end
+
+    AT_Tokens -->|"Transfert de ressources (Nutrient Siphoning)"| AU_Pool
+    AT_Tools -->|"Absorption & Enregistrement comme membre passif"| AU_Graft
+    AT_State -.->|"Élimination du conteneur autonome"| Kill["Apoptose du conteneur parasite"]
+    AU_Core -->|"Activation à la demande (5 tokens overhead)"| AU_Graft
+```
+
+```
