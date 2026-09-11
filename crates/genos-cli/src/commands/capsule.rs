@@ -15,8 +15,41 @@ pub fn handle_audit(snapshot_id: &str, output: Option<&str>, opts: &super::outpu
 }
 
 pub fn handle_merge(branch_id: &str, conditions: Option<&str>) -> Result<(), String> {
-    println!("{}", json!({ "operation": "capsule_merge", "branch_id": branch_id, "conditions": conditions, "status": "MERGED" }));
-    Ok(())
+    let capsule_dir = crate::commands::root_resolver::resolve_matrix_root().join("capsules");
+    if let Ok(entries) = std::fs::read_dir(&capsule_dir) {
+        for entry in entries.flatten() {
+            if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                if let Ok(capsule) = serde_json::from_str::<genos_store::Capsule>(&content) {
+                    if capsule.boundary_id == branch_id {
+                        let mut payload = capsule.data.clone();
+                        if let Some(obj) = payload.as_object_mut() {
+                            obj.insert("merged".to_string(), json!(true));
+                            obj.insert("merge_timestamp".to_string(), json!(chrono::Utc::now().to_rfc3339()));
+                            if let Some(conds) = conditions {
+                                obj.insert("merge_conditions".to_string(), json!(conds));
+                            }
+                        }
+                        let new_capsule = genos_store::Capsule::create("merged_boundary", payload);
+                        let path = capsule_dir.join(format!("{}.json", new_capsule.capsule_id));
+                        let _ = std::fs::write(&path, serde_json::to_string_pretty(&new_capsule).unwrap());
+                        
+                        let output = json!({
+                            "operation": "capsule_merge",
+                            "branch_id": branch_id,
+                            "conditions": conditions,
+                            "status": "MERGED",
+                            "new_capsule_id": new_capsule.capsule_id.to_string(),
+                            "hash": new_capsule.hash
+                        });
+                        println!("{}", serde_json::to_string_pretty(&output).unwrap());
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    }
+    
+    Err(format!("Merge failed: branch '{}' not found in capsules.", branch_id))
 }
 
 fn extract_action_signature(val: &serde_json::Value) -> String {
