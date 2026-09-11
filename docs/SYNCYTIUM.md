@@ -1019,6 +1019,16 @@ Dans ces cas, préférer Trinity (hypothèses), A-Team (domaines), ou Biocénose
 
 ---
 
+## 19. Synchronicité Somatique et Télémétrie d'Entropie Partagée
+
+Inspirée par la synchronisation somatique et cognitive extrême des jumeaux monozygotes, la primitive `genos_biomimicry_somatic_resonance` dote le Syncytium d'un système nerveux collectif :
+
+- **Propagation instantanée d'ondes d'entropie :** Si un agent de la grappe subit une montée subite d'entropie cognitive ($H(A) > 0.85$, boucle infinie ou échec de test répété), une impulsion somatique est émise instantanément sur le maillage.
+- **Réflexes autonomes coordonnés :**
+  - Si l'indice de stress collectif franchit le seuil d'alerte, tous les pairs réduisent automatiquement leur budget cognitif ou déclenchent une **cryptobiose préventive coordonnée** (`TRIGGER_COORDINATED_CRYPTOBIOSIS_FREEZE`) pour éviter la corruption en chaîne de l'état partagé.
+
+---
+
 ## Références internes
 
 - [ORCHESTRATION.md](ORCHESTRATION.md) : orchestration générale, gates et phases
@@ -1029,6 +1039,8 @@ Dans ces cas, préférer Trinity (hypothèses), A-Team (domaines), ou Biocénose
 - [BIOLOGIE_COMPUTATIONNELLE.md](BIOLOGIE_COMPUTATIONNELLE.md) : cadre biologique général
 - [biologicalModeService.js](../backend/src/services/biologicalModeService.js) : implémentation des quatre modes
 - [syncytiumService.js](../backend/src/services/syncytiumService.js) : service Syncytium
+- [somaticResonance.js](../backend/src/services/mcpBioTools/handlers/somaticResonance.js) : handler de résonance somatique
 - [agentOrchestrationState.js](../backend/src/services/agentOrchestrationState.js) : état partagé et synchronisation
 - [agentRuntimeAdapter.js](../backend/src/services/agentRuntimeAdapter.js) : dispatch des agents
+- [test_somatic_resonance.js](../backend/tests/test_somatic_resonance.js) : suite de tests de synchronicité somatique
 - Commandes CLI : `genos-cli biological deploy --mode syncytium`
