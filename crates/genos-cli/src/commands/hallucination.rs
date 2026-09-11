@@ -233,16 +233,19 @@ fn handle_extract(snapshot: &str) -> Result<(), String> {
 }
 
 fn handle_simulate(model: &str, snapshot: &str) -> Result<(), String> {
-    let (agent_id, _) = parse_snapshot_metadata(snapshot);
+    let analysis = parse_snapshot(snapshot);
+    let divergence = (analysis.dissonance * 0.05 + (analysis.unsupported_claims as f64 * 0.1)).min(1.0);
+    let steps = if analysis.total_claims > 0 { analysis.total_claims } else { 1 };
+    let outcome = if divergence > 0.3 { "DIVERGENCE_DETECTED" } else { "ROBUST" };
 
     let output = json!({
         "operation": "hallucination_simulate",
-        "agent_id": agent_id,
+        "agent_id": analysis.agent_id,
         "model": model,
         "snapshot": snapshot,
-        "simulated_steps": 4,
-        "synthetic_divergence": 0.03,
-        "outcome": "ROBUST"
+        "simulated_steps": steps,
+        "synthetic_divergence": (divergence * 100.0).round() / 100.0,
+        "outcome": outcome
     });
 
     println!("{}", serde_json::to_string_pretty(&output).unwrap());

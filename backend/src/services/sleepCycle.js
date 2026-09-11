@@ -1,7 +1,7 @@
 /**
  * @file sleepCycle.js
  * @description Hippocampal memory consolidation & microglial synaptic pruning service.
- * Simulates sleep cycles:
+ * Executes active background consolidation cycles on database storage:
  * 1. Asymptotic memory decay on decisions.
  * 2. Differential synaptic consolidation (LTP reinforcement vs LTD depression).
  * 3. Microglial trogocytosis / pruning of C3-tagged & low-weight synapses.
