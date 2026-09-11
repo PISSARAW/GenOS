@@ -583,7 +583,25 @@ En d’autres termes, GenOS est moins un simple orchestrateur de tâches qu’un
 Pour les missions à haut risque ou nécessitant une preuve formelle contre-factuelle, l'orchestrateur déploie des couples de **Jumeaux Miroirs** via `genos_biomimicry_mirror_twin_fork`.
 
 - **Organisation :** L'orchestrateur alloue des quotas équilibrés au jumeau constructeur et au jumeau sceptique.
-- **Barrière d'Équilibre :** La barrière d'évidence n'est franchie que si le score d'équilibre $\ge 0.70$, garantissant que la solution a résisté aux vecteurs d'attaque et contre-exemples forgés par son jumeau inversé.
+## 17.ter Orchestration par Multiples Hybrides (Matrice Polyovulaire $\times$ Isogénique)
+
+La primitive `genos_biomimicry_hybrid_multiples` structure les déploiements complexes en combinant polyovulation (macro-familles hétérogènes) et scission isogénique (micro-clones identiques) :
+
+```mermaid
+flowchart TD
+    ROOT["Mission Orchestrateur"] --> HYBRID["Matrice Hybride (genos_biomimicry_hybrid_multiples)"]
+    
+    HYBRID -->|Famille 1 : Polyovulation| F1["Famille Formelle (Claude)"]
+    HYBRID -->|Famille 2 : Polyovulation| F2["Famille Heuristique (GPT-4o)"]
+    
+    F1 -->|Scission Monozygote| C1A["Clone 1A (Seed 11)"]
+    F1 -->|Scission Monozygote| C1B["Clone 1B (Seed 22)"]
+    
+    F2 -->|Scission Monozygote| C2A["Clone 2A (Seed 33)"]
+    F2 -->|Scission Monozygote| C2B["Clone 2B (Seed 44)"]
+    
+    C1A & C1B & C2A & C2B --> SYNTHESIS["Synthèse Transversale & Sélection de Survivants"]
+```
 
 ---
 

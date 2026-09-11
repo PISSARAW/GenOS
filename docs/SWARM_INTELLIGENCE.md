@@ -419,6 +419,12 @@ flowchart LR
     ENV --> CONSENSUS["Consensus Pondéré & Décision Collective"]
 ```
 
+## 8.ter Nuées en Grappes Hybrides
+
+La primitive `genos_biomimicry_hybrid_multiples` structure les essaims à grande échelle sous forme de matrices multi-niveaux :
+- Diversité inter-groupes assurée par la polyovulation de familles distinctes ;
+- Cohérence et parallélisme intra-groupe assurés par le clivage isogénique de chaque famille.
+
 ---
 
 ## 9. Comparaison avec ce qui existe sur le marché
