@@ -324,6 +324,17 @@ async function execute(executionRequest) {
     telemetry.emitEvent({ eventType: 'IMMUNE_THREAT_BLOCKED', agentId: agentId || 'immune_system', action: 'MCP_EXECUTE', detail: reason, severity: 'critical', payload: { toolName, threats: threatScan.threats, organizationId, projectId } });
     return { success: false, status: 'blocked', error: reason, reason, threats: threatScan.threats, policy: { decision: 'deny', reason: 'IMMUNE_THREAT_DETECTED' } };
   }
+  const permissionRow = organizationId && projectId
+    ? await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, organizationId, projectId)
+    : await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id IS NULL AND project_id IS NULL', agentId);
+  let permissions = permissionRow ? JSON.parse(permissionRow.permissions_json || '[]') : [];
+  if (!permissionRow && (agentId === 'strategy_adapter' || agentId === 'system' || !agentId)) {
+    permissions = ['*'];
+  }
+  const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
+  const policy = platformSafety.validateToolCall({ agentId, toolName, args, permissions, deniedTools, taints });
+  await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', agentId || 'system', agentId || null, 'WORKFLOW_TOOL_CALL', toolName, policy.decision, policy.reason, JSON.stringify({ args, taints, organizationId, projectId, policy }));
+  if (policy.decision !== 'allow') return { success: false, status: policy.decision, policy };
   if (agentId) {
     const chromatinLock = checkChromatinLock(agentId, toolName);
     if (chromatinLock) {
@@ -344,17 +355,6 @@ async function execute(executionRequest) {
       };
     }
   }
-  const permissionRow = organizationId && projectId
-    ? await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, organizationId, projectId)
-    : await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id IS NULL AND project_id IS NULL', agentId);
-  let permissions = permissionRow ? JSON.parse(permissionRow.permissions_json || '[]') : [];
-  if (!permissionRow && (agentId === 'strategy_adapter' || agentId === 'system' || !agentId)) {
-    permissions = ['*'];
-  }
-  const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
-  const policy = platformSafety.validateToolCall({ agentId, toolName, args, permissions, deniedTools, taints });
-  await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', agentId || 'system', agentId || null, 'WORKFLOW_TOOL_CALL', toolName, policy.decision, policy.reason, JSON.stringify({ args, taints, organizationId, projectId, policy }));
-  if (policy.decision !== 'allow') return { success: false, status: policy.decision, policy };
   const tool = await db.get('SELECT * FROM mcp_tools WHERE name = ?', toolName);
   const isRegisteredInLogic = Boolean(require('./mcpArgumentValidation').REQUIRED_STRINGS?.[toolName]);
   if (!tool && !require('./mcpStrategyTools').isStrategyTool(toolName) && !require('./mcpBioTools').isBioTool(toolName) && !isRegisteredInLogic) return { success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` };
