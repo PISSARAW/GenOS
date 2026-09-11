@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('genos.db');
+const dbPath = process.env.GENOS_DB_PATH || 'genos.db';
+const db = new sqlite3.Database(dbPath);
 db.serialize(() => {
     console.log("=== TELEMETRY ===");
     db.all(`SELECT * FROM telemetry_events ORDER BY id DESC LIMIT 5`, (err, rows) => {

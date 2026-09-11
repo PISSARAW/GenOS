@@ -9,46 +9,48 @@ fn thalamus_cache_lock() -> &'static Mutex<()> {
 }
 
 fn thalamus_cache_file() -> PathBuf {
+    if let Some(path) = env::var_os("GENOS_THALAMUS_CACHE") {
+        return PathBuf::from(path);
+    }
     env::var_os("GENOS_WORKSPACE_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
         .join(".genos_thalamus_cache.json")
 }
 
-pub fn thalamus_cache_key(prompt: &str, cache_scope: &str, provider: &str, model: &str, rethink: bool, system_level: u8) -> String {
-    serde_json::to_string(&(prompt, cache_scope, provider, model, rethink, system_level))
-        .unwrap_or_else(|_| prompt.to_string())
+pub struct ThalamusCacheKey<'a> {
+    pub prompt: &'a str,
+    pub cache_scope: &'a str,
+    pub provider: &'a str,
+    pub model: &'a str,
+    pub rethink: bool,
+    pub system_level: u8,
+}
+
+pub fn thalamus_cache_key(k: &ThalamusCacheKey) -> String {
+    serde_json::to_string(&(k.prompt, k.cache_scope, k.provider, k.model, k.rethink, k.system_level))
+        .unwrap_or_else(|_| k.prompt.to_string())
+}
+
+fn find_preferred_model(names: &[String]) -> Option<String> {
+    let preferred_keywords = ["llama3", "mistral", "mixtral", "phi3", "gemma", "qwen"];
+    for keyword in preferred_keywords {
+        for name in names {
+            if name.to_lowercase().contains(keyword) {
+                return Some(name.clone());
+            }
+        }
+    }
+    names.first().cloned()
 }
 
 pub fn thalamus_select_ollama_model(client: &Client, ollama_url: &str) -> Option<String> {
     let url = format!("{}/api/tags", ollama_url);
-    if let Ok(res) = client.get(&url).send() {
-        if let Ok(json_resp) = res.json::<serde_json::Value>() {
-            if let Some(models) = json_resp["models"].as_array() {
-                if models.is_empty() {
-                    return None;
-                }
-                let mut available_model_names = Vec::new();
-                for model in models {
-                    if let Some(name) = model["name"].as_str() {
-                        available_model_names.push(name.to_string());
-                    }
-                }
-                let preferred_keywords = vec!["llama3", "mistral", "mixtral", "phi3", "gemma", "qwen"];
-                for keyword in &preferred_keywords {
-                    for model_name in &available_model_names {
-                        if model_name.to_lowercase().contains(keyword) {
-                            return Some(model_name.clone());
-                        }
-                    }
-                }
-                if !available_model_names.is_empty() {
-                    return Some(available_model_names[0].clone());
-                }
-            }
-        }
-    }
-    None
+    let res = client.get(&url).send().ok()?;
+    let json_resp: serde_json::Value = res.json().ok()?;
+    let models = json_resp["models"].as_array()?;
+    let names: Vec<String> = models.iter().filter_map(|m| m["name"].as_str().map(String::from)).collect();
+    find_preferred_model(&names)
 }
 
 pub fn evaluate_prompt_complexity(prompt: &str) -> u32 {
@@ -110,14 +112,17 @@ pub fn call_llm_api(prompt: &str, rethink: bool, system_level: u8, cache_scope: 
     
     // 1. Cache lookup
     if system_level == 1 && !rethink {
-        if let Some(cached_response) = thalamus_cache_lookup(&thalamus_cache_key(
+        let provider_env = env::var("LLM_PROVIDER").unwrap_or_else(|_| "auto".to_string());
+        let model_env = env::var("OLLAMA_MODEL").unwrap_or_else(|_| "auto".to_string());
+        let cache_key = thalamus_cache_key(&ThalamusCacheKey {
             prompt,
             cache_scope,
-            &env::var("LLM_PROVIDER").unwrap_or_else(|_| "auto".to_string()),
-            &env::var("OLLAMA_MODEL").unwrap_or_else(|_| "auto".to_string()),
+            provider: &provider_env,
+            model: &model_env,
             rethink,
             system_level,
-        )) {
+        });
+        if let Some(cached_response) = thalamus_cache_lookup(&cache_key) {
             return format!("⚡ [Mémoire Sémantique] Résultat mis en cache :\n{}", cached_response);
         }
     }
@@ -256,10 +261,15 @@ pub fn call_llm_api(prompt: &str, rethink: bool, system_level: u8, cache_scope: 
     };
 
     if system_level == 1 && !final_response.starts_with("Thalamus Error") {
-        thalamus_cache_store(
-            &thalamus_cache_key(prompt, cache_scope, &chosen_provider, &chosen_model, rethink, system_level),
-            &final_response,
-        );
+        let cache_key = thalamus_cache_key(&ThalamusCacheKey {
+            prompt,
+            cache_scope,
+            provider: &chosen_provider,
+            model: &chosen_model,
+            rethink,
+            system_level,
+        });
+        thalamus_cache_store(&cache_key, &final_response);
     }
     
     final_response

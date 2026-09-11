@@ -11,7 +11,7 @@ const { runFullAudit } = require('./proactiveGitHubAnalyst');
 const { runFleetDaemonCycle } = require('./daemonRepoWorkerService');
 
 const repoRoot = path.resolve(__dirname, '../../..');
-const configDir = path.join(repoRoot, '.genos');
+const configDir = process.env.GENOS_CONFIG_DIR || path.join(repoRoot, '.genos');
 const configFile = path.join(configDir, 'daemon_agent.json');
 
 const DEFAULT_CONFIG = {
@@ -51,11 +51,20 @@ function saveDaemonConfig(updates = {}) {
 }
 
 function getStartupDirectory() {
-  if (process.platform !== 'win32') return null;
-  return path.join(
-    process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'),
-    'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup'
-  );
+  if (process.env.GENOS_STARTUP_DIR) return process.env.GENOS_STARTUP_DIR;
+  if (process.platform === 'win32') {
+    return path.join(
+      process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'),
+      'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup'
+    );
+  }
+  if (process.platform === 'darwin') {
+    return path.join(os.homedir(), 'Library', 'LaunchAgents');
+  }
+  if (process.platform === 'linux') {
+    return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'autostart');
+  }
+  return null;
 }
 
 function getAutostartStatus() {
