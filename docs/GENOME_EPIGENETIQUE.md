@@ -545,6 +545,39 @@ flowchart LR
     ResearcherAgent --> HybridTarget
 ```
 
+### 7. Aneuploïdie Génomique (`genos_biomimicry_aneuploidy`)
+
+L'aneuploïdie modifie le nombre d'exemplaires d'un chromosome spécifique au sein du caryotype de l'organisation :
+* **Trisomie (+1 copie) :** Déploie 3 instances dédiées d'un sous-système critique (e.g. 3 vérificateurs) pour permettre un arbitrage par **consensus majoritaire 2/3** sans risque d'égalité.
+* **Monosomie (-1 copie) :** Réduit à 1 seule instance un composant non critique pour basculer en mode d'inférence ultra-frugale sous contrainte budgétaire.
+
+```mermaid
+flowchart TD
+    subgraph DiploidState["Caryotype Diploïde Nominal (2n = 6)"]
+        D_A["chrom_analyzer (2x)"]
+        D_V["chrom_verifier (2x)"]
+        D_E["chrom_executor (2x)"]
+    end
+
+    subgraph TrisomyState["Trisomie Ciblée (2n + 1 = 7)"]
+        T_V1["chrom_verifier #1"]
+        T_V2["chrom_verifier #2"]
+        T_V3["chrom_verifier #3"]
+        Vote["Arbitrage Supermajorité 2/3"]
+        T_V1 --> Vote
+        T_V2 --> Vote
+        T_V3 --> Vote
+    end
+
+    subgraph MonosomyState["Monosomie Frugale (2n - 1 = 5)"]
+        M_E["chrom_executor (1x - Économie Tokens 50%)"]
+    end
+
+    DiploidState -->|"Induction Trisomie Verifier"| TrisomyState
+    DiploidState -->|"Induction Monosomie Executor"| MonosomyState
+```
+
+
 
 
 
