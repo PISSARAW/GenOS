@@ -75,6 +75,7 @@ const { handleViralEndogenization, handleViralEndogenizationError } = require('.
 const { handleDsupShield, handleDsupShieldError } = require('./tardigradeDsupShield');
 const { handleTransdifferentiation, handleTurritopsisError } = require('./turritopsisTransdifferentiation');
 const { handleYamanakaReprogramming, handleYamanakaError } = require('./yamanakaReprogramming');
+const { handleConsciousnessTransfer, handleConsciousnessError } = require('./consciousnessTransfer');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -155,6 +156,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_tardigrade_dsup_shield: { handle: handleDsupShield, error: handleDsupShieldError },
   genos_biomimicry_turritopsis_transdifferentiation: { handle: handleTransdifferentiation, error: handleTurritopsisError },
   genos_biomimicry_yamanaka_reprogramming: { handle: handleYamanakaReprogramming, error: handleYamanakaError },
+  genos_temporal_consciousness_transfer: { handle: handleConsciousnessTransfer, error: handleConsciousnessError },
 };
 
 module.exports = { TOOL_HANDLERS };
