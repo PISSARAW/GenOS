@@ -87,6 +87,9 @@ function validateToolArguments(toolName, args = {}) {
   if (toolName === 'genos_execute_primitive' && typeof args.primitive !== 'string' && typeof args.primitive_name !== 'string' && typeof args.name !== 'string') {
     return invalid('primitive', 'primitive, primitive_name, or name is required.');
   }
+  if (toolName === 'genos_execute_primitive' && args.args !== undefined && (typeof args.args !== 'object' || args.args === null || Array.isArray(args.args))) {
+    return invalid('args', 'args must be an object.');
+  }
   if (toolName === 'genos_execute_strategy_pipeline' && !Array.isArray(args.primitives || args.pipeline)) {
     return invalid('primitives', 'primitives or pipeline must be an array.');
   }
