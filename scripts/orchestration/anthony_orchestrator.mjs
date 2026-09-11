@@ -47,11 +47,11 @@ class AnthonyOrchestrator {
     }
 
     // Concept 7: PD-L1 Blocker (Anti-Mock/Freeze Trap)
-    // Detects when complex logic is replaced by a hardcoded constant just to pass a test
+    // Detects when complex logic is replaced by a hardcoded constant or test stub to bypass logic
     pdl1BlockerScan(code) {
         if (!code) return "Error: No code provided";
-        // Heuristic: looks for suspicious hardcoded returns in what should be complex functions
-        const hasFreezeTrap = /return\s+(42|true|false|"Je_Suis_Safe"|0|1)\s*;/i.test(code) || /jest\.mock/i.test(code);
+        // Heuristic: looks for suspicious hardcoded returns and mock libraries in production code
+        const hasFreezeTrap = /return\s+(42|true|false|"Je_Suis_Safe"|0|1)\s*;/i.test(code) || /jest\.mock|jest\.fn|sinon\.stub/i.test(code);
         if (hasFreezeTrap) {
             return `[PD-L1 Blocker: REJECTED] Freeze Trap detected. The code uses a mock or a hardcoded constant to bypass logic.`;
         }
