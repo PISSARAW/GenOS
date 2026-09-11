@@ -58,6 +58,7 @@ const { handle: handleMarmosetGermlineChimerism } = require('./marmosetGermlineC
 const { handle: handleFreemartinInhibition } = require('./freemartinInhibition');
 const { handle: handleEmbryonicDiapause } = require('./embryonicDiapause');
 const { handlePointMutation, handlePointMutationError } = require('./pointMutation');
+const { handleFrameshiftMutation, handleFrameshiftMutationError } = require('./frameshiftMutation');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -121,6 +122,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_freemartin_endocrine_inhibition: { handle: handleFreemartinInhibition, error: (e) => ({ configured: false, error: e.message }) },
   genos_biomimicry_embryonic_diapause_pipeline: { handle: handleEmbryonicDiapause, error: (e) => ({ configured: false, error: e.message }) },
   genos_biomimicry_point_mutation: { handle: handlePointMutation, error: handlePointMutationError },
+  genos_biomimicry_frameshift_mutation: { handle: handleFrameshiftMutation, error: handleFrameshiftMutationError },
 };
 
 module.exports = { TOOL_HANDLERS };

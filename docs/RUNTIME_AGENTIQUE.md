@@ -420,6 +420,8 @@ flowchart TD
         H17["marmosetGermlineChimerism.js (Fraternal proxy spawn)"]
         H18["freemartinInhibition.js (Replication lock & compute boost)"]
         H19["embryonicDiapause.js (3-Tier zero-latency pipeline)"]
+        H20["pointMutation.js (Silent, missense, nonsense STOP)"]
+        H21["frameshiftMutation.js (Indel shift & compensatory pad)"]
     end
 
     Clients --> Detector
@@ -428,6 +430,3 @@ flowchart TD
     Router --> Handlers
 ```
 
-
-
-```
