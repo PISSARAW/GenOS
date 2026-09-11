@@ -9,57 +9,7 @@ const { getDatabase } = require('../db');
 const { canonicalize } = require('./evaluationGraders');
 const { textToVector } = require('./memoryScoring');
 
-const MAX_OUTPUT = 16000;
-
-function run(..._args) {
-  const [command, args, cwd, timeoutMs] = _args;
-
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    const startedAt = Date.now();
-    const timer = setTimeout(() => terminateChild(child), timeoutMs);
-    child.stdout.on('data', (chunk) => { stdout = `${stdout}${chunk}`.slice(-MAX_OUTPUT); });
-    child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-MAX_OUTPUT); });
-    child.on('error', (error) => { clearTimeout(timer); reject(error); });
-    child.on('close', (exitCode, signal) => {
-      clearTimeout(timer);
-      resolve({ command: [command, ...args].join(' '), exitCode, signal, durationMs: Date.now() - startedAt, stdout, stderr });
-    });
-  });
-}
-
-async function walk(directory, relative = '', callback = null) {
-  const entries = await fs.readdir(directory, { withFileTypes: true });
-  const results = [];
-  for (const entry of entries) {
-    const childRelative = relative ? path.join(relative, entry.name) : entry.name;
-    const childPath = path.join(directory, entry.name);
-    if (callback) {
-      const result = await callback(entry, childRelative, childPath);
-      if (result === 'skip') continue;
-    }
-    if (entry.isSymbolicLink()) continue;
-    if (entry.isDirectory()) {
-      const subResults = await walk(childPath, childRelative, callback);
-      results.push(...subResults);
-    } else {
-      results.push({ path: childRelative.split(path.sep).join('/'), entry });
-    }
-  }
-  return results;
-}
-
-function spawnGit(cwd, args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stderr = '';
-    child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
-    child.on('error', reject);
-    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(stderr.trim() || `git ${args.join(' ')} exited with code ${code}`))));
-  });
-}
+const { run, walk, spawnGit } = require('./sharedExecUtils');
 
 function estimateCostUsd(..._args) {
   const [costInput, costOutput, inputTokens, outputTokens] = _args;
@@ -414,43 +364,7 @@ async function loadConscienceState(db, agentId) {
   try { const row = await db.get('SELECT dissonance_level, eureka_count, cognitive_budget, cognitive_baseline_budget, cognitive_max_dissonance, is_apoptotic, conscience_revision FROM agents WHERE id = ?', agentId); if (!row) return { currentBudget: 100.0, baselineBudget: 100.0, dissonanceLevel: 0.0, eurekaMoments: 0, isApoptotic: false, maxDissonanceThreshold: 50.0, revision: 0, eurekaWindowStartedAt: 0, eurekaWindowCount: 0 }; return { currentBudget: Math.max(0, Number(row.cognitive_budget) || 100.0), baselineBudget: Math.max(0, Number(row.cognitive_baseline_budget) || 100.0), dissonanceLevel: Math.max(0, Number(row.dissonance_level) || 0.0), eurekaMoments: Math.max(0, Math.floor(Number(row.eureka_count) || 0)), isApoptotic: Boolean(row.is_apoptotic), maxDissonanceThreshold: Math.max(0.000001, Number(row.cognitive_max_dissonance) || 50.0), revision: Math.max(0, Math.floor(Number(row.conscience_revision) || 0)), eurekaWindowStartedAt: 0, eurekaWindowCount: 0 }; } catch (error) { throw new Error(`Unable to load conscience state for agent ${agentId}: ${error.message}`); }
 }
 
-function restore({ db, workspace, reference, author = 'studio' }) {
-  if (!workspace?.path) throw new Error('Workspace path is required for restore.');
-  const { withRestoreLock } = require('./workspaceSnapshotStore');
-  return withRestoreLock(workspace.path, () => restoreUnlocked({ db, workspace, reference, author }));
-}
-
-async function restoreUnlocked({ db, workspace, reference, author = 'studio' }) {
-  const { getSnapshot } = require('./workspaceSnapshotStore');
-  const { capture } = require('./workspaceSnapshotStore');
-  const { materialize } = require('./workspaceSnapshotStore');
-  const { removeWorkspaceFiles } = require('./workspaceSnapshotStore');
-  const { copyMaterializedFiles } = require('./workspaceSnapshotStore');
-  const { manifestHash } = require('./workspaceSnapshotStore');
-  const { collectFiles } = require('./workspaceSnapshotStore');
-  const { readManifest } = require('./workspaceSnapshotStore');
-  const target = await getSnapshot(db, workspace.id, reference);
-  const backup = await capture({ db, workspace, label: 'Pre-restore safety snapshot', reason: `Before restoring ${target.id}`, author });
-  const os = require('os');
-  const staging = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-restore-'));
-  const backupStaging = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-restore-backup-'));
-  try {
-    const verified = await materialize(target, staging);
-    await materialize({ metadata: backup.metadata, snapshot_hash: backup.snapshotHash, id: backup.id, workspace_id: workspace.id, workspace_path: workspace.path }, backupStaging);
-    await removeWorkspaceFiles(workspace.path);
-    await copyMaterializedFiles(staging, verified.files, workspace.path);
-    if (manifestHash(await collectFiles(workspace.path)) !== verified.hash) throw new Error(`Snapshot restore checksum mismatch for ${workspace.path}.`);
-    return { success: true, restoredSnapshot: target, safetySnapshot: backup, strategy: 'manifest-copy' };
-  } catch (error) {
-    try {
-      await removeWorkspaceFiles(workspace.path);
-      const backupManifest = await readManifest({ metadata: backup.metadata, snapshot_hash: backup.snapshotHash, id: backup.id, workspace_id: workspace.id, workspace_path: workspace.path });
-      await copyMaterializedFiles(backupStaging, backupManifest.files, workspace.path);
-      if (manifestHash(await collectFiles(workspace.path)) !== backupManifest.hash) throw new Error(`Safety snapshot checksum mismatch for ${workspace.path}.`);
-    } catch (rollbackError) { error.message += ` Recovery snapshot restore also failed: ${rollbackError.message}`; }
-    throw error;
-  } finally { await fs.rm(staging, { recursive: true, force: true }).catch(() => {}); await fs.rm(backupStaging, { recursive: true, force: true }).catch(() => {}); }
-}
+const { restore, restoreUnlocked } = require('./sharedRestore');
 
 module.exports = {
   run, walk, spawnGit, restore, restoreUnlocked, compileExecutionMemory,

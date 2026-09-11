@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleColliculusFusion(args, run) {
-  const out = run(`genos biomimicry colliculus-fusion --agent-id ${args.agent_id} --signals '${args.signals_json}'`);
+  const out = run(`genos biomimicry colliculus-fusion --agent-id ${quoteCliArg(args.agent_id)} --signals ${quoteCliArg(args.signals_json)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

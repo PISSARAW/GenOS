@@ -94,6 +94,10 @@ function createApp() {
   }));
 
   // 2. Request Parsing & Security Headers
+  // Auth endpoints parse untrusted login bodies: enforce a strict 100kb
+  // ceiling before the generous global parser runs (body-parser skips when
+  // req._body is already set, so /api/auth stays capped at 100kb).
+  app.use('/api/auth', express.json({ limit: '100kb' }));
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: false, limit: '2mb' }));
   app.use(securityHeaders);

@@ -1,25 +1,28 @@
+const { quoteCliArg, pickArg, pickNumber, hasFlag } = require('../shellQuote');
+
 function handleStigmergy(args, run) {
-  const action = String(args.action || 'deposit').toLowerCase();
-  const agentId = String(args.agent_id || args.agentId || 'default-agent').replace(/["\r\n]/g, '');
-  const targetFile = String(args.target_file || args.targetFile || '').replace(/["\r\n]/g, '');
-  const pheromoneType = String(args.pheromone_type || args.pheromoneType || 'trace').replace(/["\r\n]/g, '');
+  const action = String(pickArg(args, ['action'], 'deposit')).toLowerCase();
+  const rawTargetFile = String(pickArg(args, ['target_file', 'targetFile'], ''));
+  const agentId = quoteCliArg(pickArg(args, ['agent_id', 'agentId'], 'default-agent'));
+  const targetFile = quoteCliArg(rawTargetFile);
+  const pheromoneType = quoteCliArg(pickArg(args, ['pheromone_type', 'pheromoneType'], 'trace'));
 
   let cmd;
   if (action === 'read') {
-    if (!targetFile) {
+    if (!rawTargetFile) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: 'target_file is required for stigmergy-read' };
     }
-    cmd = `genos biomimicry stigmergy-read --agent-id ${agentId} --target-file "${targetFile}"`;
+    cmd = `genos biomimicry stigmergy-read --agent-id ${agentId} --target-file ${targetFile}`;
   } else if (action === 'evaporate') {
     cmd = `genos biomimicry stigmergy-evaporate --agent-id ${agentId}`;
-    if (args.dt_seconds !== undefined) cmd += ` --dt-seconds ${Number(args.dt_seconds) || 1}`;
+    if (args.dt_seconds !== undefined) cmd += ` --dt-seconds ${pickNumber(args.dt_seconds, 1)}`;
   } else {
-    if (!targetFile) {
+    if (!rawTargetFile) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: 'target_file is required for stigmergy-deposit' };
     }
-    cmd = `genos biomimicry stigmergy-deposit --agent-id ${agentId} --target-file "${targetFile}" --pheromone-type "${pheromoneType}"`;
-    if (args.amount !== undefined) cmd += ` --amount ${Number(args.amount) || 1.0}`;
-    if (args.is_repellent || args.isRepellent) cmd += ` --is-repellent`;
+    cmd = `genos biomimicry stigmergy-deposit --agent-id ${agentId} --target-file ${targetFile} --pheromone-type ${pheromoneType}`;
+    if (args.amount !== undefined) cmd += ` --amount ${pickNumber(args.amount, 1.0)}`;
+    if (hasFlag(args, ['is_repellent', 'isRepellent'])) cmd += ' --is-repellent';
   }
   const out = run(cmd);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };

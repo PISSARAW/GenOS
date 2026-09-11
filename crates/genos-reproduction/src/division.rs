@@ -1,10 +1,11 @@
+use crate::division_phases;
+use crate::seed::{default_seed, rng_from_seed};
 use genos_genome::Genome;
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt::Write;
 use uuid::Uuid;
-use crate::seed::{default_seed, rng_from_seed};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DivisionMode {
@@ -69,7 +70,7 @@ pub struct MeiosisResult {
 
 pub struct CellDivision;
 
-fn mutate_nucleotide<R: rand::Rng + ?Sized>(nucleotide: &genos_genome::DnaNucleotide, rng: &mut R) -> genos_genome::DnaNucleotide {
+pub(crate) fn mutate_nucleotide<R: rand::Rng + ?Sized>(nucleotide: &genos_genome::DnaNucleotide, rng: &mut R) -> genos_genome::DnaNucleotide {
     use genos_genome::DnaNucleotide::*;
     let alternatives = match nucleotide {
         A => [C, G, T],
@@ -93,50 +94,19 @@ impl CellDivision {
         if !genome.can_replicate() {
             return Err("Hayflick limit reached: genome is replicatively senescent".to_string());
         }
-        let parent = genome.clone();
+        let mut parent = genome.clone();
         let mut child = genome.derive_child();
-        let mut parent = parent;
         parent.add_bud_scar(child.genome_id())?;
         let mut rng = rng_from_seed(seed);
 
-        // Procaryote : allègement des métadonnées lourdes eucaryotes (rétrovirus, chromosomes surnuméraires)
         child.endogenous_retroviruses.clear();
         child.extra_chromosomes.clear();
+        child.plasmids = child.plasmids.into_iter().map(|mut p| { p.id = Uuid::new_v4(); p }).collect();
 
-        // Réplication et partitionnement des plasmides avec nouveaux IDs
-        child.plasmids = child.plasmids
-            .into_iter()
-            .map(|mut p| {
-                p.id = Uuid::new_v4();
-                p
-            })
-            .collect();
-
-        // Mutation stochastique réaliste des chromosomes
         if mutation_rate > 0.0 {
-            let mut maternal = child.chromosome_maternal.as_slice().to_vec();
-            let mut paternal = child.chromosome_paternal.as_slice().to_vec();
-            for nucleotide in maternal.iter_mut().chain(paternal.iter_mut()) {
-                if rng.random_bool(mutation_rate) {
-                    *nucleotide = mutate_nucleotide(nucleotide, &mut rng);
-                }
-            }
-            child.chromosome_maternal.replace_sequence(maternal);
-            child.chromosome_paternal.replace_sequence(paternal);
-
-            // Synchronisation : mutation stochastique des séquences d'ADN des gènes
-            for gene in child.genes.values_mut() {
-                let mut seq = gene.dna.as_slice().to_vec();
-                for nucleotide in &mut seq {
-                    if rng.random_bool(mutation_rate) {
-                        *nucleotide = mutate_nucleotide(nucleotide, &mut rng);
-                    }
-                }
-                gene.dna.replace_sequence(seq);
-            }
+            mutate_child_dna(&mut child, mutation_rate, &mut rng);
         }
 
-        // Procaryote : absence de condensation hétérochromatine complexe
         for gene in child.genes.values_mut() {
             gene.chromatin_state = genos_genome::ChromatinState::Euchromatin;
             gene.developmentally_locked = false;
@@ -145,9 +115,6 @@ impl CellDivision {
         Ok((parent, child))
     }
 
-    /// Spindle Assembly Checkpoint (SAC) :
-    /// Vérifie l'alignement chromosomique sur le plan équatorial mitotique,
-    /// l'intégrité diploïde et la validité structurelle du génome.
     pub fn verify_spindle_alignment(genome: &Genome) -> Result<String, String> {
         genome.validate()?;
         let mat_len = genome.chromosome_maternal.len();
@@ -157,38 +124,25 @@ impl CellDivision {
         }
         if mat_len != pat_len {
             return Err(format!(
-                "Mitotic spindle assembly checkpoint failed: chromosomal length mismatch (maternal: {}, paternal: {})",
-                mat_len, pat_len
+                "Mitotic spindle assembly checkpoint failed: chromosomal length mismatch (maternal: {mat_len}, paternal: {pat_len})"
             ));
         }
 
         let mut hasher = Sha256::new();
         for n in genome.chromosome_maternal.as_slice() {
-            hasher.update([match n {
-                genos_genome::DnaNucleotide::A => b'A',
-                genos_genome::DnaNucleotide::C => b'C',
-                genos_genome::DnaNucleotide::G => b'G',
-                genos_genome::DnaNucleotide::T => b'T',
-            }]);
+            hasher.update([nuc_byte(n)]);
         }
         hasher.update(b"::SPINDLE_EQUATORIAL_PLANE::");
         for n in genome.chromosome_paternal.as_slice() {
-            hasher.update([match n {
-                genos_genome::DnaNucleotide::A => b'A',
-                genos_genome::DnaNucleotide::C => b'C',
-                genos_genome::DnaNucleotide::G => b'G',
-                genos_genome::DnaNucleotide::T => b'T',
-            }]);
+            hasher.update([nuc_byte(n)]);
         }
         let mut hex = String::with_capacity(64);
         for byte in hasher.finalize() {
-            write!(&mut hex, "{:02x}", byte).unwrap();
+            write!(&mut hex, "{byte:02x}").unwrap();
         }
         Ok(hex)
     }
 
-    /// Mitose attestée : Division symétrique avec vérification du fuseau mitotique
-    /// et génération d'une preuve d'attestation cryptographique éliminant l'amitose.
     pub fn mitosis_attested(genome: &Genome) -> Result<MitosisResult, String> {
         if !genome.can_replicate() {
             return Err("Hayflick limit reached: genome is replicatively senescent".to_string());
@@ -206,7 +160,7 @@ impl CellDivision {
         hasher.update(b"MITOSIS_ATTESTED_COUNTERFACTUAL_FORK_V3");
         let mut attestation_hash = String::with_capacity(64);
         for byte in hasher.finalize() {
-            write!(&mut attestation_hash, "{:02x}", byte).unwrap();
+            write!(&mut attestation_hash, "{byte:02x}").unwrap();
         }
 
         let attestation = MitosisAttestation {
@@ -219,15 +173,9 @@ impl CellDivision {
             amitosis_rejected: true,
         };
 
-        Ok(MitosisResult {
-            parent,
-            clone,
-            attestation,
-        })
+        Ok(MitosisResult { parent, clone, attestation })
     }
 
-    /// Mitose symétrique standard : délègue à `mitosis_attested` en garantissant
-    /// le passage du Spindle Assembly Checkpoint.
     pub fn mitosis(genome: &Genome) -> Result<(Genome, Genome), String> {
         let result = Self::mitosis_attested(genome)?;
         Ok((result.parent, result.clone))
@@ -239,8 +187,7 @@ impl CellDivision {
         let result = Self::budding_with_limit(
             mother,
             daughter_volume,
-            mother.bud_scars.len() as u32,
-            mother.hayflick_limit,
+            (mother.bud_scars.len() as u32, mother.hayflick_limit),
         )?;
         Ok((result.mother, result.daughter))
     }
@@ -248,19 +195,18 @@ impl CellDivision {
     pub fn budding_with_limit(
         mother: &Genome,
         daughter_volume: f64,
-        current_scars: u32,
-        hayflick_limit: u32,
+        limits: (u32, u32)
     ) -> Result<BuddingResult, String> {
-        Self::budding_with_limit_and_mutation(mother, daughter_volume, current_scars, hayflick_limit, 0.0)
+        let (current_scars, hayflick_limit) = limits;
+        Self::budding_with_limit_and_mutation(mother, daughter_volume, (current_scars, hayflick_limit, 0.0))
     }
 
     pub fn budding_with_limit_and_mutation(
         mother: &Genome,
         daughter_volume: f64,
-        current_scars: u32,
-        hayflick_limit: u32,
-        mutation_rate: f64,
+        params: (u32, u32, f64)
     ) -> Result<BuddingResult, String> {
+        let (current_scars, hayflick_limit, mutation_rate) = params;
         if daughter_volume <= 0.0 || daughter_volume >= 1.0 {
             return Err("Daughter volume must be between 0 and 1".to_string());
         }
@@ -269,8 +215,7 @@ impl CellDivision {
         }
         if current_scars >= hayflick_limit {
             return Err(format!(
-                "Hayflick limit reached: cell has accumulated {} bud scars (limit: {})",
-                current_scars, hayflick_limit
+                "Hayflick limit reached: cell has accumulated {current_scars} bud scars (limit: {hayflick_limit})"
             ));
         }
 
@@ -286,35 +231,20 @@ impl CellDivision {
         parent.insert_gene(genos_genome::Gene::new("hayflick_limit", &hayflick_limit.to_string()));
         parent.insert_gene(genos_genome::Gene::new("is_senescent", &is_senescent.to_string()));
 
-        // Somatic mutation during budding if mutation_rate > 0
         if mutation_rate > 0.0 {
-            let seed = default_seed(
-                &mother.genome_id().to_string(),
-                &format!("budding_mutation:{daughter_volume:.6}:{current_scars}:{hayflick_limit}:{mutation_rate:.6}"),
-            );
-            let mut rng = rng_from_seed(&seed);
-            let mut mat = daughter.chromosome_maternal.as_slice().to_vec();
-            let mut pat = daughter.chromosome_paternal.as_slice().to_vec();
-            for n in mat.iter_mut().chain(pat.iter_mut()) {
-                if rng.random_bool(mutation_rate) {
-                    *n = mutate_nucleotide(n, &mut rng);
-                }
-            }
-            daughter.chromosome_maternal.replace_sequence(mat);
-            daughter.chromosome_paternal.replace_sequence(pat);
+            mutate_budding_daughter(&mut daughter, (mother, daughter_volume, current_scars, hayflick_limit, mutation_rate));
         }
 
-        // Asymétrie génomique : le volume d'expression des gènes du bourgeon est pondéré par daughter_volume
         for gene in daughter.genes.values_mut() {
             gene.expression_volume = (gene.expression_volume * daughter_volume).clamp(0.01, 1.0);
         }
 
-        daughter.insert_gene(genos_genome::Gene::new("lineage_mode", "ephemeral_bud"));
-        daughter.insert_gene(genos_genome::Gene::new("daughter_volume", &daughter_volume.to_string()));
-        daughter.insert_gene(genos_genome::Gene::new("bud_scars", "0"));
         let daughter_limit = (hayflick_limit / 2).max(1);
         daughter.hayflick_limit = daughter_limit;
         daughter.bud_scars.clear();
+        daughter.insert_gene(genos_genome::Gene::new("lineage_mode", "ephemeral_bud"));
+        daughter.insert_gene(genos_genome::Gene::new("daughter_volume", &daughter_volume.to_string()));
+        daughter.insert_gene(genos_genome::Gene::new("bud_scars", "0"));
         daughter.insert_gene(genos_genome::Gene::new("hayflick_limit", &daughter_limit.to_string()));
         daughter.insert_gene(genos_genome::Gene::new("is_senescent", "false"));
 
@@ -335,168 +265,86 @@ impl CellDivision {
     }
 
     pub fn schizogony(mother: &Genome, merozoite_count: usize) -> Result<Vec<Genome>, String> {
-        let seed = default_seed(&mother.genome_id().to_string(), "schizogony");
-        let result = Self::schizogony_with_seed(mother, merozoite_count, 0.0, &seed)?;
-        Ok(result.merozoites)
+        division_phases::schizogony(mother, merozoite_count)
     }
 
     pub fn schizogony_with_seed(
         mother: &Genome,
         merozoite_count: usize,
-        mutation_rate: f64,
-        seed: &str,
+        opts: (f64, &str)
     ) -> Result<SchizogonyResult, String> {
-        if merozoite_count < MIN_MEROZOITES || merozoite_count > MAX_MEROZOITES {
-            return Err(format!(
-                "Merozoite count must be between {} and {}, got {}",
-                MIN_MEROZOITES, MAX_MEROZOITES, merozoite_count
-            ));
-        }
-        if !(0.0..=1.0).contains(&mutation_rate) {
-            return Err("Mutation rate must be between 0 and 1".to_string());
-        }
-        if !mother.can_replicate() {
-            return Err("Hayflick limit reached: genome is replicatively senescent".to_string());
-        }
-
-        let mut rng = rng_from_seed(seed);
-        let mut daughters = Vec::with_capacity(merozoite_count);
-
-        for idx in 0..merozoite_count {
-            let mut daughter = mother.derive_child();
-            if mutation_rate > 0.0 {
-                let mut maternal = daughter.chromosome_maternal.as_slice().to_vec();
-                let mut paternal = daughter.chromosome_paternal.as_slice().to_vec();
-                for nucleotide in maternal.iter_mut().chain(paternal.iter_mut()) {
-                    if rng.random_bool(mutation_rate) {
-                        *nucleotide = match nucleotide {
-                            genos_genome::DnaNucleotide::A => genos_genome::DnaNucleotide::C,
-                            genos_genome::DnaNucleotide::C => genos_genome::DnaNucleotide::G,
-                            genos_genome::DnaNucleotide::G => genos_genome::DnaNucleotide::T,
-                            genos_genome::DnaNucleotide::T => genos_genome::DnaNucleotide::A,
-                        };
-                    }
-                }
-                daughter.chromosome_maternal.replace_sequence(maternal);
-                daughter.chromosome_paternal.replace_sequence(paternal);
-            }
-            daughter.insert_gene(genos_genome::Gene::new(
-                "merozoite_index",
-                &idx.to_string(),
-            ));
-            daughters.push(daughter);
-        }
-
-        Ok(SchizogonyResult {
-            mother_genome_id: mother.genome_id(),
-            mother_lysed: true,
-            merozoites: daughters,
-            mutation_rate_applied: mutation_rate,
-        })
+        division_phases::schizogony_with_seed(mother, merozoite_count, opts)
     }
 
     pub fn meiosis(genome: &Genome, crossover_point: Option<usize>) -> Result<Vec<Genome>, String> {
-        Self::meiosis_with_seed_and_mutation(genome, crossover_point, &default_seed(&genome.genome_id().to_string(), "meiosis"), 0.0)
-            .map(|r| r.gametes)
+        division_phases::meiosis(genome, crossover_point)
     }
 
-    pub fn meiosis_with_seed(genome: &Genome, crossover_point: Option<usize>, seed: &str) -> Result<MeiosisResult, String> {
-        Self::meiosis_with_seed_and_mutation(genome, crossover_point, seed, 0.0)
+    pub fn meiosis_with_seed(
+        genome: &Genome,
+        crossover_point: Option<usize>,
+        seed: &str
+    ) -> Result<MeiosisResult, String> {
+        division_phases::meiosis_with_seed(genome, crossover_point, seed)
     }
 
     pub fn meiosis_with_seed_and_mutation(
         genome: &Genome,
         crossover_point: Option<usize>,
-        seed: &str,
-        mutation_rate: f64,
+        opts: (&str, f64)
     ) -> Result<MeiosisResult, String> {
-        if !(0.0..=1.0).contains(&mutation_rate) {
-            return Err("Mutation rate must be between 0 and 1".to_string());
-        }
-        let mat_len = genome.chromosome_maternal.len();
-        let pat_len = genome.chromosome_paternal.len();
-        let min_len = mat_len.min(pat_len);
-        if min_len == 0 {
-            return Err("Cannot perform meiosis on empty chromosomes".to_string());
-        }
-
-        let mut rng = rng_from_seed(seed);
-        let pt = match crossover_point {
-            Some(p) => p.min(min_len),
-            None => {
-                rng.random_range(0..min_len)
-            }
-        };
-
-        let mat_slice = genome.chromosome_maternal.as_slice();
-        let pat_slice = genome.chromosome_paternal.as_slice();
-
-        // 4 Chromatides produites lors de la réplication et du crossing-over en Prophase I :
-        // 1. Chromatide maternelle non recombinante
-        let chrom_1 = mat_slice.to_vec();
-        // 2. Chromatide recombinante : début maternel + fin paternelle
-        let mut chrom_2 = mat_slice[..pt].to_vec();
-        chrom_2.extend_from_slice(&pat_slice[pt..]);
-        // 3. Chromatide recombinante : début paternel + fin maternelle
-        let mut chrom_3 = pat_slice[..pt].to_vec();
-        chrom_3.extend_from_slice(&mat_slice[pt..]);
-        // 4. Chromatide paternelle non recombinante
-        let chrom_4 = pat_slice.to_vec();
-
-        let chromatids = [chrom_1, chrom_2, chrom_3, chrom_4];
-        let mut gametes = Vec::with_capacity(4);
-
-        for (i, mut chrom) in chromatids.into_iter().enumerate() {
-            if mutation_rate > 0.0 {
-                for nucleotide in &mut chrom {
-                    if rng.random_bool(mutation_rate) {
-                        *nucleotide = mutate_nucleotide(nucleotide, &mut rng);
-                    }
-                }
-            }
-
-            let mut gamete = genome.derive_child();
-            gamete.parent_ids = vec![genome.genome_id()];
-            gamete.ploidy = "haploid".to_string();
-            gamete.chromosome_maternal.replace_sequence(chrom.clone());
-            gamete.chromosome_paternal.replace_sequence(chrom);
-            gamete.bud_scars.clear();
-            gamete.endogenous_retroviruses.clear();
-            gamete.extra_chromosomes.clear();
-
-            // Ségrégation et reprogrammation méiotique (déméthylation gamétique)
-            // L'hétérochromatine constitutive est préservée, tandis que l'hétérochromatine
-            // facultative et les marques somatiques sont réinitialisées vers l'euchromatine totipotente.
-            for gene in gamete.genes.values_mut() {
-                if gene.chromatin_state != genos_genome::ChromatinState::HeterochromatinConstitutive {
-                    gene.is_methylated = false;
-                    gene.developmentally_locked = false;
-                    gene.chromatin_state = genos_genome::ChromatinState::Euchromatin;
-                }
-                if mutation_rate > 0.0 {
-                    let mut seq = gene.dna.as_slice().to_vec();
-                    for nucleotide in &mut seq {
-                        if rng.random_bool(mutation_rate) {
-                            *nucleotide = mutate_nucleotide(nucleotide, &mut rng);
-                        }
-                    }
-                    gene.dna.replace_sequence(seq);
-                }
-            }
-
-            gamete.insert_gene(genos_genome::Gene::new(
-                "gamete_meiotic_index",
-                &i.to_string(),
-            ));
-            gametes.push(gamete);
-        }
-
-        Ok(MeiosisResult {
-            mother_genome_id: genome.genome_id(),
-            gametes,
-            crossover_point: pt,
-            reduction_completed: true,
-            mutation_rate_applied: mutation_rate,
-        })
+        division_phases::meiosis_with_seed_and_mutation(genome, crossover_point, opts)
     }
+}
+
+fn nuc_byte(n: &genos_genome::DnaNucleotide) -> u8 {
+    match n {
+        genos_genome::DnaNucleotide::A => b'A',
+        genos_genome::DnaNucleotide::C => b'C',
+        genos_genome::DnaNucleotide::G => b'G',
+        genos_genome::DnaNucleotide::T => b'T',
+    }
+}
+
+fn mutate_child_dna<R: rand::Rng + ?Sized>(child: &mut Genome, mutation_rate: f64, rng: &mut R) {
+    let mut maternal = child.chromosome_maternal.as_slice().to_vec();
+    let mut paternal = child.chromosome_paternal.as_slice().to_vec();
+    for nucleotide in maternal.iter_mut().chain(paternal.iter_mut()) {
+        if rng.random_bool(mutation_rate) {
+            *nucleotide = mutate_nucleotide(nucleotide, rng);
+        }
+    }
+    child.chromosome_maternal.replace_sequence(maternal);
+    child.chromosome_paternal.replace_sequence(paternal);
+
+    for gene in child.genes.values_mut() {
+        let mut seq = gene.dna.as_slice().to_vec();
+        for nucleotide in &mut seq {
+            if rng.random_bool(mutation_rate) {
+                *nucleotide = mutate_nucleotide(nucleotide, rng);
+            }
+        }
+        gene.dna.replace_sequence(seq);
+    }
+}
+
+fn mutate_budding_daughter(
+    daughter: &mut Genome,
+    opts: (&Genome, f64, u32, u32, f64)
+) {
+    let (mother, daughter_volume, current_scars, hayflick_limit, mutation_rate) = opts;
+    let seed = default_seed(
+        &mother.genome_id().to_string(),
+        &format!("budding_mutation:{daughter_volume:.6}:{current_scars}:{hayflick_limit}:{mutation_rate:.6}"),
+    );
+    let mut rng = rng_from_seed(&seed);
+    let mut mat = daughter.chromosome_maternal.as_slice().to_vec();
+    let mut pat = daughter.chromosome_paternal.as_slice().to_vec();
+    for n in mat.iter_mut().chain(pat.iter_mut()) {
+        if rng.random_bool(mutation_rate) {
+            *n = mutate_nucleotide(n, &mut rng);
+        }
+    }
+    daughter.chromosome_maternal.replace_sequence(mat);
+    daughter.chromosome_paternal.replace_sequence(pat);
 }

@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleMyceliumRoute(args, run) {
-  const out = run(`genos biomimicry mycelium-route --agent-id ${args.agent_id} --target-path "${args.target_path}"`);
+  const out = run(`genos biomimicry mycelium-route --agent-id ${quoteCliArg(args.agent_id)} --target-path ${quoteCliArg(args.target_path)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

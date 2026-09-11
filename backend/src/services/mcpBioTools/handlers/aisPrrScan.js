@@ -1,6 +1,8 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleAISPRRScan(args, run) {
   const patterns = args.patterns_detected ? args.patterns_detected.join(',') : '';
-  const out = run(`genos ais prr-scan --agent-id ${args.agent_id} --patterns "${patterns}"`);
+  const out = run(`genos ais prr-scan --agent-id ${quoteCliArg(args.agent_id)} --patterns ${quoteCliArg(patterns)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

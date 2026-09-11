@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleNetworkQuorum(args, run) {
-  const out = run(`genos biomimicry network-quorum --agent-id ${args.agent_id} --threshold ${args.quorum_threshold} --action-id "${args.action_id}"`);
+  const out = run(`genos biomimicry network-quorum --agent-id ${quoteCliArg(args.agent_id)} --threshold ${quoteCliArg(args.quorum_threshold)} --action-id ${quoteCliArg(args.action_id)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

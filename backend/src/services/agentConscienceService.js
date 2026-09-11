@@ -12,6 +12,7 @@ const DEFAULT_BASELINE_BUDGET = Math.max(1.0, Number(process.env.GENOS_BASELINE_
 const DEFAULT_EUREKA_WINDOW_MS = 60 * 1000;
 const DEFAULT_EUREKA_LIMIT = 3;
 const persistTails = new Map();
+const { resolveConflictIntoState } = require('./conscienceMerge');
 
 function createConscienceState(initial = {}) {
   const finiteOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -26,6 +27,28 @@ function createConscienceState(initial = {}) {
     eurekaWindowStartedAt: finiteOr(initial.eurekaWindowStartedAt, 0),
     eurekaWindowCount: Math.max(0, Math.floor(finiteOr(initial.eurekaWindowCount, 0)))
   };
+}
+
+function summarizeMetrics(metrics) {
+  const input = metrics || {};
+  const cognitiveHealth = input.cognitiveHealth || {};
+  const rawHealth = cognitiveHealth.health_score === undefined ? 1 : cognitiveHealth.health_score;
+  return {
+    errorsInLoop: Math.max(0, Number(input.errorsInLoop) || 0),
+    progressScore: Math.max(0, Number(input.progressScore) || 0),
+    repetitionScore: Math.max(0, Number(cognitiveHealth.repetition_score) || 0),
+    semanticDrift: Math.max(0, Number(cognitiveHealth.semantic_drift) || 0),
+    healthScore: Math.max(0, Math.min(1, Number(rawHealth)))
+  };
+}
+
+function computePenalty(summary) {
+  let penalty = summary.errorsInLoop * 2.5;
+  if (summary.repetitionScore > 0.15) penalty += 5.0;
+  if (summary.semanticDrift > 0) penalty += 6.0;
+  const deficit = (0.5 - summary.healthScore) * 10.0;
+  if (deficit > 0) penalty += deficit;
+  return penalty;
 }
 
 /**
@@ -43,18 +66,9 @@ function evaluateBranch(state, metrics = {}) {
     return { state, apoptoticTriggered: false, harmony: 100 };
   }
 
-  const errorsInLoop = Math.max(0, Number(metrics.errorsInLoop) || 0);
-  const progressScore = Math.max(0, Number(metrics.progressScore) || 0);
-  const cognitiveHealth = metrics.cognitiveHealth || {};
-  const repetitionScore = Math.max(0, Number(cognitiveHealth.repetition_score) || 0);
-  const semanticDrift = Math.max(0, Number(cognitiveHealth.semantic_drift) || 0);
-  const healthScore = Math.max(0, Math.min(1, Number(cognitiveHealth.health_score ?? 1)));
-
-  const penalty = errorsInLoop * 2.5
-    + (repetitionScore > 0.15 ? 5.0 : 0)
-    + (semanticDrift > 0 ? 6.0 : 0)
-    + ((0.5 - healthScore) * 10.0 > 0 ? (0.5 - healthScore) * 10.0 : 0);
-  const relief = progressScore * 3.0;
+  const summary = summarizeMetrics(metrics);
+  const penalty = computePenalty(summary);
+  const relief = summary.progressScore * 3.0;
 
   state.dissonanceLevel = Math.max(0, state.dissonanceLevel + penalty - relief);
   state.currentBudget = Math.max(0, state.currentBudget - 1.0);
@@ -120,9 +134,11 @@ function formatConsciencePrompt(state) {
 /**
  * Persiste l'état de conscience en base SQLite si les colonnes existent.
  */
-async function persistConscienceState(db, agentId, state, options = {}) {
+async function persistConscienceState(..._args) {
+  const [db, agentId, state, options] = _args;
+  const opts = options || {};
   const previousTail = persistTails.get(agentId) || Promise.resolve();
-  const operation = previousTail.catch(() => {}).then(() => persistConscienceStateNow(db, agentId, state, true, options));
+  const operation = previousTail.catch(() => {}).then(() => { return persistConscienceStateNow(db, agentId, state, true, opts); });
   const tracked = operation.catch(() => {}).finally(() => {
     if (persistTails.get(agentId) === tracked) persistTails.delete(agentId);
   });
@@ -130,9 +146,32 @@ async function persistConscienceState(db, agentId, state, options = {}) {
   return operation;
 }
 
-async function persistConscienceStateNow(db, agentId, state, retry = true, options = {}) {
+async function recordConscienceTransition(db, transition) {
+  const options = transition.options || {};
+  const reason = String(options.reason || 'evaluation');
+  const fromApoptotic = transition.previous.is_apoptotic ? 1 : 0;
+  const toApoptotic = transition.state.isApoptotic ? 1 : 0;
+  await db.run(
+    'INSERT INTO conscience_transitions (agent_id, from_revision, to_revision, from_dissonance, to_dissonance, from_budget, to_budget, from_apoptotic, to_apoptotic, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    transition.agentId,
+    transition.previous.conscience_revision,
+    transition.state.revision + 1,
+    transition.previous.dissonance_level,
+    transition.state.dissonanceLevel,
+    transition.previous.cognitive_budget,
+    transition.state.currentBudget,
+    fromApoptotic,
+    toApoptotic,
+    reason
+  );
+}
+
+async function persistConscienceStateNow(..._args) {
+  const [db, agentId, state, retryArg, optionsArg] = _args;
+  const retry = retryArg === undefined ? true : retryArg;
+  const options = optionsArg || {};
   const previous = await db.get(
-    'SELECT dissonance_level, cognitive_budget, is_apoptotic, conscience_revision FROM agents WHERE id = ?',
+    'SELECT dissonance_level, cognitive_budget, is_apoptotic, conscience_revision, updated_at FROM agents WHERE id = ?',
     agentId
   );
   if (!previous) {
@@ -160,31 +199,15 @@ async function persistConscienceStateNow(db, agentId, state, retry = true, optio
   );
   if (result.changes !== 1) {
     if (!retry) throw new Error(`Conscience state conflict for agent ${agentId} at revision ${state.revision}`);
-    const current = await loadConscienceState(db, agentId);
-    state.dissonanceLevel = Math.max(state.dissonanceLevel, current.dissonanceLevel);
-    state.eurekaMoments = Math.max(state.eurekaMoments, current.eurekaMoments);
-    state.currentBudget = Math.min(state.currentBudget, current.currentBudget);
-    state.isApoptotic = state.isApoptotic || current.isApoptotic;
-    state.revision = current.revision;
+    const current = await db.get(
+      'SELECT dissonance_level, eureka_count, cognitive_budget, cognitive_baseline_budget, cognitive_max_dissonance, is_apoptotic, conscience_revision, updated_at FROM agents WHERE id = ?',
+      agentId
+    );
+    if (!current) throw new Error(`Conscience state conflict for agent ${agentId} at revision ${state.revision}`);
+    resolveConflictIntoState(state, previous, current);
     return persistConscienceStateNow(db, agentId, state, false, options);
   }
-  const transitionReason = String(options.reason || 'evaluation');
-  await db.run(
-    `INSERT INTO conscience_transitions
-      (agent_id, from_revision, to_revision, from_dissonance, to_dissonance,
-       from_budget, to_budget, from_apoptotic, to_apoptotic, reason)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    agentId,
-    previous?.conscience_revision ?? state.revision,
-    state.revision + 1,
-    previous?.dissonance_level ?? state.dissonanceLevel,
-    state.dissonanceLevel,
-    previous?.cognitive_budget ?? state.currentBudget,
-    state.currentBudget,
-    previous?.is_apoptotic ? 1 : 0,
-    state.isApoptotic ? 1 : 0,
-    transitionReason
-  );
+  await recordConscienceTransition(db, { agentId, previous, state, options });
   state.revision += 1;
 }
 

@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleSpeciationCheck(args, run) {
-  const out = run(`genos biomimicry speciation-check --agent-id ${args.agent_id}` + (args.divergence_threshold ? ` --threshold ${args.divergence_threshold}` : ''));
+  const out = run(`genos biomimicry speciation-check --agent-id ${quoteCliArg(args.agent_id)}` + (args.divergence_threshold ? ` --threshold ${quoteCliArg(args.divergence_threshold)}` : ''));
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

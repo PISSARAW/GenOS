@@ -5,6 +5,7 @@
 
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
+const { anonymousPrincipal, extractBearerToken, buildKeyPrincipal, buildSessionPrincipal } = require('./sessionPrincipal');
 
 const ROLE_PERMISSIONS = {
   admin: ['all', 'read', 'workspace:write', 'workspace:delete', 'experiment:write', 'experiment:run', 'swarm:vote', 'swarm:propose', 'mcp:execute_safe', 'mcp:execute_destructive', 'security:manage', 'override_breaker', 'emergency_kill'],
@@ -21,10 +22,10 @@ async function resolveUserFromHeaders(headers) {
   if (!authHeader) {
     // Anonymous callers get no permissions. Every protected route must
     // authenticate; there is deliberately no implicit "viewer" fallback.
-    return { role: 'anonymous', permissions: [], username: 'anonymous', isAuthenticated: false };
+    return anonymousPrincipal();
   }
 
-  const rawToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
+  const rawToken = extractBearerToken(authHeader);
 
   // Validate only the token hash. Public record IDs are identifiers, not secrets.
   try {
@@ -38,34 +39,18 @@ async function resolveUserFromHeaders(headers) {
     );
 
     if (keyRecord) {
-      let perms = [];
-      try {
-        const parsed = JSON.parse(keyRecord.permissions || '[]');
-        perms = Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : [];
-      } catch (e) {
-        perms = [];
-      }
-      const rolePerms = ROLE_PERMISSIONS[keyRecord.role] || [];
-      const combinedPerms = Array.from(new Set([...rolePerms, ...perms]));
-
       await db.run('UPDATE access_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?', keyRecord.id);
-      return {
-        role: keyRecord.role,
-        permissions: combinedPerms,
-        username: keyRecord.label || 'operator',
-        keyId: keyRecord.id,
-        isAuthenticated: true
-      };
+      return buildKeyPrincipal(keyRecord, ROLE_PERMISSIONS[keyRecord.role]);
     }
     const session = await db.get("SELECT * FROM sessions WHERE token_hash = ? AND revoked = 0 AND expires_at > CURRENT_TIMESTAMP", tokenHash);
     if (session) {
-      return { role: session.role, permissions: ROLE_PERMISSIONS[session.role] || ROLE_PERMISSIONS.viewer, username: session.username, keyId: session.id, isAuthenticated: true };
+      return buildSessionPrincipal(session, ROLE_PERMISSIONS);
     }
   } catch (err) {
     console.error('[Auth] Error querying access keys:', err.message);
   }
 
-  return { role: 'anonymous', permissions: [], username: 'anonymous', isAuthenticated: false };
+  return anonymousPrincipal();
 }
 
 function requirePermission(permission) {

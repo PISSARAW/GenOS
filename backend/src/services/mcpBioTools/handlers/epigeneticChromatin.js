@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleEpigeneticChromatin(args, run) {
-  const out = run(`genos biomimicry epigenetic-chromatin --agent-id ${args.agent_id} --locus "${args.locus}" --state ${args.state}`);
+  const out = run(`genos biomimicry epigenetic-chromatin --agent-id ${quoteCliArg(args.agent_id)} --locus ${quoteCliArg(args.locus)} --state ${quoteCliArg(args.state)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

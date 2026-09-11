@@ -3,6 +3,7 @@
  */
 
 const path = require('path');
+const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const { initializeSchema } = require('./schema');
@@ -16,6 +17,46 @@ let currentDbPath = null;
 let dbInitialization = null;
 const transactionTails = new WeakMap();
 const transactionStorage = new AsyncLocalStorage();
+const MAX_DATABASE_BACKUPS = 3;
+
+// N14: best-effort copy of the database file before destructive migrations.
+// Never throws: a backup failure must never block the boot sequence.
+function backupDatabaseFile(dbPath) {
+  try {
+    const resolved = path.resolve(dbPath);
+    let stat = null;
+    try {
+      stat = fs.statSync(resolved);
+    } catch (_) {
+      return null;
+    }
+    if (!stat.isFile() || stat.size <= 0) return null;
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+    const backupPath = `${resolved}.backup-${stamp}`;
+    fs.copyFileSync(resolved, backupPath);
+    pruneDatabaseBackups(resolved);
+    return backupPath;
+  } catch (error) {
+    console.warn('[DB] Pre-migration backup failed (continuing boot):', error.message);
+    return null;
+  }
+}
+
+function pruneDatabaseBackups(resolvedDbPath) {
+  try {
+    const directory = path.dirname(resolvedDbPath);
+    const prefix = `${path.basename(resolvedDbPath)}.backup-`;
+    const backups = fs.readdirSync(directory).filter((name) => name.startsWith(prefix)).sort();
+    while (backups.length > MAX_DATABASE_BACKUPS) {
+      const oldest = backups.shift();
+      try {
+        fs.unlinkSync(path.join(directory, oldest));
+      } catch (_) {}
+    }
+  } catch (error) {
+    console.warn('[DB] Backup pruning failed (continuing boot):', error.message);
+  }
+}
 
 async function getDatabase(dbFilePath) {
   if (dbFilePath) {
@@ -51,6 +92,7 @@ async function getDatabase(dbFilePath) {
     }
 
     try {
+      backupDatabaseFile(filename);
       await initializeSchema(db);
       await seedDatabase(db);
       dbInstance = db;
@@ -147,5 +189,6 @@ module.exports = {
   getDatabase,
   closeDatabase,
   withTransaction,
-  withWriteRetry
+  withWriteRetry,
+  backupDatabaseFile
 };

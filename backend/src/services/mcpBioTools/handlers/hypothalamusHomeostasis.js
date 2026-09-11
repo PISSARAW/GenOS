@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleHypothalamusHomeostasis(args, run) {
-  const out = run(`genos biomimicry hypothalamus-homeostasis --agent-id ${args.agent_id} --nervous-state ${args.nervous_state}`);
+  const out = run(`genos biomimicry hypothalamus-homeostasis --agent-id ${quoteCliArg(args.agent_id)} --nervous-state ${quoteCliArg(args.nervous_state)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

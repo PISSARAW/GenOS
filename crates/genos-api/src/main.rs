@@ -7,8 +7,14 @@ fn print_help() {
 }
 
 fn parse_args(args: &[String]) -> Result<Option<(String, u16, Option<String>)>, String> {
-    let mut host = "127.0.0.1".to_string();
-    let mut port: u16 = 8085;
+    let mut host = env::var("GENOS_API_HOST")
+        .or_else(|_| env::var("GENOS_HOST"))
+        .unwrap_or_else(|_| "127.0.0.1".to_string());
+    let mut port: u16 = env::var("GENOS_API_PORT")
+        .or_else(|_| env::var("GENOS_PORT"))
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(8085);
     let mut api_key = None;
     let mut index = 1;
     while index < args.len() {
@@ -35,25 +41,25 @@ fn parse_args(args: &[String]) -> Result<Option<(String, u16, Option<String>)>, 
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let (host, mut port, api_key) = match parse_args(&args) {
+    let (host, port, api_key) = match parse_args(&args) {
         Ok(Some(parsed)) => parsed,
         Ok(None) => return,
         Err(error) => { eprintln!("genos-api: {}", error); std::process::exit(2); }
     };
 
-    if let Ok(p_str) = env::var("GENOS_API_PORT") {
-        port = p_str.parse().unwrap_or_else(|_| { eprintln!("Invalid GENOS_API_PORT '{}'.", p_str); std::process::exit(2); });
-    }
-
     let mut auth = TenantAuth::new();
     if let Some(key) = api_key {
         auth.register_tenant("default_tenant", &key);
     } else {
-        // Register development key
-        auth.register_tenant("admin_dev", "sk-genos-dev-key");
+        let dev_key = env::var("GENOS_API_KEY")
+            .or_else(|_| env::var("GENOS_DEV_API_KEY"))
+            .unwrap_or_else(|_| "sk-genos-dev-key".to_string());
+        auth.register_tenant("admin_dev", &dev_key);
     }
 
-    let limiter = RateLimiter::new(100, 10);
+    let rate_limit = env::var("GENOS_API_RATE_LIMIT").ok().and_then(|v| v.parse().ok()).unwrap_or(100);
+    let rate_window = env::var("GENOS_API_RATE_WINDOW_SECS").ok().and_then(|v| v.parse().ok()).unwrap_or(10);
+    let limiter = RateLimiter::new(rate_limit, rate_window);
     println!("Starting GenOS REST API Server (OpenAI-compatible) on http://{}:{}", host, port);
 
     let addr = format!("{}:{}", host, port);

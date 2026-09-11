@@ -6,10 +6,13 @@ module.exports = {
   StoreMemory: async (call, callback) => {
     try {
       const { id, content, embedding } = call.request || {};
-      await vectorMemory.storeMemory(id || 'grpc-agent', content || '', embedding || null);
+      await vectorMemory.recordExperience({
+        id: id || `exp-${Date.now()}`,
+        content: content || '',
+        vector: embedding || []
+      });
       callback(null, { success: true });
     } catch (err) {
-      console.error('[StoreMemory Error]:', err.message);
       callback(null, { success: false });
     }
   },
@@ -17,14 +20,11 @@ module.exports = {
   SearchMemory: async (call, callback) => {
     try {
       const { text, vector, limit } = call.request || {};
-      const query = text || '';
-      const searchRes = await vectorMemory.searchMemory(query, {
-        vector: vector && vector.length > 0 ? vector : undefined,
-        limit: Number.isInteger(limit) && limit > 0 ? limit : 5
-      });
+      const query = (vector && vector.length > 0) ? vector : (text || '');
+      const searchRes = await vectorMemory.searchMemory('grpc-client', query, limit || 5);
       const results = (searchRes.allScoredExperiences || []).map((e) => ({
         id: e.id || 'mem-1',
-        content: e.summary || e.content || e.title || '',
+        content: e.content || e.title || '',
         embedding: e.vector || []
       }));
       callback(null, { results });

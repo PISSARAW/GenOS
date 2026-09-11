@@ -24,6 +24,36 @@ pub fn mission_unset(current: &str) -> bool {
     current.is_empty() || current == "latest"
 }
 
+/// World statuses the backend quorum may report (`tied`, `expired`) that are
+/// terminal: the world will not progress further without operator action.
+/// Without this, `refresh_completion` waits forever and the TUI never shows
+/// the synthesis dashboard for tied/expired missions.
+pub fn is_terminal_world_status(status: &str) -> bool {
+    matches!(
+        status,
+        "COMPLETED"
+            | "ERROR"
+            | "TERMINATED"
+            | "APOPTOSIS"
+            | "QUARANTINED"
+            | "BLOCKED"
+            | "IDLE"
+            | "TIED"
+            | "EXPIRED"
+    )
+}
+
+/// Human label for a barrier state that preserves the backend `detail`
+/// (e.g. the quorum `no_active_nodes` reason) instead of dropping it.
+pub fn barrier_label(status: &str, detail: &str) -> String {
+    let normalized = status.to_uppercase();
+    if detail.is_empty() {
+        normalized
+    } else {
+        format!("{normalized} — {detail}")
+    }
+}
+
 pub enum GateAction {
     Accept,
     Adopt(String),
@@ -100,5 +130,20 @@ mod tests {
     fn test_legacy_payload_without_seq_or_mission_accepted() {
         let value = serde_json::json!({ "type": "barrier", "status": "waiting" });
         assert!(matches!(gate_message("m1", Some(7), &value), GateAction::Accept));
+    }
+
+    #[test]
+    fn test_tied_and_expired_are_terminal() {
+        assert!(is_terminal_world_status("TIED"));
+        assert!(is_terminal_world_status("EXPIRED"));
+        assert!(is_terminal_world_status("COMPLETED"));
+        assert!(!is_terminal_world_status("RUNNING"));
+        assert!(!is_terminal_world_status("WAITING"));
+    }
+
+    #[test]
+    fn test_barrier_label_preserves_no_active_nodes_reason() {
+        assert_eq!(barrier_label("expired", "no_active_nodes"), "EXPIRED — no_active_nodes");
+        assert_eq!(barrier_label("tied", ""), "TIED");
     }
 }

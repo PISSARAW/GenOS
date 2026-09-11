@@ -1,6 +1,8 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleNeotenyQuota(args, run) {
-  let cmdParams = [`--param total_agents=${args.total_agents}`, `--param neotenic_agents=${args.neotenic_agents}`, `--param request="${args.request}"`];
-  if (args.fraction !== undefined) cmdParams.push(`--param fraction=${args.fraction}`);
+  let cmdParams = [`--param total_agents=${quoteCliArg(args.total_agents)}`, `--param neotenic_agents=${quoteCliArg(args.neotenic_agents)}`, `--param request=${quoteCliArg(args.request)}`];
+  if (args.fraction !== undefined) cmdParams.push(`--param fraction=${quoteCliArg(args.fraction)}`);
   const cmd = `genos biomimicry bio-feature --feature neoteny --action quota ${cmdParams.join(' ')}`;
   const out = run(cmd);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };

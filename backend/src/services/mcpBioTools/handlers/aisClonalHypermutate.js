@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleAISClonalHypermutate(args, run) {
-  const out = run(`genos ais clonal-hypermutate --agent-id ${args.agent_id} --mutation-rate ${args.mutation_rate} --clone-count ${args.clone_count}`);
+  const out = run(`genos ais clonal-hypermutate --agent-id ${quoteCliArg(args.agent_id)} --mutation-rate ${quoteCliArg(args.mutation_rate)} --clone-count ${quoteCliArg(args.clone_count)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

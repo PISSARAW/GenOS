@@ -9,38 +9,29 @@ pub struct AgentCmd {
 #[derive(Subcommand, Debug)]
 pub enum AgentSubcommands {
     Create {
-        #[arg(long)]
-        name: String,
-        #[arg(long, default_value = "worker")]
-        role: String,
-        #[arg(long)]
-        out: String,
+        #[arg(long)] name: String,
+        #[arg(long, default_value = "worker")] role: String,
+        #[arg(long)] out: String,
+        #[arg(long, default_value_t = false)] force: bool,
+        #[arg(long, default_value_t = false)] parents: bool,
     },
     Mutate {
-        #[arg(long)]
-        agent_id: String,
-        #[arg(long)]
-        r#trait: String,
-        #[arg(long, default_value_t = 1.0)]
-        outcome: f64,
+        #[arg(long)] agent_id: String,
+        #[arg(long)] r#trait: String,
+        #[arg(long, default_value_t = 1.0)] outcome: f64,
     },
     Prune {
-        #[arg(long)]
-        agent_id: String,
-        #[arg(long, default_value_t = 0.5)]
-        threshold: f64,
+        #[arg(long)] agent_id: String,
+        #[arg(long, default_value_t = 0.5)] threshold: f64,
     },
     Fork {
-        #[arg(long)]
-        parent_id: Option<String>,
+        #[arg(long)] parent_id: Option<String>,
     },
     Validate {
-        #[arg(long)]
-        file: String,
+        #[arg(long)] file: String,
     },
     Ping {
-        #[arg(long)]
-        id: String,
+        #[arg(long)] id: String,
     },
 }
 
@@ -53,27 +44,21 @@ pub struct SnapshotCmd {
 #[derive(Subcommand, Debug)]
 pub enum SnapshotSubcommands {
     Create {
-        #[arg(long)]
-        agent: String,
-        #[arg(long)]
-        out: String,
+        #[arg(long)] agent: String,
+        #[arg(long)] out: String,
+        #[arg(long, default_value_t = false)] force: bool,
+        #[arg(long, default_value_t = false)] parents: bool,
     },
     Validate {
-        #[arg(long)]
-        file: String,
+        #[arg(long)] file: String,
     },
     List,
     RecordStep {
-        #[arg(long)]
-        snapshot: String,
-        #[arg(long)]
-        action: String,
-        #[arg(long, default_value_t = 0.0)]
-        delta_entropy: f64,
-        #[arg(long, default_value_t = 0.0)]
-        delta_dissonance: f64,
-        #[arg(long)]
-        payload: Option<String>,
+        #[arg(long)] snapshot: String,
+        #[arg(long)] action: String,
+        #[arg(long, default_value_t = 0.0)] delta_entropy: f64,
+        #[arg(long, default_value_t = 0.0)] delta_dissonance: f64,
+        #[arg(long)] payload: Option<String>,
     },
 }
 
@@ -92,22 +77,17 @@ pub struct HallucinationCmd {
 #[derive(Subcommand, Debug)]
 pub enum HallucinationSubcommands {
     Detect {
-        #[arg(long)]
-        snapshot: String,
+        #[arg(long)] snapshot: String,
     },
     Analyze {
-        #[arg(long)]
-        snapshot: String,
+        #[arg(long)] snapshot: String,
     },
     Extract {
-        #[arg(long)]
-        snapshot: String,
+        #[arg(long)] snapshot: String,
     },
     Simulate {
-        #[arg(long, default_value = "default")]
-        model: String,
-        #[arg(long)]
-        snapshot: String,
+        #[arg(long, default_value = "default")] model: String,
+        #[arg(long)] snapshot: String,
     },
 }
 
@@ -120,8 +100,7 @@ pub struct ReplayCmd {
 #[derive(Subcommand, Debug)]
 pub enum ReplaySubcommands {
     Basic {
-        #[arg(long)]
-        snapshot: String,
+        #[arg(long)] snapshot: String,
     },
 }
 
@@ -134,12 +113,9 @@ pub struct CapsuleCmd {
 #[derive(Subcommand, Debug)]
 pub enum CapsuleSubcommands {
     Create {
-        #[arg(long)]
-        snapshot: String,
-        #[arg(long)]
-        seed: Option<String>,
-        #[arg(long)]
-        budget_steps: Option<u32>,
+        #[arg(long)] snapshot: String,
+        #[arg(long)] seed: Option<String>,
+        #[arg(long)] budget_steps: Option<u32>,
     },
 }
 
@@ -148,6 +124,10 @@ pub struct AuditCmd {
     pub snapshot_id: String,
     #[arg(long)]
     pub output: Option<String>,
+    #[arg(long, default_value_t = false)]
+    pub force: bool,
+    #[arg(long, default_value_t = false)]
+    pub parents: bool,
 }
 
 #[derive(Args, Debug)]
@@ -185,10 +165,8 @@ pub struct CausalityCmd {
 #[derive(Subcommand, Debug)]
 pub enum CausalitySubcommands {
     Fork {
-        #[arg(long)]
-        boundary_id: String,
-        #[arg(long)]
-        new_boundary_id: String,
+        #[arg(long)] boundary_id: String,
+        #[arg(long)] new_boundary_id: String,
     },
 }
 
@@ -205,13 +183,11 @@ pub enum ExperimentSubcommands {
     },
     Incident {
         manifest: String,
-        #[arg(long)]
-        offline: bool,
+        #[arg(long)] offline: bool,
     },
     BugInvestigation {
         manifest: String,
-        #[arg(long)]
-        offline: bool,
+        #[arg(long)] offline: bool,
     },
 }
 
@@ -224,14 +200,10 @@ pub struct PhenotypeCmd {
 #[derive(Subcommand, Debug)]
 pub enum PhenotypeSubcommands {
     MeasureDivergence {
-        #[arg(long)]
-        trait_name: String,
-        #[arg(long)]
-        expected: f64,
-        #[arg(long)]
-        observed: f64,
-        #[arg(long)]
-        tolerance: f64,
+        #[arg(long)] trait_name: String,
+        #[arg(long)] expected: f64,
+        #[arg(long)] observed: f64,
+        #[arg(long)] tolerance: f64,
     },
 }
 
@@ -244,8 +216,7 @@ pub struct SwarmCmd {
 #[derive(Subcommand, Debug)]
 pub enum SwarmSubcommands {
     AlleleAnalyzer {
-        #[arg(long)]
-        swarm_id: String,
+        #[arg(long)] swarm_id: String,
     },
 }
 
@@ -258,10 +229,10 @@ pub struct ComplianceCmd {
 #[derive(Subcommand, Debug)]
 pub enum ComplianceSubcommands {
     Generate {
-        #[arg(long)]
-        standard: String,
-        #[arg(long)]
-        output_file: Option<String>,
+        #[arg(long)] standard: String,
+        #[arg(long)] output_file: Option<String>,
+        #[arg(long, default_value_t = false)] force: bool,
+        #[arg(long, default_value_t = false)] parents: bool,
     },
 }
 
@@ -274,12 +245,9 @@ pub struct StrategyCmd {
 #[derive(Subcommand, Debug)]
 pub enum StrategySubcommands {
     Adapt {
-        #[arg(long)]
-        agent_id: String,
-        #[arg(long)]
-        constraint: String,
-        #[arg(long)]
-        target: f64,
+        #[arg(long)] agent_id: String,
+        #[arg(long)] constraint: String,
+        #[arg(long)] target: f64,
     },
 }
 
@@ -292,8 +260,7 @@ pub struct RebaseCmd {
 #[derive(Subcommand, Debug)]
 pub enum RebaseSubcommands {
     ComputePlan {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<String>,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)] args: Vec<String>,
     },
 }
 
@@ -306,26 +273,17 @@ pub struct WorldCmd {
 #[derive(Subcommand, Debug)]
 pub enum WorldSubcommands {
     Create {
-        #[arg(long)]
-        provider: String,
-        #[arg(long)]
-        root: String,
-        #[arg(long)]
-        world_id: String,
-        #[arg(long)]
-        seed: Option<String>,
+        #[arg(long)] provider: String,
+        #[arg(long)] root: String,
+        #[arg(long)] world_id: String,
+        #[arg(long)] seed: Option<String>,
     },
     Run {
-        #[arg(long)]
-        provider: String,
-        #[arg(long)]
-        root: String,
-        #[arg(long)]
-        world_id: String,
-        #[arg(long)]
-        command: String,
-        #[arg(long)]
-        sandbox_backend: String,
+        #[arg(long)] provider: String,
+        #[arg(long)] root: String,
+        #[arg(long)] world_id: String,
+        #[arg(long)] command: String,
+        #[arg(long)] sandbox_backend: String,
     },
 }
 
@@ -339,13 +297,11 @@ pub struct PlatformCmd {
 pub enum PlatformSubcommands {
     Ingest {
         document: String,
-        #[arg(long)]
-        index: Option<String>,
+        #[arg(long)] index: Option<String>,
     },
     Search {
         query: String,
-        #[arg(long)]
-        index: Option<String>,
+        #[arg(long)] index: Option<String>,
     },
 }
 
@@ -358,26 +314,21 @@ pub struct DesktopCmd {
 #[derive(Subcommand, Debug)]
 pub enum DesktopSubcommands {
     Capture {
-        #[arg(long)]
-        out: Option<String>,
+        #[arg(long)] out: Option<String>,
+        #[arg(long, default_value_t = false)] force: bool,
+        #[arg(long, default_value_t = false)] parents: bool,
     },
     Action {
-        #[arg(long)]
-        r#type: String,
-        #[arg(long)]
-        x: Option<i32>,
-        #[arg(long)]
-        y: Option<i32>,
-        #[arg(long)]
-        text: Option<String>,
-        #[arg(long)]
-        button: Option<String>,
+        #[arg(long)] r#type: String,
+        #[arg(long)] x: Option<i32>,
+        #[arg(long)] y: Option<i32>,
+        #[arg(long)] text: Option<String>,
+        #[arg(long)] button: Option<String>,
     },
     /// Execute a JSON array of actions back-to-back in one process, e.g.
     /// '[{"type":"key","text":"super"},{"type":"type","text":"notepad"},{"type":"key","text":"enter"}]'
     Actions {
-        #[arg(long)]
-        json: String,
+        #[arg(long)] json: String,
     },
 }
 

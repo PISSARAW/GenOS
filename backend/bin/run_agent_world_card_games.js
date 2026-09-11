@@ -21,6 +21,8 @@ const immuneSystem = require('../src/services/immuneSystem.js');
 const { askLocalLLM, withImmunity, formatPainSignal } = immuneSystem;
 const agentIdentity = require('../src/services/agentIdentityService');
 const aTeamService = require('../src/services/aTeamService');
+const { phaseShell, phaseDocs, phaseQA, MISSION, CONSTITUTION } = require('./card_games_shell_docs');
+const { phaseRuntimeRepair } = require('./card_games_runtime_repair');
 
 const WORLD_DIR = path.resolve(process.env.GENOS_WORLD_DIR || 'C:/Users/Shadow/Documents/GitHub/genos-card-casino');
 const META_DIR = path.join(WORLD_DIR, '.genos-world');
@@ -34,15 +36,6 @@ const PLAN_ROUTING = { maxTokens: 8000, timeoutMs: 900000 };
 // withImmunity resolves askLocalLLM through module.exports, so the budget is raised there.
 immuneSystem.askLocalLLM = (prompt, complexity, agentId, variantIndex) =>
   askLocalLLM(prompt, complexity, agentId, variantIndex, PLAN_ROUTING);
-
-const MISSION = [
-  'Build, from scratch and end to end, a rich browser-based card games website',
-  '("GenOS Card Casino") featuring Klondike Solitaire, Spider Solitaire, FreeCell,',
-  'Pyramid and TriPeaks, with a large amount of supporting features:',
-  'drag-and-drop play, undo/redo, hints, auto-complete, timer, move counter, scoring,',
-  'persistent statistics, achievements, daily challenge, seeded deals, difficulty levels,',
-  'themes (light/dark + card backs), sound effects, keyboard shortcuts and responsive layout.'
-].join(' ');
 
 /* ------------------------------------------------------------------ */
 /* infrastructure                                                      */
@@ -122,24 +115,6 @@ async function withCodeImmunity(basePrompt, { agentId, validate, maxRetries = 4,
   }
   return null;
 }
-
-/* ------------------------------------------------------------------ */
-/* architectural constitution shared by every agent                    */
-/* ------------------------------------------------------------------ */
-
-const CONSTITUTION = `
-ARCHITECTURAL CONSTITUTION (binding for every agent, never violate):
-- Pure static website. No build step, no bundler, no npm, no frameworks, no CDN, no network calls.
-- Plain ES5/ES2017 CLASSIC scripts only. NEVER use "import" or "export" or "require".
-  The site must run by opening index.html directly from the file:// protocol.
-- Every script attaches to the single global namespace object "CC" (window.CC).
-  A script starts with: (function (CC) { 'use strict'; ... })(window.CC = window.CC || {});
-- Cards are rendered as DOM elements styled by CSS. No external images, no image files.
-  Card suit symbols use unicode characters. All art is CSS.
-- Persistence uses window.localStorage under keys prefixed with "cc.".
-- Sound uses the WebAudio API oscillators only (no audio files).
-- Code must be defensive: never throw at load time, guard every DOM lookup.
-`.trim();
 
 /* ------------------------------------------------------------------ */
 /* phase 1 — orchestrator defines the world (team + scope)             */
@@ -368,400 +343,10 @@ Reply with NOTHING except the file wrapped exactly like this:
 }
 
 /* ------------------------------------------------------------------ */
-/* phase 4 — shell: index.html + stylesheet                            */
-/* ------------------------------------------------------------------ */
-
-async function phaseShell(state, spec, arch) {
-  log('Phase 4: UI agent is building the shell...');
-  const ui = spec.team.find((m) => /ui|ux|front|design/i.test(m.role)) || spec.team[spec.team.length - 1];
-  const scripts = arch.modules.map((m) => `  <script src="${m.path}"></script>`).join('\n');
-
-  if (!state.artifacts['css/styles.css'] || !fs.existsSync(path.join(WORLD_DIR, 'css/styles.css'))) {
-    const cssPrompt = `${ui.introduction}
-You are the UI designer of ${spec.project_name}.
-${CONSTITUTION}
-
-Write the COMPLETE stylesheet for a polished card games site.
-It must style: app shell with header/nav//footer, a game menu grid of 5 game cards
-(${spec.games.map((g) => g.name).join(', ')}), the play area, playing cards rendered purely in CSS
-(face-up/face-down, red/black suits, rounded corners, shadows, hover and dragging states),
-tableau/foundation/stock/waste piles with fanned stacking offsets, toolbar buttons, a statistics
-modal, an achievements panel, settings panel, toast notifications, a win overlay,
-light AND dark themes driven by [data-theme] on <html>, CSS custom properties for the palette,
-and a responsive layout down to 480px.
-No external fonts, no images, no @import.
-
-Reply with NOTHING except:
-[ARTIFACT: css/styles.css]
-...css...
-[/ARTIFACT]`;
-
-    const css = await withCodeImmunity(cssPrompt, {
-      agentId: ui.agent_name,
-      expectedPath: 'css/styles.css',
-      maxRetries: 4,
-      validate: (code) => {
-        if (code.length < 2000) throw new Error(`Stylesheet too small (${code.length} chars); write the full stylesheet.`);
-        if (/@import|url\(\s*['"]?https?:/i.test(code)) throw new Error('No @import and no remote url() allowed.');
-        const open = (code.match(/\{/g) || []).length;
-        const close = (code.match(/\}/g) || []).length;
-        if (open !== close) throw new Error(`Unbalanced braces in CSS (${open} "{" vs ${close} "}").`);
-        if (!/\[data-theme/.test(code)) throw new Error('Missing [data-theme] dark theme rules.');
-      }
-    });
-    if (css) {
-      writeArtifact('css/styles.css', css + '\n');
-      state.artifacts['css/styles.css'] = { status: 'built', owner: ui.agent_name, bytes: css.length };
-      saveState(state);
-      log(`  [ok] css/styles.css (${css.length} chars)`);
-    } else {
-      log('  [APOPTOSIS] stylesheet failed.');
-    }
-  }
-
-  if (!state.artifacts['index.html'] || !fs.existsSync(path.join(WORLD_DIR, 'index.html'))) {
-    const htmlPrompt = `${ui.introduction}
-You are assembling the entry point of ${spec.project_name} — ${spec.tagline}.
-${CONSTITUTION}
-
-Write index.html: a complete single-page shell containing
-- header with the project name, theme toggle, and a nav to switch games,
-- a game menu section with one card per game (${spec.games.map((g) => `${g.id}: ${g.name}`).join(', ')}) using data-game="<id>",
-- the play area with containers for stock, waste, foundations and tableau,
-- a toolbar (new game, restart, undo, redo, hint, auto-complete, pause) using data-action="<name>",
-- status bar with timer, moves and score,
-- statistics modal, achievements panel, settings panel, toast container, win overlay,
-- footer.
-Link <link rel="stylesheet" href="css/styles.css">.
-Include the script tags EXACTLY in this order at the end of <body>:
-${scripts}
-
-Reply with NOTHING except:
-[ARTIFACT: index.html]
-...html...
-[/ARTIFACT]`;
-
-    const html = await withCodeImmunity(htmlPrompt, {
-      agentId: ui.agent_name,
-      expectedPath: 'index.html',
-      maxRetries: 4,
-      validate: (code) => {
-        if (!/<!DOCTYPE html>/i.test(code)) throw new Error('Missing <!DOCTYPE html>.');
-        if (!/css\/styles\.css/.test(code)) throw new Error('Missing stylesheet link.');
-        const missing = arch.modules.filter((m) => !code.includes(m.path)).map((m) => m.path);
-        if (missing.length) throw new Error(`index.html must include a <script> tag for every module. Missing: ${missing.join(', ')}.`);
-        if (!/<\/html>/i.test(code)) throw new Error('Document is truncated: missing </html>.');
-      }
-    });
-    if (html) {
-      writeArtifact('index.html', html + '\n');
-      state.artifacts['index.html'] = { status: 'built', owner: ui.agent_name, bytes: html.length };
-      saveState(state);
-      log(`  [ok] index.html (${html.length} chars)`);
-    } else {
-      log('  [APOPTOSIS] index.html failed.');
-    }
-  }
-}
-
-/* ------------------------------------------------------------------ */
 /* phase 5 — QA: syntax sweep + self-repair                            */
 /* ------------------------------------------------------------------ */
 
-async function phaseQA(state, spec, arch) {
-  log('Phase 5: QA agent is auditing every artifact...');
-  const qa = spec.team.find((m) => /qa|test|quality|review/i.test(m.role)) || spec.team[0];
-  const report = [];
-
-  for (const mod of arch.modules) {
-    const abs = path.join(WORLD_DIR, mod.path);
-    if (!fs.existsSync(abs)) { report.push({ path: mod.path, status: 'missing' }); continue; }
-    const code = fs.readFileSync(abs, 'utf8');
-    try {
-      checkJsSyntax(code, mod.path);
-      report.push({ path: mod.path, status: 'ok', bytes: code.length });
-    } catch (e) {
-      log(`  [repair] ${mod.path}: ${e.message}`);
-      const fixed = await withCodeImmunity(
-        `You are ${qa.agent_name}, QA engineer for ${spec.project_name}.
-${CONSTITUTION}
-
-The file ${mod.path} (namespace ${mod.namespace}) fails to parse with: "${e.message}"
-
-Here is the broken file:
-${code}
-
-Return the corrected, complete file. Preserve all working behaviour.
-Reply with NOTHING except [ARTIFACT: ${mod.path}] ... [/ARTIFACT].`,
-        {
-          agentId: qa.agent_name,
-          expectedPath: mod.path,
-          maxRetries: 3,
-          validate: (c) => { checkJsSyntax(c, mod.path); if (!c.includes('window.CC')) throw new Error('wrapper lost'); }
-        }
-      );
-      if (fixed) {
-        writeArtifact(mod.path, fixed + '\n');
-        report.push({ path: mod.path, status: 'repaired', bytes: fixed.length });
-        log(`  [repaired] ${mod.path}`);
-      } else {
-        report.push({ path: mod.path, status: 'broken', error: e.message });
-      }
-    }
-  }
-
-  state.qaReport = report;
-  saveState(state);
-  const ok = report.filter((r) => r.status === 'ok' || r.status === 'repaired').length;
-  log(`  QA: ${ok}/${report.length} modules parse cleanly.`);
-  return report;
-}
-
 /* ------------------------------------------------------------------ */
-/* phase 6 — documentation                                             */
-/* ------------------------------------------------------------------ */
-
-async function phaseDocs(state, spec, arch) {
-  if (state.artifacts && state.artifacts['README.md']) { log('Phase 6: README already present, skipping.'); return; }
-  log('Phase 6: writing project documentation...');
-  const scribe = spec.team[spec.team.length - 1];
-  const readme = [
-    `# ${spec.project_name}`,
-    '',
-    `> ${spec.tagline}`,
-    '',
-    'Built end to end by an autonomous GenOS agent world — no human wrote a line of this project.',
-    '',
-    '## Games',
-    ...spec.games.map((g) => `- **${g.name}** — ${g.summary}`),
-    '',
-    '## Features',
-    ...spec.features.map((f) => `- ${f}`),
-    '',
-    '## Run it',
-    '',
-    'Open `index.html` in any modern browser. There is no build step and no dependency.',
-    '',
-    '## Architecture',
-    '',
-    'Classic scripts sharing a single `CC` global namespace, loaded in dependency order:',
-    '',
-    '```',
-    ...arch.modules.map((m) => `${m.path.padEnd(34)} ${m.namespace}`),
-    '```',
-    '',
-    '## The agent world',
-    '',
-    '| Agent | Role | Mission |',
-    '| --- | --- | --- |',
-    ...spec.team.map((m) => `| ${m.agent_name} | ${m.role} | ${m.mission} |`),
-    ''
-  ].join('\n');
-  writeArtifact('README.md', readme);
-  state.artifacts = state.artifacts || {};
-  state.artifacts['README.md'] = { status: 'built', owner: scribe.agent_name, bytes: readme.length };
-  saveState(state);
-  log('  [ok] README.md');
-}
-
-/* ------------------------------------------------------------------ */
-/* phase 7 — runtime verification in a real browser + self-repair      */
-/* ------------------------------------------------------------------ */
-
-function startStaticServer(root) {
-  const http = require('http');
-  const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript' };
-  const server = http.createServer((req, res) => {
-    let rel = decodeURIComponent(String(req.url).split('?')[0]);
-    if (rel === '/') rel = '/index.html';
-    const file = path.join(root, rel);
-    if (!file.startsWith(root)) { res.writeHead(403); res.end('forbidden'); return; }
-    fs.readFile(file, (err, data) => {
-      if (err) { res.writeHead(404); res.end('not found'); return; }
-      res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream' });
-      res.end(data);
-    });
-  });
-  return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
-}
-
-/** Load the site headlessly, exercise every game, and collect runtime failures. */
-async function probeRuntime(browser, url, spec, arch) {
-  const page = await browser.newPage();
-  const errors = [];
-  // Thrown non-Error values (e.g. plain strings) have no stack, so fall back explicitly.
-  const describe = (e) => {
-    if (e == null) return 'unknown error';
-    if (typeof e === 'string') return e;
-    return String(e.stack || e.message || e) || String(e.name || 'unknown error');
-  };
-  page.on('pageerror', (e) => errors.push(describe(e)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  page.on('requestfailed', (r) => errors.push(`request failed: ${r.url()}`));
-
-  await page.goto(url, { waitUntil: 'networkidle0' });
-  await new Promise((r) => setTimeout(r, 400));
-
-  const namespaces = arch.modules.map((m) => m.namespace);
-  const missing = await page.evaluate((names) => {
-    const absent = [];
-    if (!window.CC) return ['window.CC is not defined at all'];
-    names.forEach((n) => {
-      const parts = n.split('.').slice(1);
-      let cur = window.CC;
-      for (const p of parts) {
-        if (cur == null || typeof cur[p] === 'undefined') { absent.push(n); return; }
-        cur = cur[p];
-      }
-    });
-    return absent;
-  }, namespaces);
-  missing.forEach((n) => errors.push(`namespace ${n} was never defined on window.CC`));
-
-  // Exercise each game through its menu button.
-  for (const game of spec.games) {
-    const before = errors.length;
-    try {
-      const clicked = await page.evaluate((id) => {
-        const el = document.querySelector(`[data-game="${id}"]`);
-        if (!el) return false;
-        el.click();
-        return true;
-      }, game.id);
-      if (!clicked) errors.push(`no clickable [data-game="${game.id}"] element exists in index.html`);
-      await new Promise((r) => setTimeout(r, 250));
-    } catch (e) {
-      errors.push(`clicking game ${game.id} threw: ${e.message}`);
-    }
-    if (errors.length > before) {
-      errors.push(`the above failure(s) happened while starting game "${game.id}"`);
-    }
-  }
-
-  await page.close();
-  return errors;
-}
-
-/** Map a runtime error to the module file it came from. */
-function attributeError(message, arch) {
-  for (const mod of arch.modules) {
-    if (message.includes(mod.path)) return mod.path;
-    if (message.includes(`namespace ${mod.namespace} `)) return mod.path;
-    const leaf = mod.namespace.split('.').pop();
-    if (new RegExp(`setting '${leaf}'|reading '${leaf}'`).test(message)) return mod.path;
-  }
-  // Messages thrown as plain strings carry no stack, so fall back to vocabulary matching.
-  for (const mod of arch.modules) {
-    const leaf = path.basename(mod.path, '.js');
-    if (new RegExp(`\\b${leaf}s?\\b`, 'i').test(message)) return mod.path;
-  }
-  return null;
-}
-
-async function phaseRuntimeRepair(state, spec, arch) {
-  log('Phase 7: runtime verification in a headless browser...');
-  let puppeteer;
-  try { puppeteer = require('puppeteer'); } catch (_) {
-    log('  puppeteer unavailable; skipping runtime verification.');
-    return;
-  }
-
-  const server = await startStaticServer(WORLD_DIR);
-  const url = `http://127.0.0.1:${server.address().port}/`;
-  const browser = await puppeteer.launch({ headless: 'new' });
-  const qa = spec.team.find((m) => /qa|test|quality|review/i.test(m.role)) || spec.team[0];
-  const rounds = Number(process.env.GENOS_RUNTIME_ROUNDS || 4);
-  const history = [];
-
-  try {
-    for (let round = 1; round <= rounds; round++) {
-      const errors = await probeRuntime(browser, url, spec, arch);
-      const unique = [...new Set(errors)];
-      history.push({ round, errorCount: unique.length });
-      log(`  round ${round}: ${unique.length} runtime error(s)`);
-      unique.slice(0, 12).forEach((e) => log(`    ! ${e.split('\n')[0].slice(0, 160)}`));
-      if (!unique.length) { log('  runtime is clean.'); break; }
-      if (round === rounds) { log('  round budget exhausted.'); break; }
-
-      // Group failures per file and let the owning agent repair them.
-      const byFile = new Map();
-      const unattributed = [];
-      unique.forEach((msg) => {
-        const file = attributeError(msg, arch);
-        if (!file) { unattributed.push(msg); return; }
-        if (!byFile.has(file)) byFile.set(file, []);
-        byFile.get(file).push(msg);
-      });
-      if (unattributed.length) {
-        // index.html owns anything that is not traceable to a module.
-        byFile.set('index.html', (byFile.get('index.html') || []).concat(unattributed));
-      }
-
-      for (const [file, msgs] of byFile) {
-        const abs = path.join(WORLD_DIR, file);
-        if (!fs.existsSync(abs)) continue;
-        const current = fs.readFileSync(abs, 'utf8');
-        const mod = arch.modules.find((m) => m.path === file);
-        log(`  [runtime-repair] ${file} (${msgs.length} error(s)) by ${qa.agent_name}`);
-
-        const isHtml = file.endsWith('.html');
-        const prompt = `${qa.introduction}
-You are fixing REAL runtime errors observed in a headless browser for ${spec.project_name}.
-${CONSTITUTION}
-
-MODULE LOAD ORDER (scripts run top to bottom, each attaches to the global CC):
-${arch.modules.map((m) => `${m.path} -> ${m.namespace}`).join('\n')}
-
-FILE UNDER REPAIR: ${file}${mod ? ` (must define ${mod.namespace})` : ''}
-
-OBSERVED RUNTIME ERRORS:
-${msgs.map((m, i) => `${i + 1}. ${m.split('\n').slice(0, 3).join(' | ')}`).join('\n')}
-
-CURRENT CONTENT:
-${current}
-
-Fix the ROOT CAUSE of every error above.
-Common causes to check: a parent namespace object (for example CC.Games) is used before anything creates it,
-a helper is called via the wrong namespace, or DOM elements are read before they exist / without a null guard.
-${mod ? `Make sure this file creates every namespace level it needs, e.g. CC.Games = CC.Games || {}; before assigning CC.Games.X.` : ''}
-Keep all existing working behaviour and keep the file complete.
-
-Reply with NOTHING except the full corrected file inside [ARTIFACT: ${file}] ... [/ARTIFACT].`;
-
-        const fixed = await withCodeImmunity(prompt, {
-          agentId: qa.agent_name,
-          expectedPath: file,
-          maxRetries: 3,
-          validate: (code) => {
-            if (isHtml) {
-              if (!/<\/html>/i.test(code)) throw new Error('Document truncated: missing </html>.');
-              const absent = arch.modules.filter((m) => !code.includes(m.path)).map((m) => m.path);
-              if (absent.length) throw new Error(`index.html must keep a <script> tag for every module. Missing: ${absent.join(', ')}.`);
-            } else {
-              checkJsSyntax(code, file);
-              if (!code.includes('window.CC')) throw new Error('The (function (CC) { ... })(window.CC = window.CC || {}) wrapper must be preserved.');
-              if (/\b(?:import|export)\s/.test(code)) throw new Error('Module syntax is forbidden; keep classic scripts.');
-            }
-          }
-        });
-
-        if (fixed) {
-          writeArtifact(file, fixed + '\n');
-          log(`    [repaired] ${file}`);
-        } else {
-          log(`    [APOPTOSIS] could not repair ${file}`);
-        }
-      }
-    }
-  } finally {
-    await browser.close();
-    server.close();
-  }
-
-  state.runtimeHistory = history;
-  saveState(state);
-}
-
 /* ------------------------------------------------------------------ */
 
 (async () => {
@@ -776,13 +361,14 @@ Reply with NOTHING except the full corrected file inside [ARTIFACT: ${file}] ...
   state.startedAt = state.startedAt || new Date().toISOString();
   saveState(state);
 
+  const helpers = { log, WORLD_DIR, saveState, checkJsSyntax, withCodeImmunity, writeArtifact, CONSTITUTION };
   const spec = await phaseWorldSpec(state);
   const arch = await phaseArchitecture(state, spec);
   await phaseImplement(state, spec, arch);
-  await phaseShell(state, spec, arch);
-  await phaseQA(state, spec, arch);
-  await phaseDocs(state, spec, arch);
-  await phaseRuntimeRepair(state, spec, arch);
+  await phaseShell(helpers, state, spec, arch);
+  await phaseQA(helpers, state, spec, arch);
+  await phaseDocs(helpers, state, spec, arch);
+  await phaseRuntimeRepair(helpers, state, spec, arch);
 
   state.finishedAt = new Date().toISOString();
   saveState(state);

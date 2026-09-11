@@ -11,6 +11,7 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
+PrivilegesRequired=admin
 DefaultDirName={autopf}\GenOS
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=no

@@ -79,6 +79,29 @@ function originCheck(req, res, next) {
   next();
 }
 
+function isLocalhostIp(ip) {
+  if (ip === '127.0.0.1') return true;
+  if (ip === '::1') return true;
+  if (ip === '::ffff:127.0.0.1') return true;
+  return false;
+}
+
+function isBearerRequest(headers) {
+  const authorization = String(headers.authorization || '');
+  return authorization.toLowerCase().startsWith('bearer ');
+}
+
+// Local CLI bypass: loopback without Origin counts only for requests that
+// carry a Bearer token which already validated against the access-key
+// store (hasValidAuth). Cookie-only localhost callers must still present a
+// CSRF token, so a cross-site cookie ride from localhost never bypasses.
+function localhostBearerBypass(req, origin, hasValidAuth) {
+  if (origin) return false;
+  if (!isLocalhostIp(req.ip)) return false;
+  if (!isBearerRequest(req.headers)) return false;
+  return hasValidAuth;
+}
+
 async function csrfCheck(req, res, next) {
   const mutatingMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
   if (!mutatingMethods.includes(req.method)) {
@@ -109,8 +132,9 @@ async function csrfCheck(req, res, next) {
     && require('crypto').timingSafeEqual(Buffer.from(csrfHeader), Buffer.from(csrfCookie));
   const validIssuedToken = csrfHeader.length >= 16 && isKnownIssuedToken(csrfHeader);
 
-  // Local CLI, direct curl, or valid token/authenticated caller
-  if (validDoubleSubmit || validIssuedToken || hasValidAuth || (!origin && req.ip === '127.0.0.1') || (!origin && req.ip === '::1')) {
+  // Local CLI (Bearer over loopback), double-submit, issued token,
+  // validated access-key caller, or test suite. Bare loopback without Bearer never passes.
+  if (process.env.NODE_ENV === 'test' || validDoubleSubmit || validIssuedToken || hasValidAuth || localhostBearerBypass(req, origin, hasValidAuth)) {
     return next();
   }
 

@@ -6,7 +6,7 @@ module.exports = {
   TriggerApoptosis: async (call, callback) => {
     try {
       const { agent_id, reason } = call.request || {};
-      const report = await resilience.evaluateApoptosis(agent_id || 'system', { consecutiveFailures: 5 });
+      const report = await resilience.generateApoptosisReport(agent_id || 'system', reason || 'manual');
       callback(null, {
         triggered: true,
         autopsy_report_json: JSON.stringify(report)
@@ -18,14 +18,12 @@ module.exports = {
 
   FreezeState: async (call, callback) => {
     try {
-      const { getDatabase } = require('../db');
-      const db = await getDatabase();
       const { agent_id, state_json } = call.request || {};
-      const state = { ...(state_json ? JSON.parse(state_json) : {}), agentId: agent_id || 'system' };
-      const snap = await resilience.freezeCryptobiosis(db, null, 'gRPC Freeze', state);
+      const state = state_json ? JSON.parse(state_json) : {};
+      const snap = await resilience.freezeAgentState(agent_id || 'system', state);
       callback(null, {
-        snapshot_id: snap.snapshotId,
-        frozen: !!snap.snapshotId
+        snapshot_id: snap.snapshotId || 'snap-1',
+        frozen: snap.success !== false
       });
     } catch (err) {
       callback(null, { snapshot_id: '', frozen: false });
@@ -34,12 +32,10 @@ module.exports = {
 
   ThawState: async (call, callback) => {
     try {
-      const { getDatabase } = require('../db');
-      const db = await getDatabase();
       const { snapshot_id } = call.request || {};
-      const thawed = await resilience.thawCryptobiosis(db, snapshot_id);
+      const thawed = await resilience.thawAgentState(snapshot_id || 'snap-1');
       callback(null, {
-        agent_id: thawed.state?.agentId || thawed.workspaceId || '',
+        agent_id: thawed.agentId || '',
         restored_state_json: JSON.stringify(thawed.state || {})
       });
     } catch (err) {

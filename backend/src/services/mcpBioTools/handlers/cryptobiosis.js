@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleCryptobiosis(args, run) {
-  const out = run(`genos resilience cryptobiosis --agent-id ${args.agent_id}` + (args.duration ? ` --duration ${args.duration}` : ''));
+  const out = run(`genos resilience cryptobiosis --agent-id ${quoteCliArg(args.agent_id)}` + (args.duration ? ` --duration ${quoteCliArg(args.duration)}` : ''));
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

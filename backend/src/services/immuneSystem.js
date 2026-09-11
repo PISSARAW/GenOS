@@ -1,19 +1,10 @@
 const { generate } = require('./modelRouter.js');
 const circuitBreaker = require('./circuitBreaker.js');
-
-const THREAT_SIGNATURES = [
-    { name: 'SQL_INJECTION', pattern: /\bunion\s+select\b|\bor\s+1\s*=\s*1\b|;\s*drop\s+table\b/i },
-    { name: 'COMMAND_INJECTION', pattern: /(?:;|&&|\|\|)\s*(?:rm|del|curl|wget|powershell|cmd)\b/i },
-    { name: 'PATH_TRAVERSAL', pattern: /(?:\.\.[/\\]){2,}/ },
-    { name: 'PROMPT_INJECTION', pattern: /ignore (?:all )?(?:previous|prior) instructions|system prompt/i }
-];
+const immuneThreats = require('./immuneThreats.js');
+const immuneJson = require('./immuneJson.js');
 
 function scanThreats(target) {
-    const content = String(target || '');
-    const threats = THREAT_SIGNATURES
-        .filter((signature) => signature.pattern.test(content))
-        .map((signature) => signature.name);
-    return { threats };
+    return immuneThreats.scanThreats(target);
 }
 
 function tripKillSwitch(reason = 'Immune system emergency stop') {
@@ -38,64 +29,107 @@ async function askLocalLLM(..._args) {
 /**
  * Exécute un appel LLM avec validation immunitaire (Macrophages & Apoptose).
  * Intègre la Résilience Cellulaire (Pléiotropie et Cellules Souches).
- * 
- * @param {string} basePrompt Le prompt initial
- * @param {string} complexity Complexité ('low', 'medium', 'high')
- * @param {Function} validatorFn Fonction de validation qui throw une erreur si muté
- * @param {number} maxRetries Nombre d'essais avant apoptose
- * @param {string} agentId L'identité de l'agent qui fait l'appel
- * @param {any} stemCellFallback (Optionnel) Valeur de secours "Cellule Souche" retournée en cas d'Apoptose
- * @param {number} variantIndex (Optionnel) Index pour forcer la Mue Cognitive d'un agent.
+ * Accepte l'objet d'options historique OU la forme positionnelle
+ * (basePrompt, complexity, validatorFn, maxRetries, agentId,
+ * stemCellFallback, variantIndex) utilisée par les appelants existants.
+ *
+ * @param {string|object} first Le prompt initial ou l'objet d'options
  */
-async function withImmunity({ basePrompt, complexity, validatorFn, maxRetries = 3, agentId = 'griot', stemCellFallback = null, variantIndex = undefined }) {
-    let currentPrompt = basePrompt;
-    
+async function withImmunity(first, ...rest) {
+    const input = normalizeImmunityInput(first, rest);
+    return runImmunityLoop(input);
+}
+
+function normalizeImmunityInput(first, rest) {
+    if (first && typeof first === 'object' && !Array.isArray(first)) return first;
+    const positional = rest || [];
+    return {
+        basePrompt: first,
+        complexity: positional[0],
+        validatorFn: positional[1],
+        maxRetries: positional[2],
+        agentId: positional[3],
+        stemCellFallback: positional[4],
+        variantIndex: positional[5]
+    };
+}
+
+async function runImmunityLoop(input) {
+    const source = input || {};
+    const maxRetries = Number(source.maxRetries || 3);
+    let currentPrompt = source.basePrompt;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         // PLÉIOTROPIE & MUE : On combine l'index de mue de l'agent et l'essai courant pour changer de modèle.
-        const currentVariant = (variantIndex !== undefined ? variantIndex : 0) + (attempt - 1);
-        
-        console.log(`[ImmuneSystem:${agentId}] Phagocytose... Essai ${attempt}/${maxRetries} (Pléiotropie/Mue: Modèle index ${currentVariant})`);
-        const fn = module.exports.askLocalLLM || askLocalLLM;
-        const rawRes = await fn(currentPrompt, complexity, agentId, currentVariant);
-        
-        if (!rawRes) {
-            console.log(`[Apoptose:${agentId}] Mort silencieuse (pas de réponse).`);
-            continue;
-        }
-
-        try {
-            // PROTÉINE CHAPERON : Nettoyage syntaxique agressif
-            let cleanJson = rawRes.replace(/```json/g, '').replace(/```/g, '').trim();
-            const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) throw new Error("Aucun objet JSON détecté.");
-            
-            const parsed = JSON.parse(jsonMatch[0]);
-            
-            if (validatorFn) {
-                validatorFn(parsed);
-            }
-            
-            console.log(`[Homéostasie:${agentId}] Format validé.`);
-            return parsed;
-        } catch (e) {
-            console.warn(`[Inflammation:${agentId}] Mutation détectée : ${e.message}`);
-            if (attempt === maxRetries) {
-                console.error(`[Apoptose Cellulaire:${agentId}] Échec irrécupérable.`);
-                
-                // CELLULE SOUCHE (STEM CELL FALLBACK)
-                if (stemCellFallback) {
-                    console.log(`[Stem Cells:${agentId}] Apoptose interceptée. Activation de la Cellule Souche (Fallback).`);
-                    return stemCellFallback;
-                }
-                return null;
-            }
-            // Signal de Douleur au LLM
-            currentPrompt = `${basePrompt}\n\n[ERREUR CRITIQUE] Ta tentative précédente a muté avec cette erreur : "${e.message}". 
-            CORRIGE TON ERREUR. Formate EXACTEMENT comme demandé sans ajout.`;
-        }
+        console.log(`[ImmuneSystem:${source.agentId || 'griot'}] Phagocytose... Essai ${attempt}/${maxRetries} (Pléiotropie/Mue: Modèle index ${immunityVariant(source, attempt)})`);
+        const outcome = await attemptImmunity(source, currentPrompt, attempt);
+        if (outcome.done) return outcome.value;
+        currentPrompt = outcome.nextPrompt;
     }
-    
-    return stemCellFallback || null;
+    if (source.stemCellFallback) return source.stemCellFallback;
+    return null;
+}
+
+function immunityVariant(input, attempt) {
+    const base = input.variantIndex !== undefined ? input.variantIndex : 0;
+    return base + (attempt - 1);
+}
+
+async function fetchImmunityResponse(input, prompt, attempt) {
+    const fn = module.exports.askLocalLLM || askLocalLLM;
+    const agent = input.agentId || 'griot';
+    return fn(prompt, input.complexity, agent, immunityVariant(input, attempt));
+}
+
+function parseImmunityResponse(rawRes) {
+    // PROTÉINE CHAPERON : Nettoyage syntaxique puis extraction du PREMIER
+    // objet JSON équilibré (au lieu du plus externe glouton) ; repli sur le
+    // DERNIER si le premier ne se parse pas. L'objet validé est parsé depuis
+    // le texte extrait exact (même référence/texte garanti).
+    const cleaned = String(rawRes).replace(/```json/g, '').replace(/```/g, '').trim();
+    const candidate = immuneJson.extractJsonCandidate(cleaned);
+    if (!candidate) throw new Error("Aucun objet JSON détecté.");
+    const validated = immuneJson.parseJsonCandidate(candidate);
+    if (validated.sourceText !== candidate.text) throw new Error("Aucun objet JSON détecté.");
+    return validated.parsed;
+}
+
+async function attemptImmunity(input, prompt, attempt) {
+    const maxRetries = Number(input.maxRetries || 3);
+    const rawRes = await fetchImmunityResponse(input, prompt, attempt);
+    if (!rawRes) {
+        console.log(`[Apoptose:${input.agentId || 'griot'}] Mort silencieuse (pas de réponse).`);
+        return { done: false, nextPrompt: prompt };
+    }
+    try {
+        const parsed = parseImmunityResponse(rawRes);
+        if (input.validatorFn) {
+            input.validatorFn(parsed);
+        }
+        console.log(`[Homéostasie:${input.agentId || 'griot'}] Format validé.`);
+        return { done: true, value: parsed };
+    } catch (error) {
+        console.warn(`[Inflammation:${input.agentId || 'griot'}] Mutation détectée : ${error.message}`);
+        return immunityRetry(input, { prompt, attempt, maxRetries, error });
+    }
+}
+
+function immunityRetry(input, state) {
+    if (state.attempt >= state.maxRetries) {
+        console.error(`[Apoptose Cellulaire:${input.agentId || 'griot'}] Échec irrécupérable.`);
+        if (input.stemCellFallback) {
+            console.log(`[Stem Cells:${input.agentId || 'griot'}] Apoptose interceptée. Activation de la Cellule Souche (Fallback).`);
+            return { done: true, value: input.stemCellFallback };
+        }
+        return { done: true, value: null };
+    }
+    // Signal de Douleur au LLM
+    return { done: false, nextPrompt: painPromptFor(input.basePrompt, state.error) };
+}
+
+function painPromptFor(basePrompt, error) {
+    const message = error && error.message ? error.message : String(error);
+    return `${basePrompt}\n\n[ERREUR CRITIQUE] Ta tentative précédente a muté avec cette erreur : "${message}". 
+            CORRIGE TON ERREUR. Formate EXACTEMENT comme demandé sans ajout.`;
 }
 
 const { evaluateCognitiveHealth } = require('./cognitiveMonitor.js');
@@ -193,73 +227,10 @@ function evaluateCognitiveDrift(text, options = {}) {
     };
 }
 
-function cleanMarkdownAndNoise(raw) {
-    let text = String(raw || '').trim();
-    text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) text = match[0];
-    text = text.replace(/,\s*([}\]])/g, '$1');
-    return text;
-}
-
-function extractBalancedArray(text, startIndex) {
-    let depth = 0;
-    let inString = false;
-    let escape = false;
-    let start = -1;
-
-    for (let i = startIndex; i < text.length; i++) {
-        const char = text[i];
-        if (escape) {
-            escape = false;
-            continue;
-        }
-        if (char === '\\') {
-            escape = true;
-            continue;
-        }
-        if (char === '"') {
-            inString = !inString;
-            continue;
-        }
-        if (inString) continue;
-
-        if (char === '[') {
-            if (depth === 0) start = i;
-            depth++;
-        } else if (char === ']') {
-            depth--;
-            if (depth === 0 && start !== -1) {
-                return text.slice(start, i + 1);
-            }
-            if (depth < 0) return null;
-        }
-    }
-    return null;
-}
-
-function extractClaimsFromText(text) {
-    const match = text.match(/"claims"\s*:/i);
-    if (match) {
-        const colonIndex = text.indexOf(':', match.index);
-        const bracketIndex = text.indexOf('[', colonIndex);
-        if (bracketIndex !== -1) {
-            const rawArray = extractBalancedArray(text, bracketIndex);
-            if (rawArray) {
-                try {
-                    const parsed = JSON.parse(rawArray);
-                    if (Array.isArray(parsed)) return parsed;
-                } catch (_) {}
-            }
-        }
-    }
-    return null;
-}
-
 function heuristicReconstruction(raw, err) {
     const text = String(raw || '');
     const outcomeMatch = text.match(/"outcome"\s*:\s*"([^"]+)"/i);
-    const parsedClaims = extractClaimsFromText(text);
+    const parsedClaims = immuneJson.extractClaimsFromText(text);
     const statementMatches = [...text.matchAll(/"statement"\s*:\s*"([^"]+)"/gi)];
 
     if (!outcomeMatch && !parsedClaims && statementMatches.length === 0) {
@@ -286,7 +257,7 @@ function chaperoneRepairJson(rawText, validatorFn = null) {
     if (!rawText || typeof rawText !== 'string' || !rawText.trim()) {
         return { ok: false, error: 'Empty output', painSignal: formatPainSignal('Sortie vide ou absente') };
     }
-    const cleaned = cleanMarkdownAndNoise(rawText);
+    const cleaned = immuneJson.cleanMarkdownAndNoise(rawText);
     let parsed = null;
     let repaired = false;
     let heuristic = false;
