@@ -74,6 +74,7 @@ const { handleAgrobacteriumTdnaHijack, handleAgrobacteriumTdnaHijackError } = re
 const { handleViralEndogenization, handleViralEndogenizationError } = require('./viralEndogenization');
 const { handleDsupShield, handleDsupShieldError } = require('./tardigradeDsupShield');
 const { handleTransdifferentiation, handleTurritopsisError } = require('./turritopsisTransdifferentiation');
+const { handleYamanakaReprogramming, handleYamanakaError } = require('./yamanakaReprogramming');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -153,6 +154,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_viral_endogenization: { handle: handleViralEndogenization, error: handleViralEndogenizationError },
   genos_biomimicry_tardigrade_dsup_shield: { handle: handleDsupShield, error: handleDsupShieldError },
   genos_biomimicry_turritopsis_transdifferentiation: { handle: handleTransdifferentiation, error: handleTurritopsisError },
+  genos_biomimicry_yamanaka_reprogramming: { handle: handleYamanakaReprogramming, error: handleYamanakaError },
 };
 
 module.exports = { TOOL_HANDLERS };
