@@ -66,6 +66,15 @@ function getToolHandler(toolName) {
       const samples = Array.isArray(args.samples) ? args.samples.join(',') : (args.samples || '100.0,102.0,98.0,105.0,99.0');
       return handleBioCall(`genos biomimicry electrosensory --agent-id ${agentId} --action "${action}" --frequency-hz ${freq} --sensitivity ${sensitivity} --distortion-threshold ${threshold} --samples "${samples}"`, timeoutMs);
     },
+    'genos_biomimicry_cluster_n': (args, timeoutMs) => {
+      const agentId = args.agent_id || args.agentId || 'migratory_0';
+      const action = args.action || 'align';
+      const sensitivity = args.sensitivity !== undefined ? args.sensitivity : 0.02;
+      const tolerance = args.tolerance_deg || args.toleranceDeg || 15.0;
+      const goal = Array.isArray(args.goal_vector) ? args.goal_vector.join(',') : (args.goal_vector || '1.0,0.0,0.0');
+      const current = Array.isArray(args.current_vector) ? args.current_vector.join(',') : (args.current_vector || '0.96,0.15,0.0');
+      return handleBioCall(`genos biomimicry cluster-n --agent-id ${agentId} --action "${action}" --sensitivity ${sensitivity} --tolerance-deg ${tolerance} --goal-vector "${goal}" --current-vector "${current}"`, timeoutMs);
+    },
     'genos_cell_division': (args, timeoutMs) => {
       const agentId = args.agent_id || args.agentId || 'cell_division_root';
       const mode = args.mode || 'mitosis';

@@ -16,6 +16,7 @@ pub fn handle_bio_feature(feature: &str, action: &str, params: &[String]) {
         "gate" => handle_gate_eval(action, params),
         "vomeronasal" | "accessory_olfactory" => handle_vomeronasal(action, params),
         "electrosensory" | "mormyrocerebellum" => handle_electrosensory(action, params),
+        "cluster_n" | "magnetoreception" => handle_cluster_n(action, params),
         "cnidocyte" | "nematocyst" | "electrocyte" | "electric_organ" | "choanocyte" | "iridophore" | "guard_cell" | "tracheid" | "prokaryote" => {
             crate::commands::biomimicry_cells::handle_specialized_cell(feature, action, params);
         }
@@ -351,6 +352,45 @@ fn handle_electrosensory(action: &str, params: &[String]) {
             "environment_clarity_score": res.environment_clarity_score
         }));
     }
+}
+
+fn handle_cluster_n(action: &str, params: &[String]) {
+    let agent_id = extract_param(params, "agent_id").unwrap_or_else(|| "migratory_agent_0".to_string());
+    let sensitivity: f64 = extract_param(params, "sensitivity")
+        .or_else(|| extract_param(params, "inclination_sensitivity"))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0.02);
+    let tolerance: f64 = extract_param(params, "tolerance_deg")
+        .or_else(|| extract_param(params, "drift_tolerance_deg"))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(15.0);
+
+    let goal_str = extract_param(params, "goal_vector")
+        .or_else(|| extract_param(params, "goal"))
+        .unwrap_or_else(|| "1.0,0.0,0.0".to_string());
+    let curr_str = extract_param(params, "current_vector")
+        .or_else(|| extract_param(params, "current"))
+        .unwrap_or_else(|| "0.96,0.15,0.0".to_string());
+
+    let goal_vec: Vec<f64> = goal_str.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+    let curr_vec: Vec<f64> = curr_str.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+
+    let mut cluster_n = genos_biology::sensory::ClusterN::new(sensitivity, tolerance);
+    let report = cluster_n.compute_intent_heading(&goal_vec, &curr_vec);
+
+    println!("{}", json!({
+        "success": true,
+        "feature": "cluster_n",
+        "action": action,
+        "agent_id": agent_id,
+        "angular_drift_deg": report.angular_drift_deg,
+        "cosine_similarity": report.cosine_similarity,
+        "quantum_coherence_score": report.quantum_coherence_score,
+        "is_aligned": report.is_aligned,
+        "correction_heading": report.correction_heading,
+        "navigational_state": report.navigational_state,
+        "radical_state": format!("{:?}", report.radical_state)
+    }));
 }
 
 
