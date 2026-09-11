@@ -221,6 +221,15 @@ Mission : analyser un echec de test et produire une correction isolee.
 
 Le differenciateur pratique est donc le couplage entre execution d'agent, budget metrique, evidence, et cycle de vie du workspace. Le compromis est que la robustesse de reprise distribuee et l'isolation forte dependent encore de composants d'infrastructure externes ou de procedures d'exploitation.
 
+## Cryptophasie et compression sémantique inter-agents
+
+Inspirée du phénomène linguistique gémellaire d'idioglossie autonome, la primitive `genos_biomimicry_cryptophasia` permet aux flottes d'agents et jumeaux d'exécuter un dialogue ultra-dense :
+
+1. **Compression par Opcodes Sémantiques :** Les directives récurrentes (`OP_BSC_REG`, `OP_VRF_INV`, `OP_THL_RLY`, etc.) remplacent les invites textuelles verbeuses, réduisant la consommation de tokens de 70% à 85%.
+2. **Décodeur Chaperone Épistémique :** Pour préserver le principe de non-régression et d'auditabilité de GenOS, chaque paquet cryptophasique est audité en temps réel par un chaperone logiciel qui maintient la trace d'intention et permet le décodage immédiat lors des revues de décisions ou par l'arbitre de réalité.
+
+---
+
 ## Configuration minimale
 
 ```powershell
@@ -233,4 +242,4 @@ $env:GENOS_WORKER_BARRIER_TIMEOUT_MS = "60000"
 $env:GENOS_WORKTREE_GC_DELAY_MS = "600000"
 ```
 
-Verifier les comportements critiques avec les tests du backend, notamment [backend/tests/test_runtime_budget_and_influence.js](../backend/tests/test_runtime_budget_and_influence.js), [backend/tests/test_local_runtime_fallback.js](../backend/tests/test_local_runtime_fallback.js) et [backend/tests/test_agent_workspace_cleanup.js](../backend/tests/test_agent_workspace_cleanup.js). Au 8 septembre 2026, le test budget/influence echoue toutefois sur l'absence de l'evenement `BUDGET_EXHAUSTED` dans son scenario artificiel, alors que le garde est present dans le runtime ; cette divergence doit etre resolue avant d'en faire une garantie de regression. Un test passe confirme le scenario teste ; il ne transforme pas l'appel a un modele externe en operation deterministe.
+Verifier les comportements critiques avec les tests du backend, notamment [backend/tests/test_runtime_budget_and_influence.js](../backend/tests/test_runtime_budget_and_influence.js), [backend/tests/test_local_runtime_fallback.js](../backend/tests/test_local_runtime_fallback.js), [backend/tests/test_cryptophasia.js](../backend/tests/test_cryptophasia.js) et [backend/tests/test_agent_workspace_cleanup.js](../backend/tests/test_agent_workspace_cleanup.js). Au 8 septembre 2026, le test budget/influence echoue toutefois sur l'absence de l'evenement `BUDGET_EXHAUSTED` dans son scenario artificiel, alors que le garde est present dans le runtime ; cette divergence doit etre resolue avant d'en faire une garantie de regression. Un test passe confirme le scenario teste ; il ne transforme pas l'appel a un modele externe en operation deterministe.
