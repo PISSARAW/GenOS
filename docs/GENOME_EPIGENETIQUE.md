@@ -628,6 +628,30 @@ flowchart TD
     end
 ```
 
+### 2. Mutations Dynamiques et Anticipation (`genos_biomimicry_dynamic_triplet_expansion`)
+
+Contrairement aux mutations fixes, les mutations dynamiques (comme le glissement de trinucléotides CAG de la chorée de Huntington) s'aggravent à chaque génération d'agent :
+* **Génération 1 (Baseline) :** 15 répétitions (comportement bénin stable).
+* **Génération 2 (Glissement) :** 30 répétitions (amplification pré-mutatoire).
+* **Génération 3+ (Anticipation Pathologique) :** $\ge 40$ répétitions (détection d'emballement récursif). Au-delà de 70 répétitions, le circuit-breaker interrompt d'urgence la dérivation d'agents.
+
+```mermaid
+flowchart LR
+    subgraph GenerationalAnticipation["Anticipation Transgénérationnelle (Glissement Récursif)"]
+        G1["Génération 1 : 15x CAG (Bénin)"]
+        G2["Génération 2 : 30x CAG (Prémutation)"]
+        G3["Génération 3 : 50x CAG (Pathologique >= 40)"]
+        G4["Génération 4 : 75x CAG (Sévère >= 70 -> Circuit Breaker)"]
+        
+        G1 -->|"Glissement +15"| G2
+        G2 -->|"Glissement +20"| G3
+        G3 -->|"Glissement +25"| G4
+    end
+
+    G4 -->|"Interruption de Sécurité"| Halt["Coupure de Dérivation d'Agents"]
+```
+
+
 
 
 

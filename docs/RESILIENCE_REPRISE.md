@@ -464,3 +464,8 @@ sequenceDiagram
 
 Lorsqu'un agent fait face à des contraintes de mémoire extrêmes ou accumule des dépendances parasites post-crash, l'élagage chromosomique purge les modules superflus tout en maintenant inviolables les invariants de viabilité (`LOCUS_KERNEL_INTEGRITY`, `LOCUS_AUTH_INVARIANTS`, `LOCUS_ROUTING`).
 
+### 4. Détection d'Anticipation et Garde-Fou de Répétitions Récursives (`genos_biomimicry_dynamic_triplet_expansion`)
+
+Les dérives transgénérationnelles par glissement microsatellite (répétitions de sous-prompts ou boucles de raisonnement) sont bornées par le seuil d'anticipation ($\ge 40$ répétitions) pour déclencher un arrêt sécurisé avant saturation des files d'inférence.
+
+

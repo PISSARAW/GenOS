@@ -66,6 +66,7 @@ const { handleChromosomalTranslocation, handleChromosomalTranslocationError } = 
 const { handleAneuploidy, handleAneuploidyError } = require('./aneuploidy');
 const { handlePolyploidy, handlePolyploidyError } = require('./polyploidy');
 const { handleTransposonJump, handleTransposonJumpError } = require('./transposonJump');
+const { handleDynamicTripletExpansion, handleDynamicTripletExpansionError } = require('./dynamicTripletExpansion');
 
 const TOOL_HANDLERS = {
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
@@ -137,6 +138,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_aneuploidy: { handle: handleAneuploidy, error: handleAneuploidyError },
   genos_biomimicry_polyploidy: { handle: handlePolyploidy, error: handlePolyploidyError },
   genos_biomimicry_transposon_jump: { handle: handleTransposonJump, error: handleTransposonJumpError },
+  genos_biomimicry_dynamic_triplet_expansion: { handle: handleDynamicTripletExpansion, error: handleDynamicTripletExpansionError },
 };
 
 module.exports = { TOOL_HANDLERS };
