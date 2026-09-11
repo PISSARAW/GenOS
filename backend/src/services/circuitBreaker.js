@@ -6,20 +6,7 @@
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
 const circuitBreakerShared = require('./circuitBreakerShared');
-const fs = require('fs');
-const path = require('path');
-
-const DESTRUCTIVE_TOOLS = [
-  'genos_run',
-  'genos_merge',
-  'genos_restore',
-  'genos_resilience_apoptosis',
-  'genos_resilience_circuit_breaker',
-  'genos_resilience_cryptobiosis',
-  'genos_resilience_hypermutation',
-  'genos_invalidate_assumption',
-  'genos_security_coevolution'
-];
+const { DESTRUCTIVE_TOOLS } = circuitBreakerShared;
 
 class CircuitBreakerService {
   constructor() {
@@ -45,6 +32,19 @@ class CircuitBreakerService {
     this.sharedState = process.env.GENOS_CIRCUIT_BREAKER_SHARED === '1';
     this.lastSharedSync = 0;
     this.lastToolLockSync = 0;
+    this.loadScopedStates();
+  }
+
+  scopedStatePath() {
+    return circuitBreakerShared.scopedStatePath();
+  }
+
+  loadScopedStates() {
+    circuitBreakerShared.loadScopedStates(this.scopedStates);
+  }
+
+  persistScopedStates() {
+    circuitBreakerShared.persistScopedStates(this.scopedStates);
   }
 
   context(scope = 'global') {
@@ -90,6 +90,7 @@ class CircuitBreakerService {
         detail: 'Circuit breaker transitioned to HALF-OPEN (canary mode)',
         severity: 'warning'
       });
+      this.persistScopedStates();
     }
     return state.state;
   }
@@ -211,6 +212,7 @@ class CircuitBreakerService {
         detail: `Canary execution of '${toolName}' succeeded. Scoped circuit breaker for '${scope}' reset to CLOSED.`,
         severity: 'info'
       });
+      this.persistScopedStates();
     }
 
     if (!globalCanaryMatch && !scopedCanaryMatch) {
@@ -289,6 +291,7 @@ class CircuitBreakerService {
       severity: 'critical'
     });
     circuitBreakerShared.persistSharedState(this);
+    this.persistScopedStates();
     return state.state;
   }
 
@@ -340,8 +343,7 @@ class CircuitBreakerService {
     this.isHalted = false;
     this.haltReason = null;
     this.haltTimestamp = null;
-    const root = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
-    try { fs.unlinkSync(path.join(root, '.genos', 'mcp.halted')); } catch (_) {}
+    circuitBreakerShared.removePersistedHalt();
     this.state = 'CLOSED';
     this.failureCount = 0;
     this.failureTimes = [];
