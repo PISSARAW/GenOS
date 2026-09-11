@@ -586,3 +586,60 @@ La surveillance des agressions environnementales dans GenOS suit un flux continu
 - [ORCHESTRATION.md](./ORCHESTRATION.md) : Boucle de tick de l'orchestrateur, administration des thérapies systémiques et quarantaine.
 - [MEMOIRE_APPRENTISSAGE.md](./MEMOIRE_APPRENTISSAGE.md) : Connectome GraphRAG, plasticité hebbienne et persistance dans `genome_decisions`.
 - [OUTILS_MCP.md](./OUTILS_MCP.md) : Outil `genos_audit` et protocoles d'inspection des états de lignée.
+
+
+
+---
+
+## Schémas des Pathologies Environnementales et Toxiques
+
+### 1. Cartographie de l'Intoxication Environnementale (Asbestose / Saturnisme)
+
+```mermaid
+flowchart TB
+    subgraph ToxicSources["Sources de Contamination Externe"]
+        AsbestosSrc["Dépendances Tierces Obsolètes / Fibres Toxiques"]
+        LeadSrc["Caches Pollués / États Résiduels Corrompus (Plomb)"]
+    end
+
+    subgraph SystemDamage["Dommages Tissulaires & Organiques"]
+        Fibrosis["Fibrose Contextuelle (Rigidification & Perte d'élasticité)"]
+        SynapticBlock["Saturnisme (Blocage durable des synapses de communication)"]
+    end
+
+    subgraph DetoxProtocols["Protocoles de Décontamination & Chélation"]
+        Lavage["Lavage Bronchique (Purge des modules tiers obsolètes)"]
+        Chelation["Chélation au DMSA (Extraction des métaux lourds / caches corrompus)"]
+        SanitaryBubble["Bulle Sanitaire Hermétique"]
+    end
+
+    AsbestosSrc --> Fibrosis --> Lavage
+    LeadSrc --> SynapticBlock --> Chelation
+    Lavage & Chelation --> SanitaryBubble
+```
+
+### 2. Séquence de Chélation et Détoxification Profonde
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Environment as Environnement Pollué
+    participant HostSystem as Système Hôte
+    participant ToxicSensor as Sonde de Toxicité Environnementale
+    participant Chelator as Agent Chélateur
+
+    Environment->>HostSystem: Infiltration de résidus toxiques persistants
+    HostSystem->>ToxicSensor: Hausse anormale de la latence et des corruptions
+    activate ToxicSensor
+    ToxicSensor->>ToxicSensor: Diagnostic de Saturnisme Computationnel (Pb > Seuil)
+    ToxicSensor->>Chelator: Déclenchement de la chélation
+    deactivate ToxicSensor
+    
+    activate Chelator
+    Chelator->>HostSystem: Liaison chimique avec les états corrompus
+    Chelator->>HostSystem: Extraction et purge sous vide des caches empoisonnés
+    Chelator->>HostSystem: Recalibration des bus de transmission
+    deactivate Chelator
+    
+    HostSystem-->>ToxicSensor: Retour à la pureté environnementale
+```

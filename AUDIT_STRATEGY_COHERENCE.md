@@ -256,3 +256,63 @@ Le contrat est créé, stocké, et exécuté, mais :
 4. Créer `validateWorkerDossierCoherence()` : Valide que les dossiers reflètent le contrat exécuté
 5. Créer `validateStrategyTransition()` : Avant changement, valide la continuité des preuves
 6. Créer `signStrategyContract()` : Signer le contrat pour détecter les mutations
+
+
+
+---
+
+## Schémas d'Audit de Cohérence et de Matrice Stratégique
+
+### 1. Architecture de l'Audit de Cohérence Inter-Composants
+
+```mermaid
+flowchart TB
+    subgraph Specifications["Référentiel des Stratégies"]
+        Catalog["Catalogue des Stratégies (`strategies.md`)"]
+        Contracts["Contrats Formels & Invariants"]
+    end
+
+    subgraph Implementations["Implémentations Réelles"]
+        RustImpl["Modules Rust (`crates/genos-*`)"]
+        NodeImpl["Services Node.js (`backend/src/services`)"]
+        MCPImpl["Outils MCP (`mcp/genos_v3`)"]
+    end
+
+    subgraph AuditEngine["Moteur d'Audit de Cohérence"]
+        Matrix["Matrice de Traçabilité & Cohérence"]
+        ParityChecker["Vérificateur de Parité de Types"]
+        InvariantGuard["Gardien d'Invariants Formels"]
+    end
+
+    Specifications --> AuditEngine
+    Implementations --> AuditEngine
+    AuditEngine --> Report["Rapport d'Audit & Certification"]
+```
+
+### 2. Séquence de Validation de Parité d'une Stratégie
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Auditor as Auditeur de Cohérence
+    participant Rust as Crate Rust (Source de Vérité)
+    participant Node as Service Node.js
+    participant MCP as Outil MCP
+
+    Auditor->>Rust: Extraction de la signature de stratégie
+    activate Rust
+    Rust-->>Auditor: Schéma de types & invariants
+    deactivate Rust
+    
+    Auditor->>Node: Vérification du contrôleur correspondant
+    activate Node
+    Node-->>Auditor: Conformité des arguments & gestion d'erreurs
+    deactivate Node
+    
+    Auditor->>MCP: Vérification du schéma JSON de l'outil
+    activate MCP
+    MCP-->>Auditor: Schéma d'entrée / sortie validé
+    deactivate MCP
+    
+    Auditor->>Auditor: Calcul du Score de Cohérence (100% Alignement)
+```

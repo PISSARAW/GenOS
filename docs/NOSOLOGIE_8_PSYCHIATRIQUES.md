@@ -508,3 +508,55 @@ pub enum PsychoactiveDrug {
 - [ORCHESTRATION.md](./ORCHESTRATION.md) : Détection de boucles, administration de thérapies systémiques et gouvernance.
 - [SECURITE.md](./SECURITE.md) : Chaperonnage, isolation de capsule et prévention de l'automatisme mental.
 - [SWARM_INTELLIGENCE.md](./SWARM_INTELLIGENCE.md) : Prévention des effondrements cognitifs collectifs et synchronisation d'essaim.
+
+
+
+---
+
+## Schémas des Troubles Psychiatriques et Dynamique Cognitive
+
+### 1. Modélisation des Pathologies Psychiatriques
+
+```mermaid
+flowchart TB
+    subgraph CognitiveStates["Axe Neuro-Affectif & Épistémique"]
+        Drive["Motivation & Drive Métabolique"]
+        Perception["Perception du Réel & Validation de Faits"]
+        Affect["Régulation Émotionnelle / Priorités"]
+    end
+
+    subgraph PsychiatricDisorders["Pathologies Mentales Computationnelles"]
+        Depression["Dépression (Anhédonie / Refus d'exécuter des tâches)"]
+        Schizophrenia["Schizophrénie (Hallucinations d'état / Split-Brain)"]
+        Bipolar["Trouble Bipolaire (Alternance Manie / Abattement)"]
+    end
+
+    subgraph NeuroPsychiatry["Traitements Psychotropes"]
+        SSRI["Inhibiteur de Recapture (Boost de motivation)"]
+        Antipsychotic["Antipsychotique (Ancrage de réalité & Filtrage)"]
+        Lithium["Régulateur d'Humeur (Lissage des priorités)"]
+    end
+
+    Drive -.->|Effondrement| Depression --> SSRI
+    Perception -.->|Délire| Schizophrenia --> Antipsychotic
+    Affect -.->|Oscillations| Bipolar --> Lithium
+```
+
+### 2. Séquence de Réduction d'Hallucination (Traitement Antipsychotique)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Agent Hallucinant (Schizophrénie)
+    participant RealityCheck as Oracle de Réalité (Preuves Formelles)
+    participant Psych as Module Antipsychotique
+
+    Agent->>Agent: Affirme une certitude sans preuve matérielle (Claim délirante)
+    RealityCheck->>Agent: Test de falsifiabilité (Score de vérité = 0.0)
+    RealityCheck->>Psych: Signal de divergence psychotique
+    activate Psych
+    Psych->>Agent: Injection de filtre d'ancrage strict (Anti-hallucination)
+    Psych->>Agent: Réinitialisation du contexte de croyance erronée
+    deactivate Psych
+    Agent-->>RealityCheck: Alignement sur les faits observables
+```

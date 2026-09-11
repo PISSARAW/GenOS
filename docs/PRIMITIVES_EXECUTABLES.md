@@ -479,3 +479,56 @@ Les références de code les plus importantes pour la vérification du modèle s
 - [backend/src/services/primitiveHandlers/evolution.js](../backend/src/services/primitiveHandlers/evolution.js)
 - [backend/src/services/primitiveHandlers/temporal.js](../backend/src/services/primitiveHandlers/temporal.js)
 - [backend/src/services/primitiveHandlers/strategyGovernance.js](../backend/src/services/primitiveHandlers/strategyGovernance.js)
+
+
+
+---
+
+## Schémas d'Architecture et de Contrats de Primitives
+
+### 1. Architecture du Pipeline d'Exécution de Primitives
+
+```mermaid
+flowchart TB
+    subgraph Intent["Intention Agent"]
+        SelectedPrimitive["Primitive Sélectionnée (Read, Write, Exec, Patch, Verify)"]
+        BudgetGuard["Budget Guard (Vérification des Tokens & Coût CPU)"]
+    end
+
+    subgraph SecurityShield["Barrière de Sécurité & Sandbox"]
+        LeaseValidator["Validateur de Bail (Lease & Permissions)"]
+        PathSanitizer["Assainisseur de Chemins & Blast Radius"]
+    end
+
+    subgraph RuntimeEngine["Exécuteur Déterministe"]
+        Executor["Moteur d'Exécution Sandboxed"]
+        AuditRecorder["Enregistreur de Traces & Preuves"]
+    end
+
+    Intent --> SecurityShield
+    SecurityShield --> RuntimeEngine
+```
+
+### 2. Machine à états du Cycle de Vie d'une Primitive
+
+```mermaid
+stateDiagram-v2
+    [*] --> Proposee : Sélection par l'Agent
+    Proposee --> ValideeContrat : Pré-conditions & Budget vérifiés
+    Proposee --> RejeteeSecurite : Violation de bail ou hors sandbox
+    
+    ValideeContrat --> EnExecution : Isolation dans la sandbox
+    
+    state EnExecution {
+        [*] --> TraitementAtomique
+        TraitementAtomique --> CaptureTrace : Succès
+        TraitementAtomique --> ErreurExecution : Exception runtime
+    }
+    
+    EnExecution --> SuccesCertifie : Post-conditions vérifiées
+    EnExecution --> EchecExecution : Timeout ou crash
+    
+    SuccesCertifie --> [*]
+    RejeteeSecurite --> [*]
+    EchecExecution --> [*]
+```

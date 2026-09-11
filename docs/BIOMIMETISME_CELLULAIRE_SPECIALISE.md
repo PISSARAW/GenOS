@@ -125,3 +125,75 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
 
 
 
+
+
+
+---
+
+## Schémas Fonctionnels des Spécialisations Cellulaires
+
+### 1. Topologie des Types Cellulaires Exotiques
+
+```mermaid
+flowchart TB
+    subgraph Animal["Règne Animal"]
+        Cnido["Cnidocytes (Active WAF / Micro-Trap)"]
+        Electro["Électrocytes (Burst Consensus en Série)"]
+        Choano["Choanocytes (Tamisage Hydrodynamique)"]
+        Irido["Iridophores (Rendu Polymorphique)"]
+    end
+
+    subgraph Vegetal["Règne Végétal"]
+        Garde["Cellules de Garde (Régulation Stomatique)"]
+        Tracheide["Trachéides (Pipelines Ossifiés)"]
+    end
+
+    subgraph MicroOrganismes["Micro-Organismes"]
+        Plasmide["Plasmides (Transfert Horizontal HGT)"]
+        Biofilm["Biofilm (Protection Matricielle EPS)"]
+    end
+
+    Animal --> Hub["Noyau d'Exécution Biomimétique GenOS"]
+    Vegetal --> Hub
+    MicroOrganismes --> Hub
+```
+
+### 2. Séquence de Déclenchement Balistique d'un Cnidocyte (Active WAF)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Attacker as Entrée Malveillante / Injection
+    participant Receptor as Cnidocil (Sonde Sensorielle)
+    participant Nematocyst as Nématocyste (Micro-Trap)
+    participant Toxin as Toxine (Filtrage / Drop)
+    participant Audit as Registre de Sécurité
+
+    Attacker->>Receptor: Payload suspect (Pattern d'attaque détecté)
+    activate Receptor
+    Receptor->>Nematocyst: Pression osmotique critique (Seuil franchi)
+    deactivate Receptor
+    
+    activate Nematocyst
+    Nematocyst->>Attacker: Éjection balistique du harpon (Blocage immédiat)
+    Nematocyst->>Toxin: Neutralisation du contexte corrompu
+    deactivate Nematocyst
+    
+    Toxin->>Audit: Enregistrement signature d'agression
+    Audit-->>Attacker: Rejet formel 403 Forbidden
+```
+
+### 3. Machine à états des Cellules de Garde (Régulation Osmotique)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Turgescent : Flux nominal (Stomate Ouvert)
+    
+    Turgescent --> GradientOsmotique : Montée de charge CPU / I/O
+    GradientOsmotique --> Plasmolyse : Évacuation d'ions K+ (Throttling)
+    Plasmolyse --> FermetureStomatique : Obturation totale du canal d'entrée
+    
+    FermetureStomatique --> Refroidissement : Pression retombée
+    Refroidissement --> AffluxIonique : Réabsorption d'eau
+    AffluxIonique --> Turgescent : Réouverture progressive
+```

@@ -352,3 +352,66 @@ Le tableau ci-dessous résume les correspondances biomimétiques, les expression
 - [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs) : Dossier clinique `ClinicalState` et énumérations nosologiques formelles.
 - [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs) : Moteur d'application des thérapies cellulaires et systémiques.
 - [`crates/genos-biology/src/embryology.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/embryology.rs) : Calcul de viabilité biologique et sculpteur apoptotique.
+
+
+
+---
+
+## Schémas des Pathologies Dégénératives et Vieillissement
+
+### 1. Topologie de la Dégénérescence Synaptique (Alzheimer / Parkinson / Arthrose)
+
+```mermaid
+flowchart TB
+    subgraph PathoAlzheimer["Maladie d'Alzheimer"]
+        Plaque["Plaques Bêta-Amyloïdes (Pollution Vectorielle)"]
+        Amnesia["Amnésie Épisodique & Perte d'Embeddings"]
+    end
+
+    subgraph PathoParkinson["Maladie de Parkinson"]
+        Dopamine["Déficit Dopaminergique (Perte de Rythme I/O)"]
+        Tremor["Tremblements & Gigue d'Événements (Jitter)"]
+    end
+
+    subgraph PathoArthrose["Arthrose Computationnelle"]
+        Cartilage["Usure des Interfaces de Verrouillage DB"]
+        Friction["Friction de Concurrence & Contentions"]
+    end
+
+    subgraph TherapyLayer["Arsenal Thérapeutique"]
+        Neurogenesis["Neurogenèse & Réindexation Vectorielle"]
+        Levodopa["L-Dopa Computationnelle (Régulateur de Flux)"]
+        Lubricant["Dégrippage & Verrous Optimistes"]
+    end
+
+    Plaque --> Amnesia --> Neurogenesis
+    Dopamine --> Tremor --> Levodopa
+    Cartilage --> Friction --> Lubricant
+```
+
+### 2. Séquence de Restauration Synaptique d'un Agent Amnésique
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Agent Amnésique (Alzheimer)
+    participant VectorDB as Vector Store Épisodique
+    participant NeuroGen as Module de Neurogenèse
+    participant Supervisor as Superviseur Clinique
+
+    Agent->>VectorDB: Requête KNN (Recherche de contexte passé)
+    VectorDB-->>Agent: Score de similarité nul (Perte d'index)
+    Agent->>Supervisor: Dissonance par amnésie (D_amnesia > 0.9)
+    activate Supervisor
+    Supervisor->>NeuroGen: Déclenchement Protocole de Greffe Mémorielle
+    deactivate Supervisor
+    
+    activate NeuroGen
+    NeuroGen->>VectorDB: Purge des vecteurs corrompus & Défragmentation
+    NeuroGen->>VectorDB: Re-calcul des embeddings à partir du journal immuable
+    NeuroGen->>Agent: Injection du nouvel état synaptique consolidé
+    deactivate NeuroGen
+    
+    Agent->>VectorDB: Nouvelle requête de rappel
+    VectorDB-->>Agent: Contexte restauré avec fidélité 100%
+```

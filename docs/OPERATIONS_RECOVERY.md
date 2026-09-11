@@ -59,3 +59,55 @@ For every recovery operation record:
 - database backup location and integrity result;
 - test output after restore;
 - whether the result was applied, reconstructed, simulated, deferred, or escalated.
+
+
+
+---
+
+## Schémas d'Exploitation et Procédures d'Urgence
+
+### 1. Arbre de Décision pour l'Intervention Opérateur
+
+```mermaid
+flowchart TD
+    Incident["Incident Détecté en Production"] --> HealthCheck["Exécution Healthcheck (`/health`)"]
+    
+    HealthCheck -->|500 / Timeout| CheckDB["Vérification SQLite & Verrous"]
+    HealthCheck -->|200 OK mais Agents Bloqués| CheckHeartbeat["Vérification Heartbeat des Workers"]
+    
+    CheckDB -->|Base Corrompue / Verrouillée| RestoreBackup["Restauration Backup Chaud SQLite (`.backup`)"]
+    CheckDB -->|Base Saine| RestartService["Redémarrage Service Backend"]
+    
+    CheckHeartbeat -->|Workers Morts| ReplayEngine["Lancement Replay des Traces (`genos_replay`)"]
+    CheckHeartbeat -->|Workers Vivants mais Deadlock| KillDeadlock["Purge Ciblée & Rollback Espace Contrefactuel"]
+    
+    RestoreBackup --> ReplayEngine
+    RestartService --> VerifyStability["Vérification Stabilité & Reprise"]
+    KillDeadlock --> VerifyStability
+```
+
+### 2. Séquence d'Exécution du Runbook de Backup et Restauration
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Ops as Ingénieur SRE
+    participant CLI as GenOS CLI / Tooling
+    participant DB as SQLite DB
+    participant BackupStorage as Stockage Backup
+
+    Ops->>CLI: Commande de backup à chaud (`sqlite3 backup`)
+    activate CLI
+    CLI->>DB: Pose de verrou de lecture partagé (WAL checkpoint)
+    DB->>BackupStorage: Écriture atomique du snapshot (.bak)
+    CLI-->>Ops: Backup certifié avec hash SHA-256
+    deactivate CLI
+    
+    Note over Ops,BackupStorage: En cas de sinistre
+    Ops->>CLI: Commande de restauration (`genos restore --snapshot <id>`)
+    activate CLI
+    CLI->>DB: Remplacement du fichier de base de données
+    CLI->>DB: Vérification de l'intégrité (`PRAGMA integrity_check`)
+    CLI-->>Ops: Système restauré prêt au redémarrage
+    deactivate CLI
+```

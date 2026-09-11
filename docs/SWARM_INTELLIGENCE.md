@@ -470,3 +470,81 @@ La swarm intelligence dans GenOS est un système de coordination collective robu
 Ce n’est pas une simple “simulation d’abeilles”. C’est un mécanisme opérationnel de gouvernance multi-agent, conçu pour fonctionner dans un système qui combine exécutif, sécurité, observabilité et déploiement d’agents.
 
 Le point de force de GenOS est qu’il est plus que “des agents qui communiquent” : il est un système où la structure elle-même, la trace, la confiance, et la qualité d’information deviennent des variables de coordination.
+
+
+
+---
+
+## Schémas d'Intelligence de Nuée et Dynamique Stigmergique
+
+### 1. Topologie de l'Essaim et Grille Stigmergique
+
+```mermaid
+flowchart TB
+    subgraph StigmergyGrid["Espace Environnemental Partagé (Stigmergie)"]
+        Grid["Matrice de Phéromones (Traces & Pistes)"]
+        Evap["Moteur d'Évaporation Continue (Taux lambda)"]
+    end
+
+    subgraph AgentsNuée["Nuée d'Agents (Swarm Workers)"]
+        A1["Agent Explorateur 1"]
+        A2["Agent Explorateur 2"]
+        A3["Agent Exploiteur 3"]
+        A4["Agent Sentinelle Quorum"]
+    end
+
+    subgraph ConsensusLayer["Couche de Quorum & Consensus"]
+        QuorumGate["Détecteur de Quorum (Seuil q_th)"]
+        Decision["Décision Collective Émergente"]
+    end
+
+    A1 & A2 -->|Dépôt de Phéromone| Grid
+    Grid -->|Attraction Heuristique| A3
+    Grid --> Evap
+    A4 -->|Densité locale| QuorumGate
+    QuorumGate --> Decision
+```
+
+### 2. Séquence de Dépôt de Phéromones et Convergence Collective
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Ant1 as Agent Découvreur
+    participant Grid as Espace Phéromonal
+    participant Ant2 as Agent Voisin
+    participant Quorum as Capteur de Quorum
+
+    Ant1->>Ant1: Découverte d'une branche optimale
+    Ant1->>Grid: Dépôt de phéromone de succès (tau = tau + delta_tau)
+    
+    activate Grid
+    Grid-->>Ant2: Gradient d'attraction renforcé sur le chemin
+    deactivate Grid
+    
+    Ant2->>Grid: Emprunte le chemin & Dépose une phéromone supplémentaire
+    
+    activate Quorum
+    Quorum->>Grid: Mesure de la concentration locale (P >= 0.8)
+    Quorum-->>Ant1: Quorum atteint : Validation de la route optimale
+    deactivate Quorum
+```
+
+### 3. Machine à états de Dynamique de Nuée
+
+```mermaid
+stateDiagram-v2
+    [*] --> ExplorationDiffuse : Recherche non orientée (Entropie Max)
+    ExplorationDiffuse --> TracesEmergeantes : Premiers dépôts phéromonaux
+    
+    state TracesEmergeantes {
+        [*] --> AmplificationPositive
+        AmplificationPositive --> EvaporationPistesFausses : Élimination du bruit
+    }
+    
+    TracesEmergeantes --> QuorumConsensus : Densité critique atteinte
+    QuorumConsensus --> ExploitationFocalisee : Convergence collective de l'essaim
+    
+    ExploitationFocalisee --> EpuisementSource : Fin de tâche
+    EpuisementSource --> ExplorationDiffuse : Réinitialisation stochastique
+```

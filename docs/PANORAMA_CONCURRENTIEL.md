@@ -216,3 +216,47 @@ Cette page doit être révisée à chaque évolution majeure des contrats ou du 
 - [Qdrant](https://qdrant.tech/documentation/), [Weaviate](https://weaviate.io/developers/weaviate) et [Pinecone](https://docs.pinecone.io/).
 
 Les liens externes sont des points d'entrée, pas des preuves exhaustives. Toute allégation commerciale ou toute comparaison de coût, de sécurité ou de performance doit être revalidée sur les versions et offres effectivement utilisées.
+
+
+---
+
+## Schémas Comparatifs et Différenciation Architecturale
+
+### 1. Positionnement Différentiel de GenOS face à l'État de l'Art
+
+```mermaid
+quadrantChart
+    title Positionnement Marché des Frameworks Agentiques
+    x-axis "Faible Rigueur Formelle" --> "Preuves & Vérité Formelle"
+    y-axis "Orchestration Standard" --> "Biomimétisme & Nosologie Systémique"
+    quadrant-1 "GenOS (Domaine Exclusif)"
+    quadrant-2 "Systèmes Biomimétiques Expérimentaux"
+    quadrant-3 "Frameworks LLM Classiques (LangChain, AutoGen)"
+    quadrant-4 "Moteurs d'Exécution de Code (Devin, SWE-Agent)"
+    "LangGraph": [0.35, 0.45]
+    "CrewAI": [0.25, 0.55]
+    "AutoGen": [0.30, 0.40]
+    "Devin": [0.70, 0.30]
+    "GenOS": [0.92, 0.95]
+```
+
+### 2. Matrice Comparative des Capacités Clés
+
+```mermaid
+flowchart TD
+    subgraph Comparison["Différenciateurs Clés de GenOS"]
+        subgraph StandardFrameworks["Frameworks Classiques (LangGraph, CrewAI)"]
+            F1["Orchestration par Prompts & Heuristiques"]
+            F2["Absence de Théorie Nosologique"]
+            F3["Validation 'Succès Technique' (Exit Code 0)"]
+        end
+        subgraph GenOSAdvantages["Innovations Fondamentales GenOS"]
+            G1["Nosologie Computationnelle (28 pathologies modélisées)"]
+            G2["Épistémologie & Falsifiabilité des Preuves"]
+            G3["Workspaces Contrefactuels & Snapshots Déterministes"]
+            G4["Symbiose & Système Glial de Nettoyage Automatique"]
+        end
+    end
+
+    StandardFrameworks -.->|Évolution vers la rigueur formelle| GenOSAdvantages
+```

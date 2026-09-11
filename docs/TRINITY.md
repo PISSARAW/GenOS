@@ -1012,3 +1012,110 @@ En mode `--monitor`, les raccourcis `q`/`Esc` restent actifs pour quitter ; `r` 
 - Client TCP du moniteur natif : [crates/genos-cli/src/commands/trinity_tui/live.rs](../crates/genos-cli/src/commands/trinity_tui/live.rs)
 - Tests : [backend/tests/test_trinity_intent.js](../backend/tests/test_trinity_intent.js)
 
+
+
+
+---
+
+## Schémas d'Architecture et d'Expérimentation Tri-Monde
+
+### 1. Architecture Tri-Monde Parallèle
+
+```mermaid
+flowchart TB
+    subgraph Spec["Intention Initiale"]
+        Mission["Spécification Formelle de la Mission"]
+    end
+
+    subgraph Worlds["Les 3 Mondes Parallèles Découplés"]
+        subgraph World_Conservateur["Monde Alpha : Conservateur & Robuste"]
+            A_Arch["Architecte Alpha"] --> A_Exec["Exécuteur Alpha"]
+        end
+        subgraph World_Equilibre["Monde Beta : Équilibré & Standard"]
+            B_Arch["Architecte Beta"] --> B_Exec["Exécuteur Beta"]
+        end
+        subgraph World_Exploratoire["Monde Gamma : Exploratoire & Innovant"]
+            C_Arch["Architecte Gamma"] --> C_Exec["Exécuteur Gamma"]
+        end
+    end
+
+    subgraph Synthesis["Arène d'Évaluation & Synthèse"]
+        JudgePool["Collège de Juges Indépendants"]
+        Benchmark["Matrice de Preuves & Benchmarks"]
+        Synthesizer["Synthétiseur de la Solution Optimale"]
+    end
+
+    Mission --> World_Conservateur
+    Mission --> World_Equilibre
+    Mission --> World_Exploratoire
+
+    World_Conservateur --> JudgePool
+    World_Equilibre --> JudgePool
+    World_Exploratoire --> JudgePool
+
+    JudgePool --> Benchmark
+    Benchmark --> Synthesizer
+```
+
+### 2. Séquence Comparée et Sélection Finale Trinity
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Opérateur
+    participant Trinity as Trinity Master
+    participant Alpha as Monde Alpha (Prudent)
+    participant Beta as Monde Beta (Équilibré)
+    participant Gamma as Monde Gamma (Audacieux)
+    participant Judge as Juge Comparatif
+    participant Merge as Synthétiseur de Tronc
+
+    User->>Trinity: Lancement de mission sous Trinity
+    Trinity->>Alpha: Fork Monde Alpha (Sandbox 1)
+    Trinity->>Beta: Fork Monde Beta (Sandbox 2)
+    Trinity->>Gamma: Fork Monde Gamma (Sandbox 3)
+    
+    par Exécution parallèle
+        Alpha->>Alpha: Résolution conservatrice (Zéro risque)
+        Beta->>Beta: Résolution standard (Bonne couverture)
+        Gamma->>Gamma: Résolution par refactor radical
+    end
+    
+    Alpha-->>Judge: Solution Alpha + Preuves
+    Beta-->>Judge: Solution Beta + Preuves
+    Gamma-->>Judge: Solution Gamma + Preuves
+    
+    activate Judge
+    Judge->>Judge: Analyse multi-critères (Performance, Sécurité, Clarté)
+    Judge-->>Merge: Sélection Gamma pour l'algo + Alpha pour la sécurité
+    deactivate Judge
+    
+    activate Merge
+    Merge->>Merge: Fusion harmonisée (Best of Trinity)
+    Merge-->>User: Commit final certifié
+    deactivate Merge
+```
+
+### 3. Machine à états d'une Session Trinity
+
+```mermaid
+stateDiagram-v2
+    [*] --> ForkTriangulaire : Création des 3 mondes isolés
+    ForkTriangulaire --> ExecutionConcurrente : Exécution des stratégies différenciées
+    
+    state ExecutionConcurrente {
+        [*] --> TraitementAlpha
+        [*] --> TraitementBeta
+        [*] --> TraitementGamma
+    }
+    
+    ExecutionConcurrente --> BenchmarkingComparatif : Soumission des 3 livrables
+    BenchmarkingComparatif --> SyntheseHybride : Extraction des meilleures composantes
+    BenchmarkingComparatif --> SelectionUnanime : Un monde surpasse tous les autres
+    
+    SyntheseHybride --> PromotionTronc : Validation des preuves croisées
+    SelectionUnanime --> PromotionTronc
+    
+    PromotionTronc --> DestructionMondesMorts : Nettoyage des sandboxes
+    DestructionMondesMorts --> [*]
+```

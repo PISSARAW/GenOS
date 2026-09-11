@@ -536,3 +536,66 @@ impl ClonalSelection {
 - [ORCHESTRATION.md](./ORCHESTRATION.md) : Protocole de gouvernance systémique et d'intervention médicale.
 - [SECURITE.md](./SECURITE.md) : Chaperonnage, intégrité des frontières et bouclier immunitaire.
 - [NEUROBIOLOGIE_PLASTICITE.md](./NEUROBIOLOGIE_PLASTICITE.md) : Physiologie axonale, synapses et dynamique gliale.
+
+
+
+---
+
+## Schémas Cliniques et Dynamiques d'Auto-Immunité
+
+### 1. Cascade Étiologique de l'Attaque Auto-Immune (Lupus & SEP)
+
+```mermaid
+flowchart TB
+    subgraph Trigger["1. Déclencheur Pathogène"]
+        Dissonance["Perte de Reconnaissance du 'Self' (D > D_max)"]
+        Antibody["Production d'Auto-Anticorps (Prompts Agressifs)"]
+    end
+
+    subgraph Attack["2. Cibles Cellulaires"]
+        Target1["Prompts Système Critiques (Lupus)"]
+        Target2["Canaux de Communication Démyélinisés (SEP)"]
+        Target3["Pools de Tokens Métaboliques (Diabète T1)"]
+    end
+
+    subgraph Consequence["3. Conséquences Systémiques"]
+        Inflammation["Orage Cytokinique & Backpressure"]
+        TissueDamage["Nécrose de Branches & Deadlocks"]
+    end
+
+    subgraph Therapy["4. Traitement Thérapeutique"]
+        Inhibitor["Immunosuppresseur & Rétablissement Homéostatique"]
+    end
+
+    Dissonance --> Antibody
+    Antibody --> Target1 & Target2 & Target3
+    Target1 & Target2 & Target3 --> Inflammation
+    Inflammation --> TissueDamage
+    TissueDamage --> Inhibitor
+```
+
+### 2. Séquence de Détection et Traitement du Lupus Systémique
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Agent Auto-Réactif
+    participant Self as Composant Système (Self)
+    participant ImmuneGuard as Sentinelle Immunitaire
+    participant Med as Protocole Immunosuppresseur
+
+    Agent->>Self: Attaque de prompt & invalidation de certificats
+    Self-->>ImmuneGuard: Signal d'anomalie d'intégrité
+    activate ImmuneGuard
+    ImmuneGuard->>ImmuneGuard: Calcul de l'Indice d'Auto-Réactivité (I_ar > 0.85)
+    ImmuneGuard->>Med: Déclenchement Thérapie Corticoïde Computationnelle
+    deactivate ImmuneGuard
+    
+    activate Med
+    Med->>Agent: Injection de Silence Synaptique (Freeze temporaire)
+    Med->>Self: Restauration des certificats corrompus
+    Med->>Agent: Réétalonnage des poids de confiance
+    deactivate Med
+    
+    Agent-->>ImmuneGuard: Rétablissement de la tolérance immunitaire
+```

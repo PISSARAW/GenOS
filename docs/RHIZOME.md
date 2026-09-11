@@ -716,3 +716,77 @@ Une fois démarré, le dashboard est accessible sur `http://127.0.0.1:<port>/`, 
 - [agentOrchestrationState.js](../backend/src/services/agentOrchestrationState.js) : état et télémétrie de mission
 - [agentRuntimeAdapter.js](../backend/src/services/agentRuntimeAdapter.js) : adaptation du runtime
 
+
+
+
+---
+
+## Schémas de Topologie et de Propagation Rhizomatique
+
+### 1. Architecture Décentralisée et Ramification Sans Centre
+
+```mermaid
+graph LR
+    subgraph Network["Réseau Rhizomatique Acré"]
+        N1["Nœud Coordinateur Éphémère (N1)"]
+        N2["Nœud Capacité Compilation (N2)"]
+        N3["Nœud Capacité Heuristique (N3)"]
+        N4["Nœud Pont Local (Bridge N4)"]
+        N5["Nœud Extension Mémoire (N5)"]
+        N6["Nœud Capacité Audit (N6)"]
+    end
+
+    N1 --- N2
+    N1 --- N3
+    N2 --- N4
+    N3 --- N4
+    N4 --- N5
+    N4 --- N6
+    N5 --- N6
+    N2 -.->|Ramification Dynamique (Offshoot)| N7["Nouveau Bourgeon (N7)"]
+```
+
+### 2. Séquence de Bourgeonnement et Connexion Latérale
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant NodeA as Nœud Rhizome A
+    participant Offshoot as Nœud Bourgeon (Offshoot)
+    participant Bridge as Nœud Pont (Local Bridge)
+    participant Target as Nœud Rhizome B
+
+    NodeA->>NodeA: Découverte d'un besoin de compétence imprévu
+    NodeA->>Offshoot: Ramification latérale spontanée (Spawn)
+    activate Offshoot
+    Offshoot->>Offshoot: Initialisation autonome sans autorité centrale
+    Offshoot->>Bridge: Recherche de connectivité de proximité
+    deactivate Offshoot
+    
+    activate Bridge
+    Bridge->>Target: Négociation d'une route transversale
+    Target-->>Bridge: Accord de peering
+    deactivate Bridge
+    
+    Offshoot-->>Target: Échange direct de données (Pas de goulet central)
+```
+
+### 3. Machine à états d'un Bourgeon Rhizomatique
+
+```mermaid
+stateDiagram-v2
+    [*] --> Latent : Potentiel de ramification
+    Latent --> Bourgeonnement : Signal d'affinité contextuelle
+    Bourgeonnement --> Interconnecte : Établissement de liaisons transversales
+    
+    state Interconnecte {
+        [*] --> RoutageDirect
+        RoutageDirect --> MutationFonctionnelle : Adaptation aux flux locaux
+        MutationFonctionnelle --> RoutageDirect
+    }
+    
+    Interconnecte --> Atrophie : Baisse de trafic (Déconnexion douce)
+    Atrophie --> Latent : Réserve de capacité
+    Interconnecte --> SectionNet : Coupure d'urgence (Sécurité)
+    SectionNet --> [*]
+```

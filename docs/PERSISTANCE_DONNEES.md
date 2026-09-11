@@ -419,3 +419,78 @@ Le choix SQLite est particulièrement adapté à un runtime local, une installat
 - Employer les suppressions en cascade pour les dépendances réellement jetables et des tombstones pour l'historique qui doit être récupérable.
 
 En résumé, GenOS utilise la base comme une mémoire durable et gouvernée : contraintes pour la cohérence, transactions pour l'atomicité, WAL pour la disponibilité de lecture, index FTS/vectoriels pour le rappel, et migrations idempotentes pour faire évoluer le système sans perdre son historique.
+
+
+
+---
+
+## Schémas Complémentaires de Données et de Transactions
+
+### 1. Modèle Entité-Association Relationnel (SQLite Schema)
+
+```mermaid
+erDiagram
+    ORGANIZATION ||--|{ PROJECT : owns
+    PROJECT ||--o{ WORKSPACE : contains
+    WORKSPACE ||--o{ AGENT_SNAPSHOT : records
+    WORKSPACE ||--o{ CLAIM : generates
+    CLAIM ||--|{ EVIDENCE : backed_by
+    PROJECT ||--o{ JOB : schedules
+    JOB ||--o{ JOB_STEP : executes
+    ORGANIZATION ||--o{ USER_ACCOUNT : memberships
+
+    ORGANIZATION {
+        string org_id PK
+        string name
+        json quotas
+    }
+    PROJECT {
+        string project_id PK
+        string org_id FK
+        string name
+    }
+    WORKSPACE {
+        string workspace_id PK
+        string project_id FK
+        string root_path
+        string branch_name
+    }
+    CLAIM {
+        string claim_id PK
+        string workspace_id FK
+        string hypothesis
+        float truth_score
+        string status
+    }
+    EVIDENCE {
+        string evidence_id PK
+        string claim_id FK
+        string trace_hash
+        json assertions
+    }
+```
+
+### 2. Séquence de Transaction Atomique avec Journal WAL
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Agent Écrivain
+    participant Pool as Connection Pool (SQLite)
+    participant WAL as Write-Ahead Log (WAL)
+    participant Disk as Base Principale (DB)
+
+    Agent->>Pool: BEGIN IMMEDIATE TRANSACTION
+    activate Pool
+    Pool->>WAL: Écriture des pages modifiées (Dirty Pages)
+    Agent->>Pool: Enregistrement Claim + Évidences associées
+    Pool->>WAL: Append frame avec CRC32
+    Agent->>Pool: COMMIT TRANSACTION
+    Pool->>WAL: Écriture Commit Frame
+    Pool-->>Agent: Transaction validée (Durabilité garantie)
+    deactivate Pool
+    
+    Note over Pool,Disk: Checkpoint périodique en arrière-plan
+    Pool->>Disk: Synchronisation des pages du WAL vers la DB
+    Pool->>WAL: Tronquage du fichier WAL
+```

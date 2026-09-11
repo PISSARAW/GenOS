@@ -710,3 +710,82 @@ Les références de code les plus importantes sont :
 - [backend/src/services/primitiveHandlers/memory.js](../backend/src/services/primitiveHandlers/memory.js)
 - [backend/src/services/provenanceResolver.js](../backend/src/services/provenanceResolver.js)
 - [backend/src/db/schema.js](../backend/src/db/schema.js)
+
+
+
+---
+
+## Schémas d'Architecture et de Cycle Mémoriel
+
+### 1. Architecture Hiérarchique de la Mémoire GenOS
+
+```mermaid
+flowchart TB
+    subgraph MemoryTiers["Niveaux de Mémoire (L0 à L3)"]
+        L0["L0 : Mémoire de Travail Immédiate (RAM Prompt / Contexte Court)"]
+        L1["L1 : Mémoire Épisodique (Journal d'Événements Récents & Traces)"]
+        L2["L2 : Mémoire Sémantique Vectorielle (Embeddings & Faits Consolidés)"]
+        L3["L3 : Mémoire Procédurale & Génomique (Règles & Primitives Immuables)"]
+    end
+
+    subgraph Operations["Moteurs de Traitement Mémoriel"]
+        VectorEngine["Moteur de Recherche Vectorielle (KNN / HNSW)"]
+        Consolidator["Consolidateur Synaptique (Sommeil / Flush)"]
+        EvictionEngine["Moteur d'Éviction & Pruning"]
+    end
+
+    L0 <-->|Rappel Rapide| L1
+    L1 -->|Consolidation STDP| L2
+    L2 -->|Abstraction de Règles| L3
+    VectorEngine <--> L2
+    Consolidator --> L2
+    EvictionEngine --> L1 & L2
+```
+
+### 2. Séquence de Mémorisation, Consolidation et Rappel Contextuel
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Agent Actif
+    participant L0 as Cache L0 (Prompt)
+    participant VectorDB as Base Vectorielle (L2)
+    participant Consolidator as Moteur de Consolidation
+
+    Agent->>L0: Enregistrement nouvelle observation
+    Agent->>VectorDB: Requête KNN (Recherche de contexte similaire)
+    activate VectorDB
+    VectorDB-->>Agent: Injection des 3 k-voisins les plus pertinents
+    deactivate VectorDB
+    
+    Agent->>Agent: Résolution de la tâche (Succès avec Preuve)
+    Agent->>Consolidator: Événement validé pour consolidation
+    
+    activate Consolidator
+    Consolidator->>Consolidator: Calcul de l'empreinte vectorielle
+    Consolidator->>VectorDB: Indexation durable avec renforcement de poids
+    deactivate Consolidator
+```
+
+### 3. Machine à états du Cycle de Vie d'un Souvenir
+
+```mermaid
+stateDiagram-v2
+    [*] --> Volatile : Capture brute dans le contexte L0
+    Volatile --> Episodique : Enregistrement dans le journal L1
+    
+    state Episodique {
+        [*] --> FraicheurHaute
+        FraicheurHaute --> RenforcementSTDP : Réutilisation fréquente
+        FraicheurHaute --> AttenuationTemporelle : Non-utilisation
+    }
+    
+    Episodique --> Semantique : Consolidation vectorielle (L2)
+    Episodique --> Prune : Décroissance en dessous du seuil d'oubli
+    
+    Semantique --> Procedural : Généralisation en réflexe (L3)
+    Semantique --> Prune : Obsolescence constatée
+    
+    Prune --> [*]
+    Procedural --> [*]
+```

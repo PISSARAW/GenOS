@@ -702,3 +702,85 @@ Le choix peut se résumer ainsi :
 - [agentFleetService.js](../backend/src/services/agentFleetService.js) : fleet de workers et barrière d'évidence
 - [agentOrchestrationState.js](../backend/src/services/agentOrchestrationState.js) : état et télémétrie de mission
 - [agentRuntimeAdapter.js](../backend/src/services/agentRuntimeAdapter.js) : adaptation du runtime
+
+
+
+---
+
+## Schémas d'Architecture et de Dynamique Métapopulationnelle
+
+### 1. Topologie des Dèmes et Couloirs de Migration
+
+```mermaid
+flowchart TB
+    subgraph MetaPop["Système Métapopulationnel"]
+        subgraph DemeA["Dème Alpha (Exploration Rust)"]
+            A1["Agent A1"]
+            A2["Agent A2"]
+            QS_A["Quorum Sensor A"]
+        end
+
+        subgraph DemeB["Dème Beta (Exploration TypeScript)"]
+            B1["Agent B1"]
+            B2["Agent B2"]
+            QS_B["Quorum Sensor B"]
+        end
+
+        subgraph DemeC["Dème Gamma (Validation & Fuzzing)"]
+            C1["Agent C1"]
+            C2["Agent C2"]
+            QS_C["Quorum Sensor C"]
+        end
+
+        CorridorAB["Couloir de Migration Alpha-Beta (Synaptic Adaptor)"]
+        CorridorBC["Couloir de Migration Beta-Gamma (Filtre Sélectif)"]
+    end
+
+    DemeA <--> CorridorAB
+    CorridorAB <--> DemeB
+    DemeB <--> CorridorBC
+    CorridorBC <--> DemeC
+```
+
+### 2. Séquence de Détection de Quorum et Migration Inter-Dèmes
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant D1 as Dème Alpha
+    participant QS as Quorum Sensor
+    participant Adapt as Synaptic Adaptor
+    participant D2 as Dème Beta
+
+    D1->>QS: Émission de signaux de découverte locale
+    activate QS
+    QS->>QS: Agrégation du seuil de consensus (Q >= 0.75)
+    QS->>Adapt: Signal de Quorum atteint
+    deactivate QS
+    
+    activate Adapt
+    Adapt->>D1: Sélection du meilleur agent émissaire
+    Adapt->>Adapt: Traduction du dialecte & normalisation des contextes
+    Adapt->>D2: Migration de l'agent / Injection de la découverte
+    deactivate Adapt
+    
+    D2->>D2: Intégration du savoir migrant & Accélération de convergence
+```
+
+### 3. Machine à états du Cycle Vie / Extinction / Recolonisation
+
+```mermaid
+stateDiagram-v2
+    [*] --> Fondateur : Colonisation d'un nouveau domaine
+    Fondateur --> CroissanceDeme : Multiplication des agents
+    CroissanceDeme --> ClimaxLocal : Exploitation complète de la branche
+    
+    ClimaxLocal --> QuorumDecouvert : Consensus validé
+    QuorumDecouvert --> EssaimageMigration : Envoi d'émissaires vers d'autres dèmes
+    
+    ClimaxLocal --> EpuisementRessources : Branche stérile ou deadlock
+    EpuisementRessources --> ExtinctionControlee : Apoptose du dème
+    ExtinctionControlee --> Fondateur : Recolonisation avec nouvelles heuristiques
+    
+    EssaimageMigration --> [*]
+```

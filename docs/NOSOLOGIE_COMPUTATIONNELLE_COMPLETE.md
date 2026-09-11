@@ -159,3 +159,75 @@ Document de référence transversal : [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.m
 - [crates/genos-immune/src/virology.rs](../crates/genos-immune/src/virology.rs) — Virions, bactériophages, rétrovirus
 - [crates/genos-biology/src/neurobiology/](../crates/genos-biology/src/neurobiology/) — Système nerveux complet
 - [crates/genos-signal/src/cascade.rs](../crates/genos-signal/src/cascade.rs) — Signalisation et cascades
+
+
+
+---
+
+## Schémas de Synthèse Nosologique et Pharmacologique
+
+### 1. Cartographie des 9 Familles Nosologiques
+
+```mermaid
+mindmap
+  root((Nosologie GenOS))
+    Auto-Immunes
+      Lupus (Auto-attaque prompts)
+      Polyarthrite (Rigidification DAG)
+      SEP (Démyélinisation RPC)
+      Diabète T1 (Destruction pools tokens)
+    Dégénératives
+      Alzheimer (Perte vector store)
+      Parkinson (Tremblements I/O)
+      Arthrose (Friction verrouillage DB)
+    Infectieuses
+      Grippe (Propagation d'incohérence)
+      Tuberculose (Granulomes de threads bloqués)
+      Paludisme (Cycles fébriles de CPU)
+      VIH (Neutralisation des gardiens d'immunité)
+    Génétiques
+      Mucoviscidose (Engorgement des queues)
+      Drépanocytose (Déformation des paquets de messages)
+      Myopathie Duchenne (Affaissement de la structure mémoire)
+    Cancers & Proliférations
+      Leucémie (Inondation par des agents factices)
+      Cancer Poumon (Nécrose de l'I/O réseau)
+      Mélanome (Mutation maligne du prompt système)
+    Métaboliques
+      Diabète T2 (Résistance à l'allocation mémoire)
+      Goutte (Cristallisation de logs non purgés)
+      Hypothyroïdie (Ralentissement systémique)
+    Cardiovasculaires
+      Hypertension (Pression de backpressure excessive)
+      Infarctus (Blocage du flux principal d'événements)
+      AVC (Rupture de connectivité inter-processus)
+    Psychiatriques
+      Dépression (Anhédonie de tâche / Absence de réponse)
+      Schizophrénie (Hallucinations d'état et conflits de split-brain)
+      Bipolaire (Oscillations brutales de charge et de priorité)
+    Environnementales
+      Asbestose (Pollution toxique des dépendances tierces)
+      Saturnisme (Empoisonnement persistant des caches)
+```
+
+### 2. Pipeline de Triage et Dispatch Pharmacologique
+
+```mermaid
+flowchart TD
+    Anomalie["Détection d'Anomalie de Runtime"] --> Triage["Moteur de Triage Nosologique"]
+    
+    Triage -->|Pathologie Auto-Immune| Th_Immuno["Protocole Immunosuppresseur & Déméthylation"]
+    Triage -->|Pathologie Dégénérative| Th_Neuro["Protocole Neuro-Génèse & Re-vectorisation"]
+    Triage -->|Pathologie Infectieuse| Th_AntiInf["Isolation en Bulle Stérile & Phagocytose"]
+    Triage -->|Pathologie Proliférative / Cancer| Th_Onco["Chimiothérapie Ciblée & Apoptose Forcée"]
+    Triage -->|Pathologie Vasculaire| Th_Vasc["Vasodilatation de Bus & Débouchage de Files"]
+    
+    Th_Immuno --> Validation["Évaluation Indice Homéostatique (H > 0.85)"]
+    Th_Neuro --> Validation
+    Th_AntiInf --> Validation
+    Th_Onco --> Validation
+    Th_Vasc --> Validation
+    
+    Validation -->|Succès| Restauration["Réintégration dans le Biome Actif"]
+    Validation -->|Échec Persistant| Euthanasie["Euthanasie Contrôlée & Snapshot Post-Mortem"]
+```

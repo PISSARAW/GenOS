@@ -649,3 +649,106 @@ L’orchestration GenOS est un système de contrôle de multi-agent fondé sur q
 - budget et reprise bornés.
 
 Ce qui distingue GenOS des orchestrateurs “simples” est qu’il combine planification, isolement de travail, sélection adaptative de survivants, preuves d’évidence, limites de sécurité et équité de partage. C’est une architecture pensée pour gérer l’incertitude de l’intelligence artificielle de manière mesurable, auditable et contrôlable.
+
+
+
+---
+
+## Schémas d'Architecture et de Flux d'Orchestration
+
+### 1. Architecture de l'Orchestrateur de Preuves
+
+```mermaid
+flowchart TB
+    subgraph GoalInput["Objectif Stratégique"]
+        MissionPlan["Plan de Mission & Contrats Formels"]
+    end
+
+    subgraph OrchestratorCore["Cœur de l'Orchestrateur"]
+        Decomposer["Décomposeur de Tâches en DAG"]
+        Scheduler["Ordonnanceur & Allocateur de Budgets"]
+        BranchManager["Gestionnaire de Branches d'Hypothèses"]
+    end
+
+    subgraph Workers["Exécution Parallèle & Sandboxes"]
+        W1["Worker Alpha (Branche A)"]
+        W2["Worker Beta (Branche B)"]
+        W3["Worker Gamma (Branche C)"]
+    end
+
+    subgraph VerificationGate["Validation de Preuves & Promotion"]
+        ProofChecker["Moteur de Preuve & Falsifiabilité"]
+        SurvivorSelection["Sélection des Survivants"]
+        MainlineMerge["Promotion atomique vers le tronc"]
+    end
+
+    GoalInput --> Decomposer
+    Decomposer --> Scheduler
+    Scheduler --> BranchManager
+    BranchManager --> W1 & W2 & W3
+    W1 & W2 & W3 --> ProofChecker
+    ProofChecker --> SurvivorSelection
+    SurvivorSelection --> MainlineMerge
+```
+
+### 2. Séquence d'Orchestration avec Fan-Out et Sélecteur de Survivants
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Operator as Opérateur
+    participant Orch as Orchestrateur GenOS
+    participant Fork as Moteur de Branching
+    participant W_A as Worker Alpha
+    participant W_B as Worker Beta
+    participant Proof as Moteur de Preuve
+    participant Tronc as Tronc Principal
+
+    Operator->>Orch: Objectif de refactorisation critique
+    Orch->>Fork: Fan-out contrôlé (Création branches A et B)
+    
+    par Exécution concurrente
+        Fork->>W_A: Lancement branche A (Approche conservatrice)
+        Fork->>W_B: Lancement branche B (Approche optimisée)
+    end
+    
+    W_A-->>Proof: Soumission Solution A + Assertions
+    W_B-->>Proof: Soumission Solution B + Assertions
+    
+    activate Proof
+    Proof->>Proof: Exécution de la matrice de falsification
+    alt Solution B validée et plus performante
+        Proof-->>Orch: Sélection Gagnante : Branche B (Preuve OK)
+        Orch->>Tronc: Merge atomique de la Branche B
+        Orch->>Fork: Pruning & destruction de la Branche A
+    else Solution B échoue
+        Proof-->>Orch: Repli sur Solution A
+        Orch->>Tronc: Merge atomique de la Branche A
+    end
+    deactivate Proof
+    
+    Orch-->>Operator: Mission validée avec certificat de preuve
+```
+
+### 3. Machine à états du Cycle de Vie d'une Branche d'Orchestration
+
+```mermaid
+stateDiagram-v2
+    [*] --> BranchCreee : Fork à partir du tronc
+    BranchCreee --> ExecutionAgent : Assignation Worker & Budget
+    
+    state ExecutionAgent {
+        [*] --> ResolutionTache
+        ResolutionTache --> GenerationPreuve : Sorties et traces prêtes
+        GenerationPreuve --> ResolutionTache : Raffinement
+    }
+    
+    ExecutionAgent --> SoumissionProofGate : Demande de promotion
+    
+    SoumissionProofGate --> EpreuveFalsification : Audit critique
+    EpreuveFalsification --> PromueTronc : Zéro contre-exemple / Tests PASS
+    EpreuveFalsification --> ElagueeRejetee : Falsification / Conflit
+    
+    PromueTronc --> [*]
+    ElagueeRejetee --> [*]
+```

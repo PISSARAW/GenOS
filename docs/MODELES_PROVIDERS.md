@@ -480,3 +480,63 @@ Pour une exploitation fiable, déclarer les coûts et capacités par modèle, d�
 - [backend/src/db/schema-tables-extensions.js](../backend/src/db/schema-tables-extensions.js)
 - [config/providers.json](../config/providers.json)
 - [backend/tests/test_model_identity.js](../backend/tests/test_model_identity.js)
+
+
+
+---
+
+## Schémas Complémentaires de Routage et d'Optimisation des Modèles
+
+### 1. Architecture du Routeur Multi-Modèles Intelligent
+
+```mermaid
+flowchart TB
+    subgraph TaskDemand["Demande d'Inférence"]
+        PromptReq["Prompt d'Entrée + Profil de Complexité"]
+        CostConstraints["Budget de Tokens & Contraintes de Latence"]
+    end
+
+    subgraph RouterEngine["Moteur de Routage Sémantique"]
+        ComplexityClassifier["Classificateur de Complexité (Tier 1 à 3)"]
+        LoadBalancer["Répartiteur de Charge & Quotas"]
+        CircuitBreaker["Disjoncteur de Pannes (Circuit Breaker)"]
+    end
+
+    subgraph Providers["Fournisseurs de Modèles"]
+        LocalLLM["Local : Ollama / vLLM (Tier 1 : Faible coût)"]
+        StandardLLM["Standard : Claude Haiku / Gemini Flash (Tier 2 : Équilibré)"]
+        FrontierLLM["Frontier : Claude Opus / GPT-4o / Gemini Pro (Tier 3 : Raisonnement)"]
+    end
+
+    TaskDemand --> RouterEngine
+    RouterEngine --> LocalLLM
+    RouterEngine --> StandardLLM
+    RouterEngine --> FrontierLLM
+```
+
+### 2. Séquence de Fallback Automatique en Cas d'Indisponibilité de Provider
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Agent Appelant
+    participant Router as Routeur de Modèles
+    participant Primary as Provider Primaire (Frontier)
+    participant Secondary as Provider Secondaire (Fallback)
+
+    Agent->>Router: Requête d'inférence (Modèle: Auto-Optimisé)
+    activate Router
+    Router->>Primary: Envoi de la requête
+    activate Primary
+    Primary-->>Router: Erreur 429 (Rate Limit Dépassé) / Timeout
+    deactivate Primary
+    
+    Router->>Router: Déclenchement du Circuit Breaker
+    Router->>Secondary: Routage transparent vers le Provider de Repli
+    activate Secondary
+    Secondary-->>Router: Réponse générée avec succès
+    deactivate Secondary
+    
+    Router-->>Agent: Réponse finale + Métadonnées de basculement
+    deactivate Router
+```

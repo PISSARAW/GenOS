@@ -264,3 +264,58 @@ node backend/tests/test_genome_manifest_validation.js
 ```
 
 Le test de manifeste requiert le binaire Rust `target/debug/genos.exe` sous Windows. Les tests confirment les scenarios couverts ; ils ne rendent pas automatiquement compatibles les schemas non versionnes ni les integrations tierces.
+
+
+---
+
+## Schémas Complémentaires d'Architecture des Protocoles d'API
+
+### 1. Passerelle Multi-Protocoles (REST, gRPC, MCP, CLI)
+
+```mermaid
+flowchart TB
+    subgraph Clients["Consommateurs d'API"]
+        WebUI["Web UI Dashboard"]
+        CLIClient["GenOS CLI Tool"]
+        IDEPlugin["Extension VSCode / JetBrains"]
+        ExtAgent["Agents Externes & SDK"]
+    end
+
+    subgraph Gateway["Passerelle Unifiée & Validation"]
+        SchemaValidator["Validateur de Schémas (JSON Schema / Protobuf)"]
+        AuthFilter["Filtre d'Authentification & Scopes"]
+        RateLimiter["Limiteur de Débit & Token Bucket"]
+    end
+
+    subgraph Handlers["Contrôleurs Métier"]
+        RESTCtrl["Contrôleurs REST (Express / Axum)"]
+        gRPCCtrl["Services gRPC (Tonic / gRPC Node)"]
+        MCPAdapter["Serveur MCP (JSON-RPC)"]
+    end
+
+    Clients --> Gateway
+    Gateway --> Handlers
+```
+
+### 2. Séquence d'Échange gRPC avec Streaming Bidirectionnel
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Agent Client
+    participant gRPCServer as Serveur gRPC GenOS
+    participant StreamProcessor as Processeur d'Événements
+
+    Client->>gRPCServer: Connexion au flux 'StreamExecutionEvents'
+    activate gRPCServer
+    gRPCServer-->>Client: Stream ouvert (HTTP/2 Multiplex)
+    
+    Client->>gRPCServer: Envoi Step 1 (Instruction)
+    gRPCServer->>StreamProcessor: Traitement asynchrone
+    StreamProcessor-->>gRPCServer: Émission métrique intermédiaire
+    gRPCServer-->>Client: Message de télémétrie en temps réel
+    
+    StreamProcessor-->>gRPCServer: Résultat final certifié
+    gRPCServer-->>Client: Status OK (Trailer gRPC)
+    deactivate gRPCServer
+```

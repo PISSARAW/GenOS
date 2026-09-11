@@ -984,3 +984,74 @@ biologicalModeService.compose('holobionte', 'Deploy a critical security patch.')
 - [immuneSystem.js](../backend/src/services/immuneSystem.js) : système immunitaire logique
 - [agentOrchestrationState.js](../backend/src/services/agentOrchestrationState.js) : état partagé
 - Commandes CLI : `genos-cli biological deploy --mode holobionte`
+
+
+
+---
+
+## Schémas d'Architecture et de Symbiose Holobiontique
+
+### 1. Architecture Fonctionnelle Host-Symbiontes
+
+```mermaid
+graph TD
+    subgraph Host["Hôte Central (Host Orchestrator)"]
+        H_Core["Noyau Décisionnel & Coordinateur Global"]
+        H_Ctx["Contexte Primaire & Objectifs Stratégiques"]
+    end
+
+    subgraph Symbionts["Microbiome Agentique (Symbiontes Spécialisés)"]
+        S_Exec["Specialist Symbiont (Génération de code)"]
+        S_Immune["Immune Symbiont (Détection de menaces / WAF)"]
+        S_Mem["Memory Symbiont (Indexation vectorielle & Long terme)"]
+        S_Metab["Metabolic Symbiont (Optimisation des tokens)"]
+    end
+
+    H_Core <-->|Signaux Métaboliques & Tâches| S_Exec
+    H_Core <-->|Filtrage Antigénique| S_Immune
+    H_Core <-->|Accès Épisodique| S_Mem
+    H_Core <-->|Quota Énergétique| S_Metab
+```
+
+### 2. Séquence de Neutralisation Symbiotique d'une Menace
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Input as Flux Utilisateur
+    participant Host as Host Orchestrator
+    participant Immune as Immune Symbiont
+    participant Specialist as Specialist Symbiont
+    participant Memory as Memory Symbiont
+
+    Input->>Host: Requête complexe avec injection dissimulée
+    Host->>Immune: Inspection pré-vol (Antigen Screening)
+    activate Immune
+    Immune->>Immune: Analyse syntaxique & heuristique de toxicité
+    alt Menace avérée
+        Immune-->>Host: Alerte rouge (Toxine neutralisée)
+        Immune->>Memory: Indexation de la signature d'agression
+        Host-->>Input: Réponse aseptisée (403 Safe Guard)
+    else Requête saine
+        Immune-->>Host: Feu vert (Indice de santé = 1.0)
+        deactivate Immune
+        Host->>Specialist: Délégation d'exécution
+        Specialist-->>Host: Résultat produit
+        Host-->>Input: Résultat certifié
+    end
+```
+
+### 3. Machine à états de l'Alliance Symbiotique
+
+```mermaid
+stateDiagram-v2
+    [*] --> SymbioseMutualiste : Équilibre des flux hôte/symbiontes
+    
+    SymbioseMutualiste --> Dysbiose : Dysfonctionnement d'un symbionte
+    Dysbiose --> ReponseImmunitaire : Détection par l'Immune Symbiont
+    ReponseImmunitaire --> RemplacementSymbionte : Élimination et re-spawn
+    RemplacementSymbionte --> SymbioseMutualiste : Équilibre restauré
+    
+    SymbioseMutualiste --> SommeilSymbiotique : Inactivité prolongée
+    SommeilSymbiotique --> SymbioseMutualiste : Réveil par afflux de tâches
+```

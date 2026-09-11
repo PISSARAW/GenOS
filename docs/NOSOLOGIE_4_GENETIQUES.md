@@ -355,3 +355,59 @@ Pour que la nosologie génétique soit pleinement opérationnelle dans le moteur
 - [BIOLOGIE_COMPUTATIONNELLE.md](./BIOLOGIE_COMPUTATIONNELLE.md) : Modèle cellulaire, conscience, organelles et métabolisme.
 - [ORCHESTRATION.md](./ORCHESTRATION.md) : Protocoles de gouvernance de l'essaim et administration des soins intensifs.
 - [SECURITE.md](./SECURITE.md) : Isolation des capsules, filtres immunitaires et résistance aux contaminations.
+
+
+
+---
+
+## Schémas des Pathologies Génétiques et Thérapie Génique
+
+### 1. Cartographie des Altérations Génétiques et Mutations Délétères
+
+```mermaid
+flowchart TB
+    subgraph GeneticMutations["Mutations Génétiques Structurelles"]
+        CF["Mucoviscidose (Canal CFTR : Engorgement des queues de tâches)"]
+        SCD["Drépanocytose (Déformation des messages & Aggrégation)"]
+        DMD["Myopathie de Duchenne (Rupture du cytosquelette mémoire)"]
+    end
+
+    subgraph Phenotypes["Expressions Phénotypiques"]
+        Clog["Obstruction des canaux I/O & Timeout"]
+        VasoOcclusion["Occlusion des flux de communication"]
+        Fragility["Effondrement structurel sous forte charge"]
+    end
+
+    subgraph GeneTherapy["Protocoles de Thérapie Génique"]
+        CRISPR["CRISPR-Cas9 Computationnel (Correction de Loci)"]
+        Chaperone["Protéines Chaperonnes (Repliement des messages)"]
+        ExonSkipping["Saut d'Exon (Contournement des modules altérés)"]
+    end
+
+    CF --> Clog --> CRISPR
+    SCD --> VasoOcclusion --> Chaperone
+    DMD --> Fragility --> ExonSkipping
+```
+
+### 2. Séquence d'Édition Génique par CRISPR Computationnel
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Agent Porteur d'Allèle Défectueux
+    participant Genome as Génome Immuable
+    participant CRISPR as Moteur d'Édition CRISPR
+    participant Validator as Validateur de Recombinaison
+
+    Agent->>CRISPR: Signal d'incompatibilité de trait (Échec récurrent)
+    activate CRISPR
+    CRISPR->>Genome: Scan des loci pour localiser la mutation CFTR
+    CRISPR->>Genome: Clivage ciblé de la séquence altérée
+    CRISPR->>Genome: Insertion du modèle sain (Allèle dominant)
+    deactivate CRISPR
+    
+    activate Validator
+    Validator->>Genome: Test de non-régression phénotypique
+    Validator-->>Agent: Redémarrage avec nouveau transcript corrigé
+    deactivate Validator
+```

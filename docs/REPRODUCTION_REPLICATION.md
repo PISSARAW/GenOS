@@ -663,3 +663,52 @@ Les mécanismes de mitose, fission, bourgeonnement, schizogonie, méiose et fusi
 - chaque “spawn storm” est stoppé par construction.
 
 C’est ce qui fait du système une variante biologiquement inspirée d’un runtime agentique sécurisé, plutôt qu’un simple mécanisme de duplication de prompts.
+
+
+
+---
+
+## Schémas Complémentaires de Dynamique de Reproduction
+
+### 1. Modes de Reproduction et Conservation de l'Intégrité
+
+```mermaid
+flowchart TB
+    subgraph ReproModes["Modes de Reproduction Agentique"]
+        Mitosis["Mitose Symétrique (Clonage exact avec budgets divisés)"]
+        Budding["Bourgeonnement Asymétrique (Parent conserve 80% / Enfant 20%)"]
+        Meiosis["Méiose & Crossover (Recombinaison de deux parents distincts)"]
+    end
+
+    subgraph Limits["Garde-Fous Biologiques"]
+        Hayflick["Hayflick Limit (Compteur de divisions max = 50)"]
+        BudScar["Bud Scars (Accumulation de cicatrices chez le parent)"]
+        MutationGuard["Garde-Fou de Mutation (Seuil max de divergence)"]
+    end
+
+    Mitosis & Budding & Meiosis --> Limits
+```
+
+### 2. Séquence de Bourgeonnement Asymétrique avec Comptage de Bud Scars
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Parent as Agent Parent (Génération g)
+    participant ReproManager as Moteur de Réplication
+    participant Child as Nouvel Agent Enfant (Génération g+1)
+    participant Glial as Sentinelle Gliale
+
+    Parent->>ReproManager: Demande de bourgeonnement (Spawn worker)
+    activate ReproManager
+    ReproManager->>Parent: Vérification du nombre de Bud Scars (N_scars < 50)
+    alt N_scars >= 50 (Sénescence atteinte)
+        ReproManager->>Glial: Notification de vieillesse cellulaire
+        ReproManager-->>Parent: Refus de division (Entrée en sénescence)
+    else N_scars < 50 (Division autorisée)
+        ReproManager->>Parent: N_scars = N_scars + 1, Budget = Budget * 0.8
+        ReproManager->>Child: Instanciation avec Budget = Parent_Budget * 0.2
+        ReproManager-->>Parent: Bourgeonnement accompli avec succès
+    end
+    deactivate ReproManager
+```

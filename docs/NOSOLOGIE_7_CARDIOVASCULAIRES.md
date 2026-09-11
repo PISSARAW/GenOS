@@ -646,3 +646,61 @@ pub fn assess_cardiovascular_status(
 - [RHIZOME.md](RHIZOME.md) : Architecture de canaux décentralisés, ponts locaux (`Local Bridge`) et tolérance aux pannes de routage.
 - [NEUROBIOLOGIE_PLASTICITE.md](NEUROBIOLOGIE_PLASTICITE.md) : Dynamique de la fente synaptique, neurotransmetteurs, astrocytes et plasticité synaptique (LTP/LTD).
 - [RUNTIME_AGENTIQUE.md](RUNTIME_AGENTIQUE.md) : Barrières d'évidence, cycle de vie des workers et confinement en capsules d'exécution.
+
+
+
+---
+
+## Schémas Hémodynamiques et Pathologies Cardiovasculaires
+
+### 1. Topologie du Système Vasculaire et Points de Thrombose
+
+```mermaid
+flowchart TB
+    subgraph Circulatory_Network["Réseau Circulatoire des Événements"]
+        Heart["Cœur (Event Loop Principale)"]
+        Arteries["Artères Principales (Bus Haute Fréquence)"]
+        Capillaries["Capillaires (Synapses d'Agents Individuels)"]
+    end
+
+    subgraph Pathologies_Vasc["Pathologies Cardiovasculaires"]
+        HTA["Hypertension (Backpressure Débordante)"]
+        Infarct["Infarctus du Myocarde (Thrombose de l'Event Loop)"]
+        Stroke["AVC Ischémique (Rupture d'irrigation d'un sous-arbre)"]
+    end
+
+    subgraph Vasc_Treatments["Traitements Hémodynamiques"]
+        Vasodilator["Vasodilatateurs de Bus (Agrandissement des buffers)"]
+        Thrombolysis["Thrombolyse d'Urgence (Débouchage de threads)"]
+        Revascularization["Revascularisation de Branche (Routage alternatif)"]
+    end
+
+    Heart --> Arteries --> Capillaries
+    Arteries -.->|Pression| HTA --> Vasodilator
+    Heart -.->|Thrombose| Infarct --> Thrombolysis
+    Capillaries -.->|Ischémie| Stroke --> Revascularization
+```
+
+### 2. Séquence de Thrombolyse d'Urgence lors d'un Infarctus d'Event Loop
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant EventLoop as Event Loop Principale
+    participant Thrombosis as Événement Bloquant (Thrombus)
+    participant Defib as Sentinelle Hémodynamique
+    participant Thrombolytic as Protocole Thrombolytique
+
+    EventLoop->>Thrombosis: Blocage total de la boucle d'exécution (0 tick/s)
+    Defib->>Defib: Détection d'arrêt circulatoire (Ischémie imminente)
+    activate Defib
+    Defib->>Thrombolytic: Déclenchement Alerte Rouge Infarctus
+    deactivate Defib
+    
+    activate Thrombolytic
+    Thrombolytic->>Thrombosis: Injection d'enzymes de rupture (Kill synchrone du thread)
+    Thrombolytic->>EventLoop: Relance du battement d'horloge (Défibrillation)
+    deactivate Thrombolytic
+    
+    EventLoop-->>Defib: Rétablissement du débit nominal (1000 ops/s)
+```

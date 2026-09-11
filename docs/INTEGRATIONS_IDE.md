@@ -387,3 +387,64 @@ GenOS est plus proche d'un control plane d'intégration que d'un remplacement de
 - Ajouter des tests d'intégration HTTP pour connect/heartbeat/revoke et un client de référence avant de revendiquer une intégration IDE complète.
 
 En résumé, GenOS possède un socle d'intégration IDE sûr et versionné : contrat partagé, identité durable, isolation tenant, progression observable, diagnostics et VFS contrôlé. La dernière étape, hors du code actuellement présent, est la livraison d'adaptateurs clients réels pour chaque IDE ciblé.
+
+
+
+---
+
+## Schémas Complémentaires d'Intégration IDE et Protocole Éditeur
+
+### 1. Topologie de Connexion IDE <-> GenOS Daemon
+
+```mermaid
+flowchart LR
+    subgraph IDE_Host["Environnement IDE (VSCode / JetBrains / Cursor)"]
+        Plugin["Extension GenOS"]
+        DiffView["Visualiseur de Diffs Contrefactuels"]
+        Sidebar["Panneau Latéral d'Orchestration"]
+    end
+
+    subgraph TransportLayer["Couche de Communication IPC / Socket"]
+        NamedPipe["Named Pipe (Windows) / Unix Socket"]
+        LSPBridge["Pont Language Server Protocol (LSP)"]
+    end
+
+    subgraph GenOS_Daemon["Démon GenOS Local"]
+        DaemonEngine["Moteur de Contexte & Surveillance Fichiers"]
+        Orchestrator["Orchestrateur Local"]
+    end
+
+    Plugin <--> NamedPipe
+    DiffView <--> LSPBridge
+    Sidebar <--> NamedPipe
+    NamedPipe <--> DaemonEngine
+    LSPBridge <--> DaemonEngine
+    DaemonEngine <--> Orchestrator
+```
+
+### 2. Séquence de Revue Interactive de Diff Contrefactuel dans l'IDE
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Dev as Développeur
+    participant IDE as Extension IDE
+    participant Daemon as Démon GenOS
+    participant Workspace as Espace Contrefactuel
+
+    Daemon->>IDE: Notification : Nouvelle proposition de patch prête
+    IDE->>Dev: Affichage d'une notification discrète (Diff disponible)
+    Dev->>IDE: Clic sur 'Inspecter la proposition'
+    
+    activate IDE
+    IDE->>Daemon: Requête du Virtual Document (URI: genos-diff://patch-12)
+    Daemon->>Workspace: Extraction du diff structuré
+    Workspace-->>Daemon: Données diff + Claims associées
+    Daemon-->>IDE: Document virtuel généré
+    IDE->>Dev: Rendu côte-à-côte avec surbrillance syntaxique
+    deactivate IDE
+    
+    Dev->>IDE: Clic sur 'Appliquer au tronc'
+    IDE->>Daemon: Confirmation de merge
+    Daemon-->>IDE: Tronc mis à jour avec succès
+```

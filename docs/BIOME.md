@@ -629,3 +629,75 @@ Le choix peut se résumer ainsi :
 - [agentFleetService.js](../backend/src/services/agentFleetService.js) : fleet de workers et barrière d'évidence
 - [agentOrchestrationState.js](../backend/src/services/agentOrchestrationState.js) : état et télémétrie de mission
 - [agentRuntimeAdapter.js](../backend/src/services/agentRuntimeAdapter.js) : adaptation du runtime
+
+
+
+---
+
+## Schémas d'Architecture et de Régulation Environnementale
+
+### 1. Architecture des Niches Écologiques du Biome
+
+```mermaid
+flowchart TB
+    subgraph EnvControl["Régulation du Biome"]
+        EnvMapper["Environment Mapper (Cartographie des ressources)"]
+        Steward["Resource Steward (Contrôleur de Capacité K)"]
+    end
+
+    subgraph Niches["Niches Spécialisées"]
+        subgraph Niche_HighCompute["Niche Calcul Intensif (GPU / LLM Lourd)"]
+            P_High["Population Spécialiste Analytique"]
+        end
+        subgraph Niche_LowLatency["Niche Basse Latence (I/O & IPC)"]
+            P_Low["Population Spécialiste Événements"]
+        end
+        subgraph Niche_Audit["Niche Sécurité & Clôture"]
+            P_Audit["Population Sentinelles"]
+        end
+    end
+
+    EnvMapper --> Niches
+    Steward -->|Quotas & Carrying Capacity K| Niches
+```
+
+### 2. Séquence de Régulation de la Capacité de Portance (Carrying Capacity K)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Steward as Resource Steward
+    participant Niche as Niche Opérationnelle
+    participant Agent as Agent Population
+    participant Alert as Système d'Alerte
+
+    Niche->>Steward: Demande d'extension de population (N -> N + 5)
+    activate Steward
+    Steward->>Steward: Calcul de la pression environnementale (P = N / K)
+    alt P <= 0.8 (Ressources abondantes)
+        Steward-->>Niche: Allocation accordée (Spawn autorisé)
+        Niche->>Agent: Instanciation
+    else P > 0.8 (Stress osmotique / Risque de surchauffe)
+        Steward->>Alert: Notification de contention de ressources
+        Steward-->>Niche: Throttling imposé (Mise en file d'attente)
+        Steward->>Agent: Déclenchement de la cryptobiose sur agents inactifs
+    end
+    deactivate Steward
+```
+
+### 3. Machine à états du Cycle Écologique du Biome
+
+```mermaid
+stateDiagram-v2
+    [*] --> Oligotrophe : Faible charge / Ressources libres
+    Oligotrophe --> Mesotrophe : Augmentation progressive de la demande
+    Mesotrophe --> Eutrophe : Charge nominale optimale (Capacité K respectée)
+    
+    Eutrophe --> Hypertrophie : Surcharge critique (Dépassement de K)
+    Hypertrophie --> RegulationHomeostatique : Throttling & Élagage d'urgence
+    RegulationHomeostatique --> Eutrophe : Équilibre restauré
+    
+    Eutrophe --> Oligotrophe : Fin des tâches / Libération
+    Hypertrophie --> EffondrementBiome : Échec de régulation (Crash)
+    EffondrementBiome --> [*]
+```

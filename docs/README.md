@@ -21,6 +21,116 @@ Cette convention permet de lire le système à plusieurs niveaux : conceptuel, t
 
 ---
 
+
+---
+
+## Schémas directeurs du Hub de Documentation
+
+### Architecture globale des domaines GenOS
+
+```mermaid
+flowchart TB
+    subgraph UI_Operateur["1. Opérateur & Expérience"]
+        CLI["CLI Experience & TUI"]
+        IDE["Intégrations IDE (VSCode / JetBrains)"]
+        OBS["Observabilité & Télémétrie"]
+    end
+
+    subgraph Core_Concepts["2. Fondations & Modèles"]
+        BIO["Biologie Computationnelle & Cellule"]
+        NOSO["Nosologie & Pathologies (1 à 9)"]
+        GEN["Génome & Épigénétique"]
+        EPIST["Épistémologie & Preuves"]
+    end
+
+    subgraph Collective_Intel["3. Mémoire & Collectif"]
+        MEM["Mémoire (STDP, Vector, Episodic)"]
+        SWARM["Intelligence de Nuée & Stigmergie"]
+        NEURO["Neurobiologie & Plasticité"]
+    end
+
+    subgraph Orchestration_Layer["4. Orchestration & Exécution"]
+        ORCH["Orchestration de Branches"]
+        TRINITY["Trinity (Architect / Worker / Judge)"]
+        WORKFLOWS["Workflows & DAG Jobs"]
+        GIT["Git Agents & Worktrees"]
+        WORKSPACE["Workspaces Contrefactuels"]
+    end
+
+    subgraph Infrastructure_Sec["5. Données, Outils & Sécurité"]
+        STORE["Persistance (SQLite / EventLog)"]
+        MCP["Outils MCP & Sandboxing"]
+        AUTH["Sécurité, Identité & RBAC"]
+        PROVIDERS["Modèles & Providers Routing"]
+    end
+
+    UI_Operateur --> Orchestration_Layer
+    Core_Concepts --> Collective_Intel
+    Collective_Intel --> Orchestration_Layer
+    Orchestration_Layer --> Infrastructure_Sec
+```
+
+### Cycle de vie et boucle de gouvernance de mission
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor OP as Opérateur
+    participant ORCH as Orchestrateur GenOS
+    participant AGT as Agent Cellulaire
+    participant MCP as Sandbox MCP
+    participant EPIST as Moteur de Preuve
+    participant STORE as Stockage / Git
+
+    OP->>ORCH: Soumission de l'objectif de mission
+    ORCH->>AGT: Différenciation cellulaire & Attribution de budget
+    activate AGT
+    AGT->>MCP: Exécution de primitives en sandbox
+    MCP-->>AGT: Résultats & traces d'exécution
+    AGT->>EPIST: Émission d'une claim avec preuves
+    deactivate AGT
+    
+    activate EPIST
+    EPIST->>EPIST: Test de falsifiabilité & contre-exemples
+    alt Preuve validée
+        EPIST-->>ORCH: Promotion autorisée (Gate PASS)
+        ORCH->>STORE: Commit atomique & persistance d'état
+        ORCH-->>OP: Mission accomplie avec certificat
+    else Dissonance ou échec de preuve
+        EPIST-->>ORCH: Rejet (Gate FAIL) & Dissonance incrémentée
+        ORCH->>AGT: Apoptose / Rollback contrefactuel
+        ORCH-->>OP: Alerte nosologique & rapport d'audit
+    end
+    deactivate EPIST
+```
+
+### Matrice des états d'un agent dans l'écosystème
+
+```mermaid
+stateDiagram-v2
+    [*] --> Zygote : Spawn initial
+    Zygote --> Differencie : Activation HOX & Rôle
+    Differencie --> Actif : Budget alloué
+    
+    state Actif {
+        [*] --> Execution
+        Execution --> Eureka : Dissonance résolue
+        Eureka --> Execution : Budget restauré (+50)
+        Execution --> DissonanceElevee : Erreur / Incohérence
+        DissonanceElevee --> Execution : Feedback correctif
+    }
+    
+    Actif --> Cryptobiose : Mise en veille (Hibernation)
+    Cryptobiose --> Actif : Réactivation par signal
+    
+    Actif --> Apoptose : Budget <= 0 ou Dissonance >= Max
+    Actif --> TermineSucces : Tâche validée par Preuve
+    
+    Apoptose --> Recycle : Nettoyage Glial
+    TermineSucces --> [*]
+    Recycle --> [*]
+```
+
 ## Index par catégorie
 
 ### 1. Fondations conceptuelles

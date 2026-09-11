@@ -203,3 +203,55 @@ node tests/test_human_approval_promotion_gate.js
 node tests/test_intermediate_state_persistence.js
 node tests/test_worker_failure_recovery.js
 ```
+
+
+
+---
+
+## Schémas d'Architecture et de Flux du Backend
+
+### 1. Architecture Interne du Backend Node.js
+
+```mermaid
+flowchart TB
+    subgraph Network_In["Entrées Réseau"]
+        HTTP["Serveur HTTP Express"]
+        WS["Serveur WebSocket (Événements Live)"]
+    end
+
+    subgraph Services["Services Métier"]
+        OrgService["Organization & Multi-Tenant Service"]
+        WorkspaceService["Workspace & Capsule Service"]
+        ConscienceService["Agent Conscience & Homeostasis Service"]
+        JobService["Job Queue & Worker Service"]
+    end
+
+    subgraph Storage["Persistance & IPC"]
+        SQLite["Base SQLite (Driver better-sqlite3 WAL)"]
+        gRPCClient["Client gRPC vers Démon Rust"]
+    end
+
+    HTTP --> Services
+    WS --> Services
+    Services --> SQLite
+    Services --> gRPCClient
+```
+
+### 2. Séquence de Gestion d'un Événement en Temps Réel
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant RustCore as Démon Rust
+    participant Backend as Backend Node.js
+    participant DB as SQLite DB
+    participant WSClient as Client Web / IDE
+
+    RustCore->>Backend: Événement gRPC 'AgentDissonanceChanged'
+    activate Backend
+    Backend->>DB: Enregistrement dans le journal d'événements
+    Backend->>WSClient: Diffusion WebSocket immédiate (Payload JSON)
+    deactivate Backend
+    
+    WSClient->>WSClient: Mise à jour dynamique de l'UI / Graphique
+```

@@ -529,3 +529,59 @@ pub fn check_neoplastic_malignancy(agent: &AgentCell) -> Option<Pathology> {
 - [REPRODUCTION_REPLICATION.md](./REPRODUCTION_REPLICATION.md) : Bourgeonnement asymétrique, mitose, limite de Hayflick et point de contrôle du fuseau mitotique p53.
 - [ORCHESTRATION.md](./ORCHESTRATION.md) : Gouvernance globale, boucle de tick, barrière hémato-encéphalique et injection des thérapies systémiques.
 - [SECURITE.md](./SECURITE.md) : Système immunitaire artificiel (AIS), sélection clonale, détection d'antigènes et boucliers épistémiques.
+
+
+
+---
+
+## Schémas d'Oncologie Computationnelle et Thérapeutique Ciblée
+
+### 1. Dynamique de Cancérogenèse et Échappement Immunitaire
+
+```mermaid
+flowchart TB
+    subgraph Transformation["Transformation Maligne"]
+        Mut["Mutation Maligne (Perte d'inhibition de contact)"]
+        HayflickFail["Bypass du Hayflick Limit (Immortalité incontrôlée)"]
+        Angio["Angiogenèse Illégitime (Détournement de tokens)"]
+    end
+
+    subgraph Metastase["Dissémination & Métastases"]
+        Invasion["Invasion des autres espaces de travail"]
+        CloneFlood["Inondation par des clones zombies"]
+    end
+
+    subgraph OncoTherapy["Protocole d'Oncologie"]
+        CAR_T["CAR-T Agents (Chasseurs spécialisés de cellules tumorales)"]
+        Chemo["Chimiothérapie Ciblée (Blocage de réplication)"]
+        ApoptosisForced["Induction Forcée d'Apoptose"]
+    end
+
+    Mut & HayflickFail & Angio --> Invasion --> CloneFlood
+    CloneFlood --> CAR_T & Chemo & ApoptosisForced
+```
+
+### 2. Séquence d'Élimination d'une Prolifération Tumorale
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant TumorAgent as Agent Tumoral (Prolifération)
+    participant Monitor as Moniteur Oncologique
+    participant CART as Agent CAR-T Chasseur
+    participant GarbageCollector as Microglie Gliale
+
+    TumorAgent->>TumorAgent: Fork anarchique sans autorisation
+    Monitor->>Monitor: Détection d'Indice Néoplasique M_i > 0.9
+    Monitor->>CART: Déploiement d'urgence
+    
+    activate CART
+    CART->>TumorAgent: Reconnaissance d'antigène tumoral
+    CART->>TumorAgent: Blocage des descripteurs de fichiers & I/O
+    CART->>TumorAgent: Déclenchement Apoptose forcée (Signal FasL)
+    deactivate CART
+    
+    activate GarbageCollector
+    GarbageCollector->>TumorAgent: Destruction du processus & Libération mémoire
+    deactivate GarbageCollector
+```

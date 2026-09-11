@@ -669,3 +669,105 @@ Toute négociation ou dépassement est une escalade vers l'orchestrateur ou l'hu
 - [agentAutonomyPlanService.js](../backend/src/services/agentAutonomyPlanService.js) : activation et allocation
 - [agentFleetService.js](../backend/src/services/agentFleetService.js) : création et gestion des workers
 - Tests : [backend/tests/test_a_team.js](../backend/tests/test_a_team.js)
+
+
+
+---
+
+## Schémas d'Architecture et d'Orchestration A-Team
+
+### 1. Architecture Topologique de la A-Team
+
+```mermaid
+flowchart TB
+    subgraph Input["Entrée Mission"]
+        Task["Spécification de Mission & Contraintes"]
+        DomainAnalyzer["Analyseur de Domaine (AST / Heuristique)"]
+    end
+
+    subgraph A_Team_Core["Cœur A-Team (Équipe Spécialisée)"]
+        LeadArch["Lead Architect (Frontier LLM)"]
+        SpecDev["Core Developer (Standard LLM)"]
+        SpecSec["Security Officer (SecOps / Rust)"]
+        SpecDoc["Doc & Compliance Writer"]
+    end
+
+    subgraph QualityControl["Quality Gate & CI/CD"]
+        CI_Test["Suite de Tests Déterministes"]
+        SecAudit["Audit de Sécurité & Non-Régression"]
+        JudgeGate["Gate de Promotion Finale"]
+    end
+
+    Task --> DomainAnalyzer
+    DomainAnalyzer --> LeadArch
+    LeadArch --> SpecDev
+    LeadArch --> SpecSec
+    LeadArch --> SpecDoc
+    SpecDev --> CI_Test
+    SpecSec --> SecAudit
+    SpecDoc --> JudgeGate
+    CI_Test --> JudgeGate
+    SecAudit --> JudgeGate
+```
+
+### 2. Séquence d'Interactions et Convergence A-Team
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Opérateur
+    participant Lead as Lead Architect
+    participant Dev as Core Developer
+    participant Sec as Security Specialist
+    participant Gate as Quality Gate CI/CD
+
+    User->>Lead: Objectif Complexe (ex: Refactor Auth gRPC)
+    activate Lead
+    Lead->>Lead: Décomposition modulaire & Contrats d'interfaces
+    Lead->>Dev: Mandat d'implémentation (Code & Tests)
+    Lead->>Sec: Mandat d'audit de menaces (Threat Model)
+    deactivate Lead
+    
+    activate Dev
+    Dev->>Dev: Écriture du code & assertions unitaires
+    Dev->>Gate: Soumission Pull-Request locale
+    deactivate Dev
+    
+    activate Sec
+    Sec->>Gate: Règles de validation & Vecteurs d'attaque testés
+    deactivate Sec
+    
+    activate Gate
+    Gate->>Gate: Exécution build, fuzzing & analyse statique
+    alt Gate PASS (Score >= 0.95)
+        Gate-->>Lead: Validation formelle
+        Lead-->>User: Mission accomplie avec rapport d'audit
+    else Gate FAIL
+        Gate-->>Dev: Logs d'erreur & rejet
+        Dev->>Dev: Cycle correctif
+    end
+    deactivate Gate
+```
+
+### 3. Machine à états du Cycle de Collaboration
+
+```mermaid
+stateDiagram-v2
+    [*] --> CompositionEquipe : Analyse des compétences requises
+    CompositionEquipe --> Briefing : Attribution des rôles
+    
+    state PhaseExecution {
+        [*] --> TravailParallele
+        TravailParallele --> RevueCroisee : Diff et claims prêts
+        RevueCroisee --> ArbitrageArchitecte : Conflit d'architecture
+        ArbitrageArchitecte --> TravailParallele : Consensus résolu
+    }
+    
+    Briefing --> PhaseExecution
+    PhaseExecution --> QualityGateEvaluation : Soumission globale
+    
+    QualityGateEvaluation --> DeploiementSucces : Tous critères validés
+    QualityGateEvaluation --> PhaseExecution : Échec de tests (Feedback)
+    
+    DeploiementSucces --> [*]
+```

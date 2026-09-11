@@ -608,3 +608,57 @@ Le cœur de l’identité et de l’autorité dans GenOS est un modèle de gouve
 Ce n’est ni un simple token-check, ni un système de sécurité “biologique”; c’est un système d’autorité explicite pour un écosystème d’agents. Sa force est sa clarté de concept : chaque action doit être valable à la fois pour le principal, le tenant et l’arbre d’autorité.
 
 C’est précisément ce qui permet de protéger les opérations critiques : lancement, arrêt, fork, délégation, rotation de credential, ou exécution de tooling MCP.
+
+
+
+---
+
+## Schémas Complémentaires d'Identité et de Treillis d'Autorité
+
+### 1. Treillis des Rôles et Relations d'Autorité
+
+```mermaid
+flowchart TD
+    subgraph AuthorityLattice["Treillis d'Autorité (Lattice)"]
+        SuperAdmin["SuperAdmin (Autorité Suprême)"]
+        TenantAdmin["TenantAdmin (Gestion d'Organisation)"]
+        LeadArch["LeadArchitect (Gestion de DAG & Branches)"]
+        Worker["Worker (Exécution de Primitives Sandboxed)"]
+        Auditor["Auditor (Lecture Seule & Certification)"]
+    end
+
+    SuperAdmin --> TenantAdmin
+    TenantAdmin --> LeadArch
+    TenantAdmin --> Auditor
+    LeadArch --> Worker
+    Auditor -.->|Audit de conformité| Worker
+```
+
+### 2. Séquence d'Élévation de Privilèges sous Contrôle Humain
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Worker as Agent Worker
+    participant Auth as Service d'Identité & RBAC
+    participant Human as Opérateur Humain (Superviseur)
+    participant Execution as Environnement Haute Sécurité
+
+    Worker->>Auth: Demande d'élévation pour opération critique (Deploy Prod)
+    activate Auth
+    Auth->>Auth: Détection d'opération à haut risque (Gate Niveau 3)
+    Auth->>Human: Notification interactive d'approbation (MFA)
+    deactivate Auth
+    
+    activate Human
+    Human->>Human: Revue du diff et des preuves fournies
+    Human-->>Auth: Approbation formelle signée
+    deactivate Human
+    
+    activate Auth
+    Auth-->>Worker: Jeton d'accès éphémère à usage unique
+    deactivate Auth
+    
+    Worker->>Execution: Déploiement certifié
+    Execution-->>Worker: Confirmation
+```
