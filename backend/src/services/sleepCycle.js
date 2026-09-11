@@ -38,7 +38,9 @@ async function runSleepCycle(db = null, options = {}) {
     c3Threshold = 0.5,
     cd47Threshold = 0.5,
     orphanWeightThreshold = 0.1,
-    trajectoryRetentionDays = 7
+    trajectoryRetentionDays = 7,
+    organizationId = null,
+    projectId = null
   } = options;
 
   try {
@@ -92,15 +94,18 @@ async function runSleepCycle(db = null, options = {}) {
       await tx.run('UPDATE memory_synapses SET activity_history = 0');
 
       // 4. Select orphaned weak memories with no remaining active synapses (exempting core categories)
+      // CRITICAL: Must respect tenant boundaries to prevent cross-tenant data deletion
       const doomed = await tx.all(`
         SELECT g.id 
         FROM genome_decisions g
         LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
         WHERE g.synaptic_weight < ?
           AND (g.category IS NULL OR g.category NOT IN ('core', 'golden_path', 'architecture', 'invariant'))
+          AND (g.organization_id = ? OR g.organization_id IS NULL)
+          AND (g.project_id = ? OR g.project_id IS NULL)
         GROUP BY g.id
         HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
-      `, orphanWeightThreshold);
+      `, orphanWeightThreshold, options.organizationId || null, options.projectId || null);
       doomedIds = doomed.map(d => d.id);
 
       if (doomedIds.length > 0) {

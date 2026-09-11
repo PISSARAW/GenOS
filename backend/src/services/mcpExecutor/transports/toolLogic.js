@@ -113,9 +113,12 @@ async function executeToolLogic(toolName, args, runLocal) {
     const projId = args.project_id || args.projectId;
     const db = await require('../../../db').getDatabase();
     let prunedCount = 0;
+    let orphanedPruned = 0;
     if (db) {
+      // Build parameterized DELETE with proper tenant isolation
       let sql = 'DELETE FROM memory_synapses WHERE (ABS(weight) < ? OR (c3_opsonization > 0.5 AND cd47_expression < 0.5))';
       const params = [threshold];
+      
       if (agentId && agentId !== 'global' && agentId !== 'default-agent') {
         sql += ' AND (source_id IN (SELECT id FROM genome_decisions WHERE created_by = ?) OR target_id IN (SELECT id FROM genome_decisions WHERE created_by = ?))';
         params.push(agentId, agentId);
@@ -130,6 +133,8 @@ async function executeToolLogic(toolName, args, runLocal) {
       }
       const res = await db.run(sql, ...params);
       prunedCount = res?.changes || 0;
+
+      // Find orphaned decisions - must respect tenant boundaries
       let doomedSql = `
         SELECT g.id FROM genome_decisions g
         LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
