@@ -191,8 +191,9 @@ pub fn test_store_commands() {
     std::fs::create_dir_all(&capsule_dir).unwrap();
     let capsule_path = capsule_dir.join(format!("{}.json", audit_capsule.capsule_id));
     std::fs::write(&capsule_path, serde_json::to_string_pretty(&audit_capsule).unwrap()).unwrap();
-    let audit_res = capsule::handle_audit(&audit_capsule.capsule_id.to_string(), None);
-    assert!(audit_res.is_ok());
+    let opts = crate::commands::output_guard::WriteOptions { force: true, parents: true };
+    let audit_res = capsule::handle_audit(&audit_capsule.capsule_id.to_string(), None, &opts);
+    assert!(audit_res.is_ok(), "audit_res failed with: {:?}", audit_res.err());
 }
 
 #[test]
