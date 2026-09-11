@@ -1,6 +1,6 @@
 /**
- * GenOS MCP Sandbox & Virtual File System (VFS) Simulation Service
- * Side-effect prediction, dynamic JSON Schema inspection, and micro-telemetry metering.
+ * GenOS MCP Sandbox, Virtual File System (VFS) Blast Radius Inspector & Sandboxed Execution Engine.
+ * Provides pre-flight side-effect simulation (dry-run) and guarded real execution.
  */
 
 const { normalizeRelativePath } = require('./pathSafety');
