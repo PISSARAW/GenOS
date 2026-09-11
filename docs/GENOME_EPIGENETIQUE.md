@@ -248,6 +248,16 @@ La reproductibilite est invalidee si changent un parent, son contenu, seed, para
 
 Le point distinctif est l'union d'un modele de lineage biologique abstrait, de verrous d'expression et de provenance de mutations. Le cout de cette expressivite est qu'il faut maintenir trois contrats coherents (manifeste, Rust, backend) et toujours verifier les resultats dans le monde logiciel reel.
 
+## Chimérisme Tétragamétique et Recombinaison Mosaïque
+
+Contrairement au croisement mendélien classique (`breed` / crossover) qui mélange les allèles de manière stochastique, le **chimérisme tétragamétique** (`genos_biomimicry_chimeric_merge`) combine deux lignées embryonnaires de façon compartimentée :
+- Le **génome fonctionnel** de la lignée A (outils, prompts opérationnels, capacités de transformation de code) ;
+- L'**épigénome et la mémoire immunitaire** de la lignée B (arbres d'évitement d'erreurs, vaccins anti-régression, synapses consolidées).
+
+Cette mosaïque permet de préserver l'intégrité de la boîte à outils tout en immunisant l'agent contre les échecs déjà rencontrés par la seconde branche.
+
+---
+
 ## Verification
 
 Executer les controles proches du contrat :
@@ -257,6 +267,7 @@ node backend/tests/test_cognitive_genome_validation.js
 node backend/tests/test_crossover_reproducibility.js
 node backend/tests/test_mutations_and_hypermutations.js
 node backend/tests/test_chromatin_locking.js
+node backend/tests/test_chimeric_merge.js
 node backend/tests/test_genome_manifest_validation.js
 ```
 
