@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleGeneRegulatoryNetwork(args, run) {
-  const out = run(`genos biomimicry gene-regulatory-network --agent-id ${args.agent_id} --condition "${args.condition}" --action-script "${args.action_script}"`);
+  const out = run(`genos biomimicry gene-regulatory-network --agent-id ${quoteCliArg(args.agent_id)} --condition ${quoteCliArg(args.condition)} --action-script ${quoteCliArg(args.action_script)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

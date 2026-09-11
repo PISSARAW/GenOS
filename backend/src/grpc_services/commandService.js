@@ -6,20 +6,15 @@ module.exports = {
   ExecuteCommand: async (call, callback) => {
     try {
       const { command, args } = call.request || {};
-      const commandName = String(command || '').trim();
-      if (!commandName || commandName === 'genos' || commandName.includes(' ') || commandName.includes('\\') || commandName.includes('/')) {
-        return callback(null, { exit_code: 2, success: false, status: 'invalid_command', stdout: '', stderr: 'command must be one native GenOS subcommand.' });
-      }
-      const res = await genosCli.runGenos([commandName, ...(Array.isArray(args) ? args.map(String) : [])]);
+      const fullCmd = [command, ...(args || [])].join(' ');
+      const res = await genosCli.runCommand(fullCmd);
       callback(null, {
-        exit_code: res.exitCode ?? (res.ok ? 0 : 1),
-        success: res.ok === true,
-        status: res.ok ? 'completed' : (res.code || 'failed'),
+        exit_code: res.exitCode || 0,
         stdout: res.stdout || '',
-        stderr: res.stderr || res.error || ''
+        stderr: res.stderr || ''
       });
     } catch (err) {
-      callback(null, { exit_code: 1, success: false, status: 'failed', stdout: '', stderr: err.message });
+      callback(null, { exit_code: 1, stdout: '', stderr: err.message });
     }
   }
 };

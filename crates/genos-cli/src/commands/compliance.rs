@@ -1,7 +1,8 @@
-use std::fs;
 use std::path::Path;
 use chrono::Utc;
 use serde_json::json;
+use super::output_guard::WriteOptions;
+use super::output_guard::write_output_file;
 
 struct ControlCheck {
     id: &'static str,
@@ -10,7 +11,19 @@ struct ControlCheck {
     description: &'static str,
 }
 
-pub fn audit_compliance(standard: &str, output_file: Option<&str>) -> Result<(), String> {
+fn print_report(rendered: &str) -> Result<(), String> {
+    println!("{}", rendered);
+    Ok(())
+}
+
+fn persist_report(out: &str, rendered: &str, opts: &WriteOptions) -> Result<(), String> {
+    match write_output_file(out, rendered, opts) {
+        Ok(()) => print_report(rendered),
+        Err(reason) => Err(reason),
+    }
+}
+
+pub fn audit_compliance(standard: &str, output_file: Option<&str>, opts: &WriteOptions) -> Result<(), String> {
     let std_upper = standard.to_uppercase();
     let checks = get_controls_for_standard(&std_upper);
 
@@ -50,16 +63,32 @@ pub fn audit_compliance(standard: &str, output_file: Option<&str>) -> Result<(),
         "controls": audited_controls
     });
 
-    let rendered = serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?;
-    if let Some(out) = output_file {
-        if let Some(parent) = Path::new(out).parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        fs::write(out, &rendered).map_err(|error| format!("Failed to write compliance report '{}': {}", out, error))?;
+    let rendered = match serde_json::to_string_pretty(&report) {
+        Ok(valid) => valid,
+        Err(error) => return Err(error.to_string()),
+    };
+    match output_file {
+        Some(out) => persist_report(out, &rendered, opts),
+        None => print_report(&rendered),
+    }
+}
+
+#[cfg(test)]
+mod compliance_guard_tests {
+    use super::audit_compliance;
+    use super::WriteOptions;
+
+    #[test]
+    fn refuses_dotdot_output() {
+        let opts = WriteOptions { force: true, parents: true };
+        assert!(audit_compliance("SOC2", Some("a/../evil.json"), &opts).is_err());
     }
 
-    println!("{}", rendered);
-    Ok(())
+    #[test]
+    fn stdout_path_still_passes() {
+        let opts = WriteOptions { force: false, parents: false };
+        assert!(audit_compliance("SOC2", None, &opts).is_ok());
+    }
 }
 
 fn get_controls_for_standard(standard: &str) -> Vec<ControlCheck> {

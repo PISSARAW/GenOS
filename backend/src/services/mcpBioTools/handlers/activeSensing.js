@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleActiveSensing(args, run) {
-  const cmdParams = [`--param focus="${args.focus}"`, `--param ambiguity=${args.ambiguity}`];
+  const cmdParams = [`--param focus=${quoteCliArg(args.focus)}`, `--param ambiguity=${quoteCliArg(args.ambiguity)}`];
   const cmd = `genos biomimicry bio-feature --feature active_sensing --action emit ${cmdParams.join(' ')}`;
   const out = run(cmd);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };

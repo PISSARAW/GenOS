@@ -41,8 +41,9 @@ pub fn handle(cmd: &BiologicalCmd) -> Result<(), String> {
 pub fn handle_rhizome(cmd: &RhizomeCmd) -> Result<(), String> {
     match &cmd.subcommand {
         Some(RhizomeSubcommands::Serve { port }) => rhizome_telemetry::run(*port),
-        Some(RhizomeSubcommands::Export { output }) => {
-            rhizome_telemetry::export_snapshot(output)?;
+        Some(RhizomeSubcommands::Export { output, force, parents }) => {
+            let opts = crate::commands::output_guard::WriteOptions { force: *force, parents: *parents };
+            rhizome_telemetry::export_snapshot(output, &opts)?;
             println!("{}", json!({
                 "success": true,
                 "operation": "rhizome_graph_export",

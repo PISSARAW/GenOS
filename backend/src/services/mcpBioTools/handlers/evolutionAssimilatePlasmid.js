@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleEvolutionAssimilatePlasmid(args, run) {
-  const out = run(`genos evolution assimilate-plasmid --agent-id ${args.agent_id} --plasmid-id "${args.plasmid_id}"` + (args.source_agent ? ` --source ${args.source_agent}` : ''));
+  const out = run(`genos evolution assimilate-plasmid --agent-id ${quoteCliArg(args.agent_id)} --plasmid-id ${quoteCliArg(args.plasmid_id)}` + (args.source_agent ? ` --source ${quoteCliArg(args.source_agent)}` : ''));
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

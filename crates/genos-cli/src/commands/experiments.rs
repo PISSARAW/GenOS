@@ -2,8 +2,18 @@ use std::fs;
 use std::path::Path;
 use serde_json::json;
 
+fn resolve_experiments_url() -> String {
+    std::env::var("GENOS_API_URL").unwrap_or_else(|_| {
+        let host = std::env::var("GENOS_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+        let port = std::env::var("PORT")
+            .or_else(|_| std::env::var("GENOS_PORT"))
+            .unwrap_or_else(|_| "4000".to_string());
+        format!("http://{host}:{port}")
+    })
+}
+
 pub fn handle_experiment_causal(input_file: &str) -> Result<(), String> {
-    let url = std::env::var("GENOS_API_URL").unwrap_or_else(|_| "http://127.0.0.1:4000".to_string());
+    let url = resolve_experiments_url();
     let client = reqwest::blocking::Client::new();
     let body = json!({
         "title": format!("Causal Replay: {}", input_file),
@@ -43,7 +53,7 @@ pub fn handle_experiment_incident(manifest: &str, offline: bool) -> Result<(), S
         return Ok(());
     }
 
-    let url = std::env::var("GENOS_API_URL").unwrap_or_else(|_| "http://127.0.0.1:4000".to_string());
+    let url = resolve_experiments_url();
     let client = reqwest::blocking::Client::new();
     let body = json!({
         "title": "Incident Root Cause Analysis",
@@ -83,7 +93,7 @@ pub fn handle_experiment_bug(manifest: &str, offline: bool) -> Result<(), String
         return Ok(());
     }
 
-    let url = std::env::var("GENOS_API_URL").unwrap_or_else(|_| "http://127.0.0.1:4000".to_string());
+    let url = resolve_experiments_url();
     let client = reqwest::blocking::Client::new();
     let body = json!({
         "title": "Bug Reproduction and Falsification",

@@ -73,6 +73,9 @@ pub struct TrinityApp {
     pub connection_message: String,
     pub barrier_status: String,
     pub barrier_detail: String,
+    /// Display label for the barrier state (`STATUS — detail`) so quorum
+    /// outcomes like `tied` / `expired` / `no_active_nodes` stay visible.
+    pub barrier_label: String,
     /// Last server `seq` applied; stale re-deliveries (seq < this) are dropped.
     pub last_live_seq: Option<u64>,
 }
@@ -99,6 +102,7 @@ impl TrinityApp {
             connection_message: "Simulation mode".to_string(),
             barrier_status: "PENDING".to_string(),
             barrier_detail: String::new(),
+            barrier_label: "PENDING".to_string(),
             last_live_seq: None,
         }
     }
@@ -194,9 +198,8 @@ impl TrinityApp {
     }
 
     fn refresh_completion(&mut self) {
-        self.completed = !self.worlds.is_empty() && self.worlds.iter().all(|w| {
-            matches!(w.status.as_str(), "COMPLETED" | "ERROR" | "TERMINATED" | "APOPTOSIS" | "QUARANTINED" | "BLOCKED" | "IDLE")
-        });
+        self.completed = !self.worlds.is_empty()
+            && self.worlds.iter().all(|w| live_contract::is_terminal_world_status(w.status.as_str()));
         if self.completed {
             self.show_dashboard = true;
         }
@@ -227,6 +230,8 @@ impl TrinityApp {
         if let Some(detail) = value.get("detail").and_then(|v| v.as_str()) {
             self.barrier_detail = detail.to_string();
         }
+        self.barrier_label =
+            live_contract::barrier_label(&self.barrier_status, &self.barrier_detail);
     }
 
     pub fn tick(&mut self) {
@@ -364,5 +369,26 @@ mod tests {
         let foreign = serde_json::json!({ "type": "barrier", "missionId": "m2", "seq": 11, "status": "satisfied", "detail": "x" });
         app.apply_live_message(&foreign);
         assert_eq!(app.barrier_status, "WAITING");
+    }
+
+    #[test]
+    fn test_tied_and_expired_worlds_complete_with_label() {
+        let mut app = TrinityApp::new_live("m1");
+        let snapshot = serde_json::json!({
+            "type": "snapshot", "missionId": "m1", "prompt": "p",
+            "worlds": [
+                { "worldNumber": 1, "name": "A", "status": "tied", "progress": 100, "evidenceScore": 0.5, "verdict": "PENDING" },
+                { "worldNumber": 2, "name": "B", "status": "expired", "progress": 100, "evidenceScore": 0.4, "verdict": "PENDING" },
+                { "worldNumber": 3, "name": "C", "status": "completed", "progress": 100, "evidenceScore": 0.9, "verdict": "STRONG" }
+            ],
+            "barrier": { "status": "expired", "detail": "no_active_nodes" }
+        });
+        app.apply_live_message(&snapshot);
+        assert_eq!(app.worlds[0].status, "TIED");
+        assert_eq!(app.worlds[1].status, "EXPIRED");
+        assert!(app.completed);
+        assert!(app.show_dashboard);
+        assert_eq!(app.barrier_status, "EXPIRED");
+        assert_eq!(app.barrier_label, "EXPIRED — no_active_nodes");
     }
 }

@@ -10,6 +10,7 @@ const fs = require('fs');
 const testDbPath = path.resolve(__dirname, `test_genos_${process.pid}.db`);
 const coreWorkspacePath = path.join(__dirname, `.tmp-ws-genos-core-${process.pid}`);
 process.env.GENOS_DB_PATH = testDbPath;
+process.env.NODE_ENV = 'test';
 
 const { TEST_ADMIN_TOKEN } = require('../testAuth');
 const { createApp } = require('../src/app');

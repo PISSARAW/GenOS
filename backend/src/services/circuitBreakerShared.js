@@ -8,6 +8,17 @@ const fs = require('fs');
 const path = require('path');
 const { getDatabase } = require('../db');
 
+const DESTRUCTIVE_TOOLS = [
+  'genos_run',
+  'genos_merge',
+  'genos_restore',
+  'genos_resilience_apoptosis',
+  'genos_resilience_circuit_breaker',
+  'genos_resilience_cryptobiosis',
+  'genos_resilience_hypermutation',
+  'genos_invalidate_assumption',
+  'genos_security_coevolution'
+];
 function sharedStatePath(breaker) {
   const root = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
   return path.join(root, '.genos', 'circuit_breaker.json');
@@ -91,11 +102,59 @@ function maybeRefreshToolLocks(breaker) {
   getDatabase().then((db) => breaker.hydrateToolLocks(db)).catch(() => {});
 }
 
+function removePersistedHalt() {
+  try {
+    fs.unlinkSync(haltPath());
+  } catch (_) {}
+}
+
+function scopedStatePath() {
+  const root = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+  return path.join(root, '.genos', 'circuit_breaker_scopes.json');
+}
+
+function loadScopedStates(scopedStates) {
+  try {
+    const data = JSON.parse(fs.readFileSync(scopedStatePath(), 'utf8'));
+    for (const [name, state] of Object.entries(data.scopes || {})) {
+      if (state === 'OPEN' || state === 'HALF-OPEN') {
+        scopedStates.set(name, {
+          state,
+          failureCount: 0,
+          failureTimes: [],
+          lastFailureTime: 0,
+          lastStateChange: data.changedAt || Date.now(),
+          halfOpenProbe: null
+        });
+      }
+    }
+  } catch (_) {}
+}
+
+function persistScopedStates(scopedStates) {
+  try {
+    const scopes = {};
+    for (const [name, state] of scopedStates.entries()) {
+      if (state.state === 'OPEN' || state.state === 'HALF-OPEN') scopes[name] = state.state;
+    }
+    if (Object.keys(scopes).length === 0) return;
+    const file = scopedStatePath();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ scopes, changedAt: Date.now() }), 'utf8');
+  } catch (_) {}
+}
+
 module.exports = {
   persistSharedState,
   syncSharedState,
   maybeRefreshToolLocks,
   loadPersistedHalt,
   persistHalt,
-  refreshPersistedHalt
+  removePersistedHalt,
+  refreshPersistedHalt,
+  scopedStatePath,
+  loadScopedStates,
+  persistScopedStates,
+  DESTRUCTIVE_TOOLS
 };
+

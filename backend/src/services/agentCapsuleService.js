@@ -1,8 +1,8 @@
 const { spawn } = require('child_process');
 const fs = require('fs/promises');
-const path = require('path');
 const { appendBounded } = require('./boundedOutput');
 const { terminateChild } = require('./processTermination');
+const capsuleGate = require('./agentCapsuleGate');
 
 function run(command, args, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
@@ -25,36 +25,47 @@ function run(command, args, timeoutMs = 120000) {
 }
 
 async function provision(context = {}) {
-  const capsuleRoot = context.capsuleRoot || path.dirname(context.workspaceRoot);
-  const root = path.join(capsuleRoot, '.genos-runtime', context.agentId);
-  const bootstrap = path.join(root, 'bootstrap', context.agentId);
-  const genomePath = path.join(bootstrap, 'genome.json');
-  const snapshotPath = path.join(bootstrap, 'snapshot.json');
+  const ctx = context || {};
+  const paths = capsuleGate.resolveCapsulePaths(ctx);
+  const executable = capsuleGate.resolveExecutable(ctx.executable);
+  const name = ctx.name || 'worker';
+  const role = ctx.role || 'worker';
+  const steps = String(ctx.budgetSteps || 100);
   try {
-    await fs.mkdir(bootstrap, { recursive: true });
-    await run(context.executable, ['agent', 'create', '--name', context.name || 'worker', '--role', context.role || 'worker', '--out', genomePath]);
-    await run(context.executable, ['snapshot', 'create', '--agent', genomePath, '--out', snapshotPath]);
-    const output = await run(context.executable, [
-      'capsule', 'create', '--snapshot', snapshotPath,
-      '--seed', context.workspaceRoot,
-      '--budget-steps', String(context.budgetSteps || 100)
+    await fs.mkdir(paths.bootstrap, { recursive: true });
+    await run(executable, ['agent', 'create', '--name', name, '--role', role, '--out', paths.genomePath]);
+    await run(executable, ['snapshot', 'create', '--agent', paths.genomePath, '--out', paths.snapshotPath]);
+    const output = await run(executable, [
+      'capsule', 'create', '--snapshot', paths.snapshotPath,
+      '--seed', ctx.workspaceRoot,
+      '--budget-steps', steps
     ]);
-    const capsule = JSON.parse(output);
-    return {
-      id: capsule.capsule_id,
-      agentId: capsule.agent_snapshot?.agent_id,
-      genomeId: capsule.agent_snapshot?.genome?.id,
-      snapshotId: capsule.agent_snapshot?.snapshot_id,
-      branchId: capsule.branch_id,
-      worldId: capsule.live_world_id,
-      root,
-      genomePath,
-      snapshotPath
-    };
+    return buildProvisionResult(JSON.parse(output), paths);
   } catch (error) {
-    await fs.rm(root, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(paths.root, { recursive: true, force: true }).catch(() => {});
     throw error;
   }
+}
+
+function snapshotOf(capsule) {
+  if (capsule && capsule.agent_snapshot) return capsule.agent_snapshot;
+  return {};
+}
+
+function buildProvisionResult(capsule, paths) {
+  const snapshot = snapshotOf(capsule || {});
+  const genome = snapshot.genome || {};
+  return {
+    id: capsule.capsule_id,
+    agentId: snapshot.agent_id,
+    genomeId: genome.id,
+    snapshotId: snapshot.snapshot_id,
+    branchId: capsule.branch_id,
+    worldId: capsule.live_world_id,
+    root: paths.root,
+    genomePath: paths.genomePath,
+    snapshotPath: paths.snapshotPath
+  };
 }
 
 module.exports = { provision };

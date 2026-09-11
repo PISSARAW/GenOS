@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleSynapticPathEvaluate(args, run) {
-  const out = run(`genos synaptic path-evaluate --agent-id ${args.agent_id} --pre-node "${args.pre_node}" --post-node "${args.post_node}"`);
+  const out = run(`genos synaptic path-evaluate --agent-id ${quoteCliArg(args.agent_id)} --pre-node ${quoteCliArg(args.pre_node)} --post-node ${quoteCliArg(args.post_node)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

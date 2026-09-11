@@ -13,12 +13,21 @@ const invalidatedEvidence = evidenceScore({
 });
 assert.strictEqual(invalidatedEvidence, 0);
 
+const VERIFIABLE_PROOF = 'https://logs.internal/runs/42/claims/proof-001.log';
 const supplied = dossierToCandidate({
   workerId: 'validated-worker',
   fitnessScore: 37,
-  evidenceReport: { claims: Array.from({ length: 20 }, () => ({ evidence: ['proof'] })) }
+  evidenceReport: { claims: Array.from({ length: 20 }, () => ({ evidence: [VERIFIABLE_PROOF] })) }
 });
 assert.strictEqual(supplied.fitnessScore, 37);
+// N4: bare short strings ("trust me") are not verifiable evidence, so the
+// declared score must be clamped to the computed fitness instead of honored.
+const trustMe = dossierToCandidate({
+  workerId: 'trust-me-worker',
+  fitnessScore: 37,
+  evidenceReport: { claims: Array.from({ length: 20 }, () => ({ evidence: ['proof'] })) }
+});
+assert(trustMe.fitnessScore < 37, 'Unverifiable "trust me" strings must not back a declared fitness.');
 const inflated = dossierToCandidate({ workerId: 'inflated-worker', fitnessScore: 100, evidenceReport: { claims: [], tests: ['failed'] } });
 assert(inflated.fitnessScore < 100, 'Declared fitness must not override failed evidence.');
 const untested = dossierToCandidate({ workerId: 'untested-worker', evidenceReport: { claims: [] } });

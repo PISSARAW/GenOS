@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleAISDangerTelemetry(args, run) {
-  const out = run(`genos ais danger-telemetry --agent-id ${args.agent_id} --severity ${args.severity} --threat-context "${args.threat_context}"`);
+  const out = run(`genos ais danger-telemetry --agent-id ${quoteCliArg(args.agent_id)} --severity ${quoteCliArg(args.severity)} --threat-context ${quoteCliArg(args.threat_context)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

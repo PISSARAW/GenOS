@@ -1,8 +1,10 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleSwarmConsensus(args, run) {
   const agentId = args.agent_id || 'swarm_agent';
   const threshold = args.quorum_threshold || 0.66;
   const actionId = args.proposal || args.action_id || 'swarm_consensus';
-  const out = run(`genos biomimicry network-quorum --agent-id ${agentId} --threshold ${threshold} --action-id "${actionId}"`);
+  const out = run(`genos biomimicry network-quorum --agent-id ${quoteCliArg(agentId)} --threshold ${quoteCliArg(threshold)} --action-id ${quoteCliArg(actionId)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

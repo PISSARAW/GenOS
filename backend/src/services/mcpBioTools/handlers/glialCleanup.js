@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleGlialCleanup(args, run) {
-  const out = run(`genos biomimicry glial-cleanup --agent-id ${args.agent_id}` + (args.intensity ? ` --intensity ${args.intensity}` : ''));
+  const out = run(`genos biomimicry glial-cleanup --agent-id ${quoteCliArg(args.agent_id)}` + (args.intensity ? ` --intensity ${quoteCliArg(args.intensity)}` : ''));
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

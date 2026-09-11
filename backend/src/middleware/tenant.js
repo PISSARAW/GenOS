@@ -45,6 +45,11 @@ async function resolveTenant(req) {
 function requireTenantScope({ write = false } = {}) {
   return async (req, res, next) => {
     try {
+      const user = req.user || await resolveUserFromHeaders(req.headers);
+      req.user = user;
+      if (!user?.isAuthenticated) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+      }
       const scope = await resolveTenant(req);
       if (!scope) {
         if (await hasGlobalBypass(req)) { req.tenant = null; return next(); }

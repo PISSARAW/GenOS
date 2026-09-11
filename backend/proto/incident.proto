@@ -7,8 +7,8 @@ service IncidentService {
   rpc GetIncidentHistory (Empty) returns (IncidentHistoryResponse);
 }
 
-message Empty { string organization_id = 1; string project_id = 2; }
+message Empty {}
 message PingResponse { string status = 1; }
-message IncidentReportRequest { string agent_id = 1; string reason = 2; string details_json = 3; string organization_id = 4; string project_id = 5; }
+message IncidentReportRequest { string agent_id = 1; string reason = 2; string details_json = 3; }
 message IncidentResponse { string incident_id = 1; string status = 2; }
 message IncidentHistoryResponse { string history_json = 1; int32 count = 2; }

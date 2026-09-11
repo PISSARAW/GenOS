@@ -20,5 +20,11 @@ pub enum RhizomeSubcommands {
         /// Destination path for the exported graph JSON
         #[arg(long, short = 'o', default_value = "artifacts/rhizome_graph.json")]
         output: String,
+        /// Overwrite the destination file when it already exists
+        #[arg(long, default_value_t = false)]
+        force: bool,
+        /// Create missing parent directories
+        #[arg(long, default_value_t = false)]
+        parents: bool,
     },
 }

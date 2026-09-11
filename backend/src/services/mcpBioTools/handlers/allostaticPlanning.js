@@ -1,9 +1,11 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleAllostaticPlanning(args, run) {
   let cmdParams = [];
   if (args.action === 'predict') {
-    cmdParams.push(`--param action=predict`, `--param plan_action="${args.plan_action}"`, `--param expected="${args.expected}"`, `--param cost=${args.cost}`);
+    cmdParams.push('--param action=predict', `--param plan_action=${quoteCliArg(args.plan_action)}`, `--param expected=${quoteCliArg(args.expected)}`, `--param cost=${quoteCliArg(args.cost)}`);
   } else {
-    cmdParams.push(`--param action=evaluate`, `--param score=${args.score}`);
+    cmdParams.push('--param action=evaluate', `--param score=${quoteCliArg(args.score)}`);
   }
   const cmd = `genos biomimicry bio-feature --feature allostatic --action plan ${cmdParams.join(' ')}`;
   const out = run(cmd);

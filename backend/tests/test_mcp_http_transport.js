@@ -51,6 +51,9 @@ async function main() {
 }
 
 async function testNotificationFailure() {
+  // N15: notifications/initialized is best-effort (warn-and-continue), so a
+  // 503 on the notification no longer fails the call; the tools/call 503
+  // below is what surfaces.
   const server = http.createServer((request, response) => {
     let body = '';
     request.on('data', (chunk) => { body += chunk; });
@@ -71,7 +74,7 @@ async function testNotificationFailure() {
     process.env.GENOS_MCP_URL = `http://127.0.0.1:${server.address().port}`;
     await assert.rejects(
       mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', timeoutMs: 1000 }),
-      /MCP HTTP initialized notification returned 503: temporarily unavailable/
+      /MCP HTTP tools\/call returned 503: temporarily unavailable/
     );
   } finally {
     if (previousUrl === undefined) delete process.env.GENOS_MCP_URL;

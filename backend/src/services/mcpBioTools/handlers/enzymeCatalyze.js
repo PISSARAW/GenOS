@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleEnzymeCatalyze(args, run) {
-  const out = run(`genos biomimicry enzyme-catalyze --enzyme "${args.enzyme_name}" --signature "${args.substrate_signature}" --payload "${args.payload}"`);
+  const out = run(`genos biomimicry enzyme-catalyze --enzyme ${quoteCliArg(args.enzyme_name)} --signature ${quoteCliArg(args.substrate_signature)} --payload ${quoteCliArg(args.payload)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

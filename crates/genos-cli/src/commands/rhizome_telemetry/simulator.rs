@@ -130,10 +130,43 @@ pub async fn run_one_pass(graph: &Arc<RhizomeGraph>) {
 
 /// Continuously replays the budding/contraction cycle so the telemetry server always has a live
 /// graph to serve, forever, until the process is stopped.
+/// `GENOS_SIM_TICKS=N` (N > 0) stops after N cycles instead; unset or 0 keeps
+/// the historical infinite behavior.
 pub async fn run_forever(graph: Arc<RhizomeGraph>) {
+    let max_ticks = sim_ticks();
+    let mut tick = 0u64;
     loop {
         run_one_pass(&graph).await;
+        tick += 1;
+        if max_ticks > 0 && tick >= max_ticks {
+            eprintln!("[rhizome-sim] GENOS_SIM_TICKS={max_ticks} reached after {tick} ticks; stopping.");
+            break;
+        }
         sleep(Duration::from_millis(1_500)).await;
         graph.reset().await;
+    }
+}
+
+/// Parse a `GENOS_SIM_TICKS` value: missing/invalid/0 means "run forever".
+pub fn parse_sim_ticks(raw: Option<String>) -> u64 {
+    raw.and_then(|v| v.parse().ok()).unwrap_or(0)
+}
+
+/// Max cycles before `run_forever` exits on its own (see `run_forever`).
+pub fn sim_ticks() -> u64 {
+    parse_sim_ticks(std::env::var("GENOS_SIM_TICKS").ok())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_sim_ticks_defaults_to_infinite() {
+        assert_eq!(parse_sim_ticks(None), 0);
+        assert_eq!(parse_sim_ticks(Some("".to_string())), 0);
+        assert_eq!(parse_sim_ticks(Some("not-a-number".to_string())), 0);
+        assert_eq!(parse_sim_ticks(Some("0".to_string())), 0);
+        assert_eq!(parse_sim_ticks(Some("10".to_string())), 10);
     }
 }

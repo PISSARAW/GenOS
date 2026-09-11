@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleReflexArc(args, run) {
-  const out = run(`genos biomimicry reflex-arc --agent-id ${args.agent_id} --stimulus "${args.stimulus_type}" --payload "${args.intensity_or_signal}"`);
+  const out = run(`genos biomimicry reflex-arc --agent-id ${quoteCliArg(args.agent_id)} --stimulus ${quoteCliArg(args.stimulus_type)} --payload ${quoteCliArg(args.intensity_or_signal)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

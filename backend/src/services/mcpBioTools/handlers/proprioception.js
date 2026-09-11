@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleProprioception(args, run) {
-  const out = run(`genos biomimicry proprioception --focus ${args.focus}`);
+  const out = run(`genos biomimicry proprioception --focus ${quoteCliArg(args.focus)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::Path;
 use serde_json::json;
-use uuid::Uuid;
 use crate::args::CapsuleSubcommands;
 
 pub fn execute(cmd: CapsuleSubcommands) -> Result<(), String> {
@@ -10,47 +9,9 @@ pub fn execute(cmd: CapsuleSubcommands) -> Result<(), String> {
     }
 }
 
-pub fn handle_audit(snapshot_id: &str, output: Option<&str>) -> Result<(), String> {
-    let audit_id = format!("audit-{}", Uuid::new_v4().simple());
-    let capsule_dir = crate::commands::root_resolver::resolve_matrix_root().join("capsules");
-    let capsule_file = capsule_dir.join(format!("{}.json", snapshot_id));
-
-    if !capsule_file.exists() {
-        return Err(format!("Capsule not found for snapshot: {}", snapshot_id));
-    }
-
-    let (hash, compliance_score, status) = if capsule_file.exists() {
-        if let Ok(content) = fs::read_to_string(&capsule_file) {
-            if let Ok(capsule) = serde_json::from_str::<genos_store::Capsule>(&content) {
-                let verified = capsule.verify();
-                let score = if verified { 1.0 } else { 0.0 };
-                let st = if verified { "APPROVED" } else { "TAMPERED" };
-                (capsule.hash, score, st)
-            } else {
-                ("corrupt".into(), 0.0, "CORRUPT")
-            }
-        } else {
-            ("unreadable".into(), 0.0, "ERROR")
-        }
-    } else {
-        unreachable!("capsule existence was checked above");
-    };
-
-    let audit_data = json!({
-        "audit_id": audit_id,
-        "snapshot_id": snapshot_id,
-        "integrity_hash": hash,
-        "policy_violations": if compliance_score < 1.0 { 1 } else { 0 },
-        "compliance_score": compliance_score,
-        "status": status
-    });
-
-    let rendered = serde_json::to_string_pretty(&audit_data).unwrap();
-    if let Some(out) = output {
-        fs::write(out, &rendered).map_err(|error| format!("Failed to write audit report '{}': {}", out, error))?;
-    }
-    println!("{}", rendered);
-    Ok(())
+pub fn handle_audit(snapshot_id: &str, output: Option<&str>, opts: &super::output_guard::WriteOptions) -> Result<(), String> {
+    let req = super::capsule_audit::AuditRequest { snapshot_id, output, force: opts.force, parents: opts.parents };
+    super::capsule_audit::handle_audit(&req)
 }
 
 pub fn handle_merge(branch_id: &str, conditions: Option<&str>) -> Result<(), String> {

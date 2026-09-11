@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleCellularEndosymbiosis(args, run) {
-  const out = run(`genos biomimicry cellular-endosymbiosis --agent-id ${args.agent_id} --target-process "${args.target_process}" --organelle-name "${args.organelle_name}"`);
+  const out = run(`genos biomimicry cellular-endosymbiosis --agent-id ${quoteCliArg(args.agent_id)} --target-process ${quoteCliArg(args.target_process)} --organelle-name ${quoteCliArg(args.organelle_name)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

@@ -1,9 +1,23 @@
 
 
 use crate::{api_base_url, command_error, cargo_program, ensure_cargo_on_path, apply_api_auth};
+use std::net::ToSocketAddrs;
 use std::process::Command;
 use crate::commands::system::SystemCommands;
 use crate::exit_on_command_failure;
+
+fn server_is_reachable(addr: &str) -> bool {
+    let parsed = match addr.to_socket_addrs() {
+        Ok(valid) => valid,
+        Err(_) => return false,
+    };
+    for sock in parsed {
+        if std::net::TcpStream::connect_timeout(&sock, std::time::Duration::from_secs(5)).is_ok() {
+            return true;
+        }
+    }
+    false
+}
 
 pub fn handle_system(cmd: &SystemCommands, yes: bool) {
     tokio::runtime::Runtime::new().unwrap().block_on(async {
@@ -140,7 +154,7 @@ async fn handle_system_async(cmd: &SystemCommands, _yes: bool) {
             } else {
                 format!("{}:{}", host_port_str, crate::api_port())
             };
-            if std::net::TcpStream::connect(&socket_addr).is_err() {
+            if !server_is_reachable(&socket_addr) {
                 eprintln!("⚠️ Le serveur GenOS n'est pas démarré sur {}.", socket_addr);
                 eprintln!("💡 Lancez d'abord './g start' pour éveiller le cortex GenOS.");
                 std::process::exit(1);
@@ -163,8 +177,8 @@ async fn handle_system_async(cmd: &SystemCommands, _yes: bool) {
             ensure_cargo_on_path();
             let api_url = api_base_url();
             let api_host = api_url.strip_prefix("http://").or_else(|| api_url.strip_prefix("https://")).unwrap_or(&api_url);
-            if std::net::TcpStream::connect(api_host).is_err() {
-                eprintln!("⚠️ Le serveur GenOS n'est pas démarré sur le port 8085.");
+            if !server_is_reachable(api_host) {
+                eprintln!("⚠️ Le serveur GenOS n'est pas accessible ({api_url}).");
                 eprintln!("💡 Lancez d'abord './g start' pour éveiller le cortex GenOS.");
                 std::process::exit(1);
             }
@@ -188,6 +202,21 @@ async fn handle_system_async(cmd: &SystemCommands, _yes: bool) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod reachable_tests {
+    use super::server_is_reachable;
+
+    #[test]
+    fn closed_loopback_port_is_unreachable() {
+        assert!(!server_is_reachable("127.0.0.1:1"));
+    }
+
+    #[test]
+    fn garbage_address_is_unreachable() {
+        assert!(!server_is_reachable("not-a-host:9999"));
     }
 }
 

@@ -14,11 +14,87 @@ const { withTransaction, getDatabase } = require('../db/index');
 const synapticTransmission = require('./synapticTransmissionService');
 
 /**
- * Executes a full sleep consolidation and microglial pruning cycle.
- * @param {object} [db=null] - SQLite database connection.
- * @param {object} [options={}] - Configuration options for thresholds.
- * @returns {Promise<object>} Consolidation statistics.
+ * Helper: run a single step of the sleep cycle with its own error handling
  */
+async function decaySynapticWeights(tx, weightDecayFactor) {
+  await tx.run(
+    `UPDATE genome_decisions 
+     SET synaptic_weight = CASE 
+       WHEN category IN ('core', 'golden_path', 'architecture', 'invariant') THEN MAX(1.0, ROUND(synaptic_weight * ?, 4))
+       ELSE ROUND(synaptic_weight * ?, 4)
+     END`,
+    weightDecayFactor, weightDecayFactor
+  );
+}
+
+async function consolidateSynapses(tx, synapseDecayFactor) {
+  await tx.run(`
+    UPDATE memory_synapses
+    SET weight = CASE WHEN weight < 0 THEN MAX(-20.0, weight - 0.05 * activity_history) ELSE MIN(20.0, weight + 0.05 * activity_history) END,
+        receptor_density = MIN(3.0, receptor_density + 0.05),
+        c3_opsonization = 0.0,
+        cd47_expression = MIN(2.0, cd47_expression + 0.1),
+        spine_morphology = CASE WHEN receptor_density + 0.05 >= 1.5 THEN 'mushroom' ELSE 'thin' END
+    WHERE activity_history > 0
+  `);
+
+  await tx.run(`
+    UPDATE memory_synapses
+    SET weight = ROUND(weight * ?, 4),
+        receptor_density = MAX(0.0, receptor_density - 0.05),
+        c3_opsonization = MIN(2.0, c3_opsonization + 0.1),
+        cd47_expression = MAX(0.0, cd47_expression - 0.05),
+        spine_morphology = CASE WHEN receptor_density - 0.05 < 0.6 THEN 'filopodia' WHEN receptor_density - 0.05 < 1.3 THEN 'stubby' ELSE spine_morphology END
+    WHERE activity_history IS NULL OR activity_history = 0
+  `, synapseDecayFactor);
+}
+
+async function pruneDeadSynapses(tx, opts) {
+  const { minTransmissionWeight, c3Threshold, cd47Threshold } = opts;
+  return tx.run(
+    'DELETE FROM memory_synapses WHERE ABS(weight) < ? OR (c3_opsonization > ? AND cd47_expression < ?)',
+    minTransmissionWeight, c3Threshold, cd47Threshold
+  );
+}
+
+async function resetActivityHistory(tx) {
+  await tx.run('UPDATE memory_synapses SET activity_history = 0');
+}
+
+async function pruneOrphanedDecisions(tx, opts) {
+  const { orphanWeightThreshold, organizationId, projectId } = opts;
+  const doomed = await tx.all(`
+    SELECT g.id 
+    FROM genome_decisions g
+    LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
+    WHERE g.synaptic_weight < ?
+      AND (g.category IS NULL OR g.category NOT IN ('core', 'golden_path', 'architecture', 'invariant'))
+      AND (g.organization_id = ? OR g.organization_id IS NULL)
+      AND (g.project_id = ? OR g.project_id IS NULL)
+    GROUP BY g.id
+    HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
+  `, orphanWeightThreshold, organizationId || null, projectId || null);
+
+  const doomedIds = doomed.map(d => d.id);
+  if (doomedIds.length > 0) {
+    const placeholders = doomedIds.map(() => '?').join(',');
+    await tx.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, doomedIds);
+  }
+  return doomedIds.length;
+}
+
+async function pruneTrajectories(tx, trajectoryRetentionDays) {
+  try {
+    const res = await tx.run(`
+      DELETE FROM trajectories 
+      WHERE is_exceptional = 0 
+        AND status = 'rejected' 
+        AND datetime(created_at) < datetime('now', '-' || ? || ' days')
+    `, trajectoryRetentionDays);
+    return res?.changes || 0;
+  } catch (_) { return 0; }
+}
+
 async function runSleepCycle(db = null, options = {}) {
   const database = db || (await getDatabase());
   if (!database) {
@@ -44,90 +120,22 @@ async function runSleepCycle(db = null, options = {}) {
   } = options;
 
   try {
-    let doomedIds = [];
     let exosomeStats = { success: true, absorbedCount: 0, engramsStored: 0, plasmidsAssimilated: 0, errors: [] };
 
     await withTransaction(database, async (tx) => {
-      // 1. Natural asymptotic decay on non-protected decisions, preserving core foundations
-      await tx.run(
-        `UPDATE genome_decisions 
-         SET synaptic_weight = CASE 
-           WHEN category IN ('core', 'golden_path', 'architecture', 'invariant') THEN MAX(1.0, ROUND(synaptic_weight * ?, 4))
-           ELSE ROUND(synaptic_weight * ?, 4)
-         END`,
-        weightDecayFactor,
-        weightDecayFactor
-      );
-
-      // 2. Differential synaptic consolidation:
-      // Active synapses (activity_history > 0): LTP reinforcement, receptor insertion, CD47 "don't eat me" protection, C3 clearance
-      await tx.run(`
-        UPDATE memory_synapses
-        SET weight = CASE WHEN weight < 0 THEN MAX(-20.0, weight - 0.05 * activity_history) ELSE MIN(20.0, weight + 0.05 * activity_history) END,
-            receptor_density = MIN(3.0, receptor_density + 0.05),
-            c3_opsonization = 0.0,
-            cd47_expression = MIN(2.0, cd47_expression + 0.1),
-            spine_morphology = CASE WHEN receptor_density + 0.05 >= 1.5 THEN 'mushroom' ELSE 'thin' END
-        WHERE activity_history > 0
-      `);
-
-      // Inactive synapses (activity_history = 0 or NULL): LTD depression, receptor internalization, CD47 down-regulation, C3 opsonization
-      await tx.run(`
-        UPDATE memory_synapses
-        SET weight = ROUND(weight * ?, 4),
-            receptor_density = MAX(0.0, receptor_density - 0.05),
-            c3_opsonization = MIN(2.0, c3_opsonization + 0.1),
-            cd47_expression = MAX(0.0, cd47_expression - 0.05),
-            spine_morphology = CASE WHEN receptor_density - 0.05 < 0.6 THEN 'filopodia' WHEN receptor_density - 0.05 < 1.3 THEN 'stubby' ELSE spine_morphology END
-        WHERE activity_history IS NULL OR activity_history = 0
-      `, synapseDecayFactor);
-
-      // 3. Prune dead synapses below transmission threshold OR tagged for microglial elimination (C3 > c3Threshold & CD47 < cd47Threshold)
-      const pruneRes = await tx.run(
-        'DELETE FROM memory_synapses WHERE ABS(weight) < ? OR (c3_opsonization > ? AND cd47_expression < ?)',
-        minTransmissionWeight,
-        c3Threshold,
-        cd47Threshold
-      );
-
-      // Reset activity history across all remaining synapses for the next wake cycle
-      await tx.run('UPDATE memory_synapses SET activity_history = 0');
-
-      // 4. Select orphaned weak memories with no remaining active synapses (exempting core categories)
-      // CRITICAL: Must respect tenant boundaries to prevent cross-tenant data deletion
-      const doomed = await tx.all(`
-        SELECT g.id 
-        FROM genome_decisions g
-        LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
-        WHERE g.synaptic_weight < ?
-          AND (g.category IS NULL OR g.category NOT IN ('core', 'golden_path', 'architecture', 'invariant'))
-          AND (g.organization_id = ? OR g.organization_id IS NULL)
-          AND (g.project_id = ? OR g.project_id IS NULL)
-        GROUP BY g.id
-        HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
-      `, orphanWeightThreshold, options.organizationId || null, options.projectId || null);
-      doomedIds = doomed.map(d => d.id);
-
-      if (doomedIds.length > 0) {
-        const placeholders = doomedIds.map(() => '?').join(',');
-        await tx.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, doomedIds);
-      }
-
-      // 5. Trajectory retention & pruning: remove stale rejected non-exceptional trajectories
-      let prunedTrajectories = 0;
-      try {
-        const res = await tx.run(`
-          DELETE FROM trajectories 
-          WHERE is_exceptional = 0 
-            AND status = 'rejected' 
-            AND datetime(created_at) < datetime('now', '-${parseInt(trajectoryRetentionDays, 10)} days')
-        `);
-        prunedTrajectories = res?.changes || 0;
-      } catch (_) {}
-
+      await decaySynapticWeights(tx, weightDecayFactor);
+      await consolidateSynapses(tx, synapseDecayFactor);
+      await pruneDeadSynapses(tx, { minTransmissionWeight, c3Threshold, cd47Threshold });
+      await resetActivityHistory(tx);
+      const apoptosisCount = await pruneOrphanedDecisions(tx, {
+        orphanWeightThreshold,
+        organizationId: options.organizationId || null,
+        projectId: options.projectId || null
+      });
+      const prunedTrajectories = await pruneTrajectories(tx, trajectoryRetentionDays);
       exosomeStats = await synapticTransmission.absorbExosomes(tx);
       exosomeStats.prunedTrajectories = prunedTrajectories;
-      exosomeStats.prunedSynapses = pruneRes?.changes || 0;
+      exosomeStats.prunedSynapses = prunedSynapses || 0;
     });
 
     return {
@@ -135,7 +143,7 @@ async function runSleepCycle(db = null, options = {}) {
       consolidated: true,
       memoriesDecayed: true,
       prunedSynapses: exosomeStats.prunedSynapses || 0,
-      apoptosisCount: doomedIds.length,
+      apoptosisCount: apoptosisCount,
       prunedTrajectories: exosomeStats.prunedTrajectories || 0,
       exosomesAbsorbed: exosomeStats.absorbedCount,
       engramsStored: exosomeStats.engramsStored,

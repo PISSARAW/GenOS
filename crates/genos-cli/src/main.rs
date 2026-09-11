@@ -99,7 +99,10 @@ fn main() {
         Some(Commands::Biomimicry(cmd)) => biomimicry::execute(cmd.subcommand),
         Some(Commands::Evolution(cmd)) => biomimicry::execute_evolution(cmd.subcommand),
         Some(Commands::Capsule(cmd)) => capsule::execute(cmd.subcommand),
-        Some(Commands::Audit(cmd)) => capsule::handle_audit(&cmd.snapshot_id, cmd.output.as_deref()),
+        Some(Commands::Audit(cmd)) => {
+            let opts = commands::output_guard::WriteOptions { force: cmd.force, parents: cmd.parents };
+            capsule::handle_audit(&cmd.snapshot_id, cmd.output.as_deref(), &opts)
+        }
         Some(Commands::Merge(cmd)) => capsule::handle_merge(&cmd.branch_id, cmd.conditions.as_deref()),
         Some(Commands::CostAccounting(cmd)) => platform::handle_cost_accounting(&cmd.agent_id, cmd.timeframe.as_deref()),
         Some(Commands::Desktop(cmd)) => desktop::execute(cmd.subcommand),
@@ -130,8 +133,9 @@ fn main() {
             SwarmSubcommands::AlleleAnalyzer { swarm_id } => platform::handle_swarm_alleles(&swarm_id),
         },
         Some(Commands::Compliance(cmd)) => match cmd.subcommand {
-            ComplianceSubcommands::Generate { standard, output_file } => {
-                platform::handle_compliance(&standard, output_file.as_deref())
+            ComplianceSubcommands::Generate { standard, output_file, force, parents } => {
+                let opts = commands::output_guard::WriteOptions { force, parents };
+                platform::handle_compliance(&standard, output_file.as_deref(), &opts)
             }
         },
         Some(Commands::Strategy(cmd)) => match cmd.subcommand {

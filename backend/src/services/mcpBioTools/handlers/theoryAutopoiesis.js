@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleTheoryAutopoiesis(args, run) {
-  const out = run(`genos biomimicry theory-autopoiesis --agent-id ${args.agent_id} --target-gene "${args.target_gene}" --new-value ${args.new_value}`);
+  const out = run(`genos biomimicry theory-autopoiesis --agent-id ${quoteCliArg(args.agent_id)} --target-gene ${quoteCliArg(args.target_gene)} --new-value ${quoteCliArg(args.new_value)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

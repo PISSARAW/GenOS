@@ -115,16 +115,46 @@ async fn run_simulation_tick(engine: &SyncytiumEngine, tick: u64) {
 }
 
 pub async fn run_forever(engine: Arc<SyncytiumEngine>) {
+    let max_ticks = sim_ticks();
     let mut tick = 0u64;
     loop {
         run_simulation_tick(&engine, tick).await;
         tick += 1;
+        if max_ticks > 0 && tick >= max_ticks {
+            eprintln!("[syncytium-sim] GENOS_SIM_TICKS={max_ticks} reached after {tick} ticks; stopping.");
+            break;
+        }
         sleep(Duration::from_millis(300)).await;
     }
+}
+
+/// Parse a `GENOS_SIM_TICKS` value: missing/invalid/0 means "run forever".
+pub fn parse_sim_ticks(raw: Option<String>) -> u64 {
+    raw.and_then(|v| v.parse().ok()).unwrap_or(0)
+}
+
+/// Max ticks before `run_forever` exits on its own. Unset or `0` preserves
+/// the historical infinite behavior; `GENOS_SIM_TICKS=N` stops after N ticks.
+pub fn sim_ticks() -> u64 {
+    parse_sim_ticks(std::env::var("GENOS_SIM_TICKS").ok())
 }
 
 pub async fn run_one_pass(engine: &SyncytiumEngine) {
     for tick in 0..8 {
         run_simulation_tick(engine, tick).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_sim_ticks_defaults_to_infinite() {
+        assert_eq!(parse_sim_ticks(None), 0);
+        assert_eq!(parse_sim_ticks(Some("".to_string())), 0);
+        assert_eq!(parse_sim_ticks(Some("not-a-number".to_string())), 0);
+        assert_eq!(parse_sim_ticks(Some("0".to_string())), 0);
+        assert_eq!(parse_sim_ticks(Some("25".to_string())), 25);
     }
 }

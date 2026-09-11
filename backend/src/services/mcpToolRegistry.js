@@ -85,6 +85,8 @@ async function dispatchTool(toolName, args = {}) {
   if (kind === 'cli') {
     const { executeConfiguredTransport } = require('./mcpExecutor');
     const result = await executeConfiguredTransport({ toolName: normalized, args: args || {} });
+    if (result?.success) circuitBreaker.recordSuccess(normalized);
+    else if (result?.configured) circuitBreaker.recordFailure(normalized, result?.error || 'MCP tool failed.');
     return { kind, result };
   }
 

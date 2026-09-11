@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 const UNAUTHENTICATED_STATUS = 16;
 const PERMISSION_DENIED_STATUS = 7;
 
@@ -11,14 +13,28 @@ function metadataValues(call, key) {
   return metadata.get(key).map((value) => String(value));
 }
 
+function hashSecret(value) {
+  return crypto.createHash('sha256').update(String(value)).digest();
+}
+
+function secretMatches(candidate, secretHash) {
+  const candidateHash = hashSecret(candidate);
+  if (candidateHash.length !== secretHash.length) return false;
+  return crypto.timingSafeEqual(candidateHash, secretHash);
+}
+
 function isAuthorized(call) {
   const secret = configuredSecret();
   if (!secret) return false;
+  const secretHash = hashSecret(secret);
   const candidates = [
     ...metadataValues(call, 'x-genos-grpc-key'),
     ...metadataValues(call, 'authorization').map((value) => value.replace(/^Bearer\s+/i, ''))
   ];
-  return candidates.includes(secret);
+  for (const candidate of candidates) {
+    if (secretMatches(candidate, secretHash)) return true;
+  }
+  return false;
 }
 
 function hasCredentials(call) {

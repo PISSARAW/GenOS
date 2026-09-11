@@ -4,10 +4,24 @@ use serde_json::json;
 use uuid::Uuid;
 use genos_cell::AgentCell;
 use crate::args::AgentSubcommands;
+use super::agent_mutate::handle_mutate;
+use super::output_guard::WriteOptions;
+use super::output_guard::write_output_file;
+
+pub struct AgentCreateRequest<'a> {
+    pub name: &'a str,
+    pub role: &'a str,
+    pub out: &'a str,
+    pub force: bool,
+    pub parents: bool,
+}
 
 pub fn execute(cmd: AgentSubcommands) -> Result<(), String> {
     match cmd {
-        AgentSubcommands::Create { name, role, out } => handle_create(&name, &role, &out),
+        AgentSubcommands::Create { name, role, out, force, parents } => {
+            let req = AgentCreateRequest { name: &name, role: &role, out: &out, force, parents };
+            handle_create(&req)
+        }
         AgentSubcommands::Mutate { agent_id, r#trait, outcome } => handle_mutate(&agent_id, &r#trait, outcome),
         AgentSubcommands::Prune { agent_id, threshold } => handle_prune(&agent_id, threshold),
         AgentSubcommands::Fork { parent_id } => handle_fork(parent_id.as_deref()),
@@ -16,8 +30,8 @@ pub fn execute(cmd: AgentSubcommands) -> Result<(), String> {
     }
 }
 
-fn handle_create(name: &str, role: &str, out: &str) -> Result<(), String> {
-    let meaning = match name {
+fn meaning_for(name: &str) -> &'static str {
+    match name {
         "Kwame" => "Né un samedi (Akan) - Le planificateur méthodique",
         "Chidi" => "Dieu existe (Igbo) - L'esprit logique et rigoureux",
         "Zola" => "Calme et amour (Kongo) - Le pacificateur et conciliateur",
@@ -26,20 +40,71 @@ fn handle_create(name: &str, role: &str, out: &str) -> Result<(), String> {
         "Ayo" => "Pleine de joie (Yoruba) - La créativité vivace",
         "Griot" => "Le dépositaire de la tradition orale et des savoirs de GenOS",
         _ => "Agent autonome résilient de l'écosystème GenOS",
-    };
+    }
+}
 
-    let cell = AgentCell::new(name, meaning, role);
-    let genome_doc = json!({
+fn render_genome(cell: &AgentCell, out: &str) -> Result<String, String> {
+    let genome_doc = build_genome_doc(cell);
+    if out.ends_with(".yaml") {
+        return render_yaml_genome(&genome_doc);
+    }
+    if out.ends_with(".yml") {
+        return render_yaml_genome(&genome_doc);
+    }
+    match serde_json::to_string_pretty(&genome_doc) {
+        Ok(valid) => Ok(valid),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn render_yaml_genome(genome_doc: &serde_json::Value) -> Result<String, String> {
+    match serde_yaml::to_string(genome_doc) {
+        Ok(valid) => Ok(valid),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn print_create_output(cell: &AgentCell, out: &str) -> Result<(), String> {
+    let output = json!({
+        "success": true,
+        "operation": "agent_create",
+        "agent": {
+            "id": cell.cell_id.to_string(),
+            "name": cell.name,
+            "meaning": cell.name_meaning,
+            "role": cell.role,
+            "file": out
+        }
+    });
+    println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+    Ok(())
+}
+
+fn handle_create(req: &AgentCreateRequest) -> Result<(), String> {
+    let cell = AgentCell::new(req.name, meaning_for(req.name), req.role);
+    let serialized = match render_genome(&cell, req.out) {
+        Ok(valid) => valid,
+        Err(reason) => return Err(reason),
+    };
+    let opts = WriteOptions { force: req.force, parents: req.parents };
+    match write_output_file(req.out, &serialized, &opts) {
+        Ok(()) => print_create_output(&cell, req.out),
+        Err(reason) => Err(reason),
+    }
+}
+
+fn build_genome_doc(cell: &AgentCell) -> serde_json::Value {
+    json!({
         "apiVersion": "v0alpha1",
         "kind": "AgentGenome",
         "metadata": {
-            "name": name,
+            "name": cell.name,
             "version": "0.1.0"
         },
         "identity": {
-            "role": role,
-            "name": name,
-            "name_meaning": meaning,
+            "role": cell.role,
+            "name": cell.name,
+            "name_meaning": cell.name_meaning,
             "cell_id": cell.cell_id.to_string()
         },
         "cognition": {
@@ -47,7 +112,7 @@ fn handle_create(name: &str, role: &str, out: &str) -> Result<(), String> {
             "organelles": cell.organelles
         },
         "objectives": {
-            "primary": role,
+            "primary": cell.role,
             "operational_mode": "autonomous"
         },
         "policies": {
@@ -88,90 +153,7 @@ fn handle_create(name: &str, role: &str, out: &str) -> Result<(), String> {
         "organelles": cell.organelles,
         "bud_scars": cell.bud_scars,
         "hayflick_limit": cell.hayflick_limit
-    });
-
-    let path = Path::new(out);
-    if let Some(parent) = path.parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-
-    let serialized = if out.ends_with(".yaml") || out.ends_with(".yml") {
-        serde_yaml::to_string(&genome_doc).map_err(|e| e.to_string())?
-    } else {
-        serde_json::to_string_pretty(&genome_doc).map_err(|e| e.to_string())?
-    };
-
-    fs::write(path, serialized).map_err(|e| e.to_string())?;
-
-    let output = json!({
-        "success": true,
-        "operation": "agent_create",
-        "agent": {
-            "id": cell.cell_id.to_string(),
-            "name": cell.name,
-            "meaning": cell.name_meaning,
-            "role": cell.role,
-            "file": out
-        }
-    });
-
-    println!("{}", serde_json::to_string_pretty(&output).unwrap());
-    Ok(())
-}
-
-fn handle_mutate(agent_id: &str, trait_name: &str, outcome: f64) -> Result<(), String> {
-    let candidate_paths = [
-        std::path::PathBuf::from(agent_id),
-        std::path::PathBuf::from(format!("{}.json", agent_id)),
-        std::path::PathBuf::from(format!("{}.yaml", agent_id)),
-        std::path::PathBuf::from(format!(".genos/agents/{}.json", agent_id)),
-    ];
-    let mut modified_file = None;
-    let mut write_error = None;
-    for path in &candidate_paths {
-        if path.exists() {
-            if let Ok(content) = fs::read_to_string(path) {
-                if let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&content) {
-                    if let Some(obj) = val.as_object_mut() {
-                        obj.insert(format!("trait_{}", trait_name), json!(outcome));
-                        if let Some(meta) = obj.get_mut("metadata").and_then(|m| m.as_object_mut()) {
-                            meta.insert("last_mutation".to_string(), json!({ "trait": trait_name, "outcome": outcome }));
-                        }
-                    }
-                    if let Ok(saved) = serde_json::to_string_pretty(&val) {
-                        fs::write(path, saved).map_err(|error| error.to_string()).map(|()| modified_file = Some(path.to_string_lossy().to_string())).unwrap_or_else(|error| write_error = Some(error));
-                    }
-                    break;
-                } else if let Ok(mut val) = serde_yaml::from_str::<serde_json::Value>(&content) {
-                    if let Some(obj) = val.as_object_mut() {
-                        obj.insert(format!("trait_{}", trait_name), json!(outcome));
-                        if let Some(meta) = obj.get_mut("metadata").and_then(|m| m.as_object_mut()) {
-                            meta.insert("last_mutation".to_string(), json!({ "trait": trait_name, "outcome": outcome }));
-                        }
-                    }
-                    if let Ok(saved) = serde_yaml::to_string(&val) {
-                        fs::write(path, saved).map_err(|error| error.to_string()).map(|()| modified_file = Some(path.to_string_lossy().to_string())).unwrap_or_else(|error| write_error = Some(error));
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    if let Some(error) = write_error { return Err(format!("Failed to persist mutation: {}", error)); }
-    let modified_file = modified_file.ok_or_else(|| format!("Agent file not found or unsupported: {}", agent_id))?;
-
-    let output = json!({
-        "success": true,
-        "operation": "agent_mutate",
-        "agent_id": agent_id,
-        "trait": trait_name,
-        "outcome": outcome,
-        "mutation_score": outcome * 1.05,
-        "persisted_file": modified_file
-    });
-    println!("{}", serde_json::to_string(&output).unwrap());
-    Ok(())
+    })
 }
 
 fn handle_prune(agent_id: &str, threshold: f64) -> Result<(), String> {

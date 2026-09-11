@@ -84,7 +84,8 @@ async function forgetWorkspace(agentId, cleanupDisk = false) {
     await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', agentId);
     const targetRoot = tracked?.workspaceRoot || row?.workspace_root;
     if (cleanupDisk && targetRoot) {
-      await cleanupWorkspace(targetRoot, agentId);
+      const options = tracked?.epoch ? { expectedEpoch: tracked.epoch } : {};
+      await cleanupWorkspace(targetRoot, agentId, options);
     }
   } catch (_) {
     // Forgetting is best-effort: a missing row must never block the caller.

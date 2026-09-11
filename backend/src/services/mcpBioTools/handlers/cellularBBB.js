@@ -1,5 +1,7 @@
+const { quoteCliArg } = require('../shellQuote');
+
 function handleCellularBBB(args, run) {
-  const out = run(`genos biomimicry cellular-bbb --agent-id ${args.agent_id} --filter-level ${args.filter_level}`);
+  const out = run(`genos biomimicry cellular-bbb --agent-id ${quoteCliArg(args.agent_id)} --filter-level ${quoteCliArg(args.filter_level)}`);
   return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
 }
 

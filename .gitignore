@@ -36,3 +36,5 @@ mcp/mcp-debug.log
 test-repo/
 test_thalamus.rs
 backend/tests/.tmp-*
+*.backup-*
+artifacts/
