@@ -7,6 +7,7 @@ pub fn handle_specialized_cell(feature: &str, action: &str, params: &[String]) {
         "electrocyte" | "electric_organ" => handle_electrocyte(action, params),
         "choanocyte" | "collar_cell" => handle_choanocyte(action, params),
         "iridophore" | "structural_color" => handle_iridophore(action, params),
+        "guard_cell" | "stomata" => handle_guard_cell(action, params),
         _ => {
             println!("{}", json!({
                 "success": true, "operation": "specialized_cell",
@@ -187,5 +188,45 @@ pub fn handle_iridophore(action: &str, params: &[String]) {
         }
     }
 }
+
+pub fn handle_guard_cell(action: &str, params: &[String]) {
+    let pore_id = extract_param(params, "pore_id")
+        .or_else(|| extract_param(params, "agent_id"))
+        .unwrap_or_else(|| "stoma_0".to_string());
+    let water: f64 = extract_param(params, "water")
+        .or_else(|| extract_param(params, "resource"))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0.8);
+    let aba: f64 = extract_param(params, "aba")
+        .or_else(|| extract_param(params, "stress"))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0.1);
+    let requested_flux: f64 = extract_param(params, "flux")
+        .or_else(|| extract_param(params, "tokens"))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(100.0);
+
+    let mut pore = genos_biology::specialized_cells::guard_cell::StomatalPore::new(&pore_id);
+    let aperture = pore.regulate(water, aba);
+
+    match action {
+        "aperture" | "conductance" => {
+            println!("{}", json!({
+                "success": true, "feature": "guard_cell", "action": "aperture",
+                "pore_id": pore_id, "aperture_ratio": aperture,
+                "stomatal_conductance_mol_m2_s": pore.stomatal_conductance(),
+                "water_availability": water, "aba_stress_level": aba
+            }));
+        }
+        _ => {
+            let throttle = pore.throttle_flux(requested_flux);
+            println!("{}", json!({
+                "success": true, "feature": "guard_cell", "action": "throttle",
+                "pore_id": pore_id, "throttle_result": throttle
+            }));
+        }
+    }
+}
+
 
 
