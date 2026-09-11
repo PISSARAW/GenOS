@@ -188,6 +188,7 @@ stateDiagram-v2
 ### 6. Validation, qualité et opérateur
 
 - [PANORAMA_CONCURRENTIEL.md](PANORAMA_CONCURRENTIEL.md) — comparaison transversale de GenOS avec les principales familles de solutions concurrentes et complémentaires.
+- [ECONOMIE_ET_SCALABILITE_MULTI_AGENTS.md](ECONOMIE_ET_SCALABILITE_MULTI_AGENTS.md) — analyse économique, modélisation mathématique du bavardage quadratique, comparaison 1/10/100 agents et benchmark qualitatif (Simple, Moyen, Dur, Complexe, NP-difficile).
 
 
 ## Chemins de lecture recommandés
