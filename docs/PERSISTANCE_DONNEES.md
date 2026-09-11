@@ -494,3 +494,36 @@ sequenceDiagram
     Pool->>Disk: Synchronisation des pages du WAL vers la DB
     Pool->>WAL: Tronquage du fichier WAL
 ```
+
+---
+
+## 12. Bio-Polymères et Sérialisation Binaire (BLOBs vs JSON Text)
+
+### 12.1 Fondement Biologique
+
+Dans une cellule vivante, l'information métabolique et génétique n'est jamais stockée sous forme de chaînes de caractères ASCII/JSON sérialisées avec séparateurs et guillemets. Elle est polymérisée sous forme de macromolécules denses (brins d'acides nucléiques, séquences peptidiques repliées, polysaccharides compacts).
+
+GenOS opère une transition biomimétique de ses colonnes `*_json` volumineuses vers des **bio-polymères binaires compacts (BLOBs MsgPack)** :
+* **Compacité maximale :** Réduction de 15% à 40% de l'empreinte disque et mémoire par rapport au texte JSON équivalent.
+* **Élimination du surcoût de parsing :** Désérialisation binaire directe sans scan lexical de tokens de ponctuation.
+* **Lecture duale polymorphe :** Le service [`backend/src/services/bioPolymerPersistenceService.js`](../backend/src/services/bioPolymerPersistenceService.js) fournit des accesseurs polymorphes (`packBioPolymer`, `unpackBioPolymer`) capables d'ingérer indifféremment un `Buffer` binaire BLOB ou une chaîne textuelle JSON héritée pour une rétrocompatibilité absolue.
+
+### 12.2 Tables et Colonnes Polymérisées
+
+| Table SQLite | Colonne Héritée (TEXT JSON) | Colonne Bio-Polymère (BLOB MsgPack) |
+| --- | --- | --- |
+| `trajectories` | `diff_lines` | `diff_lines_msgpack` |
+| `genome_decisions` | `cart_nodes_json` | `cart_nodes_msgpack` |
+| `cryptobiosis_snapshots` | `state_json`, `metadata_json` | `state_blob`, `metadata_blob` |
+| `agent_state_snapshots` | `state_json`, `metadata_json` | `state_blob`, `metadata_blob` |
+| `audit_logs` | `payload_json` | `payload_blob` |
+| `telemetry_events` | `payload_json` | `payload_blob` |
+
+### 12.3 Migration Idempotente
+
+Le script [`backend/bin/migrate_msgpack.js`](../backend/bin/migrate_msgpack.js) et la suite de tests [`backend/tests/test_biopolymer_blobs_migration.js`](../backend/tests/test_biopolymer_blobs_migration.js) assurent la migration progressive et sans interruption de service :
+```bash
+node backend/bin/migrate_msgpack.js
+```
+Cette migration crée les colonnes `BLOB` manquantes via `ALTER TABLE ... ADD COLUMN`, convertit les payloads JSON en bio-polymères binaires compressés dans une transaction atomique avec rollback de sécurité, et maintient l'intégrité référentielle.
+

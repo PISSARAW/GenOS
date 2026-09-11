@@ -91,6 +91,8 @@ async function applyVersionedMigrations(db) {
   if (!cryptoColsNow.has('reason')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN reason TEXT');
   if (!cryptoColsNow.has('state_json')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN state_json TEXT');
   if (!cryptoColsNow.has('thawed_by')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN thawed_by TEXT');
+  if (!cryptoColsNow.has('state_blob')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN state_blob BLOB');
+  if (!cryptoColsNow.has('metadata_blob')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN metadata_blob BLOB');
 
   await migrateWorkspaceNameConstraint(db);
   await migrateNotificationPreferenceScope(db);
