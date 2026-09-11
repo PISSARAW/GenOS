@@ -154,7 +154,15 @@ $$
 
 C’est un mécanisme d’auto-nettoyage qui réduit le bruit, le sur-apprentissage et l’encombrement cognitif.
 
-### 2.6 Révision de conscience
+### 2.6 Trains d'Impulsions Électrotoniques (STDP) et Diff Génomique CIGAR
+Pour remplacer les dumps textuels volumineux d'événements et de diffs (`diff_lines TEXT DEFAULT '[]'`) :
+* **Trains d'Impulsions Neuromorphiques (Spike Trains)** : Les synapses ne transportent pas de JSON. Elles transmettent des quanta temporels modulés par neurotransmetteurs (glutamate, GABA, dopamine, sérotonine), dont le timing $\Delta t = t_{post} - t_{pre}$ déclenche une plasticité hebbienne continue :
+  $$
+  \Delta w = \eta \cdot \text{sign}(\Delta t) \cdot e^{-\lvert \Delta t \rvert / \tau} \cdot M_{\text{transmitter}}
+  $$
+* **Encodage Mutationnel CIGAR/VCF** : Les trajectoires de code et mutations d'instructions abandonnent les tableaux JSON de lignes brutes pour un format bio-informatique compact (CIGAR : `12M1X4M2I` pour 12 Matchs, 1 Substitution, 4 Matchs, 2 Insertions), compressant drastiquement les deltas de mémoire (`backend/src/services/synapticSpikeTrainService.js`).
+
+### 2.7 Révision de conscience
 
 Le service `agentConscienceService.js` introduit un état de conscience interne basé sur la dissonance cognitive et l’harmonie. Il passe par :
 
