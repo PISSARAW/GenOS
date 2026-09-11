@@ -21,6 +21,7 @@ pub use specialized_cells::electrocyte::{ElectricOrganStack, ElectricShockBurst,
 pub use specialized_cells::choanocyte::{Choanocyte, ChoanodermChamber, RawSignalPacket, SiftingResult};
 pub use specialized_cells::iridophore::{GuaninePlateletLattice, Iridophore, ObserverPerspective};
 pub use specialized_cells::guard_cell::{GuardCell, StomatalPore, ThrottleResult};
+pub use specialized_cells::tracheid::{LigninPorousPlate, OssificationReport, SapTransportYield, Tracheid, TracheidState};
 pub mod spore;
 pub mod therapy;
 pub mod tissue;

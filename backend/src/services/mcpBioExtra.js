@@ -57,6 +57,15 @@ function getToolHandler(toolName) {
       const sensitivity = args.sensitivity !== undefined ? args.sensitivity : 0.15;
       return handleBioCall(`genos biomimicry vomeronasal --agent-id ${agentId} --locus "${locus}" --pheromone-type "${ptype}" --concentration ${concentration} --sensitivity ${sensitivity}`, timeoutMs);
     },
+    'genos_biomimicry_electrosensory': (args, timeoutMs) => {
+      const agentId = args.agent_id || args.agentId || 'mormyro_0';
+      const action = args.action || 'discharge_and_analyze';
+      const freq = args.frequency_hz || args.frequencyHz || 800.0;
+      const sensitivity = args.sensitivity !== undefined ? args.sensitivity : 0.05;
+      const threshold = args.distortion_threshold !== undefined ? args.distortion_threshold : 0.12;
+      const samples = Array.isArray(args.samples) ? args.samples.join(',') : (args.samples || '100.0,102.0,98.0,105.0,99.0');
+      return handleBioCall(`genos biomimicry electrosensory --agent-id ${agentId} --action "${action}" --frequency-hz ${freq} --sensitivity ${sensitivity} --distortion-threshold ${threshold} --samples "${samples}"`, timeoutMs);
+    },
     'genos_cell_division': (args, timeoutMs) => {
       const agentId = args.agent_id || args.agentId || 'cell_division_root';
       const mode = args.mode || 'mitosis';

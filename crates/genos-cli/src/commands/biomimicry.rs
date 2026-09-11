@@ -373,6 +373,16 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             ];
             crate::commands::biomimicry_features::handle_bio_feature("vomeronasal", "emit_and_detect", &params);
         }
+        BiomimicrySubcommands::Electrosensory { agent_id, action, frequency_hz, sensitivity, distortion_threshold, samples } => {
+            let params = vec![
+                format!("agent_id={}", agent_id),
+                format!("frequency_hz={}", frequency_hz),
+                format!("sensitivity={}", sensitivity),
+                format!("distortion_threshold={}", distortion_threshold),
+                format!("samples={}", samples),
+            ];
+            crate::commands::biomimicry_features::handle_bio_feature("electrosensory", &action, &params);
+        }
     }
     Ok(())
 }

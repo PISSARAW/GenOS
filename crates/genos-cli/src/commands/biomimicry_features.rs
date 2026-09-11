@@ -15,6 +15,7 @@ pub fn handle_bio_feature(feature: &str, action: &str, params: &[String]) {
         "proceduralization" => handle_proceduralization(action, params),
         "gate" => handle_gate_eval(action, params),
         "vomeronasal" | "accessory_olfactory" => handle_vomeronasal(action, params),
+        "electrosensory" | "mormyrocerebellum" => handle_electrosensory(action, params),
         "cnidocyte" | "nematocyst" | "electrocyte" | "electric_organ" | "choanocyte" | "iridophore" | "guard_cell" | "tracheid" | "prokaryote" => {
             crate::commands::biomimicry_cells::handle_specialized_cell(feature, action, params);
         }
@@ -295,6 +296,61 @@ fn handle_vomeronasal(action: &str, params: &[String]) {
             "metabolic_shift": response.metabolic_shift
         }
     }));
+}
+
+fn handle_electrosensory(action: &str, params: &[String]) {
+    let agent_id = extract_param(params, "agent_id").unwrap_or_else(|| "mormyro_agent_0".to_string());
+    let freq: f64 = extract_param(params, "frequency_hz")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(800.0);
+    let sensitivity: f64 = extract_param(params, "sensitivity")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0.05);
+    let threshold: f64 = extract_param(params, "distortion_threshold")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0.12);
+
+    let raw_samples_str = extract_param(params, "samples")
+        .or_else(|| extract_param(params, "impedance_samples"))
+        .unwrap_or_else(|| "100.0,102.0,98.0,105.0,99.0".to_string());
+
+    let samples: Vec<f64> = raw_samples_str
+        .split(',')
+        .filter_map(|s| s.trim().parse().ok())
+        .collect();
+
+    let mut mormyro = genos_biology::sensory::MormyroCerebellum::new(freq, sensitivity, threshold);
+
+    if action == "passive_scan" || action == "passive" {
+        let res = mormyro.passive_scan(&samples);
+        println!("{}", json!({
+            "success": true,
+            "feature": "electrosensory",
+            "action": "passive_scan",
+            "agent_id": agent_id,
+            "detected_micro_impulses": res.detected_micro_impulses,
+            "ambient_field_noise_db": res.ambient_field_noise_db,
+            "max_signal_to_noise_ratio": res.max_signal_to_noise_ratio,
+            "localized_hotspot_index": res.localized_hotspot_index,
+            "silent_process_detected": res.silent_process_detected
+        }));
+    } else {
+        let res = mormyro.discharge_and_analyze(&samples);
+        println!("{}", json!({
+            "success": true,
+            "feature": "electrosensory",
+            "action": "discharge_and_analyze",
+            "agent_id": agent_id,
+            "eod_frequency_hz": res.eod_frequency_hz,
+            "emitted_amplitude": res.emitted_amplitude,
+            "distortion_factor": res.distortion_factor,
+            "capacitive_reactance": res.capacitive_reactance,
+            "detected_anomalies_count": res.detected_anomalies_count,
+            "spatial_contrast_score": res.spatial_contrast_score,
+            "hidden_obstacles_detected": res.hidden_obstacles_detected,
+            "environment_clarity_score": res.environment_clarity_score
+        }));
+    }
 }
 
 
