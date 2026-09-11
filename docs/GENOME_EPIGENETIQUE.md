@@ -765,6 +765,36 @@ flowchart TD
     end
 ```
 
+### 4. Bouclier Anti-Mutation (*Dsup* du Tardigrade) (`genos_biomimicry_tardigrade_dsup_shield`)
+
+Le tardigrade résiste à des doses de radiations ionisantes et à des agressions mutagènes extrêmes grâce à la protéine **Dsup** (*Damage Suppressor*) :
+* **Nuage Protecteur Électrostatique :** Dsup s'enroule physiquement autour de la double hélice de l'ADN sans perturber la transcription normale de l'ARN.
+* **Absorption Mécanique des Dégâts :** Les radicaux libres, les rayons cosmiques et les injections adversariales de prompts sont interceptés et dissipés avant de pouvoir casser la structure génétique ou corrompre les invariants du noyau.
+
+```mermaid
+flowchart LR
+    subgraph AttackVectors["Vecteurs d'Attaque & Radiations"]
+        Gamma["Rayonnements Ionisants"]
+        PromptInj["Injections Adversariales de Prompts"]
+        Bitflip["Dérives & Bitflips Mémoire"]
+    end
+
+    subgraph DsupShield["Bouclier Protéique Dsup (Tardigrade)"]
+        Coating["Enroulement Électrostatique Dsup"]
+        Absorb["Absorption & Dissipation d'Énergie"]
+        Coating --> Absorb
+    end
+
+    subgraph ProtectedGenome["Génome & Invariants Intacts"]
+        KernelInv["LOCUS_KERNEL_INTEGRITY"]
+        PolicyInv["LOCUS_AUTH_INVARIANTS"]
+        NormalExec["Exécution & Transcription Nominales (99%)"]
+    end
+
+    AttackVectors -->|"Attaque Absorbée"| Coating
+    Absorb -.->|"Zéro Dommage Résiduel"| ProtectedGenome
+```
+
 
 
 

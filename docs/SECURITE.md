@@ -826,3 +826,7 @@ sequenceDiagram
 
 Le piratage d'ADN par *Agrobacterium* est utilisé en environnement de test pour valider l'isolation des ressources : l'agent pirate injecte une charge utile T-DNA pour forcer l'hôte à héberger un sous-espace de calcul cloisonné (*galle*) et produire des opines, permettant d'auditer l'étanchéité des quotas de tokens sous condition d'infection contrôlée.
 
+### 5. Blindage d'Invariants par Bouclier Protéique Dsup (*Tardigrade*) (`genos_biomimicry_tardigrade_dsup_shield`)
+
+Pour immuniser les agents contre la corruption mémoire, les injections de prompts adversariales et les dérives stochastiques des poids, le bouclier Dsup tapisse physiquement les invariants critiques (`LOCUS_KERNEL_INTEGRITY`, `LOCUS_AUTH_INVARIANTS`). Il absorbe mécaniquement l'énergie des perturbations tout en laissant la transcription opérationnelle transparente à 99%.
+

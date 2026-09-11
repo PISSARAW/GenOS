@@ -26,37 +26,27 @@ const INTEGER_FIELDS = new Set(['after_id', 'limit', 'budget_steps', 'exact_matc
 const NUMBER_FIELDS = new Set(['similarity', 'expected', 'observed', 'tolerance', 'elapsed', 'uncertainty', 'confidence']);
 const MCP_CONTRACT_VERSION = 'genos.mcp/v1';
 
-function getToolInputSchema(toolName, baseSchema = {}) {
-  const schema = {
-    type: 'object',
-    properties: { ...(baseSchema.properties || {}) },
-    required: [...(baseSchema.required || [])],
-    additionalProperties: baseSchema.additionalProperties !== false
-  };
+function applyToolSpecificOverrides(toolName, schema) {
   if (toolName === 'genos_replay') {
     schema.anyOf = [{ required: ['snapshot'] }, { required: ['snapshot_id'] }];
     schema.properties.snapshot = { type: 'string' };
     schema.properties.snapshot_id = { type: 'string' };
     schema.required = [];
-  }
-  if (toolName === 'genos_execute_primitive') {
+  } else if (toolName === 'genos_execute_primitive') {
     schema.properties.primitive_name = { type: 'string' };
     schema.properties.args = { type: 'object' };
     schema.required.push('primitive_name');
-  }
-  if (toolName === 'genos_execute_strategy_pipeline') {
+  } else if (toolName === 'genos_execute_strategy_pipeline') {
     schema.properties.primitives = { type: 'array', items: { type: 'string' } };
     schema.properties.context = { type: 'object' };
-  }
-  if (toolName === 'genos_synaptic_stdp_update') {
+  } else if (toolName === 'genos_synaptic_stdp_update') {
     schema.additionalProperties = false;
     schema.properties = {
       source_id: { type: 'string' }, target_id: { type: 'string' },
       pre_spike_at: { type: 'number' }, post_spike_at: { type: 'number' },
       learning_rate: { type: 'number' }, transmitter_type: { type: 'string' }, agent_id: { type: 'string' }
     };
-  }
-  if (toolName === 'genos_cell_division') {
+  } else if (toolName === 'genos_cell_division') {
     schema.additionalProperties = false;
     schema.properties = {
       agent_id: { type: 'string' }, mode: { type: 'string' },
@@ -64,13 +54,33 @@ function getToolInputSchema(toolName, baseSchema = {}) {
       hayflick_limit: { type: 'integer', minimum: 0 }, merozoite_count: { type: 'integer', minimum: 0 }, seed: { type: 'string' }
     };
   }
-  for (const field of REQUIRED_STRINGS[toolName] || []) {
+}
+
+function applyRequiredStrings(toolName, schema) {
+  const req = REQUIRED_STRINGS[toolName];
+  if (!req) return;
+  for (const field of req) {
     schema.properties[field] = { ...(schema.properties[field] || {}), type: 'string' };
     if (!schema.required.includes(field)) schema.required.push(field);
   }
+}
+
+function applyPrimitiveFields(schema) {
   for (const field of ARRAY_FIELDS) schema.properties[field] = { ...(schema.properties[field] || {}), type: 'array', items: { type: 'string' } };
   for (const field of INTEGER_FIELDS) schema.properties[field] = { ...(schema.properties[field] || {}), type: 'integer', minimum: 0 };
   for (const field of NUMBER_FIELDS) schema.properties[field] = { ...(schema.properties[field] || {}), type: 'number', minimum: 0 };
+}
+
+function getToolInputSchema(toolName, baseSchema = {}) {
+  const schema = {
+    type: 'object',
+    properties: { ...(baseSchema.properties || {}) },
+    required: [...(baseSchema.required || [])],
+    additionalProperties: baseSchema.additionalProperties !== false
+  };
+  applyToolSpecificOverrides(toolName, schema);
+  applyRequiredStrings(toolName, schema);
+  applyPrimitiveFields(schema);
   return schema;
 }
 
