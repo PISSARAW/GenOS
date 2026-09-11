@@ -62,7 +62,18 @@ async fn handle_socket(mut socket: WebSocket, graph: Arc<RhizomeGraph>) {
                             }
                         }
                     }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                        // The client fell behind and the broadcast ring dropped `skipped` events.
+                        // Resync with a full snapshot instead of silently losing data.
+                        eprintln!("[Rhizome] client lagged {} events; sending resync snapshot", skipped);
+                        let snapshot = graph.snapshot().await;
+                        let resync = super::graph::GraphMutated::Snapshot { snapshot };
+                        if let Ok(text) = serde_json::to_string(&resync) {
+                            if socket.send(Message::Text(text)).await.is_err() {
+                                break;
+                            }
+                        }
+                    }
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                 }
             }
