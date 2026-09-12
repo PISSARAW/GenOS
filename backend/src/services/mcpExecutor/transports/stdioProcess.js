@@ -170,7 +170,7 @@ function onRequestTimeout(session, id) {
   if (current.id !== id) return;
   session.pending = null;
   terminateChild(session.child);
-  current.reject(new Error('MCP STDIO request timed out after ' + session.timeoutMs + 'ms.' + describeProtocolErrors(session)));
+  current.reject(new Error('MCP STDIO request ' + id + ' timed out after ' + session.timeoutMs + 'ms. stderr: [' + session.stderr + ']' + describeProtocolErrors(session)));
 }
 
 function sendRequest(session, id, payload) {

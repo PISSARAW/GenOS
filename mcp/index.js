@@ -42,9 +42,6 @@ const server = new Server(
 );
 
 function resolveGenosBin() {
-  if (process.env.GENOS_BIN && fs.existsSync(process.env.GENOS_BIN)) {
-    return process.env.GENOS_BIN;
-  }
   const isWin = process.platform === "win32";
   const binaryName = isWin ? "genos.exe" : "genos";
   const searchPaths = [
@@ -54,6 +51,10 @@ function resolveGenosBin() {
   ];
   for (const p of searchPaths) {
     if (fs.existsSync(p)) return p;
+  }
+  if (process.env.GENOS_BIN && !process.env.GENOS_BIN.toLowerCase().includes('program files')) {
+    if (fs.existsSync(process.env.GENOS_BIN)) return process.env.GENOS_BIN;
+    if (isWin && fs.existsSync(`${process.env.GENOS_BIN}.exe`)) return `${process.env.GENOS_BIN}.exe`;
   }
   return null;
 }
@@ -105,7 +106,10 @@ async function runGenosCli(args) {
 }
 
 async function runOrchestrator(payload) {
-  const bridge = process.env.GENOS_ORCHESTRATOR_BRIDGE || path.join(repoRoot, "backend/bin/genos-orchestrate.cjs");
+  const localBridge = path.join(repoRoot, "backend/bin/genos-orchestrate.cjs");
+  const bridge = (process.env.GENOS_ORCHESTRATOR_BRIDGE && !process.env.GENOS_ORCHESTRATOR_BRIDGE.toLowerCase().includes('program files'))
+    ? process.env.GENOS_ORCHESTRATOR_BRIDGE
+    : localBridge;
   return runExecutable({ cmd: process.execPath, args: [bridge, JSON.stringify(payload)], cwd: repoRoot });
 }
 

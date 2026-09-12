@@ -15,6 +15,10 @@ const workspaceSnapshotStore = require('../../workspaceSnapshotStore');
 const runtimeAdapter = require('../../agentRuntimeAdapter');
 const { fork, recursiveFork, enforceReproductionLimits } = require('./reproduction');
 const { spawn } = require('child_process');
+const fs = require('fs');
+const fsp = fs.promises;
+const os = require('os');
+const path = require('path');
 const { terminateChild } = require('../../processTermination');
 const { isAllowedSandboxTestCommand, normalizeSandboxCommand } = require('../../sandboxCommandPolicy');
 
@@ -56,8 +60,18 @@ async function snapshot(context) {
     if (agent?.workspace_id) workspaceId = agent.workspace_id;
   }
   if (!workspaceId) {
-    const defaultWs = await db.get('SELECT id FROM workspaces ORDER BY created_at ASC LIMIT 1');
-    if (defaultWs?.id) workspaceId = defaultWs.id;
+    const workspaces = await db.all('SELECT id, path FROM workspaces WHERE path IS NOT NULL AND path != \'\'');
+    const existing = workspaces.find((w) => fs.existsSync(w.path) && !w.path.toLowerCase().endsWith('genos'));
+    if (existing) {
+      workspaceId = existing.id;
+    } else {
+      const sandboxPath = path.join(os.tmpdir(), `genos-ws-${context.agentId || 'default'}`);
+      await fsp.mkdir(sandboxPath, { recursive: true });
+      await fsp.writeFile(path.join(sandboxPath, 'workspace_manifest.json'), JSON.stringify({ agent: context.agentId || 'default', createdAt: new Date().toISOString() }));
+      const wsId = `ws-sandbox-${context.agentId || 'default'}`;
+      await db.run('INSERT OR IGNORE INTO workspaces (id, name, path, visibility, language) VALUES (?, ?, ?, ?, ?)', wsId, 'Agent Sandbox Workspace', sandboxPath, 'Private', 'TypeScript');
+      workspaceId = wsId;
+    }
   }
   if (workspaceId) {
     const workspace = await scopedWorkspace(db, workspaceId);

@@ -9,7 +9,7 @@ function primitiveCall({ args, executeStrategyTool }) {
 
 function cliCall({ args, runGenosCli }) {
   const commands = {
-    genos_snapshot: ['snapshot', 'create', '--agent', args.agent, '--out', args.out],
+    genos_snapshot: ['snapshot', 'create', '--agent', args.agent, '--out', args.out, '--force'],
     genos_replay: ['replay', 'basic', '--snapshot', args.snapshot],
     genos_capsule_create: ['capsule', 'create', '--snapshot', args.snapshot_id || 'ROOT', ...(args.seed ? ['--seed', args.seed] : [])],
     genos_merge: ['merge', args.branch_id, ...(args.conditions ? ['--conditions', args.conditions] : [])],

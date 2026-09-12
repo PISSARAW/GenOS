@@ -53,10 +53,15 @@ function mcpTransportEnvironment(toolName, repositoryRoot, workspaceRoot) {
       environment[name] = value;
     }
   }
+  const isWin = process.platform === 'win32';
+  const repoDebug = path.join(repositoryRoot, isWin ? 'target/debug/genos.exe' : 'target/debug/genos');
+  const repoRelease = path.join(repositoryRoot, isWin ? 'target/release/genos.exe' : 'target/release/genos');
+  const genosBinDefault = fs.existsSync(repoDebug) ? repoDebug : (fs.existsSync(repoRelease) ? repoRelease : repoDebug);
+  const genosBin = (process.env.GENOS_BIN && !process.env.GENOS_BIN.toLowerCase().includes('program files')) ? process.env.GENOS_BIN : genosBinDefault;
   return {
     ...environment,
     GENOS_WORKSPACE_ROOT: workspaceRoot,
-    GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'),
+    GENOS_BIN: genosBin,
     GENOS_MCP_CLIENT: 'genos-backend',
     GENOS_MCP_LEASE: process.env.GENOS_MCP_LEASE !== undefined ? process.env.GENOS_MCP_LEASE : toolName
   };
