@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/traceController');
+const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 router.use(requireTenantScope());
-router.get('/', controller.listTraces);
-router.get('/:traceId', controller.getTrace);
-router.post('/ingest', controller.ingestSpan);
-router.post('/:traceId/replay', controller.replayTrace);
+router.get('/', requirePermission('read'), controller.listTraces);
+router.get('/:traceId', requirePermission('read'), controller.getTrace);
+router.post('/ingest', requirePermission('workspace:write'), controller.ingestSpan);
+router.post('/:traceId/replay', requirePermission('read'), controller.replayTrace);
 module.exports = router;
