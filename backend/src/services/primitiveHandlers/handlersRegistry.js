@@ -336,10 +336,14 @@ const HANDLERS = {
     return defaultForaging.harvestEvidence(ctx.tokenId || ctx.token_id, ctx.harvesterId || ctx.harvester_id);
   },
 
-  // Lot 12 — SWE Proprioceptive Fault Localization
+  // Lot 12 — SWE Proprioceptive Fault Localization & Surgical Repair
   swe_localize: async (ctx = {}) => {
     const { defaultSweFaultLocalizer } = require('../sweFaultLocalizerService');
     return defaultSweFaultLocalizer.localizeFault(ctx.problemStatement || ctx.problem_statement || ctx.issue, ctx.repoName || ctx.repo_name || 'django', ctx.topK || ctx.top_k || 3);
+  },
+  swe_patch_synthesize: async (ctx = {}) => {
+    const { defaultSweSurgicalRepair } = require('../sweSurgicalRepairService');
+    return defaultSweSurgicalRepair.synthesizeSurgicalDiff(ctx.filePath || ctx.file_path, ctx.originalChunk || ctx.original_chunk, { replacementChunk: ctx.replacementChunk || ctx.replacement_chunk, startLine: ctx.startLine || ctx.start_line || 1 });
   }
 };
 
