@@ -802,33 +802,31 @@ sequenceDiagram
     Agent->>MCP: Tentative d'exécution d'un outil non alloué ou expiré
     MCP-->>Agent: Rejet fail-closed (403 / AGENT_TOOL_LEASE_STALE)
 
-### 3. Encapsulation Fetus in Fetu et Résurrection Post-Compromission
+### 3. Encapsulation Fetus in Fetu et Résurrection Applicative
 
-Inspiré de l'anomalie embryonnaire du *Fetus in Fetu*, GenOS permet d'encapsuler au cœur d'un agent hôte un jumeau embryonnaire dormant (`genos_biomimicry_fetus_in_fetu`). En cas d'attaque adversariale sévère, de corruption de mémoire ou d'empoisonnement de prompt irréversible, l'hôte corrompu est instantanément purgé et détruit, tandis que l'embryon interne éclot (`hatching`) avec un état sain certifié par empreinte SHA-256 sans surcoût métabolique préalable.
+Inspiré de l'anomalie embryonnaire du *Fetus in Fetu*, la primitive `genos_biomimicry_fetus_in_fetu` fournit un pod d'état dormant heuristique en mémoire (`FETUS_REGISTRY`). En cas d'anomalie sévère, de corruption de mémoire de travail ou d'échec critique, le handler simule la résurrection d'urgence (`hatching`) en réinitialisant le contexte de l'agent à partir du checkpoint sain certifié par empreinte SHA-256, sans nécessiter de reconstruction lourde de processus OS.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Host as Agent Hôte Actif
-    participant Capsule as Pod Endoparasitaire (Fetus in Fetu)
-    participant Sec as Sentinelle de Sécurité
-    participant CleanAgent as Agent Éclos & Restauré
+    actor Agent as Session Agent Active
+    participant Registry as Pod Fetus in Fetu (FETUS_REGISTRY en mémoire)
+    participant Guard as Sentinelle / Superviseur
 
-    Host->>Capsule: Encapsulation initiale du checkpoint sain (Dormance, 0 token)
-    Note over Capsule: État dormant scellé sous hash SHA-256
-    Sec->>Host: Détection d'injection adverse / empoisonnement de contexte
-    Sec->>Capsule: Déclenchement de la résurrection d'urgence (trigger_emergency_resurrection)
-    Capsule->>Capsule: Vérification de l'intégrité du checkpoint
-    Capsule->>Host: Purge et destruction immédiate de l'hôte compromis
-    Capsule->>CleanAgent: Éclosion (Hatching) & instanciation avec checkpoint sain
-    CleanAgent-->>Sec: Reprise immédiate des opérations en état intègre
+    Agent->>Registry: Encapsulation initiale du checkpoint sain (Dormance, coût nul)
+    Note over Registry: Checkpoint d'état sérialisé et scellé sous hash SHA-256
+    Guard->>Agent: Détection d'état incohérent / corruption du fil de raisonnement
+    Guard->>Registry: Déclenchement de la résurrection (trigger_emergency_resurrection)
+    Registry->>Registry: Vérification d'intégrité SHA-256 du checkpoint dormant
+    Registry->>Agent: Restauration de l'état certifié (Hatching) & reset du contexte corrompu
+    Agent-->>Guard: Reprise immédiate des opérations en état intègre
 ```
 
 ### 4. Confinement et Contrôle de T-DNA (*Agrobacterium*) (`genos_biomimicry_agrobacterium_tdna_hijack`)
 
-Le piratage d'ADN par *Agrobacterium* est utilisé en environnement de test pour valider l'isolation des ressources : l'agent pirate injecte une charge utile T-DNA pour forcer l'hôte à héberger un sous-espace de calcul cloisonné (*galle*) et produire des opines, permettant d'auditer l'étanchéité des quotas de tokens sous condition d'infection contrôlée.
+La primitive `genos_biomimicry_agrobacterium_tdna_hijack` modélise en mémoire (`agrobacteriumRegistry`) un compartiment d'exécution virtuel pour tester des scénarios d'inhibition et de transfert d'heuristiques sous forme de 'galle' et 'opines' de calcul simulées, permettant d'auditer la résilience de l'allocation de budget dans un cadre expérimental bio-inspiré.
 
-### 5. Blindage d'Invariants par Bouclier Protéique Dsup (*Tardigrade*) (`genos_biomimicry_tardigrade_dsup_shield`)
+### 5. Modélisation de Blindage d'Invariants par Bouclier Dsup (*Tardigrade*) (`genos_biomimicry_tardigrade_dsup_shield`)
 
-Pour immuniser les agents contre la corruption mémoire, les injections de prompts adversariales et les dérives stochastiques des poids, le bouclier Dsup tapisse physiquement les invariants critiques (`LOCUS_KERNEL_INTEGRITY`, `LOCUS_AUTH_INVARIANTS`). Il absorbe mécaniquement l'énergie des perturbations tout en laissant la transcription opérationnelle transparente à 99%.
+La primitive `genos_biomimicry_tardigrade_dsup_shield` maintient en mémoire (`dsupRegistry`) une couche d'invariants déclaratifs (`LOCUS_KERNEL_INTEGRITY`, `LOCUS_AUTH_INVARIANTS`). Elle sert de modèle de référence pour quantifier la résistance théorique face aux perturbations et aux attaques par injection de prompt, sans altérer directement les mécanismes d'isolation système ou la persistance SQLite.
 

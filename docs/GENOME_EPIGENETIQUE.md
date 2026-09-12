@@ -721,25 +721,25 @@ flowchart TD
     end
 ```
 
-### 2. Piratage Génétique Naturel d'*Agrobacterium tumefaciens* (`genos_biomimicry_agrobacterium_tdna_hijack`)
+### 2. Modélisation de Transfert Génétique d'*Agrobacterium tumefaciens* (`genos_biomimicry_agrobacterium_tdna_hijack`)
 
-*Agrobacterium* injecte physiquement un segment de son propre ADN (*T-DNA*) dans les chromosomes d'un agent hôte cible :
-* **Formation de Galle Computationnelle :** L'agent hôte alloue un sous-espace d'exécution isolé (galle de tokens).
-* **Production d'Opines :** L'hôte est contraint de synthétiser des métabolites computationnels spécialisés (*opines*) récoltables exclusivement par l'agent pirate ou son orchestrateur.
+Inspiré d'*Agrobacterium*, le handler modélise en mémoire l'injection d'un fragment logique (*T-DNA*) dans le contexte d'un agent hôte :
+* **Compartiment Virtuel en Mémoire :** L'agent hôte simule un sous-espace d'exécution réservé (galle de tokens modélisée dans `agrobacteriumRegistry`).
+* **Simulation d'Opines :** L'hôte produit des résultats intermédiaires spécialisés (*opines*) accessibles au plan d'origine pour auditer l'étanchéité conceptuelle des flux de données.
 
 ```mermaid
 flowchart LR
-    subgraph HijackInjection["Injection T-DNA"]
-        Agro["Agent Pirate (Agrobacterium)"] -->|"Injection T-DNA Seringue Moléculaire"| Host["Agent Hôte (Cellule Végétale)"]
+    subgraph HijackInjection["Injection Heuristique T-DNA"]
+        Agro["Agent Demandeur (Agrobacterium)"] -->|"Modélisation T-DNA en Mémoire"| Host["Agent Hôte"]
     end
 
     subgraph GallFormation["Galle & Production d'Opines"]
-        Host --> Gall["Formation Galle Computationnelle (1000 Tokens)"]
-        Gall --> Opines["Synthèse d'Opines (800 Unités de Calcul)"]
+        Host --> Gall["Formation Galle Virtuelle (1000 Tokens)"]
+        Gall --> Opines["Synthèse d'Opines Heuristiques (800 Unités)"]
     end
 
     subgraph Harvest["Récolte Symbiotique"]
-        Opines -->|"Harvest Exclusif"| Agro
+        Opines -->|"Lecture dans agrobacteriumRegistry"| Agro
     end
 ```
 
@@ -765,11 +765,11 @@ flowchart TD
     end
 ```
 
-### 4. Bouclier Anti-Mutation (*Dsup* du Tardigrade) (`genos_biomimicry_tardigrade_dsup_shield`)
+### 4. Modèle de Bouclier Anti-Mutation (*Dsup* du Tardigrade) (`genos_biomimicry_tardigrade_dsup_shield`)
 
-Le tardigrade résiste à des doses de radiations ionisantes et à des agressions mutagènes extrêmes grâce à la protéine **Dsup** (*Damage Suppressor*) :
-* **Nuage Protecteur Électrostatique :** Dsup s'enroule physiquement autour de la double hélice de l'ADN sans perturber la transcription normale de l'ARN.
-* **Absorption Mécanique des Dégâts :** Les radicaux libres, les rayons cosmiques et les injections adversariales de prompts sont interceptés et dissipés avant de pouvoir casser la structure génétique ou corrompre les invariants du noyau.
+Inspiré de la protéine **Dsup** (*Damage Suppressor*) du tardigrade, le handler `tardigradeDsupShield` maintient un registre en mémoire (`dsupRegistry`) d'invariants déclaratifs protégés :
+* **Enveloppe d'Invariants :** Dsup associe des règles de protection logique aux loci critiques (`LOCUS_KERNEL_INTEGRITY`, `LOCUS_AUTH_INVARIANTS`).
+* **Interception Conceptuelle des Perturbations :** Les dérives heuristiques et les injections adversariales de prompts sont interceptées et neutralisées au niveau du filtrage sémantique avant de pouvoir altérer les règles du système.
 
 ```mermaid
 flowchart LR

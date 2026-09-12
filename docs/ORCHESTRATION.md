@@ -580,7 +580,7 @@ En d’autres termes, GenOS est moins un simple orchestrateur de tâches qu’un
 
 ## 17.bis Orchestration par Jumeaux Miroirs (Dualité Antagoniste)
 
-Pour les missions à haut risque ou nécessitant une preuve formelle contre-factuelle, l'orchestrateur déploie des couples de **Jumeaux Miroirs** via `genos_biomimicry_mirror_twin_fork`.
+Pour les missions à haut risque ou nécessitant une analyse contre-factuelle, l'orchestrateur instancie des couples de **Jumeaux Miroirs** via `genos_biomimicry_mirror_twin_fork`. Cette primitive gère en mémoire (`mirrorTwinRegistry`) la dualité antagoniste entre un pôle constructif (optimiste) et un pôle critique (sceptique), permettant d'équilibrer l'exploration heuristique avant toute décision de consolidation.
 
 - **Organisation :** L'orchestrateur alloue des quotas équilibrés au jumeau constructeur et au jumeau sceptique.
 ## 17.ter Orchestration par Multiples Hybrides (Matrice Polyovulaire $\times$ Isogénique)
@@ -787,15 +787,18 @@ stateDiagram-v2
 
 ### 4. Amplification de Pipeline par Duplication Chromosomique (`genos_biomimicry_chromosomal_duplication`)
 
-Lors de missions à forte incertitude, l'orchestrateur duplique en tandem un sous-pipeline critique : une copie exécute l'heuristique de référence éprouvée, pendant que la copie dupliquée diverge (*néo-fonctionnalisation*) pour tester des optimisations agressives sans compromettre le livrable nominal.
+Lors de missions à forte incertitude, l'orchestrateur duplique en tandem un sous-pipeline critique : une copie exécute l'heuristique de référence éprouvée, pendant que la copie dupliquée diverge (*néo-fonctionnalisation*) pour tester des optimisations sans compromettre le livrable nominal.
 
 ### 5. Raisonnement Rétrograde par Inversion Chromosomique (`genos_biomimicry_chromosomal_inversion`)
 
-Pour diagnostiquer une régression subtile ou prouver un invariant de terminaison, l'orchestrateur inverse la séquence de tâches d'un worker à 180° : l'agent évalue en priorité la cible de validité finale et remonte la chaîne causale jusqu'aux pré-conditions d'entrée.
+Pour diagnostiquer une régression subtile ou explorer un chemin inverse, l'orchestrateur inverse la séquence de tâches d'un worker à 180° : l'agent évalue en priorité la cible de validité finale et remonte la chaîne causale jusqu'aux pré-conditions d'entrée.
 
 ### 6. Régulation Métabolique par ADN Mitochondrial (`genos_biomimicry_mitochondrial_dna_mutation`)
 
-L'orchestrateur supervise le génome circulaire mitochondrial des flottes d'agents pour réguler la dissipation thermique, les quotas de tokens par minute et garantir la traçabilité matrilinéaire des profils de consommation d'énergie.
+L'orchestrateur modélise le profil énergétique des flottes d'agents pour réguler les quotas de tokens par minute et tracer les profils de consommation d'énergie au niveau de la planification.
+
+> [!NOTE]
+> L'ensemble de ces primitives biomimétiques opère comme des heuristiques d'ordonnancement et des pods d'état applicatifs en mémoire (`mcpBioTools`), offrant des patrons de dérivation et de planification bio-inspirés sans intervention de pilotes de virtualisation ou de modules noyau bas niveau.
 
 
 
