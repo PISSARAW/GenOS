@@ -8,6 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
 import { createToolCallHandler } from "./toolCallHandler.js";
+import { executeNodeFallback } from "./nodeCliFallback.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,18 +92,27 @@ function runExecutable({ cmd, args, cwd, timeoutMs = toolTimeoutMs() }) {
   });
 }
 
-async function runGenosCli(args) {
+async function runGenosCli(args, toolArgs = {}) {
   const genosBin = resolveGenosBin();
   if (genosBin) {
-    return runExecutable({ cmd: genosBin, args, cwd: repoRoot });
+    try {
+      return await runExecutable({ cmd: genosBin, args, cwd: repoRoot });
+    } catch (binErr) {
+      console.error(`[GENOS_FALLBACK] Binary execution failed (${binErr.message}); falling back to Node bridge.`);
+    }
   }
   const cargoPath = process.platform === "win32" ? "cargo.exe" : "cargo";
   const manifest = path.join(repoRoot, "Cargo.toml");
-  return runExecutable({
-    cmd: cargoPath,
-    args: ["run", "-q", "--manifest-path", manifest, "-p", "genos-cli", "--", ...args],
-    cwd: repoRoot
-  });
+  if (fs.existsSync(manifest)) {
+    try {
+      return await runExecutable({
+        cmd: cargoPath,
+        args: ["run", "-q", "--manifest-path", manifest, "-p", "genos-cli", "--", ...args],
+        cwd: repoRoot
+      });
+    } catch (_) {}
+  }
+  return executeNodeFallback(args, toolArgs);
 }
 
 async function runOrchestrator(payload) {
