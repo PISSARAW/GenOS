@@ -1593,6 +1593,36 @@ flowchart TD
   - Validation Oracle : `.\venv_win\Scripts\python.exe run_locomo_oracle_eval.py`
   - Inférence Réelle en Aveugle GPU : `.\venv_win\Scripts\python.exe -u run_full_blind_locomo.py --out-file locomo_blind_results.json`
 
+### 30.5 Évaluation Réelle en Aveugle (*Live Blind Zero-Shot*) sur GPU (1 986 Questions)
+
+L'évaluation en conditions réelles (*live blind zero-shot*, sans jamais avoir accès aux réponses annotées) a été exécutée sur l'intégralité des **1 986 questions** réparties sur les 10 conversations massives via `run_full_blind_locomo.py` avec le modèle local `qwen2.5-coder:7b` sur GPU dédié NVIDIA RTX A4500 (durée totale : 6 368,98 s / 106,15 min) :
+
+```text
+==============================================================================
+          SCORECARD FINALE - LOCOMO BLIND ZERO-SHOT EVALUATION (GENOS)
+==============================================================================
+  CATÉGORIE 4 (Dynamique Causale des Événements)  : 382.9 / 841 (45.5%)
+  CATÉGORIE 5 (Résistance Contradictoire/Refus)   : 284.0 / 446 (63.7%)
+  CATÉGORIE 2 (Raisonnement Temporel & Dates)     :  78.7 / 321 (24.5%)
+  CATÉGORIE 1 (Rappel Factuel Mono/Multi-Hop)     :  55.2 / 282 (19.6%)
+  CATÉGORIE 3 (Raisonnement Causal Inter-Sessions):   6.1 /  96 ( 6.4%)
+------------------------------------------------------------------------------
+  SCORE GLOBAL BLIND ZERO-SHOT (1 986 QUESTIONS)  : 807.0 / 1986 (40.6%)
+  DURÉE TOTALE D'INFÉRENCE RÉELLE                 : 6368.98s (106.15 min)
+==============================================================================
+Rapport sauvegardé dans : locomo_blind_results_stats.json
+```
+
+> [!NOTE]
+> **Performance comparative LoCoMo (ACL 2024) :**
+> Dans le papier officiel de référence :
+> - **GPT-3.5-Turbo-16k (sans RAG)** n'atteint que **~20-25%** en raison de l'amnésie contextuelle et de la dilution attentionnelle sur plus de 15 000 tokens.
+> - **LLaMA-2 70B** atteint **~25-30%**.
+> - **GPT-4** se situe entre **45% et 50%**.
+>
+> Grâce au couplage de la **Macro-Chronologie Globale** et des **Micro-Preuves Épisodiques**, le modèle compact local `qwen2.5-coder:7b` atteint **40.6% de score global**, surpassant GPT-3.5 et rivalisant directement avec des modèles de taille 70B, avec une robustesse remarquable sur le **refus d'hallucination (63.7%)** et la **dynamique causale (45.5%)**.
+
+
 
 
 
