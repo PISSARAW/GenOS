@@ -18,6 +18,7 @@
     "test:concurrency": "node tests/run_validation_suite.js concurrency",
     "test:grpc": "node tests/test_grpc_services.js",
     "test:bench": "node tests/stress/test_framework_adversarial_bench.js",
+    "test:tokens-comm": "node tests/stress/test_extreme_tokens_and_comm_bench.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
     "daemon": "node bin/genos-daemon.cjs",
     "daemon:interactive": "node bin/genos-daemon.cjs --interactive",

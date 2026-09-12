@@ -13,6 +13,7 @@ Les principales sources sont :
 - [backend/tests/test_grpc_services.js](../backend/tests/test_grpc_services.js)
 - [backend/tests/stress/test_stress.js](../backend/tests/stress/test_stress.js)
 - [backend/tests/stress/test_framework_adversarial_bench.js](../backend/tests/stress/test_framework_adversarial_bench.js)
+- [backend/tests/stress/test_extreme_tokens_and_comm_bench.js](../backend/tests/stress/test_extreme_tokens_and_comm_bench.js)
 - [crates/genos-cli/src/tests.rs](../crates/genos-cli/src/tests.rs)
 
 Le dépôt ne repose pas sur Jest, Mocha, Vitest ou un framework de property testing centralisé. Les tests Node sont des scripts exécutables avec `node`, `assert`, des serveurs locaux, SQLite et des doubles ciblés. Les tests Rust sont les tests unitaires de crates exécutés par Cargo.
@@ -248,7 +249,8 @@ Le dossier `backend/tests/stress` contient des harnais dédiés à :
 - mémoire et workspace ;
 - résilience de swarm ;
 - stress backend général ;
-- banc comparatif adversarial multi-agents (`test_framework_adversarial_bench.js`).
+- banc comparatif adversarial multi-agents (`test_framework_adversarial_bench.js`) ;
+- banc de surexploitation de la communication et gestion des tokens (`test_extreme_tokens_and_comm_bench.js`).
 
 Ils exercent surtout des entrées limites, des enchaînements de sécurité, des calculs de risque, des volumes logiques et des invariants de services. Ce sont des stress tests ciblés, non un benchmark de capacité avec SLO mesurés, trafic distribué ou collecte de percentiles de production.
 
@@ -262,6 +264,16 @@ Le harnais [backend/tests/stress/test_framework_adversarial_bench.js](../backend
 4. **Résistance aux attaques Sybil et consensus calibré** (`weightedQuorum`, `brierScores`) : là où le vote majoritaire naïf d'AutoGen échoue si une majorité d'agents bruités outvote un expert, le quorum quadratique pondéré par les scores de Brier $(1 - \text{Brier})^2$ garantit le triomphe de la vérité calibrée.
 5. **Topologie auto-cicatrisante sous panne en cascade** (`apoptosis`, `reallocate`, `pheromoneDeposit`) : suicide cellulaire propre de l'agent défaillant, réallocation équitable de son budget token aux survivants, et balisage stigmergique répulsif détournant dynamiquement le trafic vers les réplicas sains.
 6. **Optimisation multi-objectifs non dominée au sens de Pareto** (`paretoSelect`) : sélection mathématique de la frontière de Pareto sur $N$ dimensions sans compromis arbitraire dans le prompt.
+
+#### 10.1.2 Surexploitation de la communication et gestion critique des tokens
+
+Le harnais [backend/tests/stress/test_extreme_tokens_and_comm_bench.js](../backend/tests/stress/test_extreme_tokens_and_comm_bench.js) teste 5 mécanismes où les alternatives conventionnelles s'effondrent sous la pression des messages et du coût des jetons :
+
+1. **Suppression de la tempête de messages $O(N^2)$** (`networkSilence`, `contextCompaction`) : dans un groupe AutoGen de 10 agents, 20 tours de discussion génèrent un historique quadratique accumulant plus de 8 millions de jetons et provoquant un overflow de contexte. GenOS applique le protocole de silence réseau : 97,5% du bavardage est tamponné localement et seuls les événements critiques sont diffusés.
+2. **Plafond matériel de budget de jetons & successive halving** (`budgetLimit`, `reallocate`) : là où LangChain boucle sans limite jusqu'au code HTTP 429 ou l'épuisement bancaire, GenOS stoppe mathématiquement l'exécution au seuil exact et redistribue la dotation des branches éliminées aux candidats viables.
+3. **Rafale de 10 000 actions & entropie de Shannon en temps réel** (`calculateShannonEntropy`) : calcul instantané (< 50ms) de l'entropie d'information $H(A)$ pour détecter immédiatement l'effondrement en boucle morte (`COLLAPSE_DEADLOCK`) ou l'affolement (`SPIKE_CONFUSION`).
+4. **Interception par connaissance négative à coût 0 token** (`avoidKnownDeadEnds`) : avant d'interroger un LLM ou d'exécuter un outil, GenOS compare la requête aux échecs vectorisés en base. Les motifs voués à l'échec sont bloqués instantanément sans dépenser un seul jeton LLM.
+5. **Élagage synaptique biomimétique STDP** (`stdpUpdate`) : renforcement Hebbian sous neuromodulation dopaminergique pour les flux causaux prouvés et dépression anti-Hebbian pour les flux bruités, maintenant un rapport signal/bruit optimal même sous saturation de messages.
 
 ### 10.2 Chaos engineering
 
