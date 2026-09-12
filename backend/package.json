@@ -60,9 +60,14 @@
     "express": "^4.18.2",
     "lru-cache": "^11.5.2",
     "msgpackr": "^2.1.0",
-    "protobufjs": "^8.8.0",
+    "protobufjs": ">=7.6.3",
+    "sharp": ">=0.35.4",
     "sqlite": "^5.1.1",
     "sqlite-vec": "^0.1.9",
     "sqlite3": "^6.0.1"
+  },
+  "overrides": {
+    "protobufjs": "$protobufjs",
+    "sharp": "$sharp"
   }
 }
