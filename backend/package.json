@@ -25,6 +25,7 @@
     "test:fact-recall": "node tests/stress/test_single_hop_fact_recall_bench.js",
     "test:multi-hop": "node tests/stress/test_cross_session_multi_hop_bench.js",
     "test:tool-calling": "node tests/stress/test_tool_use_and_function_calling_bench.js",
+    "test:swe": "node tests/stress/test_swe_and_code_autonomy_bench.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
     "daemon": "node bin/genos-daemon.cjs",
     "daemon:interactive": "node bin/genos-daemon.cjs --interactive",
