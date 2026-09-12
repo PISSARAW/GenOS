@@ -198,15 +198,9 @@ fn execute_orchestrator(bridge: &Path, payload: &Value, workspace: &Path) -> (i3
 
     cmd.env("GENOS_WORKSPACE_ROOT", workspace);
 
-    if let Ok(mode) = env::var("GENOS_EXECUTION_MODE") {
-        cmd.env("GENOS_EXECUTION_MODE", mode);
-    }
-    if let Ok(id) = env::var("GENOS_AGENT_ID") {
-        cmd.env("GENOS_AGENT_ID", id);
-    }
-    if let Ok(orch) = env::var("GENOS_ORCHESTRATOR_AGENT_ID") {
-        cmd.env("GENOS_ORCHESTRATOR_AGENT_ID", orch);
-    }
+    if let Ok(mode) = env::var("GENOS_EXECUTION_MODE") { cmd.env("GENOS_EXECUTION_MODE", mode); }
+    if let Ok(id) = env::var("GENOS_AGENT_ID") { cmd.env("GENOS_AGENT_ID", id); }
+    if let Ok(orch) = env::var("GENOS_ORCHESTRATOR_AGENT_ID") { cmd.env("GENOS_ORCHESTRATOR_AGENT_ID", orch); }
 
     match execute_command(cmd) {
         Ok(result) => result,
@@ -372,15 +366,26 @@ pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, Str
                 }
             }
             execute_orchestrator(&bridge, &payload, workspace)
+        },
+        "genos_quantum_vfs" => {
+            let op = args.get("operation").and_then(Value::as_str).unwrap_or("metrics");
+            let prim = match op {
+                "stage" => "quantum_vfs_stage",
+                "superpose" => "quantum_vfs_superpose",
+                "entangle" => "quantum_vfs_entangle",
+                "tunnel_write" => "quantum_vfs_tunnel_write",
+                "decohere" | "collapse" => "quantum_vfs_decohere",
+                _ => "quantum_vfs_metrics",
+            };
+            let mut payload = with_action(args, "execute_primitive");
+            if let Some(obj) = payload.as_object_mut() {
+                obj.insert("primitive".into(), json!(prim));
+                obj.insert("args".into(), args.clone());
+            }
+            execute_orchestrator(&bridge, &payload, workspace)
         }
-        "genos_snapshot"
-        | "genos_replay"
-        | "genos_capsule_create"
-        | "genos_merge"
-        | "genos_audit"
-        | "genos_biomimicry"
-        | "genos_v2_init"
-        | "genos_v2_fork" => execute_cli(workspace, name, args),
+        "genos_snapshot" | "genos_replay" | "genos_capsule_create" | "genos_merge"
+        | "genos_audit" | "genos_biomimicry" | "genos_v2_init" | "genos_v2_fork" => execute_cli(workspace, name, args),
         _ => (-1, format!("Unsupported MCP tool: {name}")),
     }
 }

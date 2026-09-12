@@ -34,3 +34,4 @@ pub mod rhizome_telemetry;
 pub mod syncytium_crdt;
 pub mod chaos;
 pub mod output_guard;
+pub mod quantum_vfs;

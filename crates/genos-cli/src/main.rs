@@ -101,6 +101,7 @@ fn real_main() {
                 Err(error) => Err(format!("Failed to render help: {}", error)),
             }
         }
+        Some(Commands::QuantumVfs(cmd)) => commands::quantum_vfs::handle_quantum_vfs(cmd),
         Some(Commands::Agent(cmd)) => agent::execute(cmd.subcommand),
         Some(Commands::Snapshot(cmd)) => snapshot::execute(cmd.subcommand),
         Some(Commands::Diff(cmd)) => snapshot::handle_diff(&cmd.a, &cmd.b),

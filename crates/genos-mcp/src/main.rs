@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 const PATH_ARGUMENTS: &[&str] = &[
     "agent", "out", "output", "history_file", "input_file", "manifest",
     "graph_file", "snapshot", "snapshot_id", "branch_id", "parent_id",
+    "file_path", "path_a", "path_b",
 ];
 
 fn validate_path_arguments(args: &Value) -> Result<(), String> {
