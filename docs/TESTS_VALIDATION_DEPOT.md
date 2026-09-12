@@ -961,4 +961,53 @@ flowchart TD
 | **5. Rollback Déterministe sur Échec de Test** | Les patchs défectueux restent sur le disque et polluent l'historique. | Restauration atomique du snapshot baseline en cas de régression test, sans fichiers résiduels ni fuite d'état. | **2/2 PASS** |
 | **6. Confinement Workspace & Anti-Traversal** | Les chemins relatifs de refactoring écrasent des fichiers système. | `normalizeRelativePath` interdit tout segment `.` ou `..` et rejette formellement toute traversée (`Path escapes the workspace`). | **2/2 PASS** |
 
+---
+
+## 21. Banc d'Épreuve : Coordination Multi-Agents, Consensus & Théorie des Jeux (`npm run test:consensus`)
+
+Le profil de test `npm run test:consensus` ([backend/tests/stress/test_multi_agent_consensus_and_game_theory_bench.js](../backend/tests/stress/test_multi_agent_consensus_and_game_theory_bench.js)) soumet l'architecture de consensus distribué et de théorie des jeux de GenOS à 16 défis majeurs évaluant la résilience aux majorités non calibrées, la neutralité d'égalité, les deadlocks d'essaim et l'effondrement cognitif.
+
+### Pourquoi les architectures conventionnelles (LangChain, AutoGen, CrewAI) échouent en Coordination Multi-Agents
+
+1. **Vote Naïf Égalitaire (*Sybil & Hallucination Hijack*)** :
+   Dans les frameworks classiques, chaque agent compte pour une voix égale ($1\text{ agent} = 1\text{ voix}$). Trois agents défaillants ou hallucinateurs peuvent imposer une décision erronée face à un agent expert hautement calibré. GenOS utilise la pondération de Brier quadratique : $w = (1 - \text{Brier})^2$.
+2. **Hold-Up par Biais d'Égalité Lexicale (*Tie-Break Attack*)** :
+   En cas d'égalité 50/50, les implémentations naïves sélectionnent arbitrairement l'option classée première par ordre alphabétique (`AAA_MALICIOUS` l'emporte sur `ZZZ_SAFE`). GenOS impose une neutralité absolue avec $\epsilon = 10^{-9}$ : en cas d'égalité, `decision: null` et `status: 'tied'`, interdisant toute manipulation lexicale.
+3. **Deadlocks Circulaires & Boucles de Délégation Infinies ($A \to B \to C \to A$)** :
+   Quand l'agent $A$ sollicite $B$, qui délègue à $C$, qui renvoie à $A$, les agents classiques se bloquent mutuellement ou explosent la pile. GenOS inspecte le graphe d'interactions orienté (`detectDeadlocks`) pour intercepter et signaler les cycles.
+4. **Effondrement d'Entropie Cognitive de l'Essaim (*Echo-Chamber Collapse*)** :
+   Dans des boucles d'agents longues, les agents tendent vers l'imitation mutuelle (chambre d'écho) et perdent leur diversité d'action. GenOS surveille l'entropie de Shannon $H(A)$ et l'entropie de transition de Markov pour sonner l'alarme en cas d'effondrement.
+5. **Défaut de Quorum & Prise d'Otage par Minorité** :
+   Si 9 agents sur 10 ne répondent pas, un agent isolé ne doit jamais pouvoir valider seul une proposition à 100%. GenOS impose un plancher de participation $\max(2, \lceil N \times 0.5 \rceil)$.
+
+```mermaid
+flowchart TD
+    Votes["Votes Multi-Agents Émis"] --> Step1{1. Pondération Brier Continue}
+    Step1 --> Weights["w = (1 - Brier)² : Agents Calibrés Forts, Hallucinateurs w ~ 0"]
+    Weights --> Step2{2. Contrôle du Plancher de Participation}
+    Step2 -- Participation < max(2, ceil(N/2)) --> NoQuorum["no_quorum (Décision Nulle)"]
+    Step2 -- Quorum Atteint --> Step3{3. Calcul de Tally & Test d'Égalité Epsilon}
+    Step3 -- Différence <= 1e-9 (Égalité) --> Tied["status: tied (Refus Biais Lexical)"]
+    Step3 -- Supérieur au Seuil --> Winner["Décision Validée Déterministement"]
+    
+    subgraph "Surveillance Sentinelle d'Essaim"
+        MsgGraph["Graphe des Messages"] --> DeadlockCheck{"detectDeadlocks"}
+        DeadlockCheck -- Cycle A->B->C->A --> HaltCycle["Alerte Deadlock Circulaire"]
+        ActionStream["Flux d'Actions"] --> EntropyCheck{"calculateShannonEntropy"}
+        EntropyCheck -- H(A) proche de 0 --> EchoAlert["Alerte Effondrement Cognitif"]
+    end
+```
+
+### 21.1 Défis de Coordination et Consensus Éprouvés
+
+| Défi Multi-Agents & Consensus | Écueil Systémique (LangChain / AutoGen / CrewAI) | Technologie & Théorie des Jeux GenOS | Statut Test (16/16) |
+|---|---|---|---|
+| **1. Pondération Brier Quadratique Continue** | Vote simple où la masse d'agents non calibrés domine l'expert. | Formule $w = (1 - \text{Brier})^2$ accordant un poids quasi-nul aux agents non fiables et consacrant l'expert calibré. | **3/3 PASS** |
+| **2. Quorum Strict & Neutralité Epsilon** | Les égalités 50/50 sont arbitrairement attribuées au premier nom dans l'ordre alphabétique. | `topOfTally` et `evaluateQuorum` avec $\epsilon = 10^{-9}$ interdisent le départage lexical (`status: 'tied'`, `decision: null`). | **3/3 PASS** |
+| **3. Détection de Deadlocks Circulaires d'Essaim** | Les boucles de délégation $A \to B \to C \to A$ provoquent un blocage silencieux ou un crash mémoire. | `detectDeadlocks` détecte les cycles dans le graphe orienté des interactions et identifie les agents coupables. | **3/3 PASS** |
+| **4. Entropie de Shannon & Sentinelle d'Effondrement** | Les flottes d'agents s'enferment dans des répétitions en chambre d'écho sans détection. | `calculateShannonEntropy` calcule $H(A)$, l'entropie normalisée et l'entropie de Markov pour déceler les boucles oscillantes. | **3/3 PASS** |
+| **5. Plancher de Participation Anti-Minorité** | Un agent rescapé vote seul et impose sa décision à 100%. | `resolveMinParticipation` exige un quorum minimal ($\ge 50\%$ des nœuds actifs), rejetant les votes isolés avec `no_quorum`. | **2/2 PASS** |
+| **6. Calcul Canonique du Cycle de Vie des Propositions** | Maintien inutile de propositions dont le passage est devenu mathématiquement impossible. | `resolveProposalStatus` calcule les votes résiduels maximaux et prononce un rejet précoce (`status: 'rejected'`) dès l'invalidation mathématique. | **2/2 PASS** |
+
+
 
