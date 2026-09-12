@@ -160,7 +160,7 @@ Les arguments MCP sont canoniquement en `snake_case` : `agent_id`, `source_id`, 
 
 Pour dépasser la lenteur et la rigidité du parsing de schemas JSON textuels, GenOS intègre un modèle enzymatique d'activation d'outils ([`backend/src/services/mcpLigandReceptorService.js`](../backend/src/services/mcpLigandReceptorService.js)) :
 1. **Poche catalytique et amarrage stérique (Gibbs $\Delta G$)** : Chaque outil MCP est modélisé comme un site actif enzymatique avec des résidus essentiels. Les arguments entrants agissent comme des ligands chimiques. L'énergie libre de liaison de Gibbs $\Delta G = \Delta H - T \Delta S$ et la constante de dissociation $K_d = \exp(\Delta G / (RT))$ déterminent l'affinité. Si $\Delta G \le \Delta G_{\text{seuil}}$ (amarrage spontané exergonique), la catalyse s'exécute directement sans validation verbeuse de schema JSON.
-2. **Défense balistique réflexe par Cnidocyte (< 3 µs)** : Inspiré des nématocystes des cnidaires ([`crates/genos-biology/src/specialized_cells/cnidocyte.rs`](../crates/genos-biology/src/specialized_cells/cnidocyte.rs)), un filtre réflexe pré-catalytique intercepte instantanément les toxines (injections de prompts, pollution de prototype `__proto__`, injections shell `; rm -rf`) à zéro-latence mécanique (< 3 microsecondes), neutralisant l'appel malveillant sans allouer de tokens LLM ni traverser les couches de parsing JSON.
+2. **Défense balistique réflexe par Cnidocyte (échelle microseconde)** : Inspiré des nématocystes des cnidaires ([`crates/genos-biology/src/specialized_cells/cnidocyte.rs`](../crates/genos-biology/src/specialized_cells/cnidocyte.rs)), un filtre réflexe pré-catalytique évalue en mémoire les toxines (injections de prompts, pollution de prototype `__proto__`, injections shell `; rm -rf`) avec un chronométrage haute résolution en microsecondes (`process.hrtime.bigint()`), neutralisant l'appel malveillant sans allouer de tokens LLM ni traverser les couches de parsing JSON.
 3. **Double-mode avec rétrocompatibilité transparente** : Si l'affinité stérique est suboptimale, le moteur bascule automatiquement en mode de repli (`fallback_json_schema`) pour valider les paramètres via les schémas JSON Schema classiques.
 
 Les outils sont soumis au scope tenant, aux permissions, au zero trust, a l'equipement, au circuit breaker et, pour certains, a l'approbation humaine. Un outil a risque peut repondre `202` avec `success:false` et `approvalRequired:true` : c'est un etat d'attente, pas un echec de transport ni une execution reussie.
@@ -304,25 +304,31 @@ flowchart TB
     Gateway --> Handlers
 ```
 
-### 2. Séquence d'Échange gRPC avec Streaming Bidirectionnel
+### 2. Séquence d'Échange gRPC (Unaire) et Streaming Événementiel SSE
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Client as Agent Client
-    participant gRPCServer as Serveur gRPC GenOS
-    participant StreamProcessor as Processeur d'Événements
+    participant Gateway as API Gateway / Router
+    participant gRPCServer as Serveur gRPC (41 Services Unaires)
+    participant SSEStream as Flux SSE (/api/events)
 
-    Client->>gRPCServer: Connexion au flux 'StreamExecutionEvents'
+    Note over Client,gRPCServer: Contrat gRPC Unaire (Agent, Arena, Deploy, Audit, Platform)
+    Client->>Gateway: Appel RPC Unaire (ex: ExecuteStep / Deploy)
+    Gateway->>gRPCServer: Dispatch vers Service gRPC dédié
     activate gRPCServer
-    gRPCServer-->>Client: Stream ouvert (HTTP/2 Multiplex)
-    
-    Client->>gRPCServer: Envoi Step 1 (Instruction)
-    gRPCServer->>StreamProcessor: Traitement asynchrone
-    StreamProcessor-->>gRPCServer: Émission métrique intermédiaire
-    gRPCServer-->>Client: Message de télémétrie en temps réel
-    
-    StreamProcessor-->>gRPCServer: Résultat final certifié
-    gRPCServer-->>Client: Status OK (Trailer gRPC)
+    gRPCServer->>gRPCServer: Validation de contrat ProtoBuf & Exécution
+    gRPCServer-->>Gateway: Réponse Unaire typée (returns Response)
     deactivate gRPCServer
+    Gateway-->>Client: Payload de résultat validé
+
+    Note over Client,SSEStream: Streaming Temps Réel via Server-Sent Events (HTTP/2)
+    Client->>SSEStream: GET /api/events?run_id=xxx (Abonnement flux)
+    activate SSEStream
+    SSEStream-->>Client: event: telemetry, data: { step: 1, metrics: {...} }
+    SSEStream-->>Client: event: evidence_barrier, data: { status: "PASSED" }
+    SSEStream-->>Client: event: complete, data: { output_json: {...} }
+    deactivate SSEStream
 ```
+

@@ -94,29 +94,33 @@ function findToxinSignature(haystack) {
 }
 
 function checkCnidocyteReflex(toolName, rawPayload) {
+  const startHr = process.hrtime.bigint();
   const haystack = buildPayloadHaystack(toolName, rawPayload);
   const toxin = findToxinSignature(haystack);
   if (toxin) {
+    const elapsedMicros = Math.max(1, Math.round(Number(process.hrtime.bigint() - startHr) / 1000));
     return {
       intercepted: true,
-      latencyMicros: 2,
+      latencyMicros: elapsedMicros,
       toxinDetected: toxin,
       residualPressureMpa: 0.75,
       status: 'cnidocyte_neutralized',
-      message: `Cnidocyte harpoon projected in 2µs! Neutralized toxic pattern: '${toxin}'.`
+      message: `Cnidocyte harpoon projected in ${elapsedMicros}µs! Neutralized toxic pattern: '${toxin}'.`
     };
   }
   if (typeof rawPayload === 'string' && rawPayload.length > 25000) {
+    const elapsedMicros = Math.max(1, Math.round(Number(process.hrtime.bigint() - startHr) / 1000));
     return {
       intercepted: true,
-      latencyMicros: 3,
+      latencyMicros: elapsedMicros,
       toxinDetected: 'OVERPRESSURE_VOLUMETRIC',
       residualPressureMpa: 1.2,
       status: 'cnidocyte_neutralized',
-      message: 'Cnidocyte osmotic overpressure triggered by voluminous payload.'
+      message: `Cnidocyte osmotic overpressure triggered by voluminous payload in ${elapsedMicros}µs.`
     };
   }
-  return { intercepted: false, latencyMicros: 0 };
+  const elapsedMicros = Math.round(Number(process.hrtime.bigint() - startHr) / 1000);
+  return { intercepted: false, latencyMicros: elapsedMicros };
 }
 
 function resolvePocket(toolName) {
