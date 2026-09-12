@@ -233,32 +233,33 @@ Ces tests verifient les invariants applicatifs. Ils ne prouvent pas la capacite 
 
 ## Schémas Complémentaires de Pipeline Télémétrique et Traçabilité
 
-### 1. Architecture du Pipeline d'Observabilité Distribuée
+### 1. Architecture du Pipeline d'Observabilité Embarquée
 
 ```mermaid
 flowchart LR
     subgraph Sources["Sources Télémétriques"]
-        RustCore["Noyau Rust (Métriques Système)"]
-        NodeBackend["Backend Node.js (Traces HTTP/gRPC)"]
+        RustCore["Noyau Rust (Métriques Système & CLI)"]
+        NodeBackend["Backend Node.js (Traces HTTP/gRPC/Primitives)"]
         Agents["Agents (Événements de Décision & Dissonance)"]
     end
 
     subgraph Ingestion["Ingestion & Régulation de Flux"]
-        RingBuffer["Ring Buffer Circulaire (Zéro allocation)"]
-        DropController["Contrôleur de Perte Contrôlée (Shedding)"]
+        RingBuffer["Ring Buffer Événements (telemetryService)"]
+        EventBus["Bus Événements In-Memory (eventService)"]
     end
 
-    subgraph StorageSinks["Destinations & Visualisation"]
-        Prometheus["Collecteur Métriques / Prometheus"]
-        TraceDB["Stockage de Spans & Traces (OpenTelemetry)"]
-        TUIRender["Tableau de Bord TUI / CLI"]
+    subgraph StorageSinks["Destinations & Visualisation Embarquées"]
+        SQLiteTraces["Base SQLite (Tables traces, spans, telemetry)"]
+        SSEStream["Flux SSE Temps Réel (/api/events)"]
+        TUIRender["Dashboard TUI Trinity & API REST (/api/traces)"]
     end
 
     Sources --> RingBuffer
-    RingBuffer --> DropController
-    DropController --> Prometheus
-    DropController --> TraceDB
-    DropController --> TUIRender
+    Sources --> EventBus
+    RingBuffer --> SQLiteTraces
+    EventBus --> SSEStream
+    SQLiteTraces --> TUIRender
+    SSEStream --> TUIRender
 ```
 
 ### 2. Séquence de Corrélation de Traces Multi-Agents (Trace ID & Span ID)
@@ -270,18 +271,18 @@ sequenceDiagram
     participant Gateway as API Gateway (Span: sp-1)
     participant Orch as Orchestrateur (Span: sp-2)
     participant Worker as Agent Worker (Span: sp-3)
-    participant Sink as Collecteur OTel
+    participant TraceSvc as Service de Traces (SQLite spans)
 
     Client->>Gateway: Requête avec TraceParent Header
-    Gateway->>Sink: Émission Span sp-1 (Start)
+    Gateway->>TraceSvc: Enregistrement Span sp-1 (start)
     Gateway->>Orch: Transmission TraceID: tr-99
     
     activate Orch
-    Orch->>Sink: Émission Span sp-2 (Child of sp-1)
+    Orch->>TraceSvc: Enregistrement Span sp-2 (parent: sp-1)
     Orch->>Worker: Délégation de tâche avec contexte de trace
     
     activate Worker
-    Worker->>Sink: Émission Span sp-3 (Child of sp-2)
+    Worker->>TraceSvc: Enregistrement Span sp-3 (parent: sp-2)
     Worker-->>Orch: Tâche achevée
     deactivate Worker
     
