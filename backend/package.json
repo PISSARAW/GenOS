@@ -30,6 +30,7 @@
     "test:environment": "node tests/stress/test_environment_interaction_and_web_os_bench.js",
     "test:epistemics": "node tests/stress/test_epistemic_robustness_and_truth_bench.js",
     "test:chaos": "node tests/stress/test_chaos_engineering_and_resilience_bench.js",
+    "test:cost-budget": "node tests/stress/test_token_economy_and_budget_bench.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
     "daemon": "node bin/genos-daemon.cjs",
     "daemon:interactive": "node bin/genos-daemon.cjs --interactive",
