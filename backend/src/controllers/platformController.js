@@ -366,22 +366,13 @@ async function decideApproval(req, res, next) {
     if (approval.payload_hash && approval.payload_hash !== currentPayloadHash) return res.status(409).json({ error: { code: 'APPROVAL_PAYLOAD_TAMPERED', message: 'Approval payload integrity verification failed.' } });
     const decision = approvalPolicy.parseDecision(req.body);
     const claimed = await approvalStore.claimApproval(db, {
-      id: req.params.id,
-      organizationId: req.tenant.organizationId,
-      projectId: req.tenant.projectId,
-      status: decision.status,
-      decisionBy,
-      reason: decision.reason,
-      payloadHash
+      id: req.params.id, organizationId: req.tenant.organizationId, projectId: req.tenant.projectId,
+      status: decision.status, decisionBy, reason: decision.reason, payloadHash
     });
     if (!claimed) return res.status(409).json({ error: { code: 'APPROVAL_ALREADY_DECIDED', message: `Approval '${req.params.id}' was decided concurrently.` } });
     await approvalStore.recordDecisionAudit(db, {
-      actor: decisionBy,
-      approvalId: req.params.id,
-      status: decision.status,
-      reason: decision.reason,
-      organizationId: req.tenant.organizationId,
-      projectId: req.tenant.projectId
+      actor: decisionBy, approvalId: req.params.id, status: decision.status, reason: decision.reason,
+      organizationId: req.tenant.organizationId, projectId: req.tenant.projectId
     });
     const execution = await approvalExecution.executeApprovedAction(db, approval, { status: decision.status, actor: decisionBy });
     if (approvalPolicy.isTamperBlocked(execution)) return res.status(409).json({ error: { code: execution.code, message: execution.error } });
@@ -389,11 +380,14 @@ async function decideApproval(req, res, next) {
   } catch (error) { next(error); }
 }
 async function pareto(req, res, next) {
-  try {
-    res.json(safety.paretoFrontier(req.body?.items || []));
-  } catch (error) {
-    if (next) return next(error);
-    throw error;
-  }
+  try { res.json(safety.paretoFrontier(req.body?.items || [])); } catch (error) { if (next) return next(error); throw error; }
 }
-module.exports = { providers, registerProvider, route, routingPolicies, saveRoutingPolicy, graph, telemetrySummary, audit, permissions, validateTool, replay, bisect, approvals, decideApproval, pareto, configuredProviderRows, catalogProviders };
+async function generateModel(req, res, next) {
+  try {
+    const { prompt, agentId } = req.body || {};
+    if (!prompt) return res.status(400).json({ error: { code: 'MISSING_PROMPT', message: 'prompt is required.' } });
+    const generated = await modelRouter.generate({ db: null, agentId: agentId || 'world_runner', prompt, timeoutMs: 90000 });
+    res.json({ text: generated });
+  } catch (error) { if (next) return next(error); throw error; }
+}
+module.exports = { providers, registerProvider, route, routingPolicies, saveRoutingPolicy, graph, telemetrySummary, audit, permissions, validateTool, replay, bisect, approvals, decideApproval, pareto, generateModel, configuredProviderRows, catalogProviders };
