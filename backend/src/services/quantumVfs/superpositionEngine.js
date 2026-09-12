@@ -17,7 +17,8 @@ class Eigenstate {
     this.id = id || `state_${crypto.randomBytes(4).toString('hex')}`;
     this.label = label || 'unnamed_hypothesis';
     this.content = String(content || '');
-    this.amplitude = Number.isFinite(amplitude) ? amplitude : 1.0; // alpha_i
+    this.rawWeight = Number.isFinite(amplitude) ? Math.max(0.01, amplitude) : 1.0;
+    this.amplitude = this.rawWeight; // alpha_i normalisé
     this.probability = 0.0; // |alpha_i|^2 calculé après normalisation
     this.metadata = metadata;
     this.fitnessScore = null;
@@ -70,11 +71,11 @@ class QuantumSuperposition {
   normalizeAmplitudes() {
     let totalPower = 0.0;
     for (const state of this.eigenstates.values()) {
-      totalPower += state.amplitude * state.amplitude;
+      totalPower += state.rawWeight * state.rawWeight;
     }
     const normFactor = totalPower > 0 ? Math.sqrt(totalPower) : 1.0;
     for (const state of this.eigenstates.values()) {
-      state.amplitude = state.amplitude / normFactor;
+      state.amplitude = state.rawWeight / normFactor;
       state.probability = Number((state.amplitude * state.amplitude).toFixed(4));
     }
   }
@@ -94,11 +95,11 @@ class QuantumSuperposition {
           try {
             const score = await evaluatorFn(state.content, state);
             state.fitnessScore = Number.isFinite(score) ? Math.max(0.0, Math.min(1.0, score)) : 0.0;
-            // Modulation de l'amplitude par le score de fitness
-            state.amplitude = Math.max(0.01, state.amplitude * (1.0 + state.fitnessScore));
+            // Modulation du poids par le score de fitness
+            state.rawWeight = Math.max(0.01, state.rawWeight * (1.0 + state.fitnessScore));
           } catch (err) {
             state.fitnessScore = 0.0;
-            state.amplitude = 0.01;
+            state.rawWeight = 0.01;
             state.metadata.evaluationError = err.message;
           }
         })()
