@@ -11,18 +11,14 @@ const daemon = require('../services/daemonAgentAutostart');
 
 function sanitizeDirectoryPath(dirPath) {
   if (!dirPath || typeof dirPath !== 'string') return null;
-  if (dirPath.includes('..') || dirPath.includes('\0')) return null;
-  const resolved = path.resolve(dirPath);
+  const trimmed = dirPath.trim();
+  if (!trimmed || trimmed.includes('\0') || trimmed.includes('..')) return null;
+  const resolved = path.resolve(trimmed);
+  if (path.parse(resolved).root === resolved) return null;
   const home = path.resolve(os.homedir());
   const cwd = path.resolve(process.cwd());
   if (!resolved.startsWith(home) && !resolved.startsWith(cwd)) return null;
-  if (path.parse(resolved).root === resolved) return null;
-  try {
-    const stat = fs.statSync(resolved);
-    return stat.isDirectory() ? resolved : null;
-  } catch {
-    return null;
-  }
+  return resolved;
 }
 
 function getStatus(req, res, next) {

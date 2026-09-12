@@ -129,11 +129,12 @@ async function push(req) {
   if (req.body?.remoteUrl) {
     await assertRemoteGitUrl(req.body.remoteUrl);
     const safeUrl = validateRemoteUrlHost(req.body.remoteUrl);
-    if (!ALLOWED_PROTOCOLS.includes(safeUrl.protocol)) throw new Error('Invalid protocol');
-    if (!ALLOWED_REMOTE_HOSTS.includes(safeUrl.hostname)) throw new Error('Blocked host');
-    safeUrl.pathname = `${safeUrl.pathname.replace(/\/$/, '')}/api/lineage/agents/git/remote/push`;
+    const approvedHost = ALLOWED_REMOTE_HOSTS.find(h => h === safeUrl.hostname);
+    if (!approvedHost) throw new Error('Blocked host');
+    const approvedProto = safeUrl.protocol === 'http:' ? 'http:' : 'https:'; const port = safeUrl.port ? `:${Number.parseInt(safeUrl.port, 10)}` : '';
+    const targetUrl = `${approvedProto}//${approvedHost}${port}/api/lineage/agents/git/remote/push`;
     const state = await collectState(await getDatabase(), req, agentId);
-    const response = await globalThis.fetch(safeUrl.href, {
+    const response = await globalThis.fetch(targetUrl, {
       method: 'POST', headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
       body: JSON.stringify({ ...req.body, objectId: commit.id, object: commit, state })
     });
@@ -150,10 +151,11 @@ async function fetch(req) {
   if (req.body?.remoteUrl) {
     await assertRemoteGitUrl(req.body.remoteUrl);
     const safeUrl = validateRemoteUrlHost(req.body.remoteUrl);
-    if (!ALLOWED_PROTOCOLS.includes(safeUrl.protocol)) throw new Error('Invalid protocol');
-    if (!ALLOWED_REMOTE_HOSTS.includes(safeUrl.hostname)) throw new Error('Blocked host');
-    safeUrl.pathname = `${safeUrl.pathname.replace(/\/$/, '')}/api/lineage/agents/git/remote/fetch`;
-    const response = await globalThis.fetch(safeUrl.href, { method: 'POST', headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) }, body: JSON.stringify({ ...req.body, remoteName }) });
+    const approvedHost = ALLOWED_REMOTE_HOSTS.find(h => h === safeUrl.hostname);
+    if (!approvedHost) throw new Error('Blocked host');
+    const approvedProto = safeUrl.protocol === 'http:' ? 'http:' : 'https:'; const port = safeUrl.port ? `:${Number.parseInt(safeUrl.port, 10)}` : '';
+    const targetUrl = `${approvedProto}//${approvedHost}${port}/api/lineage/agents/git/remote/fetch`;
+    const response = await globalThis.fetch(targetUrl, { method: 'POST', headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) }, body: JSON.stringify({ ...req.body, remoteName }) });
     if (!response.ok) throw new Error(`Remote fetch failed with HTTP ${response.status}.`);
     return { success: true, operation: 'fetch', remoteName, remote: await response.json(), objects };
   }
