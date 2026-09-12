@@ -36,6 +36,7 @@
     "test:gaia": "node tests/test_gaia_benchmark.js",
     "test:swebench": "node tests/test_swebench_benchmark.js",
     "test:injecagent": "node tests/test_injecagent_benchmark.js",
+    "test:locomo": "node tests/test_locomo_benchmark.js",
     "test:scout": "node tests/test_browser_scout.js",
     "test:foveal": "node tests/test_foveal_vision.js",
     "test:foraging": "node tests/test_optimal_foraging.js",
