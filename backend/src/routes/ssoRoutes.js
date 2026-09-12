@@ -3,8 +3,15 @@ const crypto = require('crypto');
 const router = express.Router();
 const { getDatabase } = require('../db');
 const vault = require('../services/secretVault');
-const { requireRole, hashKey } = require('../middleware/auth');
+const { requireRole, resolveUserFromHeaders, hashKey } = require('../middleware/auth');
 const { SAML, ValidateInResponseTo } = require('@node-saml/node-saml');
+
+// Public callers may discover that a provider exists (needed by the login
+// page) but must not learn its issuer, client id, redirect URI or certificates.
+function publicProviderView(rows, privileged) {
+  if (privileged) return rows;
+  return rows.map((row) => ({ id: row.id, protocol: row.protocol, enabled: Boolean(row.enabled) }));
+}
 
 async function dbReady() {
   const db = await getDatabase();
@@ -112,7 +119,15 @@ async function validateIdToken(token, provider, discovery, expectedNonce) {
   if (!expectedNonce || claims.nonce !== expectedNonce) throw new Error('OIDC identity token nonce is invalid.');
   return claims;
 }
-router.get('/providers', async (req, res, next) => { try { const db = await dbReady(); res.json(await db.all('SELECT id,protocol,issuer,client_id,redirect_uri,entry_point,sp_entity_id,scopes,enabled FROM sso_providers ORDER BY id')); } catch (e) { next(e); } });
+router.get('/providers', async (req, res, next) => {
+  try {
+    const db = await dbReady();
+    const user = await resolveUserFromHeaders(req.headers);
+    const privileged = Boolean(user?.isAuthenticated && (user.permissions?.includes('all') || user.role === 'admin'));
+    const rows = await db.all('SELECT id,protocol,issuer,client_id,redirect_uri,entry_point,sp_entity_id,scopes,enabled FROM sso_providers ORDER BY id');
+    res.json(publicProviderView(rows, privileged));
+  } catch (e) { next(e); }
+});
 router.post('/providers', requireRole(['admin']), async (req, res, next) => {
   try {
     const db = await dbReady();
@@ -184,3 +199,4 @@ router.post('/saml/:id/acs', async (req, res, next) => {
 });
 module.exports = router;
 module.exports.buildSaml = buildSaml;
+module.exports.publicProviderView = publicProviderView;
