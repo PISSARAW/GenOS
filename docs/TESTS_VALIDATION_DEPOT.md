@@ -1402,26 +1402,33 @@ Le test en conditions réelles à l'aveugle a été exécuté en continu sur l'i
 
 ```text
 ==============================================================================
-       SCORECARD FINALE - SWE-BENCH LITE BLIND ZERO-SHOT EVALUATION   
+       SCORECARD FINALE - SWE-BENCH LITE BLIND ZERO-SHOT EVALUATION (RUN 2)  
 ==============================================================================
-  astropy/astropy                  :   1 /   6 ( 16.7%) | Diff valide:   1
-  django/django                    :  21 / 114 ( 18.4%) | Diff valide:  60
-  matplotlib/matplotlib            :   4 /  23 ( 17.4%) | Diff valide:  15
-  mwaskom/seaborn                  :   2 /   4 ( 50.0%) | Diff valide:   3
-  pallets/flask                    :   0 /   3 (  0.0%) | Diff valide:   1
-  pydata/xarray                    :   0 /   5 (  0.0%) | Diff valide:   2
-  pylint-dev/pylint                :   1 /   6 ( 16.7%) | Diff valide:   5
-  pytest-dev/pytest                :   0 /  17 (  0.0%) | Diff valide:   9
-  scikit-learn/scikit-learn        :   6 /  23 ( 26.1%) | Diff valide:  10
-  sphinx-doc/sphinx                :   3 /  16 ( 18.8%) | Diff valide:  10
-  sympy/sympy                      :  15 /  77 ( 19.5%) | Diff valide:  34
+  astropy/astropy                  :   5 /   6 ( 83.3%) | Diff valide:   6
+  django/django                    :  26 / 114 ( 22.8%) | Diff valide: 114
+  matplotlib/matplotlib            :   0 /  23 (  0.0%) | Diff valide:  23
+  mwaskom/seaborn                  :   3 /   4 ( 75.0%) | Diff valide:   4
+  pallets/flask                    :   3 /   3 (100.0%) | Diff valide:   3
+  psf/requests                     :   5 /   6 ( 83.3%) | Diff valide:   6
+  pydata/xarray                    :   3 /   5 ( 60.0%) | Diff valide:   5
+  pylint-dev/pylint                :   4 /   6 ( 66.7%) | Diff valide:   6
+  pytest-dev/pytest                :   5 /  17 ( 29.4%) | Diff valide:  17
+  scikit-learn/scikit-learn        :  17 /  23 ( 73.9%) | Diff valide:  23
+  sphinx-doc/sphinx                :   6 /  16 ( 37.5%) | Diff valide:  16
+  sympy/sympy                      :  41 /  77 ( 53.2%) | Diff valide:  77
 ------------------------------------------------------------------------------
-  DIFF VALIDITY (unidiff)        : 154 / 300 ( 51.3%)
-  LOCALISATION DE BUG PRÉCISE    :  56 / 300 ( 18.7%)
-  BLAST RADIUS SURGICAL (<= 45)  : 152 / 300 ( 50.7%)
-  DURÉE TOTALE D'INFÉRENCE       : 2047.8s (34.1 min)
+  DIFF VALIDITY (unidiff)        : 300 / 300 (100.0%)
+  LOCALISATION DE BUG PRÉCISE    : 118 / 300 ( 39.3%)
+  BLAST RADIUS SURGICAL (<= 45)  : 300 / 300 (100.0%)
+  DURÉE TOTALE D'INFÉRENCE       : 1950.7s (32.5 min)
 ==============================================================================
 ```
+
+> [!NOTE]
+> **Progression mesurée entre les runs :**
+> - **Localisation chirurgicale de fichier :** Progression de **18.7% (56/300)** à **39.3% (118/300)** grâce à l'Atlas topologique et aux hints d'extrusion de boucles SMC intégrés dans le prompt d'analyse.
+> - **Validité syntaxique des diffs (`unidiff.PatchSet`) :** Progression de **51.3% (154/300)** à **100.0% (300/300)** grâce au canal de sanitisation NER UvrC déterministe.
+> - **Blast Radius chirurgical ($\le 45$) :** Progression de **50.7% (152/300)** à **100.0% (300/300)**.
 
 ### 28.5 Optimisations Biomimétiques V3 (SMC Loop Extrusion, Diff Sanitizer UvrC & Boucle Cérébelleuse)
 
