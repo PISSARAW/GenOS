@@ -201,3 +201,11 @@ stateDiagram-v2
 
 La primitive `genos_biomimicry_tissue_chimerism` implémente la coexistence au sein d'un même agent de tissus cellulaires issus de lignées génomiques différentes (par exemple tissu réseau sous génome sécurisé et tissu computationnel sous génome exploratoire). Chaque organe répond aux sollicitations avec son propre caryotype sans interférence croisée.
 
+---
+
+### 5. Stratégies de Dissimulation et de Tromperie Évolutive (Crypsis & Mimétisme)
+
+Pour les stratégies avancées de dissimulation de charges de travail (Homochromie, Homotypie, Coloration disruptive, Loi de Thayer, Contre-illumination, Ghost nodes, Crabe décorateur) et de tromperie systémique (Mimétismes Batésien, Müllérien, Peckhamien, Automimétisme, Wasmannien, Non-visuels), se référer au guide complet :
+👉 **[`CRYPSIS_ET_MIMETISME_EVOLUTIF.md`](./CRYPSIS_ET_MIMETISME_EVOLUTIF.md)**
+
+
