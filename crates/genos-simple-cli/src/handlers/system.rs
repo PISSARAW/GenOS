@@ -1,6 +1,6 @@
 
 
-use crate::{api_base_url, command_error, cargo_program, ensure_cargo_on_path, apply_api_auth};
+use crate::{api_base_url, command_error, cargo_program, ensure_cargo_on_path};
 use std::net::ToSocketAddrs;
 use std::process::Command;
 use crate::commands::system::SystemCommands;

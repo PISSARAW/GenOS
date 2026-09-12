@@ -1,3 +1,7 @@
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const bioTools = require("../backend/src/services/mcpBioTools");
+
 function primitiveCall({ args, executeStrategyTool }) {
   const primitiveArgs = { ...args, primitive: args.primitive || args.primitive_name || args.name || (Array.isArray(args.primitives) ? 'pipeline' : '') };
   return executeStrategyTool('genos_execute_primitive', primitiveArgs).then((execution) => {
@@ -44,6 +48,11 @@ export function createToolCallHandler({ runOrchestrator, runGenosCli, executeStr
   return async (request) => {
     const { name, arguments: args = {} } = request.params;
     try {
+      if (bioTools.isBioTool(name)) {
+        const bioRes = await bioTools.executeBioTool(name, args);
+        const text = typeof bioRes?.output === 'string' ? bioRes.output : JSON.stringify(bioRes);
+        return { content: [{ type: 'text', text }], isError: bioRes?.success === false };
+      }
       if (name === 'genos_execute_primitive') return { content: [{ type: 'text', text: await primitiveCall({ args, executeStrategyTool }) }] };
       if (name.startsWith('genos_v2_') || ['genos_snapshot', 'genos_replay', 'genos_capsule_create', 'genos_merge', 'genos_audit', 'genos_biomimicry'].includes(name)) {
         return { content: [{ type: 'text', text: await cliCall({ args: { ...args, toolName: name }, runGenosCli }) }] };

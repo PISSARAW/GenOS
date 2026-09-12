@@ -311,8 +311,43 @@ fn with_action(args: &Value, action: &str) -> Value {
     payload
 }
 
+fn bio_primitive_name(name: &str) -> Option<&'static str> {
+    match name {
+        "genos_swe_fault_localizer" => Some("swe_localize"),
+        "genos_swe_surgical_repair" => Some("swe_patch_synthesize"),
+        "genos_swe_verify_patch" => Some("swe_verify"),
+        "genos_browser_act" => Some("browser_act"),
+        "genos_foveal_crop" => Some("foveal_crop"),
+        "genos_optimal_foraging" => Some("foraging_evaluate"),
+        _ => None,
+    }
+}
+
+fn orchestrator_action(name: &str) -> Option<&'static str> {
+    match name {
+        "genos_change_strategy" => Some("change_strategy"),
+        "genos_report_progress" => Some("report_progress"),
+        "genos_change_organization" => Some("change_organization"),
+        "genos_worker_publish" => Some("organization_publish"),
+        "genos_worker_inbox" => Some("organization_inbox"),
+        "genos_trinity_launch" => Some("dispatch_trinity"),
+        "genos_a_team_preview" => Some("dispatch_team"),
+        _ => None,
+    }
+}
+
 pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, String) {
     let bridge = resolve_bridge_path(workspace);
+    if let Some(prim) = bio_primitive_name(name) {
+        let mut payload = with_action(args, "execute_primitive");
+        if let Some(obj) = payload.as_object_mut() {
+            obj.insert("primitive".into(), json!(prim));
+        }
+        return execute_orchestrator(&bridge, &payload, workspace);
+    }
+    if let Some(action) = orchestrator_action(name) {
+        return execute_orchestrator(&bridge, &with_action(args, action), workspace);
+    }
     match name {
         "genos_orchestrate" => {
             let mut payload = with_action(args, "orchestrate");
@@ -328,12 +363,7 @@ pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, Str
             }
             execute_orchestrator(&bridge, &payload, workspace)
         }
-        "genos_change_strategy" => execute_orchestrator(&bridge, &with_action(args, "change_strategy"), workspace),
-        "genos_report_progress" => execute_orchestrator(&bridge, &with_action(args, "report_progress"), workspace),
-        "genos_change_organization" => execute_orchestrator(&bridge, &with_action(args, "change_organization"), workspace),
         "genos_organization_state" => execute_orchestrator(&bridge, &json!({ "action": "organization_state" }), workspace),
-        "genos_worker_publish" => execute_orchestrator(&bridge, &with_action(args, "organization_publish"), workspace),
-        "genos_worker_inbox" => execute_orchestrator(&bridge, &with_action(args, "organization_inbox"), workspace),
         "genos_execute_primitive" => {
             let mut payload = with_action(args, "execute_primitive");
             if let Some(obj) = payload.as_object_mut() {
@@ -343,8 +373,6 @@ pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, Str
             }
             execute_orchestrator(&bridge, &payload, workspace)
         }
-        "genos_trinity_launch" => execute_orchestrator(&bridge, &with_action(args, "dispatch_trinity"), workspace),
-        "genos_a_team_preview" => execute_orchestrator(&bridge, &with_action(args, "dispatch_team"), workspace),
         "genos_snapshot"
         | "genos_replay"
         | "genos_capsule_create"
