@@ -78,11 +78,18 @@ Le service [backend/src/services/vectorMemoryService.js](../backend/src/services
 
 ### 2.3 Recherche vectorielle
 
-La recherche vectorielle utilise des embeddings de dimension 768, calculés par des vecteurs déterministes compatibles avec sqlite-vec. Le code de [backend/src/services/memoryScoring.js](../backend/src/services/memoryScoring.js) montre :
+La recherche vectorielle s'appuie sur des vecteurs de dimension 768 normalisés L2, compatibles avec `sqlite-vec`. Deux modes d'alimentation coexistent :
 
-- `textToVector()` : conversion d’un texte en vecteur 768D ;
-- `cosineSimilarity()` : mesure de similarité cosinus ;
-- `scoreCorpusItem()` : pondération finale entre lexical, sémantique, score de poids synaptique et recency.
+- **Mode local autonome (par défaut)** : En l'absence de provider d'embeddings distant, GenOS utilise un hachage lexical déterministe (bigrammes et modulo FNV-1a en dimension 768) via `textToVector()`. Ce mécanisme agit comme proxy d'empreinte lexicale projetée dans l'espace vectoriel sans nécessiter de modèle de langue lourd en local ;
+- **Mode avec provider externe** : Lorsque l'agent est connecté à un fournisseur d'embeddings (ex. OpenAI, Ollama), de véritables embeddings sémantiques peuvent être stockés dans `embedding_blob`.
+
+La recherche vectorielle native s'effectue via `sqlite-vec` (table virtuelle `vec0`), qui réalise une recherche **KNN exacte** (balayage par distance cosinus/euclidienne, et non un graphe approximatif HNSW).
+
+Le code de [backend/src/services/memoryScoring.js](../backend/src/services/memoryScoring.js) montre :
+
+- `textToVector()` : projection déterministe 768D par hachage lexical ;
+- `cosineSimilarity()` : calcul de la similarité cosinus ;
+- `scoreCorpusItem()` : pondération multi-critères combinant similarité vectorielle, matching lexical, poids synaptique et récence.
 
 La recherche ne se résume pas à l’algorithme vectoriel pur ; elle intègre également :
 
@@ -729,7 +736,7 @@ flowchart TB
     end
 
     subgraph Operations["Moteurs de Traitement Mémoriel"]
-        VectorEngine["Moteur de Recherche Vectorielle (KNN / HNSW)"]
+        VectorEngine["Moteur de Recherche Vectorielle (KNN exact via sqlite-vec vec0)"]
         Consolidator["Consolidateur Synaptique (Sommeil / Flush)"]
         EvictionEngine["Moteur d'Éviction & Pruning"]
     end
