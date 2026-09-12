@@ -7,33 +7,43 @@ const { getDatabase } = require('../db');
 const { ROLE_PERMISSIONS, resolveUserFromHeaders, hashKey } = require('../middleware/auth');
 const { verifyPassword } = require('./password');
 const telemetry = require('../services/telemetryObserver');
-const verifyAttempts = new Map();
-const VERIFY_WINDOW_MS = 60 * 1000;
-const VERIFY_LIMIT = 20;
+const authAttempts = new Map();
+const AUTH_WINDOW_MS = 60 * 1000;
+const AUTH_LIMITS = { verify: 20, login: 10 };
 
-function verifyRateLimit(req) {
-  const key = String(req.ip || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
-  const now = Date.now();
-  if (verifyAttempts.size > 200) {
-    for (const [k, v] of verifyAttempts.entries()) {
-      if (now - v.startedAt >= VERIFY_WINDOW_MS) {
-        verifyAttempts.delete(k);
-      }
-    }
+function clientIp(req) {
+  return String(req.ip || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
+}
+
+function pruneAuthAttempts(now) {
+  if (authAttempts.size <= 200) return;
+  for (const [key, value] of authAttempts.entries()) {
+    if (now - value.startedAt >= AUTH_WINDOW_MS) authAttempts.delete(key);
   }
-  const entry = verifyAttempts.get(key);
-  if (!entry || now - entry.startedAt >= VERIFY_WINDOW_MS) {
-    verifyAttempts.set(key, { startedAt: now, count: 1 });
+}
+
+function authRateLimit(req, bucket) {
+  const limit = AUTH_LIMITS[bucket] || 10;
+  const key = `${bucket}:${clientIp(req)}`;
+  const now = Date.now();
+  pruneAuthAttempts(now);
+  const entry = authAttempts.get(key);
+  if (!entry || now - entry.startedAt >= AUTH_WINDOW_MS) {
+    authAttempts.set(key, { startedAt: now, count: 1 });
     return null;
   }
   entry.count += 1;
-  if (entry.count > VERIFY_LIMIT) return Math.max(1, Math.ceil((VERIFY_WINDOW_MS - (now - entry.startedAt)) / 1000));
+  if (entry.count > limit) return Math.max(1, Math.ceil((AUTH_WINDOW_MS - (now - entry.startedAt)) / 1000));
   return null;
+}
+
+function clearAuthAttempts(req, bucket) {
+  authAttempts.delete(`${bucket}:${clientIp(req)}`);
 }
 
 async function verifyToken(req, res, next) {
   try {
-    const retryAfter = verifyRateLimit(req);
+    const retryAfter = authRateLimit(req, 'verify');
     if (retryAfter) {
       res.setHeader('Retry-After', String(retryAfter));
       return res.status(429).json({ error: { code: 'AUTH_RATE_LIMITED', message: 'Too many token verification attempts.' } });
@@ -56,7 +66,7 @@ async function verifyToken(req, res, next) {
     );
 
     if (keyRecord) {
-      verifyAttempts.delete(String(req.ip || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim());
+      clearAuthAttempts(req, 'verify');
       const rolePerms = ROLE_PERMISSIONS[keyRecord.role] || [];
       let extraPerms = [];
       try {
@@ -80,7 +90,7 @@ async function verifyToken(req, res, next) {
     );
     if (session) {
       telemetry.emitEvent({ eventType: 'AUTH_TOKEN_VERIFIED', action: 'AUTH', detail: 'Session verified.', payload: { principalId: session.id, kind: 'session' } });
-      verifyAttempts.delete(String(req.ip || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim());
+      clearAuthAttempts(req, 'verify');
       return res.json({
         valid: true,
         role: session.role,
@@ -138,6 +148,11 @@ const SESSION_TTL_HOURS = 24;
 
 async function loginWithPassword(req, res, next) {
   try {
+    const retryAfter = authRateLimit(req, 'login');
+    if (retryAfter) {
+      res.setHeader('Retry-After', String(retryAfter));
+      return res.status(429).json({ error: { code: 'AUTH_RATE_LIMITED', message: 'Too many login attempts.' } });
+    }
     const { username, password } = req.body || {};
     if (!username || !password) {
       return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'username and password are required' } });
@@ -166,6 +181,7 @@ async function loginWithPassword(req, res, next) {
       payload: { principalId: id, role: user.role, label: `Session for ${user.username}` }
     });
     await db.run('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', user.id);
+    clearAuthAttempts(req, 'login');
 
     return res.json({
       valid: true,
