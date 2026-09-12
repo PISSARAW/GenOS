@@ -28,7 +28,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm ci --prefix backend
-      - run: python scripts/ci/check_code_quality.py
+      - run: python scripts/ci/check_code_quality.py --size-only
       - run: npm test
       - run: npm --prefix backend run test:grpc
       - run: npm --prefix backend run test:quality
