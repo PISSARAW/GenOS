@@ -6,12 +6,16 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const daemon = require('../services/daemonAgentAutostart');
 
 function sanitizeDirectoryPath(dirPath) {
   if (!dirPath || typeof dirPath !== 'string') return null;
   if (dirPath.includes('..') || dirPath.includes('\0')) return null;
   const resolved = path.resolve(dirPath);
+  const home = path.resolve(os.homedir());
+  const cwd = path.resolve(process.cwd());
+  if (!resolved.startsWith(home) && !resolved.startsWith(cwd)) return null;
   if (path.parse(resolved).root === resolved) return null;
   try {
     const stat = fs.statSync(resolved);

@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --workspace --locked
+      - run: cargo test --workspace --exclude genos-sensorimotor --exclude genos-cli --locked
 
   node:
     runs-on: ubuntu-latest

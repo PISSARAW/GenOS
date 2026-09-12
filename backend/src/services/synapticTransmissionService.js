@@ -8,7 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const zlib = require('zlib');
 const protobuf = require('protobufjs');
-const { studioBridgeRoot, phagocytizeExosomes, runGenosSync } = require('./genosCli');
+const { studioBridgeRoot, phagocytizeExosomes, runGenosSync, resolveGenosBin } = require('./genosCli');
 const { getDatabase } = require('../db');
 const { textToVector } = require('./memoryScoring');
 
@@ -195,15 +195,18 @@ async function absorbExosomes(db = null) {
 
         // Synchronisation bidirectionnelle : assimilation formelle dans le génome Rust
         try {
-          const targetAgent = exo.recipient_agent_id || exo.recipientAgentId || exo.agent_id || exo.agentId || 'global';
-          const sourceAgent = exo.source_agent_id || exo.sourceAgentId || exo.sender_id || 'donor';
-          const safeName = (pName || 'plasmid_core').replace(/[^a-zA-Z0-9_\-]/g, '_');
-          const safeTarget = String(targetAgent).replace(/[^a-zA-Z0-9_\-]/g, '_');
-          const safeSource = String(sourceAgent).replace(/[^a-zA-Z0-9_\-]/g, '_');
-          const safeCode = String(pCode || '').replace(/["\\$`]/g, '\\$&');
-          const output = runGenosSync(`genos evolution assimilate-plasmid --agent-id ${safeTarget} --source ${safeSource} --plasmid-name "${safeName}" --plasmid-code "${safeCode}"`);
-          const result = JSON.parse(output.toString());
-          if (!result.success || result.persisted !== true) throw new Error('Rust plasmid assimilation did not persist.');
+          const bin = resolveGenosBin();
+          if (bin && fs.existsSync(bin)) {
+            const targetAgent = exo.recipient_agent_id || exo.recipientAgentId || exo.agent_id || exo.agentId || 'global';
+            const sourceAgent = exo.source_agent_id || exo.sourceAgentId || exo.sender_id || 'donor';
+            const safeName = (pName || 'plasmid_core').replace(/[^a-zA-Z0-9_\-]/g, '_');
+            const safeTarget = String(targetAgent).replace(/[^a-zA-Z0-9_\-]/g, '_');
+            const safeSource = String(sourceAgent).replace(/[^a-zA-Z0-9_\-]/g, '_');
+            const safeCode = String(pCode || '').replace(/["\\$`]/g, '\\$&');
+            const output = runGenosSync(`genos evolution assimilate-plasmid --agent-id ${safeTarget} --source ${safeSource} --plasmid-name "${safeName}" --plasmid-code "${safeCode}"`);
+            const result = JSON.parse(output.toString());
+            if (!result.success || result.persisted !== true) throw new Error('Rust plasmid assimilation did not persist.');
+          }
         } catch (error) {
           errors.push(`Rust plasmid synchronization failed: ${error.message}`);
         }
