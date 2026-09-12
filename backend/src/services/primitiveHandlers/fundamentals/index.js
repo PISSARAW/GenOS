@@ -49,10 +49,19 @@ function runBoundedTestCommand(command, cwd, timeoutMs = 120000) {
 }
 
 async function snapshot(context) {
-  if (context.workspaceId) {
-    const db = await getDatabase();
-    const workspace = await scopedWorkspace(db, context.workspaceId);
-    if (!workspace) return { success: false, error: `Workspace '${context.workspaceId}' not found.` };
+  const db = await getDatabase();
+  let workspaceId = context.workspaceId;
+  if (!workspaceId && context.agentId) {
+    const agent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', context.agentId);
+    if (agent?.workspace_id) workspaceId = agent.workspace_id;
+  }
+  if (!workspaceId) {
+    const defaultWs = await db.get('SELECT id FROM workspaces ORDER BY created_at ASC LIMIT 1');
+    if (defaultWs?.id) workspaceId = defaultWs.id;
+  }
+  if (workspaceId) {
+    const workspace = await scopedWorkspace(db, workspaceId);
+    if (!workspace) return { success: false, error: `Workspace '${workspaceId}' not found.` };
     const snap = await workspaceSnapshotStore.capture({
       db,
       workspace,
