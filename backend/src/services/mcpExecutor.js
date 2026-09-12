@@ -210,7 +210,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     const isError = result.isError === true;
     return { configured: true, success: !isError, status: isError ? 'tool_error' : 'completed', transport: transport.type, output: result.structuredContent ?? result.content ?? result };
   }
-  return executeToolLogic(toolName, args, runLocal);
+  return executeToolLogic(toolName, args, runLocal, timeoutMs);
 }
 
 
