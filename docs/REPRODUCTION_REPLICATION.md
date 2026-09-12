@@ -228,7 +228,7 @@ La méiose est le mode de réduction chromosomique et de recombinaison :
 - reprogrammation épigénétique ;
 - conformité génétique par `reduction_completed: true`.
 
-Le crossover entre deux parents est défini dans [crates/genos-reproduction/src/crossover.rs](../crates/genos-reproduction/src/crossover.rs), où le parentage est explicitement enregistré dans `Parentage`.
+Le crossover entre deux parents est défini dans [crates/genos-reproduction/src/crossover.rs](../crates/genos-reproduction/src/crossover.rs), où le parentage est explicitement enregistré dans `Parentage`. La traçabilité et reproductibilité déterministe (`reproducibility_key`) agrège l'ensemble des allèles parents (`genesA`, `genesB`), le seuil de spéciation (`speciationThreshold`), la probabilité de swap, le point de recombinaison et la graine aléatoire déterministe.
 
 ---
 

@@ -18,4 +18,15 @@ assert.strictEqual(second.genomeHash, first.genomeHash);
 assert.strictEqual(second.reproducibilitySeed, first.reproducibilitySeed);
 assert.notStrictEqual(second.childId, first.childId, 'runtime IDs remain unique even when content is replayable');
 
+const crypto = require('crypto');
+function hashCrossover(input) {
+  return crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
+}
+const keyBase = hashCrossover({ version: 'genos-crossover-v1', parentA: 'pA', parentB: 'pB', genesA: { a: 1 }, genesB: { b: 2 }, swapProb: 0.5, crossoverPoint: null, speciationThreshold: null, seed: 'seed' });
+const keyDiffGenes = hashCrossover({ version: 'genos-crossover-v1', parentA: 'pA', parentB: 'pB', genesA: { a: 999 }, genesB: { b: 2 }, swapProb: 0.5, crossoverPoint: null, speciationThreshold: null, seed: 'seed' });
+const keyDiffThreshold = hashCrossover({ version: 'genos-crossover-v1', parentA: 'pA', parentB: 'pB', genesA: { a: 1 }, genesB: { b: 2 }, swapProb: 0.5, crossoverPoint: null, speciationThreshold: 0.8, seed: 'seed' });
+
+assert.notStrictEqual(keyBase, keyDiffGenes);
+assert.notStrictEqual(keyBase, keyDiffThreshold);
+
 console.log('Crossover reproducibility checks passed.');

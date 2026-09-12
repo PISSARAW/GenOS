@@ -165,8 +165,11 @@ async function runCrossover(options = {}) {
     version: 'genos-crossover-v1',
     parentA,
     parentB,
+    genesA: options.genesA ?? null,
+    genesB: options.genesB ?? null,
     swapProb: options.swapProb ?? 0.5,
     crossoverPoint: options.crossoverPoint ?? null,
+    speciationThreshold: options.speciationThreshold ?? null,
     seed: options.seed ?? 'genos-default-crossover'
   };
   const reproducibilityKey = crypto.createHash('sha256').update(JSON.stringify(replayInput)).digest('hex');
