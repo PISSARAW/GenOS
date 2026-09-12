@@ -228,6 +228,22 @@ pub fn public_tool_specs() -> Vec<Value> {
             }
         }),
         json!({
+            "name": "genos_biological_mode",
+            "description": "Deploy a Biome, Syncytium, Holobiont, Biocenosis, Rhizome, or Metapopulation collective for a mission.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "enum": ["biome", "syncytium", "holobionte", "biocenose", "rhizome", "metapopulation"],
+                        "description": "Biological organization mode."
+                    },
+                    "mission": { "type": "string", "description": "Mission shared by the collective." }
+                },
+                "required": ["mode", "mission"]
+            }
+        }),
+        json!({
             "name": "genos_v2_init",
             "description": "Initialize GenOS workspace state and directories.",
             "inputSchema": { "type": "object", "properties": {} }
