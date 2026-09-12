@@ -80,6 +80,7 @@ const { handleNovikovCausalRebase, handleNovikovError } = require('./novikovCaus
 const { handleBrowserScout, handleBrowserScoutError } = require('./browserScout');
 const { handleFovealVision, handleFovealVisionError } = require('./fovealVision');
 const { handleOptimalForaging, handleOptimalForagingError } = require('./optimalForaging');
+const { handleSweFaultLocalizer, handleSweFaultLocalizerError } = require('./sweFaultLocalizer');
 
 const TOOL_HANDLERS = {
   genos_browser_act: { handle: handleBrowserScout, error: handleBrowserScoutError },
@@ -88,6 +89,8 @@ const TOOL_HANDLERS = {
   genos_biomimicry_foveal_vision: { handle: handleFovealVision, error: handleFovealVisionError },
   genos_optimal_foraging: { handle: handleOptimalForaging, error: handleOptimalForagingError },
   genos_biomimicry_optimal_foraging: { handle: handleOptimalForaging, error: handleOptimalForagingError },
+  genos_swe_fault_localizer: { handle: handleSweFaultLocalizer, error: handleSweFaultLocalizerError },
+  genos_biomimicry_swe_localizer: { handle: handleSweFaultLocalizer, error: handleSweFaultLocalizerError },
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
   genos_checkpoint_gate: { handle: handleCheckpointGate, error: handleCheckpointGateError },
   genos_allostatic_planning: { handle: handleAllostaticPlanning, error: handleAllostaticPlanningError },

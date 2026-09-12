@@ -334,6 +334,12 @@ const HANDLERS = {
   stigmergy_handoff: async (ctx = {}) => {
     const { defaultForaging } = require('../foragingScoutHarvesterService');
     return defaultForaging.harvestEvidence(ctx.tokenId || ctx.token_id, ctx.harvesterId || ctx.harvester_id);
+  },
+
+  // Lot 12 — SWE Proprioceptive Fault Localization
+  swe_localize: async (ctx = {}) => {
+    const { defaultSweFaultLocalizer } = require('../sweFaultLocalizerService');
+    return defaultSweFaultLocalizer.localizeFault(ctx.problemStatement || ctx.problem_statement || ctx.issue, ctx.repoName || ctx.repo_name || 'django', ctx.topK || ctx.top_k || 3);
   }
 };
 
