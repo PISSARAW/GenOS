@@ -9,6 +9,11 @@ const strategyAdapter = require('../src/services/strategyExecutionAdapter');
 const { getDatabase } = require('../src/db');
 const { evidencePresent } = require('../src/services/hallucinationMonitoringService');
 
+function formatFallbackTurns(recordedTurns, observedTools, pass = true, extra = {}) {
+  if (recordedTurns && recordedTurns.length) return recordedTurns;
+  return [...observedTools].map((t) => ({ action: t, pass, isSynthetic: true, fallback: 'observed_tools', ...extra }));
+}
+
 async function handleRuntimeClose(ctx) {
   const {
     code, signal, budgetStopped, emit, cleanup, requiredTools, observedTools,
@@ -145,7 +150,7 @@ async function handleRuntimeClose(ctx) {
           workspaceId: mission.workspaceId || 'ws-genos-core',
           task: mission.prompt,
           report,
-          turns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: true, detail: 'no_answer_proof' })),
+          turns: formatFallbackTurns(recordedTurns, observedTools, true, { detail: 'no_answer_proof' }),
           usage: { tokens: exactTokens || estimatedTokens, events: eventCount, cost_usd: observedCostUsd },
           status: 'approved'
         });
@@ -174,7 +179,7 @@ async function handleRuntimeClose(ctx) {
           workspaceId: mission.workspaceId || 'ws-genos-core',
           task: mission.prompt,
           report,
-          turns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: false, error: 'failed' })),
+          turns: formatFallbackTurns(recordedTurns, observedTools, false, { error: 'failed' }),
           status: 'rejected'
         });
       } catch (_) {}
@@ -221,7 +226,7 @@ async function handleRuntimeClose(ctx) {
             task: mission.prompt,
             workspaceId: mission.workspaceId || 'ws-genos-core',
             agentId: mission.agentId,
-            recordedTurns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: true })),
+            recordedTurns: formatFallbackTurns(recordedTurns, observedTools, true),
             conclusionProvenance,
             evidenceBlocker
           }
@@ -230,7 +235,7 @@ async function handleRuntimeClose(ctx) {
         try {
           await strategyAdapter.executePipelineWithFeedback(
             ['stdp_update', 'cherry_pick_golden_path'],
-            { agentId: mission.agentId, orchestratorId: orchestratorAgentId, workspaceId: mission.workspaceId || 'ws-genos-core', task: mission.prompt, report, turns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: true })), sourceId: mission.agentId, targetId: orchestratorAgentId }
+            { agentId: mission.agentId, orchestratorId: orchestratorAgentId, workspaceId: mission.workspaceId || 'ws-genos-core', task: mission.prompt, report, turns: formatFallbackTurns(recordedTurns, observedTools, true), sourceId: mission.agentId, targetId: orchestratorAgentId }
           );
           await agentMemory.compileExecutionMemory(
             agentName,
@@ -249,12 +254,14 @@ async function handleRuntimeClose(ctx) {
       }
     }
   } else {
-    emit({ eventType: 'AGENT_FAILED', action: 'ERROR', detail: `Codex runtime exited with code ${code ?? 'unknown'}${stderr.trim() ? `: ${stderr.trim()}` : '.'}`, severity: 'error', status: 'error', payload: { code, signal, stderr: stderr.trim() } });
+    const errorExitCode = (code !== null && code !== undefined && code !== 0) ? code : (signal ? 128 : 1);
+    process.exitCode = errorExitCode;
+    emit({ eventType: 'AGENT_FAILED', action: 'ERROR', detail: `Codex runtime exited with code ${code ?? 'unknown'}${signal ? ` (signal ${signal})` : ''}${stderr.trim() ? `: ${stderr.trim()}` : '.'}`, severity: 'error', status: 'error', payload: { code, signal, stderr: stderr.trim() } });
     try {
       await agentMemory.compileExecutionMemory(
         agentName,
         mission.prompt,
-        `Runtime failed with code ${code}: ${stderr.trim() || 'Process terminated with failure'}`,
+        `Runtime failed with code ${code ?? signal ?? 'unknown'}: ${stderr.trim() || 'Process terminated with failure'}`,
         { isFailure: true, outcome: 'failed', organizationId: mission.organizationId, projectId: mission.projectId }
       );
       const dbase = await getDatabase();
@@ -262,16 +269,18 @@ async function handleRuntimeClose(ctx) {
         agentId: mission.agentId,
         workspaceId: mission.workspaceId || 'ws-genos-core',
         task: mission.prompt,
-        report: { outcome: 'failed', reason: stderr.trim() },
-        turns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: false, error: stderr.trim() || 'runtime_error' })),
+        report: { outcome: 'failed', reason: stderr.trim() || (signal ? `Killed by ${signal}` : `Exited with ${code}`) },
+        turns: formatFallbackTurns(recordedTurns, observedTools, false, { error: stderr.trim() || 'runtime_error' }),
         status: 'rejected'
       });
     } catch (_) {}
   }
-  if (process.exitCode === undefined) process.exitCode = code || 0;
+  if (process.exitCode === undefined) {
+    process.exitCode = (code !== null && code !== undefined) ? code : (signal ? 1 : 0);
+  }
   try { await pendingConscienceOp; } catch (_) {}
   cleanup();
-  process.exit(process.exitCode || 0);
+  process.exit(process.exitCode);
 }
 
 module.exports = { handleRuntimeClose };
