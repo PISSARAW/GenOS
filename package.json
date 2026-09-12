@@ -7,6 +7,7 @@
     "test:gaia": "npm --prefix backend run test:gaia",
     "test:swe": "npm --prefix backend run test:swe",
     "test:swebench": "npm --prefix backend run test:swebench",
+    "test:injecagent": "npm --prefix backend run test:injecagent",
     "test:swe-localizer": "npm --prefix backend run test:swe-localizer",
     "test:swe-atlas": "npm --prefix backend run test:swe-atlas",
     "test:swe-diff": "npm --prefix backend run test:swe-diff",
