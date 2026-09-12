@@ -9,6 +9,14 @@ assert.equal(executor.directToolLeaseAllows('genos_snapshot'), true);
 assert.equal(executor.directToolLeaseAllows('genos_run'), false);
 process.env.GENOS_MCP_DISABLED_TOOLS = 'genos_snapshot';
 assert.equal(executor.directToolLeaseAllows('genos_snapshot'), false);
+delete process.env.GENOS_MCP_DISABLED_TOOLS;
+
+process.env.GENOS_MCP_LEASE_EXPIRES_AT = String(Date.now() - 1000);
+assert.equal(executor.directToolLeaseAllows('genos_snapshot'), false);
+process.env.GENOS_MCP_LEASE_EXPIRES_AT = String(Date.now() + 60000);
+assert.equal(executor.directToolLeaseAllows('genos_snapshot'), true);
+delete process.env.GENOS_MCP_LEASE_EXPIRES_AT;
+
 if (previousLease === undefined) delete process.env.GENOS_MCP_LEASE; else process.env.GENOS_MCP_LEASE = previousLease;
 if (previousDisabled === undefined) delete process.env.GENOS_MCP_DISABLED_TOOLS; else process.env.GENOS_MCP_DISABLED_TOOLS = previousDisabled;
 console.log('Direct MCP calls honor lease and disabled-tool policy.');

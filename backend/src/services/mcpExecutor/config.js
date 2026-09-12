@@ -24,6 +24,10 @@ function normalizeMcpTimeout(value, fallback = DEFAULT_MCP_TIMEOUT_MS) {
 }
 
 function directToolLeaseAllows(toolName) {
+  if (process.env.GENOS_MCP_LEASE_EXPIRES_AT) {
+    const expiresAt = Number(process.env.GENOS_MCP_LEASE_EXPIRES_AT);
+    if (!Number.isNaN(expiresAt) && Date.now() > expiresAt) return false;
+  }
   const disabled = String(process.env.GENOS_MCP_DISABLED_TOOLS || '').split(',').map((name) => name.trim()).filter(Boolean);
   if (disabled.includes(toolName)) return false;
   const leaseEnv = process.env.GENOS_MCP_LEASE;

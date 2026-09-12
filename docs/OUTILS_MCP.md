@@ -100,7 +100,7 @@ $$
 
 Un appel direct peut etre execute seulement si toutes les conditions sont satisfaites. Le backend renvoie par exemple `MCP_TOOL_LEASE_DENIED`, `MCP_TOOL_NOT_FOUND`, `INVALID_TOOL_ARGUMENTS` ou le motif du circuit breaker.
 
-Important : la fonction `directToolLeaseAllows()` travaille avec les noms deja normalises. Les configurations de lease et de desactivation du processus backend doivent donc utiliser les noms exacts du runtime, par exemple `genos_snapshot`.
+Important : la fonction `directToolLeaseAllows()` travaille avec les noms deja normalises et prend en compte l'expiration temporelle via `GENOS_MCP_LEASE_EXPIRES_AT` (timestamp epoch ms) : si le délai est expiré, l'invocation directe est systématiquement rejetée même si l'outil figure dans la liste de lease. Les configurations de lease et de desactivation du processus backend doivent donc utiliser les noms exacts du runtime, par exemple `genos_snapshot`.
 
 ---
 
