@@ -10,9 +10,17 @@ const { appendBounded } = require('../../boundedOutput');
 const { terminateChild, clearTerminationTimer } = require('../../processTermination');
 const { encodeLine, splitLines } = require('./stdioProtocol');
 
+const fs = require('fs');
+
 function startSession(config) {
-  const tokens = config.parseArgs(config.commandLine);
-  const executable = tokens.shift();
+  let executable;
+  let tokens = [];
+  if (typeof config.commandLine === 'string' && fs.existsSync(config.commandLine)) {
+    executable = config.commandLine;
+  } else {
+    tokens = config.parseArgs(config.commandLine);
+    executable = tokens.shift();
+  }
   if (!executable) throw new Error('GENOS_MCP_COMMAND is empty.');
   const repositoryRoot = require('path').resolve(__dirname, '../../..');
   const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || repositoryRoot;

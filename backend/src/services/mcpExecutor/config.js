@@ -63,6 +63,8 @@ function validateMcpUrl(value) {
 }
 
 function parseArgs(value) {
+  if (!value || typeof value !== 'string') return [];
+  if (fs.existsSync(value)) return [value];
   const args = [];
   let current = '';
   let inSingle = false;
@@ -77,7 +79,12 @@ function parseArgs(value) {
       continue;
     }
     if (ch === '\\') {
-      escape = true;
+      const next = value[i + 1];
+      if (next === '"' || next === "'" || next === '\\') {
+        escape = true;
+        continue;
+      }
+      current += ch;
       continue;
     }
     if (ch === '"' && !inSingle) {
