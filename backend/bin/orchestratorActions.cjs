@@ -283,6 +283,47 @@ async function handleWorker({ db, context }) {
   await startWorker({ db, context, parent, reusable, worker });
 }
 
+async function handleTrinityMerge({ db, context }) {
+  const { request, orchestratorId } = context;
+  const missionId = request.missionId || request.mission_id;
+  let worldReports = request.worldReports || request.world_reports || [];
+
+  if (!worldReports.length && missionId) {
+    const worlds = await db.all(
+      `SELECT w.world_number, w.strategy, w.agent_id, a.status, a.current_task 
+       FROM trinity_worlds w 
+       LEFT JOIN agents a ON a.id = w.agent_id 
+       WHERE w.id LIKE ? OR a.fleet_id = ?`,
+      `${missionId}%`, missionId
+    );
+    if (worlds.length > 0) {
+      worldReports = worlds.map((w) => ({
+        worldNumber: w.world_number,
+        role: w.strategy,
+        agentId: w.agent_id,
+        outcome: w.status === 'completed' ? 'success' : w.status,
+        claims: [{ statement: `World ${w.world_number} execution outcome: ${w.status}`, evidence: [w.current_task || 'completed'] }],
+        tests: [w.status === 'completed' ? 'pass' : 'fail']
+      }));
+    }
+  }
+
+  const domain = request.domain || 'software_engineering';
+  const threshold = typeof request.threshold === 'number' ? request.threshold : 0.70;
+  const result = trinityService.mergeTrinityEvidence(worldReports, { domain, threshold });
+
+  await trinityService.recordWorldComparison(db, {
+    missionId,
+    orchestratorId,
+    comparison: result.comparativeAnalysis
+  });
+
+  process.stdout.write(JSON.stringify({
+    orchestratorId,
+    trinityMerge: result
+  }));
+}
+
 const HANDLERS = {
   report_progress: handleReportProgress,
   execute_primitive: handlePrimitive,
@@ -292,6 +333,8 @@ const HANDLERS = {
   organization_inbox: handleOrganizationRead,
   organization_state: handleOrganizationRead,
   dispatch_trinity: handleTrinity,
+  merge_trinity: handleTrinityMerge,
+  compare_trinity: handleTrinityMerge,
   dispatch_team: handleTeam,
   dispatch_biological: handleBiological,
   dispatch_worker: handleWorker
