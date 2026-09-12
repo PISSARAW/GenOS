@@ -919,3 +919,46 @@ flowchart TD
 | **5. Idempotence & Verrouillage d'Outils Destructeurs** | Duplication d'effets secondaires irréversibles lors des retries réseau. | Calcul déterministe de signature d'arguments (`argumentSignature`) et classification des outils destructeurs exigeant le rôle Admin. | **2/2 PASS** |
 | **6. Embargo d'Outils Dégradés & Isolation Propre** | Fuite de stacktraces internes ou d'informations confidentielles lors d'erreurs d'outils. | `toolLockOverrides` verrouille individuellement les outils compromis (`TOOL_LOCKED`) et les outils non supportés renvoient un format d'erreur assaini sans fuite. | **2/2 PASS** |
 
+---
+
+## 20. Banc d'Épreuve : Ingénierie Logicielle Autonome (`npm run test:swe`)
+
+Le profil de test `npm run test:swe` ([backend/tests/stress/test_swe_and_code_autonomy_bench.js](../backend/tests/stress/test_swe_and_code_autonomy_bench.js)) soumet le moteur de modification de code de GenOS à 15 défis de niveau ingénierie logicielle autonome (*SWE & Code Autonomy*), inspirés des problématiques réelles de benchmarks comme **SWE-bench**.
+
+### Pourquoi les architectures conventionnelles (LangChain, AutoGen, CrewAI) échouent en SWE
+
+1. **Écriture Destructive Directe sans Pre-Flight** :
+   Les frameworks standards appliquent immédiatement les modifications au système de fichiers hôte. En cas de bug de syntaxe ou d'écrasement de code tiers, le dépôt est cassé en temps réel.
+2. **Réécriture Totale Aveugle (*Blind File Overwrite*)** :
+   Ne disposant pas de bac à sable virtuel (VFS), l'agent réécrit l'intégralité d'un fichier source de 500 lignes pour changer 3 lignes, effaçant commentaires, formattage et code connexe.
+3. **Commandes de Build / Test Non Confinées** :
+   Les agents exécutent des commandes shell sans restriction (`sh`, `bash`, scripts arbitraires), créant des failles d'échappement d'hôte ou des corruptions irréversibles de dépendances.
+4. **Absence de Rollback Déterministe** :
+   Quand un patch candidat échoue à la suite de tests, les agents naïfs tentent des corrections itératives aléatoires en accumulant les erreurs, au lieu d'exécuter un retour arrière instantané vers l'état sain.
+5. **Évasion par Chemins Relatifs (*Path Traversal*)** :
+   Les refactorings complexes manipulant des chemins relatifs (`../../`) risquent d'écraser des fichiers hors de l'espace de travail.
+
+```mermaid
+flowchart TD
+    Patch["Proposition de Patch Code"] --> PreFlight{1. Pre-Flight VFS & Blast Radius}
+    PreFlight -- Simulation en Mémoire --> BlastScore["Calcul Risque (0-100) & Rôle Requis"]
+    BlastScore --> SandboxCmd{2. Sandboxed Command Policy}
+    SandboxCmd -- Commande Test Autorisée (npm test, cargo test) --> ExecTest["Exécution de Vérification en Bac à Sable"]
+    SandboxCmd -- Injection Shell / Script Arbitraire --> RejectCmd["Rejet Ferme de la Commande"]
+    ExecTest --> TestResult{3. Résultat des Tests}
+    TestResult -- Succès (0 Régression) --> Apply["Validation & Application Sanctuarisée"]
+    TestResult -- Échec / Régression --> Rollback["Rollback Immédiat vers Snapshot Baseline"]
+```
+
+### 20.1 Défis d'Ingénierie Logicielle Éprouvés
+
+| Défi d'Ingénierie Logicielle | Écueil Systémique (LangChain / AutoGen / CrewAI) | Technologie & Confinement SWE GenOS | Statut Test (15/15) |
+|---|---|---|---|
+| **1. Simulation Pre-Flight VFS & Blast Radius** | Écriture directe corrompant le disque sans mesure d'impact préalable. | `vfsSandboxService.simulateDryRun` simule en mémoire les créations/modifications et `calculateBlastRadius` calcule un score de risque (0-100). | **3/3 PASS** |
+| **2. Patching Minimal Atomique & Remplacement Ciblé** | Réécriture intégrale de fichiers de 500 lignes détruisant le contexte. | Application ciblée de modifications dans l'arbre VFS préservant l'ensemble des fichiers frères et validant la présence des champs `path` et `content`. | **3/3 PASS** |
+| **3. Localisation de Bug & Diff Structurel Multi-Composants** | Incapacité à isoler les mutations de configuration silencieuses. | Diffing structurel récursif (`diffStructuralStates`) identifiant chirurgicalement les divergences (`auth.secretKey`, `resilience.timeoutMs`). | **2/2 PASS** |
+| **4. Confinement des Commandes de Test & Build** | Exécution de commandes shell non vérifiées (`rm -rf`, curl de payloads). | `sandboxCommandPolicy.isAllowedSandboxTestCommand` autorise `npm test`, `cargo test` et bloque formellement les injections (`&&`, `;`, `\|`) et scripts arbitraires. | **3/3 PASS** |
+| **5. Rollback Déterministe sur Échec de Test** | Les patchs défectueux restent sur le disque et polluent l'historique. | Restauration atomique du snapshot baseline en cas de régression test, sans fichiers résiduels ni fuite d'état. | **2/2 PASS** |
+| **6. Confinement Workspace & Anti-Traversal** | Les chemins relatifs de refactoring écrasent des fichiers système. | `normalizeRelativePath` interdit tout segment `.` ou `..` et rejette formellement toute traversée (`Path escapes the workspace`). | **2/2 PASS** |
+
+
