@@ -19,9 +19,21 @@ async function findReusableWorker({ context, db }) {
   });
 }
 
-async function handleBackground(context) {
-  let reusableWorker = null;
-  if (context.action === 'dispatch_worker') {
+function getRunnerStdio(processId) {
+  const logDir = process.env.GENOS_RUNNER_LOG_DIR;
+  if (!logDir) return 'ignore';
+  try {
+    const fs = require('fs');
+    fs.mkdirSync(logDir, { recursive: true });
+    const fd = fs.openSync(path.join(logDir, `${processId}.log`), 'a');
+    return ['ignore', fd, fd];
+  } catch {
+    return 'ignore';
+  }
+}
+
+async function handleBackground({ context, reusableWorker = null }) {
+  if (!reusableWorker && context.action === 'dispatch_worker') {
     const lookupDb = await context.getDatabase();
     try {
       reusableWorker = await findReusableWorker({ context, db: lookupDb });
@@ -35,7 +47,7 @@ async function handleBackground(context) {
     workerId: context.action === 'dispatch_worker' ? context.id : context.request.workerId,
     ...(context.action === 'dispatch_worker' ? { reuseChecked: true, reuseWorkerId: reusableWorker?.id || null } : {})
   };
-  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, stdio: 'ignore' });
+  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, stdio: getRunnerStdio(detachedProcessId) });
   runner.unref();
   const trackingDb = await context.getDatabase();
   await trackingDb.exec(`CREATE TABLE IF NOT EXISTS detached_processes (id TEXT PRIMARY KEY, pid INTEGER NOT NULL, kind TEXT NOT NULL, owner_id TEXT, command TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
@@ -167,7 +179,7 @@ function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
     execution_budget: context.request.execution_budget,
     workspace_root: context.request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
     reuseChecked: true
-  })], { cwd: context.repoRoot, detached: true, stdio: 'ignore' });
+  })], { cwd: context.repoRoot, detached: true, stdio: getRunnerStdio(workerId) });
   runner.unref();
   return { workerId, memberNumber: member.memberNumber || index, role: member.role, modelTier: member.modelTier, status: 'accepted' };
 }
