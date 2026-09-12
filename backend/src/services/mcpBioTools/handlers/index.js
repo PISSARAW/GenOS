@@ -82,6 +82,7 @@ const { handleFovealVision, handleFovealVisionError } = require('./fovealVision'
 const { handleOptimalForaging, handleOptimalForagingError } = require('./optimalForaging');
 const { handleSweFaultLocalizer, handleSweFaultLocalizerError } = require('./sweFaultLocalizer');
 const { handleSweSurgicalRepair, handleSweSurgicalRepairError } = require('./sweSurgicalRepair');
+const { handleSweSandboxVerification, handleSweSandboxVerificationError } = require('./sweSandboxVerification');
 
 const TOOL_HANDLERS = {
   genos_browser_act: { handle: handleBrowserScout, error: handleBrowserScoutError },
@@ -94,6 +95,8 @@ const TOOL_HANDLERS = {
   genos_biomimicry_swe_localizer: { handle: handleSweFaultLocalizer, error: handleSweFaultLocalizerError },
   genos_swe_surgical_repair: { handle: handleSweSurgicalRepair, error: handleSweSurgicalRepairError },
   genos_biomimicry_swe_surgical: { handle: handleSweSurgicalRepair, error: handleSweSurgicalRepairError },
+  genos_swe_verify_patch: { handle: handleSweSandboxVerification, error: handleSweSandboxVerificationError },
+  genos_biomimicry_swe_verify: { handle: handleSweSandboxVerification, error: handleSweSandboxVerificationError },
   genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
   genos_checkpoint_gate: { handle: handleCheckpointGate, error: handleCheckpointGateError },
   genos_allostatic_planning: { handle: handleAllostaticPlanning, error: handleAllostaticPlanningError },
