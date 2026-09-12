@@ -32,20 +32,14 @@ function tenantOf(req) {
 
 async function expireOpenProposals(db, tenant = null) {
   if (tenant) {
-    await db.run(`
-      UPDATE swarm_proposals
-      SET status = 'expired'
-      WHERE status = 'open' AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
-        AND workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ? AND project_id = ?)
-    `, tenant.organizationId, tenant.projectId);
+    await db.run("UPDATE swarm_proposals SET status = 'expired' WHERE status = 'open' AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP AND workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ? AND project_id = ?)", tenant.organizationId, tenant.projectId);
     return;
   }
-  await db.run(`UPDATE swarm_proposals SET status = 'expired' WHERE status = 'open' AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP`);
+  await db.run("UPDATE swarm_proposals SET status = 'expired' WHERE status = 'open' AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP");
 }
 
 function activeCountOfRow(row) {
-  if (row === null || row === undefined) return 0;
-  return qp.countOf(row.count);
+  return (row !== null && row !== undefined) ? qp.countOf(row.count) : 0;
 }
 
 async function getActiveNodeCount(db, workspaceId, tenant) {
@@ -54,11 +48,9 @@ async function getActiveNodeCount(db, workspaceId, tenant) {
     if (activeCountOfRow(scoped) > 0) return activeCountOfRow(scoped);
   }
   if (tenant) {
-    const tenantRow = await db.get(SQL_ACTIVE_BY_TENANT, tenant.organizationId, tenant.projectId);
-    return activeCountOfRow(tenantRow);
+    return activeCountOfRow(await db.get(SQL_ACTIVE_BY_TENANT, tenant.organizationId, tenant.projectId));
   }
-  const globalRow = await db.get(SQL_ACTIVE_GLOBAL);
-  return activeCountOfRow(globalRow);
+  return activeCountOfRow(await db.get(SQL_ACTIVE_GLOBAL));
 }
 
 function hasReachedQuorum(...args) {
@@ -71,24 +63,14 @@ function hasBeenRejected(...args) {
 
 async function fetchConsensusProposals(db, tenant) {
   if (tenant) {
-    return db.all(`
-      SELECT p.* FROM swarm_proposals p
-      JOIN workspaces w ON w.id = p.workspace_id
-      WHERE w.organization_id = ? AND w.project_id = ?
-      ORDER BY p.created_at DESC
-    `, tenant.organizationId, tenant.projectId);
+    return db.all("SELECT p.* FROM swarm_proposals p JOIN workspaces w ON w.id = p.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY p.created_at DESC", tenant.organizationId, tenant.projectId);
   }
   return db.all('SELECT * FROM swarm_proposals ORDER BY created_at DESC');
 }
 
 async function fetchConsensusVotes(db, tenant) {
   if (tenant) {
-    return db.all(`
-      SELECT v.* FROM swarm_votes v
-      JOIN swarm_proposals p ON p.id = v.proposal_id
-      JOIN workspaces w ON w.id = p.workspace_id
-      WHERE w.organization_id = ? AND w.project_id = ?
-    `, tenant.organizationId, tenant.projectId);
+    return db.all("SELECT v.* FROM swarm_votes v JOIN swarm_proposals p ON p.id = v.proposal_id JOIN workspaces w ON w.id = p.workspace_id WHERE w.organization_id = ? AND w.project_id = ?", tenant.organizationId, tenant.projectId);
   }
   return db.all('SELECT * FROM swarm_votes');
 }
@@ -116,11 +98,7 @@ async function getConsensus(req, res) {
   const currentConsensus = swarmTally.summarizeConsensus(formatted);
   res.json({
     proposals: formatted,
-    quorumState: {
-      activeNodes: globalActiveCount,
-      currentConsensus,
-      biomimicryModel: 'Database-backed quorum'
-    }
+    quorumState: { activeNodes: globalActiveCount, currentConsensus, biomimicryModel: 'Database-backed quorum' }
   });
 }
 
@@ -131,10 +109,8 @@ async function createProposal(req, res) {
   if (input.error) {
     return res.status(400).json({ error: { code: 'INVALID_PROPOSAL', message: 'A title and a quorumThreshold in (0, 1] are required.' } });
   }
-
   const expiresAt = swarmProposals.resolveProposalExpiry(body);
   const id = `prop-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
-
   const db = await getDatabase();
   const tenant = tenantOf(req);
   const workspaceId = body.workspaceId || 'ws-genos-core';
@@ -142,11 +118,7 @@ async function createProposal(req, res) {
   if (!workspace) {
     return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: 'Workspace was not found in the current scope.' } });
   }
-  await db.run(
-    `INSERT INTO swarm_proposals (id, workspace_id, proposer_agent_id, proposer_name, title, description, status, quorum_threshold, consensus_type, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, workspaceId, input.agentId, input.name, input.title, input.description, 'open', input.threshold, input.consensusType, expiresAt
-  );
-
+  await db.run("INSERT INTO swarm_proposals (id, workspace_id, proposer_agent_id, proposer_name, title, description, status, quorum_threshold, consensus_type, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", id, workspaceId, input.agentId, input.name, input.title, input.description, 'open', input.threshold, input.consensusType, expiresAt);
   telemetry.emitEvent({
     eventType: 'QUORUM_PROPOSAL_CREATED',
     agentId: input.name,
@@ -154,18 +126,45 @@ async function createProposal(req, res) {
     detail: `New swarm consensus proposal created: ${input.title} (${input.consensusType})`,
     severity: 'info'
   });
-
   res.status(201).json({ success: true, proposalId: id, consensusType: input.consensusType, expiresAt });
+}
+
+async function createCounterProposal(req, res) {
+  const user = req.user || { username: 'operator' };
+  const parentId = req.params.id;
+  const db = await getDatabase();
+  const parent = await fetchProposalForVote(db, req, parentId);
+  if (!parent) return res.status(404).json({ error: { code: 'PROPOSAL_NOT_FOUND', message: `Parent proposal '${parentId}' was not found.` } });
+  if (parent.status === 'rejected' || parent.status === 'expired') {
+    return res.status(400).json({ error: { code: 'INVALID_PARENT_STATUS', message: `Cannot counter a proposal with status '${parent.status}'.` } });
+  }
+  const body = req.body || {};
+  const input = swarmProposals.proposalInputOf({
+    ...body,
+    title: body.title || `Counter: ${parent.title || parentId}`,
+    quorumThreshold: body.quorumThreshold !== undefined ? body.quorumThreshold : parent.quorum_threshold
+  }, user);
+  if (input.error) return res.status(400).json({ error: { code: 'INVALID_PROPOSAL', message: 'A title and a quorumThreshold in (0, 1] are required.' } });
+
+  const expiresAt = swarmProposals.resolveProposalExpiry(body);
+  const id = `prop-counter-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+  const workspaceId = parent.workspace_id || body.workspaceId || 'ws-genos-core';
+  await db.run("INSERT INTO swarm_proposals (id, workspace_id, proposer_agent_id, proposer_name, title, description, status, quorum_threshold, consensus_type, parent_proposal_id, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", id, workspaceId, input.agentId, input.name, input.title, input.description, 'open', input.threshold, input.consensusType, parentId, expiresAt);
+  telemetry.emitEvent({
+    eventType: 'SWARM_COUNTER_PROPOSAL_CREATED',
+    agentId: input.name,
+    action: 'COUNTER_PROPOSAL',
+    detail: `Counter-proposal created for ${parentId}: ${input.title}`,
+    severity: 'info',
+    payload: { proposalId: id, parentProposalId: parentId, title: input.title }
+  });
+  res.status(201).json({ success: true, proposalId: id, parentProposalId: parentId, consensusType: input.consensusType, expiresAt });
 }
 
 async function fetchProposalForVote(db, req, proposalId) {
   const tenant = tenantOf(req);
   if (tenant) {
-    return db.get(`
-      SELECT p.id, p.workspace_id, p.status, p.quorum_threshold, p.consensus_type FROM swarm_proposals p
-      JOIN workspaces w ON w.id = p.workspace_id
-      WHERE p.id = ? AND w.organization_id = ? AND w.project_id = ?
-    `, proposalId, tenant.organizationId, tenant.projectId);
+    return db.get("SELECT p.id, p.workspace_id, p.status, p.quorum_threshold, p.consensus_type FROM swarm_proposals p JOIN workspaces w ON w.id = p.workspace_id WHERE p.id = ? AND w.organization_id = ? AND w.project_id = ?", proposalId, tenant.organizationId, tenant.projectId);
   }
   return db.get('SELECT id, workspace_id, status, quorum_threshold, consensus_type FROM swarm_proposals WHERE id = ?', proposalId);
 }
@@ -173,31 +172,20 @@ async function fetchProposalForVote(db, req, proposalId) {
 async function checkVoteMembership(pack) {
   const tenant = pack.req.tenant;
   if (!tenant || !pack.agentId) return null;
-  const member = await pack.db.get(
-    `SELECT a.id FROM agents a JOIN workspaces w ON w.id = a.workspace_id
-     WHERE a.id = ? AND a.workspace_id = ? AND w.organization_id = ? AND w.project_id = ?`,
-    pack.agentId, pack.proposal.workspace_id, tenant.organizationId, tenant.projectId
-  );
+  const member = await pack.db.get("SELECT a.id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.workspace_id = ? AND w.organization_id = ? AND w.project_id = ?", pack.agentId, pack.proposal.workspace_id, tenant.organizationId, tenant.projectId);
   if (!member) return { code: 'VOTE_AGENT_SCOPE_FORBIDDEN', message: 'agentId must belong to the proposal workspace.' };
   return null;
 }
 
 async function fetchCalibrationAverage(db, req, agentId) {
   const tenant = tenantOf(req);
-  if (tenant) {
-    return db.get(SQL_CALIB_TENANT, agentId, tenant.organizationId, tenant.projectId);
-  }
-  return db.get(SQL_CALIB_GLOBAL, agentId);
+  return tenant ? db.get(SQL_CALIB_TENANT, agentId, tenant.organizationId, tenant.projectId) : db.get(SQL_CALIB_GLOBAL, agentId);
 }
 
 async function calibrationWeightOf(pack) {
   if (pack.proposal.consensus_type !== 'brier_weighted') return { weight: 1.0, brier: null };
   const row = await fetchCalibrationAverage(pack.db, pack.req, pack.parsed.agentId);
-  let average = null;
-  if (row !== null && row !== undefined) {
-    const raw = row.averageBrier;
-    if (raw !== null && raw !== undefined) average = Number(raw);
-  }
+  const average = (row && row.averageBrier !== null && row.averageBrier !== undefined) ? Number(row.averageBrier) : null;
   if (Number.isFinite(average) && average >= 0 && average <= 1) {
     return { weight: qp.brierScoreToWeight(average), brier: average };
   }
@@ -207,10 +195,7 @@ async function calibrationWeightOf(pack) {
 async function persistSwarmVote(pack) {
   const info = await calibrationWeightOf(pack);
   const id = `${pack.parsed.proposalId}-${pack.parsed.agentId}-${Date.now()}`;
-  await pack.db.run(
-    `INSERT OR REPLACE INTO swarm_votes (id, proposal_id, agent_id, agent_name, vote, weight, brier_score, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, pack.parsed.proposalId, pack.parsed.agentId, pack.parsed.agentName, pack.parsed.vote, info.weight, info.brier, pack.parsed.reason
-  );
+  await pack.db.run("INSERT OR REPLACE INTO swarm_votes (id, proposal_id, agent_id, agent_name, vote, weight, brier_score, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", id, pack.parsed.proposalId, pack.parsed.agentId, pack.parsed.agentName, pack.parsed.vote, info.weight, info.brier, pack.parsed.reason);
   return info;
 }
 
@@ -219,37 +204,18 @@ async function applyVoteOutcome(pack) {
   const weighted = pack.proposal.consensus_type === 'brier_weighted';
   const tally = qp.tallySwarmVotes({ votes: proposalVotes, weighted });
   const activeCount = await getActiveNodeCount(pack.db, pack.proposal.workspace_id, tenantOf(pack.req));
-  let yes = tally.yesCount;
-  let no = tally.noCount;
-  if (weighted) {
-    yes = tally.yesWeight;
-    no = tally.noWeight;
-  }
+  const yes = weighted ? tally.yesWeight : tally.yesCount;
+  const no = weighted ? tally.noWeight : tally.noCount;
   const outcome = qp.resolveProposalStatus({
-    yes,
-    no,
-    participation: tally.participationCount,
-    active: activeCount,
+    yes, no, participation: tally.participationCount, active: activeCount,
     threshold: qp.resolveThreshold(pack.proposal.quorum_threshold)
   });
   if (outcome.status === 'passed') {
     await pack.db.run("UPDATE swarm_proposals SET status = 'passed' WHERE id = ?", pack.proposal.id);
-    telemetry.emitEvent({
-      eventType: 'QUORUM_PROPOSAL_PASSED',
-      agentId: pack.agentId,
-      action: 'PASS_QUORUM',
-      detail: `Swarm consensus proposal passed: ${pack.proposal.id}`,
-      severity: 'info'
-    });
+    telemetry.emitEvent({ eventType: 'QUORUM_PROPOSAL_PASSED', agentId: pack.agentId, action: 'PASS_QUORUM', detail: `Swarm consensus proposal passed: ${pack.proposal.id}`, severity: 'info' });
   } else if (outcome.status === 'rejected') {
     await pack.db.run("UPDATE swarm_proposals SET status = 'rejected' WHERE id = ?", pack.proposal.id);
-    telemetry.emitEvent({
-      eventType: 'QUORUM_PROPOSAL_REJECTED',
-      agentId: pack.agentId,
-      action: 'REJECT_QUORUM',
-      detail: `Swarm consensus proposal rejected: ${pack.proposal.id}`,
-      severity: 'warn'
-    });
+    telemetry.emitEvent({ eventType: 'QUORUM_PROPOSAL_REJECTED', agentId: pack.agentId, action: 'REJECT_QUORUM', detail: `Swarm consensus proposal rejected: ${pack.proposal.id}`, severity: 'warn' });
   }
   return outcome;
 }
@@ -265,24 +231,14 @@ async function castVote(req, res) {
   const db = await getDatabase();
   await expireOpenProposals(db, tenantOf(req));
   const proposal = await fetchProposalForVote(db, req, parsed.proposalId);
-  if (!proposal) {
-    return res.status(404).json({ error: { code: 'PROPOSAL_NOT_FOUND', message: 'Swarm proposal was not found.' } });
-  }
-  if (proposal.status !== 'open') {
-    return res.status(409).json({ error: { code: 'PROPOSAL_CLOSED', message: `Swarm proposal is ${proposal.status}.` } });
-  }
+  if (!proposal) return res.status(404).json({ error: { code: 'PROPOSAL_NOT_FOUND', message: 'Swarm proposal was not found.' } });
+  if (proposal.status !== 'open') return res.status(409).json({ error: { code: 'PROPOSAL_CLOSED', message: `Swarm proposal is ${proposal.status}.` } });
   const forbidden = swarmVoteInput.authorizeVoter({ req, requested: parsed.requested, agentId: parsed.agentId });
-  if (forbidden) {
-    return res.status(403).json({ error: forbidden });
-  }
+  if (forbidden) return res.status(403).json({ error: forbidden });
   const scoped = await checkVoteMembership({ db, req, proposal, agentId: parsed.agentId });
-  if (scoped) {
-    return res.status(403).json({ error: scoped });
-  }
+  if (scoped) return res.status(403).json({ error: scoped });
   const existingVote = await db.get('SELECT id FROM swarm_votes WHERE proposal_id = ? AND agent_id = ?', parsed.proposalId, parsed.agentId);
-  if (existingVote) {
-    return res.status(409).json({ error: { code: 'VOTE_ALREADY_CAST', message: 'This participant has already voted on the proposal.' } });
-  }
+  if (existingVote) return res.status(409).json({ error: { code: 'VOTE_ALREADY_CAST', message: 'This participant has already voted on the proposal.' } });
   const stored = await persistSwarmVote({ db, req, proposal, parsed });
   await applyVoteOutcome({ db, req, proposal, agentId: parsed.agentId });
 
@@ -293,21 +249,11 @@ async function castVote(req, res) {
     detail: `Agent '${parsed.agentId}' voted '${parsed.vote}' (weight: ${stored.weight}) on proposal ${parsed.proposalId}`,
     severity: 'info'
   });
-
   res.json({ success: true, message: `Vote '${parsed.vote}' recorded for agent '${parsed.agentId}'.`, weight: stored.weight });
 }
 
 function safePayloadOf(event) {
-  try {
-    return JSON.parse(event.payload_json || '{}');
-  } catch (_) {
-    return {};
-  }
-}
-
-function hasDiffOf(payload) {
-  if (payload.hasDiff || payload.diff) return true;
-  return false;
+  try { return JSON.parse(event.payload_json || '{}'); } catch (_) { return {}; }
 }
 
 function collectMessageQueue(events) {
@@ -317,7 +263,7 @@ function collectMessageQueue(events) {
     const sender = payload.sender || event.agent_id;
     const recipient = payload.recipient || payload.targetAgentId;
     if (sender && recipient && recipient !== 'telemetry' && recipient !== 'system' && sender !== recipient) {
-      queue.push({ sender, recipient, hasDiff: hasDiffOf(payload) });
+      queue.push({ sender, recipient, hasDiff: Boolean(payload.hasDiff || payload.diff) });
     }
   }
   return queue;
@@ -327,23 +273,14 @@ async function getMetrics(req, res, next) {
   try {
     const db = await getDatabase();
     const tenant = tenantOf(req);
-    let events = [];
-    if (tenant) {
-      events = await db.all(`SELECT action as type, event_type as action, agent_id, payload_json, created_at
-          FROM telemetry_events WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 50`, tenant.organizationId, tenant.projectId);
-    } else {
-      events = await db.all('SELECT action as type, event_type as action, agent_id, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 50');
-    }
+    const events = tenant
+      ? await db.all("SELECT action as type, event_type as action, agent_id, payload_json, created_at FROM telemetry_events WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 50", tenant.organizationId, tenant.projectId)
+      : await db.all("SELECT action as type, event_type as action, agent_id, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 50");
     const chronologicalEvents = events.slice().reverse();
     const entropyResult = swarmMetricsService.calculateShannonEntropy(chronologicalEvents);
     const messageQueue = collectMessageQueue(events);
     const deadlockResult = swarmMetricsService.detectDeadlocks(messageQueue);
-
-    res.json({
-      ...entropyResult,
-      deadlockSentinel: deadlockResult,
-      timestamp: new Date().toISOString()
-    });
+    res.json({ ...entropyResult, deadlockSentinel: deadlockResult, timestamp: new Date().toISOString() });
   } catch (err) {
     next(err);
   }
@@ -353,30 +290,12 @@ async function getTopology(req, res, next) {
   try {
     const db = await getDatabase();
     const tenant = tenantOf(req);
-    let agents = [];
-    let events = [];
-    if (tenant) {
-      agents = await db.all(`
-      SELECT id, name, role, status, model_tier as tier, workspace_id as workspaceId,
-        fleet_id as fleetId, parent_agent_id as parentAgentId
-      FROM agents a JOIN workspaces w ON w.id = a.workspace_id
-      WHERE a.status != 'terminated' AND w.organization_id = ? AND w.project_id = ?
-    `, tenant.organizationId, tenant.projectId);
-      events = await db.all(`
-      SELECT id, agent_id, payload_json, created_at FROM telemetry_events
-      WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 100
-    `, tenant.organizationId, tenant.projectId);
-    } else {
-      agents = await db.all(`
-      SELECT id, name, role, status, model_tier as tier, workspace_id as workspaceId,
-        fleet_id as fleetId, parent_agent_id as parentAgentId
-      FROM agents WHERE status != 'terminated'
-    `);
-      events = await db.all(`
-      SELECT id, agent_id, payload_json, created_at
-      FROM telemetry_events ORDER BY created_at DESC LIMIT 100
-    `);
-    }
+    const agents = tenant
+      ? await db.all("SELECT id, name, role, status, model_tier as tier, workspace_id as workspaceId, fleet_id as fleetId, parent_agent_id as parentAgentId FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.status != 'terminated' AND w.organization_id = ? AND w.project_id = ?", tenant.organizationId, tenant.projectId)
+      : await db.all("SELECT id, name, role, status, model_tier as tier, workspace_id as workspaceId, fleet_id as fleetId, parent_agent_id as parentAgentId FROM agents WHERE status != 'terminated'");
+    const events = tenant
+      ? await db.all("SELECT id, agent_id, payload_json, created_at FROM telemetry_events WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 100", tenant.organizationId, tenant.projectId)
+      : await db.all("SELECT id, agent_id, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 100");
     const topology = swarmMetricsService.getSwarmTopology(agents, events);
     res.json(topology);
   } catch (err) {
@@ -387,6 +306,7 @@ async function getTopology(req, res, next) {
 module.exports = {
   getConsensus,
   createProposal,
+  createCounterProposal,
   castVote,
   getMetrics,
   getTopology,

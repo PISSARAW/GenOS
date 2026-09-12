@@ -72,6 +72,7 @@ function viewOfProposal(pack) {
     description: proposal.description,
     status: proposal.status,
     consensusType: proposal.consensus_type || 'simple',
+    parentProposalId: proposal.parent_proposal_id || null,
     proposer: proposal.proposer_name || 'Swarm Leader',
     quorumThreshold: qp.resolveThreshold(proposal.quorum_threshold),
     yesCount: tally.yesCount,
@@ -81,7 +82,8 @@ function viewOfProposal(pack) {
     noWeight: tally.noWeight,
     totalVotes: tally.participationCount,
     approvalRate: approvalPercent(tally, weighted),
-    votes: toVoteViews(pack.votes)
+    votes: toVoteViews(pack.votes),
+    counterProposals: []
   };
 }
 
@@ -90,6 +92,18 @@ function buildViews(pack) {
   const out = [];
   for (const proposal of pack.proposals) {
     out.push(viewOfProposal({ proposal, votes: votesForProposal(grouped, proposal.id) }));
+  }
+  const counterMap = {};
+  for (const v of out) {
+    if (v.parentProposalId) {
+      if (!counterMap[v.parentProposalId]) counterMap[v.parentProposalId] = [];
+      counterMap[v.parentProposalId].push(v.id);
+    }
+  }
+  for (const v of out) {
+    if (counterMap[v.id]) {
+      v.counterProposals = counterMap[v.id];
+    }
   }
   return out;
 }

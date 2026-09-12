@@ -16,6 +16,7 @@ const CREATE_TABLES_SQL = TABLES_CORE + "\n" + TABLES_EXTENSIONS;
 const OPTIONAL_COLUMN_STATEMENTS = [
   'ALTER TABLE rag_chunks ADD COLUMN embedding_blob BLOB;',
   'ALTER TABLE swarm_proposals ADD COLUMN consensus_type TEXT DEFAULT "simple";',
+  'ALTER TABLE swarm_proposals ADD COLUMN parent_proposal_id TEXT;',
   'ALTER TABLE swarm_votes ADD COLUMN weight REAL DEFAULT 1.0;',
   'ALTER TABLE swarm_votes ADD COLUMN brier_score REAL;',
   'ALTER TABLE workflow_runs ADD COLUMN claim_token TEXT;',
