@@ -118,7 +118,7 @@ async function reconcileDeadOrchestratorChildren(db) {
 async function startMissionInternal(mission) {
   const ctx = await bootstrapMission(mission);
   const { agentId, normalizedMission, db, dispatchedAgent, executionRun } = ctx;
-  console.log("adapter: localModel"); assertMissionNotCancelled(agentId);
+  assertMissionNotCancelled(agentId);
   const inProcessWorker = isInProcessWorker(dispatchedAgent, normalizedMission, ctx.executable);
   if (inProcessWorker) {
     await trackWorkspace(agentId, normalizedMission.workspaceRoot);
@@ -129,11 +129,19 @@ async function startMissionInternal(mission) {
   // never recurses here: authority is deliberately one-way.
   const autonomousWorkers = await orchestrateAutonomousWorkers(ctx);
   if (autonomousWorkers.length) {
-    await runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan: ctx.autonomyPlan, contractRecord: ctx.contractRecord, autonomousWorkers });
+    try {
+      await runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan: ctx.autonomyPlan, contractRecord: ctx.contractRecord, autonomousWorkers });
+    } catch (barrierErr) {
+      if (barrierErr.code === 'WORKER_BARRIER_NO_EVIDENCE' || barrierErr.code === 'WORKER_BARRIER_TIMEOUT') {
+        emit(agentId, 'WORKER_EVIDENCE_BARRIER_EMPTY', 'BARRIER', 'Worker evidence barrier concluded without usable dossiers; proceeding to orchestrator supervision.', { error: barrierErr.message }, 'warning');
+      } else {
+        throw barrierErr;
+      }
+    }
   }
 
   assertMissionNotCancelled(agentId);
-  console.log("adapter: superviseMission"); return superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord: ctx.contractRecord, executionRun, autonomyPlan: ctx.autonomyPlan, runtimeBudget: ctx.runtimeBudget, runtimeEnvironment: ctx.runtimeEnvironment, silentUpdates: ctx.silentUpdates, genosCapsule: ctx.genosCapsule, executable: ctx.executable });
+  return superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord: ctx.contractRecord, executionRun, autonomyPlan: ctx.autonomyPlan, runtimeBudget: ctx.runtimeBudget, runtimeEnvironment: ctx.runtimeEnvironment, silentUpdates: ctx.silentUpdates, genosCapsule: ctx.genosCapsule, executable: ctx.executable });
 }
 
 function startMission(mission) {

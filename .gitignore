@@ -41,3 +41,5 @@ test_thalamus.rs
 backend/tests/.tmp-*
 *.backup-*
 artifacts/
+*.log
+*-results*.json

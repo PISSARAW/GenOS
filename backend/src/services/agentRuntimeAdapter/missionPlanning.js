@@ -6,7 +6,6 @@ const { validateBudgetCoherence } = require('../budgetCoherenceService');
 
 async function planMission(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord } = ctx;
-  console.log("adapter: plan");
   ctx.autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
 }
 
@@ -56,7 +55,6 @@ function computeRuntimeBudget(ctx) {
 
 async function createMissionExecutionRun(ctx) {
   const { db, agentId, runtimeBudget, contractRecord } = ctx;
-  console.log("adapter: executionRun");
   ctx.executionRun = await strategyExecution.createExecutionRun(db, {
     agentId,
     budget: runtimeBudget,

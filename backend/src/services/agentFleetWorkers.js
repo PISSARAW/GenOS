@@ -128,9 +128,10 @@ function createWorkerWorkspace(workerContext, id) {
   const { assignment, mission, sourceWorkspace } = workerContext;
   const isVfsWorker = !/coder|developer|implementation/i.test(assignment.role || '');
   const assignments = workerContext.assignments || [];
+  const allowEdits = mission.executionPolicy?.allowFileEdits === true || /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || ''));
   return createIsolatedWorkspace(sourceWorkspace, id, {
     capsuleRoot: mission.capsuleRoot,
-    vfs: mission.vfsWorkspace === true || (assignments.length > 12 && isVfsWorker)
+    vfs: !allowEdits || mission.vfsWorkspace === true || (assignments.length > 12 && isVfsWorker)
   });
 }
 
