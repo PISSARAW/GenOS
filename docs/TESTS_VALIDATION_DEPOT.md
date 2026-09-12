@@ -1328,5 +1328,46 @@ Pour combler l'écart sur les énigmes sans fichier, GenOS V3 dispose de trois b
    - Valide les trajectoires de vols de Lévy (alternance petits pas locaux et macro-sauts exploratoires).
    - Valide le protocole stigmergique : dépôt de jeton d'évidence signé par l'agent Scout et reprise déterministe locale par l'agent Harvester.
 
+---
+
+## 28. Suites de Validation des Organelles Biomimétiques de Réparation Logicielle (SWE-bench)
+
+Pour franchir le mur de complexité observé sur SWE-bench (taux de localisation faible $\le 20\%$ et taux de succès modeste en aveugle mono-passe sur Django et bibliothèques massives), GenOS V3 introduit trois organelles bio-inspirées validées par des suites de tests unitaires dédiées.
+
+```mermaid
+flowchart LR
+    Issue[Issue Description / Symptom] --> Scanner[1. NER Localizer Scanner<br/><i>MutS / UvrA + Proprioception</i>]
+    Scanner --> Surgical[2. Surgical Excision<br/><i>UvrBC + Blast Radius Guard</i>]
+    Surgical --> p53[3. Sandbox Verification<br/><i>p53 Apoptosis Checkpoint</i>]
+    p53 -- Compile/Test Fail --> Rollback[Contraction Blast Radius / MutS Rescan]
+    Rollback --> Scanner
+    p53 -- Preuve Validée --> Promotion[Clean Git Patch Promotion]
+```
+
+### 28.1 Scanner Proprioceptif de Localisation de Faute (`npm run test:swe-localizer`)
+- **Fichier de test :** `backend/tests/test_swe_fault_localizer.js` (délégué par `sweFaultLocalizerService.js`).
+- **Inspirations Biologiques :** Détection de mismatch d'ADN par MutS / UvrA et proprioception de Sherrington (évaluation des récepteurs neuromusculaires avant tout mouvement).
+- **Capacités Validées (100% PASS) :**
+  1. *Analyse d'Anamnèse & Extraction de Signaux* : Détection des noms de fichiers, modules Python, symboles, fonctions et types d'exceptions dans la description du problème.
+  2. *Score Mismatch NER & Classement Bayesien* : Attribution de scores pondérés basés sur les termes exacts et partiels, pondération inverse de la profondeur d'arborescence, et exclusion automatique des faux-positifs hors cible.
+  3. *Cartographie de Blast Radius Prévisionnel* : Estimation du rayon d'action avant toute intervention chirurgicale sur le code source.
+
+### 28.2 Organelle d'Excision Chirurgicale & Blast Radius Guard (`npm run test:swe-surgical`)
+- **Fichier de test :** `backend/tests/test_swe_surgical_repair.js` (délégué par `sweSurgicalRepairService.js`).
+- **Inspirations Biologiques :** Nucléase excisionnelle UvrBC (double incision ultra-ciblée à 4-5 nucléotides en 3' et 8 nucléotides en 5' de la lésion, sans altérer le reste du génome).
+- **Capacités Validées (100% PASS) :**
+  1. *Calcul de Risque de Lésion Systémique* : Évaluation de la métrique $\text{RiskScore} = \min(100, \text{files} \times 15 + \lfloor \text{lines\_changed}/4 \rfloor)$.
+  2. *Dual Incision Diff Synthèse* : Génération d'un diff unifié minimaliste ciblant exactement les lignes de code fautives avec fenêtre de contexte paramétrable.
+  3. *Blast Radius Guard* : Rejet immédiat avec `BLAST_RADIUS_EXCEEDED` si l'édition affecte un volume disproportionné de fichiers ou de lignes non requises ($\text{RiskScore} > 45$).
+
+### 28.3 Boucle de Rétroaction Sandboxée & Checkpoint p53 (`npm run test:swe-verify`)
+- **Fichier de test :** `backend/tests/test_swe_sandbox_verification.js` (délégué par `sweSandboxVerificationService.js`).
+- **Inspirations Biologiques :** Facteur de transcription p53 ("Gardien du Génome"), induisant l'arrêt du cycle cellulaire ou l'apoptose en présence d'anomalies structurelles non réparées.
+- **Capacités Validées (100% PASS) :**
+  1. *Dry-Run Sandbox Émulation* : Application non destructive du patch dans un environnement éphémère isolé.
+  2. *Vérification de Syntaxe PyCompile & AST* : Compilation stricte du patch dédenté (`python -m py_compile`) pour détecter immédiatement toute régression syntaxique.
+  3. *Checkpoint p53 & Apoptose de Branche* : Blocage de la promotion du patch avec `P53_CHECKPOINT_FAILED` en cas d'erreur de compilation ou d'échec de test reproducteur, empêchant l'infection de la branche de production.
+
+
 
 

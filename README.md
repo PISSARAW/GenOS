@@ -55,6 +55,7 @@ Les agents et les workflows portent des états internes structurés, des contrai
 
 - [docs/GENOME_EPIGENETIQUE.md](docs/GENOME_EPIGENETIQUE.md)
 - [docs/BIOLOGIE_COMPUTATIONNELLE.md](docs/BIOLOGIE_COMPUTATIONNELLE.md)
+- [docs/BIOMIMETIC_SOFTWARE_REPAIR.md](docs/BIOMIMETIC_SOFTWARE_REPAIR.md) — Réparation logicielle biomimétique (NER, proprioception, excision chirurgicale et checkpoint p53 pour SWE-bench).
 - [docs/BIOMIMETIC_WEB_FORAGING.md](docs/BIOMIMETIC_WEB_FORAGING.md) — Foraging de Charnov, fovéation rétinienne et navigation active (résolution des 77% d'épreuves web GAIA).
 
 ### 2. Mémoire, synapses et apprentissage
@@ -148,6 +149,7 @@ Voir la carte documentaire complète dans [docs/README.md](docs/README.md).
 
 #### Fondations conceptuelles
 - [docs/BIOLOGIE_COMPUTATIONNELLE.md](docs/BIOLOGIE_COMPUTATIONNELLE.md)
+- [docs/BIOMIMETIC_SOFTWARE_REPAIR.md](docs/BIOMIMETIC_SOFTWARE_REPAIR.md)
 - [docs/GENOME_EPIGENETIQUE.md](docs/GENOME_EPIGENETIQUE.md)
 - [docs/RUNTIME_AGENTIQUE.md](docs/RUNTIME_AGENTIQUE.md)
 - [docs/EPISTEMOLOGIE_EVIDENCE.md](docs/EPISTEMOLOGIE_EVIDENCE.md)

@@ -737,3 +737,19 @@ Calcul du rendement informationnel instantané dans un îlot web (patch) :
 $$\left. \frac{dI(t)}{dt} \right|_{t = t_{depart}} < \theta_{env}$$
 Dès que le taux marginal d'acquisition d'information tombe sous le rendement moyen de l'environnement, la cellule agent déclenche un délogement immédiat (*patch departure*) pour éviter l'enfermement et l'hallucination stérile.
 
+---
+
+## 6. Réparation d'ADN par Excision de Nucléotides (NER) et Proprioception de Code (SWE-bench)
+
+Voir la documentation dédiée : [docs/BIOMIMETIC_SOFTWARE_REPAIR.md](BIOMIMETIC_SOFTWARE_REPAIR.md).
+
+### 6.1 Proprioception Sensorielle de Codebase (Charles Sherrington)
+L'agent utilise `sweFaultLocalizerService` pour cartographier les symboles et traces de pile et contraindre son espace de recherche aux seuls fichiers physiques du dépôt, évitant l'agnosie proprioceptive (responsable de 77% des échecs en single-shot).
+
+### 6.2 Machinerie Enzymatique UvrABC et Contrôle du Blast Radius
+- **Reconnaissance UvrA / MutS :** Détection de la distorsion géométrique du bug dans le code.
+- **Double Incision UvrC :** Découpe chirurgicale minimale autour du mismatch sans réécriture globale du fichier.
+- **Métrique de Blast Radius :** $\text{RiskScore} = \min(100, \text{files} \times 15 + \lfloor \text{lines} / 4 \rfloor) \le 45$.
+- **Checkpoint p53 :** Barrière de preuve en sandbox (`py_compile`) rejetant tout patch syntaxiquement défectueux avant promotion.
+
+
