@@ -20,6 +20,7 @@
     "test:bench": "node tests/stress/test_framework_adversarial_bench.js",
     "test:tokens-comm": "node tests/stress/test_extreme_tokens_and_comm_bench.js",
     "test:apex-defense": "node tests/stress/test_apex_adversarial_defense_bench.js",
+    "test:real-attacks": "node tests/stress/test_real_world_adversarial_attacks.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
     "daemon": "node bin/genos-daemon.cjs",
     "daemon:interactive": "node bin/genos-daemon.cjs --interactive",
