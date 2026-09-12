@@ -11,11 +11,11 @@ const mission = args[0] || "Ouvre le bloc note et écrit GenOS V3.";
 
 runMission(mission, { onLog: (line) => console.log(line) })
     .then((result) => {
-        if (!result.success) process.exitCode = 1;
+        process.exit(result.success ? 0 : 1);
     })
     .catch((err) => {
         console.error(err);
-        process.exitCode = 1;
+        process.exit(1);
     });
 
 
