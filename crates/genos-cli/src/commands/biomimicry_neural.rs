@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use genos_biology::bioluminescence::{BioluminescenceMicroscope, FluorophoreColor};
 use genos_biology::glial::{glial_cell, Astrocyte, GlialEnvironment, GlialPipeline, Microglia, MicrogliaState};
-use genos_biology::neurobiology::DendriticTree;
+use genos_biology::neurobiology::{DendriticTree, NervousSystem, NeuroSignal, Neurotransmitter, PsychoactiveSubstance, SubstancePharmacokinetics};
 use genos_biology::signaling::{ExtracellularMatrix, TerritoryClaim};
 use genos_genome::{ChromatinState, Gene, Genome};
 
@@ -354,3 +354,46 @@ pub fn handle_epigenetic_chromatin(agent_id: &str, locus: &str, opts: (&str, boo
     }));
     Ok(())
 }
+
+pub fn handle_nootropic_infusion(agent_id: &str, substance: &str, dose_mg: f64) -> Result<(), String> {
+    let sub_lower = substance.to_lowercase();
+    let mut ns = NervousSystem::new(agent_id);
+    let is_stack = sub_lower.contains("stack") || sub_lower.contains("smart") || (sub_lower.contains("caffeine") && sub_lower.contains("theanine"));
+    let (label, details) = if is_stack {
+        let (caf, thea) = (dose_mg * 0.333, dose_mg * 0.667);
+        ns.administer_substance(PsychoactiveSubstance::Caffeine, caf);
+        ns.administer_substance(PsychoactiveSubstance::Theanine, thea);
+        ("Smart Caffeine Stack (Caféine + L-Théanine)", json!({
+            "caffeine_mg": (caf * 10.0).round() / 10.0, "theanine_mg": (thea * 10.0).round() / 10.0,
+            "ratio": "1:2", "mechanism": "Synergie nootropique: élimination du jitter, éveil calme et induction d'état de Flow"
+        }))
+    } else {
+        let parsed = match sub_lower.as_str() {
+            "theanine" | "l-theanine" | "l_theanine" | "théanine" => PsychoactiveSubstance::Theanine,
+            "theine" | "théine" => PsychoactiveSubstance::Theine,
+            "theobromine" | "théobromine" => PsychoactiveSubstance::Theobromine,
+            "paraxanthine" => PsychoactiveSubstance::Paraxanthine,
+            _ => PsychoactiveSubstance::Caffeine,
+        };
+        ns.administer_substance(parsed, dose_mg);
+        let p = SubstancePharmacokinetics::profile_for(parsed);
+        (format!("{}", parsed).leak() as &str, json!({
+            "substance": format!("{}", parsed), "half_life_ticks": p.half_life_ticks,
+            "glutamate_multiplier": p.glutamate_multiplier, "gaba_multiplier": p.gaba_multiplier,
+            "sustained_release": p.sustained_release, "jitter_risk": p.jitter_risk
+        }))
+    };
+    let state = ns.cognitive_state();
+    let resting = ns.soma.current_potential;
+    ns.receive_neurotransmitter("syn-test", &NeuroSignal { transmitter: Neurotransmitter::Glutamate, amount: 1.0 });
+    let delta = ns.soma.current_potential - resting;
+    print_json(json!({
+        "success": true, "operation": "nootropic_infusion", "agent_id": agent_id,
+        "infusion_name": label, "administered_dose_mg": dose_mg, "cognitive_state": format!("{:?}", state),
+        "substance_details": details, "membrane_potential_mv": (ns.soma.current_potential * 100.0).round() / 100.0,
+        "excitatory_delta_mv": (delta * 100.0).round() / 100.0, "active_compounds": ns.active_substances.len(),
+        "status": "neuromodulated"
+    }));
+    Ok(())
+}
+

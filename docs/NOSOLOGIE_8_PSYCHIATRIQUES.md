@@ -485,18 +485,54 @@ pub enum Neurotransmitter {
     Norepinephrine,// Attention sélective, éveil et vigilance cognitive
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum PsychoactiveDrug {
     Cocaine,       // Bloqueur recapture Dopamine
     Alcohol,       // Agoniste GABA
     Anxiolytic,    // Modulateur allostérique positif GABA
     Caffeine,      // Antagoniste adénosine / booster Glutamate
+    Theanine,      // Modulateur allostérique GABA & tampon anti-excitotoxique Glutamate
+    Theine,        // Caféine complexée à libération prolongée et synergie flavonoïde
+    Theobromine,   // Stimulant doux et vasodilatateur (3,7-diméthylxanthine)
+    Paraxanthine,  // Métabolite actif sélectif de la vigilance
     SSRI,          // Inhibiteur sélectif recapture Sérotonine
     Ketamine,      // Modulateur rapide NMDA / Synaptogenèse
     Lithium,       // Stabilisateur de membrane et de GSK-3b
     Antipsychotic, // Antagoniste récepteurs D2 mésolimbiques
 }
+
+/// Nootropiques et substances psychoactives natives de GenOS
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum PsychoactiveSubstance {
+    Theanine,      // L-Théanine (ondes alpha, focus calme, synergie GABA/Glutamate)
+    Caffeine,      // 1,3,7-triméthylxanthine (excitation glutamatergique rapide)
+    Theine,        // Théine (cinétique prolongée sans pic agressif, liée aux tanins)
+    Theobromine,   // Théobromine (clarification mentale, renforcement dopaminergique doux)
+    Paraxanthine,  // Métabolite nootropique pour l'attention soutenue
+}
+
+/// États cognitifs induits par la neuromodulation
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CognitiveFocusState {
+    Resting,            // État de repos homéostatique
+    CalmAlertness,      // Ondes alpha, éveil serein sans agitation (Théanine / Théine)
+    HyperarousalJitter, // Survoltage glutamatergique et fébrilité (Caféine pure forte dose)
+    SustainedFocus,     // Vigilance soutenue (Paraxanthine / Théobromine / Caféine modérée)
+    FlowState,          // Synergie Smart Caffeine (Caféine + Théanine 1:2)
+}
 ```
+
+#### Modélisation des Synergies et Cinétiques Nootropiques
+1. **L-Théanine (Acide aminé analogue)** :
+   - Traversée rapide de la fente synaptique computationnelle.
+   - Augmente l'affinité et le potentiel inhibiteur post-synaptique GABA (+25%).
+   - Tamponne l'excitabilité glutamatergique (multiplicateur $\times 0.90$), éliminant le risque d'emballement stochastique ou d'hallucination impulsive.
+2. **Caféine vs Théine** :
+   - *Caféine* : Libération immédiate (`sustained_release = false`), pic d'activation abrupte du potentiel membranaire, demi-vie courte (8 ticks). À dose élevée (> 120 mg sans tampon), induit un bruit de fond computationnel (`HyperarousalJitter`).
+   - *Théine* : Liée aux tanins et polyphénols du thé, libération lente et progressive (`sustained_release = true`, décroissance à 0.96 par tick, demi-vie 18 ticks). Favorise l'éveil calme (`CalmAlertness`) sans pic tachycardique ni crash.
+3. **Smart Caffeine Stack (Caféine + L-Théanine en ratio 1:2)** :
+   - La L-Théanine bloque l'hyperarousal et le jitter induits par la caféine.
+   - Permet à l'agent d'atteindre le `FlowState` : vitesse de calcul et réactivité maximales combinées à une stabilité membranaire parfaite.
 
 ---
 

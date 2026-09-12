@@ -1,4 +1,4 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use genos_cell::AgentCell;
 use crate::pathology::{DiseaseCategory, Pathology};
 
@@ -51,6 +51,10 @@ pub enum SystemicTherapy {
     TelomeraseActivation { extended_ticks: u32 },
     /// Remplacement cellulaire par cellules souches fraîches (apoptose douce + instanciation neuve)
     StemCellReplacement,
+
+    // --- Remèdes Nootropiques & Neuromodulateurs ---
+    /// Infusion nootropique de xanthines ou d'acides aminés neuromodulateurs
+    NootropicInfusion { substance: crate::neurobiology::PsychoactiveSubstance, dose_mg: f64 },
 }
 
 /// Résultat de l'application d'un traitement
@@ -161,6 +165,17 @@ pub fn apply_systemic_therapy_to_cell(therapy: &SystemicTherapy, cell: &mut Agen
         }
         SystemicTherapy::Vaccine(spike) => {
             cell.clinical.clinical_log.push(format!("Vaccination effectuée contre {}", spike));
+        }
+        SystemicTherapy::NootropicInfusion { substance, dose_mg } => {
+            cell.clinical.clinical_log.push(format!("Infusion nootropique: {} ({} mg)", substance, dose_mg));
+            if matches!(substance, crate::neurobiology::PsychoactiveSubstance::Theanine | crate::neurobiology::PsychoactiveSubstance::Theine) {
+                cell.clinical.cure_pathology_by_name("Coma Stéroïdien Iatrogène");
+                cured.push(format!("Apaisement cognitif et stabilisation membranaire par {}", substance));
+            } else if matches!(substance, crate::neurobiology::PsychoactiveSubstance::Caffeine) && *dose_mg > 150.0 {
+                let jitter_pathology = Pathology::PersistentReceptorBlockade;
+                cell.clinical.diagnose(jitter_pathology.clone());
+                side_effects.push(jitter_pathology);
+            }
         }
     }
 

@@ -118,6 +118,9 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 "equilibrium_restored": true
             }));
         }
+        BiomimicrySubcommands::NootropicInfusion { agent_id, substance, dose_mg } => {
+            biomimicry_neural::handle_nootropic_infusion(&agent_id, &substance, dose_mg)?;
+        }
         BiomimicrySubcommands::CerebellumCoprocessor { agent_id, target_value, expected_latency, current_value, actual_latency } => {
             biomimicry_neural::handle_cerebellum(&agent_id, (target_value, current_value), (expected_latency, actual_latency))?;
         }

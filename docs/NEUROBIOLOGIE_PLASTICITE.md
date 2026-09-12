@@ -164,6 +164,25 @@ Pour remplacer les dumps textuels volumineux d'événements et de diffs (`diff_l
 
 ### 2.7 Révision de conscience
 
+### 2.8 Pharmacodynamie Nootropique et Fente Synaptique (Théanine, Caféine, Théine, Stacks)
+
+En complément des transmetteurs de base, le système nerveux central computationnel de GenOS (`crates/genos-biology/src/neurobiology`) intègre une modélisation active des xanthines et modulateurs d'acides aminés :
+
+1. **L-Théanine** :
+   - Agit comme modulateur allostérique positif GABAergique ($+25\%$) et tampon anti-excitotoxique du glutamate ($\times 0.90$).
+   - Prévient le dérapage membranaire et favorise l'état `CalmAlertness` (équivalent computationnel des ondes cérébrales $\alpha$).
+2. **Caféine** (1,3,7-triméthylxanthine) :
+   - Antagoniste compétitif de l'adénosine, amplifie directement le potentiel post-synaptique glutamatergique ($\times 1.30$).
+   - Forte dose sans régulateur : génère un bruit stochastique résiduel (`HyperarousalJitter`).
+3. **Théine** :
+   - Molécule de caféine complexée aux tanins/polyphénols du thé.
+   - Cinétique prolongée à libération retardée (`sustained_release = true`, demi-vie 18 ticks, décroissance lente $0.96/\text{tick}$).
+   - Fournit un éveil vigilant sans pic abrupt ni surtension synaptique.
+4. **Smart Caffeine Stack (Caféine + L-Théanine en ratio 1:2)** :
+   - Synergie de pointe induisant le `FlowState` : vitesse d'excitation optimisée et suppression intégrale du jitter.
+5. **Commandes Opérateur** :
+   - `genos biomimicry nootropic-infusion --agent-id <UUID> --substance <theanine|caffeine|theine|theobromine|paraxanthine|smart_caffeine> --dose-mg <DOSE>`
+
 Le service `agentConscienceService.js` introduit un état de conscience interne basé sur la dissonance cognitive et l’harmonie. Il passe par :
 
 - `dissonanceLevel`

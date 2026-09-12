@@ -60,6 +60,14 @@ pub enum BiomimicrySubcommands {
         #[arg(long)]
         nervous_state: String,
     },
+    NootropicInfusion {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long)]
+        substance: String,
+        #[arg(long, default_value_t = 100.0)]
+        dose_mg: f64,
+    },
     CerebellumCoprocessor {
         #[arg(long)]
         agent_id: String,
