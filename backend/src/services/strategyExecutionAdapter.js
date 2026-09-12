@@ -12,6 +12,7 @@ function getAdaptationService() {
 }
 
 const { HANDLERS } = require('./primitiveHandlers/handlersRegistry');
+const HANDLERS_MAP = new Map(Object.entries(HANDLERS));
 
 /**
  * Log primitive execution for audit trail: records which primitives were actually
@@ -60,8 +61,9 @@ class StrategyExecutionAdapter {
       payload: context
     });
 
-    if (typeof primitive === 'string' && Object.prototype.hasOwnProperty.call(HANDLERS, primitive) && typeof HANDLERS[primitive] === 'function') {
-      return HANDLERS[primitive](context);
+    const handler = typeof primitive === 'string' ? HANDLERS_MAP.get(primitive) : null;
+    if (typeof handler === 'function') {
+      return handler(context);
     }
 
     const error = new Error(`Strategy primitive '${primitive}' has no registered handler.`);

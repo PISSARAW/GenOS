@@ -121,10 +121,8 @@ function getToolHandler(toolName) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: res?.output || `Lamarckian mutation failed for agent '${agentId}'.`, error: `Lamarckian mutation was not applied for agent '${agentId}'.` };
     },
   };
-  if (typeof toolName === 'string' && Object.prototype.hasOwnProperty.call(handlers, toolName)) {
-    return handlers[toolName];
-  }
-  return null;
+  const toolMap = new Map(Object.entries(handlers));
+  return typeof toolName === 'string' ? (toolMap.get(toolName) || null) : null;
 }
 
 function executeBioExtra(toolName, args = {}, options = {}) {

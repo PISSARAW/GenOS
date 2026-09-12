@@ -3,7 +3,7 @@ const { getDatabase } = require('../../db');
 const { enforceHooks } = require('./hooks');
 const { applyState } = require('./state');
 const { updateRef } = require('./refs');
-const { validateRemoteUrlHost, assertRemoteGitUrl } = require('./remoteUrlPolicy');
+const { validateRemoteUrlHost, assertRemoteGitUrl, PRIVATE_HOST_PATTERN } = require('./remoteUrlPolicy');
 function scopeSql(req, alias = 'w') {
   if (!req.tenant) return { clause: '1 = 1', params: [] };
   const prefix = alias ? `${alias}.` : '';
@@ -129,6 +129,8 @@ async function push(req) {
   if (req.body?.remoteUrl) {
     await assertRemoteGitUrl(req.body.remoteUrl);
     const safeUrl = validateRemoteUrlHost(req.body.remoteUrl);
+    if (safeUrl.protocol !== 'https:' && safeUrl.protocol !== 'http:') throw new Error('Invalid protocol');
+    if (PRIVATE_HOST_PATTERN.test(safeUrl.hostname) || safeUrl.hostname === 'localhost') throw new Error('Blocked host');
     safeUrl.pathname = `${safeUrl.pathname.replace(/\/$/, '')}/api/lineage/agents/git/remote/push`;
     const state = await collectState(await getDatabase(), req, agentId);
     const response = await globalThis.fetch(safeUrl.href, {
@@ -148,6 +150,8 @@ async function fetch(req) {
   if (req.body?.remoteUrl) {
     await assertRemoteGitUrl(req.body.remoteUrl);
     const safeUrl = validateRemoteUrlHost(req.body.remoteUrl);
+    if (safeUrl.protocol !== 'https:' && safeUrl.protocol !== 'http:') throw new Error('Invalid protocol');
+    if (PRIVATE_HOST_PATTERN.test(safeUrl.hostname) || safeUrl.hostname === 'localhost') throw new Error('Blocked host');
     safeUrl.pathname = `${safeUrl.pathname.replace(/\/$/, '')}/api/lineage/agents/git/remote/fetch`;
     const response = await globalThis.fetch(safeUrl.href, { method: 'POST', headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) }, body: JSON.stringify({ ...req.body, remoteName }) });
     if (!response.ok) throw new Error(`Remote fetch failed with HTTP ${response.status}.`);

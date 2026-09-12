@@ -55,11 +55,12 @@ const BIO_EXTRA_HANDLERS = {
   genos_get_swarm_entropy: handleSwarmEntropy,
   genos_biomimicry_entropy: handleSwarmEntropy,
 };
+const BIO_EXTRA_HANDLERS_MAP = new Map(Object.entries(BIO_EXTRA_HANDLERS));
 
 async function handleBioExtraTool(toolName, args, timeoutMs) {
-  if (typeof toolName === 'string' && Object.prototype.hasOwnProperty.call(BIO_EXTRA_HANDLERS, toolName)) {
-    const handler = BIO_EXTRA_HANDLERS[toolName];
-    if (typeof handler === 'function') return await handler(args, timeoutMs);
+  const handler = typeof toolName === 'string' ? BIO_EXTRA_HANDLERS_MAP.get(toolName) : null;
+  if (typeof handler === 'function') {
+    return await handler(args, timeoutMs);
   }
   return null;
 }
