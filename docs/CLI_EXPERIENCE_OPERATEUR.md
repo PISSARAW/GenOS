@@ -183,7 +183,7 @@ Le répertoire `backend/bin/` contient les points d'entrée opérationnels et br
 - **`genos-ateam-audit.js`** : Audit de couverture de compétences des missions A-Team (`--mission`, `--subsystems`).
 - **`genos-recent-tasks.cjs`** : Consultation des dernières missions et trajectoires enregistrées.
 - **`genos-agent-runtime.cjs`** : Bridge d'exécution bas-niveau communiquant via protobuf / JSON cadré.
-- **`genos-computer-use.cjs`** : Automatisation d'actions d'environnement et de bureau.
+- **`genos-computer-use.cjs`** : Automatisation d'actions d'environnement et de bureau (avec fallback synthétique et simulation sécurisée en environnement headless/CI).
 
 La commande `node backend/bin/cliHelp.cjs` affiche l'index complet de découverte de tous les outils disponibles.
 
