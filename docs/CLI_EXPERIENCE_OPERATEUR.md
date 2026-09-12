@@ -71,7 +71,11 @@ flowchart TD
 
 ### 3.1 `genos` : noyau CLI Rust
 
-Le binaire `genos` est défini dans `crates/genos-cli`. Il expose des sous-commandes structurées avec `clap` : `agent`, `snapshot`, `diff`, `hallucination`, `replay`, `capsule`, `audit`, `merge`, `experiment`, `world`, `platform`, `resilience`, `ais`, `synaptic`, `fossil`, `serve` et `desktop`.
+Le binaire `genos` est défini dans `crates/genos-cli`. Il expose des sous-commandes structurées avec `clap` : `agent`, `snapshot`, `diff`, `hallucination`, `replay`, `biomimicry`, `capsule`, `audit`, `merge`, `experiment`, `world`, `platform`, `resilience`, `ais`, `synaptic`, `fossil`, `serve` et `desktop`.
+
+Parmi les commandes biomimétiques et neurobiologiques clés :
+- **`genos biomimicry nootropic-infusion`** : Administration et titration pharmacologique d'acides aminés et xanthines neuroactives (`--agent-id <UUID> --substance <theanine|caffeine|theine|theobromine|paraxanthine|smart_caffeine> [--dose-mg <DOSE>]`). Calcule la cinétique, module l'excitabilité postsynaptique (Glutamate / GABA) et retourne l'état cognitif résultant (`CalmAlertness`, `FlowState`, `SustainedFocus`, `HyperarousalJitter`).
+- **`genos biomimicry hypothalamus-homeostasis`** : Équilibrage homéostatique autonome du ratio GABA/Glutamate lors de crises de panique ou de stress.
 
 Le point d'entrée appelle le handler Rust correspondant puis :
 

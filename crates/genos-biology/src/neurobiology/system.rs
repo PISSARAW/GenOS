@@ -13,8 +13,12 @@ pub struct NervousSystem {
     // 2. Le Corps Cellulaire / Soma (L'usine et le centre de calcul)
     pub soma: Soma,
 
-    // 3. L'Axone (Le grand cÃƒÆ’Ã‚Â¢ble de transmission et l'autoroute logistique)
+    // 3. L'Axone (Le grand câble de transmission et l'autoroute logistique)
     pub axon: Axon,
+
+    // 4. Compartiment des substances psychoactives et nootropiques en circulation
+    #[serde(default)]
+    pub active_substances: Vec<ActiveSubstance>,
 }
 
 impl NervousSystem {
@@ -25,21 +29,99 @@ impl NervousSystem {
             dendritic_tree: DendriticTree::new(),
             soma: Soma::new(),
             axon: Axon::new(5.0),
+            active_substances: Vec::new(),
+        }
+    }
+
+    /// Administre une substance nootropique ou psychoactive
+    pub fn administer_substance(&mut self, substance: PsychoactiveSubstance, dose_mg: f64) {
+        if let Some(existing) = self.active_substances.iter_mut().find(|s| s.substance == substance) {
+            existing.current_dose_mg += dose_mg;
+            existing.initial_dose_mg += dose_mg;
+            let profile = SubstancePharmacokinetics::profile_for(substance);
+            existing.ticks_remaining = profile.half_life_ticks * 2;
+            existing.bioavailability = 1.0;
+        } else {
+            self.active_substances.push(ActiveSubstance::new(substance, dose_mg));
+        }
+    }
+
+    /// Fait progresser la métabolisation pharmacocinétique de toutes les substances actives
+    pub fn metabolize_substances(&mut self) {
+        self.active_substances.retain_mut(|s| s.metabolize_tick());
+    }
+
+    /// Détermine l'état cognitif global selon les substances présentes
+    pub fn cognitive_state(&self) -> CognitiveFocusState {
+        let has_caffeine = self.active_substances.iter().any(|s| s.substance == PsychoactiveSubstance::Caffeine && s.current_dose_mg > 10.0);
+        let has_theanine = self.active_substances.iter().any(|s| s.substance == PsychoactiveSubstance::Theanine && s.current_dose_mg > 10.0);
+        let has_theine = self.active_substances.iter().any(|s| s.substance == PsychoactiveSubstance::Theine && s.current_dose_mg > 10.0);
+        let has_sustained = self.active_substances.iter().any(|s| (s.substance == PsychoactiveSubstance::Paraxanthine || s.substance == PsychoactiveSubstance::Theobromine) && s.current_dose_mg > 10.0);
+
+        if (has_caffeine && has_theanine) || (has_theine && has_theanine) {
+            CognitiveFocusState::FlowState
+        } else if has_theanine || has_theine {
+            CognitiveFocusState::CalmAlertness
+        } else if has_caffeine {
+            let caffeine_dose = self.active_substances.iter()
+                .find(|s| s.substance == PsychoactiveSubstance::Caffeine)
+                .map(|s| s.current_dose_mg)
+                .unwrap_or(0.0);
+            if caffeine_dose > 120.0 {
+                CognitiveFocusState::HyperarousalJitter
+            } else {
+                CognitiveFocusState::SustainedFocus
+            }
+        } else if has_sustained {
+            CognitiveFocusState::SustainedFocus
+        } else {
+            CognitiveFocusState::Resting
         }
     }
 
     pub fn receive_neurotransmitter(&mut self, source_id: &str, signal: &NeuroSignal) {
-        let effect = self.dendritic_tree.process_signal(source_id, signal.amount);
+        let base_effect = self.dendritic_tree.process_signal(source_id, signal.amount);
+
+        // Modulateurs pharmacologiques selon les substances actives
+        let mut glu_factor = 1.0;
+        let mut gaba_factor = 1.0;
+        let mut dopa_factor = 1.0;
+        let mut jitter_noise = 0.0;
+
+        let has_caffeine = self.active_substances.iter().any(|s| s.substance == PsychoactiveSubstance::Caffeine && s.current_dose_mg > 0.1);
+        let has_theanine = self.active_substances.iter().any(|s| s.substance == PsychoactiveSubstance::Theanine && s.current_dose_mg > 0.1);
+
+        for active in &self.active_substances {
+            let profile = SubstancePharmacokinetics::profile_for(active.substance);
+            let intensity = active.bioavailability;
+            glu_factor *= 1.0 + (profile.glutamate_multiplier - 1.0) * intensity;
+            gaba_factor *= 1.0 + (profile.gaba_multiplier - 1.0) * intensity;
+            dopa_factor *= 1.0 + (profile.dopamine_multiplier - 1.0) * intensity;
+            if !has_theanine && profile.jitter_risk > 0.0 {
+                jitter_noise += profile.jitter_risk * intensity * 0.5;
+            }
+        }
+
+        // Synergie Smart Caffeine (Caféine + Théanine) : neutralisation du bruit et canalisation de l'excitabilité
+        if has_caffeine && has_theanine {
+            jitter_noise = 0.0;
+            glu_factor = glu_factor.min(1.20);
+        }
 
         match signal.transmitter {
-            Neurotransmitter::Glutamate => self.soma.current_potential += effect, // Excitation (Rapproche de -55mV)
-            Neurotransmitter::GABA => self.soma.current_potential -= effect, // Inhibition (Hyperpolarisation)
+            Neurotransmitter::Glutamate => {
+                let effect = (base_effect * glu_factor) + jitter_noise;
+                self.soma.current_potential += effect;
+            }
+            Neurotransmitter::GABA => {
+                let effect = base_effect * gaba_factor;
+                self.soma.current_potential -= effect;
+            }
             Neurotransmitter::Dopamine => {
-                // La dopamine renforce brutalement le potentiel et aide ÃƒÆ’Ã‚Â  consolider
-                self.soma.current_potential += effect * 1.5;
+                let effect = base_effect * 1.5 * dopa_factor;
+                self.soma.current_potential += effect;
             }
             Neurotransmitter::Serotonin => {
-                // Stabilise le potentiel vers son ÃƒÆ’Ã‚Â©tat de repos
                 self.soma.current_potential = self.soma.resting_potential;
             }
         }
