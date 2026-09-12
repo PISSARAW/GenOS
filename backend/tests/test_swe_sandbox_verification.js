@@ -71,6 +71,22 @@ diff --git a/django/db/models/query.py b/django/db/models/query.py
   assert.strictEqual(mcpSyntax.success, true);
   console.log('  -> MCP integration passed');
 
+  // 5. Test Closed-Loop Cerebellar Motor Adaptation
+  console.log('[5/5] Testing closed-loop cerebellar motor adaptation...');
+  let iteration = 0;
+  const loopRes = await verifier.executeCerebellarLoop(async (signal, attempt) => {
+    iteration = attempt;
+    if (attempt === 1) {
+      return 'diff --git a/test.py b/test.py\n--- a/test.py\n+++ b/test.py\n@@ -1,1 +1,1 @@\n+def broken(:\n';
+    }
+    return 'diff --git a/test.py b/test.py\n--- a/test.py\n+++ b/test.py\n@@ -1,1 +1,1 @@\n+def fixed():\n+    return 1\n';
+  }, { targetFile: 'test.py' }, 3);
+
+  assert.strictEqual(loopRes.resolved, true);
+  assert.strictEqual(loopRes.attempts, 2);
+  assert.strictEqual(iteration, 2);
+  console.log('  -> Cerebellar loop adapted and resolved at attempt:', loopRes.attempts);
+
   console.log('\n[PASS] All SWE Sandbox & p53 Gate tests passed successfully!');
   console.log('====================================================\n');
 }
