@@ -22,17 +22,27 @@ const configuredOrigins = String(process.env.GENOS_ALLOWED_ORIGINS || '')
   .filter(Boolean);
 const ALLOWED_ORIGINS = Array.from(new Set([...DEFAULT_ALLOWED_ORIGINS, ...configuredOrigins]));
 
+const TAG_BLOCK = /<\s*(?:script|iframe|style|object|embed|svg|math)\b[^>]*>[\s\S]*?<\s*\/\s*(?:script|iframe|style|object|embed|svg|math)\s*>/gi;
+const EVENT_HANDLER = /on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+
+function stripTagsToFixedPoint(value) {
+  let current = value;
+  for (let pass = 0; pass < 4; pass += 1) {
+    const next = current.replace(/<[^>]*>/g, '');
+    if (next === current) break;
+    current = next;
+  }
+  return current;
+}
+
 function sanitizeString(str) {
   if (typeof str !== 'string') return str;
-  return str
-    .replace(/<\s*script\b[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, '')
-    .replace(/<\s*script\b[^>]*>/gi, '')
-    .replace(/<\s*\/\s*script\s*>/gi, '')
-    .replace(/<\s*iframe\b[^>]*>[\s\S]*?<\s*\/\s*iframe\s*>/gi, '')
-    .replace(/<\s*iframe\b[^>]*>/gi, '')
-    .replace(/<\s*\/\s*iframe\s*>/gi, '')
-    .replace(/javascript\s*:[^\s"'>]*/gi, '')
-    .replace(/on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  // Multi-pass stripping defeats mutation XSS such as `<scr<script>ipt>`.
+  const withoutBlocks = str.replace(TAG_BLOCK, '');
+  return stripTagsToFixedPoint(withoutBlocks)
+    .replace(/javascript\s*:/gi, '')
+    .replace(EVENT_HANDLER, '')
+    .replace(/[<>]/g, '');
 }
 
 function sanitizeValue(val) {
