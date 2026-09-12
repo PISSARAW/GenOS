@@ -94,7 +94,11 @@ function isolatedRunnerEnv(runnerRoot) {
 function spawnTestCommand(options) {
   const { shellCommand, workingDirectory, runnerRoot, timeoutMs, maxOutputBytes } = options;
   const { spawn } = require('child_process');
-  const safeTimeoutMs = Math.max(1000, Math.min(Number(timeoutMs) || 30000, 120000));
+  const parsedTimeout = parseInt(timeoutMs, 10);
+  let safeTimeoutMs = 30000;
+  if (!Number.isNaN(parsedTimeout) && parsedTimeout >= 1000 && parsedTimeout <= 120000) {
+    safeTimeoutMs = parsedTimeout;
+  }
 
   if (!String(shellCommand).match(/^[a-zA-Z0-9_./:\- ]+$/)) {
     throw new Error('Command contains invalid characters.');
@@ -129,6 +133,16 @@ function spawnTestCommand(options) {
 async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBytes = 1024 * 1024, workspacePath }) {
   if (!String(command || '').trim()) throw new Error('A test command is required.');
   const shellCommand = assertAllowedTestCommand(command);
+  const parsedTimeout = parseInt(timeoutMs, 10);
+  let safeTimeout = 30000;
+  if (!Number.isNaN(parsedTimeout) && parsedTimeout >= 1000 && parsedTimeout <= 120000) {
+    safeTimeout = parsedTimeout;
+  }
+  const parsedBytes = parseInt(maxOutputBytes, 10);
+  let safeMaxOutputBytes = 1024 * 1024;
+  if (!Number.isNaN(parsedBytes) && parsedBytes >= 1024 && parsedBytes <= (10 * 1024 * 1024)) {
+    safeMaxOutputBytes = parsedBytes;
+  }
   const runnerRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'genos-test-run-'));
   const workingDirectory = path.join(runnerRoot, 'workspace');
   let cleanupWorktree = null;
@@ -138,7 +152,7 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
     // worktree would replay only the recorded commit and could silently omit
     // uncommitted state, so replay always uses the checksum-verified payload.
     await materialize(snapshot, workingDirectory);
-    const output = await spawnTestCommand({ shellCommand, workingDirectory, runnerRoot, timeoutMs, maxOutputBytes });
+    const output = await spawnTestCommand({ shellCommand, workingDirectory, runnerRoot, timeoutMs: safeTimeout, maxOutputBytes: safeMaxOutputBytes });
     return { ...output, snapshotId: snapshot.id, snapshotHash: snapshot.snapshot_hash, materialization };
   } finally {
     if (cleanupWorktree) await cleanupWorktree();

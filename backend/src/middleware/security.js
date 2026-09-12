@@ -49,15 +49,34 @@ function removeTagBlocks(input) {
   return str;
 }
 
+function removeJsPseudoProtocol(input) {
+  let str = String(input || '');
+  while (true) {
+    const lower = str.toLowerCase();
+    const idx = lower.indexOf('javascript:');
+    if (idx === -1) break;
+    str = str.slice(0, idx) + str.slice(idx + 11);
+  }
+  return str;
+}
+
 function stripTagsToFixedPoint(value) {
-  let current = String(value || '');
+  let current = removeJsPseudoProtocol(value);
   let previous;
   do {
     previous = current;
-    current = current
-      .replace(/<[^>]*>/g, '')
-      .replace(/javascript\s*:/gi, '')
-      .replace(/on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+    let res = '';
+    let inTag = false;
+    for (let i = 0; i < current.length; i++) {
+      const c = current[i];
+      if (!inTag) {
+        if (c === '<') inTag = true;
+        else res += c;
+      } else if (c === '>') {
+        inTag = false;
+      }
+    }
+    current = res;
   } while (current !== previous);
   return current.replace(/[<>]/g, '');
 }

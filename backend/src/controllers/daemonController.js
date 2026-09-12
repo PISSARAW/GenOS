@@ -10,12 +10,12 @@ const daemon = require('../services/daemonAgentAutostart');
 
 function sanitizeDirectoryPath(dirPath) {
   if (!dirPath || typeof dirPath !== 'string') return null;
+  if (dirPath.includes('..') || dirPath.includes('\0')) return null;
   const resolved = path.resolve(dirPath);
-  if (resolved.includes('\0') || path.parse(resolved).root === resolved) return null;
+  if (path.parse(resolved).root === resolved) return null;
   try {
-    const real = fs.realpathSync(resolved);
-    if (!fs.statSync(real).isDirectory()) return null;
-    return real;
+    const stat = fs.statSync(resolved);
+    return stat.isDirectory() ? resolved : null;
   } catch {
     return null;
   }
