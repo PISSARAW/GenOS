@@ -66,9 +66,13 @@ pub fn public_tool_specs() -> Vec<Value> {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "snapshot": { "type": "string", "description": "Snapshot path relative to the workspace root." }
+                    "snapshot": { "type": "string", "description": "Snapshot path relative to the workspace root." },
+                    "snapshot_id": { "type": "string", "description": "Snapshot identifier." }
                 },
-                "required": ["snapshot"]
+                "anyOf": [
+                    { "required": ["snapshot"] },
+                    { "required": ["snapshot_id"] }
+                ]
             }
         }),
         json!({
@@ -149,7 +153,7 @@ pub fn public_tool_specs() -> Vec<Value> {
                     "kind": { "type": "string", "description": "Type of publication (evidence, challenge, vote, trace)." },
                     "content": { "type": "string", "description": "Message payload." }
                 },
-                "required": ["kind", "content"]
+                "required": ["kind"]
             }
         }),
         json!({
