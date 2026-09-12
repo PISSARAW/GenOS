@@ -17,6 +17,24 @@ $openSslLib = if ($env:OPENSSL_LIB_DIR) {
 if ($openSslLib -and (Test-Path $openSslLib)) {
     $env:LIB = "$openSslLib;" + $env:LIB
 }
+
+$releaseDir = Join-Path $RepoRoot "target\release"
+$expectedBinaries = @("g.exe", "genos.exe", "genos-mcp.exe", "genos-api.exe")
+foreach ($binary in $expectedBinaries) {
+    $binPath = Join-Path $releaseDir $binary
+    if (Test-Path $binPath) {
+        try {
+            $testStream = [System.IO.File]::Open($binPath, 'Open', 'Write')
+            $testStream.Close()
+        } catch {
+            $oldPath = "$binPath.old"
+            if (Test-Path $oldPath) { Remove-Item $oldPath -Force -ErrorAction SilentlyContinue }
+            Rename-Item -Path $binPath -NewName "$binary.old" -Force
+            Write-Host "  -> Renamed locked $binary to $binary.old" -ForegroundColor Yellow
+        }
+    }
+}
+
 cargo build --release --workspace
 
 $releaseDir = Join-Path $RepoRoot "target\release"
