@@ -121,7 +121,7 @@ class TelemetryObserver extends EventEmitter {
     if (this.persistQueue.length >= this.maxPersistQueue) { this.persistQueue.shift(); this.droppedEvents += 1; }
     this.persistQueue.push(event);
     if (this.persisting) return;
-    setImmediate(() => this.drainPersistQueue());
+    setImmediate(() => this.drainPersistQueue().catch(() => {}));
   }
 
   async drainPersistQueue() {
@@ -129,9 +129,11 @@ class TelemetryObserver extends EventEmitter {
     let abortDueToClosedDb = false;
     try {
       abortDueToClosedDb = await telemetryPersist.drain(this);
+    } catch (_) {
+      abortDueToClosedDb = true;
     } finally {
       this.persisting = false;
-      if (!abortDueToClosedDb && this.persistQueue.length) setImmediate(() => this.drainPersistQueue());
+      if (!abortDueToClosedDb && this.persistQueue.length) setImmediate(() => this.drainPersistQueue().catch(() => {}));
     }
   }
 
