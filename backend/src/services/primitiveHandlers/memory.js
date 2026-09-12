@@ -252,10 +252,24 @@ async function stdpUpdate(context) {
     : -learningRate * Math.exp(-Math.abs(deltaT) / tauMinus);
   const update = Number((baseUpdate * neuromodulationFactor).toFixed(6));
 
-  const [sRow, tRow] = await Promise.all([
+  let [sRow, tRow] = await Promise.all([
     db.get('SELECT id, organization_id, project_id FROM genome_decisions WHERE id = ?', sourceId),
     db.get('SELECT id, organization_id, project_id FROM genome_decisions WHERE id = ?', targetId)
   ]);
+  if (!sRow) {
+    await db.run(
+      'INSERT OR IGNORE INTO genome_decisions (id, title, summary, workspace_id, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      sourceId, `Decision ${sourceId}`, `Synthetic decision ${sourceId}`, context.workspaceId || 'ws-default', context.agentId || 'system', context.organizationId || null, context.projectId || null
+    );
+    sRow = await db.get('SELECT id, organization_id, project_id FROM genome_decisions WHERE id = ?', sourceId);
+  }
+  if (!tRow) {
+    await db.run(
+      'INSERT OR IGNORE INTO genome_decisions (id, title, summary, workspace_id, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      targetId, `Decision ${targetId}`, `Synthetic decision ${targetId}`, context.workspaceId || 'ws-default', context.agentId || 'system', context.organizationId || null, context.projectId || null
+    );
+    tRow = await db.get('SELECT id, organization_id, project_id FROM genome_decisions WHERE id = ?', targetId);
+  }
   if (!sRow || !tRow) {
     return { success: false, error: `Invalid foreign keys for STDP: sourceId=${sourceId}, targetId=${targetId}` };
   }
