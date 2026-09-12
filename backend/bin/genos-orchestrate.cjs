@@ -24,7 +24,13 @@ if (process.env.GENOS_STREAM_TELEMETRY === '1') {
   });
 }
 
-const request = JSON.parse(process.argv[2] || '{}');
+let request = {};
+try {
+  request = JSON.parse(process.argv[2] || '{}');
+} catch (error) {
+  process.stderr.write(`[genos-orchestrate] Invalid JSON payload argument: ${error.message}\n`);
+  process.exit(1);
+}
 const action = request.action || 'orchestrate';
 const task = String(request.mission || request.task || 'Autonomous GenOS orchestration');
 let orchestratorId = request.orchestratorId;
@@ -41,7 +47,10 @@ const allowFileEdits = policyRequest.allow_file_edits === true;
 const workerSafeActions = new Set(['organization_publish', 'organization_inbox', 'organization_state']);
 if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' && !workerSafeActions.has(action)) {
   const owner = process.env.GENOS_ORCHESTRATOR_AGENT_ID || 'its orchestrator';
-  throw new Error(`GenOS worker recursion blocked: delegated workers must return evidence to ${owner}, not create another orchestrator.`);
+  const msg = `GenOS worker recursion blocked: delegated workers must return evidence to ${owner}, not create another orchestrator.`;
+  process.stderr.write(`[genos-orchestrate] ${msg}\n`);
+  process.exitCode = 1;
+  process.exit(1);
 }
 
 async function waitForCompletion(db) {
