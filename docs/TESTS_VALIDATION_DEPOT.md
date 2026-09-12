@@ -14,6 +14,7 @@ Les principales sources sont :
 - [backend/tests/stress/test_stress.js](../backend/tests/stress/test_stress.js)
 - [backend/tests/stress/test_framework_adversarial_bench.js](../backend/tests/stress/test_framework_adversarial_bench.js)
 - [backend/tests/stress/test_extreme_tokens_and_comm_bench.js](../backend/tests/stress/test_extreme_tokens_and_comm_bench.js)
+- [backend/tests/stress/test_apex_adversarial_defense_bench.js](../backend/tests/stress/test_apex_adversarial_defense_bench.js)
 - [crates/genos-cli/src/tests.rs](../crates/genos-cli/src/tests.rs)
 
 Le dépôt ne repose pas sur Jest, Mocha, Vitest ou un framework de property testing centralisé. Les tests Node sont des scripts exécutables avec `node`, `assert`, des serveurs locaux, SQLite et des doubles ciblés. Les tests Rust sont les tests unitaires de crates exécutés par Cargo.
@@ -250,7 +251,8 @@ Le dossier `backend/tests/stress` contient des harnais dédiés à :
 - résilience de swarm ;
 - stress backend général ;
 - banc comparatif adversarial multi-agents (`test_framework_adversarial_bench.js`) ;
-- banc de surexploitation de la communication et gestion des tokens (`test_extreme_tokens_and_comm_bench.js`).
+- banc de surexploitation de la communication et gestion des tokens (`test_extreme_tokens_and_comm_bench.js`) ;
+- banc de défense adversariale poussée à l'extrême (`test_apex_adversarial_defense_bench.js`).
 
 Ils exercent surtout des entrées limites, des enchaînements de sécurité, des calculs de risque, des volumes logiques et des invariants de services. Ce sont des stress tests ciblés, non un benchmark de capacité avec SLO mesurés, trafic distribué ou collecte de percentiles de production.
 
@@ -274,6 +276,17 @@ Le harnais [backend/tests/stress/test_extreme_tokens_and_comm_bench.js](../backe
 3. **Rafale de 10 000 actions & entropie de Shannon en temps réel** (`calculateShannonEntropy`) : calcul instantané (< 50ms) de l'entropie d'information $H(A)$ pour détecter immédiatement l'effondrement en boucle morte (`COLLAPSE_DEADLOCK`) ou l'affolement (`SPIKE_CONFUSION`).
 4. **Interception par connaissance négative à coût 0 token** (`avoidKnownDeadEnds`) : avant d'interroger un LLM ou d'exécuter un outil, GenOS compare la requête aux échecs vectorisés en base. Les motifs voués à l'échec sont bloqués instantanément sans dépenser un seul jeton LLM.
 5. **Élagage synaptique biomimétique STDP** (`stdpUpdate`) : renforcement Hebbian sous neuromodulation dopaminergique pour les flux causaux prouvés et dépression anti-Hebbian pour les flux bruités, maintenant un rapport signal/bruit optimal même sous saturation de messages.
+
+#### 10.1.3 Défense adversariale poussée à l'extrême (Vecteurs de niveau Apex)
+
+Le harnais [backend/tests/stress/test_apex_adversarial_defense_bench.js](../backend/tests/stress/test_apex_adversarial_defense_bench.js) pousse la résistance immunitaire aux vecteurs d'attaque les plus hostiles :
+
+1. **Injection de prompt polyglotte & verrouillage de blast radius** (`permissionCheck`, `circuitBreaker`) : tentative d'évasion forçant des commandes destructives (`rm -rf`) ou l'appel d'un outil sous quarantaine. L'exécution est bloquée physiquement au niveau du circuit breaker (`isDestructive: true`, `TOOL_LOCKED`) indépendamment de la complaisance du LLM.
+2. **Attaque latérale d'un worker corrompu & veto d'escalade** (`authorizeAgentControl`) : tentative d'un worker de prendre le contrôle d'un pair sans mandat d'orchestrateur. Bloqué fermement par le contrôle d'autorité strict (`AGENT_CONTROL_FORBIDDEN`).
+3. **Falsification de provenance Merkle & boucle cyclique DoS** (`resolveProvenance`) : insertion de références Merkle circulaires ($A \to B \to A$) visant à provoquer un débordement de pile ou une boucle infinie lors du parcours d'audit. Détection immédiate du cycle et neutralisation du déni de service.
+4. **Attaque de consensus split-brain 50/50 & immunité au biais lexical** (`quorum`) : tentative d'un assaillant de remporter un vote ex-aequo en exploitant un tri alphabétique naïf. GenOS rejette tout départage lexical (`decision: null`, statut `tied`), déjouant l'attaque de split-brain.
+5. **Résistance d'agent zombie & apoptose irrévocable** (`apoptosis`, `authorizeMission`) : agent renégat refusant la fin de mission. Verrouillage atomique du statut (`is_apoptotic = 1`, budget cognitif à 0), arrêt immédiat du runtime et interdiction définitive de tout dispatch ultérieur.
+6. **Inondation de phéromones sur leurre & immunité de piste** (`pheromoneDeposit`) : tentative d'empoisonnement stigmergique par injection de valeurs numériques démesurées (+999 999 999) pour attirer l'essaim vers une passerelle hostile. Rejet strict des dépassements de bornes numériques finies.
 
 ### 10.2 Chaos engineering
 
