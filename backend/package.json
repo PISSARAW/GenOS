@@ -32,6 +32,7 @@
     "test:chaos": "node tests/stress/test_chaos_engineering_and_resilience_bench.js",
     "test:cost-budget": "node tests/stress/test_token_economy_and_budget_bench.js",
     "test:fpamb": "node tests/test_fpamb_benchmark.js",
+    "test:bfcl": "node tests/test_bfcl_benchmark.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
     "daemon": "node bin/genos-daemon.cjs",
     "daemon:interactive": "node bin/genos-daemon.cjs --interactive",
