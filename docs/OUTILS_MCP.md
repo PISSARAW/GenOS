@@ -429,3 +429,14 @@ stateDiagram-v2
     BailRevoque --> [*]
     RefusSecurite --> [*]
 ```
+
+### 3. Résilience Opérationnelle et Double Moteur (Rust & Node.js)
+
+Le sous-système MCP de GenOS dispose d'une architecture à double niveau garantissant l'accès aux outils même en cas d'indisponibilité du transport IPC/stdio :
+
+1. **Serveur Rust Natif (`crates/genos-mcp`) :** Binaire autonome `genos-mcp.exe` implémentant le protocole JSON-RPC standard avec sérialisation zéro-copie et validation typée des schémas d'entrée.
+2. **Serveur Node.js Stdio (`mcp/index.js` & `mcpExecutor.js`) :** Pont applicatif JavaScript intégrant le contrôle de baux (`lease.js`), le circuit breaker et le dispatch vers les handlers métier.
+3. **Mécanismes de Résilience & Fallbacks :**
+   - **Mode Direct Local :** En cas d'interruption du canal stdio, le backend et l'orchestrateur peuvent exécuter directement les primitives via les adaptateurs internes ([`backend/src/services/mcpBioTools/`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/mcpBioTools/)) ou le CLI déterministe (`genos biomimicry ...`).
+   - **Heartbeat & Protection de Timeout :** Chaque invocation est encadrée par un timeout strict et un coupe-circuit (`circuitBreaker.js`) pour prévenir tout blocage de process orphelin.
+
