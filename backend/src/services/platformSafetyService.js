@@ -59,7 +59,7 @@ function validateToolCall(toolCallContext) {
   const allowed = permissions.includes('*') || permissions.includes(normalized) || permissions.includes('tool:execute');
   const denied = deniedTools.includes(normalized);
   const dangerousWords = ['delete', 'drop', 'shell', 'exec', 'write', 'send', 'deploy', 'kill', 'merge', 'restore', 'rollback', 'reset', 'apoptosis', 'cryptobiosis', 'quarantine', 'circuit breaker'];
-  const dangerous = dangerousWords.some(w => new RegExp(`\\b${w.replace(' ', '\\s+')}\\b`, 'i').test(normalized));
+  const dangerous = dangerousWords.some(w => new RegExp(`(?:^|[^a-z0-9])${w.replace(' ', '[^a-z0-9]+')}(?:[^a-z0-9]|$)`, 'i').test(normalized));
   const tainted = taints.length > 0;
   let decision = allowed && !denied && !tainted ? 'allow' : 'deny';
   let reason = !allowed ? 'agent_permission_missing' : denied ? 'tool_explicitly_denied' : tainted ? 'tainted_input_requires_review' : 'policy_pass';

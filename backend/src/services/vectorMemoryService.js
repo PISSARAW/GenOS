@@ -259,6 +259,15 @@ class VectorMemoryService {
   counterfactualReplay(trajectory, stepIndex, alterations) {
     return counterfactualReplay(trajectory, stepIndex, alterations);
   }
+
+  async recordExperience(item = {}) {
+    return this.storeMemory(
+      item.agentId || 'grpc-client',
+      item.content || 'Agent Experience',
+      (item.vector || item.embedding) && (item.vector || item.embedding).length === 768 ? (item.vector || item.embedding) : null,
+      { id: item.id }
+    );
+  }
 }
 
 const serviceInstance = new VectorMemoryService();
@@ -273,6 +282,7 @@ module.exports = Object.assign(serviceInstance, {
   searchMemory: serviceInstance.searchMemory.bind(serviceInstance),
   sleepCycle: serviceInstance.sleepCycle.bind(serviceInstance),
   storeMemory: serviceInstance.storeMemory.bind(serviceInstance),
+  recordExperience: serviceInstance.recordExperience.bind(serviceInstance),
   deleteMemory: serviceInstance.deleteMemory.bind(serviceInstance),
   releaseVesicles: serviceInstance.releaseVesicles.bind(serviceInstance),
   uptakeVesicles: serviceInstance.uptakeVesicles.bind(serviceInstance),

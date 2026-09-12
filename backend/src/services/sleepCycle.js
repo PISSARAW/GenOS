@@ -121,13 +121,16 @@ async function runSleepCycle(db = null, options = {}) {
 
   try {
     let exosomeStats = { success: true, absorbedCount: 0, engramsStored: 0, plasmidsAssimilated: 0, errors: [] };
+    let apoptosisCount = 0;
+    let prunedSynapses = 0;
 
     await withTransaction(database, async (tx) => {
       await decaySynapticWeights(tx, weightDecayFactor);
       await consolidateSynapses(tx, synapseDecayFactor);
-      await pruneDeadSynapses(tx, { minTransmissionWeight, c3Threshold, cd47Threshold });
+      const pruneRes = await pruneDeadSynapses(tx, { minTransmissionWeight, c3Threshold, cd47Threshold });
+      prunedSynapses = pruneRes?.changes || 0;
       await resetActivityHistory(tx);
-      const apoptosisCount = await pruneOrphanedDecisions(tx, {
+      apoptosisCount = await pruneOrphanedDecisions(tx, {
         orphanWeightThreshold,
         organizationId: options.organizationId || null,
         projectId: options.projectId || null
@@ -135,7 +138,7 @@ async function runSleepCycle(db = null, options = {}) {
       const prunedTrajectories = await pruneTrajectories(tx, trajectoryRetentionDays);
       exosomeStats = await synapticTransmission.absorbExosomes(tx);
       exosomeStats.prunedTrajectories = prunedTrajectories;
-      exosomeStats.prunedSynapses = prunedSynapses || 0;
+      exosomeStats.prunedSynapses = prunedSynapses;
     });
 
     return {

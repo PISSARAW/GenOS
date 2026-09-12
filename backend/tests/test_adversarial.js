@@ -38,6 +38,7 @@ function request(options, body = null) {
 async function runAdversarialTests() {
   console.log('--- STARTING ADVERSARIAL STRESS TEST SUITE ---');
   db = await getDatabase();
+  await db.run("INSERT OR IGNORE INTO workspaces (id, name, path) VALUES ('ws-genos-core', 'GenOS Core', ?)", process.cwd());
   const app = createApp();
   server = http.createServer(app);
   await new Promise(r => server.listen(TEST_PORT, r));

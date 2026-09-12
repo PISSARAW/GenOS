@@ -48,5 +48,28 @@ module.exports = {
     } catch (err) {
       callback({ code: toGrpcStatusCode(err), message: err.message || 'MCP tool execution failed.' });
     }
+  },
+
+  EvaluateGating: async (call, callback) => {
+    try {
+      const { query, candidate_tools, threshold_mv } = call.request || {};
+      const { evaluateToolGating } = require('../services/biomimeticToolGatingService');
+      const res = evaluateToolGating(query || '', candidate_tools || [], { thresholdMv: threshold_mv });
+      callback(null, {
+        requires_tools: Boolean(res.requiresTools),
+        disinhibited_tools: res.disinhibitedTools || [],
+        membrane_potential_mv: res.membranePotentialMv || 0,
+        gate_state: res.gateState || 'RESTING',
+        reason: res.reason || ''
+      });
+    } catch (err) {
+      callback(null, {
+        requires_tools: false,
+        disinhibited_tools: [],
+        membrane_potential_mv: 0,
+        gate_state: 'ERROR',
+        reason: err.message
+      });
+    }
   }
 };

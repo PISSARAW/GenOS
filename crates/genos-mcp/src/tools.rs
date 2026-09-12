@@ -14,6 +14,8 @@ fn configured_tool_set(variable: &str) -> Option<Vec<String>> {
 }
 
 fn raw_tools() -> Vec<Value> {
+    // Embedded tool specifications from shared/toolDefinitions.json:
+    // "name": "genos_replay", "name": "genos_execute_primitive"
     let raw = include_str!("../../../shared/toolDefinitions.json");
     let parsed: Value = serde_json::from_str(raw).unwrap_or_default();
     parsed.get("tools").and_then(Value::as_array).cloned().unwrap_or_default()
