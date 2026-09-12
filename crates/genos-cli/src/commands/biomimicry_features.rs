@@ -20,6 +20,24 @@ pub fn handle_bio_feature(feature: &str, action: &str, params: &[String]) {
         "cnidocyte" | "nematocyst" | "electrocyte" | "electric_organ" | "choanocyte" | "iridophore" | "guard_cell" | "tracheid" | "prokaryote" => {
             crate::commands::biomimicry_cells::handle_specialized_cell(feature, action, params);
         }
+        "crypsis" | "homochromy" | "homotypy" | "disruptive" | "countershading" | "counterillumination" | "transparency" | "active_masking" | "decorator" => {
+            let mode = if feature == "crypsis" { action } else { feature };
+            let agent_id = extract_param(params, "agent_id").unwrap_or_else(|| "default-agent".to_string());
+            let payload = extract_param(params, "payload").unwrap_or_default();
+            let intensity: f64 = extract_param(params, "intensity").and_then(|s| s.parse().ok()).unwrap_or(1.0);
+            if let Err(err) = crate::commands::biomimicry_crypsis::handle_crypsis(&agent_id, mode, &payload, intensity) {
+                println!("{}", json!({ "success": false, "error": err }));
+            }
+        }
+        "mimicry" | "batesian" | "mullerian" | "peckhamian" | "automimicry" | "wasmannian" | "non_visual" => {
+            let strategy = if feature == "mimicry" { action } else { feature };
+            let agent_id = extract_param(params, "agent_id").unwrap_or_else(|| "default-agent".to_string());
+            let payload = extract_param(params, "payload").unwrap_or_default();
+            let intensity: f64 = extract_param(params, "intensity").and_then(|s| s.parse().ok()).unwrap_or(1.0);
+            if let Err(err) = crate::commands::biomimicry_crypsis::handle_mimicry(&agent_id, strategy, &payload, intensity) {
+                println!("{}", json!({ "success": false, "error": err }));
+            }
+        }
         _ => {
             println!("{}", json!({
                 "success": true, "operation": "bio_feature",
