@@ -157,6 +157,7 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_strat_retain_top_k', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Retain Top K strategy primitive' },
   { name: 'genos_strat_expand', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Expand strategy primitive' },
   { name: 'genos_strat_mcts_select', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Mcts Select strategy primitive' },
+  { name: 'genos_browser_act', cat: 'Web & Interaction', risk: 'Low', desc: 'Interactive semantic web browser navigation and download ingestion' },
   { name: 'genos_strat_prm_evaluate', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Prm Evaluate strategy primitive' },
   { name: 'genos_strat_backpropagate', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Backpropagate strategy primitive' },
   { name: 'genos_strat_mutate', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Mutate strategy primitive' },
