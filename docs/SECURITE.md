@@ -751,19 +751,19 @@ flowchart TB
     end
 
     subgraph AuthLayer["2. Authentification & Autorisation"]
-        JWT["Validation JWT / Clés API"]
+        APIKeys["Validation Clés API & Tokens Session"]
         RBAC["Contrôle d'Accès par Rôles (RBAC)"]
         TenantGuard["Isolation Multi-Tenant Stricte"]
     end
 
     subgraph ExecutionSecurity["3. Sécurité d'Exécution & Outils"]
-        MCPLease["Bail Temporaire d'Outil (Lease Token)"]
-        SandboxIsolation["Isolation Sandbox (Process / WASM)"]
+        MCPLease["Bail d'Outil Restreint (toolLeasePolicy & TTL)"]
+        SandboxIsolation["Isolation Sandbox (AST / VFS Mémoire / Docker)"]
         SecretVault["Coffre-Fort de Secrets Chiffrés"]
     end
 
     subgraph AuditTrail["4. Traçabilité & Immuabilité"]
-        EventAudit["Journal d'Audit Append-Only"]
+        EventAudit["Journal d'Audit SQLite Append-Only"]
         TamperProof["Scellement Cryptographique des Preuves"]
     end
 
@@ -772,33 +772,35 @@ flowchart TB
     ExecutionSecurity --> AuditTrail
 ```
 
-### 2. Séquence de Délégation et Révocation de Bail d'Outil (Tool Lease)
+### 2. Séquence d'Attribution et Contrôle de Bail d'Outil (Tool Lease)
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Agent as Agent Demandeur
-    participant Auth as Gestionnaire d'Autorité
-    participant MCP as Serveur d'Outils MCP
-    participant Audit as Registre d'Audit
+    participant Auth as Autorité d'Exécution (agentAuthorityService)
+    participant Policy as Politique de Baux (toolLeasePolicy)
+    participant MCP as Serveur MCP (mcp/lease.js)
+    participant Audit as Registre d'Audit SQLite
 
-    Agent->>Auth: Demande de bail pour 'FileSystem.Write' (Durée 60s)
+    Agent->>Auth: Demande de mission avec outils requis
     activate Auth
-    Auth->>Auth: Vérification des privilèges du rôle
-    Auth-->>Agent: Émission du Lease Token signé (TTL 60s)
+    Auth->>Policy: Dérivation et vérification du bail (rôle & plan)
+    Policy-->>Auth: Allow-list restreinte (fail-closed, orchestrate exclu)
+    Auth-->>Agent: Attribution de mission avec bail scopé (TTL configurable)
     deactivate Auth
     
-    Agent->>MCP: Exécution de l'écriture avec Lease Token
+    Agent->>MCP: Exécution de l'outil avec contexte de bail
     activate MCP
-    MCP->>MCP: Validation de signature et expiration
+    MCP->>MCP: Vérification d'autorisation et TTL d'expiration
     MCP->>MCP: Exécution dans le périmètre autorisé
     MCP-->>Agent: Résultat de l'opération
-    MCP->>Audit: Enregistrement de l'action avec ID de bail
+    MCP->>Audit: Journalisation de l'invocation dans la table d'audit
     deactivate MCP
     
-    Note over Auth,Agent: Expiration du TTL ou révocation préventive
-    Agent->>MCP: Tentative d'écriture ultérieure
-    MCP-->>Agent: Rejet 403 (Bail expiré)
+    Note over Agent,MCP: Expiration du TTL ou outil hors du bail
+    Agent->>MCP: Tentative d'exécution d'un outil non alloué ou expiré
+    MCP-->>Agent: Rejet fail-closed (403 / AGENT_TOOL_LEASE_STALE)
 
 ### 3. Encapsulation Fetus in Fetu et Résurrection Post-Compromission
 

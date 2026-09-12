@@ -251,30 +251,30 @@ Ils verifient des invariants applicatifs, pas l'etancheite complete d'un noyau, 
 ```mermaid
 flowchart TB
     subgraph UntrustedCode["Code Généré Non Sécurisé"]
-        Script["Script / Commande Shell Proposée"]
+        Script["Script / Commande Proposée"]
     end
 
     subgraph IsolationLayer["Niveaux d'Isolation Sandboxed"]
         subgraph Level1["Niveau 1 : Analyse Statique & AST"]
-            ASTChecker["Détecteur de commandes destructives (rm -rf, fork bombs)"]
+            ASTChecker["Détecteur d'imports & commandes interdites (sandboxExecutionService)"]
         end
-        subgraph Level2["Niveau 2 : Système de Fichiers Virtuel (VFS)"]
-            CoWFS["Copy-on-Write Overlay (Redirection des écritures)"]
+        subgraph Level2["Niveau 2 : Système de Fichiers Virtuel (VFS Mémoire)"]
+            MemVFS["VFS en mémoire (GENOS_MAX_VFS_FILES, limite 5MB par fichier)"]
         end
-        subgraph Level3["Niveau 3 : Isolation Processus & Quotas"]
-            Cgroups["Limites CPU / RAM / Timeout (Seccomp / Cgroups)"]
-            NetLock["Verrouillage Réseau (Isolation loopback)"]
+        subgraph Level3["Niveau 3 : Isolation d'Exécution & Quotas"]
+            DockerBox["Conteneur Docker éphémère (si daemon dispo) ou Child Process timé"]
+            NetLock["Verrouillage Réseau & Timeout strict"]
         end
     end
 
     subgraph SafeHost["Système Hôte Protégé"]
-        RealFS["Système de Fichiers Réel Inviolable"]
+        RealFS["Système Hôte Préservé (Aucune écriture non autorisée)"]
     end
 
     UntrustedCode --> Level1
     Level1 --> Level2
     Level2 --> Level3
-    Level3 -.->|Accès filtré et cantonné| SafeHost
+    Level3 -.->|Sortie contrôlée| SafeHost
 ```
 
 ### 2. Séquence d'Exécution Sécurisée avec Interception d'Anomalie
@@ -282,26 +282,27 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Agent as Agent Exécuteur
-    participant Sandbox as Moteur de Sandbox
-    participant Guard as Sentinelle de Ressources
-    participant Host as Système Hôte
+    actor Agent as Agent Exécuteur
+    participant Sandbox as Moteur de Sandbox (sandboxExecutionService)
+    participant VFS as VFS en Mémoire
+    participant Runner as Exécuteur (Docker / Process timé)
 
-    Agent->>Sandbox: Demande d'exécution d'un script compilé
+    Agent->>Sandbox: Demande d'exécution d'un script ou commande
     activate Sandbox
-    Sandbox->>Sandbox: Montage du VFS Copy-on-Write isolé
-    Sandbox->>Guard: Enregistrement des limites (500MB RAM, 5s CPU)
+    Sandbox->>Sandbox: Contrôle statique AST / Regex (interdictions)
+    Sandbox->>VFS: Initialisation VFS mémoire (quotas fichiers & taille)
+    Sandbox->>Runner: Lancement de l'exécution avec timeout strict
     
-    activate Guard
-    Sandbox->>Sandbox: Lancement du sous-processus bridé
-    
+    activate Runner
     alt Exécution conforme
-        Sandbox-->>Agent: Sortie standard capturée & Code retour 0
-    else Dépassement de quota (Fuite mémoire ou boucle infinie)
-        Guard->>Sandbox: SIGKILL immédiat (Quota dépassé)
-        Sandbox->>Sandbox: Démontage du VFS éphémère (Aucune trace sur l'hôte)
+        Runner-->>Sandbox: Sortie standard capturée & Code retour 0
+        Sandbox-->>Agent: Résultat d'exécution validé
+    else Dépassement de quota VFS ou Timeout
+        Runner->>Sandbox: Violation de quota mémoire/VFS ou Timeout échu
+        Sandbox->>Runner: Terminaison immédiate (SIGKILL)
+        Sandbox->>VFS: Purge complète du VFS en mémoire
         Sandbox-->>Agent: Erreur 422 : Exécution interrompue par la Sandbox
     end
-    deactivate Guard
+    deactivate Runner
     deactivate Sandbox
 ```

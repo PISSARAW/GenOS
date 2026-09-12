@@ -18,6 +18,12 @@ function parseToolSet(value) {
 }
 
 export function toolIsLeased(toolName, allTools, environment = process.env) {
+  if (environment.GENOS_MCP_LEASE_EXPIRES_AT) {
+    const expiresAt = Number(environment.GENOS_MCP_LEASE_EXPIRES_AT);
+    if (!Number.isNaN(expiresAt) && Date.now() > expiresAt) {
+      return false;
+    }
+  }
   const lease = parseLease(environment.GENOS_MCP_LEASE);
   const disabled = parseToolSet(environment.GENOS_MCP_DISABLED_TOOLS);
   const exposeAll = !/^(0|false)$/i.test(environment.GENOS_MCP_EXPOSE_ALL || '');
