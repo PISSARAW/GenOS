@@ -71,8 +71,9 @@ async function main() {
   const isScanOnly = args.includes('--scan-only') || args.includes('--quiet');
   const isDaemon = args.includes('--daemon');
   const isReportOnly = args.includes('--report-only');
-  const useColor = !args.includes('--no-color') && process.stdout.isTTY;
-  const isInteractive = args.includes('--interactive') || (!isStatus && !isEnable && !isDisable && !isScanOnly && process.stdin.isTTY && process.stdout.isTTY);
+  const useColor = !args.includes('--no-color') && (Boolean(process.stdout.isTTY) || process.env.COLORTERM !== undefined);
+  const explicitNonInteractive = args.includes('--non-interactive') || /^(1|true)$/i.test(process.env.GENOS_NONINTERACTIVE || '');
+  const isInteractive = !explicitNonInteractive && (args.includes('--interactive') || /^(1|true)$/i.test(process.env.GENOS_INTERACTIVE || '') || (!isStatus && !isEnable && !isDisable && !isScanOnly && Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY)));
 
   if (isStatus) {
     const status = getAutostartStatus();
@@ -135,7 +136,13 @@ async function main() {
     const intervalMinutes = Math.max(1, Number(config.checkIntervalMinutes) || 60);
     const intervalMs = intervalMinutes * 60 * 1000;
     console.log(`[${config.name}] Daemon active; next cycle in ${intervalMinutes} minute(s).`);
+    let isRunning = false;
     const timer = setInterval(async () => {
+      if (isRunning) {
+        console.warn(`[${config.name}] Previous cycle still running, skipping this tick.`);
+        return;
+      }
+      isRunning = true;
       try {
         const scheduled = await runProactiveCycle({ autofix: !isReportOnly });
         await vectorMemoryService.sleepCycle();
@@ -145,6 +152,8 @@ async function main() {
         console.log(`[${config.name}] Scheduled cycle completed.`);
       } catch (error) {
         console.error(`[${config.name}] Scheduled cycle failed:`, error.message);
+      } finally {
+        isRunning = false;
       }
     }, intervalMs);
     const stop = () => {
