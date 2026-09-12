@@ -160,6 +160,7 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_browser_act', cat: 'Web & Interaction', risk: 'Low', desc: 'Interactive semantic web browser navigation and download ingestion' },
   { name: 'genos_foveal_crop', cat: 'Neurobiology', risk: 'Low', desc: 'Active human foveal vision crop and multi-scale inspection' },
   { name: 'genos_optimal_foraging', cat: 'Ecology', risk: 'Low', desc: 'Charnov marginal value theorem and stigmergic scout-harvester coordination' },
+  { name: 'genos_swe_fault_localizer', cat: 'Software Engineering', risk: 'Low', desc: 'Proprioceptive codebase scanner and NER fault localization for SWE-bench' },
   { name: 'genos_strat_prm_evaluate', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Prm Evaluate strategy primitive' },
   { name: 'genos_strat_backpropagate', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Backpropagate strategy primitive' },
   { name: 'genos_strat_mutate', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Mutate strategy primitive' },
