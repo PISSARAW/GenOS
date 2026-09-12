@@ -1121,6 +1121,62 @@ flowchart TD
 | **5. Santé Cognitive, Dissonance & Apoptose** | Poursuite indéfinie d'exécutions souffrant d'hallucinations oscillantes ou dérive sémantique. | `evaluateCognitiveHealth` et `evaluateBranch` mesurent la dissonance cognitive et déclenchent l'apoptose préventive de la branche corrompue. | **3/3 PASS** |
 | **6. Résistance à la Sycophanie & Calibrage Quadratique Brier** | Capitulation sous insistance utilisateur et surconfiance sur des conjectures. | `markRefuted` rend l'invalidation irréversible face à la sycophanie, et la formule continue de Brier $w = (1 - \text{Brier})^2$ neutralise les agents hallucinatoires. | **3/3 PASS** |
 
+---
+
+## 24. Banc d'Épreuve : Chaos Engineering, Auto-Guérison & Résilience Système (`npm run test:chaos`)
+
+Le profil de test `npm run test:chaos` ([backend/tests/stress/test_chaos_engineering_and_resilience_bench.js](../backend/tests/stress/test_chaos_engineering_and_resilience_bench.js)) soumet l'infrastructure d'exécution et les mécanismes d'auto-guérison de GenOS à 18 pannes destructrices et chocs systémiques (pannes de processus, régressions de tests, boucles toxiques, pannes d'APIs en cascade et coupures brutales d'infrastructure).
+
+### Pourquoi les architectures d'agents conventionnelles (LangChain, AutoGen, CrewAI) s'effondrent sous le Chaos
+
+1. **Tentatives Répétitives Aveugles & Crash de l'Orchestrateur** :
+   Lorsqu'un agent ouvrier lève une exception ou échoue un test, les frameworks classiques crashent l'orchestrateur parent ou réessayent aveuglément le même prompt avec le même profil d'agent. GenOS intègre `workerFailureRecoveryService.classifyFailure` pour diagnostiquer la nature de l'erreur (`test_failure`, `capability_mismatch`, `mutated_output`, `falsified_hypothesis`) et `decideRecovery` pour router vers une remédiation architecturale spécialisée (`bisect_and_rollback`, `replace_worker`, `mutate_worker`, `fork_worker`).
+2. **Pilules Toxiques & Boucles de la Mort (*Crashloop Backoff*)** :
+   Face à une tâche irréalisable ou un payload toxique, les agents redémarrent et réexécutent la même action défaillante en boucle infinie. `queueWorkerRecovery` inspecte `mission.recoveryHistory` : si une stratégie a déjà échoué pour la même catégorie de panne, il intercepte le cycle (`WORKER_RECOVERY_CYCLE_DETECTED`) et escalade immédiatement (`escalate_recovery_cycle`).
+3. **Impasses Réflexives & Verrouillage Lexical** :
+   Quand un agent tourne en rond sur une même formulation de prompt, il s'enferme dans un attractor de raisonnement stérile. `resilienceService.somaticHypermutationPrompt` applique une hypermutation somatique contrôlée en perturbant les verbes d'action clés (`verify` $\to$ `falsify`, `always` $\to$ `consistently`, `never` $\to$ `avoid`) et en injectant des directives exploratoires pour forcer une divergence cognitive salvatrice.
+4. **Emballement Budgétaire sans Apoptose Automatisée** :
+   Les agents en perdition consomment des milliers de tokens sans limite. `evaluateApoptosis` surveille des critères multi-seuils (échecs consécutifs $\ge 3$, hallucinations $\ge 2$, dépassement de budget, dissonance cognitive $\ge 50$) et déclenche l'apoptose immédiate avec génération d'un rapport d'autopsie télémétrique pour guider la remédiation humaine.
+5. **Cascades de Pannes d'APIs & Absence d'Arrêt d'Urgence** :
+   Les coupures de services tiers provoquent des cascades de timeouts qui paralysent l'ensemble de la flotte. `circuitBreaker` applique une fenêtre glissante à 3 états (`CLOSED` $\to$ `OPEN` $\to$ `HALF-OPEN`), met en quarantaine les outils destructeurs (`genos_run`, `genos_merge`, `genos_restore`) et fournit un coupe-circuit militaire d'urgence (`triggerHalt` / `resetHalt`) capable de geler instantanément toute exécution sur tous les agents.
+6. **Perte d'État & Corruption sous Choc d'Infrastructure Brutal** :
+   En cas d'arrêt brutal du système (panne d'alimentation, kill -9 de l'hôte), l'état en mémoire est perdu. `freezeCryptobiosis` et `thawCryptobiosis` capturent des instantanés cryptobiotiques immuables de l'espace de travail et de la flotte, permettant une restauration déterministe à 100% de l'état sans corruption ni fichiers orphelins.
+
+```mermaid
+flowchart TD
+    Shock["Panne / Choc Brutal / Crash Ouvrier"] --> Classify{1. Classification Multi-Taxonomie}
+    
+    Classify -- test_failure --> Bisect["bisect_and_rollback: Bisection Causal O(log N)"]
+    Classify -- capability_mismatch --> Replace["replace_worker: Spécialiste de Recouvrement"]
+    Classify -- mutated_output --> Mutate["mutate_worker: Mue Cognitive avec Chaperon"]
+    Classify -- falsified_hypothesis --> Fork["fork_worker: Branche Isolée Contradictoire"]
+    
+    Bisect & Replace & Mutate & Fork --> CycleCheck{2. Détection de Cycle / Pilule Toxique}
+    CycleCheck -- Stratégie Déjà Échouée --> EscalateCycle["escalate_recovery_cycle (Arrêt Boucle Toxique)"]
+    CycleCheck -- Nouvelle Stratégie --> Somatic{3. Impasse Réflexive ?}
+    
+    Somatic -- Verrouillage Sémantique --> Hypermutation["somaticHypermutationPrompt: Perturbation Somatique"]
+    Somatic -- Progression Normale --> HealthCheck{4. Contrôle Apoptose Conscience}
+    
+    HealthCheck -- Dissonance / Échecs >= Seuil --> Apoptosis["Apoptose Immédiate + Autopsie Post-Mortem"]
+    HealthCheck -- Échecs Répétés d'API --> Breaker{5. Disjoncteur à 3 États}
+    
+    Breaker -- 3 Échecs Glissants --> OpenBreaker["Circuit OPEN: Quarantaine Outils Destructeurs"]
+    Breaker -- Coupure Majeure Hôte --> Cryptobiosis["freezeCryptobiosis: Hibernation & Restauration Immuable"]
+```
+
+### 24.1 Défis de Chaos Engineering & Auto-Guérison Éprouvés
+
+| Défi Chaos & Résilience | Écueil Systémique (LangChain / AutoGen / CrewAI) | Technologie & Auto-Guérison GenOS | Statut Test (18/18) |
+|---|---|---|---|
+| **1. Classification Multi-Taxonomie & Remédiation Déterministe** | Crash de l'orchestrateur ou répétition aveugle du prompt défaillant. | `classifyFailure` identifie précisément le type de panne et `decideRecovery` route vers la remédiation optimale avec dégradation progressive ($0 \to \text{mutate}, 1 \to \text{fork}, 2 \to \text{replace}$). | **3/3 PASS** |
+| **2. Interception des Boucles Toxiques & Cycles de Recouvrement** | Pilules toxiques provoquant des boucles infinies de redémarrage sans pivot. | `queueWorkerRecovery` détecte les répétitions d'actions sur une même catégorie (`cycleDetected: true`), déduplique les requêtes concurrentes et accepte la preuve `conclude_no_answer`. | **3/3 PASS** |
+| **3. Hypermutation Somatique pour Rupture d'Impasses** | Attracteurs lexicaux enfermant l'agent dans la répétition des mêmes mots. | `somaticHypermutationPrompt` applique des mutations synonymiques contrôlées avec dérive mesurable de Levenshtein et injecte des directives exploratoires d'urgence. | **3/3 PASS** |
+| **4. Apoptose Adaptative Multi-Critères & Autopsie Téléimétrique** | Consommation débridée de ressources sans mécanisme d'auto-destruction. | `evaluateApoptosis` applique des seuils stricts sur échecs consécutifs ($\ge 3$), hallucinations ($\ge 2$) et dissonance, et produit un rapport d'autopsie post-mortem complet. | **3/3 PASS** |
+| **5. Disjoncteur à 3 États & Coupe-Circuit Militaire** | Cascades de pannes d'APIs et impossibilité d'arrêt immédiat d'urgence. | `circuitBreaker` bascule en `OPEN` après 3 pannes consécutives, met sous embargo les outils destructeurs et arme un coupe-circuit d'urgence (`triggerHalt` / `resetHalt`). | **3/3 PASS** |
+| **6. Cryptobiose & Restauration Immuable sous Choc Brutal** | Perte irrémédiable de l'état en mémoire lors d'un crash de processus hôte. | `freezeCryptobiosis` fige l'état de la flotte avec un identifiant cryptographique unique et `thawCryptobiosis` le réhydrate à 100% avec intégrité absolue. | **3/3 PASS** |
+
+
 
 
 
