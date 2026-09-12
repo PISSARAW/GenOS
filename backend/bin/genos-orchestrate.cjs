@@ -53,11 +53,14 @@ if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' &&
   process.exit(1);
 }
 
+const SCRIPT_START_TIME = Date.now();
+
 async function waitForCompletion(db) {
-  const deadline = Date.now() + Number(request.timeoutMs || 14 * 60 * 1000);
+  const baseTimeout = Number(request.timeoutMs || 14 * 60 * 1000);
+  const deadline = Math.max(Date.now() + 5000, SCRIPT_START_TIME + baseTimeout);
   while (Date.now() < deadline) {
     const agents = await db.all('SELECT id, status FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
-    if (agents.length && agents.every((agent) => ['idle', 'blocked', 'error', 'terminated', 'apoptosis', 'completed'].includes(agent.status))) return agents;
+    if (agents.length && agents.every((agent) => ['idle', 'blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed'].includes(agent.status))) return agents;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('GenOS orchestrator timed out');
@@ -93,7 +96,11 @@ async function executeMission(db, state) {
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, task);
   await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ? WHERE id = ?`, task, id);
   const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
-  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: request.executionBudget || {}, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false });
+  const missionBudget = { ...(request.executionBudget || request.execution_budget || {}) };
+  if (request.timeoutMs && !missionBudget.latencyMs) {
+    missionBudget.latencyMs = Math.max(1000, Number(request.timeoutMs) - 4000);
+  }
+  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: request.timeoutMs });
   const agents = await waitForCompletion(db);
   const telemetryRows = await db.all('SELECT event_type, action, detail, severity, payload_json FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
   const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
@@ -103,6 +110,7 @@ async function executeMission(db, state) {
 }
 
 async function cleanupFailure(db, state, error) {
+  try { await runtime.stopMission(id); } catch (_) {}
   if (!state.delegatedWorkerId) return;
   await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, state.delegatedWorkerId).catch(() => {});
   await db.run("UPDATE trinity_worlds SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", state.delegatedWorkerId).catch(() => {});
@@ -127,4 +135,9 @@ async function main() {
   await executeForeground(await getDatabase());
 }
 
-main().catch((error) => { console.error(error.stack || error.message); process.exitCode = 1; });
+main().then(() => {
+  process.exit(0);
+}).catch((error) => {
+  console.error(error.stack || error.message);
+  process.exit(1);
+});

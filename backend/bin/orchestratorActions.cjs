@@ -190,11 +190,15 @@ async function handleBiological({ db, context }) {
   const mission = context.request.mission || context.request.project_goal || context.request.goal || context.task;
   const members = biologicalMode.compose(mode, mission);
   const garage = await workerGarage.state(db, context.orchestratorId);
-  if (garage.available < members.length) throw Object.assign(new Error(`${mode} requires ${members.length} free worker slots, but only ${garage.available} are available.`), { code: 'WORKER_GARAGE_FULL' });
-  const accepted = members.map((member, index) => launchWorker({ context, member, index: index + 1, parent }));
+  if (garage.available <= 0) {
+    throw Object.assign(new Error(`${mode} requires free worker slots, but 0 are available (${garage.occupied}/${garage.capacity} occupied).`), { code: 'WORKER_GARAGE_FULL' });
+  }
+  const selectedMembers = garage.available < members.length ? members.slice(0, garage.available) : members;
+  const accepted = selectedMembers.map((member, index) => launchWorker({ context, member, index: index + 1, parent }));
+  const scaledWarning = selectedMembers.length < members.length ? { warning: `${mode} scaled to ${selectedMembers.length} available slots (${garage.available}/${garage.capacity}).` } : {};
   process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, biologicalMode: {
     status: 'accepted', mode, mission, capacity: workerGarage.MAX_ACTIVE_WORKERS,
-    mechanisms: members[0]?.mechanisms || [], members: accepted
+    mechanisms: members[0]?.mechanisms || [], members: accepted, ...scaledWarning
   }}));
 }
 
@@ -278,7 +282,11 @@ async function startWorker({ db, context, parent, reusable, worker }) {
 async function startWorkerMission({ db, context, parent, reusable, worker }) {
   const strategyContract = await contracts.getLatestContract(db, context.orchestratorId);
   if (!strategyContract) throw new Error(`No strategy contract is available for orchestrator '${context.orchestratorId}'.`);
-  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: context.task, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: context.request.execution_budget || {}, executionPolicy: workerPolicy(), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false });
+  const missionBudget = { ...(context.request.execution_budget || context.request.executionBudget || {}) };
+  if (context.request.timeoutMs && !missionBudget.latencyMs) {
+    missionBudget.latencyMs = Math.max(1000, Number(context.request.timeoutMs) - 4000);
+  }
+  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: context.task, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false, timeoutMs: context.request.timeoutMs });
 }
 
 function workerPolicy() {

@@ -15,6 +15,7 @@ async function apoptosis(customDbPath = null) {
     }
 
     db = await open({ filename: dbPath, driver: sqlite3.Database });
+    await db.run('PRAGMA busy_timeout = 5000;').catch(() => {});
     const activeAgents = await db.all("SELECT id, runtime_pid, runtime_executable FROM agents WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')");
     const terminationResults = activeAgents.map((agent) => {
       if (!agent.runtime_pid) return { id: agent.id, terminated: false, reason: 'NO_PID' };

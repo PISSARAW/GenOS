@@ -40,8 +40,9 @@ async function consultLocalModels(db, agentId, mission, plan, tenant = {}) {
   };
   try {
     const policy = await modelRouter.localRoutingPolicy(db, { agentId, ...tenant }, candidates);
+    const planTimeoutMs = Math.min(2500, Math.max(500, Math.floor(Number(mission.timeoutMs || 30000) * 0.1)));
     const result = await modelRouter.generate({
-      db, agentId, ...tenant, timeoutMs: 15000, policy,
+      db, agentId, ...tenant, timeoutMs: planTimeoutMs, policy,
       priority: 'interactive',
       prompt: `You are the local planning model for a GenOS orchestrator. Analyse this mission and return a concise JSON-like recommendation: which hypotheses merit forks, which worker roles are needed, when replay/merge is justified, and what can be delegated locally. Mission: ${mission.prompt || mission.currentTask || ''}. Strategy profile: ${JSON.stringify(plan.profile)}.`
     });
