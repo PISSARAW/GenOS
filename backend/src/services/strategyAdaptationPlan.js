@@ -43,8 +43,8 @@ function strategySignature(contract = {}) {
 }
 
 function requireNeedReason(input) {
-  const need = String(input.need || '').trim();
-  const reason = String(input.reason || '').trim();
+  const need = String(input.need || input.problem || input.mission || 'Adaptive strategy evolution').trim();
+  const reason = String(input.reason || input.detail || 'Evidence-backed strategy update').trim();
   if (!need) throw Object.assign(new Error('A changed strategy need is required.'), { code: 'STRATEGY_NEED_REQUIRED' });
   if (!reason) throw Object.assign(new Error('An evidence-backed strategy change reason is required.'), { code: 'STRATEGY_REASON_REQUIRED' });
   return { need, reason };
