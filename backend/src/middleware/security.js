@@ -70,8 +70,9 @@ function sanitizeObject(obj) {
 function securityHeaders(req, res, next) {
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:*; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:*; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
   );
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-XSS-Protection', '1; mode=block');
@@ -200,7 +201,10 @@ function issueCsrfToken(req, res) {
   // SameSite=Lax keeps the value away from cross-site requests; the browser
   // never needs to send it automatically because the Studio echoes the body
   // token back in the X-CSRF-Token header.
-  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  // Only trust X-Forwarded-Proto when an operator explicitly declares the
+  // deployment sits behind a trusted reverse proxy.
+  const trustProxy = process.env.GENOS_TRUST_PROXY === '1';
+  const forwardedProto = trustProxy ? String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase() : '';
   const secure = req.secure === true || req.protocol === 'https' || forwardedProto === 'https';
   res.setHeader('Set-Cookie', `genos_csrf=${token}; Path=/; SameSite=Lax${secure ? '; Secure' : ''}`);
   return res.json({ csrfToken: token });

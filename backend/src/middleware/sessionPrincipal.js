@@ -56,10 +56,8 @@ function buildKeyPrincipal(keyRecord, rolePerms) {
 function resolveSessionPermissions(session, rolePermissions) {
   const table = rolePermissions || {};
   const perms = table[session.role];
-  if (Array.isArray(perms)) return perms.slice();
-  const fallback = table.viewer;
-  if (Array.isArray(fallback)) return fallback.slice();
-  return [];
+  // Unknown roles fail closed (no permissions) instead of inheriting viewer.
+  return Array.isArray(perms) ? perms.slice() : [];
 }
 
 function buildSessionPrincipal(session, rolePermissions) {

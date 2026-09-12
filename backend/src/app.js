@@ -55,14 +55,22 @@ const daemonRoutes = require('./routes/daemonRoutes');
 const chaosRoutes = require('./routes/chaosRoutes');
 const healthController = require('./controllers/healthController');
 
+const SAFE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
+
+function safeRequestId(value, prefix) {
+  const candidate = typeof value === 'string' ? value.trim() : '';
+  if (SAFE_ID_PATTERN.test(candidate)) return candidate;
+  return `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+}
+
 function createApp() {
   const app = express();
 
   // 0. Phantom Context Tracing (AsyncLocalStorage)
   const { asyncLocalStorage } = require('./services/asyncContext');
   app.use((req, res, next) => {
-      const traceId = req.headers['x-trace-id'] || `trace-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-      const requestId = req.id || req.headers['x-request-id'] || `req-${crypto.randomUUID()}`;
+      const traceId = safeRequestId(req.headers['x-trace-id'], 'trace');
+      const requestId = safeRequestId(req.id || req.headers['x-request-id'], 'req');
       req.id = requestId;
       res.setHeader('X-Request-Id', requestId);
       res.setHeader('X-Trace-Id', traceId);
