@@ -291,7 +291,7 @@ flowchart TB
     end
 
     subgraph Sandboxes["Isolation & Environnements de Sandbox"]
-        SB1["Sandbox WASM"]
+        SB1["Sandbox VFS Mémoire"]
         SB2["Sandbox Node / Process"]
         SB3["Sandbox Conteneurisée"]
     end
