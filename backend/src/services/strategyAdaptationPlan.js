@@ -56,7 +56,18 @@ function checkProblemType(input) {
   }
 }
 
+const COST_LEVEL_MAP = { min: 1, low: 2, medium: 3, med: 3, high: 4, max: 5, extreme: 5 };
+function normalizeCostLevel(val) {
+  if (val == null) return null;
+  if (typeof val === 'string' && COST_LEVEL_MAP[val.toLowerCase()]) return COST_LEVEL_MAP[val.toLowerCase()];
+  const num = Number(val);
+  return Number.isFinite(num) ? Math.floor(num) : val;
+}
+
 function checkCostLevel(input) {
+  if (input.maxCostLevel != null) {
+    input.maxCostLevel = normalizeCostLevel(input.maxCostLevel);
+  }
   if (input.maxCostLevel != null && (!Number.isInteger(Number(input.maxCostLevel)) || Number(input.maxCostLevel) < 1 || Number(input.maxCostLevel) > 5)) {
     throw Object.assign(new Error('maxCostLevel must be an integer from 1 to 5.'), { code: 'STRATEGY_POLICY_INVALID' });
   }

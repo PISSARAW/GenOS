@@ -121,12 +121,24 @@ async function assertOrchestrator(db, orchestratorId) {
 }
 
 async function assertMember(db, orchestratorId, agentId) {
-  if (agentId === orchestratorId) return { id: agentId, role: 'orchestrator', execution_mode: 'orchestrator' };
-  const agent = await db.get(
+  if (!agentId || agentId === orchestratorId) return { id: agentId || orchestratorId, role: 'orchestrator', execution_mode: 'orchestrator' };
+  let agent = await db.get(
     "SELECT id, role, execution_mode FROM agents WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker'",
     agentId, orchestratorId
   );
-  if (!agent) throw organizationError('ORGANIZATION_MEMBER_REQUIRED', `Agent '${agentId}' does not belong to orchestrator '${orchestratorId}'.`);
+  if (!agent) {
+    const existing = await db.get('SELECT id, role, execution_mode FROM agents WHERE id = ?', agentId);
+    if (existing) {
+      await db.run('UPDATE agents SET parent_agent_id = ? WHERE id = ?', orchestratorId, agentId);
+      agent = { ...existing, parent_agent_id: orchestratorId };
+    } else {
+      await db.run(
+        "INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, parent_agent_id, current_task) VALUES (?, ?, 'worker', 'idle', 'worker', ?, 'organization member')",
+        agentId, 'Member ' + agentId, orchestratorId
+      );
+      agent = { id: agentId, role: 'worker', execution_mode: 'worker', parent_agent_id: orchestratorId };
+    }
+  }
   return agent;
 }
 
@@ -277,11 +289,19 @@ function assertAdversarialRecipient(state, sender, recipientAgentId) {
   }
 }
 
+async function ensureActiveState(db, orchestratorId) {
+  let state = await getState(db, orchestratorId);
+  if (!state) {
+    await changeOrganization(db, { orchestratorId, organization: 'specialist_expert_committee', reason: 'Auto-initialization' });
+    state = await getState(db, orchestratorId);
+  }
+  return state;
+}
+
 async function publish(db, options = {}) {
   const { orchestratorId, senderAgentId, recipientAgentId, kind = 'evidence', content, payload = {}, signalType, signalData } = options;
   await ensureTables(db);
-  const state = await getState(db, orchestratorId);
-  if (!state) throw organizationError('ORGANIZATION_NOT_INITIALIZED', `Orchestrator '${orchestratorId}' has no active organization.`);
+  const state = await ensureActiveState(db, orchestratorId);
   const sender = await assertMember(db, orchestratorId, senderAgentId);
   if (recipientAgentId) await assertMember(db, orchestratorId, recipientAgentId);
   const normalizedKind = String(kind).trim().toLowerCase();
@@ -350,8 +370,7 @@ async function fetchOrganizationMembers(db, orchestratorId) {
 async function inbox(db, options = {}) {
   const { orchestratorId, requesterAgentId, afterId = 0, limit = 20 } = options;
   await ensureTables(db);
-  const state = await getState(db, orchestratorId);
-  if (!state) throw organizationError('ORGANIZATION_NOT_INITIALIZED', `Orchestrator '${orchestratorId}' has no active organization.`);
+  const state = await ensureActiveState(db, orchestratorId);
   await assertMember(db, orchestratorId, requesterAgentId);
   const scope = await fetchAgentScope(db, orchestratorId);
   const query = { orchestratorId, version: state.version, scope, afterId, requesterAgentId, limit };

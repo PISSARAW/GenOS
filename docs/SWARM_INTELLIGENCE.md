@@ -274,6 +274,8 @@ Les composants ne sont pas juste “en chaîne”. Ils partagent un état de str
 - la stratégie de routage ;
 - le canal de transmission (orchestrateur, stigmergic trail, capability mesh, etc.).
 
+L'état d'organisation est auto-initialisé lors des premières publications ou relèves (`ensureActiveState`), et les agents membres dynamiques ou éphémères sont automatiquement associés au collectif pour éviter les ruptures de communication.
+
 Les organisations supportées incluent des formes typiques :
 
 - `hub_and_spoke`
