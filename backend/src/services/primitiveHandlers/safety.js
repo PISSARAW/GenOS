@@ -8,7 +8,7 @@ const { getDatabase } = require('../../db');
 const { releaseQuarantine, unquarantine } = require('./safetyRelease');
 
 function controlTargetOf(context) {
-  return context.targetId || context.agentId;
+  return context.targetId || context.target_id || context.target || context.agentId;
 }
 
 function controlActorOf(context) {

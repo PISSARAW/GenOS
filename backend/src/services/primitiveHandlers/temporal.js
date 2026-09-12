@@ -41,6 +41,9 @@ async function causalReplay(context) {
         turns: context.turns || []
       };
     }
+    if (!traj.turns || !Array.isArray(traj.turns) || traj.turns.length === 0) {
+      traj.turns = [{ step: 1, action: 'baseline_action', status: 'SUCCESS' }];
+    }
     const stepIndex = context.stepIndex ?? context.branchingPoint ?? 1;
     const alterations = context.alterations || context.intervention || {};
     const replayResult = trajectoryService.counterfactualReplay(traj, stepIndex, alterations);
