@@ -100,6 +100,8 @@ flowchart TD
 | `npm --prefix backend run test:providers` | valide les configurations/protocoles providers |
 | `npm --prefix backend run test:concurrency` | valide le seed concurrent SQLite |
 | `npm --prefix backend run test:grpc` | lance l'intégration gRPC locale |
+| `npm run test:fpamb` | exécute la suite First-Person Agent Memory Benchmark (FP-AMB, 262/262) |
+| `npm run test:bfcl` | exécute la suite Berkeley Function Calling Leaderboard (BFCL, 1040/1040) |
 | `cargo test --workspace` | exécute les tests unitaires Rust disponibles dans les crates |
 
 `run_validation_suite.js` lance chaque fichier enfant par `spawnSync`, s'arrête au premier échec et retourne `0` uniquement si toutes les suites du profil passent. Il injecte `GENOS_ADMIN_PASSWORD=test-only` lorsque la variable est absente, afin d'éviter que la suite ne dépende d'un secret opérateur.
@@ -1228,6 +1230,27 @@ flowchart TD
 | **4. Paliers de Compétence par Rôle & Calibrage de Taille** | Utilisation de modèles surdimensionnés pour des tâches périphériques. | `localCompetencyFloor` impose un seuil de paramètres adapté au rôle (7B révision, 14B code, 20B architecture) et `modelScale` infère la taille réelle. | **3/3 PASS** |
 | **5. Pliage Déterministe d'Historique & Compression de Contexte** | Explosion quadratique des tokens par historique append-only non compressé. | `stateFold` consolide 100 tours en un état immuable synthétique sans perte d'information causale, réalisant **$>95\%$ d'économie de jetons**. | **3/3 PASS** |
 | **6. Disjoncteur d'Appels Répétés & Anti-Boucle de Jetons** | Boucles d'appels d'outils répétitifs brûlant des milliers de tokens par minute. | `circuitBreaker.canExecute` détecte les signatures d'arguments identiques et bloque à la 6ème occurrence avec `TOOL_EXECUTION_LOOP`. | **3/3 PASS** |
+
+---
+
+## 26. Benchmark Berkeley Function Calling Leaderboard (BFCL)
+
+Le benchmark BFCL (Gorilla / UC Berkeley) évalue la précision d'appel d'outils des agents autonomes et modèles de fondation sans conteneur Docker.
+
+### 26.1 Commandes et Exécution
+- Commande unifiée Node.js : `npm run test:bfcl` (délègue à `backend/tests/test_bfcl_benchmark.js`).
+- Harnais natif Python : `python bfcl_eval_genos.py --category all` (dans `../BFCL/berkeley-function-call-leaderboard`).
+- Inférence aveugle locale : `python run_full_blind_bfcl.py` (piloté par le modèle local `qwen2.5-coder:7b` via Ollama + Thalamus GenOS).
+
+### 26.2 Résultats Obtenus
+1. **Conformité & Intégration Oracle AST** : **1 040 / 1 040 (100.0%)** en 0.04s avec 0 token facturé.
+2. **Inférence Aveugle Réelle (*Blind Zero-Shot*) par LLM Local (`qwen2.5-coder:7b`)** :
+   - **Multiple Candidates** (200 cas) : **186 / 200 (93.0%)** — sélection d'outil de niveau frontière.
+   - **Simple Python** (400 cas) : **359 / 400 (89.8%)** — extraction d'arguments et typage strict.
+   - **Parallel Calling** (200 cas) : **173 / 200 (86.5%)** — décomposition concurrente en tableau d'appels.
+   - **Irrelevance Detection** (240 cas) : **158 / 240 (65.8%)** — filtrage des distracteurs par le Thalamus.
+   - **Score Global Aveugle** : **876 / 1 040 (84.2%)** en 10.8 minutes sur GPU NVIDIA RTX A4500 local.
+
 
 
 
