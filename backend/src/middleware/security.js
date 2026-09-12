@@ -142,9 +142,14 @@ async function csrfCheck(req, res, next) {
     && require('crypto').timingSafeEqual(Buffer.from(csrfHeader), Buffer.from(csrfCookie));
   const validIssuedToken = csrfHeader.length >= 16 && isKnownIssuedToken(csrfHeader);
 
-  // Local CLI (Bearer over loopback), double-submit, issued token,
-  // validated access-key caller, or test suite. Bare loopback without Bearer never passes.
-  if (process.env.NODE_ENV === 'test' || validDoubleSubmit || validIssuedToken || hasValidAuth || localhostBearerBypass(req, origin, hasValidAuth)) {
+  // CSRF only meaningfully applies to ambient-credential (browser) callers,
+  // which always send an Origin. Header-only API clients with no Origin must
+  // instead pass authentication (401 otherwise).
+  const csrfApplicable = Boolean(origin);
+  // Validated access-key callers, double-submit, issued tokens and the local
+  // CLI Bearer path are exempt. NODE_ENV is never trusted as an auth signal:
+  // a production deployment that sets NODE_ENV=test must not disable CSRF.
+  if (!csrfApplicable || validDoubleSubmit || validIssuedToken || hasValidAuth || localhostBearerBypass(req, origin, hasValidAuth)) {
     return next();
   }
 
