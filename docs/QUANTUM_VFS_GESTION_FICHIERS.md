@@ -133,3 +133,12 @@ const { superposition } = engine.stageQuantumFile('src/user.ts', 'initialCode', 
 // 2. Décohérence et écriture classique
 await engine.triggerDecoherence(ObservableTrigger.UNIT_TEST_EXECUTION, { writeToDisk: true });
 ```
+
+---
+
+## [8. Branchement et Intégration GenOS](./quantum_vfs/08_BRANCHEMENT_ET_INTEGRATION_GENOS.md)
+Le Quantum VFS est relié à l'architecture globale via :
+- **L'API REST Express** : montée sur `/api/quantum-vfs` dans [`backend/src/app.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/app.js) avec le contrôleur [`quantumVfsController.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/controllers/quantumVfsController.js).
+- **Le Registre de Primitives d'Agents** : enregistré dans [`handlersRegistry.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/primitiveHandlers/handlersRegistry.js) (`quantum_vfs_stage`, `quantum_vfs_superpose`, `quantum_vfs_entangle`, `quantum_vfs_tunnel_write`, `quantum_vfs_decohere`, `quantum_vfs_metrics`).
+- **Le Service Singleton** : gérant la cohérence par workspace dans [`quantumVfsService.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/quantumVfsService.js).
+

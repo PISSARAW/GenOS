@@ -54,6 +54,7 @@ const productProofRoutes = require('./routes/productProofRoutes');
 const rustBridgeRoutes = require('./routes/rustBridgeRoutes');
 const daemonRoutes = require('./routes/daemonRoutes');
 const chaosRoutes = require('./routes/chaosRoutes');
+const quantumVfsRoutes = require('./routes/quantumVfsRoutes');
 const healthController = require('./controllers/healthController');
 
 const SAFE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
@@ -162,6 +163,7 @@ function createApp() {
   app.use('/api/strategies', strategyRoutes);
   app.use('/api/daemon', daemonRoutes);
   app.use('/api/chaos', chaosRoutes);
+  app.use('/api/quantum-vfs', quantumVfsRoutes);
   app.use('/api', schemaRoutes);
 
   // Root /api scoped route aggregators

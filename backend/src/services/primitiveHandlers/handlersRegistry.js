@@ -15,6 +15,7 @@ const swarm = require('./strategySwarm');
 const governance = require('./strategyGovernance');
 const collectiveAdvanced = require('./strategyCollectiveAdvanced');
 const remaining = require('./strategyRemaining');
+const quantumVfs = require('./quantumVfs');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -348,7 +349,16 @@ const HANDLERS = {
   swe_verify: async (ctx = {}) => {
     const { defaultSweSandboxVerification } = require('../sweSandboxVerificationService');
     return defaultSweSandboxVerification.evaluatePatchExecution(ctx.patch || ctx.diff, { targetFile: ctx.targetFile || ctx.target_file, expectedPass: ctx.expectedPass !== false, observedFail: Boolean(ctx.observedFail) });
-  }
+  },
+
+  // Lot 13 — Quantum VFS Primitives
+  quantum_vfs_stage: quantumVfs.quantumVfsStage,
+  quantum_vfs_superpose: quantumVfs.quantumVfsSuperpose,
+  quantum_vfs_entangle: quantumVfs.quantumVfsEntangle,
+  quantum_vfs_tunnel_write: quantumVfs.quantumVfsTunnelWrite,
+  quantum_vfs_decohere: quantumVfs.quantumVfsDecoherence,
+  quantum_vfs_collapse: quantumVfs.quantumVfsCollapse,
+  quantum_vfs_metrics: quantumVfs.quantumVfsMetrics
 };
 
 module.exports = {
