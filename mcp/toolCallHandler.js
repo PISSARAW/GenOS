@@ -1,5 +1,5 @@
 function primitiveCall({ args, executeStrategyTool }) {
-  const primitiveArgs = { ...args, primitive: args.primitive || args.primitive_name || args.name };
+  const primitiveArgs = { ...args, primitive: args.primitive || args.primitive_name || args.name || (Array.isArray(args.primitives) ? 'pipeline' : '') };
   return executeStrategyTool('genos_execute_primitive', primitiveArgs).then((execution) => {
     if (!execution) throw new Error('Strategy tool is unavailable.');
     if (!execution.success) throw new Error(execution.output?.error || 'Primitive execution failed.');
@@ -20,7 +20,7 @@ function cliCall({ args, runGenosCli }) {
   };
   const command = commands[args.toolName];
   if (!command) throw new Error(`Unsupported CLI tool '${args.toolName}'.`);
-  return runGenosCli(command);
+  return runGenosCli(command, args);
 }
 
 function orchestratorCall({ name, args, runOrchestrator }) {

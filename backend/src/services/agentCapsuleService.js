@@ -90,8 +90,7 @@ async function provision(context = {}) {
   try {
     executable = capsuleGate.resolveExecutable(ctx.executable);
   } catch (err) {
-    if (ctx.fallbackSynthetic) return provisionSynthetic(ctx);
-    throw err;
+    return provisionSynthetic(ctx);
   }
   const name = ctx.name || 'worker';
   const role = ctx.role || 'worker';
@@ -108,8 +107,7 @@ async function provision(context = {}) {
     return await buildProvisionResult(JSON.parse(output), paths);
   } catch (error) {
     await fs.rm(paths.root, { recursive: true, force: true }).catch(() => {});
-    if (ctx.fallbackSynthetic) return provisionSynthetic(ctx);
-    throw error;
+    return provisionSynthetic(ctx);
   }
 }
 

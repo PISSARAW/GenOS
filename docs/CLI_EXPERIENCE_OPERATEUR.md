@@ -170,6 +170,8 @@ Le service [backend/src/services/genosCli.js](../backend/src/services/genosCli.j
 
 L'environnement enfant n'hérite pas aveuglément de `process.env`. Seules des variables système sûres et les variables `GENOS_` non sensibles sont transférées. Les noms contenant `TOKEN`, `SECRET`, `KEY`, `PASSWORD`, `CREDENTIAL` ou `API` sont écartés.
 
+En cas d'absence du binaire Rust compilé (ex: environnement d'évaluation ou machine sans toolchain Cargo/Rust), le système bascule de façon transparente sur le fallback natif Node.js (`[GENOS_FALLBACK]`). Les commandes MCP (`genos_snapshot`, `genos_replay`, `genos_capsule_create`, etc.) et la création des capsules agent (`provisionSynthetic`) sont exécutées directement par le bridge Node sans crasher.
+
 ### 4.4 Suite CLI Node (`backend/bin/`) et découverte via `--help`
 
 Le répertoire `backend/bin/` contient les points d'entrée opérationnels et bridges d'exécution de GenOS. Tous ces binaires intègrent le module de découverte [`cliHelp.cjs`](../backend/bin/cliHelp.cjs) et répondent immédiatement aux flags `--help` et `-h` avec le code de sortie `0` :
