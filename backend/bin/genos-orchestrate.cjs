@@ -2,6 +2,7 @@
 // MCP-to-backend bridge. It owns one complete GenOS mission, including the
 // authority contract and bounded worker fleet, then returns its telemetry.
 const path = require('path');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { getDatabase, closeDatabase } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
@@ -84,8 +85,8 @@ async function prepareRuntime(initDb) {
     const active = await initDb.get(`SELECT a.id FROM agents a WHERE a.execution_mode = 'orchestrator' AND a.status NOT IN ('completed', 'terminated', 'apoptosis', 'error') AND (a.is_apoptotic = 0 OR a.is_apoptotic IS NULL) ORDER BY a.updated_at DESC, a.created_at DESC LIMIT 1`);
     if (active) orchestratorId = active.id;
   }
-  if (!orchestratorId) orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  if (!id) id = action === 'dispatch_worker' ? `worker_${orchestratorId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` : orchestratorId;
+  if (!orchestratorId) orchestratorId = `mcp_orchestrator_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+  if (!id) id = action === 'dispatch_worker' ? `worker_${orchestratorId}_${Date.now()}_${crypto.randomBytes(3).toString('hex')}` : orchestratorId;
 }
 
 async function executeMission(db, state) {

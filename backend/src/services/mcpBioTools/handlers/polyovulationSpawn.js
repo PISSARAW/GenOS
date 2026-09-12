@@ -19,9 +19,23 @@ function getFleet(fleetId) {
   return dizygoticFleetRegistry.get(fleetId);
 }
 
-function handlePolyovulationSpawn(args = {}, run) {
-  const action = args.action || 'status';
-  const fleetId = args.fleet_id || `dizygotic-fleet-${Date.now()}`;
+function buildEmbryo(p, idx, fleetId) {
+  const genomeSeed = `${fleetId}::${p.role}::${p.model}::${idx}`;
+  const genomeHash = crypto.createHash('sha256').update(genomeSeed).digest('hex');
+  const genomeId = `gen-dizygote-${genomeHash.slice(0, 8)}`;
+  const agentId = `agent-${p.role.toLowerCase()}-${idx + 1}`;
+  return {
+    agentId,
+    genomeId,
+    lineageId: `lin-${genomeHash.slice(0, 6)}`,
+    generation: 1,
+    profile: p,
+    zygoteType: 'dizygotic_heterogeneous',
+    status: 'gestating_active'
+  };
+}
+
+function spawnDizygoticFleet(fleet, fleetId, args) {
   const workspaceId = args.workspace_id || 'ws-shared-uterine';
   const mission = args.mission || 'Solve collective task under diverse perspectives';
   const profiles = Array.isArray(args.profiles) ? args.profiles : [
@@ -30,78 +44,65 @@ function handlePolyovulationSpawn(args = {}, run) {
     { role: 'EmpiricalAuditor', model: 'qwen2.5-coder', heuristic: 'test_driven' }
   ];
 
-  let cliOutput = null;
-  if (typeof run === 'function') {
-    try {
-      const out = run(`genos biomimicry bio-feature --feature polyovulation --action ${quoteCliArg(action)} --param fleet_id=${quoteCliArg(fleetId)}`);
-      cliOutput = out ? out.toString() : null;
-    } catch (_) {}
-  }
+  fleet.workspaceId = workspaceId;
+  fleet.mission = mission;
+  fleet.embryos = profiles.map((p, idx) => buildEmbryo(p, idx, fleetId));
+
+  const uniqueModels = new Set(profiles.map(p => p.model));
+  fleet.diversityIndex = Number((uniqueModels.size / Math.max(1, profiles.length)).toFixed(2));
+  fleet.updatedAt = new Date().toISOString();
+
+  return {
+    configured: true,
+    success: true,
+    status: 'dizygotic_fleet_spawned',
+    transport: 'polyovulation_uterine_plane',
+    fleet_id: fleetId,
+    workspace_id: workspaceId,
+    spawned_embryos_count: fleet.embryos.length,
+    embryos: fleet.embryos,
+    diversity_index: fleet.diversityIndex,
+    output: `Polyovulation spawned ${fleet.embryos.length} dizygotic embryos in shared workspace '${workspaceId}'. Diversity index: ${fleet.diversityIndex}.`
+  };
+}
+
+function inspectFleetDiversity(fleet, fleetId) {
+  const uniqueLineages = new Set(fleet.embryos.map(e => e.lineageId)).size;
+  return {
+    configured: true,
+    success: true,
+    status: 'diversity_inspected',
+    transport: 'polyovulation_uterine_plane',
+    fleet_id: fleetId,
+    embryos: fleet.embryos,
+    diversity_index: fleet.diversityIndex,
+    unique_lineages_count: uniqueLineages,
+    output: `Fleet '${fleetId}' carries ${fleet.embryos.length} dizygotic agents across ${uniqueLineages} distinct genetic lineages.`
+  };
+}
+
+function handlePolyovulationSpawn(args = {}, run) {
+  const action = args.action || 'status';
+  const fleetId = args.fleet_id || `dizygotic-fleet-${Date.now()}`;
+  const profiles = Array.isArray(args.profiles) ? args.profiles : [
+    { role: 'FormalProver', model: 'claude-3-5-sonnet', heuristic: 'strict_invariants' },
+    { role: 'HeuristicExplorer', model: 'gpt-4o', heuristic: 'broad_search' },
+    { role: 'EmpiricalAuditor', model: 'qwen2.5-coder', heuristic: 'test_driven' }
+  ];
 
   const fleet = getFleet(fleetId);
+  if (action === 'spawn_dizygotic_fleet') return spawnDizygoticFleet(fleet, fleetId, args);
+  if (action === 'inspect_fleet_diversity') return inspectFleetDiversity(fleet, fleetId);
 
-  if (action === 'spawn_dizygotic_fleet') {
-    fleet.workspaceId = workspaceId;
-    fleet.mission = mission;
-
-    fleet.embryos = profiles.map((p, idx) => {
-      const genomeSeed = `${fleetId}::${p.role}::${p.model}::${idx}`;
-      const genomeId = `gen-dizygote-${crypto.createHash('sha256').update(genomeSeed).digest('hex').slice(0, 8)}`;
-      const agentId = `agent-${p.role.toLowerCase()}-${idx + 1}`;
-      return {
-        agentId,
-        genomeId,
-        lineageId: `lin-${crypto.createHash('md5').update(genomeSeed).digest('hex').slice(0, 6)}`, // distinct lineage per ovum
-        generation: 1,
-        profile: p,
-        zygoteType: 'dizygotic_heterogeneous',
-        status: 'gestating_active'
-      };
-    });
-
-    // Compute genetic diversity index (distinct models / total count)
-    const uniqueModels = new Set(profiles.map(p => p.model));
-    fleet.diversityIndex = Number((uniqueModels.size / Math.max(1, profiles.length)).toFixed(2));
-    fleet.updatedAt = new Date().toISOString();
-
-    return {
-      configured: true,
-      success: true,
-      status: 'dizygotic_fleet_spawned',
-      transport: 'polyovulation_uterine_plane',
-      fleet_id: fleetId,
-      workspace_id: workspaceId,
-      spawned_embryos_count: fleet.embryos.length,
-      embryos: fleet.embryos,
-      diversity_index: fleet.diversityIndex,
-      output: `Polyovulation spawned ${fleet.embryos.length} dizygotic embryos in shared workspace '${workspaceId}'. Diversity index: ${fleet.diversityIndex}.`
-    };
-  }
-
-  if (action === 'inspect_fleet_diversity') {
-    return {
-      configured: true,
-      success: true,
-      status: 'diversity_inspected',
-      transport: 'polyovulation_uterine_plane',
-      fleet_id: fleetId,
-      embryos: fleet.embryos,
-      diversity_index: fleet.diversityIndex,
-      unique_lineages_count: new Set(fleet.embryos.map(e => e.lineageId)).size,
-      output: `Fleet '${fleetId}' carries ${fleet.embryos.length} dizygotic agents across ${new Set(fleet.embryos.map(e => e.lineageId)).size} distinct genetic lineages.`
-    };
-  }
-
-  // Default: status
   return {
     configured: true,
     success: true,
     status: 'active',
     transport: 'polyovulation_uterine_plane',
     fleet_id: fleetId,
-    embryo_count: fleet.embryos.length,
+    embryos_count: fleet.embryos.length,
     diversity_index: fleet.diversityIndex,
-    output: `Polyovulation fleet '${fleetId}' active with ${fleet.embryos.length} dizygotic agent(s).`
+    output: `Polyovulation fleet '${fleetId}' active with ${fleet.embryos.length} dizygotic embryo(s).`
   };
 }
 

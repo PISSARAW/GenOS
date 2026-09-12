@@ -64,7 +64,16 @@ function extractTech(content) {
 }
 
 function extractFilePaths(content) {
-  const pathMatches = content.match(/[a-zA-Z0-9_./-]+\.(?:js|cjs|rs|py|json|db|proto|md)\b/g) || [];
+  if (typeof content !== 'string') return [];
+  const safeContent = content.slice(0, 10000);
+  const tokens = safeContent.split(/[\s"'`<>]+/);
+  const pathMatches = [];
+  const extRegex = /\.(?:js|cjs|rs|py|json|db|proto|md)$/i;
+  for (const token of tokens) {
+    if (token.length <= 256 && extRegex.test(token) && /^[a-zA-Z0-9_./-]+$/.test(token)) {
+      pathMatches.push(token);
+    }
+  }
   return pathMatches.slice(0, 4).map((p) => ({ text: p, label: 'Location' }));
 }
 

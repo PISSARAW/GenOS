@@ -57,8 +57,10 @@ const BIO_EXTRA_HANDLERS = {
 };
 
 async function handleBioExtraTool(toolName, args, timeoutMs) {
-  const handler = BIO_EXTRA_HANDLERS[toolName];
-  if (handler) return await handler(args, timeoutMs);
+  if (typeof toolName === 'string' && Object.prototype.hasOwnProperty.call(BIO_EXTRA_HANDLERS, toolName)) {
+    const handler = BIO_EXTRA_HANDLERS[toolName];
+    if (typeof handler === 'function') return await handler(args, timeoutMs);
+  }
   return null;
 }
 

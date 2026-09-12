@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { getDatabase } = require('../../db');
 const telemetry = require('../telemetryObserver');
 const runtimeAdapter = require('../agentRuntimeAdapter');
@@ -42,7 +43,7 @@ class AgentDeployService {
 
     const db = await this.initRepo();
     
-    const agentId = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+    const agentId = `agent_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
     const identity = agentIdentity.generateAgentIdentity({ preferredName: name, role });
     const agentName = identity.name;
     const nameMeaning = identity.name_meaning;

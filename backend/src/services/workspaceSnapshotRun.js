@@ -56,13 +56,20 @@ function isAllowedTestCommand(command) {
 }
 
 function assertAllowedTestCommand(command) {
-  if (!isAllowedTestCommand(command)) {
+  const normalized = normalizeSandboxCommand(command);
+  if (!normalized || !normalized.match(/^[a-zA-Z0-9_./:\- ]+$/)) {
     throw Object.assign(
       new Error('Test command is not allowed.'),
       { code: 'TEST_COMMAND_NOT_ALLOWED' }
     );
   }
-  return normalizeSandboxCommand(command);
+  if (!isAllowedTestCommand(normalized)) {
+    throw Object.assign(
+      new Error('Test command is not allowed.'),
+      { code: 'TEST_COMMAND_NOT_ALLOWED' }
+    );
+  }
+  return normalized;
 }
 
 function isolatedRunnerEnv(runnerRoot) {
@@ -87,9 +94,16 @@ function isolatedRunnerEnv(runnerRoot) {
 function spawnTestCommand(options) {
   const { shellCommand, workingDirectory, runnerRoot, timeoutMs, maxOutputBytes } = options;
   const { spawn } = require('child_process');
+  const safeTimeoutMs = Math.max(1000, Math.min(Number(timeoutMs) || 30000, 120000));
+
+  if (!String(shellCommand).match(/^[a-zA-Z0-9_./:\- ]+$/)) {
+    throw new Error('Command contains invalid characters.');
+  }
+
   const useWindowsShell = process.platform === 'win32';
   const shellExecutable = useWindowsShell ? (process.env.ComSpec || 'cmd.exe') : '/bin/sh';
   const shellArgs = useWindowsShell ? ['/d', '/s', '/c', shellCommand] : ['-c', shellCommand];
+
   return new Promise((resolve, reject) => {
     const child = spawn(shellExecutable, shellArgs, {
       cwd: workingDirectory,
@@ -106,7 +120,7 @@ function spawnTestCommand(options) {
     };
     child.stdout.on('data', (chunk) => { stdout = append(stdout, chunk); });
     child.stderr.on('data', (chunk) => { stderr = append(stderr, chunk); });
-    const timer = setTimeout(() => { terminateChild(child); reject(Object.assign(new Error(`Test command timed out after ${timeoutMs}ms.`), { code: 'TEST_TIMEOUT' })); }, timeoutMs);
+    const timer = setTimeout(() => { terminateChild(child); reject(Object.assign(new Error(`Test command timed out after ${safeTimeoutMs}ms.`), { code: 'TEST_TIMEOUT' })); }, safeTimeoutMs);
     child.on('error', (error) => { clearTimeout(timer); reject(error); });
     child.on('close', (code, signal) => { clearTimeout(timer); resolve({ exitCode: code == null ? -1 : code, signal, stdout, stderr, truncated }); });
   });

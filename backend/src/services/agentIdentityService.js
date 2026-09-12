@@ -23,7 +23,7 @@ const IDENTITY_CATALOG = [
 function getRandomIdentity(excludeNames = []) {
   const available = IDENTITY_CATALOG.filter((item) => !excludeNames.includes(item.name));
   const pool = available.length > 0 ? available : IDENTITY_CATALOG;
-  const idx = Math.floor(Math.random() * pool.length);
+  const idx = crypto.randomInt(0, pool.length);
   return pool[idx];
 }
 

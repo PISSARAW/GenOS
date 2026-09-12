@@ -60,9 +60,8 @@ class StrategyExecutionAdapter {
       payload: context
     });
 
-    const handler = HANDLERS[primitive];
-    if (handler) {
-      return handler(context);
+    if (typeof primitive === 'string' && Object.prototype.hasOwnProperty.call(HANDLERS, primitive) && typeof HANDLERS[primitive] === 'function') {
+      return HANDLERS[primitive](context);
     }
 
     const error = new Error(`Strategy primitive '${primitive}' has no registered handler.`);
