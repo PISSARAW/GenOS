@@ -40,7 +40,8 @@ assert.equal(recovery.classifyFinalReport({ claims: [], uncertainties: ['not sol
 assert.equal(recovery.classifyFinalReport({ outcome: 'no_answer', noAnswerProof: { evidence: [] } }).outcome, 'failed');
 assert.equal(recovery.classifyFinalReport({ outcome: 'no_answer', noAnswerProof: { method: 'enumeration', evidence: ['all states checked'] } }).outcome, 'no_answer');
 
-const runtimeSource = fs.readFileSync(require.resolve('../bin/genos-agent-runtime.cjs'), 'utf8');
+const runtimeSource = fs.readFileSync(require.resolve('../bin/genos-agent-runtime.cjs'), 'utf8') +
+  fs.readFileSync(require.resolve('../bin/agent-runtime-close.cjs'), 'utf8');
 assert(runtimeSource.includes("eventType: isWorker ? 'WORKER_TASK_FAILED' : 'AGENT_FAILED'") || runtimeSource.includes("WORKER_TASK_FAILED"), 'semantic worker failures must be emitted to the control plane');
 assert(runtimeSource.includes("WORKER_NO_ANSWER_PROVEN"), 'evidence-backed no-answer conclusions must be explicit');
 const adapterSource = fs.readFileSync(require.resolve('../src/services/agentRuntimeAdapter.js'), 'utf8');
