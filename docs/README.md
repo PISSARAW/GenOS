@@ -136,6 +136,7 @@ stateDiagram-v2
 ### 1. Fondations conceptuelles
 
 - [BIOLOGIE_COMPUTATIONNELLE.md](BIOLOGIE_COMPUTATIONNELLE.md) — définition de la biomimétique GenOS, modèles biologiques, embryogenèse, HOX, budgets et limites réelles.
+- [BIOMIMETIC_SOFTWARE_REPAIR.md](BIOMIMETIC_SOFTWARE_REPAIR.md) — réparation logicielle biomimétique (NER, proprioception de Sherrington, excision chirurgicale UvrBC et checkpoint p53 pour SWE-bench).
 - [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md](PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md) — nosologie computationnelle, statut clinique, maladies auto-immunes, nosocomiales, iatrogènes, dégénératives et thérapies systémiques.
 - [NOSOLOGIE_COMPUTATIONNELLE_COMPLETE.md](NOSOLOGIE_COMPUTATIONNELLE_COMPLETE.md) — synthèse exhaustive des 9 familles nosologiques (28 maladies), pharmacopée unifiée et feuille de route.
   - [NOSOLOGIE_1_AUTO_IMMUNES.md](NOSOLOGIE_1_AUTO_IMMUNES.md) — Lupus, polyarthrite rhumatoïde, sclérose en plaques, diabète de type 1.
