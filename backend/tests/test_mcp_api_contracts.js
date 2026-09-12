@@ -9,6 +9,9 @@ assert.equal(validateToolArguments('genos_replay', {}).code, 'INVALID_TOOL_ARGUM
 assert.equal(validateToolArguments('genos_replay', { snapshot: 'snap.json' }), null);
 assert.equal(getToolInputSchema('genos_snapshot').required.includes('agent'), true);
 assert.equal(getToolInputSchema('genos_snapshot').required.includes('out'), true);
+assert.equal(validateToolArguments('genos_snapshot', {}).code, 'INVALID_TOOL_ARGUMENTS');
+assert.equal(validateToolArguments('genos_snapshot', { agent: 'griot' }).code, 'INVALID_TOOL_ARGUMENTS');
+assert.equal(validateToolArguments('genos_snapshot', { agent: 'griot', out: 'snapshots/griot.json' }), null);
 
 mcpExecutor.listTools().then((tools) => {
   const replayTool = tools.find((tool) => tool.name === 'genos_replay');
