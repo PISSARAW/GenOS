@@ -877,3 +877,45 @@ flowchart TD
 | **4. Invalidation Épistémique sur Maillons Intermédiaires Corrompus** | Les agents continuent d'exécuter des plans basés sur des étapes intermédiaires non prouvées ou altérées. | `epistemics.validateMemoryPerception` détecte les allégations non vérifiées au sein de la chaîne et verrouille instantanément `plan`, `act`, et `generate`. | **2/2 PASS** |
 | **5. Confinement Déterministe des Dépendances Cycliques & Auto-Boucles** | Les graphes avec dépendances circulaires ($A \to B \to C \to A$) ou boucles réflexives provoquent des boucles infinies. | La CTE récursive borne la profondeur de traversée, assure une complétion en $< 100\text{ ms}$ et gère les boucles réflexives ($A \to A$) sans duplication. | **2/2 PASS** |
 | **6. Consolidation Épisodique Hippocampique Multi-Sessions** | Accumulation désordonnée d'actions bruitées dégradant le contexte et les performances. | `consolidateEpisodes` sépare les actions pivots ($\ge 0.70$) du bruit ($\le 0.25$), consolidant la mémoire à long terme tout en purgeant le résidu. | **2/2 PASS** |
+
+---
+
+## 19. Banc d'Épreuve : Utilisation d'Outils & Orchestration d'APIs (`npm run test:tool-calling`)
+
+Le profil de test `npm run test:tool-calling` ([backend/tests/stress/test_tool_use_and_function_calling_bench.js](../backend/tests/stress/test_tool_use_and_function_calling_bench.js)) soumet le sous-système d'exécution d'outils et de fonction-calling de GenOS à 18 défis majeurs portant sur la rigueur du typage, les baux de sécurité, les disjoncteurs et l'idempotence.
+
+### Vulnérabilités des Frameworks Généralistes (LangChain, AutoGen, CrewAI)
+
+1. **Passage d'Arguments Non Typés (Blind JSON Forwarding)** :
+   Les frameworks conventionnels prennent la sortie JSON brute du LLM et l'injectent directement dans la fonction d'outil. Si le LLM omet un paramètre obligatoire, passe un tableau au lieu d'un objet, ou injecte un payload de 100 Mo, le processus hôte plante avec une exception non interceptée.
+2. **Escalade Horizontale et Baux d'Outils Laxistes** :
+   Dans CrewAI ou AutoGen, les agents ont accès à tous les outils du pool global ou peuvent réclamer n'importe quel outil par simple requête textuelle. Un agent worker peut s'auto-attribuer des outils d'orchestration globale.
+3. **Boucles d'Appels Récursives Ininterrompues (*Tool Runaway*)** :
+   Quand un outil échoue ou qu'un agent répète le même appel sans progresser, les frameworks réessaient indéfiniment jusqu'à l'épuisement total du budget token ou un crash de contexte.
+4. **Effets Secondaires Non Idempotents** :
+   Les rejeux d'outils en cas de timeout réseau ré-exécutent les effets destructeurs sans vérification de signature ou de verrouillage d'état.
+
+```mermaid
+flowchart TD
+    LLMCall["Appel d'Outil émis par le LLM"] --> Step1{1. Validation Stricte de Schéma}
+    Step1 -- Type Invalide / Omission / >64KB --> Reject1["INVALID_TOOL_ARGUMENTS (Refus Immédiat)"]
+    Step1 -- Conforme --> Step2{2. Baux d'Outils Fail-Closed}
+    Step2 -- Outil Hors Rôle / genos_orchestrate --> Reject2["Strip Inconditionnel / Privilège Refusé"]
+    Step2 -- Bail Valide --> Step3{3. Circuit Breaker & Anti-Boucle}
+    Step3 -- Répétition Identique >= 6 --> Trip1["TOOL_EXECUTION_LOOP (Throttling)"]
+    Step3 -- Pannes Récurrentes (>=3) --> Trip2["CIRCUIT_OPEN (Quarantaine Outils Destructeurs)"]
+    Step3 -- Outil Locked (Embargo) --> Trip3["TOOL_LOCKED"]
+    Step3 -- Normal --> Exec["Exécution Sanctuarisée de l'Outil"]
+```
+
+### 19.1 Défis d'Utilisation d'Outils et Function Calling Éprouvés
+
+| Défi d'Exécution d'Outil | Écueil Déterminant (LangChain / AutoGen / CrewAI) | Mécanisme de Protection et Runtime GenOS | Statut Test (18/18) |
+|---|---|---|---|
+| **1. Validation Stricte de Schéma & Types** | Injection de types malformés (tableaux, chaînes) causant des plantages applicatifs. | `mcpArgumentValidation.validateToolArguments` vérifie la nature objet, l'exhaustivité des champs requis et borne les chaînes à 64 Ko. | **4/4 PASS** |
+| **2. Baux d'Outils Fail-Closed & Privilège Minimal** | Les workers héritent ou réclament des outils d'orchestration globale sans restriction. | `toolLeasePolicy.restrictProvidedLease` n'autorise que la restriction (jamais l'élargissement) et expurge inconditionnellement `genos_orchestrate` et ses variantes. | **4/4 PASS** |
+| **3. Détection de Boucles Runaway & Disjoncteur Automatique** | Boucles de retry infinies consommant le quota sans détection de répétition. | `circuitBreaker.canExecute` intercepte les boucles identiques ($\ge 6$) via `TOOL_EXECUTION_LOOP`, et bascule en `CIRCUIT_OPEN` lors de pannes successives ($\ge 3$) avec sonde canary en `HALF-OPEN`. | **3/3 PASS** |
+| **4. Pipeline Déterministe & Classification de Primitives** | Échec de dispatching des outils custom et perte du contexte d'exécution. | `mcpToolRegistry` et `mcpStrategyTools` catégorisent dynamiquement l'exécution (`strategy`, `bio`, `cli`) et court-circuitent les arguments invalides. | **3/3 PASS** |
+| **5. Idempotence & Verrouillage d'Outils Destructeurs** | Duplication d'effets secondaires irréversibles lors des retries réseau. | Calcul déterministe de signature d'arguments (`argumentSignature`) et classification des outils destructeurs exigeant le rôle Admin. | **2/2 PASS** |
+| **6. Embargo d'Outils Dégradés & Isolation Propre** | Fuite de stacktraces internes ou d'informations confidentielles lors d'erreurs d'outils. | `toolLockOverrides` verrouille individuellement les outils compromis (`TOOL_LOCKED`) et les outils non supportés renvoient un format d'erreur assaini sans fuite. | **2/2 PASS** |
+
