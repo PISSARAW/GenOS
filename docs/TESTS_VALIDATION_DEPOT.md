@@ -558,3 +558,43 @@ flowchart TD
 | **4** | **Traversée de Répertoire & Évasion de Bac à Sable** (`../../Windows/System32` ou `/etc/passwd`) | Les chemins d'écriture sont passés tels quels au filesystem de l'hôte | `pathSafety.normalizeRelativePath` et `vfsSandboxService` confinent strictement chaque opération au VFS et rejettent tout chemin fuyant la racine | **26/26 PASS** |
 | **5** | **Infiltration Sybil & Biais d'Auto-Approbation** (Attaquant exploitant des alias ou faux votes pour valider une promotion) | Les systèmes basés sur le vote majoritaire ($M/N$) sont manipulés par création massive de personas synthétiques | `platformApprovalPolicy.isSelfApproval` unifie `username` et `keyId`, exige une stricte séparation des devoirs et vérifie l'intégrité SHA-256 du payload | **26/26 PASS** |
 
+---
+
+## 16. Banc d'Épreuve : Raisonnement Temporel & Rejeu Causal (`npm run test:temporal`)
+
+Le profil de test `npm run test:temporal` ([backend/tests/stress/test_temporal_reasoning_bench.js](../backend/tests/stress/test_temporal_reasoning_bench.js)) soumet le moteur agentique à 20 défis de raisonnement temporel, contrefactuel et causal.
+
+Alors que les architectures d'agents conventionnelles (LangChain, AutoGen, CrewAI) stockent l'historique sous forme d'une liste linéaire unidirectionnelle strictement append-only (`messages.append(...)`) incapable de bifurquer dans le passé ou de réconcilier des états divergents, GenOS intègre une algèbre causale native :
+
+```mermaid
+graph TD
+    T0["T0: État Initial"] --> T1["T1: Étape 1"]
+    T1 --> T2["T2: Étape 2"]
+    T2 --> T3["T3: Décision Errante (TLS Disabled)"]
+    T3 --> T4["T4: Crash / Anomalie"]
+    
+    subgraph "Time Travel & Counterfactual Branching"
+        T2 -.->|"Intervention (Replay k=3)"| C3["T3': Replay Contrefactuel (Cert Pinning)"]
+        C3 --> C4["T4': Trajectoire Alternative Stable (SUCCESS)"]
+    end
+    
+    subgraph "Three-Way Causal Merge"
+        Base["Base Ancestrale (T2)"] --> MergeNode{"causalMerge(Base, C4, T4)"}
+        C4 --> MergeNode
+        Live["Branche Live"] --> MergeNode
+        MergeNode --> Harmonized["État Réconcilié (0 Conflit)"]
+    end
+```
+
+### 16.1 Défis de Raisonnement Temporel Éprouvés
+
+| Défi Temporel | Limite Déterminante (LangChain / AutoGen / CrewAI) | Technologie & Algèbre Temporelle GenOS | Statut Test (20/20) |
+|---|---|---|---|
+| **1. Branchement Contrefactuel "What-If" & Diff Causal** | Aucune bifurcation temporelle : modifier le passé écrase l'historique ou duplique naïvement tous les tokens en avant. | `counterfactualReplay` isole l'intervention au pas $k$, calcule un hash SHA-256 immuable de trajectoire et `causalDiff` pointe la divergence exacte sans polluer l'historique réel. | **4/4 PASS** |
+| **2. Bisection Causale Temporelle en $O(\log N)$ sur 128 Snapshots** | En cas d'erreur introduite il y a 50 étapes, les frameworks itèrent linéairement ($O(N)$) ou hallucinent l'origine du bug. | `bisectAnomaly` isole le pas exact de régression (pas 53 sur 128 snapshots) en **$\le 7$ étapes de recherche** avec vérification de stabilité et de monotonicité. | **3/3 PASS** |
+| **3. Réconciliation Causale à 3 Voies (`causalMerge`)** | L'absence d'algèbre de fusion écrase arbitrairement les états concurrents (Last-Write-Wins destructif). | `causalMerge` compare Base vs Left (branche intervention) vs Right (branche live) pour fusionner les clés non recouvrantes et détecter formellement les conflits concurrents. | **3/3 PASS** |
+| **4. Pliage Déterministe d'Historique sur 100 Tours (`stateFold`)** | Les contextes dépassés subissent une troncature FIFO naive (`messages[-10:]`), oubliant les préconditions causales initiales. | `stateFold` compense 100 micro-mutations en un état synthétique compact non déperditif, consolidant les modifications de fichiers et le statut d'intégrité (`isClean`). | **3/3 PASS** |
+| **5. Invalidation Topologique Descendante & DAG Synaptique** | Quand un postulat passé est réfuté, il persiste dans le RAG / prompt, causant des cascades d'hallucinations ("fantômes de prémisses"). | `replayDependencies` et `dependencyMatrix` parcourent récursivement les synapses causales de `genome_decisions` pour collecter et recalibrer tous les descendants temporels. | **3/3 PASS** |
+| **6. Mondes Futurs Probabilistes & Verdicts d'Équivalence** | Génération mono-flux incapable d'évaluer la divergence sémantique entre futurs alternatifs. | `futureWorlds` projette des branches à horizons multiples et `equivalenceVerdict` compare les sorties par similarité Jaccard pour valider ou rejeter la divergence. | **4/4 PASS** |
+
+
