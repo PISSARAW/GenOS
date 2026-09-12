@@ -7,6 +7,7 @@ pub mod trinity;
 pub mod rhizome;
 pub mod run;
 pub mod chaos;
+pub mod quantum_vfs;
 
 use clap::{Parser, Subcommand};
 pub use biomimicry::*;
@@ -18,6 +19,7 @@ pub use trinity::*;
 pub use rhizome::*;
 pub use run::*;
 pub use chaos::*;
+pub use quantum_vfs::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "genos")]
@@ -33,6 +35,8 @@ pub struct Cli {
 pub enum Commands {
     /// Initialize the GenOS workspace directories
     Init,
+    /// Quantum Virtual File System (7-pillar quantum coherence) operations
+    QuantumVfs(QuantumVfsCmd),
     /// Agent genome lifecycle operations
     Agent(AgentCmd),
     /// Snapshot lifecycle operations
