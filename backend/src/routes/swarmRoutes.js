@@ -12,6 +12,7 @@ router.get('/consensus', requireTenantScope(), swarmController.getConsensus);
 router.get('/metrics', requireTenantScope(), swarmController.getMetrics);
 router.get('/topology', requireTenantScope(), swarmController.getTopology);
 router.post('/proposals', requirePermission('swarm:propose'), requireTenantScope({ write: true }), swarmController.createProposal);
+router.post('/proposals/:id/counter', requirePermission('swarm:propose'), requireTenantScope({ write: true }), swarmController.createCounterProposal);
 router.post('/vote', requirePermission('swarm:vote'), requireTenantScope({ write: true }), swarmController.castVote);
 
 module.exports = router;

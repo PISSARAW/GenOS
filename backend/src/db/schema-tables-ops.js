@@ -25,6 +25,7 @@ const TABLES_OPS = [
 "    status TEXT NOT NULL CHECK (status IN ('open', 'passed', 'rejected', 'expired')),",
 "    quorum_threshold REAL DEFAULT 0.66,",
 "    consensus_type TEXT DEFAULT 'simple',",
+"    parent_proposal_id TEXT,",
 "    expires_at DATETIME,",
 "    created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
 ");",
