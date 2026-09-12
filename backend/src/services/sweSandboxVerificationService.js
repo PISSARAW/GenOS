@@ -122,6 +122,36 @@ class SweSandboxVerificationService {
       motorAdjustmentPrompt: 'Motor execution coherent. Ready for reality arbiter promotion.'
     };
   }
+
+  /**
+   * Boucle fermée de rétroaction cérébelleuse multi-tours (max 3 params)
+   */
+  async executeCerebellarLoop(patchFn, options = {}, maxAttempts = 3) {
+    let currentSignal = null;
+    let finalResult = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const candidatePatch = await patchFn(currentSignal, attempt);
+      const evalResult = this.evaluatePatchExecution(candidatePatch, options);
+      finalResult = evalResult;
+
+      if (evalResult.p53Passed) {
+        return {
+          resolved: true,
+          attempts: attempt,
+          finalResult
+        };
+      }
+
+      currentSignal = evalResult.cerebellarSignal;
+    }
+
+    return {
+      resolved: false,
+      attempts: maxAttempts,
+      finalResult
+    };
+  }
 }
 
 const defaultSweSandboxVerification = new SweSandboxVerificationService();
