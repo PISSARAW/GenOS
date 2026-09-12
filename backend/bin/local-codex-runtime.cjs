@@ -200,11 +200,12 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
     let match;
     const fsLib = require('fs');
     const pathLib = require('path');
+    const writeErrors = [];
     while ((match = artifactRegex.exec(reply)) !== null) {
       const filepath = match[1].trim();
       const code = match[2].trim();
       try {
-        if (!allowFileEdits) throw new Error('File edits are not authorized by the GenOS execution policy.');
+        if (!allowFileEdits) throw new Error(`File edits are not authorized by the GenOS execution policy for: ${filepath}`);
         const absPath = pathLib.resolve(workspaceRoot, filepath);
         const relativePath = pathLib.relative(workspaceRoot, absPath);
         if (relativePath.startsWith('..') || pathLib.isAbsolute(relativePath)) {
@@ -214,7 +215,11 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
         fsLib.writeFileSync(absPath, code);
       } catch (e) {
         console.error("Erreur lors de l'ecriture du fichier:", e);
+        writeErrors.push(e.message);
       }
+    }
+    if (writeErrors.length > 0) {
+      throw new Error(`Failed to write artifact files (${writeErrors.length} error(s)): ${writeErrors.join('; ')}`);
     }
     
     try {
