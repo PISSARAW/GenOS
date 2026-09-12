@@ -55,6 +55,7 @@ Les agents et les workflows portent des états internes structurés, des contrai
 
 - [docs/GENOME_EPIGENETIQUE.md](docs/GENOME_EPIGENETIQUE.md)
 - [docs/BIOLOGIE_COMPUTATIONNELLE.md](docs/BIOLOGIE_COMPUTATIONNELLE.md)
+- [docs/BIOMIMETIC_WEB_FORAGING.md](docs/BIOMIMETIC_WEB_FORAGING.md) — Foraging de Charnov, fovéation rétinienne et navigation active (résolution des 77% d'épreuves web GAIA).
 
 ### 2. Mémoire, synapses et apprentissage
 Le système dispose d’un moteur de mémoire hybride, de connectome synaptique, de plasticité, de consolidation et de gestion de l’oubli. Voir :

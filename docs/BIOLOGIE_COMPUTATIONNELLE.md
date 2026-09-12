@@ -720,3 +720,20 @@ flowchart LR
     Blastocyste -->|Expression HOX B| Judge["Cellule Régulatrice (Judge)"]
     Blastocyste -->|Expression HOX C| Architect["Cellule Structurante (Architect)"]
 ```
+
+---
+
+## 5. Vision Active Rétinienne et Quête Optimale (Foraging de Charnov)
+
+Voir la documentation dédiée : [docs/BIOMIMETIC_WEB_FORAGING.md](BIOMIMETIC_WEB_FORAGING.md).
+
+### 5.1 Fovéation et Saccades Oculaires
+- **Scan Périphérique :** Cartographie de saillance basse résolution des régions d'intérêt (graphiques, légendes, axes 3D).
+- **Saccade :** Verrouillage attentionnel moteur sur la coordonnée cible.
+- **Crop Fovéal :** Extraction pleine résolution native (jusqu'à 1000+ DPI effectifs sans sous-échantillonnage destructif).
+
+### 5.2 Théorème de la Valeur Marginale (MVT - Eric Charnov)
+Calcul du rendement informationnel instantané dans un îlot web (patch) :
+$$\left. \frac{dI(t)}{dt} \right|_{t = t_{depart}} < \theta_{env}$$
+Dès que le taux marginal d'acquisition d'information tombe sous le rendement moyen de l'environnement, la cellule agent déclenche un délogement immédiat (*patch departure*) pour éviter l'enfermement et l'hallucination stérile.
+
