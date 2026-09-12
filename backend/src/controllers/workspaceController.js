@@ -19,6 +19,11 @@ const execFileAsync = promisify(execFile);
 
 const WORKSPACES_ROOT = resolveWorkspacesRoot();
 
+function isPathContained(root, candidate) {
+  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
 const {
   findWorkspace,
   getWorkspaceFiles
@@ -105,6 +110,12 @@ async function createWorkspace(req, res) {
   const wsPath = req.tenant
     ? path.join(WORKSPACES_ROOT, '.genos-tenants', req.tenant.organizationId.replace(/[^a-zA-Z0-9._-]/g, '_'), req.tenant.projectId.replace(/[^a-zA-Z0-9._-]/g, '_'), name)
     : path.join(WORKSPACES_ROOT, name);
+
+  // Defense in depth: the name whitelist above already forbids separators and
+  // `..`, but never let a derived workspace path escape the workspaces root.
+  if (!isPathContained(WORKSPACES_ROOT, wsPath)) {
+    return res.status(400).json({ error: { code: 'WORKSPACE_PATH_ESCAPE', message: 'Workspace path escapes the workspaces root.' } });
+  }
 
   try {
     if (!fs.existsSync(wsPath)) {
