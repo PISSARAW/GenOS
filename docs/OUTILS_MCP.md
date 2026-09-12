@@ -122,7 +122,7 @@ La contrainte sur les chaines structurelles vise notamment a bloquer les separat
 " ' ` \\ ; | & < > $ \r \n
 ```
 
-Les champs explicitement libres restent possibles pour transporter une mission, un predicate ou un contenu, mais le code ne traite pas cette liberte comme une permission de sortie du workspace.
+Les champs explicitement libres (comme `agent` ou `out` pour `genos_snapshot`, ou `predicate`, `mission`, `content`) restent possibles pour transporter un chemin ou du contenu, tout en garantissant le confinement strict au sein du workspace et la présence obligatoire des paramètres requis (`agent` et `out` pour `genos_snapshot`).
 
 `mcpExecutor` ajoute un confinement de chemin pour les entrees et sorties :
 
