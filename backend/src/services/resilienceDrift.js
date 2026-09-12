@@ -1,11 +1,13 @@
+const MAX_LEVENSHTEIN_LENGTH = 10000;
+
 /**
  * Calculates normalized Levenshtein distance between two strings with O(min(M, N)) space
  */
 function calculateLevenshtein(strA = '', strB = '') {
-  const sA = String(strA || '');
-  const sB = String(strB || '');
-  let m = sA.length;
-  let n = sB.length;
+  const sA = (typeof strA === 'string' ? strA : String(strA || '')).slice(0, MAX_LEVENSHTEIN_LENGTH);
+  const sB = (typeof strB === 'string' ? strB : String(strB || '')).slice(0, MAX_LEVENSHTEIN_LENGTH);
+  let m = Math.min(sA.length, MAX_LEVENSHTEIN_LENGTH);
+  let n = Math.min(sB.length, MAX_LEVENSHTEIN_LENGTH);
   if (m === 0) return n === 0 ? 0 : 1.0;
   if (n === 0) return 1.0;
 
@@ -14,8 +16,8 @@ function calculateLevenshtein(strA = '', strB = '') {
   if (m < n) {
     a = sB;
     b = sA;
-    m = a.length;
-    n = b.length;
+    m = Math.min(a.length, MAX_LEVENSHTEIN_LENGTH);
+    n = Math.min(b.length, MAX_LEVENSHTEIN_LENGTH);
   }
 
   let prevRow = new Int32Array(n + 1);
@@ -48,13 +50,15 @@ function calculateLevenshtein(strA = '', strB = '') {
  * Tracks prompt hypermutation drift against ancestral baseline
  */
 function trackHypermutationDrift(ancestorPrompt, currentPrompt) {
-  const driftScore = calculateLevenshtein(ancestorPrompt || '', currentPrompt || '');
+  const safeAncestor = typeof ancestorPrompt === 'string' ? ancestorPrompt : String(ancestorPrompt || '');
+  const safeCurrent = typeof currentPrompt === 'string' ? currentPrompt : String(currentPrompt || '');
+  const driftScore = calculateLevenshtein(safeAncestor, safeCurrent);
   const safetyHorizonLimit = 0.35;
   const isSafe = driftScore <= safetyHorizonLimit;
 
   return {
-    ancestorLength: ancestorPrompt ? ancestorPrompt.length : 0,
-    currentLength: currentPrompt ? currentPrompt.length : 0,
+    ancestorLength: safeAncestor.length,
+    currentLength: safeCurrent.length,
     driftScore,
     safetyHorizonLimit,
     isSafe,

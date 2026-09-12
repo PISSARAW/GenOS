@@ -4,7 +4,22 @@
  * and its Windows autostart capabilities.
  */
 
+const fs = require('fs');
+const path = require('path');
 const daemon = require('../services/daemonAgentAutostart');
+
+function sanitizeDirectoryPath(dirPath) {
+  if (!dirPath || typeof dirPath !== 'string') return null;
+  const resolved = path.resolve(dirPath);
+  if (resolved.includes('\0') || path.parse(resolved).root === resolved) return null;
+  try {
+    const real = fs.realpathSync(resolved);
+    if (!fs.statSync(real).isDirectory()) return null;
+    return real;
+  } catch {
+    return null;
+  }
+}
 
 function getStatus(req, res, next) {
   try {
@@ -22,7 +37,10 @@ function configure(req, res, next) {
     if (name) updates.name = String(name).trim();
     if (personality) updates.personality = String(personality).trim();
     if (role) updates.role = String(role).trim();
-    if (githubDir) updates.githubDir = String(githubDir).trim();
+    if (githubDir) {
+      const sanitized = sanitizeDirectoryPath(githubDir);
+      if (sanitized) updates.githubDir = sanitized;
+    }
     if (typeof openTerminalOnStartup === 'boolean') updates.openTerminalOnStartup = openTerminalOnStartup;
     if (typeof enabled === 'boolean') updates.enabled = enabled;
 
@@ -50,7 +68,14 @@ function setAutostart(req, res, next) {
 
 async function runAudit(req, res, next) {
   try {
-    const cycle = await daemon.runProactiveCycle(req.body || {});
+    const body = req.body || {};
+    const options = { ...body };
+    if (options.githubDir) {
+      const sanitized = sanitizeDirectoryPath(options.githubDir);
+      if (sanitized) options.githubDir = sanitized;
+      else delete options.githubDir;
+    }
+    const cycle = await daemon.runProactiveCycle(options);
     res.json({ success: true, config: cycle.config, audit: cycle.audit, maintenance: cycle.maintenance });
   } catch (err) {
     next(err);

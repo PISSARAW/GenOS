@@ -101,7 +101,9 @@ async function thawCryptobiosis(req, res, next) {
 async function getDrift(req, res, next) {
   try {
     const { ancestorPrompt, currentPrompt } = req.body || req.query || {};
-    const result = resilienceService.trackHypermutationDrift(ancestorPrompt, currentPrompt);
+    const safeAncestor = typeof ancestorPrompt === 'string' ? ancestorPrompt : String(ancestorPrompt || '');
+    const safeCurrent = typeof currentPrompt === 'string' ? currentPrompt : String(currentPrompt || '');
+    const result = resilienceService.trackHypermutationDrift(safeAncestor, safeCurrent);
     res.json(result);
   } catch (err) {
     next(err);

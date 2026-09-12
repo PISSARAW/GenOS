@@ -6,6 +6,7 @@
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 
 // Security & Error Middlewares
 const { securityHeaders, originCheck, csrfCheck, xssSanitizer, ALLOWED_ORIGINS } = require('./middleware/security');
@@ -78,6 +79,16 @@ function createApp() {
           next();
       });
   });
+
+  // Global Rate Limiting to prevent DoS (CWE-770, CWE-307, CWE-400)
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: process.env.NODE_ENV === 'test' ? 50000 : 5000,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test' || process.env.GENOS_DISABLE_RATE_LIMIT === '1'
+  });
+  app.use(limiter);
 
   // Container/orchestrator probes are intentionally public and cheap. The
   // dependency-aware probes still verify the SQLite store before reporting

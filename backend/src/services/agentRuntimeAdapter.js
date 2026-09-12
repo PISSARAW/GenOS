@@ -160,12 +160,12 @@ function startMission(mission) {
       try {
         await dispatchWorkerRecovery(agentId);
       } catch (err) {
-        console.error(`[AgentRuntimeAdapter] Error in dispatchWorkerRecovery for ${agentId}:`, err);
+        console.error('[AgentRuntimeAdapter] Error in dispatchWorkerRecovery for %s:', agentId, err);
       }
       try {
         dispatchPendingContinuation(agentId);
       } catch (err) {
-        console.error(`[AgentRuntimeAdapter] Error in dispatchPendingContinuation for ${agentId}:`, err);
+        console.error('[AgentRuntimeAdapter] Error in dispatchPendingContinuation for %s:', agentId, err);
       }
     } else {
       pendingContinuations.delete(agentId);

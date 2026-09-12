@@ -1,19 +1,9 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../../db');
-const { validateProviderEndpointAsync } = require('../providerEndpointPolicy');
 const { enforceHooks } = require('./hooks');
 const { applyState } = require('./state');
 const { updateRef } = require('./refs');
-
-// Agent Git remotes are fetched server-side, so a caller-controlled remoteUrl
-// is an SSRF vector. Reuse the provider endpoint policy (blocks loopback,
-// private ranges and metadata addresses) unless an operator explicitly opts
-// into private remotes for a trusted self-hosted topology.
-async function assertRemoteGitUrl(rawUrl) {
-  if (process.env.GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES === '1') return;
-  await validateProviderEndpointAsync(String(rawUrl), { localOnly: false });
-}
-
+const { validateRemoteUrlHost, assertRemoteGitUrl } = require('./remoteUrlPolicy');
 function scopeSql(req, alias = 'w') {
   if (!req.tenant) return { clause: '1 = 1', params: [] };
   const prefix = alias ? `${alias}.` : '';
@@ -138,8 +128,10 @@ async function push(req) {
   const commit = await createCommit(req, { agentId, kind: 'remote', refName: req.body?.refName || 'main', remoteName, metadata: { pushed: true, remoteUrl: req.body?.remoteUrl || null } });
   if (req.body?.remoteUrl) {
     await assertRemoteGitUrl(req.body.remoteUrl);
+    const safeUrl = validateRemoteUrlHost(req.body.remoteUrl);
+    safeUrl.pathname = `${safeUrl.pathname.replace(/\/$/, '')}/api/lineage/agents/git/remote/push`;
     const state = await collectState(await getDatabase(), req, agentId);
-    const response = await globalThis.fetch(`${String(req.body.remoteUrl).replace(/\/$/, '')}/api/lineage/agents/git/remote/push`, {
+    const response = await globalThis.fetch(safeUrl.href, {
       method: 'POST', headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
       body: JSON.stringify({ ...req.body, objectId: commit.id, object: commit, state })
     });
@@ -155,7 +147,9 @@ async function fetch(req) {
   const objects = await db.all(`SELECT o.id, o.agent_id, o.state_hash, o.ref_name, o.created_at FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.object_kind = 'remote' AND o.remote_name = ? AND ${scope.clause} ORDER BY o.created_at DESC`, remoteName, ...scope.params);
   if (req.body?.remoteUrl) {
     await assertRemoteGitUrl(req.body.remoteUrl);
-    const response = await globalThis.fetch(`${String(req.body.remoteUrl).replace(/\/$/, '')}/api/lineage/agents/git/remote/fetch`, { method: 'POST', headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) }, body: JSON.stringify({ ...req.body, remoteName }) });
+    const safeUrl = validateRemoteUrlHost(req.body.remoteUrl);
+    safeUrl.pathname = `${safeUrl.pathname.replace(/\/$/, '')}/api/lineage/agents/git/remote/fetch`;
+    const response = await globalThis.fetch(safeUrl.href, { method: 'POST', headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) }, body: JSON.stringify({ ...req.body, remoteName }) });
     if (!response.ok) throw new Error(`Remote fetch failed with HTTP ${response.status}.`);
     return { success: true, operation: 'fetch', remoteName, remote: await response.json(), objects };
   }

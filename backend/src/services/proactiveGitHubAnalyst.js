@@ -26,8 +26,25 @@ function defaultGitHubDirectory() {
   return path.resolve(__dirname, '../../..');
 }
 
+function sanitizeGitHubRoot(githubRoot) {
+  if (!githubRoot || typeof githubRoot !== 'string') {
+    return defaultGitHubDirectory();
+  }
+  const resolved = path.resolve(githubRoot);
+  if (resolved.includes('\0') || path.parse(resolved).root === resolved) {
+    return defaultGitHubDirectory();
+  }
+  try {
+    const real = fs.realpathSync(resolved);
+    if (!fs.statSync(real).isDirectory()) return defaultGitHubDirectory();
+    return real;
+  } catch {
+    return defaultGitHubDirectory();
+  }
+}
+
 function discoverRepositories(githubRoot = null, maxDepth = 2) {
-  const root = githubRoot || defaultGitHubDirectory();
+  const root = sanitizeGitHubRoot(githubRoot);
   const repos = [];
   if (!fs.existsSync(root)) return repos;
 
@@ -35,17 +52,22 @@ function discoverRepositories(githubRoot = null, maxDepth = 2) {
     const entries = fs.readdirSync(root, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
+      if (entry.name.includes('/') || entry.name.includes('\\') || entry.name.includes('..')) continue;
       if (entry.name.startsWith('.') && entry.name !== '.genos-agent-worlds') continue;
 
-      const repoPath = path.join(root, entry.name);
+      const repoPath = path.resolve(root, entry.name);
+      if (!repoPath.startsWith(root + path.sep)) continue;
       if (fs.existsSync(path.join(repoPath, '.git'))) {
         repos.push({ name: entry.name, path: repoPath });
       } else if (maxDepth > 1) {
         try {
           const subEntries = fs.readdirSync(repoPath, { withFileTypes: true });
           for (const sub of subEntries) {
-            if (sub.isDirectory() && fs.existsSync(path.join(repoPath, sub.name, '.git'))) {
-              repos.push({ name: `${entry.name}/${sub.name}`, path: path.join(repoPath, sub.name) });
+            if (sub.name.includes('/') || sub.name.includes('\\') || sub.name.includes('..')) continue;
+            const subPath = path.resolve(repoPath, sub.name);
+            if (!subPath.startsWith(repoPath + path.sep)) continue;
+            if (sub.isDirectory() && fs.existsSync(path.join(subPath, '.git'))) {
+              repos.push({ name: `${entry.name}/${sub.name}`, path: subPath });
             }
           }
         } catch (_) {}
