@@ -1,5 +1,5 @@
 const inferenceGateway = require('./inferenceGatewayService');
-const { validateProviderEndpoint } = require('./providerEndpointPolicy');
+const { validateProviderEndpoint, validateProviderEndpointAsync } = require('./providerEndpointPolicy');
 const fs = require('fs');
 const path = require('path');
 
@@ -235,8 +235,12 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     const configuration = modelConfiguration(model, endpointOverride);
     const { uri: resolvedModel, provider, modelName, endpoint: configuredEndpoint, configured: isConfigured } = configuration;
     const endpoint = endpointOverride || configuredEndpoint;
-    validateProviderEndpoint(endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider) });
+    const localOnly = ['ollama', 'lmstudio', 'vllm'].includes(provider);
+    validateProviderEndpoint(endpoint, { localOnly });
     assertSafeProviderEndpoint(endpoint);
+    // Re-resolve DNS at call time so a hostname cannot move from a public
+    // address (validated at registration) to an internal one (rebinding).
+    await validateProviderEndpointAsync(endpoint, { localOnly });
     const apiKey = resolveProviderApiKey(provider);
     if (!isConfigured || (!apiKey && !['ollama', 'lmstudio', 'vllm', 'openai-compatible'].includes(provider))) throw new Error(`No API key configured for model ${resolvedModel}.`);
     const headers = { 'Content-Type': 'application/json' };
