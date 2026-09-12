@@ -7,8 +7,9 @@ const fsp = fs.promises;
 const path = require('path');
 const { normalizeRelativePath } = require('./pathSafety');
 
-const IGNORED_DIRECTORIES = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage', '.next', '.aws', '.ssh', '.docker', '.kube', '.gnupg']);
+const IGNORED_DIRECTORIES = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'build', 'out', 'Output', 'deploy', 'snapshots', 'artifacts', 'coverage', '.next', '.aws', '.ssh', '.docker', '.kube', '.gnupg']);
 const IGNORED_FILES = new Set(['genos.db', 'genos.db-shm', 'genos.db-wal']);
+const IGNORED_EXTENSIONS = new Set(['.exe', '.msi', '.iso', '.zip', '.tar', '.gz', '.tgz', '.dmg', '.pkg', '.deb', '.rpm', '.dll', '.dylib', '.pdb']);
 const SENSITIVE_FILES = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa(?:\..*)?|known_hosts(?:\..*)?|.*\.(?:pem|key|p12|pfx)|credentials(?:\..*)?|secrets?(?:\..*)?|vault(?:\..*)?)$/i;
 
 function snapshotRoot(workspacePath, workspaceId) {
@@ -56,7 +57,8 @@ async function assertNoSymlinkPath(root, relativePath) {
 
 function shouldIgnore(relativePath, entry) {
   const parts = relativePath.split(path.sep);
-  return parts.some((part) => IGNORED_DIRECTORIES.has(part)) || IGNORED_FILES.has(entry.name) || entry.name.startsWith('genos.db') || SENSITIVE_FILES.test(entry.name);
+  const ext = path.extname(entry.name).toLowerCase();
+  return parts.some((part) => IGNORED_DIRECTORIES.has(part) || part.startsWith('.genos')) || IGNORED_FILES.has(entry.name) || IGNORED_EXTENSIONS.has(ext) || entry.name.startsWith('genos.db') || SENSITIVE_FILES.test(entry.name);
 }
 
 async function exists(filePath) {
