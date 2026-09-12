@@ -34,4 +34,5 @@ router.get('/platform/approvals', requirePermission('security:manage'), requireA
 router.post('/platform/approvals', requirePermission('mcp:execute_safe'), requireApprovalTenant, requireTenantScope({ write: true }), c.approvals);
 router.post('/platform/approvals/:id/decision', requirePermission('security:manage'), requireApprovalTenant, requireTenantScope({ write: true }), c.decideApproval);
 router.post('/platform/evaluations/pareto', requirePermission('experiment:run'), requirePlatformTenant, c.pareto);
+router.post('/platform/models/generate', requirePermission('read'), c.generateModel);
 module.exports = router;

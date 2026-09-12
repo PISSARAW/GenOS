@@ -41,7 +41,7 @@ process.stdin.on('end', async () => {
     for (const c of candidates) {
       if (fs.existsSync(c)) return c;
     }
-    return candidates[0];
+    return null;
   };
   const genosBinary = process.env.GENOS_BIN && fs.existsSync(process.env.GENOS_BIN)
     ? process.env.GENOS_BIN
@@ -157,14 +157,14 @@ process.stdin.on('end', async () => {
   const args = [...codexArgs, 'exec', '--json', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'workspace-write', '--dangerously-bypass-hook-trust', '-c', 'approval_policy="never"'];
   args.push(...codexRuntimeConfiguration.commandOptions(mission));
   const mcpNodeScript = path.resolve(__dirname, '../../mcp/index.js');
-  const mcpCommand = fs.existsSync(mcpBinary) ? mcpBinary : (fs.existsSync(mcpNodeScript) ? process.execPath : null);
+  const mcpCommand = (mcpBinary && fs.existsSync(mcpBinary)) ? mcpBinary : (fs.existsSync(mcpNodeScript) ? process.execPath : null);
   const mcpArgs = mcpCommand === mcpBinary ? ['stdio'] : [mcpNodeScript];
   if (mcpCommand) {
     args.push(
       '-c', `mcp_servers.genos.command=${JSON.stringify(mcpCommand)}`,
       '-c', `mcp_servers.genos.args=${JSON.stringify(mcpArgs)}`,
       '-c', `mcp_servers.genos.cwd=${JSON.stringify(workspace)}`,
-      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_TOOL_TIMEOUT_MS="120000",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_AGENT_ID=${JSON.stringify(mission.agentId)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)},GENOS_ALLOWED_COMMANDS_JSON=${JSON.stringify(JSON.stringify(allowedCommands))},GENOS_ALLOW_FILE_EDITS=${JSON.stringify(allowFileEdits ? 'true' : 'false')},GENOS_SILENT_UPDATES=${JSON.stringify(executionPolicy.silentUpdates === true ? 'true' : 'false')},GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))},GENOS_MCP_DISABLED_TOOLS="genos_orchestrate"}`,
+      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary || '')},GENOS_MCP_TOOL_TIMEOUT_MS="120000",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_AGENT_ID=${JSON.stringify(mission.agentId)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)},GENOS_ALLOWED_COMMANDS_JSON=${JSON.stringify(JSON.stringify(allowedCommands))},GENOS_ALLOW_FILE_EDITS=${JSON.stringify(allowFileEdits ? 'true' : 'false')},GENOS_SILENT_UPDATES=${JSON.stringify(executionPolicy.silentUpdates === true ? 'true' : 'false')},GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))},GENOS_MCP_DISABLED_TOOLS="genos_orchestrate"}`,
       '-c', `mcp_servers.genos.enabled_tools=${JSON.stringify(toolLease)}`,
       '-c', 'mcp_servers.genos.disabled_tools=["genos_orchestrate"]',
       '-c', 'mcp_servers.genos.startup_timeout_sec=30',
