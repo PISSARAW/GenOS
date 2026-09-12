@@ -191,7 +191,7 @@ async function handleBiological({ db, context }) {
   const members = biologicalMode.compose(mode, mission);
   const garage = await workerGarage.state(db, context.orchestratorId);
   if (garage.available <= 0) {
-    throw Object.assign(new Error(`${mode} requires free worker slots, but 0 are available (${garage.occupied}/${garage.capacity} occupied).`), { code: 'WORKER_GARAGE_FULL' });
+    throw Object.assign(new Error(`${mode} requires free worker slots, but worker garage is full (slots: ${garage.occupied}/${garage.capacity} used — wait or increase MAX_ACTIVE_WORKERS).`), { code: 'WORKER_GARAGE_FULL' });
   }
   const selectedMembers = garage.available < members.length ? members.slice(0, garage.available) : members;
   const accepted = selectedMembers.map((member, index) => launchWorker({ context, member, index: index + 1, parent }));
@@ -216,7 +216,7 @@ async function handleTeam({ db, context }) {
 async function handleTrinity({ db, context }) {
   const parent = await ensureParent({ db, context });
   const garage = await workerGarage.state(db, context.orchestratorId);
-  if (garage.available < 3) throw Object.assign(new Error(`Trinity requires three free worker slots, but only ${garage.available} are available.`), { code: 'WORKER_GARAGE_FULL' });
+  if (garage.available < 3) throw Object.assign(new Error(`Trinity requires 3 free worker slots, but worker garage is full (slots: ${garage.occupied}/${garage.capacity} used — wait or increase MAX_ACTIVE_WORKERS).`), { code: 'WORKER_GARAGE_FULL' });
   const mission = context.request.mission || context.request.project_goal || context.request.goal || 'Trinity comparative mission';
   const members = trinityService.compose(mission);
   const missionId = `trinity_${context.orchestratorId}_${Date.now()}`;

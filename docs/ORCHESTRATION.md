@@ -434,6 +434,7 @@ Dans [backend/src/services/agentFleetWorkers.js](../backend/src/services/agentFl
   - `GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT` : plafond total de workers actifs par projet (s'adapte automatiquement à `GENOS_MAX_ACTIVE_WORKERS`).
   - `GENOS_INFERENCE_MAX_CONCURRENT` et `GENOS_INFERENCE_TENANT_QUEUE_CAPACITY` : régulation de la file d'inférence (adaptée automatiquement à la taille de la flotte).
   - `GENOS_SQLITE_BUSY_TIMEOUT_MS` : délai de verrouillage SQLite (30 000 ms par défaut).
+- En cas de saturation (`WORKER_GARAGE_FULL`), un message d'erreur actionnable indique immédiatement l'état et le remède : `Worker garage is full (slots: X/Y used — wait or increase MAX_ACTIVE_WORKERS)`.
 
 Pour opérer 100 agents simultanément de façon optimale, il est recommandé de structurer la mission en **tissus cellulaires** (ex: 10 escouades de 10 agents avec chacune sa cellule souche) plutôt qu'un essaim plat en *hub-and-spoke*.
 
