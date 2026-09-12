@@ -149,28 +149,32 @@ Cette logique est utile, mais elle montre aussi une limite importante : le dép�
 Les secrets d’application sont chiffrées dans [backend/src/services/secretVault.js](../backend/src/services/secretVault.js) :
 
 ```js
-function key(){
-  const raw = process.env.GENOS_SECRET_KEY;
-  if (!raw) throw new Error('GENOS_SECRET_KEY must be configured.');
-  return crypto.createHash('sha256').update(raw).digest();
+function deriveKey(salt) {
+  return crypto.scryptSync(process.env.GENOS_SECRET_KEY, salt, 32, { N: 16384, r: 8, p: 1 });
 }
 
 function encrypt(value) {
+  const salt = crypto.randomBytes(16);
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key(), iv);
+  const cipher = crypto.createCipheriv('aes-256-gcm', deriveKey(salt), iv);
   const ciphertext = Buffer.concat([cipher.update(String(value), 'utf8'), cipher.final()]);
-  return { ciphertext: ciphertext.toString('base64'), iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64') };
+  return {
+    ciphertext: `v2$${salt.toString('base64')}$${ciphertext.toString('base64')}`,
+    iv: iv.toString('base64'),
+    tag: cipher.getAuthTag().toString('base64')
+  };
 }
 ```
 
 Le dépôt utilise :
 
 - AES-256-GCM ;
+- dérivation **scrypt** de la clé maître avec un **sel aléatoire par enregistrement** (format `v2$salt$ciphertext`) ;
 - génération d’IV aléatoire ;
 - tag d’authentification ;
 - stockage séparé de `ciphertext`, `iv` et `tag`.
 
-Cela empêche le stockage en clair de secrets dans SQLite.
+Cela empêche le stockage en clair de secrets dans SQLite et rend le brute-force hors ligne des enregistrements exfiltrés coûteux. Les enregistrements hérités (clé = SHA-256 non salé de `GENOS_SECRET_KEY`) restent déchiffrables en lecture seule ; toute nouvelle écriture utilise le format `v2`.
 
 #### 3.3.3 Clés API et sessions
 
@@ -257,6 +261,8 @@ const validDoubleSubmit = csrfHeader.length >= 16 && csrfHeader.length === csrfC
 
 Le dépôt range aussi les tokens émis localement dans une map mémoire avec TTL de 24h pour éviter une fabrication client-side. Les méthodes mutantes (POST, PUT, PATCH, DELETE) exigent donc une preuve active d’origine et d’authenticité.
 
+Le contrôle CSRF ne s’applique qu’aux requêtes qui portent un en-tête `Origin` (appelants navigateur avec credentials ambiants). Les clients API sans `Origin` sont renvoyés à l’authentification (401) plutôt que filtrés par CSRF. Enfin, `NODE_ENV` n’est **jamais** traité comme un signal d’authentification : un déploiement qui définit `NODE_ENV=test` ne désactive pas CSRF (le bypass a été retiré).
+
 ---
 
 ## 5. Protéctions contre les failles web classiques
@@ -282,6 +288,11 @@ Le code applique aussi des headers CSP et X-Frame-Options :
 
 La logique est plus de “réduction du surface d’attaque” que d’un sanitizer DOM complet. C’est un bon garde-fou d’entrée de système, mais il ne remplace pas un système de rendu HTML robuste à la frontière UI.
 
+Deux points importants :
+
+- le middleware `xssSanitizer` est volontairement un no-op : les corps JSON contiennent du code source et des prompts qu’une mutation corromprait. L’échappement appartient au rendu ;
+- `sanitizeString()` reste utilisé sur les champs d’affichage et applique désormais une neutralisation **multi-passes** (`script`/`iframe`/`svg`/…, handlers `on*`, `javascript:`, suppression des balises et des chevrons) qui résiste au mutation-XSS du type `<scr<script>ipt>`.
+
 ### 5.2 SSRF
 
 La protection contre SSRF est présente dans [backend/src/services/webhookService.js](../backend/src/services/webhookService.js) et dans [backend/src/services/modelProvider.js](../backend/src/services/modelProvider.js).
@@ -301,6 +312,12 @@ if (BLOCKED_HOSTNAME_PATTERN.test(parsed.hostname)) throw invalidUrl('Webhook UR
 ```
 
 Cette protection est un garde-fou fort et pratique : elle ne laisse pas un service interne être attaqué via un webhook récupéré depuis l’API.
+
+Durcissements complémentaires :
+
+- **webhooks** : l’adresse résolue est **épinglée** sur la connexion TLS (`lookup` personnalisé), ce qui ferme la fenêtre de DNS rebinding entre validation et envoi ; les formes IPv6 mappées/loopback sont couvertes par la politique d’endpoints (`providerEndpointPolicy`) ;
+- **endpoints de modèles** : `validateProviderEndpointAsync` re-résout le DNS au moment de l’appel, y compris pour un `endpointOverride` ;
+- **remotes Git d’agents** : `remoteUrl` est validé par la même politique avant tout `fetch` serveur, sauf opt-in explicite `GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES=1`. `NODE_ENV`/le rôle ne suffisent pas : un appelant ne peut pas transformer le backend en proxy SSRF.
 
 ### 5.3 SQL injection
 
@@ -712,8 +729,9 @@ Le résultat n’est pas seulement un backend “sécurisé” ; c’est un runt
 ### 14.2 Limites observées
 
 - le chargement `.env` reste un point de friction car il le fait dans le processus directement ;
-- la sanitization XSS est limitée à des expressions regex et ne remplace pas un moteur de rendu HTML sécurisé ;
+- la sanitization XSS reste basée sur des expressions régulières multi-passes : elle neutralise les charges connues mais ne remplace pas un moteur de rendu HTML sécurisé ;
 - les contrôles de path, origin et webhook sont très bons, mais la sécurité globale dépend aussi de l’usage correct des routes et de la discipline opérationnelle ;
+- le stockage anti-CSRF est en mémoire : en déploiement multi-instance il faut un store partagé ou un load-balancer avec affinité ;
 - le système est robuste pour le runtime local et les outils exécutables, mais il reste un produit de sécurité orienté “runtime + operations” plus qu’un environnement de sécurité complète à l’échelle d’un grand SI.
 
 ---
@@ -733,6 +751,26 @@ Les principes visibles dans le dépôt sont simples et puissants :
 - armé l’arrêt d’urgence et l’audit trail.
 
 Le système n’est pas un “security theater”. C’est un moteur de sécurité concrète, intégré au runtime, au MCP et à l’observabilité d’ensemble.
+
+---
+
+## 16. Journal des durcissements
+
+Audit de sécurité et correctifs livrés (un commit par point) :
+
+1. **SSRF remotes Git d’agents** — `agentGitService` valide `remoteUrl` via `providerEndpointPolicy` avant tout `fetch` (opt-out `GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES=1`) ; correction au passage d’un `fetch` masqué par la fonction locale homonyme (`globalThis.fetch`).
+2. **Containment des chemins workspace** — garde explicite `isPathContained` en défense en profondeur dans `workspaceController.createWorkspace`.
+3. **Mutation-XSS** — `sanitizeString` neutralise en multi-passes tags, handlers et `javascript:`.
+4. **Anti brute-force** — rate-limit du login par mot de passe (`AUTH_LIMITS.login = 10/min`) et de la vérification de token.
+5. **CSRF** — suppression du bypass `NODE_ENV=test` ; CSRF appliqué aux requêtes navigateur (Origin), les autres passant par l’auth.
+6. **AuthZ routes** — `requirePermission` ajouté sur `arena` et `trace` (`experiment:run`, `workspace:write`, `read`).
+7. **Énumération SSO** — `GET /api/sso/providers` ne révèle plus issuer/client_id/redirect_uri aux appelants anonymes.
+8. **DNS rebinding webhooks** — IP validée épinglée sur la connexion, couverture IPv6, remplacement de `isPrivateAddress` par `providerEndpointPolicy`.
+9. **DNS rebinding endpoints modèle** — re-résolution DNS à l’appel.
+10. **Coffre de secrets** — KDF scrypt avec sel par enregistrement, lecture des enregistrements hérités conservée.
+11. **Durcissements bas niveau** — permissions assignables (plus de `all` en extra), sessions à rôle inconnu *fail closed*, CSP sans `unsafe-inline` sur `script-src`, ajout HSTS, validation du `X-Trace-Id`/`X-Request-Id`, cookie CSRF `Secure` basé sur `GENOS_TRUST_PROXY`.
+
+Variables d’environnement introduites : `GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES`, `GENOS_TRUST_PROXY`.
 
 
 
