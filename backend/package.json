@@ -36,6 +36,7 @@
     "test:gaia": "node tests/test_gaia_benchmark.js",
     "test:scout": "node tests/test_browser_scout.js",
     "test:foveal": "node tests/test_foveal_vision.js",
+    "test:foraging": "node tests/test_optimal_foraging.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
     "daemon": "node bin/genos-daemon.cjs",
     "daemon:interactive": "node bin/genos-daemon.cjs --interactive",
