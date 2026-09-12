@@ -35,10 +35,13 @@ Source: "..\..\target\release\genos-mcp.exe"; DestDir: "{app}"; Flags: ignorever
 Source: "..\..\target\release\genos-api.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\.env.example"; DestDir: "{app}"; DestName: ".env.example"; Flags: ignoreversion
+Source: "..\..\shared\*"; DestDir: "{app}\shared"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\mcp\*"; DestDir: "{app}\mcp"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "node_modules\*"
 
 [Icons]
 Name: "{group}\GenOS CLI (g)"; Filename: "{app}\g.exe"; Parameters: "--help"
 Name: "{group}\GenOS Native (genos)"; Filename: "{app}\genos.exe"; Parameters: "--help"
+Name: "{group}\GenOS MCP Server"; Filename: "{app}\genos-mcp.exe"
 Name: "{group}\GenOS Documentation"; Filename: "{app}\README.md"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autoprograms}\GenOS CLI"; Filename: "{app}\g.exe"
