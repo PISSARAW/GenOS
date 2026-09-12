@@ -28,6 +28,6 @@ reqwest = { version = "0.13.4", features = ["blocking", "json"] }
 rand = "0.10"
 genos-sensorimotor = { path = "../genos-sensorimotor" }
 crossterm = "0.28"
-ratatui = "0.29"
+ratatui = "0.30"
 tokio = { version = "1.53.1", features = ["full"] }
 axum = { version = "0.7", features = ["ws"] }
