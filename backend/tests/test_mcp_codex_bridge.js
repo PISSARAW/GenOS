@@ -160,10 +160,65 @@ async function testMcpExecutorConfiguredTransport() {
   assert(fs.existsSync(transport.command), `transport.command (${transport.command}) must exist on disk`);
 }
 
+async function testRustMcpServerHeaders() {
+  const repoRoot = path.resolve(__dirname, '../..');
+  const isWin = process.platform === 'win32';
+  const binName = isWin ? 'genos-mcp.exe' : 'genos-mcp';
+  const binPath = path.join(repoRoot, 'target/debug', binName);
+
+  const child = spawn(binPath, [], {
+    cwd: repoRoot,
+    env: { ...process.env, GENOS_MCP_EXPOSE_ALL: 'true' },
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
+
+  try {
+    const rawPayload = '{"jsonrpc":"2.0","id":99,"method":"initialize","params":{}}\n';
+    const headerFramed = `Content-Length: ${Buffer.byteLength(rawPayload)}\r\nContent-Type: application/json\r\n\r\n${rawPayload}`;
+    
+    const response = await new Promise((resolve, reject) => {
+      let buffer = '';
+      const timer = setTimeout(() => {
+        reject(new Error('Timeout waiting for response to header-framed request'));
+      }, 10000);
+
+      child.stdout.on('data', (chunk) => {
+        buffer += chunk.toString();
+        const lines = buffer.split(/\r?\n/).filter(Boolean);
+        for (const line of lines) {
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.id === 99) {
+              clearTimeout(timer);
+              resolve(parsed);
+              return;
+            }
+          } catch (_) {}
+        }
+      });
+
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+
+      child.stdin.write(headerFramed);
+    });
+
+    assert.strictEqual(response.id, 99);
+    assert.strictEqual(response.result.serverInfo.name, 'genos-mcp');
+  } finally {
+    child.stdin.end();
+    child.kill();
+    await new Promise((resolve) => child.once('close', resolve));
+  }
+}
+
 async function main() {
   console.log('--- Testing MCP Rust Server (crates/genos-mcp) ---');
   await testRustMcpServer();
-  console.log('✅ PASS: Rust genos-mcp stdio server responds to initialize, tools/list, and tools/call');
+  await testRustMcpServerHeaders();
+  console.log('✅ PASS: Rust genos-mcp stdio server responds to initialize, tools/list, and header-framed requests');
 
   console.log('--- Testing MCP Node.js Server (mcp/index.js) ---');
   await testNodeMcpServer();
