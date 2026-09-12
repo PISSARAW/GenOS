@@ -603,6 +603,9 @@ flowchart TD
     C1A & C1B & C2A & C2B --> SYNTHESIS["Synthèse Transversale & Sélection de Survivants"]
 ```
 
+* **Handler & Dispatch :** [`backend/src/services/mcpBioTools/handlers/hybridMultiples.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/mcpBioTools/handlers/hybridMultiples.js)
+* **Suite de Tests :** [`backend/tests/test_hybrid_multiples.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/tests/test_hybrid_multiples.js)
+
 ## 17.quater Orchestration par Superfécondation Hétéropaternelle (Multi-Fournisseurs)
 
 Grâce à `genos_biomimicry_heteropaternal_superfecundation`, l'orchestrateur peut allouer une même sous-tâche critique à une flotte de demi-frères jumeaux opérant sur des fournisseurs de modèles hétérogènes (Anthropic, Google, OpenAI) au sein du même workspace, éliminant tout angle mort ou biais systémique de raisonnement propre à un seul modèle.

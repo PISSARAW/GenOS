@@ -439,11 +439,16 @@ flowchart LR
     ENV --> CONSENSUS["Consensus Pondéré & Décision Collective"]
 ```
 
+* **Implémentation :** [`backend/src/services/mcpBioTools/handlers/polyovulationSpawn.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/mcpBioTools/handlers/polyovulationSpawn.js)
+* **Couche CLI & Rust :** Invoquée via `genos biomimicry bio-feature --feature polyovulation --action spawn --param fleet_id=...`
+* **Validation & Tests :** Enregistrée dans [`backend/src/db/seedTools.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/db/seedTools.js) et testée de bout en bout dans [`backend/tests/test_polyovulation_spawn.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/tests/test_polyovulation_spawn.js).
+
 ## 8.ter Nuées en Grappes Hybrides
 
 La primitive `genos_biomimicry_hybrid_multiples` structure les essaims à grande échelle sous forme de matrices multi-niveaux :
-- Diversité inter-groupes assurée par la polyovulation de familles distinctes ;
-- Cohérence et parallélisme intra-groupe assurés par le clivage isogénique de chaque famille.
+- **Diversité inter-groupes** assurée par la polyovulation de familles distinctes ;
+- **Cohérence et parallélisme intra-groupe** assurés par le clivage isogénique de chaque famille.
+- **Implémentation :** [`backend/src/services/mcpBioTools/handlers/hybridMultiples.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/mcpBioTools/handlers/hybridMultiples.js), validée dans [`backend/tests/test_hybrid_multiples.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/tests/test_hybrid_multiples.js).
 
 ---
 
