@@ -27,11 +27,17 @@ function testResultPassed(test) {
   return textTestPassed(test);
 }
 
+function resolveExitCode(test) {
+  if (test.exitCode !== undefined && test.exitCode !== null) return test.exitCode;
+  if (test.exit_code !== undefined && test.exit_code !== null) return test.exit_code;
+  return null;
+}
+
 function objectTestPassed(test) {
   if (test.passed === true || test.ok === true) return true;
   if (test.passed === false || test.ok === false) return false;
-  const code = test.exitCode || test.exit_code;
-  if (code === null || code === undefined) return false;
+  const code = resolveExitCode(test);
+  if (code === null) return false;
   return Number(code) === 0;
 }
 
