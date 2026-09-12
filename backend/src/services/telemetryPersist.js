@@ -75,7 +75,7 @@ async function persistHead(observer) {
 function handlePersistError(observer, queuedEvent, error) {
   observer.persistenceErrors += 1;
   console.error('[TelemetryObserver] Event persistence failed:', error.message);
-  if (isDbClosedError(error)) {
+  if (isDbClosedError(error) || /SQLITE_BUSY|locked/i.test(error.message)) {
     observer.persistQueue.unshift(queuedEvent);
     return true;
   }
