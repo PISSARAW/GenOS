@@ -182,13 +182,24 @@ $$
 Le quorum pondéré fait la même chose en remplaçant les votes simples par des votes pondérés par fiabilité.
 
 ### 3.5 Stigmergie Vectorielle et Consensus par Résonance de Phase de Kuramoto
-Au lieu de diffuser des messages de votes et de propositions en JSON, GenOS fournit une alternative native bio-inspirée :
-* **Gradient Phéromonal Continu (`StigmergyField`)** : Les agents déposent des intensités scalaires $I_t \in [-I_{max}, I_{max}]$. Les sentiers s'évaporent continuellement selon $I(t + \Delta t) = I(t) e^{-\lambda \Delta t}$. Le choix d'une branche se fait par sommation directe sans échange de messages discrets (`crates/genos-signal/src/stigmergy.rs`, `backend/src/services/swarmStigmergyVectorService.js`).
-* **Consensus par Phase d'Oscillateurs (Kuramoto)** : Chaque agent est doté d'une phase oscillatoire $\theta_i$. La cohérence du groupe est mesurée par le paramètre d'ordre complexe :
+Au lieu de diffuser uniquement des messages textuels statiques, GenOS connecte la stigmergie et les signaux oscillatoires à l'exécution de l'organisation :
+* **Gradient Phéromonal Continu (`StigmergyField` & `SwarmPheromoneMatrix`)** : Les agents déposent des intensités scalaires $I_t \in [-I_{max}, I_{max}]$ via la primitive `pheromoneDeposit()` ou des messages de canal `stigmergic_trail` (`kind: 'trace'`). Les sentiers s'évaporent continuellement selon $I(t + \Delta t) = I(t) e^{-\lambda \Delta t}$ ([`crates/genos-signal/src/stigmergy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/stigmergy.rs), `backend/src/services/swarmStigmergyVectorService.js`).
+* **Liaison au Runtime Agentique (`dynamicOrganizationService.js`)** : Lorsque l'organisation active est `stigmergy` (canal `stigmergic_trail`), chaque trace déposée par `pheromoneDeposit()` est acheminée vers le bus de signaux. Lors de la relève de boîte aux lettres (`inbox()`), les messages sont annotés de leur `stigmergyIntensity` après décroissance temporelle et réordonnés afin que les sentiers aux phéromones les plus intenses soient explorés en priorité. Le sentier dominant émergent est retourné sous `dominantPath`.
+* **Consensus par Phase d'Oscillateurs (Module Kuramoto Standalone)** : Implémenté de façon autonome dans [`crates/genos-signal/src/kuramoto.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/kuramoto.rs), le modèle de Kuramoto synchronise $N$ oscillateurs de phase selon l'équation :
+  $$
+  \frac{d\theta_i}{dt} = \omega_i + \frac{K}{N}\sum_{j=1}^{N} \sin(\theta_j - \theta_i)
+  $$
+  La cohérence globale du cluster est mesurée par le paramètre d'ordre complexe :
   $$
   r e^{i\psi} = \frac{1}{N}\sum_{j=1}^{N} e^{i\theta_j}
   $$
-  Le consensus est réputé atteint dès que $r \ge 0.90$, validant la convergence collective sans centralisation ni sérialisation JSON.
+  Le consensus de phase est réputé atteint dès que $r \ge 0.70$ (ou $r \ge 0.90$ en mode haute fidélité). Ce moteur mathématique Rust sert à l'alignement fréquentiel d'horloges et à la cadence myocardique d'orchestration, distinct du tri par intensité phéromonale de l'inbox.
+
+### 3.6 Délibération Dialectique et Contre-Propositions Swarm
+Au-delà du vote binaire (yes/no/abstain), le contrôleur d'essaim expose une dialectique de contre-propositions :
+* **Route API** : `POST /api/swarm/proposals/:id/counter`
+* **Lien hiérarchique** : La contre-proposition enregistre `parent_proposal_id`, permettant de tracer les désaccords formels et les alternatives proposées par les pairs.
+* **Résolution en consensus** : Les vues consolidées (`GET /api/swarm/consensus`) affichent pour chaque proposition la liste de ses `counterProposals`, permettant d'évaluer le soutien relatif entre une proposition initiale et ses variantes concurrentes.
 
 ---
 
