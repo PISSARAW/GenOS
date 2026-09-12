@@ -666,3 +666,30 @@ stateDiagram-v2
     Elaguee --> RecyclageMemoire : Libération du slot
     RecyclageMemoire --> [*]
 ```
+
+---
+
+### 4. Gating Thalamique & Désinhibition Motrice des Ganglions de la Base
+
+Dans le cerveau humain et animal, les effecteurs moteurs et les outils ne sont **jamais activés par défaut**. Un organisme qui maintiendrait ses voies motrices excitées en continu s'épuiserait métaboliquement ou agirait de manière convulsive.
+
+GenOS transpose ces principes neurobiologiques dans le service [`biomimeticToolGatingService.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/biomimeticToolGatingService.js) :
+
+#### A. Les Ganglions de la Base et le Frein GABAergique
+* **Inhibition Tonique :** Le globus pallidus interne ($GPi$) et la substance noire pars reticulata projettent une inhibition GABAergique tonique permanente sur le thalamus et le tronc cérébral.
+* **Désinhibition Sélective (Voie Directe) :** Pour exécuter une action motrice ou mobiliser un outil, le striatum lève localement ce frein. L'action est donc une **désinhibition ciblée**, non une excitation globale.
+* **Application LLM :** Au lieu d'injecter tous les outils dans le prompt d'un 7B, tous les outils restent inhibés par défaut. Seul le cluster fonctionnel requis (ex: `snapshot_persistence`) est désinhibé et introduit dans la lease.
+
+#### B. Le Comportement d'Utilisation (Syndrome d'Affordance Toxique)
+En neuropsychologie, les patients atteints de lésions frontales bilatérales développent le **syndrome d'utilisation (Lhermitte)** : la vue d'un objet (un verre, une paire de ciseaux) déclenche spontanément l'action motrice (boire, couper) même sans soif ni besoin.
+Un LLM 7B à qui l'on injecte systématiquement 20 signatures d'outils JSON présente exactement la même pathologie : les têtes d'attention sont polarisées par les signatures et déclenchent des appels d'outils inutiles sur des questions purement conceptuelles. Le gating amont rétablit l'inhibition descendante préfrontale.
+
+#### C. Intégration Biophysique : Seuil de Potentiel de Membrane
+* **Équation du Potentiel de Membrane :**
+  $$
+  V_m = V_{\text{repos}} + \sum \text{EPSP}_{\text{action}} - \sum \text{IPSP}_{\text{dialogue}}
+  $$
+* $V_{\text{repos}} = -70.0\text{ mV}$.
+* Seuil critique de dépolarisation : $V_{\text{seuil}} = -55.0\text{ mV}$.
+* Si $V_m < -55.0\text{ mV}$, aucun outil n'est chargé, préservant 100 % des tokens d'attention du 7B pour le raisonnement en langage naturel pur.
+

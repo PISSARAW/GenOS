@@ -227,6 +227,53 @@ async function testDegradedToolEmbargo() {
   });
 }
 
+async function testBiomimeticUpstreamToolGating() {
+  console.log('\n--- Challenge 7: Biomimetic Upstream Tool Gating & 7B Distraction Shield ---');
+  console.log('  Competitor Failure: 7B models hallucinate tool calls on conversational prompts or get overwhelmed by 20+ schemas.');
+
+  const { evaluateToolGating } = require('../../src/services/biomimeticToolGatingService');
+  const { applyBiomimeticGating } = require('../../src/services/toolLeasePolicy');
+  const { getGatedToolSchemas } = require('../../src/services/mcpContract');
+
+  const candidates = [
+    'genos_snapshot', 'genos_replay', 'genos_orchestrate',
+    'genos_change_strategy', 'genos_audit', 'genos_diagnose'
+  ];
+
+  await runTest('7.1 Conversational query suppresses 100% of tool schemas, eliminating 7B false affordance', () => {
+    const query = "Bonjour, peux-tu m'expliquer la différence entre un mutex et un sémaphore ?";
+    const gated = evaluateToolGating(query, candidates);
+    assert.strictEqual(gated.requiresTools, false);
+    assert.strictEqual(gated.gateState, 'HYPERPOLARIZED');
+    assert.strictEqual(gated.disinhibitedTools.length, 0);
+    assert.strictEqual(gated.shieldScore, 1.0);
+  });
+
+  await runTest('7.2 Action prompt triggers depolarization above -55mV threshold', () => {
+    const query = "Sauvegarde un snapshot de l'agent worker-1 immédiatement.";
+    const gated = evaluateToolGating(query, candidates);
+    assert.strictEqual(gated.requiresTools, true);
+    assert.strictEqual(gated.gateState, 'ACTION_POTENTIAL');
+    assert.ok(gated.membranePotentialMv >= -55.0);
+  });
+
+  await runTest('7.3 Basal ganglia disinhibits only matching tools, shielding 7B context from schema clutter', () => {
+    const query = "Sauvegarder un snapshot de sécurité";
+    const gated = getGatedToolSchemas(query, candidates);
+    assert.strictEqual(gated.requiresTools, true);
+    assert.ok(gated.disinhibitedTools.includes('genos_snapshot'));
+    assert.strictEqual(gated.disinhibitedTools.includes('genos_change_strategy'), false);
+    assert.strictEqual(gated.disinhibitedTools.includes('genos_orchestrate'), false);
+    assert.strictEqual(Object.keys(gated.schemas).length, 2);
+  });
+
+  await runTest('7.4 applyBiomimeticGating seamlessly prunes leased tools for zero-tool conversational tasks', () => {
+    const { gatedLease, gating } = applyBiomimeticGating(candidates, "Quelle est la capitale de la France ?");
+    assert.strictEqual(gating.requiresTools, false);
+    assert.strictEqual(gatedLease.length, 0);
+  });
+}
+
 async function main() {
   console.log('======================================================================');
   console.log('   GenOS Tool Use & Function Calling Benchmark Suite');
@@ -238,6 +285,7 @@ async function main() {
   await testDeterministicMultiToolPipeline();
   await testIdempotencyAndDestructiveLocking();
   await testDegradedToolEmbargo();
+  await testBiomimeticUpstreamToolGating();
 
   console.log('\n======================================================================');
   console.log(`TOTAL TOOL CALLING BENCHMARK TESTS: ${passed + failed}`);

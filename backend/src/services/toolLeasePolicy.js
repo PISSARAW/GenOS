@@ -224,6 +224,22 @@ function isLeaseSubsetOf(stored, allowed) {
   return true;
 }
 
+function applyBiomimeticGating(toolLease, query, options = {}) {
+  const { evaluateToolGating } = require('./biomimeticToolGatingService');
+  const candidates = Array.isArray(toolLease) ? toolLease : [];
+  const gating = evaluateToolGating(query, candidates, options);
+  if (!gating.requiresTools) {
+    return {
+      gatedLease: [],
+      gating
+    };
+  }
+  return {
+    gatedLease: gating.disinhibitedTools,
+    gating
+  };
+}
+
 module.exports = {
   WORKER_BASE_LEASE,
   ORCHESTRATOR_CORE_LEASE,
@@ -244,5 +260,6 @@ module.exports = {
   derivePolicyLease,
   restrictProvidedLease,
   staleLeaseTools,
-  isLeaseSubsetOf
+  isLeaseSubsetOf,
+  applyBiomimeticGating
 };
