@@ -163,6 +163,19 @@ async function executeStrategyTool(toolName, args = {}) {
     }
 
     if (toolName === 'genos_execute_primitive') {
+      if (Array.isArray(args.primitives) || Array.isArray(args.pipeline)) {
+        const primitives = args.primitives || args.pipeline || [];
+        const context = args.context || args;
+        const res = await strategyExecutionAdapter.executePipelineWithFeedback(primitives, context);
+        const ok = res && res.success !== false;
+        return {
+          configured: true,
+          success: ok,
+          status: ok ? 'completed' : 'tool_error',
+          transport: 'strategy_primitive',
+          output: res
+        };
+      }
       const primitive = args.primitive || args.primitive_name || args.name || '';
       const context = args.context || args;
       const res = await strategyExecutionAdapter.executePrimitive(primitive, context);

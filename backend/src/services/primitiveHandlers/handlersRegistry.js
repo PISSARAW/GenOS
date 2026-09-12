@@ -162,6 +162,8 @@ const HANDLERS = {
   avoid_known_dead_ends: memory.avoidKnownDeadEnds,
   avoidKnownDeadEnds: memory.avoidKnownDeadEnds,
   stdp_update: memory.stdpUpdate,
+  synaptic_stdp_update: memory.stdpUpdate,
+  stdp: memory.stdpUpdate,
   causal_weighting: memory.stdpUpdate,
 
   // Lot 3 — Évolution

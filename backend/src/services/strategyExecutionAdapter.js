@@ -114,6 +114,8 @@ class StrategyExecutionAdapter {
               : targetId;
             const adaptation = await getAdaptationService().changeStrategy(db, {
               orchestratorId,
+              need: context.need || context.mission || `Adaptive strategy adaptation following ${p} feedback`,
+              reason: context.reason || `Automated feedback loop triggered by primitive ${p} result: ${res.error || res.status || 'evaluation incomplete'}`,
               executionBudget: context.budget || null
             });
             results.push({

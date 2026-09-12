@@ -29,7 +29,7 @@ const REQUIRED_STRINGS = {
 const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'patterns_detected', 'facts', 'steps', 'preconditions']);
 const NON_NEGATIVE_FIELDS = new Set(['budget_steps', 'exact_match', 'stagnation', 'injection_step', 'iteration', 'tokens', 'elapsed']);
 const MAX_ONE_FIELDS = new Set(['similarity', 'expected', 'observed', 'tolerance', 'uncertainty', 'confidence']);
-const FREEFORM_FIELDS = new Set(['agent', 'out', 'command', 'conditions', 'document', 'query', 'predicate', 'claim', 'source', 'artifact', 'strategies', 'focus', 'request', 'details', 'task', 'role', 'description', 'plan_action', 'expected', 'option_a', 'option_b', 'threat_context', 'target_path', 'target_process', 'target_file', 'action_id', 'payload', 'signals_json', 'intensity_or_signal', 'action_script', 'substrate_signature', 'action', 'observation', 'outcome', 'context', 'content', 'mission', 'message', 'reason', 'project_goal', 'prompt', 'goal', 'feature', 'primitive_name', 'mode', 'organization', 'kind', 'phase', 'backend', 'strategy']);
+const FREEFORM_FIELDS = new Set(['agent', 'out', 'command', 'conditions', 'document', 'query', 'predicate', 'claim', 'source', 'artifact', 'strategies', 'focus', 'request', 'details', 'task', 'role', 'description', 'plan_action', 'expected', 'option_a', 'option_b', 'threat_context', 'target_path', 'target_process', 'target_file', 'action_id', 'payload', 'signals_json', 'intensity_or_signal', 'action_script', 'substrate_signature', 'action', 'observation', 'outcome', 'context', 'content', 'mission', 'message', 'reason', 'project_goal', 'projectGoal', 'notes', 'channel', 'topology', 'transmitterType', 'transmitter_type', 'prompt', 'goal', 'feature', 'primitive_name', 'mode', 'organization', 'kind', 'phase', 'backend', 'strategy']);
 const MAX_STRING_LENGTH = 64 * 1024;
 
 function invalid(field, message) {
@@ -86,7 +86,7 @@ function validateToolArguments(toolName, args = {}) {
   if (toolName === 'genos_replay' && args.snapshot === undefined && args.snapshot_id === undefined) {
     return invalid('snapshot', 'snapshot or snapshot_id is required (at least one).');
   }
-  if (toolName === 'genos_execute_primitive' && typeof args.primitive !== 'string' && typeof args.primitive_name !== 'string' && typeof args.name !== 'string') {
+  if (toolName === 'genos_execute_primitive' && typeof args.primitive !== 'string' && typeof args.primitive_name !== 'string' && typeof args.name !== 'string' && !Array.isArray(args.primitives)) {
     return invalid('primitive', 'primitive, primitive_name, or name is required.');
   }
   if (toolName === 'genos_execute_primitive' && args.args !== undefined && (typeof args.args !== 'object' || args.args === null || Array.isArray(args.args))) {
