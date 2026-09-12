@@ -332,3 +332,40 @@ sequenceDiagram
     deactivate SSEStream
 ```
 
+### 3. Contrat de Gating Biomimétique des Outils (`EvaluateGating` & `BIOMIMETIC_GATING_POLICY`)
+
+Pour prémunir les modèles 7B contre les hallucinations d'outils et alléger leur fenêtre de contexte, les contrats de transport MCP et Agent intègrent les spécifications de gating biomimétique :
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Client / Orchestrateur
+    participant Gating as biomimeticToolGatingService
+    participant Contract as mcpContract (BIOMIMETIC_GATING_POLICY)
+    participant LLM as Modèle Compact 7B
+
+    Client->>Gating: evaluateToolGating(query, candidateTools)
+    Note over Gating: Calcul Vm (repos -70mV, seuil -55mV)\n+ Filtrage Thalamique
+    alt Vm < Seuil (Requête purement conversationnelle)
+        Gating-->>Client: requiresTools=false, disinhibitedTools=[]
+        Client->>LLM: Prompt direct sans schémas d'outils
+        LLM-->>Client: Réponse fluide en langage naturel
+    else Vm >= Seuil (Action système requise)
+        Gating-->>Contract: getGatedToolSchemas(query, disinhibitedTools)
+        Contract-->>Client: Schémas stricts des seuls outils désinhibés
+        Client->>LLM: Prompt ciblé avec schémas pertinents (1 à 3 outils)
+        LLM-->>Client: Appel d'outil précis sans hallucination
+    end
+```
+
+#### Extensions Protobuf :
+* **`AgentMission` (`proto/agent.proto`) :**
+  - `bool tool_gating_enabled = 21` : Active le gating amont pour la mission.
+  - `float gating_threshold_mv = 22` : Seuil de dépolarisation critique en mV (défaut : `-55.0`).
+  - `string disinhibited_tools_json = 23` : Tableau JSON des outils autorisés après désinhibition striatale.
+* **`McpService` (`proto/mcp.proto`) :**
+  - RPC `EvaluateGating (GatingRequest) returns (GatingResponse)` :
+    - `GatingRequest` : `{ string query = 1; repeated string candidate_tools = 2; float threshold_mv = 3; }`
+    - `GatingResponse` : `{ bool requires_tools = 1; repeated string disinhibited_tools = 2; float membrane_potential_mv = 3; string gate_state = 4; string reason = 5; }`
+
+

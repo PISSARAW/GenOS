@@ -262,12 +262,44 @@ function validateStericOrSchema(toolName, args) {
   return { valid: true, mode: 'fallback_json_schema', docking };
 }
 
+const BIOMIMETIC_GATING_POLICY = {
+  restingPotentialMv: -70.0,
+  depolarizationThresholdMv: -55.0,
+  levels: [
+    { level: 1, name: 'chemoreceptor_membrane_potential', target: 'zero_token_fast_filter' },
+    { level: 2, name: 'thalamic_cognitive_guardrail', target: 'binary_twilight_resolution' },
+    { level: 3, name: 'basal_ganglia_selective_disinhibition', target: 'striatal_affordance_recruitment' }
+  ]
+};
+
+function getGatedToolSchemas(query, candidateTools = [], options = {}) {
+  const { evaluateToolGating } = require('./biomimeticToolGatingService');
+  const candidates = candidateTools.length > 0 ? candidateTools : Object.keys(TOOL_BASE_SCHEMAS);
+  const gating = evaluateToolGating(query, candidates, options);
+
+  const disinhibited = gating.disinhibitedTools || [];
+  const schemas = {};
+  for (const tool of disinhibited) {
+    schemas[tool] = getFullToolSchema(tool);
+  }
+
+  return {
+    gating,
+    requiresTools: gating.requiresTools,
+    disinhibitedTools: disinhibited,
+    schemas
+  };
+}
+
 module.exports = {
   MCP_CONTRACT_VERSION,
+  BIOMIMETIC_GATING_POLICY,
   getToolInputSchema,
   getFullToolSchema,
+  getGatedToolSchemas,
   normalizeMcpEnvelope,
   TOOL_BASE_SCHEMAS,
   validateStericOrSchema
 };
+
 

@@ -67,12 +67,26 @@ function buildAgentRuntimePrompt(ctx) {
     allowFileEdits, allowedCommands
   } = ctx;
 
+  const gating = ctx.toolGating || (ctx.enableToolGating ? require('../src/services/biomimeticToolGatingService').evaluateToolGating(mission.prompt || mission.currentTask, toolLease) : null);
+  let effectiveLease = toolLease;
+  let gatingDirective = '';
+  if (gating && gating.gatingActive) {
+    if (!gating.requiresTools) {
+      effectiveLease = [];
+      gatingDirective = 'Biomimetic Gating Active: Query is purely conversational/conceptual. Do not call or hallucinate external tools; respond directly in natural language.';
+    } else if (Array.isArray(gating.disinhibitedTools) && gating.disinhibitedTools.length > 0) {
+      effectiveLease = gating.disinhibitedTools;
+      gatingDirective = `Biomimetic Gating Active: Selectively disinhibited tools for this mission: ${effectiveLease.join(', ')}.`;
+    }
+  }
+
   return [
     `${selfIntro}`,
     `Agent role: ${mission.role || 'Autonomous implementation agent'}.`,
     `${conscienceBlock}`,
     memoryBlock ? `${memoryBlock}` : '',
     authorityInstruction,
+    gatingDirective ? `[BIOMIMETIC GATING]\n${gatingDirective}` : '',
     'Work directly in the assigned repository and implement the mission completely.',
     `Keep changes scoped to the repository, inspect existing code before editing, run relevant tests, and report concrete progress. Your final response must be a single JSON object with this schema: {"author":{"name":"${agentName}","meaning":"${nameMeaning}"},"outcome":"success|failed|no_answer","claims":[{"statement":"specific conclusion","evidence":["test output, receipt, or inspected artifact"]}],"uncertainties":["anything not verified"],"tests":["command and result"],"dossierInfluence":[{"workerId":"delegated worker id","usedClaims":["claim used or rejected"],"influence":"how this dossier changed or constrained the synthesis"}],"artifact":"creative when applicable","artifactText":"creative work when applicable","creativeEvaluation":{"rubric":{"craft":0,"coherence":0,"originality":0,"emotionalImpact":0,"constraintCoverage":0},"constraintCoverage":0,"revisions":[],"criticEvidence":[]},"failure":{"category":"unresolved_task|falsified_hypothesis|capability_mismatch|transient_runtime","reason":"why the mission failed","evidence":["concrete observations"]},"noAnswerProof":{"method":"bounded exhaustive method","evidence":["proof artifacts"]}}. If you cannot complete the mission, set outcome=failed and explain it explicitly; do not hide failure behind a successful process exit. Set outcome=no_answer only with concrete proof that no answer exists in the stated scope. Do not state a conclusion as fact without at least one evidence entry; use uncertainties instead.`,
     strategyContract.selected_strategy?.primary
@@ -90,13 +104,13 @@ function buildAgentRuntimePrompt(ctx) {
     !isWorker && executionPolicy.silentUpdates !== true
       ? 'Keep the user informed through genos_report_progress at meaningful milestones: when the active approach changes, a substantial unit finishes, a blocker appears, or the team enters final verification. Report concise outcomes and next steps, not internal chain-of-thought or every tool call.'
       : !isWorker ? 'The user explicitly requested silent execution. Do not call genos_report_progress; return only the final mission result.' : '',
-    isWorker && toolLease.length ? `Your enforceable GenOS MCP lease is limited to: ${toolLease.join(', ')}.` : '',
+    isWorker && effectiveLease.length ? `Your enforceable GenOS MCP lease is limited to: ${effectiveLease.join(', ')}.` : '',
     genosCapsule.id
       ? `Your active GenOS capsule is ${genosCapsule.id}. For capsule tools, pass capsule_id=${genosCapsule.id} and root=${genosCapsule.root}. This capsule was created by the control plane; do not invent or replace its identity.`
       : '',
     `Execution policy: file edits are ${allowFileEdits ? 'allowed inside this capsule' : 'not allowed'}; the only authorized shell commands are ${allowedCommands.length ? allowedCommands.map((command) => JSON.stringify(command)).join(', ') : 'none'}. Do not attempt any other shell command, including discovery or Git commands.`,
     `Mission:\n${mission.prompt || mission.currentTask || 'Inspect the repository and report the next safe action.'}`
-  ].join('\n\n');
+  ].filter(Boolean).join('\n\n');
 }
 
 module.exports = {

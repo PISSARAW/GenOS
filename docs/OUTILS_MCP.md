@@ -440,3 +440,33 @@ Le sous-système MCP de GenOS dispose d'une architecture à double niveau garant
    - **Mode Direct Local :** En cas d'interruption du canal stdio, le backend et l'orchestrateur peuvent exécuter directement les primitives via les adaptateurs internes ([`backend/src/services/mcpBioTools/`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/mcpBioTools/)) ou le CLI déterministe (`genos biomimicry ...`).
    - **Heartbeat & Protection de Timeout :** Chaque invocation est encadrée par un timeout strict et un coupe-circuit (`circuitBreaker.js`) pour prévenir tout blocage de process orphelin.
 
+---
+
+### 4. Gating Biomimétique Amont & Bouclier d'Affordance 7B
+
+Pour maximiser les performances des modèles compacts (7B/8B) et dépasser les 88 % de réussite aux benchmarks d'utilisation d'outils (*Tool Use & Function Calling Benchmarks*), GenOS intègre un triple filtre biomimétique en amont via [`biomimeticToolGatingService.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/biomimeticToolGatingService.js) :
+
+#### Architecture du Gating à 3 Niveaux :
+
+```mermaid
+flowchart TD
+    Req["Requête Utilisateur / Prompt Mission"] --> L1["Niveau 1: Potentiel de Membrane (-70 mV)\nDépolarisation EPSP vs Hyperpolarisation IPSP"]
+    L1 -->|Vm < -72 mV\nHyperpolarisé| Shield["Bouclier Total (0 schéma injecté)\nMode Réponse Directe Langage Naturel"]
+    L1 -->|Zone Crépusculaire\n-72 mV <= Vm < -55 mV| L2["Niveau 2: Garde-Fou Thalamique\nDiscrimination Binaire Intention d'Action"]
+    L1 -->|Vm >= -55 mV\nPotentiel d'Action| L3["Niveau 3: Désinhibition Sélective (Ganglions de la Base)\nRecrutement des Clusters d'Affordance"]
+    L2 -->|NON| Shield
+    L2 -->|OUI| L3
+    L3 --> PromptOut["Prompt Épuré avec uniquement\nles outils pertinents injectés"]
+```
+
+1. **Niveau 1 : Seuil de Dépolarisation de Membrane (Loi du Tout ou Rien) :**
+   - Repos physiologique : $V_m = -70.0\text{ mV}$. Seuil critique d'activation : $V_{\text{seuil}} = -55.0\text{ mV}$.
+   - Les requêtes purement conversationnelles ("Bonjour", "Explique-moi la théorie...", "Résume ce texte") génèrent des potentiels inhibiteurs post-synaptiques (IPSP / GABAergique), maintenant la cellule en état d'hyperpolarisation ($V_m \le -70\text{ mV}$). Aucun outil n'est exposé.
+   - Les impératifs d'action externe ("Lance un snapshot", "Modifie le fichier", "Déploie") déclenchent des potentiels excitateurs (EPSP / Glutamatergique), provoquant un potentiel d'action ($V_m \ge -55\text{ mV}$).
+2. **Niveau 2 : Garde-Fou Thalamique Binaire (Résolution de l'ambiguïté) :**
+   - Agit comme le thalamus sensoriel humain dans la zone crépusculaire ($-72\text{ mV} \le V_m < -55\text{ mV}$).
+   - Teste la présence simultanée d'un verbe d'action et d'une cible concrète (fichier, repo, snapshot, branche). Si absent, la requête est maintenue en mode conversationnel direct.
+3. **Niveau 3 : Désinhibition Sélective des Ganglions de la Base :**
+   - Les effecteurs moteurs ne sont jamais tous débloqués simultanément. Le striatum recrute sélectivement l'un des 5 clusters d'affordance (`snapshot_persistence`, `orchestration_coordination`, `strategy_primitives`, `audit_inspection`, `diagnostics_remediation`).
+   - Le modèle 7B reçoit seulement 1 à 3 schémas d'outils ultra-pertinents, éliminant la distraction d'attention et le risque de fausse affordance.
+
