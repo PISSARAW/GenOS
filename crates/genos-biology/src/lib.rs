@@ -2,6 +2,7 @@ pub use genos_cell as cell;
 pub use genos_genome as genome;
 
 pub mod bioluminescence;
+pub mod crypsis;
 pub mod ecology;
 pub mod embryology;
 pub mod glial;
