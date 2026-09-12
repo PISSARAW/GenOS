@@ -564,8 +564,8 @@ Ces métriques aident à :
 ### Erreur 1 : Garage plein
 
 ```
-WORKER_GARAGE_FULL: A-Team requires 3 free slots but only 1 is available.
-Action: wait for current workers to complete or escalate to queue.
+WORKER_GARAGE_FULL: A-Team requires 3 free slots, but worker garage is full (slots: 2/3 used — wait or increase MAX_ACTIVE_WORKERS).
+Action: attendre la libération d'un ouvrier ou augmenter GENOS_MAX_ACTIVE_WORKERS.
 ```
 
 ### Erreur 2 : Incohérence de fusion

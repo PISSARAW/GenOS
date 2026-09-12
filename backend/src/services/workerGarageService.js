@@ -159,7 +159,7 @@ async function requireAvailableSlot(db, orchestratorId, workerId = null) {
   const alreadyActive = workerId && garage.activeWorkers.some((worker) => worker.id === workerId);
   const limit = maxActiveWorkers();
   if (!alreadyActive && garage.available === 0) {
-    const error = new Error(`Orchestrator '${orchestratorId}' already has ${limit} active workers. Complete or stop one worker before dispatching another.`);
+    const error = new Error(`Worker garage is full (slots: ${garage.occupied}/${limit} used — wait or increase MAX_ACTIVE_WORKERS). Orchestrator '${orchestratorId}' cannot dispatch more workers.`);
     error.code = 'WORKER_GARAGE_FULL';
     error.garage = garage;
     throw error;
@@ -216,7 +216,7 @@ async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }
     name, role, mission, workerId, orchestratorId, orchestratorId, limit
   );
   if (!reservation.changes) {
-    const error = new Error(`All ${limit} worker slots are occupied.`);
+    const error = new Error(`Worker garage is full (slots: ${limit}/${limit} used — wait or increase MAX_ACTIVE_WORKERS).`);
     error.code = 'WORKER_GARAGE_FULL';
     error.garage = await state(db, orchestratorId);
     throw error;

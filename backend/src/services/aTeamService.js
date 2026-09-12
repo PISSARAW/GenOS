@@ -194,7 +194,7 @@ function validateComposition({ goal, systems, capacity, freeSlots }) {
   if (!goal) throw Object.assign(new Error('A-Team project_goal is required.'), { code: 'A_TEAM_GOAL_REQUIRED' });
   if (systems.length < 2) throw Object.assign(new Error('A-Team requires at least two distinct competency domains.'), { code: 'A_TEAM_MULTIDISCIPLINARY_REQUIRED' });
   if (systems.length > capacity) throw Object.assign(new Error(`A-Team is limited to ${capacity} active competency domains.`), { code: 'A_TEAM_CAPACITY_EXCEEDED' });
-  if (systems.length > freeSlots) throw Object.assign(new Error(`A-Team requires ${systems.length} free slots but only ${freeSlots} are available.`), { code: 'WORKER_GARAGE_FULL' });
+  if (systems.length > freeSlots) throw Object.assign(new Error(`A-Team requires ${systems.length} free slots, but worker garage is full (slots: ${capacity - freeSlots}/${capacity} used — wait or increase MAX_ACTIVE_WORKERS).`), { code: 'WORKER_GARAGE_FULL' });
 }
 
 function buildAssignment({ goal, roles, tiers }, subSystem, index) {
