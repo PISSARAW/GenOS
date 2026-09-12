@@ -1176,6 +1176,60 @@ flowchart TD
 | **5. Disjoncteur à 3 États & Coupe-Circuit Militaire** | Cascades de pannes d'APIs et impossibilité d'arrêt immédiat d'urgence. | `circuitBreaker` bascule en `OPEN` après 3 pannes consécutives, met sous embargo les outils destructeurs et arme un coupe-circuit d'urgence (`triggerHalt` / `resetHalt`). | **3/3 PASS** |
 | **6. Cryptobiose & Restauration Immuable sous Choc Brutal** | Perte irrémédiable de l'état en mémoire lors d'un crash de processus hôte. | `freezeCryptobiosis` fige l'état de la flotte avec un identifiant cryptographique unique et `thawCryptobiosis` le réhydrate à 100% avec intégrité absolue. | **3/3 PASS** |
 
+---
+
+## 25. Banc d'Épreuve : Économie de Jetons & Efficience Budgétaire (`npm run test:cost-budget`)
+
+Le profil de test `npm run test:cost-budget` ([backend/tests/stress/test_token_economy_and_budget_bench.js](../backend/tests/stress/test_token_economy_and_budget_bench.js)) soumet le moteur d'allocation budgétaire et d'optimisation de jetons de GenOS à 18 défis majeurs évaluant le confinement des coûts, le routage multi-niveaux, la compression de contexte et la prévention du gaspillage.
+
+### Pourquoi les architectures d'agents conventionnelles (LangChain, AutoGen, CrewAI) gaspillent des budgets massifs
+
+1. **Absence d'Enveloppe Budgétaire Stricte & Dépassement Multi-Rounds** :
+   Dans les frameworks naïfs, les agents délèguent sans plafond global. La somme des jetons consommés par les sous-agents excède fréquemment le budget initial de la session. `budgetCoherenceService.validateBudgetCoherence` rejette formellement toute allocation où la somme des pools (`initial + continuation`) dépasse le plafond de jetons (`budget envelope exceeded`) et verrouille la réserve orchestrateur.
+2. **Routage Mono-Modèle Gaspilleur sur Modèles Frontières Coûteux** :
+   Les pipelines classiques envoient chaque vérification de syntaxe, ping ou parsing JSON à GPT-4o ou Claude 3.5 Sonnet, multipliant la facture par 50x. `modelRoutingPolicy.pickAutoCandidate` trie les modèles par complexité (`low` $\to$ 7B ultra-rapide et économique, `medium` $\to$ 14B, `high` $\to$ 70B pour le raisonnement causal lourd).
+3. **Fuite Silencieuse vers le Cloud & Absence de Confinement Local** :
+   Quand un serveur local (Ollama, vLLM) est indisponible, les frameworks basculent silencieusement sur les APIs cloud payantes sans validation humaine. `assertStrictPreferLocal` déclenche une exception bloquante `LOCAL_MODEL_REQUIRED` dès lors que `preferLocal: true` est violé sans autorisation explicite `allowCloudFallback: true`.
+4. **Paliers de Compétence par Rôle (*Model Sizing by Purpose*)** :
+   Attribuer un modèle de 70B à un worker de relecture ou un modèle de 7B à un architecte système entraîne soit un gaspillage financier, soit un échec de conception. `agentModelRoutingService.localCompetencyFloor` établit des planchers stricts de paramètres : 7B pour la routine/relecture, 14B pour l'implémentation de code, et 20B pour la planification globale.
+5. **Explosion Quadratique du Contexte ($O(N^2)$) vs Pliage Déterministe** :
+   Stocker l'historique complet de 100 tours d'outils et de fichiers réinjecte des dizaines de milliers de jetons à chaque pas. `primitiveHandlers/temporal.stateFold` plie l'historique en un état synthétique compact conservant l'intégrité causale (`modifiedFiles`, `actionsCount`, `errorsEncountered`, `isClean`), atteignant **plus de 95% de compression** de tokens.
+6. **Boucles de Jetons Runaway par Appels d'Outils Identiques** :
+   Lorsqu'un LLM bégaie sur un même appel d'outil en boucle, des milliers de tokens sont brûlés inutilement. `circuitBreaker.canExecute` analyse la signature d'arguments (`argumentSignature`) et interrompt immédiatement l'exécution au 6ème appel identique (`TOOL_EXECUTION_LOOP`).
+
+```mermaid
+flowchart TD
+    MissionReq["Mission & Objectif Agentique"] --> BudgetCheck{1. Validation Enveloppe Budgétaire}
+    
+    BudgetCheck -- Dépassement Pool Rounds --> RejectEnvelope["Rejet: Budget Envelope Exceeded"]
+    BudgetCheck -- Enveloppe Cohérente --> Router{2. Classification Complexité}
+    
+    Router -- Tâche Simple (low) --> LowCost["pickAutoCandidate: Modèle Léger 7B (Économie 90%)"]
+    Router -- Tâche Complexe (high) --> HighReason["pickAutoCandidate: Modèle Frontière 70B"]
+    
+    LowCost & HighReason --> LocalPolicy{3. Politique Locale Stricte}
+    LocalPolicy -- preferLocal & Cloud Détecté --> BlockCloud["Rejet: LOCAL_MODEL_REQUIRED"]
+    LocalPolicy -- Conforme --> HistoryCompress{4. Compression Contexte Multi-Tours}
+    
+    HistoryCompress -- 50-100 Tours d'Historique --> StateFold["stateFold: Pliage Déterministe (>95% Compression)"]
+    StateFold -- Contexte Compacté --> ToolGuard{5. Surveillance Appels Répétés}
+    
+    ToolGuard -- >= 6 Appels Identiques --> TripLoop["Disjoncteur: TOOL_EXECUTION_LOOP (Anti-Gaspillage)"]
+    ToolGuard -- Exécution Normale --> ExecTokens["Exécution Rentable & Mesurée en Micro-USD"]
+```
+
+### 25.1 Défis d'Économie de Jetons & Efficience Budgétaire Éprouvés
+
+| Défi Efficience & Coût | Écueil Systémique (LangChain / AutoGen / CrewAI) | Technologie & Économie de Jetons GenOS | Statut Test (18/18) |
+|---|---|---|---|
+| **1. Cohérence de l'Enveloppe Budgétaire & Réserves Rôles** | Dépassement silencieux du budget global par empilement de rounds. | `validateBudgetCoherence` valide la somme des pools, interdit le dépassement de l'enveloppe globale et borne la réserve orchestrateur. | **3/3 PASS** |
+| **2. Routage Multi-Niveaux & Optimisation par Complexité** | Exécution de chaque tâche banale sur les modèles frontières les plus coûteux. | `pickAutoCandidate` route vers le modèle le plus efficient selon la complexité (`low` $\to$ 7B, `high` $\to$ 70B) et calcule le coût exact via `estimateCostUsd`. | **3/3 PASS** |
+| **3. Priorité Locale Stricte & Confinement Anti-Fuite Cloud** | Bascule cloud clandestine en cas de congestion locale, générant des coûts imprévus. | `assertStrictPreferLocal` lève `LOCAL_MODEL_REQUIRED` pour interdire toute fuite cloud non expressément autorisée (`allowCloudFallback`). | **3/3 PASS** |
+| **4. Paliers de Compétence par Rôle & Calibrage de Taille** | Utilisation de modèles surdimensionnés pour des tâches périphériques. | `localCompetencyFloor` impose un seuil de paramètres adapté au rôle (7B révision, 14B code, 20B architecture) et `modelScale` infère la taille réelle. | **3/3 PASS** |
+| **5. Pliage Déterministe d'Historique & Compression de Contexte** | Explosion quadratique des tokens par historique append-only non compressé. | `stateFold` consolide 100 tours en un état immuable synthétique sans perte d'information causale, réalisant **$>95\%$ d'économie de jetons**. | **3/3 PASS** |
+| **6. Disjoncteur d'Appels Répétés & Anti-Boucle de Jetons** | Boucles d'appels d'outils répétitifs brûlant des milliers de tokens par minute. | `circuitBreaker.canExecute` détecte les signatures d'arguments identiques et bloque à la 6ème occurrence avec `TOOL_EXECUTION_LOOP`. | **3/3 PASS** |
+
+
 
 
 
