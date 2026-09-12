@@ -60,6 +60,9 @@ async function provisionWorkspaceAndModel(ctx) {
 
 function normalizeMissionBudgets(ctx) {
   const { normalizedMission } = ctx;
+  if (normalizedMission.timeoutMs && !normalizedMission.workerBarrierTimeoutMs) {
+    normalizedMission.workerBarrierTimeoutMs = Math.max(2000, Math.floor(normalizedMission.timeoutMs * 0.45));
+  }
   const runtimeEnvironment = bundledRuntimeEnvironment();
   const normalizedExecutionBudget = normalizeMissionBudget(normalizedMission.executionBudget || {});
   const budgetCoherence = validateBudgetCoherence({
@@ -80,7 +83,6 @@ function normalizeMissionBudgets(ctx) {
 
 async function provisionMissionCapsule(ctx) {
   const { agentId, normalizedMission, dispatchedAgent } = ctx;
-  console.log("adapter: provision");
   const genosCapsule = await agentCapsules.provision({
     executable: ctx.runtimeEnvironment.GENOS_BIN,
     workspaceRoot: normalizedMission.workspaceRoot,
@@ -88,7 +90,8 @@ async function provisionMissionCapsule(ctx) {
     agentId,
     name: normalizedMission.name || dispatchedAgent.name || agentId,
     role: normalizedMission.role || dispatchedAgent.role || 'GenOS agent',
-    budgetSteps: normalizedMission.executionBudget?.events || 100
+    budgetSteps: normalizedMission.executionBudget?.events || 100,
+    fallbackSynthetic: true
   });
   emit(agentId, 'AGENT_CAPSULE_CREATED', 'CAPSULE', `Created GenOS capsule ${genosCapsule.id}.`, genosCapsule, 'info');
   if (dispatchedAgent.execution_mode === 'orchestrator') {
