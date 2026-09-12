@@ -9,6 +9,7 @@
     "test:swebench": "npm --prefix backend run test:swebench",
     "test:swe-localizer": "npm --prefix backend run test:swe-localizer",
     "test:swe-atlas": "npm --prefix backend run test:swe-atlas",
+    "test:swe-diff": "npm --prefix backend run test:swe-diff",
     "test:swe-surgical": "npm --prefix backend run test:swe-surgical",
     "test:swe-verify": "npm --prefix backend run test:swe-verify",
     "test:scout": "npm --prefix backend run test:scout",

@@ -40,6 +40,7 @@
     "test:foraging": "node tests/test_optimal_foraging.js",
     "test:swe-localizer": "node tests/test_swe_fault_localizer.js",
     "test:swe-atlas": "node tests/test_swe_repo_atlas.js",
+    "test:swe-diff": "node tests/test_swe_diff_sanitizer.js",
     "test:swe-surgical": "node tests/test_swe_surgical_repair.js",
     "test:swe-verify": "node tests/test_swe_sandbox_verification.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",

@@ -4,12 +4,16 @@
  * Applique le biomimétisme de la double incision enzymatique UvrC :
  * - Découpe chirurgicale minimale autour de la lésion
  * - Contrôle formel du Blast Radius (RiskScore <= 45)
+ * - Assainissement déterministe du patch via SweDiffSanitizerService
  * - Génération de patch git unidiff standard sans réécriture globale destructrice.
  */
+
+const { defaultSweDiffSanitizer } = require('./sweDiffSanitizerService');
 
 class SweSurgicalRepairService {
   constructor(options = {}) {
     this.maxSurgicalRisk = options.maxSurgicalRisk || 45;
+    this.diffSanitizer = options.diffSanitizer || defaultSweDiffSanitizer;
   }
 
   /**
@@ -69,8 +73,16 @@ class SweSurgicalRepairService {
   /**
    * Applique le principe NER : valide que le patch ne touche que les nucléotides cibles
    */
-  validateExcisionBoundary(patchStr = '') {
-    const lines = patchStr.split('\n');
+  validateExcisionBoundary(patchStr = '', fallbackPath = 'target.py') {
+    let sanitized = patchStr;
+    const hasGitHeader = patchStr.includes('diff --git');
+
+    if (!hasGitHeader) {
+      const res = this.diffSanitizer.sanitizePatch(patchStr, fallbackPath);
+      if (res.valid) sanitized = res.patch;
+    }
+
+    const lines = sanitized.split('\n');
     let added = 0;
     let removed = 0;
     let files = 0;
@@ -82,11 +94,12 @@ class SweSurgicalRepairService {
     }
 
     const metrics = this.calculateBlastRadius(Math.max(1, files), added, removed);
-    const validHeaders = patchStr.includes('diff --git') && patchStr.includes('--- ') && patchStr.includes('+++ ');
+    const validHeaders = sanitized.includes('diff --git') && sanitized.includes('--- ') && sanitized.includes('+++ ');
 
     return {
       validHeaders,
       metrics,
+      sanitizedPatch: sanitized,
       acceptableForPromotion: validHeaders && metrics.isSurgical
     };
   }
