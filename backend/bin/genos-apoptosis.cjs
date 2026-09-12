@@ -52,7 +52,9 @@ async function apoptosis(customDbPath = null) {
   }
 }
 
+const cliHelp = require('./cliHelp.cjs');
 if (require.main === module) {
+  if (cliHelp.checkHelp(process.argv, 'genos-apoptosis.cjs')) process.exit(0);
   apoptosis()
     .then((result) => {
       if (!result.success) process.exitCode = 1;

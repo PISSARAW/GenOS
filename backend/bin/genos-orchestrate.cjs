@@ -24,6 +24,9 @@ if (process.env.GENOS_STREAM_TELEMETRY === '1') {
   });
 }
 
+const cliHelp = require('./cliHelp.cjs');
+if (cliHelp.checkHelp(process.argv, 'genos-orchestrate.cjs')) return;
+
 let request = {};
 try {
   request = JSON.parse(process.argv[2] || '{}');

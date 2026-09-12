@@ -3,6 +3,8 @@
 // backend/src/services/computerUseService.js, shared with the
 // `computer_use_direct` strategy's `run_plan` primitive.
 const { runMission } = require("../src/services/computerUseService");
+const cliHelp = require('./cliHelp.cjs');
+if (cliHelp.checkHelp(process.argv, 'genos-computer-use.cjs')) return;
 
 const args = process.argv.slice(2);
 const mission = args[0] || "Ouvre le bloc note et écrit GenOS V3.";
