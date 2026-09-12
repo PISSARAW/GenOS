@@ -310,6 +310,16 @@ const HANDLERS = {
     const { defaultBrowserScout } = require('../browserScoutService');
     const sessionId = ctx.sessionId || ctx.session_id || 'scout-main';
     return { success: true, snapshot: defaultBrowserScout.snapshotSession(sessionId) };
+  },
+
+  // Lot 10 — Foveal Active Vision
+  foveal_inspect: async (ctx = {}) => {
+    const { defaultFovealVision } = require('../fovealVisionService');
+    return defaultFovealVision.peripheralScan({ width: ctx.width, height: ctx.height, targetType: ctx.targetType || ctx.target_type });
+  },
+  foveal_crop: async (ctx = {}) => {
+    const { defaultFovealVision } = require('../fovealVisionService');
+    return defaultFovealVision.fovealCrop(ctx.imagePath || ctx.image_path, ctx.bbox, { zoomFactor: ctx.zoomFactor || ctx.zoom_factor, focusNotes: ctx.notes });
   }
 };
 
