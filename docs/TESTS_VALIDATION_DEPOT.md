@@ -12,6 +12,7 @@ Les principales sources sont :
 - [backend/tests/test_backend.js](../backend/tests/test_backend.js)
 - [backend/tests/test_grpc_services.js](../backend/tests/test_grpc_services.js)
 - [backend/tests/stress/test_stress.js](../backend/tests/stress/test_stress.js)
+- [backend/tests/stress/test_framework_adversarial_bench.js](../backend/tests/stress/test_framework_adversarial_bench.js)
 - [crates/genos-cli/src/tests.rs](../crates/genos-cli/src/tests.rs)
 
 Le dépôt ne repose pas sur Jest, Mocha, Vitest ou un framework de property testing centralisé. Les tests Node sont des scripts exécutables avec `node`, `assert`, des serveurs locaux, SQLite et des doubles ciblés. Les tests Rust sont les tests unitaires de crates exécutés par Cargo.
@@ -246,9 +247,21 @@ Le dossier `backend/tests/stress` contient des harnais dédiés à :
 - MCP/VFS/blast radius ;
 - mémoire et workspace ;
 - résilience de swarm ;
-- stress backend général.
+- stress backend général ;
+- banc comparatif adversarial multi-agents (`test_framework_adversarial_bench.js`).
 
 Ils exercent surtout des entrées limites, des enchaînements de sécurité, des calculs de risque, des volumes logiques et des invariants de services. Ce sont des stress tests ciblés, non un benchmark de capacité avec SLO mesurés, trafic distribué ou collecte de percentiles de production.
+
+#### 10.1.1 Banc d'épreuve adversarial multi-agents : GenOS vs LangChain, AutoGen, CrewAI
+
+Le harnais [backend/tests/stress/test_framework_adversarial_bench.js](../backend/tests/stress/test_framework_adversarial_bench.js) teste 6 modes de défaillance structurels bien documentés dans les frameworks multi-agents conventionnels :
+
+1. **Immunité épistémique vs empoisonnement d'hallucinations** (`contradictionCheck`, `beliefGate`) : face à une hallucination ou assertion hostile contredisant des preuves empiriques au sol, GenOS détecte la contradiction et bloque l'exécution en aval (`gateAction: REJECT`), là où LangChain/CrewAI propagent l'erreur par sycophancie.
+2. **Interception de blocages ping-pong et boucles infinies** (`cycleDetection`, `BREAK_LOOP`) : détection déterministe des cycles de communication périodiques ($k \in [1, 4]$) ou en graphe orienté (DFS), arrêt de la fuite de jetons et sanction budgétaire cognitive, évitant l'épuisement de contexte typique des débats AutoGen non bornés.
+3. **Branchement spéculatif et fusion causale à 3 voies** (`prmEvaluate`, `causalMerge`) : scoring d'invariants intermédiaires par Process Reward Model et réconciliation automatique de branches divergentes avec résolution de conflits, impossible sur les DAGs linéaires conventionnels.
+4. **Résistance aux attaques Sybil et consensus calibré** (`weightedQuorum`, `brierScores`) : là où le vote majoritaire naïf d'AutoGen échoue si une majorité d'agents bruités outvote un expert, le quorum quadratique pondéré par les scores de Brier $(1 - \text{Brier})^2$ garantit le triomphe de la vérité calibrée.
+5. **Topologie auto-cicatrisante sous panne en cascade** (`apoptosis`, `reallocate`, `pheromoneDeposit`) : suicide cellulaire propre de l'agent défaillant, réallocation équitable de son budget token aux survivants, et balisage stigmergique répulsif détournant dynamiquement le trafic vers les réplicas sains.
+6. **Optimisation multi-objectifs non dominée au sens de Pareto** (`paretoSelect`) : sélection mathématique de la frontière de Pareto sur $N$ dimensions sans compromis arbitraire dans le prompt.
 
 ### 10.2 Chaos engineering
 
