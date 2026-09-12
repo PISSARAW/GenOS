@@ -106,7 +106,13 @@ class VectorMemoryService {
       scoreCorpusItem(item, { query, queryVec }, options)
     );
 
-    scoredItems.sort((a, b) => b.similarityScore - a.similarityScore);
+    scoredItems.sort((a, b) => {
+      const diff = b.similarityScore - a.similarityScore;
+      if (Math.abs(diff) > 1e-6) return diff;
+      const cosDiff = (b.cosineMetric || 0) - (a.cosineMetric || 0);
+      if (Math.abs(cosDiff) > 1e-6) return cosDiff;
+      return (b.rrf_score || 0) - (a.rrf_score || 0);
+    });
 
     let limitToUse = limit;
     if (options.hormone === 'adrenaline') limitToUse = Math.max(1, Math.floor(limit / 2));
