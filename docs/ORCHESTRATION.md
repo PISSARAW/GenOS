@@ -798,6 +798,13 @@ Pour diagnostiquer une régression subtile ou explorer un chemin inverse, l'orch
 
 L'orchestrateur modélise le profil énergétique des flottes d'agents pour réguler les quotas de tokens par minute et tracer les profils de consommation d'énergie au niveau de la planification.
 
+### 7. Topologie Stigmergique Scout / Harvester (Quête Web GAIA)
+
+Dans les énigmes sans fichier (77% de GAIA), l'orchestrateur découple la phase de prospection web de la phase de calcul déterministe :
+1. **Cellule Scout (Éclaireur Léger) :** Mobilise `genos_browser_act` et `genos_optimal_foraging` pour naviguer, contourner les formulaires et intercepter l'artefact brut (PDF/CSV) ou l'information clé.
+2. **Pheromone Token (Évidence Signée) :** Le Scout scelle un jeton d'évidence signé par SHA-256 sans faire gonfler le contexte de prompt.
+3. **Cellule Harvester (Moissonneur Lourd) :** L'agent analyste local récupère le token d'évidence, exécute les calculs exacts via Pandas/Python en environnement confiné et soumet la preuve à l'Arbitre de Réalité.
+
 > [!NOTE]
 > L'ensemble de ces primitives biomimétiques opère comme des heuristiques d'ordonnancement et des pods d'état applicatifs en mémoire (`mcpBioTools`), offrant des patrons de dérivation et de planification bio-inspirés sans intervention de pilotes de virtualisation ou de modules noyau bas niveau.
 

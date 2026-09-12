@@ -1313,4 +1313,20 @@ La décomposition de la suite de validation officielle révèle la structure fon
 - **Tâches avec documents attachés (38 tâches, 23.0% du corpus) :** L'agent GenOS atteint **21.1% (8 / 38)** de réussite en pur aveugle grâce aux inspecteurs tabulaires (Pandas), PDF (PyPDF), et code.
 - **Tâches sans fichier / Énigmes Web Ouvertes (127 tâches, 77.0% du corpus) :** L'agent atteint **3.9% (5 / 127)**. Ces questions exigent une navigation interactive profonde (formulaires de recherche arXiv, formulaires de bases de données USGS ou ClinicalTrials.gov, exploration de dépôts GitHub) qui dépasse les capacités d'une recherche textuelle par snippets et requiert un agent navigateur de type Computer-Use / Puppeteer.
 
+### 27.6 Suites de Validation des Organelles Biomimétiques Web (GAIA 77%)
+Pour combler l'écart sur les énigmes sans fichier, GenOS V3 dispose de trois bancs de tests unitaires dédiés :
+1. **Browser Scout (`npm --prefix backend run test:scout`) :**
+   - Valide la construction de l'Arbre d'Accessibilité Sémantique (AXTree) sans dump HTML polluant.
+   - Vérifie la manipulation des formulaires complexes (`fill`, `select_option`, `submit`).
+   - Valide l'interception automatique de téléchargements (`.csv`, `.pdf`) avec signature SHA-256 et placement direct en workspace.
+2. **Fovéation Visuelle (`npm --prefix backend run test:foveal`) :**
+   - Valide le scan périphérique de saillance (détection des figures, axes 3D, légendes).
+   - Valide les saccades attentionnelles verrouillées sur les annotations textuelles microscopiques.
+   - Valide le crop fovéal haute résolution sans perte (1000+ DPI effectifs pour les graphiques vectoriels).
+3. **Quête Optimale et Stigmergie (`npm --prefix backend run test:foraging`) :**
+   - Valide le théorème de la valeur marginale de Charnov ($dI/dt < \theta_{env} \implies$ délogement d'îlot web).
+   - Valide les trajectoires de vols de Lévy (alternance petits pas locaux et macro-sauts exploratoires).
+   - Valide le protocole stigmergique : dépôt de jeton d'évidence signé par l'agent Scout et reprise déterministe locale par l'agent Harvester.
+
+
 
