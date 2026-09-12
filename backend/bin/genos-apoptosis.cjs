@@ -26,12 +26,17 @@ async function apoptosis(customDbPath = null) {
       "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = 'Emergency apoptosis triggered', updated_at = CURRENT_TIMESTAMP WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')"
     );
     const stopped = res.changes || 0;
-    const cleanups = await db.all('SELECT agent_id, workspace_root FROM agent_capsule_cleanup').catch(() => []);
-    for (const cleanup of cleanups) {
-      try {
-        await cleanupWorkspace(cleanup.workspace_root, cleanup.agent_id);
-        await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', cleanup.agent_id);
-      } catch (_) {}
+    const cleanups = await db.all('SELECT agent_id, workspace_root FROM agent_capsule_cleanup LIMIT 25').catch(() => []);
+    if (cleanups.length > 0) {
+      await Promise.race([
+        Promise.allSettled(cleanups.map(async (cleanup) => {
+          try {
+            await cleanupWorkspace(cleanup.workspace_root, cleanup.agent_id);
+            await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', cleanup.agent_id);
+          } catch (_) {}
+        })),
+        new Promise((r) => setTimeout(r, 2000))
+      ]);
     }
 
     // Inscription télémétrique de l'apoptose si la table est présente

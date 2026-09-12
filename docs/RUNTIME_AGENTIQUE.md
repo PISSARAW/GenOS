@@ -66,7 +66,7 @@ L'annulation avant le spawn est prise en compte par `cancelledStarts` et retourn
 
 L'arret est intentionnellement trace : `AGENT_RUNTIME_HALT_REQUESTED`, puis un resultat `AGENT_HALTED`/`blocked`, evitant qu'un `SIGTERM` opere par le control plane ne soit presente comme un echec spontané.
 
-L'outil [backend/bin/genos-apoptosis.cjs](../backend/bin/genos-apoptosis.cjs) est le coupe-circuit d'urgence. Il controle qu'un PID correspond encore a l'executable attendu, termine les processus correspondants, marque les agents actifs `apoptosis`, efface les identifiants de runtime et tente de reclamer les capsules enregistrees.
+L'outil [backend/bin/genos-apoptosis.cjs](../backend/bin/genos-apoptosis.cjs) est le coupe-circuit d'urgence. Il contrôle qu'un PID correspond encore à l'exécutable attendu, termine les processus correspondants, marque les agents actifs `apoptosis`, efface les identifiants de runtime et réclame les capsules de façon concurrente et bornée dans le temps (timeout strict de 2s) afin de garantir une exécution immédiate sans blocage I/O.
 
 ## Runtimes, modèles et fallback
 
