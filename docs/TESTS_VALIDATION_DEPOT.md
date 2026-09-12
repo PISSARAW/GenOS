@@ -1009,5 +1009,66 @@ flowchart TD
 | **5. Plancher de Participation Anti-Minorité** | Un agent rescapé vote seul et impose sa décision à 100%. | `resolveMinParticipation` exige un quorum minimal ($\ge 50\%$ des nœuds actifs), rejetant les votes isolés avec `no_quorum`. | **2/2 PASS** |
 | **6. Calcul Canonique du Cycle de Vie des Propositions** | Maintien inutile de propositions dont le passage est devenu mathématiquement impossible. | `resolveProposalStatus` calcule les votes résiduels maximaux et prononce un rejet précoce (`status: 'rejected'`) dès l'invalidation mathématique. | **2/2 PASS** |
 
+---
+
+## 22. Banc d'Épreuve : Interaction avec l'Environnement & Navigation Web/OS (`npm run test:environment`)
+
+Le profil de test `npm run test:environment` ([backend/tests/stress/test_environment_interaction_and_web_os_bench.js](../backend/tests/stress/test_environment_interaction_and_web_os_bench.js)) soumet le système de confinement Web, OS et système de fichiers de GenOS à 16 défis avancés évaluant l'étanchéité des bacs à sable contre les évasions d'environnement et les attaques réseau.
+
+### Pourquoi les agents conventionnels (LangChain, AutoGen, CrewAI) échouent en Navigation Web/OS
+
+1. **SSRF par Encodages Obscurs d'IP (Octal, Hexadécimal, Dword, IPv6-Mapped)** :
+   Les frameworks standards vérifient souvent `127.0.0.1` ou `localhost` avec des regex naïves. Ils autorisent l'encodage décimal (`2130706433`), hexadécimal (`0x7f.0.0.1`), octal (`0177.0.0.1`) ou IPv6 mappé (`[::ffff:127.0.0.1]`), ainsi que les adresses de métadonnées Cloud AWS/GCP/Alibaba (`169.254.169.254`, `100.100.100.200`). GenOS résout et normalise chaque adresse via `providerEndpointPolicy.isBlockedAddress` et `isLoopbackHostname` pour bloquer tous les formats d'évasion.
+2. **Vulnérabilités de Rebinding DNS & Attaques TOCTOU sur Webhooks** :
+   Les agents naïfs effectuent une validation d'URL au moment du contrôle, puis effectuent la requête HTTP plus tard sur un domaine dont l'enregistrement DNS pointe désormais vers `127.0.0.1` (DNS Rebinding). `webhookService.resolvePublicWebhookTarget` résout immédiatement l'adresse IP publique, valide l'absence de réseau privé, et impose l'épinglage strict de l'IP (`postPinned`) lors de l'appel HTTPS.
+3. **Traversée de Fichiers par Liens Symboliques (*Symlink Escapes*)** :
+   Dans les environnements multi-projets, créer un symlink `target -> /` permet aux agents non confinés de lire n'importe quel fichier de la machine hôte. `pathSafety.resolveContainedPathNoSymlinkSync` inspecte chaque segment du chemin et déclenche une erreur `traverses a symbolic link` dès qu'un maillon de la chaîne est un lien symbolique.
+4. **Attaques par Déni de Service VFS (*Memory File Bombs*) & Quotas** :
+   Les agents d'écriture non régulés peuvent allouer des gigaoctets de données synthétiques dans le VFS mémoire pour faire crasher le runtime Node.js. GenOS inspecte canoniquement les arguments `path` et `content` et calcule le blast radius pre-flight (`simulateDryRun`) pour refuser les altérations hors normes.
+5. **Injections Shell & Échappement de Sous-Shells ($() / ` / && / ;)** :
+   L'utilisation d'outils d'exécution Bash permet aux agents d'exécuter des commandes malveillantes en chaînant des commandes (`npm test && rm -rf /`, `echo $(cat /etc/shadow)`). `sandboxCommandPolicy.isAllowedSandboxTestCommand` applique une liste blanche stricte de sous-commandes de test et de build et interdit tout caractère de chaînage ou de redirection.
+6. **Contournement de Schémas Web & Fuite d'Identifiants dans l'URL** :
+   Les requêtes Web d'agents peuvent tenter d'accéder à `file:///etc/passwd`, `gopher://`, ou `ftp://`, ou inclure des credentials sensibles dans l'URL (`https://user:password@target.com`). `providerEndpointPolicy.validateProviderEndpoint` rejette formellement tout protocole non HTTP/HTTPS et interdit les URLs contenant des identifiants utilisateur.
+
+```mermaid
+flowchart TD
+    Req["Action d'Agent (Web / OS / VFS)"] --> Filter{Classification de l'Action}
+    
+    subgraph "Confinement Réseau & Web"
+        Filter -- URL Provider / Webhook --> URLCheck{Validation Protocole & Auth}
+        URLCheck -- file://, gopher://, user:pass@ --> BlockURL[Rejet: Protocol / Credential Invalide]
+        URLCheck -- HTTPS Valide --> SSRFCheck{Détection Encodages Évasifs & Cloud Metadata}
+        SSRFCheck -- Octal, Hex, Dword, [::ffff:], 169.254 --> BlockSSRF[Rejet: SSRF / Loopback Bloqué]
+        SSRFCheck -- Host Public --> DNSPin{Résolution & Épinglage IP Unique}
+        DNSPin -- IP Privée / Rebinding --> BlockDNS[Rejet: Public Webhook Target Invalid]
+        DNSPin -- IP Publique Vérifiée --> PostPinned[Requête HTTPS avec IP Épinglée - Anti-TOCTOU]
+    end
+    
+    subgraph "Confinement Système de Fichiers & OS"
+        Filter -- VFS / Disque Hôte --> PathCheck{resolveContainedPathNoSymlinkSync}
+        PathCheck -- Lien Symbolique Détecté --> BlockSymlink[Rejet: traverses a symbolic link]
+        PathCheck -- Traversée .. ou Hors Racine --> BlockTraversal[Rejet: Path escapes the workspace]
+        PathCheck -- Chemin Sain Confiné --> DryRun[VFS simulateDryRun & Blast Radius]
+    end
+    
+    subgraph "Confinement Commandes Shell"
+        Filter -- Exécution Terminal --> ShellCheck{isAllowedSandboxTestCommand}
+        ShellCheck -- Opérateurs &&, ;, |, $() --> BlockShell[Rejet: Commande Non Autorisée]
+        ShellCheck -- npm test, cargo test --> ExecSafe[Exécution Confinée dans Sandbox]
+    end
+```
+
+### 22.1 Défis d'Interaction Environnement Éprouvés
+
+| Défi Environnement & Web/OS | Écueil Systémique (LangChain / AutoGen / CrewAI) | Technologie & Confinement Défensif GenOS | Statut Test (16/16) |
+|---|---|---|---|
+| **1. SSRF & Encodages Évasifs d'IP Loopback / Metadata** | Les parsers naïfs n'interceptent que `127.0.0.1` en chaîne de caractères. | `providerEndpointPolicy.isLoopbackHostname` et `isBlockedAddress` interceptent les formats octaux (`0177.0.0.1`), hexadécimaux (`0x7f.0.0.1`), dwords (`2130706433`), IPv6 mappés (`[::ffff:127.0.0.1]`) et les métadonnées AWS/GCP/Alibaba (`169.254.169.254`, `100.100.100.200`). | **4/4 PASS** |
+| **2. Résolution de Webhook Public & Défense Anti-TOCTOU** | Rebinding DNS autorisant la redirection ultérieure vers une IP privée interne. | `webhookService.resolvePublicWebhookTarget` rejette les hostnames non-HTTPS, `localhost`, `.internal`, résout immédiatement l'IP publique et l'épingle pour l'appel HTTPS. | **3/3 PASS** |
+| **3. Confinement du Filesystem & Blocage des Liens Symboliques** | L'ouverture de symlinks pointant vers l'hôte permet la lecture hors conteneur. | `pathSafety.resolveWorkspaceRoot` rejette la racine système et `resolveContainedPathNoSymlinkSync` interdit formellement tout lien symbolique intermédiaire ou terminal. | **3/3 PASS** |
+| **4. Normalisation VFS & Protection contre les File Bombs** | Écriture incontrôlée de fichiers et confusion de champs (`TargetFile`). | `vfsSandboxService.normalizeFileArguments` impose des arguments canoniques stricts (`path`, `content`) et le calcul de blast radius pré-vol borne l'empreinte mémoire. | **2/2 PASS** |
+| **5. Assainissement Shell & Anti-Injections de Sous-Commandes** | Exécution d'appels `bash()` permettant le chaînage d'opérateurs arbitraires. | `sandboxCommandPolicy.isAllowedSandboxTestCommand` valide les commandes de test légitimes (`npm test`, `cargo test`) et bloque formellement les chaînages (`&&`, `;`, `\|`, `$()`). | **2/2 PASS** |
+| **6. Assainissement des Protocoles d'URL & Détection d'Identifiants** | Autorisation de protocoles arbitraires (`file://`, `gopher://`) et fuite de tokens dans les URLs. | `providerEndpointPolicy.validateProviderEndpoint` rejette tout schéma non HTTP/HTTPS et interdit strictement la présence d'identifiants (`user:pass@host`). | **2/2 PASS** |
+
+
 
 

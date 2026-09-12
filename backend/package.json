@@ -27,6 +27,7 @@
     "test:tool-calling": "node tests/stress/test_tool_use_and_function_calling_bench.js",
     "test:swe": "node tests/stress/test_swe_and_code_autonomy_bench.js",
     "test:consensus": "node tests/stress/test_multi_agent_consensus_and_game_theory_bench.js",
+    "test:environment": "node tests/stress/test_environment_interaction_and_web_os_bench.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
     "daemon": "node bin/genos-daemon.cjs",
     "daemon:interactive": "node bin/genos-daemon.cjs --interactive",
