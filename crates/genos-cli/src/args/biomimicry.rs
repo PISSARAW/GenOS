@@ -68,6 +68,26 @@ pub enum BiomimicrySubcommands {
         #[arg(long, default_value_t = 100.0)]
         dose_mg: f64,
     },
+    Crypsis {
+        #[arg(long)]
+        mode: String,
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long, default_value = "")]
+        payload: String,
+        #[arg(long, default_value_t = 1.0)]
+        intensity: f64,
+    },
+    Mimicry {
+        #[arg(long)]
+        strategy: String,
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long, default_value = "")]
+        payload: String,
+        #[arg(long, default_value_t = 1.0)]
+        intensity: f64,
+    },
     CerebellumCoprocessor {
         #[arg(long)]
         agent_id: String,

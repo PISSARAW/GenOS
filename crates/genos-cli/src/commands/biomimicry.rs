@@ -121,6 +121,12 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
         BiomimicrySubcommands::NootropicInfusion { agent_id, substance, dose_mg } => {
             biomimicry_neural::handle_nootropic_infusion(&agent_id, &substance, dose_mg)?;
         }
+        BiomimicrySubcommands::Crypsis { mode, agent_id, payload, intensity } => {
+            super::biomimicry_crypsis::handle_crypsis(&agent_id, &mode, &payload, intensity)?;
+        }
+        BiomimicrySubcommands::Mimicry { strategy, agent_id, payload, intensity } => {
+            super::biomimicry_crypsis::handle_mimicry(&agent_id, &strategy, &payload, intensity)?;
+        }
         BiomimicrySubcommands::CerebellumCoprocessor { agent_id, target_value, expected_latency, current_value, actual_latency } => {
             biomimicry_neural::handle_cerebellum(&agent_id, (target_value, current_value), (expected_latency, actual_latency))?;
         }
