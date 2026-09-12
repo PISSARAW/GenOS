@@ -1,4 +1,4 @@
-const DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024;
+const DEFAULT_MAX_OUTPUT_BYTES = 1024 * 1024;
 
 function maxOutputBytes(value = process.env.GENOS_MAX_PROCESS_OUTPUT_BYTES) {
   const parsed = Number(value);

@@ -191,10 +191,10 @@ Le comportement est adapte au transport :
 
 - HTTP : un deadline global couvre `initialize`, notification et `tools/call`; chaque phase utilise `AbortController` avec le temps restant ;
 - `stdio` : chaque reponse attendue est bornee par le meme deadline et le processus est termine sur expiration ;
-- execution locale : le bridge CLI recoit le timeout normalise ;
-- outils bio et strategy : `withTimeout()` borne les promesses de fallback.
+- execution locale : le bridge CLI et `toolLogic.js` recoivent et propagent dynamiquement le timeout normalise `timeoutMs` a tous les sous-appels synchrones (`runSafeSync`) et asynchrones ;
+- outils bio et strategy : `withTimeout()` borne les promesses de fallback avec le meme `timeoutMs`.
 
-Les sorties sont aussi bornees : le serveur JS et le backend limitent la sortie a environ $1\,048\,576$ octets. Pour HTTP, une reponse plus grande est refusee; les messages d'erreur ont une limite plus courte. Ces limites evitent qu'un outil bloque ou sature le processus de controle.
+Les sorties sont rigoureusement bornees et unifiees : le module `boundedOutput.js`, le serveur JS et le backend limitent tous la sortie a exactement $1\,048\,576$ octets (1 MiB par defaut). Pour HTTP, une reponse plus grande est refusee; les messages d'erreur ont une limite plus courte (4 KiB). Ces limites unifiees evitent qu'un outil bloque ou sature le processus de controle.
 
 ---
 
