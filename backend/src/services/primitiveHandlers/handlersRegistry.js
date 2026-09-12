@@ -293,7 +293,24 @@ const HANDLERS = {
   capture: computerUse.capture,
   screen_capture: computerUse.capture,
   run_plan: computerUse.runPlan,
-  desktop_mission: computerUse.runPlan
+  desktop_mission: computerUse.runPlan,
+
+  // Lot 9 — Browser Scout
+  browser_navigate: async (ctx = {}) => {
+    const { defaultBrowserScout } = require('../browserScoutService');
+    const sessionId = ctx.sessionId || ctx.session_id || 'scout-main';
+    return await defaultBrowserScout.navigate(sessionId, ctx.url, { htmlContent: ctx.htmlContent || ctx.html });
+  },
+  browser_act: async (ctx = {}) => {
+    const { defaultBrowserScout } = require('../browserScoutService');
+    const sessionId = ctx.sessionId || ctx.session_id || 'scout-main';
+    return await defaultBrowserScout.act(sessionId, ctx);
+  },
+  browser_snapshot: async (ctx = {}) => {
+    const { defaultBrowserScout } = require('../browserScoutService');
+    const sessionId = ctx.sessionId || ctx.session_id || 'scout-main';
+    return { success: true, snapshot: defaultBrowserScout.snapshotSession(sessionId) };
+  }
 };
 
 module.exports = {
