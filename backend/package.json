@@ -39,6 +39,7 @@
     "test:foraging": "node tests/test_optimal_foraging.js",
     "test:swe-localizer": "node tests/test_swe_fault_localizer.js",
     "test:swe-surgical": "node tests/test_swe_surgical_repair.js",
+    "test:swe-verify": "node tests/test_swe_sandbox_verification.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
     "daemon": "node bin/genos-daemon.cjs",
     "daemon:interactive": "node bin/genos-daemon.cjs --interactive",

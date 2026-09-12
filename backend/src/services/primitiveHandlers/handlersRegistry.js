@@ -344,6 +344,10 @@ const HANDLERS = {
   swe_patch_synthesize: async (ctx = {}) => {
     const { defaultSweSurgicalRepair } = require('../sweSurgicalRepairService');
     return defaultSweSurgicalRepair.synthesizeSurgicalDiff(ctx.filePath || ctx.file_path, ctx.originalChunk || ctx.original_chunk, { replacementChunk: ctx.replacementChunk || ctx.replacement_chunk, startLine: ctx.startLine || ctx.start_line || 1 });
+  },
+  swe_verify: async (ctx = {}) => {
+    const { defaultSweSandboxVerification } = require('../sweSandboxVerificationService');
+    return defaultSweSandboxVerification.evaluatePatchExecution(ctx.patch || ctx.diff, { targetFile: ctx.targetFile || ctx.target_file, expectedPass: ctx.expectedPass !== false, observedFail: Boolean(ctx.observedFail) });
   }
 };
 

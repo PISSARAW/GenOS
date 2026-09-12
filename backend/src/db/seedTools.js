@@ -162,6 +162,7 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_optimal_foraging', cat: 'Ecology', risk: 'Low', desc: 'Charnov marginal value theorem and stigmergic scout-harvester coordination' },
   { name: 'genos_swe_fault_localizer', cat: 'Software Engineering', risk: 'Low', desc: 'Proprioceptive codebase scanner and NER fault localization for SWE-bench' },
   { name: 'genos_swe_surgical_repair', cat: 'Software Engineering', risk: 'Low', desc: 'Biomimetic NER DNA excision repair and minimal blast radius patch synthesis' },
+  { name: 'genos_swe_verify_patch', cat: 'Software Engineering', risk: 'Low', desc: 'Cerebellar motor error feedback and p53 checkpoint verification for SWE-bench' },
   { name: 'genos_strat_prm_evaluate', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Prm Evaluate strategy primitive' },
   { name: 'genos_strat_backpropagate', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Backpropagate strategy primitive' },
   { name: 'genos_strat_mutate', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Mutate strategy primitive' },
