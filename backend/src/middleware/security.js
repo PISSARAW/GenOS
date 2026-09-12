@@ -22,27 +22,50 @@ const configuredOrigins = String(process.env.GENOS_ALLOWED_ORIGINS || '')
   .filter(Boolean);
 const ALLOWED_ORIGINS = Array.from(new Set([...DEFAULT_ALLOWED_ORIGINS, ...configuredOrigins]));
 
-const TAG_BLOCK = /<\s*(?:script|iframe|style|object|embed|svg|math)\b[^>]*>[\s\S]*?<\s*\/\s*(?:script|iframe|style|object|embed|svg|math)\s*>/gi;
-const EVENT_HANDLER = /on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+const DANGEROUS_TAGS = ['script', 'iframe', 'style', 'object', 'embed', 'svg', 'math'];
+
+function removeTagBlocks(input) {
+  let str = String(input || '');
+  for (const tag of DANGEROUS_TAGS) {
+    const openPattern = `<${tag}`;
+    const closePattern = `</${tag}>`;
+    while (true) {
+      const lower = str.toLowerCase();
+      const openIdx = lower.indexOf(openPattern);
+      if (openIdx === -1) break;
+      const closeIdx = lower.indexOf(closePattern, openIdx);
+      if (closeIdx === -1) {
+        const endTag = str.indexOf('>', openIdx);
+        if (endTag === -1) {
+          str = str.slice(0, openIdx);
+        } else {
+          str = str.slice(0, openIdx) + str.slice(endTag + 1);
+        }
+        break;
+      }
+      str = str.slice(0, openIdx) + str.slice(closeIdx + closePattern.length);
+    }
+  }
+  return str;
+}
 
 function stripTagsToFixedPoint(value) {
-  let current = value;
-  for (let pass = 0; pass < 4; pass += 1) {
-    const next = current.replace(/<[^>]*>/g, '');
-    if (next === current) break;
-    current = next;
-  }
-  return current;
+  let current = String(value || '');
+  let previous;
+  do {
+    previous = current;
+    current = current
+      .replace(/<[^>]*>/g, '')
+      .replace(/javascript\s*:/gi, '')
+      .replace(/on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  } while (current !== previous);
+  return current.replace(/[<>]/g, '');
 }
 
 function sanitizeString(str) {
   if (typeof str !== 'string') return str;
-  // Multi-pass stripping defeats mutation XSS such as `<scr<script>ipt>`.
-  const withoutBlocks = str.replace(TAG_BLOCK, '');
-  return stripTagsToFixedPoint(withoutBlocks)
-    .replace(/javascript\s*:/gi, '')
-    .replace(EVENT_HANDLER, '')
-    .replace(/[<>]/g, '');
+  const withoutBlocks = removeTagBlocks(str);
+  return stripTagsToFixedPoint(withoutBlocks);
 }
 
 function sanitizeValue(val) {
@@ -113,46 +136,42 @@ function localhostBearerBypass(req, origin, hasValidAuth) {
   return hasValidAuth;
 }
 
-async function csrfCheck(req, res, next) {
+function isCsrfExemptMethodOrPath(req) {
   const mutatingMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
-  if (!mutatingMethods.includes(req.method)) {
-    return next();
-  }
+  if (!mutatingMethods.includes(req.method)) return true;
+  if (req.path.startsWith('/api/auth/verify')) return true;
+  if (req.path.startsWith('/api/auth/login')) return true;
+  return false;
+}
 
-  // Exempt auth verification and login from CSRF token requirement if token is in body
-  if (req.path.startsWith('/api/auth/verify') || req.path.startsWith('/api/auth/login')) {
-    return next();
-  }
-
-  // Only a request whose credentials actually validate against the access-key
-  // store may bypass the CSRF token check. Merely *carrying* an Authorization
-  // header proves nothing: browsers do not attach attacker-chosen headers on
-  // cross-site form posts, so a forged header value must never count as auth.
-  let hasValidAuth = false;
-  if (req.headers.authorization || req.headers['x-access-key']) {
-    try {
-      hasValidAuth = (await resolveUserFromHeaders(req.headers)).isAuthenticated;
-    } catch (_) { hasValidAuth = false; }
-  }
-
+function isValidCsrfToken(req) {
   const csrfHeader = String(req.headers['x-csrf-token'] || '');
-  const origin = req.headers.origin;
+  if (csrfHeader.length < 16) return false;
+  if (isKnownIssuedToken(csrfHeader)) return true;
   const cookies = Object.fromEntries(String(req.headers.cookie || '').split(';').map((part) => part.trim().split(/=(.*)/s)).filter(([key]) => key));
   const csrfCookie = String(cookies.genos_csrf || '');
-  const validDoubleSubmit = csrfHeader.length >= 16 && csrfHeader.length === csrfCookie.length
-    && require('crypto').timingSafeEqual(Buffer.from(csrfHeader), Buffer.from(csrfCookie));
-  const validIssuedToken = csrfHeader.length >= 16 && isKnownIssuedToken(csrfHeader);
+  if (csrfHeader.length !== csrfCookie.length) return false;
+  return require('crypto').timingSafeEqual(Buffer.from(csrfHeader), Buffer.from(csrfCookie));
+}
 
-  // CSRF only meaningfully applies to ambient-credential (browser) callers,
-  // which always send an Origin. Header-only API clients with no Origin must
-  // instead pass authentication (401 otherwise).
-  const csrfApplicable = Boolean(origin);
-  // Validated access-key callers, double-submit, issued tokens and the local
-  // CLI Bearer path are exempt. NODE_ENV is never trusted as an auth signal:
-  // a production deployment that sets NODE_ENV=test must not disable CSRF.
-  if (!csrfApplicable || validDoubleSubmit || validIssuedToken || hasValidAuth || localhostBearerBypass(req, origin, hasValidAuth)) {
-    return next();
+async function checkHasValidAuth(headers) {
+  if (!headers.authorization && !headers['x-access-key']) return false;
+  try {
+    const user = await resolveUserFromHeaders(headers);
+    return Boolean(user?.isAuthenticated);
+  } catch (_) {
+    return false;
   }
+}
+
+async function csrfCheck(req, res, next) {
+  if (isCsrfExemptMethodOrPath(req)) return next();
+  const origin = req.headers.origin;
+  if (!origin) return next();
+  if (isValidCsrfToken(req)) return next();
+  const hasValidAuth = await checkHasValidAuth(req.headers);
+  if (hasValidAuth) return next();
+  if (localhostBearerBypass(req, origin, hasValidAuth)) return next();
 
   // Reject foreign or untrusted mutating requests
   return res.status(403).json({

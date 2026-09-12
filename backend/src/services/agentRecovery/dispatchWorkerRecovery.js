@@ -4,6 +4,7 @@
  * worker can never be created without lineage.
  */
 const path = require('path');
+const crypto = require('crypto');
 const workerRecovery = require('../workerFailureRecoveryService');
 const workerGarage = require('../workerGarageService');
 const bisectionService = require('../bisectionService');
@@ -105,7 +106,7 @@ function resolveRecoveryTarget(input) {
   const sameIdentity = decision.identity === 'same';
   const targetId = sameIdentity
     ? sourceAgentId
-    : `worker_${orchestratorId}_recovery_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    : `worker_${orchestratorId}_recovery_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
   const role = firstTruthy(decision.role, source.role, mission.role, 'recovery_specialist');
   const prompt = workerRecovery.recoveryPrompt(report, decision);
   const name = workerGarage.workerName({ role, mission: `${decision.action}: ${report.mission}` });

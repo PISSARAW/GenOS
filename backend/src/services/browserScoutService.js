@@ -18,7 +18,7 @@ class BrowserScoutService {
   }
 
   createSession(sessionId = null, initialConfig = {}) {
-    const id = sessionId || `scout_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const id = sessionId || `scout_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const session = {
       id,
       currentUrl: null,
@@ -55,6 +55,16 @@ class BrowserScoutService {
     return attrs;
   }
 
+  _stripTags(html) {
+    let text = String(html || '');
+    let previous;
+    do {
+      previous = text;
+      text = text.replace(/<[^>]*>/g, '');
+    } while (text !== previous);
+    return text.replace(/[<>]/g, '').trim();
+  }
+
   _isDownloadable(url) {
     if (!url) return false;
     const clean = url.split('?')[0].toLowerCase();
@@ -88,7 +98,7 @@ class BrowserScoutService {
       let optM;
       while ((optM = optRegex.exec(m[2])) !== null) {
         const optA = this._parseAttrs(optM[1]);
-        const text = optM[2].replace(/<[^>]+>/g, '').trim();
+        const text = this._stripTags(optM[2]);
         options.push({ value: optA.value !== undefined ? optA.value : text, label: text, selected: 'selected' in optA });
       }
       axNodes.push({ selectorId: `@select:${id}`, role: 'combobox', name: a.name || id, options, currentValue: (options.find(o => o.selected) || options[0] || {}).value || '' });
@@ -98,7 +108,7 @@ class BrowserScoutService {
     const btnRegex = /<button\b([^>]*)>([\s\S]*?)<\/button>/gi;
     while ((m = btnRegex.exec(html)) !== null) {
       const a = this._parseAttrs(m[1]);
-      const text = m[2].replace(/<[^>]+>/g, '').trim();
+      const text = this._stripTags(m[2]);
       axNodes.push({ selectorId: `@button:${a.id || `btn_${count++}`}`, role: 'button', type: a.type || 'button', label: text || a.id || 'button', action: 'submit' });
     }
 
@@ -107,7 +117,7 @@ class BrowserScoutService {
     while ((m = linkRegex.exec(html)) !== null) {
       const a = this._parseAttrs(m[1]);
       if (!a.href || a.href.startsWith('#')) continue;
-      const text = m[2].replace(/<[^>]+>/g, '').trim();
+      const text = this._stripTags(m[2]);
       axNodes.push({ selectorId: `@link:${count++}`, role: 'link', href: a.href, label: text || a.href, isDownload: this._isDownloadable(a.href) });
     }
 
