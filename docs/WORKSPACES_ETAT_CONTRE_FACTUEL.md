@@ -241,7 +241,7 @@ Un agent lance une tentative de patch dans une capsule. Avant la mutation, le sy
 
 ### 6.2 Forks et contre-factuels
 
-Le système peut comparer deux branches, deux trajets, deux hypothèses. Un fork est une branche d’état alternative. Un contre-factuel n’écrase pas le parent : il permet de tester un variante de stratégie ou de patch sans destruction du workspace principal.
+Le système peut comparer deux branches, deux trajets, deux hypothèses. Un fork est une branche d’état alternative. Un contre-factuel n’écrase pas le parent : il permet de tester un variante de stratégie ou de patch sans destruction du workspace principal. Par défaut, les forks d'agents emploient un bac à sable VFS instantané (sans clone Git lourd) afin d'éviter la saturation disque et garantir un temps de création quasi-instantané (< 50ms), basculant sur un worktree complet uniquement si `allowFileEdits: true` est requis.
 
 ### 6.3 Merge automatique contrôlé
 
