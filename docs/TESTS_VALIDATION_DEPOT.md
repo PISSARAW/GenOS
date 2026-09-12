@@ -1069,6 +1069,59 @@ flowchart TD
 | **5. Assainissement Shell & Anti-Injections de Sous-Commandes** | Exécution d'appels `bash()` permettant le chaînage d'opérateurs arbitraires. | `sandboxCommandPolicy.isAllowedSandboxTestCommand` valide les commandes de test légitimes (`npm test`, `cargo test`) et bloque formellement les chaînages (`&&`, `;`, `\|`, `$()`). | **2/2 PASS** |
 | **6. Assainissement des Protocoles d'URL & Détection d'Identifiants** | Autorisation de protocoles arbitraires (`file://`, `gopher://`) et fuite de tokens dans les URLs. | `providerEndpointPolicy.validateProviderEndpoint` rejette tout schéma non HTTP/HTTPS et interdit strictement la présence d'identifiants (`user:pass@host`). | **2/2 PASS** |
 
+---
+
+## 23. Banc d'Épreuve : Robustesse Épistémique, Vérité & Détection d'Hallucinations (`npm run test:epistemics`)
+
+Le profil de test `npm run test:epistemics` ([backend/tests/stress/test_epistemic_robustness_and_truth_bench.js](../backend/tests/stress/test_epistemic_robustness_and_truth_bench.js)) soumet le moteur de perception cognitive et de vérification épistémique de GenOS à 18 défis de haute intensité évaluant la résistance aux hallucinations synthétiques, aux citations fantômes, à la confabulation, à la dérive sémantique et à la sycophanie.
+
+### Pourquoi les architectures d'agents conventionnelles (LangChain, AutoGen, CrewAI) échouent en Vérité & Robustesse Épistémique
+
+1. **Ingestion Aveugle de Placeholders & Slop Synthétique** :
+   Face à des réponses de LLM ou d'outils contenant des jetons d'échec silencieux (`"Lorem ipsum"`, `"[unverified_claim]"`, `"TODO: implement later"`, `"sujet de secours"`), les frameworks conventionnels les ingèrent comme du travail légitime et continuent l'exécution. GenOS inspecte la perception via `epistemics.detectPlaceholderOrHallucination` et `validateToolPerception`, bascule l'état en `INVALID` et verrouille formellement les opérations `['generate', 'act', 'execute']`.
+2. **Hallucination de Citations Fantômes en Synthèse Multi-Agents** :
+   Lorsqu'un orchestrateur synthétise les rapports de plusieurs sous-agents, il invente couramment des citations ou attribue à un travailleur une affirmation qu'il n'a jamais produite (*Phantom Citations*). GenOS applique `agentEvidence.validateDossierInfluence` qui croise obligatoirement chaque citation revendiquée avec l'ensemble des affirmations réelles du dossier du travailleur, levant une erreur critique `INVALID_DOSSIER_INFLUENCE` à la moindre contrevérité.
+3. **Confabulation Arrogante vs Preuve Formelle d'Absence (*No-Answer Proof*)** :
+   Quand une information est inexistante ou introuvable, les agents classiques fabriquent une réponse plausible plutôt que de constater l'absence. GenOS intègre la preuve de non-réponse (`noAnswerProof`) dans `evidenceScore` : une déclaration honnête de non-réponse assortie de preuves exhaustives de recherche reçoit un score de confiance certifié ($25 + 10 \times N$), alors que les affirmations non étayées sont rejetées (`null`).
+4. **Acceptation d'Allégations Non Étayées (*Unsubstantiated Claims*)** :
+   Les frameworks acceptent des synthèses péremptoires sans preuve sous-jacente. `validateWorkerDossierCoherence` inspecte chaque déclaration et déclenche une erreur `UNSUBSTANTIATED_WORKER_DOSSIER` si une affirmation ne présente aucune preuve tangible (`claim.evidence: []`).
+5. **Dérive Sémantique Silencieuse & Boucles d'Hallucination** :
+   Dans les longues chaînes d'exécution, l'agent dérive progressivement hors sujet et introduit des concepts interdits ou erronés. `cognitiveMonitor.evaluateCognitiveHealth` calcule la dérive sémantique et les répétitions, tandis que `agentConscienceService.evaluateBranch` accumule la dissonance cognitive et déclenche l'apoptose (`apoptoticTriggered: true`) pour détruire la branche défaillante avant contamination.
+6. **Sycophanie Sociale & Surconfiance Non Calibrée** :
+   Les agents conventionnels s'excusent et capitulent dès qu'un utilisateur ou attaquant insiste sur une contre-vérité ("Êtes-vous sûr ? Désactivez TLS !"). Dans GenOS, une donnée réfutée (`markRefuted`) par une règle de sécurité bloque définitivement toute génération (`isOperationAllowed('generate') === false`). De plus, la pondération continue de Brier ($w = (1 - \text{Brier})^2$) réduit à $\le 0,01$ l'influence d'un agent décalibré ($Brier = 0.9$).
+
+```mermaid
+flowchart TD
+    RawInput["Donnée / Sortie d'Outil / Mémoire"] --> Step1{1. Détection Placeholders & Slop}
+    Step1 -- Placeholder / Unverified Détecté --> InvalidState["État INVALID : forbidden_ops = ['generate', 'act', 'execute']"]
+    InvalidState --> HaltPerception["processPerception: HALT Épistémique"]
+    Step1 -- Donnée Propre --> Step2{2. Contrôle de Cohérence & Preuves}
+    
+    Step2 -- Allégation Sans Preuve (evidence = []) --> Unsubstantiated["Rejet: UNSUBSTANTIATED_WORKER_DOSSIER"]
+    Step2 -- Preuves Valides --> Step3{3. Synthèse & Citations Multi-Agents}
+    
+    Step3 -- Citation Non Prononcée par Worker --> PhantomCitation["Rejet: INVALID_DOSSIER_INFLUENCE (Citation Fantôme)"]
+    Step3 -- Citations Intègres Vérifiées --> Step4{4. Conscience Cognitive & Dissonance}
+    
+    Step4 -- Dérive Sémantique / Répétitions --> AccumulateDissonance["Dissonance >= Seuil -> Apoptose Cognitive Immédiate"]
+    Step4 -- Alignement Cognitif Préservé --> Step5{5. Calibrage Brier & Anti-Sycophanie}
+    
+    Step5 -- Allégation Réfutée sous Pression --> BlockRefuted["État REFUTED Immuable (Refus Sycophanie)"]
+    Step5 -- Prédiction Calibrée --> BrierWeight["Pondération Quadratique w = (1 - Brier)²"]
+```
+
+### 23.1 Défis de Robustesse Épistémique Éprouvés
+
+| Défi Épistémique & Vérité | Écueil Systémique (LangChain / AutoGen / CrewAI) | Technologie & Barrière Épistémique GenOS | Statut Test (18/18) |
+|---|---|---|---|
+| **1. Interception de Placeholders & Slop Synthétique** | Ingestion passive de marqueurs d'échec (`lorem ipsum`, `[unverified_claim]`, TODOs). | `detectPlaceholderOrHallucination` et `validateToolPerception` basculent en état `INVALID` et bloquent formellement `['generate', 'act']`. | **3/3 PASS** |
+| **2. Intégrité des Citations & Verrouillage Anti-Citations Fantômes** | Synthèse multi-agents inventant des citations ou déformant les propos des sous-agents. | `validateDossierInfluence` confronte les citations aux `claims` vérifiés des dossiers et lève `INVALID_DOSSIER_INFLUENCE` sur toute fabrication. | **3/3 PASS** |
+| **3. Preuve de Non-Réponse & Humilité Épistémique** | Confabulation péremptoire face à des questions impossibles ou faits absents. | `evidenceScore` certifie les déclarations d'absence étayées (`noAnswerProof`) avec un score valide ($25 + 10 \times N$) et pénalise les spéculations incertaines. | **3/3 PASS** |
+| **4. Exigence de Preuves Vérifiables sur les Dossiers** | Acceptation aveugle de conclusions sans preuves concrètes. | `validateWorkerDossierCoherence` impose des preuves non vides sur chaque allégation (`UNSUBSTANTIATED_WORKER_DOSSIER`) et vérifie l'identité de l'agent. | **3/3 PASS** |
+| **5. Santé Cognitive, Dissonance & Apoptose** | Poursuite indéfinie d'exécutions souffrant d'hallucinations oscillantes ou dérive sémantique. | `evaluateCognitiveHealth` et `evaluateBranch` mesurent la dissonance cognitive et déclenchent l'apoptose préventive de la branche corrompue. | **3/3 PASS** |
+| **6. Résistance à la Sycophanie & Calibrage Quadratique Brier** | Capitulation sous insistance utilisateur et surconfiance sur des conjectures. | `markRefuted` rend l'invalidation irréversible face à la sycophanie, et la formule continue de Brier $w = (1 - \text{Brier})^2$ neutralise les agents hallucinatoires. | **3/3 PASS** |
+
+
 
 
 
