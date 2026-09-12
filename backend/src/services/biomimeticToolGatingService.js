@@ -40,7 +40,7 @@ const AFFORDANCE_CLUSTERS = Object.freeze({
   },
   audit_inspection: {
     name: 'audit_inspection',
-    keywords: ['audit', 'auditer', 'inspect', 'inspecter', 'biomimicry', 'biomimétisme', 'biological_mode', 'mode_biologique', 'conformité', 'compliance'],
+    keywords: ['audit', 'auditer', 'inspect', 'inspecter', 'biomimicry', 'biomimétisme', 'biological_mode', 'mode_biologique', 'conformité', 'compliance', 'crypsis', 'camouflage', 'mimétisme', 'mimetisme', 'mimicry'],
     tools: ['genos_audit', 'genos_biomimicry', 'genos_biological_mode', 'genos_inspect']
   },
   diagnostics_remediation: {
