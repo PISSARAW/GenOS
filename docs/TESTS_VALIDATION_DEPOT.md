@@ -1286,3 +1286,25 @@ Le benchmark GAIA (*General AI Assistant Benchmark*, Meta Fair / Hugging Face / 
 ```
 
 GenOS V3 valide l'intégralité des 165 cas du benchmark GAIA avec un taux de réussite de **100.0%**.
+
+### 27.4 Évaluation Réelle en Aveugle (*Blind Zero-Shot*) par LLM Local (`qwen2.5-coder:7b`)
+Au-delà de la validation oracle de conformité, nous avons exécuté l'évaluation intégrale en **inférence aveugle réelle (*live blind zero-shot*)** sur l'ensemble des 165 tâches via le script `run_full_blind_gaia.py`. Le modèle local `qwen2.5-coder:7b` sur GPU local a inspecté les fichiers réels (Excel/CSV via Pandas, PDF via PyPDF) et interrogé le web via DuckDuckGo sans jamais avoir accès aux réponses attendues (`Final answer`) :
+
+```
+==============================================================================
+          SCORECARD FINALE - GAIA BLIND ZERO-SHOT EVALUATION          
+==============================================================================
+  LEVEL 1  (Facile       ):   5 /  53 (  9.4%)
+  LEVEL 2  (Intermédiaire):   7 /  86 (  8.1%)
+  LEVEL 3  (Complexe     ):   1 /  26 (  3.8%)
+------------------------------------------------------------------------------
+  SCORE GLOBAL BLIND ZERO-SHOT :  13 / 165 (  7.9%)
+  DURÉE TOTALE D'INFÉRENCE     : 934.4s (15.6 min)
+==============================================================================
+```
+
+> **Contexte de Performance GAIA :**
+> GAIA est considéré comme le benchmark le plus difficile pour les agents autonomes :
+> - Dans le papier officiel, GPT-4 avec Code Interpreter atteint **15.0%** au total (0% sur le Level 3) et AutoGPT atteint **12.7%**.
+> - Obtenir **7.9%** en single-pass avec un modèle local de 7B sans agent web multi-tours complexe est une performance représentative des modèles compacts open-source, réussissant notamment des extractions tabulaires et documentaires complexes au Level 2 (inventaires Blu-Ray, calculs de volumes, rapports du GIEC, listes d'hébergements et réseaux ferroviaires).
+
