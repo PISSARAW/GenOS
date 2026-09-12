@@ -23,6 +23,7 @@
     "test:real-attacks": "node tests/stress/test_real_world_adversarial_attacks.js",
     "test:temporal": "node tests/stress/test_temporal_reasoning_bench.js",
     "test:fact-recall": "node tests/stress/test_single_hop_fact_recall_bench.js",
+    "test:multi-hop": "node tests/stress/test_cross_session_multi_hop_bench.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
     "daemon": "node bin/genos-daemon.cjs",
     "daemon:interactive": "node bin/genos-daemon.cjs --interactive",
