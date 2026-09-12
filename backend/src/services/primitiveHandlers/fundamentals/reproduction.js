@@ -52,7 +52,7 @@ async function enforceReproductionLimits(db, parentId, context = {}) {
 }
 
 async function fork(context) {
-  const orchestratorId = context.orchestratorId || context.agentId;
+  const orchestratorId = context.orchestratorId || context.agentId || 'orch_default';
   if (!orchestratorId) {
     return { success: false, error: 'orchestratorId required for fork.' };
   }
@@ -106,7 +106,12 @@ async function fork(context) {
     });
     const agentWorkspaceLifecycle = require('../../agentWorkspaceLifecycleService');
     const sourceRoot = parent.workspace_root || context.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
-    const workerWorkspaceRoot = await agentWorkspaceLifecycle.createIsolatedWorkspace(sourceRoot, id, context.capsuleRoot);
+    const allowEdits = context.allowFileEdits === true || context.executionPolicy?.allowFileEdits === true;
+    const useVfs = !allowEdits || context.vfs === true || process.env.GENOS_VFS_WORKSPACES === '1';
+    const workerWorkspaceRoot = await agentWorkspaceLifecycle.createIsolatedWorkspace(sourceRoot, id, {
+      capsuleRoot: context.capsuleRoot,
+      vfs: useVfs
+    });
     
     const startPromise = runtimeAdapter.startMission({
       agentId: id,
@@ -132,7 +137,7 @@ async function fork(context) {
 }
 
 async function recursiveFork(context = {}) {
-  const orchestratorId = context.orchestratorId || context.agentId;
+  const orchestratorId = context.orchestratorId || context.agentId || 'orch_default';
   if (!orchestratorId) {
     return { success: false, error: 'orchestratorId or agentId required for recursive_fork.' };
   }
