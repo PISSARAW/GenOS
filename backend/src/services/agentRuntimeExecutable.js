@@ -6,17 +6,36 @@ const path = require('path');
 const fsSync = require('fs');
 const { spawnSync } = require('child_process');
 
+function resolveBundled(repositoryRoot, name) {
+  const isWin = process.platform === 'win32';
+  const candidates = [
+    path.join(repositoryRoot, 'target', 'debug', name),
+    path.join(repositoryRoot, 'target', 'release', name)
+  ];
+  for (const candidate of candidates) {
+    if (fsSync.existsSync(candidate)) return candidate;
+    if (isWin && fsSync.existsSync(`${candidate}.exe`)) return `${candidate}.exe`;
+  }
+  const fallback = candidates[0];
+  return isWin ? `${fallback}.exe` : fallback;
+}
+
 function bundledRuntimeEnvironment() {
   const repositoryRoot = path.resolve(__dirname, '../../..');
-  const bundledGenos = path.join(repositoryRoot, 'target/debug/genos');
-  const bundledMcp = path.join(repositoryRoot, 'target/debug/genos-mcp');
+  const bundledGenos = resolveBundled(repositoryRoot, 'genos');
+  const bundledMcp = resolveBundled(repositoryRoot, 'genos-mcp');
   const configuredGenos = String(process.env.GENOS_BIN || '').trim();
   const configuredMcp = String(process.env.GENOS_MCP_BIN || '').trim();
   const useConfigured = (configured, bundled) => {
     if (!configured) return bundled;
-    const bundledExists = fsSync.existsSync(bundled) || (process.platform === 'win32' && fsSync.existsSync(`${bundled}.exe`));
-    if (bundledExists && /program files/i.test(configured)) return bundled;
-    return configured;
+    const isWin = process.platform === 'win32';
+    const configuredExists = fsSync.existsSync(configured) || (isWin && fsSync.existsSync(`${configured}.exe`));
+    if (configuredExists && !/program files/i.test(configured)) {
+      return isWin && !configured.endsWith('.exe') && fsSync.existsSync(`${configured}.exe`)
+        ? `${configured}.exe`
+        : configured;
+    }
+    return bundled;
   };
   return {
     GENOS_BIN: useConfigured(configuredGenos, bundledGenos),

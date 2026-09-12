@@ -10,7 +10,7 @@ async function run() {
   const workspaceRoot = path.join(capsuleRoot, 'workspace');
   fs.mkdirSync(workspaceRoot);
   fs.writeFileSync(path.join(workspaceRoot, 'smoke.test.js'), "require('assert').strictEqual(2 + 2, 4);\n");
-  const executable = path.resolve(__dirname, '../target/debug/genos');
+  const executable = path.resolve(__dirname, '../../target/debug/genos');
   try {
     const capsule = await agentCapsules.provision({
       executable, workspaceRoot, capsuleRoot, agentId: 'agent-test', name: 'Capsule test', role: 'Verifier', budgetSteps: 12

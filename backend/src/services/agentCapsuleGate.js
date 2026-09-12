@@ -50,10 +50,11 @@ function assertExistingAbsolute(cmd) {
   if (cmd.includes('..')) {
     throw Object.assign(new Error('Capsule executable must not contain `..`.'), { code: 'CAPSULE_EXECUTABLE_INVALID' });
   }
-  if (!fs.existsSync(cmd)) {
-    throw Object.assign(new Error(`Capsule executable does not exist: ${cmd}`), { code: 'CAPSULE_EXECUTABLE_MISSING' });
+  if (fs.existsSync(cmd)) return cmd;
+  if (process.platform === 'win32' && fs.existsSync(`${cmd}.exe`)) {
+    return `${cmd}.exe`;
   }
-  return cmd;
+  throw Object.assign(new Error(`Capsule executable does not exist: ${cmd}`), { code: 'CAPSULE_EXECUTABLE_MISSING' });
 }
 
 function resolveExecutable(executable) {
