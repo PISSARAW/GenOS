@@ -320,6 +320,20 @@ const HANDLERS = {
   foveal_crop: async (ctx = {}) => {
     const { defaultFovealVision } = require('../fovealVisionService');
     return defaultFovealVision.fovealCrop(ctx.imagePath || ctx.image_path, ctx.bbox, { zoomFactor: ctx.zoomFactor || ctx.zoom_factor, focusNotes: ctx.notes });
+  },
+
+  // Lot 11 — Optimal Foraging & Stigmergy
+  foraging_evaluate: async (ctx = {}) => {
+    const { defaultForaging } = require('../foragingScoutHarvesterService');
+    return defaultForaging.evaluatePatchYield(ctx.history || [], ctx.elapsedTimeSec || ctx.elapsed_time_sec || 1);
+  },
+  foraging_step: async (ctx = {}) => {
+    const { defaultForaging } = require('../foragingScoutHarvesterService');
+    return defaultForaging.computeLevyFlightStep(ctx.iteration || 1);
+  },
+  stigmergy_handoff: async (ctx = {}) => {
+    const { defaultForaging } = require('../foragingScoutHarvesterService');
+    return defaultForaging.harvestEvidence(ctx.tokenId || ctx.token_id, ctx.harvesterId || ctx.harvester_id);
   }
 };
 
