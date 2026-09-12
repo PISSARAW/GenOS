@@ -25,4 +25,7 @@ async function getRecentTasks() {
   }
 }
 
+const cliHelp = require('./cliHelp.cjs');
+if (cliHelp.checkHelp(process.argv, 'genos-recent-tasks.cjs')) return;
+
 getRecentTasks();

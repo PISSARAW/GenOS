@@ -19,7 +19,10 @@ function readMission(args) {
   return argumentValue(args, '--mission') || process.env.GENOS_ATEAM_MISSION || '';
 }
 
+const cliHelp = require('./cliHelp.cjs');
+
 function main(argv = process.argv.slice(2)) {
+  if (cliHelp.checkHelp(argv, 'genos-ateam-audit.js')) return 0;
   const mission = readMission(argv);
   if (!mission.trim()) throw new Error('A mission is required via --mission, --mission-file, or GENOS_ATEAM_MISSION.');
   const observerFile = argumentValue(argv, '--observer-report') || process.env.GENOS_ATEAM_OBSERVER_REPORT;

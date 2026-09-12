@@ -63,7 +63,10 @@ function formatReportForTerminal(report, useColor) {
     .replace(/`(.*?)`/g, '\x1b[33m$1\x1b[0m');
 }
 
+const cliHelp = require('./cliHelp.cjs');
+
 async function main() {
+  if (cliHelp.checkHelp(process.argv, 'genos-daemon.cjs')) return;
   const args = process.argv.slice(2);
   const isStatus = args.includes('--status');
   const isEnable = args.includes('--enable-autostart') || args.includes('--enable');

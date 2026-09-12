@@ -170,6 +170,21 @@ Le service [backend/src/services/genosCli.js](../backend/src/services/genosCli.j
 
 L'environnement enfant n'hérite pas aveuglément de `process.env`. Seules des variables système sûres et les variables `GENOS_` non sensibles sont transférées. Les noms contenant `TOKEN`, `SECRET`, `KEY`, `PASSWORD`, `CREDENTIAL` ou `API` sont écartés.
 
+### 4.4 Suite CLI Node (`backend/bin/`) et découverte via `--help`
+
+Le répertoire `backend/bin/` contient les points d'entrée opérationnels et bridges d'exécution de GenOS. Tous ces binaires intègrent le module de découverte [`cliHelp.cjs`](../backend/bin/cliHelp.cjs) et répondent immédiatement aux flags `--help` et `-h` avec le code de sortie `0` :
+
+- **`genos-orchestrate.cjs`** : Orchestrateur autonome (`orchestrate`, `dispatch_worker`, `dispatch_team`, `dispatch_trinity`, `dispatch_biological`).
+- **`orchestratorActions.cjs`** : Gestionnaire granulaire d'actions d'orchestration (`report_progress`, `change_strategy`, `change_organization`, `execute_primitive`).
+- **`genos-apoptosis.cjs`** : Déclenchement d'urgence et réconciliation de l'apoptose cellulaire.
+- **`genos-daemon.cjs`** : Démon de surveillance en arrière-plan et gestionnaire de l'auto-démarrage OS.
+- **`genos-ateam-audit.js`** : Audit de couverture de compétences des missions A-Team (`--mission`, `--subsystems`).
+- **`genos-recent-tasks.cjs`** : Consultation des dernières missions et trajectoires enregistrées.
+- **`genos-agent-runtime.cjs`** : Bridge d'exécution bas-niveau communiquant via protobuf / JSON cadré.
+- **`genos-computer-use.cjs`** : Automatisation d'actions d'environnement et de bureau.
+
+La commande `node backend/bin/cliHelp.cjs` affiche l'index complet de découverte de tous les outils disponibles.
+
 ---
 
 ## 5. Confirmation des actions destructives

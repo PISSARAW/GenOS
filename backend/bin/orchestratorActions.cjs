@@ -126,7 +126,7 @@ async function handleStrategy({ db, request, orchestratorId }) {
 
 async function handleOrganizationChange({ db, request, orchestratorId }) {
   const transition = await dynamicOrganization.changeOrganization(db, {
-    orchestratorId, organization: request.organization, reason: request.reason,
+    orchestratorId, organization: request.organization || request.topology, reason: request.reason,
     changedBy: process.env.GENOS_AGENT_ID || orchestratorId
   });
   if (transition.changed) telemetry.emitEvent({
@@ -205,7 +205,7 @@ async function handleBiological({ db, context }) {
 async function handleTeam({ db, context }) {
   const parent = await ensureParent({ db, context });
   const garage = await workerGarage.state(db, context.orchestratorId);
-  const raw = context.request.sub_systems || context.request.subsystems;
+  const raw = context.request.sub_systems || context.request.subsystems || context.request.domains;
   const subSystems = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(',').map((s) => s.trim()).filter(Boolean) : [];
   const projectGoal = context.request.project_goal || context.request.projectGoal || context.request.goal || context.request.mission || context.task;
   const members = aTeamService.compose({ projectGoal, subSystems, assignedRoles: context.request.assigned_roles || context.request.assignedRoles, modelTiers: context.request.model_tiers || context.request.modelTiers, available: garage.available });
@@ -365,6 +365,25 @@ async function handleAction(context) {
   if (!handler) return false;
   await handler({ ...context, context });
   return true;
+}
+
+const cliHelp = require('./cliHelp.cjs');
+if (require.main === module) {
+  if (cliHelp.checkHelp(process.argv, 'orchestratorActions.cjs')) process.exit(0);
+  const { getDatabase, closeDatabase } = require('../src/db');
+  (async () => {
+    let req = {};
+    try { req = JSON.parse(process.argv[2] || '{}'); } catch (_) {}
+    const db = await getDatabase();
+    try {
+      await handleAction({
+        db, action: req.action, request: req, task: req.task || req.mission || '',
+        orchestratorId: req.orchestratorId || 'standalone_orchestrator',
+        id: req.id || req.workerId, repoRoot: path.resolve(__dirname, '../..'),
+        bridgePath: path.resolve(__dirname, 'genos-orchestrate.cjs')
+      });
+    } finally { await closeDatabase(); }
+  })().catch((e) => { console.error(e.message); process.exit(1); });
 }
 
 module.exports = { handleAction, handleBackground, initializeMission };
