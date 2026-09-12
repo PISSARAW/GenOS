@@ -121,19 +121,22 @@ function getToolHandler(toolName) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: res?.output || `Lamarckian mutation failed for agent '${agentId}'.`, error: `Lamarckian mutation was not applied for agent '${agentId}'.` };
     },
   };
-  return handlers[toolName];
+  if (typeof toolName === 'string' && Object.prototype.hasOwnProperty.call(handlers, toolName)) {
+    return handlers[toolName];
+  }
+  return null;
 }
 
 function executeBioExtra(toolName, args = {}, options = {}) {
   const timeoutMs = Math.max(1, Number(options.timeoutMs) || 30000);
   if (!toolName.startsWith('genos_')) return null;
 
-  if (BIO_EXTRA_HANDLERS && BIO_EXTRA_HANDLERS[toolName]) {
+  if (BIO_EXTRA_HANDLERS && typeof toolName === 'string' && Object.prototype.hasOwnProperty.call(BIO_EXTRA_HANDLERS, toolName)) {
     return handleBioExtraTool(toolName, args, timeoutMs);
   }
 
   const handler = getToolHandler(toolName);
-  if (handler) return handler(args, timeoutMs);
+  if (typeof handler === 'function') return handler(args, timeoutMs);
 
   if (toolName === 'genos_quantitative_genetics') {
     const observations = Array.isArray(args.observations) ? args.observations : [];

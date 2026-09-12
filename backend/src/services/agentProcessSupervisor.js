@@ -306,7 +306,7 @@ async function superviseMission(options) {
       await updateAgent(agentId, 'error', error.message);
       emitTracked('AGENT_RUNTIME_ERROR', 'ERROR', error.message, {}, 'error', 'error');
     } catch (err) {
-      console.error(`[AgentSupervisor] Error handling child process error for ${agentId}:`, err);
+      console.error('[AgentSupervisor] Error handling child process error for %s:', agentId, err);
     }
   });
   child.on('close', async (code, signal) => {
@@ -318,7 +318,7 @@ async function superviseMission(options) {
         await new Promise((resolve) => setImmediate(resolve));
       }
     } catch (err) {
-      console.error(`[AgentSupervisor] Error draining event queue for ${agentId}:`, err);
+      console.error('[AgentSupervisor] Error draining event queue for %s:', agentId, err);
     } finally {
       // Keep the process visible to the orchestration barrier until every final
       // event (including continuation selection) has been recorded.
@@ -333,17 +333,17 @@ async function superviseMission(options) {
         workspaceLifecycle, workerGarage, emit, updateAgent
       });
     } catch (err) {
-      console.error(`[AgentSupervisor] Error finalizing agent process close for ${agentId}:`, err);
+      console.error('[AgentSupervisor] Error finalizing agent process close for %s:', agentId, err);
     } finally {
       try {
         await dispatchWorkerRecovery(agentId);
       } catch (err) {
-        console.error(`[AgentSupervisor] Error dispatching worker recovery for ${agentId}:`, err);
+        console.error('[AgentSupervisor] Error dispatching worker recovery for %s:', agentId, err);
       }
       try {
         dispatchPendingContinuation(agentId);
       } catch (err) {
-        console.error(`[AgentSupervisor] Error dispatching pending continuation for ${agentId}:`, err);
+        console.error('[AgentSupervisor] Error dispatching pending continuation for %s:', agentId, err);
       }
     }
   });

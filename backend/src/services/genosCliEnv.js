@@ -45,12 +45,15 @@ function ensureRoot(rootOverride = null) {
   return root;
 }
 
+const MAX_COMMAND_LINE_LENGTH = 32768;
+
 function parseCommandLine(commandLine) {
   const args = [];
   let current = '';
   let quote = null;
-  const str = String(commandLine);
-  for (let i = 0; i < str.length; i++) {
+  const str = String(commandLine || '').slice(0, MAX_COMMAND_LINE_LENGTH);
+  const len = Math.min(str.length, MAX_COMMAND_LINE_LENGTH);
+  for (let i = 0; i < len; i++) {
     const char = str[i];
     const nextChar = str[i + 1];
 

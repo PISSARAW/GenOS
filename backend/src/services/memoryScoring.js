@@ -12,10 +12,15 @@ const VOCABULARY = [
 
 const VECTOR_DIM = 768;
 
+const MAX_TERM_LEN = 256;
+const MAX_TOKENS = 5000;
+
 function hashTokenIntoVector(term, vec, dim, weight = 1.0) {
   let h1 = 0x811c9dc5;
-  for (let i = 0; i < term.length; i++) {
-    h1 ^= term.charCodeAt(i);
+  const safeTerm = typeof term === 'string' ? term : String(term || '');
+  const len = Math.min(safeTerm.length, MAX_TERM_LEN);
+  for (let i = 0; i < len; i++) {
+    h1 ^= safeTerm.charCodeAt(i);
     h1 = Math.imul(h1, 0x01000193);
   }
   const idx = Math.abs(h1) % dim;
@@ -37,10 +42,11 @@ function textToVector(text = '', dim = VECTOR_DIM) {
   const tokens = normalized.split(/[\s,._\-\(\)]+/).filter(Boolean);
   if (tokens.length === 0) return Array.from(vec);
 
-  for (let i = 0; i < tokens.length; i++) {
+  const numTokens = Math.min(tokens.length, MAX_TOKENS);
+  for (let i = 0; i < numTokens; i++) {
     const token = tokens[i];
     hashTokenIntoVector(token, vec, dim, 1.0);
-    if (i < tokens.length - 1) {
+    if (i < numTokens - 1) {
       hashTokenIntoVector(`${token}_${tokens[i + 1]}`, vec, dim, 1.5);
     }
   }

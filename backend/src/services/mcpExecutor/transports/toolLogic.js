@@ -59,9 +59,14 @@ async function executeToolLogic(toolName, args, runLocal, timeoutMs = 30000) {
   if (toolName === 'genos_causal_replay_experiment') {
     try {
       const outputPath = require('../../mcpExecutor').resolveMcpOutputPath(args.output_file);
+      const safeOutputPath = path.resolve(outputPath);
+      const allowedRoot = path.resolve(process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..'));
+      if (!safeOutputPath.startsWith(allowedRoot)) {
+        throw new Error('Output path escapes workspace.');
+      }
       const out = runSafeSync(`genos experiment causal-replay ${args.input_file}`, timeoutMs);
-      require('fs').writeFileSync(outputPath, out);
-      return { configured: true, success: true, status: 'completed', transport: 'local', output: `Causal replay report written to ${outputPath}` };
+      require('fs').writeFileSync(safeOutputPath, out);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: `Causal replay report written to ${safeOutputPath}` };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
@@ -183,9 +188,14 @@ async function executeToolLogic(toolName, args, runLocal, timeoutMs = 30000) {
   if (toolName === 'genos_compliance_report') {
     try {
       const outputPath = require('../../mcpExecutor').resolveMcpOutputPath(args.output_file);
+      const safeOutputPath = path.resolve(outputPath);
+      const allowedRoot = path.resolve(process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..'));
+      if (!safeOutputPath.startsWith(allowedRoot)) {
+        throw new Error('Output path escapes workspace.');
+      }
       const out = runSafeSync(`genos compliance generate --standard ${args.standard}`, timeoutMs);
-      require('fs').writeFileSync(outputPath, out);
-      return { configured: true, success: true, status: 'completed', transport: 'local', output: `Compliance report written to ${outputPath}` };
+      require('fs').writeFileSync(safeOutputPath, out);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: `Compliance report written to ${safeOutputPath}` };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
