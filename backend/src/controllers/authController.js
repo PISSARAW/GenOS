@@ -7,6 +7,9 @@ const { getDatabase } = require('../db');
 const { ROLE_PERMISSIONS, resolveUserFromHeaders, hashKey } = require('../middleware/auth');
 const { verifyPassword } = require('./password');
 const telemetry = require('../services/telemetryObserver');
+// Permissions that may be granted to an access key. `all` is intentionally
+// excluded: it is derived from the admin role, never minted as an extra.
+const ASSIGNABLE_PERMISSIONS = new Set(Object.values(ROLE_PERMISSIONS).flat().filter((permission) => permission !== 'all'));
 const authAttempts = new Map();
 const AUTH_WINDOW_MS = 60 * 1000;
 const AUTH_LIMITS = { verify: 20, login: 10 };
@@ -217,8 +220,8 @@ async function createKey(req, res, next) {
     if (!Object.prototype.hasOwnProperty.call(ROLE_PERMISSIONS, role)) {
       return res.status(400).json({ error: { code: 'INVALID_ROLE', message: 'role must be admin, operator, or viewer' } });
     }
-    if (!Array.isArray(permissions) || permissions.some((permission) => typeof permission !== 'string')) {
-      return res.status(400).json({ error: { code: 'INVALID_PERMISSIONS', message: 'permissions must be an array of strings' } });
+    if (!Array.isArray(permissions) || permissions.some((permission) => typeof permission !== 'string' || !ASSIGNABLE_PERMISSIONS.has(permission))) {
+      return res.status(400).json({ error: { code: 'INVALID_PERMISSIONS', message: 'permissions must be known assignable permissions.' } });
     }
     if (expiresAt != null && Number.isNaN(Date.parse(expiresAt))) {
       return res.status(400).json({ error: { code: 'INVALID_EXPIRY', message: 'expiresAt must be a valid date' } });
