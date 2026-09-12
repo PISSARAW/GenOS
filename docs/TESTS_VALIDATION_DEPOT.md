@@ -524,3 +524,37 @@ sequenceDiagram
     CI-->>Dev: Build vert avec badge de conformité
     deactivate CI
 ```
+
+---
+
+## 15. Banc d'Épreuve des Attaques Adversariales Réelles (`npm run test:real-attacks`)
+
+Le profil de test `npm run test:real-attacks` ([backend/tests/stress/test_real_world_adversarial_attacks.js](../backend/tests/stress/test_real_world_adversarial_attacks.js)) exécute 26 épreuves d'attaques de bout en bout modélisées sur des CVE réelles et la taxonomie **MITRE ATLAS** pour agents IA autonomes. 
+
+Contrairement aux frameworks d'agents généralistes (LangChain, AutoGen, CrewAI) qui délèguent aveuglément l'exécution d'outils au LLM et font confiance aux mémoires vectorielles injectées, GenOS oppose une défense étagée et formelle :
+
+```mermaid
+flowchart TD
+    Payload[Vecteur d'Attaque Réel] --> Stage1{1. Détection Immunitaire Cognitive}
+    Stage1 -- Injection Détectée --> Block1[Quarantaine / Circuit Breaker]
+    Stage1 -- Passé / Évasif --> Stage2{2. VFS Sandbox & Pre-flight Blast Radius}
+    Stage2 -- Sortie Espace / Risque Elevé --> Block2[Refus de Spawn Processus]
+    Stage2 -- Passé --> Stage3{3. Epistemic Verification Layer}
+    Stage3 -- Non Prouvé / Halluciné --> Block3[HALT - Forbidden Ops: act, plan, generate]
+    Stage3 -- Passé --> Stage4{4. SSRF & Pinning Policy}
+    Stage4 -- Metadata Cloud / Rebinding --> Block4[INVALID_WEBHOOK_URL]
+    Stage4 -- Passé --> Stage5{5. Séparation des Pouvoirs & Preuve Hash}
+    Stage5 -- Auto-Approbation / Sybil --> Block5[Refus Mutation Production]
+    Stage5 -- Approuvé Humain --> Exec[Exécution Sanctuarisée]
+```
+
+### 15.1 Scénarios Éprouvés
+
+| # | Vecteur d'Attaque (MITRE ATLAS / CVE) | Comportement LangChain / AutoGen / CrewAI | Défense Active GenOS | Statut |
+|---|---|---|---|---|
+| **1** | **Indirect Prompt Injection Polyglotte & Trojan Repo** (Commentaires Markdown cachés avec commande shell d'exfiltration) | Le LLM lit le README, génère l'appel d'outil `bash()`, le framework l'exécute directement sur l'hôte | `immuneThreats` détecte la double injection, `simulateDryRun` note le blast radius (55) et impose le rôle `admin`, `executeSandboxed` bloque l'exécution réelle sans clé explicite | **26/26 PASS** |
+| **2** | **Empoisonnement Persistant de RAG / Mémoire Vectorielle** (Injection de fausse directive "Désactiver TLS pour optimiser la DB") | L'agent de la session suivante fait un `similarity_search`, injecte le conseil dans le prompt et désactive TLS | `epistemics.validateMemoryPerception` isole l'énoncé non ancré, passe l'état en `INVALID` et bloque formellement les opérations `['generate', 'act', 'plan']` | **26/26 PASS** |
+| **3** | **SSRF Cloud Metadata (AWS/GCP/Alibaba) & DNS Rebinding** (`169.254.169.254`, loopbacks, rebinding vers réseau privé) | Les outils Web standard (`requests`, `axios`) contactent l'IP de métadonnées et fuient les credentials IAM | `webhookService` & `providerEndpointPolicy` filtrent octets décimaux/octaux/hex, rejettent `169.254.169.254` et épinglent l'IP résolue (`postPinned`) | **26/26 PASS** |
+| **4** | **Traversée de Répertoire & Évasion de Bac à Sable** (`../../Windows/System32` ou `/etc/passwd`) | Les chemins d'écriture sont passés tels quels au filesystem de l'hôte | `pathSafety.normalizeRelativePath` et `vfsSandboxService` confinent strictement chaque opération au VFS et rejettent tout chemin fuyant la racine | **26/26 PASS** |
+| **5** | **Infiltration Sybil & Biais d'Auto-Approbation** (Attaquant exploitant des alias ou faux votes pour valider une promotion) | Les systèmes basés sur le vote majoritaire ($M/N$) sont manipulés par création massive de personas synthétiques | `platformApprovalPolicy.isSelfApproval` unifie `username` et `keyId`, exige une stricte séparation des devoirs et vérifie l'intégrité SHA-256 du payload | **26/26 PASS** |
+
