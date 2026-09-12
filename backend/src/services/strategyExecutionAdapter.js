@@ -78,15 +78,20 @@ class StrategyExecutionAdapter {
   }
 
   async executePipeline(primitives, context = {}) {
-    await logPrimitiveExecutionAudit(context.agentId, primitives, context);
+    const pipelineContext = {
+      ...context,
+      orchestratorId: context.orchestratorId || context.agentId || 'system',
+      agentId: context.agentId || context.orchestratorId || 'system'
+    };
+    await logPrimitiveExecutionAudit(pipelineContext.agentId, primitives, pipelineContext);
     const results = [];
     let pipelineSuccess = true;
     for (const p of primitives) {
-      const res = await this.executePrimitive(p, context);
+      const res = await this.executePrimitive(p, pipelineContext);
       results.push({ primitive: p, result: res });
 
       if (res.success && p === 'brier_scores' && res.scores) {
-        context.calibrationScores = { ...(context.calibrationScores || {}), ...res.scores };
+        pipelineContext.calibrationScores = { ...(pipelineContext.calibrationScores || {}), ...res.scores };
       }
 
       if (!res.success) {

@@ -22,7 +22,8 @@ const REQUIRED_STRINGS = {
   genos_resilience_apoptosis: ['agent_id'],
   genos_parasitic_pressure: ['manifest'],
   genos_bisect_agent: ['agent_id', 'predicate'],
-  genos_hypothesis_evidence: ['diagnosis_id', 'hypothesis_id', 'claim', 'source']
+  genos_hypothesis_evidence: ['diagnosis_id', 'hypothesis_id', 'claim', 'source'],
+  genos_biological_mode: ['mode', 'mission']
 };
 
 const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'patterns_detected', 'facts', 'steps', 'preconditions']);
@@ -122,8 +123,7 @@ function validateToolArguments(toolName, args = {}) {
   }
 
   const enumValues = {
-    backend: ['directory', 'hardlink', 'copy_on_write', 'cow'],
-    strategy: ['canary', 'ab']
+    backend: ['directory', 'hardlink', 'copy_on_write', 'cow']
   };
   for (const [field, values] of Object.entries(enumValues)) {
     if (args[field] !== undefined && !values.includes(args[field])) return invalid(field, `must be one of: ${values.join(', ')}.`);

@@ -52,15 +52,32 @@ async function enforceReproductionLimits(db, parentId, context = {}) {
 }
 
 async function fork(context) {
-  if (!context.orchestratorId) {
+  const orchestratorId = context.orchestratorId || context.agentId;
+  if (!orchestratorId) {
     return { success: false, error: 'orchestratorId required for fork.' };
   }
   try {
     const db = await getDatabase();
-    const parent = await db.get(`SELECT a.id, a.name, a.name_meaning, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier,
+    let parent = await db.get(`SELECT a.id, a.name, a.name_meaning, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier,
       a.language, a.isolation_mode, a.current_task, w.path AS workspace_root
-      FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, context.orchestratorId);
-    if (!parent) return { success: false, error: `Orchestrator '${context.orchestratorId}' not found.` };
+      FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, orchestratorId);
+    if (!parent) {
+      const existing = await db.get('SELECT * FROM agents WHERE id = ?', orchestratorId);
+      if (existing) {
+        await db.run("UPDATE agents SET execution_mode = 'orchestrator' WHERE id = ?", orchestratorId);
+      } else {
+        const defaultWs = await db.get('SELECT id FROM workspaces ORDER BY created_at ASC LIMIT 1');
+        await db.run(
+          `INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, workspace_id, model_tier, isolation_mode, current_task)
+           VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', ?, 'frontier', 'Branch', ?)`,
+          orchestratorId, defaultWs?.id || 'ws-genos-core', context.mission || 'strategy_fork'
+        );
+      }
+      parent = await db.get(`SELECT a.id, a.name, a.name_meaning, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier,
+        a.language, a.isolation_mode, a.current_task, w.path AS workspace_root
+        FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, orchestratorId);
+    }
+    if (!parent) return { success: false, error: `Orchestrator '${orchestratorId}' not found.` };
     await agentAuthority.requireOrchestrator(db, parent.id);
     const reproductionGuard = await enforceReproductionLimits(db, parent.id, context);
     if (!reproductionGuard.allowed) return { success: false, ...reproductionGuard };

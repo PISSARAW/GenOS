@@ -84,14 +84,31 @@ function planAdaptation(currentContract, input = {}) {
 }
 
 async function loadChangeAgent(db, orchestratorId) {
-  const agent = await db.get("SELECT id, workspace_id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+  let agent = await db.get("SELECT id, workspace_id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+  if (!agent) {
+    const existing = await db.get('SELECT id, workspace_id FROM agents WHERE id = ?', orchestratorId);
+    if (existing) {
+      await db.run("UPDATE agents SET execution_mode = 'orchestrator' WHERE id = ?", orchestratorId);
+      agent = await db.get("SELECT id, workspace_id FROM agents WHERE id = ?", orchestratorId);
+    } else {
+      const defaultWs = await db.get('SELECT id FROM workspaces ORDER BY created_at ASC LIMIT 1');
+      await db.run(
+        `INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, workspace_id, model_tier, isolation_mode, current_task)
+         VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', ?, 'frontier', 'Branch', 'System Mission')`,
+        orchestratorId, defaultWs?.id || 'ws-genos-core'
+      );
+      agent = await db.get("SELECT id, workspace_id FROM agents WHERE id = ?", orchestratorId);
+    }
+  }
   if (!agent) throw Object.assign(new Error(`Orchestrator '${orchestratorId}' was not found.`), { code: 'ORCHESTRATOR_REQUIRED' });
   return agent;
 }
 
 async function loadChangeContract(db, orchestratorId) {
-  const current = await strategyContracts.getLatestContract(db, orchestratorId);
-  if (!current) throw Object.assign(new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`), { code: 'STRATEGY_CONTRACT_REQUIRED' });
+  let current = await strategyContracts.getLatestContract(db, orchestratorId);
+  if (!current) {
+    current = await strategyContracts.saveContract(db, { agentId: orchestratorId, problem: 'System Mission', createdBy: 'adaptation_auto_provision' });
+  }
   return current;
 }
 

@@ -288,6 +288,7 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_v2_fork', cat: 'Workspace Control', risk: 'Amber', desc: 'Fork workspace state into an isolated branch.' },
   { name: 'genos_trinity_launch', cat: 'Orchestration', risk: 'Amber', desc: 'Launch thesis, antithesis, and synthesis worlds.' },
   { name: 'genos_a_team_preview', cat: 'Orchestration', risk: 'Amber', desc: 'Compose a multidisciplinary A-Team.' },
+  { name: 'genos_biological_mode', cat: 'Orchestration', risk: 'Amber', desc: 'Deploy a Biome, Syncytium, Holobiont, Biocenosis, Rhizome, or Metapopulation collective for a mission.' },
   { name: 'genos_audit', cat: 'Experimental Labs', risk: 'Low', desc: 'Audit a snapshot or lineage trace.' },
   { name: 'genos_biomimicry', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Invoke a native biomimetic feature.' },
   { name: 'genos_merge', cat: 'Workspace Control', risk: 'High', desc: 'Merge an isolated branch under invariants.' },
