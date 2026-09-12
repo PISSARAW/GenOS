@@ -1308,3 +1308,9 @@ Au-delà de la validation oracle de conformité, nous avons exécuté l'évaluat
 > - Dans le papier officiel, GPT-4 avec Code Interpreter atteint **15.0%** au total (0% sur le Level 3) et AutoGPT atteint **12.7%**.
 > - Obtenir **7.9%** en single-pass avec un modèle local de 7B sans agent web multi-tours complexe est une performance représentative des modèles compacts open-source, réussissant notamment des extractions tabulaires et documentaires complexes au Level 2 (inventaires Blu-Ray, calculs de volumes, rapports du GIEC, listes d'hébergements et réseaux ferroviaires).
 
+### 27.5 Analyse Empirique : Tâches avec Fichiers (21.1%) vs Énigmes Web Multi-Tours (3.9%)
+La décomposition de la suite de validation officielle révèle la structure fondamentale du benchmark GAIA :
+- **Tâches avec documents attachés (38 tâches, 23.0% du corpus) :** L'agent GenOS atteint **21.1% (8 / 38)** de réussite en pur aveugle grâce aux inspecteurs tabulaires (Pandas), PDF (PyPDF), et code.
+- **Tâches sans fichier / Énigmes Web Ouvertes (127 tâches, 77.0% du corpus) :** L'agent atteint **3.9% (5 / 127)**. Ces questions exigent une navigation interactive profonde (formulaires de recherche arXiv, formulaires de bases de données USGS ou ClinicalTrials.gov, exploration de dépôts GitHub) qui dépasse les capacités d'une recherche textuelle par snippets et requiert un agent navigateur de type Computer-Use / Puppeteer.
+
+
