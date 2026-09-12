@@ -62,12 +62,25 @@ function noteProtocolError(session, line) {
   session.protocolErrors = appendBounded(session.protocolErrors, 'MCP STDIO returned invalid JSON-RPC data: ' + line.slice(0, 200) + '\n');
 }
 
+function isHeaderLine(line) {
+  return /^(?:content-length|content-type|host|user-agent):/i.test(line);
+}
+
+function extractJsonCandidate(line) {
+  const start = line.indexOf('{');
+  const end = line.lastIndexOf('}');
+  return (start !== -1 && end !== -1 && end >= start) ? line.slice(start, end + 1) : line;
+}
+
 function handleLine(session, raw) {
-  const line = raw.trimEnd();
+  const line = raw.replace(/^\uFEFF/, '').trimEnd();
   if (!line) return;
+  const trimmed = line.trim();
+  if (isHeaderLine(trimmed) && !trimmed.includes('{')) return;
+  const candidate = extractJsonCandidate(trimmed);
   let payload = null;
   try {
-    payload = JSON.parse(line);
+    payload = JSON.parse(candidate);
   } catch (_) {
     noteProtocolError(session, line);
     return;
@@ -77,7 +90,8 @@ function handleLine(session, raw) {
 
 function deliverPayload(session, payload) {
   if (!session.pending) return;
-  if (payload.id !== session.pending.id) return;
+  if (payload.id === undefined || payload.id === null) return;
+  if (String(payload.id) !== String(session.pending.id)) return;
   const current = session.pending;
   session.pending = null;
   clearTimeout(current.timer);

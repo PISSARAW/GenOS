@@ -165,7 +165,7 @@ Serveur MCP
 
 Pour HTTP, le backend envoie la version `2025-06-18`, accepte JSON et SSE, conserve eventuellement `mcp-session-id`, et verifie que les reponses JSON-RPC portent le bon `id`. Les reponses SSE sont parsees; une suite sans evenement JSON valide est rejetee.
 
-Pour `stdio`, le backend lance un enfant avec `shell: false`, echange des lignes JSON-RPC, isole `stderr` des messages protocole et termine explicitement le processus a la fin de l'appel.
+Pour `stdio`, le backend lance un enfant avec `shell: false`, echange des lignes JSON-RPC, isole `stderr` des messages protocole et termine explicitement le processus a la fin de l'appel. Le transport et le serveur Rust sont renforcés contre les en-têtes typiques de flux (`Content-Length:`, `Content-Type:`, UTF-8 BOM, préambules) : les lignes d'en-tête sont absorbées sans déclencher d'erreur de parse intempestive en tête de flux, et les objets JSON-RPC valides sont extraits et traités même en présence de délimiteurs mixtes.
 
 L'environnement transmis au sous-processus est reduit : variables OS necessaires et variables `GENOS_` non sensibles. Les secrets (`TOKEN`, `SECRET`, `KEY`, `PASSWORD`, `CREDENTIAL`, `API`) ne sont pas propages arbitrairement. La lease active est envoyee au transport local dans `GENOS_MCP_LEASE`.
 

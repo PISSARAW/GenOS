@@ -31,10 +31,11 @@ fn validate_path_arguments(args: &Value) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::validate_path_arguments;
+    use super::{process_request, validate_path_arguments};
     use crate::executor::{read_bounded, MAX_OUTPUT_BYTES};
     use serde_json::json;
     use std::io::Cursor;
+    use std::path::Path;
 
     #[test]
     fn read_bounded_keeps_only_the_configured_tail() {
@@ -56,10 +57,43 @@ mod tests {
         assert!(validate_path_arguments(&serde_json::Value::Null).is_ok());
         assert!(validate_path_arguments(&json!({})).is_ok());
     }
+
+    #[test]
+    fn process_request_handles_headers_and_preambles() {
+        let root = Path::new(".");
+        assert!(process_request("Content-Length: 120", root).is_none());
+        assert!(process_request("Content-Type: application/json", root).is_none());
+        assert!(process_request("  \r\n", root).is_none());
+        let init = process_request("\u{feff}{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}", root);
+        assert!(init.is_some());
+        assert_eq!(init.unwrap()["id"], 1);
+    }
+}
+
+fn extract_json_candidate(line: &str) -> &str {
+    let trimmed = line.trim().trim_start_matches('\u{feff}');
+    if let Some(start_idx) = trimmed.find('{') {
+        if let Some(end_idx) = trimmed.rfind('}') {
+            if end_idx >= start_idx {
+                return &trimmed[start_idx..=end_idx];
+            }
+        }
+    }
+    trimmed
 }
 
 fn process_request(line: &str, workspace: &Path) -> Option<Value> {
-    let req: Value = match serde_json::from_str(line) {
+    let trimmed = line.trim().trim_start_matches('\u{feff}');
+    if trimmed.is_empty() {
+        return None;
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    if (lower.starts_with("content-length:") || lower.starts_with("content-type:")) && !trimmed.contains('{') {
+        return None;
+    }
+
+    let candidate = extract_json_candidate(trimmed);
+    let req: Value = match serde_json::from_str(candidate) {
         Ok(v) => v,
         Err(_) => return Some(json!({
             "jsonrpc": "2.0",
