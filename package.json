@@ -6,6 +6,7 @@
     "test:bfcl": "npm --prefix backend run test:bfcl",
     "test:gaia": "npm --prefix backend run test:gaia",
     "test:swe": "npm --prefix backend run test:swe",
+    "test:swebench": "npm --prefix backend run test:swebench",
     "test:swe-localizer": "npm --prefix backend run test:swe-localizer",
     "test:swe-surgical": "npm --prefix backend run test:swe-surgical",
     "test:swe-verify": "npm --prefix backend run test:swe-verify",
