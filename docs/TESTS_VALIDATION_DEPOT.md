@@ -597,4 +597,36 @@ graph TD
 | **5. Invalidation Topologique Descendante & DAG Synaptique** | Quand un postulat passé est réfuté, il persiste dans le RAG / prompt, causant des cascades d'hallucinations ("fantômes de prémisses"). | `replayDependencies` et `dependencyMatrix` parcourent récursivement les synapses causales de `genome_decisions` pour collecter et recalibrer tous les descendants temporels. | **3/3 PASS** |
 | **6. Mondes Futurs Probabilistes & Verdicts d'Équivalence** | Génération mono-flux incapable d'évaluer la divergence sémantique entre futurs alternatifs. | `futureWorlds` projette des branches à horizons multiples et `equivalenceVerdict` compare les sorties par similarité Jaccard pour valider ou rejeter la divergence. | **4/4 PASS** |
 
+---
 
+## 17. Banc d'Épreuve : Rappel Précis de Faits Directs (`npm run test:fact-recall`)
+
+Le profil de test `npm run test:fact-recall` ([backend/tests/stress/test_single_hop_fact_recall_bench.js](../backend/tests/stress/test_single_hop_fact_recall_bench.js)) soumet le système de mémoire cognitive à 15 défis de rappel direct de faits (*Single-Hop Fact Recall / NIAH*).
+
+Les frameworks de RAG naïfs (LangChain, AutoGen, CrewAI) souffrent de trois écueils critiques :
+1. **Dilution vectorielle en meule de foin (NIAH)** : face à 50 leurres sémantiques similaires, la similarité cosinus s'effondre et retourne le mauvais cluster.
+2. **Amnésie de rétractation** : quand un fait est révoqué ou rendu obsolète, ils continuent de le remonter car sa proximité lexicale reste élevée (absence d'inhibition synaptique).
+3. **Hallucination d'absence** : quand une entité n'existe pas en mémoire, ils hallucinent une valeur plausible au lieu d'émettre un refus catégorique fondé sur l'ignorance épistémique.
+
+```mermaid
+flowchart LR
+    Query[Requête Factuelle Directe] --> CheckGABA{Vérification Synapses GABAergiques}
+    CheckGABA -- Fait Révoqué / Obsolète --> Suppress[Inhibition Active - Non Remonté]
+    CheckGABA -- Fait Valide --> Score[Scoring Hybride: Vecteur 768d + TF-IDF + Recency]
+    Score --> MetaCheck{Contrôle Métacognitif Dentate Gyrus}
+    MetaCheck -- Entité Inconnue / Confiance Basse --> SignalIgnorance[Signal Épistémique d'Ignorance - Refus de Spéculer]
+    MetaCheck -- Fait Identifié --> EpistemicShield{Filtre Épistémique de Perception}
+    EpistemicShield -- Allégation Non Vérifiée --> Quarantine[INVALID - Interdiction: act, generate]
+    EpistemicShield -- Fait Certifié --> ReturnFact[Rappel Déterministe Rang 1]
+```
+
+### 17.1 Épreuves de Rappel Factuel Direct Éprouvées
+
+| Épreuve de Rappel Factuel | Vulnérabilité des Systèmes Naïfs (LangChain / AutoGen / CrewAI) | Technologie de Rappel Cognitif GenOS | Statut Test (15/15) |
+|---|---|---|---|
+| **1. Aiguille en Meule de Foin (NIAH) avec 50 Leurres** | Les collisions lexicales et la dilution vectorielle sélectionnent un leurre erroné. | Combinaison RRF + vecteur dense 768d avec départage cosinus déterministe (`mem_omega` extrait au Rang 1). | **2/2 PASS** |
+| **2. Rétractation & Inhibition Synaptique GABAergique** | Un fait obsolète ("port 5432") continue d'être extrait malgré l'existence d'une migration ("port 5433"). | Les synapses GABAergiques à poids négatif (`weight < 0`, `transmitter: gaba`) suppriment activement le fait révoqué. | **3/3 PASS** |
+| **3. Détection de Nouveauté Métacognitive & Refus d'Hallucination** | L'absence d'information provoque l'invention pure et simple d'identifiants ou de clés secrètes. | Le module métacognitif identifie la nouveauté (`noveltyDetected: true`) et active le disjoncteur d'inhibition GABA. | **2/2 PASS** |
+| **4. Confinement Strict Multi-Tenant & Multi-Projet** | Les magasins vectoriels partagés fuient des données confidentielles entre locataires / projets non filtrés. | L'isolation SQLite et le scoping hermétique (`organization_id`, `project_id`) garantissent 0 fuite inter-organisation. | **3/3 PASS** |
+| **5. Bouclier Épistémique sur Faits Toxiques ou Supprimés** | Les allégations marquées `[unverified_claim]` sont incorporées telles quelles dans la génération. | `epistemics.validateMemoryPerception` passe le statut en `INVALID` et verrouille formellement `generate`, `act`, `plan`. | **3/3 PASS** |
+| **6. Latence & Débit Haute Fréquence (< 50ms)** | Les wrappers Python séquentiels ralentissent sous la charge de requêtes concurrentes. | Moteur de recherche hybride local ultra-rapide exécutant le rappel direct en **$\approx 35-45$ ms** sous empreinte mémoire bornée. | **2/2 PASS** |
