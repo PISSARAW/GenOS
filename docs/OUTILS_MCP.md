@@ -36,7 +36,7 @@ Le catalogue n'est donc pas une source unique de verite universelle. Le serveur 
 - `bio` pour les outils biomimetiques ;
 - `cli` pour les outils commencant par `genos_` et supportes par le registre.
 
-Cette separation est intentionnelle : publier un schema aide un client a formuler l'appel, mais seul le registre runtime doit pouvoir autoriser un dispatch.
+Cette separation est intentionnelle : publier un schema aide un client a formuler l'appel, mais seul le registre runtime doit pouvoir autoriser un dispatch. De plus, la parite stricte des schemas est maintenue entre les implementations Rust (`public_tool_specs`) et JavaScript (par exemple `genos_replay` supportant indifferemment `snapshot` ou `snapshot_id` via `anyOf`, et `genos_worker_publish` avec `kind` obligatoire et `content` facultatif pour les signaux purs).
 
 ---
 

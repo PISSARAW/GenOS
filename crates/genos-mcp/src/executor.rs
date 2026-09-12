@@ -222,7 +222,10 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
             vec!["snapshot".into(), "create".into(), "--agent".into(), agent.into(), "--out".into(), out.into()]
         }
         "genos_replay" => {
-            let snapshot = args.get("snapshot").and_then(Value::as_str).unwrap_or("");
+            let snapshot = args.get("snapshot")
+                .or_else(|| args.get("snapshot_id"))
+                .and_then(Value::as_str)
+                .unwrap_or("");
             vec!["replay".into(), "basic".into(), "--snapshot".into(), snapshot.into()]
         }
         "genos_capsule_create" => {
