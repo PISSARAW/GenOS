@@ -1,3 +1,5 @@
+const { isObserverRole } = require('./aTeamService');
+
 const MIN_COVERAGE = 0.8;
 
 function arrayOrEmpty(value) {
@@ -7,7 +9,7 @@ function arrayOrEmpty(value) {
 function observerCandidates(report) {
   const candidates = [...arrayOrEmpty(report.integrationFailures), ...arrayOrEmpty(report.failures)];
   if (report.integrationFailure) candidates.push(report.integrationFailure);
-  if (report.failure && report.role === 'integration_observer') candidates.push(report.failure);
+  if (report.failure && isObserverRole(report.role)) candidates.push(report.failure);
   return candidates;
 }
 

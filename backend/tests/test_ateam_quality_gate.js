@@ -13,5 +13,13 @@ const blocked = evaluateQualityGate(analyzeMission('Construire une interface Rea
 });
 assert.equal(blocked.passed, false);
 assert.equal(blocked.integration.failed, true);
+
+const blockedVariant = evaluateQualityGate(analysis, {
+  role: 'integration',
+  failure: { code: 'INTEGRATION_BROKEN', message: 'Modules diverged' }
+});
+assert.equal(blockedVariant.passed, false);
+assert.equal(blockedVariant.integration.failed, true);
+
 assert.equal(buildEvidence({ mission: 'test', analysis, gate: blocked }).schema, 'genos.ateam-quality-gate/v1');
 console.log('A-Team quality gate checks passed.');

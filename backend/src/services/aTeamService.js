@@ -132,7 +132,7 @@ function fictionAnalysis() {
 }
 
 function isObserverRole(role) {
-  return /reviewer|observer|integration/i.test(role);
+  return /reviewer|observer|integration/i.test(role || '');
 }
 
 function buildMember(candidate, selected) {
@@ -223,5 +223,6 @@ module.exports = {
   maxMembers,
   analyzeMission,
   compose,
-  detectTechnicalDomains
+  detectTechnicalDomains,
+  isObserverRole
 };
