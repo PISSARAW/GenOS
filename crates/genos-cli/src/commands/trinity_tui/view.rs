@@ -180,7 +180,7 @@ fn render_single_world(frame: &mut Frame, area: Rect, world: &WorldState) {
 
 fn render_summary_dashboard(frame: &mut Frame, area: Rect, app: &TrinityApp) {
     let title = if app.live {
-        format!(" [ EVIDENCE BARRIER — {} ] {} ", app.barrier_status, app.barrier_detail)
+        format!(" [ EVIDENCE BARRIER ] {} ", app.barrier_label)
     } else {
         " [ UNIFIED EVIDENCE BARRIER & DIVERGENCE DASHBOARD ] ".to_string()
     };
