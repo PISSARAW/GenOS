@@ -42,7 +42,11 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
     );
     autonomyPlan.trinity.budgetPermitsLaunch = affordableTrinityMembers >= trinityWorkerCount;
     autonomyPlan.trinity.activated = autonomyPlan.trinity.explicitlyRequested && autonomyPlan.trinity.budgetPermitsLaunch;
-    if (autonomyPlan.trinity.recommended && autonomyPlan.trinity.budgetPermitsLaunch) {
+    if (autonomyPlan.trinity.activated) {
+      // Reallocate the worker budget only when Trinity actually replaces the
+      // base worker plan. Reallocating while Trinity is merely considered would
+      // size the rounds for three worlds while dispatchWorkers still holds the
+      // base assignments, which the worker fleet rejects as invalid.
       autonomyPlan.tokenPolicy.workerShare = effectiveWorkerShare;
       autonomyPlan.tokenPolicy.orchestratorReserve = effectiveOrchestratorReserve;
       autonomyPlan.tokenPolicy.rounds = buildAllocation({
@@ -52,13 +56,11 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
         minimumWorkerTokens: autonomyPlan.tokenPolicy.minimumWorkerTokens,
         mode: autonomyPlan.tokenPolicy.allocation
       });
-      if (autonomyPlan.trinity.activated) {
-        autonomyPlan.workers = autonomyPlan.trinity.members;
-        autonomyPlan.dispatchWorkers = autonomyPlan.trinity.members;
-        emit(agentId, 'TRINITY_PLANNED', 'COMPOSE_TRINITY', 'The mission explicitly requested Trinity; three evidence-comparison worlds were planned.', autonomyPlan.trinity, 'info');
-      } else {
-        emit(agentId, 'TRINITY_CONSIDERED', 'INTERVIEW_PLAN', 'Trinity is available after the interview if three comparative worlds remain useful; the base worker plan remains active meanwhile.', autonomyPlan.trinity, 'info');
-      }
+      autonomyPlan.workers = autonomyPlan.trinity.members;
+      autonomyPlan.dispatchWorkers = autonomyPlan.trinity.members;
+      emit(agentId, 'TRINITY_PLANNED', 'COMPOSE_TRINITY', 'The mission explicitly requested Trinity; three evidence-comparison worlds were planned.', autonomyPlan.trinity, 'info');
+    } else if (autonomyPlan.trinity.recommended && autonomyPlan.trinity.budgetPermitsLaunch) {
+      emit(agentId, 'TRINITY_CONSIDERED', 'INTERVIEW_PLAN', 'Trinity is available after the interview if three comparative worlds remain useful; the base worker plan remains active meanwhile.', autonomyPlan.trinity, 'info');
     } else if (autonomyPlan.trinity.recommended) {
       autonomyPlan.trinity.reason = `Trinity needs ${trinityWorkerCount} workers, but the token budget funds only ${affordableTrinityMembers}.`;
       emit(agentId, 'TRINITY_SKIPPED', 'BUDGET_GUARD', autonomyPlan.trinity.reason, autonomyPlan.trinity, 'warning');
