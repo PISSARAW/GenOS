@@ -8,10 +8,12 @@ pub mod manifest;
 pub mod compile;
 pub mod express;
 pub mod validate;
+pub mod operations;
 
 pub use header::{Header, HEADER_LEN, SECTION_ENTRY_LEN, FORMAT_VERSION, MAGIC};
 pub use section::{Section, SectionTag};
 pub use model::{AgentDna, Decoy, Meta, Mutation, Phenotype, Provenance, Selection};
+pub use operations::{clone_dna, cross, decoy, mutate, CloneOptions, CrossOptions, DecoyOptions, MutateOptions};
 
 #[cfg(test)]
 mod tests;
