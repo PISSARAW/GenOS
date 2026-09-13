@@ -1,7 +1,12 @@
 pub mod conscience;
+pub mod dna_ops;
 pub mod ecosystem;
+pub mod immune_cyber;
 pub mod neuro;
 pub mod orchestrator;
+pub mod phylogeny;
+pub mod sensory;
+pub mod signaling;
 pub mod token_bucket;
 pub mod virology;
 
