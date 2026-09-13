@@ -277,8 +277,9 @@ function mergeTrinityEvidence(worldEntries, options = {}) {
       for (const claim of otherClaims) {
         if (claim && claim.statement) {
           complementaryClaims.push({
+            ...claim,
             statement: `[World ${w.worldNumber} cross-perspective] ${claim.statement}`,
-            evidence: claim.evidence || []
+            evidence: Array.isArray(claim.evidence) ? claim.evidence : []
           });
         }
       }
