@@ -292,4 +292,52 @@ impl GenosEcosystem {
             false
         }
     }
+
+    // --- Stockage (compléments) ---
+
+    pub fn read_events(&self, from_sequence: u64) -> Vec<genos_store::Event> {
+        self.events.read_stream(from_sequence)
+    }
+
+    pub fn audit_capsules(&self) -> Vec<(Uuid, bool)> {
+        self.capsules.audit_all()
+    }
+
+    pub fn fossil_history(&self) -> &[genos_store::FossilRecord] {
+        self.fossils.all_fossils()
+    }
+
+    pub fn thaw_agent(&mut self, agent_id: &str) -> Option<genos_store::FrozenAgent> {
+        self.cryptobiosis.thaw(agent_id)
+    }
+
+    pub fn freeze_vitrified(&mut self, agent_id: &str, data: &[u8], trehalose: f64, armor: u32) {
+        let _ = self
+            .cryptobiosis
+            .freeze_vitrified(agent_id, data, trehalose, armor);
+    }
+
+    pub fn thaw_vitrified(
+        &mut self,
+        agent_id: &str,
+        warm_and_wet: bool,
+        nutrients: bool,
+    ) -> Result<Vec<u8>, String> {
+        self.cryptobiosis
+            .thaw_vitrified(agent_id, warm_and_wet, nutrients)
+    }
+
+    // --- Reproduction (compléments) ---
+
+    pub fn budding(&self, genome: &Genome, daughter_volume: f64) -> Result<(Genome, Genome), String> {
+        CellDivision::budding(genome, daughter_volume)
+    }
+
+    pub fn schizogony(
+        &self,
+        genome: &Genome,
+        merozoite_count: usize,
+    ) -> Result<Vec<Genome>, String> {
+        CellDivision::schizogony(genome, merozoite_count)
+    }
 }
