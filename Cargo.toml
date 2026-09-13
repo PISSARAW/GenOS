@@ -5,6 +5,7 @@ members = [
     "crates/genos-store",
     "crates/genos-signal",
     "crates/genos-genome",
+    "crates/genos-dna",
     "crates/genos-cell",
     "crates/genos-biology",
     "crates/genos-immune",

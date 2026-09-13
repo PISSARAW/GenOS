@@ -89,17 +89,19 @@ Les sections doivent être contiguës, sans chevauchement, dans l'ordre de la ta
 
 | Tag | Contenu | Obligatoire |
 | --- | --- | --- |
-| `META` | MessagePack map, identité et métadonnées | oui |
+| `META` | MessagePack array positionnel (identité et métadonnées) | oui |
 | `CHRM` | Brin chromosomique maternel | oui |
 | `CHRP` | Brin chromosomique paternel | oui |
-| `GENE` | MessagePack map locus → gène | oui |
-| `PLAS` | MessagePack array de plasmides | non |
+| `GENE` | MessagePack map `locus → array de gène` | oui |
+| `PLAS` | MessagePack array de plasmides (chaque plasmide = array) | non |
 | `ENHA` | MessagePack array d'enhancers (str) | non |
 | `XCHR` | MessagePack array de brins extra | non |
 | `SCAR` | MessagePack array d'UUID de cicatrices | non |
-| `PHEN` | MessagePack map du phénotype exprimé (cache) | non |
-| `PROV` | MessagePack map de provenance/généalogie | oui |
+| `PHEN` | MessagePack array positionnel du phénotype exprimé (cache) | non |
+| `PROV` | MessagePack array positionnel de provenance/généalogie | oui |
 | `SIGN` | Signature Ed25519 (64 octets) | non |
+
+Encodage positionnel : les structures (`META`, gène, `PHEN`, `PROV`, plasmide) sont sérialisées en **tableaux ordonnés** selon l'ordre de champs documenté ci-dessous, jamais en maps nommées. Cela supprime la répétition des noms de champs par enregistrement et réduit la taille. Le conteneur `GENE` reste une map (`locus → array`).
 
 Une section inconnue **doit être tolérée en lecture et préservée en réécriture**.
 
@@ -107,7 +109,7 @@ Une section inconnue **doit être tolérée en lecture et préservée en réécr
 
 ### `META`
 
-Map MessagePack, ordre canonique des clés :
+Array MessagePack positionnel, ordre canonique des champs :
 
 1. `name` (str)
 2. `generation` (uint)
@@ -125,7 +127,7 @@ Chaque brin : `u32 base_count` (LE) suivi des octets packés 2 bits sur `ceil(ba
 
 ### `GENE`
 
-Map MessagePack `locus → gène`. Ordre canonique des champs d'un gène :
+Map MessagePack `locus → gène`, où chaque gène est un **array positionnel** dont l'ordre canonique des champs est :
 
 1. `locus` (str, `^[A-Z0-9_]{1,64}$`)
 2. `seq` (bin, brin packé)
@@ -140,7 +142,7 @@ Map MessagePack `locus → gène`. Ordre canonique des champs d'un gène :
 
 ### `PLAS`
 
-Array MessagePack de maps `{ "id": bin16, "ins": str }` — `id` = UUID du plasmide, `ins` = instruction.
+Array MessagePack de plasmides, chaque plasmide étant un array positionnel `[id (bin16), ins (str)]`.
 
 ### `ENHA`
 
@@ -152,7 +154,7 @@ Array MessagePack de `bin` 16 (UUID des `bud_scars`).
 
 ### `PHEN`
 
-Map MessagePack du phénotype issu de l'expression :
+Array MessagePack positionnel du phénotype issu de l'expression, ordre canonique :
 
 1. `role` (str)
 2. `strategy` (str)
@@ -168,15 +170,15 @@ Map MessagePack du phénotype issu de l'expression :
 
 ### `PROV`
 
-Map MessagePack de provenance :
+Array MessagePack positionnel de provenance, ordre canonique :
 
 1. `source_manifest` (str | nil, chemin du manifeste `AgentGenome` d'origine)
 2. `source_doc` (str | nil)
 3. `parents` (array de bin 16)
-4. `crossover` (map | nil) : `{ "strategy": str, "seed": str, "point": uint|nil }`
-5. `mutations` (array de map) : `{ "gene": str|nil, "kind": str, "from": str, "to": str }`
-6. `selection` (map | nil) : `{ "fitness": float64, "status": str }`
-7. `decoy` (map | nil) : `{ "marker": bin, "target_selector": str, "detectability": float64 }`
+4. `crossover` (array | nil) : `[strategy (str), seed (str), point (uint|nil)]`
+5. `mutations` (array de array) : `[gene (str|nil), kind (str), from (str), to (str)]`
+6. `selection` (array | nil) : `[fitness (float64), status (str)]`
+7. `decoy` (array | nil) : `[marker (bin), target_selector (str), detectability (float64)]`
 8. `signer` (str | nil)
 
 ### `SIGN`
@@ -207,7 +209,7 @@ Contrainte `Genome::validate` : `genome_id`/`lineage_id` non nuls, chromosomes n
 2. Flux canonique = concaténation de `tag(4) || u32 length || payload` pour chaque section, dans cet ordre.
 3. `content_hash = SHA-256(flux canonique)` → 32 octets ; forme affichable = 16 premiers octets en hexadécimal (`genome_ref`).
 4. La signature Ed25519 (`SIGN`) signe exactement le flux canonique.
-5. Toute écriture doit produire les clés MessagePack dans l'ordre canonique documenté ci-dessus. Un lecteur tolère tout ordre mais un écrivain ne le peut pas.
+5. Toute écriture doit produire les champs positionnels dans l'ordre canonique documenté ci-dessus. Le conteneur `GENE` est une map dont la clé est le `locus` (trié par `BTreeMap`) ; les autres structures sont des tableaux dont l'ordre est normatif.
 
 ## Expression `AgentDNA` → phénotype
 

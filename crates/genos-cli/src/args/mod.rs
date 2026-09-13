@@ -7,6 +7,7 @@ pub mod trinity;
 pub mod rhizome;
 pub mod run;
 pub mod chaos;
+pub mod genome;
 
 use clap::{Parser, Subcommand};
 pub use biomimicry::*;
@@ -18,6 +19,7 @@ pub use trinity::*;
 pub use rhizome::*;
 pub use run::*;
 pub use chaos::*;
+pub use genome::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "genos")]
@@ -35,6 +37,8 @@ pub enum Commands {
     Init,
     /// Agent genome lifecycle operations
     Agent(AgentCmd),
+    /// Binary AgentDNA genome operations
+    Genome(GenomeCmd),
     /// Snapshot lifecycle operations
     Snapshot(SnapshotCmd),
     /// Diff two snapshots or states
