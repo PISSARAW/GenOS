@@ -915,7 +915,7 @@ Trinity ne vote pas. Elle compare. La décision finale est basée sur un scoring
 
 GenOS intègre une interface terminal interactive temps réel (développée en Rust avec [ratatui](https://crates.io/crates/ratatui) et [crossterm](https://crates.io/crates/crossterm)) permettant de visualiser l'exécution contrefactuelle des 3 mondes en simultané sur 3 colonnes dédiées.
 
-Cette section décrit le mode **démo scripté** (`--simulation`, activé par défaut) qui rejoue une narration déterministe utile pour la présentation et les tests. Pour un moniteur branché sur une mission Trinity réelle, voir la [section 20](#20-moniteur-tui-natif-en-direct-genos-run---mode-trinity---monitor).
+Cette section décrit le mode **démo scripté** (`--simulation`) qui rejoue une narration déterministe utile pour la présentation et les tests. L'exécution live étant désormais le mode par défaut, `--simulation` doit être passé explicitement ; sans ce flag, `genos trinity split-screen` se connecte au moniteur live. Pour un moniteur branché sur une mission Trinity réelle, voir la [section 20](#20-moniteur-tui-natif-en-direct-genos-run---mode-trinity---monitor).
 
 ### Le Hook X & Positionnement
 
@@ -934,14 +934,17 @@ Cette section décrit le mode **démo scripté** (`--simulation`, activé par d�
 ### Commandes CLI
 
 ```bash
-# Lancer Trinity avec l'interface interactive Split-Screen
-genos trinity deploy --split-screen
+# Rejouer la démo scriptée dans l'interface interactive Split-Screen
+genos trinity deploy --split-screen --simulation
 
 # Ou avec la sous-commande directe
-genos trinity split-screen
+genos trinity split-screen --simulation
 
-# Spécifier un prompt complexe personnalisé
-genos trinity split-screen --prompt "Implémenter un parser Bencode en Rust avec gestion d'erreurs stricte"
+# Spécifier un prompt complexe personnalisé (démo scriptée)
+genos trinity split-screen --simulation --prompt "Implémenter un parser Bencode en Rust avec gestion d'erreurs stricte"
+
+# Se connecter au moniteur live d'une mission réelle (mode par défaut)
+genos trinity deploy --split-screen
 ```
 
 ### Raccourcis Clavier
