@@ -105,6 +105,7 @@ fn real_main() {
             }
         }
         Some(Commands::Agent(cmd)) => agent::execute(cmd.subcommand),
+        Some(Commands::Genome(cmd)) => commands::genome::execute(cmd.subcommand),
         Some(Commands::Snapshot(cmd)) => snapshot::execute(cmd.subcommand),
         Some(Commands::Diff(cmd)) => snapshot::handle_diff(&cmd.a, &cmd.b),
         Some(Commands::Hallucination(cmd)) => hallucination::execute(cmd.subcommand),

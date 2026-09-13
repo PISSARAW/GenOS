@@ -15,6 +15,7 @@ pub mod compliance;
 pub mod hallucination;
 pub mod platform;
 pub mod experiments;
+pub mod genome;
 pub mod replay;
 pub mod replay_chain;
 pub mod reproduction;

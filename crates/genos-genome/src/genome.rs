@@ -59,6 +59,14 @@ impl Genome {
 
     pub fn lineage_id(&self) -> Uuid { self.lineage_id }
 
+    pub fn set_identity(&mut self, genome_id: Uuid) {
+        self.genome_id = genome_id;
+    }
+
+    pub fn set_lineage(&mut self, lineage_id: Uuid) {
+        self.lineage_id = lineage_id;
+    }
+
     pub fn can_bud(&self) -> bool {
         (self.bud_scars.len() as u32) < self.hayflick_limit
     }
