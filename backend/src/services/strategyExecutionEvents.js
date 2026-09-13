@@ -146,7 +146,17 @@ function unfinishedPhaseReason(steps, index) {
 
 function primitiveFailureReason(step, result) {
   if (!result || result.success !== false) return null;
-  return `Phase '${step.stage_key}' gate failed: ${result.error || 'strategy primitive failed.'}.`;
+  // The pipeline wrapper ({ success, results }) carries no `error` of its own:
+  // the real cause lives in the first failed primitive result.
+  const failed = Array.isArray(result.results)
+    ? result.results.find((entry) => entry && entry.result && entry.result.success === false)
+    : null;
+  const detail = result.error
+    || (failed && (failed.result.error || failed.result.code))
+    || (failed && failed.primitive)
+    || 'strategy primitive failed';
+  const message = `Phase '${step.stage_key}' gate failed: ${detail}`;
+  return message.endsWith('.') ? message : `${message}.`;
 }
 
 function exceededGuardrail(metrics, budget) {
