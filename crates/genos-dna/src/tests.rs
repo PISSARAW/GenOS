@@ -102,3 +102,16 @@ fn decoy_sets_flag_and_marker() {
     let bytes = codec::encode(&decoy).expect("encode");
     assert_ne!(bytes[6] & 0b1000_0000, 0, "DECOY flag must be set");
 }
+
+#[test]
+fn signed_genome_verifies_and_tampering_fails() {
+    let dna = compile::compile_manifest(&sample_manifest()).expect("compile");
+    let mut signed = dna.clone();
+    let bytes = codec::encode_signed(&mut signed, &[7u8; 32]).expect("sign");
+    assert!(codec::verify_signature(&bytes).expect("verify").is_some());
+    validate::validate_bytes(&bytes).expect("signed genome validates");
+    let mut tampered = bytes.clone();
+    let last = tampered.len() - 1;
+    tampered[last] ^= 0xFF;
+    assert!(validate::validate_bytes(&tampered).is_err());
+}

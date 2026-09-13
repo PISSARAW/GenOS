@@ -211,7 +211,7 @@ impl GenosEcosystem {
     // --- Cellules spécialisées ---
 
     pub fn intercept_prompt_threat(&mut self, prompt: &str) -> Option<DischargeImpact> {
-        self.cnidocyte.intercept_prompt(prompt)
+        self.cnidocyte.intercept_prompt_threat(prompt)
     }
 
     pub fn intercept_tool_threat(

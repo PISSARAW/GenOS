@@ -23,6 +23,30 @@ pub enum GenomeSubcommands {
     Validate {
         #[arg(long)]
         file: String,
+        #[arg(long)]
+        pubkey: Option<String>,
+    },
+    /// Generate an ed25519 keypair (writes the 32-byte secret as hex)
+    Keygen {
+        #[arg(long, alias = "out")]
+        output: String,
+        #[arg(long, default_value_t = false)]
+        force: bool,
+        #[arg(long, default_value_t = false)]
+        parents: bool,
+    },
+    /// Sign an AgentDNA genome with an ed25519 secret key
+    Sign {
+        #[arg(long, alias = "in")]
+        input: String,
+        #[arg(long, alias = "out")]
+        output: String,
+        #[arg(long)]
+        key: String,
+        #[arg(long, default_value_t = false)]
+        force: bool,
+        #[arg(long, default_value_t = false)]
+        parents: bool,
     },
     /// Inspect a binary AgentDNA genome
     Inspect {
