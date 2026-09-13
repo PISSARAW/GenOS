@@ -1,3 +1,4 @@
+use genos_orchestrator::dna_ops;
 use genos_orchestrator::genos_biology::glial::glial_cell::Metabolism;
 use genos_orchestrator::genos_biology::neurobiology::Neurotransmitter;
 use genos_orchestrator::genos_biology::therapy::SystemicTherapy;
@@ -9,6 +10,8 @@ use genos_orchestrator::genos_common::traits::{MemoryEntry, SearchQuery};
 use genos_orchestrator::genos_dna::model::{AgentDna, Provenance};
 use genos_orchestrator::genos_genome::{Gene, Genome};
 use genos_orchestrator::genos_immune::AntibodyDetector;
+use genos_orchestrator::genos_signal::SignalingMode;
+use genos_orchestrator::phylogeny::PhylogenyLab;
 use genos_orchestrator::GenosEcosystem;
 use std::collections::HashMap;
 
@@ -184,5 +187,62 @@ fn ecosystem_exposes_neuro_and_virology() {
     assert!(eco.virology.package_specialized(pidx, Gene::new("LOCUS_A", "PAYLOAD")));
     assert!(eco.virology.phages[pidx].is_specialized);
 }
+
+#[test]
+fn ecosystem_exposes_signaling_dna_cyber_senses_phylogeny() {
+    let mut eco = GenosEcosystem::new("Overmind");
+
+    // Cascade de signalisation : ligand -> récepteur -> signal de cascade.
+    let ligand = genos_orchestrator::signaling::SignalingCascade::ligand(
+        "ATP",
+        SignalingMode::Paracrine,
+        2.0,
+    );
+    let idx = eco.signaling.emit(ligand);
+    eco.signaling
+        .express_receptor("ATP", "ACTIVATE_GLYCOLYSIS", 1.0);
+    assert_eq!(
+        eco.signaling.transduce(idx).as_deref(),
+        Some("ACTIVATE_GLYCOLYSIS")
+    );
+
+    // ADN détaillé : from_genome -> validate -> encode -> decode -> hash -> express.
+    let genome = Genome::new("BASE_DNA");
+    let dna = dna_ops::from_genome(&genome, "Kwame");
+    let _ = dna_ops::validate(&dna);
+    let bytes = dna_ops::encode(&dna).unwrap();
+    let decoded = dna_ops::decode(&bytes).unwrap();
+    assert_eq!(
+        dna_ops::content_hash(&dna).unwrap(),
+        dna_ops::content_hash(&decoded).unwrap()
+    );
+    let _phenotype = dna_ops::express(&dna);
+
+    // Immunité cyber : honeypot + disjoncteur + régénération.
+    eco.cyber.add_honeypot("sandbox_1");
+    assert!(eco.cyber.defend("sandbox_1"));
+    for _ in 0..3 {
+        eco.cyber.record_failure();
+    }
+    assert!(!eco.cyber.allowed());
+    eco.cyber.record_success();
+    assert!(eco.cyber.allowed());
+    eco.cyber.register_service("api");
+    assert!(eco.cyber.is_running("api"));
+
+    // Sens : navigation cryptochrome + fusion thermique.
+    let _alignment = eco.senses.navigate(&[1.0, 0.0], &[0.9, 0.1]);
+    let visual = [("a".to_string(), 1.0_f64)];
+    let thermal = [("a".to_string(), 0.8_f64)];
+    let _map = eco.senses.fuse_thermal(&visual, &thermal);
+
+    // Phylogénie : hybridation et horloge moléculaire.
+    let a = Genome::new("A");
+    let b = Genome::new("B");
+    let _ = PhylogenyLab::hybridize(&a, &b, false);
+    let _ = PhylogenyLab::can_interbreed(&a, &b, false);
+    assert!(PhylogenyLab::divergence_time(&a, &b) >= 0.0);
+}
+
 
 

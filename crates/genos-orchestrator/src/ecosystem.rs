@@ -8,7 +8,10 @@
 //! racine du crate orchestrateur (`genos_orchestrator::genos_store`, etc.).
 
 use crate::BiomimeticOrchestrator;
+use crate::immune_cyber::CyberImmune;
 use crate::neuro::NeuroLab;
+use crate::sensory::SensorySuite;
+use crate::signaling::SignalingCascade;
 use crate::virology::VirologyLab;
 use genos_biology::pathology::{assess_agent_clinical_status, ClinicalStatusReport};
 use genos_biology::phenotype::{create_default_registry, PhenotypeRegistry};
@@ -82,6 +85,12 @@ pub struct GenosEcosystem {
     pub neuro: NeuroLab,
     /// Laboratoire virologique (virions, rétrovirus, phages).
     pub virology: VirologyLab,
+    /// Cascade de signalisation (ligands / récepteurs).
+    pub signaling: SignalingCascade,
+    /// Défenses cyber (honeypots, disjoncteur, gossip, régénération).
+    pub cyber: CyberImmune,
+    /// Sens avancés (navigation quantique, électro-réception, vision thermique).
+    pub senses: SensorySuite,
 }
 
 impl GenosEcosystem {
@@ -118,6 +127,9 @@ impl GenosEcosystem {
             iridophore: Iridophore::new("orchestrator_iridophore"),
             neuro: NeuroLab::new("orchestrator_neuron"),
             virology: VirologyLab::new(),
+            signaling: SignalingCascade::new(),
+            cyber: CyberImmune::new("orchestrator"),
+            senses: SensorySuite::new(),
         }
     }
 
