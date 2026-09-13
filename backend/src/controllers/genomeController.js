@@ -2,6 +2,7 @@ const path = require('path');
 
 const { getDatabase } = require('../db');
 const store = require('../services/agentDnaStore');
+const operations = require('../services/agentDnaOperations');
 
 const DEFAULT_DIRECTORY = path.resolve(__dirname, '../../../agents/dna');
 
@@ -71,4 +72,19 @@ async function importGenomes(req, res, next) {
   }
 }
 
-module.exports = { listGenomes, getGenome, importGenomes, summarize };
+module.exports = { listGenomes, getGenome, importGenomes, operateGenome, summarize };
+
+async function operateGenome(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const params = Object.assign({}, req.body || {}, { genomeId: req.params.id });
+    const result = await operations.runOperation(db, {
+      operation: req.params.operation,
+      params,
+      scope: req.tenant || {}
+    });
+    res.status(201).json({ success: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+}

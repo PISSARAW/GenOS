@@ -117,10 +117,12 @@ async function prepareWorkerAssets(workerContext) {
   const identity = agentIdentity.generateAgentIdentity({ preferredName: assignment.preferredName || assignment.name, role: assignment.role, excludeNames: usedNames, stableKey: id });
   usedNames.push(identity.name);
   const evolution = agentEvolution.evolveWorkerGenome(parent, assignment, { strategy: plan.strategyContract?.primary || 'tree-search' });
-  const dnaGenes = await agentDnaStore.workerGenesForAssignment(db, assignment);
-  if (dnaGenes) {
-    evolution.genes = { ...evolution.genes, ...dnaGenes };
+  const dnaSelection = await agentDnaStore.workerGenesForAssignment(db, assignment);
+  if (dnaSelection) {
+    evolution.genes = { ...evolution.genes, ...dnaSelection.genes };
     evolution.source = 'agent_dna';
+    evolution.dnaGenomeRef = dnaSelection.genomeRef;
+    assignment.genomeRef = dnaSelection.genomeRef;
   }
   const conscience = agentConscience.createConscienceState({ currentBudget: perWorkerCognitiveBudget, baselineBudget: perWorkerCognitiveBudget });
   const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext });

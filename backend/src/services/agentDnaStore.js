@@ -1,8 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 
-const { packBioPolymer } = require('./bioPolymerPersistenceService');
+const { packBioPolymer, unpackBioPolymer } = require('./bioPolymerPersistenceService');
 const { decodeBuffer, decodeFile, workerGenes } = require('./agentDna');
+
+const ROLE_STOPWORDS = new Set([
+  'worker', 'agent', 'the', 'and', 'for', 'from', 'with', 'mission', 'task',
+  'review', 'verify', 'implement', 'audit', 'specialist', 'branch'
+]);
+
+let importAttempted = false;
 
 function walkDnaFiles(directory, out) {
   const entries = fs.readdirSync(directory, { withFileTypes: true });
@@ -56,21 +63,6 @@ async function loadGenome(db, key) {
   return decodeBuffer(Buffer.from(row.genome_blob));
 }
 
-function resolveRef(assignment) {
-  if (!assignment) return null;
-  if (assignment.genomeRef) return assignment.genomeRef;
-  if (assignment.preferredName) return assignment.preferredName;
-  return null;
-}
-
-async function workerGenesForAssignment(db, assignment) {
-  const ref = resolveRef(assignment);
-  if (!ref) return null;
-  const model = await loadGenome(db, ref);
-  if (!model) return null;
-  return workerGenes(model);
-}
-
 async function importDirectory(db, directory, options) {
   const opts = options || {};
   const files = walkDnaFiles(directory, []);
@@ -89,4 +81,90 @@ async function importDirectory(db, directory, options) {
   return { files: files.length, imported, failed: errors.length, errors };
 }
 
-module.exports = { saveGenome, loadGenome, workerGenesForAssignment, importDirectory, walkDnaFiles };
+function dnaEnabled() {
+  const flag = String(process.env.GENOS_AGENT_DNA || '').toLowerCase();
+  return flag === '1' || flag === 'true' || flag === 'yes' || flag === 'on';
+}
+
+async function ensureImported(db) {
+  if (importAttempted) return;
+  importAttempted = true;
+  if (!dnaEnabled()) return;
+  try {
+    const row = await db.get('SELECT COUNT(*) AS count FROM agent_genomes');
+    if (row && Number(row.count) > 0) return;
+    const directory = process.env.GENOS_AGENT_DNA_DIR || path.resolve(__dirname, '../../../agents/dna');
+    if (fs.existsSync(directory)) await importDirectory(db, directory, {});
+  } catch (_) {
+    // Best effort: genome auto-import must never block a mission.
+  }
+}
+
+function tokenize(value) {
+  return String(value || '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 4 && !ROLE_STOPWORDS.has(token));
+}
+
+function scoreGenome(phenotype, assignment) {
+  if (!phenotype) return 0;
+  const assignmentRole = new Set(tokenize(assignment.role));
+  const genomeRole = tokenize(phenotype.role);
+  let score = genomeRole.filter((token) => assignmentRole.has(token)).length * 3;
+  const assignmentCaps = new Set(tokenize((assignment.capabilities || []).join(' ')));
+  const genomeCaps = tokenize((phenotype.capabilities || []).join(' '));
+  score += genomeCaps.filter((token) => assignmentCaps.has(token)).length;
+  return score;
+}
+
+async function bestMatch(db, assignment) {
+  let rows = [];
+  try {
+    rows = await db.all('SELECT id, phenotype_blob FROM agent_genomes');
+  } catch (_) {
+    return null;
+  }
+  let best = null;
+  for (const row of rows) {
+    const score = scoreGenome(unpackBioPolymer(row.phenotype_blob), assignment);
+    if (!best || score > best.score) best = { id: row.id, score };
+  }
+  if (!best || best.score < 3) return null;
+  return best.id;
+}
+
+async function selectGenome(db, assignment) {
+  if (!assignment) return null;
+  if (assignment.genomeRef) {
+    const model = await loadGenome(db, assignment.genomeRef);
+    return model ? { id: assignment.genomeRef, model } : null;
+  }
+  if (assignment.preferredName) {
+    const model = await loadGenome(db, assignment.preferredName);
+    return model ? { id: assignment.preferredName, model } : null;
+  }
+  if (!dnaEnabled()) return null;
+  await ensureImported(db);
+  const id = await bestMatch(db, assignment);
+  if (!id) return null;
+  const model = await loadGenome(db, id);
+  return model ? { id, model } : null;
+}
+
+async function workerGenesForAssignment(db, assignment) {
+  const selection = await selectGenome(db, assignment);
+  if (!selection) return null;
+  return { genomeRef: selection.id, genes: workerGenes(selection.model) };
+}
+
+module.exports = {
+  saveGenome,
+  loadGenome,
+  selectGenome,
+  workerGenesForAssignment,
+  importDirectory,
+  walkDnaFiles,
+  dnaEnabled,
+  ensureImported
+};
