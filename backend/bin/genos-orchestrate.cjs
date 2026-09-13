@@ -144,9 +144,11 @@ async function main() {
   await executeForeground(await getDatabase());
 }
 
-main().then(() => {
-  process.exit(0);
-}).catch((error) => {
+function exitAfterFlush(code) {
+  if (process.stdout.writableLength === 0) return process.exit(code);
+  process.stdout.write('', () => process.exit(code));
+}
+main().then(() => exitAfterFlush(0)).catch((error) => {
   console.error(error.stack || error.message);
-  process.exit(1);
+  exitAfterFlush(1);
 });
