@@ -73,6 +73,9 @@ fn render_header(frame: &mut Frame, area: Rect, app: &TrinityApp) {
 
 fn render_columns(frame: &mut Frame, area: Rect, app: &TrinityApp) {
     if let Some(focused) = app.focused_world {
+        if app.worlds.is_empty() {
+            return;
+        }
         let idx = (focused.saturating_sub(1) as usize).min(app.worlds.len() - 1);
         render_single_world(frame, area, &app.worlds[idx]);
         return;
