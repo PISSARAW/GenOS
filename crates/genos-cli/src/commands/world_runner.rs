@@ -25,7 +25,7 @@ pub fn ask_agent(prompt: &str, role: &str) -> String {
         add_file("crates/genos-cli/src/commands/platform.rs");
         add_file("crates/genos-cli/src/commands/capsule.rs");
         add_file("crates/genos-cli/src/commands/world_runner.rs");
-        add_file("crates/genos-cli/src/commands/trinity.rs");
+        add_file("crates/genos-cli/src/args/trinity.rs");
         add_file("crates/genos-cli/src/commands/rhizome_telemetry/simulator.rs");
     }
 
