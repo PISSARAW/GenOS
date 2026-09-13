@@ -33,16 +33,18 @@ impl ConscienceState {
         }
     }
 
-    /// Accumule de la dissonance et applique un soulagement.
-    /// Retourne true si l'apoptose cognitive est déclenchée (dissonance >= seuil ou budget épuisé).
-    pub fn accumulate_dissonance(&mut self, penalty: f64, relief: f64) -> bool {
+    /// Transition d'état centralisée : pénalité, soulagement (négatif = pénalité
+    /// supplémentaire) et coût métabolique. Source unique de la logique
+    /// dissonance / budget / apoptose pour toutes les consommatrices.
+    pub fn apply_evaluation(&mut self, penalty: f64, relief: f64, budget_cost: f64) -> bool {
         if self.is_apoptotic {
             return false;
         }
-        let p = if penalty.is_finite() && penalty > 0.0 { penalty } else { 0.0 };
-        let r = if relief.is_finite() && relief > 0.0 { relief } else { 0.0 };
+        let p = if penalty.is_finite() { penalty.max(0.0) } else { 0.0 };
+        let r = if relief.is_finite() { relief } else { 0.0 };
+        let c = if budget_cost.is_finite() { budget_cost.max(0.0) } else { 0.0 };
         self.dissonance_level = (self.dissonance_level + p - r).max(0.0);
-        self.current_budget = (self.current_budget - 1.0).max(0.0);
+        self.current_budget = (self.current_budget - c).max(0.0);
         self.revision += 1;
 
         if self.dissonance_level >= self.max_dissonance_threshold || self.current_budget <= 0.0 {
@@ -52,6 +54,13 @@ impl ConscienceState {
         } else {
             false
         }
+    }
+
+    /// Accumule de la dissonance et applique un soulagement.
+    /// Retourne true si l'apoptose cognitive est déclenchée (dissonance >= seuil ou budget épuisé).
+    pub fn accumulate_dissonance(&mut self, penalty: f64, relief: f64) -> bool {
+        let r = if relief.is_finite() && relief > 0.0 { relief } else { 0.0 };
+        self.apply_evaluation(penalty, r, 1.0)
     }
 
     /// Enregistre une illumination Eurêka : divise la dissonance par deux et réapprovisionne le capital cognitif.
