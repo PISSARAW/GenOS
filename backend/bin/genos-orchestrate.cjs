@@ -91,11 +91,17 @@ async function prepareRuntime(initDb) {
 async function executeMission(db, state) {
   await initializeMission({ db, action, orchestratorId, task });
   const actionContext = { db, action, request, task, orchestratorId, id, repoRoot: path.resolve(__dirname, '../..'), bridgePath: __filename, waitForCompletion };
-  if (await handleAction(actionContext)) {
-    state.delegatedWorkerId = actionContext.delegatedWorkerId || null;
-    state.reusedWorker = Boolean(actionContext.reusedWorker);
-    return;
+  let handled = false;
+  try {
+    handled = await handleAction(actionContext);
+  } finally {
+    // A delegated worker that fails mid-dispatch must still be handed to
+    // cleanupFailure: startWorker sets delegatedWorkerId before its mission
+    // starts, so propagate it even when handleAction rejects.
+    if (actionContext.delegatedWorkerId) state.delegatedWorkerId = actionContext.delegatedWorkerId;
+    if (actionContext.reusedWorker) state.reusedWorker = true;
   }
+  if (handled) return;
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, task);
   await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ? WHERE id = ?`, task, id);
   const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
