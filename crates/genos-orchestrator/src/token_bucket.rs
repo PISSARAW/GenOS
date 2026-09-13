@@ -92,6 +92,32 @@ impl AgentComputeBucket {
         matches!(self.state, BucketState::Apoptotic | BucketState::Starved)
     }
 
+    /// Garde centrale des états terminaux : un agent mort ne peut plus muter.
+    pub fn ensure_alive(&self, action: &str) -> Result<(), String> {
+        if self.is_dead() {
+            Err(format!(
+                "Agent '{}' is {:?}; dead agents cannot be {action}.",
+                self.agent_id, self.state
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Invariants numériques : jetons finis, positifs et bornés par la capacité.
+    pub fn check_invariants(&self) -> Result<(), String> {
+        if !self.tokens.is_finite() || !self.capacity.is_finite() {
+            return Err(format!("bucket '{}' avec valeurs non finies", self.agent_id));
+        }
+        if self.tokens < 0.0 || self.tokens > self.capacity {
+            return Err(format!(
+                "bucket '{}' hors bornes: {} / {}",
+                self.agent_id, self.tokens, self.capacity
+            ));
+        }
+        Ok(())
+    }
+
     pub fn refill(&mut self, now: Instant) {
         if self.is_dead() {
             return;
@@ -200,12 +226,7 @@ impl TokenBucketScheduler {
 
         // Death from compute starvation is terminal: a dead agent cannot be
         // revived by submitting a perfect proof.
-        if bucket.is_dead() {
-            return Err(format!(
-                "Agent '{agent_id}' is {:?}; dead agents cannot be rewarded.",
-                bucket.state
-            ));
-        }
+        bucket.ensure_alive("rewarded")?;
 
         let score = evidence_score.clamp(0.0, 1.0);
         let bonus_capacity = if score >= 0.85 { 20.0 } else { 0.0 };
@@ -246,12 +267,7 @@ impl TokenBucketScheduler {
         }
 
         // Death is terminal: penalizing must not revive a Starved/Apoptotic agent.
-        if bucket.is_dead() {
-            return Err(format!(
-                "Agent '{agent_id}' is {:?}; dead agents cannot be penalized.",
-                bucket.state
-            ));
-        }
+        bucket.ensure_alive("penalized")?;
 
         let waste = waste_score.clamp(0.0, 1.0);
         let penalty = 25.0 * (1.0 + waste);

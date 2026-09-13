@@ -159,3 +159,42 @@ fn allowed_slice(scheduler: &mut TokenBucketScheduler, agent_id: &str) -> u64 {
         other => panic!("expected allowed decision, got {other:?}"),
     }
 }
+
+#[test]
+fn invariants_hold_under_random_operations() {
+    let mut scheduler = TokenBucketScheduler::new();
+    for id in ["a", "b", "c"] {
+        scheduler.register_agent(id, 50.0, DEFAULT_BUCKET_CAPACITY);
+    }
+    let mut seed = 0xdead_beef_1234_5678_u64;
+    let mut next = move || {
+        seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        (seed >> 33) as usize
+    };
+    for _ in 0..500 {
+        let id = ["a", "b", "c"][next() % 3];
+        match next() % 6 {
+            0 => {
+                scheduler.schedule_step(id, (next() % 60) as f64);
+            }
+            1 => {
+                let _ = scheduler.reward_proof(id, (next() % 100) as f64 / 100.0);
+            }
+            2 => {
+                let _ = scheduler.penalize_waste(id, (next() % 100) as f64 / 100.0);
+            }
+            3 => {
+                scheduler.register_agent(id, 10.0, DEFAULT_BUCKET_CAPACITY);
+            }
+            _ => {
+                scheduler.schedule_step(id, 0.0);
+            }
+        }
+        for bucket in scheduler.buckets.values() {
+            bucket.check_invariants().unwrap();
+        }
+    }
+}
+

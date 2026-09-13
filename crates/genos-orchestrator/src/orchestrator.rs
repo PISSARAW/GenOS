@@ -147,6 +147,29 @@ impl BiomimeticOrchestrator {
         origin
     }
 
+    /// Vérifie les invariants structurels de l'orchestrateur.
+    /// Utilisé par les tests de propriété et disponible pour l'observabilité.
+    pub fn check_invariants(&self) -> Result<(), String> {
+        for (name, tissue) in &self.tissues {
+            for cell_id in &tissue.somatic_cells {
+                if !self.active_cells.contains_key(cell_id) {
+                    return Err(format!("tissu '{name}' reference la cellule absente {cell_id}"));
+                }
+            }
+        }
+        for spore in &self.dormant_spores {
+            if !self.genomes.contains_key(&spore.genome.genome_id()) {
+                return Err(format!("spore {} sans genome enregistre", spore.parent_cell_id));
+            }
+        }
+        for cell_id in self.spore_tissue_map.keys() {
+            if !self.dormant_spores.iter().any(|s| s.parent_cell_id == *cell_id) {
+                return Err(format!("spore_tissue_map orphelin pour {cell_id}"));
+            }
+        }
+        Ok(())
+    }
+
     /// Sporulation : cryoconserve une cellule sous forme d'endospore résistante
     pub fn sporulate_cell(&mut self, worker_id: Uuid, spore_type: SporeType) -> Result<usize, String> {
         let worker = self.active_cells.remove(&worker_id)
@@ -158,6 +181,8 @@ impl BiomimeticOrchestrator {
             .genome_id
             .and_then(|genome_id| self.genomes.get(&genome_id).cloned())
             .unwrap_or_else(|| Genome::new(&worker.role));
+        // Toute spore doit référencer un génome enregistré (invariant de lignée).
+        self.genomes.insert(genome.genome_id(), genome.clone());
         let spore = match spore_type {
             SporeType::BacterialEndospore => Spore::from_cell(spore_type.clone(), &worker, genome, 9999),
             SporeType::FungalReproductive => {

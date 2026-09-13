@@ -181,3 +181,69 @@ fn test_sporulation_preserves_genome_lineage() {
     );
 }
 
+#[test]
+fn test_invariants_hold_across_lifecycle() {
+    let mut orch = BiomimeticOrchestrator::new("Overmind", 50.0, 100.0);
+    orch.create_tissue("A", "r").unwrap();
+    orch.create_tissue("B", "r").unwrap();
+    let w1 = orch.add_worker("A", AgentCell::new("w1", "w", "Worker")).unwrap();
+    let w2 = orch.add_worker("B", AgentCell::new("w2", "w", "Worker")).unwrap();
+    orch.delegate_task("A", (w1, "t")).unwrap();
+    orch.check_invariants().unwrap();
+
+    let idx = orch.sporulate_cell(w1, SporeType::BacterialEndospore).unwrap();
+    orch.check_invariants().unwrap();
+    orch.germinate_spore(idx, (true, true)).unwrap();
+    orch.check_invariants().unwrap();
+
+    orch.trigger_endosymbiosis(w2, w1).unwrap();
+    orch.check_invariants().unwrap();
+}
+
+#[test]
+fn test_invariants_under_random_operations() {
+    let mut orch = BiomimeticOrchestrator::new("Overmind", 50.0, 100.0);
+    for t in ["A", "B", "C"] {
+        orch.create_tissue(t, "r").unwrap();
+    }
+    let mut seed = 0x1234_5678_9abc_def0_u64;
+    let mut next = move || {
+        seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        (seed >> 33) as usize
+    };
+    let mut workers = Vec::new();
+    for i in 0..30 {
+        let tissue = ["A", "B", "C"][next() % 3];
+        workers.push(
+            orch.add_worker(tissue, AgentCell::new(format!("c{i}"), "c", "Worker"))
+                .unwrap(),
+        );
+        orch.check_invariants().unwrap();
+    }
+    for _ in 0..40 {
+        let id = workers[next() % workers.len()];
+        if !orch.active_cells.contains_key(&id) {
+            continue;
+        }
+        match next() % 3 {
+            0 => {
+                let _ = orch.sporulate_cell(id, SporeType::BacterialEndospore);
+            }
+            1 => {
+                let n = orch.dormant_spores.len();
+                if n > 0 {
+                    let _ = orch.germinate_spore(next() % n, (true, true));
+                }
+            }
+            _ => {
+                let other = workers[next() % workers.len()];
+                let _ = orch.trigger_endosymbiosis(id, other);
+            }
+        }
+        orch.check_invariants().unwrap();
+    }
+}
+
+
