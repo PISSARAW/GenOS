@@ -323,12 +323,15 @@ async function handleTrinityMerge({ db, context }) {
       `${escapeLikePattern(missionId)}%`, missionId
     );
     if (worlds.length > 0) {
+      // The status alone is not evidence: record the outcome as an unproven
+      // claim instead of fabricating proof, so a merger without real world
+      // reports escalates rather than merging on a synthetic score.
       worldReports = worlds.map((w) => ({
         worldNumber: w.world_number,
         role: w.strategy,
         agentId: w.agent_id,
         outcome: w.status === 'completed' ? 'success' : w.status,
-        claims: [{ statement: `World ${w.world_number} execution outcome: ${w.status}`, evidence: [w.current_task || 'completed'] }],
+        claims: [{ statement: `World ${w.world_number} execution outcome: ${w.status}${w.current_task ? ` (${w.current_task})` : ''}`, evidence: [] }],
         tests: [w.status === 'completed' ? 'pass' : 'fail']
       }));
     }
