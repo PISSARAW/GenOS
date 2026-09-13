@@ -202,6 +202,8 @@ impl BiomimeticOrchestrator {
         // Extraire le symbionte après validation atomique de l'hôte.
         let symbiont = self.active_cells.remove(&symbiont_id)
             .ok_or_else(|| format!("Symbionte {} introuvable ou déjà phagocyté", symbiont_id))?;
+        // Le tissu ne doit plus référencer une cellule désormais intégrée à l'hôte.
+        self.detach_from_tissues(symbiont_id);
         let host = self.active_cells.get_mut(&host_id).ok_or_else(|| format!("Hôte {} introuvable", host_id))?;
         host.phagocytize(symbiont)?;
         
@@ -306,6 +308,26 @@ mod tests {
         assert!(
             orchestrator.delegate_task("Core", (worker_id, "continuer")).is_err(),
             "une cellule sporulee ne doit plus etre délégable"
+        );
+    }
+
+    #[test]
+    fn test_endosymbiosis_detaches_symbiont_from_tissue() {
+        let mut orchestrator = BiomimeticOrchestrator::new("Overmind", 50.0, 100.0);
+        orchestrator.create_tissue("Core", "Role").unwrap();
+        let host_id = orchestrator
+            .add_worker("Core", AgentCell::new("Host", "Hote", "Host"))
+            .unwrap();
+        let symbiont_id = orchestrator
+            .add_worker("Core", AgentCell::new("Sym", "Symbionte", "Symbiont"))
+            .unwrap();
+
+        orchestrator.trigger_endosymbiosis(host_id, symbiont_id).unwrap();
+
+        assert!(!orchestrator.active_cells.contains_key(&symbiont_id));
+        assert!(
+            orchestrator.delegate_task("Core", (symbiont_id, "encore la ?")).is_err(),
+            "un symbionte phagocyte ne doit plus etre délégable"
         );
     }
 }
