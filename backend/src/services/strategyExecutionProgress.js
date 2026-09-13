@@ -119,9 +119,21 @@ async function maybeRunStepPrimitives(db, step, outcome) {
     contractId: outcome.contractId,
     context: stepTaskContext(outcome)
   });
+  if (result && result.applicable === false) {
+    return { result, guardrailReason: outcome.guardrailReason, inapplicable: true };
+  }
   const failure = events.primitiveFailureReason(step, result);
   if (failure) return { result, guardrailReason: failure };
   return { result, guardrailReason: outcome.guardrailReason };
+}
+
+async function skipInapplicableStep(db, step, now) {
+  await db.run(
+    "UPDATE strategy_execution_steps SET status = 'skipped', completed_at = ? WHERE id = ? AND status = 'planned'",
+    now, step.id
+  );
+  step.status = 'skipped';
+  step.completed_at = now;
 }
 
 function appendStepEvidence(step, record) {
@@ -190,7 +202,11 @@ async function advanceExecutionStep(db, plan, outcome) {
   // to it (the runtime event ordering is not strictly monotonic).
   if (['completed', 'skipped'].includes(steps[index].status)) return outcome.guardrailReason;
   const execution = await maybeRunStepPrimitives(db, steps[index], outcome);
-  await persistStepProgress(db, steps[index], { outcome, execution });
+  if (execution.inapplicable) {
+    await skipInapplicableStep(db, steps[index], outcome.now);
+  } else {
+    await persistStepProgress(db, steps[index], { outcome, execution });
+  }
   return execution.guardrailReason;
 }
 
