@@ -271,7 +271,8 @@ function workerName(request, role, mission) { return String(request.name || work
 function workspaceFor(parent, context) { return parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT || context.repoRoot; }
 function workerCapsuleId(context) { return context.reusedWorker ? `${context.id}_run_${Date.now()}` : context.id; }
 function validateWorkspace(requested, source) {
-  if (requested && path.resolve(requested) !== path.resolve(source)) throw new Error(`Requested workspace root does not match orchestrator workspace '${source}'.`);
+  const norm = (value) => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
+  if (requested && norm(requested) !== norm(source)) throw new Error(`Requested workspace root does not match orchestrator workspace '${source}'.`);
 }
 async function insertWorker({ db, context, parent, request, name, role }) {
   if (context.reusedWorker) return;
