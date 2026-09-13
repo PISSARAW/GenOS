@@ -189,12 +189,14 @@ function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
   const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify({
     action: 'dispatch_worker', background: false, orchestratorId: context.orchestratorId, workerId,
     mission: member.mission, role: member.role, model_tier: member.modelTier,
-    execution_budget: context.request.execution_budget,
+    ...(member.name ? { name: member.name } : {}),
+    execution_budget: context.request.execution_budget || context.request.executionBudget,
+    timeoutMs: context.request.timeoutMs,
     workspace_root: context.request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
     reuseChecked: true
   })], { cwd: context.repoRoot, detached: true, stdio: getRunnerStdio(workerId) });
   runner.unref();
-  return { workerId, memberNumber: member.memberNumber || index, role: member.role, modelTier: member.modelTier, status: 'accepted' };
+  return { workerId, subSystem: member.subSystem, memberNumber: member.memberNumber || index, role: member.role, modelTier: member.modelTier, status: 'accepted' };
 }
 
 async function handleBiological({ db, context }) {
@@ -236,8 +238,9 @@ async function handleTrinity({ db, context }) {
   const accepted = [];
   for (const member of members) {
     const workerId = `worker_${context.orchestratorId}_${Date.now()}_${member.worldNumber}_${Math.random().toString(36).slice(2, 6)}`;
-    await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, 'queued', ?)`, `${missionId}_world_${member.worldNumber}`, mission, member.worldNumber, `Trinity Worker (World ${member.worldNumber}: ${member.label})`, member.role, workerId);
-    launchWorker({ context, member, index: member.worldNumber, parent, suppliedWorkerId: workerId });
+    const trinityName = `Trinity Worker (World ${member.worldNumber}: ${member.label})`;
+    await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, 'queued', ?)`, `${missionId}_world_${member.worldNumber}`, mission, member.worldNumber, trinityName, member.role, workerId);
+    launchWorker({ context, member: { ...member, name: trinityName }, index: member.worldNumber, parent, suppliedWorkerId: workerId });
     accepted.push({ workerId, worldNumber: member.worldNumber, strategy: member.role, status: 'accepted' });
   }
   process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, trinity: { status: 'accepted', mission, capacity: workerGarage.MAX_ACTIVE_WORKERS, worlds: accepted } }));
