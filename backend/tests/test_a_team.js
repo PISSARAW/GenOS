@@ -10,6 +10,10 @@ assert.equal(analysis.capabilityCoverage.ratio, 1);
 assert.deepEqual(analysis.capabilityCoverage.uncovered, []);
 assert.equal(aTeam.analyzeMission('Résoudre une récurrence de programmation dynamique.').recommended, false);
 
+const tied = aTeam.detectTechnicalDomains('oauth agent test');
+assert.deepEqual(tied.map((domain) => domain.domain), ['security', 'quality', 'ai']);
+assert.ok(tied.every((domain) => domain.score === 1));
+
 const saturated = aTeam.analyzeMission('Développer le frontend React, le backend Express, la data SQL, la sécurité OAuth, les tests QA, les déploiements DevOps, un agent IA, le produit et la recherche scientifique.');
 assert.equal(saturated.recommended, true);
 assert.equal(saturated.members.length, aTeam.MAX_MEMBERS);
