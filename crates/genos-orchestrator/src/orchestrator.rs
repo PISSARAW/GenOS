@@ -196,10 +196,18 @@ impl BiomimeticOrchestrator {
 
     /// Symbiogenèse Eucaryote : un agent (host) phagocyte un autre agent (symbiont)
     pub fn trigger_endosymbiosis(&mut self, host_id: Uuid, symbiont_id: Uuid) -> Result<(), String> {
-        let host = self.active_cells.get(&host_id)
-            .ok_or_else(|| format!("Hôte {} introuvable", host_id))?;
-        host.can_phagocytize(symbiont_id)?;
-        // Extraire le symbionte après validation atomique de l'hôte.
+        // Valider l'intégralité de la relation hôte/symbionte AVANT toute mutation :
+        // une phagocytose rejetée ne doit jamais retirer ni perdre de cellule.
+        {
+            let host = self.active_cells.get(&host_id)
+                .ok_or_else(|| format!("Hôte {} introuvable", host_id))?;
+            host.can_phagocytize(symbiont_id)?;
+        }
+        if !self.active_cells.contains_key(&symbiont_id) {
+            return Err(format!("Symbionte {} introuvable ou déjà phagocyté", symbiont_id));
+        }
+
+        // Extraction atomique : les validations ci-dessus garantissent le succès de phagocytize.
         let symbiont = self.active_cells.remove(&symbiont_id)
             .ok_or_else(|| format!("Symbionte {} introuvable ou déjà phagocyté", symbiont_id))?;
         // Le tissu ne doit plus référencer une cellule désormais intégrée à l'hôte.
@@ -329,5 +337,23 @@ mod tests {
             orchestrator.delegate_task("Core", (symbiont_id, "encore la ?")).is_err(),
             "un symbionte phagocyte ne doit plus etre délégable"
         );
+    }
+
+    #[test]
+    fn test_failed_endosymbiosis_is_atomic() {
+        let mut orchestrator = BiomimeticOrchestrator::new("Overmind", 50.0, 100.0);
+        let host = AgentCell::new("Host", "Hote", "Host");
+        let host_id = host.cell_id;
+        orchestrator.active_cells.insert(host_id, host);
+
+        let missing_symbiont = Uuid::new_v4();
+        assert!(orchestrator.trigger_endosymbiosis(host_id, missing_symbiont).is_err());
+        assert!(orchestrator.trigger_endosymbiosis(host_id, host_id).is_err());
+
+        assert!(
+            orchestrator.active_cells.contains_key(&host_id),
+            "un echec d'endosymbiose ne doit jamais retirer l'hote"
+        );
+        assert!(!orchestrator.active_cells.contains_key(&missing_symbiont));
     }
 }
