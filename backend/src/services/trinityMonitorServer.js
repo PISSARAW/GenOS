@@ -170,9 +170,31 @@ class TrinityMonitorServer {
     };
   }
 
+  // The index is refreshed on a timer, so a world that just spawned can emit
+  // logs or evidence before it is indexed. Resolve it on demand instead of
+  // silently dropping the event.
+  async resolveAgentInfo(agentId) {
+    if (!agentId) return null;
+    try {
+      const db = await getDatabase();
+      const world = await db.get('SELECT id, world_number FROM trinity_worlds WHERE agent_id = ?', agentId);
+      if (world) return { missionId: deriveMissionId(world.id), worldNumber: world.world_number, role: 'worker' };
+      const orchestrator = await db.get(
+        "SELECT id, fleet_id FROM agents WHERE id = ? AND execution_mode = 'orchestrator' AND fleet_id IS NOT NULL",
+        agentId
+      );
+      if (orchestrator) return { missionId: orchestrator.fleet_id, worldNumber: 0, role: 'orchestrator' };
+    } catch (_) {}
+    return null;
+  }
+
   async handleTelemetryEvent(event) {
-    const info = this.agentIndex.get(event.agentId);
-    if (!info) return;
+    let info = this.agentIndex.get(event.agentId);
+    if (!info) {
+      info = await this.resolveAgentInfo(event.agentId);
+      if (!info) return;
+      this.agentIndex.set(event.agentId, info);
+    }
 
     if (info.role === 'worker' && WORLD_LOG_EVENT_TYPES.has(event.eventType)) {
       // Evidence must be tracked even when nobody is watching, otherwise
