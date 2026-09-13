@@ -8,10 +8,17 @@
 //! racine du crate orchestrateur (`genos_orchestrator::genos_store`, etc.).
 
 use crate::BiomimeticOrchestrator;
+use genos_biology::pathology::{assess_agent_clinical_status, ClinicalStatusReport};
 use genos_biology::phenotype::{create_default_registry, PhenotypeRegistry};
 use genos_biology::quorum::{AutoinducerType, QuorumPhenotype, QuorumSensingSystem};
 use genos_biology::sensory::{AccessoryOlfactoryBulb, EcholocationCortex};
+use genos_biology::specialized_cells::cnidocyte::DischargeImpact;
 use genos_biology::therapy::{apply_systemic_therapy_to_cell, SystemicTherapy, TherapyOutcome};
+use genos_biology::{
+    Choanocyte, Cnidocyte, ElectricOrganStack, ElectricShockBurst, GlialCell, GlialEnvironment,
+    GlialPipeline, HgtTransferReport, Iridophore, ObserverPerspective, OssificationReport,
+    ProkaryoticAgent, RawSignalPacket, SiftingResult, StomatalPore, ThrottleResult, Tracheid,
+};
 use genos_cell::AgentCell;
 use genos_common::traits::{MemoryEntry, MemoryRepository, SearchQuery};
 use genos_dna::model::AgentDna;
@@ -53,6 +60,22 @@ pub struct GenosEcosystem {
     pub olfaction: AccessoryOlfactoryBulb,
     /// Cortex d'écholocation (cartographie spatiale par échos).
     pub echolocation: EcholocationCortex,
+    /// Pipeline glial (astrocytes, microglie, myélinisation).
+    pub glial: GlialPipeline,
+    /// Cnidocyte (interception de menaces prompt / outil).
+    pub cnidocyte: Cnidocyte,
+    /// Cellule de garde (throttling de flux / backpressure).
+    pub guard_cell: StomatalPore,
+    /// Organe électrique (décharge de consensus).
+    pub electric_organ: ElectricOrganStack,
+    /// Procaryote donneur (transfert horizontal de plasmides).
+    pub prokaryote: ProkaryoticAgent,
+    /// Trachéide (ossification d'un pipeline statique).
+    pub tracheid: Tracheid,
+    /// Choanocyte (filtration d'un flux de signaux).
+    pub choanocyte: Choanocyte,
+    /// Iridophore (rendu polymorphe).
+    pub iridophore: Iridophore,
 }
 
 impl GenosEcosystem {
@@ -79,6 +102,14 @@ impl GenosEcosystem {
             phenotype: create_default_registry(),
             olfaction: AccessoryOlfactoryBulb::new(0.5),
             echolocation: EcholocationCortex::new(80.0, 10.0, 343.0, 5.0),
+            glial: GlialPipeline::new(),
+            cnidocyte: Cnidocyte::new("orchestrator_cnidocyte"),
+            guard_cell: StomatalPore::new("orchestrator_pore"),
+            electric_organ: ElectricOrganStack::new("orchestrator_electric", 8, 2),
+            prokaryote: ProkaryoticAgent::new("orchestrator_donor"),
+            tracheid: Tracheid::new("orchestrator_tracheid"),
+            choanocyte: Choanocyte::new("orchestrator_choanocyte"),
+            iridophore: Iridophore::new("orchestrator_iridophore"),
         }
     }
 
@@ -163,5 +194,59 @@ impl GenosEcosystem {
 
     pub fn express_dna(&self, dna: &AgentDna) -> genos_dna::Phenotype {
         genos_dna::express::express(dna)
+    }
+
+    // --- Pathologie / diagnostic ---
+
+    pub fn assess_health(&self, cell: &AgentCell) -> ClinicalStatusReport {
+        assess_agent_clinical_status(cell)
+    }
+
+    // --- Glie ---
+
+    pub fn process_glial(&self, agents: &mut [GlialCell], env: GlialEnvironment<'_>) {
+        self.glial.process_all(agents, env);
+    }
+
+    // --- Cellules spécialisées ---
+
+    pub fn intercept_prompt_threat(&mut self, prompt: &str) -> Option<DischargeImpact> {
+        self.cnidocyte.intercept_prompt(prompt)
+    }
+
+    pub fn intercept_tool_threat(
+        &mut self,
+        tool_name: &str,
+        raw_payload: &str,
+    ) -> Option<DischargeImpact> {
+        self.cnidocyte.intercept_tool_threat(tool_name, raw_payload)
+    }
+
+    pub fn throttle_flux(&self, requested_flux: f64) -> ThrottleResult {
+        self.guard_cell.throttle_flux(requested_flux)
+    }
+
+    pub fn discharge_electric(&mut self) -> Result<ElectricShockBurst, String> {
+        self.electric_organ.discharge_burst()
+    }
+
+    pub fn hgt_transfer(
+        &self,
+        recipient: &mut ProkaryoticAgent,
+        plasmid_id: &str,
+    ) -> Result<HgtTransferReport, String> {
+        self.prokaryote.conjugate_transfer_plasmid(recipient, plasmid_id)
+    }
+
+    pub fn ossify_pipeline(&mut self, pipeline_id: &str) -> Result<OssificationReport, String> {
+        self.tracheid.trigger_lignified_apoptosis(pipeline_id)
+    }
+
+    pub fn filter_stream(&mut self, packets: &[RawSignalPacket]) -> SiftingResult {
+        self.choanocyte.sift_stream(packets)
+    }
+
+    pub fn render_polymorphic(&self, raw_data: &str, perspective: &ObserverPerspective) -> String {
+        self.iridophore.render_polymorphic(raw_data, perspective)
     }
 }
