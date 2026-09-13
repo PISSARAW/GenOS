@@ -20,6 +20,21 @@ pub use genos_sensorimotor;
 pub use genos_signal;
 pub use genos_store;
 
+/// Accès à la couche API GenOS (activé par la feature `api`).
+#[cfg(feature = "api")]
+pub use genos_api;
+
+/// Raccourcis vers les concepts API (sécurité + types de complétion).
+#[cfg(feature = "api")]
+pub mod api {
+    pub use genos_api::security::{RateLimiter, TenantAuth};
+    pub use genos_api::types::{
+        ChatChoice, ChatCompletionRequest, ChatCompletionResponse, ChatMessage, ChatOutputMessage,
+        ChatUsage, HealthResponse,
+    };
+    pub use genos_api::{handle_http_request, start_server};
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

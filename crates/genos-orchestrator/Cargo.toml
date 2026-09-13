@@ -18,3 +18,8 @@ genos-store = { path = "../genos-store" }
 genos-reproduction = { path = "../genos-reproduction" }
 genos-sensorimotor = { path = "../genos-sensorimotor" }
 genos-dna = { path = "../genos-dna" }
+genos-api = { path = "../genos-api", optional = true }
+
+[features]
+# Accès à la couche serveur/sécurité de GenOS (tokio + reqwest).
+api = ["dep:genos-api"]
