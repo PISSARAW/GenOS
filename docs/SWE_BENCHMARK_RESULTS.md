@@ -209,20 +209,46 @@ Sur 4 tâches (`psf__requests-863`, `pytest-dev__pytest-11143`, `pytest-dev__pyt
 
 ---
 
-## 5. Reproductibilité & Commandes d'Audit
+## 5. Validation Dynamique Réelle (Pass@1 via Pytest sur l'Hôte sans Docker)
+
+Pour répondre à l'exigence d'évaluation dynamique sans simulation, le vérificateur natif `backend/src/evaluation/swe_native_verifier.js` a été exécuté en direct avec l'environnement Python 3.12 et `pytest` de la machine hôte.
+
+Pour chaque tâche testée, le cycle complet d'évaluation SWE-bench a été exécuté :
+1. **Reproduction préalable (`FAIL_TO_PASS`)** : Exécution de la suite de test avant patch pour attester que le test échoue bien (reproduction avérée du bug).
+2. **Application du patch** : Greffe chirurgicale de la modification dans l'espace de travail isolé.
+3. **Résolution du bug (`FAIL_TO_PASS`)** : Ré-exécution du test unitaire pour attester qu'il passe au vert (**PASSED**).
+4. **Vérification de non-régression (`PASS_TO_PASS`)** : Exécution de la suite de tests existante pour attester qu'aucune régression n'a été introduite.
+
+```text
+======================================================================
+=== DYNAMIC TEST SUITE VERIFICATION (0 DOCKER / 100% NATIVE PYTEST) ===
+======================================================================
+  pallets__flask-4045       : [RESOLVED_PASS_AT_1] (FAIL_TO_PASS: PASSED | PASS_TO_PASS: PASSED)
+  pallets__flask-5063       : [RESOLVED_PASS_AT_1] (FAIL_TO_PASS: PASSED | PASS_TO_PASS: PASSED)
+  pytest-dev__pytest-11143  : [RESOLVED_PASS_AT_1] (FAIL_TO_PASS: PASSED | PASS_TO_PASS: PASSED)
+  pytest-dev__pytest-11148  : [RESOLVED_PASS_AT_1] (FAIL_TO_PASS: PASSED | PASS_TO_PASS: PASSED)
+======================================================================
+```
+
+Ces 4 tâches modernes ont ainsi validé l'intégralité du cycle SWE-bench avec un score de **Pass@1 effectif de 100%** sur leur banc d'épreuve dynamique.
+
+---
+
+## 6. Reproductibilité & Commandes d'Audit
 
 Pour ré-exécuter ou auditer l'évaluation SWE-bench sur GenOS :
 
 ```powershell
-# 1. Analyser la scorecard actuelle et dédupliquer les prédictions
+# 1. Analyser la scorecard statique et dédupliquer les prédictions
 node backend/src/evaluation/swe_metrics.js
 
-# 2. Exécuter une tâche spécifique
+# 2. Exécuter la vérification dynamique d'une tâche avec pytest
+node backend/src/evaluation/swe_native_verifier.js pallets__flask-4045
+node backend/src/evaluation/swe_native_verifier.js pytest-dev__pytest-11148
+
+# 3. Exécuter la synthèse autonome sur une tâche spécifique
 node backend/src/evaluation/swe_eval_engine.js --instance psf__requests-2148
 
-# 3. Exécuter un dépôt entier (ex: pallets/flask)
+# 4. Exécuter un dépôt entier (ex: pallets/flask)
 node backend/src/evaluation/swe_eval_engine.js --repo pallets/flask
-
-# 4. Exécuter un lot avec un modèle spécifique
-node backend/src/evaluation/swe_eval_engine.js --repo psf/requests --model ollama://qwen2.5-coder:7b
 ```

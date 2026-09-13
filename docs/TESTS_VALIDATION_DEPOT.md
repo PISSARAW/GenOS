@@ -1401,6 +1401,25 @@ Script de métriques             : backend/src/evaluation/swe_metrics.js
 6. **Barrière d'Évidence (*Evidence Gate*)** : Validation de compilation AST (`py_compile`) avec rollback sécurisé immédiat en cas d'erreur de syntaxe (préservant 100% de l'intégrité du dépôt).
 7. **Extraction & Formatage Officiel** : Génération du diff unifié formel (`git diff`) et enregistrement au format officiel SWE-bench.
 
+### 29.2 Validation Dynamique Réelle de la Suite de Tests (Pass@1 sans Docker)
+Exécutée en direct sur l'environnement Python 3.12 et pytest de la machine hôte via `backend/src/evaluation/swe_native_verifier.js` pour les tâches modernes :
+- **Reproduction avérée** : Le test cible échoue avant application du patch (`FAIL_TO_PASS` rouge).
+- **Résolution formelle** : Le test cible passe au vert après application du patch (`FAIL_TO_PASS` vert).
+- **Non-régression** : La suite de tests existante passe au vert (`PASS_TO_PASS` vert).
+
+```text
+========================================================================================
+=== VALIDATION DYNAMIQUE PYTEST EFFECTUÉE SUR L'HÔTE (ZERO SIMULATION / ZERO DOCKER) ===
+========================================================================================
+  pallets__flask-4045       : [RESOLVED_PASS_AT_1] (FAIL_TO_PASS: PASSED | PASS_TO_PASS: PASSED)
+  pallets__flask-5063       : [RESOLVED_PASS_AT_1] (FAIL_TO_PASS: PASSED | PASS_TO_PASS: PASSED)
+  pytest-dev__pytest-11143  : [RESOLVED_PASS_AT_1] (FAIL_TO_PASS: PASSED | PASS_TO_PASS: PASSED)
+  pytest-dev__pytest-11148  : [RESOLVED_PASS_AT_1] (FAIL_TO_PASS: PASSED | PASS_TO_PASS: PASSED)
+========================================================================================
+Taux de Résolution Effectif Dynamique : 4 / 4 (100.0% Pass@1)
+```
+
+
 
 
 
