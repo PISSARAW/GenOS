@@ -40,6 +40,17 @@ fn penalize_waste_rejects_dead_agents() {
 }
 
 #[test]
+fn severe_waste_triggers_apoptosis_even_with_tokens() {
+    let mut scheduler = TokenBucketScheduler::new();
+    scheduler.register_agent("agent-a", 100.0, DEFAULT_BUCKET_CAPACITY);
+
+    let report = scheduler.penalize_waste("agent-a", 1.0).unwrap();
+
+    assert!(matches!(report.state, BucketState::Apoptotic));
+    assert_eq!(scheduler.buckets.get("agent-a").unwrap().tokens, 0.0);
+}
+
+#[test]
 fn reward_proof_capacity_is_capped() {
     let mut scheduler = TokenBucketScheduler::new();
     scheduler.register_agent("agent-a", 0.0, DEFAULT_BUCKET_CAPACITY);

@@ -254,14 +254,14 @@ impl TokenBucketScheduler {
         bucket.tokens = (bucket.tokens - penalty).max(0.0);
         bucket.total_waste += waste;
 
-        if bucket.tokens <= 0.0 {
-            if waste >= 0.9 {
-                bucket.state = BucketState::Apoptotic;
-            } else {
-                let sleep_ms = 500;
-                bucket.state = BucketState::Throttled { sleep_ms };
-                bucket.throttled_until = Some(Instant::now() + Duration::from_millis(sleep_ms));
-            }
+        if waste >= 0.9 {
+            // Severe waste is fatal regardless of the remaining balance.
+            bucket.tokens = 0.0;
+            bucket.state = BucketState::Apoptotic;
+        } else if bucket.tokens <= 0.0 {
+            let sleep_ms = 500;
+            bucket.state = BucketState::Throttled { sleep_ms };
+            bucket.throttled_until = Some(Instant::now() + Duration::from_millis(sleep_ms));
         } else if waste >= 0.5 {
             let sleep_ms = (waste * 400.0) as u64;
             bucket.state = BucketState::Throttled { sleep_ms };
