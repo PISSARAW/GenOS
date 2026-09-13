@@ -137,3 +137,47 @@ fn test_failed_endosymbiosis_is_atomic() {
     );
     assert!(!orchestrator.active_cells.contains_key(&missing_symbiont));
 }
+
+#[test]
+fn test_cleave_does_not_register_unlinked_cells() {
+    let mut orchestrator = BiomimeticOrchestrator::new("Overmind", 50.0, 100.0);
+    let before = orchestrator.active_cells.len();
+    let swarm = orchestrator.cleave_and_differentiate(2, 1.0);
+    assert!(!swarm.is_empty());
+    assert_eq!(
+        orchestrator.active_cells.len(),
+        before,
+        "aucune cellule non liee a un tissu ne doit etre enregistree"
+    );
+}
+
+#[test]
+fn test_sporulation_preserves_genome_lineage() {
+    let mut orchestrator = BiomimeticOrchestrator::new("Overmind", 50.0, 100.0);
+    orchestrator.create_tissue("Core", "Role").unwrap();
+    let cell = orchestrator
+        .cleave_and_differentiate(1, 1.0)
+        .into_iter()
+        .next()
+        .unwrap();
+    let genome_id = cell.genome_id.expect("cellule differenciee sans genome");
+    assert!(orchestrator.genomes.contains_key(&genome_id), "genome non enregistre");
+    let cell_id = orchestrator.add_worker("Core", cell).unwrap();
+
+    let spore_idx = orchestrator
+        .sporulate_cell(cell_id, SporeType::BacterialEndospore)
+        .unwrap();
+    assert_eq!(
+        orchestrator.dormant_spores[spore_idx].genome.genome_id(),
+        genome_id,
+        "la spore doit conserver la lignee"
+    );
+
+    let revived = orchestrator.germinate_spore(spore_idx, (true, true)).unwrap();
+    assert_eq!(
+        revived.genome_id,
+        Some(genome_id),
+        "la cellule ranimee doit garder son genome"
+    );
+}
+

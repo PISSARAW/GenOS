@@ -28,6 +28,10 @@ pub struct BiomimeticOrchestrator {
     /// afin de réintégrer la cellule ranimée lors de la germination.
     #[serde(default)]
     pub spore_tissue_map: HashMap<Uuid, String>,
+    /// Génomes connus (indexés par identifiant) afin de préserver la lignée
+    /// lors de la sporulation et de la germination.
+    #[serde(default)]
+    pub genomes: HashMap<Uuid, Genome>,
     pub redundancy: RedundancySystem,
     pub active_cells: HashMap<Uuid, AgentCell>,
     pub conscience: Conscience,
@@ -48,6 +52,7 @@ impl BiomimeticOrchestrator {
             tissues: HashMap::new(),
             dormant_spores: Vec::new(),
             spore_tissue_map: HashMap::new(),
+            genomes: HashMap::new(),
             redundancy: RedundancySystem::new(),
             active_cells,
             conscience: Conscience::new(max_dissonance, baseline_budget),
@@ -148,7 +153,11 @@ impl BiomimeticOrchestrator {
             .ok_or_else(|| format!("Cellule {} non trouvée", worker_id))?;
         // Éviter une référence pendante : le tissu ne doit plus référencer une cellule absente.
         let origin = self.detach_from_tissues(worker_id);
-        let genome = Genome::new(&worker.role);
+        // Préserver la lignée : réutiliser le génome connu de la cellule si disponible.
+        let genome = worker
+            .genome_id
+            .and_then(|genome_id| self.genomes.get(&genome_id).cloned())
+            .unwrap_or_else(|| Genome::new(&worker.role));
         let spore = match spore_type {
             SporeType::BacterialEndospore => Spore::from_cell(spore_type.clone(), &worker, genome, 9999),
             SporeType::FungalReproductive => {
@@ -171,8 +180,11 @@ impl BiomimeticOrchestrator {
         // Vérifier la viabilité AVANT de consommer la spore dormante, sinon une
         // germination ratée la détruirait silencieusement.
         let spore = self.dormant_spores[index].clone();
+        let genome = spore.genome.clone();
         let revived_cell = spore.germinate(warm_and_wet, nutrients_available)?;
         self.dormant_spores.remove(index);
+        // Conserver le génome pour les sporulations ultérieures de cette lignée.
+        self.genomes.insert(genome.genome_id(), genome);
         let cell_id = revived_cell.cell_id;
         // Réintégrer la cellule ranimée dans son tissu d'origine, si connu.
         if let Some(tissue_name) = self.spore_tissue_map.remove(&cell_id)
@@ -195,16 +207,17 @@ impl BiomimeticOrchestrator {
         }
     }
 
-    /// Embryologie : clivage du zygote et différenciation HOX
+    /// Embryologie : clivage du zygote et différenciation HOX.
+    /// Les cellules produites sont retournées mais ne sont PAS enregistrées :
+    /// l'appelant doit les intégrer via `add_worker` pour garantir l'invariant
+    /// « toute cellule active appartient à un tissu ».
     pub fn cleave_and_differentiate(&mut self, divisions: u32, gradient: f64) -> Vec<AgentCell> {
         let zygote = AgentCell::new("Zygote_Origin", "Origine clonale", "Embryo");
         let mut swarm = cleave_zygote(zygote, divisions);
         let mut genome = seed_hox_genome("HOX_BLUEPRINT");
         differentiate_swarm(&mut swarm, gradient, &mut genome);
         sculpt_architecture_via_apoptosis(&mut swarm);
-        for cell in &swarm {
-            self.active_cells.insert(cell.cell_id, cell.clone());
-        }
+        self.genomes.insert(genome.genome_id(), genome.clone());
         swarm
     }
 
