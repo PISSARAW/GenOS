@@ -319,7 +319,14 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_biomimicry_turritopsis_transdifferentiation', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Revert adult medusa agent to juvenile polyp stem state under critical exhaustion while preserving genome.' },
   { name: 'genos_biomimicry_yamanaka_reprogramming', cat: 'Swarm Biomimicry', risk: 'Amber', desc: 'Erase differentiated role constraints using OSKM factors to restore induced pluripotency (iPSC).' },
   { name: 'genos_temporal_consciousness_transfer', cat: 'Workspace Control', risk: 'Amber', desc: 'Replay agent execution at baseline S(t0) while preserving cumulative future episodic memory and failure lessons.' },
-  { name: 'genos_temporal_novikov_causal_rebase', cat: 'Workspace Control', risk: 'Amber', desc: 'Execute Novikov self-consistent causal replay and propagate state deltas without paradoxes (P(paradox)=0).' }
+  { name: 'genos_temporal_novikov_causal_rebase', cat: 'Workspace Control', risk: 'Amber', desc: 'Execute Novikov self-consistent causal replay and propagate state deltas without paradoxes (P(paradox)=0).' },
+  { name: 'genos_genome_compile', cat: 'Orchestration', risk: 'Low', desc: 'Compile an AgentGenome manifest into a binary AgentDNA genome.' },
+  { name: 'genos_genome_validate', cat: 'Orchestration', risk: 'Low', desc: 'Validate an AgentDNA genome and its Ed25519 signature.' },
+  { name: 'genos_genome_inspect', cat: 'Orchestration', risk: 'Low', desc: 'Inspect an AgentDNA genome phenotype and provenance.' },
+  { name: 'genos_genome_cross', cat: 'Orchestration', risk: 'Amber', desc: 'Meiotic crossover between two AgentDNA genomes.' },
+  { name: 'genos_genome_mutate', cat: 'Orchestration', risk: 'Amber', desc: 'Mutate an AgentDNA genome (stochastic, hypermutation or targeted locus).' },
+  { name: 'genos_genome_clone', cat: 'Orchestration', risk: 'Amber', desc: 'Clone an AgentDNA genome (mitosis, binary fission or budding).' },
+  { name: 'genos_genome_decoy', cat: 'Orchestration', risk: 'Amber', desc: 'Produce a marked decoy AgentDNA genome with a plausible phenotype.' }
 ];
 
 async function seedMcpTools(db) {

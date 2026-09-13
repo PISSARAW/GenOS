@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const zlib = require('zlib');
+const { unpack } = require('msgpackr');
 
 const MAGIC = Buffer.from('GDNA');
 const FORMAT_VERSION = 1;
@@ -53,18 +54,49 @@ function readSections(buffer, header) {
   return sections;
 }
 
-function contentHash(sections) {
-  const hash = crypto.createHash('sha256');
+function canonicalFlux(sections) {
+  const chunks = [];
   const tags = [...sections.keys()].filter((tag) => !HASH_EXCLUDED_TAGS.has(tag)).sort();
   for (const tag of tags) {
     const payload = sections.get(tag);
     const length = Buffer.alloc(4);
     length.writeUInt32LE(payload.length);
-    hash.update(Buffer.from(tag, 'ascii'));
-    hash.update(length);
-    hash.update(payload);
+    chunks.push(Buffer.from(tag, 'ascii'), length, payload);
   }
-  return hash.digest('hex');
+  return Buffer.concat(chunks);
+}
+
+function contentHash(sections) {
+  return crypto.createHash('sha256').update(canonicalFlux(sections)).digest('hex');
+}
+
+function verifyEd25519(signerHex, message, signature) {
+  try {
+    const raw = Buffer.from(String(signerHex).replace(/^0x/, ''), 'hex');
+    if (raw.length !== 32) return false;
+    const key = crypto.createPublicKey({
+      key: { kty: 'OKP', crv: 'Ed25519', x: raw.toString('base64url') },
+      format: 'jwk'
+    });
+    return crypto.verify(null, message, key, signature);
+  } catch (_) {
+    return false;
+  }
+}
+
+function verifySignature(sections) {
+  const signature = sections.get('SIGN');
+  if (!signature) return { signed: false, signer: null, valid: false };
+  const provenance = sections.get('PROV');
+  if (!provenance) return { signed: true, signer: null, valid: false };
+  let signer = null;
+  try {
+    signer = unpack(provenance)[7];
+  } catch (_) {
+    return { signed: true, signer: null, valid: false };
+  }
+  if (!signer) return { signed: true, signer: null, valid: false };
+  return { signed: true, signer, valid: verifyEd25519(signer, canonicalFlux(sections), signature) };
 }
 
 function uuidFromBuffer(buffer) {
@@ -78,4 +110,4 @@ function decodeContainer(buffer) {
   return { header, sections: readSections(buffer, header) };
 }
 
-module.exports = { decodeContainer, contentHash, uuidFromBuffer, HEADER_LEN, FORMAT_VERSION };
+module.exports = { decodeContainer, contentHash, canonicalFlux, verifySignature, uuidFromBuffer, HEADER_LEN, FORMAT_VERSION };

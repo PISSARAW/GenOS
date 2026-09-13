@@ -47,8 +47,10 @@ pub fn verify_signature(bytes: &[u8]) -> Result<Option<String>, String> {
 }
 
 fn canonical_flux(sections: &[Section]) -> Vec<u8> {
+    let mut ordered: Vec<&Section> = sections.iter().filter(|section| section.tag != SectionTag::Sign).collect();
+    ordered.sort_by(|left, right| left.tag.as_bytes().cmp(&right.tag.as_bytes()));
     let mut flux = Vec::new();
-    for section in sections {
+    for section in ordered {
         flux.extend_from_slice(&section.tag.as_bytes());
         flux.extend_from_slice(&(section.payload.len() as u32).to_le_bytes());
         flux.extend_from_slice(&section.payload);

@@ -5,6 +5,8 @@ function runSafeSync(commandLine, timeoutMs) {
 }
 
 async function executeToolLogic(toolName, args, runLocal, timeoutMs = 30000) {
+  const genomeResult = await require('../../mcpGenomeTools').executeGenomeTool(toolName, args, runLocal);
+  if (genomeResult) return genomeResult;
   if (toolName === 'genos_agent_world_capsule') {
     return runLocal(`genos capsule create --snapshot ${args.snapshot_id}` + (args.seed ? ` --seed "${args.seed}"` : '') + (args.budget_steps ? ` --budget-steps ${args.budget_steps}` : ''));
   }

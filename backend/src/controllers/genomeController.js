@@ -3,6 +3,7 @@ const path = require('path');
 const { getDatabase } = require('../db');
 const store = require('../services/agentDnaStore');
 const operations = require('../services/agentDnaOperations');
+const policy = require('../services/agentDnaPolicy');
 
 const DEFAULT_DIRECTORY = path.resolve(__dirname, '../../../agents/dna');
 
@@ -72,7 +73,38 @@ async function importGenomes(req, res, next) {
   }
 }
 
-module.exports = { listGenomes, getGenome, importGenomes, operateGenome, summarize };
+module.exports = { listGenomes, getGenome, importGenomes, operateGenome, getGenomePolicy, setGenomePolicy, summarize };
+
+function tenantScope(req) {
+  const tenant = req.tenant || {};
+  return { organizationId: tenant.organizationId, projectId: tenant.projectId };
+}
+
+async function getGenomePolicy(req, res, next) {
+  try {
+    const db = await getDatabase();
+    res.json({ success: true, policy: await policy.getPolicy(db, tenantScope(req)) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function setGenomePolicy(req, res, next) {
+  try {
+    const scope = tenantScope(req);
+    if (!scope.organizationId || !scope.projectId) {
+      return res.status(400).json({
+        error: { code: 'GENOME_POLICY_SCOPE_REQUIRED', message: 'X-Organization-Id and X-Project-Id are required.' }
+      });
+    }
+    const db = await getDatabase();
+    const body = req.body || {};
+    const requireSigned = body.requireSigned === true || body.requireSigned === 'true';
+    res.json({ success: true, policy: await policy.setPolicy(db, scope, requireSigned) });
+  } catch (error) {
+    next(error);
+  }
+}
 
 async function operateGenome(req, res, next) {
   try {

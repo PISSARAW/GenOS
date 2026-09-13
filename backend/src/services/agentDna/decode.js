@@ -1,6 +1,6 @@
 const { unpack } = require('msgpackr');
 
-const { decodeContainer, contentHash, uuidFromBuffer } = require('./container');
+const { decodeContainer, contentHash, verifySignature, uuidFromBuffer } = require('./container');
 const { decodeInstruction, splitStrandPayload } = require('./packing');
 const { express } = require('./express');
 
@@ -144,6 +144,10 @@ function decodeBuffer(buffer) {
     raw: buffer
   };
   if (model.phenotype === null) model.phenotype = express(model);
+  const signature = verifySignature(sections);
+  model.signed = signature.signed;
+  model.signer = signature.signer;
+  model.signatureValid = signature.valid;
   return model;
 }
 

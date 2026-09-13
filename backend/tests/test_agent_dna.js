@@ -7,6 +7,7 @@ const agentDna = require('../src/services/agentDna');
 const store = require('../src/services/agentDnaStore');
 
 const DNA_FILE = path.resolve(__dirname, '../../agents/dna/fondations/preuve_evidence.dna');
+const SECURITY_FILE = path.resolve(__dirname, '../../agents/dna/securite/circuit_breaker_immune.dna');
 
 async function testDecode() {
   const model = agentDna.decodeFile(DNA_FILE);
@@ -61,11 +62,12 @@ async function testSelection() {
   process.env.GENOS_AGENT_DNA = '1';
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
   await createSchema(db);
-  const model = agentDna.decodeFile(DNA_FILE);
-  await store.saveGenome(db, model, { id: 'EvidenceLedger' });
-  const selection = await store.selectGenome(db, { role: 'historian' });
-  assert.ok(selection);
-  assert.equal(selection.id, 'EvidenceLedger');
+  await store.saveGenome(db, agentDna.decodeFile(DNA_FILE), { id: 'EvidenceLedger' });
+  await store.saveGenome(db, agentDna.decodeFile(SECURITY_FILE), { id: 'CircuitBreakerImmune' });
+  const byRole = await store.selectGenome(db, { role: 'historian' }, null);
+  assert.equal(byRole.id, 'EvidenceLedger');
+  const byMission = await store.selectGenome(db, { role: 'worker', mission: 'verrouiller les outils destructifs' }, null);
+  assert.equal(byMission.id, 'CircuitBreakerImmune');
   delete process.env.GENOS_AGENT_DNA;
   await db.close();
   console.log('AgentDNA selection checks passed.');

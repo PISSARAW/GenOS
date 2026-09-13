@@ -13,6 +13,18 @@ const agentEvolution = require('./agentEvolutionService');
 const agentDnaStore = require('./agentDnaStore');
 const { withTransaction } = require('../db');
 
+async function applyAgentDna(ctx) {
+  const { db, parent, assignment, mission, evolution } = ctx;
+  const scope = { organizationId: parent.organization_id, projectId: parent.project_id };
+  const missionText = (mission && mission.prompt) || parent.current_task || '';
+  const selection = await agentDnaStore.workerGenesForAssignment(db, { ...assignment, mission: missionText }, scope);
+  if (!selection) return;
+  evolution.genes = { ...evolution.genes, ...selection.genes };
+  evolution.source = 'agent_dna';
+  evolution.dnaGenomeRef = selection.genomeRef;
+  assignment.genomeRef = selection.genomeRef;
+}
+
 function calculateInheritedCognitiveBudget(parentBudget, workerShare, workerCount) {
   const normalizedParentBudget = Math.max(0, Number(parentBudget ?? 100));
   const normalizedWorkerShare = Number.isFinite(Number(workerShare))
@@ -117,13 +129,7 @@ async function prepareWorkerAssets(workerContext) {
   const identity = agentIdentity.generateAgentIdentity({ preferredName: assignment.preferredName || assignment.name, role: assignment.role, excludeNames: usedNames, stableKey: id });
   usedNames.push(identity.name);
   const evolution = agentEvolution.evolveWorkerGenome(parent, assignment, { strategy: plan.strategyContract?.primary || 'tree-search' });
-  const dnaSelection = await agentDnaStore.workerGenesForAssignment(db, assignment);
-  if (dnaSelection) {
-    evolution.genes = { ...evolution.genes, ...dnaSelection.genes };
-    evolution.source = 'agent_dna';
-    evolution.dnaGenomeRef = dnaSelection.genomeRef;
-    assignment.genomeRef = dnaSelection.genomeRef;
-  }
+  await applyAgentDna({ db, parent, assignment, mission, evolution });
   const conscience = agentConscience.createConscienceState({ currentBudget: perWorkerCognitiveBudget, baselineBudget: perWorkerCognitiveBudget });
   const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
