@@ -40,6 +40,9 @@ fn handle_trinity_cmd(subcommand: TrinitySubcommands) -> Result<(), String> {
                 let p = prompt.unwrap_or_else(|| "Implémenter un parser Bencode en Rust avec gestion d'erreurs stricte".to_string());
                 commands::trinity_tui::run(&mission_id, &p, simulation)
             } else {
+                if prompt.is_some() || simulation {
+                    return Err("--prompt and --simulation require --split-screen".to_string());
+                }
                 platform::handle_trinity(&mission_id, &strategies)
             }
         }
