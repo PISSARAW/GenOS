@@ -24,6 +24,10 @@ pub struct BiomimeticOrchestrator {
     pub conscience_state: ConscienceState,
     pub tissues: HashMap<String, Tissue>,
     pub dormant_spores: Vec<Spore>,
+    /// Tissu d'origine de chaque spore (clé = identifiant de la cellule parente),
+    /// afin de réintégrer la cellule ranimée lors de la germination.
+    #[serde(default)]
+    pub spore_tissue_map: HashMap<Uuid, String>,
     pub redundancy: RedundancySystem,
     pub active_cells: HashMap<Uuid, AgentCell>,
     pub conscience: Conscience,
@@ -43,6 +47,7 @@ impl BiomimeticOrchestrator {
             conscience_state: ConscienceState::default(),
             tissues: HashMap::new(),
             dormant_spores: Vec::new(),
+            spore_tissue_map: HashMap::new(),
             redundancy: RedundancySystem::new(),
             active_cells,
             conscience: Conscience::new(max_dissonance, baseline_budget),
@@ -142,7 +147,7 @@ impl BiomimeticOrchestrator {
         let worker = self.active_cells.remove(&worker_id)
             .ok_or_else(|| format!("Cellule {} non trouvée", worker_id))?;
         // Éviter une référence pendante : le tissu ne doit plus référencer une cellule absente.
-        self.detach_from_tissues(worker_id);
+        let origin = self.detach_from_tissues(worker_id);
         let genome = Genome::new(&worker.role);
         let spore = match spore_type {
             SporeType::BacterialEndospore => Spore::from_cell(spore_type.clone(), &worker, genome, 9999),
@@ -150,6 +155,9 @@ impl BiomimeticOrchestrator {
                 Spore::from_cell(spore_type.clone(), &worker, genome, 0)
             }
         };
+        if let Some(tissue_name) = origin {
+            self.spore_tissue_map.insert(worker_id, tissue_name);
+        }
         self.dormant_spores.push(spore);
         Ok(self.dormant_spores.len() - 1)
     }
@@ -166,6 +174,12 @@ impl BiomimeticOrchestrator {
         let revived_cell = spore.germinate(warm_and_wet, nutrients_available)?;
         self.dormant_spores.remove(index);
         let cell_id = revived_cell.cell_id;
+        // Réintégrer la cellule ranimée dans son tissu d'origine, si connu.
+        if let Some(tissue_name) = self.spore_tissue_map.remove(&cell_id) {
+            if let Some(tissue) = self.tissues.get_mut(&tissue_name) {
+                tissue.integrate_cell(cell_id);
+            }
+        }
         self.active_cells.insert(cell_id, revived_cell.clone());
         Ok(revived_cell)
     }
@@ -316,6 +330,27 @@ mod tests {
         assert!(
             orchestrator.delegate_task("Core", (worker_id, "continuer")).is_err(),
             "une cellule sporulee ne doit plus etre délégable"
+        );
+    }
+
+    #[test]
+    fn test_germinated_cell_rejoins_its_tissue() {
+        let mut orchestrator = BiomimeticOrchestrator::new("Overmind", 50.0, 100.0);
+        orchestrator.create_tissue("Core", "Role").unwrap();
+        let worker_id = orchestrator
+            .add_worker("Core", AgentCell::new("Worker", "Worker", "Worker"))
+            .unwrap();
+
+        let spore_idx = orchestrator
+            .sporulate_cell(worker_id, SporeType::BacterialEndospore)
+            .unwrap();
+        assert!(orchestrator.delegate_task("Core", (worker_id, "x")).is_err());
+
+        let revived = orchestrator.germinate_spore(spore_idx, (true, true)).unwrap();
+        assert_eq!(revived.cell_id, worker_id);
+        assert!(
+            orchestrator.delegate_task("Core", (worker_id, "x")).is_ok(),
+            "la cellule germee doit reintegrer son tissu d'origine"
         );
     }
 
