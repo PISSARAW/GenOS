@@ -152,6 +152,12 @@ async function handleOrganizationPublish({ db, request, orchestratorId }) {
     signalType: request.signalType || request.signal_type,
     signalData: request.signalData || request.signal_data || request.signal
   });
+  telemetry.emitEvent({
+    eventType: published.delivery === 'buffered' ? 'ORGANIZATION_MESSAGE_BUFFERED' : 'ORGANIZATION_MESSAGE_PUBLISHED',
+    agentId: senderAgentId, action: published.channel,
+    detail: `Published ${published.kind} through ${published.organization}.`,
+    payload: { ...published, sender: senderAgentId, recipient: published.recipientAgentId }, severity: 'info'
+  });
   process.stdout.write(JSON.stringify(published));
 }
 
@@ -165,7 +171,7 @@ async function handleOrganizationRead({ db, request, action, orchestratorId }) {
 
 async function ensureParent({ db, context }) {
   let parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", context.orchestratorId);
-  if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error'].includes(parent.status))) {
+  if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status))) {
     context.orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
       VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, context.orchestratorId, context.task);
@@ -183,12 +189,14 @@ function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
   const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify({
     action: 'dispatch_worker', background: false, orchestratorId: context.orchestratorId, workerId,
     mission: member.mission, role: member.role, model_tier: member.modelTier,
-    execution_budget: context.request.execution_budget,
+    ...(member.name ? { name: member.name } : {}),
+    execution_budget: context.request.execution_budget || context.request.executionBudget,
+    timeoutMs: context.request.timeoutMs,
     workspace_root: context.request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
     reuseChecked: true
   })], { cwd: context.repoRoot, detached: true, stdio: getRunnerStdio(workerId) });
   runner.unref();
-  return { workerId, memberNumber: member.memberNumber || index, role: member.role, modelTier: member.modelTier, status: 'accepted' };
+  return { workerId, subSystem: member.subSystem, memberNumber: member.memberNumber || index, role: member.role, modelTier: member.modelTier, status: 'accepted' };
 }
 
 async function handleBiological({ db, context }) {
@@ -230,8 +238,9 @@ async function handleTrinity({ db, context }) {
   const accepted = [];
   for (const member of members) {
     const workerId = `worker_${context.orchestratorId}_${Date.now()}_${member.worldNumber}_${Math.random().toString(36).slice(2, 6)}`;
-    await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, 'queued', ?)`, `${missionId}_world_${member.worldNumber}`, mission, member.worldNumber, `Trinity Worker (World ${member.worldNumber}: ${member.label})`, member.role, workerId);
-    launchWorker({ context, member, index: member.worldNumber, parent, suppliedWorkerId: workerId });
+    const trinityName = `Trinity Worker (World ${member.worldNumber}: ${member.label})`;
+    await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, 'queued', ?)`, `${missionId}_world_${member.worldNumber}`, mission, member.worldNumber, trinityName, member.role, workerId);
+    launchWorker({ context, member: { ...member, name: trinityName }, index: member.worldNumber, parent, suppliedWorkerId: workerId });
     accepted.push({ workerId, worldNumber: member.worldNumber, strategy: member.role, status: 'accepted' });
   }
   process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, trinity: { status: 'accepted', mission, capacity: workerGarage.MAX_ACTIVE_WORKERS, worlds: accepted } }));
@@ -271,7 +280,8 @@ function workerName(request, role, mission) { return String(request.name || work
 function workspaceFor(parent, context) { return parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT || context.repoRoot; }
 function workerCapsuleId(context) { return context.reusedWorker ? `${context.id}_run_${Date.now()}` : context.id; }
 function validateWorkspace(requested, source) {
-  if (requested && path.resolve(requested) !== path.resolve(source)) throw new Error(`Requested workspace root does not match orchestrator workspace '${source}'.`);
+  const norm = (value) => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
+  if (requested && norm(requested) !== norm(source)) throw new Error(`Requested workspace root does not match orchestrator workspace '${source}'.`);
 }
 async function insertWorker({ db, context, parent, request, name, role }) {
   if (context.reusedWorker) return;
@@ -293,13 +303,17 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
   if (context.request.timeoutMs && !missionBudget.latencyMs) {
     missionBudget.latencyMs = Math.max(1000, Number(context.request.timeoutMs) - 4000);
   }
-  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: context.task, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false, timeoutMs: context.request.timeoutMs });
+  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: context.task, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false, timeoutMs: context.request.timeoutMs });
 }
 
-function workerPolicy() {
-  let inheritedCommands = [];
-  try { inheritedCommands = normalizeAllowedCommands(JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]')) || []; } catch { inheritedCommands = []; }
-  return { allowedCommands: inheritedCommands, allowFileEdits: /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || '')), silentUpdates: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || '')) };
+function workerPolicy(request = {}) {
+  const policy = request.executionPolicy || {};
+  const explicitCommands = firstPresent(request.allowed_commands, request.allowedCommands, policy.allowedCommands);
+  const explicitEdits = firstPresent(request.allow_file_edits, request.allowFileEdits, policy.allowFileEdits);
+  let inherited;
+  if (explicitCommands !== undefined) inherited = normalizeAllowedCommands(explicitCommands) || [];
+  else { try { inherited = normalizeAllowedCommands(JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]')) || []; } catch { inherited = []; } }
+  return { allowedCommands: inherited, allowFileEdits: explicitEdits === undefined ? /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || '')) : explicitEdits === true, silentUpdates: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || '')) };
 }
 
 async function handleWorker({ db, context }) {
@@ -377,23 +391,6 @@ async function handleAction(context) {
   return true;
 }
 
-const cliHelp = require('./cliHelp.cjs');
-if (require.main === module) {
-  if (cliHelp.checkHelp(process.argv, 'orchestratorActions.cjs')) process.exit(0);
-  const { getDatabase, closeDatabase } = require('../src/db');
-  (async () => {
-    let req = {};
-    try { req = JSON.parse(process.argv[2] || '{}'); } catch (_) {}
-    const db = await getDatabase();
-    try {
-      await handleAction({
-        db, action: req.action, request: req, task: req.task || req.mission || '',
-        orchestratorId: req.orchestratorId || 'standalone_orchestrator',
-        id: req.id || req.workerId, repoRoot: path.resolve(__dirname, '../..'),
-        bridgePath: path.resolve(__dirname, 'genos-orchestrate.cjs')
-      });
-    } finally { await closeDatabase(); }
-  })().catch((e) => { console.error(e.message); process.exit(1); });
-}
+if (require.main === module) require('./orchestratorActionsCli.cjs').run({ handleAction }).catch((e) => { console.error(e.message); process.exit(1); });
 
 module.exports = { handleAction, handleBackground, initializeMission };
