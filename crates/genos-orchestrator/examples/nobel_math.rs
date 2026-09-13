@@ -2,7 +2,7 @@ use genos_biology::bioluminescence::FluorophoreColor;
 use genos_biology::spore::SporeType;
 use genos_cell::AgentCell;
 use genos_immune::{AntibodyDetector, Antigen};
-use genos_orchestrator::{BiomimeticOrchestrator, BucketState, SchedulingDecision, TokenBucketScheduler};
+use genos_orchestrator::{BiomimeticOrchestrator, BucketState, TokenBucketScheduler};
 use std::f64::consts::PI;
 
 // --- Hypotheses de Riemann : zeros non triviaux de zeta sur la droite crit.

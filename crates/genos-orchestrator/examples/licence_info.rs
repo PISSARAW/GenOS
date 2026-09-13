@@ -112,7 +112,7 @@ fn main() {
     println!("[4] Zola reattache={} ; Chidi<Nia organites={}\n", orch.delegate_task("Verification", (revived.cell_id, "relire")).is_ok(), orch.active_cells.get(&chidi).unwrap().organelles.len());
 
     // --- Tri & recherche ---
-    let mut data: Vec<i32> = (0..1000).map(|i| ((i * 7919) % 10007) as i32 - 5000).collect();
+    let mut data: Vec<i32> = (0..1000).map(|i| (i * 7919) % 10007 - 5000).collect();
     let mut reference = data.clone();
     reference.sort_unstable();
     let cmp = quicksort(&mut data);

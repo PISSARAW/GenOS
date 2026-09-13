@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+
 use genos_biology::bioluminescence::FluorophoreColor;
 use genos_biology::spore::SporeType;
 use genos_cell::AgentCell;

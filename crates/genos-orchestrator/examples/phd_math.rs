@@ -38,7 +38,7 @@ fn schrodinger_eigenvalue(k: usize) -> f64 {
     let (mut lo, mut hi) = (-1.0_f64, 60.0_f64);
     for _ in 0..200 {
         let mid = 0.5 * (lo + hi);
-        if count(mid) >= k + 1 {
+        if count(mid) > k {
             hi = mid;
         } else {
             lo = mid;
