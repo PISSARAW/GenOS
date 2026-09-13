@@ -38,8 +38,9 @@ function getRunnerStdio(processId) {
   }
 }
 
-async function handleBackground({ context, reusableWorker = null }) {
-  if (!reusableWorker && context.action === 'dispatch_worker') {
+async function handleBackground(context) {
+  let reusableWorker = null;
+  if (context.action === 'dispatch_worker') {
     const lookupDb = await context.getDatabase();
     try {
       reusableWorker = await findReusableWorker({ context, db: lookupDb });
