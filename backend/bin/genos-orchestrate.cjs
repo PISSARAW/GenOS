@@ -81,7 +81,16 @@ async function prepareRuntime(initDb) {
   await runtime.reconcilePersistedRuntimes(initDb);
   const topLevelMissionActions = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']);
   if (!orchestratorId && !topLevelMissionActions.has(action)) {
-    const active = await initDb.get(`SELECT a.id FROM agents a WHERE a.execution_mode = 'orchestrator' AND a.status NOT IN ('completed', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined') AND (a.is_apoptotic = 0 OR a.is_apoptotic IS NULL) ORDER BY a.updated_at DESC, a.created_at DESC LIMIT 1`);
+    const requestedRoot = request.workspace_root || request.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT;
+    const resolvedRoot = requestedRoot ? path.resolve(requestedRoot) : null;
+    const active = await initDb.get(
+      `SELECT a.id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
+       WHERE a.execution_mode = 'orchestrator' AND a.status NOT IN ('completed', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined')
+         AND (a.is_apoptotic = 0 OR a.is_apoptotic IS NULL)
+         AND (? IS NULL OR w.path IS NULL OR w.path = ?)
+       ORDER BY a.updated_at DESC, a.created_at DESC LIMIT 1`,
+      resolvedRoot, resolvedRoot
+    );
     if (active) orchestratorId = active.id;
   }
   if (!orchestratorId) orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
