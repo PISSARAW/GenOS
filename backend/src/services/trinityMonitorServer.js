@@ -110,7 +110,8 @@ class TrinityMonitorServer {
   async resolveLatestMissionId() {
     try {
       const db = await getDatabase();
-      const row = await db.get('SELECT id FROM trinity_worlds ORDER BY created_at DESC LIMIT 1');
+      // rowid is strictly insertion-ordered; created_at is only second-granular.
+      const row = await db.get('SELECT id FROM trinity_worlds ORDER BY rowid DESC LIMIT 1');
       return row ? deriveMissionId(row.id) : null;
     } catch (_) {
       return null;
