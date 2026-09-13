@@ -164,14 +164,6 @@ async function executeToolLogic(toolName, args, runLocal, timeoutMs = 30000) {
     }
     return { configured: true, success: true, status: 'completed', transport: 'strategy_primitive', output: { success: true, prunedSynapses: prunedCount, orphanedDecisionsPruned: orphanedPruned, threshold, agent_id: agentId || 'global' } };
   }
-  if (toolName === 'genos_trinity_deploy') {
-    try {
-      const out = runSafeSync(`genos trinity deploy --mission-id ${args.mission_id} --strategies "${args.strategies}"`, timeoutMs);
-      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
-    } catch (e) {
-      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
-    }
-  }
   if (toolName === 'genos_allele_frequency_analyzer') {
     try {
       const out = runSafeSync(`genos swarm allele-analyzer --swarm-id ${args.swarm_id}`, timeoutMs);
