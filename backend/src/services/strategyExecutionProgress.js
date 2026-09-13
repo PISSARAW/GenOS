@@ -74,6 +74,25 @@ function applyPhaseGate(outcome, steps, event) {
   return index;
 }
 
+// The runtime emits coarse lifecycle events (plan created, think, execute,
+// verify, completed) that do not map one-to-one onto the contract pipeline.
+// When an event enters phase N, the phases before it that the runtime never
+// touched are not failures: mark untouched ones `skipped` and started ones
+// `completed` so the linear gate does not halt an otherwise valid mission.
+async function settlePredecessorSteps(db, steps, index) {
+  const now = new Date().toISOString();
+  for (const step of steps) {
+    if (step.sequence >= index) continue;
+    if (step.status === 'planned') {
+      await db.run("UPDATE strategy_execution_steps SET status = 'skipped', completed_at = ? WHERE id = ? AND status = 'planned'", now, step.id);
+      step.status = 'skipped';
+    } else if (step.status === 'running') {
+      await db.run("UPDATE strategy_execution_steps SET status = 'completed', completed_at = COALESCE(completed_at, ?) WHERE id = ? AND status = 'running'", now, step.id);
+      step.status = 'completed';
+    }
+  }
+}
+
 function eventRunId(event) {
   const payload = event.payload || {};
   return payload.executionRunId || null;
@@ -167,6 +186,9 @@ async function advanceExecutionStep(db, plan, outcome) {
   const steps = plan.steps;
   const index = plan.index;
   if (index < 0 || !steps[index]) return outcome.guardrailReason;
+  // A settled phase must not regress to `running` when a later event maps back
+  // to it (the runtime event ordering is not strictly monotonic).
+  if (['completed', 'skipped'].includes(steps[index].status)) return outcome.guardrailReason;
   const execution = await maybeRunStepPrimitives(db, steps[index], outcome);
   await persistStepProgress(db, steps[index], { outcome, execution });
   return execution.guardrailReason;
@@ -212,6 +234,8 @@ async function recordExecutionEvent(db, agentId, event) {
   if (!row) return null;
   const outcome = await resolveRunOutcome(db, row, { agentId, event });
   const steps = await db.all('SELECT * FROM strategy_execution_steps WHERE run_id = ? ORDER BY sequence', row.id);
+  const gateIndex = events.stepIndex(event, steps.length);
+  if (gateIndex > 0) await settlePredecessorSteps(db, steps, gateIndex);
   const index = applyPhaseGate(outcome, steps, event);
   const guardrailReason = await advanceExecutionStep(db, { steps, index }, outcome);
   await skipRemainingSteps(db, { rowId: row.id, event, guardrailReason, now: outcome.now });
