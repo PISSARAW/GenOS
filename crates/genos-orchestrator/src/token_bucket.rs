@@ -214,11 +214,15 @@ impl TokenBucketScheduler {
         let reward = 30.0 * score;
         bucket.tokens = (bucket.tokens + reward).min(bucket.capacity);
         bucket.total_evidence += score;
-        bucket.starvation_count = 0;
 
-        if matches!(bucket.state, BucketState::Throttled { .. }) {
-            bucket.state = BucketState::Active;
-            bucket.throttled_until = None;
+        // Only a non-zero (proven) score clears the starvation counter and
+        // lifts the throttle; a 0.0 score must not be a free jailbreak.
+        if score > 0.0 {
+            bucket.starvation_count = 0;
+            if matches!(bucket.state, BucketState::Throttled { .. }) {
+                bucket.state = BucketState::Active;
+                bucket.throttled_until = None;
+            }
         }
 
         Ok(RewardReport {

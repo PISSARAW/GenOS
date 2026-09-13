@@ -51,6 +51,20 @@ fn severe_waste_triggers_apoptosis_even_with_tokens() {
 }
 
 #[test]
+fn zero_score_reward_does_not_clear_starvation() {
+    let mut scheduler = TokenBucketScheduler::new();
+    scheduler.register_agent("agent-a", 5.0, DEFAULT_BUCKET_CAPACITY);
+    scheduler.schedule_step("agent-a", 20.0);
+    assert_eq!(scheduler.buckets.get("agent-a").unwrap().starvation_count, 1);
+
+    scheduler.reward_proof("agent-a", 0.0).unwrap();
+
+    let bucket = scheduler.buckets.get("agent-a").unwrap();
+    assert_eq!(bucket.starvation_count, 1, "un reward nul ne doit pas effacer la famine");
+    assert!(matches!(bucket.state, BucketState::Throttled { .. }));
+}
+
+#[test]
 fn reward_proof_capacity_is_capped() {
     let mut scheduler = TokenBucketScheduler::new();
     scheduler.register_agent("agent-a", 0.0, DEFAULT_BUCKET_CAPACITY);
