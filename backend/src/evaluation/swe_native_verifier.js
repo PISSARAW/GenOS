@@ -32,22 +32,35 @@ function runGit(cmd, cwd) {
 }
 
 function applyPatchToRepo(repoDir, patchContent) {
+  const content = patchContent.endsWith('\n') ? patchContent : patchContent + '\n';
   const tmpDiff = path.join(repoDir, '_temp_swe_apply.diff');
-  fs.writeFileSync(tmpDiff, patchContent, 'utf8');
+  fs.writeFileSync(tmpDiff, content, 'utf8');
   try {
-    execSync('git apply --whitespace=nowarn _temp_swe_apply.diff', { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+    execSync('git apply --ignore-whitespace --whitespace=nowarn _temp_swe_apply.diff', { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
     fs.unlinkSync(tmpDiff);
     return true;
-  } catch (e) {
-    if (fs.existsSync(tmpDiff)) fs.unlinkSync(tmpDiff);
-    return false;
+  } catch (_) {
+    try {
+      execSync('git apply --recount --ignore-whitespace --whitespace=nowarn _temp_swe_apply.diff', { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+      fs.unlinkSync(tmpDiff);
+      return true;
+    } catch (_) {
+      if (fs.existsSync(tmpDiff)) fs.unlinkSync(tmpDiff);
+      return false;
+    }
   }
 }
 
-function runPytest(repoDir, testTarget, pythonPath = 'src') {
-  const env = { PYTHONPATH: pythonPath };
-  const cmd = `python -m pytest ${testTarget} -v -W ignore::DeprecationWarning`;
-  return runCmd(cmd, repoDir, env);
+function toWslPath(winPath) {
+  return winPath.replace(/\\/g, '/').replace(/^([a-zA-Z]):/, (_, drive) => `/mnt/${drive.toLowerCase()}`);
+}
+
+function runPytest(repoDir, testTarget, pythonPath = 'src:.') {
+  const wslDir = toWslPath(repoDir);
+  const repoName = path.basename(repoDir);
+  const pytestBin = `~/.swe_venvs/${repoName}/bin/pytest`;
+  const wslCmd = `wsl -d Ubuntu-24.04 bash -c "cd '${wslDir}' && PYTHONPATH=${pythonPath} ${pytestBin} ${testTarget} -v -W ignore::DeprecationWarning"`;
+  return runCmd(wslCmd, repoDir);
 }
 
 function parseTestList(val) {
@@ -57,6 +70,44 @@ function parseTestList(val) {
     return JSON.parse(val);
   } catch (e) {
     return [String(val)];
+  }
+}
+
+function checkRegressionTests(repoDir, passList) {
+  if (!passList.length) return true;
+  console.log(`\n[STEP 5] Running PASS_TO_PASS test suite (Regression Check)...`);
+  const samplePassTargets = passList.slice(0, 5).join(' ');
+  const regResult = runPytest(repoDir, samplePassTargets);
+  const ok = regResult.success;
+  console.log(`  -> PASS_TO_PASS regression check: ${ok ? 'PASSED' : 'FAILED'}`);
+  return ok;
+}
+
+function injectFlaskShim(repoDir) {
+  const fShim = 'import werkzeug\nif not hasattr(werkzeug, "__version__"):\n    werkzeug.__version__ = "2.3.7"\n';
+  const cPath = path.join(repoDir, 'tests', 'conftest.py');
+  if (fs.existsSync(cPath)) {
+    const existing = fs.readFileSync(cPath, 'utf8');
+    fs.writeFileSync(cPath, fShim + '\n' + existing, 'utf8');
+  }
+}
+
+function prepareRepoForTask(task, repoDir) {
+  runGit('config core.autocrlf false', repoDir);
+  runGit('reset --hard', repoDir);
+  runGit('clean -fdx', repoDir);
+  runGit(`checkout ${task.base_commit}`, repoDir);
+
+  if (task.repo === 'pytest-dev/pytest') {
+    const vPath = path.join(repoDir, 'src/_pytest/_version.py');
+    fs.writeFileSync(vPath, 'version = "7.4.0.dev"\nversion_tuple = (7, 4, 0)\n', 'utf8');
+  }
+  if (task.repo === 'psf/requests') {
+    const shim = 'import collections, collections.abc\nfor a in ["Mapping", "MutableMapping", "Sequence", "Iterable", "Callable"]:\n  if hasattr(collections.abc, a) and not hasattr(collections, a):\n    setattr(collections, a, getattr(collections.abc, a))\n';
+    fs.writeFileSync(path.join(repoDir, 'conftest.py'), shim, 'utf8');
+  }
+  if (task.repo === 'pallets/flask') {
+    injectFlaskShim(repoDir);
   }
 }
 
@@ -70,15 +121,7 @@ function verifyTaskDynamically(task, patchToTest) {
   console.log(`Repository: ${task.repo} | Base Commit: ${task.base_commit.slice(0, 8)}`);
   console.log(`======================================================================`);
 
-  // Step 1: Clean and checkout base commit
-  runGit('reset --hard', repoDir);
-  runGit('clean -fdx', repoDir);
-  runGit(`checkout ${task.base_commit}`, repoDir);
-
-  if (task.repo === 'pytest-dev/pytest') {
-    const vPath = path.join(repoDir, 'src/_pytest/_version.py');
-    fs.writeFileSync(vPath, 'version = "7.4.0.dev"\nversion_tuple = (7, 4, 0)\n', 'utf8');
-  }
+  prepareRepoForTask(task, repoDir);
 
   // Step 2: Apply benchmark test patch
   console.log(`\n[STEP 1] Applying official benchmark test patch...`);
@@ -94,8 +137,8 @@ function verifyTaskDynamically(task, patchToTest) {
   const failList = parseTestList(task.FAIL_TO_PASS);
   const failToPassTarget = failList.join(' ');
   const preResult = runPytest(repoDir, failToPassTarget);
-  console.log(`  -> Pre-fix test result: ${preResult.success ? 'PASSED (Unexpected!)' : 'FAILED (Expected reproduction!)'}`);
   const reproduced = !preResult.success;
+  console.log(`  -> Pre-fix test result: ${reproduced ? 'FAILED (Expected reproduction!)' : 'PASSED'}`);
 
   // Step 4: Apply model patch
   console.log(`\n[STEP 3] Applying candidate patch (${patchToTest.length} bytes)...`);
@@ -112,34 +155,34 @@ function verifyTaskDynamically(task, patchToTest) {
   const resolved = postResult.success;
   console.log(`  -> Post-fix test result: ${resolved ? 'PASSED (RESOLUTION CONFIRMED!)' : 'FAILED'}`);
   if (!resolved) {
-    console.log(`  -> Failure snippet:\n${postResult.output.slice(-300)}`);
+    console.log(`  -> Test output snippet:\n${(postResult.output || '').slice(-400)}`);
   }
 
   // Step 6: Run PASS_TO_PASS check (Regression Check)
   let regressionFree = true;
-  const passList = parseTestList(task.PASS_TO_PASS);
-  if (resolved && passList.length > 0) {
-    console.log(`\n[STEP 5] Running PASS_TO_PASS test suite (Regression Check)...`);
-    const samplePassTargets = passList.slice(0, 5).join(' ');
-    const regResult = runPytest(repoDir, samplePassTargets);
-    regressionFree = regResult.success;
-    console.log(`  -> PASS_TO_PASS regression check: ${regressionFree ? 'PASSED (No regression!)' : 'FAILED (Regression detected)'}`);
+  if (resolved) {
+    regressionFree = checkRegressionTests(repoDir, parseTestList(task.PASS_TO_PASS));
   }
 
   // Reset repo clean
   runGit('reset --hard', repoDir);
   runGit('clean -fdx', repoDir);
 
-  const verdict = {
-    instance_id: instanceId,
-    reproduced,
-    resolved,
-    regression_free: regressionFree,
-    status: (resolved && regressionFree) ? 'RESOLVED_PASS_AT_1' : 'UNRESOLVED'
-  };
+  const status = (resolved && regressionFree) ? 'RESOLVED_PASS_AT_1' : 'UNRESOLVED';
+  const errorOutput = resolved ? '' : extractPytestFailure(postResult.output);
+  const verdict = { instance_id: instanceId, reproduced, resolved, regression_free: regressionFree, error_output: errorOutput, status };
 
-  console.log(`\n>>> VERDICT FOR ${instanceId}: [${verdict.status}] <<<`);
+  console.log(`\n>>> VERDICT FOR ${instanceId}: [${status}] <<<`);
   return verdict;
+}
+
+function extractPytestFailure(output) {
+  if (!output) return '';
+  const idx = output.indexOf('FAILURES');
+  if (idx !== -1) return output.slice(idx, idx + 2500);
+  const underIdx = output.indexOf('_____');
+  if (underIdx !== -1) return output.slice(underIdx, underIdx + 2500);
+  return output.slice(-2000);
 }
 
 async function runNativeVerification(targetInstance = null) {
@@ -176,7 +219,17 @@ async function runNativeVerification(targetInstance = null) {
 }
 
 if (require.main === module) {
-  const target = process.argv[2] || 'pallets__flask-4992';
+  const args = process.argv.slice(2);
+  let target = 'pallets__flask-4992';
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--instance' && args[i + 1]) {
+      target = args[i + 1];
+      break;
+    } else if (!args[i].startsWith('--')) {
+      target = args[i];
+      break;
+    }
+  }
   runNativeVerification(target).catch(console.error);
 }
 
