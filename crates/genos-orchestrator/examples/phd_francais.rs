@@ -1,6 +1,6 @@
 use genos_biology::spore::SporeType;
 use genos_cell::AgentCell;
-use genos_orchestrator::{BiomimeticOrchestrator, BucketState, SchedulingDecision, TokenBucketScheduler};
+use genos_orchestrator::{BiomimeticOrchestrator, BucketState, TokenBucketScheduler};
 use std::collections::HashMap;
 
 // --- Doctorat de francais : stylometrie computationnelle --------------------

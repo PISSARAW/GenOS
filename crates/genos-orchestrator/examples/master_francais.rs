@@ -1,6 +1,6 @@
 use genos_biology::spore::SporeType;
 use genos_cell::AgentCell;
-use genos_orchestrator::{BiomimeticOrchestrator, BucketState, SchedulingDecision, TokenBucketScheduler};
+use genos_orchestrator::{BiomimeticOrchestrator, BucketState, TokenBucketScheduler};
 
 // --- Master de francais : prosodie du sonnet et figures de style ------------
 
@@ -47,12 +47,10 @@ fn rhyme_key(word: &str) -> String {
     };
     let silent_e = (idx + 1 == chars.len() && chars[idx] == 'e')
         || (idx + 2 == chars.len() && chars[idx] == 'e' && chars[idx + 1] == 's');
-    if silent_e {
-        for i in 0..idx {
-            if is_vowel(chars[i]) {
-                idx = i;
-            }
-        }
+    if silent_e
+        && let Some(previous_vowel) = (0..idx).rev().find(|&i| is_vowel(chars[i]))
+    {
+        idx = previous_vowel;
     }
     chars[idx..].iter().collect()
 }

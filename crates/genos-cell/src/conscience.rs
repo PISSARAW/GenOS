@@ -121,8 +121,10 @@ mod tests {
 
     #[test]
     fn test_eureka_counter_saturates() {
-        let mut conscience = ConscienceState::default();
-        conscience.eureka_moments = u32::MAX;
+        let mut conscience = ConscienceState {
+            eureka_moments: u32::MAX,
+            ..Default::default()
+        };
 
         conscience.trigger_eureka();
 

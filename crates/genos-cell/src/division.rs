@@ -117,7 +117,7 @@ impl AgentCell {
     }
 
     pub fn schizogony(&mut self, merozoite_count: usize, mutation_rate: f64) -> Result<Vec<AgentCell>, String> {
-        if merozoite_count < 2 || merozoite_count > 128 {
+        if !(2..=128).contains(&merozoite_count) {
             return Err(format!(
                 "Merozoite count must be between 2 and 128, got {}",
                 merozoite_count

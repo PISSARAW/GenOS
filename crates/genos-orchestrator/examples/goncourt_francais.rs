@@ -1,6 +1,6 @@
 use genos_biology::spore::SporeType;
 use genos_cell::AgentCell;
-use genos_orchestrator::{BiomimeticOrchestrator, BucketState, SchedulingDecision, TokenBucketScheduler};
+use genos_orchestrator::{BiomimeticOrchestrator, BucketState, TokenBucketScheduler};
 use std::collections::HashSet;
 
 // --- "Prix Goncourt" : palmares stylistique et poeme a forme fixe -----------
@@ -96,12 +96,10 @@ fn rhyme_key(word: &str) -> String {
     let mut idx = last_v.unwrap_or(0);
     let silent_e = (idx + 1 == chars.len() && chars[idx] == 'e')
         || (idx + 2 == chars.len() && chars[idx] == 'e' && chars[idx + 1] == 's');
-    if silent_e {
-        for i in 0..idx {
-            if is_vowel(chars[i]) {
-                idx = i;
-            }
-        }
+    if silent_e
+        && let Some(previous_vowel) = (0..idx).rev().find(|&i| is_vowel(chars[i]))
+    {
+        idx = previous_vowel;
     }
     chars[idx..].iter().collect()
 }
@@ -144,7 +142,7 @@ fn main() {
     let tariq = orch
         .add_worker("Poesie", AgentCell::new("Tariq", "eclaireur", "Poete"))
         .unwrap();
-    let zola = orch
+    let _zola = orch
         .add_worker("Verification", AgentCell::new("Zola", "pacificateur", "Verificateur"))
         .unwrap();
     orch.delegate_task("Comite_Lecture", (kwame, "classer les 3 extraits")).unwrap();
