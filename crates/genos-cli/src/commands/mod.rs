@@ -16,6 +16,7 @@ pub mod hallucination;
 pub mod platform;
 pub mod experiments;
 pub mod genome;
+pub mod genome_ops;
 pub mod replay;
 pub mod replay_chain;
 pub mod reproduction;
