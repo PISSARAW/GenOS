@@ -103,12 +103,12 @@ impl AgentComputeBucket {
             self.tokens = (self.tokens + elapsed * self.refill_rate).min(self.capacity);
             self.last_refill = now;
         }
-        if let Some(until) = self.throttled_until {
-            if now >= until {
-                self.throttled_until = None;
-                if self.tokens > 0.0 {
-                    self.state = BucketState::Active;
-                }
+        if let Some(until) = self.throttled_until
+            && now >= until
+        {
+            self.throttled_until = None;
+            if self.tokens > 0.0 {
+                self.state = BucketState::Active;
             }
         }
     }
