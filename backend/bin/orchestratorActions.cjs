@@ -152,6 +152,12 @@ async function handleOrganizationPublish({ db, request, orchestratorId }) {
     signalType: request.signalType || request.signal_type,
     signalData: request.signalData || request.signal_data || request.signal
   });
+  telemetry.emitEvent({
+    eventType: published.delivery === 'buffered' ? 'ORGANIZATION_MESSAGE_BUFFERED' : 'ORGANIZATION_MESSAGE_PUBLISHED',
+    agentId: senderAgentId, action: published.channel,
+    detail: `Published ${published.kind} through ${published.organization}.`,
+    payload: { ...published, sender: senderAgentId, recipient: published.recipientAgentId }, severity: 'info'
+  });
   process.stdout.write(JSON.stringify(published));
 }
 
