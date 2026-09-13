@@ -52,25 +52,13 @@ impl Conscience {
         let penalty = (errors_in_loop as f64) * 2.5 + repetition_penalty + drift_penalty + health_penalty;
         let relief = progress_score * 3.0;
 
-        state.dissonance_level = (state.dissonance_level + penalty - relief).max(0.0);
-        state.current_budget = (state.current_budget - 1.0 - errors_in_loop as f64).max(0.0);
-
-        if state.dissonance_level >= self.max_dissonance_threshold || state.current_budget <= 0.0 {
-            state.is_apoptotic = true;
-            state.current_budget = 0.0;
-        }
-        state.revision += 1;
+        // Transition centralisée dans ConscienceState (source unique de vérité).
+        state.apply_evaluation(penalty, relief, 1.0 + errors_in_loop as f64);
     }
 
     /// Enregistre une illumination (Eurêka) et divise la dissonance par deux.
     pub fn trigger_eureka(&self, state: &mut ConscienceState) {
-        if state.is_apoptotic {
-            return;
-        }
-        state.eureka_moments = state.eureka_moments.saturating_add(1);
-        state.dissonance_level /= 2.0;
-        state.current_budget = (state.current_budget + 50.0).min(state.baseline_budget);
-        state.revision += 1;
+        state.trigger_eureka();
     }
 }
 
@@ -111,5 +99,15 @@ mod tests {
         assert!(state.is_apoptotic);
         assert_eq!(state.current_budget, 0.0);
         assert_eq!(state.revision, 4);
+    }
+
+    #[test]
+    fn test_negative_progress_is_an_extra_penalty() {
+        let conscience = Conscience::new(50.0, 100.0);
+        let mut state = ConscienceState::default();
+        // relief = progress * 3 = -6 -> la dissonance augmente de 6.
+        conscience.evaluate_branch_extended(&mut state, 0, -2.0, 0.0, 0.0, 1.0);
+        assert_eq!(state.dissonance_level, 6.0);
+        assert_eq!(state.revision, 1);
     }
 }
