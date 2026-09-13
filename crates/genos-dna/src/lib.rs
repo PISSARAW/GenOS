@@ -9,6 +9,7 @@ pub mod compile;
 pub mod express;
 pub mod validate;
 pub mod operations;
+pub mod sign;
 
 pub use header::{Header, HEADER_LEN, SECTION_ENTRY_LEN, FORMAT_VERSION, MAGIC};
 pub use section::{Section, SectionTag};

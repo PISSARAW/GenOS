@@ -49,6 +49,68 @@ pub struct DecoyRequest<'a> {
     pub write: WriteOptions,
 }
 
+pub struct KeygenRequest<'a> {
+    pub output: &'a str,
+    pub write: WriteOptions,
+}
+
+pub struct SignRequest<'a> {
+    pub input: &'a str,
+    pub output: &'a str,
+    pub key: &'a str,
+    pub write: WriteOptions,
+}
+
+pub fn handle_keygen(req: KeygenRequest) -> Result<(), String> {
+    let signing = genos_dna::sign::generate_signing_key();
+    let secret = genos_dna::sign::secret_key_hex(&signing);
+    let public = genos_dna::sign::public_key_hex(&signing);
+    let path = resolve_output_path(req.output, &req.write)?;
+    std::fs::write(&path, &secret).map_err(|error| format!("Failed to write '{}': {}", path.display(), error))?;
+    println!("{}", json!({
+        "success": true,
+        "operation": "genome_keygen",
+        "file": path.display().to_string(),
+        "public_key": public,
+    }));
+    Ok(())
+}
+
+pub fn handle_sign(req: SignRequest) -> Result<(), String> {
+    let secret = read_secret(req.key)?;
+    let bytes = std::fs::read(req.input)
+        .map_err(|error| format!("Failed to read genome '{}': {}", req.input, error))?;
+    let mut dna = validate::validate_bytes(&bytes)?;
+    let signed = codec::encode_signed(&mut dna, &secret)?;
+    let path = resolve_output_path(req.output, &req.write)?;
+    std::fs::write(&path, &signed).map_err(|error| format!("Failed to write '{}': {}", path.display(), error))?;
+    let signer = dna.provenance.signer.clone().unwrap_or_default();
+    let content_hash = codec::content_hash(&dna)?;
+    println!("{}", json!({
+        "success": true,
+        "operation": "genome_sign",
+        "format": "AgentDNA/v1",
+        "output": path.display().to_string(),
+        "bytes": signed.len(),
+        "content_hash": content_hash,
+        "signer": signer,
+    }));
+    Ok(())
+}
+
+fn read_secret(value: &str) -> Result<Vec<u8>, String> {
+    let raw = match std::fs::read_to_string(value) {
+        Ok(text) => text,
+        Err(_) => value.to_string(),
+    };
+    let trimmed = raw.trim().trim_start_matches("0x").to_string();
+    let bytes = genos_dna::sign::hex_decode(&trimmed)?;
+    if bytes.len() != genos_dna::sign::SECRET_KEY_LEN {
+        return Err(format!("secret key must be {} bytes", genos_dna::sign::SECRET_KEY_LEN));
+    }
+    Ok(bytes)
+}
+
 pub fn handle_cross(req: CrossRequest) -> Result<(), String> {
     let parent_a = read_dna(req.parent_a)?;
     let parent_b = read_dna(req.parent_b)?;

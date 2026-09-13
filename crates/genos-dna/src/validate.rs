@@ -17,6 +17,7 @@ pub fn validate(dna: &AgentDna) -> Result<(), String> {
 pub fn validate_bytes(bytes: &[u8]) -> Result<AgentDna, String> {
     let dna = codec::decode(bytes)?;
     validate(&dna)?;
+    codec::verify_signature(bytes)?;
     Ok(dna)
 }
 

@@ -12,8 +12,17 @@ pub fn execute(cmd: GenomeSubcommands) -> Result<(), String> {
             let opts = WriteOptions { force, parents };
             handle_compile(&input, &output, &opts)
         }
-        GenomeSubcommands::Validate { file } => handle_validate(&file),
+        GenomeSubcommands::Validate { file, pubkey } => handle_validate(&file, pubkey.as_deref()),
         GenomeSubcommands::Inspect { file } => handle_inspect(&file),
+        GenomeSubcommands::Keygen { output, force, parents } => {
+            genome_ops::handle_keygen(genome_ops::KeygenRequest { output: &output, write: WriteOptions { force, parents } })
+        }
+        GenomeSubcommands::Sign { input, output, key, force, parents } => {
+            genome_ops::handle_sign(genome_ops::SignRequest {
+                input: &input, output: &output, key: &key,
+                write: WriteOptions { force, parents },
+            })
+        }
         GenomeSubcommands::Cross { parent_a, parent_b, output, swap_prob, point, seed, speciation_threshold, force, parents } => {
             genome_ops::handle_cross(genome_ops::CrossRequest {
                 parent_a: &parent_a, parent_b: &parent_b, output: &output,
@@ -76,11 +85,19 @@ fn handle_compile(input: &str, output: &str, opts: &WriteOptions) -> Result<(), 
     Ok(())
 }
 
-fn handle_validate(file: &str) -> Result<(), String> {
+fn handle_validate(file: &str, pubkey: Option<&str>) -> Result<(), String> {
     let bytes = std::fs::read(file)
         .map_err(|error| format!("Failed to read genome '{}': {}", file, error))?;
     match validate::validate_bytes(&bytes) {
         Ok(dna) => {
+            let signer = codec::verify_signature(&bytes)?;
+            if let Some(expected) = pubkey {
+                let expected = expected.trim_start_matches("0x");
+                let actual = signer.clone().unwrap_or_default();
+                if !actual.eq_ignore_ascii_case(expected) {
+                    return Err(format!("signer mismatch: expected {expected}, found {actual}"));
+                }
+            }
             let content_hash = codec::content_hash(&dna).unwrap_or_default();
             println!("{}", json!({
                 "success": true,
@@ -88,6 +105,8 @@ fn handle_validate(file: &str) -> Result<(), String> {
                 "format": "AgentDNA/v1",
                 "file": file,
                 "status": "VALID",
+                "signed": signer.is_some(),
+                "signer": signer,
                 "content_hash": content_hash,
                 "genome": {
                     "name": dna.meta.name,

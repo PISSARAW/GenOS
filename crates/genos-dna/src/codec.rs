@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use genos_genome::{DnaStrand, Plasmid};
 use sha2::{Digest, Sha256};
 
-use crate::header::{self, Header, FLAG_DECOY, FLAG_HAS_EXTRA_CHROMOSOMES, FLAG_HAS_PLASMIDS, FLAG_HAS_RETROVIRUSES, FLAG_PHENOTYPE_CACHED, FLAG_SCALARS_LE, HEADER_LEN, SECTION_ENTRY_LEN};
+use crate::header::{self, Header, FLAG_DECOY, FLAG_HAS_EXTRA_CHROMOSOMES, FLAG_HAS_PLASMIDS, FLAG_HAS_RETROVIRUSES, FLAG_PHENOTYPE_CACHED, FLAG_SCALARS_LE, FLAG_SIGNED, HEADER_LEN, SECTION_ENTRY_LEN};
 use crate::model::{AgentDna, Meta, Phenotype, Provenance};
 use crate::packing::{decode_strand, encode_strand};
 use crate::section::{Section, SectionEntry, SectionTag};
@@ -17,12 +17,52 @@ pub fn encode(dna: &AgentDna) -> Result<Vec<u8>, String> {
 pub fn content_hash(dna: &AgentDna) -> Result<String, String> {
     let sections = build_sections(dna)?;
     let mut hasher = Sha256::new();
-    for section in &sections {
-        hasher.update(section.tag.as_bytes());
-        hasher.update((section.payload.len() as u32).to_le_bytes());
-        hasher.update(&section.payload);
-    }
+    hasher.update(canonical_flux(&sections));
     Ok(hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+pub fn encode_signed(dna: &mut AgentDna, secret: &[u8]) -> Result<Vec<u8>, String> {
+    let signing = crate::sign::signing_key_from_secret(secret)?;
+    dna.provenance.signer = Some(crate::sign::public_key_hex(&signing));
+    let mut sections = build_sections(dna)?;
+    let signature = crate::sign::sign_flux(&signing, &canonical_flux(&sections));
+    sections.push(Section::new(SectionTag::Sign, signature));
+    sections.sort_by(|left, right| left.tag.cmp(&right.tag));
+    assemble(&sections, compute_flags(dna) | FLAG_SIGNED)
+}
+
+pub fn verify_signature(bytes: &[u8]) -> Result<Option<String>, String> {
+    let sections = decode_sections(bytes)?;
+    let signature = match sections.iter().find(|section| section.tag == SectionTag::Sign) {
+        Some(section) => section.payload.clone(),
+        None => return Ok(None),
+    };
+    let signed: Vec<Section> = sections.into_iter().filter(|section| section.tag != SectionTag::Sign).collect();
+    let flux = canonical_flux(&signed);
+    let signer = read_provenance(&signed)?
+        .signer
+        .ok_or("signed AgentDNA is missing provenance.signer")?;
+    crate::sign::verify_flux(&signer, &flux, &signature)?;
+    Ok(Some(signer))
+}
+
+fn canonical_flux(sections: &[Section]) -> Vec<u8> {
+    let mut flux = Vec::new();
+    for section in sections {
+        flux.extend_from_slice(&section.tag.as_bytes());
+        flux.extend_from_slice(&(section.payload.len() as u32).to_le_bytes());
+        flux.extend_from_slice(&section.payload);
+    }
+    flux
+}
+
+fn decode_sections(bytes: &[u8]) -> Result<Vec<Section>, String> {
+    let header = Header::decode(bytes)?;
+    let (sections, payload_crc) = read_sections(bytes, &header)?;
+    if payload_crc != header.payload_crc32 {
+        return Err("AgentDNA payload CRC mismatch".to_string());
+    }
+    Ok(sections)
 }
 
 pub fn build_sections(dna: &AgentDna) -> Result<Vec<Section>, String> {
