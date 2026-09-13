@@ -13,7 +13,6 @@ const REQUIRED_STRINGS = {
   genos_incident_experiment: ['manifest'],
   genos_bug_investigation: ['manifest'],
   genos_phenotype_measure_divergence: ['trait_name'],
-  genos_trinity_deploy: ['mission_id', 'strategies'],
   genos_allele_frequency_analyzer: ['swarm_id'],
   genos_compliance_report: ['standard', 'output_file'],
   genos_strategy_adaptation: ['agent_id', 'constraint'],
