@@ -1,4 +1,4 @@
-module.exports = { createAutonomousWorkers };
+module.exports = { createAutonomousWorkers, splitBudget };
 
 const path = require('path');
 const circuitBreaker = require('./circuitBreaker');
@@ -195,6 +195,15 @@ function allocatedBudgetFields(costUsd, events) {
 function splitBudget(value, index, assignments) {
   const total = Number(value);
   if (!Number.isFinite(total) || total <= 0) return undefined;
-  const base = Math.floor(total / assignments);
-  return base + (index < total - (base * assignments) ? 1 : 0);
+  const count = Math.max(1, Math.floor(assignments) || 1);
+  const base = Math.floor(total / count);
+  const remainder = total - base * count;
+  const bonusSlots = Math.floor(remainder);
+  const fractional = remainder - bonusSlots;
+  // Whole remainder units go to the first workers; the inevitable fractional
+  // residue is kept by the first worker. index === 0 also carries any remainder
+  // so the split never sums above the available total.
+  const bonus = index < bonusSlots ? 1 : 0;
+  const extra = index === 0 ? fractional : 0;
+  return Number((base + bonus + extra).toFixed(6));
 }
