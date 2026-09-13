@@ -175,10 +175,10 @@ impl BiomimeticOrchestrator {
         self.dormant_spores.remove(index);
         let cell_id = revived_cell.cell_id;
         // Réintégrer la cellule ranimée dans son tissu d'origine, si connu.
-        if let Some(tissue_name) = self.spore_tissue_map.remove(&cell_id) {
-            if let Some(tissue) = self.tissues.get_mut(&tissue_name) {
-                tissue.integrate_cell(cell_id);
-            }
+        if let Some(tissue_name) = self.spore_tissue_map.remove(&cell_id)
+            && let Some(tissue) = self.tissues.get_mut(&tissue_name)
+        {
+            tissue.integrate_cell(cell_id);
         }
         self.active_cells.insert(cell_id, revived_cell.clone());
         Ok(revived_cell)
