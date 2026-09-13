@@ -132,7 +132,21 @@ pub fn handle_cost_accounting(agent_id: &str, timeframe: Option<&str>) -> Result
     crate::commands::accounting::handle_cost_accounting(agent_id, timeframe)
 }
 
+fn validate_trinity_mission_id(mission_id: &str) -> Result<(), String> {
+    // The mission id becomes a directory name; reject anything that could
+    // escape the trinity root (path separators, traversal, drive letters).
+    if mission_id.is_empty()
+        || !mission_id
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_')
+    {
+        return Err("mission_id must contain only ASCII letters, digits, '-' or '_'".to_string());
+    }
+    Ok(())
+}
+
 pub fn handle_trinity(mission_id: &str, strategies: &str) -> Result<(), String> {
+    validate_trinity_mission_id(mission_id)?;
     let trinity_dir = crate::commands::root_resolver::resolve_matrix_root().join("trinity").join(mission_id);
     let _ = std::fs::create_dir_all(&trinity_dir);
     for sub in &["thesis", "antithesis", "synthesis"] {
