@@ -40,7 +40,7 @@ async function consultLocalModels(db, agentId, mission, plan, tenant = {}) {
   };
   try {
     const policy = await modelRouter.localRoutingPolicy(db, { agentId, ...tenant }, candidates);
-    const planTimeoutMs = Math.min(2500, Math.max(500, Math.floor(Number(mission.timeoutMs || 30000) * 0.1)));
+    const planTimeoutMs = localPlanTimeoutMs(capable, mission);
     const result = await modelRouter.generate({
       db, agentId, ...tenant, timeoutMs: planTimeoutMs, policy,
       priority: 'interactive',
@@ -65,6 +65,15 @@ function modelScale(model) {
     return 7_000_000_000;
   }
   return byteSize;
+}
+
+function localPlanTimeoutMs(models, mission = {}) {
+  const missionTimeout = Number(mission.timeoutMs || 30000);
+  const largestParameters = (Array.isArray(models) ? models : []).reduce((max, model) => Math.max(max, modelScale(model)), 0);
+  const billions = largestParameters / 1_000_000_000;
+  const scaled = Math.round(1500 + billions * 2000);
+  const ceiling = Math.min(60000, Math.max(2500, Math.floor(missionTimeout * 0.5)));
+  return Math.max(2500, Math.min(ceiling, scaled));
 }
 
 function localCompetencyFloor({ role, modelTier, purpose } = {}) {
@@ -115,4 +124,4 @@ async function localWorkerRoute(db, agentId, role, modelTier, tenant = {}) {
   };
 }
 
-module.exports = { modelUsage, consultLocalModels, modelScale, localCompetencyFloor, competentLocalModels, rankLocalModels, localWorkerRoute, machineLoad };
+module.exports = { modelUsage, consultLocalModels, modelScale, localPlanTimeoutMs, localCompetencyFloor, competentLocalModels, rankLocalModels, localWorkerRoute, machineLoad };
