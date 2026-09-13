@@ -18,6 +18,12 @@ const orchestrationCoverage = require('../src/services/orchestrationCoverageServ
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 const { handleAction, handleBackground, initializeMission } = require('./orchestratorActions.cjs');
 
+// A stray async DB write (SQLITE_BUSY, closed handle at shutdown, ...) must not
+// crash the whole mission: log it and let the mission timeout/finalization run.
+process.on('unhandledRejection', (reason) => {
+  console.error('[genos-orchestrate] Unhandled rejection:', reason && reason.stack ? reason.stack : reason);
+});
+
 if (process.env.GENOS_STREAM_TELEMETRY === '1') {
   telemetry.on('telemetry', (evt) => {
     process.stdout.write(`GENOS_STREAM:${JSON.stringify(evt)}\n`);

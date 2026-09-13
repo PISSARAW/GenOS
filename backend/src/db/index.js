@@ -91,6 +91,16 @@ async function getDatabase(dbFilePath) {
       console.warn('[DB] sqlite-vec extension could not be loaded:', err.message);
     }
 
+    // Reduce SQLITE_BUSY under concurrent writers (bridge + spawned runtime,
+    // multiple agents): wait instead of failing immediately, and prefer WAL.
+    try {
+      await db.exec('PRAGMA busy_timeout = 5000;');
+      await db.exec('PRAGMA journal_mode = WAL;');
+      await db.exec('PRAGMA synchronous = NORMAL;');
+    } catch (pragmaError) {
+      console.warn('[DB] Could not apply SQLite pragmas:', pragmaError.message);
+    }
+
     try {
       backupDatabaseFile(filename);
       await initializeSchema(db);
