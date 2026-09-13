@@ -30,6 +30,11 @@ message AgentMission {
   bool tool_gating_enabled = 21;
   float gating_threshold_mv = 22;
   string disinhibited_tools_json = 23;
+  // Selected local model and routing policy for the local cognitive runtime.
+  // Without these the worker receives no model hint and the router falls back
+  // to auto-discovery, silently loading an arbitrary (often huge) model.
+  string local_model = 24;
+  string local_routing_policy_json = 25;
 }
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }
