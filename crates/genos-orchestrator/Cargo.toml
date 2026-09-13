@@ -13,3 +13,8 @@ genos-biology = { path = "../genos-biology" }
 genos-genome = { path = "../genos-genome" }
 genos-signal = { path = "../genos-signal" }
 genos-immune = { path = "../genos-immune" }
+genos-common = { path = "../genos-common" }
+genos-store = { path = "../genos-store" }
+genos-reproduction = { path = "../genos-reproduction" }
+genos-sensorimotor = { path = "../genos-sensorimotor" }
+genos-dna = { path = "../genos-dna" }

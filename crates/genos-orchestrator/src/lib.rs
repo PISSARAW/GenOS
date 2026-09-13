@@ -1,10 +1,24 @@
 pub mod conscience;
+pub mod ecosystem;
 pub mod orchestrator;
 pub mod token_bucket;
 
 pub use conscience::{Conscience, ConscienceState};
+pub use ecosystem::GenosEcosystem;
 pub use orchestrator::BiomimeticOrchestrator;
 pub use token_bucket::{AgentComputeBucket, BucketState, PenaltyReport, RewardReport, SchedulingDecision, TokenBucketScheduler};
+
+// Accès direct à tout l'écosystème GenOS depuis le crate orchestrateur.
+pub use genos_biology;
+pub use genos_cell;
+pub use genos_common;
+pub use genos_dna;
+pub use genos_genome;
+pub use genos_immune;
+pub use genos_reproduction;
+pub use genos_sensorimotor;
+pub use genos_signal;
+pub use genos_store;
 
 #[cfg(test)]
 mod tests {
