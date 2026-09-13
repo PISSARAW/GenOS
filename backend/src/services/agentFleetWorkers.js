@@ -10,6 +10,7 @@ const { emit, workerToolLease } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');
 const agentConscience = require('./agentConscienceService');
 const agentEvolution = require('./agentEvolutionService');
+const agentDnaStore = require('./agentDnaStore');
 const { withTransaction } = require('../db');
 
 function calculateInheritedCognitiveBudget(parentBudget, workerShare, workerCount) {
@@ -116,6 +117,11 @@ async function prepareWorkerAssets(workerContext) {
   const identity = agentIdentity.generateAgentIdentity({ preferredName: assignment.preferredName || assignment.name, role: assignment.role, excludeNames: usedNames, stableKey: id });
   usedNames.push(identity.name);
   const evolution = agentEvolution.evolveWorkerGenome(parent, assignment, { strategy: plan.strategyContract?.primary || 'tree-search' });
+  const dnaGenes = await agentDnaStore.workerGenesForAssignment(db, assignment);
+  if (dnaGenes) {
+    evolution.genes = { ...evolution.genes, ...dnaGenes };
+    evolution.source = 'agent_dna';
+  }
   const conscience = agentConscience.createConscienceState({ currentBudget: perWorkerCognitiveBudget, baselineBudget: perWorkerCognitiveBudget });
   const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
