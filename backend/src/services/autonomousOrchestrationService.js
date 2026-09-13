@@ -18,7 +18,17 @@ const PRIMITIVE_ALIASES = {
   adversarial_review: ['adversarial_review', 'verify', 'independent_verify', 'pareto_select'],
   security_coevolution: ['security', 'red_queen', 'adversarial_review'],
   replay: ['replay', 'safe_revert', 'verify'],
-  record_decision: ['audit', 'record_decision', 'provenance']
+  record_decision: ['audit', 'record_decision', 'provenance'],
+  biomimicry_mirror_twin_fork: ['mirror_twin', 'mirror_twin_fork'],
+  biomimicry_hybrid_multiples: ['hybrid_multiples', 'matrix_polyovulation'],
+  biomimicry_heteropaternal_superfecundation: ['heteropaternal', 'multi_vendor'],
+  biomimicry_superfetation_pipeline: ['superfetation'],
+  biomimicry_embryonic_diapause_pipeline: ['diapause', 'diapause_pipeline'],
+  browser_act: ['web_foraging', 'scout'],
+  optimal_foraging: ['foraging', 'harvester'],
+  biomimicry_chromosomal_duplication: ['chromosomal_duplication', 'tandem_duplication'],
+  biomimicry_chromosomal_inversion: ['chromosomal_inversion', 'backward_reasoning'],
+  biomimicry_mitochondrial_dna_mutation: ['mitochondrial_mutation', 'energy_metabolism']
 };
 
 function selected(contract, id) {
@@ -194,6 +204,30 @@ function buildAutonomyPlan(contract, budget = {}) {
         when: 'an error needs isolation, a mutation changed behaviour, or before promotion',
         actions: ['genos_replay', 'genos_snapshot', 'genos_security_coevolution'],
         decide: 'replay the smallest relevant capsule; escalate to an adversarial Red/Blue loop for security or recurring failures'
+      },
+      {
+        id: 'biomimetic_forks_and_multiples', scope: 'orchestrator',
+        when: 'the mission requires high-risk counterfactual analysis, heterogeneous consensus, or complex tandem duplication',
+        actions: ['genos_biomimicry_mirror_twin_fork', 'genos_biomimicry_hybrid_multiples', 'genos_biomimicry_heteropaternal_superfecundation', 'genos_biomimicry_chromosomal_duplication'],
+        decide: 'instantiate mirror twins for adversarial exploration, hybrid multiples for matrix polyovulation, or multi-vendor heteropaternal clones to eliminate systemic bias'
+      },
+      {
+        id: 'asynchronous_gestation_and_pipeline', scope: 'orchestrator',
+        when: 'the execution pipeline requires zero-latency staggered starts or asynchronous co-gestation of dependent tasks',
+        actions: ['genos_biomimicry_superfetation_pipeline', 'genos_biomimicry_embryonic_diapause_pipeline'],
+        decide: 'inject cadet agents via superfetation to benefit from pioneer evidence, or use embryonic diapause for a 3-tier continuous flow without cold starts'
+      },
+      {
+        id: 'stigmergic_web_foraging', scope: 'orchestrator_and_workers',
+        when: 'the task requires information retrieval from external websites, dynamic DOM interaction, or navigating without API access',
+        actions: ['genos_browser_act', 'genos_optimal_foraging'],
+        decide: 'deploy a lightweight scout cell to forage the web and seal a pheromone token, allowing the heavy harvester cell to process the deterministic payload'
+      },
+      {
+        id: 'genetic_reprogramming_and_metabolism', scope: 'orchestrator',
+        when: 'causal backward reasoning is needed, or strict control over energy profiles and quotas is required',
+        actions: ['genos_biomimicry_chromosomal_inversion', 'genos_biomimicry_mitochondrial_dna_mutation'],
+        decide: 'invert the workflow for backward diagnosis, or mutate the mitochondrial DNA to adjust token metabolism and quota limits'
       }
     ],
     phases: realizable,
