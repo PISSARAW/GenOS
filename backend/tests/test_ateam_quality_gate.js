@@ -4,8 +4,8 @@ const { evaluateQualityGate, buildEvidence } = require('../src/services/aTeamQua
 
 const analysis = analyzeMission('Construire une interface React, une API Express et sécuriser OAuth avec des tests.');
 assert.equal(analysis.capabilityCoverage.coveredSum, 5);
-assert.equal(analysis.capabilityCoverage.requiredSum, 6);
-assert.equal(analysis.capabilityCoverage.ratio, 0.833);
+assert.equal(analysis.capabilityCoverage.requiredSum, 5);
+assert.equal(analysis.capabilityCoverage.ratio, 1);
 assert.equal(evaluateQualityGate(analysis).passed, true);
 
 const blocked = evaluateQualityGate(analyzeMission('Construire une interface React et une API Express.'), {

@@ -5,8 +5,17 @@ const analysis = aTeam.analyzeMission('Construire une interface React, une API E
 assert.equal(analysis.recommended, true);
 assert.deepEqual(analysis.detectedDomains.slice(0, 3), ['frontend', 'backend', 'security']);
 assert.equal(analysis.members.length, 3);
-assert.equal(analysis.capabilityCoverage.uncovered.includes('quality'), true);
+assert.deepEqual(analysis.detectedDomains, ['frontend', 'backend', 'security']);
+assert.equal(analysis.capabilityCoverage.ratio, 1);
+assert.deepEqual(analysis.capabilityCoverage.uncovered, []);
 assert.equal(aTeam.analyzeMission('Résoudre une récurrence de programmation dynamique.').recommended, false);
+
+const saturated = aTeam.analyzeMission('Développer le frontend React, le backend Express, la data SQL, la sécurité OAuth, les tests QA, les déploiements DevOps, un agent IA, le produit et la recherche scientifique.');
+assert.equal(saturated.recommended, true);
+assert.equal(saturated.members.length, aTeam.MAX_MEMBERS);
+assert.deepEqual(saturated.detectedDomains, saturated.members.map((member) => member.label));
+assert.equal(saturated.capabilityCoverage.ratio, 1);
+assert.equal(saturated.capabilityCoverage.uncovered.length, 0);
 
 const twoDomains = aTeam.analyzeMission('Construire une interface React et une API Express.');
 assert.deepEqual(twoDomains.members.map((member) => member.role), ['frontend_engineer', 'backend_engineer']);

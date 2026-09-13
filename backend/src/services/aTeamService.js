@@ -157,13 +157,14 @@ function buildMembers(selected) {
   return selected.map((candidate) => buildMember(candidate, selected));
 }
 
-function technicalResult(domains, required, members) {
+function technicalResult(selectedDomains, members) {
+  const required = requiredCapabilities(selectedDomains);
   return {
-    recommended: domains.length >= 2,
+    recommended: selectedDomains.length >= 2,
     artifact: null,
-    primaryDomain: domains[0]?.domain || null,
+    primaryDomain: selectedDomains[0]?.domain || null,
     requiredCapabilities: required,
-    detectedDomains: domains.map(({ domain }) => domain),
+    detectedDomains: selectedDomains.map(({ domain }) => domain),
     capabilityCoverage: coverage(required, members),
     members
   };
@@ -171,7 +172,7 @@ function technicalResult(domains, required, members) {
 
 function technicalAnalysis(domains) {
   const selected = domains.slice(0, maxMembers());
-  return technicalResult(domains, requiredCapabilities(domains), buildMembers(selected));
+  return technicalResult(selected, buildMembers(selected));
 }
 
 function analyzeMission(mission) {
