@@ -63,7 +63,7 @@ async function waitForCompletion(db) {
   const deadline = Math.max(Date.now() + 5000, SCRIPT_START_TIME + baseTimeout);
   while (Date.now() < deadline) {
     const agents = await db.all('SELECT id, status FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
-    if (agents.length && agents.every((agent) => ['idle', 'blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed'].includes(agent.status))) return agents;
+    if (agents.length && agents.every((agent) => ['blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed', 'quarantined'].includes(agent.status))) return agents;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('GenOS orchestrator timed out');
