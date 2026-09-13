@@ -64,7 +64,10 @@ async function snapshot(context) {
     await fsp.mkdir(sandboxPath, { recursive: true });
     await fsp.writeFile(path.join(sandboxPath, 'workspace_manifest.json'), JSON.stringify({ agent: context.agentId || 'default', createdAt: new Date().toISOString() }));
     const wsId = `ws-sandbox-${context.agentId || 'default'}`;
-    await db.run('INSERT OR IGNORE INTO workspaces (id, name, path, visibility, language) VALUES (?, ?, ?, ?, ?)', wsId, 'Agent Sandbox Workspace', sandboxPath, 'Private', 'TypeScript');
+    // The workspaces table has a unique (organization, project, name) index, so
+    // every agent sandbox must carry a distinct name; otherwise the INSERT is
+    // silently ignored and the following lookup reports "not found".
+    await db.run('INSERT OR IGNORE INTO workspaces (id, name, path, visibility, language) VALUES (?, ?, ?, ?, ?)', wsId, `Agent Sandbox Workspace ${context.agentId || 'default'}`, sandboxPath, 'Private', 'TypeScript');
     workspaceId = wsId;
   }
   let workspace = await scopedWorkspace(db, workspaceId);
