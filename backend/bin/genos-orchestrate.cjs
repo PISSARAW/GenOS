@@ -119,7 +119,11 @@ async function executeMission(db, state) {
   if (requestTimeoutMs && !missionBudget.latencyMs) {
     missionBudget.latencyMs = Math.max(1000, Number(requestTimeoutMs) - 4000);
   }
-  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: requestTimeoutMs });
+  const executor = String(policyRequest.executor || request.executor || '').trim().toLowerCase();
+  const useLocalRuntime = executor === 'local' || policyRequest.local_runtime === true
+    || /^(1|true)$/i.test(String(process.env.GENOS_ORCHESTRATOR_LOCAL || ''))
+    || String(process.env.GENOS_AGENT_EXECUTOR || '').trim().toLowerCase() === 'local';
+  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: requestTimeoutMs, ...(useLocalRuntime ? { executor: 'local' } : {}) });
   const agents = await waitForCompletion(db);
   const telemetryRows = await db.all('SELECT event_type, action, detail, severity, payload_json FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
   const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
