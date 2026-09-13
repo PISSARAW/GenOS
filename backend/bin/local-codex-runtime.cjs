@@ -161,11 +161,20 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
     // On enveloppe l'agent dans le Système Immunitaire (Pléiotropie = maxRetries 3)
     let fallbackUsed = false;
     const generationAbort = new AbortController();
+    // The model router defaults to a 30s per-attempt deadline, which local
+    // models routinely exceed on a full mission prompt. Derive the per-attempt
+    // timeout from the mission latency budget (or an explicit override) so a
+    // slow-but-valid local generation is not killed prematurely.
+    const overrideTimeoutMs = Number(process.env.GENOS_LOCAL_MODEL_TIMEOUT_MS) || 0;
+    const latencyBudgetMs = budgetLimit('latencyMs');
+    const perAttemptTimeoutMs = overrideTimeoutMs > 0
+        ? overrideTimeoutMs
+        : (Number.isFinite(latencyBudgetMs) ? Math.max(30000, Math.floor(latencyBudgetMs / 3)) : 180000);
     const generation = withTextImmunity(framedPrompt, 'high', {
         validatorFn: griotValidator,
         maxRetries: 3,
         agentId: agentName,
-        modelRouting: { model: mission.localModel || undefined, policy: localRoutingPolicy, signal: generationAbort.signal },
+        modelRouting: { model: mission.localModel || undefined, policy: localRoutingPolicy, signal: generationAbort.signal, timeoutMs: perAttemptTimeoutMs },
       stemCellFallback: fallbackMessage,
       onFallback: () => { fallbackUsed = true; }
     });
