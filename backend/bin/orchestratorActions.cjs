@@ -165,7 +165,7 @@ async function handleOrganizationRead({ db, request, action, orchestratorId }) {
 
 async function ensureParent({ db, context }) {
   let parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", context.orchestratorId);
-  if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error'].includes(parent.status))) {
+  if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status))) {
     context.orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
       VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, context.orchestratorId, context.task);
