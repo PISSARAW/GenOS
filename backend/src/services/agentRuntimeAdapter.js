@@ -104,7 +104,14 @@ function enforceMissionToolLease(ctx) {
 // is a success, never a kill signal, and `blocked` children are budget/guard
 // holds that must survive reconciliation.
 async function reconcileDeadOrchestratorChildren(db) {
-  const result = await db.run(`
+  const orphans = await db.all(`
+    SELECT id FROM agents
+    WHERE parent_agent_id IN (
+      SELECT id FROM agents WHERE execution_mode = 'orchestrator' AND (status IN ('apoptosis', 'terminated', 'error') OR is_apoptotic = 1)
+    ) AND execution_mode = 'worker' AND status = 'running'
+  `);
+  if (!orphans.length) return 0;
+  await db.run(`
     UPDATE agents
     SET status = 'terminated', current_task = 'Terminated following parent orchestrator termination/apoptosis',
         runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP
@@ -112,7 +119,10 @@ async function reconcileDeadOrchestratorChildren(db) {
       SELECT id FROM agents WHERE execution_mode = 'orchestrator' AND (status IN ('apoptosis', 'terminated', 'error') OR is_apoptotic = 1)
     ) AND execution_mode = 'worker' AND status = 'running'
   `);
-  return result?.changes || 0;
+  for (const orphan of orphans) {
+    await db.run('UPDATE trinity_worlds SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?', 'terminated', orphan.id).catch(() => {});
+  }
+  return orphans.length;
 }
 
 async function startMissionInternal(mission) {
