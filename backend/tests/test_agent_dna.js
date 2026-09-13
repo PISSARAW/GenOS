@@ -49,11 +49,26 @@ async function testStore() {
   assert.equal(loaded.meta.name, 'EvidenceLedger');
   assert.equal(loaded.contentHash, model.contentHash);
   const genes = await store.workerGenesForAssignment(db, { preferredName: 'EvidenceLedger' });
-  assert.ok(genes.tools.includes('genos_inspect'));
+  assert.ok(genes.genes.tools.includes('genos_inspect'));
+  assert.equal(genes.genomeRef, 'EvidenceLedger');
   const missing = await store.workerGenesForAssignment(db, { preferredName: 'DoesNotExist' });
   assert.equal(missing, null);
   await db.close();
   console.log('AgentDNA persistence checks passed.');
+}
+
+async function testSelection() {
+  process.env.GENOS_AGENT_DNA = '1';
+  const db = await open({ filename: ':memory:', driver: sqlite3.Database });
+  await createSchema(db);
+  const model = agentDna.decodeFile(DNA_FILE);
+  await store.saveGenome(db, model, { id: 'EvidenceLedger' });
+  const selection = await store.selectGenome(db, { role: 'historian' });
+  assert.ok(selection);
+  assert.equal(selection.id, 'EvidenceLedger');
+  delete process.env.GENOS_AGENT_DNA;
+  await db.close();
+  console.log('AgentDNA selection checks passed.');
 }
 
 async function testImport() {
@@ -71,6 +86,7 @@ async function run() {
   await testDecode();
   await testExpressFallback();
   await testStore();
+  await testSelection();
   await testImport();
 }
 
