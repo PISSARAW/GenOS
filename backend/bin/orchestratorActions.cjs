@@ -12,6 +12,12 @@ const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 
+// Escape LIKE metacharacters so a mission id containing `_` or `%` cannot
+// match another mission's trinity worlds through a wildcard.
+function escapeLikePattern(value) {
+  return String(value).replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 async function findReusableWorker({ context, db }) {
   if (context.action !== 'dispatch_worker' || context.request.workerId) return null;
   return workerGarage.findReusableWorker(db, context.orchestratorId, {
@@ -313,8 +319,8 @@ async function handleTrinityMerge({ db, context }) {
       `SELECT w.world_number, w.strategy, w.agent_id, a.status, a.current_task 
        FROM trinity_worlds w 
        LEFT JOIN agents a ON a.id = w.agent_id 
-       WHERE w.id LIKE ? OR a.fleet_id = ?`,
-      `${missionId}%`, missionId
+       WHERE w.id LIKE ? ESCAPE '\\' OR a.fleet_id = ?`,
+      `${escapeLikePattern(missionId)}%`, missionId
     );
     if (worlds.length > 0) {
       worldReports = worlds.map((w) => ({

@@ -144,8 +144,11 @@ impl BiomimeticOrchestrator {
             return Err("Index de spore invalide".to_string());
         }
         let (warm_and_wet, nutrients_available) = conditions;
-        let spore = self.dormant_spores.remove(index);
+        // Vérifier la viabilité AVANT de consommer la spore dormante, sinon une
+        // germination ratée la détruirait silencieusement.
+        let spore = self.dormant_spores[index].clone();
         let revived_cell = spore.germinate(warm_and_wet, nutrients_available)?;
+        self.dormant_spores.remove(index);
         let cell_id = revived_cell.cell_id;
         self.active_cells.insert(cell_id, revived_cell.clone());
         Ok(revived_cell)
@@ -254,5 +257,21 @@ mod tests {
         let worker_id = worker.cell_id;
         assert!(orchestrator.add_worker("missing", worker).is_err());
         assert!(!orchestrator.active_cells.contains_key(&worker_id));
+    }
+
+    #[test]
+    fn test_failed_germination_preserves_dormant_spore() {
+        let mut orchestrator = BiomimeticOrchestrator::new("Overmind", 50.0, 100.0);
+        orchestrator.create_tissue("Core", "Role").unwrap();
+        let worker_id = orchestrator
+            .add_worker("Core", AgentCell::new("Worker", "Worker", "Worker"))
+            .unwrap();
+        let spore_idx = orchestrator
+            .sporulate_cell(worker_id, SporeType::BacterialEndospore)
+            .unwrap();
+
+        // Environnement hostile : la germination doit échouer sans perdre la spore.
+        assert!(orchestrator.germinate_spore(spore_idx, (true, false)).is_err());
+        assert_eq!(orchestrator.dormant_spores.len(), 1, "la spore doit rester dormante");
     }
 }
