@@ -244,5 +244,36 @@ fn ecosystem_exposes_signaling_dna_cyber_senses_phylogeny() {
     assert!(PhylogenyLab::divergence_time(&a, &b) >= 0.0);
 }
 
+#[test]
+fn ecosystem_exposes_store_and_reproduction_complements() {
+    let mut eco = GenosEcosystem::new("Overmind");
+
+    // Événements, capsules, fossiles.
+    eco.record_event("E1", serde_json::json!({ "x": 1 }));
+    eco.record_event("E2", serde_json::json!({ "x": 2 }));
+    assert_eq!(eco.read_events(2).len(), 1);
+
+    let capsule_id = eco.seal_capsule("b1", serde_json::json!({ "ok": true }));
+    assert!(eco
+        .audit_capsules()
+        .iter()
+        .any(|(id, valid)| *id == capsule_id && *valid));
+
+    eco.fossilize("lin-1", "extinction");
+    assert!(!eco.fossil_history().is_empty());
+
+    // Cryptobiose : gel/dégel standard et vitrifié.
+    eco.freeze_agent("a-frozen", serde_json::json!({ "m": 1 }));
+    assert!(eco.thaw_agent("a-frozen").is_some());
+    eco.freeze_vitrified("a-vitri", b"payload", 0.8, 500);
+    assert_eq!(eco.thaw_vitrified("a-vitri", true, true).unwrap(), b"payload");
+
+    // Reproduction : bourgeonnement + schizogonie.
+    let genome = Genome::new("BASE");
+    assert!(eco.budding(&genome, 0.3).is_ok());
+    assert!(!eco.schizogony(&genome, 4).unwrap().is_empty());
+}
+
+
 
 
