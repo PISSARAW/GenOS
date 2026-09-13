@@ -3,6 +3,7 @@ const { getDatabase } = require('../../db');
 const telemetry = require('../telemetryObserver');
 const runtimeAdapter = require('../agentRuntimeAdapter');
 const strategyContracts = require('../strategyContractService');
+const workerGarage = require('../workerGarageService');
 const AgentRepository = require('../../repositories/agent.repository');
 const trinityService = require('../trinityService');
 
@@ -122,10 +123,33 @@ class TrinityDeployService {
       });
     }
 
+    // Each isolated world must actually run: reserve its garage slot and start
+    // its mission. The orchestrator is started without its own autonomous fleet
+    // so it does not fabricate a second, duplicate set of Trinity worlds.
+    for (let index = 0; index < worlds.length; index += 1) {
+      const w = worlds[index];
+      const id = agentIds[index];
+      await workerGarage.reserveSlot(db, {
+        orchestratorId, workerId: id, name: w.name, role: w.role, mission: taskPrompt
+      }).catch(() => {});
+      runtimeAdapter.startMission({
+        agentId: id, name: w.name, role: w.role, prompt: w.mission || `${taskPrompt} — ${w.task}`,
+        modelTier: w.modelTier, workspaceIsolation: 'Branch', workspaceId, workspaceRoot: workspace?.path,
+        fleetId: missionId, agentType: resolvedAgentType, orchestratorAgentId: orchestratorId,
+        strategyContract: orchestratorContract.contract, autonomousOrchestration: false,
+        toolLease: runtimeAdapter.workerToolLease(w.role)
+      }).catch(async (error) => {
+        await db.run("UPDATE agents SET status='error', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", error.message, id).catch(() => {});
+        await db.run("UPDATE trinity_worlds SET status='error', updated_at=CURRENT_TIMESTAMP WHERE agent_id=?", id).catch(() => {});
+        telemetry.emitEvent({ eventType: 'AGENT_RUNTIME_ERROR', agentId: id, action: 'ERROR', detail: error.message, severity: 'error', status: 'error' });
+      });
+    }
+
     runtimeAdapter.startMission({
       agentId: orchestratorId, name: orchestratorName, role: 'Trinity Orchestrator', prompt: taskPrompt,
       modelTier: 'Pro', workspaceIsolation: 'Branch', workspaceId, workspaceRoot: workspace?.path, fleetId: missionId,
-      agentType: resolvedAgentType, strategyContract: orchestratorContract.contract
+      agentType: resolvedAgentType, strategyContract: orchestratorContract.contract,
+      autonomousOrchestration: false
     }).catch(async (error) => {
       await db.run("UPDATE agents SET status='error', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", error.message, orchestratorId).catch(() => {});
       for (const id of agentIds) {
