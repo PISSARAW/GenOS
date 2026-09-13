@@ -123,10 +123,26 @@ impl BiomimeticOrchestrator {
         self.conscience_state.clone()
     }
 
+    /// Détache une cellule de tous les tissus qui la référencent.
+    /// Retourne le nom du tissu d'origine, le cas échéant, pour une réintégration ultérieure.
+    fn detach_from_tissues(&mut self, cell_id: Uuid) -> Option<String> {
+        let mut origin = None;
+        for (name, tissue) in self.tissues.iter_mut() {
+            let before = tissue.somatic_cells.len();
+            tissue.somatic_cells.retain(|id| *id != cell_id);
+            if tissue.somatic_cells.len() < before {
+                origin = Some(name.clone());
+            }
+        }
+        origin
+    }
+
     /// Sporulation : cryoconserve une cellule sous forme d'endospore résistante
     pub fn sporulate_cell(&mut self, worker_id: Uuid, spore_type: SporeType) -> Result<usize, String> {
         let worker = self.active_cells.remove(&worker_id)
             .ok_or_else(|| format!("Cellule {} non trouvée", worker_id))?;
+        // Éviter une référence pendante : le tissu ne doit plus référencer une cellule absente.
+        self.detach_from_tissues(worker_id);
         let genome = Genome::new(&worker.role);
         let spore = match spore_type {
             SporeType::BacterialEndospore => Spore::from_cell(spore_type.clone(), &worker, genome, 9999),
@@ -273,5 +289,23 @@ mod tests {
         // Environnement hostile : la germination doit échouer sans perdre la spore.
         assert!(orchestrator.germinate_spore(spore_idx, (true, false)).is_err());
         assert_eq!(orchestrator.dormant_spores.len(), 1, "la spore doit rester dormante");
+    }
+
+    #[test]
+    fn test_sporulation_detaches_cell_from_tissue() {
+        let mut orchestrator = BiomimeticOrchestrator::new("Overmind", 50.0, 100.0);
+        orchestrator.create_tissue("Core", "Role").unwrap();
+        let worker_id = orchestrator
+            .add_worker("Core", AgentCell::new("Worker", "Worker", "Worker"))
+            .unwrap();
+        orchestrator
+            .sporulate_cell(worker_id, SporeType::BacterialEndospore)
+            .unwrap();
+
+        assert!(!orchestrator.active_cells.contains_key(&worker_id));
+        assert!(
+            orchestrator.delegate_task("Core", (worker_id, "continuer")).is_err(),
+            "une cellule sporulee ne doit plus etre délégable"
+        );
     }
 }
