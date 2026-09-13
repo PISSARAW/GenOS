@@ -378,23 +378,6 @@ async function handleAction(context) {
   return true;
 }
 
-const cliHelp = require('./cliHelp.cjs');
-if (require.main === module) {
-  if (cliHelp.checkHelp(process.argv, 'orchestratorActions.cjs')) process.exit(0);
-  const { getDatabase, closeDatabase } = require('../src/db');
-  (async () => {
-    let req = {};
-    try { req = JSON.parse(process.argv[2] || '{}'); } catch (_) {}
-    const db = await getDatabase();
-    try {
-      await handleAction({
-        db, action: req.action, request: req, task: req.task || req.mission || '',
-        orchestratorId: req.orchestratorId || 'standalone_orchestrator',
-        id: req.id || req.workerId, repoRoot: path.resolve(__dirname, '../..'),
-        bridgePath: path.resolve(__dirname, 'genos-orchestrate.cjs')
-      });
-    } finally { await closeDatabase(); }
-  })().catch((e) => { console.error(e.message); process.exit(1); });
-}
+if (require.main === module) require('./orchestratorActionsCli.cjs').run({ handleAction }).catch((e) => { console.error(e.message); process.exit(1); });
 
 module.exports = { handleAction, handleBackground, initializeMission };
