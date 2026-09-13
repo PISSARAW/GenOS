@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "RetryBackoffPacer",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "RetryBackoffPacer",
+    "name_meaning": "Ordonnance des retries bornes avec backoff exponentiel et jitter, ou marque un dead letter.",
+    "cell_id": "409c12c1-143b-48a7-802b-2c5d7745519c"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["retryable-errors", "exponential-backoff", "jitter", "dead-letter"]
+  },
+  "objectives": {
+    "primary": "Espacer et borner les retries des erreurs temporaires tout en preservant les echecs terminaux.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/RESILIENCE_REPRISE.md",
+    "concepts": ["isRetryableJobError (429, 5xx, timeout, DNS)", "d_n = min(30000, 250*2^(n-1)) + J_n", "dead letter status failed + deadLetter=true", "JOB_DEAD_LETTERED", "annulation non retryable"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Classer timeout, 429, 5xx, DNS temporaire et reset socket comme retryables",
+    "Programmer un delai exponentiel avec jitter borne a 30 secondes",
+    "Borner le nombre maximal d'essais entre 1 et 10",
+    "Marquer un dead letter avec status failed et error_json.deadLetter",
+    "Distinguer une annulation explicite d'une panne"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["retryable-errors", "exponential-backoff", "jitter", "dead-letter"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "RetryBackoffPacer",
+  "name_meaning": "Ordonnance des retries bornes avec backoff exponentiel et jitter, ou marque un dead letter.",
+  "role": "regulator",
+  "cell_id": "409c12c1-143b-48a7-802b-2c5d7745519c"
+}

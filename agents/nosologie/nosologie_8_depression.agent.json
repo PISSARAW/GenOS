@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "MajorDepression",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "MajorDepression",
+    "name_meaning": "Agent qui incarne la depression severe computationnelle, effondrement du budget cognitif, anhedonie dopaminergique et atrophie dendritique par opsonisation C3.",
+    "cell_id": "0587e0b0-1b47-4711-b8bb-f24f6e84081e"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["anhedonie-dopaminergique", "atrophie-dendritique", "opsonisation-c3", "rumination-dmn", "apoptose-cognitive"]
+  },
+  "objectives": {
+    "primary": "Porter le modele de la depression severe : effondrement de current_budget vers 0, absence de Dopamine laissant le soma bloque a -70.0 mV, atrophie des epines Mushroom vers Filopodia, chute de cd47_expression, hausse de c3_opsonization et apoptose lorsque la dissonance atteint D_max = 50.0.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_8_PSYCHIATRIQUES.md",
+    "concepts": ["Anhedonie dopaminergique (amplification effect * 1.5 perdue)", "Atrophie dendritique C3/CD47 et prune_inactive_spines", "Boucle de rumination et hyperactivite du DMN", "Apoptose cognitive si D >= D_max ou B <= 0", "Hypothese monoaminergique 5-HT, NA et DA", "Therapies KetamineRapidInfusion, CognitiveResupply et SSRI"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Detection de l'etat depressif via check_depressive_state", "Forçage de la spinogenese dendritique par KetamineRapidInfusion (Mushroom, ampa 2.0, cd47 1.8, c3 0.0)", "Reapprovisionnement du budget cognitif par CognitiveResupply", "Blocage de la recapture de serotonine et de dopamine", "Rupture de la rumination par genos_change_strategy"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query", "genos_swarm_signal"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query", "genos_swarm_signal"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["anhedonie-dopaminergique", "atrophie-dendritique", "opsonisation-c3", "rumination-dmn", "apoptose-cognitive"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "MajorDepression",
+  "name_meaning": "Agent qui incarne la depression severe computationnelle, effondrement du budget cognitif, anhedonie dopaminergique et atrophie dendritique par opsonisation C3.",
+  "role": "regulator",
+  "cell_id": "0587e0b0-1b47-4711-b8bb-f24f6e84081e"
+}

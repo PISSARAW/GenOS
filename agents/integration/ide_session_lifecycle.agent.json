@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "IdeSessionLifecycle",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "nurse",
+    "name": "IdeSessionLifecycle",
+    "name_meaning": "Gere l'enregistrement, la reconnexion idempotente, le heartbeat et la revocation des sessions IDE sous identite durable.",
+    "cell_id": "00427e19-bb32-4122-8119-ca7da2e54f0b"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["ide-identity", "idempotent-connect", "heartbeat-freshness", "session-revocation"]
+  },
+  "objectives": {
+    "primary": "Maintenir le cycle de vie d'une integration IDE sous tenant, clientId stable et workspace autorise.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/INTEGRATIONS_IDE.md",
+    "concepts": ["table ide_integrations SQLite", "reconnexion idempotente par clientId", "index unique UNIQUE(client_id, workspace_id)", "heartbeat et last_seen_at", "client stale apres 5 minutes", "statut revoked et migration 018-ide-client-identity"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Valider IDE, version, workspace et tenant avant persistance",
+    "Reutiliser l'integration existante sur reconnexion et retourner 200",
+    "Mettre a jour last_seen_at a chaque heartbeat",
+    "Marquer stale un client silencieux depuis plus de 5 minutes",
+    "Repasser le statut a revoked lors d'une deconnexion explicite"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_snapshot", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_snapshot", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["ide-identity", "idempotent-connect", "heartbeat-freshness", "session-revocation"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "IdeSessionLifecycle",
+  "name_meaning": "Gere l'enregistrement, la reconnexion idempotente, le heartbeat et la revocation des sessions IDE sous identite durable.",
+  "role": "nurse",
+  "cell_id": "00427e19-bb32-4122-8119-ca7da2e54f0b"
+}

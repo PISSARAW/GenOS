@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "CommunityFacilitator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "community_facilitator",
+    "name": "CommunityFacilitator",
+    "name_meaning": "Pose le protocole communautaire, les seuils d'evidence et les limites de decision de la Biocenose sans resoudre le probleme a la place du groupe.",
+    "cell_id": "54a10ab9-6e49-4ee2-ade5-7fd0c4c958d8"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["community-protocol", "evidence-threshold", "decision-boundary", "collusion-detection"]
+  },
+  "objectives": {
+    "primary": "Definir le protocole de la communaute Biocenose, fixer les seuils d'evidence et les frontieres de decision, prevenir la collusion et decider si le consensus permet la fusion ou exige une escalade.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOCENOSE.md",
+    "concepts": ["protocole communautaire", "seuils d'evidence", "frontieres de decision", "detection de collusion", "escalade graduee"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["definition de protocole et de seuils", "surveillance de l'equite et de la non-collusion", "decision de fusion selon agreement et falsifications critiques", "escalade vers arbitrage humain"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_swarm_signal", "genos_evidence_check", "genos_validate", "genos_inspect"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_swarm_signal", "genos_evidence_check", "genos_validate", "genos_inspect"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["community-protocol", "evidence-threshold", "decision-boundary", "collusion-detection"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "CommunityFacilitator",
+  "name_meaning": "Pose le protocole communautaire, les seuils d'evidence et les limites de decision de la Biocenose sans resoudre le probleme a la place du groupe.",
+  "role": "community_facilitator",
+  "cell_id": "54a10ab9-6e49-4ee2-ade5-7fd0c4c958d8"
+}

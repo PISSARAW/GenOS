@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "AgentGitCommit",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "historian",
+    "name": "AgentGitCommit",
+    "name_meaning": "Versionne l'etat agentique complet sous forme de snapshot JSON hashe SHA-256 et signe HMAC/Ed25519 dans agent_git_objects.",
+    "cell_id": "1d655bc8-a5a6-48af-bb0a-3fab7bc21c26"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["collect-state", "state-hash", "hmac-signature", "agent-git-refs", "reflog"]
+  },
+  "objectives": {
+    "primary": "Capturer l'etat observable d'un agent via collectState, calculer son hash, le signer et avancer la ref avec controle de version et reflog.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/GIT_AGENTS.md",
+    "concepts": ["commit agentique", "etat A = (I,D,M,R,P,Q,E,C)", "hash SHA-256", "signature HMAC/Ed25519", "refs et reflog"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Executer collectState() puis stocker le snapshot JSON dans agent_git_objects",
+    "Calculer H(A) = SHA256(JSON.stringify(A)) et signer le hash avec les metadonnees",
+    "Executer le hook pre-commit avant de persister l'objet",
+    "Avancer la ref avec version et lease token puis ecrire l'entree de reflog"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_git_agent", "genos_snapshot", "genos_inspect"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_git_agent", "genos_snapshot", "genos_inspect"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["collect-state", "state-hash", "hmac-signature", "agent-git-refs", "reflog"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "AgentGitCommit",
+  "name_meaning": "Versionne l'etat agentique complet sous forme de snapshot JSON hashe SHA-256 et signe HMAC/Ed25519 dans agent_git_objects.",
+  "role": "historian",
+  "cell_id": "1d655bc8-a5a6-48af-bb0a-3fab7bc21c26"
+}

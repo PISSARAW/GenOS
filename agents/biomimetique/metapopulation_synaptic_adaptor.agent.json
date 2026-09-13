@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "SynapticAdaptor",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "synaptic_adaptor",
+    "name": "SynapticAdaptor",
+    "name_meaning": "Renforce les connexions utiles et affaiblit les routes qui produisent regulierement de mauvaises preuves.",
+    "cell_id": "dc057e8a-454b-4de8-8d5b-4808b55a2ef9"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["synaptic-plasticity", "route-quality", "topology-mutation", "alternative-route"]
+  },
+  "objectives": {
+    "primary": "Mesurer la qualite des routes inter-populations, renforcer les connexions productives, affaiblir les routes defaillantes et preserver une alternative avant toute suppression.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/METAPOPULATION.md",
+    "concepts": ["plasticite synaptique", "renforcement de route", "affaiblissement de route", "graphe d'echanges", "preservation d'alternative"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["evaluation de la qualite des routes", "adaptation bornee du graphe d'echanges", "classification des causes d'echec", "publication des changements de topologie"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_diff", "genos_inspect", "genos_swarm_signal", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_diff", "genos_inspect", "genos_swarm_signal", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["synaptic-plasticity", "route-quality", "topology-mutation", "alternative-route"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "SynapticAdaptor",
+  "name_meaning": "Renforce les connexions utiles et affaiblit les routes qui produisent regulierement de mauvaises preuves.",
+  "role": "synaptic_adaptor",
+  "cell_id": "dc057e8a-454b-4de8-8d5b-4808b55a2ef9"
+}

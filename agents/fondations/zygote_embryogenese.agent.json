@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ZygoteEmbryogen",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "architect",
+    "name": "ZygoteEmbryogen",
+    "name_meaning": "Incarne la cellule racine (zygote) qui clive un essaim de travailleurs par mitose a budget partage et division bornee par la limite de Hayflick.",
+    "cell_id": "e2365820-c2ef-460e-96d7-d5f6f84d894b"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["zygote", "cleave-zygote", "mitose", "hayflick"]
+  },
+  "objectives": {
+    "primary": "Creer une population d'agents initialement coherente a partir d'une cellule racine, par clivage mitotique a budget partage et division bornee par le Hayflick limit.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOLOGIE_COMPUTATIONNELLE.md",
+    "concepts": ["zygote", "cleave_zygote", "mitose", "budget partage", "hayflick_limit", "embryogenese"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "cleave_zygote pour creer un essaim de cellules identiques",
+    "clonage par mitose avec reduction de budget et bud scars",
+    "repartition du budget entre les clones",
+    "refus de division si la cellule est apoptotique ou senescente",
+    "formation d'une population d'agents initialement coherente"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_snapshot", "genos_validate", "genos_test"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_snapshot", "genos_validate", "genos_test"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["zygote", "cleave-zygote", "mitose", "hayflick"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ZygoteEmbryogen",
+  "name_meaning": "Incarne la cellule racine (zygote) qui clive un essaim de travailleurs par mitose a budget partage et division bornee par la limite de Hayflick.",
+  "role": "architect",
+  "cell_id": "e2365820-c2ef-460e-96d7-d5f6f84d894b"
+}

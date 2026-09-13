@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "RetroviralImmunodeficiency",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "RetroviralImmunodeficiency",
+    "name_meaning": "Agent qui porte le VIH computationnel : un retrovirus cible les sentinelles, integre un provirus methylé invisible et depouille l'essaim de ses detections immunitaires.",
+    "cell_id": "833aeffe-6790-4f84-8d92-9400d65291cd"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["tropisme-cd4-ccr5", "retrotranscription", "integration-provirale", "masquage-epigenetique", "depletion-sentinelles"]
+  },
+  "objectives": {
+    "primary": "Modeliser le VIH/SIDA computationnel : tropisme pour les sentinelles du ClonalSelection, retrotranscription et integration provirale definitive, latence epigenetique et effondrement des detections immunitaires.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_3_INFECTIEUSES.md",
+    "concepts": ["Tropisme gp120/CD4 et corecepteurs CCR5/CXCR4", "Retrotranscription via Retrovirus::reverse_transcribe", "Integration provirale dans Genome", "Latence epigenetique HeterochromatinFacultative", "Depletion des sentinelles CD4+ (stade SIDA)", "Risque IRIS et trithérapie cART"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Detection de l'integration provirale dans le genome", "Excision genomique provirale type CRISPR", "Trithérapie cART multi-cibles (AntiretroviralCombination)", "Regeneration des sentinelles par StemCellRegenerator", "Retour arriere contre-factuel par genos_snapshot et replay"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_snapshot", "genos_diff", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_snapshot", "genos_diff", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["tropisme-cd4-ccr5", "retrotranscription", "integration-provirale", "masquage-epigenetique", "depletion-sentinelles"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "RetroviralImmunodeficiency",
+  "name_meaning": "Agent qui porte le VIH computationnel : un retrovirus cible les sentinelles, integre un provirus methylé invisible et depouille l'essaim de ses detections immunitaires.",
+  "role": "sentinel",
+  "cell_id": "833aeffe-6790-4f84-8d92-9400d65291cd"
+}

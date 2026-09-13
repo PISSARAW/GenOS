@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "OptimalForagingScout",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "scout",
+    "name": "OptimalForagingScout",
+    "name_meaning": "Applique le theoreme de la valeur marginale de Charnov et les vols de Levy pour decider d'exploiter ou de quitter un ilot d'information.",
+    "cell_id": "7fc753a0-1864-44c5-b4c7-88ccfd4f2f0e"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["marginal-value", "patch-departure", "levy-flight", "active-inference"]
+  },
+  "objectives": {
+    "primary": "Mesurer le gain marginal d'information dI/dt a chaque etape, declencher un PATCH_DEPARTURE quand il tombe sous le taux environnemental, et alterner petits pas et grands sauts de Levy.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOMIMETIC_WEB_FORAGING.md",
+    "concepts": ["theoreme de Charnov", "rendement marginal dI/dt", "patch departure", "vols de Levy", "exploration clairsemee"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["evaluation du rendement marginal d'information", "decision d'exploitation ou de delogement", "generation de sauts de Levy", "navigation active du patch web"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_swarm_signal", "genos_sandbox_exec", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_swarm_signal", "genos_sandbox_exec", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["marginal-value", "patch-departure", "levy-flight", "active-inference"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "OptimalForagingScout",
+  "name_meaning": "Applique le theoreme de la valeur marginale de Charnov et les vols de Levy pour decider d'exploiter ou de quitter un ilot d'information.",
+  "role": "scout",
+  "cell_id": "7fc753a0-1864-44c5-b4c7-88ccfd4f2f0e"
+}

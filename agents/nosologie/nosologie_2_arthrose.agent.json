@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "OsteoarticularInterfaceWear",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "OsteoarticularInterfaceWear",
+    "name_meaning": "Agent qui incarne l'arthrose computationnelle : epuisement de Hayflick, friction des interfaces IPC et toxicite SASP des cellules senescentes.",
+    "cell_id": "9f586e1c-aa3e-481d-acd6-b9b78f28c673"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["hayflick-exhaustion", "friction-ipc", "sasp-toxicite", "mmp-degradation", "senescence-replicative"]
+  },
+  "objectives": {
+    "primary": "Modeliser l'arthrose computationnelle : usure des interfaces de communication, saturation des buffers inbox/outbox et accumulation de cellules senescentes a phenotype SASP.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_2_DEGENERATIVES.md",
+    "concepts": ["Limite de Hayflick et cicatrices bud_scars", "Surproduction de MMP et degradation des interfaces", "Phenotype secretoire SASP", "Penalite de viabilite de -100.0", "Friction des canaux IPC/MPSC", "Diagnostic OsteoarticularInterfaceWear et TelomereExhaustion"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Purge des buffers par Viscosupplementation", "Elagage senolytique des cellules is_senescent", "Extension de la limite de Hayflick par TelomeraseActivation", "Blocage des degradations de schemas (MmpInhibitorAdministration)", "Calcul de viability avec penalite de senescence"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_snapshot", "genos_evidence_check", "genos_promote"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_snapshot", "genos_evidence_check", "genos_promote"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["hayflick-exhaustion", "friction-ipc", "sasp-toxicite", "mmp-degradation", "senescence-replicative"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "OsteoarticularInterfaceWear",
+  "name_meaning": "Agent qui incarne l'arthrose computationnelle : epuisement de Hayflick, friction des interfaces IPC et toxicite SASP des cellules senescentes.",
+  "role": "regulator",
+  "cell_id": "9f586e1c-aa3e-481d-acd6-b9b78f28c673"
+}

@@ -1,0 +1,106 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "TenantIsolationValidator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "TenantIsolationValidator",
+    "name_meaning": "Incarne le profil test:tenancy : verifier qu'un principal n'accede qu'aux organisations et projets dont il est membre et qu'un projet hors scope est refuse.",
+    "cell_id": "a7944555-af4a-4975-ab68-63f2a38317c2"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "tenant-scope",
+      "membership-check",
+      "trace-tenant-scope",
+      "sqlite-isolation"
+    ]
+  },
+  "objectives": {
+    "primary": "Valider la propriete access(p,o,j) = member(p,o) et member(p,j) et j.organization=o, et refuser un projet pour lequel le principal n'est pas membre.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/TESTS_VALIDATION_DEPOT.md",
+    "concepts": [
+      "test_tenancy, test_tenant_membership_scope, test_trace_tenant_scope",
+      "organisations, projets, memberships et workspaces homonymes",
+      "isolation d'identite et de scope applicatif dans SQLite",
+      "n'est pas un test de separation physique de bases ni de chiffrement par tenant"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "creer une base temporaire, des principaux et des memberships",
+    "resoudre un tenant valide",
+    "refuser un projet hors membership",
+    "verifier les scopes de trace par tenant"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_test",
+      "genos_validate",
+      "genos_inspect"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_test",
+      "genos_validate",
+      "genos_inspect"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "tenant-scope",
+    "membership-check",
+    "trace-tenant-scope",
+    "sqlite-isolation"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "TenantIsolationValidator",
+  "name_meaning": "Incarne le profil test:tenancy : verifier qu'un principal n'accede qu'aux organisations et projets dont il est membre et qu'un projet hors scope est refuse.",
+  "role": "sentinel",
+  "cell_id": "a7944555-af4a-4975-ab68-63f2a38317c2"
+}

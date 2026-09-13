@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "BudgetAtpGovernor",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "BudgetAtpGovernor",
+    "name_meaning": "Incarne la coherence budgetaire (tokens, cout, latence, evenements) et le budget cognitif ATP avec evenement Eureka.",
+    "cell_id": "efb65f9b-4cbd-4a40-a2b9-7ef1682b15a2"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["budget-coherence", "atp-budget", "eureka", "cost-ledger"]
+  },
+  "objectives": {
+    "primary": "Normaliser et faire respecter le budget de mission (tokens, cout, latence, evenements) ainsi que le budget cognitif ATP, en declenchant Eureka sur succes ou preuve.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/RUNTIME_AGENTIQUE.md",
+    "concepts": ["tokens 100000", "costUsd 1.0", "latencyMs 60000", "events 100", "workerShare 0.6", "ATP_{t+1}=ATP_t-1", "Eureka D/2 et budget restaure"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "normalisation du budget de mission",
+    "coherence B_w + B_o = B_t avec B_w=s_w*B_t et B_o=s_o*B_t",
+    "estimation du cout C=(p_in*T_in+p_out*T_out)/10^6",
+    "gestion de la deadline de latence le long des tentatives",
+    "consommation d'une unite ATP par evaluation de branche",
+    "declenchement Eureka avec division de la dissonance par deux"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["budget-coherence", "atp-budget", "eureka", "cost-ledger"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "BudgetAtpGovernor",
+  "name_meaning": "Incarne la coherence budgetaire (tokens, cout, latence, evenements) et le budget cognitif ATP avec evenement Eureka.",
+  "role": "regulator",
+  "cell_id": "efb65f9b-4cbd-4a40-a2b9-7ef1682b15a2"
+}

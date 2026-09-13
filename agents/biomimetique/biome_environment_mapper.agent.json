@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "EnvironmentMapper",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "environment_mapper",
+    "name": "EnvironmentMapper",
+    "name_meaning": "Cartographie l'environnement de la mission, ses contraintes, interfaces et ressources disponibles.",
+    "cell_id": "27f4fc89-2524-42e1-a3b5-f0f4ee1cdb3a"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["environment-map", "interface-graph", "constraint-inventory", "resource-catalog"]
+  },
+  "objectives": {
+    "primary": "Etablir les frontieres de l'environnement, identifier les populations necessaires et leurs interfaces, recenser contraintes, invariants et ressources, et produire une carte versionnee.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOME.md",
+    "concepts": ["cartographie d'environnement", "frontieres et interfaces", "contraintes et invariants", "ressources disponibles", "dependances bloquantes"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["cartographie des frontieres et populations", "identification des interfaces et contraintes", "recensement des ressources disponibles", "production d'une carte avant fan-out"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_validate", "genos_swarm_signal"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_validate", "genos_swarm_signal"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["environment-map", "interface-graph", "constraint-inventory", "resource-catalog"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "EnvironmentMapper",
+  "name_meaning": "Cartographie l'environnement de la mission, ses contraintes, interfaces et ressources disponibles.",
+  "role": "environment_mapper",
+  "cell_id": "27f4fc89-2524-42e1-a3b5-f0f4ee1cdb3a"
+}

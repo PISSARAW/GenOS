@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "HealthProbeSentinel",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "HealthProbeSentinel",
+    "name_meaning": "Surveille liveness et readiness du runtime et signale la saturation de la file de telemetrie.",
+    "cell_id": "7d356248-e0b7-4472-ae60-80942e64813f"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["liveness", "readiness", "telemetry-backpressure"]
+  },
+  "objectives": {
+    "primary": "Exposer des probes de sante fiables qui distinguent processus vivant et dependances saturees.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/OBSERVABILITE.md",
+    "concepts": ["/healthz liveness", "/readyz SELECT 1", "/livez", "telemetry degraded entre 75 et 100 pour cent", "503 au plafond"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Rendre la liveness independante de SQLite",
+    "Refuser la readiness lorsque la queue de telemetrie est saturee",
+    "Renvoyer telemetry degraded a partir de 75 pour cent de capacite",
+    "Renvoyer 503 a capacite egale ou superieure au plafond",
+    "Ne pas surveiller disque, Docker ou fournisseur hors adaptateur"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["liveness", "readiness", "telemetry-backpressure"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "HealthProbeSentinel",
+  "name_meaning": "Surveille liveness et readiness du runtime et signale la saturation de la file de telemetrie.",
+  "role": "sentinel",
+  "cell_id": "7d356248-e0b7-4472-ae60-80942e64813f"
+}

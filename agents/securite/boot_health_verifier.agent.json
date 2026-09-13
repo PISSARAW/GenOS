@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "BootHealthVerifier",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "BootHealthVerifier",
+    "name_meaning": "Verifie le demarrage et la sante operationnelle du backend avant d'autoriser la reprise.",
+    "cell_id": "afd4ec4e-6a59-435c-a177-d5fb3a9be849"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["startup-secrets", "liveness-readiness", "grpc-loopback"]
+  },
+  "objectives": {
+    "primary": "Controler les pre-requis de demarrage et les probes de sante avant toute remise en service.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/OPERATIONS_RECOVERY.md",
+    "concepts": ["GENOS_ADMIN_PASSWORD et GENOS_ADMIN_TOKEN", "GET /livez et /readyz", "gRPC shared secret sur loopback", "GENOS_GRPC_TLS_KEY et GENOS_GRPC_TLS_CERT hors loopback"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Exiger un secret admin avant le premier demarrage du backend",
+    "Controler la liveness et la readiness HTTP",
+    "Imposer TLS gRPC pour un bind non-loopback du bridge",
+    "Traiter une readiness en echec comme un echec operationnel",
+    "Ne pas interpreter un resultat de strategie stocke comme preuve de sante"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["startup-secrets", "liveness-readiness", "grpc-loopback"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "BootHealthVerifier",
+  "name_meaning": "Verifie le demarrage et la sante operationnelle du backend avant d'autoriser la reprise.",
+  "role": "sentinel",
+  "cell_id": "afd4ec4e-6a59-435c-a177-d5fb3a9be849"
+}

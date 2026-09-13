@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "WorkflowStateMachine",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "WorkflowStateMachine",
+    "name_meaning": "Pilote les etats queued, running, completed, failed et cancelled et gere le checkpoint incremental d'une run de workflow versionnee.",
+    "cell_id": "e6bccbf6-68d2-4dc1-9db2-33237cb0fa82"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["run-state-machine", "versioned-run", "incremental-checkpoint", "cancellation", "attempts-budget"]
+  },
+  "objectives": {
+    "primary": "Faire transiter une run de facon explicite (queued -> running -> completed/failed/cancelled) et checkpointer output_json pour permettre la reprise.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/WORKFLOWS_JOBS.md",
+    "concepts": ["etats de run", "workflows vs workflow_versions vs workflow_runs", "checkpoint incrementale", "annulation", "max_attempts"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Lier chaque run a une version persistee pour eviter la contamination de definition",
+    "Checkpointer output_json avec traceId, completedNodes et skippedNodes pendant le run",
+    "Annuler une run en queued ou running via cancelRun() et WORKFLOW_CANCELLED",
+    "Borne les tentatives par max_attempts et replanifier via next_attempt_at"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_snapshot"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_snapshot"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["run-state-machine", "versioned-run", "incremental-checkpoint", "cancellation", "attempts-budget"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "WorkflowStateMachine",
+  "name_meaning": "Pilote les etats queued, running, completed, failed et cancelled et gere le checkpoint incremental d'une run de workflow versionnee.",
+  "role": "regulator",
+  "cell_id": "e6bccbf6-68d2-4dc1-9db2-33237cb0fa82"
+}

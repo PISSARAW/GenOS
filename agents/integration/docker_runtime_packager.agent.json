@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "DockerRuntimePackager",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "architect",
+    "name": "DockerRuntimePackager",
+    "name_meaning": "Package le control plane Node.js en image Docker avec volume persistant /data et healthcheck.",
+    "cell_id": "f1458075-615c-479d-92af-2530c5b410e1"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["docker-image", "persistent-volume", "healthcheck-probe", "non-root-runtime"]
+  },
+  "objectives": {
+    "primary": "Construire l'image Docker du backend et garantir la persistance du volume /data pour SQLite.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/DEPLOIEMENT_EXPLOITATION.md",
+    "concepts": ["node:22-bookworm-slim epingle par digest", "npm ci --omit=dev et build des modules natifs", "GENOS_DB_PATH=/data/genos.db", "volume /data obligatoire", "HEALTHCHECK GET /readyz", "utilisateur non-root node et ports 4000/50051"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Installer python3, make et g++ pour compiler les modules natifs Node",
+    "Copier bin, proto, src, server.js et le contrat IDE",
+    "Exposer les ports 4000 et 50051",
+    "Persister SQLite et l'etat applicatif via le volume /data",
+    "Sonder readyz en signalant que gRPC n'est pas couvert"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_test", "genos_snapshot"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_test", "genos_snapshot"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["docker-image", "persistent-volume", "healthcheck-probe", "non-root-runtime"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "DockerRuntimePackager",
+  "name_meaning": "Package le control plane Node.js en image Docker avec volume persistant /data et healthcheck.",
+  "role": "architect",
+  "cell_id": "f1458075-615c-479d-92af-2530c5b410e1"
+}

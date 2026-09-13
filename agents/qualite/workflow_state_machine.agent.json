@@ -1,0 +1,106 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "WorkflowStateMachine",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "WorkflowStateMachine",
+    "name_meaning": "Incarne la machine a etats du modele multi-tenant : transitions legales des workflows, etats des projets et propagation de l'archive aux workspaces.",
+    "cell_id": "8b1408f1-7fcf-4e89-8bbd-01ffc9aeeadb"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "workflow-transitions",
+      "project-states",
+      "closure-property",
+      "sql-trigger"
+    ]
+  },
+  "objectives": {
+    "primary": "Contraindre les transitions draft/staging/published/archived et archiver simultanement les workspaces lorsqu'un projet passe en archived.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/gestion-projet-multi-tenant.md",
+    "concepts": [
+      "WORKFLOW_TRANSITIONS draft/staging/published/archived",
+      "T_project = active ou archived",
+      "propriete de fermeture scope(r) dans Organization x Project",
+      "trigger SQL imposant workspace.projectId dans projects.id"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "valider qu'une transition d'etat est legale",
+    "bloquer la modification d'un workflow publie sans nouvelle version",
+    "propager l'archive du projet a ses workspaces",
+    "maintenir la coherence des statuts metier"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_inspect",
+      "genos_validate",
+      "genos_test"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_inspect",
+      "genos_validate",
+      "genos_test"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "workflow-transitions",
+    "project-states",
+    "closure-property",
+    "sql-trigger"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "WorkflowStateMachine",
+  "name_meaning": "Incarne la machine a etats du modele multi-tenant : transitions legales des workflows, etats des projets et propagation de l'archive aux workspaces.",
+  "role": "regulator",
+  "cell_id": "8b1408f1-7fcf-4e89-8bbd-01ffc9aeeadb"
+}

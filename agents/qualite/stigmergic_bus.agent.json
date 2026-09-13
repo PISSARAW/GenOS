@@ -1,0 +1,107 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "StigmergicBus",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "worker",
+    "name": "StigmergicBus",
+    "name_meaning": "Incarne le bus de signalisation biomimetique sub-symbolique : ligands paracrines, decharges d'electrocytes et consensus d'oscillateurs de Kuramoto a cout token nul.",
+    "cell_id": "cf9ea19e-d493-4e55-8708-ff77e23aaacb"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "electrocyte-discharge",
+      "stigmergy-field",
+      "kuramoto-consensus",
+      "network-silence"
+    ]
+  },
+  "objectives": {
+    "primary": "Coordonner les agents par signaux physico-chimiques locaux (ligands, electrocytes, Kuramoto) avec 0 token LLM et un cout CPU negligeable.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/ECONOMIE_ET_SCALABILITE_MULTI_AGENTS.md",
+    "concepts": [
+      "C_GenOS = K_spec + L_code + somme des M_dialectique + O(N) epsilon_local",
+      "sommation V >= 300 mV et ordre de Kuramoto r >= 0.70",
+      "signalisation par milieu environnemental partage (stigmergie)",
+      "network_silence et tamponnage local du bavardage",
+      "epsilon_local approx 0.0001 ms CPU, 0 token LLM"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "emettre ligand ou electrocyte sans consommer de token",
+    "calculer l'ordre de Kuramoto pour atteindre un consensus",
+    "declencher network_silence sur deadlock conversationnel",
+    "maintenir une consommation en O(N)"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_swarm_signal",
+      "genos_inspect",
+      "genos_test"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_swarm_signal",
+      "genos_inspect",
+      "genos_test"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "electrocyte-discharge",
+    "stigmergy-field",
+    "kuramoto-consensus",
+    "network-silence"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "StigmergicBus",
+  "name_meaning": "Incarne le bus de signalisation biomimetique sub-symbolique : ligands paracrines, decharges d'electrocytes et consensus d'oscillateurs de Kuramoto a cout token nul.",
+  "role": "worker",
+  "cell_id": "cf9ea19e-d493-4e55-8708-ff77e23aaacb"
+}

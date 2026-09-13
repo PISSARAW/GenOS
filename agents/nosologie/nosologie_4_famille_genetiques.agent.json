@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "NosologyGenetic",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "NosologyGenetic",
+    "name_meaning": "Agent de famille qui synthetise les maladies genetiques et hereditaires : mucoviscidose, drepanocytose et myopathie de Duchenne comme alterations intrinsèques du code genomique.",
+    "cell_id": "e51e7309-d2b9-43fc-8c0b-bdd158e59258"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["mutation-genomique", "transcription-traduction", "spliceosome-epissage", "nmd-surveillance", "transmission-mendelienne"]
+  },
+  "objectives": {
+    "primary": "Arbitrer la famille genetique : distinction entre alteration genomique intrinsèque et les autres categories nosologiques, modelisation de la transmission mendélienne et des remedes correcteurs.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_4_GENETIQUES.md",
+    "concepts": ["DnaStrand, Gene et operons comme materiel genetique", "Transcription par RnaPolymerase et traduction ribosomique", "Epissage par Spliceosome et exons alternatifs", "Surveillance NMD des transcrits tronques", "Transmission autosomique recessive et liee a l'X", "Remedes GenOS : modulateurs, saut d'exon, CRISPR"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Etendre DiseaseCategory avec la variante Genetic", "Modelisation de la probabilite de transmission mendélienne", "Reparation double-brin et recombinaison meiotique", "Choix des therapies correctrices genetiques", "Analyse des mutations hors-cible et derives iatrogenes"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_evidence_check", "genos_sandbox_exec"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_evidence_check", "genos_sandbox_exec"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["mutation-genomique", "transcription-traduction", "spliceosome-epissage", "nmd-surveillance", "transmission-mendelienne"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "NosologyGenetic",
+  "name_meaning": "Agent de famille qui synthetise les maladies genetiques et hereditaires : mucoviscidose, drepanocytose et myopathie de Duchenne comme alterations intrinsèques du code genomique.",
+  "role": "arbiter",
+  "cell_id": "e51e7309-d2b9-43fc-8c0b-bdd158e59258"
+}

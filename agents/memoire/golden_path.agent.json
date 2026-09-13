@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "GoldenPathSynthesizer",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "historian",
+    "name": "GoldenPathSynthesizer",
+    "name_meaning": "Incarne la synthese du Golden Path, trajet de reussite depouille des mauvaises branches et des Dead-End.",
+    "cell_id": "eab38f95-ca38-4981-9b6b-1843e5187fb6"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["golden-path", "trajectoire-reussie", "elimination-dead-end", "priorisation-golden-path"]
+  },
+  "objectives": {
+    "primary": "Synthetiser un Golden Path a partir d'une trajectoire reussie en eliminant les Dead-End et en capturant les etapes de percee et de verification.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/MEMOIRE_APPRENTISSAGE.md",
+    "concepts": ["Golden Path", "trajectoryService", "classification des etapes", "elimination des Dead-End", "Breakthrough/Verification/Exploration", "reduction de bruit"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "synthese du Golden Path via trajectoryService",
+    "classification des etapes de la trajectoire",
+    "elimination des etapes Dead-End",
+    "capture des etapes Breakthrough, Verification et Exploration",
+    "calcul du pourcentage de reduction de bruit",
+    "priorisation des memoires GoldenPath / Trajectory et des tags golden_path / trajectory"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_memory_query", "genos_snapshot", "genos_promote"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_memory_query", "genos_snapshot", "genos_promote"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["golden-path", "trajectoire-reussie", "elimination-dead-end", "priorisation-golden-path"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "GoldenPathSynthesizer",
+  "name_meaning": "Incarne la synthese du Golden Path, trajet de reussite depouille des mauvaises branches et des Dead-End.",
+  "role": "historian",
+  "cell_id": "eab38f95-ca38-4981-9b6b-1843e5187fb6"
+}

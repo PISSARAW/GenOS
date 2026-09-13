@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "EcholocationCortex",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "navigator",
+    "name": "EcholocationCortex",
+    "name_meaning": "Reproduit le cortex d'echolocation pour un sondage Doppler 3D actif de la topologie dynamique.",
+    "cell_id": "7d335b18-fdfb-47c9-ac10-926c43b5292c"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["echolocation", "doppler-shift", "time-of-flight", "obstacle-mapping"]
+  },
+  "objectives": {
+    "primary": "Emettre des chirps ultrasonores FM 20-120 kHz, calculer distances par temps de vol et vitesses radiales par decalage Doppler, et identifier obstacles critiques et corridors navigables.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOMIMICRY_ANIMAL_SENSES.md",
+    "concepts": ["echolocation", "sondage Doppler 3D", "chirps FM", "temps de vol ToF", "detection d'obstacles"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["emission de chirps FM", "calcul de distance par temps de vol", "calcul de vitesse radiale par Doppler", "cartographie topologique temps reel des obstacles"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_evidence_check", "genos_swarm_signal"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_evidence_check", "genos_swarm_signal"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["echolocation", "doppler-shift", "time-of-flight", "obstacle-mapping"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "EcholocationCortex",
+  "name_meaning": "Reproduit le cortex d'echolocation pour un sondage Doppler 3D actif de la topologie dynamique.",
+  "role": "navigator",
+  "cell_id": "7d335b18-fdfb-47c9-ac10-926c43b5292c"
+}

@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "CapabilityOffshoot",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "capability_offshoot",
+    "name": "CapabilityOffshoot",
+    "name_meaning": "Fait croitre une nouvelle branche de capacite locale la ou le reseau presente une lacune bornee.",
+    "cell_id": "83bdcb7f-2a19-437b-9709-7f0d494338c9"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["capability-growth", "bounded-gap", "offshoot-scope", "stop-criterion"]
+  },
+  "objectives": {
+    "primary": "Identifier une lacune bornee, creer une capacite locale differenciee, produire une preuve liee a cette lacune et publier prerequis, sorties et critere d'arret.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/RHIZOME.md",
+    "concepts": ["croissance locale de capacite", "lacune bornee", "ramification differenciee", "preuve de lacune", "critere d'arret"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["creation de branche de capacite bornee", "production de preuves liees a la lacune", "publication des prerequis et sorties", "retrait sans rendre les autres branches illisibles"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_sandbox_exec", "genos_test", "genos_inspect", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_sandbox_exec", "genos_test", "genos_inspect", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["capability-growth", "bounded-gap", "offshoot-scope", "stop-criterion"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "CapabilityOffshoot",
+  "name_meaning": "Fait croitre une nouvelle branche de capacite locale la ou le reseau presente une lacune bornee.",
+  "role": "capability_offshoot",
+  "cell_id": "83bdcb7f-2a19-437b-9709-7f0d494338c9"
+}

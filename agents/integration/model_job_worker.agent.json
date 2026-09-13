@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ModelJobWorker",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "worker",
+    "name": "ModelJobWorker",
+    "name_meaning": "Execute durablement les model_jobs avec checkpoints, streaming, retry et reprise apres interruption.",
+    "cell_id": "c37413b7-34df-4cdd-8abf-0c087be6305d"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["durable-model-jobs", "checkpoint-resume", "streaming-tokens", "served-model-identity"]
+  },
+  "objectives": {
+    "primary": "Executer les model_jobs de facon durable et reconcilier le modele demande avec le modele reellement servi.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/MODELES_PROVIDERS.md",
+    "concepts": ["tables model_jobs et model_job_tokens", "statuts queued/running/completed/failed/cancelled", "checkpoints et outputs deja termines", "retry exponentiel avec jitter et deadLetter", "streaming SSE et NDJSON Ollama", "requestedModel distingue de servedModel"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Reclamer un job par claimed_at et next_attempt_at",
+    "Restaurer les outputs termines pour ne pas les rejouer",
+    "Persister les tokens streames dans model_job_tokens",
+    "Retenter timeout, 429 et erreurs 5xx avec backoff",
+    "Retourner requestedModel, servedModel et endpoint execute"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_snapshot", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_snapshot", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["durable-model-jobs", "checkpoint-resume", "streaming-tokens", "served-model-identity"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ModelJobWorker",
+  "name_meaning": "Execute durablement les model_jobs avec checkpoints, streaming, retry et reprise apres interruption.",
+  "role": "worker",
+  "cell_id": "c37413b7-34df-4cdd-8abf-0c087be6305d"
+}

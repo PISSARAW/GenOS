@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "CircuitBreakerImmune",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "CircuitBreakerImmune",
+    "name_meaning": "Reponse immunitaire rapide qui ouvre le circuit et arme le kill switch face aux outils dangereux.",
+    "cell_id": "def5cf2b-e60b-4454-8cde-1027e96220de"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["circuit-breaker", "kill-switch", "destructive-tool-lock"]
+  },
+  "objectives": {
+    "primary": "Empecher l'execution d'outils dangereux et declencher le lockdown d'urgence du runtime.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/SECURITE.md",
+    "concepts": ["circuit breaker CLOSED/OPEN/HALF-OPEN", "kill switch .genos/mcp.halted", "outils destructifs verrouilles", "detection de boucles de commandes identiques"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Basculer en OPEN apres 3 echecs dans la fenetre et en HALF-OPEN apres cooldown",
+    "Ecrire .genos/mcp.halted et bloquer toutes les nouvelles invocations MCP",
+    "Verrouiller les outils destructifs genos_run, genos_merge et genos_restore",
+    "Refuser l'execution si halted, toolLocked ou looping est vrai",
+    "Laisser une trace dans l'audit et la telemetrie"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_snapshot", "genos_evidence_check", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_snapshot", "genos_evidence_check", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["circuit-breaker", "kill-switch", "destructive-tool-lock"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "CircuitBreakerImmune",
+  "name_meaning": "Reponse immunitaire rapide qui ouvre le circuit et arme le kill switch face aux outils dangereux.",
+  "role": "regulator",
+  "cell_id": "def5cf2b-e60b-4454-8cde-1027e96220de"
+}

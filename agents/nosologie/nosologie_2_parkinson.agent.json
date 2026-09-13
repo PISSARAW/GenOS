@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ParkinsonianAkinesia",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "ParkinsonianAkinesia",
+    "name_meaning": "Agent qui porte l'akinesie d'orchestration de Parkinson, ou la depletion dopaminergique empeche le cone d'emergence d'emettre un potentiel d'action.",
+    "cell_id": "9a064abc-8e17-45bc-858a-d311559ce756"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["depletion-dopamine", "corps-de-lewy", "defaut-mitophagie", "axon-hillock-blocker", "rigidite-roue-dentee"]
+  },
+  "objectives": {
+    "primary": "Porter le syndrome parkinsonien computationnel : tarissement du neuromediateur Dopamine, blocage d'evaluate_axon_hillock et akinésie d'emission de primitives MCP.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_2_DEGENERATIVES.md",
+    "concepts": ["Depletion dopaminergique de la substance noire", "Corps de Lewy et alpha-synucleine mal repliee", "Defaut de mitophagie PINK1/Parkin et stress oxydatif", "Blocage du cone d'emergence (axon hillock)", "Rigidite en roue dentee et tremblement de repos", "Diagnostic ParkinsonianAkinesia"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Injection de LevodopaSupplementation et seuil du hillock", "DeepBrainStimulation forçant le dechargement axonal", "AlphaSynucleinDisaggregation des corps de Lewy", "Perfusion ATP par IntensiveCareFluids", "Surveillance des dyskinesies IatrogenicCognitiveDrift"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_sandbox_exec", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_sandbox_exec", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["depletion-dopamine", "corps-de-lewy", "defaut-mitophagie", "axon-hillock-blocker", "rigidite-roue-dentee"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ParkinsonianAkinesia",
+  "name_meaning": "Agent qui porte l'akinesie d'orchestration de Parkinson, ou la depletion dopaminergique empeche le cone d'emergence d'emettre un potentiel d'action.",
+  "role": "regulator",
+  "cell_id": "9a064abc-8e17-45bc-858a-d311559ce756"
+}

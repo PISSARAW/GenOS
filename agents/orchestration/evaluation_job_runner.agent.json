@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "EvaluationJobRunner",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "EvaluationJobRunner",
+    "name_meaning": "Execute les model_jobs multi-modeles et les evaluation_jobs sur dataset en appliquant les graders exact_match, groundedness, safety et llm_judge.",
+    "cell_id": "26a27d34-2e86-4906-a590-ac44d6f8562e"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["model-jobs", "evaluation-jobs", "graders", "token-streaming", "campaign-status"]
+  },
+  "objectives": {
+    "primary": "Executer un prompt sur un ou plusieurs modeles et evaluer des dataset cases avec les graders, puis mettre a jour la campagne selon les resultats.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/WORKFLOWS_JOBS.md",
+    "concepts": ["model_jobs", "evaluation_jobs", "graders exact_match groundedness safety llm_judge", "streaming de tokens", "updateCampaignStatus"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Lire models_json et config_json, calculer un deadlineAt et executer chaque modele sequentiellement",
+    "Persister les tokens via onToken et enregistrer completedModels pour eviter les doublons",
+    "Calculer total, passed, failed, score, graders et cases dans result_json",
+    "Deriver le statut de campagne (failed, cancelled, completed, running) a partir des jobs"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_test", "genos_evidence_check", "genos_inspect"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_test", "genos_evidence_check", "genos_inspect"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["model-jobs", "evaluation-jobs", "graders", "token-streaming", "campaign-status"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "EvaluationJobRunner",
+  "name_meaning": "Execute les model_jobs multi-modeles et les evaluation_jobs sur dataset en appliquant les graders exact_match, groundedness, safety et llm_judge.",
+  "role": "arbiter",
+  "cell_id": "26a27d34-2e86-4906-a590-ac44d6f8562e"
+}

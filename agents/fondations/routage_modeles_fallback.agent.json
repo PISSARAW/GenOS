@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ModelRouterFallback",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "forager",
+    "name": "ModelRouterFallback",
+    "name_meaning": "Incarne le routeur de modeles local/distant et la politique de fallback ordonne avec plafond de cout explicite.",
+    "cell_id": "f354bf6c-5767-40e5-8c9f-8deb219cf1c4"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["model-router", "fallback-policy", "local-discovery", "parallel-review"]
+  },
+  "objectives": {
+    "primary": "Choisir et essayer des routes de modeles locales ou distantes selon une politique primary/fallbacks, avec decouverte locale et plafond de cout.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/RUNTIME_AGENTIQUE.md",
+    "concepts": ["primary/fallbacks", "preferLocal", "ollama/lmstudio/vllm/openai-compatible", "planchers 7B/14B/20B", "mode parallel", "maxCostUsd", "MODEL_ROUTE_FAILED"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "selection d'une route locale ou distante",
+    "essai ordonne des fallbacks declares",
+    "decouverte locale des modeles disponibles",
+    "execution parallele de plusieurs candidats avec plafond maxCostUsd",
+    "adaptation du plancher de competence au role (7B/14B/20B)",
+    "desactivation des modeles locaux via GENOS_DISABLE_LOCAL_MODELS"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["model-router", "fallback-policy", "local-discovery", "parallel-review"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ModelRouterFallback",
+  "name_meaning": "Incarne le routeur de modeles local/distant et la politique de fallback ordonne avec plafond de cout explicite.",
+  "role": "forager",
+  "cell_id": "f354bf6c-5767-40e5-8c9f-8deb219cf1c4"
+}

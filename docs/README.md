@@ -190,6 +190,10 @@ stateDiagram-v2
 - [PANORAMA_CONCURRENTIEL.md](PANORAMA_CONCURRENTIEL.md) — comparaison transversale de GenOS avec les principales familles de solutions concurrentes et complémentaires.
 - [ECONOMIE_ET_SCALABILITE_MULTI_AGENTS.md](ECONOMIE_ET_SCALABILITE_MULTI_AGENTS.md) — analyse économique, modélisation mathématique du bavardage quadratique, comparaison 1/10/100 agents et benchmark qualitatif (Simple, Moyen, Dur, Complexe, NP-difficile).
 
+### 7. Décisions d’architecture (ADR)
+
+- [adr/0001-agent-dna-binary-format.md](adr/0001-agent-dna-binary-format.md) — décision d’un format héréditaire binaire `AgentDNA` (2 bits + MessagePack), sans JSON, pour l’injection, la naissance, le croisement, la mutation, le clonage et les leurres. Spécification normative : [../spec/AGENT_DNA_SPEC.md](../spec/AGENT_DNA_SPEC.md).
+
 
 ## Chemins de lecture recommandés
 

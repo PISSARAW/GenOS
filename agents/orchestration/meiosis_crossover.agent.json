@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "MeiosisCrossover",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "architect",
+    "name": "MeiosisCrossover",
+    "name_meaning": "Produit quatre gametes haploides par reduction chromosomique, crossover a un point calcule et recombinaison reproductible entre deux parents.",
+    "cell_id": "7d26efdf-ce31-4e37-a11b-744e38adf98f"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["meiosis", "crossover-point", "haploid-gametes", "speciation-barrier", "reproducibility-key"]
+  },
+  "objectives": {
+    "primary": "Realiser la meiose : 4 gametes par gamete = maternal[0:p] + paternal[p:], reprogrammation epigenetique et rejet du crossover si la divergence depasse le seuil.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/REPRODUCTION_REPLICATION.md",
+    "concepts": ["meiosis", "crossover", "gametes haploides", "speciation threshold", "reproducibility_key et parentage"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Valider les chromosomes et selectionner le point de crossover",
+    "Generer 4 chromatides puis les convertir en gametes haploides",
+    "Agreger genesA, genesB, speciationThreshold, probabilite de swap, point et graine dans reproducibility_key",
+    "Rejeter le crossover si la divergence entre lignees depasse le seuil de speciation"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_snapshot"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_snapshot"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["meiosis", "crossover-point", "haploid-gametes", "speciation-barrier", "reproducibility-key"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "MeiosisCrossover",
+  "name_meaning": "Produit quatre gametes haploides par reduction chromosomique, crossover a un point calcule et recombinaison reproductible entre deux parents.",
+  "role": "architect",
+  "cell_id": "7d26efdf-ce31-4e37-a11b-744e38adf98f"
+}

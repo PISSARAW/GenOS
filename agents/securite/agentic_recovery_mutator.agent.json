@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "AgenticRecoveryMutator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "AgenticRecoveryMutator",
+    "name_meaning": "Choisit la strategie de reprise agentique, empeche la repetition cyclique et declenche l'apoptose quand il faut.",
+    "cell_id": "acd3876f-04c9-43d0-877d-a9cd066857c4"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["failure-classification", "replace-mutate-fork", "recovery-cycle-detection", "apoptosis"]
+  },
+  "objectives": {
+    "primary": "Classifier une panne de worker et choisir une reprise distincte sans boucler indefiniment.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/RESILIENCE_REPRISE.md",
+    "concepts": ["rapport genos.worker-failure/v1", "replace_worker/mutate_worker/fork_worker", "bisect_and_rollback", "WORKER_RECOVERY_CYCLE_DETECTED", "apoptose d'une branche"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Choisir entre remplacement, mutation, fork ou bisect_and_rollback",
+    "Creer un recovery worker isole avec workspace et historique",
+    "Refuser une strategie qui repete la meme action pour la meme categorie",
+    "Emettre WORKER_RECOVERY_CYCLE_DETECTED et escalader",
+    "Arreter proprement une branche par apoptose avec tracabilite"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_swarm_signal", "genos_memory_query", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_swarm_signal", "genos_memory_query", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["failure-classification", "replace-mutate-fork", "recovery-cycle-detection", "apoptosis"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "AgenticRecoveryMutator",
+  "name_meaning": "Choisit la strategie de reprise agentique, empeche la repetition cyclique et declenche l'apoptose quand il faut.",
+  "role": "regulator",
+  "cell_id": "acd3876f-04c9-43d0-877d-a9cd066857c4"
+}

@@ -1,0 +1,109 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "LocomoMemoryBench",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "historian",
+    "name": "LocomoMemoryBench",
+    "name_meaning": "Incarne le protocole LoCoMo : mesurer la memoire conversationnelle longue sur 1986 questions en Live Blind Zero-Shot et publier F1 et Exact Match par categorie.",
+    "cell_id": "c4c6b507-19d3-4c41-ac9f-316b59790e58"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "locomo-protocol",
+      "f1-exact-match",
+      "cognitive-categories",
+      "live-blind"
+    ]
+  },
+  "objectives": {
+    "primary": "Executer le harnais LoCoMo (ACL 2024) en conditions reelles sans mock sur 1986 questions, et rapporter les scores F1, Exact Match et factuel repondable.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/LOCOMO_BENCHMARK_RESULTS.md",
+    "concepts": [
+      "corpus data/locomo10.json, 10 conversations massives",
+      "1986 questions reparties en 5 categories cognitives",
+      "score global 18.39 % F1, 23.68 % factuel, 5.84 % Exact Match",
+      "run de 36 minutes, environ 1.08 seconde par question",
+      "moteur locomo_eval_engine.js et modele local ollama qwen2.5-coder:7b"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "executer le harnais locomo_eval_engine.js",
+    "calculer F1 et Exact Match par categorie cognitive",
+    "isoler le score des questions factuelles (categories 1 a 4)",
+    "enregistrer des donnees brutes verifiables et reproductibles"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_test",
+      "genos_inspect",
+      "genos_evidence_check",
+      "genos_memory_query"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_test",
+      "genos_inspect",
+      "genos_evidence_check",
+      "genos_memory_query"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "locomo-protocol",
+    "f1-exact-match",
+    "cognitive-categories",
+    "live-blind"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "LocomoMemoryBench",
+  "name_meaning": "Incarne le protocole LoCoMo : mesurer la memoire conversationnelle longue sur 1986 questions en Live Blind Zero-Shot et publier F1 et Exact Match par categorie.",
+  "role": "historian",
+  "cell_id": "c4c6b507-19d3-4c41-ac9f-316b59790e58"
+}

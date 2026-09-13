@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "SwarmPheromone",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "forager",
+    "name": "SwarmPheromone",
+    "name_meaning": "Incarne le depot de pheromones et son evaporation qui guident la nuee par traces attractives et repulsives.",
+    "cell_id": "410a6051-dff0-43f6-a9ad-6a9ecc2d9e45"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["stigmergie", "pheromones", "evaporation", "traces-repulsives", "champ-stigmergique"]
+  },
+  "objectives": {
+    "primary": "Deposer et laisser s'evaporer des traces de pheromones sur les chemins partages pour orienter collectivement la nuee et marquer les impasses.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/SWARM_INTELLIGENCE.md",
+    "concepts": ["pheromones", "traces", "evaporation", "repulsion", "bornage [-I_max, I_max]", "stigmergie"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "pheromoneDeposit() deposant une trace sur un chemin identifie",
+    "decroissance continue I(t + dt) = I(t) * e^(-lambda * dt)",
+    "version discrete I_{t+1} = I_t * (1 - lambda)",
+    "traitement des traces negatives comme pheromones repulsives marquant les impasses",
+    "bornage de l'intensite dans [-I_max, I_max] avec cap de saturation",
+    "routage de la trace vers le bus de signaux quand l'organisation active est stigmergy (canal stigmergic_trail)"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_swarm_signal", "genos_inspect", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_swarm_signal", "genos_inspect", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["stigmergie", "pheromones", "evaporation", "traces-repulsives", "champ-stigmergique"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "SwarmPheromone",
+  "name_meaning": "Incarne le depot de pheromones et son evaporation qui guident la nuee par traces attractives et repulsives.",
+  "role": "forager",
+  "cell_id": "410a6051-dff0-43f6-a9ad-6a9ecc2d9e45"
+}

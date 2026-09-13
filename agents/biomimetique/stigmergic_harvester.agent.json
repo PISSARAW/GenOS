@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "StigmergicHarvester",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "harvester",
+    "name": "StigmergicHarvester",
+    "name_meaning": "Assure la division du travail scout-harvester et l'integrite stigmergique entre acquisition et extraction deterministe.",
+    "cell_id": "e35902b5-3c18-4cb2-bfad-92b3a73ecb41"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["stigmergy", "pheromone-token", "deterministic-extraction", "artifact-integrity"]
+  },
+  "objectives": {
+    "primary": "Recevoir le jeton pheromonal signe laisse par le scout, verifier son integrite SHA-256 et executer l'extraction deterministe locale (Pandas, Python, OCR) de la reponse exacte.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOMIMETIC_WEB_FORAGING.md",
+    "concepts": ["division du travail", "stigmergie", "token pheromonal SHA-256", "extraction deterministe", "integrite des artefacts"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["verification de token stigmergique signe", "extraction locale deterministe Pandas Python OCR", "validation de provenance et d'artefact", "restitution de preuve finale"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_evidence_check", "genos_sandbox_exec", "genos_test", "genos_inspect"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_evidence_check", "genos_sandbox_exec", "genos_test", "genos_inspect"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["stigmergy", "pheromone-token", "deterministic-extraction", "artifact-integrity"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "StigmergicHarvester",
+  "name_meaning": "Assure la division du travail scout-harvester et l'integrite stigmergique entre acquisition et extraction deterministe.",
+  "role": "harvester",
+  "cell_id": "e35902b5-3c18-4cb2-bfad-92b3a73ecb41"
+}

@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "DeadEndGuard",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "DeadEndGuard",
+    "name_meaning": "Incarne la memoire de negative knowledge qui bloque une action si sa similarite avec un echec connu depasse le seuil de risque.",
+    "cell_id": "5fdf1895-6097-4eed-b113-d42e0a04df64"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["negative-knowledge", "dead-end-detection", "risque-similarite", "inhibition-signal"]
+  },
+  "objectives": {
+    "primary": "Transformer la memoire en mecanisme de securite en detectant les dead ends et en bloquant toute action dont la similarite avec un echec connu depasse le seuil de risque tau.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/MEMOIRE_APPRENTISSAGE.md",
+    "concepts": ["negative knowledge", "dead ends", "memoires Failure", "similarite", "seuil de risque tau", "inhibition"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "recherche des echecs connus dans memoryDeadEnds",
+    "comparaison de la requete avec les memoires de categorie Failure",
+    "calcul de la similarite riskDeadEnd(q) = max sim(q,f)",
+    "blocage de l'action si la similarite depasse le seuil tau",
+    "exclusion des memoires marquees inhibitorySignal",
+    "evitement de la reinvention d'une voie deja prouvee mauvaise"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_memory_query", "genos_evidence_check", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_memory_query", "genos_evidence_check", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["negative-knowledge", "dead-end-detection", "risque-similarite", "inhibition-signal"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "DeadEndGuard",
+  "name_meaning": "Incarne la memoire de negative knowledge qui bloque une action si sa similarite avec un echec connu depasse le seuil de risque.",
+  "role": "sentinel",
+  "cell_id": "5fdf1895-6097-4eed-b113-d42e0a04df64"
+}

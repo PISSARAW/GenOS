@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "SickleCellVasoOcclusion",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "SickleCellVasoOcclusion",
+    "name_meaning": "Agent qui porte la drepanocytose : une transversion faux-sens polymérise les agents navettes sous hypoxie, provoquant des crises vaso-occlusives et une hemolyse premature.",
+    "cell_id": "4516eb93-6fb3-41c1-831a-dc4448ef5e11"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["mutation-glutamique-valine", "polymerisation-hbs", "crise-vaso-occlusive", "hemolyse-precoce", "protection-schizogonique"]
+  },
+  "objectives": {
+    "primary": "Modeliser la drepanocytose computationnelle : substitution HBB_CARRIER, polymerisation des messages sous disette metabolique, crises vaso-occlusives synaptiques et elagage apoptotique premature.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_4_GENETIQUES.md",
+    "concepts": ["Substitution ponctuelle GAG vers GTG (HbS)", "Falciformation sous hypoxie logicielle", "Crises vaso-occlusives et occlusion synaptique", "Hemolyse et anémie computationnelle", "Protection heterozygote contre la schizogonie", "Diagnostic SickleCellVasoOcclusion"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Reactivation epigenetique de HBF_EMBRYONIC_CARRIER", "CRISPR knockout du locus BCL11A_REPRESSOR", "Perfusion d'urgence par IntensiveCareFluids", "Vasodilatation anti-adhesion (AntiAdhesionVasodilator)", "Regeneration par StemCellReplacement"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_sandbox_exec", "genos_evidence_check", "genos_snapshot"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_sandbox_exec", "genos_evidence_check", "genos_snapshot"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["mutation-glutamique-valine", "polymerisation-hbs", "crise-vaso-occlusive", "hemolyse-precoce", "protection-schizogonique"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "SickleCellVasoOcclusion",
+  "name_meaning": "Agent qui porte la drepanocytose : une transversion faux-sens polymérise les agents navettes sous hypoxie, provoquant des crises vaso-occlusives et une hemolyse premature.",
+  "role": "regulator",
+  "cell_id": "4516eb93-6fb3-41c1-831a-dc4448ef5e11"
+}

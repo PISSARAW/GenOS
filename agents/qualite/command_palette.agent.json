@@ -1,0 +1,107 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "CommandPalette",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "CommandPalette",
+    "name_meaning": "Incarne la Command Palette et le Terminal Studio : endpoints HTTP authentifies acceptant une liste fermee d'actions, sous tenant, role et confirmation.",
+    "cell_id": "3e1219e0-c2f4-46c3-9a33-2af2e037630d"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "command-palette",
+      "terminal-studio",
+      "confirmation-required",
+      "tenant-rbac"
+    ]
+  },
+  "objectives": {
+    "primary": "Executer une liste fermee d'actions et de commandes Studio sous tenant et role admin/operator, en exigeant confirmed:true pour kill_agent et reboot_studio.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/CLI_EXPERIENCE_OPERATEUR.md",
+    "concepts": [
+      "actions admises fork_agent, kill_agent, inspect_state, reboot_studio, snapshot_workspace",
+      "terminal limite a help, status, halt/abort, resume, agents, ping, clear",
+      "UNSUPPORTED_COMMAND au lieu d'interpretation shell",
+      "HTTP 409 CONFIRMATION_REQUIRED sans confirmation",
+      "evenement COMMAND_DISPATCHED avant execution"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "verifier tenant et role avant execution",
+    "emettre COMMAND_DISPATCHED",
+    "refuser toute commande hors liste fermee",
+    "activer ou reinitialiser le kill switch MCP sur halt/resume"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_inspect",
+      "genos_validate",
+      "genos_swarm_signal"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_inspect",
+      "genos_validate",
+      "genos_swarm_signal"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "command-palette",
+    "terminal-studio",
+    "confirmation-required",
+    "tenant-rbac"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "CommandPalette",
+  "name_meaning": "Incarne la Command Palette et le Terminal Studio : endpoints HTTP authentifies acceptant une liste fermee d'actions, sous tenant, role et confirmation.",
+  "role": "arbiter",
+  "cell_id": "3e1219e0-c2f4-46c3-9a33-2af2e037630d"
+}

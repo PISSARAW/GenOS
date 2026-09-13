@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "JobWorker",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "worker",
+    "name": "JobWorker",
+    "name_meaning": "Claim, execute et ordonnance equitablement les workflow_runs, model_jobs et evaluation_jobs avec retry exponentiel et reprise apres crash.",
+    "cell_id": "090ab1b1-45de-4b06-b14b-f6c0886eaeac"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["claim-job", "process-table", "with-retry", "fair-scheduling", "recover-interrupted-jobs"]
+  },
+  "objectives": {
+    "primary": "Parcourir periodiquement les tables de jobs, claimer les entrees en file, executer et reclamer equitablement entre scopes et projets.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/WORKFLOWS_JOBS.md",
+    "concepts": ["claim", "processOnce", "withRetry", "fair scheduling par scope", "recoverInterruptedJobs"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Executer claim() puis withRetry() pour eviter le double traitement concurrent",
+    "Trier par priorite puis date de creation et alterner de scope pour eviter la starvation",
+    "Appliquer un backoff exponentiel avec jitter D_n = min(30s, 250*2^(n-1)) + J_n",
+    "Remettre en queued ou en failed les jobs running dont claimed_at est trop ancien"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_sandbox_exec", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_sandbox_exec", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["claim-job", "process-table", "with-retry", "fair-scheduling", "recover-interrupted-jobs"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "JobWorker",
+  "name_meaning": "Claim, execute et ordonnance equitablement les workflow_runs, model_jobs et evaluation_jobs avec retry exponentiel et reprise apres crash.",
+  "role": "worker",
+  "cell_id": "090ab1b1-45de-4b06-b14b-f6c0886eaeac"
+}

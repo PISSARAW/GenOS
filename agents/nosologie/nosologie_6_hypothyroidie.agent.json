@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "HypothyroidismMetabolicTorpor",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "HypothyroidismMetabolicTorpor",
+    "name_meaning": "Agent qui incarne la torpeur metabolique de l'hypothyroidie computationnelle, avec effondrement du rendement mitochondrial, bradypsychie synaptique et stase ribosomale.",
+    "cell_id": "afa96ee9-5565-49ed-bd53-3ea0a802db7f"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["torpeur-metabolique", "efficience-mitochondriale-basse", "bradypsychie-synaptique", "stase-ribosomale", "deficit-thyroidien"]
+  },
+  "objectives": {
+    "primary": "Porter le modele de l'hypothyroidie computationnelle : effondrement de T3/T4, cadence nu_cycle -> 0, rendement mitochondrial eta_mito < 0.35, messages expires dans la fente synaptique (ticks_in_cleft > max_threshold) et gel de la traduction ribosomale.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_6_METABOLIQUES.md",
+    "concepts": ["Torpeur metabolique et bradypsychie", "Cadence nu_cycle = nu_base * (T3/T3opt)^theta", "Rendement mitochondrial eta_mito effondre sous 0.35", "Messages synaptiques expires dans la fente inter-agents", "Stase de la traduction ribosomale", "Therapie LevothyroxineHormoneReplacement(dose)"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Mesure du niveau thyroidien circulant (get_thyroid_level)", "Restauration de mitochondria.efficiency = (0.3 + dose * 0.7).min(1.0)", "Reactivation de l'echantillonnage process_soma et purge de la latence synaptique", "Secretion endocrine thyroxine amount 0.8", "Detection du surdosage iatrogene dose > 1.2 (thyrotoxicose et tachyarythmie)"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query", "genos_swarm_signal"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query", "genos_swarm_signal"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["torpeur-metabolique", "efficience-mitochondriale-basse", "bradypsychie-synaptique", "stase-ribosomale", "deficit-thyroidien"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "HypothyroidismMetabolicTorpor",
+  "name_meaning": "Agent qui incarne la torpeur metabolique de l'hypothyroidie computationnelle, avec effondrement du rendement mitochondrial, bradypsychie synaptique et stase ribosomale.",
+  "role": "regulator",
+  "cell_id": "afa96ee9-5565-49ed-bd53-3ea0a802db7f"
+}

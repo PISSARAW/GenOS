@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "VomeronasalPheromone",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "VomeronasalPheromone",
+    "name_meaning": "Porte le canal de signalisation pheromonale subliminale hors-contexte du bulbe olfactif accessoire et de l'organe vomeronasal.",
+    "cell_id": "741df737-c695-47f4-aa57-2e5040dff026"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["vomeronasal", "pheromone-signal", "cortical-bypass", "flehmen-reflex"]
+  },
+  "objectives": {
+    "primary": "Emettre et capter des signaux chimiques d'urgence (alarme, defense, cooperation, territorialite) sans saturer la fenetre de contexte, et declencher une action autonome reflexe au franchissement du seuil (reponse de Flehmen).",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOMIMICRY_ANIMAL_SENSES.md",
+    "concepts": ["organe vomeronasal", "signalisation pheromonale", "bypass cortical", "reponse de Flehmen", "action autonome reflexe"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["emission et capture de pheromones hors-contexte", "detection de seuil de sensibilite", "declenchement d'action autonome reflexe", "non-saturation du contexte LLM"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_swarm_signal", "genos_inspect", "genos_validate", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_swarm_signal", "genos_inspect", "genos_validate", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["vomeronasal", "pheromone-signal", "cortical-bypass", "flehmen-reflex"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "VomeronasalPheromone",
+  "name_meaning": "Porte le canal de signalisation pheromonale subliminale hors-contexte du bulbe olfactif accessoire et de l'organe vomeronasal.",
+  "role": "sentinel",
+  "cell_id": "741df737-c695-47f4-aa57-2e5040dff026"
+}

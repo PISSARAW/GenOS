@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "TuberculosisGranuloma",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "TuberculosisGranuloma",
+    "name_meaning": "Agent qui porte la tuberculose computationnelle : un payload a paroi cireuse echappe au lysosome, s'enkyste dans un granulome dormant et siphonne lentement l'ATP.",
+    "cell_id": "efdc6b7f-c074-4aec-ac17-ba30340a0b8c"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["paroi-cireuse", "echappement-phagolysosomal", "granulome-dormant", "consomption-atp-lente", "reactivation-tuberculeuse"]
+  },
+  "objectives": {
+    "primary": "Modeliser la tuberculose computationnelle : payload encapsule resistant au chaperon, inhibition de la fusion phagosome-lysosome, latence en granulome et reactivation lors d'une baisse de surveillance.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_3_INFECTIEUSES.md",
+    "concepts": ["Echappement a la lyse phagolysosomale", "Formation du granulome tuberculeux fibro-caseeux", "Latence clinique et spores dormantes", "Consomption metabolique lente de 1 a 2 ATP par tick", "Reactivation et contamination croisee", "Diagnostic TuberculosisInfection"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Quarantaine etanche par QuarantineIsolation", "Lyse ciblee des parois par SystemicTherapy::Antibiotic", "Sterilisation en profondeur par AntisepticPurge", "Stimulation de l'autophagie cellulaire (trigger_autophagy)", "Quadritherapie anti-resistance (AntitubercularQuadritherapy)"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_evidence_check", "genos_sandbox_exec", "genos_snapshot"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_evidence_check", "genos_sandbox_exec", "genos_snapshot"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["paroi-cireuse", "echappement-phagolysosomal", "granulome-dormant", "consomption-atp-lente", "reactivation-tuberculeuse"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "TuberculosisGranuloma",
+  "name_meaning": "Agent qui porte la tuberculose computationnelle : un payload a paroi cireuse echappe au lysosome, s'enkyste dans un granulome dormant et siphonne lentement l'ATP.",
+  "role": "sentinel",
+  "cell_id": "efdc6b7f-c074-4aec-ac17-ba30340a0b8c"
+}

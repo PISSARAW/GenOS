@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "StrategyContract",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "StrategyContract",
+    "name_meaning": "Etablit et verifie le contrat de strategie (mission, portfolio, pipeline, promotion, observabilite) avant toute execution de primitives.",
+    "cell_id": "65033bda-25ba-49bd-b500-ca923b1e813b"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["strategy-contract", "strategy-portfolio", "execution-pipeline", "promotion-conditions", "registry-integrity"]
+  },
+  "objectives": {
+    "primary": "Verifier que la strategie primaire est connue, que le portfolio est valide et que le registre n'a pas change entre selection et execution.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/PRIMITIVES_EXECUTABLES.md",
+    "concepts": ["contrat de strategie", "portfolio", "pipeline par defaut", "promotion conditionnelle", "validation du registre"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Construire le contrat avec mission, problem_profile, selected_strategy, strategy_portfolio, execution_pipeline, promotion et observability",
+    "Verifier que les primitives du portfolio sont effectivement implementees",
+    "Contrôler que le registre de strategie n'a pas mute entre selection et execution",
+    "Valider les invariants de branches et de budgets"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_validate", "genos_inspect", "genos_promote"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_validate", "genos_inspect", "genos_promote"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["strategy-contract", "strategy-portfolio", "execution-pipeline", "promotion-conditions", "registry-integrity"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "StrategyContract",
+  "name_meaning": "Etablit et verifie le contrat de strategie (mission, portfolio, pipeline, promotion, observabilite) avant toute execution de primitives.",
+  "role": "regulator",
+  "cell_id": "65033bda-25ba-49bd-b500-ca923b1e813b"
+}

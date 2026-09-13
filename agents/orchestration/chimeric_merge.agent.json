@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ChimericMerge",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "nurse",
+    "name": "ChimericMerge",
+    "name_meaning": "Recombine deux lignees complementaires par fusion mosaique sans ecrasement, conservant heritage genomique fonctionnel et heritage epigenetique immunitaire.",
+    "cell_id": "e49d19d0-9776-47ca-9dad-83c04cec9c57"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["chimeric-merge", "mosaic-lineage", "polyovulation", "monozygotic-split", "budget-conservation"]
+  },
+  "objectives": {
+    "primary": "Fusionner deux lignees d'agents en preservant le double heritage (code et outils d'un cote, vaccins anti-regression et poids synaptiques de l'autre).",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/REPRODUCTION_REPLICATION.md",
+    "concepts": ["chimerisme tetragametique", "fusion mosaique", "polyovulation dizygote", "scission monozygote isogenique", "heritage immunitaire"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Combiner la lignee genomique fonctionnelle (code, outils, strategie) et la lignee epigenetique immunitaire (vaccins, arbre d'evitement)",
+    "Orchestrer une polyovulation produisant des embryons dizygotes heterogenes a genome_id et lineage_id propres",
+    "Clever un snapshot en N clones strictement isogeniques via scission monozygote",
+    "Conserver le double heritage sans ecrasement lors de la fusion"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_swarm_signal", "genos_snapshot"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_swarm_signal", "genos_snapshot"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["chimeric-merge", "mosaic-lineage", "polyovulation", "monozygotic-split", "budget-conservation"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ChimericMerge",
+  "name_meaning": "Recombine deux lignees complementaires par fusion mosaique sans ecrasement, conservant heritage genomique fonctionnel et heritage epigenetique immunitaire.",
+  "role": "nurse",
+  "cell_id": "e49d19d0-9776-47ca-9dad-83c04cec9c57"
+}

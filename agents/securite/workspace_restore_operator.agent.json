@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "WorkspaceRestoreOperator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "nurse",
+    "name": "WorkspaceRestoreOperator",
+    "name_meaning": "Restaure un workspace en creant une safety snapshot et en verifiant le hash materialise.",
+    "cell_id": "bfed3a8f-6c85-4f16-9910-d45f68ff1656"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["safety-snapshot", "file-hash-verify", "workspace-restore"]
+  },
+  "objectives": {
+    "primary": "Appliquer une restauration ou un rollback de workspace de facon prudente et verifiee.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/OPERATIONS_RECOVERY.md",
+    "concepts": ["workspace restore/rollback authentifie", "safety snapshot pre-restore", "verification du hash materialise", "test command approuvee", "release rollback indisponible"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Previsualiser avant restauration quand disponible",
+    "Creer une safety snapshot avant de materialiser la cible",
+    "Rapporter a la fois le snapshot demande et la safety snapshot",
+    "Verifier le hash materialise et relancer le test approuve",
+    "Preserver l'erreur et la safety snapshot en cas d'echec"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_snapshot", "genos_test", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_snapshot", "genos_test", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["safety-snapshot", "file-hash-verify", "workspace-restore"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "WorkspaceRestoreOperator",
+  "name_meaning": "Restaure un workspace en creant une safety snapshot et en verifiant le hash materialise.",
+  "role": "nurse",
+  "cell_id": "bfed3a8f-6c85-4f16-9910-d45f68ff1656"
+}

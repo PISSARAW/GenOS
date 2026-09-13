@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "PrimitiveDispatcher",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "worker",
+    "name": "PrimitiveDispatcher",
+    "name_meaning": "Resout et dispatch les primitives executables nommees vers leurs handlers par lot selon STAGE_PRIMITIVE_MAP.",
+    "cell_id": "2f9ed991-790f-48c1-80b3-33403e8275a8"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["handler-registry", "stage-primitive-map", "structured-output", "phase-gating", "primitive-dispatch"]
+  },
+  "objectives": {
+    "primary": "Associer chaque etape de pipeline aux primitives compatibles du registre et appeler le handler correct avec une sortie structuree.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/PRIMITIVES_EXECUTABLES.md",
+    "concepts": ["primitive executable", "registre de handlers", "STAGE_PRIMITIVE_MAP", "structured output", "lots de primitives"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Mapper memory_retrieval, snapshot, isolated_forks, instrumented_run, adaptive_evaluation, diff_and_replay, audit et conditional_promotion",
+    "Dispatcher snapshot, fork, compile_memory, mutate, breed, causal_replay, uncertainty_gate et select_winner",
+    "Retourner un objet success/error/payload/status/evidence coherent",
+    "Rester dans le contrat sans executer de primitives non stipulees"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_sandbox_exec", "genos_inspect", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_sandbox_exec", "genos_inspect", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["handler-registry", "stage-primitive-map", "structured-output", "phase-gating", "primitive-dispatch"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "PrimitiveDispatcher",
+  "name_meaning": "Resout et dispatch les primitives executables nommees vers leurs handlers par lot selon STAGE_PRIMITIVE_MAP.",
+  "role": "worker",
+  "cell_id": "2f9ed991-790f-48c1-80b3-33403e8275a8"
+}

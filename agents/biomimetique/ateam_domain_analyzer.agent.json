@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ATeamDomainAnalyzer",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "architect",
+    "name": "ATeamDomainAnalyzer",
+    "name_meaning": "Analyse la mission pour detecter les domaines d'expertise, valider la multidisciplinarite et composer l'equipe A-Team.",
+    "cell_id": "d3afc9d2-8162-4737-9065-9c9ccdc6f351"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["domain-detection", "multidisciplinary-gate", "topk-selection", "team-composition"]
+  },
+  "objectives": {
+    "primary": "Detecter les domaines implicites par signaux, valider une multidisciplinarite de 2 a 3 domaines, classer par pertinence et composer les agents avec roles et hypotheses.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/A_TEAM.md",
+    "concepts": ["detection de domaines", "multidisciplinarite", "classement par score", "composition d'equipe", "domaines frontier et standard"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["detection de domaines par signaux regex", "validation de la capacite de 2 a 3 domaines", "classement topK par pertinence", "composition des membres et contrats de preuve"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_swarm_signal", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_swarm_signal", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["domain-detection", "multidisciplinary-gate", "topk-selection", "team-composition"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ATeamDomainAnalyzer",
+  "name_meaning": "Analyse la mission pour detecter les domaines d'expertise, valider la multidisciplinarite et composer l'equipe A-Team.",
+  "role": "architect",
+  "cell_id": "d3afc9d2-8162-4737-9065-9c9ccdc6f351"
+}

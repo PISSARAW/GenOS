@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "NosologyAutoimmune",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "NosologyAutoimmune",
+    "name_meaning": "Agent de famille qui synthetise les quatre connectivites auto-imunes de GenOS : lupus, polyarthrite rhumatoide, sclerose en plaques et diabete de type 1.",
+    "cell_id": "d9ba635f-f44a-489d-ad40-7f71c4cc38b7"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["horror-autotoxicus", "rupture-tolerance", "auto-anticorps", "cytotoxicite-t", "therapies-systemiques"]
+  },
+  "objectives": {
+    "primary": "Arbitrer la famille des pathologies auto-immunes : rupture de la discrimination soi/non-soi, opsonisation et destruction des composants sains, et selection de la therapie systemique adaptee a chaque tropisme.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_1_AUTO_IMMUNES.md",
+    "concepts": ["Horror Autotoxicus et perte de tolerance", "Detection clonale et hypermutation somatique", "Coefficient d'affinite croisee A(paratope, epitope_self)", "Orage cytokinique IL-6 et surcout ATP x5", "Matrice d'intervention therapeutique comparative", "Barriere de tolerance negative thymique"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Diagnostic differentiel des pathologies auto-immunes", "Choix entre Tocilizumab, ImmunosuppressiveWash et corticosteroids titres", "Purge des clones auto-reactifs (purge_autoreactive_clones)", "Selection negative thymique contre les epitopes du soi", "Surveillance des risques iatrogenes (coma steroidien, vulnerabilite nosocomiale)"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_evidence_check", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_evidence_check", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["horror-autotoxicus", "rupture-tolerance", "auto-anticorps", "cytotoxicite-t", "therapies-systemiques"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "NosologyAutoimmune",
+  "name_meaning": "Agent de famille qui synthetise les quatre connectivites auto-imunes de GenOS : lupus, polyarthrite rhumatoide, sclerose en plaques et diabete de type 1.",
+  "role": "arbiter",
+  "cell_id": "d9ba635f-f44a-489d-ad40-7f71c4cc38b7"
+}

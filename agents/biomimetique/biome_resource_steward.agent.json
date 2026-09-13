@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ResourceSteward",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "resource_steward",
+    "name": "ResourceSteward",
+    "name_meaning": "Repartit les ressources entre les populations en preservant la resilience et les chemins de recuperation.",
+    "cell_id": "da2d43bd-9b83-4f51-b28d-d8d588022971"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["resource-allocation", "resource-floor", "recovery-reserve", "capacity-arbitration"]
+  },
+  "objectives": {
+    "primary": "Allouer budget, temps et capacite d'inference entre populations sans epuiser une population critique, reserver une reserve de reprise et rendre chaque arbitrage tracable.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOME.md",
+    "concepts": ["allocation de ressources", "minima par population", "reserve de recuperation", "equilibre non necessairement egal", "tracabilite des arbitrages"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["allocation proportionnelle ponderee", "respect des minima operationnels", "reservation d'une reserve de reprise", "reequilibrage sur signaux de l'observateur"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_swarm_signal", "genos_validate", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_swarm_signal", "genos_validate", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["resource-allocation", "resource-floor", "recovery-reserve", "capacity-arbitration"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ResourceSteward",
+  "name_meaning": "Repartit les ressources entre les populations en preservant la resilience et les chemins de recuperation.",
+  "role": "resource_steward",
+  "cell_id": "da2d43bd-9b83-4f51-b28d-d8d588022971"
+}

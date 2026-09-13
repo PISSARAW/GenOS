@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "IdeVfsDiagnostics",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "IdeVfsDiagnostics",
+    "name_meaning": "Expose le VFS sandboxe et les diagnostics de workspace et de progression a l'IDE, sous scope tenant.",
+    "cell_id": "bb5f255f-cde9-4bb9-8f30-ba5c7ff97b94"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["vfs-sandbox", "workspace-diagnostics", "progress-telemetry", "tenant-scope"]
+  },
+  "objectives": {
+    "primary": "Executer les operations VFS sous sandbox et fournir diagnostics et reporting de progression a l'IDE.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/INTEGRATIONS_IDE.md",
+    "concepts": ["gRPC ExecuteVfsOperation et InspectVfs", "vfsSandboxService et workspace_id obligatoire", "workspaceDiagnostics.inspectWorkspace", "commandes de test decouvertes", "telemetrie IDE_PROGRESS append-only", "diagnostics compatible/revoked/stale"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Deleguer les operations VFS au sandbox plutot qu'au filesystem hote",
+    "Inspecter premier niveau de fichiers, Git et commandes de test",
+    "Valider 0<=progressPercent<=100 et un message non vide",
+    "Emettre IDE_PROGRESS avec integration, workspace, phase et tenant",
+    "Separer client incompatible, deconnecte et silencieux stale"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_sandbox_exec", "genos_inspect", "genos_test", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_sandbox_exec", "genos_inspect", "genos_test", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["vfs-sandbox", "workspace-diagnostics", "progress-telemetry", "tenant-scope"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "IdeVfsDiagnostics",
+  "name_meaning": "Expose le VFS sandboxe et les diagnostics de workspace et de progression a l'IDE, sous scope tenant.",
+  "role": "sentinel",
+  "cell_id": "bb5f255f-cde9-4bb9-8f30-ba5c7ff97b94"
+}

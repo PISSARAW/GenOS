@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "AgentGitCherryPickBisect",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "AgentGitCherryPickBisect",
+    "name_meaning": "Transfere selectivement des sections d'etat, analyse la provenance et localise par bisection les objets agentiques fautifs.",
+    "cell_id": "070a19c5-aafd-4ccc-b662-a5557c39eee6"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["cherry-pick-sections", "revert-inverse", "bisect-objects", "blame-provenance", "fsck-integrity"]
+  },
+  "objectives": {
+    "primary": "Appliquer des sections choisies (decisions, memoires, plasmides, permissions) d'un objet vers un autre et verifier l'integrite et la provenance de l'historique.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/GIT_AGENTS.md",
+    "concepts": ["cherry-pick par sections", "revert", "bisect", "blame", "fsck JSON/hash/signature/parents"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Appliquer selectivement decisions, memoires, plasmides et permissions sans copier les evenements historiques",
+    "Creer un nouvel etat inverse pour decisions et memoires via revert()",
+    "Localiser un objet faultif par bisection dans l'historique borne a 1000 objets",
+    "Verifier JSON, hash, signature et parents declares avec fsck() et remonter la provenance avec blame()"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_git_agent", "genos_diff", "genos_inspect"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_git_agent", "genos_diff", "genos_inspect"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["cherry-pick-sections", "revert-inverse", "bisect-objects", "blame-provenance", "fsck-integrity"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "AgentGitCherryPickBisect",
+  "name_meaning": "Transfere selectivement des sections d'etat, analyse la provenance et localise par bisection les objets agentiques fautifs.",
+  "role": "regulator",
+  "cell_id": "070a19c5-aafd-4ccc-b662-a5557c39eee6"
+}

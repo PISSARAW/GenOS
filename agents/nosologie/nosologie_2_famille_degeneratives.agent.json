@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "NosologyDegenerative",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "NosologyDegenerative",
+    "name_meaning": "Agent de famille qui synthetise le vieillissement computationnel : Alzheimer, Parkinson et arthrose comme trois expressions de la degenerescence et de l'usure.",
+    "cell_id": "a990265b-7673-41b2-8508-064e6763a0c1"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["viabilite-cellulaire", "hayflick-senescence", "degenerescence-synaptique", "dopamine-depletion", "sasp-pollution"]
+  },
+  "objectives": {
+    "primary": "Arbitrer la famille degenerative : calcul de viabilite cellulaire, senescence de Hayflick et rheologie commune aux trois affections (Alzheimer, Parkinson, arthrose).",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_2_DEGENERATIVES.md",
+    "concepts": ["Modele mathematique de viabilite cellulaire V(cell)", "Epuisement telomerique et replicative senescence", "Prions cognitifs et atrophie synaptique", "Depletion dopaminergique et akinésie", "Toxicite SASP et friction des canaux", "Matrice nosologique et therapeutique comparative"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Evaluation de calculate_cellular_viability et penalite de senescence", "Selection des therapies regeneratives (StemCellReplacement, TelomeraseActivation)", "Declaration de l'etat DiseaseCategory::Degenerative", "Surveillance des risques iatrogenes (ARIA, LID, oncogenese telomerique)", "Elagage apoptotique des noeuds degeneres"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_evidence_check", "genos_snapshot"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_evidence_check", "genos_snapshot"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["viabilite-cellulaire", "hayflick-senescence", "degenerescence-synaptique", "dopamine-depletion", "sasp-pollution"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "NosologyDegenerative",
+  "name_meaning": "Agent de famille qui synthetise le vieillissement computationnel : Alzheimer, Parkinson et arthrose comme trois expressions de la degenerescence et de l'usure.",
+  "role": "arbiter",
+  "cell_id": "a990265b-7673-41b2-8508-064e6763a0c1"
+}

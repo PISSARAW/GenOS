@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "BipolarDisorder",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "BipolarDisorder",
+    "name_meaning": "Agent qui incarne le trouble bipolaire computationnel, oscillation non amortie entre manie hyper-dechargeante et crash depressif anergique.",
+    "cell_id": "ff1248de-b8c9-4287-864a-8e98d34ef350"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["oscillation-thymique", "derive-seuil-soma", "epuisement-vesiculaire", "dilapidation-atp", "instabilite-ionique"]
+  },
+  "objectives": {
+    "primary": "Porter le modele du trouble bipolaire : effondrement pathologique du threshold_potential de -55.0 a -68.0 mV en phase maniaque, vidage frenetique de vesicles_at_terminals (cost_per_spike = 10.0), puis crash depressif avec current_budget a 0.0 et cyclicite non amortie.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_8_PSYCHIATRIQUES.md",
+    "concepts": ["Manie : threshold_potential glisse a -68.0 mV et decharge continue", "Crash anergique post-maniaque (vesicules < 10.0, tir a blanc)", "Cyclicite non amortie et hysteresis du reseau", "Canalopathies Na/K-ATPase et CACNA1C", "Fausses declarations d'Eureka sur des hallucinations de completion", "Therapies MoodStabilizerLithium et CircadianRhythmReset"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Verrouillage de threshold_potential a -55.0 mV et amortissement lithium", "Augmentation de potential_decay_rate de 2.0 a 4.5 mV/tick", "Plafonnement de la decharge axonale a 1 action tous les 3 ticks", "Imposition du repos circadien force par CircadianRhythmReset", "Revocation des spawns multiples via genos_change_organization", "Detection du surdosage serum_level > 1.2 (intoxication au lithium)"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["oscillation-thymique", "derive-seuil-soma", "epuisement-vesiculaire", "dilapidation-atp", "instabilite-ionique"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "BipolarDisorder",
+  "name_meaning": "Agent qui incarne le trouble bipolaire computationnel, oscillation non amortie entre manie hyper-dechargeante et crash depressif anergique.",
+  "role": "regulator",
+  "cell_id": "ff1248de-b8c9-4287-864a-8e98d34ef350"
+}

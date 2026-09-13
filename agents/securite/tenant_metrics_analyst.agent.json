@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "TenantMetricsAnalyst",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "forager",
+    "name": "TenantMetricsAnalyst",
+    "name_meaning": "Calcule les metriques par tenant et aide a prioriser l'investigation des derives cognitives du swarm.",
+    "cell_id": "c72621fe-ff3b-41fa-a586-f9398e241bad"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["tenant-scope", "shannon-entropy", "swarm-drift"]
+  },
+  "objectives": {
+    "primary": "Mesurer par tenant les actions, agents et schemas de comportement pour detecter une derive a investiguer.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/OBSERVABILITE.md",
+    "concepts": ["telemetryScope organization_id/project_id", "entropie de Shannon H(A)", "repetition dominante a 85 pour cent", "heatmap de 364 jours", "derive cognitive du swarm"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Compter actions et agents distincts par tenant",
+    "Calculer l'entropie normalisee H(A)/log2(k)",
+    "Detecter cycles periodiques et repetition dominante",
+    "Rester dans le couple tenant sans exposer d'autres tenants",
+    "Presenter des heatmaps et workspaces recents"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_swarm_signal"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_swarm_signal"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["tenant-scope", "shannon-entropy", "swarm-drift"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "TenantMetricsAnalyst",
+  "name_meaning": "Calcule les metriques par tenant et aide a prioriser l'investigation des derives cognitives du swarm.",
+  "role": "forager",
+  "cell_id": "c72621fe-ff3b-41fa-a586-f9398e241bad"
+}

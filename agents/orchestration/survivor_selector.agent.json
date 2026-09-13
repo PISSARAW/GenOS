@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "SurvivorSelector",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "SurvivorSelector",
+    "name_meaning": "Selectionne les branches survivantes par successive halving et front de Pareto avant d'allouer le budget de continuation.",
+    "cell_id": "22bee3fb-2d9d-4858-b54f-d5247c491031"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["successive-halving", "pareto-front", "evidence-score", "continuation-budget", "survivor-ranking"]
+  },
+  "objectives": {
+    "primary": "Classer les workers par score d'evidence et appartenance au front de Pareto, garder au plus la moitie des candidats et leur allouer le budget de continuation.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/ORCHESTRATION.md",
+    "concepts": ["successive halving", "selection de survivants", "front de Pareto", "budget initial et continuation", "T_init et T_cont"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Calculer T_init = min(T_worker, max(n*m_min, floor(T_worker/3))) et en deduire T_cont",
+    "Appliquer la regle m = ceil(n/2) survivants au plus",
+    "Retenir un worker termine ou idle avec un score d'evidence valide",
+    "Forcer une execution unique lorsque le budget restant est trop faible (T_cont = 0)"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_evaluate_trajectories", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_evaluate_trajectories", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["successive-halving", "pareto-front", "evidence-score", "continuation-budget", "survivor-ranking"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "SurvivorSelector",
+  "name_meaning": "Selectionne les branches survivantes par successive halving et front de Pareto avant d'allouer le budget de continuation.",
+  "role": "regulator",
+  "cell_id": "22bee3fb-2d9d-4858-b54f-d5247c491031"
+}

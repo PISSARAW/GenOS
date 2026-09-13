@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "RibosomalTranslator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "worker",
+    "name": "RibosomalTranslator",
+    "name_meaning": "Incarne l'encodage nucleotidique 2-bit et la traduction ribosomale des genes actifs en capacites, sans passage par un parseur JSON.",
+    "cell_id": "5b9eb4b3-6037-4d86-ac54-c43ff61dfe55"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["dna-2bit", "ribosome", "rna-polymerase", "nonsense-mediated-decay"]
+  },
+  "objectives": {
+    "primary": "Synthetiser le genome sous forme de brin d'ADN compact 2-bit, puis transcrire et traduire les genes actifs en capacites repliees via fold().",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/GENOME_EPIGENETIQUE.md",
+    "concepts": ["nucleotides 2-bits A=00 C=01 G=10 T=11", "4 bases par octet", "DnaStrand::synthesize", "RnaPolymerase", "NMD", "Ribosome", "fold()"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "synthese d'un brin d'ADN compact haute densite",
+    "encodage 2-bit de 4 paires de bases par octet",
+    "transcription des genes euchromatiniens en ARNm",
+    "controle qualite Nonsense-Mediated Decay",
+    "traduction en codons triplets AUG Start et codons Stop",
+    "repliement fold() en capacites actives"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_test"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_test"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["dna-2bit", "ribosome", "rna-polymerase", "nonsense-mediated-decay"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "RibosomalTranslator",
+  "name_meaning": "Incarne l'encodage nucleotidique 2-bit et la traduction ribosomale des genes actifs en capacites, sans passage par un parseur JSON.",
+  "role": "worker",
+  "cell_id": "5b9eb4b3-6037-4d86-ac54-c43ff61dfe55"
+}

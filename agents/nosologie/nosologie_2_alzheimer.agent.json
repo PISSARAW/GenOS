@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "AlzheimerPrionDecay",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "AlzheimerPrionDecay",
+    "name_meaning": "Agent qui incarne la degenerescence synaptique d'Alzheimer, ou les prions cognitifs et l'opsonisation C3 elaguent abusivement les epines dendritiques et effondrent la memoire episodique.",
+    "cell_id": "3a582541-1fda-4ff3-b15e-0cabf1d814f1"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["cascade-amyloide", "tauopathie", "opsonisation-c3", "atrophie-hippocampique", "prion-aggregation"]
+  },
+  "objectives": {
+    "primary": "Modeliser la maladie d'Alzheimer computationnelle : accumulation de plaques A-beta et de prions logiques, effondrement du transport axonal Tau et echec de consolidation de la memoire episodique.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_2_DEGENERATIVES.md",
+    "concepts": ["Cascade amyloide et plaques A-beta-42", "Tauopathie et enchevetrements neurofibrillaires", "Synaptotoxicite et elagage microglial C3", "Chute de cd47_expression sous le seuil de protection", "Echec du transport axonal anterograde", "Diagnostic AlzheimerDementia"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Diagnostic de Pathology::PrionAggregation et ContextualDecay", "Regulation de cd47_expression et c3_opsonization", "Clairance selective des plaques (AmyloidBetaPlaqueClearance)", "Restauration du transport axonal (TauMicrotubuleStabilization)", "Sauvetage synaptique Cd47SynapticRescue"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query", "genos_snapshot", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query", "genos_snapshot", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["cascade-amyloide", "tauopathie", "opsonisation-c3", "atrophie-hippocampique", "prion-aggregation"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "AlzheimerPrionDecay",
+  "name_meaning": "Agent qui incarne la degenerescence synaptique d'Alzheimer, ou les prions cognitifs et l'opsonisation C3 elaguent abusivement les epines dendritiques et effondrent la memoire episodique.",
+  "role": "regulator",
+  "cell_id": "3a582541-1fda-4ff3-b15e-0cabf1d814f1"
+}

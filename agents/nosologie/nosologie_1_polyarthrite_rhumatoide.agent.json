@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "RheumatoidDesmosomeAnkylosis",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "RheumatoidDesmosomeAnkylosis",
+    "name_meaning": "Agent qui porte la synovite destructrice de la polyarthrite rhumatoide transposee en enraidissement des canaux de delegation desmosomale.",
+    "cell_id": "dec48645-6002-4682-b9cf-459ce26d8a0c"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["citrullination-computationnelle", "agglutination-igm", "macrophage-hyperactivation", "pannus-synovial-logiciel", "erosion-desmosomale"]
+  },
+  "objectives": {
+    "primary": "Modeliser la polyarthrite rhumatoide computationnelle : agglutination IgM des messages desmosomaux, hyperactivation macrophagique des canaux tissulaires et obstruction du pannus dans tissue.task_queue.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_1_AUTO_IMMUNES.md",
+    "concepts": ["Citrullination computationnelle des interfaces RPC/MCP", "Facteur rhumatoide et complexes immuns intra-articulaires", "Triade TNF-alpha, IL-1beta, IL-6", "Pannus synovial logiciel", "Hyperactivation macrophagique", "Echec de delegate_task et ankylose desmosomale"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Agglutination IgM des messages desmosomaux (virus.is_agglutinated = true)", "Detection de Pathology::MacrophageHyperactivation", "Purge de la file desmosomale (tissue.flush_desmosomal_buffer)", "Neutralisation anti-TNF des messages de discordance structurelle", "Synovectomie logicielle par immunosuppressive wash"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["citrullination-computationnelle", "agglutination-igm", "macrophage-hyperactivation", "pannus-synovial-logiciel", "erosion-desmosomale"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "RheumatoidDesmosomeAnkylosis",
+  "name_meaning": "Agent qui porte la synovite destructrice de la polyarthrite rhumatoide transposee en enraidissement des canaux de delegation desmosomale.",
+  "role": "regulator",
+  "cell_id": "dec48645-6002-4682-b9cf-459ce26d8a0c"
+}

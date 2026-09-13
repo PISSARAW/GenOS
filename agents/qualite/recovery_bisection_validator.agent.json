@@ -1,0 +1,109 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "RecoveryBisectionValidator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "nurse",
+    "name": "RecoveryBisectionValidator",
+    "name_meaning": "Incarne le profil test:recovery : verifier les decisions de reprise de worker, la bisection causee bornee et l'idempotence des migrations.",
+    "cell_id": "0eb69443-8b03-4120-9283-a20377dda8e7"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "worker-failure-recovery",
+      "automatic-bisection",
+      "migration-idempotence",
+      "concurrency-seed"
+    ]
+  },
+  "objectives": {
+    "primary": "Verifier les decisions de reprise (mutate_worker, fork_worker, replace_worker, escalate_unresolved), la borne k <= ceil(log2(n))+1 et l'idempotence M(M(D))=M(D).",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/TESTS_VALIDATION_DEPOT.md",
+    "concepts": [
+      "recovery de worker, bisection causale automatique, reconnexions de boucle",
+      "decisions de recuperation et traitement strict d'un no_answer sans preuve",
+      "borne logarithmique k <= ceil(log2(n))+1",
+      "idempotence migration MsgPack et valeur decode(M(D))=D",
+      "idempotence concurrente du seed bootstrap"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "classer et router les echecs de worker",
+    "borner la bisection logarithmiquement",
+    "verifier l'idempotence d'une migration",
+    "tester la concurrence SQLite du seed"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_test",
+      "genos_snapshot",
+      "genos_diff",
+      "genos_validate"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_test",
+      "genos_snapshot",
+      "genos_diff",
+      "genos_validate"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "worker-failure-recovery",
+    "automatic-bisection",
+    "migration-idempotence",
+    "concurrency-seed"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "RecoveryBisectionValidator",
+  "name_meaning": "Incarne le profil test:recovery : verifier les decisions de reprise de worker, la bisection causee bornee et l'idempotence des migrations.",
+  "role": "nurse",
+  "cell_id": "0eb69443-8b03-4120-9283-a20377dda8e7"
+}

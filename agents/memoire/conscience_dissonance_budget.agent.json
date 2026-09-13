@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ConscienceMonitor",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "ConscienceMonitor",
+    "name_meaning": "Incarne l'etat de conscience interne base sur la dissonance cognitive et le budget, declenchant Eureka ou apoptose.",
+    "cell_id": "41fae885-77f1-43cc-a8e8-b8ad6cdea2f2"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["conscience", "dissonance-cognitive", "budget-cognitif", "eureka", "apoptose"]
+  },
+  "objectives": {
+    "primary": "Surveiller la dissonance cognitive et le budget afin de reduire la dissonance lors d'un Eureka et d'arreter la branche lorsque le seuil critique est atteint.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NEUROBIOLOGIE_PLASTICITE.md",
+    "concepts": ["conscience", "dissonance cognitive", "budget cognitif", "Eureka", "apoptose", "evaluateBranch"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "calcul de D_{t+1} = max(0, D_t + p - r)",
+    "declenchement d'Eureka : D <- D/2 et B <- min(B_base, B + 50)",
+    "application de penalites errors, repetition et drift via evaluateBranch",
+    "apoptose si D >= D_max ou B <= 0",
+    "persistance de l'etat dans agents et conscience_transitions via persistConscienceStateNow",
+    "suivi des cles cognitive_budget, cognitive_baseline_budget, cognitive_max_dissonance, conscience_revision et eureka_count"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_snapshot", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_snapshot", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["conscience", "dissonance-cognitive", "budget-cognitif", "eureka", "apoptose"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ConscienceMonitor",
+  "name_meaning": "Incarne l'etat de conscience interne base sur la dissonance cognitive et le budget, declenchant Eureka ou apoptose.",
+  "role": "sentinel",
+  "cell_id": "41fae885-77f1-43cc-a8e8-b8ad6cdea2f2"
+}

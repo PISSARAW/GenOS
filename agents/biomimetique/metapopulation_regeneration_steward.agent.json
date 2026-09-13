@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "RegenerationSteward",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regeneration_steward",
+    "name": "RegenerationSteward",
+    "name_meaning": "Reconstruit les roles et la capacite de travail apres une perte locale depuis l'etat survivant, la memoire et la lignee.",
+    "cell_id": "981f1cf3-846a-43d9-a74a-acd1ddcdc2ce"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["regeneration", "surviving-lineage", "recovery-source", "integrity-check"]
+  },
+  "objectives": {
+    "primary": "Detecter les pertes de population, verifier l'etat, la memoire et la lignee survivants, reconstruire une capacite minimale et reintroduire la population par etapes.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/METAPOPULATION.md",
+    "concepts": ["regeneration", "etat survivant verifie", "lignee et memoire", "capacite minimale", "reintroduction progressive"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["detection de perte de role ou de population", "verification d'integrite de lignee", "reconstruction a partir d'artefacts persistants", "test local puis reconnexion progressive"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_memory_query", "genos_snapshot", "genos_evidence_check", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_memory_query", "genos_snapshot", "genos_evidence_check", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["regeneration", "surviving-lineage", "recovery-source", "integrity-check"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "RegenerationSteward",
+  "name_meaning": "Reconstruit les roles et la capacite de travail apres une perte locale depuis l'etat survivant, la memoire et la lignee.",
+  "role": "regeneration_steward",
+  "cell_id": "981f1cf3-846a-43d9-a74a-acd1ddcdc2ce"
+}

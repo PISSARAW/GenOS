@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "TrinityPlannedWorld",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "planned_implementation",
+    "name": "TrinityPlannedWorld",
+    "name_meaning": "Implemente la mission depuis un plan detaille derive d'une interview ou d'une specification explicite.",
+    "cell_id": "c29ccbc7-fe9c-49e1-8af1-699c63ca1a1d"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["planned-world", "explicit-plan", "interview-derived", "plan-fidelity"]
+  },
+  "objectives": {
+    "primary": "Construire un plan explicite (interview, architecture, specification) puis executer la mission depuis ce plan, en retournant plan, resultat et fidelite d'execution.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/TRINITY.md",
+    "concepts": ["hypothese planned", "plan detaille", "interview derivee", "fidelite plan-execution", "specification explicite"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["elaboration de plan explicite", "execution guidee par le plan", "suivi de la fidelite au plan", "preuves adaptees au domaine"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_test", "genos_snapshot", "genos_inspect", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_test", "genos_snapshot", "genos_inspect", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["planned-world", "explicit-plan", "interview-derived", "plan-fidelity"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "TrinityPlannedWorld",
+  "name_meaning": "Implemente la mission depuis un plan detaille derive d'une interview ou d'une specification explicite.",
+  "role": "planned_implementation",
+  "cell_id": "c29ccbc7-fe9c-49e1-8af1-699c63ca1a1d"
+}

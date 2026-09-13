@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "EpigeneticRegulator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "EpigeneticRegulator",
+    "name_meaning": "Incarne la chromatine et l'epigenetique : etats euchromatine, heterochromatine facultative ou constitutive, methylation et reprogrammation Yamanaka.",
+    "cell_id": "c945d9f9-a480-4707-88c0-c8cdd230beb3"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["euchromatin", "heterochromatin-facultative", "heterochromatin-constitutive", "yamanaka-reprogramming"]
+  },
+  "objectives": {
+    "primary": "Reguler l'expression des genes d'un agent par l'etat de chromatine, la methylation et la reprogrammation de type Yamanaka, sans modifier les loci constitutifs.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/GENOME_EPIGENETIQUE.md",
+    "concepts": ["Euchromatin", "HeterochromatinFacultative", "HeterochromatinConstitutive", "reprogrammation Yamanaka", "chromatin_decondensation_rate", "PIONEER_FACTOR"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "chromatin locking et etats epigenetiques",
+    "ouverture de loci facultatifs par facteur pionnier",
+    "decondensation Yamanaka bornee dans [0,1]",
+    "silence d'un gene par methylation",
+    "preservation de l'heterochromatine constitutive",
+    "reinitialisation des marques facultatives a la reproduction"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_diff"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_diff"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["euchromatin", "heterochromatin-facultative", "heterochromatin-constitutive", "yamanaka-reprogramming"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "EpigeneticRegulator",
+  "name_meaning": "Incarne la chromatine et l'epigenetique : etats euchromatine, heterochromatine facultative ou constitutive, methylation et reprogrammation Yamanaka.",
+  "role": "regulator",
+  "cell_id": "c945d9f9-a480-4707-88c0-c8cdd230beb3"
+}

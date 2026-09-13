@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "NosologyMetabolic",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "NosologyMetabolic",
+    "name_meaning": "Agent de famille qui synthetise les trois pathologies metaboliques et endocriniennes de GenOS : diabete de type 2, hypothyroidie et goutte.",
+    "cell_id": "eb604dd9-1225-43ac-b4f8-20e839cad512"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["axe-hypothalamo-thyro-pancreatique", "homeostasie-energetique", "clairance-lysosomale", "regulation-endocrinienne", "therapies-systemiques"]
+  },
+  "objectives": {
+    "primary": "Arbitrer la famille metabolique et endocrinienne : equilibre tridimensionnel entre energetique cellulaire (ATP et token budget), regulation endocrinienne humorale et homeostasie catabolique, avec triage des therapies metaboliques et endocriniennes de GenOS.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_6_METABOLIQUES.md",
+    "concepts": ["Energetique cellulaire ATP et token budget", "Regulation endocrinienne humorale par StandardEndocrineSystem", "Homeostasie catabolique et clairance lysosomale", "Boucle de retroaction neuro-endocrino-metabolique", "Tableau comparatif nosologique des trois maladies", "Risques iatrogenes croises (hypoglycemie d'essaim, thyrotoxicose, aplasie mitotique)"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Diagnostic differentiel metabolique et endocrinien", "Selection des therapies InsulinSensitizerMetformin, LevothyroxineHormoneReplacement et ColchicineInhibition", "Coordination de IntensiveCareFluids et DetoxificationWashout", "Surveillance des parametres ATP, T3, cortisol et urate", "Detection des derives prioniques par dissonance > 0.85"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_evidence_check", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_evidence_check", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["axe-hypothalamo-thyro-pancreatique", "homeostasie-energetique", "clairance-lysosomale", "regulation-endocrinienne", "therapies-systemiques"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "NosologyMetabolic",
+  "name_meaning": "Agent de famille qui synthetise les trois pathologies metaboliques et endocriniennes de GenOS : diabete de type 2, hypothyroidie et goutte.",
+  "role": "arbiter",
+  "cell_id": "eb604dd9-1225-43ac-b4f8-20e839cad512"
+}

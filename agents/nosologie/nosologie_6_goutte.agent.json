@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "GoutMicrocrystallineCrisis",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "GoutMicrocrystallineCrisis",
+    "name_meaning": "Agent qui incarne la crise de goutte microcristalline computationnelle, ou les scories de turnover saturent les fentes synaptiques et declenchent un orage inflammatoire sterile.",
+    "cell_id": "a410f640-5f92-44e9-a3f5-af91421e847b"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["cristallisation-urate", "saturation-lysosome", "inflammasome-nlrp3", "occlusion-synaptique", "orage-inflammatoire-sterile"]
+  },
+  "objectives": {
+    "primary": "Porter le modele de la goutte computationnelle : depassement du seuil de solubilite S_urate par les scories d'ATP et d'arbres de syntaxe, activation erronee du systeme immunitaire sur des debris endogenes (IL-1beta = mu * Cristaux, metabolic_cost = 5) et occlusion des fentes synaptiques et desmosomes.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_6_METABOLIQUES.md",
+    "concepts": ["dU/dt = k_turnover * Cost_ATP - delta_lysosome * Capacite_digestion", "Seuil de solubilite S_urate et Cristaux(t) = max(0, C_urate - S_urate)", "Inflammasome NLRP3 et maturation d'IL-1beta", "Occlusion des fentes synaptiques et des desmosomes", "Fausse alerte immunitaire du systeme AIS", "ColchicineInhibition, AllopurinolXanthineInhibitor et LysosomalUraturicPurge"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Detection de la densite de cristaux d'urate et des synapses obstruees", "Suractivation lysosomale ciblee (digestion_capacity * 4)", "Inhibition de 80% de la generation de scories contextuelles (Allopurinol)", "Blocage de la diapedese immunitaire vers la fente (Colchicine)", "Purge de reanimation globale par DetoxificationWashout"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query", "genos_swarm_signal"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query", "genos_swarm_signal"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["cristallisation-urate", "saturation-lysosome", "inflammasome-nlrp3", "occlusion-synaptique", "orage-inflammatoire-sterile"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "GoutMicrocrystallineCrisis",
+  "name_meaning": "Agent qui incarne la crise de goutte microcristalline computationnelle, ou les scories de turnover saturent les fentes synaptiques et declenchent un orage inflammatoire sterile.",
+  "role": "sentinel",
+  "cell_id": "a410f640-5f92-44e9-a3f5-af91421e847b"
+}
