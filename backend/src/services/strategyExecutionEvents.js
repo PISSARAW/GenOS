@@ -177,6 +177,34 @@ function stepExecContext(agentId, context) {
   return { agentId, orchestratorId: agentId, workspaceId: extra.workspaceId, task: extra.task || extra.detail, ...extra };
 }
 
+// Some strategy primitives cannot run from a coarse runtime lifecycle event
+// alone: they need explicit invocation inputs (a tool, a patch, a workspace).
+// The lifecycle event that drives a phase carries none of those. When the inputs
+// are absent the phase is "not applicable" and must be skipped, never halted:
+// only a primitive that actually attempted work and failed can stop a mission.
+const PRIMITIVE_CONTEXT_REQUIREMENTS = {
+  vfs_dry_run: ['workspaceId', 'patch'],
+  blast_radius: ['workspaceId', 'patch'],
+  run: ['tool'],
+  safe_revert: ['workspaceId', 'snapshotId'],
+  restore: ['workspaceId', 'snapshotId'],
+  causal_replay_intervention: ['inputFile'],
+  intervene: ['inputFile'],
+  causal_replay: ['inputFile'],
+  replay: ['inputFile'],
+  golden_path_replay: ['inputFile'],
+  counterfactual_replay: ['inputFile'],
+  causal_rebase: ['graphFile'],
+  inject_change: ['graphFile'],
+  replay_dependencies: ['nodeId']
+};
+
+function missingContext(primitive, context = {}) {
+  const required = PRIMITIVE_CONTEXT_REQUIREMENTS[primitive];
+  if (!required) return [];
+  return required.filter((key) => context[key] === undefined || context[key] === null || context[key] === '');
+}
+
 async function executeStepPrimitives(db, agentId, options) {
   const entry = options || {};
   if (!entry.step) return { success: true, results: [] };
@@ -191,10 +219,16 @@ async function executeStepPrimitives(db, agentId, options) {
     const contract = safeJson(row.contract_json, {});
     const step = entry.step;
     const stageKey = step.stage_key || step.stageKey || '';
+    const context = stepExecContext(agentId, entry.context);
     const primitives = resolveStagePrimitives(stageKey, contract.strategy_portfolio);
-    if (!primitives.length) return { success: true, results: [] };
+    const executable = primitives.filter((primitive) => missingContext(primitive, context).length === 0);
+    const notApplicable = primitives.filter((primitive) => missingContext(primitive, context).length > 0);
+    if (!executable.length) {
+      return { success: true, applicable: false, results: [], notApplicable };
+    }
     const adapter = require('./strategyExecutionAdapter');
-    return await adapter.executePipelineWithFeedback(primitives, stepExecContext(agentId, entry.context));
+    const pipeline = await adapter.executePipelineWithFeedback(executable, context);
+    return { ...pipeline, applicable: true, notApplicable };
   } catch (error) {
     return { success: false, error: error.message, results: [] };
   }
@@ -212,6 +246,8 @@ module.exports = {
   getLatestRun,
   listRuns,
   resolveStagePrimitives,
+  PRIMITIVE_CONTEXT_REQUIREMENTS,
+  missingContext,
   metricDelta,
   stepIndex,
   unfinishedPhaseReason,
