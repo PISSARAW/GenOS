@@ -300,13 +300,17 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
   if (context.request.timeoutMs && !missionBudget.latencyMs) {
     missionBudget.latencyMs = Math.max(1000, Number(context.request.timeoutMs) - 4000);
   }
-  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: context.task, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false, timeoutMs: context.request.timeoutMs });
+  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: context.task, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false, timeoutMs: context.request.timeoutMs });
 }
 
-function workerPolicy() {
-  let inheritedCommands = [];
-  try { inheritedCommands = normalizeAllowedCommands(JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]')) || []; } catch { inheritedCommands = []; }
-  return { allowedCommands: inheritedCommands, allowFileEdits: /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || '')), silentUpdates: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || '')) };
+function workerPolicy(request = {}) {
+  const policy = request.executionPolicy || {};
+  const explicitCommands = firstPresent(request.allowed_commands, request.allowedCommands, policy.allowedCommands);
+  const explicitEdits = firstPresent(request.allow_file_edits, request.allowFileEdits, policy.allowFileEdits);
+  let inherited;
+  if (explicitCommands !== undefined) inherited = normalizeAllowedCommands(explicitCommands) || [];
+  else { try { inherited = normalizeAllowedCommands(JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]')) || []; } catch { inherited = []; } }
+  return { allowedCommands: inherited, allowFileEdits: explicitEdits === undefined ? /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || '')) : explicitEdits === true, silentUpdates: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || '')) };
 }
 
 async function handleWorker({ db, context }) {
