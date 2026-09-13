@@ -123,7 +123,7 @@ async function findReusableWorker(db, orchestratorId, { mission, role } = {}) {
 
 async function state(db, orchestratorId) {
   const parent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', orchestratorId);
-  const isParentDead = parent && (Boolean(parent.is_apoptotic) || ['apoptosis', 'terminated', 'completed', 'error'].includes(parent.status));
+  const isParentDead = parent && (Boolean(parent.is_apoptotic) || ['apoptosis', 'terminated', 'completed', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status));
   if (isParentDead) {
     return {
       capacity: maxActiveWorkers(),

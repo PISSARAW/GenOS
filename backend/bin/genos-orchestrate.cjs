@@ -81,7 +81,7 @@ async function prepareRuntime(initDb) {
   await runtime.reconcilePersistedRuntimes(initDb);
   const topLevelMissionActions = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']);
   if (!orchestratorId && !topLevelMissionActions.has(action)) {
-    const active = await initDb.get(`SELECT a.id FROM agents a WHERE a.execution_mode = 'orchestrator' AND a.status NOT IN ('completed', 'terminated', 'apoptosis', 'error') AND (a.is_apoptotic = 0 OR a.is_apoptotic IS NULL) ORDER BY a.updated_at DESC, a.created_at DESC LIMIT 1`);
+    const active = await initDb.get(`SELECT a.id FROM agents a WHERE a.execution_mode = 'orchestrator' AND a.status NOT IN ('completed', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined') AND (a.is_apoptotic = 0 OR a.is_apoptotic IS NULL) ORDER BY a.updated_at DESC, a.created_at DESC LIMIT 1`);
     if (active) orchestratorId = active.id;
   }
   if (!orchestratorId) orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
