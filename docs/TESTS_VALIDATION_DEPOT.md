@@ -1365,5 +1365,42 @@ Données brutes vérifiables : backend/locomo_full_real_results.json (566.6 Ko)
 >
 > (\*) **Précision méthodologique sur la Catégorie 5 :** Le score lexical F1 sur la Catégorie 5 est de 0.09% car le Gold annoté est uniquement la chaîne brute `"undefined"`. Le bouclier épistémique de GenOS a systématiquement et correctement refusé de spéculer avec des explications complètes (*"There is no mention in the provided context"*), ce qui produit 0 mot partagé avec "undefined" dans la métrique lexicale stricte malgré un comportement cognitif sans faute.
 
+---
+
+## 29. Évaluation Réelle SWE-bench Lite — Réparation Chirurgicale Autonome & Barrière d'Évidence GenOS
+
+L'évaluation a été menée en direct et en conditions réelles via le harnais d'orchestration natif `backend/src/evaluation/swe_eval_engine.js` connecté au cœur d'autonomie GenOS v3 (`autonomousOrchestrationService.js`, `vfsSandboxService.js`, `modelRouter.js`, `strategyRegistry.js`).
+
+L'inférence de réparation chirurgicale biomimétique (excision NER UvrBC) a été exécutée par `ollama://qwen2.5-coder:7b` sur 14 tâches réelles de SWE-bench Lite couvrant `psf/requests`, `pallets/flask` et `pytest-dev/pytest`.
+
+```text
+======================================================================
+=== GENOS v3 NATIVE SWE-BENCH BENCHMARK SCORECARD ===
+======================================================================
+  Tâches Uniques Évaluées                   : 14 tâches
+  Patchs Chirurgicaux Valides Synthétisés   : 10 / 14 (71.4 %)
+  Taille Moyenne des Patchs Diff            : 500 octets
+  Taux de Rejet Sécurisé (Evidence Gate)    :  4 / 14 (28.6 %)
+
+--- Répartition par Dépôt ---
+  pallets/flask         :  3 /  3 patchs valides (100.0 %)
+  psf/requests          :  5 /  6 patchs valides ( 83.3 %)
+  pytest-dev/pytest     :  2 /  5 patchs valides ( 40.0 %)
+======================================================================
+Rapport complet disponible dans : docs/SWE_BENCHMARK_RESULTS.md
+Prédictions JSONL officielles   : backend/src/evaluation/swe_bench_real_predictions.jsonl
+Script de métriques             : backend/src/evaluation/swe_metrics.js
+```
+
+### 29.1 Pipeline d'Autonomie & Primitives Mobilisées
+1. **`autonomousOrchestrationService.js`** : Génération du plan d'autonomie formel à 7 phases et déploiement des jumeaux spécialisés (*Hypothesis Optimistic* & *Hypothesis Skeptic*).
+2. **Workspace VFS Isolé** : Clonage et checkout déterministe sur le `base_commit` du dépôt dans `.genos-agent-worlds/swe_repos`.
+3. **Localisation de Défaut NER** : Détection des fichiers cibles par analyse de tracebacks (innermost frame), scoring de mots-clés et détection de stem nominal.
+4. **Synthèse Chirurgicale `SEARCH/REPLACE`** : Excision ciblée et greffe de remplacement avec alignement tolérant d'indentation et décapage des préfixes de ligne.
+5. **Pré-vol VFS & Rayon d'Impact** : Simulation VFS et calcul de Blast Radius (score moyen : **5/100**).
+6. **Barrière d'Évidence (*Evidence Gate*)** : Validation de compilation AST (`py_compile`) avec rollback sécurisé immédiat en cas d'erreur de syntaxe (préservant 100% de l'intégrité du dépôt).
+7. **Extraction & Formatage Officiel** : Génération du diff unifié formel (`git diff`) et enregistrement au format officiel SWE-bench.
+
+
 
 
