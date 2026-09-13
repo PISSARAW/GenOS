@@ -1,4 +1,5 @@
 use genos_orchestrator::genos_biology::glial::glial_cell::Metabolism;
+use genos_orchestrator::genos_biology::neurobiology::Neurotransmitter;
 use genos_orchestrator::genos_biology::therapy::SystemicTherapy;
 use genos_orchestrator::genos_biology::{
     GlialCell, GlialEnvironment, ObserverPerspective, ProkaryoticAgent, RawSignalPacket,
@@ -6,7 +7,8 @@ use genos_orchestrator::genos_biology::{
 use genos_orchestrator::genos_cell::AgentCell;
 use genos_orchestrator::genos_common::traits::{MemoryEntry, SearchQuery};
 use genos_orchestrator::genos_dna::model::{AgentDna, Provenance};
-use genos_orchestrator::genos_genome::Genome;
+use genos_orchestrator::genos_genome::{Gene, Genome};
+use genos_orchestrator::genos_immune::AntibodyDetector;
 use genos_orchestrator::GenosEcosystem;
 use std::collections::HashMap;
 
@@ -148,4 +150,39 @@ fn ecosystem_exposes_pathology_glial_and_specialized_cells() {
     let rendered = eco.render_polymorphic("data", &ObserverPerspective::StructuredJson);
     assert!(!rendered.is_empty());
 }
+
+#[test]
+fn ecosystem_exposes_neuro_and_virology() {
+    let mut eco = GenosEcosystem::new("Overmind");
+
+    // Neuro : réception synaptique, intégration somatique, plasticité.
+    eco.neuro.receive("axon-1", Neurotransmitter::Glutamate, 5.0);
+    let _spikes = eco.neuro.fire();
+    eco.neuro.apply_plasticity();
+
+    // Virologie : synthèse d'un bactériophage.
+    let idx = eco.virology.synthesize_bacteriophage("INJECTION_RECEPTOR", "KILL_HOST");
+    assert_eq!(eco.virology.virions.len(), 1);
+    assert!(
+        !eco.neutralize_virion(idx, 0.9),
+        "sans anticorps, pas de neutralisation"
+    );
+
+    eco.orchestrator
+        .immune_selection
+        .detectors
+        .push(AntibodyDetector::new("phage", "INJECTION_RECEPTOR", 0.8));
+    assert!(eco.neutralize_virion(idx, 0.9));
+    assert!(eco.virology.virions[idx].is_neutralized);
+
+    // Rétrovirus + transcription inverse.
+    let ridx = eco.virology.synthesize_retrovirus("CD4", "AUGCAUGC");
+    assert!(eco.virology.reverse_transcribe(ridx).is_some());
+
+    // Empaquetage erroné (transduction spécialisée).
+    let pidx = eco.virology.engineer_phage("STEAL_GENE");
+    assert!(eco.virology.package_specialized(pidx, Gene::new("LOCUS_A", "PAYLOAD")));
+    assert!(eco.virology.phages[pidx].is_specialized);
+}
+
 

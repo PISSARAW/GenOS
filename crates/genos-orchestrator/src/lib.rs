@@ -1,7 +1,12 @@
 pub mod conscience;
 pub mod ecosystem;
+pub mod neuro;
 pub mod orchestrator;
 pub mod token_bucket;
+pub mod virology;
+
+#[cfg(feature = "api")]
+pub mod thalamus;
 
 pub use conscience::{Conscience, ConscienceState};
 pub use ecosystem::GenosEcosystem;

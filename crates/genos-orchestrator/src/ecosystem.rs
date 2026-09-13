@@ -8,6 +8,8 @@
 //! racine du crate orchestrateur (`genos_orchestrator::genos_store`, etc.).
 
 use crate::BiomimeticOrchestrator;
+use crate::neuro::NeuroLab;
+use crate::virology::VirologyLab;
 use genos_biology::pathology::{assess_agent_clinical_status, ClinicalStatusReport};
 use genos_biology::phenotype::{create_default_registry, PhenotypeRegistry};
 use genos_biology::quorum::{AutoinducerType, QuorumPhenotype, QuorumSensingSystem};
@@ -76,6 +78,10 @@ pub struct GenosEcosystem {
     pub choanocyte: Choanocyte,
     /// Iridophore (rendu polymorphe).
     pub iridophore: Iridophore,
+    /// Système nerveux local (synapses, soma, plasticité).
+    pub neuro: NeuroLab,
+    /// Laboratoire virologique (virions, rétrovirus, phages).
+    pub virology: VirologyLab,
 }
 
 impl GenosEcosystem {
@@ -110,6 +116,8 @@ impl GenosEcosystem {
             tracheid: Tracheid::new("orchestrator_tracheid"),
             choanocyte: Choanocyte::new("orchestrator_choanocyte"),
             iridophore: Iridophore::new("orchestrator_iridophore"),
+            neuro: NeuroLab::new("orchestrator_neuron"),
+            virology: VirologyLab::new(),
         }
     }
 
@@ -248,5 +256,28 @@ impl GenosEcosystem {
 
     pub fn render_polymorphic(&self, raw_data: &str, perspective: &ObserverPerspective) -> String {
         self.iridophore.render_polymorphic(raw_data, perspective)
+    }
+
+    // --- Virologie couplée à l'immunité clonale ---
+
+    /// Neutralise le virion `index` si l'immunité clonale reconnaît son spike.
+    pub fn neutralize_virion(&mut self, index: usize, danger_level: f64) -> bool {
+        let spike = match self.virology.virions.get(index) {
+            Some(virion) => virion.envelope_spike.clone(),
+            None => return false,
+        };
+        let antigen = genos_immune::Antigen {
+            id: spike.clone(),
+            epitope: spike,
+            danger_level,
+        };
+        if self.orchestrator.detect_immune_threat(&antigen) {
+            if let Some(virion) = self.virology.virions.get_mut(index) {
+                virion.is_neutralized = true;
+            }
+            true
+        } else {
+            false
+        }
     }
 }
