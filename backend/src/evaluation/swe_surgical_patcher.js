@@ -5,10 +5,10 @@
 
 const LINE_SPLIT = new RegExp('\\r?\\n');
 const LEADING_NUM = new RegExp('^\\s*\\d+[:|]\\s?');
-const CLEAN_MARKDOWN = new RegExp('```[a-zA-Z]*\\r?\\n<{3,}\\s*SEARCH', 'gi');
-const SEARCH_SPLIT = new RegExp('(?:<{3,}|`{3,})\\s*SEARCH\\b[^\\n]*\\r?\\n', 'i');
-const SEP_REGEX = new RegExp('\\r?\\n(?:={3,}|>{3,}|-{3,})(?:[^\\n]*)\\r?\\n');
-const CLOSE_REGEX = new RegExp('\\r?\\n(?:>{3,}|`{3,})');
+const CLEAN_MARKDOWN = new RegExp('```[a-zA-Z]*\\r?\\n(?:<{3,}|#{1,4})\\s*SEARCH', 'gi');
+const SEARCH_SPLIT = new RegExp('(?:<{3,}|`{3,}|#{1,4})\\s*SEARCH\\b[^\\n]*\\r?\\n', 'i');
+const SEP_REGEX = new RegExp('\\r?\\n(?:={3,}|>{3,}|-{3,}|#{1,4}\\s*REPLACE)(?:[^\\n]*)\\r?\\n', 'i');
+const CLOSE_REGEX = new RegExp('\\r?\\n(?:>{3,}|`{3,}|#{1,4}\\s*(?:END|SEARCH)|<{3,})');
 const INDENT_REGEX = new RegExp('^\\s*');
 
 function stripLineNumbers(str) {
@@ -16,13 +16,24 @@ function stripLineNumbers(str) {
   return lines.map(l => l.replace(LEADING_NUM, '')).join('\n');
 }
 
+function cleanBlockLines(str) {
+  const lines = stripLineNumbers(str).split(LINE_SPLIT);
+  while (lines.length > 0 && lines[0].trim().startsWith('```')) {
+    lines.shift();
+  }
+  while (lines.length > 0 && lines[lines.length - 1].trim().startsWith('```')) {
+    lines.pop();
+  }
+  return lines.join('\n');
+}
+
 function parseSingleBlock(part) {
   const sepMatch = part.match(SEP_REGEX);
   if (!sepMatch) return null;
-  const searchStr = stripLineNumbers(part.slice(0, sepMatch.index));
+  const searchStr = cleanBlockLines(part.slice(0, sepMatch.index));
   const rest = part.slice(sepMatch.index + sepMatch[0].length);
   const closeMatch = rest.match(CLOSE_REGEX);
-  const replaceStr = stripLineNumbers(closeMatch ? rest.slice(0, closeMatch.index) : rest.trimEnd());
+  const replaceStr = cleanBlockLines(closeMatch ? rest.slice(0, closeMatch.index) : rest.trimEnd());
   return { searchStr, replaceStr };
 }
 
@@ -41,7 +52,11 @@ function findExactOrTrimmedMatch(fileLines, searchLines) {
   for (let i = 0; i <= fileLines.length - searchLines.length; i++) {
     let allMatch = true;
     for (let j = 0; j < searchLines.length; j++) {
-      if (fileLines[i + j].trimEnd() !== searchLines[j]) {
+      const fLine = fileLines[i + j].trimEnd();
+      const sLine = searchLines[j];
+      const isLast = (j === searchLines.length - 1);
+      const ok = (fLine === sLine) || (isLast && fLine.startsWith(sLine));
+      if (!ok) {
         allMatch = false;
         break;
       }
@@ -56,7 +71,11 @@ function findIndentedMatch(fileLines, searchTrimmed) {
     let allMatch = true;
     for (let j = 0; j < searchTrimmed.length; j++) {
       if (searchTrimmed[j] === '') continue;
-      if (fileLines[i + j].trim() !== searchTrimmed[j]) {
+      const fLine = fileLines[i + j].trim();
+      const sLine = searchTrimmed[j];
+      const isLast = (j === searchTrimmed.length - 1);
+      const ok = (fLine === sLine) || (isLast && fLine.startsWith(sLine));
+      if (!ok) {
         allMatch = false;
         break;
       }
