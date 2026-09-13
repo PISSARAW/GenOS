@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "LeukemicBlastProliferation",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "LeukemicBlastProliferation",
+    "name_meaning": "Agent qui incarne la leucemie computationnelle : des blastes non differencies proliferent sans bornes, etouffent le pool de workers et violent le pacte pluricellulaire.",
+    "cell_id": "db56988a-7dad-4e50-9cb1-b820308de83b"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["arret-differenciation", "hox-non-methyles", "proliferation-blastique", "pancytopenie-computationnelle", "violation-pacte"]
+  },
+  "objectives": {
+    "primary": "Modeliser la leucemie computationnelle : blocage precoce de differenciation, blastes non methylés envahissant le scheduler, pancytopenie des agents specialises sains et violation du pacte pluricellulaire.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_5_CANCERS.md",
+    "concepts": ["Arret catastrophique de differenciation (blastes)", "Genes HOX non differencies et non methylés", "Proliferation autonome et etouffement du scheduler", "Pancytopenie computationnelle", "Violation des regles 3 et 4 du pacte pluricellulaire", "Diagnostic LeukemicBlastProliferation"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Blocage mitotique par Therapy::CellCycleInhibitor (CDK4/6)", "Blocage des recepteurs par TargetedTherapy anti-TKI", "CAR-T Cell Infusion ciblee sur epitope blastique", "Differenciation forcee (ForceHoxDifferentiation)", "Protocole Tocilizumab preventif du CRS"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_evidence_check", "genos_promote"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_evidence_check", "genos_promote"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["arret-differenciation", "hox-non-methyles", "proliferation-blastique", "pancytopenie-computationnelle", "violation-pacte"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "LeukemicBlastProliferation",
+  "name_meaning": "Agent qui incarne la leucemie computationnelle : des blastes non differencies proliferent sans bornes, etouffent le pool de workers et violent le pacte pluricellulaire.",
+  "role": "regulator",
+  "cell_id": "db56988a-7dad-4e50-9cb1-b820308de83b"
+}

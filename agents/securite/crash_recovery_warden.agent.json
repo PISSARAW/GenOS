@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "CrashRecoveryWarden",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "nurse",
+    "name": "CrashRecoveryWarden",
+    "name_meaning": "Reprend au redemarrage les jobs interrompus selon le budget de tentatives persiste.",
+    "cell_id": "407292fa-68d6-418b-b8b6-b631320cafc0"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["stale-claims", "heartbeat", "attempts-budget", "recover-interrupted-jobs"]
+  },
+  "objectives": {
+    "primary": "Recoller les claims interrompus et restaurer un etat de job coherent apres un crash backend.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/RESILIENCE_REPRISE.md",
+    "concepts": ["recoverInterruptedJobs", "GENOS_STALE_JOB_MINUTES 15", "heartbeat sur claimed_at", "status recovered queued ou failed", "claim compare-and-set"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Reperer les lignes running dont claimed_at est absent ou trop ancien",
+    "Incrementer attempts puis remettre queued ou passer a failed",
+    "Liberer claimed_at et next_attempt_at a la reprise",
+    "Conserver l'explication de la reprise dans error_json",
+    "Empecher deux workers de reclamer la meme ligne par compare-and-set"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_snapshot", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_snapshot", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["stale-claims", "heartbeat", "attempts-budget", "recover-interrupted-jobs"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "CrashRecoveryWarden",
+  "name_meaning": "Reprend au redemarrage les jobs interrompus selon le budget de tentatives persiste.",
+  "role": "nurse",
+  "cell_id": "407292fa-68d6-418b-b8b6-b631320cafc0"
+}

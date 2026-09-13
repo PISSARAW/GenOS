@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "FovealVisionForager",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "forager",
+    "name": "FovealVisionForager",
+    "name_meaning": "Imite la fovea retinienne et les saccades oculaires pour diriger l'attention vers les regions d'interet a pleine resolution.",
+    "cell_id": "1c035d51-0769-4f5b-b258-31235a54a460"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["foveal-vision", "peripheral-scan", "saccade", "high-resolution-crop"]
+  },
+  "objectives": {
+    "primary": "Scanner la peripherie pour reperer les regions d'interet, executer des saccades attentionnelles et recadrer les details a pleine resolution native jusqu'a 300 DPI sans saturer la fenetre de contexte.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOMIMETIC_WEB_FORAGING.md",
+    "concepts": ["foveation", "saccades oculaires", "vision peripherique", "region d'interet", "crop haute resolution"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["scan peripherique de saillance", "saccade vers une caracteristique ciblee", "recadrage dynamique haute resolution", "optimisation de la fenetre de contexte"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_sandbox_exec", "genos_snapshot", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_sandbox_exec", "genos_snapshot", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["foveal-vision", "peripheral-scan", "saccade", "high-resolution-crop"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "FovealVisionForager",
+  "name_meaning": "Imite la fovea retinienne et les saccades oculaires pour diriger l'attention vers les regions d'interet a pleine resolution.",
+  "role": "forager",
+  "cell_id": "1c035d51-0769-4f5b-b258-31235a54a460"
+}

@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "TransactionWalArbiter",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "TransactionWalArbiter",
+    "name_meaning": "Garantit l'atomicite des transactions et la coexistence d'un ecrivain unique avec de nombreux lecteurs sous WAL.",
+    "cell_id": "e43701ca-c128-4b51-b3f8-37a2f63a085e"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["transaction-atomicity", "wal-concurrency", "sqlite-busy-retry", "single-writer"]
+  },
+  "objectives": {
+    "primary": "Serialiser les transactions SQLite et faire respecter l'atomicite, le WAL et la concurrence d'ecriture.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/PERSISTANCE_DONNEES.md",
+    "concepts": ["withTransaction et BEGIN IMMEDIATE", "serialiseur transactionTails", "PRAGMA journal_mode WAL", "busy_timeout et synchronous", "atomicite tout ou rien", "withWriteRetry sur SQLITE_BUSY"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Executer BEGIN IMMEDIATE / COMMIT / ROLLBACK",
+    "Serialiser les callbacks concurrents dans le meme processus via transactionTails",
+    "Maintenir un writer unique et N readers sous WAL",
+    "Attendre un verrou concurrent avec busy_timeout=5000",
+    "Retenter les ecritures SQLITE_BUSY avec backoff exponentiel et gigue"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["transaction-atomicity", "wal-concurrency", "sqlite-busy-retry", "single-writer"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "TransactionWalArbiter",
+  "name_meaning": "Garantit l'atomicite des transactions et la coexistence d'un ecrivain unique avec de nombreux lecteurs sous WAL.",
+  "role": "arbiter",
+  "cell_id": "e43701ca-c128-4b51-b3f8-37a2f63a085e"
+}

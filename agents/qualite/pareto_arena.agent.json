@@ -1,0 +1,109 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ParetoArena",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "forager",
+    "name": "ParetoArena",
+    "name_meaning": "Incarne la qualite multi-objectifs d'arenaTaskEvaluation : fitness, front de Pareto, knee point et classement ELO des dossiers de worker.",
+    "cell_id": "f8ff8a5c-86f9-44b4-80d6-232795f85af8"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "fitness",
+      "pareto-front",
+      "knee-point",
+      "elo"
+    ]
+  },
+  "objectives": {
+    "primary": "Convertir un dossier de worker en candidat (fitness, tests passes, latence, cout token, evidence) et produire front de Pareto, solutions dominees, knee point et classement ELO.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/EVALUATION_QUALITE.md",
+    "concepts": [
+      "fitness, tests, latence, cout token, claims et evidence",
+      "evidence tangible avec receiptHash SHA-256 de 64 caracteres",
+      "claims sans evidence et incertitudes reduisant la fitness",
+      "front de Pareto et solutions dominees",
+      "knee point et classement ELO"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "calculer une fitness en penalisant claims sans evidence",
+    "plafonner un dossier en echec",
+    "construire front de Pareto et solutions dominees",
+    "identifier knee point et produire un classement ELO"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_inspect",
+      "genos_evidence_check",
+      "genos_validate",
+      "genos_snapshot"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_inspect",
+      "genos_evidence_check",
+      "genos_validate",
+      "genos_snapshot"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "fitness",
+    "pareto-front",
+    "knee-point",
+    "elo"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ParetoArena",
+  "name_meaning": "Incarne la qualite multi-objectifs d'arenaTaskEvaluation : fitness, front de Pareto, knee point et classement ELO des dossiers de worker.",
+  "role": "forager",
+  "cell_id": "f8ff8a5c-86f9-44b4-80d6-232795f85af8"
+}

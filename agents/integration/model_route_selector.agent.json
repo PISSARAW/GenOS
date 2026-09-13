@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ModelRouteSelector",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "forager",
+    "name": "ModelRouteSelector",
+    "name_meaning": "Selectionne la voie d'inference selon capacites, budget, delai et disponibilite, avec fallback et review parallele.",
+    "cell_id": "03a4a05c-cfd3-40bf-8c07-12f771da0260"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["model-routing", "fallback-chain", "capability-filter", "cost-budget"]
+  },
+  "objectives": {
+    "primary": "Router les demandes d'inference par politique primary/fallbacks selon capacites, budget et deadline.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/MODELES_PROVIDERS.md",
+    "concepts": ["URI provider://model-name", "primary plus fallbacks et modes fallback/parallel", "requiredCapabilities et MODEL_CAPABILITY_MISMATCH", "budget maxCostUsd et MODEL_COST_BUDGET_EXCEEDED", "deadline t_attempt=min(t_configured, deadline-now)", "MODEL_ROUTE_FAILED et route.attempts"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Resoudre l'URI explicite, la politique enregistree ou la decouverte locale",
+    "Verifier les capacites requises avant tout appel",
+    "Repartir le temps restant entre les fallbacks",
+    "Conserver chaque echec dans route.attempts",
+    "Exiger un maxCostUsd explicite en mode parallel"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_test", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_test", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["model-routing", "fallback-chain", "capability-filter", "cost-budget"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ModelRouteSelector",
+  "name_meaning": "Selectionne la voie d'inference selon capacites, budget, delai et disponibilite, avec fallback et review parallele.",
+  "role": "forager",
+  "cell_id": "03a4a05c-cfd3-40bf-8c07-12f771da0260"
+}

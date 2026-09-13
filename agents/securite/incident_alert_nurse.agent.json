@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "IncidentAlertNurse",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "nurse",
+    "name": "IncidentAlertNurse",
+    "name_meaning": "Gere les alertes d'incident scopees tenant et la retention des signaux d'observabilite.",
+    "cell_id": "41be74c3-7cfd-4ffd-b941-95ced9ea20b4"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["global-alerts", "incident-replay", "retention-pruning"]
+  },
+  "objectives": {
+    "primary": "Enregistrer les alertes d'incident et preserver un historique de signaux suffisant pour l'investigation.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/OBSERVABILITE.md",
+    "concepts": ["global_alerts blocked/question/running/resolved", "replay limite a 10000 evenements", "TASK_CANCELLED au kill", "pruneHistory et plafonds de retention"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Creer une alerte avec snapshot de contexte et identifiants de correlation",
+    "Charger une vue causale via platformSafety",
+    "Marquer une alerte resolue au kill et emettre TASK_CANCELLED",
+    "Elaguer telemetry_events et trace_spans aux seuils configures",
+    "Escalader au lieu de compter sur un paging non garanti"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_snapshot", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_snapshot", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["global-alerts", "incident-replay", "retention-pruning"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "IncidentAlertNurse",
+  "name_meaning": "Gere les alertes d'incident scopees tenant et la retention des signaux d'observabilite.",
+  "role": "nurse",
+  "cell_id": "41be74c3-7cfd-4ffd-b941-95ced9ea20b4"
+}

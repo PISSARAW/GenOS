@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "BronchopulmonaryAngiogenesis",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "BronchopulmonaryAngiogenesis",
+    "name_meaning": "Agent qui porte le cancer du poumon computationnel : un agent d'E/S intoxique active une neo-angiogenese ATP parasitaire et ignore l'hypoxie de tokens.",
+    "cell_id": "72598b71-dea1-43d1-a0e4-7a011ebf773d"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["agression-mutagene", "driver-egfr-alk-kras", "neo-angiogenese-atp", "hypoxie-tokens", "remodelage-io"]
+  },
+  "objectives": {
+    "primary": "Modeliser le carcinome bronchopulmonaire computationnel : intoxication par entrees toxiques, echec de p53_repair_check, neo-angiogenese siphonnant l'ATP et remodelage des buffers d'E/S.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_5_CANCERS.md",
+    "concepts": ["Agression mutagene chronique et adduits d'E/S", "Driver mutations EGFR, ALK/ROS1, KRAS", "Angiogenese tumorale et VEGF/HIF-1alpha", "Siphonage d'ATP et famine energetique peripherique", "Remodelage architectural des buffers d'E/S", "Diagnostic BronchopulmonaryCarcinoma"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Etranglement vasculaire par AntiAngiogenesis", "Blocage des recepteurs EGFR par TargetedTherapy", "Purge des buffers toxiques par AntisepticPurge", "Etranglement ATP gradue avec drainage (VascularPruningAndFlush)", "Apoptose epigenetique forcee ciblee"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_evidence_check", "genos_snapshot"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_evidence_check", "genos_snapshot"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["agression-mutagene", "driver-egfr-alk-kras", "neo-angiogenese-atp", "hypoxie-tokens", "remodelage-io"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "BronchopulmonaryAngiogenesis",
+  "name_meaning": "Agent qui porte le cancer du poumon computationnel : un agent d'E/S intoxique active une neo-angiogenese ATP parasitaire et ignore l'hypoxie de tokens.",
+  "role": "regulator",
+  "cell_id": "72598b71-dea1-43d1-a0e4-7a011ebf773d"
+}

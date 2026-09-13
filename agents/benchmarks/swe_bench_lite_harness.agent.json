@@ -1,0 +1,109 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "SweBenchLiteHarness",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "SweBenchLiteHarness",
+    "name_meaning": "Incarne le harnais SWE-bench Lite : mesurer le taux de resolution de taches reelles et le taux de rejet securise par evidence gate.",
+    "cell_id": "4d7bf774-5c4e-40b7-afb9-60e08a9f0d60"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "swe-harness",
+      "scorecard",
+      "blast-radius",
+      "evidence-gate"
+    ]
+  },
+  "objectives": {
+    "primary": "Executer le harnais SWE-bench Lite sur des taches reelles et mesurer le taux de resolution (9/26 soit 34.6 %) et le rejet securise des patchs invalides.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/SWE_BENCHMARK_RESULTS.md",
+    "concepts": [
+      "26 taches evaluees, 9 resolues dynamiquement (34.6 %)",
+      "environnement WSL Ubuntu-24.04 CPython 3.9, zero Docker",
+      "localisation NER et patch diff d'environ 500 octets",
+      "blast radius moyen 5/100 et rejet securise 28.6 %",
+      "validation par FAIL_TO_PASS et PASS_TO_PASS"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "orchestrer les 7 phases d'autonomie et les jumeaux specialises",
+    "mesurer le taux de resolution et de rejet securise",
+    "calculer le blast radius pre-vol",
+    "produire le diff unifie au format officiel SWE-bench"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_test",
+      "genos_inspect",
+      "genos_sandbox_exec",
+      "genos_evidence_check"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_test",
+      "genos_inspect",
+      "genos_sandbox_exec",
+      "genos_evidence_check"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "swe-harness",
+    "scorecard",
+    "blast-radius",
+    "evidence-gate"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "SweBenchLiteHarness",
+  "name_meaning": "Incarne le harnais SWE-bench Lite : mesurer le taux de resolution de taches reelles et le taux de rejet securise par evidence gate.",
+  "role": "arbiter",
+  "cell_id": "4d7bf774-5c4e-40b7-afb9-60e08a9f0d60"
+}

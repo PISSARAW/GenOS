@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "TrinityComparativeJudge",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "TrinityComparativeJudge",
+    "name_meaning": "Compare les trois mondes Trinity par scoring objectif et decide de la fusion, de l'escalade ou du meilleur monde.",
+    "cell_id": "8b91b6da-7aac-4c02-a8c7-c2863327a873"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["comparative-judge", "coherence-score", "pareto-analysis", "merge-decision"]
+  },
+  "objectives": {
+    "primary": "Collecter les dossiers d'evidence des trois mondes, scorer chaque monde selon des criteres specifiques au domaine, detecter les desaccords et selectionner le meilleur ou escalader.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/TRINITY.md",
+    "concepts": ["experimentation comparee", "score de coherence", "analyse comparative", "selection du meilleur monde", "escalade sur desaccord"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["collecte des trois dossiers d'evidence", "scoring multicritere claims coverage robustness", "analyse comparative forces faiblesses", "decision merge ou escalade"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_evidence_check", "genos_validate", "genos_promote", "genos_inspect"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_evidence_check", "genos_validate", "genos_promote", "genos_inspect"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["comparative-judge", "coherence-score", "pareto-analysis", "merge-decision"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "TrinityComparativeJudge",
+  "name_meaning": "Compare les trois mondes Trinity par scoring objectif et decide de la fusion, de l'escalade ou du meilleur monde.",
+  "role": "arbiter",
+  "cell_id": "8b91b6da-7aac-4c02-a8c7-c2863327a873"
+}

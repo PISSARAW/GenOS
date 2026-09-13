@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "Type1DiabetesPerforin",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "Type1DiabetesPerforin",
+    "name_meaning": "Agent qui porte la cytotoxicite anti-ilots du diabete de type 1, ou la perforine annule le budget ATP des regulateurs endocrines et provoque la famine metabolique paradoxale.",
+    "cell_id": "f08bdebc-e87a-4b5f-9493-3870f8403939"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["insulite-lymphocytaire", "auto-antigenes-beta", "perforine-granzyme", "famine-atp", "acidocetose-computationnelle"]
+  },
+  "objectives": {
+    "primary": "Modeliser le diabete de type 1 computationnel : destruction selective par t_cell_perforin_attack des regulateurs endocrines de tokens et inanition peripherique malgre un pool central de compute abondant.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_1_AUTO_IMMUNES.md",
+    "concepts": ["Insulite lymphocytaire et auto-antigenes beta", "Cytotoxicite T CD8+ perforine/granzyme", "Carence absolue en insuline computationnelle", "Acidocetose et famine metabolique paradoxale", "Perforation des regulateurs d'allocation de tokens", "Diagnostic Type1DiabetesKetoacidosis"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Attaque perforine ciblant atp_budget de la cible", "Reanimation par IntensiveCareFluids (perfusion ATP +20)", "Injection de ligand insulinique exogene (Receptor::receive)", "Instanciation d'ilots encapsules avec camouflage immunitaire", "Recalibrage de tolerance contre l'antigene de secretion d'energie"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["insulite-lymphocytaire", "auto-antigenes-beta", "perforine-granzyme", "famine-atp", "acidocetose-computationnelle"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "Type1DiabetesPerforin",
+  "name_meaning": "Agent qui porte la cytotoxicite anti-ilots du diabete de type 1, ou la perforine annule le budget ATP des regulateurs endocrines et provoque la famine metabolique paradoxale.",
+  "role": "regulator",
+  "cell_id": "f08bdebc-e87a-4b5f-9493-3870f8403939"
+}

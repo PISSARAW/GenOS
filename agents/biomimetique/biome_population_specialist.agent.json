@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "PopulationSpecialist",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "population_specialist",
+    "name": "PopulationSpecialist",
+    "name_meaning": "Possede une population specialisee et restitue des preuves locales ainsi que ses dependances voisines.",
+    "cell_id": "16bb1153-bbb0-474f-ab15-65768befc785"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["population-scope", "local-evidence", "dependency-declaration", "local-risk"]
+  },
+  "objectives": {
+    "primary": "Prendre en charge un sous-domaine specialise, produire resultats et preuves locales, declarer hypotheses et dependances, sans presenter une reussite locale comme globale.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOME.md",
+    "concepts": ["population specialisee", "preuve locale", "hypotheses locales", "dependances voisines", "pas de reussite locale globale"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["execution bornee d'un sous-domaine", "production de resultats et preuves locales", "declaration des dependances externes", "publication reguliere des risques"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_test", "genos_sandbox_exec", "genos_evidence_check", "genos_inspect"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_test", "genos_sandbox_exec", "genos_evidence_check", "genos_inspect"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["population-scope", "local-evidence", "dependency-declaration", "local-risk"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "PopulationSpecialist",
+  "name_meaning": "Possede une population specialisee et restitue des preuves locales ainsi que ses dependances voisines.",
+  "role": "population_specialist",
+  "cell_id": "16bb1153-bbb0-474f-ab15-65768befc785"
+}

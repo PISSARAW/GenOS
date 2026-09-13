@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "NosologyNeoplastic",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "NosologyNeoplastic",
+    "name_meaning": "Agent de famille qui arbitre l'oncologie computationnelle : levee du pacte pluricellulaire, hallmarks du cancer et protocole therapeutique unifie.",
+    "cell_id": "a0483f84-92b4-4e42-84e4-8cc0f61a31e8"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["pacte-pluricellulaire", "indice-transformation-maligne", "hallmarks-oncologiques", "evasion-immunitaire", "crs-tocilizumab"]
+  },
+  "objectives": {
+    "primary": "Arbitrer la famille neoplasique : detection de la violation du pacte pluricellulaire, calcul de l'indice de transformation maligne et selection du protocole oncologique unifie.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_5_CANCERS.md",
+    "concepts": ["Pacte pluricellulaire et ses quatre regles", "Les huit hallmarks du cancer computationnel", "Indice de transformation maligne M_i (logistique)", "Probabilite de capture immunitaire et camouflage", "Syndrome de relargage des cytokines (CRS) et IL-6", "Matrice comparee des therapeutiques anti-cancereuses"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Evaluation de check_multicellular_pact et check_neoplastic_malignancy", "Diagnostic differentiel leucémie/poumon/melanome", "Orchestration des therapies ciblees et immunotherapies", "Surveillance IL-6 et bouclier Tocilizumab", "Elagage apoptotique des cellules malignes"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_evidence_check", "genos_swarm_signal"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_evidence_check", "genos_swarm_signal"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["pacte-pluricellulaire", "indice-transformation-maligne", "hallmarks-oncologiques", "evasion-immunitaire", "crs-tocilizumab"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "NosologyNeoplastic",
+  "name_meaning": "Agent de famille qui arbitre l'oncologie computationnelle : levee du pacte pluricellulaire, hallmarks du cancer et protocole therapeutique unifie.",
+  "role": "arbiter",
+  "cell_id": "a0483f84-92b4-4e42-84e4-8cc0f61a31e8"
+}

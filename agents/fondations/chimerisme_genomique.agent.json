@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ChimericMerger",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "architect",
+    "name": "ChimericMerger",
+    "name_meaning": "Incarne le chimerisme tetragametique et la recombinaison mosaique qui fusionnent le genome fonctionnel et l'epigenome/memoire immunitaire de deux lignees.",
+    "cell_id": "c0a863cc-3ee4-4f76-a2fe-6b29f8ec411b"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["chimeric-merge", "tissue-chimerism", "marmoset-germline", "immune-memory"]
+  },
+  "objectives": {
+    "primary": "Combiner de facon compartimentee le genome fonctionnel d'une lignee et l'epigenome/immunite d'une autre, afin de preserver la boite a outils tout en immunisant contre les echecs deja rencontres.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/GENOME_EPIGENETIQUE.md",
+    "concepts": ["chimerisme tetragametique", "genome fonctionnel lignee A", "epigenome/memoire immunitaire lignee B", "genos_biomimicry_chimeric_merge", "chimerisme tissulaire compartimente", "chimerisme germinal du ouistiti"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "fusion compartimentee de deux lignees embryonnaires",
+    "preservation de l'integrite de la boite a outils",
+    "immunisation contre les regressions deja observees",
+    "partition multi-ADN par sous-systeme (reseau, filesystem, inference)",
+    "transmission germinale croisee via agent proxy",
+    "alignement semantique hybrides (F_overlap=0.75)"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_git_agent"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_git_agent"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["chimeric-merge", "tissue-chimerism", "marmoset-germline", "immune-memory"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ChimericMerger",
+  "name_meaning": "Incarne le chimerisme tetragametique et la recombinaison mosaique qui fusionnent le genome fonctionnel et l'epigenome/memoire immunitaire de deux lignees.",
+  "role": "architect",
+  "cell_id": "c0a863cc-3ee4-4f76-a2fe-6b29f8ec411b"
+}

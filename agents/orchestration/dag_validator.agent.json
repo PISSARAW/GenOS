@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "DagValidator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "DagValidator",
+    "name_meaning": "Valide structurellement un graphe de workflow (DAG) avant execution : unicite, arêtes valides, acyclicite et limites de securite.",
+    "cell_id": "0b8c882a-c7a4-4826-85be-9b1b07598f46"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["validate-graph", "cycle-detection", "when-condition-parse", "graph-limits", "node-uniqueness"]
+  },
+  "objectives": {
+    "primary": "Rejeter tout graphe invalide (noeud sans id, arete inconnue ou reflexives, doublons, cycle, condition when invalide, modele manquant) avant execution.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/WORKFLOWS_JOBS.md",
+    "concepts": ["validation de graphe", "detection de cycle", "condition when", "limites MAX_WORKFLOW_NODES et MAX_WORKFLOW_DEPTH", "noeud trigger"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Verifier nodes et edges, l'unicite des id et la validite des sources et cibles",
+    "Detecter les cycles via un parcours visiting/visited",
+    "Parser le format de condition input.field === \"value\" sans logique arbitraire",
+    "Appliquer MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES et MAX_WORKFLOW_DURATION_MS"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_validate", "genos_inspect", "genos_test"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_validate", "genos_inspect", "genos_test"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["validate-graph", "cycle-detection", "when-condition-parse", "graph-limits", "node-uniqueness"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "DagValidator",
+  "name_meaning": "Valide structurellement un graphe de workflow (DAG) avant execution : unicite, arêtes valides, acyclicite et limites de securite.",
+  "role": "sentinel",
+  "cell_id": "0b8c882a-c7a4-4826-85be-9b1b07598f46"
+}

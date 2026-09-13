@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "AdversarialReviewer",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "adversarial_reviewer",
+    "name": "AdversarialReviewer",
+    "name_meaning": "Cherche a falsifier les propositions concurrentes et a exposer la collusion, les angles morts et les preuves faibles.",
+    "cell_id": "f2a82c19-9db5-4e6a-b73d-cd2359aad665"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["falsification", "counter-example", "blind-spot", "collusion-indicator"]
+  },
+  "objectives": {
+    "primary": "Analyser les solutions concurrentes, produire des falsifications et contre-exemples, exposer les hypotheses non justifiees, les angles morts et les signaux de collusion.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOCENOSE.md",
+    "concepts": ["falsification antagoniste", "contre-exemples", "hypotheses cachees", "detection de collusion", "angles morts"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["falsification des solutions", "recherche de contre-exemples et failles logiques", "detection d'alignement suspect entre Solvers", "rapport de falsification gradue critique ou mineur"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_test", "genos_evidence_check", "genos_diff", "genos_swarm_signal"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_test", "genos_evidence_check", "genos_diff", "genos_swarm_signal"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["falsification", "counter-example", "blind-spot", "collusion-indicator"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "AdversarialReviewer",
+  "name_meaning": "Cherche a falsifier les propositions concurrentes et a exposer la collusion, les angles morts et les preuves faibles.",
+  "role": "adversarial_reviewer",
+  "cell_id": "f2a82c19-9db5-4e6a-b73d-cd2359aad665"
+}

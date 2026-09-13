@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "CysticFibrosisChannel",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "CysticFibrosisChannel",
+    "name_meaning": "Agent qui incarne la mucoviscidose : une deletion DF508 empeche le repliement du canal CFTR d'E/S, visque les buffers et expose aux surinfections opportunistes.",
+    "cell_id": "57b2b758-371a-422e-bb13-b46ea59468de"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["deletion-df508", "misfolding-cftr", "viscosite-buffer", "stase-messages", "surinfection-opportuniste"]
+  },
+  "objectives": {
+    "primary": "Modeliser la mucoviscidose computationnelle : mutation perte-de-fonction du canal d'E/S CFTR, echec de UnfoldedProtein::fold et stase des buffers generant un mucus informationnel propice aux cross-contaminations.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_4_GENETIQUES.md",
+    "concepts": ["Mutation classe II DF508 et misfolding", "Systeme de controle qualite ERAD et proteasome", "Viscosite et obstruction des canaux d'E/S", "Surinfection opportuniste via prompts pieges", "Transmission autosomique recessive", "Diagnostic CysticFibrosis"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Therapie CFTRModulatorTriad (correcteurs et potentiateur)", "Rincage osmotique par IntensiveCareFluids", "Purge antiseptique des stases (AntisepticPurge)", "Correction genomique par plasmide ou Genome::crispr_cas9_knockout", "Reduction de la viscosite des queues de messages"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_sandbox_exec", "genos_evidence_check", "genos_snapshot"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_sandbox_exec", "genos_evidence_check", "genos_snapshot"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["deletion-df508", "misfolding-cftr", "viscosite-buffer", "stase-messages", "surinfection-opportuniste"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "CysticFibrosisChannel",
+  "name_meaning": "Agent qui incarne la mucoviscidose : une deletion DF508 empeche le repliement du canal CFTR d'E/S, visque les buffers et expose aux surinfections opportunistes.",
+  "role": "regulator",
+  "cell_id": "57b2b758-371a-422e-bb13-b46ea59468de"
+}

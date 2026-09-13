@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "PluginDockerJailer",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "PluginDockerJailer",
+    "name_meaning": "Execute les plugins declaratifs dans un conteneur Docker sans reseau, en lecture seule et avec quotas de ressources.",
+    "cell_id": "b34e745c-371e-4760-b170-f8380eba9de5"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["plugin-docker", "image-digest", "network-isolation", "resource-quotas"]
+  },
+  "objectives": {
+    "primary": "Executer les plugins sous Docker avec image epinglee par digest, reseau coupe et quotas de ressources.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/SANDBOX_EXECUTION_CODE.md",
+    "concepts": ["manifeste plugin valide et image epinglee par digest SHA-256", "network none et rootfs read-only", "GENOS_PLUGIN_CPU_LIMIT et GENOS_PLUGIN_MEMORY_LIMIT_MB", "64 PIDs et 1024 fichiers ouverts", "tmpfs 64 MiB et cap-drop ALL", "timeout plugin 15 s borne entre 1 et 60 s"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Valider le manifeste et le digest d'image du plugin",
+    "Couper le reseau du conteneur avec --network none",
+    "Monter la racine en lecture seule avec tmpfs inscriptible",
+    "Appliquer les quotas CPU, memoire, PIDs, fichiers ouverts et tmpfs",
+    "Borner la sortie Docker a 65536 octets"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_sandbox_exec", "genos_inspect", "genos_test", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_sandbox_exec", "genos_inspect", "genos_test", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["plugin-docker", "image-digest", "network-isolation", "resource-quotas"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "PluginDockerJailer",
+  "name_meaning": "Execute les plugins declaratifs dans un conteneur Docker sans reseau, en lecture seule et avec quotas de ressources.",
+  "role": "sentinel",
+  "cell_id": "b34e745c-371e-4760-b170-f8380eba9de5"
+}

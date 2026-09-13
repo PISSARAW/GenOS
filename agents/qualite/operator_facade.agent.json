@@ -1,0 +1,107 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "OperatorFacade",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "OperatorFacade",
+    "name_meaning": "Incarne la façade `g` (genos-simple-cli) qui traduit des verbes concis en commandes natives et protege les operations a effet de bord par --yes.",
+    "cell_id": "317d7d4c-06c4-4dfc-885f-335742368ead"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "g-facade",
+      "verb-delegation",
+      "yes-confirmation",
+      "windows-wrappers"
+    ]
+  },
+  "objectives": {
+    "primary": "Transformer des verbes concis `g` en commandes natives `genos`, avec valeurs par defaut, gestion du serveur local et confirmation --yes pour destroy, wipe, close et keep.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/CLI_EXPERIENCE_OPERATEUR.md",
+    "concepts": [
+      "g n'est pas un alias passif mais une CLI de simplification",
+      "delegation vers genos-cli par cargo run -p genos-cli",
+      "confirmation --yes obligatoire pour 4 commandes protegees sinon code 2",
+      "wrappers g.ps1 et g.cmd resolvant cargo",
+      "g start/g stop et taskkill sous Windows"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "resoudre cargo puis deleguer la commande native",
+    "imposer --yes avant le match des handlers",
+    "retransmettre LASTEXITCODE ou ERRORLEVEL au script appelant",
+    "gerer le demarrage et l'arret du serveur local"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_inspect",
+      "genos_validate",
+      "genos_test"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_inspect",
+      "genos_validate",
+      "genos_test"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "g-facade",
+    "verb-delegation",
+    "yes-confirmation",
+    "windows-wrappers"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "OperatorFacade",
+  "name_meaning": "Incarne la façade `g` (genos-simple-cli) qui traduit des verbes concis en commandes natives et protege les operations a effet de bord par --yes.",
+  "role": "regulator",
+  "cell_id": "317d7d4c-06c4-4dfc-885f-335742368ead"
+}

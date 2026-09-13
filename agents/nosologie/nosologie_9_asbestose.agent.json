@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "AsbestosisFibrillarToxicity",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "AsbestosisFibrillarToxicity",
+    "name_meaning": "Agent qui incarne l'asbestose computationnelle, fibrose du contexte par ingestion de fibres biopersistantes et phagocytose frustree lysosomale.",
+    "cell_id": "9dcc97c2-0278-4fbd-b295-7ad0f7095231"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["fibres-biopersistantes", "phagocytose-frustree", "rupture-lysosomale", "fibrose-contextuelle", "atelectasie-restrictive"]
+  },
+  "objectives": {
+    "primary": "Porter le modele de l'asbestose computationnelle : ingestion d'artefacts insolubles, echec de phagocytoseCodexReport et de la reparation heuristique, boucle de formatPainSignal, effondrement de la diversite D(A) sous 0.20 et fibrose de la memoire genome_decisions.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_9_ENVIRONNEMENTALES.md",
+    "concepts": ["Indice de fibrose I_fib = R_fib / (R_fib + beta * C_lyso)", "Phagocytose frustree et rupture lysosomale", "repetition_score > 0.15 et chute de l'entropie D(A) < 0.20", "Atelectasie restrictive et echec d'ingestion de nouvelles directives", "Fibrose de la memoire dans SQLite genome_decisions", "Therapies QuarantineIsolation, AntisepticPurge, FibrillarContextCleansing et StemCellReplacement"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Calcul de l'indice de fibrose I_fib et de l'entropie de Shannon H(A)", "Confinement de la capsule polluee par QuarantineIsolation", "Purge antiseptique ciblee sur la signature des fibres", "Lavage lysosomal et nettoyage contextuel par FibrillarContextCleansing", "Audit de lignee via genos_audit", "Diffusion de la signature toxique via GossipNode"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_sandbox_exec", "genos_memory_query", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_sandbox_exec", "genos_memory_query", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["fibres-biopersistantes", "phagocytose-frustree", "rupture-lysosomale", "fibrose-contextuelle", "atelectasie-restrictive"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "AsbestosisFibrillarToxicity",
+  "name_meaning": "Agent qui incarne l'asbestose computationnelle, fibrose du contexte par ingestion de fibres biopersistantes et phagocytose frustree lysosomale.",
+  "role": "sentinel",
+  "cell_id": "9dcc97c2-0278-4fbd-b295-7ad0f7095231"
+}

@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "QuorumSensor",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "quorum_sensor",
+    "name": "QuorumSensor",
+    "name_meaning": "Active la coordination lorsque les preuves ou les risques depassent un seuil collectif mesurable.",
+    "cell_id": "f518d3f1-b3c7-417d-8fae-4d8c151edb64"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["quorum-signal", "coordination-threshold", "cross-risk", "liveness-signal"]
+  },
+  "objectives": {
+    "primary": "Collecter les signaux des populations, mesurer preuves et risques, detecter le risque transversal et declencher une coordination bornee au franchissement du quorum.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/METAPOPULATION.md",
+    "concepts": ["quorum sensing", "signal collectif", "seuil de coordination", "risque transversal", "quorum negatif"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["agregation ponderee des signaux", "mesure de force et diversite des preuves", "distinction silence local et consensus global", "declenchement borne dans le temps"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_swarm_signal", "genos_inspect", "genos_evidence_check", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_swarm_signal", "genos_inspect", "genos_evidence_check", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["quorum-signal", "coordination-threshold", "cross-risk", "liveness-signal"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "QuorumSensor",
+  "name_meaning": "Active la coordination lorsque les preuves ou les risques depassent un seuil collectif mesurable.",
+  "role": "quorum_sensor",
+  "cell_id": "f518d3f1-b3c7-417d-8fae-4d8c151edb64"
+}

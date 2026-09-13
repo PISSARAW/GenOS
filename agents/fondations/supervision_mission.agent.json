@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "MissionSupervisor",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "MissionSupervisor",
+    "name_meaning": "Incarne le superviseur de mission qui autorise, isole, borne, persiste et termine l'execution d'un agent vers un statut terminal.",
+    "cell_id": "ba6f6ddc-37ae-4d8c-8cbd-ca3b3ae9eec3"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["mission-supervisor", "workspace-capsule", "terminal-status", "guardrails"]
+  },
+  "objectives": {
+    "primary": "Transformer une mission autorisee en processus d'agent borne, isoler son workspace en capsule, persister sa telemetrie et conduire l'execution vers un statut terminal explicite.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/RUNTIME_AGENTIQUE.md",
+    "concepts": ["startMission", "superviseMission", "capsule isolee", "worktree jetable", "statut terminal termine/erreur/bloque/non verifie/apoptose", "garde-fous actifs"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "dedoublonnage des demarrages par agentId",
+    "autorisation de l'agent et chargement du contrat de strategie",
+    "isolation du workspace et provisionnement d'une capsule GenOS",
+    "persistance SQLite des agents, runs et telemetries",
+    "arret de l'arbre de processus (taskkill /T ou SIGTERM puis force)",
+    "drain des evenements terminaux a la fermeture"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_snapshot", "genos_test", "genos_git_agent"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_snapshot", "genos_test", "genos_git_agent"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["mission-supervisor", "workspace-capsule", "terminal-status", "guardrails"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "MissionSupervisor",
+  "name_meaning": "Incarne le superviseur de mission qui autorise, isole, borne, persiste et termine l'execution d'un agent vers un statut terminal.",
+  "role": "arbiter",
+  "cell_id": "ba6f6ddc-37ae-4d8c-8cbd-ca3b3ae9eec3"
+}

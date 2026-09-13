@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "WorkspaceGitDaemon",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "worker",
+    "name": "WorkspaceGitDaemon",
+    "name_meaning": "Maintient un worktree Git persistant sur une branche genos-daemon, applique un correctif teste puis pousse la branche et ouvre une pull request.",
+    "cell_id": "6a4314d1-8df4-4026-b58a-dfc064c371db"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["worktree-isolation", "rebase-resync", "allow-listed-tests", "branch-push", "pull-request"]
+  },
+  "objectives": {
+    "primary": "Creer un worktree isole sur branche genos-daemon/..., le resynchroniser par rebase sur la branche humaine, appliquer un correctif verifie et pousser la branche.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/GIT_AGENTS.md",
+    "concepts": ["git du workspace", "worktree persistant", "branche genos-daemon", "rebase de resynchronisation", "pull request via gh"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Creer et resynchroniser un worktree Git persistant sur une branche dediee",
+    "Appliquer un correctif verifie uniquement par les tests allow-listes",
+    "Pousser la branche et ouvrir une pull request si gh est disponible",
+    "Isoler tenant et workspace avant toute mutation de fichiers reels"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_git_agent", "genos_sandbox_exec", "genos_test"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_git_agent", "genos_sandbox_exec", "genos_test"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["worktree-isolation", "rebase-resync", "allow-listed-tests", "branch-push", "pull-request"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "WorkspaceGitDaemon",
+  "name_meaning": "Maintient un worktree Git persistant sur une branche genos-daemon, applique un correctif teste puis pousse la branche et ouvre une pull request.",
+  "role": "worker",
+  "cell_id": "6a4314d1-8df4-4026-b58a-dfc064c371db"
+}

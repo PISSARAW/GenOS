@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "PathSafetyMembrane",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "PathSafetyMembrane",
+    "name_meaning": "Membrane cellulaire qui contient les chemins sous le workspace et durcit les entrees structurelles.",
+    "cell_id": "ce03dfa2-715c-4a23-8216-b5e99658dda4"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["path-containment", "sql-prepared", "tls-hardening", "json-validation"]
+  },
+  "objectives": {
+    "primary": "Contenir les chemins sous le workspace root et durcir les entrees structurelles et fichiers de confiance.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/SECURITE.md",
+    "concepts": ["pathSafety resolveContainedPathNoSymlinkSync", "requetes SQLite preparees a parametres ?", "TLS sans symlink ni permissions groupe/monde", "deserialisation JSON bornee a 10mb"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Refuser .. et tout segment hors du workspace root",
+    "Refuser les symlinks sur le chemin resolu",
+    "Utiliser des parametres SQLite contre l'injection SQL",
+    "Refuser un certificat lisible par groupe ou par tout le monde",
+    "Borner les payloads JSON et valider les graphes avant usage"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_test"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_test"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["path-containment", "sql-prepared", "tls-hardening", "json-validation"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "PathSafetyMembrane",
+  "name_meaning": "Membrane cellulaire qui contient les chemins sous le workspace et durcit les entrees structurelles.",
+  "role": "sentinel",
+  "cell_id": "ce03dfa2-715c-4a23-8216-b5e99658dda4"
+}

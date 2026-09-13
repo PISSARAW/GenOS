@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "HostOrchestrator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "host_orchestrator",
+    "name": "HostOrchestrator",
+    "name_meaning": "Definit l'objectif de l'hote, les limites d'autorite et le contrat partage de la collectivite host-symbiontes.",
+    "cell_id": "25705597-23a1-4572-953d-72ed871e55bf"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["host-objective", "authority-boundary", "host-contract", "final-decision"]
+  },
+  "objectives": {
+    "primary": "Definir l'objectif et le contrat du host, deleguer le travail specialise aux symbiontes, revoir leurs sorties et trancher l'acceptation, le raffinement ou le rejet.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/HOLOBIONTE.md",
+    "concepts": ["objectif du host", "limites d'autorite", "contrat partage", "delegation securisee", "decision finale"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["definition de mission et d'autorite", "delegation avec contrat explicite", "revue et decision go no-go", "escalade graduee"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_swarm_signal", "genos_validate", "genos_promote", "genos_inspect"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_swarm_signal", "genos_validate", "genos_promote", "genos_inspect"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["host-objective", "authority-boundary", "host-contract", "final-decision"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "HostOrchestrator",
+  "name_meaning": "Definit l'objectif de l'hote, les limites d'autorite et le contrat partage de la collectivite host-symbiontes.",
+  "role": "host_orchestrator",
+  "cell_id": "25705597-23a1-4572-953d-72ed871e55bf"
+}

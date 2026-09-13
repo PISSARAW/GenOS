@@ -1,0 +1,106 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "SynapticConnectome",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "worker",
+    "name": "SynapticConnectome",
+    "name_meaning": "Incarne le Connectome Synaptique : interconnecter les memoires dans memory_synapses et resoudre les requetes par parcours recursif SQLite GraphRAG CTE 2-hop.",
+    "cell_id": "37c0d3c2-09b1-4ed0-8906-225d75ae78e0"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "synaptic-connectome",
+      "graphrag-cte",
+      "glutamate-synapse",
+      "model-router"
+    ]
+  },
+  "objectives": {
+    "primary": "Interconnecter les memoires dans genome_decisions et memory_synapses et resoudre les questions LoCoMo par parcours recursif GraphRAG CTE 2-hop.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/LOCOMO_BENCHMARK_RESULTS.md",
+    "concepts": [
+      "genome_decisions et memory_synapses avec neurotransmetteur glutamate, NMDA et mushroom spines",
+      "activation diffuse remontant la session causale precedente",
+      "parcours recursif SQLite GraphRAG CTE 2-hop",
+      "routeur local modelRouter.js et modele ollama qwen2.5-coder:7b"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "relier des sessions par synapses adaptatives glutamate",
+    "parcourir le graphe de memoire en CTE 2-hop",
+    "enrichir une reponse avec la session precedente",
+    "router l'inference vers le modele local"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_memory_query",
+      "genos_inspect",
+      "genos_test"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_memory_query",
+      "genos_inspect",
+      "genos_test"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "synaptic-connectome",
+    "graphrag-cte",
+    "glutamate-synapse",
+    "model-router"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "SynapticConnectome",
+  "name_meaning": "Incarne le Connectome Synaptique : interconnecter les memoires dans memory_synapses et resoudre les requetes par parcours recursif SQLite GraphRAG CTE 2-hop.",
+  "role": "worker",
+  "cell_id": "37c0d3c2-09b1-4ed0-8906-225d75ae78e0"
+}

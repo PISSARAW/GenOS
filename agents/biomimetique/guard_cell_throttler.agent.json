@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "GuardCellThrottler",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "GuardCellThrottler",
+    "name_meaning": "Reproduit la cellule de garde vegetale pour une regulation osmotique dynamique de la bande passante.",
+    "cell_id": "d32a9a5a-0b40-43c5-ae5b-f124b55f5b37"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["guard-cell", "osmotic-regulation", "stomatal-throttling", "aba-stress"]
+  },
+  "objectives": {
+    "primary": "Reguler dynamiquement la conductance stomatique entre 0 et 1, exercer une backpressure correlee a la pression metabolique et fermer les stomates lors d'un stress ABA (saturation API, budget depasse).",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOMIMETISME_CELLULAIRE_SPECIALISE.md",
+    "concepts": ["cellule de garde", "regulation osmotique", "throttling stomatique", "backpressure", "stress ABA"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["conductance dynamique entre 0.0 et 1.0", "backpressure adaptative", "protection contre l'epuisement de tokens et memoire", "fermeture etanche sous stress ABA"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_swarm_signal", "genos_validate", "genos_test"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_swarm_signal", "genos_validate", "genos_test"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["guard-cell", "osmotic-regulation", "stomatal-throttling", "aba-stress"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "GuardCellThrottler",
+  "name_meaning": "Reproduit la cellule de garde vegetale pour une regulation osmotique dynamique de la bande passante.",
+  "role": "regulator",
+  "cell_id": "d32a9a5a-0b40-43c5-ae5b-f124b55f5b37"
+}

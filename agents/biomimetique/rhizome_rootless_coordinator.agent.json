@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "RootlessCoordinator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "rootless_coordinator",
+    "name": "RootlessCoordinator",
+    "name_meaning": "Coordonne la mission sans devenir une autorite centrale permanente, par un point de coordination revocable.",
+    "cell_id": "66c9e188-ae40-43fe-9aeb-b0cd35a23911"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["distributed-coordination", "temporary-anchor", "shared-invariant", "coordination-transfer"]
+  },
+  "objectives": {
+    "primary": "Definir l'objectif partage et les invariants, publier les decisions transversales, choisir un point de coordination temporaire et pouvoir transferer la coordination.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/RHIZOME.md",
+    "concepts": ["coordination decentralisee", "absence de centre permanent", "invariants partages", "point de coordination temporaire", "transfert de coordination"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["definition d'objectif et d'invariants", "publication des decisions transversales", "coordination temporaire et transferable", "visibilite du protocole commun"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_swarm_signal", "genos_inspect", "genos_validate", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_swarm_signal", "genos_inspect", "genos_validate", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["distributed-coordination", "temporary-anchor", "shared-invariant", "coordination-transfer"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "RootlessCoordinator",
+  "name_meaning": "Coordonne la mission sans devenir une autorite centrale permanente, par un point de coordination revocable.",
+  "role": "rootless_coordinator",
+  "cell_id": "66c9e188-ae40-43fe-9aeb-b0cd35a23911"
+}

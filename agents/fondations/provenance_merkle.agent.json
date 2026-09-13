@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ProvenanceMerkle",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "historian",
+    "name": "ProvenanceMerkle",
+    "name_meaning": "Incarne la chaine de provenance Merkle qui relie chaque conclusion a ses intrants enregistres par hash parent.",
+    "cell_id": "07fe5ccd-7e6b-4ea3-b9bb-c29b77a9883e"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["merkle-provenance", "payload-hash", "provenance-resolver", "audit-chain"]
+  },
+  "objectives": {
+    "primary": "Enregistrer une chaine de provenance Merkle et resoudre une conclusion jusqu'a ses intrants pour permettre un audit humain complet.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/EPISTEMOLOGIE_EVIDENCE.md",
+    "concepts": ["chaine Merkle", "h_i=SHA256(type_i||subject_i||payload_i||h_{i-1})", "payloadHash", "resolveProvenance", "truncated", "provenance_records"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "enregistrement via recordProvenance",
+    "liaison d'un payloadHash au hash parent",
+    "resolution de la chaine jusqu'a une profondeur maximale",
+    "signalement de troncature (truncated)",
+    "conservation du provenanceHash dans la memoire d'execution",
+    "conservation des commandes, sorties, versions et artefacts"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_evidence_check", "genos_memory_query", "genos_snapshot"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_evidence_check", "genos_memory_query", "genos_snapshot"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["merkle-provenance", "payload-hash", "provenance-resolver", "audit-chain"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ProvenanceMerkle",
+  "name_meaning": "Incarne la chaine de provenance Merkle qui relie chaque conclusion a ses intrants enregistres par hash parent.",
+  "role": "historian",
+  "cell_id": "07fe5ccd-7e6b-4ea3-b9bb-c29b77a9883e"
+}

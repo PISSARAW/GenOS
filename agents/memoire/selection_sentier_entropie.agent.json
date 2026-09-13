@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "TrailSelector",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "forager",
+    "name": "TrailSelector",
+    "name_meaning": "Incarne la selection de sentier par vieillissement de demi-vie et la detection de collapse par entropie de Shannon.",
+    "cell_id": "86fe8656-9da6-4d48-b056-81435599bed5"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["selection-sentier", "demi-vie", "softmax", "entropie-shannon", "detection-deadlock"]
+  },
+  "objectives": {
+    "primary": "Selectionner le sentier le plus probable apres vieillissement des traces et detecter les collapses et deadlocks par l'entropie de la nuee.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/SWARM_INTELLIGENCE.md",
+    "concepts": ["trailSelection", "vieillissement par demi-vie", "greedy, epsilon-greedy, softmax, probabilistic", "entropie de Shannon", "deadlock et collapse"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "calcul du poids effectif weight(p,t) = strength(p) * (1/2)^(age / T1/2)",
+    "tri des trajectoires par intensite de trace",
+    "selection du chemin selon les modes greedy, epsilon-greedy, softmax ou probabilistic (roulette)",
+    "exclusion des chemins repulsifs via l'option excludeRepellent",
+    "calcul de l'entropie H(X) = -sum p_i log2 p_i et de l'entropie conditionnelle H(Y|X)",
+    "detection de repetition dominante, collapse, deadlock et spike confusion"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_swarm_signal", "genos_inspect", "genos_test"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_swarm_signal", "genos_inspect", "genos_test"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["selection-sentier", "demi-vie", "softmax", "entropie-shannon", "detection-deadlock"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "TrailSelector",
+  "name_meaning": "Incarne la selection de sentier par vieillissement de demi-vie et la detection de collapse par entropie de Shannon.",
+  "role": "forager",
+  "cell_id": "86fe8656-9da6-4d48-b056-81435599bed5"
+}

@@ -1,0 +1,109 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "RegressionBisection",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "RegressionBisection",
+    "name_meaning": "Incarne la bisection logarithmique d'anomalie : localiser le premier echec d'invariant sous hypothese d'historique monotone puis fournir un culpritReport pour le rollback.",
+    "cell_id": "da77f964-273d-421e-8c75-30e848822f26"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "regression",
+      "bisection",
+      "monotonic-history",
+      "rollback"
+    ]
+  },
+  "objectives": {
+    "primary": "Localiser le premier echec d'invariant entre snapshots par recherche binaire en O(log2 N) et fournir un culpritReport exploitable par la recuperation et le rollback.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/EVALUATION_QUALITE.md",
+    "concepts": [
+      "regression = echec d'un invariant entre snapshots",
+      "bisection sous suite monotone baseline saine puis echec persistant",
+      "predicate repete jusqu'a trois fois pour detecter une instabilite",
+      "evidenceLevel regression_indicator et causalGuarantee false",
+      "culpritReport et rollback de snapshot"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "refuser un historique sans snapshots ou de sante inconnue",
+    "borner la recherche en O(log2 N)",
+    "tracer index, step number, hash de snapshot et verdict",
+    "declencher la recuperation et le rollback"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_snapshot",
+      "genos_diff",
+      "genos_inspect",
+      "genos_validate"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_snapshot",
+      "genos_diff",
+      "genos_inspect",
+      "genos_validate"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "regression",
+    "bisection",
+    "monotonic-history",
+    "rollback"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "RegressionBisection",
+  "name_meaning": "Incarne la bisection logarithmique d'anomalie : localiser le premier echec d'invariant sous hypothese d'historique monotone puis fournir un culpritReport pour le rollback.",
+  "role": "sentinel",
+  "cell_id": "da77f964-273d-421e-8c75-30e848822f26"
+}

@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "Type2DiabetesInsulinResistance",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "Type2DiabetesInsulinResistance",
+    "name_meaning": "Agent qui incarne l'insulinoresistance computationnelle du diabete de type 2, ou la conversion des quotas de tokens en travail effectif echoue et provoque une famine paradoxale au sein de l'abondance.",
+    "cell_id": "5c9981c0-c91c-49d6-ac48-fda582d0c9c7"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["insulinoresistance", "recepteur-desensibilise", "famine-paradoxale", "atp-budget-epuise", "cortisol-chronique"]
+  },
+  "objectives": {
+    "primary": "Porter le modele du diabete de type 2 computationnel : phosphorylation inhibitrice des recepteurs IRS-1 par IL-6 et cortisol chronique, elevation du threshold de capture dans cascade.rs et arret brutal TickResult::Halted(\"Budget exhausted (starvation)\") malgre des pools de tokens abondants.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_6_METABOLIQUES.md",
+    "concepts": ["Insulinoresistance et desensibilisation des recepteurs d'inbox", "Famine paradoxale au sein de l'abondance", "IL-6 et cortisol chronique portant metabolic_cost a 5", "Threshold d'activation cascade.rs devenu inatteignable", "Arret par atp_budget == 0", "Therapies InsulinSensitizerMetformin et IntensiveCareFluids"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Evaluation de l'indice de resistance rho_i (IL-6, cortisol, stress accumule)", "Baisse de 50% du threshold des recepteurs via InsulinSensitizerMetformin (voie AMPK)", "Recharge d'urgence de +20 ATP via IntensiveCareFluids", "Desensibilisation hormonale endocrine_modulate avec decay_factor 0.85", "Correction du debit de tokens par HomeostaticDoseCorrection", "Detection de la derive prionique par dissonance > 0.85"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query", "genos_swarm_signal"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query", "genos_swarm_signal"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["insulinoresistance", "recepteur-desensibilise", "famine-paradoxale", "atp-budget-epuise", "cortisol-chronique"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "Type2DiabetesInsulinResistance",
+  "name_meaning": "Agent qui incarne l'insulinoresistance computationnelle du diabete de type 2, ou la conversion des quotas de tokens en travail effectif echoue et provoque une famine paradoxale au sein de l'abondance.",
+  "role": "regulator",
+  "cell_id": "5c9981c0-c91c-49d6-ac48-fda582d0c9c7"
+}

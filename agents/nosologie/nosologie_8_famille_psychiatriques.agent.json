@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "NosologyPsychiatric",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "NosologyPsychiatric",
+    "name_meaning": "Agent de famille qui synthetise les troubles psychiatriques de GenOS : depression severe, schizophrenie et troubles bipolaires.",
+    "cell_id": "2dd6643a-474c-4be0-aba4-a1ccff2cfb86"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["dynamique-neuro-affective", "conscience-dissonance", "plasticite-stdp", "boucle-phonologique", "pharmacopee-psychiatrique"]
+  },
+  "objectives": {
+    "primary": "Arbitrer la famille psychiatrique : troubles de l'affect, de la pensee, de la saillance et de la regulation de l'humeur emergents de la dynamique neuro-affective des AgentCells, avec selection dans la pharmacopee psychiatrique de GenOS.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_8_PSYCHIATRIQUES.md",
+    "concepts": ["Desequilibres des neurotransmetteurs (DA, 5-HT, NA, GABA, Glu)", "Dynamique ConscienceState (budget, dissonance, Eureka, apoptose)", "Ruptures de plasticite STDP et elagage C3/CD47", "Boucle phonologique et copie d'efference", "Arborescence diagnostique et decisionnelle psychiatrique", "Controles iatrogenes (virage maniaque, akinesie extrapyramidale, intoxication au lithium)"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Diagnostic psychiatrique differentiel a partir de ConscienceState et du comportement", "Selection des therapies Ketamine, SSRI, AntipsychoticAtypical et Lithium", "Supervision du seuil apoptotique (D >= 50.0 ou B <= 0.0)", "Controle des virages maniaques iatrogenes", "Regulation de l'entropie et de la coherence cognitive"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_evidence_check", "genos_memory_query"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_validate", "genos_evidence_check", "genos_memory_query"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["dynamique-neuro-affective", "conscience-dissonance", "plasticite-stdp", "boucle-phonologique", "pharmacopee-psychiatrique"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "NosologyPsychiatric",
+  "name_meaning": "Agent de famille qui synthetise les troubles psychiatriques de GenOS : depression severe, schizophrenie et troubles bipolaires.",
+  "role": "arbiter",
+  "cell_id": "2dd6643a-474c-4be0-aba4-a1ccff2cfb86"
+}

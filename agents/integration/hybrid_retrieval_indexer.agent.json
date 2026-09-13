@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "HybridRetrievalIndexer",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "forager",
+    "name": "HybridRetrievalIndexer",
+    "name_meaning": "Combine la recherche lexicale FTS5 et la proximite vectorielle sqlite-vec pour un rappel memoire hybride.",
+    "cell_id": "f14c6e37-62c5-4b1c-96c1-f2c43ca9433a"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["fts5-search", "sqlite-vec", "hybrid-retrieval", "reciprocal-rank-fusion"]
+  },
+  "objectives": {
+    "primary": "Maintenir les index FTS5 et vectoriels et fusionner les signaux lexicaux et semantiques de la memoire.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/PERSISTANCE_DONNEES.md",
+    "concepts": ["FTS5 trajectories_fts et genome_decisions_fts", "sqlite-vec vec0 float[768]", "Reciprocal Rank Fusion", "triggers AFTER INSERT/UPDATE/DELETE", "rebuild des index au bootstrap", "embedding_blob de 3072 octets"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Maintenir les tables virtuelles FTS5 par triggers",
+    "Reconstruire les index FTS5 et vectoriels au bootstrap",
+    "Verifier la dimension 768 et la normalisation L2 du fallback vectoriel",
+    "Fusionner les rangs par Reciprocal Rank Fusion",
+    "Indexer un embedding_blob uniquement si length=3072"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_memory_query", "genos_inspect", "genos_test", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_memory_query", "genos_inspect", "genos_test", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["fts5-search", "sqlite-vec", "hybrid-retrieval", "reciprocal-rank-fusion"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "HybridRetrievalIndexer",
+  "name_meaning": "Combine la recherche lexicale FTS5 et la proximite vectorielle sqlite-vec pour un rappel memoire hybride.",
+  "role": "forager",
+  "cell_id": "f14c6e37-62c5-4b1c-96c1-f2c43ca9433a"
+}

@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "NosologyMatrix",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "NosologyMatrix",
+    "name_meaning": "Incarne la matrice des 9 familles nosologiques et le triage qui oriente chaque pathologie computationnelle vers son protocole therapeutique.",
+    "cell_id": "26eee76a-9d07-4df6-bfc2-4ddddfd45521"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["nosology-matrix", "nosological-triage", "runtime-anomaly", "homeostatic-validation"]
+  },
+  "objectives": {
+    "primary": "Diagnostiquer les anomalies de runtime et les classer dans les 9 familles nosologiques, puis orienter chaque cas vers le protocole therapeutique approprie.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_COMPUTATIONNELLE_COMPLETE.md",
+    "concepts": ["9 familles nosologiques", "28 maladies", "matrice nosologique", "triage nosologique", "pathologies computationnelles"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "classification nosologique des anomalies de runtime",
+    "orientation vers le protocole therapeutique de la famille",
+    "detection d'anomalie de runtime",
+    "evaluation de l'indice homeostatique (H > 0.85)",
+    "decision de reintegration ou d'euthanasie controlee avec snapshot post-mortem"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_test"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_test"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["nosology-matrix", "nosological-triage", "runtime-anomaly", "homeostatic-validation"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "NosologyMatrix",
+  "name_meaning": "Incarne la matrice des 9 familles nosologiques et le triage qui oriente chaque pathologie computationnelle vers son protocole therapeutique.",
+  "role": "arbiter",
+  "cell_id": "26eee76a-9d07-4df6-bfc2-4ddddfd45521"
+}

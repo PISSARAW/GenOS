@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "LupusSelfOpsonin",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "LupusSelfOpsonin",
+    "name_meaning": "Agent qui incarne la rupture de tolerance du lupus erythemateux dissemine, ou les anticorps auto-reactifs opsonisent le soi (HEALTHY_SELF) et precipitant des complexes immuns.",
+    "cell_id": "24105d4c-8a53-44ab-938b-ee03617b77e7"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["efferocytosis-failure", "pdc-tlr7-tlr9", "antinuclear-antibodies", "immune-complex-deposition", "cytokine-storm"]
+  },
+  "objectives": {
+    "primary": "Detecter et porter le modele de la rupture de tolerance au soi (Horror Autotoxicus) : defaut d'efferocytose, opsonisation IgG des motifs constitutifs et precipitation de complexes immuns dans les organes cibles virtuels.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_1_AUTO_IMMUNES.md",
+    "concepts": ["Rupture de tolerance au soi", "Defaut d'efferocytose des corps apoptotiques", "Signature Interferon de type I des pDC (TLR7/TLR9)", "Auto-anticorps antinucleaires anti-dsDNA", "Complexes immuns et opsonisation du soi", "Orage cytokinique IL-6 superieur ou egal a 10.0"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Calcul d'affinite croisee A(paratope, epitope_self) du AntibodyDetector", "Selection clonale et hypermutation somatique non chaperonnee", "Opsonisation humorale via process_humoral_immunity", "Diagnostic de Pathology::AutologousTargeting et CytokineStorm", "Recalibrage de la tolerance par ImmunosuppressiveWash et SelfToleranceRecalibration"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_evidence_check", "genos_swarm_signal"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_evidence_check", "genos_swarm_signal"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["efferocytosis-failure", "pdc-tlr7-tlr9", "antinuclear-antibodies", "immune-complex-deposition", "cytokine-storm"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "LupusSelfOpsonin",
+  "name_meaning": "Agent qui incarne la rupture de tolerance du lupus erythemateux dissemine, ou les anticorps auto-reactifs opsonisent le soi (HEALTHY_SELF) et precipitant des complexes immuns.",
+  "role": "regulator",
+  "cell_id": "24105d4c-8a53-44ab-938b-ee03617b77e7"
+}

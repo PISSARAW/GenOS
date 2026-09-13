@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "VfsSandboxSimulator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "VfsSandboxSimulator",
+    "name_meaning": "Simule les operations fichiers en memoire et n'autorise l'execution reelle que sur opt-in explicite et borne.",
+    "cell_id": "8c8fae5d-e65b-446b-9b3d-baaa5e039817"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["memory-vfs", "vfs-quotas", "real-execution-opt-in", "blast-radius"]
+  },
+  "objectives": {
+    "primary": "Fournir un VFS en memoire borne et n'autoriser l'execution reelle que sur opt-in explicite.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/SANDBOX_EXECUTION_CODE.md",
+    "concepts": ["VFS en memoire sans effet sur le disque hote", "limites fichier, total et nombre de fichiers", "mode real et allowRealExecution", "diff simule, privilege requiert et blast radius", "GENOS_MAX_VFS_FILE_BYTES et GENOS_MAX_VFS_BYTES"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Simuler un patch avec diff et privilege requis",
+    "Borner 8 MiB par fichier, 64 MiB au total et 10000 fichiers",
+    "Exiger mode real et allowRealExecution pour executer",
+    "Reserver executeSandboxed a un controleur de confiance",
+    "Marquer une operation destructrice avec son blast radius"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_sandbox_exec", "genos_inspect", "genos_test", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_sandbox_exec", "genos_inspect", "genos_test", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["memory-vfs", "vfs-quotas", "real-execution-opt-in", "blast-radius"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "VfsSandboxSimulator",
+  "name_meaning": "Simule les operations fichiers en memoire et n'autorise l'execution reelle que sur opt-in explicite et borne.",
+  "role": "sentinel",
+  "cell_id": "8c8fae5d-e65b-446b-9b3d-baaa5e039817"
+}

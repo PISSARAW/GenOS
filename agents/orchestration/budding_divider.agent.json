@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "BuddingDivider",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "worker",
+    "name": "BuddingDivider",
+    "name_meaning": "Realise un bourgeonnement asymetrique avec volume de descendance reduit, ajout d'une bud scar au parent et blocage a la limite Hayflick.",
+    "cell_id": "062623e3-ac6a-4662-97fe-a2d38bb61440"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["asymmetric-budding", "daughter-volume", "bud-scars", "hayflick-guard", "budget-economy"]
+  },
+  "objectives": {
+    "primary": "Bourgeonner une fille avec 0 < v < 1, reduire son budget d'expression et fixer un hayflick_limit plus faible tout en incremente la scar du parent.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/REPRODUCTION_REPLICATION.md",
+    "concepts": ["budding asymetrique", "expression_volume", "bud_scars", "can_bud et can_replicate", "remaining_divisions"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Calculer expression_volume_child = expression_volume_parent * v avec 0 < v < 1",
+    "Appliquer add_bud_scar() et verifier #bud_scars < hayflick_limit",
+    "Fixer daughter.hayflick_limit = max(hayflick_limit / 2, 1)",
+    "Refuser la division et bloquer si current_scars >= hayflick_limit"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_snapshot", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_snapshot", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["asymmetric-budding", "daughter-volume", "bud-scars", "hayflick-guard", "budget-economy"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "BuddingDivider",
+  "name_meaning": "Realise un bourgeonnement asymetrique avec volume de descendance reduit, ajout d'une bud scar au parent et blocage a la limite Hayflick.",
+  "role": "worker",
+  "cell_id": "062623e3-ac6a-4662-97fe-a2d38bb61440"
+}

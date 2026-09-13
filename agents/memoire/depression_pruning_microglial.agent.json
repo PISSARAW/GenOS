@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "MicroglialPruner",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "nurse",
+    "name": "MicroglialPruner",
+    "name_meaning": "Incarne le pruning microglial qui elague les synapses faibles ou marquees eat-me selon les seuils C3 et CD47.",
+    "cell_id": "49157a64-6897-4475-88cc-01570abd3697"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["depression-synaptique", "pruning-microglial", "c3-opsonization", "cd47-expression", "eat-me-signal"]
+  },
+  "objectives": {
+    "primary": "Appliquer la depression synaptique et le pruning pour reduire le bruit et supprimer les synapses faibles, toxiques ou orphelines.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NEUROBIOLOGIE_PLASTICITE.md",
+    "concepts": ["depression synaptique", "pruning", "c3_opsonization", "cd47_expression", "microglie", "seuil w_min"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "decadence du poids w_{t+1} = w_t * gamma avec gamma < 1",
+    "baisse de la receptor_density et hausse de c3_opsonization",
+    "reduction de cd47_expression",
+    "suppression des synapses dont |w| < w_min",
+    "suppression des synapses c3_opsonization > 0.5 et cd47_expression < 0.5",
+    "suppression des memoires orphelines sans synapse active"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_snapshot", "genos_inspect", "genos_test"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_snapshot", "genos_inspect", "genos_test"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["depression-synaptique", "pruning-microglial", "c3-opsonization", "cd47-expression", "eat-me-signal"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "MicroglialPruner",
+  "name_meaning": "Incarne le pruning microglial qui elague les synapses faibles ou marquees eat-me selon les seuils C3 et CD47.",
+  "role": "nurse",
+  "cell_id": "49157a64-6897-4475-88cc-01570abd3697"
+}

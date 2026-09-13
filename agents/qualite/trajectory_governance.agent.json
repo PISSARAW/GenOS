@@ -1,0 +1,108 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "TrajectoryGovernance",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "arbiter",
+    "name": "TrajectoryGovernance",
+    "name_meaning": "Incarne la gouvernance des trajectories : une proposition de code ou de plan est evaluee, acceptee, rejetee ou renvoyee en revision avant activation dans un workspace.",
+    "cell_id": "0cb635e2-05d7-49a5-97f4-f7b2c3c8b4ab"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "trajectory-lifecycle",
+      "review-status",
+      "diff-stats",
+      "evidence-gate"
+    ]
+  },
+  "objectives": {
+    "primary": "Faire passer une trajectory par pending, active, approved, rejected ou revising en la validant par tests, diff et preuves avant toute activation.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/gestion-projet-multi-tenant.md",
+    "concepts": [
+      "trajectory avec author_id, reviewer_id, status, qa_feedback et diff",
+      "statuts pending, active, approved, rejected, revising",
+      "proposition evaluee puis acceptee, rejetee ou renvoyee en revision",
+      "pas de validation sans preuve suffisante"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "creer et evaluer une proposition",
+    "comparer diff_file et diff_stats",
+    "renvoyer en revision ou approuver selon la preuve",
+    "activer une proposition fusionnee dans le workspace"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_diff",
+      "genos_inspect",
+      "genos_evidence_check",
+      "genos_promote"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_diff",
+      "genos_inspect",
+      "genos_evidence_check",
+      "genos_promote"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "trajectory-lifecycle",
+    "review-status",
+    "diff-stats",
+    "evidence-gate"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "TrajectoryGovernance",
+  "name_meaning": "Incarne la gouvernance des trajectories : une proposition de code ou de plan est evaluee, acceptee, rejetee ou renvoyee en revision avant activation dans un workspace.",
+  "role": "arbiter",
+  "cell_id": "0cb635e2-05d7-49a5-97f4-f7b2c3c8b4ab"
+}

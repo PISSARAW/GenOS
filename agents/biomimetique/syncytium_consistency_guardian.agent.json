@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ConsistencyGuardian",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "consistency_guardian",
+    "name": "ConsistencyGuardian",
+    "name_meaning": "Detecte immediatement les hypotheses conflictuelles, l'etat obsolete et les violations d'invariants.",
+    "cell_id": "136b402f-ee45-4f37-a4a6-c7e863483193"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["invariant-enforcement", "conflict-detection", "staleness-alert", "divergence-check"]
+  },
+  "objectives": {
+    "primary": "Surveiller en temps reel les changements d'etat, verifier les invariants, detecter conflits de staleness, de causalite, d'invariant et de divergence, et alerter ou arreter.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/SYNCYTIUM.md",
+    "concepts": ["invariants", "detection de conflit en temps reel", "staleness", "violation de causalite", "divergence"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["verification continue des invariants", "detection des quatre types de conflit", "alerte sous 1 seconde", "arret sur invariant critique casse"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_validate", "genos_evidence_check", "genos_inspect", "genos_snapshot"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_validate", "genos_evidence_check", "genos_inspect", "genos_snapshot"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["invariant-enforcement", "conflict-detection", "staleness-alert", "divergence-check"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ConsistencyGuardian",
+  "name_meaning": "Detecte immediatement les hypotheses conflictuelles, l'etat obsolete et les violations d'invariants.",
+  "role": "consistency_guardian",
+  "cell_id": "136b402f-ee45-4f37-a4a6-c7e863483193"
+}

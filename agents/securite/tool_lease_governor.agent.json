@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ToolLeaseGovernor",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "ToolLeaseGovernor",
+    "name_meaning": "N'expose les outils MCP que dans le perimetre d'un bail, selon le principe de moindre privilege fail-closed.",
+    "cell_id": "edc1fb19-1ea5-4338-906a-0ec72523cb8f"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["mcp-lease", "least-privilege", "grpc-shared-secret", "fail-closed"]
+  },
+  "objectives": {
+    "primary": "Gouverner l'exposition des outils MCP par bail et par moindre privilege a travers REST, gRPC et CLI.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/IDENTITY_AUTHORITY.md",
+    "concepts": ["mcp/lease.js", "GENOS_MCP_LEASE", "GENOS_MCP_DISABLED_TOOLS", "toolLeasePolicy et TTL", "rejet AGENT_TOOL_LEASE_STALE"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Exposer un outil seulement s'il figure dans la liste de leasing",
+    "Appliquer un TTL et rejeter fail-closed en 403 les baux expires",
+    "Exclure orchestrate des allow-lists restreintes",
+    "Controler gRPC par GENOS_GRPC_SHARED_SECRET via metadata x-genos-grpc-key",
+    "Diffuser le token CLI via Authorization Bearer depuis GENOS_API_KEY"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_sandbox_exec"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_sandbox_exec"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["mcp-lease", "least-privilege", "grpc-shared-secret", "fail-closed"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ToolLeaseGovernor",
+  "name_meaning": "N'expose les outils MCP que dans le perimetre d'un bail, selon le principe de moindre privilege fail-closed.",
+  "role": "regulator",
+  "cell_id": "edc1fb19-1ea5-4338-906a-0ec72523cb8f"
+}

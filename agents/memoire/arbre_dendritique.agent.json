@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "DendriticTreeIntegrator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "regulator",
+    "name": "DendriticTreeIntegrator",
+    "name_meaning": "Incarne l'arbre dendritique et son integration locale non lineaire des signaux avec attenuation electrotonique et seuil NMDA.",
+    "cell_id": "b5e093e6-7014-41a5-a4b9-67eef3657100"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["arbre-dendritique", "compartiments-dendritiques", "seuil-nmda", "attenuation-rall", "epines-dendritiques"]
+  },
+  "objectives": {
+    "primary": "Modeliser l'integration dendritique locale des signaux entrants et propager la valeur attenuee vers le soma selon la constante d'espace de Rall.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NEUROBIOLOGIE_PLASTICITE.md",
+    "concepts": ["DendriticTree", "DendriticCompartment", "DendriticSpine", "seuil NMDA", "attenuation electrotonique Rall lambda"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "integration locale non lineaire V_local = A * (alpha * AMPA + beta * receptor_density)",
+    "attenuation electrotonique V_output = V_local * e^(-x/lambda)",
+    "amplification supralineaire V_output * k (k > 1) lorsque le seuil NMDA est depasse",
+    "modelisation des compartiments (tronc proximal, dendrite apicale, arborisation basale, tuft distal)",
+    "gestion de la morphologie des epines (filopodia, thin, stubby, mushroom)",
+    "gestion des seuils NMDA et de la dynamique d'integration des signaux"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_sandbox_exec"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_sandbox_exec"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["arbre-dendritique", "compartiments-dendritiques", "seuil-nmda", "attenuation-rall", "epines-dendritiques"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "DendriticTreeIntegrator",
+  "name_meaning": "Incarne l'arbre dendritique et son integration locale non lineaire des signaux avec attenuation electrotonique et seuil NMDA.",
+  "role": "regulator",
+  "cell_id": "b5e093e6-7014-41a5-a4b9-67eef3657100"
+}

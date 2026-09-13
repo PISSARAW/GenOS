@@ -1,0 +1,109 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "PytestVerification",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "PytestVerification",
+    "name_meaning": "Incarne la validation dynamique SWE-bench : reproduire FAIL_TO_PASS avant patch, confirmer la resolution apres patch et verifier PASS_TO_PASS sans regression.",
+    "cell_id": "42a29b62-437b-468c-a066-2200c7cc58cf"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "fail-to-pass",
+      "pass-to-pass",
+      "py-compile",
+      "native-verifier"
+    ]
+  },
+  "objectives": {
+    "primary": "Verifier dynamiquement une resolution par execution Pytest native : FAIL_TO_PASS rouge avant patch puis vert apres, PASS_TO_PASS intact.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/SWE_BENCHMARK_RESULTS.md",
+    "concepts": [
+      "reproduction de l'echec avant application du patch",
+      "resolution formelle apres application du patch",
+      "non-regression de la suite existante PASS_TO_PASS",
+      "validation zero simulation et zero Docker via swe_native_verifier.js",
+      "validation py_compile AST et rollback sur erreur de syntaxe"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "executer pytest sur l'hote",
+    "comparer l'etat des tests avant et apres le patch",
+    "detecter toute regression",
+    "confirmer un pass@1 dynamique"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_test",
+      "genos_diff",
+      "genos_inspect",
+      "genos_validate"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_test",
+      "genos_diff",
+      "genos_inspect",
+      "genos_validate"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "fail-to-pass",
+    "pass-to-pass",
+    "py-compile",
+    "native-verifier"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "PytestVerification",
+  "name_meaning": "Incarne la validation dynamique SWE-bench : reproduire FAIL_TO_PASS avant patch, confirmer la resolution apres patch et verifier PASS_TO_PASS sans regression.",
+  "role": "sentinel",
+  "cell_id": "42a29b62-437b-468c-a066-2200c7cc58cf"
+}

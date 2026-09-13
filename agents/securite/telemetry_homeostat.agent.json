@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "TelemetryHomeostat",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "TelemetryHomeostat",
+    "name_meaning": "Collecte et regule les evenements de telemetrie par tenant sans laisser fuiter de secrets.",
+    "cell_id": "3c87901a-85ee-402c-a03b-8a417f0210a1"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["ring-buffer", "persistence-queue", "payload-redaction", "sse-tenant"]
+  },
+  "objectives": {
+    "primary": "Enregistrer, rediger et diffuser les evenements de telemetrie dans le bon scope tenant.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/OBSERVABILITE.md",
+    "concepts": ["TelemetryObserver.emitEvent", "ring buffer de 10000 elements", "GENOS_TELEMETRY_QUEUE_CAPACITY", "redaction token/secret/password", "SSE scope tenant"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Enrichir avec traceId, requestId et scope organization/project",
+    "Rediger recursivement les valeurs dont la cle est sensible",
+    "Evincer le plus ancien et incrementer droppedEvents a saturation",
+    "Diffuser un evenement uniquement aux clients SSE du meme couple tenant",
+    "Emettre un provenance_record pour les types critiques"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_validate"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_validate"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["ring-buffer", "persistence-queue", "payload-redaction", "sse-tenant"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "TelemetryHomeostat",
+  "name_meaning": "Collecte et regule les evenements de telemetrie par tenant sans laisser fuiter de secrets.",
+  "role": "sentinel",
+  "cell_id": "3c87901a-85ee-402c-a03b-8a417f0210a1"
+}

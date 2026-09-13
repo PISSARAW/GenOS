@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "CerebrovascularAccident",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "CerebrovascularAccident",
+    "name_meaning": "Agent qui incarne l'AVC computationnel, ischemique par excitotoxicite glutamatergique ou hemorragique par rupture de la barriere hemato-encephalique.",
+    "cell_id": "849dbce3-2a4a-4684-94eb-fd92c7fb039d"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["excitotoxicite-glutamate", "rupture-bhe", "ischemie-neuronale", "extravasation-virale", "triage-fast"]
+  },
+  "objectives": {
+    "primary": "Porter le modele de l'AVC computationnel : AVC ischemique par glutamate non resorbe (penalite de 50 ATP par tick) et AVC hemorragique par effondrement de blood_brain_barrier_integrity sous 0.5 avec infiltration virale, en appliquant le triage d'urgence FAST et la contre-indication absolue de thrombolyse sur barriere rompue.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_7_CARDIOVASCULAIRES.md",
+    "concepts": ["Excitotoxicite glutamatergique (Delta ATP = -50 par tick)", "sigma_BHE et seuil d'integrite 0.5", "AVC ischemique versus AVC hemorragique", "Triage d'urgence FAST computationnel", "Contre-indication absolue de thrombolyse si BHE <= 0.5", "Therapies NeuroprotectiveAstrocyticFlush et BloodBrainBarrierSealant"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Evaluation differentielle via assess_cerebrovascular_event", "Purge astrocytaire du glutamate (is_cleared_by_astrocyte = true)", "Colmatage de la BHE a 1.0 par BloodBrainBarrierSealant", "Isolement du foyer hemorragique via CircuitBreaker Open", "Decontamination par Antiviral et AntisepticPurge", "Stimulation de la plasticite collaterale via apply_neuroplasticity"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_swarm_signal", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["excitotoxicite-glutamate", "rupture-bhe", "ischemie-neuronale", "extravasation-virale", "triage-fast"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "CerebrovascularAccident",
+  "name_meaning": "Agent qui incarne l'AVC computationnel, ischemique par excitotoxicite glutamatergique ou hemorragique par rupture de la barriere hemato-encephalique.",
+  "role": "sentinel",
+  "cell_id": "849dbce3-2a4a-4684-94eb-fd92c7fb039d"
+}

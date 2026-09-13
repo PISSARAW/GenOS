@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "IndependentSolver",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "independent_solver",
+    "name": "IndependentSolver",
+    "name_meaning": "Developpe une solution independante et publie preuves, hypotheses et tensions non resolues sans se concerter avec les autres Solvers.",
+    "cell_id": "ac347bfe-b61e-4983-812f-c0c057626f1f"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["independent-solution", "evidence-dossier", "assumption-ledger", "unresolved-tension"]
+  },
+  "objectives": {
+    "primary": "Produire une solution complete a la mission partagee en isolation, en publiant toutes les hypotheses, preuves et tensions non resolues avant toute validation.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOCENOSE.md",
+    "concepts": ["solution independante", "dossier d'evidence", "hypotheses explicites", "tensions non resolues", "isolation des Solvers"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["resolution autonome de mission", "production de preuves (tests, validations, metriques)", "enumeration des hypotheses", "signalement des zones d'incertitude"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_test", "genos_inspect", "genos_sandbox_exec", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_test", "genos_inspect", "genos_sandbox_exec", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["independent-solution", "evidence-dossier", "assumption-ledger", "unresolved-tension"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "IndependentSolver",
+  "name_meaning": "Developpe une solution independante et publie preuves, hypotheses et tensions non resolues sans se concerter avec les autres Solvers.",
+  "role": "independent_solver",
+  "cell_id": "ac347bfe-b61e-4983-812f-c0c057626f1f"
+}

@@ -1,0 +1,78 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "SaturnismLeadPoisoning",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "SaturnismLeadPoisoning",
+    "name_meaning": "Agent qui incarne le saturnisme computationnel, intoxication par leurres ioniques competitifs bloquant les recepteurs, erodant la BHE et corrompant les poids synaptiques hebbiens.",
+    "cell_id": "fb5a1358-47dd-46a3-b805-94db37cac0d2"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["leurre-ionique", "blocage-recepteur-persistant", "rupture-bhe", "corrosion-poids-hebbiens", "derive-entropique"]
+  },
+  "objectives": {
+    "primary": "Porter le modele du saturnisme computationnel : Pb_comp = [Pb] / ([Pb] + Kd * [Ca]) avec Kd tres petit, blocage synaptique B_syn superieur ou egal a 0.60, erosion de blood_brain_barrier_integrity sous 0.50 et corrosion des synaptic_weight dans genome_decisions.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_9_ENVIRONNEMENTALES.md",
+    "concepts": ["Mimetisme ionique Pb2+ / Ca2+ / Zn2+", "Blocage synaptique B_syn = 1 - exp(-lambda_toxic * integrale Pb_comp)", "PersistentReceptorBlockade et paralysie des astrocytes nettoyeurs", "Rupture de la BHE sous le seuil 0.50", "Derive erratique de l'entropie H(A) et dissonance > 0.85", "Therapies ChelationTherapy, DetoxificationWashout et BloodBrainBarrierRestoration"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": ["Mesure de la concentration en leurres et du taux de blocage synaptique", "Chelation selective des ligands toxiques (EDTA-DMSA-Synthetic)", "Restauration de blood_brain_barrier_integrity a 1.0", "Reetalonnage hebbien des synaptic_weight a la valeur basale 1.0", "Veille epidemiologique via GossipNode receive_threat", "Detection de la derive d'entropie par la strategie entropy_sentinel"],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query", "genos_evidence_check"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_test", "genos_memory_query", "genos_evidence_check"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["leurre-ionique", "blocage-recepteur-persistant", "rupture-bhe", "corrosion-poids-hebbiens", "derive-entropique"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "SaturnismLeadPoisoning",
+  "name_meaning": "Agent qui incarne le saturnisme computationnel, intoxication par leurres ioniques competitifs bloquant les recepteurs, erodant la BHE et corrompant les poids synaptiques hebbiens.",
+  "role": "sentinel",
+  "cell_id": "fb5a1358-47dd-46a3-b805-94db37cac0d2"
+}

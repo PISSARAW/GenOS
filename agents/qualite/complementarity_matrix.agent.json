@@ -1,0 +1,106 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "ComplementarityMatrix",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "architect",
+    "name": "ComplementarityMatrix",
+    "name_meaning": "Incarne la matrice de choix : indiquer pour chaque situation quand choisir GenOS et quelles briques eprouvees conserver ou ajouter.",
+    "cell_id": "c5c759ff-b27a-4921-90f2-fbbd8f6eeda4"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": [
+      "choice-matrix",
+      "complementarity",
+      "scenario-eval",
+      "limits"
+    ]
+  },
+  "objectives": {
+    "primary": "Recommander, pour chaque situation, l'usage de GenOS pour l'etat, la preuve et la promotion, et les outils eprouves a conserver pour le build, l'IAM, le sandbox ou l'observabilite.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/PANORAMA_CONCURRENTIEL.md",
+    "concepts": [
+      "matrice de choix situation / choisir GenOS / conserver",
+      "evaluation des concurrents et de GenOS sur le meme scenario reproductible",
+      "criteres : action agentique, preuve, defaillance, fork, audit, restauration",
+      "analogies biologiques decrivant des invariants, pas une preuve de securite"
+    ]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "evaluer concurrents et GenOS sur le meme scenario",
+    "identifier l'adaptateur de sandbox ou de deploiement requis",
+    "recommander la conservation de Git, CI/CD, IdP, Vault ou OpenTelemetry",
+    "eviter les comparaisons hors contexte de deploiement"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": [
+      "genos_inspect",
+      "genos_validate",
+      "genos_git_agent"
+    ]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": [
+      "genos_inspect",
+      "genos_validate",
+      "genos_git_agent"
+    ]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": [
+    "choice-matrix",
+    "complementarity",
+    "scenario-eval",
+    "limits"
+  ],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "ComplementarityMatrix",
+  "name_meaning": "Incarne la matrice de choix : indiquer pour chaque situation quand choisir GenOS et quelles briques eprouvees conserver ou ajouter.",
+  "role": "architect",
+  "cell_id": "c5c759ff-b27a-4921-90f2-fbbd8f6eeda4"
+}

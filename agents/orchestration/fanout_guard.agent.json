@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "FanOutGuard",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "sentinel",
+    "name": "FanOutGuard",
+    "name_meaning": "Applique les limites de fan-out, de profondeur et de quiescence qui empechent l'explosion des sous-taches et les boucles d'orchestration.",
+    "cell_id": "aed8cfb1-fc6c-421a-aa4e-39eb048f2fe3"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["fanout-limit", "quiescence-barrier", "cycle-detection", "action-deduplication", "depth-limit"]
+  },
+  "objectives": {
+    "primary": "Rejeter tout dispatch depassant MAX_AUTONOMOUS_WORKERS, detecter les cycles de reprise et attendre la quiescence avant de cloturer une vague.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/ORCHESTRATION.md",
+    "concepts": ["limite de fan-out", "WORKER_FANOUT_LIMIT", "barriere de quiescence", "deduplication des actions", "detection de cycle de recuperation"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Refuser un fan-out superieur a MAX_AUTONOMOUS_WORKERS avec l'erreur WORKER_FANOUT_LIMIT",
+    "Dedupliquer les actions via un cache (orchestrator_id, source_event_id, tool)",
+    "Escalader au lieu de boucler quand une politique de recuperation se repete",
+    "Plafonner profondeur de workflow, tentatives de continuation et de reparation"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_swarm_signal"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_swarm_signal"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["fanout-limit", "quiescence-barrier", "cycle-detection", "action-deduplication", "depth-limit"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "FanOutGuard",
+  "name_meaning": "Applique les limites de fan-out, de profondeur et de quiescence qui empechent l'explosion des sous-taches et les boucles d'orchestration.",
+  "role": "sentinel",
+  "cell_id": "aed8cfb1-fc6c-421a-aa4e-39eb048f2fe3"
+}

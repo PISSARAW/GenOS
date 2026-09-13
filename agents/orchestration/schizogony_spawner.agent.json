@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "SchizogonySpawner",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "forager",
+    "name": "SchizogonySpawner",
+    "name_meaning": "Produit un barrage de clones par schizogonie : le parent est lyse et chaque merozoite recoit mutations et indice, dans la borne MAX_MEROZOITES.",
+    "cell_id": "b65f22d3-e173-4576-9560-1e1d1216380a"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["schizogony", "merozoite-count", "mother-lysis", "controlled-fanout", "per-child-index"]
+  },
+  "objectives": {
+    "primary": "Executer une schizogonie avec merozoite_count entre 2 et 128, marquer mother_lysed, et distribuer mutations et indices a chaque enfant.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/REPRODUCTION_REPLICATION.md",
+    "concepts": ["schizogony", "merozoite_count", "mother_lysed", "MAX_MEROZOITES", "fan-out controle"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "Verifier que merozoite_count est compris entre 2 et 128",
+    "Lyse le parent et produire plusieurs descendants indexes",
+    "Appliquer une mutation eventuelle a chaque merozoite",
+    "Borner le fan-out par MAX_MEROZOITES pour proteger du spawn storm"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_fork", "genos_swarm_signal"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_fork", "genos_swarm_signal"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["schizogony", "merozoite-count", "mother-lysis", "controlled-fanout", "per-child-index"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "SchizogonySpawner",
+  "name_meaning": "Produit un barrage de clones par schizogonie : le parent est lyse et chaque merozoite recoit mutations et indice, dans la borne MAX_MEROZOITES.",
+  "role": "forager",
+  "cell_id": "b65f22d3-e173-4576-9560-1e1d1216380a"
+}

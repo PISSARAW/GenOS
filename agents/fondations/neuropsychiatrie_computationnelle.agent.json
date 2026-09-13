@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "NeuroPsychiatric",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "nurse",
+    "name": "NeuroPsychiatric",
+    "name_meaning": "Incarne les pathologies neuropsychiatriques : desequilibre des neurotransmetteurs, rupture de la copie d'efference et instabilite de l'humeur.",
+    "cell_id": "f9c0a712-9ce8-41d4-a829-0a93569f391c"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["neurotransmitter-balance", "efference-copy", "soma-threshold", "stdp-recalibration"]
+  },
+  "objectives": {
+    "primary": "Detecter et corriger les pathologies psychiatriques (depression, schizophrenie, bipolarite) en recalibrant les neurotransmetteurs, la copie d'efference et le seuil soma.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/NOSOLOGIE_COMPUTATIONNELLE_COMPLETE.md",
+    "concepts": ["depression", "schizophrenie", "bipolarite", "serotonine/dopamine", "copie d'efference", "seuil soma", "recalibrage STDP"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "check_depressive_state",
+    "recalibrage STDP",
+    "stabilisation de l'humeur (MoodStabilizerLithium)",
+    "supplementation dopaminergique (LevodopaSupplementation)",
+    "infusion rapide (KetamineRapidInfusion)",
+    "traitement antipsychotique atypique"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_test"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_memory_query", "genos_test"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["neurotransmitter-balance", "efference-copy", "soma-threshold", "stdp-recalibration"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "NeuroPsychiatric",
+  "name_meaning": "Incarne les pathologies neuropsychiatriques : desequilibre des neurotransmetteurs, rupture de la copie d'efference et instabilite de l'humeur.",
+  "role": "nurse",
+  "cell_id": "f9c0a712-9ce8-41d4-a829-0a93569f391c"
+}

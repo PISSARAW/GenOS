@@ -1,0 +1,84 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "HoxDifferentiator",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "architect",
+    "name": "HoxDifferentiator",
+    "name_meaning": "Incarne la differenciation HOX qui attribue un axe fonctionnel (UI, logique, donnees) et verrouille epigenetiquement les genes hors axe actif.",
+    "cell_id": "d7d05590-8ba0-47e9-80a8-48dd8f42fc39"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["hox-axes", "heterochromatine-facultative", "methylation", "seed-hox-genome"]
+  },
+  "objectives": {
+    "primary": "Restreindre le champ de competence de chaque cellule de l'essaim en activant l'axe HOX correspondant a sa position, et en verrouillant epigenetiquement les genes hors axe.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/BIOLOGIE_COMPUTATIONNELLE.md",
+    "concepts": ["HOX-1 UI/frontend", "HOX-2 logic/backend", "HOX-3 data/storage", "heterochromatine facultative", "methylation", "seed_hox_genome"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "seed_hox_genome pour definir les axes fonctionnels",
+    "differentiate_swarm selon le ratio de position dans l'essaim",
+    "verrouillage epigenetique des genes non lies a l'axe actif",
+    "reduction de la surface d'attaque par specialisation",
+    "alignement entre role cellulaire et execution"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_promote"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_inspect", "genos_validate", "genos_promote"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["hox-axes", "heterochromatine-facultative", "methylation", "seed-hox-genome"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "HoxDifferentiator",
+  "name_meaning": "Incarne la differenciation HOX qui attribue un axe fonctionnel (UI, logique, donnees) et verrouille epigenetiquement les genes hors axe actif.",
+  "role": "architect",
+  "cell_id": "d7d05590-8ba0-47e9-80a8-48dd8f42fc39"
+}
