@@ -37,6 +37,14 @@ async function run() {
   await controller.getGenome({ params: { id: 'does-not-exist' }, tenant: null }, missingRes, (error) => { throw error; });
   assert.equal(missingRes.statusCode, 404);
 
+  const policyRes = mockRes();
+  await controller.getGenomePolicy({ tenant: null }, policyRes, (error) => { throw error; });
+  assert.equal(policyRes.body.policy.requireSigned, false);
+
+  const setPolicyRes = mockRes();
+  await controller.setGenomePolicy({ tenant: null, body: { requireSigned: true } }, setPolicyRes, (error) => { throw error; });
+  assert.equal(setPolicyRes.statusCode, 400);
+
   await closeDatabase();
   console.log('Genome API checks passed.');
 }

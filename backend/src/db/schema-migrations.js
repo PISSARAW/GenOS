@@ -53,6 +53,12 @@ async function applyVersionedMigrations(db) {
   CREATE INDEX IF NOT EXISTS idx_agent_genomes_name ON agent_genomes(name);
   CREATE INDEX IF NOT EXISTS idx_agent_genomes_scope ON agent_genomes(organization_id, project_id);`);
 
+  await db.exec(`CREATE TABLE IF NOT EXISTS genome_policies (
+    organization_id TEXT NOT NULL, project_id TEXT NOT NULL,
+    require_signed INTEGER NOT NULL DEFAULT 0, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (organization_id, project_id)
+  );`);
+
   const agentSnapshotColumns = new Set((await db.all('PRAGMA table_info(agent_state_snapshots)')).map((column) => column.name));
   if (!agentSnapshotColumns.has('commit_message')) await db.exec('ALTER TABLE agent_state_snapshots ADD COLUMN commit_message TEXT');
   if (!agentSnapshotColumns.has('parent_snapshot_id')) await db.exec('ALTER TABLE agent_state_snapshots ADD COLUMN parent_snapshot_id TEXT');

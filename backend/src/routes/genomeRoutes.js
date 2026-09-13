@@ -11,6 +11,8 @@ const { requireTenantScope } = require('../middleware/tenant');
 router.use(requireTenantScope());
 
 router.get('/genomes', controller.listGenomes);
+router.get('/genomes/policy', controller.getGenomePolicy);
+router.put('/genomes/policy', requirePermission('workspace:write'), controller.setGenomePolicy);
 router.get('/genomes/:id', controller.getGenome);
 router.post('/genomes/import', requirePermission('workspace:write'), controller.importGenomes);
 router.post('/genomes/:id/operations/:operation', requirePermission('workspace:write'), controller.operateGenome);

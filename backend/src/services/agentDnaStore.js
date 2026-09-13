@@ -3,6 +3,7 @@ const path = require('path');
 
 const { packBioPolymer, unpackBioPolymer } = require('./bioPolymerPersistenceService');
 const { decodeBuffer, decodeFile, workerGenes } = require('./agentDna');
+const policy = require('./agentDnaPolicy');
 
 const ROLE_STOPWORDS = new Set([
   'worker', 'agent', 'the', 'and', 'for', 'from', 'with', 'mission', 'task',
@@ -86,6 +87,11 @@ function dnaEnabled() {
   return flag === '1' || flag === 'true' || flag === 'yes' || flag === 'on';
 }
 
+async function acceptGenome(db, model, scope) {
+  if (!(await policy.isSignatureRequired(db, scope))) return true;
+  return model.signatureValid === true;
+}
+
 async function ensureImported(db) {
   if (importAttempted) return;
   importAttempted = true;
@@ -110,11 +116,12 @@ function tokenize(value) {
 function scoreGenome(phenotype, assignment) {
   if (!phenotype) return 0;
   const assignmentRole = new Set(tokenize(assignment.role));
-  const genomeRole = tokenize(phenotype.role);
-  let score = genomeRole.filter((token) => assignmentRole.has(token)).length * 3;
+  let score = tokenize(phenotype.role).filter((token) => assignmentRole.has(token)).length * 3;
   const assignmentCaps = new Set(tokenize((assignment.capabilities || []).join(' ')));
-  const genomeCaps = tokenize((phenotype.capabilities || []).join(' '));
-  score += genomeCaps.filter((token) => assignmentCaps.has(token)).length;
+  score += tokenize((phenotype.capabilities || []).join(' ')).filter((token) => assignmentCaps.has(token)).length * 2;
+  const mission = new Set(tokenize(assignment.mission || ''));
+  const genomeText = tokenize([phenotype.role, (phenotype.capabilities || []).join(' '), phenotype.prompt].join(' '));
+  score += genomeText.filter((token) => mission.has(token)).length * 2;
   return score;
 }
 
@@ -134,26 +141,32 @@ async function bestMatch(db, assignment) {
   return best.id;
 }
 
-async function selectGenome(db, assignment) {
-  if (!assignment) return null;
+async function selectExplicit(db, assignment, scope) {
   if (assignment.genomeRef) {
     const model = await loadGenome(db, assignment.genomeRef);
-    return model ? { id: assignment.genomeRef, model } : null;
+    return model && (await acceptGenome(db, model, scope)) ? { id: assignment.genomeRef, model } : null;
   }
   if (assignment.preferredName) {
     const model = await loadGenome(db, assignment.preferredName);
-    return model ? { id: assignment.preferredName, model } : null;
+    return model && (await acceptGenome(db, model, scope)) ? { id: assignment.preferredName, model } : null;
   }
+  return null;
+}
+
+async function selectGenome(db, assignment, scope) {
+  if (!assignment) return null;
+  const explicit = await selectExplicit(db, assignment, scope);
+  if (explicit) return explicit;
   if (!dnaEnabled()) return null;
   await ensureImported(db);
   const id = await bestMatch(db, assignment);
   if (!id) return null;
   const model = await loadGenome(db, id);
-  return model ? { id, model } : null;
+  return model && (await acceptGenome(db, model, scope)) ? { id, model } : null;
 }
 
-async function workerGenesForAssignment(db, assignment) {
-  const selection = await selectGenome(db, assignment);
+async function workerGenesForAssignment(db, assignment, scope) {
+  const selection = await selectGenome(db, assignment, scope);
   if (!selection) return null;
   return { genomeRef: selection.id, genes: workerGenes(selection.model) };
 }
