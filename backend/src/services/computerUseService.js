@@ -44,23 +44,45 @@ const ACTION_ALIASES = {
 };
 const NOOP_ACTIONS = new Set(["screenshot", "wait", "none", "observe"]);
 
+function skipInString(ch, scan) {
+    if (scan.escape) { scan.escape = false; return; }
+    if (ch === "\\") { scan.escape = true; return; }
+    if (ch === '"') scan.inString = false;
+}
+
 function extractFirstJson(text) {
     const start = text.indexOf("{");
     if (start === -1) return null;
-    let depth = 0; let inString = false; let escape = false;
+    const scan = { inString: false, escape: false, depth: 0 };
     for (let i = start; i < text.length; i++) {
         const ch = text[i];
-        if (inString) {
-            if (escape) escape = false;
-            else if (ch === "\\") escape = true;
-            else if (ch === '"') inString = false;
-            continue;
+        if (scan.inString) { skipInString(ch, scan); continue; }
+        if (ch === '"') { scan.inString = true; continue; }
+        if (ch === "{") { scan.depth++; continue; }
+        if (ch === "}") {
+            scan.depth--;
+            if (scan.depth === 0) return text.slice(start, i + 1);
         }
-        if (ch === '"') inString = true;
-        else if (ch === "{") depth++;
-        else if (ch === "}") { depth--; if (depth === 0) return text.slice(start, i + 1); }
     }
     return null;
+}
+
+function resolveButton(rawAction, rawButton) {
+    if (/^right/.test(rawAction)) return rawButton || "right";
+    if (/^middle/.test(rawAction)) return rawButton || "middle";
+    return rawButton;
+}
+
+function resolveCoordinate(raw) {
+    if (Array.isArray(raw.coordinate)) return raw.coordinate;
+    if (raw.x !== undefined && raw.y !== undefined) return [raw.x, raw.y];
+    return null;
+}
+
+function applyCoordinate(result, coordinate) {
+    if (!Array.isArray(coordinate) || coordinate.length !== 2) return;
+    const [nx, ny] = coordinate.map((n) => Math.max(0, Math.round(Number(n)) || 0));
+    result.x = nx; result.y = ny;
 }
 
 function normalizeToolCall(raw) {
@@ -68,17 +90,10 @@ function normalizeToolCall(raw) {
     if (!rawName) return null;
     const rawAction = String(rawName).toLowerCase();
     if (NOOP_ACTIONS.has(rawAction)) return { skip: true };
-    let button = raw.button;
-    if (/^right/.test(rawAction)) button = button || "right";
-    if (/^middle/.test(rawAction)) button = button || "middle";
     const action = ACTION_ALIASES[rawAction] || rawAction;
     if (!SUPPORTED_ACTIONS.has(action)) return null;
-    const result = { type: action, text: raw.text, button };
-    const coordinate = Array.isArray(raw.coordinate) ? raw.coordinate : (raw.x !== undefined && raw.y !== undefined ? [raw.x, raw.y] : null);
-    if (Array.isArray(coordinate) && coordinate.length === 2) {
-        const [nx, ny] = coordinate.map((n) => Math.max(0, Math.round(Number(n)) || 0));
-        result.x = nx; result.y = ny;
-    }
+    const result = { type: action, text: raw.text, button: resolveButton(rawAction, raw.button) };
+    applyCoordinate(result, resolveCoordinate(raw));
     return result;
 }
 
@@ -98,11 +113,11 @@ function normalizePlan(parsed) {
 // (e.g. literal newlines), which JSON.parse rejects; escape and retry once.
 function tryParseJson(str) {
     try { return JSON.parse(str); } catch (e) {}
-    try { 
+    try {
         let cleanStr = str.replace(/[\u0000-\u001F]+/g, (m) => (m.includes("\n") ? "\\n" : " "));
         cleanStr = cleanStr.replace(/'([^']+)'\s*:/g, '"$1":');
         cleanStr = cleanStr.replace(/:\s*'([^']+)'/g, ':"$1"');
-        return JSON.parse(cleanStr); 
+        return JSON.parse(cleanStr);
     } catch (e) { return null; }
 }
 
@@ -136,6 +151,104 @@ async function captureScreenshot() {
     }
 }
 
+function historySuffix(history) {
+    if (!history.length) return "";
+    return `\n\nActions already taken (do not repeat what already succeeded, check the screenshot first):\n${history.slice(-8).join("\n")}`;
+}
+
+function buildVisionPrompt(context) {
+    const { mission, capture, isAnthropic, historyText } = context;
+    if (isAnthropic) {
+        return [
+            { type: "image", source: { type: "base64", media_type: "image/png", data: capture.base64 } },
+            { type: "text", text: `Mission: ${mission}\n\nObserve the screen and use the computer tool to make progress. You may call the tool multiple times in this turn to chain steps (e.g. open a launcher, type a command, press Enter) - they all run before the next screenshot.${historyText}` }
+        ];
+    }
+    return [
+        { type: "image_url", image_url: { url: `data:image/png;base64,${capture.base64}` } },
+        { type: "text", text: `Mission: ${mission}\n\n${LOCAL_VISION_INSTRUCTIONS}${historyText}` }
+    ];
+}
+
+const FALLBACK_PLAN = {
+    actions: [
+        { type: "key", text: "super" },
+        { type: "type", text: "notepad" },
+        { type: "key", text: "enter" }
+    ]
+};
+
+async function requestModelText(params) {
+    try {
+        const result = await generate({
+            model: params.model,
+            prompt: params.prompt,
+            stream: false,
+            maxTokens: 4096,
+            displayWidth: params.capture.width,
+            displayHeight: params.capture.height
+        });
+        return result.text;
+    } catch (e) {
+        params.log(`Model inference offline/unavailable (${e.message}). Falling back to synthetic plan for: ${params.mission}`);
+        return JSON.stringify(FALLBACK_PLAN);
+    }
+}
+
+function parseAnthropicPlan(text) {
+    const plan = [];
+    if (!text.includes("\"type\":\"tool_use\"")) return plan;
+    for (const line of text.split("\n")) {
+        try {
+            const parsed = JSON.parse(line);
+            if (parsed.type === "tool_use" && parsed.name === "computer") {
+                const normalized = normalizeToolCall(parsed.input);
+                if (normalized && !normalized.skip) plan.push(normalized);
+            }
+        } catch (err) {}
+    }
+    return plan;
+}
+
+function parseLocalPlan(text) {
+    const jsonStr = extractFirstJson(text);
+    if (!jsonStr) return { plan: [], done: false };
+    const parsed = tryParseJson(jsonStr);
+    if (parsed && parsed.action === "done") return { plan: [], done: true };
+    if (parsed) return { plan: normalizePlan(parsed), done: false };
+    return { plan: [], done: false };
+}
+
+function parseModelPlan(text, isAnthropic) {
+    try {
+        if (isAnthropic) return { plan: parseAnthropicPlan(text), done: false };
+        return parseLocalPlan(text);
+    } catch (e) {
+        return { plan: [], done: false };
+    }
+}
+
+function executePlanSteps(plan, log, history) {
+    const payload = JSON.stringify(plan).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    try {
+        runGenosSync(`genos desktop actions --json "${payload}"`);
+        log("Plan completed.");
+        history.push(`${JSON.stringify(plan)} -> succeeded`);
+    } catch (e) {
+        log(`Plan execution: simulated (${e.message.split("\n")[0]})`);
+        history.push(`${JSON.stringify(plan)} -> simulated`);
+    }
+}
+
+async function captureOrStop(log) {
+    try {
+        return { capture: await captureScreenshot(), failed: false };
+    } catch (e) {
+        log(`Failed to capture screen: ${e.message}`);
+        return { failed: true };
+    }
+}
+
 /**
  * Runs the observe -> think -> act loop for a natural-language desktop mission.
  * Returns a structured summary instead of relying on console output so callers
@@ -164,88 +277,33 @@ async function runMission(mission, options = {}) {
         log(`\n--- Iteration ${iterations} ---`);
 
         log("Capturing screen...");
-        let capture;
-        try {
-            capture = await captureScreenshot();
-        } catch (e) {
-            log(`Failed to capture screen: ${e.message}`);
+        const captured = await captureOrStop(log);
+        if (captured.failed) {
             outcome = 'capture_failed';
             break;
         }
+        const capture = captured.capture;
 
-        const historyText = history.length
-            ? `\n\nActions already taken (do not repeat what already succeeded, check the screenshot first):\n${history.slice(-8).join("\n")}`
-            : "";
-        const prompt = isAnthropic
-            ? [
-                { type: "image", source: { type: "base64", media_type: "image/png", data: capture.base64 } },
-                { type: "text", text: `Mission: ${mission}\n\nObserve the screen and use the computer tool to make progress. You may call the tool multiple times in this turn to chain steps (e.g. open a launcher, type a command, press Enter) - they all run before the next screenshot.${historyText}` }
-            ]
-            : [
-                { type: "image_url", image_url: { url: `data:image/png;base64,${capture.base64}` } },
-                { type: "text", text: `Mission: ${mission}\n\n${LOCAL_VISION_INSTRUCTIONS}${historyText}` }
-            ];
+        const historyText = historySuffix(history);
+        const prompt = buildVisionPrompt({ mission, capture, isAnthropic, historyText });
 
         log("Thinking...");
-        let text = "";
-        try {
-            const result = await generate({ 
-                model, 
-                prompt, 
-                stream: false, 
-                maxTokens: 4096,
-                displayWidth: capture.width,
-                displayHeight: capture.height
-            });
-            text = result.text;
-        } catch (e) {
-            log(`Model inference offline/unavailable (${e.message}). Falling back to synthetic plan for: ${mission}`);
-            text = JSON.stringify({
-                actions: [
-                    { type: "key", text: "super" },
-                    { type: "type", text: "notepad" },
-                    { type: "key", text: "enter" }
-                ]
-            });
-        }
+        const text = await requestModelText({ model, prompt, capture, mission, log });
         lastResponse = text;
         log(`Model responded with raw text:\n${text}\n-----------------`);
 
         // Parse the next plan - possibly several steps to run back-to-back before
         // the next screenshot (avoids the model losing its train of thought when
         // forced to re-observe after every single action).
-        let plan = [];
-        let done = false;
-        try {
-            if (isAnthropic) {
-                if (text.includes("\"type\":\"tool_use\"")) {
-                    for (const line of text.split("\n")) {
-                        try {
-                            const parsed = JSON.parse(line);
-                            if (parsed.type === "tool_use" && parsed.name === "computer") {
-                                const normalized = normalizeToolCall(parsed.input);
-                                if (normalized && !normalized.skip) plan.push(normalized);
-                            }
-                        } catch (err) {}
-                    }
-                }
-            } else {
-                const jsonStr = extractFirstJson(text);
-                if (jsonStr) {
-                    const parsed = tryParseJson(jsonStr);
-                    if (parsed && parsed.action === "done") done = true;
-                    else if (parsed) plan = normalizePlan(parsed);
-                }
-            }
-        } catch (e) {}
+        const parsedPlan = parseModelPlan(text, isAnthropic);
 
-        if (done) {
+        if (parsedPlan.done) {
             log("Model signaled mission completion.");
             outcome = 'completed';
             break;
         }
 
-        if (!plan.length) {
+        if (!parsedPlan.plan.length) {
             log("No tool calls. Mission might be completed or model is confused.");
             outcome = 'no_action';
             break;
@@ -254,16 +312,8 @@ async function runMission(mission, options = {}) {
         // Execute the whole plan in one Rust process call - actions run back-to-back
         // with no screenshot in between, so a step like "open launcher -> type ->
         // Enter" completes in one shot.
-        log(`Executing plan (${plan.length} step${plan.length > 1 ? "s" : ""}): ${JSON.stringify(plan)}`);
-        const payload = JSON.stringify(plan).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-        try {
-            runGenosSync(`genos desktop actions --json "${payload}"`);
-            log("Plan completed.");
-            history.push(`${JSON.stringify(plan)} -> succeeded`);
-        } catch (e) {
-            log(`Plan execution: simulated (${e.message.split("\n")[0]})`);
-            history.push(`${JSON.stringify(plan)} -> simulated`);
-        }
+        log(`Executing plan (${parsedPlan.plan.length} step${parsedPlan.plan.length > 1 ? "s" : ""}): ${JSON.stringify(parsedPlan.plan)}`);
+        executePlanSteps(parsedPlan.plan, log, history);
         if (capture.synthetic) {
             outcome = 'completed';
             break;
@@ -275,5 +325,3 @@ async function runMission(mission, options = {}) {
 }
 
 module.exports = { runMission, captureScreenshot, resolveComputerUseModel };
-
-

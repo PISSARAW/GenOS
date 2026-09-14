@@ -145,7 +145,8 @@ async function checkDeadEnd(taskKey) {
   }
 }
 
-async function recordOutcome(taskKey, repoName, relPath, success, detail) {
+async function recordOutcome(options) {
+  const { taskKey, repoName, relPath, success, detail } = options;
   try {
     const vectorMemory = require('./vectorMemoryService');
     if (success) {
@@ -164,6 +165,65 @@ async function recordOutcome(taskKey, repoName, relPath, success, detail) {
   }
 }
 
+function resolveDeadEndWarning(deadEnd) {
+  if (!deadEnd.isDeadEndRisk) return '';
+  return `\n\nKNOWN DEAD END: ${deadEnd.warning || 'a previous attempt on this file did not work.'} Propose a materially different, more conservative fix or return an empty patch.`;
+}
+
+function buildAutofixPrompt(context) {
+  const { repo, candidate, testCommand, content, deadEndWarning } = context;
+  return [
+    `You are the GenOS autonomous maintainer daemon for the repository "${repo.name}".`,
+    `Review the file "${candidate.rel}" below for one concrete, narrowly-scoped bug or inconsistency you can fix with high confidence.`,
+    'If you find a genuine fix, return exactly this JSON object and nothing else:',
+    `{"format":"genos.file-replacement/v1","patches":[{"path":"${candidate.rel}","content":"<complete corrected file content>"}],"tests":["${testCommand}"],"evidence":"<what was wrong and why this fixes it>"}`,
+    `If nothing needs fixing, return {"format":"genos.file-replacement/v1","patches":[],"tests":["${testCommand}"],"evidence":"no fix needed"}.`,
+    'Never invent an issue; an empty patches array is a valid and expected outcome. Never touch tests, lockfiles, manifests, or secrets.' + deadEndWarning,
+    '--- FILE CONTENT ---',
+    content
+  ].join('\n\n');
+}
+
+async function requestDaemonProposal(context) {
+  const { repo, taskKey, prompt, candidate } = context;
+  let generated;
+  try {
+    generated = await modelRouter.generate({ db: null, agentId: `daemon:${repo.name}`, prompt, timeoutMs: 90000 });
+  } catch (error) {
+    await recordOutcome({ taskKey, repoName: repo.name, relPath: candidate.rel, success: false, detail: `model routing failed: ${error.message}` });
+    return { error: `model routing failed: ${error.message}` };
+  }
+  let proposal;
+  try {
+    proposal = localCodeWorker.parseProposal(generated.text || '');
+  } catch (error) {
+    await recordOutcome({ taskKey, repoName: repo.name, relPath: candidate.rel, success: false, detail: `invalid proposal: ${error.message}` });
+    return { error: `invalid proposal: ${error.message}` };
+  }
+  return { generated, proposal };
+}
+
+async function executeVerifiedPatch(context) {
+  const { repo, session, candidate, taskKey, fetched } = context;
+  let result;
+  try {
+    result = await localCodeWorker.executeProposal({ workspaceRoot: session.worktree, text: fetched.generated.text });
+  } catch (error) {
+    await recordOutcome({ taskKey, repoName: repo.name, relPath: candidate.rel, success: false, detail: `patch execution failed: ${error.message}` });
+    return { attempted: true, applied: false, file: candidate.rel, reason: `patch execution failed: ${error.message}` };
+  }
+  if (result.testStatus !== 'passed') {
+    await recordOutcome({ taskKey, repoName: repo.name, relPath: candidate.rel, success: false, detail: `tests failed after patch, rolled back: ${JSON.stringify(result.tests)}` });
+    return { attempted: true, applied: false, file: candidate.rel, reason: 'tests failed after patch; rolled back', tests: result.tests };
+  }
+  const commitMessage = `[GenOS Daemon] ${fetched.proposal.evidence || 'Automated fix'}`.slice(0, 240);
+  git(['add', '-A'], session.worktree);
+  const commitRes = git(['commit', '-m', commitMessage], session.worktree);
+  const applied = commitRes.code === 0;
+  await recordOutcome({ taskKey, repoName: repo.name, relPath: candidate.rel, success: applied, detail: fetched.proposal.evidence || 'automated fix' });
+  return { attempted: true, applied, file: candidate.rel, evidence: fetched.proposal.evidence, tests: result.tests };
+}
+
 /** Analyze one candidate file, propose a verified fix, apply it through the sandboxed capsule worker, and commit it. */
 async function runAutofixCycle(repo, session) {
   if (AUTOFIX_DISABLED) return { attempted: false, reason: 'autofix disabled via GENOS_DAEMON_DISABLE_AUTOFIX' };
@@ -175,62 +235,18 @@ async function runAutofixCycle(repo, session) {
   if (!candidate) return { attempted: false, reason: 'no eligible source file found' };
 
   const taskKey = `${repo.name}:${candidate.rel}`;
-  const deadEnd = await checkDeadEnd(taskKey);
-  const deadEndWarning = deadEnd.isDeadEndRisk
-    ? `\n\nKNOWN DEAD END: ${deadEnd.warning || 'a previous attempt on this file did not work.'} Propose a materially different, more conservative fix or return an empty patch.`
-    : '';
-
+  const deadEndWarning = resolveDeadEndWarning(await checkDeadEnd(taskKey));
   const content = fs.readFileSync(path.join(session.worktree, candidate.rel), 'utf8');
-  const prompt = [
-    `You are the GenOS autonomous maintainer daemon for the repository "${repo.name}".`,
-    `Review the file "${candidate.rel}" below for one concrete, narrowly-scoped bug or inconsistency you can fix with high confidence.`,
-    'If you find a genuine fix, return exactly this JSON object and nothing else:',
-    `{"format":"genos.file-replacement/v1","patches":[{"path":"${candidate.rel}","content":"<complete corrected file content>"}],"tests":["${testCommand}"],"evidence":"<what was wrong and why this fixes it>"}`,
-    `If nothing needs fixing, return {"format":"genos.file-replacement/v1","patches":[],"tests":["${testCommand}"],"evidence":"no fix needed"}.`,
-    'Never invent an issue; an empty patches array is a valid and expected outcome. Never touch tests, lockfiles, manifests, or secrets.' + deadEndWarning,
-    '--- FILE CONTENT ---',
-    content
-  ].join('\n\n');
+  const prompt = buildAutofixPrompt({ repo, candidate, testCommand, content, deadEndWarning });
 
-  let generated;
-  try {
-    generated = await modelRouter.generate({ db: null, agentId: `daemon:${repo.name}`, prompt, timeoutMs: 90000 });
-  } catch (error) {
-    await recordOutcome(taskKey, repo.name, candidate.rel, false, `model routing failed: ${error.message}`);
-    return { attempted: true, applied: false, reason: `model routing failed: ${error.message}` };
+  const fetched = await requestDaemonProposal({ repo, taskKey, prompt, candidate });
+  if (fetched.error) return { attempted: true, applied: false, reason: fetched.error };
+
+  if (!fetched.proposal.patches.length) {
+    return { attempted: true, applied: false, file: candidate.rel, reason: fetched.proposal.evidence || 'no fix needed' };
   }
 
-  let proposal;
-  try {
-    proposal = localCodeWorker.parseProposal(generated.text || '');
-  } catch (error) {
-    await recordOutcome(taskKey, repo.name, candidate.rel, false, `invalid proposal: ${error.message}`);
-    return { attempted: true, applied: false, reason: `invalid proposal: ${error.message}` };
-  }
-
-  if (!proposal.patches.length) {
-    return { attempted: true, applied: false, file: candidate.rel, reason: proposal.evidence || 'no fix needed' };
-  }
-
-  let result;
-  try {
-    result = await localCodeWorker.executeProposal({ workspaceRoot: session.worktree, text: generated.text });
-  } catch (error) {
-    await recordOutcome(taskKey, repo.name, candidate.rel, false, `patch execution failed: ${error.message}`);
-    return { attempted: true, applied: false, file: candidate.rel, reason: `patch execution failed: ${error.message}` };
-  }
-
-  if (result.testStatus !== 'passed') {
-    await recordOutcome(taskKey, repo.name, candidate.rel, false, `tests failed after patch, rolled back: ${JSON.stringify(result.tests)}`);
-    return { attempted: true, applied: false, file: candidate.rel, reason: 'tests failed after patch; rolled back', tests: result.tests };
-  }
-
-  const commitMessage = `[GenOS Daemon] ${proposal.evidence || 'Automated fix'}`.slice(0, 240);
-  git(['add', '-A'], session.worktree);
-  const commitRes = git(['commit', '-m', commitMessage], session.worktree);
-  const applied = commitRes.code === 0;
-  await recordOutcome(taskKey, repo.name, candidate.rel, applied, proposal.evidence || 'automated fix');
-  return { attempted: true, applied, file: candidate.rel, evidence: proposal.evidence, tests: result.tests };
+  return executeVerifiedPatch({ repo, session, candidate, taskKey, fetched });
 }
 
 function pushBranch(session) {
@@ -248,6 +264,18 @@ function ghCliAvailable() {
   return res.status === 0;
 }
 
+function createGithubPr(session, slug) {
+  const pr = spawnSync('gh', [
+    'pr', 'create', '--repo', slug, '--head', session.branch, '--base', session.base,
+    '--title', `[GenOS Daemon] Automated fixes on ${session.branch}`,
+    '--body', 'Autonomous GenOS daemon fixes. Every commit was verified by this repository\'s own test suite before being applied.'
+  ], { cwd: session.worktree, encoding: 'utf8', timeout: 20000 });
+  if (pr.status === 0) return { opened: true, pushed: true, url: (pr.stdout || '').trim() };
+  // A PR may already be open for this branch; that's not a failure worth reporting loudly.
+  if (/already exists/i.test(pr.stderr || '')) return { opened: true, pushed: true, reason: 'pull request already open' };
+  return { opened: false, pushed: true, reason: pr.stderr || 'gh pr create failed' };
+}
+
 /** Push the daemon branch and, when possible, open a merge request for verified commits. */
 function openMergeRequest(repo, session) {
   if (MR_DISABLED) return { opened: false, reason: 'merge requests disabled via GENOS_DAEMON_DISABLE_PR' };
@@ -256,45 +284,40 @@ function openMergeRequest(repo, session) {
   if (pushRes.code !== 0) return { opened: false, reason: pushRes.stderr || 'push failed' };
 
   const slug = detectGithubSlug(repo.path);
-  if (slug && ghCliAvailable()) {
-    const pr = spawnSync('gh', [
-      'pr', 'create', '--repo', slug, '--head', session.branch, '--base', session.base,
-      '--title', `[GenOS Daemon] Automated fixes on ${session.branch}`,
-      '--body', 'Autonomous GenOS daemon fixes. Every commit was verified by this repository\'s own test suite before being applied.'
-    ], { cwd: session.worktree, encoding: 'utf8', timeout: 20000 });
-    if (pr.status === 0) return { opened: true, pushed: true, url: (pr.stdout || '').trim() };
-    // A PR may already be open for this branch; that's not a failure worth reporting loudly.
-    if (/already exists/i.test(pr.stderr || '')) return { opened: true, pushed: true, reason: 'pull request already open' };
-    return { opened: false, pushed: true, reason: pr.stderr || 'gh pr create failed' };
-  }
+  if (slug && ghCliAvailable()) return createGithubPr(session, slug);
   return { opened: false, pushed: true, reason: slug ? 'gh CLI unavailable' : 'origin remote is not a GitHub repository' };
 }
 
-/** Run one full daemon-maintenance cycle for a single repository: sync, fix, and (if ready) open a merge request. */
-async function runRepoDaemonCycle(repo) {
-  const state = loadState();
-  const key = path.resolve(repo.path);
-  let record = state[key] || { history: [] };
+function recordSkippedRepo(context) {
+  const { state, key, previousRecord, reason } = context;
+  const record = { ...previousRecord, status: 'skipped', reason, updatedAt: new Date().toISOString() };
+  state[key] = record;
+  saveState(state);
+  return record;
+}
 
-  const session = ensureDaemonWorktree(repo);
-  if (!session) {
-    record = { ...record, status: 'skipped', reason: 'not a usable git repository (detached HEAD or no branch)', updatedAt: new Date().toISOString() };
-    state[key] = record;
-    saveState(state);
-    return record;
+async function resolveCycleFix(repo, session, sync) {
+  if (!sync.synced) return { attempted: false, reason: `sync failed: ${sync.reason}` };
+  return runAutofixCycle(repo, session);
+}
+
+function resolveAheadCount(session, sync, previousRecord) {
+  if (sync.synced) return commitsAheadOfBase(session);
+  return previousRecord.commitsAheadOfBase || 0;
+}
+
+function maybeOpenMergeRequest(context) {
+  const { repo, session, sync, ahead, previousRequest } = context;
+  if (!(sync.synced && ahead > 0 && (!previousRequest || previousRequest.commitCount !== ahead))) {
+    return previousRequest || null;
   }
+  const mergeRequest = openMergeRequest(repo, session);
+  return { ...mergeRequest, commitCount: ahead, updatedAt: new Date().toISOString() };
+}
 
-  const sync = syncWithUpstream(session);
-  const fix = sync.synced ? await runAutofixCycle(repo, session) : { attempted: false, reason: `sync failed: ${sync.reason}` };
-  const ahead = sync.synced ? commitsAheadOfBase(session) : (record.commitsAheadOfBase || 0);
-
-  let mergeRequest = record.mergeRequest || null;
-  if (sync.synced && ahead > 0 && (!mergeRequest || mergeRequest.commitCount !== ahead)) {
-    const mr = openMergeRequest(repo, session);
-    mergeRequest = { ...mr, commitCount: ahead, updatedAt: new Date().toISOString() };
-  }
-
-  record = {
+function buildCycleRecord(info) {
+  const { session, sync, fix, ahead, mergeRequest, previousRecord } = info;
+  return {
     branch: session.branch,
     base: session.base,
     worktree: session.worktree,
@@ -305,11 +328,14 @@ async function runRepoDaemonCycle(repo) {
     mergeRequest,
     updatedAt: new Date().toISOString(),
     history: [
-      ...(record.history || []).slice(-19),
+      ...(previousRecord.history || []).slice(-19),
       { at: new Date().toISOString(), synced: sync.synced, fix: fix.attempted ? (fix.applied ? 'applied' : 'skipped') : 'no-op' }
     ]
   };
+}
 
+function emitCycleTelemetry(info) {
+  const { repo, session, sync, fix, ahead, mergeRequest } = info;
   telemetry.emitEvent({
     eventType: fix.applied ? 'DAEMON_REPO_FIX_COMMITTED' : 'DAEMON_REPO_CYCLE',
     agentId: `daemon:${repo.name}`,
@@ -318,10 +344,29 @@ async function runRepoDaemonCycle(repo) {
     severity: sync.synced ? 'info' : 'warning',
     payload: { repo: repo.name, branch: session.branch, base: session.base, commitsAheadOfBase: ahead, mergeRequest }
   });
+}
 
-  state[key] = record;
+/** Run one full daemon-maintenance cycle for a single repository: sync, fix, and (if ready) open a merge request. */
+async function runRepoDaemonCycle(repo) {
+  const state = loadState();
+  const key = path.resolve(repo.path);
+  const record = state[key] || { history: [] };
+
+  const session = ensureDaemonWorktree(repo);
+  if (!session) {
+    return recordSkippedRepo({ state, key, previousRecord: record, reason: 'not a usable git repository (detached HEAD or no branch)' });
+  }
+
+  const sync = syncWithUpstream(session);
+  const fix = await resolveCycleFix(repo, session, sync);
+  const ahead = resolveAheadCount(session, sync, record);
+  const mergeRequest = maybeOpenMergeRequest({ repo, session, sync, ahead, previousRequest: record.mergeRequest });
+  const updated = buildCycleRecord({ session, sync, fix, ahead, mergeRequest, previousRecord: record });
+  emitCycleTelemetry({ repo, session, sync, fix, ahead, mergeRequest });
+
+  state[key] = updated;
   saveState(state);
-  return record;
+  return updated;
 }
 
 async function runFleetDaemonCycle(repos) {

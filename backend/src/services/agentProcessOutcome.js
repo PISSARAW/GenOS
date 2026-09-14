@@ -1,6 +1,3 @@
-/**
- * Runtime environment, manifest, and exit outcome utilities for AgentProcessSupervisor.
- */
 const SAFE_RUNTIME_ENV = new Set([
   'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE', 'CODEX_EXECUTABLE',
   'LANG', 'LC_ALL', 'NODE_ENV'
@@ -47,43 +44,122 @@ function buildReplayManifest({ agentId, normalizedMission, executionRun, contrac
   };
 }
 
-function runtimeExitOutcome(termination, code, options = {}, domainState = {}) {
-  const signal = typeof options === 'object' && options !== null ? options.signal : options;
-  const stderr = typeof options === 'object' && options !== null ? (options.stderr || '') : (arguments[3] || '');
-  const extra = (typeof options === 'object' && options !== null && options.domainVerdict)
-    ? options
-    : (arguments[4] || domainState || {});
+function isOptionsObject(value) {
+  return typeof value === 'object' && value !== null;
+}
+
+function resolveSignal(options) {
+  if (isOptionsObject(options)) return options.signal;
+  return options;
+}
+
+function resolveStderr(options, rawStderr) {
+  if (isOptionsObject(options)) return options.stderr || '';
+  return rawStderr || '';
+}
+
+function resolveDomainState(rawDomain) {
+  if (rawDomain === undefined) return {};
+  return rawDomain;
+}
+
+function resolveExtra(options, rawDomain, rawExtra) {
+  if (isOptionsObject(options) && options.domainVerdict) return options;
+  return rawExtra || resolveDomainState(rawDomain) || {};
+}
+
+function resolveDomainFlags(extra) {
   const hasDomainFailure = Boolean(extra.hasDomainFailure);
   const unverified = Boolean(extra.unverified);
   const explicitFailed = extra.domainVerdict === 'failed' || hasDomainFailure;
-  if (termination) {
-    return {
-      status: 'blocked', eventType: 'AGENT_HALTED', action: 'GUARDRAIL', severity: 'warning',
-      task: `Runtime halted: ${termination.reason}`,
-      detail: `Runtime halted by ${termination.kind}: ${termination.reason}`,
-      payload: { code, signal, terminationKind: termination.kind, terminationReason: termination.reason, stderr: String(stderr).trim() }
-    };
-  }
-  const executionStatus = code === 0 ? 'exit_zero' : 'exit_nonzero';
-  let domainVerdict = 'completed';
-  if (explicitFailed) domainVerdict = 'failed';
-  else if (unverified) domainVerdict = 'unverified';
-  if (code === 0) {
-    const finalStatus = explicitFailed ? 'failed' : (unverified ? 'unverified' : 'completed');
-    const finalEventType = explicitFailed ? 'AGENT_FAILED' : 'AGENT_COMPLETED';
-    const severity = explicitFailed ? 'error' : (unverified ? 'warning' : 'info');
-    return {
-      status: finalStatus, eventType: finalEventType, action: 'COMPLETE', severity, task: 'Execution completed',
-      detail: `Runtime completed (process: success, domain: ${domainVerdict}).`,
-      payload: { code, executionStatus, domainVerdict }
-    };
-  }
+  return { hasDomainFailure, unverified, explicitFailed };
+}
+
+function resolveDomainVerdict(flags) {
+  if (flags.explicitFailed) return 'failed';
+  if (flags.unverified) return 'unverified';
+  return 'completed';
+}
+
+function formatExitCode(code) {
+  if (code === null || code === undefined) return 'unknown';
+  return String(code);
+}
+
+function haltedOutcome({ termination, code, signal, stderr }) {
+  return {
+    status: 'blocked', eventType: 'AGENT_HALTED', action: 'GUARDRAIL', severity: 'warning',
+    task: `Runtime halted: ${termination.reason}`,
+    detail: `Runtime halted by ${termination.kind}: ${termination.reason}`,
+    payload: { code, signal, terminationKind: termination.kind, terminationReason: termination.reason, stderr: String(stderr).trim() }
+  };
+}
+
+function completedOutcome({ code, executionStatus, flags }) {
+  const domainVerdict = resolveDomainVerdict(flags);
+  return {
+    status: flags.explicitFailed ? 'failed' : (flags.unverified ? 'unverified' : 'completed'),
+    eventType: flags.explicitFailed ? 'AGENT_FAILED' : 'AGENT_COMPLETED',
+    action: 'COMPLETE',
+    severity: flags.explicitFailed ? 'error' : (flags.unverified ? 'warning' : 'info'),
+    task: 'Execution completed',
+    detail: `Runtime completed (process: success, domain: ${domainVerdict}).`,
+    payload: { code, executionStatus, domainVerdict }
+  };
+}
+
+function failedExitOutcome({ code, signal, stderr, executionStatus }) {
   const lastError = String(stderr).trim().split(/\r?\n/).filter(Boolean).pop();
   return {
     status: 'error', eventType: 'AGENT_FAILED', action: 'ERROR', severity: 'error',
-    task: `Runtime exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`,
+    task: `Runtime exited with code ${formatExitCode(code)}${signal ? ` (${signal})` : ''}`,
     detail: `Runtime exited unsuccessfully${lastError ? `: ${lastError}` : '.'}`,
     payload: { code, signal, stderr: String(stderr).trim(), executionStatus, domainVerdict: 'failed' }
+  };
+}
+
+function processExitOutcome({ code, signal, stderr, extra }) {
+  const executionStatus = code === 0 ? 'exit_zero' : 'exit_nonzero';
+  if (code === 0) return completedOutcome({ code, executionStatus, flags: resolveDomainFlags(extra) });
+  return failedExitOutcome({ code, signal, stderr, executionStatus });
+}
+
+function runtimeExitOutcome(...args) {
+  const termination = args[0];
+  const code = args[1];
+  const options = args[2];
+  const signal = resolveSignal(options);
+  const stderr = resolveStderr(options, args[3]);
+  const extra = resolveExtra(options, args[3], args[4]);
+  if (termination) return haltedOutcome({ termination, code, signal, stderr });
+  return processExitOutcome({ code, signal, stderr, extra });
+}
+
+function resolveOperatorStop(child) {
+  if (child.genosStopRequested) return { kind: 'operator', reason: 'Stopped from Studio' };
+  return null;
+}
+
+function isApoptosisTerminal(persistedAgent) {
+  const agent = persistedAgent || {};
+  if (agent.status === 'apoptosis') return true;
+  return Boolean(agent.is_apoptotic);
+}
+
+function shouldEmitCloseOutcome({ terminalEventSeen, termination, operatorStop, apoptosisTerminal }) {
+  if (apoptosisTerminal) return false;
+  if (!terminalEventSeen) return true;
+  if (termination) return true;
+  return Boolean(operatorStop);
+}
+
+function buildGaragePayload(garage, workerGarage, agentId) {
+  const state = garage || {};
+  return {
+    workerId: agentId,
+    capacity: state.capacity || workerGarage.MAX_ACTIVE_WORKERS,
+    occupied: state.occupied,
+    available: state.available
   };
 }
 
@@ -94,23 +170,19 @@ async function finalizeChildClose({
 }) {
   await db.run('UPDATE agents SET runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL WHERE id = ?', agentId);
   await workspaceLifecycle.scheduleWorkspaceCleanup(agentId);
-  const operatorStop = child.genosStopRequested ? { kind: 'operator', reason: 'Stopped from Studio' } : null;
+  const operatorStop = resolveOperatorStop(child);
   const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer, missionDomainState);
   const persistedAgent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', agentId);
-  const apoptosisTerminal = persistedAgent?.status === 'apoptosis' || Boolean(persistedAgent?.is_apoptotic);
-  if ((!terminalEventSeen || termination || operatorStop) && !apoptosisTerminal) {
+  const apoptosisTerminal = isApoptosisTerminal(persistedAgent);
+  const shouldEmit = shouldEmitCloseOutcome({ terminalEventSeen, termination, operatorStop, apoptosisTerminal });
+  if (shouldEmit) {
     await updateAgent(agentId, outcome.status, outcome.task);
     emitTracked(outcome.eventType, outcome.action, outcome.detail, outcome.payload, outcome.severity, outcome.status);
     await executionQueue;
   }
   if (dispatchedAgent.execution_mode === 'worker') {
     const garage = await workerGarage.state(db, dispatchedAgent.parent_agent_id).catch(() => null);
-    emit(dispatchedAgent.parent_agent_id, 'WORKER_SLOT_RELEASED', 'GARAGE', `Worker '${normalizedMission.name || dispatchedAgent.name}' released its active slot.`, {
-      workerId: agentId,
-      capacity: garage?.capacity || workerGarage.MAX_ACTIVE_WORKERS,
-      occupied: garage?.occupied,
-      available: garage?.available
-    }, 'info');
+    emit(dispatchedAgent.parent_agent_id, 'WORKER_SLOT_RELEASED', 'GARAGE', `Worker '${normalizedMission.name || dispatchedAgent.name}' released its active slot.`, buildGaragePayload(garage, workerGarage, agentId), 'info');
   }
 }
 
