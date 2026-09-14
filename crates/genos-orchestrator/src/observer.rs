@@ -5,6 +5,7 @@
 
 use crate::GenosEcosystem;
 use crate::planner::WorldState;
+use crate::trace::Verdict;
 use genos_biology::pathology::assess_agent_clinical_status;
 
 impl GenosEcosystem {
@@ -29,6 +30,12 @@ impl GenosEcosystem {
             .values()
             .filter(|cell| !assess_agent_clinical_status(cell).is_healthy)
             .count();
+        let flagged = self
+            .traces
+            .traces
+            .keys()
+            .filter(|id| self.traces.diagnose(**id) != Verdict::Healthy)
+            .count();
 
         WorldState {
             tissues,
@@ -37,6 +44,8 @@ impl GenosEcosystem {
             diseased,
             uncertain: self.events.count() == 0,
             budget: 40.0 + 20.0 * workers as f64,
+            has_traces: self.traces.known() > 0,
+            flagged,
             ..WorldState::default()
         }
     }
