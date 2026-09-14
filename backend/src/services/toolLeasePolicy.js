@@ -102,7 +102,10 @@ const KNOWN_TOOL_ALLOW_LIST = [
   'genos_workspace_experiment',
   'genos_causal_replay_experiment',
   'genos_incident_experiment',
-  'genos_scientific_experiment'
+  'genos_scientific_experiment',
+  'genos_browser_act',
+  'genos_foveal_crop',
+  'genos_optimal_foraging'
 ];
 
 // Maps a topology capability (see topologyCapabilityService.GENOS_CAPABILITIES)
@@ -144,8 +147,8 @@ const CAPABILITY_TOOLS = Object.freeze({
   OBSERVABILITY: ['genos_report_progress', 'genos_organization_state'],
   GOVERNANCE_APPROVAL: ['genos_record_decision'],
   COMPLIANCE: [],
-  WEB_FORAGING: [],
-  FOVEAL_PERCEPTION: [],
+  WEB_FORAGING: ['genos_browser_act', 'genos_optimal_foraging'],
+  FOVEAL_PERCEPTION: ['genos_foveal_crop'],
   COMPUTER_USE: []
 });
 
