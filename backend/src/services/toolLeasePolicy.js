@@ -105,6 +105,50 @@ const KNOWN_TOOL_ALLOW_LIST = [
   'genos_scientific_experiment'
 ];
 
+// Maps a topology capability (see topologyCapabilityService.GENOS_CAPABILITIES)
+// to the safe, well-known tools that realise it. Capabilities without a
+// concrete tool map to none; every mapped tool is still filtered against
+// KNOWN_TOOL_ALLOW_LIST so a contract can never widen the known surface.
+const CAPABILITY_TOOLS = Object.freeze({
+  STRATEGY_PORTFOLIO: ['genos_change_strategy'],
+  STRATEGY_ADAPTATION: ['genos_change_strategy'],
+  ARENA_COMPETITION: ['genos_adversarial_review', 'genos_evaluate_trajectories'],
+  PROMOTION_GATE: ['genos_record_decision', 'genos_evaluate_trajectories'],
+  TOKEN_ECONOMY: ['genos_report_progress'],
+  EVIDENCE_BARRIER: ['genos_hypothesis_evidence', 'genos_evaluate_trajectories'],
+  EPISTEMICS_BRIER: ['genos_evaluate_trajectories'],
+  HALLUCINATION_MONITORING: ['genos_adversarial_review'],
+  OUTPUT_GOVERNOR: [],
+  PROVENANCE: ['genos_record_decision'],
+  GRAPH_MEMORY: ['genos_compile_memory', 'genos_search_failures'],
+  VECTOR_MEMORY: ['genos_compile_memory'],
+  EPISODIC_MEMORY: ['genos_record_experience', 'genos_cherry_pick_experience'],
+  SYNAPTIC_PLASTICITY: ['genos_record_experience'],
+  SIGNALING_BUS: ['genos_worker_publish', 'genos_worker_inbox'],
+  LIGAND_RECEPTOR: ['genos_worker_publish', 'genos_worker_inbox'],
+  STIGMERGY: ['genos_worker_publish'],
+  SWARM_METRICS: [],
+  QUORUM: ['genos_evaluate_trajectories'],
+  GENOME_EPIGENETICS: ['genos_repository_genome'],
+  EVOLUTION_REPRODUCTION: ['genos_resilience_hypermutation'],
+  IMMUNE_SYSTEM: ['genos_security_coevolution', 'genos_parasitic_pressure'],
+  CONSCIENCE_HOMEOSTASIS: [],
+  RESILIENCE_RECOVERY: ['genos_resilience_hypermutation'],
+  CHAOS_ENGINEERING: [],
+  CRDT_SHARED_STATE: ['genos_worker_publish', 'genos_worker_inbox'],
+  VFS_SANDBOX: ['genos_run'],
+  CAPSULES_SNAPSHOTS: ['genos_snapshot'],
+  MODEL_ROUTING: [],
+  LOCAL_INFERENCE: [],
+  INFERENCE_GATEWAY: [],
+  OBSERVABILITY: ['genos_report_progress', 'genos_organization_state'],
+  GOVERNANCE_APPROVAL: ['genos_record_decision'],
+  COMPLIANCE: [],
+  WEB_FORAGING: [],
+  FOVEAL_PERCEPTION: [],
+  COMPUTER_USE: []
+});
+
 function normalizeToolName(value) {
   if (typeof value !== 'string') return '';
   return value.trim().toLowerCase();
@@ -142,6 +186,28 @@ function orchestratorCoreLease() {
   return [...ORCHESTRATOR_CORE_LEASE];
 }
 
+function capabilityToolSet(capabilities) {
+  const known = knownToolSet([]);
+  const tools = [];
+  for (const capability of Array.isArray(capabilities) ? capabilities : []) {
+    const mapped = CAPABILITY_TOOLS[String(capability || '').trim().toUpperCase()] || [];
+    for (const tool of mapped) {
+      const name = normalizeToolName(tool);
+      if (!name || isOrchestrateVariant(name) || !known.has(name)) continue;
+      if (tools.indexOf(name) === -1) tools.push(name);
+    }
+  }
+  return tools;
+}
+
+function leaseForCapabilities(baseLease, capabilities) {
+  const merged = [...(Array.isArray(baseLease) ? baseLease : [])];
+  for (const tool of capabilityToolSet(capabilities)) {
+    if (merged.indexOf(tool) === -1) merged.push(tool);
+  }
+  return merged.filter((tool) => !isOrchestrateVariant(tool));
+}
+
 function knownToolSet(extraKnown) {
   const extras = Array.isArray(extraKnown) ? extraKnown : [];
   const allowed = new Set(KNOWN_TOOL_ALLOW_LIST);
@@ -174,7 +240,10 @@ function filterOrchestratorRequiredTools(requiredTools, extraKnown) {
 
 function orchestratorLeaseForPlan(plan, extraKnown) {
   const required = filterOrchestratorRequiredTools(planRequiredTools(plan), extraKnown);
-  const lease = [...orchestratorCoreLease(), ...required];
+  const capabilities = plan && plan.capabilityContract && Array.isArray(plan.capabilityContract.required)
+    ? plan.capabilityContract.required
+    : [];
+  const lease = [...leaseForCapabilities(orchestratorCoreLease(), capabilities), ...required];
   return lease.filter((tool) => !isOrchestrateVariant(tool));
 }
 
@@ -254,6 +323,9 @@ module.exports = {
   roleInAllowList,
   workerLeaseForRole,
   orchestratorCoreLease,
+  CAPABILITY_TOOLS,
+  capabilityToolSet,
+  leaseForCapabilities,
   planRequiredTools,
   filterOrchestratorRequiredTools,
   orchestratorLeaseForPlan,

@@ -10,6 +10,7 @@ const aTeamService = require('./aTeamService');
 const dynamicOrganization = require('./dynamicOrganizationService');
 const { emit } = require('./agentOrchestrationState');
 const { consultLocalModels } = require('./agentModelRoutingService');
+const topologyCapabilityService = require('./topologyCapabilityService');
 
 async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord }) {
   const missionBudget = normalizedMission.executionBudget || {};
@@ -111,6 +112,10 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
       autonomyPlan.organization = organizationState.organization;
       emit(agentId, 'ORGANIZATION_RESTORED', 'ORGANIZE', `Restored runtime organization '${organizationState.organization}'.`, organizationState, 'info');
     }
+    autonomyPlan.capabilityContract = topologyCapabilityService.contractFor({
+      mode: autonomyPlan.trinity && autonomyPlan.trinity.activated ? 'trinity' : (autonomyPlan.aTeam && autonomyPlan.aTeam.activated ? 'a_team' : null),
+      organization: autonomyPlan.organization
+    });
   }
   return autonomyPlan;
 }
