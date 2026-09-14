@@ -1,4 +1,5 @@
 pub mod conscience;
+pub mod director;
 pub mod dna_ops;
 pub mod ecosystem;
 pub mod genome_ops;
@@ -6,6 +7,7 @@ pub mod immune_cyber;
 pub mod neuro;
 pub mod orchestrator;
 pub mod phylogeny;
+pub mod planner;
 pub mod recruitment;
 pub mod sensory;
 pub mod signaling;
@@ -18,8 +20,10 @@ pub mod sensorimotor;
 pub mod thalamus;
 
 pub use conscience::{Conscience, ConscienceState};
+pub use director::{Decision, Director, Step, Strategy};
 pub use ecosystem::GenosEcosystem;
 pub use orchestrator::BiomimeticOrchestrator;
+pub use planner::{Concept, Goal, WorldState};
 pub use recruitment::{Candidate, Demand, RecruitmentDecision, RecruitmentPlanner, Selection};
 pub use token_bucket::{AgentComputeBucket, BucketState, PenaltyReport, RewardReport, SchedulingDecision, TokenBucketScheduler};
 
