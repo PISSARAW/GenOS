@@ -13,6 +13,7 @@ use genos_genome::Genome;
 use genos_immune::{Antigen, ClonalSelection};
 
 use crate::conscience::{Conscience, ConscienceState};
+use crate::metabolism::Metabolism;
 
 /// L'Orchestrateur Biomimétique central de GenOS : coordonne les tissus cellulaires,
 /// surveille la dissonance cognitive, applique l'écologie anti-collusion et gère
@@ -36,6 +37,9 @@ pub struct BiomimeticOrchestrator {
     pub active_cells: HashMap<Uuid, AgentCell>,
     pub conscience: Conscience,
     pub immune_selection: ClonalSelection,
+    /// Métabolisme énergétique (ATP adossé au temps réel).
+    #[serde(skip)]
+    pub metabolism: Metabolism,
 }
 
 impl BiomimeticOrchestrator {
@@ -57,6 +61,7 @@ impl BiomimeticOrchestrator {
             active_cells,
             conscience: Conscience::new(max_dissonance, baseline_budget),
             immune_selection: ClonalSelection::new(),
+            metabolism: Metabolism::default(),
         }
     }
 

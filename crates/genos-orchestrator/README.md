@@ -139,6 +139,26 @@ et curiosité (incertitude) ; `GoalSelector::select` en déduit `RecoverAgent`
 (curiosité). Les buts `Explore`/`Conserve` sont endogènes. Voir
 `examples/mission_autonomous.rs`.
 
+### Métabolisme réel (Phase 3)
+
+L'ATP est une ressource **réelle** : elle se régénère avec le **temps** et se
+consomme à chaque opération. La **famine bloque réellement** les actions.
+
+```rust
+let mut eco = GenosEcosystem::new("Overmind");
+eco.orchestrator.metabolism.atp = 0.0;
+let blocked = eco.embodied_task(&mut env, "spec.txt", "out.txt", 2);
+assert!(!blocked.success);              // famine : ATP insuffisant
+eco.feed(100.0);                        // repas
+let ok = eco.embodied_task(&mut env, "spec.txt", "out.txt", 3);
+assert!(ok.success);
+```
+
+`Metabolism` (sur l'orchestrateur) : `refill` (horloge réelle), `consume`
+(débit d'une action), `feed` (ingestion), `is_starved`. Le budget observé
+(`WorldState.budget`) est l'ATP réel, donc le directeur s'arrête vraiment en
+famine. Voir `examples/mission_metabolism.rs`.
+
 ## Organisations et mondes
 
 ```rust
@@ -250,6 +270,7 @@ use genos_orchestrator::api::{RateLimiter, TenantAuth, ChatMessage};
 | `ecosystem` | Façade `GenosEcosystem` |
 | `environment` | Environnement incarné (`Environment`, `FileSandbox`, boucle perception→action→récompense) |
 | `drives` | Buts endogènes (`Drives`, `GoalSelector`, `run_autonomous`) |
+| `metabolism` | Métabolisme réel (`Metabolism` : ATP, famine, `feed`) |
 | `neuro`, `virology`, `signaling`, `sensory`, `phylogeny`, `immune_cyber`, `snapshots`, `sensorimotor`, `thalamus` | Accès aux domaines |
 | `token_bucket` | Ordonnanceur de calcul (quotas, famine, apoptose) |
 
@@ -259,6 +280,7 @@ use genos_orchestrator::api::{RateLimiter, TenantAuth, ChatMessage};
 cargo run -p genos-orchestrator --example mission_tick        # boucle cognitive
 cargo run -p genos-orchestrator --example mission_embodied    # boucle incarnée (environnement)
 cargo run -p genos-orchestrator --example mission_autonomous  # buts endogènes (drives)
+cargo run -p genos-orchestrator --example mission_metabolism  # famine / régénération / feed
 cargo run -p genos-orchestrator --example mission_e2e         # bout en bout (feinte/glie/thalamus)
 cargo run -p genos-orchestrator --example mission_trinity     # mondes parallèles
 cargo run -p genos-orchestrator --example mission_recruit_planner # recrutement autonome

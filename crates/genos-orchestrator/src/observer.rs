@@ -61,7 +61,7 @@ impl GenosEcosystem {
         } else {
             failures as f64 / attempts as f64
         };
-        let budget = 40.0 + 20.0 * workers as f64;
+        let budget = self.orchestrator.metabolism.available();
         let budget_pressure = (1.0 - budget / 200.0).clamp(0.0, 1.0);
         let stress = (0.35 * (dissonance / 50.0)
             + 0.25 * (il6 / 10.0)

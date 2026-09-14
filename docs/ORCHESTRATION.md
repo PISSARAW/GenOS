@@ -818,6 +818,15 @@ curiosité = incertitude) et `GoalSelector::select` en déduit un but — `Recov
 but à chaque tick (réduction de déficit, façon homéostasie). Voir
 `examples/mission_autonomous.rs`.
 
+### 19.bis.10 Métabolisme réel (Phase 3)
+
+L'ATP est une ressource **réelle** : `Metabolism` (porté par l'orchestrateur) se
+régénère selon le **temps réel** (`refill`) et se débite à chaque opération
+(`consume`) ; `feed` ingère de l'énergie. La **famine bloque réellement** les
+actions (une action incarnée échoue, un tick s'arrête). Le budget observé
+(`WorldState.budget`) est l'ATP courant, si bien que le directeur s'arrête en
+famine. Voir `examples/mission_metabolism.rs`.
+
 ---
 
 ## 20. Conclusion
