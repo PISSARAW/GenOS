@@ -9,6 +9,16 @@ function maxMembers() {
 // silently change which specialists make the cut.
 const TECHNICAL_DOMAIN_RULES = [
   {
+    domain: 'mathematics', role: 'mathematician', modelTier: 'frontier', priority: 5,
+    signals: [
+      /\bmaths?\b/i,
+      /\bmath[eé]matiques?\b/i,
+      /\b(?:équation|equation|inéquation|inequation)s?\b/i,
+      /\b(?:intégrale|integrale|dérivée|derivee|dérivation|derivation)s?\b/i,
+      /\b(?:algèbre|algebre|calculus|théorème|theoreme|matrice|vecteur|géométrie|geometrie|probabilité|probabilite|polynôme|polynome|limite)s?\b/i
+    ]
+  },
+  {
     domain: 'frontend', role: 'frontend_engineer', modelTier: 'standard', priority: 10,
     signals: [/\bfront[ -]?end\b/i, /\b(?:react|vue|angular)\b/i, /\b(?:interface|ui|ux|css|design system)\b/i]
   },
@@ -160,7 +170,7 @@ function buildMembers(selected) {
   return selected.map((candidate) => buildMember(candidate, selected));
 }
 
-function technicalResult(selectedDomains, members) {
+function technicalResult(selectedDomains, members, extra = {}) {
   const required = requiredCapabilities(selectedDomains);
   return {
     recommended: selectedDomains.length >= 2,
@@ -168,6 +178,10 @@ function technicalResult(selectedDomains, members) {
     primaryDomain: selectedDomains[0]?.domain || null,
     requiredCapabilities: required,
     detectedDomains: selectedDomains.map(({ domain }) => domain),
+    // Detected-but-not-staffed domains are surfaced instead of silently dropped:
+    // "no domain may be ignored without justification".
+    overflowDomains: Array.isArray(extra.overflowDomains) ? extra.overflowDomains : [],
+    totalDetected: Number.isFinite(extra.totalDetected) ? extra.totalDetected : selectedDomains.length,
     capabilityCoverage: coverage(required, members),
     members
   };
@@ -175,7 +189,8 @@ function technicalResult(selectedDomains, members) {
 
 function technicalAnalysis(domains) {
   const selected = domains.slice(0, maxMembers());
-  return technicalResult(selected, buildMembers(selected));
+  const overflowDomains = domains.slice(maxMembers()).map(({ domain }) => domain);
+  return technicalResult(selected, buildMembers(selected), { overflowDomains, totalDetected: domains.length });
 }
 
 function analyzeMission(mission) {
