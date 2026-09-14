@@ -604,8 +604,8 @@ flowchart TD
     C1A & C1B & C2A & C2B --> SYNTHESIS["Synthèse Transversale & Sélection de Survivants"]
 ```
 
-* **Handler & Dispatch :** [`backend/src/services/mcpBioTools/handlers/hybridMultiples.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/mcpBioTools/handlers/hybridMultiples.js)
-* **Suite de Tests :** [`backend/tests/test_hybrid_multiples.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/tests/test_hybrid_multiples.js)
+* **Handler & Dispatch :** [`backend/src/services/mcpBioTools/handlers/hybridMultiples.js`](../backend/src/services/mcpBioTools/handlers/hybridMultiples.js)
+* **Suite de Tests :** [`backend/tests/test_hybrid_multiples.js`](../backend/tests/test_hybrid_multiples.js)
 
 ## 17.quater Orchestration par Superfécondation Hétéropaternelle (Multi-Fournisseurs)
 
@@ -835,6 +835,15 @@ par concept (`Learner`/`LinearBandit`) : la récompense attendue est
 et **propagée** aux concepts d'un plan exécuté (assignation de crédit, facteur
 `gamma`). L'expérience persiste dans le directeur et se **transfère** aux
 missions suivantes. Voir `examples/mission_learning.rs`.
+
+### 19.bis.12 Évolution ouverte (Phase 5)
+
+Une couche évolutive (`Population`/`Individual`/`Island`) fait évoluer une
+population **multi‑îlots** : fitness fournie par l'environnement, sélection par
+tournoi, reproduction (croisement uniforme + mutation), **archive de nouveauté**
+(récompense les phénotypes inédits) et **migration** en anneau entre îlots
+(métapopulation). Déterministe à graine égale. Voir
+`examples/mission_evolution.rs`.
 
 ---
 

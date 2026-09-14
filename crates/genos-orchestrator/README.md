@@ -177,6 +177,25 @@ director.assign_credit(&[Concept::Observe, Concept::Recruit], 1.0);
 `Learner`/`LinearBandit` (`src/learning.rs`) ; `context_from_state` extrait un
 vecteur de 8 features. Voir `examples/mission_learning.rs`.
 
+### Évolution ouverte (Phase 5)
+
+Une couche évolutive complète : **population multi‑îlots**, fitness fournie par
+l'environnement, sélection par tournoi, reproduction (croisement uniforme +
+mutation), **archive de nouveauté** et **migration** (métapopulation).
+
+```rust
+use genos_orchestrator::Population;
+
+let mut pop = Population::new(&["Ile_A", "Ile_B"], 10, 6, 2024);
+let fitness = |g: &[f64]| -g.iter().map(|x| x * x).sum::<f64>();
+pop.evaluate(&fitness);
+for _ in 0..30 { pop.generation(); pop.evaluate(&fitness); }
+let best = pop.best().unwrap();
+```
+
+`Population`/`Individual`/`Island`/`EvolutionReport` (`src/evolution.rs`),
+déterministe à graine égale. Voir `examples/mission_evolution.rs`.
+
 ## Organisations et mondes
 
 ```rust
@@ -290,6 +309,7 @@ use genos_orchestrator::api::{RateLimiter, TenantAuth, ChatMessage};
 | `drives` | Buts endogènes (`Drives`, `GoalSelector`, `run_autonomous`) |
 | `metabolism` | Métabolisme réel (`Metabolism` : ATP, famine, `feed`) |
 | `learning` | Apprentissage (`Learner`, `LinearBandit` contextuel, crédit) |
+| `evolution` | Évolution ouverte (`Population` multi‑îlots, nouveauté, migration) |
 | `neuro`, `virology`, `signaling`, `sensory`, `phylogeny`, `immune_cyber`, `snapshots`, `sensorimotor`, `thalamus` | Accès aux domaines |
 | `token_bucket` | Ordonnanceur de calcul (quotas, famine, apoptose) |
 
@@ -301,6 +321,7 @@ cargo run -p genos-orchestrator --example mission_embodied    # boucle incarnée
 cargo run -p genos-orchestrator --example mission_autonomous  # buts endogènes (drives)
 cargo run -p genos-orchestrator --example mission_metabolism  # famine / régénération / feed
 cargo run -p genos-orchestrator --example mission_learning    # bandit contextuel / transfert
+cargo run -p genos-orchestrator --example mission_evolution   # évolution ouverte (population)
 cargo run -p genos-orchestrator --example mission_e2e         # bout en bout (feinte/glie/thalamus)
 cargo run -p genos-orchestrator --example mission_trinity     # mondes parallèles
 cargo run -p genos-orchestrator --example mission_recruit_planner # recrutement autonome
