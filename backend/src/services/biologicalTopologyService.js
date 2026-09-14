@@ -11,6 +11,7 @@ const biologicalModeService = require('./biologicalModeService');
 const biocenoseService = require('./biocenoseService');
 const syncytiumCoordinationService = require('./syncytiumCoordinationService');
 const holobionteCoordinationService = require('./holobionteCoordinationService');
+const metapopulationCoordinationService = require('./metapopulationCoordinationService');
 
 async function applyOrganization(db, orchestratorId, organization, reason) {
   if (!organization) return;
@@ -30,6 +31,11 @@ async function composeMode(input = {}) {
   if (key === 'holobionte') {
     const composition = holobionteCoordinationService.composeHolobiont(mission);
     await applyOrganization(db, orchestratorId, composition.organization, 'Holobionte mode activation');
+    return composition;
+  }
+  if (key === 'metapopulation') {
+    const composition = metapopulationCoordinationService.composeMetapopulation(mission);
+    await applyOrganization(db, orchestratorId, composition.organization, 'Metapopulation mode activation');
     return composition;
   }
   return { members: biologicalModeService.compose(key, mission) };
