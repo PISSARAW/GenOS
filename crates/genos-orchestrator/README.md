@@ -215,6 +215,24 @@ assert!(repair.integrity_after > repair.integrity_before);
 dégrade la membrane et s'arrête (« organisme mort ») si elle est rompue. Voir
 `examples/mission_autopoiesis.rs`.
 
+### Organisme unifié (Phase 7)
+
+Une **boucle unique** couple toutes les phases : `organism_tick` perçoit, se
+**régule** (auto‑réparation + nourriture), choisit un **but endogène**, décide,
+agit, **consomme** de l'ATP, **apprend** — et meurt si la frontière se rompt.
+
+```rust
+use genos_orchestrator::{GenosEcosystem, OrganismConfig};
+
+let mut eco = GenosEcosystem::new("Overmind");
+let reports = eco.run_organism(&OrganismConfig::default(), 6);
+assert!(reports.iter().all(|r| r.alive));
+```
+
+`OrganismConfig`/`OrganismReport` (`src/organism.rs`) ; variante incarnée
+`organism_tick_embodied` agissant dans un `Environment`. Voir
+`examples/mission_organism.rs`.
+
 ## Organisations et mondes
 
 ```rust
@@ -330,6 +348,7 @@ use genos_orchestrator::api::{RateLimiter, TenantAuth, ChatMessage};
 | `learning` | Apprentissage (`Learner`, `LinearBandit` contextuel, crédit) |
 | `evolution` | Évolution ouverte (`Population` multi‑îlots, nouveauté, migration) |
 | `autopoiesis` | Frontière auto‑entretenue, self‑model, auto‑réparation, mort |
+| `organism` | Boucle unifiée (`organism_tick`, `run_organism`, incarnation) |
 | `neuro`, `virology`, `signaling`, `sensory`, `phylogeny`, `immune_cyber`, `snapshots`, `sensorimotor`, `thalamus` | Accès aux domaines |
 | `token_bucket` | Ordonnanceur de calcul (quotas, famine, apoptose) |
 
@@ -343,6 +362,7 @@ cargo run -p genos-orchestrator --example mission_metabolism  # famine / régén
 cargo run -p genos-orchestrator --example mission_learning    # bandit contextuel / transfert
 cargo run -p genos-orchestrator --example mission_evolution   # évolution ouverte (population)
 cargo run -p genos-orchestrator --example mission_autopoiesis # frontière / self-model / réparation
+cargo run -p genos-orchestrator --example mission_organism    # boucle unifiée de l'organisme
 cargo run -p genos-orchestrator --example mission_e2e         # bout en bout (feinte/glie/thalamus)
 cargo run -p genos-orchestrator --example mission_trinity     # mondes parallèles
 cargo run -p genos-orchestrator --example mission_recruit_planner # recrutement autonome
