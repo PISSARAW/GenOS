@@ -285,8 +285,9 @@ async function runCryptobiosisThaw(agentId) {
   return runGenos(args);
 }
 
-async function runFossilize(lineageId, reason) {
+async function runFossilize(lineageId, reason, mode) {
   const args = ['fossil', 'record', '--lineage-id', String(lineageId), '--reason', String(reason || 'Apoptosis / natural pruning')];
+  if (mode) args.push('--mode', String(mode));
   return runGenos(args);
 }
 

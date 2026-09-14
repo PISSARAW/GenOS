@@ -78,12 +78,19 @@ genos fossil record --lineage-id lineage_42 --reason "budget exhausted"
 genos fossil list
 ```
 
-Primitives backend existantes (auto-invoquées par l'apoptose) :
+Primitives backend (dispatchables par l'orchestrateur via `strategyExecutionAdapter`) :
 
 ```jsonc
-// runtime_arbiter / primitiveHandlers
-{ "primitive": "fossilize", "lineageId": "lineage_42", "reason": "apoptosis" }
+// primitiveHandlers/handlersRegistry — appelables à la discrétion de l'orchestrateur
+{ "primitive": "fossilize", "lineageId": "lineage_42", "reason": "apoptosis",
+  "mode": "external_mold", "hardParts": ["genome", "evidence"],
+  "softPartsLost": ["volatile_context"],
+  "phenotypeMarkers": [{ "marker": "outcome", "value": "validated", "shape": "elongated" }] }
+{ "primitive": "bury_fossil", "lineageId": "lineage_42", "mode": "petrification" } // alias
 { "primitive": "fossil_list" }
+{ "primitive": "fossil_strata" }
+{ "primitive": "fossil_excavate", "fossilId": "<uuid>" }   // lecture seule
+{ "primitive": "fossil_decode",   "fossilId": "<uuid>" }   // mélanosomes
 ```
 
 Surface CLI **implémentée** (couche Rust) :
@@ -173,7 +180,8 @@ flowchart TB
 
 - Rust : `fossil.rs` enrichi — `FossilizationMode { Petrification, ExternalMold, InternalMold, Trace }`, `SedimentStratum`, `Melanosome`, `MelanosomeShape`, `PhenotypeReading`/`PhenotypeClass`, `FossilSpecimen`, `BurialContext` et pipeline `FossilRegistry::bury` / `fossilize` / `excavate` / `strata` (≤ 3 paramètres par fonction, fichier ≤ 400 lignes). Intégré à `GenosEcosystem` (`bury_fossil`, `excavate_fossil`, `fossil_strata`).
 - CLI : `genos fossil record --mode ...`, `fossil strata`, `fossil excavate`, `fossil decode` ; l'artefact JSON conserve `stratum: "STRATIGRAPHIC_FOSSIL"`.
-- Backend : `fossilizationService.js` (record, list, strata, excavate, decode, intégrité) + migration `migrateFossilization.js` créant `fossils` et `fossil_strata` ; l'auto-fossilisation de l'apoptose indexe désormais le fossile (`primitiveHandlers/safety.js`).
+- Backend : `fossilizationService.js` (record, list, strata, excavate, decode, intégrité) + migration `migrateFossilization.js` créant `fossils` et `fossil_strata` ; l'auto-fossilisation de l'apoptose passe par le service (`primitiveHandlers/safety.js`).
+- Orchestrateur : primitives `fossilize`, `bury_fossil`, `fossil_strata`, `fossil_excavate`, `fossil_decode` enregistrées dans `primitiveHandlers/handlersRegistry.js` et donc appelables via `strategyExecutionAdapter.executePrimitive`. Le service écrit aussi l'artefact JSON relisible par le CLI, en gardant un hash canonique identique Rust/Node.
 - Test : `backend/tests/test_fossilization_service.js` (`npm run test:fossilization`) et tests unitaires `genos-store`.
 
 **Cibles restantes (ADR 0003).**

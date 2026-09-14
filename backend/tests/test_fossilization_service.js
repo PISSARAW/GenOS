@@ -7,6 +7,7 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'fossilization-suite-only';
+process.env.GENOS_FOSSIL_ARTIFACT = '0';
 const { getDatabase, closeDatabase } = require('../src/db');
 const fossilization = require('../src/services/fossilizationService');
 

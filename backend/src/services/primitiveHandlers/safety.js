@@ -8,13 +8,28 @@ const fossilizationService = require('../fossilizationService');
 const { getDatabase } = require('../../db');
 const { releaseQuarantine, unquarantine } = require('./safetyRelease');
 
-// Indexation stratigraphique best-effort : l'artefact CLI reste la source canonique.
-async function indexFossil(record) {
-  if (!record || !record.fossil_id) return;
-  try {
-    const db = await getDatabase();
-    await fossilizationService.persistFossil(db, record);
-  } catch (_) { /* never block termination on archival indexing */ }
+function pick(context, ...keys) {
+  for (const key of keys) {
+    if (context[key] !== undefined && context[key] !== null) return context[key];
+  }
+  return undefined;
+}
+
+// L'orchestrateur choisit librement la lignée, le mode de taphonomie et la matière.
+async function buryFossil(context = {}, db = null) {
+  const lineageId = pick(context, 'lineageId', 'lineage_id', 'agentId', 'targetId') || 'lineage_unknown';
+  const input = {
+    lineageId,
+    reason: pick(context, 'reason') || 'Stratigraphic extinction event',
+    mode: pick(context, 'mode'),
+    hardParts: pick(context, 'hardParts', 'hard_parts'),
+    softPartsLost: pick(context, 'softPartsLost', 'soft_parts_lost'),
+    phenotypeMarkers: pick(context, 'phenotypeMarkers', 'phenotype_markers'),
+    mineralPayload: pick(context, 'mineralPayload', 'mineral_payload'),
+    organizationId: pick(context, 'organizationId', 'organization_id'),
+    projectId: pick(context, 'projectId', 'project_id')
+  };
+  return fossilizationService.recordFossil(input, db);
 }
 
 function controlTargetOf(context) {
@@ -42,12 +57,10 @@ async function stopTargetRuntime(targetId) {
 
 async function fossilizeTerminatedTarget(targetId, reason) {
   try {
-    const fossilRes = await genosCli.runFossilize(targetId, reason);
-    if (fossilRes.ok && fossilRes.data) {
-      await indexFossil(fossilRes.data);
-      return { fossilRecord: fossilRes.data };
-    }
-    return { fossilRecord: null };
+    const db = await getDatabase();
+    const res = await buryFossil({ lineageId: targetId, reason }, db);
+    if (res.success) return { fossilRecord: res.fossil };
+    return { fossilRecord: null, error: res.error };
   } catch (err) {
     return { fossilRecord: null, error: `Fossilization failed: ${err.message}` };
   }
@@ -118,18 +131,46 @@ async function apoptosis(context) {
   return { success: true, terminated: targetId, reason, fossilRecord: fossil.fossilRecord, runtimeStopped };
 }
 
-async function fossilize(context) {
-  const lineageId = context.lineageId || context.agentId || context.targetId || 'lineage_unknown';
-  const reason = context.reason || 'Stratigraphic extinction event';
+async function fossilize(context = {}) {
   try {
-    const res = await genosCli.runFossilize(lineageId, reason);
-    if (res.ok && res.data) {
-      await indexFossil(res.data);
-      return { success: true, fossil: res.data };
-    }
-    return { success: false, lineageId, error: res.error || 'Fossilization returned no record.' };
+    const db = await getDatabase().catch(() => null);
+    const res = await buryFossil(context, db);
+    if (res.success) return { success: true, indexed: res.indexed, fossil: res.fossil };
+    return { success: false, lineageId: context.lineageId, error: res.error };
   } catch (err) {
-    return { success: false, lineageId, error: `Fossilization failed: ${err.message}` };
+    return { success: false, lineageId: context.lineageId, error: `Fossilization failed: ${err.message}` };
+  }
+}
+
+async function fossilStrata() {
+  try {
+    const db = await getDatabase();
+    const strata = await fossilizationService.listStrata(db);
+    return { success: true, total_strata: strata.length, strata };
+  } catch (err) {
+    return { success: false, strata: [], error: err.message };
+  }
+}
+
+async function fossilExcavate(context = {}) {
+  const fossilId = pick(context, 'fossilId', 'fossil_id');
+  if (!fossilId) return { success: false, error: 'fossilId required for excavation.' };
+  try {
+    const db = await getDatabase();
+    return await fossilizationService.excavateFossil(db, fossilId);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function fossilDecode(context = {}) {
+  const fossilId = pick(context, 'fossilId', 'fossil_id');
+  if (!fossilId) return { success: false, error: 'fossilId required for decoding.' };
+  try {
+    const db = await getDatabase();
+    return await fossilizationService.decodeFossil(db, fossilId);
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -308,6 +349,9 @@ module.exports = {
   sandbox,
   permissionCheck,
   fossilize,
+  fossilStrata,
+  fossilExcavate,
+  fossilDecode,
   listFossils,
   messageGraph,
   cycleDetection,

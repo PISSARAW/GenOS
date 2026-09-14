@@ -5,6 +5,8 @@
  * ressuscitable (cf. docs/FOSSILISATION.md et ADR 0003).
  */
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const MODES = ['petrification', 'external_mold', 'internal_mold', 'trace'];
 const DEFAULT_MODE = 'petrification';
@@ -163,16 +165,38 @@ async function persistFossil(db, record) {
   return record;
 }
 
+function fossilArtifactDir() {
+  const { studioBridgeRoot } = require('./genosCliEnv');
+  return path.join(studioBridgeRoot(), 'fossils');
+}
+
+/**
+ * Écrit l'artefact stratigraphique que le CLI (`genos fossil ...`) sait relire.
+ * Le hash JS étant canonique (clés triées), l'artefact est vérifiable côté Rust.
+ */
+function writeFossilArtifact(record) {
+  const dir = fossilArtifactDir();
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${record.extinct_lineage_id}_${record.fossil_id}.json`);
+  fs.writeFileSync(file, JSON.stringify({ ...record, stratum: 'STRATIGRAPHIC_FOSSIL' }, null, 2));
+  return file;
+}
+
 /**
  * Enfouit puis indexe un fossile. L'écriture est terminale : aucune API de
  * résurrection n'est exposée.
  */
-async function recordFossil(input = {}, db) {
+async function recordFossil(input = {}, db, options = {}) {
   const lineageId = input.lineageId || input.lineage_id;
   if (!lineageId) {
     return { success: false, error: 'lineageId required for fossilization' };
   }
   const record = buildFossilRecord(input);
+  if (options.writeArtifact !== false && process.env.GENOS_FOSSIL_ARTIFACT !== '0') {
+    try {
+      writeFossilArtifact(record);
+    } catch (_) { /* l'artefact opérateur est best-effort, l'index DB prime */ }
+  }
   if (db) await persistFossil(db, record);
   return { success: true, indexed: Boolean(db), fossil: record };
 }
@@ -217,6 +241,21 @@ async function listStrata(db) {
   );
 }
 
+/** Décode les mélanosomes d'un fossile (phénotype résiduel), en lecture seule. */
+async function decodeFossil(db, fossilId) {
+  const row = await db.get('SELECT * FROM fossils WHERE fossil_id = ?', fossilId);
+  if (!row) return { success: false, error: 'Fossil not found in stratigraphic registry.' };
+  const record = fossilFromRow(row);
+  return {
+    success: true,
+    read_only: true,
+    fossil_id: record.fossil_id,
+    extinct_lineage_id: record.extinct_lineage_id,
+    reading: decodePhenotype(record.phenotype_markers),
+    phenotype_markers: record.phenotype_markers
+  };
+}
+
 /** Excavation en lecture seule : jamais de promotion ni de résurrection. */
 async function excavateFossil(db, fossilId) {
   const row = await db.get('SELECT * FROM fossils WHERE fossil_id = ?', fossilId);
@@ -245,8 +284,10 @@ module.exports = {
   decodePhenotype,
   buildFossilRecord,
   persistFossil,
+  writeFossilArtifact,
   recordFossil,
   listFossils,
   listStrata,
-  excavateFossil
+  excavateFossil,
+  decodeFossil
 };
