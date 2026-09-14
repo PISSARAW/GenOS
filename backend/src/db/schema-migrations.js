@@ -9,6 +9,7 @@ const { migrateSynapseColumns } = require('./migrations/migrateSynapseColumns');
 const { migrateWorkflowVersions } = require('./migrations/migrateWorkflowVersions');
 const { migrateTenantScopes } = require('./migrations/migrateTenantScopes');
 const { migrateCryptobiosis } = require('./migrations/migrateCryptobiosis');
+const { migrateFossilization } = require('./migrations/migrateFossilization');
 const { migrateEvaluationColumns } = require('./migrations/migrateEvaluationColumns');
 const { migrateIdeClient } = require('./migrations/migrateIdeClient');
 const { migratePriorityColumns } = require('./migrations/migratePriorityColumns');
@@ -152,6 +153,7 @@ async function applyVersionedMigrations(db) {
   await migrateSynapseColumns(db);
   await migrateWorkflowVersions(db);
   await migrateCryptobiosis(db);
+  await migrateFossilization(db);
   await migrateTenantScopes(db);
 
   const ideColumns = new Set((await db.all('PRAGMA table_info(ide_integrations)')).map(column => column.name));

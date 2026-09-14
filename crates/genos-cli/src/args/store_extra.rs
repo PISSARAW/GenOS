@@ -13,8 +13,23 @@ pub enum FossilSubcommands {
         lineage_id: String,
         #[arg(long)]
         reason: String,
+        /// Mode de taphonomie : petrification | external_mold | internal_mold | trace
+        #[arg(long)]
+        mode: Option<String>,
     },
     List,
+    /// Affiche les strates sédimentaires (datation stratigraphique).
+    Strata,
+    /// Excave un fossile en lecture seule (aucune résurrection possible).
+    Excavate {
+        #[arg(long)]
+        fossil_id: String,
+    },
+    /// Décode les mélanosomes (phénotype résiduel) d'un fossile.
+    Decode {
+        #[arg(long)]
+        fossil_id: String,
+    },
 }
 
 #[derive(Args, Debug)]

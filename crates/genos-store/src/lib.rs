@@ -8,7 +8,10 @@ pub mod snapshot;
 pub use capsule::{Capsule, CapsuleStore};
 pub use cryptobiosis::{CryptobiosisStore, FrozenAgent};
 pub use event::{Event, InMemoryEventStore};
-pub use fossil::{FossilRecord, FossilRegistry};
+pub use fossil::{
+    decode_phenotype, BurialContext, FossilRecord, FossilRegistry, FossilSpecimen, FossilizationMode,
+    Melanosome, MelanosomeShape, PhenotypeClass, PhenotypeReading, SedimentStratum,
+};
 pub use memory::{cosine_similarity, InMemoryVectorRepository};
 pub use snapshot::{SnapshotManifest, SnapshotStore};
 
@@ -95,6 +98,54 @@ mod tests {
         vault.freeze_vitrified("agent_tardigrade", payload, 0.85, 500);
         let thawed_bytes = vault.thaw_vitrified("agent_tardigrade", true, true).expect("Vitrified spore must germinate");
         assert_eq!(thawed_bytes, payload);
+    }
+
+    #[test]
+    fn test_fossilization_taphonomy_pipeline() {
+        let mut registry = FossilRegistry::new();
+        let mut ctx = BurialContext::new("lineage_42", "budget exhausted");
+        ctx.mode = FossilizationMode::Petrification;
+        ctx.hard_parts = vec!["genome".into(), "provenance".into(), "evidence".into()];
+        ctx.soft_parts_lost = vec!["ephemeral_context".into()];
+        ctx.phenotype_markers = vec![
+            Melanosome::from_outcome("outcome", "validated", true),
+            Melanosome::from_outcome("risk", "contained", true),
+        ];
+        ctx.mineral_payload = json!({ "certificate": "ev-1" });
+
+        let record = registry.bury(ctx);
+        assert_eq!(record.mode, FossilizationMode::Petrification);
+        assert!(record.stratum_id.starts_with("stratum-"));
+        assert!(!record.payload_hash.is_empty());
+        assert!((record.conservation_quality - 0.75).abs() < 1e-9);
+        assert!(record.verify_integrity());
+
+        let specimen = registry.excavate(&record.fossil_id).expect("specimen");
+        assert!(specimen.integrity_verified);
+        assert_eq!(specimen.reading.inferred_class, PhenotypeClass::SafeSuccess);
+
+        let strata = registry.strata();
+        assert_eq!(strata.len(), 1);
+        assert_eq!(strata[0].fossil_count, 1);
+    }
+
+    #[test]
+    fn test_fossilization_detects_tampering() {
+        let mut registry = FossilRegistry::new();
+        let mut record = registry.fossilize("lineage_x", "apoptosis");
+        assert!(record.verify_integrity());
+        record.reason = "rewritten history".into();
+        assert!(!record.verify_integrity());
+    }
+
+    #[test]
+    fn test_fossil_strata_grouping() {
+        let mut registry = FossilRegistry::new();
+        registry.fossilize("l1", "r1");
+        registry.fossilize("l2", "r2");
+        let strata = registry.strata();
+        assert_eq!(strata.len(), 1);
+        assert_eq!(strata[0].fossil_count, 2);
     }
 }
 

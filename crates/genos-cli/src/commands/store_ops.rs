@@ -1,7 +1,9 @@
 use chrono::Utc;
 use genos_biology::spore::Spore;
 use genos_genome::Genome;
-use genos_store::{Capsule, CryptobiosisStore, FossilRegistry};
+use genos_store::{
+    BurialContext, Capsule, CryptobiosisStore, FossilRecord, FossilRegistry, FossilizationMode,
+};
 use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
@@ -15,7 +17,7 @@ fn get_storage_dir(subdir: &str) -> PathBuf {
 pub fn handle_cryptobiosis(
     agent_id: &str,
     action: Option<&str>,
-    state: Option<&str>,
+    state: Option<&str>
 ) -> Result<(), String> {
     let act = action.unwrap_or("freeze").to_lowercase();
     let vault_dir = get_storage_dir("vault");
@@ -117,33 +119,117 @@ pub fn handle_cryptobiosis(
     }
 }
 
-pub fn handle_fossil_record(lineage_id: &str, reason: &str) -> Result<(), String> {
+pub fn handle_fossil_record(
+    lineage_id: &str,
+    reason: &str,
+    mode: Option<&str>
+) -> Result<(), String> {
+    let mut ctx = BurialContext::new(lineage_id, reason);
+    if let Some(label) = mode {
+        ctx.mode = FossilizationMode::from_label(label);
+    }
+
     let mut registry = FossilRegistry::new();
-    let fossil = registry.fossilize(lineage_id, reason);
+    let fossil = registry.bury(ctx);
 
     let fossil_dir = get_storage_dir("fossils");
     let file_path = fossil_dir.join(format!("{}_{}.json", lineage_id, fossil.fossil_id));
 
-    let record = json!({
-        "fossil_id": fossil.fossil_id.to_string(),
-        "extinct_lineage_id": fossil.extinct_lineage_id,
-        "reason": fossil.reason,
-        "recorded_at": fossil.recorded_at,
-        "stratum": "STRATIGRAPHIC_FOSSIL"
-    });
+    let mut record = serde_json::to_value(&fossil)
+        .map_err(|e| format!("Failed to serialize fossil: {}", e))?;
+    if let Some(obj) = record.as_object_mut() {
+        obj.insert("stratum".to_string(), json!("STRATIGRAPHIC_FOSSIL"));
+    }
 
     fs::write(&file_path, serde_json::to_string_pretty(&record).unwrap())
         .map_err(|e| format!("Failed to record stratigraphic fossil: {}", e))?;
 
+    let mut output = record;
+    if let Some(obj) = output.as_object_mut() {
+        obj.insert("success".to_string(), json!(true));
+        obj.insert("operation".to_string(), json!("fossil_record"));
+    }
+    println!("{}", serde_json::to_string_pretty(&output).unwrap());
+    Ok(())
+}
+
+fn load_fossils() -> Vec<FossilRecord> {
+    let fossil_dir = get_storage_dir("fossils");
+    let mut fossils = Vec::new();
+    if let Ok(entries) = fs::read_dir(&fossil_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
+                continue;
+            }
+            if let Ok(content) = fs::read_to_string(&path) {
+                if let Ok(record) = serde_json::from_str::<FossilRecord>(&content) {
+                    fossils.push(record);
+                }
+            }
+        }
+    }
+    fossils
+}
+
+pub fn handle_fossil_strata() -> Result<(), String> {
+    let registry = FossilRegistry::from_records(load_fossils());
+    let strata = registry.strata();
     let output = json!({
         "success": true,
-        "operation": "fossil_record",
-        "fossil_id": fossil.fossil_id.to_string(),
-        "extinct_lineage_id": lineage_id,
-        "reason": reason,
-        "recorded_at": fossil.recorded_at,
-        "stratum": "STRATIGRAPHIC_FOSSIL"
+        "operation": "fossil_strata",
+        "total_strata": strata.len(),
+        "strata": strata,
     });
+    println!("{}", serde_json::to_string_pretty(&output).unwrap());
+    Ok(())
+}
+
+pub fn handle_fossil_excavate(fossil_id: &str) -> Result<(), String> {
+    let registry = FossilRegistry::from_records(load_fossils());
+    let id = uuid::Uuid::parse_str(fossil_id)
+        .map_err(|e| format!("Invalid fossil id '{}': {}", fossil_id, e))?;
+
+    let output = match registry.excavate(&id) {
+        Some(specimen) => json!({
+            "success": true,
+            "operation": "fossil_excavate",
+            "read_only": true,
+            "resurrection": "forbidden",
+            "specimen": specimen,
+        }),
+        None => json!({
+            "success": false,
+            "operation": "fossil_excavate",
+            "fossil_id": fossil_id,
+            "error": "Fossil not found in stratigraphic registry.",
+        }),
+    };
+    println!("{}", serde_json::to_string_pretty(&output).unwrap());
+    Ok(())
+}
+
+pub fn handle_fossil_decode(fossil_id: &str) -> Result<(), String> {
+    let registry = FossilRegistry::from_records(load_fossils());
+    let id = uuid::Uuid::parse_str(fossil_id)
+        .map_err(|e| format!("Invalid fossil id '{}': {}", fossil_id, e))?;
+
+    let output = match registry.find(&id) {
+        Some(record) => json!({
+            "success": true,
+            "operation": "fossil_decode",
+            "fossil_id": record.fossil_id.to_string(),
+            "extinct_lineage_id": record.extinct_lineage_id,
+            "reading": record.reading(),
+            "phenotype_markers": record.phenotype_markers,
+        }),
+        None => json!({
+            "success": false,
+            "operation": "fossil_decode",
+            "fossil_id": fossil_id,
+            "error": "Fossil not found in stratigraphic registry.",
+        }),
+    };
     println!("{}", serde_json::to_string_pretty(&output).unwrap());
     Ok(())
 }
