@@ -23,7 +23,7 @@ const fakeDb = { all: async () => [
   assert.equal(step.pack[0].role, 'alpha');
   assert.equal(step.pack[0].id, 'w1');
 
-  dynamicOrganization.getState = async () => ({ organization: 'specialist_expert_committee' });
+  dynamicOrganization.getState = async () => ({ organization: 'unknown_org' });
   assert.equal(await runtime.applyStepForOrchestrator('orch', { db: fakeDb, state }), null);
   dynamicOrganization.getState = original;
   console.log('Swarm topology runtime checks: PASS');
