@@ -669,6 +669,121 @@ Le point fort du système est qu’il est “honest” : il ne prétend pas qu�
 - [backend/tests/test_orchestration_evidence_barrier.js](../backend/tests/test_orchestration_evidence_barrier.js)
 - [backend/tests/test_mirror_twin.js](../backend/tests/test_mirror_twin.js)
 - [backend/tests/test_mission_decomposition_invariants.js](../backend/tests/test_mission_decomposition_invariants.js)
+- [crates/genos-orchestrator/src/orchestrator.rs](../crates/genos-orchestrator/src/orchestrator.rs) : orchestrateur biomimétique (tissus, conscience, immunité, spores)
+- [crates/genos-orchestrator/src/director.rs](../crates/genos-orchestrator/src/director.rs) : directeur cognitif (choix de concepts, stratégies, apprentissage)
+- [crates/genos-orchestrator/src/planner.rs](../crates/genos-orchestrator/src/planner.rs) : état du monde, arsenal de concepts, transitions
+- [crates/genos-orchestrator/src/tick.rs](../crates/genos-orchestrator/src/tick.rs) : boucle `tick`/`run` et rapports
+- [crates/genos-orchestrator/src/observer.rs](../crates/genos-orchestrator/src/observer.rs) : observation live -> `WorldState`
+- [crates/genos-orchestrator/src/organization.rs](../crates/genos-orchestrator/src/organization.rs) : 19 organisations + formes supérieures
+- [crates/genos-orchestrator/src/worlds.rs](../crates/genos-orchestrator/src/worlds.rs) : mondes parallèles (Trinity) et barrière de preuve
+- [crates/genos-orchestrator/src/recruitment.rs](../crates/genos-orchestrator/src/recruitment.rs) : décision de recrutement (rôles, capacités, budget, imposteurs)
+- [crates/genos-orchestrator/src/trace.rs](../crates/genos-orchestrator/src/trace.rs), [diagnostics.rs](../crates/genos-orchestrator/src/diagnostics.rs) : traces d'actions, replay, verdicts, plasmides
+- [crates/genos-orchestrator/src/dna_ops.rs](../crates/genos-orchestrator/src/dna_ops.rs), [genome_ops.rs](../crates/genos-orchestrator/src/genome_ops.rs) : ADN compilé et opérations génomiques
+- [crates/genos-orchestrator/src/ecosystem.rs](../crates/genos-orchestrator/src/ecosystem.rs) : façade `GenosEcosystem`
+
+---
+
+## 19.bis Le crate Rust `genos-orchestrator` (noyau de coordination et de décision)
+
+Le backend orchestre les missions via des services JS ; le crate Rust
+[`crates/genos-orchestrator`](../crates/genos-orchestrator) est le **noyau
+biomimétique** : coordination d'agents, décision autonome, perception,
+diagnostic et résilience. Il est régi par une boucle cognitive unique et
+expose une façade (`GenosEcosystem`) donnant accès à l'ensemble des crates
+GenOS.
+
+### 19.bis.1 Boucle cognitive (`tick` / `run`)
+
+`GenosEcosystem::tick(goal)` exécute un cycle complet, `run(goal, max_ticks)`
+itère jusqu'à l'arrêt et renvoie un `MissionReport` (`ticks`, `halted`,
+`halt_reason`, `reached`, `executed`, `verdicts`, `agents_before/after`,
+`traces`).
+
+1. **Observer** : `observe()` dérive un `WorldState` de l'état réel (tissus,
+   agents, menace via virologie, malades via diagnostic clinique, incertitude
+   via preuves manquantes, traces disponibles, agents signalés, budget).
+2. **Décider** : le `Director` choisit une stratégie, une séquence de concepts,
+   une organisation (topologie de communication) et une forme supérieure
+   (holobionte, syncytium, métapopulation, rhizome, biocénose, biome, essaim).
+3. **Agir** : chaque concept du plan est exécuté sur l'écosystème (voir
+   19.bis.4).
+4. **Apprendre** : le succès/échec de chaque concept met à jour ses
+   statistiques (`ActionStats`).
+5. **S'arrêter** : but atteint, budget épuisé, problème déclaré insoluble,
+   arsenal épuisé, ou plus aucun moyen pertinent.
+
+### 19.bis.2 Décision : le directeur et son arsenal
+
+Le `Director` dispose de 24 concepts (Observe, Replay, Organize, Recruit,
+Delegate, Audit, Immune, Virology, Throttle, Therapy, Spore, Glia, Signaling,
+Stigmergy, Quorum, Neuro, Mutate, Cross, Endosymbiosis, Genomics, Plasmid,
+Feign, Kill, Communicate), chacun avec **préconditions** et **effets**. Il :
+
+- sélectionne les moyens **pertinents** pour le but (pas tous) ;
+- **explore** les concepts non testés (bonus d'exploration) ;
+- **apprend** des succès/échecs (taux lissé de Laplace) ;
+- essaie plusieurs **stratégies** (Solo, A‑Team, Biocénose, Biome) et, si deux
+  se valent, les explore **en parallèle** (Trinity) ;
+- **change de décision** : `note_failure` exclut un concept défaillant et
+  relance la planification.
+
+### 19.bis.3 Organisations et mondes
+
+- `organization.rs` reproduit les **19 organisations** du service
+  `dynamicOrganizationService` (`specialist_expert_committee`,
+  `blind_adversarial_review`, `red_blue_coevolution`, `brier_weighted_consensus`,
+  `quorum_with_abstention`, `stigmergy`, `flocking_boids`, `fish_school_search`,
+  `slime_mould_network`, `grey_wolf_optimizer`, `mycelial_routing`,
+  `dynamic_polyethism`, `energy_huddle`, `network_silence`, `strategy_arena`,
+  `hierarchical_merge`, `competitive_arena`, `isolated_recovery`,
+  `memory_compilation`) et les choisit selon l'état (adversaire → rouge/bleu,
+  incertitude → consensus de Brier, maladie → récupération isolée, budget bas →
+  huddle, etc.).
+- `worlds.rs` exécute des **mondes parallèles comparés** (Trinity = Basic /
+  Planned / Self‑Correcting) sur des copies isolées de l'état, compare les
+  preuves et **promeut** le meilleur monde ou **escalade** si aucun ne franchit
+  la barrière de preuve.
+
+### 19.bis.4 Concepts exécutés (effets réels)
+
+Organogenèse et recrutement (tissus, agents), délégation et anti‑collusion,
+immunité clonale et virologie, throttling, soin et quarantaine (spore),
+signalisation (stigmergie, quorum, neurotransmission), génétique (mutation,
+croisement, ADN leurre, plasmide‑compétence), test viral, **replay** des traces
+d'agent → **verdict** → action, pipeline **glial** complet (BHE, plaques, LCR),
+et **communication** (signal sans prompt entre agents ; consultation du
+**thalamus/LLM** via la feature `api`).
+
+### 19.bis.5 Diagnostic par replay et plasmides
+
+`trace.rs` enregistre chaque action d'agent (`Success`/`Failure`/`Wasted`) ;
+`replay` en dresse le bilan (succès, échecs, gaspillage, boucles) ; `diagnose`
+en déduit un verdict : **sain**, **mutation**, **croisement**, **plasmide**,
+**famine**, **suppression**, **soin**. `GenosEcosystem::act_on_verdict` agit
+(soin, réduction de budget, transfert de plasmide par HGT, retrait de l'agent,
+mutation/croisement sur l'ADN enregistré). Les traces sont **persistées**
+(`save_traces`/`load_traces`) et la provenance est consultable
+(`trace_provenance`).
+
+### 19.bis.6 Accès complet à GenOS
+
+`GenosEcosystem` compose l'orchestrateur avec les sous‑systèmes de tous les
+crates bibliothèques : signalisation, stockage (événements, capsules,
+cryptobiose, mémoire vectorielle, fossiles), reproduction, phénotype/quorum,
+sensorimoteur, thérapies/pathologie, glie, cellules spécialisées, virologie,
+immunité cyber, sens avancés, phylogenèse, ADN compilé et recrutement. Les
+crates sont aussi ré‑exportés à la racine (`genos_orchestrator::genos_store`,
+etc.). La couche serveur (`genos-api`) est accessible via la **feature Cargo
+`api`** (désactivée par défaut).
+
+### 19.bis.7 Vérification
+
+Le crate est couvert par des tests unitaires et d'intégration (orchestrateur,
+conscience, token bucket, organisations, directeur, mondes, recrutement,
+traces/diagnostics, tick/boucle, comportements) et par des exemples
+exécutables (`examples/mission_*.rs`, `orchestrator_licence.rs`). `cargo test -p
+genos-orchestrator` et `cargo test -p genos-orchestrator --features api`
+passent sans warning clippy.
 
 ---
 
