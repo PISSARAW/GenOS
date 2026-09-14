@@ -10,6 +10,7 @@
 use crate::BiomimeticOrchestrator;
 use crate::immune_cyber::CyberImmune;
 use crate::neuro::NeuroLab;
+use crate::recruitment::RecruitmentPlanner;
 use crate::sensory::SensorySuite;
 use crate::signaling::SignalingCascade;
 use crate::snapshots::SnapshotVault;
@@ -94,6 +95,8 @@ pub struct GenosEcosystem {
     pub senses: SensorySuite,
     /// Coffre de snapshots persistant (ouvert à la demande).
     pub snapshots: SnapshotVault,
+    /// Politique de recrutement (décision autonome).
+    pub recruiter: RecruitmentPlanner,
 }
 
 impl GenosEcosystem {
@@ -134,6 +137,7 @@ impl GenosEcosystem {
             cyber: CyberImmune::new("orchestrator"),
             senses: SensorySuite::new(),
             snapshots: SnapshotVault::new(),
+            recruiter: RecruitmentPlanner::default(),
         }
     }
 

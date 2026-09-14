@@ -6,6 +6,7 @@ pub mod immune_cyber;
 pub mod neuro;
 pub mod orchestrator;
 pub mod phylogeny;
+pub mod recruitment;
 pub mod sensory;
 pub mod signaling;
 pub mod snapshots;
@@ -19,6 +20,7 @@ pub mod thalamus;
 pub use conscience::{Conscience, ConscienceState};
 pub use ecosystem::GenosEcosystem;
 pub use orchestrator::BiomimeticOrchestrator;
+pub use recruitment::{Candidate, Demand, RecruitmentDecision, RecruitmentPlanner, Selection};
 pub use token_bucket::{AgentComputeBucket, BucketState, PenaltyReport, RewardReport, SchedulingDecision, TokenBucketScheduler};
 
 // Accès direct à tout l'écosystème GenOS depuis le crate orchestrateur.
