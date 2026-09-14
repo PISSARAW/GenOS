@@ -120,6 +120,16 @@ pub struct WorldState {
     pub diagnosed: bool,
     pub flagged: usize,
     pub skill_granted: bool,
+    /// Dissonance cognitive de l'orchestrateur.
+    pub dissonance: f64,
+    /// Inflammation systémique (somme des indices inflammatoires).
+    pub il6: f64,
+    /// Taux d'échec global des agents (traces).
+    pub failure_rate: f64,
+    /// Pression budgétaire (0 = confortable, 1 = critique).
+    pub budget_pressure: f64,
+    /// Stress composite (0..1).
+    pub stress: f64,
     pub workers: usize,
     pub tissues: usize,
     pub required_workers: usize,
@@ -142,6 +152,11 @@ impl Default for WorldState {
             diagnosed: false,
             flagged: 0,
             skill_granted: false,
+            dissonance: 0.0,
+            il6: 0.0,
+            failure_rate: 0.0,
+            budget_pressure: 0.0,
+            stress: 0.0,
             workers: 0,
             tissues: 0,
             required_workers: 3,
@@ -188,15 +203,32 @@ impl WorldState {
             }
             Replay => self.diagnosed = true,
             Plasmid => self.skill_granted = true,
-            Immune => self.threat = (self.threat - 0.4).max(0.0),
-            Virology => self.threat = (self.threat - 0.7).max(0.0),
-            Therapy | Spore | Glia => {
+            Immune => {
+                // Un adversaire trompeur n'est pas ciblable : la feinte d'abord.
+                if !self.adversary {
+                    self.threat = (self.threat - 0.4).max(0.0);
+                }
+            }
+            Virology => {
+                if !self.adversary {
+                    self.threat = (self.threat - 0.7).max(0.0);
+                }
+            }
+            Therapy | Spore => {
                 if self.diseased > 0 {
                     self.diseased -= 1;
                 }
             }
+            Glia => {
+                // Le pipeline glial traite plusieurs cellules d'un coup.
+                self.diseased = self.diseased.saturating_sub(2);
+            }
             Kill => self.traitor = false,
-            Feign => self.adversary = false,
+            Feign => {
+                // Leurre : l'attaque est absorbée, la menace disparaît.
+                self.adversary = false;
+                self.threat = 0.0;
+            }
             Communicate => self.uncertain = false,
             _ => {}
         }

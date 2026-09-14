@@ -142,6 +142,14 @@ impl GenosEcosystem {
         self.agent_dna.keys().copied().next()
     }
 
+    fn active_virions(&self) -> usize {
+        self.virology
+            .virions
+            .iter()
+            .filter(|v| !v.is_neutralized)
+            .count()
+    }
+
     /// Guérit cliniquement la première cellule malade du tissu.
     fn cure_one_diseased(&mut self) -> bool {
         let target = self.arena_workers().into_iter().find(|id| {
@@ -226,13 +234,19 @@ impl GenosEcosystem {
                     epitope: "THREAT".to_string(),
                     danger_level: 0.9,
                 });
-                // L'immunité neutralise aussi une menace active (cohérence avec la simulation).
-                if let Some(index) = self.virology.virions.iter().position(|v| !v.is_neutralized) {
+                // L'immunité neutralise une menace active — sauf adversaire non trompé.
+                if self.active_virions() < 2
+                    && let Some(index) =
+                        self.virology.virions.iter().position(|v| !v.is_neutralized)
+                {
                     self.virology.virions[index].is_neutralized = true;
                 }
             }
             Concept::Virology => {
-                if let Some(index) = self.virology.virions.iter().position(|v| !v.is_neutralized) {
+                if self.active_virions() < 2
+                    && let Some(index) =
+                        self.virology.virions.iter().position(|v| !v.is_neutralized)
+                {
                     self.virology.virions[index].is_neutralized = true;
                 }
             }
@@ -257,7 +271,10 @@ impl GenosEcosystem {
             }
             Concept::Glia => {
                 let note = self.glial_pass();
-                let cured = self.cure_one_diseased();
+                let mut cured = 0;
+                while cured < 2 && self.cure_one_diseased() {
+                    cured += 1;
+                }
                 self.record_event("GLIA", json!({ "note": note, "cured": cured }));
             }
             Concept::Signaling => {
@@ -315,6 +332,10 @@ impl GenosEcosystem {
                     Some(id) => self.feign(id),
                     None => "aucun ADN : feinte ignoree".to_string(),
                 };
+                // Leurre : les virions sont trompés/absorbés (cohérence avec la simulation).
+                for virion in self.virology.virions.iter_mut() {
+                    virion.is_neutralized = true;
+                }
                 self.record_event("FEIGN", json!({ "note": note }));
             }
             Concept::Kill => {

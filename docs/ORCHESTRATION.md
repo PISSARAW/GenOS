@@ -722,10 +722,19 @@ Feign, Kill, Communicate), chacun avec **préconditions** et **effets**. Il :
 - sélectionne les moyens **pertinents** pour le but (pas tous) ;
 - **explore** les concepts non testés (bonus d'exploration) ;
 - **apprend** des succès/échecs (taux lissé de Laplace) ;
+- intègre un **stress** composite (dissonance, inflammation IL‑6, taux d'échec,
+  pression budgétaire) : sous stress le coût pèse davantage et l'organisation
+  bascule (ex. `network_silence`) ;
+- planifie en profondeur par **recherche en faisceau** (`beam_plan`) plutôt qu'en
+  glouton ;
 - essaie plusieurs **stratégies** (Solo, A‑Team, Biocénose, Biome) et, si deux
   se valent, les explore **en parallèle** (Trinity) ;
 - **change de décision** : `note_failure` exclut un concept défaillant et
   relance la planification.
+
+Le but et les contraintes peuvent être dérivés d'une mission en langage naturel
+via `interpret_mission` (thalamus/LLM si feature `api`, sinon mots‑clés) puis
+exécutés par `run_mission`.
 
 ### 19.bis.3 Organisations et mondes
 

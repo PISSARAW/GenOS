@@ -184,13 +184,17 @@ pub fn select_organization(state: &WorldState, goal: &Goal) -> &'static Organiza
     if state.traitor {
         return org("strategy_arena");
     }
+    if state.stress >= 0.75 {
+        // Stress élevé : mise au silence, traitement critique uniquement.
+        return org("network_silence");
+    }
     if state.uncertain {
         return org("brier_weighted_consensus");
     }
     if state.diseased > 0 {
         return org("isolated_recovery");
     }
-    if state.budget < 20.0 {
+    if state.budget < 20.0 || state.budget_pressure >= 0.8 {
         return org("energy_huddle");
     }
     if state.workers >= 5 {

@@ -40,7 +40,7 @@ fn main() {
     println!("=== MISSION de bout en bout : feinte + glie + thalamus ===\n");
 
     // --- Partie A : boucle complète sur un écosystème ---
-    let mut eco = build_scenario("Griot_Prime", 2, 2, true);
+    let mut eco = build_scenario("Griot_Prime", 3, 2, true);
     let report = eco.run(&Goal::SecurePerimeter, 8);
     println!("[RUN] ticks={} halted={} atteint={}", report.ticks, report.halted, report.reached);
     println!("      concepts execs : {:?}", report.executed);

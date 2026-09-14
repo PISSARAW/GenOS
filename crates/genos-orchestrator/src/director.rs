@@ -51,7 +51,7 @@ impl Director {
         Self::default()
     }
 
-    fn utility(&self, c: Concept) -> f64 {
+    fn utility(&self, c: Concept, stress: f64) -> f64 {
         let stats = self.stats.get(&c);
         let rate = stats.map(ActionStats::rate).unwrap_or(0.5);
         let explore = if stats.map(ActionStats::is_untested).unwrap_or(true) {
@@ -59,7 +59,8 @@ impl Director {
         } else {
             0.0
         };
-        rate + explore - c.cost() * 0.01
+        // Sous stress, le coût pèse davantage (économie d'énergie).
+        rate + explore - c.cost() * 0.01 * (1.0 + 2.0 * stress.clamp(0.0, 1.0))
     }
 
     fn halt(strategy: Strategy, reason: &str) -> Decision {
@@ -149,7 +150,7 @@ impl Director {
         self.plan_for(strategy, state, goal, &applicable)
     }
 
-    /// Construit un plan pour une stratégie donnée, en simulant l'état.
+    /// Construit un plan pour une stratégie donnée (préambule + beam search).
     fn plan_for(
         &self,
         strategy: Strategy,
@@ -159,11 +160,10 @@ impl Director {
     ) -> Vec<Step> {
         let mut state = initial.clone();
         let mut steps = Vec::new();
-        let mut exhausted: BTreeSet<Concept> = BTreeSet::new();
 
         // Préambule propre à la stratégie.
         if strategy == Strategy::Biome && state.applicable(Concept::Observe) {
-            let u = self.utility(Concept::Observe);
+            let u = self.utility(Concept::Observe, state.stress);
             state.apply(Concept::Observe);
             steps.push(Step { concept: Concept::Observe, utility: u });
         }
@@ -175,41 +175,89 @@ impl Director {
                     && state.applicable(c)
                     && !state.failed.contains(&c)
                 {
-                    let u = self.utility(c);
+                    let u = self.utility(c, state.stress);
                     state.apply(c);
                     steps.push(Step { concept: c, utility: u });
                 }
             }
         }
 
+        // Recherche plus profonde : faisceau de largeur dépendant de la stratégie.
+        let width = match strategy {
+            Strategy::Solo | Strategy::Trinity => 1,
+            Strategy::ATeam => 2,
+            Strategy::Biocenose => 3,
+            Strategy::Biome => 4,
+        };
+        steps.extend(self.beam_plan(&state, goal, applicable, width));
+        steps
+    }
+
+    /// Recherche en faisceau (beam search) sur `max_steps` pas.
+    fn beam_plan(
+        &self,
+        initial: &WorldState,
+        goal: &Goal,
+        applicable: &[Concept],
+        width: usize,
+    ) -> Vec<Step> {
+        let mut beam: Vec<(WorldState, Vec<Step>, f64)> = vec![(initial.clone(), Vec::new(), 0.0)];
+        let mut best: Option<(Vec<Step>, f64)> = None;
         for _ in 0..self.max_steps {
-            if state.goal_reached(goal) || state.budget <= 0.0 {
-                break;
-            }
-            let mut best: Option<(Concept, f64)> = None;
-            for &c in applicable {
-                if exhausted.contains(&c)
-                    || state.failed.contains(&c)
-                    || !state.applicable(c)
-                    || !c.is_effectful()
-                {
+            let mut candidates: Vec<(WorldState, Vec<Step>, f64)> = Vec::new();
+            for (state, steps, _) in &beam {
+                if state.goal_reached(goal) {
+                    let score = self.estimate(steps, initial, goal);
+                    if best.as_ref().map(|(_, b)| score > *b).unwrap_or(true) {
+                        best = Some((steps.clone(), score));
+                    }
                     continue;
                 }
-                let u = self.utility(c);
-                if best.map(|(_, bu)| u > bu).unwrap_or(true) {
-                    best = Some((c, u));
+                for &c in applicable {
+                    if state.failed.contains(&c) || !state.applicable(c) || !c.is_effectful() {
+                        continue;
+                    }
+                    let before = state.progress(goal);
+                    let mut next_state = state.clone();
+                    next_state.apply(c);
+                    let after = next_state.progress(goal);
+                    if (after - before).abs() < 1e-9 && !next_state.goal_reached(goal) {
+                        continue;
+                    }
+                    let mut next_steps = steps.clone();
+                    next_steps.push(Step {
+                        concept: c,
+                        utility: self.utility(c, state.stress),
+                    });
+                    let cost: f64 = next_steps.iter().map(|s| s.concept.cost()).sum();
+                    let score = self.estimate(&next_steps, initial, goal) - cost * 0.001;
+                    candidates.push((next_state, next_steps, score));
                 }
             }
-            let Some((c, u)) = best else { break };
-            let before = state.progress(goal);
-            state.apply(c);
-            let after = state.progress(goal);
-            steps.push(Step { concept: c, utility: u });
-            if (after - before).abs() < 1e-9 && !state.goal_reached(goal) {
-                exhausted.insert(c);
+            if candidates.is_empty() {
+                break;
+            }
+            candidates.sort_by(|a, b| {
+                b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            candidates.truncate(width.max(1));
+            beam = candidates;
+            for (state, steps, score) in &beam {
+                if state.goal_reached(goal)
+                    && best.as_ref().map(|(_, b)| *score > *b).unwrap_or(true)
+                {
+                    best = Some((steps.clone(), *score));
+                }
             }
         }
-        steps
+        match best {
+            Some((steps, _)) => steps,
+            None => beam
+                .into_iter()
+                .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
+                .map(|(_, steps, _)| steps)
+                .unwrap_or_default(),
+        }
     }
 
     /// Estime la qualité d'un plan en le rejouant sur une copie de l'état.

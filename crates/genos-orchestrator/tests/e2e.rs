@@ -17,10 +17,14 @@ fn scenario_bout_en_bout_feign_glie_thalamus() {
     sick2.clinical
         .diagnose(Pathology::CytokineStorm { il6_level: 9.0 });
     let patient2 = eco.orchestrator.add_worker("Arena", sick2).unwrap();
+    let mut sick3 = AgentCell::new("malade3", "s", "W");
+    sick3.clinical
+        .diagnose(Pathology::CytokineStorm { il6_level: 7.0 });
+    let patient3 = eco.orchestrator.add_worker("Arena", sick3).unwrap();
 
     let genome = genos_orchestrator::genos_genome::Genome::new("BASE");
     let dna = genos_orchestrator::dna_ops::from_genome(&genome, "seed");
-    for id in [healthy, patient1, patient2] {
+    for id in [healthy, patient1, patient2, patient3] {
         eco.register_dna(id, dna.clone());
     }
     // Deux virions actifs => menaçant (adversaire) : la feinte devient pertinente.

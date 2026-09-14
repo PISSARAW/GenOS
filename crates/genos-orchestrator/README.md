@@ -86,6 +86,19 @@ for step in &decision.steps {
 }
 ```
 
+### Stress, planification profonde, interprétation
+
+- **Stress** : le `WorldState` agrège la dissonance, l'inflammation (IL‑6), le taux
+  d'échec et la pression budgétaire (`stress`). Sous stress, le coût pèse davantage
+  sur l'utilité et l'organisation bascule (ex. `network_silence`).
+- **Planification profonde** : `plan_for` combine un préambule de stratégie et une
+  **recherche en faisceau** (`beam_plan`, largeur selon la stratégie) sur `max_steps`,
+  au lieu d'un simple choix glouton.
+- **Interprétation sémantique** : `interpret_mission("...")` dérive le `Goal` et des
+  contraintes (`budget_serre`, `urgence`, `autonomie_totale`) — via le thalamus si la
+  feature `api` est active, sinon par mots‑clés. `run_mission(mission, max_ticks)`
+  interprète puis exécute.
+
 ## Organisations et mondes
 
 ```rust
