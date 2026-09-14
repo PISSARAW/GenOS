@@ -11,6 +11,7 @@
 const coordination = require('./aTeamCoordinationService');
 const { workerEvidenceDossiers } = require('./agentEvidenceService');
 const { latestReport } = require('./trinityComparativeBarrier');
+const { observeAteamIntegration } = require('./aTeamIntegrationObserver');
 const { emit } = require('./agentOrchestrationState');
 
 function dossierFor(worker, dossier) {
@@ -45,18 +46,26 @@ async function applyAteamIntegration(ctx) {
   const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, ctx.workers || []);
   const candidates = buildDossiers(ctx.workers || [], dossiers);
   const arbitration = coordination.arbitrateIntegration(candidates);
-  const canMerge = mergeDecision(arbitration);
+  const observation = observeAteamIntegration({ members: aTeam.members, workers: ctx.workers || [], dossiers });
+  const canMerge = mergeDecision(arbitration)
+    && observation.failures.length === 0
+    && observation.integrationFailures.length === 0;
   aTeam.integration = {
     canMerge,
     totalEvaluated: arbitration.totalEvaluated,
     paretoFrontCount: arbitration.paretoFrontCount,
     kneePoint: arbitration.kneePoint,
-    leaderboard: arbitration.leaderboard
+    leaderboard: arbitration.leaderboard,
+    failures: observation.failures,
+    integrationFailures: observation.integrationFailures,
+    observerReport: observation.observerReport
   };
   const leader = arbitration.kneePoint;
-  emit(ctx.agentId, 'A_TEAM_INTEGRATION_ARBITRATED', 'ARBITRATE_INTEGRATION', canMerge
+  const blocking = observation.failures[0] || observation.integrationFailures[0];
+  const detail = canMerge
     ? `A-Team integration arbitrated; knee-point candidate '${leader?.candidateId || leader?.name || 'unknown'}' leads the Pareto front.`
-    : 'A-Team integration arbitrated but no scored candidate could be promoted.', aTeam.integration, canMerge ? 'info' : 'warning');
+    : (blocking ? `A-Team integration blocked (${blocking.code}): ${blocking.message}` : 'A-Team integration arbitrated but no scored candidate could be promoted.');
+  emit(ctx.agentId, 'A_TEAM_INTEGRATION_ARBITRATED', 'ARBITRATE_INTEGRATION', detail, aTeam.integration, canMerge ? 'info' : 'warning');
   return arbitration;
 }
 
