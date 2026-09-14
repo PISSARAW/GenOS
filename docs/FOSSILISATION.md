@@ -160,13 +160,17 @@ flowchart TB
 
 ## 7. Architecture technique
 
-**Existant (registre mince).**
+**Cœur Rust (`genos-store`).**
 
-- Cœur Rust : `crates/genos-store/src/fossil.rs` — `FossilRecord { fossil_id, extinct_lineage_id, reason, recorded_at }` et `FossilRegistry { fossilize, all_fossils }`. Exporté par `crates/genos-store/src/lib.rs`.
-- Orchestrateur : `crates/genos-orchestrator/src/ecosystem.rs` — champ `fossils`, `fossilize(lineage_id, reason)`, `fossil_history()`.
-- CLI : `crates/genos-cli/src/args/store_extra.rs` (`FossilCmd`) et `crates/genos-cli/src/commands/store_ops.rs` — `handle_fossil_record` / `handle_fossil_list`, persistance JSON dans `<matrix_root>/fossils/` avec `stratum: "STRATIGRAPHIC_FOSSIL"`.
-- Pont backend : `backend/src/services/genosCli.js` (`runFossilize`, `runListFossils`) ; primitives `fossilize`, `fossil_record`, `fossil_list` dans `backend/src/services/primitiveHandlers/safety.js` et registre `primitiveHandlers/handlersRegistry.js`.
-- Auto-invocation : `apoptosis()` appelle `fossilizeTerminatedTarget(...)` (`safety.js`).
+- `crates/genos-store/src/fossil.rs` : `FossilRecord` enrichi (`fossil_id`, `extinct_lineage_id`, `reason`, `recorded_at`, `mode`, `stratum_id`, `payload_hash`, `conservation_quality`, `hard_parts`, `soft_parts_lost`, `phenotype_markers`, `mineral_payload`), `FossilizationMode { Petrification, ExternalMold, InternalMold, Trace }`, `Melanosome`/`MelanosomeShape`, `PhenotypeReading`/`PhenotypeClass`, `SedimentStratum`, `FossilSpecimen`, `BurialContext`, et `FossilRegistry { bury, fossilize, excavate, strata, from_records, find, by_lineage, all_fossils }`. Intégrité : `FossilRecord::verify_integrity` (SHA-256 canonique). Exporté par `crates/genos-store/src/lib.rs`.
+- `crates/genos-orchestrator/src/ecosystem.rs` : champ `fossils` et méthodes `fossilize`, `bury_fossil`, `excavate_fossil`, `fossil_strata`, `fossil_history`.
+
+**Surface opérateur et orchestrateur.**
+
+- CLI (`crates/genos-cli/src/args/store_extra.rs`, `commands/store_ops.rs`) : `fossil record --mode`, `fossil list`, `fossil strata`, `fossil excavate`, `fossil decode` ; artefact JSON dans `<matrix_root>/fossils/` avec `stratum: "STRATIGRAPHIC_FOSSIL"`.
+- Backend : `fossilizationService.js` (record, list, strata, excavate, decode, intégrité) et migration `migrateFossilization.js` créant `fossils` / `fossil_strata` ; le service écrit aussi l'artefact JSON relisible par le CLI, avec un hash canonique identique Rust/Node.
+- Primitives (`primitiveHandlers/handlersRegistry.js`) : `fossilize`, `bury_fossil`, `fossil_strata`, `fossil_excavate`, `fossil_decode`, appelables via `strategyExecutionAdapter.executePrimitive` ; pont `genosCli.runFossilize(lineageId, reason, mode)`.
+- Auto-invocation : `apoptosis()` → `fossilizeTerminatedTarget(...)` → `fossilizationService`.
 
 **Primitives de préservation réutilisables (ne pas réimplémenter).**
 
@@ -176,13 +180,9 @@ flowchart TB
 - `bioPolymerPersistenceService.js` : encodage MessagePack dans colonnes BLOB.
 - Tables existantes à imiter : `cryptobiosis_snapshots`, `agent_state_snapshots`, `agent_git_archives`.
 
-**Implémenté (ADR 0003).**
+**Tests.**
 
-- Rust : `fossil.rs` enrichi — `FossilizationMode { Petrification, ExternalMold, InternalMold, Trace }`, `SedimentStratum`, `Melanosome`, `MelanosomeShape`, `PhenotypeReading`/`PhenotypeClass`, `FossilSpecimen`, `BurialContext` et pipeline `FossilRegistry::bury` / `fossilize` / `excavate` / `strata` (≤ 3 paramètres par fonction, fichier ≤ 400 lignes). Intégré à `GenosEcosystem` (`bury_fossil`, `excavate_fossil`, `fossil_strata`).
-- CLI : `genos fossil record --mode ...`, `fossil strata`, `fossil excavate`, `fossil decode` ; l'artefact JSON conserve `stratum: "STRATIGRAPHIC_FOSSIL"`.
-- Backend : `fossilizationService.js` (record, list, strata, excavate, decode, intégrité) + migration `migrateFossilization.js` créant `fossils` et `fossil_strata` ; l'auto-fossilisation de l'apoptose passe par le service (`primitiveHandlers/safety.js`).
-- Orchestrateur : primitives `fossilize`, `bury_fossil`, `fossil_strata`, `fossil_excavate`, `fossil_decode` enregistrées dans `primitiveHandlers/handlersRegistry.js` et donc appelables via `strategyExecutionAdapter.executePrimitive`. Le service écrit aussi l'artefact JSON relisible par le CLI, en gardant un hash canonique identique Rust/Node.
-- Test : `backend/tests/test_fossilization_service.js` (`npm run test:fossilization`) et tests unitaires `genos-store`.
+- `crates/genos-store/src/lib.rs` (pipeline, falsification, strates) ; `crates/genos-orchestrator/tests/fossilization.rs` (hub orchestrateur) ; `backend/tests/test_fossilization_service.js` et `test_orchestrator_fossilization.js` (`npm run test:fossilization`).
 
 **Cibles restantes (ADR 0003).**
 

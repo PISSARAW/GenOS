@@ -81,6 +81,18 @@ Le point d'entrée appelle le handler Rust correspondant puis :
 
 Il n'existe pas de flag global uniforme `--json` car le contrat natif est déjà, pour beaucoup de handlers, JSON par défaut. La forme exacte reste cependant propre à chaque sous-commande : certains handlers emploient du JSON compact, d'autres du JSON pretty-printé, et l'aide `clap` est du texte humain.
 
+La sous-commande `fossil` (registre stratigraphique terminal) expose :
+
+| Commande | Effet |
+|---|---|
+| `genos fossil record --lineage-id <id> --reason <texte> [--mode <mode>]` | Enfouit une lignée (modes `petrification`, `external_mold`, `internal_mold`, `trace`) et écrit l'artefact JSON. |
+| `genos fossil list` | Liste les fossiles persistés. |
+| `genos fossil strata` | Affiche les strates (datation stratigraphique). |
+| `genos fossil excavate --fossil-id <uuid>` | Excave en lecture seule (aucune résurrection possible). |
+| `genos fossil decode --fossil-id <uuid>` | Restitue les mélanosomes (phénotype résiduel). |
+
+Modèle complet : [FOSSILISATION.md](FOSSILISATION.md).
+
 ### 3.2 `g` : façade opérateur
 
 Le binaire `g` est le crate `genos-simple-cli`. Il transforme des verbes concis comme `g init`, `g replay`, `g diff`, `g debug`, `g merge` ou `g start` en commandes natives plus détaillées.

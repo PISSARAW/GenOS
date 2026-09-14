@@ -188,6 +188,8 @@ L'apoptose est un arrêt contrôlé d'une branche cognitive ou d'une mémoire de
 
 Biologiquement, l'apoptose élimine une cellule sans déclencher une destruction anarchique du tissu. Dans GenOS, la métaphore est fonctionnelle : une branche est arrêtée avec traçabilité, pendant que le système conserve le rapport de panne et lance seulement une reprise bornée.
 
+Depuis l'ADR 0003, la lignée terminée est archivée de façon **terminale et probante** par la fossilisation stratigraphique (hash minéral, strate datée, mélanosomes), excavable en lecture seule mais jamais ressuscitée : voir [FOSSILISATION.md](FOSSILISATION.md).
+
 ---
 
 ## 6. Rollback atomique et bisection causale

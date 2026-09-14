@@ -67,8 +67,11 @@ Le schéma est distribué entre `schema-tables-core.js` et `schema-tables-extens
 | Trajectoires et observabilité | `trajectories`, `trace_spans`, `telemetry_events`, `audit_logs` |
 | Gouvernance | `provider_configs`, `agent_model_routing_policies`, `platform_approvals` |
 | Biologie opérationnelle | `cryptobiosis_snapshots`, plasmids, décisions génomiques et synapses |
+| Archives terminales | `fossils`, `fossil_strata` |
 
 Les colonnes JSON telles que `metadata_json`, `state_json`, `payload_json`, `config_json` et `result_json` servent à conserver des données extensibles sans multiplier les migrations pour chaque attribut périphérique. Pour la biologie opérationnelle (`cryptobiosis_snapshots`), GenOS évolue vers un format binaire vitrifié (`SporeVitrifiedPayload` / BLOB) protégé au tréhalose, substituant aux dumps JSON volumineux une anhydrobiose compacte avec conditions de germination biophysique. Les clés et les filtres de scope restent relationnels lorsque l'isolation, les jointures ou les performances l'exigent.
+
+La fossilisation stratigraphique (`fossils`, `fossil_strata`, migration `migrateFossilization.js`) conserve les lignées éteintes avec un hash d'intégrité (`payload_hash`), un mode de taphonomie, une qualité de conservation (`conservation_quality`) et des marqueurs JSON (`hard_parts_json`, `soft_parts_lost_json`, `phenotype_markers_json`, `mineral_payload_json`). Ces tables sont volontairement **sans clé étrangère** vers `agents` : le fossile est une archive terminale indépendante de la lignée vivante (voir [FOSSILISATION.md](FOSSILISATION.md)).
 
 ### 3.2 Tenancy
 
@@ -134,6 +137,8 @@ C'est la propriété requise par un service qui redémarre, par un déploiement 
 - `016-workflow-version-snapshots` ;
 - `017-reversible-episodic-retention` ;
 - `018-ide-client-identity`.
+
+Les tables d'archives terminales sont créées par la migration idempotente `migrateFossilization()` (appelée depuis `applyVersionedMigrations`) : `fossils` et `fossil_strata`.
 
 Le code complète également les anciennes tables en examinant réellement leurs colonnes. Ainsi, la migration ne suppose pas qu'une base installée possède déjà la dernière forme de `agents`, `workspaces`, `model_jobs`, `evaluation_jobs`, `memory_synapses` ou `cryptobiosis_snapshots`.
 

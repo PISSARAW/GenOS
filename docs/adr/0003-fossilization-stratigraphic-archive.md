@@ -31,7 +31,7 @@ La doctrine du dépôt (`.genos.md`, `docs/README.md`) impose qu'un terme biolog
 Introduire la **fossilisation stratigraphique** comme couche d'archive **terminale, immuable et irréversible** des lignées d'agents, en étendant le registre existant :
 
 1. **Pipeline de taphonomie synchrone** déclenché à la terminaison : enfouissement rapide (capture avant GC) → décomposition sélective (triage parties dures / tissus mous) → pétrification (`payload_hash = SHA-256`) → moulage si la matière n'est pas retenable → dépôt en strate.
-2. **Modèle enrichi** : `FossilizationMode { Petrification, ExternalMold, InternalMold, Trace }`, `SedimentStratum`, `Melanosome`, `TaphonomyPolicy`, `FossilSpecimen` ; `FossilRecord` gagne `payload_hash`, `mode`, `conservation_quality`, `stratum_id`, `phenotype_markers`.
+2. **Modèle enrichi** : `FossilizationMode { Petrification, ExternalMold, InternalMold, Trace }`, `SedimentStratum`, `Melanosome`/`MelanosomeShape`, `PhenotypeReading`/`PhenotypeClass`, `BurialContext`, `FossilSpecimen` ; `FossilRecord` gagne `payload_hash`, `mode`, `conservation_quality`, `stratum_id`, `phenotype_markers`, `hard_parts`, `soft_parts_lost`, `mineral_payload`.
 3. **Persistance indexée** : tables `fossils` et `fossil_strata` (mêmes conventions que `cryptobiosis_snapshots` / `agent_state_snapshots`), en plus des JSON existants pour compatibilité.
 4. **Réutilisation des primitives existantes** : `Capsule` (hash SHA-256), `SnapshotStore`, `SporeVitrifiedPayload` et `bioPolymerPersistenceService` (MessagePack BLOB) ; aucune nouvelle primitive de stockage.
 5. **Surface opérateur** : CLI `genos fossil record|list|strata|excavate|decode`, endpoints REST `/api/fossils*`, outils MCP `genos_fossil_record|list|excavate|strata`.
@@ -64,11 +64,12 @@ Règles structurantes :
 
 ## Suivi
 
-- Implémenter la couche Rust (`fossil.rs`) et le service `fossilizationService.js` avec les tables associées.
-- Ajouter les commandes CLI `strata|excavate|decode` et les outils MCP correspondants (alignement JS/Rust/bridge, cf. `docs/OUTILS_MCP.md` §9).
-- Test déterministe « fossilisation expérimentale » : burial synchrone d'un agent synthétique + propriété « excavation = lecture seule, non promouvable ».
-- Brancher la détection de concepts résiduels vers la boucle d'innovation (ADR 0002) en statut `candidate` uniquement.
-- ADR ultérieure si un format binaire canonique de fossile (`FossilDNA`) est introduit.
+- [x] Couche Rust (`fossil.rs` : `BurialContext`, `bury`/`excavate`/`strata`) et service `fossilizationService.js` avec les tables `fossils` / `fossil_strata`.
+- [x] Commandes CLI `record --mode|list|strata|excavate|decode` et primitives orchestrateur `fossilize|bury_fossil|fossil_strata|fossil_excavate|fossil_decode`.
+- [x] Tests : burial synchrone déterministe, propriété « excavation = lecture seule, non promouvable », intégrité inter-langage Rust/Node.
+- [ ] Outils MCP `genos_fossil_*` et endpoints REST `/api/fossils*` (alignement JS/Rust/bridge, cf. `docs/OUTILS_MCP.md` §9).
+- [ ] Brancher la détection de concepts résiduels vers la boucle d'innovation (ADR 0002) en statut `candidate` uniquement.
+- [ ] ADR ultérieure si un format binaire canonique de fossile (`FossilDNA`) est introduit.
 
 ## Conformité
 
@@ -81,8 +82,10 @@ Règles structurantes :
 - `crates/genos-store/src/fossil.rs`, `capsule.rs`, `snapshot.rs`, `cryptobiosis.rs`, `lib.rs`
 - `crates/genos-orchestrator/src/ecosystem.rs` (`fossils`, `fossilize`, `fossil_history`)
 - `crates/genos-cli/src/args/store_extra.rs`, `crates/genos-cli/src/commands/store_ops.rs`
-- `backend/src/services/genosCli.js` (`runFossilize`, `runListFossils`)
-- `backend/src/services/primitiveHandlers/safety.js` (`fossilizeTerminatedTarget`, `apoptosis`, `fossilize`, `listFossils`), `primitiveHandlers/handlersRegistry.js`
+- `backend/src/services/genosCli.js` (`runFossilize(lineageId, reason, mode)`, `runListFossils`)
+- `backend/src/services/fossilizationService.js`, `backend/src/db/migrations/migrateFossilization.js`
+- `backend/src/services/primitiveHandlers/safety.js` (`fossilizeTerminatedTarget`, `apoptosis`, `fossilize`, `fossilStrata`, `fossilExcavate`, `fossilDecode`, `listFossils`), `primitiveHandlers/handlersRegistry.js`
 - `backend/src/services/bioPolymerPersistenceService.js`, `cryptobiosisSporeService.js`, `sleepCycle.js`, `episodicMemoryService.js`
 - `backend/src/db/schema-migrations.js`, `schema-tables-core.js`, `schema-tables-extensions.js` (`cryptobiosis_snapshots`, `agent_state_snapshots`, `agent_git_archives`)
-- `docs/FOSSILISATION.md`, `docs/MEMOIRE_APPRENTISSAGE.md`, `docs/RESILIENCE_REPRISE.md`
+- `crates/genos-orchestrator/tests/fossilization.rs`, `backend/tests/test_fossilization_service.js`, `backend/tests/test_orchestrator_fossilization.js`
+- `docs/FOSSILISATION.md`, `docs/MEMOIRE_APPRENTISSAGE.md`, `docs/RESILIENCE_REPRISE.md`, `docs/CLI_EXPERIENCE_OPERATEUR.md`, `docs/PERSISTANCE_DONNEES.md`

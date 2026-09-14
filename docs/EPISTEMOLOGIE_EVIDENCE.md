@@ -324,4 +324,6 @@ stateDiagram-v2
 
 - [AGENT_DNA_RUNTIME.md](AGENT_DNA_RUNTIME.md) — la promotion d'un génome candidat d'innovation est conditionnée par `hasDecisionEvidence` ; la provenance (`PROV`) et la signature Ed25519 portent la preuve.
 - [adr/0002-agentdna-innovation-loop.md](adr/0002-agentdna-innovation-loop.md) — gate de promotion : une découverte n'est héréditaire qu'après preuve.
+- [FOSSILISATION.md](FOSSILISATION.md) — archive terminale des lignées éteintes : conserver la preuve et le phénotype résiduel (mélanosomes) sans jamais ressusciter la branche (voir aussi `preserve_rejected_branches`).
+- [adr/0003-fossilization-stratigraphic-archive.md](adr/0003-fossilization-stratigraphic-archive.md) — décision d'architecture de la fossilisation stratigraphique.
 
