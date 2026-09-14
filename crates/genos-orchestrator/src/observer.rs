@@ -44,6 +44,7 @@ impl GenosEcosystem {
             diseased,
             uncertain: self.events.count() == 0,
             budget: 40.0 + 20.0 * workers as f64,
+            adversary: active_virions >= 2,
             has_traces: self.traces.known() > 0,
             flagged,
             required_workers: 5,

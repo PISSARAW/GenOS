@@ -75,31 +75,52 @@ impl Multiverse {
             .iter()
             .map(|h| run_world(&director, *h, goal, initial))
             .collect();
+        finish(worlds)
+    }
 
-        let best = worlds
-            .iter()
-            .enumerate()
-            .filter(|(_, w)| w.promotable)
-            .max_by(|a, b| {
-                score(a.1)
-                    .partial_cmp(&score(b.1))
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .map(|(i, _)| i);
-
-        let reason = match best {
-            Some(i) => format!(
-                "monde '{}' promu (preuve suffisante, progression {:.2})",
-                worlds[i].hypothesis.name(),
-                worlds[i].progress
-            ),
-            None => "aucun monde ne franchit la barriere de preuve : escalade requise".to_string(),
-        };
-        Multiverse {
-            worlds,
-            promoted: best,
-            reason,
-        }
+    /// Mondes **isolés réels** : chaque hypothèse tourne dans son propre
+    /// `GenosEcosystem` (construit par `build`) et est exécutée en parallèle.
+    pub fn run_isolated<F>(goal: &Goal, hypotheses: &[Hypothesis], build: F) -> Self
+    where
+        F: Fn(Hypothesis) -> crate::GenosEcosystem + Sync,
+    {
+        let worlds: Vec<WorldOutcome> = std::thread::scope(|scope| {
+            let handles: Vec<_> = hypotheses
+                .iter()
+                .map(|hypothesis| {
+                    let build = &build;
+                    let hypothesis = *hypothesis;
+                    scope.spawn(move || {
+                        let mut eco = build(hypothesis);
+                        let planned = eco
+                            .director
+                            .plan_strategy(hypothesis.strategy(), &eco.observe(), goal);
+                        let concepts: Vec<Concept> =
+                            planned.into_iter().map(|s| s.concept).collect();
+                        let executed = eco.execute_concepts(&concepts);
+                        let observed = eco.observe();
+                        let reached = observed.goal_reached(goal);
+                        let progress = observed.progress(goal);
+                        let cost = executed.iter().map(|c| c.cost()).sum();
+                        WorldOutcome {
+                            hypothesis,
+                            steps: executed,
+                            reached,
+                            progress,
+                            cost,
+                            organization: select_organization(&observed, goal).name,
+                            superorganism: select_superorganism(&observed, goal),
+                            promotable: reached || progress >= 0.75,
+                        }
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|handle| handle.join().expect("monde isole"))
+                .collect()
+        });
+        finish(worlds)
     }
 
     /// Trinity : trois mondes (Basic / Planned / Self-Correcting).
@@ -122,6 +143,32 @@ impl Multiverse {
             }
         }
         out
+    }
+}
+
+fn finish(worlds: Vec<WorldOutcome>) -> Multiverse {
+    let best = worlds
+        .iter()
+        .enumerate()
+        .filter(|(_, w)| w.promotable)
+        .max_by(|a, b| {
+            score(a.1)
+                .partial_cmp(&score(b.1))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(i, _)| i);
+    let reason = match best {
+        Some(i) => format!(
+            "monde '{}' promu (preuve suffisante, progression {:.2})",
+            worlds[i].hypothesis.name(),
+            worlds[i].progress
+        ),
+        None => "aucun monde ne franchit la barriere de preuve : escalade requise".to_string(),
+    };
+    Multiverse {
+        worlds,
+        promoted: best,
+        reason,
     }
 }
 

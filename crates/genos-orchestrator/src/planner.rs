@@ -185,7 +185,6 @@ impl WorldState {
             Recruit => self.workers += 1,
             Observe => {
                 self.observed = true;
-                self.uncertain = false;
             }
             Replay => self.diagnosed = true,
             Plasmid => self.skill_granted = true,
