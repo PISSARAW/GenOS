@@ -43,43 +43,82 @@ function rootsOverlap(left, right) {
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
 }
 
-async function mergeWorkspaces(winnerWorkspaceRoot, targetWorkspaceRoot, causalBaseWorkspaceRoot) {
-  const winnerRoot = path.resolve(winnerWorkspaceRoot);
-  const targetRoot = path.resolve(targetWorkspaceRoot);
+function assertMergePreconditions(winnerRoot, targetRoot) {
   if (rootsOverlap(winnerRoot, targetRoot) || rootsOverlap(targetRoot, winnerRoot)) {
     throw new Error('Winner and target workspaces must be separate directories.');
   }
-  const [winnerStat, targetStat] = await Promise.all([fs.promises.stat(winnerRoot), fs.promises.stat(targetRoot)]);
-  if (!winnerStat.isDirectory() || !targetStat.isDirectory()) throw new Error('Winner and target workspaces must be directories.');
+}
 
-  const [winnerFiles, targetFiles, baseFiles] = await Promise.all([
-    readWorkspaceFiles(winnerRoot),
-    readWorkspaceFiles(targetRoot),
-    causalBaseWorkspaceRoot ? readWorkspaceFiles(path.resolve(causalBaseWorkspaceRoot)) : Promise.resolve(null)
-  ]);
+function readStats(root) {
+  return fs.promises.stat(root);
+}
+
+function isNotDirectory(stat) {
+  return !stat.isDirectory();
+}
+
+async function assertWorkspaceDirectories(...roots) {
+  const stats = await Promise.all(roots.map(readStats));
+  if (stats.some(isNotDirectory)) {
+    throw new Error('Winner and target workspaces must be directories.');
+  }
+}
+
+function readCausalBaseFiles(root) {
+  if (!root) return Promise.resolve(null);
+  return readWorkspaceFiles(path.resolve(root));
+}
+
+function getFileEntry(files, relativePath) {
+  if (!files) return undefined;
+  return files.get(relativePath);
+}
+
+function collectFilePaths(winnerFiles, targetFiles, baseFiles) {
+  const filePaths = new Set([...winnerFiles.keys(), ...targetFiles.keys()]);
+  if (baseFiles) {
+    for (const relativePath of baseFiles.keys()) filePaths.add(relativePath);
+  }
+  return filePaths;
+}
+
+function computeWorkspaceChanges(winnerFiles, targetFiles, baseFiles) {
   const changes = [];
   const conflicts = [];
-  const filePaths = new Set([...winnerFiles.keys(), ...targetFiles.keys(), ...(baseFiles ? baseFiles.keys() : [])]);
+  const filePaths = collectFilePaths(winnerFiles, targetFiles, baseFiles);
   for (const relativePath of [...filePaths].sort()) {
     const winner = winnerFiles.get(relativePath);
     const target = targetFiles.get(relativePath);
-    const base = baseFiles?.get(relativePath);
+    const base = getFileEntry(baseFiles, relativePath);
     if (!baseFiles) {
       if (!winner || sameFile(winner, target)) continue;
       if (!target) changes.push({ type: 'copy', relativePath, contents: winner });
       else conflicts.push(relativePath);
       continue;
     }
-    if (sameFile(winner, target)) continue;
-    if (sameFile(winner, base)) continue;
+    if (sameFile(winner, target) || sameFile(winner, base)) continue;
     if (sameFile(target, base)) {
       changes.push(winner ? { type: 'copy', relativePath, contents: winner } : { type: 'remove', relativePath });
     } else {
       conflicts.push(relativePath);
     }
   }
-  if (conflicts.length) return { merged: false, status: 'conflict', conflicts };
+  return { changes, conflicts, filePaths };
+}
 
+function isCopyChange(change) {
+  return change.type === 'copy';
+}
+
+function isRemoveChange(change) {
+  return change.type === 'remove';
+}
+
+function changeRelativePath(change) {
+  return change.relativePath;
+}
+
+async function applyWorkspaceChanges(targetRoot, changes) {
   for (const change of changes) {
     const destination = path.join(targetRoot, change.relativePath);
     if (change.type === 'remove') {
@@ -89,74 +128,136 @@ async function mergeWorkspaces(winnerWorkspaceRoot, targetWorkspaceRoot, causalB
       await fs.promises.writeFile(destination, change.contents);
     }
   }
+}
+
+function buildMergeSummary(changes, filePaths) {
   return {
     merged: true,
     status: 'merged',
-    copiedFiles: changes.filter((change) => change.type === 'copy').map((change) => change.relativePath),
-    removedFiles: changes.filter((change) => change.type === 'remove').map((change) => change.relativePath),
+    copiedFiles: changes.filter(isCopyChange).map(changeRelativePath),
+    removedFiles: changes.filter(isRemoveChange).map(changeRelativePath),
     unchangedFiles: filePaths.size - changes.length
+  };
+}
+
+async function mergeWorkspaces(winnerWorkspaceRoot, targetWorkspaceRoot, causalBaseWorkspaceRoot) {
+  const winnerRoot = path.resolve(winnerWorkspaceRoot);
+  const targetRoot = path.resolve(targetWorkspaceRoot);
+  assertMergePreconditions(winnerRoot, targetRoot);
+  await assertWorkspaceDirectories(winnerRoot, targetRoot);
+  const [winnerFiles, targetFiles, baseFiles] = await Promise.all([
+    readWorkspaceFiles(winnerRoot),
+    readWorkspaceFiles(targetRoot),
+    readCausalBaseFiles(causalBaseWorkspaceRoot)
+  ]);
+  const { changes, conflicts, filePaths } = computeWorkspaceChanges(winnerFiles, targetFiles, baseFiles);
+  if (conflicts.length) return { merged: false, status: 'conflict', conflicts };
+  await applyWorkspaceChanges(targetRoot, changes);
+  return buildMergeSummary(changes, filePaths);
+}
+
+function isReplayReceipt(receipt) {
+  if (!receipt || typeof receipt !== 'object') return false;
+  if (receipt.success !== true) return false;
+  const status = String(receipt.replayStatus || receipt.replay_status || receipt.status || '').toLowerCase();
+  return ['completed', 'reproduced', 'reconstructed', 'verified', 'success', 'succeeded'].includes(status);
+}
+
+function isReplayPassed(executionContext) {
+  if (executionContext.replayVerified === true) return true;
+  if (executionContext.diffAndReplayPassed === true) return true;
+  return isReplayReceipt(executionContext.replayReceipt);
+}
+
+function buildReplayViolation(policy, executionContext) {
+  if (!policy.require_replay) return null;
+  if (isReplayPassed(executionContext)) return null;
+  return {
+    policy: 'require_replay',
+    message: 'Contract requires deterministic replay verification before promotion.'
+  };
+}
+
+function isEvidenceEntry(entry) {
+  return String(entry || '').trim().length > 0;
+}
+
+function isEvidenceItem(item) {
+  if (!item || typeof item !== 'object') return false;
+  const evidence = item.evidence || item.receipts || item.sourceRefs;
+  if (!Array.isArray(evidence)) return false;
+  return evidence.some(isEvidenceEntry);
+}
+
+function hasEvidence(value) {
+  if (!Array.isArray(value) || value.length === 0) return false;
+  return value.every(isEvidenceItem);
+}
+
+function claimHasEvidence(claim) {
+  return Boolean(claim) && Array.isArray(claim.evidence) && claim.evidence.length > 0;
+}
+
+function reportHasEvidence(claims) {
+  if (!Array.isArray(claims) || claims.length === 0) return false;
+  return claims.every(claimHasEvidence);
+}
+
+function reportClaims(executionContext) {
+  const report = executionContext.report;
+  if (report === null || report === undefined) return undefined;
+  return report.claims;
+}
+
+function isIndependentVerification(executionContext) {
+  if (executionContext.independentVerification === true) return true;
+  if (executionContext.evidenceVerified === true) return true;
+  if (hasEvidence(executionContext.verifiedClaims)) return true;
+  if (hasEvidence(executionContext.workerDossiers)) return true;
+  return reportHasEvidence(reportClaims(executionContext));
+}
+
+function buildVerificationViolation(policy, executionContext) {
+  if (!policy.require_independent_verification) return null;
+  if (isIndependentVerification(executionContext)) return null;
+  return {
+    policy: 'require_independent_verification',
+    message: 'Contract requires independent verification or verified evidence before promotion.'
+  };
+}
+
+function isNonBlankString(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isValidHumanApproval(approval) {
+  if (!approval || typeof approval !== 'object') return false;
+  if (approval.approved !== true) return false;
+  if (!isNonBlankString(approval.approvalId)) return false;
+  if (!isNonBlankString(approval.approverId)) return false;
+  if (!isNonBlankString(approval.approvedAt)) return false;
+  if (typeof approval.payloadHash !== 'string') return false;
+  return /^[a-f0-9]{64}$/i.test(approval.payloadHash);
+}
+
+function buildApprovalViolation(policy, executionContext) {
+  if (!policy.require_human_approval) return null;
+  if (isValidHumanApproval(executionContext.humanApprovalReceipt)) return null;
+  return {
+    policy: 'require_human_approval',
+    message: 'Contract requires a durable, hash-bound human approval receipt before promotion.'
   };
 }
 
 function evaluatePromotionGate(contract = {}, executionContext = {}) {
   const policy = contract.promotion || {};
   const violations = [];
-  const hasEvidence = (value) => Array.isArray(value) && value.length > 0 && value.every((item) => {
-    if (!item || typeof item !== 'object') return false;
-    const evidence = item.evidence || item.receipts || item.sourceRefs;
-    return Array.isArray(evidence) && evidence.some((entry) => String(entry || '').trim());
-  });
-
-  // 1. require_replay
-  if (policy.require_replay) {
-    const receipt = executionContext.replayReceipt;
-    const receiptStatus = String(receipt?.replayStatus || receipt?.replay_status || receipt?.status || '').toLowerCase();
-    const validReceipt = receipt && typeof receipt === 'object' && receipt.success === true &&
-      ['completed', 'reproduced', 'reconstructed', 'verified', 'success', 'succeeded'].includes(receiptStatus);
-    const replayPassed = executionContext.replayVerified === true ||
-      executionContext.diffAndReplayPassed === true ||
-      validReceipt;
-    if (!replayPassed) {
-      violations.push({
-        policy: 'require_replay',
-        message: 'Contract requires deterministic replay verification before promotion.'
-      });
-    }
-  }
-
-  // 2. require_independent_verification
-  if (policy.require_independent_verification) {
-    const reportClaims = executionContext.report?.claims;
-    const reportHasEvidence = Array.isArray(reportClaims) && reportClaims.length > 0
-      && reportClaims.every((claim) => claim && Array.isArray(claim.evidence) && claim.evidence.length > 0);
-    const verified = executionContext.independentVerification === true ||
-      executionContext.evidenceVerified === true ||
-      hasEvidence(executionContext.verifiedClaims) ||
-      hasEvidence(executionContext.workerDossiers) ||
-      reportHasEvidence;
-    if (!verified) {
-      violations.push({
-        policy: 'require_independent_verification',
-        message: 'Contract requires independent verification or verified evidence before promotion.'
-      });
-    }
-  }
-
-  // 3. require_human_approval
-  const approval = executionContext.humanApprovalReceipt;
-  const validHumanApproval = approval && typeof approval === 'object'
-    && approval.approved === true
-    && typeof approval.approvalId === 'string' && approval.approvalId.trim()
-    && typeof approval.approverId === 'string' && approval.approverId.trim()
-    && typeof approval.approvedAt === 'string' && approval.approvedAt.trim()
-    && typeof approval.payloadHash === 'string' && /^[a-f0-9]{64}$/i.test(approval.payloadHash);
-  if (policy.require_human_approval && !validHumanApproval) {
-    violations.push({
-      policy: 'require_human_approval',
-      message: 'Contract requires a durable, hash-bound human approval receipt before promotion.'
-    });
-  }
-
+  const replayViolation = buildReplayViolation(policy, executionContext);
+  if (replayViolation) violations.push(replayViolation);
+  const verificationViolation = buildVerificationViolation(policy, executionContext);
+  if (verificationViolation) violations.push(verificationViolation);
+  const approvalViolation = buildApprovalViolation(policy, executionContext);
+  if (approvalViolation) violations.push(approvalViolation);
   return {
     eligible: violations.length === 0,
     policy,
@@ -164,64 +265,97 @@ function evaluatePromotionGate(contract = {}, executionContext = {}) {
   };
 }
 
+function isNonEmptyArray(value) {
+  return Array.isArray(value) && value.length > 0;
+}
+
+async function preserveRejectedBranch(db, executionContext, branchId) {
+  try {
+    await db.run(
+      "INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES (?, 'BRANCH_PRESERVED', 'PRESERVE', ?, ?)",
+      executionContext.agentId || 'system',
+      `Preserved rejected branch ${branchId} per contract promotion policy.`,
+      JSON.stringify({ branchId, reason: 'contract_promotion_policy', preserved: true })
+    );
+    return { action: 'preserve_branch', branchId };
+  } catch (error) {
+    return { action: 'preserve_branch', branchId, preserved: false, error: error.message };
+  }
+}
+
+async function preserveRejectedBranches(db, policy, executionContext) {
+  const actions = [];
+  if (!policy.preserve_rejected_branches) return actions;
+  if (!isNonEmptyArray(executionContext.rejectedBranchIds)) return actions;
+  for (const branchId of executionContext.rejectedBranchIds) {
+    actions.push(await preserveRejectedBranch(db, executionContext, branchId));
+  }
+  return actions;
+}
+
+function shouldAutoMerge(policy, executionContext) {
+  return Boolean(policy.merge_workspace_automatically) &&
+    Boolean(executionContext.winnerWorkspaceRoot) &&
+    Boolean(executionContext.targetWorkspaceRoot);
+}
+
+async function runAutomaticMerge(executionContext) {
+  try {
+    const merge = await mergeWorkspaces(
+      executionContext.winnerWorkspaceRoot,
+      executionContext.targetWorkspaceRoot,
+      executionContext.causalBaseWorkspaceRoot
+    );
+    return {
+      action: 'auto_merge_workspace',
+      winner: executionContext.winnerWorkspaceRoot,
+      target: executionContext.targetWorkspaceRoot,
+      ...merge
+    };
+  } catch (error) {
+    return {
+      action: 'auto_merge_workspace',
+      winner: executionContext.winnerWorkspaceRoot,
+      target: executionContext.targetWorkspaceRoot,
+      merged: false,
+      status: 'failed',
+      error: error.message
+    };
+  }
+}
+
+async function applyAutomaticWorkspaceMerge(policy, executionContext) {
+  if (!shouldAutoMerge(policy, executionContext)) return [];
+  return [await runAutomaticMerge(executionContext)];
+}
+
+function isBlockedMerge(action) {
+  return action.action === 'auto_merge_workspace' && action.merged === false;
+}
+
+function isFailedPreservation(action) {
+  return action.action === 'preserve_branch' && action.preserved === false;
+}
+
+function selectPostPromotionError(mergeBlocked) {
+  return mergeBlocked
+    ? 'Automatic workspace merge failed or has unresolved conflicts.'
+    : 'One or more rejected branches could not be preserved.';
+}
+
+function buildPostPromotionResult(actionsTaken) {
+  const mergeBlocked = actionsTaken.some(isBlockedMerge);
+  const preservationFailed = actionsTaken.some(isFailedPreservation);
+  const result = { success: !mergeBlocked && !preservationFailed, actionsTaken };
+  if (!mergeBlocked && !preservationFailed) return result;
+  return { ...result, error: selectPostPromotionError(mergeBlocked) };
+}
+
 async function applyPostPromotionPolicies(db, contract = {}, executionContext = {}) {
   const policy = contract.promotion || {};
-  const actionsTaken = [];
-
-  // 4. preserve_rejected_branches
-  if (policy.preserve_rejected_branches && Array.isArray(executionContext.rejectedBranchIds) && executionContext.rejectedBranchIds.length) {
-    for (const branchId of executionContext.rejectedBranchIds) {
-      try {
-        await db.run(
-          "INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES (?, 'BRANCH_PRESERVED', 'PRESERVE', ?, ?)",
-          executionContext.agentId || 'system',
-          `Preserved rejected branch ${branchId} per contract promotion policy.`,
-          JSON.stringify({ branchId, reason: 'contract_promotion_policy', preserved: true })
-        );
-        actionsTaken.push({ action: 'preserve_branch', branchId });
-      } catch (error) {
-        actionsTaken.push({ action: 'preserve_branch', branchId, preserved: false, error: error.message });
-      }
-    }
-  }
-
-  // 5. merge_workspace_automatically
-  if (policy.merge_workspace_automatically && executionContext.winnerWorkspaceRoot && executionContext.targetWorkspaceRoot) {
-    try {
-      const merge = await mergeWorkspaces(
-        executionContext.winnerWorkspaceRoot,
-        executionContext.targetWorkspaceRoot,
-        executionContext.causalBaseWorkspaceRoot
-      );
-      actionsTaken.push({
-        action: 'auto_merge_workspace',
-        winner: executionContext.winnerWorkspaceRoot,
-        target: executionContext.targetWorkspaceRoot,
-        ...merge
-      });
-    } catch (error) {
-      actionsTaken.push({
-        action: 'auto_merge_workspace',
-        winner: executionContext.winnerWorkspaceRoot,
-        target: executionContext.targetWorkspaceRoot,
-        merged: false,
-        status: 'failed',
-        error: error.message
-      });
-    }
-  }
-
-  const mergeBlocked = actionsTaken.some((action) => action.action === 'auto_merge_workspace' && action.merged === false);
-  const preservationFailed = actionsTaken.some((action) => action.action === 'preserve_branch' && action.preserved === false);
-  return {
-    success: !mergeBlocked && !preservationFailed,
-    actionsTaken,
-    ...((mergeBlocked || preservationFailed) ? {
-      error: mergeBlocked
-        ? 'Automatic workspace merge failed or has unresolved conflicts.'
-        : 'One or more rejected branches could not be preserved.'
-    } : {})
-  };
+  const preserved = await preserveRejectedBranches(db, policy, executionContext);
+  const merged = await applyAutomaticWorkspaceMerge(policy, executionContext);
+  return buildPostPromotionResult([...preserved, ...merged]);
 }
 
 module.exports = {

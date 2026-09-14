@@ -20,241 +20,323 @@ function decodeEmbeddingBlob(blob) {
   return [];
 }
 
-async function fetchCorpus(db, query, queryVec, options = {}) {
-  if (!db) return [];
+function defaultOptions(value) {
+  return value === undefined ? {} : value;
+}
+
+function buildScope(options) {
   const ownerId = String(options.ownerId || '').trim();
   const orgId = String(options.organizationId || '').trim();
   const projectId = String(options.projectId || '').trim();
-  const orgFilter = orgId ? ' AND (t.organization_id = ? OR t.organization_id IS NULL)' : '';
-  const projectFilter = projectId ? ' AND (t.project_id = ? OR t.project_id IS NULL)' : '';
-  const ownerFilter = ownerId ? ' AND t.created_by = ?' : '';
-  const validVec = Array.isArray(queryVec) && queryVec.length === 768 ? queryVec : null;
-  const queryVecJson = validVec ? JSON.stringify(Array.from(validVec)) : null;
+  return { ownerId, orgId, projectId };
+}
+
+function tokenizeQuery(query) {
   const cleanQuery = query.replace(/[^\p{L}\p{N}\s]/gu, ' ').trim();
-  const rawTokens = cleanQuery.split(/\s+/).filter(w => w.length > 0);
-  const tokens = rawTokens.length > 1
-    ? rawTokens.filter(w => w.length > 1 || /\d/.test(w))
-    : rawTokens;
-  const ftsMatch = tokens.length > 0
-    ? tokens.map(w => `"${w.replace(/"/g, '""')}"`).join(' OR ')
-    : null;
+  const rawTokens = cleanQuery.split(/\s+/).filter(w => {
+    return w.length > 0;
+  });
+  if (rawTokens.length <= 1) return rawTokens;
+  return rawTokens.filter(w => {
+    return w.length > 1 || /\d/.test(w);
+  });
+}
 
-  // 1. Decoupled Vector Matches
-  const trajVectorMap = new Map();
-  const decVectorMap = new Map();
-  if (queryVecJson) {
-    try {
-      const vRows = await db.all(
-        `SELECT rowid, distance FROM trajectories_vec WHERE embedding MATCH ? AND k = 1000`,
-        [queryVecJson]
-      );
-      vRows.forEach((r, idx) => {
-        trajVectorMap.set(r.rowid, { distance: r.distance, rank: idx + 1 });
-      });
-    } catch (err) {
-      console.warn('[VectorMemory] trajectories_vec query failed:', err.message);
-    }
+function buildFtsMatch(tokens) {
+  if (tokens.length === 0) return null;
+  return tokens.map(w => {
+    return `"${w.replace(/"/g, '""')}"`;
+  }).join(' OR ');
+}
 
-    try {
-      const vRows = await db.all(
-        `SELECT rowid, distance FROM genome_decisions_vec WHERE embedding MATCH ? AND k = 1000`,
-        [queryVecJson]
-      );
-      vRows.forEach((r, idx) => {
-        decVectorMap.set(r.rowid, { distance: r.distance, rank: idx + 1 });
-      });
-    } catch (err) {
-      console.warn('[VectorMemory] genome_decisions_vec query failed:', err.message);
-    }
-  }
-
-  // 2. Decoupled FTS5 Matches
-  const trajFtsMap = new Map();
-  const decFtsMap = new Map();
-  if (ftsMatch) {
-    try {
-      const fRows = await db.all(
-        `SELECT rowid, -bm25(trajectories_fts) as f_score 
-         FROM trajectories_fts WHERE trajectories_fts MATCH ? 
-         ORDER BY f_score DESC LIMIT 1000`,
-        [ftsMatch]
-      );
-      fRows.forEach((r, idx) => {
-        trajFtsMap.set(r.rowid, { f_score: r.f_score, rank: idx + 1 });
-      });
-    } catch (err) {
-      console.warn('[VectorMemory] trajectories_fts query failed:', err.message);
-    }
-
-    try {
-      const fRows = await db.all(
-        `SELECT rowid, -bm25(genome_decisions_fts) as f_score 
-         FROM genome_decisions_fts WHERE genome_decisions_fts MATCH ? 
-         ORDER BY f_score DESC LIMIT 1000`,
-        [ftsMatch]
-      );
-      fRows.forEach((r, idx) => {
-        decFtsMap.set(r.rowid, { f_score: r.f_score, rank: idx + 1 });
-      });
-    } catch (err) {
-      console.warn('[VectorMemory] genome_decisions_fts query failed:', err.message);
-    }
-  }
-
-  // 3. Hydrate matching rows and compute RRF
-  const trajRowIds = Array.from(new Set([...trajVectorMap.keys(), ...trajFtsMap.keys()]));
-  const decRowIds = Array.from(new Set([...decVectorMap.keys(), ...decFtsMap.keys()]));
-  const items = [];
-
-  if (trajRowIds.length > 0) {
-    try {
-      const placeholders = trajRowIds.map(() => '?').join(',');
-      const queryParams = [...trajRowIds];
-      let sql = `SELECT rowid, id, title, status, author_name, semantic_summary, diff_lines, created_at, embedding_blob 
-                 FROM trajectories t WHERE rowid IN (${placeholders})`;
-      if (ownerId) {
-        sql += ' AND t.author_id = ?';
-        queryParams.push(ownerId);
-      }
-      if (orgId) {
-        sql += ' AND (t.workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?' + (projectId ? ' AND project_id = ?' : '') + ') OR t.workspace_id IS NULL)';
-        queryParams.push(orgId);
-        if (projectId) queryParams.push(projectId);
-      }
-      const rows = await db.all(sql, queryParams);
-      for (const item of rows) {
-        const v = trajVectorMap.get(item.rowid);
-        const f = trajFtsMap.get(item.rowid);
-        const vRankScore = v ? 1.0 / (60 + v.rank) : 0.0;
-        const fRankScore = f ? 1.0 / (60 + f.rank) : 0.0;
-        let diffLines = [];
-        try { diffLines = JSON.parse(item.diff_lines || '[]'); } catch {}
-        items.push({
-          id: item.id,
-          title: item.title,
-          category: 'Trajectory',
-          status: item.status === 'rejected' ? 'FAILURE' : 'SUCCESS',
-          summary: item.semantic_summary || diffLines.map(l => l.content || l.text || l).join(' '),
-          tags: ['trajectory', item.status],
-          author: item.author_name,
-          createdAt: item.created_at,
-          vector: decodeEmbeddingBlob(item.embedding_blob),
-          distance: v ? v.distance : null,
-          f_score: f ? f.f_score : null,
-          rrf_score: vRankScore + fRankScore
-        });
-      }
-    } catch (err) {
-      console.warn('[VectorMemory] Failed to hydrate trajectory rows:', err.message);
-    }
-  }
-
-  if (decRowIds.length > 0) {
-    try {
-      const placeholders = decRowIds.map(() => '?').join(',');
-      const queryParams = [...decRowIds];
-      let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob 
-                 FROM genome_decisions t WHERE rowid IN (${placeholders})`;
-      if (ownerId) { sql += ' AND t.created_by = ?'; queryParams.push(ownerId); }
-      if (orgId) { sql += orgFilter; queryParams.push(orgId); }
-      if (projectId) { sql += projectFilter; queryParams.push(projectId); }
-      const rows = await db.all(sql, queryParams);
-      for (const item of rows) {
-        const v = decVectorMap.get(item.rowid);
-        const f = decFtsMap.get(item.rowid);
-        const vRankScore = v ? 1.0 / (60 + v.rank) : 0.0;
-        const fRankScore = f ? 1.0 / (60 + f.rank) : 0.0;
-          const synapticMultiplier = Math.max(0.1, Math.min(5.0, Number(item.synaptic_weight || 1.0)));
-          items.push({
-            id: item.id,
-            title: item.title,
-            category: item.category,
-            status: item.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
-            summary: item.content,
-            tags: ['genome', item.category],
-            author: item.created_by,
-            createdAt: item.created_at,
-            synaptic_weight: item.synaptic_weight,
-            vector: decodeEmbeddingBlob(item.embedding_blob),
-            distance: v ? v.distance : null,
-            f_score: f ? f.f_score : null,
-            rrf_score: (vRankScore + fRankScore) * (0.5 + 0.5 * synapticMultiplier)
-          });
-      }
-    } catch (err) {
-      console.warn('[VectorMemory] Failed to hydrate decision rows:', err.message);
-    }
-  }
-
-  if (items.length > 0) {
-    items.sort((a, b) => (b.rrf_score || 0) - (a.rrf_score || 0));
-    return items.slice(0, 50);
-  }
-
-  // Fallback: standard SQL table scan
+function parseDiffLines(raw) {
   try {
-    const trajConditions = [];
-    const trajParams = [];
-    if (ownerId) {
-      trajConditions.push('author_id = ?');
-      trajParams.push(ownerId);
-    }
-    if (orgId) {
-      trajConditions.push('(workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?' + (projectId ? ' AND project_id = ?' : '') + ') OR workspace_id IS NULL)');
-      trajParams.push(orgId);
-      if (projectId) trajParams.push(projectId);
-    }
-    const trajWhere = trajConditions.length > 0 ? ` WHERE ${trajConditions.join(' AND ')}` : '';
-    const trajectories = await db.all(`SELECT id, title, status, author_name, semantic_summary, diff_lines, created_at, embedding_blob FROM trajectories${trajWhere} ORDER BY created_at DESC LIMIT 50`, trajParams);
+    return JSON.parse(raw || '[]');
+  } catch {
+    return [];
+  }
+}
 
-    const decConditions = [];
-    const decParams = [];
-    if (ownerId) {
-      decConditions.push('created_by = ?');
-      decParams.push(ownerId);
-    }
-    if (orgId) {
-      decConditions.push('(organization_id = ? OR organization_id IS NULL)');
-      decParams.push(orgId);
-    }
-    if (projectId) {
-      decConditions.push('(project_id = ? OR project_id IS NULL)');
-      decParams.push(projectId);
-    }
-    const decWhere = decConditions.length > 0 ? ` WHERE ${decConditions.join(' AND ')}` : '';
-    const decisions = await db.all(`SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions${decWhere} ORDER BY created_at DESC LIMIT 50`, decParams);
+function diffSummary(diffLines) {
+  return diffLines.map(l => {
+    return l.content || l.text || l;
+  }).join(' ');
+}
+
+function reciprocalRank(entry) {
+  return entry ? 1.0 / (60 + entry.rank) : 0.0;
+}
+
+function clampSynaptic(weight) {
+  return Math.max(0.1, Math.min(5.0, Number(weight || 1.0)));
+}
+
+function collectRowIds(vectorMap, ftsMap) {
+  return Array.from(new Set([...vectorMap.keys(), ...ftsMap.keys()]));
+}
+
+async function fetchVectorMap(db, table, queryVecJson) {
+  const map = new Map();
+  if (!queryVecJson) return map;
+  try {
+    const rows = await db.all(
+      `SELECT rowid, distance FROM ${table} WHERE embedding MATCH ? AND k = 1000`,
+      [queryVecJson]
+    );
+    rows.forEach((r, idx) => {
+      map.set(r.rowid, { distance: r.distance, rank: idx + 1 });
+    });
+  } catch (err) {
+    console.warn(`[VectorMemory] ${table} query failed:`, err.message);
+  }
+  return map;
+}
+
+async function fetchFtsMap(db, table, ftsMatch) {
+  const map = new Map();
+  if (!ftsMatch) return map;
+  try {
+    const rows = await db.all(
+      `SELECT rowid, -bm25(${table}) as f_score 
+         FROM ${table} WHERE ${table} MATCH ? 
+         ORDER BY f_score DESC LIMIT 1000`,
+      [ftsMatch]
+    );
+    rows.forEach((r, idx) => {
+      map.set(r.rowid, { f_score: r.f_score, rank: idx + 1 });
+    });
+  } catch (err) {
+    console.warn(`[VectorMemory] ${table} query failed:`, err.message);
+  }
+  return map;
+}
+
+function trajectoryHydrateQuery(rowIds, scope) {
+  const placeholders = rowIds.map(() => {
+    return '?';
+  }).join(',');
+  const params = [...rowIds];
+  let sql = `SELECT rowid, id, title, status, author_name, semantic_summary, diff_lines, created_at, embedding_blob 
+                 FROM trajectories t WHERE rowid IN (${placeholders})`;
+  if (scope.ownerId) {
+    sql += ' AND t.author_id = ?';
+    params.push(scope.ownerId);
+  }
+  if (scope.orgId) {
+    sql += ' AND (t.workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?' + (scope.projectId ? ' AND project_id = ?' : '') + ') OR t.workspace_id IS NULL)';
+    params.push(scope.orgId);
+    if (scope.projectId) params.push(scope.projectId);
+  }
+  return { sql, params };
+}
+
+function decisionHydrateQuery(rowIds, scope) {
+  const placeholders = rowIds.map(() => {
+    return '?';
+  }).join(',');
+  const params = [...rowIds];
+  let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob 
+                 FROM genome_decisions t WHERE rowid IN (${placeholders})`;
+  if (scope.ownerId) {
+    sql += ' AND t.created_by = ?';
+    params.push(scope.ownerId);
+  }
+  if (scope.orgId) {
+    sql += ' AND (t.organization_id = ? OR t.organization_id IS NULL)';
+    params.push(scope.orgId);
+  }
+  if (scope.projectId) {
+    sql += ' AND (t.project_id = ? OR t.project_id IS NULL)';
+    params.push(scope.projectId);
+  }
+  return { sql, params };
+}
+
+function buildTrajectoryItem(item, ctx) {
+  const vector = ctx.trajVectorMap.get(item.rowid);
+  const fts = ctx.trajFtsMap.get(item.rowid);
+  return {
+    id: item.id,
+    title: item.title,
+    category: 'Trajectory',
+    status: item.status === 'rejected' ? 'FAILURE' : 'SUCCESS',
+    summary: item.semantic_summary || diffSummary(parseDiffLines(item.diff_lines)),
+    tags: ['trajectory', item.status],
+    author: item.author_name,
+    createdAt: item.created_at,
+    vector: decodeEmbeddingBlob(item.embedding_blob),
+    distance: vector ? vector.distance : null,
+    f_score: fts ? fts.f_score : null,
+    rrf_score: reciprocalRank(vector) + reciprocalRank(fts)
+  };
+}
+
+function buildDecisionItem(item, ctx) {
+  const vector = ctx.decVectorMap.get(item.rowid);
+  const fts = ctx.decFtsMap.get(item.rowid);
+  const synapticMultiplier = clampSynaptic(item.synaptic_weight);
+  return {
+    id: item.id,
+    title: item.title,
+    category: item.category,
+    status: item.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
+    summary: item.content,
+    tags: ['genome', item.category],
+    author: item.created_by,
+    createdAt: item.created_at,
+    synaptic_weight: item.synaptic_weight,
+    vector: decodeEmbeddingBlob(item.embedding_blob),
+    distance: vector ? vector.distance : null,
+    f_score: fts ? fts.f_score : null,
+    rrf_score: (reciprocalRank(vector) + reciprocalRank(fts)) * (0.5 + 0.5 * synapticMultiplier)
+  };
+}
+
+async function hydrateTrajectories(db, rowIds, ctx) {
+  if (rowIds.length === 0) return [];
+  try {
+    const query = trajectoryHydrateQuery(rowIds, ctx.scope);
+    const rows = await db.all(query.sql, query.params);
+    return rows.map(item => {
+      return buildTrajectoryItem(item, ctx);
+    });
+  } catch (err) {
+    console.warn('[VectorMemory] Failed to hydrate trajectory rows:', err.message);
+    return [];
+  }
+}
+
+async function hydrateDecisions(db, rowIds, ctx) {
+  if (rowIds.length === 0) return [];
+  try {
+    const query = decisionHydrateQuery(rowIds, ctx.scope);
+    const rows = await db.all(query.sql, query.params);
+    return rows.map(item => {
+      return buildDecisionItem(item, ctx);
+    });
+  } catch (err) {
+    console.warn('[VectorMemory] Failed to hydrate decision rows:', err.message);
+    return [];
+  }
+}
+
+function trajectoryFallbackOrg(projectId) {
+  const inner = projectId ? ' AND project_id = ?' : '';
+  return '(workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?' + inner + ') OR workspace_id IS NULL)';
+}
+
+function trajectoryFallbackQuery(scope) {
+  const conditions = [];
+  const params = [];
+  if (scope.ownerId) {
+    conditions.push('author_id = ?');
+    params.push(scope.ownerId);
+  }
+  if (scope.orgId) {
+    conditions.push(trajectoryFallbackOrg(scope.projectId));
+    params.push(scope.orgId);
+    if (scope.projectId) params.push(scope.projectId);
+  }
+  const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
+  const sql = `SELECT id, title, status, author_name, semantic_summary, diff_lines, created_at, embedding_blob FROM trajectories${where} ORDER BY created_at DESC LIMIT 50`;
+  return { sql, params };
+}
+
+function decisionFallbackQuery(scope) {
+  const conditions = [];
+  const params = [];
+  if (scope.ownerId) {
+    conditions.push('created_by = ?');
+    params.push(scope.ownerId);
+  }
+  if (scope.orgId) {
+    conditions.push('(organization_id = ? OR organization_id IS NULL)');
+    params.push(scope.orgId);
+  }
+  if (scope.projectId) {
+    conditions.push('(project_id = ? OR project_id IS NULL)');
+    params.push(scope.projectId);
+  }
+  const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
+  const sql = `SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions${where} ORDER BY created_at DESC LIMIT 50`;
+  return { sql, params };
+}
+
+function buildFallbackTrajectoryItem(item) {
+  return {
+    id: item.id,
+    title: item.title,
+    category: 'Trajectory',
+    status: item.status === 'rejected' ? 'FAILURE' : 'SUCCESS',
+    summary: item.semantic_summary || diffSummary(parseDiffLines(item.diff_lines)),
+    tags: ['trajectory', item.status],
+    author: item.author_name,
+    createdAt: item.created_at,
+    vector: decodeEmbeddingBlob(item.embedding_blob)
+  };
+}
+
+function buildFallbackDecisionItem(item) {
+  return {
+    id: item.id,
+    title: item.title,
+    category: item.category,
+    status: item.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
+    summary: item.content,
+    tags: ['genome', item.category],
+    author: item.created_by,
+    createdAt: item.created_at,
+    synaptic_weight: item.synaptic_weight,
+    vector: decodeEmbeddingBlob(item.embedding_blob)
+  };
+}
+
+async function fetchFallbackCorpus(db, scope) {
+  try {
+    const trajectoryQuery = trajectoryFallbackQuery(scope);
+    const decisionQuery = decisionFallbackQuery(scope);
+    const trajectories = await db.all(trajectoryQuery.sql, trajectoryQuery.params);
+    const decisions = await db.all(decisionQuery.sql, decisionQuery.params);
     return [
       ...trajectories.map(item => {
-        let diffLines = [];
-        try { diffLines = JSON.parse(item.diff_lines || '[]'); } catch {}
-        return {
-          id: item.id,
-          title: item.title,
-          category: 'Trajectory',
-          status: item.status === 'rejected' ? 'FAILURE' : 'SUCCESS',
-          summary: item.semantic_summary || diffLines.map(l => l.content || l.text || l).join(' '),
-          tags: ['trajectory', item.status],
-          author: item.author_name,
-          createdAt: item.created_at,
-          vector: decodeEmbeddingBlob(item.embedding_blob)
-        };
+        return buildFallbackTrajectoryItem(item);
       }),
-      ...decisions.map(item => ({
-        id: item.id,
-        title: item.title,
-        category: item.category,
-        status: item.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
-        summary: item.content,
-        tags: ['genome', item.category],
-        author: item.created_by,
-        createdAt: item.created_at,
-        synaptic_weight: item.synaptic_weight,
-        vector: decodeEmbeddingBlob(item.embedding_blob)
-      }))
+      ...decisions.map(item => {
+        return buildFallbackDecisionItem(item);
+      })
     ];
   } catch {
     return [];
   }
+}
+
+async function fetchCorpus(db, query, queryVec) {
+  const options = defaultOptions(arguments[3]);
+  if (!db) return [];
+  const scope = buildScope(options);
+  const validVec = Array.isArray(queryVec) && queryVec.length === 768 ? queryVec : null;
+  const queryVecJson = validVec ? JSON.stringify(Array.from(validVec)) : null;
+  const tokens = tokenizeQuery(query);
+  const ftsMatch = buildFtsMatch(tokens);
+  const ctx = {
+    scope,
+    trajVectorMap: await fetchVectorMap(db, 'trajectories_vec', queryVecJson),
+    decVectorMap: await fetchVectorMap(db, 'genome_decisions_vec', queryVecJson),
+    trajFtsMap: await fetchFtsMap(db, 'trajectories_fts', ftsMatch),
+    decFtsMap: await fetchFtsMap(db, 'genome_decisions_fts', ftsMatch)
+  };
+  const trajRowIds = collectRowIds(ctx.trajVectorMap, ctx.trajFtsMap);
+  const decRowIds = collectRowIds(ctx.decVectorMap, ctx.decFtsMap);
+  const trajItems = await hydrateTrajectories(db, trajRowIds, ctx);
+  const decItems = await hydrateDecisions(db, decRowIds, ctx);
+  const items = [...trajItems, ...decItems];
+  if (items.length > 0) {
+    items.sort((a, b) => {
+      return (b.rrf_score || 0) - (a.rrf_score || 0);
+    });
+    return items.slice(0, 50);
+  }
+  return fetchFallbackCorpus(db, scope);
 }
 
 module.exports = {
