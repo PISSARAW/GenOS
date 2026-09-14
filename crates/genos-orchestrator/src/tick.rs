@@ -195,7 +195,8 @@ impl GenosEcosystem {
                 }
             }
             Concept::Glia => {
-                self.record_event("GLIA", json!({}));
+                let note = self.glial_pass();
+                self.record_event("GLIA", json!({ "note": note }));
             }
             Concept::Signaling => {
                 let ligand = SignalingCascade::ligand("ATP", SignalingMode::Paracrine, 1.0);
@@ -248,7 +249,11 @@ impl GenosEcosystem {
                 }
             }
             Concept::Feign => {
-                self.record_event("FEIGN", json!({}));
+                let note = match self.first_dna_agent() {
+                    Some(id) => self.feign(id),
+                    None => "aucun ADN : feinte ignoree".to_string(),
+                };
+                self.record_event("FEIGN", json!({ "note": note }));
             }
             Concept::Kill => {
                 if let Some((id, _)) = self
@@ -267,7 +272,8 @@ impl GenosEcosystem {
                 }
             }
             Concept::Communicate => {
-                self.record_event("HUMAN_ESCALATION", json!({}));
+                let answer = self.communicate("Ping");
+                self.record_event("HUMAN", json!({ "answer": answer }));
             }
         }
     }

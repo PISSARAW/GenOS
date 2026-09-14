@@ -1,4 +1,5 @@
 pub mod conscience;
+pub mod behaviors;
 pub mod diagnostics;
 pub mod director;
 pub mod dna_ops;
