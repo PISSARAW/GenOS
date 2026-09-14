@@ -1,0 +1,40 @@
+function applyTraitBonusesOne(state, traits, profile) {
+  if (traits.has('information_gain')) state.score += profile.uncertainty * 24;
+  if (traits.has('deep_search')) state.score += profile.complexity * 18;
+  if (traits.has('safety')) state.score += profile.risk === 'high' ? 24 : 7;
+  if (traits.has('reproducible') && profile.requires_reproducibility) state.score += 17;
+}
+
+function applyTraitBonusesTwo(state, traits, profile) {
+  if (traits.has('temporal') && profile.temporal_dependency) state.score += 15;
+  if (traits.has('multi_objective') && profile.objectives_conflict) state.score += 18;
+  if (traits.has('verification') && profile.evaluability === 'deterministic_tests') state.score += 13;
+  if (traits.has('low_cost')) state.score += 6;
+  if (traits.has('human_gate') && profile.risk === 'high') state.score += 11;
+}
+
+function applyTraitBonusesThree(state, traits, profile) {
+  if (traits.has('deterministic') && profile.requires_reproducibility) state.score += 12;
+  if (traits.has('low_latency') && profile.complexity < 0.6) state.score += 10;
+  if (traits.has('causal') && profile.temporal_dependency) state.score += 12;
+  if (traits.has('parallel') && profile.complexity >= 0.7) state.score += 10;
+}
+
+function applyTraitBonusesFour(state, traits, profile) {
+  if (traits.has('high_compute') && profile.complexity >= 0.7) state.score += 9;
+  if (traits.has('diversity') && profile.uncertainty >= 0.7) state.score += 9;
+  if (traits.has('specialization') && profile.type !== 'implementation') state.score += 7;
+  if (traits.has('adaptive') && profile.uncertainty >= 0.7) state.score += 8;
+}
+
+function applyTraitBonusesFive(state, traits, profile) {
+  if (traits.has('mutation') && profile.objectives_conflict) state.score += 5;
+}
+
+module.exports = {
+  applyTraitBonusesOne,
+  applyTraitBonusesTwo,
+  applyTraitBonusesThree,
+  applyTraitBonusesFour,
+  applyTraitBonusesFive
+};
