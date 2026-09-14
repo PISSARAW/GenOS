@@ -845,6 +845,15 @@ tournoi, reproduction (croisement uniforme + mutation), **archive de nouveauté*
 (métapopulation). Déterministe à graine égale. Voir
 `examples/mission_evolution.rs`.
 
+### 19.bis.13 Autopoïèse, self-model, auto-réparation (Phase 6)
+
+Le système maintient sa **frontière** (`Membrane`) : elle se dégrade selon le
+temps réel et se régénère en consommant de l'ATP. Il produit un **modèle de soi**
+(`SelfModel` : identité, composants, intégrité, ATP…) et se **répare** seul
+(`self_repair` : membrane + ADN manquants) sans intervention externe. `tick`
+dégrade la membrane et **s'arrête** (« organisme mort ») si elle est rompue. Voir
+`examples/mission_autopoiesis.rs`.
+
 ---
 
 ## 20. Conclusion

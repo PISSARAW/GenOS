@@ -196,6 +196,25 @@ let best = pop.best().unwrap();
 `Population`/`Individual`/`Island`/`EvolutionReport` (`src/evolution.rs`),
 déterministe à graine égale. Voir `examples/mission_evolution.rs`.
 
+### Autopoïèse, self-model, auto-réparation (Phase 6)
+
+Le système maintient sa **frontière** (`Membrane`) : elle se dégrade avec le
+temps réel et se **régénère** en consommant de l'ATP. Il produit un **modèle de
+soi** et se **répare** seul (membrane, ADN manquant). Membrane rompue ⇒ **mort**.
+
+```rust
+let mut eco = GenosEcosystem::new("Overmind");
+eco.orchestrator.membrane.degrade_per_sec = 1.0;   // usure reelle
+std::thread::sleep(std::time::Duration::from_millis(150));
+let self_ = eco.self_model();                      // identite, integrite, ATP...
+let repair = eco.self_repair();                    // membrane + ADN restaures
+assert!(repair.integrity_after > repair.integrity_before);
+```
+
+`Membrane`, `SelfModel`, `SelfRepairReport` (`src/autopoiesis.rs`) ; `tick`
+dégrade la membrane et s'arrête (« organisme mort ») si elle est rompue. Voir
+`examples/mission_autopoiesis.rs`.
+
 ## Organisations et mondes
 
 ```rust
@@ -310,6 +329,7 @@ use genos_orchestrator::api::{RateLimiter, TenantAuth, ChatMessage};
 | `metabolism` | Métabolisme réel (`Metabolism` : ATP, famine, `feed`) |
 | `learning` | Apprentissage (`Learner`, `LinearBandit` contextuel, crédit) |
 | `evolution` | Évolution ouverte (`Population` multi‑îlots, nouveauté, migration) |
+| `autopoiesis` | Frontière auto‑entretenue, self‑model, auto‑réparation, mort |
 | `neuro`, `virology`, `signaling`, `sensory`, `phylogeny`, `immune_cyber`, `snapshots`, `sensorimotor`, `thalamus` | Accès aux domaines |
 | `token_bucket` | Ordonnanceur de calcul (quotas, famine, apoptose) |
 
@@ -322,6 +342,7 @@ cargo run -p genos-orchestrator --example mission_autonomous  # buts endogènes 
 cargo run -p genos-orchestrator --example mission_metabolism  # famine / régénération / feed
 cargo run -p genos-orchestrator --example mission_learning    # bandit contextuel / transfert
 cargo run -p genos-orchestrator --example mission_evolution   # évolution ouverte (population)
+cargo run -p genos-orchestrator --example mission_autopoiesis # frontière / self-model / réparation
 cargo run -p genos-orchestrator --example mission_e2e         # bout en bout (feinte/glie/thalamus)
 cargo run -p genos-orchestrator --example mission_trinity     # mondes parallèles
 cargo run -p genos-orchestrator --example mission_recruit_planner # recrutement autonome
