@@ -4,7 +4,7 @@
 //! construit un `StimulusField` à partir de l'état observé, module le seuil par
 //! l'état hormonal dérivé, puis déclenche et exécute les `InstinctProgram`
 //! enregistrés dont la saillance franchit le seuil. Les activations non
-//! triviales sont journalisées comme événements `INSTINCT`. Voir docs/INSTINCT.md.
+//! triviales sont journalisées comme événements `INSTINCT`. Voir docs/01-concepts/instinct.md.
 
 use crate::GenosEcosystem;
 use crate::planner::WorldState;

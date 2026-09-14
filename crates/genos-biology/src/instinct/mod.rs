@@ -5,7 +5,7 @@
 //! s'exécute par une voie rapide `Stimulus -> IRM -> PAF` sans délibération du
 //! modèle de langage. Il ne crée ni ne modifie de liaison synaptique : les
 //! hormones ne font que déplacer son seuil et son gain. Voir
-//! `docs/INSTINCT.md` et `docs/adr/0004-instinct-innate-circuits.md`.
+//! `docs/01-concepts/instinct.md` et `docs/adr/0004-instinct-innate-circuits.md`.
 
 pub mod innate_releasing;
 pub mod paf;

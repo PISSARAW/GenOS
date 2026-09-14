@@ -1,7 +1,7 @@
 /**
  * L'orchestrateur peut-il fossiliser, lister les strates, excaver et décoder
  * à sa discrétion ? Vérifie le dispatch réel des primitives de stratégie
- * (cf. docs/FOSSILISATION.md, ADR 0003).
+ * (cf. docs/01-concepts/fossilisation.md, ADR 0003).
  */
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'orchestrator-fossilization-test';
 process.env.GENOS_FOSSIL_ARTIFACT = '0';

@@ -9,7 +9,7 @@ use uuid::Uuid;
 pub const DEFAULT_HAYFLICK_LIMIT: u32 = 5;
 
 /// Préfixe réservé aux loci de comportements innés (instincts), verrouillés au
-/// développement et exemptés de mutation stochastique. Voir docs/INSTINCT.md.
+/// développement et exemptés de mutation stochastique. Voir docs/01-concepts/instinct.md.
 pub const INSTINCT_LOCUS_PREFIX: &str = "LOCUS_INSTINCT_";
 
 fn default_hayflick_limit() -> u32 {

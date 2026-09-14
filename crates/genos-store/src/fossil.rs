@@ -2,7 +2,7 @@
 //! d'une lignée d'agent. Le fossile est une **preuve**, pas une sauvegarde :
 //! il s'excave en lecture seule et n'est jamais ressuscitable.
 //!
-//! Voir [docs/FOSSILISATION.md] et [docs/adr/0003-fossilization-stratigraphic-archive.md].
+//! Voir [docs/01-concepts/fossilisation.md] et [docs/adr/0003-fossilization-stratigraphic-archive.md].
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};

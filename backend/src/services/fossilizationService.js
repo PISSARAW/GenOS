@@ -2,7 +2,7 @@
  * GenOS Fossilisation stratigraphique
  * Archive terminale, immuable et irréversible d'une lignée d'agent.
  * Un fossile est une preuve : il s'excave en lecture seule et n'est jamais
- * ressuscitable (cf. docs/FOSSILISATION.md et ADR 0003).
+ * ressuscitable (cf. docs/01-concepts/fossilisation.md et ADR 0003).
  */
 const crypto = require('crypto');
 const fs = require('fs');

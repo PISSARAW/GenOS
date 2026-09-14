@@ -1,6 +1,6 @@
 /**
  * Fossilisation stratigraphique : taphonomie, intégrité minérale, strates et
- * excavation en lecture seule (cf. docs/FOSSILISATION.md, ADR 0003).
+ * excavation en lecture seule (cf. docs/01-concepts/fossilisation.md, ADR 0003).
  */
 const assert = require('assert');
 const path = require('path');

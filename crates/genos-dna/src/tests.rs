@@ -9,7 +9,7 @@ fn sample_manifest() -> Manifest {
         "kind": "AgentGenome",
         "metadata": { "name": "EvidenceLedger", "version": "0.1.0" },
         "identity": { "role": "historian", "name": "EvidenceLedger", "name_meaning": "Preuve avant decision" },
-        "objectives": { "primary": "Convertir les sorties en claims/evidence", "source_doc": "docs/EPISTEMOLOGIE_EVIDENCE.md" },
+        "objectives": { "primary": "Convertir les sorties en claims/evidence", "source_doc": "docs/01-concepts/epistemologie-et-evidence.md" },
         "capabilities": ["enregistrer les rapports", "scorer l evidence"],
         "tool_policy": { "allowed_tools": ["genos_inspect", "genos_evidence_check"] }
     }"#;
@@ -22,7 +22,7 @@ fn second_manifest() -> Manifest {
         "kind": "AgentGenome",
         "metadata": { "name": "SecurityAuditor", "version": "0.1.0" },
         "identity": { "role": "security", "name": "SecurityAuditor", "name_meaning": "Falsification adverse" },
-        "objectives": { "primary": "Attaquer les hypotheses", "source_doc": "docs/SECURITE.md" },
+        "objectives": { "primary": "Attaquer les hypotheses", "source_doc": "docs/05-securite-gouvernance/securite.md" },
         "capabilities": ["analyse adversariale"],
         "tool_policy": { "allowed_tools": ["genos_inspect", "genos_ais_prr_scan"] }
     }"#;
