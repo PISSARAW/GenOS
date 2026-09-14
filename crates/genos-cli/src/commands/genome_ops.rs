@@ -61,6 +61,24 @@ pub struct SignRequest<'a> {
     pub write: WriteOptions,
 }
 
+pub struct GraftRequest<'a> {
+    pub input: &'a str,
+    pub output: &'a str,
+    pub locus: String,
+    pub instruction: String,
+    pub plasmid: bool,
+    pub write: WriteOptions,
+}
+
+pub struct SpeciateRequest<'a> {
+    pub input: &'a str,
+    pub output: &'a str,
+    pub name: String,
+    pub concept: Option<String>,
+    pub grafts: Vec<String>,
+    pub write: WriteOptions,
+}
+
 pub fn handle_keygen(req: KeygenRequest) -> Result<(), String> {
     let signing = genos_dna::sign::generate_signing_key();
     let secret = genos_dna::sign::secret_key_hex(&signing);
@@ -152,6 +170,43 @@ pub fn handle_decoy(req: DecoyRequest) -> Result<(), String> {
     };
     let decoy = operations::decoy(&dna, &options)?;
     persist(&PersistSpec { op: "genome_decoy", output: req.output, write: req.write }, &decoy)
+}
+
+pub fn handle_graft(req: GraftRequest) -> Result<(), String> {
+    let dna = read_dna(req.input)?;
+    let spec = operations::GraftSpec {
+        locus: req.locus,
+        instruction: req.instruction,
+        plasmid: req.plasmid,
+    };
+    let grafted = operations::graft(&dna, &spec)?;
+    persist(&PersistSpec { op: "genome_graft", output: req.output, write: req.write }, &grafted)
+}
+
+pub fn handle_speciate(req: SpeciateRequest) -> Result<(), String> {
+    let dna = read_dna(req.input)?;
+    let options = operations::SpeciateOptions {
+        name: req.name,
+        concept: req.concept,
+        grafts: parse_grafts(&req.grafts)?,
+    };
+    let child = operations::speciate(&dna, &options)?;
+    persist(&PersistSpec { op: "genome_speciate", output: req.output, write: req.write }, &child)
+}
+
+fn parse_grafts(entries: &[String]) -> Result<Vec<operations::GraftSpec>, String> {
+    let mut specs = Vec::new();
+    for entry in entries {
+        let (locus, instruction) = entry
+            .split_once('=')
+            .ok_or_else(|| format!("graft must be LOCUS=INSTRUCTION, got '{entry}'"))?;
+        specs.push(operations::GraftSpec {
+            locus: locus.to_string(),
+            instruction: instruction.to_string(),
+            plasmid: false,
+        });
+    }
+    Ok(specs)
 }
 
 fn read_dna(path: &str) -> Result<AgentDna, String> {

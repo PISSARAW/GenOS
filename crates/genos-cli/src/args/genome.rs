@@ -127,4 +127,38 @@ pub enum GenomeSubcommands {
         #[arg(long, default_value_t = false)]
         parents: bool,
     },
+    /// Graft an acquired concept (gene or plasmid) onto a genome
+    Graft {
+        #[arg(long, alias = "in")]
+        input: String,
+        #[arg(long, alias = "out")]
+        output: String,
+        #[arg(long)]
+        locus: String,
+        #[arg(long)]
+        instruction: String,
+        #[arg(long, default_value_t = false)]
+        plasmid: bool,
+        #[arg(long, default_value_t = false)]
+        force: bool,
+        #[arg(long, default_value_t = false)]
+        parents: bool,
+    },
+    /// Distill acquired concepts into a new derived genome (adaptive radiation)
+    Speciate {
+        #[arg(long, alias = "in")]
+        input: String,
+        #[arg(long, alias = "out")]
+        output: String,
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        concept: Option<String>,
+        #[arg(long = "graft", value_name = "LOCUS=INSTRUCTION")]
+        grafts: Vec<String>,
+        #[arg(long, default_value_t = false)]
+        force: bool,
+        #[arg(long, default_value_t = false)]
+        parents: bool,
+    },
 }

@@ -14,7 +14,7 @@ pub mod sign;
 pub use header::{Header, HEADER_LEN, SECTION_ENTRY_LEN, FORMAT_VERSION, MAGIC};
 pub use section::{Section, SectionTag};
 pub use model::{AgentDna, Decoy, Meta, Mutation, Phenotype, Provenance, Selection};
-pub use operations::{clone_dna, cross, decoy, mutate, CloneOptions, CrossOptions, DecoyOptions, MutateOptions};
+pub use operations::{clone_dna, cross, decoy, graft, mutate, speciate, CloneOptions, CrossOptions, DecoyOptions, GraftSpec, MutateOptions, SpeciateOptions};
 
 #[cfg(test)]
 mod tests;
