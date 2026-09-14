@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { withTransaction } = require('../db');
 const { formatSignalForTransport, unpackSignalPayload } = require('./biomimeticSignalingBus');
 const topologyCapabilityService = require('./topologyCapabilityService');
+const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 
 const ORGANIZATIONS = Object.freeze({
   specialist_expert_committee: { topology: 'hub_and_spoke', exchange: 'indirect', visibility: 'attributed', routing: 'orchestrator' },
@@ -230,7 +231,7 @@ async function changeOrganization(db, options = {}) {
     await recordOrganizationTransition(tx, ctx);
     await flushBufferedMessages(tx, ctx);
   });
-  return { orchestratorId, previous: prevOrg, organization, version, policy: profile, capabilities: topologyCapabilityService.contractFor({ organization }).required, reason: finalReason, changed: true };
+  return { orchestratorId, previous: prevOrg, organization, version, policy: profile, capabilities: topologyCapabilityService.contractFor({ organization }).required, runStep: (state, options) => swarmTopologyAlgorithms.runTopologyStep(organization, state, options), reason: finalReason, changed: true };
 }
 
 function resolveWorkerTarget(routing, recipientAgentId, orchestratorId) {
