@@ -125,31 +125,20 @@ function textItems(value) {
     ? value.filter((item) => (typeof item === 'string' ? item.trim().length > 0 : Boolean(item)))
     : [];
 }
-
-// Proof quality is not uniform: a cryptographic receipt proves execution, a
-// source reference proves provenance, a bare evidence string is the weakest.
+// A cryptographic receipt proves execution; a source reference proves provenance; a bare evidence string is weakest.
 function evidenceWeightOf(claim) {
   if (!claim || typeof claim !== 'object') return 0;
-  return textItems(claim.evidence).length
-    + textItems(claim.receipts).length * 2
-    + textItems(claim.sourceRefs).length * 1.5;
+  return textItems(claim.evidence).length + textItems(claim.receipts).length * 2 + textItems(claim.sourceRefs).length * 1.5;
 }
-
-// Placeholder claims such as empty markdown checklists carry no verifiable
-// content and must not count as robust evidence.
+// Placeholder claims (e.g. empty markdown checklists) carry no verifiable content and must not count as robust.
 function isSubstantiveClaim(claim) {
-  const text = String(claim && claim.statement || '')
-    .replace(/\[\s*\]/g, '')
-    .replace(/[#>*_`\-\s]/g, '');
-  return text.length >= 20;
+  return String(claim && claim.statement || '').replace(/\[\s*\]/g, '').replace(/[#>*_`\-\s]/g, '').length >= 20;
 }
-
 function hasExplicitCoverage(report) {
   return typeof report.coverage === 'number'
     || (report.creativeEvaluation && typeof report.creativeEvaluation.constraintCoverage === 'number')
     || (Array.isArray(report.tests) && report.tests.length > 0);
 }
-
 function passedTests(report) {
   const tests = Array.isArray(report.tests) ? report.tests : [];
   return tests.filter((t) => (typeof t === 'string' ? !/fail|error/i.test(t) : !(t && (t.failed || t.error)))).length;
@@ -158,20 +147,8 @@ function passedTests(report) {
 function scoreWorldEvidence(report, domain = 'software_engineering') {
   const weights = DOMAIN_WEIGHTS[domain] || DOMAIN_WEIGHTS.software_engineering;
   if (!report || typeof report !== 'object') {
-    return {
-      totalScore: 0,
-      claimsScore: 0,
-      testsCoverage: 0,
-      robustnessScore: 0,
-      provenClaims: 0,
-      substantiveClaims: 0,
-      evidenceWeight: 0,
-      hasDeliverable: false,
-      domain,
-      weights
-    };
+    return { totalScore: 0, claimsScore: 0, testsCoverage: 0, robustnessScore: 0, provenClaims: 0, substantiveClaims: 0, evidenceWeight: 0, hasDeliverable: false, domain, weights };
   }
-
   const claims = Array.isArray(report.claims) ? report.claims : [];
   let provenClaims = 0;
   let substantiveClaims = 0;
@@ -293,8 +270,17 @@ function compareWorlds(worldEntries, domain = 'software_engineering') {
   };
 }
 
+function comparisonDetail(comparison, decision) {
+  const count = comparison?.scoredWorlds?.length || 0;
+  if (decision && decision.canMerge === false) {
+    const threshold = typeof decision.threshold === 'number' ? ` (${decision.threshold})` : '';
+    return `Compared ${count} Trinity worlds in domain '${comparison?.domain}'. No world met the evidence threshold${threshold}; escalation required (best score: ${comparison?.bestScore}).`;
+  }
+  return `Compared ${count} Trinity worlds in domain '${comparison?.domain}'. Winner: World ${comparison?.bestWorld?.worldNumber} (${comparison?.bestWorld?.role}) score=${comparison?.bestScore}`;
+}
+
 async function recordWorldComparison(db, comparisonData) {
-  const { missionId, orchestratorId, comparison } = comparisonData || {};
+  const { missionId, orchestratorId, comparison, decision } = comparisonData || {};
   if (db && missionId) {
     try {
       for (const w of (comparison?.scoredWorlds || [])) {
@@ -312,13 +298,16 @@ async function recordWorldComparison(db, comparisonData) {
     eventType: 'TRINITY_WORLD_COMPARISON_RECORDED',
     agentId: orchestratorId || 'trinity_orchestrator',
     action: 'COMPARE',
-    detail: `Compared ${comparison?.scoredWorlds?.length || 0} Trinity worlds in domain '${comparison?.domain}'. Winner: World ${comparison?.bestWorld?.worldNumber} (${comparison?.bestWorld?.role}) score=${comparison?.bestScore}`,
+    detail: comparisonDetail(comparison, decision),
     severity: 'info',
     payload: {
       missionId,
       bestWorldNumber: comparison?.bestWorld?.worldNumber,
       bestRole: comparison?.bestWorld?.role,
       bestScore: comparison?.bestScore,
+      tied: comparison?.tied === true,
+      tiedWorlds: comparison?.tiedWorlds || [],
+      merged: decision && typeof decision.canMerge === 'boolean' ? decision.canMerge : null,
       comparisonMatrix: comparison?.comparisonMatrix
     }
   });

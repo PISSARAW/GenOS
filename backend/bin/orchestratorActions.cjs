@@ -359,7 +359,8 @@ async function handleTrinityMerge({ db, context }) {
   await trinityService.recordWorldComparison(db, {
     missionId,
     orchestratorId,
-    comparison: result.comparativeAnalysis
+    comparison: result.comparativeAnalysis,
+    decision: { canMerge: result.canMerge, threshold }
   });
 
   process.stdout.write(JSON.stringify({
