@@ -41,6 +41,8 @@ pub enum Concept {
     Feign,
     Kill,
     Communicate,
+    /// Action sur l'environnement externe (non planifiable, porte l'apprentissage incarné).
+    Actuate,
 }
 
 impl Concept {
@@ -49,14 +51,14 @@ impl Concept {
         vec![
             Observe, Replay, Organize, Recruit, Delegate, Audit, Immune, Virology, Throttle,
             Therapy, Spore, Glia, Signaling, Stigmergy, Quorum, Neuro, Mutate, Cross,
-            Endosymbiosis, Genomics, Plasmid, Feign, Kill, Communicate,
+            Endosymbiosis, Genomics, Plasmid, Feign, Kill, Communicate, Actuate,
         ]
     }
 
     pub fn cost(self) -> f64 {
         use Concept::*;
         match self {
-            Observe | Replay | Delegate | Throttle | Signaling | Stigmergy => 1.0,
+            Observe | Replay | Delegate | Throttle | Signaling | Stigmergy | Actuate => 1.0,
             Organize | Quorum | Neuro | Communicate | Plasmid => 2.0,
             Audit | Spore | Glia => 3.0,
             Immune | Virology | Feign => 4.0,
@@ -76,6 +78,7 @@ impl Concept {
             Therapy | Spore | Glia => "soigner",
             Signaling | Stigmergy | Neuro | Communicate => "coordonner",
             Mutate | Cross | Endosymbiosis | Genomics | Plasmid => "evoluer",
+            Actuate => "agir",
         }
     }
 
@@ -94,6 +97,7 @@ impl Concept {
                 | Concept::Genomics
                 | Concept::Delegate
                 | Concept::Audit
+                | Concept::Actuate
         )
     }
 }
@@ -187,6 +191,7 @@ impl WorldState {
             Feign => self.adversary,
             Kill => self.traitor,
             Communicate => self.uncertain,
+            Actuate => false,
         }
     }
 

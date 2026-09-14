@@ -99,6 +99,26 @@ for step in &decision.steps {
   feature `api` est active, sinon par mots‑clés. `run_mission(mission, max_ticks)`
   interprète puis exécute.
 
+### Environnement incarné (Phase 1)
+
+Première brique du « vivant » : une **boucle fermée** où l'orchestrateur perçoit un
+monde externe, agit dessus et reçoit une **récompense externe**.
+
+```rust
+use genos_orchestrator::{Action, Environment, FileSandbox, GenosEcosystem};
+
+let mut env = FileSandbox::new("sandbox")?;      // monde confiné (anti `..`)
+env.act(Action::Write { path: "spec.txt".into(), content: "42\n".into() });
+let mut eco = GenosEcosystem::new("Overmind");
+let report = eco.embodied_task(&mut env, "spec.txt", "out.txt", 3);
+assert!(report.success);
+```
+
+`trait Environment { sense(key) -> Percept; act(Action) -> Feedback }` ; `FileSandbox`
+en est une implémentation réelle et confinée. Les issues sont enregistrées comme
+concept `Actuate` (apprentissage externe) et dans le journal d'événements. Voir
+`examples/mission_embodied.rs`.
+
 ## Organisations et mondes
 
 ```rust
@@ -208,6 +228,7 @@ use genos_orchestrator::api::{RateLimiter, TenantAuth, ChatMessage};
 | `plasmids` | Banque de plasmides et compétences |
 | `dna_ops` / `genome_ops` | ADN compilé et opérations génomiques |
 | `ecosystem` | Façade `GenosEcosystem` |
+| `environment` | Environnement incarné (`Environment`, `FileSandbox`, boucle perception→action→récompense) |
 | `neuro`, `virology`, `signaling`, `sensory`, `phylogeny`, `immune_cyber`, `snapshots`, `sensorimotor`, `thalamus` | Accès aux domaines |
 | `token_bucket` | Ordonnanceur de calcul (quotas, famine, apoptose) |
 
@@ -215,6 +236,7 @@ use genos_orchestrator::api::{RateLimiter, TenantAuth, ChatMessage};
 
 ```bash
 cargo run -p genos-orchestrator --example mission_tick        # boucle cognitive
+cargo run -p genos-orchestrator --example mission_embodied    # boucle incarnée (environnement)
 cargo run -p genos-orchestrator --example mission_e2e         # bout en bout (feinte/glie/thalamus)
 cargo run -p genos-orchestrator --example mission_trinity     # mondes parallèles
 cargo run -p genos-orchestrator --example mission_recruit_planner # recrutement autonome
