@@ -180,19 +180,24 @@ async function ensureParent({ db, context }) {
   return parent;
 }
 
-function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
-  const workerId = suppliedWorkerId || `worker_${context.orchestratorId}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`;
-  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify({
+function workerLaunchPayload({ context, member, workerId, parent }) {
+  return {
     action: 'dispatch_worker', background: false, orchestratorId: context.orchestratorId, workerId,
     mission: member.mission, role: member.role, model_tier: member.modelTier,
     ...(member.name ? { name: member.name } : {}),
     ...(Array.isArray(member.dependsOn) && member.dependsOn.length ? { depends_on: member.dependsOn } : {}),
     ...(member.pipelineStage ? { pipeline_stage: member.pipelineStage } : {}),
+    ...(member.engine === 'local' ? { localRuntime: true } : {}),
     execution_budget: context.request.execution_budget || context.request.executionBudget,
     timeoutMs: context.request.timeoutMs,
     workspace_root: context.request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
     reuseChecked: true
-  })], { cwd: context.repoRoot, detached: true, stdio: getRunnerStdio(workerId) });
+  };
+}
+
+function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
+  const workerId = suppliedWorkerId || `worker_${context.orchestratorId}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`;
+  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(workerLaunchPayload({ context, member, workerId, parent }))], { cwd: context.repoRoot, detached: true, stdio: getRunnerStdio(workerId) });
   runner.unref();
   return { workerId, subSystem: member.subSystem, memberNumber: member.memberNumber || index, role: member.role, modelTier: member.modelTier, status: 'accepted' };
 }
@@ -304,7 +309,7 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
     missionBudget.latencyMs = Math.max(1000, Number(context.request.timeoutMs) - 4000);
   }
   const workerPrompt = aTeamService.dependencyPrompt(context.task, context.request.depends_on);
-  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerPrompt, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false, timeoutMs: context.request.timeoutMs });
+  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerPrompt, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false, timeoutMs: context.request.timeoutMs, localRuntime: context.request.localRuntime === true });
 }
 
 function workerPolicy(request = {}) {
@@ -376,4 +381,4 @@ async function handleAction(context) {
 
 if (require.main === module) require('./orchestratorActionsCli.cjs').run({ handleAction }).catch((e) => { console.error(e.message); process.exit(1); });
 
-module.exports = { handleAction, handleBackground, initializeMission };
+module.exports = { handleAction, handleBackground, initializeMission, workerLaunchPayload };
