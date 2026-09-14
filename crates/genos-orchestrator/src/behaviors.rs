@@ -3,9 +3,12 @@
 
 use crate::GenosEcosystem;
 use crate::dna_ops;
+use crate::planner::Goal;
+use crate::tick::MissionReport;
 use genos_biology::glial::glial_cell::Metabolism;
 use genos_biology::{GlialCell, GlialEnvironment};
 use genos_dna::operations::DecoyOptions;
+use serde_json::json;
 use uuid::Uuid;
 
 impl GenosEcosystem {
@@ -62,5 +65,53 @@ impl GenosEcosystem {
         {
             format!("escalade humaine (feature api desactivee) : {prompt}")
         }
+    }
+}
+
+impl GenosEcosystem {
+    /// Interprète une mission en langage naturel -> but + contraintes.
+    ///
+    /// Consultée via le thalamus si la feature `api` est active ; sinon repli
+    /// déterministe par mots-clés (testable hors ligne).
+    pub fn interpret_mission(&self, mission: &str) -> (Goal, Vec<String>) {
+        let _ = self.communicate(&format!("Classe cette mission: {mission}"));
+        let lower = mission.to_lowercase();
+        let goal = if lower.contains("répar")
+            || lower.contains("repar")
+            || lower.contains("bug")
+            || lower.contains("compile")
+        {
+            Goal::RepairModule
+        } else if lower.contains("soign")
+            || lower.contains("guér")
+            || lower.contains("guer")
+            || lower.contains("récup")
+            || lower.contains("recup")
+        {
+            Goal::RecoverAgent
+        } else {
+            Goal::SecurePerimeter
+        };
+
+        let mut constraints = Vec::new();
+        if lower.contains("budget") {
+            constraints.push("budget_serre".to_string());
+        }
+        if lower.contains("urgence") || lower.contains("critique") {
+            constraints.push("urgence".to_string());
+        }
+        if lower.contains("sans") && lower.contains("humain") {
+            constraints.push("autonomie_totale".to_string());
+        }
+        (goal, constraints)
+    }
+
+    /// Interprète une mission textuelle puis l'exécute via `run`.
+    pub fn run_mission(&mut self, mission: &str, max_ticks: usize) -> MissionReport {
+        let (goal, constraints) = self.interpret_mission(mission);
+        if !constraints.is_empty() {
+            self.record_event("MISSION_CONSTRAINTS", json!({ "constraints": constraints }));
+        }
+        self.run(&goal, max_ticks)
     }
 }
