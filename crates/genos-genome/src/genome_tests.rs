@@ -162,6 +162,20 @@ fn reproductive_child_partially_resets_facultative_epigenetics() {
 }
 
 #[test]
+fn instinct_loci_are_exempt_from_stochastic_mutation() {
+    let mut genome = Genome::new("INSTINCT_SHIELD");
+    let locus = format!("{INSTINCT_LOCUS_PREFIX}FORAGE_RETURN");
+    let mut instinct = Gene::new(&locus, "AGTCAGTCAGTC");
+    instinct.developmentally_locked = true;
+    genome.insert_gene(instinct);
+    genome.insert_gene(Gene::new("SOMATIC_GENE", "AGTCAGTCAGTC"));
+    let instinct_before = genome.genes.get(&locus).unwrap().dna.clone();
+    let mut rng = rand::rngs::StdRng::seed_from_u64(11);
+    let _ = genome.mutate_stochastic(0.9, &mut rng);
+    assert_eq!(&instinct_before, &genome.genes.get(&locus).unwrap().dna);
+}
+
+#[test]
 fn test_genome_mutate_stochastic_and_hypermutate() {
     let mut genome = Genome::new("MUTATION_TEST");
     genome.insert_gene(Gene::new("TEST_GENE", "AGTCAGTCAGTC"));
