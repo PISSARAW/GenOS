@@ -20,4 +20,14 @@ const staged = aTeam.compose({ projectGoal: 'Stage the work', subSystems: ['draf
 assert.deepEqual(staged.find((member) => member.subSystem === 'publishing').dependsOn, ['drafting', 'editing']);
 assert.equal(staged.find((member) => member.subSystem === 'drafting').dependsOn.length, 0);
 
+// The ligand payload must be receptor-compatible, not just decorative.
+const { buildHandoff, evaluateHandoff, handoffLigand } = coordination;
+const handoff = buildHandoff('frontend', 'integration', 1);
+assert.equal(handoff.ligand, handoffLigand('frontend', 'integration'));
+assert.equal(handoff.concentration, 1);
+assert.equal(handoff.receptor.targetLigand, handoff.ligand);
+assert.equal(evaluateHandoff(handoff).triggered, true);
+assert.equal(evaluateHandoff(handoff, { targetLigand: 'other', threshold: 1 }).triggered, false);
+assert.ok(team.handoffs.every((entry) => evaluateHandoff(entry).triggered === true));
+
 console.log('A-Team handoffs are derived from real composition dependencies.');
