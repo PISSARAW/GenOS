@@ -17,6 +17,7 @@ async function launchTrinityWorlds(ctx, autonomousWorkers) {
   const { db, agentId, normalizedMission, autonomyPlan } = ctx;
   if (!(autonomyPlan.trinity?.activated && autonomousWorkers.length)) return;
   const trinityMissionId = `trinity_${agentId}_${Date.now()}`;
+  autonomyPlan.trinity.missionId = trinityMissionId;
   await withTransaction(db, async (tx) => {
     for (const [index, worker] of autonomousWorkers.entries()) {
       const member = autonomyPlan.trinity.members[index];

@@ -16,6 +16,7 @@ const {
   validateWorkerDossiers,
   buildWorkerSynthesisPrompt
 } = require('./agentEvidenceService');
+const { applyTrinityComparison } = require('./trinityComparativeBarrier');
 
 function isUsablePartialEvent(event) {
   if (!event) return false;
@@ -344,6 +345,7 @@ async function finishPartialBarrier(ctx) {
     clearBarrier(ctx.agentId);
     throw noEvidenceError();
   }
+  await applyTrinityComparison({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable }).catch(() => {});
   await finalizePartial({
     agentId: ctx.agentId,
     workers: ctx.workers,
@@ -356,6 +358,7 @@ async function finishPartialBarrier(ctx) {
 async function finishSatisfiedBarrier(ctx) {
   const dossiers = loadDossiers({ agentId: ctx.agentId, workers: ctx.workers });
   validateWorkerDossiers(dossiers, ctx.workers, { contract: readContract({ contractRecord: ctx.contractRecord }) });
+  await applyTrinityComparison({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await finalizeSatisfied({
     agentId: ctx.agentId,
     workers: ctx.workers,
