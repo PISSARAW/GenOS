@@ -156,6 +156,7 @@ Voir la carte documentaire complète dans [docs/README.md](docs/README.md).
 - [docs/MEMOIRE_APPRENTISSAGE.md](docs/MEMOIRE_APPRENTISSAGE.md)
 - [docs/NEUROBIOLOGIE_PLASTICITE.md](docs/NEUROBIOLOGIE_PLASTICITE.md)
 - [docs/SWARM_INTELLIGENCE.md](docs/SWARM_INTELLIGENCE.md)
+- [docs/FOSSILISATION.md](docs/FOSSILISATION.md) — archive stratigraphique terminale et irréversible des lignées éteintes (taphonomie, hash minéral, strates, mélanosomes, excavation en lecture seule).
 
 #### Orchestration, jobs et workspaces
 - [docs/ORCHESTRATION.md](docs/ORCHESTRATION.md)
@@ -240,29 +241,39 @@ GenOS/
 ## Démarrage rapide
 
 ### Prérequis
-- Rust 1.88+
-- Node.js 20+
+- Rust 1.88+ (toolchain stable)
+- Node.js 20.19+ ou 22.12+
+- Python 3 (gate de qualité du code)
 - Git
 
-### 1. Cloner et construire
+### 1. Cloner et installer
 
 ```bash
 git clone https://github.com/PISSARAW/GenOS.git
 cd GenOS
+npm ci
+npm ci --prefix backend
+npm ci --prefix mcp
 cargo build --workspace
 ```
 
-### 2. Lancer le backend
+### 2. Configurer l’environnement
 
 ```bash
-cd backend
-npm install
-npm start
+cp .env.example .env
 ```
 
-### 3. Vérifier les API et les endpoints
+Renseignez les valeurs locales utiles (port, provider LLM, secrets). Ne commitez jamais `.env`.
 
-Le backend expose généralement les endpoints de santé et le control plane sur le port configuré, avec les routes d’API protégées par identités, permissions et règles de scope.
+### 3. Lancer le backend
+
+```bash
+npm --prefix backend start
+```
+
+- API HTTP : `http://localhost:4000`
+- Probes : `GET /healthz`, `/readyz`, `/livez`
+- Au premier démarrage, un token administrateur à usage unique est affiché dans la console (ou définissez `GENOS_ADMIN_TOKEN`).
 
 ### 4. Utiliser la CLI
 
@@ -270,7 +281,45 @@ Le backend expose généralement les endpoints de santé et le control plane sur
 cargo run -p genos-cli -- --help
 ```
 
-Le dépôt contient aussi une CLI simplifiée `g` pour les usages opérateurs. La distinction est explicitement documentée dans [docs/CLI_EXPERIENCE_OPERATEUR.md](docs/CLI_EXPERIENCE_OPERATEUR.md).
+Le dépôt contient aussi une CLI simplifiée `g` pour les usages opérateurs (`.\g.ps1` sur PowerShell, `g.cmd` sur cmd). La distinction est explicitement documentée dans [docs/CLI_EXPERIENCE_OPERATEUR.md](docs/CLI_EXPERIENCE_OPERATEUR.md).
+
+### 5. Lancer le serveur MCP (stdio)
+
+```bash
+node mcp/index.js
+```
+
+Le serveur MCP doit être lancé depuis la racine du dépôt : il lit `shared/toolDefinitions.json` et les services du backend. L’exposition des outils est contrôlée par `GENOS_MCP_LEASE` et `GENOS_MCP_DISABLED_TOOLS` (voir [docs/OUTILS_MCP.md](docs/OUTILS_MCP.md)). Une configuration prête à l’emploi est fournie dans [.mcp.json](.mcp.json).
+
+Types d’outils disponibles :
+- **Strategy Tools:** `genos_strategy_*` (MCTS pruning, 3-way merge, causal rebase, PRM evaluation).
+- **Biomimicry Tools:** `genos_biomimicry_*` (stigmergy pheromones, cryptobiosis stasis, chromatin tool locking).
+- **CLI Wrappers:** `genos_*` (native rust execution transport).
+
+### 6. Lancer une mission d’orchestration autonome
+
+```bash
+node backend/bin/genos-orchestrate.cjs '{"mission": "Refactor authorization layer with zero-downtime canary fork", "background": true}'
+```
+
+### 7. Démo de débogage parallèle sûr (zéro token)
+
+```bash
+# Linux / macOS
+./examples/safe-debugging-demo/run-demo.sh
+
+# Windows / multiplateforme
+cargo build -p genos-cli
+node examples/safe-debugging-demo/run-demo.mjs target/debug/genos
+```
+
+### 8. Vérifier
+
+```bash
+npm run check:code-quality
+npm test
+cargo test --workspace
+```
 
 ---
 
@@ -317,33 +366,7 @@ Le projet est distribué sous la licence [LICENSE](LICENSE) Apache 2.0.
 - Comprendre la sécurité : [docs/SECURITE.md](docs/SECURITE.md)
 - Déployer et exploiter : [docs/DEPLOIEMENT_EXPLOITATION.md](docs/DEPLOIEMENT_EXPLOITATION.md)
 
-Si vous souhaitez un point d’entrée plus opérationnel, commencez par [docs/README.md](docs/README.md).bash
-cd mcp
-npm install
-node index.js
-```
-
-Available tool types:
-- **Strategy Tools:** `genos_strategy_*` (MCTS pruning, 3-way merge, causal rebase, PRM evaluation).
-- **Biomimicry Tools:** `genos_biomimicry_*` (stigmergy pheromones, cryptobiosis stasis, chromatin tool locking).
-- **CLI Wrappers:** `genos_*` (native rust execution transport).
-
-### 4. Run an Autonomous Orchestration Mission
-
-```bash
-node backend/bin/genos-orchestrate.cjs '{"mission": "Refactor authorization layer with zero-downtime canary fork", "background": true}'
-```
-
-### 5. Run the Safe Parallel Debugging Demo (Zero Tokens)
-
-```bash
-# On Linux / macOS (Bash)
-./examples/safe-debugging-demo/run-demo.sh
-
-# On Windows / Cross-Platform (Node.js)
-cargo build -p genos-cli
-node examples/safe-debugging-demo/run-demo.mjs target/debug/genos
-```
+Si vous souhaitez un point d’entrée plus opérationnel, commencez par [docs/README.md](docs/README.md).
 
 ---
 

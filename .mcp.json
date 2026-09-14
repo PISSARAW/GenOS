@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "genos": {
+      "command": "node",
+      "args": ["mcp/index.js"],
+      "env": {
+        "GENOS_MCP_LEASE": "genos_snapshot,genos_replay,genos_execute_primitive"
+      }
+    }
+  }
+}

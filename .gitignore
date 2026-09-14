@@ -43,3 +43,12 @@ backend/tests/.tmp-*
 artifacts/
 *.log
 *-results*.json
+
+# Local run artifacts at repository root
+/0
+/probe.json
+/stig_test.txt
+/test_snapshot.json
+/snapshots/
+/*.bak.jsonl
+

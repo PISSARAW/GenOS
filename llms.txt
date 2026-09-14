@@ -1,0 +1,45 @@
+# GenOS
+
+> Counterfactual, biomimetic runtime for multi-agent execution: branches, snapshots, budgets, evidence gates and recovery.
+
+GenOS V3 is a polyglot monorepo:
+- Rust workspace in `crates/` (runtime core: cell, biology, orchestrator, store, MCP, CLI).
+- Node.js control plane in `backend/` (Express REST + gRPC, SQLite WAL, MCP tool registry).
+- stdio MCP server in `mcp/` exposing leased tools to MCP clients.
+- Technical documentation in `docs/` (French).
+
+Core rule: a successful transport is NOT proof of a valid decision. Respect the evidence and promotion gates; never fake success.
+
+## Start here
+
+- [README](https://github.com/PISSARAW/GenOS/blob/v3/README.md): product overview, architecture and quickstart.
+- [AGENTS.md](https://github.com/PISSARAW/GenOS/blob/v3/AGENTS.md): build, test, lint gates and conventions for coding agents.
+- [Documentation index](https://github.com/PISSARAW/GenOS/blob/v3/docs/README.md): full doc map and reading paths.
+- [Backend README](https://github.com/PISSARAW/GenOS/blob/v3/backend/README.md): REST/gRPC control plane and subsystems.
+
+## Runtime and orchestration
+
+- [docs/RUNTIME_AGENTIQUE.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/RUNTIME_AGENTIQUE.md): agent runtime model, boundaries and guards.
+- [docs/ORCHESTRATION.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/ORCHESTRATION.md): branches, survivors and controlled fan-out.
+- [docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md): snapshots, fork, bisect and restore.
+- [docs/PRIMITIVES_EXECUTABLES.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/PRIMITIVES_EXECUTABLES.md): executable primitives and budgets.
+
+## Tools and integration
+
+- [docs/OUTILS_MCP.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/OUTILS_MCP.md): MCP catalogue, leases, argument validation and circuit breaker.
+- [.mcp.json](https://github.com/PISSARAW/GenOS/blob/v3/.mcp.json): ready-to-use MCP client config (stdio).
+- [docs/API_CONTRATS.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/API_CONTRATS.md): REST, gRPC, MCP and CLI contracts.
+- [docs/INTEGRATIONS_IDE.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/INTEGRATIONS_IDE.md): IDE integration contract (`genos.ide/v1`).
+
+## Safety and evidence
+
+- [docs/EPISTEMOLOGIE_EVIDENCE.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/EPISTEMOLOGIE_EVIDENCE.md): evidence, belief state and "success is not truth".
+- [docs/SECURITE.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/SECURITE.md): auth, RBAC, sandbox and audit.
+- [docs/SANDBOX_EXECUTION_CODE.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/SANDBOX_EXECUTION_CODE.md): code execution isolation.
+
+## Notes for agents
+
+- Definition of done: `python scripts/ci/check_code_quality.py`, `npm test`, `cargo test --workspace`.
+- Code gate: max 400 lines/file, max 3 parameters/function, cyclomatic complexity <= 10, ADR required for architecture changes (`.genos.md`).
+- The MCP server must be launched from the repository root (`node mcp/index.js`) and is gated by `GENOS_MCP_LEASE` / `GENOS_MCP_DISABLED_TOOLS`.
+- Never commit `.env`, secrets, `*.db` or generated artifacts.

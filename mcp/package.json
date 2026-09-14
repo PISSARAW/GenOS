@@ -1,9 +1,28 @@
 ﻿{
-  "name": "mcp",
-  "version": "1.0.0",
-  "description": "GenOS V2 MCP Server",
+  "name": "genos-mcp",
+  "version": "3.0.0",
+  "description": "GenOS stdio MCP server: leases, argument validation and dispatch to the GenOS backend/CLI.",
+  "private": true,
   "main": "index.js",
   "type": "module",
+  "bin": {
+    "genos-mcp": "index.js"
+  },
+  "files": [
+    "index.js",
+    "lease.js",
+    "toolCallHandler.js",
+    "nodeCliFallback.js",
+    "wrapper.cjs",
+    "wrapper.bat"
+  ],
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test_lease.js && node test_identity_lease.js"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0"
   }
