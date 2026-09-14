@@ -1143,3 +1143,16 @@ stateDiagram-v2
 Dans les maillages denses, `genos_biomimicry_freemartin_endocrine_inhibition` permet au noyau de coordination de synchroniser les flux en inhibant la réplication des nœuds d'exécution purs. Les agents subordonnés sont rendus fonctionnellement stériles pour prévenir les forks anarchiques et focaliser l'énergie computationnelle du syncytium sur les flux de données bruts.
 
 ```
+
+
+---
+
+## Implementation & capacites (GenOS v3)
+
+Depuis la v3, cette topologie est cablee au runtime : voir
+[TOPOLOGIES_CAPACITES.md](TOPOLOGIES_CAPACITES.md).
+
+- Service de coordination : `syncytiumCoordinationService.js`.
+- Capacites requises : CRDT_SHARED_STATE, SIGNALING_BUS, OUTPUT_GOVERNOR.
+- Contrat expose par `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
+

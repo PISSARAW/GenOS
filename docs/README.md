@@ -160,6 +160,7 @@ stateDiagram-v2
 ### 3. Orchestration, primitives et workspaces
 
 - [ORCHESTRATION.md](ORCHESTRATION.md) — orchestration de branches, preuve avant validation, gestion de survivants et fan-out contrôlé.
+- [TOPOLOGIES_CAPACITES.md](TOPOLOGIES_CAPACITES.md) — contrat de capacités des topologies (8 modes + 19 organisations), câblage runtime, algorithmes d'essaim et capacités effectives dans les leases d'outils.
 - [GIT_AGENTS.md](GIT_AGENTS.md) — transposition de Git aux états d’agents, opérations agentiques, worktrees et comparaison directe avec Git.
 - [PRIMITIVES_EXECUTABLES.md](PRIMITIVES_EXECUTABLES.md) — primitives formelles, contrats, budgets, promotion, sélection et sécurité des actions.
 - [WORKFLOWS_JOBS.md](WORKFLOWS_JOBS.md) — workflows, jobs, graphes d’états, transitions, validation, machine d’état et robustesse.
