@@ -139,7 +139,10 @@ function runTopologyStep(organization, state = {}, options = {}) {
     case 'fish_school_search': return { organization: 'fish_school_search', ...fishSchoolSearch(state.agents, options) };
     case 'slime_mould_network': return { organization: 'slime_mould_network', edges: slimeMouldNetwork(state.edges, options) };
     case 'grey_wolf_optimizer': return { organization: 'grey_wolf_optimizer', pack: greyWolfOptimizer(state.pack, options) };
-    default: return null;
+    default: {
+      const organizationAlgorithms = require('./organizationAlgorithms');
+      return organizationAlgorithms.runOrganizationStep(organization, state, options);
+    }
   }
 }
 
