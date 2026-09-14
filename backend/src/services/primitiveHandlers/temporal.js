@@ -16,50 +16,23 @@ function scopedInputPath(inputFile, workspaceRoot) {
   return resolved === root || resolved.startsWith(`${root}${path.sep}`) ? resolved : null;
 }
 
+const temporalHelpers = require('./temporalHelpers');
+
 async function causalReplay(context) {
   // Rejoue une séquence d'événements passés avec une intervention pour observer la divergence causale.
-  const agentId = context.agentId || context.orchestratorId;
-
+  const strategyId = agentId || 'strategy_adapter';
   if (context.trajectory || context.turns || context.trajectoryId) {
-    const trajectoryService = require('../trajectoryService');
-    let traj = context.trajectory;
-    if (!traj && context.trajectoryId) {
-      try {
-        const db = await getDatabase();
-        const row = await db.get('SELECT * FROM trajectories WHERE id = ?', context.trajectoryId);
-        if (row) {
-          let diffLines = [];
-          try { diffLines = JSON.parse(row.diff_lines || '[]'); } catch (_) {}
-          traj = { id: row.id, status: row.status, turns: diffLines };
-        }
-      } catch (_) {}
-    }
-    if (!traj) {
-      traj = {
-        id: context.trajectoryId || `traj_${Date.now()}`,
-        status: context.status || 'SUCCESS',
-        turns: context.turns || []
-      };
-    }
-    if (!traj.turns || !Array.isArray(traj.turns) || traj.turns.length === 0) {
-      traj.turns = [{ step: 1, action: 'baseline_action', status: 'SUCCESS' }];
-    }
-    const stepIndex = context.stepIndex ?? context.branchingPoint ?? 1;
-    const alterations = context.alterations || context.intervention || {};
-    const replayResult = trajectoryService.counterfactualReplay(traj, stepIndex, alterations);
+    const { replayResult, trajId } = await temporalHelpers.handleTrajectoryReplay(context);
 
-    telemetry.emitEvent({
-      eventType: 'TEMPORAL_CAUSAL_REPLAY',
-      agentId: agentId || 'strategy_adapter',
-      action: 'CAUSAL_REPLAY',
-      detail: `Executed trajectory counterfactual replay for ${traj.id}`,
-      severity: 'info',
-      payload: replayResult
-    });
+    temporalHelpers.emitTrajectoryReplayTelemetry(strategyId, { replayResult, trajId });
 
     return { success: true, ...replayResult };
   }
 
+  return runMcpReplay(context, strategyId);
+}
+
+async function runMcpReplay(context, strategyId) {
   const inputFile = scopedInputPath(context.inputFile, context.workspaceRoot);
   const outputFile = scopedInputPath(context.outputFile || `causal_report_${Date.now()}.json`, context.workspaceRoot);
 
@@ -71,14 +44,14 @@ async function causalReplay(context) {
   }
 
   const res = await mcpExecutor.execute({
-    agentId: agentId || 'strategy_adapter',
+    agentId: strategyId,
     toolName: 'genos_causal_replay_experiment',
     args: { input_file: inputFile, output_file: outputFile }
   });
 
   telemetry.emitEvent({
     eventType: 'TEMPORAL_CAUSAL_REPLAY',
-    agentId: agentId || 'strategy_adapter',
+    agentId: strategyId,
     action: 'CAUSAL_REPLAY',
     detail: `Executed causal replay. Output at ${outputFile}`,
     severity: 'info',
@@ -147,42 +120,9 @@ async function causalRebase(context) {
 
 async function causalMerge(context = {}) {
   // Fusion causale à 3 voies (Base, Branche A / Intervention, Branche B / Courant)
-  const base = context.base || context.baseState || {};
-  const left = context.left || context.branchA || context.interventionState || {};
-  const right = context.right || context.branchB || context.currentState || {};
-  const agentId = context.agentId || context.orchestratorId || 'strategy_adapter';
+  const { base, left, right, agentId, resolutions } = temporalHelpers.resolveMergeSources(context);
+  const { merged, conflicts, success } = temporalHelpers.performCausalMerge({ base, left, right, resolutions });
 
-  const merged = { ...base };
-  const conflicts = [];
-  const allKeys = new Set([...Object.keys(base), ...Object.keys(left), ...Object.keys(right)]);
-
-  const sameValue = (first, second) => JSON.stringify(first) === JSON.stringify(second);
-  const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
-  const cloneValue = (value) => (isPlainObject(value) ? { ...value } : Array.isArray(value) ? [...value] : value);
-  const resolutions = context.conflictResolution && typeof context.conflictResolution === 'object' ? context.conflictResolution : {};
-  const mergeValue = (baseValue, leftValue, rightValue, keyPath) => {
-    if (sameValue(leftValue, rightValue)) return cloneValue(leftValue);
-    if (sameValue(leftValue, baseValue)) return cloneValue(rightValue);
-    if (sameValue(rightValue, baseValue)) return cloneValue(leftValue);
-    if (isPlainObject(baseValue) && isPlainObject(leftValue) && isPlainObject(rightValue)) {
-      const nested = {};
-      const nestedKeys = new Set([...Object.keys(baseValue), ...Object.keys(leftValue), ...Object.keys(rightValue)]);
-      for (const nestedKey of nestedKeys) {
-        nested[nestedKey] = mergeValue(baseValue[nestedKey], leftValue[nestedKey], rightValue[nestedKey], `${keyPath}.${nestedKey}`);
-      }
-      return nested;
-    }
-    const resolution = resolutions[keyPath];
-    conflicts.push({ key: keyPath, base: baseValue, left: leftValue, right: rightValue, resolution: resolution || null });
-    if (resolution === 'right') return cloneValue(rightValue);
-    return cloneValue(leftValue);
-  };
-
-  for (const key of allKeys) {
-    merged[key] = mergeValue(base[key], left[key], right[key], key);
-  }
-
-  const success = conflicts.every((conflict) => conflict.resolution === 'left' || conflict.resolution === 'right');
   telemetry.emitEvent({
     eventType: 'TEMPORAL_CAUSAL_MERGE',
     agentId,
@@ -197,114 +137,49 @@ async function causalMerge(context = {}) {
 
 async function dependencyMatrix(context = {}) {
   // Génère la matrice d'adjacence des dépendances causales d'une séquence.
-  const db = await getDatabase();
-  const orchestratorId = context.orchestratorId || context.agentId;
-  const workspaceId = context.workspaceId;
-  
-  let rows = [];
-  if (workspaceId) {
-    const ws = await db.get('SELECT organization_id, project_id FROM workspaces WHERE id = ?', workspaceId);
-    const orgId = ws?.organization_id || context.organizationId || null;
-    const projId = ws?.project_id || context.projectId || null;
-    rows = await db.all(
-      `SELECT s.source_id, s.target_id, s.weight
-         FROM memory_synapses s
-         JOIN genome_decisions source_node ON source_node.id = s.source_id
-         JOIN genome_decisions target_node ON target_node.id = s.target_id
-        WHERE ((? IS NOT NULL AND source_node.organization_id = ?)
-            OR (? IS NOT NULL AND source_node.project_id = ?)
-            OR source_node.created_by IN (SELECT id FROM agents WHERE workspace_id = ?)
-            OR target_node.created_by IN (SELECT id FROM agents WHERE workspace_id = ?)
-            OR source_node.created_by = ?
-            OR target_node.created_by = ?)
-        ORDER BY s.last_updated_at DESC LIMIT 100`,
-      orgId, orgId, projId, projId, workspaceId, workspaceId, orchestratorId || '', orchestratorId || ''
-    );
-  } else if (orchestratorId) {
-    rows = await db.all(
-      `SELECT s.source_id, s.target_id, s.weight
-         FROM memory_synapses s
-         JOIN genome_decisions source_node ON source_node.id = s.source_id
-         JOIN genome_decisions target_node ON target_node.id = s.target_id
-        WHERE (source_node.created_by = ? OR target_node.created_by = ?
-           OR source_node.created_by IN (SELECT id FROM agents WHERE parent_agent_id = ? OR workspace_id = (SELECT workspace_id FROM agents WHERE id = ?)))
-        ORDER BY s.last_updated_at DESC LIMIT 100`,
-      orchestratorId, orchestratorId, orchestratorId, orchestratorId
-    );
-  } else {
-    rows = await db.all(
-      `SELECT s.source_id, s.target_id, s.weight
-         FROM memory_synapses s
-        ORDER BY s.last_updated_at DESC LIMIT 100`
-    );
-  }
-  
-  const matrix = {};
-  rows.forEach(r => {
-    if (!matrix[r.source_id]) matrix[r.source_id] = {};
-    matrix[r.source_id][r.target_id] = r.weight;
-  });
+  const rows = await temporalHelpers.fetchMatrixRows(context);
+  const matrix = temporalHelpers.buildDependencyMatrix(rows);
+  const nodeCount = Object.keys(matrix).length;
 
   telemetry.emitEvent({
     eventType: 'TEMPORAL_DEPENDENCY_MATRIX',
-    agentId: orchestratorId || 'strategy_adapter',
+    agentId: context.orchestratorId || context.agentId || 'strategy_adapter',
     action: 'DEPENDENCY_MATRIX',
-    detail: `Computed dependency matrix with ${Object.keys(matrix).length} nodes.`,
+    detail: `Computed dependency matrix with ${nodeCount} nodes.`,
     severity: 'info',
-    payload: { nodeCount: Object.keys(matrix).length }
+    payload: { nodeCount }
   });
-  return { success: true, matrix, nodeCount: Object.keys(matrix).length };
+  return { success: true, matrix, nodeCount };
 }
 
 async function stateFold(context = {}) {
   // Pliage déterministe d'historique en état synthétique compact
   const turns = Array.isArray(context.turns) ? context.turns : (context.steps || context.events || []);
   const initial = context.initialState || {};
-  const folded = { ...initial };
-  const actionsCount = {};
-  const modifiedFiles = new Set();
-  let errorsEncountered = 0;
+  const state = {
+    folded: { ...initial },
+    actionsCount: {},
+    modifiedFiles: new Set(),
+    errorsEncountered: 0
+  };
 
   for (const turn of turns) {
-    const action = turn.action || turn.type || 'step';
-    actionsCount[action] = (actionsCount[action] || 0) + 1;
-    if (turn.file || turn.targetFile || turn.path) {
-      modifiedFiles.add(turn.file || turn.targetFile || turn.path);
-    }
-    if (turn.error || turn.pass === false || turn.success === false) {
-      errorsEncountered += 1;
-    }
-    if (turn.statePatch && typeof turn.statePatch === 'object') {
-      Object.assign(folded, turn.statePatch);
-    }
+    temporalHelpers.foldTurn({ turn, state });
   }
 
-  folded.totalSteps = turns.length;
-  folded.actionsCount = actionsCount;
-  folded.modifiedFiles = [...modifiedFiles];
-  folded.errorsEncountered = errorsEncountered;
-  folded.isClean = errorsEncountered === 0;
+  state.folded.totalSteps = turns.length;
+  state.folded.actionsCount = state.actionsCount;
+  state.folded.modifiedFiles = [...state.modifiedFiles];
+  state.folded.errorsEncountered = state.errorsEncountered;
+  state.folded.isClean = state.errorsEncountered === 0;
 
-  return { success: true, foldedState: folded, stepCount: turns.length };
+  return { success: true, foldedState: state.folded, stepCount: turns.length };
 }
 
 async function causalDiff(context = {}) {
   // Différenciation causale entre trajectoire réelle et alternative
-  const baseline = context.baseline || context.actual || context.original || [];
-  const candidate = context.candidate || context.counterfactual || context.alternative || [];
-
-  const baseSteps = Array.isArray(baseline) ? baseline : (baseline.turns || baseline.steps || []);
-  const candSteps = Array.isArray(candidate) ? candidate : (candidate.turns || candidate.steps || []);
-
-  const divergences = [];
-  const maxLen = Math.max(baseSteps.length, candSteps.length);
-  for (let i = 0; i < maxLen; i++) {
-    const b = baseSteps[i];
-    const c = candSteps[i];
-    if (JSON.stringify(b) !== JSON.stringify(c)) {
-      divergences.push({ stepIndex: i, base: b || null, candidate: c || null });
-    }
-  }
+  const { baseSteps, candSteps } = temporalHelpers.pickSteps(context);
+  const divergences = temporalHelpers.findDivergences(baseSteps, candSteps);
 
   return {
     success: true,
