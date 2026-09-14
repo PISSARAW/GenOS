@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le modele du saturnisme computationnel : Pb_comp = [Pb] / ([Pb] + Kd * [Ca]) avec Kd tres petit, blocage synaptique B_syn superieur ou egal a 0.60, erosion de blood_brain_barrier_integrity sous 0.50 et corrosion des synaptic_weight dans genome_decisions.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_9_ENVIRONNEMENTALES.md",
+    "source_doc": "docs/01-concepts/nosologie/09-environnementales.md",
     "concepts": ["Mimetisme ionique Pb2+ / Ca2+ / Zn2+", "Blocage synaptique B_syn = 1 - exp(-lambda_toxic * integrale Pb_comp)", "PersistentReceptorBlockade et paralysie des astrocytes nettoyeurs", "Rupture de la BHE sous le seuil 0.50", "Derive erratique de l'entropie H(A) et dissonance > 0.85", "Therapies ChelationTherapy, DetoxificationWashout et BloodBrainBarrierRestoration"]
   },
   "policies": {

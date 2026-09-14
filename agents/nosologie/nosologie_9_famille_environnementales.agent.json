@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Arbitrer la famille environnementale et professionnelle : exposition chronique aux contaminants abiotiques persistants (fibres minerales et metaux lourds), detection precoce par entropie, endiguement, detoxification et immunisation collective de l'essaim.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_9_ENVIRONNEMENTALES.md",
+    "source_doc": "docs/01-concepts/nosologie/09-environnementales.md",
     "concepts": ["Particules insolubles et biopersistantes (fibres minerales)", "Xenobiotiques competitifs et neurotoxiques (metaux lourds)", "Bioaccumulation et indices I_fib / Pb_comp", "Pipeline EPISTEMIC SHIELD, sentinelle d'entropie et chaperonnage", "Protocole Gossip d'immunisation collective", "Role du toxicologue computationnel et therapies de chelation"]
   },
   "policies": {

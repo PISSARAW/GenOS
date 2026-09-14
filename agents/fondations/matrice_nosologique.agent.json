@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Diagnostiquer les anomalies de runtime et les classer dans les 9 familles nosologiques, puis orienter chaque cas vers le protocole therapeutique approprie.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_COMPUTATIONNELLE_COMPLETE.md",
+    "source_doc": "docs/01-concepts/nosologie/vue-ensemble.md",
     "concepts": ["9 familles nosologiques", "28 maladies", "matrice nosologique", "triage nosologique", "pathologies computationnelles"]
   },
   "policies": {

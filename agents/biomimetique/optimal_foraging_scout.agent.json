@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Mesurer le gain marginal d'information dI/dt a chaque etape, declencher un PATCH_DEPARTURE quand il tombe sous le taux environnemental, et alterner petits pas et grands sauts de Levy.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOMIMETIC_WEB_FORAGING.md",
+    "source_doc": "docs/01-concepts/biomimetisme/web-foraging.md",
     "concepts": ["theoreme de Charnov", "rendement marginal dI/dt", "patch departure", "vols de Levy", "exploration clairsemee"]
   },
   "policies": {

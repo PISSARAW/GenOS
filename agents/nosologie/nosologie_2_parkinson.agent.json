@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le syndrome parkinsonien computationnel : tarissement du neuromediateur Dopamine, blocage d'evaluate_axon_hillock et akinésie d'emission de primitives MCP.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_2_DEGENERATIVES.md",
+    "source_doc": "docs/01-concepts/nosologie/02-degeneratives.md",
     "concepts": ["Depletion dopaminergique de la substance noire", "Corps de Lewy et alpha-synucleine mal repliee", "Defaut de mitophagie PINK1/Parkin et stress oxydatif", "Blocage du cone d'emergence (axon hillock)", "Rigidite en roue dentee et tremblement de repos", "Diagnostic ParkinsonianAkinesia"]
   },
   "policies": {

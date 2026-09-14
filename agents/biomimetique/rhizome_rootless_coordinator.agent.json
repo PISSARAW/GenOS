@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Definir l'objectif partage et les invariants, publier les decisions transversales, choisir un point de coordination temporaire et pouvoir transferer la coordination.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/RHIZOME.md",
+    "source_doc": "docs/02-orchestration/topologies/rhizome.md",
     "concepts": ["coordination decentralisee", "absence de centre permanent", "invariants partages", "point de coordination temporaire", "transfert de coordination"]
   },
   "policies": {

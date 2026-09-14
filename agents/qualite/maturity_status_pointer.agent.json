@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Qualifier chaque capacite GenOS selon operationnel, partiel, experimental ou conceptuel, en refusant de presenter un modele architectural comme une promesse produit.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PANORAMA_CONCURRENTIEL.md",
+    "source_doc": "docs/07-positionnement/panorama-concurrentiel.md",
     "concepts": [
       "operationnel = comportement present et couvert par le runtime ou ses tests",
       "partiel = surface presente mais limites ou cas non couverts",

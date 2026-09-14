@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Detecter un flux cognitif stabilise, faire apoptoser le noyau reflexif, le remplacer par un pipeline statique natif Rust WASM et maintenir un debit maximal resistant a la cavitation.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOMIMETISME_CELLULAIRE_SPECIALISE.md",
+    "source_doc": "docs/01-concepts/biomimetisme/cellulaire-specialise.md",
     "concepts": ["tracheide", "apoptose structurante", "ossification en pipeline", "cout LLM nul", "resistance a la cavitation"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Gouverner l'exposition des outils MCP par bail et par moindre privilege a travers REST, gRPC et CLI.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/IDENTITY_AUTHORITY.md",
+    "source_doc": "docs/05-securite-gouvernance/identite-et-autorite.md",
     "concepts": ["mcp/lease.js", "GENOS_MCP_LEASE", "GENOS_MCP_DISABLED_TOOLS", "toolLeasePolicy et TTL", "rejet AGENT_TOOL_LEASE_STALE"]
   },
   "policies": {

@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Executer une liste fermee d'actions et de commandes Studio sous tenant et role admin/operator, en exigeant confirmed:true pour kill_agent et reboot_studio.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/CLI_EXPERIENCE_OPERATEUR.md",
+    "source_doc": "docs/04-exploitation/cli-et-experience-operateur.md",
     "concepts": [
       "actions admises fork_agent, kill_agent, inspect_state, reboot_studio, snapshot_workspace",
       "terminal limite a help, status, halt/abort, resume, agents, ping, clear",

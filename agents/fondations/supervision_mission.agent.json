@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Transformer une mission autorisee en processus d'agent borne, isoler son workspace en capsule, persister sa telemetrie et conduire l'execution vers un statut terminal explicite.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/RUNTIME_AGENTIQUE.md",
+    "source_doc": "docs/01-concepts/runtime-agentique.md",
     "concepts": ["startMission", "superviseMission", "capsule isolee", "worktree jetable", "statut terminal termine/erreur/bloque/non verifie/apoptose", "garde-fous actifs"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Explorer l'espace des variantes d'agents par mutation stochastique et hypermutation bornee, puis selectionner les candidats par fitness et front Pareto avec snapshot et evaluation isolee.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/GENOME_EPIGENETIQUE.md",
+    "source_doc": "docs/01-concepts/genome-et-epigenetique.md",
     "concepts": ["mutate_stochastic", "hypermutate r_hyper=min(3r,0.95)", "somaticHypermutate", "fitness S=s_status+0.7F+0.3E", "paretoSelect", "CRISPR knockout", "pseudogenisation"]
   },
   "policies": {

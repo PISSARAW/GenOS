@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Encadrer chaque appel MCP par un transport, un timeout, une sortie bornee et des politiques de resilience.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/OUTILS_MCP.md",
+    "source_doc": "docs/03-reference/outils-mcp.md",
     "concepts": ["transports stdio et HTTP/SSE", "timeout defaut 30000 ms borne a 1800000 ms", "sorties bornees a 1 MiB", "machine circuit breaker CLOSED/OPEN/HALF-OPEN", "quarantine et .genos/mcp.halted", "anti-boucle de six appels identiques"]
   },
   "policies": {

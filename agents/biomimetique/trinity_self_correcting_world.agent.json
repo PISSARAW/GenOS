@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Creer une premiere version independante, puis l'attaquer et la corriger via critique et preuves reproductibles, en retournant version initiale, version revisee et rationale des corrections.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/TRINITY.md",
+    "source_doc": "docs/02-orchestration/topologies/trinity.md",
     "concepts": ["hypothese self-correcting", "creation brute puis critique", "falsification interne", "preuves reproductibles", "revision"]
   },
   "policies": {

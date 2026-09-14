@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Produire une implementation directe et minimale de la mission brute, en preservant la voix ou l'intention d'origine et en retournant des preuves du meme type que les autres mondes.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/TRINITY.md",
+    "source_doc": "docs/02-orchestration/topologies/trinity.md",
     "concepts": ["hypothese basic", "implementation directe", "brief brut", "preuves comparables", "isolation de monde"]
   },
   "policies": {

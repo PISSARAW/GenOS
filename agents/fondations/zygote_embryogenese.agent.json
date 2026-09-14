@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Creer une population d'agents initialement coherente a partir d'une cellule racine, par clivage mitotique a budget partage et division bornee par le Hayflick limit.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOLOGIE_COMPUTATIONNELLE.md",
+    "source_doc": "docs/01-concepts/biologie-computationnelle.md",
     "concepts": ["zygote", "cleave_zygote", "mitose", "budget partage", "hayflick_limit", "embryogenese"]
   },
   "policies": {

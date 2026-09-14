@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Empecher l'execution d'outils dangereux et declencher le lockdown d'urgence du runtime.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SECURITE.md",
+    "source_doc": "docs/05-securite-gouvernance/securite.md",
     "concepts": ["circuit breaker CLOSED/OPEN/HALF-OPEN", "kill switch .genos/mcp.halted", "outils destructifs verrouilles", "detection de boucles de commandes identiques"]
   },
   "policies": {

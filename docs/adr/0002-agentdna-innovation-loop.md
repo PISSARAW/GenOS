@@ -4,7 +4,7 @@
 - **Date** : 2026-09-14
 - **Domaine** : Génome, apprentissage, orchestration, preuve
 - **Décideurs** : Mainteneurs GenOS
-- **Lié à** : [spec/AGENT_DNA_SPEC.md](../../spec/AGENT_DNA_SPEC.md), [docs/AGENT_DNA_RUNTIME.md](../AGENT_DNA_RUNTIME.md), [docs/EPISTEMOLOGIE_EVIDENCE.md](../EPISTEMOLOGIE_EVIDENCE.md), [docs/REPRODUCTION_REPLICATION.md](../REPRODUCTION_REPLICATION.md), [adr/0001-agent-dna-binary-format.md](0001-agent-dna-binary-format.md)
+- **Lié à** : [spec/AGENT_DNA_SPEC.md](../../spec/AGENT_DNA_SPEC.md), [docs/01-concepts/agent-dna-runtime.md](../01-concepts/agent-dna-runtime.md), [docs/01-concepts/epistemologie-et-evidence.md](../01-concepts/epistemologie-et-evidence.md), [docs/02-orchestration/reproduction-et-replication.md](../02-orchestration/reproduction-et-replication.md), [adr/0001-agent-dna-binary-format.md](0001-agent-dna-binary-format.md)
 
 ## Contexte
 

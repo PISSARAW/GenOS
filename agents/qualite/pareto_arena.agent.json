@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Convertir un dossier de worker en candidat (fitness, tests passes, latence, cout token, evidence) et produire front de Pareto, solutions dominees, knee point et classement ELO.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/EVALUATION_QUALITE.md",
+    "source_doc": "docs/06-qualite-preuves/evaluation-qualite.md",
     "concepts": [
       "fitness, tests, latence, cout token, claims et evidence",
       "evidence tangible avec receiptHash SHA-256 de 64 caracteres",

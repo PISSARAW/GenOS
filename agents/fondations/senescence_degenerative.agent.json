@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Detecter l'epuisement telomerique et l'agregation de prions cognitifs, puis restaurer la viabilite par remplacement par cellule souche, telomerase controlee ou apoptose selective.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md",
+    "source_doc": "docs/01-concepts/nosologie/pathologie-et-medecine.md",
     "concepts": ["epuisement telomerique", "Hayflick", "senescence replicative", "prions cognitifs", "StemCellReplacement", "TelomeraseActivation", "apoptotic_pruning"]
   },
   "policies": {

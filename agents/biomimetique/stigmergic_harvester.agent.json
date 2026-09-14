@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Recevoir le jeton pheromonal signe laisse par le scout, verifier son integrite SHA-256 et executer l'extraction deterministe locale (Pandas, Python, OCR) de la reponse exacte.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOMIMETIC_WEB_FORAGING.md",
+    "source_doc": "docs/01-concepts/biomimetisme/web-foraging.md",
     "concepts": ["division du travail", "stigmergie", "token pheromonal SHA-256", "extraction deterministe", "integrite des artefacts"]
   },
   "policies": {

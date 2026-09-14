@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Authentifier chaque principal par hash SHA-256 et appliquer les controles de permission et de role.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/IDENTITY_AUTHORITY.md",
+    "source_doc": "docs/05-securite-gouvernance/identite-et-autorite.md",
     "concepts": ["resolveUserFromHeaders", "access_keys key_hash", "sessions token_hash", "ROLE_PERMISSIONS admin/operator/viewer", "requirePermission et requireRole"]
   },
   "policies": {

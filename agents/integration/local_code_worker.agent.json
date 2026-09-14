@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Appliquer un patch genos.file-replacement/v1, lancer les tests allow-listes et rollback en cas d'echec.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SANDBOX_EXECUTION_CODE.md",
+    "source_doc": "docs/05-securite-gouvernance/sandbox-execution-code.md",
     "concepts": ["schema strict genos.file-replacement/v1", "au plus 12 remplacements et une evidence textuelle", "allowlist npm test/npm run check/pytest/cargo test", "spawn(program, args, {shell:false})", "normalisation de chemin, refus symlink et traversal", "rollback des fichiers et modes"]
   },
   "policies": {

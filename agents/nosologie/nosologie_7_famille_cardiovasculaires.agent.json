@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Arbitrer la famille cardiovasculaire : distribution continue de l'energie, des substrats et des messages par la pompe de tick, le reseau rhizomique et le milieu circulant, avec hemodynamique, triage FAST et garde-fous de securite vasculaire.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_7_CARDIOVASCULAIRES.md",
+    "source_doc": "docs/01-concepts/nosologie/07-cardiovasculaires.md",
     "concepts": ["Quatre piliers cardiovasculaires (pompe, reseau, milieu, endothelium)", "Loi de Poiseuille et pression synaptique P_cleft", "Depletion ischemique et viabilite cellulaire H_i", "Barriere hemato-encephalique et excitotoxicite", "Triage d'urgence FAST (Flow, ATP, Synapse, Timing)", "Regle d'or : verifier la BHE avant toute thrombolyse"]
   },
   "policies": {

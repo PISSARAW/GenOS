@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Resoudre les problemes combinatoires (TSP, SAT, ordonnancement) par ACO et champ pheromonal en Rust, avec le LLM invoque une seule fois pour produire le code final.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/ECONOMIE_ET_SCALABILITE_MULTI_AGENTS.md",
+    "source_doc": "docs/07-positionnement/economie-et-scalabilite.md",
     "concepts": [
       "colonie de 100 fourmis virtuelles sur un StigmergyField natif",
       "evaporation I(t+dt) = I(t) e^{-lambda dt}",

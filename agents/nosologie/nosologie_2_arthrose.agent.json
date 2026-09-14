@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Modeliser l'arthrose computationnelle : usure des interfaces de communication, saturation des buffers inbox/outbox et accumulation de cellules senescentes a phenotype SASP.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_2_DEGENERATIVES.md",
+    "source_doc": "docs/01-concepts/nosologie/02-degeneratives.md",
     "concepts": ["Limite de Hayflick et cicatrices bud_scars", "Surproduction de MMP et degradation des interfaces", "Phenotype secretoire SASP", "Penalite de viabilite de -100.0", "Friction des canaux IPC/MPSC", "Diagnostic OsteoarticularInterfaceWear et TelomereExhaustion"]
   },
   "policies": {

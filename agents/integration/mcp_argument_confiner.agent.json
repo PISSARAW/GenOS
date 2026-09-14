@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Valider les arguments MCP et confiner les chemins d'entree et de sortie dans le workspace autorise.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/OUTILS_MCP.md",
+    "source_doc": "docs/03-reference/outils-mcp.md",
     "concepts": ["validateToolArguments", "champs requis non vides et nombres finis non negatifs", "refus des separateurs shell et sauts de ligne", "confinement de chemin par mcpExecutor", "refus des chemins absolus et symlinks", "rejet des alias ambigus"]
   },
   "policies": {

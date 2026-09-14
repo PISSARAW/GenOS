@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Definir l'objectif et le contrat du host, deleguer le travail specialise aux symbiontes, revoir leurs sorties et trancher l'acceptation, le raffinement ou le rejet.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/HOLOBIONTE.md",
+    "source_doc": "docs/02-orchestration/topologies/holobionte.md",
     "concepts": ["objectif du host", "limites d'autorite", "contrat partage", "delegation securisee", "decision finale"]
   },
   "policies": {

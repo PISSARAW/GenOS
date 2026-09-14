@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Propager stdout JSON, stderr et code de sortie pour distinguer une commande acceptee d'une modification reellement attestee par un artefact ou une preuve.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/CLI_EXPERIENCE_OPERATEUR.md",
+    "source_doc": "docs/04-exploitation/cli-et-experience-operateur.md",
     "concepts": [
       "code 0 handler reussi, 1 erreur metier, 2 confirmation absente",
       "effet atteste = reponse handler ET artefact persistant ET preuve adaptee",

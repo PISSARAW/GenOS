@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Restreindre le champ de competence de chaque cellule de l'essaim en activant l'axe HOX correspondant a sa position, et en verrouillant epigenetiquement les genes hors axe.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOLOGIE_COMPUTATIONNELLE.md",
+    "source_doc": "docs/01-concepts/biologie-computationnelle.md",
     "concepts": ["HOX-1 UI/frontend", "HOX-2 logic/backend", "HOX-3 data/storage", "heterochromatine facultative", "methylation", "seed_hox_genome"]
   },
   "policies": {

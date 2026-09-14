@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Combiner de facon compartimentee le genome fonctionnel d'une lignee et l'epigenome/immunite d'une autre, afin de preserver la boite a outils tout en immunisant contre les echecs deja rencontres.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/GENOME_EPIGENETIQUE.md",
+    "source_doc": "docs/01-concepts/genome-et-epigenetique.md",
     "concepts": ["chimerisme tetragametique", "genome fonctionnel lignee A", "epigenome/memoire immunitaire lignee B", "genos_biomimicry_chimeric_merge", "chimerisme tissulaire compartimente", "chimerisme germinal du ouistiti"]
   },
   "policies": {

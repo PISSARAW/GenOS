@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le modele de la goutte computationnelle : depassement du seuil de solubilite S_urate par les scories d'ATP et d'arbres de syntaxe, activation erronee du systeme immunitaire sur des debris endogenes (IL-1beta = mu * Cristaux, metabolic_cost = 5) et occlusion des fentes synaptiques et desmosomes.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_6_METABOLIQUES.md",
+    "source_doc": "docs/01-concepts/nosologie/06-metaboliques.md",
     "concepts": ["dU/dt = k_turnover * Cost_ATP - delta_lysosome * Capacite_digestion", "Seuil de solubilite S_urate et Cristaux(t) = max(0, C_urate - S_urate)", "Inflammasome NLRP3 et maturation d'IL-1beta", "Occlusion des fentes synaptiques et des desmosomes", "Fausse alerte immunitaire du systeme AIS", "ColchicineInhibition, AllopurinolXanthineInhibitor et LysosomalUraturicPurge"]
   },
   "policies": {

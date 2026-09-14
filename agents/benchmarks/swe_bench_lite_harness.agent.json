@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Executer le harnais SWE-bench Lite sur des taches reelles et mesurer le taux de resolution (9/26 soit 34.6 %) et le rejet securise des patchs invalides.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SWE_BENCHMARK_RESULTS.md",
+    "source_doc": "docs/06-qualite-preuves/benchmarks/swe-bench-lite.md",
     "concepts": [
       "26 taches evaluees, 9 resolues dynamiquement (34.6 %)",
       "environnement WSL Ubuntu-24.04 CPython 3.9, zero Docker",

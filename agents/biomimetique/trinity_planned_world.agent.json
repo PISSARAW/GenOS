@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Construire un plan explicite (interview, architecture, specification) puis executer la mission depuis ce plan, en retournant plan, resultat et fidelite d'execution.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/TRINITY.md",
+    "source_doc": "docs/02-orchestration/topologies/trinity.md",
     "concepts": ["hypothese planned", "plan detaille", "interview derivee", "fidelite plan-execution", "specification explicite"]
   },
   "policies": {

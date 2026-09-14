@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Emettre des chirps ultrasonores FM 20-120 kHz, calculer distances par temps de vol et vitesses radiales par decalage Doppler, et identifier obstacles critiques et corridors navigables.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOMIMICRY_ANIMAL_SENSES.md",
+    "source_doc": "docs/01-concepts/biomimetisme/sens-animaux.md",
     "concepts": ["echolocation", "sondage Doppler 3D", "chirps FM", "temps de vol ToF", "detection d'obstacles"]
   },
   "policies": {

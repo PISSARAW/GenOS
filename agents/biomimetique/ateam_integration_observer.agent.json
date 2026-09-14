@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Collecter les dossiers d'evidence des domaines, verifier la compatibilite des contraintes d'integration deux a deux, mesurer la couverture et decider fusion, escalade ou continuation.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/A_TEAM.md",
+    "source_doc": "docs/02-orchestration/topologies/a-team.md",
     "concepts": ["interoperabilite", "barriere d'evidence", "matrice de compatibilite", "couverture de capacites", "escalade sur incoherence"]
   },
   "policies": {

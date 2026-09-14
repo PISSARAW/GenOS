@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Construire l'image Docker du backend et garantir la persistance du volume /data pour SQLite.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/DEPLOIEMENT_EXPLOITATION.md",
+    "source_doc": "docs/04-exploitation/deploiement.md",
     "concepts": ["node:22-bookworm-slim epingle par digest", "npm ci --omit=dev et build des modules natifs", "GENOS_DB_PATH=/data/genos.db", "volume /data obligatoire", "HEALTHCHECK GET /readyz", "utilisateur non-root node et ports 4000/50051"]
   },
   "policies": {

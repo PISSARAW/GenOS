@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Executer les model_jobs de facon durable et reconcilier le modele demande avec le modele reellement servi.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/MODELES_PROVIDERS.md",
+    "source_doc": "docs/03-reference/modeles-et-providers.md",
     "concepts": ["tables model_jobs et model_job_tokens", "statuts queued/running/completed/failed/cancelled", "checkpoints et outputs deja termines", "retry exponentiel avec jitter et deadLetter", "streaming SSE et NDJSON Ollama", "requestedModel distingue de servedModel"]
   },
   "policies": {

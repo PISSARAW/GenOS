@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Reguler dynamiquement la conductance stomatique entre 0 et 1, exercer une backpressure correlee a la pression metabolique et fermer les stomates lors d'un stress ABA (saturation API, budget depasse).",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOMIMETISME_CELLULAIRE_SPECIALISE.md",
+    "source_doc": "docs/01-concepts/biomimetisme/cellulaire-specialise.md",
     "concepts": ["cellule de garde", "regulation osmotique", "throttling stomatique", "backpressure", "stress ABA"]
   },
   "policies": {

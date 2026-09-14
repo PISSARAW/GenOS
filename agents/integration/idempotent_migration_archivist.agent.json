@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Appliquer des migrations idempotentes et versionnees qui preservent la compatibilite des anciennes bases.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PERSISTANCE_DONNEES.md",
+    "source_doc": "docs/03-reference/persistance-et-donnees.md",
     "concepts": ["CREATE TABLE/INDEX IF NOT EXISTS", "inspection PRAGMA table_info", "applyVersionedMigrations", "idempotence M(M(S))=M(S)", "migration non additive avec table legacy", "compatibilite de lecture et de montee de version"]
   },
   "policies": {

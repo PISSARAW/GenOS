@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Fusionner deux etats d'agents par deduplication des collections et resoudre les conflits cibles sur role et model_tier, puis rebaser un etat sur une autre base.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/GIT_AGENTS.md",
+    "source_doc": "docs/02-orchestration/git-agents.md",
     "concepts": ["diff de sections", "merge d'etat", "merge-base par hash", "rebase ours/onto", "conflits role et model_tier"]
   },
   "policies": {

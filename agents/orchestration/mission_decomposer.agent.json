@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Detecter les dimensions de risque, complexite et incertitude puis produire un plan d'autonomie coherent (phases, workers, budget, gates) filtre par le portefeuille de strategies.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/ORCHESTRATION.md",
+    "source_doc": "docs/02-orchestration/orchestration.md",
     "concepts": ["decomposition de mission", "plan d'autonomie", "phases et decision gates", "portefeuille de strategies", "requiredTools des phases"]
   },
   "policies": {

@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Contraindre les transitions draft/staging/published/archived et archiver simultanement les workspaces lorsqu'un projet passe en archived.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/gestion-projet-multi-tenant.md",
+    "source_doc": "docs/05-securite-gouvernance/gestion-projet-multi-tenant.md",
     "concepts": [
       "WORKFLOW_TRANSITIONS draft/staging/published/archived",
       "T_project = active ou archived",

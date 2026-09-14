@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Etablir les frontieres de l'environnement, identifier les populations necessaires et leurs interfaces, recenser contraintes, invariants et ressources, et produire une carte versionnee.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOME.md",
+    "source_doc": "docs/02-orchestration/topologies/biome.md",
     "concepts": ["cartographie d'environnement", "frontieres et interfaces", "contraintes et invariants", "ressources disponibles", "dependances bloquantes"]
   },
   "policies": {

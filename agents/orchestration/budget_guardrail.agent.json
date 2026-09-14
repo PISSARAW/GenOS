@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Appliquer la regle guardrailExceeded et refuser la promotion si un budget de tokens, cout, latence ou evenements est franchi.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PRIMITIVES_EXECUTABLES.md",
+    "source_doc": "docs/02-orchestration/primitives-executables.md",
     "concepts": ["budget de ressources", "guardrailExceeded(m,b)", "metriques observees", "conditions de promotion", "politique de securite"]
   },
   "policies": {

@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Verifier dynamiquement une resolution par execution Pytest native : FAIL_TO_PASS rouge avant patch puis vert apres, PASS_TO_PASS intact.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SWE_BENCHMARK_RESULTS.md",
+    "source_doc": "docs/06-qualite-preuves/benchmarks/swe-bench-lite.md",
     "concepts": [
       "reproduction de l'echec avant application du patch",
       "resolution formelle apres application du patch",

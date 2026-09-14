@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Executer une schizogonie avec merozoite_count entre 2 et 128, marquer mother_lysed, et distribuer mutations et indices a chaque enfant.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/REPRODUCTION_REPLICATION.md",
+    "source_doc": "docs/02-orchestration/reproduction-et-replication.md",
     "concepts": ["schizogony", "merozoite_count", "mother_lysed", "MAX_MEROZOITES", "fan-out controle"]
   },
   "policies": {

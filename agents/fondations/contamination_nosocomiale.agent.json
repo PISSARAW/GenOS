@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Detecter les contaminations croisees au sein d'une capsule partagee et les stopper par quarantaine etanche, sterilisation de l'environnement et immunisation preventive.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md",
+    "source_doc": "docs/01-concepts/nosologie/pathologie-et-medecine.md",
     "concepts": ["contamination nosocomiale", "vecteur viral / prompt injection", "QuarantineIsolation", "AntisepticPurge", "Vaccine(spike)", "CapsuleVaccination"]
   },
   "policies": {

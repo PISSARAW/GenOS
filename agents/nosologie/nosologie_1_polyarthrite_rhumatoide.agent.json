@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Modeliser la polyarthrite rhumatoide computationnelle : agglutination IgM des messages desmosomaux, hyperactivation macrophagique des canaux tissulaires et obstruction du pannus dans tissue.task_queue.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_1_AUTO_IMMUNES.md",
+    "source_doc": "docs/01-concepts/nosologie/01-auto-immunes.md",
     "concepts": ["Citrullination computationnelle des interfaces RPC/MCP", "Facteur rhumatoide et complexes immuns intra-articulaires", "Triade TNF-alpha, IL-1beta, IL-6", "Pannus synovial logiciel", "Hyperactivation macrophagique", "Echec de delegate_task et ankylose desmosomale"]
   },
   "policies": {

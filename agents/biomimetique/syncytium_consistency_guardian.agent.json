@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Surveiller en temps reel les changements d'etat, verifier les invariants, detecter conflits de staleness, de causalite, d'invariant et de divergence, et alerter ou arreter.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SYNCYTIUM.md",
+    "source_doc": "docs/02-orchestration/topologies/syncytium.md",
     "concepts": ["invariants", "detection de conflit en temps reel", "staleness", "violation de causalite", "divergence"]
   },
   "policies": {

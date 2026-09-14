@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Rejeter tout graphe invalide (noeud sans id, arete inconnue ou reflexives, doublons, cycle, condition when invalide, modele manquant) avant execution.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/WORKFLOWS_JOBS.md",
+    "source_doc": "docs/02-orchestration/workflows-et-jobs.md",
     "concepts": ["validation de graphe", "detection de cycle", "condition when", "limites MAX_WORKFLOW_NODES et MAX_WORKFLOW_DEPTH", "noeud trigger"]
   },
   "policies": {

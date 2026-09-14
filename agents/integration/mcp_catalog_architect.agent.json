@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Maintenir le catalogue MCP, les types de dispatch et la parite minimale entre les catalogues JS et Rust.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/OUTILS_MCP.md",
+    "source_doc": "docs/03-reference/outils-mcp.md",
     "concepts": ["ALL_TOOLS JS et public_tool_specs Rust", "MCP_TOOLS_LIST et registre de dispatch", "types strategy/bio/cli", "parite de schemas avec anyOf", "la decouverte est une vue, l'execution une autorisation"]
   },
   "policies": {

@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Evaluer chaque sortie avec exact_match, groundedness, safety et llm_judge en retournant kind='metric' et qualityGuarantee=false, sans transformer un score en garantie.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/EVALUATION_QUALITE.md",
+    "source_doc": "docs/06-qualite-preuves/evaluation-qualite.md",
     "concepts": [
       "metrique vs preuve de qualite vs garantie",
       "exact match apres canonicalisation recursive",

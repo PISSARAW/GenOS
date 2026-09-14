@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Imposer une approbation humaine separee pour les actions a risque et revalider le contexte avant execution.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/COMPLIANCE_GOUVERNANCE.md",
+    "source_doc": "docs/05-securite-gouvernance/conformite-et-gouvernance.md",
     "concepts": ["approval_required et platform_approvals", "SHA-256 du payload", "APPROVAL_SEPARATION_REQUIRED", "APPROVAL_PAYLOAD_TAMPERED", "receipt approved/approvalId/approverId/payloadHash"]
   },
   "policies": {

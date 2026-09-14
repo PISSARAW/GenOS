@@ -1,0 +1,996 @@
+# Orchestration GenOS
+
+## 1. Définition
+
+L’orchestration dans GenOS est le mécanisme de planification, de partitionnement, d’exécution et de validation d’une mission complexe en plusieurs branches concurrentes, avec une barrière de preuve avant promotion ou fusion. Le système ne “décide” pas seulement quelles tâches lancer : il encadre la mission par des limites, des gates de décision, des preuves de validité, des budgets de tokens, des sélections de survivants, et des mécanismes de reprise en cas d’échec.
+
+Le cœur fonctionnel est réparti entre :
+
+- [backend/src/services/autonomousOrchestrationService.js](../../backend/src/services/autonomousOrchestrationService.js) : construction du plan d’autonomie, phases, workers, budget, gates.
+- [backend/src/services/agentRoundService.js](../../backend/src/services/agentRoundService.js) : sélection de survivants et continuation après l’étape d’évaluation initiale.
+- [backend/src/services/agentFleetService.js](../../backend/src/services/agentFleetService.js) : création des workers autonomes, barrière d’évidence, quiescence, synthèse finale.
+- [backend/src/services/agentOrchestrationState.js](../../backend/src/services/agentOrchestrationState.js) : état partagé, maps de missions, continuations, barrages et télémétrie.
+- [backend/src/services/tokenAllocationService.js](../../backend/src/services/tokenAllocationService.js) : budget initial/continuation, mise en place de la successives halving.
+- [backend/src/services/workerFailureRecoveryService.js](../../backend/src/services/workerFailureRecoveryService.js) : classification des échecs, décisions de récupération et prompt de reprise.
+- [backend/src/services/inferenceGatewayService.js](../../backend/src/services/inferenceGatewayService.js) : régulation de la file d’inférence et équité entre tenants/projets.
+
+Le principe est simple et strict : aucune conclusion d’un worker n’est promue comme “solution” sans preuve, provenance, tests, et validation de cohérence.
+
+---
+
+## 2. Peut-être pas un “orchestrateur générique”, mais un orchestrateur de preuve
+
+GenOS ne se contente pas d’une orchestration par file de tâches. Il applique une logique de contrôle multi-niveaux :
+
+1. décomposer la mission en sous-problèmes ;
+2. affecter des workers spécialisés ;
+3. exécuter en isolation ;
+4. mesurer l’évidence ;
+5. conserver seulement les branches solides ;
+6. relancer ou récupérer uniquement selon des règles de sécurité ;
+7. fusionner, rejeter ou escalader avec un journal explicite.
+
+Les mécanismes de sécurité sont explicites :
+
+- budget maximum par travailleur ;
+- garde-fou sur l’autonomie du worker ;
+- limite de fan-out et de profondeur ;
+- arrêt quand l’évidence est insuffisante ;
+- détection de boucles de reprise ;
+- filtre d’équité des tâches par tenant/projet.
+
+---
+
+## 3. Définition mathématique de l’orchestration
+
+La planification de mission est un budget d’allocation et d’évaluation.
+
+Soit :
+
+- $T$ : budget total de tokens disponible,
+- $s$ : part allouée aux workers,
+- $n$ : nombre de workers activés,
+- $m$ : nombre de survivants retenus pour la deuxième phase,
+- $E_i$ : score d’évidence du worker $i$,
+- $P$ : ensemble de points de Pareto,
+- $R$ : budget de reprise.
+
+Le plan d’orchestration calcule :
+
+$$
+T_{worker} = T \cdot s
+$$
+
+avec :
+
+$$
+0 \le s \le 1
+$$
+
+et la validation de faisabilité :
+
+$$
+T_{worker} \ge n \cdot m_{min}
+$$
+
+où $m_{min}$ est le minimum de tokens par worker requis par la configuration.
+
+La sélection de survivants suit un classement :
+
+$$
+\text{rank}(i) = \left[ i \in P,\ E_i \right]
+$$
+
+de sorte que les meilleurs candidats sont gardés en priorité, puis les branches dominées sont éliminées. La seconde phase reçoit un budget dédié :
+
+$$
+T_{cont} = T_{worker} - T_{init}
+$$
+
+et son allocation est répartie entre les survivants sélectionnés.
+
+Le système de file d’inférence applique aussi une règle de justice d’accès :
+
+$$
+\text{tenantDepth}(k) \le C_{fairness}
+$$
+
+avec $C_{fairness}$ la capacité de queue par tenant/projet. Si un tenant dépasse la capacité, la requête est rejetée ou retardée afin d’éviter le starvation.
+
+---
+
+## 4. Analogies biologiques utiles (sans sur-interprétation)
+
+GenOS emploie des termes biologiques pour décrire les mécanismes de gestion, mais la sémantique opérationnelle est technique et vérifiable :
+
+- cellule = agent / worker ;
+- genome = contrat de stratégie, prompt, paramètres, compétences ;
+- fork = branche isolée d’exécution ;
+- snapshot = point de restauration ;
+- hypermutation = mutation contrôlée ;
+- apoptosis = arrêt d’un agent ou d’une branche en raison de danger ou d’écart de sécurité ;
+- chaperone = correction de sortie invalide ou maladformée ;
+- immunité = rejet d’une sortie défaut de preuve.
+
+L’intérêt est surtout que la métaphore aide à comprendre les invariants : l’orchestration est conçue comme un système vivant dans lequel les branches doivent être isolées, contrôlées et évaluées avant d’être promues.
+
+---
+
+## 5. Architecture du système
+
+```text
+Client / orchestrateur
+        |
+        v
+[autonomousOrchestrationService]
+        |
+        +--> plan de mission
+        |       - phases
+        |       - workers
+        |       - budget
+        |       - decision gates
+        |
+        v
+[agentFleetService]
+        |
+        +--> createAutonomousWorkers
+        +--> evidence barrier
+        +--> worker synthesis prompt
+        |
+        v
+[agentRoundService]
+        |
+        +--> evaluate initial evidence
+        +--> select survivors (successive halving)
+        +--> dispatch continuation workers
+        |
+        v
+[agentRecoveryService]
+        |
+        +--> detect failure / cycle / retry policy
+        +--> mutate / fork / replace / bisect
+        |
+        v
+[agentOrchestrationState]
+        |
+        +--> activeProcesses
+        +--> pendingContinuations
+        +--> autonomousRounds
+        +--> pendingWorkerRecoveries
+        +--> activeWorkerBarriers
+        |
+        v
+[telemetry + database]
+```
+
+Les composants ne sont pas joués comme une chaîne linéaire. Ils interagissent via des états partagés dans [backend/src/services/agentOrchestrationState.js](../../backend/src/services/agentOrchestrationState.js), ce qui permet un contrôle centralisé des branches, des reprises, des barrages et des continuations.
+
+---
+
+## 6. Décomposition des missions
+
+Le plan de mission est construit dans [backend/src/services/autonomousOrchestrationService.js](../../backend/src/services/autonomousOrchestrationService.js).
+
+Le service détecte au moins cinq dimensions :
+
+- niveau de risque ;
+- complexité ;
+- incertitude ;
+- type de mission (sécurité, validation, recherche, mutation) ;
+- portefeuille de stratégies disponibles.
+
+À partir de ces variables, il détermine :
+
+- les phases nécessaires ;
+- le nombre de branches ;
+- le nombre de workers à lancer ;
+- la politique de budget ;
+- les transitions autorisées selon le portfolio.
+
+Exemple de phases typiques :
+
+- `retrieve_and_diagnose`
+- `snapshot_before_mutation`
+- `counterfactual_forks`
+- `evidence_and_evaluation`
+- `controlled_mutation`
+- `competition_and_selection`
+- `replay_and_promote`
+
+Les phases sont filtrées par le portefeuille de stratégies. Si certaines capacités ne sont pas disponibles, le plan est rendu “dégradé” ou “bloqué” plutôt que forcé.
+
+### Invariant de décomposition
+
+Le repo impose que les phases et les outils aient un contrat cohérent. La validation compare les `requiredTools` des phases avec les primitives présentes dans le portefeuille. Si un outil est absent, la phase est soit omise, soit le plan reste bloqué.
+
+---
+
+## 7. Dispatch des workers
+
+Les workers sont créés par [backend/src/services/agentFleetService.js](../../backend/src/services/agentFleetService.js) via `createAutonomousWorkers`. Les règles du repo sont claires :
+
+- si aucun worker n’est requis, rien n’est créé ;
+- si le budget est sous le seuil minimum, le dispatch est reporté ;
+- si le fan-out dépasse la limite, l’exécution est rejetée ;
+- si les branches ne correspondent pas au workspace racine, l’exécution est refusée.
+
+Le code applique une limite explicite :
+
+- `MAX_AUTONOMOUS_WORKERS = 3`
+- fan-out supérieur à 3 = erreur `WORKER_FANOUT_LIMIT`
+
+C’est une limite de sécurité. Elle évite qu’un orchestrateur transforme un problème en explosion de sous-tâches.
+
+Le dispatch tient compte du budget :
+
+- part allouée aux workers ;
+- minimum tokens par worker ;
+- budget de tokens pour l’orchestrateur ;
+- potentiel redimensionnement avec `successive_halving_with_reallocation`.
+
+---
+
+## 8. Evidence barrier
+
+La “evidence barrier” est le point de non-retour avant qu’un worker soit considéré valide. Elle est dans [backend/src/services/agentFleetService.js](../../backend/src/services/agentFleetService.js) et dans la validation des dossiers d’évidence dans [backend/src/services/agentEvidenceService.js](../../backend/src/services/agentEvidenceService.js).
+
+Le barrier check fonctionne ainsi :
+
+1. chaque worker publie un rapport d’évidence ;
+2. le runtime enregistre l’événement ;
+3. la suite est bloquée si le rapport manque de preuve ou d’éléments vérifiables ;
+4. le système attend que tous les workers deviennent quiescents ;
+5. ensuite, il synthétise les dossiers pour l’orchestrateur.
+
+Le test [backend/tests/test_orchestration_evidence_barrier.js](../../backend/tests/test_orchestration_evidence_barrier.js) montre le contract attendu :
+
+- les dossiers doivent inclure des preuves ;
+- des revendications non corroborées sont rejetées ;
+- la barrière attend une stabilisation des états avant de conclure.
+
+Le runtime ne se contente pas de “voir un `completed`” ; il exige qu’il existe une preuve concrète, parfois sous la forme de :
+
+- `claims` avec `evidence` ;
+- `tests` ;
+- `provenance` ;
+- `noAnswerProof` dans le cas d’absence de réponse.
+
+Si l’évidence manque, le système émet un message `ORCHESTRATION_DECISION_BLOCKED` ou `WORKER_NO_ANSWER_PROVEN` selon le cas.
+
+### 8.1 Synthèse hiérarchique multi-niveaux (Tissus / Clusters pour 100 agents)
+
+Lorsqu'un essaim de 100 ouvriers termine son exécution, la concaténation brute de 100 dossiers complets dans le prompt de synthèse de l'orchestrateur racine pose deux problèmes critiques :
+1. **Saturation de contexte** : 100 dossiers d'événements peuvent dépasser 100 000 tokens.
+2. **"Lost in the Middle"** : L'attention des modèles de langage se dégrade fortement sur les informations situées au milieu de très longs contextes non structurés.
+
+Pour résoudre cela, GenOS implémente une **synthèse hiérarchique par tissus** (`clusterWorkerDossiers`) :
+- **Partitionnement tissulaire** : Les ouvriers sont regroupés en grappes de taille fixe (10 workers par cluster par défaut, ex. `tissue_cluster_1`, `tissue_cluster_2`...).
+- **Condensation d'évidence (`dossierDigest`)** : Les preuves de chaque cluster sont préalablement condensées (revendications vérifiées, preuves d'impossibilité `noAnswerProof`, tests réussis).
+- **Contrat de validation d'influence (`validateDossierInfluence`)** : Pour les flottes massives (> 12 workers), le modèle n'est pas contraint d'émettre 100 entrées JSON exhaustives dans un seul token de sortie : il cite obligatoirement les ouvriers pivots, contributeurs clés ou explicitement rejetés, dont les citations d'évidence sont vérifiées à 100% contre les dossiers réels.
+
+---
+
+## 9. Phases, gates et transitions
+
+Les gates sont explicités dans le plan produit par `buildAutonomyPlan`. L’orchestrateur peut agir sur les événements de branche en appelant des outils comme :
+
+- `genos_replay`
+- `genos_snapshot`
+- `genos_fork`
+- `genos_evaluate_trajectories`
+- `genos_merge`
+- `genos_record_decision`
+- `genos_security_coevolution`
+
+Le service [backend/src/services/orchestrationDecisionService.js](../../backend/src/services/orchestrationDecisionService.js) mappe les événements sur des actions de décision :
+
+- `AGENT_FAILED` -> replay et re-diagnostique
+- `HARD_INVARIANT_FAILURE` -> snapshot + quarantine + fork
+- `AGENT_COMPLETED` avec preuve -> evaluation de l’évidence
+- `PARASITISM_MANIFEST_READY` -> pression parasitaire isolée
+
+Les transitions sont officiellement définies dans le plan :
+
+- convergence + preuve -> `hierarchical_merge`
+- divergence persistante -> `competitive_arena`
+- branche parasite réussie -> `red_blue_coevolution`
+- réserve budgétaire basse -> `network_silence`
+
+Cela évite le comportement “toujours continuer” et impose une clôture par décision explicite.
+
+---
+
+## 10. Successive halving et sélection des survivants
+
+Le mécanisme de sélection est implémenté dans [backend/src/services/tokenAllocationService.js](../../backend/src/services/tokenAllocationService.js) et piloté dans [backend/src/services/agentRoundService.js](../../backend/src/services/agentRoundService.js).
+
+### Budget initial et continuation
+
+La fonction `buildAllocation` répartit le budget en deux phases :
+
+- initiale : toute la branche a un budget utile pour essayer une hypothèse ;
+- continuation : seulement les meilleurs candidats reçoivent un surplus.
+
+La logique est :
+
+- $n$ workers en phase initiale ;
+- $m = \lceil n/2 \rceil$ survivants au plus ;
+- $T_{init}$ est réduit à un tiers ou au minimum viable ;
+- $T_{cont}$ = reste du pool.
+
+Formellement :
+
+$$
+T_{init} = \min(T_{worker}, \max(n \cdot m_{min}, \lfloor T_{worker}/3 \rfloor))
+$$
+
+et si le budget restant est trop faible :
+
+$$
+T_{cont} = 0
+$$
+
+ce qui force une exécution unique plutôt qu’un pseudo-algorithme de sélection sans vrai signal.
+
+### Sélection des survivants
+
+Après la phase exploratoire, le runtime :
+
+1. collecte les résultats terminés ;
+2. calcule le score d’évidence ;
+3. applique l’évaluation de Pareto ;
+4. choisit les candidats selon score et priorité de Pareto ;
+5. alloue la continuation seulement aux survivants.
+
+Un worker est gardé si :
+
+- il est terminé ou idle ;
+- il a un score d’évidence valide ;
+- il appartient à la front de Pareto ou est classé parmi les meilleurs.
+
+---
+
+## 11. Continuations et recovery workers
+
+Les continuation workers sont créés dans `advanceAutonomousRound` et `dispatchPendingContinuation` dans [backend/src/services/agentRoundService.js](../../backend/src/services/agentRoundService.js).
+
+Quand une branche est sélectionnée :
+
+- le prompt est enrichi avec l’historique de preuve ;
+- un nouveau budget est injecté ;
+- la continuation réutilise le même worker s’il est toujours valide, sinon elle l’envoie dans une nouvelle mission de continuation.
+
+Le système de reprise est dans [backend/src/services/workerFailureRecoveryService.js](../../backend/src/services/workerFailureRecoveryService.js) et [backend/src/services/agentRecoveryService.js](../../backend/src/services/agentRecoveryService.js).
+
+Les décisions sont hiérarchisées :
+
+- `conclude_no_answer` si une preuve stricte de non-existence est fournie ;
+- `mutate_worker` pour sortie structurée invalide ou mutée ;
+- `fork_worker` pour hypothèse falsifiée ;
+- `bisect_and_rollback` pour régression/violation d’invariant ;
+- `replace_worker` si le profil de worker ne convient plus ;
+- `escalate_unresolved` si le budget de recouvrement est épuisé.
+
+Le point important : la reprise est bornée. Le repo détecte aussi les cycles de récupération. Si une politique de récupération se répète, la décision est escaladée au lieu d’être bouclée sans fin.
+
+---
+
+## 12. Prévention des boucles d’orchestration
+
+L’orchestration a plusieurs garde-fous contre les boucles :
+
+### 12.1 Déduplication des actions
+
+[L’orchestrationActionExecutor](../../backend/src/services/orchestrationActionExecutor.js) rejette les actions dupliquées via un cache de `(orchestrator_id, source_event_id, tool)`.
+
+### 12.2 Détection de cycle de récupération
+
+Dans [backend/src/services/agentRecoveryService.js](../../backend/src/services/agentRecoveryService.js), si la même catégorie d’échec réapparaît avec la même action, le runtime détecte un cycle et ne le réessaie pas indéfiniment.
+
+### 12.3 Barrière de quiescence
+
+Dans [backend/src/services/agentFleetService.js](../../backend/src/services/agentFleetService.js), l’orchestrateur attend qu’aucun worker ne soit en cours de tâche ni en phase de continuation avant de considérer la vague terminée.
+
+### 12.4 Timeouts et limites
+
+Le runtime applique des limites de :
+
+- profondeur de workflow ;
+- taille d’un workspace copié ;
+- nombre d’entrées ;
+- tentatives de continuation ;
+- tentatives de réparation ;
+- fan-out de workers.
+
+---
+
+## 13. Limites de profondeur, fan-out et récursion
+
+Le repo applique des gardes fortes à plusieurs niveaux.
+
+### 13.1 Profondeur de workflow
+
+Dans [backend/src/services/jobWorker.js](../../backend/src/services/jobWorker.js), la profondeur d’exécution est plafonnée. Si une branche dépasse la limite, on lève une erreur au lieu de laisser le graphe se déformer.
+
+### 13.2 Copie de workspace
+
+Dans [backend/src/services/agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js), les sous-workspaces sont copiés avec :
+
+- limite d’entrées ;
+- limite de taille ;
+- exclusion des `.git`, `node_modules`, `target` ;
+- limite de profondeur de copie.
+
+Si une copie dépasse les seuils, le système refuse explicitement la branche.
+
+### 13.3 Fan-out et capacité de workers
+
+Dans [backend/src/services/agentFleetWorkers.js](../../backend/src/services/agentFleetWorkers.js) et [backend/src/services/workerGarageService.js](../../backend/src/services/workerGarageService.js) :
+
+- Par défaut : `MAX_ACTIVE_WORKERS = 3`, `MAX_AUTONOMOUS_WORKERS = 3` et capacité de projet `GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT = 12`.
+- Paramétrable pour les déploiements à grande échelle (jusqu'à 100+ agents) :
+  - `GENOS_MAX_ACTIVE_WORKERS` : nombre maximal d'ouvriers actifs par orchestrateur (ex: `100`).
+  - `GENOS_MAX_AUTONOMOUS_WORKERS` : limite de fan-out simultané lors de la création d'une flotte autonome.
+  - `GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT` : plafond total de workers actifs par projet (s'adapte automatiquement à `GENOS_MAX_ACTIVE_WORKERS`).
+  - `GENOS_INFERENCE_MAX_CONCURRENT` et `GENOS_INFERENCE_TENANT_QUEUE_CAPACITY` : régulation de la file d'inférence (adaptée automatiquement à la taille de la flotte).
+  - `GENOS_SQLITE_BUSY_TIMEOUT_MS` : délai de verrouillage SQLite (30 000 ms par défaut).
+- En cas de saturation (`WORKER_GARAGE_FULL`), un message d'erreur actionnable indique immédiatement l'état et le remède : `Worker garage is full (slots: X/Y used — wait or increase MAX_ACTIVE_WORKERS)`.
+
+Pour opérer 100 agents simultanément de façon optimale, il est recommandé de structurer la mission en **tissus cellulaires** (ex: 10 escouades de 10 agents avec chacune sa cellule souche) plutôt qu'un essaim plat en *hub-and-spoke*.
+
+### 13.4 Recursion / boucle de reprise
+
+- `MAX_CONTINUATION_DISPATCH_ATTEMPTS = 3`
+- `MAX_RECOVERY_ATTEMPTS = 3`
+
+Après cela, le système escalade plutôt que de recréer un cycle infini.
+
+---
+
+## 14. Fairness entre agents, projets et tenants
+
+La fair scheduling est assurée par [backend/src/services/inferenceGatewayService.js](../../backend/src/services/inferenceGatewayService.js).
+
+### 14.1 Priorité
+
+- `interactive` : priorité élevée pour l’orchestrateur / plan review ;
+- `bulk` : tâches lourdes de workers.
+
+### 14.2 Équité par tenant
+
+Le système a une clé de “fairness” par tenant/projet :
+
+```js
+fairnessKey = `${organizationId}:${projectId}`
+```
+
+Puis :
+
+- le nombre d’éléments du tenant dans la queue est compté ;
+- si le tenant dépasse la capacité, la tâche est rejetée ;
+- l’algorithme force le tourniquet entre les tenants pour éviter le starve.
+
+Cela évite qu’un grand projet monopolise l’inférence locale et pousse les branches plus petites à attendre indéfiniment.
+
+### 14.3 Equilibre global
+
+Le contrôleur a aussi une limite globale de concurrence (`GENOS_INFERENCE_MAX_CONCURRENT`) et une capacité globale de queue. Cela fait qu’un cluster local n’est pas plongé dans un “burst” d’inférence.
+
+---
+
+## 15. Exemple complet de mission
+
+### Cas : correction de bug dans un service backend
+
+1. L’orchestrateur reçoit une mission : “diagnostiquer un bug de régression et proposer une correction vérifiée”.
+2. Le plan détecte : risque moyen, complexité élevée, incertitude modérée.
+3. Il décide : 3 workers, phases de diagnostic, snapshot, fork, évaluation, replay.
+4. Chaque worker reçoit un workspace isolé, un rôle, un budget limité.
+5. Les workers explorent des hypothèses concurrentes.
+6. L’évidence est collectée. Un worker qui a produit une conclusion non prouvée est exclu.
+7. Un worker échec de test provoque `bisect_and_rollback`.
+8. L’orchestrateur sélectionne 2 survivants parmi 3.
+9. Les survivants reçoivent un budget de continuation plus important.
+10. Finalement, la meilleure preuve est replayée, comparée, puis promue ou rejetée.
+
+### Exemple chiffré
+
+Budget total : $T = 1{,}000{,}000$
+
+- part workers : $s = 0.6$
+- $T_{worker} = 600{,}000$
+- minimum par travailleur : $8{,}000$
+- 3 workers => 24,000 minimum, quel que soit le plan
+
+Allocation de phase initiale :
+
+$$
+T_{init} = \min(600{,}000, \max(3 \cdot 8{,}000, \lfloor 600{,}000 / 3 \rfloor)) = \min(600{,}000, 200{,}000) = 200{,}000
+$$
+
+Reste pour continuation :
+
+$$
+T_{cont} = 600{,}000 - 200{,}000 = 400{,}000
+$$
+
+Survivants retenus : $m = \lceil 3/2 \rceil = 2$
+
+Donc les 2 meilleurs candidats reçoivent un budget de continuation plus fort qu’un simple “même budget pour tous”.
+
+---
+
+## 16. Processus complet d’orchestration
+
+1. Étape 0 — validation du contrat : stratégie, portfolio, risk profile, budget.
+2. Étape 1 — plan d’autonomie : phases + workers + budget + gates.
+3. Étape 2 — création des workers avec isolation de workspace.
+4. Étape 3 — execution des workers, en parallèle ou série selon les rôles.
+5. Étape 4 — enregistrement des preuves et des dossiers.
+6. Étape 5 — arrêt de la barre d’évidence si le dossier est insuffisant.
+7. Étape 6 — tri et sélection des survivants.
+8. Étape 7 — continuation sur les meilleurs branches.
+9. Étape 8 — détection d’échec, mutation, fork, bisection ou remplacement.
+10. Étape 9 — synthèse finale, replay, enregistrement et décision finale.
+
+---
+
+## 17. Comparaison avec le marché
+
+### 17.1 Orchestration “classique” (Airflow / Temporal / orchestration workflow)
+
+Ces systèmes excellent pour :
+
+- pipelines déterministes ;
+- tâches séquentielles ou DAG ;
+- exécution de jobs et planification ;
+- audit d’ordonnancement.
+
+Le point faible est que la plupart ne gèrent pas explicitement :
+
+- évaluation de preuves de chaque branche ;
+- isolation de workspace branchée ;
+- budget de continuation adaptatif ;
+- justice par tenant/projet ;
+- mutation contrôlée de workers ;
+- re-sélection de survivants via Pareto / halving.
+
+### 17.2 Orchestration de multi-agents “LLM-native” (LangGraph, AutoGen, CrewAI)
+
+Ces frameworks gèrent bien la conversation, la hiérarchie et la coordination, mais la plupart manquent de :
+
+- barrière d’évidence formelle ;
+- méthode explicite de sélection de survivants ;
+- limites strictes de fan-out ;
+- ressources de reprise structurées ;
+- mécanismes de quiescence et de prévention de boucles.
+
+### 17.3 Position de GenOS
+
+GenOS se distingue par une combinaison rare :
+
+- orchestration explicite de branches ;
+- budget adaptatif par preuve ;
+- barrier de validation avant promotion ;
+- récupération bornée et orientée cause ;
+- mécanismes de sécurité (quarantine, snapshot, replay, jugement de preuve) ;
+- politique d’équité entre tenants/projets ;
+- limites opérationnelles intégrées dans le runtime.
+
+En d’autres termes, GenOS est moins un simple orchestrateur de tâches qu’un système de gouvernance de l’exécution multi-agent basée sur les preuves.
+
+## 17.bis Orchestration par Jumeaux Miroirs (Dualité Antagoniste)
+
+Pour les missions à haut risque ou nécessitant une analyse contre-factuelle, l'orchestrateur instancie des couples de **Jumeaux Miroirs** via `genos_biomimicry_mirror_twin_fork`. Cette primitive gère en mémoire (`mirrorTwinRegistry`) la dualité antagoniste entre un pôle constructif (optimiste) et un pôle critique (sceptique), permettant d'équilibrer l'exploration heuristique avant toute décision de consolidation.
+
+- **Organisation :** L'orchestrateur alloue des quotas équilibrés au jumeau constructeur et au jumeau sceptique.
+## 17.ter Orchestration par Multiples Hybrides (Matrice Polyovulaire $\times$ Isogénique)
+
+La primitive `genos_biomimicry_hybrid_multiples` structure les déploiements complexes en combinant polyovulation (macro-familles hétérogènes) et scission isogénique (micro-clones identiques) :
+
+```mermaid
+flowchart TD
+    ROOT["Mission Orchestrateur"] --> HYBRID["Matrice Hybride (genos_biomimicry_hybrid_multiples)"]
+    
+    HYBRID -->|Famille 1 : Polyovulation| F1["Famille Formelle (Claude)"]
+    HYBRID -->|Famille 2 : Polyovulation| F2["Famille Heuristique (GPT-4o)"]
+    
+    F1 -->|Scission Monozygote| C1A["Clone 1A (Seed 11)"]
+    F1 -->|Scission Monozygote| C1B["Clone 1B (Seed 22)"]
+    
+    F2 -->|Scission Monozygote| C2A["Clone 2A (Seed 33)"]
+    F2 -->|Scission Monozygote| C2B["Clone 2B (Seed 44)"]
+    
+    C1A & C1B & C2A & C2B --> SYNTHESIS["Synthèse Transversale & Sélection de Survivants"]
+```
+
+* **Handler & Dispatch :** [`backend/src/services/mcpBioTools/handlers/hybridMultiples.js`](../../backend/src/services/mcpBioTools/handlers/hybridMultiples.js)
+* **Suite de Tests :** [`backend/tests/test_hybrid_multiples.js`](../../backend/tests/test_hybrid_multiples.js)
+
+## 17.quater Orchestration par Superfécondation Hétéropaternelle (Multi-Fournisseurs)
+
+Grâce à `genos_biomimicry_heteropaternal_superfecundation`, l'orchestrateur peut allouer une même sous-tâche critique à une flotte de demi-frères jumeaux opérant sur des fournisseurs de modèles hétérogènes (Anthropic, Google, OpenAI) au sein du même workspace, éliminant tout angle mort ou biais systémique de raisonnement propre à un seul modèle.
+
+## 17.quinquies Orchestration par Superfétation (Gestation Asynchrone en Cascade)
+
+L'orchestrateur injecte des agents cadets (`genos_biomimicry_superfetation_pipeline`) dans des contextes où des agents aînés ont déjà défriché l'arbre de décision. Le cadet démarre avec un différentiel d'âge gestationnel $\Delta T$, bénéficiant de l'effet d'entraînement des preuves de l'aîné sans bloquer ce dernier.
+
+## 17.sexies Pipeline Séquentiel à Diapause Embryonnaire (3-Tiers sans Creux)
+
+Inspiré du kangourou, `genos_biomimicry_embryonic_diapause_pipeline` maintient un flux d'exécution continu à 3 étages :
+1. **Étage 1 (Sortie / Production) :** Validation finale et déploiement du travail.
+2. **Étage 2 (Gestation Active / Poche) :** Élaboration et compilation du code en cours.
+3. **Étage 3 (Diapause Utérine / 0 Token) :** Embryon de tâche suivante pré-configuré mais suspendu.
+
+Dès que l'Étage 1 se termine, l'Étage 2 est promu et l'Étage 3 sort instantanément de diapause sans latence de démarrage à froid.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    state "Étage 1 : Production / Release" as E1
+    state "Étage 2 : Gestation Active (Poche)" as E2
+    state "Étage 3 : Diapause Embryonnaire (Utérus - 0 Token)" as E3
+
+    E3 --> E2 : Réveil instantané dès libération du slot
+    E2 --> E1 : Promotion post-validation
+    E1 --> [*] : Déploiement achevé
+```
+
+---
+
+## 18. Limites et risques
+
+Les limites sont intentionnelles, pas accidentelles :
+
+- les agents ne doivent pas déborder en fan-out ;
+- les workers ne sont pas “infaillibles” ;
+- le système n’emploie pas de garantie d’AGI ;
+- les preuves doivent être explicites, sinon l’évidence est refusée ;
+- la reprise ne garantit pas la continuation si les seuils de sécurité sont franchis.
+
+Le point fort du système est qu’il est “honest” : il ne prétend pas qu’un résultat est vrai simplement parce qu’un agent l’a affirmé. La preuve est un prérequis de la décision.
+
+---
+
+## 19. Références directes dans le repo
+
+- [backend/src/services/autonomousOrchestrationService.js](../../backend/src/services/autonomousOrchestrationService.js)
+- [backend/src/services/agentRoundService.js](../../backend/src/services/agentRoundService.js)
+- [backend/src/services/agentFleetService.js](../../backend/src/services/agentFleetService.js)
+- [backend/src/services/agentOrchestrationState.js](../../backend/src/services/agentOrchestrationState.js)
+- [backend/src/services/mcpBioTools/handlers/mirrorTwinFork.js](../../backend/src/services/mcpBioTools/handlers/mirrorTwinFork.js)
+- [backend/src/services/tokenAllocationService.js](../../backend/src/services/tokenAllocationService.js)
+- [backend/src/services/agentRecoveryService.js](../../backend/src/services/agentRecoveryService.js)
+- [backend/src/services/workerFailureRecoveryService.js](../../backend/src/services/workerFailureRecoveryService.js)
+- [backend/src/services/inferenceGatewayService.js](../../backend/src/services/inferenceGatewayService.js)
+- [backend/src/services/jobWorker.js](../../backend/src/services/jobWorker.js)
+- [backend/src/services/agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js)
+- [backend/src/services/orchestrationDecisionService.js](../../backend/src/services/orchestrationDecisionService.js)
+- [backend/tests/test_orchestration_evidence_barrier.js](../../backend/tests/test_orchestration_evidence_barrier.js)
+- [backend/tests/test_mirror_twin.js](../../backend/tests/test_mirror_twin.js)
+- [backend/tests/test_mission_decomposition_invariants.js](../../backend/tests/test_mission_decomposition_invariants.js)
+- [crates/genos-orchestrator/src/orchestrator.rs](../../crates/genos-orchestrator/src/orchestrator.rs) : orchestrateur biomimétique (tissus, conscience, immunité, spores)
+- [crates/genos-orchestrator/src/director.rs](../../crates/genos-orchestrator/src/director.rs) : directeur cognitif (choix de concepts, stratégies, apprentissage)
+- [crates/genos-orchestrator/src/planner.rs](../../crates/genos-orchestrator/src/planner.rs) : état du monde, arsenal de concepts, transitions
+- [crates/genos-orchestrator/src/tick.rs](../../crates/genos-orchestrator/src/tick.rs) : boucle `tick`/`run` et rapports
+- [crates/genos-orchestrator/src/observer.rs](../../crates/genos-orchestrator/src/observer.rs) : observation live -> `WorldState`
+- [crates/genos-orchestrator/src/organization.rs](../../crates/genos-orchestrator/src/organization.rs) : 19 organisations + formes supérieures
+- [crates/genos-orchestrator/src/worlds.rs](../../crates/genos-orchestrator/src/worlds.rs) : mondes parallèles (Trinity) et barrière de preuve
+- [crates/genos-orchestrator/src/recruitment.rs](../../crates/genos-orchestrator/src/recruitment.rs) : décision de recrutement (rôles, capacités, budget, imposteurs)
+- [crates/genos-orchestrator/src/trace.rs](../../crates/genos-orchestrator/src/trace.rs), [diagnostics.rs](../../crates/genos-orchestrator/src/diagnostics.rs) : traces d'actions, replay, verdicts, plasmides
+- [crates/genos-orchestrator/src/dna_ops.rs](../../crates/genos-orchestrator/src/dna_ops.rs), [genome_ops.rs](../../crates/genos-orchestrator/src/genome_ops.rs) : ADN compilé et opérations génomiques
+- [crates/genos-orchestrator/src/ecosystem.rs](../../crates/genos-orchestrator/src/ecosystem.rs) : façade `GenosEcosystem`
+
+---
+
+## 19.bis Le crate Rust `genos-orchestrator` (noyau de coordination et de décision)
+
+Le backend orchestre les missions via des services JS ; le crate Rust
+[`crates/genos-orchestrator`](../../crates/genos-orchestrator) est le **noyau
+biomimétique** : coordination d'agents, décision autonome, perception,
+diagnostic et résilience. Il est régi par une boucle cognitive unique et
+expose une façade (`GenosEcosystem`) donnant accès à l'ensemble des crates
+GenOS.
+
+### 19.bis.1 Boucle cognitive (`tick` / `run`)
+
+`GenosEcosystem::tick(goal)` exécute un cycle complet, `run(goal, max_ticks)`
+itère jusqu'à l'arrêt et renvoie un `MissionReport` (`ticks`, `halted`,
+`halt_reason`, `reached`, `executed`, `verdicts`, `agents_before/after`,
+`traces`).
+
+1. **Observer** : `observe()` dérive un `WorldState` de l'état réel (tissus,
+   agents, menace via virologie, malades via diagnostic clinique, incertitude
+   via preuves manquantes, traces disponibles, agents signalés, budget).
+2. **Décider** : le `Director` choisit une stratégie, une séquence de concepts,
+   une organisation (topologie de communication) et une forme supérieure
+   (holobionte, syncytium, métapopulation, rhizome, biocénose, biome, essaim).
+3. **Agir** : chaque concept du plan est exécuté sur l'écosystème (voir
+   19.bis.4).
+4. **Apprendre** : le succès/échec de chaque concept met à jour ses
+   statistiques (`ActionStats`).
+5. **S'arrêter** : but atteint, budget épuisé, problème déclaré insoluble,
+   arsenal épuisé, ou plus aucun moyen pertinent.
+
+### 19.bis.2 Décision : le directeur et son arsenal
+
+Le `Director` dispose de 24 concepts (Observe, Replay, Organize, Recruit,
+Delegate, Audit, Immune, Virology, Throttle, Therapy, Spore, Glia, Signaling,
+Stigmergy, Quorum, Neuro, Mutate, Cross, Endosymbiosis, Genomics, Plasmid,
+Feign, Kill, Communicate), chacun avec **préconditions** et **effets**. Il :
+
+- sélectionne les moyens **pertinents** pour le but (pas tous) ;
+- **explore** les concepts non testés (bonus d'exploration) ;
+- **apprend** des succès/échecs (taux lissé de Laplace) ;
+- intègre un **stress** composite (dissonance, inflammation IL‑6, taux d'échec,
+  pression budgétaire) : sous stress le coût pèse davantage et l'organisation
+  bascule (ex. `network_silence`) ;
+- planifie en profondeur par **recherche en faisceau** (`beam_plan`) plutôt qu'en
+  glouton ;
+- essaie plusieurs **stratégies** (Solo, A‑Team, Biocénose, Biome) et, si deux
+  se valent, les explore **en parallèle** (Trinity) ;
+- **change de décision** : `note_failure` exclut un concept défaillant et
+  relance la planification.
+
+Le but et les contraintes peuvent être dérivés d'une mission en langage naturel
+via `interpret_mission` (thalamus/LLM si feature `api`, sinon mots‑clés) puis
+exécutés par `run_mission`.
+
+### 19.bis.3 Organisations et mondes
+
+- `organization.rs` reproduit les **19 organisations** du service
+  `dynamicOrganizationService` (`specialist_expert_committee`,
+  `blind_adversarial_review`, `red_blue_coevolution`, `brier_weighted_consensus`,
+  `quorum_with_abstention`, `stigmergy`, `flocking_boids`, `fish_school_search`,
+  `slime_mould_network`, `grey_wolf_optimizer`, `mycelial_routing`,
+  `dynamic_polyethism`, `energy_huddle`, `network_silence`, `strategy_arena`,
+  `hierarchical_merge`, `competitive_arena`, `isolated_recovery`,
+  `memory_compilation`) et les choisit selon l'état (adversaire → rouge/bleu,
+  incertitude → consensus de Brier, maladie → récupération isolée, budget bas →
+  huddle, etc.).
+- `worlds.rs` exécute des **mondes parallèles comparés** (Trinity = Basic /
+  Planned / Self‑Correcting), compare les preuves et **promeut** le meilleur
+  monde ou **escalade** si aucun ne franchit la barrière de preuve. Deux modes :
+  `run`/`trinity` planifient sur des **copies d'état** (rapide) ; `run_isolated`
+  exécute chaque hypothèse dans son **propre `GenosEcosystem`**, en **threads
+  parallèles** (isolation réelle).
+
+### 19.bis.4 Concepts exécutés (effets réels)
+
+Organogenèse et recrutement (tissus, agents), délégation et anti‑collusion,
+immunité clonale et virologie, throttling, soin et quarantaine (spore),
+signalisation (stigmergie, quorum, neurotransmission), génétique (mutation,
+croisement, ADN leurre, plasmide‑compétence), test viral, **replay** des traces
+d'agent → **verdict** → action, pipeline **glial** complet (BHE, plaques, LCR),
+et **communication** (signal sans prompt entre agents ; consultation du
+**thalamus/LLM** via la feature `api`).
+
+### 19.bis.5 Diagnostic par replay et plasmides
+
+`trace.rs` enregistre chaque action d'agent (`Success`/`Failure`/`Wasted`) ;
+`replay` en dresse le bilan (succès, échecs, gaspillage, boucles) ; `diagnose`
+en déduit un verdict : **sain**, **mutation**, **croisement**, **plasmide**,
+**famine**, **suppression**, **soin**. `GenosEcosystem::act_on_verdict` agit
+(soin, réduction de budget, transfert de plasmide par HGT, retrait de l'agent,
+mutation/croisement sur l'ADN enregistré). Les traces sont **persistées**
+(`save_traces`/`load_traces`) et la provenance est consultable
+(`trace_provenance`).
+
+### 19.bis.6 Accès complet à GenOS
+
+`GenosEcosystem` compose l'orchestrateur avec les sous‑systèmes de tous les
+crates bibliothèques : signalisation, stockage (événements, capsules,
+cryptobiose, mémoire vectorielle, fossiles), reproduction, phénotype/quorum,
+sensorimoteur, thérapies/pathologie, glie, cellules spécialisées, virologie,
+immunité cyber, sens avancés, phylogenèse, ADN compilé et recrutement. Les
+crates sont aussi ré‑exportés à la racine (`genos_orchestrator::genos_store`,
+etc.). La couche serveur (`genos-api`) est accessible via la **feature Cargo
+`api`** (désactivée par défaut).
+
+### 19.bis.7 Vérification
+
+Le crate est couvert par des tests unitaires et d'intégration (orchestrateur,
+conscience, token bucket, organisations, directeur, mondes, recrutement,
+traces/diagnostics, tick/boucle, comportements, scénario de bout en bout) et par
+des exemples exécutables (`examples/mission_*.rs`, `orchestrator_licence.rs`).
+Le scénario `mission_e2e` force la **feinte** (ADN leurre), le **pipeline glial**
+complet et la **communication** (thalamus) tout en menant la mission à terme, et
+exécute trois mondes isolés en parallèle. `cargo test -p genos-orchestrator` et
+`cargo test -p genos-orchestrator --features api` passent sans warning clippy.
+
+### 19.bis.8 Boucle incarnée (Phase 1)
+
+Le crate expose un environnement externe (`trait Environment { sense(key) ->
+Percept; act(Action) -> Feedback }`, implémentation réelle `FileSandbox`
+confinée) et une boucle fermée `embodied_task` (perception → action →
+**récompense externe**) : la sortie produite dans le monde est comparée à une
+spécification, la réussite met à jour l'apprentissage via le concept `Actuate`
+et le journal d'événements. C'est la première brique vers un organisme
+« incarné » (voir `examples/mission_embodied.rs`).
+
+### 19.bis.9 Buts endogènes (Phase 2)
+
+L'orchestrateur peut choisir **lui‑même quoi poursuivre** : `Drives` dérive du
+monde trois déficits (énergie = budget, intégrité = maladie/trahison/stress,
+curiosité = incertitude) et `GoalSelector::select` en déduit un but — `RecoverAgent`,
+`SecurePerimeter`, `Conserve` (énergie basse) ou `Explore` (curiosité). Aucun
+`Goal` externe n'est requis : `autonomous_goal` / `run_autonomous` recalculent le
+but à chaque tick (réduction de déficit, façon homéostasie). Voir
+`examples/mission_autonomous.rs`.
+
+### 19.bis.10 Métabolisme réel (Phase 3)
+
+L'ATP est une ressource **réelle** : `Metabolism` (porté par l'orchestrateur) se
+régénère selon le **temps réel** (`refill`) et se débite à chaque opération
+(`consume`) ; `feed` ingère de l'énergie. La **famine bloque réellement** les
+actions (une action incarnée échoue, un tick s'arrête). Le budget observé
+(`WorldState.budget`) est l'ATP courant, si bien que le directeur s'arrête en
+famine. Voir `examples/mission_metabolism.rs`.
+
+### 19.bis.11 Apprentissage (Phase 4)
+
+Le choix des concepts s'appuie désormais sur un **bandit contextuel linéaire**
+par concept (`Learner`/`LinearBandit`) : la récompense attendue est
+`P(succès | contexte)` (menace, maladie, stress, adversaire…), apprise en ligne
+et **propagée** aux concepts d'un plan exécuté (assignation de crédit, facteur
+`gamma`). L'expérience persiste dans le directeur et se **transfère** aux
+missions suivantes. Voir `examples/mission_learning.rs`.
+
+### 19.bis.12 Évolution ouverte (Phase 5)
+
+Une couche évolutive (`Population`/`Individual`/`Island`) fait évoluer une
+population **multi‑îlots** : fitness fournie par l'environnement, sélection par
+tournoi, reproduction (croisement uniforme + mutation), **archive de nouveauté**
+(récompense les phénotypes inédits) et **migration** en anneau entre îlots
+(métapopulation). Déterministe à graine égale. Voir
+`examples/mission_evolution.rs`.
+
+### 19.bis.13 Autopoïèse, self-model, auto-réparation (Phase 6)
+
+Le système maintient sa **frontière** (`Membrane`) : elle se dégrade selon le
+temps réel et se régénère en consommant de l'ATP. Il produit un **modèle de soi**
+(`SelfModel` : identité, composants, intégrité, ATP…) et se **répare** seul
+(`self_repair` : membrane + ADN manquants) sans intervention externe. `tick`
+dégrade la membrane et **s'arrête** (« organisme mort ») si elle est rompue. Voir
+`examples/mission_autopoiesis.rs`.
+
+---
+
+## 20. Conclusion
+
+L’orchestration GenOS est un système de contrôle de multi-agent fondé sur quatre impératifs :
+
+- décomposition rationnelle de la mission ;
+- ségrégation des branches ;
+- preuve avant promotion ;
+- budget et reprise bornés.
+
+Ce qui distingue GenOS des orchestrateurs “simples” est qu’il combine planification, isolement de travail, sélection adaptative de survivants, preuves d’évidence, limites de sécurité et équité de partage. C’est une architecture pensée pour gérer l’incertitude de l’intelligence artificielle de manière mesurable, auditable et contrôlable.
+
+
+
+---
+
+## Schémas d'Architecture et de Flux d'Orchestration
+
+### 1. Architecture de l'Orchestrateur de Preuves
+
+```mermaid
+flowchart TB
+    subgraph GoalInput["Objectif Stratégique"]
+        MissionPlan["Plan de Mission & Contrats Formels"]
+    end
+
+    subgraph OrchestratorCore["Cœur de l'Orchestrateur"]
+        Decomposer["Décomposeur de Tâches en DAG"]
+        Scheduler["Ordonnanceur & Allocateur de Budgets"]
+        BranchManager["Gestionnaire de Branches d'Hypothèses"]
+    end
+
+    subgraph Workers["Exécution Parallèle & Sandboxes"]
+        W1["Worker Alpha (Branche A)"]
+        W2["Worker Beta (Branche B)"]
+        W3["Worker Gamma (Branche C)"]
+    end
+
+    subgraph VerificationGate["Validation de Preuves & Promotion"]
+        ProofChecker["Moteur de Preuve & Falsifiabilité"]
+        SurvivorSelection["Sélection des Survivants"]
+        MainlineMerge["Promotion atomique vers le tronc"]
+    end
+
+    GoalInput --> Decomposer
+    Decomposer --> Scheduler
+    Scheduler --> BranchManager
+    BranchManager --> W1 & W2 & W3
+    W1 & W2 & W3 --> ProofChecker
+    ProofChecker --> SurvivorSelection
+    SurvivorSelection --> MainlineMerge
+```
+
+### 2. Séquence d'Orchestration avec Fan-Out et Sélecteur de Survivants
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Operator as Opérateur
+    participant Orch as Orchestrateur GenOS
+    participant Fork as Moteur de Branching
+    participant W_A as Worker Alpha
+    participant W_B as Worker Beta
+    participant Proof as Moteur de Preuve
+    participant Tronc as Tronc Principal
+
+    Operator->>Orch: Objectif de refactorisation critique
+    Orch->>Fork: Fan-out contrôlé (Création branches A et B)
+    
+    par Exécution concurrente
+        Fork->>W_A: Lancement branche A (Approche conservatrice)
+        Fork->>W_B: Lancement branche B (Approche optimisée)
+    end
+    
+    W_A-->>Proof: Soumission Solution A + Assertions
+    W_B-->>Proof: Soumission Solution B + Assertions
+    
+    activate Proof
+    Proof->>Proof: Exécution de la matrice de falsification
+    alt Solution B validée et plus performante
+        Proof-->>Orch: Sélection Gagnante : Branche B (Preuve OK)
+        Orch->>Tronc: Merge atomique de la Branche B
+        Orch->>Fork: Pruning & destruction de la Branche A
+    else Solution B échoue
+        Proof-->>Orch: Repli sur Solution A
+        Orch->>Tronc: Merge atomique de la Branche A
+    end
+    deactivate Proof
+    
+    Orch-->>Operator: Mission validée avec certificat de preuve
+```
+
+### 3. Machine à états du Cycle de Vie d'une Branche d'Orchestration
+
+```mermaid
+stateDiagram-v2
+    [*] --> BranchCreee : Fork à partir du tronc
+    BranchCreee --> ExecutionAgent : Assignation Worker & Budget
+    
+    state ExecutionAgent {
+        [*] --> ResolutionTache
+        ResolutionTache --> GenerationPreuve : Sorties et traces prêtes
+        GenerationPreuve --> ResolutionTache : Raffinement
+    }
+    
+    ExecutionAgent --> SoumissionProofGate : Demande de promotion
+    
+    SoumissionProofGate --> EpreuveFalsification : Audit critique
+    EpreuveFalsification --> PromueTronc : Zéro contre-exemple / Tests PASS
+    EpreuveFalsification --> ElagueeRejetee : Falsification / Conflit
+    
+    PromueTronc --> [*]
+    ElagueeRejetee --> [*]
+```
+
+### 4. Amplification de Pipeline par Duplication Chromosomique (`genos_biomimicry_chromosomal_duplication`)
+
+Lors de missions à forte incertitude, l'orchestrateur duplique en tandem un sous-pipeline critique : une copie exécute l'heuristique de référence éprouvée, pendant que la copie dupliquée diverge (*néo-fonctionnalisation*) pour tester des optimisations sans compromettre le livrable nominal.
+
+### 5. Raisonnement Rétrograde par Inversion Chromosomique (`genos_biomimicry_chromosomal_inversion`)
+
+Pour diagnostiquer une régression subtile ou explorer un chemin inverse, l'orchestrateur inverse la séquence de tâches d'un worker à 180° : l'agent évalue en priorité la cible de validité finale et remonte la chaîne causale jusqu'aux pré-conditions d'entrée.
+
+### 6. Régulation Métabolique par ADN Mitochondrial (`genos_biomimicry_mitochondrial_dna_mutation`)
+
+L'orchestrateur modélise le profil énergétique des flottes d'agents pour réguler les quotas de tokens par minute et tracer les profils de consommation d'énergie au niveau de la planification.
+
+### 7. Topologie Stigmergique Scout / Harvester (Quête Web GAIA)
+
+Dans les énigmes sans fichier (77% de GAIA), l'orchestrateur découple la phase de prospection web de la phase de calcul déterministe :
+1. **Cellule Scout (Éclaireur Léger) :** Mobilise `genos_browser_act` et `genos_optimal_foraging` pour naviguer, contourner les formulaires et intercepter l'artefact brut (PDF/CSV) ou l'information clé.
+2. **Pheromone Token (Évidence Signée) :** Le Scout scelle un jeton d'évidence signé par SHA-256 sans faire gonfler le contexte de prompt.
+3. **Cellule Harvester (Moissonneur Lourd) :** L'agent analyste local récupère le token d'évidence, exécute les calculs exacts via Pandas/Python en environnement confiné et soumet la preuve à l'Arbitre de Réalité.
+
+> [!NOTE]
+> L'ensemble de ces primitives biomimétiques opère comme des heuristiques d'ordonnancement et des pods d'état applicatifs en mémoire (`mcpBioTools`), offrant des patrons de dérivation et de planification bio-inspirés sans intervention de pilotes de virtualisation ou de modules noyau bas niveau.
+
+
+

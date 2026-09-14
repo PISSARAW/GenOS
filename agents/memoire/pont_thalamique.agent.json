@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Partager les percepts entre agents jumeaux par un relais sensoriel direct zero-copy, sans reserialisation textuelle ni JSON lourde en tokens.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NEUROBIOLOGIE_PLASTICITE.md",
+    "source_doc": "docs/01-concepts/neurobiologie-et-plasticite.md",
     "concepts": ["pont thalamique", "zero-copy sensory relay", "canaux embeddings, kv_cache, ast_percept, event_stream", "gemellite craniopage", "co-perception"]
   },
   "policies": {

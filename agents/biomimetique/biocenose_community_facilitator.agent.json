@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Definir le protocole de la communaute Biocenose, fixer les seuils d'evidence et les frontieres de decision, prevenir la collusion et decider si le consensus permet la fusion ou exige une escalade.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOCENOSE.md",
+    "source_doc": "docs/02-orchestration/topologies/biocenose.md",
     "concepts": ["protocole communautaire", "seuils d'evidence", "frontieres de decision", "detection de collusion", "escalade graduee"]
   },
   "policies": {

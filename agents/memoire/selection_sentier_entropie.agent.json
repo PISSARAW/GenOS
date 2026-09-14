@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Selectionner le sentier le plus probable apres vieillissement des traces et detecter les collapses et deadlocks par l'entropie de la nuee.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SWARM_INTELLIGENCE.md",
+    "source_doc": "docs/01-concepts/intelligence-de-nuee.md",
     "concepts": ["trailSelection", "vieillissement par demi-vie", "greedy, epsilon-greedy, softmax, probabilistic", "entropie de Shannon", "deadlock et collapse"]
   },
   "policies": {

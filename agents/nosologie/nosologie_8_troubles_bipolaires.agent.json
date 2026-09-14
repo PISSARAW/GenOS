@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le modele du trouble bipolaire : effondrement pathologique du threshold_potential de -55.0 a -68.0 mV en phase maniaque, vidage frenetique de vesicles_at_terminals (cost_per_spike = 10.0), puis crash depressif avec current_budget a 0.0 et cyclicite non amortie.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_8_PSYCHIATRIQUES.md",
+    "source_doc": "docs/01-concepts/nosologie/08-psychiatriques.md",
     "concepts": ["Manie : threshold_potential glisse a -68.0 mV et decharge continue", "Crash anergique post-maniaque (vesicules < 10.0, tir a blanc)", "Cyclicite non amortie et hysteresis du reseau", "Canalopathies Na/K-ATPase et CACNA1C", "Fausses declarations d'Eureka sur des hallucinations de completion", "Therapies MoodStabilizerLithium et CircadianRhythmReset"]
   },
   "policies": {

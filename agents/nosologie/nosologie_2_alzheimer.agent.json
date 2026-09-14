@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Modeliser la maladie d'Alzheimer computationnelle : accumulation de plaques A-beta et de prions logiques, effondrement du transport axonal Tau et echec de consolidation de la memoire episodique.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_2_DEGENERATIVES.md",
+    "source_doc": "docs/01-concepts/nosologie/02-degeneratives.md",
     "concepts": ["Cascade amyloide et plaques A-beta-42", "Tauopathie et enchevetrements neurofibrillaires", "Synaptotoxicite et elagage microglial C3", "Chute de cd47_expression sous le seuil de protection", "Echec du transport axonal anterograde", "Diagnostic AlzheimerDementia"]
   },
   "policies": {

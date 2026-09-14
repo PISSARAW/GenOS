@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Evaluer la capacite d'abstention sur les 446 questions pieges et expliquer l'ecart entre le score F1 lexical et un comportement cognitif correct.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/LOCOMO_BENCHMARK_RESULTS.md",
+    "source_doc": "docs/06-qualite-preuves/benchmarks/locomo.md",
     "concepts": [
       "categorie 5 : faits inventes, detection d'invalidation et anti-hallucination",
       "gold standard officiel reduit a la chaine 'undefined'",

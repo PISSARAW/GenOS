@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Scanner la peripherie pour reperer les regions d'interet, executer des saccades attentionnelles et recadrer les details a pleine resolution native jusqu'a 300 DPI sans saturer la fenetre de contexte.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOMIMETIC_WEB_FORAGING.md",
+    "source_doc": "docs/01-concepts/biomimetisme/web-foraging.md",
     "concepts": ["foveation", "saccades oculaires", "vision peripherique", "region d'interet", "crop haute resolution"]
   },
   "policies": {

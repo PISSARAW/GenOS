@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Choisir et essayer des routes de modeles locales ou distantes selon une politique primary/fallbacks, avec decouverte locale et plafond de cout.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/RUNTIME_AGENTIQUE.md",
+    "source_doc": "docs/01-concepts/runtime-agentique.md",
     "concepts": ["primary/fallbacks", "preferLocal", "ollama/lmstudio/vllm/openai-compatible", "planchers 7B/14B/20B", "mode parallel", "maxCostUsd", "MODEL_ROUTE_FAILED"]
   },
   "policies": {

@@ -75,7 +75,7 @@ Documentation files are outside its scope.
 - **MCP server (stdio):** `node mcp/index.js` from the repository root. It reads
   `shared/toolDefinitions.json` and `backend/src/services/*`, so it must run from the repo root.
   Visible tools are controlled by `GENOS_MCP_LEASE` and `GENOS_MCP_DISABLED_TOOLS`
-  (see `docs/OUTILS_MCP.md`). A ready-to-use client config is in `.mcp.json`.
+  (see `docs/03-reference/outils-mcp.md`). A ready-to-use client config is in `.mcp.json`.
 - **Orchestration mission:** `node backend/bin/genos-orchestrate.cjs '{"mission":"...","background":true}'`
 - **Safe parallel debugging demo:** `node examples/safe-debugging-demo/run-demo.mjs target/debug/genos`
 
@@ -83,9 +83,10 @@ Documentation files are outside its scope.
 
 - **Commits:** first line must start with an uppercase bracketed tag, e.g. `[FIX] ...`,
   `[FEAT] ...`, `[REFACTOR] ...`, `[DOC] ...`. Enforced by `.githooks/commit-msg`.
-- **Docs:** French, under `docs/`, following the conventions in `docs/CONVENTIONS.md`
-  (10-section template for concept docs). Never rename/move `docs/*.md`: the paths are
-  sealed provenance identifiers (`source_doc` in genomes and `.dna` binaries).
+- **Docs:** French, under `docs/`, organized in numbered families (`01-concepts/`,
+  `02-orchestration/`, …; `kebab-case` filenames) per `docs/CONVENTIONS.md`. Do not
+  rename/move `docs/*.md` without running the provenance migration (see ADR 0005):
+  the paths are sealed identifiers (`source_doc` in `agents/*.agent.json` and `.dna`).
 - **Architecture facts:** keep the README/docs claims aligned with what is actually implemented;
   do not present conceptual or biological metaphors as working features.
 - **Security:** paths and MCP arguments are validated at runtime; do not bypass the sandbox,
@@ -96,6 +97,6 @@ Documentation files are outside its scope.
 - Product overview: `README.md`
 - Documentation index: `docs/README.md`
 - Backend internals: `backend/README.md`
-- MCP tools, leases and enforcement: `docs/OUTILS_MCP.md`
-- Agent runtime model: `docs/RUNTIME_AGENTIQUE.md`
-- Evidence and promotion gates: `docs/EPISTEMOLOGIE_EVIDENCE.md`
+- MCP tools, leases and enforcement: `docs/03-reference/outils-mcp.md`
+- Agent runtime model: `docs/01-concepts/runtime-agentique.md`
+- Evidence and promotion gates: `docs/01-concepts/epistemologie-et-evidence.md`

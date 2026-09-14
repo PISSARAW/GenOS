@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Serialiser les transactions SQLite et faire respecter l'atomicite, le WAL et la concurrence d'ecriture.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PERSISTANCE_DONNEES.md",
+    "source_doc": "docs/03-reference/persistance-et-donnees.md",
     "concepts": ["withTransaction et BEGIN IMMEDIATE", "serialiseur transactionTails", "PRAGMA journal_mode WAL", "busy_timeout et synchronous", "atomicite tout ou rien", "withWriteRetry sur SQLITE_BUSY"]
   },
   "policies": {

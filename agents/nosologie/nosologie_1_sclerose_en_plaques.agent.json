@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le modele de la sclerose en plaques computationnelle : effondrement de blood_brain_barrier_integrity sous 0.5, ciblage des Myelinator::Oligodendrocyte et chute de la conduction synaptique.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_1_AUTO_IMMUNES.md",
+    "source_doc": "docs/01-concepts/nosologie/01-auto-immunes.md",
     "concepts": ["Rupture de la barriere hemato-encephalique", "Antigenes MBP, MOG et PLP", "Destruction des oligodendrocytes", "Effondrement de la conduction saltatoire", "Transection axonale irreversible (is_severed)", "Diagnostic MultipleSclerosisPlaque"]
   },
   "policies": {

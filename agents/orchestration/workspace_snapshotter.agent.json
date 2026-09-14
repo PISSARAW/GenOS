@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Parcourir un workspace, calculer les hashes de fichiers, stocker le payload immutable et enregistrer l'entree workspace_snapshots avec verification finale.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md",
+    "source_doc": "docs/02-orchestration/workspaces-contrefactuel.md",
     "concepts": ["snapshot durable", "hash SHA-256 par fichier", "workspace_snapshots", "materialisation depuis manifest", "saveguard pre-restore"]
   },
   "policies": {

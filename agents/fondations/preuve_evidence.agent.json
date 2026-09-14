@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Convertir les sorties d'agents en rapports structures claims/evidence/uncertainties et refuser toute assertion non etayee comme base d'une decision collective.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/EPISTEMOLOGIE_EVIDENCE.md",
+    "source_doc": "docs/01-concepts/epistemologie-et-evidence.md",
     "concepts": ["claim", "evidence", "uncertainty", "dossier worker", "hasDecisionEvidence", "classifyFinalReport", "evidenceScore"]
   },
   "policies": {

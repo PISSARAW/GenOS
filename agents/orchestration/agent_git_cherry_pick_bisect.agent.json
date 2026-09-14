@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Appliquer des sections choisies (decisions, memoires, plasmides, permissions) d'un objet vers un autre et verifier l'integrite et la provenance de l'historique.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/GIT_AGENTS.md",
+    "source_doc": "docs/02-orchestration/git-agents.md",
     "concepts": ["cherry-pick par sections", "revert", "bisect", "blame", "fsck JSON/hash/signature/parents"]
   },
   "policies": {

@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Transformer des verbes concis `g` en commandes natives `genos`, avec valeurs par defaut, gestion du serveur local et confirmation --yes pour destroy, wipe, close et keep.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/CLI_EXPERIENCE_OPERATEUR.md",
+    "source_doc": "docs/04-exploitation/cli-et-experience-operateur.md",
     "concepts": [
       "g n'est pas un alias passif mais une CLI de simplification",
       "delegation vers genos-cli par cargo run -p genos-cli",

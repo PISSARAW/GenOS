@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Detecter les pertes de population, verifier l'etat, la memoire et la lignee survivants, reconstruire une capacite minimale et reintroduire la population par etapes.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/METAPOPULATION.md",
+    "source_doc": "docs/02-orchestration/topologies/metapopulation.md",
     "concepts": ["regeneration", "etat survivant verifie", "lignee et memoire", "capacite minimale", "reintroduction progressive"]
   },
   "policies": {

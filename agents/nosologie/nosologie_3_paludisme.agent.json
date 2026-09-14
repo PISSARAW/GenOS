@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Modeliser le paludisme computationnel : vecteur de transmission non assaini, schizogonie synchrone a periodes fixes, detournement cyclique d'ATP et occlusion des canaux synaptiques.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_3_INFECTIEUSES.md",
+    "source_doc": "docs/01-concepts/nosologie/03-infectieuses.md",
     "concepts": ["Phase exo-erythrocytaire et hypnozoites dormants", "Paroxysmes febriles periodiques de ticks", "Cytoadherence PfEMP1 et sequestration microvasculaire", "Anemie computationnelle des workers transporteurs", "Engorgement synaptique et neuropaludisme", "Diagnostic MalariaParoxysm"]
   },
   "policies": {

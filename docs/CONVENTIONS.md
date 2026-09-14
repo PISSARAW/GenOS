@@ -61,18 +61,22 @@ Ne jamais présenter une métaphore biologique comme une fonctionnalité prouvé
 
 ---
 
-## 4. Nommage
+## 4. Arborescence et nommage
 
-- **Fichiers** : `UPPER_SNAKE_CASE.md` pour les documents, `NNNN-slug.md` pour les ADR.
-- **Exceptions existantes** : `gestion-projet-multi-tenant.md` (conservée telle quelle).
-- **Stabilité obligatoire** : les chemins `docs/*.md` sont utilisés comme identifiants de
-  provenance par les agents (`source_doc` dans les `agents/*.agent.json`, scellé dans les
-  binaires `agents/dna/*.dna`, persisté dans SQLite `agent_genomes.source_doc`). Un
-  renommage ou déplacement casse la chaîne de provenance et doit être traité comme une
-  migration (mise à jour des JSON **et** recompilation des `.dna`), pas comme un simple
-  rangement.
+- **Dossiers** : familles numérotées `NN-slug` (`01-concepts`, `02-orchestration`, …),
+  chacune avec un `README.md` d'index. Sous-familles possibles (`biomimetisme/`,
+  `nosologie/`, `topologies/`, `benchmarks/`).
+- **Fichiers** : `kebab-case.md` pour les documents, `NNNN-slug.md` pour les ADR.
+- **Unicité** : un sujet = un document. Ne pas dupliquer une fiche dans deux familles ;
+  lier depuis l'autre famille.
+- **Provenance** : les chemins `docs/*.md` sont des identifiants scellés (`source_doc` des
+  `agents/*.agent.json`, encodé dans les binaires `agents/dna/*.dna`, persisté dans SQLite
+  `agent_genomes.source_doc`, lu par `crates/genos-cli/src/commands/world_runner.rs`).
+  Tout déplacement **exige une migration** : `git mv`, mise à jour des `source_doc` des
+  manifestes, puis recompilation des `.dna` via `genos genome compile`. Voir
+  [ADR 0005](adr/0005-reorganisation-arborescence-documentaire.md).
 
-En cas de doute, ne pas renommer : ajouter une redirection documentaire dans l'index.
+Ne jamais renommer ou déplacer un document sans exécuter la migration de provenance.
 
 ---
 
@@ -81,7 +85,7 @@ En cas de doute, ne pas renommer : ajouter une redirection documentaire dans l'i
 - Documentation en **français**, sous `docs/`.
 - Les README de code (`backend/README.md`, `crates/*/README.md`) peuvent rester en anglais.
 - Les runbooks d'exploitation peuvent être en anglais si l'original l'est déjà
-  (ex. [OPERATIONS_RECOVERY.md](OPERATIONS_RECOVERY.md)).
+  (ex. [runbook-recovery.md](04-exploitation/runbook-recovery.md)).
 
 ---
 
@@ -98,9 +102,9 @@ En cas de doute, ne pas renommer : ajouter une redirection documentaire dans l'i
 ## 7. Ajouter un document
 
 1. Vérifier qu'il ne recouvre pas un document existant (sinon, enrichir l'existant).
-2. Choisir le type (section 1) et le nom (section 4).
+2. Choisir le type (section 1), la famille (section 4) et le nom (section 4).
 3. Écrire selon le canevas adapté, avec un en-tête de statut (section 3).
-4. L'indexer dans [README.md](README.md), dans la bonne famille et le bon parcours.
+4. L'indexer dans le `README.md` de la famille **et** dans [README.md](README.md).
 5. Utiliser des liens relatifs uniquement.
 
 ---

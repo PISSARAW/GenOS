@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Executer un prompt sur un ou plusieurs modeles et evaluer des dataset cases avec les graders, puis mettre a jour la campagne selon les resultats.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/WORKFLOWS_JOBS.md",
+    "source_doc": "docs/02-orchestration/workflows-et-jobs.md",
     "concepts": ["model_jobs", "evaluation_jobs", "graders exact_match groundedness safety llm_judge", "streaming de tokens", "updateCampaignStatus"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Detecter et corriger les pathologies psychiatriques (depression, schizophrenie, bipolarite) en recalibrant les neurotransmetteurs, la copie d'efference et le seuil soma.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_COMPUTATIONNELLE_COMPLETE.md",
+    "source_doc": "docs/01-concepts/nosologie/vue-ensemble.md",
     "concepts": ["depression", "schizophrenie", "bipolarite", "serotonine/dopamine", "copie d'efference", "seuil soma", "recalibrage STDP"]
   },
   "policies": {

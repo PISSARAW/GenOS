@@ -53,47 +53,47 @@ Sa vraie valeur est surtout technique et opératoire : offrir un cadre solide po
 ### 1. Génome et épigénétique
 Les agents et les workflows portent des états internes structurés, des contraintes et des capacités spécialisées, avec différenciation et partage de responsabilités. Voir :
 
-- [docs/GENOME_EPIGENETIQUE.md](docs/GENOME_EPIGENETIQUE.md)
-- [docs/BIOLOGIE_COMPUTATIONNELLE.md](docs/BIOLOGIE_COMPUTATIONNELLE.md)
-- [docs/BIOMIMETIC_WEB_FORAGING.md](docs/BIOMIMETIC_WEB_FORAGING.md) — Foraging de Charnov, fovéation rétinienne et navigation active (résolution des 77% d'épreuves web GAIA).
+- [docs/01-concepts/genome-et-epigenetique.md](docs/01-concepts/genome-et-epigenetique.md)
+- [docs/01-concepts/biologie-computationnelle.md](docs/01-concepts/biologie-computationnelle.md)
+- [docs/01-concepts/biomimetisme/web-foraging.md](docs/01-concepts/biomimetisme/web-foraging.md) — Foraging de Charnov, fovéation rétinienne et navigation active (résolution des 77% d'épreuves web GAIA).
 
 ### 2. Mémoire, synapses et apprentissage
 Le système dispose d’un moteur de mémoire hybride, de connectome synaptique, de plasticité, de consolidation et de gestion de l’oubli. Voir :
 
-- [docs/MEMOIRE_APPRENTISSAGE.md](docs/MEMOIRE_APPRENTISSAGE.md)
-- [docs/NEUROBIOLOGIE_PLASTICITE.md](docs/NEUROBIOLOGIE_PLASTICITE.md)
-- [docs/SWARM_INTELLIGENCE.md](docs/SWARM_INTELLIGENCE.md)
+- [docs/01-concepts/memoire-et-apprentissage.md](docs/01-concepts/memoire-et-apprentissage.md)
+- [docs/01-concepts/neurobiologie-et-plasticite.md](docs/01-concepts/neurobiologie-et-plasticite.md)
+- [docs/01-concepts/intelligence-de-nuee.md](docs/01-concepts/intelligence-de-nuee.md)
 
 ### 3. Orchestration et primitives exécutables
 Les agents ne sont pas exécutés “à l’aveugle” ; ils passent par des plans, des budgets, des fires, des sélections de survivants et des barrières de preuve. Voir :
 
-- [docs/ORCHESTRATION.md](docs/ORCHESTRATION.md)
-- [docs/PRIMITIVES_EXECUTABLES.md](docs/PRIMITIVES_EXECUTABLES.md)
-- [docs/WORKFLOWS_JOBS.md](docs/WORKFLOWS_JOBS.md)
+- [docs/02-orchestration/orchestration.md](docs/02-orchestration/orchestration.md)
+- [docs/02-orchestration/primitives-executables.md](docs/02-orchestration/primitives-executables.md)
+- [docs/02-orchestration/workflows-et-jobs.md](docs/02-orchestration/workflows-et-jobs.md)
 
 ### 4. Workspaces, snapshots et contre-factuel
 Le dépôt met en place une logique de workspace isolation, de fork, de diff, de bisection et de restore. Voir :
 
-- [docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md](docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md)
-- [docs/GIT_AGENTS.md](docs/GIT_AGENTS.md) — transposition de Git aux états d’agents et séparation avec les worktrees de fichiers.
-- [docs/REPRODUCTION_REPLICATION.md](docs/REPRODUCTION_REPLICATION.md)
+- [docs/02-orchestration/workspaces-contrefactuel.md](docs/02-orchestration/workspaces-contrefactuel.md)
+- [docs/02-orchestration/git-agents.md](docs/02-orchestration/git-agents.md) — transposition de Git aux états d’agents et séparation avec les worktrees de fichiers.
+- [docs/02-orchestration/reproduction-et-replication.md](docs/02-orchestration/reproduction-et-replication.md)
 
 ### 5. Sécurité, identité, confiance et preuves
 La plateforme construit ses garde-fous sur l’authentification, les permissions, le Zero Trust, la sandbox, les circuits breakers, les journaux et la vérification d’évidence. Voir :
 
-- [docs/SECURITE.md](docs/SECURITE.md)
-- [docs/IDENTITY_AUTHORITY.md](docs/IDENTITY_AUTHORITY.md)
-- [docs/EPISTEMOLOGIE_EVIDENCE.md](docs/EPISTEMOLOGIE_EVIDENCE.md)
+- [docs/05-securite-gouvernance/securite.md](docs/05-securite-gouvernance/securite.md)
+- [docs/05-securite-gouvernance/identite-et-autorite.md](docs/05-securite-gouvernance/identite-et-autorite.md)
+- [docs/01-concepts/epistemologie-et-evidence.md](docs/01-concepts/epistemologie-et-evidence.md)
 
 ### 6. Contrats, intégration et exploitation
 GenOS expose plusieurs surfaces : REST, gRPC, MCP, CLI et intégrations IDE. Voir :
 
-- [docs/API_CONTRATS.md](docs/API_CONTRATS.md)
-- [docs/OUTILS_MCP.md](docs/OUTILS_MCP.md)
-- [docs/INTEGRATIONS_IDE.md](docs/INTEGRATIONS_IDE.md)
-- [docs/DEPLOIEMENT_EXPLOITATION.md](docs/DEPLOIEMENT_EXPLOITATION.md)
-- [docs/CLI_EXPERIENCE_OPERATEUR.md](docs/CLI_EXPERIENCE_OPERATEUR.md)
-- [docs/PANORAMA_CONCURRENTIEL.md](docs/PANORAMA_CONCURRENTIEL.md) — comparaison transversale avec les principales alternatives du marché
+- [docs/03-reference/api-et-contrats.md](docs/03-reference/api-et-contrats.md)
+- [docs/03-reference/outils-mcp.md](docs/03-reference/outils-mcp.md)
+- [docs/03-reference/integrations-ide.md](docs/03-reference/integrations-ide.md)
+- [docs/04-exploitation/deploiement.md](docs/04-exploitation/deploiement.md)
+- [docs/04-exploitation/cli-et-experience-operateur.md](docs/04-exploitation/cli-et-experience-operateur.md)
+- [docs/07-positionnement/panorama-concurrentiel.md](docs/07-positionnement/panorama-concurrentiel.md) — comparaison transversale avec les principales alternatives du marché
 ---
 
 ## Vue d’architecture
@@ -147,38 +147,38 @@ Voir la carte documentaire complète dans [docs/README.md](docs/README.md).
 ### Catégories principales
 
 #### Fondations conceptuelles
-- [docs/BIOLOGIE_COMPUTATIONNELLE.md](docs/BIOLOGIE_COMPUTATIONNELLE.md)
-- [docs/GENOME_EPIGENETIQUE.md](docs/GENOME_EPIGENETIQUE.md)
-- [docs/RUNTIME_AGENTIQUE.md](docs/RUNTIME_AGENTIQUE.md)
-- [docs/EPISTEMOLOGIE_EVIDENCE.md](docs/EPISTEMOLOGIE_EVIDENCE.md)
+- [docs/01-concepts/biologie-computationnelle.md](docs/01-concepts/biologie-computationnelle.md)
+- [docs/01-concepts/genome-et-epigenetique.md](docs/01-concepts/genome-et-epigenetique.md)
+- [docs/01-concepts/runtime-agentique.md](docs/01-concepts/runtime-agentique.md)
+- [docs/01-concepts/epistemologie-et-evidence.md](docs/01-concepts/epistemologie-et-evidence.md)
 
 #### Mémoire, apprentissage et swarm
-- [docs/MEMOIRE_APPRENTISSAGE.md](docs/MEMOIRE_APPRENTISSAGE.md)
-- [docs/NEUROBIOLOGIE_PLASTICITE.md](docs/NEUROBIOLOGIE_PLASTICITE.md)
-- [docs/SWARM_INTELLIGENCE.md](docs/SWARM_INTELLIGENCE.md)
-- [docs/FOSSILISATION.md](docs/FOSSILISATION.md) — archive stratigraphique terminale et irréversible des lignées éteintes (taphonomie, hash minéral, strates, mélanosomes, excavation en lecture seule).
+- [docs/01-concepts/memoire-et-apprentissage.md](docs/01-concepts/memoire-et-apprentissage.md)
+- [docs/01-concepts/neurobiologie-et-plasticite.md](docs/01-concepts/neurobiologie-et-plasticite.md)
+- [docs/01-concepts/intelligence-de-nuee.md](docs/01-concepts/intelligence-de-nuee.md)
+- [docs/01-concepts/fossilisation.md](docs/01-concepts/fossilisation.md) — archive stratigraphique terminale et irréversible des lignées éteintes (taphonomie, hash minéral, strates, mélanosomes, excavation en lecture seule).
 
 #### Orchestration, jobs et workspaces
-- [docs/ORCHESTRATION.md](docs/ORCHESTRATION.md)
-- [docs/GIT_AGENTS.md](docs/GIT_AGENTS.md)
-- [docs/PRIMITIVES_EXECUTABLES.md](docs/PRIMITIVES_EXECUTABLES.md)
-- [docs/WORKFLOWS_JOBS.md](docs/WORKFLOWS_JOBS.md)
-- [docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md](docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md)
+- [docs/02-orchestration/orchestration.md](docs/02-orchestration/orchestration.md)
+- [docs/02-orchestration/git-agents.md](docs/02-orchestration/git-agents.md)
+- [docs/02-orchestration/primitives-executables.md](docs/02-orchestration/primitives-executables.md)
+- [docs/02-orchestration/workflows-et-jobs.md](docs/02-orchestration/workflows-et-jobs.md)
+- [docs/02-orchestration/workspaces-contrefactuel.md](docs/02-orchestration/workspaces-contrefactuel.md)
 
 #### Sécurité et gouvernance
-- [docs/SECURITE.md](docs/SECURITE.md)
-- [docs/IDENTITY_AUTHORITY.md](docs/IDENTITY_AUTHORITY.md)
-- [docs/COMPLIANCE_GOUVERNANCE.md](docs/COMPLIANCE_GOUVERNANCE.md)
-- [docs/OBSERVABILITE.md](docs/OBSERVABILITE.md)
-- [docs/RESILIENCE_REPRISE.md](docs/RESILIENCE_REPRISE.md)
+- [docs/05-securite-gouvernance/securite.md](docs/05-securite-gouvernance/securite.md)
+- [docs/05-securite-gouvernance/identite-et-autorite.md](docs/05-securite-gouvernance/identite-et-autorite.md)
+- [docs/05-securite-gouvernance/conformite-et-gouvernance.md](docs/05-securite-gouvernance/conformite-et-gouvernance.md)
+- [docs/04-exploitation/observabilite.md](docs/04-exploitation/observabilite.md)
+- [docs/04-exploitation/resilience-et-reprise.md](docs/04-exploitation/resilience-et-reprise.md)
 
 #### API, intégration et exploitation
-- [docs/API_CONTRATS.md](docs/API_CONTRATS.md)
-- [docs/OUTILS_MCP.md](docs/OUTILS_MCP.md)
-- [docs/MODELES_PROVIDERS.md](docs/MODELES_PROVIDERS.md)
-- [docs/INTEGRATIONS_IDE.md](docs/INTEGRATIONS_IDE.md)
-- [docs/DEPLOIEMENT_EXPLOITATION.md](docs/DEPLOIEMENT_EXPLOITATION.md)
-- [docs/CLI_EXPERIENCE_OPERATEUR.md](docs/CLI_EXPERIENCE_OPERATEUR.md)
+- [docs/03-reference/api-et-contrats.md](docs/03-reference/api-et-contrats.md)
+- [docs/03-reference/outils-mcp.md](docs/03-reference/outils-mcp.md)
+- [docs/03-reference/modeles-et-providers.md](docs/03-reference/modeles-et-providers.md)
+- [docs/03-reference/integrations-ide.md](docs/03-reference/integrations-ide.md)
+- [docs/04-exploitation/deploiement.md](docs/04-exploitation/deploiement.md)
+- [docs/04-exploitation/cli-et-experience-operateur.md](docs/04-exploitation/cli-et-experience-operateur.md)
 
 ---
 
@@ -190,13 +190,15 @@ GenOS/
 ├── docs/                           # Documentation technique et fonctionnelle
 │   ├── README.md                   # Hub : index par familles et parcours de lecture
 │   ├── CONVENTIONS.md              # Conventions de rédaction, nommage et liens
-│   ├── adr/                        # Décisions d'architecture (0001..0004) + index
-│   ├── <CONCEPTS>.md               # Fondations, biomimétisme, nosologie (1..9)
-│   ├── <ORCHESTRATION>.md          # Orchestration, topologies, workspaces, Git agents
-│   ├── <REFERENCE>.md              # API, MCP, persistance, providers, IDE
-│   ├── <EXPLOITATION>.md           # Déploiement, CLI, observabilité, reprise
-│   ├── <SECURITE>.md               # Sécurité, identité, conformité, sandbox
-│   └── <QUALITE>.md                # Qualité, tests, benchmarks, panorama
+│   ├── 01-concepts/                # Fondations, biomimétisme, nosologie (1..9)
+│   ├── 02-orchestration/           # Orchestration et topologies (8 modes)
+│   ├── 03-reference/               # API, MCP, persistance, providers, IDE
+│   ├── 04-exploitation/            # Déploiement, CLI, observabilité, reprise
+│   ├── 05-securite-gouvernance/    # Sécurité, identité, conformité, sandbox
+│   ├── 06-qualite-preuves/         # Qualité, tests, benchmarks
+│   ├── 07-positionnement/          # Panorama concurrentiel, économie
+│   ├── adr/                        # Décisions d'architecture (0001..0005) + index
+│   └── archive/                    # Rapports datés non normatifs
 ├── backend/                       # Contrôle applicatif Node.js et services
 ├── crates/                        # Core Rust du runtime biomimétique
 ├── examples/                      # Démonstrations et scénarios
@@ -259,7 +261,7 @@ npm --prefix backend start
 cargo run -p genos-cli -- --help
 ```
 
-Le dépôt contient aussi une CLI simplifiée `g` pour les usages opérateurs (`.\g.ps1` sur PowerShell, `g.cmd` sur cmd). La distinction est explicitement documentée dans [docs/CLI_EXPERIENCE_OPERATEUR.md](docs/CLI_EXPERIENCE_OPERATEUR.md).
+Le dépôt contient aussi une CLI simplifiée `g` pour les usages opérateurs (`.\g.ps1` sur PowerShell, `g.cmd` sur cmd). La distinction est explicitement documentée dans [docs/04-exploitation/cli-et-experience-operateur.md](docs/04-exploitation/cli-et-experience-operateur.md).
 
 ### 5. Lancer le serveur MCP (stdio)
 
@@ -267,7 +269,7 @@ Le dépôt contient aussi une CLI simplifiée `g` pour les usages opérateurs (`
 node mcp/index.js
 ```
 
-Le serveur MCP doit être lancé depuis la racine du dépôt : il lit `shared/toolDefinitions.json` et les services du backend. L’exposition des outils est contrôlée par `GENOS_MCP_LEASE` et `GENOS_MCP_DISABLED_TOOLS` (voir [docs/OUTILS_MCP.md](docs/OUTILS_MCP.md)). Une configuration prête à l’emploi est fournie dans [.mcp.json](.mcp.json).
+Le serveur MCP doit être lancé depuis la racine du dépôt : il lit `shared/toolDefinitions.json` et les services du backend. L’exposition des outils est contrôlée par `GENOS_MCP_LEASE` et `GENOS_MCP_DISABLED_TOOLS` (voir [docs/03-reference/outils-mcp.md](docs/03-reference/outils-mcp.md)). Une configuration prête à l’emploi est fournie dans [.mcp.json](.mcp.json).
 
 Types d’outils disponibles :
 - **Strategy Tools:** `genos_strategy_*` (MCTS pruning, 3-way merge, causal rebase, PRM evaluation).
@@ -311,7 +313,7 @@ GenOS applique une logique de preuve et de responsabilité que l’on retrouve p
 - les risques, budgets et permissions doivent être explicités ;
 - les actions sensibles demandent approbation, contrôle et journalisation.
 
-Cela est central dans [docs/EPISTEMOLOGIE_EVIDENCE.md](docs/EPISTEMOLOGIE_EVIDENCE.md) et dans [docs/SECURITE.md](docs/SECURITE.md).
+Cela est central dans [docs/01-concepts/epistemologie-et-evidence.md](docs/01-concepts/epistemologie-et-evidence.md) et dans [docs/05-securite-gouvernance/securite.md](docs/05-securite-gouvernance/securite.md).
 
 ---
 
@@ -337,12 +339,12 @@ Le projet est distribué sous la licence [LICENSE](LICENSE) Apache 2.0.
 
 ## Points d’entrée recommandés
 
-- Comprendre le produit : [docs/BIOLOGIE_COMPUTATIONNELLE.md](docs/BIOLOGIE_COMPUTATIONNELLE.md)
-- Comprendre l’orchestration : [docs/ORCHESTRATION.md](docs/ORCHESTRATION.md)
-- Comprendre les workspaces : [docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md](docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md)
-- Comprendre les API : [docs/API_CONTRATS.md](docs/API_CONTRATS.md)
-- Comprendre la sécurité : [docs/SECURITE.md](docs/SECURITE.md)
-- Déployer et exploiter : [docs/DEPLOIEMENT_EXPLOITATION.md](docs/DEPLOIEMENT_EXPLOITATION.md)
+- Comprendre le produit : [docs/01-concepts/biologie-computationnelle.md](docs/01-concepts/biologie-computationnelle.md)
+- Comprendre l’orchestration : [docs/02-orchestration/orchestration.md](docs/02-orchestration/orchestration.md)
+- Comprendre les workspaces : [docs/02-orchestration/workspaces-contrefactuel.md](docs/02-orchestration/workspaces-contrefactuel.md)
+- Comprendre les API : [docs/03-reference/api-et-contrats.md](docs/03-reference/api-et-contrats.md)
+- Comprendre la sécurité : [docs/05-securite-gouvernance/securite.md](docs/05-securite-gouvernance/securite.md)
+- Déployer et exploiter : [docs/04-exploitation/deploiement.md](docs/04-exploitation/deploiement.md)
 
 Si vous souhaitez un point d’entrée plus opérationnel, commencez par [docs/README.md](docs/README.md).
 

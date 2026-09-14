@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Formuler des hypotheses falsifiables, les confronter aux observations et neutraliser toute croyance contradictoire ou refutee par un contre-exemple.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/EPISTEMOLOGIE_EVIDENCE.md",
+    "source_doc": "docs/01-concepts/epistemologie-et-evidence.md",
     "concepts": ["hypotheses falsifiables (id, statement, confidence)", "contre-exemple", "refutedBy", "contradictionCheck", "beliefGate seuil 0.6", "hypothesisEvidence"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Ajuster le poids des synapses selon le timing entre pre-spike et post-spike, en renforcant la causalite positive et en deprimant l'ordre inverse.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NEUROBIOLOGIE_PLASTICITE.md",
+    "source_doc": "docs/01-concepts/neurobiologie-et-plasticite.md",
     "concepts": ["STDP", "delta_t = t_post - t_pre", "LTP et LTD", "glutamate, gaba, dopamine, serotonine", "spike trains"]
   },
   "policies": {

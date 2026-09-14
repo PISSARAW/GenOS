@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Normaliser et faire respecter le budget de mission (tokens, cout, latence, evenements) ainsi que le budget cognitif ATP, en declenchant Eureka sur succes ou preuve.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/RUNTIME_AGENTIQUE.md",
+    "source_doc": "docs/01-concepts/runtime-agentique.md",
     "concepts": ["tokens 100000", "costUsd 1.0", "latencyMs 60000", "events 100", "workerShare 0.6", "ATP_{t+1}=ATP_t-1", "Eureka D/2 et budget restaure"]
   },
   "policies": {

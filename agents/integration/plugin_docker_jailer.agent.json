@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Executer les plugins sous Docker avec image epinglee par digest, reseau coupe et quotas de ressources.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SANDBOX_EXECUTION_CODE.md",
+    "source_doc": "docs/05-securite-gouvernance/sandbox-execution-code.md",
     "concepts": ["manifeste plugin valide et image epinglee par digest SHA-256", "network none et rootfs read-only", "GENOS_PLUGIN_CPU_LIMIT et GENOS_PLUGIN_MEMORY_LIMIT_MB", "64 PIDs et 1024 fichiers ouverts", "tmpfs 64 MiB et cap-drop ALL", "timeout plugin 15 s borne entre 1 et 60 s"]
   },
   "policies": {

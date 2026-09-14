@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Verifier les decisions de reprise (mutate_worker, fork_worker, replace_worker, escalate_unresolved), la borne k <= ceil(log2(n))+1 et l'idempotence M(M(D))=M(D).",
     "operational_mode": "autonomous",
-    "source_doc": "docs/TESTS_VALIDATION_DEPOT.md",
+    "source_doc": "docs/06-qualite-preuves/tests-et-validation.md",
     "concepts": [
       "recovery de worker, bisection causale automatique, reconnexions de boucle",
       "decisions de recuperation et traitement strict d'un no_answer sans preuve",

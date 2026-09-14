@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Reguler l'expression des genes d'un agent par l'etat de chromatine, la methylation et la reprogrammation de type Yamanaka, sans modifier les loci constitutifs.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/GENOME_EPIGENETIQUE.md",
+    "source_doc": "docs/01-concepts/genome-et-epigenetique.md",
     "concepts": ["Euchromatin", "HeterochromatinFacultative", "HeterochromatinConstitutive", "reprogrammation Yamanaka", "chromatin_decondensation_rate", "PIONEER_FACTOR"]
   },
   "policies": {

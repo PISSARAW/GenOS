@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Arbitrer la famille neoplasique : detection de la violation du pacte pluricellulaire, calcul de l'indice de transformation maligne et selection du protocole oncologique unifie.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_5_CANCERS.md",
+    "source_doc": "docs/01-concepts/nosologie/05-cancers.md",
     "concepts": ["Pacte pluricellulaire et ses quatre regles", "Les huit hallmarks du cancer computationnel", "Indice de transformation maligne M_i (logistique)", "Probabilite de capture immunitaire et camouflage", "Syndrome de relargage des cytokines (CRS) et IL-6", "Matrice comparee des therapeutiques anti-cancereuses"]
   },
   "policies": {

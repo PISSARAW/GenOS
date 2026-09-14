@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Appliquer la politique de securite des endpoints providers et resoudre les cles API sans les exposer.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/MODELES_PROVIDERS.md",
+    "source_doc": "docs/03-reference/modeles-et-providers.md",
     "concepts": ["providerEndpointPolicy", "URL absolue HTTP/HTTPS sans credentials", "loopback obligatoire pour ollama/vllm/lmstudio", "blocage des adresses privees et de metadata", "verification DNS asynchrone", "resolution des cles API par provider"]
   },
   "policies": {

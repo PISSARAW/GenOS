@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Interconnecter les memoires dans genome_decisions et memory_synapses et resoudre les questions LoCoMo par parcours recursif GraphRAG CTE 2-hop.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/LOCOMO_BENCHMARK_RESULTS.md",
+    "source_doc": "docs/06-qualite-preuves/benchmarks/locomo.md",
     "concepts": [
       "genome_decisions et memory_synapses avec neurotransmetteur glutamate, NMDA et mushroom spines",
       "activation diffuse remontant la session causale precedente",

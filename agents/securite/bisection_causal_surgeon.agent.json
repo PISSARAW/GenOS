@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Localiser le premier etat defaillant d'une suite de snapshots et restaurer un etat sain verifie.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/RESILIENCE_REPRISE.md",
+    "source_doc": "docs/04-exploitation/resilience-et-reprise.md",
     "concepts": ["withTransaction BEGIN IMMEDIATE", "bisectAnomalyAsync", "complexite O(log N)", "causalGuarantee false", "remediateRollback avec safety snapshot"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Appliquer une restauration ou un rollback de workspace de facon prudente et verifiee.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/OPERATIONS_RECOVERY.md",
+    "source_doc": "docs/04-exploitation/runbook-recovery.md",
     "concepts": ["workspace restore/rollback authentifie", "safety snapshot pre-restore", "verification du hash materialise", "test command approuvee", "release rollback indisponible"]
   },
   "policies": {

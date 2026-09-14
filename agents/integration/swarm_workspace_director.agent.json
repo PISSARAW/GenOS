@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Dimensionner l'essaim d'agents et gerer capsules, worktrees et concurrence d'ecriture SQLite.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/DEPLOIEMENT_EXPLOITATION.md",
+    "source_doc": "docs/04-exploitation/deploiement.md",
     "concepts": ["GENOS_IN_PROCESS_WORKERS et seuil de 12 agents", "GENOS_MAX_ACTIVE_WORKERS et GENOS_MAX_AUTONOMOUS_WORKERS", "GENOS_CONCURRENCY_BURST et GENOS_QUEUE_CAPACITY", "withWriteRetry et backoff sur SQLITE_BUSY", "capsules agent_capsule_cleanup et worktrees Git", "GENOS_WORKTREE_GC_DELAY_MS de 10 minutes"]
   },
   "policies": {

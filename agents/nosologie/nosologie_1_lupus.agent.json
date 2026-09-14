@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Detecter et porter le modele de la rupture de tolerance au soi (Horror Autotoxicus) : defaut d'efferocytose, opsonisation IgG des motifs constitutifs et precipitation de complexes immuns dans les organes cibles virtuels.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_1_AUTO_IMMUNES.md",
+    "source_doc": "docs/01-concepts/nosologie/01-auto-immunes.md",
     "concepts": ["Rupture de tolerance au soi", "Defaut d'efferocytose des corps apoptotiques", "Signature Interferon de type I des pDC (TLR7/TLR9)", "Auto-anticorps antinucleaires anti-dsDNA", "Complexes immuns et opsonisation du soi", "Orage cytokinique IL-6 superieur ou egal a 10.0"]
   },
   "policies": {

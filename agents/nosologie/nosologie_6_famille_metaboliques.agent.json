@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Arbitrer la famille metabolique et endocrinienne : equilibre tridimensionnel entre energetique cellulaire (ATP et token budget), regulation endocrinienne humorale et homeostasie catabolique, avec triage des therapies metaboliques et endocriniennes de GenOS.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_6_METABOLIQUES.md",
+    "source_doc": "docs/01-concepts/nosologie/06-metaboliques.md",
     "concepts": ["Energetique cellulaire ATP et token budget", "Regulation endocrinienne humorale par StandardEndocrineSystem", "Homeostasie catabolique et clairance lysosomale", "Boucle de retroaction neuro-endocrino-metabolique", "Tableau comparatif nosologique des trois maladies", "Risques iatrogenes croises (hypoglycemie d'essaim, thyrotoxicose, aplasie mitotique)"]
   },
   "policies": {

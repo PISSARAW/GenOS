@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Bourgeonner une fille avec 0 < v < 1, reduire son budget d'expression et fixer un hayflick_limit plus faible tout en incremente la scar du parent.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/REPRODUCTION_REPLICATION.md",
+    "source_doc": "docs/02-orchestration/reproduction-et-replication.md",
     "concepts": ["budding asymetrique", "expression_volume", "bud_scars", "can_bud et can_replicate", "remaining_divisions"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Detecter les domaines implicites par signaux, valider une multidisciplinarite de 2 a 3 domaines, classer par pertinence et composer les agents avec roles et hypotheses.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/A_TEAM.md",
+    "source_doc": "docs/02-orchestration/topologies/a-team.md",
     "concepts": ["detection de domaines", "multidisciplinarite", "classement par score", "composition d'equipe", "domaines frontier et standard"]
   },
   "policies": {

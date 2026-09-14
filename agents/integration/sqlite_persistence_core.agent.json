@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Gouverner le schema SQLite de GenOS, ses familles de tables, son integrite referentielle et son isolation multi-tenant.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PERSISTANCE_DONNEES.md",
+    "source_doc": "docs/03-reference/persistance-et-donnees.md",
     "concepts": ["singleton getDatabase par processus", "schema-tables-core et schema-tables-extensions", "colonnes JSON et bio-polymeres BLOB MsgPack", "tenancy organization_id/project_id", "PRAGMA foreign_keys et contraintes"]
   },
   "policies": {

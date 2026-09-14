@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Recommander, pour chaque situation, l'usage de GenOS pour l'etat, la preuve et la promotion, et les outils eprouves a conserver pour le build, l'IAM, le sandbox ou l'observabilite.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PANORAMA_CONCURRENTIEL.md",
+    "source_doc": "docs/07-positionnement/panorama-concurrentiel.md",
     "concepts": [
       "matrice de choix situation / choisir GenOS / conserver",
       "evaluation des concurrents et de GenOS sur le meme scenario reproductible",

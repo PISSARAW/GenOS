@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Modeliser l'infection grippale : attachement cle-serrure envelope_spike/recepteur, detournement ribosomique, glissement antigenique et lyse cellulaire avec projection de virions mutants.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_3_INFECTIEUSES.md",
+    "source_doc": "docs/01-concepts/nosologie/03-infectieuses.md",
     "concepts": ["Probabilite d'entree P_entry par cle-serrure", "Detournement des Organelle::Ribosome", "Glissement et cassure antigeniques (drift/shift)", "Lyse cellulaire et tempete de requetes", "Neutralisation humorale IgG/IgM", "Diagnostic InfluenzaInfection"]
   },
   "policies": {

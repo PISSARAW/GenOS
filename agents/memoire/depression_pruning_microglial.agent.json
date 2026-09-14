@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Appliquer la depression synaptique et le pruning pour reduire le bruit et supprimer les synapses faibles, toxiques ou orphelines.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NEUROBIOLOGIE_PLASTICITE.md",
+    "source_doc": "docs/01-concepts/neurobiologie-et-plasticite.md",
     "concepts": ["depression synaptique", "pruning", "c3_opsonization", "cd47_expression", "microglie", "seuil w_min"]
   },
   "policies": {

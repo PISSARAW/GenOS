@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Stocker les faits et decisions comme memoires semantiques vectorisees en 768D et les rappeler par fusion hybride de la similarite cosinus, du matching lexical FTS5 et du score multi-criteres.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/MEMOIRE_APPRENTISSAGE.md",
+    "source_doc": "docs/01-concepts/memoire-et-apprentissage.md",
     "concepts": ["memoire semantique", "embeddings 768D", "FTS5", "sqlite-vec vec0", "hybrid retrieval", "similarite cosinus", "genome_decisions"]
   },
   "policies": {

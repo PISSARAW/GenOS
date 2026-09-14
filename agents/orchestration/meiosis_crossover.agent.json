@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Realiser la meiose : 4 gametes par gamete = maternal[0:p] + paternal[p:], reprogrammation epigenetique et rejet du crossover si la divergence depasse le seuil.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/REPRODUCTION_REPLICATION.md",
+    "source_doc": "docs/02-orchestration/reproduction-et-replication.md",
     "concepts": ["meiosis", "crossover", "gametes haploides", "speciation threshold", "reproducibility_key et parentage"]
   },
   "policies": {

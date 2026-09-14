@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Auditer la securite du perimetre assigne, produire des preuves verifiables (audit, mitigation) et retourner les contraintes d'integration aux autres domaines sans deborder du domaine.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/A_TEAM.md",
+    "source_doc": "docs/02-orchestration/topologies/a-team.md",
     "concepts": ["domaine securite", "preuves de securite", "contraintes d'integration", "bornage de domaine", "modele frontier"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Executer les operations VFS sous sandbox et fournir diagnostics et reporting de progression a l'IDE.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/INTEGRATIONS_IDE.md",
+    "source_doc": "docs/03-reference/integrations-ide.md",
     "concepts": ["gRPC ExecuteVfsOperation et InspectVfs", "vfsSandboxService et workspace_id obligatoire", "workspaceDiagnostics.inspectWorkspace", "commandes de test decouvertes", "telemetrie IDE_PROGRESS append-only", "diagnostics compatible/revoked/stale"]
   },
   "policies": {

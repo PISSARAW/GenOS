@@ -4,7 +4,7 @@
 - **Date** : 2026-09-13
 - **Domaine** : Génome, reproduction, runtime agentique, persistance
 - **Décideurs** : Mainteneurs GenOS
-- **Lié à** : [spec/AGENT_DNA_SPEC.md](../../spec/AGENT_DNA_SPEC.md), [docs/GENOME_EPIGENETIQUE.md](../GENOME_EPIGENETIQUE.md), [docs/REPRODUCTION_REPLICATION.md](../REPRODUCTION_REPLICATION.md), [.genos.md](../../.genos.md) (règle 5)
+- **Lié à** : [spec/AGENT_DNA_SPEC.md](../../spec/AGENT_DNA_SPEC.md), [docs/01-concepts/genome-et-epigenetique.md](../01-concepts/genome-et-epigenetique.md), [docs/02-orchestration/reproduction-et-replication.md](../02-orchestration/reproduction-et-replication.md), [.genos.md](../../.genos.md) (règle 5)
 
 ## Contexte
 

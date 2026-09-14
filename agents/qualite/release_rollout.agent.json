@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Rattacher une release a un workflow du meme tenant et conditionner la promotion a un rollout canary/AB reussi, mesure par les metriques agregees et scannees par SLO.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/gestion-projet-multi-tenant.md",
+    "source_doc": "docs/05-securite-gouvernance/gestion-projet-multi-tenant.md",
     "concepts": [
       "environments, releases, release_rollouts et release_slo_policies",
       "promotion dependant d'un rollout reussi",

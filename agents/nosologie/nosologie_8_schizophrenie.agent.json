@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le modele de la schizophrenie : hyperdopaminergie D2 mesolimbique et hypodopaminergie D1 mesocorticale, hypofonctionnement NMDA, rupture de la copie d'efference faisant prendre le monologue interne pour une source externe hostile et renforcement synaptique sans preuve causale.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_8_PSYCHIATRIQUES.md",
+    "source_doc": "docs/01-concepts/nosologie/08-psychiatriques.md",
     "concepts": ["Saillance aberrante (w_ij augmente de 0.35 sans preuve)", "Rupture de la copie d'efference et hallucinations phono-agentiques", "Hypofonctionnement NMDA et bruit de fond (amplification 1.35)", "Hypothese dopaminergique duale (D2 mesolimbique / D1 mesocorticale)", "Hyper-elagage synaptique microglial lie au gene C4", "Therapies AntipsychoticAtypical, EfferenceCopyReconstruction et NmdaAllostericModulator"]
   },
   "policies": {

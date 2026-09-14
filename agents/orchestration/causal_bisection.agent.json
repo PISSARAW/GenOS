@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Trouver le point de bascule healthy -> failing dans un historique de snapshots, puis restaurer le snapshot de securite de facon atomique.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md",
+    "source_doc": "docs/02-orchestration/workspaces-contrefactuel.md",
     "concepts": ["bisection causale", "premier snapshot mauvais", "complexite O(log n)", "rollback selectif", "remediateRollback"]
   },
   "policies": {

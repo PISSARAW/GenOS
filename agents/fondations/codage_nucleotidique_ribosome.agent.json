@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Synthetiser le genome sous forme de brin d'ADN compact 2-bit, puis transcrire et traduire les genes actifs en capacites repliees via fold().",
     "operational_mode": "autonomous",
-    "source_doc": "docs/GENOME_EPIGENETIQUE.md",
+    "source_doc": "docs/01-concepts/genome-et-epigenetique.md",
     "concepts": ["nucleotides 2-bits A=00 C=01 G=10 T=11", "4 bases par octet", "DnaStrand::synthesize", "RnaPolymerase", "NMD", "Ribosome", "fold()"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Equilibrer les inferences locales par file, limite de concurrence et equite par organisation/projet.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/MODELES_PROVIDERS.md",
+    "source_doc": "docs/03-reference/modeles-et-providers.md",
     "concepts": ["inferenceGatewayService", "GENOS_INFERENCE_MAX_CONCURRENT defaut 4", "GENOS_INFERENCE_QUEUE_CAPACITY defaut 256", "GENOS_INFERENCE_TENANT_QUEUE_CAPACITY defaut 64", "classes interactive et bulk", "equite et limite de rafale interactive"]
   },
   "policies": {

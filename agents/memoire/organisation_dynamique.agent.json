@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Reorganiser dynamiquement la structure de coordination (topologie, roles, routage et canaux) selon la nature collaborative, competitive ou hierarchique de la situation.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SWARM_INTELLIGENCE.md",
+    "source_doc": "docs/01-concepts/intelligence-de-nuee.md",
     "concepts": ["organisation dynamique", "topologies hub_and_spoke, weighted_quorum, adversarial_triangle", "routage des messages", "polyethisme dynamique", "canaux de transmission"]
   },
   "policies": {

@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Localiser le premier echec d'invariant entre snapshots par recherche binaire en O(log2 N) et fournir un culpritReport exploitable par la recuperation et le rollback.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/EVALUATION_QUALITE.md",
+    "source_doc": "docs/06-qualite-preuves/evaluation-qualite.md",
     "concepts": [
       "regression = echec d'un invariant entre snapshots",
       "bisection sous suite monotone baseline saine puis echec persistant",

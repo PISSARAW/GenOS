@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Enregistrer, rediger et diffuser les evenements de telemetrie dans le bon scope tenant.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/OBSERVABILITE.md",
+    "source_doc": "docs/04-exploitation/observabilite.md",
     "concepts": ["TelemetryObserver.emitEvent", "ring buffer de 10000 elements", "GENOS_TELEMETRY_QUEUE_CAPACITY", "redaction token/secret/password", "SSE scope tenant"]
   },
   "policies": {

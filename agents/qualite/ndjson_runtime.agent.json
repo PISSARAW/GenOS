@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Transmettre les etapes significatives du cycle de vie sous forme d'une sequence ordonnee d'evenements NDJSON independants consommables au fil de l'eau.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/CLI_EXPERIENCE_OPERATEUR.md",
+    "source_doc": "docs/04-exploitation/cli-et-experience-operateur.md",
     "concepts": [
       "NDJSON = un evenement independant par ligne",
       "bridge de mission protobuf ou entree JSON cadre",

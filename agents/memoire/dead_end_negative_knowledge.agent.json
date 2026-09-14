@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Transformer la memoire en mecanisme de securite en detectant les dead ends et en bloquant toute action dont la similarite avec un echec connu depasse le seuil de risque tau.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/MEMOIRE_APPRENTISSAGE.md",
+    "source_doc": "docs/01-concepts/memoire-et-apprentissage.md",
     "concepts": ["negative knowledge", "dead ends", "memoires Failure", "similarite", "seuil de risque tau", "inhibition"]
   },
   "policies": {

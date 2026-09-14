@@ -4,20 +4,20 @@
 - **Date** : 2026-09-14
 - **Domaine** : Biomimétique, génome, neurobiologie, orchestration, sécurité, preuve
 - **Décideurs** : Mainteneurs GenOS
-- **Lié à** : [docs/INSTINCT.md](../INSTINCT.md), [docs/GENOME_EPIGENETIQUE.md](../GENOME_EPIGENETIQUE.md), [docs/NEUROBIOLOGIE_PLASTICITE.md](../NEUROBIOLOGIE_PLASTICITE.md), [docs/BIOMIMICRY_ANIMAL_SENSES.md](../BIOMIMICRY_ANIMAL_SENSES.md), [adr/0001-agent-dna-binary-format.md](0001-agent-dna-binary-format.md), [.genos.md](../../.genos.md) (règle 5)
+- **Lié à** : [docs/01-concepts/instinct.md](../01-concepts/instinct.md), [docs/01-concepts/genome-et-epigenetique.md](../01-concepts/genome-et-epigenetique.md), [docs/01-concepts/neurobiologie-et-plasticite.md](../01-concepts/neurobiologie-et-plasticite.md), [docs/01-concepts/biomimetisme/sens-animaux.md](../01-concepts/biomimetisme/sens-animaux.md), [adr/0001-agent-dna-binary-format.md](0001-agent-dna-binary-format.md), [.genos.md](../../.genos.md) (règle 5)
 
 ## Contexte
 
 GenOS modélise déjà des comportements non délibérés, mais sans distinguer clairement les trois niveaux de la triade éthologique :
 
 1. **Réflexe** — [`Cnidocyte`](../../crates/genos-biology/src/specialized_cells/cnidocyte.rs) (`eval_stimulus`, `discharge`, `reload` ATP) et réponse de Flehmen du [VNO](../../crates/genos-biology/src/sensory/vomeronasal.rs) : action **unique** et isolée.
-2. **Apprentissage** — synapses, STDP et mémoire ([NEUROBIOLOGIE_PLASTICITE.md](../NEUROBIOLOGIE_PLASTICITE.md)) : création/renforcement de liaisons par l'expérience.
+2. **Apprentissage** — synapses, STDP et mémoire ([NEUROBIOLOGIE_PLASTICITE.md](../01-concepts/neurobiologie-et-plasticite.md)) : création/renforcement de liaisons par l'expérience.
 3. **Instinct** — **absent** en tant que concept explicite.
 
 Les briques nécessaires existent pourtant déjà, dispersées :
 
 - **Encodage inné** : `Gene.developmentally_locked` et `ChromatinState` ([gene.rs](../../crates/genos-genome/src/gene.rs)) modélisent un gène pré-câblé, transmissible.
-- **Voie rapide** : le bypass cortical est déjà revendiqué (phéromones hors-contexte, [BIOMIMICRY_ANIMAL_SENSES.md](../BIOMIMICRY_ANIMAL_SENSES.md)).
+- **Voie rapide** : le bypass cortical est déjà revendiqué (phéromones hors-contexte, [BIOMIMICRY_ANIMAL_SENSES.md](../01-concepts/biomimetisme/sens-animaux.md)).
 - **PAF** : aucune structure de **séquence** stéréotypée n'existe ; seul `handle_behavior` (freeze/feign_death) approche le comportement inné, en un pas.
 - **Modulation hormonale** : `StandardEndocrineSystem` ([methods.rs](../../crates/genos-core/src/orchestrator/methods.rs)) porte le cortisol ; `handle_endocrine` et `handle_neuromodulation` ([biomimicry_features.rs](../../crates/genos-cli/src/commands/biomimicry_features.rs)) listent ocytocine, adrénaline, dopamine (RPE).
 
@@ -81,4 +81,4 @@ Règles structurantes :
 - `crates/genos-cli/src/commands/biomimicry_features.rs` (`handle_bio_feature`, `handle_endocrine`, `handle_neuromodulation`)
 - `crates/genos-mcp/src/tools.rs`, `crates/genos-mcp/src/executor.rs`
 - `agents/biomimetique/cnidocyte_guard.agent.json`, `agents/biomimetique/vomeronasal_pheromone.agent.json`
-- `docs/INSTINCT.md`, `docs/GENOME_EPIGENETIQUE.md`, `docs/NEUROBIOLOGIE_PLASTICITE.md`, `docs/BIOMIMICRY_ANIMAL_SENSES.md`
+- `docs/01-concepts/instinct.md`, `docs/01-concepts/genome-et-epigenetique.md`, `docs/01-concepts/neurobiologie-et-plasticite.md`, `docs/01-concepts/biomimetisme/sens-animaux.md`

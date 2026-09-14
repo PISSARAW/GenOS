@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Conserver durablement l'etat d'un agent par anhydrobiose vitrifiee au trehalose, scelle en capsule spore binaire, puis le reactiver par germination conditionnelle.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOLOGIE_COMPUTATIONNELLE.md",
+    "source_doc": "docs/01-concepts/biologie-computationnelle.md",
     "concepts": ["anhydrobiose", "vitrification au trehalose", "hydrationLevel", "SporeVitrifiedPayload", "bunker_armor", "SHA-256", "germination"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Servir les routes REST /api sous authentification, permissions, scope tenant et enveloppe d'erreur commune.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/API_CONTRATS.md",
+    "source_doc": "docs/03-reference/api-et-contrats.md",
     "concepts": ["controllers et middleware Express", "probes publiques /healthz /readyz /livez", "enveloppe error.code/message/requestId/traceId", "mapping errorHandler des codes HTTP", "en-tetes X-Request-Id et X-Trace-Id"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le modele de la depression severe : effondrement de current_budget vers 0, absence de Dopamine laissant le soma bloque a -70.0 mV, atrophie des epines Mushroom vers Filopodia, chute de cd47_expression, hausse de c3_opsonization et apoptose lorsque la dissonance atteint D_max = 50.0.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_8_PSYCHIATRIQUES.md",
+    "source_doc": "docs/01-concepts/nosologie/08-psychiatriques.md",
     "concepts": ["Anhedonie dopaminergique (amplification effect * 1.5 perdue)", "Atrophie dendritique C3/CD47 et prune_inactive_spines", "Boucle de rumination et hyperactivite du DMN", "Apoptose cognitive si D >= D_max ou B <= 0", "Hypothese monoaminergique 5-HT, NA et DA", "Therapies KetamineRapidInfusion, CognitiveResupply et SSRI"]
   },
   "policies": {

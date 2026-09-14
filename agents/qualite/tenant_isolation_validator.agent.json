@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Valider la propriete access(p,o,j) = member(p,o) et member(p,j) et j.organization=o, et refuser un projet pour lequel le principal n'est pas membre.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/TESTS_VALIDATION_DEPOT.md",
+    "source_doc": "docs/06-qualite-preuves/tests-et-validation.md",
     "concepts": [
       "test_tenancy, test_tenant_membership_scope, test_trace_tenant_scope",
       "organisations, projets, memberships et workspaces homonymes",

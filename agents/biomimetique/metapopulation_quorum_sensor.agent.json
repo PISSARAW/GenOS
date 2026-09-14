@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Collecter les signaux des populations, mesurer preuves et risques, detecter le risque transversal et declencher une coordination bornee au franchissement du quorum.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/METAPOPULATION.md",
+    "source_doc": "docs/02-orchestration/topologies/metapopulation.md",
     "concepts": ["quorum sensing", "signal collectif", "seuil de coordination", "risque transversal", "quorum negatif"]
   },
   "policies": {

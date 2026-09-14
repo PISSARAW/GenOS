@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Fournir un environnement d'execution isole adapte (worktree Git, copie non-Git ou capsule VFS) et garantir sa suppression apres le runtime.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md",
+    "source_doc": "docs/02-orchestration/workspaces-contrefactuel.md",
     "concepts": ["capsules isolees", "git worktrees", "copies non-Git", "capsules VFS Copy-On-Write", "agent_capsule_cleanup"]
   },
   "policies": {

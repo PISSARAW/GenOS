@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Creer un worktree isole sur branche genos-daemon/..., le resynchroniser par rebase sur la branche humaine, appliquer un correctif verifie et pousser la branche.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/GIT_AGENTS.md",
+    "source_doc": "docs/02-orchestration/git-agents.md",
     "concepts": ["git du workspace", "worktree persistant", "branche genos-daemon", "rebase de resynchronisation", "pull request via gh"]
   },
   "policies": {

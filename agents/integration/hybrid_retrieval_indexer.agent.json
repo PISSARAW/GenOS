@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Maintenir les index FTS5 et vectoriels et fusionner les signaux lexicaux et semantiques de la memoire.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PERSISTANCE_DONNEES.md",
+    "source_doc": "docs/03-reference/persistance-et-donnees.md",
     "concepts": ["FTS5 trajectories_fts et genome_decisions_fts", "sqlite-vec vec0 float[768]", "Reciprocal Rank Fusion", "triggers AFTER INSERT/UPDATE/DELETE", "rebuild des index au bootstrap", "embedding_blob de 3072 octets"]
   },
   "policies": {

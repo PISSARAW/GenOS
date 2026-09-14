@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Emettre et capter des signaux chimiques d'urgence (alarme, defense, cooperation, territorialite) sans saturer la fenetre de contexte, et declencher une action autonome reflexe au franchissement du seuil (reponse de Flehmen).",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOMIMICRY_ANIMAL_SENSES.md",
+    "source_doc": "docs/01-concepts/biomimetisme/sens-animaux.md",
     "concepts": ["organe vomeronasal", "signalisation pheromonale", "bypass cortical", "reponse de Flehmen", "action autonome reflexe"]
   },
   "policies": {

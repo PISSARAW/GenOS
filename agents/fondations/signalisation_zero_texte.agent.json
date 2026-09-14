@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Coordonner les flottes d'agents sans invite textuelle via ligands, potentiels de membrane synchronises et pheromones chimiotactiques stigmergiques.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/RUNTIME_AGENTIQUE.md",
+    "source_doc": "docs/01-concepts/runtime-agentique.md",
     "concepts": ["ligands paracrines", "concentration >= threshold", "potentiels de membrane sum V_i >= 300 mV", "synchronisation Kuramoto r >= 0.70", "pheromones stigmergiques +/-I", "plasmides BioPolymer BLOB", "cryptophasie"]
   },
   "policies": {

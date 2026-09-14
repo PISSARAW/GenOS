@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Comparer GenOS aux familles de solutions directement substituables ou complementaires (runtime, IDE, workflows, memoire, securite, observabilite) et exposer ou il se differencie.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PANORAMA_CONCURRENTIEL.md",
+    "source_doc": "docs/07-positionnement/panorama-concurrentiel.md",
     "concepts": [
       "comparaisons portant sur les capacites publiquement documentees",
       "pas un benchmark de performance ni une recommandation d'achat",

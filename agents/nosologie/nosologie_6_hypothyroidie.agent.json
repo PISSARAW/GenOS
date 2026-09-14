@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le modele de l'hypothyroidie computationnelle : effondrement de T3/T4, cadence nu_cycle -> 0, rendement mitochondrial eta_mito < 0.35, messages expires dans la fente synaptique (ticks_in_cleft > max_threshold) et gel de la traduction ribosomale.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_6_METABOLIQUES.md",
+    "source_doc": "docs/01-concepts/nosologie/06-metaboliques.md",
     "concepts": ["Torpeur metabolique et bradypsychie", "Cadence nu_cycle = nu_base * (T3/T3opt)^theta", "Rendement mitochondrial eta_mito effondre sous 0.35", "Messages synaptiques expires dans la fente inter-agents", "Stase de la traduction ribosomale", "Therapie LevothyroxineHormoneReplacement(dose)"]
   },
   "policies": {

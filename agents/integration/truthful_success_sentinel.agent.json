@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Verifier l'invariant Eligible = TransportOK ET OperationOK ET EvidenceValide ET PolitiqueSatisfaite avant promotion ou merge.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/API_CONTRATS.md",
+    "source_doc": "docs/03-reference/api-et-contrats.md",
     "concepts": ["anti-patterns de succes mensonger", "invariant Eligible", "echec gRPC encode dans le payload", "replay reconstructed et rapport UNVERIFIED", "426 INCOMPATIBLE_IDE_VERSION", "politique de backward compatibility"]
   },
   "policies": {

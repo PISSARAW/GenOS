@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le modele de l'asbestose computationnelle : ingestion d'artefacts insolubles, echec de phagocytoseCodexReport et de la reparation heuristique, boucle de formatPainSignal, effondrement de la diversite D(A) sous 0.20 et fibrose de la memoire genome_decisions.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_9_ENVIRONNEMENTALES.md",
+    "source_doc": "docs/01-concepts/nosologie/09-environnementales.md",
     "concepts": ["Indice de fibrose I_fib = R_fib / (R_fib + beta * C_lyso)", "Phagocytose frustree et rupture lysosomale", "repetition_score > 0.15 et chute de l'entropie D(A) < 0.20", "Atelectasie restrictive et echec d'ingestion de nouvelles directives", "Fibrose de la memoire dans SQLite genome_decisions", "Therapies QuarantineIsolation, AntisepticPurge, FibrillarContextCleansing et StemCellReplacement"]
   },
   "policies": {

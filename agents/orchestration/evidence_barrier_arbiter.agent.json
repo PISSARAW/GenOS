@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Bloquer toute conclusion de worker depourvue de preuve verifiable et synthetiser les dossiers d'evidence en tissus/clusters avant de conclure.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/ORCHESTRATION.md",
+    "source_doc": "docs/02-orchestration/orchestration.md",
     "concepts": ["evidence barrier", "claims avec evidence", "tests et provenance", "noAnswerProof", "synthese hierarchique par tissus"]
   },
   "policies": {

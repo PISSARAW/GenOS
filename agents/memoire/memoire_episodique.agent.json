@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Enregistrer les episodes d'action (qui a agi, dans quel contexte, quelle action, quelle observation, quel reward score) puis consolider ceux dont le score depasse le seuil de 0.7.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/MEMOIRE_APPRENTISSAGE.md",
+    "source_doc": "docs/01-concepts/memoire-et-apprentissage.md",
     "concepts": ["memoire episodique", "hippocampe", "reward_score", "consolidation", "recordEpisode", "trajectoire"]
   },
   "policies": {

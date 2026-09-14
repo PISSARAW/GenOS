@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Associer chaque etape de pipeline aux primitives compatibles du registre et appeler le handler correct avec une sortie structuree.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PRIMITIVES_EXECUTABLES.md",
+    "source_doc": "docs/02-orchestration/primitives-executables.md",
     "concepts": ["primitive executable", "registre de handlers", "STAGE_PRIMITIVE_MAP", "structured output", "lots de primitives"]
   },
   "policies": {

@@ -4,7 +4,7 @@
 - **Date** : 2026-09-14
 - **Domaine** : Persistance, mémoire, orchestration, preuve, biomimétique
 - **Décideurs** : Mainteneurs GenOS
-- **Lié à** : [docs/FOSSILISATION.md](../FOSSILISATION.md), [docs/MEMOIRE_APPRENTISSAGE.md](../MEMOIRE_APPRENTISSAGE.md), [docs/RESILIENCE_REPRISE.md](../RESILIENCE_REPRISE.md), [docs/EPISTEMOLOGIE_EVIDENCE.md](../EPISTEMOLOGIE_EVIDENCE.md), [adr/0002-agentdna-innovation-loop.md](0002-agentdna-innovation-loop.md), [.genos.md](../../.genos.md) (règle 5)
+- **Lié à** : [docs/01-concepts/fossilisation.md](../01-concepts/fossilisation.md), [docs/01-concepts/memoire-et-apprentissage.md](../01-concepts/memoire-et-apprentissage.md), [docs/04-exploitation/resilience-et-reprise.md](../04-exploitation/resilience-et-reprise.md), [docs/01-concepts/epistemologie-et-evidence.md](../01-concepts/epistemologie-et-evidence.md), [adr/0002-agentdna-innovation-loop.md](0002-agentdna-innovation-loop.md), [.genos.md](../../.genos.md) (règle 5)
 
 ## Contexte
 
@@ -67,7 +67,7 @@ Règles structurantes :
 - [x] Couche Rust (`fossil.rs` : `BurialContext`, `bury`/`excavate`/`strata`) et service `fossilizationService.js` avec les tables `fossils` / `fossil_strata`.
 - [x] Commandes CLI `record --mode|list|strata|excavate|decode` et primitives orchestrateur `fossilize|bury_fossil|fossil_strata|fossil_excavate|fossil_decode`.
 - [x] Tests : burial synchrone déterministe, propriété « excavation = lecture seule, non promouvable », intégrité inter-langage Rust/Node.
-- [ ] Outils MCP `genos_fossil_*` et endpoints REST `/api/fossils*` (alignement JS/Rust/bridge, cf. `docs/OUTILS_MCP.md` §9).
+- [ ] Outils MCP `genos_fossil_*` et endpoints REST `/api/fossils*` (alignement JS/Rust/bridge, cf. `docs/03-reference/outils-mcp.md` §9).
 - [ ] Brancher la détection de concepts résiduels vers la boucle d'innovation (ADR 0002) en statut `candidate` uniquement.
 - [ ] ADR ultérieure si un format binaire canonique de fossile (`FossilDNA`) est introduit.
 
@@ -88,4 +88,4 @@ Règles structurantes :
 - `backend/src/services/bioPolymerPersistenceService.js`, `cryptobiosisSporeService.js`, `sleepCycle.js`, `episodicMemoryService.js`
 - `backend/src/db/schema-migrations.js`, `schema-tables-core.js`, `schema-tables-extensions.js` (`cryptobiosis_snapshots`, `agent_state_snapshots`, `agent_git_archives`)
 - `crates/genos-orchestrator/tests/fossilization.rs`, `backend/tests/test_fossilization_service.js`, `backend/tests/test_orchestrator_fossilization.js`
-- `docs/FOSSILISATION.md`, `docs/MEMOIRE_APPRENTISSAGE.md`, `docs/RESILIENCE_REPRISE.md`, `docs/CLI_EXPERIENCE_OPERATEUR.md`, `docs/PERSISTANCE_DONNEES.md`
+- `docs/01-concepts/fossilisation.md`, `docs/01-concepts/memoire-et-apprentissage.md`, `docs/04-exploitation/resilience-et-reprise.md`, `docs/04-exploitation/cli-et-experience-operateur.md`, `docs/03-reference/persistance-et-donnees.md`

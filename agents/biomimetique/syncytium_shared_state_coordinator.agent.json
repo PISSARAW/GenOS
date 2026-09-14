@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Maintenir un etat de mission unique et autoritatif, horodater et causaliser les changements, detecter l'etat obsolete et coordonner les ticks de synchronisation.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SYNCYTIUM.md",
+    "source_doc": "docs/02-orchestration/topologies/syncytium.md",
     "concepts": ["etat partage unique", "synchronisation continue", "tracabilite causale", "detection de staleness", "resolution de conflits"]
   },
   "policies": {

@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Faire passer une trajectory par pending, active, approved, rejected ou revising en la validant par tests, diff et preuves avant toute activation.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/gestion-projet-multi-tenant.md",
+    "source_doc": "docs/05-securite-gouvernance/gestion-projet-multi-tenant.md",
     "concepts": [
       "trajectory avec author_id, reviewer_id, status, qa_feedback et diff",
       "statuts pending, active, approved, rejected, revising",

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Deposer et laisser s'evaporer des traces de pheromones sur les chemins partages pour orienter collectivement la nuee et marquer les impasses.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SWARM_INTELLIGENCE.md",
+    "source_doc": "docs/01-concepts/intelligence-de-nuee.md",
     "concepts": ["pheromones", "traces", "evaporation", "repulsion", "bornage [-I_max, I_max]", "stigmergie"]
   },
   "policies": {

@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Appliquer resource.scope = (organizationId, projectId) et refuser toute requete ou l'un des deux champs manque, afin d'isoler strictement organisations et projets.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/gestion-projet-multi-tenant.md",
+    "source_doc": "docs/05-securite-gouvernance/gestion-projet-multi-tenant.md",
     "concepts": [
       "organisation, projet et workspace hiérarchiques",
       "memberships owner, admin, member, viewer",

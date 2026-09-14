@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Analyser en passif le bruit electrosensoriel pour localiser processus silencieux, deadlocks et goulets, et en actif emettre des decharges EOD pour mesurer la distorsion d'impedance de l'infrastructure.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOMIMICRY_ANIMAL_SENSES.md",
+    "source_doc": "docs/01-concepts/biomimetisme/sens-animaux.md",
     "concepts": ["electroreception", "mormyrocerebellum", "sensing passif d'infrastructure", "decharge EOD", "distorsion d'impedance"]
   },
   "policies": {

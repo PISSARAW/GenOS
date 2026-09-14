@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Modeliser le melanome computationnel : camouflage immunitaire total (is_camouflaged), rupture du pacte (p53 desactive, adhesion rompue), demethylation et dissemination trans-capsulaire neurotrope.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_5_CANCERS.md",
+    "source_doc": "docs/01-concepts/nosologie/05-cancers.md",
     "concepts": ["Fardeau mutationnel eleve (TMB) et mutations BRAF V600E", "Echappement immunitaire PD-L1/PD-1 et T-cell exhaustion", "Transition epithelio-mesenchymateuse et perte d'adhesion", "Rupture du pacte pluricellulaire (p53_active = false)", "Camouflage cognitive_state.is_camouflaged", "Diagnostic InvasiveMelanoma"]
   },
   "policies": {

@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Recommander la taille d'essaim selon la classe de probleme (Simple, Moyen, Dur, Complexe, NP) et l'organisation dynamique adaptee.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/ECONOMIE_ET_SCALABILITE_MULTI_AGENTS.md",
+    "source_doc": "docs/07-positionnement/economie-et-scalabilite.md",
     "concepts": [
       "1 agent pour une tache simple, 3 agents pour la Trinity Architecte/Worker/Juge",
       "5 a 10 agents pour un refactoring ou un systeme distribue",

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Filtrer le catalogue par lease/disabled et revalider l'autorisation a chaque dispatch direct d'outil MCP.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/OUTILS_MCP.md",
+    "source_doc": "docs/03-reference/outils-mcp.md",
     "concepts": ["Visible = Catalog inter Lease moins Disabled", "parseLease et normalisation du prefixe genos_", "GENOS_MCP_DISABLED_TOOLS prioritaire", "GENOS_MCP_LEASE_EXPIRES_AT en epoch ms", "directCallGuard et toolIsLeased", "enforcement sur discovery et dispatch"]
   },
   "policies": {

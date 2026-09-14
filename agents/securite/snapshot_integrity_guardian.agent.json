@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Capturer, verifier et restaurer des snapshots de workspace sans jamais produire de restauration partielle silencieuse.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/RESILIENCE_REPRISE.md",
+    "source_doc": "docs/04-exploitation/resilience-et-reprise.md",
     "concepts": ["workspace_snapshots et manifest JSON", "H = SHA256(JSON(files))", "readManifest et egalite snapshot_hash/manifest.hash", "path traversal bloque", "pruneSnapshotArtifacts"]
   },
   "policies": {

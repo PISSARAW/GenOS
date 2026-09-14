@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Evaluer la surface affectee par une mutation (fichiers, caractere destructif, role requis) et decider dry-run, review ou refus.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md",
+    "source_doc": "docs/02-orchestration/workspaces-contrefactuel.md",
     "concepts": ["blast radius", "formule BR", "collision", "dry-run", "isDestructive et required privilege"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le modele du diabete de type 2 computationnel : phosphorylation inhibitrice des recepteurs IRS-1 par IL-6 et cortisol chronique, elevation du threshold de capture dans cascade.rs et arret brutal TickResult::Halted(\"Budget exhausted (starvation)\") malgre des pools de tokens abondants.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_6_METABOLIQUES.md",
+    "source_doc": "docs/01-concepts/nosologie/06-metaboliques.md",
     "concepts": ["Insulinoresistance et desensibilisation des recepteurs d'inbox", "Famine paradoxale au sein de l'abondance", "IL-6 et cortisol chronique portant metabolic_cost a 5", "Threshold d'activation cascade.rs devenu inatteignable", "Arret par atp_budget == 0", "Therapies InsulinSensitizerMetformin et IntensiveCareFluids"]
   },
   "policies": {

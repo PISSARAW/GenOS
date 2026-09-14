@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Maintenir le cycle de vie d'une integration IDE sous tenant, clientId stable et workspace autorise.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/INTEGRATIONS_IDE.md",
+    "source_doc": "docs/03-reference/integrations-ide.md",
     "concepts": ["table ide_integrations SQLite", "reconnexion idempotente par clientId", "index unique UNIQUE(client_id, workspace_id)", "heartbeat et last_seen_at", "client stale apres 5 minutes", "statut revoked et migration 018-ide-client-identity"]
   },
   "policies": {

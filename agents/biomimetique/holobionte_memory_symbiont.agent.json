@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Consolider les lecons durables de la mission, documenter la lignee et le rationale des decisions, et produire patterns, anti-patterns et artefacts reutilisables.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/HOLOBIONTE.md",
+    "source_doc": "docs/02-orchestration/topologies/holobionte.md",
     "concepts": ["lecons durables", "lignee", "patterns et anti-patterns", "contexte reutilisable", "memoire du host"]
   },
   "policies": {

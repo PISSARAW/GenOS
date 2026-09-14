@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Parcourir les frontieres du reseau, rechercher les dependances non couvertes, reperer les goulets d'etranglement et distinguer une vraie lacune d'une duplication inutile.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/RHIZOME.md",
+    "source_doc": "docs/02-orchestration/topologies/rhizome.md",
     "concepts": ["exploration de frontiere", "capacite manquante", "goulet d'etranglement", "opportunite d'extension", "detection de duplication"]
   },
   "policies": {

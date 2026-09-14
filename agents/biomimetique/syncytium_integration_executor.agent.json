@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Collecter les tranches d'etat des executeurs paralleles, les integrer en un resultat unifie, detecter les branches divergentes et exiger un consensus avant acceptation.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SYNCYTIUM.md",
+    "source_doc": "docs/02-orchestration/topologies/syncytium.md",
     "concepts": ["integration collective", "detection de divergence", "consensus avant divergence", "documentation des conflits", "resultat unifie"]
   },
   "policies": {

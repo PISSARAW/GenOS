@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Fournir un VFS en memoire borne et n'autoriser l'execution reelle que sur opt-in explicite.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SANDBOX_EXECUTION_CODE.md",
+    "source_doc": "docs/05-securite-gouvernance/sandbox-execution-code.md",
     "concepts": ["VFS en memoire sans effet sur le disque hote", "limites fichier, total et nombre de fichiers", "mode real et allowRealExecution", "diff simule, privilege requiert et blast radius", "GENOS_MAX_VFS_FILE_BYTES et GENOS_MAX_VFS_BYTES"]
   },
   "policies": {

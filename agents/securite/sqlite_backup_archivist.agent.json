@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Preserver une sauvegarde coherente de la base et de ses sidecars avant tout changement de version.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/OPERATIONS_RECOVERY.md",
+    "source_doc": "docs/04-exploitation/runbook-recovery.md",
     "concepts": ["GENOS_DB_PATH", "copie genos.db avec WAL et SHM", "schema-migrations.js", "backup hors repertoire applicatif", "PRAGMA integrity_check"]
   },
   "policies": {

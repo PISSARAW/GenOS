@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Evaluer les politiques du contrat avant toute promotion, merge ou approbation, et bloquer la moindre violation de replay, verification ou approbation humaine.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/EPISTEMOLOGIE_EVIDENCE.md",
+    "source_doc": "docs/01-concepts/epistemologie-et-evidence.md",
     "concepts": ["require_replay", "require_independent_verification", "require_human_approval", "preserve_rejected_branches", "merge_workspace_automatically", "evaluatePromotionGate"]
   },
   "policies": {

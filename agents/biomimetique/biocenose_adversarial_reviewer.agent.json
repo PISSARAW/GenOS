@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Analyser les solutions concurrentes, produire des falsifications et contre-exemples, exposer les hypotheses non justifiees, les angles morts et les signaux de collusion.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOCENOSE.md",
+    "source_doc": "docs/02-orchestration/topologies/biocenose.md",
     "concepts": ["falsification antagoniste", "contre-exemples", "hypotheses cachees", "detection de collusion", "angles morts"]
   },
   "policies": {

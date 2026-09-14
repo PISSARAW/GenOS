@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Synchroniser N oscillateurs de phase et declencher un consensus par resonance lorsque le parametre d'ordre atteint le seuil de coherence.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SWARM_INTELLIGENCE.md",
+    "source_doc": "docs/01-concepts/intelligence-de-nuee.md",
     "concepts": ["synchronisation de phase Kuramoto", "parametre d'ordre r", "coherence du cluster", "oscillateurs de phase", "seuil r >= 0.70"]
   },
   "policies": {

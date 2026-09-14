@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Contenir les chemins sous le workspace root et durcir les entrees structurelles et fichiers de confiance.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SECURITE.md",
+    "source_doc": "docs/05-securite-gouvernance/securite.md",
     "concepts": ["pathSafety resolveContainedPathNoSymlinkSync", "requetes SQLite preparees a parametres ?", "TLS sans symlink ni permissions groupe/monde", "deserialisation JSON bornee a 10mb"]
   },
   "policies": {

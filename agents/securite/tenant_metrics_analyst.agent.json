@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Mesurer par tenant les actions, agents et schemas de comportement pour detecter une derive a investiguer.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/OBSERVABILITE.md",
+    "source_doc": "docs/04-exploitation/observabilite.md",
     "concepts": ["telemetryScope organization_id/project_id", "entropie de Shannon H(A)", "repetition dominante a 85 pour cent", "heatmap de 364 jours", "derive cognitive du swarm"]
   },
   "policies": {

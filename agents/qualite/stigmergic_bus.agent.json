@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Coordonner les agents par signaux physico-chimiques locaux (ligands, electrocytes, Kuramoto) avec 0 token LLM et un cout CPU negligeable.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/ECONOMIE_ET_SCALABILITE_MULTI_AGENTS.md",
+    "source_doc": "docs/07-positionnement/economie-et-scalabilite.md",
     "concepts": [
       "C_GenOS = K_spec + L_code + somme des M_dialectique + O(N) epsilon_local",
       "sommation V >= 300 mV et ordre de Kuramoto r >= 0.70",

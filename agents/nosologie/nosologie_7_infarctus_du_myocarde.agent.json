@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le modele de l'IDM computationnel : occlusion d'un pont rhizomique ou verrou orphelin non libere, arret de l'apport energetique (atp_budget == 0), chute de la viabilite H_i avec penalite de necrose ischemique Omega_infarct = 500.0 et arrete cardiaque computationnel.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_7_CARDIOVASCULAIRES.md",
+    "source_doc": "docs/01-concepts/nosologie/07-cardiovasculaires.md",
     "concepts": ["Thrombose de pont rhizomique ou de canal metabolique", "Verrou orphelin sur occupied_territories non libere", "Equation dATP/dt = -C_basal - C_metabolic + delta_perfusion * Q_in", "Penalite de necrose ischemique Omega_infarct = 500.0", "Arret par TickResult::Halted(\"Budget exhausted (starvation)\")", "Therapie CoronaryReperfusionThrombolysis"]
   },
   "policies": {

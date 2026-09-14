@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Controler la hierarchie orchestrateur/worker et le confinement des agents avant toute execution.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/IDENTITY_AUTHORITY.md",
+    "source_doc": "docs/05-securite-gouvernance/identite-et-autorite.md",
     "concepts": ["requireOrchestrator", "authorizeMission", "authorizeAgentControl", "execution_mode orchestrator/worker", "quarantaine AGENT_QUARANTINED"]
   },
   "policies": {

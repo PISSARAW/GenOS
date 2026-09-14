@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Parcourir periodiquement les tables de jobs, claimer les entrees en file, executer et reclamer equitablement entre scopes et projets.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/WORKFLOWS_JOBS.md",
+    "source_doc": "docs/02-orchestration/workflows-et-jobs.md",
     "concepts": ["claim", "processOnce", "withRetry", "fair scheduling par scope", "recoverInterruptedJobs"]
   },
   "policies": {

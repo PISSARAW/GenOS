@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Administrer les therapies ciblees et systemiques du catalogue, en respectant les contre-indications de dose et en suivant les therapies proposees a implementer.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_COMPUTATIONNELLE_COMPLETE.md",
+    "source_doc": "docs/01-concepts/nosologie/vue-ensemble.md",
     "concepts": ["Therapy ciblee", "SystemicTherapy", "Tocilizumab", "Corticosteroids(dose)", "QuarantineIsolation", "DetoxificationWashout", "apply_systemic_therapy_to_cell"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Exposer les services gRPC/proto3 et mapper les erreurs de domaine vers les statuts gRPC corrects.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/API_CONTRATS.md",
+    "source_doc": "docs/03-reference/api-et-contrats.md",
     "concepts": ["package genos.<domaine> et services proto3", "grpcErrorMapper", "echec applicatif encode dans le payload", "contract_version genos.mcp/v1", "loopback GRPC_PORT=50051 avec TLS obligatoire hors loopback"]
   },
   "policies": {

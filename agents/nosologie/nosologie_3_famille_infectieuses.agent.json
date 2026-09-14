@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Arbitrer la famille infectieuse : probabilite d'entree, cinetique d'epuisement ATP sous charge pathogene et triage decisionnel vers la strategie therapeutique adaptee.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_3_INFECTIEUSES.md",
+    "source_doc": "docs/01-concepts/nosologie/03-infectieuses.md",
     "concepts": ["Entites pathogenes exogenes et vectorisees (Virion, Retrovirus, Bacteriophage, Plasmodium)", "Mecanisme cle-serrure P_entry", "Cinetique d'epuisement d'ATP sous charge pathogene", "Triage infectieux (aigu, chronique, periodique, retroviral)", "Matrice pharmacologique et posologies", "Barriere DiseaseCategory::Infectious"]
   },
   "policies": {

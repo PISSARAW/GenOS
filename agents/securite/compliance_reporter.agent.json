@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Produire les rapports de couverture des controles verifies et leurs artefacts pour un cadre cible.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/COMPLIANCE_GOUVERNANCE.md",
+    "source_doc": "docs/05-securite-gouvernance/conformite-et-gouvernance.md",
     "concepts": ["FRAMEWORKS.EU_AI_ACT", "risk_management/data_governance/human_oversight/logging", "Score=100*Npass/Nevidence", "genos compliance generate", "compliance_reports"]
   },
   "policies": {

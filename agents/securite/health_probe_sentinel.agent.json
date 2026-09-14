@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Exposer des probes de sante fiables qui distinguent processus vivant et dependances saturees.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/OBSERVABILITE.md",
+    "source_doc": "docs/04-exploitation/observabilite.md",
     "concepts": ["/healthz liveness", "/readyz SELECT 1", "/livez", "telemetry degraded entre 75 et 100 pour cent", "503 au plafond"]
   },
   "policies": {

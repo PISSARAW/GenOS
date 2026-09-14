@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Arbitrer la famille genetique : distinction entre alteration genomique intrinsèque et les autres categories nosologiques, modelisation de la transmission mendélienne et des remedes correcteurs.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_4_GENETIQUES.md",
+    "source_doc": "docs/01-concepts/nosologie/04-genetiques.md",
     "concepts": ["DnaStrand, Gene et operons comme materiel genetique", "Transcription par RnaPolymerase et traduction ribosomique", "Epissage par Spliceosome et exons alternatifs", "Surveillance NMD des transcrits tronques", "Transmission autosomique recessive et liee a l'X", "Remedes GenOS : modulateurs, saut d'exon, CRISPR"]
   },
   "policies": {

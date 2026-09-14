@@ -1,0 +1,630 @@
+# Intelligence de nuée (Swarm Intelligence) GenOS
+
+## 1. Définition
+
+L’intelligence de nuée dans GenOS désigne la coordination émergente d’un ensemble d’agents ou de workers autour de traces, de votes, de rôles et de métriques de cohérence. Le repository ne traite pas la “swarm intelligence” comme une abstraction vague ; il l’implémente comme un système de coordination explicite avec :
+
+- dépôt de traces de signal (phéromones / repulsions) ;
+- sélection de chemins selon intensité et évaporation ;
+- consensus de groupe via votes et quorum pondéré ;
+- réorganisation dynamique des relations au sein d’une orchestration ;
+- détection de collapses cognitifs, boucles périodiques et deadlocks de communication ;
+- télémétrie de topologie et d’entropie.
+
+Les points d’implémentation sont clairement rattachés au code :
+
+- [crates/genos-signal/src/stigmergy.rs](../../crates/genos-signal/src/stigmergy.rs) : modèle Rust pour phéromones, répulsions et évaporation ;
+- [backend/src/services/primitiveHandlers/collective.js](../../backend/src/services/primitiveHandlers/collective.js) : dépôt de trace, sélection de sentier, évaporation, quorum et quorum pondéré ;
+- [backend/src/services/primitiveHandlers/collectiveConsensus.js](../../backend/src/services/primitiveHandlers/collectiveConsensus.js) : Brier score, votes, pondération du consensus ;
+- [backend/src/services/dynamicOrganizationService.js](../../backend/src/services/dynamicOrganizationService.js) : organisations dynamiques, routing, message channels, transitions de structure ;
+- [backend/src/services/swarmMetricsService.js](../../backend/src/services/swarmMetricsService.js) : entropie de Shannon, détection de cycles, topologie du swarm.
+
+Le point clé est que le système ne repose pas sur un “esprit de groupe” purement implicite ; il s’appuie sur des invariants techniques explicites : traces, seuils, voie de routage, pondération de confiance, et détection d’auto-répétition.
+
+---
+
+## 2. Ce que le repo fait réellement
+
+GenOS implémente une version de swarm intelligence orientée “coordination multi-agent robuste”. Les mécanismes concrets sont :
+
+1. dépôt de phéromones ou de traces sur un chemin donné ;
+2. évaporation progressive de ces traces selon une durée de demi-vie ;
+3. sélection du chemin le plus fort ou le plus probable ;
+4. détection du collapse de diversité comportementale via entropie ;
+5. collecte de votes de décision ;
+6. validation d’un quorum simple ou pondéré ;
+7. changement de structure organisationnelle selon le besoin (hub-and-spoke, quorum, adversarial triangle, stigmergy, etc.) ;
+8. surveillance des cycles et des boucles de discussion sans production de valeur.
+
+Autrement dit, GenOS utilise la swarming comme un mécanisme de routage, d’évacuation de risque et de résolution collective, pas comme un simple effet de bord “d’agentique générative”.
+
+---
+
+## 3. Modèle mathématique de base
+
+### 3.1 Phéromones et évaporation
+
+Le code Rust de [crates/genos-signal/src/stigmergy.rs](../../crates/genos-signal/src/stigmergy.rs) représente une phéromone par :
+
+- un identifiant de marqueur ;
+- une intensité ;
+- un taux de décroissance ;
+- un indicateur de répulsion ;
+- un cap de saturation.
+
+La mise à jour de la phéromone suit deux formes :
+
+- version continue :
+
+$$
+I(t + \Delta t) = I(t) \cdot e^{-\lambda \Delta t}
+$$
+
+- version discrète :
+
+$$
+I_{t+1} = I_t \cdot (1 - \lambda)
+$$
+
+où :
+
+- $I_t$ est l’intensité actuelle ;
+- $\lambda$ est le taux de décroissance ;
+- $\Delta t$ est le temps écoulé.
+
+Le dépôt est plafonné par une intensité maximale $I_{max}$ et la valeur est bornée dans :
+
+$$
+-I_{max} \le I_t \le I_{max}
+$$
+
+Les traces négatives sont traitées comme des phéromones répulsives, ce qui permet de marquer les impasses, les chemins dangereux ou les erreurs de décision.
+
+### 3.2 Sélection de traces
+
+La fonction `trailSelection` du fichier [backend/src/services/primitiveHandlers/collective.js](../../backend/src/services/primitiveHandlers/collective.js) simule un mécanisme d’optimisation de colonies :
+
+- somme des intensités de traces par chemin ;
+- vieillissement par formule de demi-vie :
+
+$$
+\text{weight}(p, t) = \text{strength}(p) \cdot \left(\frac{1}{2}\right)^{\frac{age}{T_{1/2}}}
+$$
+
+- choix du chemin selon plusieurs modes :
+  - greedy
+  - epsilon-greedy
+  - softmax
+  - probabilistic / roulette
+
+En mode softmax, le score est transformé en probabilité :
+
+$$
+P_i = \frac{e^{(s_i - s_{max}) / T}}{\sum_j e^{(s_j - s_{max}) / T}}
+$$
+
+où :
+
+- $s_i$ est la force du chemin ;
+- $T$ est la température ;
+- $P_i$ est la probabilité de sélection.
+
+Dans le repo, les chemins négatifs ou répulsifs sont explicitement filtrés si l’option `excludeRepellent` est activée ; cela correspond à une politique claire : éviter le chemin qui a été marqué comme mauvais.
+
+### 3.3 Entropie cognitive et détection de collapse
+
+Le service [backend/src/services/swarmMetricsService.js](../../backend/src/services/swarmMetricsService.js) calcule l’entropie de Shannon sur la séquence d’actions observées :
+
+$$
+H(X) = -\sum_i p_i \log_2 p_i
+$$
+
+Il calcule aussi une entropie conditionnelle sur les transitions :
+
+$$
+H(Y \mid X) = -\sum_x p(x) \sum_y p(y\mid x) \log_2 p(y\mid x)
+$$
+
+Cette mesure sert à distinguer :
+
+- exploration saine ;
+- répétition dominée ;
+- cycle périodique sans innovation ;
+- confusion d’exploration excessive.
+
+Le code impose des seuils explicites :
+
+- répétition dominante si le ratio de dominance est élevé ;
+- collapse si l’entropie normalisée est trop faible ;
+- deadlock si le cycle périodique est détecté à répétition ;
+- spike confusion si l’entropie est trop élevée.
+
+Autrement dit, la nuée n’est pas “juste intelligente” parce qu’elle agit beaucoup ; elle est contrôlée parce qu’elle doit conserver une diversité fonctionnelle suffisante.
+
+### 3.4 Consensus, quorum et fiabilité des votes
+
+La logique de consensus est dans [backend/src/services/primitiveHandlers/collectiveConsensus.js](../../backend/src/services/primitiveHandlers/collectiveConsensus.js).
+
+Le Brier score est calculé pour un prédicteur binaire comme :
+
+$$
+BS = (p - o)^2
+$$
+
+et en multi-classe :
+
+$$
+BS = \frac{1}{N}\sum_{k=1}^{N}(p_k - o_k)^2
+$$
+
+Le repo transforme ensuite un Brier score en poids de confiance selon :
+
+$$
+w = \begin{cases}
+0 & \text{si } b \ge 1 \\
+\max(0, 0.1(1-b)) & \text{si } 0.5 \le b < 1 \\
+(1-b)^2 & \text{si } b < 0.5
+\end{cases}
+$$
+
+Le quorum standard suit ensuite :
+
+$$
+\text{approvalRate} = \frac{\text{votes}_{top}}{\text{votes}_{expressed}}
+$$
+
+et une décision est validée quand :
+
+$$
+\text{participants} \ge q_{min} \quad \land \quad \text{approvalRate} \ge \theta
+$$
+
+Le quorum pondéré fait la même chose en remplaçant les votes simples par des votes pondérés par fiabilité.
+
+### 3.5 Stigmergie Vectorielle et Consensus par Résonance de Phase de Kuramoto
+Au lieu de diffuser uniquement des messages textuels statiques, GenOS connecte la stigmergie et les signaux oscillatoires à l'exécution de l'organisation :
+* **Gradient Phéromonal Continu (`StigmergyField` & `SwarmPheromoneMatrix`)** : Les agents déposent des intensités scalaires $I_t \in [-I_{max}, I_{max}]$ via la primitive `pheromoneDeposit()` ou des messages de canal `stigmergic_trail` (`kind: 'trace'`). Les sentiers s'évaporent continuellement selon $I(t + \Delta t) = I(t) e^{-\lambda \Delta t}$ ([`crates/genos-signal/src/stigmergy.rs`](../../crates/genos-signal/src/stigmergy.rs), `backend/src/services/swarmStigmergyVectorService.js`).
+* **Liaison au Runtime Agentique (`dynamicOrganizationService.js`)** : Lorsque l'organisation active est `stigmergy` (canal `stigmergic_trail`), chaque trace déposée par `pheromoneDeposit()` est acheminée vers le bus de signaux. Lors de la relève de boîte aux lettres (`inbox()`), les messages sont annotés de leur `stigmergyIntensity` après décroissance temporelle et réordonnés afin que les sentiers aux phéromones les plus intenses soient explorés en priorité. Le sentier dominant émergent est retourné sous `dominantPath`.
+* **Consensus par Phase d'Oscillateurs (Module Kuramoto Standalone)** : Implémenté de façon autonome dans [`crates/genos-signal/src/kuramoto.rs`](../../crates/genos-signal/src/kuramoto.rs), le modèle de Kuramoto synchronise $N$ oscillateurs de phase selon l'équation :
+  $$
+  \frac{d\theta_i}{dt} = \omega_i + \frac{K}{N}\sum_{j=1}^{N} \sin(\theta_j - \theta_i)
+  $$
+  La cohérence globale du cluster est mesurée par le paramètre d'ordre complexe :
+  $$
+  r e^{i\psi} = \frac{1}{N}\sum_{j=1}^{N} e^{i\theta_j}
+  $$
+  Le consensus de phase est réputé atteint dès que $r \ge 0.70$ (ou $r \ge 0.90$ en mode haute fidélité). Ce moteur mathématique Rust sert à l'alignement fréquentiel d'horloges et à la cadence myocardique d'orchestration, distinct du tri par intensité phéromonale de l'inbox.
+
+### 3.6 Délibération Dialectique et Contre-Propositions Swarm
+Au-delà du vote binaire (yes/no/abstain), le contrôleur d'essaim expose une dialectique de contre-propositions :
+* **Route API** : `POST /api/swarm/proposals/:id/counter`
+* **Lien hiérarchique** : La contre-proposition enregistre `parent_proposal_id`, permettant de tracer les désaccords formels et les alternatives proposées par les pairs.
+* **Résolution en consensus** : Les vues consolidées (`GET /api/swarm/consensus`) affichent pour chaque proposition la liste de ses `counterProposals`, permettant d'évaluer le soutien relatif entre une proposition initiale et ses variantes concurrentes.
+
+---
+
+## 4. Analogies biologiques utiles
+
+Les métaphores biologiques du repo sont cohérentes et utiles, mais leur sens est fonctionnel :
+
+- phéromone = trace de signal dans un environnement partagé ;
+- répulsion = marqueur de danger ou de chemin invalide ;
+- quorum = seuil de participation collective ;
+- mycelium / mesh = réseau de capacités et de dépendances ;
+- polyéthisme dynamique = réaffectation de rôles selon la charge ;
+- stigmergie = coordination indirecte via l’environnement ;
+- école de poissons / flocking = ajustement de voisinage et de mouvement ;
+- slime mould = adaptation d’un réseau de routes selon la valeur observée ;
+- immunité = rejet de sorties mal fondées ou non prouvées.
+
+La différence importante est que GenOS n’utilise pas la biologie pour “cacher” de la complexité ; il l’utilise plutôt pour expliciter des invariants de robustesse : l’environnement partage les traces, les agents se régulent, les voies faibles sont évapées, et le groupe ne décide pas sans seuil ni fact-check.
+
+---
+
+## 5. Architecture du système
+
+```text
+Agents / workers
+     |
+     v
++------------------------------------+
+| DynamicOrganizationService         |
+| - organization profiles             |
+| - topology / roles / routing        |
+| - routeMessage / publish / inbox    |
++------------------------------------+
+     |
+     +--------------+-----------------+
+                    v
+        +-----------------------+
+        | Collective primitives  |
+        | - pheromoneDeposit    |
+        | - trailSelection      |
+        | - evaporation         |
+        | - quorum              |
+        | - weightedQuorum      |
+        | - brierScores         |
+        +-----------------------+
+                    |
+                    v
+        +-----------------------+
+        | StigmergyField /      |
+        | pheromone traces      |
+        | evaporation + decay   |
+        +-----------------------+
+                    |
+                    v
+        +-----------------------+
+        | Swarm telemetry       |
+        | - entropy             |
+        | - deadlock           |
+        | - periodic cycle     |
+        | - topology graph     |
+        +-----------------------+
+                    |
+                    v
+                 Database / messages / state
+```
+
+Les composants ne sont pas juste “en chaîne”. Ils partagent un état de structure dans [backend/src/services/dynamicOrganizationService.js](../../backend/src/services/dynamicOrganizationService.js), où chaque organisation modifie :
+
+- la topologie ;
+- le mode d’échange ;
+- la visibilité ;
+- la stratégie de routage ;
+- le canal de transmission (orchestrateur, stigmergic trail, capability mesh, etc.).
+
+L'état d'organisation est auto-initialisé lors des premières publications ou relèves (`ensureActiveState`), et les agents membres dynamiques ou éphémères sont automatiquement associés au collectif pour éviter les ruptures de communication.
+
+Les organisations supportées incluent des formes typiques :
+
+- `hub_and_spoke`
+- `weighted_quorum`
+- `adversarial_triangle`
+- `dynamic_neighbors`
+- `shared_environment`
+- `capability_mesh`
+- `alpha_beta_delta`
+- `role_gradient`
+- `isolated_competitors`
+
+Le système choisit donc une structure de coordination en fonction de la situation : collaborative, compétitive, hiérarchique, ou émergente.
+
+---
+
+## 6. Processus de fonctionnement
+
+### 6.1 Dépôt de trace
+
+Un agent ou worker publie une trace via `pheromoneDeposit` :
+
+- l’ID orchestrateur est requis ;
+- l’ID agent est requis ;
+- le chemin est identifié ;
+- la force est bornée à $[-1000, 1000]$ ;
+- les traces négatives deviennent des marqueurs répulsifs.
+
+Ensuite, le message est publié dans la structure organisationnelle courante.
+
+### 6.2 Sélection de sentier
+
+`trailSelection` lit les traces de type `trace` dans les messages de l’organisation. Il :
+
+- calcule les forces effectives après vieillissement ;
+- trie les trajectoires par intensité ;
+- peut exclure les chemins répulsifs ;
+- choisit selon un mode (greedy, epsilon-greedy, softmax, probabilistic).
+
+Le résultat est un chemin candidat avec probabilités associées à chaque voie.
+
+### 6.3 Évaporation
+
+`evaporation` applique une décroissance de traces selon le temps :
+
+- age du message ;
+- paramètre de demi-vie ;
+- seuil de prune ;
+- suppression des traces trop faibles.
+
+Cela évite l’accumulation de mémoire pathologique et maintient un environnement de décision à jour.
+
+### 6.4 Vote et consensus
+
+Les votes sont collectés sur la question active via `quorum` ou `weightedQuorum` :
+
+- analyse des votes exprimés ;
+- exclusion des abstentions ;
+- calcul de la meilleure option ;
+- validation du seuil de participation ;
+- décision finale ou rejet.
+
+Le système peut aussi fusionner les votes provenant de la table `swarm_votes`, ce qui rend la primitive compatible avec d’autres flux de décision.
+
+### 6.5 Détection de boucle / deadlock / collapse
+
+Le service d’entropie examine les séquences d’actions :
+
+- entropie par action ;
+- entropie de transition ;
+- répétition dominante ;
+- cycle périodique ;
+- stagnation ou deadlock.
+
+Le but est de sortir de situations où la nuée “tourne en rond” sans générer de décision ou de progrès réel.
+
+---
+
+## 7. Cas d’usage du repo
+
+### 7.1 Recherche par piste collective
+
+Un ensemble d’agents explore plusieurs chemins de solution. Chacun dépose des traces sur les chemins qu’il juge utiles. Les meilleurs chemins gagnent la sélection, et les chemins répulsifs sont évités.
+
+C’est une modélisation simple mais robuste de l’optimisation de colonies : les agents ne se synchronisent pas par un message central et unique, ils coordonnent leur effort via l’environnement.
+
+### 7.2 Consensus de décision multi-agents
+
+Dans une session d’évaluation, plusieurs agents émettent une proposition ou un vote. Le système valide :
+
+- s’il y a assez de participants ;
+- si les votes sont assez clairs ;
+- si la meilleure option dépasse le seuil de confiance.
+
+Le mode pondéré est particulièrement utile lorsqu’un agent est plus fiable qu’un autre : il reçoit un poids plus fort via le Brier score ou via une valeur de calibration.
+
+### 7.3 Reconfiguration dynamique de l’organisation
+
+Selon le contexte, la structure d’équipe n’est pas fixe. Le repo permet de passer d’une hiérarchie à un quorum, un réseau de compétences, ou un mode adversarial. Cela correspond à un comportement de nuée qui s’auto-réorganise pour maximiser le flux et minimiser les risques.
+
+### 7.4 Détection d’échec par boucle cognitive
+
+Lorsque les actions perdent leur diversité, les traces deviennent répétitives, ou les messages se bouclent sans avancée, le service de métrique signale une situation de deadlock. Le système n’attend pas l’écroulement complet ; il identifie la boucle et force une correction.
+
+---
+
+## 8. Exemple concret
+
+Voici un scénario d’utilisation inspiré de la logique du repo :
+
+1. Trois agents explorent une stratégie de réparation.
+2. Le premier dépose une trace positive sur le chemin A.
+3. Le second dépose une trace négative sur le chemin B car il est bloqué.
+4. Le système calcule les forces par chemin et choisit A avec une probabilité plus forte.
+5. Un vote est lancé sur la meilleure stratégie.
+6. Le quorum pondéré est calculé : deux agents fiables, un agent moins fiable.
+7. Si l’approbation dépasse le seuil, la décision est acceptée.
+8. Si l’entropie tombe à zéro ou si un cycle répétitif apparaît, un deadlock est signalé.
+
+Pseudo-implémentation de logique :
+
+```js
+const { pheromoneDeposit, trailSelection, quorum, weightedQuorum } = require('./backend/src/services/primitiveHandlers/collective');
+
+await pheromoneDeposit({
+  orchestratorId: 'org-1',
+  agentId: 'agent-a',
+  path: 'path/repair-variant-a',
+  strength: 0.8
+});
+
+const result = await trailSelection({
+  orchestratorId: 'org-1',
+  mode: 'softmax',
+  temperature: 0.7,
+  excludeRepellent: true
+});
+
+const decision = await weightedQuorum({
+  orchestratorId: 'org-1',
+  issue: 'repair_strategy',
+  threshold: 0.6,
+  minVotes: 2,
+  calibrationScores: { 'agent-a': 0.9, 'agent-b': 0.8, 'agent-c': 0.6 }
+});
+```
+
+L’intérêt n’est pas seulement “l’agent a une opinion”, mais que le système transforme cette opinion en signal, en chemin, en seuil, puis en décision gouvernée.
+
+---
+
+## 8.bis Essaims Dizygotes et Polyovulation
+
+La primitive `genos_biomimicry_polyovulation_spawn` permet d'initialiser une nuée d'agents aux génomes hétérogènes (modèles et fonctions d'objectif diverses) coexistant dans le même milieu environnemental :
+
+```mermaid
+flowchart LR
+    OV["Polyovulation Swarm Spawn"] --> A1["Agent Dizygote 1 (Symbolique)"]
+    OV --> A2["Agent Dizygote 2 (Statistique)"]
+    OV --> A3["Agent Dizygote 3 (Contre-factuel)"]
+    
+    A1 & A2 & A3 --> ENV["Milieu Stigmergique Partagé (Pheromones & Invariants)"]
+    ENV --> CONSENSUS["Consensus Pondéré & Décision Collective"]
+```
+
+* **Implémentation :** [`backend/src/services/mcpBioTools/handlers/polyovulationSpawn.js`](../../backend/src/services/mcpBioTools/handlers/polyovulationSpawn.js)
+* **Couche CLI & Rust :** Invoquée via `genos biomimicry bio-feature --feature polyovulation --action spawn --param fleet_id=...`
+* **Validation & Tests :** Enregistrée dans [`backend/src/db/seedTools.js`](../../backend/src/db/seedTools.js) et testée de bout en bout dans [`backend/tests/test_polyovulation_spawn.js`](../../backend/tests/test_polyovulation_spawn.js).
+
+## 8.ter Nuées en Grappes Hybrides
+
+La primitive `genos_biomimicry_hybrid_multiples` structure les essaims à grande échelle sous forme de matrices multi-niveaux :
+- **Diversité inter-groupes** assurée par la polyovulation de familles distinctes ;
+- **Cohérence et parallélisme intra-groupe** assurés par le clivage isogénique de chaque famille.
+- **Implémentation :** [`backend/src/services/mcpBioTools/handlers/hybridMultiples.js`](../../backend/src/services/mcpBioTools/handlers/hybridMultiples.js), validée dans [`backend/tests/test_hybrid_multiples.js`](../../backend/tests/test_hybrid_multiples.js).
+
+---
+
+## 9. Comparaison avec ce qui existe sur le marché
+
+### 9.1 Par rapport aux frameworks multi-agents classiques
+
+- LangGraph : très orienté graphe de workflow, plus centralisé ; GenOS est plus “organique”, avec structures d’organisation, traces et métriques de deadlock.
+- AutoGen / CrewAI : mettent souvent l’accent sur les agents et les tâches ; GenOS ajoute des mécanismes de règles de sécurité, budget, entropie, quorum et organisation dynamique.
+- Semantic Kernel / agent buses : plus orientés sur l’orchestration de compétences ; GenOS intègre les dimensions de signal collectif et de surveillance d’état du groupe.
+
+### 9.2 Par rapport aux algorithmes de swarm
+
+- Ant Colony Optimization (ACO) : proche du mécanisme de phéromones et de sélection de chemin, mais GenOS va plus loin en intégrant la gestion d’organisation, l’évaluation de confiance, la logique de consensus et le contrôle opérationnel des états.
+- Boids / flocking : comparable sur les voisinages et les mouvements globaux, mais GenOS est moins “motion-only” et plus “decision-layer plus telemetry-layer”.
+- Decentralized governance / DAO voting : proche sur la notion de quorum et de vote pondéré, mais GenOS ajoute l’aspect signal environnemental (traces), deadlock detection, et réorganisation structurale.
+
+### 9.3 Ce qui rend GenOS particulier
+
+L’originalité du repo n’est pas l’idée d’une nuée en soi. C’est la combinaison de :
+
+- phéromones et traces environnementales ;
+- polyovulation pour essaims multi-génomiques hétérogènes ;
+- organisation dynamique ;
+- vote pondéré et seuils explicites ;
+- gouvernance de la collaboration ;
+- entropie et boucle de deadlock ;
+- conscience de budget et de sécurité.
+
+En pratique, GenOS essaie d’être à la fois une plateforme d’exécution multi-agent et une plate-forme de contrôle de la vie collective du groupe. La coordination n’est pas seulement “les agents se parlent”, elle est “l’environnement les guide, l’organisation les structure, et la télémétrie les corrige”.
+
+---
+
+## 10. Synthèse
+
+La swarm intelligence dans GenOS est un système de coordination collective robuste, où :
+
+- les traces structurent les choix ;
+- les votes régulent les décisions ;
+- la dynamique organisationnelle adapte la forme de la collaboration ;
+- l’entropie protège la nuée contre le collapse et la répétition ;
+- la télémétrie permet d’identifier les cycles morts et de reprendre le contrôle.
+
+Ce n’est pas une simple “simulation d’abeilles”. C’est un mécanisme opérationnel de gouvernance multi-agent, conçu pour fonctionner dans un système qui combine exécutif, sécurité, observabilité et déploiement d’agents.
+
+Le point de force de GenOS est qu’il est plus que “des agents qui communiquent” : il est un système où la structure elle-même, la trace, la confiance, et la qualité d’information deviennent des variables de coordination.
+
+
+
+---
+
+## Schémas d'Intelligence de Nuée et Dynamique Stigmergique
+
+### 1. Topologie de l'Essaim et Grille Stigmergique
+
+```mermaid
+flowchart TB
+    subgraph StigmergyGrid["Espace Environnemental Partagé (Stigmergie)"]
+        Grid["Matrice de Phéromones (Traces & Pistes)"]
+        Evap["Moteur d'Évaporation Continue (Taux lambda)"]
+    end
+
+    subgraph AgentsNuée["Nuée d'Agents (Swarm Workers)"]
+        A1["Agent Explorateur 1"]
+        A2["Agent Explorateur 2"]
+        A3["Agent Exploiteur 3"]
+        A4["Agent Sentinelle Quorum"]
+    end
+
+    subgraph ConsensusLayer["Couche de Quorum & Consensus"]
+        QuorumGate["Détecteur de Quorum (Seuil q_th)"]
+        Decision["Décision Collective Émergente"]
+    end
+
+    A1 & A2 -->|Dépôt de Phéromone| Grid
+    Grid -->|Attraction Heuristique| A3
+    Grid --> Evap
+    A4 -->|Densité locale| QuorumGate
+    QuorumGate --> Decision
+```
+
+### 2. Séquence de Dépôt de Phéromones et Convergence Collective
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Ant1 as Agent Découvreur
+    participant Grid as Espace Phéromonal
+    participant Ant2 as Agent Voisin
+    participant Quorum as Capteur de Quorum
+
+    Ant1->>Ant1: Découverte d'une branche optimale
+    Ant1->>Grid: Dépôt de phéromone de succès (tau = tau + delta_tau)
+    
+    activate Grid
+    Grid-->>Ant2: Gradient d'attraction renforcé sur le chemin
+    deactivate Grid
+    
+    Ant2->>Grid: Emprunte le chemin & Dépose une phéromone supplémentaire
+    
+    activate Quorum
+    Quorum->>Grid: Mesure de la concentration locale (P >= 0.8)
+    Quorum-->>Ant1: Quorum atteint : Validation de la route optimale
+    deactivate Quorum
+```
+
+### 3. Machine à états de Dynamique de Nuée
+
+```mermaid
+stateDiagram-v2
+    [*] --> ExplorationDiffuse : Recherche non orientée (Entropie Max)
+    ExplorationDiffuse --> TracesEmergeantes : Premiers dépôts phéromonaux
+    
+    state TracesEmergeantes {
+        [*] --> AmplificationPositive
+        AmplificationPositive --> EvaporationPistesFausses : Élimination du bruit
+    }
+    
+    TracesEmergeantes --> QuorumConsensus : Densité critique atteinte
+    QuorumConsensus --> ExploitationFocalisee : Convergence collective de l'essaim
+    
+    ExploitationFocalisee --> EpuisementSource : Fin de tâche
+    EpuisementSource --> ExplorationDiffuse : Réinitialisation stochastique
+```
+
+### 4. Superfécondation Hétéropaternelle et Diversité Multi-Providers
+
+Le mécanisme `genos_biomimicry_heteropaternal_superfecundation` déploie des jumeaux demi-frères au sein du même espace utérin (workspace commun). Chaque agent est animé par un fournisseur de modèle distinct (ex: Anthropic, Google, OpenAI), garantissant une diversité cognitive maximale ($D = 1.0$) et supprimant les corrélations de biais d'inférence propres à une famille de LLM unique.
+
+```mermaid
+flowchart LR
+    subgraph UterineWorkspace["Workspace & Contexte Gestationnel Commun"]
+        T1["Jumeau Demi-Frère A\n(Géniteur : Claude 3.7 / Anthropic)\nRaisonnement Formel"]
+        T2["Jumeau Demi-Frère B\n(Géniteur : Gemini 2.5 Pro / Google)\nContexte Étendu & Vitesse"]
+        T3["Jumeau Demi-Frère C\n(Géniteur : GPT-4o / OpenAI)\nHeuristique Générale"]
+        
+        T1 <-->|"Consensus Sans Biais Corrélé"| T2
+        T2 <-->|"Consensus Sans Biais Corrélé"| T3
+        T1 <-->|"Consensus Sans Biais Corrélé"| T3
+    end
+```
+
+### 5. Polyembryonie Obligatoire et Quorum Isogénique Déterministe
+
+Grâce à `genos_biomimicry_obligate_polyembryony`, l'essaim peut générer des sous-groupes de $N=4$ ou $N=8$ répliques isogéniques strictes évaluant une hypothèse critique en parallèle. Le vote à quorum $\ge 75\%$ protège la nuée contre les hallucinations locales tout en garantissant un coût d'inférence strictement borné.
+
+### 6. Transfert Horizontal par Translocation Chromosomique (`genos_biomimicry_chromosomal_translocation`)
+
+Pour reconfigurer dynamiquement une nuée face à un blocage cognitif inattendu, la nuée effectue une translocation chromosomique horizontale : un agent transloque son sous-module d'analyse vers un autre agent sans nécessiter la destruction ou le redémarrage des instances.
+
+### 7. Résilience Multi-Couches par Polyploïdie Génomique (`genos_biomimicry_polyploidy`)
+
+En mode mission critique, la nuée entière multiplie sa ploïdie ($2n \to 6n$), instanciant des plans d'exécution étagés (AST nominal, sécurité stricte, validation formelle) qui co-évoluent et se contre-vérifient en temps réel.
+
+### 8. Régulation Épigénétique Transgénérationnelle (`genos_biomimicry_epigenetic_methylation`)
+
+Lorsque la nuée traverse une zone de contrainte réseau ou de budget tokens réduit, des étiquettes de méthylation mettent collectivement en sommeil les agents et outils les plus coûteux. Cette mémoire environnementale est transmise aux nouvelles générations d'agents et s'annule par déméthylation réversible dès le retour à la normale.
+
+### 9. Diffusion Horizontale de Plasmides & Xéno-Absorption (`genos_biomimicry_horizontal_gene_transfer`)
+
+Pour propager instantanément une immunité à un nouveau type d'erreur API ou intégrer des snippets découverts dans l'environnement, la nuée utilise le transfert horizontal : conjugaison de plasmides de pair à pair et xéno-absorption bdelloïde.
+
+### 10. Communication Sub-Symbolique Zéro-Texte par Bus de Signalisation Biomimétique
+
+Au sein de la nuée, le bavardage textuel et les requêtes JSON sont abolis pour les échanges inter-agents opérationnels (`backend/src/services/biomimeticSignalingBus.js`) :
+
+- **Ligands Paracrines** : Diffusion moléculaire de signal localisé (`ligand`, `concentration`) déclenchant des cascades réactionnelles d'agents sans formulation textuelle.
+- **Potentiels Électrocytes & Synchronisation de Phase (Kuramoto)** : Sommation additive des décharges ($\sum V_i \ge 300\,\text{mV}$) et cohérence d'ordre de phase $r \ge 0.70$ pour un consensus immédiat sans délibération verbeuse.
+- **Phéromones Chimiotactiques** : Vectorisation des gradients attractants ($+I$) et répulsifs ($-I$) sur des empreintes binaires de locus (`BLOB`).
+- **Transfert Horizontal de Plasmides** : Diffusion de code compilé ou de capacités génétiques via `BioPolymer` compact.
+- **Frontière d'Incompressibilité** : Le langage naturel est strictement réservé au dialogue avec l'opérateur humain et à la synthèse de code source requise par le LLM.
+
+
+
+
+
+

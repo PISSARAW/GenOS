@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Verifier l'alignement de fuseau, produire un MitosisResult avec attestation et hash, et rejeter toute division non conforme.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/REPRODUCTION_REPLICATION.md",
+    "source_doc": "docs/02-orchestration/reproduction-et-replication.md",
     "concepts": ["mitose attestee", "spindle_aligned", "MitosisAttestation", "amitosis_rejected", "derive_child"]
   },
   "policies": {

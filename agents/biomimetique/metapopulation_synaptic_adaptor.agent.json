@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Mesurer la qualite des routes inter-populations, renforcer les connexions productives, affaiblir les routes defaillantes et preserver une alternative avant toute suppression.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/METAPOPULATION.md",
+    "source_doc": "docs/02-orchestration/topologies/metapopulation.md",
     "concepts": ["plasticite synaptique", "renforcement de route", "affaiblissement de route", "graphe d'echanges", "preservation d'alternative"]
   },
   "policies": {

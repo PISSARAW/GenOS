@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Enregistrer une chaine de provenance Merkle et resoudre une conclusion jusqu'a ses intrants pour permettre un audit humain complet.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/EPISTEMOLOGIE_EVIDENCE.md",
+    "source_doc": "docs/01-concepts/epistemologie-et-evidence.md",
     "concepts": ["chaine Merkle", "h_i=SHA256(type_i||subject_i||payload_i||h_{i-1})", "payloadHash", "resolveProvenance", "truncated", "provenance_records"]
   },
   "policies": {

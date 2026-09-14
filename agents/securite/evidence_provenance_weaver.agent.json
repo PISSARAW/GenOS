@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Relier identite, entree, politique, evidence, action et resultat en une decision auditable et conserver les preuves.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/COMPLIANCE_GOUVERNANCE.md",
+    "source_doc": "docs/05-securite-gouvernance/conformite-et-gouvernance.md",
     "concepts": ["audit_logs, telemetry_events et platform_approvals", "provenance_records et genome_decisions", "Decision auditable = Identite+Entree+Politique+Evidence+Action+Resultat+Horodatage", "retention et data governance"]
   },
   "policies": {

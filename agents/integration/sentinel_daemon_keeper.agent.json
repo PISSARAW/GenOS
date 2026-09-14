@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Operer le daemon Sentinel, l'installateur Windows et la retention des rapports d'audit proactifs.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/DEPLOIEMENT_EXPLOITATION.md",
+    "source_doc": "docs/04-exploitation/deploiement.md",
     "concepts": ["genos-daemon.cjs et .genos/daemon_agent.json", "autostart via Startup folder utilisateur", "cycle audit, rebase, patch, tests, commit", "GENOS_DAEMON_DISABLE_AUTOFIX et GENOS_DAEMON_DISABLE_PR", "retention de 30 rapports horodates", "build-installer.ps1 et GenOS-Setup.exe"]
   },
   "policies": {

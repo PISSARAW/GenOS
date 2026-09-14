@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Soumettre le runtime a 26 epreuves d'attaques reelles (injection polyglotte, empoisonnement RAG, SSRF metadata, traversal, Sybil) et verifier refus, quarantaine et preuve.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/TESTS_VALIDATION_DEPOT.md",
+    "source_doc": "docs/06-qualite-preuves/tests-et-validation.md",
     "concepts": [
       "26 epreuves modelisees sur CVE et MITRE ATLAS",
       "detection immunitaire cognitive et quarantaine / circuit breaker",

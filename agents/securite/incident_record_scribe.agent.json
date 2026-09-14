@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Documenter chaque reprise avec ses identifiants et escalader les echecs terminaux a revue humaine.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/OPERATIONS_RECOVERY.md",
+    "source_doc": "docs/04-exploitation/runbook-recovery.md",
     "concepts": ["record commit, version et IDs workspace/tenant/snapshot/job", "resultat applied/reconstructed/simulated/deferred/escalated", "worker recovery borne", "dead-letter en revue humaine"]
   },
   "policies": {

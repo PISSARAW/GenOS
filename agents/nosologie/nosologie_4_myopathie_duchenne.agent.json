@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Modeliser la myopathie de Duchenne computationnelle : mutation out-of-frame du locus DMD_STRUCTURAL_ANCHOR, degradation NMD, micro-dechirures de la sandbox et necrose par influx de signaux non filtres.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_4_GENETIQUES.md",
+    "source_doc": "docs/01-concepts/nosologie/04-genetiques.md",
     "concepts": ["Regle du cadre de lecture (Monaco Rule) et out-of-frame", "Surveillance NMD du codon STOP premature", "Amortisseur mecanique de la sandbox (dystrophine logicielle)", "Hyperactivation proteolytique et afflux calcique", "Epuisement de Hayflick des cellules satellites", "Diagnostic DuchenneMuscularDystrophy"]
   },
   "policies": {

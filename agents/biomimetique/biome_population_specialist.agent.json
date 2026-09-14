@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Prendre en charge un sous-domaine specialise, produire resultats et preuves locales, declarer hypotheses et dependances, sans presenter une reussite locale comme globale.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOME.md",
+    "source_doc": "docs/02-orchestration/topologies/biome.md",
     "concepts": ["population specialisee", "preuve locale", "hypotheses locales", "dependances voisines", "pas de reussite locale globale"]
   },
   "policies": {

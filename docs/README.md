@@ -19,7 +19,7 @@ votre porte d'entrée, puis suivez la famille correspondante.
 | **Tutoriel** | apprendre le système pas à pas | [Parcours « comprendre en une heure »](#pour-comprendre-le-système-en-une-heure) |
 | **Concept / explication** | comprendre *pourquoi* et *comment* | [Familles 1 à 3](#1-concepts-et-fondations) |
 | **Référence** | consulter un contrat, un schéma, un catalogue | [Famille 5](#5-référence-technique) |
-| **Guide / exploitation** | exécuter une tâche (opérer, déployer, réparer) | [Familles 6 à 8](#6-exploitation-et-opérations) |
+| **Guide / exploitation** | exécuter une tâche (opérer, déployer, réparer) | [Famille 6](#6-exploitation-et-opérations) |
 
 Les conventions de rédaction, de nommage et de liens sont décrites dans
 [CONVENTIONS.md](CONVENTIONS.md). Les décisions d'architecture sont indexées dans
@@ -53,117 +53,113 @@ implémenté, ce qui est partiel et ce qui relève du cadre conceptuel.
 
 ### 1. Concepts et fondations
 
-Socle conceptuel, runtime, biologie computationnelle et épistémologie.
+Index : [01-concepts/README.md](01-concepts/README.md)
 
-- [BIOLOGIE_COMPUTATIONNELLE.md](BIOLOGIE_COMPUTATIONNELLE.md) — biomimétique GenOS, embryogenèse, HOX, budgets et limites réelles.
-- [GENOME_EPIGENETIQUE.md](GENOME_EPIGENETIQUE.md) — génome, épigénétique, chromatine, mutation et contraintes de stabilité.
-- [RUNTIME_AGENTIQUE.md](RUNTIME_AGENTIQUE.md) — runtime agentique, frontières, états, garde-fous et contrôle en boucle.
-- [EPISTEMOLOGIE_EVIDENCE.md](EPISTEMOLOGIE_EVIDENCE.md) — preuves, état de croyance, audit, séparation entre succès technique et vérification réelle.
-- [INSTINCT.md](INSTINCT.md) — comportements innés pré-câblés, stimulus signe, Patrons d'Action Fixes, modulation hormonale.
-- [AGENT_DNA_RUNTIME.md](AGENT_DNA_RUNTIME.md) — format héréditaire binaire `AgentDNA`, phénotype exprimé, opérations, signature Ed25519.
-- [NEUROBIOLOGIE_PLASTICITE.md](NEUROBIOLOGIE_PLASTICITE.md) — plasticité synaptique, dendrites, réduction de la dissonance, budgets cognitifs.
-- [MEMOIRE_APPRENTISSAGE.md](MEMOIRE_APPRENTISSAGE.md) — mémoire épisodique/sémantique, vector search, STDP, calibration.
-- [SWARM_INTELLIGENCE.md](SWARM_INTELLIGENCE.md) — phéromones, consensus, quorum, stigmergie, optimisation distribuée.
-- [FOSSILISATION.md](FOSSILISATION.md) — archive stratigraphique terminale et irréversible des lignées éteintes.
+Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
+
+- [biologie-computationnelle.md](01-concepts/biologie-computationnelle.md) — biomimétique, embryogenèse, HOX, budgets.
+- [genome-et-epigenetique.md](01-concepts/genome-et-epigenetique.md) — génome, chromatine, mutation, stabilité.
+- [runtime-agentique.md](01-concepts/runtime-agentique.md) — runtime agentique, états, garde-fous.
+- [epistemologie-et-evidence.md](01-concepts/epistemologie-et-evidence.md) — preuves, croyance, succès ≠ vérité.
+- [instinct.md](01-concepts/instinct.md) — circuits innés, Patrons d'Action Fixes, modulation hormonale.
+- [agent-dna-runtime.md](01-concepts/agent-dna-runtime.md) — format binaire AgentDNA et opérations.
+- [neurobiologie-et-plasticite.md](01-concepts/neurobiologie-et-plasticite.md) — plasticité synaptique, dendrites, dissonance.
+- [memoire-et-apprentissage.md](01-concepts/memoire-et-apprentissage.md) — mémoire épisodique/sémantique, vector search, STDP.
+- [intelligence-de-nuee.md](01-concepts/intelligence-de-nuee.md) — phéromones, consensus, quorum, stigmergie.
+- [fossilisation.md](01-concepts/fossilisation.md) — archive stratigraphique terminale des lignées.
 
 ### 2. Biomimétisme spécialisé
 
-Spécialisations biologiques non humaines et perception.
+Index : [01-concepts/biomimetisme/README.md](01-concepts/biomimetisme/README.md)
 
-- [BIOMIMETIC_WEB_FORAGING.md](BIOMIMETIC_WEB_FORAGING.md) — foraging de Charnov, fovéation rétinienne, navigation active (épreuves web GAIA).
-- [BIOMIMETISME_CELLULAIRE_SPECIALISE.md](BIOMIMETISME_CELLULAIRE_SPECIALISE.md) — spécialisations balistiques, électriques, osmotiques et acaryotes.
-- [BIOMIMICRY_ANIMAL_SENSES.md](BIOMIMICRY_ANIMAL_SENSES.md) — les 5 super-sens animaux (olfaction, électroréception, magnétoréception…).
+- [web-foraging.md](01-concepts/biomimetisme/web-foraging.md) — foraging de Charnov, fovéation, navigation active (GAIA).
+- [cellulaire-specialise.md](01-concepts/biomimetisme/cellulaire-specialise.md) — spécialisations balistiques, électriques, osmotiques, acaryotes.
+- [sens-animaux.md](01-concepts/biomimetisme/sens-animaux.md) — les 5 super-sens animaux.
 
 ### 3. Nosologie computationnelle
 
-Modélisation des pathologies du runtime. Vue d'ensemble et 9 familles.
+Index : [01-concepts/nosologie/README.md](01-concepts/nosologie/README.md)
 
-- [NOSOLOGIE_COMPUTATIONNELLE_COMPLETE.md](NOSOLOGIE_COMPUTATIONNELLE_COMPLETE.md) — synthèse exhaustive des 9 familles, pharmacopée unifiée, feuille de route.
-- [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md](PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md) — nosologie, statut clinique, maladies nosocomiales et iatrogènes, thérapies.
-- [NOSOLOGIE_1_AUTO_IMMUNES.md](NOSOLOGIE_1_AUTO_IMMUNES.md) — Lupus, polyarthrite rhumatoïde, sclérose en plaques, diabète de type 1.
-- [NOSOLOGIE_2_DEGENERATIVES.md](NOSOLOGIE_2_DEGENERATIVES.md) — Alzheimer, Parkinson, arthrose.
-- [NOSOLOGIE_3_INFECTIEUSES.md](NOSOLOGIE_3_INFECTIEUSES.md) — grippe, tuberculose, paludisme, VIH.
-- [NOSOLOGIE_4_GENETIQUES.md](NOSOLOGIE_4_GENETIQUES.md) — mucoviscidose, drépanocytose, myopathie de Duchenne.
-- [NOSOLOGIE_5_CANCERS.md](NOSOLOGIE_5_CANCERS.md) — leucémie, cancer du poumon, mélanome.
-- [NOSOLOGIE_6_METABOLIQUES.md](NOSOLOGIE_6_METABOLIQUES.md) — diabète de type 2, hypothyroïdie, goutte.
-- [NOSOLOGIE_7_CARDIOVASCULAIRES.md](NOSOLOGIE_7_CARDIOVASCULAIRES.md) — hypertension, infarctus du myocarde, AVC.
-- [NOSOLOGIE_8_PSYCHIATRIQUES.md](NOSOLOGIE_8_PSYCHIATRIQUES.md) — dépression, schizophrénie, troubles bipolaires.
-- [NOSOLOGIE_9_ENVIRONNEMENTALES.md](NOSOLOGIE_9_ENVIRONNEMENTALES.md) — asbestose, saturnisme.
+- [vue-ensemble.md](01-concepts/nosologie/vue-ensemble.md) — synthèse des 9 familles, pharmacopée, feuille de route.
+- [pathologie-et-medecine.md](01-concepts/nosologie/pathologie-et-medecine.md) — nosologie, statut clinique, nosocomiales, iatrogènes.
+- [01-auto-immunes.md](01-concepts/nosologie/01-auto-immunes.md) · [02-degeneratives.md](01-concepts/nosologie/02-degeneratives.md) · [03-infectieuses.md](01-concepts/nosologie/03-infectieuses.md) · [04-genetiques.md](01-concepts/nosologie/04-genetiques.md) · [05-cancers.md](01-concepts/nosologie/05-cancers.md) · [06-metaboliques.md](01-concepts/nosologie/06-metaboliques.md) · [07-cardiovasculaires.md](01-concepts/nosologie/07-cardiovasculaires.md) · [08-psychiatriques.md](01-concepts/nosologie/08-psychiatriques.md) · [09-environnementales.md](01-concepts/nosologie/09-environnementales.md)
 
 ### 4. Orchestration et topologies
 
-Le cœur exécutif : branches, primitives, workspaces, et les 8 modes d'orchestration.
+Index : [02-orchestration/README.md](02-orchestration/README.md)
 
-**Orchestration et exécution**
+**Exécution**
 
-- [ORCHESTRATION.md](ORCHESTRATION.md) — orchestration de branches, preuve avant validation, survivants et fan-out contrôlé.
-- [TOPOLOGIES_CAPACITES.md](TOPOLOGIES_CAPACITES.md) — contrat de capacités (8 modes + 19 organisations), câblage runtime, leases effectifs.
-- [PRIMITIVES_EXECUTABLES.md](PRIMITIVES_EXECUTABLES.md) — primitives formelles, contrats, budgets, promotion, sécurité des actions.
-- [WORKFLOWS_JOBS.md](WORKFLOWS_JOBS.md) — workflows, jobs, graphes d'états, transitions, validation.
-- [WORKSPACES_ETAT_CONTRE_FACTUEL.md](WORKSPACES_ETAT_CONTRE_FACTUEL.md) — workspaces, snapshots, bisection, restore, blast radius.
-- [GIT_AGENTS.md](GIT_AGENTS.md) — transposition de Git aux états d'agents, worktrees, comparaison avec Git.
-- [REPRODUCTION_REPLICATION.md](REPRODUCTION_REPLICATION.md) — mitose, budding, méiose, crossover, clonage et limites d'échelle.
+- [orchestration.md](02-orchestration/orchestration.md) — branches, preuve avant validation, survivants, fan-out.
+- [topologies-et-capacites.md](02-orchestration/topologies-et-capacites.md) — contrat de capacités (8 modes + 19 organisations), leases effectifs.
+- [primitives-executables.md](02-orchestration/primitives-executables.md) — primitives formelles, contrats, budgets, promotion.
+- [workflows-et-jobs.md](02-orchestration/workflows-et-jobs.md) — workflows, jobs, graphes d'états, transitions.
+- [workspaces-contrefactuel.md](02-orchestration/workspaces-contrefactuel.md) — snapshots, bisection, restore, blast radius.
+- [git-agents.md](02-orchestration/git-agents.md) — transposition de Git aux états d'agents.
+- [reproduction-et-replication.md](02-orchestration/reproduction-et-replication.md) — mitose, budding, méiose, clonage.
 
-**Modes de composition (topologies)**
+**Modes de composition (topologies)** — index : [02-orchestration/topologies/README.md](02-orchestration/topologies/README.md)
 
-- [TRINITY.md](TRINITY.md) — orchestration comparée en trois mondes.
-- [A_TEAM.md](A_TEAM.md) — orchestration multidisciplinaire d'agents autonomes.
-- [BIOME.md](BIOME.md) — orchestration par environnement et populations spécialisées.
-- [BIOCENOSE.md](BIOCENOSE.md) — orchestration communautaire par coopération, compétition et validation.
-- [HOLOBIONTE.md](HOLOBIONTE.md) — orchestration intégrée hôte-symbionte avec sécurité et mémoire.
-- [SYNCYTIUM.md](SYNCYTIUM.md) — orchestration par état partagé et synchronisation continue.
-- [RHIZOME.md](RHIZOME.md) — orchestration décentralisée par ramification de capacités.
-- [METAPOPULATION.md](METAPOPULATION.md) — orchestration par populations semi-indépendantes.
+- [trinity.md](02-orchestration/topologies/trinity.md) — orchestration comparée en trois mondes.
+- [a-team.md](02-orchestration/topologies/a-team.md) — équipe multidisciplinaire d'agents.
+- [biome.md](02-orchestration/topologies/biome.md) — orchestration par environnement et populations.
+- [biocenose.md](02-orchestration/topologies/biocenose.md) — orchestration communautaire.
+- [holobionte.md](02-orchestration/topologies/holobionte.md) — orchestration hôte-symbionte.
+- [syncytium.md](02-orchestration/topologies/syncytium.md) — état partagé et synchronisation continue.
+- [rhizome.md](02-orchestration/topologies/rhizome.md) — ramification décentralisée de capacités.
+- [metapopulation.md](02-orchestration/topologies/metapopulation.md) — populations semi-indépendantes.
 
 ### 5. Référence technique
 
-Contrats et surfaces exposées : API, outils, données, providers.
+Index : [03-reference/README.md](03-reference/README.md)
 
-- [API_CONTRATS.md](API_CONTRATS.md) — contrats REST, gRPC, MCP, CLI, compatibilité et erreurs standardisées.
-- [OUTILS_MCP.md](OUTILS_MCP.md) — outils MCP, leases, gating, permissions, surface exposée et limites.
-- [PERSISTANCE_DONNEES.md](PERSISTANCE_DONNEES.md) — données, SQLite, tables, intégrité transactionnelle et design de stockage.
-- [MODELES_PROVIDERS.md](MODELES_PROVIDERS.md) — providers de modèles, routing, coûts, local/remote.
-- [INTEGRATIONS_IDE.md](INTEGRATIONS_IDE.md) — intégration IDE, protocoles, contrat `genos.ide/v1`.
+- [api-et-contrats.md](03-reference/api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
+- [outils-mcp.md](03-reference/outils-mcp.md) — catalogue d'outils, leases, gating, permissions.
+- [persistance-et-donnees.md](03-reference/persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
+- [modeles-et-providers.md](03-reference/modeles-et-providers.md) — providers, routing, coûts, local/remote.
+- [integrations-ide.md](03-reference/integrations-ide.md) — contrat IDE `genos.ide/v1`.
+- Spécifications normatives : [`../spec/AGENT_DNA_SPEC.md`](../spec/AGENT_DNA_SPEC.md), [`../spec/GENOME_SPEC.md`](../spec/GENOME_SPEC.md).
 
 ### 6. Exploitation et opérations
 
-Déployer, opérer, observer et reprendre.
+Index : [04-exploitation/README.md](04-exploitation/README.md)
 
-- [DEPLOIEMENT_EXPLOITATION.md](DEPLOIEMENT_EXPLOITATION.md) — modèles de déploiement, Docker, Windows, exploitation du runtime.
-- [CLI_EXPERIENCE_OPERATEUR.md](CLI_EXPERIENCE_OPERATEUR.md) — CLI, TUI et parcours opérateur.
-- [OBSERVABILITE.md](OBSERVABILITE.md) — traces, diagnostics, logs, métriques, auditabilité.
-- [RESILIENCE_REPRISE.md](RESILIENCE_REPRISE.md) — reprise sur crash, redémarrage, cohérence et reconstitution d'état.
-- [OPERATIONS_RECOVERY.md](OPERATIONS_RECOVERY.md) — runbook d'exploitation, diagnostics, procédures de reprise (EN).
+- [deploiement.md](04-exploitation/deploiement.md) — modèles de déploiement, Docker, Windows.
+- [cli-et-experience-operateur.md](04-exploitation/cli-et-experience-operateur.md) — CLI, TUI, parcours opérateur.
+- [observabilite.md](04-exploitation/observabilite.md) — traces, diagnostics, logs, métriques, audit.
+- [resilience-et-reprise.md](04-exploitation/resilience-et-reprise.md) — reprise sur crash, cohérence, reconstitution.
+- [runbook-recovery.md](04-exploitation/runbook-recovery.md) — runbook d'exploitation et reprise (EN).
 
 ### 7. Sécurité et gouvernance
 
-Contrôle d'accès, conformité, isolation et multi-tenant.
+Index : [05-securite-gouvernance/README.md](05-securite-gouvernance/README.md)
 
-- [SECURITE.md](SECURITE.md) — authentification, réseau, secrets, CORS, protection des endpoints, audit.
-- [IDENTITY_AUTHORITY.md](IDENTITY_AUTHORITY.md) — identités, autorité, scopes tenants, permissions, rôles.
-- [COMPLIANCE_GOUVERNANCE.md](COMPLIANCE_GOUVERNANCE.md) — gouvernance, contraintes de conformité, supervision.
-- [SANDBOX_EXECUTION_CODE.md](SANDBOX_EXECUTION_CODE.md) — sandbox, exécution de code, isolation et limites.
-- [gestion-projet-multi-tenant.md](gestion-projet-multi-tenant.md) — gestion de projet, modèle multi-tenant et objets de domaine.
+- [securite.md](05-securite-gouvernance/securite.md) — authentification, réseau, secrets, CORS, endpoints, audit.
+- [identite-et-autorite.md](05-securite-gouvernance/identite-et-autorite.md) — identités, autorité, scopes tenants, rôles.
+- [conformite-et-gouvernance.md](05-securite-gouvernance/conformite-et-gouvernance.md) — gouvernance, conformité, supervision.
+- [sandbox-execution-code.md](05-securite-gouvernance/sandbox-execution-code.md) — sandbox, isolation, limites.
+- [gestion-projet-multi-tenant.md](05-securite-gouvernance/gestion-projet-multi-tenant.md) — gestion de projet et multi-tenant.
 
 ### 8. Qualité, preuves et positionnement
 
-Validation, benchmarks et comparaison avec le marché.
+Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-positionnement/README.md](07-positionnement/README.md)
 
-- [EVALUATION_QUALITE.md](EVALUATION_QUALITE.md) — évaluation, qualité, tests générés et exécutés.
-- [TESTS_VALIDATION_DEPOT.md](TESTS_VALIDATION_DEPOT.md) — validation du dépôt, architecture de test et suites.
-- [LOCOMO_BENCHMARK_RESULTS.md](LOCOMO_BENCHMARK_RESULTS.md) — résultats officiels LoCoMo (Connectome natif).
-- [SWE_BENCHMARK_RESULTS.md](SWE_BENCHMARK_RESULTS.md) — résultats officiels SWE-bench Lite (host Linux via WSL).
-- [PANORAMA_CONCURRENTIEL.md](PANORAMA_CONCURRENTIEL.md) — comparaison transversale avec les solutions du marché.
-- [ECONOMIE_ET_SCALABILITE_MULTI_AGENTS.md](ECONOMIE_ET_SCALABILITE_MULTI_AGENTS.md) — analyse économique, bavardage quadratique, benchmarks qualitatifs.
+- [evaluation-qualite.md](06-qualite-preuves/evaluation-qualite.md) — évaluation, qualité, tests générés et exécutés.
+- [tests-et-validation.md](06-qualite-preuves/tests-et-validation.md) — validation du dépôt et suites de test.
+- [locomo.md](06-qualite-preuves/benchmarks/locomo.md) — résultats officiels LoCoMo.
+- [swe-bench-lite.md](06-qualite-preuves/benchmarks/swe-bench-lite.md) — résultats officiels SWE-bench Lite.
+- [panorama-concurrentiel.md](07-positionnement/panorama-concurrentiel.md) — comparaison avec le marché.
+- [economie-et-scalabilite.md](07-positionnement/economie-et-scalabilite.md) — analyse économique et scalabilité.
 
 ### 9. Décisions d'architecture (ADR)
 
-Décisions structurantes, indexées dans [adr/README.md](adr/README.md).
+Index : [adr/README.md](adr/README.md)
 
-- [adr/0001-agent-dna-binary-format.md](adr/0001-agent-dna-binary-format.md) — format héréditaire binaire `AgentDNA` (spécification : [../spec/AGENT_DNA_SPEC.md](../spec/AGENT_DNA_SPEC.md)).
-- [adr/0002-agentdna-innovation-loop.md](adr/0002-agentdna-innovation-loop.md) — boucle d'innovation et promotion sous gate de preuve.
-- [adr/0003-fossilization-stratigraphic-archive.md](adr/0003-fossilization-stratigraphic-archive.md) — fossilisation stratigraphique.
-- [adr/0004-instinct-innate-circuits.md](adr/0004-instinct-innate-circuits.md) — instinct, circuits innés et hérédité verrouillée.
+- [0001-agent-dna-binary-format.md](adr/0001-agent-dna-binary-format.md) — format héréditaire binaire `AgentDNA`.
+- [0002-agentdna-innovation-loop.md](adr/0002-agentdna-innovation-loop.md) — boucle d'innovation et promotion sous gate.
+- [0003-fossilization-stratigraphic-archive.md](adr/0003-fossilization-stratigraphic-archive.md) — fossilisation stratigraphique.
+- [0004-instinct-innate-circuits.md](adr/0004-instinct-innate-circuits.md) — instinct, circuits innés et hérédité verrouillée.
+- [0005-reorganisation-arborescence-documentaire.md](adr/0005-reorganisation-arborescence-documentaire.md) — réorganisation de l'arborescence documentaire.
 
 ---
 
@@ -171,37 +167,37 @@ Décisions structurantes, indexées dans [adr/README.md](adr/README.md).
 
 ### Pour comprendre le système en une heure
 
-1. [BIOLOGIE_COMPUTATIONNELLE.md](BIOLOGIE_COMPUTATIONNELLE.md)
-2. [ORCHESTRATION.md](ORCHESTRATION.md)
-3. [TOPOLOGIES_CAPACITES.md](TOPOLOGIES_CAPACITES.md)
-4. [WORKSPACES_ETAT_CONTRE_FACTUEL.md](WORKSPACES_ETAT_CONTRE_FACTUEL.md)
-5. [EPISTEMOLOGIE_EVIDENCE.md](EPISTEMOLOGIE_EVIDENCE.md)
-6. [SECURITE.md](SECURITE.md)
+1. [biologie-computationnelle.md](01-concepts/biologie-computationnelle.md)
+2. [orchestration.md](02-orchestration/orchestration.md)
+3. [topologies-et-capacites.md](02-orchestration/topologies-et-capacites.md)
+4. [workspaces-contrefactuel.md](02-orchestration/workspaces-contrefactuel.md)
+5. [epistemologie-et-evidence.md](01-concepts/epistemologie-et-evidence.md)
+6. [securite.md](05-securite-gouvernance/securite.md)
 
 ### Pour opérer le runtime
 
-1. [DEPLOIEMENT_EXPLOITATION.md](DEPLOIEMENT_EXPLOITATION.md)
-2. [CLI_EXPERIENCE_OPERATEUR.md](CLI_EXPERIENCE_OPERATEUR.md)
-3. [OBSERVABILITE.md](OBSERVABILITE.md)
-4. [OPERATIONS_RECOVERY.md](OPERATIONS_RECOVERY.md)
-5. [RESILIENCE_REPRISE.md](RESILIENCE_REPRISE.md)
+1. [deploiement.md](04-exploitation/deploiement.md)
+2. [cli-et-experience-operateur.md](04-exploitation/cli-et-experience-operateur.md)
+3. [observabilite.md](04-exploitation/observabilite.md)
+4. [runbook-recovery.md](04-exploitation/runbook-recovery.md)
+5. [resilience-et-reprise.md](04-exploitation/resilience-et-reprise.md)
 
 ### Pour développer ou intégrer
 
-1. [API_CONTRATS.md](API_CONTRATS.md)
-2. [OUTILS_MCP.md](OUTILS_MCP.md)
-3. [INTEGRATIONS_IDE.md](INTEGRATIONS_IDE.md)
-4. [GIT_AGENTS.md](GIT_AGENTS.md)
-5. [MODELES_PROVIDERS.md](MODELES_PROVIDERS.md)
-6. [PERSISTANCE_DONNEES.md](PERSISTANCE_DONNEES.md)
+1. [api-et-contrats.md](03-reference/api-et-contrats.md)
+2. [outils-mcp.md](03-reference/outils-mcp.md)
+3. [integrations-ide.md](03-reference/integrations-ide.md)
+4. [git-agents.md](02-orchestration/git-agents.md)
+5. [modeles-et-providers.md](03-reference/modeles-et-providers.md)
+6. [persistance-et-donnees.md](03-reference/persistance-et-donnees.md)
 
 ### Pour évaluer la sûreté et la preuve
 
-1. [EPISTEMOLOGIE_EVIDENCE.md](EPISTEMOLOGIE_EVIDENCE.md)
-2. [SECURITE.md](SECURITE.md)
-3. [SANDBOX_EXECUTION_CODE.md](SANDBOX_EXECUTION_CODE.md)
-4. [COMPLIANCE_GOUVERNANCE.md](COMPLIANCE_GOUVERNANCE.md)
-5. [EVALUATION_QUALITE.md](EVALUATION_QUALITE.md)
+1. [epistemologie-et-evidence.md](01-concepts/epistemologie-et-evidence.md)
+2. [securite.md](05-securite-gouvernance/securite.md)
+3. [sandbox-execution-code.md](05-securite-gouvernance/sandbox-execution-code.md)
+4. [conformite-et-gouvernance.md](05-securite-gouvernance/conformite-et-gouvernance.md)
+5. [evaluation-qualite.md](06-qualite-preuves/evaluation-qualite.md)
 
 ---
 
@@ -323,9 +319,10 @@ La documentation GenOS cherche à faire la différence entre :
 - ce qui est seulement une approximation ou métaphore biologique ;
 - ce qui relève d'un opérateur, d'un intégrateur, ou d'un évaluateur de sécurité.
 
-La stabilité des noms de fichiers est importante : les chemins `docs/*.md` sont utilisés
-comme identifiants de provenance par les agents (`source_doc` dans les génomes et les
-binaires `.dna`). Voir [CONVENTIONS.md](CONVENTIONS.md) avant tout renommage ou déplacement.
+Depuis l'[ADR 0005](adr/0005-reorganisation-arborescence-documentaire.md), les documents
+sont rangés par familles et nommés en `kebab-case`. Les chemins restent des identifiants
+de provenance (`source_doc`) : tout déplacement futur doit être traité comme une
+migration, selon [CONVENTIONS.md](CONVENTIONS.md).
 
 ---
 

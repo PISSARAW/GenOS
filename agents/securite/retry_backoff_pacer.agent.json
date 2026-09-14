@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Espacer et borner les retries des erreurs temporaires tout en preservant les echecs terminaux.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/RESILIENCE_REPRISE.md",
+    "source_doc": "docs/04-exploitation/resilience-et-reprise.md",
     "concepts": ["isRetryableJobError (429, 5xx, timeout, DNS)", "d_n = min(30000, 250*2^(n-1)) + J_n", "dead letter status failed + deadLetter=true", "JOB_DEAD_LETTERED", "annulation non retryable"]
   },
   "policies": {

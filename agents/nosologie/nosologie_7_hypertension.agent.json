@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le modele de l'HTA computationnelle : flux Phi_in tres superieur a Phi_clear + lambda_decay * P_cleft, pression synaptique au-dela de P_crit = 140.0, latence de transit superieure a 10 ticks et conflits de reclamation territoriale par inhibition de contact.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_7_CARDIOVASCULAIRES.md",
+    "source_doc": "docs/01-concepts/nosologie/07-cardiovasculaires.md",
     "concepts": ["Loi de Poiseuille computationnelle Q_ij = DeltaP_ij / R_ij", "Resistance vasculaire R = 8 * eta_visc * L / (pi * r^4)", "Pression synaptique P_cleft et seuil critique P_crit = 140.0", "Backpressure Saturation et Contact inhibition", "Evaporation stigmergique insuffisante", "Therapie VasodilatorFlowControl"]
   },
   "policies": {

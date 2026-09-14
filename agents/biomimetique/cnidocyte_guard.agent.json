@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Identifier instantanement les signatures d'attaque (injection de prompt, pollution de prototype, injection de commande, payloads volumineux) et bloquer avant tout parsing JSON, avec rearmement metabolique ATP.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOMIMETISME_CELLULAIRE_SPECIALISE.md",
+    "source_doc": "docs/01-concepts/biomimetisme/cellulaire-specialise.md",
     "concepts": ["cnidocyte", "defense balistique reflexe", "active WAF", "interception zero-latence", "amarrage ligand-recepteur"]
   },
   "policies": {

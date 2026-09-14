@@ -11,8 +11,8 @@ pub fn ask_agent(prompt: &str, role: &str) -> String {
     let prompt_lower = prompt.to_lowercase();
     if prompt_lower.contains("code") || prompt_lower.contains("doc") || prompt_lower.contains("trouve") {
         enriched_prompt.push_str("\n\n[CONTEXTE SYSTÈME INJECTÉ PAR WORLD_RUNNER]\n");
-        if let Ok(doc) = std::fs::read_to_string("docs/CLI_EXPERIENCE_OPERATEUR.md") {
-            enriched_prompt.push_str("=== DOCUMENTATION (docs/CLI_EXPERIENCE_OPERATEUR.md) ===\n");
+        if let Ok(doc) = std::fs::read_to_string("docs/04-exploitation/cli-et-experience-operateur.md") {
+            enriched_prompt.push_str("=== DOCUMENTATION (docs/04-exploitation/cli-et-experience-operateur.md) ===\n");
             enriched_prompt.push_str(&doc);
             enriched_prompt.push_str("\n");
         }

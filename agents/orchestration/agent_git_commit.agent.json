@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Capturer l'etat observable d'un agent via collectState, calculer son hash, le signer et avancer la ref avec controle de version et reflog.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/GIT_AGENTS.md",
+    "source_doc": "docs/02-orchestration/git-agents.md",
     "concepts": ["commit agentique", "etat A = (I,D,M,R,P,Q,E,C)", "hash SHA-256", "signature HMAC/Ed25519", "refs et reflog"]
   },
   "policies": {

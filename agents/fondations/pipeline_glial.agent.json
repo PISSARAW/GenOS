@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Maintenir la sante du reseau d'agents en surveillant les synapses, en eliminant les liens inutiles et en protegeant les structures fragiles via les seuils gliaux.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOLOGIE_COMPUTATIONNELLE.md",
+    "source_doc": "docs/01-concepts/biologie-computationnelle.md",
     "concepts": ["astrocyte", "microglia", "ependymal_cell", "myelinator", "C3_PRUNING_THRESHOLD", "CD47_PROTECTION_THRESHOLD"]
   },
   "policies": {

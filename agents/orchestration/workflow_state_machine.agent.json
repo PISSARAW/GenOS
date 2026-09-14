@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Faire transiter une run de facon explicite (queued -> running -> completed/failed/cancelled) et checkpointer output_json pour permettre la reprise.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/WORKFLOWS_JOBS.md",
+    "source_doc": "docs/02-orchestration/workflows-et-jobs.md",
     "concepts": ["etats de run", "workflows vs workflow_versions vs workflow_runs", "checkpoint incrementale", "annulation", "max_attempts"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Diagnostiquer et maintenir l'homeostasie d'un agent en calculant son indice de sante H_i, en evaluant son risque iatrogene et en consignant ses pathologies.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md",
+    "source_doc": "docs/01-concepts/nosologie/pathologie-et-medecine.md",
     "concepts": ["ClinicalState", "indice de sante H_i", "T_i=max(0,Hayflick-S_i)", "P_sen", "R_iatro(d)", "DiseaseCategory", "Pathology"]
   },
   "policies": {

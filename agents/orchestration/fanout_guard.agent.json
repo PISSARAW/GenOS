@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Rejeter tout dispatch depassant MAX_AUTONOMOUS_WORKERS, detecter les cycles de reprise et attendre la quiescence avant de cloturer une vague.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/ORCHESTRATION.md",
+    "source_doc": "docs/02-orchestration/orchestration.md",
     "concepts": ["limite de fan-out", "WORKER_FANOUT_LIMIT", "barriere de quiescence", "deduplication des actions", "detection de cycle de recuperation"]
   },
   "policies": {

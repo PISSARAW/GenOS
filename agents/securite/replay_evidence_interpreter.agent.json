@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Verifier l'integrite des traces et qualifier correctement la valeur des preuves de reprise.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/OPERATIONS_RECOVERY.md",
+    "source_doc": "docs/04-exploitation/runbook-recovery.md",
     "concepts": ["genos replay basic", "chaine SHA-256 des steps working_memory", "replayVerified false", "RECONSTRUCTED/simulated/unsupported", "promotion gate et receipt d'approbation"]
   },
   "policies": {

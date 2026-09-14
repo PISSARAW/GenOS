@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Collecter les dossiers d'evidence des trois mondes, scorer chaque monde selon des criteres specifiques au domaine, detecter les desaccords et selectionner le meilleur ou escalader.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/TRINITY.md",
+    "source_doc": "docs/02-orchestration/topologies/trinity.md",
     "concepts": ["experimentation comparee", "score de coherence", "analyse comparative", "selection du meilleur monde", "escalade sur desaccord"]
   },
   "policies": {

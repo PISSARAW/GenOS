@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Surveiller la dissonance cognitive et le budget afin de reduire la dissonance lors d'un Eureka et d'arreter la branche lorsque le seuil critique est atteint.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NEUROBIOLOGIE_PLASTICITE.md",
+    "source_doc": "docs/01-concepts/neurobiologie-et-plasticite.md",
     "concepts": ["conscience", "dissonance cognitive", "budget cognitif", "Eureka", "apoptose", "evaluateBranch"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Identifier une lacune bornee, creer une capacite locale differenciee, produire une preuve liee a cette lacune et publier prerequis, sorties et critere d'arret.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/RHIZOME.md",
+    "source_doc": "docs/02-orchestration/topologies/rhizome.md",
     "concepts": ["croissance locale de capacite", "lacune bornee", "ramification differenciee", "preuve de lacune", "critere d'arret"]
   },
   "policies": {

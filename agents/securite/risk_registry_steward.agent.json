@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Gouverner le risque par des garde-fous d'execution et un registre lie a la mission et aux donnees.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/COMPLIANCE_GOUVERNANCE.md",
+    "source_doc": "docs/05-securite-gouvernance/conformite-et-gouvernance.md",
     "concepts": ["garde-fous d'execution zero-trust", "taint tracking", "R = I * P * (1 - M)", "registre de risque par mission", "seuil d'escalade et supervision humaine"]
   },
   "policies": {

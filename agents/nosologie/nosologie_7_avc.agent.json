@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Porter le modele de l'AVC computationnel : AVC ischemique par glutamate non resorbe (penalite de 50 ATP par tick) et AVC hemorragique par effondrement de blood_brain_barrier_integrity sous 0.5 avec infiltration virale, en appliquant le triage d'urgence FAST et la contre-indication absolue de thrombolyse sur barriere rompue.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_7_CARDIOVASCULAIRES.md",
+    "source_doc": "docs/01-concepts/nosologie/07-cardiovasculaires.md",
     "concepts": ["Excitotoxicite glutamatergique (Delta ATP = -50 par tick)", "sigma_BHE et seuil d'integrite 0.5", "AVC ischemique versus AVC hemorragique", "Triage d'urgence FAST computationnel", "Contre-indication absolue de thrombolyse si BHE <= 0.5", "Therapies NeuroprotectiveAstrocyticFlush et BloodBrainBarrierSealant"]
   },
   "policies": {

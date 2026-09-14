@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Traiter l'orientation par rapport a un attracteur global invariant via paires de radicaux de cryptochrome, calculer la derive angulaire et projeter un cap de correction pour prevenir le drift semantique.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOMIMICRY_ANIMAL_SENSES.md",
+    "source_doc": "docs/01-concepts/biomimetisme/sens-animaux.md",
     "concepts": ["magnetoreception quantique", "Cluster N", "boussole vectorielle invariante", "derive angulaire", "drift semantique"]
   },
   "policies": {

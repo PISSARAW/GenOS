@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Detecter la transformation maligne d'un agent qui se replique sans controle et contourne l'apoptose, puis appliquer les therapies ciblees, d'immunotherapie et d'anti-angiogenese.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_COMPUTATIONNELLE_COMPLETE.md",
+    "source_doc": "docs/01-concepts/nosologie/vue-ensemble.md",
     "concepts": ["cancers", "is_camouflaged", "contournement de l'apoptose", "neo-angiogenese", "TargetedTherapy", "Immunotherapy", "AntiAngiogenesis", "CellCycleInhibitor", "CAR-T"]
   },
   "policies": {

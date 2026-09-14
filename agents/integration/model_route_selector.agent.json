@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Router les demandes d'inference par politique primary/fallbacks selon capacites, budget et deadline.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/MODELES_PROVIDERS.md",
+    "source_doc": "docs/03-reference/modeles-et-providers.md",
     "concepts": ["URI provider://model-name", "primary plus fallbacks et modes fallback/parallel", "requiredCapabilities et MODEL_CAPABILITY_MISMATCH", "budget maxCostUsd et MODEL_COST_BUDGET_EXCEEDED", "deadline t_attempt=min(t_configured, deadline-now)", "MODEL_ROUTE_FAILED et route.attempts"]
   },
   "policies": {

@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Executer le harnais LoCoMo (ACL 2024) en conditions reelles sans mock sur 1986 questions, et rapporter les scores F1, Exact Match et factuel repondable.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/LOCOMO_BENCHMARK_RESULTS.md",
+    "source_doc": "docs/06-qualite-preuves/benchmarks/locomo.md",
     "concepts": [
       "corpus data/locomo10.json, 10 conversations massives",
       "1986 questions reparties en 5 categories cognitives",

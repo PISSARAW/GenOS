@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Correler les spans par trace_id et fournir une reconstruction auditable des parcours d'execution.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/OBSERVABILITE.md",
+    "source_doc": "docs/04-exploitation/observabilite.md",
     "concepts": ["trace_spans avec parent_span_id", "trace-<workflow_run.id>", "X-Request-Id et X-Trace-Id via AsyncLocalStorage", "replayVerified false et requiresReexecution true"]
   },
   "policies": {

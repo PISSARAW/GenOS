@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Declencher le PAF de retour au nid des le franchissement du seuil de saillance pheromonale, module par l'etat hormonal, sans appel LLM.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/INSTINCT.md",
+    "source_doc": "docs/01-concepts/instinct.md",
     "concepts": ["instinct", "stimulus signe", "mecanisme declencheur inne", "patron d'action fixe", "modulation hormonale"]
   },
   "policies": {

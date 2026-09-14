@@ -19,23 +19,23 @@ Core rule: a successful transport is NOT proof of a valid decision. Respect the 
 
 ## Runtime and orchestration
 
-- [docs/RUNTIME_AGENTIQUE.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/RUNTIME_AGENTIQUE.md): agent runtime model, boundaries and guards.
-- [docs/ORCHESTRATION.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/ORCHESTRATION.md): branches, survivors and controlled fan-out.
-- [docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md): snapshots, fork, bisect and restore.
-- [docs/PRIMITIVES_EXECUTABLES.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/PRIMITIVES_EXECUTABLES.md): executable primitives and budgets.
+- [docs/01-concepts/runtime-agentique.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/01-concepts/runtime-agentique.md): agent runtime model, boundaries and guards.
+- [docs/02-orchestration/orchestration.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/02-orchestration/orchestration.md): branches, survivors and controlled fan-out.
+- [docs/02-orchestration/workspaces-contrefactuel.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/02-orchestration/workspaces-contrefactuel.md): snapshots, fork, bisect and restore.
+- [docs/02-orchestration/primitives-executables.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/02-orchestration/primitives-executables.md): executable primitives and budgets.
 
 ## Tools and integration
 
-- [docs/OUTILS_MCP.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/OUTILS_MCP.md): MCP catalogue, leases, argument validation and circuit breaker.
+- [docs/03-reference/outils-mcp.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/03-reference/outils-mcp.md): MCP catalogue, leases, argument validation and circuit breaker.
 - [.mcp.json](https://github.com/PISSARAW/GenOS/blob/v3/.mcp.json): ready-to-use MCP client config (stdio).
-- [docs/API_CONTRATS.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/API_CONTRATS.md): REST, gRPC, MCP and CLI contracts.
-- [docs/INTEGRATIONS_IDE.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/INTEGRATIONS_IDE.md): IDE integration contract (`genos.ide/v1`).
+- [docs/03-reference/api-et-contrats.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/03-reference/api-et-contrats.md): REST, gRPC, MCP and CLI contracts.
+- [docs/03-reference/integrations-ide.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/03-reference/integrations-ide.md): IDE integration contract (`genos.ide/v1`).
 
 ## Safety and evidence
 
-- [docs/EPISTEMOLOGIE_EVIDENCE.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/EPISTEMOLOGIE_EVIDENCE.md): evidence, belief state and "success is not truth".
-- [docs/SECURITE.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/SECURITE.md): auth, RBAC, sandbox and audit.
-- [docs/SANDBOX_EXECUTION_CODE.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/SANDBOX_EXECUTION_CODE.md): code execution isolation.
+- [docs/01-concepts/epistemologie-et-evidence.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/01-concepts/epistemologie-et-evidence.md): evidence, belief state and "success is not truth".
+- [docs/05-securite-gouvernance/securite.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/05-securite-gouvernance/securite.md): auth, RBAC, sandbox and audit.
+- [docs/05-securite-gouvernance/sandbox-execution-code.md](https://github.com/PISSARAW/GenOS/blob/v3/docs/05-securite-gouvernance/sandbox-execution-code.md): code execution isolation.
 
 ## Notes for agents
 

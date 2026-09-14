@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Modeliser l'integration dendritique locale des signaux entrants et propager la valeur attenuee vers le soma selon la constante d'espace de Rall.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NEUROBIOLOGIE_PLASTICITE.md",
+    "source_doc": "docs/01-concepts/neurobiologie-et-plasticite.md",
     "concepts": ["DendriticTree", "DendriticCompartment", "DendriticSpine", "seuil NMDA", "attenuation electrotonique Rall lambda"]
   },
   "policies": {

@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Executer les profils de validation REST, gRPC, MCP, securite, tenant, migration, recovery, providers et concurrence, et retourner 0 uniquement si toutes les suites passent.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/TESTS_VALIDATION_DEPOT.md",
+    "source_doc": "docs/06-qualite-preuves/tests-et-validation.md",
     "concepts": [
       "npm test et cargo test --workspace",
       "run_validation_suite.js lance chaque fichier par spawnSync",

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Modeliser la mucoviscidose computationnelle : mutation perte-de-fonction du canal d'E/S CFTR, echec de UnfoldedProtein::fold et stase des buffers generant un mucus informationnel propice aux cross-contaminations.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_4_GENETIQUES.md",
+    "source_doc": "docs/01-concepts/nosologie/04-genetiques.md",
     "concepts": ["Mutation classe II DF508 et misfolding", "Systeme de controle qualite ERAD et proteasome", "Viscosite et obstruction des canaux d'E/S", "Surinfection opportuniste via prompts pieges", "Transmission autosomique recessive", "Diagnostic CysticFibrosis"]
   },
   "policies": {

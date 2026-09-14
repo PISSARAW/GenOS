@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Executer les evaluation_jobs, persister l'avancement dans result_json apres chaque cas, reprendre les jobs interrompus et hacher la provenance.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/EVALUATION_QUALITE.md",
+    "source_doc": "docs/06-qualite-preuves/evaluation-qualite.md",
     "concepts": [
       "evaluation_campaigns vers evaluation_jobs queued",
       "checkpoint persiste dans evaluation_jobs.result_json",

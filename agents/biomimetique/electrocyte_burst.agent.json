@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Empiler les gradients transmembranaires en serie-parallele, sommer les potentiels d'action et declencher une decharge synchrone franchissant le seuil d'arbitrage de consensus en un cycle d'horloge.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOMIMETISME_CELLULAIRE_SPECIALISE.md",
+    "source_doc": "docs/01-concepts/biomimetisme/cellulaire-specialise.md",
     "concepts": ["electrocyte", "burst synchronise", "consensus flash en serie", "sommation de voltage", "recharge Na K"]
   },
   "policies": {

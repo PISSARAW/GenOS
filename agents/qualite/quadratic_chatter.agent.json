@@ -31,7 +31,7 @@
   "objectives": {
     "primary": "Modeliser le cout C_trad(N,T) des frameworks textuels, caracteriser Tokens_trad = O(N^2 T L_msg) et alerter sur les cinq pathologies du multi-agent textuel.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/ECONOMIE_ET_SCALABILITE_MULTI_AGENTS.md",
+    "source_doc": "docs/07-positionnement/economie-et-scalabilite.md",
     "concepts": [
       "communication inter-agents 100 % textuelle et bavarde",
       "C_trad(N,T) reinjectant l'historique complet",

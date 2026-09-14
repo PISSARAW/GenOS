@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Mesurer la convergence et la diversite des solutions, evaluer la qualite des preuves et compter les falsifications critiques, puis recommander fusion, raffinement ou escalade.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOCENOSE.md",
+    "source_doc": "docs/02-orchestration/topologies/biocenose.md",
     "concepts": ["convergence", "diversite", "qualite d'evidence", "falsifications critiques", "robustesse du consensus"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Binder les ports HTTP et gRPC avec TLS et drainer proprement les services a l'arret du processus.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/DEPLOIEMENT_EXPLOITATION.md",
+    "source_doc": "docs/04-exploitation/deploiement.md",
     "concepts": ["PORT 4000 et GRPC_PORT 50051", "GRPC_BIND_ADDRESS et paire GENOS_GRPC_TLS_KEY/CERT", "bind non loopback sans TLS refuse", "sequence initialiser DB, charger protobuf, choisir TLS, bind, ouvrir HTTP", "SIGTERM/SIGINT et drain de 30 s", "grpcServer.tryShutdown et fermeture SQLite"]
   },
   "policies": {

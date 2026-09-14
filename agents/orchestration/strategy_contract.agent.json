@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Verifier que la strategie primaire est connue, que le portfolio est valide et que le registre n'a pas change entre selection et execution.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PRIMITIVES_EXECUTABLES.md",
+    "source_doc": "docs/02-orchestration/primitives-executables.md",
     "concepts": ["contrat de strategie", "portfolio", "pipeline par defaut", "promotion conditionnelle", "validation du registre"]
   },
   "policies": {

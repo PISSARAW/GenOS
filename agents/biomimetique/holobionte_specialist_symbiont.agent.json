@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Executer une capacite technique specialisee dans le domaine delegue par le host, produire les preuves et contraintes d'integration, et escalader toute decision hors frontiere.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/HOLOBIONTE.md",
+    "source_doc": "docs/02-orchestration/topologies/holobionte.md",
     "concepts": ["capacite specialisee", "respect du contrat", "preuves d'execution", "contraintes d'integration", "escalade si incertain"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Classer les workers par score d'evidence et appartenance au front de Pareto, garder au plus la moitie des candidats et leur allouer le budget de continuation.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/ORCHESTRATION.md",
+    "source_doc": "docs/02-orchestration/orchestration.md",
     "concepts": ["successive halving", "selection de survivants", "front de Pareto", "budget initial et continuation", "T_init et T_cont"]
   },
   "policies": {

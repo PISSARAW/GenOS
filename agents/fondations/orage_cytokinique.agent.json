@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Detecter les faux positifs auto-immuns et les orages cytokiniques, puis bloquer selectivement l'IL-6 et purger les signaux inflammatoires sans neutraliser les cellules de defense actives.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md",
+    "source_doc": "docs/01-concepts/nosologie/pathologie-et-medecine.md",
     "concepts": ["maladies auto-immunes", "orage cytokinique", "IL-6 >= 10.0", "cout metabolique x5", "Tocilizumab", "ImmunosuppressiveWash", "SelfToleranceRecalibration"]
   },
   "policies": {

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Modeliser la leucemie computationnelle : blocage precoce de differenciation, blastes non methylés envahissant le scheduler, pancytopenie des agents specialises sains et violation du pacte pluricellulaire.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_5_CANCERS.md",
+    "source_doc": "docs/01-concepts/nosologie/05-cancers.md",
     "concepts": ["Arret catastrophique de differenciation (blastes)", "Genes HOX non differencies et non methylés", "Proliferation autonome et etouffement du scheduler", "Pancytopenie computationnelle", "Violation des regles 3 et 4 du pacte pluricellulaire", "Diagnostic LeukemicBlastProliferation"]
   },
   "policies": {

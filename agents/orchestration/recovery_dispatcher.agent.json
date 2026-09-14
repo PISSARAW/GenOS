@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Classifier les echecs de workers et choisir une decision de recuperation bornee et orientee cause plutot qu'un cycle infini.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/ORCHESTRATION.md",
+    "source_doc": "docs/02-orchestration/orchestration.md",
     "concepts": ["worker failure recovery", "conclude_no_answer", "mutate_worker", "fork_worker", "bisect_and_rollback", "escalate_unresolved"]
   },
   "policies": {

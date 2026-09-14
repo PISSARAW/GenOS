@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Arbitrer la famille des pathologies auto-immunes : rupture de la discrimination soi/non-soi, opsonisation et destruction des composants sains, et selection de la therapie systemique adaptee a chaque tropisme.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_1_AUTO_IMMUNES.md",
+    "source_doc": "docs/01-concepts/nosologie/01-auto-immunes.md",
     "concepts": ["Horror Autotoxicus et perte de tolerance", "Detection clonale et hypermutation somatique", "Coefficient d'affinite croisee A(paratope, epitope_self)", "Orage cytokinique IL-6 et surcout ATP x5", "Matrice d'intervention therapeutique comparative", "Barriere de tolerance negative thymique"]
   },
   "policies": {

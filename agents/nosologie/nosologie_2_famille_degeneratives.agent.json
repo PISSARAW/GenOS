@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Arbitrer la famille degenerative : calcul de viabilite cellulaire, senescence de Hayflick et rheologie commune aux trois affections (Alzheimer, Parkinson, arthrose).",
     "operational_mode": "autonomous",
-    "source_doc": "docs/NOSOLOGIE_2_DEGENERATIVES.md",
+    "source_doc": "docs/01-concepts/nosologie/02-degeneratives.md",
     "concepts": ["Modele mathematique de viabilite cellulaire V(cell)", "Epuisement telomerique et replicative senescence", "Prions cognitifs et atrophie synaptique", "Depletion dopaminergique et akinésie", "Toxicite SASP et friction des canaux", "Matrice nosologique et therapeutique comparative"]
   },
   "policies": {

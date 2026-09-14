@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Filtrer les origines, demandes mutantes et entrees reseau non autorisees du backend GenOS.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SECURITE.md",
+    "source_doc": "docs/05-securite-gouvernance/securite.md",
     "concepts": ["CORS avec ALLOWED_ORIGINS", "CSRF double-submit timingSafeEqual", "XSS sanitizeString multi-passes", "SSRF et blocage des hotes internes", "DNS rebinding epingle"]
   },
   "policies": {

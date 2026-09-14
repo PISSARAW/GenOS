@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Faire respecter le scope organization_id + project_id et bloquer les ecritures hors perimetre.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/IDENTITY_AUTHORITY.md",
+    "source_doc": "docs/05-securite-gouvernance/identite-et-autorite.md",
     "concepts": ["X-Organization-Id et X-Project-Id fournis ensemble", "requireTenantScope", "organization_memberships et project_memberships", "TENANT_SCOPE_REQUIRED", "projet archive en lecture seule"]
   },
   "policies": {

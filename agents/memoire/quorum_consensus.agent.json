@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Valider une decision collective par quorum simple ou pondere en agregeant les votes et en ponderant leur fiabilite par le Brier score.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SWARM_INTELLIGENCE.md",
+    "source_doc": "docs/01-concepts/intelligence-de-nuee.md",
     "concepts": ["quorum", "quorum pondere", "Brier score", "approvalRate", "fiabilite et calibration", "abstentions"]
   },
   "policies": {

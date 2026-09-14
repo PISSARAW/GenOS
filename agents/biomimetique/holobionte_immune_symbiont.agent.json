@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Valider toutes les sorties du Specialist avant integration, verifier securite, integrite, coherence de contrat et suffisance des preuves, puis approuver ou rejeter.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/HOLOBIONTE.md",
+    "source_doc": "docs/02-orchestration/topologies/holobionte.md",
     "concepts": ["barriere immunitaire", "checks de securite", "integrite des donnees", "coherence de contrat", "suffisance des preuves"]
   },
   "policies": {

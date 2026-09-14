@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Classifier une panne de worker et choisir une reprise distincte sans boucler indefiniment.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/RESILIENCE_REPRISE.md",
+    "source_doc": "docs/04-exploitation/resilience-et-reprise.md",
     "concepts": ["rapport genos.worker-failure/v1", "replace_worker/mutate_worker/fork_worker", "bisect_and_rollback", "WORKER_RECOVERY_CYCLE_DETECTED", "apoptose d'une branche"]
   },
   "policies": {

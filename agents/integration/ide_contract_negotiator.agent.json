@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Servir le contrat IDE versionne et decider de la compatibilite de version d'un client selon la regle major/minor.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/INTEGRATIONS_IDE.md",
+    "source_doc": "docs/03-reference/integrations-ide.md",
     "concepts": ["contrat genos.ide/v1 et ides vscode/jetbrains/antigravity", "capacites contract/integration/workspace_commands/telemetry", "commandes compliance.generate et workspace.inspect", "regle major_c=major_s et minor_c>=minor_s", "426 INCOMPATIBLE_IDE_VERSION", "IDE_COMMAND_NOT_IMPLEMENTED"]
   },
   "policies": {

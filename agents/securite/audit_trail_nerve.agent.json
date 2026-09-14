@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Consigner chaque decision sensible dans audit_logs et telemetry_events pour l'audit post-mortem.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/SECURITE.md",
+    "source_doc": "docs/05-securite-gouvernance/securite.md",
     "concepts": ["audit_logs avec actor/decision/reason", "telemetry_events", "piste de decision exploitable", "journalisation avant execution MCP"]
   },
   "policies": {

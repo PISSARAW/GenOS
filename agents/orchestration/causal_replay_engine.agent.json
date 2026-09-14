@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Executer causalReplay, mutatedUniverses, causalRebase, causalMerge et dependencyMatrix pour simuler et comparer des trajectoires causales.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/PRIMITIVES_EXECUTABLES.md",
+    "source_doc": "docs/02-orchestration/primitives-executables.md",
     "concepts": ["causal_replay", "mutated_universes", "causal_rebase", "causal_merge", "dependency_matrix"]
   },
   "policies": {

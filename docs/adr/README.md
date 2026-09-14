@@ -13,6 +13,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Proposé | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Proposé | 2026-09-14 | Persistance, mémoire, orchestration, preuve |
 | [0004](0004-instinct-innate-circuits.md) | Instinct : circuits innés et PAF | Proposé | 2026-09-14 | Biomimétique, génome, neurobiologie, sûreté |
+| [0005](0005-reorganisation-arborescence-documentaire.md) | Réorganisation de l'arborescence documentaire | Accepté | 2026-09-14 | Documentation, provenance, distribution |
 
 ## Cycle de vie d'un ADR
 
@@ -31,4 +32,4 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 ## Voir aussi
 
 - [../CONVENTIONS.md](../CONVENTIONS.md) — conventions de rédaction et de nommage.
-- [../GENOME_EPIGENETIQUE.md](../GENOME_EPIGENETIQUE.md), [../INSTINCT.md](../INSTINCT.md), [../FOSSILISATION.md](../FOSSILISATION.md), [../AGENT_DNA_RUNTIME.md](../AGENT_DNA_RUNTIME.md) — documents concernés par les ADR ci-dessus.
+- [../GENOME_EPIGENETIQUE.md](../01-concepts/genome-et-epigenetique.md), [../INSTINCT.md](../01-concepts/instinct.md), [../FOSSILISATION.md](../01-concepts/fossilisation.md), [../AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — documents concernés par les ADR ci-dessus.

@@ -26,7 +26,7 @@
   "objectives": {
     "primary": "Produire une solution complete a la mission partagee en isolation, en publiant toutes les hypotheses, preuves et tensions non resolues avant toute validation.",
     "operational_mode": "autonomous",
-    "source_doc": "docs/BIOCENOSE.md",
+    "source_doc": "docs/02-orchestration/topologies/biocenose.md",
     "concepts": ["solution independante", "dossier d'evidence", "hypotheses explicites", "tensions non resolues", "isolation des Solvers"]
   },
   "policies": {
