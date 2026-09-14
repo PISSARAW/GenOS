@@ -10,6 +10,8 @@ const dynamicOrganization = require('./dynamicOrganizationService');
 const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 const telemetry = require('./telemetryObserver');
 
+const lastPreferred = new Map();
+
 function charSum(value) {
   let sum = 0;
   for (const character of String(value || '')) sum += character.charCodeAt(0);
@@ -43,15 +45,21 @@ async function applyStepForOrchestrator(orchestratorId, options = {}) {
   const state = options.state || await stateFromOrchestrator(db, orchestratorId);
   const step = swarmTopologyAlgorithms.runTopologyStep(current.organization, state, options);
   if (!step) return null;
+  const preferred = swarmTopologyAlgorithms.preferredAgents(current.organization, step);
+  lastPreferred.set(orchestratorId, preferred);
   telemetry.emitEvent({
     eventType: 'SWARM_TOPOLOGY_STEP',
     agentId: orchestratorId,
     action: 'TOPOLOGY_STEP',
     detail: `Applied '${current.organization}' swarm step to ${state.agents.length} agents.`,
     severity: 'info',
-    payload: { organization: current.organization, step }
+    payload: { organization: current.organization, preferred, step }
   });
   return step;
 }
 
-module.exports = { stateFromOrchestrator, applyStepForOrchestrator };
+function preferredSurvivorsFor(orchestratorId) {
+  return lastPreferred.get(orchestratorId) || [];
+}
+
+module.exports = { stateFromOrchestrator, applyStepForOrchestrator, preferredSurvivorsFor };

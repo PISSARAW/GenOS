@@ -114,6 +114,25 @@ function greyWolfOptimizer(pack, options = {}) {
   });
 }
 
+function magnitude(vector) {
+  return vector ? Math.hypot(num(vector.x, 0), num(vector.y, 0)) : 0;
+}
+
+function preferredAgents(organization, step, limit = 3) {
+  const org = String(organization || '').trim().toLowerCase();
+  if (!step || limit <= 0) return [];
+  if (org === 'grey_wolf_optimizer') {
+    return (step.pack || []).filter((wolf) => wolf.role && wolf.role !== 'omega').slice(0, limit).map((wolf) => wolf.id);
+  }
+  if (org === 'fish_school_search') {
+    return [...(step.individuals || [])].sort((a, b) => magnitude(b.volitive) - magnitude(a.volitive)).slice(0, limit).map((entry) => entry.id);
+  }
+  if (org === 'flocking_boids') {
+    return [...(step.agents || [])].sort((a, b) => magnitude(b.vector) - magnitude(a.vector)).slice(0, limit).map((entry) => entry.id);
+  }
+  return [];
+}
+
 function runTopologyStep(organization, state = {}, options = {}) {
   switch (String(organization || '').trim().toLowerCase()) {
     case 'flocking_boids': return { organization: 'flocking_boids', agents: flockingBoids(state.agents, options) };
@@ -124,4 +143,4 @@ function runTopologyStep(organization, state = {}, options = {}) {
   }
 }
 
-module.exports = { flockingBoids, fishSchoolSearch, slimeMouldNetwork, greyWolfOptimizer, runTopologyStep };
+module.exports = { flockingBoids, fishSchoolSearch, slimeMouldNetwork, greyWolfOptimizer, runTopologyStep, preferredAgents };
