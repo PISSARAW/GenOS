@@ -6,7 +6,7 @@ const workerGarage = require('./workerGarageService');
 const { localWorkerRoute } = require('./agentModelRoutingService');
 const { autonomousWorkerId } = require('./agentRoundService');
 const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
-const { emit, workerToolLease } = require('./agentOrchestrationState');
+const { emit, workerToolLeaseForCapabilities } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');
 const agentConscience = require('./agentConscienceService');
 const agentEvolution = require('./agentEvolutionService');
@@ -177,7 +177,8 @@ function workerInsertValues(details) {
 
 function formatWorker(details) {
   const { id, identity, assignment, parent, plan, mission, route, workspaceRoot, prompt, assignedTokens, index, evolution, orchestrator } = details;
-  const toolLease = workerToolLease(assignment.role);
+  const capabilityContract = plan && plan.capabilityContract ? plan.capabilityContract.required : [];
+  const toolLease = workerToolLeaseForCapabilities(assignment.role, capabilityContract);
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
   const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, assignments: assignmentList }), executionPolicy: mission.executionPolicy, executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens, index, assignmentCount: assignmentList.length || 1 }), orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }, genome: evolution.genes, predictedFitness: evolution.predictedFitness };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
