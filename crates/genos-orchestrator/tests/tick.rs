@@ -59,3 +59,26 @@ fn tick_boucle_observe_decide_agit_et_persiste() {
     assert!(!eco.trace_provenance(loop_agent).is_empty());
     let _ = std::fs::remove_file(&path);
 }
+
+#[test]
+fn run_itert_jusqu_a_arret_avec_rapport_global() {
+    let mut eco = GenosEcosystem::new("Overmind");
+    eco.orchestrator.create_tissue("Arena", "Exec").unwrap();
+    eco.orchestrator
+        .add_worker("Arena", AgentCell::new("a", "a", "W"))
+        .unwrap();
+    // Une preuve journalisée lève l'incertitude (sinon escalade humaine).
+    eco.record_event("INTEL", serde_json::json!({ "ok": true }));
+
+    let report = eco.run(&Goal::SecurePerimeter, 6);
+    assert!(report.halted, "run doit s'arreter");
+    assert!(report.reached, "le but doit etre atteint");
+    assert!(report.ticks >= 1);
+    assert_eq!(report.traces, eco.traces.known());
+    assert!(
+        report.executed.contains(&Concept::Recruit),
+        "des agents doivent etre recrutes"
+    );
+    assert!(report.agents_after > report.agents_before);
+}
+

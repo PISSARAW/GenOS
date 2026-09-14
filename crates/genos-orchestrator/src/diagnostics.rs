@@ -113,7 +113,7 @@ impl GenosEcosystem {
         }
     }
 
-    fn mutate_agent(&mut self, agent: Uuid) -> String {
+    pub fn mutate_agent(&mut self, agent: Uuid) -> String {
         let Some(dna) = self.agent_dna.get(&agent).cloned() else {
             return "aucun ADN enregistre : mutation impossible".to_string();
         };
@@ -133,7 +133,7 @@ impl GenosEcosystem {
         }
     }
 
-    fn crossover_agent(&mut self, agent: Uuid) -> String {
+    pub fn crossover_agent(&mut self, agent: Uuid) -> String {
         let Some(dna) = self.agent_dna.get(&agent).cloned() else {
             return "aucun ADN enregistre : croisement impossible".to_string();
         };
