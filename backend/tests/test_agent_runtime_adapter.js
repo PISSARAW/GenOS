@@ -17,7 +17,7 @@ try {
     path.resolve(__dirname, '../bin/genos-agent-runtime.cjs')
   );
   assert(fs.existsSync(defaultExecutable), 'bundled GenOS runtime must exist');
-  const runtimeSource = fs.readFileSync(defaultExecutable, 'utf8');
+  const runtimeSource = [defaultExecutable, path.resolve(__dirname, '../bin/agent-runtime-session.cjs'), path.resolve(__dirname, '../bin/agent-runtime-events.cjs')].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
   assert(runtimeSource.includes("'genos-codex-'"), 'runtime agents must receive an isolated CODEX_HOME');
   assert(runtimeSource.includes("'--dangerously-bypass-hook-trust'"), 'the control-plane policy hook must be enabled non-interactively');
   assert(!runtimeSource.includes('--dangerously-bypass-approvals-and-sandbox'), 'runtime must never disable the Codex sandbox');
@@ -26,8 +26,9 @@ try {
   assert(runtimeSource.includes('at least one tool is required'), 'runtime agents must reject an empty MCP lease');
   const adapterSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentRuntimeAdapter.js'), 'utf8');
   const supervisorSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentProcessSupervisor.js'), 'utf8');
+  const pipelineSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentProcessEventPipeline.js'), 'utf8');
   const roundSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentRoundService.js'), 'utf8');
-  assert(supervisorSource.includes("currentEvent.action === 'VERIFY'") || adapterSource.includes("event.action === 'VERIFY'"), 'a completed Codex turn must not be killed after reporting aggregate usage');
+  assert(supervisorSource.includes("currentEvent.action === 'VERIFY'") || adapterSource.includes("event.action === 'VERIFY'") || pipelineSource.includes("event.action === 'VERIFY'"), 'a completed Codex turn must not be killed after reporting aggregate usage');
   assert(adapterSource.includes('normalizedMission.localModel && (normalizedMission.localRuntime === true || isLocalRuntime(executable))'), 'local workers must be explicit rather than inferred from model discovery');
   assert(runtimeSource.includes('GENOS_EXECUTION_MODE: executionMode'), 'runtime children must receive their authority mode');
   assert(runtimeSource.includes('GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)}'), 'the leased MCP server must receive the same authority mode');
