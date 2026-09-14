@@ -278,6 +278,11 @@ function workerSlotId(context) { return context.reusedWorker ? context.id : null
 function workerName(request, role, mission) { return String(request.name || workerGarage.workerName({ role, mission })); }
 function workspaceFor(parent, context) { return parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT || context.repoRoot; }
 function workerCapsuleId(context) { return context.reusedWorker ? `${context.id}_run_${Date.now()}` : context.id; }
+function sameWorkspacePath(left, right) {
+  return process.platform === 'win32'
+    ? path.resolve(left).toLowerCase() === path.resolve(right).toLowerCase()
+    : path.resolve(left) === path.resolve(right);
+}
 function validateWorkspace(requested, source) {
   const norm = (value) => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
   if (requested && norm(requested) !== norm(source)) throw new Error(`Requested workspace root does not match orchestrator workspace '${source}'.`);
@@ -303,7 +308,13 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
     missionBudget.latencyMs = Math.max(1000, Number(context.request.timeoutMs) - 4000);
   }
   const workerPrompt = aTeamService.dependencyPrompt(context.task, context.request.depends_on);
-  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerPrompt, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false, timeoutMs: context.request.timeoutMs, localRuntime: context.request.localRuntime === true });
+  const localRuntime = requestLocalRuntime(context.request);
+  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerPrompt, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false, timeoutMs: context.request.timeoutMs, localRuntime });
+}
+
+function requestLocalRuntime(request = {}) {
+  if (request.localRuntime === true) return true;
+  return String(request.executor || request.runtime || '').trim().toLowerCase() === 'local';
 }
 
 function workerPolicy(request = {}) {

@@ -107,9 +107,12 @@ function createGeneration(state) {
   const abort = new AbortController();
   const overrideTimeoutMs = Number(process.env.GENOS_LOCAL_MODEL_TIMEOUT_MS) || 0;
   const latencyBudgetMs = budgetLimit(state.executionBudget, 'latencyMs');
+  // 3 essais immunitaires possibles × timeout par essai. Il faut laisser assez
+  // de temps pour que Ollama réponde 3 fois (phagocytose). Budget par essai
+  // = 60% du budget total pour avoir la marge sur 3 tentatives.
   const perAttemptTimeoutMs = overrideTimeoutMs > 0
     ? overrideTimeoutMs
-    : (Number.isFinite(latencyBudgetMs) ? Math.max(30000, Math.floor(latencyBudgetMs / 3)) : 180000);
+    : (Number.isFinite(latencyBudgetMs) ? Math.max(120000, Math.floor(latencyBudgetMs * 0.6 / 3)) : 300000);
   const generation = withTextImmunity(state.framedPrompt, 'high', {
     validatorFn: griotValidator,
     maxRetries: 3,

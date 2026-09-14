@@ -71,6 +71,12 @@ function configuredExecutable(mission = {}) {
     return CODEX_RUNTIME_PATH;
   }
 
+  // Default: use local runtime (Ollama) when GENOS_LOCAL_MODEL is configured,
+  // otherwise fall back to codex. Workers should never hit OpenAI APIs
+  // unless explicitly configured to do so.
+  if (String(process.env.GENOS_LOCAL_MODEL || '').trim()) {
+    return LOCAL_RUNTIME_PATH;
+  }
   return CODEX_RUNTIME_PATH;
 }
 

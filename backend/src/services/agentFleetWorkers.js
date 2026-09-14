@@ -1,4 +1,4 @@
-module.exports = { createAutonomousWorkers, splitBudget };
+module.exports = { createAutonomousWorkers, splitBudget, inheritedWorkerEngine };
 
 const path = require('path');
 const circuitBreaker = require('./circuitBreaker');
@@ -180,7 +180,7 @@ function formatWorker(details) {
   const capabilityContract = plan && plan.capabilityContract ? plan.capabilityContract.required : [];
   const toolLease = workerToolLeaseForCapabilities(assignment.role, capabilityContract);
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
-  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, assignments: assignmentList }), executionPolicy: mission.executionPolicy, executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens, index, assignmentCount: assignmentList.length || 1 }), orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }, genome: evolution.genes, predictedFitness: evolution.predictedFitness };
+  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, assignments: assignmentList, mission }), executionPolicy: mission.executionPolicy, executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens, index, assignmentCount: assignmentList.length || 1 }), orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }, genome: evolution.genes, predictedFitness: evolution.predictedFitness };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
   return worker;
 }
@@ -190,10 +190,17 @@ function workerIdentity(details) {
   return { agentId: id, label: assignment.label || id, name: identity.name, nameMeaning: identity.name_meaning, introduction: identity.introduction, role: assignment.role, prompt, branchAssignment: `${assignment.label}: ${assignment.hypothesis}`, artifact: assignment.artifact || plan.aTeam?.artifact || plan.trinity?.artifact || null, pipelineStage: Math.max(0, Number(assignment.pipelineStage || 0)), dependsOn: Array.isArray(assignment.dependsOn) ? assignment.dependsOn : [], modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type };
 }
 
+function inheritedWorkerEngine(mission) {
+  if (!mission) return {};
+  if (mission.localRuntime === true) return { localRuntime: true };
+  if (String(mission.executor || mission.runtime || '').trim().toLowerCase() === 'local') return { localRuntime: true };
+  return {};
+}
+
 function workerRuntime(details) {
-  const { parent, route, workspaceRoot, toolLease, assignments } = details;
+  const { parent, route, workspaceRoot, toolLease, assignments, mission } = details;
   const inProcessWorker = process.env.GENOS_IN_PROCESS_WORKERS === '1' || (Array.isArray(assignments) && assignments.length > 12);
-  return { workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, toolLease, workspaceIsolation: parent.isolation_mode };
+  return { workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, toolLease, workspaceIsolation: parent.isolation_mode, ...inheritedWorkerEngine(mission) };
 }
 
 function buildExecutionBudget(details) {
