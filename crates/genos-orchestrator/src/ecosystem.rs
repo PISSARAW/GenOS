@@ -36,8 +36,8 @@ use genos_genome::Genome;
 use genos_reproduction::{CellDivision, MeioticCrossover};
 use genos_signal::{ExtracellularMatrix, KuramotoOscillator, StigmergyField};
 use genos_store::{
-    Capsule, CapsuleStore, CryptobiosisStore, FossilRegistry, InMemoryEventStore,
-    InMemoryVectorRepository,
+    BurialContext, Capsule, CapsuleStore, CryptobiosisStore, FossilRecord, FossilRegistry,
+    FossilSpecimen, InMemoryEventStore, InMemoryVectorRepository, SedimentStratum,
 };
 use serde_json::Value;
 use std::collections::HashMap;
@@ -199,6 +199,20 @@ impl GenosEcosystem {
 
     pub fn fossilize(&mut self, lineage_id: &str, reason: &str) {
         let _ = self.fossils.fossilize(lineage_id, reason);
+    }
+
+    /// Enfouit un fossile via le pipeline de taphonomie complet (hash, strate, marqueurs).
+    pub fn bury_fossil(&mut self, ctx: BurialContext) -> FossilRecord {
+        self.fossils.bury(ctx)
+    }
+
+    /// Excave un fossile en lecture seule (jamais de résurrection).
+    pub fn excavate_fossil(&self, fossil_id: &Uuid) -> Option<FossilSpecimen> {
+        self.fossils.excavate(fossil_id)
+    }
+
+    pub fn fossil_strata(&self) -> Vec<SedimentStratum> {
+        self.fossils.strata()
     }
 
     pub fn remember(&self, entry: MemoryEntry) -> Result<(), String> {

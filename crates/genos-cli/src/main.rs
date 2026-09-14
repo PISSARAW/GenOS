@@ -294,11 +294,20 @@ fn real_main() {
             }
         },
         Some(Commands::Fossil(cmd)) => match cmd.subcommand {
-            FossilSubcommands::Record { lineage_id, reason } => {
-                store_ops::handle_fossil_record(&lineage_id, &reason)
+            FossilSubcommands::Record { lineage_id, reason, mode } => {
+                store_ops::handle_fossil_record(&lineage_id, &reason, mode.as_deref())
             }
             FossilSubcommands::List => {
                 store_ops::handle_fossil_list()
+            }
+            FossilSubcommands::Strata => {
+                store_ops::handle_fossil_strata()
+            }
+            FossilSubcommands::Excavate { fossil_id } => {
+                store_ops::handle_fossil_excavate(&fossil_id)
+            }
+            FossilSubcommands::Decode { fossil_id } => {
+                store_ops::handle_fossil_decode(&fossil_id)
             }
         },
         Some(Commands::Serve(cmd)) => {

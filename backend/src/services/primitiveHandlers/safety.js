@@ -4,8 +4,18 @@
  */
 const telemetry = require('../telemetryObserver');
 const genosCli = require('../genosCli');
+const fossilizationService = require('../fossilizationService');
 const { getDatabase } = require('../../db');
 const { releaseQuarantine, unquarantine } = require('./safetyRelease');
+
+// Indexation stratigraphique best-effort : l'artefact CLI reste la source canonique.
+async function indexFossil(record) {
+  if (!record || !record.fossil_id) return;
+  try {
+    const db = await getDatabase();
+    await fossilizationService.persistFossil(db, record);
+  } catch (_) { /* never block termination on archival indexing */ }
+}
 
 function controlTargetOf(context) {
   return context.targetId || context.target_id || context.target || context.agentId;
@@ -33,7 +43,10 @@ async function stopTargetRuntime(targetId) {
 async function fossilizeTerminatedTarget(targetId, reason) {
   try {
     const fossilRes = await genosCli.runFossilize(targetId, reason);
-    if (fossilRes.ok && fossilRes.data) return { fossilRecord: fossilRes.data };
+    if (fossilRes.ok && fossilRes.data) {
+      await indexFossil(fossilRes.data);
+      return { fossilRecord: fossilRes.data };
+    }
     return { fossilRecord: null };
   } catch (err) {
     return { fossilRecord: null, error: `Fossilization failed: ${err.message}` };
@@ -111,6 +124,7 @@ async function fossilize(context) {
   try {
     const res = await genosCli.runFossilize(lineageId, reason);
     if (res.ok && res.data) {
+      await indexFossil(res.data);
       return { success: true, fossil: res.data };
     }
     return { success: false, lineageId, error: res.error || 'Fossilization returned no record.' };

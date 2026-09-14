@@ -148,6 +148,7 @@ stateDiagram-v2
   - [NOSOLOGIE_8_PSYCHIATRIQUES.md](NOSOLOGIE_8_PSYCHIATRIQUES.md) — Dépression, schizophrénie, troubles bipolaires.
   - [NOSOLOGIE_9_ENVIRONNEMENTALES.md](NOSOLOGIE_9_ENVIRONNEMENTALES.md) — Asbestose, saturnisme.
 - [GENOME_EPIGENETIQUE.md](GENOME_EPIGENETIQUE.md) — génome, épigénétique, chromatine, mutation, spécification et contraintes de stabilité.
+- [INSTINCT.md](INSTINCT.md) — comportements innés pré-câblés, stimulus signe, mécanisme déclencheur inné, Patrons d'Action Fixes (PAF), modulation hormonale et distinction réflexe / instinct / apprentissage.
 - [RUNTIME_AGENTIQUE.md](RUNTIME_AGENTIQUE.md) — runtime agentique, frontières, exécution, états, garde-fous et contrôle en boucle.
 - [EPISTEMOLOGIE_EVIDENCE.md](EPISTEMOLOGIE_EVIDENCE.md) — preuves, état de croyance, validation, audit et séparation entre "succès technique" et "vérification réelle".
 
@@ -156,6 +157,7 @@ stateDiagram-v2
 - [MEMOIRE_APPRENTISSAGE.md](MEMOIRE_APPRENTISSAGE.md) — mémoire épisodique/sémantique, vector search, STDP, calibration et limites du système.
 - [NEUROBIOLOGIE_PLASTICITE.md](NEUROBIOLOGIE_PLASTICITE.md) — plasticité synaptique, dendrites, réduction de la dissonance, budgets cognitifs.
 - [SWARM_INTELLIGENCE.md](SWARM_INTELLIGENCE.md) — phéromones, consensus, quorum, stigmergie, optimisation distribuée et comparaison avec les systèmes de nuée.
+- [FOSSILISATION.md](FOSSILISATION.md) — archive stratigraphique terminale et irréversible des lignées éteintes : taphonomie, minéralisation par hash, strates, mélanosomes et excavation en lecture seule.
 
 ### 3. Orchestration, primitives et workspaces
 
@@ -195,6 +197,8 @@ stateDiagram-v2
 
 - [adr/0001-agent-dna-binary-format.md](adr/0001-agent-dna-binary-format.md) — décision d’un format héréditaire binaire `AgentDNA` (2 bits + MessagePack), sans JSON, pour l’injection, la naissance, le croisement, la mutation, le clonage et les leurres. Spécification normative : [../spec/AGENT_DNA_SPEC.md](../spec/AGENT_DNA_SPEC.md).
 - [adr/0002-agentdna-innovation-loop.md](adr/0002-agentdna-innovation-loop.md) — boucle d’innovation : détection d’un concept acquis → génome candidat (`speciate`) → promotion sous gate de preuve.
+- [adr/0003-fossilization-stratigraphic-archive.md](adr/0003-fossilization-stratigraphic-archive.md) — fossilisation stratigraphique : archive terminale et irréversible des lignées, pipeline de taphonomie, tables `fossils`/`fossil_strata`, excavation en lecture seule et distinction avec les mécanismes réversibles.
+- [adr/0004-instinct-innate-circuits.md](adr/0004-instinct-innate-circuits.md) — instinct : circuits innés pré-câblés, Patrons d'Action Fixes, hérédité génomique verrouillée et modulation hormonale, sans contournement des gates de preuve.
 
 ### 8. Génome agentique binaire (AgentDNA)
 
