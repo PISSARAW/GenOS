@@ -3,8 +3,8 @@ const { spawn } = require('child_process');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const contracts = require('../src/services/strategyContractService');
 const workerGarage = require('../src/services/workerGarageService');
-const aTeamCoordination = require('../src/services/aTeamCoordinationService');
 const aTeamService = require('../src/services/aTeamService');
+const aTeamDispatch = require('../src/services/aTeamDispatchService');
 const trinityService = require('../src/services/trinityService');
 const trinityComparativeBarrier = require('../src/services/trinityComparativeBarrier');
 const biologicalTopology = require('../src/services/biologicalTopologyService');
@@ -223,14 +223,8 @@ async function handleBiological({ db, context }) {
 
 async function handleTeam({ db, context }) {
   const parent = await ensureParent({ db, context });
-  const garage = await workerGarage.state(db, context.orchestratorId);
-  const raw = context.request.sub_systems || context.request.subsystems || context.request.domains;
-  const subSystems = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(',').map((s) => s.trim()).filter(Boolean) : [];
-  const projectGoal = context.request.project_goal || context.request.projectGoal || context.request.goal || context.request.mission || context.task;
-  const team = aTeamCoordination.composeTeam({ projectGoal, subSystems, assignedRoles: context.request.assigned_roles || context.request.assignedRoles, modelTiers: context.request.model_tiers || context.request.modelTiers, available: garage.available });
-  const members = aTeamService.orderByStage(team.members);
-  const accepted = members.map((member, index) => launchWorker({ context, member, index: index + 1, parent }));
-  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, aTeam: { status: 'accepted', projectGoal, capacity: workerGarage.MAX_ACTIVE_WORKERS, organization: team.organization, capabilityContract: team.capabilityContract, capabilityAudit: team.capabilityAudit, stages: aTeamService.planStages(team.members).stages, handoffs: team.handoffs.length, members: accepted } }));
+  const result = await aTeamDispatch.dispatchTeam({ db, context, parent, launchWorker });
+  process.stdout.write(JSON.stringify(result));
 }
 
 async function handleTrinity({ db, context }) {
@@ -350,9 +344,11 @@ async function handleTrinityMerge({ db, context }) {
     decision: { canMerge: result.canMerge, threshold }
   });
 
+  const promotion = await trinityComparativeBarrier.promoteWinner(db, { missionId, orchestratorId, result });
   process.stdout.write(JSON.stringify({
     orchestratorId,
-    trinityMerge: result
+    trinityMerge: result,
+    promotion
   }));
 }
 
