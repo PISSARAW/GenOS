@@ -4,6 +4,7 @@ const runtime = require('../src/services/agentRuntimeAdapter');
 const contracts = require('../src/services/strategyContractService');
 const workerGarage = require('../src/services/workerGarageService');
 const aTeamCoordination = require('../src/services/aTeamCoordinationService');
+const aTeamService = require('../src/services/aTeamService');
 const trinityService = require('../src/services/trinityService');
 const trinityComparativeBarrier = require('../src/services/trinityComparativeBarrier');
 const biologicalTopology = require('../src/services/biologicalTopologyService');
@@ -185,6 +186,8 @@ function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
     action: 'dispatch_worker', background: false, orchestratorId: context.orchestratorId, workerId,
     mission: member.mission, role: member.role, model_tier: member.modelTier,
     ...(member.name ? { name: member.name } : {}),
+    ...(Array.isArray(member.dependsOn) && member.dependsOn.length ? { depends_on: member.dependsOn } : {}),
+    ...(member.pipelineStage ? { pipeline_stage: member.pipelineStage } : {}),
     execution_budget: context.request.execution_budget || context.request.executionBudget,
     timeoutMs: context.request.timeoutMs,
     workspace_root: context.request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
@@ -220,9 +223,9 @@ async function handleTeam({ db, context }) {
   const subSystems = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(',').map((s) => s.trim()).filter(Boolean) : [];
   const projectGoal = context.request.project_goal || context.request.projectGoal || context.request.goal || context.request.mission || context.task;
   const team = aTeamCoordination.composeTeam({ projectGoal, subSystems, assignedRoles: context.request.assigned_roles || context.request.assignedRoles, modelTiers: context.request.model_tiers || context.request.modelTiers, available: garage.available });
-  const members = team.members;
+  const members = aTeamService.orderByStage(team.members);
   const accepted = members.map((member, index) => launchWorker({ context, member, index: index + 1, parent }));
-  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, aTeam: { status: 'accepted', projectGoal, capacity: workerGarage.MAX_ACTIVE_WORKERS, organization: team.organization, capabilityContract: team.capabilityContract, capabilityAudit: team.capabilityAudit, handoffs: team.handoffs.length, members: accepted } }));
+  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, aTeam: { status: 'accepted', projectGoal, capacity: workerGarage.MAX_ACTIVE_WORKERS, organization: team.organization, capabilityContract: team.capabilityContract, capabilityAudit: team.capabilityAudit, stages: aTeamService.planStages(team.members).stages, handoffs: team.handoffs.length, members: accepted } }));
 }
 
 async function handleTrinity({ db, context }) {
@@ -300,7 +303,8 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
   if (context.request.timeoutMs && !missionBudget.latencyMs) {
     missionBudget.latencyMs = Math.max(1000, Number(context.request.timeoutMs) - 4000);
   }
-  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: context.task, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false, timeoutMs: context.request.timeoutMs });
+  const workerPrompt = aTeamService.dependencyPrompt(context.task, context.request.depends_on);
+  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerPrompt, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false, timeoutMs: context.request.timeoutMs });
 }
 
 function workerPolicy(request = {}) {

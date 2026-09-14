@@ -251,6 +251,32 @@ function compose(options = {}) {
   return members.map((member, index) => buildAssignment(composition, member, index, producers));
 }
 
+function memberLabel(member) {
+  return member.label || member.subSystem || member.role || null;
+}
+
+// Groups members into pipeline stages so a consumer stage (for example the
+// integration observer) is ordered after every producing stage it depends on.
+function planStages(members) {
+  const list = Array.isArray(members) ? members.filter(Boolean) : [];
+  const maxStage = list.reduce((max, member) => Math.max(max, Number(member.pipelineStage) || 0), 0);
+  const stages = [];
+  for (let stage = 0; stage <= maxStage; stage += 1) {
+    stages.push(list.filter((member) => (Number(member.pipelineStage) || 0) === stage).map(memberLabel).filter(Boolean));
+  }
+  return { stages, order: stages.flat() };
+}
+
+function orderByStage(members) {
+  return [...(Array.isArray(members) ? members : [])].sort((left, right) => (Number(left.pipelineStage) || 0) - (Number(right.pipelineStage) || 0));
+}
+
+function dependencyPrompt(prompt, dependsOn) {
+  const dependencies = [...new Set((Array.isArray(dependsOn) ? dependsOn : []).map((value) => String(value || '').trim()).filter(Boolean))];
+  if (!dependencies.length) return prompt;
+  return `${prompt}\nUpstream domains to consume before finalizing: ${dependencies.join(', ')}.`;
+}
+
 module.exports = {
   get MAX_MEMBERS() {
     return maxMembers();
@@ -259,5 +285,8 @@ module.exports = {
   analyzeMission,
   compose,
   detectTechnicalDomains,
-  isObserverRole
+  isObserverRole,
+  planStages,
+  orderByStage,
+  dependencyPrompt
 };
