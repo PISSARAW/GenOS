@@ -232,10 +232,22 @@ Toute opération lit/écrit des `AgentDNA` et journalise sa provenance. Sortie =
 | `birth` | ADN | `Genome::derive_child` / `derive_reproductive_child` | engendre un nouvel agent (zygote → différenciation) |
 | `cross` | ADN A + ADN B | `MeioticCrossover::{single_point_crossover, uniform_crossover_with_seed, crossover_with_speciation}` | recombinaison, barrière de spéciation |
 | `mutate` | ADN + taux/type | `DnaStrand::mutate_point/mutate_stochastic`, `Genome::{mutate_stochastic,hypermutate}`, `crispr_cas9_knockout`, `pseudogenize`, `duplicate_gene` | mutation ponctuelle/stochastique/CRISPR |
-| `clone` | ADN | `CellDivision::{mitosis_attested,binary_fission}` | clone isogénique attesté |
+| `clone` | ADN | `CellDivision::{mitosis_attested,binary_fission,budding_with_limit_and_mutation}` | clone isogénique ou bourgeonnement |
+| `graft` | ADN + gène/plasmide | `Genome::insert_gene`, `Plasmid::new` | acquiert un concept (gène localisé ou plasmide HGT) |
+| `speciate` | ADN parent + concepts | `Genome::derive_child` + greffe | dérive un nouveau génome (radiation adaptative) |
 | `decoy` | ADN + sélecteur | nouveau | génère un leurre (§10.6) |
 | `express` | ADN + contexte | §9 | produit `PHEN` sans écrire le génome |
 | `validate` | ADN | `Genome::validate` + contrôle de conteneur | accepte/rejette |
+
+### Spéciation et greffe (`speciate`, `graft`)
+
+- `graft` ajoute un concept acquis à un génome existant : soit un gène `LOCUS` (néo-fonctionnalisation), soit un plasmide (transfert horizontal, sans locus fixe). La mutation est tracée dans `PROV.mutations`.
+- `speciate` dérive un **nouveau** génome (`genome_id` neuf, `generation+1`, `parents=[parent]`) et y distille un ou plusieurs concepts ; `PROV.selection` porte le concept déclencheur.
+- **Candidat d'innovation** : un génome `speciate` peut être enregistré avec `status = 'candidate'` ; il est exclu de la sélection automatique tant qu'il n'est pas promu (`status = 'active'`). Voir [ADR 0002](../docs/adr/0002-agentdna-innovation-loop.md).
+
+### Vérification de signature côté runtime
+
+Le runtime Node vérifie `SIGN` (Ed25519) sur le flux canonique des sections et expose `signed`, `signer` et `signatureValid`. Une politique par tenant (`genome_policies.require_signed`) peut exiger une signature valide pour qu'un génome soit sélectionné.
 
 ### Leurres (`decoy`)
 

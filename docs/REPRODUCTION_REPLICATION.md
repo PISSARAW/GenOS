@@ -761,3 +761,9 @@ flowchart LR
     A2 -->|"Procréation par délégation"| Child["Descendant (Génération g+1 avec ADN de A)"]
 ```
 
+## Voir aussi (AgentDNA)
+
+- [AGENT_DNA_RUNTIME.md](AGENT_DNA_RUNTIME.md) — opérations `graft` (néo-fonctionnalisation), `speciate` (radiation adaptative), `cross`, `clone` et provenance de reproduction sur le format binaire AgentDNA.
+- [adr/0002-agentdna-innovation-loop.md](adr/0002-agentdna-innovation-loop.md) — comment un concept acquis devient un génome candidat.
+
+

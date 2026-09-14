@@ -194,6 +194,11 @@ stateDiagram-v2
 ### 7. Décisions d’architecture (ADR)
 
 - [adr/0001-agent-dna-binary-format.md](adr/0001-agent-dna-binary-format.md) — décision d’un format héréditaire binaire `AgentDNA` (2 bits + MessagePack), sans JSON, pour l’injection, la naissance, le croisement, la mutation, le clonage et les leurres. Spécification normative : [../spec/AGENT_DNA_SPEC.md](../spec/AGENT_DNA_SPEC.md).
+- [adr/0002-agentdna-innovation-loop.md](adr/0002-agentdna-innovation-loop.md) — boucle d’innovation : détection d’un concept acquis → génome candidat (`speciate`) → promotion sous gate de preuve.
+
+### 8. Génome agentique binaire (AgentDNA)
+
+- [AGENT_DNA_RUNTIME.md](AGENT_DNA_RUNTIME.md) — format héréditaire binaire, phénotype exprimé, opérations (`cross/mutate/clone/decoy/graft/speciate`), pont runtime, signature Ed25519, politique par tenant et boucle d’innovation.
 
 
 ## Chemins de lecture recommandés

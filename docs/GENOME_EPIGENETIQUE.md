@@ -865,6 +865,12 @@ flowchart LR
     Pluripotent -->|"Différenciation Ciblée"| NewRole
 ```
 
+## Voir aussi (AgentDNA)
+
+- [AGENT_DNA_RUNTIME.md](AGENT_DNA_RUNTIME.md) — implémentation binaire du génome, de la chromatine (`chromatin_state`, `is_methylated`), des enhancers et des plasmides ; opérations `graft`/`speciate`.
+- [spec/AGENT_DNA_SPEC.md](../spec/AGENT_DNA_SPEC.md) — spécification normative des sections `GENE`/`ENHA`/`PLAS`.
+
+
 
 
 
