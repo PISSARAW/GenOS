@@ -11,13 +11,61 @@ const trinityService = require('./trinityService');
 const { workerEvidenceDossiers } = require('./agentEvidenceService');
 const { emit } = require('./agentOrchestrationState');
 
+function reportOf(event) {
+  if (!event) return null;
+  if (event.evidenceReport) return event.evidenceReport;
+  const payload = event.payload || {};
+  return payload.evidenceReport || payload.report || null;
+}
+
 function latestReport(dossier) {
   const events = Array.isArray(dossier?.events) ? dossier.events : [];
   for (let index = events.length - 1; index >= 0; index -= 1) {
-    if (events[index] && events[index].evidenceReport) return events[index].evidenceReport;
+    const report = reportOf(events[index]);
+    if (report) return report;
   }
   const failure = [...events].reverse().find((event) => event && event.failure);
   return failure ? { outcome: 'failed', failure: failure.failure } : null;
+}
+
+function escapeLike(value) {
+  return String(value).replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+// Direct path (dispatch_trinity / merge_trinity): the worker evidence lives in
+// the durable telemetry stream, not in the orchestrator's in-memory rounds.
+async function buildWorldReportsFromMission(db, missionId) {
+  const worlds = await db.all(
+    `SELECT w.world_number, w.strategy, w.agent_id, w.status FROM trinity_worlds w
+     WHERE w.id LIKE ? ESCAPE '\\' OR w.agent_id IN (SELECT id FROM agents WHERE fleet_id = ?)
+     ORDER BY w.world_number`,
+    `${escapeLike(missionId)}%`, missionId
+  );
+  const reports = [];
+  for (const world of worlds) {
+    const rows = await db.all(
+      `SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type IN ('EVIDENCE_REPORT','AGENT_COMPLETED') ORDER BY created_at`,
+      world.agent_id
+    );
+    const events = rows.map((row) => {
+      let payload = {};
+      try { payload = JSON.parse(row.payload_json || '{}'); } catch (_) {}
+      return { payload };
+    });
+    const report = latestReport({ events });
+    const normalized = report || {};
+    reports.push({
+      worldNumber: world.world_number,
+      role: world.strategy,
+      agentId: world.agent_id,
+      outcome: normalized.outcome || 'no_evidence',
+      claims: Array.isArray(normalized.claims) ? normalized.claims : [],
+      tests: Array.isArray(normalized.tests) ? normalized.tests : [],
+      uncertainties: Array.isArray(normalized.uncertainties) ? normalized.uncertainties : [],
+      report: report || undefined
+    });
+  }
+  return reports;
 }
 
 function buildWorldReports(workers, dossiers, options = {}) {
@@ -66,4 +114,4 @@ async function applyTrinityComparison(ctx) {
   return result;
 }
 
-module.exports = { applyTrinityComparison, buildWorldReports, latestReport };
+module.exports = { applyTrinityComparison, buildWorldReports, buildWorldReportsFromMission, latestReport };
