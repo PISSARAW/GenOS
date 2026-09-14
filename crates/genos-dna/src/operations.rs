@@ -1,10 +1,10 @@
-use genos_genome::Genome;
+use genos_genome::{Gene, Genome, Plasmid};
 use genos_reproduction::{CellDivision, MeioticCrossover, PhylogeneticTree};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 
 use crate::express;
-use crate::model::{AgentDna, Crossover, Decoy, Mutation, Provenance};
+use crate::model::{AgentDna, Crossover, Decoy, Mutation, Provenance, Selection};
 
 #[derive(Clone, Debug)]
 pub struct CrossOptions {
@@ -35,6 +35,23 @@ pub struct DecoyOptions {
     pub target_selector: String,
     pub detectability: f64,
     pub marker: Vec<u8>,
+}
+
+/// A single acquired trait: either a heritable gene at a locus, or a plasmid
+/// (horizontal gene transfer) carrying an instruction without a fixed locus.
+#[derive(Clone, Debug)]
+pub struct GraftSpec {
+    pub locus: String,
+    pub instruction: String,
+    pub plasmid: bool,
+}
+
+/// Distill acquired concepts into a new derived genome (adaptive radiation).
+#[derive(Clone, Debug)]
+pub struct SpeciateOptions {
+    pub name: String,
+    pub concept: Option<String>,
+    pub grafts: Vec<GraftSpec>,
 }
 
 pub fn cross(parent_a: &AgentDna, parent_b: &AgentDna, options: &CrossOptions) -> Result<AgentDna, String> {
@@ -125,6 +142,85 @@ pub fn decoy(dna: &AgentDna, options: &DecoyOptions) -> Result<AgentDna, String>
         detectability: options.detectability.clamp(0.0, 1.0),
     });
     Ok(output)
+}
+
+/// Adds an acquired concept to an existing genome (gene or plasmid).
+pub fn graft(dna: &AgentDna, spec: &GraftSpec) -> Result<AgentDna, String> {
+    let mut genome = dna.to_genome()?;
+    apply_graft(&mut genome, spec)?;
+    let mut provenance = dna.provenance.clone();
+    provenance.parents = vec![dna.meta.genome_id];
+    provenance.mutations.push(graft_mutation(spec, "graft"));
+    Ok(rebuild(&genome, &dna.meta.name, provenance))
+}
+
+/// Derives a new genome from a parent and distills acquired concepts into it.
+pub fn speciate(dna: &AgentDna, options: &SpeciateOptions) -> Result<AgentDna, String> {
+    if options.name.trim().is_empty() {
+        return Err("speciation requires a non-empty genome name".to_string());
+    }
+    if options.grafts.is_empty() {
+        return Err("speciation requires at least one grafted concept".to_string());
+    }
+    let base = dna.to_genome()?;
+    let mut child = base.derive_child();
+    for spec in &options.grafts {
+        apply_graft(&mut child, spec)?;
+    }
+    let mut provenance = Provenance {
+        source_manifest: dna.provenance.source_manifest.clone(),
+        source_doc: dna.provenance.source_doc.clone(),
+        parents: vec![dna.meta.genome_id],
+        selection: options.concept.clone().map(|concept| Selection { fitness: 1.0, status: concept }),
+        ..Provenance::default()
+    };
+    for spec in &options.grafts {
+        provenance.mutations.push(graft_mutation(spec, "speciation"));
+    }
+    Ok(rebuild(&child, &options.name, provenance))
+}
+
+fn apply_graft(genome: &mut Genome, spec: &GraftSpec) -> Result<(), String> {
+    if spec.plasmid {
+        genome.plasmids.push(Plasmid::new(&spec.instruction));
+        return Ok(());
+    }
+    if spec.instruction.trim().is_empty() {
+        return Err("graft requires a non-empty instruction".to_string());
+    }
+    let locus = normalize_locus(&spec.locus)?;
+    genome.insert_gene(Gene::new(&locus, &spec.instruction));
+    Ok(())
+}
+
+fn graft_mutation(spec: &GraftSpec, kind: &str) -> Mutation {
+    Mutation {
+        gene: Some(spec.locus.clone()),
+        kind: if spec.plasmid { format!("{kind}:plasmid") } else { kind.to_string() },
+        from: String::new(),
+        to: spec.instruction.clone(),
+    }
+}
+
+fn normalize_locus(locus: &str) -> Result<String, String> {
+    let mut out = String::with_capacity(locus.len());
+    for character in locus.chars() {
+        if character.is_ascii_alphanumeric() {
+            out.push(character.to_ascii_uppercase());
+        } else if matches!(character, '_' | '-' | ' ' | '.' | '/' | ':') {
+            out.push('_');
+        }
+    }
+    while out.ends_with('_') {
+        out.pop();
+    }
+    if out.len() > 64 {
+        out.truncate(64);
+    }
+    if out.is_empty() {
+        return Err(format!("cannot derive a gene locus from '{locus}'"));
+    }
+    Ok(out)
 }
 
 fn crossover_strategy(options: &CrossOptions) -> String {

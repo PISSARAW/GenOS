@@ -1,6 +1,6 @@
 use genos_genome::DnaStrand;
 
-use crate::operations::{self, CloneOptions, CrossOptions, DecoyOptions, MutateOptions};
+use crate::operations::{self, CloneOptions, CrossOptions, DecoyOptions, GraftSpec, MutateOptions, SpeciateOptions};
 use crate::{codec, compile, manifest::Manifest, packing, validate};
 
 fn sample_manifest() -> Manifest {
@@ -114,4 +114,44 @@ fn signed_genome_verifies_and_tampering_fails() {
     let last = tampered.len() - 1;
     tampered[last] ^= 0xFF;
     assert!(validate::validate_bytes(&tampered).is_err());
+}
+
+#[test]
+fn graft_adds_gene_and_plasmid() {
+    let dna = compile::compile_manifest(&sample_manifest()).expect("compile");
+    let grafted = operations::graft(&dna, &GraftSpec {
+        locus: "cap_spatial_reasoning".to_string(),
+        instruction: "raisonnement spatial".to_string(),
+        plasmid: false,
+    }).expect("graft gene");
+    assert!(grafted.genes.contains_key("CAP_SPATIAL_REASONING"));
+    assert_eq!(grafted.provenance.mutations.len(), 1);
+
+    let with_plasmid = operations::graft(&grafted, &GraftSpec {
+        locus: "donor_x".to_string(),
+        instruction: "repair pathway".to_string(),
+        plasmid: true,
+    }).expect("graft plasmid");
+    assert_eq!(with_plasmid.plasmids.len(), 1);
+}
+
+#[test]
+fn speciate_derives_new_genome_with_concepts() {
+    let dna = compile::compile_manifest(&sample_manifest()).expect("compile");
+    let options = SpeciateOptions {
+        name: "SpatialReasoner".to_string(),
+        concept: Some("foraging-charnov".to_string()),
+        grafts: vec![GraftSpec {
+            locus: "CAP_foraging".to_string(),
+            instruction: "optimal foraging".to_string(),
+            plasmid: false,
+        }],
+    };
+    let child = operations::speciate(&dna, &options).expect("speciate");
+    assert_eq!(child.meta.name, "SpatialReasoner");
+    assert_ne!(child.meta.genome_id, dna.meta.genome_id);
+    assert_eq!(child.meta.generation, dna.meta.generation + 1);
+    assert_eq!(child.provenance.parents, vec![dna.meta.genome_id]);
+    assert!(child.genes.contains_key("CAP_FORAGING"));
+    assert!(child.provenance.selection.is_some());
 }

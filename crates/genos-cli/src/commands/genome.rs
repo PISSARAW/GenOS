@@ -48,6 +48,18 @@ pub fn execute(cmd: GenomeSubcommands) -> Result<(), String> {
                 write: WriteOptions { force, parents },
             })
         }
+        GenomeSubcommands::Graft { input, output, locus, instruction, plasmid, force, parents } => {
+            genome_ops::handle_graft(genome_ops::GraftRequest {
+                input: &input, output: &output, locus, instruction, plasmid,
+                write: WriteOptions { force, parents },
+            })
+        }
+        GenomeSubcommands::Speciate { input, output, name, concept, grafts, force, parents } => {
+            genome_ops::handle_speciate(genome_ops::SpeciateRequest {
+                input: &input, output: &output, name, concept, grafts,
+                write: WriteOptions { force, parents },
+            })
+        }
     }
 }
 
