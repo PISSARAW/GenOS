@@ -772,3 +772,16 @@ stateDiagram-v2
     
     DeploiementSucces --> [*]
 ```
+
+
+---
+
+## Implementation & capacites (GenOS v3)
+
+Depuis la v3, cette topologie est cablee au runtime : voir
+[TOPOLOGIES_CAPACITES.md](TOPOLOGIES_CAPACITES.md).
+
+- Service de coordination : `aTeamCoordinationService.js`.
+- Capacites requises : SIGNALING_BUS, LIGAND_RECEPTOR, ARENA_COMPETITION, EVIDENCE_BARRIER.
+- Contrat expose par `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
+

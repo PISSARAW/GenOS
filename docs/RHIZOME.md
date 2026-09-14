@@ -790,3 +790,16 @@ stateDiagram-v2
     Interconnecte --> SectionNet : Coupure d'urgence (Sécurité)
     SectionNet --> [*]
 ```
+
+
+---
+
+## Implementation & capacites (GenOS v3)
+
+Depuis la v3, cette topologie est cablee au runtime : voir
+[TOPOLOGIES_CAPACITES.md](TOPOLOGIES_CAPACITES.md).
+
+- Service de coordination : `rhizomeCoordinationService.js`.
+- Capacites requises : LIGAND_RECEPTOR, STIGMERGY, STRATEGY_ADAPTATION.
+- Contrat expose par `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
+

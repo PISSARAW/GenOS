@@ -784,3 +784,16 @@ stateDiagram-v2
     
     EssaimageMigration --> [*]
 ```
+
+
+---
+
+## Implementation & capacites (GenOS v3)
+
+Depuis la v3, cette topologie est cablee au runtime : voir
+[TOPOLOGIES_CAPACITES.md](TOPOLOGIES_CAPACITES.md).
+
+- Service de coordination : `metapopulationCoordinationService.js`.
+- Capacites requises : QUORUM, SYNAPTIC_PLASTICITY, RESILIENCE_RECOVERY.
+- Contrat expose par `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
+

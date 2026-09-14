@@ -1055,3 +1055,16 @@ stateDiagram-v2
     SymbioseMutualiste --> SommeilSymbiotique : Inactivité prolongée
     SommeilSymbiotique --> SymbioseMutualiste : Réveil par afflux de tâches
 ```
+
+
+---
+
+## Implementation & capacites (GenOS v3)
+
+Depuis la v3, cette topologie est cablee au runtime : voir
+[TOPOLOGIES_CAPACITES.md](TOPOLOGIES_CAPACITES.md).
+
+- Service de coordination : `holobionteCoordinationService.js`.
+- Capacites requises : IMMUNE_SYSTEM, LOCAL_INFERENCE, GRAPH_MEMORY, GENOME_EPIGENETICS.
+- Contrat expose par `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
+
