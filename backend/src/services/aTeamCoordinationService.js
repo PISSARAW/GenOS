@@ -9,10 +9,31 @@
  */
 const aTeamService = require('./aTeamService');
 const topologyCapabilityService = require('./topologyCapabilityService');
+const toolLeasePolicy = require('./toolLeasePolicy');
 const signalingBus = require('./biomimeticSignalingBus');
 const arenaTaskEvaluation = require('./arenaTaskEvaluation');
 
 const DEFAULT_ORGANIZATION = 'specialist_expert_committee';
+
+// A capability is only real at runtime if at least one well-known tool realises
+// it. Anything the contract declares but no tool can serve is an enforcement
+// failure, not a decorative label.
+function toolBackedCapabilities() {
+  const map = toolLeasePolicy.CAPABILITY_TOOLS || {};
+  return Object.entries(map)
+    .filter(([, tools]) => Array.isArray(tools) && tools.length > 0)
+    .map(([capability]) => capability);
+}
+
+function auditCapabilities(contract, available) {
+  const provided = Array.isArray(available) ? available : toolBackedCapabilities();
+  const audit = topologyCapabilityService.auditTopology({
+    mode: contract.mode,
+    organization: contract.organization,
+    available: provided
+  });
+  return { required: audit.contract.required, provided, missing: audit.missing };
+}
 
 function handoffLigand(from, to) {
   return `handoff:${from}->${to}`;
@@ -66,10 +87,19 @@ function evaluateHandoff(handoff, receptor) {
 function composeTeam(options = {}) {
   const members = aTeamService.compose(options);
   const organization = options.organization || DEFAULT_ORGANIZATION;
+  const capabilityContract = topologyCapabilityService.contractFor({ mode: 'a_team', organization });
+  const capabilityAudit = auditCapabilities(capabilityContract, options.availableCapabilities);
+  if (options.enforceCapabilities !== false && capabilityAudit.missing.length) {
+    throw Object.assign(
+      new Error(`A-Team contract requires capabilities no tool can serve: ${capabilityAudit.missing.join(', ')}.`),
+      { code: 'A_TEAM_CAPABILITY_MISSING', missing: capabilityAudit.missing }
+    );
+  }
   return {
     members,
     organization,
-    capabilityContract: topologyCapabilityService.contractFor({ mode: 'a_team', organization }),
+    capabilityContract,
+    capabilityAudit,
     handoffs: buildHandoffs(members)
   };
 }
@@ -78,4 +108,4 @@ function arbitrateIntegration(dossiers, options = {}) {
   return arenaTaskEvaluation.evaluateDossiersPareto(dossiers, options);
 }
 
-module.exports = { composeTeam, buildHandoffs, buildHandoff, handoffLigand, handoffReceptor, evaluateHandoff, arbitrateIntegration };
+module.exports = { composeTeam, buildHandoffs, buildHandoff, handoffLigand, handoffReceptor, evaluateHandoff, arbitrateIntegration, toolBackedCapabilities, auditCapabilities };
