@@ -10,10 +10,12 @@
 use crate::BiomimeticOrchestrator;
 use crate::immune_cyber::CyberImmune;
 use crate::neuro::NeuroLab;
+use crate::plasmids::PlasmidBank;
 use crate::recruitment::RecruitmentPlanner;
 use crate::sensory::SensorySuite;
 use crate::signaling::SignalingCascade;
 use crate::snapshots::SnapshotVault;
+use crate::trace::TraceStore;
 use crate::virology::VirologyLab;
 use genos_biology::pathology::{assess_agent_clinical_status, ClinicalStatusReport};
 use genos_biology::phenotype::{create_default_registry, PhenotypeRegistry};
@@ -97,6 +99,10 @@ pub struct GenosEcosystem {
     pub snapshots: SnapshotVault,
     /// Politique de recrutement (décision autonome).
     pub recruiter: RecruitmentPlanner,
+    /// Traces d'actions par agent (replay / diagnostic).
+    pub traces: TraceStore,
+    /// Banque de plasmides (compétences transférables).
+    pub plasmids: PlasmidBank,
 }
 
 impl GenosEcosystem {
@@ -138,6 +144,8 @@ impl GenosEcosystem {
             senses: SensorySuite::new(),
             snapshots: SnapshotVault::new(),
             recruiter: RecruitmentPlanner::default(),
+            traces: TraceStore::default(),
+            plasmids: PlasmidBank::new(),
         }
     }
 
