@@ -40,6 +40,7 @@ pub struct MissionReport {
     pub agents_before: usize,
     pub agents_after: usize,
     pub traces: usize,
+    pub goals: Vec<String>,
 }
 
 impl GenosEcosystem {
@@ -108,6 +109,7 @@ impl GenosEcosystem {
             agents_before,
             agents_after: self.orchestrator.active_cells.len(),
             traces: self.traces.known(),
+            goals: vec![format!("{goal:?}")],
         }
     }
 

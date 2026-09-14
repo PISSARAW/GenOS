@@ -207,6 +207,8 @@ pub fn select_organization(state: &WorldState, goal: &Goal) -> &'static Organiza
         Goal::RepairModule => org("hierarchical_merge"),
         Goal::RecoverAgent => org("memory_compilation"),
         Goal::SecurePerimeter => org("specialist_expert_committee"),
+        Goal::Explore => org("stigmergy"),
+        Goal::Conserve => org("energy_huddle"),
     }
 }
 

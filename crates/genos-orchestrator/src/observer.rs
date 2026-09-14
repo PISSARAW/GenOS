@@ -75,6 +75,7 @@ impl GenosEcosystem {
             threat: (active_virions as f64 * 0.4).min(1.0),
             diseased,
             uncertain: self.events.count() == 0,
+            observed: self.events.count() > 0,
             budget,
             adversary: active_virions >= 2,
             has_traces: self.traces.known() > 0,
