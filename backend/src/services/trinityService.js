@@ -116,6 +116,45 @@ const DOMAIN_WEIGHTS = {
   software_engineering: { alpha: 0.35, beta: 0.40, gamma: 0.25 }
 };
 
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function textItems(value) {
+  return Array.isArray(value)
+    ? value.filter((item) => (typeof item === 'string' ? item.trim().length > 0 : Boolean(item)))
+    : [];
+}
+
+// Proof quality is not uniform: a cryptographic receipt proves execution, a
+// source reference proves provenance, a bare evidence string is the weakest.
+function evidenceWeightOf(claim) {
+  if (!claim || typeof claim !== 'object') return 0;
+  return textItems(claim.evidence).length
+    + textItems(claim.receipts).length * 2
+    + textItems(claim.sourceRefs).length * 1.5;
+}
+
+// Placeholder claims such as empty markdown checklists carry no verifiable
+// content and must not count as robust evidence.
+function isSubstantiveClaim(claim) {
+  const text = String(claim && claim.statement || '')
+    .replace(/\[\s*\]/g, '')
+    .replace(/[#>*_`\-\s]/g, '');
+  return text.length >= 20;
+}
+
+function hasExplicitCoverage(report) {
+  return typeof report.coverage === 'number'
+    || (report.creativeEvaluation && typeof report.creativeEvaluation.constraintCoverage === 'number')
+    || (Array.isArray(report.tests) && report.tests.length > 0);
+}
+
+function passedTests(report) {
+  const tests = Array.isArray(report.tests) ? report.tests : [];
+  return tests.filter((t) => (typeof t === 'string' ? !/fail|error/i.test(t) : !(t && (t.failed || t.error)))).length;
+}
+
 function scoreWorldEvidence(report, domain = 'software_engineering') {
   const weights = DOMAIN_WEIGHTS[domain] || DOMAIN_WEIGHTS.software_engineering;
   if (!report || typeof report !== 'object') {
@@ -124,6 +163,10 @@ function scoreWorldEvidence(report, domain = 'software_engineering') {
       claimsScore: 0,
       testsCoverage: 0,
       robustnessScore: 0,
+      provenClaims: 0,
+      substantiveClaims: 0,
+      evidenceWeight: 0,
+      hasDeliverable: false,
       domain,
       weights
     };
@@ -131,39 +174,44 @@ function scoreWorldEvidence(report, domain = 'software_engineering') {
 
   const claims = Array.isArray(report.claims) ? report.claims : [];
   let provenClaims = 0;
+  let substantiveClaims = 0;
+  let evidenceWeight = 0;
   for (const c of claims) {
-    const hasEv = c && (
-      (Array.isArray(c.evidence) && c.evidence.length > 0) ||
-      (Array.isArray(c.receipts) && c.receipts.length > 0) ||
-      (Array.isArray(c.sourceRefs) && c.sourceRefs.length > 0)
-    );
-    if (hasEv) provenClaims++;
+    const weight = evidenceWeightOf(c);
+    if (weight > 0) provenClaims++;
+    evidenceWeight += clamp01(weight / 3);
+    if (isSubstantiveClaim(c)) substantiveClaims++;
   }
-  const claimsScore = claims.length > 0 ? (provenClaims / claims.length) : (report.outcome === 'success' ? 0.7 : 0);
+
+  const hasArtifact = typeof report.artifactText === 'string' && report.artifactText.trim().length > 0;
+  // An empty dossier is not partially proven just because it reported success.
+  const claimsScore = claims.length > 0 ? (provenClaims / claims.length) : (hasArtifact ? 0.3 : 0);
 
   let testsCoverage = 0;
   if (typeof report.coverage === 'number') {
-    testsCoverage = Math.max(0, Math.min(1, report.coverage));
+    testsCoverage = clamp01(report.coverage);
   } else if (report.creativeEvaluation && typeof report.creativeEvaluation.constraintCoverage === 'number') {
-    testsCoverage = Math.max(0, Math.min(1, report.creativeEvaluation.constraintCoverage));
+    testsCoverage = clamp01(report.creativeEvaluation.constraintCoverage);
   } else if (Array.isArray(report.tests) && report.tests.length > 0) {
-    const passed = report.tests.filter((t) => {
-      if (typeof t === 'string') return !t.toLowerCase().includes('fail') && !t.toLowerCase().includes('error');
-      return t && !t.failed && !t.error;
-    }).length;
-    testsCoverage = passed / report.tests.length;
-  } else if (report.outcome === 'success') {
-    testsCoverage = 0.8;
+    testsCoverage = passedTests(report) / report.tests.length;
   }
 
   const uncertainties = Array.isArray(report.uncertainties) ? report.uncertainties.length : 0;
   const unverified = Array.isArray(report.unverifiedClaims) ? report.unverifiedClaims.length : 0;
-  const hasFailure = report.failure || report.outcome === 'failed';
+  const hasFailure = Boolean(report.failure) || report.outcome === 'failed';
+  const hasDeliverable = hasArtifact || hasExplicitCoverage(report);
   let robustnessScore = 1.0;
   if (hasFailure) robustnessScore -= 0.6;
   robustnessScore -= (uncertainties * 0.1);
   robustnessScore -= (unverified * 0.15);
-  robustnessScore = Math.max(0, Math.min(1, robustnessScore));
+  // Claims that are asserted but not proven, or that are just placeholders,
+  // must reduce robustness instead of being rewarded as a clean success.
+  if (claims.length > 0 && provenClaims === 0) robustnessScore -= 0.3;
+  robustnessScore -= Math.min(0.3, (claims.length - substantiveClaims) * 0.1);
+  if (!hasDeliverable) robustnessScore -= 0.1;
+  const evidenceDensity = claims.length > 0 ? clamp01(evidenceWeight / claims.length) : 0;
+  robustnessScore -= (1 - evidenceDensity) * 0.15;
+  robustnessScore = clamp01(robustnessScore);
 
   const totalScore = Number((weights.alpha * claimsScore + weights.beta * testsCoverage + weights.gamma * robustnessScore).toFixed(4));
 
@@ -172,6 +220,10 @@ function scoreWorldEvidence(report, domain = 'software_engineering') {
     claimsScore: Number(claimsScore.toFixed(4)),
     testsCoverage: Number(testsCoverage.toFixed(4)),
     robustnessScore: Number(robustnessScore.toFixed(4)),
+    provenClaims,
+    substantiveClaims,
+    evidenceWeight: Number(evidenceWeight.toFixed(4)),
+    hasDeliverable,
     domain,
     weights
   };
@@ -195,7 +247,12 @@ function compareWorlds(worldEntries, domain = 'software_engineering') {
     };
   });
 
-  scoredWorlds.sort((a, b) => b.score - a.score);
+  // A score tie is common when dossiers share the same structure. Break it
+  // deterministically by proof volume so the winner is not just array order.
+  scoredWorlds.sort((a, b) => b.score - a.score
+    || (b.breakdown.provenClaims || 0) - (a.breakdown.provenClaims || 0)
+    || (b.breakdown.evidenceWeight || 0) - (a.breakdown.evidenceWeight || 0)
+    || a.worldNumber - b.worldNumber);
   const best = scoredWorlds[0] || null;
 
   const comparisonMatrix = scoredWorlds.map((w) => {
@@ -219,11 +276,18 @@ function compareWorlds(worldEntries, domain = 'software_engineering') {
     };
   });
 
+  const bestScore = best ? best.score : 0;
+  const tiedWorlds = scoredWorlds
+    .filter((w) => Math.abs(w.score - bestScore) <= 1e-6)
+    .map((w) => w.worldNumber);
+
   return {
     domain,
     scoredWorlds,
     bestWorld: best,
-    bestScore: best ? best.score : 0,
+    bestScore,
+    tied: tiedWorlds.length > 1,
+    tiedWorlds,
     comparisonMatrix,
     timestamp: new Date().toISOString()
   };
