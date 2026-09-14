@@ -1,13 +1,18 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::env;
 
 fn configured_tool_set(variable: &str) -> Option<Vec<String>> {
     env::var(variable).ok().map(|value| {
-        value.split(',')
+        value
+            .split(',')
             .map(str::trim)
             .filter(|name| !name.is_empty())
             .map(|name| {
-                if name.starts_with("genos_") { name.to_string() } else { format!("genos_{name}") }
+                if name.starts_with("genos_") {
+                    name.to_string()
+                } else {
+                    format!("genos_{name}")
+                }
             })
             .collect()
     })
@@ -257,7 +262,7 @@ pub fn public_tool_specs() -> Vec<Value> {
                     "parent_id": { "type": "string", "description": "Parent snapshot or branch ID." }
                 }
             }
-        })
+        }),
     ];
 
     let filter_disabled = |tool: &Value| {
@@ -276,12 +281,16 @@ pub fn public_tool_specs() -> Vec<Value> {
     } else if expose_all {
         all_tools.into_iter().filter(filter_disabled).collect()
     } else {
-        all_tools.into_iter().filter(filter_disabled).take(1).collect()
+        all_tools
+            .into_iter()
+            .filter(filter_disabled)
+            .take(1)
+            .collect()
     }
 }
 
 pub fn is_tool_allowed(name: &str) -> bool {
-    public_tool_specs().iter().any(|tool| {
-        tool.get("name").and_then(Value::as_str) == Some(name)
-    })
+    public_tool_specs()
+        .iter()
+        .any(|tool| tool.get("name").and_then(Value::as_str) == Some(name))
 }

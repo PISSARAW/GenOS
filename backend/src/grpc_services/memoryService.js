@@ -6,10 +6,9 @@ module.exports = {
   StoreMemory: async (call, callback) => {
     try {
       const { id, content, embedding } = call.request || {};
-      await vectorMemory.recordExperience({
+      await vectorMemory.storeMemory('grpc-client', content || '', embedding || null, {
         id: id || `exp-${Date.now()}`,
-        content: content || '',
-        vector: embedding || []
+        title: 'gRPC Memory'
       });
       callback(null, { success: true });
     } catch (err) {

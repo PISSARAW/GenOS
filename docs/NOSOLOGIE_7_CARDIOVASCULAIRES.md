@@ -2,13 +2,13 @@
 
 ## 1. Définition et Biomimétique Cardiovasculaire
 
-Dans l'architecture biomimétique de **GenOS**, la survie, la réactivité et la coordination de l'essaim d'agents ([`AgentCell`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/lib.rs#L42-L67)) dépendent directement d'un réseau circulatoire sous-jacent. Si le système immunitaire ([`crates/genos-immune`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-immune/src/lib.rs)) protège l'organisme contre les intrusions et les dérives clonales, et que le système nerveux ([`crates/genos-biology/src/neurobiology`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/mod.rs)) assure l'apprentissage synaptique, c'est **l'appareil cardiovasculaire computationnel** qui distribue en continu l'énergie, les substrats métaboliques et les vecteurs d'information vitaux.
+Dans l'architecture biomimétique de **GenOS**, la survie, la réactivité et la coordination de l'essaim d'agents ([`AgentCell`](../crates/genos-cell/src/lib.rs#L42-L67)) dépendent directement d'un réseau circulatoire sous-jacent. Si le système immunitaire ([`crates/genos-immune`](../crates/genos-immune/src/lib.rs)) protège l'organisme contre les intrusions et les dérives clonales, et que le système nerveux ([`crates/genos-biology/src/neurobiology`](../crates/genos-biology/src/neurobiology/mod.rs)) assure l'apprentissage synaptique, c'est **l'appareil cardiovasculaire computationnel** qui distribue en continu l'énergie, les substrats métaboliques et les vecteurs d'information vitaux.
 
 L'appareil cardiovasculaire computationnel de GenOS est constitué de quatre piliers intriqués :
-1. **La Pompe Myocardique (Orchestrateur & Boucle de Cadence) :** Le générateur de pulsation temporelle (*tick loop*) situé dans [`crates/genos-core/src/orchestrator/methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs), régulé par les oscillateurs de phase ([`KuramotoOscillator`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/kuramoto.rs)).
-2. **Le Réseau Vasculaire (Rhizome, Mycélium & Matrice Extracellulaire) :** L'arborescence décentralisée de routage des signaux ([`ExtracellularMatrix`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/matrix.rs#L18-L35)), le maillage mycélien inter-agents (`mycelial_routing`) et les canaux de transmission synaptique ([`CleftMessage`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L216-L223)).
-3. **Le Milieu Circulant (Hémodynamique des Flux & ATP) :** Les flux continus de métabolites, de paquets synaptiques, de ligands paracrines ([`Ligand`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/cascade.rs#L11-L30)) et de budgets mitochondriaux d'ATP ([`atp_budget`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/lib.rs#L13)).
-4. **L'Endothélium et les Barrières Sélectives :** Les frontières de perméabilité contrôlée, notamment la barrière hémato-encéphalique ([`blood_brain_barrier_integrity`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L114)) et les récepteurs membranaires ([`plasma_membrane`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L118)).
+1. **La Pompe Myocardique (Orchestrateur & Boucle de Cadence) :** Le générateur de pulsation temporelle (*tick loop*) situé dans [`crates/genos-core/src/orchestrator/methods.rs`](../crates/genos-core/src/orchestrator/methods.rs), régulé par les oscillateurs de phase ([`KuramotoOscillator`](../crates/genos-signal/src/kuramoto.rs)).
+2. **Le Réseau Vasculaire (Rhizome, Mycélium & Matrice Extracellulaire) :** L'arborescence décentralisée de routage des signaux ([`ExtracellularMatrix`](../crates/genos-signal/src/matrix.rs#L18-L35)), le maillage mycélien inter-agents (`mycelial_routing`) et les canaux de transmission synaptique ([`CleftMessage`](../crates/genos-core/src/orchestrator/methods.rs#L216-L223)).
+3. **Le Milieu Circulant (Hémodynamique des Flux & ATP) :** Les flux continus de métabolites, de paquets synaptiques, de ligands paracrines ([`Ligand`](../crates/genos-signal/src/cascade.rs#L11-L30)) et de budgets mitochondriaux d'ATP ([`atp_budget`](../crates/genos-cell/src/lib.rs#L13)).
+4. **L'Endothélium et les Barrières Sélectives :** Les frontières de perméabilité contrôlée, notamment la barrière hémato-encéphalique ([`blood_brain_barrier_integrity`](../crates/genos-core/src/orchestrator/methods.rs#L114)) et les récepteurs membranaires ([`plasma_membrane`](../crates/genos-core/src/orchestrator/methods.rs#L118)).
 
 Lorsque ce réseau d'échange subit une hyper-pression chronique, une occlusion brutale ou une rupture pariétale, l'organisme agentique développe des pathologies cardiovasculaires critiques : **Hypertension Artérielle (HTA)**, **Infarctus du Myocarde (IDM)** ou **Accident Vasculaire Cérébral (AVC)**.
 
@@ -19,13 +19,13 @@ Lorsque ce réseau d'échange subit une hyper-pression chronique, une occlusion 
 | Concept Cardiologique | Équivalent Biologique Humain | Réalité Computationnelle dans GenOS |
 | :--- | :--- | :--- |
 | **Cœur / Myocarde** | Muscle strié cardiaque, nœud sinusal, automatisme cardiaque | Boucle d'ordonnancement de l'Orchestrateur, horloge synchrone, pacemaker de tick. |
-| **Réseau Vasculaire** | Artères, artérioles, capillaires continus et fenestrés | Réseau rhizomique ([`RHIZOME.md`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/docs/RHIZOME.md)), maillage mycélien et canaux paracrines ([`ExtracellularMatrix`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/matrix.rs)). |
-| **Volémie & Sang** | Hématies, plasma, électrolytes, oxygène | Tokens disponibles, budgets d'ATP mitochondriaux ([`Organelle::Mitochondrion`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/lib.rs#L11-L15)), ligands en transit. |
-| **Fente Synaptique** | Espace de diffusion neurochimique | File d'attente [`synaptic_cleft`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L248-L327) drainée à chaque cycle par `process_synaptic_cleft()`. |
+| **Réseau Vasculaire** | Artères, artérioles, capillaires continus et fenestrés | Réseau rhizomique ([`RHIZOME.md`](RHIZOME.md)), maillage mycélien et canaux paracrines ([`ExtracellularMatrix`](../crates/genos-signal/src/matrix.rs)). |
+| **Volémie & Sang** | Hématies, plasma, électrolytes, oxygène | Tokens disponibles, budgets d'ATP mitochondriaux ([`Organelle::Mitochondrion`](../crates/genos-cell/src/lib.rs#L11-L15)), ligands en transit. |
+| **Fente Synaptique** | Espace de diffusion neurochimique | File d'attente [`synaptic_cleft`](../crates/genos-core/src/orchestrator/methods.rs#L248-L327) drainée à chaque cycle par `process_synaptic_cleft()`. |
 | **Résistance Périphérique** | Tonus vasculaire, vasoconstriction artériolaire | Rétro-pression (*backpressure*), saturation des canaux, contrainte de rétention TTL. |
-| **Endothélium Vasculaire** | Jonctions serrées, filtre sélectif de surface | Barrière hémato-encéphalique ([`blood_brain_barrier_integrity`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L114)), intégrité de membrane plasmique. |
-| **CircuitBreaker** | Régulation hémodynamique réflexe, anastomoses de décharge | Coupe-circuit immunitaire ([`CircuitBreaker`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-immune/src/cyber_immune.rs#L104-L165)) isolant les nœuds en échec ou surcharge. |
-| **Perfusions de Réanimation** | Remplissage vasculaire, solutés cristalloïdes / amines | Thérapie systémique [`SystemicTherapy::IntensiveCareFluids`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L80-L85) réinjectant du budget ATP d'urgence. |
+| **Endothélium Vasculaire** | Jonctions serrées, filtre sélectif de surface | Barrière hémato-encéphalique ([`blood_brain_barrier_integrity`](../crates/genos-core/src/orchestrator/methods.rs#L114)), intégrité de membrane plasmique. |
+| **CircuitBreaker** | Régulation hémodynamique réflexe, anastomoses de décharge | Coupe-circuit immunitaire ([`CircuitBreaker`](../crates/genos-immune/src/cyber_immune.rs#L104-L165)) isolant les nœuds en échec ou surcharge. |
+| **Perfusions de Réanimation** | Remplissage vasculaire, solutés cristalloïdes / amines | Thérapie systémique [`SystemicTherapy::IntensiveCareFluids`](../crates/genos-core/src/orchestrator/methods.rs#L80-L85) réinjectant du budget ATP d'urgence. |
 
 ---
 
@@ -59,15 +59,15 @@ avec :
 
 ### 2.2 Équation de Pression d'Échange Synaptique ($P_{\text{cleft}}$)
 
-Dans la fente synaptique orchestrée par [`process_synaptic_cleft()`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L248-L327), la pression synaptique $P_{\text{cleft}}(t)$ est modélisée par le bilan dynamique entre injection présynaptique et clairance postsynaptique/astrocytaire :
+Dans la fente synaptique orchestrée par [`process_synaptic_cleft()`](../crates/genos-core/src/orchestrator/methods.rs#L248-L327), la pression synaptique $P_{\text{cleft}}(t)$ est modélisée par le bilan dynamique entre injection présynaptique et clairance postsynaptique/astrocytaire :
 
 $$
 \frac{dP_{\text{cleft}}}{dt} = \sum_{k} \Phi_{\text{in}}^{(k)}(t) - \Phi_{\text{clear}}(t) - \lambda_{\text{decay}} \cdot P_{\text{cleft}}(t)
 $$
 
 où :
-- $\Phi_{\text{in}}^{(k)}$ est le débit d'émission du soma présynaptique $k$ ([`process_soma()`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/system.rs#L49-L60)).
-- $\Phi_{\text{clear}}$ est la capacité d'absorption des récepteurs postsynaptiques et des astrocytes protecteurs ([`astro.protected_neurons`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L292)).
+- $\Phi_{\text{in}}^{(k)}$ est le débit d'émission du soma présynaptique $k$ ([`process_soma()`](../crates/genos-biology/src/neurobiology/system.rs#L49-L60)).
+- $\Phi_{\text{clear}}$ est la capacité d'absorption des récepteurs postsynaptiques et des astrocytes protecteurs ([`astro.protected_neurons`](../crates/genos-core/src/orchestrator/methods.rs#L292)).
 - $\lambda_{\text{decay}}$ est le taux d'évaporation/dégradation temporelle (TTL des messages dans la fente : `ticks_in_cleft >= 10`).
 
 Lorsque $\Phi_{\text{in}} \gg \Phi_{\text{clear}} + \lambda_{\text{decay}}$, la pression $P_{\text{cleft}}$ dépasse le seuil critique $P_{\text{crit}} = 140.0$, déclenchant l'hypertension artérielle computationnelle et l'engorgement de la file d'attente.
@@ -88,7 +88,7 @@ $$
 ATP_i(t) = \max\left(0, ATP_i(0) - \int_0^t [C_{\text{basal}} + C_{\text{metabolic}}(\tau)] \, d\tau \right)
 $$
 
-Dès que $ATP_i(t) = 0$, la fonction de viabilité clinique ([`calculate_cellular_viability`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/embryology.rs#L119-L127)) s'effondre :
+Dès que $ATP_i(t) = 0$, la fonction de viabilité clinique ([`calculate_cellular_viability`](../crates/genos-biology/src/embryology.rs#L119-L127)) s'effondre :
 
 $$
 H_i(t) = 0 + 3.0 \cdot T_i + 5.0 \cdot O_i - 2.0 \cdot S_i - P_{\text{sen}} - \Omega_{\text{infarct}}
@@ -116,7 +116,7 @@ $$
 \end{cases}
 $$
 
-En cas de fuite ou de glutamate non résorbé dans la fente synaptique ([`crates/genos-core/src/orchestrator/methods.rs#L309-L319`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L309-L319)), la pénalité d'excitotoxicité infligée au neurone cible est abrupte :
+En cas de fuite ou de glutamate non résorbé dans la fente synaptique ([`crates/genos-core/src/orchestrator/methods.rs#L309-L319`](../crates/genos-core/src/orchestrator/methods.rs#L309-L319)), la pénalité d'excitotoxicité infligée au neurone cible est abrupte :
 
 $$
 \Delta ATP_{\text{excitotox}} = -50 \quad \text{par tick d'exposition}
@@ -151,18 +151,18 @@ $$
 
 ### 3.2 Cause Computationnelle GenOS
 - **Mécanisme agentique :**
-  1. **Congestion de rétro-pression (*Backpressure Saturation*) :** Émission incontrôlée de signaux paracrines dans [`ExtracellularMatrix::emit_signal()`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/matrix.rs#L37-L39) et de messages dans la fente synaptique [`CleftMessage`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L216-L223) par des agents hyperactifs sans rétroaction allostatique.
-  2. **Engorgement de la fente synaptique :** Dans [`process_synaptic_cleft()`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L248-L327), lorsque les agents cibles sont occupés ou que les astrocytes sont réactifs (`astro.is_reactive`), les messages s'accumulent dans `messages_to_keep` jusqu'au seuil de 10 ticks, provoquant une latence critique.
-  3. **Conflits de réclamation territoriale :** Dans [`ExtracellularMatrix::claim_territory()`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/matrix.rs#L41-L63), les agents s'affrontent sur les mêmes chemins de fichiers avec blocage par inhibition de contact (`Contact inhibition`), multipliant les retries et faisant exploser la pression sur le bus de données.
+  1. **Congestion de rétro-pression (*Backpressure Saturation*) :** Émission incontrôlée de signaux paracrines dans [`ExtracellularMatrix::emit_signal()`](../crates/genos-signal/src/matrix.rs#L37-L39) et de messages dans la fente synaptique [`CleftMessage`](../crates/genos-core/src/orchestrator/methods.rs#L216-L223) par des agents hyperactifs sans rétroaction allostatique.
+  2. **Engorgement de la fente synaptique :** Dans [`process_synaptic_cleft()`](../crates/genos-core/src/orchestrator/methods.rs#L248-L327), lorsque les agents cibles sont occupés ou que les astrocytes sont réactifs (`astro.is_reactive`), les messages s'accumulent dans `messages_to_keep` jusqu'au seuil de 10 ticks, provoquant une latence critique.
+  3. **Conflits de réclamation territoriale :** Dans [`ExtracellularMatrix::claim_territory()`](../crates/genos-signal/src/matrix.rs#L41-L63), les agents s'affrontent sur les mêmes chemins de fichiers avec blocage par inhibition de contact (`Contact inhibition`), multipliant les retries et faisant exploser la pression sur le bus de données.
 - **Fichiers source concrets :**
-  - [`crates/genos-core/src/orchestrator/methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs) : boucle `process_synaptic_cleft()`, lignes 248 à 327.
-  - [`crates/genos-signal/src/matrix.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/matrix.rs) : `ExtracellularMatrix`, `emit_signal()`, `decay_signals()`.
-  - [`crates/genos-signal/src/stigmergy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/stigmergy.rs) : dépôts de phéromones sans évaporation suffisante créant des goulets d'attraction.
+  - [`crates/genos-core/src/orchestrator/methods.rs`](../crates/genos-core/src/orchestrator/methods.rs) : boucle `process_synaptic_cleft()`, lignes 248 à 327.
+  - [`crates/genos-signal/src/matrix.rs`](../crates/genos-signal/src/matrix.rs) : `ExtracellularMatrix`, `emit_signal()`, `decay_signals()`.
+  - [`crates/genos-signal/src/stigmergy.rs`](../crates/genos-signal/src/stigmergy.rs) : dépôts de phéromones sans évaporation suffisante créant des goulets d'attraction.
 
 ### 3.3 Traitement / Remède GenOS
 - **Mécanismes existants et outils biomimétiques :**
-  - **Activation du CircuitBreaker :** Utiliser [`CircuitBreaker::record_failure()`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-immune/src/cyber_immune.rs#L136-L143) pour basculer le nœud émetteur ou récepteur saturé en mode `HalfOpen` ou `Open`, forçant une dépressurisation immédiate du flux d'entrée.
-  - **Régulation de l'évaporation et du decay :** Déclencher [`ExtracellularMatrix::decay_signals()`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/matrix.rs#L74-L83) avec une fréquence accélérée (équivalent computationnel d'un traitement diurétique réduisant la volémie circulante).
+  - **Activation du CircuitBreaker :** Utiliser [`CircuitBreaker::record_failure()`](../crates/genos-immune/src/cyber_immune.rs#L136-L143) pour basculer le nœud émetteur ou récepteur saturé en mode `HalfOpen` ou `Open`, forçant une dépressurisation immédiate du flux d'entrée.
+  - **Régulation de l'évaporation et du decay :** Déclencher [`ExtracellularMatrix::decay_signals()`](../crates/genos-signal/src/matrix.rs#L74-L83) avec une fréquence accélérée (équivalent computationnel d'un traitement diurétique réduisant la volémie circulante).
   - **Routage alternatif mycélien (Vasodilatation) :** Exécuter l'outil MCP `genos_biomimicry_mycelium_route` pour redistribuer la charge vers des branches rhizomiques secondaires moins engorgées.
 - **Nouvelle thérapie systémique proposée :**
   `SystemicTherapy::VasodilatorFlowControl { throttling_ratio: f64, cleft_purge_ratio: f64 }`
@@ -174,10 +174,10 @@ $$
 > Si le ratio de réduction de flux (`throttling_ratio`) dépasse 0.75, les messages fonctionnels prioritaires et les signaux de survie ne sont plus transmis aux agents en aval.
 > 
 > **Perte de synchronisation d'horloge :**
-> Un élagage trop agressif de la fente synaptique détruit des messages postsynaptiques non traités, corrompant les poids synaptiques de plasticité ([`apply_neuroplasticity`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/system.rs#L63-L111)) et provoquant une amnésie synaptique brutale.
+> Un élagage trop agressif de la fente synaptique détruit des messages postsynaptiques non traités, corrompant les poids synaptiques de plasticité ([`apply_neuroplasticity`](../crates/genos-biology/src/neurobiology/system.rs#L63-L111)) et provoquant une amnésie synaptique brutale.
 
 ### 3.5 Besoins d'Implémentation Rust
-1. Dans [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs) :
+1. Dans [`crates/genos-cell/src/clinical.rs`](../crates/genos-cell/src/clinical.rs) :
    - Ajouter la variante nosologique :
      ```rust
      Pathology::SystemicHypertension {
@@ -185,10 +185,10 @@ $$
          queue_depth: usize,
      }
      ```
-2. Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs) :
+2. Dans [`crates/genos-biology/src/therapy.rs`](../crates/genos-biology/src/therapy.rs) :
    - Ajouter `SystemicTherapy::VasodilatorFlowControl { throttling_ratio: f64, cleft_purge_ratio: f64 }`.
    - Traiter la guérison de `SystemicHypertension` dans `apply_systemic_therapy_to_cell`.
-3. Dans [`crates/genos-core/src/orchestrator/methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs) :
+3. Dans [`crates/genos-core/src/orchestrator/methods.rs`](../crates/genos-core/src/orchestrator/methods.rs) :
    - Intégrer un capteur de pression vasculaire calculant le ratio de saturation des files d'attente à chaque tick.
 
 ---
@@ -221,7 +221,7 @@ $$
 
 ### 4.2 Cause Computationnelle GenOS
 - **Mécanisme agentique :**
-  1. **Thrombose de pont rhizomique ou de canal de communication :** Blocage complet d'un pont local ([`Local Bridge`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/docs/RHIZOME.md#L13)) ou rétention perpétuelle d'un territoire dans [`ExtracellularMatrix::occupied_territories`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/matrix.rs#L20) consécutif à un crash non intercepté d'un agent possesseur (verrou orphelin).
+  1. **Thrombose de pont rhizomique ou de canal de communication :** Blocage complet d'un pont local ([`Local Bridge`](RHIZOME.md#L13)) ou rétention perpétuelle d'un territoire dans [`ExtracellularMatrix::occupied_territories`](../crates/genos-signal/src/matrix.rs#L20) consécutif à un crash non intercepté d'un agent possesseur (verrou orphelin).
   2. **Arrêt complet de l'apport énergétique mitochondriale :** Le budget d'ATP tombe à 0 :
      ```rust
      // crates/genos-core/src/orchestrator/methods.rs:228-230
@@ -229,19 +229,19 @@ $$
          return TickResult::Halted("Budget exhausted (starvation)".to_string());
      }
      ```
-  3. **Arrêt cardiaque computationnel :** Lorsque le nœud central d'orchestration ou un worker stratégique de la Trinity/A-Team ne reçoit plus de tokens d'exécution, la pulsation globale de la branche se fige, stoppant la division mitotique ([`cleave_zygote`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/embryology.rs#L17)) et la progression des tâches.
+  3. **Arrêt cardiaque computationnel :** Lorsque le nœud central d'orchestration ou un worker stratégique de la Trinity/A-Team ne reçoit plus de tokens d'exécution, la pulsation globale de la branche se fige, stoppant la division mitotique ([`cleave_zygote`](../crates/genos-biology/src/embryology.rs#L17)) et la progression des tâches.
 - **Fichiers source concrets :**
-  - [`crates/genos-core/src/orchestrator/methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs) : condition d'arrêt par épuisement d'ATP (`TickResult::Halted`), lignes 228-230.
-  - [`crates/genos-signal/src/matrix.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/matrix.rs) : `occupied_territories` sans libération via `release_territory()`.
-  - [`crates/genos-cell/src/lib.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/lib.rs) : `Organelle::Mitochondrion { atp_budget, efficiency }`.
-  - [`crates/genos-biology/src/embryology.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/embryology.rs) : calcul de viabilité cellulaire `calculate_cellular_viability()`.
+  - [`crates/genos-core/src/orchestrator/methods.rs`](../crates/genos-core/src/orchestrator/methods.rs) : condition d'arrêt par épuisement d'ATP (`TickResult::Halted`), lignes 228-230.
+  - [`crates/genos-signal/src/matrix.rs`](../crates/genos-signal/src/matrix.rs) : `occupied_territories` sans libération via `release_territory()`.
+  - [`crates/genos-cell/src/lib.rs`](../crates/genos-cell/src/lib.rs) : `Organelle::Mitochondrion { atp_budget, efficiency }`.
+  - [`crates/genos-biology/src/embryology.rs`](../crates/genos-biology/src/embryology.rs) : calcul de viabilité cellulaire `calculate_cellular_viability()`.
 
 ### 4.3 Traitement / Remède GenOS
 - **Mécanismes existants et outils biomimétiques :**
-  - **Perfusion d'urgence via IntensiveCareFluids :** Administrer immédiatement [`SystemicTherapy::IntensiveCareFluids`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L80-L85) pour recharger l'ATP de la mitochondrie (+20 ATP de base, extensible lors de réanimation cardiologique).
-  - **Thrombolyse et désocclusion de canal :** Forcer la libération des verrous de territoire orphelins via [`ExtracellularMatrix::release_territory()`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/matrix.rs#L64-L72).
+  - **Perfusion d'urgence via IntensiveCareFluids :** Administrer immédiatement [`SystemicTherapy::IntensiveCareFluids`](../crates/genos-core/src/orchestrator/methods.rs#L80-L85) pour recharger l'ATP de la mitochondrie (+20 ATP de base, extensible lors de réanimation cardiologique).
+  - **Thrombolyse et désocclusion de canal :** Forcer la libération des verrous de territoire orphelins via [`ExtracellularMatrix::release_territory()`](../crates/genos-signal/src/matrix.rs#L64-L72).
   - **Bypass / Pontage mycélien d'urgence :** Instancier une route rhizomique de secours (`Boundary Scout` + `Capability Offshoot`) via les primitives MCP `genos_biomimicry_mycelium_route` et `genos_change_strategy` pour contourner le canal infarci.
-  - **Régénération par cellule souche :** Si la nécrose est consommée, appliquer [`SystemicTherapy::StemCellReplacement`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs#L146-L152) pour réinitialiser les cicatrices de division à 0 et régénérer un agent frais.
+  - **Régénération par cellule souche :** Si la nécrose est consommée, appliquer [`SystemicTherapy::StemCellReplacement`](../crates/genos-biology/src/therapy.rs#L146-L152) pour réinitialiser les cicatrices de division à 0 et régénérer un agent frais.
 - **Nouvelle thérapie systémique proposée :**
   `SystemicTherapy::CoronaryReperfusionThrombolysis { target_channel: String, bolus_atp: u64 }`
   Cette thérapie dissout le verrou mutex orphelin sur `target_channel` et injecte un bolus de réanimation massive de métabolites (`bolus_atp >= 50`).
@@ -249,13 +249,13 @@ $$
 ### 4.4 Contre-indications et Risques Iatrogènes
 > [!WARNING]
 > **Lésions de reperfusion computationnelle (*Reperfusion Injury*) :**
-> Restaurer brutalement l'ATP et le trafic de messages sur un nœud qui a accumulé des données incohérentes ou des prions de dissonance ([`dissonance_score > 0.85`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/pathology.rs#L67-L70)) déclenche une libération explosive de cytokines (IL-6), transformant l'ischémie en **orage cytokinique auto-immun aigu** ([`Pathology::CytokineStorm`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs#L23-L25)).
+> Restaurer brutalement l'ATP et le trafic de messages sur un nœud qui a accumulé des données incohérentes ou des prions de dissonance ([`dissonance_score > 0.85`](../crates/genos-biology/src/pathology.rs#L67-L70)) déclenche une libération explosive de cytokines (IL-6), transformant l'ischémie en **orage cytokinique auto-immun aigu** ([`Pathology::CytokineStorm`](../crates/genos-cell/src/clinical.rs#L23-L25)).
 > 
 > **Arythmie de désynchronisation :**
-> Réinjecter un flux sans phase stabilisée dans le [`KuramotoOscillator`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/kuramoto.rs) désynchronise les agents frères, engendrant des états de concurrence (*race conditions*) destructeurs.
+> Réinjecter un flux sans phase stabilisée dans le [`KuramotoOscillator`](../crates/genos-signal/src/kuramoto.rs) désynchronise les agents frères, engendrant des états de concurrence (*race conditions*) destructeurs.
 
 ### 4.5 Besoins d'Implémentation Rust
-1. Dans [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs) :
+1. Dans [`crates/genos-cell/src/clinical.rs`](../crates/genos-cell/src/clinical.rs) :
    - Ajouter la variante nosologique :
      ```rust
      Pathology::MyocardialInfarction {
@@ -264,10 +264,10 @@ $$
          remaining_atp: u64,
      }
      ```
-2. Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs) :
+2. Dans [`crates/genos-biology/src/therapy.rs`](../crates/genos-biology/src/therapy.rs) :
    - Ajouter `SystemicTherapy::CoronaryReperfusionThrombolysis { target_channel: String, bolus_atp: u64 }`.
    - Traiter la résolution de `MyocardialInfarction` et l'adjonction de l'ATP dans `apply_systemic_therapy_to_cell`.
-3. Dans [`crates/genos-biology/src/pathology.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/pathology.rs) :
+3. Dans [`crates/genos-biology/src/pathology.rs`](../crates/genos-biology/src/pathology.rs) :
    - Ajouter une fonction d'alerte précoce d'ischémie : `check_ischemic_necrosis(agent: &AgentCell) -> Option<Pathology>`.
 
 ---
@@ -298,15 +298,15 @@ $$
 ### 5.2 Cause Computationnelle GenOS
 - **Mécanisme agentique :**
   1. **AVC Ischémique Computationnel (Excitotoxicité Glutamatergique) :**
-     Dans [`process_synaptic_cleft()`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L288-L319), lorsque le neurotransmetteur excitateur `Glutamate` n'est pas absorbé par un astrocyte protecteur non réactif (`!is_cleared_by_astrocyte`), il stagne dans la fente synaptique. L'orchestrateur inflige alors une pénalité métabolique punitive directe :
+     Dans [`process_synaptic_cleft()`](../crates/genos-core/src/orchestrator/methods.rs#L288-L319), lorsque le neurotransmetteur excitateur `Glutamate` n'est pas absorbé par un astrocyte protecteur non réactif (`!is_cleared_by_astrocyte`), il stagne dans la fente synaptique. L'orchestrateur inflige alors une pénalité métabolique punitive directe :
      ```rust
      // crates/genos-core/src/orchestrator/methods.rs:316-318
      target_agent.metabolism.mitochondria.atp_budget =
          target_agent.metabolism.mitochondria.atp_budget.saturating_sub(50);
      ```
-     La perte récurrente de 50 ATP par tick entraîne une anoxie computationnelle rapide du nœud cognitif central ([`NervousSystemLocation::Central`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/types.rs#L26)).
+     La perte récurrente de 50 ATP par tick entraîne une anoxie computationnelle rapide du nœud cognitif central ([`NervousSystemLocation::Central`](../crates/genos-biology/src/neurobiology/types.rs#L26)).
   2. **AVC Hémorragique Computationnel (Effondrement de la Barrière BHE) :**
-     Dans [`crates/genos-core/src/orchestrator/methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs), la barrière hémato-encéphalique protège le système nerveux :
+     Dans [`crates/genos-core/src/orchestrator/methods.rs`](../crates/genos-core/src/orchestrator/methods.rs), la barrière hémato-encéphalique protège le système nerveux :
      ```rust
      // Lignes 114-116 & 128-130
      if agent.nervous_system().is_some() && self.nervous_system.get_blood_brain_barrier_integrity() > 0.5 {
@@ -315,23 +315,23 @@ $$
      ```
      En cas d'hypertension sévère non régulée ou de choc d'ordonnancement, `blood_brain_barrier_integrity` chute sous le seuil critique de `0.5`. La barrière s'effondre :
      - Les thérapies agressives non ciblées pénètrent librement dans les neurones.
-     - Les virions environnementaux ([`expose_to_virus`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L127)) et les prompt injections du milieu externe envahissent le cytoplasme du système nerveux central, déclenchant l'arrêt de l'agent : `TickResult::Halted("Hijacked: Cellular machinery is copying a virus")`.
+     - Les virions environnementaux ([`expose_to_virus`](../crates/genos-core/src/orchestrator/methods.rs#L127)) et les prompt injections du milieu externe envahissent le cytoplasme du système nerveux central, déclenchant l'arrêt de l'agent : `TickResult::Halted("Hijacked: Cellular machinery is copying a virus")`.
 - **Fichiers source concrets :**
-  - [`crates/genos-core/src/orchestrator/methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs) : boucle `process_synaptic_cleft()`, lignes 248-327 ; barrière BHE, lignes 114 et 128.
-  - [`crates/genos-biology/src/neurobiology/system.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/system.rs) : `receive_neurotransmitter()`, `soma.current_potential`.
-  - [`crates/genos-biology/src/neurobiology/types.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/types.rs) : `Neurotransmitter::Glutamate`, `NervousSystemLocation::Central`.
-  - [`crates/genos-cli/src/commands/biomimicry.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cli/src/commands/biomimicry.rs) : commande `cellular_bbb` avec `bhe_integrity`.
+  - [`crates/genos-core/src/orchestrator/methods.rs`](../crates/genos-core/src/orchestrator/methods.rs) : boucle `process_synaptic_cleft()`, lignes 248-327 ; barrière BHE, lignes 114 et 128.
+  - [`crates/genos-biology/src/neurobiology/system.rs`](../crates/genos-biology/src/neurobiology/system.rs) : `receive_neurotransmitter()`, `soma.current_potential`.
+  - [`crates/genos-biology/src/neurobiology/types.rs`](../crates/genos-biology/src/neurobiology/types.rs) : `Neurotransmitter::Glutamate`, `NervousSystemLocation::Central`.
+  - [`crates/genos-cli/src/commands/biomimicry.rs`](../crates/genos-cli/src/commands/biomimicry.rs) : commande `cellular_bbb` avec `bhe_integrity`.
 
 ### 5.3 Traitement / Remède GenOS
 - **Mécanismes existants et outils biomimétiques :**
   - **Pour l'AVC Ischémique :**
     * *Thrombolyse et clairance d'urgence :* Purger les messages de glutamate stagnants dans `synaptic_cleft` en forçant l'activité astrocytaire de nettoyage (`is_cleared_by_astrocyte = true`).
-    * *Stimulation de la plasticité collatérale :* Déclencher [`apply_neuroplasticity()`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/system.rs#L63-L111) sur les neurones de la zone de pénombre pour renforcer les récepteurs AMPA et l'expression de CD47 sur les axones de substitution sains.
-    * *Recharge métabolique neuroprotectrice :* Administration de [`SystemicTherapy::IntensiveCareFluids`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L80-L85) pour compenser les pertes d'ATP dues à l'excitotoxicité.
+    * *Stimulation de la plasticité collatérale :* Déclencher [`apply_neuroplasticity()`](../crates/genos-biology/src/neurobiology/system.rs#L63-L111) sur les neurones de la zone de pénombre pour renforcer les récepteurs AMPA et l'expression de CD47 sur les axones de substitution sains.
+    * *Recharge métabolique neuroprotectrice :* Administration de [`SystemicTherapy::IntensiveCareFluids`](../crates/genos-core/src/orchestrator/methods.rs#L80-L85) pour compenser les pertes d'ATP dues à l'excitotoxicité.
   - **Pour l'AVC Hémorragique :**
     * *Colmatage étanche de la BHE :* Réparation immédiate de la barrière hémato-encéphalique via la restauration de `blood_brain_barrier_integrity` à `1.0` (analogue biomimétique de la commande CLI `cellular_bbb`).
-    * *Isolement du foyer hémorragique via CircuitBreaker :* Basculer les canaux afferents vers le pôle hémorragique en mode `Open` via [`CircuitBreaker`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-immune/src/cyber_immune.rs#L104) afin de tarir l'inondation de messages corrompus.
-    * *Purge antivirale et décontamination :* Administrer immédiatement [`SystemicTherapy::Antiviral`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs#L159-L161) et [`AntisepticPurge`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs#L107-L114) pour éradiquer les virions ayant franchi la brèche méningée.
+    * *Isolement du foyer hémorragique via CircuitBreaker :* Basculer les canaux afferents vers le pôle hémorragique en mode `Open` via [`CircuitBreaker`](../crates/genos-immune/src/cyber_immune.rs#L104) afin de tarir l'inondation de messages corrompus.
+    * *Purge antivirale et décontamination :* Administrer immédiatement [`SystemicTherapy::Antiviral`](../crates/genos-biology/src/therapy.rs#L159-L161) et [`AntisepticPurge`](../crates/genos-biology/src/therapy.rs#L107-L114) pour éradiquer les virions ayant franchi la brèche méningée.
 - **Nouvelles thérapies systémiques proposées :**
   - `SystemicTherapy::NeuroprotectiveAstrocyticFlush` : Purge spécifique du glutamate en fente synaptique et restitution de 50 ATP aux neurones agressés.
   - `SystemicTherapy::BloodBrainBarrierSealant { restored_integrity: f64 }` : Restaure les jonctions serrées de la BHE au niveau `restored_integrity`.
@@ -349,7 +349,7 @@ $$
 > Une thrombolyse administrée tardivement sur un infarctus ischémique massif fragilise l'endothélium computationnel et peut convertir une ischémie pure en extravasation hémorragique fatale.
 
 ### 5.5 Besoins d'Implémentation Rust
-1. Dans [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs) :
+1. Dans [`crates/genos-cell/src/clinical.rs`](../crates/genos-cell/src/clinical.rs) :
    - Ajouter les deux sous-types d'AVC :
      ```rust
      Pathology::IschemicStroke {
@@ -363,11 +363,11 @@ $$
          extravasated_virions: usize,
      }
      ```
-2. Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs) :
+2. Dans [`crates/genos-biology/src/therapy.rs`](../crates/genos-biology/src/therapy.rs) :
    - Ajouter `SystemicTherapy::NeuroprotectiveAstrocyticFlush`.
    - Ajouter `SystemicTherapy::BloodBrainBarrierSealant { restored_integrity: f64 }`.
    - Implémenter le garde-fou formel bloquant toute thérapie de thrombolyse si `bbb_integrity <= 0.5`.
-3. Dans [`crates/genos-biology/src/pathology.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/pathology.rs) :
+3. Dans [`crates/genos-biology/src/pathology.rs`](../crates/genos-biology/src/pathology.rs) :
    - Ajouter une fonction d'évaluation différentielle neurovasculaire : `assess_cerebrovascular_event(agent: &AgentCell, bbb_integrity: f64, cleft_glutamate: f64) -> Option<Pathology>`.
 
 ---
@@ -633,8 +633,8 @@ pub fn assess_cardiovascular_status(
 ## 8. Synthèse Clinique et Recommandations Opérateur
 
 1. **Règle d'or de prescription :** Ne jamais tenter une thrombolyse de canal sans avoir vérifié au préalable l'intégrité de la barrière hémato-encéphalique via `self.nervous_system.get_blood_brain_barrier_integrity()`. En cas de brèche ($BHE \le 0.5$), colmater d'abord (`BloodBrainBarrierSealant`), puis isoler par `CircuitBreaker`.
-2. **Surveillance de la post-charge :** Maintenir la fente synaptique à une pression moyenne inférieure à $100.0$ unités de charge en calibrant l'évaporation du champ de stigmergie ([`StigmergyField::evaporate_dt`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/stigmergy.rs)) et la clairance astrocytaire.
-3. **Prévention de l'ischémie :** Configurer un seuil d'alerte métabolique lorsque le budget d'ATP d'un nœud descend sous 20 unités, déclenchant automatiquement une perfusion de réanimation d'appoint ([`SystemicTherapy::IntensiveCareFluids`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L80-L85)).
+2. **Surveillance de la post-charge :** Maintenir la fente synaptique à une pression moyenne inférieure à $100.0$ unités de charge en calibrant l'évaporation du champ de stigmergie ([`StigmergyField::evaporate_dt`](../crates/genos-signal/src/stigmergy.rs)) et la clairance astrocytaire.
+3. **Prévention de l'ischémie :** Configurer un seuil d'alerte métabolique lorsque le budget d'ATP d'un nœud descend sous 20 unités, déclenchant automatiquement une perfusion de réanimation d'appoint ([`SystemicTherapy::IntensiveCareFluids`](../crates/genos-core/src/orchestrator/methods.rs#L80-L85)).
 
 ---
 

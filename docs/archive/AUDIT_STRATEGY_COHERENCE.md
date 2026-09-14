@@ -8,7 +8,7 @@
 
 ## 🔴 Défaut 1 : `resolveStagePrimitives()` ignore le portfolio sélectionné
 
-**Localisation** : [backend/src/services/strategyExecutionService.js](backend/src/services/strategyExecutionService.js#L159-L165)
+**Localisation** : [backend/src/services/strategyExecutionService.js](../../backend/src/services/strategyExecutionService.js#L159-L165)
 
 **Problème** :
 
@@ -39,7 +39,7 @@ function resolveStagePrimitives(stageKey, portfolio = []) {
 
 ## 🔴 Défaut 2 : Pas de validation de cohérence au démarrage des phases
 
-**Localisation** : [backend/src/services/autonomousOrchestrationService.js](backend/src/services/autonomousOrchestrationService.js#L15-L50)
+**Localisation** : [backend/src/services/autonomousOrchestrationService.js](../../backend/src/services/autonomousOrchestrationService.js#L15-L50)
 
 **Problème** :
 
@@ -70,7 +70,7 @@ Les phases sont construites dynamiquement avec des tools "requiredTools" hardcod
 
 ## 🔴 Défaut 3 : Fallback de stratégie jamais utilisé en runtime
 
-**Localisation** : [backend/src/services/strategyContractService.js](backend/src/services/strategyContractService.js#L12-L30)
+**Localisation** : [backend/src/services/strategyContractService.js](../../backend/src/services/strategyContractService.js#L12-L30)
 
 **Problème** :
 
@@ -96,7 +96,7 @@ Mais dans tout le codebase, le fallback n'est **jamais utilisé** :
 
 ## 🔴 Défaut 4 : Pas de preuve durable de quelles primitives ont été exécutées
 
-**Localisation** : [backend/src/services/strategyExecutionService.js](backend/src/services/strategyExecutionService.js#L45-L60)
+**Localisation** : [backend/src/services/strategyExecutionService.js](../../backend/src/services/strategyExecutionService.js#L45-L60)
 
 **Problème** :
 
@@ -127,7 +127,7 @@ const parsedSteps = steps.map((step) => ({
 
 ## 🔴 Défaut 5 : Pas de validation des dossiers de workers contre la stratégie exécutée
 
-**Localisation** : [backend/src/services/agentEvidenceService.js](backend/src/services/agentEvidenceService.js)
+**Localisation** : [backend/src/services/agentEvidenceService.js](../../backend/src/services/agentEvidenceService.js)
 
 **Problème** :
 
@@ -154,7 +154,7 @@ Les dossiers de workers sont enregistrés et validés, mais :
 
 ## 🔴 Défaut 6 : Changement de stratégie en runtime ne valide pas la continuité d'exécution
 
-**Localisation** : [backend/src/services/strategyAdaptationService.js](backend/src/services/strategyAdaptationService.js#L58-L110)
+**Localisation** : [backend/src/services/strategyAdaptationService.js](../../backend/src/services/strategyAdaptationService.js#L58-L110)
 
 **Problème** :
 
@@ -181,7 +181,7 @@ Mais il ne valide pas :
 
 ## 🔴 Défaut 7 : `buildAutonomyPlan()` construit un plan sans valider le support du portfolio
 
-**Localisation** : [backend/src/services/autonomousOrchestrationService.js](backend/src/services/autonomousOrchestrationService.js#L10-L20)
+**Localisation** : [backend/src/services/autonomousOrchestrationService.js](../../backend/src/services/autonomousOrchestrationService.js#L10-L20)
 
 **Problème** :
 

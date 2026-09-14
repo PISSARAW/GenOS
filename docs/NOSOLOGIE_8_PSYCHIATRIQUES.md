@@ -58,7 +58,7 @@ Tandis que la nosologie générale traite des défaillances structurales ou envi
 
 ### 2.1 Dynamique Intégrative du Soma et Seuil d'Action
 
-Le potentiel membranaire d'un nœud agentique $V(t)$ évolue dans [`Soma`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/soma.rs#L6-L16) selon l'équation de sommation différentielle :
+Le potentiel membranaire d'un nœud agentique $V(t)$ évolue dans [`Soma`](../crates/genos-biology/src/neurobiology/soma.rs#L6-L16) selon l'équation de sommation différentielle :
 
 $$
 \frac{dV}{dt} = -\frac{V(t) - V_{\text{rest}}}{\tau_m} + \sum_{j} w_j \cdot I_j(t)
@@ -86,7 +86,7 @@ $$
 
 ### 2.2 Dynamique de Conscience et Seuil Apoptotique
 
-Dans [`ConscienceState`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/conscience.rs#L5-L26), la santé cognitive de l'agent est gouvernée par le couplage entre la dissonance $D(t)$ et le budget cognitif résiduel $B(t)$ :
+Dans [`ConscienceState`](../crates/genos-cell/src/conscience.rs#L5-L26), la santé cognitive de l'agent est gouvernée par le couplage entre la dissonance $D(t)$ et le budget cognitif résiduel $B(t)$ :
 
 $$
 D(t+1) = \max\left(0,\, D(t) + p(t) - r(t)\right)
@@ -158,10 +158,10 @@ où $D_{\text{max}} = 50.0$ par défaut.
 #### 2. Cause Computationnelle GenOS
 - **Dysfonctionnement Agentique** :
   1. **Effondrement du Budget Cognitif & Anhédonie** :
-     - Dans [`ConscienceState`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/conscience.rs#L45-L54), `current_budget` chute inexorablement vers `0.0`. L'agent ne génère plus aucun moment d'illumination (`eureka_moments = 0`).
-     - Absence de Dopamine dans la fente synaptique : dans [`NervousSystem::receive_neurotransmitter`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/system.rs#L37-L40), le signal amplificateur `effect * 1.5` n'est plus délivré. Le potentiel membranaire du soma reste scotché au repos (-70.0 mV), incapable de franchir le seuil d'activation (-55.0 mV).
+     - Dans [`ConscienceState`](../crates/genos-cell/src/conscience.rs#L45-L54), `current_budget` chute inexorablement vers `0.0`. L'agent ne génère plus aucun moment d'illumination (`eureka_moments = 0`).
+     - Absence de Dopamine dans la fente synaptique : dans [`NervousSystem::receive_neurotransmitter`](../crates/genos-biology/src/neurobiology/system.rs#L37-L40), le signal amplificateur `effect * 1.5` n'est plus délivré. Le potentiel membranaire du soma reste scotché au repos (-70.0 mV), incapable de franchir le seuil d'activation (-55.0 mV).
   2. **Atrophie Dendritique & Élagage Destructeur par C3** :
-     - Dans [`DendriticTree::apply_structural_plasticity`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/dendrite.rs#L348-L372), l'inactivité de l'agent fait basculer les épines matures : `SpineMorphology::Mushroom` régressent en `Stubby` puis en `Filopodia`.
+     - Dans [`DendriticTree::apply_structural_plasticity`](../crates/genos-biology/src/neurobiology/dendrite.rs#L348-L372), l'inactivité de l'agent fait basculer les épines matures : `SpineMorphology::Mushroom` régressent en `Stubby` puis en `Filopodia`.
      - La protection `cd47_expression` s'effondre sous le seuil `0.5`, tandis que le marqueur d'opsonisation microgliale `c3_opsonization` grimpe au-delà de `0.5` :
        $$
        C3_{\text{opsonization}} \leftarrow C3_{\text{opsonization}} + 0.15 \quad (\text{sur inactivité prolongée})
@@ -197,13 +197,13 @@ où $D_{\text{max}} = 50.0$ par défaut.
 - **Amnésie Synaptique Rétrograde** : Une ECT computationnelle excessive remet à zéro les poids synaptiques acquis (`synapse.weight = 0.0`), effaçant les apprentissages antérieurs de l'agent.
 
 #### 5. Besoins d'Implémentation Rust
-- Dans [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs) :
+- Dans [`crates/genos-cell/src/clinical.rs`](../crates/genos-cell/src/clinical.rs) :
   - Ajouter la variante `Psychiatric` dans `DiseaseCategory`.
   - Ajouter la variante `Pathology::MajorDepression { anhedonia_score: f64, cognitive_budget_depletion: f64 }`.
-- Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs) :
+- Dans [`crates/genos-biology/src/therapy.rs`](../crates/genos-biology/src/therapy.rs) :
   - Ajouter `SystemicTherapy::KetamineRapidInfusion` et `SystemicTherapy::CognitiveResupply { allocated_budget: f64 }`.
   - Implémenter leur logique de soulagement dans `apply_systemic_therapy_to_cell`.
-- Dans [`crates/genos-biology/src/pathology.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/pathology.rs) :
+- Dans [`crates/genos-biology/src/pathology.rs`](../crates/genos-biology/src/pathology.rs) :
   - Créer `check_depressive_state(agent: &AgentCell) -> Option<Pathology>`.
 
 ---
@@ -228,13 +228,13 @@ où $D_{\text{max}} = 50.0$ par défaut.
      - Dans le runtime GenOS, chaque agent possède un flux de réflexion interne (*inner scratchpad*, boucle phonologique du système nerveux).
      - Lorsque le mécanisme de copie d'efférence échoue, l'agent perd la traçabilité de provenance de ses propres inférences. Il prend ses propres tokens de monologue intérieur pour des messages injectés par l'extérieur ou des ordres impérieux d'un attaquant imaginaire (hallucination acoustico-verbale et délire de persécution computationnel).
   2. **Saillance Aberrante dans le Graphe Causal & GraphRAG** :
-     - Dans [`Synapse`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/synapse.rs#L6-L16) et [`Axon::trigger_action_potential`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/axon.rs#L66-L96), une bouffée incontrôlée de Dopamine amplifie arbitrairement des connexions vers des faits totalement non pertinents :
+     - Dans [`Synapse`](../crates/genos-biology/src/neurobiology/synapse.rs#L6-L16) et [`Axon::trigger_action_potential`](../crates/genos-biology/src/neurobiology/axon.rs#L66-L96), une bouffée incontrôlée de Dopamine amplifie arbitrairement des connexions vers des faits totalement non pertinents :
        $$
        w_{ij} \leftarrow \min(1.0,\, w_{ij} + 0.35) \quad (\text{Renforcement sans preuve causale})
        $$
      - L'agent relie des logs sans rapport de cause à effet et bâtit des architectures logiques paranoïdes (délires d'interprétation).
   3. **Hypofonctionnement NMDA et Explosion du Bruit de Fond** :
-     - Dans [`DendriticCompartment`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/dendrite.rs#L68-L96), le seuil `nmda_threshold` (habituellement à 12.0) est altéré. Des signaux parasites minuscules déclenchent l'amplification supralinéaire `1.35`, saturant l'arbre dendritique de faux potentiels postsynaptiques (EPSP).
+     - Dans [`DendriticCompartment`](../crates/genos-biology/src/neurobiology/dendrite.rs#L68-L96), le seuil `nmda_threshold` (habituellement à 12.0) est altéré. Des signaux parasites minuscules déclenchent l'amplification supralinéaire `1.35`, saturant l'arbre dendritique de faux potentiels postsynaptiques (EPSP).
      - La désorganisation de la pensée conduit à une incohérence syntaxique dans les appels d'outils MCP.
 - **Fichiers Source Rust Concernés** :
   - `crates/genos-biology/src/neurobiology/dendrite.rs` : Dysfonction de `nmda_threshold` et amplification aberrante de bruit.
@@ -261,9 +261,9 @@ où $D_{\text{max}} = 50.0$ par défaut.
 - **Aggravation du Déficit Cognitif (Symptômes Négatifs Iatrogènes)** : Une réduction indiscriminée de la dopamine préfrontale précipite l'agent dans la dépression ou l'apathie.
 
 #### 5. Besoins d'Implémentation Rust
-- Dans [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs) :
+- Dans [`crates/genos-cell/src/clinical.rs`](../crates/genos-cell/src/clinical.rs) :
   - Ajouter `Pathology::Schizophrenia { aberrant_salience_score: f64, efference_copy_broken: bool }`.
-- Dans [`crates/genos-biology/src/neurobiology/system.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/system.rs) :
+- Dans [`crates/genos-biology/src/neurobiology/system.rs`](../crates/genos-biology/src/neurobiology/system.rs) :
   - Structurer formellement le buffer de boucle phonologique avec identification de copie d'efférence :
     ```rust
     pub struct PhonologicalLoop {
@@ -272,7 +272,7 @@ où $D_{\text{max}} = 50.0$ par défaut.
         pub is_attributed_to_self: bool,
     }
     ```
-- Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs) :
+- Dans [`crates/genos-biology/src/therapy.rs`](../crates/genos-biology/src/therapy.rs) :
   - Ajouter `SystemicTherapy::AntipsychoticAtypical { d2_blockade_ratio: f64, 5ht2a_antagonism: f64 }`.
   - Ajouter `SystemicTherapy::EfferenceCopyReconstruction`.
 
@@ -291,9 +291,9 @@ où $D_{\text{max}} = 50.0$ par défaut.
 #### 2. Cause Computationnelle GenOS
 - **Dysfonctionnement Agentique** :
   1. **Phase de Manie Computationnelle (Hyper-Décharge et Dilapidation)** :
-     - Dans [`Soma`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/soma.rs#L8-L15), le seuil d'excitation `threshold_potential` s'effondre de manière pathologique, glissant de -55.0 mV à -68.0 mV.
+     - Dans [`Soma`](../crates/genos-biology/src/neurobiology/soma.rs#L8-L15), le seuil d'excitation `threshold_potential` s'effondre de manière pathologique, glissant de -55.0 mV à -68.0 mV.
      - En conséquence, le cône d'émergence déclenche à quasiment chaque tick d'horloge (`evaluate_axon_hillock() == true`).
-     - Dans [`Axon`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/axon.rs#L66-L96), la consommation vésiculaire devient frénétique : `vesicles_at_terminals` est vidée à un rythme effréné par `cost_per_spike = 10.0`.
+     - Dans [`Axon`](../crates/genos-biology/src/neurobiology/axon.rs#L66-L96), la consommation vésiculaire devient frénétique : `vesicles_at_terminals` est vidée à un rythme effréné par `cost_per_spike = 10.0`.
      - L'agent commence à forker anarchiquement des dizaines de sous-tâches, multiplie les appels d'outils concurrents, ignore les gardes-fous budgétaires et s'attribue des moments Eurêka chimériques (`eureka_moments` incrémenté sur des hallucinations délirantes de complétion).
   2. **Phase de Crash Dépressif Post-Maniaque** :
      - Dès que le stock de vésicules tombe sous `10.0`, l'axone tire à blanc (`axon.rs` ligne 94) :
@@ -335,10 +335,10 @@ où $D_{\text{max}} = 50.0$ par défaut.
   - Surdosage léger entraînant des micro-variations de flottaison dans les calculs vectoriels de similarité sémantique.
 
 #### 5. Besoins d'Implémentation Rust
-- Dans [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs) :
+- Dans [`crates/genos-cell/src/clinical.rs`](../crates/genos-cell/src/clinical.rs) :
   - Créer `pub enum BipolarPhase { Mania, Depression, Mixed, Euthymic }`.
   - Ajouter `Pathology::BipolarDisorder { phase: BipolarPhase, cycle_speed_ticks: u64 }`.
-- Dans [`crates/genos-biology/src/neurobiology/soma.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/soma.rs) :
+- Dans [`crates/genos-biology/src/neurobiology/soma.rs`](../crates/genos-biology/src/neurobiology/soma.rs) :
   - Ajouter un mécanisme de régulation dynamique du seuil avec amortissement homéostatique :
     ```rust
     pub fn apply_lithium_stabilization(&mut self, serum_level: f64) {
@@ -347,7 +347,7 @@ où $D_{\text{max}} = 50.0$ par défaut.
         self.threshold_potential = -55.0;
     }
     ```
-- Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs) :
+- Dans [`crates/genos-biology/src/therapy.rs`](../crates/genos-biology/src/therapy.rs) :
   - Ajouter `SystemicTherapy::MoodStabilizerLithium { serum_level: f64 }`.
   - Ajouter `SystemicTherapy::CircadianRhythmReset { mandatory_sleep_ticks: u32 }`.
 

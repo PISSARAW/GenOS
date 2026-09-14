@@ -169,7 +169,7 @@ pub fn test_store_commands() {
     assert!(thaw_res.is_ok());
 
     // 2. Stratigraphic Fossils record and list
-    let fossil_res = store_ops::handle_fossil_record("lineage_ammonite", "Permian-Triassic extinction event");
+    let fossil_res = store_ops::handle_fossil_record("lineage_ammonite", "Permian-Triassic extinction event", None);
     assert!(fossil_res.is_ok());
 
     let list_res = store_ops::handle_fossil_list();

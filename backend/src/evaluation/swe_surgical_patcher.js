@@ -114,6 +114,30 @@ function replaceByIndentedMatch(fileLines, searchLines, replaceStr) {
   return fileLines.join('\n');
 }
 
+function normalizeCodeChunk(str) {
+  return str
+    .replace(/\bassert\s*\(\s*([\s\S]*?)\s*\)\s*,/g, 'assert $1,')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function findNormalizedSpan(fileLines, searchLines) {
+  const normSearch = normalizeCodeChunk(searchLines.join('\n'));
+  if (normSearch.length < 15) return null;
+
+  const minLen = Math.max(1, searchLines.length - 2);
+  const maxLen = searchLines.length + 8;
+  for (let i = 0; i < fileLines.length; i++) {
+    for (let len = minLen; len <= maxLen && (i + len) <= fileLines.length; len++) {
+      const winNorm = normalizeCodeChunk(fileLines.slice(i, i + len).join('\n'));
+      if (winNorm === normSearch) {
+        return { startIdx: i, count: len };
+      }
+    }
+  }
+  return null;
+}
+
 function applySingleBlock(currentCode, searchStr, replaceStr) {
   if (currentCode.includes(searchStr)) {
     return currentCode.replace(searchStr, replaceStr);
@@ -128,7 +152,16 @@ function applySingleBlock(currentCode, searchStr, replaceStr) {
     return fileLines.join('\n');
   }
 
-  return replaceByIndentedMatch(fileLines, searchLines, replaceStr);
+  const indentedResult = replaceByIndentedMatch(fileLines, searchLines, replaceStr);
+  if (indentedResult !== null) return indentedResult;
+
+  const normSpan = findNormalizedSpan(fileLines, searchLines);
+  if (normSpan) {
+    fileLines.splice(normSpan.startIdx, normSpan.count, replaceStr);
+    return fileLines.join('\n');
+  }
+
+  return null;
 }
 
 function applySearchReplace(originalCode, patchBlock) {

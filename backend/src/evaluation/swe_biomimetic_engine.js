@@ -229,6 +229,61 @@ function absorbDsupImpact(params) {
   });
 }
 
+function createDeadEndLedger() {
+  const deadEnds = [];
+  return {
+    recordDeadEnd(entry) {
+      deadEnds.push({
+        attempt: entry.attempt,
+        locus: entry.locus,
+        reason: (entry.reason || '').slice(0, 300),
+        timestamp: Date.now()
+      });
+    },
+    getDeadEnds() {
+      return [...deadEnds];
+    },
+    formatGuidance() {
+      if (deadEnds.length === 0) return '';
+      const lines = deadEnds.map((d) =>
+        `- Attempt ${d.attempt} on [${d.locus}] FAILED: ${d.reason}. Do NOT repeat this approach.`
+      );
+      return `\nCRITICAL DEAD-END LEDGER (Epistemic Negative Invariants - FORBIDDEN TO REPEAT):\n${lines.join('\n')}\n`;
+    }
+  };
+}
+
+function selectAdaptiveLocus(params) {
+  const { candidates, attempt, probeTraceback } = params;
+  const primary = candidates[0] || 'setup.py';
+  const primaryBase = primary.split(/[\/\\]/).pop();
+  const hasProbeMention = probeTraceback && probeTraceback.includes(primaryBase);
+
+  if (hasProbeMention) {
+    return primary;
+  }
+  if (attempt === 2 && candidates[1]) {
+    return candidates[1];
+  }
+  if (attempt === 3 && candidates[2]) {
+    return candidates[2];
+  }
+  return primary;
+}
+
+function buildAdversarialCritique(params) {
+  const { attempt, lastFeedback, deadEndGuidance } = params;
+  if (attempt === 1) return '';
+  return `\nA-TEAM ADVERSARIAL CRITIQUE (Eleanor - Chief Critic & Tahani - Architect):
+- ELEANOR: "Previous attempt failed: ${lastFeedback.slice(0, 300)}.
+  CRITICAL FIXES NEEDED:
+  1. If pytest failed with AssertionError or DID NOT RAISE ValueError, replace ALL 'assert' checks with 'if ... in ...: raise ValueError(...)'.
+  2. Update ALL places in the file: both the class __init__ and all methods mentioned in the traceback.
+  3. Do NOT omit the 'if' condition when raising ValueError."
+${deadEndGuidance}
+- TAHANI: "Ensure all imports, signature types, and class invariants are preserved."\n`;
+}
+
 module.exports = {
   initBiocenoseBiome,
   transmitBioPolymerSignal,
@@ -240,5 +295,8 @@ module.exports = {
   harvestSynapticEngrams,
   computeKuramotoPhaseConsensus,
   reconcileMirrorEquilibrium,
-  absorbDsupImpact
+  absorbDsupImpact,
+  createDeadEndLedger,
+  selectAdaptiveLocus,
+  buildAdversarialCritique
 };

@@ -89,10 +89,23 @@ function scoreFromTestHints(allPyFiles, testHints, scoredFiles) {
   }
 }
 
-function locateCandidateFiles(repoDir, problemStatement, testHints = []) {
+function scoreFromTraceback(allPyFiles, traceback, scoredFiles) {
+  if (!traceback) return;
+  for (const f of allPyFiles) {
+    const base = path.basename(f);
+    if (traceback.includes(f) || (base.length > 5 && traceback.includes(base))) {
+      scoredFiles.set(f, (scoredFiles.get(f) || 0) + 2500);
+    }
+  }
+}
+
+function locateCandidateFiles(repoDir, problemStatement, options = {}) {
   const allPyFiles = getAllPyFiles(repoDir, repoDir);
   const scoredFiles = new Map(allPyFiles.map(f => [f, 0]));
+  const testHints = Array.isArray(options) ? options : (options.testHints || []);
+  const traceback = Array.isArray(options) ? '' : (options.traceback || '');
 
+  scoreFromTraceback(allPyFiles, traceback, scoredFiles);
   scoreFromTestHints(allPyFiles, testHints, scoredFiles);
   scoreExplicitMentions(allPyFiles, problemStatement, scoredFiles);
   const sampleKeywords = extractProblemKeywords(problemStatement);
@@ -184,7 +197,7 @@ function findFunctionByKeywords(lines, problemKeywords) {
 
 function extractRelevantExcerpt(fileContent, problemStatement, targetRelFile = '') {
   const lines = fileContent.split('\n');
-  if (lines.length <= 120) {
+  if (lines.length <= 250) {
     return { excerpt: lines.join('\n'), startLine: 1, endLine: lines.length };
   }
 
@@ -196,8 +209,8 @@ function extractRelevantExcerpt(fileContent, problemStatement, targetRelFile = '
     findFunctionByKeywords(lines, kws) ||
     Math.min(50, Math.floor(lines.length / 2));
 
-  const startLine = Math.max(0, targetCenter - 25);
-  const endLine = Math.min(lines.length - 1, targetCenter + 65);
+  const startLine = Math.max(0, targetCenter - 60);
+  const endLine = Math.min(lines.length - 1, targetCenter + 90);
   const excerptLines = lines.slice(startLine, endLine + 1);
 
   return {

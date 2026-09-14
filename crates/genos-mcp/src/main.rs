@@ -1,14 +1,23 @@
 mod executor;
 mod tools;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::env;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 
 const PATH_ARGUMENTS: &[&str] = &[
-    "agent", "out", "output", "history_file", "input_file", "manifest",
-    "graph_file", "snapshot", "snapshot_id", "branch_id", "parent_id",
+    "agent",
+    "out",
+    "output",
+    "history_file",
+    "input_file",
+    "manifest",
+    "graph_file",
+    "snapshot",
+    "snapshot_id",
+    "branch_id",
+    "parent_id",
 ];
 
 fn validate_path_arguments(args: &Value) -> Result<(), String> {
@@ -18,10 +27,15 @@ fn validate_path_arguments(args: &Value) -> Result<(), String> {
         _ => return Err("Tool arguments must be a JSON object.".into()),
     };
     for key in PATH_ARGUMENTS {
-        let Some(value) = object.get(*key).and_then(Value::as_str) else { continue; };
+        let Some(value) = object.get(*key).and_then(Value::as_str) else {
+            continue;
+        };
         let path = std::path::Path::new(value);
         let has_parent_segment = value.split(['/', '\\']).any(|segment| segment == "..");
-        let is_absolute = path.is_absolute() || value.starts_with('/') || value.starts_with('\\') || value.as_bytes().get(1) == Some(&b':');
+        let is_absolute = path.is_absolute()
+            || value.starts_with('/')
+            || value.starts_with('\\')
+            || value.as_bytes().get(1) == Some(&b':');
         if value.is_empty() || value.contains('\0') || is_absolute || has_parent_segment {
             return Err(format!("{key} must be a safe workspace-relative path."));
         }
@@ -32,7 +46,7 @@ fn validate_path_arguments(args: &Value) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{process_request, validate_path_arguments};
-    use crate::executor::{read_bounded, MAX_OUTPUT_BYTES};
+    use crate::executor::{MAX_OUTPUT_BYTES, read_bounded};
     use serde_json::json;
     use std::io::Cursor;
     use std::path::Path;
@@ -64,7 +78,10 @@ mod tests {
         assert!(process_request("Content-Length: 120", root).is_none());
         assert!(process_request("Content-Type: application/json", root).is_none());
         assert!(process_request("  \r\n", root).is_none());
-        let init = process_request("\u{feff}{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}", root);
+        let init = process_request(
+            "\u{feff}{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}",
+            root,
+        );
         assert!(init.is_some());
         assert_eq!(init.unwrap()["id"], 1);
     }
@@ -88,37 +105,48 @@ fn process_request(line: &str, workspace: &Path) -> Option<Value> {
         return None;
     }
     let lower = trimmed.to_ascii_lowercase();
-    if (lower.starts_with("content-length:") || lower.starts_with("content-type:")) && !trimmed.contains('{') {
+    if (lower.starts_with("content-length:") || lower.starts_with("content-type:"))
+        && !trimmed.contains('{')
+    {
         return None;
     }
 
     let candidate = extract_json_candidate(trimmed);
     let req: Value = match serde_json::from_str(candidate) {
         Ok(v) => v,
-        Err(_) => return Some(json!({
-            "jsonrpc": "2.0",
-            "id": null,
-            "error": { "code": -32700, "message": "Parse error" }
-        })),
+        Err(_) => {
+            return Some(json!({
+                "jsonrpc": "2.0",
+                "id": null,
+                "error": { "code": -32700, "message": "Parse error" }
+            }));
+        }
     };
 
     let id = req.get("id").cloned();
     let method = match req.get("method").and_then(Value::as_str) {
         Some(method) => method,
-        None => return Some(json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "error": { "code": -32600, "message": "Invalid Request" }
-        }))
+        None => {
+            return Some(json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "error": { "code": -32600, "message": "Invalid Request" }
+            }));
+        }
     };
 
-    if id.is_none() || id.as_ref().map_or(false, Value::is_null) || method.starts_with("notifications/") || method.starts_with("$/") {
+    if id.is_none()
+        || id.as_ref().map_or(false, Value::is_null)
+        || method.starts_with("notifications/")
+        || method.starts_with("$/")
+    {
         return None;
     }
 
     match method {
         "initialize" => {
-            let client_version = req.get("params")
+            let client_version = req
+                .get("params")
                 .and_then(|p| p.get("protocolVersion"))
                 .and_then(Value::as_str)
                 .unwrap_or("2024-11-05");
@@ -142,7 +170,10 @@ fn process_request(line: &str, workspace: &Path) -> Option<Value> {
         })),
         "tools/call" => {
             let params = req.get("params");
-            let name = params.and_then(|p| p.get("name")).and_then(Value::as_str).unwrap_or("");
+            let name = params
+                .and_then(|p| p.get("name"))
+                .and_then(Value::as_str)
+                .unwrap_or("");
             let empty_args = json!({});
             let args = match params.and_then(|p| p.get("arguments")) {
                 Some(Value::Null) | None => &empty_args,
@@ -194,7 +225,10 @@ fn main() {
         .or_else(|_| env::current_dir())
         .unwrap_or_else(|_| PathBuf::from("."));
 
-    eprintln!("🧬 GenOS MCP Server running on stdio (workspace: {})", workspace.display());
+    eprintln!(
+        "🧬 GenOS MCP Server running on stdio (workspace: {})",
+        workspace.display()
+    );
 
     let stdin = io::stdin();
     let mut stdout = io::stdout();

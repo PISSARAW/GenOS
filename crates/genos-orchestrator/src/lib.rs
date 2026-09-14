@@ -1,4 +1,5 @@
 pub mod conscience;
+pub mod autopoiesis;
 pub mod behaviors;
 pub mod diagnostics;
 pub mod director;
@@ -34,6 +35,7 @@ pub mod worlds;
 pub mod thalamus;
 
 pub use conscience::{Conscience, ConscienceState};
+pub use autopoiesis::{Membrane, SelfModel, SelfRepairReport};
 pub use director::{Decision, Director, Step, Strategy};
 pub use drives::{Drives, GoalSelector};
 pub use ecosystem::GenosEcosystem;

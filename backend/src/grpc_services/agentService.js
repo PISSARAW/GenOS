@@ -1,4 +1,5 @@
 const supervisor = require('../services/agentProcessSupervisor');
+const runtimeAdapter = require('../services/agentRuntimeAdapter');
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Agent is alive via gRPC!" }),
@@ -13,9 +14,13 @@ module.exports = {
     }
   },
 
-  StopMission: (call, callback) => {
-    const agentId = call.request?.id;
-    supervisor.stopMission(agentId);
-    callback(null, { stopped: true, status: 'stopped' });
+  StopMission: async (call, callback) => {
+    try {
+      const agentId = call.request?.id;
+      const stopped = await runtimeAdapter.stopMission(agentId);
+      callback(null, { stopped: Boolean(stopped), status: stopped ? 'stopped' : 'idle' });
+    } catch (err) {
+      callback(null, { stopped: false, status: 'error' });
+    }
   }
 };

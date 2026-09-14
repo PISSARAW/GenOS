@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::env;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -48,7 +48,9 @@ fn bounded_output(bytes: Vec<u8>) -> String {
 fn terminate_process_group(child: &mut Child) {
     #[cfg(unix)]
     {
-        unsafe { libc::kill(-(child.id() as i32), libc::SIGTERM); }
+        unsafe {
+            libc::kill(-(child.id() as i32), libc::SIGTERM);
+        }
     }
     #[cfg(windows)]
     {
@@ -68,7 +70,9 @@ pub fn execute_command(mut command: Command) -> Result<(i32, String), String> {
     #[cfg(unix)]
     unsafe {
         command.pre_exec(|| {
-            if libc::setsid() == -1 { return Err(std::io::Error::last_os_error()); }
+            if libc::setsid() == -1 {
+                return Err(std::io::Error::last_os_error());
+            }
             Ok(())
         });
     }
@@ -77,8 +81,14 @@ pub fn execute_command(mut command: Command) -> Result<(i32, String), String> {
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| error.to_string())?;
-    let stdout = child.stdout.take().map(|stream| thread::spawn(move || read_bounded(stream)));
-    let stderr = child.stderr.take().map(|stream| thread::spawn(move || read_bounded(stream)));
+    let stdout = child
+        .stdout
+        .take()
+        .map(|stream| thread::spawn(move || read_bounded(stream)));
+    let stderr = child
+        .stderr
+        .take()
+        .map(|stream| thread::spawn(move || read_bounded(stream)));
     let deadline = Instant::now() + Duration::from_millis(tool_timeout_ms());
     let status = loop {
         match child.try_wait() {
@@ -96,8 +106,12 @@ pub fn execute_command(mut command: Command) -> Result<(i32, String), String> {
             }
         }
     };
-    let stdout = stdout.and_then(|thread| thread.join().ok()).unwrap_or_default();
-    let stderr = stderr.and_then(|thread| thread.join().ok()).unwrap_or_default();
+    let stdout = stdout
+        .and_then(|thread| thread.join().ok())
+        .unwrap_or_default();
+    let stderr = stderr
+        .and_then(|thread| thread.join().ok())
+        .unwrap_or_default();
     let code = status.code().unwrap_or(-1);
     let stdout_text = bounded_output(stdout);
     let stderr_text = bounded_output(stderr);
@@ -192,9 +206,7 @@ fn resolve_bridge_path(workspace: &Path) -> PathBuf {
 fn execute_orchestrator(bridge: &Path, payload: &Value, workspace: &Path) -> (i32, String) {
     let payload_str = payload.to_string();
     let mut cmd = Command::new("node");
-    cmd.arg(bridge)
-        .arg(&payload_str)
-        .current_dir(workspace);
+    cmd.arg(bridge).arg(&payload_str).current_dir(workspace);
 
     cmd.env("GENOS_WORKSPACE_ROOT", workspace);
 
@@ -217,20 +229,47 @@ fn execute_orchestrator(bridge: &Path, payload: &Value, workspace: &Path) -> (i3
 fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
     match name {
         "genos_snapshot" => {
-            let agent = args.get("agent").and_then(Value::as_str).unwrap_or("default-agent");
-            let out = args.get("out").and_then(Value::as_str).unwrap_or("snapshots/mcp-snapshot.json");
-            vec!["snapshot".into(), "create".into(), "--agent".into(), agent.into(), "--out".into(), out.into()]
+            let agent = args
+                .get("agent")
+                .and_then(Value::as_str)
+                .unwrap_or("default-agent");
+            let out = args
+                .get("out")
+                .and_then(Value::as_str)
+                .unwrap_or("snapshots/mcp-snapshot.json");
+            vec![
+                "snapshot".into(),
+                "create".into(),
+                "--agent".into(),
+                agent.into(),
+                "--out".into(),
+                out.into(),
+            ]
         }
         "genos_replay" => {
-            let snapshot = args.get("snapshot")
+            let snapshot = args
+                .get("snapshot")
                 .or_else(|| args.get("snapshot_id"))
                 .and_then(Value::as_str)
                 .unwrap_or("");
-            vec!["replay".into(), "basic".into(), "--snapshot".into(), snapshot.into()]
+            vec![
+                "replay".into(),
+                "basic".into(),
+                "--snapshot".into(),
+                snapshot.into(),
+            ]
         }
         "genos_capsule_create" => {
-            let snap = args.get("snapshot_id").and_then(Value::as_str).unwrap_or("ROOT");
-            let mut v = vec!["capsule".into(), "create".into(), "--snapshot".into(), snap.into()];
+            let snap = args
+                .get("snapshot_id")
+                .and_then(Value::as_str)
+                .unwrap_or("ROOT");
+            let mut v = vec![
+                "capsule".into(),
+                "create".into(),
+                "--snapshot".into(),
+                snap.into(),
+            ];
             if let Some(seed) = args.get("seed").and_then(Value::as_str) {
                 v.push("--seed".into());
                 v.push(seed.into());
@@ -238,7 +277,10 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
             v
         }
         "genos_merge" => {
-            let branch = args.get("branch_id").and_then(Value::as_str).unwrap_or("HEAD");
+            let branch = args
+                .get("branch_id")
+                .and_then(Value::as_str)
+                .unwrap_or("HEAD");
             let mut v = vec!["merge".into(), branch.into()];
             if let Some(cond) = args.get("conditions").and_then(Value::as_str) {
                 v.push("--conditions".into());
@@ -247,13 +289,22 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
             v
         }
         "genos_audit" => {
-            let snap = args.get("snapshot_id").and_then(Value::as_str).unwrap_or("ROOT");
-            let out = args.get("output").and_then(Value::as_str).unwrap_or("audit.log");
+            let snap = args
+                .get("snapshot_id")
+                .and_then(Value::as_str)
+                .unwrap_or("ROOT");
+            let out = args
+                .get("output")
+                .and_then(Value::as_str)
+                .unwrap_or("audit.log");
             vec!["audit".into(), snap.into(), "--output".into(), out.into()]
         }
         "genos_biomimicry" => {
             let feat = args.get("feature").and_then(Value::as_str).unwrap_or("sar");
-            let act = args.get("action").and_then(Value::as_str).unwrap_or("prime");
+            let act = args
+                .get("action")
+                .and_then(Value::as_str)
+                .unwrap_or("prime");
             let mut v = vec![
                 "biomimicry".into(),
                 "bio-feature".into(),
@@ -274,10 +325,36 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
             }
             v
         }
+        "genos_biological_mode" => {
+            let mode = args
+                .get("mode")
+                .and_then(Value::as_str)
+                .unwrap_or("biocenose");
+            let mission = args
+                .get("mission")
+                .and_then(Value::as_str)
+                .unwrap_or("Shared mission");
+            vec![
+                "biological".into(),
+                "deploy".into(),
+                "--mode".into(),
+                mode.into(),
+                "--mission".into(),
+                mission.into(),
+            ]
+        }
         "genos_v2_init" => vec!["init".into()],
         "genos_v2_fork" => {
-            let p = args.get("parent_id").and_then(Value::as_str).unwrap_or("ROOT");
-            vec!["agent".into(), "fork".into(), "--parent-id".into(), p.into()]
+            let p = args
+                .get("parent_id")
+                .and_then(Value::as_str)
+                .unwrap_or("ROOT");
+            vec![
+                "agent".into(),
+                "fork".into(),
+                "--parent-id".into(),
+                p.into(),
+            ]
         }
         _ => vec!["--help".into()],
     }
@@ -291,7 +368,15 @@ fn execute_cli(workspace: &Path, name: &str, args: &Value) -> (i32, String) {
         c
     } else {
         let mut c = Command::new("cargo");
-        c.args(["run", "-q", "--manifest-path", &workspace.join("Cargo.toml").to_string_lossy(), "-p", "genos-cli", "--"]);
+        c.args([
+            "run",
+            "-q",
+            "--manifest-path",
+            &workspace.join("Cargo.toml").to_string_lossy(),
+            "-p",
+            "genos-cli",
+            "--",
+        ]);
         c.args(&cli_args);
         c
     };
@@ -328,12 +413,30 @@ pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, Str
             }
             execute_orchestrator(&bridge, &payload, workspace)
         }
-        "genos_change_strategy" => execute_orchestrator(&bridge, &with_action(args, "change_strategy"), workspace),
-        "genos_report_progress" => execute_orchestrator(&bridge, &with_action(args, "report_progress"), workspace),
-        "genos_change_organization" => execute_orchestrator(&bridge, &with_action(args, "change_organization"), workspace),
-        "genos_organization_state" => execute_orchestrator(&bridge, &json!({ "action": "organization_state" }), workspace),
-        "genos_worker_publish" => execute_orchestrator(&bridge, &with_action(args, "organization_publish"), workspace),
-        "genos_worker_inbox" => execute_orchestrator(&bridge, &with_action(args, "organization_inbox"), workspace),
+        "genos_change_strategy" => {
+            execute_orchestrator(&bridge, &with_action(args, "change_strategy"), workspace)
+        }
+        "genos_report_progress" => {
+            execute_orchestrator(&bridge, &with_action(args, "report_progress"), workspace)
+        }
+        "genos_change_organization" => execute_orchestrator(
+            &bridge,
+            &with_action(args, "change_organization"),
+            workspace,
+        ),
+        "genos_organization_state" => execute_orchestrator(
+            &bridge,
+            &json!({ "action": "organization_state" }),
+            workspace,
+        ),
+        "genos_worker_publish" => execute_orchestrator(
+            &bridge,
+            &with_action(args, "organization_publish"),
+            workspace,
+        ),
+        "genos_worker_inbox" => {
+            execute_orchestrator(&bridge, &with_action(args, "organization_inbox"), workspace)
+        }
         "genos_execute_primitive" => {
             let mut payload = with_action(args, "execute_primitive");
             if let Some(obj) = payload.as_object_mut() {
@@ -343,14 +446,19 @@ pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, Str
             }
             execute_orchestrator(&bridge, &payload, workspace)
         }
-        "genos_trinity_launch" => execute_orchestrator(&bridge, &with_action(args, "dispatch_trinity"), workspace),
-        "genos_a_team_preview" => execute_orchestrator(&bridge, &with_action(args, "dispatch_team"), workspace),
+        "genos_trinity_launch" => {
+            execute_orchestrator(&bridge, &with_action(args, "dispatch_trinity"), workspace)
+        }
+        "genos_a_team_preview" => {
+            execute_orchestrator(&bridge, &with_action(args, "dispatch_team"), workspace)
+        }
         "genos_snapshot"
         | "genos_replay"
         | "genos_capsule_create"
         | "genos_merge"
         | "genos_audit"
         | "genos_biomimicry"
+        | "genos_biological_mode"
         | "genos_v2_init"
         | "genos_v2_fork" => execute_cli(workspace, name, args),
         _ => (-1, format!("Unsupported MCP tool: {name}")),

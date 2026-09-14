@@ -17,7 +17,7 @@ L'intégralité du test a été exécutée en **conditions réelles (*Live Blind
 | **Modèle d'Inférence** | `ollama://qwen2.5-coder:7b` (Qwen 2.5 Coder 7B Instruct) |
 | **Matériel d'Inférence** | GPU local dédié NVIDIA |
 | **Durée Totale du Run** | **36 minutes** (2 160 secondes, soit ~1,08 seconde par question) |
-| **Fichier de Données Brutes** | [`backend/locomo_full_real_results.json`](file:///C:/Users/Shadow/Documents/GitHub/GenOS/backend/locomo_full_real_results.json) (566,6 Ko) |
+| **Fichier de Données Brutes** | [`backend/locomo_full_real_results.json`](../backend/locomo_full_real_results.json) (566,6 Ko) |
 
 ---
 

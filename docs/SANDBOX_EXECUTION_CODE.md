@@ -103,7 +103,7 @@ Les secrets applicatifs doivent rester dans le vault et etre injectes seulement 
 
 Les worktrees isolent le repertoire de travail d'un agent, sans dupliquer l'historique Git complet. Les commandes Git de cycle de vie sont lancees sous forme de programme et tableau d'arguments (`git -C <cwd> ...`), avec timeout ; elles ne sont pas composees par un shell. Les worktrees sont retires par `git worktree remove --force`, suivis de `git worktree prune`, et les copies non-Git par suppression recursive.
 
-Le nettoyage refuse une racine de disque, une capsule en dehors des repertoires de capsules reconnus ou une incoherence entre l'agent et le nom de son repertoire. Il est differe de 10 minutes par defaut (`GENOS_WORKTREE_GC_DELAY_MS`) et tente de reprendre les nettoyages en echec. Les operations Git applicatives de lineage et de signature sont traitees dans [backend/src/services/agentGitService.js](../backend/src/services/agentGitService.js) ; elles apportent tracabilite et verification d'etat, pas une isolation supplementaire de l'executable Git.
+Le nettoyage refuse une racine de disque, une capsule en dehors des repertoires de capsules reconnus ou une incoherence entre l'agent et le nom de son repertoire. Il est differe de 10 minutes par defaut (`GENOS_WORKTREE_GC_DELAY_MS`) et tente de reprendre les nettoyages en echec. Les operations Git applicatives de lineage et de signature sont traitees dans [backend/src/services/agentGitService/index.js](../backend/src/services/agentGitService/index.js) ; elles apportent tracabilite et verification d'etat, pas une isolation supplementaire de l'executable Git.
 
 ## Processus descendants et sorties bornees
 

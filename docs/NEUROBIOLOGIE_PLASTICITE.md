@@ -673,7 +673,7 @@ stateDiagram-v2
 
 Dans le cerveau humain et animal, les effecteurs moteurs et les outils ne sont **jamais activés par défaut**. Un organisme qui maintiendrait ses voies motrices excitées en continu s'épuiserait métaboliquement ou agirait de manière convulsive.
 
-GenOS transpose ces principes neurobiologiques dans le service [`biomimeticToolGatingService.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/biomimeticToolGatingService.js) :
+GenOS transpose ces principes neurobiologiques dans le service [`biomimeticToolGatingService.js`](../backend/src/services/biomimeticToolGatingService.js) :
 
 #### A. Les Ganglions de la Base et le Frein GABAergique
 * **Inhibition Tonique :** Le globus pallidus interne ($GPi$) et la substance noire pars reticulata projettent une inhibition GABAergique tonique permanente sur le thalamus et le tronc cérébral.

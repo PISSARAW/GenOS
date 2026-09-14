@@ -10,7 +10,7 @@ Les composants principaux de référence sont :
 - [backend/src/services/jobWorker.js](../backend/src/services/jobWorker.js)
 - [backend/src/services/workflowConditions.js](../backend/src/services/workflowConditions.js)
 - [backend/src/services/modelRouter.js](../backend/src/services/modelRouter.js)
-- [backend/src/services/evaluationGraders.js](../backend/src/services/evaluationGraders)
+- [backend/src/services/evaluationGraders.js](../backend/src/services/evaluationGraders.js)
 - [backend/src/services/mcpExecutor.js](../backend/src/services/mcpExecutor.js)
 - [backend/src/db/schema-tables-extensions.js](../backend/src/db/schema-tables-extensions.js)
 - [backend/src/controllers/evalController.js](../backend/src/controllers/evalController.js)

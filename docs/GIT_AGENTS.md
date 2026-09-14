@@ -11,8 +11,8 @@ GenOS ne transforme donc pas un agent en dépôt Git classique. Il applique les 
 
 Références d’implémentation :
 
-- [agentGitService.js](../backend/src/services/agentGitService.js)
-- [agentGitController.js](../backend/src/controllers/agentGitController.js)
+- [agentGitService/index.js](../backend/src/services/agentGitService/index.js)
+- [agentGitController/index.js](../backend/src/controllers/agentGitController/index.js)
 - [lineageRoutes.js](../backend/src/routes/lineageRoutes.js)
 - [agentWorkspaceLifecycleService.js](../backend/src/services/agentWorkspaceLifecycleService.js)
 - [daemonRepoWorkerService.js](../backend/src/services/daemonRepoWorkerService.js)

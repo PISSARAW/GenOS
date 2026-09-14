@@ -437,14 +437,14 @@ Le sous-système MCP de GenOS dispose d'une architecture à double niveau garant
 1. **Serveur Rust Natif (`crates/genos-mcp`) :** Binaire autonome `genos-mcp.exe` implémentant le protocole JSON-RPC standard avec sérialisation zéro-copie et validation typée des schémas d'entrée.
 2. **Serveur Node.js Stdio (`mcp/index.js` & `mcpExecutor.js`) :** Pont applicatif JavaScript intégrant le contrôle de baux (`lease.js`), le circuit breaker et le dispatch vers les handlers métier.
 3. **Mécanismes de Résilience & Fallbacks :**
-   - **Mode Direct Local :** En cas d'interruption du canal stdio, le backend et l'orchestrateur peuvent exécuter directement les primitives via les adaptateurs internes ([`backend/src/services/mcpBioTools/`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/mcpBioTools/)) ou le CLI déterministe (`genos biomimicry ...`).
+   - **Mode Direct Local :** En cas d'interruption du canal stdio, le backend et l'orchestrateur peuvent exécuter directement les primitives via les adaptateurs internes ([`backend/src/services/mcpBioTools/`](../backend/src/services/mcpBioTools/)) ou le CLI déterministe (`genos biomimicry ...`).
    - **Heartbeat & Protection de Timeout :** Chaque invocation est encadrée par un timeout strict et un coupe-circuit (`circuitBreaker.js`) pour prévenir tout blocage de process orphelin.
 
 ---
 
 ### 4. Gating Biomimétique Amont & Bouclier d'Affordance 7B
 
-Pour maximiser les performances des modèles compacts (7B/8B) et dépasser les 88 % de réussite aux benchmarks d'utilisation d'outils (*Tool Use & Function Calling Benchmarks*), GenOS intègre un triple filtre biomimétique en amont via [`biomimeticToolGatingService.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/biomimeticToolGatingService.js) :
+Pour maximiser les performances des modèles compacts (7B/8B) et dépasser les 88 % de réussite aux benchmarks d'utilisation d'outils (*Tool Use & Function Calling Benchmarks*), GenOS intègre un triple filtre biomimétique en amont via [`biomimeticToolGatingService.js`](../backend/src/services/biomimeticToolGatingService.js) :
 
 #### Architecture du Gating à 3 Niveaux :
 

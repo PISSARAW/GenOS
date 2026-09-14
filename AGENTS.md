@@ -83,7 +83,9 @@ Documentation files are outside its scope.
 
 - **Commits:** first line must start with an uppercase bracketed tag, e.g. `[FIX] ...`,
   `[FEAT] ...`, `[REFACTOR] ...`, `[DOC] ...`. Enforced by `.githooks/commit-msg`.
-- **Docs:** French, under `docs/`, following the 10-section template in `docs/README.md`.
+- **Docs:** French, under `docs/`, following the conventions in `docs/CONVENTIONS.md`
+  (10-section template for concept docs). Never rename/move `docs/*.md`: the paths are
+  sealed provenance identifiers (`source_doc` in genomes and `.dna` binaries).
 - **Architecture facts:** keep the README/docs claims aligned with what is actually implemented;
   do not present conceptual or biological metaphors as working features.
 - **Security:** paths and MCP arguments are validated at runtime; do not bypass the sandbox,

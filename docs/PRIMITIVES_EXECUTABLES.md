@@ -217,7 +217,7 @@ Autrement dit, la primitive n’est pas seulement “appelable” : elle est “
 
 ### 6.1 Lot 1 — Fondamentales
 
-Implémentation : [backend/src/services/primitiveHandlers/fundamentals.js](../backend/src/services/primitiveHandlers/fundamentals.js)
+Implémentation : [backend/src/services/primitiveHandlers/fundamentals/index.js](../backend/src/services/primitiveHandlers/fundamentals/index.js)
 
 Primitives principales :
 
@@ -474,7 +474,7 @@ Les références de code les plus importantes pour la vérification du modèle s
 - [backend/src/services/strategyContractService.js](../backend/src/services/strategyContractService.js)
 - [backend/src/strategies/strategyRegistry.js](../backend/src/strategies/strategyRegistry.js)
 - [backend/src/strategies/families/coreStrategies.js](../backend/src/strategies/families/coreStrategies.js)
-- [backend/src/services/primitiveHandlers/fundamentals.js](../backend/src/services/primitiveHandlers/fundamentals.js)
+- [backend/src/services/primitiveHandlers/fundamentals/index.js](../backend/src/services/primitiveHandlers/fundamentals/index.js)
 - [backend/src/services/primitiveHandlers/memory.js](../backend/src/services/primitiveHandlers/memory.js)
 - [backend/src/services/primitiveHandlers/evolution.js](../backend/src/services/primitiveHandlers/evolution.js)
 - [backend/src/services/primitiveHandlers/temporal.js](../backend/src/services/primitiveHandlers/temporal.js)

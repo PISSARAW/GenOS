@@ -1,4 +1,5 @@
 const mcpExecutor = require('../services/mcpExecutor');
+const { evaluateToolGating } = require('../services/biomimeticToolGatingService');
 const grpc = require('@grpc/grpc-js');
 const MCP_CONTRACT_VERSION = 'genos.mcp/v1';
 
@@ -47,6 +48,24 @@ module.exports = {
       });
     } catch (err) {
       callback({ code: toGrpcStatusCode(err), message: err.message || 'MCP tool execution failed.' });
+    }
+  },
+
+  EvaluateGating: (call, callback) => {
+    try {
+      const { query, candidate_tools, threshold_mv } = call.request || {};
+      const options = {};
+      if (Number.isFinite(threshold_mv) && threshold_mv !== 0) options.thresholdMv = threshold_mv;
+      const gating = evaluateToolGating(query || '', candidate_tools || [], options);
+      callback(null, {
+        requires_tools: Boolean(gating.requiresTools),
+        disinhibited_tools: gating.disinhibitedTools || [],
+        membrane_potential_mv: Number(gating.membranePotentialMv || 0),
+        gate_state: gating.gateState || 'UNKNOWN',
+        reason: gating.decisionReason || gating.reason || ''
+      });
+    } catch (err) {
+      callback({ code: grpc.status.INTERNAL, message: err.message || 'Gating evaluation failed.' });
     }
   }
 };

@@ -183,9 +183,9 @@ Le quorum pondéré fait la même chose en remplaçant les votes simples par des
 
 ### 3.5 Stigmergie Vectorielle et Consensus par Résonance de Phase de Kuramoto
 Au lieu de diffuser uniquement des messages textuels statiques, GenOS connecte la stigmergie et les signaux oscillatoires à l'exécution de l'organisation :
-* **Gradient Phéromonal Continu (`StigmergyField` & `SwarmPheromoneMatrix`)** : Les agents déposent des intensités scalaires $I_t \in [-I_{max}, I_{max}]$ via la primitive `pheromoneDeposit()` ou des messages de canal `stigmergic_trail` (`kind: 'trace'`). Les sentiers s'évaporent continuellement selon $I(t + \Delta t) = I(t) e^{-\lambda \Delta t}$ ([`crates/genos-signal/src/stigmergy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/stigmergy.rs), `backend/src/services/swarmStigmergyVectorService.js`).
+* **Gradient Phéromonal Continu (`StigmergyField` & `SwarmPheromoneMatrix`)** : Les agents déposent des intensités scalaires $I_t \in [-I_{max}, I_{max}]$ via la primitive `pheromoneDeposit()` ou des messages de canal `stigmergic_trail` (`kind: 'trace'`). Les sentiers s'évaporent continuellement selon $I(t + \Delta t) = I(t) e^{-\lambda \Delta t}$ ([`crates/genos-signal/src/stigmergy.rs`](../crates/genos-signal/src/stigmergy.rs), `backend/src/services/swarmStigmergyVectorService.js`).
 * **Liaison au Runtime Agentique (`dynamicOrganizationService.js`)** : Lorsque l'organisation active est `stigmergy` (canal `stigmergic_trail`), chaque trace déposée par `pheromoneDeposit()` est acheminée vers le bus de signaux. Lors de la relève de boîte aux lettres (`inbox()`), les messages sont annotés de leur `stigmergyIntensity` après décroissance temporelle et réordonnés afin que les sentiers aux phéromones les plus intenses soient explorés en priorité. Le sentier dominant émergent est retourné sous `dominantPath`.
-* **Consensus par Phase d'Oscillateurs (Module Kuramoto Standalone)** : Implémenté de façon autonome dans [`crates/genos-signal/src/kuramoto.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/kuramoto.rs), le modèle de Kuramoto synchronise $N$ oscillateurs de phase selon l'équation :
+* **Consensus par Phase d'Oscillateurs (Module Kuramoto Standalone)** : Implémenté de façon autonome dans [`crates/genos-signal/src/kuramoto.rs`](../crates/genos-signal/src/kuramoto.rs), le modèle de Kuramoto synchronise $N$ oscillateurs de phase selon l'équation :
   $$
   \frac{d\theta_i}{dt} = \omega_i + \frac{K}{N}\sum_{j=1}^{N} \sin(\theta_j - \theta_i)
   $$
@@ -441,16 +441,16 @@ flowchart LR
     ENV --> CONSENSUS["Consensus Pondéré & Décision Collective"]
 ```
 
-* **Implémentation :** [`backend/src/services/mcpBioTools/handlers/polyovulationSpawn.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/mcpBioTools/handlers/polyovulationSpawn.js)
+* **Implémentation :** [`backend/src/services/mcpBioTools/handlers/polyovulationSpawn.js`](../backend/src/services/mcpBioTools/handlers/polyovulationSpawn.js)
 * **Couche CLI & Rust :** Invoquée via `genos biomimicry bio-feature --feature polyovulation --action spawn --param fleet_id=...`
-* **Validation & Tests :** Enregistrée dans [`backend/src/db/seedTools.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/db/seedTools.js) et testée de bout en bout dans [`backend/tests/test_polyovulation_spawn.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/tests/test_polyovulation_spawn.js).
+* **Validation & Tests :** Enregistrée dans [`backend/src/db/seedTools.js`](../backend/src/db/seedTools.js) et testée de bout en bout dans [`backend/tests/test_polyovulation_spawn.js`](../backend/tests/test_polyovulation_spawn.js).
 
 ## 8.ter Nuées en Grappes Hybrides
 
 La primitive `genos_biomimicry_hybrid_multiples` structure les essaims à grande échelle sous forme de matrices multi-niveaux :
 - **Diversité inter-groupes** assurée par la polyovulation de familles distinctes ;
 - **Cohérence et parallélisme intra-groupe** assurés par le clivage isogénique de chaque famille.
-- **Implémentation :** [`backend/src/services/mcpBioTools/handlers/hybridMultiples.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/mcpBioTools/handlers/hybridMultiples.js), validée dans [`backend/tests/test_hybrid_multiples.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/tests/test_hybrid_multiples.js).
+- **Implémentation :** [`backend/src/services/mcpBioTools/handlers/hybridMultiples.js`](../backend/src/services/mcpBioTools/handlers/hybridMultiples.js), validée dans [`backend/tests/test_hybrid_multiples.js`](../backend/tests/test_hybrid_multiples.js).
 
 ---
 

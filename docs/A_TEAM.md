@@ -177,7 +177,7 @@ Client / Mission
         +--> return unified_evidence
 ```
 
-Les composants interagissent via l'état partagé dans [`backend/src/services/agentOrchestrationState.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/agentOrchestrationState.js) et le moteur de barrière [`backend/src/services/workerEvidenceBarrier.js`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/backend/src/services/workerEvidenceBarrier.js), qui valide de manière unifiée les preuves émises par chaque domaine spécialisé avant toute réconciliation.
+Les composants interagissent via l'état partagé dans [`backend/src/services/agentOrchestrationState.js`](../backend/src/services/agentOrchestrationState.js) et le moteur de barrière [`backend/src/services/workerEvidenceBarrier.js`](../backend/src/services/workerEvidenceBarrier.js), qui valide de manière unifiée les preuves émises par chaque domaine spécialisé avant toute réconciliation.
 
 ---
 

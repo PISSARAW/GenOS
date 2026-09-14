@@ -644,7 +644,7 @@ flowchart TD
 - [backend/src/services/mcpBioTools/handlers/chimericMerge.js](../backend/src/services/mcpBioTools/handlers/chimericMerge.js)
 - [backend/tests/test_chimeric_merge.js](../backend/tests/test_chimeric_merge.js)
 - [crates/genos-cli/src/commands/reproduction.rs](../crates/genos-cli/src/commands/reproduction.rs)
-- [crates/genos-cli/src/tests.rs](../crates/genos-cli/src/tests.rs)
+- [crates/genos-cli/src/tests/mod.rs](../crates/genos-cli/src/tests/mod.rs)
 - [README.md](../README.md)
 
 ---

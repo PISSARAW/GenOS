@@ -65,115 +65,199 @@ function formatReportForTerminal(report, useColor) {
 
 const cliHelp = require('./cliHelp.cjs');
 
-async function main() {
-  if (cliHelp.checkHelp(process.argv, 'genos-daemon.cjs')) return;
-  const args = process.argv.slice(2);
-  const isStatus = args.includes('--status');
-  const isEnable = args.includes('--enable-autostart') || args.includes('--enable');
-  const isDisable = args.includes('--disable-autostart') || args.includes('--disable');
-  const isScanOnly = args.includes('--scan-only') || args.includes('--quiet');
-  const isDaemon = args.includes('--daemon');
-  const isReportOnly = args.includes('--report-only');
-  const useColor = !args.includes('--no-color') && (Boolean(process.stdout.isTTY) || process.env.COLORTERM !== undefined);
-  const explicitNonInteractive = args.includes('--non-interactive') || /^(1|true)$/i.test(process.env.GENOS_NONINTERACTIVE || '');
-  const isInteractive = !explicitNonInteractive && (args.includes('--interactive') || /^(1|true)$/i.test(process.env.GENOS_INTERACTIVE || '') || (!isStatus && !isEnable && !isDisable && !isScanOnly && Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY)));
-
-  if (isStatus) {
-    const status = getAutostartStatus();
-    console.log(JSON.stringify(status, null, 2));
-    return;
+function hasAnyFlag(args, names) {
+  for (const flag of names) {
+    if (args.includes(flag)) return true;
   }
+  return false;
+}
 
-  if (isEnable) {
-    const res = enableAutostart();
-    console.log(`Auto-démarrage activé:`, res.autostartFile || 'OK');
-    return;
-  }
+function envFlag(name) {
+  return /^(1|true)$/i.test(process.env[name] || '');
+}
 
-  if (isDisable) {
-    const res = disableAutostart();
-    console.log(`Auto-démarrage désactivé. Scripts retirés: ${res.removedCount || 0}`);
-    return;
-  }
+function resolveColor(args) {
+  return !args.includes('--no-color') && (Boolean(process.stdout.isTTY) || process.env.COLORTERM !== undefined);
+}
 
-  const config = getDaemonConfig();
+function hasTty() {
+  return Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY);
+}
 
-  if (!isScanOnly) {
-    printBanner(config, useColor);
-    const scanMessage = `🔍 [${config.name}] Analyse proactive de vos projets GitHub en cours...`;
-    console.log(useColor ? `\x1b[34m${scanMessage}\x1b[0m\n` : scanMessage);
-  }
+function isDefaultInteractive(flags) {
+  return !flags.isStatus && !flags.isEnable && !flags.isDisable && !flags.isScanOnly && hasTty();
+}
 
-  const result = await runProactiveCycle({ autofix: !isReportOnly });
+function resolveInteractive(flags) {
+  if (hasAnyFlag(flags.args, ['--non-interactive']) || envFlag('GENOS_NONINTERACTIVE')) return false;
+  if (hasAnyFlag(flags.args, ['--interactive'])) return true;
+  if (envFlag('GENOS_INTERACTIVE')) return true;
+  return isDefaultInteractive(flags);
+}
 
-  // Consolidation synaptique & élagage automatique lors du cycle de la sentinelle
+function resolveFlags(args) {
+  const flags = {
+    args,
+    isStatus: hasAnyFlag(args, ['--status']),
+    isEnable: hasAnyFlag(args, ['--enable-autostart', '--enable']),
+    isDisable: hasAnyFlag(args, ['--disable-autostart', '--disable']),
+    isScanOnly: hasAnyFlag(args, ['--scan-only', '--quiet']),
+    isDaemon: hasAnyFlag(args, ['--daemon']),
+    isReportOnly: hasAnyFlag(args, ['--report-only']),
+    useColor: resolveColor(args)
+  };
+  flags.isInteractive = resolveInteractive(flags);
+  return flags;
+}
+
+function printAutostartStatus() {
+  console.log(JSON.stringify(getAutostartStatus(), null, 2));
+}
+
+function printEnableResult() {
+  const res = enableAutostart();
+  console.log(`Auto-démarrage activé:`, res.autostartFile || 'OK');
+}
+
+function printDisableResult() {
+  const res = disableAutostart();
+  console.log(`Auto-démarrage désactivé. Scripts retirés: ${res.removedCount || 0}`);
+}
+
+function printScanBanner(config, useColor) {
+  printBanner(config, useColor);
+  const scanMessage = `🔍 [${config.name}] Analyse proactive de vos projets GitHub en cours...`;
+  console.log(useColor ? `\x1b[34m${scanMessage}\x1b[0m\n` : scanMessage);
+}
+
+async function runCycle(flags, config) {
+  if (!flags.isScanOnly) printScanBanner(config, flags.useColor);
+  const result = await runProactiveCycle({ autofix: !flags.isReportOnly });
   let sleepReport = null;
   try {
     sleepReport = await vectorMemoryService.sleepCycle();
   } catch (_) {}
+  return { result, sleepReport };
+}
 
-  if (isScanOnly) {
-    console.log(JSON.stringify({
-      agent: config.name,
-      totalRepos: result.audit.totalRepos,
-      reportPath: result.audit.savedFiles.latestFile,
-      sleepCycle: sleepReport ? { consolidated: sleepReport.consolidated, apoptosisCount: sleepReport.apoptosisCount, prunedTrajectories: sleepReport.prunedTrajectories } : null
-    }, null, 2));
-    return;
-  }
+function buildSleepCycle(sleepReport) {
+  if (!sleepReport) return null;
+  return {
+    consolidated: sleepReport.consolidated,
+    apoptosisCount: sleepReport.apoptosisCount,
+    prunedTrajectories: sleepReport.prunedTrajectories
+  };
+}
 
-  // Affichage du rapport stylisé dans le terminal
-  console.log(formatReportForTerminal(result.audit.report, useColor));
-  if (sleepReport?.consolidated && !isScanOnly) {
-    const sleepMsg = `🧠 [Consolidation Synaptique] Cycle de veille effectué : ${sleepReport.apoptosisCount || 0} souvenir(s) élagué(s), ${sleepReport.prunedTrajectories || 0} trajectoire(s) purgée(s).`;
-    console.log(useColor ? `\x1b[35m${sleepMsg}\x1b[0m\n` : `${sleepMsg}\n`);
-  }
-  if (!isScanOnly && result.maintenance && result.maintenance.length > 0) {
-    console.log(formatMaintenanceSummary(result.maintenance, useColor));
-  }
+function printScanOnly(config, audit, sleepReport) {
+  console.log(JSON.stringify({
+    agent: config.name,
+    totalRepos: audit.totalRepos,
+    reportPath: audit.savedFiles.latestFile,
+    sleepCycle: buildSleepCycle(sleepReport)
+  }, null, 2));
+}
 
-  const reportMessage = `📄 Rapport complet sauvegardé dans : ${result.audit.savedFiles.latestFile}`;
+function printSleepConsolidation(sleepReport, useColor) {
+  if (!sleepReport || !sleepReport.consolidated) return;
+  const sleepMsg = `🧠 [Consolidation Synaptique] Cycle de veille effectué : ${sleepReport.apoptosisCount || 0} souvenir(s) élagué(s), ${sleepReport.prunedTrajectories || 0} trajectoire(s) purgée(s).`;
+  console.log(useColor ? `\x1b[35m${sleepMsg}\x1b[0m\n` : `${sleepMsg}\n`);
+}
+
+function printMaintenance(result, useColor) {
+  if (!result.maintenance || result.maintenance.length === 0) return;
+  console.log(formatMaintenanceSummary(result.maintenance, useColor));
+}
+
+function printReportLocation(latestFile, useColor) {
+  const reportMessage = `📄 Rapport complet sauvegardé dans : ${latestFile}`;
   console.log(useColor ? `\n\x1b[90m${reportMessage}\x1b[0m\n` : `\n${reportMessage}\n`);
+}
 
-  if (isDaemon) {
-    const intervalMinutes = Math.max(1, Number(config.checkIntervalMinutes) || 60);
-    const intervalMs = intervalMinutes * 60 * 1000;
-    console.log(`[${config.name}] Daemon active; next cycle in ${intervalMinutes} minute(s).`);
-    let isRunning = false;
-    const timer = setInterval(async () => {
-      if (isRunning) {
-        console.warn(`[${config.name}] Previous cycle still running, skipping this tick.`);
-        return;
-      }
-      isRunning = true;
-      try {
-        const scheduled = await runProactiveCycle({ autofix: !isReportOnly });
-        await vectorMemoryService.sleepCycle();
-        if (scheduled.maintenance && scheduled.maintenance.length > 0) {
-          console.log(formatMaintenanceSummary(scheduled.maintenance, useColor));
-        }
-        console.log(`[${config.name}] Scheduled cycle completed.`);
-      } catch (error) {
-        console.error(`[${config.name}] Scheduled cycle failed:`, error.message);
-      } finally {
-        isRunning = false;
-      }
-    }, intervalMs);
-    const stop = () => {
-      clearInterval(timer);
-      console.log(`[${config.name}] Daemon stopped.`);
-      process.exit(0);
-    };
-    process.once('SIGTERM', stop);
-    process.once('SIGINT', stop);
+function printCycleReport(result, sleepReport, useColor) {
+  console.log(formatReportForTerminal(result.audit.report, useColor));
+  printSleepConsolidation(sleepReport, useColor);
+  printMaintenance(result, useColor);
+  printReportLocation(result.audit.savedFiles.latestFile, useColor);
+}
+
+async function runScheduledCycle(config, flags) {
+  const scheduled = await runProactiveCycle({ autofix: !flags.isReportOnly });
+  await vectorMemoryService.sleepCycle();
+  if (scheduled.maintenance && scheduled.maintenance.length > 0) {
+    console.log(formatMaintenanceSummary(scheduled.maintenance, flags.useColor));
+  }
+  console.log(`[${config.name}] Scheduled cycle completed.`);
+}
+
+function createDaemonTimer(config, flags, intervalMs) {
+  let isRunning = false;
+  const timer = setInterval(async () => {
+    if (isRunning) {
+      console.warn(`[${config.name}] Previous cycle still running, skipping this tick.`);
+      return;
+    }
+    isRunning = true;
+    try {
+      await runScheduledCycle(config, flags);
+    } catch (error) {
+      console.error(`[${config.name}] Scheduled cycle failed:`, error.message);
+    } finally {
+      isRunning = false;
+    }
+  }, intervalMs);
+  const stop = () => {
+    clearInterval(timer);
+    console.log(`[${config.name}] Daemon stopped.`);
+    process.exit(0);
+  };
+  process.once('SIGTERM', stop);
+  process.once('SIGINT', stop);
+}
+
+function runDaemon(flags, config) {
+  const intervalMinutes = Math.max(1, Number(config.checkIntervalMinutes) || 60);
+  const intervalMs = intervalMinutes * 60 * 1000;
+  console.log(`[${config.name}] Daemon active; next cycle in ${intervalMinutes} minute(s).`);
+  createDaemonTimer(config, flags, intervalMs);
+}
+
+async function waitInteractive(config) {
+  console.log('\x1b[33m────────────────────────────────────────────────────────────────\x1b[0m');
+  console.log(`[${config.name}] Sentinelle en veille. Appuyez sur [Entrée] pour quitter ce terminal.`);
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  await new Promise((resolve) => rl.question('', () => { rl.close(); resolve(); }));
+}
+
+async function main() {
+  if (cliHelp.checkHelp(process.argv, 'genos-daemon.cjs')) return;
+  const args = process.argv.slice(2);
+  const flags = resolveFlags(args);
+  if (flags.isStatus) {
+    printAutostartStatus();
     return;
   }
-
-  if (isInteractive) {
-    console.log('\x1b[33m────────────────────────────────────────────────────────────────\x1b[0m');
-    console.log(`[${config.name}] Sentinelle en veille. Appuyez sur [Entrée] pour quitter ce terminal.`);
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    await new Promise((resolve) => rl.question('', () => { rl.close(); resolve(); }));
+  if (flags.isEnable) {
+    printEnableResult();
+    return;
+  }
+  if (flags.isDisable) {
+    printDisableResult();
+    return;
+  }
+  const config = getDaemonConfig();
+  const { result, sleepReport } = await runCycle(flags, config);
+  if (flags.isScanOnly) {
+    printScanOnly(config, result.audit, sleepReport);
+    return;
+  }
+  printCycleReport(result, sleepReport, flags.useColor);
+  if (flags.isDaemon) {
+    runDaemon(flags, config);
+    return;
+  }
+  if (flags.isInteractive) {
+    await waitInteractive(config);
   }
 }
 

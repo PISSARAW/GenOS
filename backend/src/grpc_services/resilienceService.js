@@ -1,4 +1,5 @@
 const resilience = require('../services/resilienceService');
+const { getDatabase } = require('../db');
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Resilience is alive via gRPC!" }),
@@ -6,7 +7,8 @@ module.exports = {
   TriggerApoptosis: async (call, callback) => {
     try {
       const { agent_id, reason } = call.request || {};
-      const report = await resilience.generateApoptosisReport(agent_id || 'system', reason || 'manual');
+      const db = await getDatabase();
+      const report = await resilience.evaluateApoptosis(agent_id || 'system', { reason: reason || 'manual' }, db);
       callback(null, {
         triggered: true,
         autopsy_report_json: JSON.stringify(report)
@@ -20,10 +22,12 @@ module.exports = {
     try {
       const { agent_id, state_json } = call.request || {};
       const state = state_json ? JSON.parse(state_json) : {};
-      const snap = await resilience.freezeAgentState(agent_id || 'system', state);
+      const db = await getDatabase();
+      const workspaceId = state.workspaceId || state.workspace_id || 'fleet';
+      const snap = await resilience.freezeCryptobiosis(db, workspaceId, 'gRPC freeze', { ...state, agentId: agent_id });
       callback(null, {
-        snapshot_id: snap.snapshotId || 'snap-1',
-        frozen: snap.success !== false
+        snapshot_id: snap.snapshotId || '',
+        frozen: Boolean(snap.snapshotId)
       });
     } catch (err) {
       callback(null, { snapshot_id: '', frozen: false });
@@ -33,10 +37,12 @@ module.exports = {
   ThawState: async (call, callback) => {
     try {
       const { snapshot_id } = call.request || {};
-      const thawed = await resilience.thawAgentState(snapshot_id || 'snap-1');
+      const db = await getDatabase();
+      const thawed = await resilience.thawCryptobiosis(db, snapshot_id);
+      const state = thawed.state || {};
       callback(null, {
-        agent_id: thawed.agentId || '',
-        restored_state_json: JSON.stringify(thawed.state || {})
+        agent_id: state.agentId || thawed.agentId || '',
+        restored_state_json: JSON.stringify(state)
       });
     } catch (err) {
       callback(null, { agent_id: '', restored_state_json: '{}' });

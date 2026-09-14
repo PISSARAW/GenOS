@@ -188,37 +188,15 @@ Voir la carte documentaire complète dans [docs/README.md](docs/README.md).
 GenOS/
 ├── README.md                       # Vue d’ensemble du projet
 ├── docs/                           # Documentation technique et fonctionnelle
-│   ├── README.md                   # Index documentaire et niveaux de lecture
-│   ├── API_CONTRATS.md             # REST / gRPC / MCP / CLI
-│   ├── BIOLOGIE_COMPUTATIONNELLE.md
-│   ├── CLI_EXPERIENCE_OPERATEUR.md
-│   ├── COMPLIANCE_GOUVERNANCE.md
-│   ├── DEPLOIEMENT_EXPLOITATION.md
-│   ├── EPISTEMOLOGIE_EVIDENCE.md
-│   ├── EVALUATION_QUALITE.md
-│   ├── GIT_AGENTS.md
-│   ├── GENOME_EPIGENETIQUE.md
-│   ├── gestion-projet-multi-tenant.md
-│   ├── IDENTITY_AUTHORITY.md
-│   ├── INTEGRATIONS_IDE.md
-│   ├── MEMOIRE_APPRENTISSAGE.md
-│   ├── MODELES_PROVIDERS.md
-│   ├── NEUROBIOLOGIE_PLASTICITE.md
-│   ├── OBSERVABILITE.md
-│   ├── OPERATIONS_RECOVERY.md
-│   ├── ORCHESTRATION.md
-│   ├── OUTILS_MCP.md
-│   ├── PERSISTANCE_DONNEES.md
-│   ├── PRIMITIVES_EXECUTABLES.md
-│   ├── REPRODUCTION_REPLICATION.md
-│   ├── RESILIENCE_REPRISE.md
-│   ├── RUNTIME_AGENTIQUE.md
-│   ├── SANDBOX_EXECUTION_CODE.md
-│   ├── SECURITE.md
-│   ├── SWARM_INTELLIGENCE.md
-│   ├── TESTS_VALIDATION_DEPOT.md
-│   ├── WORKFLOWS_JOBS.md
-│   └── WORKSPACES_ETAT_CONTRE_FACTUEL.md
+│   ├── README.md                   # Hub : index par familles et parcours de lecture
+│   ├── CONVENTIONS.md              # Conventions de rédaction, nommage et liens
+│   ├── adr/                        # Décisions d'architecture (0001..0004) + index
+│   ├── <CONCEPTS>.md               # Fondations, biomimétisme, nosologie (1..9)
+│   ├── <ORCHESTRATION>.md          # Orchestration, topologies, workspaces, Git agents
+│   ├── <REFERENCE>.md              # API, MCP, persistance, providers, IDE
+│   ├── <EXPLOITATION>.md           # Déploiement, CLI, observabilité, reprise
+│   ├── <SECURITE>.md               # Sécurité, identité, conformité, sandbox
+│   └── <QUALITE>.md                # Qualité, tests, benchmarks, panorama
 ├── backend/                       # Contrôle applicatif Node.js et services
 ├── crates/                        # Core Rust du runtime biomimétique
 ├── examples/                      # Démonstrations et scénarios

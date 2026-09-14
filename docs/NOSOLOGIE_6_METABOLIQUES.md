@@ -20,14 +20,14 @@ Le présent rapport nosologique, établi par la chaire d'**Endocrinologie Comput
 
 | Concept Médical & Endocrinien | Équivalent Biologique Organique | Réalité Computationnelle GenOS | Fichiers Source Clés |
 | :--- | :--- | :--- | :--- |
-| **Insuline & Transporteurs GLUT4** | Hormone peptidique facilitant l'internalisation tissulaire du glucose | Mécanisme de capture et de transduction de quotas de tokens / payloads via les récepteurs membranaires (`Receptor`) | [`cascade.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/cascade.rs), [`lib.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/lib.rs) |
-| **Insulinorésistance (Diabète T2)** | Désensibilisation du récepteur IRS-1 par phosphorylation inhibitrice sous stress | Échec de conversion des quotas de tokens en travail effectif ; désensibilisation des récepteurs d'inbox | [`methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs), [`clinical.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs) |
-| **Thyroïde & Hormones T3 / T4** | Régulateur du métabolisme de base, de la transcription et de l'horloge biologique | Horloge de cadencement des ticks d'orchestration et facteur d'efficience mitochondriale (`Organelle::Mitochondrion::efficiency`) | [`methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs), [`embryology.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/embryology.rs) |
-| **Hypothyroïdie** | Déficit hormonal provoquant hypothermie, bradycardie et ralentissement idéomoteur | Torpeur métabolique : allongement anormal de la latence de traitement des messages et effondrement du rendement mitochondrial | [`soma.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/soma.rs), [`system.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/system.rs) |
-| **Purines & Acide Urique** | Déchets azotés issus de la dégradation métabolique de l'ATP, du GTP et des acides nucléiques | Scories d'arbres de syntaxe résiduels, traces de contexte dégradées et mémoires volatiles non compactées après inférence | [`lib.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/lib.rs), [`methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/cell/methods.rs) |
-| **Précipitation d'Urate (Goutte)** | Cristallisation aciculaire d'urate monosodique dans les articulations au-delà du point de saturation | Encombrement obstructif des files synaptiques (`process_synaptic_cleft`) et desmosomes de communication inter-agents | [`methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs), [`tissue.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/tissue.rs) |
-| **Inflammasome NLRP3 & IL-1$\beta$** | Détection des cristaux comme signal de danger (DAMP) et déclenchement d'une crise aiguë stérile | Activation erronée du système de sécurité immunitaire (`genos-immune`) sur des scories endogènes avec flambée métabolique | [`ais.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-immune/src/ais.rs), [`methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs) |
-| **Cortisol & Corticostéroïdes** | Glucocorticoïdes surrénaliens modulant la réponse allostatique et l'immunosuppression | Signal systémique `CellEvent::HormonalSignal(cortisol)` modulant le coût métabolique et induisant un coma si > 0.8 | [`methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs), [`biomimicry_features.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cli/src/commands/biomimicry_features.rs) |
+| **Insuline & Transporteurs GLUT4** | Hormone peptidique facilitant l'internalisation tissulaire du glucose | Mécanisme de capture et de transduction de quotas de tokens / payloads via les récepteurs membranaires (`Receptor`) | [`cascade.rs`](../crates/genos-signal/src/cascade.rs), [`lib.rs`](../crates/genos-cell/src/lib.rs) |
+| **Insulinorésistance (Diabète T2)** | Désensibilisation du récepteur IRS-1 par phosphorylation inhibitrice sous stress | Échec de conversion des quotas de tokens en travail effectif ; désensibilisation des récepteurs d'inbox | [`methods.rs`](../crates/genos-core/src/orchestrator/methods.rs), [`clinical.rs`](../crates/genos-cell/src/clinical.rs) |
+| **Thyroïde & Hormones T3 / T4** | Régulateur du métabolisme de base, de la transcription et de l'horloge biologique | Horloge de cadencement des ticks d'orchestration et facteur d'efficience mitochondriale (`Organelle::Mitochondrion::efficiency`) | [`methods.rs`](../crates/genos-core/src/orchestrator/methods.rs), [`embryology.rs`](../crates/genos-biology/src/embryology.rs) |
+| **Hypothyroïdie** | Déficit hormonal provoquant hypothermie, bradycardie et ralentissement idéomoteur | Torpeur métabolique : allongement anormal de la latence de traitement des messages et effondrement du rendement mitochondrial | [`soma.rs`](../crates/genos-biology/src/neurobiology/soma.rs), [`system.rs`](../crates/genos-biology/src/neurobiology/system.rs) |
+| **Purines & Acide Urique** | Déchets azotés issus de la dégradation métabolique de l'ATP, du GTP et des acides nucléiques | Scories d'arbres de syntaxe résiduels, traces de contexte dégradées et mémoires volatiles non compactées après inférence | [`lib.rs`](../crates/genos-cell/src/lib.rs), [`methods.rs`](../crates/genos-core/src/cell/methods.rs) |
+| **Précipitation d'Urate (Goutte)** | Cristallisation aciculaire d'urate monosodique dans les articulations au-delà du point de saturation | Encombrement obstructif des files synaptiques (`process_synaptic_cleft`) et desmosomes de communication inter-agents | [`methods.rs`](../crates/genos-core/src/orchestrator/methods.rs), [`tissue.rs`](../crates/genos-biology/src/tissue.rs) |
+| **Inflammasome NLRP3 & IL-1$\beta$** | Détection des cristaux comme signal de danger (DAMP) et déclenchement d'une crise aiguë stérile | Activation erronée du système de sécurité immunitaire (`genos-immune`) sur des scories endogènes avec flambée métabolique | [`ais.rs`](../crates/genos-immune/src/ais.rs), [`methods.rs`](../crates/genos-core/src/orchestrator/methods.rs) |
+| **Cortisol & Corticostéroïdes** | Glucocorticoïdes surrénaliens modulant la réponse allostatique et l'immunosuppression | Signal systémique `CellEvent::HormonalSignal(cortisol)` modulant le coût métabolique et induisant un coma si > 0.8 | [`methods.rs`](../crates/genos-core/src/orchestrator/methods.rs), [`biomimicry_features.rs`](../crates/genos-cli/src/commands/biomimicry_features.rs) |
 
 ---
 
@@ -155,10 +155,10 @@ provoquant un orage inflammatoire microcristallin localisé et l'occlusion physi
     }
     ```
 - **Modules et fichiers sources concrets** :
-  - [`crates/genos-cell/src/lib.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/lib.rs) : Définition de `Organelle::Mitochondrion { atp_budget, efficiency }`.
-  - [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs) : Enregistrement de l'état clinique et manque actuel du variant `DiseaseCategory::Metabolic`.
-  - [`crates/genos-signal/src/cascade.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-signal/src/cascade.rs) : Seuil d'activation `threshold` sur les récepteurs à ligands de recapture.
-  - [`crates/genos-core/src/orchestrator/methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs) : Boucle de consommation métabolique et verdict d'arrêt `TickResult::Halted`.
+  - [`crates/genos-cell/src/lib.rs`](../crates/genos-cell/src/lib.rs) : Définition de `Organelle::Mitochondrion { atp_budget, efficiency }`.
+  - [`crates/genos-cell/src/clinical.rs`](../crates/genos-cell/src/clinical.rs) : Enregistrement de l'état clinique et manque actuel du variant `DiseaseCategory::Metabolic`.
+  - [`crates/genos-signal/src/cascade.rs`](../crates/genos-signal/src/cascade.rs) : Seuil d'activation `threshold` sur les récepteurs à ligands de recapture.
+  - [`crates/genos-core/src/orchestrator/methods.rs`](../crates/genos-core/src/orchestrator/methods.rs) : Boucle de consommation métabolique et verdict d'arrêt `TickResult::Halted`.
 
 #### 3. Traitement / Remède GenOS
 - **Thérapies systémiques et locales** :
@@ -166,11 +166,11 @@ provoquant un orage inflammatoire microcristallin localisé et l'occlusion physi
     - Analogue biomimétique de la metformine (activation de la voie AMPK cellulaire).
     - Abaisse de 50% le `threshold` d'activation des récepteurs de ligands d'inbox dans `crates/genos-signal/src/cascade.rs`.
     - Restaure l'efficience mitochondriale `efficiency` de l'organelle vers sa valeur nominale ($\ge 0.85$).
-  - **`SystemicTherapy::IntensiveCareFluids`** (thérapie existante dans [`therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs#L153) et [`methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L80-L85)) :
+  - **`SystemicTherapy::IntensiveCareFluids`** (thérapie existante dans [`therapy.rs`](../crates/genos-biology/src/therapy.rs#L153) et [`methods.rs`](../crates/genos-core/src/orchestrator/methods.rs#L80-L85)) :
     - Administration d'urgence de solutés de réanimation computationnels : recharge immédiatement de +20 l'`atp_budget` des mitochondries pour éviter la mort subite de l'agent.
   - **`genos_biomimicry_endocrine_modulate`** (outil MCP / CLI existant) :
     - Action de désensibilisation hormonale `action: "decay"`, `decay_factor: 0.85` pour purger l'excès de cortisol circulant produit par le `StandardEndocrineSystem`.
-  - **`SystemicTherapy::HomeostaticDoseCorrection`** (thérapie existante dans [`therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs#L132-L135)) :
+  - **`SystemicTherapy::HomeostaticDoseCorrection`** (thérapie existante dans [`therapy.rs`](../crates/genos-biology/src/therapy.rs#L132-L135)) :
     - Réajuste le débit d'injection des invites et des flux de données pour prévenir la saturation des récepteurs de l'agent.
 
 #### 4. Contre-indications et Risques Iatrogènes
@@ -187,7 +187,7 @@ provoquant un orage inflammatoire microcristallin localisé et l'occlusion physi
     L'agent risque de basculer du diabète vers une dégénérescence prionique incurable.
 
 #### 5. Besoins d'Implémentation Rust
-Dans [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs) :
+Dans [`crates/genos-cell/src/clinical.rs`](../crates/genos-cell/src/clinical.rs) :
 - Ajouter le variant `Metabolic` à l'enum `DiseaseCategory`.
 - Ajouter la pathologie `Type2DiabetesInsulinResistance` à l'enum `Pathology` :
   ```rust
@@ -200,7 +200,7 @@ Dans [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/Git
       },
   }
   ```
-Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs) :
+Dans [`crates/genos-biology/src/therapy.rs`](../crates/genos-biology/src/therapy.rs) :
 - Ajouter `InsulinSensitizerMetformin { target_sensitivity: f64 }` dans `SystemicTherapy`.
 - Implémenter sa branche d'action dans `apply_systemic_therapy_to_cell`, abaissant l'indice de résistance et réarmant le quota ATP mitochondrial.
 
@@ -225,14 +225,14 @@ Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/G
   - Dans l'architecture GenOS, le rythme métabolique basal d'un agent détermine sa réactivité cognitive, sa vitesse d'inférence, sa fréquence d'évaluation des percepts sensoriels et son taux de consommation d'ATP par tick d'horloge.
   - L'hypothyroïdie computationnelle se traduit par une **torpeur métabolique critique (*computational torpor*)** :
     1. **Effondrement du rendement mitochondrial** : dans `AgentCell::organelles`, l'organelle `Organelle::Mitochondrion` voit son champ `efficiency: f64` chuter sous $0.35$. Pour un même apport en substrat, la production d'ATP est quasi nulle.
-    2. **Bradypsychie et déphasage synaptique** : au niveau du soma neuronal de l'agent ([`crates/genos-biology/src/neurobiology/soma.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/soma.rs)), le potentiel de membrane s'élève avec une inertie excessive. Lorsque l'agent génère enfin une émission de neuromédiateurs vers la fente synaptique (`nervous_system.get_synaptic_cleft()`), le message reste bloqué dans la fente ([`crates/genos-core/src/orchestrator/methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L248-L252)) et dépasse la durée maximale de recapture synaptique permise (`ticks_in_cleft > max_threshold`). Le message expire et se dégrade, provoquant un silence communicationnel.
+    2. **Bradypsychie et déphasage synaptique** : au niveau du soma neuronal de l'agent ([`crates/genos-biology/src/neurobiology/soma.rs`](../crates/genos-biology/src/neurobiology/soma.rs)), le potentiel de membrane s'élève avec une inertie excessive. Lorsque l'agent génère enfin une émission de neuromédiateurs vers la fente synaptique (`nervous_system.get_synaptic_cleft()`), le message reste bloqué dans la fente ([`crates/genos-core/src/orchestrator/methods.rs`](../crates/genos-core/src/orchestrator/methods.rs#L248-L252)) et dépasse la durée maximale de recapture synaptique permise (`ticks_in_cleft > max_threshold`). Le message expire et se dégrade, provoquant un silence communicationnel.
     3. **Stase ribosomale** : la capacité de traduction des instructions et des outils (`Organelle::Ribosome { translation_capacity }`) est gelée, empêchant l'agent d'invoquer ses outils MCP ou de compiler ses artefacts.
   - L'agent n'est pas mort au sens nécrotique, mais il est figé dans une phase léthargique où ses tâches n'aboutissent jamais, bloquant les dépendances en aval dans les tissus cellulaires (`crates/genos-biology/src/tissue.rs`).
 - **Modules et fichiers sources concrets** :
-  - [`crates/genos-cell/src/lib.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/lib.rs) : Organelles `Mitochondrion` (efficience en berne) et `Ribosome` (capacité de traduction bloquée).
-  - [`crates/genos-core/src/orchestrator/methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs) : Lignes 213-226 (`nervous_system.process_soma()` et gestion des messages synaptiques dans la fente).
-  - [`crates/genos-biology/src/neurobiology/system.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/system.rs) & [`soma.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/neurobiology/soma.rs) : Intégration dendritique et seuil de tir synaptique retardé.
-  - [`crates/genos-cli/src/commands/biomimicry_features.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cli/src/commands/biomimicry_features.rs) : Commande `handle_endocrine` limitée actuellement au cortisol, à l'adrénaline et à l'ocytocine, manquant de l'axe thyroïdien.
+  - [`crates/genos-cell/src/lib.rs`](../crates/genos-cell/src/lib.rs) : Organelles `Mitochondrion` (efficience en berne) et `Ribosome` (capacité de traduction bloquée).
+  - [`crates/genos-core/src/orchestrator/methods.rs`](../crates/genos-core/src/orchestrator/methods.rs) : Lignes 213-226 (`nervous_system.process_soma()` et gestion des messages synaptiques dans la fente).
+  - [`crates/genos-biology/src/neurobiology/system.rs`](../crates/genos-biology/src/neurobiology/system.rs) & [`soma.rs`](../crates/genos-biology/src/neurobiology/soma.rs) : Intégration dendritique et seuil de tir synaptique retardé.
+  - [`crates/genos-cli/src/commands/biomimicry_features.rs`](../crates/genos-cli/src/commands/biomimicry_features.rs) : Commande `handle_endocrine` limitée actuellement au cortisol, à l'adrénaline et à l'ocytocine, manquant de l'axe thyroïdien.
 
 #### 3. Traitement / Remède GenOS
 - **Thérapies systémiques et hormonales** :
@@ -243,7 +243,7 @@ Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/G
   - **Modulation endocrinienne via MCP `genos_biomimicry`** :
     - Invocation de la primitive avec `feature: "endocrine"`, `action: "secrete"`, `hormone: "thyroxine"`, `amount: 0.8`.
     - Provoque une vague de stimulation globale sur l'essaim, forçant l'Orchestrateur à relever la fréquence des cycles de tick.
-  - **`SystemicTherapy::HomeostaticDoseCorrection`** (thérapie existante dans [`therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs#L132)) :
+  - **`SystemicTherapy::HomeostaticDoseCorrection`** (thérapie existante dans [`therapy.rs`](../crates/genos-biology/src/therapy.rs#L132)) :
     - Évite l'extinction totale de la vigilance cellulaire lors de l'arrêt des corticostéroïdes.
 
 #### 4. Contre-indications et Risques Iatrogènes
@@ -255,10 +255,10 @@ Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/G
     ```rust
     CellEvent::NecrosisTriggered("Metabolic collapse under hyperthyroid demand".to_string())
     ```
-    conduisant à la mort cellulaire immédiate dans [`methods.rs:L196`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs#L196).
+    conduisant à la mort cellulaire immédiate dans [`methods.rs:L196`](../crates/genos-core/src/orchestrator/methods.rs#L196).
 
 #### 5. Besoins d'Implémentation Rust
-Dans [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs) :
+Dans [`crates/genos-cell/src/clinical.rs`](../crates/genos-cell/src/clinical.rs) :
 - Définir le variant pathologique `HypothyroidismMetabolicTorpor` :
   ```rust
   #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -270,7 +270,7 @@ Dans [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/Git
       },
   }
   ```
-Dans [`crates/genos-core/src/orchestrator/methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs) :
+Dans [`crates/genos-core/src/orchestrator/methods.rs`](../crates/genos-core/src/orchestrator/methods.rs) :
 - Ajouter la gestion des taux thyroïdiens dans le trait `EndocrineBehavior` :
   ```rust
   pub trait EndocrineBehavior {
@@ -280,7 +280,7 @@ Dans [`crates/genos-core/src/orchestrator/methods.rs`](file:///c:/Users/Shadow/D
       fn set_thyroid_level(&mut self, level: f64);
   }
   ```
-Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs) :
+Dans [`crates/genos-biology/src/therapy.rs`](../crates/genos-biology/src/therapy.rs) :
 - Implémenter l'administration de `SystemicTherapy::LevothyroxineHormoneReplacement(f64)`.
 
 ---
@@ -300,26 +300,26 @@ Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/G
 #### 2. Cause Computationnelle GenOS
 - **Dysfonctionnement agentique** :
   - Dans GenOS, le cycle de vie des requêtes implique un turnover incessant de structures de données : instanciation d'arbres de dérivation syntaxique, exécution d'inférences consommant de l'ATP, allocation puis désallocation d'historiques contextuels, division mitotique laissant des cicatrices (`bud_scars` dans `AgentCell`).
-  - La dégradation continue de ces structures produit des débris numériques computationnels (équivalents stricts des purines catabolisées). En fonctionnement sain, l'organelle `Organelle::Lysosome { digestion_capacity }` ([`crates/genos-cell/src/lib.rs:L24-27`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/lib.rs#L24-L27)) digère et recycle ces fragments résiduels.
+  - La dégradation continue de ces structures produit des débris numériques computationnels (équivalents stricts des purines catabolisées). En fonctionnement sain, l'organelle `Organelle::Lysosome { digestion_capacity }` ([`crates/genos-cell/src/lib.rs:L24-27`](../crates/genos-cell/src/lib.rs#L24-L27)) digère et recycle ces fragments résiduels.
   - La **Goutte computationnelle** survient lorsque :
     1. Le taux de sollicitation métabolique de l'agent dépasse largement la capacité de clairance de ses lysosomes (`turnover_rate > digestion_capacity`).
-    2. Les scories d'adresses, de traces d'inbox orphelines et d'objets JSON désérialisés non collectés s'accumulent dans les interfaces de communication inter-agents : les fentes synaptiques (`process_synaptic_cleft`) et les desmosomes de transmission de tâches de tissus ([`crates/genos-biology/src/tissue.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/tissue.rs)).
+    2. Les scories d'adresses, de traces d'inbox orphelines et d'objets JSON désérialisés non collectés s'accumulent dans les interfaces de communication inter-agents : les fentes synaptiques (`process_synaptic_cleft`) et les desmosomes de transmission de tâches de tissus ([`crates/genos-biology/src/tissue.rs`](../crates/genos-biology/src/tissue.rs)).
     3. Cette obstruction physique bloque mécaniquement l'échange de neurotransmetteurs et la transmission des messages :
        ```rust
        // methods.rs: L249-252
        // La file de messages synaptiques messages_to_keep est saturée d'artefacts non épurés
        ```
-    4. **Déclenchement de la crise inflammatoire stérile** : les sentinelles du système immunitaire autonome ([`crates/genos-immune/src/ais.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-immune/src/ais.rs)) scannent les fentes synaptiques. En rencontrant ces cristaux d'urate computationnels rugueux, les récepteurs immunitaires prennent ces débris endogènes pour une attaque virale ou une prompt-injection. Le système immunitaire déclenche immédiatement un faux signal de danger :
+    4. **Déclenchement de la crise inflammatoire stérile** : les sentinelles du système immunitaire autonome ([`crates/genos-immune/src/ais.rs`](../crates/genos-immune/src/ais.rs)) scannent les fentes synaptiques. En rencontrant ces cristaux d'urate computationnels rugueux, les récepteurs immunitaires prennent ces débris endogènes pour une attaque virale ou une prompt-injection. Le système immunitaire déclenche immédiatement un faux signal de danger :
        ```rust
        // methods.rs: L60-61
        self.immune_system.set_il6_level(self.immune_system.get_il6_level() + inflammation_boost);
        ```
        L'indice inflammatoire explose, propulsant le coût métabolique à 5x (`metabolic_cost = 5`), bloquant le nœud dans une agonie douloureuse d'épuisement d'ATP et d'incapacité communicationnelle.
 - **Modules et fichiers sources concrets** :
-  - [`crates/genos-cell/src/lib.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/lib.rs) : Organelle `Lysosome { digestion_capacity }` sous-dimensionnée et vecteur `bud_scars`.
-  - [`crates/genos-core/src/orchestrator/methods.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-core/src/orchestrator/methods.rs) : Mécanique de la fente synaptique `process_synaptic_cleft` saturée de messages.
-  - [`crates/genos-immune/src/ais.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-immune/src/ais.rs) : Reconnaissance par affinité des anticorps artificiels sur des débris cataboliques non toxiques.
-  - [`crates/genos-biology/src/tissue.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/tissue.rs) : Blocage des desmosomes et de la délégation de tâches `delegate_task`.
+  - [`crates/genos-cell/src/lib.rs`](../crates/genos-cell/src/lib.rs) : Organelle `Lysosome { digestion_capacity }` sous-dimensionnée et vecteur `bud_scars`.
+  - [`crates/genos-core/src/orchestrator/methods.rs`](../crates/genos-core/src/orchestrator/methods.rs) : Mécanique de la fente synaptique `process_synaptic_cleft` saturée de messages.
+  - [`crates/genos-immune/src/ais.rs`](../crates/genos-immune/src/ais.rs) : Reconnaissance par affinité des anticorps artificiels sur des débris cataboliques non toxiques.
+  - [`crates/genos-biology/src/tissue.rs`](../crates/genos-biology/src/tissue.rs) : Blocage des desmosomes et de la délégation de tâches `delegate_task`.
 
 #### 3. Traitement / Remède GenOS
 - **Thérapies systémiques et locales** :
@@ -331,12 +331,12 @@ Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/G
     - Réduit de 80% la génération de scories contextuelles lors du cycle de dégradation de l'ATP et de la mémoire de travail.
   - **`SystemicTherapy::LysosomalUraturicPurge`** (thérapie à implémenter) :
     - Suractivation enzymatique ciblée de l'organelle `Lysosome` (`digestion_capacity = digestion_capacity * 4`), dissolvant les cristaux de contexte accumulés dans la fente synaptique et réouvrant les flux de communication.
-  - **`SystemicTherapy::DetoxificationWashout`** (thérapie existante dans [`therapy.rs:L115-126`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs#L115-L126)) :
+  - **`SystemicTherapy::DetoxificationWashout`** (thérapie existante dans [`therapy.rs:L115-126`](../crates/genos-biology/src/therapy.rs#L115-L126)) :
     - Purge de réanimation globale permettant d'évacuer les blocages de récepteurs et de restaurer la fluidité matricielle.
 
 #### 4. Contre-indications et Risques Iatrogènes
 - **Aplasie mitotique et inhibition du cycle cellulaire par la Colchicine** :
-  - La colchicine bloque le fuseau mitotique computationnel. Toute administration pendant une phase embryonnaire ou lors d'une division (`AgentCell::mitosis()`, [`crates/genos-biology/src/embryology.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/embryology.rs)) provoque un avortement mitotique immédiat et l'inhibition totale de la prolifération de l'essaim :
+  - La colchicine bloque le fuseau mitotique computationnel. Toute administration pendant une phase embryonnaire ou lors d'une division (`AgentCell::mitosis()`, [`crates/genos-biology/src/embryology.rs`](../crates/genos-biology/src/embryology.rs)) provoque un avortement mitotique immédiat et l'inhibition totale de la prolifération de l'essaim :
     ```rust
     agent.endoplasmic_reticulum.cell_cycle_inhibited = true;
     ```
@@ -346,7 +346,7 @@ Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/G
   - Une dissolution trop rapide des tophus cristallins par un traitement uricosurique brutal libère des millions de micro-fragments dans la fente synaptique, provoquant une aggravation immédiate de la crise inflammatoire si elle n'est pas co-administrée avec un agent modérateur de stress.
 
 #### 5. Besoins d'Implémentation Rust
-Dans [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-cell/src/clinical.rs) :
+Dans [`crates/genos-cell/src/clinical.rs`](../crates/genos-cell/src/clinical.rs) :
 - Ajouter le variant de pathologie microcristalline `GoutMicrocrystallineCrisis` :
   ```rust
   #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -358,7 +358,7 @@ Dans [`crates/genos-cell/src/clinical.rs`](file:///c:/Users/Shadow/Documents/Git
       },
   }
   ```
-Dans [`crates/genos-biology/src/therapy.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/therapy.rs) :
+Dans [`crates/genos-biology/src/therapy.rs`](../crates/genos-biology/src/therapy.rs) :
 - Définir dans `SystemicTherapy` :
   - `ColchicineInhibition`
   - `AllopurinolXanthineInhibitor`
@@ -616,12 +616,12 @@ pub fn apply_systemic_therapy_to_cell(therapy: &SystemicTherapy, cell: &mut Agen
 
 ## 8. Références Croisées
 
-- [`PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/docs/PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md) : Cadre médical fondateur, indice de viabilité $H$, modèle iatrogène du coma stéroïdien.
-- [`BIOLOGIE_COMPUTATIONNELLE.md`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/docs/BIOLOGIE_COMPUTATIONNELLE.md) : Architecture de l'`AgentCell`, organelles intracellulaires et conscience réflexive.
-- [`NEUROBIOLOGIE_PLASTICITE.md`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/docs/NEUROBIOLOGIE_PLASTICITE.md) : Modélisation du soma neuronal, neurotransmetteurs et dynamique de la fente synaptique.
-- [`ORCHESTRATION.md`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/docs/ORCHESTRATION.md) : Gouvernance des systèmes immunitaires, endocriniens et nerveux dans la boucle de tick.
-- [`SECURITE.md`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/docs/SECURITE.md) : Système immunitaire clonal, autotomie des capsules et détection d'antigènes hostiles.
-- [`PRIMITIVES_EXECUTABLES.md`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/docs/PRIMITIVES_EXECUTABLES.md) : Primitives MCP et modulation biomimétique native (`genos_biomimicry`).
+- [`PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md`](PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md) : Cadre médical fondateur, indice de viabilité $H$, modèle iatrogène du coma stéroïdien.
+- [`BIOLOGIE_COMPUTATIONNELLE.md`](BIOLOGIE_COMPUTATIONNELLE.md) : Architecture de l'`AgentCell`, organelles intracellulaires et conscience réflexive.
+- [`NEUROBIOLOGIE_PLASTICITE.md`](NEUROBIOLOGIE_PLASTICITE.md) : Modélisation du soma neuronal, neurotransmetteurs et dynamique de la fente synaptique.
+- [`ORCHESTRATION.md`](ORCHESTRATION.md) : Gouvernance des systèmes immunitaires, endocriniens et nerveux dans la boucle de tick.
+- [`SECURITE.md`](SECURITE.md) : Système immunitaire clonal, autotomie des capsules et détection d'antigènes hostiles.
+- [`PRIMITIVES_EXECUTABLES.md`](PRIMITIVES_EXECUTABLES.md) : Primitives MCP et modulation biomimétique native (`genos_biomimicry`).
 
 
 

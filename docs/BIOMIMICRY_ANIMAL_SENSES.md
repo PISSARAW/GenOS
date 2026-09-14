@@ -13,7 +13,7 @@ Le **Bulbe Olfactif Accessoire (AOB)** et l'**Organe Voméronasal (VNO)** fourni
 - **Réponse de Flehmen :** Lorsque la concentration dépasse le seuil de sensibilité, une transition d'état réflexe (`autonomic_action`) est immédiatement déclenchée (ex: gel défensif, mobilisation cytotoxique, synchronisation d'essaim).
 
 ### Primitives & Commandes
-- **Module Rust :** [`crates/genos-biology/src/sensory/vomeronasal.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/sensory/vomeronasal.rs)
+- **Module Rust :** [`crates/genos-biology/src/sensory/vomeronasal.rs`](../crates/genos-biology/src/sensory/vomeronasal.rs)
 - **CLI :**
   ```bash
   genos biomimicry vomeronasal --agent-id agent-01 --locus workspace/src --pheromone-type alarm --concentration 0.95 --sensitivity 0.15
@@ -31,7 +31,7 @@ Inspiré du poisson-éléphant (*Gnathonemus petersii*) et des requins, ce modul
 - **Sensing Actif (EOD - Electric Organ Discharge) :** Émission d'ondes de décharge et calcul de la distorsion d'impédance diélectrique ($\Delta Z$), de la réactance capacitive et du contraste spatial de l'infrastructure logicielle.
 
 ### Primitives & Commandes
-- **Module Rust :** [`crates/genos-biology/src/sensory/mormyrocerebellum.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/sensory/mormyrocerebellum.rs)
+- **Module Rust :** [`crates/genos-biology/src/sensory/mormyrocerebellum.rs`](../crates/genos-biology/src/sensory/mormyrocerebellum.rs)
 - **CLI :**
   ```bash
   genos biomimicry electrosensory --agent-id mormyro-01 --action discharge_and_analyze --frequency-hz 800 --sensitivity 0.05 --samples "100.0,102.0,98.0,280.0,101.0"
@@ -49,7 +49,7 @@ Inspiré des oiseaux migrateurs nocturnes (rouge-gorge familier), le module **Cl
 - **Prévention du Drift Sémantique :** Calcule en continu la dérive angulaire ($\theta = \arccos(\frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \|\mathbf{v}\|})$) et la cohérence quantique entre l'intention de départ et la trajectoire des sous-agents, projetant un cap de correction dynamique.
 
 ### Primitives & Commandes
-- **Module Rust :** [`crates/genos-biology/src/sensory/cluster_n.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/sensory/cluster_n.rs)
+- **Module Rust :** [`crates/genos-biology/src/sensory/cluster_n.rs`](../crates/genos-biology/src/sensory/cluster_n.rs)
 - **CLI :**
   ```bash
   genos biomimicry cluster-n --agent-id robin-01 --action align --sensitivity 0.02 --tolerance-deg 15.0 --goal-vector "1.0,0.0,0.0" --current-vector "0.96,0.15,0.0"
@@ -67,7 +67,7 @@ Inspiré des serpents solénoglyphes et crotalidés (crotales, vipères, pythons
 - **Détection de Hotspots & Frappe Ciblée :** Détecte des gradients thermiques sub-millikelvin ($T \ge 3.0\text{ mK}$) pour isoler instantanément les modules chauds sous stress ou en surchauffe opérationnelle sans avoir à parser l'intégralité du code.
 
 ### Primitives & Commandes
-- **Module Rust :** [`crates/genos-biology/src/sensory/tectum_thermal.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/sensory/tectum_thermal.rs)
+- **Module Rust :** [`crates/genos-biology/src/sensory/tectum_thermal.rs`](../crates/genos-biology/src/sensory/tectum_thermal.rs)
 - **CLI :**
   ```bash
   genos biomimicry tectum-thermal --agent-id viper-01 --action fuse_modalities --sensitivity-mk 3.0 --fusion-weight 0.65 --threshold 0.70 --visual-nodes "src/auth.rs:0.8,src/db.rs:0.4" --thermal-readings "src/auth.rs:0.95,src/db.rs:0.2"
@@ -85,7 +85,7 @@ Inspiré des microchiroptères (chauves-souris) et des odontocètes (dauphins), 
 - **Cinématique Doppler & Détection d'Obstacles :** Calcule la vitesse radiale relative ($v = \frac{\Delta f \cdot c}{2 f_0}$) via le décalage Doppler ($\Delta f$) et la densité d'impédance relative via l'atténuation du signal, identifiant immédiatement les obstacles critiques en approche (deadlocks, collisions de branches, blocages I/O) et les corridors navigables dégagés.
 
 ### Primitives & Commandes
-- **Module Rust :** [`crates/genos-biology/src/sensory/echolocation.rs`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-biology/src/sensory/echolocation.rs)
+- **Module Rust :** [`crates/genos-biology/src/sensory/echolocation.rs`](../crates/genos-biology/src/sensory/echolocation.rs)
 - **CLI :**
   ```bash
   genos biomimicry echolocation --agent-id bat-01 --action probe_echoes --base-frequency-khz 60.0 --obstacle-threshold-m 2.5 --echoes "branch/auth:10.0:500.0:20.0,db/deadlock:40.0:-100.0:45.0"

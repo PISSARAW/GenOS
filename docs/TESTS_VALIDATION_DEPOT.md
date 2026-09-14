@@ -15,7 +15,7 @@ Les principales sources sont :
 - [backend/tests/stress/test_framework_adversarial_bench.js](../backend/tests/stress/test_framework_adversarial_bench.js)
 - [backend/tests/stress/test_extreme_tokens_and_comm_bench.js](../backend/tests/stress/test_extreme_tokens_and_comm_bench.js)
 - [backend/tests/stress/test_apex_adversarial_defense_bench.js](../backend/tests/stress/test_apex_adversarial_defense_bench.js)
-- [crates/genos-cli/src/tests.rs](../crates/genos-cli/src/tests.rs)
+- [crates/genos-cli/src/tests/mod.rs](../crates/genos-cli/src/tests/mod.rs)
 
 Le dépôt ne repose pas sur Jest, Mocha, Vitest ou un framework de property testing centralisé. Les tests Node sont des scripts exécutables avec `node`, `assert`, des serveurs locaux, SQLite et des doubles ciblés. Les tests Rust sont les tests unitaires de crates exécutés par Cargo.
 
@@ -110,7 +110,7 @@ flowchart TD
 
 ## 4. Tests unitaires Rust
 
-Les tests Rust se trouvent dans les crates. Par exemple, [crates/genos-cli/src/tests.rs](../crates/genos-cli/src/tests.rs) exerce directement les handlers sans passer par un shell :
+Les tests Rust se trouvent dans les crates. Par exemple, [crates/genos-cli/src/tests/mod.rs](../crates/genos-cli/src/tests/mod.rs) exerce directement les handlers sans passer par un shell :
 
 - création, validation et snapshot d'agent ;
 - comparaison de snapshots ;

@@ -233,4 +233,21 @@ if (require.main === module) {
   runNativeVerification(target).catch(console.error);
 }
 
-module.exports = { verifyTaskDynamically, runNativeVerification };
+function probeBugReproduction(task) {
+  const repoDirName = task.repo.replace('/', '__');
+  const repoDir = path.join(REPOS_DIR, repoDirName);
+  prepareRepoForTask(task, repoDir);
+  const testPatchOk = applyPatchToRepo(repoDir, task.test_patch);
+  if (!testPatchOk) {
+    return { ok: false, traceback: '' };
+  }
+  const failList = parseTestList(task.FAIL_TO_PASS);
+  const failToPassTarget = failList.join(' ');
+  const preResult = runPytest(repoDir, failToPassTarget);
+  runGit('reset --hard', repoDir);
+  runGit('clean -fdx', repoDir);
+  const tb = extractPytestFailure(preResult.output) || preResult.output || '';
+  return { ok: true, reproduced: !preResult.success, traceback: tb };
+}
+
+module.exports = { verifyTaskDynamically, runNativeVerification, probeBugReproduction };

@@ -47,6 +47,20 @@ pub struct MissionReport {
 impl GenosEcosystem {
     /// Un cycle complet : observer, décider, exécuter, apprendre.
     pub fn tick(&mut self, goal: &Goal) -> TickReport {
+        // Autopoïèse : la frontière se dégrade ; rompue, l'organisme meurt.
+        self.orchestrator.membrane.update();
+        if !self.orchestrator.membrane.is_alive() {
+            return TickReport {
+                tick: self.events.count() as u64,
+                strategy: Strategy::Solo,
+                organization: "n/a",
+                superorganism: "n/a",
+                planned: Vec::new(),
+                executed: Vec::new(),
+                halt: Some("organisme mort: membrane rompue".to_string()),
+                verdicts: Vec::new(),
+            };
+        }
         let state = self.observe();
         // Voie sous-corticale : les instincts sont évalués avant la délibération.
         self.run_instincts(&state);

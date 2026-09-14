@@ -12,6 +12,7 @@ use genos_cell::AgentCell;
 use genos_genome::Genome;
 use genos_immune::{Antigen, ClonalSelection};
 
+use crate::autopoiesis::Membrane;
 use crate::conscience::{Conscience, ConscienceState};
 use crate::metabolism::Metabolism;
 
@@ -40,6 +41,9 @@ pub struct BiomimeticOrchestrator {
     /// Métabolisme énergétique (ATP adossé au temps réel).
     #[serde(skip)]
     pub metabolism: Metabolism,
+    /// Frontière auto-entretenue (membrane d'autopoïèse).
+    #[serde(skip)]
+    pub membrane: Membrane,
 }
 
 impl BiomimeticOrchestrator {
@@ -62,6 +66,7 @@ impl BiomimeticOrchestrator {
             conscience: Conscience::new(max_dissonance, baseline_budget),
             immune_selection: ClonalSelection::new(),
             metabolism: Metabolism::default(),
+            membrane: Membrane::default(),
         }
     }
 

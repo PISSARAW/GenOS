@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Enforce GenOS source-file size, parameter-count and complexity limits."""
 import ast
+import json
 import re
 import subprocess
 import sys
@@ -14,6 +15,7 @@ SOURCE_EXTENSIONS = {'.cjs', '.js', '.mjs', '.py', '.rs', '.ts', '.tsx'}
 EXCLUDED_PARTS = {
     '.genos', '.git', 'build', 'dist', 'node_modules', 'target', 'vendor',
 }
+BASELINE_PATH = Path(__file__).with_name('quality_baseline.json')
 
 
 def is_source(path: Path) -> bool:
@@ -182,18 +184,73 @@ def commit_paths(root: Path) -> list[Path]:
     return all_paths(root) if any(is_source(path) for path in staged) else []
 
 
+def load_baseline() -> dict:
+    if not BASELINE_PATH.exists():
+        return {}
+    try:
+        return json.loads(BASELINE_PATH.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+
+
+def collect_violations(paths: list[Path], root: Path, lines_only: bool) -> dict:
+    current = {}
+    for path in sorted(paths):
+        violations = check_file(path, lines_only=lines_only)
+        if violations:
+            key = str(path.relative_to(root)).replace('\\', '/')
+            current[key] = violations
+    return current
+
+
+def rule_counts(violations: list[str]) -> dict:
+    counts = {}
+    for violation in violations:
+        rule = violation.split(' ', 1)[0]
+        counts[rule] = counts.get(rule, 0) + 1
+    return counts
+
+
+def baseline_snapshot(current: dict) -> dict:
+    return {path: rule_counts(violations) for path, violations in current.items()}
+
+
+def new_violations(current: dict, baseline: dict) -> list[str]:
+    reported = []
+    for path, violations in current.items():
+        allowed = baseline.get(path, {})
+        seen = {}
+        for violation in violations:
+            rule = violation.split(' ', 1)[0]
+            seen[rule] = seen.get(rule, 0) + 1
+            if seen[rule] > allowed.get(rule, 0):
+                reported.append(f'{path}: {violation}')
+    return reported
+
+
+def select_paths(root: Path) -> list[Path]:
+    if '--commit' in sys.argv:
+        return commit_paths(root)
+    if '--staged' in sys.argv:
+        return staged_paths(root)
+    return all_paths(root)
+
+
 def main() -> int:
     root = Path.cwd()
     lines_only = '--lines-only' in sys.argv or '--size-only' in sys.argv
-    paths = commit_paths(root) if '--commit' in sys.argv else staged_paths(root) if '--staged' in sys.argv else all_paths(root)
-    paths = [path for path in paths if is_source(path) and path.exists()]
-    failures = 0
-    for path in sorted(paths):
-        for violation in check_file(path, lines_only=lines_only):
-            print(f'REJECT {path.relative_to(root)}: {violation}')
-            failures += 1
-    print(f'Quality gate: {len(paths)} source files checked, {failures} violations.')
-    return 1 if failures else 0
+    paths = [path for path in select_paths(root) if is_source(path) and path.exists()]
+    current = collect_violations(paths, root, lines_only)
+    if '--update-baseline' in sys.argv:
+        BASELINE_PATH.write_text(json.dumps(baseline_snapshot(current), indent=2, sort_keys=True) + '\n', encoding='utf-8')
+        print(f'Quality baseline updated: {sum(len(v) for v in current.values())} violations in {len(current)} files.')
+        return 0
+    reported = new_violations(current, load_baseline())
+    for line in reported:
+        print(f'REJECT {line}')
+    total = sum(len(violations) for violations in current.values())
+    print(f'Quality gate: {len(paths)} source files checked, {total} violations ({len(reported)} new).')
+    return 1 if reported else 0
 
 
 if __name__ == '__main__':
