@@ -13,204 +13,257 @@ function handleBioCall(cmd, timeoutMs) {
   }
 }
 
-function getToolHandler(toolName) {
-  const handlers = {
-    'genos_biomimicry_spore': (args, timeoutMs) => {
-      const action = args.action || 'create';
-      const agentId = args.agent_id || 'griot-01';
-      const sporeType = args.spore_type || 'bacterial';
-      const params = [`--action ${action}`, `--agent-id ${agentId}`, `--spore-type ${sporeType}`];
-      if (args.warm_and_wet !== undefined) params.push(`--warm-and-wet ${args.warm_and_wet}`);
-      if (args.nutrients !== undefined) params.push(`--nutrients ${args.nutrients}`);
-      return handleBioCall(`genos biomimicry spore ${params.join(' ')}`, timeoutMs);
-    },
-    'genos_biomimicry_bioluminescence': (args, timeoutMs) => {
-      return handleBioCall(`genos biomimicry bioluminescence --agent-id ${args.agent_id || 'griot-01'} --color ${args.color || 'green'} --organelle "${args.organelle || 'mitochondria'}" --event-type "${args.event_type || 'TELEMETRY'}" --details "${args.details || ''}"`, timeoutMs);
-    },
-    'genos_biomimicry_anti_collusion': (args, timeoutMs) => {
-      return handleBioCall(`genos biomimicry anti-collusion --agent-id ${args.agent_id || 'griot-01'} --consumed-tokens ${args.consumed_tokens || 600} ${args.physical_test_passed ? '--physical-test-passed' : ''}`.trim(), timeoutMs);
-    },
-    'genos_biomimicry_redundancy': (args, timeoutMs) => {
-      return handleBioCall(`genos biomimicry redundancy --expected-tool "${args.expected_tool || 'default_tool'}" --mutated-tool "${args.mutated_tool || args.expected_tool || 'default_tool'}" ${args.fallback ? '--fallback' : ''}`.trim(), timeoutMs);
-    },
-    'genos_biomimicry_tissue': (args, timeoutMs) => {
-      const action = args.action || 'create';
-      const name = args.name || 'Tissue_Collective';
-      const params = [`--action ${action}`, `--name "${name}"`];
-      if (args.role) params.push(`--role "${args.role}"`);
-      if (args.stem_id) params.push(`--stem-id "${args.stem_id}"`);
-      if (args.worker_id) params.push(`--worker-id "${args.worker_id}"`);
-      if (args.task) params.push(`--task "${args.task}"`);
-      return handleBioCall(`genos biomimicry tissue ${params.join(' ')}`, timeoutMs);
-    },
-    'genos_biomimicry_embryology': (args, timeoutMs) => {
-      return handleBioCall(`genos biomimicry embryology --divisions ${args.divisions || 2} --gradient ${args.gradient || 1.0}`, timeoutMs);
-    },
-    'genos_biomimicry_therapy': (args, timeoutMs) => {
-      return handleBioCall(`genos biomimicry therapy --agent-id ${args.agent_id || 'griot-01'} --therapy-type "${args.therapy_type || 'targeted'}"`, timeoutMs);
-    },
-    'genos_biomimicry_vomeronasal': (args, timeoutMs) => {
-      const agentId = args.agent_id || args.agentId || 'agent_0';
-      const locus = args.locus || 'global';
-      const ptype = args.pheromone_type || args.pheromoneType || 'alarm';
-      const concentration = args.concentration !== undefined ? args.concentration : 0.8;
-      const sensitivity = args.sensitivity !== undefined ? args.sensitivity : 0.15;
-      return handleBioCall(`genos biomimicry vomeronasal --agent-id ${agentId} --locus "${locus}" --pheromone-type "${ptype}" --concentration ${concentration} --sensitivity ${sensitivity}`, timeoutMs);
-    },
-    'genos_biomimicry_electrosensory': (args, timeoutMs) => {
-      const agentId = args.agent_id || args.agentId || 'mormyro_0';
-      const action = args.action || 'discharge_and_analyze';
-      const freq = args.frequency_hz || args.frequencyHz || 800.0;
-      const sensitivity = args.sensitivity !== undefined ? args.sensitivity : 0.05;
-      const threshold = args.distortion_threshold !== undefined ? args.distortion_threshold : 0.12;
-      const samples = Array.isArray(args.samples) ? args.samples.join(',') : (args.samples || '100.0,102.0,98.0,105.0,99.0');
-      return handleBioCall(`genos biomimicry electrosensory --agent-id ${agentId} --action "${action}" --frequency-hz ${freq} --sensitivity ${sensitivity} --distortion-threshold ${threshold} --samples "${samples}"`, timeoutMs);
-    },
-    'genos_biomimicry_cluster_n': (args, timeoutMs) => {
-      const agentId = args.agent_id || args.agentId || 'migratory_0';
-      const action = args.action || 'align';
-      const sensitivity = args.sensitivity !== undefined ? args.sensitivity : 0.02;
-      const tolerance = args.tolerance_deg || args.toleranceDeg || 15.0;
-      const goal = Array.isArray(args.goal_vector) ? args.goal_vector.join(',') : (args.goal_vector || '1.0,0.0,0.0');
-      const current = Array.isArray(args.current_vector) ? args.current_vector.join(',') : (args.current_vector || '0.96,0.15,0.0');
-      return handleBioCall(`genos biomimicry cluster-n --agent-id ${agentId} --action "${action}" --sensitivity ${sensitivity} --tolerance-deg ${tolerance} --goal-vector "${goal}" --current-vector "${current}"`, timeoutMs);
-    },
-    'genos_biomimicry_tectum_thermal': (args, timeoutMs) => {
-      const agentId = args.agent_id || args.agentId || 'viper_0';
-      const action = args.action || 'fuse_modalities';
-      const sensitivityMk = args.sensitivity_mk !== undefined ? args.sensitivity_mk : 3.0;
-      const fusionWeight = args.fusion_weight !== undefined ? args.fusion_weight : 0.65;
-      const threshold = args.threshold !== undefined ? args.threshold : 0.70;
-      const visual = args.visual_nodes || 'src/auth.rs:0.8,src/db.rs:0.4,src/api.rs:0.3';
-      const thermal = args.thermal_readings || 'src/auth.rs:0.95,src/db.rs:0.2,src/api.rs:0.1';
-      return handleBioCall(`genos biomimicry tectum-thermal --agent-id ${agentId} --action "${action}" --sensitivity-mk ${sensitivityMk} --fusion-weight ${fusionWeight} --threshold ${threshold} --visual-nodes "${visual}" --thermal-readings "${thermal}"`, timeoutMs);
-    },
-    'genos_biomimicry_echolocation': (args, timeoutMs) => {
-      const agentId = args.agent_id || args.agentId || 'bat_0';
-      const action = args.action || 'probe_echoes';
-      const baseFreq = args.base_frequency_khz !== undefined ? args.base_frequency_khz : (args.baseFrequencyKhz || 60.0);
-      const thresholdM = args.obstacle_threshold_m !== undefined ? args.obstacle_threshold_m : (args.obstacleThresholdM || 2.5);
-      const echoes = Array.isArray(args.echoes) ? args.echoes.map(e => typeof e === 'object' ? `${e.target_locus || e.locus}:${e.time_of_flight_ms || e.tof || 10.0}:${e.doppler_shift_hz || e.doppler || 0.0}:${e.attenuation_db || e.attenuation || 20.0}` : e).join(',') : (args.echoes || 'branch/auth:10.0:500.0:20.0,db/deadlock:40.0:-100.0:45.0');
-      return handleBioCall(`genos biomimicry echolocation --agent-id ${agentId} --action "${action}" --base-frequency-khz ${baseFreq} --obstacle-threshold-m ${thresholdM} --echoes "${echoes}"`, timeoutMs);
-    },
-    'genos_cell_division': (args, timeoutMs) => {
-      const agentId = args.agent_id || args.agentId || 'cell_division_root';
-      const mode = args.mode || 'mitosis';
-      const params = [`--agent-id ${agentId}`, `--mode ${mode}`];
-      if (args.daughter_volume !== undefined || args.daughterVolume !== undefined) params.push(`--daughter-volume ${args.daughter_volume ?? args.daughterVolume}`);
-      if (args.mutation_rate !== undefined || args.mutationRate !== undefined) params.push(`--mutation-rate ${args.mutation_rate ?? args.mutationRate}`);
-      if (args.hayflick_limit !== undefined || args.hayflickLimit !== undefined) params.push(`--hayflick-limit ${args.hayflick_limit ?? args.hayflickLimit}`);
-      if (args.merozoite_count !== undefined || args.merozoiteCount !== undefined) params.push(`--merozoite-count ${args.merozoite_count ?? args.merozoiteCount}`);
-      if (args.seed !== undefined) params.push(`--seed ${args.seed}`);
-      return handleBioCall(`genos evolution division ${params.join(' ')}`, timeoutMs);
-    },
-    'genos_dna_methylation': (args, timeoutMs) => {
-      const agentId = args.agent_id || 'global';
-      const locus = args.locus || args.gene || 'promoter_locus';
-      const state = args.state || (args.methylated === false ? 'Euchromatin' : 'HeterochromatinFacultative');
-      const pioneer = (args.pioneer_factor || args.pioneerFactor) ? ' --pioneer-factor' : '';
-      return handleBioCall(`genos biomimicry epigenetic-chromatin --agent-id ${agentId} --locus "${locus}" --state ${state}${pioneer}`, timeoutMs);
-    },
-    'genos_grns': (args, timeoutMs) => {
-      return handleBioCall(`genos biomimicry gene-regulatory-network --agent-id ${args.agent_id || 'global'} --condition "${args.condition || 'environmental_trigger'}" --action-script "${args.action || args.action_script || 'upregulate'}"`, timeoutMs);
-    },
-    'genos_lamarckian_mutation': (args, timeoutMs) => {
-      const agentId = args.agent_id || 'global';
-      const res = handleBioCall(`genos biomimicry hypermutation --agent-id ${agentId}`, timeoutMs);
-      if (res && res.success) return res;
-      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: res?.output || `Lamarckian mutation failed for agent '${agentId}'.`, error: `Lamarckian mutation was not applied for agent '${agentId}'.` };
-    },
-  };
-  return handlers[toolName];
+function firstTruthy(...values) {
+  for (const value of values) {
+    if (value) return value;
+  }
+  return undefined;
 }
+
+function nullish(value, fallback) {
+  return value === undefined || value === null ? fallback : value;
+}
+
+function definedOr(value, fallback) {
+  return value !== undefined ? value : fallback;
+}
+
+function appendOptionalParam(params, args, spec) {
+  const [flag, ...keys] = spec;
+  for (const key of keys) {
+    const value = args[key];
+    if (value !== undefined && value !== null) {
+      params.push(`${flag} ${value}`);
+      return;
+    }
+  }
+}
+
+function appendQuotedParam(params, flag, value) {
+  if (value) params.push(`${flag} "${value}"`);
+}
+
+function formatEcho(echo) {
+  if (typeof echo !== 'object') return echo;
+  return `${firstTruthy(echo.target_locus, echo.locus)}:${firstTruthy(echo.time_of_flight_ms, echo.tof, 10.0)}:${firstTruthy(echo.doppler_shift_hz, echo.doppler, 0.0)}:${firstTruthy(echo.attenuation_db, echo.attenuation, 20.0)}`;
+}
+
+function formatEchoes(samples) {
+  if (Array.isArray(samples)) return samples.map(formatEcho).join(',');
+  return firstTruthy(samples, 'branch/auth:10.0:500.0:20.0,db/deadlock:40.0:-100.0:45.0');
+}
+
+const TOOL_HANDLERS = {
+  'genos_biomimicry_spore': (args, timeoutMs) => {
+    const params = [`--action ${firstTruthy(args.action, 'create')}`, `--agent-id ${firstTruthy(args.agent_id, 'griot-01')}`, `--spore-type ${firstTruthy(args.spore_type, 'bacterial')}`];
+    appendOptionalParam(params, args, ['--warm-and-wet', 'warm_and_wet']);
+    appendOptionalParam(params, args, ['--nutrients', 'nutrients']);
+    return handleBioCall(`genos biomimicry spore ${params.join(' ')}`, timeoutMs);
+  },
+  'genos_biomimicry_bioluminescence': (args, timeoutMs) => {
+    return handleBioCall(`genos biomimicry bioluminescence --agent-id ${firstTruthy(args.agent_id, 'griot-01')} --color ${firstTruthy(args.color, 'green')} --organelle "${firstTruthy(args.organelle, 'mitochondria')}" --event-type "${firstTruthy(args.event_type, 'TELEMETRY')}" --details "${firstTruthy(args.details, '')}"`, timeoutMs);
+  },
+  'genos_biomimicry_anti_collusion': (args, timeoutMs) => {
+    const agentId = firstTruthy(args.agent_id, 'griot-01');
+    const tokens = firstTruthy(args.consumed_tokens, 600);
+    const physical = args.physical_test_passed ? '--physical-test-passed' : '';
+    return handleBioCall(`genos biomimicry anti-collusion --agent-id ${agentId} --consumed-tokens ${tokens} ${physical}`.trim(), timeoutMs);
+  },
+  'genos_biomimicry_redundancy': (args, timeoutMs) => {
+    const expected = firstTruthy(args.expected_tool, 'default_tool');
+    const mutated = firstTruthy(args.mutated_tool, args.expected_tool, 'default_tool');
+    const fallback = args.fallback ? '--fallback' : '';
+    return handleBioCall(`genos biomimicry redundancy --expected-tool "${expected}" --mutated-tool "${mutated}" ${fallback}`.trim(), timeoutMs);
+  },
+  'genos_biomimicry_tissue': (args, timeoutMs) => {
+    const params = [`--action ${firstTruthy(args.action, 'create')}`, `--name "${firstTruthy(args.name, 'Tissue_Collective')}"`];
+    appendQuotedParam(params, '--role', args.role);
+    appendQuotedParam(params, '--stem-id', args.stem_id);
+    appendQuotedParam(params, '--worker-id', args.worker_id);
+    appendQuotedParam(params, '--task', args.task);
+    return handleBioCall(`genos biomimicry tissue ${params.join(' ')}`, timeoutMs);
+  },
+  'genos_biomimicry_embryology': (args, timeoutMs) => {
+    return handleBioCall(`genos biomimicry embryology --divisions ${firstTruthy(args.divisions, 2)} --gradient ${firstTruthy(args.gradient, 1.0)}`, timeoutMs);
+  },
+  'genos_biomimicry_therapy': (args, timeoutMs) => {
+    return handleBioCall(`genos biomimicry therapy --agent-id ${firstTruthy(args.agent_id, 'griot-01')} --therapy-type "${firstTruthy(args.therapy_type, 'targeted')}"`, timeoutMs);
+  },
+  'genos_biomimicry_vomeronasal': (args, timeoutMs) => {
+    const agentId = firstTruthy(args.agent_id, args.agentId, 'agent_0');
+    const locus = firstTruthy(args.locus, 'global');
+    const ptype = firstTruthy(args.pheromone_type, args.pheromoneType, 'alarm');
+    const concentration = definedOr(args.concentration, 0.8);
+    const sensitivity = definedOr(args.sensitivity, 0.15);
+    return handleBioCall(`genos biomimicry vomeronasal --agent-id ${agentId} --locus "${locus}" --pheromone-type "${ptype}" --concentration ${concentration} --sensitivity ${sensitivity}`, timeoutMs);
+  },
+  'genos_biomimicry_electrosensory': (args, timeoutMs) => {
+    const agentId = firstTruthy(args.agent_id, args.agentId, 'mormyro_0');
+    const action = firstTruthy(args.action, 'discharge_and_analyze');
+    const freq = firstTruthy(args.frequency_hz, args.frequencyHz, 800.0);
+    const sensitivity = definedOr(args.sensitivity, 0.05);
+    const threshold = definedOr(args.distortion_threshold, 0.12);
+    const samples = Array.isArray(args.samples) ? args.samples.join(',') : firstTruthy(args.samples, '100.0,102.0,98.0,105.0,99.0');
+    return handleBioCall(`genos biomimicry electrosensory --agent-id ${agentId} --action "${action}" --frequency-hz ${freq} --sensitivity ${sensitivity} --distortion-threshold ${threshold} --samples "${samples}"`, timeoutMs);
+  },
+  'genos_biomimicry_cluster_n': (args, timeoutMs) => {
+    const agentId = firstTruthy(args.agent_id, args.agentId, 'migratory_0');
+    const action = firstTruthy(args.action, 'align');
+    const sensitivity = definedOr(args.sensitivity, 0.02);
+    const tolerance = firstTruthy(args.tolerance_deg, args.toleranceDeg, 15.0);
+    const goal = Array.isArray(args.goal_vector) ? args.goal_vector.join(',') : firstTruthy(args.goal_vector, '1.0,0.0,0.0');
+    const current = Array.isArray(args.current_vector) ? args.current_vector.join(',') : firstTruthy(args.current_vector, '0.96,0.15,0.0');
+    return handleBioCall(`genos biomimicry cluster-n --agent-id ${agentId} --action "${action}" --sensitivity ${sensitivity} --tolerance-deg ${tolerance} --goal-vector "${goal}" --current-vector "${current}"`, timeoutMs);
+  },
+  'genos_biomimicry_tectum_thermal': (args, timeoutMs) => {
+    const agentId = firstTruthy(args.agent_id, args.agentId, 'viper_0');
+    const action = firstTruthy(args.action, 'fuse_modalities');
+    const sensitivityMk = definedOr(args.sensitivity_mk, 3.0);
+    const fusionWeight = definedOr(args.fusion_weight, 0.65);
+    const threshold = definedOr(args.threshold, 0.70);
+    const visual = firstTruthy(args.visual_nodes, 'src/auth.rs:0.8,src/db.rs:0.4,src/api.rs:0.3');
+    const thermal = firstTruthy(args.thermal_readings, 'src/auth.rs:0.95,src/db.rs:0.2,src/api.rs:0.1');
+    return handleBioCall(`genos biomimicry tectum-thermal --agent-id ${agentId} --action "${action}" --sensitivity-mk ${sensitivityMk} --fusion-weight ${fusionWeight} --threshold ${threshold} --visual-nodes "${visual}" --thermal-readings "${thermal}"`, timeoutMs);
+  },
+  'genos_biomimicry_echolocation': (args, timeoutMs) => {
+    const agentId = firstTruthy(args.agent_id, args.agentId, 'bat_0');
+    const action = firstTruthy(args.action, 'probe_echoes');
+    const baseFreq = definedOr(args.base_frequency_khz, firstTruthy(args.baseFrequencyKhz, 60.0));
+    const thresholdM = definedOr(args.obstacle_threshold_m, firstTruthy(args.obstacleThresholdM, 2.5));
+    const echoes = formatEchoes(args.echoes);
+    return handleBioCall(`genos biomimicry echolocation --agent-id ${agentId} --action "${action}" --base-frequency-khz ${baseFreq} --obstacle-threshold-m ${thresholdM} --echoes "${echoes}"`, timeoutMs);
+  },
+  'genos_cell_division': (args, timeoutMs) => {
+    const agentId = firstTruthy(args.agent_id, args.agentId, 'cell_division_root');
+    const params = [`--agent-id ${agentId}`, `--mode ${firstTruthy(args.mode, 'mitosis')}`];
+    appendOptionalParam(params, args, ['--daughter-volume', 'daughter_volume', 'daughterVolume']);
+    appendOptionalParam(params, args, ['--mutation-rate', 'mutation_rate', 'mutationRate']);
+    appendOptionalParam(params, args, ['--hayflick-limit', 'hayflick_limit', 'hayflickLimit']);
+    appendOptionalParam(params, args, ['--merozoite-count', 'merozoite_count', 'merozoiteCount']);
+    appendOptionalParam(params, args, ['--seed', 'seed']);
+    return handleBioCall(`genos evolution division ${params.join(' ')}`, timeoutMs);
+  },
+  'genos_dna_methylation': (args, timeoutMs) => {
+    const agentId = firstTruthy(args.agent_id, 'global');
+    const locus = firstTruthy(args.locus, args.gene, 'promoter_locus');
+    const state = firstTruthy(args.state, args.methylated === false ? 'Euchromatin' : 'HeterochromatinFacultative');
+    const pioneer = firstTruthy(args.pioneer_factor, args.pioneerFactor) ? ' --pioneer-factor' : '';
+    return handleBioCall(`genos biomimicry epigenetic-chromatin --agent-id ${agentId} --locus "${locus}" --state ${state}${pioneer}`, timeoutMs);
+  },
+  'genos_grns': (args, timeoutMs) => {
+    return handleBioCall(`genos biomimicry gene-regulatory-network --agent-id ${firstTruthy(args.agent_id, 'global')} --condition "${firstTruthy(args.condition, 'environmental_trigger')}" --action-script "${firstTruthy(args.action, args.action_script, 'upregulate')}"`, timeoutMs);
+  },
+  'genos_lamarckian_mutation': (args, timeoutMs) => {
+    const agentId = firstTruthy(args.agent_id, 'global');
+    const res = handleBioCall(`genos biomimicry hypermutation --agent-id ${agentId}`, timeoutMs);
+    if (res && res.success) return res;
+    return { configured: true, success: false, status: 'tool_error', transport: 'local', output: firstTruthy(res && res.output, `Lamarckian mutation failed for agent '${agentId}'.`), error: `Lamarckian mutation was not applied for agent '${agentId}'.` };
+  },
+};
+
+function getToolHandler(toolName) {
+  return TOOL_HANDLERS[toolName];
+}
+
+function quantitativeGenetics(args) {
+  const observations = Array.isArray(args.observations) ? args.observations : [];
+  if (observations.length < 2) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'observations requires at least two numeric phenotype/genotype pairs.' };
+  const pairs = observations.map((item) => ({ genotype: Number(item.genotype), phenotype: Number(item.phenotype) }));
+  if (pairs.some((pair) => !Number.isFinite(pair.genotype) || !Number.isFinite(pair.phenotype))) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'genotype and phenotype must be finite numbers.' };
+  const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
+  const variance = (values) => { const center = mean(values); return mean(values.map((value) => (value - center) ** 2)); };
+  const covariance = (left, right) => { const leftMean = mean(left); const rightMean = mean(right); return mean(left.map((value, index) => (value - leftMean) * (right[index] - rightMean))); };
+  const genotype = pairs.map((pair) => pair.genotype);
+  const phenotype = pairs.map((pair) => pair.phenotype);
+  const denominator = Math.sqrt(variance(genotype) * variance(phenotype));
+  const correlation = denominator === 0 ? 0 : covariance(genotype, phenotype) / denominator;
+  const result = { heritabilityProxy: Math.max(0, Math.min(1, correlation ** 2)), correlation, sampleSize: pairs.length };
+  return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify(result), evidence: { method: 'pearson_correlation_squared', inputs: pairs.length }, ...result };
+}
+
+function coevolution(args) {
+  const populationA = Array.isArray(args.population_a) ? args.population_a : [];
+  const populationB = Array.isArray(args.population_b) ? args.population_b : [];
+  if (!populationA.length || !populationB.length) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'population_a and population_b are required.' };
+  const average = (population) => population.reduce((sum, item) => sum + Number(typeof item === 'object' ? item.fitness : item), 0) / population.length;
+  const fitnessA = average(populationA); const fitnessB = average(populationB);
+  const dominantPopulation = fitnessA === fitnessB ? 'tie' : fitnessA > fitnessB ? 'population_a' : 'population_b';
+  const result = { fitnessA, fitnessB, delta: fitnessA - fitnessB, dominantPopulation };
+  return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify(result), evidence: { method: 'mean_fitness_comparison', populationSizes: [populationA.length, populationB.length] }, ...result };
+}
+
+function molecularChaperone(args) {
+  const proteins = Array.isArray(args.proteins) ? args.proteins : [];
+  const repaired = proteins.map((protein) => ({ ...protein, folded: protein.folded === true || protein.structure != null }));
+  const result = { total: repaired.length, folded: repaired.filter((protein) => protein.folded).length, repaired };
+  return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify(result), evidence: { method: 'structure_validation_and_fold_marking' }, ...result };
+}
+
+function necrosisLedger(args) {
+  const events = Array.isArray(args.events) ? args.events : (args.event ? [args.event] : []);
+  const ledger = events.map((event, index) => ({ id: firstTruthy(event.id, `necrosis-${index + 1}`), cause: firstTruthy(event.cause, 'unspecified'), severity: Math.max(0, Math.min(1, Number(nullish(event.severity, 0)))), recordedAt: firstTruthy(event.recordedAt, new Date().toISOString()) }));
+  return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify({ count: ledger.length, ledger }), evidence: { method: 'append_only_event_normalization' }, count: ledger.length, ledger };
+}
+
+function multisensoryIntegration(args) {
+  const signals = Array.isArray(args.signals) ? args.signals : [];
+  if (!signals.length) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'signals are required.' };
+  const weightOf = (signal) => Math.max(0, Number(nullish(signal.weight, 1)));
+  const totalWeight = signals.reduce((sum, signal) => sum + weightOf(signal), 0);
+  if (totalWeight === 0) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'at least one signal must have positive weight.' };
+  const integrated = signals.reduce((sum, signal) => sum + Number(signal.value || 0) * weightOf(signal), 0) / totalWeight;
+  return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify({ integrated, signalCount: signals.length }), evidence: { method: 'weighted_signal_fusion' }, integrated, signalCount: signals.length };
+}
+
+function thalamicFiltering(args) {
+  const signals = Array.isArray(args.signals) ? args.signals : [];
+  const threshold = Number(nullish(args.threshold, 0.5));
+  const salienceOf = (signal) => Number(firstTruthy(signal.salience, signal.score, 0));
+  const admitted = signals.filter((signal) => salienceOf(signal) >= threshold);
+  const result = { threshold, admitted, suppressed: signals.length - admitted.length };
+  return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify(result), evidence: { method: 'salience_threshold_gate' }, ...result };
+}
+
+function socialTrust(args) {
+  const positive = Math.max(0, Number(nullish(args.positive, 0))); const negative = Math.max(0, Number(nullish(args.negative, 0)));
+  const trust = (positive + 1) / (positive + negative + 2);
+  return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify({ trust }), evidence: { method: 'laplace_smoothed_beta_estimate' }, trust, positive, negative };
+}
+
+function routingAlgorithm(args) {
+  const graph = args.graph && typeof args.graph === 'object' ? args.graph : {};
+  const start = String(args.start); const target = String(args.target);
+  const queue = [[start, [start]]]; const visited = new Set([start]); let route = null;
+  while (queue.length) { const [node, current] = queue.shift(); if (node === target) { route = current; break; } for (const next of (Array.isArray(graph[node]) ? graph[node] : [])) { if (!visited.has(String(next))) { visited.add(String(next)); queue.push([String(next), [...current, String(next)]]); } } }
+  return { configured: true, success: route !== null, status: route ? 'completed' : 'not_found', transport: 'local', output: JSON.stringify({ route }), evidence: { method: 'breadth_first_shortest_hop_search' }, route };
+}
+
+const IN_MEMORY_HANDLERS = {
+  genos_quantitative_genetics: quantitativeGenetics,
+  genos_coevolution: coevolution,
+  genos_molecular_chaperone: molecularChaperone,
+  genos_necrosis_ledger: necrosisLedger,
+  genos_multisensory_integration: multisensoryIntegration,
+  genos_thalamic_filtering: thalamicFiltering,
+  genos_social_trust: socialTrust,
+  genos_routing_algorithm: routingAlgorithm
+};
 
 function executeBioExtra(toolName, args = {}, options = {}) {
   const timeoutMs = Math.max(1, Number(options.timeoutMs) || 30000);
   if (!toolName.startsWith('genos_')) return null;
-
   if (BIO_EXTRA_HANDLERS && BIO_EXTRA_HANDLERS[toolName]) {
     return handleBioExtraTool(toolName, args, timeoutMs);
   }
-
-  const handler = getToolHandler(toolName);
+  const handler = getToolHandler(toolName) || IN_MEMORY_HANDLERS[toolName];
   if (handler) return handler(args, timeoutMs);
-
-  if (toolName === 'genos_quantitative_genetics') {
-    const observations = Array.isArray(args.observations) ? args.observations : [];
-    if (observations.length < 2) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'observations requires at least two numeric phenotype/genotype pairs.' };
-    const pairs = observations.map((item) => ({ genotype: Number(item.genotype), phenotype: Number(item.phenotype) }));
-    if (pairs.some((pair) => !Number.isFinite(pair.genotype) || !Number.isFinite(pair.phenotype))) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'genotype and phenotype must be finite numbers.' };
-    const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
-    const variance = (values) => { const center = mean(values); return mean(values.map((value) => (value - center) ** 2)); };
-    const covariance = (left, right) => { const leftMean = mean(left); const rightMean = mean(right); return mean(left.map((value, index) => (value - leftMean) * (right[index] - rightMean))); };
-    const genotype = pairs.map((pair) => pair.genotype);
-    const phenotype = pairs.map((pair) => pair.phenotype);
-    const denominator = Math.sqrt(variance(genotype) * variance(phenotype));
-    const correlation = denominator === 0 ? 0 : covariance(genotype, phenotype) / denominator;
-    const result = { heritabilityProxy: Math.max(0, Math.min(1, correlation ** 2)), correlation, sampleSize: pairs.length };
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify(result), evidence: { method: 'pearson_correlation_squared', inputs: pairs.length }, ...result };
-  }
-  if (toolName === 'genos_coevolution') {
-    const populationA = Array.isArray(args.population_a) ? args.population_a : [];
-    const populationB = Array.isArray(args.population_b) ? args.population_b : [];
-    if (!populationA.length || !populationB.length) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'population_a and population_b are required.' };
-    const average = (population) => population.reduce((sum, item) => sum + Number(typeof item === 'object' ? item.fitness : item), 0) / population.length;
-    const fitnessA = average(populationA); const fitnessB = average(populationB);
-    const result = { fitnessA, fitnessB, delta: fitnessA - fitnessB, dominantPopulation: fitnessA === fitnessB ? 'tie' : fitnessA > fitnessB ? 'population_a' : 'population_b' };
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify(result), evidence: { method: 'mean_fitness_comparison', populationSizes: [populationA.length, populationB.length] }, ...result };
-  }
-  if (toolName === 'genos_molecular_chaperone') {
-    const proteins = Array.isArray(args.proteins) ? args.proteins : [];
-    const repaired = proteins.map((protein) => ({ ...protein, folded: protein.folded === true || protein.structure != null }));
-    const result = { total: repaired.length, folded: repaired.filter((protein) => protein.folded).length, repaired };
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify(result), evidence: { method: 'structure_validation_and_fold_marking' }, ...result };
-  }
-  if (toolName === 'genos_necrosis_ledger') {
-    const events = Array.isArray(args.events) ? args.events : (args.event ? [args.event] : []);
-    const ledger = events.map((event, index) => ({ id: event.id || `necrosis-${index + 1}`, cause: event.cause || 'unspecified', severity: Math.max(0, Math.min(1, Number(event.severity ?? 0))), recordedAt: event.recordedAt || new Date().toISOString() }));
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify({ count: ledger.length, ledger }), evidence: { method: 'append_only_event_normalization' }, count: ledger.length, ledger };
-  }
-  if (toolName === 'genos_multisensory_integration') {
-    const signals = Array.isArray(args.signals) ? args.signals : [];
-    if (!signals.length) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'signals are required.' };
-    const totalWeight = signals.reduce((sum, signal) => sum + Math.max(0, Number(signal.weight ?? 1)), 0);
-    if (totalWeight === 0) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'at least one signal must have positive weight.' };
-    const integrated = signals.reduce((sum, signal) => sum + Number(signal.value || 0) * Math.max(0, Number(signal.weight ?? 1)), 0) / totalWeight;
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify({ integrated, signalCount: signals.length }), evidence: { method: 'weighted_signal_fusion' }, integrated, signalCount: signals.length };
-  }
-  if (toolName === 'genos_thalamic_filtering') {
-    const signals = Array.isArray(args.signals) ? args.signals : [];
-    const threshold = Number(args.threshold ?? 0.5);
-    const admitted = signals.filter((signal) => Number(signal.salience ?? signal.score ?? 0) >= threshold);
-    const result = { threshold, admitted, suppressed: signals.length - admitted.length };
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify(result), evidence: { method: 'salience_threshold_gate' }, ...result };
-  }
-  if (toolName === 'genos_social_trust') {
-    const positive = Math.max(0, Number(args.positive ?? 0)); const negative = Math.max(0, Number(args.negative ?? 0));
-    const trust = (positive + 1) / (positive + negative + 2);
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify({ trust }), evidence: { method: 'laplace_smoothed_beta_estimate' }, trust, positive, negative };
-  }
-  if (toolName === 'genos_routing_algorithm') {
-    const graph = args.graph && typeof args.graph === 'object' ? args.graph : {};
-    const start = String(args.start); const target = String(args.target);
-    const queue = [[start, [start]]]; const visited = new Set([start]); let route = null;
-    while (queue.length) { const [node, current] = queue.shift(); if (node === target) { route = current; break; } for (const next of (Array.isArray(graph[node]) ? graph[node] : [])) { if (!visited.has(String(next))) { visited.add(String(next)); queue.push([String(next), [...current, String(next)]]); } } }
-    return { configured: true, success: route !== null, status: route ? 'completed' : 'not_found', transport: 'local', output: JSON.stringify({ route }), evidence: { method: 'breadth_first_shortest_hop_search' }, route };
-  }
   return null;
 }
 
 function isBioExtraTool(toolName) {
   const name = String(toolName || '').trim();
   if (!name) return false;
-  if (Boolean(getToolHandler(name))) return true;
-  const inMemory = [
-    'genos_quantitative_genetics', 'genos_coevolution', 'genos_lamarckian_mutation',
-    'genos_dna_methylation', 'genos_molecular_chaperone', 'genos_necrosis_ledger',
-    'genos_multisensory_integration', 'genos_thalamic_filtering', 'genos_social_trust',
-    'genos_routing_algorithm'
-  ];
-  if (inMemory.includes(name)) return true;
+  if (getToolHandler(name) || IN_MEMORY_HANDLERS[name]) return true;
   try {
     const { BIO_EXTRA_HANDLERS } = require('./mcpBioExtra/handlers/extraHandlers');
     if (BIO_EXTRA_HANDLERS && BIO_EXTRA_HANDLERS[name]) return true;

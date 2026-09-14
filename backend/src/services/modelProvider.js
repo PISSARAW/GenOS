@@ -1,9 +1,55 @@
 const inferenceGateway = require('./inferenceGatewayService');
 const { validateProviderEndpoint, validateProviderEndpointAsync } = require('./providerEndpointPolicy');
+const {
+  tokenize,
+  estimateTokenCount,
+  normalizeMessageContent,
+  buildHeaders,
+  buildRequestBody,
+  resolveResponseContent,
+  buildStreamResponse,
+  buildFinalResponse,
+  readStreamingResponse,
+  readOllamaStream,
+  isStreamable
+} = require('./modelProviderRequest');
 const fs = require('fs');
 const path = require('path');
 
 const SUPPORTED_PROVIDERS = new Set(['openai', 'anthropic', 'gemini', 'mistral', 'groq', 'deepseek', 'together', 'openrouter', 'ollama', 'lmstudio', 'vllm', 'openai-compatible']);
+const LOCAL_PROVIDERS = ['ollama', 'lmstudio', 'vllm'];
+const LOCAL_OR_COMPATIBLE = ['ollama', 'lmstudio', 'vllm', 'openai-compatible'];
+
+const API_KEY_ENV = {
+  anthropic: ['ANTHROPIC_API_KEY'],
+  gemini: ['GEMINI_API_KEY'],
+  mistral: ['MISTRAL_API_KEY'],
+  groq: ['GROQ_API_KEY', 'GENOS_MODEL_API_KEY'],
+  deepseek: ['DEEPSEEK_API_KEY', 'GENOS_MODEL_API_KEY'],
+  together: ['TOGETHER_API_KEY', 'GENOS_MODEL_API_KEY'],
+  openrouter: ['OPENROUTER_API_KEY', 'GENOS_MODEL_API_KEY']
+};
+const DEFAULT_KEY_ENV = ['GENOS_MODEL_API_KEY', 'OPENAI_API_KEY'];
+
+const PROVIDER_ENDPOINTS = {
+  anthropic: () => process.env.ANTHROPIC_API_ENDPOINT || 'https://api.anthropic.com/v1/messages',
+  gemini: (modelName) => process.env.GEMINI_API_ENDPOINT || `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
+  mistral: () => process.env.MISTRAL_API_ENDPOINT || 'https://api.mistral.ai/v1/chat/completions',
+  groq: () => process.env.GROQ_API_ENDPOINT || 'https://api.groq.com/openai/v1/chat/completions',
+  deepseek: () => process.env.DEEPSEEK_API_ENDPOINT || 'https://api.deepseek.com/v1/chat/completions',
+  together: () => process.env.TOGETHER_API_ENDPOINT || 'https://api.together.xyz/v1/chat/completions',
+  openrouter: () => process.env.OPENROUTER_API_ENDPOINT || 'https://openrouter.ai/api/v1/chat/completions',
+  ollama: () => process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions',
+  lmstudio: () => process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions',
+  vllm: () => process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions'
+};
+
+function firstTruthy(...values) {
+  for (const value of values) {
+    if (value) return value;
+  }
+  return undefined;
+}
 
 function loadEnvironmentFile() {
   const filePath = path.resolve(__dirname, '../../../.env');
@@ -33,28 +79,8 @@ function applyLegacyModelConfiguration() {
 loadEnvironmentFile();
 applyLegacyModelConfiguration();
 
-function tokenize(text = '') { return String(text).trim().split(/\s+/).filter(Boolean); }
-
 function isSupportedProvider(provider) {
   return SUPPORTED_PROVIDERS.has(String(provider || '').trim().toLowerCase());
-}
-
-function estimateTokenCount(text = '') {
-  const value = String(text || '');
-  return value.length ? Math.max(1, Math.ceil(Buffer.byteLength(value, 'utf8') / 4)) : 0;
-}
-
-function normalizeMessageContent(content) {
-  if (typeof content === 'string') return { text: content, toolCalls: [] };
-  if (!Array.isArray(content)) return { text: '', toolCalls: [] };
-  const text = content.map((part) => typeof part === 'string' ? part : part?.text || '').join('');
-  const toolCalls = content.filter((part) => part && (part.type === 'tool_use' || part.type === 'tool_call'));
-  return { text, toolCalls };
-}
-
-function parseStructuredResponse(text, responseFormat) {
-  if (responseFormat !== 'json_object') return null;
-  try { return JSON.parse(text); } catch (_) { throw new Error('Provider returned invalid structured JSON.'); }
 }
 
 function configuredModel(model) {
@@ -70,16 +96,11 @@ function configuredModel(model) {
 }
 
 function resolveProviderApiKey(provider) {
-  switch (provider) {
-    case 'anthropic': return process.env.ANTHROPIC_API_KEY;
-    case 'gemini': return process.env.GEMINI_API_KEY;
-    case 'mistral': return process.env.MISTRAL_API_KEY;
-    case 'groq': return process.env.GROQ_API_KEY || process.env.GENOS_MODEL_API_KEY;
-    case 'deepseek': return process.env.DEEPSEEK_API_KEY || process.env.GENOS_MODEL_API_KEY;
-    case 'together': return process.env.TOGETHER_API_KEY || process.env.GENOS_MODEL_API_KEY;
-    case 'openrouter': return process.env.OPENROUTER_API_KEY || process.env.GENOS_MODEL_API_KEY;
-    default: return process.env.GENOS_MODEL_API_KEY || process.env.OPENAI_API_KEY;
+  const keys = API_KEY_ENV[provider] || DEFAULT_KEY_ENV;
+  for (const key of keys) {
+    if (process.env[key]) return process.env[key];
   }
+  return undefined;
 }
 
 function assertSafeProviderEndpoint(endpoint) {
@@ -95,219 +116,118 @@ function assertSafeProviderEndpoint(endpoint) {
   return endpoint;
 }
 
+function isLocalEndpoint(explicitEndpoint) {
+  return Boolean(explicitEndpoint && /^(http:\/\/localhost|http:\/\/127\.0\.0\.1|http:\/\/0\.0\.0\.0)/.test(explicitEndpoint));
+}
+
+function resolveEndpoint(provider, modelName, endpointOverride) {
+  const builder = PROVIDER_ENDPOINTS[provider];
+  if (builder) return builder(modelName);
+  return firstTruthy(endpointOverride, process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT, process.env.GENOS_MODEL_ENDPOINT, 'https://api.openai.com/v1/chat/completions');
+}
+
 function modelConfiguration(model, endpointOverride) {
   const uri = configuredModel(model);
   const match = uri.match(/^([\w-]+):\/\/(.+)$/);
   const provider = match[1]; const modelName = match[2];
-  const explicitEndpoint = provider === 'openai-compatible' && (endpointOverride || process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT);
+  const explicitEndpoint = provider === 'openai-compatible' && firstTruthy(endpointOverride, process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT, process.env.GENOS_MODEL_ENDPOINT);
   if (provider === 'openai-compatible' && !explicitEndpoint) {
     throw new Error('GENOS_OPENAI_COMPATIBLE_ENDPOINT or GENOS_MODEL_ENDPOINT is required for openai-compatible models.');
   }
-  const local = ['ollama', 'lmstudio', 'vllm'].includes(provider) || Boolean(explicitEndpoint && /^(http:\/\/localhost|http:\/\/127\.0\.0\.1|http:\/\/0\.0\.0\.0)/.test(explicitEndpoint));
+  const local = LOCAL_PROVIDERS.includes(provider) || isLocalEndpoint(explicitEndpoint);
   const apiKey = resolveProviderApiKey(provider);
-  const endpoint = provider === 'anthropic' ? (process.env.ANTHROPIC_API_ENDPOINT || 'https://api.anthropic.com/v1/messages')
-    : provider === 'gemini' ? (process.env.GEMINI_API_ENDPOINT || `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`)
-      : provider === 'mistral' ? (process.env.MISTRAL_API_ENDPOINT || 'https://api.mistral.ai/v1/chat/completions')
-        : provider === 'groq' ? (process.env.GROQ_API_ENDPOINT || 'https://api.groq.com/openai/v1/chat/completions')
-          : provider === 'deepseek' ? (process.env.DEEPSEEK_API_ENDPOINT || 'https://api.deepseek.com/v1/chat/completions')
-            : provider === 'together' ? (process.env.TOGETHER_API_ENDPOINT || 'https://api.together.xyz/v1/chat/completions')
-              : provider === 'openrouter' ? (process.env.OPENROUTER_API_ENDPOINT || 'https://openrouter.ai/api/v1/chat/completions')
-                : provider === 'ollama' ? (process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions')
-                  : provider === 'lmstudio' ? (process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions')
-                    : provider === 'vllm' ? (process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions')
-                      : (endpointOverride || process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT || 'https://api.openai.com/v1/chat/completions');
-    validateProviderEndpoint(endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider) });
-    assertSafeProviderEndpoint(endpoint);
-    return { uri, provider, modelName, endpoint, configured: local || Boolean(apiKey), keySource: apiKey ? `${provider.toUpperCase()}_API_KEY` : null };
+  const endpoint = resolveEndpoint(provider, modelName, endpointOverride);
+  validateProviderEndpoint(endpoint, { localOnly: LOCAL_PROVIDERS.includes(provider) });
+  assertSafeProviderEndpoint(endpoint);
+  return { uri, provider, modelName, endpoint, configured: local || Boolean(apiKey), keySource: apiKey ? `${provider.toUpperCase()}_API_KEY` : null };
 }
 
-async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, priority = 'bulk', agentId, organizationId, projectId, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080, responseFormat }) {
-  const effectiveTimeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Math.min(Number(timeoutMs), 30 * 60 * 1000)) : 30000;
-  const configuration = modelConfiguration(model, endpointOverride);
-  // Local inference goes through the gateway's bounded queue: concurrent
-  // agents must queue for the GPU instead of stampeding it. Cloud providers
-  // have their own rate limits and bypass the queue.
-  const targetEndpoint = endpointOverride || configuration.endpoint;
-  if (inferenceGateway.isLocalProvider(configuration.provider, targetEndpoint)) {
-    return inferenceGateway.schedule(
-      () => generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, seed, stream, signal, displayWidth, displayHeight, responseFormat }),
-      { provider: configuration.provider, priority, agentId, organizationId, projectId }
-    );
+function assertModelConfigured(configuration, apiKey) {
+  if (configuration.configured && (apiKey || LOCAL_OR_COMPATIBLE.includes(configuration.provider))) return;
+  throw new Error(`No API key configured for model ${configuration.uri}.`);
+}
+
+async function consumeOllamaStream(context, response, idleTimeoutMs) {
+  const streamed = await readOllamaStream(response, context.options.onToken, idleTimeoutMs);
+  return buildStreamResponse(streamed, { options: context.options, provider: context.configuration.provider, modelName: context.configuration.modelName });
+}
+
+async function consumeTextStream(context, response, idleTimeoutMs) {
+  const streamed = await readStreamingResponse(response, context.options.onToken, idleTimeoutMs);
+  return buildStreamResponse(streamed, { options: context.options, provider: context.configuration.provider, modelName: context.configuration.modelName });
+}
+
+async function consumeJsonResponse(context, response) {
+  const payload = await response.json();
+  const content = resolveResponseContent(context.configuration.provider, payload, context.nativeOllama);
+  const normalized = normalizeMessageContent(content);
+  const text = normalized.text;
+  for (const token of tokenize(text)) await context.options.onToken(token);
+  return buildFinalResponse({ text, toolCalls: normalized.toolCalls, responseFormat: context.options.responseFormat, prompt: context.options.prompt, payload, provider: context.configuration.provider, modelName: context.configuration.modelName });
+}
+
+async function consumeResponse(context, response) {
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`Model provider returned HTTP ${response.status}.${detail ? ` ${detail.slice(0, 500)}` : ''}`);
   }
-  return generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, seed, stream, signal, displayWidth, displayHeight, responseFormat });
+  const contentType = response.headers?.get?.('content-type') || '';
+  const streamIdleTimeout = Math.max(30000, Number(context.options.timeoutMs) || 30000);
+  if (context.nativeOllama && context.options.stream) return consumeOllamaStream(context, response, streamIdleTimeout);
+  if (isStreamable(context, contentType)) return consumeTextStream(context, response, streamIdleTimeout);
+  return consumeJsonResponse(context, response);
 }
 
-async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
-  const reader = response.body?.getReader ? response.body.getReader() : null;
-  if (!reader) return null;
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let text = '';
-  let usage = {};
-  let servedModel = null;
-  const consume = async (chunk) => {
-    buffer += decoder.decode(chunk, { stream: true });
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || '';
-    for (const line of lines) {
-      if (!line.startsWith('data:')) continue;
-      const data = line.slice(5).trim();
-      if (!data || data === '[DONE]') continue;
-      let payload;
-      try { payload = JSON.parse(data); } catch (_) {
-        throw Object.assign(new Error('Model provider returned malformed SSE JSON.'), { code: 'MODEL_PROVIDER_MALFORMED_STREAM' });
-      }
-      if (payload.model) servedModel = payload.model;
-      const delta = payload.choices?.[0]?.delta?.content || payload.response || '';
-      if (delta) { text += delta; await onToken(delta); }
-      if (payload.usage) usage = payload.usage;
-    }
-  };
-  try {
-    while (true) {
-      let idleTimer;
-      const idleTimeout = new Promise((_, reject) => {
-        idleTimer = setTimeout(() => reject(new Error(`Model stream idle timeout after ${idleTimeoutMs}ms.`)), idleTimeoutMs);
-      });
-      const next = await Promise.race([reader.read(), idleTimeout]);
-      clearTimeout(idleTimer);
-      if (next.done) break;
-      await consume(next.value);
-    }
-    if (buffer.startsWith('data:')) await consume(new TextEncoder().encode(`${buffer}\n`));
-  } finally {
-    try { reader.releaseLock(); } catch (_) {}
-    try { await reader.cancel(); } catch (_) {}
-  }
-  return { text, usage, servedModel };
+async function performRequest(options, controller) {
+  const configuration = modelConfiguration(options.model, options.endpoint);
+  const endpoint = options.endpoint || configuration.endpoint;
+  const localOnly = LOCAL_PROVIDERS.includes(configuration.provider);
+  validateProviderEndpoint(endpoint, { localOnly });
+  assertSafeProviderEndpoint(endpoint);
+  await validateProviderEndpointAsync(endpoint, { localOnly });
+  const apiKey = resolveProviderApiKey(configuration.provider);
+  assertModelConfigured(configuration, apiKey);
+  const nativeOllama = configuration.provider === 'ollama' && /\/api\/chat\/?$/i.test(endpoint);
+  const outputLimit = Number.isFinite(Number(options.maxTokens)) && Number(options.maxTokens) > 0 ? Math.floor(Number(options.maxTokens)) : null;
+  const body = buildRequestBody({ provider: configuration.provider, modelName: configuration.modelName, prompt: options.prompt, outputLimit, seed: options.seed, stream: options.stream, nativeOllama, responseFormat: options.responseFormat, computerUse: options.computerUse, displayWidth: options.displayWidth, displayHeight: options.displayHeight });
+  const headers = buildHeaders(configuration.provider, apiKey, options.computerUse);
+  const response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
+  return consumeResponse({ options, configuration, nativeOllama }, response);
 }
 
-async function readOllamaStream(response, onToken, idleTimeoutMs = 30000) {
-  const reader = response.body?.getReader ? response.body.getReader() : null;
-  if (!reader) return { text: '', usage: {} };
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let text = '';
-  let usage = {};
-  let servedModel = null;
-  const consume = async (chunk) => {
-    buffer += decoder.decode(chunk, { stream: true });
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || '';
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      let payload;
-      try { payload = JSON.parse(line); } catch (_) {
-        throw Object.assign(new Error('Model provider returned malformed NDJSON.'), { code: 'MODEL_PROVIDER_MALFORMED_STREAM' });
-      }
-      if (payload.model) servedModel = payload.model;
-      const delta = payload.message?.content || payload.response || '';
-      if (delta) { text += delta; await onToken(delta); }
-      if (payload.prompt_eval_count != null || payload.eval_count != null) {
-        usage = { prompt_tokens: payload.prompt_eval_count, completion_tokens: payload.eval_count };
-      }
-    }
-  };
-  try {
-    while (true) {
-      let idleTimer;
-      const idleTimeout = new Promise((_, reject) => { idleTimer = setTimeout(() => reject(new Error(`Model stream idle timeout after ${idleTimeoutMs}ms.`)), idleTimeoutMs); });
-      const next = await Promise.race([reader.read(), idleTimeout]);
-      clearTimeout(idleTimer);
-      if (next.done) break;
-      await consume(next.value);
-    }
-    if (buffer.trim()) await consume(new TextEncoder().encode(`${buffer}\n`));
-  } finally {
-    try { reader.releaseLock(); } catch (_) {}
-    try { await reader.cancel(); } catch (_) {}
-  }
-  return { text, usage, servedModel };
-}
-
-async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080, computerUse = false, responseFormat }) {
+async function generateDirect(options) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs);
   const abort = () => controller.abort();
-  if (signal?.aborted) abort();
-  else signal?.addEventListener('abort', abort, { once: true });
+  if (options.signal?.aborted) abort();
+  else options.signal?.addEventListener('abort', abort, { once: true });
   try {
-    const configuration = modelConfiguration(model, endpointOverride);
-    const { uri: resolvedModel, provider, modelName, endpoint: configuredEndpoint, configured: isConfigured } = configuration;
-    const endpoint = endpointOverride || configuredEndpoint;
-    const localOnly = ['ollama', 'lmstudio', 'vllm'].includes(provider);
-    validateProviderEndpoint(endpoint, { localOnly });
-    assertSafeProviderEndpoint(endpoint);
-    // Re-resolve DNS at call time so a hostname cannot move from a public
-    // address (validated at registration) to an internal one (rebinding).
-    await validateProviderEndpointAsync(endpoint, { localOnly });
-    const apiKey = resolveProviderApiKey(provider);
-    if (!isConfigured || (!apiKey && !['ollama', 'lmstudio', 'vllm', 'openai-compatible'].includes(provider))) throw new Error(`No API key configured for model ${resolvedModel}.`);
-    const headers = { 'Content-Type': 'application/json' };
-    if (provider === 'anthropic') {
-      if (apiKey) headers['x-api-key'] = apiKey;
-      headers['anthropic-version'] = '2023-06-01';
-      if (computerUse) headers['anthropic-beta'] = 'computer-use-2024-10-22';
-    } else if (provider === 'gemini') {
-      if (apiKey) headers['x-goog-api-key'] = apiKey;
-    } else if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
-    }
-    const outputLimit = Number.isFinite(Number(maxTokens)) && Number(maxTokens) > 0 ? Math.floor(Number(maxTokens)) : null;
-    const nativeOllama = provider === 'ollama' && /\/api\/chat\/?$/i.test(endpoint);
-    let body;
-    if (provider === 'anthropic') {
-      body = {
-        model: modelName,
-        max_tokens: outputLimit || 8192,
-        messages: [{ role: 'user', content: prompt }],
-        ...(computerUse ? { tools: [{ type: "computer_20241022", name: "computer", display_width_px: displayWidth, display_height_px: displayHeight, display_number: 1 }] } : {})
-      };
-    } else if (provider === 'gemini') {
-      body = {
-        contents: [{ parts: Array.isArray(prompt) ? prompt.map(p => p.text ? { text: p.text } : p) : [{ text: prompt }] }],
-        ...(outputLimit ? { generationConfig: { maxOutputTokens: outputLimit } } : {})
-      };
-    } else {
-      body = nativeOllama
-        ? { model: modelName, messages: [{ role: 'user', content: prompt }], stream, ...(outputLimit || seed != null ? { options: { ...(outputLimit ? { num_predict: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}) } } : {}) }
-        : { model: modelName, messages: [{ role: 'user', content: prompt }], stream, ...(outputLimit ? { max_tokens: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}), ...(responseFormat ? { response_format: { type: responseFormat } } : {}) };
-    }
-    const response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      throw new Error(`Model provider returned HTTP ${response.status}.${detail ? ` ${detail.slice(0, 500)}` : ''}`);
-    }
-    const contentType = response.headers?.get?.('content-type') || '';
-    const streamIdleTimeout = Math.max(30000, Number(timeoutMs) || 30000);
-    if (nativeOllama && stream) {
-      const streamed = await readOllamaStream(response, onToken, streamIdleTimeout);
-      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens ?? estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens ?? estimateTokenCount(streamed.text), provider, servedModel: streamed.servedModel || modelName };
-    }
-    if (stream && provider !== 'anthropic' && provider !== 'gemini' && /(?:text\/event-stream|application\/x-ndjson|application\/ndjson)/i.test(contentType)) {
-      const streamed = await readStreamingResponse(response, onToken, streamIdleTimeout);
-      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens ?? estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens ?? estimateTokenCount(streamed.text), provider, servedModel: streamed.servedModel || modelName };
-    }
-    const payload = await response.json();
-    const content = provider === 'anthropic' ? payload.content : provider === 'gemini' ? payload.candidates?.[0]?.content?.parts : nativeOllama ? payload.message?.content || payload.response || '' : payload.choices?.[0]?.message?.content || '';
-    const normalized = normalizeMessageContent(content);
-    const text = normalized.text;
-    for (const token of tokenize(text)) await onToken(token);
-    return { text, toolCalls: normalized.toolCalls, structured: parseStructuredResponse(text, responseFormat), inputTokens: payload.usage?.input_tokens ?? payload.usage?.prompt_tokens ?? estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: payload.usage?.output_tokens ?? payload.usage?.completion_tokens ?? estimateTokenCount(text), provider, servedModel: payload.model || modelName };
+    return await performRequest(options, controller);
   } catch (error) {
     controller.abort();
-    if (error.name === 'AbortError') throw new Error(`Model timeout after ${timeoutMs}ms.`);
+    if (error.name === 'AbortError') throw new Error(`Model timeout after ${options.timeoutMs}ms.`);
     throw error;
   } finally {
     clearTimeout(timer);
-    signal?.removeEventListener('abort', abort);
+    options.signal?.removeEventListener('abort', abort);
   }
+}
+
+async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint, priority = 'bulk', agentId, organizationId, projectId, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080, responseFormat }) {
+  const effectiveTimeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Math.min(Number(timeoutMs), 30 * 60 * 1000)) : 30000;
+  const options = { model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint, seed, stream, signal, displayWidth, displayHeight, responseFormat };
+  const configuration = modelConfiguration(model, endpoint);
+  const targetEndpoint = endpoint || configuration.endpoint;
+  if (inferenceGateway.isLocalProvider(configuration.provider, targetEndpoint)) {
+    return inferenceGateway.schedule(() => generateDirect(options), { provider: configuration.provider, priority, agentId, organizationId, projectId });
+  }
+  return generateDirect(options);
 }
 
 function getModelStatus(model) {
   try {
     const configuration = modelConfiguration(model);
-    return { ...configuration, apiKeyConfigured: configuration.configured && (['ollama', 'lmstudio', 'vllm', 'openai-compatible'].includes(configuration.provider) || Boolean(configuration.keySource)) };
+    return { ...configuration, apiKeyConfigured: configuration.configured && (LOCAL_OR_COMPATIBLE.includes(configuration.provider) || Boolean(configuration.keySource)) };
   } catch (error) { return { configured: false, apiKeyConfigured: false, error: error.message }; }
 }
 
