@@ -5,8 +5,7 @@ const contracts = require('../src/services/strategyContractService');
 const workerGarage = require('../src/services/workerGarageService');
 const aTeamService = require('../src/services/aTeamService');
 const trinityService = require('../src/services/trinityService');
-const biologicalMode = require('../src/services/biologicalModeService');
-const biocenoseService = require('../src/services/biocenoseService');
+const biologicalTopology = require('../src/services/biologicalTopologyService');
 const dynamicOrganization = require('../src/services/dynamicOrganizationService');
 const telemetry = require('../src/services/telemetryObserver');
 const strategyAdaptation = require('../src/services/strategyAdaptationService');
@@ -204,8 +203,8 @@ async function handleBiological({ db, context }) {
   const parent = await ensureParent({ db, context });
   const mode = String(context.request.mode || '').trim().toLowerCase();
   const mission = context.request.mission || context.request.project_goal || context.request.goal || context.task;
-  const composition = mode === 'biocenose' ? await biocenoseService.prepareCommunity(db, context.orchestratorId, mission) : null;
-  const members = composition ? composition.members : biologicalMode.compose(mode, mission);
+  const composition = await biologicalTopology.composeMode({ db, orchestratorId: context.orchestratorId, mode, mission });
+  const members = composition.members;
   const garage = await workerGarage.state(db, context.orchestratorId);
   if (garage.available <= 0) {
     throw Object.assign(new Error(`${mode} requires free worker slots, but worker garage is full (slots: ${garage.occupied}/${garage.capacity} used — wait or increase MAX_ACTIVE_WORKERS).`), { code: 'WORKER_GARAGE_FULL' });
