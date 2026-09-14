@@ -8,8 +8,9 @@ use crate::plasmids::Skill;
 use crate::signaling::SignalingCascade;
 use crate::trace::Verdict;
 use genos_biology::neurobiology::Neurotransmitter;
+use genos_biology::pathology::assess_agent_clinical_status;
 use genos_biology::spore::SporeType;
-use genos_cell::AgentCell;
+use genos_cell::{AgentCell, ClinicalState};
 use genos_signal::SignalingMode;
 use serde_json::json;
 use uuid::Uuid;
@@ -110,6 +111,25 @@ impl GenosEcosystem {
         }
     }
 
+    /// Exécute une séquence de concepts donnée (utilisé par les mondes isolés).
+    pub fn execute_concepts(&mut self, concepts: &[Concept]) -> Vec<Concept> {
+        let mut report = TickReport {
+            tick: 0,
+            strategy: Strategy::Solo,
+            organization: "n/a",
+            superorganism: "n/a",
+            planned: concepts.to_vec(),
+            executed: Vec::new(),
+            halt: None,
+            verdicts: Vec::new(),
+        };
+        for concept in concepts {
+            self.execute_concept(*concept, &mut report);
+            report.executed.push(*concept);
+        }
+        report.executed
+    }
+
     fn arena_workers(&self) -> Vec<Uuid> {
         self.orchestrator
             .tissues
@@ -120,6 +140,34 @@ impl GenosEcosystem {
 
     fn first_dna_agent(&self) -> Option<Uuid> {
         self.agent_dna.keys().copied().next()
+    }
+
+    /// Guérit cliniquement la première cellule malade du tissu.
+    fn cure_one_diseased(&mut self) -> bool {
+        let target = self.arena_workers().into_iter().find(|id| {
+            self.orchestrator
+                .active_cells
+                .get(id)
+                .map(|cell| !assess_agent_clinical_status(cell).is_healthy)
+                .unwrap_or(false)
+        });
+        if let Some(id) = target
+            && let Some(cell) = self.orchestrator.active_cells.get_mut(&id)
+        {
+            cell.clinical = ClinicalState::healthy();
+            return true;
+        }
+        false
+    }
+
+    fn first_diseased(&self) -> Option<Uuid> {
+        self.arena_workers().into_iter().find(|id| {
+            self.orchestrator
+                .active_cells
+                .get(id)
+                .map(|cell| !assess_agent_clinical_status(cell).is_healthy)
+                .unwrap_or(false)
+        })
     }
 
     fn execute_concept(&mut self, concept: Concept, report: &mut TickReport) {
@@ -136,10 +184,15 @@ impl GenosEcosystem {
             Concept::Recruit => {
                 if self.orchestrator.tissues.contains_key("Arena") {
                     let n = self.arena_workers().len() + 1;
-                    let _ = self.orchestrator.add_worker(
+                    if let Ok(id) = self.orchestrator.add_worker(
                         "Arena",
                         AgentCell::new(format!("Recrue_{n}"), "auto", "Specialist"),
-                    );
+                    ) {
+                        // Tout agent recruté reçoit un ADN (mutation/croisement possibles).
+                        let genome = genos_genome::Genome::new(&format!("RECRUE_{n}"));
+                        let dna = crate::dna_ops::from_genome(&genome, &format!("Recrue_{n}"));
+                        self.register_dna(id, dna);
+                    }
                 }
             }
             Concept::Delegate => {
@@ -173,6 +226,10 @@ impl GenosEcosystem {
                     epitope: "THREAT".to_string(),
                     danger_level: 0.9,
                 });
+                // L'immunité neutralise aussi une menace active (cohérence avec la simulation).
+                if let Some(index) = self.virology.virions.iter().position(|v| !v.is_neutralized) {
+                    self.virology.virions[index].is_neutralized = true;
+                }
             }
             Concept::Virology => {
                 if let Some(index) = self.virology.virions.iter().position(|v| !v.is_neutralized) {
@@ -183,12 +240,16 @@ impl GenosEcosystem {
                 let _ = self.throttle_flux(120.0);
             }
             Concept::Therapy => {
-                if let Some(id) = self.arena_workers().first().copied() {
+                if !self.cure_one_diseased()
+                    && let Some(id) = self.arena_workers().first().copied()
+                {
                     let _ = self.execute_skill(id, Skill::Heal);
                 }
             }
             Concept::Spore => {
-                if let Some(id) = self.arena_workers().last().copied() {
+                // Quarantaine : sporule une cellule malade en priorité.
+                let target = self.first_diseased().or_else(|| self.arena_workers().last().copied());
+                if let Some(id) = target {
                     let _ = self
                         .orchestrator
                         .sporulate_cell(id, SporeType::BacterialEndospore);
@@ -196,7 +257,8 @@ impl GenosEcosystem {
             }
             Concept::Glia => {
                 let note = self.glial_pass();
-                self.record_event("GLIA", json!({ "note": note }));
+                let cured = self.cure_one_diseased();
+                self.record_event("GLIA", json!({ "note": note, "cured": cured }));
             }
             Concept::Signaling => {
                 let ligand = SignalingCascade::ligand("ATP", SignalingMode::Paracrine, 1.0);

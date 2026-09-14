@@ -202,6 +202,7 @@ use genos_orchestrator::api::{RateLimiter, TenantAuth, ChatMessage};
 
 ```bash
 cargo run -p genos-orchestrator --example mission_tick        # boucle cognitive
+cargo run -p genos-orchestrator --example mission_e2e         # bout en bout (feinte/glie/thalamus)
 cargo run -p genos-orchestrator --example mission_trinity     # mondes parallèles
 cargo run -p genos-orchestrator --example mission_recruit_planner # recrutement autonome
 cargo run -p genos-orchestrator --example mission_replay      # replay -> destin
@@ -221,14 +222,21 @@ cargo test -p genos-orchestrator --features api
 cargo clippy -p genos-orchestrator --all-targets
 ```
 
-## Limites
+## Notes et limites
 
-- La mutation/croisement ne s'appliquent qu'aux agents dont l'ADN est
-  **enregistré** (`register_dna`).
-- Les mondes parallèles s'exécutent sur des **copies d'état** (pas de threads
-  d'écosystèmes isolés) ; la fusion est une union de concepts.
-- Le **dialogue** humain et la compréhension sémantique relèvent du LLM
-  (thalamus via la feature `api`) ; l'orchestrateur fournit la boucle de
-  contrôle et la sélection de capacités.
-- La couche serveur (`genos-api`) et les binaires (`genos-mcp`, `genos-cli`)
-  sont hors du noyau ; seul `genos-api` est accessible via la feature `api`.
+- **Génétique** : les agents recrutés reçoivent **automatiquement** un ADN ; les
+  agents préexistants doivent être enregistrés (`register_dna`) pour la
+  mutation/croisement/feinte.
+- **Mondes parallèles** : `Multiverse::run_isolated` exécute chaque hypothèse
+  dans son **propre `GenosEcosystem`**, en **threads parallèles**, avec barrière
+  de preuve. Les variantes `run`/`trinity` planifient sur des copies d'état
+  (plus rapides, sans I/O).
+- **Dialogue/LLM** : la compréhension sémantique et le dialogue humain relèvent
+  du LLM (thalamus via la feature `api`) ; l'orchestrateur fournit la boucle de
+  contrôle et la sélection de capacités. `communicate` fonctionne hors ligne
+  (`"Ping"`).
+- **Périmètre** : `genos-api` est accessible via la feature Cargo `api` ;
+  `genos-mcp` et `genos-cli` sont des binaires, hors du noyau.
+- La garantie de **cohérence simulation/réalité** est assurée par des tests de
+  bout en bout (`mission_e2e`) : soins, quarantaine et neutralisation agissent
+  réellement sur l'écosystème.

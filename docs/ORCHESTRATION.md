@@ -740,9 +740,11 @@ Feign, Kill, Communicate), chacun avec **préconditions** et **effets**. Il :
   incertitude → consensus de Brier, maladie → récupération isolée, budget bas →
   huddle, etc.).
 - `worlds.rs` exécute des **mondes parallèles comparés** (Trinity = Basic /
-  Planned / Self‑Correcting) sur des copies isolées de l'état, compare les
-  preuves et **promeut** le meilleur monde ou **escalade** si aucun ne franchit
-  la barrière de preuve.
+  Planned / Self‑Correcting), compare les preuves et **promeut** le meilleur
+  monde ou **escalade** si aucun ne franchit la barrière de preuve. Deux modes :
+  `run`/`trinity` planifient sur des **copies d'état** (rapide) ; `run_isolated`
+  exécute chaque hypothèse dans son **propre `GenosEcosystem`**, en **threads
+  parallèles** (isolation réelle).
 
 ### 19.bis.4 Concepts exécutés (effets réels)
 
@@ -780,10 +782,12 @@ etc.). La couche serveur (`genos-api`) est accessible via la **feature Cargo
 
 Le crate est couvert par des tests unitaires et d'intégration (orchestrateur,
 conscience, token bucket, organisations, directeur, mondes, recrutement,
-traces/diagnostics, tick/boucle, comportements) et par des exemples
-exécutables (`examples/mission_*.rs`, `orchestrator_licence.rs`). `cargo test -p
-genos-orchestrator` et `cargo test -p genos-orchestrator --features api`
-passent sans warning clippy.
+traces/diagnostics, tick/boucle, comportements, scénario de bout en bout) et par
+des exemples exécutables (`examples/mission_*.rs`, `orchestrator_licence.rs`).
+Le scénario `mission_e2e` force la **feinte** (ADN leurre), le **pipeline glial**
+complet et la **communication** (thalamus) tout en menant la mission à terme, et
+exécute trois mondes isolés en parallèle. `cargo test -p genos-orchestrator` et
+`cargo test -p genos-orchestrator --features api` passent sans warning clippy.
 
 ---
 
