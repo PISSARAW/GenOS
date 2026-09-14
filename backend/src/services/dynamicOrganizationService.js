@@ -3,6 +3,7 @@ const { withTransaction } = require('../db');
 const { formatSignalForTransport, unpackSignalPayload } = require('./biomimeticSignalingBus');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
+const { routeMessage, assertRoutingAuthority } = require('./organizationRouting');
 
 const ORGANIZATIONS = Object.freeze({
   specialist_expert_committee: { topology: 'hub_and_spoke', exchange: 'indirect', visibility: 'attributed', routing: 'orchestrator' },
@@ -30,14 +31,6 @@ const MESSAGE_KINDS = new Set([
   'evidence', 'question', 'answer', 'challenge', 'proposal', 'vote', 'trace',
   'budget', 'critical', 'success', 'handoff'
 ]);
-
-const ROUTING_CHANNELS = Object.freeze({
-  orchestrator: 'orchestrator_handoff',
-  shared_trail: 'stigmergic_trail',
-  capability: 'capability_mesh',
-  ranked: 'ranked_handoff',
-  adversarial_pair: 'adversarial_pair'
-});
 
 const tableInitializations = new WeakMap();
 
@@ -234,43 +227,6 @@ async function changeOrganization(db, options = {}) {
   return { orchestratorId, previous: prevOrg, organization, version, policy: profile, capabilities: topologyCapabilityService.contractFor({ organization }).required, runStep: (state, options) => swarmTopologyAlgorithms.runTopologyStep(organization, state, options), reason: finalReason, changed: true };
 }
 
-function resolveWorkerTarget(routing, recipientAgentId, orchestratorId) {
-  if (routing === 'orchestrator') return orchestratorId;
-  if (routing === 'ranked') return recipientAgentId || orchestratorId;
-  return null;
-}
-
-function resolveRoutingTarget(opts) {
-  const { routing, isOrchestrator, recipientAgentId, orchestratorId } = opts;
-  if (routing === 'shared_trail') return null;
-  if (isOrchestrator) return recipientAgentId || null;
-  const target = resolveWorkerTarget(routing, recipientAgentId, orchestratorId);
-  return target || recipientAgentId || null;
-}
-
-function resolveRoutingChannel(routing, topology) {
-  return ROUTING_CHANNELS[routing] || topology;
-}
-
-function isBufferedMessage(routing, kind, isOrchestrator) {
-  if (isOrchestrator || routing !== 'critical_only') return false;
-  return kind !== 'critical' && kind !== 'success';
-}
-
-function routeMessage({ state, sender, recipientAgentId, kind }) {
-  const policy = state.policy;
-  const isOrchestrator = sender.id === state.orchestratorId;
-  if (isBufferedMessage(policy.routing, kind, isOrchestrator)) {
-    return { recipientAgentId: recipientAgentId || null, channel: 'local_buffer', delivery: 'buffered' };
-  }
-  const targetOpts = { routing: policy.routing, isOrchestrator, recipientAgentId, orchestratorId: state.orchestratorId };
-  return {
-    recipientAgentId: resolveRoutingTarget(targetOpts),
-    channel: resolveRoutingChannel(policy.routing, policy.topology),
-    delivery: 'delivered'
-  };
-}
-
 function resolveSignalPayload(content, signalType, signalData) {
   const hasSignal = signalData !== undefined && signalData !== null;
   const rawText = String(content || '').trim();
@@ -310,6 +266,7 @@ async function publish(db, options = {}) {
   if (!MESSAGE_KINDS.has(normalizedKind)) throw organizationError('INVALID_MESSAGE_KIND', `Unsupported organization message kind '${kind}'.`);
   const signalInfo = resolveSignalPayload(content, signalType, signalData);
   assertAdversarialRecipient(state, sender, recipientAgentId);
+  assertRoutingAuthority({ organization: state.organization, policy: state.policy, sender, recipientAgentId, orchestratorId });
   const route = routeMessage({ state, sender, recipientAgentId, kind: normalizedKind });
   const scope = await fetchAgentScope(db, orchestratorId);
   const result = await db.run(
