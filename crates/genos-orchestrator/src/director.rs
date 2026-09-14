@@ -1,3 +1,4 @@
+use crate::organization::{Organization, Superorganism, by_name, select_organization, select_superorganism};
 use crate::planner::{ActionStats, Concept, Goal, WorldState};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -20,6 +21,10 @@ pub struct Step {
 #[derive(Clone, Debug)]
 pub struct Decision {
     pub strategy: Strategy,
+    /// Organisation (topologie de communication) retenue par le directeur.
+    pub organization: Organization,
+    /// Forme d'organisation biologique retenue (holobionte, syncytium, ...).
+    pub superorganism: Superorganism,
     pub steps: Vec<Step>,
     pub rationale: String,
     pub halt: Option<String>,
@@ -60,6 +65,8 @@ impl Director {
     fn halt(strategy: Strategy, reason: &str) -> Decision {
         Decision {
             strategy,
+            organization: *by_name("network_silence").expect("organisation du catalogue"),
+            superorganism: Superorganism::Swarm,
             steps: Vec::new(),
             rationale: reason.to_string(),
             halt: Some(reason.to_string()),
@@ -125,6 +132,8 @@ impl Director {
         );
         Decision {
             strategy,
+            organization: *select_organization(state, goal),
+            superorganism: select_superorganism(state, goal),
             steps,
             rationale,
             halt: None,
