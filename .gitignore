@@ -52,3 +52,8 @@ artifacts/
 /snapshots/
 /*.bak.jsonl
 
+
+# Agent runtime artifacts (untracked fixtures under .genos-runtime are kept)
+.genos-runtime/agent_*/
+backend/tests/.genos-runtime/
+*.bak.jsonl

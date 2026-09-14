@@ -22,7 +22,12 @@ const WORKER_BASE_LEASE = [
   'genos_replay',
   'genos_organization_state',
   'genos_worker_publish',
-  'genos_worker_inbox'
+  'genos_worker_inbox',
+  // Evidence validation and immune surveillance tools — needed by workers
+  // to produce usable evidence dossiers (not just orchestrator-level).
+  'genos_adversarial_review',
+  'genos_security_coevolution',
+  'genos_parasitic_pressure'
 ];
 
 const ORCHESTRATOR_CORE_LEASE = [
