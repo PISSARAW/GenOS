@@ -20,6 +20,7 @@ pub mod token_bucket;
 pub mod trace;
 pub mod virology;
 pub mod sensorimotor;
+pub mod tick;
 pub mod worlds;
 
 #[cfg(feature = "api")]
@@ -32,6 +33,7 @@ pub use orchestrator::BiomimeticOrchestrator;
 pub use organization::{Organization, Superorganism, catalog, select_organization, select_superorganism};
 pub use plasmids::{PlasmidBank, Skill};
 pub use trace::{Outcome, ReplayReport, Verdict};
+pub use tick::TickReport;
 pub use worlds::{Hypothesis, Multiverse, WorldOutcome};
 pub use planner::{Concept, Goal, WorldState};
 pub use recruitment::{Candidate, Demand, RecruitmentDecision, RecruitmentPlanner, Selection};

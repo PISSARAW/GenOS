@@ -8,6 +8,7 @@
 //! racine du crate orchestrateur (`genos_orchestrator::genos_store`, etc.).
 
 use crate::BiomimeticOrchestrator;
+use crate::director::Director;
 use crate::immune_cyber::CyberImmune;
 use crate::neuro::NeuroLab;
 use crate::plasmids::PlasmidBank;
@@ -106,6 +107,8 @@ pub struct GenosEcosystem {
     pub plasmids: PlasmidBank,
     /// ADN compilé de chaque agent (pour mutation / croisement).
     pub agent_dna: HashMap<Uuid, AgentDna>,
+    /// Directeur cognitif (choix des concepts).
+    pub director: Director,
 }
 
 impl GenosEcosystem {
@@ -150,6 +153,7 @@ impl GenosEcosystem {
             traces: TraceStore::default(),
             plasmids: PlasmidBank::new(),
             agent_dna: HashMap::new(),
+            director: Director::default(),
         }
     }
 

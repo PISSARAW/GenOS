@@ -12,6 +12,7 @@ use genos_biology::specialized_cells::prokaryote::ProkaryoticAgent;
 use genos_biology::therapy::{apply_systemic_therapy_to_cell, SystemicTherapy};
 use genos_dna::model::AgentDna;
 use genos_dna::operations::{CrossOptions, MutateOptions};
+use std::path::Path;
 use uuid::Uuid;
 
 impl GenosEcosystem {
@@ -74,6 +75,34 @@ impl GenosEcosystem {
 
     pub fn agent_dna(&self, agent: Uuid) -> Option<&AgentDna> {
         self.agent_dna.get(&agent)
+    }
+
+    // --- Persistance des traces (provenance) ---
+
+    pub fn save_traces(&self, path: impl AsRef<Path>) -> Result<(), String> {
+        let json = serde_json::to_string_pretty(&self.traces).map_err(|e| e.to_string())?;
+        std::fs::write(path, json).map_err(|e| e.to_string())
+    }
+
+    pub fn load_traces(&mut self, path: impl AsRef<Path>) -> Result<(), String> {
+        let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+        self.traces = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// Provenance d'un agent : suite `(tick, action, issue)`.
+    pub fn trace_provenance(&self, agent: Uuid) -> Vec<(u64, String, String)> {
+        self.traces
+            .traces
+            .get(&agent)
+            .map(|trace| {
+                trace
+                    .events
+                    .iter()
+                    .map(|e| (e.tick, e.action.clone(), format!("{:?}", e.outcome)))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     fn sync_genome_id(&mut self, agent: Uuid, dna: &AgentDna) {

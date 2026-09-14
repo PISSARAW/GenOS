@@ -46,6 +46,7 @@ impl GenosEcosystem {
             budget: 40.0 + 20.0 * workers as f64,
             has_traces: self.traces.known() > 0,
             flagged,
+            required_workers: 5,
             ..WorldState::default()
         }
     }

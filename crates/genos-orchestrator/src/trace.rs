@@ -5,24 +5,25 @@
 //! **verdict** : sain, à muter, à croiser, plasmide manquant, famine, à
 //! supprimer, ou à soigner.
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Outcome {
     Success,
     Failure,
     Wasted,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TraceEvent {
     pub tick: u64,
     pub action: String,
     pub outcome: Outcome,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct AgentTrace {
     pub events: Vec<TraceEvent>,
 }
@@ -143,8 +144,8 @@ pub fn diagnose(report: &ReplayReport) -> Verdict {
     Verdict::Healthy
 }
 
-/// Registre de traces, indexé par agent.
-#[derive(Clone, Debug, Default)]
+/// Registre de traces, indexé par agent (persistable en JSON).
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TraceStore {
     pub traces: HashMap<Uuid, AgentTrace>,
 }
