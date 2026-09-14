@@ -798,6 +798,16 @@ complet et la **communication** (thalamus) tout en menant la mission à terme, e
 exécute trois mondes isolés en parallèle. `cargo test -p genos-orchestrator` et
 `cargo test -p genos-orchestrator --features api` passent sans warning clippy.
 
+### 19.bis.8 Boucle incarnée (Phase 1)
+
+Le crate expose un environnement externe (`trait Environment { sense(key) ->
+Percept; act(Action) -> Feedback }`, implémentation réelle `FileSandbox`
+confinée) et une boucle fermée `embodied_task` (perception → action →
+**récompense externe**) : la sortie produite dans le monde est comparée à une
+spécification, la réussite met à jour l'apprentissage via le concept `Actuate`
+et le journal d'événements. C'est la première brique vers un organisme
+« incarné » (voir `examples/mission_embodied.rs`).
+
 ---
 
 ## 20. Conclusion

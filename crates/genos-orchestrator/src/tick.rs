@@ -358,6 +358,9 @@ impl GenosEcosystem {
                 let answer = self.communicate("Ping");
                 self.record_event("HUMAN", json!({ "answer": answer }));
             }
+            Concept::Actuate => {
+                // L'action externe est gérée par la boucle incarnée (Environment).
+            }
         }
     }
 }
