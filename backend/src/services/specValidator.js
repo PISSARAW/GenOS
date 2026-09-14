@@ -23,90 +23,133 @@ function schemaFilename(value) {
 }
 
 const TYPE_CHECKS = {
-  object: (v) => v !== null && typeof v === 'object' && !Array.isArray(v),
-  array: (v) => Array.isArray(v),
-  string: (v) => typeof v === 'string',
-  number: (v) => typeof v === 'number',
-  integer: (v) => Number.isInteger(v),
-  boolean: (v) => typeof v === 'boolean',
-  null: (v) => v === null
+  object: (v) => { return v !== null && typeof v === 'object' && !Array.isArray(v); },
+  array: (v) => { return Array.isArray(v); },
+  string: (v) => { return typeof v === 'string'; },
+  number: (v) => { return typeof v === 'number'; },
+  integer: (v) => { return Number.isInteger(v); },
+  boolean: (v) => { return typeof v === 'boolean'; },
+  null: (v) => { return v === null; }
 };
 
-function validateAgainstSchema(value, schema, pathSoFar, errors) {
-  if (!schema || typeof schema !== 'object') return;
+function typeMatches(value, type) {
+  const check = TYPE_CHECKS[type];
+  return Boolean(check) && check(value);
+}
 
+function describePath(pathSoFar) {
+  return pathSoFar || '(root)';
+}
+
+function childPath(pathSoFar, key) {
+  return pathSoFar ? `${pathSoFar}.${key}` : key;
+}
+
+function checkConst(options) {
+  const { value, schema, pathSoFar, errors } = options;
   if ('const' in schema && value !== schema.const) {
-    errors.push(`${pathSoFar || '(root)'} must equal ${JSON.stringify(schema.const)}`);
+    errors.push(`${describePath(pathSoFar)} must equal ${JSON.stringify(schema.const)}`);
   }
+}
 
-  if (schema.type) {
-    if (Array.isArray(schema.type)) {
-      const matched = schema.type.some((t) => {
-        const check = TYPE_CHECKS[t];
-        return check && check(value);
-      });
-      if (!matched) {
-        errors.push(`${pathSoFar || '(root)'} must be one of types: ${schema.type.join(', ')}`);
-        return;
-      }
-    } else {
-      const check = TYPE_CHECKS[schema.type];
-      if (check && !check(value)) {
-        errors.push(`${pathSoFar || '(root)'} must be of type ${schema.type}`);
-        return;
-      }
+function checkType(options) {
+  const { value, schema, pathSoFar, errors } = options;
+  if (!schema.type) return true;
+  if (Array.isArray(schema.type)) {
+    const matched = schema.type.some((t) => { return typeMatches(value, t); });
+    if (!matched) {
+      errors.push(`${describePath(pathSoFar)} must be one of types: ${schema.type.join(', ')}`);
+      return false;
     }
+    return true;
   }
-
-  if (typeof value === 'number') {
-    if (typeof schema.minimum === 'number' && value < schema.minimum) {
-      errors.push(`${pathSoFar || '(root)'} must be >= ${schema.minimum}`);
-    }
-    if (typeof schema.maximum === 'number' && value > schema.maximum) {
-      errors.push(`${pathSoFar || '(root)'} must be <= ${schema.maximum}`);
-    }
+  const check = TYPE_CHECKS[schema.type];
+  if (check && !check(value)) {
+    errors.push(`${describePath(pathSoFar)} must be of type ${schema.type}`);
+    return false;
   }
+  return true;
+}
 
-  if (typeof value === 'string' && schema.format === 'date-time') {
-    const parsed = Date.parse(value);
-    if (Number.isNaN(parsed)) {
-      errors.push(`${pathSoFar || '(root)'} must be a valid ISO 8601 date-time`);
-    }
+function checkBounds(options) {
+  const { value, schema, pathSoFar, errors } = options;
+  if (typeof value !== 'number') return;
+  if (typeof schema.minimum === 'number' && value < schema.minimum) {
+    errors.push(`${describePath(pathSoFar)} must be >= ${schema.minimum}`);
   }
+  if (typeof schema.maximum === 'number' && value > schema.maximum) {
+    errors.push(`${describePath(pathSoFar)} must be <= ${schema.maximum}`);
+  }
+}
 
+function checkDateTime(options) {
+  const { value, schema, pathSoFar, errors } = options;
+  if (typeof value !== 'string' || schema.format !== 'date-time') return;
+  if (Number.isNaN(Date.parse(value))) {
+    errors.push(`${describePath(pathSoFar)} must be a valid ISO 8601 date-time`);
+  }
+}
+
+function checkEnum(options) {
+  const { value, schema, pathSoFar, errors } = options;
   if (Array.isArray(schema.enum) && !schema.enum.includes(value)) {
-    errors.push(`${pathSoFar || '(root)'} must be one of ${schema.enum.join(', ')}`);
+    errors.push(`${describePath(pathSoFar)} must be one of ${schema.enum.join(', ')}`);
   }
+}
 
+function checkAdditionalProperties(options) {
+  const { value, schema, pathSoFar, errors } = options;
+  if (schema.additionalProperties !== false || !schema.properties) return;
+  const allowed = new Set(Object.keys(schema.properties));
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) {
+      errors.push(`${childPath(pathSoFar, key)} is not an allowed property`);
+    }
+  }
+}
+
+function checkRequired(options) {
+  const { value, schema, pathSoFar, errors } = options;
+  if (!schema.properties) return;
+  for (const key of schema.required || []) {
+    if (!(key in value)) {
+      errors.push(`${childPath(pathSoFar, key)} is required`);
+    }
+  }
+}
+
+function checkProperties(options) {
+  const { value, schema, pathSoFar, errors } = options;
+  if (!schema.properties) return;
+  for (const [key, childSchema] of Object.entries(schema.properties)) {
+    if (key in value) {
+      validateAgainstSchema({ value: value[key], schema: childSchema, pathSoFar: childPath(pathSoFar, key), errors });
+    }
+  }
+}
+
+function checkItems(options) {
+  const { value, schema, pathSoFar, errors } = options;
+  if (!TYPE_CHECKS.array(value) || !schema.items) return;
+  value.forEach((item, index) => {
+    validateAgainstSchema({ value: item, schema: schema.items, pathSoFar: `${pathSoFar}[${index}]`, errors });
+  });
+}
+
+function validateAgainstSchema(options) {
+  const { value, schema } = options;
+  if (!schema || typeof schema !== 'object') return;
+  checkConst(options);
+  if (!checkType(options)) return;
+  checkBounds(options);
+  checkDateTime(options);
+  checkEnum(options);
   if (TYPE_CHECKS.object(value)) {
-    if (schema.additionalProperties === false && schema.properties) {
-      const allowed = new Set(Object.keys(schema.properties));
-      for (const key of Object.keys(value)) {
-        if (!allowed.has(key)) {
-          errors.push(`${pathSoFar ? `${pathSoFar}.` : ''}${key} is not an allowed property`);
-        }
-      }
-    }
-
-    if (schema.properties) {
-      for (const key of schema.required || []) {
-        if (!(key in value)) {
-          errors.push(`${pathSoFar ? `${pathSoFar}.` : ''}${key} is required`);
-        }
-      }
-      for (const [key, childSchema] of Object.entries(schema.properties)) {
-        if (key in value) {
-          validateAgainstSchema(value[key], childSchema, pathSoFar ? `${pathSoFar}.${key}` : key, errors);
-        }
-      }
-    }
+    checkAdditionalProperties(options);
+    checkRequired(options);
+    checkProperties(options);
   }
-
-  if (TYPE_CHECKS.array(value) && schema.items) {
-    value.forEach((item, index) => {
-      validateAgainstSchema(item, schema.items, `${pathSoFar}[${index}]`, errors);
-    });
-  }
+  checkItems(options);
 }
 
 /**
@@ -129,13 +172,13 @@ function validateSpec(schemaFile, value) {
   }
 
   const errors = [];
-  validateAgainstSchema(value, schema, '', errors);
+  validateAgainstSchema({ value, schema, pathSoFar: '', errors });
   return { available: true, schema: schemaFile, title: schema.title || null, valid: errors.length === 0, errors };
 }
 
 function validateWithSchema(value, schema) {
   const errors = [];
-  validateAgainstSchema(value, schema, '', errors);
+  validateAgainstSchema({ value, schema, pathSoFar: '', errors });
   return { valid: errors.length === 0, errors };
 }
 

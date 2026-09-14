@@ -1,5 +1,3 @@
-/** Execute only fully-specified orchestration decisions.  This deliberately
- * refuses to manufacture manifests, scores, or genomes merely to appear autonomous. */
 const mcp = require('./mcpExecutor');
 const telemetry = require('./telemetryObserver');
 const path = require('path');
@@ -8,90 +6,162 @@ const ACTION_RECEIPT_LEASE_MS = 5 * 60 * 1000;
 
 function actionArguments(decision, event, workspaceRoot) {
   const payload = event.payload || {};
-  if (decision.tool === 'genos_replay') {
-    // A replay without an event source is not evidence. Keep the decision
-    // visible but defer it until the worker returns a concrete branch or
-    // snapshot rather than issuing a guaranteed-failing CLI call.
-    if (!payload.snapshot) return null;
-    return { root: workspaceRoot, snapshot: payload.snapshot };
-  }
-  if (decision.tool === 'genos_record_experience' && payload.strategy && payload.outcome) {
-    return { root: workspaceRoot, strategy: payload.strategy, context: payload.context || event.detail || 'Autonomous worker event', outcome: payload.outcome, successful: event.eventType === 'AGENT_COMPLETED', evidence: payload.evidence || [event.id], source_branch: payload.branchId };
-  }
-  if (decision.tool === 'genos_record_experience' && payload.proposal) {
-    return { root: workspaceRoot, strategy: 'local_capsule_patch', context: event.detail || 'Local isolated code worker', outcome: `Changed ${(payload.proposal.changedFiles || []).join(', ') || 'no files'}; ${(payload.proposal.tests || []).map((test) => `${test.command}:${test.exitCode}`).join(', ') || 'no tests requested'}`, successful: (payload.proposal.tests || []).every((test) => test.exitCode === 0), evidence: [payload.proposal.proposal?.evidence || 'local capsule proposal', ...(payload.proposal.changedFiles || [])], source_branch: sourceBranch(payload) };
-  }
-  if (decision.tool === 'genos_evaluate_trajectories' && payload.solveId && Array.isArray(payload.scores) && payload.scores.length) {
-    return { root: workspaceRoot, solve_id: payload.solveId, scores: payload.scores };
-  }
-  if (decision.tool === 'genos_parasitic_pressure' && payload.input && payload.output) {
-    const root = path.resolve(workspaceRoot);
-    const input = path.resolve(root, payload.input);
-    const output = path.resolve(root, payload.output);
-    if (input.startsWith(`${root}${path.sep}`) && output.startsWith(`${root}${path.sep}`)) return { input, output, evolve: 'true' };
-  }
-  if (decision.tool === 'genos_snapshot' && decision.action === 'quarantine_and_fork') {
-    const root = path.resolve(workspaceRoot);
-    const agent = path.resolve(root, payload.agent || 'agent.json');
-    const out = path.resolve(root, payload.out || `snapshot_quarantine_${Date.now()}.json`);
-    return { agent, out };
-  }
+  const context = { decision, event, payload, workspaceRoot };
+  if (decision.tool === 'genos_replay') return replayArguments(context);
+  if (decision.tool === 'genos_record_experience') return experienceArguments(context);
+  if (decision.tool === 'genos_evaluate_trajectories') return trajectoryArguments(context);
+  if (decision.tool === 'genos_parasitic_pressure') return parasiticArguments(context);
+  if (decision.tool === 'genos_snapshot') return snapshotArguments(context);
   return null;
 }
+
+function replayArguments(context) {
+  const payload = context.payload;
+  if (!payload.snapshot) return null;
+  return { root: context.workspaceRoot, snapshot: payload.snapshot };
+}
+
+function experienceArguments(context) {
+  const payload = context.payload;
+  if (payload.strategy && payload.outcome) return strategyExperience(context);
+  if (payload.proposal) return proposalExperience(context);
+  return null;
+}
+
+function strategyExperience(context) {
+  const event = context.event;
+  const payload = context.payload;
+  return { root: context.workspaceRoot, strategy: payload.strategy, context: payload.context || event.detail || 'Autonomous worker event', outcome: payload.outcome, successful: event.eventType === 'AGENT_COMPLETED', evidence: payload.evidence || [event.id], source_branch: payload.branchId };
+}
+
+function proposalExperience(context) {
+  const event = context.event;
+  const payload = context.payload;
+  const proposal = payload.proposal;
+  return { root: context.workspaceRoot, strategy: 'local_capsule_patch', context: event.detail || 'Local isolated code worker', outcome: `Changed ${(proposal.changedFiles || []).join(', ') || 'no files'}; ${(proposal.tests || []).map((test) => `${test.command}:${test.exitCode}`).join(', ') || 'no tests requested'}`, successful: (proposal.tests || []).every((test) => test.exitCode === 0), evidence: [proposalEvidence(proposal.proposal) || 'local capsule proposal', ...(proposal.changedFiles || [])], source_branch: sourceBranch(payload) };
+}
+
+function proposalEvidence(proposal) {
+  if (!proposal) return undefined;
+  return proposal.evidence;
+}
+
+function trajectoryArguments(context) {
+  const payload = context.payload;
+  if (!payload.solveId) return null;
+  if (!Array.isArray(payload.scores)) return null;
+  if (!payload.scores.length) return null;
+  return { root: context.workspaceRoot, solve_id: payload.solveId, scores: payload.scores };
+}
+
+function parasiticArguments(context) {
+  const payload = context.payload;
+  if (!payload.input || !payload.output) return null;
+  const root = path.resolve(context.workspaceRoot);
+  const input = path.resolve(root, payload.input);
+  const output = path.resolve(root, payload.output);
+  if (!input.startsWith(`${root}${path.sep}`)) return null;
+  if (!output.startsWith(`${root}${path.sep}`)) return null;
+  return { input, output, evolve: 'true' };
+}
+
+function snapshotArguments(context) {
+  const decision = context.decision;
+  const payload = context.payload;
+  if (decision.action !== 'quarantine_and_fork') return null;
+  const root = path.resolve(context.workspaceRoot);
+  const agent = path.resolve(root, payload.agent || 'agent.json');
+  const out = path.resolve(root, payload.out || `snapshot_quarantine_${Date.now()}.json`);
+  return { agent, out };
+}
+
 function sourceBranch(payload) { return payload.branchId || payload.executionRunId || undefined; }
 
 async function execute({ orchestratorId, sourceAgentId, decision, event, workspaceRoot }) {
   const sourceEventId = String(event.id || '').trim();
-  let db = null;
-  if (sourceEventId && decision.tool) {
-    db = await getDatabase();
-    const receiptKey = `${orchestratorId}:${sourceEventId}:${decision.tool}`;
-    const existing = await db.get(
-      'SELECT status, completed_at, created_at FROM orchestration_action_receipts WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?',
+  const context = { orchestratorId, sourceAgentId, decision, event, workspaceRoot, sourceEventId, db: null };
+  if (await claimReceipt(context)) {
+    emitDeduplicated(context);
+    return { executed: false, duplicate: true };
+  }
+  const args = actionArguments(decision, event, workspaceRoot);
+  if (!args) return deferAction(context);
+  return runAction(context, args);
+}
+
+async function claimReceipt(context) {
+  const orchestratorId = context.orchestratorId;
+  const sourceEventId = context.sourceEventId;
+  const decision = context.decision;
+  if (!sourceEventId || !decision.tool) return false;
+  context.db = await getDatabase();
+  const receiptKey = `${orchestratorId}:${sourceEventId}:${decision.tool}`;
+  const existing = await context.db.get(
+    'SELECT status, completed_at, created_at FROM orchestration_action_receipts WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?',
+    orchestratorId, sourceEventId, decision.tool
+  );
+  if (suppressesDuplicate(existing)) return true;
+  const receipt = existing
+    ? await context.db.run(
+      `UPDATE orchestration_action_receipts SET status = 'started', completed_at = NULL WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?`,
       orchestratorId, sourceEventId, decision.tool
-    );
-    const deferred = existing?.status === 'failed' && !existing.completed_at;
-    const startedAt = existing?.status === 'started' && existing.created_at ? Date.parse(`${existing.created_at}Z`) : NaN;
-    const stale = existing?.status === 'started' && Number.isFinite(startedAt) && Date.now() - startedAt >= ACTION_RECEIPT_LEASE_MS;
-    if (existing && !deferred && !stale) {
-      telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEDUPLICATED', agentId: orchestratorId, action: decision.action, detail: 'Duplicate orchestration action suppressed.', severity: 'info', payload: { sourceAgentId, tool: decision.tool, eventId: sourceEventId } });
-      return { executed: false, duplicate: true };
-    }
-    const receipt = existing
-      ? await db.run(
-        "UPDATE orchestration_action_receipts SET status = 'started', completed_at = NULL WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?",
-        orchestratorId, sourceEventId, decision.tool
-      )
-      : await db.run(
+    )
+    : await context.db.run(
       `INSERT OR IGNORE INTO orchestration_action_receipts
         (receipt_key, orchestrator_id, source_event_id, tool, status)
        VALUES (?, ?, ?, ?, 'started')`,
       receiptKey, orchestratorId, sourceEventId, decision.tool
     );
-    if (receipt.changes !== 1 && !existing) {
-      telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEDUPLICATED', agentId: orchestratorId, action: decision.action, detail: 'Duplicate orchestration action suppressed.', severity: 'info', payload: { sourceAgentId, tool: decision.tool, eventId: sourceEventId } });
-      return { executed: false, duplicate: true };
-    }
-  }
-  const args = actionArguments(decision, event, workspaceRoot);
-  if (!args) {
-    telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEFERRED', agentId: orchestratorId, action: decision.action, detail: 'Decision retained until its required evidence is available.', severity: 'info', payload: { sourceAgentId, tool: decision.tool, reason: decision.reason, eventId: event.id } });
-    // The receipt schema predates a dedicated deferred state. A failed receipt
-    // without a completion timestamp is the durable retryable marker; real
-    // failures always receive completed_at below.
-    if (db && sourceEventId) await db.run("UPDATE orchestration_action_receipts SET status = 'failed', completed_at = NULL WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?", orchestratorId, sourceEventId, decision.tool);
-    return { executed: false, deferred: true, reason: 'missing_required_evidence' };
-  }
-  const result = await mcp.execute({ agentId: orchestratorId, toolName: decision.tool, args });
-  if (db && sourceEventId) await db.run("UPDATE orchestration_action_receipts SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?", result.success ? 'completed' : 'failed', orchestratorId, sourceEventId, decision.tool);
-  telemetry.emitEvent({ eventType: result.success ? 'ORCHESTRATION_ACTION_EXECUTED' : 'ORCHESTRATION_ACTION_FAILED', agentId: orchestratorId, action: decision.action, detail: result.success ? `Executed ${decision.tool}.` : `Could not execute ${decision.tool}: ${result.error || result.status}`, severity: result.success ? 'info' : 'warning', payload: { sourceAgentId, tool: decision.tool, args, result, eventId: event.id } });
-  if (result.success && decision.tool === 'genos_record_experience') {
-    const memoryArgs = { root: workspaceRoot, facts: [`${args.strategy}: ${args.outcome}`], decisions: [decision.reason], failures: args.successful ? [] : [args.outcome], constraints: ['Capsule changes are never merged automatically.'], source_refs: args.evidence || [] };
-    const memory = await mcp.execute({ agentId: orchestratorId, toolName: 'genos_compile_memory', args: memoryArgs });
-    telemetry.emitEvent({ eventType: memory.success ? 'ORCHESTRATION_MEMORY_COMPILED' : 'ORCHESTRATION_MEMORY_DEFERRED', agentId: orchestratorId, action: 'compile_memory', detail: memory.success ? 'Compiled evidence-backed worker memory.' : 'Experience was recorded but memory compilation could not run.', severity: memory.success ? 'info' : 'warning', payload: { result: memory } });
-  }
-  await require('./swarmTopologyRuntimeService').applyStepForOrchestrator(orchestratorId, { db: db || undefined }).catch(() => {});
+  if (receipt.changes !== 1 && !existing) return true;
+  return false;
+}
+
+function suppressesDuplicate(existing) {
+  if (!existing) return false;
+  if (isDeferredReceipt(existing)) return false;
+  return !isStaleReceipt(existing);
+}
+
+function isDeferredReceipt(existing) {
+  return existing.status === 'failed' && !existing.completed_at;
+}
+
+function isStaleReceipt(existing) {
+  if (existing.status !== 'started') return false;
+  if (!existing.created_at) return false;
+  const startedAt = Date.parse(`${existing.created_at}Z`);
+  return Number.isFinite(startedAt) && Date.now() - startedAt >= ACTION_RECEIPT_LEASE_MS;
+}
+
+function emitDeduplicated(context) {
+  telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEDUPLICATED', agentId: context.orchestratorId, action: context.decision.action, detail: 'Duplicate orchestration action suppressed.', severity: 'info', payload: { sourceAgentId: context.sourceAgentId, tool: context.decision.tool, eventId: context.sourceEventId } });
+}
+
+async function deferAction(context) {
+  telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEFERRED', agentId: context.orchestratorId, action: context.decision.action, detail: 'Decision retained until its required evidence is available.', severity: 'info', payload: { sourceAgentId: context.sourceAgentId, tool: context.decision.tool, reason: context.decision.reason, eventId: context.event.id } });
+  if (context.db && context.sourceEventId) await context.db.run(`UPDATE orchestration_action_receipts SET status = 'failed', completed_at = NULL WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?`, context.orchestratorId, context.sourceEventId, context.decision.tool);
+  return { executed: false, deferred: true, reason: 'missing_required_evidence' };
+}
+
+async function runAction(context, args) {
+  const result = await mcp.execute({ agentId: context.orchestratorId, toolName: context.decision.tool, args });
+  if (context.db && context.sourceEventId) await context.db.run(`UPDATE orchestration_action_receipts SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?`, result.success ? 'completed' : 'failed', context.orchestratorId, context.sourceEventId, context.decision.tool);
+  emitExecution(context, args, result);
+  if (result.success && context.decision.tool === 'genos_record_experience') await compileMemory(context, args);
+  await require('./swarmTopologyRuntimeService').applyStepForOrchestrator(context.orchestratorId, { db: context.db || undefined }).catch(() => {});
   return { executed: result.success, result };
+}
+
+function emitExecution(context, args, result) {
+  const success = result.success;
+  const detail = success ? `Executed ${context.decision.tool}.` : `Could not execute ${context.decision.tool}: ${result.error || result.status}`;
+  telemetry.emitEvent({ eventType: success ? 'ORCHESTRATION_ACTION_EXECUTED' : 'ORCHESTRATION_ACTION_FAILED', agentId: context.orchestratorId, action: context.decision.action, detail, severity: success ? 'info' : 'warning', payload: { sourceAgentId: context.sourceAgentId, tool: context.decision.tool, args, result, eventId: context.event.id } });
+}
+
+async function compileMemory(context, args) {
+  const memoryArgs = { root: context.workspaceRoot, facts: [`${args.strategy}: ${args.outcome}`], decisions: [context.decision.reason], failures: args.successful ? [] : [args.outcome], constraints: ['Capsule changes are never merged automatically.'], source_refs: args.evidence || [] };
+  const memory = await mcp.execute({ agentId: context.orchestratorId, toolName: 'genos_compile_memory', args: memoryArgs });
+  telemetry.emitEvent({ eventType: memory.success ? 'ORCHESTRATION_MEMORY_COMPILED' : 'ORCHESTRATION_MEMORY_DEFERRED', agentId: context.orchestratorId, action: 'compile_memory', detail: memory.success ? 'Compiled evidence-backed worker memory.' : 'Experience was recorded but memory compilation could not run.', severity: memory.success ? 'info' : 'warning', payload: { result: memory } });
 }
 
 module.exports = { actionArguments, execute };

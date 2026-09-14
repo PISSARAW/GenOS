@@ -17,6 +17,39 @@ const { migrateEventIdIndex } = require('./migrations/migrateEventIdIndex');
 const { migrateSynapseIndexes } = require('./migrations/migrateSynapseIndexes');
 
 async function applyVersionedMigrations(db) {
+  await createFoundationTables(db);
+  await ensureGenomeColumns(db);
+  await createGenomeInnovationTables(db);
+  await ensureAgentSnapshotColumns(db);
+  await createAgentGitTables(db);
+  await ensureAgentGitObjectColumns(db);
+  await createAgentGitHistoryTables(db);
+  await ensureEpisodicColumns(db);
+  await migrateAgentStatusConstraint(db);
+  await migrateLineageNodeTypeConstraint(db);
+  await ensureAgentRuntimeColumns(db);
+  await migrateCryptobiosisSnapshots(db);
+  await ensureCryptobiosisColumns(db);
+  await migrateWorkspaceNameConstraint(db);
+  await migrateNotificationPreferenceScope(db);
+  await createWorkflowVersionTable(db);
+  await ensureProjectWorkspaceScope(db);
+  await migrateTenantScopes(db);
+  await ensureEvaluationColumns(db);
+  await migrateEvaluationColumns(db);
+  await migrateEpisodicColumns(db);
+  await migrateSynapseColumns(db);
+  await migrateWorkflowVersions(db);
+  await migrateCryptobiosis(db);
+  await migrateFossilization(db);
+  await migrateTenantScopes(db);
+  await ensureIdeIntegrationClient(db);
+  await ensureSynapseColumns(db);
+  await createQueueIndexes(db);
+  await runRegistryMigrations(db);
+}
+
+async function createFoundationTables(db) {
   await db.exec(`CREATE TABLE IF NOT EXISTS episodic_memories (
     id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, session_id TEXT, task_id TEXT,
     turn_number INTEGER DEFAULT 0, action_type TEXT, context_state TEXT DEFAULT '{}',
@@ -59,11 +92,15 @@ async function applyVersionedMigrations(db) {
     require_signed INTEGER NOT NULL DEFAULT 0, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (organization_id, project_id)
   );`);
+}
 
+async function ensureGenomeColumns(db) {
   const genomeColumns = new Set((await db.all('PRAGMA table_info(agent_genomes)')).map((column) => column.name));
   if (!genomeColumns.has('status')) await db.exec("ALTER TABLE agent_genomes ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
   if (!genomeColumns.has('concept')) await db.exec('ALTER TABLE agent_genomes ADD COLUMN concept TEXT');
+}
 
+async function createGenomeInnovationTables(db) {
   await db.exec(`CREATE TABLE IF NOT EXISTS agent_genome_innovations (
     id TEXT PRIMARY KEY, source_agent_id TEXT, base_genome_ref TEXT NOT NULL, candidate_genome_ref TEXT NOT NULL,
     concept TEXT, evidence_json TEXT, status TEXT NOT NULL DEFAULT 'candidate',
@@ -71,12 +108,16 @@ async function applyVersionedMigrations(db) {
   );
   CREATE INDEX IF NOT EXISTS idx_agent_genome_innovations_scope ON agent_genome_innovations(organization_id, project_id);
   CREATE INDEX IF NOT EXISTS idx_agent_genome_innovations_candidate ON agent_genome_innovations(candidate_genome_ref);`);
+}
 
+async function ensureAgentSnapshotColumns(db) {
   const agentSnapshotColumns = new Set((await db.all('PRAGMA table_info(agent_state_snapshots)')).map((column) => column.name));
   if (!agentSnapshotColumns.has('commit_message')) await db.exec('ALTER TABLE agent_state_snapshots ADD COLUMN commit_message TEXT');
   if (!agentSnapshotColumns.has('parent_snapshot_id')) await db.exec('ALTER TABLE agent_state_snapshots ADD COLUMN parent_snapshot_id TEXT');
   if (!agentSnapshotColumns.has('ref_name')) await db.exec("ALTER TABLE agent_state_snapshots ADD COLUMN ref_name TEXT DEFAULT 'main'");
+}
 
+async function createAgentGitTables(db) {
   await db.exec(`CREATE TABLE IF NOT EXISTS agent_git_objects (
     id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, workspace_id TEXT, object_kind TEXT NOT NULL CHECK (object_kind IN ('commit', 'stash', 'tag', 'remote')),
     ref_name TEXT, remote_name TEXT, state_hash TEXT NOT NULL, state_json TEXT NOT NULL, metadata_json DEFAULT '{}',
@@ -84,28 +125,35 @@ async function applyVersionedMigrations(db) {
   );
   CREATE INDEX IF NOT EXISTS idx_agent_git_objects_agent ON agent_git_objects(agent_id, object_kind, created_at);
   CREATE INDEX IF NOT EXISTS idx_agent_git_objects_remote ON agent_git_objects(remote_name, state_hash);`);
+}
 
+async function ensureAgentGitObjectColumns(db) {
   const agentGitColumns = new Set((await db.all('PRAGMA table_info(agent_git_objects)')).map((column) => column.name));
   if (!agentGitColumns.has('signature')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN signature TEXT');
+}
 
+async function createAgentGitHistoryTables(db) {
   await db.exec(`CREATE TABLE IF NOT EXISTS agent_git_refs (ref_key TEXT PRIMARY KEY, agent_id TEXT NOT NULL, ref_name TEXT NOT NULL, object_id TEXT, version INTEGER NOT NULL DEFAULT 0, lease_token TEXT, tracking_remote TEXT, tracking_ref TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(agent_id, ref_name));
   CREATE TABLE IF NOT EXISTS agent_git_reflog (id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, ref_name TEXT NOT NULL, old_object_id TEXT, new_object_id TEXT, action TEXT NOT NULL, actor TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS agent_git_notes (id TEXT PRIMARY KEY, object_id TEXT NOT NULL, agent_id TEXT NOT NULL, note_json TEXT NOT NULL, created_by TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS agent_git_hooks (hook_key TEXT PRIMARY KEY, agent_id TEXT NOT NULL, hook_name TEXT NOT NULL, policy_json TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS agent_git_archives (id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, object_id TEXT NOT NULL, archive_hash TEXT NOT NULL, archive_json TEXT NOT NULL, created_by TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);`);
+}
 
+async function ensureEpisodicColumns(db) {
   const episodicColumns = new Set((await db.all('PRAGMA table_info(episodic_memories)')).map((column) => column.name));
   if (!episodicColumns.has('is_purged')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN is_purged INTEGER NOT NULL DEFAULT 0');
   if (!episodicColumns.has('purged_at')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN purged_at DATETIME');
+}
 
-  await migrateAgentStatusConstraint(db);
-  await migrateLineageNodeTypeConstraint(db);
-
+async function ensureAgentRuntimeColumns(db) {
   const agentRuntimeColumns = new Set((await db.all('PRAGMA table_info(agents)')).map((column) => column.name));
   if (!agentRuntimeColumns.has('runtime_pid')) await db.exec('ALTER TABLE agents ADD COLUMN runtime_pid INTEGER');
   if (!agentRuntimeColumns.has('runtime_started_at')) await db.exec('ALTER TABLE agents ADD COLUMN runtime_started_at DATETIME');
   if (!agentRuntimeColumns.has('runtime_executable')) await db.exec('ALTER TABLE agents ADD COLUMN runtime_executable TEXT');
+}
 
+async function migrateCryptobiosisSnapshots(db) {
   const cryptobiosisColumns = new Set((await db.all('PRAGMA table_info(cryptobiosis_snapshots)')).map((column) => column.name));
   if (cryptobiosisColumns.size && !cryptobiosisColumns.has('snapshot_id')) {
     await db.exec('ALTER TABLE cryptobiosis_snapshots RENAME TO cryptobiosis_snapshots_legacy');
@@ -115,6 +163,9 @@ async function applyVersionedMigrations(db) {
     await db.exec(`INSERT OR IGNORE INTO cryptobiosis_snapshots (snapshot_id, agent_id, workspace_id, capsule_hash, status, metadata_json, frozen_at, thawed_at) SELECT id, COALESCE(json_extract(state_json, '$.agentId'), id), workspace_id, 'legacy:' || id, CASE WHEN thawed_at IS NULL THEN 'frozen' ELSE 'thawed' END, json_object('legacy', 1, 'reason', reason, 'state_json', state_json), frozen_at, thawed_at FROM cryptobiosis_snapshots_legacy`);
     await db.exec('DROP TABLE cryptobiosis_snapshots_legacy');
   }
+}
+
+async function ensureCryptobiosisColumns(db) {
   const cryptoColsNow = new Set((await db.all('PRAGMA table_info(cryptobiosis_snapshots)')).map(column => column.name));
   if (!cryptoColsNow.has('id')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN id TEXT');
   if (!cryptoColsNow.has('reason')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN reason TEXT');
@@ -122,13 +173,15 @@ async function applyVersionedMigrations(db) {
   if (!cryptoColsNow.has('thawed_by')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN thawed_by TEXT');
   if (!cryptoColsNow.has('state_blob')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN state_blob BLOB');
   if (!cryptoColsNow.has('metadata_blob')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN metadata_blob BLOB');
+}
 
-  await migrateWorkspaceNameConstraint(db);
-  await migrateNotificationPreferenceScope(db);
+async function createWorkflowVersionTable(db) {
   await db.exec(`CREATE TABLE IF NOT EXISTS workflow_versions (id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, version INTEGER NOT NULL, graph_json TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[]}', metadata_json TEXT NOT NULL DEFAULT '{}', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE, UNIQUE(workflow_id, version)); INSERT OR IGNORE INTO workflow_versions (id, workflow_id, version, graph_json, metadata_json, created_at) SELECT 'wfv-' || id, id, version, graph_json, metadata_json, COALESCE(updated_at, CURRENT_TIMESTAMP) FROM workflows; CREATE INDEX IF NOT EXISTS idx_workflow_versions_workflow ON workflow_versions(workflow_id, version DESC);`);
+}
 
+async function ensureProjectWorkspaceScope(db) {
   const organizationCount = await db.get('SELECT COUNT(*) AS count FROM organizations');
-  const organization = Number(organizationCount?.count) === 1 ? await db.get('SELECT id FROM organizations LIMIT 1') : null;
+  const organization = Number(organizationCount && organizationCount.count) === 1 ? await db.get('SELECT id FROM organizations LIMIT 1') : null;
   const projectColumns = await db.all('PRAGMA table_info(projects)');
   if (!projectColumns.some((column) => column.name === 'status')) await db.exec("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
   if (organization) {
@@ -139,28 +192,25 @@ async function applyVersionedMigrations(db) {
     SET organization_id = (SELECT organization_id FROM workspaces WHERE workspaces.name = global_alerts.workspace_name GROUP BY workspaces.name HAVING COUNT(*) = 1),
         project_id = (SELECT project_id FROM workspaces WHERE workspaces.name = global_alerts.workspace_name GROUP BY workspaces.name HAVING COUNT(*) = 1)
     WHERE organization_id IS NULL OR project_id IS NULL`);
-  await migrateTenantScopes(db);
+}
 
+async function ensureEvaluationColumns(db) {
   const evaluationColumns = await db.all('PRAGMA table_info(evaluation_jobs)');
   const evaluationNames = new Set(evaluationColumns.map(column => column.name));
   if (!evaluationNames.has('error_json')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN error_json TEXT');
   if (!evaluationNames.has('attempts')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0');
   if (!evaluationNames.has('max_attempts')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3');
   if (!evaluationNames.has('campaign_id')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN campaign_id TEXT');
-  await migrateEvaluationColumns(db);
+}
 
-  await migrateEpisodicColumns(db);
-  await migrateSynapseColumns(db);
-  await migrateWorkflowVersions(db);
-  await migrateCryptobiosis(db);
-  await migrateFossilization(db);
-  await migrateTenantScopes(db);
-
+async function ensureIdeIntegrationClient(db) {
   const ideColumns = new Set((await db.all('PRAGMA table_info(ide_integrations)')).map(column => column.name));
   if (!ideColumns.has('client_id')) await db.exec('ALTER TABLE ide_integrations ADD COLUMN client_id TEXT');
   await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_ide_client_workspace ON ide_integrations(client_id, workspace_id) WHERE client_id IS NOT NULL');
   await migrateIdeClient(db);
+}
 
+async function ensureSynapseColumns(db) {
   const synapseColumns = new Set((await db.all('PRAGMA table_info(memory_synapses)')).map(column => column.name));
   const synapseAlterations = [
     ['transmitter_type', "ALTER TABLE memory_synapses ADD COLUMN transmitter_type TEXT NOT NULL DEFAULT 'glutamate'"],
@@ -187,9 +237,14 @@ async function applyVersionedMigrations(db) {
       throw error;
     }
   }
+}
+
+async function createQueueIndexes(db) {
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_workflow_runs_queue ON workflow_runs(status, priority DESC, created_at ASC); CREATE INDEX IF NOT EXISTS idx_evaluation_jobs_queue ON evaluation_jobs(status, priority DESC, created_at ASC); CREATE INDEX IF NOT EXISTS idx_model_jobs_queue ON model_jobs(status, priority DESC, created_at ASC); CREATE INDEX IF NOT EXISTS idx_synapses_target ON memory_synapses(target_id); CREATE INDEX IF NOT EXISTS idx_synapses_weight ON memory_synapses(weight); CREATE INDEX IF NOT EXISTS idx_synapses_pruning ON memory_synapses(c3_opsonization, cd47_expression); CREATE INDEX IF NOT EXISTS idx_synapses_tenant ON memory_synapses(organization_id, project_id); CREATE INDEX IF NOT EXISTS idx_provenance_payload_hash ON provenance_records(payload_hash); CREATE INDEX IF NOT EXISTS idx_provenance_parent_hash ON provenance_records(parent_hash);`);
   await migrateSynapseIndexes(db);
+}
 
+async function runRegistryMigrations(db) {
   for (const runner of migrationRunners) {
     await runMigration(db, runner.name, runner.description);
   }

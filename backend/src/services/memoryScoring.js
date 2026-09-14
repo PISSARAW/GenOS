@@ -1,8 +1,3 @@
-/**
- * GenOS Cognitive Memory - Scoring & Metacognition Service
- * TF-IDF Lexical, Cosine Similarity, Epistemic Vigilance, and Neuromodulation
- */
-
 const VOCABULARY = [
   'sqlite', 'wal', 'concurrency', 'ast', 'parser', 'recursion',
   'timeout', 'circuit', 'breaker', 'mcp', 'security', 'rbac',
@@ -12,7 +7,8 @@ const VOCABULARY = [
 
 const VECTOR_DIM = 768;
 
-function hashTokenIntoVector(term, vec, dim, weight = 1.0) {
+function hashTokenIntoVector(term, vec, options = {}) {
+  const { dim, weight = 1.0 } = options;
   let h1 = 0x811c9dc5;
   for (let i = 0; i < term.length; i++) {
     h1 ^= term.charCodeAt(i);
@@ -23,12 +19,6 @@ function hashTokenIntoVector(term, vec, dim, weight = 1.0) {
   vec[idx] += sign * weight;
 }
 
-/**
- * Computes deterministic vector representation with 768 dimensions compatible with sqlite-vec
- * @param {string} text
- * @param {number} [dim=768]
- * @returns {number[]}
- */
 function textToVector(text = '', dim = VECTOR_DIM) {
   const vec = new Float64Array(dim);
   const normalized = String(text || '').toLowerCase().trim();
@@ -39,13 +29,12 @@ function textToVector(text = '', dim = VECTOR_DIM) {
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
-    hashTokenIntoVector(token, vec, dim, 1.0);
+    hashTokenIntoVector(token, vec, { dim, weight: 1.0 });
     if (i < tokens.length - 1) {
-      hashTokenIntoVector(`${token}_${tokens[i + 1]}`, vec, dim, 1.5);
+      hashTokenIntoVector(`${token}_${tokens[i + 1]}`, vec, { dim, weight: 1.5 });
     }
   }
 
-  // L2 normalize
   let sumSq = 0;
   for (let i = 0; i < dim; i++) {
     sumSq += vec[i] * vec[i];
@@ -59,12 +48,6 @@ function textToVector(text = '', dim = VECTOR_DIM) {
   return Array.from(vec);
 }
 
-/**
- * Computes cosine similarity between two numeric vectors
- * @param {number[]} vecA
- * @param {number[]} vecB
- * @returns {number}
- */
 function cosineSimilarity(vecA = [], vecB = []) {
   if (!vecA.length || !vecB.length) return 0;
   let dotProduct = 0;
@@ -91,98 +74,158 @@ function isAuthenticSystemFact(item) {
   return false;
 }
 
+function itemAuthor(item) {
+  const source = item || {};
+  return String(source.author || '').toLowerCase();
+}
+
+function itemSummary(item) {
+  const source = item || {};
+  return source.summary || '';
+}
+
+function isUserAuthor(authorLower) {
+  return authorLower === 'user' || authorLower === 'human';
+}
+
 function computeCredibilityMultiplier(item) {
-  const authorLower = String(item?.author || '').toLowerCase();
+  const authorLower = itemAuthor(item);
   if (isAuthenticSystemFact(item)) return 1.2;
-  if (authorLower === 'user' || authorLower === 'human') return 0.95;
+  if (isUserAuthor(authorLower)) return 0.95;
   return 1.0;
 }
 
 function enrichSummaryWithSourceMarker(item) {
-  const authorLower = String(item?.author || '').toLowerCase();
-  const rawSummary = String(item?.summary || '');
+  const authorLower = itemAuthor(item);
+  const rawSummary = String(itemSummary(item));
   if (isAuthenticSystemFact(item) && rawSummary && !rawSummary.startsWith('[VERIFIED_SYSTEM_FACT]')) {
     return `[VERIFIED_SYSTEM_FACT] ${rawSummary}`;
   }
-  if ((authorLower === 'user' || authorLower === 'human') && rawSummary && !rawSummary.startsWith('[Source: Utilisateur]')) {
+  if (isUserAuthor(authorLower) && rawSummary && !rawSummary.startsWith('[Source: Utilisateur]')) {
     return `[Source: Utilisateur] ${rawSummary}`;
   }
   return rawSummary;
 }
 
-/**
- * Scores an individual corpus memory item against a query
- * @param {object} item
- * @param {object} queryInfo
- * @param {object} options
- * @returns {object}
- */
-function scoreCorpusItem(item, queryInfo = {}, options = {}) {
+function buildItemText(item) {
+  return `${item.title || ''} ${item.summary || ''} ${(item.tags || []).join(' ')}`;
+}
+
+function computeLexicalScores(item, queryInfo) {
   const query = queryInfo.query || '';
   const queryLower = query.toLowerCase();
-
-  // Always compute deterministic lexical TF-IDF cosine similarity as baseline
   const queryTfidf = textToVector(query);
-  const itemText = `${item.title || ''} ${item.summary || ''} ${(item.tags || []).join(' ')}`;
-  const itemTfidf = textToVector(itemText);
-  const tfidfScore = cosineSimilarity(queryTfidf, itemTfidf);
+  const itemTfidf = textToVector(buildItemText(item));
+  return { queryLower, tfidfScore: cosineSimilarity(queryTfidf, itemTfidf) };
+}
 
-  let hybridScore = tfidfScore;
-  let cosScore = tfidfScore;
+function hasNumeric(value) {
+  return value !== undefined && value !== null;
+}
 
-  if (item.rrf_score !== undefined && item.rrf_score !== null) {
-    const rrfNorm = item.rrf_score * 30.0;
-    if (item.distance !== undefined && item.distance !== null) {
-      const distance = Number(item.distance);
-      cosScore = Number.isFinite(distance) ? Math.max(0, Math.min(1, 1.0 - (distance / 2.0))) : 0;
-    } else {
-      cosScore = Math.max(0, Math.min(1, rrfNorm));
-    }
-    hybridScore = Math.max(rrfNorm, tfidfScore);
-  } else if (item.vector && item.vector.length && queryInfo.queryVec && queryInfo.queryVec.length === item.vector.length) {
-    cosScore = cosineSimilarity(queryInfo.queryVec, item.vector);
-    hybridScore = Math.max(cosScore, tfidfScore);
+function hasRrfScore(item) {
+  return hasNumeric(item.rrf_score);
+}
+
+function hasVectorMatch(item, queryInfo) {
+  return Boolean(item.vector && item.vector.length && queryInfo.queryVec && queryInfo.queryVec.length === item.vector.length);
+}
+
+function clampUnit(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function distanceCosine(value) {
+  const distance = Number(value);
+  if (!Number.isFinite(distance)) return 0;
+  return 1.0 - (distance / 2.0);
+}
+
+function resolveRrfScores(item, tfidfScore) {
+  const rrfNorm = item.rrf_score * 30.0;
+  const cosScore = hasNumeric(item.distance) ? distanceCosine(item.distance) : rrfNorm;
+  return { hybridScore: Math.max(rrfNorm, tfidfScore), cosScore };
+}
+
+function resolveVectorScores(item, queryInfo, tfidfScore) {
+  const cosScore = cosineSimilarity(queryInfo.queryVec, item.vector);
+  return { hybridScore: Math.max(cosScore, tfidfScore), cosScore };
+}
+
+function resolveSimilarity(item, queryInfo, tfidfScore) {
+  if (hasRrfScore(item)) {
+    return resolveRrfScores(item, tfidfScore);
   }
-  cosScore = Math.max(0, Math.min(1, Number(cosScore) || 0));
+  if (hasVectorMatch(item, queryInfo)) {
+    return resolveVectorScores(item, queryInfo, tfidfScore);
+  }
+  return { hybridScore: tfidfScore, cosScore: tfidfScore };
+}
 
-  const tags = Array.isArray(item.tags) ? item.tags : [];
+function termMatchWeight(term, item, tags) {
+  if (tags.some(t => String(t).toLowerCase().includes(term))) return 1;
+  if (String(item.title || '').toLowerCase().includes(term)) return 0.8;
+  if (String(item.summary || '').toLowerCase().includes(term)) return 0.4;
+  return 0;
+}
+
+function computeTermBonus(item, queryLower, tags) {
   const queryTerms = queryLower.split(/\s+/).filter(w => w.length > 2);
   let termMatchCount = 0;
   for (const term of queryTerms) {
-    if (tags.some(t => String(t).toLowerCase().includes(term))) termMatchCount++;
-    else if ((item.title || '').toLowerCase().includes(term)) termMatchCount += 0.8;
-    else if ((item.summary || '').toLowerCase().includes(term)) termMatchCount += 0.4;
+    termMatchCount += termMatchWeight(term, item, tags);
   }
-  const termBonus = queryTerms.length > 0 ? (termMatchCount / queryTerms.length) * 0.4 : 0.0;
+  return queryTerms.length > 0 ? (termMatchCount / queryTerms.length) * 0.4 : 0.0;
+}
+
+function computeBaseScore(item, hybridScore, queryLower) {
+  const tags = Array.isArray(item.tags) ? item.tags : [];
+  const termBonus = computeTermBonus(item, queryLower, tags);
   const survivalBonus = item.status === 'SUCCESS' ? 0.15 : 0.0;
-  const weight = item.synaptic_weight !== undefined ? Number(item.synaptic_weight) : 1.0;
+  return Number((hybridScore + termBonus + survivalBonus).toFixed(4));
+}
 
-  const baseScore = Number((hybridScore + termBonus + survivalBonus).toFixed(4));
-  const credibility = computeCredibilityMultiplier(item);
-
+function computeRecencyFactor(item, options) {
   const referenceTime = options.referenceTime == null ? Date.now() : new Date(options.referenceTime).getTime();
   const now = Number.isFinite(referenceTime) ? referenceTime : Date.now();
   const ageMs = now - new Date(item.createdAt || 0).getTime();
-  // Continuous temporal recency & Ebbinghaus decay
-  const tauMs = 7 * 24 * 3600 * 1000; // 7-day half-life decay
+  const tauMs = 7 * 24 * 3600 * 1000;
   const temporalDecay = Math.max(0.4, 0.4 + 0.6 * Math.exp(-Math.max(0, ageMs) / tauMs));
   const neurogenesisBonus = (item.createdAt && ageMs < 24 * 3600 * 1000 && ageMs >= 0) ? 1.15 : 1.0;
-  const recencyFactor = (item.createdAt && !isAuthenticSystemFact(item)) ? (temporalDecay * neurogenesisBonus) : 1.0;
+  return (item.createdAt && !isAuthenticSystemFact(item)) ? (temporalDecay * neurogenesisBonus) : 1.0;
+}
 
-  // Sensitive synaptic weight scaling: attenuated connections yield significantly lower retrieval scores
+function readSynapticWeight(item) {
+  return item.synaptic_weight !== undefined ? Number(item.synaptic_weight) : 1.0;
+}
+
+function computeWeightFactor(weight) {
   const normalizedWeight = Number.isFinite(weight) ? Math.max(0.0, weight) : 1.0;
-  const weightFactor = 0.3 + 0.7 * Math.min(1.5, normalizedWeight);
+  return 0.3 + 0.7 * Math.min(1.5, normalizedWeight);
+}
 
-  let finalScore = baseScore * weightFactor * credibility * recencyFactor;
-
+function applyNeuromodulation(score, options, cosScore) {
   const hormone = options.hormone || 'normal';
+  let finalScore = score;
   if (hormone === 'dopamine') {
-    const dopamineSignal = Math.max(0, Math.min(1, Number(options.dopamineSignal || 0)));
+    const dopamineSignal = clampUnit(Number(options.dopamineSignal || 0));
     finalScore += dopamineSignal * 0.3;
   } else if (hormone === 'adrenaline') {
     if (cosScore < 0.75) finalScore = 0;
   }
-  finalScore = Math.max(0, Math.min(1, finalScore));
+  return clampUnit(finalScore);
+}
+
+function scoreCorpusItem(item, queryInfo = {}, options = {}) {
+  const { queryLower, tfidfScore } = computeLexicalScores(item, queryInfo);
+  const similarity = resolveSimilarity(item, queryInfo, tfidfScore);
+  const cosScore = clampUnit(Number(similarity.cosScore) || 0);
+  const baseScore = computeBaseScore(item, similarity.hybridScore, queryLower);
+  const credibility = computeCredibilityMultiplier(item);
+  const recencyFactor = computeRecencyFactor(item, options);
+  const weight = readSynapticWeight(item);
+  const weightFactor = computeWeightFactor(weight);
+  const finalScore = applyNeuromodulation(baseScore * weightFactor * credibility * recencyFactor, options, cosScore);
 
   return {
     ...item,
@@ -193,11 +236,6 @@ function scoreCorpusItem(item, queryInfo = {}, options = {}) {
   };
 }
 
-/**
- * Biologically-inspired metacognition (Dentate Gyrus novelty & GABA inhibition)
- * @param {Array} scoredItems
- * @returns {object}
- */
 function evaluateMetacognition(scoredItems = []) {
   let gabaInhibited = false;
   let noveltyDetected = false;
