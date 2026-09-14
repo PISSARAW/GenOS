@@ -39,6 +39,7 @@ use genos_store::{
     InMemoryVectorRepository,
 };
 use serde_json::Value;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Point d'entrée unique donnant accès à toutes les capacités GenOS.
@@ -103,6 +104,8 @@ pub struct GenosEcosystem {
     pub traces: TraceStore,
     /// Banque de plasmides (compétences transférables).
     pub plasmids: PlasmidBank,
+    /// ADN compilé de chaque agent (pour mutation / croisement).
+    pub agent_dna: HashMap<Uuid, AgentDna>,
 }
 
 impl GenosEcosystem {
@@ -146,6 +149,7 @@ impl GenosEcosystem {
             recruiter: RecruitmentPlanner::default(),
             traces: TraceStore::default(),
             plasmids: PlasmidBank::new(),
+            agent_dna: HashMap::new(),
         }
     }
 

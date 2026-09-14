@@ -5,10 +5,13 @@
 //! un plasmide (compétence), le supprimer, le muter ou le croiser.
 
 use crate::GenosEcosystem;
-use crate::plasmids::PlasmidBank;
+use crate::dna_ops;
+use crate::plasmids::{PlasmidBank, Skill};
 use crate::trace::{Outcome, ReplayReport, Verdict};
 use genos_biology::specialized_cells::prokaryote::ProkaryoticAgent;
 use genos_biology::therapy::{apply_systemic_therapy_to_cell, SystemicTherapy};
+use genos_dna::model::AgentDna;
+use genos_dna::operations::{CrossOptions, MutateOptions};
 use uuid::Uuid;
 
 impl GenosEcosystem {
@@ -57,10 +60,77 @@ impl GenosEcosystem {
             Verdict::Starve => self.starve(agent),
             Verdict::NeedsPlasmid => self.grant_plasmid(agent),
             Verdict::Cull => self.cull(agent),
-            Verdict::NeedsMutation => "mutation recommandee".to_string(),
-            Verdict::NeedsCrossover => "croisement recommande".to_string(),
+            Verdict::NeedsMutation => self.mutate_agent(agent),
+            Verdict::NeedsCrossover => self.crossover_agent(agent),
         };
         (verdict, note)
+    }
+
+    // --- Registre ADN + génétique exécutable ---
+
+    pub fn register_dna(&mut self, agent: Uuid, dna: AgentDna) {
+        self.agent_dna.insert(agent, dna);
+    }
+
+    pub fn agent_dna(&self, agent: Uuid) -> Option<&AgentDna> {
+        self.agent_dna.get(&agent)
+    }
+
+    fn sync_genome_id(&mut self, agent: Uuid, dna: &AgentDna) {
+        if let Ok(genome) = dna.to_genome()
+            && let Some(cell) = self.orchestrator.active_cells.get_mut(&agent)
+        {
+            cell.genome_id = Some(genome.genome_id());
+        }
+    }
+
+    fn mutate_agent(&mut self, agent: Uuid) -> String {
+        let Some(dna) = self.agent_dna.get(&agent).cloned() else {
+            return "aucun ADN enregistre : mutation impossible".to_string();
+        };
+        let options = MutateOptions {
+            rate: 0.1,
+            hyper: false,
+            locus: None,
+            seed: Some(agent.to_string()),
+        };
+        match dna_ops::mutate_dna(&dna, &options) {
+            Ok(mutated) => {
+                self.agent_dna.insert(agent, mutated.clone());
+                self.sync_genome_id(agent, &mutated);
+                "mutation appliquee".to_string()
+            }
+            Err(error) => format!("mutation echouee : {error}"),
+        }
+    }
+
+    fn crossover_agent(&mut self, agent: Uuid) -> String {
+        let Some(dna) = self.agent_dna.get(&agent).cloned() else {
+            return "aucun ADN enregistre : croisement impossible".to_string();
+        };
+        let partner = self.agent_dna.keys().copied().find(|id| *id != agent);
+        let Some(partner_id) = partner else {
+            return "aucun partenaire ADN pour le croisement".to_string();
+        };
+        let partner_dna = self
+            .agent_dna
+            .get(&partner_id)
+            .cloned()
+            .expect("partenaire present");
+        let options = CrossOptions {
+            swap_prob: 0.5,
+            point: Some(2),
+            seed: Some(agent.to_string()),
+            speciation_threshold: None,
+        };
+        match dna_ops::cross_dna(&dna, &partner_dna, &options) {
+            Ok(child) => {
+                self.agent_dna.insert(agent, child.clone());
+                self.sync_genome_id(agent, &child);
+                format!("croisement applique avec {}", partner_id)
+            }
+            Err(error) => format!("croisement echoue : {error}"),
+        }
     }
 
     fn heal(&mut self, agent: Uuid) -> String {
@@ -85,7 +155,7 @@ impl GenosEcosystem {
     }
 
     fn grant_plasmid(&mut self, agent: Uuid) -> String {
-        let plasmid = PlasmidBank::skill("auto_skill", "repair", "PAYLOAD");
+        let plasmid = PlasmidBank::for_skill(Skill::Repair);
         let id = plasmid.plasmid_id.clone();
         self.plasmids.add(plasmid.clone());
         // Le donneur devient conjugatif et porte le plasmide.
@@ -95,8 +165,33 @@ impl GenosEcosystem {
         }
         let mut recipient = ProkaryoticAgent::new(&agent.to_string());
         match self.plasmids.transfer(&self.prokaryote, &mut recipient, &id) {
-            Ok(_) => "plasmide transfere".to_string(),
+            Ok(_) => "plasmide (SKILL_REPAIR) transfere".to_string(),
             Err(error) => format!("transfert echoue : {error}"),
+        }
+    }
+
+    /// Exécute une compétence portée par un plasmide sur un agent.
+    pub fn execute_skill(&mut self, agent: Uuid, skill: Skill) -> String {
+        match skill {
+            Skill::Heal => self.heal(agent),
+            Skill::Throttle => {
+                let throttle = self.throttle_flux(120.0);
+                format!("throttle applique (flux admis {:.1})", throttle.admitted_flux)
+            }
+            Skill::Repair => match self.orchestrator.active_cells.get_mut(&agent) {
+                Some(cell) => {
+                    cell.conscience.current_budget = cell.conscience.baseline_budget;
+                    "budget cognitif restaure".to_string()
+                }
+                None => "agent absent".to_string(),
+            },
+            Skill::Verify => {
+                if self.orchestrator.active_cells.contains_key(&agent) {
+                    "verification OK".to_string()
+                } else {
+                    "verification : agent absent".to_string()
+                }
+            }
         }
     }
 

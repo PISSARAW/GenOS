@@ -5,7 +5,7 @@
 //! (compétence), ou supprimer l'agent.
 
 use genos_orchestrator::genos_cell::AgentCell;
-use genos_orchestrator::{GenosEcosystem, Outcome, Verdict};
+use genos_orchestrator::{GenosEcosystem, Outcome, Skill, Verdict};
 
 fn short(id: uuid::Uuid) -> String {
     id.to_string()[..8].to_string()
@@ -36,6 +36,13 @@ fn main() {
         .orchestrator
         .add_worker("Arena", AgentCell::new("Novice", "e", "Worker"))
         .unwrap();
+
+    // ADN enregistré : mutation et croisement peuvent être exécutés.
+    let genome = genos_orchestrator::genos_genome::Genome::new("BASE_DNA");
+    let dna = genos_orchestrator::dna_ops::from_genome(&genome, "seed");
+    for id in [artisan, boucleur, gaspill, casse, novice] {
+        eco.register_dna(id, dna.clone());
+    }
 
     // Traces d'actions simulées (ce que les agents ont réellement fait).
     eco.record_action(artisan, "build", Outcome::Success);
@@ -78,6 +85,10 @@ fn main() {
         eco.plasmids.count(),
         eco.events.count()
     );
+
+    // Compétence exécutable portée par un plasmide.
+    let skill_note = eco.execute_skill(artisan, Skill::Verify);
+    println!("[4] Competence executee sur l'Artisan : {skill_note}");
 
     // --- Livrable vérifiable ---
     assert_eq!(eco.diagnose_agent(boucleur), Verdict::NeedsMutation);

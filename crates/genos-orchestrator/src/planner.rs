@@ -18,6 +18,7 @@ use std::collections::BTreeSet;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Concept {
     Observe,
+    Replay,
     Organize,
     Recruit,
     Delegate,
@@ -36,6 +37,7 @@ pub enum Concept {
     Cross,
     Endosymbiosis,
     Genomics,
+    Plasmid,
     Feign,
     Kill,
     Communicate,
@@ -45,17 +47,17 @@ impl Concept {
     pub fn all() -> Vec<Concept> {
         use Concept::*;
         vec![
-            Observe, Organize, Recruit, Delegate, Audit, Immune, Virology, Throttle, Therapy,
-            Spore, Glia, Signaling, Stigmergy, Quorum, Neuro, Mutate, Cross, Endosymbiosis,
-            Genomics, Feign, Kill, Communicate,
+            Observe, Replay, Organize, Recruit, Delegate, Audit, Immune, Virology, Throttle,
+            Therapy, Spore, Glia, Signaling, Stigmergy, Quorum, Neuro, Mutate, Cross,
+            Endosymbiosis, Genomics, Plasmid, Feign, Kill, Communicate,
         ]
     }
 
     pub fn cost(self) -> f64 {
         use Concept::*;
         match self {
-            Observe | Delegate | Throttle | Signaling | Stigmergy => 1.0,
-            Organize | Quorum | Neuro | Communicate => 2.0,
+            Observe | Replay | Delegate | Throttle | Signaling | Stigmergy => 1.0,
+            Organize | Quorum | Neuro | Communicate | Plasmid => 2.0,
             Audit | Spore | Glia => 3.0,
             Immune | Virology | Feign => 4.0,
             Therapy | Kill => 5.0,
@@ -68,12 +70,12 @@ impl Concept {
     pub fn tag(self) -> &'static str {
         use Concept::*;
         match self {
-            Observe | Audit | Quorum => "observer",
+            Observe | Audit | Quorum | Replay => "observer",
             Organize | Recruit | Delegate => "organiser",
             Immune | Virology | Throttle | Feign | Kill => "defendre",
             Therapy | Spore | Glia => "soigner",
             Signaling | Stigmergy | Neuro | Communicate => "coordonner",
-            Mutate | Cross | Endosymbiosis | Genomics => "evoluer",
+            Mutate | Cross | Endosymbiosis | Genomics | Plasmid => "evoluer",
         }
     }
 
@@ -114,6 +116,10 @@ pub struct WorldState {
     pub adversary: bool,
     pub uncertain: bool,
     pub observed: bool,
+    pub has_traces: bool,
+    pub diagnosed: bool,
+    pub flagged: usize,
+    pub skill_granted: bool,
     pub workers: usize,
     pub tissues: usize,
     pub required_workers: usize,
@@ -132,6 +138,10 @@ impl Default for WorldState {
             adversary: false,
             uncertain: false,
             observed: false,
+            has_traces: false,
+            diagnosed: false,
+            flagged: 0,
+            skill_granted: false,
             workers: 0,
             tissues: 0,
             required_workers: 3,
@@ -147,6 +157,7 @@ impl WorldState {
         use Concept::*;
         match c {
             Observe => (self.threat > 0.0 || self.adversary) && !self.observed,
+            Replay => self.has_traces && !self.diagnosed,
             Organize => self.tissues == 0,
             Recruit => self.workers < self.required_workers,
             Delegate => self.workers >= 1,
@@ -156,7 +167,8 @@ impl WorldState {
             Throttle => true,
             Therapy | Spore | Glia => self.diseased > 0,
             Signaling | Stigmergy | Quorum | Neuro => self.workers >= 2,
-            Mutate | Cross | Endosymbiosis | Genomics => self.workers >= 1,
+            Mutate | Cross | Endosymbiosis |             Genomics => self.workers >= 1,
+            Plasmid => self.diagnosed && self.flagged > 0 && !self.skill_granted,
             Feign => self.adversary,
             Kill => self.traitor,
             Communicate => self.uncertain,
@@ -175,6 +187,8 @@ impl WorldState {
                 self.observed = true;
                 self.uncertain = false;
             }
+            Replay => self.diagnosed = true,
+            Plasmid => self.skill_granted = true,
             Immune => self.threat = (self.threat - 0.4).max(0.0),
             Virology => self.threat = (self.threat - 0.7).max(0.0),
             Therapy | Spore | Glia => {

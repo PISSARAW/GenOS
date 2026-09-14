@@ -116,3 +116,73 @@ fn l_orchestrateur_agit_selon_le_verdict() {
         .somatic_cells
         .contains(&bad));
 }
+
+#[test]
+fn mutation_et_croisement_sont_executes_sur_l_adn() {
+    let mut eco = GenosEcosystem::new("Overmind");
+    eco.orchestrator.create_tissue("A", "role").unwrap();
+    let a = eco
+        .orchestrator
+        .add_worker("A", AgentCell::new("a", "a", "W"))
+        .unwrap();
+    let b = eco
+        .orchestrator
+        .add_worker("A", AgentCell::new("b", "b", "W"))
+        .unwrap();
+
+    let genome = genos_orchestrator::genos_genome::Genome::new("BASE");
+    let dna = genos_orchestrator::dna_ops::from_genome(&genome, "seed");
+    eco.register_dna(a, dna.clone());
+    eco.register_dna(b, dna);
+
+    // Mutation : majorité d'échecs.
+    eco.record_action(a, "crash", Outcome::Failure);
+    eco.record_action(a, "crash", Outcome::Failure);
+    assert_eq!(eco.diagnose_agent(a), Verdict::NeedsMutation);
+    let (_, note) = eco.act_on_verdict(a);
+    assert!(note.contains("mutation"), "note = {note}");
+
+    // Croisement : succès partiel.
+    eco.record_action(b, "ok", Outcome::Success);
+    eco.record_action(b, "ko", Outcome::Failure);
+    assert_eq!(eco.diagnose_agent(b), Verdict::NeedsCrossover);
+    let (_, note2) = eco.act_on_verdict(b);
+    assert!(note2.contains("croisement"), "note = {note2}");
+}
+
+#[test]
+fn plasmide_porte_une_competence_executable() {
+    use genos_orchestrator::Skill;
+
+    let mut eco = GenosEcosystem::new("Overmind");
+    eco.orchestrator.create_tissue("A", "role").unwrap();
+    let a = eco
+        .orchestrator
+        .add_worker("A", AgentCell::new("a", "a", "W"))
+        .unwrap();
+
+    // Budget cognitivement épuisé puis réparé par compétence.
+    eco.orchestrator
+        .active_cells
+        .get_mut(&a)
+        .unwrap()
+        .conscience
+        .current_budget = 10.0;
+    let note = eco.execute_skill(a, Skill::Repair);
+    assert!(note.contains("restaure"), "note = {note}");
+    assert_eq!(
+        eco.orchestrator
+            .active_cells
+            .get(&a)
+            .unwrap()
+            .conscience
+            .current_budget,
+        100.0
+    );
+
+    // Le plasmide standard encode la compétence.
+    let plasmid = genos_orchestrator::PlasmidBank::for_skill(Skill::Throttle);
+    assert_eq!(plasmid.skill_name, "SKILL_THROTTLE");
+    assert_eq!(Skill::parse(&plasmid.executable_payload), Some(Skill::Throttle));
+}
+

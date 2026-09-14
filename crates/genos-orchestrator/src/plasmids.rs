@@ -2,6 +2,36 @@
 
 use genos_biology::specialized_cells::prokaryote::{HgtTransferReport, Plasmid, ProkaryoticAgent};
 
+/// Compétences exécutables portées par un plasmide.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Skill {
+    Repair,
+    Throttle,
+    Heal,
+    Verify,
+}
+
+impl Skill {
+    pub fn code(self) -> &'static str {
+        match self {
+            Skill::Repair => "SKILL_REPAIR",
+            Skill::Throttle => "SKILL_THROTTLE",
+            Skill::Heal => "SKILL_HEAL",
+            Skill::Verify => "SKILL_VERIFY",
+        }
+    }
+
+    pub fn parse(code: &str) -> Option<Skill> {
+        match code {
+            "SKILL_REPAIR" => Some(Skill::Repair),
+            "SKILL_THROTTLE" => Some(Skill::Throttle),
+            "SKILL_HEAL" => Some(Skill::Heal),
+            "SKILL_VERIFY" => Some(Skill::Verify),
+            _ => None,
+        }
+    }
+}
+
 /// Catalogue de plasmides (gènes de compétence) de l'orchestrateur.
 #[derive(Clone, Debug, Default)]
 pub struct PlasmidBank {
@@ -19,6 +49,17 @@ impl PlasmidBank {
             plasmid_id: id.to_string(),
             skill_name: skill_name.to_string(),
             executable_payload: payload.to_string(),
+            resistance_marker: "none".to_string(),
+            copy_number: 1,
+        }
+    }
+
+    /// Plasmide standard porteur d'une compétence exécutable.
+    pub fn for_skill(skill: Skill) -> Plasmid {
+        Plasmid {
+            plasmid_id: format!("pl_{}", skill.code().to_lowercase()),
+            skill_name: skill.code().to_string(),
+            executable_payload: skill.code().to_string(),
             resistance_marker: "none".to_string(),
             copy_number: 1,
         }
