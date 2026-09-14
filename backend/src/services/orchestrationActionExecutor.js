@@ -90,6 +90,7 @@ async function execute({ orchestratorId, sourceAgentId, decision, event, workspa
     const memory = await mcp.execute({ agentId: orchestratorId, toolName: 'genos_compile_memory', args: memoryArgs });
     telemetry.emitEvent({ eventType: memory.success ? 'ORCHESTRATION_MEMORY_COMPILED' : 'ORCHESTRATION_MEMORY_DEFERRED', agentId: orchestratorId, action: 'compile_memory', detail: memory.success ? 'Compiled evidence-backed worker memory.' : 'Experience was recorded but memory compilation could not run.', severity: memory.success ? 'info' : 'warning', payload: { result: memory } });
   }
+  await require('./swarmTopologyRuntimeService').applyStepForOrchestrator(orchestratorId, { db: db || undefined }).catch(() => {});
   return { executed: result.success, result };
 }
 
