@@ -18,7 +18,7 @@ function defaultSleep(ms) {
   return new Promise((resolve) => { setTimeout(resolve, ms); });
 }
 
-function memberId(member, orchestratorId, planId, index) {
+function memberId(orchestratorId, planId, index) {
   return `worker_${orchestratorId}_${planId}_${index}`;
 }
 
@@ -33,7 +33,7 @@ function stagePlanFor({ orchestratorId, members, planId } = {}) {
     mission: member.mission,
     dependsOn: [...new Set((Array.isArray(member.dependsOn) ? member.dependsOn : []).map(String))],
     pipelineStage: Math.max(0, Number(member.pipelineStage) || 0),
-    workerId: member.workerId || memberId(member, orchestratorId, id, index)
+    workerId: member.workerId || memberId(orchestratorId, id, index)
   }));
   const maxStage = planned.reduce((max, member) => Math.max(max, member.pipelineStage), 0);
   return { planId: id, orchestratorId, maxStage, members: planned };
