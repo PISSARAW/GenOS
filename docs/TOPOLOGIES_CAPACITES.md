@@ -68,18 +68,41 @@ Le point d'entrée unique est `biologicalTopologyService.composeMode({ db, orche
 - `agentAutonomyPlanService` renseigne `autonomyPlan.capabilityContract` à partir
   du mode actif et de l'organisation retenue.
 
-## 6. Statut
+## 6. Capacités effectives (suite)
 
-- `COMPUTER_USE` → `genos_computer_use` et `OUTPUT_GOVERNOR` →
-  `genos_guardrails_verify` sont désormais enregistrés (`seedTools`) et mappés
-  dans `CAPABILITY_TOOLS`.
-- Les algorithmes d'essaim sont invoqués au runtime par
-  `swarmTopologyRuntimeService.applyStepForOrchestrator`, appelé à chaque
-  décision orchestrateur (`orchestrationActionExecutor.execute`).
-- La stigmergie est unifiée : Rhizome (`swarmStigmergyVectorService`) et le
-  physarum (`slimeMouldNetwork`) partagent la même matrice de phéromones via
-  `rhizomeCoordinationService.runSlimeMouldStep`.
+- `genos_topology_session` (apply/snapshot/deposit/route/slime) est enregistré
+  et mappé aux capacités `CRDT_SHARED_STATE`, `STIGMERGY`, `SIGNALING_BUS`,
+  `LIGAND_RECEPTOR`.
+- Les sessions Syncytium/Rhizome sont **persistées** dans `topology_sessions`
+  (`topologySessionStore`) et réhydratables : partageables entre l'orchestrateur
+  et les workers (processus distincts).
 
-Restent ouverts, hors périmètre v3 : les algorithmes restent déterministes et
-locaux (pas de consensus distribué global) et le supervisor n'applique qu'une
-étape par décision, pas une boucle haute fréquence.
+## 7. Actionneurs et boucle
+
+- `swarmTopologyRuntimeService.applyStepForOrchestrator` applique le pas
+  d'essaim à chaque décision orchestrateur (`orchestrationActionExecutor.execute`),
+  mémorise les leaders (`preferredSurvivorsFor`) et `agentRoundService` les
+  utilise comme survivants préférés pour les continuations.
+- Promotions : `trinityComparativeBarrier.promoteWinner` marque le monde gagnant
+  `promoted` (événement `TRINITY_WINNER_PROMOTED`) sur les deux chemins.
+- Preuve probabiliste : `biocenoseService.brierConsensus` (Brier pondéré) et
+  `quorumWithAbstention`.
+
+## 8. Organisations et autorité
+
+- `organizationAlgorithms.runOrganizationStep` implémente les 15 organisations
+  restantes (comité hub, adversarial anonyme, red/blue, consensus Brier, quorum,
+  stigmergie, energy huddle, silence, arènes, merge hiérarchique, recovery isolé,
+  mémoire, polyéthisme, routage mycélien) ; `runTopologyStep` délègue vers lui.
+- Le routage est extrait dans `organizationRouting.js` et **applique l'autorité**
+  (`assertRoutingAuthority`) : en organisation *ranked* (grey wolf), un follower
+  ne peut pas adresser un autre follower (`ORGANIZATION_AUTHORITY_VIOLATION`).
+
+## 9. Ce qui reste ouvert
+
+- Les algorithmes sont déterministes et locaux (pas de consensus distribué
+  global) et le supervisor n'applique qu'une étape par décision, pas une boucle
+  haute fréquence.
+- La perception/web (`browser_act`, `foveal_crop`, `optimal_foraging`,
+  `computer_use`) est louable mais pas encore pilotée par une boucle
+  perception→action.
