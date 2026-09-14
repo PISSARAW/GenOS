@@ -287,7 +287,7 @@ impl WorldState {
             Goal::RecoverAgent => self.diseased == 0 && self.workers >= 1,
             Goal::RepairModule => self.tissues >= 1 && !self.traitor,
             Goal::Explore => self.observed,
-            Goal::Conserve => self.budget_pressure <= 0.3,
+            Goal::Conserve => self.budget_pressure <= 0.5,
         }
     }
 }
