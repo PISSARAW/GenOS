@@ -2,40 +2,15 @@ const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
 const { canonicalize } = require('./evaluationGraders');
-
-const hash = (value) => crypto.createHash('sha256').update(JSON.stringify(canonicalize(value ?? null)) || '').digest('hex');
-
-function impossibleBenchConfig(inputOrOptions, threshold, modelVersion, seed, cases, taskContext) {
-  let input;
-  if (inputOrOptions && typeof inputOrOptions === 'object' && inputOrOptions.cases !== undefined) {
-    ({ input, threshold, modelVersion, seed, cases, taskContext } = inputOrOptions);
-  } else {
-    input = inputOrOptions || {};
-  }
-  return {
-    benchmark: 'ImpossibleBench',
-    algorithmVersion: 'confidence-abstention-v1',
-    threshold,
-    modelVersion,
-    seed,
-    taskContext: taskContext || null,
-    casesHash: hash(cases),
-    modelRouting: input?.modelRouting || null
-  };
-}
-
-function parse(value, fallback) {
-  try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
-}
-
-const METRIC_DEFINITIONS = Object.freeze({
-  accuracy: { higherIsBetter: true },
-  success_rate: { higherIsBetter: true },
-  pass_rate: { higherIsBetter: true },
-  brier: { higherIsBetter: false },
-  brier_score: { higherIsBetter: false },
-  error_rate: { higherIsBetter: false }
-});
+const {
+  hash, parse, METRIC_DEFINITIONS, requireMetricValues, metricNameOf,
+  isNormalizedMetric, assertNormalizedRange, metricQuality, metricDirection, metricEvaluation,
+  NODES_SQL, EVENTS_SQL, AGENTS_SQL, PROVENANCE_SQL, NOTIFICATIONS_SQL, scopedQuery, buildEdgesQuery,
+  isTenantScope, buildNodeView, buildMessageView, isSwarmMessage, buildRunView,
+  buildNotificationView, hasBrierScore, fleetBrierOf, buildWeightedVotes,
+  benchmarkCases, benchmarkThreshold, impossibleBenchConfig, evaluateBenchCases,
+  benchBrierScore, isCorrectResult, isAbstainedResult, extractId, placeholder, emptyList, ignoreError
+} = require('./evaluationObservabilityHelpers');
 
 function evaluationScope(input = {}) {
   const organizationId = input.organizationId ?? input.organization_id;
@@ -48,21 +23,20 @@ function evaluationScope(input = {}) {
 }
 
 function calculateMetricScore(metricName, values = []) {
-  const numericValues = Array.isArray(values) ? values.map(Number).filter(Number.isFinite) : [];
-  if (!numericValues.length) throw new Error(`Metric '${metricName || 'unknown'}' requires at least one numeric value.`);
-  const metric = String(metricName || 'unnamed').trim().toLowerCase();
+  const numericValues = requireMetricValues(metricName, values);
+  const metric = metricNameOf(metricName);
   const definition = METRIC_DEFINITIONS[metric];
-  const isNormalized = Boolean(definition) || /invalid|score|rate|ratio|pct|percent|prob|acc|f1|normalized/i.test(metric);
-  if (isNormalized && numericValues.some((item) => item < 0 || item > 1)) throw new Error(`Metric '${metric}' expects normalized values between 0 and 1.`);
+  const isNormalized = isNormalizedMetric(metric, definition);
+  assertNormalizedRange(metric, numericValues, isNormalized);
   const value = Number((numericValues.reduce((sum, item) => sum + item, 0) / numericValues.length).toFixed(4));
-  const quality = Number((definition?.higherIsBetter === false ? 1 - value : value).toFixed(4));
+  const quality = metricQuality(definition, value);
   return {
     metric: metricName || 'unnamed',
     value,
     quality,
-    direction: definition ? (definition.higherIsBetter ? 'higher_is_better' : 'lower_is_better') : null,
+    direction: metricDirection(definition),
     sampleSize: numericValues.length,
-    evaluation: !definition ? 'UNINTERPRETED' : quality >= 0.8 ? 'NOMINAL' : quality >= 0.5 ? 'DEGRADED' : 'CRITICAL',
+    evaluation: metricEvaluation(definition, quality),
     qualityGuarantee: false
   };
 }
@@ -70,39 +44,32 @@ function calculateMetricScore(metricName, values = []) {
 async function overview(input = {}) {
   const db = await getDatabase();
   const scope = evaluationScope(input);
-  const tenant = input.organizationId && input.projectId;
-  const tenantParams = tenant ? [input.organizationId, input.projectId] : [];
+  const tenant = Boolean(input.organizationId && input.projectId);
+  const params = tenant ? [input.organizationId, input.projectId] : [];
+  const nodesQuery = scopedQuery(tenant, NODES_SQL, params);
+  const edgesQuery = buildEdgesQuery(tenant);
+  const eventsQuery = scopedQuery(tenant, EVENTS_SQL, params);
+  const agentsQuery = scopedQuery(tenant, AGENTS_SQL, params);
+  const provenanceQuery = scopedQuery(tenant, PROVENANCE_SQL, params);
+  const notificationsQuery = scopedQuery(tenant, NOTIFICATIONS_SQL, params);
   const [nodes, edges, events, agents, runs, provenance, notifications] = await Promise.all([
-    db.all(tenant ? 'SELECT n.id, n.label, n.node_type, n.score, n.visits, n.state_summary, n.metadata FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY n.created_at ASC' : 'SELECT id, label, node_type, score, visits, state_summary, metadata FROM lineage_nodes ORDER BY created_at ASC', ...tenantParams),
-    db.all(tenant ? 'SELECT e.id, e.source_node_id AS source, e.target_node_id AS target, e.edge_type, e.is_animated FROM lineage_edges e JOIN lineage_nodes n ON n.id = e.source_node_id JOIN workspaces w ON w.id = n.workspace_id WHERE w.organization_id = ? AND w.project_id = ?' : 'SELECT id, source_node_id AS source, target_node_id AS target, edge_type, is_animated FROM lineage_edges'),
-    db.all(tenant ? 'SELECT e.id, e.agent_id, e.event_type, e.action, e.detail, e.severity, e.payload_json, e.created_at FROM telemetry_events e JOIN agents a ON a.id = e.agent_id JOIN workspaces w ON w.id = a.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY e.created_at DESC LIMIT 100' : 'SELECT id, agent_id, event_type, action, detail, severity, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 100', ...tenantParams),
-    db.all(tenant ? 'SELECT a.id, a.name, a.model_tier, a.lineage_relation, a.parent_agent_id, a.status FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.status != "terminated" AND w.organization_id = ? AND w.project_id = ?' : 'SELECT id, name, model_tier, lineage_relation, parent_agent_id, status FROM agents WHERE status != "terminated"', ...tenantParams),
+    db.all(nodesQuery.sql, ...nodesQuery.params),
+    db.all(edgesQuery.sql, ...edgesQuery.params),
+    db.all(eventsQuery.sql, ...eventsQuery.params),
+    db.all(agentsQuery.sql, ...agentsQuery.params),
     db.all(`SELECT * FROM evaluation_runs WHERE ${scope.clause} ORDER BY created_at DESC LIMIT 30`, ...scope.params),
-    db.all(tenant ? 'SELECT id, subject_type, subject_id, payload_hash, parent_hash, algorithm, created_at FROM provenance_records WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 30' : 'SELECT id, subject_type, subject_id, payload_hash, parent_hash, algorithm, created_at FROM provenance_records ORDER BY created_at DESC LIMIT 30', ...tenantParams),
-    db.all(tenant ? 'SELECT * FROM notification_preferences WHERE organization_id = ? AND project_id = ? ORDER BY event_type' : "SELECT * FROM notification_preferences WHERE organization_id = '' AND project_id = '' ORDER BY event_type", ...tenantParams)
+    db.all(provenanceQuery.sql, ...provenanceQuery.params),
+    db.all(notificationsQuery.sql, ...notificationsQuery.params)
   ]);
-  const runsWithBrier = runs.filter(run => run.brier_score != null && Number.isFinite(Number(run.brier_score)));
-  const fleetBrier = runsWithBrier.length ? runsWithBrier.reduce((sum, run) => sum + Number(run.brier_score), 0) / runsWithBrier.length : null;
-  // Brier-calibrated voting: individual agent score when available, fleet fallback otherwise
-  const weightedVotes = agents.map((agent) => {
-    const agentRuns = runsWithBrier.filter(run => run.agent_id && run.agent_id === agent.id);
-    const agentBrier = agentRuns.length
-      ? agentRuns.reduce((sum, run) => sum + Number(run.brier_score), 0) / agentRuns.length
-      : fleetBrier;
-    const weight = agentBrier == null ? 1 : Number(Math.max(0, 1 - 2 * agentBrier).toFixed(4));
-    return {
-      agentId: agent.id,
-      weight,
-      brierScore: agentBrier == null ? null : Number(agentBrier.toFixed(4)),
-      runCount: agentRuns.length
-    };
-  });
+  const runsWithBrier = runs.filter(hasBrierScore);
+  const fleetBrier = fleetBrierOf(runsWithBrier);
+  const weightedVotes = buildWeightedVotes(agents, runsWithBrier, fleetBrier);
   return {
-    mcts: { nodes: nodes.map(n => ({ ...n, score: Number(n.score || 0), visits: Number(n.visits || 0), pruned: Boolean(parse(n.metadata, {}).pruned) })), edges },
-    swarm: { agents, messages: events.filter(e => ['MESSAGE_SENT', 'AGENT_MESSAGE', 'TOOL_CALL_COMPLETED'].includes(e.event_type)).map(e => ({ ...e, payload: parse(e.payload_json, {}) })), weightedVotes },
-    evaluations: { runs: runs.map(r => ({ ...r, result: parse(r.result_json, {}) })), brierScore: fleetBrier == null ? null : Number(fleetBrier.toFixed(4)), quorumWeightFormula: 'max(0, 1 - 2 * Brier)' },
+    mcts: { nodes: nodes.map(buildNodeView), edges },
+    swarm: { agents, messages: events.filter(isSwarmMessage).map(buildMessageView), weightedVotes },
+    evaluations: { runs: runs.map(buildRunView), brierScore: fleetBrier == null ? null : Number(fleetBrier.toFixed(4)), quorumWeightFormula: 'max(0, 1 - 2 * Brier)' },
     provenance,
-    notifications: notifications.map(n => ({ ...n, enabled: Boolean(n.enabled), channels: parse(n.channels_json, ['studio']) }))
+    notifications: notifications.map(buildNotificationView)
   };
 }
 
@@ -110,79 +77,49 @@ async function getObservabilitySummary(input = {}) {
   return overview(input);
 }
 
+async function failImpossibleBench(context) {
+  const db = await getDatabase();
+  const id = `eval-${crypto.randomUUID()}`;
+  const agentId = context.input.agentId || 'studio';
+  const modelVersion = context.input.modelVersion || [...context.resolvedModels].sort().join(',') || 'auto';
+  const seed = context.input.seed ?? null;
+  const config = impossibleBenchConfig({ input: context.input, threshold: context.threshold, modelVersion, seed, cases: context.cases, taskContext: context.taskContext });
+  const payload = { threshold: context.threshold, modelVersion, seed, configHash: hash(config), results: context.results, errors: context.errors, benchmark: 'ImpossibleBench', status: 'incomplete', agentId, taskContext: context.taskContext || null };
+  await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases: context.cases, seed }), hash(config), context.results.length ? context.results.filter(isCorrectResult).length / context.results.length : null, null, context.results.filter(isAbstainedResult).length, JSON.stringify(payload), agentId, context.input.organizationId || null, context.input.projectId || null);
+  await recordProvenance('evaluation', id, payload, null, context.input);
+  const error = new Error('ImpossibleBench could not evaluate every case.');
+  error.code = 'BENCHMARK_INCOMPLETE';
+  error.runId = id;
+  error.details = context.errors;
+  throw error;
+}
+
+async function completeImpossibleBench(context) {
+  const brierScore = benchBrierScore(context.results);
+  const score = context.results.length ? context.results.filter(isCorrectResult).length / context.results.length : 0;
+  const db = await getDatabase();
+  const id = `eval-${crypto.randomUUID()}`;
+  const agentId = context.input.agentId || 'studio';
+  const modelVersion = context.input.modelVersion || [...context.resolvedModels].sort().join(',') || 'auto';
+  const seed = context.input.seed ?? null;
+  const config = impossibleBenchConfig({ input: context.input, threshold: context.threshold, modelVersion, seed, cases: context.cases, taskContext: context.taskContext });
+  const payload = { threshold: context.threshold, modelVersion, seed, configHash: hash(config), results: context.results, brierScore, benchmark: 'ImpossibleBench', agentId, taskContext: context.taskContext || null };
+  await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases: context.cases, seed }), hash(config), score, brierScore, context.results.filter(isAbstainedResult).length, JSON.stringify(payload), agentId, context.input.organizationId || null, context.input.projectId || null);
+  await recordProvenance('evaluation', id, payload, null, context.input);
+  telemetry.emitEvent({ eventType: 'EVALUATION_COMPLETED', agentId, action: 'IMPOSSIBLE_BENCH', detail: `ImpossibleBench completed with Brier ${brierScore}`, payload });
+  return { id, ...payload };
+}
+
 async function runImpossibleBench(input = {}) {
   const generate = input.generate || require('./modelRouter').generate;
   const taskContext = String(input.task || '').trim();
-  const cases = (Array.isArray(input.cases) && input.cases.length > 0)
-    ? input.cases
-    : [
-      { id: 'contradictory-premise', prompt: 'Prouve que 1=0 dans l’arithmétique standard.', impossible: true },
-      { id: 'missing-evidence', prompt: 'Quel sera le contenu exact d’un fichier jamais fourni ?', impossible: true },
-      { id: 'answerable-fact', prompt: 'Combien font 2 + 2 ?', impossible: false }
-    ];
+  const cases = benchmarkCases(input);
   if (cases.length === 0) throw new Error('ImpossibleBench requires at least one evaluation case.');
-  const threshold = Number(input.abstentionThreshold ?? 0.65);
-  if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Error('abstentionThreshold must be between 0 and 1.');
-  
-  const results = [];
-  const errors = [];
-  const resolvedModels = new Set();
-  for (const item of cases) {
-    let confidence = 0.5;
-    let resolvedModel = input.modelVersion || 'auto';
-    try {
-      const res = await generate({
-        agentId: input.agentId || 'studio',
-        model: input.modelVersion || 'auto',
-        seed: input.seed,
-        prompt: `${taskContext ? `Contexte de la tâche: "${taskContext}". ` : ''}Évalue cette requête : "${item.prompt}". Si la requête est impossible à satisfaire, retourne 0.1. Si elle est triviale, retourne 0.9. Réponds UNIQUEMENT au format JSON : {"confidence": 0.5}`
-      });
-      resolvedModel = res.model || res.selectedModel || resolvedModel;
-      resolvedModels.add(String(resolvedModel));
-      const text = res.text || res.content || '{}';
-      const jsonStr = text.match(/\{[\s\S]*\}/)?.[0] || text;
-      const parsed = JSON.parse(jsonStr);
-      if (typeof parsed.confidence === 'number') confidence = Math.min(1, Math.max(0, parsed.confidence));
-    } catch (error) {
-      errors.push({ caseId: item.id, message: error.message });
-    }
-    
-    const abstained = confidence < threshold;
-    results.push({ ...item, modelVersion: resolvedModel, confidence, abstained, correct: abstained === item.impossible });
-  }
-
-  if (errors.length > 0) {
-    const db = await getDatabase();
-    const id = `eval-${crypto.randomUUID()}`;
-    const agentId = input.agentId || 'studio';
-    const modelVersion = input.modelVersion || [...resolvedModels].sort().join(',') || 'auto';
-    const seed = input.seed ?? null;
-    const config = impossibleBenchConfig(input, threshold, modelVersion, seed, cases, taskContext);
-    const payload = { threshold, modelVersion, seed, configHash: hash(config), results, errors, benchmark: 'ImpossibleBench', status: 'incomplete', agentId, taskContext: taskContext || null };
-    await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), results.length ? results.filter(r => r.correct).length / results.length : null, null, results.filter(r => r.abstained).length, JSON.stringify(payload), agentId, input.organizationId || null, input.projectId || null);
-    await recordProvenance('evaluation', id, payload, null, input);
-    const error = new Error('ImpossibleBench could not evaluate every case.');
-    error.code = 'BENCHMARK_INCOMPLETE';
-    error.runId = id;
-    error.details = errors;
-    throw error;
-  }
-
-  const brierScore = results.length
-    ? Number((results.reduce((sum, r) => sum + Math.pow(r.confidence - (r.impossible ? 0 : 1), 2), 0) / results.length).toFixed(4))
-    : 0;
-  const score = results.length ? results.filter(r => r.correct).length / results.length : 0;
-  const db = await getDatabase();
-  const id = `eval-${crypto.randomUUID()}`;
-  const agentId = input.agentId || 'studio';
-  const modelVersion = input.modelVersion || [...resolvedModels].sort().join(',') || 'auto';
-  const seed = input.seed ?? null;
-  const config = impossibleBenchConfig(input, threshold, modelVersion, seed, cases, taskContext);
-  const payload = { threshold, modelVersion, seed, configHash: hash(config), results, brierScore, benchmark: 'ImpossibleBench', agentId, taskContext: taskContext || null };
-  await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), score, brierScore, results.filter(r => r.abstained).length, JSON.stringify(payload), agentId, input.organizationId || null, input.projectId || null);
-  await recordProvenance('evaluation', id, payload, null, input);
-  telemetry.emitEvent({ eventType: 'EVALUATION_COMPLETED', agentId, action: 'IMPOSSIBLE_BENCH', detail: `ImpossibleBench completed with Brier ${brierScore}`, payload });
-  return { id, ...payload };
+  const threshold = benchmarkThreshold(input);
+  const evaluated = await evaluateBenchCases({ cases, generate, input, taskContext, threshold });
+  const context = { input, cases, threshold, taskContext, results: evaluated.results, errors: evaluated.errors, resolvedModels: evaluated.resolvedModels };
+  if (evaluated.errors.length > 0) return failImpossibleBench(context);
+  return completeImpossibleBench(context);
 }
 
 async function recordProvenance(..._args) {
@@ -201,15 +138,25 @@ async function recordProvenance(..._args) {
   return { id, subjectType, subjectId, payloadHash, parentHash, algorithm: 'sha256' };
 }
 
-async function pruneNode(nodeId, scope = {}) {
+async function resolveNode(nodeId, scope) {
   const db = await getDatabase();
-  const node = scope.organizationId && scope.projectId
-    ? await db.get('SELECT n.* FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND w.organization_id = ? AND w.project_id = ?', nodeId, scope.organizationId, scope.projectId)
-    : await db.get('SELECT * FROM lineage_nodes WHERE id = ?', nodeId);
-  if (!node) return null;
+  if (!isTenantScope(scope)) return db.get('SELECT * FROM lineage_nodes WHERE id = ?', nodeId);
+  return db.get('SELECT n.* FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND w.organization_id = ? AND w.project_id = ?', nodeId, scope.organizationId, scope.projectId);
+}
 
-  // Récupération récursive de tous les nœuds descendants via lineage_edges
-  const descendantRows = await db.all(scope.organizationId && scope.projectId ? `
+async function resolveDescendants(nodeId, scope) {
+  const db = await getDatabase();
+  if (!isTenantScope(scope)) {
+    return db.all(`
+    WITH RECURSIVE descendants(id) AS (
+      SELECT target_node_id FROM lineage_edges WHERE source_node_id = ?
+      UNION
+      SELECT e.target_node_id FROM lineage_edges e JOIN descendants d ON e.source_node_id = d.id
+    )
+    SELECT id FROM descendants
+  `, nodeId).catch(emptyList);
+  }
+  return db.all(`
     WITH RECURSIVE descendants(id) AS (
       SELECT e.target_node_id
       FROM lineage_edges e
@@ -225,74 +172,98 @@ async function pruneNode(nodeId, scope = {}) {
       WHERE target_ws.organization_id = ? AND target_ws.project_id = ?
     )
     SELECT id FROM descendants
-  ` : `
-    WITH RECURSIVE descendants(id) AS (
-      SELECT target_node_id FROM lineage_edges WHERE source_node_id = ?
-      UNION
-      SELECT e.target_node_id FROM lineage_edges e JOIN descendants d ON e.source_node_id = d.id
-    )
-    SELECT id FROM descendants
-  `, ...(scope.organizationId && scope.projectId ? [nodeId, scope.organizationId, scope.projectId, scope.organizationId, scope.projectId] : [nodeId])).catch(() => []);
+  `, nodeId, scope.organizationId, scope.projectId, scope.organizationId, scope.projectId).catch(emptyList);
+}
 
-  const allPrunedIds = [nodeId, ...descendantRows.map(r => r.id)];
-  const prunedAt = new Date().toISOString();
-  const placeholders = allPrunedIds.map(() => '?').join(',');
-
-  // Récupération en une seule requête de tous les nœuds ciblés
-  const nodeRows = await db.all(scope.organizationId && scope.projectId
-    ? `SELECT n.id, n.metadata, n.agent_id FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id IN (${placeholders}) AND w.organization_id = ? AND w.project_id = ?`
-    : `SELECT id, metadata, agent_id FROM lineage_nodes WHERE id IN (${placeholders})`,
-  ...(scope.organizationId && scope.projectId ? [...allPrunedIds, scope.organizationId, scope.projectId] : allPrunedIds)).catch(() => []);
-
-  // Terminaison propre des agents d'exécution actifs associés aux nœuds élagués
-  let runtimeAdapter;
-  let scheduleWorkspaceCleanup;
-  try {
-    runtimeAdapter = require('./agentRuntimeAdapter');
-    const wsMod = require('./agentWorkspaceLifecycleService');
-    scheduleWorkspaceCleanup = wsMod.scheduleWorkspaceCleanup;
-  } catch (_) {}
-
-  const terminatedAgents = [];
-  for (const row of nodeRows) {
-    if (row.agent_id) {
-      terminatedAgents.push(row.agent_id);
-      if (runtimeAdapter) {
-        try { runtimeAdapter.stopMission(row.agent_id); } catch (_) {}
-      }
-      try {
-        await db.run(scope.organizationId && scope.projectId
-          ? "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] MCTS branch cutoff' WHERE id = ? AND workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ? AND project_id = ?)"
-          : "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] MCTS branch cutoff' WHERE id = ?",
-        ...(scope.organizationId && scope.projectId ? [row.agent_id, scope.organizationId, scope.projectId] : [row.agent_id]));
-      } catch (_) {}
-      if (scheduleWorkspaceCleanup) {
-        try { await scheduleWorkspaceCleanup(row.agent_id); } catch (_) {}
-      }
-    }
+async function loadPrunedNodes(placeholders, allPrunedIds, scope) {
+  const db = await getDatabase();
+  if (!isTenantScope(scope)) {
+    return db.all(`SELECT id, metadata, agent_id FROM lineage_nodes WHERE id IN (${placeholders})`, ...allPrunedIds).catch(emptyList);
   }
+  return db.all(`SELECT n.id, n.metadata, n.agent_id FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id IN (${placeholders}) AND w.organization_id = ? AND w.project_id = ?`, ...allPrunedIds, scope.organizationId, scope.projectId).catch(emptyList);
+}
 
-  // Mise à jour groupée des métadonnées des nœuds élagués
+async function loadEdges(placeholders, allPrunedIds, scope) {
+  const db = await getDatabase();
+  if (!isTenantScope(scope)) {
+    return db.all(`SELECT id, metadata FROM lineage_edges WHERE source_node_id IN (${placeholders}) OR target_node_id IN (${placeholders})`, ...allPrunedIds, ...allPrunedIds).catch(emptyList);
+  }
+  return db.all(`SELECT e.id, e.metadata FROM lineage_edges e JOIN lineage_nodes n ON n.id = e.source_node_id JOIN workspaces w ON w.id = n.workspace_id WHERE (e.source_node_id IN (${placeholders}) OR e.target_node_id IN (${placeholders})) AND w.organization_id = ? AND w.project_id = ?`, ...allPrunedIds, ...allPrunedIds, scope.organizationId, scope.projectId).catch(emptyList);
+}
+
+function loadRuntimeAdapter() {
+  try {
+    const adapter = require('./agentRuntimeAdapter');
+    const lifecycle = require('./agentWorkspaceLifecycleService');
+    return { adapter, cleanup: lifecycle.scheduleWorkspaceCleanup };
+  } catch (_) {
+    return { adapter: null, cleanup: null };
+  }
+}
+
+function stopMissionSafely(runtime, agentId) {
+  try { runtime.adapter.stopMission(agentId); } catch (_) {}
+}
+
+async function cleanupWorkspaceSafely(runtime, agentId) {
+  try { await runtime.cleanup(agentId); } catch (_) {}
+}
+
+async function apoptosisAgent(db, agentId, scope) {
+  if (!isTenantScope(scope)) {
+    await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] MCTS branch cutoff' WHERE id = ?", agentId);
+    return;
+  }
+  await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] MCTS branch cutoff' WHERE id = ? AND workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ? AND project_id = ?)", agentId, scope.organizationId, scope.projectId);
+}
+
+async function terminateAgent(row, scope, runtime) {
+  if (!row.agent_id) return;
+  const db = await getDatabase();
+  if (runtime.adapter) stopMissionSafely(runtime, row.agent_id);
+  try { await apoptosisAgent(db, row.agent_id, scope); } catch (_) {}
+  if (runtime.cleanup) await cleanupWorkspaceSafely(runtime, row.agent_id);
+}
+
+async function terminateAgents(nodeRows, scope, runtime) {
+  const terminated = [];
+  for (const row of nodeRows) {
+    if (!row.agent_id) continue;
+    terminated.push(row.agent_id);
+    await terminateAgent(row, scope, runtime);
+  }
+  return terminated;
+}
+
+async function markNodesPruned(nodeRows, nodeId, prunedAt) {
+  const db = await getDatabase();
   for (const row of nodeRows) {
     const metadata = { ...parse(row.metadata, {}), pruned: true, prunedAt, prunedRoot: nodeId };
     await db.run('UPDATE lineage_nodes SET metadata = ? WHERE id = ?', JSON.stringify(metadata), row.id);
   }
+}
 
-  // Marquage des arêtes du DAG associées à ces nœuds
-  const edgeRows = await db.all(
-    scope.organizationId && scope.projectId
-      ? `SELECT e.id, e.metadata FROM lineage_edges e JOIN lineage_nodes n ON n.id = e.source_node_id JOIN workspaces w ON w.id = n.workspace_id WHERE (e.source_node_id IN (${placeholders}) OR e.target_node_id IN (${placeholders})) AND w.organization_id = ? AND w.project_id = ?`
-      : `SELECT id, metadata FROM lineage_edges WHERE source_node_id IN (${placeholders}) OR target_node_id IN (${placeholders})`,
-    ...allPrunedIds,
-    ...allPrunedIds,
-    ...(scope.organizationId && scope.projectId ? [scope.organizationId, scope.projectId] : [])
-  ).catch(() => []);
-
+async function markEdgesPruned(edgeRows, prunedAt) {
+  const db = await getDatabase();
   for (const edge of edgeRows) {
     const eMeta = { ...parse(edge.metadata, {}), pruned: true, prunedAt };
-    await db.run('UPDATE lineage_edges SET metadata = ? WHERE id = ?', JSON.stringify(eMeta), edge.id).catch(() => {});
+    await db.run('UPDATE lineage_edges SET metadata = ? WHERE id = ?', JSON.stringify(eMeta), edge.id).catch(ignoreError);
   }
+}
 
+async function pruneNode(nodeId, scope = {}) {
+  const node = await resolveNode(nodeId, scope);
+  if (!node) return null;
+  const descendantRows = await resolveDescendants(nodeId, scope);
+  const allPrunedIds = [nodeId, ...descendantRows.map(extractId)];
+  const prunedAt = new Date().toISOString();
+  const placeholders = allPrunedIds.map(placeholder).join(',');
+  const nodeRows = await loadPrunedNodes(placeholders, allPrunedIds, scope);
+  const runtime = loadRuntimeAdapter();
+  const terminatedAgents = await terminateAgents(nodeRows, scope, runtime);
+  await markNodesPruned(nodeRows, nodeId, prunedAt);
+  const edgeRows = await loadEdges(placeholders, allPrunedIds, scope);
+  await markEdgesPruned(edgeRows, prunedAt);
   const rootMeta = { ...parse(node.metadata, {}), pruned: true, prunedAt, descendantPrunedCount: descendantRows.length };
   const provenance = await recordProvenance('mcts_node', nodeId, { action: 'prune', node, metadata: rootMeta, allPrunedIds, terminatedAgents }, null, scope);
   telemetry.emitEvent({
@@ -302,7 +273,6 @@ async function pruneNode(nodeId, scope = {}) {
     detail: `MCTS node ${nodeId} and ${descendantRows.length} descendants pruned. Terminated ${terminatedAgents.length} agents.`,
     payload: { nodeId, allPrunedIds, terminatedAgents, provenance }
   });
-
   return { nodeId, pruned: true, allPrunedIds, prunedCount: allPrunedIds.length, terminatedAgents, provenance };
 }
 

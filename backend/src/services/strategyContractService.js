@@ -8,6 +8,18 @@ function getStrategyHandlers() {
 
 const CONTRACT_SCHEMA = 'genos.strategy-contract/v1alpha1';
 
+function decisionScore(decisions, strategyId) {
+  const decision = decisions.find((item) => item.strategy.id === strategyId);
+  if (!decision) return undefined;
+  return decision.score;
+}
+
+function portfolioHasUnimplemented(portfolio) {
+  return portfolio.some((strategy) => {
+    return strategy.maturity !== 'implemented';
+  });
+}
+
 function buildStrategyContract(input = {}) {
   const selectionInput = {
     ...input,
@@ -37,7 +49,7 @@ function buildStrategyContract(input = {}) {
     strategy_portfolio: selection.portfolio.map((strategy) => ({
       id: strategy.id, name: strategy.name, family: strategy.family, role: strategy.role,
       maturity: strategy.maturity, primitives: strategy.primitives,
-      score: selection.decisions.find((decision) => decision.strategy.id === strategy.id)?.score
+      score: decisionScore(selection.decisions, strategy.id)
     })),
     strategy_decision_summary: selection.summary,
     strategy_registry: {
@@ -63,7 +75,7 @@ function buildStrategyContract(input = {}) {
     promotion: {
       require_replay: problemProfile.requires_reproducibility || highRisk,
       require_independent_verification: true,
-      require_human_approval: highRisk || problemProfile.reversibility === 'low' || selection.portfolio.some((strategy) => strategy.maturity !== 'implemented'),
+      require_human_approval: highRisk || problemProfile.reversibility === 'low' || portfolioHasUnimplemented(selection.portfolio),
       preserve_rejected_branches: true,
       merge_workspace_automatically: false
     },
@@ -71,18 +83,30 @@ function buildStrategyContract(input = {}) {
   };
 }
 
-function validateContract(contract) {
+function validateContractSchema(contract) {
   if (!contract || contract.schema !== CONTRACT_SCHEMA) throw new Error(`Contract schema must be ${CONTRACT_SCHEMA}`);
-  if (!contract.problem_profile?.type) throw new Error('problem_profile.type is required');
-  if (!contract.selected_strategy?.primary) throw new Error('selected_strategy.primary is required');
-  if (contract.selected_strategy.fallback && (!contract.selected_strategy.fallback.requested || !contract.selected_strategy.fallback.selected || !contract.selected_strategy.fallback.reason)) {
+  if (!contract.problem_profile || !contract.problem_profile.type) throw new Error('problem_profile.type is required');
+  if (!contract.selected_strategy || !contract.selected_strategy.primary) throw new Error('selected_strategy.primary is required');
+}
+
+function validateContractFallback(contract) {
+  const fallback = contract.selected_strategy.fallback;
+  if (fallback && (!fallback.requested || !fallback.selected || !fallback.reason)) {
     throw new Error('selected_strategy.fallback must include requested, selected, and reason');
   }
+}
+
+function validateContractRegistry(contract) {
   const registryIds = new Set(listStrategies().map((strategy) => strategy.id));
-  if (contract.strategy_registry?.registry_hash && contract.strategy_registry.registry_hash !== registryHealth().registryHash) {
+  const registry = contract.strategy_registry;
+  if (registry && registry.registry_hash && registry.registry_hash !== registryHealth().registryHash) {
     throw Object.assign(new Error('Strategy registry changed since this contract was selected.'), { code: 'STRATEGY_REGISTRY_CHANGED' });
   }
   if (!registryIds.has(contract.selected_strategy.primary)) throw new Error(`Unknown primary strategy '${contract.selected_strategy.primary}'`);
+  return registryIds;
+}
+
+function validateContractPortfolio(contract, registryIds) {
   if (!Array.isArray(contract.strategy_portfolio)) throw new Error('strategy_portfolio must be an array');
   const portfolioIds = new Set(contract.strategy_portfolio.map((strategy) => strategy.id));
   for (const id of portfolioIds) {
@@ -92,22 +116,56 @@ function validateContract(contract) {
     if (missing.length) throw new Error(`Strategy '${id}' has unimplemented primitives: ${missing.join(', ')}`);
   }
   if (!portfolioIds.has(contract.selected_strategy.primary)) throw new Error('Primary strategy must be present in strategy_portfolio');
-  const decisionIds = new Set((contract.strategy_decisions || []).map((decision) => decision.id));
+}
+
+function validateDecisionSet(decisions, registryIds) {
+  const decisionIds = new Set(decisions.map((decision) => decision.id));
   if (decisionIds.size !== registryIds.size || [...registryIds].some((id) => !decisionIds.has(id))) {
     throw new Error(`strategy_decisions must contain the complete ${registryIds.size}-strategy registry`);
   }
-  const primaryDecision = (contract.strategy_decisions || []).find((decision) => decision.id === contract.selected_strategy.primary);
+}
+
+function isFiniteScore(score) {
+  if (typeof score !== 'number' && typeof score !== 'string') return false;
+  if (String(score).trim() === '') return false;
+  return Number.isFinite(Number(score));
+}
+
+function validatePrimaryDecision(decisions, primaryId) {
+  const primaryDecision = decisions.find((decision) => decision.id === primaryId);
   if (!primaryDecision || primaryDecision.status !== 'selected') throw new Error('selected_strategy.primary must have a selected strategy_decisions entry.');
-  if ((typeof primaryDecision.score !== 'number' && typeof primaryDecision.score !== 'string') || String(primaryDecision.score).trim() === '' || !Number.isFinite(Number(primaryDecision.score))) throw new Error('selected primary strategy must have a finite score.');
-  for (const decision of contract.strategy_decisions || []) {
+  if (!isFiniteScore(primaryDecision.score)) throw new Error('selected primary strategy must have a finite score.');
+}
+
+function validateDecisionMaturity(decisions) {
+  for (const decision of decisions) {
     const current = listStrategies().find((strategy) => strategy.id === decision.id);
     if (current && decision.maturity !== current.maturity) throw new Error(`Strategy maturity mismatch for '${decision.id}'.`);
   }
+}
+
+function validateContractDecisions(contract, registryIds) {
+  const decisions = contract.strategy_decisions || [];
+  validateDecisionSet(decisions, registryIds);
+  validatePrimaryDecision(decisions, contract.selected_strategy.primary);
+  validateDecisionMaturity(decisions);
+}
+
+function validateContractBranches(contract) {
   if (!Array.isArray(contract.branches)) throw new Error('branches must be an array');
   if (!contract.branches.length) throw new Error('branches must contain at least one hypothesis');
   const budgetShare = contract.branches.reduce((sum, branch) => sum + Number(branch.budget_share || 0), 0);
   if (!Number.isFinite(budgetShare) || Math.abs(budgetShare - 1) > 0.01) throw new Error('branch budget_share values must total approximately 1');
   if (contract.branches.some((branch) => !branch.label || !branch.hypothesis)) throw new Error('every branch requires a label and hypothesis');
+}
+
+function validateContract(contract) {
+  validateContractSchema(contract);
+  validateContractFallback(contract);
+  const registryIds = validateContractRegistry(contract);
+  validateContractPortfolio(contract, registryIds);
+  validateContractDecisions(contract, registryIds);
+  validateContractBranches(contract);
   if (!Array.isArray(contract.stop_conditions)) throw new Error('stop_conditions must be an array');
   if (!contract.promotion) throw new Error('promotion policy is required');
   return contract;
@@ -152,6 +210,33 @@ function parseRow(row) {
   };
 }
 
+function nextVersion(previous) {
+  if (!previous || !previous.version) return 1;
+  return previous.version + 1;
+}
+
+async function insertContract(db, payload) {
+  const { id, context, version, contract, hash } = payload;
+  await db.run(
+    `INSERT INTO strategy_contracts (id, agent_id, workspace_id, version, status, primary_strategy, contract_hash, contract_json, decision_reason, created_by)
+     VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
+    id, context.agentId, context.workspaceId || null, version, contract.selected_strategy.primary,
+    hash, JSON.stringify(contract), context.decisionReason || contract.selected_strategy.rationale,
+    context.createdBy || 'orchestrator'
+  );
+}
+
+async function persistStrategyContract(db, context) {
+  const contract = validateContract(context.contract || buildStrategyContract(context));
+  const previous = await db.get('SELECT version FROM strategy_contracts WHERE agent_id = ? ORDER BY version DESC LIMIT 1', context.agentId);
+  const version = nextVersion(previous);
+  const id = `strategy_${context.agentId}_${version}`;
+  const hash = hashContract(contract);
+  await db.run("UPDATE strategy_contracts SET status = 'superseded' WHERE agent_id = ? AND status = 'active'", context.agentId);
+  await insertContract(db, { id, context, version, contract, hash });
+  return parseRow(await db.get('SELECT * FROM strategy_contracts WHERE id = ?', id));
+}
+
 async function saveContract(db, context = {}) {
   if (!context._inTransaction) {
     const { withTransaction } = require('../db');
@@ -169,20 +254,7 @@ async function saveContract(db, context = {}) {
     error.code = 'WORKER_REQUIRES_ORCHESTRATOR';
     throw error;
   }
-  const contract = validateContract(context.contract || buildStrategyContract(context));
-  const previous = await db.get('SELECT version FROM strategy_contracts WHERE agent_id = ? ORDER BY version DESC LIMIT 1', context.agentId);
-  const version = (previous?.version || 0) + 1;
-  const id = `strategy_${context.agentId}_${version}`;
-  const hash = hashContract(contract);
-  await db.run("UPDATE strategy_contracts SET status = 'superseded' WHERE agent_id = ? AND status = 'active'", context.agentId);
-  await db.run(
-    `INSERT INTO strategy_contracts (id, agent_id, workspace_id, version, status, primary_strategy, contract_hash, contract_json, decision_reason, created_by)
-     VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
-    id, context.agentId, context.workspaceId || null, version, contract.selected_strategy.primary,
-    hash, JSON.stringify(contract), context.decisionReason || contract.selected_strategy.rationale,
-    context.createdBy || 'orchestrator'
-  );
-  return parseRow(await db.get('SELECT * FROM strategy_contracts WHERE id = ?', id));
+  return persistStrategyContract(db, context);
 }
 
 async function getLatestContract(db, agentId, workspaceId = null) {

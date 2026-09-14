@@ -16,36 +16,55 @@ const SEED_TRAJECTORY = Object.freeze({
   ])
 });
 
+function isFailureStatus(status) {
+  if (status === 'error' || status === 'failed' || status === 'failure') return true;
+  return false;
+}
+
+function isNonZeroCode(turn) {
+  if (typeof turn.exitCode === 'number' && turn.exitCode !== 0) return true;
+  if (typeof turn.code === 'number' && turn.code !== 0) return true;
+  return false;
+}
+
+function isFailedTurn(turn) {
+  if (turn.error || turn.failed || turn.success === false) return true;
+  if (isFailureStatus(turn.status)) return true;
+  return isNonZeroCode(turn);
+}
+
+function isWriteAction(action) {
+  if (action === null || action === undefined) return false;
+  if (action.includes('replace') || action.includes('patch') || action.includes('write')) return true;
+  return action === 'write_to_file';
+}
+
+function isModificationTurn(turn) {
+  if (!turn.success) return false;
+  return isWriteAction(turn.action);
+}
+
+function isVerified(turn) {
+  if (turn.verified === true) return true;
+  return turn.pass === true;
+}
+
+function inferCategory(turn) {
+  if (turn.cmd && (turn.pass || turn.success)) return 'Verification';
+  if (isModificationTurn(turn)) return isVerified(turn) ? 'Breakthrough' : 'Modification';
+  return 'Exploration';
+}
+
 /**
  * Classifies an individual step in a mission trajectory
  * @param {object} turn
  * @returns {object}
  */
 function classifyTurn(turn) {
-  const isFailed = Boolean(
-    turn.error ||
-    turn.failed ||
-    turn.success === false ||
-    turn.status === 'error' ||
-    turn.status === 'failed' ||
-    turn.status === 'failure' ||
-    (typeof turn.exitCode === 'number' && turn.exitCode !== 0) ||
-    (typeof turn.code === 'number' && turn.code !== 0)
-  );
-
-  let category = turn.classification || turn.type;
-  if (isFailed) {
-    category = 'Dead-End';
-  } else if (!category) {
-    if (turn.cmd && (turn.pass || turn.success)) {
-      category = 'Verification';
-    } else if (turn.success && (turn.action?.includes('replace') || turn.action?.includes('patch') || turn.action?.includes('write') || turn.action === 'write_to_file')) {
-      category = (turn.verified === true || turn.pass === true) ? 'Breakthrough' : 'Modification';
-    } else {
-      category = 'Exploration';
-    }
-  }
-  return { ...turn, classification: category };
+  if (isFailedTurn(turn)) return { ...turn, classification: 'Dead-End' };
+  const category = turn.classification || turn.type;
+  if (category) return { ...turn, classification: category };
+  return { ...turn, classification: inferCategory(turn) };
 }
 
 /**
@@ -57,7 +76,7 @@ function cherryPickGoldenPath(rawTurns = [], globalStatus = 'success') {
   const turns = Array.isArray(rawTurns) ? rawTurns : [];
   if (turns.length === 0) throw new Error('At least one trajectory turn is required for a golden path.');
   const classifiedSteps = turns.map(classifyTurn);
-  
+
   const isFailed = ['rejected', 'failed', 'error', 'FAILURE'].includes(globalStatus);
   const goldenPath = isFailed ? [] : classifiedSteps.filter(s => s.classification !== 'Dead-End');
   const deadEndSteps = classifiedSteps.filter(s => s.classification === 'Dead-End');
@@ -85,13 +104,6 @@ function cherryPickGoldenPath(rawTurns = [], globalStatus = 'success') {
   };
 }
 
-/**
- * Builds a counterfactual branch description from a persisted trajectory
- * @param {object} originalTrajectory
- * @param {number} stepIndex
- * @param {object} alterations
- * @returns {object}
- */
 function stableSerialize(value) {
   if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
   if (value && typeof value === 'object') {
@@ -100,41 +112,74 @@ function stableSerialize(value) {
   return JSON.stringify(value);
 }
 
-function counterfactualReplay(originalTrajectory = {}, stepIndex = 1, alterations = {}) {
-  const source = originalTrajectory && typeof originalTrajectory === 'object' ? originalTrajectory : {};
-  if (!source.id && !source.turns && !source.diffLines && !source.diff_lines) {
-    throw new Error('A persisted trajectory object is required for counterfactual replay.');
+function resolveSource(originalTrajectory) {
+  if (originalTrajectory && typeof originalTrajectory === 'object') return originalTrajectory;
+  return {};
+}
+
+function requirePersistedSource(source) {
+  if (source.id || source.turns || source.diffLines || source.diff_lines) return;
+  throw new Error('A persisted trajectory object is required for counterfactual replay.');
+}
+
+function decodeStringTurns(turns) {
+  try {
+    return JSON.parse(turns);
+  } catch (_) {
+    return [];
   }
+}
+
+function shouldDecodeMsgpack(turns, source) {
+  if (Buffer.isBuffer(turns)) return true;
+  if (!source.diff_lines_msgpack) return false;
+  if (!Array.isArray(turns)) return true;
+  return turns.length === 0;
+}
+
+function decodeMsgpackTurns(turns, source) {
+  try {
+    const { unpack } = require('msgpackr');
+    const payload = Buffer.isBuffer(turns) ? turns : source.diff_lines_msgpack;
+    return unpack(payload);
+  } catch (_) {
+    return turns;
+  }
+}
+
+function resolveTurns(source) {
   let turns = source.turns || source.diffLines || source.diff_lines || [];
   if (typeof turns === 'string') {
-    try { turns = JSON.parse(turns); } catch (_) { turns = []; }
-  } else if (Buffer.isBuffer(turns) || (source.diff_lines_msgpack && (!Array.isArray(turns) || turns.length === 0))) {
-    try {
-      const { unpack } = require('msgpackr');
-      turns = unpack(Buffer.isBuffer(turns) ? turns : source.diff_lines_msgpack);
-    } catch (_) {}
+    turns = decodeStringTurns(turns);
+  } else if (shouldDecodeMsgpack(turns, source)) {
+    turns = decodeMsgpackTurns(turns, source);
   }
   if (!Array.isArray(turns) || turns.length === 0) {
     throw new Error('A persisted trajectory with recorded steps is required for counterfactual replay.');
   }
+  return turns;
+}
 
+function resolveStep(stepIndex, totalSteps) {
   const requestedStep = Number(stepIndex);
-  if (!Number.isInteger(requestedStep) || requestedStep < 1 || requestedStep > turns.length) {
-    throw new Error(`stepIndex must be an integer between 1 and ${turns.length}.`);
+  if (Number.isInteger(requestedStep) && requestedStep >= 1 && requestedStep <= totalSteps) {
+    return requestedStep;
   }
-  const step = requestedStep;
-  const alt = alterations || {};
-  const originalTimeline = {
+  throw new Error(`stepIndex must be an integer between 1 and ${totalSteps}.`);
+}
+
+function buildOriginalTimeline(source, turns, step) {
+  return {
     stepBranched: step,
     totalSteps: turns.length,
     steps: turns,
     finalStatus: source.status === 'FAILURE' ? 'FAILURE' : 'SUCCESS',
     sourceTrajectoryId: source.id || 'traj_default_simulation'
   };
+}
 
-  const branchIdx = step - 1;
-  const replacedStep = turns[branchIdx] || {};
-  const overrideStep = {
+function buildOverrideStep(replacedStep, step, alt) {
+  return {
     ...replacedStep,
     type: 'Counterfactual Override',
     classification: alt.classification || 'Breakthrough',
@@ -142,19 +187,42 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 1, alteration
     step: replacedStep.step || step,
     counterfactual: true
   };
+}
+
+function buildCounterfactualTimeline(step, alt, steps) {
+  return {
+    stepBranched: step,
+    alterationApplied: alt,
+    totalSteps: steps.length,
+    steps,
+    finalStatus: alt.error || alt.failed || alt.success === false ? 'FAILURE' : 'SUCCESS'
+  };
+}
+
+/**
+ * Builds a counterfactual branch description from a persisted trajectory
+ * @param {object} originalTrajectory
+ * @param {number} stepIndex
+ * @param {object} alterations
+ * @returns {object}
+ */
+function counterfactualReplay(originalTrajectory = {}, stepIndex = 1, alterations = {}) {
+  const source = resolveSource(originalTrajectory);
+  requirePersistedSource(source);
+  const turns = resolveTurns(source);
+  const step = resolveStep(stepIndex, turns.length);
+  const alt = alterations || {};
+  const originalTimeline = buildOriginalTimeline(source, turns, step);
+
+  const branchIdx = step - 1;
+  const replacedStep = turns[branchIdx] || {};
+  const overrideStep = buildOverrideStep(replacedStep, step, alt);
   const counterfactualSteps = [
     ...turns.slice(0, branchIdx),
     overrideStep,
     ...turns.slice(branchIdx + 1)
   ];
-
-  const counterfactualTimeline = {
-    stepBranched: step,
-    alterationApplied: alt,
-    totalSteps: counterfactualSteps.length,
-    steps: counterfactualSteps,
-    finalStatus: alt.error || alt.failed || alt.success === false ? 'FAILURE' : 'SUCCESS'
-  };
+  const counterfactualTimeline = buildCounterfactualTimeline(step, alt, counterfactualSteps);
 
   const replayFingerprint = crypto.createHash('sha256')
     .update(stableSerialize({ sourceTrajectoryId: source.id || 'traj_default_simulation', step, alterations: alt, steps: counterfactualSteps }))
@@ -175,130 +243,58 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 1, alteration
   };
 }
 
-const telemetry = require('./telemetryObserver');
-const { embed } = require('./embeddingProvider');
-const { textToVector } = require('./memoryScoring');
+const {
+  buildMissionTurns,
+  normalizeStatus,
+  buildIdentity,
+  normalizeConfidence,
+  buildSemanticContext,
+  computeEmbedding,
+  buildDiffLinesJson,
+  resolveWorkspaceId,
+  persistTrajectory,
+  persistTrajectoryFile,
+  emitTrajectoryEvent
+} = require('./trajectoryServiceHelpers');
+
 async function recordMissionTrajectory(db, options = {}) {
   if (!db) return null;
-  let turns = Array.isArray(options.turns) ? options.turns : (options.trajectory || []);
-  if (turns.length === 0) {
-    turns = [{
-      step: 1,
-      action: 'mission_execution',
-      classification: options.status === 'rejected' ? 'Dead-End' : 'Exploration',
-      detail: options.task || 'Autonomous execution step',
-      error: options.status === 'rejected' ? 'Mission execution failed or rejected' : null
-    }];
-  }
-  const status = ['pending', 'active', 'approved', 'rejected', 'failed', 'error', 'revising', 'completed', 'success'].includes(options.status) ? options.status : 'pending';
+  const turns = buildMissionTurns(options);
+  const status = normalizeStatus(options.status);
   const goldenPath = cherryPickGoldenPath(turns, status);
-  const trajId = options.id || `traj_${crypto.randomUUID()}`;
-  const agentId = options.agentId || options.authorName || 'GenOS Agent';
-  const task = options.task || options.mission || 'Autonomous Task';
+  const identity = buildIdentity(options);
   const report = options.report || {};
-  const requestedConfidence = Number(options.confidence);
-  const confidence = Number.isFinite(requestedConfidence) ? Math.max(0, Math.min(100, requestedConfidence)) : 0;
+  const confidence = normalizeConfidence(options.confidence);
+  const context = buildSemanticContext(options, status, goldenPath);
 
-  const claimStatements = Array.isArray(report.claims)
-    ? report.claims.map(c => c.statement || String(c)).join('; ')
-    : '';
-  const proofStatement = report.noAnswerProof?.method
-    ? `Impossibility Proof (${report.noAnswerProof.method})`
-    : '';
-  const title = (report.claims?.[0]?.statement || proofStatement || task || 'Autonomous Trajectory').slice(0, 100);
-  const semanticSummary = [
-    `Task: ${task}`,
-    `Outcome: ${report.outcome || status}`,
-    claimStatements ? `Claims: ${claimStatements}` : null,
-    proofStatement ? `Proof: ${proofStatement}` : null,
-    `Golden Path: ${goldenPath.goldenPathSteps.length} steps (${goldenPath.noiseReductionPercent}% noise reduction)`
-  ].filter(Boolean).join(' | ');
-
-  let vec = null;
-  try {
-    vec = await embed(`${title} ${semanticSummary}`);
-  } catch (_) {}
-  if (!vec || vec.length !== 768) {
-    vec = textToVector(`${title} ${semanticSummary}`);
-  }
-  const float32 = new Float32Array(vec);
+  const float32 = await computeEmbedding(`${context.title} ${context.semanticSummary}`);
   const buffer = Buffer.from(float32.buffer);
-
   const classifiedTurns = turns.map(classifyTurn);
-  const diffLinesJson = JSON.stringify(classifiedTurns.map(s => ({
-    step: s.step,
-    type: s.classification || s.type,
-    action: s.action,
-    detail: s.detail || s.cmd,
-    error: s.error || null,
-    pass: s.pass === true,
-    success: s.success === true
-  })));
+  const diffLinesJson = buildDiffLinesJson(classifiedTurns);
+  const workspaceId = await resolveWorkspaceId(db, options);
 
-  let workspaceId = String(options.workspaceId || '').trim();
-  if (!workspaceId) {
-    const defaultWs = await db.get('SELECT id FROM workspaces ORDER BY rowid ASC LIMIT 1');
-    workspaceId = defaultWs ? defaultWs.id : 'ws-genos-core';
-  }
-  let wsRow = await db.get('SELECT id FROM workspaces WHERE id = ?', workspaceId);
-  if (!wsRow) {
-    const anyWs = await db.get('SELECT id FROM workspaces ORDER BY rowid ASC LIMIT 1');
-    if (anyWs) {
-      workspaceId = anyWs.id;
-    } else {
-      await db.run('INSERT OR IGNORE INTO workspaces (id, name, path) VALUES (?, ?, ?)', workspaceId, 'Default Workspace', './');
-    }
-  }
-
-  await db.run(
-    `INSERT INTO trajectories (
-      id, workspace_id, author_id, author_name, title, status,
-      semantic_summary, diff_file, diff_lines, confidence, embedding_blob
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    trajId,
+  const data = {
+    trajId: identity.trajId,
+    agentId: identity.agentId,
+    authorId: options.authorId || identity.agentId,
     workspaceId,
-    options.authorId || agentId,
-    agentId,
-    title,
+    title: context.title,
     status,
-    semanticSummary,
-    options.diffFile || 'src/agent.ts',
+    semanticSummary: context.semanticSummary,
+    diffFile: options.diffFile || 'src/agent.ts',
     diffLinesJson,
     confidence,
-    buffer
-  );
+    buffer,
+    report,
+    classifiedTurns,
+    goldenPath
+  };
 
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    const trajDir = path.resolve('.genos/trajectories');
-    if (!fs.existsSync(trajDir)) fs.mkdirSync(trajDir, { recursive: true });
-    const trajFilePath = path.join(trajDir, `${agentId}.json`);
-    const trajPayload = {
-      id: trajId,
-      agent_id: agentId,
-      workspace_id: workspaceId,
-      title,
-      status,
-      semantic_summary: semanticSummary,
-      turns: classifiedTurns,
-      golden_path: goldenPath,
-      usage: options.usage || report.usage || {},
-      created_at: new Date().toISOString()
-    };
-    fs.writeFileSync(trajFilePath, JSON.stringify(trajPayload, null, 2), 'utf8');
-  } catch (_) {}
+  await persistTrajectory(db, data);
+  persistTrajectoryFile(data, options, report);
+  emitTrajectoryEvent(data);
 
-  telemetry.emitEvent({
-    eventType: 'TRAJECTORY_PERSISTED',
-    agentId: agentId,
-    action: 'RECORD_TRAJECTORY',
-    detail: `Trajectory ${trajId} recorded: ${goldenPath.goldenPathSteps.length} golden steps (${goldenPath.noiseReductionPercent}% pruned).`,
-    severity: 'info',
-    payload: { trajectoryId: trajId, goldenPath, title, status }
-  });
-
-  return { trajectoryId: trajId, goldenPath, title, status, success: true };
+  return { trajectoryId: data.trajId, goldenPath, title: data.title, status, success: true };
 }
 
 module.exports = {
