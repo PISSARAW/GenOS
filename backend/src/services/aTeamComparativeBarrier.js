@@ -40,6 +40,22 @@ function mergeDecision(arbitration) {
   return scored > 0 && front.length > 0 && Boolean(arbitration?.kneePoint);
 }
 
+// Observable facts for every A-Team fusion, as promised by the docs.
+function buildAteamMetrics({ aTeam, workers, observation, arbitration, canMerge }) {
+  const members = Array.isArray(aTeam.members) ? aTeam.members : [];
+  const coverage = aTeam.capabilityCoverage;
+  return {
+    analysisFit: coverage ? Number(coverage.ratio) : (aTeam.recommended === true ? 1 : 0),
+    memberActivationOrder: members.map((member) => member.label || member.subSystem || member.role).filter(Boolean),
+    memberCount: (Array.isArray(workers) ? workers : members).length,
+    fusionDecision: canMerge ? 'merged' : 'escalated',
+    integrationConstraintViolations: observation.failures.length + observation.integrationFailures.length,
+    continuationRounds: Number(aTeam.continuationRounds) || 0,
+    paretoFrontCount: Number(arbitration.paretoFrontCount || 0),
+    totalEvaluated: Number(arbitration.totalEvaluated || 0)
+  };
+}
+
 async function applyAteamIntegration(ctx) {
   const aTeam = ctx && ctx.autonomyPlan ? ctx.autonomyPlan.aTeam : null;
   if (!aTeam || aTeam.activated !== true) return null;
@@ -66,7 +82,9 @@ async function applyAteamIntegration(ctx) {
     ? `A-Team integration arbitrated; knee-point candidate '${leader?.candidateId || leader?.name || 'unknown'}' leads the Pareto front.`
     : (blocking ? `A-Team integration blocked (${blocking.code}): ${blocking.message}` : 'A-Team integration arbitrated but no scored candidate could be promoted.');
   emit(ctx.agentId, 'A_TEAM_INTEGRATION_ARBITRATED', 'ARBITRATE_INTEGRATION', detail, aTeam.integration, canMerge ? 'info' : 'warning');
+  aTeam.metrics = buildAteamMetrics({ aTeam, workers: ctx.workers || [], observation, arbitration, canMerge });
+  emit(ctx.agentId, 'A_TEAM_METRICS', 'OBSERVE', `A-Team fusion=${aTeam.metrics.fusionDecision}, violations=${aTeam.metrics.integrationConstraintViolations}.`, aTeam.metrics, 'info');
   return arbitration;
 }
 
-module.exports = { applyAteamIntegration, buildDossiers, mergeDecision };
+module.exports = { applyAteamIntegration, buildDossiers, mergeDecision, buildAteamMetrics };
