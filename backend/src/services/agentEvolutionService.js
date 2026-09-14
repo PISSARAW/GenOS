@@ -20,37 +20,69 @@ function resolveArchetypeGenes(role = 'worker') {
   return { role, strategy: 'tree-search', tools: ['genos_inspect', 'genos_patch', 'genos_test'], temp: 0.45, topP: 0.9 };
 }
 
-function evolveWorkerGenome(parentAgent, assignment, options = {}) {
-  const inheritedGenes = parentAgent?.genes && typeof parentAgent.genes === 'object' ? parentAgent.genes : {};
-  const parentA = {
-    id: parentAgent?.id || 'root-orchestrator',
-    name: parentAgent?.name || 'Orchestrator',
+function valueOf(source, key) {
+  if (!source) return undefined;
+  return source[key];
+}
+
+function fallback(value, replacement) {
+  if (value) return value;
+  return replacement;
+}
+
+function getGenes(source) {
+  const genes = valueOf(source, 'genes');
+  if (genes && typeof genes === 'object') return genes;
+  return {};
+}
+
+function orchestratorTools() {
+  return ['genos_snapshot', 'genos_capsule_create', 'genos_orchestrate'];
+}
+
+function validTools(candidate) {
+  if (Array.isArray(candidate) && candidate.length) return candidate;
+  return orchestratorTools();
+}
+
+function buildParentA(parentAgent, options) {
+  const inheritedGenes = getGenes(parentAgent);
+  const role = fallback(inheritedGenes.role, fallback(valueOf(parentAgent, 'role'), 'orchestrator'));
+  const strategy = fallback(options.strategy, fallback(inheritedGenes.strategy, 'chain-of-thought'));
+  const tools = validTools(inheritedGenes.tools);
+  return {
+    id: fallback(valueOf(parentAgent, 'id'), 'root-orchestrator'),
+    name: fallback(valueOf(parentAgent, 'name'), 'Orchestrator'),
     genes: {
-      role: parentAgent?.role || 'orchestrator',
-      strategy: options.strategy || inheritedGenes.strategy || 'chain-of-thought',
-      tools: ['genos_snapshot', 'genos_capsule_create', 'genos_orchestrate'],
+      role,
+      strategy,
+      tools: orchestratorTools(),
       temp: 0.4,
       topP: 0.9,
       ...inheritedGenes,
-      role: inheritedGenes.role || parentAgent?.role || 'orchestrator',
-      strategy: options.strategy || inheritedGenes.strategy || 'chain-of-thought',
-      tools: Array.isArray(inheritedGenes.tools) && inheritedGenes.tools.length
-        ? inheritedGenes.tools
-        : ['genos_snapshot', 'genos_capsule_create', 'genos_orchestrate']
+      role,
+      strategy,
+      tools
     }
   };
+}
 
-  const parentB = {
-    id: `archetype-${assignment?.role || 'specialist'}`,
-    name: `Archetype ${assignment?.role || 'Specialist'}`,
-    genes: resolveArchetypeGenes(assignment?.role)
+function buildParentB(assignment) {
+  const role = valueOf(assignment, 'role');
+  return {
+    id: `archetype-${fallback(role, 'specialist')}`,
+    name: `Archetype ${fallback(role, 'Specialist')}`,
+    genes: resolveArchetypeGenes(role)
   };
+}
 
+function evolveWorkerGenome(parentAgent, assignment, options = {}) {
+  const parentA = buildParentA(parentAgent, options);
+  const parentB = buildParentB(assignment);
   const crossover = genetics.crossoverGenome(parentA, parentB, {
-    strategy: options.crossoverStrategy || 'uniform',
+    strategy: fallback(options.crossoverStrategy, 'uniform'),
     mutationRate: options.mutationRate === undefined ? 0.08 : options.mutationRate
   });
-
   return {
     crossoverId: crossover.childId,
     genes: crossover.childGenes,
@@ -60,58 +92,108 @@ function evolveWorkerGenome(parentAgent, assignment, options = {}) {
   };
 }
 
-async function recordWorkerLineage(db, workerInfo, options = {}) {
-  if (!db || !workerInfo?.agentId) return { success: false, error: 'Database and agentId are required.' };
-  const workspaceId = workerInfo.workspaceId;
-  if (!workspaceId) return { success: false, error: 'workspaceId is required for lineage persistence.' };
-  const parentIds = [...new Set(options.parentIds || (options.parentId ? [options.parentId] : []))].filter(Boolean);
-  for (const parentId of parentIds) {
-    if (parentId === workerInfo.agentId) return { success: false, error: 'A lineage node cannot be its own parent.' };
-    let parent = await db.get('SELECT id, workspace_id FROM lineage_nodes WHERE id = ?', parentId);
-    if (!parent) {
-      const agentParent = await db.get('SELECT id, name, role, workspace_id, execution_mode FROM agents WHERE id = ?', parentId);
-      if (agentParent) {
-        if (!agentParent.workspace_id) {
-          return { success: false, error: `Lineage parent '${parentId}' has no workspace assignment.` };
-        }
-        const parentWorkspaceId = agentParent.workspace_id;
-        await db.run(
-          `INSERT INTO lineage_nodes (id, workspace_id, agent_id, label, node_type, state_summary)
-           VALUES (?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO NOTHING`,
-          agentParent.id,
-          parentWorkspaceId,
-          agentParent.id,
-          agentParent.name || agentParent.id,
-          agentParent.execution_mode === 'orchestrator' ? 'core' : 'agent',
-          `Auto-provisioned parent: ${agentParent.role || 'agent'}`
-        );
-        parent = { id: agentParent.id, workspace_id: parentWorkspaceId };
-      }
-    }
-    if (!parent) return { success: false, error: `Lineage parent '${parentId}' does not exist.` };
-    if (parent.workspace_id !== workspaceId) {
-      return { success: false, error: `Lineage parent '${parentId}' belongs to another workspace.` };
-    }
-    const cycle = await db.get(`WITH RECURSIVE ancestors(id) AS (
-      SELECT source_node_id FROM lineage_edges WHERE target_node_id = ?
-      UNION
-      SELECT e.source_node_id FROM lineage_edges e JOIN ancestors a ON e.target_node_id = a.id
-    ) SELECT id FROM ancestors WHERE id = ? LIMIT 1`, parentId, workerInfo.agentId);
-    if (cycle) return { success: false, error: `Lineage cycle detected through parent '${parentId}'.` };
-  }
-  const metadata = JSON.stringify({
+function collectParentIds(options) {
+  const raw = options.parentIds || (options.parentId ? [options.parentId] : []);
+  return [...new Set(raw)].filter(Boolean);
+}
+
+function toFiniteNumber(value) {
+  const num = Number(value);
+  if (Number.isFinite(num)) return num;
+  return null;
+}
+
+function resolveFitnessStatus(value) {
+  if (Number.isFinite(Number(value))) return 'validated';
+  return 'unvalidated';
+}
+
+function toValidatedScore(value) {
+  if (!Number.isFinite(Number(value))) return null;
+  return Number((Number(value) / 100).toFixed(2));
+}
+
+function buildLineageMetadata(options) {
+  return JSON.stringify({
     genes: options.genes || {},
     parents: options.parents || {},
     mutations: options.mutations || [],
     reproduction: options.reproduction || null,
-    predictedFitness: Number.isFinite(Number(options.predictedFitness)) ? Number(options.predictedFitness) : null,
-    fitnessStatus: Number.isFinite(Number(options.validatedFitness)) ? 'validated' : 'unvalidated'
+    predictedFitness: toFiniteNumber(options.predictedFitness),
+    fitnessStatus: resolveFitnessStatus(options.validatedFitness)
   });
-  const validatedScore = Number.isFinite(Number(options.validatedFitness))
-    ? Number((Number(options.validatedFitness) / 100).toFixed(2))
-    : null;
+}
 
+async function provisionLineageParent(db, parentId) {
+  const agentParent = await db.get('SELECT id, name, role, workspace_id, execution_mode FROM agents WHERE id = ?', parentId);
+  if (!agentParent) return { parent: null };
+  if (!agentParent.workspace_id) return { error: `Lineage parent '${parentId}' has no workspace assignment.` };
+  const parentWorkspaceId = agentParent.workspace_id;
+  await db.run(
+    `INSERT INTO lineage_nodes (id, workspace_id, agent_id, label, node_type, state_summary)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO NOTHING`,
+    agentParent.id,
+    parentWorkspaceId,
+    agentParent.id,
+    agentParent.name || agentParent.id,
+    agentParent.execution_mode === 'orchestrator' ? 'core' : 'agent',
+    `Auto-provisioned parent: ${agentParent.role || 'agent'}`
+  );
+  return { parent: { id: agentParent.id, workspace_id: parentWorkspaceId } };
+}
+
+async function validateLineageParent(db, parentId, workerInfo) {
+  if (parentId === workerInfo.agentId) {
+    return { success: false, error: 'A lineage node cannot be its own parent.' };
+  }
+  let parent = await db.get('SELECT id, workspace_id FROM lineage_nodes WHERE id = ?', parentId);
+  if (!parent) {
+    const provisioned = await provisionLineageParent(db, parentId);
+    if (provisioned.error) return { success: false, error: provisioned.error };
+    parent = provisioned.parent;
+  }
+  if (!parent) return { success: false, error: `Lineage parent '${parentId}' does not exist.` };
+  if (parent.workspace_id !== workerInfo.workspaceId) {
+    return { success: false, error: `Lineage parent '${parentId}' belongs to another workspace.` };
+  }
+  const cycle = await db.get(`WITH RECURSIVE ancestors(id) AS (
+    SELECT source_node_id FROM lineage_edges WHERE target_node_id = ?
+    UNION
+    SELECT e.source_node_id FROM lineage_edges e JOIN ancestors a ON e.target_node_id = a.id
+  ) SELECT id FROM ancestors WHERE id = ? LIMIT 1`, parentId, workerInfo.agentId);
+  if (cycle) return { success: false, error: `Lineage cycle detected through parent '${parentId}'.` };
+  return { success: true };
+}
+
+async function insertLineageEdges(db, params) {
+  const edgeType = params.edgeType || 'crossover_lineage';
+  for (const parentId of params.parentIds) {
+    const edgeId = `edge_${parentId}_${params.agentId}`;
+    await db.run(
+      `INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO NOTHING`,
+      edgeId,
+      params.workspaceId,
+      parentId,
+      params.agentId,
+      edgeType
+    );
+  }
+}
+
+async function recordWorkerLineage(db, workerInfo, options = {}) {
+  if (!db || !workerInfo?.agentId) return { success: false, error: 'Database and agentId are required.' };
+  const workspaceId = workerInfo.workspaceId;
+  if (!workspaceId) return { success: false, error: 'workspaceId is required for lineage persistence.' };
+  const parentIds = collectParentIds(options);
+  for (const parentId of parentIds) {
+    const check = await validateLineageParent(db, parentId, workerInfo);
+    if (!check.success) return { success: false, error: check.error };
+  }
+  const metadata = buildLineageMetadata(options);
+  const validatedScore = toValidatedScore(options.validatedFitness);
   try {
     await db.run(
       `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, state_summary, metadata)
@@ -124,21 +206,12 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
       `Evolved worker: ${workerInfo.role || 'specialist'}`,
       metadata
     );
-
-    const edgeType = options.edgeType || 'crossover_lineage';
-    for (const parentId of parentIds) {
-      const edgeId = `edge_${parentId}_${workerInfo.agentId}`;
-      await db.run(
-        `INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO NOTHING`,
-        edgeId,
-        workspaceId,
-        parentId,
-        workerInfo.agentId,
-        edgeType
-      );
-    }
+    await insertLineageEdges(db, {
+      workspaceId,
+      parentIds,
+      agentId: workerInfo.agentId,
+      edgeType: options.edgeType
+    });
     return { success: true };
   } catch (err) {
     console.error('Failed to record worker lineage:', err.message);
@@ -146,7 +219,8 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
   }
 }
 
-async function recordGenomicOutcome(agentId, outcome, score = 0, scope = {}) {
+async function recordGenomicOutcome(options = {}) {
+  const { agentId, outcome, score = 0, scope = {} } = options;
   const db = await getDatabase();
   try {
     const result = scope.organizationId && scope.projectId
