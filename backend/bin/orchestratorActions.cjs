@@ -212,7 +212,7 @@ async function handleBiological({ db, context }) {
   const selectedMembers = garage.available < members.length ? members.slice(0, garage.available) : members;
   const accepted = selectedMembers.map((member, index) => launchWorker({ context, member, index: index + 1, parent }));
   const scaledWarning = selectedMembers.length < members.length ? { warning: `${mode} scaled to ${selectedMembers.length} available slots (${garage.available}/${garage.capacity}).` } : {};
-  const topology = composition ? { organization: composition.organization, capabilityContract: composition.capabilityContract } : {};
+  const topology = composition ? { organization: composition.organization, capabilityContract: composition.capabilityContract, ...(composition.sessionId ? { sessionId: composition.sessionId } : {}) } : {};
   process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, biologicalMode: {
     status: 'accepted', mode, mission, capacity: workerGarage.MAX_ACTIVE_WORKERS,
     mechanisms: members[0]?.mechanisms || [], ...topology, members: accepted, ...scaledWarning } }));
