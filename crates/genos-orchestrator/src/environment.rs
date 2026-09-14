@@ -229,6 +229,16 @@ impl GenosEcosystem {
                 path: out_path.to_string(),
                 content: spec.content.clone(),
             };
+            // Métabolisme réel : agir coûte de l'ATP.
+            if !self.orchestrator.metabolism.consume(1.0) {
+                return EmbodiedReport {
+                    iterations,
+                    actions,
+                    rewards,
+                    success: false,
+                    reason: "famine : ATP insuffisant pour agir".to_string(),
+                };
+            }
             let feedback = env.act(action.clone());
             actions.push(action);
             let reward = if feedback.success { 1.0 } else { 0.0 };

@@ -64,6 +64,14 @@ impl GenosEcosystem {
 
         let mut sim = state.clone();
         for step in &decision.steps {
+            // Métabolisme réel : chaque concept consomme de l'ATP.
+            if !self.orchestrator.metabolism.consume(step.concept.cost()) {
+                self.record_event(
+                    "STARVATION",
+                    json!({ "concept": format!("{:?}", step.concept) }),
+                );
+                break;
+            }
             let before = sim.progress(goal);
             sim.apply(step.concept);
             let after = sim.progress(goal);
