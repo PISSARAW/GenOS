@@ -3,19 +3,57 @@
 /**
  * @file syncytiumCoordinationService.js
  * @description Syncytium coordination: a live CRDT shared state plus a
- * cytoplasm whose ionic fluxes drive the collective membrane potential. It
- * exposes session creation, operation application and a consistency verdict
- * so the Syncytium topology is more than role names.
+ * cytoplasm whose ionic fluxes drive the collective membrane potential.
+ * Sessions are persisted so workers (separate processes) can apply operations.
  */
 const syncytiumService = require('./syncytiumService');
 const { createSyncytiumCrdt } = require('./syncytiumCrdtService');
 const { createCytoplasm } = require('./syncytiumCytoplasmService');
 const topologyCapabilityService = require('./topologyCapabilityService');
+const store = require('./topologySessionStore');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
 
-function createSession(mission, options = {}) {
+function serialize(session) {
+  return {
+    mission: session.mission,
+    recommended: session.recommended,
+    members: session.members,
+    organization: session.organization,
+    ops: session.crdt.getHistory(),
+    fluxOps: session.fluxOps
+  };
+}
+
+function rehydrate(record) {
+  const state = record.state || {};
+  const organization = state.organization || DEFAULT_ORGANIZATION;
+  const session = {
+    sessionId: record.id,
+    mission: state.mission || '',
+    recommended: state.recommended === true,
+    members: Array.isArray(state.members) ? state.members : [],
+    organization,
+    capabilityContract: topologyCapabilityService.contractFor({ mode: 'syncytium', organization }),
+    crdt: createSyncytiumCrdt(),
+    cytoplasm: createCytoplasm(),
+    fluxOps: []
+  };
+  for (const op of state.ops || []) session.crdt.applyOp(op);
+  for (const flux of state.fluxOps || []) {
+    session.cytoplasm.propagateIonicFlux(flux.ion, Number(flux.deltaFlux) || 0, flux.agentId);
+    session.fluxOps.push(flux);
+  }
+  return session;
+}
+
+async function persist(db, session) {
+  if (!db) return;
+  await store.save(db, { id: session.sessionId, topology: 'syncytium', state: serialize(session) }).catch(() => {});
+}
+
+async function createSession(mission, options = {}) {
   const sessionId = `syncytium-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const organization = options.organization || DEFAULT_ORGANIZATION;
   const session = {
@@ -26,30 +64,26 @@ function createSession(mission, options = {}) {
     organization,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'syncytium', organization }),
     crdt: createSyncytiumCrdt(),
-    cytoplasm: createCytoplasm()
+    cytoplasm: createCytoplasm(),
+    fluxOps: []
   };
   sessions.set(sessionId, session);
+  await persist(options.db, session);
   return session;
 }
 
-function getSession(sessionId) {
-  const session = sessions.get(sessionId);
-  if (!session) throw Object.assign(new Error(`Unknown syncytium session '${sessionId}'.`), { code: 'SYNCYTIUM_SESSION_UNKNOWN' });
+async function getSession(sessionId, db) {
+  if (sessions.has(sessionId)) return sessions.get(sessionId);
+  if (!db) throw Object.assign(new Error(`Unknown syncytium session '${sessionId}'.`), { code: 'SYNCYTIUM_SESSION_UNKNOWN' });
+  const record = await store.load(db, sessionId);
+  if (!record || record.topology !== 'syncytium') throw Object.assign(new Error(`Unknown syncytium session '${sessionId}'.`), { code: 'SYNCYTIUM_SESSION_UNKNOWN' });
+  const session = rehydrate(record);
+  sessions.set(sessionId, session);
   return session;
 }
 
 function isIonicFlux(op) {
   return Boolean(op && op.kind && typeof op.kind.type === 'string' && op.kind.type.startsWith('flux_'));
-}
-
-function applyOperation(sessionId, op) {
-  const session = getSession(sessionId);
-  if (isIonicFlux(op)) {
-    const ion = op.kind.type.slice('flux_'.length);
-    return { sessionId, ion: session.cytoplasm.propagateIonicFlux(ion, Number(op.kind.deltaFlux) || 0, op.agentId), consistency: assessConsistency(session) };
-  }
-  session.crdt.applyOp(op);
-  return { sessionId, snapshot: session.crdt.getSnapshot(), consistency: assessConsistency(session) };
 }
 
 function assessConsistency(session) {
@@ -67,13 +101,30 @@ function assessConsistency(session) {
   };
 }
 
-function snapshot(sessionId) {
-  const session = getSession(sessionId);
+async function applyOperation(sessionId, op, options = {}) {
+  const session = await getSession(sessionId, options.db);
+  if (isIonicFlux(op)) {
+    const flux = { ion: op.kind.type.slice('flux_'.length), deltaFlux: Number(op.kind.deltaFlux) || 0, agentId: op.agentId };
+    session.fluxOps.push(flux);
+    const result = { sessionId, ion: session.cytoplasm.propagateIonicFlux(flux.ion, flux.deltaFlux, flux.agentId), consistency: assessConsistency(session) };
+    await persist(options.db, session);
+    return result;
+  }
+  session.crdt.applyOp(op);
+  const result = { sessionId, snapshot: session.crdt.getSnapshot(), consistency: assessConsistency(session) };
+  await persist(options.db, session);
+  return result;
+}
+
+async function snapshot(sessionId, options = {}) {
+  const session = await getSession(sessionId, options.db);
   return { sessionId, shared: session.crdt.getSnapshot(), cytoplasm: session.cytoplasm.snapshotState(), consistency: assessConsistency(session) };
 }
 
-function closeSession(sessionId) {
-  return sessions.delete(sessionId);
+async function closeSession(sessionId, options = {}) {
+  const existed = sessions.delete(sessionId);
+  if (options.db) await store.remove(options.db, sessionId).catch(() => {});
+  return true;
 }
 
-module.exports = { createSession, applyOperation, snapshot, assessConsistency, closeSession, isIonicFlux };
+module.exports = { createSession, applyOperation, snapshot, assessConsistency, closeSession, isIonicFlux, rehydrate };
