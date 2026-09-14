@@ -17,6 +17,8 @@ Le cœur fonctionnel est réparti entre :
 - [backend/src/services/aTeamCoordinationService.js](../backend/src/services/aTeamCoordinationService.js) : coordination (organisation, contrat de capacités, handoffs ligand).
 - [backend/src/services/aTeamComparativeBarrier.js](../backend/src/services/aTeamComparativeBarrier.js) : arbitrage d'intégration (Pareto/Elo), `canMerge` et métriques.
 - [backend/src/services/aTeamIntegrationObserver.js](../backend/src/services/aTeamIntegrationObserver.js) : observateur impartial (contamination, contraintes d'intégration).
+- [backend/src/services/aTeamStageScheduler.js](../backend/src/services/aTeamStageScheduler.js) : ordonnancement bloquant des étages (plan déterministe, attente des dépendances).
+- [backend/src/services/aTeamDispatchService.js](../backend/src/services/aTeamDispatchService.js) : lancement de l'étage 0 et détachement du runner d'étages.
 - [backend/src/services/agentAutonomyPlanService.js](../backend/src/services/agentAutonomyPlanService.js) : activation conditionnelle de l'A-Team selon le budget et la recommandation d'analyse.
 - [backend/src/services/agentFleetService.js](../backend/src/services/agentFleetService.js) : création des workers multidisciplinaires avec prompts contextualisés.
 - [backend/src/services/agentOrchestrationState.js](../backend/src/services/agentOrchestrationState.js) : état partagé, barrières d'évidence, continuations.
@@ -816,10 +818,16 @@ Depuis la v3, cette topologie est cablee au runtime : voir
   `dependencies`. `buildHandoffs` produit alors des signaux ligand
   récepteur-compatibles (`ligand`, `concentration`, `receptor`), évaluables par
   `evaluateHandoff`.
-- **Étages** : `planStages`/`orderByStage` ordonnent les producteurs avant
-  l'observateur. `dispatch_team` lance dans cet ordre, expose `stages` et transmet
-  `depends_on`/`pipeline_stage`; `dependencyPrompt` injecte les domaines amont à
-  consommer avant finalisation.
+- **Étages (bloquant)** : `planStages`/`orderByStage` ordonnent les producteurs
+  avant l'observateur. `dispatch_team` lance immédiatement l'étage 0, puis
+  détache `genos-ateam-stage-runner.cjs` (`aTeamStageScheduler.runStagePlan`) qui
+  attend que chaque worker d'un étage inférieur atteigne un état terminal avant
+  de lancer les membres dépendants. Les identifiants de worker sont déterministes
+  (`worker_<orchestrator>_<planId>_<index>`), ce qui rend les dépendances
+  résolvables entre le lanceur et le runner. Un garde-fou de timeout évite le
+  blocage si une dépendance n'atteint jamais un état terminal. `depends_on` et
+  `pipeline_stage` sont transmis, et `dependencyPrompt` injecte les domaines amont
+  à consommer avant finalisation.
 - **Organisation** : `selectOrganization` choisit la topologie de communication
   (comité par défaut, red/blue coevolution, blind review, quorum, stigmergie,
   arène, compilation mémoire) à partir de signaux forts ou d'un override
