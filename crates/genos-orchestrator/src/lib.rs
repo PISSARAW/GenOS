@@ -5,6 +5,7 @@ pub mod ecosystem;
 pub mod genome_ops;
 pub mod immune_cyber;
 pub mod neuro;
+pub mod observer;
 pub mod orchestrator;
 pub mod organization;
 pub mod phylogeny;
@@ -16,6 +17,7 @@ pub mod snapshots;
 pub mod token_bucket;
 pub mod virology;
 pub mod sensorimotor;
+pub mod worlds;
 
 #[cfg(feature = "api")]
 pub mod thalamus;
@@ -25,6 +27,7 @@ pub use director::{Decision, Director, Step, Strategy};
 pub use ecosystem::GenosEcosystem;
 pub use orchestrator::BiomimeticOrchestrator;
 pub use organization::{Organization, Superorganism, catalog, select_organization, select_superorganism};
+pub use worlds::{Hypothesis, Multiverse, WorldOutcome};
 pub use planner::{Concept, Goal, WorldState};
 pub use recruitment::{Candidate, Demand, RecruitmentDecision, RecruitmentPlanner, Selection};
 pub use token_bucket::{AgentComputeBucket, BucketState, PenaltyReport, RewardReport, SchedulingDecision, TokenBucketScheduler};

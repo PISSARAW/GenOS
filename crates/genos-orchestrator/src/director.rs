@@ -140,6 +140,15 @@ impl Director {
         }
     }
 
+    /// Planifie explicitement selon une stratégie donnée (utilisé par les mondes).
+    pub fn plan_strategy(&self, strategy: Strategy, state: &WorldState, goal: &Goal) -> Vec<Step> {
+        let applicable: Vec<Concept> = Concept::all()
+            .into_iter()
+            .filter(|c| state.applicable(*c) && state.budget >= c.cost())
+            .collect();
+        self.plan_for(strategy, state, goal, &applicable)
+    }
+
     /// Construit un plan pour une stratégie donnée, en simulant l'état.
     fn plan_for(
         &self,
