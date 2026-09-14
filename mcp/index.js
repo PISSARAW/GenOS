@@ -2,26 +2,28 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { filterLeasedTools, toolIsLeased } from "./lease.js";
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
+import { filterLeasedTools, toolIsLeased } from "./lease.js";
 import { createToolCallHandler } from "./toolCallHandler.js";
 import { executeNodeFallback } from "./nodeCliFallback.js";
+import { resolveRepoRoot } from "./repoRoot.js";
+import { loadToolCatalog } from "./catalog.js";
+import { loadToolSchemaResolver } from "./contract.js";
+import { loadStrategyBridge } from "./strategyBridge.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "..");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const strategyTools = require("../backend/src/services/mcpStrategyTools");
-const { getToolInputSchema } = require("../backend/src/services/mcpContract");
-const { terminateChild, clearTerminationTimer } = require("../backend/src/services/processTermination");
+const repoRoot = resolveRepoRoot();
+const workingDir = repoRoot || process.cwd();
 
-const sharedToolsPath = path.resolve(repoRoot, "shared/toolDefinitions.json");
-const sharedTools = JSON.parse(fs.readFileSync(sharedToolsPath, "utf8")).tools;
-const ALL_TOOLS = sharedTools.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }));
+const { terminateChild, clearTerminationTimer } = require("./processTermination.cjs");
+const strategyTools = loadStrategyBridge(repoRoot);
+const ALL_TOOLS = loadToolCatalog(repoRoot);
+const getToolInputSchema = loadToolSchemaResolver(repoRoot);
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30000;
 const MAX_OUTPUT_BYTES = 1024 * 1024;
@@ -47,8 +49,8 @@ function resolveGenosBin() {
   const isWin = process.platform === "win32";
   const binaryName = isWin ? "genos.exe" : "genos";
   const searchPaths = [
-    path.join(repoRoot, "target/debug", binaryName),
-    path.join(repoRoot, "target/release", binaryName),
+    path.join(workingDir, "target/debug", binaryName),
+    path.join(workingDir, "target/release", binaryName),
     path.join(process.cwd(), "target/debug", binaryName),
   ];
   for (const p of searchPaths) {
@@ -61,7 +63,7 @@ function resolveGenosBin() {
   return null;
 }
 
-function runExecutable({ cmd, args, cwd, timeoutMs = toolTimeoutMs() }) {
+function runExecutable({ cmd, args, cwd = workingDir, timeoutMs = toolTimeoutMs() }) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, shell: false, detached: process.platform !== "win32" });
     let out = "";
@@ -97,31 +99,41 @@ async function runGenosCli(args, toolArgs = {}) {
   const genosBin = resolveGenosBin();
   if (genosBin) {
     try {
-      return await runExecutable({ cmd: genosBin, args, cwd: repoRoot });
+      return await runExecutable({ cmd: genosBin, args, cwd: workingDir });
     } catch (binErr) {
       console.error(`[GENOS_FALLBACK] Binary execution failed (${binErr.message}); falling back to Node bridge.`);
     }
   }
   const cargoPath = process.platform === "win32" ? "cargo.exe" : "cargo";
-  const manifest = path.join(repoRoot, "Cargo.toml");
+  const manifest = path.join(workingDir, "Cargo.toml");
   if (fs.existsSync(manifest)) {
     try {
       return await runExecutable({
         cmd: cargoPath,
         args: ["run", "-q", "--manifest-path", manifest, "-p", "genos-cli", "--", ...args],
-        cwd: repoRoot
+        cwd: workingDir
       });
     } catch (_) {}
   }
   return executeNodeFallback(args, toolArgs);
 }
 
+function resolveOrchestratorBridge() {
+  const override = process.env.GENOS_ORCHESTRATOR_BRIDGE;
+  if (override && !override.toLowerCase().includes('program files')) return override;
+  const candidates = [
+    repoRoot ? path.join(repoRoot, "backend", "bin", "genos-orchestrate.cjs") : null,
+    path.join(__dirname, "..", "backend", "bin", "genos-orchestrate.cjs")
+  ];
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || null;
+}
+
 async function runOrchestrator(payload) {
-  const localBridge = path.join(repoRoot, "backend/bin/genos-orchestrate.cjs");
-  const bridge = (process.env.GENOS_ORCHESTRATOR_BRIDGE && !process.env.GENOS_ORCHESTRATOR_BRIDGE.toLowerCase().includes('program files'))
-    ? process.env.GENOS_ORCHESTRATOR_BRIDGE
-    : localBridge;
-  return runExecutable({ cmd: process.execPath, args: [bridge, JSON.stringify(payload)], cwd: repoRoot });
+  const bridge = resolveOrchestratorBridge();
+  if (!bridge) {
+    throw new Error("GenOS orchestrator bridge not found. Set GENOS_ORCHESTRATOR_BRIDGE or install the GenOS repository.");
+  }
+  return runExecutable({ cmd: process.execPath, args: [bridge, JSON.stringify(payload)], cwd: workingDir });
 }
 
 for (const tool of ALL_TOOLS) tool.inputSchema = getToolInputSchema(tool.name, tool.inputSchema);

@@ -1,7 +1,7 @@
 ﻿const fs = require('fs');
 const { spawn } = require('child_process');
 const path = require('path');
-const { terminateChild } = require('../backend/src/services/processTermination');
+const { terminateChild } = require('./processTermination.cjs');
 const tracePath = process.env.GENOS_MCP_TRACE_LOG;
 const log = tracePath
 	? fs.createWriteStream(path.resolve(tracePath), { flags: 'a', mode: 0o600 })

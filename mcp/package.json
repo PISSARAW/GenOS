@@ -1,8 +1,8 @@
 ﻿{
   "name": "genos-mcp",
   "version": "3.0.0",
-  "description": "GenOS stdio MCP server: leases, argument validation and dispatch to the GenOS backend/CLI.",
-  "private": true,
+  "description": "GenOS stdio MCP server: leased tools, argument validation and dispatch to the GenOS backend/CLI.",
+  "license": "Apache-2.0",
   "main": "index.js",
   "type": "module",
   "bin": {
@@ -14,14 +14,38 @@
     "toolCallHandler.js",
     "nodeCliFallback.js",
     "wrapper.cjs",
-    "wrapper.bat"
+    "wrapper.bat",
+    "repoRoot.js",
+    "catalog.js",
+    "contract.js",
+    "contractSchemas.cjs",
+    "strategyBridge.js",
+    "processTermination.cjs",
+    "toolDefinitions.json"
   ],
+  "keywords": [
+    "genos",
+    "mcp",
+    "model-context-protocol",
+    "agents",
+    "orchestration"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PISSARAW/GenOS.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://github.com/PISSARAW/GenOS#readme",
+  "bugs": {
+    "url": "https://github.com/PISSARAW/GenOS/issues"
+  },
   "engines": {
     "node": ">=20.19.0"
   },
   "scripts": {
     "start": "node index.js",
-    "test": "node test_lease.js && node test_identity_lease.js"
+    "test": "node test_lease.js && node test_identity_lease.js && node test_contract_parity.mjs",
+    "test:smoke": "node test_smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0"
