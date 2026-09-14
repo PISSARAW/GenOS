@@ -1,4 +1,5 @@
 use genos_orchestrator::dna_ops;
+use genos_orchestrator::genome_ops;
 use genos_orchestrator::genos_biology::glial::glial_cell::Metabolism;
 use genos_orchestrator::genos_biology::neurobiology::Neurotransmitter;
 use genos_orchestrator::genos_biology::therapy::SystemicTherapy;
@@ -273,6 +274,57 @@ fn ecosystem_exposes_store_and_reproduction_complements() {
     assert!(eco.budding(&genome, 0.3).is_ok());
     assert!(!eco.schizogony(&genome, 4).unwrap().is_empty());
 }
+
+#[test]
+fn ecosystem_exposes_genome_ops_snapshots_and_sensorimotor_bridge() {
+    // Génome : clonage, empreinte, édition.
+    let mut genome = Genome::new("BASE");
+    genome_ops::insert_gene(&mut genome, Gene::new("LOCUS_A", "PROMPT"));
+    let child = genome_ops::derive_child(&genome);
+    assert_ne!(child.genome_id(), genome.genome_id());
+    let fingerprint = genome_ops::fingerprint(&genome).unwrap();
+    assert!(genome_ops::verify_fingerprint(&genome, &fingerprint));
+    assert!(!genome_ops::content_hash(&genome).is_empty());
+    assert!(genome_ops::duplicate_gene(&mut genome, "LOCUS_A").is_ok());
+    assert!(!genome_ops::knockout(&mut genome, "MISSING_LOCUS"));
+    let strand = genome_ops::to_dna_strand(&genome);
+    assert!(genome_ops::from_dna_strand(&strand).is_ok());
+
+    // Snapshots : coffre ouvert à la demande (pas d'effet de bord dans new()).
+    let mut vault = genos_orchestrator::snapshots::SnapshotVault::new();
+    assert!(!vault.is_open());
+    let dir = std::env::temp_dir().join(format!("genos-snap-{}", std::process::id()));
+    vault.open(dir).unwrap();
+    let id = vault
+        .save(
+            "agent-1",
+            "main",
+            serde_json::json!({
+                "snapshot_id": "s1",
+                "world_id": "w1",
+                "genome": {},
+                "state": { "ok": true }
+            }),
+        )
+        .unwrap();
+    assert!(vault.get(&id).is_some());
+    assert_eq!(vault.list_by_agent("agent-1").len(), 1);
+
+    // Sensorimoteur : pont exposé sans exécution (aucun pilotage du bureau).
+    let _capture: fn() -> Result<(String, u32, u32), String> =
+        genos_orchestrator::sensorimotor::capture_screen;
+    let _run: fn(&[genos_orchestrator::sensorimotor::ActionStep]) -> Result<(), String> =
+        genos_orchestrator::sensorimotor::run_actions;
+    let step = genos_orchestrator::sensorimotor::ActionStep {
+        action: "click".into(),
+        x: Some(1),
+        y: Some(2),
+        text: None,
+        button: Some("left".into()),
+    };
+    assert_eq!(step.action, "click");
+}
+
 
 
 
