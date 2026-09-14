@@ -74,13 +74,22 @@ function fishSchoolSearch(agents, options = {}) {
 
 function slimeMouldNetwork(edges, options = {}) {
   const list = Array.isArray(edges) ? edges : [];
+  const matrix = options.matrix;
   const reinforcement = num(options.reinforcement, 1.1);
   const decay = num(options.decay, 0.9);
   const pruneBelow = num(options.pruneBelow, 0.05);
+  const shared = matrix && typeof matrix.depositTrace === 'function' && typeof matrix.getDecayedIntensity === 'function';
   const result = [];
   for (const edge of list) {
     const flow = Math.max(0, num(edge.flow, 0));
-    const conductivity = Math.max(0, num(edge.conductivity, 0.5) * (flow > 0 ? reinforcement : decay));
+    let conductivity;
+    if (shared) {
+      const marker = `edge:${edge.id}`;
+      if (flow > 0) matrix.depositTrace(marker, flow);
+      conductivity = Math.max(0, matrix.getDecayedIntensity(marker));
+    } else {
+      conductivity = Math.max(0, num(edge.conductivity, 0.5) * (flow > 0 ? reinforcement : decay));
+    }
     if (conductivity >= pruneBelow) result.push({ id: edge.id, conductivity: Number(conductivity.toFixed(4)) });
   }
   return result;

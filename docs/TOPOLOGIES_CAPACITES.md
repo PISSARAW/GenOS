@@ -68,11 +68,18 @@ Le point d'entrée unique est `biologicalTopologyService.composeMode({ db, orche
 - `agentAutonomyPlanService` renseigne `autonomyPlan.capabilityContract` à partir
   du mode actif et de l'organisation retenue.
 
-## 6. Limites connues
+## 6. Statut
 
-- `COMPUTER_USE` et `OUTPUT_GOVERNOR` n'ont pas d'outil MCP dédié : pas de lease
-  élargi tant qu'un outil `genos_computer_use` (ou équivalent) n'est pas enregistré.
-- Les algorithmes d'essaim sont des fonctions pures : leur invocation à chaque
-  tick par le supervisor n'est pas encore branchée.
-- `swarmStigmergyVectorService` (Rhizome) et `swarmTopologyAlgorithms.slimeMouldNetwork`
-  sont deux implémentations de stigmergie distinctes.
+- `COMPUTER_USE` → `genos_computer_use` et `OUTPUT_GOVERNOR` →
+  `genos_guardrails_verify` sont désormais enregistrés (`seedTools`) et mappés
+  dans `CAPABILITY_TOOLS`.
+- Les algorithmes d'essaim sont invoqués au runtime par
+  `swarmTopologyRuntimeService.applyStepForOrchestrator`, appelé à chaque
+  décision orchestrateur (`orchestrationActionExecutor.execute`).
+- La stigmergie est unifiée : Rhizome (`swarmStigmergyVectorService`) et le
+  physarum (`slimeMouldNetwork`) partagent la même matrice de phéromones via
+  `rhizomeCoordinationService.runSlimeMouldStep`.
+
+Restent ouverts, hors périmètre v3 : les algorithmes restent déterministes et
+locaux (pas de consensus distribué global) et le supervisor n'applique qu'une
+étape par décision, pas une boucle haute fréquence.

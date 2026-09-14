@@ -9,6 +9,7 @@
 const biologicalModeService = require('./biologicalModeService');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const { createSwarmMatrix } = require('./swarmStigmergyVectorService');
+const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const sessions = new Map();
@@ -55,8 +56,15 @@ function coherence(sessionId) {
   return { sessionId, ...session.matrix.computeKuramotoOrder() };
 }
 
+// Physarum simulation reuses the session pheromone matrix, so Rhizome trails
+// and slime-mould conductivity are one and the same stigmergic medium.
+function runSlimeMouldStep(sessionId, edges, options = {}) {
+  const session = getSession(sessionId);
+  return { sessionId, edges: swarmTopologyAlgorithms.slimeMouldNetwork(edges, { matrix: session.matrix, ...options }) };
+}
+
 function closeSession(sessionId) {
   return sessions.delete(sessionId);
 }
 
-module.exports = { composeRhizome, depositTrail, routeToCapability, coherence, closeSession };
+module.exports = { composeRhizome, depositTrail, routeToCapability, coherence, runSlimeMouldStep, closeSession };
