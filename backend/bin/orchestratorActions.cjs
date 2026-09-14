@@ -222,7 +222,7 @@ async function handleTeam({ db, context }) {
   const team = aTeamCoordination.composeTeam({ projectGoal, subSystems, assignedRoles: context.request.assigned_roles || context.request.assignedRoles, modelTiers: context.request.model_tiers || context.request.modelTiers, available: garage.available });
   const members = team.members;
   const accepted = members.map((member, index) => launchWorker({ context, member, index: index + 1, parent }));
-  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, aTeam: { status: 'accepted', projectGoal, capacity: workerGarage.MAX_ACTIVE_WORKERS, organization: team.organization, capabilityContract: team.capabilityContract, handoffs: team.handoffs.length, members: accepted } }));
+  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, aTeam: { status: 'accepted', projectGoal, capacity: workerGarage.MAX_ACTIVE_WORKERS, organization: team.organization, capabilityContract: team.capabilityContract, capabilityAudit: team.capabilityAudit, handoffs: team.handoffs.length, members: accepted } }));
 }
 
 async function handleTrinity({ db, context }) {
