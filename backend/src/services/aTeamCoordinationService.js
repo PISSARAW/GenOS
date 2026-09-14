@@ -84,10 +84,15 @@ function evaluateHandoff(handoff, receptor) {
   return signalingBus.evaluateLigandReactivity(ligandData, target);
 }
 
-function composeTeam(options = {}) {
-  const members = aTeamService.compose(options);
+function capabilityContractFor(organization) {
+  return topologyCapabilityService.contractFor({ mode: 'a_team', organization: organization || DEFAULT_ORGANIZATION });
+}
+
+// Shared by both A-Team entry paths (explicit dispatch_team and the automatic
+// autonomy plan) so composition, capability audit and handoffs stay identical.
+function coordinateMembers(members, options = {}) {
   const organization = options.organization || DEFAULT_ORGANIZATION;
-  const capabilityContract = topologyCapabilityService.contractFor({ mode: 'a_team', organization });
+  const capabilityContract = capabilityContractFor(organization);
   const capabilityAudit = auditCapabilities(capabilityContract, options.availableCapabilities);
   if (options.enforceCapabilities !== false && capabilityAudit.missing.length) {
     throw Object.assign(
@@ -96,7 +101,6 @@ function composeTeam(options = {}) {
     );
   }
   return {
-    members,
     organization,
     capabilityContract,
     capabilityAudit,
@@ -104,8 +108,13 @@ function composeTeam(options = {}) {
   };
 }
 
+function composeTeam(options = {}) {
+  const members = aTeamService.compose(options);
+  return { members, ...coordinateMembers(members, options) };
+}
+
 function arbitrateIntegration(dossiers, options = {}) {
   return arenaTaskEvaluation.evaluateDossiersPareto(dossiers, options);
 }
 
-module.exports = { composeTeam, buildHandoffs, buildHandoff, handoffLigand, handoffReceptor, evaluateHandoff, arbitrateIntegration, toolBackedCapabilities, auditCapabilities };
+module.exports = { composeTeam, coordinateMembers, capabilityContractFor, buildHandoffs, buildHandoff, handoffLigand, handoffReceptor, evaluateHandoff, arbitrateIntegration, toolBackedCapabilities, auditCapabilities };

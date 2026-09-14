@@ -7,10 +7,33 @@ const { buildAutonomyPlan } = require('./autonomousOrchestrationService');
 const { buildAllocation } = require('./tokenAllocationService');
 const trinityService = require('./trinityService');
 const aTeamService = require('./aTeamService');
+const aTeamCoordination = require('./aTeamCoordinationService');
 const dynamicOrganization = require('./dynamicOrganizationService');
 const { emit } = require('./agentOrchestrationState');
 const { consultLocalModels } = require('./agentModelRoutingService');
 const topologyCapabilityService = require('./topologyCapabilityService');
+
+// Attach the coordination contract to an already-activated A-Team so the
+// automatic path matches dispatch_team. Capabilities are audited (never
+// throwing here): a missing capability deactivates the team with a reason
+// instead of failing the whole mission.
+function attachAteamCoordination({ aTeam, agentId, emitEvent = emit }) {
+  try {
+    const coordinated = aTeamCoordination.coordinateMembers(aTeam.members, { enforceCapabilities: false });
+    aTeam.organization = coordinated.organization;
+    aTeam.capabilityContract = coordinated.capabilityContract;
+    aTeam.capabilityAudit = coordinated.capabilityAudit;
+    aTeam.handoffs = coordinated.handoffs;
+    if (coordinated.capabilityAudit.missing.length) {
+      aTeam.activated = false;
+      aTeam.reason = `A-Team capabilities are unavailable: ${coordinated.capabilityAudit.missing.join(', ')}.`;
+      emitEvent(agentId, 'A_TEAM_SKIPPED', 'CAPABILITY_GUARD', aTeam.reason, aTeam, 'warning');
+    }
+  } catch (error) {
+    emitEvent(agentId, 'A_TEAM_COORDINATION_FAILED', 'CAPABILITY_GUARD', error.message, { error: error.message }, 'warning');
+  }
+  return aTeam;
+}
 
 async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord }) {
   const missionBudget = normalizedMission.executionBudget || {};
@@ -75,6 +98,11 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
       && autonomyPlan.aTeam.recommended
       && affordableAteamMembers >= aTeamWorkerCount;
     if (autonomyPlan.aTeam.activated) {
+      // Same coordination contract as the explicit dispatch_team path:
+      // organization, capability audit and inter-domain handoffs.
+      attachAteamCoordination({ aTeam: autonomyPlan.aTeam, agentId });
+    }
+    if (autonomyPlan.aTeam.activated) {
       autonomyPlan.workers = autonomyPlan.aTeam.members;
       autonomyPlan.dispatchWorkers = autonomyPlan.aTeam.members;
       autonomyPlan.tokenPolicy.workerShare = effectiveWorkerShare;
@@ -120,4 +148,4 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   return autonomyPlan;
 }
 
-module.exports = { buildAutonomyPlanForMission };
+module.exports = { buildAutonomyPlanForMission, attachAteamCoordination };
