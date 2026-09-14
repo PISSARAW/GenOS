@@ -10,6 +10,7 @@
 const biologicalModeService = require('./biologicalModeService');
 const biocenoseService = require('./biocenoseService');
 const syncytiumCoordinationService = require('./syncytiumCoordinationService');
+const holobionteCoordinationService = require('./holobionteCoordinationService');
 
 async function applyOrganization(db, orchestratorId, organization, reason) {
   if (!organization) return;
@@ -25,6 +26,11 @@ async function composeMode(input = {}) {
     const session = syncytiumCoordinationService.createSession(mission);
     await applyOrganization(db, orchestratorId, session.organization, 'Syncytium mode activation');
     return session;
+  }
+  if (key === 'holobionte') {
+    const composition = holobionteCoordinationService.composeHolobiont(mission);
+    await applyOrganization(db, orchestratorId, composition.organization, 'Holobionte mode activation');
+    return composition;
   }
   return { members: biologicalModeService.compose(key, mission) };
 }
