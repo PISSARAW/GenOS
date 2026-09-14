@@ -1,0 +1,241 @@
+//! Directeur cognitif : choisit **seul** les concepts à mobiliser.
+//!
+//! Modèle : un `WorldState` observable, un but, un arsenal de `Concept` (les
+//! capacités de l'orchestrateur) avec préconditions et effets, et une politique
+//! qui :
+//! - sélectionne les concepts pertinents pour le but (pas tous) ;
+//! - explore les concepts non testés (bonus d'exploration) ;
+//! - apprend des succès/échecs (statistiques par concept) ;
+//! - essaie plusieurs stratégies (Solo / A-Team / Biocénose / Biome) et,
+//!   si deux se valent, les explore **en parallèle** (Trinity) ;
+//! - soigne, tue ou communique selon l'état ;
+//! - s'arrête quand le but est atteint, le budget épuisé, le problème insoluble,
+//!   ou que plus aucun moyen pertinent/untested ne subsiste.
+
+use std::collections::BTreeSet;
+
+/// Un concept mobilisable de l'orchestrateur (arsenal de compétences).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Concept {
+    Observe,
+    Organize,
+    Recruit,
+    Delegate,
+    Audit,
+    Immune,
+    Virology,
+    Throttle,
+    Therapy,
+    Spore,
+    Glia,
+    Signaling,
+    Stigmergy,
+    Quorum,
+    Neuro,
+    Mutate,
+    Cross,
+    Endosymbiosis,
+    Genomics,
+    Feign,
+    Kill,
+    Communicate,
+}
+
+impl Concept {
+    pub fn all() -> Vec<Concept> {
+        use Concept::*;
+        vec![
+            Observe, Organize, Recruit, Delegate, Audit, Immune, Virology, Throttle, Therapy,
+            Spore, Glia, Signaling, Stigmergy, Quorum, Neuro, Mutate, Cross, Endosymbiosis,
+            Genomics, Feign, Kill, Communicate,
+        ]
+    }
+
+    pub fn cost(self) -> f64 {
+        use Concept::*;
+        match self {
+            Observe | Delegate | Throttle | Signaling | Stigmergy => 1.0,
+            Organize | Quorum | Neuro | Communicate => 2.0,
+            Audit | Spore | Glia => 3.0,
+            Immune | Virology | Feign => 4.0,
+            Therapy | Kill => 5.0,
+            Mutate | Genomics => 6.0,
+            Cross | Endosymbiosis => 7.0,
+            Recruit => 8.0,
+        }
+    }
+
+    pub fn tag(self) -> &'static str {
+        use Concept::*;
+        match self {
+            Observe | Audit | Quorum => "observer",
+            Organize | Recruit | Delegate => "organiser",
+            Immune | Virology | Throttle | Feign | Kill => "defendre",
+            Therapy | Spore | Glia => "soigner",
+            Signaling | Stigmergy | Neuro | Communicate => "coordonner",
+            Mutate | Cross | Endosymbiosis | Genomics => "evoluer",
+        }
+    }
+
+    /// Un concept « effectif » peut faire progresser l'état vers le but.
+    pub fn is_effectful(self) -> bool {
+        !matches!(
+            self,
+            Concept::Throttle
+                | Concept::Signaling
+                | Concept::Stigmergy
+                | Concept::Neuro
+                | Concept::Quorum
+                | Concept::Mutate
+                | Concept::Cross
+                | Concept::Endosymbiosis
+                | Concept::Genomics
+                | Concept::Delegate
+                | Concept::Audit
+        )
+    }
+}
+
+/// Buts de mission.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Goal {
+    SecurePerimeter,
+    RecoverAgent,
+    RepairModule,
+}
+
+/// État du monde observable (extrait de l'écosystème ou simulé).
+#[derive(Clone, Debug)]
+pub struct WorldState {
+    pub budget: f64,
+    pub threat: f64,
+    pub diseased: usize,
+    pub traitor: bool,
+    pub adversary: bool,
+    pub uncertain: bool,
+    pub observed: bool,
+    pub workers: usize,
+    pub tissues: usize,
+    pub required_workers: usize,
+    pub unsolvable: bool,
+    pub tested: BTreeSet<Concept>,
+    pub failed: BTreeSet<Concept>,
+}
+
+impl Default for WorldState {
+    fn default() -> Self {
+        Self {
+            budget: 120.0,
+            threat: 0.0,
+            diseased: 0,
+            traitor: false,
+            adversary: false,
+            uncertain: false,
+            observed: false,
+            workers: 0,
+            tissues: 0,
+            required_workers: 3,
+            unsolvable: false,
+            tested: BTreeSet::new(),
+            failed: BTreeSet::new(),
+        }
+    }
+}
+
+impl WorldState {
+    pub fn applicable(&self, c: Concept) -> bool {
+        use Concept::*;
+        match c {
+            Observe => (self.threat > 0.0 || self.adversary) && !self.observed,
+            Organize => self.tissues == 0,
+            Recruit => self.workers < self.required_workers,
+            Delegate => self.workers >= 1,
+            Audit => self.workers >= 2,
+            Immune => self.threat > 0.0,
+            Virology => self.threat >= 0.5,
+            Throttle => true,
+            Therapy | Spore | Glia => self.diseased > 0,
+            Signaling | Stigmergy | Quorum | Neuro => self.workers >= 2,
+            Mutate | Cross | Endosymbiosis | Genomics => self.workers >= 1,
+            Feign => self.adversary,
+            Kill => self.traitor,
+            Communicate => self.uncertain,
+        }
+    }
+
+    /// Applique l'effet d'un concept et débite son coût.
+    pub fn apply(&mut self, c: Concept) {
+        self.budget = (self.budget - c.cost()).max(0.0);
+        self.tested.insert(c);
+        use Concept::*;
+        match c {
+            Organize => self.tissues += 1,
+            Recruit => self.workers += 1,
+            Observe => {
+                self.observed = true;
+                self.uncertain = false;
+            }
+            Immune => self.threat = (self.threat - 0.4).max(0.0),
+            Virology => self.threat = (self.threat - 0.7).max(0.0),
+            Therapy | Spore | Glia => {
+                if self.diseased > 0 {
+                    self.diseased -= 1;
+                }
+            }
+            Kill => self.traitor = false,
+            Feign => self.adversary = false,
+            Communicate => self.uncertain = false,
+            _ => {}
+        }
+    }
+
+    /// Score de progression vers le but (0.0 -> 1.0).
+    pub fn progress(&self, _goal: &Goal) -> f64 {
+        let mut s = 0.0;
+        if self.tissues >= 1 {
+            s += 0.15;
+        }
+        s += (self.workers.min(self.required_workers) as f64 / self.required_workers as f64) * 0.15;
+        s += (1.0 - self.threat) * 0.40;
+        if self.diseased == 0 {
+            s += 0.15;
+        }
+        if !self.traitor {
+            s += 0.15;
+        }
+        s
+    }
+
+    pub fn goal_reached(&self, goal: &Goal) -> bool {
+        match goal {
+            Goal::SecurePerimeter => {
+                self.tissues >= 1
+                    && self.workers >= self.required_workers
+                    && self.threat <= 0.0
+                    && self.diseased == 0
+                    && !self.traitor
+                    && !self.uncertain
+            }
+            Goal::RecoverAgent => self.diseased == 0 && self.workers >= 1,
+            Goal::RepairModule => self.tissues >= 1 && !self.traitor,
+        }
+    }
+}
+
+/// Statistiques d'apprentissage par concept.
+#[derive(Clone, Debug, Default)]
+pub struct ActionStats {
+    pub attempts: u32,
+    pub successes: u32,
+}
+
+impl ActionStats {
+    /// Taux de succès lissé (Laplace) : évite 0/0 et 1.0-sur-un-coup.
+    pub fn rate(&self) -> f64 {
+        (self.successes as f64 + 1.0) / (self.attempts as f64 + 2.0)
+    }
+    pub fn is_untested(&self) -> bool {
+        self.attempts == 0
+    }
+}
+
