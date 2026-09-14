@@ -1,3 +1,4 @@
+use crate::learning::Learner;
 use crate::organization::{Organization, Superorganism, by_name, select_organization, select_superorganism};
 use crate::planner::{ActionStats, Concept, Goal, WorldState};
 use std::collections::{BTreeMap, BTreeSet};
@@ -35,6 +36,10 @@ pub struct Decision {
 pub struct Director {
     pub stats: BTreeMap<Concept, ActionStats>,
     pub max_steps: usize,
+    /// Apprentissage contextuel par concept (bandits linéaires).
+    pub learner: Learner,
+    /// Dernier contexte observé (features du `WorldState`).
+    pub last_context: Vec<f64>,
 }
 
 impl Default for Director {
@@ -42,6 +47,8 @@ impl Default for Director {
         Self {
             stats: BTreeMap::new(),
             max_steps: 12,
+            learner: Learner::new(),
+            last_context: Vec::new(),
         }
     }
 }
@@ -52,15 +59,25 @@ impl Director {
     }
 
     fn utility(&self, c: Concept, stress: f64) -> f64 {
-        let stats = self.stats.get(&c);
-        let rate = stats.map(ActionStats::rate).unwrap_or(0.5);
-        let explore = if stats.map(ActionStats::is_untested).unwrap_or(true) {
+        // Récompense attendue apprise (contextuelle) ; repli sur le taux global.
+        let predicted = if self.last_context.is_empty() {
+            self.stats.get(&c).map(ActionStats::rate).unwrap_or(0.5)
+        } else {
+            self.learner.predict(c, &self.last_context)
+        };
+        let updates = self.learner.updates(c);
+        let explore = if updates == 0 {
             1.5
         } else {
-            0.0
+            1.0 / (1.0 + updates as f64).sqrt()
         };
         // Sous stress, le coût pèse davantage (économie d'énergie).
-        rate + explore - c.cost() * 0.01 * (1.0 + 2.0 * stress.clamp(0.0, 1.0))
+        predicted + explore - c.cost() * 0.01 * (1.0 + 2.0 * stress.clamp(0.0, 1.0))
+    }
+
+    /// Fixe le contexte courant (appelé par la boucle avant de décider).
+    pub fn set_context(&mut self, context: Vec<f64>) {
+        self.last_context = context;
     }
 
     fn halt(strategy: Strategy, reason: &str) -> Decision {
@@ -282,6 +299,20 @@ impl Director {
         if success {
             entry.successes += 1;
         }
+        if !self.last_context.is_empty() {
+            let context = self.last_context.clone();
+            self.learner
+                .update(concept, &context, if success { 1.0 } else { 0.0 });
+        }
+    }
+
+    /// Assignation de crédit : propage la récompense d'épisode au plan exécuté.
+    pub fn assign_credit(&mut self, plan: &[Concept], reward: f64) {
+        if self.last_context.is_empty() {
+            return;
+        }
+        let context = self.last_context.clone();
+        self.learner.assign_credit(plan, &context, reward);
     }
 
     /// Change de décision : marque un concept comme défaillant pour l'exclure.

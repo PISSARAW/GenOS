@@ -3,6 +3,7 @@
 
 use crate::GenosEcosystem;
 use crate::director::Strategy;
+use crate::learning::context_from_state;
 use crate::planner::{Concept, Goal};
 use crate::plasmids::Skill;
 use crate::signaling::SignalingCascade;
@@ -47,6 +48,7 @@ impl GenosEcosystem {
     /// Un cycle complet : observer, décider, exécuter, apprendre.
     pub fn tick(&mut self, goal: &Goal) -> TickReport {
         let state = self.observe();
+        self.director.set_context(context_from_state(&state));
         let decision = self.director.decide(&state, goal);
         let mut report = TickReport {
             tick: self.events.count() as u64,
@@ -80,6 +82,9 @@ impl GenosEcosystem {
                 .record(step.concept, after > before || sim.goal_reached(goal));
             report.executed.push(step.concept);
         }
+        // Assignation de crédit : récompense d'épisode aux concepts du plan.
+        let episode_reward = if sim.goal_reached(goal) { 1.0 } else { 0.0 };
+        self.director.assign_credit(&report.executed, episode_reward);
         report
     }
 

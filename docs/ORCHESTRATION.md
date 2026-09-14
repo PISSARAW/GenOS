@@ -827,6 +827,15 @@ actions (une action incarnée échoue, un tick s'arrête). Le budget observé
 (`WorldState.budget`) est l'ATP courant, si bien que le directeur s'arrête en
 famine. Voir `examples/mission_metabolism.rs`.
 
+### 19.bis.11 Apprentissage (Phase 4)
+
+Le choix des concepts s'appuie désormais sur un **bandit contextuel linéaire**
+par concept (`Learner`/`LinearBandit`) : la récompense attendue est
+`P(succès | contexte)` (menace, maladie, stress, adversaire…), apprise en ligne
+et **propagée** aux concepts d'un plan exécuté (assignation de crédit, facteur
+`gamma`). L'expérience persiste dans le directeur et se **transfère** aux
+missions suivantes. Voir `examples/mission_learning.rs`.
+
 ---
 
 ## 20. Conclusion

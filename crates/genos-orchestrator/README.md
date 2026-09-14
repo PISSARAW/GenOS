@@ -159,6 +159,24 @@ assert!(ok.success);
 (`WorldState.budget`) est l'ATP réel, donc le directeur s'arrête vraiment en
 famine. Voir `examples/mission_metabolism.rs`.
 
+### Apprentissage (Phase 4)
+
+Les statistiques sont remplacées par un **bandit contextuel linéaire** par
+concept : la récompense attendue est `P(succès | contexte)` (menace, maladie,
+stress, adversaire…), mise à jour en ligne et **propagée** aux concepts du plan
+(assignation de crédit). L'expérience persiste et se **transfère** entre
+missions.
+
+```rust
+director.set_context(context_from_state(&state));
+director.record(Concept::Virology, true);   // apprentissage contextuel
+let p = director.learner.predict(Concept::Virology, &context); // ~1.0
+director.assign_credit(&[Concept::Observe, Concept::Recruit], 1.0);
+```
+
+`Learner`/`LinearBandit` (`src/learning.rs`) ; `context_from_state` extrait un
+vecteur de 8 features. Voir `examples/mission_learning.rs`.
+
 ## Organisations et mondes
 
 ```rust
@@ -271,6 +289,7 @@ use genos_orchestrator::api::{RateLimiter, TenantAuth, ChatMessage};
 | `environment` | Environnement incarné (`Environment`, `FileSandbox`, boucle perception→action→récompense) |
 | `drives` | Buts endogènes (`Drives`, `GoalSelector`, `run_autonomous`) |
 | `metabolism` | Métabolisme réel (`Metabolism` : ATP, famine, `feed`) |
+| `learning` | Apprentissage (`Learner`, `LinearBandit` contextuel, crédit) |
 | `neuro`, `virology`, `signaling`, `sensory`, `phylogeny`, `immune_cyber`, `snapshots`, `sensorimotor`, `thalamus` | Accès aux domaines |
 | `token_bucket` | Ordonnanceur de calcul (quotas, famine, apoptose) |
 
@@ -281,6 +300,7 @@ cargo run -p genos-orchestrator --example mission_tick        # boucle cognitive
 cargo run -p genos-orchestrator --example mission_embodied    # boucle incarnée (environnement)
 cargo run -p genos-orchestrator --example mission_autonomous  # buts endogènes (drives)
 cargo run -p genos-orchestrator --example mission_metabolism  # famine / régénération / feed
+cargo run -p genos-orchestrator --example mission_learning    # bandit contextuel / transfert
 cargo run -p genos-orchestrator --example mission_e2e         # bout en bout (feinte/glie/thalamus)
 cargo run -p genos-orchestrator --example mission_trinity     # mondes parallèles
 cargo run -p genos-orchestrator --example mission_recruit_planner # recrutement autonome

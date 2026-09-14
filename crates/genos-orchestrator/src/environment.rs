@@ -6,6 +6,7 @@
 //! (au lieu d'un état purement interne).
 
 use crate::GenosEcosystem;
+use crate::learning::context_from_state;
 use crate::planner::Concept;
 use serde_json::json;
 use std::path::{Component, PathBuf};
@@ -196,6 +197,8 @@ impl GenosEcosystem {
         let mut actions = Vec::new();
         let mut rewards = Vec::new();
         let mut iterations = 0;
+        self.director
+            .set_context(context_from_state(&self.observe()));
 
         for _ in 0..max_iterations {
             iterations += 1;
