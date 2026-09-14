@@ -22,6 +22,12 @@ const {
   ensureRoot,
   parseCommandLine
 } = require('./genosCliEnv');
+const {
+  pushString,
+  pushGenes,
+  buildCrossoverReplay,
+  persistDivisionOutcome
+} = require('./genosCliHelpers');
 
 function runGenosSync(commandLine, options = {}) {
   const { timeoutMs = 60000, ...rest } = options;
@@ -143,35 +149,15 @@ async function runCrossover(options = {}) {
   const parentA = options.parentA || 'PARENT_ALPHA';
   const parentB = options.parentB || 'PARENT_BETA';
   const args = ['evolution', 'crossover', '--parent-a', String(parentA), '--parent-b', String(parentB)];
-  if (options.swapProb !== undefined) {
-    args.push('--swap-prob', String(options.swapProb));
-  }
-  if (options.crossoverPoint !== undefined) {
-    args.push('--crossover-point', String(options.crossoverPoint));
-  }
-  if (options.speciationThreshold !== undefined) {
-    args.push('--speciation-threshold', String(options.speciationThreshold));
-  }
-  if (options.genesA) {
-    args.push('--genes-a', typeof options.genesA === 'string' ? options.genesA : JSON.stringify(options.genesA));
-  }
-  if (options.genesB) {
-    args.push('--genes-b', typeof options.genesB === 'string' ? options.genesB : JSON.stringify(options.genesB));
-  }
-  if (options.seed !== undefined) args.push('--seed', String(options.seed));
+  pushString(args, '--swap-prob', options.swapProb);
+  pushString(args, '--crossover-point', options.crossoverPoint);
+  pushString(args, '--speciation-threshold', options.speciationThreshold);
+  pushGenes(args, '--genes-a', options.genesA);
+  pushGenes(args, '--genes-b', options.genesB);
+  pushString(args, '--seed', options.seed);
   const result = await runGenos(args);
   if (!result.json) return result;
-  const replayInput = {
-    version: 'genos-crossover-v1',
-    parentA,
-    parentB,
-    genesA: options.genesA ?? null,
-    genesB: options.genesB ?? null,
-    swapProb: options.swapProb ?? 0.5,
-    crossoverPoint: options.crossoverPoint ?? null,
-    speciationThreshold: options.speciationThreshold ?? null,
-    seed: options.seed ?? 'genos-default-crossover'
-  };
+  const replayInput = buildCrossoverReplay(parentA, parentB, options);
   const reproducibilityKey = crypto.createHash('sha256').update(JSON.stringify(replayInput)).digest('hex');
   return { ...result, json: { ...result.json, reproducibility_key: reproducibilityKey } };
 }
@@ -180,82 +166,15 @@ async function runCellDivision(options = {}) {
   const agentId = options.agentId || 'cell_division_root';
   const mode = options.mode || 'mitosis';
   const args = ['evolution', 'division', '--agent-id', String(agentId), '--mode', String(mode)];
-  if (options.mutationRate !== undefined) args.push('--mutation-rate', String(options.mutationRate));
-  if (options.daughterVolume !== undefined) args.push('--daughter-volume', String(options.daughterVolume));
-  if (options.merozoiteCount !== undefined) args.push('--merozoite-count', String(options.merozoiteCount));
-  if (options.hayflickLimit !== undefined) args.push('--hayflick-limit', String(options.hayflickLimit));
-  if (options.seed !== undefined) args.push('--seed', String(options.seed));
+  pushString(args, '--mutation-rate', options.mutationRate);
+  pushString(args, '--daughter-volume', options.daughterVolume);
+  pushString(args, '--merozoite-count', options.merozoiteCount);
+  pushString(args, '--hayflick-limit', options.hayflickLimit);
+  pushString(args, '--seed', options.seed);
   const res = await runGenos(args);
   if (res.ok && res.json) {
     try {
-      const { getDatabase } = require('../db');
-      const db = await getDatabase();
-      const isApoptotic = res.json.mother_lysed ? 1 : 0;
-      const isSenescent = res.json.is_senescent || (res.json.remaining_buds === 0);
-      const mother = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agentId).catch(() => null);
-      const workspaceId = mother?.workspace_id || 'workspace-default';
-      const reproductionMode = String(res.json.division_mode || mode).toLowerCase();
-      const parentGenomeId = res.json.parent_genome_id || res.json.mother_genome_id;
-      const lineageNodeType = reproductionMode === 'schizogony' ? 'speculative_merozoite' : reproductionMode;
-      const progenyIds = reproductionMode === 'mitosis'
-        ? [res.json.clone_genome_id]
-        : reproductionMode === 'binary_fission'
-          ? [res.json.daughter_b_id || res.json.child_genome_id]
-          : reproductionMode === 'budding'
-            ? [res.json.daughter_genome_id]
-            : reproductionMode === 'schizogony'
-              ? (Array.isArray(res.json.progeny_genome_ids) ? res.json.progeny_genome_ids : [])
-              : reproductionMode === 'meiosis'
-                ? (Array.isArray(res.json.gamete_genome_ids) ? res.json.gamete_genome_ids : [])
-                : [];
-      if (parentGenomeId && progenyIds.length) {
-        await db.run(
-          `INSERT OR IGNORE INTO lineage_nodes (id, workspace_id, agent_id, label, node_type, state_summary)
-           VALUES (?, ?, ?, ?, 'agent', 'Reproduction parent')`,
-          agentId,
-          workspaceId,
-          agentId,
-          `Reproduction parent ${agentId}`
-        );
-        for (const [index, progenyId] of progenyIds.filter(Boolean).filter((id) => id !== parentGenomeId).entries()) {
-          await db.run(
-            `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, visits, state_summary, metadata)
-             VALUES (?, ?, ?, ?, 0.5, 0, 'Reproduction descendant', ?)
-             ON CONFLICT(id) DO UPDATE SET workspace_id = excluded.workspace_id, node_type = excluded.node_type, state_summary = excluded.state_summary, metadata = excluded.metadata`,
-            progenyId,
-            workspaceId,
-            `${reproductionMode} descendant ${index + 1} of ${agentId}`,
-            lineageNodeType,
-            JSON.stringify({ parentAgentId: agentId, motherAgentId: reproductionMode === 'schizogony' ? agentId : undefined, parentGenomeId, branchIndex: index, reproductionMode, seed: res.json.seed })
-          );
-          await db.run(
-            `INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type, metadata)
-             VALUES (?, ?, ?, ?, ?, ?)
-             ON CONFLICT(id) DO NOTHING`,
-            `edge_${agentId}_${progenyId}`,
-            workspaceId,
-            agentId,
-            progenyId,
-            reproductionMode,
-            JSON.stringify({ reproductionMode, branchIndex: index })
-          );
-        }
-      }
-      if (isApoptotic) {
-        await db.run(
-          `UPDATE agents SET is_apoptotic = 1, status = 'apoptosis', cognitive_budget = 0, current_task = 'Lysed following schizogony', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-          agentId
-        ).catch(() => {});
-        await db.run(
-          `UPDATE lineage_nodes SET state_summary = 'Lysed mother cell (schizogony burst)' WHERE id = ? OR agent_id = ?`,
-          agentId, agentId
-        ).catch(() => {});
-      } else if (isSenescent) {
-        await db.run(
-          `UPDATE lineage_nodes SET state_summary = 'Replicative Senescence (Hayflick limit)' WHERE id = ? OR agent_id = ?`,
-          agentId, agentId
-        ).catch(() => {});
-      }
+      await persistDivisionOutcome(agentId, mode, res.json);
     } catch (_) {}
   }
   return res;

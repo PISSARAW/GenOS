@@ -1,114 +1,51 @@
 const crypto = require('crypto');
 
-/**
- * GenOS Arena & Multi-Solver Tournament Service
- * Multi-objective Pareto optimization, ELO rating, and solver competition runtime.
- */
-
 const {
   SOLVER_PROFILES,
-  buildBenchmark,
-  executeSolver
+  buildBenchmark
 } = require('./arenaSolvers');
+const {
+  resolveTournamentOptions,
+  assertKnownSolvers,
+  assertBenchmarkCases,
+  buildSolverResult,
+  normalizeSolutionInput,
+  isValidSolution,
+  splitParetoSets,
+  buildEmptyParetoResult,
+  resolveEvaluationStatus,
+  findKneePoint,
+  recordedSolverEntry,
+  buildTraceSpan
+} = require('./arenaHelpers');
 const { performance } = require('perf_hooks');
 let lastTournamentResult = null;
 
-/**
- * Calculates updated ELO rating between two competitors
- */
 function calculateElo(ratingA, ratingB, scoreA) {
   const kFactor = 32;
   const expectedA = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
   return Math.round(ratingA + kFactor * (scoreA - expectedA));
 }
 
-function evaluateSolverStep(solverKey, problem, roundNum) {
-  const profile = SOLVER_PROFILES[solverKey] || SOLVER_PROFILES.mcts_solver;
-  const benchmarkCase = problem.cases[(roundNum - 1) % problem.cases.length];
-  if (!benchmarkCase || !Array.isArray(benchmarkCase.values) || benchmarkCase.values.length === 0) {
-    throw new Error('Benchmark cases must contain non-empty numeric values.');
-  }
-  const execution = executeSolver(solverKey, benchmarkCase.values, benchmarkCase.target);
-  const passed = execution.index >= 0 && benchmarkCase.values[execution.index] === benchmarkCase.target;
+function runTournament(options = {}) {
+  const config = resolveTournamentOptions(options, arguments);
+  if (!Number.isInteger(config.rounds) || config.rounds < 1) throw new Error('rounds must be a positive integer.');
+  const selectedSolvers = config.solverKeys.length > 0 ? config.solverKeys : Object.keys(SOLVER_PROFILES);
+  const problem = buildBenchmark(config.problemSpec || {});
+  assertKnownSolvers(selectedSolvers);
+  assertBenchmarkCases(problem);
 
-  return {
-    solverKey,
-    solverName: profile.name,
-    archetype: profile.archetype,
-    stepsTaken: execution.steps,
-    executionTimeMs: execution.executionTimeMs,
-    tokenCostUSD: 0,
-    fitnessScore: passed ? Number((100 * (1 - execution.steps / (benchmarkCase.values.length * 2))).toFixed(1)) : 0,
-    adversarialPassRate: passed ? 100 : 0,
-    passed,
-    trace: execution.trace
-  };
-}
-
-/**
- * Executes a multi-solver tournament round
- */
-function runTournament(problemSpec, solverKeys = [], rounds = 3, agentIds = []) {
-  if (!Number.isInteger(rounds) || rounds < 1) throw new Error('rounds must be a positive integer.');
-  const selectedSolvers = solverKeys.length > 0 ? solverKeys : Object.keys(SOLVER_PROFILES);
-  const problem = buildBenchmark(problemSpec || {});
-  for (const solverKey of selectedSolvers) {
-    if (!SOLVER_PROFILES[solverKey]) throw new Error(`Unknown solver '${solverKey}'.`);
-  }
-  for (const benchmarkCase of problem.cases) {
-    if (!benchmarkCase.values.length || benchmarkCase.values.some((value) => !Number.isFinite(Number(value)))) {
-      throw new Error('Benchmark cases must contain non-empty numeric values.');
-    }
-    if (benchmarkCase.values.some((value, index) => index > 0 && Number(value) < Number(benchmarkCase.values[index - 1]))) {
-      throw new Error('Benchmark values must be sorted in ascending order.');
-    }
-    if (!Number.isFinite(Number(benchmarkCase.target))) throw new Error('Benchmark targets must be numeric.');
-  }
-  
   const tournamentId = `tourn-${crypto.randomUUID()}`;
   const solverResults = {};
 
-  for (const key of selectedSolvers) {
-    let totalTime = 0;
-    let totalCost = 0;
-    let totalFitness = 0;
-    let totalPassRate = 0;
-    let totalSteps = 0;
-    const traces = [];
-
-    for (let r = 1; r <= rounds; r++) {
-      const step = evaluateSolverStep(key, problem, r);
-      totalTime += step.executionTimeMs;
-      totalCost += step.tokenCostUSD;
-      totalFitness += step.fitnessScore;
-      totalPassRate += step.adversarialPassRate;
-      totalSteps += step.stepsTaken;
-      traces.push({ round: r, caseId: problem.cases[(r - 1) % problem.cases.length].id, passed: step.passed, steps: step.trace });
-    }
-
-    const avgFitness = Number((totalFitness / rounds).toFixed(1));
-    const avgPassRate = Number((totalPassRate / rounds).toFixed(1));
-    const baseElo = SOLVER_PROFILES[key]?.baseElo || 1500;
-
-    solverResults[key] = {
-      agentId: agentIds.length > 0 ? agentIds[Object.keys(solverResults).length % agentIds.length] : null,
-      solverKey: key,
-      solverName: SOLVER_PROFILES[key]?.name || key,
-      archetype: SOLVER_PROFILES[key]?.archetype || 'Custom',
-      roundsCompleted: rounds,
-      totalSteps,
-      // Preserve the measured local execution time. Rounding every fast run up
-      // to one millisecond made the UI display a synthetic latency.
-      executionTimeMs: Number((totalTime / rounds).toFixed(3)),
-      tokenCostUSD: Number((totalCost / rounds).toFixed(4)),
-      fitnessScore: avgFitness,
-      adversarialPassRate: avgPassRate,
-      eloRating: baseElo + Math.round((avgFitness - 80) * 2.5 + (avgPassRate - 75) * 1.5),
-      traces
-    };
+  for (let index = 0; index < selectedSolvers.length; index++) {
+    solverResults[selectedSolvers[index]] = buildSolverResult(selectedSolvers[index], problem, {
+      rounds: config.rounds,
+      agentIds: config.agentIds,
+      index
+    });
   }
 
-  // Rank competitors by ELO rating
   const leaderboard = Object.values(solverResults).sort((a, b) => b.eloRating - a.eloRating || a.solverKey.localeCompare(b.solverKey));
 
   const result = {
@@ -122,139 +59,19 @@ function runTournament(problemSpec, solverKeys = [], rounds = 3, agentIds = []) 
   return result;
 }
 
-/**
- * Checks if solution A dominates solution B across 4 objectives:
- * Minimizing Time, Minimizing Cost, Maximizing Fitness, Maximizing PassRate
- */
-function dominates(solA, solB) {
-  const betterOrEqual = (
-    solA.executionTimeMs <= solB.executionTimeMs &&
-    solA.tokenCostUSD <= solB.tokenCostUSD &&
-    solA.fitnessScore >= solB.fitnessScore &&
-    solA.adversarialPassRate >= solB.adversarialPassRate
-  );
-
-  const strictlyBetter = (
-    solA.executionTimeMs < solB.executionTimeMs ||
-    solA.tokenCostUSD < solB.tokenCostUSD ||
-    solA.fitnessScore > solB.fitnessScore ||
-    solA.adversarialPassRate > solB.adversarialPassRate
-  );
-
-  return betterOrEqual && strictlyBetter;
-}
-
-/**
- * Identifies the mathematical Knee-Point (maximum compromise efficiency)
- */
-function findKneePoint(paretoSet) {
-  if (!paretoSet || paretoSet.length === 0) return null;
-  if (paretoSet.length === 1) return paretoSet[0];
-
-  // Find min/max ranges for normalization
-  const times = paretoSet.map(s => s.executionTimeMs);
-  const costs = paretoSet.map(s => s.tokenCostUSD);
-  const fitnesses = paretoSet.map(s => s.fitnessScore);
-  const passRates = paretoSet.map(s => s.adversarialPassRate);
-
-  const minTime = Math.min(...times), maxTime = Number.isFinite(Math.max(...times)) && Math.max(...times) > minTime ? Math.max(...times) : minTime + 1;
-  const minCost = Math.min(...costs), maxCost = Number.isFinite(Math.max(...costs)) && Math.max(...costs) > minCost ? Math.max(...costs) : minCost + 0.001;
-  const minFit = Math.min(...fitnesses), maxFit = Number.isFinite(Math.max(...fitnesses)) && Math.max(...fitnesses) > minFit ? Math.max(...fitnesses) : minFit + 1;
-  const minPass = Math.min(...passRates), maxPass = Number.isFinite(Math.max(...passRates)) && Math.max(...passRates) > minPass ? Math.max(...passRates) : minPass + 1;
-  const normalize = (value, minimum, maximum) => maximum > minimum ? (value - minimum) / (maximum - minimum) : 0.5;
-
-  let bestPoint = paretoSet[0];
-  let minDistanceToIdeal = Infinity;
-
-  // Ideal point: minTime, minCost, maxFitness, maxPassRate (normalized to 0, 0, 1, 1)
-  for (const sol of paretoSet) {
-    const normTime = normalize(sol.executionTimeMs, minTime, maxTime);
-    const normCost = normalize(sol.tokenCostUSD, minCost, maxCost);
-    const normFit = normalize(sol.fitnessScore, minFit, maxFit);
-    const normPass = normalize(sol.adversarialPassRate, minPass, maxPass);
-
-    // Distance to Utopia point (0, 0, 1, 1)
-    const dist = Math.sqrt(
-      Math.pow(normTime, 2) +
-      Math.pow(normCost, 2) +
-      Math.pow(1 - normFit, 2) +
-      Math.pow(1 - normPass, 2)
-    );
-
-    const currentKey = String(sol.candidateId || sol.solverKey || sol.id || '');
-    const bestKey = String(bestPoint.candidateId || bestPoint.solverKey || bestPoint.id || '');
-    if (dist < minDistanceToIdeal || (dist === minDistanceToIdeal && currentKey.localeCompare(bestKey) < 0)) {
-      minDistanceToIdeal = dist;
-      bestPoint = sol;
-    }
-  }
-
-  return bestPoint;
-}
-
-/**
- * Calculates the multi-objective Pareto Frontier from a collection of solutions
- */
 function calculateParetoFront(candidateSolutions = []) {
   const rawSolutions = Array.isArray(candidateSolutions) ? candidateSolutions : [];
   if (rawSolutions.length === 0) {
-    return {
-      timestamp: new Date().toISOString(),
-      totalEvaluated: 0,
-      paretoFrontCount: 0,
-      paretoFront: [],
-      dominatedSolutions: [],
-      validEvaluated: 0,
-      invalidSolutions: [],
-      evaluationStatus: 'no_candidates',
-      kneePointRecommendation: null
-    };
+    return buildEmptyParetoResult();
   }
 
-  const solutions = rawSolutions.map((solution) => {
-    if (!solution || typeof solution !== 'object') return solution;
-    return {
-      ...solution,
-      executionTimeMs: solution.executionTimeMs ?? 0,
-      tokenCostUSD: solution.tokenCostUSD ?? 0,
-      fitnessScore: solution.fitnessScore ?? 0,
-      adversarialPassRate: solution.adversarialPassRate ?? 100
-    };
+  const solutions = rawSolutions.map(normalizeSolutionInput);
+  const validSolutions = solutions.filter(isValidSolution);
+  const invalidSolutions = solutions.filter((solution) => {
+    return !isValidSolution(solution);
   });
 
-  const isValidSolution = (solution) => solution && typeof solution === 'object'
-    && [solution.executionTimeMs, solution.tokenCostUSD, solution.fitnessScore, solution.adversarialPassRate]
-      .every((value) => Number.isFinite(Number(value)))
-    && Number(solution.executionTimeMs) >= 0
-    && Number(solution.tokenCostUSD) >= 0
-    && Number(solution.fitnessScore) >= 0
-    && Number(solution.fitnessScore) <= 100
-    && Number(solution.adversarialPassRate) >= 0
-    && Number(solution.adversarialPassRate) <= 100;
-  const validSolutions = solutions.filter(isValidSolution);
-  const invalidSolutions = solutions.filter((solution) => !isValidSolution(solution));
-
-  const paretoFront = [];
-  const dominatedSolutions = [];
-
-  for (let i = 0; i < validSolutions.length; i++) {
-    const candidate = validSolutions[i];
-    let isDominated = false;
-
-    for (let j = 0; j < validSolutions.length; j++) {
-      if (i !== j && dominates(validSolutions[j], candidate)) {
-        isDominated = true;
-        break;
-      }
-    }
-
-    if (isDominated) {
-      dominatedSolutions.push(candidate);
-    } else {
-      paretoFront.push(candidate);
-    }
-  }
-
+  const { paretoFront, dominatedSolutions } = splitParetoSets(validSolutions);
   const kneePoint = findKneePoint(paretoFront);
 
   return {
@@ -262,9 +79,7 @@ function calculateParetoFront(candidateSolutions = []) {
     totalEvaluated: solutions.length,
     validEvaluated: validSolutions.length,
     invalidSolutions,
-    evaluationStatus: invalidSolutions.length > 0
-      ? (validSolutions.length > 0 ? 'partial_invalid_candidates' : 'all_candidates_invalid')
-      : 'complete',
+    evaluationStatus: resolveEvaluationStatus(validSolutions.length, invalidSolutions.length),
     paretoFrontCount: paretoFront.length,
     paretoFront,
     dominatedSolutions,
@@ -272,33 +87,17 @@ function calculateParetoFront(candidateSolutions = []) {
   };
 }
 
-/**
- * Exports the recorded execution trace bundle conforming to OpenTelemetry Spans & DAG format
- */
 function exportTrace(tournamentId, format = 'json-dag', solverKeys = Object.keys(SOLVER_PROFILES)) {
-  const recorded = lastTournamentResult?.leaderboard || [];
+  const recorded = lastTournamentResult ? lastTournamentResult.leaderboard || [] : [];
   if (recorded.length === 0) {
     return { traceId: null, format, exportedAt: null, spans: [] };
   }
-  const recordedByKey = new Map(recorded.map((solver) => [solver.solverKey, solver]));
+  const recordedByKey = new Map(recorded.map(recordedSolverEntry));
   const traceId = `trace-${tournamentId || lastTournamentResult.tournamentId}`;
-  const spans = solverKeys.map((key, idx) => ({
-    traceId,
-    spanId: `span-${key}-${idx + 1}`,
-    name: `execute_${key}`,
-    stepNumber: idx + 1,
-    phase: ['Search', 'Hypothesis', 'AST_Transform', 'Verification'][idx % 4],
-    description: recordedByKey.get(key) ? `Recorded ${recordedByKey.get(key).traces.length} benchmark executions.` : 'No recorded execution for this solver.',
-    latencyMs: recordedByKey.get(key)?.executionTimeMs || 0,
-    astDiff: JSON.stringify(recordedByKey.get(key)?.traces || [], null, 2),
-    startTime: null,
-    endTime: null,
-    attributes: {
-      'solver.name': SOLVER_PROFILES[key]?.name || key,
-      'solver.archetype': SOLVER_PROFILES[key]?.archetype || 'Custom',
-      'solver.baseElo': SOLVER_PROFILES[key]?.baseElo || 1500
-    }
-  }));
+  const context = { traceId, recordedByKey };
+  const spans = solverKeys.map((key, index) => {
+    return buildTraceSpan(key, index, context);
+  });
 
   return {
     traceId,
@@ -307,6 +106,7 @@ function exportTrace(tournamentId, format = 'json-dag', solverKeys = Object.keys
     spans
   };
 }
+
 module.exports = {
   SOLVER_PROFILES,
   calculateElo,
@@ -319,4 +119,3 @@ module.exports = {
 const arenaTaskEvaluation = require('./arenaTaskEvaluation');
 module.exports.evaluateDossiersPareto = (dossiers, options) => arenaTaskEvaluation.evaluateDossiersPareto(dossiers, options);
 module.exports.dossierToCandidate = (dossier, options) => arenaTaskEvaluation.dossierToCandidate(dossier, options);
-
