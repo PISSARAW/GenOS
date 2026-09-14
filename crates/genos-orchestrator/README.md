@@ -119,6 +119,26 @@ en est une implémentation réelle et confinée. Les issues sont enregistrées c
 concept `Actuate` (apprentissage externe) et dans le journal d'événements. Voir
 `examples/mission_embodied.rs`.
 
+### Buts endogènes (Phase 2)
+
+L'orchestrateur peut choisir **lui‑même quoi poursuivre** à partir de *drives*
+(déficits) — aucun `Goal` externe n'est requis :
+
+```rust
+use genos_orchestrator::GenosEcosystem;
+
+let mut eco = GenosEcosystem::new("Overmind");
+let drives = eco.drives();            // energie / integrite / curiosite
+let goal = eco.autonomous_goal();     // derive du deficit (homeostasie)
+let report = eco.run_autonomous(8);   // boucle, but recalcule a chaque tick
+```
+
+`Drives::from_state` dérive énergie (budget), intégrité (maladie/trahison/stress)
+et curiosité (incertitude) ; `GoalSelector::select` en déduit `RecoverAgent`
+(intégrité), `SecurePerimeter` (menace), `Conserve` (énergie basse) ou `Explore`
+(curiosité). Les buts `Explore`/`Conserve` sont endogènes. Voir
+`examples/mission_autonomous.rs`.
+
 ## Organisations et mondes
 
 ```rust
@@ -229,6 +249,7 @@ use genos_orchestrator::api::{RateLimiter, TenantAuth, ChatMessage};
 | `dna_ops` / `genome_ops` | ADN compilé et opérations génomiques |
 | `ecosystem` | Façade `GenosEcosystem` |
 | `environment` | Environnement incarné (`Environment`, `FileSandbox`, boucle perception→action→récompense) |
+| `drives` | Buts endogènes (`Drives`, `GoalSelector`, `run_autonomous`) |
 | `neuro`, `virology`, `signaling`, `sensory`, `phylogeny`, `immune_cyber`, `snapshots`, `sensorimotor`, `thalamus` | Accès aux domaines |
 | `token_bucket` | Ordonnanceur de calcul (quotas, famine, apoptose) |
 
@@ -237,6 +258,7 @@ use genos_orchestrator::api::{RateLimiter, TenantAuth, ChatMessage};
 ```bash
 cargo run -p genos-orchestrator --example mission_tick        # boucle cognitive
 cargo run -p genos-orchestrator --example mission_embodied    # boucle incarnée (environnement)
+cargo run -p genos-orchestrator --example mission_autonomous  # buts endogènes (drives)
 cargo run -p genos-orchestrator --example mission_e2e         # bout en bout (feinte/glie/thalamus)
 cargo run -p genos-orchestrator --example mission_trinity     # mondes parallèles
 cargo run -p genos-orchestrator --example mission_recruit_planner # recrutement autonome

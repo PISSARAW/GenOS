@@ -113,6 +113,11 @@ impl Director {
         }
         scored.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
 
+        // Aucun plan ne fait progresser l'état -> arrêt (moyens inutiles au but).
+        if scored[0].2 <= state.progress(goal) + 1e-9 {
+            return Self::halt(Strategy::Solo, "aucun progres possible : moyens inutiles au but");
+        }
+
         let (strategy, steps) = if scored.len() >= 2 && (scored[0].2 - scored[1].2).abs() < 0.1 {
             // Deux stratégies se valent : on les explore en parallèle (Trinity).
             let mut merged = scored[0].1.clone();

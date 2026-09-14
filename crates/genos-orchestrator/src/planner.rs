@@ -108,6 +108,10 @@ pub enum Goal {
     SecurePerimeter,
     RecoverAgent,
     RepairModule,
+    /// But endogène : réduire l'incertitude par l'observation.
+    Explore,
+    /// But endogène : reconstituer l'énergie (réduire la pression budgétaire).
+    Conserve,
 }
 
 /// État du monde observable (extrait de l'écosystème ou simulé).
@@ -175,7 +179,7 @@ impl WorldState {
     pub fn applicable(&self, c: Concept) -> bool {
         use Concept::*;
         match c {
-            Observe => (self.threat > 0.0 || self.adversary) && !self.observed,
+            Observe => !self.observed,
             Replay => self.has_traces && !self.diagnosed,
             Organize => self.tissues == 0,
             Recruit => self.workers < self.required_workers,
@@ -240,20 +244,34 @@ impl WorldState {
     }
 
     /// Score de progression vers le but (0.0 -> 1.0).
-    pub fn progress(&self, _goal: &Goal) -> f64 {
-        let mut s = 0.0;
-        if self.tissues >= 1 {
-            s += 0.15;
+    pub fn progress(&self, goal: &Goal) -> f64 {
+        match goal {
+            Goal::Explore => {
+                if self.observed {
+                    1.0
+                } else {
+                    0.2
+                }
+            }
+            Goal::Conserve => (1.0 - self.budget_pressure).clamp(0.0, 1.0),
+            _ => {
+                let mut s = 0.0;
+                if self.tissues >= 1 {
+                    s += 0.15;
+                }
+                s += (self.workers.min(self.required_workers) as f64
+                    / self.required_workers as f64)
+                    * 0.15;
+                s += (1.0 - self.threat) * 0.40;
+                if self.diseased == 0 {
+                    s += 0.15;
+                }
+                if !self.traitor {
+                    s += 0.15;
+                }
+                s
+            }
         }
-        s += (self.workers.min(self.required_workers) as f64 / self.required_workers as f64) * 0.15;
-        s += (1.0 - self.threat) * 0.40;
-        if self.diseased == 0 {
-            s += 0.15;
-        }
-        if !self.traitor {
-            s += 0.15;
-        }
-        s
     }
 
     pub fn goal_reached(&self, goal: &Goal) -> bool {
@@ -268,6 +286,8 @@ impl WorldState {
             }
             Goal::RecoverAgent => self.diseased == 0 && self.workers >= 1,
             Goal::RepairModule => self.tissues >= 1 && !self.traitor,
+            Goal::Explore => self.observed,
+            Goal::Conserve => self.budget_pressure <= 0.3,
         }
     }
 }

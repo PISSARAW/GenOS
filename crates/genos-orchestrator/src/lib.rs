@@ -3,6 +3,7 @@ pub mod behaviors;
 pub mod diagnostics;
 pub mod director;
 pub mod dna_ops;
+pub mod drives;
 pub mod ecosystem;
 pub mod environment;
 pub mod genome_ops;
@@ -30,6 +31,7 @@ pub mod thalamus;
 
 pub use conscience::{Conscience, ConscienceState};
 pub use director::{Decision, Director, Step, Strategy};
+pub use drives::{Drives, GoalSelector};
 pub use ecosystem::GenosEcosystem;
 pub use environment::{Action, EmbodiedReport, Environment, Feedback, FileSandbox, Percept};
 pub use orchestrator::BiomimeticOrchestrator;

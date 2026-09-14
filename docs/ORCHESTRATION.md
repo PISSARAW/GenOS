@@ -808,6 +808,16 @@ spécification, la réussite met à jour l'apprentissage via le concept `Actuate
 et le journal d'événements. C'est la première brique vers un organisme
 « incarné » (voir `examples/mission_embodied.rs`).
 
+### 19.bis.9 Buts endogènes (Phase 2)
+
+L'orchestrateur peut choisir **lui‑même quoi poursuivre** : `Drives` dérive du
+monde trois déficits (énergie = budget, intégrité = maladie/trahison/stress,
+curiosité = incertitude) et `GoalSelector::select` en déduit un but — `RecoverAgent`,
+`SecurePerimeter`, `Conserve` (énergie basse) ou `Explore` (curiosité). Aucun
+`Goal` externe n'est requis : `autonomous_goal` / `run_autonomous` recalculent le
+but à chaque tick (réduction de déficit, façon homéostasie). Voir
+`examples/mission_autonomous.rs`.
+
 ---
 
 ## 20. Conclusion
