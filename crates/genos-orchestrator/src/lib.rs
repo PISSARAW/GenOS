@@ -1,14 +1,17 @@
 pub mod conscience;
 pub mod dna_ops;
 pub mod ecosystem;
+pub mod genome_ops;
 pub mod immune_cyber;
 pub mod neuro;
 pub mod orchestrator;
 pub mod phylogeny;
 pub mod sensory;
 pub mod signaling;
+pub mod snapshots;
 pub mod token_bucket;
 pub mod virology;
+pub mod sensorimotor;
 
 #[cfg(feature = "api")]
 pub mod thalamus;
