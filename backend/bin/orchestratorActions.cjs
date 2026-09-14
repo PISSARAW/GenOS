@@ -5,18 +5,13 @@ const contracts = require('../src/services/strategyContractService');
 const workerGarage = require('../src/services/workerGarageService');
 const aTeamCoordination = require('../src/services/aTeamCoordinationService');
 const trinityService = require('../src/services/trinityService');
+const trinityComparativeBarrier = require('../src/services/trinityComparativeBarrier');
 const biologicalTopology = require('../src/services/biologicalTopologyService');
 const dynamicOrganization = require('../src/services/dynamicOrganizationService');
 const telemetry = require('../src/services/telemetryObserver');
 const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
-
-// Escape LIKE metacharacters so a mission id containing `_` or `%` cannot
-// match another mission's trinity worlds through a wildcard.
-function escapeLikePattern(value) {
-  return String(value).replace(/[\\%_]/g, (char) => `\\${char}`);
-}
 
 async function findReusableWorker({ context, db }) {
   if (context.action !== 'dispatch_worker' || context.request.workerId) return null;
@@ -332,26 +327,7 @@ async function handleTrinityMerge({ db, context }) {
   let worldReports = request.worldReports || request.world_reports || [];
 
   if (!worldReports.length && missionId) {
-    const worlds = await db.all(
-      `SELECT w.world_number, w.strategy, w.agent_id, a.status, a.current_task 
-       FROM trinity_worlds w 
-       LEFT JOIN agents a ON a.id = w.agent_id 
-       WHERE w.id LIKE ? ESCAPE '\\' OR a.fleet_id = ?`,
-      `${escapeLikePattern(missionId)}%`, missionId
-    );
-    if (worlds.length > 0) {
-      // The status alone is not evidence: record the outcome as an unproven
-      // claim instead of fabricating proof, so a merger without real world
-      // reports escalates rather than merging on a synthetic score.
-      worldReports = worlds.map((w) => ({
-        worldNumber: w.world_number,
-        role: w.strategy,
-        agentId: w.agent_id,
-        outcome: w.status === 'completed' ? 'success' : w.status,
-        claims: [{ statement: `World ${w.world_number} execution outcome: ${w.status}${w.current_task ? ` (${w.current_task})` : ''}`, evidence: [] }],
-        tests: [w.status === 'completed' ? 'pass' : 'fail']
-      }));
-    }
+    worldReports = await trinityComparativeBarrier.buildWorldReportsFromMission(db, missionId);
   }
 
   const domain = request.domain || 'software_engineering';
