@@ -368,4 +368,9 @@ sequenceDiagram
     - `GatingRequest` : `{ string query = 1; repeated string candidate_tools = 2; float threshold_mv = 3; }`
     - `GatingResponse` : `{ bool requires_tools = 1; repeated string disinhibited_tools = 2; float membrane_potential_mv = 3; string gate_state = 4; string reason = 5; }`
 
+## Voir aussi (AgentDNA)
+
+- [AGENT_DNA_RUNTIME.md](AGENT_DNA_RUNTIME.md) — surface REST `/api/genomes` (list/get/import), opérations `POST /api/genomes/:id/operations/:op`, innovations (`/api/genomes/innovations`) et politique de signature (`/api/genomes/policy`).
+
+
 

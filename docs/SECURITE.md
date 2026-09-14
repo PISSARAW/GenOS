@@ -868,3 +868,8 @@ La primitive `genos_biomimicry_agrobacterium_tdna_hijack` modélise en mémoire 
 
 La primitive `genos_biomimicry_tardigrade_dsup_shield` maintient en mémoire (`dsupRegistry`) une couche d'invariants déclaratifs (`LOCUS_KERNEL_INTEGRITY`, `LOCUS_AUTH_INVARIANTS`). Elle sert de modèle de référence pour quantifier la résistance théorique face aux perturbations et aux attaques par injection de prompt, sans altérer directement les mécanismes d'isolation système ou la persistance SQLite.
 
+## Voir aussi (AgentDNA)
+
+- [AGENT_DNA_RUNTIME.md](AGENT_DNA_RUNTIME.md) — signature Ed25519 des génomes (`SIGN`), vérification runtime, et politique par tenant `genome_policies.require_signed` (les leurres portent un marqueur dans la provenance signée).
+
+

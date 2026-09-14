@@ -319,3 +319,9 @@ stateDiagram-v2
     Promu --> [*]
     ArchiveErreur --> [*]
 ```
+
+## Voir aussi (AgentDNA)
+
+- [AGENT_DNA_RUNTIME.md](AGENT_DNA_RUNTIME.md) — la promotion d'un génome candidat d'innovation est conditionnée par `hasDecisionEvidence` ; la provenance (`PROV`) et la signature Ed25519 portent la preuve.
+- [adr/0002-agentdna-innovation-loop.md](adr/0002-agentdna-innovation-loop.md) — gate de promotion : une découverte n'est héréditaire qu'après preuve.
+

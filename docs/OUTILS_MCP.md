@@ -470,3 +470,8 @@ flowchart TD
    - Les effecteurs moteurs ne sont jamais tous débloqués simultanément. Le striatum recrute sélectivement l'un des 5 clusters d'affordance (`snapshot_persistence`, `orchestration_coordination`, `strategy_primitives`, `audit_inspection`, `diagnostics_remediation`).
    - Le modèle 7B reçoit seulement 1 à 3 schémas d'outils ultra-pertinents, éliminant la distraction d'attention et le risque de fausse affordance.
 
+## Voir aussi (AgentDNA)
+
+- [AGENT_DNA_RUNTIME.md](AGENT_DNA_RUNTIME.md) — outils MCP `genos_genome_compile|validate|inspect|cross|mutate|clone|decoy` et leur catalogue (`seedTools.js`, `mcpGenomeTools.js`).
+
+
