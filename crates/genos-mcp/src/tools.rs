@@ -216,7 +216,7 @@ pub fn public_tool_specs() -> Vec<Value> {
         }),
         json!({
             "name": "genos_biomimicry",
-            "description": "Invoke native biomimetic features (allostatic, active sensing, endocrine, mycelium, apoptosis).",
+            "description": "Invoke native biomimetic features (allostatic, active sensing, endocrine, instinct, mycelium, apoptosis).",
             "inputSchema": {
                 "type": "object",
                 "properties": {

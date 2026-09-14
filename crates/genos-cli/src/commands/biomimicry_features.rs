@@ -9,6 +9,9 @@ pub fn handle_bio_feature(feature: &str, action: &str, params: &[String]) {
         "endocrine" => handle_endocrine(action, params),
         "neoteny" => handle_neoteny(action, params),
         "behavior" => handle_behavior(action, params),
+        "instinct" | "fixed_action_pattern" | "paf" => {
+            crate::commands::biomimicry_instinct::handle_instinct(action, params);
+        }
         "sar" => handle_sar(action, params),
         "bet-hedging" => handle_bet_hedging(action, params),
         "hippocampal" => handle_hippocampal(action, params),

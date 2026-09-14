@@ -7,6 +7,12 @@ pub mod embryology;
 pub mod glial;
 pub use glial::{GlialEnvironment, GlialPipeline};
 pub use glial::glial_cell::GlialCell;
+pub mod instinct;
+pub use instinct::{
+    ExecutionContext, FixedActionPattern, HormoneState, InnateReleasingMechanism,
+    InstinctLibrary, InstinctOutcome, InstinctProgram, InstinctRunContext, Modality, MotorStep,
+    SignStimulus, StimulusField, TriggerEvaluation, INSTINCT_LOCUS_PREFIX, is_instinct_locus,
+};
 pub mod neurobiology;
 pub mod pathology;
 pub mod phenotype;

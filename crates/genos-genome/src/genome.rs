@@ -8,6 +8,10 @@ use uuid::Uuid;
 
 pub const DEFAULT_HAYFLICK_LIMIT: u32 = 5;
 
+/// Préfixe réservé aux loci de comportements innés (instincts), verrouillés au
+/// développement et exemptés de mutation stochastique. Voir docs/INSTINCT.md.
+pub const INSTINCT_LOCUS_PREFIX: &str = "LOCUS_INSTINCT_";
+
 fn default_hayflick_limit() -> u32 {
     DEFAULT_HAYFLICK_LIMIT
 }
@@ -116,7 +120,10 @@ impl Genome {
         let mut count = 0;
         count += self.chromosome_maternal.mutate_stochastic(rate, rng);
         count += self.chromosome_paternal.mutate_stochastic(rate, rng);
-        for gene in self.genes.values_mut() {
+        for (locus, gene) in self.genes.iter_mut() {
+            if locus.starts_with(INSTINCT_LOCUS_PREFIX) {
+                continue;
+            }
             count += gene.dna.mutate_stochastic(rate, rng);
         }
         count

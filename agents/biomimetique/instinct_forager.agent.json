@@ -1,0 +1,83 @@
+{
+  "apiVersion": "v0alpha1",
+  "kind": "AgentGenome",
+  "metadata": {
+    "name": "InstinctForager",
+    "version": "0.1.0"
+  },
+  "identity": {
+    "role": "forager",
+    "name": "InstinctForager",
+    "name_meaning": "Porte le programme inné de retour au nid : déclenché par un stimulus signe phéromonal, il exécute un Patron d'Action Fixe sans délibération LLM.",
+    "cell_id": "0f3e1c2a-7b64-4d51-9a2e-6c1d4b8f0a11"
+  },
+  "cognition": {
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "organelles": ["instinct", "fixed-action-pattern", "innate-releasing", "pheromone-sense"]
+  },
+  "objectives": {
+    "primary": "Declencher le PAF de retour au nid des le franchissement du seuil de saillance pheromonale, module par l'etat hormonal, sans appel LLM.",
+    "operational_mode": "autonomous",
+    "source_doc": "docs/INSTINCT.md",
+    "concepts": ["instinct", "stimulus signe", "mecanisme declencheur inne", "patron d'action fixe", "modulation hormonale"]
+  },
+  "policies": {
+    "hayflick_limit": 50,
+    "is_senescent": false,
+    "is_ephemeral": false,
+    "ephemeral_ttl": null
+  },
+  "capabilities": [
+    "detection de stimulus signe multimodal",
+    "execution d'un patron d'action fixe borne",
+    "modulation du seuil par ocytocine, prolactine, testoterone et cortisol",
+    "signal de recompense dopaminergique sans reecriture du cablage"
+  ],
+  "memory_policy": {
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "model_policy": {
+    "preferred": "default"
+  },
+  "tool_policy": {
+    "allowed_tools": ["genos_biomimicry", "genos_snapshot", "genos_inspect"]
+  },
+  "memory": {
+    "type": "cognitive",
+    "ltd_decay": true,
+    "consolidation": true,
+    "synaptic_pruning": true
+  },
+  "models": {
+    "preferred": "default"
+  },
+  "tools": {
+    "allowed_tools": ["genos_biomimicry", "genos_snapshot", "genos_inspect"]
+  },
+  "conscience": {
+    "baseline_budget": 100.0,
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0,
+    "revision": 0
+  },
+  "organelles": ["instinct", "fixed-action-pattern", "innate-releasing", "pheromone-sense"],
+  "bud_scars": 0,
+  "hayflick_limit": 50,
+  "name": "InstinctForager",
+  "name_meaning": "Porte le programme inne de retour au nid : declenche par un stimulus signe pheromonal, il execute un Patron d'Action Fixe sans deliberation LLM.",
+  "role": "forager",
+  "cell_id": "0f3e1c2a-7b64-4d51-9a2e-6c1d4b8f0a11"
+}
