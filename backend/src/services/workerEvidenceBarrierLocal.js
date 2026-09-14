@@ -241,6 +241,7 @@ async function publishLocalSuccess(ctx) {
   maybeEmitDecisionBlocked(ctx.mission, ctx.event);
   maybeExecuteDecision(ctx.mission, ctx.event);
   await scheduleWorkspaceCleanup(ctx.mission.agentId);
+  require('./agentDnaInnovation').captureFromSuccess({ db: ctx.db, mission: ctx.mission, event: ctx.event }).catch(() => undefined);
 }
 
 async function emitLocalCompleted(ctx) {

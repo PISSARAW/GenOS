@@ -59,6 +59,18 @@ async function applyVersionedMigrations(db) {
     PRIMARY KEY (organization_id, project_id)
   );`);
 
+  const genomeColumns = new Set((await db.all('PRAGMA table_info(agent_genomes)')).map((column) => column.name));
+  if (!genomeColumns.has('status')) await db.exec("ALTER TABLE agent_genomes ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+  if (!genomeColumns.has('concept')) await db.exec('ALTER TABLE agent_genomes ADD COLUMN concept TEXT');
+
+  await db.exec(`CREATE TABLE IF NOT EXISTS agent_genome_innovations (
+    id TEXT PRIMARY KEY, source_agent_id TEXT, base_genome_ref TEXT NOT NULL, candidate_genome_ref TEXT NOT NULL,
+    concept TEXT, evidence_json TEXT, status TEXT NOT NULL DEFAULT 'candidate',
+    organization_id TEXT, project_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_agent_genome_innovations_scope ON agent_genome_innovations(organization_id, project_id);
+  CREATE INDEX IF NOT EXISTS idx_agent_genome_innovations_candidate ON agent_genome_innovations(candidate_genome_ref);`);
+
   const agentSnapshotColumns = new Set((await db.all('PRAGMA table_info(agent_state_snapshots)')).map((column) => column.name));
   if (!agentSnapshotColumns.has('commit_message')) await db.exec('ALTER TABLE agent_state_snapshots ADD COLUMN commit_message TEXT');
   if (!agentSnapshotColumns.has('parent_snapshot_id')) await db.exec('ALTER TABLE agent_state_snapshots ADD COLUMN parent_snapshot_id TEXT');

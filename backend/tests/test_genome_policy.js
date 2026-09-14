@@ -13,7 +13,7 @@ async function createSchema(db) {
   await db.exec(`CREATE TABLE agent_genomes (
     id TEXT PRIMARY KEY, agent_id TEXT, name TEXT NOT NULL, content_hash TEXT NOT NULL,
     genome_blob BLOB NOT NULL, phenotype_blob BLOB, source_manifest TEXT, source_doc TEXT,
-    organization_id TEXT, project_id TEXT,
+    organization_id TEXT, project_id TEXT, status TEXT NOT NULL DEFAULT 'active', concept TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE genome_policies (
     organization_id TEXT NOT NULL, project_id TEXT NOT NULL,
