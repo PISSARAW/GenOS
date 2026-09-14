@@ -13,7 +13,10 @@ L'A-Team n'est pas une simple distribution de tâches : c'est une allocation de 
 
 Le cœur fonctionnel est réparti entre :
 
-- [backend/src/services/aTeamService.js](../backend/src/services/aTeamService.js) : analyse de mission, détection de domaines, composition de l'équipe.
+- [backend/src/services/aTeamService.js](../backend/src/services/aTeamService.js) : analyse de mission, détection de domaines, composition de l'équipe, planification des étages.
+- [backend/src/services/aTeamCoordinationService.js](../backend/src/services/aTeamCoordinationService.js) : coordination (organisation, contrat de capacités, handoffs ligand).
+- [backend/src/services/aTeamComparativeBarrier.js](../backend/src/services/aTeamComparativeBarrier.js) : arbitrage d'intégration (Pareto/Elo), `canMerge` et métriques.
+- [backend/src/services/aTeamIntegrationObserver.js](../backend/src/services/aTeamIntegrationObserver.js) : observateur impartial (contamination, contraintes d'intégration).
 - [backend/src/services/agentAutonomyPlanService.js](../backend/src/services/agentAutonomyPlanService.js) : activation conditionnelle de l'A-Team selon le budget et la recommandation d'analyse.
 - [backend/src/services/agentFleetService.js](../backend/src/services/agentFleetService.js) : création des workers multidisciplinaires avec prompts contextualisés.
 - [backend/src/services/agentOrchestrationState.js](../backend/src/services/agentOrchestrationState.js) : état partagé, barrières d'évidence, continuations.
@@ -102,6 +105,7 @@ Le service d'analyse détecte les domaines suivants par signaux textuels :
 
 | Domaine | Rôle | Modèle | Signaux clés |
 |---------|------|--------|-------------|
+| `mathematics` | mathematician | **frontier** | maths, mathématiques, équation, intégrale, dérivée, algèbre, théorème, matrice, probabilité |
 | `frontend` | frontend_engineer | standard | React, Vue, Angular, UI, CSS, design system |
 | `backend` | backend_engineer | standard | API, serveur, Express, Node.js, microservice |
 | `data` | data_engineer | standard | database, SQL, SQLite, Postgres, ETL, analytics |
@@ -186,8 +190,23 @@ La fonction `analyzeMission(text)` :
 1. **teste les artefacts spécialisés** (ex: fiction, créativité littéraire) ;
 2. **applique les règles de domaines techniques** via signaux regex ;
 3. **compte les correspondances par domaine** ;
-4. **classe les domaines par score de pertinence** ;
+4. **classe les domaines par score de pertinence** (départage explicite par `priority`) ;
 5. **retourne une analyse complète avec recommandation**.
+
+### Débordement de capacité
+
+Quand plus de domaines sont détectés que la capacité de l'équipe, les domaines non
+retenus ne sont plus abandonnés en silence : l'analyse expose `overflowDomains`
+(domaines détectés non staffés) et `totalDetected`. Cela matérialise la règle
+« aucun domaine ne peut être ignoré sans justification » et permet à
+l'orchestrateur d'escalader ou de lancer une continuation.
+
+```javascript
+const analysis = analyzeMission('frontend React + backend Express + data SQL + sécurité OAuth + tests QA');
+analysis.detectedDomains; // top-K staffés
+analysis.overflowDomains; // domaines détectés mais non staffés
+analysis.totalDetected;   // nombre total détecté
+```
 
 Exemple de détection pour :
 
@@ -496,12 +515,16 @@ Si le garage est plein, l'activation est reportée ou l'A-Team est dégradée (n
 
 Le système enregistre pour chaque mission A-Team :
 
-- **analysisFit** : score d'adéquation de la mission à l'A-Team
+- **analysisFit** : score d'adéquation de la mission à l'A-Team (ratio de couverture des capacités)
 - **memberActivationOrder** : ordre d'activation des domaines
-- **evidenceCollectionTime** : temps avant barrière d'évidence
-- **fusionDecision** : résultat (merged, escalated, bifurcated)
-- **integrationConstraintViolations** : nombre de conflits détectés
+- **memberCount** : nombre de membres effectivement évalués
+- **fusionDecision** : résultat (`merged`, `escalated`)
+- **integrationConstraintViolations** : nombre de conflits détectés (contamination + contraintes manquantes)
 - **continuationRounds** : nombre de relances de synchronisation
+- **paretoFrontCount** / **totalEvaluated** : taille du front de Pareto et des candidats évalués
+
+Ces métriques sont calculées par `aTeamComparativeBarrier.buildAteamMetrics`, attachées
+à `aTeam.metrics` et émises sous l'événement **`A_TEAM_METRICS`** au moment de la fusion.
 
 Ces métriques aident à :
 
@@ -784,4 +807,49 @@ Depuis la v3, cette topologie est cablee au runtime : voir
 - Service de coordination : `aTeamCoordinationService.js`.
 - Capacites requises : SIGNALING_BUS, LIGAND_RECEPTOR, ARENA_COMPETITION, EVIDENCE_BARRIER.
 - Contrat expose par `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
+
+### Coordination inter-domaines
+
+- **Handoffs ligand** : `compose()` attache `label`, `capabilities`, `pipelineStage`
+  et `dependsOn` a chaque membre. Un observateur dépend de tous les domaines
+  producteurs ; des dépendances explicites peuvent être fournies via l'option
+  `dependencies`. `buildHandoffs` produit alors des signaux ligand
+  récepteur-compatibles (`ligand`, `concentration`, `receptor`), évaluables par
+  `evaluateHandoff`.
+- **Étages** : `planStages`/`orderByStage` ordonnent les producteurs avant
+  l'observateur. `dispatch_team` lance dans cet ordre, expose `stages` et transmet
+  `depends_on`/`pipeline_stage`; `dependencyPrompt` injecte les domaines amont à
+  consommer avant finalisation.
+- **Organisation** : `selectOrganization` choisit la topologie de communication
+  (comité par défaut, red/blue coevolution, blind review, quorum, stigmergie,
+  arène, compilation mémoire) à partir de signaux forts ou d'un override
+  explicite ; une organisation inconnue est refusée (`A_TEAM_UNKNOWN_ORGANIZATION`).
+
+### Contrat de capacités
+
+`aTeamCoordinationService.auditCapabilities` vérifie que chaque capacité requise
+est adossée à au moins un outil (`toolLeasePolicy.CAPABILITY_TOOLS`). Une
+capacité non servie lève **`A_TEAM_CAPABILITY_MISSING`** (désactivable via
+`enforceCapabilities: false`). Le plan d'autonomie partage le même contrat
+(`coordinateMembers` / `attachAteamCoordination`) : une capacité manquante
+désactive l'équipe avec une raison au lieu d'échouer la mission.
+
+### Fusion, observateur et arbitrage
+
+À la barrière d'évidence, `aTeamComparativeBarrier.applyAteamIntegration` :
+
+1. transforme les dossiers de domaine en candidats et les classe par
+   Pareto/Elo (`arenaTaskEvaluation`) ;
+2. interroge l'observateur impartial `aTeamIntegrationObserver`, qui signale
+   **`WORKER_DOMAIN_CONTAMINATION`** (un worker revendique un domaine de
+   l'équipe autre que le sien) et **`WORKER_INTEGRATION_CONSTRAINT_MISSING`**
+   (un consommateur ne retourne pas de contraintes d'intégration) ;
+3. calcule `canMerge` (knee-point de Pareto présent **et** aucun défaut) ;
+4. expose `aTeam.integration` (`canMerge`, `leaderboard`, `kneePoint`,
+   `observerReport`) et émet `A_TEAM_INTEGRATION_ARBITRATED` puis
+   `A_TEAM_METRICS`.
+
+Le `observerReport` est compatible avec `aTeamQualityGateService` : il peut
+alimenter `genos-ateam-audit --observer-report` pour bloquer une livraison.
+
 
