@@ -30,7 +30,8 @@ const REQUIRED_STRINGS = {
   genos_genome_mutate: ['input', 'out'],
   genos_genome_clone: ['input', 'out'],
   genos_genome_decoy: ['input', 'out'],
-  genos_computer_use: ['prompt']
+  genos_computer_use: ['prompt'],
+  genos_topology_session: ['session_id', 'operation']
 };
 
 const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'patterns_detected', 'facts', 'steps', 'preconditions', 'bbox', 'history']);

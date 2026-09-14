@@ -26,7 +26,7 @@ async function composeMode(input = {}) {
   const key = String(mode || '').trim().toLowerCase();
   if (key === 'biocenose') return biocenoseService.prepareCommunity(db, orchestratorId, mission);
   if (key === 'syncytium') {
-    const session = syncytiumCoordinationService.createSession(mission);
+    const session = await syncytiumCoordinationService.createSession(mission, { db });
     await applyOrganization(db, orchestratorId, session.organization, 'Syncytium mode activation');
     return session;
   }
@@ -41,7 +41,7 @@ async function composeMode(input = {}) {
     return composition;
   }
   if (key === 'rhizome') {
-    const session = rhizomeCoordinationService.composeRhizome(mission);
+    const session = await rhizomeCoordinationService.composeRhizome(mission, { db });
     await applyOrganization(db, orchestratorId, session.organization, 'Rhizome mode activation');
     return session;
   }

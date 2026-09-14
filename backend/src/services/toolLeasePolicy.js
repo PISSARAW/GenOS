@@ -107,7 +107,8 @@ const KNOWN_TOOL_ALLOW_LIST = [
   'genos_foveal_crop',
   'genos_optimal_foraging',
   'genos_computer_use',
-  'genos_guardrails_verify'
+  'genos_guardrails_verify',
+  'genos_topology_session'
 ];
 
 // Maps a topology capability (see topologyCapabilityService.GENOS_CAPABILITIES)
@@ -129,9 +130,9 @@ const CAPABILITY_TOOLS = Object.freeze({
   VECTOR_MEMORY: ['genos_compile_memory'],
   EPISODIC_MEMORY: ['genos_record_experience', 'genos_cherry_pick_experience'],
   SYNAPTIC_PLASTICITY: ['genos_record_experience'],
-  SIGNALING_BUS: ['genos_worker_publish', 'genos_worker_inbox'],
-  LIGAND_RECEPTOR: ['genos_worker_publish', 'genos_worker_inbox'],
-  STIGMERGY: ['genos_worker_publish'],
+  SIGNALING_BUS: ['genos_worker_publish', 'genos_worker_inbox', 'genos_topology_session'],
+  LIGAND_RECEPTOR: ['genos_worker_publish', 'genos_worker_inbox', 'genos_topology_session'],
+  STIGMERGY: ['genos_worker_publish', 'genos_topology_session'],
   SWARM_METRICS: [],
   QUORUM: ['genos_evaluate_trajectories'],
   GENOME_EPIGENETICS: ['genos_repository_genome'],
@@ -140,7 +141,7 @@ const CAPABILITY_TOOLS = Object.freeze({
   CONSCIENCE_HOMEOSTASIS: [],
   RESILIENCE_RECOVERY: ['genos_resilience_hypermutation'],
   CHAOS_ENGINEERING: [],
-  CRDT_SHARED_STATE: ['genos_worker_publish', 'genos_worker_inbox'],
+  CRDT_SHARED_STATE: ['genos_worker_publish', 'genos_worker_inbox', 'genos_topology_session'],
   VFS_SANDBOX: ['genos_run'],
   CAPSULES_SNAPSHOTS: ['genos_snapshot'],
   MODEL_ROUTING: [],
