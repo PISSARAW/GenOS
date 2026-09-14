@@ -64,6 +64,10 @@ function workerToolLease(role) {
   return leasePolicy.workerLeaseForRole(role);
 }
 
+function workerToolLeaseForCapabilities(role, capabilities) {
+  return leasePolicy.leaseForCapabilities(leasePolicy.workerLeaseForRole(role), capabilities);
+}
+
 function orchestratorToolLease(plan, knownTools) {
   return leasePolicy.orchestratorLeaseForPlan(plan || {}, knownTools);
 }
@@ -97,5 +101,6 @@ module.exports = {
   emit,
   updateAgent,
   workerToolLease,
+  workerToolLeaseForCapabilities,
   orchestratorToolLease
 };
