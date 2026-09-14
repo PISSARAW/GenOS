@@ -40,6 +40,9 @@ pub struct Director {
     pub learner: Learner,
     /// Dernier contexte observé (features du `WorldState`).
     pub last_context: Vec<f64>,
+    /// Paramètres adaptatifs du contrôleur, optimisables par la population.
+    pub exploration_weight: f64,
+    pub stress_cost_weight: f64,
 }
 
 impl Default for Director {
@@ -49,6 +52,8 @@ impl Default for Director {
             max_steps: 12,
             learner: Learner::new(),
             last_context: Vec::new(),
+            exploration_weight: 1.5,
+            stress_cost_weight: 2.0,
         }
     }
 }
@@ -56,6 +61,16 @@ impl Default for Director {
 impl Director {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Applique les gènes d'un candidat à la politique de décision.
+    pub fn set_policy_genes(&mut self, genes: &[f64]) {
+        if let Some(value) = genes.first() {
+            self.exploration_weight = value.clamp(0.1, 3.0);
+        }
+        if let Some(value) = genes.get(1) {
+            self.stress_cost_weight = value.clamp(0.0, 4.0);
+        }
     }
 
     fn utility(&self, c: Concept, stress: f64) -> f64 {
@@ -67,12 +82,13 @@ impl Director {
         };
         let updates = self.learner.updates(c);
         let explore = if updates == 0 {
-            1.5
+            self.exploration_weight
         } else {
             1.0 / (1.0 + updates as f64).sqrt()
         };
         // Sous stress, le coût pèse davantage (économie d'énergie).
-        predicted + explore - c.cost() * 0.01 * (1.0 + 2.0 * stress.clamp(0.0, 1.0))
+        predicted + explore
+            - c.cost() * 0.01 * (1.0 + self.stress_cost_weight * stress.clamp(0.0, 1.0))
     }
 
     /// Fixe le contexte courant (appelé par la boucle avant de décider).

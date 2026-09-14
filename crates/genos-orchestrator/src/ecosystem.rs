@@ -7,8 +7,8 @@
 //! thérapies et ADN compilé. Tous les crates GenOS sont en outre ré-exportés à la
 //! racine du crate orchestrateur (`genos_orchestrator::genos_store`, etc.).
 
-use crate::BiomimeticOrchestrator;
 use crate::director::Director;
+use crate::evolution::Population;
 use crate::immune_cyber::CyberImmune;
 use crate::instincts::InstinctState;
 use crate::neuro::NeuroLab;
@@ -19,6 +19,7 @@ use crate::signaling::SignalingCascade;
 use crate::snapshots::SnapshotVault;
 use crate::trace::TraceStore;
 use crate::virology::VirologyLab;
+use crate::BiomimeticOrchestrator;
 use genos_biology::pathology::{assess_agent_clinical_status, ClinicalStatusReport};
 use genos_biology::phenotype::{create_default_registry, PhenotypeRegistry};
 use genos_biology::quorum::{AutoinducerType, QuorumPhenotype, QuorumSensingSystem};
@@ -112,6 +113,7 @@ pub struct GenosEcosystem {
     pub director: Director,
     /// Instincts innés (bibliothèque + dernières activations par tick).
     pub instincts: InstinctState,
+    pub population: Option<Population>,
 }
 
 impl GenosEcosystem {
@@ -158,8 +160,11 @@ impl GenosEcosystem {
             agent_dna: HashMap::new(),
             director: Director::default(),
             instincts: InstinctState::default(),
+            population: None,
         }
     }
+
+    pub fn attach_population(&mut self, population: Population) { self.population = Some(population); }
 
     // --- Signalisation ---
 
@@ -234,7 +239,11 @@ impl GenosEcosystem {
         Ok(vec![a, b])
     }
 
-    pub fn meiosis(&self, genome: &Genome, crossover: Option<usize>) -> Result<Vec<Genome>, String> {
+    pub fn meiosis(
+        &self,
+        genome: &Genome,
+        crossover: Option<usize>,
+    ) -> Result<Vec<Genome>, String> {
         CellDivision::meiosis(genome, crossover)
     }
 
@@ -297,7 +306,8 @@ impl GenosEcosystem {
         recipient: &mut ProkaryoticAgent,
         plasmid_id: &str,
     ) -> Result<HgtTransferReport, String> {
-        self.prokaryote.conjugate_transfer_plasmid(recipient, plasmid_id)
+        self.prokaryote
+            .conjugate_transfer_plasmid(recipient, plasmid_id)
     }
 
     pub fn ossify_pipeline(&mut self, pipeline_id: &str) -> Result<OssificationReport, String> {
@@ -371,7 +381,11 @@ impl GenosEcosystem {
 
     // --- Reproduction (compléments) ---
 
-    pub fn budding(&self, genome: &Genome, daughter_volume: f64) -> Result<(Genome, Genome), String> {
+    pub fn budding(
+        &self,
+        genome: &Genome,
+        daughter_volume: f64,
+    ) -> Result<(Genome, Genome), String> {
         CellDivision::budding(genome, daughter_volume)
     }
 

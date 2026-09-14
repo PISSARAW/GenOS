@@ -6,10 +6,11 @@
 //! buts endogènes (Phase 2), décision/apprentissage (Phases 4) et, en variante,
 //! l'environnement incarné (Phase 1).
 
-use crate::GenosEcosystem;
 use crate::director::Strategy;
 use crate::environment::Environment;
+use crate::evolution::EvolutionReport;
 use crate::planner::Concept;
+use crate::GenosEcosystem;
 
 /// Réglages de la boucle organisme.
 #[derive(Clone, Debug)]
@@ -18,6 +19,8 @@ pub struct OrganismConfig {
     /// Nourrir automatiquement sous ce niveau d'ATP.
     pub feed_below: f64,
     pub feed_amount: f64,
+    /// Nombre de cycles entre deux générations ; zéro désactive l'évolution.
+    pub evolve_every: u64,
 }
 
 impl Default for OrganismConfig {
@@ -26,6 +29,7 @@ impl Default for OrganismConfig {
             auto_repair: true,
             feed_below: 80.0,
             feed_amount: 50.0,
+            evolve_every: 0,
         }
     }
 }
@@ -43,9 +47,33 @@ pub struct OrganismReport {
     pub repairs: Vec<String>,
     pub fed: bool,
     pub halt: Option<String>,
+    pub evolution: Option<EvolutionReport>,
 }
 
 impl GenosEcosystem {
+    fn evolve_policy(&mut self, tick: u64, config: &OrganismConfig) -> Option<EvolutionReport> {
+        if config.evolve_every == 0 || tick % config.evolve_every != 0 {
+            return None;
+        }
+        let state = self.observe();
+        let goal = self.autonomous_goal();
+        let population = self.population.as_mut()?;
+        let base = self.director.clone();
+        population.evaluate(&|genes| {
+            let mut candidate = base.clone();
+            candidate.set_policy_genes(genes);
+            let decision = candidate.decide(&state, &goal);
+            decision.steps.iter().map(|step| step.utility).sum::<f64>()
+                - decision.steps.len() as f64 * 0.01
+        });
+        population.generation();
+        let report = population.report();
+        if let Some(best) = population.best() {
+            self.director.set_policy_genes(&best.genes);
+        }
+        Some(report)
+    }
+
     /// Un cycle complet d'organisme (monde interne).
     pub fn organism_tick(&mut self, config: &OrganismConfig) -> OrganismReport {
         let tick = self.events.count() as u64;
@@ -62,6 +90,7 @@ impl GenosEcosystem {
                 repairs: Vec::new(),
                 fed: false,
                 halt: Some("organisme mort: membrane rompue".to_string()),
+                evolution: None,
             };
         }
 
@@ -83,6 +112,7 @@ impl GenosEcosystem {
 
         // 3. Décision autonome (but endogène) + exécution + apprentissage.
         let goal = self.autonomous_goal();
+        let evolution = self.evolve_policy(tick, config);
         let report = self.tick(&goal);
 
         OrganismReport {
@@ -96,6 +126,7 @@ impl GenosEcosystem {
             repairs,
             fed,
             halt: report.halt,
+            evolution,
         }
     }
 
@@ -121,6 +152,7 @@ impl GenosEcosystem {
                 repairs: Vec::new(),
                 fed: false,
                 halt: Some("organisme mort: membrane rompue".to_string()),
+                evolution: None,
             };
         }
 
@@ -152,6 +184,7 @@ impl GenosEcosystem {
             } else {
                 Some(embodied.reason)
             },
+            evolution: None,
         }
     }
 

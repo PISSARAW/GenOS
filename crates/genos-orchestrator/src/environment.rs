@@ -5,11 +5,12 @@
 //! **perçoit un monde externe, agit dessus, et reçoit une récompense externe**
 //! (au lieu d'un état purement interne).
 
-use crate::GenosEcosystem;
 use crate::learning::context_from_state;
 use crate::planner::Concept;
+use crate::GenosEcosystem;
 use serde_json::json;
-use std::path::{Component, PathBuf};
+use std::path::{Component, Path, PathBuf};
+use std::process::Command;
 
 /// Ce que l'agent perçoit de l'environnement.
 #[derive(Clone, Debug, PartialEq)]
@@ -23,11 +24,26 @@ pub struct Percept {
 /// Action que l'agent exerce sur l'environnement.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Action {
-    Read { path: String },
-    Write { path: String, content: String },
-    Append { path: String, content: String },
-    Delete { path: String },
+    Read {
+        path: String,
+    },
+    Write {
+        path: String,
+        content: String,
+    },
+    Append {
+        path: String,
+        content: String,
+    },
+    Delete {
+        path: String,
+    },
     List,
+    /// Exécute un binaire autorisé sans passer par un shell.
+    Run {
+        program: String,
+        args: Vec<String>,
+    },
 }
 
 /// Retour d'une action, éventuellement accompagné d'un percept.
@@ -121,8 +137,7 @@ impl Environment for FileSandbox {
             match action {
                 Action::Read { path } => {
                     let target = self.resolve(&path)?;
-                    let content =
-                        std::fs::read_to_string(&target).map_err(|e| e.to_string())?;
+                    let content = std::fs::read_to_string(&target).map_err(|e| e.to_string())?;
                     Ok(Some(Percept {
                         key: path,
                         exists: true,
@@ -146,7 +161,8 @@ impl Environment for FileSandbox {
                         .append(true)
                         .open(&target)
                         .map_err(|e| e.to_string())?;
-                    file.write_all(content.as_bytes()).map_err(|e| e.to_string())?;
+                    file.write_all(content.as_bytes())
+                        .map_err(|e| e.to_string())?;
                     Ok(None)
                 }
                 Action::Delete { path } => {
@@ -155,6 +171,7 @@ impl Environment for FileSandbox {
                     Ok(None)
                 }
                 Action::List => Ok(Some(self.sense(""))),
+                Action::Run { .. } => Err("execution interdite dans FileSandbox".to_string()),
             }
         })();
         match result {
@@ -166,6 +183,100 @@ impl Environment for FileSandbox {
             Err(message) => Feedback {
                 success: false,
                 message,
+                percept: None,
+            },
+        }
+    }
+}
+
+/// Environnement système minimal : binaires allowlistés, sans shell, cwd confiné.
+pub struct ProcessSandbox {
+    pub root: PathBuf,
+    pub allowed_programs: Vec<String>,
+    pub ops: u64,
+}
+
+impl ProcessSandbox {
+    pub fn new(root: impl Into<PathBuf>, allowed_programs: Vec<String>) -> std::io::Result<Self> {
+        let root = root.into();
+        std::fs::create_dir_all(&root)?;
+        Ok(Self {
+            root,
+            allowed_programs,
+            ops: 0,
+        })
+    }
+
+    fn allowed(&self, program: &str) -> bool {
+        let name = Path::new(program)
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or(program);
+        program == name && self.allowed_programs.iter().any(|allowed| allowed == name)
+    }
+}
+
+impl Environment for ProcessSandbox {
+    fn sense(&self, key: &str) -> Percept {
+        let path = self.root.join(key);
+        match std::fs::read_to_string(&path) {
+            Ok(content) => Percept {
+                key: key.to_string(),
+                exists: true,
+                size: content.len(),
+                content,
+            },
+            Err(_) => Percept {
+                key: key.to_string(),
+                exists: false,
+                content: String::new(),
+                size: 0,
+            },
+        }
+    }
+
+    fn act(&mut self, action: Action) -> Feedback {
+        self.ops += 1;
+        let Action::Run { program, args } = action else {
+            return Feedback {
+                success: false,
+                message: "ProcessSandbox accepte uniquement Run".to_string(),
+                percept: None,
+            };
+        };
+        if !self.allowed(&program) {
+            return Feedback {
+                success: false,
+                message: "binaire non autorise".to_string(),
+                percept: None,
+            };
+        }
+        match Command::new(&program)
+            .args(args)
+            .current_dir(&self.root)
+            .output()
+        {
+            Ok(output) => {
+                let content = String::from_utf8_lossy(&output.stdout).to_string();
+                let error = String::from_utf8_lossy(&output.stderr);
+                Feedback {
+                    success: output.status.success(),
+                    message: if error.is_empty() {
+                        content.clone()
+                    } else {
+                        error.to_string()
+                    },
+                    percept: Some(Percept {
+                        key: program,
+                        exists: true,
+                        size: content.len(),
+                        content,
+                    }),
+                }
+            }
+            Err(error) => Feedback {
+                success: false,
+                message: error.to_string(),
                 percept: None,
             },
         }

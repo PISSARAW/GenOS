@@ -40,7 +40,7 @@ pub use autopoiesis::{Membrane, SelfModel, SelfRepairReport};
 pub use director::{Decision, Director, Step, Strategy};
 pub use drives::{Drives, GoalSelector};
 pub use ecosystem::GenosEcosystem;
-pub use environment::{Action, EmbodiedReport, Environment, Feedback, FileSandbox, Percept};
+pub use environment::{Action, EmbodiedReport, Environment, Feedback, FileSandbox, Percept, ProcessSandbox};
 pub use evolution::{EvolutionReport, Individual, Island, Population};
 pub use instincts::{InstinctActivation, InstinctState};
 pub use metabolism::Metabolism;
