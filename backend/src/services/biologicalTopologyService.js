@@ -13,6 +13,7 @@ const syncytiumCoordinationService = require('./syncytiumCoordinationService');
 const holobionteCoordinationService = require('./holobionteCoordinationService');
 const metapopulationCoordinationService = require('./metapopulationCoordinationService');
 const rhizomeCoordinationService = require('./rhizomeCoordinationService');
+const biomeCoordinationService = require('./biomeCoordinationService');
 
 async function applyOrganization(db, orchestratorId, organization, reason) {
   if (!organization) return;
@@ -43,6 +44,11 @@ async function composeMode(input = {}) {
     const session = rhizomeCoordinationService.composeRhizome(mission);
     await applyOrganization(db, orchestratorId, session.organization, 'Rhizome mode activation');
     return session;
+  }
+  if (key === 'biome') {
+    const composition = biomeCoordinationService.composeBiome(mission);
+    await applyOrganization(db, orchestratorId, composition.organization, 'Biome mode activation');
+    return composition;
   }
   return { members: biologicalModeService.compose(key, mission) };
 }
