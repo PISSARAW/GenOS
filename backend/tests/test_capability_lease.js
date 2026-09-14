@@ -29,4 +29,10 @@ const withoutContract = lease.orchestratorLeaseForPlan({});
 assert.deepEqual(withoutContract, base);
 
 assert.ok(lease.leaseForCapabilities(base, ['CAPSULES_SNAPSHOTS']).includes('genos_snapshot'));
+
+const foraging = lease.leaseForCapabilities([], ['WEB_FORAGING']);
+assert.ok(foraging.includes('genos_browser_act'));
+assert.ok(foraging.includes('genos_optimal_foraging'));
+assert.deepEqual(lease.leaseForCapabilities([], ['FOVEAL_PERCEPTION']), ['genos_foveal_crop']);
+
 console.log('Capability lease checks: PASS');
