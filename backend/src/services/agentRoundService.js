@@ -43,7 +43,7 @@ function continuationPolicyError(continuation) {
   return null;
 }
 
-function selectRoundSurvivors(completed, continuation) {
+function selectRoundSurvivors(completed, continuation, orchestratorId) {
   const arenaTask = require('./arenaTaskEvaluation');
   const paretoResult = arenaTask.evaluateDossiersPareto(completed.map((result) => ({
     workerId: result.agentId,
@@ -51,8 +51,9 @@ function selectRoundSurvivors(completed, continuation) {
     fitnessScore: result.evidenceScore,
     tokens: result.payload?.tokens || 1000
   })));
-  const paretoAgentIds = new Set((paretoResult.paretoFront || []).map((candidate) => candidate.candidateId));
-  const survivors = selectSurvivors(completed, continuation?.survivorCount, paretoAgentIds);
+  const preferred = new Set((paretoResult.paretoFront || []).map((candidate) => candidate.candidateId));
+  for (const workerId of require('./swarmTopologyRuntimeService').preferredSurvivorsFor(orchestratorId)) preferred.add(workerId);
+  const survivors = selectSurvivors(completed, continuation?.survivorCount, preferred);
   return { survivors, paretoResult };
 }
 
@@ -151,7 +152,7 @@ async function advanceAutonomousRound(mission, event) {
     });
   }
 
-  const { survivors, paretoResult } = selectRoundSurvivors(completed, continuation);
+  const { survivors, paretoResult } = selectRoundSurvivors(completed, continuation, orchestratorId);
   emitRoundEvaluated({ orchestratorId, state, survivors, paretoResult, continuation });
   const continuationWorkerIds = survivors.map((survivor, index) => queueContinuationMission({
     state, survivor, continuation, index, orchestratorId
