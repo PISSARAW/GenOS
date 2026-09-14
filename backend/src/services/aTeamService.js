@@ -184,14 +184,26 @@ function analyzeMission(mission) {
   return technicalAnalysis(detectTechnicalDomains(text));
 }
 
-function prepareComposition({ projectGoal, subSystems, assignedRoles = [], modelTiers = [], available = 3 } = {}) {
+function normalizeDependencies(dependencies) {
+  if (!dependencies || typeof dependencies !== 'object' || Array.isArray(dependencies)) return {};
+  const normalized = {};
+  for (const [subSystem, list] of Object.entries(dependencies)) {
+    const key = String(subSystem || '').trim();
+    if (!key) continue;
+    normalized[key] = [...new Set((Array.isArray(list) ? list : [list]).map((value) => String(value || '').trim()).filter(Boolean))];
+  }
+  return normalized;
+}
+
+function prepareComposition({ projectGoal, subSystems, assignedRoles = [], modelTiers = [], dependencies = {}, available = 3 } = {}) {
   const goal = String(projectGoal || '').trim();
   const systems = [...new Set((Array.isArray(subSystems) ? subSystems : []).map((value) => String(value).trim()).filter(Boolean))];
   const roles = Array.isArray(assignedRoles) ? assignedRoles : [];
   const tiers = Array.isArray(modelTiers) ? modelTiers : [];
+  const deps = normalizeDependencies(dependencies);
   const capacity = maxMembers();
   const freeSlots = Number.isFinite(Number(available)) ? Number(available) : capacity;
-  return { goal, systems, roles, tiers, capacity, freeSlots };
+  return { goal, systems, roles, tiers, deps, capacity, freeSlots };
 }
 
 function validateComposition({ goal, systems, capacity, freeSlots }) {
@@ -201,19 +213,42 @@ function validateComposition({ goal, systems, capacity, freeSlots }) {
   if (systems.length > freeSlots) throw Object.assign(new Error(`A-Team requires ${systems.length} free slots, but worker garage is full (slots: ${capacity - freeSlots}/${capacity} used — wait or increase MAX_ACTIVE_WORKERS).`), { code: 'WORKER_GARAGE_FULL' });
 }
 
-function buildAssignment({ goal, roles, tiers }, subSystem, index) {
+function memberDependencies(composition, member, producers) {
+  const explicit = composition.deps[member.subSystem];
+  if (Array.isArray(explicit)) return explicit.filter((domain) => domain !== member.subSystem);
+  // An observer (integration/review) consumes every producing domain; it must
+  // run after them, so the handoff graph is never empty when an observer exists.
+  if (isObserverRole(member.role)) return producers.filter((domain) => domain !== member.subSystem);
+  return [];
+}
+
+function buildAssignment(composition, member, index, producers) {
+  const { goal } = composition;
+  const dependsOn = memberDependencies(composition, member, producers);
+  const observer = isObserverRole(member.role);
   return {
-    subSystem,
-    role: String(roles[index] || `${subSystem}_specialist`).trim(),
-    modelTier: String(tiers[index] || 'standard').trim(),
-    mission: `Project goal: ${goal}\nOwned competency domain: ${subSystem}\nWork only on this bounded domain and return evidence plus integration constraints to the orchestrator.`
+    subSystem: member.subSystem,
+    label: member.subSystem,
+    role: member.role,
+    modelTier: member.modelTier,
+    capabilities: [member.subSystem],
+    relevanceScore: Number(member.relevanceScore) || 1,
+    pipelineStage: observer || dependsOn.length ? 1 : 0,
+    dependsOn,
+    mission: `Project goal: ${goal}\nOwned competency domain: ${member.subSystem}\nWork only on this bounded domain and return evidence plus integration constraints to the orchestrator.`
   };
 }
 
 function compose(options = {}) {
   const composition = prepareComposition(options);
   validateComposition(composition);
-  return composition.systems.map((subSystem, index) => buildAssignment(composition, subSystem, index));
+  const members = composition.systems.map((subSystem, index) => ({
+    subSystem,
+    role: String(composition.roles[index] || `${subSystem}_specialist`).trim(),
+    modelTier: String(composition.tiers[index] || 'standard').trim()
+  }));
+  const producers = members.filter((member) => !isObserverRole(member.role)).map((member) => member.subSystem);
+  return members.map((member, index) => buildAssignment(composition, member, index, producers));
 }
 
 module.exports = {
