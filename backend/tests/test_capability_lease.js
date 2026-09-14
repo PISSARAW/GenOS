@@ -34,5 +34,7 @@ const foraging = lease.leaseForCapabilities([], ['WEB_FORAGING']);
 assert.ok(foraging.includes('genos_browser_act'));
 assert.ok(foraging.includes('genos_optimal_foraging'));
 assert.deepEqual(lease.leaseForCapabilities([], ['FOVEAL_PERCEPTION']), ['genos_foveal_crop']);
+assert.deepEqual(lease.leaseForCapabilities([], ['COMPUTER_USE']), ['genos_computer_use']);
+assert.deepEqual(lease.leaseForCapabilities([], ['OUTPUT_GOVERNOR']), ['genos_guardrails_verify']);
 
 console.log('Capability lease checks: PASS');

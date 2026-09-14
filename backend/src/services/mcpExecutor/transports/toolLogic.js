@@ -211,6 +211,15 @@ async function executeToolLogic(toolName, args, runLocal, timeoutMs = 30000) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
+  if (toolName === 'genos_computer_use') {
+    try {
+      const computerUse = require('../../computerUseService');
+      const output = await computerUse.runMission(args.prompt || args.task || args.instruction, { model: args.model, maxIterations: args.max_iterations });
+      return { configured: true, success: true, status: 'completed', transport: 'strategy_primitive', output };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'strategy_primitive', output: e.message };
+    }
+  }
   if (toolName === 'genos_resilience_apoptosis') {
     try {
       const out = runSafeSync(`genos resilience apoptosis --agent-id ${args.agent_id}`, timeoutMs);

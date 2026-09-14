@@ -105,7 +105,9 @@ const KNOWN_TOOL_ALLOW_LIST = [
   'genos_scientific_experiment',
   'genos_browser_act',
   'genos_foveal_crop',
-  'genos_optimal_foraging'
+  'genos_optimal_foraging',
+  'genos_computer_use',
+  'genos_guardrails_verify'
 ];
 
 // Maps a topology capability (see topologyCapabilityService.GENOS_CAPABILITIES)
@@ -121,7 +123,7 @@ const CAPABILITY_TOOLS = Object.freeze({
   EVIDENCE_BARRIER: ['genos_hypothesis_evidence', 'genos_evaluate_trajectories'],
   EPISTEMICS_BRIER: ['genos_evaluate_trajectories'],
   HALLUCINATION_MONITORING: ['genos_adversarial_review'],
-  OUTPUT_GOVERNOR: [],
+  OUTPUT_GOVERNOR: ['genos_guardrails_verify'],
   PROVENANCE: ['genos_record_decision'],
   GRAPH_MEMORY: ['genos_compile_memory', 'genos_search_failures'],
   VECTOR_MEMORY: ['genos_compile_memory'],
@@ -149,7 +151,7 @@ const CAPABILITY_TOOLS = Object.freeze({
   COMPLIANCE: [],
   WEB_FORAGING: ['genos_browser_act', 'genos_optimal_foraging'],
   FOVEAL_PERCEPTION: ['genos_foveal_crop'],
-  COMPUTER_USE: []
+  COMPUTER_USE: ['genos_computer_use']
 });
 
 function normalizeToolName(value) {
