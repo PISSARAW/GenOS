@@ -1,0 +1,33 @@
+const assert = require('node:assert/strict');
+const syncytium = require('../src/services/syncytiumCoordinationService');
+
+const session = syncytium.createSession('Maintain a shared state with continuous sync and invariant checks.');
+assert.equal(session.members.length, 4);
+assert.equal(session.organization, 'memory_compilation');
+assert.ok(session.capabilityContract.required.includes('CRDT_SHARED_STATE'));
+assert.ok(session.capabilityContract.required.includes('SIGNALING_BUS'));
+
+const inserted = syncytium.applyOperation(session.sessionId, {
+  agentId: 'w1', role: 'shared_state_coordinator', kind: { type: 'insert_text', index: 0, text: 'hello syncytium' }
+});
+assert.equal(inserted.snapshot.textContent, 'hello syncytium');
+assert.equal(inserted.consistency.verdict, 'consistent');
+
+const invariant = syncytium.applyOperation(session.sessionId, {
+  agentId: 'w2', role: 'consistency_guardian', kind: { type: 'check_invariant', name: 'no_divergence', passed: false, error: 'stale state' }
+});
+assert.equal(invariant.consistency.verdict, 'divergent');
+assert.ok(invariant.consistency.failedInvariants.includes('no_divergence'));
+
+const flux = syncytium.applyOperation(session.sessionId, {
+  agentId: 'w3', role: 'parallel_executor', kind: { type: 'flux_Ca2+', deltaFlux: 2.5 }
+});
+assert.equal(flux.ion.ion, 'Ca2+');
+assert.ok(Number.isFinite(flux.ion.membranePotentialMv));
+
+const full = syncytium.snapshot(session.sessionId);
+assert.ok(full.shared && full.cytoplasm && full.consistency);
+assert.equal(syncytium.closeSession(session.sessionId), true);
+assert.throws(() => syncytium.snapshot(session.sessionId), (error) => error.code === 'SYNCYTIUM_SESSION_UNKNOWN');
+
+console.log('Syncytium wiring checks: PASS');
