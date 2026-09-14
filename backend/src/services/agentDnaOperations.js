@@ -6,7 +6,7 @@ const genosCli = require('./genosCli');
 const store = require('./agentDnaStore');
 const agentDna = require('./agentDna');
 
-const SUPPORTED = new Set(['cross', 'mutate', 'clone', 'decoy']);
+const SUPPORTED = new Set(['cross', 'mutate', 'clone', 'decoy', 'graft', 'speciate']);
 
 function pushParam(args, flag, value) {
   if (value !== undefined && value !== null) args.push(flag, String(value));
@@ -46,10 +46,34 @@ function decoyArgs(params, paths) {
   return args;
 }
 
+function graftArgs(params, paths) {
+  const args = [
+    'genome', 'graft', '--in', paths.input, '--out', paths.output,
+    '--locus', String(params.locus), '--instruction', String(params.instruction),
+    '--force', '--parents'
+  ];
+  if (params.plasmid) args.push('--plasmid');
+  return args;
+}
+
+function speciateArgs(params, paths) {
+  const args = [
+    'genome', 'speciate', '--in', paths.input, '--out', paths.output,
+    '--name', String(params.name || 'Innovated'), '--force', '--parents'
+  ];
+  if (params.concept) args.push('--concept', String(params.concept));
+  for (const graft of params.grafts || []) {
+    args.push('--graft', `${graft.locus}=${graft.instruction}`);
+  }
+  return args;
+}
+
 function buildArgs(operation, params, paths) {
   if (operation === 'cross') return crossArgs(params, paths);
   if (operation === 'mutate') return mutateArgs(params, paths);
   if (operation === 'clone') return cloneArgs(params, paths);
+  if (operation === 'graft') return graftArgs(params, paths);
+  if (operation === 'speciate') return speciateArgs(params, paths);
   return decoyArgs(params, paths);
 }
 

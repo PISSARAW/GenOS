@@ -4,6 +4,7 @@ const { getDatabase } = require('../db');
 const store = require('../services/agentDnaStore');
 const operations = require('../services/agentDnaOperations');
 const policy = require('../services/agentDnaPolicy');
+const innovation = require('../services/agentDnaInnovation');
 
 const DEFAULT_DIRECTORY = path.resolve(__dirname, '../../../agents/dna');
 
@@ -73,7 +74,25 @@ async function importGenomes(req, res, next) {
   }
 }
 
-module.exports = { listGenomes, getGenome, importGenomes, operateGenome, getGenomePolicy, setGenomePolicy, summarize };
+module.exports = { listGenomes, getGenome, importGenomes, operateGenome, getGenomePolicy, setGenomePolicy, listInnovations, promoteInnovation, summarize };
+
+async function listInnovations(req, res, next) {
+  try {
+    const db = await getDatabase();
+    res.json({ success: true, innovations: await innovation.listInnovations(db, tenantScope(req)) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function promoteInnovation(req, res, next) {
+  try {
+    const db = await getDatabase();
+    res.json({ success: true, innovation: await innovation.promoteCandidate(db, req.params.id) });
+  } catch (error) {
+    next(error);
+  }
+}
 
 function tenantScope(req) {
   const tenant = req.tenant || {};

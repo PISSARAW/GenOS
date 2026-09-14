@@ -27,30 +27,38 @@ function genomeKey(prefix, name) {
   return name;
 }
 
+function orNull(value) {
+  if (value === undefined || value === null) return null;
+  return value;
+}
+
 async function saveGenome(db, model, options) {
   const opts = options || {};
-  const id = opts.id || model.meta.name;
+  const id = opts.id ? opts.id : model.meta.name;
   const provenance = model.provenance || {};
+  const status = opts.status ? opts.status : 'active';
   const phenotypeBlob = packBioPolymer(model.phenotype);
   await db.run(
-    `INSERT INTO agent_genomes (id, agent_id, name, content_hash, genome_blob, phenotype_blob, source_manifest, source_doc, organization_id, project_id, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `INSERT INTO agent_genomes (id, agent_id, name, content_hash, genome_blob, phenotype_blob, source_manifest, source_doc, organization_id, project_id, status, concept, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
      ON CONFLICT(id) DO UPDATE SET agent_id = excluded.agent_id, name = excluded.name, content_hash = excluded.content_hash,
        genome_blob = excluded.genome_blob, phenotype_blob = excluded.phenotype_blob, source_manifest = excluded.source_manifest,
        source_doc = excluded.source_doc, organization_id = excluded.organization_id, project_id = excluded.project_id,
-       updated_at = CURRENT_TIMESTAMP`,
+       status = excluded.status, concept = excluded.concept, updated_at = CURRENT_TIMESTAMP`,
     id,
-    opts.agentId || null,
+    orNull(opts.agentId),
     model.meta.name,
     model.contentHash,
     model.raw,
     phenotypeBlob,
-    provenance.sourceManifest || null,
-    provenance.sourceDoc || null,
-    opts.organizationId || null,
-    opts.projectId || null
+    orNull(provenance.sourceManifest),
+    orNull(provenance.sourceDoc),
+    orNull(opts.organizationId),
+    orNull(opts.projectId),
+    status,
+    orNull(opts.concept)
   );
-  return { id, name: model.meta.name, contentHash: model.contentHash };
+  return { id, name: model.meta.name, contentHash: model.contentHash, status };
 }
 
 async function loadGenome(db, key) {
@@ -128,7 +136,7 @@ function scoreGenome(phenotype, assignment) {
 async function bestMatch(db, assignment) {
   let rows = [];
   try {
-    rows = await db.all('SELECT id, phenotype_blob FROM agent_genomes');
+    rows = await db.all("SELECT id, phenotype_blob FROM agent_genomes WHERE COALESCE(status, 'active') != 'candidate'");
   } catch (_) {
     return null;
   }
