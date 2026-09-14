@@ -15,6 +15,35 @@ const arenaTaskEvaluation = require('./arenaTaskEvaluation');
 
 const DEFAULT_ORGANIZATION = 'specialist_expert_committee';
 
+const KNOWN_ORGANIZATIONS = Object.freeze(Object.keys(topologyCapabilityService.ORGANIZATION_CAPABILITIES || {}));
+
+// A-Team is not always a plain expert committee: an adversarial, quorum or
+// memory-compilation mission needs a different communication topology. The
+// selector is deliberately conservative: only explicit, strong signals move the
+// team off the default committee.
+const ORGANIZATION_SIGNALS = [
+  { organization: 'red_blue_coevolution', pattern: /red[ -]?team|blue[ -]?team|adversarial|co-?evolution/i },
+  { organization: 'blind_adversarial_review', pattern: /blind|anonymous review|peer review/i },
+  { organization: 'quorum_with_abstention', pattern: /quorum|abstention|\bvote\b/i },
+  { organization: 'stigmergy', pattern: /stigmerg|pheromon|shared trail/i },
+  { organization: 'strategy_arena', pattern: /arena|tournament/i },
+  { organization: 'memory_compilation', pattern: /memory compil|knowledge compil|compile memory/i }
+];
+
+function selectOrganization(options = {}) {
+  const explicit = options.organization;
+  if (explicit) {
+    const name = String(explicit).trim();
+    if (!KNOWN_ORGANIZATIONS.includes(name)) {
+      throw Object.assign(new Error(`Unknown A-Team organization '${name}'.`), { code: 'A_TEAM_UNKNOWN_ORGANIZATION', known: KNOWN_ORGANIZATIONS });
+    }
+    return name;
+  }
+  const text = String(options.projectGoal || options.mission || options.goal || '');
+  const match = ORGANIZATION_SIGNALS.find((signal) => signal.pattern.test(text));
+  return match ? match.organization : DEFAULT_ORGANIZATION;
+}
+
 // A capability is only real at runtime if at least one well-known tool realises
 // it. Anything the contract declares but no tool can serve is an enforcement
 // failure, not a decorative label.
@@ -91,7 +120,7 @@ function capabilityContractFor(organization) {
 // Shared by both A-Team entry paths (explicit dispatch_team and the automatic
 // autonomy plan) so composition, capability audit and handoffs stay identical.
 function coordinateMembers(members, options = {}) {
-  const organization = options.organization || DEFAULT_ORGANIZATION;
+  const organization = selectOrganization(options);
   const capabilityContract = capabilityContractFor(organization);
   const capabilityAudit = auditCapabilities(capabilityContract, options.availableCapabilities);
   if (options.enforceCapabilities !== false && capabilityAudit.missing.length) {
@@ -117,4 +146,4 @@ function arbitrateIntegration(dossiers, options = {}) {
   return arenaTaskEvaluation.evaluateDossiersPareto(dossiers, options);
 }
 
-module.exports = { composeTeam, coordinateMembers, capabilityContractFor, buildHandoffs, buildHandoff, handoffLigand, handoffReceptor, evaluateHandoff, arbitrateIntegration, toolBackedCapabilities, auditCapabilities };
+module.exports = { composeTeam, coordinateMembers, capabilityContractFor, selectOrganization, KNOWN_ORGANIZATIONS, buildHandoffs, buildHandoff, handoffLigand, handoffReceptor, evaluateHandoff, arbitrateIntegration, toolBackedCapabilities, auditCapabilities };
