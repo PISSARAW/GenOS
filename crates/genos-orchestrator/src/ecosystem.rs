@@ -10,6 +10,7 @@
 use crate::BiomimeticOrchestrator;
 use crate::director::Director;
 use crate::immune_cyber::CyberImmune;
+use crate::instincts::InstinctState;
 use crate::neuro::NeuroLab;
 use crate::plasmids::PlasmidBank;
 use crate::recruitment::RecruitmentPlanner;
@@ -109,6 +110,8 @@ pub struct GenosEcosystem {
     pub agent_dna: HashMap<Uuid, AgentDna>,
     /// Directeur cognitif (choix des concepts).
     pub director: Director,
+    /// Instincts innés (bibliothèque + dernières activations par tick).
+    pub instincts: InstinctState,
 }
 
 impl GenosEcosystem {
@@ -154,6 +157,7 @@ impl GenosEcosystem {
             plasmids: PlasmidBank::new(),
             agent_dna: HashMap::new(),
             director: Director::default(),
+            instincts: InstinctState::default(),
         }
     }
 

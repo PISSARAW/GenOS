@@ -7,6 +7,15 @@ function primitiveCall({ args, executeStrategyTool }) {
   });
 }
 
+function withBiomimicryParams(command, args) {
+  if (args.toolName !== 'genos_biomimicry') return command;
+  const params = args.params && typeof args.params === 'object' ? args.params : {};
+  return Object.entries(params).reduce(
+    (acc, [key, value]) => acc.concat(['--param', `${key}=${value}`]),
+    command
+  );
+}
+
 function cliCall({ args, runGenosCli }) {
   const commands = {
     genos_snapshot: ['snapshot', 'create', '--agent', args.agent, '--out', args.out, '--force'],
@@ -20,7 +29,7 @@ function cliCall({ args, runGenosCli }) {
   };
   const command = commands[args.toolName];
   if (!command) throw new Error(`Unsupported CLI tool '${args.toolName}'.`);
-  return runGenosCli(command, args);
+  return runGenosCli(withBiomimicryParams(command, args), args);
 }
 
 function orchestratorCall({ name, args, runOrchestrator }) {

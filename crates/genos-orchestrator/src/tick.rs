@@ -48,6 +48,8 @@ impl GenosEcosystem {
     /// Un cycle complet : observer, décider, exécuter, apprendre.
     pub fn tick(&mut self, goal: &Goal) -> TickReport {
         let state = self.observe();
+        // Voie sous-corticale : les instincts sont évalués avant la délibération.
+        self.run_instincts(&state);
         self.director.set_context(context_from_state(&state));
         let decision = self.director.decide(&state, goal);
         let mut report = TickReport {
