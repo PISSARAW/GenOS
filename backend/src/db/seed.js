@@ -179,8 +179,16 @@ async function ensureDefaultUser(db) {
   console.warn(`[GenOS Bootstrap] Default local user created: ${username} (role: admin).`);
 }
 
+async function ensureDefaultWorkspace(db) {
+  await db.run(
+    `INSERT OR IGNORE INTO workspaces (id, name, path, visibility, language, description, tags)
+     VALUES ('ws-genos-core', 'GenOS Core', '.', 'Private', 'Mixed', 'Canonical default workspace used as global fallback.', '[]')`
+  );
+}
+
 async function seedDatabase(db) {
   await ensureConfiguredWorkspace(db);
+  await ensureDefaultWorkspace(db);
   await ensureWorkspaceDashboardData(db);
   await ensureAdminKey(db);
   await ensureDefaultUser(db);

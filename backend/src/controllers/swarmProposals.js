@@ -25,7 +25,9 @@ function resolveProposalExpiry(body) {
 }
 
 async function fetchWorkspaceForProposal(db, tenant, workspaceId) {
-  if (tenant) return db.get('SELECT id FROM workspaces WHERE id = ? AND organization_id = ? AND project_id = ?', workspaceId, tenant.organizationId, tenant.projectId);
+  if (tenant && tenant.organizationId && tenant.projectId) {
+    return db.get('SELECT id FROM workspaces WHERE id = ? AND organization_id = ? AND project_id = ?', workspaceId, tenant.organizationId, tenant.projectId);
+  }
   return db.get('SELECT id FROM workspaces WHERE id = ?', workspaceId);
 }
 
