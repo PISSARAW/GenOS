@@ -59,15 +59,13 @@ impl GenosEcosystem {
         let goal = self.autonomous_goal();
         let population = self.population.as_mut()?;
         let base = self.director.clone();
-        population.evaluate(&|genes| {
+        let report = population.evolve(&|genes| {
             let mut candidate = base.clone();
             candidate.set_policy_genes(genes);
             let decision = candidate.decide(&state, &goal);
             decision.steps.iter().map(|step| step.utility).sum::<f64>()
                 - decision.steps.len() as f64 * 0.01
         });
-        population.generation();
-        let report = population.report();
         if let Some(best) = population.best() {
             self.director.set_policy_genes(&best.genes);
         }

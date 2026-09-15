@@ -85,3 +85,13 @@ fn la_boucle_innovation_s_arrete_sans_preuve() {
     ));
     assert_eq!(pop.generation, 0);
 }
+
+#[test]
+fn un_cycle_evolutif_evalue_puis_reproduit() {
+    let mut pop = Population::new(&["A"], 6, 2, 11);
+    let report = pop.evolve(&toward_zero);
+
+    assert_eq!(report.generation, 1);
+    assert_eq!(report.population, 6);
+    assert!(report.novelty_count > 0);
+}

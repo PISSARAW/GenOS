@@ -150,6 +150,13 @@ impl Population {
         }
     }
 
+    /// Exécute un cycle complet avec une fitness fournie par l'environnement.
+    pub fn evolve(&mut self, fitness: &dyn Fn(&[f64]) -> f64) -> EvolutionReport {
+        self.evaluate(fitness);
+        self.generation();
+        self.report()
+    }
+
     /// Évalue une innovation et ne laisse se reproduire que les candidats
     /// soutenus par une preuve de qualité, reproductibilité et absence de
     /// régression.
