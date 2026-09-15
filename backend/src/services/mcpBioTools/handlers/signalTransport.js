@@ -1,0 +1,244 @@
+/**
+ * MCP Handlers — Signal Transport Zero-Texte (§45)
+ *
+ * Une collection de handlers MCP pour les 7 outils de signalisation zero-texte.
+ * Chaque handler publie/lit/consomme les signaux via le transport persistant.
+ */
+
+const { publishSignal } = require('../../signalingTransportService');
+const { readSignalsForAgent } = require('../../signalingTransportService');
+const { purgeExpiredSignals } = require('../../signalingTransportService');
+const {
+  electocyteDecision,
+  chemotacticFollow,
+  orchestrateCollectiveDecision,
+} = require('../../agentCollaborativeDecisionMakingService');
+
+// ── genos_signal_publish ─────────────────────────────────────────────────────
+
+async function handleSignalPublish(args, run) {
+  const { signal_type, signal_data, topic, ttl_ms, signal_id, orchestrator_id } = args || {};
+  const result = await publishSignal({
+    signalType: signal_type || 'text',
+    signalData: signal_data || {},
+    topic: topic || '',
+    orchestratorId: orchestrator_id || null,
+    ttlMs: ttl_ms != null ? Number(ttl_ms) : undefined,
+    signalId: signal_id || undefined,
+  });
+  return {
+    configured: true,
+    success: true,
+    status: 'signal_published',
+    signalId: result.signalId,
+    signalType: result.signalType,
+    transport: 'zero_text',
+  };
+}
+
+function handleSignalPublishError(e) {
+  return {
+    configured: true,
+    success: false,
+    status: 'tool_error',
+    error: e.message,
+    transport: 'zero_text',
+  };
+}
+
+// ── genos_signal_read ────────────────────────────────────────────────────────
+
+async function handleSignalRead(args, run) {
+  const { agent_id, since, limit } = args || {};
+  const signals = await readSignalsForAgent(
+    agent_id || 'unknown',
+    since || null,
+    limit != null ? Number(limit) : 100
+  );
+  return {
+    configured: true,
+    success: true,
+    status: 'signals_read',
+    count: signals.length,
+    signals: signals.map(s => ({
+      signalId: s.signalId,
+      signalType: s.signalType,
+      topic: s.topic,
+      senderAgentId: s.senderAgentId,
+      createdAt: s.createdAt,
+      content: s.content,
+      decoded: s.decoded,
+    })),
+    transport: 'zero_text',
+  };
+}
+
+function handleSignalReadError(e) {
+  return {
+    configured: true,
+    success: false,
+    status: 'tool_error',
+    error: e.message,
+    transport: 'zero_text',
+  };
+}
+
+// ── genos_signal_purge ───────────────────────────────────────────────────────
+
+async function handleSignalPurge(args, run) {
+  await purgeExpiredSignals();
+  return {
+    configured: true,
+    success: true,
+    status: 'signals_purged',
+    transport: 'zero_text',
+  };
+}
+
+function handleSignalPurgeError(e) {
+  return {
+    configured: true,
+    success: false,
+    status: 'tool_error',
+    error: e.message,
+    transport: 'zero_text',
+  };
+}
+
+// ── genos_signal_electrocyte_vote ────────────────────────────────────────────
+
+async function handleSignalElectrocyteVote(args, run) {
+  const { topic, discharges, threshold_mv } = args || {};
+  const result = await electocyteDecision(
+    topic || 'default',
+    discharges || [],
+    { thresholdMv: threshold_mv != null ? Number(threshold_mv) : undefined }
+  );
+  return {
+    configured: true,
+    success: true,
+    status: 'electrocyte_decision',
+    consensusReached: result.consensusReached,
+    totalVoltageMv: result.totalVoltageMv,
+    thresholdMv: result.thresholdMv,
+    kuramotoOrder: result.kuramotoOrder,
+    participantCount: result.participantCount,
+    transport: 'zero_text',
+  };
+}
+
+function handleSignalElectrocyteVoteError(e) {
+  return {
+    configured: true,
+    success: false,
+    status: 'tool_error',
+    error: e.message,
+    transport: 'zero_text',
+  };
+}
+
+// ── genos_signal_chemotactic_follow ──────────────────────────────────────────
+
+async function handleSignalChemotacticFollow(args, run) {
+  const { agent_id, locus_hash, since } = args || {};
+  const result = await chemotacticFollow(
+    agent_id || 'unknown',
+    locus_hash || '',
+    since || null,
+  );
+  return {
+    configured: true,
+    success: true,
+    status: 'chemotactic_gradient',
+    locusHash: result.locusHash,
+    netGradient: result.netGradient,
+    signalsRead: result.signalsRead,
+    transport: 'zero_text',
+  };
+}
+
+function handleSignalChemotacticFollowError(e) {
+  return {
+    configured: true,
+    success: false,
+    status: 'tool_error',
+    error: e.message,
+    transport: 'zero_text',
+  };
+}
+
+// ── genos_signal_plasmid_transfer ────────────────────────────────────────────
+
+async function handleSignalPlasmidTransfer(args, run) {
+  const { problem, voters } = args || {};
+  const result = await orchestrateCollectiveDecision(
+    problem || 'default',
+    voters || [],
+    'plasmid',
+  );
+  return {
+    configured: true,
+    success: true,
+    status: result.status,
+    mode: result.mode,
+    problem: result.problem,
+    recipients: result.recipients,
+    transport: 'zero_text',
+  };
+}
+
+function handleSignalPlasmidTransferError(e) {
+  return {
+    configured: true,
+    success: false,
+    status: 'tool_error',
+    error: e.message,
+    transport: 'zero_text',
+  };
+}
+
+// ── genos_signal_collective_decision ─────────────────────────────────────────
+
+async function handleSignalCollectiveDecision(args, run) {
+  const { problem, voters, mode } = args || {};
+  const result = await orchestrateCollectiveDecision(
+    problem || 'default',
+    voters || [],
+    mode || 'electrocyte',
+  );
+  return {
+    configured: true,
+    success: true,
+    status: result.status,
+    mode: result.mode,
+    problem: result.problem,
+    transport: 'zero_text',
+  };
+}
+
+function handleSignalCollectiveDecisionError(e) {
+  return {
+    configured: true,
+    success: false,
+    status: 'tool_error',
+    error: e.message,
+    transport: 'zero_text',
+  };
+}
+
+module.exports = {
+  handleSignalPublish,
+  handleSignalPublishError,
+  handleSignalRead,
+  handleSignalReadError,
+  handleSignalPurge,
+  handleSignalPurgeError,
+  handleSignalElectrocyteVote,
+  handleSignalElectrocyteVoteError,
+  handleSignalChemotacticFollow,
+  handleSignalChemotacticFollowError,
+  handleSignalPlasmidTransfer,
+  handleSignalPlasmidTransferError,
+  handleSignalCollectiveDecision,
+  handleSignalCollectiveDecisionError,
+};

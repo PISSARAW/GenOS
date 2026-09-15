@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const signalingBus = require('../src/services/biomimeticSignalingBus');
+const { proposedRoute } = require('../src/services/collectiveSignalOrganizationRouter');
 const organization = require('../src/services/dynamicOrganizationService');
 const { getDatabase, closeDatabase } = require('../src/db');
 
@@ -88,6 +89,26 @@ function testChemotacticPheromones() {
   assert.strictEqual(gradientC, 0.0);
 }
 
+function testCollectiveOrganizationRoutes() {
+  assert.strictEqual(
+    proposedRoute('ligand', { cascadeSignal: 'REPAIR_MODULE' }).organization,
+    'hierarchical_merge'
+  );
+  assert.strictEqual(
+    proposedRoute('voltage', { consensusReached: true, kuramotoOrder: 0.8, totalVoltageMv: 400, thresholdMv: 300 }).organization,
+    'quorum_with_abstention'
+  );
+  assert.strictEqual(
+    proposedRoute('pheromone', { netGradient: 8 }).organization,
+    'slime_mould_network'
+  );
+  assert.strictEqual(
+    proposedRoute('pheromone', { netGradient: -8 }).organization,
+    'network_silence'
+  );
+  assert.strictEqual(proposedRoute('voltage', { consensusReached: true, kuramotoOrder: 0.2 }), null);
+}
+
 async function testDynamicOrganizationIntegration(db) {
   await db.run("INSERT INTO agents(id,name,role,status,execution_mode) VALUES ('org-signaling-root','Root','orchestrator','running','orchestrator')");
   await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id) VALUES ('worker-chem-1','Chem1','implementation','running','worker','org-signaling-root')");
@@ -101,7 +122,7 @@ async function testDynamicOrganizationIntegration(db) {
   });
 
   // 1. Publish biomimetic signal with NO textual content
-  const signalData = { ligand: 'QUORUM_AUTOINDUCER', concentration: 77.4, locus: 'sec_auth' };
+  const signalData = { ligand: 'ATP', concentration: 77.4, locus: 'sec_auth' };
   const pub = await organization.publish(db, {
     orchestratorId: 'org-signaling-root',
     senderAgentId: 'worker-chem-1',
@@ -111,6 +132,7 @@ async function testDynamicOrganizationIntegration(db) {
   });
 
   assert.strictEqual(pub.signalType, 'ligand');
+  assert.strictEqual(pub.routing.routed, false);
 
   // 2. Inbox retrieval
   const inboxResult = await organization.inbox(db, {
@@ -145,6 +167,23 @@ async function testDynamicOrganizationIntegration(db) {
     },
     (err) => err.code === 'MESSAGE_REQUIRED'
   );
+
+  const voltagePub = await organization.publish(db, {
+    orchestratorId: 'org-signaling-root',
+    senderAgentId: 'worker-chem-1',
+    kind: 'vote',
+    signalType: 'voltage',
+    signalData: {
+      consensusReached: true,
+      totalVoltageMv: 360,
+      thresholdMv: 300,
+      kuramotoOrder: 0.92
+    }
+  });
+  assert.strictEqual(voltagePub.routing.changed, true);
+  assert.strictEqual(voltagePub.routing.organization, 'quorum_with_abstention');
+  const state = await organization.getState(db, 'org-signaling-root');
+  assert.strictEqual(state.organization, 'quorum_with_abstention');
 }
 
 async function run() {
@@ -153,6 +192,7 @@ async function run() {
   testLigandReceptorKinetics();
   testElectrocyteConsensusAndKuramoto();
   testChemotacticPheromones();
+  testCollectiveOrganizationRoutes();
 
   const dbPath = path.resolve(__dirname, 'biomimetic-signaling-test.db');
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);

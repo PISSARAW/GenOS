@@ -4,6 +4,7 @@ const { formatSignalForTransport, unpackSignalPayload } = require('./biomimeticS
 const topologyCapabilityService = require('./topologyCapabilityService');
 const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 const { routeMessage, assertRoutingAuthority } = require('./organizationRouting');
+const { routeCollectiveSignal } = require('./collectiveSignalOrganizationRouter');
 
 const ORGANIZATIONS = Object.freeze({
   specialist_expert_committee: { topology: 'hub_and_spoke', exchange: 'indirect', visibility: 'attributed', routing: 'orchestrator' },
@@ -278,9 +279,14 @@ async function publish(db, options = {}) {
     signalInfo.signalType, signalInfo.signalBlob, route.delivery,
     scope.organizationId, scope.projectId
   );
+  const routing = await routeCollectiveSignal({
+    db, signalId: `organization-message-${result.lastID}`, signalType: signalInfo.signalType,
+    signalData: signalInfo.signalType === 'text' ? null : unpackSignalPayload(signalInfo.signalBlob, signalInfo.signalType),
+    orchestratorId, changedBy: orchestratorId
+  });
   return {
     id: result.lastID, organization: state.organization, version: state.version,
-    ...route, kind: normalizedKind, signalType: signalInfo.signalType
+    ...route, kind: normalizedKind, signalType: signalInfo.signalType, routing
   };
 }
 
