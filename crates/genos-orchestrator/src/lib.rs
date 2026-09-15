@@ -39,7 +39,7 @@ pub mod thalamus;
 pub use conscience::{Conscience, ConscienceState};
 pub use autopoiesis::{Membrane, SelfModel, SelfRepairReport};
 pub use director::{Decision, Director, Step, Strategy};
-pub use drives::{Drives, GoalSelector, Volition};
+pub use drives::{AutonomyGateReport, Drives, GoalSelector, Volition};
 pub use ecosystem::GenosEcosystem;
 pub use environment::{Action, EmbodiedReport, Environment, Feedback, FileSandbox, Percept, ProcessSandbox};
 pub use evolution::{EvolutionReport, Individual, InnovationBlocked, Island, Population, QualityProof};

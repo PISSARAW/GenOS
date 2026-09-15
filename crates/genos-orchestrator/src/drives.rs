@@ -3,6 +3,7 @@
 //! soit fourni** (réduction de déficit, façon homéostasie).
 
 use crate::GenosEcosystem;
+use crate::organism::OrganismConfig;
 use crate::planner::{Concept, Goal, WorldState};
 use crate::tick::{MissionReport, TickReport};
 
@@ -21,6 +22,16 @@ pub struct Volition {
     pub survival_drive: f64,
     pub mission_independent: bool,
     pub terminal: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AutonomyGateReport {
+    pub ready: bool,
+    pub membrane_ready: bool,
+    pub dependency_ready: bool,
+    pub energy_ready: bool,
+    pub operator_required: bool,
+    pub reasons: Vec<String>,
 }
 
 impl Drives {
@@ -86,6 +97,31 @@ impl GoalSelector {
 }
 
 impl GenosEcosystem {
+    pub fn autonomy_gates(&mut self) -> AutonomyGateReport {
+        let membrane_ready = self.orchestrator.membrane.is_alive();
+        let dependency_ready = !self.orchestrator.active_cells.is_empty();
+        let energy_ready = self.orchestrator.metabolism.capacity > 0.0;
+        let operator_required = false;
+        let mut reasons = Vec::new();
+        if !membrane_ready {
+            reasons.push("membrane_totale_romptue".to_string());
+        }
+        if !dependency_ready {
+            reasons.push("aucune_cellule_active".to_string());
+        }
+        if !energy_ready {
+            reasons.push("capacite_energetique_nulle".to_string());
+        }
+        AutonomyGateReport {
+            ready: membrane_ready && dependency_ready && energy_ready && !operator_required,
+            membrane_ready,
+            dependency_ready,
+            energy_ready,
+            operator_required,
+            reasons,
+        }
+    }
+
     /// Drives courants dérivés de l'état observé.
     pub fn drives(&self) -> Drives {
         Drives::from_state(&self.observe())
@@ -138,6 +174,49 @@ impl GenosEcosystem {
             reached,
             executed,
             verdicts,
+            agents_before,
+            agents_after: self.orchestrator.active_cells.len(),
+            traces: self.traces.known(),
+            goals,
+        }
+    }
+
+    /// Boucle autonome persistante : les haltes décisionnelles non terminales
+    /// ne requièrent aucun opérateur et sont reprises au cycle suivant.
+    pub fn run_autonomous_permanent(&mut self, max_ticks: usize) -> MissionReport {
+        let agents_before = self.orchestrator.active_cells.len();
+        let mut executed = Vec::new();
+        let mut goals = Vec::new();
+        let mut halt_reason = None;
+        let mut ticks = 0;
+        let config = OrganismConfig::default();
+        for _ in 0..max_ticks {
+            let gates = self.autonomy_gates();
+            if !gates.ready {
+                halt_reason = Some(gates.reasons.join(","));
+                break;
+            }
+            let report = self.organism_tick(&config);
+            ticks += 1;
+            goals.push(report.goal);
+            for concept in report.executed {
+                if !executed.contains(&concept) {
+                    executed.push(concept);
+                }
+            }
+            if !report.alive {
+                halt_reason = report.halt;
+                break;
+            }
+        }
+        let final_state = self.observe();
+        MissionReport {
+            ticks,
+            halted: halt_reason.is_some(),
+            halt_reason,
+            reached: final_state.goal_reached(&self.autonomous_goal()),
+            executed,
+            verdicts: 0,
             agents_before,
             agents_after: self.orchestrator.active_cells.len(),
             traces: self.traces.known(),

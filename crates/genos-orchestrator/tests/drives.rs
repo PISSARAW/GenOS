@@ -86,3 +86,30 @@ fn boucle_autonome_sans_but_externe() {
     assert!(report.ticks >= 1);
     assert!(report.halted, "raison={:?}", report.halt_reason);
 }
+
+#[test]
+fn boucle_permanente_reprend_sans_operateur() {
+    let mut eco = GenosEcosystem::new("Overmind");
+    eco.orchestrator.create_tissue("Arena", "Exec").unwrap();
+    eco.orchestrator
+        .add_worker("Arena", AgentCell::new("sain", "h", "W"))
+        .unwrap();
+
+    let report = eco.run_autonomous_permanent(4);
+
+    assert_eq!(report.ticks, 4);
+    assert!(!report.halted, "raison={:?}", report.halt_reason);
+    assert!(!eco.autonomy_gates().operator_required);
+}
+
+#[test]
+fn gate_autonome_bloque_sans_dependance_cellulaire() {
+    let mut eco = GenosEcosystem::new("Overmind");
+    eco.orchestrator.active_cells.clear();
+
+    let gates = eco.autonomy_gates();
+
+    assert!(!gates.ready);
+    assert!(!gates.dependency_ready);
+    assert!(gates.reasons.iter().any(|reason| reason.contains("cellule")));
+}
