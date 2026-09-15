@@ -15,7 +15,6 @@ use genos_cell::{AgentCell, ClinicalState};
 use genos_signal::SignalingMode;
 use serde_json::json;
 use uuid::Uuid;
-
 /// Bilan d'un tick.
 #[derive(Clone, Debug)]
 pub struct TickReport {
@@ -61,6 +60,7 @@ impl GenosEcosystem {
                 verdicts: Vec::new(),
             };
         }
+        self.maintain_autopoiesis();
         let state = self.observe();
         if state.apoptotic { return TickReport { tick: self.events.count() as u64, strategy: Strategy::Solo, organization: "n/a", superorganism: "n/a", planned: Vec::new(), executed: Vec::new(), halt: Some("etat apoptotique: volition inhibee".to_string()), verdicts: Vec::new() }; }
         // Voie sous-corticale : les instincts sont évalués avant la délibération.

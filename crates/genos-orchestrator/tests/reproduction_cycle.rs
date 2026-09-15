@@ -68,3 +68,30 @@ fn sans_lignee_amorcee_aucune_reproduction_ne_se_produit() {
     let outcome = eco.autonomous_reproduction_cycle();
     assert_eq!(outcome, Err(ReproductionBlocked::NoEligibleMother));
 }
+
+#[test]
+fn le_tick_repare_automatiquement_une_membrane_vivante() {
+    let mut eco = GenosEcosystem::new("Overmind");
+    eco.orchestrator.membrane.integrity = 0.4;
+    eco.orchestrator.metabolism.atp = 10.0;
+
+    let _ = eco.tick(&Goal::Conserve);
+
+    assert!(eco.orchestrator.membrane.integrity > 0.4);
+    assert_eq!(eco.orchestrator.membrane.repairs, 1);
+}
+
+#[test]
+fn le_tick_ne_ressuscite_pas_une_membrane_romptue() {
+    let mut eco = GenosEcosystem::new("Overmind");
+    eco.orchestrator.membrane.integrity = 0.0;
+    eco.orchestrator.metabolism.atp = 100.0;
+
+    let report = eco.tick(&Goal::Conserve);
+
+    assert_eq!(
+        report.halt.as_deref(),
+        Some("organisme mort: membrane rompue")
+    );
+    assert_eq!(eco.orchestrator.membrane.repairs, 0);
+}

@@ -88,6 +88,28 @@ pub struct SelfRepairReport {
 }
 
 impl GenosEcosystem {
+    pub(crate) fn maintain_autopoiesis(&mut self) {
+        self.orchestrator.metabolism.refill();
+        let needs_repair = self.orchestrator.membrane.integrity()
+            < self.orchestrator.membrane.capacity
+            || self
+                .orchestrator
+                .active_cells
+                .keys()
+                .any(|id| {
+                    !self.agent_dna.contains_key(id)
+                        || self
+                            .orchestrator
+                            .active_cells
+                            .get(id)
+                            .and_then(|cell| cell.genome_id)
+                            .is_some_and(|genome_id| !self.orchestrator.genomes.contains_key(&genome_id))
+                });
+        if needs_repair {
+            self.self_repair();
+        }
+    }
+
     /// Observe son propre état.
     pub fn self_model(&mut self) -> SelfModel {
         let integrity = self.orchestrator.membrane.integrity();
@@ -145,7 +167,29 @@ impl GenosEcosystem {
             actions.push(format!("adn_restaure:{}", &id.to_string()[..8]));
         }
 
-        self.record_event("SELF_REPAIR", json!({ "actions": actions.len() }));
+        let missing_genomes: Vec<(Uuid, String)> = self
+            .orchestrator
+            .active_cells
+            .iter()
+            .filter_map(|(id, cell)| {
+                let genome_id = cell.genome_id?;
+                (!self.orchestrator.genomes.contains_key(&genome_id))
+                    .then(|| (*id, cell.role.clone()))
+            })
+            .collect();
+        for (id, role) in missing_genomes {
+            let genome = Genome::new(&role);
+            let genome_id = genome.genome_id();
+            self.orchestrator.genomes.insert(genome_id, genome);
+            if let Some(cell) = self.orchestrator.active_cells.get_mut(&id) {
+                cell.genome_id = Some(genome_id);
+            }
+            actions.push(format!("genome_restaure:{}", &id.to_string()[..8]));
+        }
+
+        if !actions.is_empty() {
+            self.record_event("SELF_REPAIR", json!({ "actions": actions.len() }));
+        }
         SelfRepairReport {
             actions,
             integrity_before,

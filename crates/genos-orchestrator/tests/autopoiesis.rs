@@ -46,3 +46,24 @@ fn membrane_rompue_egale_mort() {
         report.halt
     );
 }
+
+#[test]
+fn le_tick_recupere_un_genome_perdu() {
+    let mut eco = GenosEcosystem::new("Overmind");
+    eco.orchestrator.create_tissue("Arena", "Exec").unwrap();
+    let id = eco
+        .orchestrator
+        .add_worker("Arena", AgentCell::new("worker", "w", "W"))
+        .unwrap();
+    let genome = genos_orchestrator::genos_genome::Genome::new("LOST");
+    let genome_id = genome.genome_id();
+    eco.orchestrator.genomes.insert(genome_id, genome);
+    eco.orchestrator.active_cells.get_mut(&id).unwrap().genome_id = Some(genome_id);
+    eco.orchestrator.genomes.clear();
+
+    let _ = eco.tick(&Goal::Conserve);
+
+    let restored_id = eco.orchestrator.active_cells.get(&id).unwrap().genome_id;
+    assert!(restored_id.is_some());
+    assert!(eco.orchestrator.genomes.contains_key(&restored_id.unwrap()));
+}
