@@ -1,4 +1,4 @@
-use genos_orchestrator::Population;
+use genos_orchestrator::{InnovationBlocked, Population, QualityProof};
 
 fn toward_zero(genes: &[f64]) -> f64 {
     -genes.iter().map(|g| g * g).sum::<f64>()
@@ -46,4 +46,42 @@ fn l_evolution_est_deterministe_a_seed_egal() {
         b.evaluate(&toward_zero);
     }
     assert!((a.best().unwrap().fitness - b.best().unwrap().fitness).abs() < 1e-12);
+}
+
+#[test]
+fn la_boucle_innovation_selectionne_les_variantes_prouvees() {
+    let mut pop = Population::new(&["A"], 12, 2, 99);
+    let evaluator = |genes: &[f64]| QualityProof {
+        fitness: -genes.iter().map(|gene| gene * gene).sum::<f64>(),
+        quality: if genes[0] >= 0.0 { 0.9 } else { 0.1 },
+        reproducible: true,
+        regression_free: genes[0] >= 0.0,
+    };
+
+    let report = pop.innovation_step(&evaluator, 0.8).unwrap();
+
+    assert_eq!(report.generation, 1);
+    assert!(report.verified_count > 0);
+    assert!(report.rejected_count > 0);
+    assert_eq!(report.population, 12);
+}
+
+#[test]
+fn la_boucle_innovation_s_arrete_sans_preuve() {
+    let mut pop = Population::new(&["A"], 4, 2, 5);
+    let result = pop.innovation_step(
+        &|_| QualityProof {
+            fitness: 1.0,
+            quality: 0.2,
+            reproducible: false,
+            regression_free: false,
+        },
+        0.8,
+    );
+
+    assert!(matches!(
+        result,
+        Err(InnovationBlocked::NoVerifiedCandidate)
+    ));
+    assert_eq!(pop.generation, 0);
 }

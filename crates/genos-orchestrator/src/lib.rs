@@ -42,7 +42,7 @@ pub use director::{Decision, Director, Step, Strategy};
 pub use drives::{Drives, GoalSelector, Volition};
 pub use ecosystem::GenosEcosystem;
 pub use environment::{Action, EmbodiedReport, Environment, Feedback, FileSandbox, Percept, ProcessSandbox};
-pub use evolution::{EvolutionReport, Individual, Island, Population};
+pub use evolution::{EvolutionReport, Individual, InnovationBlocked, Island, Population, QualityProof};
 pub use instincts::{InstinctActivation, InstinctState};
 pub use metabolism::Metabolism;
 pub use learning::{LinearBandit, Learner, context_from_state};

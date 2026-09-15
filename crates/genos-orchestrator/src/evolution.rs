@@ -19,6 +19,20 @@ pub struct Individual {
     pub lineage: u64,
 }
 
+/// Preuve minimale qu'une innovation peut entrer en compétition.
+#[derive(Clone, Debug)]
+pub struct QualityProof {
+    pub fitness: f64,
+    pub quality: f64,
+    pub reproducible: bool,
+    pub regression_free: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InnovationBlocked {
+    NoVerifiedCandidate,
+}
+
 /// Un îlot (patch) de population.
 #[derive(Clone, Debug)]
 pub struct Island {
@@ -34,6 +48,8 @@ pub struct EvolutionReport {
     pub mean_fitness: f64,
     pub novelty_count: usize,
     pub population: usize,
+    pub verified_count: usize,
+    pub rejected_count: usize,
 }
 
 /// Population multi-îlots évolutive.
@@ -45,6 +61,7 @@ pub struct Population {
     seed: u64,
     pub mutation_rate: f64,
     pub per_island: usize,
+    last_quality_counts: Option<(usize, usize)>,
 }
 
 impl Population {
@@ -58,6 +75,7 @@ impl Population {
             seed,
             mutation_rate: 0.2,
             per_island,
+            last_quality_counts: None,
         };
         for name in names {
             let individuals = (0..per_island)
@@ -132,6 +150,42 @@ impl Population {
         }
     }
 
+    /// Évalue une innovation et ne laisse se reproduire que les candidats
+    /// soutenus par une preuve de qualité, reproductibilité et absence de
+    /// régression.
+    pub fn innovation_step(
+        &mut self,
+        evaluator: &dyn Fn(&[f64]) -> QualityProof,
+        min_quality: f64,
+    ) -> Result<EvolutionReport, InnovationBlocked> {
+        let mut verified = 0;
+        let mut rejected = 0;
+        for island in &mut self.islands {
+            for individual in &mut island.individuals {
+                let proof = evaluator(&individual.genes);
+                let accepted = proof.fitness.is_finite()
+                    && proof.quality.is_finite()
+                    && proof.quality >= min_quality
+                    && proof.reproducible
+                    && proof.regression_free;
+                if accepted {
+                    individual.fitness = proof.fitness + proof.quality * 0.1;
+                    verified += 1;
+                } else {
+                    individual.fitness = f64::NEG_INFINITY;
+                    rejected += 1;
+                }
+            }
+        }
+        if verified == 0 {
+            self.last_quality_counts = Some((0, rejected));
+            return Err(InnovationBlocked::NoVerifiedCandidate);
+        }
+        self.generation();
+        self.last_quality_counts = Some((verified, rejected));
+        Ok(self.report())
+    }
+
     /// Bonus de nouveauté : 1.0 si le phénotype (génotype quantifié) est inédit.
     pub fn novelty_of(&mut self, genes: &[f64]) -> f64 {
         let key: Vec<i16> = genes
@@ -198,8 +252,19 @@ impl Population {
     }
 
     fn tournament_pick(&mut self, island_index: usize, len: usize) -> Individual {
-        let i = (self.next_u64() as usize) % len;
-        let j = (self.next_u64() as usize) % len;
+        let eligible: Vec<usize> = self.islands[island_index]
+            .individuals
+            .iter()
+            .enumerate()
+            .filter_map(|(index, individual)| individual.fitness.is_finite().then_some(index))
+            .collect();
+        let pool = if eligible.is_empty() {
+            (0..len).collect()
+        } else {
+            eligible
+        };
+        let i = pool[(self.next_u64() as usize) % pool.len()];
+        let j = pool[(self.next_u64() as usize) % pool.len()];
         let island = &self.islands[island_index];
         if island.individuals[i].fitness >= island.individuals[j].fitness {
             island.individuals[i].clone()
@@ -256,12 +321,17 @@ impl Population {
         } else {
             all.iter().sum::<f64>() / population as f64
         };
+        let (verified_count, rejected_count) = self
+            .last_quality_counts
+            .unwrap_or((population, 0));
         EvolutionReport {
             generation: self.generation,
             best_fitness,
             mean_fitness,
             novelty_count: self.novelty.len(),
             population,
+            verified_count,
+            rejected_count,
         }
     }
 }
