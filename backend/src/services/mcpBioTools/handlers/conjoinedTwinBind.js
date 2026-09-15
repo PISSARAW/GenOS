@@ -1,8 +1,9 @@
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active conjoined twin pairs
-const conjoinedTwinRegistry = new Map();
+const conjoinedTwinRegistry = new Map(); /* persisterHook: conjoinedTwinRegistry */
 
 function getPair(pairId) {
   if (!conjoinedTwinRegistry.has(pairId)) {
@@ -146,8 +147,58 @@ function handleConjoinedTwinBindError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _conjoinedTwinRegistryPersistent = false;
+
+function _ensureconjoinedTwinRegistryPersistent() {
+  if (_conjoinedTwinRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::conjoined_twin', 'conjoinedTwinRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : conjoinedTwinRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::conjoined_twin', 'conjoinedTwinRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'conjoinedTwinRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _conjoinedTwinRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensureconjoinedTwinRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.conjoinedTwinRegistry || conjoinedTwinRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensureconjoinedTwinRegistryPersistent();
+
 module.exports = {
   handleConjoinedTwinBind,
   handleConjoinedTwinBindError,
-  conjoinedTwinRegistry
-};
+  conjoinedTwinRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

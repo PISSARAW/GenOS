@@ -1,3 +1,4 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 // Registry for Mitochondrial DNA (mtDNA) & Matrilineal Inheritance
 const mtdnaRegistry = new Map();
 
@@ -104,8 +105,58 @@ function handleMitochondrialDnaMutationError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _mitochondrialRegistryPersistent = false;
+
+function _ensuremitochondrialRegistryPersistent() {
+  if (_mitochondrialRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::mitochondrial_dna_mutation', 'mitochondrialRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : mitochondrialRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::mitochondrial_dna_mutation', 'mitochondrialRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'mitochondrialRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _mitochondrialRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensuremitochondrialRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.mitochondrialRegistry || mitochondrialRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensuremitochondrialRegistryPersistent();
+
 module.exports = {
   handleMitochondrialDnaMutation,
   handleMitochondrialDnaMutationError,
-  mtdnaRegistry
-};
+  mtdnaRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

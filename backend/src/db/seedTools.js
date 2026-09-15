@@ -70,6 +70,15 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_evolution_assimilate_plasmid', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Horizontal Gene Transfer via plasmid assimilation' },
   { name: 'genos_biomimicry_thalamic_bridge', cat: 'Neurobiology', risk: 'Low', desc: 'Direct zero-copy sensory sharing between craniopagus conjoined twin agents' },
   { name: 'genos_biomimicry_cryptophasia', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Dense inter-twin dialect opcode compression with epistemic chaperone auditing' },
+
+  // Signal transport zero-texte (§45)
+  { name: 'genos_signal_publish', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Publie un signal zero-texte (ligand/voltage/pheromone/plasmid/tensor)' },
+  { name: 'genos_signal_read', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Lit les signaux zero-texte non-lus pour un agent (topics abonnés)' },
+  { name: 'genos_signal_purge', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Nettoie les signaux expirés du bus' },
+  { name: 'genos_signal_electrocyte_vote', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Vote par consensus électrocyte + Kuramoto (potentiel de membrane)' },
+  { name: 'genos_signal_chemotactic_follow', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Suit le gradient chimiotactique d\'un locus stigmergique' },
+  { name: 'genos_signal_plasmid_transfer', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Transfert horizontal de décision binaire via plasmide HGT' },
+  { name: 'genos_signal_collective_decision', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Orchestrateur de décision collective multi-topologie (electrocyte/stigmergic/plasmid)' },
   { name: 'genos_biomimicry_mirror_twin_fork', cat: 'Workspace Control', risk: 'Low', desc: 'Symmetric counterfactual fork creating constructive and adversarial twin pairs' },
   { name: 'genos_biomimicry_somatic_resonance', cat: 'Resilience & Security', risk: 'Low', desc: 'Syncytial stress telemetry and collective entropy shockwave propagation' },
   { name: 'genos_biomimicry_chimeric_merge', cat: 'Genetics', risk: 'Low', desc: 'Tetragametic mosaic merge combining tool genome and immune memory' },

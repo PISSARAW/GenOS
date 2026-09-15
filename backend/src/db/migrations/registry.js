@@ -24,6 +24,18 @@ const migrationRunners = [
     const { migrateAllBioPolymers } = require('../../services/bioPolymerPersistenceService');
     await migrateAllBioPolymers(db);
   }),
+  createMigrationRunner('020-structural-knowledge-graph', 'Add knowledge_graph_relations, learned_traits tables and synapse consolidation columns', async (db) => {
+    const { migrateStructuralKnowledgeGraph } = require('../../services/db/migrations/migrateStructuralKnowledgeGraph');
+    await migrateStructuralKnowledgeGraph(db);
+  }),
+  createMigrationRunner('021-signal-transport', 'Add zero-text signaling tables (signal_blobs, signal_subs) for inter-agent transport', async (db) => {
+    const { applyV45Migration } = require('../schema-next');
+    await applyV45Migration(db);
+  }),
+  createMigrationRunner('022-adaptive-state', 'Persist adaptive state (Q-values, attractions, stigmergy) across restarts', async (db) => {
+    const { migrateAdaptiveState } = require('./migrateAdaptiveState');
+    await migrateAdaptiveState(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

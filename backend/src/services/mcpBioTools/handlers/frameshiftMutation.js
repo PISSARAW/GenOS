@@ -1,3 +1,4 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 // Registry for Frameshift (Indel) mutations
 const frameshiftRegistry = new Map();
 
@@ -118,8 +119,58 @@ function handleFrameshiftMutationError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _frameshiftMutationRegistryPersistent = false;
+
+function _ensureframeshiftMutationRegistryPersistent() {
+  if (_frameshiftMutationRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::frameshift_mutation', 'frameshiftMutationRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : frameshiftMutationRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::frameshift_mutation', 'frameshiftMutationRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'frameshiftMutationRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _frameshiftMutationRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensureframeshiftMutationRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.frameshiftMutationRegistry || frameshiftMutationRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensureframeshiftMutationRegistryPersistent();
+
 module.exports = {
   handleFrameshiftMutation,
   handleFrameshiftMutationError,
-  frameshiftRegistry
-};
+  frameshiftRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

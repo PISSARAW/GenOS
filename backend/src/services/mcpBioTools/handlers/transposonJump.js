@@ -1,5 +1,6 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 // Registry for Transposons (Jumping Genes)
-const transposonRegistry = new Map();
+const transposonRegistry = new Map(); /* persisterHook: transposonRegistry */
 
 function getTransposonRecord(id) {
   if (!transposonRegistry.has(id)) {
@@ -144,8 +145,58 @@ function handleTransposonJumpError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _transposonRegistryPersistent = false;
+
+function _ensuretransposonRegistryPersistent() {
+  if (_transposonRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::transposon_jump', 'transposonRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : transposonRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::transposon_jump', 'transposonRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'transposonRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _transposonRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensuretransposonRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.transposonRegistry || transposonRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensuretransposonRegistryPersistent();
+
 module.exports = {
   handleTransposonJump,
   handleTransposonJumpError,
-  transposonRegistry
-};
+  transposonRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

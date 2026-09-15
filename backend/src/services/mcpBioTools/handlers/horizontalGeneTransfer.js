@@ -1,3 +1,4 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 // Registry for Horizontal Gene Transfer (Plasmids & Bdelloid Xeno-Absorption)
 const horizontalTransferRegistry = new Map();
 
@@ -101,8 +102,58 @@ function handleHorizontalGeneTransferError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _horizontalGeneTransferRegistryPersistent = false;
+
+function _ensurehorizontalGeneTransferRegistryPersistent() {
+  if (_horizontalGeneTransferRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::horizontal_gene_transfer', 'horizontalGeneTransferRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : horizontalGeneTransferRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::horizontal_gene_transfer', 'horizontalGeneTransferRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'horizontalGeneTransferRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _horizontalGeneTransferRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensurehorizontalGeneTransferRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.horizontalGeneTransferRegistry || horizontalGeneTransferRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensurehorizontalGeneTransferRegistryPersistent();
+
 module.exports = {
   handleHorizontalGeneTransfer,
   handleHorizontalGeneTransferError,
-  horizontalTransferRegistry
-};
+  horizontalTransferRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

@@ -118,5 +118,6 @@ module.exports = {
   capabilitiesForOrganization,
   contractFor,
   missingCapabilities,
-  auditTopology
+  auditTopology,
+  structuralPlasticityIndex: require('./structuralPlasticityIndex').structuralPlasticityIndex
 };

@@ -1,6 +1,6 @@
 # Biomimicry Handlers — Récapitulatif des 39 primitives
 
-> Statut : toutes les primitives listées dans le diagramme runtime-agentique.md §5 sont implémentées dans `backend/src/services/mcpBioTools/handlers/`. Le schéma de transport inter-agents zero-texte (`biomimeticSignalingBus.js`, `mcpLigandReceptorService.js`) est implémenté mais orphelin — jamais importé par le dispatcher MCP ou les handlers. C'est du progressed spec/open-code, pas du produit fermé.
+> Statut : toutes les primitives listées dans le diagramme runtime-agentique.md §5 sont implémentées dans `backend/src/services/mcpBioTools/handlers/`. Le schéma de transport inter-agents zero-texte (`biomimeticSignalingBus.js`, `mcpLigandReceptorService.js`) est implémenté et branché à la couche de transport persistante (`signalingTransportService.js`, migration v45 signal_blobs/signal_subs). AgentCollaborativeDecisionMakingService orchestre les décisions collectives. C'est du progressed spec/open-code, pas du produit fermé.
 
 ## Dispath MCP
 
@@ -58,18 +58,27 @@
 38. **consciousnessTransfer** — Rejeu de conscience avec mémoire future (H38)
 39. **novikovCausalRebase** — Rebasing causal Novikov zero-paradoxe (H39)
 
-## Schéma zero-texte (implémenté, orphelin)
+## Couche de transport zero-texte
 
-Les modules suivants implémentent le schéma de transport inter-agents décrit dans le §"Bus de Signalisation Biomimétique" du runtime-agentique.md, mais ne sont jamais importés par le dispatcher MCP ni les handlers :
+Les modules suivants implémentent le schéma de transport inter-agents décrit dans le §"Bus de Signalisation Biomimétique" du runtime-agentique.md :
 
-- `backend/src/services/biomimeticSignalingBus.js` — types de signal (LIGAND, VOLTAGE, PHEROMONE, PLASMID, TENSOR, TEXT), évaluation ligand-récepteur, consensus électrocyte + Kuramoto, gradient chimiotactique, formatage pour transport
+- `backend/src/services/biomimeticSignalingBus.js` — types de signal (SIGNAL_TYPES : LIGAND, VOLTAGE, PHEROMONE, PLASMID, TENSOR, TEXT), évaluation ligand-récepteur, consensus électrocyte + Kuramoto, gradient chimiotactique, formatage pour transport
 - `backend/src/services/mcpLigandReceptorService.js` — récepteurs catalytiques par outil MCP, cnidocyte reflex (détection de toxine <3µs), seuils Gibbs free energy ΔG
+- `backend/src/services/signalingTransportService.js` — persistance des signaux zero-texte dans `signal_blobs` (SQLite WAL), diffusion locale via Map, abonnements (`signal_subs`), nettoyage TTL, readSignalsForAgent/markSignalsSeen
+- `backend/src/services/agentCollaborativeDecisionMakingService.js` — décision collective électrocyte (vote par potentiel de membrane), suivi chimiotactique (gradient phéromones), transfert plasmid HGT, orchestrateur multi-topologie
+- `backend/src/db/schema-next.js` — migration v45 : tables `signal_blobs`, `signal_subs`, indexes, enregistrée dans le registre des migrations (021-signal-transport)
 
-C'est du progressed spec/open-code. Pour le connecter au transport inter-agents, il faudra :
+Schéma d'architecture transport :
 
-1. Importer `biomimeticSignalingBus` dans `mcpToolRegistry.js` ou un module dédié de transport inter-agents
-2. Ajouter une couche de broadcast/multicast (Redis pub/sub, SQLite `agent_organization_messages`, ou mécanisme équivalent) 
-3. Brancher les handlers existants sur ce transport pour échanger des signaux zero-texte au lieu de prompts textuels
+```
+Agents / Orchestrateur / MCP
+  → registerSignalTransportTools()  [gens biologiques MCP]
+  → executeBioTool(toolName, args)  [dispatch handler]
+  → handler.handle(args, runGenosSync)  [logique métier]
+  → signalingTransportService.publishSignal()  [persistance signal_blobs]
+  → biomimeticSignalingBus.evaluate*()  [calculs zero-texte]
+  → MCP response (signalBlob + content)
+```
 
 ## Schéma de pipeline d'exécution MCP
 
@@ -87,7 +96,9 @@ Tous les 91 outils MCP enregistrés dans `backend/src/db/seedTools.js` sont disp
 
 ## Limites
 
-- **Pas de transport inter-agents zero-texte** : le schéma est implémenté mais orphelin. Les agents communiquent toujours via prompts textuels/JSON.
+- **Transport zero-texte implémenté mais non-branché aux handlers existants** : les 39 handlers utilisent encore `runGenosSync` (CLI Rust local) pour l'exécution. Les signaux zero-texte peuvent être publiés via `signalingTransportService.publishSignal()` mais les handlers ne les utilisent pas nativement — c'est une couche parallèle implémentée mais non-intégrée.
+- **Persistance SQLite uniquement** : pas de Redis pub/sub, pas de broadcast cluster-wide au-delà du processus Node local. Le transport est local au processus backend.
 - **Registres en mémoire** : la plupart des handlers utilisent des `Map` module-level (ex: `FETUS_REGISTRY`, `DIAPAUSE_REGISTRY`) perdus au redémarrage.
 - **Pas de persistance relationnelle cross-agent** : `crossAgentRelationalPrimitives.js` est mentionné dans le spec mais n'existe pas encore — les relations chimeriques, jumeaux, plasmides sont en mémoire.
 - **Codex local requis** : les handlers appellent `genos biomimicry ...` via `runGenosSync` — si le binaire Rust n'est pas disponible, les handlers retournent `tool_error`.
+- **Aucune intégration agents→transport dans les handlers existants** : les 39 fichiers handlers ne publient pas de signaux zero-texte — ils utilisent le CLI Rust. La couche transport est disponible mais non-consommée par les handlers actuels.

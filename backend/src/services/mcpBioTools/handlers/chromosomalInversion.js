@@ -1,5 +1,6 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 // Registry for Chromosomal Inversions
-const chromosomalInversionRegistry = new Map();
+const chromosomalInversionRegistry = new Map(); /* persisterHook: chromosomalInversionRegistry */
 
 function getInversionRecord(id) {
   if (!chromosomalInversionRegistry.has(id)) {
@@ -95,8 +96,58 @@ function handleChromosomalInversionError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _chromosomalInversionRegistryPersistent = false;
+
+function _ensurechromosomalInversionRegistryPersistent() {
+  if (_chromosomalInversionRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::chromosomal_inversion', 'chromosomalInversionRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : chromosomalInversionRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::chromosomal_inversion', 'chromosomalInversionRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'chromosomalInversionRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _chromosomalInversionRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensurechromosomalInversionRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.chromosomalInversionRegistry || chromosomalInversionRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensurechromosomalInversionRegistryPersistent();
+
 module.exports = {
   handleChromosomalInversion,
   handleChromosomalInversionError,
-  chromosomalInversionRegistry
-};
+  chromosomalInversionRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

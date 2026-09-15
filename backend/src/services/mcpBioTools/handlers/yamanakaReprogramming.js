@@ -1,3 +1,4 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 /**
  * @file yamanakaReprogramming.js
  * @description Biomimetic handler for Yamanaka Factors (OSKM) Epigenetic Reprogramming.
@@ -7,7 +8,7 @@
 
 'use strict';
 
-const yamanakaRegistry = new Map();
+const yamanakaRegistry = new Map(); /* persisterHook: yamanakaRegistry */
 
 function getOrCreateStemProfile(agentId, initialRole = 'SPECIALIZED_WORKER') {
   if (!yamanakaRegistry.has(agentId)) {
@@ -127,8 +128,58 @@ function handleYamanakaError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _yamanakaRegistryPersistent = false;
+
+function _ensureyamanakaRegistryPersistent() {
+  if (_yamanakaRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::yamanaka_reprogramming', 'yamanakaRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : yamanakaRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::yamanaka_reprogramming', 'yamanakaRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'yamanakaRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _yamanakaRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensureyamanakaRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.yamanakaRegistry || yamanakaRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensureyamanakaRegistryPersistent();
+
 module.exports = {
   handleYamanakaReprogramming,
   handleYamanakaError,
-  yamanakaRegistry
-};
+  yamanakaRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

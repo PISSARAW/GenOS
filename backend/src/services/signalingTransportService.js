@@ -41,7 +41,6 @@ async function publishSignal(params) {
     signalData = {},
     topic = '',
     senderAgentId = null,
-    orchestratorId = null,
     signalId = null,
     ttlMs = DEFAULT_SIGNAL_TTL_MS,
     contentFallback = null,
@@ -81,7 +80,7 @@ async function publishSignal(params) {
   pushLocalLog(id, formatted);
   const routing = await routeCollectiveSignal({
     db: await getDatabase().catch(() => null), signalId: id, signalType: formatted.signalType,
-    signalData, orchestratorId
+    signalData, orchestratorId: senderAgentId
   });
   return { signalId: id, published: true, signalType: formatted.signalType, routing };
 }
@@ -167,4 +166,5 @@ module.exports = {
   purgeExpiredSignals,
   localSignalsSince,
   DEFAULT_SIGNAL_TTL_MS,
+  LOCAL_BROADCAST_LOG,
 };

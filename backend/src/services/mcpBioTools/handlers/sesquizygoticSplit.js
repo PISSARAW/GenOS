@@ -6,6 +6,7 @@
  */
 
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 
 // In-memory registry of sesquizygotic pairs
 const SESQUIZYGOTIC_REGISTRY = new Map();
@@ -135,7 +136,57 @@ async function handle(args, run) {
   }
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _sesquizygoticRegistryPersistent = false;
+
+function _ensuresesquizygoticRegistryPersistent() {
+  if (_sesquizygoticRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::sesquizygotic_split', 'sesquizygoticRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : sesquizygoticRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::sesquizygotic_split', 'sesquizygoticRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'sesquizygoticRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _sesquizygoticRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensuresesquizygoticRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.sesquizygoticRegistry || sesquizygoticRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensuresesquizygoticRegistryPersistent();
+
 module.exports = {
   handle,
-  SESQUIZYGOTIC_REGISTRY
-};
+  SESQUIZYGOTIC_REGISTRY,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

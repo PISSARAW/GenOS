@@ -6,6 +6,7 @@
  */
 
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 
 // In-memory registry of heteropaternal twin clusters
 const HETEROPATERNAL_REGISTRY = new Map();
@@ -126,7 +127,57 @@ async function handle(args, run) {
   }
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _heteropaternalRegistryPersistent = false;
+
+function _ensureheteropaternalRegistryPersistent() {
+  if (_heteropaternalRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::heteropaternal_superfecundation', 'heteropaternalRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : heteropaternalRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::heteropaternal_superfecundation', 'heteropaternalRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'heteropaternalRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _heteropaternalRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensureheteropaternalRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.heteropaternalRegistry || heteropaternalRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensureheteropaternalRegistryPersistent();
+
 module.exports = {
   handle,
-  HETEROPATERNAL_REGISTRY
-};
+  HETEROPATERNAL_REGISTRY,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

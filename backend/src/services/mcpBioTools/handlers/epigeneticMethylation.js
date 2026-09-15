@@ -1,5 +1,6 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 // Registry for Epigenetic Methylation & Transgenerational Memory
-const epigeneticMethylationRegistry = new Map();
+const epigeneticMethylationRegistry = new Map(); /* persisterHook: epigeneticMethylationRegistry */
 
 function getEpigeneticRecord(id) {
   if (!epigeneticMethylationRegistry.has(id)) {
@@ -126,8 +127,58 @@ function handleEpigeneticMethylationError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _epigeneticMethylationRegistryPersistent = false;
+
+function _ensureepigeneticMethylationRegistryPersistent() {
+  if (_epigeneticMethylationRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::epigenetic_methylation', 'epigeneticMethylationRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : epigeneticMethylationRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::epigenetic_methylation', 'epigeneticMethylationRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'epigeneticMethylationRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _epigeneticMethylationRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensureepigeneticMethylationRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.epigeneticMethylationRegistry || epigeneticMethylationRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensureepigeneticMethylationRegistryPersistent();
+
 module.exports = {
   handleEpigeneticMethylation,
   handleEpigeneticMethylationError,
-  epigeneticMethylationRegistry
-};
+  epigeneticMethylationRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

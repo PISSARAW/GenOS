@@ -1,3 +1,4 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 // Registry for Dynamic Triplet Expansion & Anticipation
 const dynamicExpansionRegistry = new Map();
 
@@ -103,8 +104,58 @@ function handleDynamicTripletExpansionError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _dynamicTripletExpansionRegistryPersistent = false;
+
+function _ensuredynamicTripletExpansionRegistryPersistent() {
+  if (_dynamicTripletExpansionRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::dynamic_triplet_expansion', 'dynamicTripletExpansionRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : dynamicTripletExpansionRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::dynamic_triplet_expansion', 'dynamicTripletExpansionRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'dynamicTripletExpansionRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _dynamicTripletExpansionRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensuredynamicTripletExpansionRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.dynamicTripletExpansionRegistry || dynamicTripletExpansionRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensuredynamicTripletExpansionRegistryPersistent();
+
 module.exports = {
   handleDynamicTripletExpansion,
   handleDynamicTripletExpansionError,
-  dynamicExpansionRegistry
-};
+  dynamicExpansionRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

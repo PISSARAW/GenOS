@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active monozygotic split clusters
@@ -123,8 +124,58 @@ function handleMonozygoticSplitError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _monozygoticRegistryPersistent = false;
+
+function _ensuremonozygoticRegistryPersistent() {
+  if (_monozygoticRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::monozygotic_split', 'monozygoticRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : monozygoticRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::monozygotic_split', 'monozygoticRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'monozygoticRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _monozygoticRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensuremonozygoticRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.monozygoticRegistry || monozygoticRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensuremonozygoticRegistryPersistent();
+
 module.exports = {
   handleMonozygoticSplit,
   handleMonozygoticSplitError,
-  monozygoticClusterRegistry
-};
+  monozygoticClusterRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

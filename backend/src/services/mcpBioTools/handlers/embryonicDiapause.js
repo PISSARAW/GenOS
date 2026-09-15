@@ -7,9 +7,10 @@
  */
 
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 
 // In-memory registry of diapause pipelines
-const DIAPAUSE_REGISTRY = new Map();
+const DIAPAUSE_REGISTRY = new Map(); /* persisterHook: DIAPAUSE_REGISTRY */
 
 function generateId(prefix) {
   return `${prefix}_${Math.random().toString(36).substring(2, 9)}`;
@@ -186,7 +187,57 @@ async function handle(args, run) {
   }
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _DIAPAUSE_REGISTRYPersistent = false;
+
+function _ensureDIAPAUSE_REGISTRYPersistent() {
+  if (_DIAPAUSE_REGISTRYPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::embryonic_diapause', 'diapauseRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : DIAPAUSE_REGISTRY;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::embryonic_diapause', 'diapauseRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'DIAPAUSE_REGISTRY', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _DIAPAUSE_REGISTRYPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensureDIAPAUSE_REGISTRYPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.DIAPAUSE_REGISTRY || DIAPAUSE_REGISTRY;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensureDIAPAUSE_REGISTRYPersistent();
+
 module.exports = {
   handle,
-  DIAPAUSE_REGISTRY
-};
+  DIAPAUSE_REGISTRY,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

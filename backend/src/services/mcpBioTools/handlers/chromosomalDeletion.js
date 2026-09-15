@@ -1,5 +1,6 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 // Registry for Chromosomal Deletions
-const chromosomalDeletionRegistry = new Map();
+const chromosomalDeletionRegistry = new Map(); /* persisterHook: chromosomalDeletionRegistry */
 
 const ESSENTIAL_LOCI = new Set(['LOCUS_KERNEL_INTEGRITY', 'LOCUS_AUTH_INVARIANTS', 'LOCUS_ROUTING']);
 
@@ -110,8 +111,58 @@ function handleChromosomalDeletionError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _chromosomalDeletionRegistryPersistent = false;
+
+function _ensurechromosomalDeletionRegistryPersistent() {
+  if (_chromosomalDeletionRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::chromosomal_deletion', 'chromosomalDeletionRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : chromosomalDeletionRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::chromosomal_deletion', 'chromosomalDeletionRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'chromosomalDeletionRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _chromosomalDeletionRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensurechromosomalDeletionRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.chromosomalDeletionRegistry || chromosomalDeletionRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensurechromosomalDeletionRegistryPersistent();
+
 module.exports = {
   handleChromosomalDeletion,
   handleChromosomalDeletionError,
-  chromosomalDeletionRegistry
-};
+  chromosomalDeletionRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

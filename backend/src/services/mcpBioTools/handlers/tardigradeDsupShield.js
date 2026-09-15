@@ -1,3 +1,4 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 /**
  * @file tardigradeDsupShield.js
  * @description Biomimetic handler for Tardigrade Damage Suppressor (Dsup) Shield.
@@ -7,7 +8,7 @@
 
 'use strict';
 
-const dsupRegistry = new Map();
+const dsupRegistry = new Map(); /* persisterHook: dsupRegistry */
 
 function initDsupState(targetId, loci, options = {}) {
   const density = typeof options.shield_density === 'number' ? options.shield_density : 0.95;
@@ -159,11 +160,61 @@ function handleDsupShieldError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _dsupRegistryPersistent = false;
+
+function _ensuredsupRegistryPersistent() {
+  if (_dsupRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::tardigrade_dsup_shield', 'dsupRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : dsupRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::tardigrade_dsup_shield', 'dsupRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'dsupRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _dsupRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensuredsupRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.dsupRegistry || dsupRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensuredsupRegistryPersistent();
+
 module.exports = {
   handleDsupShield,
   handleDsupShieldError,
   deployDsupShield,
   interceptMutationAttempt,
   inspectDsupStatus,
-  dsupRegistry
-};
+  dsupRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

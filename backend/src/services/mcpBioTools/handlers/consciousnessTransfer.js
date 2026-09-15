@@ -1,3 +1,4 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 /**
  * @file consciousnessTransfer.js
  * @description Biomimetic & Temporal handler for Consciousness Transfer (Groundhog Day / Edge of Tomorrow Replay).
@@ -7,7 +8,7 @@
 
 'use strict';
 
-const consciousnessRegistry = new Map();
+const consciousnessRegistry = new Map(); /* persisterHook: consciousnessRegistry */
 
 function getOrCreateConsciousness(agentId, baselineId = 'snap-baseline-t0') {
   if (!consciousnessRegistry.has(agentId)) {
@@ -89,8 +90,58 @@ function handleConsciousnessError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _consciousnessRegistryPersistent = false;
+
+function _ensureconsciousnessRegistryPersistent() {
+  if (_consciousnessRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::consciousness_transfer', 'consciousnessRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : consciousnessRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::consciousness_transfer', 'consciousnessRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'consciousnessRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _consciousnessRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensureconsciousnessRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.consciousnessRegistry || consciousnessRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensureconsciousnessRegistryPersistent();
+
 module.exports = {
   handleConsciousnessTransfer,
   handleConsciousnessError,
-  consciousnessRegistry
-};
+  consciousnessRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

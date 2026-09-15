@@ -1,5 +1,6 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 // Registry for Genomic Aneuploidy
-const aneuploidyRegistry = new Map();
+const aneuploidyRegistry = new Map(); /* persisterHook: aneuploidyRegistry */
 
 function getAneuploidyRecord(id) {
   if (!aneuploidyRegistry.has(id)) {
@@ -113,8 +114,58 @@ function handleAneuploidyError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _aneuploidyRegistryPersistent = false;
+
+function _ensureaneuploidyRegistryPersistent() {
+  if (_aneuploidyRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::aneuploidy', 'aneuploidyRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : aneuploidyRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::aneuploidy', 'aneuploidyRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'aneuploidyRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _aneuploidyRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensureaneuploidyRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.aneuploidyRegistry || aneuploidyRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensureaneuploidyRegistryPersistent();
+
 module.exports = {
   handleAneuploidy,
   handleAneuploidyError,
-  aneuploidyRegistry
-};
+  aneuploidyRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

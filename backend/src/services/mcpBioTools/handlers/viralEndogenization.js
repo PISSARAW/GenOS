@@ -1,5 +1,6 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 // Registry for Viral Germline Endogenization (KoRV Retrovirus Strategy)
-const viralEndogenizationRegistry = new Map();
+const viralEndogenizationRegistry = new Map(); /* persisterHook: viralEndogenizationRegistry */
 
 function getEndogenizationRecord(id) {
   if (!viralEndogenizationRegistry.has(id)) {
@@ -103,8 +104,58 @@ function handleViralEndogenizationError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _viralEndogenizationRegistryPersistent = false;
+
+function _ensureviralEndogenizationRegistryPersistent() {
+  if (_viralEndogenizationRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::viral_endogenization', 'viralEndogenizationRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : viralEndogenizationRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::viral_endogenization', 'viralEndogenizationRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'viralEndogenizationRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _viralEndogenizationRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensureviralEndogenizationRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.viralEndogenizationRegistry || viralEndogenizationRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensureviralEndogenizationRegistryPersistent();
+
 module.exports = {
   handleViralEndogenization,
   handleViralEndogenizationError,
-  viralEndogenizationRegistry
-};
+  viralEndogenizationRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

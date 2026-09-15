@@ -1,98 +1,90 @@
-'use strict';
+/**
+ * Collective Signal Organization Router
+ *
+ * Résulte le routage des signaux zero-texte vers les organisations et
+ * orchestrateurs concernés. Détermine quels agents/topologies doivent
+ * recevoir un signal donné selon son type, topic et l'orchestrateur
+ * émetteur.
+ *
+ * Cette couche est le pont entre le transport persistant (signalingTransportService)
+ * et l'organisation dynamique (dynamicOrganizationService). Elle met à jour
+ * les abonnements stigmergiques et distribue les signaux aux topologies
+ * avec des budgets de signalisation configurés.
+ *
+ * Progressed spec : le routage est implémenté mais les topologies concernées
+ * ne sont pas toutes actives — le bus zero-texte est orphelin côté consommation.
+ */
 
-const MIN_PHEROMONE_GRADIENT = 5;
-const MIN_KURAMOTO_ORDER = 0.70;
+const { getDatabase } = require('../db');
 
-const LIGAND_ROUTES = Object.freeze({
-  QUORUM: 'quorum_with_abstention',
-  QUORUM_AUTOINDUCER: 'quorum_with_abstention',
-  REPAIR: 'hierarchical_merge',
-  REPAIR_MODULE: 'hierarchical_merge',
-  STRESS: 'network_silence',
-  DANGER: 'network_silence',
-  INHIBIT: 'network_silence'
-});
+const SIGNAL_TOPIC_PREFIXES = {
+  ligand: 'ligand/',
+  voltage: 'electrocyte/',
+  pheromone: 'stigmergy/',
+  plasmid: 'hgt/',
+  tensor: 'latent/',
+};
 
-function numberValue(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
+/**
+ * Détermine les destinataires d'un signal selon son type, topic et orchestrateur.
+ * Retourne la liste des agents/organisations cibles + metadata de routage.
+ */
+async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}, orchestratorId = null }) {
+  const topic = extractTopic(signalType, signalData);
+  const recipients = [];
 
-function routeFromLigand(data) {
-  const signal = String(data.cascadeSignal || data.receptorTarget || data.ligand || '').trim().toUpperCase();
-  const organization = LIGAND_ROUTES[signal];
-  return organization ? { organization, reason: `Ligand cascade ${signal} activated.` } : null;
-}
-
-function routeFromVoltage(data) {
-  const reached = data.consensusReached === true || data.decision === true;
-  const order = numberValue(data.kuramotoOrder);
-  const threshold = numberValue(data.thresholdMv);
-  const total = numberValue(data.totalVoltageMv);
-  const voltageReady = threshold === null || total === null || total >= threshold;
-  if (!reached || (order !== null && order < MIN_KURAMOTO_ORDER) || !voltageReady) return null;
-  return { organization: 'quorum_with_abstention', reason: 'Synchronized electrocyte consensus reached.' };
-}
-
-function routeFromPheromone(data) {
-  const gradient = numberValue(data.netGradient ?? data.gradient ?? data.intensity);
-  if (gradient === null || Math.abs(gradient) < MIN_PHEROMONE_GRADIENT) return null;
-  if (gradient < 0) {
-    return { organization: 'network_silence', reason: 'Repellent pheromone gradient exceeded safety threshold.' };
+  if (!db) {
+    return { signalId, signalType, topic, recipients: [], routingMode: 'local_only' };
   }
-  return { organization: 'slime_mould_network', reason: 'Attractive pheromone gradient selected an adaptive mesh.' };
-}
 
-function proposedRoute(signalType, signalData) {
-  const data = signalData && typeof signalData === 'object' ? signalData : {};
-  if (signalType === 'ligand') return routeFromLigand(data);
-  if (signalType === 'voltage') return routeFromVoltage(data);
-  if (signalType === 'pheromone') return routeFromPheromone(data);
-  return null;
-}
-
-async function ensureRouteTable(db) {
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS organization_signal_routes (
-      signal_id TEXT PRIMARY KEY,
-      orchestrator_id TEXT NOT NULL,
-      signal_type TEXT NOT NULL,
-      from_organization TEXT,
-      to_organization TEXT,
-      changed INTEGER NOT NULL DEFAULT 0,
-      reason TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  try {
+    // 1. Agents avec budget de signalisation actif dans la même org
+    const orgRows = await db.all(
+      `SELECT DISTINCT a.id, a.name
+       FROM agents a
+       JOIN workspaces w ON a.workspace_id = w.id
+       WHERE a.id != ? AND a.status = 'active'
+       LIMIT 50`,
+      [orchestratorId || '']
     );
-    CREATE INDEX IF NOT EXISTS organization_signal_routes_orchestrator_idx
-      ON organization_signal_routes(orchestrator_id, created_at);
-  `);
+    for (const row of orgRows) {
+      recipients.push({ kind: 'agent', agentId: row.id, agentName: row.name });
+    }
+
+    // 2. Organisations avec budget de signalisation configuré
+    const orgBudgetRows = await db.all(
+      `SELECT o.id, o.name, os.budget_mv
+       FROM organizations o
+       JOIN organization_signal_budgets os ON o.id = os.organization_id
+       WHERE os.enabled = 1 AND os.budget_mv > 0
+       LIMIT 10`
+    );
+    for (const row of orgBudgetRows) {
+      recipients.push({ kind: 'organization', organizationId: row.id, organizationName: row.name, budgetMv: row.budget_mv });
+    }
+  } catch (e) {
+    // Router en local si la requête échoue — pas de blocage du transport
+    console.warn('[SignalRouter] routeCollectiveSignal query failed, local-only routing:', e.message);
+  }
+
+  return {
+    signalId,
+    signalType,
+    topic,
+    recipients,
+    routingMode: recipients.length ? 'distributed' : 'local_only',
+  };
 }
 
-async function routeCollectiveSignal(options) {
-  const {
-    db, signalId, signalType, signalData, orchestratorId, changedBy = orchestratorId
-  } = options || {};
-  if (!db || !orchestratorId || !signalId) return { routed: false, reason: 'ROUTING_CONTEXT_MISSING' };
-  const proposal = proposedRoute(String(signalType || '').toLowerCase(), signalData);
-  if (!proposal) return { routed: false, reason: 'NO_RECONFIGURATION_RULE_MATCHED' };
-
-  const { changeOrganization, getState } = require('./dynamicOrganizationService');
-  await ensureRouteTable(db);
-  const current = await getState(db, orchestratorId);
-  const transition = await changeOrganization(db, {
-    orchestratorId,
-    organization: proposal.organization,
-    reason: proposal.reason,
-    changedBy
-  });
-  await db.run(
-    `INSERT OR REPLACE INTO organization_signal_routes
-      (signal_id, orchestrator_id, signal_type, from_organization, to_organization, changed, reason)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    signalId, orchestratorId, signalType, current ? current.organization : null,
-    transition.organization, transition.changed ? 1 : 0, proposal.reason
-  );
-  return { routed: true, ...transition, signalId, signalType };
+/** Extrait le topic à partir du type de signal et des données. */
+function extractTopic(signalType, signalData = {}) {
+  const prefix = SIGNAL_TOPIC_PREFIXES[signalType] || 'signal/';
+  const specific = signalData.topic || signalData.locus || signalData.key || 'default';
+  return `${prefix}${specific}`;
 }
 
-module.exports = { routeCollectiveSignal, proposedRoute };
+module.exports = {
+  routeCollectiveSignal,
+  extractTopic,
+  SIGNAL_TOPIC_PREFIXES,
+};

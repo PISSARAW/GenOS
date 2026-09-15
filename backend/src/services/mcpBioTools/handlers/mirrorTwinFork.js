@@ -1,8 +1,9 @@
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active mirror twin instances
-const mirrorTwinRegistry = new Map();
+const mirrorTwinRegistry = new Map(); /* persisterHook: mirrorTwinRegistry */
 
 function getMirrorPair(pairId) {
   if (!mirrorTwinRegistry.has(pairId)) {
@@ -160,8 +161,58 @@ function handleMirrorTwinForkError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _mirrorTwinRegistryPersistent = false;
+
+function _ensuremirrorTwinRegistryPersistent() {
+  if (_mirrorTwinRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::mirror_twin_fork', 'mirrorTwinRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : mirrorTwinRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::mirror_twin_fork', 'mirrorTwinRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'mirrorTwinRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _mirrorTwinRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensuremirrorTwinRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.mirrorTwinRegistry || mirrorTwinRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensuremirrorTwinRegistryPersistent();
+
 module.exports = {
   handleMirrorTwinFork,
   handleMirrorTwinForkError,
-  mirrorTwinRegistry
-};
+  mirrorTwinRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

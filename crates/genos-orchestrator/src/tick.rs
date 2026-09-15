@@ -62,6 +62,7 @@ impl GenosEcosystem {
             };
         }
         let state = self.observe();
+        if state.apoptotic { return TickReport { tick: self.events.count() as u64, strategy: Strategy::Solo, organization: "n/a", superorganism: "n/a", planned: Vec::new(), executed: Vec::new(), halt: Some("etat apoptotique: volition inhibee".to_string()), verdicts: Vec::new() }; }
         // Voie sous-corticale : les instincts sont évalués avant la délibération.
         self.run_instincts(&state);
         self.director.set_context(context_from_state(&state));

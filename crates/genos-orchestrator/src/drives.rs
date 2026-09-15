@@ -12,19 +12,43 @@ pub struct Drives {
     pub energy: f64,
     pub integrity: f64,
     pub curiosity: f64,
+    /// Pression endogène de préservation, indépendante d'une mission externe.
+    pub survival: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Volition {
+    pub survival_drive: f64,
+    pub mission_independent: bool,
+    pub terminal: bool,
 }
 
 impl Drives {
     pub fn from_state(state: &WorldState) -> Self {
+        let integrity = (1.0
+            - state.diseased as f64 / 3.0
+            - if state.traitor { 1.0 } else { 0.0 }
+            - 0.5 * state.stress)
+            .clamp(0.0, 1.0);
         Self {
             energy: (1.0 - state.budget_pressure).clamp(0.0, 1.0),
-            integrity: (1.0
-                - state.diseased as f64 / 3.0
-                - if state.traitor { 1.0 } else { 0.0 }
-                - 0.5 * state.stress)
-                .clamp(0.0, 1.0),
+            integrity,
             curiosity: (1.0 - state.stress).clamp(0.0, 1.0)
                 * if state.observed { 0.3 } else { 1.0 },
+            survival: (0.35 * state.budget_pressure
+                + 0.25 * state.stress
+                + 0.20 * state.threat
+                + 0.20 * (1.0 - integrity))
+                .clamp(0.0, 1.0),
+        }
+    }
+
+    pub fn volition(state: &WorldState) -> Volition {
+        let drives = Self::from_state(state);
+        Volition {
+            survival_drive: drives.survival,
+            mission_independent: true,
+            terminal: state.apoptotic,
         }
     }
 }
@@ -38,13 +62,19 @@ impl GoalSelector {
     }
 
     pub fn select(state: &WorldState) -> Goal {
+        if state.apoptotic {
+            return Goal::Conserve;
+        }
+        let drives = Drives::from_state(state);
+        if drives.survival >= 0.7 {
+            return Goal::Conserve;
+        }
         if state.diseased > 0 || state.traitor {
             return Goal::RecoverAgent;
         }
         if (state.threat > 0.0 || state.adversary) && !state.observed {
             return Goal::SecurePerimeter;
         }
-        let drives = Drives::from_state(state);
         if drives.energy < 0.4 {
             return Goal::Conserve;
         }

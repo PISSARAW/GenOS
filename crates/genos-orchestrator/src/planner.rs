@@ -138,6 +138,8 @@ pub struct WorldState {
     pub budget_pressure: f64,
     /// Stress composite (0..1).
     pub stress: f64,
+    /// Etat terminal: aucune volition ne peut ressusciter un agent apoptotique.
+    pub apoptotic: bool,
     pub workers: usize,
     pub tissues: usize,
     pub required_workers: usize,
@@ -165,6 +167,7 @@ impl Default for WorldState {
             failure_rate: 0.0,
             budget_pressure: 0.0,
             stress: 0.0,
+            apoptotic: false,
             workers: 0,
             tissues: 0,
             required_workers: 3,

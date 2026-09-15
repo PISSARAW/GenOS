@@ -7,6 +7,7 @@
  */
 
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 
 // In-memory registry of superfetation pipelines
 const SUPERFETATION_REGISTRY = new Map();
@@ -135,7 +136,57 @@ async function handle(args, run) {
   }
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _superfetationRegistryPersistent = false;
+
+function _ensuresuperfetationRegistryPersistent() {
+  if (_superfetationRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::superfetation_pipeline', 'superfetationRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : superfetationRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::superfetation_pipeline', 'superfetationRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'superfetationRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _superfetationRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensuresuperfetationRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.superfetationRegistry || superfetationRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensuresuperfetationRegistryPersistent();
+
 module.exports = {
   handle,
-  SUPERFETATION_REGISTRY
-};
+  SUPERFETATION_REGISTRY,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

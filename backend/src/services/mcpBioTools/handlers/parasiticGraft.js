@@ -1,8 +1,9 @@
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active autosite-parasite grafts
-const parasiticGraftRegistry = new Map();
+const parasiticGraftRegistry = new Map(); /* persisterHook: parasiticGraftRegistry */
 
 function getGraft(graftId) {
   if (!parasiticGraftRegistry.has(graftId)) {
@@ -118,8 +119,58 @@ function handleParasiticGraftError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _parasiticGraftRegistryPersistent = false;
+
+function _ensureparasiticGraftRegistryPersistent() {
+  if (_parasiticGraftRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::parasitic_graft', 'parasiticGraftRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : parasiticGraftRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::parasitic_graft', 'parasiticGraftRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'parasiticGraftRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _parasiticGraftRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensureparasiticGraftRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.parasiticGraftRegistry || parasiticGraftRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensureparasiticGraftRegistryPersistent();
+
 module.exports = {
   handleParasiticGraft,
   handleParasiticGraftError,
-  parasiticGraftRegistry
-};
+  parasiticGraftRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

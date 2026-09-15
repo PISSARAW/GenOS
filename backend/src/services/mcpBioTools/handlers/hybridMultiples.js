@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for hybrid multi-tier clusters
@@ -127,8 +128,58 @@ function handleHybridMultiplesError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _hybridMultiplesRegistryPersistent = false;
+
+function _ensurehybridMultiplesRegistryPersistent() {
+  if (_hybridMultiplesRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::hybrid_multiples', 'hybridMultiplesRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : hybridMultiplesRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::hybrid_multiples', 'hybridMultiplesRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'hybridMultiplesRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _hybridMultiplesRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensurehybridMultiplesRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.hybridMultiplesRegistry || hybridMultiplesRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensurehybridMultiplesRegistryPersistent();
+
 module.exports = {
   handleHybridMultiples,
   handleHybridMultiplesError,
-  hybridClusterRegistry
-};
+  hybridClusterRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

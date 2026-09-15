@@ -7,6 +7,7 @@
  */
 
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 
 // In-memory registry of freemartinized subordinate agents
 const FREEMARTIN_REGISTRY = new Map();
@@ -107,7 +108,57 @@ async function handle(args, run) {
   }
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _freemartinRegistryPersistent = false;
+
+function _ensurefreemartinRegistryPersistent() {
+  if (_freemartinRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::freemartin_inhibition', 'freemartinRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : freemartinRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::freemartin_inhibition', 'freemartinRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'freemartinRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _freemartinRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensurefreemartinRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.freemartinRegistry || freemartinRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensurefreemartinRegistryPersistent();
+
 module.exports = {
   handle,
-  FREEMARTIN_REGISTRY
-};
+  FREEMARTIN_REGISTRY,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

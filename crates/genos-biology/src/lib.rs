@@ -2,8 +2,10 @@ pub use genos_cell as cell;
 pub use genos_genome as genome;
 
 pub mod bioluminescence;
+pub mod chemistry;
 pub mod ecology;
 pub mod embryology;
+pub mod glycolysis;
 pub mod glial;
 pub use glial::{GlialEnvironment, GlialPipeline};
 pub use glial::glial_cell::GlialCell;

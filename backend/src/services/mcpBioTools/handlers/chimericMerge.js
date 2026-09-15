@@ -1,8 +1,9 @@
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 const { quoteCliArg } = require('../shellQuote');
 
 // State registry for chimeric mosaic agents
-const chimericRegistry = new Map();
+const chimericRegistry = new Map(); /* persisterHook: chimericRegistry */
 
 function getMosaic(mosaicId) {
   if (!chimericRegistry.has(mosaicId)) {
@@ -142,8 +143,58 @@ function handleChimericMergeError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _chimericRegistryPersistent = false;
+
+function _ensurechimericRegistryPersistent() {
+  if (_chimericRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::chimeric_merge', 'chimericRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : chimericRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::chimeric_merge', 'chimericRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'chimericRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _chimericRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensurechimericRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.chimericRegistry || chimericRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensurechimericRegistryPersistent();
+
 module.exports = {
   handleChimericMerge,
   handleChimericMergeError,
-  chimericRegistry
-};
+  chimericRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

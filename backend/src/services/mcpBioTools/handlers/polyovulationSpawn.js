@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active polyovulation spawned fleets
@@ -115,8 +116,58 @@ function handlePolyovulationSpawnError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _polyovulationRegistryPersistent = false;
+
+function _ensurepolyovulationRegistryPersistent() {
+  if (_polyovulationRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::polyovulation_spawn', 'polyovulationRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : polyovulationRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::polyovulation_spawn', 'polyovulationRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'polyovulationRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _polyovulationRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensurepolyovulationRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.polyovulationRegistry || polyovulationRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensurepolyovulationRegistryPersistent();
+
 module.exports = {
   handlePolyovulationSpawn,
   handlePolyovulationSpawnError,
-  dizygoticFleetRegistry
-};
+  dizygoticFleetRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

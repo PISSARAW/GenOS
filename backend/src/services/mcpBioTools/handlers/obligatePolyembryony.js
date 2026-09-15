@@ -7,6 +7,7 @@
  */
 
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 
 // In-memory registry of polyembryonic clusters
 const POLYEMBRYONY_REGISTRY = new Map();
@@ -151,7 +152,57 @@ async function handle(args, run) {
   }
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _obligatePolyembryonyRegistryPersistent = false;
+
+function _ensureobligatePolyembryonyRegistryPersistent() {
+  if (_obligatePolyembryonyRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::obligate_polyembryony', 'obligatePolyembryonyRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : obligatePolyembryonyRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::obligate_polyembryony', 'obligatePolyembryonyRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'obligatePolyembryonyRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _obligatePolyembryonyRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensureobligatePolyembryonyRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.obligatePolyembryonyRegistry || obligatePolyembryonyRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensureobligatePolyembryonyRegistryPersistent();
+
 module.exports = {
   handle,
-  POLYEMBRYONY_REGISTRY
-};
+  POLYEMBRYONY_REGISTRY,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

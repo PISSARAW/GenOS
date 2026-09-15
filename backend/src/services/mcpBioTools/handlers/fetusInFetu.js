@@ -7,6 +7,7 @@
  */
 
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 
 // In-memory registry of encapsulated fetuses
 const FETUS_REGISTRY = new Map();
@@ -155,7 +156,57 @@ async function handle(args, run) {
   }
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _fetusInFetuRegistryPersistent = false;
+
+function _ensurefetusInFetuRegistryPersistent() {
+  if (_fetusInFetuRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::fetus_in_fetu', 'fetusInFetuRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : fetusInFetuRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::fetus_in_fetu', 'fetusInFetuRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'fetusInFetuRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _fetusInFetuRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensurefetusInFetuRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.fetusInFetuRegistry || fetusInFetuRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensurefetusInFetuRegistryPersistent();
+
 module.exports = {
   handle,
-  FETUS_REGISTRY
-};
+  FETUS_REGISTRY,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

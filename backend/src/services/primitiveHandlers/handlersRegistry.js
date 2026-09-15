@@ -15,6 +15,7 @@ const swarm = require('./strategySwarm');
 const governance = require('./strategyGovernance');
 const collectiveAdvanced = require('./strategyCollectiveAdvanced');
 const remaining = require('./strategyRemaining');
+const structuralHandlers = require('./structuralPlasticityHandlers');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -115,13 +116,6 @@ const HANDLERS = {
   branch_evolution: remaining.branchEvolution,
   adversarial_review: remaining.adversarialReview,
   blind_critics: remaining.blindCritics,
-  context_compaction: remaining.contextCompaction,
-  experience_packets: remaining.experiencePackets,
-  knowledge_graph: remaining.knowledgeGraph,
-  reviewed_apply: remaining.reviewedApply,
-  infer_traits: remaining.inferTraits,
-  replicate: remaining.replicate,
-  promote_trait: remaining.promoteTrait,
   phenotype_evidence: remaining.phenotypeEvidence,
   validate_child: remaining.validateChild,
   alternate_genome: remaining.alternateGenome,
@@ -356,6 +350,36 @@ const HANDLERS = {
   validate_equivalence: async (ctx = {}) => {
     const { validate_equivalence } = require('./axolotlStrategyHandlers');
     return validate_equivalence(ctx);
+  },
+
+  // Lot 13 — Plasticité Structurelle (STDP + Lamarckien + Sommeil)
+  causal_weighting: async (ctx = {}) => {
+    const { causalWeighting } = require('./structuralPlasticity');
+    return causalWeighting(ctx);
+  },
+  infer_traits: async (ctx = {}) => {
+    const { inferTraits } = require('./structuralPlasticity');
+    return inferTraits(ctx);
+  },
+  replicate: async (ctx = {}) => {
+    const { replicate } = require('./structuralPlasticity');
+    return replicate(ctx);
+  },
+  promote_trait: async (ctx = {}) => {
+    const { promoteTrait } = require('./structuralPlasticity');
+    return promoteTrait(ctx);
+  },
+  context_compaction: async (ctx = {}) => {
+    const { contextCompaction } = require('./structuralPlasticity');
+    return contextCompaction(ctx);
+  },
+
+  ...structuralHandlers,
+
+  // Lot 15 — Orchestration native (Rust) — Activation plasticité structurelle
+  activate_structural_plasticity: async (ctx = {}) => {
+    const { activateStructuralPlasticity } = require('./structuralPlasticityActivation');
+    return activateStructuralPlasticity(ctx);
   }
 };
 

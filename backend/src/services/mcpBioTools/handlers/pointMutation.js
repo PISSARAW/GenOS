@@ -1,7 +1,8 @@
 const crypto = require('crypto');
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 
 // Registry for point mutations
-const pointMutationRegistry = new Map();
+const pointMutationRegistry = new Map(); /* persisterHook: pointMutationRegistry */
 
 function getMutationRecord(id) {
   if (!pointMutationRegistry.has(id)) {
@@ -112,8 +113,58 @@ function handlePointMutationError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _pointMutationRegistryPersistent = false;
+
+function _ensurepointMutationRegistryPersistent() {
+  if (_pointMutationRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::point_mutation', 'pointMutationRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : pointMutationRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::point_mutation', 'pointMutationRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'pointMutationRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _pointMutationRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensurepointMutationRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.pointMutationRegistry || pointMutationRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensurepointMutationRegistryPersistent();
+
 module.exports = {
   handlePointMutation,
   handlePointMutationError,
-  pointMutationRegistry
-};
+  pointMutationRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};

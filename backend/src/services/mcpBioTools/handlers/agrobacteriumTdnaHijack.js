@@ -1,5 +1,6 @@
+const adaptivePersister = require('../../../adaptiveStateBootstrap');
 // Registry for Agrobacterium T-DNA Hijacking & Opine Resource Redirection
-const agrobacteriumRegistry = new Map();
+const agrobacteriumRegistry = new Map(); /* persisterHook: agrobacteriumRegistry */
 
 function getInfectionRecord(hostId) {
   if (!agrobacteriumRegistry.has(hostId)) {
@@ -91,8 +92,58 @@ function handleAgrobacteriumTdnaHijackError(e) {
   };
 }
 
+
+// ── Persistance adaptive hors process ──────────────────────────────────────
+let _agrobacteriumRegistryPersistent = false;
+
+function _ensureagrobacteriumRegistryPersistent() {
+  if (_agrobacteriumRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
+  try {
+    const persister = adaptivePersister.getAdaptivePersister();
+    if (!persister) return;
+    // Réhydrate depuis DB
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::agrobacterium', 'agrobacteriumRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : agrobacteriumRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::agrobacterium', 'agrobacteriumRegistry', mapToUse) : mapToUse;
+    // Remplacer la référence exportée par le proxy persistant
+    Object.defineProperty(module.exports, 'agrobacteriumRegistry', {
+      value: persistentMap,
+      writable: true,
+      configurable: true
+    });
+    _agrobacteriumRegistryPersistent = true;
+  } catch (_) { /* best-effort */ }
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
+  _ensureagrobacteriumRegistryPersistent();
+}
+
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+function getSnapshot() {
+  const map = module.exports.agrobacteriumRegistry || agrobacteriumRegistry;
+  const obj = {};
+  if (map instanceof Map) {
+    for (const [k, v] of map.entries()) obj[k] = v;
+  }
+  return obj;
+}
+
+function onMutation(snapshot) {
+  // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
+}
+
+_ensureagrobacteriumRegistryPersistent();
+
 module.exports = {
   handleAgrobacteriumTdnaHijack,
   handleAgrobacteriumTdnaHijackError,
-  agrobacteriumRegistry
-};
+  agrobacteriumRegistry,
+  setAdaptivePersister,
+  getAdaptivePersister,
+  getSnapshot,
+  onMutation};
