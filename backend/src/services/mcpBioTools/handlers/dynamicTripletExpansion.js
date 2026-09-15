@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Dynamic Triplet Expansion & Anticipation
 const dynamicExpansionRegistry = new Map();
 
@@ -109,6 +108,8 @@ function handleDynamicTripletExpansionError(e) {
 let _dynamicTripletExpansionRegistryPersistent = false;
 
 function _ensuredynamicTripletExpansionRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_dynamicTripletExpansionRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -128,12 +129,13 @@ function _ensuredynamicTripletExpansionRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensuredynamicTripletExpansionRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Chromosomal Deletions
 const chromosomalDeletionRegistry = new Map(); /* persisterHook: chromosomalDeletionRegistry */
 
@@ -116,6 +115,8 @@ function handleChromosomalDeletionError(e) {
 let _chromosomalDeletionRegistryPersistent = false;
 
 function _ensurechromosomalDeletionRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_chromosomalDeletionRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -135,12 +136,13 @@ function _ensurechromosomalDeletionRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensurechromosomalDeletionRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

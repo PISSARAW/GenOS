@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active mirror twin instances
@@ -166,6 +165,8 @@ function handleMirrorTwinForkError(e) {
 let _mirrorTwinRegistryPersistent = false;
 
 function _ensuremirrorTwinRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_mirrorTwinRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -185,12 +186,13 @@ function _ensuremirrorTwinRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensuremirrorTwinRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

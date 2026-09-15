@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active autosite-parasite grafts
@@ -124,6 +123,8 @@ function handleParasiticGraftError(e) {
 let _parasiticGraftRegistryPersistent = false;
 
 function _ensureparasiticGraftRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_parasiticGraftRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -143,12 +144,13 @@ function _ensureparasiticGraftRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensureparasiticGraftRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

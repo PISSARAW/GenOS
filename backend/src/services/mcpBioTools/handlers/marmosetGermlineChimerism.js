@@ -6,7 +6,6 @@
  */
 
 const crypto = require('crypto');
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // In-memory registry of marmoset germline chimerism records
 const MARMOSET_REGISTRY = new Map();
@@ -163,6 +162,8 @@ async function handle(args, run) {
 let _marmosetGermlineRegistryPersistent = false;
 
 function _ensuremarmosetGermlineRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_marmosetGermlineRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -182,12 +183,13 @@ function _ensuremarmosetGermlineRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensuremarmosetGermlineRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 /**
  * @file yamanakaReprogramming.js
  * @description Biomimetic handler for Yamanaka Factors (OSKM) Epigenetic Reprogramming.
@@ -133,6 +132,8 @@ function handleYamanakaError(e) {
 let _yamanakaRegistryPersistent = false;
 
 function _ensureyamanakaRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_yamanakaRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -152,12 +153,13 @@ function _ensureyamanakaRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensureyamanakaRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

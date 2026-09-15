@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 /**
  * @file turritopsisTransdifferentiation.js
  * @description Biomimetic handler for Turritopsis dohrnii immortal jellyfish transdifferentiation.
@@ -91,6 +90,8 @@ function handleTurritopsisError(e) {
 let _turritopsisRegistryPersistent = false;
 
 function _ensureturritopsisRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_turritopsisRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -110,12 +111,13 @@ function _ensureturritopsisRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensureturritopsisRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

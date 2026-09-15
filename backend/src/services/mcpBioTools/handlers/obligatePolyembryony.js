@@ -7,7 +7,6 @@
  */
 
 const crypto = require('crypto');
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // In-memory registry of polyembryonic clusters
 const POLYEMBRYONY_REGISTRY = new Map();
@@ -157,6 +156,8 @@ async function handle(args, run) {
 let _obligatePolyembryonyRegistryPersistent = false;
 
 function _ensureobligatePolyembryonyRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_obligatePolyembryonyRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -176,12 +177,13 @@ function _ensureobligatePolyembryonyRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensureobligatePolyembryonyRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

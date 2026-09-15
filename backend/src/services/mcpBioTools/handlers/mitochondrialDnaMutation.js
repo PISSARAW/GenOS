@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Mitochondrial DNA (mtDNA) & Matrilineal Inheritance
 const mtdnaRegistry = new Map();
 
@@ -110,6 +109,8 @@ function handleMitochondrialDnaMutationError(e) {
 let _mitochondrialRegistryPersistent = false;
 
 function _ensuremitochondrialRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_mitochondrialRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -129,12 +130,13 @@ function _ensuremitochondrialRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensuremitochondrialRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

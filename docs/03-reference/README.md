@@ -8,6 +8,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [persistance-et-donnees.md](persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
 - [modeles-et-providers.md](modeles-et-providers.md) — providers, routing, coûts, local/remote.
 - [integrations-ide.md](integrations-ide.md) — contrat IDE `genos.ide/v1`.
+- [ecologie-et-systemes-vivants.md](ecologie-et-systemes-vivants.md) — bus zero-texte, primitives écologiques, HGT, stigmergie, électrocytes, organisations dynamiques.
 
 ## Spécifications normatives
 

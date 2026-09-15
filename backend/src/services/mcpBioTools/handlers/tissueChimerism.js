@@ -6,7 +6,6 @@
  */
 
 const crypto = require('crypto');
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // In-memory registry of tissue chimeric agents
 const TISSUE_CHIMERISM_REGISTRY = new Map();
@@ -161,6 +160,8 @@ async function handle(args, run) {
 let _tissueChimerismRegistryPersistent = false;
 
 function _ensuretissueChimerismRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_tissueChimerismRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -180,12 +181,13 @@ function _ensuretissueChimerismRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensuretissueChimerismRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

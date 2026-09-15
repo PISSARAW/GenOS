@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // Registry for point mutations
 const pointMutationRegistry = new Map(); /* persisterHook: pointMutationRegistry */
@@ -118,6 +117,8 @@ function handlePointMutationError(e) {
 let _pointMutationRegistryPersistent = false;
 
 function _ensurepointMutationRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_pointMutationRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -137,12 +138,13 @@ function _ensurepointMutationRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensurepointMutationRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

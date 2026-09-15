@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 /**
  * @file consciousnessTransfer.js
  * @description Biomimetic & Temporal handler for Consciousness Transfer (Groundhog Day / Edge of Tomorrow Replay).
@@ -95,6 +94,8 @@ function handleConsciousnessError(e) {
 let _consciousnessRegistryPersistent = false;
 
 function _ensureconsciousnessRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_consciousnessRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -114,12 +115,13 @@ function _ensureconsciousnessRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensureconsciousnessRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

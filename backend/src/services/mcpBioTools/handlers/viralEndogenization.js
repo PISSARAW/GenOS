@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Viral Germline Endogenization (KoRV Retrovirus Strategy)
 const viralEndogenizationRegistry = new Map(); /* persisterHook: viralEndogenizationRegistry */
 
@@ -109,6 +108,8 @@ function handleViralEndogenizationError(e) {
 let _viralEndogenizationRegistryPersistent = false;
 
 function _ensureviralEndogenizationRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_viralEndogenizationRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -128,12 +129,13 @@ function _ensureviralEndogenizationRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensureviralEndogenizationRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

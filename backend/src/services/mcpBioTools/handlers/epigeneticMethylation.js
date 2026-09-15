@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Epigenetic Methylation & Transgenerational Memory
 const epigeneticMethylationRegistry = new Map(); /* persisterHook: epigeneticMethylationRegistry */
 
@@ -132,6 +131,8 @@ function handleEpigeneticMethylationError(e) {
 let _epigeneticMethylationRegistryPersistent = false;
 
 function _ensureepigeneticMethylationRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_epigeneticMethylationRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -151,12 +152,13 @@ function _ensureepigeneticMethylationRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensureepigeneticMethylationRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

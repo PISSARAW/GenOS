@@ -64,9 +64,11 @@ Les modules suivants implémentent le schéma de transport inter-agents décrit 
 
 - `backend/src/services/biomimeticSignalingBus.js` — types de signal (SIGNAL_TYPES : LIGAND, VOLTAGE, PHEROMONE, PLASMID, TENSOR, TEXT), évaluation ligand-récepteur, consensus électrocyte + Kuramoto, gradient chimiotactique, formatage pour transport
 - `backend/src/services/mcpLigandReceptorService.js` — récepteurs catalytiques par outil MCP, cnidocyte reflex (détection de toxine <3µs), seuils Gibbs free energy ΔG
-- `backend/src/services/signalingTransportService.js` — persistance des signaux zero-texte dans `signal_blobs` (SQLite WAL), diffusion locale via Map, abonnements (`signal_subs`), nettoyage TTL, readSignalsForAgent/markSignalsSeen
+- `backend/src/services/signalingTransportService.js` — persistance des signaux zero-texte dans `signal_blobs` (SQLite WAL), diffusion locale via Map, abonnements (`signal_subs`), nettoyage TTL, readSignalsForAgent/markSignalsSeen, routage collectif via collectiveSignalOrganizationRouter
+- `backend/src/services/collectiveSignalOrganizationRouter.js` — routage des signaux zero-texte vers organisations et orchestrateurs, extraction de topic par préfixe SIGNAL_TOPIC_PREFIXES, distribution multi-recipients
 - `backend/src/services/agentCollaborativeDecisionMakingService.js` — décision collective électrocyte (vote par potentiel de membrane), suivi chimiotactique (gradient phéromones), transfert plasmid HGT, orchestrateur multi-topologie
-- `backend/src/db/schema-next.js` — migration v45 : tables `signal_blobs`, `signal_subs`, indexes, enregistrée dans le registre des migrations (021-signal-transport)
+- `backend/src/db/schema-next.js` — migration v45 : tables `signal_blobs`, `signal_subs`, indexes, enregistrée dans le registre des migrations (021-signal-transport) via `backend/src/db/migrations/migrateSignalTransport.js`
+- `backend/src/services/mcpBioTools/handlers/signalTransport.js` — 7 handlers MCP : genos_signal_publish, genos_signal_read, genos_signal_purge, genos_signal_electrocyte_vote, genos_signal_chemotactic_follow, genos_signal_plasmid_transfer, genos_signal_collective_decision
 
 Schéma d'architecture transport :
 

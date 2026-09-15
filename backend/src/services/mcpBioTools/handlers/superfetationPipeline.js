@@ -7,7 +7,6 @@
  */
 
 const crypto = require('crypto');
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // In-memory registry of superfetation pipelines
 const SUPERFETATION_REGISTRY = new Map();
@@ -141,6 +140,8 @@ async function handle(args, run) {
 let _superfetationRegistryPersistent = false;
 
 function _ensuresuperfetationRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_superfetationRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -160,12 +161,13 @@ function _ensuresuperfetationRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensuresuperfetationRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

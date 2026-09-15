@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Chromosomal Duplications
 const chromosomalDuplicationRegistry = new Map(); /* persisterHook: chromosomalDuplicationRegistry */
 
@@ -118,6 +117,8 @@ function handleChromosomalDuplicationError(e) {
 let _chromosomalDuplicationRegistryPersistent = false;
 
 function _ensurechromosomalDuplicationRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_chromosomalDuplicationRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -137,12 +138,13 @@ function _ensurechromosomalDuplicationRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensurechromosomalDuplicationRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

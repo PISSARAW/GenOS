@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Agrobacterium T-DNA Hijacking & Opine Resource Redirection
 const agrobacteriumRegistry = new Map(); /* persisterHook: agrobacteriumRegistry */
 
@@ -97,6 +96,8 @@ function handleAgrobacteriumTdnaHijackError(e) {
 let _agrobacteriumRegistryPersistent = false;
 
 function _ensureagrobacteriumRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_agrobacteriumRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -116,12 +117,13 @@ function _ensureagrobacteriumRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensureagrobacteriumRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

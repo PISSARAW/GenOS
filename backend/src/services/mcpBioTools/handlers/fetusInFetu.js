@@ -7,7 +7,6 @@
  */
 
 const crypto = require('crypto');
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // In-memory registry of encapsulated fetuses
 const FETUS_REGISTRY = new Map();
@@ -161,6 +160,8 @@ async function handle(args, run) {
 let _fetusInFetuRegistryPersistent = false;
 
 function _ensurefetusInFetuRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_fetusInFetuRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -180,12 +181,13 @@ function _ensurefetusInFetuRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensurefetusInFetuRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

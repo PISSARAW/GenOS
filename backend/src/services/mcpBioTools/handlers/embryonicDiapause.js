@@ -7,7 +7,6 @@
  */
 
 const crypto = require('crypto');
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // In-memory registry of diapause pipelines
 const DIAPAUSE_REGISTRY = new Map(); /* persisterHook: DIAPAUSE_REGISTRY */
@@ -192,6 +191,8 @@ async function handle(args, run) {
 let _DIAPAUSE_REGISTRYPersistent = false;
 
 function _ensureDIAPAUSE_REGISTRYPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_DIAPAUSE_REGISTRYPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -211,12 +212,13 @@ function _ensureDIAPAUSE_REGISTRYPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensureDIAPAUSE_REGISTRYPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

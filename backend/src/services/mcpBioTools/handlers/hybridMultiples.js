@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for hybrid multi-tier clusters
@@ -133,6 +132,8 @@ function handleHybridMultiplesError(e) {
 let _hybridMultiplesRegistryPersistent = false;
 
 function _ensurehybridMultiplesRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_hybridMultiplesRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -152,12 +153,13 @@ function _ensurehybridMultiplesRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensurehybridMultiplesRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

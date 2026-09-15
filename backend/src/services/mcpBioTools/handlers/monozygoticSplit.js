@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active monozygotic split clusters
@@ -129,6 +128,8 @@ function handleMonozygoticSplitError(e) {
 let _monozygoticRegistryPersistent = false;
 
 function _ensuremonozygoticRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_monozygoticRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -148,12 +149,13 @@ function _ensuremonozygoticRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensuremonozygoticRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

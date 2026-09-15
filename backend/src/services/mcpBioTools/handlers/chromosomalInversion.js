@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Chromosomal Inversions
 const chromosomalInversionRegistry = new Map(); /* persisterHook: chromosomalInversionRegistry */
 
@@ -101,6 +100,8 @@ function handleChromosomalInversionError(e) {
 let _chromosomalInversionRegistryPersistent = false;
 
 function _ensurechromosomalInversionRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_chromosomalInversionRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -120,12 +121,13 @@ function _ensurechromosomalInversionRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensurechromosomalInversionRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

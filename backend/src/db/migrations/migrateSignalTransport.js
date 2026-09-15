@@ -8,7 +8,7 @@
  * d'effet secondaire sur un schéma déjà à jour.
  */
 
-const { applyV45Migration } = require('../../schema-next');
+const { applyV45Migration } = require('../schema-next');
 
 module.exports = {
   name: '021-signal-transport',

@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Chromosomal Translocations
 const chromosomalTranslocationRegistry = new Map(); /* persisterHook: chromosomalTranslocationRegistry */
 
@@ -109,6 +108,8 @@ function handleChromosomalTranslocationError(e) {
 let _chromosomalTranslocationRegistryPersistent = false;
 
 function _ensurechromosomalTranslocationRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_chromosomalTranslocationRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -128,12 +129,13 @@ function _ensurechromosomalTranslocationRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensurechromosomalTranslocationRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {

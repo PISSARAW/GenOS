@@ -1,4 +1,3 @@
-const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Horizontal Gene Transfer (Plasmids & Bdelloid Xeno-Absorption)
 const horizontalTransferRegistry = new Map();
 
@@ -107,6 +106,8 @@ function handleHorizontalGeneTransferError(e) {
 let _horizontalGeneTransferRegistryPersistent = false;
 
 function _ensurehorizontalGeneTransferRegistryPersistent() {
+  // require lazy pour éviter circularité
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   if (_horizontalGeneTransferRegistryPersistent || !adaptivePersister || !adaptivePersister.getAdaptivePersister) return;
   try {
     const persister = adaptivePersister.getAdaptivePersister();
@@ -126,12 +127,13 @@ function _ensurehorizontalGeneTransferRegistryPersistent() {
 }
 
 function setAdaptivePersister(persister) {
+  const adaptivePersister = require('../../adaptiveStateBootstrap');
   adaptivePersister.setAdaptivePersister && adaptivePersister.setAdaptivePersister(persister);
   _ensurehorizontalGeneTransferRegistryPersistent();
 }
 
 function getAdaptivePersister() {
-  return adaptivePersister;
+  return require('../../adaptiveStateBootstrap');
 }
 
 function getSnapshot() {
