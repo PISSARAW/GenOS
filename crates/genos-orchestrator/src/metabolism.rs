@@ -5,7 +5,14 @@
 //! sans énergie.
 
 use crate::GenosEcosystem;
+use genos_biology::glycolysis::{run_metabolic_cycle, MetabolicCycleReport};
 use std::time::Instant;
+
+/// Combien de tokens de budget ATP correspondent à une mole d'ATP chimique
+/// réellement synthétisée par la glycolyse (facteur de conversion documenté,
+/// choisi pour que le "repas" métabolique reste dans l'ordre de grandeur du
+/// budget existant).
+const ATP_TOKENS_PER_MOL: f64 = 10.0;
 
 /// Réserve d'ATP avec régénération temporelle réelle.
 #[derive(Clone, Debug)]
@@ -93,4 +100,17 @@ impl GenosEcosystem {
         self.orchestrator.metabolism.refill();
         self.orchestrator.metabolism.available()
     }
+
+    /// Métabolise réellement du glucose : fait tourner le réseau de réactions
+    /// chimiques équilibrées (glycolyse + régénération des cofacteurs +
+    /// hydrolyse de l'ATP) jusqu'à épuisement du substrat, vérifie le bilan
+    /// de matière/énergie mesuré, puis convertit l'ATP chimique produit en
+    /// tokens de budget via [`GenosEcosystem::feed`]. C'est le pont entre la
+    /// chimie réelle (`chemistry`/`glycolysis`) et le budget abstrait.
+    pub fn metabolize_glucose(&mut self, glucose_mol: f64) -> MetabolicCycleReport {
+        let report = run_metabolic_cycle(&mut self.orchestrator.chemistry, glucose_mol);
+        self.feed(report.atp_produced_mol * ATP_TOKENS_PER_MOL);
+        report
+    }
 }
+

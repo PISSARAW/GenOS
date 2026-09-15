@@ -58,3 +58,22 @@ fn la_famine_arrete_le_tick() {
         report.halt
     );
 }
+
+#[test]
+fn metaboliser_du_glucose_produit_reellement_de_atp_et_conserve_la_masse() {
+    let mut eco = GenosEcosystem::new("Overmind");
+    eco.orchestrator.metabolism.atp = 0.0;
+
+    let report = eco.metabolize_glucose(2.0);
+
+    assert!(report.glucose_consumed_mol > 0.0);
+    assert!(report.atp_produced_mol > 0.0);
+    assert!(report.net_energy_released_kj > 0.0, "la glycolyse est exothermique");
+    assert!(
+        genos_orchestrator::genos_biology::chemistry::verify_mass_conservation(&report.steps),
+        "bilan de masse (Lavoisier) doit être conservé"
+    );
+    // L'ATP chimique réel a bien nourri le budget abstrait de l'orchestrateur.
+    assert!(eco.atp() > 0.0, "le metabolisme chimique nourrit le budget ATP");
+}
+

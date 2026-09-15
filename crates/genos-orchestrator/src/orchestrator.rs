@@ -3,8 +3,10 @@ use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 
 use genos_biology::bioluminescence::{BioluminescenceMicroscope, FluorophoreColor};
+use genos_biology::chemistry::MetabolicNetwork;
 use genos_biology::ecology::CollusionCheck;
 use genos_biology::embryology::{cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis, seed_hox_genome};
+use genos_biology::glycolysis::build_glycolysis_network;
 use genos_biology::redundancy::RedundancySystem;
 use genos_biology::spore::{Spore, SporeType};
 use genos_biology::tissue::{TaskDelegation, Tissue};
@@ -41,6 +43,11 @@ pub struct BiomimeticOrchestrator {
     /// Métabolisme énergétique (ATP adossé au temps réel).
     #[serde(skip)]
     pub metabolism: Metabolism,
+    /// Réseau métabolique chimique réel (glycolyse) : molécules, réactions
+    /// équilibrées et bilans de matière/énergie mesurés, distinct de l'ATP
+    /// abstrait ci-dessus.
+    #[serde(skip)]
+    pub chemistry: MetabolicNetwork,
     /// Frontière auto-entretenue (membrane d'autopoïèse).
     #[serde(skip)]
     pub membrane: Membrane,
@@ -66,6 +73,7 @@ impl BiomimeticOrchestrator {
             conscience: Conscience::new(max_dissonance, baseline_budget),
             immune_selection: ClonalSelection::new(),
             metabolism: Metabolism::default(),
+            chemistry: build_glycolysis_network(),
             membrane: Membrane::default(),
         }
     }

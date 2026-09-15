@@ -105,13 +105,16 @@ pub fn run_metabolic_cycle(net: &mut MetabolicNetwork, glucose_mol: f64) -> Meta
     report
 }
 
-fn run_one_turn(net: &mut MetabolicNetwork) -> Result<[ReactionYield; 2], ChemError> {
+fn run_one_turn(net: &mut MetabolicNetwork) -> Result<[ReactionYield; 3], ChemError> {
     let glycolysis = net.run_reaction("glycolysis_net", net.quantity_mol(GLUCOSE))?;
     let regeneration = net.run_reaction("fermentation_regeneration", glycolysis.extent_mol * 2.0)?;
-    Ok([glycolysis, regeneration])
+    // Le travail cellulaire consomme l'ATP produit, régénérant ADP + Pi :
+    // c'est ce recyclage réel des cofacteurs qui rend le cycle continu.
+    let hydrolysis = net.run_reaction("atp_hydrolysis", net.quantity_mol(ATP))?;
+    Ok([glycolysis, regeneration, hydrolysis])
 }
 
-fn accumulate_turn(report: &mut MetabolicCycleReport, turn: [ReactionYield; 2]) {
+fn accumulate_turn(report: &mut MetabolicCycleReport, turn: [ReactionYield; 3]) {
     for step in turn {
         report.net_energy_released_kj += step.energy_released_kj;
         if step.reaction == "glycolysis_net" {
@@ -145,14 +148,25 @@ mod tests {
     }
 
     #[test]
-    fn atp_hydrolysis_recycles_adp_and_pi_for_the_next_cycle() {
+    fn atp_hydrolysis_recycles_adp_and_pi() {
         let mut net = build_glycolysis_network();
-        let _ = run_metabolic_cycle(&mut net, 1.0);
+        net.deposit(ATP, 1.0);
         let adp_before = net.quantity_mol(ADP);
-        let atp_available = net.quantity_mol(ATP);
-        assert!(atp_available > 0.0);
-        let hydrolysis = net.run_reaction("atp_hydrolysis", atp_available).unwrap();
+        let pi_before = net.quantity_mol(PI);
+        let hydrolysis = net.run_reaction("atp_hydrolysis", 1.0).unwrap();
         assert!(hydrolysis.extent_mol > 0.0);
         assert!(net.quantity_mol(ADP) > adp_before);
+        assert!(net.quantity_mol(PI) > pi_before);
+    }
+
+    #[test]
+    fn cofactors_are_recycled_across_repeated_cycles() {
+        let mut net = build_glycolysis_network();
+        let adp_before = net.quantity_mol(ADP);
+        let _first = run_metabolic_cycle(&mut net, 2.0);
+        let _second = run_metabolic_cycle(&mut net, 2.0);
+        // ADP/Pi/NAD+ sont des cofacteurs catalytiques : leur quantité totale
+        // revient proche de son niveau initial après chaque tour complet.
+        assert!((net.quantity_mol(ADP) - adp_before).abs() < 1e-6);
     }
 }
