@@ -1,6 +1,7 @@
 use crate::learning::Learner;
 use crate::organization::{Organization, Superorganism, by_name, select_organization, select_superorganism};
 use crate::planner::{ActionStats, Concept, Goal, WorldState};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Stratégies d'équipe, façon organisation biologique.
@@ -31,6 +32,13 @@ pub struct Decision {
     pub halt: Option<String>,
 }
 
+/// Index du niveau de stress dans le vecteur de contexte (`context_from_state`).
+const STRESS_CONTEXT_INDEX: usize = 3;
+/// Vitesse d'adaptation des paramètres organisationnels (plasticité).
+const PLASTICITY_RATE: f64 = 0.02;
+/// Coût à partir duquel un concept est considéré « coûteux » pour la plasticité.
+const COSTLY_CONCEPT_THRESHOLD: f64 = 4.0;
+
 /// Le directeur : politique de décision, avec mémoire d'expérience.
 #[derive(Clone, Debug)]
 pub struct Director {
@@ -58,9 +66,40 @@ impl Default for Director {
     }
 }
 
+/// Expérience apprise du directeur, sérialisable pour survivre à un
+/// redémarrage du processus (persistance réelle, pas seulement une
+/// continuité en mémoire tant que le processus tourne).
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct DirectorState {
+    pub stats: BTreeMap<Concept, ActionStats>,
+    pub learner: Learner,
+    pub exploration_weight: f64,
+    pub stress_cost_weight: f64,
+}
+
 impl Director {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Exporte l'expérience apprise (stats, bandits contextuels, paramètres
+    /// organisationnels de plasticité) pour la persister sur disque.
+    pub fn export_state(&self) -> DirectorState {
+        DirectorState {
+            stats: self.stats.clone(),
+            learner: self.learner.clone(),
+            exploration_weight: self.exploration_weight,
+            stress_cost_weight: self.stress_cost_weight,
+        }
+    }
+
+    /// Recharge une expérience préalablement exportée : transfert réel entre
+    /// missions, y compris après un redémarrage du processus.
+    pub fn import_state(&mut self, state: DirectorState) {
+        self.stats = state.stats;
+        self.learner = state.learner;
+        self.exploration_weight = state.exploration_weight;
+        self.stress_cost_weight = state.stress_cost_weight;
     }
 
     /// Applique les gènes d'un candidat à la politique de décision.
@@ -319,6 +358,27 @@ impl Director {
             let context = self.last_context.clone();
             self.learner
                 .update(concept, &context, if success { 1.0 } else { 0.0 });
+        }
+        self.adapt_regulation(concept, success);
+    }
+
+    /// Plasticité organisationnelle : ajuste `stress_cost_weight` à partir de
+    /// l'issue observée sous stress, sans intervention externe (au-delà des
+    /// gènes évolutifs appliqués par `set_policy_genes`). C'est le pendant,
+    /// pour un paramètre de régulation du directeur, de l'apprentissage
+    /// `P(succès | contexte)` déjà appliqué aux concepts : un succès sous
+    /// stress avec un concept coûteux indique un coût sur-pondéré (on le
+    /// relâche) ; un échec le confirme (on le renforce).
+    fn adapt_regulation(&mut self, concept: Concept, success: bool) {
+        let stress = self
+            .last_context
+            .get(STRESS_CONTEXT_INDEX)
+            .copied()
+            .unwrap_or(0.0);
+        if stress > 0.3 && concept.cost() >= COSTLY_CONCEPT_THRESHOLD {
+            let direction = if success { -1.0 } else { 1.0 };
+            self.stress_cost_weight =
+                (self.stress_cost_weight + PLASTICITY_RATE * direction * stress).clamp(0.0, 4.0);
         }
     }
 

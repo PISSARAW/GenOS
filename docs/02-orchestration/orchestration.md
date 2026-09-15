@@ -833,8 +833,19 @@ Le choix des concepts s'appuie désormais sur un **bandit contextuel linéaire**
 par concept (`Learner`/`LinearBandit`) : la récompense attendue est
 `P(succès | contexte)` (menace, maladie, stress, adversaire…), apprise en ligne
 et **propagée** aux concepts d'un plan exécuté (assignation de crédit, facteur
-`gamma`). L'expérience persiste dans le directeur et se **transfère** aux
-missions suivantes. Voir `examples/mission_learning.rs`.
+`gamma`). L'expérience (`DirectorState` : statistiques + bandits) est
+**sérialisable et persistée sur disque** (`GenosEcosystem::save_director_state`
+/ `load_latest_director_state`, coffre de snapshots) : elle survit réellement
+à un redémarrage du processus, pas seulement à une continuité en mémoire, et
+se transfère ainsi aux missions suivantes. Le paramètre organisationnel de
+régulation `stress_cost_weight` s'ajuste lui aussi automatiquement (plasticité)
+selon que les concepts coûteux réussissent ou échouent sous stress, sans
+intervention externe — en complément des gènes évolutifs de la Phase 5 qui
+peuvent aussi le fixer. Les seuils de décision du plan de contrôle (quorum,
+preuve, throttle/freeze somatiques, survie, poids de routage `α`/`β`) sont
+appris en ligne côté backend par `backend/src/services/adaptiveParameterService.js`
+(table `adaptive_parameters`), un sous-système distinct du directeur Rust. Voir
+`examples/mission_learning.rs` et `tests/director_persistence.rs`.
 
 ### 19.bis.12 Évolution ouverte (Phase 5)
 

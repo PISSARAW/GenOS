@@ -164,18 +164,29 @@ famine. Voir `examples/mission_metabolism.rs`.
 Les statistiques sont remplacées par un **bandit contextuel linéaire** par
 concept : la récompense attendue est `P(succès | contexte)` (menace, maladie,
 stress, adversaire…), mise à jour en ligne et **propagée** aux concepts du plan
-(assignation de crédit). L'expérience persiste et se **transfère** entre
-missions.
+(assignation de crédit). L'expérience (bandits + statistiques) est
+**sérialisable** et se persiste réellement sur disque via
+`GenosEcosystem::save_director_state`/`load_latest_director_state` (coffre de
+snapshots) : elle survit donc à un redémarrage du processus, pas seulement à
+une continuité en mémoire. Un paramètre organisationnel de régulation,
+`stress_cost_weight`, s'ajuste lui aussi automatiquement (plasticité) selon
+que les concepts coûteux réussissent ou échouent sous stress — en plus de
+pouvoir être fixé par les gènes évolutifs de la Phase 5.
 
 ```rust
 director.set_context(context_from_state(&state));
 director.record(Concept::Virology, true);   // apprentissage contextuel
 let p = director.learner.predict(Concept::Virology, &context); // ~1.0
 director.assign_credit(&[Concept::Observe, Concept::Recruit], 1.0);
+
+// Persistance reelle entre missions / redemarrages.
+eco.save_director_state(".genos/director")?;
+eco.load_latest_director_state(".genos/director")?;
 ```
 
-`Learner`/`LinearBandit` (`src/learning.rs`) ; `context_from_state` extrait un
-vecteur de 8 features. Voir `examples/mission_learning.rs`.
+`Learner`/`LinearBandit`/`DirectorState` (`src/learning.rs`, `src/director.rs`) ;
+`context_from_state` extrait un vecteur de 8 features. Voir
+`examples/mission_learning.rs` et `tests/director_persistence.rs`.
 
 ### Évolution ouverte (Phase 5)
 

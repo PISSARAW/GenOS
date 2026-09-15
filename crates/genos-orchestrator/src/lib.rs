@@ -3,6 +3,7 @@ pub mod autopoiesis;
 pub mod behaviors;
 pub mod diagnostics;
 pub mod director;
+pub mod director_persistence;
 pub mod dna_ops;
 pub mod drives;
 pub mod ecosystem;

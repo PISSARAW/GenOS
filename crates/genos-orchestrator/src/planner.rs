@@ -12,10 +12,11 @@
 //! - s'arrête quand le but est atteint, le budget épuisé, le problème insoluble,
 //!   ou que plus aucun moyen pertinent/untested ne subsiste.
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 /// Un concept mobilisable de l'orchestrateur (arsenal de compétences).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Concept {
     Observe,
     Replay,
@@ -296,7 +297,7 @@ impl WorldState {
 }
 
 /// Statistiques d'apprentissage par concept.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ActionStats {
     pub attempts: u32,
     pub successes: u32,

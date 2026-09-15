@@ -6,6 +6,7 @@
 //! crédit). Les poids persistent entre missions (transfert).
 
 use crate::planner::{Concept, WorldState};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Dimension du vecteur de contexte.
@@ -30,7 +31,7 @@ fn dot(a: &[f64], b: &[f64]) -> f64 {
 }
 
 /// Régression logistique en ligne : récompense attendue `P(succès | contexte)`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LinearBandit {
     pub weights: Vec<f64>,
     pub bias: f64,
@@ -65,7 +66,7 @@ impl LinearBandit {
 }
 
 /// Ensemble des bandits par concept (mémoire d'expérience persistante).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Learner {
     pub bands: HashMap<Concept, LinearBandit>,
     pub episodes: u64,
