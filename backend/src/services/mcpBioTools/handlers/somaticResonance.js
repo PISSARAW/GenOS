@@ -1,4 +1,5 @@
 const { quoteCliArg } = require('../shellQuote');
+const adaptive = require('../../adaptiveParameterService');
 
 // State registry for somatic resonance channels
 const somaticMeshes = new Map();
@@ -83,16 +84,20 @@ function handleSomaticResonance(args = {}, run) {
 
     // Coordinated autonomic reflexes
     let autonomicAction = 'NONE';
-    if (entropy >= 0.85 || mesh.collectiveStressIndex >= 0.75) {
+    const freezeThreshold = adaptive.currentValue('somatic.freeze_threshold');
+    const throttleThreshold = adaptive.currentValue('somatic.throttle_threshold');
+    if (entropy >= freezeThreshold || mesh.collectiveStressIndex >= 0.75) {
       autonomicAction = 'TRIGGER_COORDINATED_CRYPTOBIOSIS_FREEZE';
       mesh.resonanceState = 'hyper_synchronous_panic_lock';
-    } else if (entropy >= 0.60) {
+    } else if (entropy >= throttleThreshold) {
       autonomicAction = 'THROTTLE_COGNITIVE_BUDGET_50PCT';
       mesh.resonanceState = 'elevated_alert';
     } else {
       mesh.resonanceState = 'nominal_homeostasis';
     }
     mesh.updatedAt = new Date().toISOString();
+    adaptive.observe('somatic.freeze_threshold', { signal: entropy, success: autonomicAction === 'TRIGGER_COORDINATED_CRYPTOBIOSIS_FREEZE', agentId }).catch(() => {});
+    adaptive.observe('somatic.throttle_threshold', { signal: entropy, success: autonomicAction !== 'NONE', agentId }).catch(() => {});
 
     return {
       configured: true,

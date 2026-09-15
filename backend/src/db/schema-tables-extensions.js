@@ -378,6 +378,16 @@ const TABLES_EXTENSIONS_BASE = [
 "    reason TEXT,",
 "    state_json TEXT NOT NULL DEFAULT '{}',",
 "    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP",
+");",
+"CREATE TABLE IF NOT EXISTS adaptive_parameters (",
+"    scope TEXT NOT NULL,",
+"    parameter_key TEXT NOT NULL,",
+"    value REAL NOT NULL,",
+"    sample_count INTEGER NOT NULL DEFAULT 0,",
+"    success_count INTEGER NOT NULL DEFAULT 0,",
+"    last_signal REAL,",
+"    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,",
+"    PRIMARY KEY(scope, parameter_key)",
 ");"
 ];
 

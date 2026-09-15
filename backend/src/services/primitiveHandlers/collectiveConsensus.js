@@ -5,7 +5,7 @@
  */
 const telemetry = require('../telemetryObserver');
 const { getDatabase } = require('../../db');
-const qp = require('./quorumPolicy');
+const qp = require('./quorumPolicy'); const adaptive = require('../adaptiveParameterService');
 
 const SQL_ORG_VOTES = `SELECT sender_agent_id, payload_json FROM agent_organization_messages WHERE orchestrator_id = ? AND kind = 'vote' AND (json_extract(payload_json, '$.issue') = ? OR json_extract(payload_json, '$.issue') IS NULL) ORDER BY id DESC`;
 const SQL_FIND_PROPOSAL = 'SELECT id FROM swarm_proposals WHERE id = ? OR title = ? ORDER BY created_at DESC LIMIT 1';
@@ -335,7 +335,7 @@ async function finishTallyQuorum(pack) {
   if (Number.isFinite(directThreshold)) threshold = directThreshold;
   else {
     const alternate = Number(pack.context.quorumThreshold);
-    if (Number.isFinite(alternate)) threshold = alternate;
+    if (Number.isFinite(alternate)) threshold = alternate; else threshold = adaptive.currentValue('quorum.threshold', pack.context.adaptiveScope || 'global');
   }
   let active = null;
   const directActive = Number(pack.context.activeCount);

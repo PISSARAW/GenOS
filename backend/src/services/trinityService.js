@@ -107,6 +107,7 @@ function compose(mission) {
 }
 
 const telemetry = require('./telemetryObserver');
+const adaptive = require('./adaptiveParameterService');
 
 const DOMAIN_WEIGHTS = {
   creative_writing: { alpha: 0.30, beta: 0.25, gamma: 0.45 },
@@ -145,7 +146,7 @@ function passedTests(report) {
 }
 
 function scoreWorldEvidence(report, domain = 'software_engineering') {
-  const weights = DOMAIN_WEIGHTS[domain] || DOMAIN_WEIGHTS.software_engineering;
+  const weights = adaptive.routeWeights(domain) || DOMAIN_WEIGHTS[domain] || DOMAIN_WEIGHTS.software_engineering;
   if (!report || typeof report !== 'object') {
     return { totalScore: 0, claimsScore: 0, testsCoverage: 0, robustnessScore: 0, provenClaims: 0, substantiveClaims: 0, evidenceWeight: 0, hasDeliverable: false, domain, weights };
   }
@@ -317,10 +318,15 @@ async function recordWorldComparison(db, comparisonData) {
 
 function mergeTrinityEvidence(worldEntries, options = {}) {
   const domain = options.domain || 'software_engineering';
-  const threshold = typeof options.threshold === 'number' ? options.threshold : 0.70;
+  const threshold = typeof options.threshold === 'number'
+    ? options.threshold : adaptive.currentValue('gate.evidence_threshold', domain);
   const comparison = compareWorlds(worldEntries, domain);
+  const accepted = comparison.bestScore >= threshold && Boolean(comparison.bestWorld);
+  const route = comparison.bestWorld?.breakdown?.testsCoverage >= comparison.bestWorld?.breakdown?.claimsScore ? 'beta' : 'alpha';
+  adaptive.observe('gate.evidence_threshold', { signal: comparison.bestScore, success: accepted }, domain).catch(() => {});
+  adaptive.observeRoute(domain, { quality: comparison.bestScore, success: accepted, route }).catch(() => {});
 
-  if (comparison.bestScore >= threshold && comparison.bestWorld) {
+  if (accepted) {
     const winnerReport = comparison.bestWorld.report || {};
     // Synthesize complementary insights from other worlds
     const complementaryClaims = [];
