@@ -870,6 +870,6 @@ La primitive `genos_biomimicry_tardigrade_dsup_shield` maintient en mémoire (`d
 
 ## Voir aussi (AgentDNA)
 
-- [AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — signature Ed25519 des génomes (`SIGN`), vérification runtime, et politique par tenant `genome_policies.require_signed` (les leurres portent un marqueur dans la provenance signée).
+- [AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — signature Ed25519 des génomes (`SIGN`), vérification runtime stricte (pas de fallback HMAC), et politique par tenant `genome_policies.require_signed`. Sans clé Ed25519 configurée pour signer, aucun genome ne peut être signé et la chaîne d'intégrité n'est pas fermée par défaut ; les leurres portent un marqueur dans la provenance signée.
 
 

@@ -64,7 +64,7 @@ Adopter un format héréditaire binaire canonique **`AgentDNA` v1** :
 
 **Risques et garde-fous**
 
-- Un génome porte des prompts et des politiques d'outils → **entrée non fiable** : allowlist de loci, plafonds de longueur, expression en sandbox, signature Ed25519, scope tenant, circuit breaker.
+- Un génome porte des prompts et des politiques d'outils → **entrée non fiable** : allowlist de loci, plafonds de longueur, expression en sandbox, signature Ed25519 **si une clé est déployée** (sans clé, la chaîne d'intégrité n'est pas fermée — le vérificateur est strict Ed25519 sans HMAC fallback), scope tenant, circuit breaker.
 - Une mutation ou un croisement peut produire un génome non viable → validation `Genome::validate` obligatoire avant persistance.
 - Les leurres ne doivent jamais altérer la provenance auditable : le marqueur caché vit dans une section `PROV` signée, pas dans le phénotype exprimé.
 

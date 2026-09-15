@@ -42,7 +42,7 @@ Il se distingue du **manifeste portable `AgentGenome`** ([GENOME_SPEC.md](../../
 1. **Portabilité héréditaire** : compiler des manifestes en `.dna` compacts et reproductibles.
 2. **Recrutement piloté par le génome** : un orchestrateur sélectionne un génome (par rôle/domaine) et son phénotype est injecté au spawn du worker.
 3. **Évolution dirigée** : croiser, muter, cloner, leurrer, greffer, spécier des agents.
-4. **Confiance** : signature Ed25519 et politique par tenant (`require_signed`).
+4. **Confiance conditionnelle** : signature Ed25519 vérifiée en lecture (`verifySignature` dans `container.js`), politique par tenant (`require_signed`), mais sans clé Ed25519 configurée pour signer, la chaîne d'intégrité n'est pas fermée par défaut — les génomes non signés restent utilisables selon la politique en vigueur.
 5. **Innovation** : distiller un concept découvert et validé en **génome candidat**, puis le promouvoir pour réutilisation.
 
 ## 5. Exemples concrets
@@ -137,7 +137,7 @@ flowchart TB
 
 **Recrutement**
 1. Spawn worker → `selectGenome` (explicite `genomeRef`/`preferredName`, sinon matching rôle/domaine si `GENOS_AGENT_DNA=1`, auto-import de `agents/dna`).
-2. Politique tenant (`genome_policies`) / env `GENOS_AGENT_DNA_REQUIRE_SIGNED` → exige `signatureValid === true`.
+2. Politique tenant (`genome_policies`) / env `GENOS_AGENT_DNA_REQUIRE_SIGNED` → exige `signatureValid === true` si la politique est active, mais sans clé Ed25519 configurée pour signer, cette exigence ne peut pas être satisfaite (pas de fallback HMAC — le vérificateur est strict Ed25519).
 3. `applyAgentDna` remplace `role/strategy/tools/temp/topP` par le phénotype exprimé.
 
 **Boucle d'innovation**
@@ -161,7 +161,7 @@ flowchart TB
 - **Ce n'est pas de la biologie** : les termes (chromatine, plasmide, spéciation) organisent des invariants ; ils ne prouvent pas la vérité métier.
 - **Expression textuelle, non sémantique** : le phénotype dérive des loci/instructions, pas d'une compréhension.
 - **Candidats gated** : un génome `candidate` n'est jamais recruté automatiquement avant promotion.
-- **Signature** : un génome non signé peut être refusé selon la politique tenant ; les leurres portent un marqueur dans `PROV` signée.
+- **Signature** : le vérificateur est strict Ed25519 (pas de HMAC fallback) ; un genome sans section `SIGN` ou avec une signature invalide rapporte `signatureValid === false`. Sans clé Ed25519 configurée pour signer, la chaîne d'intégrité n'est pas fermée par défaut — les genomes non signés restent utilisables selon la politique en vigueur, et les leurres portent un marqueur dans `PROV` signée.
 - **Canonicalisation** : le flux de hash/signature trie les sections par **octets ASCII** ; tout producer doit respecter cet ordre (Rust et Node alignés).
 - **Non-objectif** : remplacer le manifeste `AgentGenome` (identité/politique) ; `AgentDNA` est la couche héréditaire, pas la carte d'identité.
 

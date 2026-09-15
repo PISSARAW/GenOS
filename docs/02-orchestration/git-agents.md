@@ -240,7 +240,7 @@ La bonne architecture est donc complémentaire : Git pour les fichiers et le cod
 - exiger replay, evidence et approbation humaine pour les promotions à impact élevé ;
 - conserver les branches rejetées lorsqu’une policy l’impose ;
 - utiliser un worktree ou une capsule isolée avant toute mutation de fichiers ;
-- garder les secrets de signature hors du dépôt et configurer Ed25519 en production lorsque la chaîne de clés est disponible.
+- garder les secrets de signature hors du dépôt et configurer Ed25519 en production lorsque la chaîne de clés est disponible ; pour AgentDNA, la signature est conditionnelle à une clé Ed25519 déployée — sans clé, la chaîne d'intégrité n'est pas fermée par défaut (le vérificateur est strict Ed25519, pas de HMAC fallback).
 
 ### Non-objectifs
 
