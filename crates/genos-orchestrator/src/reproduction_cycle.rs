@@ -79,8 +79,15 @@ impl GenosEcosystem {
     /// Intègre la fille née de `mother_id` dans le même tissu que sa mère
     /// (ou directement comme cellule active si la mère n'appartient à aucun
     /// tissu), et enregistre son génome pour que la lignée persiste.
-    fn integrate_daughter(&mut self, mother_id: Uuid, daughter: AgentCell, genome: Genome) -> Uuid {
+    fn integrate_daughter(
+        &mut self,
+        mother_id: Uuid,
+        mother: AgentCell,
+        daughter: AgentCell,
+        genome: Genome,
+    ) -> Uuid {
         let daughter_id = daughter.cell_id;
+        self.orchestrator.active_cells.insert(mother_id, mother);
         self.orchestrator.genomes.insert(genome.genome_id(), genome);
         match self.orchestrator.owning_tissue(mother_id) {
             Some(tissue_name) => {
@@ -120,24 +127,31 @@ impl GenosEcosystem {
             .validate()
             .map_err(ReproductionBlocked::InvalidDaughterGenome)?;
 
-        self.orchestrator.genomes.insert(division.parent.genome_id(), division.parent);
-
-        let mother_role = self
+        let mother_cell = self
             .orchestrator
             .active_cells
             .get(&mother_id)
-            .map(|c| c.role.clone())
-            .unwrap_or_else(|| "Soma".to_string());
-        let mut daughter_cell = AgentCell::new(
-            format!("Fille_G{}", daughter_genome.generation),
-            "Division cellulaire autonome",
-            mother_role,
-        );
+            .cloned()
+            .ok_or(ReproductionBlocked::NoEligibleMother)?;
+        let (mut parent_cell, mut daughter_cell) = mother_cell
+            .mitosis()
+            .map_err(ReproductionBlocked::HayflickLimitReached)?;
+
+        self.orchestrator.genomes.insert(division.parent.genome_id(), division.parent);
+
+        parent_cell.genome_id = Some(mother_genome.genome_id());
+        daughter_cell.name = format!("Fille_G{}", daughter_genome.generation);
+        daughter_cell.name_meaning = "Division cellulaire autonome".to_string();
         daughter_cell.genome_id = Some(daughter_genome.genome_id());
 
         let generation = daughter_genome.generation;
         let lineage_id = daughter_genome.lineage_id();
-        let daughter_id = self.integrate_daughter(mother_id, daughter_cell, daughter_genome);
+        let daughter_id = self.integrate_daughter(
+            mother_id,
+            parent_cell,
+            daughter_cell,
+            daughter_genome,
+        );
 
         self.record_event(
             "AUTONOMOUS_REPRODUCTION",

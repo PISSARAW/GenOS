@@ -71,6 +71,28 @@ fn reproduction_bloquee_si_membrane_trop_faible() {
 }
 
 #[test]
+fn mitose_autonome_partage_le_budget_et_marque_la_mere() {
+    let mut eco = GenosEcosystem::new("Overmind");
+    eco.orchestrator.create_tissue("Arena", "Exec").unwrap();
+    let mut founder_cell = AgentCell::new("Fondatrice", "w", "Soma");
+    founder_cell.conscience.current_budget = 80.0;
+    let founder = eco.orchestrator.add_worker("Arena", founder_cell).unwrap();
+    eco.seed_germline(founder, "FOUNDER_GENOME").unwrap();
+    eco.feed(100.0);
+
+    let outcome = eco.autonomous_reproduction_cycle().unwrap();
+    let mother = eco.orchestrator.active_cells.get(&founder).unwrap();
+    let daughter = eco.orchestrator.active_cells.get(&outcome.daughter_id).unwrap();
+
+    assert_eq!(mother.conscience.current_budget, 40.0);
+    assert_eq!(daughter.conscience.current_budget, 40.0);
+    assert_eq!(mother.bud_scars, 1);
+    assert_eq!(daughter.bud_scars, 1);
+    assert_eq!(mother.genome_id, Some(outcome.lineage_id));
+    assert_eq!(eco.orchestrator.owning_tissue(outcome.daughter_id).as_deref(), Some("Arena"));
+}
+
+#[test]
 fn sans_lignee_amorcee_aucune_reproduction_ne_se_produit() {
     let mut eco = GenosEcosystem::new("Overmind");
     eco.orchestrator.create_tissue("Arena", "Exec").unwrap();
