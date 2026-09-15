@@ -29,7 +29,7 @@ function modelUsage(result = {}) {
   return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
 }
 
-async function consultLocalModels(db, agentId, mission, plan, tenant = {}) {
+async function consultLocalModels({ db, agentId, mission, plan, tenant = {} }) {
   const discovered = (await localModelDiscovery.discoverLocalModels()).filter((model) => model.chatCapable);
   const capable = competentLocalModels(discovered, { role: 'orchestration_planner', modelTier: 'frontier', purpose: 'planning' });
   const candidates = capable.map((model) => model.uri);

@@ -1,3 +1,12 @@
+/**
+ * @file strategySelectorHelpers.js
+ * @description Trait bonuses pour le sélecteur de stratégie.
+ *
+ * Les bonus axolotl sont appliqués dans applyTraitBonusesSix :
+ * - strategy.axolotl (régénération fonctionnelle) bonusée quand problème structurel
+ * - strategy.adaptive (plasticité) bonusée quand haute incertitude
+ */
+
 function applyTraitBonusesOne(state, traits, profile) {
   if (traits.has('information_gain')) state.score += profile.uncertainty * 24;
   if (traits.has('deep_search')) state.score += profile.complexity * 18;
@@ -31,10 +40,27 @@ function applyTraitBonusesFive(state, traits, profile) {
   if (traits.has('mutation') && profile.objectives_conflict) state.score += 5;
 }
 
+/**
+ * Trait bonus axolotl — axe 3 (état larval stratégique).
+ *
+ * Bonus les stratégies "regenerative" quand le problème est structurel
+ * (défaillance topologique, pas juste fonctionnelle).
+ *
+ * Bonus les stratégies "adaptive" quand l'incertitude est haute —
+ * le système reste en état larvaire (plastique) pour garder sa capacité
+ * de transformation.
+ */
+function applyTraitBonusesSix(state, traits, profile) {
+  if (traits.has('regenerative') && profile.type === 'critical_refactor') state.score += 12;
+  if (traits.has('regenerative') && profile.uncertainty >= 0.7) state.score += 8;
+  if (traits.has('adaptive') && profile.uncertainty >= 0.7) state.score += 6;
+}
+
 module.exports = {
   applyTraitBonusesOne,
   applyTraitBonusesTwo,
   applyTraitBonusesThree,
   applyTraitBonusesFour,
-  applyTraitBonusesFive
+  applyTraitBonusesFive,
+  applyTraitBonusesSix
 };

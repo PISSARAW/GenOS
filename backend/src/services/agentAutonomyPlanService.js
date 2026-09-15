@@ -145,7 +145,7 @@ async function applyLocalModelReview({ db, agentId, normalizedMission, autonomyP
   const modelTenant = normalizedMission.workspaceId
     ? await db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', normalizedMission.workspaceId)
     : null;
-  autonomyPlan.localModelReview = await consultLocalModels(db, agentId, normalizedMission, autonomyPlan, modelTenant || {});
+  autonomyPlan.localModelReview = await consultLocalModels({ db, agentId, mission: normalizedMission, plan: autonomyPlan, tenant: modelTenant || {} });
   const consulted = autonomyPlan.localModelReview.consulted;
   const message = consulted
     ? `Local model ${autonomyPlan.localModelReview.selectedModel} reviewed the orchestration plan.`

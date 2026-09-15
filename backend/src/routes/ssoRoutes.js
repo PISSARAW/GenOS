@@ -83,7 +83,7 @@ async function oidcDiscovery(provider) {
   return discovery;
 }
 
-async function validateIdToken(token, provider, discovery, expectedNonce) {
+async function validateIdToken({ token, provider, discovery, expectedNonce }) {
   const parts = String(token || '').split('.');
   if (parts.length !== 3) throw new Error('OIDC identity token is malformed.');
   let header;
@@ -168,7 +168,7 @@ router.get('/callback/:id', async (req, res, next) => {
     const discovery = await oidcDiscovery(provider);
     const secret = provider.client_secret_json ? vault.decrypt(JSON.parse(provider.client_secret_json)) : undefined;
     const tokens = await fetchJson(discovery.token_endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'authorization_code', code: String(req.query.code), redirect_uri: provider.redirect_uri, client_id: provider.client_id, code_verifier: request.code_verifier, ...(secret ? { client_secret: secret } : {}) }) });
-    const claims = await validateIdToken(tokens.id_token, provider, discovery, request.nonce);
+    const claims = await validateIdToken({ token: tokens.id_token, provider, discovery, expectedNonce: request.nonce });
     const subject = claims.sub;
     if (!subject) throw new Error('OIDC identity token has no subject.');
     const identityId = `identity-${crypto.randomUUID()}`;

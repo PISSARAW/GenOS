@@ -80,6 +80,11 @@ const { handleNovikovCausalRebase, handleNovikovError } = require('./novikovCaus
 const { handleBrowserScout, handleBrowserScoutError } = require('./browserScout');
 const { handleFovealVision, handleFovealVisionError } = require('./fovealVision');
 const { handleOptimalForaging, handleOptimalForagingError } = require('./optimalForaging');
+const { handleAffordancesScanner, handleAffordancesScannerError } = require('./affordancesScanner');
+const { handleToolHealthProbe, handleToolHealthProbeError } = require('./toolHealthProbe');
+const { handleExtendedBodySchema, handleExtendedBodySchemaError } = require('./extendedBodySchema');
+const { handleGangliaBasals, handleGangliaBasalsError } = require('./gangliaBasals');
+const { handleExternalChargeService, handleExternalChargeServiceError } = require('./externalChargeService');
 
 const TOOL_HANDLERS = {
   genos_browser_act: { handle: handleBrowserScout, error: handleBrowserScoutError },
@@ -168,6 +173,11 @@ const TOOL_HANDLERS = {
   genos_biomimicry_yamanaka_reprogramming: { handle: handleYamanakaReprogramming, error: handleYamanakaError },
   genos_temporal_consciousness_transfer: { handle: handleConsciousnessTransfer, error: handleConsciousnessError },
   genos_temporal_novikov_causal_rebase: { handle: handleNovikovCausalRebase, error: handleNovikovError },
+  genos_biomimicry_affordances_scanner: { handle: handleAffordancesScanner, error: handleAffordancesScannerError },
+  genos_biomimicry_tool_health_probe: { handle: handleToolHealthProbe, error: handleToolHealthProbeError },
+  genos_biomimicry_extended_body_schema: { handle: handleExtendedBodySchema, error: handleExtendedBodySchemaError },
+  genos_biomimicry_ganglia_basals: { handle: handleGangliaBasals, error: handleGangliaBasalsError },
+  genos_biomimicry_external_charge: { handle: handleExternalChargeService, error: handleExternalChargeServiceError },
 };
 
 module.exports = { TOOL_HANDLERS };

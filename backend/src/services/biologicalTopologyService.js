@@ -15,7 +15,7 @@ const metapopulationCoordinationService = require('./metapopulationCoordinationS
 const rhizomeCoordinationService = require('./rhizomeCoordinationService');
 const biomeCoordinationService = require('./biomeCoordinationService');
 
-async function applyOrganization(db, orchestratorId, organization, reason) {
+async function applyOrganization({ db, orchestratorId, organization, reason }) {
   if (!organization) return;
   const dynamicOrganization = require('./dynamicOrganizationService');
   await dynamicOrganization.changeOrganization(db, { orchestratorId, organization, reason, changedBy: orchestratorId }).catch(() => {});
@@ -27,27 +27,27 @@ async function composeMode(input = {}) {
   if (key === 'biocenose') return biocenoseService.prepareCommunity(db, orchestratorId, mission);
   if (key === 'syncytium') {
     const session = await syncytiumCoordinationService.createSession(mission, { db });
-    await applyOrganization(db, orchestratorId, session.organization, 'Syncytium mode activation');
+    await applyOrganization({ db, orchestratorId, organization: session.organization, reason: 'Syncytium mode activation' });
     return session;
   }
   if (key === 'holobionte') {
     const composition = holobionteCoordinationService.composeHolobiont(mission);
-    await applyOrganization(db, orchestratorId, composition.organization, 'Holobionte mode activation');
+    await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Holobionte mode activation' });
     return composition;
   }
   if (key === 'metapopulation') {
     const composition = metapopulationCoordinationService.composeMetapopulation(mission);
-    await applyOrganization(db, orchestratorId, composition.organization, 'Metapopulation mode activation');
+    await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Metapopulation mode activation' });
     return composition;
   }
   if (key === 'rhizome') {
     const session = await rhizomeCoordinationService.composeRhizome(mission, { db });
-    await applyOrganization(db, orchestratorId, session.organization, 'Rhizome mode activation');
+    await applyOrganization({ db, orchestratorId, organization: session.organization, reason: 'Rhizome mode activation' });
     return session;
   }
   if (key === 'biome') {
     const composition = biomeCoordinationService.composeBiome(mission);
-    await applyOrganization(db, orchestratorId, composition.organization, 'Biome mode activation');
+    await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Biome mode activation' });
     return composition;
   }
   return { members: biologicalModeService.compose(key, mission) };
