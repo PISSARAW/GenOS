@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 /**
  * @file tardigradeDsupShield.js
  * @description Biomimetic handler for Tardigrade Damage Suppressor (Dsup) Shield.

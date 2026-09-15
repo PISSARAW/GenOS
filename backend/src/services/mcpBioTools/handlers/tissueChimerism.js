@@ -6,7 +6,7 @@
  */
 
 const crypto = require('crypto');
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // In-memory registry of tissue chimeric agents
 const TISSUE_CHIMERISM_REGISTRY = new Map();

@@ -6,7 +6,7 @@
  */
 
 const crypto = require('crypto');
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // In-memory registry of marmoset germline chimerism records
 const MARMOSET_REGISTRY = new Map();

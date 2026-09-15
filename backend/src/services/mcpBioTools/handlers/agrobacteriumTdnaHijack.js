@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Agrobacterium T-DNA Hijacking & Opine Resource Redirection
 const agrobacteriumRegistry = new Map(); /* persisterHook: agrobacteriumRegistry */
 

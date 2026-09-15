@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Chromosomal Inversions
 const chromosomalInversionRegistry = new Map(); /* persisterHook: chromosomalInversionRegistry */
 

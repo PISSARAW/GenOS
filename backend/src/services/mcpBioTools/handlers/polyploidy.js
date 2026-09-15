@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Genomic Polyploidy
 const polyploidyRegistry = new Map(); /* persisterHook: polyploidyRegistry */
 

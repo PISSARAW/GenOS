@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Transposons (Jumping Genes)
 const transposonRegistry = new Map(); /* persisterHook: transposonRegistry */
 

@@ -353,33 +353,28 @@ const HANDLERS = {
   },
 
   // Lot 13 — Plasticité Structurelle (STDP + Lamarckien + Sommeil)
-  causal_weighting: async (ctx = {}) => {
-    const { causalWeighting } = require('./structuralPlasticity');
-    return causalWeighting(ctx);
-  },
-  infer_traits: async (ctx = {}) => {
-    const { inferTraits } = require('./structuralPlasticity');
-    return inferTraits(ctx);
-  },
-  replicate: async (ctx = {}) => {
-    const { replicate } = require('./structuralPlasticity');
-    return replicate(ctx);
-  },
-  promote_trait: async (ctx = {}) => {
-    const { promoteTrait } = require('./structuralPlasticity');
-    return promoteTrait(ctx);
-  },
-  context_compaction: async (ctx = {}) => {
-    const { contextCompaction } = require('./structuralPlasticity');
-    return contextCompaction(ctx);
-  },
+  causal_weighting: (ctx = {}) => require('./structuralPlasticity').causalWeighting(ctx),
+  infer_traits: (ctx = {}) => require('./structuralPlasticity').inferTraits(ctx),
+  replicate: (ctx = {}) => require('./structuralPlasticity').replicate(ctx),
+  promote_trait: (ctx = {}) => require('./structuralPlasticity').promoteTrait(ctx),
+  context_compaction: (ctx = {}) => require('./structuralPlasticity').contextCompaction(ctx),
 
   ...structuralHandlers,
 
   // Lot 15 — Orchestration native (Rust) — Activation plasticité structurelle
   activate_structural_plasticity: async (ctx = {}) => {
-    const { activateStructuralPlasticity } = require('./structuralPlasticityActivation');
-    return activateStructuralPlasticity(ctx);
+    const { runConsolidationCycle } = require('../structuralConsolidationService');
+    const { computeStructuralPlasticityIndex } = require('../structuralPlasticityIndex');
+    const consolidation = await runConsolidationCycle(ctx);
+    const spi = await computeStructuralPlasticityIndex({ ...ctx, forceRefresh: true });
+    return {
+      success: consolidation.success,
+      trigger: consolidation.trigger,
+      consolidation_phases: consolidation.phases,
+      structural_plasticity_index: spi.structural_plasticity_index,
+      spi_grade: spi.grade,
+      reason: `Activation de la plasticité structurelle terminée (SPI=${spi.structural_plasticity_index}).`
+    };
   }
 };
 

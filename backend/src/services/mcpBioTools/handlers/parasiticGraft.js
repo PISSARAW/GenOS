@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active autosite-parasite grafts

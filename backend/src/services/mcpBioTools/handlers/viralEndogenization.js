@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Viral Germline Endogenization (KoRV Retrovirus Strategy)
 const viralEndogenizationRegistry = new Map(); /* persisterHook: viralEndogenizationRegistry */
 

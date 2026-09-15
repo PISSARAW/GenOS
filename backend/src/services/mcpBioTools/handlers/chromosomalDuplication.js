@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Chromosomal Duplications
 const chromosomalDuplicationRegistry = new Map(); /* persisterHook: chromosomalDuplicationRegistry */
 

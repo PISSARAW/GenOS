@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // Registry for point mutations
 const pointMutationRegistry = new Map(); /* persisterHook: pointMutationRegistry */

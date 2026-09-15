@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 /**
  * @file turritopsisTransdifferentiation.js
  * @description Biomimetic handler for Turritopsis dohrnii immortal jellyfish transdifferentiation.

@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 /**
  * @file yamanakaReprogramming.js
  * @description Biomimetic handler for Yamanaka Factors (OSKM) Epigenetic Reprogramming.

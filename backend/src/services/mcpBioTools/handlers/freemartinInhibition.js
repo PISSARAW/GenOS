@@ -7,7 +7,7 @@
  */
 
 const crypto = require('crypto');
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // In-memory registry of freemartinized subordinate agents
 const FREEMARTIN_REGISTRY = new Map();

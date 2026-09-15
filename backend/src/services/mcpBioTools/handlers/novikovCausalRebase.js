@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 /**
  * @file novikovCausalRebase.js
  * @description Biomimetic & Temporal handler for Novikov Self-Consistency and Causal Timeline Rebase.

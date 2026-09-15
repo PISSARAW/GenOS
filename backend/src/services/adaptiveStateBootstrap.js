@@ -2,7 +2,7 @@
 
 const { getDatabase } = require('../db');
 const { AdaptiveStateService } = require('./adaptiveStateService');
-const gangliaBasals = require('../mcpBioTools/handlers/gangliaBasals');
+const gangliaBasals = require('./mcpBioTools/handlers/gangliaBasals');
 const foraging = require('./foragingScoutHarvesterService');
 const axolotlTopology = require('./axolotlTopologyService');
 const axolotlRegeneration = require('./axolotlRegenerationService');

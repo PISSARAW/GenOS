@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Dynamic Triplet Expansion & Anticipation
 const dynamicExpansionRegistry = new Map();
 

@@ -6,7 +6,7 @@
  * sélecteur de stratégie.
  */
 
-const { getDatabase, withTransaction } = require('../../db');
+const { getDatabase, withTransaction } = require('../db');
 const telemetry = require('../telemetryObserver');
 const { firstTruthy, firstNonNull } = require('./primitiveHandlers/searchHelpers');
 

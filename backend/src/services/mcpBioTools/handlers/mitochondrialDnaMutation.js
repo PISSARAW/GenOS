@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Mitochondrial DNA (mtDNA) & Matrilineal Inheritance
 const mtdnaRegistry = new Map();
 

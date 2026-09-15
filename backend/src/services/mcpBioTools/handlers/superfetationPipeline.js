@@ -7,7 +7,7 @@
  */
 
 const crypto = require('crypto');
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // In-memory registry of superfetation pipelines
 const SUPERFETATION_REGISTRY = new Map();

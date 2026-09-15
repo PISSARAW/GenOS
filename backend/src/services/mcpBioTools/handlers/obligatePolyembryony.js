@@ -7,7 +7,7 @@
  */
 
 const crypto = require('crypto');
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // In-memory registry of polyembryonic clusters
 const POLYEMBRYONY_REGISTRY = new Map();

@@ -1,34 +1,27 @@
 'use strict';
 
-const structuralHandlers = {
-  structural_consolidation: async (ctx = {}) => {
-    const { runConsolidationCycle } = require('../structuralConsolidationService');
-    return runConsolidationCycle(ctx);
-  },
-  synaptic_graph_summary: async (ctx = {}) => {
-    const { getSynapticGraphSummary } = require('../structuralConsolidationService');
-    return getSynapticGraphSummary(ctx);
-  },
-  kg_record_relation: async (ctx = {}) => {
-    const { recordRelation } = require('../structuralKnowledgeGraph');
-    return recordRelation(ctx);
-  },
-  kg_outgoing_relations: async (ctx = {}) => {
-    const { outgoingRelations } = require('../structuralKnowledgeGraph');
-    return outgoingRelations(ctx);
-  },
-  kg_incoming_relations: async (ctx = {}) => {
-    const { incomingRelations } = require('../structuralKnowledgeGraph');
-    return incomingRelations(ctx);
-  },
-  kg_recommend_strategy: async (ctx = {}) => {
-    const { recommendStrategy } = require('../structuralKnowledgeGraph');
-    return recommendStrategy(ctx);
-  },
-  kg_search_traits: async (ctx = {}) => {
-    const { searchTraits } = require('../structuralKnowledgeGraph');
-    return searchTraits(ctx);
-  }
+/**
+ * @file structuralPlasticityHandlers.js
+ * @description Handlers centralisés pour les outils structurels.
+ *
+ * Contient les handlers du Lot 14 (Knowledge Graph + Consolidation)
+ * qui sont spread dans HANDLERS via ...structuralHandlers.
+ */
+
+const { recordRelation, outgoingRelations, incomingRelations, recommendStrategy, searchTraits } = require('../structuralKnowledgeGraph');
+const { runConsolidationCycle, getSynapticGraphSummary } = require('../structuralConsolidationService');
+
+const HANDLERS = {
+  // Lot 14 — Knowledge Graph
+  kg_record_relation: (ctx = {}) => recordRelation(ctx),
+  kg_outgoing_relations: (ctx = {}) => outgoingRelations(ctx),
+  kg_incoming_relations: (ctx = {}) => incomingRelations(ctx),
+  kg_recommend_strategy: (ctx = {}) => recommendStrategy(ctx),
+  kg_search_traits: (ctx = {}) => searchTraits(ctx),
+
+  // Lot 14 — Consolidation
+  structural_consolidation: (ctx = {}) => runConsolidationCycle(ctx),
+  synaptic_graph_summary: (ctx = {}) => getSynapticGraphSummary(ctx)
 };
 
-module.exports = structuralHandlers;
+module.exports = HANDLERS;

@@ -7,7 +7,7 @@
  */
 
 const crypto = require('crypto');
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 
 // In-memory registry of diapause pipelines
 const DIAPAUSE_REGISTRY = new Map(); /* persisterHook: DIAPAUSE_REGISTRY */

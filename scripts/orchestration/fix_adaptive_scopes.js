@@ -51,7 +51,8 @@ const SCOPE_MAP = new Map([
   ['yamanakaReprogramming.js', ['mcp_bio::yamanaka_reprogramming', 'yamanakaRegistry']],
 ]);
 
-function fixFile(filePath, scope, key, mapName) {
+function fixFile(opts) {
+  const { filePath, scope, key, mapName } = opts;
   let content = fs.readFileSync(filePath, 'utf8');
 
   // Remplacer 'undefined', 'undefined' par les vrais scope/key

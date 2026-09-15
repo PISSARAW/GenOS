@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Horizontal Gene Transfer (Plasmids & Bdelloid Xeno-Absorption)
 const horizontalTransferRegistry = new Map();
 

@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Epigenetic Methylation & Transgenerational Memory
 const epigeneticMethylationRegistry = new Map(); /* persisterHook: epigeneticMethylationRegistry */
 

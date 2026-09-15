@@ -1,4 +1,4 @@
-const adaptivePersister = require('../../../adaptiveStateBootstrap');
+const adaptivePersister = require('../../adaptiveStateBootstrap');
 // Registry for Chromosomal Translocations
 const chromosomalTranslocationRegistry = new Map(); /* persisterHook: chromosomalTranslocationRegistry */
 
