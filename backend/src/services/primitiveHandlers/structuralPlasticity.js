@@ -16,7 +16,6 @@
 const telemetry = require('../telemetryObserver');
 const { getDatabase, withTransaction } = require('../../db');
 const { firstTruthy, firstNonNull } = require('./searchHelpers');
-
 // ── Maps module-level (perdu au redémarrage) ─────────────────────────────────
 
 /** Dernières observations STDP par paire source→target. */
@@ -24,7 +23,6 @@ const stdpHistory = new Map();
 
 /** Traits appris et promus par contexte. */
 const learnedTraits = new Map();
-
 // ── STDP update ───────────────────────────────────────────────────────────────
 
 async function stdpUpdate(context = {}) {
@@ -90,7 +88,6 @@ function resolveStdpTiming(context) {
   const postSpikeAt = Number(context.postSpikeAt || context.postTimestamp || Date.now());
   return { preSpikeAt, postSpikeAt, deltaT: postSpikeAt - preSpikeAt };
 }
-
 function upsertStdpHistory(record) {
   const { sourceId, targetId, deltaT, success } = record;
   const key = `${sourceId}::${targetId}`;
@@ -115,12 +112,10 @@ function computeStdpWeightChange(deltaT, params) {
   }
   return -params.learningRate * Math.exp(deltaT / params.tauMinus);
 }
-
 function applySuccessModulation(weightChange, success, baseWeight) {
   const modulated = success === false ? weightChange * 0.5 : weightChange;
   return Math.max(0.01, Math.min(10.0, baseWeight + modulated));
 }
-
 // ── Causal weighting ──────────────────────────────────────────────────────────
 
 async function causalWeighting(context = {}) {
@@ -184,7 +179,6 @@ async function causalWeighting(context = {}) {
     reason: `Pondération causale appliquée à ${weighted.length} connexions.`
   };
 }
-
 // ── Trait helpers ─────────────────────────────────────────────────────────────
 
 function traitFingerprint(name, sourceId, description) {
@@ -211,7 +205,6 @@ async function loadTraitOrFail(db, traitId, learnedTraits) {
   learnedTraits.set(traitId, trait);
   return trait;
 }
-
 // ── Infer traits ──────────────────────────────────────────────────────────────
 
 async function inferTraits(context = {}) {
@@ -274,7 +267,56 @@ async function inferTraits(context = {}) {
 
   return { success: true, trait_id: traitId, trait_name: traitName, confidence: 0.7, inferred: true, reason: `Trait "${traitName}" extrait de l'exécution réussie ${executionId}.` };
 }
+// ── Replicate helpers ──────────────────────────────────────────────────────────
 
+function resolveTargets(context) {
+  const targetAgentIds = Array.isArray(context.targetAgents) ? context.targetAgents
+    : Array.isArray(context.targets) ? context.targets
+    : (context.targetAgent ? [context.targetAgent] : []);
+  const targetContextId = firstTruthy(context.targetContext, context.context_id, context.sessionId);
+  return { targetAgentIds, targetContextId };
+}
+
+function buildTargets(targetAgentIds, targetContextId) {
+  if (targetAgentIds.length === 0 && !targetContextId) return [];
+  if (targetContextId) {
+    return [{ type: 'context', id: targetContextId }]
+      .concat(targetAgentIds.map(id => ({ type: 'agent', id })));
+  }
+  return targetAgentIds.map(id => ({ type: 'agent', id }));
+}
+
+function createReplica(source, sourceTraitId, target) {
+  const replicatedId = traitFingerprint(source.trait_name, target.id, source.description);
+  return {
+    trait_id: replicatedId,
+    trait_name: source.trait_name,
+    description: source.description,
+    source_agent_id: source.source_agent_id,
+    source_trait_id: sourceTraitId,
+    target_id: target.id,
+    target_type: target.type,
+    confidence: Math.min(1.0, (source.confidence || 0.5) * 0.9),
+    usage_count: 0,
+    promotion_level: source.promotion_level,
+    created_at: new Date().toISOString(),
+    last_seen: new Date().toISOString(),
+    tags: (source.tags || []).concat(['répliqué']),
+    replicatedId
+  };
+}
+
+function persistReplica(db, replica) {
+  return db.run(
+    `INSERT OR REPLACE INTO learned_traits (id, trait_name, trait_description, source_agent_id, context_id, trait_data_json, promotion_level, confidence, usage_count, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+    replica.replicatedId, replica.trait_name, replica.description,
+    replica.source_agent_id, replica.target_id,
+    JSON.stringify({ sourceTraitId: replica.source_trait_id, targetId: replica.target_id, targetType: replica.target_type }),
+    replica.promotion_level, replica.confidence, 0,
+    replica.created_at
+  );
+}
 // ── Replicate ─────────────────────────────────────────────────────────────────
 
 async function replicate(context = {}) {
@@ -307,7 +349,6 @@ async function replicate(context = {}) {
 
   return { success: true, source_trait_id: sourceTraitId, source_trait_name: source.trait_name, replicated: replicated.length, targets: replicated, reason: `Trait "${source.trait_name}" répliqué vers ${replicated.length} cible(s).` };
 }
-
 // ── Promote trait ─────────────────────────────────────────────────────────────
 
 async function promoteTrait(context = {}) {
@@ -351,11 +392,4 @@ async function promoteTrait(context = {}) {
   };
 }
 
-module.exports = {
-  stdpUpdate,
-  causalWeighting,
-  inferTraits,
-  replicate,
-  promoteTrait,
-  learnedTraits
-};
+module.exports = { stdpUpdate, causalWeighting, inferTraits, replicate, promoteTrait, learnedTraits };
