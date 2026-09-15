@@ -19,7 +19,7 @@ function getMesh(meshId) {
   return somaticMeshes.get(meshId);
 }
 
-function handleSomaticResonance(args = {}, run) {
+async function handleSomaticResonance(args = {}, run) {
   const action = args.action || 'status';
   const meshId = args.mesh_id || 'mesh-somatic-default';
   const agentId = args.agent_id || 'agent-primary';
@@ -59,6 +59,7 @@ function handleSomaticResonance(args = {}, run) {
   }
 
   if (action === 'emit_somatic_pulse') {
+    await adaptive.load(meshId);
     const pulse = {
       id: `pulse-${Date.now()}`,
       originAgentId: agentId,
@@ -84,20 +85,26 @@ function handleSomaticResonance(args = {}, run) {
 
     // Coordinated autonomic reflexes
     let autonomicAction = 'NONE';
-    const freezeThreshold = adaptive.currentValue('somatic.freeze_threshold');
-    const throttleThreshold = adaptive.currentValue('somatic.throttle_threshold');
-    if (entropy >= freezeThreshold || mesh.collectiveStressIndex >= 0.75) {
+    const criticalThreshold = adaptive.currentValue('survival.critical_threshold', meshId);
+    const protectThreshold = adaptive.currentValue('survival.protect_threshold', meshId);
+    if (entropy >= criticalThreshold || mesh.collectiveStressIndex >= criticalThreshold) {
       autonomicAction = 'TRIGGER_COORDINATED_CRYPTOBIOSIS_FREEZE';
       mesh.resonanceState = 'hyper_synchronous_panic_lock';
-    } else if (entropy >= throttleThreshold) {
+    } else if (entropy >= protectThreshold || mesh.collectiveStressIndex >= protectThreshold) {
       autonomicAction = 'THROTTLE_COGNITIVE_BUDGET_50PCT';
       mesh.resonanceState = 'elevated_alert';
     } else {
       mesh.resonanceState = 'nominal_homeostasis';
     }
     mesh.updatedAt = new Date().toISOString();
-    adaptive.observe('somatic.freeze_threshold', { signal: entropy, success: autonomicAction === 'TRIGGER_COORDINATED_CRYPTOBIOSIS_FREEZE', agentId }).catch(() => {});
-    adaptive.observe('somatic.throttle_threshold', { signal: entropy, success: autonomicAction !== 'NONE', agentId }).catch(() => {});
+    const survived = typeof args.survived === 'boolean' ? args.survived : true;
+    const survivalObservation = await adaptive.observeSurvivalExperience(meshId, {
+      stress: Math.max(entropy, mesh.collectiveStressIndex),
+      survived,
+      critical: autonomicAction === 'TRIGGER_COORDINATED_CRYPTOBIOSIS_FREEZE',
+      agentId,
+      episodeId: pulse.id
+    });
 
     return {
       configured: true,
@@ -111,6 +118,7 @@ function handleSomaticResonance(args = {}, run) {
       collective_stress_index: mesh.collectiveStressIndex,
       affected_subscribers_count: mesh.subscribers.size,
       autonomic_reflex_triggered: autonomicAction,
+      survival_experience: survivalObservation,
       output: `Somatic pulse from '${agentId}' propagated instantaneously (Entropy: ${entropy}, Collective: ${mesh.collectiveStressIndex}). Autonomic response: ${autonomicAction}.`
     };
   }

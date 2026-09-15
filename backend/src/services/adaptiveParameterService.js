@@ -134,9 +134,10 @@ async function observeSurvivalExperience(scope, experience = {}) {
   const key = `survival.${phase}_threshold`;
   const definition = definitionFor(key);
   const boundedStress = boundedValue(key, stress);
+  const current = currentValue(key, scope);
   const target = experience.survived
     ? boundedStress + definition.step
-    : boundedStress - definition.step;
+    : current - definition.step;
   const result = await observe(key, {
     signal: boundedStress,
     target,
