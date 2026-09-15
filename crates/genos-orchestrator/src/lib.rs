@@ -22,6 +22,7 @@ pub mod phylogeny;
 pub mod plasmids;
 pub mod planner;
 pub mod recruitment;
+pub mod reproduction_cycle;
 pub mod sensory;
 pub mod signaling;
 pub mod snapshots;

@@ -165,6 +165,14 @@ impl BiomimeticOrchestrator {
         origin
     }
 
+    /// Nom du tissu qui référence `cell_id`, le cas échéant (lecture seule).
+    pub fn owning_tissue(&self, cell_id: Uuid) -> Option<String> {
+        self.tissues
+            .iter()
+            .find(|(_, tissue)| tissue.somatic_cells.contains(&cell_id))
+            .map(|(name, _)| name.clone())
+    }
+
     /// Vérifie les invariants structurels de l'orchestrateur.
     /// Utilisé par les tests de propriété et disponible pour l'observabilité.
     pub fn check_invariants(&self) -> Result<(), String> {

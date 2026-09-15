@@ -78,6 +78,7 @@ impl GenosEcosystem {
             verdicts: Vec::new(),
         };
         if decision.halt.is_some() {
+            self.attempt_autonomous_reproduction_if_alive();
             return report;
         }
 
@@ -99,9 +100,10 @@ impl GenosEcosystem {
                 .record(step.concept, after > before || sim.goal_reached(goal));
             report.executed.push(step.concept);
         }
-        // Assignation de crédit : récompense d'épisode aux concepts du plan.
+        // Assignation de crédit + reproduction autonome (sans opérateur, hors du plan).
         let episode_reward = if sim.goal_reached(goal) { 1.0 } else { 0.0 };
         self.director.assign_credit(&report.executed, episode_reward);
+        self.attempt_autonomous_reproduction_if_alive();
         report
     }
 
