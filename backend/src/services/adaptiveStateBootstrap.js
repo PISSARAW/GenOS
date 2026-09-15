@@ -6,7 +6,7 @@ const gangliaBasals = require('./mcpBioTools/handlers/gangliaBasals');
 const foraging = require('./foragingScoutHarvesterService');
 const axolotlTopology = require('./axolotlTopologyService');
 const axolotlRegeneration = require('./axolotlRegenerationService');
-const mcpBioHandlers = require('../mcpBioTools/handlers');
+const mcpBioHandlers = require('./mcpBioTools/handlers');
 
 let adaptivePersister = null;
 let adaptivePersisterPromise = null;
