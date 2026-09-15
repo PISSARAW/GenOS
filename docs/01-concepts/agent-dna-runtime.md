@@ -37,6 +37,10 @@ Il se distingue du **manifeste portable `AgentGenome`** ([GENOME_SPEC.md](../../
 
 **Limites** : la sémantique métier est portée par les **loci et leurs instructions**, pas par le repliement des peptides ; l'analogie biologique sert à structurer des invariants, pas à prouver une vérité métier.
 
+### Position sur les métaphores biologiques
+
+Les termes biologiques (génome, expression, phénotype, plasmide, apoptose, lignée, bud-scar, hayflick_limit, ATP, dissonance, quorum, plasticité synaptique, cryptophasia, jumeaux siamois, superfétation, freemartin, diapause embryonnaire, leurres, etc.) désignent des politiques logicielles, pas une équivalence avec une cellule vivante. C'est légitime et cohérent, mais l'autopoïèse « cellulaire » est un modèle d'organisation, pas une capacité physique. On n'a pas de membrane lipidique, pas de métabolisme chimique, pas de reproduction cellulaire réelle ; l'autopoïèse revendiquée est organisationnelle (auto-entretenue, auto-réparatrice, auto-modélisée).
+
 ## 4. Cas d'usage et objectifs métier
 
 1. **Portabilité héréditaire** : compiler des manifestes en `.dna` compacts et reproductibles.

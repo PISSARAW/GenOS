@@ -15,6 +15,14 @@ Le but n’est pas de prétendre à une équivalence biologique au sens strict. 
 - cryptobiose = mise en veille durable d’un état, avec reactivation contrôlée ;
 - eureka = évènement de réorganisation cognitive après clarification ou réduction de dissonance.
 
+## 1b. Position sur les métaphores biologiques
+
+Le runtime lui-même le dit : les termes biologiques désignent des politiques logicielles, pas une équivalence avec une cellule vivante. Génome, expression, phénotype, plasmide, apoptose, lignée, bud-scar, hayflick_limit, ATP, dissonance, quorum, plasticité synaptique, cryptophasia, jumeaux siamois, superfétation, freemartin, diapause embryonnaire, leurres — tout ceci est un langage de politique/logique, pas une biologie réelle.
+
+C'est légitime et cohérent, mais ça veut dire que l'autopoïèse « cellulaire » est un modèle d'organisation, pas une capacité physique. On n'a pas de membrane lipidique, pas de métabolisme chimique, pas de reproduction cellulaire réelle : on a des invariants financés par la métaphore (bud-scars comme plafond de divisions, hayflick_limit comme limite matérielle, ATP comme budget, quorum comme seuil de décision, etc.).
+
+Conséquence : l'autopoïèse déclarée par le runtime est une autopoïèse organisationnelle (auto-entretenue, auto-réparatrice, auto-modélisée) et non biologique. On peut vérifier que les invariants tiennent (plafond de divisions respecté, budget appliqué, barrière de décision appliquée), pas que le système est une entité vivante.
+
 Le système réel est implémenté dans plusieurs modules Rust et JavaScript :
 
 - [crates/genos-cell/src/lib.rs](../../crates/genos-cell/src/lib.rs)
