@@ -17,7 +17,7 @@ Les quatre rôles de Metapopulation sont :
 3. **Synaptic Adaptor** : ajuste les connexions en renforçant les routes utiles et en affaiblissant les routes défaillantes ;
 4. **Regeneration Steward** : reconstruit les rôles et la capacité de travail après une perte locale.
 
-La définition est portée par [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js). Le dépôt ne fournit pas actuellement de `metapopulationService.js` dédié : la composition, l'exécution, les budgets et la reprise passent par les services génériques d'orchestration.
+La définition est portée par [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js), avec une coordination dédiée dans [backend/src/services/metapopulationCoordinationService.js](../../../backend/src/services/metapopulationCoordinationService.js) (composition des membres, détection de quorum, plan de régénération, adaptation des connexions). L'exécution, les budgets et la reprise passent par les services génériques d'orchestration.
 
 ---
 
@@ -626,7 +626,7 @@ La mémoire survivante n'est pas automatiquement fiable. Elle doit conserver pro
 
 ### Limite du contrat actuel
 
-Le dépôt définit les trois mécanismes et les quatre rôles dans `biologicalModeService.js`, mais ne fournit pas encore un service spécialisé pour gérer automatiquement le quorum, la plasticité du graphe ou la régénération. Cette documentation sépare donc le contrat de composition existant du protocole opérationnel attendu.
+Le dépôt définit les trois mécanismes et les quatre rôles dans `biologicalModeService.js`, avec une coordination dédiée dans `metapopulationCoordinationService.js` (composition des membres, détection de quorum, plan de régénération, adaptation des connexions). Cette documentation sépare donc le contrat de composition existant du protocole opérationnel attendu.
 
 ---
 

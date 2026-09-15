@@ -21,7 +21,7 @@ Le cœur fonctionnel actuellement exposé est :
 - [backend/src/services/agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état de mission, continuations et télémétrie ;
 - [backend/src/services/agentRuntimeAdapter.js](../../../backend/src/services/agentRuntimeAdapter.js) : adaptation du runtime d'agent.
 
-À la différence d'un service `biomeService.js` dédié, la définition actuelle de Biome est portée par le service générique des modes biologiques. Les mécanismes détaillés ci-dessous décrivent le protocole d'orchestration attendu autour de ce contrat.
+La définition actuelle de Biome est portée par le service générique des modes biologiques, avec une coordination opérationnelle dédiée dans `biomeCoordinationService.js` (composition, allocation des ressources, étape de forage, santé de l'écosystème). Les mécanismes détaillés ci-dessous décrivent le protocole d'orchestration attendu autour de ce contrat.
 
 ---
 
@@ -589,7 +589,7 @@ Un Observer trop actif peut devenir un goulot d'étranglement. Il doit détecter
 
 ### Limite du contrat actuel
 
-La définition générique expose les rôles et leurs hypothèses, mais le dépôt ne fournit pas actuellement de service Biome dédié comparable aux services spécialisés documentés pour certains autres modes. Les détails de topologie, de ressource et de population doivent donc rester alignés sur le plan générique d'autonomie jusqu'à l'ajout d'une implémentation spécialisée.
+La définition générique expose les rôles et leurs hypothèses, avec une coordination dédiée dans `biomeCoordinationService.js`. Les détails de topologie, de ressource et de population doivent rester alignés sur le plan générique d'autonomie.
 
 ---
 
