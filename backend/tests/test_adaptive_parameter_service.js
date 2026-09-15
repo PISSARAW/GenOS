@@ -39,3 +39,44 @@ test('route weights remain normalized and bounded after observations', async () 
   assert(weights.alpha >= 0.08 && weights.beta >= 0.08);
   assert.equal(weights.gamma, 0.2);
 });
+
+test('survival thresholds tune from experience and persist by scope', async () => {
+  const dbPath = path.join(__dirname, `survival-${Date.now()}.db`);
+  await getDatabase(dbPath);
+  const scope = `survival-${Date.now()}`;
+  const initial = adaptive.snapshot(scope);
+  assert.equal(initial['survival.protect_threshold'], 0.6);
+  assert.equal(initial['survival.critical_threshold'], 0.85);
+
+  for (let i = 0; i < 3; i++) {
+    await adaptive.observeSurvivalExperience(scope, {
+      stress: 0.75,
+      survived: true,
+      episodeId: `success-${i}`
+    });
+  }
+  const afterSuccess = adaptive.currentValue('survival.protect_threshold', scope);
+  assert(afterSuccess > 0.6);
+
+  for (let i = 0; i < 3; i++) {
+    await adaptive.observeSurvivalExperience(scope, {
+      stress: 0.8,
+      survived: false,
+      critical: true,
+      episodeId: `failure-${i}`
+    });
+  }
+  const afterFailure = adaptive.currentValue('survival.critical_threshold', scope);
+  assert(afterFailure < 0.85);
+  assert(afterFailure >= 0.65);
+
+  await closeDatabase();
+  await getDatabase(dbPath);
+  const loaded = await adaptive.load(scope);
+  assert.equal(loaded['survival.protect_threshold'], afterSuccess);
+  assert.equal(loaded['survival.critical_threshold'], afterFailure);
+  await closeDatabase();
+  for (const suffix of ['', '-shm', '-wal']) {
+    try { fs.unlinkSync(`${dbPath}${suffix}`); } catch (_) {}
+  }
+});

@@ -6,6 +6,8 @@ const DEFINITIONS = {
   'gate.evidence_threshold': { defaultValue: 0.7, min: 0.5, max: 0.95, step: 0.05 },
   'somatic.throttle_threshold': { defaultValue: 0.6, min: 0.4, max: 0.85, step: 0.05 },
   'somatic.freeze_threshold': { defaultValue: 0.85, min: 0.65, max: 0.99, step: 0.05 },
+  'survival.protect_threshold': { defaultValue: 0.6, min: 0.4, max: 0.85, step: 0.05 },
+  'survival.critical_threshold': { defaultValue: 0.85, min: 0.65, max: 0.99, step: 0.05 },
   'route.alpha': { defaultValue: 0.35, min: 0.1, max: 0.8, step: 0.04 },
   'route.beta': { defaultValue: 0.4, min: 0.1, max: 0.8, step: 0.04 }
 };
@@ -45,9 +47,10 @@ function routeDefinition(key, value) {
   return definitionFor(key);
 }
 
-function observationTarget(definition, signal, success) {
+function observationTarget(input) {
+  const { definition, signal, success, target } = input;
   const margin = definition.step;
-  const raw = success ? signal : signal + margin;
+  const raw = Number.isFinite(target) ? target : (success ? signal : signal + margin);
   return Math.max(definition.min, Math.min(definition.max, raw));
 }
 
@@ -99,14 +102,19 @@ async function observe(key, observation = {}, scope = 'global') {
   const id = cacheKey(scope, key);
   const previous = cache.get(id) || { value: definition.defaultValue, sampleCount: 0, successCount: 0 };
   const sampleCount = previous.sampleCount + 1;
-  const value = nextValue({ current: previous.value, target: observationTarget(definition, signal, observation.success), definition, sampleCount });
+  const value = nextValue({
+    current: previous.value,
+    target: observationTarget({ definition, signal, success: observation.success, target: observation.target }),
+    definition,
+    sampleCount
+  });
   const state = { value, sampleCount, successCount: previous.successCount + (observation.success ? 1 : 0), lastSignal: signal };
   cache.set(id, state);
   await persist(key, scope, state);
   telemetry.emitEvent({
     eventType: 'ADAPTIVE_PARAMETER_UPDATED', agentId: observation.agentId || 'adaptive-controller', action: 'TUNE', severity: 'info',
     detail: `Adapted ${key} in scope ${scope} from observation ${signal}.`,
-    payload: { key, scope, value, sampleCount, success: observation.success, signal }
+    payload: { key, scope, value, sampleCount, success: observation.success, signal, context: observation.context || null }
   });
   return { key, scope, ...state };
 }
@@ -119,4 +127,27 @@ async function observeRoute(domain, metrics = {}) {
   return { domain, route, result, weights: routeWeights(domain) };
 }
 
-module.exports = { currentValue, routeWeights, load, snapshot, observe, observeRoute, DEFINITIONS };
+async function observeSurvivalExperience(scope, experience = {}) {
+  const stress = Number(experience.stress);
+  if (!Number.isFinite(stress) || typeof experience.survived !== 'boolean') return null;
+  const phase = experience.critical ? 'critical' : 'protect';
+  const key = `survival.${phase}_threshold`;
+  const definition = definitionFor(key);
+  const boundedStress = boundedValue(key, stress);
+  const target = experience.survived
+    ? boundedStress + definition.step
+    : boundedStress - definition.step;
+  const result = await observe(key, {
+    signal: boundedStress,
+    target,
+    success: experience.survived,
+    agentId: experience.agentId,
+    context: { phase, episodeId: experience.episodeId || null }
+  }, scope);
+  return { scope, phase, survived: experience.survived, result, thresholds: snapshot(scope) };
+}
+
+module.exports = {
+  currentValue, routeWeights, load, snapshot, observe, observeRoute,
+  observeSurvivalExperience, DEFINITIONS
+};
