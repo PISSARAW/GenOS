@@ -1,6 +1,6 @@
 # ADR 0002 — Boucle d'innovation AgentDNA (concept acquis → génome candidat → promotion)
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-09-14
 - **Domaine** : Génome, apprentissage, orchestration, preuve
 - **Décideurs** : Mainteneurs GenOS

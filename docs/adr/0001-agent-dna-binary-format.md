@@ -1,6 +1,6 @@
 # ADR 0001 — AgentDNA : format héréditaire binaire
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-09-13
 - **Domaine** : Génome, reproduction, runtime agentique, persistance
 - **Décideurs** : Mainteneurs GenOS

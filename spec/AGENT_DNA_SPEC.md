@@ -9,7 +9,7 @@ Cette spécification définit le format **héréditaire binaire** `AgentDNA` v1 
 - Interopérable Node ↔ Rust via MessagePack et un encodage 2 bits explicite.
 - Lié à l'[ADR 0001](../docs/adr/0001-agent-dna-binary-format.md) (décision) et à [GENOME_SPEC.md](GENOME_SPEC.md) (manifeste portable `AgentGenome`, distinct et non héréditaire).
 
-Statut d'implémentation : spécification cible. Le CLI actuel lit encore un `Genome` JSON nu dans `<matrix_root>/chromatin/<agent_id>.json` ; la migration est décrite en §12.
+Statut d'implémentation : spécification terminée. Le format binaire AgentDNA v1 est décrit de bout en bout (magic `GDNA`, en-tête 32 octets, table de sections, encodage 2-bit, canonicalisation SHA-256, signature Ed25519, leurres, spéciation, graft). Le CLI actuel lit encore un `Genome` JSON nu dans `<matrix_root>/chromatin/<agent_id>.json` ; la migration vers le conteneur `.dna` est décrite en §12. La forme autopoïétique du génome (portable, signé, binaire, generational) est spécifiée mais n'est pas encore le format de production — les agents vivent encore en JSON legacy.
 
 ## Non-objectifs
 
