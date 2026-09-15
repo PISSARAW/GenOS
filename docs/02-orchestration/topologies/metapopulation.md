@@ -626,7 +626,7 @@ La mémoire survivante n'est pas automatiquement fiable. Elle doit conserver pro
 
 ### Limite du contrat actuel
 
-Le dépôt définit les trois mécanismes et les quatre rôles dans `biologicalModeService.js`, avec une coordination dédiée dans `metapopulationCoordinationService.js` (composition des membres, détection de quorum, plan de régénération, adaptation des connexions). Cette documentation sépare donc le contrat de composition existant du protocole opérationnel attendu.
+Le dépôt définit les trois mécanismes et les quatre rôles dans `biologicalModeService.js`, avec une coordination dédiée dans `metapopulationCoordinationService.js` (composition des membres, détection de quorum, plan de régénération, adaptation des connexions). Cependant, la régénération décrite au §12 (reconstruction depuis lignée/snapshot, test local, reconnexion progressive, nouveau quorum) est documentée comme un **protocole**, pas comme un service autonome consolidé pour toutes les topologies. L'implémentation réelle de la récupération est dispersée dans le module `agentRecovery/` (dispatch `dispatchWorkerRecovery.js`, décision `organizationDecision.js`, stratégies `recoveryStrategies.js`) et le service de régénération fonctionnelle axolotl (`axolotlRegenerationService.js`), chacun avec sa propre responsabilité et son propre périmètre, sans service monocarte consolidé couvrant le cycle complet de régénération métapopulationnel. Cette documentation sépare donc le contrat de composition existant du protocole opérationnel attendu.
 
 ---
 
@@ -653,7 +653,7 @@ genos inject-chaos --target worker_12345 --fleet-id fleet_alpha
 
 Lorsqu'un worker est brutalement arrêté :
 
-1. Le superviseur (`agentProcessSupervisor.js`) et le service de reprise (`agentRecoveryService.js`) interceptent la perte du processus.
+1. Le superviseur (`agentProcessSupervisor.js`) et le module de récupération (`agentRecovery/dispatchWorkerRecovery.js`, `agentRecovery/organizationDecision.js`) interceptent la perte du processus et décident l'action (`bisect_and_rollback`, `fork_worker`, `mutate_worker`, `replace_worker`, `conclude_no_answer`) via le service de classification des échecs (`workerFailureRecoveryService.js`) et les stratégies de récupération (`agentRecovery/strategies/recoveryStrategies.js`).
 2. Le **Regeneration Steward** lit la lignée génétique et causale $L_i$ (enregistrée dans `agents`, `lineage_nodes` et `lineage_edges`).
 3. L'arbre de causalité et le contexte sont vérifiés pour garantir qu'aucune corruption d'état n'a eu lieu.
 4. Un nouvel agent de remplacement est instancié dans une capsule VFS isolée, avec sa lignée mise à jour (`lineage_relation = 'recovery'`).
