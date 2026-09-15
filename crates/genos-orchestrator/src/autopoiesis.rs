@@ -17,6 +17,9 @@ pub struct Membrane {
     pub integrity: f64,
     pub capacity: f64,
     pub degrade_per_sec: f64,
+    pub semantic_integrity: f64,
+    pub semantic_capacity: f64,
+    pub semantic_degrade_per_sec: f64,
     pub repairs: u64,
     last_update: Instant,
 }
@@ -33,6 +36,9 @@ impl Membrane {
             integrity: capacity,
             capacity,
             degrade_per_sec,
+            semantic_integrity: capacity,
+            semantic_capacity: capacity,
+            semantic_degrade_per_sec: degrade_per_sec,
             repairs: 0,
             last_update: Instant::now(),
         }
@@ -44,6 +50,8 @@ impl Membrane {
         let elapsed = now.saturating_duration_since(self.last_update).as_secs_f64();
         if elapsed > 0.0 {
             self.integrity = (self.integrity - elapsed * self.degrade_per_sec).max(0.0);
+            self.semantic_integrity =
+                (self.semantic_integrity - elapsed * self.semantic_degrade_per_sec).max(0.0);
             self.last_update = now;
         }
     }
@@ -53,13 +61,25 @@ impl Membrane {
         self.integrity
     }
 
+    pub fn total_integrity(&mut self) -> f64 {
+        self.update();
+        self.integrity.min(self.semantic_integrity)
+    }
+
+    pub fn total_capacity(&self) -> f64 {
+        self.capacity.min(self.semantic_capacity)
+    }
+
     pub fn repair(&mut self, amount: f64) {
-        self.integrity = (self.integrity + amount.max(0.0)).min(self.capacity);
+        let amount = amount.max(0.0);
+        self.integrity = (self.integrity + amount).min(self.capacity);
+        self.semantic_integrity =
+            (self.semantic_integrity + amount).min(self.semantic_capacity);
         self.repairs += 1;
     }
 
     pub fn is_alive(&mut self) -> bool {
-        self.integrity() > 0.0
+        self.total_integrity() > 0.0
     }
 }
 
@@ -90,8 +110,8 @@ pub struct SelfRepairReport {
 impl GenosEcosystem {
     pub(crate) fn maintain_autopoiesis(&mut self) {
         self.orchestrator.metabolism.refill();
-        let needs_repair = self.orchestrator.membrane.integrity()
-            < self.orchestrator.membrane.capacity
+        let needs_repair = self.orchestrator.membrane.total_integrity()
+            < self.orchestrator.membrane.total_capacity()
             || self
                 .orchestrator
                 .active_cells
@@ -112,7 +132,7 @@ impl GenosEcosystem {
 
     /// Observe son propre état.
     pub fn self_model(&mut self) -> SelfModel {
-        let integrity = self.orchestrator.membrane.integrity();
+        let integrity = self.orchestrator.membrane.total_integrity();
         SelfModel {
             identity: self.orchestrator.name.clone(),
             components: self.orchestrator.active_cells.len(),
@@ -134,12 +154,13 @@ impl GenosEcosystem {
     /// manquants — sans intervention externe.
     pub fn self_repair(&mut self) -> SelfRepairReport {
         self.orchestrator.membrane.update();
-        let integrity_before = self.orchestrator.membrane.integrity;
+        let integrity_before = self.orchestrator.membrane.total_integrity();
         let atp_before = self.orchestrator.metabolism.available();
         let mut actions = Vec::new();
 
         // 1. Régénération de la membrane si endommagée et si l'ATP le permet.
-        if integrity_before < self.orchestrator.membrane.capacity
+        if self.orchestrator.membrane.total_integrity()
+            < self.orchestrator.membrane.total_capacity()
             && self.orchestrator.metabolism.consume(5.0)
         {
             self.orchestrator.membrane.repair(0.25);
@@ -193,7 +214,7 @@ impl GenosEcosystem {
         SelfRepairReport {
             actions,
             integrity_before,
-            integrity_after: self.orchestrator.membrane.integrity,
+            integrity_after: self.orchestrator.membrane.total_integrity(),
             atp_before,
             atp_after: self.orchestrator.metabolism.available(),
         }

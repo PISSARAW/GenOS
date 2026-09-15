@@ -97,7 +97,8 @@ impl GenosEcosystem {
         // 1. Régulation : auto-réparation de la frontière et des composants.
         let mut repairs = Vec::new();
         if config.auto_repair
-            && self.orchestrator.membrane.integrity < self.orchestrator.membrane.capacity - 0.1
+            && self.orchestrator.membrane.total_integrity()
+                < self.orchestrator.membrane.total_capacity() - 0.1
         {
             let report = self.self_repair();
             repairs = report.actions;
@@ -120,9 +121,9 @@ impl GenosEcosystem {
             goal: format!("{goal:?}"),
             strategy: Some(report.strategy),
             executed: report.executed,
-            integrity: self.orchestrator.membrane.integrity,
+            integrity: self.orchestrator.membrane.total_integrity(),
             atp: self.orchestrator.metabolism.available(),
-            alive: self.orchestrator.membrane.integrity > 0.0,
+            alive: self.orchestrator.membrane.is_alive(),
             repairs,
             fed,
             halt: report.halt,
@@ -158,7 +159,8 @@ impl GenosEcosystem {
 
         let mut repairs = Vec::new();
         if config.auto_repair
-            && self.orchestrator.membrane.integrity < self.orchestrator.membrane.capacity - 0.1
+            && self.orchestrator.membrane.total_integrity()
+                < self.orchestrator.membrane.total_capacity() - 0.1
         {
             repairs = self.self_repair().actions;
         }
@@ -174,9 +176,9 @@ impl GenosEcosystem {
             goal: format!("embodied:{spec}"),
             strategy: None,
             executed: vec![Concept::Actuate],
-            integrity: self.orchestrator.membrane.integrity,
+            integrity: self.orchestrator.membrane.total_integrity(),
             atp: self.orchestrator.metabolism.available(),
-            alive: self.orchestrator.membrane.integrity > 0.0,
+            alive: self.orchestrator.membrane.is_alive(),
             repairs,
             fed,
             halt: if embodied.success {

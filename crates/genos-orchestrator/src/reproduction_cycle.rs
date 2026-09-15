@@ -102,7 +102,7 @@ impl GenosEcosystem {
             .find_eligible_mother()
             .ok_or(ReproductionBlocked::NoEligibleMother)?;
 
-        if self.orchestrator.membrane.integrity() < MIN_MEMBRANE_INTEGRITY_TO_REPRODUCE {
+        if self.orchestrator.membrane.total_integrity() < MIN_MEMBRANE_INTEGRITY_TO_REPRODUCE {
             return Err(ReproductionBlocked::MembraneTooWeak);
         }
         if !self.orchestrator.metabolism.consume(REPRODUCTION_ATP_COST) {

@@ -48,6 +48,19 @@ fn membrane_rompue_egale_mort() {
 }
 
 #[test]
+fn la_membrane_totale_repare_la_coherence_semantique() {
+    let mut eco = GenosEcosystem::new("Overmind");
+    eco.orchestrator.membrane.semantic_integrity = 0.3;
+
+    let report = eco.self_repair();
+
+    assert!(report.integrity_before < 1.0);
+    assert!(report.integrity_after > report.integrity_before);
+    assert!(eco.orchestrator.membrane.semantic_integrity > 0.3);
+    assert!(eco.is_alive());
+}
+
+#[test]
 fn le_tick_recupere_un_genome_perdu() {
     let mut eco = GenosEcosystem::new("Overmind");
     eco.orchestrator.create_tissue("Arena", "Exec").unwrap();
