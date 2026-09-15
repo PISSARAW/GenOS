@@ -4,6 +4,8 @@ pub mod conscience;
 pub use conscience::ConscienceState;
 pub mod clinical;
 pub use clinical::{ClinicalState, DiseaseCategory, Pathology};
+pub mod interoception;
+pub use interoception::InteroceptionState;
 mod division;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -64,6 +66,8 @@ pub struct AgentCell {
     pub genome_id: Option<Uuid>,
     #[serde(default)]
     pub clinical: ClinicalState,
+    #[serde(default)]
+    pub interoception: InteroceptionState,
 }
 
 impl Default for AgentCell {
@@ -100,6 +104,7 @@ impl Default for AgentCell {
             chromatin_state: None,
             genome_id: None,
             clinical: ClinicalState::default(),
+            interoception: InteroceptionState::default(),
         }
     }
 }
@@ -123,6 +128,7 @@ impl AgentCell {
             chromatin_state: None,
             genome_id: None,
             clinical: ClinicalState::default(),
+            interoception: InteroceptionState::default(),
         }
     }
 
@@ -184,6 +190,20 @@ impl AgentCell {
                     internal_state.regenerate_organelle_ids();
                 }
             }
+        }
+    }
+
+    /// Applique les effets actifs (biomimétiques coercitifs) des jauges d'intéroception
+    pub fn tick_interoception(&mut self) {
+        let (penalty, cost, incapacitated) = self.interoception.evaluate_active_effects();
+        if penalty > 0.0 || cost > 0.0 {
+            // Apply dissonance penalty and budget cost
+            self.conscience.apply_evaluation(penalty, 0.0, cost);
+        }
+        
+        if incapacitated {
+            self.conscience.is_apoptotic = true;
+            self.conscience.current_budget = 0.0;
         }
     }
 }

@@ -39,7 +39,20 @@ Ce n’est pas une simulation cellulaire “scientifique”. C’est un modèle 
 
 ---
 
-## 3. Modèle mathématique de base
+## 3. L'Intéroception et les Jauges Actives
+
+Au cœur de `genos-cell` se trouve le module d'**Intéroception** (`crates/genos-cell/src/interoception.rs`), qui dote les agents de jauges biologiques internes agissant de manière coercitive :
+
+1. **Pression d'adénosine (Fatigue)** : S'accumule avec l'effort cognitif. Si elle dépasse un seuil critique, l'agent tombe en apoptose (sommeil forcé/incapacité).
+2. **Glycémie (Énergie)** : Baisse avec l'effort. Une chute drastique entraîne une compensation coûteuse via le cortisol (budget cognitif lourdement taxé).
+3. **Cytokines pro-inflammatoires (Maladie)** : En cas d'infection ou d'erreur, elles déclenchent le *sickness behavior*, qui divise par deux la disponibilité de la dopamine (motivation) et inflige une pénalité de dissonance.
+4. **Glutamate (Clarté mentale)** : L'accumulation de glutamate provoque un "brouillard mental" qui altère l'acétylcholine (capacité à retenir le contexte long).
+
+Ces jauges **ne sont pas passives**. L'Orchestrateur peut les lire pour ajuster sa stratégie (mise en sommeil pour nettoyer l'adénosine, "hydratation" de contexte pour l'osmolarité), mais c'est le moteur Rust local (`AgentCell::tick_interoception`) qui applique activement et physiquement les pénalités sur la conscience de l'agent.
+
+---
+
+## 4. Modèle mathématique de base
 
 ### 3.1 État cellulaire
 
