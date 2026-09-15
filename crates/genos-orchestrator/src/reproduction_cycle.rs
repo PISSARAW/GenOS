@@ -59,11 +59,15 @@ impl GenosEcosystem {
     /// Cellule active dont le génome enregistré peut encore se répliquer
     /// (limite de Hayflick non atteinte) : candidate mère de ce tick.
     fn find_eligible_mother(&self) -> Option<(Uuid, Genome)> {
-        self.orchestrator.active_cells.iter().find_map(|(cell_id, cell)| {
-            let genome_id = cell.genome_id?;
-            let genome = self.orchestrator.genomes.get(&genome_id)?;
-            genome.can_replicate().then(|| (*cell_id, genome.clone()))
-        })
+        self.orchestrator
+            .active_cells
+            .iter()
+            .filter_map(|(cell_id, cell)| {
+                let genome_id = cell.genome_id?;
+                let genome = self.orchestrator.genomes.get(&genome_id)?;
+                genome.can_replicate().then(|| (*cell_id, genome.clone()))
+            })
+            .max_by_key(|(_, genome)| (genome.generation, genome.genome_id()))
     }
 
     fn seeded_rng_for(daughter_id: Uuid) -> StdRng {

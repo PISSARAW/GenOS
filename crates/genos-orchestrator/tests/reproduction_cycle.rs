@@ -23,8 +23,21 @@ fn lignee_cellulaire_continue_sur_plusieurs_generations_sans_operateur() {
     let after = eco.orchestrator.active_cells.len();
     assert!(after > before, "au moins une division autonome attendue");
 
-    let has_next_generation = eco.orchestrator.genomes.values().any(|g| g.generation >= 1);
-    assert!(has_next_generation, "la lignee doit avoir progresse d'au moins une generation");
+    let max_generation = eco
+        .orchestrator
+        .genomes
+        .values()
+        .map(|genome| genome.generation)
+        .max()
+        .unwrap_or_default();
+    assert!(max_generation >= 3, "la fille doit reprendre la boucle genetique");
+    let lineage_ids: std::collections::HashSet<_> = eco
+        .orchestrator
+        .genomes
+        .values()
+        .map(|genome| genome.lineage_id())
+        .collect();
+    assert_eq!(lineage_ids.len(), 1, "la boucle doit rester dans une seule lignee");
 }
 
 #[test]
