@@ -7,6 +7,7 @@ use genos_biology::chemistry::MetabolicNetwork;
 use genos_biology::ecology::CollusionCheck;
 use genos_biology::embryology::{cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis, seed_hox_genome};
 use genos_biology::glycolysis::build_glycolysis_network;
+use genos_biology::lipid_membrane::build_lipid_membrane_network;
 use genos_biology::redundancy::RedundancySystem;
 use genos_biology::spore::{Spore, SporeType};
 use genos_biology::tissue::{TaskDelegation, Tissue};
@@ -51,6 +52,10 @@ pub struct BiomimeticOrchestrator {
     /// Frontière auto-entretenue (membrane d'autopoïèse).
     #[serde(skip)]
     pub membrane: Membrane,
+    /// Réseau chimique réel de la bicouche lipidique (synthèse/dégradation de
+    /// phospholipides), distinct de l'intégrité abstraite ci-dessus qu'il alimente.
+    #[serde(skip)]
+    pub lipid_chemistry: MetabolicNetwork,
 }
 
 impl BiomimeticOrchestrator {
@@ -75,6 +80,7 @@ impl BiomimeticOrchestrator {
             metabolism: Metabolism::default(),
             chemistry: build_glycolysis_network(),
             membrane: Membrane::default(),
+            lipid_chemistry: build_lipid_membrane_network(),
         }
     }
 

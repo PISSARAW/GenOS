@@ -158,12 +158,12 @@ impl GenosEcosystem {
         let atp_before = self.orchestrator.metabolism.available();
         let mut actions = Vec::new();
 
-        // 1. Régénération de la membrane si endommagée et si l'ATP le permet.
+        // 1. Régénération de la membrane si endommagée : synthèse lipidique
+        // réelle (chimie phospholipidique), pas un flottant qui se recharge seul.
         if self.orchestrator.membrane.total_integrity()
             < self.orchestrator.membrane.total_capacity()
-            && self.orchestrator.metabolism.consume(5.0)
+            && self.repair_membrane_via_lipogenesis().is_some()
         {
-            self.orchestrator.membrane.repair(0.25);
             actions.push("membrane_reparee".to_string());
         }
 

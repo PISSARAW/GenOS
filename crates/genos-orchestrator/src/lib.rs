@@ -13,6 +13,7 @@ pub mod genome_ops;
 pub mod immune_cyber;
 pub mod instincts;
 pub mod learning;
+pub mod membrane_chemistry;
 pub mod metabolism;
 pub mod neuro;
 pub mod observer;

@@ -6,6 +6,7 @@ pub mod chemistry;
 pub mod ecology;
 pub mod embryology;
 pub mod glycolysis;
+pub mod lipid_membrane;
 pub mod glial;
 pub use glial::{GlialEnvironment, GlialPipeline};
 pub use glial::glial_cell::GlialCell;
