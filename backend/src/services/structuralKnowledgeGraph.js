@@ -7,7 +7,7 @@
  */
 
 const { getDatabase, withTransaction } = require('../db');
-const telemetry = require('../telemetryObserver');
+const telemetry = require('./telemetryObserver');
 const { firstTruthy, firstNonNull } = require('./primitiveHandlers/searchHelpers');
 
 const strategyRecommendations = new Map();
