@@ -32,6 +32,7 @@ pub mod trace;
 pub mod virology;
 pub mod sensorimotor;
 pub mod tick;
+pub mod volition;
 pub mod worlds;
 
 #[cfg(feature = "api")]
@@ -53,6 +54,7 @@ pub use organization::{Organization, Superorganism, catalog, select_organization
 pub use plasmids::{PlasmidBank, Skill};
 pub use trace::{Outcome, ReplayReport, Verdict};
 pub use tick::{MissionReport, TickReport};
+pub use volition::VolitionState;
 pub use worlds::{Hypothesis, Multiverse, WorldOutcome};
 pub use planner::{Concept, Goal, WorldState};
 pub use recruitment::{Candidate, Demand, RecruitmentDecision, RecruitmentPlanner, Selection};

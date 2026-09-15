@@ -49,20 +49,19 @@ impl GenosEcosystem {
         // Autopoïèse : la frontière se dégrade ; rompue, l'organisme meurt.
         self.orchestrator.membrane.update();
         if !self.orchestrator.membrane.is_alive() {
-            return TickReport {
-                tick: self.events.count() as u64,
-                strategy: Strategy::Solo,
-                organization: "n/a",
-                superorganism: "n/a",
-                planned: Vec::new(),
-                executed: Vec::new(),
-                halt: Some("organisme mort: membrane rompue".to_string()),
-                verdicts: Vec::new(),
-            };
+            return self.halted_report("organisme mort: membrane rompue");
         }
         self.maintain_autopoiesis();
         let state = self.observe();
-        if state.apoptotic { return TickReport { tick: self.events.count() as u64, strategy: Strategy::Solo, organization: "n/a", superorganism: "n/a", planned: Vec::new(), executed: Vec::new(), halt: Some("etat apoptotique: volition inhibee".to_string()), verdicts: Vec::new() }; }
+        if state.apoptotic {
+            return self.halted_report("etat apoptotique: volition inhibee");
+        }
+        // Volition endogène (hors mission) : survie pure avant toute délibération.
+        self.propagate_volition(&state);
+        if self.vital_reflex() {
+            return self.reflex_report();
+        }
+        self.express_free_desire(&state);
         // Voie sous-corticale : les instincts sont évalués avant la délibération.
         self.run_instincts(&state);
         self.director.set_context(context_from_state(&state));

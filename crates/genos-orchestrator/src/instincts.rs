@@ -6,6 +6,7 @@
 //! enregistrés dont la saillance franchit le seuil. Les activations non
 //! triviales sont journalisées comme événements `INSTINCT`. Voir docs/01-concepts/instinct.md.
 
+use crate::volition::VolitionState;
 use crate::GenosEcosystem;
 use crate::planner::WorldState;
 use genos_biology::instinct::{
@@ -23,10 +24,15 @@ pub struct InstinctActivation {
     pub outcome: InstinctOutcome,
 }
 
-/// État instinctif de l'écosystème : bibliothèque innée et dernières activations.
+/// État instinctif de l'écosystème : bibliothèque innée, dernières activations,
+/// et volition endogène (buts autonomes hors mission contractuelle).
 pub struct InstinctState {
     pub library: InstinctLibrary,
     pub last: Vec<InstinctActivation>,
+    /// Survie pure + désir libre, avec mémoire d'un tick à l'autre.
+    pub volition: VolitionState,
+    pub last_reflex: Option<String>,
+    pub last_desire_expression: Option<String>,
 }
 
 impl Default for InstinctState {
@@ -34,6 +40,9 @@ impl Default for InstinctState {
         Self {
             library: default_library(),
             last: Vec::new(),
+            volition: VolitionState::default(),
+            last_reflex: None,
+            last_desire_expression: None,
         }
     }
 }
