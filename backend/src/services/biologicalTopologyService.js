@@ -8,6 +8,7 @@
  * composition.
  */
 const biologicalModeService = require('./biologicalModeService');
+const axolotlTopologyService = require('./axolotlTopologyService');
 const biocenoseService = require('./biocenoseService');
 const syncytiumCoordinationService = require('./syncytiumCoordinationService');
 const holobionteCoordinationService = require('./holobionteCoordinationService');
@@ -49,6 +50,15 @@ async function composeMode(input = {}) {
     const composition = biomeCoordinationService.composeBiome(mission);
     await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Biome mode activation' });
     return composition;
+  }
+  if (key === 'axolotl' || key === 'plastique') {
+    const mode = axolotlTopologyService.getTopologyMode(orchestratorId);
+    return {
+      mode: mode.mode,
+      plastique: mode.mode === 'plastique',
+      members: biologicalModeService.compose('axolotl', mission),
+      modeInfo: mode
+    };
   }
   return { members: biologicalModeService.compose(key, mission) };
 }

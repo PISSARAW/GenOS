@@ -4,7 +4,8 @@ const {
   applyTraitBonusesTwo,
   applyTraitBonusesThree,
   applyTraitBonusesFour,
-  applyTraitBonusesFive
+  applyTraitBonusesFive,
+  applyTraitBonusesSix
 } = require('./strategySelectorHelpers');
 
 const PREFERRED_PRIMARY = {
@@ -188,6 +189,7 @@ function scoreStrategy(strategy, profile) {
   applyTraitBonusesThree(state, traits, profile);
   applyTraitBonusesFour(state, traits, profile);
   applyTraitBonusesFive(state, traits, profile);
+  applyTraitBonusesSix(state, traits, profile);
   state.score -= strategy.costLevel * 1.8 + strategy.latencyLevel * 1.1 + strategy.riskLevel * (profile.risk === 'low' ? 1.4 : 0.4);
   if (strategy.maturity === 'experimental') state.score -= 10;
   if (strategy.maturity === 'prototype') state.score -= 28;

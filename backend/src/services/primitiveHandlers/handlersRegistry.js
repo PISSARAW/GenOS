@@ -338,6 +338,24 @@ const HANDLERS = {
   stigmergy_handoff: async (ctx = {}) => {
     const { defaultForaging } = require('../foragingScoutHarvesterService');
     return defaultForaging.harvestEvidence(ctx.tokenId || ctx.token_id, ctx.harvesterId || ctx.harvester_id);
+  },
+
+  // Lot 12 — Axolotl Stratégie Régénération
+  assess_regeneration: async (ctx = {}) => {
+    const { assess_regeneration } = require('./axolotlStrategyHandlers');
+    return assess_regeneration(ctx);
+  },
+  plan_regeneration: async (ctx = {}) => {
+    const { plan_regeneration } = require('./axolotlStrategyHandlers');
+    return plan_regeneration(ctx);
+  },
+  execute_regeneration: async (ctx = {}) => {
+    const { execute_regeneration } = require('./axolotlStrategyHandlers');
+    return execute_regeneration(ctx);
+  },
+  validate_equivalence: async (ctx = {}) => {
+    const { validate_equivalence } = require('./axolotlStrategyHandlers');
+    return validate_equivalence(ctx);
   }
 };
 

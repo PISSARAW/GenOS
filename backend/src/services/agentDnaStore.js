@@ -187,5 +187,17 @@ module.exports = {
   importDirectory,
   walkDnaFiles,
   dnaEnabled,
-  ensureImported
+  ensureImported,
+  /*
+   * Champ 'neotenic_mode' dans le genome : orientation stratégique axolotl.
+   * 'plastique' (défaut) = le système reste en état larvaire, capable de
+   * transformation radicale à tout moment. 'stabilise' = topologie figée
+   * pour la stabilité. Modifié via axolotlTopologyService.setTopologyMode().
+   * Consommé par le sélecteur de stratégie (strategySelectorHelpers.js)
+   * pour bonuser les stratégies 'regenerative' et 'adaptive'.
+   */
+  neotenicMode: {
+    get: (genome) => genome?.phenotype?.neotenic_mode || 'plastique',
+    set: (genome, mode) => { genome.phenotype = genome.phenotype || {}; genome.phenotype.neotenic_mode = mode; }
+  }
 };

@@ -159,6 +159,9 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_biomimicry_extended_body_schema', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Redefinition du schema corporel : l\'outil integre s\'etend jusqu\'au bout du bras (plasticite corporelle)' },
   { name: 'genos_biomimicry_ganglia_basals', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Calcul dopamine/coût-benefit : selection optimisée des options (ganglia basaux, noyaux gris centraux)' },
   { name: 'genos_biomimicry_external_charge', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Detection de batteries environnementales : lézard ectotherme, soleil comme chargeur externe, signal d\'inconfort' },
+  { name: 'genos_biomimicry_axolotl_regeneration', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Regenration fonctionnelle axolotl : reconstruction topologie differente mais fonctionnellement equivalente apres defaillance structurelle (Ambystoma mexicanum)' },
+  { name: 'genos_biomimicry_axolotl_topology_mode', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Mode plastique axolotl : topologie non-figee, reconfiguration toujours possible (state larvaire, neotenie) vs mode stabilise' },
+  { name: 'genos_biomimicry_axolotl_neotenic_state', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Orientation strategique etatique larval : systeme reste immature pour garder sa capacite de transformation radicale' },
   { name: 'genos_genome_mutate', cat: 'Orchestration', risk: 'Amber', desc: 'Mutate an AgentDNA genome (stochastic, hypermutation or targeted locus).' },
   { name: 'genos_genome_clone', cat: 'Orchestration', risk: 'Amber', desc: 'Clone an AgentDNA genome (mitosis, binary fission or budding).' },
   { name: 'genos_genome_decoy', cat: 'Orchestration', risk: 'Amber', desc: 'Produce a marked decoy AgentDNA genome with a plausible phenotype.' }

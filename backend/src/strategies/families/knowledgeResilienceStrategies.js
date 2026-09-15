@@ -22,6 +22,7 @@ const resilience = defineFamily('resilience', [
   ['apoptosis', 'Apoptose', ['all'], ['safety', 'high_impact', 'resilient'], 'implemented', ['checkpoint', 'terminate', 'autopsy']],
   ['cryptobiosis', 'Cryptobiose', ['all'], ['safety', 'resilient', 'temporal'], 'implemented', ['freeze_spore', 'persist', 'rehydrate']],
   ['checkpoint_regeneration', 'Régénération depuis checkpoint sain', ['incident', 'security', 'critical_refactor'], ['safety', 'resilient', 'temporal'], 'implemented', ['last_good_snapshot', 'restore', 'alternate_genome']],
+  ['axolotl_regeneration', 'Régénération fonctionnelle axolotl', ['critical_refactor', 'incident', 'architecture_decision'], ['regenerative', 'adaptive', 'deep_search'], 'experimental', ['assess_regeneration', 'plan_regeneration', 'execute_regeneration', 'validate_equivalence']],
   ['active_redundancy', 'Redondance active / hot spare', ['incident', 'security'], ['safety', 'parallel', 'high_compute'], 'experimental', ['hot_spare', 'health_switch']],
   ['dlq_autopsy', 'DLQ et autopsie', ['all'], ['safety', 'audit', 'resilient'], 'implemented', ['dead_letter_queue', 'forensic_autopsy']],
   ['cyber_immunity', 'Cyber-immunité', ['security'], ['safety', 'adaptive', 'mutation'], 'experimental', ['negative_selection', 'quarantine', 'threat_memory']],
