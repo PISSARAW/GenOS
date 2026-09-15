@@ -67,8 +67,7 @@ impl Default for Director {
 }
 
 /// Expérience apprise du directeur, sérialisable pour survivre à un
-/// redémarrage du processus (persistance réelle, pas seulement une
-/// continuité en mémoire tant que le processus tourne).
+/// redémarrage du processus.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct DirectorState {
     pub stats: BTreeMap<Concept, ActionStats>,
@@ -161,7 +160,13 @@ impl Director {
             .filter(|c| state.applicable(*c) && state.budget >= c.cost())
             .collect();
         if applicable.is_empty() {
-            return Self::halt(Strategy::Solo, "arsenal epuise : aucun moyen applicable");
+            // Vraie famine (un moyen s'appliquerait sans la contrainte de cout)
+            // vs arsenal vide pour des raisons de precondition.
+            let famine = Concept::all().into_iter().any(|c| state.applicable(c));
+            return Self::halt(
+                Strategy::Solo,
+                if famine { "budget insuffisant : famine" } else { "arsenal epuise : aucun moyen applicable" },
+            );
         }
         if applicable.iter().all(|c| !c.is_effectful()) {
             return Self::halt(
@@ -362,13 +367,9 @@ impl Director {
         self.adapt_regulation(concept, success);
     }
 
-    /// Plasticité organisationnelle : ajuste `stress_cost_weight` à partir de
-    /// l'issue observée sous stress, sans intervention externe (au-delà des
-    /// gènes évolutifs appliqués par `set_policy_genes`). C'est le pendant,
-    /// pour un paramètre de régulation du directeur, de l'apprentissage
-    /// `P(succès | contexte)` déjà appliqué aux concepts : un succès sous
-    /// stress avec un concept coûteux indique un coût sur-pondéré (on le
-    /// relâche) ; un échec le confirme (on le renforce).
+    /// Plasticité organisationnelle : ajuste `stress_cost_weight` selon
+    /// l'issue observée sous stress (succès coûteux => coût relâché, échec
+    /// => coût renforcé), en complément de l'apprentissage par concept.
     fn adapt_regulation(&mut self, concept: Concept, success: bool) {
         let stress = self
             .last_context
