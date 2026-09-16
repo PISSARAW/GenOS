@@ -24,20 +24,21 @@ try {
   assert(runtimeSource.includes('mcp_servers.genos.disabled_tools=["genos_orchestrate"]'), 'runtime agents must not receive the root orchestration tool');
   assert(!runtimeSource.includes('GENOS_MCP_EXPOSE_ALL="true"'), 'runtime agents must use their explicit MCP lease');
   assert(runtimeSource.includes('at least one tool is required'), 'runtime agents must reject an empty MCP lease');
-  const adapterSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentRuntimeAdapter.js'), 'utf8');
+  const missionLeaseSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentRuntimeAdapter/missionLease.js'), 'utf8');
   const supervisorSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentProcessSupervisor.js'), 'utf8');
   const pipelineSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentProcessEventPipeline.js'), 'utf8');
   const roundSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentRoundService.js'), 'utf8');
-  assert(supervisorSource.includes("currentEvent.action === 'VERIFY'") || adapterSource.includes("event.action === 'VERIFY'") || pipelineSource.includes("event.action === 'VERIFY'"), 'a completed Codex turn must not be killed after reporting aggregate usage');
-  assert(adapterSource.includes('normalizedMission.localModel && (normalizedMission.localRuntime === true || isLocalRuntime(executable))'), 'local workers must be explicit rather than inferred from model discovery');
+  assert(supervisorSource.includes("currentEvent.action === 'VERIFY'") || pipelineSource.includes("event.action === 'VERIFY'"), 'a completed Codex turn must not be killed after reporting aggregate usage');
+  assert(missionLeaseSource.includes('normalizedMission.localModel && (normalizedMission.localRuntime === true || isLocalRuntime(executable))'), 'local workers must be explicit rather than inferred from model discovery');
   assert(runtimeSource.includes('GENOS_EXECUTION_MODE: executionMode'), 'runtime children must receive their authority mode');
   assert(runtimeSource.includes('GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)}'), 'the leased MCP server must receive the same authority mode');
   assert(runtimeSource.includes('autonomyPlan.synthesisOnly'), 'the official root turn must use synthesis-only authority');
   const orchestratorBridgeSource = fs.readFileSync(path.resolve(__dirname, '../bin/genos-orchestrate.cjs'), 'utf8');
   assert(orchestratorBridgeSource.includes("GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker'"), 'the root orchestration bridge must reject worker recursion');
   const environment = adapter.bundledRuntimeEnvironment();
-  assert.strictEqual(environment.GENOS_BIN, path.resolve(__dirname, '../../target/debug/genos'));
-  assert.strictEqual(environment.GENOS_MCP_BIN, path.resolve(__dirname, '../../target/debug/genos-mcp'));
+  const executableSuffix = process.platform === 'win32' ? '.exe' : '';
+  assert.strictEqual(environment.GENOS_BIN, path.resolve(__dirname, `../../target/debug/genos${executableSuffix}`));
+  assert.strictEqual(environment.GENOS_MCP_BIN, path.resolve(__dirname, `../../target/debug/genos-mcp${executableSuffix}`));
   assert(!adapter.orchestratorToolLease({ requiredTools: ['genos_snapshot', 'genos_orchestrate'] }).includes('genos_orchestrate'));
   assert(adapter.orchestratorToolLease({}).includes('genos_a_team_preview'));
   assert(adapter.orchestratorToolLease({}).includes('genos_trinity_launch'));
@@ -45,7 +46,7 @@ try {
   assert(adapter.orchestratorToolLease({}).includes('genos_report_progress'));
   assert.strictEqual(typeof adapter.waitForAutonomousWorkerQuiescence, 'function');
   assert.strictEqual(typeof adapter.buildWorkerSynthesisPrompt, 'function');
-  assert(roundSource.includes('for (const workerId of continuationWorkerIds) dispatchPendingContinuation(workerId)') || adapterSource.includes('for (const workerId of continuationWorkerIds) dispatchPendingContinuation(workerId)'), 'all selected continuation workers must be dispatched even if they closed before the final initial result');
+  assert(roundSource.includes('for (const workerId of continuationWorkerIds) dispatchPendingContinuation(workerId)'), 'all selected continuation workers must be dispatched even if they closed before the final initial result');
 
   process.env.GENOS_AGENT_EXECUTOR = '/tmp/custom-genos-executor';
   assert.strictEqual(adapter.configuredExecutable(), defaultExecutable);
