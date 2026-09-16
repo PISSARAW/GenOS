@@ -12,6 +12,7 @@ const strategyContracts = require('./strategyContractService');
 const events = require('./strategyExecutionEvents');
 const progress = require('./strategyExecutionProgress');
 const promotionGate = require('./strategyPromotionGate');
+const selfModel = require('./selfModelService');
 
 function normalizedBudget(input) {
   const source = input || {};
@@ -72,6 +73,7 @@ async function recordExecutionEvent(db, agentId, event) {
   const saved = await progress.recordExecutionEvent(db, agentId, event);
   if (!saved) return null;
   const fallback = await fallbackAfterProgress(db, saved, agentId);
+  if (['failed', 'blocked', 'cancelled'].includes(saved.run.status)) await selfModel.calibrate(db, saved.run.id);
   return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback };
 }
 
@@ -83,13 +85,17 @@ async function approveRun(db, id, options) {
   const promotion = await promotionGate.loadPromotionContext(db, row, settings);
   if (!promotion.report) throw new Error(`Execution run ${id} cannot be promoted without an evidence report.`);
   const receipt = promotionGate.assertApprovalProof(promotion, settings, id);
-  promotionGate.assertPromotionGate(promotion.contract, promotionGate.buildGateContext(promotion, settings, receipt));
+  const gateContext = promotionGate.buildGateContext(promotion, settings, receipt);
+  const model = await selfModel.load(db, promotion.agentId, { mission: settings });
+  selfModel.assertPromotionConstraints(model, gateContext);
+  promotionGate.assertPromotionGate(promotion.contract, gateContext);
   await promotionGate.assertPromotionContainment(db, promotion, settings);
   const primitives = events.resolveStagePrimitives('conditional_promotion', promotion.contract.strategy_portfolio);
   const promotionResult = await promotionGate.runPromotionPipeline(promotion, primitives);
   if (!promotionResult.success) throw new Error(`Execution run ${id} promotion failed: ${promotionResult.error || 'unknown error'}`);
   await promotionGate.applyPostPromotion(db, promotion, settings);
   await promotionGate.finalizePromotion(db, promotion, settings);
+  await selfModel.calibrate(db, id);
   return events.getRun(db, id);
 }
 

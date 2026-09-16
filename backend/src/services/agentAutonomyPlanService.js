@@ -7,6 +7,7 @@ const dynamicOrganization = require('./dynamicOrganizationService');
 const { emit } = require('./agentOrchestrationState');
 const { consultLocalModels } = require('./agentModelRoutingService');
 const topologyCapabilityService = require('./topologyCapabilityService');
+const selfModel = require('./selfModelService');
 
 function clampShare(value) {
   return Math.max(0, Math.min(1, value));
@@ -186,6 +187,24 @@ function applyCapabilityContract(autonomyPlan) {
   });
 }
 
+function emitControlRegulation(agentId, autonomyPlan) {
+  const regulation = autonomyPlan.controlRegulation;
+  if (!regulation) return;
+  emit(agentId, 'CONTROL_REGULATION_ARBITRATED', 'REGULATE_PLAN', 'Autonomy plan was arbitrated by multi-loop control signals.', regulation, 'info');
+}
+
+async function applySelfModel({ db, agentId, normalizedMission, autonomyPlan }) {
+  const model = await selfModel.load(db, agentId, { mission: normalizedMission, plan: autonomyPlan });
+  selfModel.applyToMission(normalizedMission, model, autonomyPlan);
+  applySurvivalConstraints(autonomyPlan);
+  autonomyPlan.selfModel = model;
+  emit(agentId, 'SELF_MODEL_ASSESSED', 'SELF_REGULATE', model.selfAssessment.join(' '), {
+    state: model.state,
+    decisionPolicy: model.decisionPolicy,
+    knownWeaknesses: model.habits.knownWeaknesses
+  }, 'info');
+}
+
 async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord }) {
   const missionBudget = normalizedMission.executionBudget || {};
   const configuredWorkerShare = resolveWorkerShare(missionBudget);
@@ -204,9 +223,11 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
   applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
   applySurvivalConstraints(autonomyPlan);
+  await applySelfModel({ db, agentId, normalizedMission, autonomyPlan });
   await applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan });
   await applyOrganizationState({ db, agentId, autonomyPlan });
   applyCapabilityContract(autonomyPlan);
+  emitControlRegulation(agentId, autonomyPlan);
   return autonomyPlan;
 }
 
