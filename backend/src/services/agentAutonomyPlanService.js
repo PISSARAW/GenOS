@@ -8,6 +8,7 @@ const { emit } = require('./agentOrchestrationState');
 const { consultLocalModels } = require('./agentModelRoutingService');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const selfModel = require('./selfModelService');
+const selfModel = require('./selfModelService');
 
 function clampShare(value) {
   return Math.max(0, Math.min(1, value));
@@ -191,6 +192,18 @@ function emitControlRegulation(agentId, autonomyPlan) {
   const regulation = autonomyPlan.controlRegulation;
   if (!regulation) return;
   emit(agentId, 'CONTROL_REGULATION_ARBITRATED', 'REGULATE_PLAN', 'Autonomy plan was arbitrated by multi-loop control signals.', regulation, 'info');
+}
+
+async function applySelfModel({ db, agentId, normalizedMission, autonomyPlan }) {
+  const model = await selfModel.load(db, agentId, { mission: normalizedMission, plan: autonomyPlan });
+  selfModel.applyToMission(normalizedMission, model, autonomyPlan);
+  applySurvivalConstraints(autonomyPlan);
+  autonomyPlan.selfModel = model;
+  emit(agentId, 'SELF_MODEL_ASSESSED', 'SELF_REGULATE', model.selfAssessment.join(' '), {
+    state: model.state,
+    decisionPolicy: model.decisionPolicy,
+    knownWeaknesses: model.habits.knownWeaknesses
+  }, 'info');
 }
 
 async function applySelfModel({ db, agentId, normalizedMission, autonomyPlan }) {
