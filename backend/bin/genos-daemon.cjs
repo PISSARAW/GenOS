@@ -333,9 +333,24 @@ function runDaemon(flags, config) {
 }
 
 async function waitInteractive(config) {
+  const timeoutMs = Number(process.env.GENOS_DAEMON_INTERACTIVE_TIMEOUT_MS) || 0;
   console.log('\x1b[33m────────────────────────────────────────────────────────────────\x1b[0m');
   console.log(`[${config.name}] Sentinelle en veille. Appuyez sur [Entrée] pour quitter ce terminal.`);
+  
+  if (!process.stdin.isTTY) {
+    console.log(`[${config.name}] No TTY available, exiting interactive mode.`);
+    return;
+  }
+  
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  
+  if (timeoutMs > 0) {
+    setTimeout(() => {
+      console.log(`\n[${config.name}] Interactive timeout reached, exiting.`);
+      rl.close();
+    }, timeoutMs);
+  }
+  
   await new Promise((resolve) => rl.question('', () => { rl.close(); resolve(); }));
 }
 
