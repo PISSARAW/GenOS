@@ -128,6 +128,37 @@ CREATE INDEX IF NOT EXISTS idx_ontology_attr_hist_being ON ontology_attribute_hi
 CREATE INDEX IF NOT EXISTS idx_ontology_attr_hist_key ON ontology_attribute_history(key);
 CREATE INDEX IF NOT EXISTS idx_ontology_attr_hist_time ON ontology_attribute_history(changed_at);
   `);
+
+  await db.exec(`
+CREATE TABLE IF NOT EXISTS substance_records (
+    id TEXT PRIMARY KEY,
+    category TEXT NOT NULL CHECK (category IN ('primary', 'secondary', 'infinite', 'monad', 'cogitans', 'extensa')),
+    agent_id TEXT,
+    essence_hash TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_substance_records_category ON substance_records(category);
+
+CREATE TABLE IF NOT EXISTS substance_modes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mode_id TEXT NOT NULL,
+    infinite_substance_id TEXT NOT NULL,
+    attribute TEXT NOT NULL CHECK (attribute IN ('thought', 'extension')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_substance_modes_mode ON substance_modes(mode_id);
+CREATE INDEX IF NOT EXISTS idx_substance_modes_infinite ON substance_modes(infinite_substance_id);
+
+CREATE TABLE IF NOT EXISTS cartesian_unions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cogitans_id TEXT NOT NULL,
+    extensa_id TEXT NOT NULL,
+    union_type TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_cartesian_unions_cogitans ON cartesian_unions(cogitans_id);
+CREATE INDEX IF NOT EXISTS idx_cartesian_unions_extensa ON cartesian_unions(extensa_id);
+  `);
 }
 
 async function ensureOntologyColumns(db) {

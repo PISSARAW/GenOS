@@ -8,7 +8,8 @@ const { getDatabase } = require('../db');
 const crypto = require('crypto');
 
 const SUBSTANCE_TYPES = [
-  'agent', 'worker', 'orchestrator', 'capsule', 'workspace', 'mission', 'tool', 'model'
+  'agent', 'worker', 'orchestrator', 'capsule', 'workspace', 'mission', 'tool', 'model',
+  'runtime', 'species', 'monad', 'cogitans', 'extensa'
 ];
 
 let dbPromise = null;
