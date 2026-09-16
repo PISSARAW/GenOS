@@ -36,6 +36,10 @@ const migrationRunners = [
     const { migrateAdaptiveState } = require('./migrateAdaptiveState');
     await migrateAdaptiveState(db);
   }),
+  createMigrationRunner('023-autobiographical-memory', 'Add autobiographical episodes, consolidated lessons and per-agent self-models', async (db) => {
+    const { migrateAutobiographicalMemory } = require('./migrateAutobiographicalMemory');
+    await migrateAutobiographicalMemory(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

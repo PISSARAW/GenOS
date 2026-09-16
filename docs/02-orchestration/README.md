@@ -9,6 +9,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [corps-orchestrator.md](corps-orchestrator.md) — percepts typés, WorldState, actionneurs bornés, réflexes.
 - [regulation-multi-boucles.md](regulation-multi-boucles.md) — signaux de contrôle, boucles rapides/lentes, arbitrage.
 - [theorie-du-soi-orchestrator.md](theorie-du-soi-orchestrator.md) — modèle opérationnel, calibration, biais et contraintes de décision.
+- [memoire-autobiographique.md](memoire-autobiographique.md) — épisodes vécus, saillance, consolidation en leçons, rappel avant décision, oubli.
 - [architecture-survie.md](architecture-survie.md) — viabilité, pressions vitales, homéostasie, dormance et reproduction validée.
 - [topologies-et-capacites.md](topologies-et-capacites.md) — contrat de capacités (8 modes + 19 organisations), leases effectifs.
 - [primitives-executables.md](primitives-executables.md) — primitives formelles, contrats, budgets, promotion.

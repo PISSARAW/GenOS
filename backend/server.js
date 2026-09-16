@@ -17,6 +17,7 @@ const { terminatePid, processMatches } = require('./src/services/processTerminat
 const circuitBreaker = require('./src/services/circuitBreaker');
 const { readPort } = require('./src/services/runtimeConfig');
 const trinityMonitorServer = require('./src/services/trinityMonitorServer');
+const { attachAutobiographicalCapture } = require('./src/services/autobiographicalMemory/captureService');
 
 const PORT = readPort('PORT', process.env.PORT, 4000);
 
@@ -174,6 +175,13 @@ function startTrinityMonitorIfEnabled() {
   }
 }
 
+// One capture listener per process pool: avoids duplicate episodes when N cluster workers share the telemetry bus.
+function startAutobiographicalMemoryIfDesignated() {
+  if (process.env.GENOS_JOB_WORKER === '1' && process.env.GENOS_AUTOBIOGRAPHICAL_MEMORY_ENABLED !== '0') {
+    attachAutobiographicalCapture(telemetry);
+  }
+}
+
 function registerWorkerShutdown(server, grpcServer, db) {
   let shuttingDown = false;
   const shutdown = async (signal) => {
@@ -200,6 +208,7 @@ async function runWorkerProcess() {
     const server = http.createServer(app);
     const grpcServer = await createGrpcServerIfDesignated();
     startTrinityMonitorIfEnabled();
+    startAutobiographicalMemoryIfDesignated();
 
     server.listen(PORT, () => {
       console.log(`[GenOS Full-Stack] Server running on port ${PORT}`);

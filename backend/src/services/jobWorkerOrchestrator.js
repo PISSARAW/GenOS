@@ -9,6 +9,8 @@ const { executeEvaluation, updateCampaignStatus } = require('./jobWorkerEvaluati
 const { executeModelJob } = require('./jobWorkerModel');
 const { recoverInterruptedJobs } = require('./jobWorkerRecovery');
 const vectorMemory = require('./vectorMemoryService');
+const autobiographicalEpisodeStore = require('./autobiographicalMemory/episodeStore');
+const autobiographicalLessonService = require('./autobiographicalMemory/lessonService');
 
 const QUEUE_TABLES = ['workflow_runs', 'evaluation_jobs', 'model_jobs'];
 
@@ -110,8 +112,26 @@ async function runMemoryConsolidationOnce() {
     const db = await getDatabase();
     const result = await vectorMemory.sleepCycle(db);
     telemetry.emitEvent({ eventType: 'MEMORY_SLEEP_CYCLE_COMPLETED', agentId: 'memory_consolidator', action: 'CONSOLIDATE', detail: 'Automatic memory sleep cycle completed.', payload: result });
+    await runAutobiographicalConsolidationOnce(db);
     return result;
   } finally { state.memoryCycleRunning = false; }
+}
+
+// Same sleep cycle, different memory: compress episodes into lessons, forget stale low-salience detail.
+async function runAutobiographicalConsolidationOnce(db) {
+  try {
+    const lessons = await autobiographicalLessonService.consolidateLessons({}, db);
+    const forgotten = await autobiographicalEpisodeStore.forgetStaleEpisodes({}, db);
+    telemetry.emitEvent({
+      eventType: 'AUTOBIOGRAPHICAL_MEMORY_CONSOLIDATED',
+      agentId: 'memory_consolidator',
+      action: 'CONSOLIDATE',
+      detail: 'Autobiographical episodes consolidated into lessons; stale episodes forgotten.',
+      payload: { lessonsProduced: lessons.length, forgottenCount: forgotten.forgottenCount }
+    });
+  } catch (error) {
+    telemetry.emitEvent({ eventType: 'AUTOBIOGRAPHICAL_MEMORY_CONSOLIDATION_FAILED', agentId: 'memory_consolidator', action: 'CONSOLIDATE', detail: error.message, severity: 'error' });
+  }
 }
 
 function getWorkerStatus() {

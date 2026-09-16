@@ -15,6 +15,7 @@ const { migrateIdeClient } = require('./migrations/migrateIdeClient');
 const { migratePriorityColumns } = require('./migrations/migratePriorityColumns');
 const { migrateEventIdIndex } = require('./migrations/migrateEventIdIndex');
 const { migrateSynapseIndexes } = require('./migrations/migrateSynapseIndexes');
+const { migrateAutobiographicalMemory } = require('./migrations/migrateAutobiographicalMemory');
 
 async function applyVersionedMigrations(db) {
   await createFoundationTables(db);
@@ -46,6 +47,7 @@ async function applyVersionedMigrations(db) {
   await ensureIdeIntegrationClient(db);
   await ensureSynapseColumns(db);
   await createQueueIndexes(db);
+  await migrateAutobiographicalMemory(db);
   await runRegistryMigrations(db);
 }
 

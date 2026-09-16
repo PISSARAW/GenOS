@@ -15,6 +15,7 @@ const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPoli
 const { compactStrategyContract, compactAutonomyPlan, buildAgentRuntimePrompt } = require('./agent-runtime-prompt.cjs');
 const { handleRuntimeClose } = require('./agent-runtime-close.cjs');
 const events = require('./agent-runtime-events.cjs');
+const { resolveCodexLaunch } = require('./codexLaunchResolver.cjs');
 
 const ORCHESTRATOR_INSTRUCTION = 'You are the GenOS orchestrator. You own strategy selection, task decomposition, worker dispatch, evaluation, replay, promotion, and the current worker organization. The control plane evaluated the complete 78-strategy registry before producing this contract; use the selected portfolio rather than treating every strategy as mandatory. At every material scope change, new risk, repeated failure, or evidence that invalidates the current problem profile, reassess whether the active strategy still fits. Call genos_change_strategy with the current need and evidence-backed reason when it may not fit; the control plane will evaluate all 78 strategies, version the contract only when a different portfolio is better, and preserve the remaining budget. Do not switch merely for novelty or oscillate between equivalent portfolios. You may call genos_change_organization at any decision gate when evidence or mission needs justify a different topology or communication mode; record the reason and use genos_organization_state to verify the transition. Inspect the Trinity intent in the autonomous plan before dispatching workers. If Trinity was explicitly requested, use the three control-plane worlds already composed. If the user asked to be interviewed to create a plan, conduct the interview first and consider genos_trinity_launch only after the answers produce a sufficiently concrete shared mission; do not launch it merely because planning was mentioned. When a mission genuinely requires at least two distinct competency domains and Trinity is not the better shape, use the control-plane A-Team already composed in the plan; if none was composed, the token policy still permits it, and two or more specialists are necessary, call genos_a_team_preview once with two or three bounded subsystems and matching roles. Do not create an A-Team for a single-domain task, exceed the token policy, duplicate members already running, or combine A-Team and Trinity in the same three-slot garage. Before a risky mutation, retrieve negative knowledge or diagnose, snapshot/fork when comparing alternatives, evaluate evidence, and record the decision. Change strategy or organization only on evidence, keep parasite/adversarial branches isolated, and stop or reallocate branches using the token policy.';
 
@@ -220,24 +221,6 @@ function cleanup(state) {
   fs.rmSync(state.isolatedCodexHome, { recursive: true, force: true });
 }
 
-function resolveCodexLaunch(candidate) {
-  if (!candidate || typeof candidate !== 'string') return { command: 'codex', args: [] };
-  const trimmed = candidate.trim();
-  if (!trimmed) return { command: 'codex', args: [] };
-  const isFile = (() => {
-    try {
-      return fs.existsSync(trimmed) && fs.statSync(trimmed).isFile();
-    } catch {
-      return false;
-    }
-  })();
-  const ext = path.extname(trimmed).toLowerCase();
-  if (isFile && (['.js', '.cjs', '.mjs', '.py', '.ts'].includes(ext) || !ext)) {
-    return { command: process.execPath, args: [trimmed] };
-  }
-  return { command: trimmed, args: [] };
-}
-
 function setupCodexHome() {
   const hostCodexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
   const isolatedCodexHome = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-codex-'));
@@ -304,11 +287,16 @@ function createInvocation(state, binaries) {
 function spawnChild(state, binaries) {
   const invocation = createInvocation(state, binaries);
   state.isolatedCodexHome = invocation.codexHome;
+  // On Windows, spawning codex directly fails because Node.js doesn't resolve
+  // .exe from PATH reliably (backslashes stripped, phantom ENOENT). Use the
+  // shell for PATH resolution but escape carefully.
+  const useShell = process.platform === 'win32';
   state.child = spawn(invocation.command, invocation.args, {
     cwd: binaries.workspace,
     env: invocation.env,
     stdio: ['pipe', 'pipe', 'pipe'],
-    detached: process.platform !== 'win32'
+    detached: process.platform !== 'win32',
+    shell: useShell
   });
 }
 

@@ -1,0 +1,114 @@
+'use strict';
+
+// Bridges the existing telemetry bus into autobiographical memory: not every
+// event deserves a durable memory, only salient ones (see salience.js).
+
+const { computeSalience, DEFAULT_SALIENCE_THRESHOLD } = require('./salience');
+const episodeStore = require('./episodeStore');
+
+const EVENT_KIND_MAP = {
+  AGENT_RUNTIME_STARTED: 'mission_start',
+  AGENT_PLAN_CREATED: 'strategy_change',
+  WORKER_CAPABILITY_LEASED: 'worker_created',
+  AGENT_STEP: 'step',
+  EVIDENCE_REPORT: 'evidence_validated',
+  STRATEGY_PRIMITIVE_EXEC: 'strategy_change',
+  STRATEGY_FEEDBACK_LOOP_TRIGGERED: 'strategy_change',
+  WORKER_RECOVERY_STARTED: 'rollback',
+  TRINITY_WINNER_PROMOTED: 'promotion',
+  AGENT_COMPLETED: 'mission_end',
+  AGENT_FAILED: 'primitive_failure',
+  APOPTOSIS_TRIGGERED: 'quarantine',
+  ORCHESTRATION_DECISION_BLOCKED: 'primitive_failure',
+  HUMAN_DECISION: 'human_decision'
+};
+
+let attached = false;
+let salienceThreshold = DEFAULT_SALIENCE_THRESHOLD;
+
+function resolveKind(eventType) {
+  return EVENT_KIND_MAP[eventType] || null;
+}
+
+function situationFromEvent(event, payload) {
+  return {
+    goal: payload.goal || payload.task || payload.currentTask || null,
+    worldState: payload.worldState || {},
+    survivalState: payload.survivalState || {},
+    physicalState: payload.physicalState || {}
+  };
+}
+
+function decisionFromEvent(payload) {
+  return {
+    selectedStrategy: payload.selectedStrategy || payload.strategy || null,
+    alternatives: payload.alternatives || [],
+    reason: payload.reason || null
+  };
+}
+
+function actionFromEvent(event, payload) {
+  return {
+    tool: payload.tool || event.action || null,
+    target: payload.sourceAgentId || payload.workerId || event.agentId || null,
+    cost: payload.cost || {}
+  };
+}
+
+function outcomeFromEvent(event, payload) {
+  return {
+    status: event.status || payload.status || 'unknown',
+    evidence: payload.evidence || [],
+    uncertainties: payload.uncertainties || []
+  };
+}
+
+function episodeFromEvent(event, kind, salienceResult) {
+  const payload = event.payload || {};
+  return {
+    agentId: event.agentId || 'orchestrator',
+    missionId: payload.missionId || payload.executionRunId || payload.runId || null,
+    kind,
+    salience: salienceResult.salience,
+    situation: situationFromEvent(event, payload),
+    decision: decisionFromEvent(payload),
+    action: actionFromEvent(event, payload),
+    outcome: outcomeFromEvent(event, payload),
+    lesson: {},
+    timestamp: event.timestamp
+  };
+}
+
+async function captureTelemetryEvent(event = {}, dbOverride = null) {
+  const kind = resolveKind(event.eventType);
+  if (!kind) return null;
+  const salienceResult = computeSalience(event);
+  if (salienceResult.salience < salienceThreshold) return null;
+  return episodeStore.recordEpisode(episodeFromEvent(event, kind, salienceResult), dbOverride);
+}
+
+function handleEvent(event) {
+  captureTelemetryEvent(event).catch((error) => {
+    console.warn('[AutobiographicalMemory] capture failed:', error.message);
+  });
+}
+
+function attachAutobiographicalCapture(telemetryObserver, options = {}) {
+  if (attached) return;
+  if (Number.isFinite(options.salienceThreshold)) salienceThreshold = options.salienceThreshold;
+  telemetryObserver.on('telemetry', handleEvent);
+  attached = true;
+}
+
+function detachAutobiographicalCapture(telemetryObserver) {
+  telemetryObserver.off('telemetry', handleEvent);
+  attached = false;
+}
+
+module.exports = {
+  attachAutobiographicalCapture,
+  detachAutobiographicalCapture,
+  captureTelemetryEvent,
+  resolveKind,
+  EVENT_KIND_MAP
+};
