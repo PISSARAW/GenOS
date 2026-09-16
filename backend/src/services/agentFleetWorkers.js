@@ -160,13 +160,27 @@ async function persistWorker(db, details) {
   const { parent, perWorkerCognitiveBudget } = details;
   // The worker INSERT and the parent budget debit must be one atomic unit:
   // otherwise two concurrent workers each read the same balance and over-allocate.
-  await withTransaction(db, async () => {
-    await db.run(`INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, dissonance_level, eureka_count, cognitive_budget, is_apoptotic) VALUES (?, ?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?, ?, ?, ?, ?)`, ...workerInsertValues(details));
-    const debit = await db.run(`UPDATE agents SET cognitive_budget = ROUND(MAX(0, COALESCE(cognitive_budget, 0) - ?), 6), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND (cognitive_budget >= ? OR (? - cognitive_budget) < 0.0001)`, perWorkerCognitiveBudget, parent.id, perWorkerCognitiveBudget, perWorkerCognitiveBudget);
-    if (debit.changes !== 1) {
-      throw Object.assign(new Error(`Unable to debit inherited cognitive budget from orchestrator '${parent.id}'.`), { code: 'BUDGET_INHERITANCE_FAILURE' });
+  // Retry with exponential backoff on BUDGET_INHERITANCE_FAILURE (race condition).
+  const maxRetries = 3;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      await withTransaction(db, async () => {
+        await db.run(`INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, dissonance_level, eureka_count, cognitive_budget, is_apoptotic) VALUES (?, ?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?, ?, ?, ?, ?)`, ...workerInsertValues(details));
+        const debit = await db.run(`UPDATE agents SET cognitive_budget = ROUND(MAX(0, COALESCE(cognitive_budget, 0) - ?), 6), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND (cognitive_budget >= ? OR (? - cognitive_budget) < 0.0001)`, perWorkerCognitiveBudget, parent.id, perWorkerCognitiveBudget, perWorkerCognitiveBudget);
+        if (debit.changes !== 1) {
+          throw Object.assign(new Error(`Unable to debit inherited cognitive budget from orchestrator '${parent.id}'.`), { code: 'BUDGET_INHERITANCE_FAILURE' });
+        }
+      });
+      return;
+    } catch (error) {
+      if (error.code === 'BUDGET_INHERITANCE_FAILURE' && attempt < maxRetries) {
+        const delay = 10 * Math.pow(2, attempt) + Math.random() * 5;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
     }
-  });
+  }
 }
 
 function workerInsertValues(details) {
