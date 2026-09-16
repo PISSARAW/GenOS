@@ -113,7 +113,7 @@ function resolveFlags(args) {
     isEnable: hasAnyFlag(args, ['--enable-autostart', '--enable']),
     isDisable: hasAnyFlag(args, ['--disable-autostart', '--disable']),
     isScanOnly: hasAnyFlag(args, ['--scan-only', '--quiet']),
-    isDaemon: hasAnyFlag(args, ['--daemon']),
+    isDaemon: args.includes('--daemon'),
     isReportOnly: hasAnyFlag(args, ['--report-only']),
     useColor: resolveColor(args)
   };
