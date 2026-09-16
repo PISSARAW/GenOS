@@ -16,24 +16,44 @@ const {
 } = require('../src/services/daemonAgentAutostart');
 const vectorMemoryService = require('../src/services/vectorMemoryService');
 
+const COLORS = {
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  dim: '\x1b[2m',
+  italic: '\x1b[3m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  blue: '\x1b[34m',
+  yellow: '\x1b[33m',
+  magenta: '\x1b[35m',
+  gray: '\x1b[90m',
+  white: '\x1b[37m'
+};
+
+function colorize(text, color, useColor) {
+  return useColor ? `${color}${text}${COLORS.reset}` : text;
+}
+
 function printBanner(config, useColor) {
-  if (!useColor) {
-    console.log('GENOS AUTONOMOUS SENTINEL');
-    console.log(`Agent: ${config.name}`);
-    console.log(`Role: ${config.role || 'Sentinel'}`);
-    console.log(`Voice: ${config.personality}`);
-    return;
-  }
   const line = '═'.repeat(64);
-  console.log('\x1b[36m╔' + line + '╗\x1b[0m');
-  console.log(`\x1b[36m║\x1b[1m\x1b[33m                   🛡️  GENOS AUTONOMOUS SENTINEL                \x1b[0m\x1b[36m║\x1b[0m`);
-  console.log(`\x1b[36m║\x1b[32m   Agent        : \x1b[1m${config.name.padEnd(46)}\x1b[0m\x1b[36m║\x1b[0m`);
-  console.log(`\x1b[36m║\x1b[34m   Rôle         : \x1b[0m${(config.role || 'Sentinel').padEnd(46).slice(0, 46)}\x1b[36m║\x1b[0m`);
-  console.log('\x1b[36m╚' + line + '╝\x1b[0m\n');
-  console.log(`\x1b[35m💭 Voix & Philosophie :\x1b[0m\n   \x1b[3m"${config.personality}"\x1b[0m\n`);
+  const title = 'GENOS AUTONOMOUS SENTINEL';
+  const shield = '🛡️';
+  const header = `${shield}  ${title}`;
+  const paddedHeader = header.padEnd(62).slice(0, 62);
+  
+  console.log(colorize(`╔${line}╗`, COLORS.cyan, useColor));
+  console.log(colorize(`║${paddedHeader}║`, COLORS.cyan + COLORS.bold + COLORS.yellow, useColor));
+  console.log(colorize(`║   Agent        : ${config.name.padEnd(46)}║`, COLORS.cyan + COLORS.green, useColor));
+  console.log(colorize(`║   Rôle         : ${(config.role || 'Sentinel').padEnd(46).slice(0, 46)}║`, COLORS.cyan + COLORS.blue, useColor));
+  console.log(colorize(`╚${line}╝`, COLORS.cyan, useColor));
+  console.log('');
+  console.log(colorize(`💭 Voix & Philosophie :`, COLORS.magenta, useColor));
+  console.log(colorize(`   "${config.personality}"`, COLORS.italic, useColor));
+  console.log('');
 }
 
 function formatMaintenanceSummary(maintenance, useColor) {
+  if (!maintenance || maintenance.length === 0) return null;
   const lines = ['🧑\u200d🔧 Maintenance autonome (branches daemon) :'];
   for (const entry of maintenance) {
     if (entry.status === 'skipped' || entry.status === 'error') {
@@ -49,18 +69,24 @@ function formatMaintenanceSummary(maintenance, useColor) {
     lines.push(`  - ${entry.repo}: ${entry.status} — ${fixLine} — ${mrLine}`);
   }
   const text = lines.join('\n');
-  return useColor ? `\x1b[36m${text}\x1b[0m` : text;
+  return colorize(text, COLORS.cyan, useColor);
 }
 
 function formatReportForTerminal(report, useColor) {
   if (!useColor) return report;
-  return report
-    .replace(/^# (.*$)/gim, '\x1b[1m\x1b[33m$1\x1b[0m')
-    .replace(/^## (.*$)/gim, '\x1b[1m\x1b[36m$1\x1b[0m')
-    .replace(/^### (.*$)/gim, '\x1b[1m\x1b[32m$1\x1b[0m')
-    .replace(/^> (.*$)/gim, '\x1b[90m│\x1b[0m \x1b[37m$1\x1b[0m')
-    .replace(/\*\*(.*?)\*\*/g, '\x1b[1m$1\x1b[0m')
-    .replace(/`(.*?)`/g, '\x1b[33m$1\x1b[0m');
+  const lines = report.split('\n');
+  const out = [];
+  for (const line of lines) {
+    let l = line;
+    if (/^# /i.test(l)) l = colorize(l, COLORS.bold + COLORS.yellow, true);
+    else if (/^## /i.test(l)) l = colorize(l, COLORS.bold + COLORS.cyan, true);
+    else if (/^### /i.test(l)) l = colorize(l, COLORS.bold + COLORS.green, true);
+    else if (/^> /i.test(l)) l = colorize('│ ' + l.slice(2), COLORS.gray + COLORS.white, true);
+    l = l.replace(/\*\*(.*?)\*\*/g, (_, m) => colorize(m, COLORS.bold, true));
+    l = l.replace(/`(.*?)`/g, (_, m) => colorize(m, COLORS.yellow, true));
+    out.push(l);
+  }
+  return out.join('\n');
 }
 
 const cliHelp = require('./cliHelp.cjs');
@@ -249,7 +275,7 @@ async function main() {
   const args = process.argv.slice(2);
   const flags = resolveFlags(args);
   if (flags.isHelp) {
-    cliHelp.printHelp('genos-daemon.cjs');
+    console.log(cliHelp.renderBinaryHelp('genos-daemon.cjs'));
     return;
   }
   if (flags.isStatus) {
