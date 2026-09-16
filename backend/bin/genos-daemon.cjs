@@ -16,7 +16,7 @@ const {
 } = require('../src/services/daemonAgentAutostart');
 const vectorMemoryService = require('../src/services/vectorMemoryService');
 const { saveState: saveDaemonState, loadState: loadDaemonState } = require('../src/services/daemonRepoWorkerService');
-const { createDaemonTimer } = require('../src/services/daemonTimerService');
+const { createDaemonTimerFromService } = require('../src/services/daemonTimerService');
 
 const COLORS = {
   reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m', italic: '\x1b[3m',
@@ -241,72 +241,8 @@ async function runScheduledCycle(config, flags) {
 }
 
 function createDaemonTimer(config, flags, intervalMs) {
-  const queue = [];
-  let isRunning = false;
-  let consecutiveFailures = 0;
-  let totalCycles = 0;
-  let successfulCycles = 0;
-  const MAX_QUEUE_SIZE = 5;
-  const HEALTH_CHECK_THRESHOLD = 0.5;
-  const MIN_HEALTHY_CYCLES = 3;
-
-  async function processQueue() {
-    if (isRunning || queue.length === 0) return;
-    isRunning = true;
-    const cycleFn = queue.shift();
-    try {
-      await cycleFn();
-      successfulCycles++;
-      consecutiveFailures = 0;
-    } catch (error) {
-      consecutiveFailures++;
-      console.error(`[${config.name}] Scheduled cycle failed:`, error.message);
-    } finally {
-      totalCycles++;
-      isRunning = false;
-      checkHealth();
-      processQueue();
-    }
-  }
-
-  function checkHealth() {
-    if (totalCycles >= MIN_HEALTHY_CYCLES) {
-      const failureRate = consecutiveFailures / Math.min(totalCycles, 10);
-      if (failureRate > HEALTH_CHECK_THRESHOLD) {
-        console.warn(`[${config.name}] Health check warning: ${(failureRate * 100).toFixed(0)}% failure rate over last ${Math.min(totalCycles, 10)} cycles. Daemon auto-pausing.`);
-      }
-    }
-  }
-
-  const timer = setInterval(() => {
-    if (queue.length >= MAX_QUEUE_SIZE) {
-      console.warn(`[${config.name}] Queue full (${MAX_QUEUE_SIZE}), dropping oldest cycle.`);
-      queue.shift();
-    }
-    queue.push(() => runScheduledCycle(config, flags));
-    processQueue();
-  }, intervalMs);
-
-  const stop = () => {
-    clearInterval(timer);
-    // Drain queued-but-not-started cycles to avoid orphan work after stop.
-    while (queue.length > 0) queue.shift();
-    try {
-      const state = loadDaemonState();
-      saveDaemonState(state);
-      console.log(`[${config.name}] State flushed to disk.`);
-    } catch (error) {
-      console.error(`[${config.name}] Failed to flush state:`, error.message);
-    }
-    console.log(`[${config.name}] Daemon stopped.`);
-    try { process.exit(0); } catch (_) { /* exit may throw in some runtimes */ }
-  };
-  process.once('SIGTERM', stop);
-  process.once('SIGINT', stop);
-  process.once('uncaughtException', (err) => {
-    console.error(`[${config.name}] Uncaught exception in daemon:`, err.message);
-    process.exit(1);
-  });
+  const cycleFn = () => runScheduledCycle(config, flags);
+  createDaemonTimerFromService({ runScheduledCycle: cycleFn, loadDaemonState, saveDaemonState, configName: config.name, intervalMs });
 }
 
 function runDaemon(flags, config) {
