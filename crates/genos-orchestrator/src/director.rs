@@ -3,7 +3,6 @@ use crate::organization::{Organization, Superorganism, by_name, select_organizat
 use crate::planner::{ActionStats, Concept, Goal, WorldState};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-
 /// Stratégies d'équipe, façon organisation biologique.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Strategy {
@@ -19,7 +18,6 @@ pub struct Step {
     pub concept: Concept,
     pub utility: f64,
 }
-
 #[derive(Clone, Debug)]
 pub struct Decision {
     pub strategy: Strategy,
@@ -31,7 +29,6 @@ pub struct Decision {
     pub rationale: String,
     pub halt: Option<String>,
 }
-
 /// Index du niveau de stress dans le vecteur de contexte (`context_from_state`).
 const STRESS_CONTEXT_INDEX: usize = 3;
 /// Vitesse d'adaptation des paramètres organisationnels (plasticité).
@@ -66,8 +63,7 @@ impl Default for Director {
     }
 }
 
-/// Expérience apprise du directeur, sérialisable pour survivre à un
-/// redémarrage du processus.
+/// Expérience apprise du directeur, sérialisable.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct DirectorState {
     pub stats: BTreeMap<Concept, ActionStats>,
@@ -92,8 +88,7 @@ impl Director {
         }
     }
 
-    /// Recharge une expérience préalablement exportée : transfert réel entre
-    /// missions, y compris après un redémarrage du processus.
+    /// Recharge une expérience préalablement exportée.
     pub fn import_state(&mut self, state: DirectorState) {
         self.stats = state.stats;
         self.learner = state.learner;
@@ -101,7 +96,7 @@ impl Director {
         self.stress_cost_weight = state.stress_cost_weight;
     }
 
-    /// Applique les gènes d'un candidat à la politique de décision.
+    /// Applique les gènes du candidat.
     pub fn set_policy_genes(&mut self, genes: &[f64]) {
         if let Some(value) = genes.first() {
             self.exploration_weight = value.clamp(0.1, 3.0);
@@ -249,6 +244,11 @@ impl Director {
             state.apply(Concept::Observe);
             steps.push(Step { concept: Concept::Observe, utility: u });
         }
+        if state.uncertain && state.applicable(Concept::Communicate) && !state.failed.contains(&Concept::Communicate) {
+            let u = self.utility(Concept::Communicate, state.stress);
+            state.apply(Concept::Communicate);
+            steps.push(Step { concept: Concept::Communicate, utility: u });
+        }
         if matches!(strategy, Strategy::ATeam | Strategy::Biocenose) {
             let mut seen: BTreeSet<&'static str> = BTreeSet::new();
             for &c in applicable {
@@ -367,9 +367,7 @@ impl Director {
         self.adapt_regulation(concept, success);
     }
 
-    /// Plasticité organisationnelle : ajuste `stress_cost_weight` selon
-    /// l'issue observée sous stress (succès coûteux => coût relâché, échec
-    /// => coût renforcé), en complément de l'apprentissage par concept.
+    /// Plasticité organisationnelle selon l'issue sous stress.
     fn adapt_regulation(&mut self, concept: Concept, success: bool) {
         let stress = self
             .last_context

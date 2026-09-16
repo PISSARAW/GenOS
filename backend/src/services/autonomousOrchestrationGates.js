@@ -58,9 +58,9 @@ function decisionGates() {
   return [
     {
       id: 'reselect_strategy', scope: 'orchestrator',
-      when: 'the mission scope, risk, uncertainty, evaluability, or observed failure mode materially differs from the active problem profile',
+      when: 'the mission scope or risk materially differs from the active problem profile',
       actions: ['genos_change_strategy'],
-      decide: 'state the changed need and evidence; keep the current contract when the complete 78-strategy evaluation finds no better portfolio'
+      decide: 'state the changed need and evidence; keep the current contract when no better portfolio is found'
     },
     {
       id: 'retrieve_relevant_memory', scope: 'orchestrator_and_workers',
@@ -70,99 +70,27 @@ function decisionGates() {
     },
     {
       id: 'iterate_diagnosis', scope: 'orchestrator_and_workers',
-      when: 'a test, invariant, worker claim, or evidence item contradicts the current hypothesis',
+      when: 'a test, invariant, or evidence item contradicts the current hypothesis',
       actions: ['genos_diagnose', 'genos_hypothesis_evidence'],
       decide: 'diagnose again with the new evidence; do not reuse a contradicted diagnosis'
     },
     {
       id: 'fork_or_delegate', scope: 'orchestrator',
-      when: 'two hypotheses remain viable, a specialist is needed, or independent verification has value',
+      when: 'two hypotheses remain viable or independent verification has value',
       actions: ['genos_snapshot', 'genos_fork', 'genos_create'],
-      decide: 'snapshot first, then create only the minimum independent branches or GenOS workers justified by the remaining budget'
+      decide: 'snapshot first, then create only the minimum independent branches or workers justified by the remaining budget'
     },
     {
       id: 'select_or_merge_hypotheses', scope: 'orchestrator',
       when: 'branches return evidence or a branch is dominated',
       actions: ['genos_evaluate_trajectories', 'genos_merge', 'genos_record_decision'],
-      decide: 'discard dominated branches; merge only evidence-backed compatible hypotheses, never unchecked workspaces'
+      decide: 'discard dominated branches; merge only evidence-backed compatible hypotheses'
     },
     {
       id: 'replay_or_escalate', scope: 'orchestrator',
-      when: 'an error needs isolation, a mutation changed behaviour, or before promotion',
+      when: 'an error needs isolation or before promotion',
       actions: ['genos_replay', 'genos_snapshot', 'genos_security_coevolution'],
       decide: 'replay the smallest relevant capsule; escalate to an adversarial Red/Blue loop for security or recurring failures'
-    },
-    {
-      id: 'biomimetic_forks_and_multiples', scope: 'orchestrator',
-      when: 'the mission requires high-risk counterfactual analysis, heterogeneous consensus, or complex tandem duplication',
-      actions: ['genos_biomimicry_mirror_twin_fork', 'genos_biomimicry_hybrid_multiples', 'genos_biomimicry_heteropaternal_superfecundation', 'genos_biomimicry_chromosomal_duplication'],
-      decide: 'instantiate mirror twins for adversarial exploration, hybrid multiples for matrix polyovulation, or multi-vendor heteropaternal clones to eliminate systemic bias'
-    },
-    {
-      id: 'asynchronous_gestation_and_pipeline', scope: 'orchestrator',
-      when: 'the execution pipeline requires zero-latency staggered starts or asynchronous co-gestation of dependent tasks',
-      actions: ['genos_biomimicry_superfetation_pipeline', 'genos_biomimicry_embryonic_diapause_pipeline'],
-      decide: 'inject cadet agents via superfetation to benefit from pioneer evidence, or use embryonic diapause for a 3-tier continuous flow without cold starts'
-    },
-    {
-      id: 'stigmergic_web_foraging', scope: 'orchestrator_and_workers',
-      when: 'the task requires information retrieval from external websites, dynamic DOM interaction, or navigating without API access',
-      actions: ['genos_browser_act', 'genos_optimal_foraging'],
-      decide: 'deploy a lightweight scout cell to forage the web and seal a pheromone token, allowing the heavy harvester cell to process the deterministic payload'
-    },
-    {
-      id: 'genetic_reprogramming_and_metabolism', scope: 'orchestrator',
-      when: 'causal backward reasoning is needed, or strict control over energy profiles and quotas is required',
-      actions: ['genos_biomimicry_chromosomal_inversion', 'genos_biomimicry_mitochondrial_dna_mutation'],
-      decide: 'invert the workflow for backward diagnosis, or mutate the mitochondrial DNA to adjust token metabolism and quota limits'
-    },
-    {
-      id: 'sensory_telemetry_and_communication', scope: 'orchestrator_and_workers',
-      when: 'the mission requires zero-copy sensory relay, opcode compression, or stress telemetry',
-      actions: ['genos_biomimicry_thalamic_bridge', 'genos_biomimicry_cryptophasia', 'genos_biomimicry_somatic_resonance'],
-      decide: 'establish a thalamic bridge for sensory data, use cryptophasia for chaperone communication, or somatic resonance for telemetry'
-    },
-    {
-      id: 'advanced_merging_and_chimerism', scope: 'orchestrator',
-      when: 'mosaic lineages need merging, multi-DNA compartmentalization is required, or fraternal proxy spawns are needed',
-      actions: ['genos_biomimicry_chimeric_merge', 'genos_biomimicry_tissue_chimerism', 'genos_biomimicry_marmoset_germline_chimerism'],
-      decide: 'perform a chimeric merge of mosaic states, employ tissue chimerism, or marmoset germline chimerism for proxy spawning'
-    },
-    {
-      id: 'polyovulation_and_splitting', scope: 'orchestrator',
-      when: 'a dizygotic fleet, isogenic MCTS cloning, dispermic identity splits, or deterministic cleavage is required',
-      actions: ['genos_biomimicry_polyovulation_spawn', 'genos_biomimicry_monozygotic_split', 'genos_biomimicry_sesquizygotic_split', 'genos_biomimicry_obligate_polyembryony'],
-      decide: 'spawn a polyovulation fleet, split monozygotically for isogenic cloning, or use obligate polyembryony for deterministic 4x/8x cleavage'
-    },
-    {
-      id: 'parasitism_and_conjoined_binding', scope: 'orchestrator',
-      when: 'visceral token coupling is needed, arrested limbs must be harvested, or replication locks are required for compute boosts',
-      actions: ['genos_biomimicry_conjoined_twin_bind', 'genos_biomimicry_parasitic_graft', 'genos_biomimicry_fetus_in_fetu', 'genos_biomimicry_freemartin_inhibition'],
-      decide: 'bind conjoined twins for visceral token coupling, graft parasitic arrested twins, use fetus-in-fetu as a rescue pod, or apply freemartin inhibition'
-    },
-    {
-      id: 'granular_mutations_and_transposons', scope: 'orchestrator_and_workers',
-      when: 'silent/missense mutations, indel shifts, retrotransposition, or microsatellite anticipation are required for fine-tuning',
-      actions: ['genos_biomimicry_point_mutation', 'genos_biomimicry_frameshift_mutation', 'genos_biomimicry_transposon_jump', 'genos_biomimicry_dynamic_triplet_expansion'],
-      decide: 'apply point or frameshift mutations, utilize transposon jumps for cut-and-paste retrotransposition, or dynamic triplet expansion'
-    },
-    {
-      id: 'chromosomal_and_ploidy_manipulation', scope: 'orchestrator',
-      when: 'structural pipeline pruning, capability grafting, trisomy consensus, or multi-layer strategies are necessary',
-      actions: ['genos_biomimicry_chromosomal_deletion', 'genos_biomimicry_chromosomal_translocation', 'genos_biomimicry_aneuploidy', 'genos_biomimicry_polyploidy'],
-      decide: 'prune pipelines via chromosomal deletion, graft capabilities via translocation, or utilize aneuploidy/polyploidy for structural scaling'
-    },
-    {
-      id: 'epigenetics_and_horizontal_transfer', scope: 'orchestrator_and_workers',
-      when: 'reversible environmental memory, plasmid absorption, T-DNA injection, or retroviral integration is needed',
-      actions: ['genos_biomimicry_epigenetic_methylation', 'genos_biomimicry_horizontal_gene_transfer', 'genos_biomimicry_agrobacterium_tdna_hijack', 'genos_biomimicry_viral_endogenization'],
-      decide: 'use epigenetic methylation for environmental memory, horizontal gene transfer, agrobacterium T-DNA hijacks, or viral endogenization'
-    },
-    {
-      id: 'extreme_survival_and_reprogramming', scope: 'orchestrator',
-      when: 'a mechanical invariant shield, polyp reversion, stem reprogramming, or zero-paradox causal rebase is critical',
-      actions: ['genos_biomimicry_tardigrade_dsup_shield', 'genos_biomimicry_turritopsis_transdifferentiation', 'genos_biomimicry_yamanaka_reprogramming', 'genos_biomimicry_consciousness_transfer', 'genos_biomimicry_novikov_causal_rebase'],
-      decide: 'activate tardigrade Dsup shield, revert via turritopsis transdifferentiation, reprogram with Yamanaka factors, or perform a Novikov causal rebase'
     }
   ];
 }

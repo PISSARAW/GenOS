@@ -155,7 +155,7 @@ function buildTokenPlan(budget, flags, workers) {
 
 function executionStatusOf(realizable, omittedPhases) {
   if (realizable.length === 0) return 'blocked';
-  return omittedPhases.length ? 'degraded' : 'ready';
+  return omittedPhases.length ? 'blocked' : 'ready';
 }
 
 function collectiveId(contract) {

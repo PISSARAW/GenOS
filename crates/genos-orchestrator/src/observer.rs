@@ -69,12 +69,14 @@ impl GenosEcosystem {
             + 0.20 * budget_pressure)
             .clamp(0.0, 1.0);
 
+        let required_workers = workers.max(3).min(5);
+
         WorldState {
             tissues,
             workers,
             threat: (active_virions as f64 * 0.4).min(1.0),
             diseased,
-            uncertain: self.events.count() == 0,
+            uncertain: self.events.count() == 0 || active_virions >= 2,
             observed: self.events.count() > 0,
             budget,
             adversary: active_virions >= 2,
@@ -86,7 +88,7 @@ impl GenosEcosystem {
             budget_pressure,
             stress,
             apoptotic: self.orchestrator.conscience_state.is_apoptotic,
-            required_workers: 5,
+            required_workers,
             ..WorldState::default()
         }
     }

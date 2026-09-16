@@ -64,15 +64,24 @@ async function isGitWorkspace(source) {
 }
 
 async function provisionVfsWorkspace(source, destination, workerId) {
-  await fs.mkdir(destination, { recursive: true });
-  await fs.writeFile(path.join(destination, '.genos-vfs.json'), JSON.stringify({
-    vfs: true,
-    sourceWorkspace: source,
-    workerId,
-    createdAt: new Date().toISOString()
-  }, null, 2));
-  await trackWorkspace(workerId, destination);
-  return destination;
+  const state = { bytes: 0, limit: maxCopyBytes(), entries: 0 };
+  const ctx = { state, isExcluded: createExclusionFilter() };
+  try {
+    await fs.mkdir(destination, { recursive: true });
+    await copyTree(ctx, { source, destination, relative: '' });
+    await removeSensitiveFiles(destination);
+    await fs.writeFile(path.join(destination, '.genos-vfs.json'), JSON.stringify({
+      vfs: true,
+      sourceWorkspace: source,
+      workerId,
+      createdAt: new Date().toISOString()
+    }, null, 2));
+    await trackWorkspace(workerId, destination);
+    return destination;
+  } catch (error) {
+    await bestEffort(fs.rm(destination, { recursive: true, force: true }));
+    throw error;
+  }
 }
 
 async function assertGitTopLevelMatches(source) {

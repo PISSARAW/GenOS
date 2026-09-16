@@ -18,7 +18,7 @@ const DEFAULT_CONFIG = {
   name: 'Sekou',
   personality: "Analyste architectural proactif et gardien vigilant de l'écosystème GitHub. Précis, méthodique et prévenant.",
   role: 'Autonomous GitHub Auditor & Sentinel',
-  githubDir: '',
+  githubDir: null,
   openTerminalOnStartup: false,
   enabled: false,
   checkIntervalMinutes: 60,
@@ -37,12 +37,27 @@ function getDaemonConfig() {
   return { ...DEFAULT_CONFIG };
 }
 
+function deepMerge(target, source) {
+  const result = { ...target };
+  for (const key of Object.keys(source)) {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key]) &&
+        target[key] && typeof target[key] === 'object' && !Array.isArray(target[key])) {
+      result[key] = deepMerge(target[key], source[key]);
+    } else {
+      result[key] = source[key];
+    }
+  }
+  return result;
+}
+
 function saveDaemonConfig(updates = {}) {
   try {
     if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
     const current = getDaemonConfig();
-    const updated = { ...current, ...updates, updatedAt: new Date().toISOString() };
-    fs.writeFileSync(configFile, JSON.stringify(updated, null, 2), 'utf8');
+    const updated = deepMerge(current, { ...updates, updatedAt: new Date().toISOString() });
+    const tmpFile = configFile + '.tmp';
+    fs.writeFileSync(tmpFile, JSON.stringify(updated, null, 2), 'utf8');
+    fs.renameSync(tmpFile, configFile);
     return updated;
   } catch (err) {
     console.error(`[Daemon Config] Erreur de sauvegarde de ${configFile}: ${err.message}`);
@@ -51,18 +66,57 @@ function saveDaemonConfig(updates = {}) {
 }
 
 function getStartupDirectory() {
-  if (process.env.GENOS_STARTUP_DIR) return process.env.GENOS_STARTUP_DIR;
+  if (process.env.GENOS_STARTUP_DIR) {
+    const customDir = process.env.GENOS_STARTUP_DIR;
+    if (fs.existsSync(customDir) && fs.statSync(customDir).isDirectory()) {
+      try {
+        fs.accessSync(customDir, fs.constants.W_OK);
+        return customDir;
+      } catch {
+        console.warn(`[Daemon Config] Custom startup directory not writable: ${customDir}`);
+      }
+    } else {
+      console.warn(`[Daemon Config] Custom startup directory does not exist: ${customDir}`);
+    }
+  }
   if (process.platform === 'win32') {
-    return path.join(
-      process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'),
-      'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup'
-    );
+    const base = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+    const startupDir = path.join(base, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup');
+    if (fs.existsSync(startupDir)) {
+      try {
+        fs.accessSync(startupDir, fs.constants.W_OK);
+        return startupDir;
+      } catch {
+        console.warn(`[Daemon Config] Startup directory not writable: ${startupDir}`);
+      }
+    }
+    return startupDir;
   }
   if (process.platform === 'darwin') {
-    return path.join(os.homedir(), 'Library', 'LaunchAgents');
+    const launchAgents = path.join(os.homedir(), 'Library', 'LaunchAgents');
+    if (!fs.existsSync(launchAgents)) {
+      try { fs.mkdirSync(launchAgents, { recursive: true }); } catch {}
+    }
+    try {
+      fs.accessSync(launchAgents, fs.constants.W_OK);
+      return launchAgents;
+    } catch {
+      console.warn(`[Daemon Config] LaunchAgents directory not writable: ${launchAgents}`);
+    }
+    return launchAgents;
   }
   if (process.platform === 'linux') {
-    return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'autostart');
+    const autostart = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'autostart');
+    if (!fs.existsSync(autostart)) {
+      try { fs.mkdirSync(autostart, { recursive: true }); } catch {}
+    }
+    try {
+      fs.accessSync(autostart, fs.constants.W_OK);
+      return autostart;
+    } catch {
+      console.warn(`[Daemon Config] Autostart directory not writable: ${autostart}`);
+    }
+    return autostart;
   }
   return null;
 }
@@ -109,12 +163,14 @@ function enableAutostart(customConfig = {}) {
 
     const autostartFile = path.join(startupDir, 'GenOS_Sentinel_Daemon.bat');
     const runnerScript = path.join(repoRoot, 'backend/bin/genos-daemon.cjs');
+    const nodeExe = process.execPath.replace(/\\/g, '\\\\');
 
     // The Startup folder must launch a durable, non-interactive process.
+    // Use full path to node.exe to avoid PATH dependency.
     const batchContent = [
       '@echo off',
       `cd /d "${repoRoot}"`,
-      `start "GenOS Sentinel" /b node "${runnerScript}" --daemon --no-color`,
+      `start "GenOS Sentinel" /b "${nodeExe}" "${runnerScript}" --daemon --no-color`,
       ''
     ].join('\r\n');
 

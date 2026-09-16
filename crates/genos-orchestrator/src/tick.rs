@@ -14,7 +14,6 @@ use genos_biology::spore::SporeType;
 use genos_cell::{AgentCell, ClinicalState};
 use genos_signal::SignalingMode;
 use serde_json::json;
-use uuid::Uuid;
 /// Bilan d'un tick.
 #[derive(Clone, Debug)]
 pub struct TickReport {
@@ -28,7 +27,7 @@ pub struct TickReport {
     pub verdicts: Vec<(Uuid, Verdict)>,
 }
 
-/// Bilan d'une mission complète (`run`).
+/// Bilan d'une mission complète.
 #[derive(Clone, Debug)]
 pub struct MissionReport {
     pub ticks: usize,
@@ -44,25 +43,27 @@ pub struct MissionReport {
 }
 
 impl GenosEcosystem {
-    /// Un cycle complet : observer, décider, exécuter, apprendre.
     pub fn tick(&mut self, goal: &Goal) -> TickReport {
         // Autopoïèse : la frontière se dégrade ; rompue, l'organisme meurt.
         self.orchestrator.membrane.update();
         if !self.orchestrator.membrane.is_alive() {
             return self.halted_report("organisme mort: membrane rompue");
         }
+        if self.orchestrator.metabolism.is_starved() {
+            return self.halted_report("budget epuise: atp insuffisant");
+        }
         self.maintain_autopoiesis();
         let state = self.observe();
         if state.apoptotic {
             return self.halted_report("etat apoptotique: volition inhibee");
         }
-        // Volition endogène (hors mission) : survie pure avant toute délibération.
+        // Volition endogène avant délibération.
         self.propagate_volition(&state);
         if self.vital_reflex() {
             return self.reflex_report();
         }
         self.express_free_desire(&state);
-        // Voie sous-corticale : les instincts sont évalués avant la délibération.
+        // Instincts avant délibération.
         self.run_instincts(&state);
         self.director.set_context(context_from_state(&state));
         let decision = self.director.decide(&state, goal);
@@ -99,7 +100,7 @@ impl GenosEcosystem {
                 .record(step.concept, after > before || sim.goal_reached(goal));
             report.executed.push(step.concept);
         }
-        // Assignation de crédit + reproduction autonome (sans opérateur, hors du plan).
+        // Attribution de crédit + reproduction autonome.
         let episode_reward = if sim.goal_reached(goal) { 1.0 } else { 0.0 };
         self.director.assign_credit(&report.executed, episode_reward);
         self.attempt_autonomous_reproduction_if_alive();

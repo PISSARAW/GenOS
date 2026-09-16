@@ -198,7 +198,7 @@ impl WorldState {
             Plasmid => self.diagnosed && self.flagged > 0 && !self.skill_granted,
             Feign => self.adversary,
             Kill => self.traitor,
-            Communicate => self.uncertain,
+            Communicate => self.uncertain || self.adversary || self.stress > 0.5,
             Actuate => false,
         }
     }
