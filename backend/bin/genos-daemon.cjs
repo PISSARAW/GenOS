@@ -216,7 +216,8 @@ function printCycleReport(result, sleepReport, useColor) {
 
 async function runScheduledCycle(config, flags) {
   const cycleTimeoutMs = Number(process.env.GENOS_DAEMON_CYCLE_TIMEOUT_MS) || 300000;
-  let scheduled;
+  let scheduled = null;
+  let cycleError = null;
   try {
     scheduled = await Promise.race([
       runProactiveCycle({ autofix: !flags.isReportOnly }),
@@ -226,7 +227,7 @@ async function runScheduledCycle(config, flags) {
     ]);
   } catch (error) {
     console.error(`[${config.name}] Proactive cycle failed:`, error.message);
-    throw error;
+    cycleError = error;
   }
   let sleepReport = null;
   try {
@@ -238,10 +239,15 @@ async function runScheduledCycle(config, flags) {
     console.log(formatMaintenanceSummary(scheduled.maintenance, flags.useColor));
   }
   console.log(`[${config.name}] Scheduled cycle completed.`);
+  return { result: cycleError ? null : scheduled, sleepReport, error: cycleError };
 }
 
 function createDaemonTimer(config, flags, intervalMs) {
-  const cycleFn = () => runScheduledCycle(config, flags);
+  const cycleFn = async () => {
+    const r = await runScheduledCycle(config, flags);
+    if (r.error) throw r.error;
+    return r;
+  };
   createDaemonTimerFromService({ runScheduledCycle: cycleFn, loadDaemonState, saveDaemonState, configName: config.name, intervalMs });
 }
 
