@@ -9,6 +9,16 @@ async function planMission(ctx) {
   ctx.autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
 }
 
+function assertAutonomyPlanExecutable(ctx) {
+  const { autonomyPlan, dispatchedAgent, normalizedMission } = ctx;
+  if (dispatchedAgent.execution_mode !== 'orchestrator') return;
+  if (normalizedMission.autonomousOrchestration === false) return;
+  if (!autonomyPlan || autonomyPlan.executionStatus !== 'blocked') return;
+  const blocker = (autonomyPlan.executionBlockers || [])[0] || {};
+  const message = blocker.message || 'Autonomy plan is blocked and cannot start a runtime execution.';
+  throw Object.assign(new Error(message), { code: blocker.code || 'AUTONOMY_PLAN_BLOCKED', autonomyPlan });
+}
+
 function applyOrchestratorToolLease(dispatchedAgent, normalizedMission, autonomyPlan) {
   if (dispatchedAgent.execution_mode === 'orchestrator' && !normalizedMission.toolLease?.length) {
     normalizedMission.toolLease = orchestratorToolLease(autonomyPlan || {});
@@ -78,6 +88,7 @@ function reportOrchestratorStart(ctx) {
 
 module.exports = {
   planMission,
+  assertAutonomyPlanExecutable,
   applyExecutionPolicy,
   computeRuntimeBudget,
   createMissionExecutionRun,

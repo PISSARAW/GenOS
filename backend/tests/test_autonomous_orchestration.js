@@ -1,6 +1,7 @@
 const assert = require('assert');
 const { buildStrategyContract } = require('../src/services/strategyContractService');
 const { buildAutonomyPlan } = require('../src/services/autonomousOrchestrationService');
+const { assertAutonomyPlanExecutable } = require('../src/services/agentRuntimeAdapter/missionPlanning');
 const { encodeMission, decodeMission } = require('../src/services/runtimeProtocol');
 
 const securityContract = buildStrategyContract({
@@ -42,6 +43,16 @@ assert.strictEqual(plan.tokenPolicy.rounds.continuation.perWorkerTokens, 0);
 const blockedPlan = buildAutonomyPlan({ problem_profile: { type: 'general' }, strategy_portfolio: [], branches: [] }, { tokens: 500000 });
 assert.equal(blockedPlan.executionStatus, 'blocked');
 assert.equal(blockedPlan.executionBlockers[0].code, 'NO_REALIZABLE_PHASES');
+assert.throws(() => assertAutonomyPlanExecutable({
+  autonomyPlan: blockedPlan,
+  dispatchedAgent: { execution_mode: 'orchestrator' },
+  normalizedMission: {}
+}), /cannot execute any autonomy phase/);
+assert.doesNotThrow(() => assertAutonomyPlanExecutable({
+  autonomyPlan: blockedPlan,
+  dispatchedAgent: { execution_mode: 'worker' },
+  normalizedMission: {}
+}));
 
 const lowBudgetPlan = buildAutonomyPlan(securityContract, { tokens: 6000, minimumWorkerTokens: 8000 });
 assert.strictEqual(lowBudgetPlan.dispatchWorkers.length, 0, 'the orchestrator must retain control rather than launch unaffordable workers');
