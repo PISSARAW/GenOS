@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { MCP_TOOL_COUNT, observedTools, auditMission } = require('../src/services/orchestrationCoverageService');
+const { MCP_TOOL_COUNT, observedTools, receiptTools, auditMission } = require('../src/services/orchestrationCoverageService');
 const { MCP_TOOLS_LIST } = require('../src/db/seedTools');
 const strategyContracts = require('../src/services/strategyContractService');
 const strategyController = require('../src/controllers/strategyController');
@@ -13,6 +13,11 @@ async function run() {
     { action: 'other_action', detail: 'calling genos_diagnose now', payload_json: '' }
   ]);
   assert.deepEqual(extracted, ['genos_diagnose', 'genos_merge', 'genos_replay', 'genos_snapshot']);
+  assert.deepEqual(receiptTools([
+    { tool: 'genos_snapshot', status: 'completed' },
+    { tool: 'genos_replay', status: 'failed' },
+    { tool: 'primitives: genos_merge,genos_diagnose', status: 'completed' }
+  ]), ['genos_diagnose', 'genos_merge', 'genos_snapshot']);
   console.log('  ✅ Extraction des outils observés validée.');
 
   console.log('\n=== TEST 2: Audit complet de mission via auditMission() ===');
@@ -41,12 +46,21 @@ async function run() {
   assert.equal(initialAudit.verdict, 'required-coverage-incomplete');
   console.log(`  ✅ Audit initial vérifié (requis: ${initialAudit.orchestration.requiredTools.length}, verdict: ${initialAudit.verdict})`);
 
-  // 3. Simulation des événements de télémétrie pour tous les outils requis
+  // 3. Une mention de télémétrie seule ne prouve pas l'exécution d'un outil
+  await db.run(
+    `INSERT INTO telemetry_events (agent_id, event_type, action, detail, severity, payload_json)
+     VALUES (?, 'TOOL_USE', 'genos_snapshot', 'Mention only', 'info', '{"tool":"genos_replay"}')`,
+    testOrchId
+  );
+  const mentionOnlyAudit = await auditMission(db, testOrchId);
+  assert.equal(mentionOnlyAudit.verdict, 'required-coverage-incomplete');
+
+  // 4. Simulation des reçus structurés pour tous les outils requis
   for (const tool of initialAudit.orchestration.requiredTools) {
     await db.run(
-      `INSERT INTO telemetry_events (agent_id, event_type, action, detail, severity, payload_json)
-       VALUES (?, 'TOOL_USE', ?, ?, 'info', '{}')`,
-      testOrchId, tool, `Executed tool ${tool}`
+      `INSERT INTO orchestration_action_receipts (receipt_key, orchestrator_id, source_event_id, tool, status, completed_at)
+       VALUES (?, ?, ?, ?, 'completed', CURRENT_TIMESTAMP)`,
+      `${testOrchId}_${tool}`, testOrchId, `event_${tool}`, tool
     );
   }
   await db.run(
@@ -55,7 +69,7 @@ async function run() {
     testOrchId
   );
 
-  // 4. Nouvel audit : couverture complète atteinte
+  // 5. Nouvel audit : couverture complète atteinte
   const completedAudit = await auditMission(db, testOrchId);
   assert.equal(completedAudit.verdict, 'required-coverage-complete');
   assert.equal(completedAudit.orchestration.missingRequiredTools.length, 0);

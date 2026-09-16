@@ -4,6 +4,15 @@ const { MCP_TOOLS_LIST } = require('../db/seedTools');
 
 const MCP_TOOL_COUNT = MCP_TOOLS_LIST.length;
 
+function receiptTools(receipts) {
+  const found = new Set();
+  for (const receipt of receipts || []) {
+    if (receipt.status !== 'completed') continue;
+    for (const tool of String(receipt.tool || '').match(/genos_[a-z_]+/g) || []) found.add(tool);
+  }
+  return [...found].sort();
+}
+
 function observedTools(events) {
   const found = new Set();
   for (const event of events) {
@@ -19,7 +28,9 @@ async function auditMission(db, orchestratorId) {
   const plan = buildAutonomyPlan(contract.contract);
   const events = await db.all(`SELECT event_type, action, detail, payload_json FROM telemetry_events
     WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at`, orchestratorId, orchestratorId);
-  const used = observedTools(events);
+  const receipts = await db.all(`SELECT tool, status FROM orchestration_action_receipts
+    WHERE orchestrator_id = ? AND status = 'completed' ORDER BY created_at`, orchestratorId);
+  const used = receiptTools(receipts);
   const required = plan.requiredTools || [];
   const gateTools = [...new Set((plan.decisionGates || []).flatMap((gate) => gate.actions || []))];
   const decisions = events.filter((event) => event.event_type === 'ORCHESTRATION_DECISION').map((event) => event.action);
@@ -31,4 +42,4 @@ async function auditMission(db, orchestratorId) {
   };
 }
 
-module.exports = { MCP_TOOL_COUNT, observedTools, auditMission };
+module.exports = { MCP_TOOL_COUNT, observedTools, receiptTools, auditMission };
