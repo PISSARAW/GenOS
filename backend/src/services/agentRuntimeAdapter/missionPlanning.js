@@ -26,8 +26,19 @@ function applyOrchestratorToolLease(dispatchedAgent, normalizedMission, autonomy
   }
 }
 
+function applyRegulatedPosture(normalizedMission, arbitration) {
+  if (!arbitration) return;
+  if (arbitration.actionMode === 'probe') {
+    normalizedMission.executionPolicy.allowFileEdits = false;
+    normalizedMission.requiresEvidenceBeforePromotion = true;
+  }
+  normalizedMission.executionPolicy.actionMode = arbitration.actionMode;
+  normalizedMission.executionPolicy.humanReviewRequired = arbitration.humanReviewRequired;
+}
+
 function applyExecutionPolicy(ctx) {
   const { normalizedMission, dispatchedAgent } = ctx;
+  const arbitration = ctx.autonomyPlan?.controlRegulation?.arbitration;
   const task = normalizedMission.prompt || normalizedMission.currentTask || '';
   const silentUpdates = userProgress.silenceRequested(
     task,
@@ -40,6 +51,7 @@ function applyExecutionPolicy(ctx) {
     allowFileEdits: normalizedMission.executionPolicy?.allowFileEdits === true,
     silentUpdates
   };
+  applyRegulatedPosture(normalizedMission, arbitration);
   normalizedMission.userReporting = userProgress.reportingPolicy(task, silentUpdates);
   applyOrchestratorToolLease(dispatchedAgent, normalizedMission, ctx.autonomyPlan);
   ctx.silentUpdates = silentUpdates;

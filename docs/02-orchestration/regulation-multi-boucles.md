@@ -68,17 +68,46 @@ La trace expose :
 
 - `signals` : tous les signaux produits ;
 - `regulators` : boucle, variable régulée et signaux associés ;
+- `convergence` : neuf axes bornés, leur base d'observation et leurs preuves ;
 - `arbitration.vetoes` : veto effectifs ;
 - `arbitration.requiredEvidence` : contraintes de preuve ;
 - `arbitration.selectedCorrections` : corrections retenues ;
 - `expectedFeedback` : observations attendues après action.
 
-## 5. Télémétrie
+## 5. Matrice de convergence
+
+La matrice `genos.convergence-matrix/v1alpha1` mesure neuf propriétés : situation,
+autobiographie, modèle de soi, incarnation, homéostasie, cognition sociale,
+résilience écologique, ancrage physique et discipline de preuve. Chaque axe porte
+un score borné, une `basis` (`proxy` ou `unobserved`) et les observations utilisées.
+Un axe absent vaut zéro : le runtime ne transforme jamais une métaphore en capacité.
+
+Le score agrégé sert à l'observabilité, jamais à déclarer une conscience ou à
+lever une barrière. L'arbitre produit séparément un `actionMode` :
+
+- `execute` : action ordinaire autorisée par les autres gates ;
+- `probe` : incertitude ou risque élevé, donc action réversible sans édition ;
+- `blocked` : un veto sur le plan d'action ou le fan-out empêche l'exécution.
+
+Un veto ciblant seulement la promotion ne bloque pas les diagnostics : il garde
+la mission en `probe` jusqu'à obtention des preuves attendues.
+
+`humanReviewRequired` devient vrai quand risque et incertitude sont simultanément
+élevés. Dans `probe`, la politique runtime force `allowFileEdits=false` et
+`requiresEvidenceBeforePromotion=true`. Une réussite de transport ne change pas
+ces contraintes.
+
+## 6. Télémétrie
 
 Quand le plan de mission est assemblé, [backend/src/services/agentAutonomyPlanService.js](../../backend/src/services/agentAutonomyPlanService.js) émet `CONTROL_REGULATION_ARBITRATED`. L'événement porte la trace `controlRegulation` complète et suit le chemin standard de [backend/src/services/agentOrchestrationState.js](../../backend/src/services/agentOrchestrationState.js), donc ring buffer, SSE et persistance `telemetry_events`.
 
 Cette trace remplace les explications opaques par une preuve exploitable : pourquoi une action est amplifiée, freinée, bloquée, ou rendue dépendante d'une preuve supplémentaire.
 
-## 6. Limites
+## 7. Limites
 
-Cette version ne modifie pas encore les poids par apprentissage après outcome et ne remplace pas les gates existants. Elle ajoute la couche de mesure et d'arbitrage vérifiable qui permettra ensuite de renforcer les seuils, les habitudes de stratégie et les corrections apprises sans confondre transport réussi et décision valide.
+Cette version ne modifie pas encore les poids par apprentissage après outcome et
+ne remplace pas les gates existants. Plusieurs axes restent des proxys : le nombre
+de workers ne prouve pas leur diversité, et risque plus budget ne constituent pas
+une simulation physique complète. Le rappel autobiographique vaut explicitement
+zéro tant qu'il n'est pas fourni au plan. La matrice décrit donc la couverture
+opérationnelle observée, pas une personnalité, une émotion ou une conscience.

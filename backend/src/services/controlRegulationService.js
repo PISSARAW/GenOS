@@ -128,6 +128,55 @@ function regulatorResults(state) {
   ];
 }
 
+function axis(id, score, evidence) {
+  return { id, score: clampUnit(score), basis: score > 0 ? 'proxy' : 'unobserved', evidence };
+}
+
+function presenceScore(value, scores) {
+  return value ? scores.present : scores.absent;
+}
+
+function listLength(value) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function socialScore(workers) {
+  if (workers > 1) return 0.8;
+  if (workers === 1) return 0.5;
+  return 0.2;
+}
+
+function ecologyScore(workers) {
+  return workers > 1 ? 0.4 : 0.2;
+}
+
+function physicalScore(profile) {
+  const highRisk = profile.risk === 'high' || profile.type === 'security';
+  return highRisk ? 0.5 : 0.3;
+}
+
+function convergenceMatrix(state, plan, signals) {
+  const profile = state.profile;
+  const workers = state.selectedWorkers;
+  const selfModel = plan.selfModel || {};
+  const recall = plan.autobiographicalRecall || {};
+  const recalledEpisodes = listLength(recall.episodes);
+  const hasEvidenceGate = signals.some((signal) => signal.source === 'evidence');
+  const axes = [
+    axis('situatedness', presenceScore(Object.keys(profile).length, { present: 0.5, absent: 0.2 }), [`profile_fields=${Object.keys(profile).length}`]),
+    axis('autobiography', presenceScore(recalledEpisodes, { present: 0.8, absent: 0 }), [`recalled_episodes=${recalledEpisodes}`]),
+    axis('self_model', presenceScore(selfModel.decisionPolicy, { present: 0.8, absent: 0 }), [`self_model=${Boolean(selfModel.decisionPolicy)}`]),
+    axis('embodiment', 0.6, ['budget_sensor', 'worker_actuator', 'execution_feedback']),
+    axis('homeostasis', presenceScore(state.survival.constraints, { present: 0.8, absent: 0.3 }), state.pressures),
+    axis('social_cognition', socialScore(workers), [`selected_workers=${workers}`]),
+    axis('ecological_resilience', ecologyScore(workers), [`worker_diversity_candidates=${workers}`]),
+    axis('physical_grounding', physicalScore(profile), [`risk=${profile.risk || 'unknown'}`, `tokens=${state.tokens}`]),
+    axis('evidence_discipline', presenceScore(hasEvidenceGate, { present: 1, absent: 0 }), state.missingEvidencePhases.map((phase) => phase.key))
+  ];
+  const score = axes.reduce((total, item) => total + item.score, 0) / axes.length;
+  return { schema: 'genos.convergence-matrix/v1alpha1', score: Number(score.toFixed(3)), axes };
+}
+
 function scoreSignals(signals) {
   return signals.reduce((score, signal) => {
     if (signal.direction === 'amplify' || signal.direction === 'allow') return score + signal.strength;
@@ -136,11 +185,25 @@ function scoreSignals(signals) {
   }, 0);
 }
 
-function arbitrate(signals) {
+function actionModeFor(state, vetoes) {
+  const executionBlocked = vetoes.some((signal) => signal.target === 'action_plan' || signal.target === 'worker_fanout');
+  if (executionBlocked) return 'blocked';
+  const uncertain = clampUnit(state.profile.uncertainty) >= 0.6;
+  const highRisk = state.profile.risk === 'high' || state.profile.type === 'security';
+  return uncertain || highRisk ? 'probe' : 'execute';
+}
+
+function arbitrate(signals, state) {
   const vetoes = signals.filter((signal) => signal.direction === 'block');
   const requiredEvidence = signals.filter((signal) => signal.direction === 'require_evidence');
+  const uncertain = clampUnit(state.profile.uncertainty) >= 0.6;
+  const highRisk = state.profile.risk === 'high' || state.profile.type === 'security';
+  const actionMode = actionModeFor(state, vetoes);
   return {
     status: vetoes.length ? 'blocked' : 'regulated',
+    actionMode,
+    reversibleOnly: actionMode !== 'execute',
+    humanReviewRequired: highRisk && uncertain,
     priority: ['safety', 'evidence', 'budget', 'speed', 'exploration'],
     actionScore: Number(scoreSignals(signals).toFixed(3)),
     vetoes,
@@ -156,9 +219,10 @@ function regulateAutonomyPlan(contract, budget, plan) {
   return {
     schema: 'genos.control-regulation/v1alpha1',
     worldState,
+    convergence: convergenceMatrix(worldState, plan, signals),
     regulators,
     signals,
-    arbitration: arbitrate(signals),
+    arbitration: arbitrate(signals, worldState),
     expectedFeedback: ['exitCode', 'evidenceScore', 'replayVerified', 'durationMs', 'tokensUsed']
   };
 }

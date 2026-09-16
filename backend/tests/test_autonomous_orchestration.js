@@ -1,7 +1,7 @@
 const assert = require('assert');
 const { buildStrategyContract } = require('../src/services/strategyContractService');
 const { buildAutonomyPlan } = require('../src/services/autonomousOrchestrationService');
-const { assertAutonomyPlanExecutable } = require('../src/services/agentRuntimeAdapter/missionPlanning');
+const { assertAutonomyPlanExecutable, applyExecutionPolicy } = require('../src/services/agentRuntimeAdapter/missionPlanning');
 const { encodeMission, decodeMission } = require('../src/services/runtimeProtocol');
 
 const securityContract = buildStrategyContract({
@@ -43,7 +43,25 @@ assert.strictEqual(plan.controlRegulation.schema, 'genos.control-regulation/v1al
 assert(plan.controlRegulation.signals.some((signal) => signal.source === 'attention' && signal.target === 'diagnostics'));
 assert(plan.controlRegulation.signals.some((signal) => signal.source === 'immune' && signal.direction === 'require_evidence'));
 assert(plan.controlRegulation.arbitration.vetoes.some((signal) => signal.target === 'promotion'));
+assert.strictEqual(plan.controlRegulation.convergence.axes.length, 9);
+assert.strictEqual(plan.controlRegulation.arbitration.actionMode, 'probe');
+assert.strictEqual(plan.controlRegulation.arbitration.reversibleOnly, true);
+assert.strictEqual(plan.controlRegulation.arbitration.humanReviewRequired, true);
 assert(plan.controlRegulation.expectedFeedback.includes('replayVerified'));
+const regulatedMission = { prompt: 'Inspect the incident', executionPolicy: { allowFileEdits: true } };
+applyExecutionPolicy({ normalizedMission: regulatedMission, dispatchedAgent: { execution_mode: 'worker' }, autonomyPlan: plan });
+assert.strictEqual(regulatedMission.executionPolicy.actionMode, 'probe');
+assert.strictEqual(regulatedMission.executionPolicy.humanReviewRequired, true);
+assert.strictEqual(regulatedMission.executionPolicy.allowFileEdits, false);
+
+const probeMission = { prompt: 'Diagnose uncertainty', executionPolicy: { allowFileEdits: true } };
+applyExecutionPolicy({
+  normalizedMission: probeMission,
+  dispatchedAgent: { execution_mode: 'worker' },
+  autonomyPlan: { controlRegulation: { arbitration: { actionMode: 'probe', humanReviewRequired: true } } }
+});
+assert.strictEqual(probeMission.executionPolicy.allowFileEdits, false);
+assert.strictEqual(probeMission.requiresEvidenceBeforePromotion, true);
 
 const blockedPlan = buildAutonomyPlan({ problem_profile: { type: 'general' }, strategy_portfolio: [], branches: [] }, { tokens: 500000 });
 assert.equal(blockedPlan.executionStatus, 'blocked');
