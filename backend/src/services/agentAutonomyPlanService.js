@@ -1,4 +1,4 @@
-const { buildAutonomyPlan } = require('./autonomousOrchestrationService');
+const { buildAutonomyPlan, applySurvivalConstraints } = require('./autonomousOrchestrationService');
 const { buildAllocation } = require('./tokenAllocationService');
 const trinityService = require('./trinityService');
 const aTeamService = require('./aTeamService');
@@ -191,7 +191,10 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   const configuredWorkerShare = resolveWorkerShare(missionBudget);
   const configuredOrchestratorReserve = resolveOrchestratorReserve(missionBudget, configuredWorkerShare);
   const autonomyPlan = dispatchedAgent.execution_mode === 'orchestrator'
-    ? buildAutonomyPlan(contractRecord.contract, normalizedMission.executionBudget)
+    ? buildAutonomyPlan(contractRecord.contract, {
+      ...normalizedMission.executionBudget,
+      survivalState: normalizedMission.survivalState || normalizedMission.executionBudget?.survivalState
+    })
     : null;
   if (!autonomyPlan) {
     return autonomyPlan;
@@ -200,6 +203,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   const effectiveOrchestratorReserve = resolveEffectiveOrchestratorReserve(autonomyPlan, configuredOrchestratorReserve);
   applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
   applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
+  applySurvivalConstraints(autonomyPlan);
   await applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan });
   await applyOrganizationState({ db, agentId, autonomyPlan });
   applyCapabilityContract(autonomyPlan);

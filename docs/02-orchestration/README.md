@@ -7,6 +7,7 @@ reproduction, et les 8 modes de composition (topologies).
 
 - [orchestration.md](orchestration.md) — branches, preuve avant validation, survivants, fan-out.
 - [corps-orchestrator.md](corps-orchestrator.md) — percepts typés, WorldState, actionneurs bornés, réflexes.
+- [architecture-survie.md](architecture-survie.md) — viabilité, pressions vitales, homéostasie, dormance et reproduction validée.
 - [topologies-et-capacites.md](topologies-et-capacites.md) — contrat de capacités (8 modes + 19 organisations), leases effectifs.
 - [primitives-executables.md](primitives-executables.md) — primitives formelles, contrats, budgets, promotion.
 - [workflows-et-jobs.md](workflows-et-jobs.md) — workflows, jobs, graphes d'états, transitions.

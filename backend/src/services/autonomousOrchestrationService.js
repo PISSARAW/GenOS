@@ -2,6 +2,7 @@ const { listStrategies } = require('../strategies/strategyRegistry');
 const { buildAllocation } = require('./tokenAllocationService');
 const { ORGANIZATIONS } = require('./dynamicOrganizationService');
 const { PRIMITIVE_ALIASES, decisionGates, organizationTransitions } = require('./autonomousOrchestrationGates');
+const { evaluateSurvival } = require('./survivalModelService');
 
 function maxWorkers() {
   return Math.max(1, Number(process.env.GENOS_MAX_WORKERS || process.env.GENOS_MAX_AUTONOMOUS_WORKERS || process.env.GENOS_MAX_ACTIVE_WORKERS) || 8);
@@ -80,8 +81,10 @@ function modeFlags(contract) {
   };
 }
 
-function computeBranchCount(flags, maxWorkersFn) {
-  return flags.security || flags.complex || flags.uncertain ? maxWorkersFn() : 1;
+function computeBranchCount(flags, maxWorkersFn, survival) {
+  const requested = flags.security || flags.complex || flags.uncertain ? maxWorkersFn() : 1;
+  const limit = survival.constraints.maxWorkerFanout;
+  return limit === null ? requested : Math.min(requested, limit);
 }
 
 function buildPhases(flags, modes, branchCount) {
@@ -245,26 +248,56 @@ function buildRemediation(realizable, omittedPhases) {
   };
 }
 
+function applySurvivalConstraints(plan) {
+  const limit = plan?.survival?.constraints?.maxWorkerFanout;
+  if (limit === null || limit === undefined) return plan;
+  const requestedWorkers = plan.workers.length;
+  plan.workers = plan.workers.slice(0, limit);
+  plan.dispatchWorkers = plan.dispatchWorkers.slice(0, limit);
+  const workerShare = plan.dispatchWorkers.length ? plan.tokenPolicy.workerShare : 0;
+  plan.tokenPolicy.workerShare = workerShare;
+  plan.tokenPolicy.orchestratorReserve = plan.dispatchWorkers.length ? plan.tokenPolicy.orchestratorReserve : 1;
+  plan.tokenPolicy.rounds = buildAllocation({
+    totalTokens: plan.tokenPolicy.total,
+    workerShare,
+    workerCount: plan.dispatchWorkers.length,
+    minimumWorkerTokens: plan.tokenPolicy.minimumWorkerTokens,
+    mode: plan.tokenPolicy.allocation
+  });
+  plan.exploration = buildExploration(plan.workers, plan.dispatchWorkers);
+  plan.dispatchDecision = buildDispatchDecision(plan.workers, plan.dispatchWorkers);
+  plan.dispatchDecision.reason = plan.survival.constraints.suspend ? 'survival_dormancy' : 'homeostasis_guard';
+  plan.survival.constraints.requestedWorkerFanout = requestedWorkers;
+  plan.survival.constraints.appliedWorkerFanout = plan.dispatchWorkers.length;
+  return plan;
+}
+
 function buildAutonomyPlan(contract, budget = {}) {
   const profile = contract.problem_profile || {};
   const flags = profileFlags(profile);
   const modes = modeFlags(contract);
-  const branchCount = computeBranchCount(flags, maxWorkers);
+  const survival = evaluateSurvival({
+    tokens: budget.tokens ?? 500000,
+    uncertainty: profile.uncertainty,
+    ...(budget.survivalState || {})
+  });
+  const branchCount = computeBranchCount(flags, maxWorkers, survival);
   const phases = buildPhases(flags, modes, branchCount);
   const portfolio = contract.strategy_portfolio || [];
   const realizable = filterPhasesToPortfolio(phases, portfolio);
   const phaseValidation = validatePhasesVsPortfolio(phases, portfolio);
   const omittedPhases = omitPhases(phases, phaseValidation);
   const branches = (contract.branches || []).slice(0, branchCount);
-  const workers = buildWorkers(flags, branches);
+  const workers = buildWorkers(flags, branches).slice(0, branchCount);
   const requiredTools = [...new Set(realizable.flatMap((entry) => entry.requiredTools))];
   const tokenPlan = buildTokenPlan(budget, flags, workers);
   const executionStatus = executionStatusOf(realizable, omittedPhases);
   const dispatchWorkers = tokenPlan.dispatchWorkers;
   const remediation = buildRemediation(realizable, omittedPhases);
 
-  return {
+  const plan = {
     schema: 'genos.autonomous-orchestration/v1alpha1',
+    survival,
     registry: buildRegistry(portfolio),
     profile,
     organization: resolveOrganization(contract, flags.security),
@@ -287,6 +320,7 @@ function buildAutonomyPlan(contract, budget = {}) {
     parasitism: buildParasitism(flags),
     tokenPolicy: buildTokenPolicyView(contract, tokenPlan)
   };
+  return plan;
 }
 
 module.exports = {
@@ -294,5 +328,6 @@ module.exports = {
     return maxWorkers();
   },
   maxWorkers,
-  buildAutonomyPlan
+  buildAutonomyPlan,
+  applySurvivalConstraints
 };
