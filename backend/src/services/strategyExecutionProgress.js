@@ -117,7 +117,7 @@ async function maybeRunStepPrimitives(db, step, outcome) {
   const result = await events.executeStepPrimitives(db, outcome.agentId, {
     step,
     contractId: outcome.contractId,
-    context: stepTaskContext(outcome)
+    context: { ...stepTaskContext(outcome), contractId: outcome.contractId, stageKey: step.stage_key }
   });
   if (result && result.applicable === false) {
     return { result, guardrailReason: outcome.guardrailReason, inapplicable: true };

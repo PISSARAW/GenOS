@@ -3,6 +3,7 @@ const { MCP_TOOL_COUNT, observedTools, receiptTools, auditMission } = require('.
 const { MCP_TOOLS_LIST } = require('../src/db/seedTools');
 const strategyContracts = require('../src/services/strategyContractService');
 const strategyController = require('../src/controllers/strategyController');
+const primitiveJournal = require('../src/services/primitiveExecutionJournal');
 const { getDatabase, closeDatabase } = require('../src/db');
 
 async function run() {
@@ -54,6 +55,17 @@ async function run() {
   );
   const mentionOnlyAudit = await auditMission(db, testOrchId);
   assert.equal(mentionOnlyAudit.verdict, 'required-coverage-incomplete');
+
+  await primitiveJournal.recordPrimitiveExecution(db, {
+    orchestratorId: testOrchId,
+    agentId: testOrchId,
+    contractId: contract.id,
+    stageKey: 'snapshot_before_mutation',
+    primitive: 'snapshot',
+    result: { success: true, receipt: 'typed' }
+  });
+  const journalAudit = await auditMission(db, testOrchId);
+  assert(journalAudit.protocol.observedTools.includes('genos_snapshot'));
 
   // 4. Simulation des reçus structurés pour tous les outils requis
   for (const tool of initialAudit.orchestration.requiredTools) {

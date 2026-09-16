@@ -1,6 +1,7 @@
 const strategyContracts = require('./strategyContractService');
 const { buildAutonomyPlan } = require('./autonomousOrchestrationService');
 const { MCP_TOOLS_LIST } = require('../db/seedTools');
+const primitiveJournal = require('./primitiveExecutionJournal');
 
 const MCP_TOOL_COUNT = MCP_TOOLS_LIST.length;
 
@@ -30,7 +31,8 @@ async function auditMission(db, orchestratorId) {
     WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at`, orchestratorId, orchestratorId);
   const receipts = await db.all(`SELECT tool, status FROM orchestration_action_receipts
     WHERE orchestrator_id = ? AND status = 'completed' ORDER BY created_at`, orchestratorId);
-  const used = receiptTools(receipts);
+  const primitiveTools = await primitiveJournal.observedPrimitiveTools(db, orchestratorId);
+  const used = [...new Set([...receiptTools(receipts), ...primitiveTools])].sort();
   const required = plan.requiredTools || [];
   const gateTools = [...new Set((plan.decisionGates || []).flatMap((gate) => gate.actions || []))];
   const decisions = events.filter((event) => event.event_type === 'ORCHESTRATION_DECISION').map((event) => event.action);

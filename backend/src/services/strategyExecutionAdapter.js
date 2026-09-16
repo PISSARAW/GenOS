@@ -6,6 +6,7 @@
  */
 const telemetry = require('./telemetryObserver');
 const { getDatabase } = require('../db');
+const primitiveJournal = require('./primitiveExecutionJournal');
 
 function getAdaptationService() {
   return require('./strategyAdaptationService');
@@ -23,37 +24,18 @@ function shouldAdaptStrategy(result = {}) {
   return !NON_CAUSAL_FAILURE_CODES.has(failureCode(result));
 }
 
-/**
- * Log primitive execution for audit trail: records which primitives were actually
- * called during strategy execution, enabling post-mortem analysis and coherence
- * verification between contracted and executed primitives.
- */
-async function logPrimitiveExecutionAudit(agentId, primitives = [], context = {}) {
+async function logPrimitiveResult(primitive, result, context = {}) {
   try {
     const db = await getDatabase();
     if (!db) return;
-    const timestamp = new Date().toISOString();
-    const executionKey = `audit_${agentId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const details = {
-      executionKey,
-      agentId,
-      primitives: primitives.map((p) => String(p).toLowerCase()),
-      contextAgentId: context.agentId,
-      contextOrchestrator: context.orchestratorId,
-      timestamp
-    };
-    await db.run(
-      `INSERT OR IGNORE INTO orchestration_action_receipts (receipt_key, orchestrator_id, source_event_id, tool, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      executionKey, context.orchestratorId || agentId, `exec_${Date.now()}`, `primitives: ${primitives.join(',')}`, 'completed', timestamp
-    );
+    await primitiveJournal.recordPrimitiveExecution(db, { ...context, primitive, result, args: context.args || context });
   } catch (err) {
     telemetry.emitEvent({
       eventType: 'STRATEGY_PRIMITIVE_AUDIT_FAILED',
       action: 'AUDIT_WRITE',
       detail: `Could not persist primitive execution audit: ${err.message}`,
       severity: 'warning',
-      payload: { agentId, primitives, context }
+      payload: { primitive, context }
     });
   }
 }
@@ -93,12 +75,12 @@ class StrategyExecutionAdapter {
       orchestratorId: context.orchestratorId || context.agentId || 'system',
       agentId: context.agentId || context.orchestratorId || 'system'
     };
-    await logPrimitiveExecutionAudit(pipelineContext.agentId, primitives, pipelineContext);
     const results = [];
     let pipelineSuccess = true;
     for (const p of primitives) {
       const res = await this.executePrimitive(p, pipelineContext);
       results.push({ primitive: p, result: res });
+      await logPrimitiveResult(p, res, pipelineContext);
 
       if (res.success && p === 'brier_scores' && res.scores) {
         pipelineContext.calibrationScores = { ...(pipelineContext.calibrationScores || {}), ...res.scores };
