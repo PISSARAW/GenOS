@@ -3,6 +3,8 @@ const { configuredExecutable, LOCAL_RUNTIME_PATH, CODEX_RUNTIME_PATH } = require
 const holobionte = require('../src/services/holobionteCoordinationService');
 
 assert.equal(configuredExecutable({ localRuntime: true }), LOCAL_RUNTIME_PATH);
+assert.equal(configuredExecutable({ executor: 'genos-local-runtime' }), LOCAL_RUNTIME_PATH);
+assert.equal(configuredExecutable({ execution_mode: 'local' }), LOCAL_RUNTIME_PATH);
 assert.equal(configuredExecutable({ localRuntime: false }), CODEX_RUNTIME_PATH);
 
 const composition = holobionte.composeHolobiont('Integrate symbiotic capabilities under a host authority.');

@@ -60,9 +60,11 @@ function configuredExecutable(mission = {}) {
   if (
     candidate === 'local' ||
     candidate === 'local-codex-runtime' ||
+    candidate === 'genos-local-runtime' ||
     mission.agentType === 'Local' ||
     mission.modelTier === 'Local' ||
-    mission.localRuntime === true
+    mission.localRuntime === true ||
+    mission.execution_mode === 'local'
   ) {
     return LOCAL_RUNTIME_PATH;
   }
