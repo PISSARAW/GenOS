@@ -1,8 +1,9 @@
 const { buildAutonomyPlanForMission } = require('../agentAutonomyPlanService');
 const strategyExecution = require('../strategyExecutionService');
 const userProgress = require('../userProgressService');
-const { orchestratorToolLease } = require('../agentOrchestrationState');
+const { orchestratorToolLease, emit } = require('../agentOrchestrationState');
 const { validateBudgetCoherence } = require('../budgetCoherenceService');
+const orchestratorBody = require('../orchestratorBodyService');
 
 async function planMission(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord } = ctx;
@@ -63,6 +64,43 @@ function computeRuntimeBudget(ctx) {
   ctx.runtimeBudget = runtimeBudget;
 }
 
+function applyBodyActions(ctx) {
+  const body = ctx.orchestratorBody;
+  const reflexIds = new Set(body.reflexes.map((reflex) => reflex.id));
+  const survivalActions = new Set(body.survival?.actions || []);
+  body.actions = [];
+  if (reflexIds.has('block_destructive_actuator')) {
+    throw Object.assign(new Error('Orchestrator body froze mission startup because a destructive actuator was leased.'), { code: 'ORCHESTRATOR_BODY_FREEZE', orchestratorBody: body });
+  }
+  if (reflexIds.has('budget_conservation')) {
+    ctx.normalizedMission.autonomousOrchestration = false;
+    body.actions.push({ actuator: 'SafetyActuator', action: 'network_silence', effect: 'worker dispatch disabled before runtime supervision' });
+  }
+  if (reflexIds.has('evidence_debt_gate')) {
+    ctx.normalizedMission.requiresEvidenceBeforePromotion = true;
+    body.actions.push({ actuator: 'MemoryActuator', action: 'require_proof', effect: 'promotion requires typed evidence receipts' });
+  }
+  if (reflexIds.has('immune_challenge')) {
+    ctx.normalizedMission.requiresEvidenceBeforePromotion = true;
+    body.actions.push({ actuator: 'SafetyActuator', action: 'quarantine', effect: 'promotion blocked pending independent evidence' });
+  }
+  if (reflexIds.has('cryptobiosis_suspend')) {
+    ctx.normalizedMission.autonomousOrchestration = false;
+    ctx.normalizedMission.survivalStatus = 'dormant';
+    body.actions.push({ actuator: 'MemoryActuator', action: 'snapshot_and_suspend', effect: 'worker dispatch suspended; wake condition required' });
+  }
+  if (survivalActions.has('repair_boundary')) body.actions.push({ actuator: 'StrategyActuator', action: 'plan_causal_repair', effect: 'repair requires restore and validation evidence' });
+  if (survivalActions.has('reproduce_strategy')) body.actions.push({ actuator: 'MemoryActuator', action: 'request_strategy_distillation', effect: 'inheritance remains gated by evidence receipt' });
+}
+
+function incarnateOrchestrator(ctx) {
+  if (ctx.dispatchedAgent.execution_mode !== 'orchestrator') return;
+  ctx.orchestratorBody = orchestratorBody.buildOrchestratorBody(ctx);
+  applyBodyActions(ctx);
+  ctx.normalizedMission.orchestratorBody = ctx.orchestratorBody;
+  emit(ctx.agentId, 'ORCHESTRATOR_BODY_STATE', 'SENSE_WORLD', 'The orchestrator built a typed body state before acting.', ctx.orchestratorBody, 'info');
+}
+
 async function createMissionExecutionRun(ctx) {
   const { db, agentId, runtimeBudget, contractRecord } = ctx;
   ctx.executionRun = await strategyExecution.createExecutionRun(db, {
@@ -91,6 +129,7 @@ module.exports = {
   assertAutonomyPlanExecutable,
   applyExecutionPolicy,
   computeRuntimeBudget,
+  incarnateOrchestrator,
   createMissionExecutionRun,
   reportOrchestratorStart
 };

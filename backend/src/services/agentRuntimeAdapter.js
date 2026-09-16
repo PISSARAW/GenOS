@@ -23,7 +23,7 @@ const {
   normalizeMissionBudgets, provisionMissionCapsule, enableMissionMonitoring
 } = require('./agentRuntimeAdapter/missionBootstrap');
 const {
-  planMission, assertAutonomyPlanExecutable, applyExecutionPolicy, computeRuntimeBudget, createMissionExecutionRun, reportOrchestratorStart
+  planMission, assertAutonomyPlanExecutable, applyExecutionPolicy, computeRuntimeBudget, incarnateOrchestrator, createMissionExecutionRun, reportOrchestratorStart
 } = require('./agentRuntimeAdapter/missionPlanning');
 const { orchestrateAutonomousWorkers } = require('./agentRuntimeAdapter/missionWorkers');
 const { stopMissionChildren, stopPersistedRuntime } = require('./agentRuntimeAdapter/missionShutdown');
@@ -75,6 +75,7 @@ async function bootstrapMission(mission) {
   applyExecutionPolicy(ctx);
   enforceMissionToolLease(ctx);
   computeRuntimeBudget(ctx);
+  incarnateOrchestrator(ctx);
   await createMissionExecutionRun(ctx);
   reportOrchestratorStart(ctx);
   return ctx;
