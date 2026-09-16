@@ -1,10 +1,24 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
 const path = require('node:path');
-const source = fs.readFileSync(path.resolve(__dirname, '../src/services/agentWorkspaceLifecycleService.js'), 'utf8');
+const { createExclusionFilter, copyTree } = require('../src/services/agentWorkspaceLifecycle/copy');
 
-assert.match(source, /SENSITIVE_BASENAME/);
-assert.match(source, /removeSensitiveFiles/);
-assert.match(source, /\.env/);
-assert.match(source, /id_rsa/);
-console.log('Workspace sensitive-file exclusion checks passed.');
+async function run() {
+	const isExcluded = createExclusionFilter();
+	assert.equal(isExcluded('.env'), true);
+	assert.equal(isExcluded('id_rsa'), true);
+	assert.equal(isExcluded('genos.db-wal'), true);
+	assert.equal(isExcluded('genos.db.backup-20260916-075110'), true);
+	assert.equal(isExcluded('README.md'), false);
+
+	const missing = path.resolve(__dirname, 'missing-during-workspace-copy');
+	await assert.doesNotReject(() => copyTree(
+		{ isExcluded, state: { entries: 0, bytes: 0 } },
+		{ source: missing, destination: `${missing}-destination`, relative: 'missing.txt' }
+	));
+	console.log('Workspace sensitive-file exclusion checks passed.');
+}
+
+run().catch((error) => {
+	console.error(error);
+	process.exitCode = 1;
+});

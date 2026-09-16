@@ -31,14 +31,20 @@ async function removeSensitiveFiles(root) {
 function createExclusionFilter() {
   const excluded = new Set(['.git', '.genos', '.genos-agent-worlds', 'node_modules', 'target']);
   return (name) => {
-    return excluded.has(name) || SENSITIVE_COPY_FILES.test(name) || /\.(db-shm|db-wal|db-journal)$/i.test(name);
+    return excluded.has(name) || SENSITIVE_COPY_FILES.test(name) || /\.(db-shm|db-wal|db-journal)$/i.test(name) || /^genos\.db\.backup-/i.test(name);
   };
 }
 
 async function copyTree(ctx, node) {
   const baseName = path.basename(node.source);
   if (ctx.isExcluded(baseName) || isSensitivePath(node.relative || baseName)) return;
-  const sourceStat = await fs.lstat(node.source);
+  let sourceStat;
+  try {
+    sourceStat = await fs.lstat(node.source);
+  } catch (error) {
+    if (error.code === 'ENOENT') return;
+    throw error;
+  }
   if (sourceStat.isSymbolicLink()) return;
   if (sourceStat.isDirectory()) {
     await copyDirectory(ctx, node);
