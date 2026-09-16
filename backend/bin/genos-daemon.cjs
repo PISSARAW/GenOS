@@ -242,12 +242,21 @@ async function runScheduledCycle(config, flags) {
 }
 
 async function daemonRunNext(ctx) {
-  const { q, st, pfx, config, flags } = ctx;
+  const { q, st, pfx } = ctx;
   if (st.running || !q.length) return;
-  st.running = true; const fn = q.shift();
+  st.running = true;
+  const fn = q.shift();
   try { await fn(); st.fails = 0; }
   catch (e) { st.fails++; console.error(`${pfx}Cycle failed:`, e.message); }
-  finally { st.total++; st.running = false; if (st.total >= 3) { const r = st.fails / Math.min(st.total, 10); if (r > 0.5) console.warn(`${pfx}Health: ${(r*100).toFixed(0)}% failures.`); } daemonRunNext(ctx); }
+  finally {
+    st.total++;
+    st.running = false;
+    if (st.total >= 3) {
+      const r = st.fails / Math.min(st.total, 10);
+      if (r > 0.5) console.warn(`${pfx}Health: ${(r * 100).toFixed(0)}% failures.`);
+    }
+    daemonRunNext(ctx);
+  }
 }
 
 function daemonStop(ctx) {
