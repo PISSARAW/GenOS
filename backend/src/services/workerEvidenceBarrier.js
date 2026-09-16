@@ -83,12 +83,14 @@ function emitStarted(ctx) {
 function emitPartialTerminal(ctx) {
   const total = ctx.workers.length;
   const completed = ctx.usable.length;
-  emit(ctx.agentId, 'WORKER_EVIDENCE_BARRIER_PARTIAL', 'SYNTHESIZE_PARTIAL', partialDetailText(completed, total), {
+  const reason = ctx.partialReason || 'unknown';
+  emit(ctx.agentId, 'WORKER_EVIDENCE_BARRIER_PARTIAL', 'SYNTHESIZE_PARTIAL', partialDetailText(completed, total) + ' Reason: ' + reason, {
     workerIds: workerIdList(ctx.workers),
     workersCompleted: completed,
     workersTotal: total,
     dossierCount: completed,
-    partial: true
+    partial: true,
+    partialReason: reason
   }, 'warning', 'running');
 }
 
@@ -245,9 +247,9 @@ async function finalizePartial(ctx) {
     workers: ctx.workers,
     usable: ctx.usable,
     partial: true,
-    detail: 'Persisted and attached partial worker evidence dossiers to synthesis prompt.'
+    detail: 'Persisted and attached partial worker evidence dossiers to synthesis prompt. Reason: ' + (ctx.partialReason || 'unknown')
   });
-  emitPartialTerminal({ agentId: ctx.agentId, workers: ctx.workers, usable: ctx.usable });
+  emitPartialTerminal({ agentId: ctx.agentId, workers: ctx.workers, usable: ctx.usable, partialReason: ctx.partialReason });
   clearBarrier(ctx.agentId);
 }
 
@@ -293,6 +295,7 @@ async function runEvidenceBarrier(barrierContext) {
   });
   let partial = false;
   let degradedUsable = null;
+  let partialReason = null;
   try {
     await runPipelineStage({
       db: barrierContext.db,
@@ -306,6 +309,10 @@ async function runEvidenceBarrier(barrierContext) {
   } catch (error) {
     if (resolveTimeoutFlag(error)) {
       partial = true;
+      partialReason = 'timeout';
+      emit(barrierContext.agentId, 'WORKER_EVIDENCE_BARRIER_TIMEOUT', 'PARTIAL_BARRIER', 
+        'Worker evidence barrier timed out; proceeding with partial evidence from completed workers.', 
+        { workerIds: workerIdList(workers), timeoutMs: error.timeoutMs }, 'warning');
     } else {
       degradedUsable = await degradeOrHalt({
         agentId: barrierContext.agentId,
@@ -313,6 +320,10 @@ async function runEvidenceBarrier(barrierContext) {
         error: error
       });
       partial = true;
+      partialReason = 'error';
+      emit(barrierContext.agentId, 'WORKER_EVIDENCE_BARRIER_DEGRADED', 'PARTIAL_BARRIER', 
+        'Worker evidence barrier degraded due to error: ' + error.message + '; proceeding with partial evidence from usable dossiers.', 
+        { workerIds: workerIdList(workers), errorCode: error.code, errorMessage: error.message }, 'error');
     }
   }
   await finishBarrier({
@@ -323,7 +334,8 @@ async function runEvidenceBarrier(barrierContext) {
     contractRecord: barrierContext.contractRecord,
     workers: workers,
     partial: partial,
-    degradedUsable: degradedUsable
+    degradedUsable: degradedUsable,
+    partialReason: partialReason
   });
 }
 
@@ -353,7 +365,8 @@ async function finishPartialBarrier(ctx) {
     workers: ctx.workers,
     usable: usable,
     normalizedMission: ctx.normalizedMission,
-    autonomyPlan: ctx.autonomyPlan
+    autonomyPlan: ctx.autonomyPlan,
+    partialReason: ctx.partialReason
   });
 }
 
