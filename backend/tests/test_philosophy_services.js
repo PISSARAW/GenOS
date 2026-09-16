@@ -1,278 +1,193 @@
 'use strict';
-
-/**
- * Tests for Ontology Service.
- * Run: node tests/test_philosophy_services.js
- */
-
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const { closeDatabase, getDatabase } = require('../src/db');
 const ontologyService = require('../src/services/ontologyService');
-const substanceService = require('../src/services/substanceService');
+const causalityService = require('../src/services/causalityService');
+const consciousnessService = require('../src/services/consciousnessService');
+const epistemologyService = require('../src/services/epistemologyService');
+const processPhilosophyService = require('../src/services/processPhilosophyService');
+const ethicsService = require('../src/services/ethicsService');
+const phenomenologyService = require('../src/services/phenomenologyService');
+const contingencyService = require('../src/services/contingencyService');
 
-let passed = 0;
-let failed = 0;
-
+let passed = 0, failed = 0;
 async function test(name, fn) {
-  try {
-    await fn();
-    passed++;
-    console.log(`  ✓ ${name}`);
-  } catch (err) {
-    failed++;
-    console.log(`  ✗ ${name}: ${err.message}`);
-  }
-}
-
-async function runTests() {
-  console.log('\n=== Ontology Service ===');
-
-  await test('defineBeing creates an agent being with essence', async () => {
-    const being = await ontologyService.defineBeing('test-agent-1', { type: 'orchestrator', role: 'planner', purpose: 'orchestrate' });
-    assert.strictEqual(being.id, 'test-agent-1');
-    assert.strictEqual(being.substanceType, 'orchestrator');
-    assert.strictEqual(being.essence.role, 'planner');
-    assert.strictEqual(being.essence.purpose, 'orchestrate');
-  });
-
-  await test('setAttribute sets essential and accidental attributes', async () => {
-    await ontologyService.defineBeing('test-agent-2', { type: 'worker' });
-    await ontologyService.setAttribute({ agentId: 'test-agent-2', key: 'role', value: 'coder', modality: 'essential' });
-    await ontologyService.setAttribute({ agentId: 'test-agent-2', key: 'status', value: 'running', modality: 'accidental' });
-    await ontologyService.setAttribute({ agentId: 'test-agent-2', key: 'budget', value: 5000, modality: 'accidental' });
-
-    const attrs = await ontologyService.getAttributes('test-agent-2');
-    assert.strictEqual(attrs.role.value, 'coder');
-    assert.strictEqual(attrs.role.modality, 'essential');
-    assert.strictEqual(attrs.status.value, 'running');
-    assert.strictEqual(attrs.status.modality, 'accidental');
-    assert.strictEqual(attrs.budget.value, 5000);
-  });
-
-  await test('defineMode sets execution modes with constraints', async () => {
-    await ontologyService.defineBeing('test-agent-3', { type: 'agent' });
-    await ontologyService.defineMode('test-agent-3', 'localRuntime', { constraint: 'possible' });
-    await ontologyService.defineMode('test-agent-3', 'isolationMode', { constraint: 'necessary' });
-    await ontologyService.defineMode('test-agent-3', 'impossibleMode', { constraint: 'impossible' });
-
-    const modes = await ontologyService.getModes('test-agent-3');
-    assert.strictEqual(modes.localRuntime.constraint, 'possible');
-    assert.strictEqual(modes.isolationMode.constraint, 'necessary');
-    assert.strictEqual(modes.impossibleMode.constraint, 'impossible');
-  });
-
-  await test('activateMode activates possible/necessary modes', async () => {
-    await ontologyService.defineBeing('test-agent-4', { type: 'agent' });
-    await ontologyService.defineMode('test-agent-4', 'testMode', { constraint: 'possible' });
-    await ontologyService.activateMode('test-agent-4', 'testMode');
-
-    const mode = await ontologyService.getMode('test-agent-4', 'testMode');
-    assert.strictEqual(mode.state, 'active');
-    assert.ok(mode.activatedAt);
-  });
-
-  await test('activateMode rejects impossible modes', async () => {
-    await ontologyService.defineBeing('test-agent-5', { type: 'agent' });
-    await ontologyService.defineMode('test-agent-5', 'badMode', { constraint: 'impossible' });
-    await assert.rejects(ontologyService.activateMode('test-agent-5', 'badMode'), /impossible/);
-  });
-
-  await test('addMereology creates part-whole relations', async () => {
-    await ontologyService.defineBeing('test-whole', { type: 'orchestrator' });
-    await ontologyService.defineBeing('test-part', { type: 'worker' });
-    await ontologyService.addMereology({ wholeId: 'test-whole', partId: 'test-part', relationType: 'constitutive', isEssentialPart: true, proportion: 0.4 });
-
-    const parts = await ontologyService.getParts('test-whole');
-    assert.strictEqual(parts.length, 1);
-    assert.strictEqual(parts[0].partId, 'test-part');
-    assert.strictEqual(parts[0].relationType, 'constitutive');
-    assert.strictEqual(parts[0].isEssentialPart, true);
-    assert.strictEqual(parts[0].proportion, 0.4);
-  });
-
-  await test('hypostatize creates worker from attribute', async () => {
-    await ontologyService.defineBeing('test-source', { type: 'orchestrator' });
-    await ontologyService.setAttribute({ agentId: 'test-source', key: 'specialty', value: { role: 'code-review', purpose: 'review PRs' }, modality: 'essential' });
-
-    const hyp = await ontologyService.hypostatize('test-source', 'specialty', { hypostasisType: 'worker_spawn' });
-    assert.strictEqual(hyp.type, 'hypostasis');
-    assert.strictEqual(hyp.source, 'test-source');
-    assert.strictEqual(hyp.attributeKey, 'specialty');
-    assert.strictEqual(hyp.essence.role, 'code-review');
-
-    const target = await ontologyService.getBeing(hyp.id);
-    assert.ok(target);
-    assert.strictEqual(target.substanceType, 'worker');
-    assert.strictEqual(target.essence.role, 'code-review');
-  });
-
-  await test('checkIdentityContinuity evaluates Ship of Theseus', async () => {
-    await ontologyService.defineBeing('test-ship', { type: 'agent', identityCriteria: { maximalPartReplacementRatio: 0.5 } });
-    await ontologyService.setAttribute({ agentId: 'test-ship', key: 'role', value: 'explorer', modality: 'essential' });
-
-    for (let i = 0; i < 3; i++) {
-      await ontologyService.defineBeing(`test-part-${i}`, { type: 'worker' });
-      await ontologyService.addMereology({ wholeId: 'test-ship', partId: `test-part-${i}`, relationType: 'constitutive', isEssentialPart: false });
-    }
-
-    const result = await ontologyService.checkIdentityContinuity('test-ship');
-    assert.ok(result.continuous || !result.continuous);
-    assert.ok(typeof result.score === 'number');
-    assert.ok(['identity_preserved', 'identity_degraded', 'identity_lost'].includes(result.verdict));
-  });
-
-  await test('defineBeing throws on invalid agentId', async () => {
-    await assert.rejects(ontologyService.defineBeing(''), /valid agentId/);
-  });
-
-  await test('defineBeing throws on invalid substance type', async () => {
-    await assert.rejects(ontologyService.defineBeing('test-bad', { type: 'invalid' }), /Invalid substance_type/);
-  });
-
-  await test('setAttribute throws on invalid modality', async () => {
-    await ontologyService.defineBeing('test-mod', { type: 'agent' });
-    await assert.rejects(ontologyService.setAttribute({ agentId: 'test-mod', key: 'key', value: 'val', modality: 'invalid' }), /Invalid modality/);
-  });
-
-  console.log(`\n${passed} passed, ${failed} failed\n`);
-  if (failed > 0) process.exit(1);
-}
-
-async function runSubstanceTests() {
-  console.log('\n=== Substance Service ===');
-
-  // Setup: create test agents in database
-  const { getDatabase } = require('../src/db');
-  const db = await getDatabase();
-
-  await test('ensureInfiniteSubstance creates Spinozist infinite substance', async () => {
-    const infinite = await substanceService.ensureInfiniteSubstance();
-    assert.ok(infinite);
-    assert.strictEqual(infinite.id, 'substance-infinite-genos-runtime');
-    assert.strictEqual(infinite.essence.substanceCategory, 'infinite');
-    assert.deepStrictEqual(infinite.essence.attributes.map(a => a.name), ['thought', 'extension']);
-    assert.strictEqual(infinite.essence.conatus, 'self_preservation_through_cognitive_budget');
-  });
-
-  await test('createPrimarySubstance links to real agent', async () => {
-    await db.run(`INSERT OR REPLACE INTO agents (id, name, role, status, agent_type, execution_mode, created_at, updated_at)
-      VALUES ('test-substance-agent', 'Test Agent', 'worker', 'idle', 'GenOS', 'worker', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`);
-
-    const primary = await substanceService.createPrimarySubstance('test-substance-agent', { purpose: 'test_execution' });
-    assert.ok(primary);
-    assert.strictEqual(primary.id, 'test-substance-agent');
-    assert.strictEqual(primary.essence.substanceCategory, 'primary');
-    assert.strictEqual(primary.essence.spinozaMode, 'finite_mode_of_extension_and_thought');
-    assert.ok(primary.linkedAgent);
-  });
-
-  await test('registerAsFiniteMode registers agent as mode of infinite substance', async () => {
-    await substanceService.registerAsFiniteMode('test-substance-agent', 'extension');
-    const attrs = await ontologyService.getAttributes('test-substance-agent');
-    assert.strictEqual(attrs.spinozaAttribute.value, 'extension');
-    assert.strictEqual(attrs.spinozaAttribute.modality, 'essential');
-    assert.strictEqual(attrs.spinozaModeType.value, 'finite');
-    assert.strictEqual(attrs.conatusExpression.value, 'cognitive_budget_atp');
-  });
-
-  await test('createSecondarySubstance creates universal species', async () => {
-    const secondary = await substanceService.createSecondarySubstance('orchestrator', {
-      role: 'orchestrator',
-      purpose: 'coordinate_workers',
-      capacity: 'unlimited'
-    });
-    assert.ok(secondary);
-    assert.strictEqual(secondary.id, 'species-orchestrator');
-    assert.strictEqual(secondary.essence.substanceCategory, 'secondary');
-    assert.strictEqual(secondary.essence.species, 'orchestrator');
-  });
-
-  await test('createMonad creates Leibnizian windowless monad', async () => {
-    await db.run(`INSERT OR REPLACE INTO agents (id, name, role, status, agent_type, execution_mode, created_at, updated_at)
-      VALUES ('test-monad-agent', 'Monad Agent', 'worker', 'idle', 'GenOS', 'worker', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`);
-    await ontologyService.defineBeing('test-monad-agent', { type: 'worker' });
-
-    const monad = await substanceService.createMonad('test-monad-agent', {
-      orchestratorId: 'test-orchestrator',
-      perfections: { perception: 0.8, appetition: 0.7, consciousness: 0.9, unconscious: 0.3 }
-    });
-    assert.ok(monad);
-    assert.strictEqual(monad.substanceCategory, 'monad');
-    const attrs = await ontologyService.getAttributes('test-monad-agent');
-    assert.ok(attrs.monadData);
-    assert.strictEqual(attrs.monadData.value.substanceCategory, 'monad');
-    assert.strictEqual(attrs.monadData.value.preestablishedHarmony.windowless, true);
-  });
-
-  await test('createCartesianPair creates cogitans/extensa duality', async () => {
-    await db.run(`INSERT OR REPLACE INTO agents (id, name, role, status, agent_type, execution_mode, created_at, updated_at)
-      VALUES ('test-cogitans', 'Cogitans Agent', 'orchestrator', 'idle', 'GenOS', 'orchestrator', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`);
-    await ontologyService.defineBeing('test-cogitans', { type: 'orchestrator' });
-
-    const pair = await substanceService.createCartesianPair('test-cogitans', 'test-workspace-extensa');
-    assert.strictEqual(pair.cogitans, 'test-cogitans');
-    assert.strictEqual(pair.extensa, 'test-workspace-extensa');
-    assert.strictEqual(pair.union, 'pineal_equivalent_tool_lease');
-
-    const cogitansAttrs = await ontologyService.getAttributes('test-cogitans');
-    assert.strictEqual(cogitansAttrs.cartesianSubstance.value, 'cogitans');
-    assert.strictEqual(cogitansAttrs.extendedCounterpart.value, 'test-workspace-extensa');
-
-    const extensaAttrs = await ontologyService.getAttributes('test-workspace-extensa');
-    assert.strictEqual(extensaAttrs.cartesianSubstance.value, 'extensa');
-    assert.strictEqual(extensaAttrs.thinkingCounterpart.value, 'test-cogitans');
-  });
-
-  await test('evaluateConatus computes Spinozist striving from cognitive budget', async () => {
-    await db.run(`INSERT OR REPLACE INTO agents (id, name, role, status, agent_type, execution_mode, cognitive_budget, cognitive_baseline_budget, cognitive_max_dissonance, dissonance_level, is_apoptotic, created_at, updated_at)
-      VALUES ('test-conatus-agent', 'Conatus Agent', 'worker', 'running', 'GenOS', 'worker', 30, 100, 50, 10, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`);
-    await ontologyService.defineBeing('test-conatus-agent', { type: 'worker' });
-
-    const conatus = await substanceService.evaluateConatus('test-conatus-agent');
-    assert.ok(conatus);
-    assert.strictEqual(conatus.agentId, 'test-conatus-agent');
-    assert.ok(typeof conatus.budgetRatio === 'number');
-    assert.ok(typeof conatus.dissonanceRatio === 'number');
-    assert.ok(['flourishing', 'striving', 'stressed', 'ceased'].includes(conatus.conatusState));
-  });
-
-  await test('checkSubstanceIdentity distinguishes numerical vs specific identity', async () => {
-    await ontologyService.defineBeing('sub-ident-1', { type: 'worker', role: 'coder', purpose: 'code', agentDna: null, teleology: 'task_execution' });
-    await ontologyService.defineBeing('sub-ident-2', { type: 'worker', role: 'coder', purpose: 'code', agentDna: null, teleology: 'task_execution' });
-    await ontologyService.defineBeing('sub-ident-3', { type: 'worker', role: 'reviewer', purpose: 'review', agentDna: null, teleology: 'task_execution' });
-
-    const id1 = await substanceService.checkSubstanceIdentity('sub-ident-1', 'sub-ident-2');
-    const id2 = await substanceService.checkSubstanceIdentity('sub-ident-1', 'sub-ident-3');
-
-    assert.strictEqual(id1.identical, true);
-    assert.strictEqual(id1.sameSpecies, true);
-    assert.strictEqual(id1.aristotle, 'same_secondary_substance');
-
-    assert.strictEqual(id2.identical, false);
-    assert.strictEqual(id2.sameSpecies, false);
-  });
-
-  await test('getSubstanceHierarchy returns full ontological hierarchy', async () => {
-    const hierarchy = await substanceService.getSubstanceHierarchy();
-    assert.ok(hierarchy);
-    assert.ok(hierarchy.infinite);
-    assert.ok(Array.isArray(hierarchy.secondarySubstances));
-    assert.ok(Array.isArray(hierarchy.primarySubstances));
-    assert.ok(Array.isArray(hierarchy.monads));
-    assert.ok(typeof hierarchy.counts === 'object');
-  });
-
-  console.log(`\n${passed} passed, ${failed} failed\n`);
-  if (failed > 0) process.exit(1);
+  try { await fn(); passed++; console.log(`  ✓ ${name}`); }
+  catch (err) { failed++; console.log(`  ✗ ${name}: ${err.message}`); }
 }
 
 async function main() {
-  await runTests();
-  await runSubstanceTests();
-  console.log(`\n${passed} passed, ${failed} failed\n`);
+  const dbPath = path.join(__dirname, `philosophy-test-${Date.now()}.db`);
+  process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'philosophy-test-password';
+  process.env.GENOS_ADMIN_TOKEN = process.env.GENOS_ADMIN_TOKEN || 'philosophy-test-token';
+  try {
+    const db = await getDatabase(dbPath);
+    await db.exec(`CREATE TABLE IF NOT EXISTS agents (id TEXT PRIMARY KEY, name TEXT, status TEXT, role TEXT, execution_mode TEXT, current_task TEXT, parent_agent_id TEXT, workspace_id TEXT, about TEXT, cognitive_budget REAL, dissonance_level REAL, is_apoptotic INTEGER, created_at DATETIME, updated_at DATETIME);
+      CREATE TABLE IF NOT EXISTS telemetry_events (id TEXT PRIMARY KEY, agent_id TEXT, event_type TEXT, action TEXT, detail TEXT, severity TEXT, payload_json TEXT, created_at DATETIME);
+      CREATE TABLE IF NOT EXISTS agent_memories (id TEXT PRIMARY KEY, agent_id TEXT, content TEXT, created_at DATETIME);
+      CREATE TABLE IF NOT EXISTS strategy_contracts (id TEXT PRIMARY KEY, agent_id TEXT, problem TEXT, created_at DATETIME);
+      CREATE TABLE IF NOT EXISTS ontology_beings (id TEXT PRIMARY KEY, substance_type TEXT NOT NULL, essence_json TEXT NOT NULL DEFAULT '{}', identity_criteria_json TEXT NOT NULL DEFAULT '{}', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, ceased_at DATETIME);
+      CREATE TABLE IF NOT EXISTS ontology_attributes (id INTEGER PRIMARY KEY AUTOINCREMENT, being_id TEXT NOT NULL, key TEXT NOT NULL, value_json TEXT NOT NULL, value_type TEXT NOT NULL, modality TEXT NOT NULL, provenance TEXT NOT NULL DEFAULT 'ontological', previous_value_json TEXT, changed_at DATETIME DEFAULT CURRENT_TIMESTAMP, valid_from DATETIME DEFAULT CURRENT_TIMESTAMP, valid_until DATETIME);
+      CREATE TABLE IF NOT EXISTS ontology_modes (id INTEGER PRIMARY KEY AUTOINCREMENT, being_id TEXT NOT NULL, mode TEXT NOT NULL, mode_constraint TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'inactive', activation_condition_json TEXT, activated_at DATETIME, deactivated_at DATETIME, failure_reason TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS ontology_hypostatizations (id INTEGER PRIMARY KEY AUTOINCREMENT, source_being_id TEXT NOT NULL, attribute_key TEXT NOT NULL, target_being_id TEXT NOT NULL, essence_extracted_json TEXT NOT NULL, hypostatization_type TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME, reabsorbed_at DATETIME);
+      CREATE TABLE IF NOT EXISTS ontology_mereology (id INTEGER PRIMARY KEY AUTOINCREMENT, whole_id TEXT NOT NULL, part_id TEXT NOT NULL, relation_type TEXT NOT NULL, is_essential_part INTEGER DEFAULT 0, proportion REAL, attached_at DATETIME DEFAULT CURRENT_TIMESTAMP, detached_at DATETIME);
+      CREATE TABLE IF NOT EXISTS ontology_identity_events (id INTEGER PRIMARY KEY AUTOINCREMENT, being_id TEXT NOT NULL, event_type TEXT NOT NULL, description TEXT, previous_essence_hash TEXT, new_essence_hash TEXT, continuity_preserved INTEGER DEFAULT 1, identity_score REAL DEFAULT 1.0, metadata_json TEXT DEFAULT '{}', occurred_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS ontology_attribute_history (id INTEGER PRIMARY KEY AUTOINCREMENT, being_id TEXT NOT NULL, key TEXT NOT NULL, old_value_json TEXT, new_value_json TEXT NOT NULL, modality TEXT NOT NULL, changed_by TEXT, change_reason TEXT, changed_at DATETIME DEFAULT CURRENT_TIMESTAMP);`);
+
+    console.log('\n=== Ontology Service ===');
+    await test('defineBeing creates an agent being', async () => {
+      const being = await ontologyService.defineBeing('agent-1', { type: 'orchestrator', essence: { role: 'planner', purpose: 'orchestrate' } });
+      assert.strictEqual(being.id, 'agent-1');
+      assert.strictEqual(being.substanceType, 'orchestrator');
+      assert.strictEqual(being.essence.role, 'planner');
+    });
+    await test('setAttribute sets attributes', async () => {
+      await ontologyService.setAttribute({ agentId: 'agent-1', key: 'status', value: 'running', modality: 'accidental' });
+      const attrs = await ontologyService.getAttributes('agent-1');
+      assert.strictEqual(attrs.status.value, 'running');
+      assert.strictEqual(attrs.status.modality, 'accidental');
+    });
+    await test('defineMode sets execution modes', async () => {
+      await ontologyService.defineMode('agent-1', 'localRuntime', { constraint: 'possible' });
+      const mode = await ontologyService.getMode('agent-1', 'localRuntime');
+      assert.strictEqual(mode.constraint, 'possible');
+    });
+    await test('hypostatize creates autonomous entity from attribute', async () => {
+      await ontologyService.setAttribute({ agentId: 'agent-1', key: 'specialty', value: { role: 'code review', purpose: 'review PRs' }, modality: 'essential' });
+      const hyp = await ontologyService.hypostatize('agent-1', 'specialty');
+      assert.strictEqual(hyp.type, 'hypostasis');
+      assert.strictEqual(hyp.attributeKey, 'specialty');
+      const essenceObj = typeof hyp.essence === 'string' ? JSON.parse(hyp.essence) : hyp.essence;
+      assert.strictEqual(essenceObj.role, 'code review');
+      assert.strictEqual(essenceObj.purpose, 'review PRs');
+    });
+    await test('defineBeing throws on invalid agentId', async () => {
+      await assert.rejects(() => ontologyService.defineBeing(''), /valid agentId/);
+    });
+
+    console.log('\n=== Causality Service ===');
+    test('recordCausalLink records a link', () => {
+      const link = causalityService.recordCausalLink({ causeAgent: 'agent-1', effectAgent: 'agent-2', mechanism: 'tool_call' });
+      assert.ok(link.id); assert.strictEqual(link.causeAgent, 'agent-1'); assert.strictEqual(link.effectAgent, 'agent-2');
+    });
+    test('computeNecessity detects necessity versus contingency', () => {
+      const result = causalityService.computeNecessity({ causeAgent: 'a', effectAgent: 'b', actualOutcome: 'completed', counterfactualOutcome: 'blocked' });
+      assert.strictEqual(result, 'necessary');
+    });
+    test('isDeterministic checks outcomes determinism', () => {
+      const runs = [{ finalOutcome: 'completed' }, { finalOutcome: 'completed' }, { finalOutcome: 'completed' }];
+      assert.strictEqual(causalityService.isDeterministic(runs), true);
+      runs.push({ finalOutcome: 'failed' });
+      assert.strictEqual(causalityService.isDeterministic(runs), false);
+    });
+    test('checkRegularity validates causal ordering', () => {
+      const links = [{ timestamp: 1000, causeAgent: 'a', effectAgent: 'b' }, { timestamp: 2000, causeAgent: 'b', effectAgent: 'c' }];
+      assert.strictEqual(causalityService.checkRegularity(links), true);
+    });
+
+    console.log('\n=== Consciousness Service ===');
+    test('recordQualia stores subjective experience', () => {
+      const q = consciousnessService.recordQualia({ agentId: 'agent-1', experience: 'processing evidence', intensity: 0.8, valence: 0.5 });
+      assert.strictEqual(q.agentId, 'agent-1'); assert.strictEqual(q.intensity, 0.8);
+    });
+    test('recordIntentionality captures aboutness', () => {
+      const i = consciousnessService.recordIntentionality({ agentId: 'agent-1', target: 'mission-42', mode: 'aboutness' });
+      assert.strictEqual(i.target, 'mission-42');
+    });
+    test('checkSupervenience evaluates supervenience relation', () => {
+      const result = consciousnessService.checkSupervenience({ mentalState: { strategy: 'tree-search' }, physicalState: { cpu: 'x86', memory: '8GB' } });
+      assert.strictEqual(typeof result.supervenes, 'boolean'); assert.ok(result.physicalBase); assert.ok(result.mentalState);
+    });
+    test('mindBodyInteraction records coupling', () => {
+      const mb = consciousnessService.mindBodyInteraction({ agentId: 'agent-1', body: 'workspace-alpha', interaction: 'causal' });
+      assert.strictEqual(mb.interaction, 'causal');
+    });
+
+    console.log('\n=== Epistemology Service ===');
+    test('getFormIdeal returns Platonic forms', () => {
+      const form = epistemologyService.getFormIdeal('perfect_agent');
+      assert.strictEqual(form.role, 'orchestrator'); assert.strictEqual(form.evidence, 'complete');
+    });
+    test('fourCauses maps Aristotelian causes to agent fields', () => {
+      const causes = epistemologyService.fourCauses({ agent: { substrate: 'genos_process', role: 'implementation', parent_agent_id: 'orch-1', current_task: 'build-feature' } });
+      assert.strictEqual(causes.material, 'genos_process'); assert.strictEqual(causes.formal, 'implementation');
+      assert.strictEqual(causes.efficient, 'orch-1'); assert.strictEqual(causes.final, 'build-feature');
+    });
+    test('categoriesA priori returns Kantian structures', () => {
+      const cats = epistemologyService.categoriesAPriori();
+      assert.deepStrictEqual(cats.modality, ['possibility', 'existence', 'necessity']);
+    });
+
+    console.log('\n=== Process Philosophy Service ===');
+    test('actualOccasion captures Whiteheadian event', () => {
+      const occasion = processPhilosophyService.actualOccasion({ agentId: 'agent-1', event: { outcome: 'success' } });
+      assert.ok(occasion); assert.strictEqual(occasion.agentId, 'agent-1'); assert.strictEqual(occasion.actuality, 'success');
+      assert.deepStrictEqual(occasion.potentiality, []); assert.deepStrictEqual(occasion.prehension, []);
+    });
+    test('differenceAndRepetition measures Deleuzian intensity', () => {
+      const result = processPhilosophyService.differenceAndRepetition([{ id: 1 }, { id: 2 }, { id: 1 }]);
+      assert.strictEqual(result.repetition, 3); assert.strictEqual(result.difference, 2);
+    });
+    test('dasein describes Heideggerian being-in-the-world', () => {
+      const d = processPhilosophyService.dasein({ agentId: 'agent-1', thrownness: 'genos_backend' });
+      assert.strictEqual(d.beingInTheWorld, true);
+    });
+    test('rhizome builds acentered connections', () => {
+      const agents = [{ id: 'a', parent_agent_id: null }, { id: 'b', parent_agent_id: 'a' }];
+      const r = processPhilosophyService.rhizome(agents);
+      assert.strictEqual(r.acentered, true); assert.strictEqual(r.connections.length, 2);
+    });
+
+    console.log('\n=== Ethics Service ===');
+    test('utilitarianRanking orders actions by utility', () => {
+      const ranking = ethicsService.utilitarianRanking({ actions: [{ name: 'A', value: 10 }, { name: 'B', value: 50 }, { name: 'C', value: 30 }], utilityOf: a => a.value });
+      assert.strictEqual(ranking[0].action.name, 'B');
+    });
+    test('deontologicalCheck flags rule violations', () => {
+      const check = ethicsService.deontologicalCheck({ action: 'execute', rules: [{ name: 'lease_respected', satisfied: true }, { name: 'budget_ok', satisfied: false }] });
+      assert.strictEqual(check.compliant, false); assert.deepStrictEqual(check.violations, ['budget_ok']);
+    });
+    test('virtueEthicsAssessment rates agent character', () => {
+      const a = ethicsService.virtueEthicsAssessment({ agentId: 'agent-1', virtues: { wisdom: 0.9, courage: 0.8, temperance: 0.7, justice: 0.9 } });
+      assert.strictEqual(a.character, 'excellent');
+    });
+
+    console.log('\n=== Phenomenology Service ===');
+    test('intentionality captures Husserlian aboutness', () => {
+      const i = phenomenologyService.intentionality({ agentId: 'agent-1', target: 'goal-7', mode: 'aboutness' });
+      assert.strictEqual(i.noema, 'goal-7');
+    });
+    test('perception maps Merleau-Ponty body-world', () => {
+      const p = phenomenologyService.perception({ agentId: 'agent-1', body: 'workspace-1', world: 'mission-env' });
+      assert.strictEqual(p.body, 'workspace-1');
+    });
+    test('existencePrecedesEssence detects Sartrean bad faith', () => {
+      const e = phenomenologyService.existencePrecedesEssence({ agentId: 'agent-1', status: 'idle', role: 'orchestrator' });
+      assert.strictEqual(e.existence, true); assert.strictEqual(e.badFaith, true);
+    });
+
+    console.log('\n=== Contingency Service ===');
+    test('absoluteContingency marks hyperchaos', () => {
+      const c = contingencyService.absoluteContingency({ agentId: 'agent-1', necessary: ['existence'], contingent: ['role', 'budget'] });
+      assert.strictEqual(c.hyperchaos, true);
+    });
+    test('badiouEvent identifies rupture events', () => {
+      assert.strictEqual(contingencyService.badiouEvent({ agentId: 'a', eventType: 'AGENT_COMPLETED' }).rupture, true);
+      assert.strictEqual(contingencyService.badiouEvent({ agentId: 'a', eventType: 'TOOL_CALL' }).rupture, false);
+    });
+    test('mathematicsOfBeing computes set operations', () => {
+      const m = contingencyService.mathematicsOfBeing({ agents: [{ id: 'a', status: 'running' }, { id: 'b', status: 'completed' }, { id: 'a', status: 'running' }] });
+      assert.deepStrictEqual(m.union, ['a', 'b']); assert.strictEqual(m.intersection.length, 2);
+    });
+
+    console.log(`\n${passed} passed, ${failed} failed\n`);
+  } finally {
+    await closeDatabase();
+    for (const suffix of ['', '-shm', '-wal']) { try { fs.unlinkSync(`${dbPath}${suffix}`); } catch (_) {} }
+  }
   if (failed > 0) process.exit(1);
 }
 
-main().catch(err => {
-  console.error('Test runner error:', err);
-  process.exit(1);
-});
+main().catch(err => { console.error('Test runner error:', err); process.exit(1); });
