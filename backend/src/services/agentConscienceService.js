@@ -7,7 +7,8 @@
  * - Formatage introspectif pour sensibiliser l'agent à son état cognitif
  */
 
-const DEFAULT_MAX_DISSONANCE = Math.max(1.0, Number(process.env.GENOS_MAX_DISSONANCE) || 50.0);
+const config = require('../config/orchestratorConfig');
+const DEFAULT_MAX_DISSONANCE = config.maxDissonance();
 const DEFAULT_BASELINE_BUDGET = Math.max(1.0, Number(process.env.GENOS_BASELINE_BUDGET) || 100.0);
 const DEFAULT_EUREKA_WINDOW_MS = 60 * 1000;
 const DEFAULT_EUREKA_LIMIT = 3;

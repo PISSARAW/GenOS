@@ -1,8 +1,8 @@
+const config = require('../config/orchestratorConfig');
 const DEFAULT_MAX_MEMBERS = 3;
 
 function maxMembers() {
-  const configured = Number(process.env.GENOS_MAX_ATEAM_MEMBERS || process.env.GENOS_MAX_AUTONOMOUS_WORKERS || process.env.GENOS_MAX_ACTIVE_WORKERS);
-  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : DEFAULT_MAX_MEMBERS;
+  return config.maxAteamMembers();
 }
 // `priority` breaks ties when several domains share the same signal score.
 // Lower value wins. It is explicit so that reordering this array can never

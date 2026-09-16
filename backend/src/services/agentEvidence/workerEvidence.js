@@ -2,6 +2,7 @@
  * Per-round worker evidence dossiers: recording, retention, and the synthesis
  * prompt the orchestrator consumes after its delegated workers go terminal.
  */
+const config = require('../../config/orchestratorConfig');
 const {
   activeWorkerBarriers,
   workerEvidenceRounds,
@@ -9,7 +10,7 @@ const {
 } = require('../agentOrchestrationState');
 const { FAILURE_EVENT_TYPES, extractEvidenceReport } = require('./evidenceHelpers');
 
-const MAX_WORKER_DOSSIER_EVENTS = Math.max(4, Number(process.env.GENOS_MAX_WORKER_DOSSIER_EVENTS) || 32);
+const MAX_WORKER_DOSSIER_EVENTS = config.maxWorkerDossierEvents();
 const APOPTOSIS_EVENT_TYPES = ['APOPTOSIS_TRIGGERED', 'CELLULAR_APOPTOSIS'];
 
 function resolveWorkerFailure(event) {
@@ -97,7 +98,7 @@ function clusterWorkerDossiers(dossiers, clusterSize = 10) {
 }
 
 function buildWorkerSynthesisPrompt(originalPrompt, dossiers) {
-  const isLargeFleet = dossiers.length > (Number(process.env.GENOS_MAX_STRICT_DOSSIER_INFLUENCE) || 12);
+  const isLargeFleet = dossiers.length > config.maxStrictDossierInfluence();
   const serializedDossiers = isLargeFleet
     ? JSON.stringify(clusterWorkerDossiers(dossiers, 10))
     : JSON.stringify(dossiers);

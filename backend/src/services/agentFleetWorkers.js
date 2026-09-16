@@ -4,7 +4,6 @@ const path = require('path');
 const circuitBreaker = require('./circuitBreaker');
 const workerGarage = require('./workerGarageService');
 const { localWorkerRoute } = require('./agentModelRoutingService');
-const { autonomousWorkerId } = require('./agentRoundService');
 const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
 const { emit, workerToolLeaseForCapabilities } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');
@@ -12,6 +11,7 @@ const agentConscience = require('./agentConscienceService');
 const agentEvolution = require('./agentEvolutionService');
 const agentDnaStore = require('./agentDnaStore');
 const { withTransaction } = require('../db');
+const config = require('../config/orchestratorConfig');
 
 async function applyAgentDna(ctx) {
   const { db, parent, assignment, mission, evolution } = ctx;
@@ -61,8 +61,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
 }
 
 function validateAssignments(assignments) {
-  const configuredMax = Number(process.env.GENOS_MAX_AUTONOMOUS_WORKERS || process.env.GENOS_MAX_ACTIVE_WORKERS);
-  const maximum = Number.isFinite(configuredMax) && configuredMax > 0 ? Math.floor(configuredMax) : workerGarage.maxActiveWorkers();
+  const maximum = workerGarage.maxActiveWorkers();
   if (!assignments.length) return;
   if (assignments.length > maximum) {
     throw Object.assign(new Error(`Autonomous worker fan-out exceeds the ${maximum}-worker limit.`), { code: 'WORKER_FANOUT_LIMIT' });
@@ -142,7 +141,7 @@ function createWorkerWorkspace(workerContext, id) {
   const { assignment, mission, sourceWorkspace } = workerContext;
   const isVfsWorker = !/coder|developer|implementation/i.test(assignment.role || '');
   const assignments = workerContext.assignments || [];
-  const allowEdits = mission.executionPolicy?.allowFileEdits === true || /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || ''));
+  const allowEdits = mission.executionPolicy?.allowFileEdits === true || config.allowFileEdits();
   return createIsolatedWorkspace(sourceWorkspace, id, {
     capsuleRoot: mission.capsuleRoot,
     vfs: !allowEdits || mission.vfsWorkspace === true || (assignments.length > 12 && isVfsWorker)
@@ -199,7 +198,7 @@ function inheritedWorkerEngine(mission) {
 
 function workerRuntime(details) {
   const { parent, route, workspaceRoot, toolLease, assignments, mission } = details;
-  const inProcessWorker = process.env.GENOS_IN_PROCESS_WORKERS === '1' || (Array.isArray(assignments) && assignments.length > 12);
+  const inProcessWorker = config.inProcessWorkers() || (Array.isArray(assignments) && assignments.length > 12);
   return { workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, toolLease, workspaceIsolation: parent.isolation_mode, ...inheritedWorkerEngine(mission) };
 }
 

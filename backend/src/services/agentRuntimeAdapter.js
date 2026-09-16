@@ -32,6 +32,7 @@ const {
 } = require('./agentRuntimeAdapter/missionReconcile');
 const leasePolicy = require('./toolLeasePolicy');
 const agentAuthority = require('./agentAuthorityService');
+const config = require('../config/orchestratorConfig');
 
 async function attachMissionMemoryContext(normalizedMission, agentId) {
   const task = normalizedMission.prompt || normalizedMission.currentTask || '';
@@ -56,7 +57,7 @@ async function attachMissionMemoryContext(normalizedMission, agentId) {
 
 function isInProcessWorker(dispatchedAgent, normalizedMission, executable) {
   return (dispatchedAgent.execution_mode === 'worker' && (
-    process.env.GENOS_IN_PROCESS_WORKERS === '1' ||
+    config.inProcessWorkers() ||
     normalizedMission.inProcessWorker === true
   )) || (normalizedMission.localModel && (normalizedMission.localRuntime === true || isLocalRuntime(executable)));
 }

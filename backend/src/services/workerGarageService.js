@@ -1,14 +1,11 @@
-const DEFAULT_MAX_ACTIVE_WORKERS = 3;
-const MAX_ACTIVE_WORKERS = DEFAULT_MAX_ACTIVE_WORKERS;
+const config = require('../config/orchestratorConfig');
 
 function maxActiveWorkers() {
-  const configured = Number(process.env.GENOS_MAX_ACTIVE_WORKERS);
-  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : DEFAULT_MAX_ACTIVE_WORKERS;
+  return config.maxActiveWorkers();
 }
 
 function projectCapacity() {
-  const configured = Number(process.env.GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT);
-  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : Math.max(12, maxActiveWorkers());
+  return config.maxActiveWorkersPerProject();
 }
 
 const MISSION_STOP_WORDS = new Set([

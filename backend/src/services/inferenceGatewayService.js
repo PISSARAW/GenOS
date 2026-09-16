@@ -20,6 +20,7 @@
  * - GENOS_INFERENCE_QUEUE_CAPACITY   max queued tasks before rejection (default 256)
  * - GENOS_INFERENCE_QUEUE_TIMEOUT_MS max time a task may wait in queue (default 120000)
  */
+const config = require('../config/orchestratorConfig');
 const telemetry = require('./telemetryObserver');
 
 const LOCAL_PROVIDERS = new Set(['ollama', 'lmstudio', 'vllm']);
@@ -49,8 +50,7 @@ const state = {
 };
 
 function activeWorkerScale() {
-  const workers = Number(process.env.GENOS_MAX_ACTIVE_WORKERS || process.env.GENOS_MAX_AUTONOMOUS_WORKERS || process.env.GENOS_MAX_WORKERS);
-  return Number.isFinite(workers) && workers > 0 ? Math.floor(workers) : 3;
+  return config.maxActiveWorkers() || 3;
 }
 
 function limit() {

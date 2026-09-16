@@ -1,3 +1,5 @@
+const config = require('../../config/orchestratorConfig');
+
 /**
  * Dossier validation: worker coverage, report coherence, and synthesis
  * influence citation integrity.
@@ -111,7 +113,7 @@ function readInfluenceEntries(report) {
 }
 
 function isLargeDossierFleet(workerIds, options) {
-  const strictThreshold = Number(process.env.GENOS_MAX_STRICT_DOSSIER_INFLUENCE) || 12;
+  const strictThreshold = config.maxStrictDossierInfluence();
   return workerIds.length > strictThreshold || options.allowSampledInfluence === true;
 }
 
