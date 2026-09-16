@@ -29,7 +29,7 @@ function getDaemonConfig() {
   try {
     if (fs.existsSync(configFile)) {
       const parsed = JSON.parse(fs.readFileSync(configFile, 'utf8'));
-      return { ...DEFAULT_CONFIG, ...parsed };
+      return deepMerge(DEFAULT_CONFIG, parsed);
     }
   } catch (err) {
     console.warn(`[Daemon Config] Impossible de lire ${configFile}, utilisation des valeurs par défaut: ${err.message}`);

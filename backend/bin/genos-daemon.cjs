@@ -111,6 +111,7 @@ function resolveInteractive(flags) {
 function resolveFlags(args) {
   const flags = {
     args,
+    isVersion: hasAnyFlag(args, ['--version', '-v']),
     isHelp: hasAnyFlag(args, ['--help', '-h']),
     isStatus: hasAnyFlag(args, ['--status']),
     isEnable: hasAnyFlag(args, ['--enable-autostart', '--enable']),
@@ -280,6 +281,10 @@ function createDaemonTimer(config, flags, intervalMs) {
   process.once('SIGTERM', stop); process.once('SIGINT', stop); process.once('uncaughtException', e => { console.error(`${pfx}Uncaught:`, e.message); process.exit(1); });
 }
 
+function printVersion() {
+  console.log('GenOS Sentinel Daemon v1.0.0');
+}
+
 function runDaemon(flags, config) {
   const rawInterval = Number(config.checkIntervalMinutes);
   const intervalMinutes = Number.isFinite(rawInterval) && rawInterval > 0
@@ -321,6 +326,7 @@ async function waitInteractive(config) {
 async function main() {
   const args = process.argv.slice(2);
   const flags = resolveFlags(args);
+  if (flags.isVersion) { printVersion(); return; }
   if (flags.isHelp) {
     console.log(cliHelp.renderBinaryHelp('genos-daemon.cjs'));
     return;

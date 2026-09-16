@@ -14,10 +14,13 @@ const MR_DISABLED = /^(1|true)$/i.test(process.env.GENOS_DAEMON_DISABLE_PR || ''
 const MODEL_TIMEOUT_MS = Number(process.env.GENOS_DAEMON_MODEL_TIMEOUT_MS) || 90000;
 const MAX_PROMPT_CHARS = Number(process.env.GENOS_DAEMON_MAX_PROMPT_CHARS) || 80000;
 
-function acquireLock() { try { fs.writeFileSync(lockFile, process.pid.toString(), { flag: 'wx' }); return true; } catch { return false; } }
+function acquireLock() {
+  try { fs.writeFileSync(lockFile, process.pid.toString(), { flag: 'wx' }); return true; } catch { return false; }
+}
 function releaseLock() { try { fs.unlinkSync(lockFile); } catch {} }
+function tryCleanupOrphanLock() { try { if (fs.existsSync(lockFile)) { const pid = Number(fs.readFileSync(lockFile, 'utf8')); if (!pid || !Number.isFinite(pid) || (process.platform !== 'win32' && pid !== process.pid && !process.kill(pid, 0))) { try { fs.unlinkSync(lockFile); } catch {} } } } catch {} }
 
-function loadState() { if (!acquireLock()) return {}; try { return fs.existsSync(stateFile) ? JSON.parse(fs.readFileSync(stateFile, 'utf8')) : {}; } catch { return {}; } finally { releaseLock(); } }
+function loadState() { try { tryCleanupOrphanLock(); } catch {} if (!acquireLock()) return {}; try { return fs.existsSync(stateFile) ? JSON.parse(fs.readFileSync(stateFile, 'utf8')) : {}; } catch { return {}; } finally { releaseLock(); } }
 
 function saveState(state) { if (!acquireLock()) return; try { fs.mkdirSync(path.dirname(stateFile), { recursive: true }); const tmp = stateFile + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(state, null, 2), 'utf8'); fs.renameSync(tmp, stateFile); } finally { releaseLock(); } }
 
