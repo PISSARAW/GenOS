@@ -1,4 +1,4 @@
-const config = require('../../../config/orchestratorConfig');
+const config = require('../../config/orchestratorConfig');
 
 function maxWorkers() {
   return config.maxWorkers();
