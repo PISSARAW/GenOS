@@ -15,6 +15,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [instinct.md](instinct.md) — circuits innés, Patrons d'Action Fixes, modulation hormonale.
 - [agent-dna-runtime.md](agent-dna-runtime.md) — format binaire AgentDNA et opérations.
 - [speciation-graft-autonome.md](speciation-graft-autonome.md) — flux autonome complet : identification du besoin → speciate/graft → évaluation → promotion → déploiement.
+- [physique-computationnelle.md](physique-computationnelle.md) — l'inerte : inertie, friction, entropie, seuils, matériaux, gating de décision.
 
 ## Mémoire, collectif et évolution
 
@@ -25,7 +26,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 
 ## Familles spécialisées
 
-- [biomimetisme/](biomimetisme/README.md) — foraging web, spécialisations cellulaires, super-sens animaux.
+- [biomimetisme/](biomimetisme/README.md) — foraging web, spécialisations cellulaires, super-sens animaux, primitives de controle animal.
 - [nosologie/](nosologie/README.md) — pathologies du runtime, vue d'ensemble et 9 familles.
 
 ## Voir aussi

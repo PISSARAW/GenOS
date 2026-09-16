@@ -22,6 +22,7 @@ pub mod orchestrator;
 pub mod organism;
 pub mod organization;
 pub mod phylogeny;
+pub mod physics;
 pub mod plasmids;
 pub mod planner;
 pub mod recruitment;
@@ -54,6 +55,10 @@ pub use learning::{LinearBandit, Learner, context_from_state};
 pub use orchestrator::BiomimeticOrchestrator;
 pub use organism::{OrganismConfig, OrganismReport};
 pub use organization::{Organization, Superorganism, catalog, select_organization, select_superorganism};
+pub use physics::{
+    ActionProfile, DecisionContext, Material, PhysicalState, Regime, UtilityInputs, action_profile,
+    classify_material, determine_regime, inertia_threshold, utility_score,
+};
 pub use plasmids::{PlasmidBank, Skill};
 pub use trace::{Outcome, ReplayReport, Verdict};
 pub use tick::{MissionReport, TickReport};

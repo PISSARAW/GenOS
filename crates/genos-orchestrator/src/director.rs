@@ -343,7 +343,7 @@ impl Director {
     }
 
     /// Estime la qualité d'un plan en le rejouant sur une copie de l'état.
-    fn estimate(&self, steps: &[Step], initial: &WorldState, goal: &Goal) -> f64 {
+    pub(crate) fn estimate(&self, steps: &[Step], initial: &WorldState, goal: &Goal) -> f64 {
         let mut state = initial.clone();
         for step in steps {
             state.apply(step.concept);
