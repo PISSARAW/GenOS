@@ -8,6 +8,7 @@ const trinityDeployService = require('../services/deploy/trinityDeploy.service')
 const telemetry = require('../services/telemetryObserver');
 const runtimeAdapter = require('../services/agentRuntimeAdapter');
 const workerGarage = require('../services/workerGarageService');
+const circuitBreaker = require('../services/circuitBreaker');
 const strategyContracts = require('../services/strategyContractService');
 const agentAuthority = require('../services/agentAuthorityService');
 const AgentRepository = require('../repositories/agent.repository');
@@ -251,6 +252,12 @@ async function dispatchWorker(req, res) {
   try {
     const orchestratorId = req.params.id;
     const workerId = req.params.workerId || req.body.workerId;
+    
+    const circuit = circuitBreaker.canExecute('worker_deployment', 'operator');
+    if (!circuit.allowed) {
+      return res.status(503).json({ error: { code: circuit.reason, message: circuit.message } });
+    }
+    
     const scope = workspaceScope(req, 'ww');
     const scopedPair = await db.get(`SELECT worker.id, worker.name, worker.role, worker.model_tier, worker.agent_type, worker.isolation_mode, ww.id AS workspace_id, ww.path AS workspace_root
       FROM agents worker
