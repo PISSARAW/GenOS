@@ -1,6 +1,7 @@
 const ROLE_BY_FAMILY = {
   direct: 'execution', diagnosis: 'diagnosis', exploration: 'exploration',
-  temporal: 'replay', collective: 'coordination', memory: 'knowledge', resilience: 'governance'
+  temporal: 'replay', collective: 'coordination', memory: 'knowledge', resilience: 'governance',
+  animal_control: 'control'
 };
 
 function defineStrategy(family, row) {

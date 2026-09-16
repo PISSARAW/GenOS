@@ -229,6 +229,8 @@ function completionGuardrail(contract, payload, agentId) {
   const report = data.evidenceReport || data.report;
   const promotionPolicy = require('./strategyPromotionPolicyService');
   const evaluation = promotionPolicy.evaluatePromotionGate(contract, {
+    replayVerified: data.replayVerified,
+    diffAndReplayPassed: data.diffAndReplayPassed,
     replayReceipt: data.replayReceipt,
     independentVerification: data.independentVerification,
     agentId,
@@ -291,7 +293,7 @@ function pipelineTurns(turns) {
 
 async function runPromotionPipeline(promotion, primitives) {
   const adapter = require('./strategyExecutionAdapter');
-  const list = primitives.length ? primitives : PROMOTION_FALLBACK_PRIMITIVES;
+  const list = Array.isArray(primitives) ? primitives : PROMOTION_FALLBACK_PRIMITIVES;
   try {
     return await adapter.executePipelineWithFeedback(list, {
       agentId: promotion.agentId,

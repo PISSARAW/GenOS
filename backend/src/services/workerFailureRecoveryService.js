@@ -1,21 +1,23 @@
+const config = require('../config/orchestratorConfig');
+
 const MAX_RECOVERY_ATTEMPTS = 3;
 
 function compact(value, max = 4000) {
   const text = String(value || '').trim();
-  return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
+  return text.length <= max ? text : text.slice(0, max - 1) + '...';
 }
 
 function classifyFailure(event = {}) {
   const payload = event.payload || {};
   const declared = String(payload.failure?.category || payload.category || '').toLowerCase();
   if (declared) return declared;
-  const text = `${event.detail || ''} ${payload.failure?.reason || ''} ${payload.stderr || ''}`.toLowerCase();
-  if (/permission|forbidden|policy|not allowed|unauthori/.test(text)) return 'capability_mismatch';
-  if (/test failure|failed test|assertion|invariant|regression|exit code [1-9]|npm test|cargo test|pytest/.test(text)) return 'test_failure';
-  if (/\b(?:mutated output|mutation|apoptosis|chaperone repair|malformed json)\b/.test(text)) return 'mutated_output';
-  if (/contradict|counterexample|falsif|invalid hypothesis|wrong assumption/.test(text)) return 'falsified_hypothesis';
-  if (/timeout|temporar|rate limit|connection|unavailable|econn|deadlock/.test(text)) return 'transient_runtime';
-  if (/missing (tool|dependency)|unsupported|cannot execute|command not found/.test(text)) return 'capability_mismatch';
+  const text = (event.detail || '') + ' ' + (payload.failure?.reason || '') + ' ' + (payload.stderr || '');
+  if (/permission|forbidden|policy|not allowed|unauthori/.test(text.toLowerCase())) return 'capability_mismatch';
+  if (/test failure|failed test|assertion|invariant|regression|exit code [1-9]|npm test|cargo test|pytest/.test(text.toLowerCase())) return 'test_failure';
+  if (/\b(?:mutated output|mutation|apoptosis|chaperone repair|malformed json)\b/.test(text.toLowerCase())) return 'mutated_output';
+  if (/contradict|counterexample|falsif|invalid hypothesis|wrong assumption/.test(text.toLowerCase())) return 'falsified_hypothesis';
+  if (/timeout|temporar|rate limit|connection|unavailable|econn|deadlock/.test(text.toLowerCase())) return 'transient_runtime';
+  if (/missing (tool|dependency)|unsupported|cannot execute|command not found/.test(text.toLowerCase())) return 'capability_mismatch';
   return event.eventType === 'WORKER_TASK_FAILED' ? 'unresolved_task' : 'runtime_failure';
 }
 
@@ -93,86 +95,187 @@ function failureReport(event = {}, mission = {}) {
   };
 }
 
-function decideRecovery(report) {
-  const isOperationalFailure = ['capability_mismatch', 'policy_block', 'missing_capability', 'transient_runtime', 'mutated_output'].includes(report.category);
-  if (report.noAnswerProof && !isOperationalFailure) {
+function isOperationalFailure(category) {
+  return ['capability_mismatch', 'policy_block', 'missing_capability', 'transient_runtime', 'mutated_output'].includes(category);
+}
+
+function isCapabilityMismatch(category) {
+  return ['capability_mismatch', 'policy_block', 'missing_capability'].includes(category);
+}
+
+function isTestFailure(category) {
+  return ['test_failure', 'regression', 'invariant_violation'].includes(category);
+}
+
+function isFalsifiedHypothesis(category) {
+  return ['falsified_hypothesis', 'contradictory_evidence'].includes(category);
+}
+
+function decideNoAnswer(report) {
+  if (report.noAnswerProof && !isOperationalFailure(report.category)) {
     return {
       action: 'conclude_no_answer', terminal: true, retry: false,
       reason: 'The worker supplied an evidence-backed proof that the requested answer does not exist within the stated scope.'
     };
   }
+  return null;
+}
+
+function decideExhausted(report) {
   if (report.attempt >= report.maxAttempts) {
     return {
       action: 'escalate_unresolved', terminal: true, retry: false,
       reason: 'The bounded recovery budget is exhausted without an answer or a proof of impossibility. Human or higher-level orchestrator review is required.'
     };
   }
-  if (['capability_mismatch', 'policy_block', 'missing_capability'].includes(report.category)) {
+  return null;
+}
+
+function decideCapabilityMismatch(report) {
+  if (isCapabilityMismatch(report.category)) {
     return {
       action: 'replace_worker', terminal: false, retry: true, identity: 'new', role: 'recovery_specialist',
       reason: 'The failure indicates that the current worker profile or permitted capabilities do not fit the mission.'
     };
   }
+  return null;
+}
+
+function decideMutatedOutput(report) {
   if (report.category === 'mutated_output') {
     return {
       action: 'mutate_worker', terminal: false, retry: true, identity: 'new', role: 'recovery_specialist',
       reason: 'The previous worker output mutated or suffered structural apoptosis; triggering cognitive molting with structural chaperone guidance.'
     };
   }
-  if (['test_failure', 'regression', 'invariant_violation'].includes(report.category)) {
+  return null;
+}
+
+function decideTestFailure(report) {
+  if (isTestFailure(report.category)) {
     return {
       action: 'bisect_and_rollback', terminal: false, retry: true, identity: 'new', role: 'recovery_specialist',
       reason: 'A test regression or invariant violation was detected; triggering causal bisection to isolate culprit step and restore pre-regression state.'
     };
   }
-  if (['falsified_hypothesis', 'contradictory_evidence'].includes(report.category)) {
+  return null;
+}
+
+function decideFalsifiedHypothesis(report) {
+  if (isFalsifiedHypothesis(report.category)) {
     return {
       action: 'fork_worker', terminal: false, retry: true, identity: 'new', role: 'independent_reviewer',
       reason: 'The current hypothesis was falsified; an isolated counter-branch should test a materially different hypothesis.'
     };
   }
+  return null;
+}
+
+function decideFirstAttempt(report) {
   if (report.attempt === 0) {
     return {
       action: 'mutate_worker', terminal: false, retry: true, identity: 'same',
       reason: 'The first failure can be retried by changing the method while preserving the worker specialization.'
     };
   }
+  return null;
+}
+
+function decideSecondAttempt(report) {
   if (report.attempt === 1) {
     return {
       action: 'fork_worker', terminal: false, retry: true, identity: 'new', role: 'independent_reviewer',
       reason: 'The mutated approach failed; an independent branch should challenge its assumptions.'
     };
   }
+  return null;
+}
+
+function decideDefault(report) {
   return {
     action: 'replace_worker', terminal: false, retry: true, identity: 'new', role: 'recovery_specialist',
     reason: 'Two approaches failed; replace the worker profile for the final bounded attempt.'
   };
 }
 
-function recoveryPrompt(report, decision) {
-  const parts = [
+function decideRecovery(report) {
+  return (
+    decideNoAnswer(report) ||
+    decideExhausted(report) ||
+    decideCapabilityMismatch(report) ||
+    decideMutatedOutput(report) ||
+    decideTestFailure(report) ||
+    decideFalsifiedHypothesis(report) ||
+    decideFirstAttempt(report) ||
+    decideSecondAttempt(report) ||
+    decideDefault(report)
+  );
+}
+
+function basePromptParts(report) {
+  return [
     report.mission,
     '',
-    `Recovery attempt ${report.attempt + 1}/${report.maxAttempts}.`,
-    `Previous worker failure category: ${report.category}.`,
-    `Previous failure: ${report.reason}`
+    'Recovery attempt ' + (report.attempt + 1) + '/' + report.maxAttempts + '.',
+    'Previous worker failure category: ' + report.category + '.',
+    'Previous failure: ' + report.reason
   ];
+}
+
+function immuneSignalParts(report) {
   if (report.reason && report.reason.includes('[SIGNAL IMMUNITAIRE : DOULEUR COGNITIVE]')) {
-    parts.push('INSTRUCTION DE RÉPARATION IMMUNITAIRE (CANALISATION ÉPIGÉNÉTIQUE) :');
-    parts.push(report.reason);
+    return ['INSTRUCTION DE REPARATION IMMUNITAIRE (CANALISATION EPIGENETIQUE) :', report.reason];
   }
+  return [];
+}
+
+function culpritParts(culprit) {
+  if (!culprit) return [];
+  return [
+    'DIAGNOSTIC BISECTION CAUSALE (O(log N)) :',
+    '- Pas fautif isole : Etape ' + culprit.stepNumber + ' (Snapshot: ' + (culprit.snapshotHash || 'n/a') + ', Agent: ' + (culprit.culpritAgentId || 'worker') + ')',
+    '- Cause racine : ' + (culprit.rootCauseSummary || culprit.actionDescription || "Violation d'invariant"),
+    ...(culprit.targetFile ? ['- Fichier impacte : ' + culprit.targetFile] : []),
+    '- Remediation : Ce pas fautif a ete annule par rollback chirurgical. Ne pas repeter la meme mutation.'
+  ];
+}
+
+function evidenceParts(report) {
+  return [report.evidence.length ? 'Evidence already obtained: ' + JSON.stringify(report.evidence) : 'No conclusive evidence was obtained.'];
+}
+
+function decisionParts(decision) {
+  return ['Orchestrator decision: ' + decision.action + '. ' + decision.reason];
+}
+
+function footerParts() {
+  return ['Use a materially different method. Return either a verified answer, a structured failure report, or a rigorous noAnswerProof with concrete evidence. Never claim that no answer exists merely because the retry budget is exhausted.'];
+}
+
+function buildRecoveryPromptParts(report, decision) {
   const culprit = report.culpritReport || report.bisection?.culpritReport;
-  if (culprit) {
-    parts.push('DIAGNOSTIC BISECTION CAUSALE (O(log N)) :');
-    parts.push(`- Pas fautif isolé : Étape ${culprit.stepNumber} (Snapshot: ${culprit.snapshotHash || 'n/a'}, Agent: ${culprit.culpritAgentId || 'worker'})`);
-    parts.push(`- Cause racine : ${culprit.rootCauseSummary || culprit.actionDescription || 'Violation d’invariant'}`);
-    if (culprit.targetFile) parts.push(`- Fichier impacté : ${culprit.targetFile}`);
-    parts.push('- Remédiation : Ce pas fautif a été annulé par rollback chirurgical. Ne pas répéter la même mutation.');
+  return [
+    ...basePromptParts(report),
+    ...immuneSignalParts(report),
+    ...culpritParts(culprit),
+    ...evidenceParts(report),
+    ...decisionParts(decision),
+    ...footerParts()
+  ];
+}
+
+function applyPromptSizeGuard(prompt) {
+  const maxChars = config.maxProcessOutputBytes() || 1024 * 1024;
+  if (prompt.length > maxChars) {
+    return prompt.slice(0, maxChars - 200) + '\n\n[PROMPT TRUNCATED: exceeded ' + maxChars + ' character limit]';
   }
-  parts.push(report.evidence.length ? `Evidence already obtained: ${JSON.stringify(report.evidence)}` : 'No conclusive evidence was obtained.');
-  parts.push(`Orchestrator decision: ${decision.action}. ${decision.reason}`);
-  parts.push('Use a materially different method. Return either a verified answer, a structured failure report, or a rigorous noAnswerProof with concrete evidence. Never claim that no answer exists merely because the retry budget is exhausted.');
-  return parts.join('\n');
+  return prompt;
+}
+
+function recoveryPrompt(report, decision) {
+  const parts = buildRecoveryPromptParts(report, decision);
+  const prompt = parts.join('\n');
+  return applyPromptSizeGuard(prompt);
 }
 
 module.exports = {

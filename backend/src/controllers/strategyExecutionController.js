@@ -35,30 +35,50 @@ async function runRequester(db, runId) {
   return row.createdBy || '';
 }
 
+function approvalSettings(req, signerId) {
+  const body = req.body || {};
+  return {
+    approvedBy: signerId || req.user?.username || 'studio',
+    report: body.evidenceReport || body.report,
+    replayReceipt: body.replayReceipt,
+    independentVerification: body.independentVerification,
+    evidenceVerified: body.evidenceVerified,
+    verifiedClaims: body.verifiedClaims,
+    workerDossiers: body.workerDossiers,
+    humanApprovalReceipt: body.humanApprovalReceipt
+  };
+}
+
+function validateApprovalSignature(req) {
+  const { signature, timestamp, signerId } = req.body || {};
+  signatureService.validateSignature({ runId: req.params.runId, timestamp, signerId }, signature);
+  return signerId;
+}
+
+async function approvalSeparationFailed(db, req, signerId) {
+  const requester = await runRequester(db, req.params.runId);
+  const deciders = approvalPolicy.decisionIdentities(req.user).concat([signerId]);
+  return approvalPolicy.matchesAnyIdentity(requester, deciders);
+}
+
 async function approve(req, res) {
   const db = await getDatabase();
   try {
     const candidate = await db.get('SELECT agent_id FROM strategy_execution_runs WHERE id=?', req.params.runId);
     if (!candidate || !await scopedAgent(db, req, candidate.agent_id)) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Execution run not found' } });
 
-    // Cryptographic signature validation for human approval gate
-    const { signature, timestamp, signerId } = req.body || {};
+    let signerId;
     try {
-      signatureService.validateSignature({ runId: req.params.runId, timestamp, signerId }, signature);
+      signerId = validateApprovalSignature(req);
     } catch (sigErr) {
       return res.status(403).json({ error: { code: 'UNAUTHORIZED_PROMOTION', message: sigErr.message } });
     }
 
-    // Separation of duties (point #8): the identity that requested the run
-    // (contract created_by) cannot approve its own promotion, whatever
-    // identity form (keyId or username) each side presents.
-    const requester = await runRequester(db, req.params.runId);
-    const deciders = approvalPolicy.decisionIdentities(req.user).concat([signerId]);
-    if (approvalPolicy.matchesAnyIdentity(requester, deciders)) {
+    if (await approvalSeparationFailed(db, req, signerId)) {
       return res.status(409).json({ error: { code: 'APPROVAL_SEPARATION_REQUIRED', message: 'The run requester cannot approve its own promotion.' } });
     }
 
-    const run = await strategyExecution.approveRun(db, req.params.runId);
+    const run = await strategyExecution.approveRun(db, req.params.runId, approvalSettings(req, signerId));
     telemetry.emitEvent({
       eventType: 'STRATEGY_PROMOTION_APPROVED', agentId: run.agentId, action: 'APPROVE',
       detail: `Execution run ${run.id} approved for promotion.`,

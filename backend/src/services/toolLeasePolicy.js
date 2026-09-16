@@ -113,7 +113,9 @@ const KNOWN_TOOL_ALLOW_LIST = [
   'genos_optimal_foraging',
   'genos_computer_use',
   'genos_guardrails_verify',
-  'genos_topology_session'
+  'genos_topology_session',
+  'genos_execute_primitive',
+  'genos_execute_strategy_pipeline'
 ];
 
 // Maps a topology capability (see topologyCapabilityService.GENOS_CAPABILITIES)
@@ -125,7 +127,7 @@ const CAPABILITY_TOOLS = Object.freeze({
   STRATEGY_ADAPTATION: ['genos_change_strategy'],
   ARENA_COMPETITION: ['genos_adversarial_review', 'genos_evaluate_trajectories'],
   PROMOTION_GATE: ['genos_record_decision', 'genos_evaluate_trajectories'],
-  TOKEN_ECONOMY: ['genos_report_progress'],
+  TOKEN_ECONOMY: ['genos_report_progress', 'genos_execute_primitive'],
   EVIDENCE_BARRIER: ['genos_hypothesis_evidence', 'genos_evaluate_trajectories'],
   EPISTEMICS_BRIER: ['genos_evaluate_trajectories'],
   HALLUCINATION_MONITORING: ['genos_adversarial_review'],
@@ -137,12 +139,12 @@ const CAPABILITY_TOOLS = Object.freeze({
   SYNAPTIC_PLASTICITY: ['genos_record_experience'],
   SIGNALING_BUS: ['genos_worker_publish', 'genos_worker_inbox', 'genos_topology_session'],
   LIGAND_RECEPTOR: ['genos_worker_publish', 'genos_worker_inbox', 'genos_topology_session'],
-  STIGMERGY: ['genos_worker_publish', 'genos_topology_session'],
+  STIGMERGY: ['genos_worker_publish', 'genos_topology_session', 'genos_execute_primitive'],
   SWARM_METRICS: [],
-  QUORUM: ['genos_evaluate_trajectories'],
+  QUORUM: ['genos_evaluate_trajectories', 'genos_execute_primitive'],
   GENOME_EPIGENETICS: ['genos_repository_genome'],
   EVOLUTION_REPRODUCTION: ['genos_resilience_hypermutation'],
-  IMMUNE_SYSTEM: ['genos_security_coevolution', 'genos_parasitic_pressure'],
+  IMMUNE_SYSTEM: ['genos_security_coevolution', 'genos_parasitic_pressure', 'genos_execute_primitive'],
   CONSCIENCE_HOMEOSTASIS: [],
   RESILIENCE_RECOVERY: ['genos_resilience_hypermutation'],
   CHAOS_ENGINEERING: [],
@@ -156,7 +158,7 @@ const CAPABILITY_TOOLS = Object.freeze({
   GOVERNANCE_APPROVAL: ['genos_record_decision'],
   COMPLIANCE: [],
   WEB_FORAGING: ['genos_browser_act', 'genos_optimal_foraging'],
-  FOVEAL_PERCEPTION: ['genos_foveal_crop'],
+  FOVEAL_PERCEPTION: ['genos_foveal_crop', 'genos_execute_primitive'],
   COMPUTER_USE: ['genos_computer_use']
 });
 

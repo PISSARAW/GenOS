@@ -40,6 +40,14 @@ function applyTraitBonusesFive(state, traits, profile) {
   if (traits.has('mutation') && profile.objectives_conflict) state.score += 5;
 }
 
+function animalControlBonus(traits, profile) {
+  return [
+    traits.has('probe_control') ? Number(profile.uncertainty >= 0.7) * 7 : 0,
+    traits.has('spatial_memory') ? Number(profile.complexity >= 0.7) * 7 : 0,
+    traits.has('metabolic_budget') ? Number(profile.complexity < 0.6) * 5 : 0
+  ].reduce((sum, value) => sum + value, 0);
+}
+
 /**
  * Trait bonus axolotl — axe 3 (état larval stratégique).
  *
@@ -54,6 +62,7 @@ function applyTraitBonusesSix(state, traits, profile) {
   if (traits.has('regenerative') && profile.type === 'critical_refactor') state.score += 12;
   if (traits.has('regenerative') && profile.uncertainty >= 0.7) state.score += 8;
   if (traits.has('adaptive') && profile.uncertainty >= 0.7) state.score += 6;
+  state.score += animalControlBonus(traits, profile);
 }
 
 module.exports = {

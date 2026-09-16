@@ -1,9 +1,10 @@
 const core = require('./families/coreStrategies');
 const temporalCollective = require('./families/temporalCollectiveStrategies');
 const knowledgeResilience = require('./families/knowledgeResilienceStrategies');
+const animalControl = require('./families/animalControlStrategies');
 const crypto = require('crypto');
 
-const STRATEGIES = Object.freeze([...core, ...temporalCollective, ...knowledgeResilience]);
+const STRATEGIES = Object.freeze([...core, ...temporalCollective, ...knowledgeResilience, ...animalControl]);
 const byId = new Map(STRATEGIES.map((strategy) => [strategy.id, strategy]));
 const KNOWN_UNIMPLEMENTED_PRIMITIVES = new Set(['cas_gc', 'dag_mark_sweep']);
 

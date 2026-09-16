@@ -16,6 +16,7 @@ const governance = require('./strategyGovernance');
 const collectiveAdvanced = require('./strategyCollectiveAdvanced');
 const remaining = require('./strategyRemaining');
 const structuralHandlers = require('./structuralPlasticityHandlers');
+const animalControl = require('./animalControl');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -377,6 +378,8 @@ const HANDLERS = {
     };
   }
 };
+
+Object.assign(HANDLERS, animalControl.HANDLERS);
 
 module.exports = {
   HANDLERS,

@@ -6,6 +6,7 @@ modèles de capacités runtime.
 - [web-foraging.md](web-foraging.md) — foraging de Charnov, fovéation rétinienne, navigation active (GAIA).
 - [cellulaire-specialise.md](cellulaire-specialise.md) — spécialisations balistiques, électriques, osmotiques, acaryotes.
 - [sens-animaux.md](sens-animaux.md) — les 5 super-sens animaux (olfaction, électroréception, magnétoréception…).
+- [primitives-controle-animal.md](primitives-controle-animal.md) — conversion de comportements animaux en primitives de controle vérifiables.
 
 ## Voir aussi
 
