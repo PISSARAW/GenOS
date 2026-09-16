@@ -43,11 +43,21 @@ assert.strictEqual(plan.tokenPolicy.rounds.continuation.perWorkerTokens, 0);
 const blockedPlan = buildAutonomyPlan({ problem_profile: { type: 'general' }, strategy_portfolio: [], branches: [] }, { tokens: 500000 });
 assert.equal(blockedPlan.executionStatus, 'blocked');
 assert.equal(blockedPlan.executionBlockers[0].code, 'NO_REALIZABLE_PHASES');
-assert.throws(() => assertAutonomyPlanExecutable({
+assert.equal(blockedPlan.remediation.status, 'no_executable_phase');
+assert.equal(blockedPlan.remediation.recommendedAction, 'change_strategy_before_runtime_start');
+assert(blockedPlan.remediation.missingTools.includes('genos_snapshot'));
+let blockedError = null;
+try {
+  assertAutonomyPlanExecutable({
   autonomyPlan: blockedPlan,
   dispatchedAgent: { execution_mode: 'orchestrator' },
   normalizedMission: {}
-}), /cannot execute any autonomy phase/);
+  });
+} catch (error) {
+  blockedError = error;
+}
+assert.match(blockedError.message, /cannot execute any autonomy phase/);
+assert.equal(blockedError.remediation.recommendedAction, 'change_strategy_before_runtime_start');
 assert.doesNotThrow(() => assertAutonomyPlanExecutable({
   autonomyPlan: blockedPlan,
   dispatchedAgent: { execution_mode: 'worker' },

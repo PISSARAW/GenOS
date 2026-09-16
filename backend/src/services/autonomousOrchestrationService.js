@@ -231,6 +231,20 @@ function buildRegistry(portfolio) {
   return { total: listStrategies().length, selected: portfolio.map((strategy) => strategy.id) };
 }
 
+function buildRemediation(realizable, omittedPhases) {
+  const missingTools = [...new Set((omittedPhases || []).flatMap((entry) => entry.missingTools || []))].sort();
+  if (!missingTools.length) return null;
+  return {
+    status: realizable.length ? 'partial_contract' : 'no_executable_phase',
+    missingTools,
+    executablePhaseKeys: realizable.map((entry) => entry.key),
+    recommendedAction: realizable.length ? 'continue_with_realizable_phases_or_change_strategy' : 'change_strategy_before_runtime_start',
+    reason: realizable.length
+      ? 'The current strategy portfolio omits required tools for some autonomy phases.'
+      : 'The current strategy portfolio cannot execute any autonomy phase.'
+  };
+}
+
 function buildAutonomyPlan(contract, budget = {}) {
   const profile = contract.problem_profile || {};
   const flags = profileFlags(profile);
@@ -247,6 +261,7 @@ function buildAutonomyPlan(contract, budget = {}) {
   const tokenPlan = buildTokenPlan(budget, flags, workers);
   const executionStatus = executionStatusOf(realizable, omittedPhases);
   const dispatchWorkers = tokenPlan.dispatchWorkers;
+  const remediation = buildRemediation(realizable, omittedPhases);
 
   return {
     schema: 'genos.autonomous-orchestration/v1alpha1',
@@ -261,6 +276,7 @@ function buildAutonomyPlan(contract, budget = {}) {
       ? [{ code: 'NO_REALIZABLE_PHASES', message: 'The selected strategy portfolio cannot execute any autonomy phase.' }]
       : [],
     omittedPhases,
+    remediation,
     exploration: buildExploration(workers, dispatchWorkers),
     requiredTools,
     workers,

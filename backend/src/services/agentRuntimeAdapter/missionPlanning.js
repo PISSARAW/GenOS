@@ -16,7 +16,7 @@ function assertAutonomyPlanExecutable(ctx) {
   if (!autonomyPlan || autonomyPlan.executionStatus !== 'blocked') return;
   const blocker = (autonomyPlan.executionBlockers || [])[0] || {};
   const message = blocker.message || 'Autonomy plan is blocked and cannot start a runtime execution.';
-  throw Object.assign(new Error(message), { code: blocker.code || 'AUTONOMY_PLAN_BLOCKED', autonomyPlan });
+  throw Object.assign(new Error(message), { code: blocker.code || 'AUTONOMY_PLAN_BLOCKED', autonomyPlan, remediation: autonomyPlan.remediation || null });
 }
 
 function applyOrchestratorToolLease(dispatchedAgent, normalizedMission, autonomyPlan) {
