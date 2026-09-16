@@ -43,8 +43,8 @@ assert.equal(recovery.classifyFinalReport({ outcome: 'no_answer', noAnswerProof:
 const runtimeSource = fs.readFileSync(require.resolve('../bin/agent-runtime-close.cjs'), 'utf8');
 assert(runtimeSource.includes("eventType: isWorker ? 'WORKER_TASK_FAILED' : 'AGENT_FAILED'") || runtimeSource.includes("WORKER_TASK_FAILED"), 'semantic worker failures must be emitted to the control plane');
 assert(runtimeSource.includes("WORKER_NO_ANSWER_PROVEN"), 'evidence-backed no-answer conclusions must be explicit');
-const adapterSource = fs.readFileSync(require.resolve('../src/services/agentRuntimeAdapter.js'), 'utf8');
-assert(adapterSource.includes("'WORKER_RECOVERY_DECISION'"), 'the orchestrator must record its recovery decision');
-assert(adapterSource.includes("await dispatchWorkerRecovery(agentId)"), 'a queued recovery must be dispatched after the failed runtime releases its slot');
+const missionExecutionSource = fs.readFileSync(require.resolve('../src/services/agentRuntimeAdapter/missionExecution.js'), 'utf8');
+assert(missionExecutionSource.includes("'WORKER_RECOVERY_DECISION'"), 'the orchestrator must record its recovery decision');
+assert(missionExecutionSource.includes("dispatchWorkerRecovery(agentId)"), 'a queued recovery must be dispatched after the failed runtime releases its slot');
 
 console.log('Worker failure recovery checks passed.');
