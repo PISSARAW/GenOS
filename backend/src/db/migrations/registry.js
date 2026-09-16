@@ -40,6 +40,11 @@ const migrationRunners = [
     const { migrateAutobiographicalMemory } = require('./migrateAutobiographicalMemory');
     await migrateAutobiographicalMemory(db);
   }),
+  createMigrationRunner('024-ontology', 'Add ontology tables for beings, attributes, modes, mereology, hypostatization, identity', async (db) => {
+    const { createOntologyTables, ensureOntologyColumns } = require('./migrateOntology');
+    await createOntologyTables(db);
+    await ensureOntologyColumns(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
