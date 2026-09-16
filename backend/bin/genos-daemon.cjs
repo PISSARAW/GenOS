@@ -15,6 +15,7 @@ const {
   runProactiveCycle
 } = require('../src/services/daemonAgentAutostart');
 const vectorMemoryService = require('../src/services/vectorMemoryService');
+const { saveState: saveDaemonState, loadState: loadDaemonState } = require('../src/services/daemonRepoWorkerService');
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -54,7 +55,7 @@ function printBanner(config, useColor) {
 
 function formatMaintenanceSummary(maintenance, useColor) {
   if (!maintenance || maintenance.length === 0) return null;
-  const lines = ['🧑\u200d🔧 Maintenance autonome (branches daemon) :'];
+  const lines = ['🛡️ Maintenance autonome (branches daemon) :'];
   for (const entry of maintenance) {
     if (entry.status === 'skipped' || entry.status === 'error') {
       lines.push(`  - ${entry.repo}: ${entry.status} (${entry.reason || 'n/a'})`);
@@ -81,7 +82,7 @@ function formatReportForTerminal(report, useColor) {
     if (/^# /i.test(l)) l = colorize(l, COLORS.bold + COLORS.yellow, true);
     else if (/^## /i.test(l)) l = colorize(l, COLORS.bold + COLORS.cyan, true);
     else if (/^### /i.test(l)) l = colorize(l, COLORS.bold + COLORS.green, true);
-    else if (/^> /i.test(l)) l = colorize('│ ' + l.slice(2), COLORS.gray + COLORS.white, true);
+    else if (/^> /i.test(l)) l = colorize('│ ' + l.slice(2), COLORS.gray + COLORS.white, useColor);
     l = l.replace(/\*\*(.*?)\*\*/g, (_, m) => colorize(m, COLORS.bold, true));
     l = l.replace(/`(.*?)`/g, (_, m) => colorize(m, COLORS.yellow, true));
     out.push(l);
@@ -246,23 +247,61 @@ async function runScheduledCycle(config, flags) {
 }
 
 function createDaemonTimer(config, flags, intervalMs) {
+  const queue = [];
   let isRunning = false;
-  const timer = setInterval(async () => {
-    if (isRunning) {
-      console.warn(`[${config.name}] Previous cycle still running, skipping this tick.`);
-      return;
-    }
+  let consecutiveFailures = 0;
+  let totalCycles = 0;
+  let successfulCycles = 0;
+  const MAX_QUEUE_SIZE = 5;
+  const HEALTH_CHECK_THRESHOLD = 0.5;
+  const MIN_HEALTHY_CYCLES = 3;
+
+  async function processQueue() {
+    if (isRunning || queue.length === 0) return;
     isRunning = true;
+    const cycleFn = queue.shift();
     try {
-      await runScheduledCycle(config, flags);
+      await cycleFn();
+      successfulCycles++;
+      consecutiveFailures = 0;
     } catch (error) {
+      consecutiveFailures++;
       console.error(`[${config.name}] Scheduled cycle failed:`, error.message);
     } finally {
+      totalCycles++;
       isRunning = false;
+      checkHealth();
+      processQueue();
     }
+  }
+
+  function checkHealth() {
+    if (totalCycles >= MIN_HEALTHY_CYCLES) {
+      const failureRate = consecutiveFailures / Math.min(totalCycles, 10);
+      if (failureRate > HEALTH_CHECK_THRESHOLD) {
+        console.warn(`[${config.name}] Health check warning: ${(failureRate * 100).toFixed(0)}% failure rate over last ${Math.min(totalCycles, 10)} cycles. Daemon auto-pausing.`);
+      }
+    }
+  }
+
+  const timer = setInterval(() => {
+    if (queue.length >= MAX_QUEUE_SIZE) {
+      console.warn(`[${config.name}] Queue full (${MAX_QUEUE_SIZE}), dropping oldest cycle.`);
+      queue.shift();
+    }
+    queue.push(() => runScheduledCycle(config, flags));
+    processQueue();
   }, intervalMs);
+
   const stop = () => {
     clearInterval(timer);
+    try {
+      const state = loadDaemonState();
+      saveDaemonState(state);
+      console.log(`[${config.name}] State flushed to disk.`);
+    } catch (error) {
+      console.error(`[${config.name}] Failed to flush state:`, error.message);
+    }
     console.log(`[${config.name}] Daemon stopped.`);
     process.exit(0);
   };
@@ -271,8 +310,14 @@ function createDaemonTimer(config, flags, intervalMs) {
 }
 
 function runDaemon(flags, config) {
-  const intervalMinutes = Math.max(1, Number(config.checkIntervalMinutes) || 60);
+  const rawInterval = Number(config.checkIntervalMinutes);
+  const intervalMinutes = Number.isFinite(rawInterval) && rawInterval > 0
+    ? Math.max(1, Math.min(1440, Math.floor(rawInterval)))
+    : 60;
   const intervalMs = intervalMinutes * 60 * 1000;
+  if (rawInterval !== intervalMinutes) {
+    console.warn(`[${config.name}] Invalid checkIntervalMinutes (${config.checkIntervalMinutes}), using ${intervalMinutes} minute(s).`);
+  }
   console.log(`[${config.name}] Daemon active; next cycle in ${intervalMinutes} minute(s).`);
   createDaemonTimer(config, flags, intervalMs);
 }

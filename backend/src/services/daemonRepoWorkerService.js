@@ -44,7 +44,9 @@ function loadState() {
 
 function saveState(state) {
   fs.mkdirSync(path.dirname(stateFile), { recursive: true });
-  fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
+  const tmpFile = stateFile + '.tmp';
+  fs.writeFileSync(tmpFile, JSON.stringify(state, null, 2), 'utf8');
+  fs.renameSync(tmpFile, stateFile);
 }
 
 function git(args, cwd, options = {}) {
