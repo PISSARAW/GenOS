@@ -147,7 +147,7 @@ async function runDestructiveArsenalTests() {
     assert(
       (res.status === 503 && res.body.error.code === 'CIRCUIT_OPEN')
         || (res.status === 202 && res.body.approvalRequired === true),
-      `Admin blocked or deferred destructive tool '${tool}' while circuit is OPEN`
+      `Admin blocked or deferred destructive tool '${tool}' while circuit is OPEN (${res.status} ${res.body?.error?.code || 'no_error_code'})`
     );
   }
 
