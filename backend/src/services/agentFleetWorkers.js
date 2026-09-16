@@ -1,9 +1,10 @@
-module.exports = { createAutonomousWorkers, splitBudget, inheritedWorkerEngine };
+module.exports = { createAutonomousWorkers, splitBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget };
 
 const path = require('path');
 const circuitBreaker = require('./circuitBreaker');
 const workerGarage = require('./workerGarageService');
 const { localWorkerRoute } = require('./agentModelRoutingService');
+const { autonomousWorkerId } = require('./agentRoundService');
 const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
 const { emit, workerToolLeaseForCapabilities } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');

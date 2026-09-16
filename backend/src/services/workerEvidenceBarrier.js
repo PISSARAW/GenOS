@@ -387,5 +387,7 @@ async function finishSatisfiedBarrier(ctx) {
 module.exports = {
   isUsablePartialDossier,
   selectUsablePartialDossiers,
-  runEvidenceBarrier
+  runEvidenceBarrier,
+  resolveTimeoutFlag,
+  resolveCancelledFlag
 };
