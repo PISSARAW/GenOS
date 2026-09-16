@@ -27,27 +27,7 @@ const { spawnSync } = require('child_process');
 const modelRouter = require('./modelRouter');
 const localCodeWorker = require('./localCodeWorkerService');
 const telemetry = require('./telemetryObserver');
-
-const repoRoot = path.resolve(__dirname, '../../..');
-const stateFile = path.join(repoRoot, '.genos', 'daemon_repo_state.json');
-const DAEMON_BRANCH_PREFIX = 'genos-daemon';
-const WORKTREE_ROOT_NAME = '.genos-daemon-worlds';
-const AUTOFIX_DISABLED = /^(1|true)$/i.test(String(process.env.GENOS_DAEMON_DISABLE_AUTOFIX || ''));
-const MR_DISABLED = /^(1|true)$/i.test(String(process.env.GENOS_DAEMON_DISABLE_PR || ''));
-
-function loadState() {
-  try {
-    if (fs.existsSync(stateFile)) return JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-  } catch (_) {}
-  return {};
-}
-
-function saveState(state) {
-  fs.mkdirSync(path.dirname(stateFile), { recursive: true });
-  const tmpFile = stateFile + '.tmp';
-  fs.writeFileSync(tmpFile, JSON.stringify(state, null, 2), 'utf8');
-  fs.renameSync(tmpFile, stateFile);
-}
+const { loadState, saveState } = require('./daemonStateLock');
 
 function git(args, cwd, options = {}) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8', timeout: options.timeoutMs || 15000 });
