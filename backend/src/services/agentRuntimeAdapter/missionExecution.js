@@ -1,15 +1,52 @@
 const { runLocalWorker, runEvidenceBarrier } = require('../agentFleetService');
 const { superviseMission } = require('../agentProcessSupervisor');
 const { orchestrateAutonomousWorkers } = require('./missionWorkers');
-const { enforceMissionToolLease } = require('./missionLease');
-const { assertMissionNotCancelled } = require('./missionBootstrap');
+const { enforceMissionToolLease, isInProcessWorker } = require('./missionLease');
+const {
+  assertMissionNotCancelled,
+  initializeMissionContext,
+  resolveMissionContract,
+  provisionWorkspaceAndModel,
+  normalizeMissionBudgets,
+  provisionMissionCapsule,
+  enableMissionMonitoring,
+} = require('./missionBootstrap');
+const {
+  planMission,
+  applyExecutionPolicy,
+  computeRuntimeBudget,
+  createMissionExecutionRun,
+  reportOrchestratorStart,
+} = require('./missionPlanning');
 const { trackWorkspace } = require('../agentWorkspaceLifecycleService');
 
+/**
+ * Reconstruit le contexte de mission complet (bootstrapMission refactoré).
+ * Enchaîne : initialize → contract → workspace → budgets → capsule → monitoring → planning.
+ */
+async function bootstrapMission(mission) {
+  const ctx = await initializeMissionContext(mission);
+  await resolveMissionContract(ctx);
+  await provisionWorkspaceAndModel(ctx);
+  normalizeMissionBudgets(ctx);
+  await provisionMissionCapsule(ctx);
+  await enableMissionMonitoring(ctx);
+  await planMission(ctx);
+  await require('./missionLease').attachMissionMemoryContext(ctx.normalizedMission, ctx.agentId);
+  assertMissionNotCancelled(ctx.agentId);
+  applyExecutionPolicy(ctx);
+  enforceMissionToolLease(ctx);
+  computeRuntimeBudget(ctx);
+  await createMissionExecutionRun(ctx);
+  reportOrchestratorStart(ctx);
+  return ctx;
+}
+
 async function startMissionInternal(mission) {
-  const ctx = await require('./missionBootstrap').bootstrapMission(mission);
+  const ctx = await bootstrapMission(mission);
   const { agentId, normalizedMission, db, dispatchedAgent, executionRun } = ctx;
   assertMissionNotCancelled(agentId);
-  const inProcessWorker = require('./missionBootstrap').isInProcessWorker(dispatchedAgent, normalizedMission, ctx.executable);
+  const inProcessWorker = isInProcessWorker(dispatchedAgent, normalizedMission, ctx.executable);
   if (inProcessWorker) {
     await trackWorkspace(agentId, normalizedMission.workspaceRoot);
     return runLocalWorker(db, normalizedMission, executionRun);
