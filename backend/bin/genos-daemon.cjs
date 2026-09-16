@@ -81,23 +81,34 @@ function resolveColor(args) {
 }
 
 function hasTty() {
-  return Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY);
+  // Accept stdin OR stdout as TTY — the strict AND check is too aggressive on
+  // Windows headless terminals where stdin may be null in interactive sessions.
+  return Boolean(process.stdin.isTTY || process.stdout.isTTY);
 }
 
 function isDefaultInteractive(flags) {
-  return !flags.isStatus && !flags.isEnable && !flags.isDisable && !flags.isScanOnly && hasTty();
+  if (!flags.isStatus && !flags.isEnable && !flags.isDisable && !flags.isScanOnly) {
+    if (hasTty()) return true;
+    if (process.platform === 'win32' && process.env.COLORTERM) return true;
+  }
+  return false;
 }
 
 function resolveInteractive(flags) {
-  if (hasAnyFlag(flags.args, ['--non-interactive']) || envFlag('GENOS_NONINTERACTIVE')) return false;
-  if (hasAnyFlag(flags.args, ['--interactive'])) return true;
-  if (envFlag('GENOS_INTERACTIVE')) return true;
+  const hasNonInteractive = hasAnyFlag(flags.args, ['--non-interactive']) || envFlag('GENOS_NONINTERACTIVE');
+  const hasInteractive = hasAnyFlag(flags.args, ['--interactive']) || envFlag('GENOS_INTERACTIVE');
+  if (hasNonInteractive && hasInteractive) {
+    console.warn('[GenOS Daemon] Both --non-interactive and --interactive specified; --interactive takes precedence.');
+  }
+  if (hasInteractive) return true;
+  if (hasNonInteractive) return false;
   return isDefaultInteractive(flags);
 }
 
 function resolveFlags(args) {
   const flags = {
     args,
+    isHelp: hasAnyFlag(args, ['--help', '-h']),
     isStatus: hasAnyFlag(args, ['--status']),
     isEnable: hasAnyFlag(args, ['--enable-autostart', '--enable']),
     isDisable: hasAnyFlag(args, ['--disable-autostart', '--disable']),
@@ -106,6 +117,11 @@ function resolveFlags(args) {
     isReportOnly: hasAnyFlag(args, ['--report-only']),
     useColor: resolveColor(args)
   };
+  if (flags.isHelp) return flags;
+  if (flags.isEnable && flags.isDisable) {
+    console.error('[GenOS Daemon] Conflicting flags: --enable and --disable cannot be used together.');
+    process.exit(2);
+  }
   flags.isInteractive = resolveInteractive(flags);
   return flags;
 }
@@ -230,9 +246,12 @@ async function waitInteractive(config) {
 }
 
 async function main() {
-  if (cliHelp.checkHelp(process.argv, 'genos-daemon.cjs')) return;
   const args = process.argv.slice(2);
   const flags = resolveFlags(args);
+  if (flags.isHelp) {
+    cliHelp.printHelp('genos-daemon.cjs');
+    return;
+  }
   if (flags.isStatus) {
     printAutostartStatus();
     return;
