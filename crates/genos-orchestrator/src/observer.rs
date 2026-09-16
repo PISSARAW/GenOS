@@ -69,8 +69,6 @@ impl GenosEcosystem {
             + 0.20 * budget_pressure)
             .clamp(0.0, 1.0);
 
-        let required_workers = workers.max(3).min(5);
-
         WorldState {
             tissues,
             workers,
@@ -88,7 +86,7 @@ impl GenosEcosystem {
             budget_pressure,
             stress,
             apoptotic: self.orchestrator.conscience_state.is_apoptotic,
-            required_workers,
+            required_workers: 5,
             ..WorldState::default()
         }
     }
