@@ -1,16 +1,18 @@
 'use strict';
 
 /**
- * Causality Service — Lois de causalité, contrefactuels, déterminisme.
+ * Causality Service — Lois de causalité, contrefactuels, déterminisme, régularité.
  *
- * Mapping GenOS :
- *  - Loi de causalité = relation tool_call → evidence → barrier → completion
- *  - Contrefactual   = trinity worlds (que se serait-il passé sans X ?)
- *  - Régularité      = la cause précède toujours l'effet
- *  - Détermininisme  = un état initial unique → un état final unique
+ * Mapping philosophique :
+ *  - Hume (problème de la causalité) : la causalité n'est pas observée directement, mais inférée.
+ *    La régularité (cause → effet répétée) est la base de l'induction.
+ *  - Lewis (contrefactuels) : "Si X n'avait pas eu lieu, Y se serait produit ?"
+ *    Nécessité = contrefactuel valide (Y dépend de X).
+ *    Contingence = contrefactuel invalide (Y sans X est possible).
+ *  - Déterminisme : un état initial unique → un état final unique.
  */
-
 const causalLinks = new Map();
+const counterfactualRegistry = new Map();
 
 function recordCausalLink({ causeAgent, effectAgent, mechanism = 'tool_call' }) {
   if (!causeAgent || !effectAgent) {
@@ -27,19 +29,58 @@ function recordCausalLink({ causeAgent, effectAgent, mechanism = 'tool_call' }) 
   return link;
 }
 
+/**
+ * computeNecessity — Lewis (contrefactuels).
+ *
+ * Nécessité vs contingence (Lewis, contrefactuels) :
+ *  - Nécessaire : l'effet NE se produit PAS en l'absence de la cause.
+ *    → actualOutcome ≠ counterfactualOutcome → nécessité.
+ *  - Contingent : l'effet se produit AUSSI en l'absence de la cause.
+ *    → actualOutcome === counterfactualOutcome → contingence.
+ *
+ * Retourne un objet structuré avec verdict, causeAgent, effectAgent, reason.
+ */
 function computeNecessity({ causeAgent, effectAgent, actualOutcome, counterfactualOutcome }) {
-  if (actualOutcome === counterfactualOutcome) return 'contingent';
-  return 'necessary';
+  if (!causeAgent || !effectAgent) {
+    throw new Error('causalityService.computeNecessity requires causeAgent and effectAgent');
+  }
+  const necessity = actualOutcome !== counterfactualOutcome;
+  return {
+    verdict: necessity ? 'necessary' : 'contingent',
+    causeAgent,
+    effectAgent,
+    reason: necessity
+      ? 'Effect counterfactually depends on cause (absent cause → blocked effect)'
+      : 'Effect occurs even without cause (no counterfactual dependence)',
+  };
 }
 
+/**
+ * simulateCounterfactual — Lewis (scénario contrefactuel).
+ *
+ * Simule un monde possible où la cause est retirée, pour évaluer la dépendance.
+ */
 function simulateCounterfactual({ causeAgent, effectAgent, scenario }) {
+  if (!causeAgent || !effectAgent || !scenario) {
+    throw new Error('causalityService.simulateCounterfactual requires causeAgent, effectAgent, scenario');
+  }
+  const counterfactualOutcome = 'blocked';
+  const entry = {
+    causeAgent,
+    effectAgent,
+    scenario,
+    actualOutcome: 'completed',
+    counterfactualOutcome,
+    registeredAt: Date.now(),
+  };
+  counterfactualRegistry.set(`${causeAgent}:${effectAgent}:${scenario}`, entry);
   return {
     causeAgent,
     effectAgent,
     scenario,
     actualOutcome: 'completed',
-    counterfactualOutcome: 'blocked',
-    causalEffect: 'prevented_block',
+    counterfactualOutcome,
+    causalEffect: necessity ? 'prevented_block' : 'no_prevention',
   };
 }
 
@@ -47,6 +88,14 @@ function isDeterministic(executionRuns) {
   if (!Array.isArray(executionRuns) || executionRuns.length === 0) return false;
   const firstOutcome = executionRuns[0]?.finalOutcome ?? null;
   return executionRuns.every(run => (run?.finalOutcome ?? null) === firstOutcome);
+}
+
+/**
+ * isIndeterministic — complément : détecte l'indétermination.
+ */
+function isIndeterministic(executionRuns) {
+  if (!Array.isArray(executionRuns) || executionRuns.length < 2) return false;
+  return !isDeterministic(executionRuns);
 }
 
 function checkRegularity(links) {
@@ -62,11 +111,18 @@ function listCausalLinks({ agentId = null, limit = 100 } = {}) {
     .slice(0, limit);
 }
 
+function listCounterfactuals() {
+  return Array.from(counterfactualRegistry.values());
+}
+
 module.exports = {
   recordCausalLink,
   computeNecessity,
   simulateCounterfactual,
   isDeterministic,
+  isIndeterministic,
   checkRegularity,
   listCausalLinks,
+  listCounterfactuals,
+  counterfactualRegistry,
 };

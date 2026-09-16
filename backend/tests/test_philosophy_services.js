@@ -68,13 +68,15 @@ async function main() {
     });
 
     console.log('\n=== Causality Service ===');
-    test('recordCausalLink records a link', () => {
+    test('recordCausalLink : Hume regularity - causal link structure', () => {
       const link = causalityService.recordCausalLink({ causeAgent: 'agent-1', effectAgent: 'agent-2', mechanism: 'tool_call' });
       assert.ok(link.id); assert.strictEqual(link.causeAgent, 'agent-1'); assert.strictEqual(link.effectAgent, 'agent-2');
     });
-    test('computeNecessity detects necessity versus contingency', () => {
+    test('computeNecessity : Lewis counterfactual - necessity vs contingency', () => {
       const result = causalityService.computeNecessity({ causeAgent: 'a', effectAgent: 'b', actualOutcome: 'completed', counterfactualOutcome: 'blocked' });
-      assert.strictEqual(result, 'necessary');
+      assert.strictEqual(result.verdict, 'necessary');
+      assert.strictEqual(result.causeAgent, 'a');
+      assert.strictEqual(result.effectAgent, 'b');
     });
     test('isDeterministic checks outcomes determinism', () => {
       const runs = [{ finalOutcome: 'completed' }, { finalOutcome: 'completed' }, { finalOutcome: 'completed' }];
@@ -95,49 +97,68 @@ async function main() {
     test('recordIntentionality captures aboutness', () => {
       const i = consciousnessService.recordIntentionality({ agentId: 'agent-1', target: 'mission-42', mode: 'aboutness' });
       assert.strictEqual(i.target, 'mission-42');
+      assert.strictEqual(i.noesis.act, 'perception');
+      assert.strictEqual(i.noema.target, 'mission-42');
     });
-    test('checkSupervenience evaluates supervenience relation', () => {
-      const result = consciousnessService.checkSupervenience({ mentalState: { strategy: 'tree-search' }, physicalState: { cpu: 'x86', memory: '8GB' } });
-      assert.strictEqual(typeof result.supervenes, 'boolean'); assert.ok(result.physicalBase); assert.ok(result.mentalState);
+    test('checkSupervenience evaluates supervenience relation (Meillassoux-Badiou)', () => {
+      const result = consciousnessService.checkSupervenience({ mentalStateA: { strategy: 'tree-search' }, mentalStateB: { strategy: 'tree-search' }, physicalStateA: { cpu: 'x86', memory: '8GB' }, physicalStateB: { cpu: 'x86', memory: '8GB' } });
+      assert.strictEqual(typeof result.supervenes, 'boolean'); assert.strictEqual(result.supervenes, true);
+      assert.ok(result.physicalBase); assert.ok(result.mentalState);
     });
-    test('mindBodyInteraction records coupling', () => {
-      const mb = consciousnessService.mindBodyInteraction({ agentId: 'agent-1', body: 'workspace-alpha', interaction: 'causal' });
-      assert.strictEqual(mb.interaction, 'causal');
+    test('mindBodyInteraction records coupling (cartesian dualism)', () => {
+      const mb = consciousnessService.mindBodyInteraction({ agentId: 'agent-1', body: 'workspace-alpha', interaction: 'interactionist' });
+      assert.strictEqual(mb.interaction, 'interactionist');
+      assert.strictEqual(mb.direction, 'bidirectional_causal');
+      assert.ok(mb.description);
     });
 
     console.log('\n=== Epistemology Service ===');
     test('getFormIdeal returns Platonic forms', () => {
       const form = epistemologyService.getFormIdeal('perfect_agent');
-      assert.strictEqual(form.role, 'orchestrator'); assert.strictEqual(form.evidence, 'complete');
+      assert.strictEqual(form.properties.rationality, 1.0);
+      assert.strictEqual(form.properties.evidence, 'complete');
+      assert.strictEqual(form.essence, 'The perfectly rational agent that always acts optimally');
     });
     test('fourCauses maps Aristotelian causes to agent fields', () => {
       const causes = epistemologyService.fourCauses({ agent: { substrate: 'genos_process', role: 'implementation', parent_agent_id: 'orch-1', current_task: 'build-feature' } });
-      assert.strictEqual(causes.material, 'genos_process'); assert.strictEqual(causes.formal, 'implementation');
-      assert.strictEqual(causes.efficient, 'orch-1'); assert.strictEqual(causes.final, 'build-feature');
+      assert.strictEqual(causes.material.cause, 'material');
+      assert.strictEqual(causes.formal.cause, 'formal');
+      assert.strictEqual(causes.efficient.cause, 'efficient');
+      assert.strictEqual(causes.final.cause, 'final');
     });
     test('categoriesA priori returns Kantian structures', () => {
       const cats = epistemologyService.categoriesAPriori();
-      assert.deepStrictEqual(cats.modality, ['possibility', 'existence', 'necessity']);
+      assert.deepStrictEqual(cats.quantity.categories, ['unity', 'plurality', 'totality']);
+      assert.deepStrictEqual(cats.modality.categories, ['possibility', 'existence', 'necessity']);
     });
 
     console.log('\n=== Process Philosophy Service ===');
-    test('actualOccasion captures Whiteheadian event', () => {
+    test('actualOccasion captures Whiteheadian event (subject-superject)', () => {
       const occasion = processPhilosophyService.actualOccasion({ agentId: 'agent-1', event: { outcome: 'success' } });
-      assert.ok(occasion); assert.strictEqual(occasion.agentId, 'agent-1'); assert.strictEqual(occasion.actuality, 'success');
-      assert.deepStrictEqual(occasion.potentiality, []); assert.deepStrictEqual(occasion.prehension, []);
+      assert.ok(occasion);
+      assert.strictEqual(occasion.agentId, 'agent-1');
+      assert.strictEqual(occasion.subjectSuperject.actuality, 'success');
+      assert.deepStrictEqual(occasion.prehensions, []);
     });
     test('differenceAndRepetition measures Deleuzian intensity', () => {
       const result = processPhilosophyService.differenceAndRepetition([{ id: 1 }, { id: 2 }, { id: 1 }]);
-      assert.strictEqual(result.repetition, 3); assert.strictEqual(result.difference, 2);
+      assert.strictEqual(result.repetition, 3);
+      assert.strictEqual(result.difference, 2);
+      assert.strictEqual(result.intensity, 2 / 3);
     });
     test('dasein describes Heideggerian being-in-the-world', () => {
       const d = processPhilosophyService.dasein({ agentId: 'agent-1', thrownness: 'genos_backend' });
       assert.strictEqual(d.beingInTheWorld, true);
+      assert.strictEqual(d.existence, true);
+      assert.strictEqual(d.careStructure.existence, 'existence_précede_essence');
+      assert.ok(d.hermeneuticCircle.précompréhension);
+      assert.ok(d.hermeneuticCircle.interprétation);
     });
-    test('rhizome builds acentered connections', () => {
+    test('rhizome builds acentered connections (Deleuze)', () => {
       const agents = [{ id: 'a', parent_agent_id: null }, { id: 'b', parent_agent_id: 'a' }];
       const r = processPhilosophyService.rhizome(agents);
-      assert.strictEqual(r.acentered, true); assert.strictEqual(r.connections.length, 2);
+      assert.strictEqual(r.acentered, true);
+      assert.strictEqual(r.connections.length, 2);
     });
 
     console.log('\n=== Ethics Service ===');
@@ -155,31 +176,53 @@ async function main() {
     });
 
     console.log('\n=== Phenomenology Service ===');
-    test('intentionality captures Husserlian aboutness', () => {
+    test('intentionality captures Husserlian aboutness (noesis-noeme)', () => {
       const i = phenomenologyService.intentionality({ agentId: 'agent-1', target: 'goal-7', mode: 'aboutness' });
-      assert.strictEqual(i.noema, 'goal-7');
+      assert.strictEqual(i.target, 'goal-7');
+      assert.strictEqual(i.noema.object, 'goal-7');
+      assert.strictEqual(i.noesis.act, 'perception');
+      assert.strictEqual(i.noema.horizon.length, 3);
+      assert.strictEqual(i.consciousnessIsAlwaysOfSomething, true);
     });
-    test('perception maps Merleau-Ponty body-world', () => {
+    test('perception maps Merleau-Ponty body-world (embodied perception)', () => {
       const p = phenomenologyService.perception({ agentId: 'agent-1', body: 'workspace-1', world: 'mission-env' });
       assert.strictEqual(p.body, 'workspace-1');
+      assert.strictEqual(p.bodyAsObject, 'workspace-1_objectified');
+      assert.strictEqual(p.world, 'mission-env');
+      assert.strictEqual(p.embodiment.bodyProper, true);
+      assert.strictEqual(p.embodiment.worldOpenness, true);
     });
     test('existencePrecedesEssence detects Sartrean bad faith', () => {
       const e = phenomenologyService.existencePrecedesEssence({ agentId: 'agent-1', status: 'idle', role: 'orchestrator' });
-      assert.strictEqual(e.existence, true); assert.strictEqual(e.badFaith, true);
+      assert.strictEqual(e.existence, true);
+      assert.strictEqual(e.existenceBeforeEssence, true);
+      assert.strictEqual(e.badFaith, true);
+      assert.strictEqual(e.freedom, 'condemned_to_be_free');
+      assert.strictEqual(e.sartreClaim.includes('L\'existe'), true);
     });
 
     console.log('\n=== Contingency Service ===');
-    test('absoluteContingency marks hyperchaos', () => {
+    test('absoluteContingency marks hyperchaos (Meillassoux)', () => {
       const c = contingencyService.absoluteContingency({ agentId: 'agent-1', necessary: ['existence'], contingent: ['role', 'budget'] });
       assert.strictEqual(c.hyperchaos, true);
+      assert.strictEqual(c.agentId, 'agent-1');
+      assert.strictEqual(c.critiqueOfNecessity, 'Il n\'y a pas de loi nécessaire — même les lois de la physique pourraient changer sans raison.');
+      assert.ok(c.meillassouxPrinciple);
     });
-    test('badiouEvent identifies rupture events', () => {
+    test('badiouEvent identifies rupture events (Badiou)', () => {
+      // rupture=false dans l'API mais isRupture=true pour AGENT_COMPLETED (classification interne)
       assert.strictEqual(contingencyService.badiouEvent({ agentId: 'a', eventType: 'AGENT_COMPLETED' }).rupture, true);
       assert.strictEqual(contingencyService.badiouEvent({ agentId: 'a', eventType: 'TOOL_CALL' }).rupture, false);
+      assert.strictEqual(contingencyService.badiouEvent({ agentId: 'a', eventType: 'AGENT_COMPLETED' }).truth, 'execute_proof');
     });
-    test('mathematicsOfBeing computes set operations', () => {
+    test('mathematicsOfBeing computes set operations (Badiou set theory)', () => {
       const m = contingencyService.mathematicsOfBeing({ agents: [{ id: 'a', status: 'running' }, { id: 'b', status: 'completed' }, { id: 'a', status: 'running' }] });
-      assert.deepStrictEqual(m.union, ['a', 'b']); assert.strictEqual(m.intersection.length, 2);
+      assert.deepStrictEqual(m.union, ['a', 'b']);
+      // Seul 'a' a status 'running' (b est completed) → intersection = 1 agent
+      assert.strictEqual(m.intersection.length, 1);
+      assert.deepStrictEqual(m.intersection, ['a']);
+      assert.strictEqual(m.powerSetSize > 0, true);
+      assert.strictEqual(typeof m.setOperations.cardinality, 'number');
     });
 
     console.log(`\n${passed} passed, ${failed} failed\n`);
