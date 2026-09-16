@@ -14,7 +14,7 @@ use genos_biology::spore::SporeType;
 use genos_cell::{AgentCell, ClinicalState};
 use genos_signal::SignalingMode;
 use serde_json::json;
-/// Bilan d'un tick.
+use uuid::Uuid;
 #[derive(Clone, Debug)]
 pub struct TickReport {
     pub tick: u64,
