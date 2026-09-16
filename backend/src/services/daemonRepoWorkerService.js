@@ -395,5 +395,6 @@ module.exports = {
   openMergeRequest,
   runRepoDaemonCycle,
   runFleetDaemonCycle,
-  loadState
+  loadState,
+  saveState
 };

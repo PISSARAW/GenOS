@@ -16,24 +16,15 @@ const {
 } = require('../src/services/daemonAgentAutostart');
 const vectorMemoryService = require('../src/services/vectorMemoryService');
 const { saveState: saveDaemonState, loadState: loadDaemonState } = require('../src/services/daemonRepoWorkerService');
+const { createDaemonTimer } = require('../src/services/daemonTimerService');
 
 const COLORS = {
-  reset: '\x1b[0m',
-  bold: '\x1b[1m',
-  dim: '\x1b[2m',
-  italic: '\x1b[3m',
-  cyan: '\x1b[36m',
-  green: '\x1b[32m',
-  blue: '\x1b[34m',
-  yellow: '\x1b[33m',
-  magenta: '\x1b[35m',
-  gray: '\x1b[90m',
-  white: '\x1b[37m'
+  reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m', italic: '\x1b[3m',
+  cyan: '\x1b[36m', green: '\x1b[32m', blue: '\x1b[34m', yellow: '\x1b[33m',
+  magenta: '\x1b[35m', gray: '\x1b[90m', white: '\x1b[37m'
 };
 
-function colorize(text, color, useColor) {
-  return useColor ? `${color}${text}${COLORS.reset}` : text;
-}
+function colorize(text, color, useColor) { return useColor ? `${color}${text}${COLORS.reset}` : text; }
 
 function printBanner(config, useColor) {
   const line = '═'.repeat(64);
@@ -41,7 +32,6 @@ function printBanner(config, useColor) {
   const shield = '🛡️';
   const header = `${shield}  ${title}`;
   const paddedHeader = header.padEnd(62).slice(0, 62);
-  
   console.log(colorize(`╔${line}╗`, COLORS.cyan, useColor));
   console.log(colorize(`║${paddedHeader}║`, COLORS.cyan + COLORS.bold + COLORS.yellow, useColor));
   console.log(colorize(`║   Agent        : ${config.name.padEnd(46)}║`, COLORS.cyan + COLORS.green, useColor));
@@ -53,55 +43,42 @@ function printBanner(config, useColor) {
   console.log('');
 }
 
+function buildMaintenanceLine(entry) {
+  if (entry.status === 'skipped' || entry.status === 'error') return `  - ${entry.repo}: ${entry.status} (${entry.reason || 'n/a'})`;
+  const fixLine = entry.lastFix?.applied
+    ? `fix committed on ${entry.branch} (${entry.lastFix.file})`
+    : `watching (${entry.lastFix?.reason || 'no change this cycle'})`;
+  let mrLine = 'no MR yet';
+  if (entry.mergeRequest?.opened) mrLine = `MR ready${entry.mergeRequest.url ? ': ' + entry.mergeRequest.url : ''}`;
+  else if (entry.mergeRequest) mrLine = `MR pending (${entry.mergeRequest.reason || 'n/a'})`;
+  return `  - ${entry.repo}: ${entry.status} — ${fixLine} — ${mrLine}`;
+}
+
 function formatMaintenanceSummary(maintenance, useColor) {
-  if (!maintenance || maintenance.length === 0) return null;
+  if (!maintenance?.length) return null;
   const lines = ['🛡️ Maintenance autonome (branches daemon) :'];
-  for (const entry of maintenance) {
-    if (entry.status === 'skipped' || entry.status === 'error') {
-      lines.push(`  - ${entry.repo}: ${entry.status} (${entry.reason || 'n/a'})`);
-      continue;
-    }
-    const fixLine = entry.lastFix?.applied
-      ? `fix committed on ${entry.branch} (${entry.lastFix.file})`
-      : `watching (${entry.lastFix?.reason || 'no change this cycle'})`;
-    const mrLine = entry.mergeRequest?.opened
-      ? `MR ready${entry.mergeRequest.url ? ': ' + entry.mergeRequest.url : ''}`
-      : (entry.mergeRequest ? `MR pending (${entry.mergeRequest.reason || 'n/a'})` : 'no MR yet');
-    lines.push(`  - ${entry.repo}: ${entry.status} — ${fixLine} — ${mrLine}`);
-  }
-  const text = lines.join('\n');
-  return colorize(text, COLORS.cyan, useColor);
+  for (const entry of maintenance) lines.push(buildMaintenanceLine(entry));
+  return colorize(lines.join('\n'), COLORS.cyan, useColor);
 }
 
 function formatReportForTerminal(report, useColor) {
   if (!useColor) return report;
-  const lines = report.split('\n');
-  const out = [];
-  for (const line of lines) {
+  return report.split('\n').map(line => {
     let l = line;
     if (/^# /i.test(l)) l = colorize(l, COLORS.bold + COLORS.yellow, useColor);
     else if (/^## /i.test(l)) l = colorize(l, COLORS.bold + COLORS.cyan, useColor);
     else if (/^### /i.test(l)) l = colorize(l, COLORS.bold + COLORS.green, useColor);
     else if (/^> /i.test(l)) l = colorize('│ ' + l.slice(2), COLORS.gray + COLORS.white, useColor);
     l = l.replace(/\*\*(.*?)\*\*/g, (_, m) => colorize(m, COLORS.bold, useColor));
-    l = l.replace(/`(.*?)`/g, (_, m) => colorize(m, COLORS.yellow, useColor));
-    out.push(l);
-  }
-  return out.join('\n');
+    return l.replace(/`(.*?)`/g, (_, m) => colorize(m, COLORS.yellow, useColor));
+  }).join('\n');
 }
 
 const cliHelp = require('./cliHelp.cjs');
 
-function hasAnyFlag(args, names) {
-  for (const flag of names) {
-    if (args.includes(flag)) return true;
-  }
-  return false;
-}
+function hasAnyFlag(args, names) { for (const flag of names) if (args.includes(flag)) return true; return false; }
 
-function envFlag(name) {
-  return /^(1|true)$/i.test(process.env[name] || '');
-}
+function envFlag(name) { return /^(1|true)$/i.test(process.env[name] || ''); }
 
 function resolveColor(args) {
   return !args.includes('--no-color') && (Boolean(process.stdout.isTTY) || process.env.COLORTERM !== undefined);
@@ -238,19 +215,26 @@ function printCycleReport(result, sleepReport, useColor) {
 }
 
 async function runScheduledCycle(config, flags) {
+  const cycleTimeoutMs = Number(process.env.GENOS_DAEMON_CYCLE_TIMEOUT_MS) || 300000;
   let scheduled;
   try {
-    scheduled = await runProactiveCycle({ autofix: !flags.isReportOnly });
+    scheduled = await Promise.race([
+      runProactiveCycle({ autofix: !flags.isReportOnly }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Cycle timeout after ${cycleTimeoutMs}ms`)), cycleTimeoutMs)
+      )
+    ]);
   } catch (error) {
     console.error(`[${config.name}] Proactive cycle failed:`, error.message);
     throw error;
   }
+  let sleepReport = null;
   try {
-    await vectorMemoryService.sleepCycle();
+    sleepReport = await vectorMemoryService.sleepCycle();
   } catch (error) {
     console.warn(`[${config.name}] Sleep cycle failed:`, error.message);
   }
-  if (scheduled.maintenance && scheduled.maintenance.length > 0) {
+  if (scheduled?.maintenance && scheduled.maintenance.length > 0) {
     console.log(formatMaintenanceSummary(scheduled.maintenance, flags.useColor));
   }
   console.log(`[${config.name}] Scheduled cycle completed.`);
@@ -305,6 +289,8 @@ function createDaemonTimer(config, flags, intervalMs) {
 
   const stop = () => {
     clearInterval(timer);
+    // Drain queued-but-not-started cycles to avoid orphan work after stop.
+    while (queue.length > 0) queue.shift();
     try {
       const state = loadDaemonState();
       saveDaemonState(state);
@@ -313,10 +299,14 @@ function createDaemonTimer(config, flags, intervalMs) {
       console.error(`[${config.name}] Failed to flush state:`, error.message);
     }
     console.log(`[${config.name}] Daemon stopped.`);
-    process.exit(0);
+    try { process.exit(0); } catch (_) { /* exit may throw in some runtimes */ }
   };
   process.once('SIGTERM', stop);
   process.once('SIGINT', stop);
+  process.once('uncaughtException', (err) => {
+    console.error(`[${config.name}] Uncaught exception in daemon:`, err.message);
+    process.exit(1);
+  });
 }
 
 function runDaemon(flags, config) {
@@ -324,6 +314,9 @@ function runDaemon(flags, config) {
   const intervalMinutes = Number.isFinite(rawInterval) && rawInterval > 0
     ? Math.max(1, Math.min(1440, Math.floor(rawInterval)))
     : 60;
+  if (!Number.isFinite(rawInterval) || rawInterval <= 0) {
+    console.warn(`[${config.name}] Invalid checkIntervalMinutes (${config.checkIntervalMinutes}), using ${intervalMinutes} minute(s).`);
+  }
   const intervalMs = intervalMinutes * 60 * 1000;
   if (rawInterval !== intervalMinutes) {
     console.warn(`[${config.name}] Invalid checkIntervalMinutes (${config.checkIntervalMinutes}), using ${intervalMinutes} minute(s).`);

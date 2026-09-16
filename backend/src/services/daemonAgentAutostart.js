@@ -65,58 +65,59 @@ function saveDaemonConfig(updates = {}) {
   }
 }
 
+function validateAndWarnDir(dir, label) {
+  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
+    console.warn(`[Daemon Config] ${label} directory does not exist: ${dir}`);
+    return false;
+  }
+  try {
+    fs.accessSync(dir, fs.constants.W_OK);
+    return true;
+  } catch {
+    console.warn(`[Daemon Config] ${label} directory not writable: ${dir}`);
+    return false;
+  }
+}
+
+function ensureDirExists(dir) {
+  if (!fs.existsSync(dir)) {
+    try { fs.mkdirSync(dir, { recursive: true }); } catch {}
+  }
+  return dir;
+}
+
+function getWin32StartupDir() {
+  const base = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  return path.join(base, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup');
+}
+
+function getDarwinStartupDir() {
+  return ensureDirExists(path.join(os.homedir(), 'Library', 'LaunchAgents'));
+}
+
+function getLinuxStartupDir() {
+  return ensureDirExists(path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'autostart'));
+}
+
 function getStartupDirectory() {
   if (process.env.GENOS_STARTUP_DIR) {
     const customDir = process.env.GENOS_STARTUP_DIR;
-    if (fs.existsSync(customDir) && fs.statSync(customDir).isDirectory()) {
-      try {
-        fs.accessSync(customDir, fs.constants.W_OK);
-        return customDir;
-      } catch {
-        console.warn(`[Daemon Config] Custom startup directory not writable: ${customDir}`);
-      }
-    } else {
-      console.warn(`[Daemon Config] Custom startup directory does not exist: ${customDir}`);
-    }
+    if (validateAndWarnDir(customDir, 'Custom startup')) return customDir;
   }
   if (process.platform === 'win32') {
-    const base = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-    const startupDir = path.join(base, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup');
-    if (fs.existsSync(startupDir)) {
-      try {
-        fs.accessSync(startupDir, fs.constants.W_OK);
-        return startupDir;
-      } catch {
-        console.warn(`[Daemon Config] Startup directory not writable: ${startupDir}`);
-      }
-    }
-    return startupDir;
+    const dir = getWin32StartupDir();
+    if (validateAndWarnDir(dir, 'Windows startup')) return dir;
+    return dir;
   }
   if (process.platform === 'darwin') {
-    const launchAgents = path.join(os.homedir(), 'Library', 'LaunchAgents');
-    if (!fs.existsSync(launchAgents)) {
-      try { fs.mkdirSync(launchAgents, { recursive: true }); } catch {}
-    }
-    try {
-      fs.accessSync(launchAgents, fs.constants.W_OK);
-      return launchAgents;
-    } catch {
-      console.warn(`[Daemon Config] LaunchAgents directory not writable: ${launchAgents}`);
-    }
-    return launchAgents;
+    const dir = getDarwinStartupDir();
+    if (validateAndWarnDir(dir, 'LaunchAgents')) return dir;
+    return dir;
   }
   if (process.platform === 'linux') {
-    const autostart = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'autostart');
-    if (!fs.existsSync(autostart)) {
-      try { fs.mkdirSync(autostart, { recursive: true }); } catch {}
-    }
-    try {
-      fs.accessSync(autostart, fs.constants.W_OK);
-      return autostart;
-    } catch {
-      console.warn(`[Daemon Config] Autostart directory not writable: ${autostart}`);
-    }
-    return autostart;
+    const dir = getLinuxStartupDir();
+    if (validateAndWarnDir(dir, 'Autostart')) return dir;
+    return dir;
   }
   return null;
 }
