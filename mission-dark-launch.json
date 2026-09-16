@@ -1,8 +1,0 @@
-{
-  "action": "orchestrate",
-  "mission": "Dark Launch Moteur de Tarification Dynamique",
-  "background": true,
-  "pitch": "Concevoir, coder et valider l'architecture logicielle d'un moteur de Dark Launch pour une plateforme de livraison. Fonctionnalites exigees : (1) endpoint qui recoit une requete de prix, (2) routage simultane vers l'ancien moteur (statique, distance) et le nouveau moteur (dynamique : distance + meteo + trafic + historique livreur), (3) ancien moteur repond a l'utilisateur immediatement sans latence, (4) nouveau moteur calcule en silence, (5) comparaison asynchrone des deux resultats, (6) persistence des deltas dans un flux d'evenements, (7) alerte si un ecart depasse un seuil configurable, (8) garantie d'absence de latence percue. Livrable : code source + ADR + tests d'integration.",
-  "domaines": ["backend","architecture","quality"],
-  "output_dir": "C:/Users/Shadow/GitHub/GenoSWork/src/dark-launch"
-}

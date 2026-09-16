@@ -1,1 +1,0 @@
-{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"genos_orchestrate","arguments":{"mission":"Test rapide de fonctionnement GenOS — réponds par un JSON {\"status\":\"ok\",\"message\":\"GenOS fonctionne\"}}.","background":false}}}
