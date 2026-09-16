@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const strategy = require('../src/services/strategyExecutionService');
+const adapter = require('../src/services/strategyExecutionAdapter');
 
 assert.equal(strategy.primitiveFailureReason({ stage_key: 'snapshot' }, { success: true }), null);
 assert.match(
@@ -22,5 +23,9 @@ assert.throws(
   () => strategy.resolveStagePrimitives('conditional_promotion', portfolioWithoutStdp, { strict: true }),
   (err) => err.code === 'STRATEGY_PORTFOLIO_UNSUPPORTED_STAGE'
 );
+
+assert.equal(adapter.shouldAdaptStrategy({ success: false, code: 'STRATEGY_PRIMITIVE_UNIMPLEMENTED' }), false);
+assert.equal(adapter.shouldAdaptStrategy({ success: false, status: 'not_found' }), false);
+assert.equal(adapter.shouldAdaptStrategy({ success: false, error: 'hypothesis falsified by replay' }), true);
 
 console.log('✅ Strategy primitive gates and stage resolution pass all tests.');

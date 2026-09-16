@@ -12,6 +12,16 @@ function getAdaptationService() {
 }
 
 const { HANDLERS } = require('./primitiveHandlers/handlersRegistry');
+const NON_CAUSAL_FAILURE_CODES = new Set(['STRATEGY_PRIMITIVE_UNIMPLEMENTED', 'STRATEGY_CONTEXT_INCOMPLETE', 'TOOL_NOT_FOUND', 'not_found']);
+
+function failureCode(result = {}) {
+  return result.code || result.errorCode || result.status || null;
+}
+
+function shouldAdaptStrategy(result = {}) {
+  if (result.success !== false) return false;
+  return !NON_CAUSAL_FAILURE_CODES.has(failureCode(result));
+}
 
 /**
  * Log primitive execution for audit trail: records which primitives were actually
@@ -96,6 +106,7 @@ class StrategyExecutionAdapter {
 
       if (!res.success) {
         pipelineSuccess = false;
+        if (!shouldAdaptStrategy(res)) break;
         telemetry.emitEvent({
           eventType: 'STRATEGY_FEEDBACK_LOOP_TRIGGERED',
           action: 'ADAPT_STRATEGY',
@@ -145,3 +156,4 @@ class StrategyExecutionAdapter {
 }
 
 module.exports = new StrategyExecutionAdapter();
+module.exports.shouldAdaptStrategy = shouldAdaptStrategy;
