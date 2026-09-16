@@ -16,7 +16,6 @@ const {
 } = require('../src/services/daemonAgentAutostart');
 const vectorMemoryService = require('../src/services/vectorMemoryService');
 const { saveState: saveDaemonState, loadState: loadDaemonState } = require('../src/services/daemonRepoWorkerService');
-const { createDaemonTimerFromService } = require('../src/services/daemonTimerService');
 
 const COLORS = {
   reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m', italic: '\x1b[3m',
@@ -242,13 +241,34 @@ async function runScheduledCycle(config, flags) {
   return { result: cycleError ? null : scheduled, sleepReport, error: cycleError };
 }
 
+async function daemonRunNext(ctx) {
+  const { q, st, pfx, config, flags } = ctx;
+  if (st.running || !q.length) return;
+  st.running = true; const fn = q.shift();
+  try { await fn(); st.fails = 0; }
+  catch (e) { st.fails++; console.error(`${pfx}Cycle failed:`, e.message); }
+  finally { st.total++; st.running = false; if (st.total >= 3) { const r = st.fails / Math.min(st.total, 10); if (r > 0.5) console.warn(`${pfx}Health: ${(r*100).toFixed(0)}% failures.`); } daemonRunNext(ctx); }
+}
+
+function daemonStop(ctx) {
+  clearInterval(ctx.timer); while (ctx.q.length) ctx.q.shift();
+  try { const s = ctx.loadState(); ctx.saveState(s); console.log(`${ctx.pfx}Flushed.`); } catch (e) { console.error(`${ctx.pfx}Flush failed:`, e.message); }
+  console.log(`${ctx.pfx}Stopped.`); try { process.exit(0); } catch {}
+}
+
 function createDaemonTimer(config, flags, intervalMs) {
-  const cycleFn = async () => {
-    const r = await runScheduledCycle(config, flags);
-    if (r.error) throw r.error;
-    return r;
-  };
-  createDaemonTimerFromService({ runScheduledCycle: cycleFn, loadDaemonState, saveDaemonState, configName: config.name, intervalMs });
+  const q = [], st = { running: false, fails: 0, total: 0 };
+  const MAX_Q = 5, pfx = `[${config.name}] `;
+  const cycleFn = async () => { const r = await runScheduledCycle(config, flags); if (r.error) throw r.error; return r; };
+
+  const timer = setInterval(() => {
+    if (q.length >= MAX_Q) { console.warn(`${pfx}Queue full.`); q.shift(); }
+    q.push(cycleFn); daemonRunNext({ q, st, pfx, config, flags });
+  }, intervalMs);
+
+  const stopCtx = { timer, q, pfx, loadState: loadDaemonState, saveState: saveDaemonState };
+  const stop = () => daemonStop(stopCtx);
+  process.once('SIGTERM', stop); process.once('SIGINT', stop); process.once('uncaughtException', e => { console.error(`${pfx}Uncaught:`, e.message); process.exit(1); });
 }
 
 function runDaemon(flags, config) {
