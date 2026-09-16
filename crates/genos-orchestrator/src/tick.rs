@@ -1,6 +1,5 @@
 //! Boucle cognitive : observer → décider → agir, en un seul `tick`, et
 //! `run` qui itère jusqu'à l'arrêt en produisant un rapport global.
-
 use crate::GenosEcosystem;
 use crate::director::Strategy;
 use crate::learning::context_from_state;
@@ -26,7 +25,6 @@ pub struct TickReport {
     pub halt: Option<String>,
     pub verdicts: Vec<(Uuid, Verdict)>,
 }
-
 /// Bilan d'une mission complète.
 #[derive(Clone, Debug)]
 pub struct MissionReport {
@@ -41,7 +39,6 @@ pub struct MissionReport {
     pub traces: usize,
     pub goals: Vec<String>,
 }
-
 impl GenosEcosystem {
     pub fn tick(&mut self, goal: &Goal) -> TickReport {
         // Autopoïèse : la frontière se dégrade ; rompue, l'organisme meurt.
@@ -83,6 +80,7 @@ impl GenosEcosystem {
         }
 
         let mut sim = state.clone();
+        let mut executed_concepts = Vec::new();
         for step in &decision.steps {
             // Métabolisme réel : chaque concept consomme de l'ATP.
             if !self.orchestrator.metabolism.consume(step.concept.cost()) {
@@ -99,7 +97,9 @@ impl GenosEcosystem {
             self.director
                 .record(step.concept, after > before || sim.goal_reached(goal));
             report.executed.push(step.concept);
+            executed_concepts.push(step.concept);
         }
+
         // Attribution de crédit + reproduction autonome.
         let episode_reward = if sim.goal_reached(goal) { 1.0 } else { 0.0 };
         self.director.assign_credit(&report.executed, episode_reward);

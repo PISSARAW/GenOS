@@ -64,7 +64,7 @@ pub use trace::{Outcome, ReplayReport, Verdict};
 pub use tick::{MissionReport, TickReport};
 pub use volition::VolitionState;
 pub use worlds::{Hypothesis, Multiverse, WorldOutcome};
-pub use planner::{Concept, Goal, WorldState};
+pub use planner::{Concept, Goal, WorldState, ActionStats};
 pub use recruitment::{Candidate, Demand, RecruitmentDecision, RecruitmentPlanner, Selection};
 pub use token_bucket::{AgentComputeBucket, BucketState, PenaltyReport, RewardReport, SchedulingDecision, TokenBucketScheduler};
 

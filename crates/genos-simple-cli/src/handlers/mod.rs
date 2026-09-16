@@ -21,6 +21,7 @@ mod core;
 mod query;
 mod advanced;
 mod system;
+mod recovery;
 
 fn run_command(command: &Commands, yes: bool) {
     match command {
@@ -28,6 +29,7 @@ fn run_command(command: &Commands, yes: bool) {
         Commands::Query(cmd) => query::handle_query(cmd, yes),
         Commands::Advanced(cmd) => advanced::handle_advanced(cmd, yes),
         Commands::System(cmd) => system::handle_system(cmd, yes),
+        Commands::Recovery(cmd) => recovery::handle_recovery(cmd, yes),
     }
 }
 

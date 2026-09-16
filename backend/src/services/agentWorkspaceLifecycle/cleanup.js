@@ -222,12 +222,22 @@ async function scheduleWorkspaceCleanup(agentId, forceDelay = null, retries = 0)
 async function reconcileWorkspaceCleanup(db) {
   await ensureCleanupTable(db);
   const rows = await db.all('SELECT agent_id, workspace_root FROM agent_capsule_cleanup');
+  let reconciled = 0;
   for (const row of rows) {
+    // A capsule whose directory has already been reclaimed (e.g. OS temp purge,
+    // manual cleanup, or a crash mid-reclaim) must not crash the boot: skip it
+    // and drop the stale tracking row instead of attempting to write an epoch
+    // marker into a path that no longer exists.
+    if (!row.workspace_root || !fsSync.existsSync(row.workspace_root)) {
+      await bestEffort(db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', row.agent_id));
+      continue;
+    }
     const epoch = await ensureEpochMarker(row.workspace_root);
     activeWorktrees.set(row.agent_id, { workspaceRoot: row.workspace_root, epoch });
     await scheduleWorkspaceCleanup(row.agent_id, 0);
+    reconciled += 1;
   }
-  return rows.length;
+  return reconciled;
 }
 
 /** Diagnostics: every capsule currently tracked for eventual reclamation. */

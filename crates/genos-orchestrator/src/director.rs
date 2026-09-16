@@ -190,7 +190,7 @@ impl Director {
             return Self::halt(Strategy::Solo, "aucun progres possible : moyens inutiles au but");
         }
 
-        let (strategy, steps) = if scored.len() >= 2 && (scored[0].2 - scored[1].2).abs() < 0.1 {
+        let (strategy, mut steps) = if scored.len() >= 2 && (scored[0].2 - scored[1].2).abs() < 0.1 {
             // Deux stratégies se valent : on les explore en parallèle (Trinity).
             let mut merged = scored[0].1.clone();
             for step in &scored[1].1 {
@@ -202,6 +202,7 @@ impl Director {
         } else {
             (scored[0].0, scored[0].1.clone())
         };
+
         let rationale = format!(
             "strategie {:?} retenue ({} etapes, cout {:.1})",
             strategy,

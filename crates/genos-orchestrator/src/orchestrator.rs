@@ -18,6 +18,7 @@ use genos_immune::{Antigen, ClonalSelection};
 use crate::autopoiesis::Membrane;
 use crate::conscience::{Conscience, ConscienceState};
 use crate::metabolism::Metabolism;
+use genos_creativity::{CreativityEngine, CreativityConfig};
 
 /// L'Orchestrateur Biomimétique central de GenOS : coordonne les tissus cellulaires,
 /// surveille la dissonance cognitive, applique l'écologie anti-collusion et gère
@@ -56,6 +57,9 @@ pub struct BiomimeticOrchestrator {
     /// phospholipides), distinct de l'intégrité abstraite ci-dessus qu'il alimente.
     #[serde(skip)]
     pub lipid_chemistry: MetabolicNetwork,
+    /// Moteur de créativité (DMN / Salience / Executive / Dopamine / Plasticité).
+    #[serde(skip)]
+    pub creativity: CreativityEngine,
 }
 
 impl BiomimeticOrchestrator {
@@ -81,6 +85,7 @@ impl BiomimeticOrchestrator {
             chemistry: build_glycolysis_network(),
             membrane: Membrane::default(),
             lipid_chemistry: build_lipid_membrane_network(),
+            creativity: CreativityEngine::new(CreativityConfig::default()),
         }
     }
 
