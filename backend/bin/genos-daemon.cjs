@@ -79,12 +79,12 @@ function formatReportForTerminal(report, useColor) {
   const out = [];
   for (const line of lines) {
     let l = line;
-    if (/^# /i.test(l)) l = colorize(l, COLORS.bold + COLORS.yellow, true);
-    else if (/^## /i.test(l)) l = colorize(l, COLORS.bold + COLORS.cyan, true);
-    else if (/^### /i.test(l)) l = colorize(l, COLORS.bold + COLORS.green, true);
+    if (/^# /i.test(l)) l = colorize(l, COLORS.bold + COLORS.yellow, useColor);
+    else if (/^## /i.test(l)) l = colorize(l, COLORS.bold + COLORS.cyan, useColor);
+    else if (/^### /i.test(l)) l = colorize(l, COLORS.bold + COLORS.green, useColor);
     else if (/^> /i.test(l)) l = colorize('│ ' + l.slice(2), COLORS.gray + COLORS.white, useColor);
-    l = l.replace(/\*\*(.*?)\*\*/g, (_, m) => colorize(m, COLORS.bold, true));
-    l = l.replace(/`(.*?)`/g, (_, m) => colorize(m, COLORS.yellow, true));
+    l = l.replace(/\*\*(.*?)\*\*/g, (_, m) => colorize(m, COLORS.bold, useColor));
+    l = l.replace(/`(.*?)`/g, (_, m) => colorize(m, COLORS.yellow, useColor));
     out.push(l);
   }
   return out.join('\n');
@@ -238,8 +238,18 @@ function printCycleReport(result, sleepReport, useColor) {
 }
 
 async function runScheduledCycle(config, flags) {
-  const scheduled = await runProactiveCycle({ autofix: !flags.isReportOnly });
-  await vectorMemoryService.sleepCycle();
+  let scheduled;
+  try {
+    scheduled = await runProactiveCycle({ autofix: !flags.isReportOnly });
+  } catch (error) {
+    console.error(`[${config.name}] Proactive cycle failed:`, error.message);
+    throw error;
+  }
+  try {
+    await vectorMemoryService.sleepCycle();
+  } catch (error) {
+    console.warn(`[${config.name}] Sleep cycle failed:`, error.message);
+  }
   if (scheduled.maintenance && scheduled.maintenance.length > 0) {
     console.log(formatMaintenanceSummary(scheduled.maintenance, flags.useColor));
   }
