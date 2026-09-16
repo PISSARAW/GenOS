@@ -31,7 +31,22 @@ const REQUIRED_STRINGS = {
   genos_genome_clone: ['input', 'out'],
   genos_genome_decoy: ['input', 'out'],
   genos_computer_use: ['prompt'],
-  genos_topology_session: ['session_id', 'operation']
+  genos_topology_session: ['session_id', 'operation'],
+  genos_orchestrate: ['mission'],
+  genos_delegate_worker: ['mission'],
+  genos_change_strategy: ['strategy', 'reason'],
+  genos_report_progress: ['phase', 'message'],
+  genos_change_organization: ['organization', 'reason'],
+  genos_organization_state: [],
+  genos_worker_publish: ['kind'],
+  genos_worker_inbox: [],
+  genos_capsule_create: ['snapshot_id'],
+  genos_v2_init: [],
+  genos_v2_fork: [],
+  genos_trinity_launch: ['mission'],
+  genos_a_team_preview: ['project_goal', 'sub_systems'],
+  genos_audit: ['snapshot_id'],
+  genos_biomimicry: ['feature', 'action']
 };
 
 const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'patterns_detected', 'facts', 'steps', 'preconditions', 'bbox', 'history']);
