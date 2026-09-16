@@ -1,5 +1,6 @@
 const { buildAutonomyPlan, applySurvivalConstraints } = require('./autonomousOrchestrationService');
 const { buildAllocation } = require('./tokenAllocationService');
+const { regulateAutonomyPlan } = require('./controlRegulationService');
 const trinityService = require('./trinityService');
 const aTeamService = require('./aTeamService');
 const aTeamCoordination = require('./aTeamCoordinationService');
@@ -207,13 +208,14 @@ async function applySelfModel({ db, agentId, normalizedMission, autonomyPlan }) 
 
 async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord }) {
   const missionBudget = normalizedMission.executionBudget || {};
+  const regulationBudget = {
+    ...missionBudget,
+    survivalState: normalizedMission.survivalState || missionBudget.survivalState
+  };
   const configuredWorkerShare = resolveWorkerShare(missionBudget);
   const configuredOrchestratorReserve = resolveOrchestratorReserve(missionBudget, configuredWorkerShare);
   const autonomyPlan = dispatchedAgent.execution_mode === 'orchestrator'
-    ? buildAutonomyPlan(contractRecord.contract, {
-      ...normalizedMission.executionBudget,
-      survivalState: normalizedMission.survivalState || normalizedMission.executionBudget?.survivalState
-    })
+    ? buildAutonomyPlan(contractRecord.contract, regulationBudget)
     : null;
   if (!autonomyPlan) {
     return autonomyPlan;
@@ -227,6 +229,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   await applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan });
   await applyOrganizationState({ db, agentId, autonomyPlan });
   applyCapabilityContract(autonomyPlan);
+  autonomyPlan.controlRegulation = regulateAutonomyPlan(contractRecord.contract, regulationBudget, autonomyPlan);
   emitControlRegulation(agentId, autonomyPlan);
   return autonomyPlan;
 }

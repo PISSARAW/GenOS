@@ -39,6 +39,11 @@ assert.strictEqual(plan.tokenPolicy.rounds.initial.workerCount, 3);
 assert.strictEqual(plan.tokenPolicy.rounds.initial.perWorkerTokens, 9600);
 assert.strictEqual(plan.tokenPolicy.rounds.continuation.survivorCount, 0);
 assert.strictEqual(plan.tokenPolicy.rounds.continuation.perWorkerTokens, 0);
+assert.strictEqual(plan.controlRegulation.schema, 'genos.control-regulation/v1alpha1');
+assert(plan.controlRegulation.signals.some((signal) => signal.source === 'attention' && signal.target === 'diagnostics'));
+assert(plan.controlRegulation.signals.some((signal) => signal.source === 'immune' && signal.direction === 'require_evidence'));
+assert(plan.controlRegulation.arbitration.vetoes.some((signal) => signal.target === 'promotion'));
+assert(plan.controlRegulation.expectedFeedback.includes('replayVerified'));
 
 const blockedPlan = buildAutonomyPlan({ problem_profile: { type: 'general' }, strategy_portfolio: [], branches: [] }, { tokens: 500000 });
 assert.equal(blockedPlan.executionStatus, 'blocked');
@@ -66,6 +71,7 @@ assert.doesNotThrow(() => assertAutonomyPlanExecutable({
 
 const lowBudgetPlan = buildAutonomyPlan(securityContract, { tokens: 6000, minimumWorkerTokens: 8000 });
 assert.strictEqual(lowBudgetPlan.dispatchWorkers.length, 0, 'the orchestrator must retain control rather than launch unaffordable workers');
+assert(lowBudgetPlan.controlRegulation.signals.some((signal) => signal.source === 'homeostasis' && signal.direction === 'inhibit'));
 
 const decoded = decodeMission(encodeMission({ agentId: 'agent_test', autonomyPlanJson: JSON.stringify(plan) }));
 assert.strictEqual(JSON.parse(decoded.autonomyPlanJson).schema, 'genos.autonomous-orchestration/v1alpha1');

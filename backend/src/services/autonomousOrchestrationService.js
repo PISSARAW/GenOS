@@ -3,6 +3,7 @@ const { buildAllocation } = require('./tokenAllocationService');
 const { ORGANIZATIONS } = require('./dynamicOrganizationService');
 const { PRIMITIVE_ALIASES, decisionGates, organizationTransitions } = require('./autonomousOrchestrationGates');
 const { evaluateSurvival } = require('./survivalModelService');
+const { regulateAutonomyPlan } = require('./controlRegulationService');
 
 function maxWorkers() {
   return Math.max(1, Number(process.env.GENOS_MAX_WORKERS || process.env.GENOS_MAX_AUTONOMOUS_WORKERS || process.env.GENOS_MAX_ACTIVE_WORKERS) || 8);
@@ -320,6 +321,7 @@ function buildAutonomyPlan(contract, budget = {}) {
     parasitism: buildParasitism(flags),
     tokenPolicy: buildTokenPolicyView(contract, tokenPlan)
   };
+  plan.controlRegulation = regulateAutonomyPlan(contract, budget, plan);
   return plan;
 }
 
