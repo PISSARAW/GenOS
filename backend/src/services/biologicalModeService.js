@@ -1,5 +1,13 @@
 const symbioteRuntime = require('./symbioteRuntimeService');
 
+const RUNTIME_BRIDGE_CONTRACT = Object.freeze({
+  controlPlane: 'backend-node',
+  biomimeticKernel: 'crates/genos-orchestrator',
+  integration: 'declared-contract',
+  rustGuaranteesImported: false,
+  evidenceRule: 'Rust biomimetic concepts do not count as Node runtime evidence unless a typed receipt or primitive journal entry records them.'
+});
+
 const MODE_DEFINITIONS = {
   biome: {
     label: 'Biome',
@@ -99,8 +107,13 @@ function compose(mode, mission) {
     memberNumber: index + 1,
     // Holobionte Symbiotes run on a local inference runtime (see symbioteRuntimeService); other modes stay cloud.
     engine: symbioteRuntime.engineFor(role),
+    runtimeBridge: RUNTIME_BRIDGE_CONTRACT,
     mission: `${definition.label} shared mission: ${goal}\nCollective principle: ${definition.description}\nRole hypothesis: ${definition.hypotheses[index]}\nReturn evidence, state changes, and integration constraints to the orchestrator.`
   }));
 }
 
-module.exports = { compose };
+function runtimeBridgeContract() {
+  return RUNTIME_BRIDGE_CONTRACT;
+}
+
+module.exports = { compose, runtimeBridgeContract };
