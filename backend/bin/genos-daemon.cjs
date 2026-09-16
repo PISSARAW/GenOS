@@ -174,11 +174,24 @@ function printScanBanner(config, useColor) {
 
 async function runCycle(flags, config) {
   if (!flags.isScanOnly) printScanBanner(config, flags.useColor);
-  const result = await runProactiveCycle({ autofix: !flags.isReportOnly });
+  const cycleTimeoutMs = Number(process.env.GENOS_DAEMON_CYCLE_TIMEOUT_MS) || 300000;
+  const cyclePromise = runProactiveCycle({ autofix: !flags.isReportOnly });
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`Cycle timeout after ${cycleTimeoutMs}ms`)), cycleTimeoutMs)
+  );
+  let result;
+  try {
+    result = await Promise.race([cyclePromise, timeoutPromise]);
+  } catch (error) {
+    console.error(`[${config.name}] Cycle failed:`, error.message);
+    throw error;
+  }
   let sleepReport = null;
   try {
     sleepReport = await vectorMemoryService.sleepCycle();
-  } catch (_) {}
+  } catch (error) {
+    console.warn(`[${config.name}] Sleep cycle failed:`, error.message);
+  }
   return { result, sleepReport };
 }
 
