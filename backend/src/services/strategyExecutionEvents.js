@@ -22,6 +22,7 @@ const FINAL_EVENTS = new Set([
   'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED',
   'BUDGET_EXHAUSTED', 'AGENT_HALTED'
 ]);
+const SETTLED_STEP_STATUSES = new Set(['completed', 'skipped']);
 
 function safeJson(value, fallback) {
   try {
@@ -29,6 +30,16 @@ function safeJson(value, fallback) {
   } catch (_) {
     return fallback;
   }
+}
+
+function epistemicState(row, parsedSteps) {
+  if (!row) return { verdict: 'unknown', reason: 'missing run row', promotable: false };
+  if (row.status === 'completed') return { verdict: 'verified', reason: 'execution completed without guardrail', promotable: true };
+  if (row.status === 'awaiting_approval') return { verdict: 'pending_approval', reason: 'human approval proof is required', promotable: false };
+  if (row.status === 'blocked') return { verdict: 'blocked', reason: row.guardrail_reason || 'runtime guardrail blocked execution', promotable: false };
+  if (row.status === 'failed' || row.status === 'cancelled') return { verdict: 'failed', reason: row.guardrail_reason || `execution ${row.status}`, promotable: false };
+  const touched = parsedSteps.some((step) => !['planned', 'skipped'].includes(step.status));
+  return { verdict: touched ? 'in_progress' : 'unverified', reason: touched ? 'execution has started' : 'no execution evidence recorded', promotable: false };
 }
 
 function parseRun(row, steps) {
@@ -45,6 +56,7 @@ function parseRun(row, steps) {
     id: row.id, agentId: row.agent_id, contractId: row.contract_id, contractVersion: row.contract_version,
     status: row.status, budget: safeJson(row.budget_json, {}), metrics: safeJson(row.metrics_json, {}),
     guardrailReason: row.guardrail_reason, startedAt: row.started_at, completedAt: row.completed_at,
+    epistemicState: epistemicState(row, parsedSteps),
     createdAt: row.created_at, steps: parsedSteps,
     adherence: {
       planned: parsedSteps.length, observed, completed,
@@ -127,21 +139,32 @@ function metricDelta(payload) {
 
 function stepIndex(event, stepCount) {
   if (stepCount <= 0) return -1;
-  if (event.eventType === 'AGENT_RUNTIME_STARTED') return 0;
-  if (event.eventType === 'AGENT_PLAN_CREATED') return Math.min(1, stepCount - 1);
-  if (event.eventType === 'AGENT_COMPLETED') return stepCount - 1;
-  if (event.action === 'THINK') return Math.min(2, stepCount - 1);
-  if (event.action === 'VERIFY') return Math.min(5, stepCount - 1);
-  if (event.eventType === 'AGENT_STEP') return Math.min(3, stepCount - 1);
-  return -1;
+  const last = stepCount - 1;
+  const byType = { AGENT_RUNTIME_STARTED: 0, AGENT_PLAN_CREATED: 1, AGENT_COMPLETED: last, AGENT_STEP: 3 };
+  const byAction = { THINK: 2, VERIFY: 5 };
+  const index = byType[event.eventType] ?? byAction[event.action];
+  return index === undefined ? -1 : Math.min(index, last);
+}
+
+function isUnsettledPredecessor(step, index) {
+  if (step.sequence >= index) return false;
+  return !SETTLED_STEP_STATUSES.has(step.status);
 }
 
 function unfinishedPhaseReason(steps, index) {
   if (index <= 0) return null;
-  const unfinished = steps.filter((step) => step.sequence < index && !['completed', 'skipped'].includes(step.status));
+  const unfinished = [];
+  for (const step of steps) {
+    if (isUnsettledPredecessor(step, index)) unfinished.push(step);
+  }
   const current = steps[index] ? steps[index].stage_key : undefined;
   if (!unfinished.length) return null;
-  return `Cannot enter '${current}' before completing: ${unfinished.map((step) => step.stage_key).join(', ')}.`;
+  const names = unfinished.map(stepStageKey).join(', ');
+  return `Cannot enter '${current}' before completing: ${names}.`;
+}
+
+function stepStageKey(step) {
+  return step.stage_key;
 }
 
 function primitiveFailureReason(step, result) {
