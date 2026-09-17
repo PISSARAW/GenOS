@@ -386,7 +386,7 @@ fn execute_cli(workspace: &Path, name: &str, args: &Value) -> (i32, String) {
 
     cmd.current_dir(workspace);
     match execute_command(cmd) {
-        Ok(result) => result,
+        Ok(result) => normalize_cli_result(result),
         Err(error) => (-1, format!("Failed to execute GenOS CLI: {error}")),
     }
 }
@@ -411,6 +411,17 @@ fn normalize_primitive_result(result: (i32, String)) -> (i32, String) {
     }
 }
 
+fn normalize_cli_result(result: (i32, String)) -> (i32, String) {
+    let (code, text) = result;
+    if code != 0 {
+        return (code, text);
+    }
+    match serde_json::from_str::<Value>(&text) {
+        Ok(value) if value.get("success").and_then(Value::as_bool) == Some(false) => (1, text),
+        _ => (0, text),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::normalize_primitive_result;
@@ -420,6 +431,7 @@ mod tests {
         assert_eq!(normalize_primitive_result((0, r#"{"success":false}"#.into())).0, 1);
         assert_eq!(normalize_primitive_result((0, r#"{"success":true}"#.into())).0, 0);
         assert_eq!(normalize_primitive_result((0, "legacy cli help".into())).0, 1);
+        assert_eq!(normalize_cli_result((0, r#"{"success":false}"#.into())).0, 1);
     }
 }
 
