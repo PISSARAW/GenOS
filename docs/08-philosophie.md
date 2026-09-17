@@ -194,7 +194,32 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 
 `backend/src/services/scholastiqueService.js`
 
-## 14. Contingence et Événement — Meillassoux, Badiou
+## 14. Cartesianisme — Dualisme res cogitans / res extensa
+
+### Concepts
+
+- **Res cogitans** = substance pensante (l'agent, la conscience)
+- **Res extensa** = substance étendue (le workspace, le corps)
+- **Cogito** = "Je pense, donc je suis" — fondement de la connaissance
+- **Doute méthodique** = ne croire que ce qui est clair et distinct
+- **Dualisme** = interaction entre l'esprit et le corps (glande pinéale)
+
+### Service
+
+`backend/src/services/cartesianService.js` :
+
+| Fonction | Concept |
+|---|---|
+| `cogito({ agent })` | Cogito cartésien : certitude de l'existence par la pensée |
+| `methodicalDoubt({ agent, belief })` | Doute méthodique : accepter seulement le clair et distinct |
+| `dualism({ agent })` | Dualisme : interaction cogitans/extensa via glande pinéale |
+| `clearAndDistinct({ idea })` | Critère de vérité : idée claire et distincte = vraie |
+
+### Constantes
+
+- `DUALISM` : structure des deux substances (cogitans + extensa)
+
+## 15. Contingence et Événement — Meillassoux, Badiou
 
 ### Concepts
 
@@ -259,6 +284,11 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 │  Platonism                                                   │
 │  └── Formes idéales: perfect_agent, perfect_worker,          │
 │      perfect_evidence, perfect_strategy, perfect_organization│
+├─────────────────────────────────────────────────────────────┤
+│  Cartesianism                                                │
+│  ├── Res cogitans: agent (pensée, conscience)                │
+│  ├── Res extensa: workspace (étendue, corps)                │
+│  └── Cogito: "Je pense, donc je suis" (certitude absolue)    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
