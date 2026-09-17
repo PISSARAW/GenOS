@@ -19,7 +19,8 @@ const SERVICE_MATURITY = Object.freeze({
   artTheoryService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Comparaison de théories de l’art à partir de critères déclarés, sans verdict ontologique.' },
   interpretationService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Lectures révisables, attribution prudente de l’intention et pluralité interprétative.' }
   ,playNarrativeService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Analyse descriptive du jeu, de la fiction et de la narration, sans confusion entre fiction et vérité factuelle.' },
-  cinemaMusicService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Analyse cinématographique et musicale fondée sur des caractéristiques fournies.' }
+  cinemaMusicService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Analyse cinématographique et musicale fondée sur des caractéristiques fournies.' },
+  visualCultureService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Analyse descriptive de l’architecture, du design, des médias numériques et des affinités stylistiques.' }
 });
 
 function maturityForService(service) {
