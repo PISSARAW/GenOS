@@ -90,21 +90,21 @@ function evaluateStanceCoherence({ agentId, stance, observables = [] }) {
         point: obs.description || 'Essentialisme détecté dans un système nominaliste',
         severity: 'medium',
       });
-      coherence -= 0.2;
+      coherence -= 0.3;
     }
     if (stance === ONTOLOGICAL_STANCES.CONCEPTUALISM && obs.signal === 'mind_independent_form') {
       violations.push({
         point: obs.description || 'Forme indépendante de l\'esprit dans un système conceptualiste',
         severity: 'low',
       });
-      coherence -= 0.1;
+      coherence -= 0.2;
     }
     if (stance === ONTOLOGICAL_STANCES.REALISM && obs.signal === 'purely_conceptual') {
       violations.push({
         point: obs.description || 'Concept pur dans un système réaliste',
         severity: 'low',
       });
-      coherence -= 0.1;
+      coherence -= 0.3;
     }
   }
 
