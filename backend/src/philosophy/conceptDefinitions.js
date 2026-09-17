@@ -40,6 +40,7 @@ const FAMILY_BY_DOMAIN = Object.freeze({
 const { CORE_DEFINITIONS } = require('./coreDefinitions');
 const { AESTHETICS_DEFINITIONS } = require('./aestheticsDefinitions');
 const { LOGIC_DEFINITIONS } = require('./logicDefinitions');
+const { MATHEMATICS_DEFINITIONS } = require('./mathematicsDefinitions');
 
 const C = (id, ...fields) => {
   const [label, domain, school, status, service = null, metadata = {}] = fields;
@@ -257,6 +258,7 @@ const CONCEPT_DEFINITIONS = Object.freeze([
   ...LEGACY_DEFINITIONS,
   ...AESTHETICS_DEFINITIONS,
   ...LOGIC_DEFINITIONS,
+  ...MATHEMATICS_DEFINITIONS,
 ]);
 
 module.exports = {
@@ -265,5 +267,6 @@ module.exports = {
   LEGACY_DEFINITIONS,
   AESTHETICS_DEFINITIONS,
   LOGIC_DEFINITIONS,
+  MATHEMATICS_DEFINITIONS,
   FAMILY_BY_DOMAIN,
 };
