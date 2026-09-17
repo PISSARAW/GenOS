@@ -4,6 +4,7 @@ const path = require('node:path');
 const suites = {
   smoke: [
     ['philosophical registry health', 'test_philosophy_registry_health.js'],
+    ['mathematical philosophy registry', 'test_mathematical_philosophy_registry.js'],
     ['REST smoke', 'test_backend.js'],
     ['quality', 'run_quality_suite.js']
   ],
