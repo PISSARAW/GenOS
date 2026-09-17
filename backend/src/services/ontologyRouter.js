@@ -12,6 +12,11 @@
 
 const ontologyService = require('./ontologyService');
 const ontologyRelations = require('./ontologyRelations');
+const semanticReference = require('./philosophy/semanticReferenceService');
+const contextService = require('./philosophy/contextService');
+const speechAct = require('./philosophy/speechActService');
+const pragmatics = require('./philosophy/pragmaticsService');
+const categorization = require('./philosophy/categorizationService');
 
 const KNOWN_OPERATIONS = new Set([
   // Being
@@ -35,6 +40,14 @@ const KNOWN_OPERATIONS = new Set([
   'getIdentityHistory',
   'addRelation',
   'getRelations',
+  'analyzeExpression',
+  'resolveReference',
+  'evaluateDefiniteDescription',
+  'resolveIndexical',
+  'createContext',
+  'analyzeSpeechAct',
+  'analyzeImplicature',
+  'classifyConcept',
 ]);
 
 function normalizeArgs(request) {
@@ -255,6 +268,23 @@ async function handleOntologyRequest({ request, orchestratorId }) {
 
     case 'getRelations':
       return { relations: await ontologyRelations.getRelations(args) };
+
+    case 'analyzeExpression':
+      return semanticReference.analyzeExpression(args);
+    case 'resolveReference':
+      return semanticReference.resolveReference(args);
+    case 'evaluateDefiniteDescription':
+      return semanticReference.evaluateDefiniteDescription(args);
+    case 'resolveIndexical':
+      return contextService.resolveIndexical(args);
+    case 'createContext':
+      return contextService.createContext(args);
+    case 'analyzeSpeechAct':
+      return speechAct.analyzeSpeechAct(args);
+    case 'analyzeImplicature':
+      return pragmatics.analyzeImplicature(args);
+    case 'classifyConcept':
+      return categorization.classifyConcept(args);
 
     default:
       // Defensive: keep the switch exhaustive for future operations.
