@@ -36,16 +36,16 @@ const AESTHETICS_DEFINITIONS = [
   C('art.fictional-reference', 'Référence fictive', 'art-theory', 'walton-searle', 'implemented', 'artTheoryService'),
 
   // Interprétation, auteur et intertextualité.
-  C('interpretation.artistic', 'Interprétation artistique', 'interpretation', 'dewey-danto-goodman', 'planned'),
-  C('interpretation.esthetic-experience', 'Interprétation par l’expérience esthétique', 'interpretation', 'dewey', 'planned'),
-  C('interpretation.embodied-meaning', 'Sens incarné', 'interpretation', 'danto', 'planned'),
-  C('interpretation.intra-extra-artistic', 'Données intra-artistiques et extra-artistiques', 'interpretation', 'beardsley-thomson', 'planned'),
-  C('interpretation.indeterminacy', 'Indétermination interprétative', 'interpretation', 'beardsley-thomson', 'planned'),
-  C('interpretation.construction', 'Interprétation comme construction', 'interpretation', 'contemporary', 'planned'),
-  C('interpretation.death-of-author', 'Mort de l’auteur', 'interpretation', 'barthes-foucault', 'planned'),
-  C('interpretation.author', 'Auteur', 'interpretation', 'barthes-foucault', 'planned'),
-  C('interpretation.intertextuality', 'Intertextualité', 'interpretation', 'kristeva-barthes', 'planned'),
-  C('interpretation.reference', 'Référence et représentation interprétatives', 'interpretation', 'goodman', 'planned'),
+  C('interpretation.artistic', 'Interprétation artistique', 'interpretation', 'dewey-danto-goodman', 'implemented', 'interpretationService'),
+  C('interpretation.esthetic-experience', 'Interprétation par l’expérience esthétique', 'interpretation', 'dewey', 'implemented', 'interpretationService'),
+  C('interpretation.embodied-meaning', 'Sens incarné', 'interpretation', 'danto', 'implemented', 'interpretationService'),
+  C('interpretation.intra-extra-artistic', 'Données intra-artistiques et extra-artistiques', 'interpretation', 'beardsley-thomson', 'implemented', 'interpretationService'),
+  C('interpretation.indeterminacy', 'Indétermination interprétative', 'interpretation', 'beardsley-thomson', 'implemented', 'interpretationService'),
+  C('interpretation.construction', 'Interprétation comme construction', 'interpretation', 'contemporary', 'implemented', 'interpretationService'),
+  C('interpretation.death-of-author', 'Mort de l’auteur', 'interpretation', 'barthes-foucault', 'implemented', 'interpretationService'),
+  C('interpretation.author', 'Auteur', 'interpretation', 'barthes-foucault', 'implemented', 'interpretationService'),
+  C('interpretation.intertextuality', 'Intertextualité', 'interpretation', 'kristeva-barthes', 'implemented', 'interpretationService'),
+  C('interpretation.reference', 'Référence et représentation interprétatives', 'interpretation', 'goodman', 'implemented', 'interpretationService'),
 
   // Jeu, fiction et narration.
   C('play.play', 'Jeu / Play / Game', 'play', 'huizinga-caillois', 'planned'),

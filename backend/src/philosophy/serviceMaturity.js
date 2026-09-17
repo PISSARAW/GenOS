@@ -16,7 +16,8 @@ const SERVICE_MATURITY = Object.freeze({
   cognitionService: { level: 'planned', executable: false, evidence: 'none', note: 'Cognition sociale et représentations à spécifier.' },
   consciousnessMetricsService: { level: 'conceptual', executable: false, evidence: 'none', note: 'Les métriques ne constituent pas une preuve de conscience.' },
   aestheticsService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Évaluations esthétiques bornées, interprétatives et fondées sur des observations fournies.' },
-  artTheoryService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Comparaison de théories de l’art à partir de critères déclarés, sans verdict ontologique.' }
+  artTheoryService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Comparaison de théories de l’art à partir de critères déclarés, sans verdict ontologique.' },
+  interpretationService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Lectures révisables, attribution prudente de l’intention et pluralité interprétative.' }
 });
 
 function maturityForService(service) {
