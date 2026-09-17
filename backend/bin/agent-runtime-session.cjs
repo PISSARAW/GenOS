@@ -287,16 +287,14 @@ function createInvocation(state, binaries) {
 function spawnChild(state, binaries) {
   const invocation = createInvocation(state, binaries);
   state.isolatedCodexHome = invocation.codexHome;
-  // On Windows, spawning codex directly fails because Node.js doesn't resolve
-  // .exe from PATH reliably (backslashes stripped, phantom ENOENT). Use the
-  // shell for PATH resolution but escape carefully.
-  const useShell = process.platform === 'win32';
+  // Preserve TOML/JSON quoting and Windows paths as literal argv entries.
   state.child = spawn(invocation.command, invocation.args, {
     cwd: binaries.workspace,
     env: invocation.env,
     stdio: ['pipe', 'pipe', 'pipe'],
     detached: process.platform !== 'win32',
-    shell: useShell
+    windowsHide: true,
+    shell: false
   });
 }
 
