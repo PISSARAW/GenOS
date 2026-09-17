@@ -3,6 +3,8 @@
 const { CONCEPT_DEFINITIONS } = require('./conceptDefinitions');
 const { validateSpec } = require('../services/specValidator');
 const { GENOS_SUBDOMAINS, subdomainsForConcept } = require('./genosSubdomains');
+const { maturityForConcept } = require('./serviceMaturity');
+const { mappingForConcept } = require('./runtimeMappings');
 
 const CONCEPT_SCHEMA = 'philosophical-concept.schema.json';
 
@@ -28,7 +30,8 @@ function normalizeConcept(concept) {
     claims: concept.claims || [],
     adapters: concept.adapters || [],
     evidenceLevel: concept.evidenceLevel || 'philosophical',
-    mapping: concept.mapping || null,
+    mapping: concept.mapping || mappingForConcept(concept.id),
+    serviceMaturity: maturityForConcept(concept),
     provenance: concept.provenance || { sourceType: 'genos' }
   };
 }

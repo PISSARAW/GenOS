@@ -65,6 +65,18 @@
       "required": ["kind", "target"],
       "additionalProperties": false
     },
+    "serviceMaturity": {
+      "type": "object",
+      "required": ["service", "level", "executable", "evidence", "note"],
+      "properties": {
+        "service": { "type": ["string", "null"] },
+        "level": { "type": "string", "enum": ["implemented", "partial", "conceptual", "planned"] },
+        "executable": { "type": "boolean" },
+        "evidence": { "type": "string", "enum": ["tests", "documentation", "empirical", "none"] },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
     "provenance": {
       "type": "object",
       "properties": {

@@ -214,6 +214,17 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('ethics.categorical-imperative', 'Impératif catégorique', 'normative-ethics', 'kant', 'implemented', 'normativeEthicsService'),
   C('ethics.double-effect', 'Doctrine du double effet', 'normative-ethics', 'aquinas', 'implemented', 'normativeEthicsService'),
   C('ethics.virtue-ethics', 'Éthique des vertus', 'normative-ethics', 'aristotle', 'implemented', 'normativeEthicsService'),
+  C('ethics.social-contract', 'État de nature et contrat social', 'normative-ethics', 'hobbes-locke-rousseau', 'implemented', 'justiceEthicsService'),
+  C('ethics.natural-rights', 'Droits naturels et droits humains', 'normative-ethics', 'locke', 'implemented', 'justiceEthicsService'),
+  C('ethics.contractarianism', 'Contractarianisme', 'normative-ethics', 'rawls-scanlon-gauthier', 'partial', 'justiceEthicsService'),
+  C('ethics.rawlsian-justice', 'Justice comme équité', 'normative-ethics', 'rawls', 'implemented', 'justiceEthicsService'),
+  C('ethics.distributive-justice', 'Justice distributive', 'normative-ethics', 'contemporary', 'implemented', 'justiceEthicsService'),
+  C('ethics.libertarianism', 'Libertarianisme et entitlement theory', 'normative-ethics', 'nozick', 'implemented', 'justiceEthicsService'),
+  C('ethics.equality-of-opportunity', 'Égalité des chances', 'normative-ethics', 'political-philosophy', 'partial', 'justiceEthicsService'),
+  C('ethics.retributive-restorative-justice', 'Justice rétributive et réparatrice', 'normative-ethics', 'contemporary', 'partial', 'justiceEthicsService'),
+  C('ethics.care-ethics', 'Éthique du care', 'normative-ethics', 'gilligan-noddings-tronto', 'implemented', 'relationalEthicsService'),
+  C('ethics.care-deontology', 'Éthique déontologique du care', 'normative-ethics', 'care-ethics', 'implemented', 'relationalEthicsService'),
+  C('ethics.responsibility-other', 'Responsabilité et autrui', 'normative-ethics', 'levinas', 'implemented', 'relationalEthicsService'),
 
   // Philosophie politique — noyau analytique sans autorisation d'exécution.
   C('politics.regime-classification', 'Régimes politiques : démocratie, autoritarisme, dictature', 'politics', 'weber-dahl', 'implemented', 'politicalPhilosophyService'),

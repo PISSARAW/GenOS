@@ -29,6 +29,24 @@ historiques. Les familles actuelles sont :
 La famille est obligatoire dans le schéma normalisé et peut être utilisée par
 `genos_philosophy.listConcepts` avec l’argument `family`.
 
+## 0.1. Mappings prudents vers le runtime
+
+Les concepts politiques peuvent porter un `mapping` vers un mécanisme GenOS.
+Ce champ documente une correspondance, mais n’accorde aucune permission et ne
+transforme pas une analogie philosophique en fonctionnalité politique.
+
+Exemples :
+
+- légitimité → `agentEvidenceService` pour l’audit des justifications ;
+- contrat social → `strategyContractService` pour les engagements techniques ;
+- liberté et autorité → `toolLeasePolicy` pour les limites d’exécution ;
+- séparation des pouvoirs → frontière orchestration/exécution/validation ;
+- sécurité et surveillance → `circuitBreaker` pour la limitation du risque.
+
+Chaque mapping conserve une note de portée et les services politiques renvoient
+`executable: false`. Les gates d’évidence, les leases et le circuit breaker
+restent les autorités effectives du runtime.
+
 ## 1. Ontologie — Être, Substance, Attribut, Mode
 
 ### Concepts
