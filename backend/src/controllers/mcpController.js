@@ -5,6 +5,7 @@ const platformSafety = require('../services/platformSafetyService');
 const mcpExecutor = require('../services/mcpExecutor');
 const vfsSandboxService = require('../services/vfsSandboxService');
 const { MCP_CONTRACT_VERSION, getToolInputSchema, getFullToolSchema, normalizeMcpEnvelope } = require('../services/mcpContract');
+const { directToolLeaseAllows } = require('../services/mcpExecutor/config');
 
 function requestUser(req) {
   return req.user || {};
@@ -208,7 +209,7 @@ async function listTools(req, res) {
   const tools = await db.all('SELECT * FROM mcp_tools ORDER BY category ASC, name ASC');
   const cbStatus = circuitBreaker.getStatus();
 
-  const formatted = tools.map(t => {
+  const formatted = tools.filter((tool) => directToolLeaseAllows(tool.name)).map(t => {
     let actions = [];
     let equipped = ['Global Fleet'];
     try {

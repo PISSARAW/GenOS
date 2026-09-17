@@ -141,7 +141,9 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
 async function listTools() {
   const registry = getToolRegistry();
   const { getToolInputSchema } = require('../mcpContract');
-  return registry.declaredToolNames().map((name) => ({ name, description: `GenOS MCP tool '${name}'.`, inputSchema: getToolInputSchema(name) }));
+  return registry.declaredToolNames()
+    .filter((name) => directToolLeaseAllows(name))
+    .map((name) => ({ name, description: `GenOS MCP tool '${name}'.`, inputSchema: getToolInputSchema(name) }));
 }
 
 module.exports = {
