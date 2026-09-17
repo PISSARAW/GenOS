@@ -4,6 +4,9 @@ const SAFE_RUNTIME_ENV = new Set([
 ]);
 const SAFE_GENOS_ENV = new Set(['GENOS_WORKSPACE_ROOT', 'GENOS_SILENT_UPDATES']);
 
+// Variables d'environnement explicitement bloquées pour le runtime enfant
+const BLOCKED_RUNTIME_ENV = new Set(['HOME', 'USERPROFILE', 'HOMEPATH', 'HOMEDRIVE']);
+
 function isSensitiveEnvironmentName(name) {
   return /(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL|API)/i.test(name);
 }
@@ -11,11 +14,15 @@ function isSensitiveEnvironmentName(name) {
 function buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates) {
   const environment = {};
   for (const [name, value] of Object.entries(process.env)) {
+    // Bloquer les variables sensibles au profil utilisateur
+    if (BLOCKED_RUNTIME_ENV.has(name)) continue;
+    // Propager uniquement les variables sécurisées
     if (SAFE_RUNTIME_ENV.has(name) || SAFE_GENOS_ENV.has(name)) {
       environment[name] = value;
     }
   }
   for (const [name, value] of Object.entries(runtimeEnvironment || {})) {
+    if (BLOCKED_RUNTIME_ENV.has(name)) continue;
     if (SAFE_RUNTIME_ENV.has(name) || SAFE_GENOS_ENV.has(name)) environment[name] = value;
   }
   return {

@@ -212,12 +212,17 @@ function parseEventPayload(event) {
 
 function enqueueStatusUpdate(ctx, event, nextStatus) {
   if (!(nextStatus || event.currentTask)) return;
+  // Ne pas mettre à jour le statut pour AGENT_COMPLETED si aucun statut explicite n'est fourni.
+  // Le verdict de domaine sera évalué dans finalizeChildClose et pourra déclasser l'agent en 'unverified'.
+  if (event.eventType === 'AGENT_COMPLETED' && !event.status) return;
   ctx.state.executionQueue = ctx.state.executionQueue.then(() => { return updateAgent(ctx.agentId, nextStatus, event.currentTask); });
 }
 
 function handleDecodedEvent(ctx, event) {
   const payload = parseEventPayload(event);
-  const nextStatus = event.status || (event.eventType === 'AGENT_COMPLETED' ? 'completed' : undefined);
+  // Ne pas forcer 'completed' sur AGENT_COMPLETED — le verdict de domaine
+  // est évalué dans finalizeChildClose et peut downgrader vers 'unverified'.
+  const nextStatus = event.status;
   if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'MISSION_NO_ANSWER_PROVEN'].includes(event.eventType)) {
     ctx.state.terminalEventSeen = true;
   }
@@ -291,9 +296,11 @@ async function handleChildClose(ctx, code, signal) {
     console.error(`[AgentSupervisor] Error finalizing agent process close for ${agentId}:`, err);
     try {
       await updateAgent(agentId, 'error', `Runtime finalization failed: ${err.message}`);
-      ctx.emitTracked('AGENT_FINALIZATION_ERROR', 'FINALIZATION', err.message, { code, signal }, 'error', 'error');
+      ctx.emitTracked('AGENT_FINALIZATION_ERROR', 'FINALIZATION', err.message, { code, signal, stack: err.stack }, 'error', 'error');
     } catch (persistErr) {
       console.error(`[AgentSupervisor] Could not persist finalization failure for ${agentId}:`, persistErr);
+      // Dernier recours: écrire dans stderr pour s'assurer que l'erreur est visible
+      process.stderr.write(`[AgentSupervisor] CRITICAL: Could not persist finalization failure for ${agentId}: ${persistErr.message}\n`);
     }
   } finally {
     try {

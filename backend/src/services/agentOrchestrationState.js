@@ -65,7 +65,8 @@ function workerToolLease(role) {
 }
 
 function workerToolLeaseForCapabilities(role, capabilities) {
-  return leasePolicy.leaseForCapabilities(leasePolicy.workerLeaseForRole(role), capabilities);
+  const policy = leasePolicy.workerLeaseForRole(role);
+  return leasePolicy.restrictProvidedLease(leasePolicy.leaseForCapabilities(policy, capabilities), policy);
 }
 
 function orchestratorToolLease(plan, knownTools) {

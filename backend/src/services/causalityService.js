@@ -74,13 +74,15 @@ function simulateCounterfactual({ causeAgent, effectAgent, scenario }) {
     registeredAt: Date.now(),
   };
   counterfactualRegistry.set(`${causeAgent}:${effectAgent}:${scenario}`, entry);
+  const verdict = computeNecessity(entry);
   return {
     causeAgent,
     effectAgent,
     scenario,
     actualOutcome: 'completed',
     counterfactualOutcome,
-    causalEffect: necessity ? 'prevented_block' : 'no_prevention',
+    causalEffect: verdict.verdict === 'necessary' ? 'prevented_block' : 'no_prevention',
+    verdict: verdict.verdict,
   };
 }
 
