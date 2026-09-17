@@ -4,6 +4,9 @@ const { validateRegistry, registryHealth: conceptRegistryHealth } = require('../
 const ontologyRouter = require('./ontologyRouter');
 
 const registry = validateRegistry();
+if (!registry.valid) {
+  throw new Error(`Invalid philosophical concept registry: ${registry.errors.join('; ')}`);
+}
 const definitions = registry.concepts;
 
 const OPERATIONS = Object.freeze([
@@ -16,11 +19,12 @@ function copy(value) {
 }
 
 function listConcepts(args = {}) {
+  const filters = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
   return definitions
-    .filter((concept) => !args.domain || concept.domain === args.domain)
-    .filter((concept) => !args.family || concept.family === args.family)
-    .filter((concept) => !args.school || concept.school === args.school)
-    .filter((concept) => !args.status || concept.status === args.status)
+    .filter((concept) => !filters.domain || concept.domain === filters.domain)
+    .filter((concept) => !filters.family || concept.family === filters.family)
+    .filter((concept) => !filters.school || concept.school === filters.school)
+    .filter((concept) => !filters.status || concept.status === filters.status)
     .map(copy);
 }
 
@@ -85,6 +89,9 @@ const ADAPTERS = {
   'school.bergsonism': ({ args }) => callSelectedService({ serviceName: 'bergsonService', defaultMethod: 'duree', allowedMethods: ['duree', 'elanVital', 'intuition'], args }),
   'causality.determination': ({ args }) => callService('causalityService', 'computeNecessity', args),
   'causality.counterfactuals': ({ args }) => callService('causalityService', 'simulateCounterfactual', args),
+  'causality.hume-regularity': ({ args }) => callService('causalityService', 'humeRegularity', args),
+  'causality.determinism-indeterminism': ({ args }) => callService('causalityService', 'isDeterministic', args.executionRuns || []),
+  'causality.free-will': ({ args }) => callService('causalityService', 'assessFreeWill', args),
   'ontology.stances': ({ args }) => callService('ontologyStances', 'classifyTerm', args),
   'process.actuality-potentiality': ({ args }) => callService('processPhilosophyService', 'actualOccasion', args),
   'process.heidegger-dasein': ({ args }) => callService('processPhilosophyService', 'dasein', args),
@@ -93,9 +100,14 @@ const ADAPTERS = {
   'process.sartrean-existence': ({ args }) => callService('phenomenologyService', 'existencePrecedesEssence', args),
   'time.newtonian': ({ args }) => callService('newtonianService', args.operation || 'tempsAbsolu', args),
   'time.duration': ({ args }) => callService('bergsonService', 'duree', args),
+  'time.a-series-b-series': ({ args }) => callService('temporalIdentityService', args.operation || 'aSeriesPosition', args.events || []),
+  'time.block-universe': ({ args }) => callService('temporalIdentityService', 'blockUniverse', args),
+  'time.arrow': ({ args }) => callService('temporalIdentityService', 'arrowOfTime', args),
+  'time.spacetime-relativity': ({ args }) => callService('temporalIdentityService', 'spacetimeRelativity', args),
   'process.bergsonian-vital-impulse': ({ args }) => callService('bergsonService', args.operation || 'elanVital', args),
   'metaphysics.qualia': ({ args }) => callService('consciousnessService', 'recordQualia', args),
   'metaphysics.reference-intentionality': ({ args }) => callService('phenomenologyService', 'intentionality', args),
+  'school.merleau-ponty': ({ args }) => callService('phenomenologyService', 'perception', args),
   'ethics.act-utilitarianism': ({ args }) => callService('normativeEthicsService', 'evaluateActUtilitarianism', args),
   'ethics.rule-utilitarianism': ({ args }) => callService('normativeEthicsService', 'evaluateRuleUtilitarianism', args),
   'ethics.categorical-imperative': ({ args }) => callService('normativeEthicsService', 'evaluateCategoricalImperative', args),
@@ -104,6 +116,9 @@ const ADAPTERS = {
 };
 
 function evaluateConcept(args = {}) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    throw new Error('evaluateConcept arguments must be an object.');
+  }
   const concept = requireConcept(args.concept);
   if (concept.status !== 'implemented') return unavailable(concept);
   const adapter = ADAPTERS[concept.id];

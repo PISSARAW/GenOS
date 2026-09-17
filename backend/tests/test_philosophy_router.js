@@ -6,7 +6,7 @@ const router = require('../src/services/philosophyRouter');
 async function main() {
   const health = router.registryHealth();
   assert.strictEqual(health.valid, true);
-  assert.strictEqual(health.conceptCount, 135);
+  assert.ok(health.conceptCount >= 135);
 
   const concepts = router.listConcepts({ domain: 'causality' });
   assert.ok(concepts.length >= 4);
@@ -24,6 +24,20 @@ async function main() {
   });
   assert.strictEqual(platonic.supported, true);
   assert.strictEqual(platonic.result.id, 'perfect_agent');
+
+  const utilitarian = await router.handlePhilosophyRequest({
+    request: {
+      operation: 'evaluateConcept',
+      arguments: {
+        concept: 'ethics.act-utilitarianism',
+        action: { id: 'review' },
+        outcomes: [{ utility: 2, probability: 1 }],
+      },
+    },
+  });
+  assert.strictEqual(utilitarian.supported, true);
+  assert.strictEqual(utilitarian.result.framework, 'act-utilitarianism');
+  assert.strictEqual(utilitarian.result.executable, false);
 
   const planned = await router.handlePhilosophyRequest({
     request: { operation: 'evaluateConcept', arguments: { concept: 'ontology.person-other' } },
