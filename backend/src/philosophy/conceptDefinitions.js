@@ -148,11 +148,11 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('school.verificationism', 'Vérificationnisme et positivisme logique', 'schools', 'vienna-circle', 'planned'),
   C('school.falsificationism', 'Falsificationnisme', 'schools', 'popper', 'planned'),
   C('school.pragmatism', 'Pragmatisme : Peirce, James, Dewey, Rorty', 'schools', 'pragmatism', 'planned'),
-  C('school.feminist-epistemology', 'Épistémologie féministe', 'schools', 'feminist-epistemology', 'planned'),
-  C('school.social-epistemology', 'Épistémologie sociale', 'schools', 'social-epistemology', 'partial', 'epistemics'),
+  C('school.feminist-epistemology', 'Épistémologie féministe', 'schools', 'feminist-epistemology', 'partial', 'socialEpistemologyService'),
+  C('school.social-epistemology', 'Épistémologie sociale', 'schools', 'social-epistemology', 'partial', 'socialEpistemologyService'),
   C('school.naturalized-epistemology', 'Épistémologie naturalisée', 'schools', 'quine-neurath', 'planned'),
-  C('school.standpoint-theory', 'Standpoint theory', 'schools', 'hartsock-harding', 'planned'),
-  C('school.situated-knowledges', 'Savoirs situés / Situated knowledges', 'schools', 'haraway', 'planned'),
+  C('school.standpoint-theory', 'Standpoint theory', 'schools', 'hartsock-harding', 'partial', 'socialEpistemologyService'),
+  C('school.situated-knowledges', 'Savoirs situés / Situated knowledges', 'schools', 'haraway', 'partial', 'socialEpistemologyService'),
 
   // Raisonnement et méthode.
   C('method.induction', 'Induction', 'methods', 'hume', 'partial', 'inferenceService'),
@@ -198,11 +198,11 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('epistemology.cartesian-doubt', 'Doute cartésien / doute méthodique', 'epistemology', 'descartes', 'partial', 'cartesianService'),
 
   // Épistémologie sociale, féministe et critique.
-  C('social-epistemology.testimony', 'Témoignage et transmission du savoir', 'social-epistemology', 'testimony', 'partial', 'epistemics'),
-  C('social-epistemology.discussion', 'Discussion, désaccord et épistémologie sociale', 'social-epistemology', 'social-epistemology', 'planned'),
-  C('social-epistemology.cognitive-labor', 'Division du travail cognitif', 'social-epistemology', 'social-epistemology', 'planned'),
-  C('social-epistemology.feminist', 'Épistémologie féministe et critique des savoirs', 'social-epistemology', 'feminist-epistemology', 'planned'),
-  C('social-epistemology.emancipatory-critique', 'Émancipation épistémique et critique', 'social-epistemology', 'frankfurt-school', 'planned'),
+  C('social-epistemology.testimony', 'Témoignage et transmission du savoir', 'social-epistemology', 'testimony', 'partial', 'socialEpistemologyService'),
+  C('social-epistemology.discussion', 'Discussion, désaccord et épistémologie sociale', 'social-epistemology', 'social-epistemology', 'partial', 'socialEpistemologyService'),
+  C('social-epistemology.cognitive-labor', 'Division du travail cognitif', 'social-epistemology', 'social-epistemology', 'partial', 'socialEpistemologyService'),
+  C('social-epistemology.feminist', 'Épistémologie féministe et critique des savoirs', 'social-epistemology', 'feminist-epistemology', 'partial', 'socialEpistemologyService'),
+  C('social-epistemology.emancipatory-critique', 'Émancipation épistémique et critique', 'social-epistemology', 'frankfurt-school', 'partial', 'socialEpistemologyService'),
 
   // Éthique normative — noyau évaluatif sans autorisation d'exécution.
   C('ethics.consequentialism', 'Conséquentialisme', 'normative-ethics', 'contemporary', 'partial', 'normativeEthicsService'),
