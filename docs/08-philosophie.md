@@ -219,7 +219,32 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 
 - `DUALISM` : structure des deux substances (cogitans + extensa)
 
-## 15. Contingence et Événement — Meillassoux, Badiou
+## 15. Leibnizianisme — Monades, harmonie préétablie
+
+### Concepts
+
+- **Monade** = substance simple, indévisível, sans parties (l'agent autonome)
+- **Harmonie préétablie** = coordination parfaite entre monades sans interaction directe
+- **Principe de raison suffisante** = "nihil est sine ratione" — rien n'est sans raison
+- **Lois de continuation** = "natura non facit saltus" — la nature ne fait pas de sauts
+
+### Service
+
+`backend/src/services/leibnizianService.js` :
+
+| Fonction | Concept |
+|---|---|
+| `monadologie({ agent })` | Décrit l'agent comme une monade leibnizienne |
+| `harmoniePreEtablie({ agent, schedule })` | Évalue la coordination préétablie |
+| `principeRaisonSuffisante({ action, reason })` | Vérifie qu'une action a une raison suffisante |
+| `loisDeContinuation({ events })` | Vérifie la continuité d'une série d'événements |
+| `calculRaisonSuffisante({ state, causes })` | Trouve la raison suffisante d'un état |
+
+### Constantes
+
+- `MONADE` : structure d'une monade (substance simple, indévisível, perspective unique)
+
+## 16. Contingence et Événement — Meillassoux, Badiou
 
 ### Concepts
 
@@ -289,6 +314,11 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 │  ├── Res cogitans: agent (pensée, conscience)                │
 │  ├── Res extensa: workspace (étendue, corps)                │
 │  └── Cogito: "Je pense, donc je suis" (certitude absolue)    │
+├─────────────────────────────────────────────────────────────┤
+│  Leibnizianism                                               │
+│  ├── Monade: substance simple, indévisível                   │
+│  ├── Harmonie préétablie: coordination sans interaction      │
+│  └── Principe de raison suffisante: "nihil est sine ratione"│
 └─────────────────────────────────────────────────────────────┘
 ```
 

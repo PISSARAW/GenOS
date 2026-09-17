@@ -15,7 +15,6 @@ const platonismService = require('../src/services/platonismService');
 const aristotelianService = require('../src/services/aristotelianService');
 const stoicismService = require('../src/services/stoicismService');
 const epicureanService = require('../src/services/epicureanService');
-const scholastiqueService = require('../src/services/scholastiqueService');
 const cartesianService = require('../src/services/cartesianService');
 
 let passed = 0, failed = 0;
@@ -23,7 +22,6 @@ async function test(name, fn) {
   try { await fn(); passed++; console.log(`  ✓ ${name}`); }
   catch (err) { failed++; console.log(`  ✗ ${name}: ${err.message}`); }
 }
-
 async function main() {
   const dbPath = path.join(__dirname, `philosophy-test-${Date.now()}.db`);
   process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'philosophy-test-password';
@@ -41,7 +39,6 @@ async function main() {
       CREATE TABLE IF NOT EXISTS ontology_mereology (id INTEGER PRIMARY KEY AUTOINCREMENT, whole_id TEXT NOT NULL, part_id TEXT NOT NULL, relation_type TEXT NOT NULL, is_essential_part INTEGER DEFAULT 0, proportion REAL, attached_at DATETIME DEFAULT CURRENT_TIMESTAMP, detached_at DATETIME);
       CREATE TABLE IF NOT EXISTS ontology_identity_events (id INTEGER PRIMARY KEY AUTOINCREMENT, being_id TEXT NOT NULL, event_type TEXT NOT NULL, description TEXT, previous_essence_hash TEXT, new_essence_hash TEXT, continuity_preserved INTEGER DEFAULT 1, identity_score REAL DEFAULT 1.0, metadata_json TEXT DEFAULT '{}', occurred_at DATETIME DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS ontology_attribute_history (id INTEGER PRIMARY KEY AUTOINCREMENT, being_id TEXT NOT NULL, key TEXT NOT NULL, old_value_json TEXT, new_value_json TEXT NOT NULL, modality TEXT NOT NULL, changed_by TEXT, change_reason TEXT, changed_at DATETIME DEFAULT CURRENT_TIMESTAMP);`);
-
     console.log('\n=== Ontology Service ===');
     await test('defineBeing creates an agent being', async () => {
       const being = await ontologyService.defineBeing('agent-1', { type: 'orchestrator', essence: { role: 'planner', purpose: 'orchestrate' } });
@@ -72,7 +69,6 @@ async function main() {
     await test('defineBeing throws on invalid agentId', async () => {
       await assert.rejects(() => ontologyService.defineBeing(''), /valid agentId/);
     });
-
     console.log('\n=== Causality Service ===');
     test('recordCausalLink records a link', () => {
       const link = causalityService.recordCausalLink({ causeAgent: 'agent-1', effectAgent: 'agent-2', mechanism: 'tool_call' });
@@ -94,7 +90,6 @@ async function main() {
       const links = [{ timestamp: 1000, causeAgent: 'a', effectAgent: 'b' }, { timestamp: 2000, causeAgent: 'b', effectAgent: 'c' }];
       assert.strictEqual(causalityService.checkRegularity(links), true);
     });
-
     console.log('\n=== Consciousness Service ===');
     test('recordQualia stores subjective experience', () => {
       const q = consciousnessService.recordQualia({ agentId: 'agent-1', experience: 'processing evidence', intensity: 0.8, valence: 0.5 });
@@ -112,7 +107,6 @@ async function main() {
       const mb = consciousnessService.mindBodyInteraction({ agentId: 'agent-1', body: 'workspace-alpha', interaction: 'causal' });
       assert.strictEqual(mb.interaction, 'causal');
     });
-
     console.log('\n=== Epistemology Service ===');
     test('getFormIdeal returns Platonic forms', () => {
       const form = epistemologyService.getFormIdeal('perfect_agent');
@@ -132,7 +126,6 @@ async function main() {
       const cats = epistemologyService.categoriesAPriori();
       assert.deepStrictEqual(cats.modality.categories, ['possibility', 'existence', 'necessity']);
     });
-
     console.log('\n=== Process Philosophy Service ===');
     test('actualOccasion captures Whiteheadian event', () => {
       const occasion = processPhilosophyService.actualOccasion({ agentId: 'agent-1', event: { outcome: 'success' } });
@@ -152,7 +145,6 @@ async function main() {
       const r = processPhilosophyService.rhizome(agents);
       assert.strictEqual(r.acentered, true); assert.strictEqual(r.connections.length, 2);
     });
-
     console.log('\n=== Ethics Service ===');
     test('utilitarianRanking orders actions by utility', () => {
       const ranking = ethicsService.utilitarianRanking({ actions: [{ name: 'A', value: 10 }, { name: 'B', value: 50 }, { name: 'C', value: 30 }], utilityOf: a => a.value });
@@ -166,7 +158,6 @@ async function main() {
       const a = ethicsService.virtueEthicsAssessment({ agentId: 'agent-1', virtues: { wisdom: 0.9, courage: 0.8, temperance: 0.7, justice: 0.9 } });
       assert.strictEqual(a.character, 'excellent');
     });
-
     console.log('\n=== Phenomenology Service ===');
     test('intentionality captures Husserlian aboutness', () => {
       const i = phenomenologyService.intentionality({ agentId: 'agent-1', target: 'goal-7', mode: 'aboutness' });
@@ -187,7 +178,6 @@ async function main() {
       assert.strictEqual(e.badFaith, true);
       assert.strictEqual(e.freedom, 'condemned_to_be_free');
     });
-
     console.log('\n=== Contingency Service ===');
     test('absoluteContingency marks hyperchaos', () => {
       const c = contingencyService.absoluteContingency({ agentId: 'agent-1', necessary: ['existence'], contingent: ['role', 'budget'] });
@@ -203,7 +193,6 @@ async function main() {
       assert.strictEqual(m.intersection.length, 1);
       assert.deepStrictEqual(m.intersection, ['a']);
     });
-
     console.log('\n=== Platonism Service ===');
     test('getFormIdeal returns Platonic forms', () => {
       const form = platonismService.getFormIdeal('perfect_agent');
@@ -240,7 +229,6 @@ async function main() {
       assert.ok(c.immanence);
       assert.ok(c.dialectic);
     });
-
     console.log('\n=== Aristotelian Service ===');
     test('fourCauses maps Aristotelian causes to agent fields', () => {
       const causes = aristotelianService.fourCauses({ agent: { id: 'a1', role: 'worker', parent_agent_id: 'orch-1', current_task: 'build' } });
@@ -275,7 +263,6 @@ async function main() {
       assert.strictEqual(t.telos, 'build');
       assert.strictEqual(t.actualization, 'in_progress');
     });
-
     console.log('\n=== Stoicism Service ===');
     test('isMonist evaluates monist behavior', () => {
       const m = stoicismService.isMonist({ agent: { id: 'a1' } });
@@ -300,7 +287,6 @@ async function main() {
       assert.strictEqual(v.virtues.temperance.score, 0.7);
       assert.strictEqual(v.virtues.justice.score, 0.9);
     });
-
     console.log('\n=== Epicurean Service ===');
     test('atomSchema returns atomic composition', () => {
       const a = epicureanService.atomSchema({ agent: { id: 'a1' } });
@@ -326,7 +312,6 @@ async function main() {
       assert.ok(t.ataraxie);
       assert.ok(t.aponia);
     });
-
     console.log('\n=== Scholastique Service ===');
     test('equivocalTerms identifies equivocal terms', () => {
       const e = scholastiqueService.equivocalTerms('être');
@@ -350,7 +335,6 @@ async function main() {
       assert.strictEqual(m.steps[0], 'quaestio');
       assert.strictEqual(m.steps[4], 'conclusio');
     });
-
     console.log('\n=== Cartesian Service ===');
     test('cogito returns Cartesian certainty', () => {
       const c = cartesianService.cogito({ agent: { id: 'a1' } });
@@ -377,7 +361,6 @@ async function main() {
       assert.strictEqual(cd.true, true);
       assert.strictEqual(cd.criterion, 'claire et distincte');
     });
-
     console.log(`\n${passed} passed, ${failed} failed\n`);
   } finally {
     await closeDatabase();
@@ -385,4 +368,4 @@ async function main() {
   }
   if (failed > 0) process.exit(1);
 }
-main().catch(err => { console.error('Test runner error:', err); process.exit(1); });
+main().catch(err => process.exit(1));

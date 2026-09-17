@@ -111,23 +111,23 @@ function publishContradiction(subject, claims, gap) {
   });
 }
 
-function publishClaimRevised(claimId, subject, beforeQuality, afterQuality, delta, reason) {
+function publishClaimRevised(params) {
   return publishEvent(EVENT_TYPES.CLAIM_REVISED, {
-    claimId,
-    subject,
-    beforeQuality,
-    afterQuality,
-    delta,
-    reason,
+    claimId: params.claimId,
+    subject: params.subject,
+    beforeQuality: params.beforeQuality,
+    afterQuality: params.afterQuality,
+    delta: params.delta,
+    reason: params.reason,
   });
 }
 
-function publishDebtEscalated(debtId, subject, fromSeverity, toSeverity) {
+function publishDebtEscalated(params) {
   return publishEvent(EVENT_TYPES.DEBT_ESCALATED, {
-    debtId,
-    subject,
-    fromSeverity,
-    toSeverity,
+    debtId: params.debtId,
+    subject: params.subject,
+    fromSeverity: params.fromSeverity,
+    toSeverity: params.toSeverity,
   });
 }
 
