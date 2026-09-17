@@ -88,6 +88,66 @@ function knowledgeStatus({ belief, truth, justification }) {
   return 'knowledge-candidate';
 }
 
+function normalizeIndicator(value) {
+  return typeof value === 'boolean' ? value : UNKNOWN_TRUTH;
+}
+
+function defenseResult(indicator, positiveCondition, rationale) {
+  const value = positiveCondition ? indicator === true : indicator === false;
+  const known = indicator !== UNKNOWN_TRUTH;
+  return {
+    status: !known ? 'undetermined' : value ? 'supported' : 'unsupported',
+    indicator,
+    rationale,
+  };
+}
+
+function analyzeGettier(args = {}) {
+  const base = analyzeKnowledge(args);
+  const epistemicLuck = normalizeIndicator(args.epistemicLuck);
+  const causalConnection = normalizeIndicator(args.causalConnection);
+  const reliableProcess = normalizeIndicator(args.reliableProcess);
+  const intellectualVirtue = normalizeIndicator(args.intellectualVirtue);
+  const tripartite = base.tripartite.satisfied;
+  const status = !tripartite
+    ? 'not-a-gettier-case'
+    : epistemicLuck === true
+      ? 'gettier-counterexample'
+      : epistemicLuck === false
+        ? 'protected-knowledge-candidate'
+        : 'gettier-status-undetermined';
+  return {
+    ...base,
+    status,
+    gettier: {
+      tripartiteSatisfied: tripartite,
+      epistemicLuck,
+      causalConnection,
+      reliableProcess,
+      intellectualVirtue,
+      counterexample: status === 'gettier-counterexample',
+    },
+    defenses: {
+      reliabilism: defenseResult(reliableProcess, true, 'Le processus producteur de la croyance est déclaré fiable.'),
+      causalTheory: defenseResult(causalConnection, true, 'La vérité est déclarée causalement connectée à la croyance.'),
+      virtueEpistemology: defenseResult(intellectualVirtue, true, 'La croyance vraie est déclarée issue d’une vertu intellectuelle.'),
+      antiLuck: defenseResult(epistemicLuck, false, 'La croyance vraie est déclarée protégée contre la chance épistémique.'),
+    },
+    limitation: 'Les indicateurs Gettier et les défenses sont des données d’analyse ; aucune défense n’est vérifiée causalement par ce service.',
+  };
+}
+
+function assessPostGettierDefenses(args = {}) {
+  const analysis = analyzeGettier(args);
+  return {
+    claimId: analysis.claimId,
+    gettierStatus: analysis.status,
+    defenses: analysis.defenses,
+    evidenceQuality: analysis.justification.quality,
+    limitation: analysis.limitation,
+  };
+}
+
 function analyzeKnowledge(args = {}) {
   const claim = requireClaim(args.claim);
   const belief = assessBelief({ claim });
@@ -117,4 +177,6 @@ module.exports = {
   assessTruth,
   assessJustification,
   analyzeKnowledge,
+  analyzeGettier,
+  assessPostGettierDefenses,
 };

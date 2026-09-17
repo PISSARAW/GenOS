@@ -19,6 +19,8 @@ assert.equal(concept.family, concept.domain);
 assert.deepEqual(concept.aliases, []);
 assert.equal(concept.evidenceLevel, 'philosophical');
 assert.equal(concept.mapping, null);
+assert.equal(concept.serviceMaturity.level, 'implemented');
+assert.equal(concept.serviceMaturity.executable, true);
 
 const enriched = normalizeConcept({
   ...CONCEPT_DEFINITIONS[0],
@@ -43,6 +45,13 @@ const invalidDomain = validateRegistry([{
 }]);
 assert.equal(invalidDomain.valid, false);
 assert.ok(invalidDomain.errors.some((error) => error.includes('unknown GenOS subdomain')));
+
+const qualia = normalizeConcept({
+  ...CONCEPT_DEFINITIONS.find((item) => item.id === 'metaphysics.qualia')
+});
+assert.equal(qualia.serviceMaturity.service, 'consciousnessService');
+assert.equal(qualia.serviceMaturity.level, 'partial');
+assert.equal(qualia.serviceMaturity.executable, true);
 
 const invalid = validateRegistry([{ ...CONCEPT_DEFINITIONS[0], id: 'Invalid ID' }]);
 assert.equal(invalid.valid, false);

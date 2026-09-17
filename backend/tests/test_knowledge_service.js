@@ -21,6 +21,30 @@ const unknown = knowledge.analyzeKnowledge({ claim });
 assert.equal(unknown.status, 'truth-undetermined');
 assert.equal(unknown.tripartite.truth, false);
 
+const gettier = knowledge.analyzeGettier({
+  claim,
+  truthValue: true,
+  epistemicLuck: true,
+  causalConnection: false,
+  reliableProcess: false,
+  intellectualVirtue: false,
+});
+assert.equal(gettier.status, 'gettier-counterexample');
+assert.equal(gettier.gettier.counterexample, true);
+assert.equal(gettier.defenses.reliabilism.status, 'unsupported');
+assert.equal(gettier.defenses.antiLuck.status, 'unsupported');
+
+const defended = knowledge.assessPostGettierDefenses({
+  claim,
+  truthValue: true,
+  epistemicLuck: false,
+  reliableProcess: true,
+  causalConnection: true,
+  intellectualVirtue: true,
+});
+assert.equal(defended.gettierStatus, 'protected-knowledge-candidate');
+assert.equal(defended.defenses.reliabilism.status, 'supported');
+
 const routed = router.handlePhilosophyRequest({
   request: { operation: 'evaluateConcept', arguments: { concept: 'epistemology.knowledge', claim, truthValue: true } },
 });

@@ -18,6 +18,16 @@ async function main() {
   assert.strictEqual(being.status, 'implemented');
   assert.strictEqual(being.apiVersion, 'genos.philosophy/v1');
   assert.strictEqual(being.kind, 'PhilosophicalConcept');
+  const consciousness = router.listConcepts({ genosDomain: 'consciousness' });
+  assert.ok(consciousness.length > 0);
+  assert.ok(consciousness.every((concept) => concept.genosDomains.includes('consciousness')));
+  const relations = router.listRelations({ relationType: 'alternativeTo' });
+  assert.ok(relations.length > 0);
+  const neighborhood = router.getNeighborhood('metaphysics.dualism');
+  assert.ok(neighborhood.neighbors.some((concept) => concept.id === 'metaphysics.material-monism'));
+  const graph = router.exportGraph({ genosDomain: 'consciousness' });
+  assert.ok(graph.nodes.length > 0);
+  assert.ok(graph.edges.every((edge) => graph.nodes.some((node) => node.id === edge.source.id)));
 
   const platonic = await router.handlePhilosophyRequest({
     request: { operation: 'evaluateConcept', arguments: { concept: 'school.platonism', formName: 'perfect_agent' } },
@@ -44,6 +54,18 @@ async function main() {
   });
   assert.strictEqual(planned.supported, false);
   assert.strictEqual(planned.status, 'planned');
+
+  const preview = await router.handlePhilosophyRequest({
+    request: { operation: 'applyRuntimeEffect', arguments: { concept: 'school.platonism', agentId: 'a1', effect: 'require_evidence' } },
+  });
+  assert.strictEqual(preview.applied, false);
+  assert.strictEqual(preview.requiresApply, true);
+  await assert.rejects(
+    () => router.handlePhilosophyRequest({
+      request: { operation: 'applyRuntimeEffect', arguments: { concept: 'school.platonism', agentId: 'a1', effect: 'unknown', apply: true } },
+    }),
+    /Unsupported philosophy runtime effect/
+  );
 
   await assert.rejects(
     () => router.handlePhilosophyRequest({ request: { operation: 'getConcept', arguments: { id: 'unknown' } } }),

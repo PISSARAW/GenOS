@@ -1,7 +1,9 @@
 'use strict';
 
 const { validateRegistry, registryHealth: conceptRegistryHealth } = require('../philosophy/conceptRegistry');
+const relationRegistry = require('../philosophy/relationRegistry');
 const ontologyRouter = require('./ontologyRouter');
+const runtimeEffects = require('./philosophyRuntimeEffectService');
 
 const registry = validateRegistry();
 if (!registry.valid) {
@@ -10,7 +12,8 @@ if (!registry.valid) {
 const definitions = registry.concepts;
 
 const OPERATIONS = Object.freeze([
-  'listConcepts', 'getConcept', 'registryHealth', 'evaluateConcept', 'queryOntology'
+  'listConcepts', 'getConcept', 'registryHealth', 'evaluateConcept', 'applyRuntimeEffect',
+  'listRelations', 'getNeighborhood', 'exportGraph', 'queryOntology'
 ]);
 const conceptMap = new Map(definitions.map((concept) => [concept.id, concept]));
 
@@ -25,7 +28,44 @@ function listConcepts(args = {}) {
     .filter((concept) => !filters.family || concept.family === filters.family)
     .filter((concept) => !filters.school || concept.school === filters.school)
     .filter((concept) => !filters.status || concept.status === filters.status)
+    .filter((concept) => !filters.genosDomain || concept.genosDomains.includes(filters.genosDomain))
+    .filter((concept) => !filters.maturity || concept.serviceMaturity.level === filters.maturity)
     .map(copy);
+}
+
+function listRelations(args = {}) {
+  return relationRegistry.listRelations({
+    relationType: args.relationType,
+    sourceId: args.sourceId,
+    targetId: args.targetId
+  }).map(copy);
+}
+
+function getNeighborhood(id, args = {}) {
+  const concept = requireConcept(id);
+  const relationSet = new Map();
+  for (const relation of [
+    ...listRelations({ sourceId: concept.id }),
+    ...listRelations({ targetId: concept.id })
+  ]) {
+    const key = `${relation.source.id}|${relation.relationType}|${relation.target.id}`;
+    relationSet.set(key, relation);
+  }
+  const relations = [...relationSet.values()];
+  const relationIds = new Set(relations.map((relation) => relation.source.id === concept.id
+    ? relation.target.id
+    : relation.source.id));
+  const neighbors = [...relationIds].map((neighborId) => getConcept(neighborId)).filter(Boolean);
+  return { concept, relations, neighbors, depth: args.depth || 1 };
+}
+
+function exportGraph(args = {}) {
+  const nodes = listConcepts(args);
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const edges = listRelations(args).filter((relation) => (
+    nodeIds.has(relation.source.id) && nodeIds.has(relation.target.id)
+  ));
+  return { nodes, edges };
 }
 
 function getConcept(id) {
@@ -78,6 +118,9 @@ const ADAPTERS = {
   'epistemology.belief': ({ args }) => callService('knowledgeService', 'assessBelief', args),
   'epistemology.justification': ({ args }) => callService('knowledgeService', 'assessJustification', args),
   'epistemology.truth': ({ args }) => callService('knowledgeService', 'assessTruth', args),
+  'epistemology.gettier-problem': ({ args }) => callService('knowledgeService', 'analyzeGettier', args),
+  'epistemology.gettierized-knowledge': ({ args }) => callService('knowledgeService', 'analyzeGettier', args),
+  'epistemology.post-gettier-defenses': ({ args }) => callService('knowledgeService', 'assessPostGettierDefenses', args),
   'school.platonism': ({ args }) => callService('platonismService', 'getFormIdeal', args.formName || 'perfect_agent'),
   'school.aristotelianism': ({ args }) => callService('aristotelianService', 'categorize', { agent: args.agent }),
   'school.stoicism': ({ args }) => callService('stoicismService', 'isMonist', { agent: args.agent }),
@@ -117,6 +160,14 @@ const ADAPTERS = {
   'ethics.categorical-imperative': ({ args }) => callService('normativeEthicsService', 'evaluateCategoricalImperative', args),
   'ethics.double-effect': ({ args }) => callService('normativeEthicsService', 'evaluateDoubleEffect', args),
   'ethics.virtue-ethics': ({ args }) => callService('normativeEthicsService', 'assessVirtueEthics', args),
+  'ethics.rawlsian-justice': ({ args }) => callService('justiceEthicsService', 'evaluateRawlsianJustice', args),
+  'ethics.distributive-justice': ({ args }) => callService('justiceEthicsService', 'evaluateDistributiveJustice', args),
+  'ethics.natural-rights': ({ args }) => callService('justiceEthicsService', 'evaluateRights', args),
+  'ethics.libertarianism': ({ args }) => callService('justiceEthicsService', 'evaluateLibertarianEntitlement', args),
+  'ethics.care-ethics': ({ args }) => callService('relationalEthicsService', 'assessCare', args),
+  'ethics.care-deontology': ({ args }) => callService('relationalEthicsService', 'evaluateCareDuty', args),
+  'ethics.responsibility-other': ({ args }) => callService('relationalEthicsService', 'evaluateResponsibilityForOther', args),
+  'ethics.social-contract': ({ args }) => callService('justiceEthicsService', 'evaluateSocialContract', args),
   'politics.regime-classification': ({ args }) => callService('politicalPhilosophyService', 'classifyRegime', args),
   'politics.legitimacy': ({ args }) => callService('politicalPhilosophyService', 'assessLegitimacy', args),
   'politics.social-contract': ({ args }) => callService('politicalPhilosophyService', 'analyzeSocialContract', args),
@@ -167,7 +218,20 @@ async function handlePhilosophyRequest({ request } = {}) {
   if (operation === 'getConcept') return { concept: requireConcept(args.conceptId || args.id) };
   if (operation === 'registryHealth') return registryHealth();
   if (operation === 'evaluateConcept') return evaluateConcept(args);
+  if (operation === 'applyRuntimeEffect') return runtimeEffects.applyRuntimeEffect(args);
+  if (operation === 'listRelations') return { relations: listRelations(args) };
+  if (operation === 'getNeighborhood') return getNeighborhood(args.conceptId || args.id, args);
+  if (operation === 'exportGraph') return exportGraph(args);
   return queryOntology(args);
 }
 
-module.exports = { OPERATIONS, handlePhilosophyRequest, listConcepts, getConcept, registryHealth };
+module.exports = {
+  OPERATIONS,
+  handlePhilosophyRequest,
+  listConcepts,
+  getConcept,
+  listRelations,
+  getNeighborhood,
+  exportGraph,
+  registryHealth
+};
