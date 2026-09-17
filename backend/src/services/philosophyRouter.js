@@ -6,6 +6,7 @@ const ontologyRouter = require('./ontologyRouter');
 const OPERATIONS = Object.freeze([
   'listConcepts', 'getConcept', 'registryHealth', 'evaluateConcept', 'queryOntology'
 ]);
+const VALID_STATUSES = new Set(['implemented', 'partial', 'planned']);
 const conceptMap = new Map(definitions.map((concept) => [concept.id, concept]));
 
 function copy(value) {
@@ -27,9 +28,19 @@ function getConcept(id) {
 function registryHealth() {
   const ids = definitions.map((concept) => concept.id);
   const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
-  const validStatuses = new Set(['implemented', 'partial', 'planned']);
-  const invalidStatuses = definitions.filter((concept) => !validStatuses.has(concept.status)).map((concept) => concept.id);
-  return { valid: !duplicateIds.length && !invalidStatuses.length, conceptCount: conceptMap.size, duplicateIds, invalidStatuses };
+  const invalidStatuses = definitions
+    .filter((concept) => !VALID_STATUSES.has(concept.status))
+    .map((concept) => concept.id);
+  const missingIds = definitions
+    .filter((concept) => !concept.id || typeof concept.id !== 'string')
+    .map((concept) => concept.label || '<unknown>');
+  return {
+    valid: !duplicateIds.length && !invalidStatuses.length && !missingIds.length,
+    conceptCount: conceptMap.size,
+    duplicateIds,
+    invalidStatuses,
+    missingIds,
+  };
 }
 
 function requireConcept(id) {
@@ -39,12 +50,21 @@ function requireConcept(id) {
 }
 
 function unavailable(concept) {
-  return { concept: concept.id, status: concept.status, executable: false, supported: false, service: concept.service, message: 'This concept is registered but has no executable adapter yet.' };
+  return {
+    concept: concept.id,
+    status: concept.status,
+    executable: false,
+    supported: false,
+    service: concept.service,
+    message: 'This concept is registered but has no executable adapter yet.',
+  };
 }
 
 function callService(serviceName, method, args) {
   const service = require(`./${serviceName}`);
-  if (typeof service[method] !== 'function') throw new Error(`No registered method '${method}' for service '${serviceName}'.`);
+  if (typeof service[method] !== 'function') {
+    throw new Error(`No registered method '${method}' for service '${serviceName}'.`);
+  }
   return service[method](args);
 }
 

@@ -12,6 +12,8 @@ async function test(name, fn) {
 }
 
 async function main() {
+  process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'ontology-stances-test-password';
+  process.env.GENOS_ADMIN_TOKEN = process.env.GENOS_ADMIN_TOKEN || 'ontology-stances-test-token';
   const dbPath = path.join(__dirname, `stances-test-${Date.now()}.db`);
   try {
     const db = await getDatabase(dbPath);
@@ -20,32 +22,32 @@ async function main() {
       CREATE TABLE IF NOT EXISTS agent_memories (id TEXT PRIMARY KEY, agent_id TEXT, content TEXT, created_at DATETIME);`);
 
     console.log('\n=== Ontology Stances (Réalisme / Nominalisme / Conceptualisme) ===');
-    test('classifyTerm with realism stance', () => {
+    await test('classifyTerm with realism stance', () => {
       const r = ontologyStances.classifyTerm({ term: 'humanité', stance: 'realism' });
       assert.strictEqual(r.term, 'humanité');
       assert.strictEqual(r.stance, 'realism');
       assert.strictEqual(r.status, 'universel');
       assert.ok(r.implication);
     });
-    test('classifyTerm with nominalism stance', () => {
+    await test('classifyTerm with nominalism stance', () => {
       const n = ontologyStances.classifyTerm({ term: 'humanité', stance: 'nominalism' });
       assert.strictEqual(n.term, 'humanité');
       assert.strictEqual(n.stance, 'nominalism');
       assert.strictEqual(n.status, 'particulier');
     });
-    test('classifyTerm with conceptualism stance', () => {
+    await test('classifyTerm with conceptualism stance', () => {
       const c = ontologyStances.classifyTerm({ term: 'humanité', stance: 'conceptualism' });
       assert.strictEqual(c.term, 'humanité');
       assert.strictEqual(c.stance, 'conceptualism');
       assert.strictEqual(c.status, 'concept');
     });
-    test('classifyTerm throws on invalid stance', () => {
+    await test('classifyTerm throws on invalid stance', () => {
       assert.throws(() => ontologyStances.classifyTerm({ term: 'x', stance: 'fake' }), /Invalid stance/);
     });
-    test('classifyTerm throws on missing term', () => {
+    await test('classifyTerm throws on missing term', () => {
       assert.throws(() => ontologyStances.classifyTerm({ stance: 'realism' }), /requires term/);
     });
-    test('evaluateStanceCoherence returns coherent for compatible signal', () => {
+    await test('evaluateStanceCoherence returns coherent for compatible signal', () => {
       const e = ontologyStances.evaluateStanceCoherence({
         agentId: 'a1',
         stance: 'realism',
@@ -57,7 +59,7 @@ async function main() {
       assert.strictEqual(e.coherence, 1);
       assert.strictEqual(e.violations.length, 0);
     });
-    test('evaluateStanceCoherence returns partial for incompatible signal', () => {
+    await test('evaluateStanceCoherence returns partial for incompatible signal', () => {
       const e = ontologyStances.evaluateStanceCoherence({
         agentId: 'a2',
         stance: 'realism',
@@ -67,10 +69,10 @@ async function main() {
       assert.ok(e.coherence < 1);
       assert.ok(e.violations.length > 0);
     });
-    test('evaluateStanceCoherence throws on invalid stance', () => {
+    await test('evaluateStanceCoherence throws on invalid stance', () => {
       assert.throws(() => ontologyStances.evaluateStanceCoherence({ agentId: 'x', stance: 'bad' }), /Invalid stance/);
     });
-    test('debateStances returns all three stances', () => {
+    await test('debateStances returns all three stances', () => {
       const debate = ontologyStances.debateStances();
       assert.ok(debate.length >= 3);
       const names = debate.map(d => d.stance);
