@@ -283,6 +283,32 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 | `evaluateStanceCoherence({ agentId, stance, observables })` | Vérifie la cohérence d'un système avec une stance |
 | `debateStances()` | Synthèse comparative des trois stances |
 
+## 17. Newtonianisme — Espace absolu, temps absolu, mécanique classique
+
+### Concepts
+
+- **Espace absolu** = contenant fixe et immuable, indépendant des corps
+- **Temps absolu** = temps universel, uniforme, indépendant des événements
+- **Mécanique classique** = lois de Newton : inertie, force, action-réaction
+- **Corps** = entités matérielles dans l'espace (workspaces, agents, artefacts)
+- **Forces** = interactions entre corps (gravité, attraction)
+
+### Service
+
+`backend/src/services/newtonianService.js` :
+
+| Fonction | Concept |
+|---|---|
+| `espaceAbsolu({ system })` | Décrit l'espace absolu newtonien |
+| `tempsAbsolu({ system })` | Décrit le temps absolu newtonien |
+| `mecaniqueClassique({ agent1, agent2, force })` | Applique les lois de Newton (action-réaction) |
+| `inertie({ agent })` | État de mouvement rectiligne uniforme d'un agent |
+| `forceGravitationnelle({ agent1, agent2, distance, G })` | Force gravitationnelle F = G·m₁·m₂/r² |
+
+### Référence
+
+- Newton, *Philosophiæ Naturalis Principia Mathematica* (1687)
+
 ## 18. Contingence et Événement — Meillassoux, Badiou
 
 ### Concepts
@@ -362,8 +388,13 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 │  Spinozism                                                  │
 │  ├── Deus sive Natura: monisme — une seule substance        │
 │  ├── Conatus: effort de persistance en être                 │
-│  └── Attributs: Pensée (cognition) et Étendue (workspace)   │
+│  └── Attributs: Pensée (cognition) et Étendue (workspace)  │
 ├─────────────────────────────────────────────────────────────┤
+│  Newtonianism                                               │
+│  ├── Espace absolu: contenant fixe et immuable              │
+│  ├── Temps absolu: temps universel et uniforme              │
+│  └── Mécanique: action-réaction, inertie, gravitation       │
+└─────────────────────────────────────────────────────────────┘
 │  Réalisme / Nominalisme / Conceptualisme                    │
 │  ├── Réalisme: universaux indépendants de l'esprit          │
 │  ├── Nominalisme: seuls les particuliers existent            │
