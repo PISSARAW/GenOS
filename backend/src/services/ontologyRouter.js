@@ -47,6 +47,7 @@ const KNOWN_OPERATIONS = new Set([
   'createContext',
   'analyzeSpeechAct',
   'analyzeImplicature',
+  'assessMaxims',
   'classifyConcept',
 ]);
 
@@ -283,6 +284,8 @@ async function handleOntologyRequest({ request, orchestratorId }) {
       return speechAct.analyzeSpeechAct(args);
     case 'analyzeImplicature':
       return pragmatics.analyzeImplicature(args);
+    case 'assessMaxims':
+      return pragmatics.assessMaxims(args);
     case 'classifyConcept':
       return categorization.classifyConcept(args);
 
