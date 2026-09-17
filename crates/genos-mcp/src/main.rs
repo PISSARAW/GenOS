@@ -20,7 +20,7 @@ const PATH_ARGUMENTS: &[&str] = &[
     "parent_id",
 ];
 
-fn validate_path_arguments(args: &Value) -> Result<(), String> {
+fn validate_path_arguments(args: &Value, workspace: &Path) -> Result<(), String> {
     let object = match args {
         Value::Null => return Ok(()),
         Value::Object(map) => map,
@@ -38,6 +38,21 @@ fn validate_path_arguments(args: &Value) -> Result<(), String> {
             || value.as_bytes().get(1) == Some(&b':');
         if value.is_empty() || value.contains('\0') || is_absolute || has_parent_segment {
             return Err(format!("{key} must be a safe workspace-relative path."));
+        }
+        let root = workspace
+            .canonicalize()
+            .map_err(|_| format!("{key} must remain inside the GenOS workspace."))?;
+        let mut probe = root.join(path);
+        while !probe.exists() {
+            if !probe.pop() {
+                return Err(format!("{key} must remain inside the GenOS workspace."));
+            }
+        }
+        let resolved = probe
+            .canonicalize()
+            .map_err(|_| format!("{key} must remain inside the GenOS workspace."))?;
+        if !resolved.starts_with(&root) {
+            return Err(format!("{key} must remain inside the GenOS workspace and avoid symlinks."));
         }
     }
     Ok(())
@@ -106,15 +121,16 @@ mod tests {
 
     #[test]
     fn path_arguments_reject_traversal_and_absolute_paths() {
-        assert!(validate_path_arguments(&json!({ "out": "../../outside.json" })).is_err());
-        assert!(validate_path_arguments(&json!({ "agent": "/etc/passwd" })).is_err());
-        assert!(validate_path_arguments(&json!({ "output": "C:/outside.log" })).is_err());
-        assert!(validate_path_arguments(&json!({ "snapshot_id": "../outside.json" })).is_err());
-        assert!(validate_path_arguments(&json!({ "branch_id": "/var/tmp" })).is_err());
-        assert!(validate_path_arguments(&json!({ "parent_id": "..\\forbidden" })).is_err());
-        assert!(validate_path_arguments(&json!({ "out": "reports/result.json" })).is_ok());
-        assert!(validate_path_arguments(&serde_json::Value::Null).is_ok());
-        assert!(validate_path_arguments(&json!({})).is_ok());
+        let workspace = Path::new(".");
+        assert!(validate_path_arguments(&json!({ "out": "../../outside.json" }), workspace).is_err());
+        assert!(validate_path_arguments(&json!({ "agent": "/etc/passwd" }), workspace).is_err());
+        assert!(validate_path_arguments(&json!({ "output": "C:/outside.log" }), workspace).is_err());
+        assert!(validate_path_arguments(&json!({ "snapshot_id": "../outside.json" }), workspace).is_err());
+        assert!(validate_path_arguments(&json!({ "branch_id": "/var/tmp" }), workspace).is_err());
+        assert!(validate_path_arguments(&json!({ "parent_id": "..\\forbidden" }), workspace).is_err());
+        assert!(validate_path_arguments(&json!({ "out": "reports/result.json" }), workspace).is_ok());
+        assert!(validate_path_arguments(&serde_json::Value::Null, workspace).is_ok());
+        assert!(validate_path_arguments(&json!({}), workspace).is_ok());
     }
 
     #[test]
@@ -231,7 +247,7 @@ fn process_request(line: &str, workspace: &Path) -> Option<Value> {
                 Some(Value::Null) | None => &empty_args,
                 Some(val) => val,
             };
-            if let Err(error) = validate_path_arguments(args) {
+            if let Err(error) = validate_path_arguments(args, workspace) {
                 return Some(json!({
                     "jsonrpc": "2.0",
                     "id": id,
