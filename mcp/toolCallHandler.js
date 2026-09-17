@@ -46,7 +46,8 @@ function orchestratorCall({ name, args, runOrchestrator }) {
     genos_worker_inbox: { action: 'organization_inbox' },
     genos_trinity_launch: { action: 'dispatch_trinity' },
     genos_a_team_preview: { action: 'dispatch_team' },
-    genos_biological_mode: { action: 'dispatch_biological' }
+    genos_biological_mode: { action: 'dispatch_biological' },
+    genos_philosophy: { action: 'philosophy' }
   };
   return runOrchestrator({ ...actions[name], ...args });
 }

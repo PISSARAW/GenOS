@@ -78,6 +78,11 @@ async function handleOntologyRequest({ request, orchestratorId }) {
   const result = await ontologyRouter.handleOntologyRequest({ request, orchestratorId });
   process.stdout.write(JSON.stringify({ orchestratorId, ontology: result }));
 }
+async function handlePhilosophyRequest({ request, orchestratorId }) {
+  const philosophyRouter = require('../src/services/philosophyRouter');
+  const result = await philosophyRouter.handlePhilosophyRequest({ request, orchestratorId });
+  process.stdout.write(JSON.stringify({ orchestratorId, philosophy: result }));
+}
 
 async function handleReportProgress({ db, request, orchestratorId, task }) {
   const parent = await ensureProgressParent({ db, orchestratorId, task });
@@ -373,7 +378,8 @@ const HANDLERS = {
   dispatch_team: handleTeam,
   dispatch_biological: handleBiological,
   dispatch_worker: handleWorker,
-  ontology: handleOntologyRequest
+  ontology: handleOntologyRequest,
+  philosophy: handlePhilosophyRequest
 };
 async function handleAction(context) {
   const handler = HANDLERS[context.action];

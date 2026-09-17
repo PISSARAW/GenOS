@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const MCP_TOOLS_LIST = [
+  { name: 'genos_philosophy', cat: 'Orchestration', risk: 'Low', desc: 'Canonical philosophical concept registry and safe evaluations' },
   { name: 'genos_grns', cat: 'Epigenetics', risk: 'Low', desc: 'Gene Regulatory Networks integration' },
   { name: 'genos_routing_algorithm', cat: 'Ecology', risk: 'Low', desc: 'Routing algorithm execution' },
   { name: 'genos_social_trust', cat: 'Ecology', risk: 'Low', desc: 'Social trust computation' },

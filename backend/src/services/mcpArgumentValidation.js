@@ -1,4 +1,5 @@
 const REQUIRED_STRINGS = {
+  genos_philosophy: ['operation'],
   genos_agent_world_capsule: ['snapshot_id'],
   genos_snapshot: ['agent', 'out'],
   genos_world_sandbox_execute: ['world_id', 'command', 'backend'],

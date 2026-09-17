@@ -42,7 +42,7 @@ const CONCEPT_DEFINITIONS = [
   C('school.nietzsche', 'Nietzsche : volonté de puissance et éternel retour', 'schools', 'nietzsche', 'planned'),
   C('school.bergsonism', 'Bergson : durée, élan vital, intuition', 'schools', 'bergson', 'planned'),
   C('school.whitehead', 'Whitehead : processus, actualité, potentialité', 'schools', 'whitehead', 'implemented', 'processPhilosophyService'),
-  C('school.heidgger', 'Heidegger : Être-et-Temps, Sein, Dasein', 'schools', 'heidegger', 'implemented', 'processPhilosophyService'),
+  C('school.heidegger', 'Heidegger : Être-et-Temps, Sein, Dasein', 'schools', 'heidegger', 'implemented', 'processPhilosophyService'),
   C('school.sartre', 'Sartre : existence, essence, mauvaise foi', 'schools', 'sartre', 'implemented', 'phenomenologyService'),
   C('school.merleau-ponty', 'Merleau-Ponty : phénoménologie de la perception', 'schools', 'merleau-ponty', 'implemented', 'phenomenologyService'),
   C('school.deleuze', 'Deleuze : différence, répétition, rhizome', 'schools', 'deleuze', 'implemented', 'processPhilosophyService'),
