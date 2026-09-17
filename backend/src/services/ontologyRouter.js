@@ -18,6 +18,9 @@ const speechAct = require('./philosophy/speechActService');
 const pragmatics = require('./philosophy/pragmaticsService');
 const categorization = require('./philosophy/categorizationService');
 const languageGame = require('./philosophy/languageGameService');
+const discourse = require('./philosophy/discourseService');
+const semiotics = require('./philosophy/semioticsService');
+const poetics = require('./philosophy/poeticsService');
 
 const KNOWN_OPERATIONS = new Set([
   // Being
@@ -54,6 +57,11 @@ const KNOWN_OPERATIONS = new Set([
   'evaluateLanguageMove',
   'assessRuleFollowing',
   'analyzePrivateLanguage',
+  'analyzeReportedSpeech',
+  'analyzeDiscourse',
+  'analyzeSign',
+  'analyzeBinaryOpposition',
+  'analyzePoeticMessage',
 ]);
 
 function normalizeArgs(request) {
@@ -301,6 +309,16 @@ async function handleOntologyRequest({ request, orchestratorId }) {
       return languageGame.assessRuleFollowing(args);
     case 'analyzePrivateLanguage':
       return languageGame.analyzePrivateLanguage(args);
+    case 'analyzeReportedSpeech':
+      return discourse.analyzeReportedSpeech(args);
+    case 'analyzeDiscourse':
+      return discourse.analyzeDiscourse(args);
+    case 'analyzeSign':
+      return semiotics.analyzeSign(args);
+    case 'analyzeBinaryOpposition':
+      return semiotics.analyzeBinaryOpposition(args);
+    case 'analyzePoeticMessage':
+      return poetics.analyzeMessage(args);
 
     default:
       // Defensive: keep the switch exhaustive for future operations.

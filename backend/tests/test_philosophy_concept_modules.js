@@ -7,6 +7,9 @@ const speech = require('../src/services/philosophy/speechActService');
 const pragmatics = require('../src/services/philosophy/pragmaticsService');
 const categorization = require('../src/services/philosophy/categorizationService');
 const languageGame = require('../src/services/philosophy/languageGameService');
+const discourse = require('../src/services/philosophy/discourseService');
+const semiotics = require('../src/services/philosophy/semioticsService');
+const poetics = require('../src/services/philosophy/poeticsService');
 
 assert.equal(semantic.analyzeExpression({ expression: 'étoile du matin' }).status, 'structured');
 assert.equal(semantic.resolveReference({ expression: 'Vénus', context: { Vénus: 'planet-2' } }).reference, 'planet-2');
@@ -38,5 +41,9 @@ assert.equal(languageGame.evaluateMove({ game, move: { ruleId: 'r1', action: 'pu
 assert.equal(languageGame.evaluateMove({ game, move: { ruleId: 'r1', action: 'delete' }, participantRole: 'operator' }).accepted, false);
 assert.equal(languageGame.assessRuleFollowing({ rule: { id: 'r1', allowedActions: ['publish'] }, individualActions: ['publish'], communityActions: ['publish'] }).dispositionMatchesNorm, true);
 assert.equal(languageGame.analyzePrivateLanguage({ privateCriterion: true }).privateLanguageConcern, true);
+assert.equal(discourse.analyzeReportedSpeech({ mode: 'indirect', reportedText: 'Il viendrait.' }).enunciation.transformation, 'recontextualization');
+assert.equal(semiotics.analyzeSign({ signifier: 'arbre', signified: 'concept-arbre' }).arbitrary, true);
+assert.equal(semiotics.analyzeBinaryOpposition({ left: 'nature', right: 'culture' }).status, 'interpretive');
+assert.equal(poetics.analyzeMessage({ message: 'Je marche, je marche.' }).repetitions[0], 'je');
 
 console.log('Philosophy concept module tests passed.');
