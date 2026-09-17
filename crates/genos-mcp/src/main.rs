@@ -43,9 +43,54 @@ fn validate_path_arguments(args: &Value) -> Result<(), String> {
     Ok(())
 }
 
+fn required_string(object: &serde_json::Map<String, Value>, field: &str) -> Result<(), String> {
+    match object.get(field).and_then(Value::as_str).filter(|value| !value.trim().is_empty()) {
+        Some(_) => Ok(()),
+        None => Err(format!("{field} must be a non-empty string.")),
+    }
+}
+
+fn validate_tool_arguments(name: &str, args: &Value) -> Result<(), String> {
+    let object = match args {
+        Value::Object(map) => map,
+        _ => return Err("Tool arguments must be a JSON object.".into()),
+    };
+    let required: &[&str] = match name {
+        "genos_orchestrate" | "genos_delegate_worker" => &["mission"],
+        "genos_snapshot" => &["agent", "out"],
+        "genos_capsule_create" => &["snapshot_id"],
+        "genos_change_strategy" => &["strategy", "reason"],
+        "genos_report_progress" => &["phase", "message"],
+        "genos_change_organization" => &["organization", "reason"],
+        "genos_worker_publish" => &["kind"],
+        "genos_trinity_launch" => &["mission"],
+        "genos_a_team_preview" => &["project_goal", "sub_systems"],
+        "genos_merge" => &["branch_id"],
+        "genos_audit" => &["snapshot_id"],
+        "genos_biomimicry" => &["feature", "action"],
+        "genos_biological_mode" => &["mode", "mission"],
+        "genos_execute_primitive" => &["primitive_name"],
+        _ => &[],
+    };
+    for field in required {
+        required_string(object, field)?;
+    }
+    if name == "genos_replay" {
+        let has_snapshot = object.get("snapshot").and_then(Value::as_str).is_some_and(|value| !value.trim().is_empty());
+        let has_snapshot_id = object.get("snapshot_id").and_then(Value::as_str).is_some_and(|value| !value.trim().is_empty());
+        if !has_snapshot && !has_snapshot_id {
+            return Err("snapshot or snapshot_id must be provided.".into());
+        }
+    }
+    if name == "genos_a_team_preview" && !object.get("sub_systems").is_some_and(Value::is_array) {
+        return Err("sub_systems must be an array.".into());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{process_request, validate_path_arguments};
+    use super::{process_request, validate_path_arguments, validate_tool_arguments};
     use crate::executor::{MAX_OUTPUT_BYTES, read_bounded};
     use serde_json::json;
     use std::io::Cursor;
@@ -70,6 +115,13 @@ mod tests {
         assert!(validate_path_arguments(&json!({ "out": "reports/result.json" })).is_ok());
         assert!(validate_path_arguments(&serde_json::Value::Null).is_ok());
         assert!(validate_path_arguments(&json!({})).is_ok());
+    }
+
+    #[test]
+    fn tool_arguments_reject_missing_required_values() {
+        assert!(validate_tool_arguments("genos_snapshot", &json!({})).is_err());
+        assert!(validate_tool_arguments("genos_replay", &json!({})).is_err());
+        assert!(validate_tool_arguments("genos_snapshot", &json!({ "agent": "a", "out": "b" })).is_ok());
     }
 
     #[test]
@@ -180,6 +232,16 @@ fn process_request(line: &str, workspace: &Path) -> Option<Value> {
                 Some(val) => val,
             };
             if let Err(error) = validate_path_arguments(args) {
+                return Some(json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": {
+                        "content": [{ "type": "text", "text": error }],
+                        "isError": true
+                    }
+                }));
+            }
+            if let Err(error) = validate_tool_arguments(name, args) {
                 return Some(json!({
                     "jsonrpc": "2.0",
                     "id": id,
