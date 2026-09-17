@@ -128,6 +128,10 @@ const ADAPTERS = {
   'epistemology.plausibility': ({ args }) => callService('probabilityService', 'assessProbability', args),
   'method.bayesianism': ({ args }) => callService('probabilityService', 'bayesUpdate', args),
   'method.objective-subjective-probability': ({ args }) => callService('probabilityService', 'assessProbability', args),
+  'method.hypothetico-deductive': ({ args }) => callService('scientificMethodService', 'assessHypotheticoDeductive', args),
+  'science.confirmation': ({ args }) => callService('scientificMethodService', 'assessConfirmation', args),
+  'science.falsification-demarcation': ({ args }) => callService('scientificMethodService', 'assessFalsification', args),
+  'science.duhem-quine': ({ args }) => callService('scientificMethodService', 'assessDuhemQuine', args),
   'school.platonism': ({ args }) => callService('platonismService', 'getFormIdeal', args.formName || 'perfect_agent'),
   'school.aristotelianism': ({ args }) => callService('aristotelianService', 'categorize', { agent: args.agent }),
   'school.stoicism': ({ args }) => callService('stoicismService', 'isMonist', { agent: args.agent }),
@@ -192,6 +196,12 @@ const ADAPTERS = {
   'politics.conservatism': ({ args }) => callService('politicalPhilosophyService', 'assessConservatism', args),
   'politics.socialism-marxism': ({ args }) => callService('politicalPhilosophyService', 'analyzeMarxism', args),
   'politics.feminism': ({ args }) => callService('politicalPhilosophyService', 'assessFeminism', args),
+  'ethics.environmental-ethics': ({ args }) => callService('environmentalEthicsService', 'assessEcologicalPerspective', args),
+  'ethics.animal-rights': ({ args }) => callService('environmentalEthicsService', 'assessAnimalInterests', args),
+  'ethics.sustainability': ({ args }) => callService('environmentalEthicsService', 'assessSustainability', args),
+  'ethics.precautionary-principle': ({ args }) => callService('environmentalEthicsService', 'assessPrecaution', args),
+  'ethics.externalities': ({ args }) => callService('environmentalEthicsService', 'assessExternality', args),
+  'ethics.commons': ({ args }) => callService('environmentalEthicsService', 'assessCommons', args),
 };
 
 function evaluateConcept(args = {}) {

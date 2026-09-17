@@ -160,7 +160,7 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('method.deduction', 'Déduction et logique déductive', 'methods', 'logic', 'partial', 'inferenceService'),
   C('method.abduction', 'Abduction', 'methods', 'peirce', 'partial', 'inferenceService'),
   C('method.inference-best-explanation', 'Inférence à la meilleure explication', 'methods', 'peirce', 'partial', 'inferenceService'),
-  C('method.hypothetico-deductive', 'Méthode hypothético-déductive', 'methods', 'science-method', 'planned'),
+  C('method.hypothetico-deductive', 'Méthode hypothético-déductive', 'methods', 'science-method', 'partial', 'scientificMethodService'),
   C('method.surprise-predictivism', 'Surprise et predictivism', 'methods', 'predictivism', 'planned'),
   C('method.dutch-book', 'Arguments Dutch book et cohérence', 'methods', 'ramsey-de-finetti', 'planned'),
   C('method.bayesianism', 'Bayésianisme et règle de Bayes', 'methods', 'bayes', 'partial', 'probabilityService'),
@@ -168,10 +168,10 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('method.bayesian-confirmation', 'Confirmation bayésienne', 'methods', 'carnap-hempel', 'planned'),
 
   // Science, confirmation et changement théorique.
-  C('science.confirmation', 'Théorie de la confirmation', 'science', 'carnap-hempel', 'planned'),
+  C('science.confirmation', 'Théorie de la confirmation', 'science', 'carnap-hempel', 'partial', 'scientificMethodService'),
   C('science.raven-paradox', 'Paradoxe des corbeaux', 'science', 'hempel', 'planned'),
-  C('science.duhem-quine', 'Thèse de Duhem-Quine et holisme épistémique', 'science', 'duhem-quine', 'planned'),
-  C('science.falsification-demarcation', 'Falsification et problème de la démarcation', 'science', 'popper', 'planned'),
+  C('science.duhem-quine', 'Thèse de Duhem-Quine et holisme épistémique', 'science', 'duhem-quine', 'partial', 'scientificMethodService'),
+  C('science.falsification-demarcation', 'Falsification et problème de la démarcation', 'science', 'popper', 'partial', 'scientificMethodService'),
   C('science.progress', 'Progrès de la science et programmes de recherche', 'science', 'lakatos', 'planned'),
   C('science.paradigm-incommensurability', 'Changements de paradigmes et incommensurabilité', 'science', 'kuhn', 'planned'),
   C('science.normal-revolutionary', 'Science normale et révolutionnaire', 'science', 'kuhn', 'planned'),
@@ -240,6 +240,12 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('politics.conservatism', 'Conservatisme : tradition et ordre organique', 'politics', 'burke', 'implemented', 'politicalPhilosophyService'),
   C('politics.socialism-marxism', 'Socialisme et marxisme', 'politics', 'marx', 'implemented', 'politicalPhilosophyService'),
   C('politics.feminism', 'Féminisme : intersectionnalité, consentement et justice reproductive', 'politics', 'feminist-political-theory', 'implemented', 'politicalPhilosophyService'),
+  C('ethics.environmental-ethics', 'Éthique environnementale : écocentrisme, biocentrisme et anthropocentrisme critique', 'normative-ethics', 'naess', 'implemented', 'environmentalEthicsService'),
+  C('ethics.animal-rights', 'Droits des animaux et êtres sentients', 'normative-ethics', 'regan-singer', 'implemented', 'environmentalEthicsService'),
+  C('ethics.sustainability', 'Durabilité et stewardship', 'normative-ethics', 'environmental-ethics', 'implemented', 'environmentalEthicsService'),
+  C('ethics.precautionary-principle', 'Principe de précaution', 'normative-ethics', 'environmental-ethics', 'implemented', 'environmentalEthicsService'),
+  C('ethics.externalities', 'Externalités et défaillances de marché', 'normative-ethics', 'economics', 'implemented', 'environmentalEthicsService'),
+  C('ethics.commons', 'Tragédie des communs', 'normative-ethics', 'hardin-ostrom', 'implemented', 'environmentalEthicsService'),
 ];
 
 const CORE_IDS = new Set(CORE_DEFINITIONS.map((concept) => concept.id));

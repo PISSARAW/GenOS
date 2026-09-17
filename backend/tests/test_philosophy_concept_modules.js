@@ -11,6 +11,7 @@ const discourse = require('../src/services/philosophy/discourseService');
 const semiotics = require('../src/services/philosophy/semioticsService');
 const poetics = require('../src/services/philosophy/poeticsService');
 const deconstruction = require('../src/services/philosophy/deconstructionService');
+const hermeneutics = require('../src/services/philosophy/hermeneuticsService');
 
 assert.equal(semantic.analyzeExpression({ expression: 'étoile du matin' }).status, 'structured');
 assert.equal(semantic.resolveReference({ expression: 'Vénus', context: { Vénus: 'planet-2' } }).reference, 'planet-2');
@@ -53,5 +54,13 @@ assert.equal(deconstruction.analyzeText({
 }).status, 'interpretive');
 assert.equal(deconstruction.analyzeLogocentrism({ speechPriority: 1, writingPriority: 0 }).phonocentric, true);
 assert.equal(deconstruction.analyzeAutoimmunity({ rule: 'protéger', exception: 'exclure', threat: 'retour' }).internalThreat, true);
+const interpretation = hermeneutics.interpret({
+  text: 'Le récit', horizon: { language: 'français', concerns: ['identité'] },
+  otherHorizon: { language: 'français', concerns: ['identité'] }, confidence: 0.6
+});
+assert.equal(interpretation.status, 'provisional');
+assert.equal(interpretation.fusionOfHorizons.possible, true);
+assert.equal(hermeneutics.analyzeSuspicion({ text: 'Le texte', author: 'freud' }).status, 'hypothesis');
+assert.equal(hermeneutics.analyzeNarrative({ events: ['départ', 'retour'] }).kind, 'NarrativeConfiguration');
 
 console.log('Philosophy concept module tests passed.');
