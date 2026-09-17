@@ -209,6 +209,7 @@ function buildGateContext(promotion, options, receipt) {
     workerDossiers: options.workerDossiers,
     philosophyEvidence: options.philosophyEvidence,
     philosophyProvenanceVerified: options.philosophyProvenanceVerified,
+    ethicalReview: options.ethicalReview,
     humanApprovalReceipt: receipt || options.humanApprovalReceipt || null
   };
 }
@@ -237,7 +238,8 @@ function completionGuardrail(contract, payload, agentId) {
     independentVerification: data.independentVerification,
     agentId,
     humanApproved: false,
-    report
+    report,
+    ethicalReview: data.ethicalReview
   });
   const blocking = evaluation.violations.filter((violation) => violation.policy !== 'require_human_approval');
   if (blocking.length) return `Promotion gate blocked (${blocking[0].policy}): ${blocking[0].message}`;
@@ -358,7 +360,8 @@ async function recordPromotionMemory(promotion, options) {
         approvedBy: options.approvedBy || 'human_gate',
         evidenceReport: promotion.report,
         philosophy: promotion.contract.philosophy,
-        provenanceHash: promotion.contract.philosophy?.provenanceHash || null
+        provenanceHash: promotion.contract.philosophy?.provenanceHash || null,
+        ethicalComparison: promotion.contract.ethical_comparison
       }
     );
   } catch (_) {}
@@ -382,7 +385,6 @@ async function finalizePromotion(db, promotion, options) {
   await recordPromotionMemory(promotion, options);
   emitPromotionFinalized(promotion, options);
 }
-
 module.exports = {
   loadPromotionContext,
   assertApprovalProof,
@@ -394,5 +396,4 @@ module.exports = {
   runPromotionPipeline,
   applyPostPromotion,
   finalizePromotion,
-  isValidApprovalReceipt
-};
+  isValidApprovalReceipt };

@@ -3,6 +3,7 @@ const { selectStrategyPortfolio } = require('../strategies/strategySelector');
 const { listStrategies, registryHealth } = require('../strategies/strategyRegistry');
 const philosophicalGuard = require('./philosophicalPromotionGuard');
 const philosophyPolicy = require('./philosophyPromotionPolicyService');
+const ethicalComparisonPolicy = require('./ethicalComparisonPolicyService');
 
 function getStrategyHandlers() {
   return require('./strategyExecutionAdapter').getHandlers();
@@ -38,6 +39,10 @@ function buildStrategyContract(input = {}) {
   const philosophy = philosophyContext
     ? philosophyPolicy.buildPromotionPolicy({ philosophyContext })
     : null;
+  const ethicalComparisonInput = input.ethicalComparison || input.ethical_comparison;
+  const ethicalComparison = ethicalComparisonInput
+    ? { ...ethicalComparisonInput, promotion: ethicalComparisonPolicy.buildPromotionPolicy(ethicalComparisonInput) }
+    : null;
   return {
     schema: CONTRACT_SCHEMA,
     mission: problem || 'Autonomous task execution',
@@ -71,6 +76,7 @@ function buildStrategyContract(input = {}) {
     })),
     selection_policy: selection.options,
     philosophical_context: philosophy,
+    ethical_comparison: ethicalComparison,
     execution_pipeline: ['memory_retrieval', 'snapshot', 'isolated_forks', 'instrumented_run', 'adaptive_evaluation', 'diff_and_replay', 'audit', 'conditional_promotion'],
     branches: selection.branches.map((hypothesis, index) => ({
       label: `branch_${index + 1}`,
@@ -84,6 +90,9 @@ function buildStrategyContract(input = {}) {
       require_independent_verification: true,
       require_human_approval: highRisk || problemProfile.reversibility === 'low' || portfolioHasUnimplemented(selection.portfolio) || Boolean(philosophy?.requireHumanApproval),
       philosophy_hold: Boolean(philosophy?.holdPromotion),
+      ethical_comparison_hold: Boolean(ethicalComparison?.promotion?.holdPromotion),
+      require_ethical_review: Boolean(ethicalComparison?.promotion?.requireEthicalReview),
+      require_ethical_provenance: Boolean(ethicalComparison),
       preserve_rejected_branches: true,
       merge_workspace_automatically: false
     },

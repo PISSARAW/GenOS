@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('node:crypto');
+
 const FRAMEWORKS = Object.freeze({
   utilitarianism: { concept: 'ethics.act-utilitarianism', service: './normativeEthicsService', method: 'evaluateActUtilitarianism' },
   deontology: { concept: 'ethics.categorical-imperative', service: './normativeEthicsService', method: 'evaluateCategoricalImperative' },
@@ -27,6 +29,17 @@ function defaultArguments(name, scenario) {
   return defaults[name] || { action };
 }
 
+function comparisonProvenance(scenario, evaluations, evidenceRefs, assumptions) {
+  const payload = { scenario, frameworks: evaluations.map((item) => item.framework), evidenceRefs, assumptions };
+  const provenanceHash = `sha256:${crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex')}`;
+  return {
+    frameworkConcepts: evaluations.map((evaluation) => evaluation.concept),
+    evidenceRefs,
+    assumptions,
+    provenanceHash,
+  };
+}
+
 function compareEthicalFrameworks({ scenario, frameworks = Object.keys(FRAMEWORKS), argumentsByFramework = {}, evidenceRefs = [], assumptions = [] } = {}) {
   if (!scenario || typeof scenario !== 'object') throw new Error('ethicalComparisonService requires a scenario object');
   if (!Array.isArray(frameworks) || frameworks.length < 2) throw new Error('ethicalComparisonService requires at least two frameworks');
@@ -39,7 +52,9 @@ function compareEthicalFrameworks({ scenario, frameworks = Object.keys(FRAMEWORK
     agreements: uniqueVerdicts.length === 1 ? frameworks : [],
     disagreements: uniqueVerdicts.length > 1 ? evaluations.map((evaluation) => ({ framework: evaluation.framework, verdict: evaluation.result.verdict || evaluation.result.observations?.verdict || null })) : [],
     unresolvedConflicts: uniqueVerdicts.length > 1 ? ['Frameworks use non-equivalent normative criteria.'] : [],
-    provenance: { frameworkConcepts: evaluations.map((evaluation) => evaluation.concept), evidenceRefs, assumptions },
+    provenance: comparisonProvenance(scenario, evaluations, evidenceRefs, assumptions),
+    evidenceStatus: evidenceRefs.length ? 'documented' : 'unverified',
+    interpretationStatus: 'interpretive',
     humanReviewRequired: true,
     executable: false,
     decisionStatus: 'requires-human-judgment',
