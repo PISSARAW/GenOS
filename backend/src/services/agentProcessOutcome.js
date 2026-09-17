@@ -1,5 +1,5 @@
 const SAFE_RUNTIME_ENV = new Set([
-  'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE', 'CODEX_EXECUTABLE',
+  'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'CODEX_EXECUTABLE',
   'LANG', 'LC_ALL', 'NODE_ENV'
 ]);
 
