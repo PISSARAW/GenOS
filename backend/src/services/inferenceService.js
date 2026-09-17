@@ -76,4 +76,14 @@ function inferAbductively({ observations, hypotheses } = {}) {
   };
 }
 
-module.exports = { inferDeductively, inferInductively, inferAbductively };
+function checkEntailment({ premises = [], conclusion } = {}) {
+  const logic = require('./propositionalLogicService');
+  return { ...logic.findCounterexample({ premises, conclusion }), kind: 'semantic-entailment', soundness: 'bounded-classical' };
+}
+
+function classifyArgument({ premises = [], conclusion } = {}) {
+  const result = checkEntailment({ premises, conclusion });
+  return { ...result, status: result.valid ? 'validity-candidate' : 'counterexample-found', promotionEligible: false };
+}
+
+module.exports = { inferDeductively, inferInductively, inferAbductively, checkEntailment, classifyArgument };
