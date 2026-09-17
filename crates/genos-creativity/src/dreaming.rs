@@ -37,11 +37,25 @@ pub struct SimulationTrace {
 }
 
 /// Phase de rêve : exploration non contrainte.
+#[derive(Debug)]
 pub struct DreamingPhase {
     config: CreativityConfig,
     history: Vec<RawHypothesis>,
     tick_counter: u64,
     rng: rand::rngs::StdRng,
+}
+
+impl Clone for DreamingPhase {
+    fn clone(&self) -> Self {
+        let mut seed = [0u8; 32];
+        seed.fill_with(rand::random);
+        Self {
+            config: self.config.clone(),
+            history: self.history.clone(),
+            tick_counter: self.tick_counter,
+            rng: rand::rngs::StdRng::from_seed(seed),
+        }
+    }
 }
 
 impl DreamingPhase {

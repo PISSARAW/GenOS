@@ -18,7 +18,7 @@ use genos_immune::{Antigen, ClonalSelection};
 use crate::autopoiesis::Membrane;
 use crate::conscience::{Conscience, ConscienceState};
 use crate::metabolism::Metabolism;
-use genos_creativity::{CreativityEngine, CreativityConfig};
+use genos_creativity::{CreativityConfig, CreativityEngine, CreativityMetrics, FocusedTask};
 
 /// L'Orchestrateur Biomimétique central de GenOS : coordonne les tissus cellulaires,
 /// surveille la dissonance cognitive, applique l'écologie anti-collusion et gère
@@ -87,6 +87,33 @@ impl BiomimeticOrchestrator {
             lipid_chemistry: build_lipid_membrane_network(),
             creativity: CreativityEngine::new(CreativityConfig::default()),
         }
+    }
+
+    /// Donne au runtime orchestrateur un accès explicite à l'imagination.
+    ///
+    /// Le moteur créatif travaille sur un budget local pour ne pas exposer le
+    /// type de métabolisme de l'orchestrateur. La consommation calculée est
+    /// ensuite débitée de la réserve ATP réelle de l'organisme.
+    pub fn imagine(
+        &mut self,
+        world: &genos_creativity::WorldState,
+        goal: &genos_creativity::Goal,
+    ) -> Vec<FocusedTask> {
+        self.metabolism.refill();
+        let available = self.metabolism.available();
+        let mut creative_metabolism = genos_creativity::Metabolism::new(available);
+        let tasks = self
+            .creativity
+            .pre_tick(world, goal, &mut creative_metabolism);
+        let consumed = available - creative_metabolism.available();
+        let _ = self.metabolism.consume(consumed);
+        self.creativity.tick();
+        tasks
+    }
+
+    /// Télémétrie publique de la boucle imaginative.
+    pub fn creativity_metrics(&self) -> CreativityMetrics {
+        self.creativity.metrics()
     }
 
     /// Evaluates a threat antigen through the orchestrator's persistent clonal selection.

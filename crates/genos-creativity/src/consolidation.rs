@@ -39,6 +39,7 @@ pub trait ConsolidationTarget {
 }
 
 /// Cross-consolidation : passage d'une hypothèse validée en politique.
+#[derive(Clone, Debug)]
 pub struct CrossConsolidation {
     /// Nombre de validations nécessaires avant promotion automatique.
     pub min_validations_for_policy: usize,

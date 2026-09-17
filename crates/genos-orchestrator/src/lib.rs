@@ -162,6 +162,17 @@ mod tests {
     }
 
     #[test]
+    fn test_orchestrator_can_access_imagination() {
+        let mut orch = BiomimeticOrchestrator::new("Imagination_Prime", 50.0, 100.0);
+        let tasks = orch.imagine(
+            &genos_creativity::WorldState::default(),
+            &genos_creativity::Goal::Explore,
+        );
+        assert!(!tasks.is_empty());
+        assert!(orch.creativity_metrics().dreams_generated >= 1);
+    }
+
+    #[test]
     fn test_token_bucket_scheduler_lifecycle() {
         let mut scheduler = TokenBucketScheduler::new();
         scheduler.register_agent("worker-1", 50.0, 100.0);

@@ -21,6 +21,7 @@ pub struct FocusedTask {
     pub allocated_atp: f64,
 }
 
+#[derive(Clone, Debug)]
 pub struct SalienceGate {
     threshold: f64,
     min_novelty: f64,

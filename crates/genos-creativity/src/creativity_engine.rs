@@ -79,6 +79,7 @@ impl CreativityMetrics {
 }
 
 /// Moteur unifié appelé par l'orchestrateur aux bornes du tick.
+#[derive(Clone, Debug)]
 pub struct CreativityEngine {
     config: CreativityConfig,
     dreaming: DreamingPhase,
@@ -89,6 +90,12 @@ pub struct CreativityEngine {
     metrics: CreativityMetrics,
     /// Horloge de tick de l'orchestrateur (monotonique).
     tick_counter: u64,
+}
+
+impl Default for CreativityEngine {
+    fn default() -> Self {
+        Self::new(CreativityConfig::default())
+    }
 }
 
 impl CreativityEngine {

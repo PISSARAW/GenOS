@@ -16,6 +16,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [agent-dna-runtime.md](agent-dna-runtime.md) — format binaire AgentDNA et opérations.
 - [speciation-graft-autonome.md](speciation-graft-autonome.md) — flux autonome complet : identification du besoin → speciate/graft → évaluation → promotion → déploiement.
 - [physique-computationnelle.md](physique-computationnelle.md) — l'inerte : inertie, friction, entropie, seuils, matériaux, gating de décision.
+- [imagination-et-simulation.md](imagination-et-simulation.md) — recombinaison de fragments, simulation interne, contrôle et preuve.
 
 ## Mémoire, collectif et évolution
 

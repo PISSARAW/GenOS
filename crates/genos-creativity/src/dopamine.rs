@@ -27,6 +27,7 @@ pub enum CreativityOutcome {
 }
 
 /// Signal dopaminergique = Reward Prediction Error.
+#[derive(Clone, Debug)]
 pub struct DopamineSignal {
     /// Exploration de base (alignée sur Director::default).
     pub baseline_exploration: f64,
