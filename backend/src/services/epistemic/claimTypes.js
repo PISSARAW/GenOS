@@ -40,6 +40,43 @@ function isEvidenceKind(value) {
  *  - missing evidence list
  *  - any evidence entry lacks the required typed fields
  */
+function _hasPayload(ev) {
+  return !!(ev.what || ev.result || ev.hash || ev.path || ev.source);
+}
+
+function _evidenceBaseQuality(kind, hasPayload) {
+  switch (kind) {
+    case EVIDENCE_KINDS.OBSERVATION:
+    case EVIDENCE_KINDS.LOG:
+      return hasPayload ? 0.55 : 0.2;
+    case EVIDENCE_KINDS.TEST_RESULT:
+      return hasPayload ? 0.85 : 0.4;
+    case EVIDENCE_KINDS.REPLAY:
+    case EVIDENCE_KINDS.RECONSTRUCTION:
+      return hasPayload ? 0.8 : 0.45;
+    case EVIDENCE_KINDS.APPROVAL:
+      return hasPayload ? 0.9 : 0.5;
+    case EVIDENCE_KINDS.ARTIFACT:
+      return hasPayload ? 0.75 : 0.35;
+    default:
+      return hasPayload ? 0.4 : 0.15;
+  }
+}
+
+function _validateEvidenceEntry(ev, index) {
+  const errors = [];
+  if (!ev || typeof ev !== 'object') {
+    errors.push(`evidence[${index}] is not an object`);
+    return errors;
+  }
+  if (!isEvidenceKind(ev.kind)) errors.push(`evidence[${index}] has invalid kind: ${ev.kind}`);
+  if (!ev.kind) errors.push(`evidence[${index}] missing kind`);
+  if (!ev.kind && !_hasPayload(ev)) {
+    errors.push(`evidence[${index}] carries no typed payload (kind/what/result/hash/path)`);
+  }
+  return errors;
+}
+
 function validateClaim(claim) {
   const errors = [];
   if (!claim || typeof claim !== 'object') {
@@ -53,16 +90,7 @@ function validateClaim(claim) {
     errors.push('claim must carry non-empty typed evidence');
   } else {
     for (let i = 0; i < claim.evidence.length; i++) {
-      const ev = claim.evidence[i];
-      if (!ev || typeof ev !== 'object') {
-        errors.push(`evidence[${i}] is not an object`);
-        continue;
-      }
-      if (!isEvidenceKind(ev.kind)) errors.push(`evidence[${i}] has invalid kind: ${ev.kind}`);
-      if (!ev.kind || !ev.kind) errors.push(`evidence[${i}] missing kind`);
-      if (!ev.kind && !ev.what && !ev.result && !ev.hash && !ev.path) {
-        errors.push(`evidence[${i}] carries no typed payload (kind/what/result/hash/path)`);
-      }
+      errors.push(..._validateEvidenceEntry(claim.evidence[i], i));
     }
   }
   return { valid: errors.length === 0, errors };
