@@ -74,6 +74,10 @@ function callSelectedService({ serviceName, defaultMethod, allowedMethods, args 
 }
 
 const ADAPTERS = {
+  'epistemology.knowledge': ({ args }) => callService('knowledgeService', 'analyzeKnowledge', args),
+  'epistemology.belief': ({ args }) => callService('knowledgeService', 'assessBelief', args),
+  'epistemology.justification': ({ args }) => callService('knowledgeService', 'assessJustification', args),
+  'epistemology.truth': ({ args }) => callService('knowledgeService', 'assessTruth', args),
   'school.platonism': ({ args }) => callService('platonismService', 'getFormIdeal', args.formName || 'perfect_agent'),
   'school.aristotelianism': ({ args }) => callService('aristotelianService', 'categorize', { agent: args.agent }),
   'school.stoicism': ({ args }) => callService('stoicismService', 'isMonist', { agent: args.agent }),
@@ -113,6 +117,15 @@ const ADAPTERS = {
   'ethics.categorical-imperative': ({ args }) => callService('normativeEthicsService', 'evaluateCategoricalImperative', args),
   'ethics.double-effect': ({ args }) => callService('normativeEthicsService', 'evaluateDoubleEffect', args),
   'ethics.virtue-ethics': ({ args }) => callService('normativeEthicsService', 'assessVirtueEthics', args),
+  'politics.regime-classification': ({ args }) => callService('politicalPhilosophyService', 'classifyRegime', args),
+  'politics.legitimacy': ({ args }) => callService('politicalPhilosophyService', 'assessLegitimacy', args),
+  'politics.social-contract': ({ args }) => callService('politicalPhilosophyService', 'analyzeSocialContract', args),
+  'politics.liberty-authority': ({ args }) => callService('politicalPhilosophyService', 'compareLibertyAuthority', args),
+  'politics.separation-of-powers': ({ args }) => callService('politicalPhilosophyService', 'assessPowerSeparation', args),
+  'politics.democratic-participation': ({ args }) => callService('politicalPhilosophyService', 'analyzeDemocraticParticipation', args),
+  'politics.pluralism': ({ args }) => callService('politicalPhilosophyService', 'assessPluralism', args),
+  'politics.civil-disobedience': ({ args }) => callService('politicalPhilosophyService', 'assessCivilDisobedience', args),
+  'politics.security-liberty-surveillance': ({ args }) => callService('politicalPhilosophyService', 'assessSurveillanceLiberty', args),
 };
 
 function evaluateConcept(args = {}) {
@@ -120,10 +133,17 @@ function evaluateConcept(args = {}) {
     throw new Error('evaluateConcept arguments must be an object.');
   }
   const concept = requireConcept(args.concept);
-  if (concept.status !== 'implemented') return unavailable(concept);
+  if (!['implemented', 'partial'].includes(concept.status)) return unavailable(concept);
   const adapter = ADAPTERS[concept.id];
   if (!adapter) return unavailable(concept);
-  return { concept: concept.id, status: concept.status, executable: true, supported: true, result: copy(adapter({ args })) };
+  return {
+    concept: concept.id,
+    status: concept.status,
+    executable: true,
+    supported: true,
+    result: copy(adapter({ args })),
+    limitation: concept.status === 'partial' ? 'Analyse opérationnelle partielle ; elle ne constitue pas une preuve de vérité.' : null,
+  };
 }
 
 async function queryOntology(args = {}) {

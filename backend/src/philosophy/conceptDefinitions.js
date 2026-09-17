@@ -21,9 +21,23 @@ const FAMILY_BY_DOMAIN = Object.freeze({
   science: 'philosophy-of-science',
   truth: 'epistemology',
   'social-epistemology': 'social-and-critical-thought',
+  politics: 'political-power',
+  aesthetics: 'aesthetics',
+  'art-theory': 'aesthetics',
+  interpretation: 'aesthetics',
+  play: 'aesthetics',
+  narrative: 'aesthetics',
+  cinema: 'aesthetics',
+  music: 'aesthetics',
+  architecture: 'aesthetics',
+  design: 'aesthetics',
+  'digital-art': 'aesthetics',
+  video: 'aesthetics',
+  'art-movements': 'aesthetics',
 });
 
 const { CORE_DEFINITIONS } = require('./coreDefinitions');
+const { AESTHETICS_DEFINITIONS } = require('./aestheticsDefinitions');
 
 const C = (id, ...fields) => {
   const [label, domain, school, status, service = null, metadata = {}] = fields;
@@ -87,18 +101,18 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('metaphysics.reference-intentionality', 'Référence et intentionnalité', 'phenomenology', 'brentano-husserl', 'implemented', 'phenomenologyService'),
 
   C('causality.determination', 'Détermination / Causalité', 'causality', 'general', 'implemented', 'causalityService'),
-  C('causality.hume-regularity', 'Loi et régularité causationnelles : Hume', 'causality', 'hume', 'partial', 'causalityService'),
-  C('causality.counterfactuals', 'Conditionnels contrefactuels', 'causality', 'lewis', 'planned'),
-  C('causality.determinism-indeterminism', 'Déterminisme / Indéterminisme', 'causality', 'metaphysics', 'partial', 'causalityService'),
+  C('causality.hume-regularity', 'Loi et régularité causationnelles : Hume', 'causality', 'hume', 'implemented', 'causalityService'),
+  C('causality.counterfactuals', 'Conditionnels contrefactuels', 'causality', 'lewis', 'implemented', 'causalityService'),
+  C('causality.determinism-indeterminism', 'Déterminisme / Indéterminisme', 'causality', 'metaphysics', 'implemented', 'causalityService'),
   C('causality.fatalism', 'Fatalisme', 'causality', 'stoicism', 'implemented', 'stoicismService'),
-  C('causality.free-will', 'Libre arbitre, compatibilisme, incompatibilisme, libertarianisme', 'causality', 'analytic', 'planned'),
+  C('causality.free-will', 'Libre arbitre, compatibilisme, incompatibilisme, libertarianisme', 'causality', 'analytic', 'implemented', 'causalityService'),
 
   C('time.newtonian', 'Temps absolu et espace absolu', 'time-space', 'newton', 'implemented', 'newtonianService'),
   C('time.duration', 'Temps et durée', 'time-space', 'bergson-mctaggart', 'implemented', 'bergsonService'),
   C('time.a-series-b-series', 'A-series / B-series', 'time-space', 'mctaggart', 'implemented', 'temporalIdentityService'),
-  C('time.block-universe', 'Bloc univers : éternalisme / présentisme', 'time-space', 'contemporary', 'planned'),
-  C('time.arrow', 'Flèche du temps / asymétrie temporelle', 'time-space', 'physics', 'planned'),
-  C('time.spacetime-relativity', 'Espace-temps relativiste', 'time-space', 'einstein', 'planned'),
+  C('time.block-universe', 'Bloc univers : éternalisme / présentisme', 'time-space', 'contemporary', 'implemented', 'temporalIdentityService'),
+  C('time.arrow', 'Flèche du temps / asymétrie temporelle', 'time-space', 'physics', 'implemented', 'temporalIdentityService'),
+  C('time.spacetime-relativity', 'Espace-temps relativiste', 'time-space', 'einstein', 'implemented', 'temporalIdentityService'),
 
   C('process.actuality-potentiality', 'Actualité / Potentialité', 'process', 'whitehead-aristotle', 'implemented', 'processPhilosophyService'),
   C('process.bergsonian-vital-impulse', 'Durée / Élan vital / Intuition', 'process', 'bergson', 'implemented', 'bergsonService'),
@@ -200,15 +214,31 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('ethics.categorical-imperative', 'Impératif catégorique', 'normative-ethics', 'kant', 'implemented', 'normativeEthicsService'),
   C('ethics.double-effect', 'Doctrine du double effet', 'normative-ethics', 'aquinas', 'implemented', 'normativeEthicsService'),
   C('ethics.virtue-ethics', 'Éthique des vertus', 'normative-ethics', 'aristotle', 'implemented', 'normativeEthicsService'),
+
+  // Philosophie politique — noyau analytique sans autorisation d'exécution.
+  C('politics.regime-classification', 'Régimes politiques : démocratie, autoritarisme, dictature', 'politics', 'weber-dahl', 'implemented', 'politicalPhilosophyService'),
+  C('politics.legitimacy', 'État, souveraineté et légitimité', 'politics', 'weber-bodin-hobbes', 'implemented', 'politicalPhilosophyService'),
+  C('politics.social-contract', 'Contrat social', 'politics', 'hobbes-locke-rousseau-kant', 'implemented', 'politicalPhilosophyService'),
+  C('politics.liberty-authority', 'Liberté et autorité', 'politics', 'political-philosophy', 'implemented', 'politicalPhilosophyService'),
+  C('politics.separation-of-powers', 'Séparation des pouvoirs', 'politics', 'montesquieu', 'implemented', 'politicalPhilosophyService'),
+  C('politics.democratic-participation', 'Démocratie directe, représentative et délibérative', 'politics', 'habermas-rawls', 'implemented', 'politicalPhilosophyService'),
+  C('politics.pluralism', 'Pluralisme politique', 'politics', 'dahl', 'implemented', 'politicalPhilosophyService'),
+  C('politics.civil-disobedience', 'Désobéissance civile', 'politics', 'thoreau-gandhi-mlk-arendt-rawls', 'implemented', 'politicalPhilosophyService'),
+  C('politics.security-liberty-surveillance', 'Sécurité, liberté et surveillance', 'politics', 'foucault-lyon-chomsky', 'implemented', 'politicalPhilosophyService'),
 ];
 
 const CORE_IDS = new Set(CORE_DEFINITIONS.map((concept) => concept.id));
 const LEGACY_DEFINITIONS = RAW_CONCEPT_DEFINITIONS.filter((concept) => !CORE_IDS.has(concept.id));
-const CONCEPT_DEFINITIONS = Object.freeze([...CORE_DEFINITIONS, ...LEGACY_DEFINITIONS]);
+const CONCEPT_DEFINITIONS = Object.freeze([
+  ...CORE_DEFINITIONS,
+  ...LEGACY_DEFINITIONS,
+  ...AESTHETICS_DEFINITIONS,
+]);
 
 module.exports = {
   CONCEPT_DEFINITIONS,
   CORE_DEFINITIONS,
   LEGACY_DEFINITIONS,
+  AESTHETICS_DEFINITIONS,
   FAMILY_BY_DOMAIN,
 };
