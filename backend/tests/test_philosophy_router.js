@@ -6,7 +6,7 @@ const router = require('../src/services/philosophyRouter');
 async function main() {
   const health = router.registryHealth();
   assert.strictEqual(health.valid, true);
-  assert.strictEqual(health.conceptCount, 66);
+  assert.strictEqual(health.conceptCount, 135);
 
   const concepts = router.listConcepts({ domain: 'causality' });
   assert.ok(concepts.length >= 4);
