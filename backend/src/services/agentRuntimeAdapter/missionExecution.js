@@ -13,6 +13,8 @@ const {
 } = require('./missionBootstrap');
 const {
   planMission,
+  assertAutonomyPlanExecutable,
+  incarnateOrchestrator,
   applyExecutionPolicy,
   computeRuntimeBudget,
   createMissionExecutionRun,
@@ -32,6 +34,8 @@ async function bootstrapMission(mission) {
   await provisionMissionCapsule(ctx);
   await enableMissionMonitoring(ctx);
   await planMission(ctx);
+  assertAutonomyPlanExecutable(ctx);
+  incarnateOrchestrator(ctx);
   await require('./missionLease').attachMissionMemoryContext(ctx.normalizedMission, ctx.agentId);
   assertMissionNotCancelled(ctx.agentId);
   applyExecutionPolicy(ctx);
