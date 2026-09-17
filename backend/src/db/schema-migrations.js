@@ -48,6 +48,8 @@ async function applyVersionedMigrations(db) {
   await ensureSynapseColumns(db);
   await createQueueIndexes(db);
   await migrateAutobiographicalMemory(db);
+  const { createPhilosophyAnalysisTables } = require('./migrations/migratePhilosophyAnalyses');
+  await createPhilosophyAnalysisTables(db);
   await runRegistryMigrations(db);
 }
 

@@ -5,6 +5,12 @@ const relationRegistry = require('../philosophy/relationRegistry');
 const ontologyRouter = require('./ontologyRouter');
 const runtimeEffects = require('./philosophyRuntimeEffectService');
 const ethicalComparison = require('./ethicalComparisonService');
+const propositionalLogic = require('./propositionalLogicService');
+const modalLogic = require('./modalLogicService');
+const deonticDynamicLogic = require('./deonticDynamicLogicService');
+const nonClassicalLogic = require('./nonClassicalLogicService');
+const metalogic = require('./metalogicService');
+const paradoxAnalysis = require('./paradoxAnalysisService');
 
 const registry = validateRegistry();
 if (!registry.valid) {
@@ -14,7 +20,8 @@ const definitions = registry.concepts;
 
 const OPERATIONS = Object.freeze([
   'listConcepts', 'getConcept', 'registryHealth', 'evaluateConcept', 'applyRuntimeEffect',
-  'listRelations', 'getNeighborhood', 'exportGraph', 'compareEthicalFrameworks', 'queryOntology'
+  'listRelations', 'getNeighborhood', 'exportGraph', 'compareEthicalFrameworks',
+  'saveAnalysis', 'getAnalysis', 'listAnalyses', 'queryOntology'
 ]);
 const conceptMap = new Map(definitions.map((concept) => [concept.id, concept]));
 
@@ -115,6 +122,18 @@ function callSelectedService({ serviceName, defaultMethod, allowedMethods, args 
 }
 
 const ADAPTERS = {
+  'logic.propositional': ({ args }) => propositionalLogic.classifyFormula(args),
+  'logic.truth-table': ({ args }) => propositionalLogic.truthTable(args),
+  'logic.equivalence': ({ args }) => propositionalLogic.areEquivalent(args),
+  'logic.modal': ({ args }) => modalLogic.evaluateFormula(args),
+  'logic.kripke-frame': ({ args }) => modalLogic.frameProperties(args),
+  'logic.deontic': ({ args }) => deonticDynamicLogic.assessDuty(args),
+  'logic.dynamic': ({ args }) => deonticDynamicLogic.publicAnnouncement(args),
+  'logic.paraconsistent': ({ args }) => nonClassicalLogic.evaluate(args),
+  'logic.paracomplete': ({ args }) => nonClassicalLogic.compareExcludedMiddle(args),
+  'paradox.liar': ({ args }) => paradoxAnalysis.analyze({ ...args, type: 'liar' }),
+  'paradox.curry': ({ args }) => paradoxAnalysis.analyze({ ...args, type: 'curry' }),
+  'truth.tarski-undefinability': ({ args }) => metalogic.analyzeSelfReference(args),
   'epistemology.knowledge': ({ args }) => callService('knowledgeService', 'analyzeKnowledge', args),
   'epistemology.belief': ({ args }) => callService('knowledgeService', 'assessBelief', args),
   'epistemology.justification': ({ args }) => callService('knowledgeService', 'assessJustification', args),
@@ -350,6 +369,12 @@ async function handlePhilosophyRequest({ request } = {}) {
   if (operation === 'getNeighborhood') return getNeighborhood(args.conceptId || args.id, args);
   if (operation === 'exportGraph') return exportGraph(args);
   if (operation === 'compareEthicalFrameworks') return ethicalComparison.compareEthicalFrameworks(args);
+  if (operation === 'saveAnalysis' || operation === 'getAnalysis' || operation === 'listAnalyses') {
+    const analysisPersistence = require('./philosophyAnalysisPersistenceService');
+    if (operation === 'saveAnalysis') return { saved: true, analysis: await analysisPersistence.saveAnalysis(args) };
+    if (operation === 'getAnalysis') return { analysis: await analysisPersistence.getAnalysis(args) };
+    return { analyses: await analysisPersistence.listAnalyses(args) };
+  }
   return queryOntology(args);
 }
 

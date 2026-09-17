@@ -49,6 +49,10 @@ const migrationRunners = [
     const { createOntologyRelationTables } = require('./migrateOntologyRelations');
     await createOntologyRelationTables(db);
   }),
+  createMigrationRunner('026-philosophy-analyses', 'Persist explicitly saved philosophical analyses with provenance', async (db) => {
+    const { createPhilosophyAnalysisTables } = require('./migratePhilosophyAnalyses');
+    await createPhilosophyAnalysisTables(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
