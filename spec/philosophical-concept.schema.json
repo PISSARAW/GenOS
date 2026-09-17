@@ -10,6 +10,13 @@
     "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
     "label": { "type": "string", "minLength": 1 },
     "family": { "type": "string", "minLength": 1 },
+    "genosDomains": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["ontology", "consciousness", "cognition", "phenomenology", "identity", "social-cognition", "wellbeing", "computation", "prediction", "epistemics", "ethics", "causality", "process"]
+      }
+    },
     "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "labels": {
       "type": "object",

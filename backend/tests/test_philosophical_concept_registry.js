@@ -12,6 +12,7 @@ const concept = normalizeConcept(CONCEPT_DEFINITIONS[0]);
 assert.equal(concept.apiVersion, 'genos.philosophy/v1');
 assert.equal(concept.kind, 'PhilosophicalConcept');
 assert.equal(concept.family, 'ontology');
+assert.deepEqual(concept.genosDomains, ['ontology']);
 assert.ok(Array.isArray(concept.relations));
 assert.ok(Array.isArray(concept.adapters));
 assert.equal(concept.family, concept.domain);
@@ -30,6 +31,18 @@ assert.equal(enriched.family, 'being');
 assert.deepEqual(enriched.aliases, ['ens']);
 assert.equal(enriched.evidenceLevel, 'operational');
 assert.equal(enriched.mapping.target, 'ontologyCore');
+
+const consciousness = normalizeConcept({
+  ...CONCEPT_DEFINITIONS.find((item) => item.id === 'metaphysics.qualia')
+});
+assert.deepEqual(consciousness.genosDomains, ['consciousness', 'phenomenology', 'wellbeing']);
+
+const invalidDomain = validateRegistry([{
+  ...CONCEPT_DEFINITIONS[0],
+  genosDomains: ['unknown-subdomain']
+}]);
+assert.equal(invalidDomain.valid, false);
+assert.ok(invalidDomain.errors.some((error) => error.includes('unknown GenOS subdomain')));
 
 const invalid = validateRegistry([{ ...CONCEPT_DEFINITIONS[0], id: 'Invalid ID' }]);
 assert.equal(invalid.valid, false);

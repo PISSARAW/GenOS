@@ -2,6 +2,7 @@
 
 const { CONCEPT_DEFINITIONS } = require('./conceptDefinitions');
 const { validateSpec } = require('../services/specValidator');
+const { GENOS_SUBDOMAINS, subdomainsForConcept } = require('./genosSubdomains');
 
 const CONCEPT_SCHEMA = 'philosophical-concept.schema.json';
 
@@ -13,6 +14,7 @@ function normalizeConcept(concept) {
     label: concept.label,
     labels: concept.labels || {},
     family: concept.family || concept.domain,
+    genosDomains: subdomainsForConcept(concept),
     aliases: concept.aliases || [],
     domain: concept.domain,
     school: concept.school,
@@ -50,6 +52,9 @@ function validateScalarFields(concept, index) {
   }
   if (typeof concept.id === 'string' && !/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(concept.id)) {
     errors.push(`concepts[${index}].id must use lowercase dot/dash segments`);
+  }
+  if (concept.genosDomains.some((domain) => !GENOS_SUBDOMAINS.includes(domain))) {
+    errors.push(`concepts[${index}].genosDomains contains an unknown GenOS subdomain`);
   }
   return errors;
 }
