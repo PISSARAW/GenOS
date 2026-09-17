@@ -3,7 +3,7 @@
   "$id": "https://genos.ai/spec/philosophical-concept.schema.json",
   "title": "PhilosophicalConcept",
   "type": "object",
-  "required": ["apiVersion", "kind", "id", "label", "domain", "school", "status"],
+  "required": ["apiVersion", "kind", "id", "label", "family", "domain", "school", "status"],
   "properties": {
     "apiVersion": { "type": "string", "const": "genos.philosophy/v1" },
     "kind": { "type": "string", "const": "PhilosophicalConcept" },

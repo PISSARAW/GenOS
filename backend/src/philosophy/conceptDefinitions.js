@@ -7,12 +7,34 @@
  * concept without pretending that every concept is an executable capability.
  */
 
+const FAMILY_BY_DOMAIN = Object.freeze({
+  ontology: 'ontology',
+  modality: 'metaphysics',
+  schools: 'philosophical-traditions',
+  metaphysics: 'metaphysics',
+  phenomenology: 'phenomenology',
+  causality: 'metaphysics',
+  'time-space': 'metaphysics',
+  process: 'process-philosophy',
+  epistemology: 'epistemology',
+  methods: 'epistemology',
+  science: 'philosophy-of-science',
+  truth: 'epistemology',
+  'social-epistemology': 'social-and-critical-thought',
+});
+
+const { CORE_DEFINITIONS } = require('./coreDefinitions');
+
 const C = (id, ...fields) => {
-  const [label, domain, school, status, service = null] = fields;
-  return { id, label, domain, school, status, service };
+  const [label, domain, school, status, service = null, metadata = {}] = fields;
+  return {
+    id, label, domain, school, status, service,
+    family: metadata.family || FAMILY_BY_DOMAIN[domain] || domain,
+    ...metadata,
+  };
 };
 
-const CONCEPT_DEFINITIONS = [
+const RAW_CONCEPT_DEFINITIONS = [
   C('ontology.being', 'Être / Being / ensoma', 'ontology', 'general', 'implemented', 'ontologyCore'),
   C('ontology.substance', 'Substance / Sostanza', 'ontology', 'aristotle-spinoza-descartes', 'implemented', 'substanceService'),
   C('ontology.attribute', 'Attribut / Propriété', 'ontology', 'general', 'implemented', 'ontologyAttributes'),
@@ -167,6 +189,26 @@ const CONCEPT_DEFINITIONS = [
   C('social-epistemology.cognitive-labor', 'Division du travail cognitif', 'social-epistemology', 'social-epistemology', 'planned'),
   C('social-epistemology.feminist', 'Épistémologie féministe et critique des savoirs', 'social-epistemology', 'feminist-epistemology', 'planned'),
   C('social-epistemology.emancipatory-critique', 'Émancipation épistémique et critique', 'social-epistemology', 'frankfurt-school', 'planned'),
+
+  // Éthique normative — noyau évaluatif sans autorisation d'exécution.
+  C('ethics.consequentialism', 'Conséquentialisme', 'normative-ethics', 'contemporary', 'partial', 'normativeEthicsService'),
+  C('ethics.utilitarianism', 'Utilitarisme', 'normative-ethics', 'bentham-mill-singer', 'implemented', 'normativeEthicsService'),
+  C('ethics.act-utilitarianism', 'Utilitarisme de l’acte', 'normative-ethics', 'bentham-singer', 'implemented', 'normativeEthicsService'),
+  C('ethics.rule-utilitarianism', 'Utilitarisme de la règle', 'normative-ethics', 'mill', 'implemented', 'normativeEthicsService'),
+  C('ethics.hedonism', 'Hédonisme, plaisir et utilité', 'normative-ethics', 'epicurus-bentham', 'partial', 'normativeEthicsService'),
+  C('ethics.deontology', 'Déontologie', 'normative-ethics', 'kant', 'implemented', 'normativeEthicsService'),
+  C('ethics.categorical-imperative', 'Impératif catégorique', 'normative-ethics', 'kant', 'implemented', 'normativeEthicsService'),
+  C('ethics.double-effect', 'Doctrine du double effet', 'normative-ethics', 'aquinas', 'implemented', 'normativeEthicsService'),
+  C('ethics.virtue-ethics', 'Éthique des vertus', 'normative-ethics', 'aristotle', 'implemented', 'normativeEthicsService'),
 ];
 
-module.exports = { CONCEPT_DEFINITIONS };
+const CORE_IDS = new Set(CORE_DEFINITIONS.map((concept) => concept.id));
+const LEGACY_DEFINITIONS = RAW_CONCEPT_DEFINITIONS.filter((concept) => !CORE_IDS.has(concept.id));
+const CONCEPT_DEFINITIONS = Object.freeze([...CORE_DEFINITIONS, ...LEGACY_DEFINITIONS]);
+
+module.exports = {
+  CONCEPT_DEFINITIONS,
+  CORE_DEFINITIONS,
+  LEGACY_DEFINITIONS,
+  FAMILY_BY_DOMAIN,
+};

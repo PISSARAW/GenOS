@@ -9,7 +9,25 @@ tags: [philosophy, ontology, metaphysics, epistemology, ethics]
 
 # Philosophie et Ontologie dans GenOS
 
-Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
+Ce document formalise l’implémentation des concepts philosophiques dans GenOS.
+
+## 0. Familles canoniques
+
+Le registre distingue la `family`, qui représente une grande famille philosophique,
+du `domain`, qui conserve une catégorie plus fine et compatible avec les entrées
+historiques. Les familles actuelles sont :
+
+- `ontology` — être, substance, attributs et modes ;
+- `metaphysics` — modalité, causalité, temps et métaphysique ;
+- `philosophical-traditions` — écoles et traditions ;
+- `phenomenology` — expérience, conscience et intentionnalité ;
+- `process-philosophy` — devenir, événement et processus ;
+- `epistemology` — connaissance, méthodes et vérité ;
+- `philosophy-of-science` — science, confirmation et changement théorique ;
+- `social-and-critical-thought` — épistémologie sociale et critique.
+
+La famille est obligatoire dans le schéma normalisé et peut être utilisée par
+`genos_philosophy.listConcepts` avec l’argument `family`.
 
 ## 1. Ontologie — Être, Substance, Attribut, Mode
 

@@ -11,6 +11,7 @@ assert.equal(health.conceptCount, CONCEPT_DEFINITIONS.length);
 const concept = normalizeConcept(CONCEPT_DEFINITIONS[0]);
 assert.equal(concept.apiVersion, 'genos.philosophy/v1');
 assert.equal(concept.kind, 'PhilosophicalConcept');
+assert.equal(concept.family, 'ontology');
 assert.ok(Array.isArray(concept.relations));
 assert.ok(Array.isArray(concept.adapters));
 assert.equal(concept.family, concept.domain);

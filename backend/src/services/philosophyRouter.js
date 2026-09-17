@@ -18,6 +18,7 @@ function copy(value) {
 function listConcepts(args = {}) {
   return definitions
     .filter((concept) => !args.domain || concept.domain === args.domain)
+    .filter((concept) => !args.family || concept.family === args.family)
     .filter((concept) => !args.school || concept.school === args.school)
     .filter((concept) => !args.status || concept.status === args.status)
     .map(copy);
@@ -60,6 +61,14 @@ function callService(serviceName, method, args) {
   return service[method](args);
 }
 
+function callSelectedService({ serviceName, defaultMethod, allowedMethods, args }) {
+  const method = args.operation || defaultMethod;
+  if (!allowedMethods.includes(method)) {
+    throw new Error(`Unsupported philosophy adapter operation '${method}'.`);
+  }
+  return callService(serviceName, method, args);
+}
+
 const ADAPTERS = {
   'school.platonism': ({ args }) => callService('platonismService', 'getFormIdeal', args.formName || 'perfect_agent'),
   'school.aristotelianism': ({ args }) => callService('aristotelianService', 'categorize', { agent: args.agent }),
@@ -68,12 +77,12 @@ const ADAPTERS = {
   'school.cartesianism': ({ args }) => callService('cartesianService', 'dualism', { agent: args.agent }),
   'school.leibnizianism': ({ args }) => callService('leibnizianService', 'monadologie', { agent: args.agent }),
   'school.spinozism': ({ args }) => callService('spinozaService', 'substanceUnique', { system: args.system || { agents: [] } }),
-  'school.newtonianism': ({ args }) => callService('newtonianService', args.operation || 'espaceAbsolu', args),
-  'school.kantianism': ({ args }) => callService('kantianService', args.operation || 'categoriesAPriori', args),
-  'school.hegelianism': ({ args }) => callService('hegelianService', args.operation || 'absoluteGeist', args),
-  'school.schopenhauer': ({ args }) => callService('schopenhauerService', args.operation || 'willRepresentation', args),
-  'school.nietzsche': ({ args }) => callService('nietzscheService', args.operation || 'willToPower', args),
-  'school.bergsonism': ({ args }) => callService('bergsonService', args.operation || 'duree', args),
+  'school.newtonianism': ({ args }) => callSelectedService({ serviceName: 'newtonianService', defaultMethod: 'espaceAbsolu', allowedMethods: ['espaceAbsolu', 'tempsAbsolu', 'mecaniqueClassique'], args }),
+  'school.kantianism': ({ args }) => callSelectedService({ serviceName: 'kantianService', defaultMethod: 'categoriesAPriori', allowedMethods: ['phenomene', 'noumene', 'categoriesAPriori', 'critiqueRaisonPure', 'choseEnSoi'], args }),
+  'school.hegelianism': ({ args }) => callSelectedService({ serviceName: 'hegelianService', defaultMethod: 'absoluteGeist', allowedMethods: ['dialectique', 'absoluteGeist', 'recognition'], args }),
+  'school.schopenhauer': ({ args }) => callSelectedService({ serviceName: 'schopenhauerService', defaultMethod: 'willRepresentation', allowedMethods: ['willRepresentation', 'principiumRationis', 'denialOfWill'], args }),
+  'school.nietzsche': ({ args }) => callSelectedService({ serviceName: 'nietzscheService', defaultMethod: 'willToPower', allowedMethods: ['willToPower', 'eternalReturn', 'ubermensch'], args }),
+  'school.bergsonism': ({ args }) => callSelectedService({ serviceName: 'bergsonService', defaultMethod: 'duree', allowedMethods: ['duree', 'elanVital', 'intuition'], args }),
   'causality.determination': ({ args }) => callService('causalityService', 'computeNecessity', args),
   'causality.counterfactuals': ({ args }) => callService('causalityService', 'simulateCounterfactual', args),
   'ontology.stances': ({ args }) => callService('ontologyStances', 'classifyTerm', args),
@@ -87,9 +96,14 @@ const ADAPTERS = {
   'process.bergsonian-vital-impulse': ({ args }) => callService('bergsonService', args.operation || 'elanVital', args),
   'metaphysics.qualia': ({ args }) => callService('consciousnessService', 'recordQualia', args),
   'metaphysics.reference-intentionality': ({ args }) => callService('phenomenologyService', 'intentionality', args),
+  'ethics.act-utilitarianism': ({ args }) => callService('normativeEthicsService', 'evaluateActUtilitarianism', args),
+  'ethics.rule-utilitarianism': ({ args }) => callService('normativeEthicsService', 'evaluateRuleUtilitarianism', args),
+  'ethics.categorical-imperative': ({ args }) => callService('normativeEthicsService', 'evaluateCategoricalImperative', args),
+  'ethics.double-effect': ({ args }) => callService('normativeEthicsService', 'evaluateDoubleEffect', args),
+  'ethics.virtue-ethics': ({ args }) => callService('normativeEthicsService', 'assessVirtueEthics', args),
 };
 
-function evaluateConcept(args) {
+function evaluateConcept(args = {}) {
   const concept = requireConcept(args.concept);
   if (concept.status !== 'implemented') return unavailable(concept);
   const adapter = ADAPTERS[concept.id];
@@ -97,7 +111,7 @@ function evaluateConcept(args) {
   return { concept: concept.id, status: concept.status, executable: true, supported: true, result: copy(adapter({ args })) };
 }
 
-async function queryOntology(args) {
+async function queryOntology(args = {}) {
   const operation = args.ontologyOperation || args.operationName;
   if (!operation) throw new Error('queryOntology requires ontologyOperation.');
   const result = await ontologyRouter.handleOntologyRequest({
@@ -107,7 +121,10 @@ async function queryOntology(args) {
   return { operation, result };
 }
 
-async function handlePhilosophyRequest({ request }) {
+async function handlePhilosophyRequest({ request } = {}) {
+  if (!request || typeof request !== 'object' || Array.isArray(request)) {
+    throw new Error('Philosophy request must be an object.');
+  }
   const operation = String(request.operation || '').trim();
   if (!OPERATIONS.includes(operation)) throw new Error(`Unknown philosophy operation '${operation}'.`);
   const args = request.arguments && typeof request.arguments === 'object' ? request.arguments : {};
