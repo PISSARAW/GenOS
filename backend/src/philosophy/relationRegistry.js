@@ -13,7 +13,16 @@ const RELATION_TYPES = new Set([
   'supervenesOn',
   'emergesFrom',
   'implementedBy',
-  'illustrates'
+  'illustrates',
+  'supports',
+  'refutes',
+  'formalizes',
+  'generalizes',
+  'develops',
+  'contrastsWith',
+  'independentFrom',
+  'hasProblem',
+  'hasConsequence'
 ]);
 
 const RELATION_DEFINITIONS = [
@@ -27,6 +36,29 @@ const RELATION_DEFINITIONS = [
   relation('school.cartesianism', 'illustrates', 'metaphysics.dualism'),
   relation('school.merleau-ponty', 'criticizes', 'metaphysics.dualism'),
   relation('ontology.person-other', 'dependsOn', 'ontology.stances')
+  , relation('mathematics.platonism', 'alternativeTo', 'mathematics.nominalism')
+  , relation('mathematics.nominalism', 'develops', 'mathematics.fictionalism')
+  , relation('mathematics.platonism', 'alternativeTo', 'mathematics.conceptualism')
+  , relation('mathematics.psychologism', 'criticizes', 'mathematics.platonism')
+  , relation('mathematics.logicism', 'hasProblem', 'mathematics.foundations-crisis')
+  , relation('mathematics.formalism', 'hasConsequence', 'science.godel-incompleteness')
+  , relation('mathematics.intuitionism', 'alternativeTo', 'mathematics.formalism')
+  , relation('mathematics.intuitionism', 'criticizes', 'mathematics.logicism')
+  , relation('mathematics.indispensability-argument', 'supports', 'mathematics.platonism')
+  , relation('mathematics.set-theory', 'generalizes', 'mathematics.number')
+  , relation('mathematics.zfc', 'subclassOf', 'mathematics.set-theory')
+  , relation('mathematics.type-theory', 'alternativeTo', 'mathematics.set-theory')
+  , relation('mathematics.category-theory', 'alternativeTo', 'mathematics.set-theory')
+  , relation('mathematics.structuralism', 'develops', 'mathematics.category-theory')
+  , relation('mathematics.ante-rem-structuralism', 'subclassOf', 'mathematics.structuralism')
+  , relation('mathematics.in-re-structuralism', 'subclassOf', 'mathematics.structuralism')
+  , relation('mathematics.post-rem-structuralism', 'subclassOf', 'mathematics.structuralism')
+  , relation('mathematics.continuum-hypothesis', 'independentFrom', 'mathematics.zfc', { note: 'Indépendance relative aux axiomes de ZFC.' })
+  , relation('mathematics.transfinite', 'dependsOn', 'mathematics.set-theory')
+  , relation('mathematics.nonstandard-analysis', 'develops', 'mathematics.infinitesimal')
+  , relation('mathematics.proof-theory', 'formalizes', 'mathematics.proof')
+  , relation('mathematics.homotopy-type-theory', 'develops', 'mathematics.type-theory')
+  , relation('mathematics.potential-actual-infinity', 'contrastsWith', 'mathematics.transfinite')
 ];
 
 function relation(sourceId, relationType, targetId, metadata = {}) {
