@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const { selectStrategyPortfolio } = require('../strategies/strategySelector');
 const { listStrategies, registryHealth } = require('../strategies/strategyRegistry');
+const philosophicalGuard = require('./philosophicalPromotionGuard');
+const philosophyPolicy = require('./philosophyPromotionPolicyService');
 
 function getStrategyHandlers() {
   return require('./strategyExecutionAdapter').getHandlers();
@@ -32,6 +34,10 @@ function buildStrategyContract(input = {}) {
   const problemProfile = selection.profile;
   const selected = selection.primary;
   const highRisk = problemProfile.risk === 'high';
+  const philosophyContext = input.philosophyContext || input.philosophy_context;
+  const philosophy = philosophyContext
+    ? philosophyPolicy.buildPromotionPolicy({ philosophyContext })
+    : null;
   return {
     schema: CONTRACT_SCHEMA,
     mission: problem || 'Autonomous task execution',
@@ -64,6 +70,7 @@ function buildStrategyContract(input = {}) {
       score: decision.score, reason: decision.reason
     })),
     selection_policy: selection.options,
+    philosophical_context: philosophy,
     execution_pipeline: ['memory_retrieval', 'snapshot', 'isolated_forks', 'instrumented_run', 'adaptive_evaluation', 'diff_and_replay', 'audit', 'conditional_promotion'],
     branches: selection.branches.map((hypothesis, index) => ({
       label: `branch_${index + 1}`,
@@ -75,10 +82,12 @@ function buildStrategyContract(input = {}) {
     promotion: {
       require_replay: problemProfile.requires_reproducibility || highRisk,
       require_independent_verification: true,
-      require_human_approval: highRisk || problemProfile.reversibility === 'low' || portfolioHasUnimplemented(selection.portfolio),
+      require_human_approval: highRisk || problemProfile.reversibility === 'low' || portfolioHasUnimplemented(selection.portfolio) || Boolean(philosophy?.requireHumanApproval),
+      philosophy_hold: Boolean(philosophy?.holdPromotion),
       preserve_rejected_branches: true,
       merge_workspace_automatically: false
     },
+    philosophy: philosophicalGuard.buildContext(input.philosophy || input.philosophicalContext || input.philosophicalConcepts),
     observability: ['events', 'cost_usd', 'tokens', 'latency_ms', 'tool_receipts', 'lineage', 'diff']
   };
 }
@@ -168,6 +177,7 @@ function validateContract(contract) {
   validateContractBranches(contract);
   if (!Array.isArray(contract.stop_conditions)) throw new Error('stop_conditions must be an array');
   if (!contract.promotion) throw new Error('promotion policy is required');
+  if (contract.philosophy) philosophicalGuard.buildContext(contract.philosophy);
   return contract;
 }
 

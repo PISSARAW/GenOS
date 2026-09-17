@@ -94,7 +94,13 @@ function formatClaimsText(raw) {
 function memoryContent(job, inputs, unproven) {
   const claimsText = inputs.raw.length > 0 ? formatClaimsText(inputs.raw) : '';
   const tag = unproven ? '[UNVERIFIED_EVIDENCE][unverified/]' : '[VERIFIED_SYSTEM_FACT]';
-  const base = `${tag} Task: ${job.task}\nResult: ${String(job.summary).slice(0, 800)}${claimsText}`;
+  const philosophy = job.options?.philosophy;
+  const interpretive = philosophy?.interpretationStatus === 'interpretive';
+  const memoryTag = interpretive && !unproven ? '[INTERPRETIVE_CONTEXT][provenance-required]' : tag;
+  const philosophyText = philosophy?.references?.length
+    ? `\n[PHILOSOPHICAL_CONTEXT] concepts=${philosophy.references.map((item) => `${item.conceptId}@${item.provenanceVersion || 'unversioned'}:${item.interpretationStatus}`).join(',')} interpretation=${philosophy.interpretationStatus} provenance=${philosophy.provenanceHash || 'none'}`
+    : '';
+  const base = `${memoryTag} Task: ${job.task}\nResult: ${String(job.summary).slice(0, 800)}${claimsText}${philosophyText}`;
   if (unproven) return `${base}\n[expires: ${unverifiedExpiryIso()}]`;
   return base;
 }
@@ -103,9 +109,10 @@ function buildMemoryRecord(job) {
   const inputs = claimInputs(job);
   const unproven = hasUnprovenClaims(inputs);
   const failed = isFailureJob(job);
-  const category = failed ? 'Failure' : (unproven ? 'UnverifiedExperience' : 'Experience');
+  const interpretive = job.options?.philosophy?.interpretationStatus === 'interpretive';
+  const category = failed ? 'Failure' : (unproven ? 'UnverifiedExperience' : interpretive ? 'InterpretiveExperience' : 'Experience');
   const content = memoryContent(job, inputs, unproven);
-  return { category, content, unproven, failed, rawClaims: inputs.raw, taskHash: taskHashFor(job) };
+  return { category, content, unproven, failed, philosophy: job.options?.philosophy || null, rawClaims: inputs.raw, taskHash: taskHashFor(job) };
 }
 
 async function storeMemoryRecord(job, record) {
@@ -113,7 +120,10 @@ async function storeMemoryRecord(job, record) {
   const options = job.options || {};
   return vectorMemory.storeMemory(job.agentId, record.content, null, {
     category: record.category,
-    tags: record.unproven ? ['unverified'] : [],
+    tags: [
+      ...(record.unproven ? ['unverified'] : []),
+      ...(record.philosophy?.interpretationStatus === 'interpretive' ? ['interpretive'] : [])
+    ],
     organizationId: options.organizationId,
     projectId: options.projectId
   });

@@ -10,6 +10,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const philosophyPolicy = require('./philosophyPromotionPolicyService');
 
 const WORKSPACE_MERGE_EXCLUSIONS = new Set(['.git', 'node_modules']);
 
@@ -259,6 +260,10 @@ function evaluatePromotionGate(contract = {}, executionContext = {}) {
   if (verificationViolation) violations.push(verificationViolation);
   const approvalViolation = buildApprovalViolation(policy, executionContext);
   if (approvalViolation) violations.push(approvalViolation);
+  const philosophicalGuard = require('./philosophicalPromotionGuard');
+  const philosophicalViolation = philosophicalGuard.evaluatePromotion(contract, executionContext);
+  if (philosophicalViolation) violations.push(philosophicalViolation);
+  violations.push(...philosophyPolicy.evaluatePromotionContext(contract, executionContext));
   return {
     eligible: violations.length === 0,
     policy,

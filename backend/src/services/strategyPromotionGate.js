@@ -207,6 +207,8 @@ function buildGateContext(promotion, options, receipt) {
     evidenceVerified: options.evidenceVerified,
     verifiedClaims: options.verifiedClaims,
     workerDossiers: options.workerDossiers,
+    philosophyEvidence: options.philosophyEvidence,
+    philosophyProvenanceVerified: options.philosophyProvenanceVerified,
     humanApprovalReceipt: receipt || options.humanApprovalReceipt || null
   };
 }
@@ -351,7 +353,13 @@ async function recordPromotionMemory(promotion, options) {
       agent.name || promotion.agentId,
       promotion.task,
       memorySummary(promotion.report, options.summary || `Strategy promotion completed and approved for run ${promotion.runId}.`),
-      { outcome: memoryOutcome(promotion.report), approvedBy: options.approvedBy || 'human_gate' }
+      {
+        outcome: memoryOutcome(promotion.report),
+        approvedBy: options.approvedBy || 'human_gate',
+        evidenceReport: promotion.report,
+        philosophy: promotion.contract.philosophy,
+        provenanceHash: promotion.contract.philosophy?.provenanceHash || null
+      }
     );
   } catch (_) {}
 }
