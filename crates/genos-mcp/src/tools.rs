@@ -42,7 +42,7 @@ pub fn public_tool_specs() -> Vec<Value> {
                 "properties": {
                     "mission": { "type": "string", "description": "Goal or user request to achieve." },
                     "strategy": { "type": "string", "description": "Optional strategy hint from the 78 available." },
-                    "background": { "type": "boolean", "description": "True to run detached in the background." }
+                    "background": { "type": "boolean", "description": "Defaults to true: return a launch receipt and run detached. False waits within the MCP timeout." }
                 },
                 "required": ["mission"]
             }
@@ -54,7 +54,8 @@ pub fn public_tool_specs() -> Vec<Value> {
                 "type": "object",
                 "properties": {
                     "mission": { "type": "string", "description": "Sub-task for the delegated worker." },
-                    "role": { "type": "string", "description": "Specialized role of the worker." }
+                    "role": { "type": "string", "description": "Specialized role of the worker." },
+                    "background": { "type": "boolean", "description": "Defaults to true. False waits within the MCP timeout." }
                 },
                 "required": ["mission"]
             }
@@ -162,7 +163,9 @@ pub fn public_tool_specs() -> Vec<Value> {
                 "type": "object",
                 "properties": {
                     "kind": { "type": "string", "description": "Type of publication (evidence, challenge, vote, trace)." },
-                    "content": { "type": "string", "description": "Message payload." }
+                    "content": { "type": "string", "description": "Message payload." },
+                    "signal_type": { "type": "string", "enum": ["ligand", "voltage", "pheromone", "plasmid", "tensor", "text"], "description": "Biomimetic non-textual signal type." },
+                    "signal_data": { "type": "object", "description": "Physico-chemical signal data (0 LLM tokens)." }
                 },
                 "required": ["kind"]
             }
