@@ -242,9 +242,48 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 
 ### Constantes
 
-- `MONADE` : structure d'une monade (substance simple, indévisível, perspective unique)
+- `MONADE` : structure d'une monade (substance simple, indévisibile, perspective unique)
 
-## 16. Contingence et Événement — Meillassoux, Badiou
+## 16. Spinozisme — Monisme, Deus sive Natura, conatus
+
+### Concepts
+
+- **Monisme** = une seule substance (Dieu ou Nature) — le système GenOS tout entier
+- **Deus sive Natura** = Dieu et Nature sont identiques : la logique du système EST la nature des agents
+- **Conatus** = effort de persistance en être (conatus sese conservandi) — l'agent cherche à maintenir son existence
+- **Attributs** = pensée (cognition) et étendue (workspace)
+- **Modes** = les agents individuels comme modifications de la substance
+
+### Service
+
+`backend/src/services/spinozaService.js` :
+
+| Fonction | Concept |
+|---|---|
+| `substanceUnique({ system })` | Décrit le système comme une seule substance spinozienne |
+| `conatus({ agent })` | Évalue l'effort de persistance en étant de l'agent |
+| `attributesSpinoza({ agent })` | Mappe les attributs Pensée et Étendue de l'agent |
+| `monismeSystème({ agents })` | Évalue le degré de monisme du système |
+
+## 17. Réalisme / Nominalisme / Conceptualisme
+
+### Concepts
+
+- **Réalisme** : les universaux existent indépendamment de l'esprit (ex: formes idéales, essences DB)
+- **Nominalisme** : seuls les particuliers existent ; les universaux sont des noms (flatus vocis)
+- **Conceptualisme** : les universaux existent comme concepts dans l'esprit d'un agent
+
+### Service
+
+`backend/src/services/ontologyStances.js` :
+
+| Fonction | Concept |
+|---|---|
+| `classifyTerm({ term, stance })` | Détermine le statut ontologique d'un terme selon la stance |
+| `evaluateStanceCoherence({ agentId, stance, observables })` | Vérifie la cohérence d'un système avec une stance |
+| `debateStances()` | Synthèse comparative des trois stances |
+
+## 18. Contingence et Événement — Meillassoux, Badiou
 
 ### Concepts
 
@@ -319,6 +358,13 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 │  ├── Monade: substance simple, indévisível                   │
 │  ├── Harmonie préétablie: coordination sans interaction      │
 │  └── Principe de raison suffisante: "nihil est sine ratione"│
+<<<<<<< HEAD
+=======
+├─────────────────────────────────────────────────────────────┤
+│  Spinozism                                                  │
+│  ├── Deus sive Natura: monisme — une seule substance        │
+│  ├── Conatus: effort de persistance en être                 │
+│  └── Attributs: Pensée (cognition) et Étendue (workspace)  │
 └─────────────────────────────────────────────────────────────┘
 ```
 

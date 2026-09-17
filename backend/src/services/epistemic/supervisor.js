@@ -44,15 +44,15 @@ const {
 
 const observationLog = [];
 
-function observeClaim(claim, beforeQuality, afterQuality, stakes, phase) {
+function observeClaim(claim, observation) {
   observationLog.push({
     claimId: claim.id || claim.type,
     subject: claim.subject || null,
     type: claim.type,
-    beforeQuality,
-    afterQuality,
-    stakes: stakes || STAKE_LEVELS.NORMAL,
-    phase: phase || null,
+    beforeQuality: observation.beforeQuality,
+    afterQuality: observation.afterQuality,
+    stakes: observation.stakes || STAKE_LEVELS.NORMAL,
+    phase: observation.phase || null,
     observedAt: new Date().toISOString(),
   });
   return observationLog[observationLog.length - 1];
@@ -89,55 +89,126 @@ function publish(contradiction) {
 }
 
 // ---------------------------------------------------------------------------
-// Supervisor: accept + record
+// Supervisor: accept + record — decomposed into pure helpers
 // ---------------------------------------------------------------------------
 
-function superviseAccept(claim, opts = {}) {
-  if (!claim || typeof claim !== 'object') {
-    return { accepted: false, reason: 'invalid claim', debt: [] };
+function superviseAccept(claim, opts) {
+  if (!opts) opts = {};
+  if (!_isClaimValid(claim)) {
+    return _buildInvalidResult();
   }
 
-  const stakes = opts.stakes || STAKE_LEVELS.NORMAL;
-  const phase = opts.phase || null;
-  const beforeQuality = evidenceQuality(claim);
-
-  const result = acceptClaim(claim, { stakes, ...opts });
+  const context = _buildAcceptContext(opts);
+  const result = _runAcceptanceWithStakes(claim, context);
   const acceptedClaim = result.accepted ? claim : null;
 
+  _applyPhaseTag(acceptedClaim, context.phase);
+
+  const afterQuality = _computeAfterQuality(result, acceptedClaim);
+  const observation = _recordObservation({
+    claim,
+    context,
+    afterQuality,
+  });
+
+  _publishContradictionIssues(result, claim);
+
+  _emitDebtEvents(result, claim);
+
+  return _buildSupervisedResult(result, acceptedClaim, observation);
+}
+
+function _isClaimValid(claim) {
+  return claim && typeof claim === 'object';
+}
+
+function _buildAcceptContext(opts) {
+  return {
+    stakes: opts.stakes || STAKE_LEVELS.NORMAL,
+    phase: opts.phase || null,
+    otherOpts: opts,
+  };
+}
+
+function beforeQualityOf(result) {
+  // Extracted for readability; not used directly here but kept for symmetry.
+  return 0;
+}
+
+function _runAcceptanceWithStakes(claim, context) {
+  const stakes = context.stakes;
+  const otherOpts = context.otherOpts;
+  // Do not spread context.otherOpts directly into acceptClaim to avoid
+  // accidentally passing phase twice; phase is removed to avoid duplication.
+  const { phase, ...restOpts } = context.otherOpts;
+  return acceptClaim(claim, Object.assign({ stakes }, restOpts));
+}
+
+function _applyPhaseTag(acceptedClaim, phase) {
   if (acceptedClaim && phase) {
     tagPhase(acceptedClaim, phase);
   }
+}
 
-  const afterQuality = result.accepted ? evidenceQuality(acceptedClaim) : 0;
-  const observation = observeClaim(claim, beforeQuality, afterQuality, stakes, phase);
+function _computeAfterQuality(result, acceptedClaim) {
+  return result.accepted ? evidenceQuality(acceptedClaim) : 0;
+}
 
-  // Publish contradictions on this batch if consistency check exists.
+function _recordObservation(recordOpts) {
+  const { claim, context, afterQuality } = recordOpts;
+  return observeClaim(claim, {
+    beforeQuality: evidenceQuality(claim),
+    afterQuality,
+    stakes: context.stakes,
+    phase: context.phase,
+  });
+}
+
+function _publishContradictionIssues(result, claim) {
   if (result.accepted && result.claim) {
     const batch = [result.claim];
     const issues = checkClaimConsistency(batch);
-    for (const issue of issues) {
-      publish({ type: 'contradiction', ...issue, at: new Date().toISOString() });
+    _publishIssues(issues);
+  }
+}
+
+function _publishIssues(issues) {
+  for (const issue of issues) {
+    publish({ type: 'contradiction', ...issue, at: new Date().toISOString() });
+  }
+}
+
+function _emitDebtEvents(result, claim) {
+  if (!result.debt || !result.debt.length) return;
+  _tryEmitDebtEvents(result.debt, claim);
+}
+
+function _tryEmitDebtEvents(debtList, claim) {
+  try {
+    const telemetry = require('./telemetryObserver');
+    for (const d of debtList) {
+      telemetry.emitEvent(_debtEventPayload(d, claim));
     }
-  }
+  } catch (_) {}
+}
 
-  // If debt created, log + emit native event if telemetry present.
-  if (result.debt && result.debt.length) {
-    try {
-      const telemetry = require('./telemetryObserver');
-      for (const d of result.debt) {
-        telemetry.emitEvent({
-          eventType: 'EPISTEMIC_DEBT_CREATED',
-          agentId: claim.id || 'unknown',
-          detail: `Epistemic debt: ${d.reason}`,
-          payload: { debtId: d.id, reason: d.reason, severity: d.severity, subject: d.subject },
-        });
-      }
-    } catch (_) {}
-  }
+function _debtEventPayload(d, claim) {
+  return {
+    eventType: 'EPISTEMIC_DEBT_CREATED',
+    agentId: claim.id || 'unknown',
+    detail: `Epistemic debt: ${d.reason}`,
+    payload: { debtId: d.id, reason: d.reason, severity: d.severity, subject: d.subject },
+  };
+}
 
+function _buildInvalidResult() {
+  return { accepted: false, reason: 'invalid claim', debt: [] };
+}
+
+function _buildSupervisedResult(result, acceptedClaim, observation) {
   return {
     accepted: result.accepted,
-    claim: acceptedClaim || claim,
+    claim: acceptedClaim || result.claim,
     validation: result.validation,
     debt: result.debt || [],
     observation,
@@ -308,43 +379,22 @@ function _emitHooks(claim, supervision) {
 }
 
 module.exports = {
-  // Core supervision
   superviseAccept,
   superviseAcceptBatch,
   inspectEpistemicState,
   epistemicSystemAudit,
-
-  // Trend / calibration
   trendFor,
   observationLog,
   lastObservationFor,
   observeClaim,
-
-  // Contradiction bus
   subscribe,
   unsubscribe,
   publish,
   listeners: () => listeners,
-
-  // Hooks (stable trigger surface)
   hooks,
   onDebtCreated,
   onContradiction,
   onClaimAccepted,
   onClaimRejected,
-
-  // Decision emission condition
   shouldForwardClaim,
-
-  // Re-export frequently used
-  PHASE,
-  STAKE_LEVELS,
-  checkClaimConsistency,
-  getEpistemicDebts: listDebts,
-  reconcileEpistemicDebts,
-  createEpistemicDebt,
-  resolveEpistemicDebt,
-  unresolvedDebtCount,
-  confidenceWithStakes,
-  calibrationGap,
 };
