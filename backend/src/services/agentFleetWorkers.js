@@ -158,7 +158,7 @@ function validatePromptBudget(details) {
 }
 
 async function persistWorker(db, details) {
-  const { parent, perWorkerCognitiveBudget } = details;
+  const { parent, perWorkerCognitiveBudget, assignment, id, identity } = details;
   // The worker INSERT and the parent budget debit must be one atomic unit:
   // otherwise two concurrent workers each read the same balance and over-allocate.
   // Retry with exponential backoff on BUDGET_INHERITANCE_FAILURE (race condition).
@@ -171,6 +171,13 @@ async function persistWorker(db, details) {
         if (debit.changes !== 1) {
           throw Object.assign(new Error(`Unable to debit inherited cognitive budget from orchestrator '${parent.id}'.`), { code: 'BUDGET_INHERITANCE_FAILURE' });
         }
+        // Hypostatisation : enregistrer le worker comme entité autonome issue d'un attribut de l'orchestrateur
+        const { hypostatize } = require('./ontologyHypostatization');
+        const hypostasis = await hypostatize(parent.id, 'worker_capacity', {
+          hypostasisType: 'worker_spawn',
+          targetConfig: { id },
+        });
+        emit(parent.id, 'WORKER_HYPOSTATIZED', 'HYPOSTASIS', `Worker '${identity.name}' hypostatized from orchestrator '${parent.id}'.`, { workerId: id, hypostasisId: hypostasis.id, role: assignment.role }, 'info');
       });
       return;
     } catch (error) {
