@@ -14,7 +14,8 @@ const SERVICE_MATURITY = Object.freeze({
   identityService: { level: 'partial', executable: true, evidence: 'tests', note: 'Continuité et critères d’identité calculables.' },
   mindModelsService: { level: 'conceptual', executable: false, evidence: 'documentation', note: 'Comparaison de positions, sans théorie unifiée.' },
   cognitionService: { level: 'planned', executable: false, evidence: 'none', note: 'Cognition sociale et représentations à spécifier.' },
-  consciousnessMetricsService: { level: 'conceptual', executable: false, evidence: 'none', note: 'Les métriques ne constituent pas une preuve de conscience.' }
+  consciousnessMetricsService: { level: 'conceptual', executable: false, evidence: 'none', note: 'Les métriques ne constituent pas une preuve de conscience.' },
+  aestheticsService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Évaluations esthétiques bornées, interprétatives et fondées sur des observations fournies.' }
 });
 
 function maturityForService(service) {

@@ -6,10 +6,10 @@ const C = (...args) => ({ ...makeConcept(...args), family: 'aesthetics' });
 
 const AESTHETICS_DEFINITIONS = [
   // Esthétique fondamentale.
-  C('aesthetics.beauty', 'Beauté / Beau', 'aesthetics', 'plato-kant', 'planned'),
-  C('aesthetics.sublime', 'Sublime', 'aesthetics', 'kant-burke-longinus-lyotard', 'planned'),
-  C('aesthetics.aesthetic-experience', 'Expérience esthétique', 'aesthetics', 'dewey-langer', 'planned'),
-  C('aesthetics.taste', 'Goût / Sensus communis', 'aesthetics', 'kant-hume', 'planned'),
+  C('aesthetics.beauty', 'Beauté / Beau', 'aesthetics', 'plato-kant', 'implemented', 'aestheticsService'),
+  C('aesthetics.sublime', 'Sublime', 'aesthetics', 'kant-burke-longinus-lyotard', 'implemented', 'aestheticsService'),
+  C('aesthetics.aesthetic-experience', 'Expérience esthétique', 'aesthetics', 'dewey-langer', 'implemented', 'aestheticsService'),
+  C('aesthetics.taste', 'Goût / Sensus communis', 'aesthetics', 'kant-hume', 'implemented', 'aestheticsService'),
   C('aesthetics.aesthetic-judgment', 'Jugement esthétique', 'aesthetics', 'kant', 'planned'),
   C('aesthetics.universal-subjectivity', 'Subjectivité universelle', 'aesthetics', 'kant', 'planned'),
   C('aesthetics.disinterested-pleasure', 'Plaisir désintéressé', 'aesthetics', 'kant', 'planned'),
