@@ -13,11 +13,12 @@ L'intégralité du test a été exécutée en **conditions réelles (*Live Blind
 | **Benchmark** | **LoCoMo** (Long-Context Memory Benchmark, ACL 2024) |
 | **Corpus** | `data/locomo10.json` (10 conversations massives, jusqu'à 35 sessions par dialogue) |
 | **Volume de Test** | **1 986 questions** réparties sur 5 catégories cognitives |
-| **Moteur d'Évaluation** | `backend/src/evaluation/locomo_eval_engine.js` |
-| **Modèle d'Inférence** | `ollama://qwen2.5-coder:7b` (Qwen 2.5 Coder 7B Instruct) |
-| **Matériel d'Inférence** | GPU local dédié NVIDIA |
-| **Durée Totale du Run** | **36 minutes** (2 160 secondes, soit ~1,08 seconde par question) |
-| **Fichier de Données Brutes** | [`backend/locomo_full_real_results.json`](../../../backend/locomo_full_real_results.json) (566,6 Ko) |
+- **Moteur d'Évaluation** : `backend/src/evaluation/locomo_eval_engine.js`
+- **Modèle d'Inférence** : `ollama://qwen2.5-coder:7b` (Qwen 2.5 Coder 7B Instruct)
+- **Matériel d'Inférence** : GPU local dédié NVIDIA
+- **Durée Totale du Run** : **36 minutes** (2 160 secondes, soit ~1,08 seconde par question)
+- **Fichier de Données Brutes** : [`backend/locomo_full_real_results.json`](../../../backend/locomo_full_real_results.json) (566,6 Ko)
+- **Dernière revue** : 2026-09-17.
 
 ---
 

@@ -1,5 +1,9 @@
 # Runtime agentique GenOS
 
+- **Statut** : Implémenté — runtime agentique (superviseur Node.js, processus enfants, SQLite, portes d'evidence) est disponible et opérationnel.
+- **Portée** : `backend/src/services/agentRuntimeAdapter.js`, `agentProcessSupervisor.js`, `backend/bin/genos-agent-runtime.cjs`.
+- **Dernière revue** : 2026-09-17.
+
 ## Definition
 
 Le runtime agentique GenOS est le plan d'execution qui transforme une mission autorisee en un ou plusieurs processus d'agent, collecte leurs evenements, applique des limites de ressources, persiste les traces utiles et conduit l'execution vers une sortie terminale : terminee, en erreur, bloquee, non verifiee ou en apoptose.

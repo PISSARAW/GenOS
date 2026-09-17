@@ -59,7 +59,7 @@ async function startMissionInternal(mission) {
   const autonomousWorkers = await orchestrateAutonomousWorkers(ctx);
   if (autonomousWorkers.length) {
     try {
-      await runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan: ctx.autonomyPlan, contractRecord: ctx.contractRecord, autonomousWorkers });
+      await runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan: ctx.autonomyPlan, contractRecord: ctx.contractRecord, autonomousWorkers, strict: true });
     } catch (barrierErr) {
       if (barrierErr.code === 'WORKER_BARRIER_NO_EVIDENCE' || barrierErr.code === 'WORKER_BARRIER_TIMEOUT') {
         const { emit } = require('../agentOrchestrationState');

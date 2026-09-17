@@ -181,7 +181,20 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 
 `backend/src/services/epicureanService.js`
 
-## 13. Contingence et Événement — Meillassoux, Badiou
+## 13. Scholastique — Équivocité, analogie, univocité
+
+### Concepts
+
+- **Équivocité** = un même terme désigne des réalités différentes (ex: "être" pour substance et accident)
+- **Analogie** = un terme est proportionnellement similaire dans deux contextes (ex: "santé" pour corps et âme)
+- **Univocité** = un même terme désigne exactement la même chose dans toutes ses applications
+- **Méthode scholastique** = quaestio → argumenta pro/con → responsio → conclusio (sic et non)
+
+### Fichier
+
+`backend/src/services/scholastiqueService.js`
+
+## 14. Contingence et Événement — Meillassoux, Badiou
 
 ### Concepts
 

@@ -1,5 +1,9 @@
 # Genome et epigenetique
 
+- **Statut** : Implémenté — manifeste `AgentGenome`, brins 2-bit, `Genome` Rust et genetics service JS sont disponibles.
+- **Portée** : specs `spec/GENOME_SPEC.md` / `spec/genome.schema.json`, `crates/genos-genome`, `backend/src/services/geneticsService.js`.
+- **Dernière revue** : 2026-09-17.
+
 ## Definition
 
 Dans GenOS, le genome est la configuration durable qui definit l'identite, les capacites et les politiques cognitives d'un agent. L'etat de runtime (PID, tache courante, telemetrie) n'est pas le genome : il est mutable et persiste separement. Les termes ADN, chromosome, allele, chromatine, mutation et espece decrivent des structures et politiques de calcul ; ils ne prouvent ni equivalence biologique, ni apprentissage autonome, ni qualite d'une reponse de modele.

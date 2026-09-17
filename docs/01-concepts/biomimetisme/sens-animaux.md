@@ -1,5 +1,9 @@
 # Architecture des 5 Super-Sens Animaux dans GenOS
 
+- **Statut** : Implémenté — VNO, mormyrocerebellum, Cluster N, tectum thermique et écholocation hypertrophiée sont intégrés dans le runtime.
+- **Portée** : `crates/genos-biology/src/sensory/`, CLI `genos biomimicry`, outils MCP `genos_biomimicry_*`.
+- **Dernière revue** : 2026-09-17.
+
 Ce document formalise l'intégration des 5 architectures neuro-sensorielles bio-inspirées dans le noyau GenOS (`genos-biology`, `genos-cli`, backend MCP).
 
 ---
@@ -9,10 +13,12 @@ Ce document formalise l'intégration des 5 architectures neuro-sensorielles bio-
 Le **Bulbe Olfactif Accessoire (AOB)** et l'**Organe Voméronasal (VNO)** fournissent un canal de **signalisation phéromonale subliminale hors-contexte**.
 
 ### Rôle et Mécanisme Bio-inspiré
+
 - **Bypass Cortical :** Permet aux agents d'émettre et de capter des signaux chimiques d'urgence (alarme, défense, coopération, territorialité) sans saturer la fenêtre de contexte textuelle du LLM.
 - **Réponse de Flehmen :** Lorsque la concentration dépasse le seuil de sensibilité, une transition d'état réflexe (`autonomic_action`) est immédiatement déclenchée (ex: gel défensif, mobilisation cytotoxique, synchronisation d'essaim).
 
 ### Primitives & Commandes
+
 - **Module Rust :** [`crates/genos-biology/src/sensory/vomeronasal.rs`](../../../crates/genos-biology/src/sensory/vomeronasal.rs)
 - **CLI :**
   ```bash
@@ -27,10 +33,12 @@ Le **Bulbe Olfactif Accessoire (AOB)** et l'**Organe Voméronasal (VNO)** fourni
 Inspiré du poisson-éléphant (*Gnathonemus petersii*) et des requins, ce module implémente une **détection de champ et de distorsion d'impédance**.
 
 ### Rôle et Mécanisme Bio-inspiré
+
 - **Sensing Passif d'Infrastructure :** Analyse le bruit de fond électrosensoriel et détecte les micro-impulsions sans interroger les agents, localisant les processus silencieux, verrous (deadlocks) ou goulots d'étranglement.
 - **Sensing Actif (EOD - Electric Organ Discharge) :** Émission d'ondes de décharge et calcul de la distorsion d'impédance diélectrique ($\Delta Z$), de la réactance capacitive et du contraste spatial de l'infrastructure logicielle.
 
 ### Primitives & Commandes
+
 - **Module Rust :** [`crates/genos-biology/src/sensory/mormyrocerebellum.rs`](../../../crates/genos-biology/src/sensory/mormyrocerebellum.rs)
 - **CLI :**
   ```bash
@@ -45,10 +53,12 @@ Inspiré du poisson-éléphant (*Gnathonemus petersii*) et des requins, ce modul
 Inspiré des oiseaux migrateurs nocturnes (rouge-gorge familier), le module **Cluster N** implémente une **boussole d'alignement d'intention globale invariante**.
 
 ### Rôle et Mécanisme Bio-inspiré
+
 - **Boussole Vectorielle Invariante :** Traite l'orientation par rapport à un attracteur global invariant (champ géomagnétique) via des paires de radicaux quantiques de cryptochrome.
 - **Prévention du Drift Sémantique :** Calcule en continu la dérive angulaire ($\theta = \arccos(\frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \|\mathbf{v}\|})$) et la cohérence quantique entre l'intention de départ et la trajectoire des sous-agents, projetant un cap de correction dynamique.
 
 ### Primitives & Commandes
+
 - **Module Rust :** [`crates/genos-biology/src/sensory/cluster_n.rs`](../../../crates/genos-biology/src/sensory/cluster_n.rs)
 - **CLI :**
   ```bash
@@ -63,10 +73,12 @@ Inspiré des oiseaux migrateurs nocturnes (rouge-gorge familier), le module **Cl
 Inspiré des serpents solénoglyphes et crotalidés (crotales, vipères, pythons), le **Tectum Optique Modifié** fusionne la vision photonique classique et l'imagerie thermique millikelvin.
 
 ### Rôle et Mécanisme Bio-inspiré
+
 - **Fusion Synesthésique Multi-Modale :** Superpose dans un même espace topologique (tectum / colliculus supérieur) la télémétrie structurelle/visuelle (ex: graphe AST, arborescence de fichiers) et l'énergie thermique (activité CPU, charge de mémoire, fréquence de modifications, criticité d'erreurs).
 - **Détection de Hotspots & Frappe Ciblée :** Détecte des gradients thermiques sub-millikelvin ($T \ge 3.0\text{ mK}$) pour isoler instantanément les modules chauds sous stress ou en surchauffe opérationnelle sans avoir à parser l'intégralité du code.
 
 ### Primitives & Commandes
+
 - **Module Rust :** [`crates/genos-biology/src/sensory/tectum_thermal.rs`](../../../crates/genos-biology/src/sensory/tectum_thermal.rs)
 - **CLI :**
   ```bash
@@ -81,10 +93,12 @@ Inspiré des serpents solénoglyphes et crotalidés (crotales, vipères, pythons
 Inspiré des microchiroptères (chauves-souris) et des odontocètes (dauphins), le **Cortex d'Écholocation** implémente un **sondage actif haute fréquence par échos acoustiques et décalage Doppler**.
 
 ### Rôle et Mécanisme Bio-inspiré
+
 - **Cartographie Topologique Dynamique en Temps Réel :** Émet des impulsions ultrasonores modulées en fréquence (chirps FM 20-120 kHz) et calcule la distance spatiale ($d = \frac{c \cdot \Delta t}{2}$) à partir du temps de vol (ToF).
 - **Cinématique Doppler & Détection d'Obstacles :** Calcule la vitesse radiale relative ($v = \frac{\Delta f \cdot c}{2 f_0}$) via le décalage Doppler ($\Delta f$) et la densité d'impédance relative via l'atténuation du signal, identifiant immédiatement les obstacles critiques en approche (deadlocks, collisions de branches, blocages I/O) et les corridors navigables dégagés.
 
 ### Primitives & Commandes
+
 - **Module Rust :** [`crates/genos-biology/src/sensory/echolocation.rs`](../../../crates/genos-biology/src/sensory/echolocation.rs)
 - **CLI :**
   ```bash
@@ -93,7 +107,6 @@ Inspiré des microchiroptères (chauves-souris) et des odontocètes (dauphins), 
 - **Outil MCP :** `genos_biomimicry_echolocation` ou `genos_biomimicry` avec `feature: "echolocation"`.
 
 ---
-
 
 ## Schémas d'Architecture et d'Intégration des Super-Sens
 

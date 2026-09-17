@@ -1,16 +1,8 @@
 # Spéciation et graft autonomes — flux complet d'innovation
 
-## Statut et portée
-
-Ce document décrit le **flux autonome complet** de spéciation et de graft sur l'ADN d'un agent GenOS :
-
-1. un agent identifie un besoin ou découvre un concept manquant ;
-2. il produit un candidat par **speciate** ou **graft** (opérations normatives sur l'ADN) ;
-3. le candidat est **évalué** (viabilité, preuve, coût, risque) ;
-4. si le gate est franchi, il est **promu** (`status = 'active'`) ;
-5. le génome promu est **déployé** (sélectionné au spawn, réutilisé par la population).
-
-Ce flux est documenté comme une capacité du runtime, pas comme le scénario par défaut obligatoire. L'implémentation existe partiellement : les opérations `speciate`/`graft` sont implémentées côté Rust, `agentDnaInnovation.js` expose `detectNovelConcepts`, `captureCandidate`, `captureFromSuccess`, `promoteCandidate`, et la boucle d'innovation est déclenchée depuis `workerEvidenceBarrierLocal.js` lors d'un succès validé. Ce qui n'est pas encore produit comme flux machine complet autonome c'est la chaîne **évaluation → décision de promotion → déploiement** sous forme de pipeline explicite et observable dans tous les cas.
+- **Statut** : Partiel — opérations `speciate`/`graft` implémentées côté Rust, boucle d'innovation côté JS, mais flux machine complet évaluation→promotion→déploiement pas encore observable dans tous les cas.
+- **Portée** : `crates/genos-genome`/`crates/genos-reproduction`, `backend/src/services/agentDnaInnovation.js`, `workerEvidenceBarrierLocal.js`.
+- **Dernière revue** : 2026-09-17.
 
 ## Position sur les métaphores
 

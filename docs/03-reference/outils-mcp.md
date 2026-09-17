@@ -1,5 +1,9 @@
 # Outils et MCP dans GenOS
 
+- **Statut** : Implémenté.
+- **Portée** : serveur MCP stdio JS (`mcp/index.js`), lease (`mcp/lease.js`), backend `mcpExecutor.js`, `mcpToolRegistry.js`, expéditeur `mcpDispatcher.js`, télémétrie `mcpTelemetry.js` ; validateurs de non-invocation directe `test_mcp_direct_call_enforcement.js`, `test_mcp_server_parity.js`.
+- **Dernière revue** : 2026-09-17.
+
 ## 1. Definition
 
 Dans GenOS, MCP (Model Context Protocol) est la couche qui rend les capacites du systeme appelables par un client agentique. Cette couche ne se reduit pas a une liste d'outils : elle definit aussi qui voit les outils, qui peut les executer, sous quel transport, avec quels arguments, dans quel delai, et avec quelles protections de reprise ou d'arret.
@@ -16,6 +20,14 @@ L'implementation est repartie entre plusieurs surfaces :
 - [backend/tests/test_mcp_direct_call_enforcement.js](../../backend/tests/test_mcp_direct_call_enforcement.js) et [backend/tests/test_mcp_server_parity.js](../../backend/tests/test_mcp_server_parity.js) : contrats de lease directe et de parite minimale JS/Rust.
 
 Le principe directeur est le suivant : **la decouverte est une vue ; l'execution est une autorisation controlee**. Un outil masque ne doit donc pas devenir appelable par simple invocation directe.
+
+Les serveurs stdio Node et Rust lancent `genos_orchestrate` et
+`genos_delegate_worker` en arrière-plan par défaut (`background: true`). Le reçu
+`accepted` confirme seulement le lancement, jamais la réussite de la mission.
+Cette séparation évite de tuer une mission longue à l'expiration du délai MCP.
+Un appel explicitement synchrone (`background: false`) reste soumis à ce délai.
+`GENOS_ORCHESTRATOR_BRIDGE` doit désigner `backend/bin/genos-orchestrate.cjs`,
+et non l'ancien terminal interactif `scripts/orchestrator_cli.mjs`.
 
 ---
 

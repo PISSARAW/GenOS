@@ -15,6 +15,7 @@ const platonismService = require('../src/services/platonismService');
 const aristotelianService = require('../src/services/aristotelianService');
 const stoicismService = require('../src/services/stoicismService');
 const epicureanService = require('../src/services/epicureanService');
+const scholastiqueService = require('../src/services/scholastiqueService');
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -356,6 +357,30 @@ async function main() {
       assert.strictEqual(t.therapies.length, 4);
       assert.ok(t.ataraxie);
       assert.ok(t.aponia);
+    });
+
+    console.log('\n=== Scholastique Service ===');
+    test('equivocalTerms identifies equivocal terms', () => {
+      const e = scholastiqueService.equivocalTerms('être');
+      assert.strictEqual(e.type, 'equivocal');
+      assert.strictEqual(e.senses, 'multiple_unrelated');
+    });
+    test('analogicalTerms identifies analogical terms', () => {
+      const a = scholastiqueService.analogicalTerms('santé', ['corps', 'âme']);
+      assert.strictEqual(a.type, 'analogous');
+      assert.strictEqual(a.contexts.length, 2);
+      assert.strictEqual(a.proportion, 'partial');
+    });
+    test('univocalTerms identifies univocal terms', () => {
+      const u = scholastiqueService.univocalTerms('agent', 'entité autonome');
+      assert.strictEqual(u.type, 'univocal');
+      assert.strictEqual(u.essence, 'entité autonome');
+    });
+    test('SCHOLASTIC_METHOD returns dialectical steps', () => {
+      const m = scholastiqueService.SCHOLASTIC_METHOD;
+      assert.strictEqual(m.steps.length, 5);
+      assert.strictEqual(m.steps[0], 'quaestio');
+      assert.strictEqual(m.steps[4], 'conclusio');
     });
 
     console.log(`\n${passed} passed, ${failed} failed\n`);

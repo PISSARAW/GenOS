@@ -1,5 +1,9 @@
 # Epistemologie et evidence
 
+- **Statut** : Implémenté — contrat claim/evidence, services preuve, falsification et promotion sont disponibles dans le runtime.
+- **Portée** : `backend/src/services/agentEvidenceService.js`, superviseur de runtime, primitive handlers et policy de promotion.
+- **Dernière revue** : 2026-09-17.
+
 ## Definition
 
 Dans GenOS, l'epistemologie est le contrat qui separe une affirmation d'agent (`claim`) de l'artefact qui la rend auditable (`evidence`). Une reponse de modele, un statut `success` ou une sortie de processus n'etablit pas a lui seul une verite. Pour influencer une decision collective ou une promotion, une conclusion doit fournir des claims structures, une preuve associee, une provenance et, selon le contrat, une verification independante, un replay ou une approbation humaine.

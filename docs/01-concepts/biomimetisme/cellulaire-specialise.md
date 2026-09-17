@@ -1,11 +1,17 @@
 # Biomimétisme Cellulaire Spécialisé Non-Humain dans GenOS
-Ce document formalise les extensions biomimétiques inspirées des règnes animal, végétal et microbien dans GenOS, dépassant les architectures anthropomorphiques classiques pour introduire des primitives à haute résilience, zéro-latence et haute efficience computationnelle.
+
+- **Statut** : Implémenté — primitives cnidocyte, électrocytes, choanocytes, iridophores, cellules de garde, trachéides, procaryotes et HGT sont disponibles dans le runtime.
+- **Portée** : `crates/genos-biology/src/specialized_cells/`, `backend/src/services/mcpLigandReceptorService.js`, outils MCP `genos_biomimicry_*`.
+- **Dernière revue** : 2026-09-17.
+
+Ce document formalise les extensions biomimétiques inspirées des règnes animal, végétal et microbien dans GenOS, dépassant les architectures anthropomorphiques classiques pour introduire des primitives à haute résilience, zéro-latence et haute efficience computationnelle.
 
 ---
 
 ## 1. Le Règne Animal : Spécialisations Balistiques & Électriques
 
 ### 1.1 Les Cnidocytes : Défense Réflexe Balistique & Amarrage Stérique MCP (Active WAF / Micro-Trap)
+
 * **Origine biologique :** Cellules explosives des cnidaires (méduses, coraux, anémones) projetant un nématocyste sous pression (15 MPa) en moins de $3\,\mu\text{s}$ pour harponner et neutraliser une menace.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/cnidocyte.rs`](../../../crates/genos-biology/src/specialized_cells/cnidocyte.rs) et [`backend/src/services/mcpLigandReceptorService.js`](../../../backend/src/services/mcpLigandReceptorService.js).
 * **Fonctionnement :**
@@ -19,6 +25,7 @@
   ```
 
 ### 1.2 Les Électrocytes : Burst Synchronisé & Consensus Flash en Série
+
 * **Origine biologique :** Cellules musculaires/nerveuses spécialisées (anguilles, raies) alignées en colonnes séries-parallèles pour sommer leurs potentiels d'action ($V = \sum V_i$) jusqu'à $600\,\text{V}-800\,\text{V}$.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/electrocyte.rs`](../../../crates/genos-biology/src/specialized_cells/electrocyte.rs)
 * **Fonctionnement :**
@@ -33,6 +40,7 @@
   ```
 
 ### 1.3 Les Choanocytes : Aspiration Hydrodynamique & Tamisage de Flux Continu
+
 * **Origine biologique :** Cellules à collerette et flagelle des éponges (Porifera) créant un flux d'eau unidirectionnel constant pour filtrer et phagocyter les particules nutritives en rejetant les débris.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/choanocyte.rs`](../../../crates/genos-biology/src/specialized_cells/choanocyte.rs)
 * **Fonctionnement :**
@@ -46,6 +54,7 @@
   ```
 
 ### 1.4 Les Iridophores : Diffraction Nanocristalline & Rendu Polymorphique
+
 * **Origine biologique :** Cellules cutanées des caméléons et céphalopodes contenant des empilements réguliers de nanocristaux de guanine, modifiant la diffraction structurelle de la lumière par contraction/dilatation sans synthèse de pigment.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/iridophore.rs`](../../../crates/genos-biology/src/specialized_cells/iridophore.rs)
 * **Fonctionnement :**
@@ -63,6 +72,7 @@
 ## 2. Le Règne Végétal : Régulation Osmotique & Ossification Rigide
 
 ### 2.1 Les Cellules de Garde : Régulation Osmotique & Throttling Stomatique
+
 * **Origine biologique :** Paires de cellules réniformes entourant les stomates foliaires. En accumulant des ions $K^+$, l'eau entre par osmose, les cellules gonflent et courbent leurs parois pour ouvrir le pore (absorption de $\text{CO}_2$). En cas de stress hydrique, l'acide abscissique (ABA) provoque la vidange osmotique et la fermeture étanche pour empêcher le flétrissement.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/guard_cell.rs`](../../../crates/genos-biology/src/specialized_cells/guard_cell.rs)
 * **Fonctionnement :**
@@ -75,6 +85,7 @@
   ```
 
 ### 2.2 Les Trachéides : Apoptose Structurante & Ossification en Pipelines Statiques
+
 * **Origine biologique :** Cellules conductrices du xylème végétal. À maturité, la cellule subit une mort cellulaire programmée (apoptose) complète, se vidant de son contenu protoplasmique pour laisser des parois épaissies et lignifiées (bois). Ce réseau de conduits rigides achemine la sève brute sous forte tension sans dépense énergétique métabolique active.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/tracheid.rs`](../../../crates/genos-biology/src/specialized_cells/tracheid.rs)
 * **Fonctionnement :**
@@ -92,6 +103,7 @@
 ## 3. Chez les Micro-Organismes : Architecture Acaryote & Transfert Horizontal
 
 ### 3.1 Les Micro-Agents Procaryotes & Plasmides (HGT)
+
 * **Origine biologique :** Bactéries et archées dépourvues d'enveloppe nucléaire (génome circulaire baignant librement dans le cytoplasme). Elles échangent des gènes et des résistances de manière latérale via des plasmides (petites molécules d'ADN extrachromosomique) par conjugaison bactérienne (pilus F) ou transformation naturelle sans reproduction sexuée.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/prokaryote.rs`](../../../crates/genos-biology/src/specialized_cells/prokaryote.rs)
 * **Fonctionnement :**
@@ -114,18 +126,10 @@
 | **Cnidocyte** | Animal (Cnidaire) | Aucun | Défense balistique réflexe WAF / Anti-injection | Zéro token, réaction en microsecondes |
 | **Électrocyte** | Animal (Poisson) | Aucun | Sommation de voltage en série & Flash Consensus | Convergence synchrone de décision |
 | **Choanocyte** | Animal (Spongiaire) | Aucun | Courant d'aspiration & Tamisage continu de flux | Débit constant, élimination du bruit |
-| **Iridophore** | Animal (Reptile/Céph.)| Aucun | Diffraction structurelle & Rendu polymorphique | Adaptation optique & Obfuscation |
-| **Cellule de Garde**| Végétal | Aucun | Valve osmotique de turgescence & Backpressure | Régulation adaptative contre la famine |
+| **Iridophore** | Animal (Reptile/Céph.) | Aucun | Diffraction structurelle & Rendu polymorphique | Adaptation optique & Obfuscation |
+| **Cellule de Garde** | Végétal | Aucun | Valve osmotique de turgescence & Backpressure | Régulation adaptative contre la famine |
 | **Trachéide** | Végétal | Aucun | Apoptose structurante & Ossification en pipeline | Réduction de 100% du coût LLM récurrent |
 | **Procaryote** | Micro-organisme | Aucun | Micro-agents acaryotes & Transfert horizontal (HGT) | Boot < 1ms, dissémination peer-to-peer |
-
-
-
-
-
-
-
-
 
 ---
 

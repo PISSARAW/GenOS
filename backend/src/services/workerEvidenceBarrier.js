@@ -310,8 +310,8 @@ async function runEvidenceBarrier(barrierContext) {
     if (resolveTimeoutFlag(error)) {
       partial = true;
       partialReason = 'timeout';
-      emit(barrierContext.agentId, 'WORKER_EVIDENCE_BARRIER_TIMEOUT', 'PARTIAL_BARRIER', 
-        'Worker evidence barrier timed out; proceeding with partial evidence from completed workers.', 
+      emit(barrierContext.agentId, 'WORKER_EVIDENCE_BARRIER_TIMEOUT', 'PARTIAL_BARRIER',
+        'Worker evidence barrier timed out; proceeding with partial evidence from completed workers.',
         { workerIds: workerIdList(workers), timeoutMs: error.timeoutMs }, 'warning');
     } else {
       degradedUsable = await degradeOrHalt({
@@ -321,10 +321,24 @@ async function runEvidenceBarrier(barrierContext) {
       });
       partial = true;
       partialReason = 'error';
-      emit(barrierContext.agentId, 'WORKER_EVIDENCE_BARRIER_DEGRADED', 'PARTIAL_BARRIER', 
-        'Worker evidence barrier degraded due to error: ' + error.message + '; proceeding with partial evidence from usable dossiers.', 
+      emit(barrierContext.agentId, 'WORKER_EVIDENCE_BARRIER_DEGRADED', 'PARTIAL_BARRIER',
+        'Worker evidence barrier degraded due to error: ' + error.message + '; proceeding with partial evidence from usable dossiers.',
         { workerIds: workerIdList(workers), errorCode: error.code, errorMessage: error.message }, 'error');
     }
+  }
+  // Si le mode strict est activé, rejeter les résultats partiels
+  if (barrierContext.strict !== false && partial) {
+    const dossiers = loadDossiers({ agentId: barrierContext.agentId, workers: workers });
+    const usable = selectUsablePartialDossiers(dossiers);
+    if (usable.length === 0) {
+      await stopWorkersQuietly(workers);
+      clearBarrier(barrierContext.agentId);
+      throw noEvidenceError();
+    }
+    // En mode strict, on rejette aussi les résultats partiels même s'il y a des dossiers utilisables
+    await stopWorkersQuietly(workers);
+    clearBarrier(barrierContext.agentId);
+    throw Object.assign(new Error('Worker evidence barrier completed with partial evidence in strict mode.'), { code: 'WORKER_BARRIER_STRICT_PARTIAL' });
   }
   await finishBarrier({
     db: barrierContext.db,

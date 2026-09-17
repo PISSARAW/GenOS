@@ -1,5 +1,9 @@
 # AgentDNA — Génome héréditaire binaire et runtime agentique
 
+- **Statut** : Implémenté — format `AgentDNA` v1 défini dans [spec/AGENT_DNA_SPEC.md](../../spec/AGENT_DNA_SPEC.md), ops Rust (`crossover`, `division`, etc.) et admin CLI disponibles.
+- **Portée** : `crates/genos-genome`, `crates/genos-reproduction`, `crates/genos-cli`, specs `spec/AGENT_DNA_SPEC.md` et `spec/GENOME_SPEC.md`.
+- **Dernière revue** : 2026-09-17.
+
 ## 1. Définition du domaine
 
 **AgentDNA** est le format **héréditaire binaire** d'un agent GenOS. Il encode de façon compacte et déterministe :

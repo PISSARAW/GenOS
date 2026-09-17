@@ -15,14 +15,12 @@ const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 const { dispatchWorkerMission } = require('../src/services/orchestratorDispatchService');
-
 async function findReusableWorker({ context, db }) {
   if (context.action !== 'dispatch_worker' || context.request.workerId) return null;
   return workerGarage.findReusableWorker(db, context.orchestratorId, {
     mission: context.task, role: String(context.request.role || 'implementation')
   });
 }
-
 function getRunnerStdio(processId) {
   const logDir = process.env.GENOS_RUNNER_LOG_DIR;
   if (!logDir) return 'ignore';
@@ -35,7 +33,6 @@ function getRunnerStdio(processId) {
     return 'ignore';
   }
 }
-
 async function handleBackground(context) {
   let reusableWorker = null;
   if (context.action === 'dispatch_worker') {
@@ -67,7 +64,6 @@ async function handleBackground(context) {
   }
   process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, detachedProcessId, runnerPid: runner.pid, ...(context.action === 'dispatch_worker' ? { workerId: context.id, reusedWorker: Boolean(reusableWorker), ...(reusableWorker ? { matchedScope: reusableWorker.affinity.shared } : {}) } : {}), status: 'accepted', acceptedAt: new Date().toISOString(), task: context.task }));
 }
-
 async function initializeMission({ db, action, orchestratorId, task }) {
   const actions = ['dispatch_worker', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological'];
   if (!actions.includes(action)) return;
@@ -77,20 +73,17 @@ async function initializeMission({ db, action, orchestratorId, task }) {
     await contracts.saveContract(db, { agentId: orchestratorId, problem: task, createdBy: 'mcp_' + action });
   }
 }
-
 async function handleReportProgress({ db, request, orchestratorId, task }) {
   const parent = await ensureProgressParent({ db, orchestratorId, task });
   if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
   process.stdout.write(JSON.stringify(userProgress.report(progressPayload({ request, orchestratorId }))));
 }
-
 async function ensureProgressParent({ db, orchestratorId, task }) {
   let parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
   if (parent) return parent;
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
   return db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
 }
-
 function progressPayload({ request, orchestratorId }) {
   return {
     orchestratorId, sourceAgentId: process.env.GENOS_AGENT_ID || orchestratorId,
@@ -101,24 +94,20 @@ function progressPayload({ request, orchestratorId }) {
     silent: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || ''))
   };
 }
-
 function firstValue(...values) { return values.find(Boolean); }
 function firstPresent(...values) { return values.find((value) => value !== undefined && value !== null); }
-
 function primitiveContext(request, orchestratorId) {
   const context = request.args && typeof request.args === 'object' ? { ...request.args } : { ...(request.context || {}) };
   if (request.agentId && !context.agentId) context.agentId = request.agentId;
   if (orchestratorId && !context.orchestratorId) context.orchestratorId = orchestratorId;
   return context;
 }
-
 async function handlePrimitive({ request, orchestratorId }) {
   const primitive = String(request.primitive || request.primitive_name || '').trim();
   if (!primitive) throw new Error('primitive_name is required.');
   const adapter = require('../src/services/strategyExecutionAdapter');
   process.stdout.write(JSON.stringify(await adapter.executePrimitive(primitive, primitiveContext(request, orchestratorId))));
 }
-
 async function handleStrategy({ db, request, orchestratorId }) {
   const transition = await strategyAdaptation.changeStrategy(db, {
     orchestratorId, need: request.need || request.strategy, reason: request.reason,
@@ -135,7 +124,6 @@ async function handleStrategy({ db, request, orchestratorId }) {
   });
   process.stdout.write(JSON.stringify(transition));
 }
-
 async function handleOrganizationChange({ db, request, orchestratorId }) {
   const transition = await dynamicOrganization.changeOrganization(db, {
     orchestratorId, organization: request.organization || request.topology, reason: request.reason,
@@ -148,7 +136,6 @@ async function handleOrganizationChange({ db, request, orchestratorId }) {
   });
   process.stdout.write(JSON.stringify(transition));
 }
-
 async function handleOrganizationPublish({ db, request, orchestratorId }) {
   const senderAgentId = process.env.GENOS_AGENT_ID || request.senderAgentId || orchestratorId;
   const published = await dynamicOrganization.publish(db, {
@@ -165,7 +152,6 @@ async function handleOrganizationPublish({ db, request, orchestratorId }) {
   });
   process.stdout.write(JSON.stringify(published));
 }
-
 async function handleOrganizationRead({ db, request, action, orchestratorId }) {
   const requesterAgentId = process.env.GENOS_AGENT_ID || request.requesterAgentId || orchestratorId;
   const result = action === 'organization_state'
@@ -173,7 +159,6 @@ async function handleOrganizationRead({ db, request, action, orchestratorId }) {
     : await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit });
   process.stdout.write(JSON.stringify(result || { orchestratorId, organization: 'specialist_expert_committee', version: 0 }));
 }
-
 async function ensureParent({ db, context }) {
   let parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", context.orchestratorId);
   if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status))) {
@@ -188,7 +173,6 @@ async function ensureParent({ db, context }) {
   });
   return parent;
 }
-
 function workerLaunchPayload({ context, member, workerId, parent }) {
   return {
     action: 'dispatch_worker', background: false, orchestratorId: context.orchestratorId, workerId,
@@ -203,46 +187,56 @@ function workerLaunchPayload({ context, member, workerId, parent }) {
     reuseChecked: true
   };
 }
-
 function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
   const workerId = suppliedWorkerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
   const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(workerLaunchPayload({ context, member, workerId, parent }))], { cwd: context.repoRoot, detached: true, stdio: getRunnerStdio(workerId) });
   runner.unref();
   return { workerId, subSystem: member.subSystem, memberNumber: member.memberNumber || index, role: member.role, modelTier: member.modelTier, status: 'accepted' };
 }
-
+function selectMembers(members, available) {
+  return members.slice(0, available);
+}
+function buildBiologicalOutput({ context, mode, mission, members, accepted, topology }) {
+  return {
+    orchestratorId: context.orchestratorId,
+    biologicalMode: {
+      status: 'accepted', mode, mission,
+      capacity: workerGarage.MAX_ACTIVE_WORKERS,
+      mechanisms: members[0]?.mechanisms || [],
+      ...topology, members: accepted
+    }
+  };
+}
 async function handleBiological({ db, context }) {
   const parent = await ensureParent({ db, context });
   const mode = String(context.request.mode || '').trim().toLowerCase();
   const mission = context.request.mission || context.request.project_goal || context.request.goal || context.task;
   const composition = await biologicalTopology.composeMode({ db, orchestratorId: context.orchestratorId, mode, mission });
-  const members = composition.members;
+  const members = composition.members || [];
   const garage = await workerGarage.state(db, context.orchestratorId);
   if (garage.available <= 0) {
-    throw Object.assign(new Error(`${mode} requires free worker slots, but worker garage is full (slots: ${garage.occupied}/${garage.capacity} used — wait or increase MAX_ACTIVE_WORKERS).`), { code: 'WORKER_GARAGE_FULL' });
+    const msg = `${mode} requires free worker slots, but worker garage is full (slots: ${garage.occupied}/${garage.capacity} used)`;
+    throw Object.assign(new Error(msg), { code: 'WORKER_GARAGE_FULL' });
   }
-  const selectedMembers = garage.available < members.length ? members.slice(0, garage.available) : members;
-  const accepted = selectedMembers.map((member, index) => launchWorker({ context, member, index: index + 1, parent }));
-  const scaledWarning = selectedMembers.length < members.length ? { warning: `${mode} scaled to ${selectedMembers.length} available slots (${garage.available}/${garage.capacity}).` } : {};
-  const topology = composition ? { organization: composition.organization, capabilityContract: composition.capabilityContract, ...(composition.sessionId ? { sessionId: composition.sessionId } : {}) } : {};
-  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, biologicalMode: {
-    status: 'accepted', mode, mission, capacity: workerGarage.MAX_ACTIVE_WORKERS,
-    mechanisms: members[0]?.mechanisms || [], ...topology, members: accepted, ...scaledWarning } }));
+  const selected = selectMembers(members, garage.available);
+  const accepted = selected.map((member, index) => launchWorker({ context, member, index: index + 1, parent }));
+  const topology = composition ? { organization: composition.organization, capabilityContract: composition.capabilityContract } : {};
+  const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
+  process.stdout.write(JSON.stringify(out));
 }
-
+}
 async function handleTeam({ db, context }) {
   const parent = await ensureParent({ db, context });
   const result = await aTeamDispatch.dispatchTeam({ db, context, parent, launchWorker });
   process.stdout.write(JSON.stringify(result));
 }
-
 async function handleTrinity({ db, context }) {
   const parent = await ensureParent({ db, context });
   const garage = await workerGarage.state(db, context.orchestratorId);
   if (garage.available < 3) throw Object.assign(new Error(`Trinity requires 3 free worker slots, but worker garage is full (slots: ${garage.occupied}/${garage.capacity} used — wait or increase MAX_ACTIVE_WORKERS).`), { code: 'WORKER_GARAGE_FULL' });
   const mission = context.request.mission || context.request.project_goal || context.request.goal || 'Trinity comparative mission';
   const members = trinityService.compose(mission);
-  const missionId = `trinity_${context.orchestratorId}_${Date.now()}`;
+  const missionId = `trinity_${context.orchestratorId}_${randomUUID()}`;
   const accepted = [];
   for (const member of members) {
     const workerId = createOrchestratorId(`worker_${context.orchestratorId}_${member.worldNumber}`);
@@ -253,7 +247,6 @@ async function handleTrinity({ db, context }) {
   }
   process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, trinity: { status: 'accepted', mission, capacity: workerGarage.MAX_ACTIVE_WORKERS, worlds: accepted } }));
 }
-
 async function selectWorker({ db, context }) {
   const { request } = context;
   let reusable = null;
@@ -269,7 +262,6 @@ async function selectWorker({ db, context }) {
   context.reusedWorker = Boolean(reusable);
   return reusable;
 }
-
 async function prepareWorker({ db, context, parent, reusable }) {
   const { request } = context;
   const role = workerRole(request);
@@ -281,7 +273,6 @@ async function prepareWorker({ db, context, parent, reusable }) {
   await insertWorker({ db, context, parent, request, name, role });
   return { name, role, workspaceRoot };
 }
-
 function workerRole(request) { return String(request.role || 'implementation'); }
 function workerSlotId(context) { return context.reusedWorker ? context.id : null; }
 function workerName(request, role, mission) { return String(request.name || workerGarage.workerName({ role, mission })); }
@@ -300,15 +291,14 @@ async function insertWorker({ db, context, parent, request, name, role }) {
   if (context.reusedWorker) return;
   await db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'garage_delegation', ?, ?)`, context.id, name, role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null, request.model_tier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', context.orchestratorId, `Worker scope: ${context.task}`, context.task);
 }
-
 async function startWorker({ db, context, parent, reusable, worker }) {
-  context.delegatedWorkerId = context.id;
-  const garage = await workerGarage.reserveSlot(db, { orchestratorId: context.orchestratorId, workerId: context.id, name: worker.name, role: worker.role, mission: context.task });
-  await startWorkerMission({ db, context, parent, reusable, worker });
+  context.delegatedWorkerId = context.id; const garage = await workerGarage.reserveSlot(db, { orchestratorId: context.orchestratorId, workerId: context.id, name: worker.name, role: worker.role, mission: context.task });
+  try { await startWorkerMission({ db, context, parent, reusable, worker }); } catch (error) {
+    await workerGarage.releaseSlot(db, { orchestratorId: context.orchestratorId, workerId: context.id }); throw error;
+  }
   const agents = await context.waitForCompletion(db);
   process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, workerId: context.id, workerName: worker.name, reusedWorker: context.reusedWorker, ...(reusable?.affinity ? { matchedScope: reusable.affinity.shared } : {}), garage: { slot: garage.slot, capacity: garage.capacity }, agents }));
 }
-
 async function startWorkerMission({ db, context, parent, reusable, worker }) {
   const strategyContract = await contracts.getLatestContract(db, context.orchestratorId);
   if (!strategyContract) throw new Error(`No strategy contract is available for orchestrator '${context.orchestratorId}'.`);
@@ -320,12 +310,10 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
   const localRuntime = requestLocalRuntime(context.request);
   await dispatchWorkerMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerPrompt, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), timeoutMs: context.request.timeoutMs, localRuntime });
 }
-
 function requestLocalRuntime(request = {}) {
   if (request.localRuntime === true) return true;
   return String(request.executor || request.runtime || '').trim().toLowerCase() === 'local';
 }
-
 function workerPolicy(request = {}) {
   const policy = request.executionPolicy || {};
   const explicitCommands = firstPresent(request.allowed_commands, request.allowedCommands, policy.allowedCommands);
@@ -335,7 +323,6 @@ function workerPolicy(request = {}) {
   else { try { inherited = normalizeAllowedCommands(JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]')) || []; } catch { inherited = []; } }
   return { allowedCommands: inherited, allowFileEdits: explicitEdits === undefined ? /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || '')) : explicitEdits === true, silentUpdates: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || '')) };
 }
-
 async function handleWorker({ db, context }) {
   const parent = await db.get(`SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, context.orchestratorId);
   if (!parent) throw new Error(`Orchestrator '${context.orchestratorId}' was not found.`);
@@ -343,27 +330,22 @@ async function handleWorker({ db, context }) {
   const worker = await prepareWorker({ db, context, parent, reusable });
   await startWorker({ db, context, parent, reusable, worker });
 }
-
 async function handleTrinityMerge({ db, context }) {
   const { request, orchestratorId } = context;
   const missionId = request.missionId || request.mission_id;
   let worldReports = request.worldReports || request.world_reports || [];
-
   if (!worldReports.length && missionId) {
     worldReports = await trinityComparativeBarrier.buildWorldReportsFromMission(db, missionId);
   }
-
   const domain = request.domain || 'software_engineering';
   const threshold = typeof request.threshold === 'number' ? request.threshold : 0.70;
   const result = trinityService.mergeTrinityEvidence(worldReports, { domain, threshold });
-
   await trinityService.recordWorldComparison(db, {
     missionId,
     orchestratorId,
     comparison: result.comparativeAnalysis,
     decision: { canMerge: result.canMerge, threshold }
   });
-
   const promotion = await trinityComparativeBarrier.promoteWinner(db, { missionId, orchestratorId, result });
   process.stdout.write(JSON.stringify({
     orchestratorId,
@@ -371,7 +353,6 @@ async function handleTrinityMerge({ db, context }) {
     promotion
   }));
 }
-
 const HANDLERS = {
   report_progress: handleReportProgress,
   execute_primitive: handlePrimitive,
@@ -387,14 +368,11 @@ const HANDLERS = {
   dispatch_biological: handleBiological,
   dispatch_worker: handleWorker
 };
-
 async function handleAction(context) {
   const handler = HANDLERS[context.action];
   if (!handler) return false;
   await handler({ ...context, context });
   return true;
 }
-
 if (require.main === module) require('./orchestratorActionsCli.cjs').run({ handleAction }).catch((e) => { console.error(e.message); process.exit(1); });
-
 module.exports = { handleAction, handleBackground, initializeMission, workerLaunchPayload };

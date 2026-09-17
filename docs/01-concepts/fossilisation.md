@@ -1,5 +1,9 @@
 # Fossilisation — Archive stratigraphique terminale des lignées d'agents
 
+- **Statut** : Partiel — `FossilRegistry` conceptuel centré sur la fossilisation terminale ; le registre est modélisé mais la persistance automatique post-apoptose reste à compléter.
+- **Portée** : registry fossil, modèle de lignée, ADR 0003.
+- **Dernière revue** : 2026-09-17.
+
 ## 1. Définition du domaine
 
 La **fossilisation** est, dans GenOS, le processus **passif, terminal et irréversible** par lequel l'état signifiant d'une **lignée d'agent** (génome, provenance, décisions, preuves, phénotype observé) est préservé sous forme d'un **registre minéralisé** après la mort ou la suppression de cette lignée.

@@ -1,5 +1,9 @@
 # Architecture Biomimétique de Foraging Web, Fovéation Visuelle et Navigation Active
 
+- **Statut** : Partiel — concepts de foraging (Charnov), fovéation et navigation active sont modélisés et partiellement implémentés ; l'architecture GAIA 77% est une analyse, pas un module autonome complet.
+- **Portée** : `fovealVisionService`, `peripheralScan`, `fovealCrop`, analyses GAIA, concepts d'inférence active (Friston).
+- **Dernière revue** : 2026-09-17.
+
 ## 1. Le Paradoxe Empirique de GAIA : Le Mur du Web Ouvert (77%)
 
 L'analyse de l'ensemble de validation officiel de **165 tâches** du benchmark **GAIA** (*General AI Assistant*) a mis en évidence une divergence déterminante dans les performances des agents autonomes :

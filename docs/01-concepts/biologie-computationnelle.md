@@ -1,5 +1,9 @@
 # Biologie computationnelle GenOS
 
+- **Statut** : Cadre conceptuel — les métaphores biologiques (cellule, organelle, tissu, glie, apoptose, cryptobiose) sont utilisées pour organiser le runtime, pas comme équivalence biologique prouvée.
+- **Portée** : s'applique transversalement au runtime et à l'orchestration (agents, branches, tâches, ressources).
+- **Dernière revue** : 2026-09-17.
+
 ## 1. Définition
 
 La biologie computationnelle dans GenOS est un cadre de conception où les agents, les branches, les tâches et les ressources sont représentés comme des éléments biologiques : cellules, organelles, tissus, glie, métabolisme, différenciation, apoptose, cryptobiose et conscience cognitive.

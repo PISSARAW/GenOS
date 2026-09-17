@@ -1,5 +1,9 @@
 # Neurobiologie et plasticité dans GenOS
 
+- **Statut** : Implémenté — neurobiologie Rust, glial, conscience, mémoire, cycles de sommeil et temporal cognition sont disponibles dans le runtime.
+- **Portée** : `crates/genos-biology/src/neurobiology.rs`, `glial.rs`, `crates/genos-cell/src/conscience.rs`, `backend/src/services/agentConscienceService.js`, `memory.js`, `sleepCycle.js`, `temporal.js`.
+- **Dernière revue** : 2026-09-17.
+
 ## 1. Définition
 
 La neurobiologie dans GenOS n’est pas une simulation biologique au sens académique strict. C’est un cadre de conception et de gouvernance pour les agents intelligents, où les mémoires, les décisions, les boucles de vérification, la dissociation entre exploration et consolidation, et la révision cognitive sont représentées avec des analogies biologiques explicites : dendrites, synapses, plasticité, dépression, élagage, conscience, budgets cognitifs, mémoire hippocampique et mécanismes de protection microgliale.

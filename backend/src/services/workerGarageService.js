@@ -226,6 +226,15 @@ async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }
   };
 }
 
+async function releaseSlot(db, { orchestratorId, workerId }) {
+  const result = await db.run(
+    `UPDATE agents SET status = 'idle', current_task = NULL, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'running'`,
+    workerId, orchestratorId
+  );
+  return result.changes === 1;
+}
+
 module.exports = {
   get MAX_ACTIVE_WORKERS() {
     return maxActiveWorkers();
@@ -239,5 +248,6 @@ module.exports = {
   findReusableWorker,
   state,
   requireAvailableSlot,
-  reserveSlot
+  reserveSlot,
+  releaseSlot
 };

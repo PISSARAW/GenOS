@@ -1,5 +1,9 @@
 # Mémoire et apprentissage dans GenOS
 
+- **Statut** : Implémenté — mémoire épisodique, vectorielle, scoring, consolidation/pruning, mémoire de négative knowledge, Golden Path et provenance sont disponibles dans le runtime.
+- **Portée** : `backend/src/services/episodicMemoryService.js`, `vectorMemoryService.js`, `memoryScoring.js`, `sleepCycle.js`, `primitiveHandlers/memoryDeadEnds.js`, `trajectoryService.js`, `provenanceResolver.js`.
+- **Dernière revue** : 2026-09-17.
+
 ## 1. Objet et périmètre
 
 Cette documentation décrit la mémoire et l’apprentissage du système GenOS tels qu’ils sont effectivement implémentés dans le dépôt. Elle n’est pas une vue de marché ou un modèle générique de “memory layer” : elle reflète les services, les tables SQLite, les primitives et les mécanismes de validation réellement présents dans le code.

@@ -1,5 +1,9 @@
 # Intelligence de nuée (Swarm Intelligence) GenOS
 
+- **Statut** : Implémenté — dépôt de traces, votes, quorum, consensus et télémétrie de topologie sont disponibles dans le runtime.
+- **Portée** : bus de signaux, coordination de flotte, primitives stigmergiques et services associés.
+- **Dernière revue** : 2026-09-17.
+
 ## 1. Définition
 
 L’intelligence de nuée dans GenOS désigne la coordination émergente d’un ensemble d’agents ou de workers autour de traces, de votes, de rôles et de métriques de cohérence. Le repository ne traite pas la “swarm intelligence” comme une abstraction vague ; il l’implémente comme un système de coordination explicite avec :
