@@ -138,7 +138,21 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 | `perfect_strategy` | Stratégie optimale pour n'importe quel profil de problème |
 | `perfect_organization` | Topologie idéale pour tout système multi-agents |
 
-## 10. Contingence et Événement — Meillassoux, Badiou
+## 10. Aristotélisme — Catégories, causes, hylémorphisme
+
+### Concepts
+
+- **Catégories** : 10 types d'attributs (substance, quantité, qualité, relation, lieu, temps, position, état, action, passion)
+- **Quatre causes** : matérielle (ce dont il est fait), formelle (sa structure), efficiente (son origine), finale (son but)
+- **Hylémorphisme** : matière (potentialité) + forme (actualité) = substance
+- **Dynamis/Energeia** : puissance (capacité) → acte (réalisation)
+- **Téléologie** : finalité, but vers lequel tend l'agent
+
+### Fichier
+
+`backend/src/services/aristotelianService.js`
+
+## 11. Contingence et Événement — Meillassoux, Badiou
 
 ### Concepts
 

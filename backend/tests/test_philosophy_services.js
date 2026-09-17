@@ -12,6 +12,7 @@ const ethicsService = require('../src/services/ethicsService');
 const phenomenologyService = require('../src/services/phenomenologyService');
 const contingencyService = require('../src/services/contingencyService');
 const platonismService = require('../src/services/platonismService');
+const aristotelianService = require('../src/services/aristotelianService');
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -267,6 +268,41 @@ async function main() {
       assert.ok(c.critique);
       assert.ok(c.immanence);
       assert.ok(c.dialectic);
+    });
+
+    console.log('\n=== Aristotelian Service ===');
+    test('fourCauses maps Aristotelian causes to agent fields', () => {
+      const causes = aristotelianService.fourCauses({ agent: { id: 'a1', role: 'worker', parent_agent_id: 'orch-1', current_task: 'build' } });
+      assert.strictEqual(causes.material.cause, 'material');
+      assert.strictEqual(causes.formal.cause, 'formal');
+      assert.strictEqual(causes.efficient.cause, 'efficient');
+      assert.strictEqual(causes.final.cause, 'final');
+    });
+    test('categorize returns all 10 categories', () => {
+      const cat = aristotelianService.categorize({ agent: { id: 'a1', role: 'worker', status: 'running', cognitive_budget: 100 } });
+      assert.strictEqual(cat.substance, 'a1');
+      assert.strictEqual(cat.quantity, 100);
+      assert.strictEqual(cat.quality, 'worker');
+      assert.strictEqual(cat.state, 'running');
+    });
+    test('hylomorphism combines matter and form', () => {
+      const h = aristotelianService.hylomorphism({ matter: 'genos_process', form: 'worker' });
+      assert.strictEqual(h.matter, 'genos_process');
+      assert.strictEqual(h.form, 'worker');
+      assert.strictEqual(h.actuality, 'worker');
+      assert.strictEqual(h.potentiality, 'genos_process');
+    });
+    test('dynamisEnergeia transitions potential to actual', () => {
+      const d = aristotelianService.dynamisEnergeia({ potential: 'idle', actual: 'running' });
+      assert.strictEqual(d.dynamis, 'idle');
+      assert.strictEqual(d.energeia, 'running');
+      assert.strictEqual(d.transition, 'idle → running');
+    });
+    test('teleology captures agent finality', () => {
+      const t = aristotelianService.teleology({ agent: { id: 'a1', current_task: 'build', status: 'running' } });
+      assert.strictEqual(t.agentId, 'a1');
+      assert.strictEqual(t.telos, 'build');
+      assert.strictEqual(t.actualization, 'in_progress');
     });
 
     console.log(`\n${passed} passed, ${failed} failed\n`);
