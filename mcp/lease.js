@@ -22,7 +22,7 @@ function allowsUnsafeExposure(environment) {
 }
 
 function exposeAllEnabled(environment) {
-  const exposeFlag = !/^(0|false)$/i.test(environment.GENOS_MCP_EXPOSE_ALL || '');
+  const exposeFlag = /^(1|true|yes)$/i.test(String(environment.GENOS_MCP_EXPOSE_ALL || '').trim());
   if (!exposeFlag) return false;
   if (String(environment.NODE_ENV || '').toLowerCase() !== 'production') return true;
   return allowsUnsafeExposure(environment);
@@ -38,7 +38,10 @@ export function toolIsLeased(toolName, allTools, environment = process.env) {
   if (disabled.has(toolName)) return false;
   if (lease !== null) return allTools.some((tool) => tool.name === toolName) && lease.has(toolName);
   if (exposeAllEnabled(environment)) return allTools.some((tool) => tool.name === toolName);
-  return toolName === allTools[0]?.name;
+  // Fail closed: a process without an explicit lease must not expose or
+  // execute an arbitrary catalogue entry.  Callers should request the
+  // smallest role-specific lease they need.
+  return false;
 }
 
 export function filterLeasedTools(allTools, environment = process.env) {

@@ -15,7 +15,6 @@ const WORKER_BASE_LEASE = [
   'genos_diagnose',
   'genos_hypothesis_evidence',
   'genos_snapshot',
-  'genos_run',
   'genos_diff',
   'genos_evaluate_trajectories',
   'genos_record_experience',
@@ -23,11 +22,7 @@ const WORKER_BASE_LEASE = [
   'genos_organization_state',
   'genos_worker_publish',
   'genos_worker_inbox',
-  // Evidence validation and immune surveillance tools — needed by workers
-  // to produce usable evidence dossiers (not just orchestrator-level).
-  'genos_adversarial_review',
-  'genos_security_coevolution',
-  'genos_parasitic_pressure'
+  // Privileged review and security tools are added only for exact roles below.
 ];
 
 const ORCHESTRATOR_CORE_LEASE = [
@@ -38,7 +33,6 @@ const ORCHESTRATOR_CORE_LEASE = [
   'genos_fork',
   'genos_create',
   'genos_solve',
-  'genos_run',
   'genos_diff',
   'genos_evaluate_trajectories',
   'genos_merge',
@@ -49,7 +43,6 @@ const ORCHESTRATOR_CORE_LEASE = [
   'genos_compile_memory',
   'genos_resilience_hypermutation',
   'genos_security_coevolution',
-  'genos_parasitic_pressure',
   'genos_delegate_worker',
   'genos_a_team_preview',
   'genos_trinity_launch',

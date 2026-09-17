@@ -49,7 +49,6 @@ function isBioTool(toolName) {
   const name = String(toolName || '').trim();
   if (!name) return false;
   if (TOOL_HANDLERS[name] || name === 'genos_biomimicry_echolocation') return true;
-  if (name.startsWith('genos_biomimicry_')) return true;
   try {
     const { isBioExtraTool } = require('./mcpBioExtra');
     if (isBioExtraTool(name)) return true;

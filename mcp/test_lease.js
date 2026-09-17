@@ -8,6 +8,8 @@ assert.deepEqual(
 );
 assert.equal(toolIsLeased("genos_orchestrate", tools, { GENOS_MCP_LEASE: "genos_snapshot" }), false);
 assert.equal(toolIsLeased("genos_snapshot", tools, { GENOS_MCP_LEASE: "genos_snapshot" }), true);
+assert.equal(toolIsLeased("genos_orchestrate", tools, {}), false);
+assert.deepEqual(filterLeasedTools(tools, {}).map((tool) => tool.name), []);
 assert.equal(toolIsLeased("genos_snapshot", tools, { GENOS_MCP_EXPOSE_ALL: "true" }), true);
 assert.deepEqual(
   filterLeasedTools(tools, { GENOS_MCP_LEASE: "snapshot", GENOS_MCP_EXPOSE_ALL: "true" }).map((tool) => tool.name),

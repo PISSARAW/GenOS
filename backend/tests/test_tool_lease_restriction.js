@@ -58,12 +58,12 @@ function checkRestrictionOnlyNarrows() {
     ['genos_snapshot', 'genos_orchestrate', 'genos_unknown_tool', ' genos_run ', 'genos_snapshot'],
     policy
   );
-  assert.deepEqual(restricted, ['genos_snapshot', 'genos_run']);
+  assert.deepEqual(restricted, ['genos_snapshot']);
   assert.deepEqual(leasePolicy.restrictProvidedLease([], policy), [...policy]);
   assert.deepEqual(leasePolicy.restrictProvidedLease(undefined, policy), [...policy]);
   const workerPolicy = leasePolicy.derivePolicyLease('worker', 'implementation', {});
   const workerRestricted = leasePolicy.restrictProvidedLease(['genos_run', 'genos_adversarial_review'], workerPolicy);
-  assert.deepEqual(workerRestricted, ['genos_run']);
+  assert.deepEqual(workerRestricted, []);
   console.log('  supplied lease can only restrict: ok');
 }
 

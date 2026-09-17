@@ -22,10 +22,16 @@ pub fn public_tool_specs() -> Vec<Value> {
     let lease = configured_tool_set("GENOS_MCP_LEASE");
     let disabled = configured_tool_set("GENOS_MCP_DISABLED_TOOLS").unwrap_or_default();
 
-    let expose_all = !matches!(
+    let expose_requested = !matches!(
         env::var("GENOS_MCP_EXPOSE_ALL").as_deref(),
         Ok(value) if value == "0" || value.eq_ignore_ascii_case("false")
     );
+    let unsafe_production_exposure = matches!(
+        env::var("GENOS_MCP_ALLOW_UNSAFE_EXPOSE_ALL").as_deref(),
+        Ok(value) if value == "1" || value.eq_ignore_ascii_case("true") || value.eq_ignore_ascii_case("yes")
+    );
+    let expose_all = expose_requested
+        && (!matches!(env::var("NODE_ENV").as_deref(), Ok("production")) || unsafe_production_exposure);
 
     let all_tools = vec![
         json!({
@@ -280,13 +286,7 @@ pub fn public_tool_specs() -> Vec<Value> {
             .collect()
     } else if expose_all {
         all_tools.into_iter().filter(filter_disabled).collect()
-    } else {
-        all_tools
-            .into_iter()
-            .filter(filter_disabled)
-            .take(1)
-            .collect()
-    }
+    } else { Vec::new() }
 }
 
 pub fn is_tool_allowed(name: &str) -> bool {
