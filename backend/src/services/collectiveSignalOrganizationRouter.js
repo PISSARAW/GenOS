@@ -25,6 +25,18 @@ const SIGNAL_TOPIC_PREFIXES = {
   tensor: 'latent/',
 };
 
+function proposedRoute(signalType, signal = {}) {
+  const type = String(signalType || '').trim().toLowerCase();
+  if (type === 'ligand' && signal.cascadeSignal) return { organization: 'hierarchical_merge' };
+  if (type === 'voltage' && signal.consensusReached && Number(signal.kuramotoOrder) >= 0.7
+    && Number(signal.totalVoltageMv) >= Number(signal.thresholdMv || 300)) {
+    return { organization: 'quorum_with_abstention' };
+  }
+  if (type === 'pheromone' && Number(signal.netGradient) > 0) return { organization: 'slime_mould_network' };
+  if (type === 'pheromone' && Number(signal.netGradient) < 0) return { organization: 'network_silence' };
+  return null;
+}
+
 /**
  * Détermine les destinataires d'un signal selon son type, topic et orchestrateur.
  * Retourne la liste des agents/organisations cibles + metadata de routage.
@@ -72,6 +84,7 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
     signalType,
     topic,
     recipients,
+    routed: recipients.length > 0,
     routingMode: recipients.length ? 'distributed' : 'local_only',
   };
 }
@@ -79,12 +92,14 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
 /** Extrait le topic à partir du type de signal et des données. */
 function extractTopic(signalType, signalData = {}) {
   const prefix = SIGNAL_TOPIC_PREFIXES[signalType] || 'signal/';
-  const specific = signalData.topic || signalData.locus || signalData.key || 'default';
+  const data = signalData && typeof signalData === 'object' ? signalData : {};
+  const specific = data.topic || data.locus || data.key || 'default';
   return `${prefix}${specific}`;
 }
 
 module.exports = {
   routeCollectiveSignal,
+  proposedRoute,
   extractTopic,
   SIGNAL_TOPIC_PREFIXES,
 };
