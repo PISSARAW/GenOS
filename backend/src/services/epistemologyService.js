@@ -7,77 +7,16 @@
  *  - Platonisme : les formes idéales existent dans un domaine intelligible séparé.
  *    Les agents réels sont des participations imparfaites aux formes.
  *    Les formes sont parfaites, éternelles, immuables.
+ *    (délégation à platonismService — source unique des 5 formes idéales.)
  *  - Aristotélisme : les quatre causes (hyle, eidos, kinoun, telos).
  *    Matérielle (ce qu'il est fait), formelle (sa structure), efficiente (son origine),
  *    finale (son but). Toutes nécessaires pour expliquer un être.
  *  - Kantisme : noumène (chose en soi) vs phénomène (chose pour nous).
- *    Nous ne connaissons que les phénomènes (apparaences), pas les noumènes (choses en soi).
+ *    Nous ne connaissons que les phénomènes (apparences), pas les noumènes (choses en soi).
  *    Catégories a priori : structures de l'entendement qui conditionnent toute expérience.
  */
-const IDEAL_FORMS = {
-  perfect_agent: {
-    id: 'perfect_agent',
-    type: 'ideal_form',
-    essence: 'The perfectly rational agent that always acts optimally',
-    properties: {
-      rationality: 1.0,
-      knowledge: 'complete',
-      autonomy: 'perfect',
-      consistency: true,
-      evidence: 'complete',
-    },
-    imperfection: 'no physical instantiation',
-  },
-  perfect_worker: {
-    id: 'perfect_worker',
-    type: 'ideal_form',
-    essence: 'The perfectly efficient executor with no error',
-    properties: {
-      efficiency: 1.0,
-      error_rate: 0,
-      budget: Infinity,
-      evidence: 'verified',
-    },
-    imperfection: 'no resource constraint, no friction',
-  },
-  perfect_evidence: {
-    id: 'perfect_evidence',
-    type: 'ideal_form',
-    essence: 'Evidence that is complete, verified, and causally grounded',
-    properties: {
-      completeness: 1.0,
-      verified: true,
-      causalChain: 'full',
-      uncertainty: 0,
-      reproducibility: 'perfect',
-    },
-    imperfection: 'theoretical limit, never fully attained',
-  },
-};
 
-/**
- * getFormIdeal — Platonisme.
- *
- * Les formes idéales (Platon) existent dans un domaine intelligible séparé.
- * Les agents réels n'en sont que des participations imparfaites.
- * Retourne la forme par son nom, avec ses propriétés idéales.
- */
-function getFormIdeal(formName) {
-  if (!formName || typeof formName !== 'string') {
-    throw new Error('epistemologyService.getFormIdeal requires a form name');
-  }
-  const form = IDEAL_FORMS[formName];
-  if (!form) return null;
-  // Retourne une copie structurée de la forme idéale
-  return {
-    id: form.id,
-    type: form.type,
-    essence: form.essence,
-    properties: { ...form.properties },
-    imperfection: form.imperfection,
-    platonicNote: 'Forme idéale platonicienne — jamais pleinement réalisée dans le réel.',
-  };
-}
+const platonismService = require('./platonismService');
 
 /**
  * fourCauses — Aristotélisme.
@@ -88,7 +27,7 @@ function getFormIdeal(formName) {
  *  - Efficiente (kinoun) : ce qui l'a produit.
  *  - Finale (telos) : son but, pourquoi il existe.
  *
- * Toutes les causes sont nécessaires pour une explication complète.
+ * Toutes les causes sont nécessaires pour expliquer un être.
  */
 function fourCauses({ agent }) {
   if (!agent) {
@@ -130,7 +69,7 @@ function fourCauses({ agent }) {
 /**
  * noumeneVsPhenomenon — Kantisme.
  *
- * Kant : distinction entre noumène (chose en soi, inaccessible) et phénomène (apparaence, connaissable).
+ * Kant : distinction entre noumène (chose en soi, inaccessible) et phénomène (apparence, connaissable).
  * Nous ne connaissons que les phénomènes (à travers nos catégories a priori),
  * jamais les choses en soi (noumènes).
  */
@@ -143,11 +82,11 @@ function noumeneVsPhenomenon({ agent }) {
       type: 'noumenon',
       description: 'Chose en soi — l\'agent dans son être même, inaccessible à la connaissance directe.',
       thingInItself: true,
-      kantClaim: 'Nous ne connaissons pas les choses en soi, seulement leurs apparaences (phénomènes).',
+      kantClaim: 'Nous ne connaissons pas les choses en soi, seulement leurs apparences (phénomènes).',
     },
     phenomenon: {
       type: 'phenomenon',
-      description: 'Apparaence de l\'agent telle qu\'observable — ce que nous pouvons connaître.',
+      description: 'Apparence de l\'agent telle qu\'observable — ce que nous pouvons connaître.',
       observableState: agent.status || 'unknown',
       appearances: agent.telemetry || [],
       kantClaim: 'Les phénomènes sont les objets de notre connaissance possible.',
@@ -192,9 +131,12 @@ function categoriesAPriori() {
 }
 
 module.exports = {
-  getFormIdeal,
+  getFormIdeal: platonismService.getFormIdeal,
+  listFormIdeals: platonismService.listFormIdeals,
+  evaluateAgainstForm: platonismService.evaluateAgainstForm,
+  platonicCriticism: platonismService.platonicCriticism,
+  IDEAL_FORMS: platonismService.IDEAL_FORMS,
   fourCauses,
   noumeneVsPhenomenon,
   categoriesAPriori,
-  IDEAL_FORMS,
 };
