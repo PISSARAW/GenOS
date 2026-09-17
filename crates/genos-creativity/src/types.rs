@@ -103,8 +103,9 @@ impl Concept {
 }
 
 /// Buts de mission (copie locale alignée).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum Goal {
+    #[default]
     SecurePerimeter,
     RecoverAgent,
     RepairModule,

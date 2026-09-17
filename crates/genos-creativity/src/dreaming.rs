@@ -8,7 +8,7 @@ use crate::types::{Concept, WorldState};
 use crate::creativity_engine::CreativityConfig;
 use rand::RngExt;
 use rand::SeedableRng;
-use rand::prelude::SliceRandom;
+use rand::prelude::IndexedRandom;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -21,7 +21,19 @@ pub struct RawHypothesis {
     pub novelty_score: f64,
     pub energy_cost_estimate: f64,
     pub parent_hypotheses: Vec<Uuid>,
+    /// Fragments réellement utilisés pour construire l'idée (mémoire -> recombinaison).
+    pub source_fragments: Vec<serde_json::Value>,
+    /// Résultat de la simulation interne avant toute exécution réelle.
+    pub simulation: SimulationTrace,
     pub generated_at_tick: u64,
+}
+
+/// Trace falsifiable de la simulation mentale d'une hypothèse.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SimulationTrace {
+    pub predicted_effects: Vec<String>,
+    pub constraints: Vec<String>,
+    pub feasibility: f64,
 }
 
 /// Phase de rêve : exploration non contrainte.
@@ -70,12 +82,15 @@ impl DreamingPhase {
             if !world.applicable(concept) {
                 continue;
             }
-            let payload = self.generate_raw_payload(&concept, world);
             let novelty = self.novelty_score(&concept);
             let cost = concept.cost() as f64 * self.config.atp_per_dream;
             if budget_atp < cost {
                 break;
             }
+            let parent_hypotheses = self.select_parents();
+            let source_fragments = self.parent_fragments(&parent_hypotheses);
+            let payload = self.generate_raw_payload(&concept, world, &source_fragments);
+            let simulation = self.simulate(&concept, world, &source_fragments);
 
             let hyp = RawHypothesis {
                 id: Uuid::new_v4(),
@@ -83,7 +98,9 @@ impl DreamingPhase {
                 payload,
                 novelty_score: novelty,
                 energy_cost_estimate: cost,
-                parent_hypotheses: self.select_parents(),
+                parent_hypotheses,
+                source_fragments,
+                simulation,
                 generated_at_tick: orchestrator_tick,
             };
             hypotheses.push(hyp);
@@ -109,7 +126,10 @@ impl DreamingPhase {
         // meilleur selon novelty_score (heuristique).
         let explore = self.rng.random::<f64>() < 0.4;
         if explore {
-            *applicable.choose(&mut self.rng).unwrap_or(&Concept::Observe)
+            applicable
+                .choose(&mut self.rng)
+                .copied()
+                .unwrap_or(Concept::Observe)
         } else {
             applicable
                 .iter()
@@ -135,13 +155,48 @@ impl DreamingPhase {
     }
 
     /// Génère un payload brut (v1 : placeholder structuré).
-    fn generate_raw_payload(&self, concept: &Concept, _world: &WorldState) -> serde_json::Value {
+    fn parent_fragments(&self, parents: &[Uuid]) -> Vec<serde_json::Value> {
+        parents
+            .iter()
+            .filter_map(|id| self.history.iter().find(|h| h.id == *id))
+            .map(|h| h.payload.clone())
+            .collect()
+    }
+
+    fn generate_raw_payload(
+        &self,
+        concept: &Concept,
+        _world: &WorldState,
+        fragments: &[serde_json::Value],
+    ) -> serde_json::Value {
         serde_json::json!({
             "kind": "dream",
             "concept": format!("{:?}", concept),
             "raw": true,
+            "recombined": !fragments.is_empty(),
+            "fragments": fragments,
             "v": 1
         })
+    }
+
+    fn simulate(
+        &self,
+        concept: &Concept,
+        world: &WorldState,
+        fragments: &[serde_json::Value],
+    ) -> SimulationTrace {
+        let mut constraints = vec!["evidence_required_before_promotion".to_string()];
+        if world.budget < concept.cost() as f64 {
+            constraints.push("budget_insufficient".to_string());
+        }
+        if !fragments.is_empty() {
+            constraints.push("uses_recombined_memory_fragments".to_string());
+        }
+        SimulationTrace {
+            predicted_effects: vec![format!("would_attempt_{:?}", concept)],
+            constraints,
+            feasibility: (world.budget / concept.cost() as f64).clamp(0.0, 1.0),
+        }
     }
 
     /// Sélectionne 0 à 2 parents parmi l'historique récent (v1 : aléatoire).
@@ -150,7 +205,9 @@ impl DreamingPhase {
         if pool.is_empty() {
             return Vec::new();
         }
-        let k = self.rng.random_range(0..=2).min(pool.len());
+        // Une mémoire disponible doit réellement pouvoir alimenter une nouvelle
+        // construction : le premier cycle peut être libre, les suivants recombinent.
+        let k = self.rng.random_range(1..=2).min(pool.len());
         let mut parents = Vec::with_capacity(k);
         let mut available: Vec<usize> = (0..pool.len()).collect();
         for _ in 0..k {
@@ -173,7 +230,8 @@ impl DreamingPhase {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::WorldState;
+    use crate::types::{Concept, WorldState};
+    use uuid::Uuid;
 
     #[test]
     fn test_dreaming_produces_hypotheses() {
@@ -192,8 +250,8 @@ mod tests {
     #[test]
     fn test_novelty_higher_for_new_concepts() {
         let config = CreativityConfig::default();
-        let dreaming = DreamingPhase::new(config);
-        let world = WorldState::default();
+        let mut dreaming = DreamingPhase::new(config.clone());
+        let _world = WorldState::default();
         let hyps: Vec<_> = (0..3)
             .map(|_| RawHypothesis {
                 id: Uuid::new_v4(),
@@ -202,11 +260,16 @@ mod tests {
                 novelty_score: 0.0,
                 energy_cost_estimate: 1.0,
                 parent_hypotheses: vec![],
+                source_fragments: vec![],
+                simulation: SimulationTrace {
+                    predicted_effects: vec![],
+                    constraints: vec![],
+                    feasibility: 1.0,
+                },
                 generated_at_tick: 0,
             })
             .collect();
 
-        let mut dreaming = DreamingPhase::new(config);
         for h in hyps {
             dreaming.history.push(h);
         }
@@ -216,5 +279,27 @@ mod tests {
             score_before > score_after,
             "nouveauté devrait être plus élevée pour un concept jamais vu"
         );
+    }
+
+    #[test]
+    fn test_imagination_recombines_memory_and_simulates_before_execution() {
+        let config = CreativityConfig::default();
+        let mut dreaming = DreamingPhase::new(config);
+        let world = WorldState::default();
+        let _ = dreaming.dream(&world, 100.0, 0);
+        let second_cycle = dreaming.dream(&world, 100.0, 1);
+
+        assert!(second_cycle.iter().any(|hypothesis| {
+            !hypothesis.parent_hypotheses.is_empty()
+                && !hypothesis.source_fragments.is_empty()
+                && hypothesis.payload["recombined"] == serde_json::Value::Bool(true)
+        }));
+        assert!(second_cycle.iter().all(|hypothesis| {
+            !hypothesis.simulation.predicted_effects.is_empty()
+                && hypothesis
+                    .simulation
+                    .constraints
+                    .contains(&"evidence_required_before_promotion".to_string())
+        }));
     }
 }

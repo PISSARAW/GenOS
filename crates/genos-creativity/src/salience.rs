@@ -89,7 +89,11 @@ impl SalienceGate {
             0.0
         };
         let surprise = surprise_factor(h, world);
-        0.4 * h.novelty_score + 0.3 * goal_relevance + 0.2 * feasibility + 0.1 * surprise
+        0.3 * h.novelty_score
+            + 0.25 * goal_relevance
+            + 0.2 * feasibility
+            + 0.1 * surprise
+            + 0.15 * h.simulation.feasibility
     }
 
     fn refine_for_executive(
@@ -231,6 +235,12 @@ mod tests {
             novelty_score: 0.1,
             energy_cost_estimate: 1.0,
             parent_hypotheses: vec![],
+            source_fragments: vec![],
+            simulation: crate::dreaming::SimulationTrace {
+                predicted_effects: vec![],
+                constraints: vec![],
+                feasibility: 1.0,
+            },
             generated_at_tick: 0,
         };
         let high = RawHypothesis {
@@ -240,13 +250,20 @@ mod tests {
             novelty_score: 0.8,
             energy_cost_estimate: 1.0,
             parent_hypotheses: vec![],
+            source_fragments: vec![],
+            simulation: crate::dreaming::SimulationTrace {
+                predicted_effects: vec![],
+                constraints: vec![],
+                feasibility: 1.0,
+            },
             generated_at_tick: 0,
         };
         let world = WorldState::default();
         let goal = Goal::default();
-        let result = gate.evaluate(&[low, high], &world, &goal);
+        let high_id = high.id;
+        let result = gate.evaluate(&[low, high.clone()], &world, &goal);
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].hypothesis_id, high.id);
+        assert_eq!(result[0].hypothesis_id, high_id);
     }
 
     #[test]
@@ -260,6 +277,12 @@ mod tests {
                 novelty_score: 0.9,
                 energy_cost_estimate: 1.0,
                 parent_hypotheses: vec![],
+                source_fragments: vec![],
+                simulation: crate::dreaming::SimulationTrace {
+                    predicted_effects: vec![],
+                    constraints: vec![],
+                    feasibility: 1.0,
+                },
                 generated_at_tick: 0,
             })
             .collect();

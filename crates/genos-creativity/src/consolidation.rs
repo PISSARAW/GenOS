@@ -70,12 +70,12 @@ impl CrossConsolidation {
                 director.learner_update(concept, &ctx, evidence_score.clamp(0.0, 1.0));
 
                 let success_count = {
-                    let stats = director.stats_mut().get(*concept).unwrap();
+                    let stats = director.stats_mut().get(concept).unwrap();
                     stats.successes
                 };
                 if success_count >= self.min_validations_for_policy as u32 {
                     let rate = {
-                        let stats = director.stats_mut().get(*concept).unwrap();
+                        let stats = director.stats_mut().get(concept).unwrap();
                         stats.rate()
                     };
                     self.promote_to_policy(director, *concept, success_count, rate);
@@ -117,15 +117,14 @@ fn context_from_task(task: &FocusedTask) -> Vec<f64> {
 mod tests {
     use super::*;
     use crate::types::Concept;
+    use uuid::Uuid;
 
     struct MockDirector {
         stats: BTreeMap<Concept, ActionStats>,
     }
 
     impl ConsolidationTarget for MockDirector {
-        fn stats_mut(
-            &mut self,
-        ) -> &mut BTreeMap<Concept, ActionStats> {
+        fn stats_mut(&mut self) -> &mut BTreeMap<Concept, ActionStats> {
             &mut self.stats
         }
 

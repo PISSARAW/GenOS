@@ -25,14 +25,14 @@ pub use creativity_engine::{
     CreativityConfig, CreativityEngine, CreativityMetrics, DirectorAdapter,
 };
 pub use dopamine::{CreativityOutcome, DopamineSignal, DopamineTarget};
-pub use dreaming::{DreamingPhase, RawHypothesis};
+pub use dreaming::{DreamingPhase, RawHypothesis, SimulationTrace};
 pub use salience::{FocusedTask, SalienceGate};
 pub use types::{Concept, Goal, Metabolism, WorldState};
 
 #[cfg(test)]
 mod tests {
     use crate::consolidation::CrossConsolidation;
-    use crate::creativity_engine::CreativityEngine;
+    use crate::creativity_engine::{CreativityConfig, CreativityEngine};
     use crate::dopamine::DopamineSignal;
     use crate::dreaming::DreamingPhase;
     use crate::salience::SalienceGate;
@@ -41,7 +41,7 @@ mod tests {
     #[test]
     fn test_module_imports() {
         let config = CreativityConfig::default();
-        let _engine = CreativityEngine::new(config);
+        let _engine = CreativityEngine::new(config.clone());
         let _dreaming = DreamingPhase::new(config);
         let _salience = SalienceGate::new(0.6, 0.3);
         let _dopamine = DopamineSignal::new();

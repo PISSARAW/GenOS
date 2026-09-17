@@ -6,7 +6,6 @@
 //! et consolidation vers des politiques permanentes.
 
 use crate::consolidation::CrossConsolidation;
-use crate::consolidation::CrossConsolidation;
 use crate::consolidation::ConsolidationTarget;
 use crate::dopamine::{CreativityOutcome, DopamineSignal, DopamineTarget};
 use crate::dreaming::DreamingPhase;
@@ -192,12 +191,13 @@ impl CreativityEngine {
             let delta = (director.exploration_weight() - initial).abs();
             self.metrics.record_exploration_delta(delta);
 
+            if matches!(outcome, CreativityOutcome::Validated { .. }) {
+                self.metrics.record_validated();
+            }
+
             if let Some(task) = task {
                 self.consolidation
                     .consolidate(director, concept, &task, outcome);
-                if matches!(outcome, CreativityOutcome::Validated { .. }) {
-                    self.metrics.record_validated();
-                }
             }
         }
 
