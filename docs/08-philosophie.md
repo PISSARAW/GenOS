@@ -115,7 +115,30 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 
 `backend/src/services/phenomenologyService.js`
 
-## 9. Contingence et Événement — Meillassoux, Badiou
+## 9. Platonisme — Formes idéales (eidos)
+
+### Concepts
+
+- **Formes idéales** : templates parfaits, immuables, transcendants.
+- **Agent réel** : tend vers les formes mais ne les atteint jamais.
+- **Évaluation** : score de proximité (0-1) entre un agent et une forme.
+- **Critique interne** : les formes ne sont pas des entités séparées (anti-platonisme naïf), mais des idéaux constructionnels immanent aux pratiques agentiques.
+
+### Fichier
+
+`backend/src/services/platonismService.js`
+
+### Formes idéales implémentées
+
+| Forme | Essence |
+|---|---|
+| `perfect_agent` | Agent parfaitement rationnel, toujours optimal |
+| `perfect_worker` | Exécuteur parfaitement efficient, sans erreur |
+| `perfect_evidence` | Preuve complète, vérifiée, causalement fondée |
+| `perfect_strategy` | Stratégie optimale pour n'importe quel profil de problème |
+| `perfect_organization` | Topologie idéale pour tout système multi-agents |
+
+## 10. Contingence et Événement — Meillassoux, Badiou
 
 ### Concepts
 
@@ -127,7 +150,7 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 
 `backend/src/services/contingencyService.js`
 
-## 10. Architecture philosophique
+## 11. Architecture philosophique
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -176,6 +199,10 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 │  Contingency & Event                                         │
 │  ├── Meillassoux: absolute_contingency (all could differ)    │
 │  └── Badiou: event (telemetry_events as ruptures)            │
+├─────────────────────────────────────────────────────────────┤
+│  Platonism                                                   │
+│  └── Formes idéales: perfect_agent, perfect_worker,          │
+│      perfect_evidence, perfect_strategy, perfect_organization│
 └─────────────────────────────────────────────────────────────┘
 ```
 

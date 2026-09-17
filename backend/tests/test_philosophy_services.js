@@ -11,6 +11,7 @@ const processPhilosophyService = require('../src/services/processPhilosophyServi
 const ethicsService = require('../src/services/ethicsService');
 const phenomenologyService = require('../src/services/phenomenologyService');
 const contingencyService = require('../src/services/contingencyService');
+const platonismService = require('../src/services/platonismService');
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -223,6 +224,49 @@ async function main() {
       assert.deepStrictEqual(m.intersection, ['a']);
       assert.strictEqual(m.powerSetSize > 0, true);
       assert.strictEqual(typeof m.setOperations.cardinality, 'number');
+    });
+
+    console.log('\n=== Platonism Service ===');
+    test('getFormIdeal returns Platonic forms', () => {
+      const form = platonismService.getFormIdeal('perfect_agent');
+      assert.strictEqual(form.id, 'perfect_agent');
+      assert.strictEqual(form.type, 'Form');
+      assert.strictEqual(form.essence, 'The perfectly rational agent that always acts optimally');
+      assert.strictEqual(form.properties.rationality, 1.0);
+      assert.strictEqual(form.properties.evidence, 'complete');
+    });
+    test('listFormIdeals returns all forms', () => {
+      const forms = platonismService.listFormIdeals();
+      assert.strictEqual(forms.length, 5);
+      assert.ok(forms.find(f => f.id === 'perfect_agent'));
+      assert.ok(forms.find(f => f.id === 'perfect_worker'));
+      assert.ok(forms.find(f => f.id === 'perfect_evidence'));
+      assert.ok(forms.find(f => f.id === 'perfect_strategy'));
+      assert.ok(forms.find(f => f.id === 'perfect_organization'));
+    });
+    test('evaluateAgainstForm scores agent proximity', () => {
+      const eval1 = platonismService.evaluateAgainstForm({
+        agent: { id: 'a1', rationality: 1.0, knowledge: 'complete', autonomy: 'perfect', consistency: true, evidence: 'complete' },
+        formName: 'perfect_agent'
+      });
+      assert.strictEqual(eval1.score, 1);
+      assert.strictEqual(eval1.verdict, 'near_perfect');
+      assert.strictEqual(eval1.gaps.length, 0);
+    });
+    test('evaluateAgainstForm detects gaps', () => {
+      const eval2 = platonismService.evaluateAgainstForm({
+        agent: { id: 'a2', rationality: 0.5, knowledge: 'partial', autonomy: 'limited', consistency: false, evidence: 'incomplete' },
+        formName: 'perfect_agent'
+      });
+      assert.ok(eval2.score < 0.5);
+      assert.strictEqual(eval2.verdict, 'distant');
+      assert.strictEqual(eval2.gaps.length, 5);
+    });
+    test('platonicCriticism returns internal critique', () => {
+      const c = platonismService.platonicCriticism();
+      assert.ok(c.critique);
+      assert.ok(c.immanence);
+      assert.ok(c.dialectic);
     });
 
     console.log(`\n${passed} passed, ${failed} failed\n`);
