@@ -95,7 +95,20 @@ function applyOrchestrationDecision(ctx, ...args) {
   const ownerId = agent?.parent_agent_id || agentId;
   emit(ownerId, 'ORCHESTRATION_DECISION', decision.action, decision.reason, { sourceAgentId: agentId, sourceEvent: eventType, ...decision }, 'info');
   if (decision.organization) applyOrganizationDecision(ownerId, decision.organization, decision.reason).catch(() => {});
-  actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: agentId, decision, event, workspaceRoot }).catch(() => {});
+  actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: agentId, decision, event, workspaceRoot })
+    .catch((error) => reportOrchestrationActionFailure({ ownerId, agentId, event, decision, error }));
+}
+
+function reportOrchestrationActionFailure({ ownerId, agentId, event, decision, error }) {
+  const failure = {
+    sourceAgentId: agentId,
+    sourceEvent: event.eventType,
+    eventId: event.id,
+    tool: decision.tool,
+    error: error?.message || String(error)
+  };
+  emit(ownerId, 'ORCHESTRATION_ACTION_FAILED', decision.action, `Orchestration action '${decision.action}' raised an exception.`, failure, 'error', 'error');
+  return failure;
 }
 
 function enqueueTrackedEvent(ctx, event) {
@@ -258,4 +271,4 @@ async function superviseMission(options) {
   return { started: true, executionRun };
 }
 
-module.exports = { superviseMission, runtimeExitOutcome, buildReplayManifest };
+module.exports = { superviseMission, runtimeExitOutcome, buildReplayManifest, reportOrchestrationActionFailure };
