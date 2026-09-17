@@ -1,5 +1,5 @@
 const fleet = require('../services/agentFleetService');
-const runtimeAdapter = require('../services/agentRuntimeAdapter');
+const { dispatchWorkerMission } = require('../services/orchestratorDispatchService');
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Orchestrator is alive via gRPC!" }),
@@ -10,7 +10,7 @@ module.exports = {
       if (!orchestrator_id || !worker_id || !prompt) {
         return callback(null, { success: false, status: 'orchestrator_id, worker_id and prompt are required', garage_slot: 0 });
       }
-      const result = await runtimeAdapter.startMission({
+      const result = await dispatchWorkerMission({
         agentId: worker_id,
         orchestratorAgentId: orchestrator_id,
         prompt,

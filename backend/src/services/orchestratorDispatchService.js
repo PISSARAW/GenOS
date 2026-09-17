@@ -1,0 +1,32 @@
+const runtimeAdapter = require('./agentRuntimeAdapter');
+
+function buildWorkerMission(input = {}) {
+  return {
+    agentId: input.agentId,
+    orchestratorAgentId: input.orchestratorAgentId,
+    prompt: input.prompt,
+    role: input.role || 'worker',
+    workspaceId: input.workspaceId,
+    workspaceRoot: input.workspaceRoot,
+    fleetId: input.fleetId,
+    agentType: input.agentType,
+    workspaceIsolation: input.workspaceIsolation,
+    modelTier: input.modelTier,
+    language: input.language,
+    executionBudget: input.executionBudget || {},
+    executionPolicy: input.executionPolicy || {},
+    toolLease: input.toolLease,
+    strategyContract: input.strategyContract,
+    timeoutMs: input.timeoutMs,
+    localRuntime: input.localRuntime,
+    localModel: input.localModel,
+    localRoutingPolicy: input.localRoutingPolicy,
+    autonomousOrchestration: false
+  };
+}
+
+function dispatchWorkerMission(input) {
+  return runtimeAdapter.startMission(buildWorkerMission(input));
+}
+
+module.exports = { buildWorkerMission, dispatchWorkerMission };

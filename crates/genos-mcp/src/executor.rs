@@ -178,7 +178,8 @@ fn find_genos_binary(workspace: &Path) -> Option<PathBuf> {
 fn resolve_bridge_path(workspace: &Path) -> PathBuf {
     if let Ok(val) = env::var("GENOS_ORCHESTRATOR_BRIDGE") {
         let p = PathBuf::from(val);
-        if p.is_file() {
+        let normalized = p.to_string_lossy().to_ascii_lowercase();
+        if p.is_file() && !normalized.contains("program files") {
             return p;
         }
     }
@@ -394,6 +395,30 @@ fn with_action(args: &Value, action: &str) -> Value {
         obj.insert("action".into(), json!(action));
     }
     payload
+}
+
+fn normalize_primitive_result(result: (i32, String)) -> (i32, String) {
+    let (code, text) = result;
+    if code != 0 {
+        return (code, text);
+    }
+    match serde_json::from_str::<Value>(&text) {
+        Ok(value) if value.get("success").and_then(Value::as_bool) == Some(true) => (0, text),
+        Ok(value) if value.get("success").and_then(Value::as_bool) == Some(false) => (1, text),
+        _ => (1, text),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_primitive_result;
+
+    #[test]
+    fn primitive_failure_is_exposed_as_mcp_error() {
+        assert_eq!(normalize_primitive_result((0, r#"{"success":false}"#.into())).0, 1);
+        assert_eq!(normalize_primitive_result((0, r#"{"success":true}"#.into())).0, 0);
+        assert_eq!(normalize_primitive_result((0, "legacy cli help".into())).0, 1);
+    }
 }
 
 pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, String) {

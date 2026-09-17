@@ -13,6 +13,7 @@ const telemetry = require('../src/services/telemetryObserver');
 const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
+const { dispatchWorkerMission } = require('../src/services/orchestratorDispatchService');
 
 async function findReusableWorker({ context, db }) {
   if (context.action !== 'dispatch_worker' || context.request.workerId) return null;
@@ -309,7 +310,7 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
   }
   const workerPrompt = aTeamService.dependencyPrompt(context.task, context.request.depends_on);
   const localRuntime = requestLocalRuntime(context.request);
-  await runtime.startMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerPrompt, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), autonomousOrchestration: false, timeoutMs: context.request.timeoutMs, localRuntime });
+  await dispatchWorkerMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerPrompt, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), timeoutMs: context.request.timeoutMs, localRuntime });
 }
 
 function requestLocalRuntime(request = {}) {
