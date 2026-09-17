@@ -18,10 +18,11 @@ const result = {
 
 (async () => {
   const promotion = await barrier.promoteWinner(fakeDb, { missionId: 'm', orchestratorId: 'orch', result });
-  assert.equal(promotion.promoted, true);
+  assert.equal(promotion.promoted, false);
+  assert.equal(promotion.reason, 'promotion_pending_artifact_apply');
   assert.equal(promotion.worldNumber, 2);
   assert.equal(promotion.agentId, 'w2');
-  assert.ok(updates.some((entry) => /status = 'promoted'/.test(entry.sql) && entry.params[0] === 'w2'));
+  assert.ok(updates.some((entry) => /status = 'selected'/.test(entry.sql) && entry.params[0] === 'w2'));
   assert.ok(updates.some((entry) => entry.params[0] === 'w1'));
   assert.ok(updates.some((entry) => entry.params[0] === 'w3'));
 

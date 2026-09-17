@@ -121,13 +121,13 @@ async function promoteWinner(db, input = {}) {
   const comparison = result.comparativeAnalysis || {};
   const winner = (comparison.scoredWorlds || []).find((world) => world.worldNumber === result.selectedWorld) || null;
   if (!db || !winner || !winner.agentId) return { promoted: false, reason: 'no_winner_agent' };
-  await db.run("UPDATE trinity_worlds SET status = 'promoted', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId).catch(() => {});
+  await db.run("UPDATE trinity_worlds SET status = 'selected', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId);
   for (const world of comparison.scoredWorlds || []) {
     if (world.worldNumber === result.selectedWorld || !world.agentId) continue;
-    await db.run("UPDATE trinity_worlds SET status = CASE WHEN status = 'promoted' THEN status ELSE 'compared' END, updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", world.agentId).catch(() => {});
+    await db.run("UPDATE trinity_worlds SET status = CASE WHEN status = 'selected' THEN status ELSE 'compared' END, updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", world.agentId);
   }
-  emit(orchestratorId, 'TRINITY_WINNER_PROMOTED', 'PROMOTE_TRINITY', `Promoted World ${result.selectedWorld} (${result.selectedRole}) score=${result.bestScore}.`, { missionId, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore }, 'info');
-  return { promoted: true, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId };
+  emit(orchestratorId, 'TRINITY_WINNER_SELECTED', 'SELECT_TRINITY', `Selected World ${result.selectedWorld} (${result.selectedRole}) pending artifact application.`, { missionId, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore }, 'warning');
+  return { promoted: false, reason: 'promotion_pending_artifact_apply', worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId };
 }
 
 module.exports = { applyTrinityComparison, buildWorldReports, buildWorldReportsFromMission, latestReport, promoteWinner };
