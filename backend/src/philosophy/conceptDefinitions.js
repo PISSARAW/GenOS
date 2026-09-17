@@ -129,7 +129,7 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('epistemology.belief', 'Croyance / Belief', 'epistemology', 'general', 'partial', 'epistemics'),
   C('epistemology.justification', 'Justification épistémique', 'epistemology', 'analytic', 'partial', 'epistemics'),
   C('epistemology.truth', 'Vérité et connaissance', 'epistemology', 'general', 'partial', 'epistemics'),
-  C('epistemology.plausibility', 'Vraisemblance / Probabilisme', 'epistemology', 'probabilism', 'partial', 'epistemics'),
+  C('epistemology.plausibility', 'Vraisemblance / Probabilisme', 'epistemology', 'probabilism', 'partial', 'probabilityService'),
   C('epistemology.certainty-doubt', 'Certitude / Doute', 'epistemology', 'general', 'planned'),
   C('epistemology.doxa', 'Opinion / Doxa', 'epistemology', 'plato', 'planned'),
   C('epistemology.propositional-knowledge', 'Connaissance propositionnelle', 'epistemology', 'russell', 'planned'),
@@ -163,8 +163,8 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('method.hypothetico-deductive', 'Méthode hypothético-déductive', 'methods', 'science-method', 'planned'),
   C('method.surprise-predictivism', 'Surprise et predictivism', 'methods', 'predictivism', 'planned'),
   C('method.dutch-book', 'Arguments Dutch book et cohérence', 'methods', 'ramsey-de-finetti', 'planned'),
-  C('method.bayesianism', 'Bayésianisme et règle de Bayes', 'methods', 'bayes', 'partial', 'epistemics'),
-  C('method.objective-subjective-probability', 'Probabilisme objectif / subjectif', 'methods', 'probabilism', 'partial', 'epistemics'),
+  C('method.bayesianism', 'Bayésianisme et règle de Bayes', 'methods', 'bayes', 'partial', 'probabilityService'),
+  C('method.objective-subjective-probability', 'Probabilisme objectif / subjectif', 'methods', 'probabilism', 'partial', 'probabilityService'),
   C('method.bayesian-confirmation', 'Confirmation bayésienne', 'methods', 'carnap-hempel', 'planned'),
 
   // Science, confirmation et changement théorique.
