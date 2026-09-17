@@ -22,6 +22,14 @@ assert.equal(categorization.classifyConcept({
   model: 'prototype', instance: { size: 1, wings: 1 },
   prototypes: [{ category: 'oiseau', features: { size: 1, wings: 1 } }]
 }).category, 'oiseau');
+assert.equal(categorization.classifyConcept({
+  model: 'family_resemblance', category: 'jeu', features: ['règle', 'joueur'],
+  instance: { règle: true, joueur: true }, threshold: 0.75
+}).membership, 1);
+assert.equal(categorization.classifyConcept({
+  model: 'exemplar', instance: { taille: 1 }, topK: 2,
+  exemplars: [{ category: 'petit', features: { taille: 1 } }, { category: 'petit', features: { taille: 0.8 } }]
+}).membership, 0.9);
 const game = languageGame.createLanguageGame({
   name: 'commande', community: 'operators', formOfLife: 'runtime',
   rules: [{ id: 'r1', kind: 'regulative', description: 'publier', requiredRole: 'operator', allowedActions: ['publish'] }]
