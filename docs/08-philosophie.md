@@ -309,7 +309,33 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 
 - Newton, *Philosophiæ Naturalis Principia Mathematica* (1687)
 
-## 18. Contingence et Événement — Meillassoux, Badiou
+## 18. Kantisme — Noumène / phénomène, catégories a priori
+
+### Concepts
+
+- **Phénomène** = ce qui est accessible aux agents via les senseurs (l'observable)
+- **Noumène** = la chose-en-soi (Ding an sich), existe mais inaccessible à l'intelligence
+- **Catégories a priori** = structure mentale qui organise l'expérience (espace, temps, causalité, unité, pluralité, totalité)
+- **Chose-en-soi** = l'objet indépendamment de notre perception
+- **Critique = évaluation des limites de la connaissance**
+
+### Service
+
+`backend/src/services/kantianService.js` :
+
+| Fonction | Concept |
+|---|---|
+| `phenomene({ agent, observation })` | Décrit ce qui est accessible à l'agent par ses senseurs |
+| `noumene({ chose })` | La chose-en-soi, inaccessible à l'intelligence |
+| `categoriesAPriori()` | Les catégories a priori de l'entendement |
+| `critiqueRaisonPure({ agent })` | Évalue les limites de la connaissance |
+| `choseEnSoi({ agent, representation })` | Distingue perception de chose-en-soi |
+
+### Référence
+
+- Kant, *Critique de la raison pure* (1781/1787)
+
+## 19. Contingence et Événement — Meillassoux, Badiou
 
 ### Concepts
 
@@ -394,6 +420,11 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 │  ├── Espace absolu: contenant fixe et immuable              │
 │  ├── Temps absolu: temps universel et uniforme              │
 │  └── Mécanique: action-réaction, inertie, gravitation       │
+├─────────────────────────────────────────────────────────────┤
+│  Kantianism                                                  │
+│  ├── Phénomène: observable via senseurs (expérience)        │
+│  ├── Noumène: chose-en-soi (Ding an sich, inaccessible)     │
+│  └── Catégories a priori: espace, temps, causalité          │
 └─────────────────────────────────────────────────────────────┘
 │  Réalisme / Nominalisme / Conceptualisme                    │
 │  ├── Réalisme: universaux indépendants de l'esprit          │
