@@ -17,6 +17,7 @@ const contextService = require('./philosophy/contextService');
 const speechAct = require('./philosophy/speechActService');
 const pragmatics = require('./philosophy/pragmaticsService');
 const categorization = require('./philosophy/categorizationService');
+const languageGame = require('./philosophy/languageGameService');
 
 const KNOWN_OPERATIONS = new Set([
   // Being
@@ -49,6 +50,10 @@ const KNOWN_OPERATIONS = new Set([
   'analyzeImplicature',
   'assessMaxims',
   'classifyConcept',
+  'createLanguageGame',
+  'evaluateLanguageMove',
+  'assessRuleFollowing',
+  'analyzePrivateLanguage',
 ]);
 
 function normalizeArgs(request) {
@@ -288,6 +293,14 @@ async function handleOntologyRequest({ request, orchestratorId }) {
       return pragmatics.assessMaxims(args);
     case 'classifyConcept':
       return categorization.classifyConcept(args);
+    case 'createLanguageGame':
+      return languageGame.createLanguageGame(args);
+    case 'evaluateLanguageMove':
+      return languageGame.evaluateMove(args);
+    case 'assessRuleFollowing':
+      return languageGame.assessRuleFollowing(args);
+    case 'analyzePrivateLanguage':
+      return languageGame.analyzePrivateLanguage(args);
 
     default:
       // Defensive: keep the switch exhaustive for future operations.
