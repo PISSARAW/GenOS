@@ -3,6 +3,9 @@ function coalesce(primary, fallback) {
 }
 
 function parsePositiveNumber(value, fallback) {
+  if (value !== undefined && value !== null && (!Number.isFinite(Number(value)) || Number(value) <= 0)) {
+    throw Object.assign(new Error('Budget values must be finite and strictly positive.'), { code: 'INVALID_BUDGET_VALUE', value });
+  }
   const num = Number(value);
   return Number.isFinite(num) && num > 0 ? num : fallback;
 }
