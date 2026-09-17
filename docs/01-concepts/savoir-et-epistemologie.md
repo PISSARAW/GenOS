@@ -104,6 +104,19 @@ Les réponses enregistrées dans le registre comprennent :
 Le runtime actuel peut suivre preuves, qualité, provenance et dette épistémique, mais
 ne tranche pas automatiquement entre ces théories philosophiques.
 
+## 5.1 Effets runtime contrôlés
+
+Une évaluation philosophique est d’abord sans effet de bord. Quand un agent doit
+émettre un signal opérationnel, il utilise `genos_philosophy.applyRuntimeEffect`
+avec un `concept`, un `agentId` et un effet explicite. Sans `apply: true`, le
+runtime retourne uniquement un aperçu.
+
+Les effets autorisés sont `require_evidence`, `hold_promotion` et
+`prefer_observation`. Une application réussie émet un événement de télémétrie
+avec `controlled: true` et un receipt. Le signal ne modifie ni les fichiers, ni
+les leases, ni les droits MCP ; son traitement ultérieur reste soumis aux
+barrières d’autorité et d’évidence. Voir [ADR 0016](../adr/0016-effets-runtime-philosophiques-controles.md).
+
 ## 6. Vérité, confirmation et science
 
 Le registre distingue les théories suivantes :
@@ -144,6 +157,8 @@ Les primitives épistémiques existantes sont réparties entre :
   les tables de claims, dettes et tendances de confiance ;
 - [`backend/src/services/epistemologyService.js`](../../backend/src/services/epistemologyService.js)
   pour les mappings historiques du platonisme, de l’aristotélisme et du kantisme.
+- [`backend/src/services/philosophyRuntimeEffectService.js`](../../backend/src/services/philosophyRuntimeEffectService.js)
+  pour les signaux runtime philosophiques explicitement appliqués.
 
 ```mermaid
 flowchart LR

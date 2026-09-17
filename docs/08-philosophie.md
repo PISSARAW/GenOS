@@ -385,6 +385,21 @@ restent les autorités effectives du runtime.
 
 ## 11. Architecture philosophique
 
+### Effets runtime contrôlés
+
+Le routeur `genos_philosophy` sépare l’évaluation d’un concept de l’application
+d’un signal runtime. `evaluateConcept` reste en lecture seule. L’opération
+`applyRuntimeEffect` retourne un aperçu tant que `apply` n’est pas explicitement
+à `true`; elle accepte uniquement `require_evidence`, `hold_promotion` et
+`prefer_observation`, exige `concept` et `agentId`, puis émet une télémétrie
+avec un receipt.
+
+Ces effets ne changent pas directement le code, le workspace, les leases ou les
+permissions. Ils sont des signaux bornés dont le consommateur reste soumis aux
+barrières d’autorité et de preuve. Les tests
+`test_philosophy_mcp_integration.js` et `test_philosophy_authority.js` couvrent
+le transport et le refus des effets hors allow-list. Voir [ADR 0016](adr/0016-effets-runtime-philosophiques-controles.md).
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    GENOS ONTOLOGICAL STACK                   │
