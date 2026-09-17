@@ -31,7 +31,11 @@ function handleRecoveryDecision(report, decision, context) {
     workerId: report.workerId, report, decision
   }, decision.terminal && decision.action !== 'conclude_no_answer' ? 'warning' : 'info');
   const recoveryOrganization = getRecoveryOrganization(decision.action);
-  if (recoveryOrganization) applyOrganizationDecision(orchestratorId, recoveryOrganization, decision.reason).catch(() => {});
+  if (recoveryOrganization) {
+    applyOrganizationDecision(orchestratorId, recoveryOrganization, decision.reason).catch((err) => {
+      console.error(`[WorkerRecovery] Error applying organization decision for ${orchestratorId}:`, err.message);
+    });
+  }
   if (decision.retry && !pendingWorkerRecoveries.has(report.workerId)) {
     pendingWorkerRecoveries.set(report.workerId, { mission, report, decision });
     return { report, decision, queued: true };

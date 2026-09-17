@@ -25,7 +25,11 @@ function handleRecoveryDecision(report, decision, orchestratorId) {
   emit(orchestratorId, 'WORKER_FAILURE_REPORTED', 'ANALYZE_FAILURE', `Worker '${report.workerId}' reported that it could not complete its mission.`, { report }, 'warning');
   emit(orchestratorId, 'WORKER_RECOVERY_DECISION', decision.action, decision.reason, { workerId: report.workerId, report, decision }, decision.terminal && decision.action !== 'conclude_no_answer' ? 'warning' : 'info');
   const recoveryOrganization = getRecoveryOrganization(decision.action);
-  if (recoveryOrganization) applyOrganizationDecision(orchestratorId, recoveryOrganization, decision.reason).catch(() => {});
+  if (recoveryOrganization) {
+    applyOrganizationDecision(orchestratorId, recoveryOrganization, decision.reason).catch((err) => {
+      console.error(`[RecoveryStrategies] Error applying organization decision for ${orchestratorId}:`, err.message);
+    });
+  }
   if (decision.retry && !pendingWorkerRecoveries.has(report.workerId)) {
     pendingWorkerRecoveries.set(report.workerId, { mission: report.mission, report, decision });
     return { report, decision, queued: true };

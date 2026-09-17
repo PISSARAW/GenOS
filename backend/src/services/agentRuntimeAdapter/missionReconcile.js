@@ -5,8 +5,13 @@ const { processMatches, terminateChild } = require('../processTermination');
 async function reconcilePersistedRuntimeRow(db, row) {
   const { id, status, runtime_pid, runtime_executable } = row;
   if (!runtime_pid) return 0;
+  // Vérifie d'abord que le PID existe toujours (signal 0 ne tue pas le process),
+  // puis vérifie que le PID correspond bien à l'exécutable GenOS enregistré.
+  // Un PID recyclé par le système aurait un exécutable différent → faux positif évité.
   try {
     process.kill(runtime_pid, 0);
+    // processMatches retourne false si l'exécutable est inconnu ou ne correspond pas
+    // → dans ce cas, le PID existe mais n'est pas le nôtre → marquer terminé
     if (processMatches(runtime_pid, runtime_executable)) return 0;
     const updated = await db.run(
       `UPDATE agents SET status = 'terminated', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
@@ -17,13 +22,14 @@ async function reconcilePersistedRuntimeRow(db, row) {
       return 1;
     }
     return 0;
-  } catch (_) {
+  } catch (err) {
+    // PID inaccessible (processus mort ou privilèges insuffisants) → supposer terminé
     const updated = await db.run(
       `UPDATE agents SET status = 'terminated', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
       id
     );
     if (updated.changes) {
-      emit(id, 'RUNTIME_RECONCILED', 'RECONCILE', `Persisted runtime ${runtime_pid} for agent ${id} was dead; marked terminated.`, { runtime_pid, runtime_executable }, 'info');
+      emit(id, 'RUNTIME_RECONCILED', 'RECONCILE', `Persisted runtime ${runtime_pid} for agent ${id} was dead or unreachable; marked terminated.`, { runtime_pid, runtime_executable, error: err.message }, 'info');
       return 1;
     }
     return 0;
@@ -85,7 +91,11 @@ async function reconcileDeadOrchestratorChildren(db) {
     ) AND execution_mode = 'worker' AND status = 'running'
   `);
   for (const orphan of orphans) {
-    await db.run('UPDATE trinity_worlds SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?', 'terminated', orphan.id).catch(() => {});
+    try {
+      await db.run('UPDATE trinity_worlds SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?', 'terminated', orphan.id);
+    } catch (err) {
+      console.error(`[MissionReconcile] Error updating trinity_worlds status for orphan ${orphan.id}:`, err.message);
+    }
   }
   return orphans.length;
 }
