@@ -86,7 +86,9 @@ function handleOrchestrationDecision(ctx, event, eventType) {
     return;
   }
   const decision = decideFromEvent(event);
-  db.get('SELECT parent_agent_id FROM agents WHERE id = ?', agentId).then((agent) => { applyOrchestrationDecision(ctx, agent, event, eventType, decision); }).catch(() => {});
+  db.get('SELECT parent_agent_id FROM agents WHERE id = ?', agentId)
+    .then((agent) => { applyOrchestrationDecision(ctx, agent, event, eventType, decision); })
+    .catch((error) => reportOrchestrationActionFailure({ ownerId: normalizedMission.orchestratorAgentId || agentId, agentId, event, decision, error }));
 }
 
 function applyOrchestrationDecision(ctx, ...args) {
@@ -94,7 +96,10 @@ function applyOrchestrationDecision(ctx, ...args) {
   const { agentId, workspaceRoot } = ctx;
   const ownerId = agent?.parent_agent_id || agentId;
   emit(ownerId, 'ORCHESTRATION_DECISION', decision.action, decision.reason, { sourceAgentId: agentId, sourceEvent: eventType, ...decision }, 'info');
-  if (decision.organization) applyOrganizationDecision(ownerId, decision.organization, decision.reason).catch(() => {});
+  if (decision.organization) {
+    applyOrganizationDecision(ownerId, decision.organization, decision.reason)
+      .catch((error) => reportOrchestrationActionFailure({ ownerId, agentId, event, decision, error }));
+  }
   actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: agentId, decision, event, workspaceRoot })
     .catch((error) => reportOrchestrationActionFailure({ ownerId, agentId, event, decision, error }));
 }
