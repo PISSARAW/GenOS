@@ -90,12 +90,12 @@ async function gateSuite(db) {
     /Promotion gate refused.*require_human_approval/
   );
 
-  // Receipt valide + preuves → la gate passe, le pipeline (hors périmètre) échoue ensuite.
+  // Receipt valide + preuves → la gate et le pipeline de promotion passent.
   const third = await setupRun(db, { agentId: 'agent-gate-3', workspaceId: 'workspace-gate-1', promotionPatch: { require_human_approval: true } });
-  await assert.rejects(
-    strategyService.approveRun(db, third.run.id, { report: evidenceReport(), humanApprovalReceipt: validReceipt() }),
-    /promotion failed/
-  );
+  const promoted = await strategyService.approveRun(db, third.run.id, {
+    report: evidenceReport(), humanApprovalReceipt: validReceipt()
+  });
+  assert.equal(promoted.status, 'completed');
 
   // Replay exigé sans receipt → gate refusée sur require_replay.
   const fourth = await setupRun(db, { agentId: 'agent-gate-4', workspaceId: 'workspace-gate-1', promotionPatch: { require_replay: true, require_human_approval: false, require_independent_verification: false } });
@@ -121,10 +121,8 @@ async function containmentSuite(db) {
   assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', blocked.run.id)).status, 'awaiting_approval');
 
   const inside = await setupRun(db, { agentId: 'agent-capsule-2', workspaceId: 'workspace-capsule', promotionPatch: { require_human_approval: false, require_independent_verification: false } });
-  await assert.rejects(
-    strategyService.approveRun(db, inside.run.id, { ...options, targetWorkspaceRoot: target }),
-    /promotion failed/
-  );
+  const promoted = await strategyService.approveRun(db, inside.run.id, { ...options, targetWorkspaceRoot: target });
+  assert.equal(promoted.status, 'completed');
   fs.rmSync(capsule, { recursive: true, force: true });
   fs.rmSync(outside, { recursive: true, force: true });
   console.log('Promotion confinement checks passed.');
