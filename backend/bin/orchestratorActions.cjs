@@ -73,6 +73,12 @@ async function initializeMission({ db, action, orchestratorId, task }) {
     await contracts.saveContract(db, { agentId: orchestratorId, problem: task, createdBy: 'mcp_' + action });
   }
 }
+async function handleOntologyRequest({ request, orchestratorId }) {
+  const ontologyRouter = require('../src/services/ontologyRouter');
+  const result = await ontologyRouter.handleOntologyRequest({ request, orchestratorId });
+  process.stdout.write(JSON.stringify({ orchestratorId, ontology: result }));
+}
+
 async function handleReportProgress({ db, request, orchestratorId, task }) {
   const parent = await ensureProgressParent({ db, orchestratorId, task });
   if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
@@ -224,7 +230,7 @@ async function handleBiological({ db, context }) {
   const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
   process.stdout.write(JSON.stringify(out));
 }
-}
+
 async function handleTeam({ db, context }) {
   const parent = await ensureParent({ db, context });
   const result = await aTeamDispatch.dispatchTeam({ db, context, parent, launchWorker });
@@ -366,7 +372,8 @@ const HANDLERS = {
   compare_trinity: handleTrinityMerge,
   dispatch_team: handleTeam,
   dispatch_biological: handleBiological,
-  dispatch_worker: handleWorker
+  dispatch_worker: handleWorker,
+  ontology: handleOntologyRequest
 };
 async function handleAction(context) {
   const handler = HANDLERS[context.action];
