@@ -80,9 +80,14 @@
     "provenance": {
       "type": "object",
       "properties": {
+        "version": { "type": "string" },
         "sourceType": { "type": "string", "enum": ["primary", "secondary", "genos"] },
         "sourceDocument": { "type": "string" },
-        "sourceLocator": { "type": "string" }
+        "sourceLocator": { "type": "string" },
+        "evidenceStatus": { "type": "string" },
+        "interpretationStatus": { "type": "string" },
+        "derivedFrom": { "type": "array", "items": { "type": "string" } },
+        "recordedAt": { "type": "string" }
       },
       "additionalProperties": false
     }

@@ -24,6 +24,7 @@ const poetics = require('./philosophy/poeticsService');
 const deconstruction = require('./philosophy/deconstructionService');
 const hermeneutics = require('./philosophy/hermeneuticsService');
 const differenceOntology = require('./philosophy/differenceOntologyService');
+const provenance = require('./philosophy/provenanceService');
 
 const KNOWN_OPERATIONS = new Set([
   // Being
@@ -76,6 +77,9 @@ const KNOWN_OPERATIONS = new Set([
   'createRhizome',
   'analyzeAssemblage',
   'mapTerritorialization',
+  'createProvenanceRecord',
+  'nextProvenanceVersion',
+  'validateProvenanceChain',
 ]);
 
 function normalizeArgs(request) {
@@ -355,6 +359,12 @@ async function handleOntologyRequest({ request, orchestratorId }) {
       return differenceOntology.analyzeAssemblage(args);
     case 'mapTerritorialization':
       return differenceOntology.mapTerritorialization(args);
+    case 'createProvenanceRecord':
+      return provenance.createRecord(args);
+    case 'nextProvenanceVersion':
+      return { version: provenance.nextVersion(args.version) };
+    case 'validateProvenanceChain':
+      return provenance.validateChain(args.records);
 
     default:
       // Defensive: keep the switch exhaustive for future operations.

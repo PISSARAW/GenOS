@@ -32,7 +32,9 @@ function normalizeConcept(concept) {
     evidenceLevel: concept.evidenceLevel || 'philosophical',
     mapping: concept.mapping || mappingForConcept(concept.id),
     serviceMaturity: maturityForConcept(concept),
-    provenance: concept.provenance || { sourceType: 'genos' }
+    provenance: concept.provenance || {
+      version: '1.0.0', sourceType: 'genos', evidenceStatus: 'documented', interpretationStatus: 'conceptual'
+    }
   };
 }
 

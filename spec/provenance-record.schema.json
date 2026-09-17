@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/provenance-record.schema.json",
+  "title": "ProvenanceRecord",
+  "type": "object",
+  "required": ["apiVersion", "kind", "recordId", "subject", "version", "sourceType", "evidenceStatus", "interpretationStatus"],
+  "properties": {
+    "apiVersion": { "type": "string", "const": "genos.provenance/v1" },
+    "kind": { "type": "string", "const": "ProvenanceRecord" },
+    "recordId": { "type": "string" },
+    "subject": { "type": "object", "required": ["kind", "id"], "properties": { "kind": { "type": "string" }, "id": { "type": "string" } }, "additionalProperties": false },
+    "version": { "type": "string" },
+    "sourceType": { "type": "string", "enum": ["primary", "secondary", "genos", "observation", "inference", "interpretation", "runtime"] },
+    "sourceDocument": { "type": ["string", "null"] },
+    "sourceLocator": { "type": ["string", "null"] },
+    "evidenceStatus": { "type": "string", "enum": ["documented", "observed", "inferred", "interpretive", "verified", "unverified"] },
+    "interpretationStatus": { "type": "string", "enum": ["none", "conceptual", "provisional", "contested", "final"] },
+    "derivedFrom": { "type": "array", "items": { "type": "string" } },
+    "recordedAt": { "type": "string" }
+  },
+  "additionalProperties": false
+}
