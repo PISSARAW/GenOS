@@ -1,0 +1,63 @@
+'use strict';
+
+const L = (id, label, domain, school, service = null, metadata = {}) => ({
+  id, label, domain, school, status: service ? 'partial' : 'planned', service,
+  family: metadata.family || domain,
+  definition: metadata.definition || label,
+  genosDomains: metadata.genosDomains || ['computation', 'epistemics'],
+  aliases: metadata.aliases || [],
+  relations: metadata.relations || [],
+  evidenceLevel: service ? 'operational' : 'philosophical'
+});
+
+const LOGIC_DEFINITIONS = [
+  L('logic.propositional', 'Logique propositionnelle', 'logic', 'classical', 'propositionalLogicService'),
+  L('logic.negation', 'Négation', 'logic', 'classical', 'propositionalLogicService'),
+  L('logic.conjunction', 'Conjonction', 'logic', 'classical', 'propositionalLogicService'),
+  L('logic.disjunction', 'Disjonction', 'logic', 'classical', 'propositionalLogicService'),
+  L('logic.material-conditional', 'Implication matérielle', 'logic', 'classical', 'propositionalLogicService'),
+  L('logic.biconditional', 'Biconditionnelle', 'logic', 'classical', 'propositionalLogicService'),
+  L('logic.truth-table', 'Table de vérité', 'logic', 'classical', 'propositionalLogicService'),
+  L('logic.tautology', 'Tautologie', 'logic', 'classical', 'propositionalLogicService'),
+  L('logic.contradiction', 'Contradiction', 'logic', 'classical', 'propositionalLogicService'),
+  L('logic.equivalence', 'Équivalence logique', 'logic', 'classical', 'propositionalLogicService'),
+  L('logic.first-order', 'Logique du premier ordre', 'logic', 'frege-godel', null),
+  L('logic.quantifier', 'Quantificateurs universel et existentiel', 'logic', 'first-order', null),
+  L('logic.satisfiability', 'Satisfiabilité', 'logic', 'model-theory', null),
+  L('logic.modal', 'Logique modale', 'logic', 'kripke', null),
+  L('logic.possible-worlds', 'Sémantique des mondes possibles', 'logic', 'leibniz-kripke', null),
+  L('logic.kripke-frame', 'Cadre de Kripke', 'logic', 'kripke', null),
+  L('logic.temporal', 'Logique temporelle', 'logic', 'prior', null),
+  L('logic.epistemic', 'Logique épistémique', 'logic', 'hintikka', null),
+  L('logic.deontic', 'Logique déontique', 'logic', 'von-wright', null),
+  L('logic.dynamic', 'Logique dynamique et annonces publiques', 'logic', 'baltag-moss-solecki', null),
+  L('logic.paraconsistent', 'Logique paraconsistante', 'logic', 'priest', null),
+  L('logic.paracomplete', 'Logique paracomplète', 'logic', 'kleene', null),
+  L('logic.intuitionistic', 'Logique intuitionniste', 'logic', 'brouwer-heyt​​ing', null),
+  L('logic.many-valued', 'Logiques à plusieurs valeurs', 'logic', 'lukasiewicz-kleene', null),
+  L('logic.linear', 'Logique linéaire', 'logic', 'girard', null),
+  L('logic.quantum', 'Logique quantique', 'logic', 'birkhoff-von-neumann', null),
+  L('logic.higher-order', 'Logique du second ordre et d’ordre supérieur', 'logic', 'higher-order', null),
+  L('metalogic.soundness', 'Correction d’un système logique', 'metalogic', 'hilbert', null),
+  L('metalogic.completeness', 'Complétude', 'metalogic', 'godel', null),
+  L('metalogic.decidability', 'Décidabilité et indécidabilité', 'metalogic', 'church-turing', null),
+  L('metalogic.godel-first-incompleteness', 'Premier théorème d’incomplétude', 'metalogic', 'godel', null),
+  L('metalogic.godel-second-incompleteness', 'Second théorème d’incomplétude', 'metalogic', 'godel', null),
+  L('truth.tarski-undefinability', 'Indéfinissabilité de la vérité', 'truth', 'tarski', null),
+  L('truth.fixed-point', 'Théorie des points fixes de la vérité', 'truth', 'kripke', null),
+  L('paradox.liar', 'Paradoxe du menteur', 'paradox', 'eubulides-tarski-kripke', null),
+  L('paradox.russell', 'Paradoxe de Russell', 'paradox', 'russell-zf', null),
+  L('paradox.cantor', 'Paradoxe de Cantor', 'paradox', 'cantor', null),
+  L('paradox.burali-forti', 'Paradoxe de Burali-Forti', 'paradox', 'burali-forti', null),
+  L('paradox.grelling-nelson', 'Paradoxe de Grelling-Nelson', 'paradox', 'grelling-nelson', null),
+  L('paradox.berry', 'Paradoxe de Berry', 'paradox', 'berry', null),
+  L('paradox.richard', 'Paradoxe de Richard', 'paradox', 'richard', null),
+  L('paradox.sorites', 'Paradoxe du sorite', 'paradox', 'eubulides', null),
+  L('paradox.zeno', 'Paradoxes de Zénon', 'paradox', 'zeno', null),
+  L('paradox.fitch', 'Paradoxe de la connaissance de Fitch', 'paradox', 'fitch', null),
+  L('paradox.moore', 'Paradoxe de Moore', 'paradox', 'moore', null),
+  L('paradox.curry', 'Paradoxe de Curry', 'paradox', 'curry', null),
+  L('paradox.twin', 'Paradoxe des jumeaux', 'paradox', 'einstein-langevin', null)
+];
+
+module.exports = { LOGIC_DEFINITIONS };
