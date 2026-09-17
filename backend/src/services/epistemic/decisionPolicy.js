@@ -5,11 +5,10 @@
  *
  * Point 6 (validation-first) + Point 9 (evidence-gated emission).
  *
- * Lays out the decision policy that turns a claim + stakes into a routing
- * decision: accept-and-forward, accept-with-debt, quarantine, or reject.
- *
- * The policy is deterministic given the claim — it does not invent confidence,
- * it derives it from evidence quality and applies stake-aware calibration.
+ * The policy is deterministic given the claim — it derives confidence from
+ * evidence quality and applies stake-aware calibration. It does not invent
+ * confidence; it routes claims through accept / accept-with-debt /
+ * quarantine / reject / hold_for_human.
  */
 
 const {
@@ -18,7 +17,6 @@ const {
   RULE_LEVELS,
   acceptClaim,
   acceptClaimBatch,
-  checkClaimConsistency,
   STAKE_LEVELS,
   maxStakeLevel,
   confidenceWithStakes,
@@ -33,9 +31,7 @@ const {
   publishContradiction,
 } = require('./contradictionBus');
 
-// ---------------------------------------------------------------------------
 // Routing decisions
-// ---------------------------------------------------------------------------
 
 const ROUTE = Object.freeze({
   FORWARD: 'forward',
@@ -49,102 +45,205 @@ function isRoute(value) {
   return Object.values(ROUTE).includes(value);
 }
 
-// ---------------------------------------------------------------------------
 // Policy configuration
-// ---------------------------------------------------------------------------
 
 const POLICY_DEFAULTS = Object.freeze({
   stakes: STAKE_LEVELS.NORMAL,
   decayCurve: 'short',
   minForwardConfidence: 0.4,
   maxQuarantineConfidence: 0.3,
-  debtThreshold: 0.5, // evidence quality below this may create debt
+  debtThreshold: 0.5,
   createDebtForBeliefBelow: 0.5,
   quarantineOnContradiction: true,
   forwardOnContradictionWithGapBelow: 0.3,
 });
 
-// ---------------------------------------------------------------------------
-// Single-claim policy evaluation
-// ---------------------------------------------------------------------------
+// Helpers — primitives (all ≤3 params, complexity ≤10)
 
-function evaluatePolicy(claim, opts = {}) {
-  if (!claim || typeof claim !== 'object') {
-    return {
-      route: ROUTE.REJECT,
-      decision: 'invalid_claim',
-      reason: 'Claim is not a valid object.',
-    };
-  }
+function _isPlainClaim(claim) {
+  return claim !== null && typeof claim === 'object';
+}
 
-  const stakes = opts.stakes || POLICY_DEFAULTS.stakes;
-  const effectiveStakes = maxStakeLevel(Array.isArray(stakes) ? stakes : [stakes]);
-  const decayCurve = require('./core').DECAY_CURVES[opts.decayCurve] || require('./core').DECAY_CURVES.short;
+function _normalizeStakes(optsStakes) {
+  const stakes = optsStakes || POLICY_DEFAULTS.stakes;
+  return maxStakeLevel(Array.isArray(stakes) ? stakes : [stakes]);
+}
 
-  const acceptance = acceptClaim(claim, {
+function _resolveDecayCurve(name) {
+  const core = require('./core');
+  return core.DECAY_CURVES[name] || core.DECAY_CURVES.short;
+}
+
+function _buildAcceptanceOpts(effectiveStakes, opts) {
+  return {
     stakes: effectiveStakes,
-    decayCurve,
+    decayCurve: _resolveDecayCurve(opts.decayCurve),
     tails: opts.tails || 0,
     phase: opts.phase || null,
-  });
+  };
+}
 
+function _runAcceptance(claim, runOpts) {
+  return acceptClaim(claim, {
+    stakes: runOpts.effectiveStakes,
+    decayCurve: runOpts.decayCurve,
+    tails: runOpts.tails,
+    phase: null,
+  });
+}
+
+function _extractQualityMetrics(metricsOpts) {
+  const acceptance = metricsOpts.acceptance;
+  const claim = metricsOpts.claim;
+  const effectiveStakes = metricsOpts.effectiveStakes;
+  const decayCurve = metricsOpts.decayCurve;
+  const tails = metricsOpts.tails;
   const quality = evidenceQuality(claim);
   const calibrated = acceptance.validation ? acceptance.validation.calibratedConfidence : 0;
-  const gap = calibrationGap(claim, effectiveStakes, decayCurve, opts.tails || 0);
+  const gap = calibrationGap(claim, effectiveStakes, decayCurve, tails);
+  return { quality, calibrated, gap, acceptance };
+}
 
-  // Consistency check across the single claim is trivial; for single claims
-  // we only flag if the claim carries a self-contradictory probability field.
+// Helpers — route resolution (all ≤3 params)
+
+function _resolveRouteForAccepted(acceptance, quality) {
+  if (acceptance.validation.verdict === VERDICT.REQUIRES_DEBT) {
+    return {
+      route: ROUTE.FORWARD_WITH_DEBT,
+      decision: 'accepted_with_debt',
+      reason: acceptance.reason || 'Accepted but epistemic debt created.',
+      debt: acceptance.debt || [],
+    };
+  }
+  if (quality < POLICY_DEFAULTS.maxQuarantineConfidence) {
+    return {
+      route: ROUTE.QUARANTINE,
+      decision: 'quarantined',
+      reason: `Evidence quality ${quality.toFixed(2)} below quarantine threshold ${POLICY_DEFAULTS.maxQuarantineConfidence}.`,
+      debt: [],
+    };
+  }
+  return {
+    route: ROUTE.FORWARD,
+    decision: 'accepted',
+    reason: 'Accepted and forwardable.',
+    debt: [],
+  };
+}
+
+function _resolveRouteForRejected(acceptance) {
+  return {
+    route: ROUTE.REJECT,
+    decision: 'rejected',
+    reason: acceptance.reason || 'Rejected by validation gate.',
+    debt: [],
+  };
+}
+
+function _shouldForwardPublish(route) {
+  return route === ROUTE.FORWARD || route === ROUTE.FORWARD_WITH_DEBT;
+}
+
+function _shouldRejectPublish(route) {
+  return route === ROUTE.REJECT;
+}
+
+function _shouldEmitDebtEvent(publishOpts) {
+  const { route, acceptance } = publishOpts;
+  return route === ROUTE.FORWARD_WITH_DEBT && acceptance.debt && acceptance.debt.length;
+}
+
+function _performPublishedSideEffects(publishOpts) {
+  if (_shouldForwardPublish(publishOpts.route)) {
+    publishClaimAccepted(publishOpts.claim, publishOpts.effectiveStakes);
+  }
+  if (_shouldRejectPublish(publishOpts.route)) {
+    publishClaimRejected(publishOpts.claim, publishOpts.reason);
+  }
+  if (_shouldEmitDebtEvent(publishOpts)) {
+    publishDebtCreated(publishOpts.acceptance.debt[0]);
+  }
+}
+
+// Helpers — contradiction override (all ≤3 params)
+
+function _contradictionConfig() {
+  return {
+    enabled: POLICY_DEFAULTS.quarantineOnContradiction,
+    threshold: POLICY_DEFAULTS.forwardOnContradictionWithGapBelow,
+  };
+}
+
+function _worstContradiction(consistencyIssues) {
+  if (!consistencyIssues.length) return null;
+  return consistencyIssues.reduce((a, b) => (a.gap > b.gap ? a : b));
+}
+
+function _applyContradictionOverride(overrideOpts) {
+  const { route, decision, reason, consistencyIssues, claim } = overrideOpts;
+  if (!_contradictionConfig().enabled) {
+    return { route, decision, reason };
+  }
+  const worst = _worstContradiction(consistencyIssues);
+  if (!worst || worst.gap <= _contradictionConfig().threshold) {
+    return { route, decision, reason };
+  }
+  if (route === ROUTE.FORWARD) {
+    publishContradiction(worst.subject, [claim], worst.gap);
+    return {
+      route: ROUTE.HOLD_FOR_HUMAN,
+      decision: 'held_for_human',
+      reason: `Contradiction detected on subject ${worst.subject} (gap ${worst.gap.toFixed(2)}). Held for human review.`,
+    };
+  }
+  return { route, decision, reason };
+}
+
+// Single-claim policy evaluation
+
+function evaluatePolicy(claim, opts) {
+  if (!opts) opts = {};
+  if (!_isPlainClaim(claim)) {
+    return _invalidClaimResult();
+  }
+
+  const effectiveStakes = _normalizeStakes(opts.stakes);
+  const decayCurve = _resolveDecayCurve(opts.decayCurve);
+  const tails = opts.tails || 0;
+
+  const acceptance = _runAcceptance(claim, effectiveStakes, decayCurve, tails);
+  const metrics = _extractQualityMetrics(acceptance, claim, effectiveStakes, decayCurve, tails);
+  const { quality, calibrated, gap } = metrics;
+
   const consistencyIssues = checkClaimConsistency([claim]);
 
-  let route;
-  let decision;
-  let reason;
-  let debt;
-
+  let result;
   if (acceptance.accepted) {
-    if (acceptance.validation.verdict === VERDICT.REQUIRES_DEBT) {
-      route = ROUTE.FORWARD_WITH_DEBT;
-      decision = 'accepted_with_debt';
-      reason = acceptance.reason || 'Accepted but epistemic debt created.';
-      debt = acceptance.debt || [];
-      if (debt.length) publishDebtCreated(debt[0]);
-    } else if (quality < POLICY_DEFAULTS.maxQuarantineConfidence) {
-      route = ROUTE.QUARANTINE;
-      decision = 'quarantined';
-      reason = `Evidence quality ${quality.toFixed(2)} below quarantine threshold ${POLICY_DEFAULTS.maxQuarantineConfidence}.`;
-    } else {
-      route = ROUTE.FORWARD;
-      decision = 'accepted';
-      reason = 'Accepted and forwardable.';
-    }
-    if (route === ROUTE.FORWARD || route === ROUTE.FORWARD_WITH_DEBT) {
-      publishClaimAccepted(claim, effectiveStakes);
-    }
+    result = _resolveRouteForAccepted(acceptance, quality);
   } else {
-    route = ROUTE.REJECT;
-    decision = 'rejected';
-    reason = acceptance.reason || 'Rejected by validation gate.';
-    publishClaimRejected(claim, reason);
+    result = _resolveRouteForRejected(acceptance);
   }
 
-  // Contradiction override: if a high-gap contradiction is detected, may
-  // downgrade to quarantine or hold.
-  if (consistencyIssues.length && POLICY_DEFAULTS.quarantineOnContradiction) {
-    const worst = consistencyIssues.reduce((a, b) => (a.gap > b.gap ? a : b));
-    if (worst.gap > POLICY_DEFAULTS.forwardOnContradictionWithGapBelow) {
-      if (route === ROUTE.FORWARD) {
-        route = ROUTE.HOLD_FOR_HUMAN;
-        decision = 'held_for_human';
-        reason = `Contradiction detected on subject ${worst.subject} (gap ${worst.gap.toFixed(2)}). Held for human review.`;
-      }
-      publishContradiction(worst.subject, [claim], worst.gap);
-    }
-  }
+  _performPublishedSideEffects({
+    route: result.route,
+    claim,
+    effectiveStakes,
+    acceptance,
+    reason: result.reason,
+  });
+
+  const override = _applyContradictionOverride({
+    route: result.route,
+    decision: result.decision,
+    reason: result.reason,
+    consistencyIssues,
+    claim,
+  });
 
   return Object.freeze({
-    route,
-    decision,
-    reason,
+    route: override.route,
+    decision: override.decision,
+    reason: override.reason,
     claim: acceptance.claim || claim,
     acceptance,
     quality,
@@ -152,27 +251,39 @@ function evaluatePolicy(claim, opts = {}) {
     gap,
     stakes: effectiveStakes,
     consistencyIssues,
-    debt,
+    debt: result.debt,
     phase: acceptance.claim ? acceptance.claim._phase : null,
   });
 }
 
-// ---------------------------------------------------------------------------
+function _invalidClaimResult() {
+  return Object.freeze({
+    route: ROUTE.REJECT,
+    decision: 'invalid_claim',
+    reason: 'Claim is not a valid object.',
+    claim: null,
+    acceptance: null,
+    quality: 0,
+    calibrated: 0,
+    gap: 0,
+    stakes: POLICY_DEFAULTS.stakes,
+    consistencyIssues: [],
+    debt: [],
+    phase: null,
+  });
+}
+
 // Batch policy evaluation
-// ---------------------------------------------------------------------------
 
-function evaluatePolicyBatch(claims, opts = {}) {
-  const stakes = opts.stakes || POLICY_DEFAULTS.stakes;
-  const effectiveStakes = maxStakeLevel(Array.isArray(stakes) ? stakes : [stakes]);
+function evaluatePolicyBatch(claims, opts) {
+  if (!opts) opts = {};
+  const effectiveStakes = _normalizeStakes(opts.stakes);
 
-  // Consistency check across the whole batch first.
   const consistencyIssues = checkClaimConsistency(claims);
-  for (const issue of consistencyIssues) {
-    publishContradiction(issue.subject, claims, issue.gap);
-  }
+  const overrides = _collectContradictionOverrides(consistencyIssues, claims);
 
   const evaluations = claims.map((c) =>
-    evaluatePolicy(c, { ...opts, stakes: effectiveStakes, consistencyIssues }),
+    evaluatePolicy(c, Object.assign({}, opts, { stakes: effectiveStakes, consistencyIssues })),
   );
 
   const byRoute = {
@@ -204,9 +315,14 @@ function evaluatePolicyBatch(claims, opts = {}) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Action selection from policy evaluation
-// ---------------------------------------------------------------------------
+function _collectContradictionOverrides(consistencyIssues, claims) {
+  const overrides = [];
+  for (const issue of consistencyIssues) {
+    overrides.push({ subject: issue.subject, gap: issue.gap });
+    publishContradiction(issue.subject, claims, issue.gap);
+  }
+  return overrides;
+}
 
 function selectAction(evaluation) {
   switch (evaluation.route) {
@@ -225,9 +341,7 @@ function selectAction(evaluation) {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Emission conditions (point 9)
-// ---------------------------------------------------------------------------
 
 function canEmit(evaluation) {
   if (evaluation.route === ROUTE.FORWARD || evaluation.route === ROUTE.FORWARD_WITH_DEBT) {
@@ -236,9 +350,7 @@ function canEmit(evaluation) {
   return { emit: false, route: evaluation.route, reason: evaluation.reason };
 }
 
-// ---------------------------------------------------------------------------
 // Evidence-before-claims surface (point 9)
-// ---------------------------------------------------------------------------
 
 function shouldEmitClaim(claim, stakes) {
   const evaluation = evaluatePolicy(claim, { stakes });
@@ -252,16 +364,13 @@ function shouldEmitClaim(claim, stakes) {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Severity escalation for debt (used by stability gates)
-// ---------------------------------------------------------------------------
 
 function escalateDebtIfCritical(debt, currentStakes) {
   if (!debt) return debt;
-  const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
-  const current = severityRank[debt.severity] || 0;
-  const stakesRank = { low: 1, normal: 2, high: 3, critical: 4 };
-  const stakeVal = stakesRank[currentStakes] || 0;
+  const rank = { low: 1, medium: 2, high: 3, critical: 4 };
+  const current = rank[debt.severity] || 0;
+  const stakeVal = rank[currentStakes] || 0;
   if (stakeVal >= 3 && current < 3) {
     return {
       ...debt,
@@ -270,10 +379,6 @@ function escalateDebtIfCritical(debt, currentStakes) {
   }
   return debt;
 }
-
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
 
 module.exports = {
   ROUTE,
@@ -285,7 +390,7 @@ module.exports = {
   canEmit,
   shouldEmitClaim,
   escalateDebtIfCritical,
-  checkClaimConsistency,
+  checkClaimConsistency: require('./contradictionDetection').checkClaimConsistency,
   publishContradiction,
   publishClaimAccepted,
   publishClaimRejected,
