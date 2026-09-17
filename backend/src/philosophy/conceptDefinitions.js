@@ -178,12 +178,12 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('science.godel-incompleteness', 'Théorèmes d’incomplétude et limites formelles', 'science', 'godel', 'planned'),
 
   // Théories de la vérité.
-  C('truth.correspondence', 'Théorie de la correspondance', 'truth', 'russell-early-wittgenstein', 'planned'),
-  C('truth.coherence', 'Théorie de la cohérence', 'truth', 'hegel-bradley-neurath', 'planned'),
-  C('truth.pragmatist', 'Théorie pragmatiste de la vérité', 'truth', 'peirce-james-dewey-rorty', 'planned'),
-  C('truth.deflationary', 'Théories déflationnistes de la vérité', 'truth', 'ramsey-strawson-horwich', 'planned'),
-  C('truth.minimalism', 'Vérité minimaliste / minimalisme', 'truth', 'horwich', 'planned'),
-  C('truth.internal-realism', 'Vérité et conséquences / réalisme interne', 'truth', 'putnam', 'planned'),
+  C('truth.correspondence', 'Théorie de la correspondance', 'truth', 'russell-early-wittgenstein', 'partial', 'truthSkepticismService'),
+  C('truth.coherence', 'Théorie de la cohérence', 'truth', 'hegel-bradley-neurath', 'partial', 'truthSkepticismService'),
+  C('truth.pragmatist', 'Théorie pragmatiste de la vérité', 'truth', 'peirce-james-dewey-rorty', 'partial', 'truthSkepticismService'),
+  C('truth.deflationary', 'Théories déflationnistes de la vérité', 'truth', 'ramsey-strawson-horwich', 'partial', 'truthSkepticismService'),
+  C('truth.minimalism', 'Vérité minimaliste / minimalisme', 'truth', 'horwich', 'partial', 'truthSkepticismService'),
+  C('truth.internal-realism', 'Vérité et conséquences / réalisme interne', 'truth', 'putnam', 'partial', 'truthSkepticismService'),
 
   // Fiabilité, scepticisme et limites de la connaissance.
   C('epistemology.reliabilism', 'Fiabilité cognitive / Reliabilisme', 'epistemology', 'goldman', 'partial', 'epistemics'),
@@ -192,9 +192,9 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('epistemology.virtue-epistemology', 'Virtue epistemology', 'epistemology', 'zagzebski-sosa', 'planned'),
   C('epistemology.intellectual-virtue-vice', 'Vertu / vice intellectuel', 'epistemology', 'virtue-epistemology', 'planned'),
   C('epistemology.causal-theory-knowledge', 'Théorie causale de la connaissance', 'epistemology', 'causal-epistemology', 'planned'),
-  C('epistemology.relativism', 'Relativisme épistémique et culturel', 'epistemology', 'relativism', 'planned'),
-  C('epistemology.skepticism', 'Scepticisme : Pyrrhon, Académiciens, Montaigne, Hume', 'epistemology', 'skepticism', 'planned'),
-  C('epistemology.radical-skepticism', 'Scepticisme radical', 'epistemology', 'contemporary', 'planned'),
+  C('epistemology.relativism', 'Relativisme épistémique et culturel', 'epistemology', 'relativism', 'partial', 'truthSkepticismService'),
+  C('epistemology.skepticism', 'Scepticisme : Pyrrhon, Académiciens, Montaigne, Hume', 'epistemology', 'skepticism', 'partial', 'truthSkepticismService'),
+  C('epistemology.radical-skepticism', 'Scepticisme radical', 'epistemology', 'contemporary', 'partial', 'truthSkepticismService'),
   C('epistemology.cartesian-doubt', 'Doute cartésien / doute méthodique', 'epistemology', 'descartes', 'partial', 'cartesianService'),
 
   // Épistémologie sociale, féministe et critique.
