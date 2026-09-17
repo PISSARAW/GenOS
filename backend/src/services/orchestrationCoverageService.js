@@ -9,7 +9,8 @@ function receiptTools(receipts) {
   const found = new Set();
   for (const receipt of receipts || []) {
     if (receipt.status !== 'completed') continue;
-    for (const tool of String(receipt.tool || '').match(/genos_[a-z_]+/g) || []) found.add(tool);
+    const tool = String(receipt.tool || '').trim();
+    if (/^genos_[a-z0-9_]+$/.test(tool)) found.add(tool);
   }
   return [...found].sort();
 }
@@ -32,15 +33,22 @@ async function auditMission(db, orchestratorId) {
   const receipts = await db.all(`SELECT tool, status FROM orchestration_action_receipts
     WHERE orchestrator_id = ? AND status = 'completed' ORDER BY created_at`, orchestratorId);
   const primitiveTools = await primitiveJournal.observedPrimitiveTools(db, orchestratorId);
-  const used = [...new Set([...receiptTools(receipts), ...primitiveTools])].sort();
+  const verified = [...new Set([...receiptTools(receipts), ...primitiveTools])].sort();
+  const telemetryOnly = observedTools(events).filter((tool) => !verified.includes(tool));
   const required = plan.requiredTools || [];
   const gateTools = [...new Set((plan.decisionGates || []).flatMap((gate) => gate.actions || []))];
   const decisions = events.filter((event) => event.event_type === 'ORCHESTRATION_DECISION').map((event) => event.action);
   return {
-    orchestratorId, protocol: { advertisedTools: MCP_TOOL_COUNT, observedTools: used, observedCount: used.length },
+    orchestratorId,
+    protocol: {
+      advertisedTools: MCP_TOOL_COUNT,
+      observedTools: verified,
+      observedCount: verified.length,
+      telemetryOnlyTools: telemetryOnly
+    },
     strategies: { registryTotal: contract.contract.strategy_registry?.total, evaluated: contract.contract.strategy_decisions?.length || 0, selected: contract.contract.strategy_portfolio?.map((item) => item.id) || [] },
-    orchestration: { requiredTools: required, missingRequiredTools: required.filter((tool) => !used.includes(tool)), decisionGateTools: gateTools, decisions },
-    verdict: required.every((tool) => used.includes(tool)) ? 'required-coverage-complete' : 'required-coverage-incomplete'
+    orchestration: { requiredTools: required, missingRequiredTools: required.filter((tool) => !verified.includes(tool)), decisionGateTools: gateTools, decisions },
+    verdict: required.every((tool) => verified.includes(tool)) ? 'required-coverage-complete' : 'required-coverage-incomplete'
   };
 }
 

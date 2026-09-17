@@ -18,7 +18,7 @@ async function run() {
     { tool: 'genos_snapshot', status: 'completed' },
     { tool: 'genos_replay', status: 'failed' },
     { tool: 'primitives: genos_merge,genos_diagnose', status: 'completed' }
-  ]), ['genos_diagnose', 'genos_merge', 'genos_snapshot']);
+  ]), ['genos_snapshot']);
   console.log('  ✅ Extraction des outils observés validée.');
 
   console.log('\n=== TEST 2: Audit complet de mission via auditMission() ===');
@@ -55,6 +55,7 @@ async function run() {
   );
   const mentionOnlyAudit = await auditMission(db, testOrchId);
   assert.equal(mentionOnlyAudit.verdict, 'required-coverage-incomplete');
+  assert(mentionOnlyAudit.protocol.telemetryOnlyTools.includes('genos_replay'));
 
   await primitiveJournal.recordPrimitiveExecution(db, {
     orchestratorId: testOrchId,
@@ -131,4 +132,3 @@ run()
     await closeDatabase();
     process.exit(1);
   });
-
