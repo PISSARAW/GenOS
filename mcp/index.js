@@ -45,7 +45,7 @@ const server = new Server(
   { name: "genos-mcp", version: "3.0.0" },
   { capabilities: { tools: {} } }
 );
-const samplingBroker = await createSamplingBroker(server);
+const samplingBroker = await createSamplingBroker(server, ALL_TOOLS);
 
 function resolveGenosBin() {
   const isWin = process.platform === "win32";
@@ -137,9 +137,9 @@ async function runOrchestrator(payload) {
   }
   return runExecutable({
     cmd: process.execPath,
-    args: [bridge, JSON.stringify({ executor: 'caller_mcp', provider: process.env.GENOS_MCP_PROVIDER || 'mcp-host', ...payload })],
+    args: [bridge, JSON.stringify({ ...payload, executor: 'caller_mcp', provider: payload.provider || process.env.GENOS_MCP_PROVIDER || 'mcp-host' })],
     cwd: workingDir,
-    env: { ...process.env, GENOS_MCP_SAMPLING_URL: samplingBroker.url, GENOS_MCP_SAMPLING_TOKEN: samplingBroker.token }
+    env: { ...process.env, GENOS_MCP_SAMPLING_URL: samplingBroker.url, GENOS_MCP_TOOL_URL: samplingBroker.toolUrl, GENOS_MCP_SAMPLING_TOKEN: samplingBroker.token }
   });
 }
 
@@ -153,6 +153,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: getFilteredTools(),
 }));
 
+const handleToolCall = createToolCallHandler({ runOrchestrator, runGenosCli, executeStrategyTool: strategyTools.executeStrategyTool });
+samplingBroker.setToolHandler((input) => handleToolCall({ params: input }));
+
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name } = request.params;
   if (!toolIsLeased(name, ALL_TOOLS)) return {
@@ -160,7 +163,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     isError: true,
     _meta: { code: 'MCP_TOOL_LEASE_DENIED' }
   };
-  return createToolCallHandler({ runOrchestrator, runGenosCli, executeStrategyTool: strategyTools.executeStrategyTool })(request);
+  return handleToolCall(request);
 });
 
 const transport = new StdioServerTransport();
