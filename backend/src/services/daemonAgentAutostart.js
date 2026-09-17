@@ -128,6 +128,12 @@ function getAutostartStatus() {
     return { platformSupported: false, enabled: false, autostartFile: null, config: getDaemonConfig() };
   }
 
+  let writable = false;
+  try {
+    fs.accessSync(startupDir, fs.constants.W_OK);
+    writable = true;
+  } catch (_) {}
+
   const newFile = path.join(startupDir, 'GenOS_Sentinel_Daemon.bat');
   const legacyFile = path.join(startupDir, 'Griot_Daemon.bat');
 
@@ -139,6 +145,7 @@ function getAutostartStatus() {
     enabled: newExists || legacyExists,
     autostartFile: newExists ? newFile : (legacyExists ? legacyFile : newFile),
     legacyFound: legacyExists,
+    writable,
     config: getDaemonConfig()
   };
 }
@@ -151,6 +158,17 @@ function enableAutostart(customConfig = {}) {
   const startupDir = getStartupDirectory();
   if (!startupDir) {
     return { success: false, reason: 'STARTUP_DIR_NOT_FOUND' };
+  }
+
+  try {
+    fs.accessSync(startupDir, fs.constants.W_OK);
+  } catch (err) {
+    return {
+      success: false,
+      reason: 'STARTUP_DIR_NOT_WRITABLE',
+      error: err.code || err.message,
+      startupDir
+    };
   }
 
   try {
@@ -182,7 +200,12 @@ function enableAutostart(customConfig = {}) {
     return { success: true, autostartFile, config };
   } catch (err) {
     console.error(`❌ [GenOS Daemon] Erreur lors de l'activation de l'auto-démarrage : ${err.message}`);
-    throw err;
+    return {
+      success: false,
+      reason: 'AUTOSTART_WRITE_FAILED',
+      error: err.code || err.message,
+      autostartFile
+    };
   }
 }
 
@@ -207,7 +230,12 @@ function disableAutostart() {
     return { success: true, removedCount: removed, config };
   } catch (err) {
     console.error(`❌ [GenOS Daemon] Erreur lors de la désactivation : ${err.message}`);
-    throw err;
+    return {
+      success: false,
+      reason: 'AUTOSTART_REMOVE_FAILED',
+      error: err.code || err.message,
+      startupDir
+    };
   }
 }
 

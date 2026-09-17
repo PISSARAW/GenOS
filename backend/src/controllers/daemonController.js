@@ -26,13 +26,15 @@ function configure(req, res, next) {
     if (typeof openTerminalOnStartup === 'boolean') updates.openTerminalOnStartup = openTerminalOnStartup;
     if (typeof enabled === 'boolean') updates.enabled = enabled;
 
-    const saved = daemon.saveDaemonConfig(updates);
+    const saved = daemon.saveDaemonConfig({ ...updates, ...(enabled === true ? { enabled: false } : {}) });
     if (typeof enabled === 'boolean') {
-      if (enabled) daemon.enableAutostart(saved);
-      else daemon.disableAutostart();
+      const autostart = enabled ? daemon.enableAutostart(saved) : daemon.disableAutostart();
+      if (!autostart.success) {
+        return res.json({ success: false, config: daemon.getDaemonConfig(), autostart });
+      }
     }
 
-    res.json({ success: true, config: saved });
+    res.json({ success: true, config: daemon.getDaemonConfig() });
   } catch (err) {
     next(err);
   }

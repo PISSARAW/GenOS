@@ -10,6 +10,7 @@ const analyst = require('../src/services/proactiveGitHubAnalyst');
 const daemon = require('../src/services/daemonAgentAutostart');
 const controller = require('../src/controllers/daemonController');
 const { getDatabase, closeDatabase } = require('../src/db');
+const startupTestDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'genos-startup-'));
 
 async function runTests() {
   console.log('=== TEST 1: Script d\'Urgence Apoptose (genos-apoptosis.cjs) ===');
@@ -89,6 +90,8 @@ async function runTests() {
 
   // Cycle d'auto-démarrage Windows
   if (process.platform === 'win32') {
+    const previousStartupDir = process.env.GENOS_STARTUP_DIR;
+    process.env.GENOS_STARTUP_DIR = startupTestDir;
     const enableRes = daemon.enableAutostart({ name: 'Kofi' });
     assert.equal(enableRes.success, true);
     assert(fs.existsSync(enableRes.autostartFile), 'Le script .bat doit exister dans Startup');
@@ -107,6 +110,8 @@ async function runTests() {
     // Ré-activation pour laisser le système opérationnel
     daemon.enableAutostart({ name: 'Sekou' });
     console.log('  ✅ Auto-démarrage ré-activé proprement avec configuration opérationnelle.');
+    if (previousStartupDir === undefined) delete process.env.GENOS_STARTUP_DIR;
+    else process.env.GENOS_STARTUP_DIR = previousStartupDir;
   }
 
   console.log('\n=== TEST 4: Contrôleur API (daemonController) ===');

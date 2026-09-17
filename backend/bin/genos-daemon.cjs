@@ -136,12 +136,22 @@ function printAutostartStatus() {
 
 function printEnableResult() {
   const res = enableAutostart();
-  console.log(`Auto-démarrage activé:`, res.autostartFile || 'OK');
+  if (res.success) {
+    console.log(`Auto-démarrage activé:`, res.autostartFile || 'OK');
+    return;
+  }
+  console.error(`Auto-démarrage non activé (${res.reason || 'UNKNOWN_ERROR'}).`);
+  process.exitCode = 1;
 }
 
 function printDisableResult() {
   const res = disableAutostart();
-  console.log(`Auto-démarrage désactivé. Scripts retirés: ${res.removedCount || 0}`);
+  if (res.success) {
+    console.log(`Auto-démarrage désactivé. Scripts retirés: ${res.removedCount || 0}`);
+    return;
+  }
+  console.error(`Auto-démarrage non désactivé (${res.reason || 'UNKNOWN_ERROR'}).`);
+  process.exitCode = 1;
 }
 
 function printScanBanner(config, useColor) {
@@ -294,9 +304,6 @@ function runDaemon(flags, config) {
     console.warn(`[${config.name}] Invalid checkIntervalMinutes (${config.checkIntervalMinutes}), using ${intervalMinutes} minute(s).`);
   }
   const intervalMs = intervalMinutes * 60 * 1000;
-  if (rawInterval !== intervalMinutes) {
-    console.warn(`[${config.name}] Invalid checkIntervalMinutes (${config.checkIntervalMinutes}), using ${intervalMinutes} minute(s).`);
-  }
   console.log(`[${config.name}] Daemon active; next cycle in ${intervalMinutes} minute(s).`);
   createDaemonTimer(config, flags, intervalMs);
 }
