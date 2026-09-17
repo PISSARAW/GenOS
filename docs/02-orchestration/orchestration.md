@@ -683,14 +683,31 @@ Le point fort du système est qu’il est “honest” : il ne prétend pas qu�
 
 ---
 
-## 19.bis Le crate Rust `genos-orchestrator` (noyau de coordination et de décision)
+## 19.bis Le crate Rust `genos-orchestrator` (noyau biomimétique local)
 
 Le backend orchestre les missions via des services JS ; le crate Rust
 [`crates/genos-orchestrator`](../../crates/genos-orchestrator) est le **noyau
-biomimétique** : coordination d'agents, décision autonome, perception,
+biomimétique local** : simulation d'écosystème, décision, perception,
 diagnostic et résilience. Il est régi par une boucle cognitive unique et
 expose une façade (`GenosEcosystem`) donnant accès à l'ensemble des crates
 GenOS.
+
+### 19.bis.0 Frontière opérationnelle
+
+Le chemin d'orchestration de production est le backend Node.js :
+[`backend/bin/genos-orchestrate.cjs`](../../backend/bin/genos-orchestrate.cjs)
+prépare le contrat, les budgets et l'autorité, puis
+[`agentRuntimeAdapter`](../../backend/src/services/agentRuntimeAdapter) lance et
+supervise le runtime. Les événements, les rapports d'évidence et les décisions
+de promotion sont persistés dans le backend.
+
+Le crate Rust ne lance pas de processus externe, ne crée pas de worktree et ne
+constitue pas une preuve d'exécution d'une mission. `tick`, `run` et
+`execute_concepts` mutent l'écosystème Rust en mémoire ; leurs effets sont des
+résultats de simulation tant qu'un adaptateur backend ne les relie pas à une
+mission supervisée et à des preuves persistées. Les métaphores biologiques
+décrivent donc des heuristiques de contrôle, pas des capacités noyau ou une
+validation automatique du livrable.
 
 ### 19.bis.1 Boucle cognitive (`tick` / `run`)
 
