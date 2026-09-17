@@ -69,6 +69,7 @@ Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 - [memoire-et-apprentissage.md](01-concepts/memoire-et-apprentissage.md) — mémoire épisodique/sémantique, vector search, STDP.
 - [intelligence-de-nuee.md](01-concepts/intelligence-de-nuee.md) — phéromones, consensus, quorum, stigmergie.
 - [fossilisation.md](01-concepts/fossilisation.md) — archive stratigraphique terminale des lignées.
+- [philosophie-des-mathematiques.md](01-concepts/philosophie-des-mathematiques.md) — objets mathématiques, fondements, infini et preuve.
 
 ### 2. Biomimétisme spécialisé
 

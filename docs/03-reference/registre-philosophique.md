@@ -11,6 +11,9 @@ routeur philosophique et MCP. Il décrit des concepts, leurs relations, leur
 provenance et leur niveau de maturité. Il ne constitue pas une base de vérité
 philosophique et ne confère aucune autorité d'exécution.
 
+Le sous-domaine `mathematics` est documenté dans
+[philosophie des mathématiques](../01-concepts/philosophie-des-mathematiques.md).
+
 ## Sources de vérité
 
 | Élément | Source |
