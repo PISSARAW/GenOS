@@ -2,12 +2,18 @@ function coalesce(primary, fallback) {
   return primary != null ? primary : fallback;
 }
 
-function parsePositiveNumber(value, fallback) {
+function parsePositiveNumber(value, fallback, label) {
   if (value !== undefined && value !== null && (!Number.isFinite(Number(value)) || Number(value) <= 0)) {
-    throw Object.assign(new Error('Budget values must be finite and strictly positive.'), { code: 'INVALID_BUDGET_VALUE', value });
+    throw Object.assign(new Error(`Budget ${label} must be finite and strictly positive.`), { code: 'INVALID_BUDGET_VALUE', value, label });
   }
   const num = Number(value);
-  return Number.isFinite(num) && num > 0 ? num : fallback;
+  if (!Number.isFinite(num) || num <= 0) {
+    if (process.env.GENOS_DEBUG_BUDGET !== '0') {
+      console.warn(`[BudgetCoherence] Budget ${label} is missing or invalid (${value}), using default: ${fallback}`);
+    }
+    return fallback;
+  }
+  return num;
 }
 
 function clampShare(value, fallback) {

@@ -19,7 +19,9 @@ const biomeCoordinationService = require('./biomeCoordinationService');
 async function applyOrganization({ db, orchestratorId, organization, reason }) {
   if (!organization) return;
   const dynamicOrganization = require('./dynamicOrganizationService');
-  await dynamicOrganization.changeOrganization(db, { orchestratorId, organization, reason, changedBy: orchestratorId }).catch(() => {});
+  dynamicOrganization.changeOrganization(db, { orchestratorId, organization, reason, changedBy: orchestratorId }).catch((err) => {
+    console.error(`[BiologicalTopology] Error applying organization '${organization}' for ${orchestratorId}:`, err.message);
+  });
 }
 
 async function composeMode(input = {}) {
