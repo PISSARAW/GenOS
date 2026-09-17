@@ -6,9 +6,14 @@ const { closeDatabase, getDatabase } = require('../src/db');
 const spinozaService = require('../src/services/spinozaService');
 
 let passed = 0, failed = 0;
+let testChain = Promise.resolve();
 async function test(name, fn) {
-  try { await fn(); passed++; console.log(`  ✓ ${name}`); }
-  catch (err) { failed++; console.log(`  ✗ ${name}: ${err.message}`); }
+  const run = testChain.then(async () => {
+    try { await fn(); passed++; console.log(`  ✓ ${name}`); }
+    catch (err) { failed++; console.log(`  ✗ ${name}: ${err.message}`); }
+  });
+  testChain = run;
+  return run;
 }
 
 async function main() {
@@ -59,6 +64,7 @@ async function main() {
       assert.strictEqual(m.substanceCount, 2);
     });
 
+    await testChain;
     console.log(`\n${passed} passed, ${failed} failed\n`);
   } finally {
     await closeDatabase();
