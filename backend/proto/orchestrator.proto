@@ -8,5 +8,12 @@ service OrchestratorService {
 
 message Empty {}
 message PingResponse { string status = 1; }
-message WorkerRequest { string orchestrator_id = 1; string worker_id = 2; string prompt = 3; }
+message WorkerRequest {
+  string orchestrator_id = 1;
+  string worker_id = 2;
+  string prompt = 3;
+  string workspace_id = 4;
+  string model_tier = 5;
+  int32 timeout_ms = 6;
+}
 message WorkerResponse { bool success = 1; string status = 2; int32 garage_slot = 3; }
