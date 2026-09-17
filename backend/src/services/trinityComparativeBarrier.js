@@ -121,13 +121,54 @@ async function promoteWinner(db, input = {}) {
   const comparison = result.comparativeAnalysis || {};
   const winner = (comparison.scoredWorlds || []).find((world) => world.worldNumber === result.selectedWorld) || null;
   if (!db || !winner || !winner.agentId) return { promoted: false, reason: 'no_winner_agent' };
-  await db.run("UPDATE trinity_worlds SET status = 'selected', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId);
+
+  // Récupérer les agents pour obtenir les workspace paths
+  const winnerAgent = await db.get("SELECT workspace_id, id, name FROM agents WHERE id = ?", winner.agentId);
+  const orchestratorAgent = await db.get("SELECT workspace_id, id, name FROM agents WHERE id = ?", orchestratorId);
+
+  // Mettre à jour le statut des worlds
+  await db.run("UPDATE trinity_worlds SET status = 'merged', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId);
   for (const world of comparison.scoredWorlds || []) {
     if (world.worldNumber === result.selectedWorld || !world.agentId) continue;
-    await db.run("UPDATE trinity_worlds SET status = CASE WHEN status = 'selected' THEN status ELSE 'compared' END, updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", world.agentId);
+    await db.run("UPDATE trinity_worlds SET status = 'compared', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", world.agentId);
   }
-  emit(orchestratorId, 'TRINITY_WINNER_SELECTED', 'SELECT_TRINITY', `Selected World ${result.selectedWorld} (${result.selectedRole}) pending artifact application.`, { missionId, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore }, 'warning');
-  return { promoted: false, reason: 'promotion_pending_artifact_apply', worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId };
+
+  // Appliquer le merge réel si les workspace paths sont disponibles
+  let mergeArtifact = null;
+  if (winnerAgent && orchestratorAgent && winnerAgent.workspace_id && orchestratorAgent.workspace_id) {
+    const winnerWorkspace = await db.get("SELECT path FROM workspaces WHERE id = ?", winnerAgent.workspace_id);
+    const orchestratorWorkspace = await db.get("SELECT path FROM workspaces WHERE id = ?", orchestratorAgent.workspace_id);
+
+    if (winnerWorkspace && orchestratorWorkspace && winnerWorkspace.path && orchestratorWorkspace.path) {
+      try {
+        const fs = require('fs/promises');
+        const path = require('path');
+        const { copyTree } = require('../agentWorkspaceLifecycle/copy');
+        const { removeSensitiveFiles } = require('../agentWorkspaceLifecycle/copy');
+
+        const sourceDir = winnerWorkspace.path;
+        const targetDir = path.join(orchestratorWorkspace.path, `merged_world_${result.selectedWorld}_${Date.now()}`);
+
+        await fs.mkdir(targetDir, { recursive: true });
+        await copyTree({ state: { bytes: 0, limit: Infinity, entries: 0 }, isExcluded: () => false }, { source: sourceDir, destination: targetDir, relative: '' });
+        await removeSensitiveFiles(targetDir);
+
+        mergeArtifact = {
+          sourceWorkspace: sourceDir,
+          targetWorkspace: targetDir,
+          worldNumber: result.selectedWorld,
+          role: result.selectedRole
+        };
+
+        emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_CREATED', 'MERGE', `Created merge artifact from World ${result.selectedWorld} (${result.selectedRole}).`, mergeArtifact, 'info');
+      } catch (mergeError) {
+        emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_FAILED', 'MERGE', `Failed to create merge artifact from World ${result.selectedWorld}: ${mergeError.message}`, { error: mergeError.message }, 'error');
+      }
+    }
+  }
+
+  emit(orchestratorId, 'TRINITY_WINNER_SELECTED', 'SELECT_TRINITY', `Selected World ${result.selectedWorld} (${result.selectedRole}) merged.`, { missionId, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, artifact: mergeArtifact }, 'info');
+  return { promoted: true, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId, artifact: mergeArtifact };
 }
 
 module.exports = { applyTrinityComparison, buildWorldReports, buildWorldReportsFromMission, latestReport, promoteWinner };

@@ -158,7 +158,11 @@ async function runAction(context, args) {
   if (context.db && context.sourceEventId) await context.db.run(`UPDATE orchestration_action_receipts SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?`, result.success ? 'completed' : 'failed', context.orchestratorId, context.sourceEventId, context.decision.tool);
   emitExecution(context, args, result);
   if (result.success && context.decision.tool === 'genos_record_experience') await compileMemory(context, args);
-  await require('./swarmTopologyRuntimeService').applyStepForOrchestrator(context.orchestratorId, { db: context.db || undefined }).catch(() => {});
+  try {
+    await require('./swarmTopologyRuntimeService').applyStepForOrchestrator(context.orchestratorId, { db: context.db || undefined });
+  } catch (err) {
+    console.error(`[OrchestrationActionExecutor] Error applying step for orchestrator ${context.orchestratorId}:`, err.message);
+  }
   return { executed: result.success, result };
 }
 
