@@ -289,6 +289,12 @@ async function handleChildClose(ctx, code, signal) {
     });
   } catch (err) {
     console.error(`[AgentSupervisor] Error finalizing agent process close for ${agentId}:`, err);
+    try {
+      await updateAgent(agentId, 'error', `Runtime finalization failed: ${err.message}`);
+      ctx.emitTracked('AGENT_FINALIZATION_ERROR', 'FINALIZATION', err.message, { code, signal }, 'error', 'error');
+    } catch (persistErr) {
+      console.error(`[AgentSupervisor] Could not persist finalization failure for ${agentId}:`, persistErr);
+    }
   } finally {
     try {
       await dispatchWorkerRecovery(agentId);
