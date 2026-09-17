@@ -22,6 +22,8 @@ const WORKER_BASE_LEASE = [
   'genos_organization_state',
   'genos_worker_publish',
   'genos_worker_inbox',
+  // Read-only ontology/philosophy registry and bounded evaluations.
+  'genos_philosophy',
   // Privileged review and security tools are added only for exact roles below.
 ];
 
@@ -51,6 +53,7 @@ const ORCHESTRATOR_CORE_LEASE = [
   'genos_organization_state',
   'genos_worker_publish',
   'genos_worker_inbox',
+  'genos_philosophy',
   'genos_report_progress'
 ];
 

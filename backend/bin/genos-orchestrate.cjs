@@ -55,7 +55,14 @@ const allowFileEdits = policyRequest.allow_file_edits === true;
 // This bridge creates a root authority boundary. A delegated worker must never
 // be able to enter it, even if a globally configured/public GenOS MCP endpoint
 // accidentally leaks into the worker's Codex process.
-const workerSafeActions = new Set(['organization_publish', 'organization_inbox', 'organization_state']);
+const workerSafeActions = new Set([
+  'organization_publish',
+  'organization_inbox',
+  'organization_state',
+  // Philosophy is a bounded registry/query surface; workers must not recurse
+  // into orchestration, but may use this read-only MCP action.
+  'philosophy'
+]);
 if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' && !workerSafeActions.has(action)) {
   const owner = process.env.GENOS_ORCHESTRATOR_AGENT_ID || 'its orchestrator';
   const msg = `GenOS worker recursion blocked: delegated workers must return evidence to ${owner}, not create another orchestrator.`;
