@@ -155,11 +155,11 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('school.situated-knowledges', 'Savoirs situés / Situated knowledges', 'schools', 'haraway', 'planned'),
 
   // Raisonnement et méthode.
-  C('method.induction', 'Induction', 'methods', 'hume', 'planned'),
+  C('method.induction', 'Induction', 'methods', 'hume', 'partial', 'inferenceService'),
   C('method.induction-problem', 'Problème de l’induction', 'methods', 'hume-wittgenstein', 'planned'),
-  C('method.deduction', 'Déduction et logique déductive', 'methods', 'logic', 'planned'),
-  C('method.abduction', 'Abduction', 'methods', 'peirce', 'planned'),
-  C('method.inference-best-explanation', 'Inférence à la meilleure explication', 'methods', 'peirce', 'planned'),
+  C('method.deduction', 'Déduction et logique déductive', 'methods', 'logic', 'partial', 'inferenceService'),
+  C('method.abduction', 'Abduction', 'methods', 'peirce', 'partial', 'inferenceService'),
+  C('method.inference-best-explanation', 'Inférence à la meilleure explication', 'methods', 'peirce', 'partial', 'inferenceService'),
   C('method.hypothetico-deductive', 'Méthode hypothético-déductive', 'methods', 'science-method', 'planned'),
   C('method.surprise-predictivism', 'Surprise et predictivism', 'methods', 'predictivism', 'planned'),
   C('method.dutch-book', 'Arguments Dutch book et cohérence', 'methods', 'ramsey-de-finetti', 'planned'),
