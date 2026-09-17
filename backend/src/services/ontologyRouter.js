@@ -23,6 +23,7 @@ const semiotics = require('./philosophy/semioticsService');
 const poetics = require('./philosophy/poeticsService');
 const deconstruction = require('./philosophy/deconstructionService');
 const hermeneutics = require('./philosophy/hermeneuticsService');
+const differenceOntology = require('./philosophy/differenceOntologyService');
 
 const KNOWN_OPERATIONS = new Set([
   // Being
@@ -70,6 +71,11 @@ const KNOWN_OPERATIONS = new Set([
   'interpretHermeneutically',
   'analyzeSuspicion',
   'analyzeNarrative',
+  'analyzeDifference',
+  'analyzeRepetition',
+  'createRhizome',
+  'analyzeAssemblage',
+  'mapTerritorialization',
 ]);
 
 function normalizeArgs(request) {
@@ -339,6 +345,16 @@ async function handleOntologyRequest({ request, orchestratorId }) {
       return hermeneutics.analyzeSuspicion(args);
     case 'analyzeNarrative':
       return hermeneutics.analyzeNarrative(args);
+    case 'analyzeDifference':
+      return differenceOntology.analyzeDifference(args);
+    case 'analyzeRepetition':
+      return differenceOntology.analyzeRepetition(args);
+    case 'createRhizome':
+      return differenceOntology.createRhizome(args);
+    case 'analyzeAssemblage':
+      return differenceOntology.analyzeAssemblage(args);
+    case 'mapTerritorialization':
+      return differenceOntology.mapTerritorialization(args);
 
     default:
       // Defensive: keep the switch exhaustive for future operations.

@@ -12,6 +12,7 @@ const semiotics = require('../src/services/philosophy/semioticsService');
 const poetics = require('../src/services/philosophy/poeticsService');
 const deconstruction = require('../src/services/philosophy/deconstructionService');
 const hermeneutics = require('../src/services/philosophy/hermeneuticsService');
+const differenceOntology = require('../src/services/philosophy/differenceOntologyService');
 
 assert.equal(semantic.analyzeExpression({ expression: 'étoile du matin' }).status, 'structured');
 assert.equal(semantic.resolveReference({ expression: 'Vénus', context: { Vénus: 'planet-2' } }).reference, 'planet-2');
@@ -62,5 +63,10 @@ assert.equal(interpretation.status, 'provisional');
 assert.equal(interpretation.fusionOfHorizons.possible, true);
 assert.equal(hermeneutics.analyzeSuspicion({ text: 'Le texte', author: 'freud' }).status, 'hypothesis');
 assert.equal(hermeneutics.analyzeNarrative({ events: ['départ', 'retour'] }).kind, 'NarrativeConfiguration');
+assert.equal(differenceOntology.analyzeDifference({ first: { x: 1 }, second: { x: 2 } }).differences[0], 'x');
+assert.equal(differenceOntology.analyzeRepetition({ events: [{ n: 1 }, { n: 2 }] }).differenceProduced, true);
+assert.equal(differenceOntology.createRhizome({ nodes: [{ id: 'a' }, { id: 'b' }], edges: [{ from: 'a', to: 'b' }] }).status, 'graph_model');
+assert.equal(differenceOntology.analyzeAssemblage({ components: [{ kind: 'agent' }, { kind: 'rule' }] }).heterogenous, true);
+assert.equal(differenceOntology.mapTerritorialization({ operation: 'deterritorialize', intensity: 0.8 }).status, 'transformation');
 
 console.log('Philosophy concept module tests passed.');
