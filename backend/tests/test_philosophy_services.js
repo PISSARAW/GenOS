@@ -15,12 +15,18 @@ const platonismService = require('../src/services/platonismService');
 const aristotelianService = require('../src/services/aristotelianService');
 const stoicismService = require('../src/services/stoicismService');
 const epicureanService = require('../src/services/epicureanService');
+const scholastiqueService = require('../src/services/scholastiqueService');
 const cartesianService = require('../src/services/cartesianService');
 
 let passed = 0, failed = 0;
+let testChain = Promise.resolve();
 async function test(name, fn) {
-  try { await fn(); passed++; console.log(`  ✓ ${name}`); }
-  catch (err) { failed++; console.log(`  ✗ ${name}: ${err.message}`); }
+  const run = testChain.then(async () => {
+    try { await fn(); passed++; console.log(`  ✓ ${name}`); }
+    catch (err) { failed++; console.log(`  ✗ ${name}: ${err.message}`); }
+  });
+  testChain = run;
+  return run;
 }
 async function main() {
   const dbPath = path.join(__dirname, `philosophy-test-${Date.now()}.db`);
@@ -361,6 +367,7 @@ async function main() {
       assert.strictEqual(cd.true, true);
       assert.strictEqual(cd.criterion, 'claire et distincte');
     });
+    await testChain;
     console.log(`\n${passed} passed, ${failed} failed\n`);
   } finally {
     await closeDatabase();

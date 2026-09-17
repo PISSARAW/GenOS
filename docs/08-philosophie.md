@@ -355,16 +355,19 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 │  └── Cogito: "Je pense, donc je suis" (certitude absolue)    │
 ├─────────────────────────────────────────────────────────────┤
 │  Leibnizianism                                               │
-│  ├── Monade: substance simple, indévisível                   │
+│  ├── Monade: substance simple, indévisible                   │
 │  ├── Harmonie préétablie: coordination sans interaction      │
 │  └── Principe de raison suffisante: "nihil est sine ratione"│
-<<<<<<< HEAD
-=======
 ├─────────────────────────────────────────────────────────────┤
 │  Spinozism                                                  │
 │  ├── Deus sive Natura: monisme — une seule substance        │
 │  ├── Conatus: effort de persistance en être                 │
-│  └── Attributs: Pensée (cognition) et Étendue (workspace)  │
+│  └── Attributs: Pensée (cognition) et Étendue (workspace)   │
+├─────────────────────────────────────────────────────────────┤
+│  Réalisme / Nominalisme / Conceptualisme                    │
+│  ├── Réalisme: universaux indépendants de l'esprit          │
+│  ├── Nominalisme: seuls les particuliers existent            │
+│  └── Conceptualisme: universaux comme concepts mentaux       │
 └─────────────────────────────────────────────────────────────┘
 ```
 

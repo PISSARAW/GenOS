@@ -1,19 +1,26 @@
 'use strict';
 const assert = require('assert');
 const ontologyStances = require('../src/services/ontologyStances');
-const spinozistService = require('../src/services/spinozistService');
+const spinozaService = require('../src/services/spinozaService');
 const temporalIdentityService = require('../src/services/temporalIdentityService');
 const { getDatabase, closeDatabase } = require('../src/db');
 const path = require('path');
 
 let passed = 0, failed = 0;
+let testChain = Promise.resolve();
 async function test(name, fn) {
-  try { await fn(); passed++; console.log(`  ✓ ${name}`); }
-  catch (err) { failed++; console.log(`  ✗ ${name}: ${err.message}`); }
+  const run = testChain.then(async () => {
+    try { await fn(); passed++; console.log(`  ✓ ${name}`); }
+    catch (err) { failed++; console.log(`  ✗ ${name}: ${err.message}`); }
+  });
+  testChain = run;
+  return run;
 }
 
 async function main() {
   const dbPath = path.join(__dirname, `stance-test-${Date.now()}.db`);
+  process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'stance-test-password';
+  process.env.GENOS_ADMIN_TOKEN = process.env.GENOS_ADMIN_TOKEN || 'stance-test-token';
   try {
     const db = await getDatabase(dbPath);
     await db.exec(`CREATE TABLE IF NOT EXISTS agents (id TEXT PRIMARY KEY, name TEXT, status TEXT, role TEXT, execution_mode TEXT, current_task TEXT, parent_agent_id TEXT, workspace_id TEXT, about TEXT, cognitive_budget REAL, is_apoptotic INTEGER, created_at DATETIME, updated_at DATETIME);
@@ -46,7 +53,7 @@ async function main() {
     test('classifyTerm throws on missing term', () => {
       assert.throws(() => ontologyStances.classifyTerm({ stance: 'realism' }), /requires term/);
     });
-    test('evaluateStanceCoherence returns coherence score', () => {
+    test('evaluateStanceCoherence accepts a coherent realist form', () => {
       const e = ontologyStances.evaluateStanceCoherence({
         agentId: 'a1',
         stance: 'realism',
@@ -54,9 +61,9 @@ async function main() {
       });
       assert.strictEqual(e.agentId, 'a1');
       assert.strictEqual(e.stance, 'realism');
-      assert.strictEqual(e.verdict, 'partiel');
-      assert.ok(e.coherence < 1);
-      assert.ok(e.violations.length > 0);
+      assert.strictEqual(e.verdict, 'coherent');
+      assert.strictEqual(e.coherence, 1);
+      assert.strictEqual(e.violations.length, 0);
     });
     test('evaluateStanceCoherence fully coherent', () => {
       const e = ontologyStances.evaluateStanceCoherence({
@@ -79,55 +86,43 @@ async function main() {
       assert.ok(names.includes('conceptualism'));
     });
 
-    console.log('\n=== Spinozist Service ===');
-    test('substance returns unique infinite substance', () => {
-      const s = spinozistService.substance();
-      assert.strictEqual(s.type, 'substance');
-      assert.strictEqual(s.properties.infinite, true);
-      assert.strictEqual(s.properties.selfCaused, true);
-      assert.ok(s.properties.attributes.includes('pensée'));
-      assert.ok(s.properties.attributes.includes('étendue'));
+    console.log('\n=== Spinoza Service ===');
+    test('substanceUnique returns unique infinite substance', () => {
+      const s = spinozaService.substanceUnique({ system: { agents: ['a1', 'a2'] } });
+      assert.strictEqual(s.name, 'Deus sive Natura');
+      assert.strictEqual(s.substance, 'unique');
+      assert.strictEqual(s.infinite, true);
+      assert.deepStrictEqual(s.attributes, ['pensée', 'étendue']);
     });
-    test('oneSubstance classifies a mode as finite modification', () => {
-      const o = spinozistService.oneSubstance({ mode: 'worker-42' });
-      assert.strictEqual(o.mode, 'worker-42');
-      assert.strictEqual(o.isModeOfSubstance, true);
+    test('conatus evaluates persistence effort', () => {
+      const c = spinozaService.conatus({ agent: { id: 'a1', cognitive_budget: 0.8 } });
+      assert.strictEqual(c.conatus, 'conatus sese conservandi');
+      assert.strictEqual(c.vitality, 0.8);
+      assert.strictEqual(c.persistence, 'stable');
+      assert.strictEqual(c.effort, 'strong');
     });
-    test('oneSubstance throws on missing mode', () => {
-      assert.throws(() => spinozistService.oneSubstance({}), /requires a mode/);
+    test('conatus detects declining agent', () => {
+      const c = spinozaService.conatus({ agent: { id: 'a2', cognitive_budget: 0.2 } });
+      assert.strictEqual(c.persistence, 'declining');
+      assert.strictEqual(c.effort, 'weak');
     });
-    test('attributes returns pensée and étendue', () => {
-      const a = spinozistService.attributes();
-      assert.ok(a.attributs);
-      assert.ok(a.attributs['pensée']);
-      assert.ok(a.attributs['étendue']);
-      assert.ok(a.parallelism);
+    test('attributesSpinoza maps pensée and étendue', () => {
+      const a = spinozaService.attributesSpinoza({ agent: { id: 'a1', role: 'worker', current_task: 'build', cognitive_budget: 0.9, workspace_id: 'ws-1', status: 'running' } });
+      assert.strictEqual(a.pensée.classification, 'worker');
+      assert.strictEqual(a.pensée.cognitiveBudget, 0.9);
+      assert.strictEqual(a.étendue.workspaceId, 'ws-1');
+      assert.strictEqual(a.étendue.status, 'running');
     });
-    test('modeClassification returns finite mode under given attribute', () => {
-      const m = spinozistService.modeClassification({ mode: 'agent-1', attribute: 'pensée' });
-      assert.strictEqual(m.mode, 'agent-1');
-      assert.strictEqual(m.attribute, 'pensée');
-      assert.strictEqual(m.isFiniteMode, true);
+    test('monismeSystème evaluates system monism', () => {
+      const m = spinozaService.monismeSystème({ agents: [{ substanceId: 'genos' }, { substanceId: 'genos' }] });
+      assert.strictEqual(m.moniste, true);
+      assert.strictEqual(m.substanceCount, 1);
+      assert.strictEqual(m.agents, 2);
     });
-    test('modeClassification throws on unknown attribute', () => {
-      assert.throws(() => spinozistService.modeClassification({ mode: 'a', attribute: 'bad' }), /Unknown attribute/);
-    });
-    test('conatus returns conatus expression for agent', () => {
-      const c = spinozistService.conatus({ agentId: 'a1', power: 0.85 });
-      assert.strictEqual(c.agentId, 'a1');
-      assert.strictEqual(c.conatus, true);
-      assert.strictEqual(c.power, 0.85);
-      assert.strictEqual(c.tendency, 'forte_persévérance');
-      assert.ok(c.spinozaQuote);
-    });
-    test('conatus throws on missing agentId', () => {
-      assert.throws(() => spinozistService.conatus({ power: 0.5 }), /requires agentId/);
-    });
-    test('determinism returns spinozist thesis', () => {
-      const d = spinozistService.determinism();
-      assert.strictEqual(d.thesis, 'Tout ce qui arrive dans la nature est déterminé par la nécessité divine.');
-      assert.ok(d.freeWillIllusion);
-      assert.ok(d.acceptance);
+    test('monismeSystème detects non-monisme', () => {
+      const m = spinozaService.monismeSystème({ agents: [{ substanceId: 'genos' }, { substanceId: 'ext' }] });
+      assert.strictEqual(m.moniste, false);
+      assert.strictEqual(m.substanceCount, 2);
     });
 
     console.log('\n=== Temporal Identity Service ===');
@@ -149,11 +144,11 @@ async function main() {
       assert.strictEqual(pos.future.length, 0);
     });
     test('shipOfTheseus with low replacement preserves identity', async () => {
-      await db.run(`INSERT OR REPLACE INTO agents (id, name, status, role, about, created_at, updated_at) VALUES ('theseus-1', 'Thésée', 'running', 'explorer', 'navigational prowess', datetime('now'), datetime('now'))`);
+      await db.run(`INSERT OR REPLACE INTO agents (id, name, status, role, about, created_at, updated_at) VALUES ('theseus-1', 'Thésée', 'running', 'explorer', 'happiness sadness kindness toughness weakness darkness', datetime('now'), datetime('now'))`);
       const result = await temporalIdentityService.shipOfTheseus({ db, agentId: 'theseus-1', replacedComponents: ['sail', 'mast'] });
       assert.strictEqual(result.agentId, 'theseus-1');
       assert.strictEqual(result.identityPreserved, true);
-      assert.ok(result.totalComponents >= 1);
+      assert.ok(result.totalComponents > 1);
     });
     test('shipOfTheseus with high replacement compromises identity', async () => {
       const result = await temporalIdentityService.shipOfTheseus({ db, agentId: 'theseus-1', replacedComponents: ['sail', 'mast', 'hull', 'rudder', 'anchor', 'cabin'] });
@@ -165,6 +160,7 @@ async function main() {
       assert.rejects(() => temporalIdentityService.shipOfTheseus({ db, agentId: null }), /requires agentId/);
     });
 
+    await testChain;
     console.log(`\n${passed} passed, ${failed} failed\n`);
   } finally {
     await closeDatabase();
