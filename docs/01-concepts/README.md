@@ -12,6 +12,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [genome-et-epigenetique.md](genome-et-epigenetique.md) — génome, chromatine, mutation, stabilité.
 - [runtime-agentique.md](runtime-agentique.md) — runtime agentique, états, garde-fous.
 - [epistemologie-et-evidence.md](epistemologie-et-evidence.md) — preuves, croyance, succès ≠ vérité.
+- [savoir-et-epistemologie.md](savoir-et-epistemologie.md) — savoir, croyance, Gettier, inférence, vérité et épistémologie sociale.
 - [instinct.md](instinct.md) — circuits innés, Patrons d'Action Fixes, modulation hormonale.
 - [agent-dna-runtime.md](agent-dna-runtime.md) — format binaire AgentDNA et opérations.
 - [speciation-graft-autonome.md](speciation-graft-autonome.md) — flux autonome complet : identification du besoin → speciate/graft → évaluation → promotion → déploiement.

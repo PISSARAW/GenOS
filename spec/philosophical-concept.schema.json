@@ -9,6 +9,8 @@
     "kind": { "type": "string", "const": "PhilosophicalConcept" },
     "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
     "label": { "type": "string", "minLength": 1 },
+    "family": { "type": "string", "minLength": 1 },
+    "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "labels": {
       "type": "object",
       "additionalProperties": {
@@ -42,6 +44,20 @@
     },
     "claims": { "type": "array", "items": { "type": "string" } },
     "adapters": { "type": "array", "items": { "type": "string" } },
+    "evidenceLevel": {
+      "type": "string",
+      "enum": ["philosophical", "conceptual", "empirical", "operational"]
+    },
+    "mapping": {
+      "type": ["object", "null"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["analogy", "service", "data", "experiment"] },
+        "target": { "type": "string" },
+        "note": { "type": "string" }
+      },
+      "required": ["kind", "target"],
+      "additionalProperties": false
+    },
     "provenance": {
       "type": "object",
       "properties": {

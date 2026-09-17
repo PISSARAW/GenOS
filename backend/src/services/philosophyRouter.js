@@ -1,12 +1,14 @@
 'use strict';
 
-const definitions = require('../philosophy/conceptDefinitions').CONCEPT_DEFINITIONS;
+const { validateRegistry, registryHealth: conceptRegistryHealth } = require('../philosophy/conceptRegistry');
 const ontologyRouter = require('./ontologyRouter');
+
+const registry = validateRegistry();
+const definitions = registry.concepts;
 
 const OPERATIONS = Object.freeze([
   'listConcepts', 'getConcept', 'registryHealth', 'evaluateConcept', 'queryOntology'
 ]);
-const VALID_STATUSES = new Set(['implemented', 'partial', 'planned']);
 const conceptMap = new Map(definitions.map((concept) => [concept.id, concept]));
 
 function copy(value) {
@@ -26,20 +28,10 @@ function getConcept(id) {
 }
 
 function registryHealth() {
-  const ids = definitions.map((concept) => concept.id);
-  const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
-  const invalidStatuses = definitions
-    .filter((concept) => !VALID_STATUSES.has(concept.status))
-    .map((concept) => concept.id);
-  const missingIds = definitions
-    .filter((concept) => !concept.id || typeof concept.id !== 'string')
-    .map((concept) => concept.label || '<unknown>');
+  const health = conceptRegistryHealth();
   return {
-    valid: !duplicateIds.length && !invalidStatuses.length && !missingIds.length,
+    ...health,
     conceptCount: conceptMap.size,
-    duplicateIds,
-    invalidStatuses,
-    missingIds,
   };
 }
 
@@ -76,6 +68,12 @@ const ADAPTERS = {
   'school.cartesianism': ({ args }) => callService('cartesianService', 'dualism', { agent: args.agent }),
   'school.leibnizianism': ({ args }) => callService('leibnizianService', 'monadologie', { agent: args.agent }),
   'school.spinozism': ({ args }) => callService('spinozaService', 'substanceUnique', { system: args.system || { agents: [] } }),
+  'school.newtonianism': ({ args }) => callService('newtonianService', args.operation || 'espaceAbsolu', args),
+  'school.kantianism': ({ args }) => callService('kantianService', args.operation || 'categoriesAPriori', args),
+  'school.hegelianism': ({ args }) => callService('hegelianService', args.operation || 'absoluteGeist', args),
+  'school.schopenhauer': ({ args }) => callService('schopenhauerService', args.operation || 'willRepresentation', args),
+  'school.nietzsche': ({ args }) => callService('nietzscheService', args.operation || 'willToPower', args),
+  'school.bergsonism': ({ args }) => callService('bergsonService', args.operation || 'duree', args),
   'causality.determination': ({ args }) => callService('causalityService', 'computeNecessity', args),
   'causality.counterfactuals': ({ args }) => callService('causalityService', 'simulateCounterfactual', args),
   'ontology.stances': ({ args }) => callService('ontologyStances', 'classifyTerm', args),
@@ -84,6 +82,9 @@ const ADAPTERS = {
   'process.deleuze-difference': ({ args }) => callService('processPhilosophyService', 'differenceAndRepetition', args.events || []),
   'process.badiou-event': ({ args }) => callService('contingencyService', 'badiouEvent', args),
   'process.sartrean-existence': ({ args }) => callService('phenomenologyService', 'existencePrecedesEssence', args),
+  'time.newtonian': ({ args }) => callService('newtonianService', args.operation || 'tempsAbsolu', args),
+  'time.duration': ({ args }) => callService('bergsonService', 'duree', args),
+  'process.bergsonian-vital-impulse': ({ args }) => callService('bergsonService', args.operation || 'elanVital', args),
   'metaphysics.qualia': ({ args }) => callService('consciousnessService', 'recordQualia', args),
   'metaphysics.reference-intentionality': ({ args }) => callService('phenomenologyService', 'intentionality', args),
 };

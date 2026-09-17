@@ -13,6 +13,22 @@ assert.equal(concept.apiVersion, 'genos.philosophy/v1');
 assert.equal(concept.kind, 'PhilosophicalConcept');
 assert.ok(Array.isArray(concept.relations));
 assert.ok(Array.isArray(concept.adapters));
+assert.equal(concept.family, concept.domain);
+assert.deepEqual(concept.aliases, []);
+assert.equal(concept.evidenceLevel, 'philosophical');
+assert.equal(concept.mapping, null);
+
+const enriched = normalizeConcept({
+  ...CONCEPT_DEFINITIONS[0],
+  family: 'being',
+  aliases: ['ens'],
+  evidenceLevel: 'operational',
+  mapping: { kind: 'service', target: 'ontologyCore', note: 'runtime mapping' }
+});
+assert.equal(enriched.family, 'being');
+assert.deepEqual(enriched.aliases, ['ens']);
+assert.equal(enriched.evidenceLevel, 'operational');
+assert.equal(enriched.mapping.target, 'ontologyCore');
 
 const invalid = validateRegistry([{ ...CONCEPT_DEFINITIONS[0], id: 'Invalid ID' }]);
 assert.equal(invalid.valid, false);

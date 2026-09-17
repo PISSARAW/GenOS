@@ -11,7 +11,10 @@ async function main() {
   const concepts = router.listConcepts({ domain: 'causality' });
   assert.ok(concepts.length >= 4);
   assert.ok(concepts.every((concept) => concept.domain === 'causality'));
-  assert.strictEqual(router.getConcept('ontology.being').status, 'implemented');
+  const being = router.getConcept('ontology.being');
+  assert.strictEqual(being.status, 'implemented');
+  assert.strictEqual(being.apiVersion, 'genos.philosophy/v1');
+  assert.strictEqual(being.kind, 'PhilosophicalConcept');
 
   const platonic = await router.handlePhilosophyRequest({
     request: { operation: 'evaluateConcept', arguments: { concept: 'school.platonism', formName: 'perfect_agent' } },
@@ -20,7 +23,7 @@ async function main() {
   assert.strictEqual(platonic.result.id, 'perfect_agent');
 
   const planned = await router.handlePhilosophyRequest({
-    request: { operation: 'evaluateConcept', arguments: { concept: 'school.newtonianism' } },
+    request: { operation: 'evaluateConcept', arguments: { concept: 'ontology.person-other' } },
   });
   assert.strictEqual(planned.supported, false);
   assert.strictEqual(planned.status, 'planned');
