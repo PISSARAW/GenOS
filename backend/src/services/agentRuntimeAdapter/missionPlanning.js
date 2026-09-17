@@ -62,7 +62,7 @@ function computeRuntimeBudget(ctx) {
   const runtimeBudget = autonomyPlan
     ? {
       ...normalizedRuntimeBudget,
-      tokens: Math.max(0, Math.floor(autonomyPlan.tokenPolicy.total * autonomyPlan.tokenPolicy.orchestratorReserve))
+      tokens: Math.max(1, Math.floor(autonomyPlan.tokenPolicy.total * autonomyPlan.tokenPolicy.orchestratorReserve))
     }
     : normalizedRuntimeBudget;
   const budgetCheck = validateBudgetCoherence({

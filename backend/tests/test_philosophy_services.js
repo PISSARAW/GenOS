@@ -14,6 +14,7 @@ const contingencyService = require('../src/services/contingencyService');
 const platonismService = require('../src/services/platonismService');
 const aristotelianService = require('../src/services/aristotelianService');
 const stoicismService = require('../src/services/stoicismService');
+const epicureanService = require('../src/services/epicureanService');
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -324,11 +325,37 @@ async function main() {
       assert.ok(f.uncontrollable.includes('events'));
     });
     test('virtueAssessment rates 4 cardinal virtues', () => {
-      const v = stoicismService.virtueAssessment({ agent: { id: 'a1', wisdom: 0.9, courage: 0.8, temperance: 0.7, justice: 0.9 } });
+      const v = stoicismService.virtueAssessment({ agent: { id: 'agent-1', wisdom: 0.9, courage: 0.8, temperance: 0.7, justice: 0.9 } });
       assert.strictEqual(v.virtues.wisdom.score, 0.9);
       assert.strictEqual(v.virtues.courage.score, 0.8);
       assert.strictEqual(v.virtues.temperance.score, 0.7);
       assert.strictEqual(v.virtues.justice.score, 0.9);
+    });
+
+    console.log('\n=== Epicurean Service ===');
+    test('atomSchema returns atomic composition', () => {
+      const a = epicureanService.atomSchema({ agent: { id: 'a1' } });
+      assert.strictEqual(a.agentId, 'a1');
+      assert.ok(a.atoms.corps);
+      assert.ok(a.atoms.âme);
+      assert.ok(a.atoms.esprit);
+      assert.ok(a.vide);
+    });
+    test('sensationCriteria evaluates truth by sensation', () => {
+      const s = epicureanService.sensationCriteria({ sensation: { clarity: 'clear', intensity: 'strong' } });
+      assert.strictEqual(s.truthValue, 'true');
+      assert.strictEqual(s.criterion, 'sensation');
+    });
+    test('ataxia evaluates mental tranquility', () => {
+      const at = epicureanService.ataxia({ agent: { id: 'a1', cognitive_budget: 0.9 } });
+      assert.strictEqual(at.ataraxie, true);
+      assert.strictEqual(at.tranquility, 0.9);
+    });
+    test('therapy returns fear therapies', () => {
+      const t = epicureanService.therapy();
+      assert.strictEqual(t.therapies.length, 4);
+      assert.ok(t.ataraxie);
+      assert.ok(t.aponia);
     });
 
     console.log(`\n${passed} passed, ${failed} failed\n`);

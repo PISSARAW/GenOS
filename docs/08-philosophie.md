@@ -166,7 +166,22 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 
 `backend/src/services/stoicismService.js`
 
-## 12. Contingence et Événement — Meillassoux, Badiou
+## 12. Épicurisme — Atomes, vide, sensations
+
+### Concepts
+
+- **Atomes** : particules atomiques indévisibles qui composent toute chose
+- **Vide** : l'espace vide dans lequel se meuvent les atomes
+- **Sensations** : critères de vérité (ce qui est vrai est ce qui est senti)
+- **Ataraxie** : absence de trouble de l'esprit (but de la vie épicurienne)
+- **Aponia** : absence de douleur du corps
+- **Philosophie** : thérapie de l'esprit (les doctrines libèrent des peurs)
+
+### Fichier
+
+`backend/src/services/epicureanService.js`
+
+## 13. Contingence et Événement — Meillassoux, Badiou
 
 ### Concepts
 
