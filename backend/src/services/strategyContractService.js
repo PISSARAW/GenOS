@@ -102,7 +102,7 @@ function buildStrategyContract(input = {}) {
       preserve_rejected_branches: true,
       merge_workspace_automatically: false
     },
-    philosophy: philosophicalGuard.buildContext(input.philosophy || input.philosophicalContext || input.philosophicalConcepts),
+    philosophy: philosophicalGuard.buildContext(input.philosophy || input.philosophyContext || input.philosophy_context || input.philosophicalContext || input.philosophicalConcepts),
     observability: ['events', 'cost_usd', 'tokens', 'latency_ms', 'tool_receipts', 'lineage', 'diff']
   };
 }

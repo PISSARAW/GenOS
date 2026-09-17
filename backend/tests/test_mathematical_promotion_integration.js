@@ -20,16 +20,16 @@ assert.equal(contract.promotion.require_human_approval, true);
 
 const blocked = evaluatePromotionGate(contract, {});
 assert.equal(blocked.eligible, false);
-assert.ok(blocked.violations.some((item) => item.policy === 'philosophy_provenance'));
+assert.ok(blocked.violations.some((item) => item.policy === 'interpretive_philosophy_requires_verified_evidence'));
 
 const record = buildMemoryRecord({
   agentId: 'worker-mathematics',
   task: 'Evaluate a mathematical ontology claim',
   summary: 'The conclusion remains interpretive.',
-  options: { philosophy: contract.philosophical_context, claims: [] }
+  options: { philosophy: contract.philosophy, claims: [] }
 });
 assert.equal(record.category, 'InterpretiveExperience');
-assert.equal(record.philosophy.interpretive, true);
+assert.equal(record.philosophy.interpretationStatus, 'interpretive');
 assert.match(record.content, /PHILOSOPHICAL_CONTEXT/);
 
 console.log('Mathematical philosophy promotion integration: PASS');
