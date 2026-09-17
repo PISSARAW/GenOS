@@ -9,6 +9,9 @@ const broker = await createSamplingBroker({
 const result = await request(broker.url, broker.token, { params: { messages: [], maxTokens: 3 } });
 assert.equal(result.content[0].text, 'ok');
 assert.equal(calls[0].maxTokens, 3);
+broker.setToolHandler(async (input) => ({ name: input.name, accepted: true }));
+const tool = await request(broker.toolUrl, broker.token, { name: 'genos_worker_inbox', arguments: {} });
+assert.equal(tool.accepted, true);
 await broker.close();
 console.log('Sampling broker tests passed.');
 

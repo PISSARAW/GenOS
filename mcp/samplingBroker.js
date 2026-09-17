@@ -6,16 +6,24 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-export function createSamplingBroker(server) {
+export function createSamplingBroker(server, tools = []) {
   const token = crypto.randomBytes(24).toString('hex');
+  let toolHandler = null;
   const listener = http.createServer(async (req, res) => {
-    if (req.method !== 'POST' || req.url !== '/sample' || req.headers.authorization !== `Bearer ${token}`) {
+    if (req.method !== 'POST' || !['/sample', '/tool'].includes(req.url) || req.headers.authorization !== `Bearer ${token}`) {
       json(res, 404, { error: 'sampling endpoint unavailable' });
       return;
     }
     try {
       const input = JSON.parse(await readBody(req));
-      const result = await server.createMessage(input.params || input);
+      if (req.url === '/tool') {
+        if (!toolHandler) throw new Error('MCP tool bridge is not ready.');
+        json(res, 200, { result: await toolHandler(input) });
+        return;
+      }
+      const params = { ...(input.params || input) };
+      if (!params.tools && tools.length) params.tools = tools;
+      const result = await server.createMessage(params);
       json(res, 200, { result });
     } catch (error) {
       json(res, 502, { error: error.message });
@@ -25,7 +33,8 @@ export function createSamplingBroker(server) {
     listener.once('error', reject);
     listener.listen(0, '127.0.0.1', () => {
       const address = listener.address();
-      resolve({ url: `http://127.0.0.1:${address.port}/sample`, token, close: () => listener.close() });
+      const root = `http://127.0.0.1:${address.port}`;
+      resolve({ url: `${root}/sample`, toolUrl: `${root}/tool`, token, setToolHandler: (handler) => { toolHandler = handler; }, close: () => listener.close() });
     });
   });
 }
