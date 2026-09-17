@@ -5,6 +5,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { getDatabase, closeDatabase } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
+const { createOrchestratorId } = require('../src/services/orchestratorIdFactory');
 const contracts = require('../src/services/strategyContractService');
 const workerGarage = require('../src/services/workerGarageService');
 const aTeamService = require('../src/services/aTeamService');
@@ -100,8 +101,8 @@ async function prepareRuntime(initDb) {
     );
     if (active) orchestratorId = active.id;
   }
-  if (!orchestratorId) orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  if (!id) id = action === 'dispatch_worker' ? `worker_${orchestratorId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` : orchestratorId;
+  if (!orchestratorId) orchestratorId = createOrchestratorId('mcp_orchestrator');
+  if (!id) id = action === 'dispatch_worker' ? createOrchestratorId(`worker_${orchestratorId}`) : orchestratorId;
 }
 
 async function executeMission(db, state) {

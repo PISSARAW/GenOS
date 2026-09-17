@@ -1,6 +1,7 @@
 const path = require('path');
 const { spawn } = require('child_process');
 const runtime = require('../src/services/agentRuntimeAdapter');
+const { createOrchestratorId } = require('../src/services/orchestratorIdFactory');
 const contracts = require('../src/services/strategyContractService');
 const workerGarage = require('../src/services/workerGarageService');
 const aTeamService = require('../src/services/aTeamService');
@@ -44,7 +45,7 @@ async function handleBackground(context) {
       if (reusableWorker) context.id = reusableWorker.id;
     } finally { await context.closeDatabase(); }
   }
-  const detachedProcessId = `orchestrator-runner-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const detachedProcessId = createOrchestratorId('orchestrator-runner');
   const runnerRequest = {
     ...context.request, background: false, detachedProcessId,
     orchestratorId: context.orchestratorId,
@@ -169,7 +170,7 @@ async function handleOrganizationRead({ db, request, action, orchestratorId }) {
 async function ensureParent({ db, context }) {
   let parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", context.orchestratorId);
   if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status))) {
-    context.orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    context.orchestratorId = createOrchestratorId('mcp_orchestrator');
     await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
       VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, context.orchestratorId, context.task);
     parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", context.orchestratorId);
@@ -197,7 +198,7 @@ function workerLaunchPayload({ context, member, workerId, parent }) {
 }
 
 function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
-  const workerId = suppliedWorkerId || `worker_${context.orchestratorId}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`;
+  const workerId = suppliedWorkerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
   const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(workerLaunchPayload({ context, member, workerId, parent }))], { cwd: context.repoRoot, detached: true, stdio: getRunnerStdio(workerId) });
   runner.unref();
   return { workerId, subSystem: member.subSystem, memberNumber: member.memberNumber || index, role: member.role, modelTier: member.modelTier, status: 'accepted' };
@@ -237,7 +238,7 @@ async function handleTrinity({ db, context }) {
   const missionId = `trinity_${context.orchestratorId}_${Date.now()}`;
   const accepted = [];
   for (const member of members) {
-    const workerId = `worker_${context.orchestratorId}_${Date.now()}_${member.worldNumber}_${Math.random().toString(36).slice(2, 6)}`;
+    const workerId = createOrchestratorId(`worker_${context.orchestratorId}_${member.worldNumber}`);
     const trinityName = `Trinity Worker (World ${member.worldNumber}: ${member.label})`;
     await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, 'queued', ?)`, `${missionId}_world_${member.worldNumber}`, mission, member.worldNumber, trinityName, member.role, workerId);
     launchWorker({ context, member: { ...member, name: trinityName }, index: member.worldNumber, parent, suppliedWorkerId: workerId });

@@ -12,6 +12,7 @@ const {
   activeWorkerBarriers, emit, updateAgent, workerToolLease
 } = require('../agentOrchestrationState');
 const { createIsolatedWorkspace, cleanupWorkspace } = require('../agentWorkspaceLifecycleService');
+const { createOrchestratorId } = require('../orchestratorIdFactory');
 const agentEvolution = require('../agentEvolutionService');
 const { getDatabase, withTransaction } = require('../../db');
 const { MAX_RECOVERY_DISPATCH_ATTEMPTS } = require('./constants');
@@ -105,7 +106,7 @@ function resolveRecoveryTarget(input) {
   const sameIdentity = decision.identity === 'same';
   const targetId = sameIdentity
     ? sourceAgentId
-    : `worker_${orchestratorId}_recovery_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    : createOrchestratorId(`worker_${orchestratorId}_recovery`);
   const role = firstTruthy(decision.role, source.role, mission.role, 'recovery_specialist');
   const prompt = workerRecovery.recoveryPrompt(report, decision);
   const name = workerGarage.workerName({ role, mission: `${decision.action}: ${report.mission}` });
