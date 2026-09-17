@@ -3,6 +3,12 @@
 const MATURITY_LEVELS = Object.freeze(['implemented', 'partial', 'conceptual', 'planned']);
 
 const SERVICE_MATURITY = Object.freeze({
+  propositionalLogicService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Sémantique propositionnelle classique bornée par tables de vérité.' },
+  modalLogicService: { level: 'partial', executable: true, evidence: 'tests', note: 'Évaluation bornée sur cadres de Kripke.' },
+  deonticDynamicLogicService: { level: 'partial', executable: true, evidence: 'tests', note: 'Analyse descriptive des devoirs et annonces publiques.' },
+  nonClassicalLogicService: { level: 'partial', executable: true, evidence: 'tests', note: 'Valeurs de vérité bornées ; aucune promotion automatique.' },
+  metalogicService: { level: 'conceptual', executable: true, evidence: 'tests', note: 'Analyse de méta-langage sans preuve générale.' },
+  paradoxAnalysisService: { level: 'conceptual', executable: true, evidence: 'tests', note: 'Comparaison de solutions aux paradoxes.' },
   ontologyCore: { level: 'implemented', executable: true, evidence: 'tests', note: 'Être, substance et identité runtime.' },
   ontologyAttributes: { level: 'implemented', executable: true, evidence: 'tests', note: 'Attributs et historique des changements.' },
   ontologyModes: { level: 'implemented', executable: true, evidence: 'tests', note: 'Modes et transitions d’exécution.' },
