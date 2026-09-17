@@ -174,7 +174,8 @@ async function finalizeChildClose({
   const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer, missionDomainState);
   const persistedAgent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', agentId);
   const apoptosisTerminal = isApoptosisTerminal(persistedAgent);
-  const shouldEmit = shouldEmitCloseOutcome({ terminalEventSeen, termination, operatorStop, apoptosisTerminal });
+  const domainDowngradeRequired = persistedAgent.status === 'completed' && outcome.status === 'unverified';
+  const shouldEmit = domainDowngradeRequired || shouldEmitCloseOutcome({ terminalEventSeen, termination, operatorStop, apoptosisTerminal });
   if (shouldEmit) {
     await updateAgent(agentId, outcome.status, outcome.task);
     emitTracked(outcome.eventType, outcome.action, outcome.detail, outcome.payload, outcome.severity, outcome.status);
