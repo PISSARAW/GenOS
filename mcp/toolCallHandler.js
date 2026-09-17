@@ -1,3 +1,5 @@
+import { validateCliArguments } from "./argumentValidation.js";
+
 function primitiveCall({ args, executeStrategyTool }) {
   const primitiveArgs = { ...args, primitive: args.primitive || args.primitive_name || args.name || (Array.isArray(args.primitives) ? 'pipeline' : '') };
   return executeStrategyTool('genos_execute_primitive', primitiveArgs).then((execution) => {
@@ -55,6 +57,8 @@ export function createToolCallHandler({ runOrchestrator, runGenosCli, executeStr
     try {
       if (name === 'genos_execute_primitive') return { content: [{ type: 'text', text: await primitiveCall({ args, executeStrategyTool }) }] };
       if (name.startsWith('genos_v2_') || ['genos_snapshot', 'genos_replay', 'genos_capsule_create', 'genos_merge', 'genos_audit', 'genos_biomimicry'].includes(name)) {
+        const argumentError = validateCliArguments(name, args);
+        if (argumentError) return { content: [{ type: 'text', text: argumentError }], isError: true };
         return { content: [{ type: 'text', text: await cliCall({ args: { ...args, toolName: name }, runGenosCli }) }] };
       }
       return { content: [{ type: 'text', text: await orchestratorCall({ name, args, runOrchestrator }) }] };
