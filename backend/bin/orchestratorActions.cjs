@@ -54,10 +54,17 @@ async function handleBackground(context) {
   };
   const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, stdio: getRunnerStdio(detachedProcessId) });
   runner.unref();
-  const trackingDb = await context.getDatabase();
-  await trackingDb.exec(`CREATE TABLE IF NOT EXISTS detached_processes (id TEXT PRIMARY KEY, pid INTEGER NOT NULL, kind TEXT NOT NULL, owner_id TEXT, command TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-  await trackingDb.run('INSERT INTO detached_processes (id, pid, kind, owner_id, command) VALUES (?, ?, ?, ?, ?)', detachedProcessId, runner.pid, 'orchestrator', context.orchestratorId, process.execPath);
-  await context.closeDatabase();
+  let trackingDb = null;
+  try {
+    trackingDb = await context.getDatabase();
+    await trackingDb.exec(`CREATE TABLE IF NOT EXISTS detached_processes (id TEXT PRIMARY KEY, pid INTEGER NOT NULL, kind TEXT NOT NULL, owner_id TEXT, command TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+    await trackingDb.run('INSERT INTO detached_processes (id, pid, kind, owner_id, command) VALUES (?, ?, ?, ?, ?)', detachedProcessId, runner.pid, 'orchestrator', context.orchestratorId, process.execPath);
+  } catch (error) {
+    try { runner.kill('SIGTERM'); } catch (_) { /* best effort cleanup */ }
+    throw new Error(`Detached runner tracking failed: ${error.message}`, { cause: error });
+  } finally {
+    if (trackingDb) await context.closeDatabase();
+  }
   process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, detachedProcessId, runnerPid: runner.pid, ...(context.action === 'dispatch_worker' ? { workerId: context.id, reusedWorker: Boolean(reusableWorker), ...(reusableWorker ? { matchedScope: reusableWorker.affinity.shared } : {}) } : {}), status: 'accepted', acceptedAt: new Date().toISOString(), task: context.task }));
 }
 
