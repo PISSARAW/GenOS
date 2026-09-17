@@ -45,6 +45,8 @@ function approvalSettings(req, signerId) {
     evidenceVerified: body.evidenceVerified,
     verifiedClaims: body.verifiedClaims,
     workerDossiers: body.workerDossiers,
+    philosophyEvidence: body.philosophyEvidence,
+    philosophyProvenanceVerified: body.philosophyProvenanceVerified,
     humanApprovalReceipt: body.humanApprovalReceipt
   };
 }
