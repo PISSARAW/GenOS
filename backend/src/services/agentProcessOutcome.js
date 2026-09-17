@@ -2,7 +2,11 @@ const SAFE_RUNTIME_ENV = new Set([
   'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'CODEX_EXECUTABLE',
   'LANG', 'LC_ALL', 'NODE_ENV'
 ]);
-const SAFE_GENOS_ENV = new Set(['GENOS_WORKSPACE_ROOT', 'GENOS_SILENT_UPDATES']);
+const SAFE_GENOS_ENV = new Set([
+  'GENOS_WORKSPACE_ROOT', 'GENOS_SILENT_UPDATES', 'GENOS_MCP_SAMPLING_URL',
+  'GENOS_MCP_SAMPLING_TOKEN', 'GENOS_SAMPLING_TOKEN', 'GENOS_MCP_PROVIDER',
+  'GENOS_MCP_SAMPLING_TIMEOUT_MS'
+]);
 
 // Variables d'environnement explicitement bloquées pour le runtime enfant
 const BLOCKED_RUNTIME_ENV = new Set(['HOME', 'USERPROFILE', 'HOMEPATH', 'HOMEDRIVE']);

@@ -20,6 +20,7 @@
     "contract.js",
     "contractSchemas.cjs",
     "strategyBridge.js",
+    "samplingBroker.js",
     "processTermination.cjs",
     "toolDefinitions.json"
   ],

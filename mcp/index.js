@@ -14,6 +14,7 @@ import { resolveRepoRoot } from "./repoRoot.js";
 import { loadToolCatalog } from "./catalog.js";
 import { loadToolSchemaResolver } from "./contract.js";
 import { loadStrategyBridge } from "./strategyBridge.js";
+import { createSamplingBroker } from "./samplingBroker.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -44,6 +45,7 @@ const server = new Server(
   { name: "genos-mcp", version: "3.0.0" },
   { capabilities: { tools: {} } }
 );
+const samplingBroker = await createSamplingBroker(server);
 
 function resolveGenosBin() {
   const isWin = process.platform === "win32";
@@ -63,9 +65,9 @@ function resolveGenosBin() {
   return null;
 }
 
-function runExecutable({ cmd, args, cwd = workingDir, timeoutMs = toolTimeoutMs() }) {
+function runExecutable({ cmd, args, cwd = workingDir, timeoutMs = toolTimeoutMs(), env = process.env }) {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd, shell: false, detached: process.platform !== "win32" });
+    const child = spawn(cmd, args, { cwd, env, shell: false, detached: process.platform !== "win32" });
     let out = "";
     let err = "";
     let settled = false;
@@ -133,7 +135,12 @@ async function runOrchestrator(payload) {
   if (!bridge) {
     throw new Error("GenOS orchestrator bridge not found. Set GENOS_ORCHESTRATOR_BRIDGE or install the GenOS repository.");
   }
-  return runExecutable({ cmd: process.execPath, args: [bridge, JSON.stringify(payload)], cwd: workingDir });
+  return runExecutable({
+    cmd: process.execPath,
+    args: [bridge, JSON.stringify({ executor: 'caller_mcp', provider: process.env.GENOS_MCP_PROVIDER || 'mcp-host', ...payload })],
+    cwd: workingDir,
+    env: { ...process.env, GENOS_MCP_SAMPLING_URL: samplingBroker.url, GENOS_MCP_SAMPLING_TOKEN: samplingBroker.token }
+  });
 }
 
 for (const tool of ALL_TOOLS) tool.inputSchema = getToolInputSchema(tool.name, tool.inputSchema);

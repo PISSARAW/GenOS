@@ -7,6 +7,7 @@ const { provisionMissionWorkspace } = require('../agentWorkspaceLifecycleService
 const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability } = require('../agentRuntimeExecutable');
 const { validateBudgetCoherence, normalizeMissionBudget } = require('../budgetCoherenceService');
 const { emit, cancelledStarts } = require('../agentOrchestrationState');
+const { assertCallerMcpConfiguration } = require('../cognitiveExecutor');
 
 function assertMissionNotCancelled(agentId) {
   if (cancelledStarts.has(agentId)) {
@@ -20,6 +21,7 @@ async function initializeMissionContext(mission) {
   const agentId = mission.agentId || mission.id;
   assertMissionNotCancelled(agentId);
   const normalizedMission = { ...mission, agentId };
+  assertCallerMcpConfiguration(normalizedMission);
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
   const executable = configuredExecutable(normalizedMission);
   const db = await getDatabase();

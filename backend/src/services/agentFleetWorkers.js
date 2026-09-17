@@ -221,7 +221,7 @@ function inheritedWorkerEngine(mission) {
 function workerRuntime(details) {
   const { parent, route, workspaceRoot, toolLease, assignments, mission } = details;
   const inProcessWorker = config.inProcessWorkers() || (Array.isArray(assignments) && assignments.length > 12);
-  return { workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, toolLease, workspaceIsolation: parent.isolation_mode, ...inheritedWorkerEngine(mission) };
+  return { workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, toolLease, workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider, ...inheritedWorkerEngine(mission) };
 }
 
 function buildExecutionBudget(details) {

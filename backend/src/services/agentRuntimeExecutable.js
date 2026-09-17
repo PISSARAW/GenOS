@@ -5,6 +5,7 @@
 const path = require('path');
 const fsSync = require('fs');
 const { spawnSync } = require('child_process');
+const { resolveExecutor } = require('./cognitiveExecutor');
 
 function resolveBundled(repositoryRoot, name) {
   const isWin = process.platform === 'win32';
@@ -46,6 +47,7 @@ function bundledRuntimeEnvironment() {
 
 const CODEX_RUNTIME_PATH = path.resolve(__dirname, '../../bin/genos-agent-runtime.cjs');
 const LOCAL_RUNTIME_PATH = path.resolve(__dirname, '../../bin/local-codex-runtime.cjs');
+const CALLER_MCP_RUNTIME_PATH = path.resolve(__dirname, '../../bin/caller-mcp-runtime.cjs');
 
 function isLocalRuntime(executable) {
   if (!executable) return false;
@@ -56,6 +58,8 @@ function configuredExecutable(mission = {}) {
   const envVal = String(process.env.GENOS_AGENT_EXECUTOR || '').trim();
   const missionExecutor = String(mission.executor || mission.runtime || '').trim();
   const candidate = missionExecutor || envVal;
+
+  if (resolveExecutor({ ...mission, executor: candidate }) === 'caller_mcp') return CALLER_MCP_RUNTIME_PATH;
 
   if (
     candidate === 'local' ||
@@ -120,5 +124,6 @@ module.exports = {
   resolveExecutable,
   isLocalRuntime,
   CODEX_RUNTIME_PATH,
-  LOCAL_RUNTIME_PATH
+  LOCAL_RUNTIME_PATH,
+  CALLER_MCP_RUNTIME_PATH
 };
