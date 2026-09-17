@@ -11,6 +11,7 @@
  */
 
 const ontologyService = require('./ontologyService');
+const ontologyRelations = require('./ontologyRelations');
 
 const KNOWN_OPERATIONS = new Set([
   // Being
@@ -32,6 +33,8 @@ const KNOWN_OPERATIONS = new Set([
   // Identity
   'checkIdentityContinuity',
   'getIdentityHistory',
+  'addRelation',
+  'getRelations',
 ]);
 
 function normalizeArgs(request) {
@@ -246,6 +249,12 @@ async function handleOntologyRequest({ request, orchestratorId }) {
       const events = await ontologyService.getIdentityHistory(agentId, { limit });
       return { agentId, events };
     }
+
+    case 'addRelation':
+      return { added: true, relation: await ontologyRelations.addRelation(args) };
+
+    case 'getRelations':
+      return { relations: await ontologyRelations.getRelations(args) };
 
     default:
       // Defensive: keep the switch exhaustive for future operations.

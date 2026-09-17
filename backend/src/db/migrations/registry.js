@@ -45,6 +45,10 @@ const migrationRunners = [
     await createOntologyTables(db);
     await ensureOntologyColumns(db);
   }),
+  createMigrationRunner('025-ontology-relations', 'Add typed, provenance-aware generic ontology relations', async (db) => {
+    const { createOntologyRelationTables } = require('./migrateOntologyRelations');
+    await createOntologyRelationTables(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
