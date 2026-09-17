@@ -22,7 +22,8 @@
     "strategyBridge.js",
     "samplingBroker.js",
     "processTermination.cjs",
-    "toolDefinitions.json"
+    "toolDefinitions.json",
+    "test_sampling_broker.mjs"
   ],
   "keywords": [
     "genos",
@@ -45,7 +46,7 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "node test_lease.js && node test_identity_lease.js && node test_contract_parity.mjs",
+    "test": "node test_lease.js && node test_identity_lease.js && node test_contract_parity.mjs && node test_sampling_broker.mjs",
     "test:smoke": "node test_smoke.mjs"
   },
   "dependencies": {
