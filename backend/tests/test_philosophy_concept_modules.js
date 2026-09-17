@@ -10,6 +10,7 @@ const languageGame = require('../src/services/philosophy/languageGameService');
 const discourse = require('../src/services/philosophy/discourseService');
 const semiotics = require('../src/services/philosophy/semioticsService');
 const poetics = require('../src/services/philosophy/poeticsService');
+const deconstruction = require('../src/services/philosophy/deconstructionService');
 
 assert.equal(semantic.analyzeExpression({ expression: 'étoile du matin' }).status, 'structured');
 assert.equal(semantic.resolveReference({ expression: 'Vénus', context: { Vénus: 'planet-2' } }).reference, 'planet-2');
@@ -45,5 +46,12 @@ assert.equal(discourse.analyzeReportedSpeech({ mode: 'indirect', reportedText: '
 assert.equal(semiotics.analyzeSign({ signifier: 'arbre', signified: 'concept-arbre' }).arbitrary, true);
 assert.equal(semiotics.analyzeBinaryOpposition({ left: 'nature', right: 'culture' }).status, 'interpretive');
 assert.equal(poetics.analyzeMessage({ message: 'Je marche, je marche.' }).repetitions[0], 'je');
+assert.equal(deconstruction.analyzeText({
+  text: 'Nature et culture',
+  oppositions: [{ left: 'nature', right: 'culture', privileged: 'nature' }],
+  traces: ['culture'], supplements: ['écriture']
+}).status, 'interpretive');
+assert.equal(deconstruction.analyzeLogocentrism({ speechPriority: 1, writingPriority: 0 }).phonocentric, true);
+assert.equal(deconstruction.analyzeAutoimmunity({ rule: 'protéger', exception: 'exclure', threat: 'retour' }).internalThreat, true);
 
 console.log('Philosophy concept module tests passed.');

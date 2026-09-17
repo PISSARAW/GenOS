@@ -21,6 +21,7 @@ const languageGame = require('./philosophy/languageGameService');
 const discourse = require('./philosophy/discourseService');
 const semiotics = require('./philosophy/semioticsService');
 const poetics = require('./philosophy/poeticsService');
+const deconstruction = require('./philosophy/deconstructionService');
 
 const KNOWN_OPERATIONS = new Set([
   // Being
@@ -62,6 +63,9 @@ const KNOWN_OPERATIONS = new Set([
   'analyzeSign',
   'analyzeBinaryOpposition',
   'analyzePoeticMessage',
+  'analyzeDeconstruction',
+  'analyzeLogocentrism',
+  'analyzeAutoimmunity',
 ]);
 
 function normalizeArgs(request) {
@@ -319,6 +323,12 @@ async function handleOntologyRequest({ request, orchestratorId }) {
       return semiotics.analyzeBinaryOpposition(args);
     case 'analyzePoeticMessage':
       return poetics.analyzeMessage(args);
+    case 'analyzeDeconstruction':
+      return deconstruction.analyzeText(args);
+    case 'analyzeLogocentrism':
+      return deconstruction.analyzeLogocentrism(args);
+    case 'analyzeAutoimmunity':
+      return deconstruction.analyzeAutoimmunity(args);
 
     default:
       // Defensive: keep the switch exhaustive for future operations.
