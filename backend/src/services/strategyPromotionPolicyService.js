@@ -160,7 +160,7 @@ function isReplayReceipt(receipt) {
   if (!receipt || typeof receipt !== 'object') return false;
   if (receipt.success !== true) return false;
   const status = String(receipt.replayStatus || receipt.replay_status || receipt.status || '').toLowerCase();
-  return ['completed', 'reproduced', 'reconstructed', 'verified', 'success', 'succeeded'].includes(status);
+  return ['completed', 'reproduced', 'verified'].includes(status);
 }
 
 function isReplayPassed(executionContext) {
@@ -179,7 +179,8 @@ function buildReplayViolation(policy, executionContext) {
 }
 
 function isEvidenceEntry(entry) {
-  return String(entry || '').trim().length > 0;
+  if (typeof entry === 'string') return entry.trim().length > 0;
+  return Boolean(entry && typeof entry === 'object' && Object.keys(entry).length > 0);
 }
 
 function isEvidenceItem(item) {
@@ -195,7 +196,7 @@ function hasEvidence(value) {
 }
 
 function claimHasEvidence(claim) {
-  return Boolean(claim) && Array.isArray(claim.evidence) && claim.evidence.length > 0;
+  return Boolean(claim) && Array.isArray(claim.evidence) && claim.evidence.some(isEvidenceEntry);
 }
 
 function reportHasEvidence(claims) {

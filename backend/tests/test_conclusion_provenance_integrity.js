@@ -59,6 +59,16 @@ async function runSuite() {
   check(fullTrace.rootHash === rootProv.payloadHash, 'Root hash matches base specification hash');
   check(fullTrace.truncated === false, 'Full trace is not truncated');
 
+  await db.run('UPDATE provenance_records SET payload_json = ? WHERE id = ?', JSON.stringify({ premise: 'tampered' }), rootProv.id);
+  const tamperedTrace = await resolveProvenance({ targetId: synthProv.payloadHash, maxDepth: 10 });
+  check(tamperedTrace.success === false, 'Tampered provenance payload is rejected');
+  await db.run('UPDATE provenance_records SET payload_json = ? WHERE id = ?', JSON.stringify({ premise: 'Base requirement specification' }), rootProv.id);
+
+  await db.run('UPDATE provenance_records SET parent_hash = ? WHERE id = ?', 'missing-parent-hash', workerProv.id);
+  const missingParentTrace = await resolveProvenance({ targetId: synthProv.payloadHash, maxDepth: 10 });
+  check(missingParentTrace.success === false, 'Missing provenance parent is rejected');
+  await db.run('UPDATE provenance_records SET parent_hash = ? WHERE id = ?', rootProv.payloadHash, workerProv.id);
+
   const truncatedTrace = await resolveProvenance({ targetId: synthProv.payloadHash, maxDepth: 2 });
   check(truncatedTrace.lineage.length === 2, 'Truncated trace respects maxDepth 2');
   check(truncatedTrace.truncated === true, 'Truncated flag is true when more ancestors exist');

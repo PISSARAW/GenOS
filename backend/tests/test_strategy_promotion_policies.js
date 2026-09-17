@@ -115,7 +115,7 @@ async function run() {
     }
   }).eligible, true, 'Structured worker evidence should satisfy independent verification');
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: {} }).eligible, false);
-  assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED' } }).eligible, true);
+  assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED' } }).eligible, false);
   console.log('✓ Point 3.1: evaluatePromotionGate correctly enforces replay and verification');
 
   // Test 2: applyPostPromotionPolicies

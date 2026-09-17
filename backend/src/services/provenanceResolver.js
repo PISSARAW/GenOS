@@ -1,4 +1,6 @@
+const crypto = require('node:crypto');
 const { getDatabase } = require('../db');
+const { canonicalize } = require('./evaluationGraders');
 const telemetry = require('./telemetryObserver');
 
 function parseJson(value, fallback = null) {
@@ -29,13 +31,20 @@ function buildMerkleEntry(record) {
   };
 }
 
+function hasValidPayloadHash(record) {
+  if (!record?.payload_hash || !record?.payload_json) return false;
+  let payload;
+  try { payload = JSON.parse(record.payload_json); } catch (_) { return false; }
+  const canonicalJson = JSON.stringify(canonicalize(payload));
+  const actualHash = crypto.createHash('sha256').update(canonicalJson).digest('hex');
+  return actualHash === String(record.payload_hash).toLowerCase();
+}
 function fetchMerkleParent(db, parentHash, scope) {
   if (scope.organizationId && scope.projectId) {
     return db.get('SELECT * FROM provenance_records WHERE payload_hash = ? AND organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 1', parentHash, scope.organizationId, scope.projectId);
   }
   return db.get('SELECT * FROM provenance_records WHERE payload_hash = ? ORDER BY created_at DESC LIMIT 1', parentHash);
 }
-
 function buildMerkleResult(lineage, truncated) {
   const rootRecord = lineage[lineage.length - 1];
   return {
@@ -68,12 +77,28 @@ async function traceMerkleProvenance(options) {
     }
     visited.add(key);
 
+    if (!hasValidPayloadHash(current)) {
+      return {
+        success: false,
+        error: `Provenance payload hash mismatch at '${key}'.`,
+        lineage,
+        invalidAt: key
+      };
+    }
+
     lineage.push(buildMerkleEntry(current));
 
     if (!current.parent_hash) break;
 
     const parentRecord = await fetchMerkleParent(db, current.parent_hash, scope);
-    if (!parentRecord) break;
+    if (!parentRecord) {
+      return {
+        success: false,
+        error: `Provenance parent '${current.parent_hash}' was not found.`,
+        lineage,
+        missingParent: current.parent_hash
+      };
+    }
 
     if (i === maxDepth - 1 && parentRecord && !visited.has(parentRecord.payload_hash)) {
       truncated = true;
