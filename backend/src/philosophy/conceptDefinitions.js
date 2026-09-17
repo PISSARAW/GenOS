@@ -21,6 +21,7 @@ const FAMILY_BY_DOMAIN = Object.freeze({
   science: 'philosophy-of-science',
   truth: 'epistemology',
   'social-epistemology': 'social-and-critical-thought',
+  mathematics: 'philosophy-of-mathematics',
   politics: 'political-power',
   aesthetics: 'aesthetics',
   'art-theory': 'aesthetics',
@@ -38,6 +39,7 @@ const FAMILY_BY_DOMAIN = Object.freeze({
 
 const { CORE_DEFINITIONS } = require('./coreDefinitions');
 const { AESTHETICS_DEFINITIONS } = require('./aestheticsDefinitions');
+const { LOGIC_DEFINITIONS } = require('./logicDefinitions');
 
 const C = (id, ...fields) => {
   const [label, domain, school, status, service = null, metadata = {}] = fields;
@@ -254,6 +256,7 @@ const CONCEPT_DEFINITIONS = Object.freeze([
   ...CORE_DEFINITIONS,
   ...LEGACY_DEFINITIONS,
   ...AESTHETICS_DEFINITIONS,
+  ...LOGIC_DEFINITIONS,
 ]);
 
 module.exports = {
@@ -261,5 +264,6 @@ module.exports = {
   CORE_DEFINITIONS,
   LEGACY_DEFINITIONS,
   AESTHETICS_DEFINITIONS,
+  LOGIC_DEFINITIONS,
   FAMILY_BY_DOMAIN,
 };
