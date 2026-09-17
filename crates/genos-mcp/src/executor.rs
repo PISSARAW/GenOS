@@ -469,7 +469,7 @@ pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, Str
                     obj.insert("primitive".into(), primitive);
                 }
             }
-            execute_orchestrator(&bridge, &payload, workspace)
+            normalize_primitive_result(execute_orchestrator(&bridge, &payload, workspace))
         }
         "genos_trinity_launch" => {
             execute_orchestrator(&bridge, &with_action(args, "dispatch_trinity"), workspace)
