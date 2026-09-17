@@ -17,6 +17,7 @@ const userProgress = require('../src/services/userProgressService');
 const orchestrationCoverage = require('../src/services/orchestrationCoverageService');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 const { handleAction, handleBackground, initializeMission } = require('./orchestratorActions.cjs');
+const { summarizeAgents } = require('../src/services/orchestratorOutcome');
 
 // A stray async DB write (SQLITE_BUSY, closed handle at shutdown, ...) must not
 // crash the whole mission: log it and let the mission timeout/finalization run.
@@ -131,11 +132,13 @@ async function executeMission(db, state) {
     || String(process.env.GENOS_AGENT_EXECUTOR || '').trim().toLowerCase() === 'local';
   await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: requestTimeoutMs, ...(useLocalRuntime ? { executor: 'local' } : {}) });
   const agents = await waitForCompletion(db);
+  const outcome = summarizeAgents(agents);
   const telemetryRows = await db.all('SELECT event_type, action, detail, severity, payload_json FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
   const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
   const coverage = await orchestrationCoverage.auditMission(db, id).catch((err) => ({ error: err.message, verdict: 'audit-incomplete' }));
   telemetry.emitEvent({ eventType: 'ORCHESTRATION_AUDIT_COMPLETED', agentId: id, action: 'COVERAGE_AUDIT', detail: `Orchestration coverage verdict: ${coverage.verdict}`, severity: 'info', payload: { observedTools: coverage.protocol?.observedCount || 0, verdict: coverage.verdict } });
-  process.stdout.write(JSON.stringify({ orchestratorId: id, agents, telemetry: telemetryRows, token_usage: tokenUsage(runs), coverage }));
+  process.stdout.write(JSON.stringify({ orchestratorId: id, agents, success: outcome.success, verdict: outcome.verdict, telemetry: telemetryRows, token_usage: tokenUsage(runs), coverage }));
+  if (!outcome.success) process.exitCode = 2;
 }
 
 async function cleanupFailure(db, state, error) {
@@ -168,7 +171,7 @@ function exitAfterFlush(code) {
   if (process.stdout.writableLength === 0) return process.exit(code);
   process.stdout.write('', () => process.exit(code));
 }
-main().then(() => exitAfterFlush(0)).catch((error) => {
+main().then(() => exitAfterFlush(process.exitCode || 0)).catch((error) => {
   console.error(error.stack || error.message);
   exitAfterFlush(1);
 });
