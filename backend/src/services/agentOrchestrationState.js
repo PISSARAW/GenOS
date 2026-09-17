@@ -23,7 +23,7 @@ const activeWorkerBarriers = new Map();
 // `blocked` is a budget/guard halt that recovery or release can leave, so
 // neither is terminal. Readers (worker quiescence barrier, chaos eligibility)
 // observe this set live and now wait for / consider those states correctly.
-const TERMINAL_AGENT_STATUSES = new Set(['completed', 'error', 'terminated', 'apoptosis', 'quarantined']);
+const TERMINAL_AGENT_STATUSES = new Set(['completed', 'unverified', 'error', 'terminated', 'apoptosis', 'quarantined']);
 const WORKER_EVIDENCE_EVENTS = new Set([
   'EVIDENCE_REPORT', 'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED',
   'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'MISSION_NO_ANSWER_PROVEN',
