@@ -2,6 +2,7 @@ const SAFE_RUNTIME_ENV = new Set([
   'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'CODEX_EXECUTABLE',
   'LANG', 'LC_ALL', 'NODE_ENV'
 ]);
+const SAFE_GENOS_ENV = new Set(['GENOS_WORKSPACE_ROOT', 'GENOS_SILENT_UPDATES']);
 
 function isSensitiveEnvironmentName(name) {
   return /(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL|API)/i.test(name);
@@ -10,12 +11,12 @@ function isSensitiveEnvironmentName(name) {
 function buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates) {
   const environment = {};
   for (const [name, value] of Object.entries(process.env)) {
-    if (SAFE_RUNTIME_ENV.has(name) || (name.startsWith('GENOS_') && !isSensitiveEnvironmentName(name))) {
+    if (SAFE_RUNTIME_ENV.has(name) || SAFE_GENOS_ENV.has(name)) {
       environment[name] = value;
     }
   }
   for (const [name, value] of Object.entries(runtimeEnvironment || {})) {
-    if (!isSensitiveEnvironmentName(name)) environment[name] = value;
+    if (SAFE_RUNTIME_ENV.has(name) || SAFE_GENOS_ENV.has(name)) environment[name] = value;
   }
   return {
     ...environment,
