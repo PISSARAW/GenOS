@@ -294,7 +294,9 @@ async function runGrpcSuite() {
     const orchRes = await callRpc(orchClient, 'DispatchWorker', {
       orchestrator_id: 'orch-prime',
       worker_id: 'worker-sub-1',
-      prompt: 'Verify gRPC fleet dispatch'
+      prompt: 'Verify gRPC fleet dispatch',
+      organization_id: 'grpc-org',
+      project_id: 'grpc-project'
     });
     assert.strictEqual(orchRes.success, true);
     console.log(`  ✅ PASS: OrchestratorService DispatchWorker -> status: ${orchRes.status}`);

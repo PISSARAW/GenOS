@@ -15,5 +15,7 @@ message WorkerRequest {
   string workspace_id = 4;
   string model_tier = 5;
   int32 timeout_ms = 6;
+  string organization_id = 7;
+  string project_id = 8;
 }
 message WorkerResponse { bool success = 1; string status = 2; int32 garage_slot = 3; }
