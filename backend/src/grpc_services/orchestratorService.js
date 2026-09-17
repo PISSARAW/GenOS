@@ -1,6 +1,8 @@
+const path = require('path');
 const fleet = require('../services/agentFleetService');
 const { dispatchWorkerMission } = require('../services/orchestratorDispatchService');
 const { getDatabase } = require('../db');
+const { createIsolatedWorkspace } = require('../services/agentRuntimeAdapter');
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Orchestrator is alive via gRPC!" }),
@@ -22,13 +24,19 @@ module.exports = {
       if (!worker) {
         return callback(null, { success: false, status: `Worker ${worker_id} is not assigned to orchestrator ${orchestrator_id}`, garage_slot: 0 });
       }
+      if (!worker.workspaceRoot) {
+        return callback(null, { success: false, status: `Worker ${worker_id} has no source workspace`, garage_slot: 0 });
+      }
+      const workspaceRoot = await createIsolatedWorkspace(worker.workspaceRoot, worker_id, { capsuleRoot: path.dirname(worker.workspaceRoot) });
       const result = await dispatchWorkerMission({
         agentId: worker_id,
         orchestratorAgentId: orchestrator_id,
         prompt,
         role: 'worker',
         workspaceId: call.request.workspace_id || worker.workspaceId || undefined,
-        workspaceRoot: worker.workspaceRoot || undefined,
+        workspaceRoot,
+        capsuleRoot: path.dirname(workspaceRoot),
+        workspaceProvisioned: true,
         modelTier: call.request.model_tier || worker.modelTier || undefined,
         timeoutMs: call.request.timeout_ms || undefined,
         autonomousOrchestration: false

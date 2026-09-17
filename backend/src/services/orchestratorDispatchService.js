@@ -8,6 +8,8 @@ function buildWorkerMission(input = {}) {
     role: input.role || 'worker',
     workspaceId: input.workspaceId,
     workspaceRoot: input.workspaceRoot,
+    workspaceProvisioned: input.workspaceProvisioned === true,
+    capsuleRoot: input.capsuleRoot,
     fleetId: input.fleetId,
     agentType: input.agentType,
     workspaceIsolation: input.workspaceIsolation,
