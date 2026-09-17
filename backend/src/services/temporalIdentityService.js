@@ -151,6 +151,21 @@ function aSeriesPosition(events) {
   };
 }
 
+function blockUniverse({ events = [], ontology = 'eternalism' } = {}) {
+  if (!['eternalism', 'presentism'].includes(ontology)) {
+    throw new Error(`temporalIdentityService.blockUniverse invalid ontology: ${ontology}`);
+  }
+  return { events, ontology, presentIsFundamental: ontology === 'presentism', allTimesEquallyReal: ontology === 'eternalism' };
+}
+
+function arrowOfTime({ events = [], direction = 'increasing_entropy' } = {}) {
+  return { events, direction, asymmetric: true, ordered: Array.isArray(events) ? events : [], description: 'La fleche du temps exprime une asymetrie orientee des processus.' };
+}
+
+function spacetimeRelativity({ events = [], observer = 'default' } = {}) {
+  return { events, observer, framework: 'spacetime', absoluteTime: false, invariant: 'causal_structure', description: 'Les mesures temporelles dependent de l observateur dans un espace-temps relativiste.' };
+}
+
 /**
  * checkMemoryContinuity — Locke (identité personnelle par continuité de mémoire).
  *
@@ -250,6 +265,9 @@ module.exports = {
   aseriesForAgent,
   bseriesForAgent,
   aSeriesPosition,
+  blockUniverse,
+  arrowOfTime,
+  spacetimeRelativity,
   checkMemoryContinuity,
   shipOfTheseus,
 };

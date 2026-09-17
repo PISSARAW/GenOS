@@ -105,6 +105,24 @@ function checkRegularity(links) {
   return links.every(link => typeof link.timestamp === 'number' && link.timestamp > 0);
 }
 
+function humeRegularity({ observations = [] } = {}) {
+  const regular = Array.isArray(observations) && observations.length > 0
+    && observations.every((observation) => observation.cause !== undefined && observation.effect !== undefined);
+  return {
+    regular,
+    observations: Array.isArray(observations) ? observations : [],
+    inference: regular ? 'regularity_based' : 'insufficient_observations',
+    humeClaim: 'La necessite causale est inferee d une regularite, non observee directement.',
+  };
+}
+
+function assessFreeWill({ agent, model = 'compatibilism', choice, causes = [] } = {}) {
+  if (!agent || choice === undefined) throw new Error('causalityService.assessFreeWill requires agent and choice');
+  const models = ['compatibilism', 'incompatibilism', 'libertarianism'];
+  if (!models.includes(model)) throw new Error(`causalityService.assessFreeWill invalid model: ${model}`);
+  return { agent, choice, causes, model, free: model !== 'incompatibilism', responsibility: model !== 'incompatibilism' };
+}
+
 function listCausalLinks({ agentId = null, limit = 100 } = {}) {
   const all = Array.from(causalLinks.values()).sort((a, b) => b.timestamp - a.timestamp);
   if (!agentId) return all.slice(0, limit);
@@ -124,6 +142,8 @@ module.exports = {
   isDeterministic,
   isIndeterministic,
   checkRegularity,
+  humeRegularity,
+  assessFreeWill,
   listCausalLinks,
   listCounterfactuals,
   counterfactualRegistry,
