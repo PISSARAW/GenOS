@@ -12,6 +12,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const philosophyPolicy = require('./philosophyPromotionPolicyService');
 const ethicalComparisonPolicy = require('./ethicalComparisonPolicyService');
+const epistemicDecision = require('./epistemicDecisionService');
 
 const WORKSPACE_MERGE_EXCLUSIONS = new Set(['.git', 'node_modules']);
 
@@ -265,6 +266,7 @@ function evaluatePromotionGate(contract = {}, executionContext = {}) {
   const philosophicalViolation = philosophicalGuard.evaluatePromotion(contract, executionContext);
   if (philosophicalViolation) violations.push(philosophicalViolation);
   violations.push(...philosophyPolicy.evaluatePromotionContext(contract, executionContext));
+  violations.push(...epistemicDecision.evaluatePromotionContext(contract, executionContext));
   violations.push(...ethicalComparisonPolicy.evaluatePromotionContext(contract, executionContext));
   return {
     eligible: violations.length === 0,

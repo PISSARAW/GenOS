@@ -95,6 +95,7 @@ function memoryContent(job, inputs, unproven) {
   const claimsText = inputs.raw.length > 0 ? formatClaimsText(inputs.raw) : '';
   const tag = unproven ? '[UNVERIFIED_EVIDENCE][unverified/]' : '[VERIFIED_SYSTEM_FACT]';
   const philosophy = job.options?.philosophy;
+  const epistemicContext = job.options?.epistemicContext || job.options?.epistemic_context;
   const ethicalComparison = job.options?.ethicalComparison || job.options?.ethical_comparison;
   const interpretive = philosophy?.interpretationStatus === 'interpretive';
   const memoryTag = interpretive && !unproven ? '[INTERPRETIVE_CONTEXT][provenance-required]' : tag;
@@ -104,7 +105,10 @@ function memoryContent(job, inputs, unproven) {
   const comparisonText = ethicalComparison
     ? `\n[ETHICAL_COMPARISON] status=${ethicalComparison.decisionStatus} interpretation=${ethicalComparison.interpretationStatus} evidence=${ethicalComparison.evidenceStatus} provenance=${ethicalComparison.promotion?.provenanceHash || ethicalComparison.provenance?.provenanceHash || 'none'} frameworks=${(ethicalComparison.promotion?.frameworkConcepts || ethicalComparison.provenance?.frameworkConcepts || []).join(',')}`
     : '';
-  const base = `${memoryTag} Task: ${job.task}\nResult: ${String(job.summary).slice(0, 800)}${claimsText}${philosophyText}${comparisonText}`;
+  const epistemicText = epistemicContext?.analyses?.length
+    ? `\n[EPISTEMIC_ANALYSIS] ids=${(epistemicContext.analysisIds || []).join(',')} interpretation=${epistemicContext.interpretive ? 'interpretive' : 'descriptive'} provenance=${epistemicContext.provenanceComplete ? 'complete' : 'incomplete'} promotion=${epistemicContext.promotion?.holdPromotion ? 'held' : 'eligible'}`
+    : '';
+  const base = `${memoryTag} Task: ${job.task}\nResult: ${String(job.summary).slice(0, 800)}${claimsText}${philosophyText}${epistemicText}${comparisonText}`;
   if (unproven) return `${base}\n[expires: ${unverifiedExpiryIso()}]`;
   return base;
 }
@@ -115,10 +119,12 @@ function buildMemoryRecord(job) {
   const failed = isFailureJob(job);
   const interpretive = job.options?.philosophy?.interpretationStatus === 'interpretive';
   const ethicalComparison = job.options?.ethicalComparison || job.options?.ethical_comparison;
+  const epistemicContext = job.options?.epistemicContext || job.options?.epistemic_context;
   const ethicalInterpretive = Boolean(ethicalComparison && ethicalComparison.promotion?.holdPromotion !== false);
-  const category = failed ? 'Failure' : (unproven ? 'UnverifiedExperience' : interpretive || ethicalInterpretive ? 'InterpretiveExperience' : 'Experience');
+  const epistemicInterpretive = Boolean(epistemicContext?.interpretive || epistemicContext?.promotion?.holdPromotion);
+  const category = failed ? 'Failure' : (unproven ? 'UnverifiedExperience' : interpretive || ethicalInterpretive || epistemicInterpretive ? 'InterpretiveExperience' : 'Experience');
   const content = memoryContent(job, inputs, unproven);
-  return { category, content, unproven, failed, ethicalInterpretive, philosophy: job.options?.philosophy || null, ethicalComparison, rawClaims: inputs.raw, taskHash: taskHashFor(job) };
+  return { category, content, unproven, failed, ethicalInterpretive, epistemicInterpretive, philosophy: job.options?.philosophy || null, epistemicContext, ethicalComparison, rawClaims: inputs.raw, taskHash: taskHashFor(job) };
 }
 
 async function storeMemoryRecord(job, record) {
@@ -129,7 +135,8 @@ async function storeMemoryRecord(job, record) {
     tags: [
       ...(record.unproven ? ['unverified'] : []),
       ...(record.philosophy?.interpretationStatus === 'interpretive' ? ['interpretive'] : []),
-      ...(record.ethicalComparison ? ['ethical-comparison'] : [])
+      ...(record.ethicalComparison ? ['ethical-comparison'] : []),
+      ...(record.epistemicInterpretive ? ['epistemic-interpretive'] : [])
     ],
     organizationId: options.organizationId,
     projectId: options.projectId
@@ -146,7 +153,8 @@ async function recordMemoryProvenance(job, record, memId) {
       agentId: job.agentId,
       task: job.task,
       summary: String(job.summary).slice(0, 500),
-      claims: record.rawClaims
+      claims: record.rawClaims,
+      epistemicContext: record.epistemicContext
     }, options.provenanceHash, { organizationId: options.organizationId, projectId: options.projectId });
   } catch (error) {
     storeFailed(job.agentId, error, 'memory-provenance');
@@ -188,7 +196,7 @@ async function depositTaskExosome(job, record) {
 }
 
 async function maybeDepositExosome(job, record) {
-  if (record.failed || record.unproven || record.ethicalInterpretive) return;
+  if (record.failed || record.unproven || record.ethicalInterpretive || record.epistemicInterpretive) return;
   if (alreadyDeposited(job, record)) return;
   try {
     await depositTaskExosome(job, record);

@@ -4,6 +4,7 @@ const { listStrategies, registryHealth } = require('../strategies/strategyRegist
 const philosophicalGuard = require('./philosophicalPromotionGuard');
 const philosophyPolicy = require('./philosophyPromotionPolicyService');
 const ethicalComparisonPolicy = require('./ethicalComparisonPolicyService');
+const epistemicDecision = require('./epistemicDecisionService');
 
 function getStrategyHandlers() {
   return require('./strategyExecutionAdapter').getHandlers();
@@ -39,6 +40,7 @@ function buildStrategyContract(input = {}) {
   const philosophy = philosophyContext
     ? philosophyPolicy.buildPromotionPolicy({ philosophyContext })
     : null;
+  const epistemicContext = epistemicDecision.buildDecisionContext(input);
   const ethicalComparisonInput = input.ethicalComparison || input.ethical_comparison;
   const ethicalComparison = ethicalComparisonInput
     ? { ...ethicalComparisonInput, promotion: ethicalComparisonPolicy.buildPromotionPolicy(ethicalComparisonInput) }
@@ -76,6 +78,7 @@ function buildStrategyContract(input = {}) {
     })),
     selection_policy: selection.options,
     philosophical_context: philosophy,
+    epistemic_context: epistemicContext.analyses.length ? epistemicContext : null,
     ethical_comparison: ethicalComparison,
     execution_pipeline: ['memory_retrieval', 'snapshot', 'isolated_forks', 'instrumented_run', 'adaptive_evaluation', 'diff_and_replay', 'audit', 'conditional_promotion'],
     branches: selection.branches.map((hypothesis, index) => ({
@@ -90,6 +93,9 @@ function buildStrategyContract(input = {}) {
       require_independent_verification: true,
       require_human_approval: highRisk || problemProfile.reversibility === 'low' || portfolioHasUnimplemented(selection.portfolio) || Boolean(philosophy?.requireHumanApproval),
       philosophy_hold: Boolean(philosophy?.holdPromotion),
+      epistemic_hold: Boolean(epistemicContext.promotion.holdPromotion),
+      require_epistemic_verification: Boolean(epistemicContext.promotion.requireIndependentVerification),
+      require_epistemic_provenance: Boolean(epistemicContext.promotion.requireProvenance),
       ethical_comparison_hold: Boolean(ethicalComparison?.promotion?.holdPromotion),
       require_ethical_review: Boolean(ethicalComparison?.promotion?.requireEthicalReview),
       require_ethical_provenance: Boolean(ethicalComparison),

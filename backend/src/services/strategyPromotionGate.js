@@ -12,7 +12,6 @@
 const { isPathWithinRoot, resolveWorkspacesRoot } = require('./workspaceRegistry');
 
 const PROMOTION_FALLBACK_PRIMITIVES = ['stdp_update', 'cherry_pick_golden_path'];
-
 function safeJson(value, fallback) {
   try {
     return JSON.parse(value);
@@ -20,37 +19,30 @@ function safeJson(value, fallback) {
     return fallback;
   }
 }
-
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim() !== '';
 }
-
 function isHashString(value) {
   if (!isNonEmptyString(value)) return false;
   return /^[a-f0-9]{64}$/i.test(value);
 }
-
 function defaultPromotionTask(runId) {
   return `Run ${runId} promotion`;
 }
-
 function evidenceListOf(step) {
   const parsed = safeJson(step.evidence_json, []);
   return Array.isArray(parsed) ? parsed : [];
 }
-
 function adoptReport(acc, data) {
   if (acc.report) return;
   const candidate = data.evidenceReport || data.report;
   if (candidate) acc.report = candidate;
 }
-
 function adoptTask(acc, data, runId) {
   if (acc.task !== defaultPromotionTask(runId)) return;
   const candidate = data.prompt || data.task;
   if (candidate) acc.task = candidate;
 }
-
 function adoptWorkspace(acc, data) {
   if (acc.workspaceId !== 'ws-genos-core') return;
   if (data.workspaceId) acc.workspaceId = data.workspaceId;
@@ -209,6 +201,9 @@ function buildGateContext(promotion, options, receipt) {
     workerDossiers: options.workerDossiers,
     philosophyEvidence: options.philosophyEvidence,
     philosophyProvenanceVerified: options.philosophyProvenanceVerified,
+    epistemicEvidence: options.epistemicEvidence,
+    epistemicEvidenceVerified: options.epistemicEvidenceVerified,
+    epistemicVerification: options.epistemicVerification,
     ethicalReview: options.ethicalReview,
     humanApprovalReceipt: receipt || options.humanApprovalReceipt || null
   };
@@ -236,6 +231,9 @@ function completionGuardrail(contract, payload, agentId) {
     diffAndReplayPassed: data.diffAndReplayPassed,
     replayReceipt: data.replayReceipt,
     independentVerification: data.independentVerification,
+    epistemicEvidence: data.epistemicEvidence,
+    epistemicEvidenceVerified: data.epistemicEvidenceVerified,
+    epistemicVerification: data.epistemicVerification,
     agentId,
     humanApproved: false,
     report,
@@ -360,6 +358,7 @@ async function recordPromotionMemory(promotion, options) {
         approvedBy: options.approvedBy || 'human_gate',
         evidenceReport: promotion.report,
         philosophy: promotion.contract.philosophy,
+        epistemicContext: promotion.contract.epistemic_context,
         provenanceHash: promotion.contract.philosophy?.provenanceHash || null,
         ethicalComparison: promotion.contract.ethical_comparison
       }
