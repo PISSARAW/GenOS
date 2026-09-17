@@ -4,6 +4,7 @@ const { validateRegistry, registryHealth: conceptRegistryHealth } = require('../
 const relationRegistry = require('../philosophy/relationRegistry');
 const ontologyRouter = require('./ontologyRouter');
 const runtimeEffects = require('./philosophyRuntimeEffectService');
+const ethicalComparison = require('./ethicalComparisonService');
 
 const registry = validateRegistry();
 if (!registry.valid) {
@@ -13,7 +14,7 @@ const definitions = registry.concepts;
 
 const OPERATIONS = Object.freeze([
   'listConcepts', 'getConcept', 'registryHealth', 'evaluateConcept', 'applyRuntimeEffect',
-  'listRelations', 'getNeighborhood', 'exportGraph', 'queryOntology'
+  'listRelations', 'getNeighborhood', 'exportGraph', 'compareEthicalFrameworks', 'queryOntology'
 ]);
 const conceptMap = new Map(definitions.map((concept) => [concept.id, concept]));
 
@@ -193,6 +194,16 @@ const ADAPTERS = {
   'art.symbol-systems': ({ args }) => callService('artTheoryService', 'evaluateRepresentation', args),
   'art.fictionalism': ({ args }) => callService('artTheoryService', 'evaluateFictionalReference', args),
   'art.fictional-reference': ({ args }) => callService('artTheoryService', 'evaluateFictionalReference', args),
+  'interpretation.artistic': ({ args }) => callService('interpretationService', 'proposeInterpretations', args),
+  'interpretation.esthetic-experience': ({ args }) => callService('interpretationService', 'proposeInterpretations', args),
+  'interpretation.embodied-meaning': ({ args }) => callService('interpretationService', 'analyzeEmbodiedMeaning', args),
+  'interpretation.intra-extra-artistic': ({ args }) => callService('interpretationService', 'separateEvidence', args),
+  'interpretation.indeterminacy': ({ args }) => callService('interpretationService', 'trackIndeterminacy', args),
+  'interpretation.construction': ({ args }) => callService('interpretationService', 'analyzeConstruction', args),
+  'interpretation.death-of-author': ({ args }) => callService('interpretationService', 'analyzeDeathOfAuthor', args),
+  'interpretation.author': ({ args }) => callService('interpretationService', 'analyzeAuthor', args),
+  'interpretation.intertextuality': ({ args }) => callService('interpretationService', 'analyzeIntertextuality', args),
+  'interpretation.reference': ({ args }) => callService('interpretationService', 'analyzeReference', args),
   'school.merleau-ponty': ({ args }) => callService('phenomenologyService', 'perception', args),
   'ethics.act-utilitarianism': ({ args }) => callService('normativeEthicsService', 'evaluateActUtilitarianism', args),
   'ethics.rule-utilitarianism': ({ args }) => callService('normativeEthicsService', 'evaluateRuleUtilitarianism', args),
@@ -271,6 +282,7 @@ async function handlePhilosophyRequest({ request } = {}) {
   if (operation === 'listRelations') return { relations: listRelations(args) };
   if (operation === 'getNeighborhood') return getNeighborhood(args.conceptId || args.id, args);
   if (operation === 'exportGraph') return exportGraph(args);
+  if (operation === 'compareEthicalFrameworks') return ethicalComparison.compareEthicalFrameworks(args);
   return queryOntology(args);
 }
 
