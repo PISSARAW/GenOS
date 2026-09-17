@@ -152,7 +152,21 @@ Ce document formalise l'implémentation des concepts philosophiques dans GenOS.
 
 `backend/src/services/aristotelianService.js`
 
-## 11. Contingence et Événement — Meillassoux, Badiou
+## 11. Stoïcisme — Monisme, Logos, Fate
+
+### Concepts
+
+- **Monisme** : tout est une seule substance (le Logos)
+- **Logos** : principe rationnel universel qui gouverne le monde
+- **Fate** : déterminisme causal inéluctable (tout est causé, rien n'est fortuit)
+- **Acceptation** : distinguer ce qui dépend de nous de ce qui n'en dépend pas
+- **Vertus** : sagesse, courage, tempérance, justice (les 4 vertus cardinales stoïciennes)
+
+### Fichier
+
+`backend/src/services/stoicismService.js`
+
+## 12. Contingence et Événement — Meillassoux, Badiou
 
 ### Concepts
 
