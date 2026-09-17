@@ -131,7 +131,9 @@ fn find_in_env() -> Option<PathBuf> {
     env::var("GENOS_BIN")
         .ok()
         .map(PathBuf::from)
-        .filter(|p| p.is_file())
+        .filter(|p| {
+            p.is_file() && !p.to_string_lossy().to_ascii_lowercase().contains("program files")
+        })
 }
 
 fn find_near_current_exe(exe_name: &str) -> Option<PathBuf> {
