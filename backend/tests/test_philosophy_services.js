@@ -117,7 +117,7 @@ async function main() {
     test('getFormIdeal returns Platonic forms', () => {
       const form = epistemologyService.getFormIdeal('perfect_agent');
       assert.strictEqual(form.id, 'perfect_agent');
-      assert.strictEqual(form.type, 'ideal_form');
+      assert.strictEqual(form.type, 'Form');
       assert.strictEqual(form.properties.rationality, 1);
       assert.strictEqual(form.properties.evidence, 'complete');
     });
