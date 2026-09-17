@@ -1,12 +1,21 @@
 const { getDatabase } = require('../../db');
 const { activeProcesses, missionStarts, cancelledStarts, autonomousRounds, activeWorkerBarriers, pendingWorkerRecoveries, pendingContinuations, emit, updateAgent, orchestratorToolLease } = require('../agentOrchestrationState');
-const { terminateChild } = require('../processTermination');
+const { processMatches, terminateChild } = require('../processTermination');
 
 async function reconcilePersistedRuntimeRow(db, row) {
   const { id, status, runtime_pid, runtime_executable } = row;
   if (!runtime_pid) return 0;
   try {
     process.kill(runtime_pid, 0);
+    if (processMatches(runtime_pid, runtime_executable)) return 0;
+    const updated = await db.run(
+      `UPDATE agents SET status = 'terminated', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      id
+    );
+    if (updated.changes) {
+      emit(id, 'RUNTIME_RECONCILED', 'RECONCILE', `Persisted runtime ${runtime_pid} did not match its recorded executable; marked terminated.`, { runtime_pid, runtime_executable }, 'warning');
+      return 1;
+    }
     return 0;
   } catch (_) {
     const updated = await db.run(
@@ -40,7 +49,13 @@ async function reconcileOrphanedRunning(db) {
     if (!runtime_pid) continue;
     try {
       process.kill(runtime_pid, 0);
-      continue;
+      if (processMatches(runtime_pid, runtime_executable)) continue;
+      await db.run(
+        `UPDATE agents SET status = 'terminated', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        id
+      );
+      emit(id, 'ORPHAN_RECONCILED', 'RECONCILE', `Orphaned orchestrator ${id} (pid ${runtime_pid}) did not match its recorded executable; marked terminated.`, { runtime_pid, runtime_executable, workspace_id }, 'warning');
+      reconciled++;
     } catch (_) {
       await db.run(
         `UPDATE agents SET status = 'terminated', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
