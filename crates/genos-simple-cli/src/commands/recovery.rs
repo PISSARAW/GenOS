@@ -4,6 +4,7 @@ use clap::Subcommand;
 pub enum RecoveryCommands {
     /// Récupère l'état d'orchestration depuis un checkpoint et WAL
     ///
+    /// ```text
     /// SYNOPSIS :
     ///     g recovery rehydrate [OPTIONS]
     ///
@@ -18,6 +19,7 @@ pub enum RecoveryCommands {
     ///     g recovery rehydrate --dry-run
     ///     g recovery rehydrate --from-checkpoint 42 --execute
     ///     g recovery rehydrate --wal-path .genos/orchestration/continuations.wal --checkpoint-path .genos/orchestration/orchestration.checkpoint.json
+    /// ```
     Rehydrate {
         /// Mode simulation uniquement (défaut: true)
         #[arg(long, default_value_t = true)]

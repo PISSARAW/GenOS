@@ -424,7 +424,7 @@ fn normalize_cli_result(result: (i32, String)) -> (i32, String) {
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_primitive_result;
+    use super::{normalize_cli_result, normalize_primitive_result};
 
     #[test]
     fn primitive_failure_is_exposed_as_mcp_error() {
