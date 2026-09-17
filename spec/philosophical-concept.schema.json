@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/philosophical-concept.schema.json",
+  "title": "PhilosophicalConcept",
+  "type": "object",
+  "required": ["apiVersion", "kind", "id", "label", "domain", "school", "status"],
+  "properties": {
+    "apiVersion": { "type": "string", "const": "genos.philosophy/v1" },
+    "kind": { "type": "string", "const": "PhilosophicalConcept" },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
+    "label": { "type": "string", "minLength": 1 },
+    "labels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 }
+      }
+    },
+    "domain": { "type": "string", "minLength": 1 },
+    "school": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["registered", "implemented", "partial", "interpretive", "disputed", "planned"]
+    },
+    "service": { "type": ["string", "null"] },
+    "authors": { "type": "array", "items": { "type": "string" } },
+    "works": { "type": "array", "items": { "type": "string" } },
+    "definition": { "type": "string" },
+    "examples": { "type": "array", "items": { "type": "string" } },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "target"],
+        "properties": {
+          "type": { "type": "string" },
+          "target": { "type": "string" },
+          "note": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "claims": { "type": "array", "items": { "type": "string" } },
+    "adapters": { "type": "array", "items": { "type": "string" } },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "sourceType": { "type": "string", "enum": ["primary", "secondary", "genos"] },
+        "sourceDocument": { "type": "string" },
+        "sourceLocator": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

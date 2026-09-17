@@ -1,0 +1,91 @@
+'use strict';
+
+const { CONCEPT_DEFINITIONS } = require('./conceptDefinitions');
+const { validateSpec } = require('../services/specValidator');
+
+const CONCEPT_SCHEMA = 'philosophical-concept.schema.json';
+
+function normalizeConcept(concept) {
+  return {
+    apiVersion: 'genos.philosophy/v1',
+    kind: 'PhilosophicalConcept',
+    id: concept.id,
+    label: concept.label,
+    labels: concept.labels || {},
+    family: concept.family || concept.domain,
+    aliases: concept.aliases || [],
+    domain: concept.domain,
+    school: concept.school,
+    status: concept.status,
+    service: concept.service || null,
+    authors: concept.authors || [],
+    works: concept.works || [],
+    definition: concept.definition || '',
+    examples: concept.examples || [],
+    relations: concept.relations || [],
+    claims: concept.claims || [],
+    adapters: concept.adapters || [],
+    evidenceLevel: concept.evidenceLevel || 'philosophical',
+    mapping: concept.mapping || null,
+    provenance: concept.provenance || { sourceType: 'genos' }
+  };
+}
+
+function duplicateIds(concepts) {
+  const seen = new Set();
+  const duplicates = new Set();
+  for (const concept of concepts) {
+    if (seen.has(concept.id)) duplicates.add(concept.id);
+    seen.add(concept.id);
+  }
+  return [...duplicates].sort();
+}
+
+function validateScalarFields(concept, index) {
+  const errors = [];
+  for (const field of ['id', 'label', 'domain', 'school', 'status']) {
+    if (typeof concept[field] !== 'string' || concept[field].trim() === '') {
+      errors.push(`concepts[${index}].${field} must be a non-empty string`);
+    }
+  }
+  if (typeof concept.id === 'string' && !/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(concept.id)) {
+    errors.push(`concepts[${index}].id must use lowercase dot/dash segments`);
+  }
+  return errors;
+}
+
+function validateRegistry(concepts = CONCEPT_DEFINITIONS) {
+  const normalized = concepts.map(normalizeConcept);
+  const errors = [];
+  normalized.forEach((concept, index) => {
+    const result = validateSpec(CONCEPT_SCHEMA, concept);
+    if (!result.valid) {
+      errors.push(...result.errors.map((error) => `concepts[${index}]: ${error}`));
+    }
+    errors.push(...validateScalarFields(concept, index));
+  });
+
+  const duplicates = duplicateIds(normalized);
+  if (duplicates.length) errors.push(`duplicate concept ids: ${duplicates.join(', ')}`);
+
+  const ids = new Set(normalized.map((concept) => concept.id));
+  normalized.forEach((concept) => concept.relations.forEach((relation) => {
+    if (!ids.has(relation.target)) {
+      errors.push(`${concept.id}.relations references unknown concept '${relation.target}'`);
+    }
+  }));
+
+  return { valid: errors.length === 0, concepts: normalized, errors };
+}
+
+function registryHealth() {
+  const result = validateRegistry();
+  return {
+    valid: result.valid,
+    conceptCount: result.concepts.length,
+    duplicateIds: duplicateIds(result.concepts),
+    errors: result.errors
+  };
+}
+
+module.exports = { normalizeConcept, validateRegistry, registryHealth };
