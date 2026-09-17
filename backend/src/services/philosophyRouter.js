@@ -181,6 +181,10 @@ const ADAPTERS = {
   'politics.pluralism': ({ args }) => callService('politicalPhilosophyService', 'assessPluralism', args),
   'politics.civil-disobedience': ({ args }) => callService('politicalPhilosophyService', 'assessCivilDisobedience', args),
   'politics.security-liberty-surveillance': ({ args }) => callService('politicalPhilosophyService', 'assessSurveillanceLiberty', args),
+  'politics.liberalism': ({ args }) => callService('politicalPhilosophyService', 'assessLiberalism', args),
+  'politics.conservatism': ({ args }) => callService('politicalPhilosophyService', 'assessConservatism', args),
+  'politics.socialism-marxism': ({ args }) => callService('politicalPhilosophyService', 'analyzeMarxism', args),
+  'politics.feminism': ({ args }) => callService('politicalPhilosophyService', 'assessFeminism', args),
 };
 
 function evaluateConcept(args = {}) {

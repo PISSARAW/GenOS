@@ -236,6 +236,10 @@ const RAW_CONCEPT_DEFINITIONS = [
   C('politics.pluralism', 'Pluralisme politique', 'politics', 'dahl', 'implemented', 'politicalPhilosophyService'),
   C('politics.civil-disobedience', 'Désobéissance civile', 'politics', 'thoreau-gandhi-mlk-arendt-rawls', 'implemented', 'politicalPhilosophyService'),
   C('politics.security-liberty-surveillance', 'Sécurité, liberté et surveillance', 'politics', 'foucault-lyon-chomsky', 'implemented', 'politicalPhilosophyService'),
+  C('politics.liberalism', 'Libéralisme : neutralité, pluralisme et tolérance', 'politics', 'locke-mill-rawls', 'implemented', 'politicalPhilosophyService'),
+  C('politics.conservatism', 'Conservatisme : tradition et ordre organique', 'politics', 'burke', 'implemented', 'politicalPhilosophyService'),
+  C('politics.socialism-marxism', 'Socialisme et marxisme', 'politics', 'marx', 'implemented', 'politicalPhilosophyService'),
+  C('politics.feminism', 'Féminisme : intersectionnalité, consentement et justice reproductive', 'politics', 'feminist-political-theory', 'implemented', 'politicalPhilosophyService'),
 ];
 
 const CORE_IDS = new Set(CORE_DEFINITIONS.map((concept) => concept.id));

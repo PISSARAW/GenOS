@@ -116,6 +116,49 @@ function assessSurveillanceLiberty({ collection = 0, necessity = 0, proportional
   });
 }
 
+function assessLiberalism({ neutrality = 0, pluralism = 0, tolerance = 0, rightsProtection = 0, stateIntervention = 0 } = {}) {
+  const dimensions = { neutrality: clamp(neutrality), pluralism: clamp(pluralism), tolerance: clamp(tolerance), rightsProtection: clamp(rightsProtection) };
+  return analyticalResult('liberalism', {
+    dimensions,
+    neutralityPrinciple: dimensions.neutrality,
+    pluralism: dimensions.pluralism,
+    tolerance: dimensions.tolerance,
+    rightsProtection: dimensions.rightsProtection,
+    stateIntervention: clamp(stateIntervention),
+    liberalCompatibility: mean(Object.values(dimensions)),
+  });
+}
+
+function assessConservatism({ tradition = 0, organicOrder = 0, prudence = 0, continuity = 0, reformPressure = 0 } = {}) {
+  const dimensions = { tradition: clamp(tradition), organicOrder: clamp(organicOrder), prudence: clamp(prudence), continuity: clamp(continuity) };
+  return analyticalResult('conservatism', {
+    dimensions,
+    reformPressure: clamp(reformPressure),
+    organicOrder: dimensions.organicOrder,
+    changePosture: clamp(reformPressure) > dimensions.prudence ? 'cautious-reform-required' : 'continuity-preferred',
+  });
+}
+
+function analyzeMarxism({ classConflict = 0, surplusValue = 0, alienation = 0, emancipation = 0, overproduction = 0 } = {}) {
+  const dimensions = { classConflict: clamp(classConflict), surplusValue: clamp(surplusValue), alienation: clamp(alienation), emancipation: clamp(emancipation), overproduction: clamp(overproduction) };
+  return analyticalResult('socialism-marxism', {
+    dimensions,
+    exploitationSignal: mean([dimensions.classConflict, dimensions.surplusValue, dimensions.alienation]),
+    emancipationSignal: dimensions.emancipation,
+    overproductionRisk: dimensions.overproduction,
+  });
+}
+
+function assessFeminism({ equality = 0, difference = 0, intersectionality = 0, patriarchy = 0, consent = 0, reproductiveJustice = 0 } = {}) {
+  const dimensions = { equality: clamp(equality), difference: clamp(difference), intersectionality: clamp(intersectionality), patriarchy: clamp(patriarchy), consent: clamp(consent), reproductiveJustice: clamp(reproductiveJustice) };
+  return analyticalResult('feminism', {
+    dimensions,
+    structuralPowerAnalysis: dimensions.patriarchy,
+    inclusionSignal: mean([dimensions.equality, dimensions.intersectionality, dimensions.consent, dimensions.reproductiveJustice]),
+    differenceApproach: dimensions.difference,
+  });
+}
+
 module.exports = {
   classifyRegime,
   assessLegitimacy,
@@ -126,4 +169,8 @@ module.exports = {
   assessPluralism,
   assessCivilDisobedience,
   assessSurveillanceLiberty,
+  assessLiberalism,
+  assessConservatism,
+  analyzeMarxism,
+  assessFeminism,
 };
