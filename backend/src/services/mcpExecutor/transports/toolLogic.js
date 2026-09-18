@@ -271,7 +271,7 @@ function gateEvaluate(args) {
     const verdict = invariantVerified ? 'PERMITTED' : 'DENIED';
     const cmdParams = [`--param phase=${args.phase}`];
     if (args.facts) args.facts.forEach((f) => cmdParams.push(`"${f}"`));
-    return { configured: true, success: invariantVerified, status: invariantVerified ? 'completed' : 'tool_error', transport: 'local', output: JSON.stringify({ success: true, feature: "gate", action: "evaluate", params: cmdParams, invariant_verified: invariantVerified, verdict: verdict }) };
+    return { configured: true, success: invariantVerified, status: invariantVerified ? 'completed' : 'tool_error', transport: 'local', output: JSON.stringify({ success: invariantVerified, feature: "gate", action: "evaluate", params: cmdParams, invariant_verified: invariantVerified, verdict: verdict }) };
   } catch (error) {
     return failed(error);
   }

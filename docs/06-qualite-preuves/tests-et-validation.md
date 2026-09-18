@@ -106,6 +106,11 @@ flowchart TD
 
 `run_validation_suite.js` lance chaque fichier enfant par `spawnSync`, s'arrête au premier échec et retourne `0` uniquement si toutes les suites du profil passent. Il injecte `GENOS_ADMIN_PASSWORD=test-only` lorsque la variable est absente, afin d'éviter que la suite ne dépende d'un secret opérateur.
 
+Les évaluations et les gates suivent le contrat de résultat : une exception de
+calcul, une bissection incomplète ou un invariant refusé ne sont jamais convertis
+en score neutre ni en `success: true`. La réponse de transport reste disponible
+pour le diagnostic, mais elle ne constitue pas une validation métier.
+
 ---
 
 ## 4. Tests unitaires Rust
@@ -1418,7 +1423,6 @@ Exécutée en direct sur l'environnement Python 3.12 et pytest de la machine hô
 ========================================================================================
 Taux de Résolution Effectif Dynamique : 4 / 4 (100.0% Pass@1)
 ```
-
 
 
 

@@ -106,7 +106,7 @@ async function runWorkspaceBisect(db, context, workspaceId) {
     timeoutMs: context.timeoutMs,
     autoRollback: context.autoRollback !== false
   });
-  return { success: true, bisectionResult: res };
+  return { success: res.bisectionComplete === true, status: res.bisectionComplete === true ? 'completed' : 'unresolved', bisectionResult: res };
 }
 
 async function bisectAgent(context) {
@@ -143,7 +143,7 @@ async function evaluate(context) {
   try {
     return await evaluateAgainstThreshold(context);
   } catch (err) {
-    return { success: true, status: 'evaluated', brierScore: 0.15, note: err.message };
+    return { success: false, status: 'evaluation_failed', error: err.message, evidence: [] };
   }
 }
 
