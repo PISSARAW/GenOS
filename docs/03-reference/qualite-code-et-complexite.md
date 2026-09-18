@@ -68,3 +68,6 @@ prédicats de répertoire et la suppression des caches sont isolés du contrôle
 Le service de provenance sépare maintenant la normalisation du sujet, les validations
 d’énumération et la construction du record. Le contrat `genos.provenance/v1` reste
 inchangé.
+
+Dans la tranche `11–19`, la spécification du monde card games sépare désormais les
+validations des jeux, de l’équipe et des champs généraux avant l’orchestration.

@@ -116,6 +116,40 @@ async function withCodeImmunity(basePrompt, { agentId, validate, maxRetries = 4,
   return null;
 }
 
+function validateGames(games) {
+  if (!Array.isArray(games) || games.length !== 5) throw new Error('games must be an array of exactly 5 entries.');
+  const ids = games.map((g) => g && g.id);
+  for (const required of ['klondike', 'spider', 'freecell', 'pyramid', 'tripeaks']) {
+    if (!ids.includes(required)) throw new Error(`games must include id "${required}". Got ${JSON.stringify(ids)}.`);
+  }
+}
+
+function validateTeam(team) {
+  if (!Array.isArray(team) || team.length !== 6) throw new Error('team must contain exactly 6 roles.');
+  team.forEach((member) => { if (!member.role || !member.mission) throw new Error('each team member needs role and mission.'); });
+}
+
+function validateWorldSpec(d) {
+  if (!d || typeof d !== 'object') throw new Error('Root must be an object.');
+  validateGames(d.games);
+  if (!Array.isArray(d.features) || d.features.length < 12) throw new Error('features must list at least 12 strings.');
+  validateTeam(d.team);
+}
+
+function assignAgentIdentities(spec) {
+  const takenNames = new Set();
+  return spec.team.map((member) => {
+    let identity = agentIdentity.generateAgentIdentity({ role: member.role });
+    for (let tries = 0; takenNames.has(identity.name) && tries < 25; tries++) {
+      identity = agentIdentity.generateAgentIdentity({ role: member.role });
+    }
+    const name = takenNames.has(identity.name) ? `${identity.name}-${takenNames.size + 1}` : identity.name;
+    takenNames.add(name);
+    const introduction = agentIdentity.formatSelfIntroduction(name, identity.name_meaning, member.role);
+    return { ...member, agent_name: name, name_meaning: identity.name_meaning, introduction };
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* phase 1 — orchestrator defines the world (team + scope)             */
 /* ------------------------------------------------------------------ */
@@ -141,34 +175,11 @@ Produce ONLY a JSON object, no prose, with this exact shape:
   "team": [ { "role": "<role id, snake_case>", "domain": "<domain>", "mission": "<1 sentence>" }, ... exactly 6 roles ]
 }`;
 
-  const validator = (d) => {
-    if (!d || typeof d !== 'object') throw new Error('Root must be an object.');
-    if (!Array.isArray(d.games) || d.games.length !== 5) throw new Error('games must be an array of exactly 5 entries.');
-    const ids = d.games.map((g) => g && g.id);
-    for (const required of ['klondike', 'spider', 'freecell', 'pyramid', 'tripeaks']) {
-      if (!ids.includes(required)) throw new Error(`games must include id "${required}". Got ${JSON.stringify(ids)}.`);
-    }
-    if (!Array.isArray(d.features) || d.features.length < 12) throw new Error('features must list at least 12 strings.');
-    if (!Array.isArray(d.team) || d.team.length !== 6) throw new Error('team must contain exactly 6 roles.');
-    d.team.forEach((t) => { if (!t.role || !t.mission) throw new Error('each team member needs role and mission.'); });
-  };
-
-  const spec = await withImmunity(prompt, 'high', validator, 4, 'genos_orchestrator');
+  const spec = await withImmunity(prompt, 'high', validateWorldSpec, 4, 'genos_orchestrator');
   if (!spec) throw new Error('Orchestrator failed to define the world (apoptosis).');
 
   // Give every agent a GenOS identity, keeping names unique so ownership lookups resolve.
-  const takenNames = new Set();
-  spec.team = spec.team.map((member) => {
-    let id = agentIdentity.generateAgentIdentity({ role: member.role });
-    for (let tries = 0; takenNames.has(id.name) && tries < 25; tries++) {
-      id = agentIdentity.generateAgentIdentity({ role: member.role });
-    }
-    let name = id.name;
-    if (takenNames.has(name)) name = `${name}-${takenNames.size + 1}`;
-    takenNames.add(name);
-    const introduction = agentIdentity.formatSelfIntroduction(name, id.name_meaning, member.role);
-    return { ...member, agent_name: name, name_meaning: id.name_meaning, introduction };
-  });
+  spec.team = assignAgentIdentities(spec);
 
   state.worldSpec = spec;
   saveState(state);
