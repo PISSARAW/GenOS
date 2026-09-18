@@ -206,6 +206,12 @@ Le comportement est adapte au transport :
 - execution locale : le bridge CLI et `toolLogic.js` recoivent et propagent dynamiquement le timeout normalise `timeoutMs` a tous les sous-appels synchrones (`runSafeSync`) et asynchrones ;
 - outils bio et strategy : `withTimeout()` borne les promesses de fallback avec le meme `timeoutMs`.
 
+Le tool Computer Use ne valide plus une mission sur une capture ou un plan
+synthétique. Une absence d'affichage réel, une indisponibilité du modèle ou une
+action non exécutée produit respectivement `capture_unavailable`,
+`model_unavailable` ou `execution_failed`; seul l'état `completed` issu d'une
+action réelle peut être promu.
+
 Les sorties sont rigoureusement bornees et unifiees : le module `boundedOutput.js`, le serveur JS et le backend limitent tous la sortie a exactement $1\,048\,576$ octets (1 MiB par defaut). Pour HTTP, une reponse plus grande est refusee; les messages d'erreur ont une limite plus courte (4 KiB). Ces limites unifiees evitent qu'un outil bloque ou sature le processus de controle.
 
 ---

@@ -188,10 +188,10 @@ async function requestModelText(params) {
             displayWidth: params.capture.width,
             displayHeight: params.capture.height
         });
-        return result.text;
+        return { text: result.text, fallbackUsed: false };
     } catch (e) {
         params.log(`Model inference offline/unavailable (${e.message}). Falling back to synthetic plan for: ${params.mission}`);
-        return JSON.stringify(FALLBACK_PLAN);
+        return { text: JSON.stringify(FALLBACK_PLAN), fallbackUsed: true };
     }
 }
 
@@ -234,9 +234,11 @@ function executePlanSteps(plan, log, history) {
         runGenosSync(`genos desktop actions --json "${payload}"`);
         log("Plan completed.");
         history.push(`${JSON.stringify(plan)} -> succeeded`);
+        return true;
     } catch (e) {
-        log(`Plan execution: simulated (${e.message.split("\n")[0]})`);
-        history.push(`${JSON.stringify(plan)} -> simulated`);
+        log(`Plan execution failed: ${e.message.split("\n")[0]}`);
+        history.push(`${JSON.stringify(plan)} -> failed`);
+        return false;
     }
 }
 
@@ -283,12 +285,22 @@ async function runMission(mission, options = {}) {
             break;
         }
         const capture = captured.capture;
+        if (capture.synthetic) {
+            outcome = 'capture_unavailable';
+            log(capture.warning || 'A real display capture is required.');
+            break;
+        }
 
         const historyText = historySuffix(history);
         const prompt = buildVisionPrompt({ mission, capture, isAnthropic, historyText });
 
         log("Thinking...");
-        const text = await requestModelText({ model, prompt, capture, mission, log });
+        const modelResult = await requestModelText({ model, prompt, capture, mission, log });
+        if (modelResult.fallbackUsed) {
+            outcome = 'model_unavailable';
+            break;
+        }
+        const text = modelResult.text;
         lastResponse = text;
         log(`Model responded with raw text:\n${text}\n-----------------`);
 
@@ -313,9 +325,8 @@ async function runMission(mission, options = {}) {
         // with no screenshot in between, so a step like "open launcher -> type ->
         // Enter" completes in one shot.
         log(`Executing plan (${parsedPlan.plan.length} step${parsedPlan.plan.length > 1 ? "s" : ""}): ${JSON.stringify(parsedPlan.plan)}`);
-        executePlanSteps(parsedPlan.plan, log, history);
-        if (capture.synthetic) {
-            outcome = 'completed';
+        if (!executePlanSteps(parsedPlan.plan, log, history)) {
+            outcome = 'execution_failed';
             break;
         }
         await new Promise((r) => setTimeout(r, 500));
