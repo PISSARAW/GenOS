@@ -61,3 +61,9 @@ gates de sécurité restent obligatoires.
 `dag_mark_sweep` et `cas_gc` sont évalués par leurs handlers réels, avec
 dry-run, rapport des objets inaccessibles et suppression contrôlée. Le registre
 ne les traite plus comme des primitives manquantes.
+
+## Release 9 — cohérence du registre
+
+Le registre impose une vérification de clôture : aucune stratégie expérimentale
+ou prototype, aucune primitive manquante et aucune stratégie partielle ne peut
+être publiée comme prête.
