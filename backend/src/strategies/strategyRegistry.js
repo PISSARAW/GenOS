@@ -6,8 +6,6 @@ const crypto = require('crypto');
 
 const STRATEGIES = Object.freeze([...core, ...temporalCollective, ...knowledgeResilience, ...animalControl]);
 const byId = new Map(STRATEGIES.map((strategy) => [strategy.id, strategy]));
-const KNOWN_UNIMPLEMENTED_PRIMITIVES = new Set(['cas_gc', 'dag_mark_sweep']);
-
 if (STRATEGIES.length === 0) throw new Error('Strategy registry must contain at least one strategy');
 if (byId.size !== STRATEGIES.length) throw new Error('Strategy registry contains duplicate ids');
 
@@ -48,7 +46,7 @@ function hashRegistry(strategies = listStrategies()) {
 
 function toPublicStrategy(strategy) {
   const handlers = require('../services/strategyExecutionAdapter').getHandlers();
-  const missingPrimitives = strategy.primitives.filter((primitive) => !handlers[primitive] || KNOWN_UNIMPLEMENTED_PRIMITIVES.has(primitive));
+  const missingPrimitives = strategy.primitives.filter((primitive) => !handlers[primitive]);
   const executionStatus = missingPrimitives.length ? 'partial' : 'ready';
   const maturity = executionStatus === 'partial' ? 'partial' : strategy.maturity;
   return {

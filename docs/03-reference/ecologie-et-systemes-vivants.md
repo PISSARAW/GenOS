@@ -64,6 +64,10 @@ références JSON sous `refs/`; le DAG utilise les racines explicites
 `dryRun` (`dag_mark_sweep` utilise `prune: false`) et ne suppriment qu'après une
 demande explicite. Une simulation retourne `status: simulated` et ne constitue
 pas un succès opérationnel.
+
+Ces primitives sont également vérifiées par le registre des stratégies : elles
+ne sont plus traitées comme des handlers manquants lorsque leur contrat de
+collecte et leurs tests sont disponibles.
 - **Registres en mémoire** : la plupart des handlers utilisent des `Map` module-level perdus au redémarrage.
 - **Pas de persistance relationnelle cross-agent** : les relations chimeriques, jumeaux, plasmides sont en mémoire.
 - **Codex local requis** : les handlers appellent `genos biomimicry ...` via `runGenosSync` — si le binaire Rust n'est pas disponible, les handlers retournent `tool_error`.

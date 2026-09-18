@@ -20,6 +20,16 @@ async function removeArtifact(relativePath) {
   }
 }
 
+function isTraversableDirectory(name) {
+  return name !== '.git' && name !== 'node_modules' && name !== 'target';
+}
+
+async function removeCacheDirectory(entryPath) {
+  await fs.rm(entryPath, removeOptions).catch((error) => failures.push({
+    path: path.relative(repoRoot, entryPath), error: error.code || error.message
+  }));
+}
+
 async function removePythonCaches(directory) {
   let entries;
   try {
@@ -30,13 +40,12 @@ async function removePythonCaches(directory) {
   }
   for (const entry of entries) {
     const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory() && entry.name === '__pycache__') {
-      await fs.rm(entryPath, removeOptions).catch((error) => failures.push({ path: path.relative(repoRoot, entryPath), error: error.code || error.message }));
+    if (!entry.isDirectory()) continue;
+    if (entry.name === '__pycache__') {
+      await removeCacheDirectory(entryPath);
       continue;
     }
-    if (entry.isDirectory() && entry.name !== '.git' && entry.name !== 'node_modules' && entry.name !== 'target') {
-      await removePythonCaches(entryPath);
-    }
+    if (isTraversableDirectory(entry.name)) await removePythonCaches(entryPath);
   }
 }
 

@@ -61,3 +61,6 @@ action locale supplémentaire.
 Le premier lot de migration de la tranche 11–19 concerne les scripts de recherche
 documentaire : parcours des fichiers, calcul du score et contexte de recherche sont
 désormais séparés, sans augmenter le nombre de paramètres.
+
+Le nettoyage des artefacts applique le même principe aux parcours récursifs : les
+prédicats de répertoire et la suppression des caches sont isolés du contrôle de flux.

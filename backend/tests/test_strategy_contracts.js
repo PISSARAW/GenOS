@@ -71,7 +71,7 @@ async function run() {
   const incident = buildStrategyContract({ problem: 'Reproduce an intermittent production incident' });
   assert(registryTotal >= 92);
   assert(listStrategies().every((strategy) => ['ready', 'partial'].includes(strategy.executionStatus)));
-  assert(listStrategies().some((strategy) => strategy.executionStatus === 'partial'));
+  assert(listStrategies().every((strategy) => strategy.executionStatus === 'ready'));
   assert.equal(incident.problem_profile.type, 'incident');
   assert.equal(incident.selection_policy.allowExperimental, false);
   assert.equal(incident.selection_policy.allowPrototype, false);
