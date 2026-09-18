@@ -5,6 +5,14 @@ import argparse
 import uuid
 import time
 import re
+from dataclasses import dataclass
+
+
+@dataclass
+class IngestOptions:
+    speaker: str = "USER"
+    session_id: str = "session_1"
+    port: int = 3030
 
 def get_embedding(text):
     payload = json.dumps({
@@ -60,7 +68,8 @@ Output ONLY the JSON list. No markdown blocks."""
         print("Unable to extract entities via LLM:", e)
         return []
 
-def ingest_to_genos(context_text, speaker="USER", session_id="session_1", port=3030):
+def ingest_to_genos(context_text, options=None):
+    options = options or IngestOptions()
     chunk_id = f"chunk_{uuid.uuid4().hex[:8]}"
     timestamp = int(time.time())
     
@@ -73,15 +82,15 @@ def ingest_to_genos(context_text, speaker="USER", session_id="session_1", port=3
     payload_dict = {
         "id": chunk_id,
         "text": context_text,
-        "speaker": speaker,
+        "speaker": options.speaker,
         "timestamp": timestamp,
-        "session_id": session_id,
+        "session_id": options.session_id,
         "vector": emb,
         "relations": relations
     }
     
     payload = json.dumps(payload_dict).encode('utf-8')
-    req = urllib.request.Request(f"http://127.0.0.1:{port}/api/ingest", data=payload, headers={'Content-Type': 'application/json'})
+    req = urllib.request.Request(f"http://127.0.0.1:{options.port}/api/ingest", data=payload, headers={'Content-Type': 'application/json'})
     try:
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode('utf-8'))
@@ -130,7 +139,7 @@ if __name__ == "__main__":
         with open(args.file, 'r', encoding='utf-8') as f:
             content = f.read()
         print(f"Ingesting {len(content)} characters...")
-        ingest_to_genos(content, speaker=args.speaker, session_id=args.session)
+        ingest_to_genos(content, IngestOptions(speaker=args.speaker, session_id=args.session))
     elif args.action == "retrieve":
         if not args.query:
             print("The retrieve action requires --query")
