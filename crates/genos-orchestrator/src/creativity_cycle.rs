@@ -37,6 +37,8 @@ impl GenosEcosystem {
             let creative_steps: Vec<_> = tasks
                 .iter()
                 .filter(|task| {
+                    is_safe_creative_injection(task.concept)
+                        &&
                     !decision
                         .steps
                         .iter()
@@ -118,4 +120,20 @@ fn creative_world(state: &WorldState, goal: &Goal) -> genos_creativity::WorldSta
         tested: state.tested.iter().copied().map(to_creative_concept).collect(),
         goal: creative_goal(goal),
     }
+}
+
+fn is_safe_creative_injection(concept: genos_creativity::Concept) -> bool {
+    matches!(
+        concept,
+        genos_creativity::Concept::Observe
+            | genos_creativity::Concept::Replay
+            | genos_creativity::Concept::Delegate
+            | genos_creativity::Concept::Audit
+            | genos_creativity::Concept::Throttle
+            | genos_creativity::Concept::Signaling
+            | genos_creativity::Concept::Stigmergy
+            | genos_creativity::Concept::Quorum
+            | genos_creativity::Concept::Neuro
+            | genos_creativity::Concept::Communicate
+    )
 }

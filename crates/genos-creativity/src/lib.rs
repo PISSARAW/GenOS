@@ -22,10 +22,10 @@ pub mod types;
 
 pub use consolidation::CrossConsolidation;
 pub use creativity_engine::{
-    CreativityConfig, CreativityEngine, CreativityMetrics, DirectorAdapter,
+    CreativeMemory, CreativityConfig, CreativityEngine, CreativityMetrics, DirectorAdapter,
 };
 pub use dopamine::{CreativityOutcome, DopamineSignal, DopamineTarget};
-pub use dreaming::{DreamingPhase, RawHypothesis, SimulationTrace};
+pub use dreaming::{DreamingPhase, RawHypothesis, SimulationTrace, StateDelta};
 pub use salience::{FocusedTask, SalienceGate};
 pub use types::{Concept, Goal, Metabolism, WorldState};
 

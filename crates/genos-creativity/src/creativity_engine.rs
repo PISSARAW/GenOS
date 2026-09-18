@@ -8,7 +8,7 @@
 use crate::consolidation::CrossConsolidation;
 use crate::consolidation::ConsolidationTarget;
 use crate::dopamine::{CreativityOutcome, DopamineSignal, DopamineTarget};
-use crate::dreaming::DreamingPhase;
+use crate::dreaming::{DreamingPhase, RawHypothesis};
 use crate::salience::{FocusedTask, SalienceGate};
 use crate::types::{Concept, Goal, Metabolism, WorldState};
 use serde::{Deserialize, Serialize};
@@ -45,6 +45,10 @@ pub struct CreativityMetrics {
     pub validated_hypotheses: u64,
     pub exploration_weight_delta: f64,
     pub novel_concepts_promoted: u64,
+    pub unique_concepts_generated: u64,
+    pub recombined_hypotheses: u64,
+    pub prediction_error_sum: f64,
+    pub prediction_observations: u64,
 }
 
 impl CreativityMetrics {
@@ -54,6 +58,34 @@ impl CreativityMetrics {
 
     pub fn record_dream(&mut self) {
         self.dreams_generated += 1;
+    }
+
+    pub fn record_generation(&mut self, hypotheses: &[RawHypothesis]) {
+        let unique_concepts = hypotheses
+            .iter()
+            .map(|hypothesis| hypothesis.concept)
+            .collect::<std::collections::HashSet<_>>()
+            .len() as u64;
+        self.record_dream();
+        self.hypotheses_filtered += hypotheses.len() as u64;
+        self.recombined_hypotheses += hypotheses
+            .iter()
+            .filter(|hypothesis| !hypothesis.source_fragments.is_empty())
+            .count() as u64;
+        self.unique_concepts_generated = self.unique_concepts_generated.max(unique_concepts);
+    }
+
+    pub fn record_prediction_error(&mut self, error: f64) {
+        self.prediction_error_sum += error.abs();
+        self.prediction_observations += 1;
+    }
+
+    pub fn mean_prediction_error(&self) -> f64 {
+        if self.prediction_observations == 0 {
+            0.0
+        } else {
+            self.prediction_error_sum / self.prediction_observations as f64
+        }
     }
 
     pub fn record_filtered(&mut self, count: u64) {
@@ -92,6 +124,12 @@ pub struct CreativityEngine {
     tick_counter: u64,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct CreativeMemory {
+    pub hypotheses: Vec<RawHypothesis>,
+    pub tick_counter: u64,
+}
+
 impl Default for CreativityEngine {
     fn default() -> Self {
         Self::new(CreativityConfig::default())
@@ -119,6 +157,19 @@ impl CreativityEngine {
 
     pub fn metrics(&self) -> CreativityMetrics {
         self.metrics.clone()
+    }
+
+    pub fn export_memory(&self) -> CreativeMemory {
+        CreativeMemory {
+            hypotheses: self.dreaming.export_history(),
+            tick_counter: self.tick_counter,
+        }
+    }
+
+    pub fn import_memory(&mut self, memory: CreativeMemory) {
+        self.dreaming.import_history(memory.hypotheses, memory.tick_counter);
+        self.tick_counter = memory.tick_counter;
+        self.pending_focused.clear();
     }
 
     /// Phase pré-tick : génère des hypothèses brutes, les filtre, retourne les tâches
@@ -149,8 +200,7 @@ impl CreativityEngine {
 
         // 1. Phase de rêve (DMN).
         let hypotheses = self.dreaming.dream(world, dream_budget, self.tick_counter);
-        self.metrics.record_dream();
-        self.metrics.record_filtered(hypotheses.len() as u64);
+        self.metrics.record_generation(&hypotheses);
 
         // 2. Consommation ATP de rêve (approximative : basée sur le nombre de cycles).
         let dream_cost = (hypotheses.len() as f64).mul_add(self.config.atp_per_dream, 0.0);
@@ -192,6 +242,8 @@ impl CreativityEngine {
                 .cloned();
 
             let actual = self.dopamine.actual_reward(outcome);
+            self.metrics
+                .record_prediction_error(actual - task.as_ref().map(|t| t.priority).unwrap_or(0.0));
 
             let initial = director.exploration_weight();
             self.dopamine.apply(director, ctx, actual);
@@ -329,5 +381,18 @@ mod tests {
         let metrics = engine.metrics();
         assert_eq!(metrics.focused_tasks_executed, 1);
         assert_eq!(metrics.validated_hypotheses, 1);
+    }
+
+    #[test]
+    fn test_memory_roundtrip_preserves_hypotheses_and_metrics() {
+        let mut engine = CreativityEngine::default();
+        let mut metabolism = Metabolism::new(10.0);
+        let _ = engine.pre_tick(&WorldState::default(), &Goal::Explore, &mut metabolism);
+        let memory = engine.export_memory();
+        let mut restored = CreativityEngine::default();
+        restored.import_memory(memory.clone());
+
+        assert_eq!(restored.export_memory().hypotheses.len(), memory.hypotheses.len());
+        assert_eq!(engine.metrics().dreams_generated, 1);
     }
 }

@@ -34,6 +34,16 @@ pub struct SimulationTrace {
     pub predicted_effects: Vec<String>,
     pub constraints: Vec<String>,
     pub feasibility: f64,
+    /// Delta d'état structuré utilisé pour comparer la prédiction au monde réel.
+    pub state_delta: StateDelta,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct StateDelta {
+    pub budget_before: f64,
+    pub budget_after: f64,
+    pub observed_after: bool,
+    pub tested_additions: Vec<Concept>,
 }
 
 /// Phase de rêve : exploration non contrainte.
@@ -73,6 +83,15 @@ impl DreamingPhase {
 
     pub fn tick(&mut self) {
         self.tick_counter += 1;
+    }
+
+    pub fn export_history(&self) -> Vec<RawHypothesis> {
+        self.history.clone()
+    }
+
+    pub fn import_history(&mut self, history: Vec<RawHypothesis>, tick_counter: u64) {
+        self.history = history;
+        self.tick_counter = tick_counter;
     }
 
     /// Génère des hypothèses brutes depuis le DMN, avec budget ATP borné.
@@ -210,6 +229,12 @@ impl DreamingPhase {
             predicted_effects: vec![format!("would_attempt_{:?}", concept)],
             constraints,
             feasibility: (world.budget / concept.cost() as f64).clamp(0.0, 1.0),
+            state_delta: StateDelta {
+                budget_before: world.budget,
+                budget_after: (world.budget - concept.cost() as f64).max(0.0),
+                observed_after: world.observed || matches!(concept, Concept::Observe),
+                tested_additions: vec![*concept],
+            },
         }
     }
 
@@ -279,6 +304,7 @@ mod tests {
                     predicted_effects: vec![],
                     constraints: vec![],
                     feasibility: 1.0,
+                    state_delta: StateDelta::default(),
                 },
                 generated_at_tick: 0,
             })
@@ -315,5 +341,15 @@ mod tests {
                     .constraints
                     .contains(&"evidence_required_before_promotion".to_string())
         }));
+    }
+
+    #[test]
+    fn test_simulation_exposes_structured_state_delta() {
+        let mut dreaming = DreamingPhase::new(CreativityConfig::default());
+        let world = WorldState::default();
+        let hypothesis = dreaming.dream(&world, 10.0, 0).remove(0);
+
+        assert_eq!(hypothesis.simulation.state_delta.budget_before, world.budget);
+        assert_eq!(hypothesis.simulation.state_delta.tested_additions, vec![hypothesis.concept]);
     }
 }

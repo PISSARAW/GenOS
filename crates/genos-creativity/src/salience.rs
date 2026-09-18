@@ -241,6 +241,7 @@ mod tests {
                 predicted_effects: vec![],
                 constraints: vec![],
                 feasibility: 1.0,
+                state_delta: crate::dreaming::StateDelta::default(),
             },
             generated_at_tick: 0,
         };
@@ -256,6 +257,7 @@ mod tests {
                 predicted_effects: vec![],
                 constraints: vec![],
                 feasibility: 1.0,
+                state_delta: crate::dreaming::StateDelta::default(),
             },
             generated_at_tick: 0,
         };
@@ -283,6 +285,7 @@ mod tests {
                     predicted_effects: vec![],
                     constraints: vec![],
                     feasibility: 1.0,
+                    state_delta: crate::dreaming::StateDelta::default(),
                 },
                 generated_at_tick: 0,
             })
