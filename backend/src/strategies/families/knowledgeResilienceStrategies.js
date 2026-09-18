@@ -8,8 +8,8 @@ const memory = defineFamily('memory', [
   ['cognitive_merge', 'Fusion cognitive', ['all'], ['memory', 'verification', 'multi_objective'], 'implemented', ['experience_packets', 'knowledge_graph', 'reviewed_apply']],
   ['belief_truth_maintenance', 'Maintenance de vérité des croyances', ['scientific_research', 'incident', 'unknown_cause_bug'], ['memory', 'causal', 'verification'], 'implemented', ['belief_provenance', 'contradiction_check']],
   ['memory_compilation', 'Compilation de mémoire', ['all'], ['memory', 'low_cost'], 'implemented', ['compile_memory', 'source_refs']],
-  ['stdp_plasticity', 'Plasticité STDP', ['all'], ['memory', 'adaptive'], 'experimental', ['stdp_update', 'causal_weighting']],
-  ['memory_sleep_cycle', 'Cycle de sommeil mémoire', ['all'], ['memory', 'low_cost', 'budget'], 'experimental', ['prune_and_scale', 'context_compaction']],
+  ['stdp_plasticity', 'Plasticité STDP', ['all'], ['memory', 'adaptive'], 'implemented', ['stdp_update', 'causal_weighting']],
+  ['memory_sleep_cycle', 'Cycle de sommeil mémoire', ['all'], ['memory', 'low_cost', 'budget'], 'implemented', ['prune_and_scale', 'context_compaction']],
   ['controlled_lamarckian_learning', 'Apprentissage lamarckien contrôlé', ['all'], ['memory', 'mutation', 'reproducible'], 'implemented', ['infer_traits', 'replicate', 'promote_trait']],
   ['evidence_based_breeding', 'Breeding fondé sur les preuves', ['critical_refactor', 'security'], ['mutation', 'high_compute', 'reproducible'], 'implemented', ['phenotype_evidence', 'breed', 'validate_child']],
   ['plasmid_divergent_optimization', 'Optimisation divergente sur plasmide', ['all'], ['memory', 'mutation', 'parallel', 'verification'], 'implemented', ['plasmid_divergent_fork', 'pareto_select', 'assimilate_plasmid']]

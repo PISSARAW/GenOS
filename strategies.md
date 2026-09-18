@@ -14,7 +14,7 @@ Generated from backend/src/strategies/strategyRegistry.js. Runtime registry heal
 - falsifiable_hypothesis_tree | maturity: implemented | execution: ready | primitives: diagnose, hypothesis_evidence
 - falsification_forks | maturity: implemented | execution: ready | primitives: snapshot, fork, common_probes, evaluate
 - controlled_probe | maturity: implemented | execution: ready | primitives: snapshot, probe, evidence, conditional_mutation
-- bayesian_sequential_diagnosis | maturity: experimental | execution: ready | primitives: belief_update, expected_information_gain, next_probe
+- bayesian_sequential_diagnosis | maturity: implemented | execution: ready | primitives: belief_update, expected_information_gain, next_probe
 - causal_bisection | maturity: implemented | execution: ready | primitives: bisect_agent, snapshot_test
 - loop_detection_lkgs | maturity: implemented | execution: ready | primitives: analyze_trajectory, safe_revert
 - assumption_invalidation | maturity: implemented | execution: ready | primitives: invalidate_assumption, impact_graph
@@ -27,7 +27,7 @@ Generated from backend/src/strategies/strategyRegistry.js. Runtime registry heal
 - pareto_knee_point | maturity: implemented | execution: ready | primitives: pareto_frontier, utopia_distance
 - successive_halving | maturity: implemented | execution: ready | primitives: minimum_evaluation, prune, reallocate
 - recursive_branch_evolution | maturity: implemented | execution: ready | primitives: branch_evolution, recursive_fork, prune
-- beam_search | maturity: experimental | execution: ready | primitives: rank_states, retain_top_k, expand
+- beam_search | maturity: implemented | execution: ready | primitives: rank_states, retain_top_k, expand
 - mcts_prm | maturity: prototype | execution: ready | primitives: mcts_select, prm_evaluate, backpropagate
 - simulated_annealing | maturity: experimental | execution: ready | primitives: mutate, temperature_schedule, tests
 - hypermutation_reheat | maturity: experimental | execution: ready | primitives: stagnation_check, hypermutation, affinity_selection
@@ -36,7 +36,7 @@ Generated from backend/src/strategies/strategyRegistry.js. Runtime registry heal
 - deterministic_replay | maturity: implemented | execution: ready | primitives: replay, state_fold
 - causal_replay_intervention | maturity: implemented | execution: ready | primitives: restore, intervene, replay, causal_diff
 - retroactive_exploration | maturity: implemented | execution: ready | primitives: restore, fork, alternative_future
-- causal_rebase | maturity: experimental | execution: ready | primitives: checkpoint, inject_change, replay_dependencies
+- causal_rebase | maturity: implemented | execution: ready | primitives: checkpoint, inject_change, replay_dependencies
 - mutated_incident_universes | maturity: implemented | execution: ready | primitives: production_snapshot, mutated_universes, signature_match
 - partial_reproduction_refinement | maturity: implemented | execution: ready | primitives: score_partial_repro, recursive_refinement
 - future_ci | maturity: implemented | execution: ready | primitives: future_worlds, dependency_matrix, verify
@@ -44,7 +44,7 @@ Generated from backend/src/strategies/strategyRegistry.js. Runtime registry heal
 - specialist_expert_committee | maturity: implemented | execution: ready | primitives: role_forks, independent_reports, synthesis
 - blind_adversarial_review | maturity: implemented | execution: ready | primitives: adversarial_review, blind_critics
 - red_blue_coevolution | maturity: implemented | execution: ready | primitives: security_coevolution, neutral_observer
-- brier_weighted_consensus | maturity: experimental | execution: ready | primitives: brier_scores, weighted_quorum
+- brier_weighted_consensus | maturity: implemented | execution: ready | primitives: brier_scores, weighted_quorum
 - quorum_with_abstention | maturity: implemented | execution: ready | primitives: quorum, active_refusal
 - stigmergy | maturity: experimental | execution: ready | primitives: pheromone_deposit, trail_selection, evaporation
 - flocking_boids | maturity: experimental | execution: ready | primitives: separation, alignment, cohesion
@@ -63,8 +63,8 @@ Generated from backend/src/strategies/strategyRegistry.js. Runtime registry heal
 - cognitive_merge | maturity: implemented | execution: ready | primitives: experience_packets, knowledge_graph, reviewed_apply
 - belief_truth_maintenance | maturity: implemented | execution: ready | primitives: belief_provenance, contradiction_check
 - memory_compilation | maturity: implemented | execution: ready | primitives: compile_memory, source_refs
-- stdp_plasticity | maturity: experimental | execution: ready | primitives: stdp_update, causal_weighting
-- memory_sleep_cycle | maturity: experimental | execution: ready | primitives: prune_and_scale, context_compaction
+- stdp_plasticity | maturity: implemented | execution: ready | primitives: stdp_update, causal_weighting
+- memory_sleep_cycle | maturity: implemented | execution: ready | primitives: prune_and_scale, context_compaction
 - controlled_lamarckian_learning | maturity: implemented | execution: ready | primitives: infer_traits, replicate, promote_trait
 - evidence_based_breeding | maturity: implemented | execution: ready | primitives: phenotype_evidence, breed, validate_child
 - plasmid_divergent_optimization | maturity: implemented | execution: ready | primitives: plasmid_divergent_fork, pareto_select, assimilate_plasmid
