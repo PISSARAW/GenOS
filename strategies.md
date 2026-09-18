@@ -29,10 +29,10 @@ Generated from backend/src/strategies/strategyRegistry.js. Runtime registry heal
 - recursive_branch_evolution | maturity: implemented | execution: ready | primitives: branch_evolution, recursive_fork, prune
 - beam_search | maturity: implemented | execution: ready | primitives: rank_states, retain_top_k, expand
 - mcts_prm | maturity: prototype | execution: ready | primitives: mcts_select, prm_evaluate, backpropagate
-- simulated_annealing | maturity: experimental | execution: ready | primitives: mutate, temperature_schedule, tests
-- hypermutation_reheat | maturity: experimental | execution: ready | primitives: stagnation_check, hypermutation, affinity_selection
+- simulated_annealing | maturity: implemented | execution: ready | primitives: mutate, temperature_schedule, tests
+- hypermutation_reheat | maturity: implemented | execution: ready | primitives: stagnation_check, hypermutation, affinity_selection
 - genetic_strategy_algorithm | maturity: implemented | execution: ready | primitives: select, breed, mutate, evaluate
-- niche_exploration | maturity: experimental | execution: ready | primitives: speciation, niche_preservation, pareto_select
+- niche_exploration | maturity: implemented | execution: ready | primitives: speciation, niche_preservation, pareto_select
 - deterministic_replay | maturity: implemented | execution: ready | primitives: replay, state_fold
 - causal_replay_intervention | maturity: implemented | execution: ready | primitives: restore, intervene, replay, causal_diff
 - retroactive_exploration | maturity: implemented | execution: ready | primitives: restore, fork, alternative_future
