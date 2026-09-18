@@ -49,3 +49,15 @@ conservés pour permettre le replay et l'audit.
 runtime bornées et testées. `mindModelsService` et
 `consciousnessMetricsService` restent conceptuels : une comparaison de modèles
 ou une métrique descriptive ne constitue pas une preuve de conscience.
+
+## Release 7 — escalade de modèle par entropie
+
+Promue : `entropy_model_escalation`. Le seuil d'entropie détermine seulement
+la route locale ou frontier ; les budgets, la configuration fournisseur et les
+gates de sécurité restent obligatoires.
+
+## Release 8 — autophagie complète
+
+`dag_mark_sweep` et `cas_gc` sont évalués par leurs handlers réels, avec
+dry-run, rapport des objets inaccessibles et suppression contrôlée. Le registre
+ne les traite plus comme des primitives manquantes.
