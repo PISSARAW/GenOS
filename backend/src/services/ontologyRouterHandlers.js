@@ -15,6 +15,9 @@ const deconstruction = require('./philosophy/deconstructionService');
 const hermeneutics = require('./philosophy/hermeneuticsService');
 const differenceOntology = require('./philosophy/differenceOntologyService');
 const provenance = require('./philosophy/provenanceService');
+const personOther = require('./ontology/personOtherService');
+const continuity = require('./ontology/continuityService');
+const possibleWorlds = require('./ontology/possibleWorldService');
 
 function requireAgentId(args, operation) {
   const agentId = args.agentId || args.beingId || args.id || '';
@@ -124,10 +127,27 @@ async function getIdentityHistory(args) {
   return { agentId, events: await ontologyService.getIdentityHistory(agentId, { limit: Number(args.limit) || 50 }) };
 }
 
+async function defineOther(args) { return personOther.defineOther(args); }
+async function recordEncounter(args) { return personOther.recordEncounter(args); }
+async function listOtherRelations(args) { return { relations: await personOther.listOtherRelations(args) }; }
+async function evaluateAlterityBoundary(args) { return personOther.evaluateAlterityBoundary(args); }
+async function recordContinuityObservation(args) { return continuity.recordObservation(args); }
+async function classifyContinuity(args) { return continuity.classify(args); }
+async function detectContinuityTransition(args) { return continuity.detectTransition(args); }
+async function createPossibleWorld(args) { return { created: true, world: await possibleWorlds.createWorld(args) }; }
+async function getPossibleWorld(args) { return possibleWorlds.getWorld(args); }
+async function listPossibleWorlds(args) { return { worlds: await possibleWorlds.listWorlds(args) }; }
+async function addWorldAccessibility(args) { return possibleWorlds.addAccessibility(args); }
+async function comparePossibleWorlds(args) { return possibleWorlds.compareWorlds(args); }
+
 const HANDLERS = {
   getBeing, listBeings, defineBeing, getAttributes, getAttribute, setAttribute, getModes,
   defineMode, activateMode, deactivateMode, getActiveHypostatizations, hypostatize,
   checkIdentityContinuity, getIdentityHistory,
+  defineOther, recordEncounter, listOtherRelations, evaluateAlterityBoundary,
+  recordContinuityObservation, classifyContinuity, detectContinuityTransition,
+  createPossibleWorld, getPossibleWorld, listPossibleWorlds, addWorldAccessibility,
+  comparePossibleWorlds,
   addRelation: args => ontologyRelations.addRelation(args).then(relation => ({ added: true, relation })),
   getRelations: args => ontologyRelations.getRelations(args).then(relations => ({ relations })),
   analyzeExpression: args => semanticReference.analyzeExpression(args),
