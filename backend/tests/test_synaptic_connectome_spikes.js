@@ -9,12 +9,12 @@ console.log('[Test] Running test_synaptic_connectome_spikes...');
 
 // 1. Test plasticité STDP (Spike-Timing-Dependent Plasticity)
 // t_post > t_pre -> potentialisation à long terme (LTP)
-const ltp = computeSTDP(100, 110, 20.0);
+const ltp = computeSTDP({ preSpikeMs: 100, postSpikeMs: 110, tauMs: 20.0 });
 assert.strictEqual(ltp.isPotentiation, true);
 assert.ok(ltp.deltaWeight > 0);
 
 // t_post < t_pre -> dépression à long terme (LTD)
-const ltd = computeSTDP(120, 100, 20.0);
+const ltd = computeSTDP({ preSpikeMs: 120, postSpikeMs: 100, tauMs: 20.0 });
 assert.strictEqual(ltd.isDepression, true);
 assert.ok(ltd.deltaWeight < 0);
 

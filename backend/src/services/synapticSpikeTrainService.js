@@ -4,7 +4,7 @@
  * and genomic CIGAR/VCF mutation strings.
  */
 
-function computeSTDP(preSpikeMs, postSpikeMs, tauMs = 20.0, learningRate = 0.1) {
+function computeSTDP({ preSpikeMs, postSpikeMs, tauMs = 20.0, learningRate = 0.1 }) {
   const deltaT = postSpikeMs - preSpikeMs;
   const magnitude = Math.exp(-Math.abs(deltaT) / Math.max(1.0, tauMs));
   const sign = deltaT > 0 ? 1.0 : -1.0;
@@ -26,7 +26,7 @@ function processSynapticSpikes(synapse, spikes = []) {
   for (const spike of spikes) {
     const transmitter = spike.transmitter || 'glutamate';
     const postTime = spike.timestampMs || (lastSpikeTime + 5);
-    const stdp = computeSTDP(lastSpikeTime, postTime);
+    const stdp = computeSTDP({ preSpikeMs: lastSpikeTime, postSpikeMs: postTime });
 
     let transmitterMultiplier = 1.0;
     if (transmitter === 'gaba') transmitterMultiplier = -0.8;
