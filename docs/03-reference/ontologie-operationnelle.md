@@ -39,6 +39,10 @@ Les extensions avancées ajoutent :
 Un reçu vérifié atteste l'intégrité du payload enregistré. Il ne prouve pas que
 le scénario simulé s'est produit dans le monde réel.
 
+Les migrations ontologiques sont exécutées au bootstrap, y compris sur une base
+neuve. Le test `test_ontology_tenant_runtime_integration.js` vérifie la
+séparation entre deux tenants, la création d'un reçu et sa vérification.
+
 Exemple :
 
 ```json
