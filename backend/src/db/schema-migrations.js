@@ -50,6 +50,17 @@ async function applyVersionedMigrations(db) {
   await migrateAutobiographicalMemory(db);
   const { createPhilosophyAnalysisTables } = require('./migrations/migratePhilosophyAnalyses');
   await createPhilosophyAnalysisTables(db);
+  const { createOntologyTables, ensureOntologyColumns } = require('./migrations/migrateOntology');
+  await createOntologyTables(db);
+  await ensureOntologyColumns(db);
+  const { createOntologyRelationTables } = require('./migrations/migrateOntologyRelations');
+  await createOntologyRelationTables(db);
+  const { migrateOntologyConcepts } = require('./migrations/migrateOntologyConcepts');
+  await migrateOntologyConcepts(db);
+  const { migrateOntologyRelationScopes } = require('./migrations/migrateOntologyRelationScopes');
+  await migrateOntologyRelationScopes(db);
+  const { migrateOntologyWorldReceipts } = require('./migrations/migrateOntologyWorldReceipts');
+  await migrateOntologyWorldReceipts(db);
   await runRegistryMigrations(db);
 }
 
