@@ -15,7 +15,7 @@ const { createApp } = require('../src/app');
 const { getDatabase, closeDatabase } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
 
-function request(port, method, route, body) {
+function request({ port, method, route, body }) {
   return new Promise((resolve, reject) => {
     const req = http.request({
       hostname: '127.0.0.1', port, method, path: route,
@@ -41,7 +41,7 @@ async function waitForCompletion(port, agentId) {
   const deadline = Date.now() + Number(process.env.GENOS_LIFECYCLE_TIMEOUT_MS || 300000);
   let dossier;
   while (Date.now() < deadline) {
-    const response = await request(port, 'GET', `/api/agents/${agentId}/dossier`);
+    const response = await request({ port, method: 'GET', route: `/api/agents/${agentId}/dossier` });
     assert.equal(response.status, 200);
     dossier = response.body;
     const rootFinished = dossier.events.some((event) => ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(event.eventType) && event.agentId === agentId);
@@ -62,7 +62,7 @@ async function run() {
   await new Promise((resolve) => server.once('listening', resolve));
   const port = server.address().port;
   try {
-    const deployment = await request(port, 'POST', '/api/deploy', {
+    const deployment = await request({ port, method: 'POST', route: '/api/deploy', body: {
       name: 'Dynamic Programming Verifier',
       role: 'Algorithm orchestrator',
       workspaceId: 'workspace-dp',
@@ -70,7 +70,7 @@ async function run() {
       modelTier: 'standard',
       executionBudget: { tokens: 60000, costUsd: 8, latencyMs: 480000, events: 500 },
       prompt: 'Résous le problème de programmation dynamique suivant et vérifie le résultat par un petit programme : sac à dos 0/1, capacité 7, objets (poids,valeur) = (1,1), (3,4), (4,5), (5,7). Donne la valeur optimale et les objets choisis avec des preuves reproductibles.'
-    });
+    } });
     assert.equal(deployment.status, 201, JSON.stringify(deployment.body));
     const dossier = await waitForCompletion(port, deployment.body.agentId);
     const failures = dossier.events.filter((event) => ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(event.eventType));
