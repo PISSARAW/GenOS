@@ -15,7 +15,7 @@ function evidenceFor(row, framework) {
   ];
 }
 
-async function buildReport(framework, workspaceId, generatedBy = 'studio', scope = {}) {
+async function buildReport({ framework, workspaceId, generatedBy = 'studio', scope = {} }) {
   if (!FRAMEWORKS[framework]) throw Object.assign(new Error('Unsupported compliance framework'), { status: 400 });
   const db = await getDatabase();
   const scoped = scope.organizationId && scope.projectId;

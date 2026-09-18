@@ -14,7 +14,12 @@ async function listReports(req, res, next) {
 
 async function createReport(req, res, next) {
   try {
-    const report = await compliance.buildReport(req.body.framework, req.body.workspaceId, req.user?.username || 'studio', req.tenant);
+    const report = await compliance.buildReport({
+      framework: req.body.framework,
+      workspaceId: req.body.workspaceId,
+      generatedBy: req.user?.username || 'studio',
+      scope: req.tenant
+    });
     res.status(201).json(report);
   } catch (error) {
     next(error);
