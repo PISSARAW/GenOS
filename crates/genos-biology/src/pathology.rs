@@ -36,6 +36,8 @@ pub fn assess_agent_clinical_status(agent: &AgentCell) -> ClinicalStatusReport {
         Some("SystemicTherapy::DetoxificationWashout ou Antidote".to_string())
     } else if active_pathologies.iter().any(|p| p.category() == DiseaseCategory::Degenerative) {
         Some("SystemicTherapy::StemCellReplacement ou ApoptoticPruning".to_string())
+    } else if active_pathologies.iter().any(|p| p.category() == DiseaseCategory::Infectious) {
+        Some("SystemicTherapy::Antiviral".to_string())
     } else {
         None
     };

@@ -160,6 +160,9 @@ pub fn apply_systemic_therapy_to_cell(therapy: &SystemicTherapy, cell: &mut Agen
             cell.clinical.clinical_log.push("Traitement antibiotique large spectre administré".to_string());
         }
         SystemicTherapy::Antiviral => {
+            if cell.clinical.cure_pathology_by_name("Infection Virale Exogène") {
+                cured.push("Infection Virale Exogène".to_string());
+            }
             cell.clinical.clinical_log.push("Traitement antiviral administré".to_string());
         }
         SystemicTherapy::Vaccine(spike) => {

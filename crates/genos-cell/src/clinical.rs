@@ -72,6 +72,10 @@ pub enum Pathology {
     ContextualDecay {
         age_ticks: u64,
     },
+    /// Infection virale exogène propagée par un virion actif
+    ViralInfection {
+        pathogen_signature: String,
+    },
 }
 
 impl Pathology {
@@ -94,6 +98,8 @@ impl Pathology {
             | Pathology::ReplicativeSenescence
             | Pathology::PrionAggregation { .. }
             | Pathology::ContextualDecay { .. } => DiseaseCategory::Degenerative,
+
+            Pathology::ViralInfection { .. } => DiseaseCategory::Infectious,
         }
     }
 
@@ -113,6 +119,7 @@ impl Pathology {
             Pathology::ReplicativeSenescence => "Sénescence Réplicative",
             Pathology::PrionAggregation { .. } => "Agrégation Prionique Cognitive",
             Pathology::ContextualDecay { .. } => "Dégénérescence Contextuelle",
+            Pathology::ViralInfection { .. } => "Infection Virale Exogène",
         }
     }
 }
