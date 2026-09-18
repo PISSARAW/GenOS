@@ -1,13 +1,19 @@
 'use strict';
 
+const { boundedAnalysis } = require('./philosophyAnalysisContract');
+
 const TRUTH_THEORIES = Object.freeze([
   'correspondence', 'coherence', 'pragmatist', 'deflationary', 'minimalism', 'internal-realism',
 ]);
 
+function analysis(result) {
+  return boundedAnalysis(result);
+}
+
 function evaluateTruthTheory({ theory, proposition, criterion, context = null } = {}) {
   const knownTheory = TRUTH_THEORIES.includes(theory);
   const criterionProvided = typeof criterion === 'boolean';
-  return {
+  return analysis({
     kind: 'truth-theory-assessment',
     theory: knownTheory ? theory : null,
     proposition: proposition ?? null,
@@ -16,14 +22,14 @@ function evaluateTruthTheory({ theory, proposition, criterion, context = null } 
     status: !knownTheory ? 'unknown-theory' : !criterionProvided ? 'criterion-undetermined' : criterion ? 'criterion-satisfied' : 'criterion-not-satisfied',
     truthEstablished: false,
     limitation: 'Un critère de correspondance, cohérence, pragmatisme ou minimalisme évalue un cadre ; il ne suffit pas à établir une vérité métaphysique.',
-  };
+  });
 }
 
 function assessSkepticism({ claim, challenge = 'radical', evidenceCount = 0, defeaters = [], response = null } = {}) {
   const count = Number.isInteger(evidenceCount) && evidenceCount >= 0 ? evidenceCount : 0;
   const activeDefeaters = Array.isArray(defeaters) ? defeaters : [];
   const challenged = challenge === 'radical' || activeDefeaters.length > 0;
-  return {
+  return analysis({
     kind: 'skeptical-challenge',
     claim: claim ?? null,
     challenge,
@@ -33,14 +39,14 @@ function assessSkepticism({ claim, challenge = 'radical', evidenceCount = 0, def
     status: challenged ? (response ? 'challenge-addressed-provisionally' : 'challenge-open') : 'challenge-not-triggered',
     suspensionRecommended: challenged && !response,
     limitation: 'Le scepticisme met en question la justification disponible ; il ne constitue pas à lui seul une réfutation de la proposition.',
-  };
+  });
 }
 
 function assessRelativism({ claim, context, alternativeContext = null, standardsCompatible = null } = {}) {
   const hasContext = typeof context === 'string' && context.trim().length > 0;
   const hasAlternative = typeof alternativeContext === 'string' && alternativeContext.trim().length > 0;
   const compatible = typeof standardsCompatible === 'boolean' ? standardsCompatible : null;
-  return {
+  return analysis({
     kind: 'relativism-assessment',
     claim: claim ?? null,
     context: context ?? null,
@@ -49,7 +55,7 @@ function assessRelativism({ claim, context, alternativeContext = null, standards
     status: !hasContext ? 'context-missing' : hasAlternative && compatible === false ? 'context-relative-disagreement' : 'contextualized-claim',
     universalValidity: compatible === true,
     limitation: 'La contextualisation d’un claim ne rend pas toutes les positions également justifiées et ne supprime pas les exigences de preuve.',
-  };
+  });
 }
 
 module.exports = { TRUTH_THEORIES, evaluateTruthTheory, assessSkepticism, assessRelativism };
