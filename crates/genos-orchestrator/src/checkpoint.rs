@@ -1,6 +1,6 @@
 use crate::director::{Director, DirectorState};
 use crate::ecosystem::GenosEcosystem;
-use genos_store::{CheckpointStore, ContinuationEntry, ContinuationType, ContinuationWal, OrchestrationCheckpoint};
+use genos_store::{CheckpointEntries, CheckpointStore, ContinuationAppend, ContinuationEntry, ContinuationType, ContinuationWal, OrchestrationCheckpoint};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -120,37 +120,37 @@ impl CheckpointManager {
     }
 
     pub fn record_barrier(&mut self, barrier_id: &str, state: &serde_json::Value) -> std::io::Result<u64> {
-        self.wal.append(
-            ContinuationType::Barrier,
-            serde_json::json!({
+        self.wal.append(ContinuationAppend {
+            entry_type: ContinuationType::Barrier,
+            payload: serde_json::json!({
                 "barrier_id": barrier_id,
                 "state": state
             }),
-            vec![],
-        )
+            dependencies: vec![],
+        })
     }
 
     pub fn record_promise(&mut self, promise_id: &str, status: &str, payload: &serde_json::Value) -> std::io::Result<u64> {
-        self.wal.append(
-            ContinuationType::Promise,
-            serde_json::json!({
+        self.wal.append(ContinuationAppend {
+            entry_type: ContinuationType::Promise,
+            payload: serde_json::json!({
                 "promise_id": promise_id,
                 "status": status,
                 "payload": payload
             }),
-            vec![],
-        )
+            dependencies: vec![],
+        })
     }
 
     pub fn record_active_process(&mut self, process_id: Uuid, state: &serde_json::Value) -> std::io::Result<u64> {
-        self.wal.append(
-            ContinuationType::ActiveProcess,
-            serde_json::json!({
+        self.wal.append(ContinuationAppend {
+            entry_type: ContinuationType::ActiveProcess,
+            payload: serde_json::json!({
                 "process_id": process_id.to_string(),
                 "state": state
             }),
-            vec![],
-        )
+            dependencies: vec![],
+        })
     }
 
     pub fn maybe_checkpoint(&mut self, state: &OrchestratorCheckpointState) -> std::io::Result<bool> {
@@ -184,14 +184,14 @@ impl CheckpointManager {
             .collect();
 
         let checkpoint = OrchestrationCheckpoint::new(current_seq, serde_json::to_value(state)?)
-            .with_entries(barriers, promises, processes);
+            .with_entries(CheckpointEntries { barriers, promises, processes });
 
         self.checkpoint_store.save(&checkpoint)?;
-        self.wal.append(
-            ContinuationType::Checkpoint,
-            serde_json::json!({ "checkpoint_seq": current_seq }),
-            vec![],
-        )?;
+        self.wal.append(ContinuationAppend {
+            entry_type: ContinuationType::Checkpoint,
+            payload: serde_json::json!({ "checkpoint_seq": current_seq }),
+            dependencies: vec![],
+        })?;
 
         Ok(())
     }

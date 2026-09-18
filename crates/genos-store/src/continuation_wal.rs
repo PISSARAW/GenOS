@@ -25,23 +25,31 @@ pub enum ContinuationType {
     Checkpoint,
 }
 
+pub struct ContinuationEntryConfig {
+    pub seq_id: u64,
+    pub entry_type: ContinuationType,
+    pub payload: serde_json::Value,
+    pub dependencies: Vec<u64>,
+}
+
+pub struct ContinuationAppend {
+    pub entry_type: ContinuationType,
+    pub payload: serde_json::Value,
+    pub dependencies: Vec<u64>,
+}
+
 impl ContinuationEntry {
-    pub fn new(
-        seq_id: u64,
-        entry_type: ContinuationType,
-        payload: serde_json::Value,
-        dependencies: Vec<u64>,
-    ) -> Self {
-        let payload_str = serde_json::to_string(&payload).unwrap_or_default();
+    pub fn new(config: ContinuationEntryConfig) -> Self {
+        let payload_str = serde_json::to_string(&config.payload).unwrap_or_default();
         let payload_hash = sha2::Sha256::digest(payload_str.as_bytes());
         let payload_hash = hex::encode(payload_hash);
 
         Self {
-            seq_id,
-            entry_type,
+            seq_id: config.seq_id,
+            entry_type: config.entry_type,
             payload_hash,
-            payload,
-            dependencies,
+            payload: config.payload,
+            dependencies: config.dependencies,
             timestamp: Utc::now().to_rfc3339(),
         }
     }
@@ -99,14 +107,14 @@ impl ContinuationWal {
         })
     }
 
-    pub fn append(
-        &mut self,
-        entry_type: ContinuationType,
-        payload: serde_json::Value,
-        dependencies: Vec<u64>,
-    ) -> std::io::Result<u64> {
+    pub fn append(&mut self, config: ContinuationAppend) -> std::io::Result<u64> {
         self.current_seq += 1;
-        let entry = ContinuationEntry::new(self.current_seq, entry_type, payload, dependencies);
+        let entry = ContinuationEntry::new(ContinuationEntryConfig {
+            seq_id: self.current_seq,
+            entry_type: config.entry_type,
+            payload: config.payload,
+            dependencies: config.dependencies,
+        });
 
         let json = serde_json::to_string(&entry)?;
         self.writer.write_all(json.as_bytes())?;
@@ -173,6 +181,12 @@ pub struct OrchestrationCheckpoint {
     pub timestamp: String,
 }
 
+pub struct CheckpointEntries {
+    pub barriers: Vec<ContinuationEntry>,
+    pub promises: Vec<ContinuationEntry>,
+    pub processes: Vec<ContinuationEntry>,
+}
+
 impl OrchestrationCheckpoint {
     pub fn new(seq_id: u64, orchestrator_state: serde_json::Value) -> Self {
         Self {
@@ -185,15 +199,10 @@ impl OrchestrationCheckpoint {
         }
     }
 
-    pub fn with_entries(
-        mut self,
-        barriers: Vec<ContinuationEntry>,
-        promises: Vec<ContinuationEntry>,
-        processes: Vec<ContinuationEntry>,
-    ) -> Self {
-        self.active_barriers = barriers;
-        self.active_promises = promises;
-        self.active_processes = processes;
+    pub fn with_entries(mut self, entries: CheckpointEntries) -> Self {
+        self.active_barriers = entries.barriers;
+        self.active_promises = entries.promises;
+        self.active_processes = entries.processes;
         self
     }
 }
@@ -236,17 +245,17 @@ mod tests {
         let dir = tempdir().unwrap();
         let mut wal = ContinuationWal::new(dir.path()).unwrap();
 
-        let seq1 = wal.append(
-            ContinuationType::Barrier,
-            serde_json::json!({ "barrier_id": "b1", "state": "pending" }),
-            vec![],
-        ).unwrap();
+        let seq1 = wal.append(ContinuationAppend {
+            entry_type: ContinuationType::Barrier,
+            payload: serde_json::json!({ "barrier_id": "b1", "state": "pending" }),
+            dependencies: vec![],
+        }).unwrap();
 
-        let seq2 = wal.append(
-            ContinuationType::Promise,
-            serde_json::json!({ "promise_id": "p1", "status": "pending" }),
-            vec![seq1],
-        ).unwrap();
+        let seq2 = wal.append(ContinuationAppend {
+            entry_type: ContinuationType::Promise,
+            payload: serde_json::json!({ "promise_id": "p1", "status": "pending" }),
+            dependencies: vec![seq1],
+        }).unwrap();
 
         assert_eq!(seq1, 1);
         assert_eq!(seq2, 2);
@@ -265,8 +274,8 @@ mod tests {
         let dir = tempdir().unwrap();
         {
             let mut wal = ContinuationWal::new(dir.path()).unwrap();
-            wal.append(ContinuationType::Barrier, serde_json::json!({ "id": "b1" }), vec![]).unwrap();
-            wal.append(ContinuationType::Promise, serde_json::json!({ "id": "p1" }), vec![]).unwrap();
+            wal.append(ContinuationAppend { entry_type: ContinuationType::Barrier, payload: serde_json::json!({ "id": "b1" }), dependencies: vec![] }).unwrap();
+            wal.append(ContinuationAppend { entry_type: ContinuationType::Promise, payload: serde_json::json!({ "id": "p1" }), dependencies: vec![] }).unwrap();
         }
 
         let wal = ContinuationWal::new(dir.path()).unwrap();
@@ -278,7 +287,7 @@ mod tests {
     fn wal_verify_integrity() {
         let dir = tempdir().unwrap();
         let mut wal = ContinuationWal::new(dir.path()).unwrap();
-        wal.append(ContinuationType::Barrier, serde_json::json!({ "id": "b1" }), vec![]).unwrap();
+        wal.append(ContinuationAppend { entry_type: ContinuationType::Barrier, payload: serde_json::json!({ "id": "b1" }), dependencies: vec![] }).unwrap();
         assert!(wal.verify_integrity());
     }
 
