@@ -53,7 +53,7 @@ const RELATION_DEFINITIONS = [
   , relation('mathematics.ante-rem-structuralism', 'subclassOf', 'mathematics.structuralism')
   , relation('mathematics.in-re-structuralism', 'subclassOf', 'mathematics.structuralism')
   , relation('mathematics.post-rem-structuralism', 'subclassOf', 'mathematics.structuralism')
-  , relation('mathematics.continuum-hypothesis', 'independentFrom', 'mathematics.zfc', { note: 'Indépendance relative aux axiomes de ZFC.' })
+  , relation('mathematics.continuum-hypothesis', 'independentFrom', { id: 'mathematics.zfc', metadata: { note: 'Indépendance relative aux axiomes de ZFC.' } })
   , relation('mathematics.transfinite', 'dependsOn', 'mathematics.set-theory')
   , relation('mathematics.nonstandard-analysis', 'develops', 'mathematics.infinitesimal')
   , relation('mathematics.proof-theory', 'formalizes', 'mathematics.proof')
@@ -61,7 +61,9 @@ const RELATION_DEFINITIONS = [
   , relation('mathematics.potential-actual-infinity', 'contrastsWith', 'mathematics.transfinite')
 ];
 
-function relation(sourceId, relationType, targetId, metadata = {}) {
+function relation(sourceId, relationType, target) {
+  const targetId = typeof target === 'string' ? target : target.id;
+  const metadata = typeof target === 'string' ? {} : target.metadata || {};
   return {
     apiVersion: 'genos.ontology/v1',
     kind: 'OntologyRelation',
