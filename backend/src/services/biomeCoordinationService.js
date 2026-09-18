@@ -10,6 +10,7 @@ const biologicalModeService = require('./biologicalModeService');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const swarmMetricsService = require('./swarmMetricsService');
 const { defaultForaging } = require('./foragingScoutHarvesterService');
+const biofilmMatrix = require('./biofilmMatrixService');
 
 const DEFAULT_ORGANIZATION = 'energy_huddle';
 const MECHANISMS = ['resource_allocation', 'optimal_foraging', 'quorum_sensing'];
@@ -26,6 +27,7 @@ function composeBiome(mission, options = {}) {
     organization,
     mechanisms: MECHANISMS,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'biome', organization }),
+    matrix: biofilmMatrix.createMatrix(`biome-${Date.now()}`, options),
     members: biologicalModeService.compose('biome', goal)
   };
 }
