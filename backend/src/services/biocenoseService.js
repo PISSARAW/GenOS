@@ -12,6 +12,7 @@ const biologicalModeService = require('./biologicalModeService');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const arenaTaskEvaluation = require('./arenaTaskEvaluation');
 const swarmMetricsService = require('./swarmMetricsService');
+const hierarchicalQuorum = require('./hierarchicalQuorumService');
 
 function communityDiversity(dossiers) {
   const actions = (dossiers || []).flatMap((dossier) => (dossier.events || []).map((event) => event.action || event.eventType)).filter(Boolean);
@@ -117,6 +118,7 @@ function composeBiocenose(mission, options = {}) {
     evidenceThreshold: options.evidenceThreshold || 0.75,
     organization,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'biocenose', organization }),
+    communicationPlan: hierarchicalQuorum.planForAgentCount(options.agentCount || 4, options),
     members
   };
 }
@@ -151,4 +153,5 @@ module.exports = {
   prepareCommunity,
   brierConsensus,
   quorumWithAbstention
+  , hierarchicalQuorumPlan: hierarchicalQuorum.planForAgentCount
 };
