@@ -229,15 +229,17 @@ async function changeOrganization(db, options = {}) {
 }
 
 function resolveSignalPayload(content, signalType, signalData) {
-  const hasSignal = signalData !== undefined && signalData !== null;
-  const rawText = String(content || '').trim();
-  if (!rawText && !hasSignal) {
-    throw organizationError('MESSAGE_REQUIRED', 'Organization messages require content or a biomimetic signal.');
+  const normalizedType = String(signalType || '').trim().toLowerCase();
+  if (!normalizedType || normalizedType === 'text') {
+    throw organizationError('ZERO_TEXT_REQUIRED', 'Inter-agent organization messages require a non-text biomimetic signal.');
   }
-  if (rawText.length > 12000) {
-    throw organizationError('MESSAGE_TOO_LARGE', 'Organization messages are limited to 12000 characters.');
+  if (!['ligand', 'voltage', 'pheromone', 'plasmid', 'tensor'].includes(normalizedType)) {
+    throw organizationError('INVALID_SIGNAL_TYPE', `Unsupported inter-agent signal type '${signalType}'.`);
   }
-  return formatSignalForTransport({ signalType, signalData, contentFallback: rawText });
+  if (signalData === undefined || signalData === null || typeof signalData !== 'object' || Array.isArray(signalData)) {
+    throw organizationError('SIGNAL_DATA_REQUIRED', 'Inter-agent organization messages require structured signal_data.');
+  }
+  return formatSignalForTransport({ signalType: normalizedType, signalData });
 }
 
 function assertAdversarialRecipient(state, sender, recipientAgentId) {

@@ -77,7 +77,7 @@ fn validate_tool_arguments(name: &str, args: &Value) -> Result<(), String> {
         "genos_change_strategy" => &["strategy", "reason"],
         "genos_report_progress" => &["phase", "message"],
         "genos_change_organization" => &["organization", "reason"],
-        "genos_worker_publish" => &["kind"],
+        "genos_worker_publish" => &["kind", "signal_type", "signal_data"],
         "genos_trinity_launch" => &["mission"],
         "genos_a_team_preview" => &["project_goal", "sub_systems"],
         "genos_merge" => &["branch_id"],

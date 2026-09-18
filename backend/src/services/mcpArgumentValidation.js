@@ -39,7 +39,7 @@ const REQUIRED_STRINGS = {
   genos_report_progress: ['phase', 'message'],
   genos_change_organization: ['organization', 'reason'],
   genos_organization_state: [],
-  genos_worker_publish: ['kind'],
+  genos_worker_publish: ['kind', 'signal_type', 'signal_data'],
   genos_worker_inbox: [],
   genos_capsule_create: ['snapshot_id'],
   genos_v2_init: [],

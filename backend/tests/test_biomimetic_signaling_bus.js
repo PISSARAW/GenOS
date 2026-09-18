@@ -145,16 +145,16 @@ async function testDynamicOrganizationIntegration(db) {
   assert.strictEqual(msg.signalType, 'ligand');
   assert.strictEqual(msg.hasBiomimeticSignal, true);
   assert.deepStrictEqual(msg.signal, signalData);
-  assert.strictEqual(msg.content, '[BIO_SIGNAL:ligand]');
+  assert.strictEqual(msg.content, '');
 
-  // 3. Fallback: Publish legacy text message
-  const legacyPub = await organization.publish(db, {
-    orchestratorId: 'org-signaling-root',
-    senderAgentId: 'worker-chem-1',
-    kind: 'evidence',
-    content: 'plain text legacy report'
-  });
-  assert.strictEqual(legacyPub.signalType, 'text');
+  // 3. Text is forbidden on the inter-agent channel.
+  await assert.rejects(
+    () => organization.publish(db, {
+      orchestratorId: 'org-signaling-root', senderAgentId: 'worker-chem-1',
+      kind: 'evidence', content: 'plain text legacy report'
+    }),
+    (err) => err.code === 'ZERO_TEXT_REQUIRED'
+  );
 
   // 4. Verification of error when neither content nor signalData is provided
   await assert.rejects(
@@ -165,7 +165,7 @@ async function testDynamicOrganizationIntegration(db) {
         kind: 'evidence'
       });
     },
-    (err) => err.code === 'MESSAGE_REQUIRED'
+    (err) => err.code === 'ZERO_TEXT_REQUIRED'
   );
 
   const voltagePub = await organization.publish(db, {

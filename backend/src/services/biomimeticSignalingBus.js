@@ -109,7 +109,7 @@ function formatSignalForTransport(params) {
   const { signalType, signalData, contentFallback } = params;
   const normType = String(signalType || SIGNAL_TYPES.TEXT).trim().toLowerCase();
   const packedBlob = packSignalPayload(normType, signalData);
-  const textContent = contentFallback || (normType === SIGNAL_TYPES.TEXT ? JSON.stringify(signalData || {}) : `[BIO_SIGNAL:${normType}]`);
+  const textContent = normType === SIGNAL_TYPES.TEXT ? (contentFallback || JSON.stringify(signalData || {})) : '';
   return {
     signalType: normType,
     signalBlob: packedBlob,

@@ -37,43 +37,43 @@ async function run() {
     const unchanged = await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'specialist_expert_committee', reason: 'still appropriate', changedBy: 'org-root' });
     assert.equal(unchanged.changed, false);
     assert.equal(unchanged.version, 1, 'reaffirming a topology must not create a fake transition');
-    const indirect = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', recipientAgentId: 'org-b', kind: 'evidence', content: 'test passed' });
+    const indirect = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', recipientAgentId: 'org-b', kind: 'evidence', signalType: 'ligand', signalData: { event: 'test_passed' } });
     assert.equal(indirect.recipientAgentId, 'org-root', 'committee exchanges must pass through the orchestrator');
     assert.equal((await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-b' })).messages.length, 0);
     assert.equal((await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-root' })).messages.length, 1);
 
     const active = await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'red_blue_coevolution', reason: 'active challenge needed', changedBy: 'org-root' });
     assert.equal(active.version, 2);
-    await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', recipientAgentId: 'org-b', kind: 'challenge', content: 'counterexample' });
-    assert.equal((await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-b', afterId: indirect.id })).messages[0].content, 'counterexample');
+    await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', recipientAgentId: 'org-b', kind: 'challenge', signalType: 'ligand', signalData: { event: 'counterexample' } });
+    assert.equal((await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-b', afterId: indirect.id })).messages[0].signal.event, 'counterexample');
 
     await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'blind_adversarial_review', reason: 'remove reviewer anchoring', changedBy: 'org-root' });
-    const blind = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', kind: 'challenge', content: 'anonymous critique' });
+    const blind = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', kind: 'challenge', signalType: 'ligand', signalData: { event: 'anonymous_critique' } });
     const blindInbox = await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-b', afterId: blind.id - 1 });
     assert.equal(blindInbox.messages[0].senderAgentId, 'anonymous_worker');
 
     await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'stigmergy', reason: 'leave implicit evidence trails', changedBy: 'org-root' });
-    const trace = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', kind: 'trace', content: 'high-value path' });
+    const trace = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', kind: 'trace', signalType: 'pheromone', signalData: { locusHash: 'high_value_path', intensity: 1 } });
     assert.equal(trace.channel, 'stigmergic_trail');
 
     await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'network_silence', reason: 'preserve budget', changedBy: 'org-root' });
-    const buffered = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', kind: 'question', content: 'non-critical chatter' });
+    const buffered = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', kind: 'question', signalType: 'ligand', signalData: { event: 'non_critical_chatter' } });
     assert.equal(buffered.delivery, 'buffered');
-    const critical = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', kind: 'critical', content: 'invariant broken' });
+    const critical = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', kind: 'critical', signalType: 'ligand', signalData: { event: 'invariant_broken' } });
     assert.equal(critical.delivery, 'delivered');
     const silentInbox = await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-b', afterId: indirect.id });
     assert(silentInbox.messages.some((message) => message.kind === 'critical'));
-    assert(!silentInbox.messages.some((message) => message.content === 'non-critical chatter'));
+    assert(!silentInbox.messages.some((message) => message.signal?.event === 'non_critical_chatter'));
 
     await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'red_blue_coevolution', reason: 'resume collaboration', changedBy: 'org-root' });
     const releasedInbox = await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-b', afterId: indirect.id });
-    assert(releasedInbox.messages.some((message) => message.content === 'non-critical chatter'), 'buffered messages must be released when network silence ends');
+    assert(releasedInbox.messages.some((message) => message.signal?.event === 'non_critical_chatter'), 'buffered messages must be released when network silence ends');
 
     await assert.rejects(
       () => organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'stigmergy', changedBy: 'org-a' }),
       (error) => error.code === 'ORCHESTRATOR_AUTHORITY_REQUIRED'
     );
-    const outsider = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'outsider', recipientAgentId: 'org-b', kind: 'evidence', content: 'spoof' });
+    const outsider = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'outsider', recipientAgentId: 'org-b', kind: 'evidence', signalType: 'ligand', signalData: { event: 'spoof' } });
     assert.equal(outsider.kind, 'evidence');
     const outsiderAgent = await db.get("SELECT parent_agent_id FROM agents WHERE id = 'outsider'");
     assert.equal(outsiderAgent.parent_agent_id, 'org-root', 'unknown senders are auto-registered as organization members');
@@ -92,7 +92,7 @@ async function run() {
       path.resolve(__dirname, '../bin/genos-orchestrate.cjs'),
       JSON.stringify({
         action: 'organization_publish', background: false,
-        orchestratorId: 'org-root', recipientAgentId: 'org-b', kind: 'evidence', content: 'bridge telemetry check'
+        orchestratorId: 'org-root', recipientAgentId: 'org-b', kind: 'evidence', signal_type: 'ligand', signal_data: { event: 'bridge_telemetry_check' }
       })
     ], {
       encoding: 'utf8',
