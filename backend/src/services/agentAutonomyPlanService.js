@@ -10,6 +10,7 @@ const { consultLocalModels } = require('./agentModelRoutingService');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const selfModel = require('./selfModelService');
 const autobiographicalRecall = require('./autobiographicalMemory/orchestratorRecall');
+const survivalState = require('./survivalStateService');
 
 function clampShare(value) {
   return Math.max(0, Math.min(1, value));
@@ -231,6 +232,12 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
   applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
   applySurvivalConstraints(autonomyPlan);
+  await survivalState.observe(db, agentId, {
+    ...autonomyPlan.survival.state,
+    activeWorkers: autonomyPlan.workers.length,
+    carryingCapacity: autonomyPlan.survival.state.carryingCapacity,
+    survivalState: normalizedMission.survivalState
+  });
   await applySelfModel({ db, agentId, normalizedMission, autonomyPlan });
   await autobiographicalRecall.recallBeforePlanning({ db, agentId, normalizedMission, autonomyPlan });
   await applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan });

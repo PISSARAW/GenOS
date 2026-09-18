@@ -73,6 +73,10 @@ const migrationRunners = [
     const { migrateOntologyWorldReceipts } = require('./migrateOntologyWorldReceipts');
     await migrateOntologyWorldReceipts(db);
   }),
+  createMigrationRunner('032-survival-state', 'Persist orchestrator survival states and transition events', async (db) => {
+    const { migrateSurvivalState } = require('./migrateSurvivalState');
+    await migrateSurvivalState(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
