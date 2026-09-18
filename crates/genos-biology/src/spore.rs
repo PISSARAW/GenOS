@@ -20,6 +20,13 @@ pub struct Spore {
     pub bunker_armor: u32,
 }
 
+pub struct SporeFromCell<'a> {
+    pub spore_type: SporeType,
+    pub cell: &'a AgentCell,
+    pub genome: Genome,
+    pub bunker_armor: u32,
+}
+
 impl Spore {
     pub fn new(spore_type: SporeType, genome: Genome, bunker_armor: u32) -> Self {
         Self {
@@ -32,14 +39,14 @@ impl Spore {
         }
     }
 
-    pub fn from_cell(spore_type: SporeType, cell: &AgentCell, genome: Genome, bunker_armor: u32) -> Self {
+    pub fn from_cell(config: SporeFromCell<'_>) -> Self {
         Self {
-            spore_type,
-            genome,
-            parent_cell_id: cell.cell_id,
-            conscience: cell.conscience.clone(),
-            organelles: cell.organelles.clone(),
-            bunker_armor,
+            spore_type: config.spore_type,
+            genome: config.genome,
+            parent_cell_id: config.cell.cell_id,
+            conscience: config.cell.conscience.clone(),
+            organelles: config.cell.organelles.clone(),
+            bunker_armor: config.bunker_armor,
         }
     }
 
@@ -112,7 +119,12 @@ mod tests {
     fn test_spore_round_trip_preserves_organelles() {
         let mut cell = AgentCell::new("Host", "Host", "Worker");
         cell.organelles.push(Organelle::Ribosome { id: Uuid::new_v4(), translation_capacity: 4 });
-        let spore = Spore::from_cell(SporeType::BacterialEndospore, &cell, Genome::new("CELL"), 9999);
+        let spore = Spore::from_cell(SporeFromCell {
+            spore_type: SporeType::BacterialEndospore,
+            cell: &cell,
+            genome: Genome::new("CELL"),
+            bunker_armor: 9999,
+        });
         let revived = spore.germinate(true, true).unwrap();
         assert_eq!(revived.organelles.len(), 1);
     }
