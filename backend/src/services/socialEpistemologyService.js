@@ -6,6 +6,23 @@ function normalizeScore(value) {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1 ? value : null;
 }
 
+function inputList(value, name) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new Error(`${name} must be an array.`);
+  return value;
+}
+
+function optionalScore(value) {
+  if (value === undefined || value === null) return null;
+  if (normalizeScore(value) === null) throw new Error('credibility must be a number in [0, 1].');
+  return value;
+}
+
+function requiredText(value, name) {
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`${name} must be a non-empty string.`);
+  return value;
+}
+
 function analysis(result) {
   return withEpistemicContext(boundedAnalysis(result), {
     methodology: result.kind,
@@ -14,12 +31,10 @@ function analysis(result) {
 }
 
 function assessTestimony({ claim, source, credibility, corroboration = [], independence = null } = {}) {
-  const score = normalizeScore(credibility);
-  const corroborating = Array.isArray(corroboration) ? corroboration : [];
+  const score = optionalScore(credibility);
+  const corroborating = inputList(corroboration, 'corroboration');
   return analysis({
-    kind: 'testimony-assessment',
-    claim: claim ?? null,
-    source: source ?? null,
+    kind: 'testimony-assessment', claim: requiredText(claim, 'claim'), source: requiredText(source, 'source'),
     credibility: score,
     corroboration: corroborating,
     independence,
@@ -29,8 +44,8 @@ function assessTestimony({ claim, source, credibility, corroboration = [], indep
 }
 
 function assessDiscussion({ claims, disagreements = [], resolution = null } = {}) {
-  const positions = Array.isArray(claims) ? claims : [];
-  const conflicts = Array.isArray(disagreements) ? disagreements : [];
+  const positions = inputList(claims, 'claims');
+  const conflicts = inputList(disagreements, 'disagreements');
   return analysis({
     kind: 'epistemic-discussion',
     claims: positions,
@@ -42,8 +57,8 @@ function assessDiscussion({ claims, disagreements = [], resolution = null } = {}
 }
 
 function assessCognitiveLabor({ task, agents, specializations = [], overlap = null } = {}) {
-  const participants = Array.isArray(agents) ? agents : [];
-  const roles = Array.isArray(specializations) ? specializations : [];
+  const participants = inputList(agents, 'agents');
+  const roles = inputList(specializations, 'specializations');
   return analysis({
     kind: 'distributed-cognitive-labor',
     task: task ?? null,
@@ -56,8 +71,8 @@ function assessCognitiveLabor({ task, agents, specializations = [], overlap = nu
 }
 
 function assessSituatedKnowledge({ claim, standpoint, location, accessLimits = [], affectedVoices = [] } = {}) {
-  const limits = Array.isArray(accessLimits) ? accessLimits : [];
-  const voices = Array.isArray(affectedVoices) ? affectedVoices : [];
+  const limits = inputList(accessLimits, 'accessLimits');
+  const voices = inputList(affectedVoices, 'affectedVoices');
   return analysis({
     kind: 'situated-knowledge-assessment',
     claim: claim ?? null,
@@ -72,9 +87,9 @@ function assessSituatedKnowledge({ claim, standpoint, location, accessLimits = [
 }
 
 function assessEmancipatoryCritique({ claim, powerRelations = [], exclusions = [], affectedVoices = [] } = {}) {
-  const relations = Array.isArray(powerRelations) ? powerRelations : [];
-  const omitted = Array.isArray(exclusions) ? exclusions : [];
-  const voices = Array.isArray(affectedVoices) ? affectedVoices : [];
+  const relations = inputList(powerRelations, 'powerRelations');
+  const omitted = inputList(exclusions, 'exclusions');
+  const voices = inputList(affectedVoices, 'affectedVoices');
   return analysis({
     kind: 'emancipatory-epistemic-critique',
     claim: claim ?? null,
