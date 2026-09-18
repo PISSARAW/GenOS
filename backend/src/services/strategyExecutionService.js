@@ -13,6 +13,7 @@ const events = require('./strategyExecutionEvents');
 const progress = require('./strategyExecutionProgress');
 const promotionGate = require('./strategyPromotionGate');
 const selfModel = require('./selfModelService');
+const survivalState = require('./survivalStateService');
 
 function normalizedBudget(input) {
   const source = input || {};
@@ -74,7 +75,26 @@ async function recordExecutionEvent(db, agentId, event) {
   if (!saved) return null;
   const fallback = await fallbackAfterProgress(db, saved, agentId);
   if (['completed', 'failed', 'blocked', 'cancelled'].includes(saved.run.status)) await selfModel.calibrate(db, saved.run.id);
-  return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback };
+  const survival = await observeSurvivalEvent({ db, agentId, event, run: saved.run });
+  return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback, survival };
+}
+
+async function observeSurvivalEvent({ db, agentId, event, run }) {
+  const metrics = run.metrics || {};
+  const payload = event.payload || {};
+  try {
+    return await survivalState.observe(db, agentId, {
+      tokens: metrics.tokens,
+      activeWorkers: payload.activeWorkers ?? metrics.workersActive ?? 0,
+      recentFailures: payload.recentFailures ?? (['failed', 'blocked', 'cancelled'].includes(run.status) ? 1 : 0),
+      uncertainty: payload.uncertainty,
+      threatLevel: payload.threatLevel,
+      integrity: payload.integrity,
+      workspaceId: payload.workspaceId
+    });
+  } catch (error) {
+    return { recorded: false, code: error.code || 'SURVIVAL_OBSERVATION_FAILED', error: error.message };
+  }
 }
 
 async function approveRun(db, id, options) {

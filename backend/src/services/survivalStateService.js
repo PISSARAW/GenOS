@@ -27,6 +27,25 @@ function nextState(survival) {
   return 'nominal';
 }
 
+const RECOVERY_ACTIONS = Object.freeze({
+  starvation: ['reduce_fanout', 'prefer_low_cost_tools'],
+  infection: ['quarantine', 'require_independent_evidence'],
+  injury: ['isolate_restore_validate'],
+  predation: ['quarantine', 'request_human_review'],
+  overgrowth: ['prune_workers'],
+  isolation: ['request_helper'],
+  conflict: ['require_independent_evidence'],
+  senescence: ['prune_memory'],
+  habitat_loss: ['migrate_workspace', 'enter_dormancy'],
+  stagnation: ['controlled_mutation']
+});
+
+function recoveryPlan(pressures) {
+  return pressures.flatMap((pressure) => (RECOVERY_ACTIONS[pressure] || []).map((action) => ({
+    pressure, action, status: 'requested', requiresReceipt: true
+  })));
+}
+
 function ensureAgentId(agentId) {
   if (!agentId) throw new Error('agentId is required for survival state observation.');
   return String(agentId);
@@ -80,7 +99,7 @@ async function observe(db, agentId, input = {}) {
     input.snapshotId || previous?.snapshotId || null, input.wakeConditionId || previous?.wakeConditionId || null, version);
   await db.run(`INSERT INTO survival_state_events (agent_id, from_state, to_state, event_type, payload_json)
     VALUES (?, ?, ?, ?, ?)`, id, previous?.state || null, state, eventType, JSON.stringify({ survival, input }));
-  return { ...(await get(db, id)), changed: previous?.state !== state, eventType };
+  return { ...(await get(db, id)), changed: previous?.state !== state, eventType, recoveryPlan: recoveryPlan(survival.pressures) };
 }
 
 async function transition(db, command = {}) {
@@ -115,4 +134,4 @@ async function wake(db, command = {}) {
   return { success: true, restored, state };
 }
 
-module.exports = { STATES, get, observe, transition, suspend, wake, ensureStorage };
+module.exports = { STATES, get, observe, transition, suspend, wake, recoveryPlan, ensureStorage };
