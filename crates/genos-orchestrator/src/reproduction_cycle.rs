@@ -13,6 +13,7 @@ use genos_cell::AgentCell;
 use genos_genome::Genome;
 use genos_reproduction::CellDivision;
 use rand::SeedableRng;
+use serde::Serialize;
 use rand::rngs::StdRng;
 use serde_json::json;
 use uuid::Uuid;
@@ -27,7 +28,7 @@ pub const MIN_MEMBRANE_INTEGRITY_TO_REPRODUCE: f64 = 0.5;
 pub const AUTONOMOUS_MUTATION_RATE: f64 = 0.01;
 
 /// Bilan d'une division cellulaire autonome réussie.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ReproductionOutcome {
     pub mother_id: Uuid,
     pub daughter_id: Uuid,
@@ -38,7 +39,7 @@ pub struct ReproductionOutcome {
 /// Pourquoi la reproduction n'a pas abouti ce tick. `NoEligibleMother` est
 /// l'état normal la plupart du temps (pas une erreur) ; les autres variantes
 /// signalent un échec réel d'immersion biophysique.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub enum ReproductionBlocked {
     NoEligibleMother,
     InsufficientAtp,
@@ -52,7 +53,12 @@ impl GenosEcosystem {
     /// (membrane rompue) : appelé par `tick` à chaque cycle, sans opérateur.
     pub(crate) fn attempt_autonomous_reproduction_if_alive(&mut self) {
         if self.orchestrator.membrane.is_alive() {
-            let _ = self.autonomous_reproduction_cycle();
+            if let Err(reason) = self.autonomous_reproduction_cycle() {
+                self.record_event(
+                    "REPRODUCTION_BLOCKED",
+                    json!({ "reason": reason }),
+                );
+            }
         }
     }
 

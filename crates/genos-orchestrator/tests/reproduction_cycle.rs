@@ -56,6 +56,25 @@ fn reproduction_bloquee_si_atp_insuffisant() {
 }
 
 #[test]
+fn le_tick_trace_les_blocages_de_reproduction() {
+    let mut eco = GenosEcosystem::new("Overmind");
+    eco.orchestrator.create_tissue("Arena", "Exec").unwrap();
+    let founder = eco
+        .orchestrator
+        .add_worker("Arena", AgentCell::new("Fondatrice", "w", "Soma"))
+        .unwrap();
+    let genome_id = eco.seed_germline(founder, "FOUNDER_GENOME").unwrap();
+    eco.orchestrator.genomes.get_mut(&genome_id).unwrap().hayflick_limit = 0;
+
+    let _ = eco.tick(&Goal::Conserve);
+
+    assert!(eco
+        .read_events(0)
+        .iter()
+        .any(|event| event.event_type == "REPRODUCTION_BLOCKED"));
+}
+
+#[test]
 fn reproduction_bloquee_si_membrane_trop_faible() {
     let mut eco = GenosEcosystem::new("Overmind");
     eco.orchestrator.create_tissue("Arena", "Exec").unwrap();
