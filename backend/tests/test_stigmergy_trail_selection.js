@@ -58,10 +58,12 @@ async function runStigmergySuite() {
 
   // Query message to verify creation date
   const msgRow = await db.get(
-    'SELECT created_at FROM agent_organization_messages WHERE id = ?',
+    'SELECT created_at, signal_type, signal_blob FROM agent_organization_messages WHERE id = ?',
     depositRes.messageId
   );
   assert(msgRow, 'Message row must exist in database');
+  assert.strictEqual(msgRow.signal_type, 'pheromone', 'Trace must persist as a pheromone signal');
+  assert(msgRow.signal_blob, 'Pheromone signal data must be packed for transport');
 
   // Evaluate trail strength immediately (t=0)
   const selNow = await collectivePrimitives.trailSelection({

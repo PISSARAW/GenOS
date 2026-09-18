@@ -49,6 +49,8 @@ async function pheromoneDeposit(context) {
       senderAgentId: input.agentId,
       kind: 'trace',
       content: pheromoneContent(input.path, finalStrength),
+      signalType: 'pheromone',
+      signalData: { path: input.path, strength: finalStrength, isRepellent: finalStrength < 0 },
       payload: { type: 'pheromone', path: input.path, strength: finalStrength, isRepellent: finalStrength < 0 }
     });
     telemetry.emitEvent({
