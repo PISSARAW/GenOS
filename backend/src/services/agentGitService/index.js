@@ -240,7 +240,8 @@ async function replay(req) {
   const state = JSON.parse(object.state_json);
   const digest = hashState(state);
   const events = Array.isArray(state.events) ? state.events : [];
-  return { success: true, operation: 'replay', objectId: object.id, replayVerified: digest === object.state_hash && verifyObjectSignature(object), state, stateHash: digest, runtimeReplay: { eventCount: events.length, ordered: events.every((event, index, all) => index === 0 || String(all[index - 1].created_at) <= String(event.created_at)), events }, applied: false };
+  const replayVerified = digest === object.state_hash && verifyObjectSignature(object);
+  return { success: replayVerified, status: replayVerified ? 'completed' : 'verification_failed', operation: 'replay', objectId: object.id, replayVerified, state, stateHash: digest, runtimeReplay: { eventCount: events.length, ordered: events.every((event, index, all) => index === 0 || String(all[index - 1].created_at) <= String(event.created_at)), events }, applied: false };
 }
 
 async function log(req) {

@@ -212,6 +212,10 @@ action non exécutée produit respectivement `capture_unavailable`,
 `model_unavailable` ou `execution_failed`; seul l'état `completed` issu d'une
 action réelle peut être promu.
 
+Les opérations de replay exposent séparément `status` et `replayVerified`.
+Lorsque le hash, la signature ou l'état live divergent, la réponse porte
+`verification_failed` et `success` vaut `false`.
+
 Les sorties sont rigoureusement bornees et unifiees : le module `boundedOutput.js`, le serveur JS et le backend limitent tous la sortie a exactement $1\,048\,576$ octets (1 MiB par defaut). Pour HTTP, une reponse plus grande est refusee; les messages d'erreur ont une limite plus courte (4 KiB). Ces limites unifiees evitent qu'un outil bloque ou sature le processus de controle.
 
 ---

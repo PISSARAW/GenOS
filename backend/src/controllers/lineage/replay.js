@@ -44,6 +44,23 @@ async function maybeApplySnapshot(db, context) {
   return true;
 }
 
+function replayResponse(input) {
+  const replayVerified = input.liveDigest === input.digest;
+  const status = input.applied ? (replayVerified ? 'completed' : 'verification_failed') : 'preview';
+  return {
+    success: input.applied && replayVerified,
+    status,
+    replayVerified,
+    agentId: input.agentId,
+    snapshotId: input.snapshotId,
+    state: input.state,
+    stateDigest: input.digest,
+    liveDigest: input.liveDigest,
+    applied: input.applied,
+    mode: input.applied ? 'applied' : 'preview'
+  };
+}
+
 async function replayAgentState(req, res) {
   const agentId = readString(req.body, 'agentId');
   const snapshotId = readString(req.body, 'snapshotId');
@@ -60,7 +77,7 @@ async function replayAgentState(req, res) {
     ? await loadAgentForScope(db, scope, agentId)
     : agent;
   const liveDigest = liveAgent ? stateDigest(projectAgentState(liveAgent)) : null;
-  return res.json({ success: true, replayVerified: liveDigest === digest, agentId, snapshotId, state, stateDigest: digest, liveDigest, applied, mode: applied ? 'applied' : 'preview' });
+  return res.json(replayResponse({ agentId, snapshotId, state, digest, liveDigest, applied }));
 }
 
 function findBisectCulprit(rows, matches) {
