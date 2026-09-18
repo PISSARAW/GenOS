@@ -215,6 +215,10 @@ def baseline_snapshot(current: dict) -> dict:
     return {path: rule_counts(violations) for path, violations in current.items()}
 
 
+def violation_total(snapshot: dict) -> int:
+    return sum(sum(counts.values()) for counts in snapshot.values())
+
+
 def new_violations(current: dict, baseline: dict) -> list[str]:
     reported = []
     for path, violations in current.items():
@@ -242,8 +246,16 @@ def main() -> int:
     paths = [path for path in select_paths(root) if is_source(path) and path.exists()]
     current = collect_violations(paths, root, lines_only)
     if '--update-baseline' in sys.argv:
-        BASELINE_PATH.write_text(json.dumps(baseline_snapshot(current), indent=2, sort_keys=True) + '\n', encoding='utf-8')
-        print(f'Quality baseline updated: {sum(len(v) for v in current.values())} violations in {len(current)} files.')
+        snapshot = baseline_snapshot(current)
+        previous = load_baseline()
+        if violation_total(snapshot) > violation_total(previous):
+            print(
+                'Quality baseline rejected: the new baseline would increase '
+                f'the debt from {violation_total(previous)} to {violation_total(snapshot)} violations.'
+            )
+            return 1
+        BASELINE_PATH.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+        print(f'Quality baseline updated: {violation_total(snapshot)} violations in {len(current)} files.')
         return 0
     reported = new_violations(current, load_baseline())
     for line in reported:
