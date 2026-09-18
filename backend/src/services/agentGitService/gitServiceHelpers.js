@@ -171,7 +171,7 @@ async function push(req) {
   const agentId = trimOrDefault(bodyValue(req, 'agentId'), '');
   const remoteName = trimOrDefault(bodyValue(req, 'remoteName'), 'default');
   const db = await getDatabase();
-  await enforceHooks(db, agentId, 'pre-push', await collectState(db, req, agentId));
+  await enforceHooks({ db, agentId, hookName: 'pre-push', context: await collectState(db, req, agentId) });
   const currentRef = await db.get('SELECT version FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, bodyValue(req, 'refName') || 'main');
   guardFastForward(req, currentRef);
   const commit = await createCommit(req, {

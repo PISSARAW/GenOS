@@ -132,7 +132,7 @@ async function push(req) {
   const agentId = String(req.body?.agentId || '').trim();
   const remoteName = String(req.body?.remoteName || 'default').trim();
   const db = await getDatabase();
-  await enforceHooks(db, agentId, 'pre-push', await collectState(db, req, agentId));
+  await enforceHooks({ db, agentId, hookName: 'pre-push', context: await collectState(db, req, agentId) });
   const currentRef = await db.get('SELECT version FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, req.body?.refName || 'main');
   if (req.body?.force !== true && req.body?.expectedVersion != null && Number(req.body.expectedVersion) !== Number(currentRef?.version || 0)) throw Object.assign(new Error('Push rejected: remote tracking ref diverged.'), { code: 'AGENT_PUSH_NON_FAST_FORWARD' });
   const commit = await createCommit(req, { agentId, kind: 'remote', refName: req.body?.refName || 'main', remoteName, metadata: { pushed: true, remoteUrl: req.body?.remoteUrl || null } });

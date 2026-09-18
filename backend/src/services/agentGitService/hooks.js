@@ -2,16 +2,7 @@ function json(value, fallback) {
   try { return JSON.parse(value || ''); } catch (_) { return fallback; }
 }
 
-async function enforceHooks(optionsOrDb, maybeAgentId, maybeHookName, maybeContext) {
-  let db, agentId, hookName, context;
-  if (optionsOrDb && typeof optionsOrDb === 'object' && optionsOrDb.db) {
-    ({ db, agentId, hookName, context } = optionsOrDb);
-  } else {
-    db = optionsOrDb;
-    agentId = maybeAgentId;
-    hookName = maybeHookName;
-    context = maybeContext;
-  }
+async function enforceHooks({ db, agentId, hookName, context }) {
   const hooks = await db.all('SELECT policy_json, enabled FROM agent_git_hooks WHERE agent_id = ? AND hook_name = ?', agentId, hookName).catch(() => []);
   for (const hook of hooks) {
     if (!hook.enabled) continue;
