@@ -46,14 +46,14 @@ Generated from backend/src/strategies/strategyRegistry.js. Runtime registry heal
 - red_blue_coevolution | maturity: implemented | execution: ready | primitives: security_coevolution, neutral_observer
 - brier_weighted_consensus | maturity: implemented | execution: ready | primitives: brier_scores, weighted_quorum
 - quorum_with_abstention | maturity: implemented | execution: ready | primitives: quorum, active_refusal
-- stigmergy | maturity: experimental | execution: ready | primitives: pheromone_deposit, trail_selection, evaporation
-- flocking_boids | maturity: experimental | execution: ready | primitives: separation, alignment, cohesion
-- fish_school_search | maturity: experimental | execution: ready | primitives: weighted_barycenter, resource_shift
-- slime_mould_network | maturity: experimental | execution: ready | primitives: path_conductivity, route_pruning
-- grey_wolf_optimizer | maturity: experimental | execution: ready | primitives: alpha_beta_delta, position_update
-- mycelial_routing | maturity: experimental | execution: ready | primitives: capability_route, knowledge_transfer
-- dynamic_polyethism | maturity: experimental | execution: ready | primitives: role_gradient, dynamic_assignment
-- energy_huddle | maturity: experimental | execution: ready | primitives: energy_observe, resource_equalize
+- stigmergy | maturity: implemented | execution: ready | primitives: pheromone_deposit, trail_selection, evaporation
+- flocking_boids | maturity: implemented | execution: ready | primitives: separation, alignment, cohesion
+- fish_school_search | maturity: implemented | execution: ready | primitives: weighted_barycenter, resource_shift
+- slime_mould_network | maturity: implemented | execution: ready | primitives: path_conductivity, route_pruning
+- grey_wolf_optimizer | maturity: implemented | execution: ready | primitives: alpha_beta_delta, position_update
+- mycelial_routing | maturity: implemented | execution: ready | primitives: capability_route, knowledge_transfer
+- dynamic_polyethism | maturity: implemented | execution: ready | primitives: role_gradient, dynamic_assignment
+- energy_huddle | maturity: implemented | execution: ready | primitives: energy_observe, resource_equalize
 - network_silence | maturity: implemented | execution: ready | primitives: local_buffer, critical_or_success_flush
 - strategy_arena | maturity: implemented | execution: ready | primitives: solver_tournament, elo, pareto
 - retrieval_first | maturity: implemented | execution: ready | primitives: search_memory, similarity_rank

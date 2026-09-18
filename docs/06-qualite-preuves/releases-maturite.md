@@ -22,3 +22,10 @@ promouvoir une capacité dont une primitive est absente du registre d'exécution
 Promues : `simulated_annealing`, `hypermutation_reheat` et
 `niche_exploration`. Les mutations restent bornées par les snapshots, les
 budgets et la conservation des branches rejetées.
+
+## Release 3 — coordination collective
+
+Promues : `stigmergy`, `flocking_boids`, `fish_school_search`,
+`slime_mould_network`, `grey_wolf_optimizer`, `mycelial_routing`,
+`dynamic_polyethism` et `energy_huddle`. Les handlers conservent les bornes
+de messages, de budget et d'abstention du runtime.
