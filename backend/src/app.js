@@ -55,6 +55,7 @@ const daemonRoutes = require('./routes/daemonRoutes');
 const chaosRoutes = require('./routes/chaosRoutes');
 const genomeRoutes = require('./routes/genomeRoutes');
 const healthController = require('./controllers/healthController');
+const fossilRoutes = require('./routes/fossilRoutes');
 
 const SAFE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 
@@ -162,6 +163,7 @@ function createApp() {
   app.use('/api', lineageRoutes);
   app.use('/api', genomeRoutes);
   app.use('/api', mcpRoutes);
+  app.use('/api/fossils', fossilRoutes);
   app.use('/api', incidentRoutes);
   app.use('/api', securityRoutes);
 

@@ -96,6 +96,20 @@ const TOOL_BASE_SCHEMAS = {
     },
     required: ['mission'],
   },
+  genos_fossil_record: {
+    type: 'object',
+    properties: {
+      lineage_id: { type: 'string' }, reason: { type: 'string' }, mode: { type: 'string' },
+      hard_parts: { type: 'array', items: { type: 'string' } },
+      soft_parts_lost: { type: 'array', items: { type: 'string' } },
+      phenotype_markers: { type: 'array' }, mineral_payload: { type: 'object' }
+    },
+    required: ['lineage_id', 'reason']
+  },
+  genos_fossil_list: { type: 'object', properties: { limit: { type: 'integer', minimum: 1, maximum: 1000 } } },
+  genos_fossil_strata: { type: 'object', properties: {} },
+  genos_fossil_excavate: { type: 'object', properties: { fossil_id: { type: 'string' } }, required: ['fossil_id'] },
+  genos_fossil_decode: { type: 'object', properties: { fossil_id: { type: 'string' } }, required: ['fossil_id'] },
   genos_delegate_worker: {
     type: 'object',
     properties: {

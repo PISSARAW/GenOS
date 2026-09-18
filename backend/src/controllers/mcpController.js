@@ -178,6 +178,11 @@ function toolOutcomeEvent(input) {
   };
 }
 
+function scopedToolArgs(req, toolName, args) {
+  if (!toolName.startsWith('genos_fossil_')) return args;
+  return { ...args, organization_id: req.tenant.organizationId, project_id: req.tenant.projectId };
+}
+
 async function executeToolTransport(input) {
   const { res, toolName, args, timeoutMs, agentId } = input;
   try {
@@ -308,7 +313,7 @@ async function executeTool(req, res) {
   }
   const check = circuitBreaker.canExecute(toolName, requestRole(req), agentId || 'global', args);
   if (!check.allowed) return mcpError(res, { status: 503, code: check.reason || 'CIRCUIT_OPEN', message: check.message });
-  return executeToolTransport({ res, toolName, args, timeoutMs, agentId });
+  return executeToolTransport({ res, toolName, args: scopedToolArgs(req, toolName, args), timeoutMs, agentId });
 }
 
 async function dryRun(req, res, next) {

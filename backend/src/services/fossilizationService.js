@@ -121,8 +121,8 @@ function buildFossilRecord(input = {}) {
     soft_parts_lost: asArray(input.softPartsLost),
     phenotype_markers: asArray(input.phenotypeMarkers),
     mineral_payload: input.mineralPayload === undefined ? null : input.mineralPayload,
-    organization_id: coalesce(input.organizationId, null),
-    project_id: coalesce(input.projectId, null)
+    organization_id: coalesce(input.organizationId, input.organization_id, null),
+    project_id: coalesce(input.projectId, input.project_id, null)
   };
   record.conservation_quality = conservationQuality(record.hard_parts, record.soft_parts_lost);
   record.payload_hash = computePayloadHash(record);
@@ -131,7 +131,7 @@ function buildFossilRecord(input = {}) {
 
 async function persistFossil(db, record) {
   await db.run(
-    `INSERT OR REPLACE INTO fossils
+    `INSERT INTO fossils
      (fossil_id, extinct_lineage_id, reason, mode, stratum_id, payload_hash,
       conservation_quality, hard_parts_json, soft_parts_lost_json,
       phenotype_markers_json, mineral_payload_json, organization_id, project_id, recorded_at)
@@ -192,13 +192,30 @@ async function recordFossil(input = {}, db, options = {}) {
     return { success: false, error: 'lineageId required for fossilization' };
   }
   const record = buildFossilRecord(input);
+  if (db) await persistFossil(db, record);
   if (options.writeArtifact !== false && process.env.GENOS_FOSSIL_ARTIFACT !== '0') {
     try {
       writeFossilArtifact(record);
     } catch (_) { /* l'artefact opérateur est best-effort, l'index DB prime */ }
   }
-  if (db) await persistFossil(db, record);
   return { success: true, indexed: Boolean(db), fossil: record };
+}
+
+function scopeClauses(scope = {}, alias = '') {
+  const prefix = alias ? `${alias}.` : '';
+  const clauses = [];
+  const params = [];
+  const organizationId = scope.organizationId || scope.organization_id;
+  const projectId = scope.projectId || scope.project_id;
+  if (organizationId) {
+    clauses.push(`${prefix}organization_id = ?`);
+    params.push(organizationId);
+  }
+  if (projectId) {
+    clauses.push(`${prefix}project_id = ?`);
+    params.push(projectId);
+  }
+  return { sql: clauses.length ? ` WHERE ${clauses.join(' AND ')}` : '', params };
 }
 
 function parseJson(text, fallback) {
@@ -228,22 +245,27 @@ function fossilFromRow(row) {
 
 async function listFossils(db, options = {}) {
   const limit = Number.isInteger(options.limit) ? options.limit : 200;
-  const rows = await db.all('SELECT * FROM fossils ORDER BY recorded_at DESC LIMIT ?', limit);
+  const scope = scopeClauses(options, 'f');
+  const rows = await db.all(`SELECT f.* FROM fossils f${scope.sql} ORDER BY f.recorded_at DESC LIMIT ?`, ...scope.params, limit);
   return rows.map(fossilFromRow);
 }
 
-async function listStrata(db) {
+async function listStrata(db, options = {}) {
+  const scope = scopeClauses(options, 'f');
   return db.all(
-    `SELECT s.stratum_id, s.deposited_at, s.fossil_count,
-            (SELECT COUNT(*) FROM fossils f WHERE f.stratum_id = s.stratum_id) AS indexed_count
-       FROM fossil_strata s
-      ORDER BY s.deposited_at DESC`
+    `SELECT f.stratum_id, MIN(f.recorded_at) AS deposited_at,
+            COUNT(*) AS fossil_count, COUNT(*) AS indexed_count
+       FROM fossils f${scope.sql}
+      GROUP BY f.stratum_id
+      ORDER BY deposited_at DESC`,
+    ...scope.params
   );
 }
 
 /** Décode les mélanosomes d'un fossile (phénotype résiduel), en lecture seule. */
-async function decodeFossil(db, fossilId) {
-  const row = await db.get('SELECT * FROM fossils WHERE fossil_id = ?', fossilId);
+async function decodeFossil(db, fossilId, options = {}) {
+  const scope = scopeClauses(options);
+  const row = await db.get(`SELECT * FROM fossils WHERE fossil_id = ?${scope.sql ? scope.sql.replace(' WHERE ', ' AND ') : ''}`, fossilId, ...scope.params);
   if (!row) return { success: false, error: 'Fossil not found in stratigraphic registry.' };
   const record = fossilFromRow(row);
   return {
@@ -257,8 +279,9 @@ async function decodeFossil(db, fossilId) {
 }
 
 /** Excavation en lecture seule : jamais de promotion ni de résurrection. */
-async function excavateFossil(db, fossilId) {
-  const row = await db.get('SELECT * FROM fossils WHERE fossil_id = ?', fossilId);
+async function excavateFossil(db, fossilId, options = {}) {
+  const scope = scopeClauses(options);
+  const row = await db.get(`SELECT * FROM fossils WHERE fossil_id = ?${scope.sql ? scope.sql.replace(' WHERE ', ' AND ') : ''}`, fossilId, ...scope.params);
   if (!row) return { success: false, error: 'Fossil not found in stratigraphic registry.' };
   const record = fossilFromRow(row);
   return {
@@ -286,6 +309,7 @@ module.exports = {
   persistFossil,
   writeFossilArtifact,
   recordFossil,
+  scopeClauses,
   listFossils,
   listStrata,
   excavateFossil,

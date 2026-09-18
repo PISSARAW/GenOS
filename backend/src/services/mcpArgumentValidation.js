@@ -24,6 +24,9 @@ const REQUIRED_STRINGS = {
   genos_bisect_agent: ['agent_id', 'predicate'],
   genos_hypothesis_evidence: ['diagnosis_id', 'hypothesis_id', 'claim', 'source'],
   genos_biological_mode: ['mode', 'mission'],
+  genos_fossil_record: ['lineage_id', 'reason'],
+  genos_fossil_excavate: ['fossil_id'],
+  genos_fossil_decode: ['fossil_id'],
   genos_genome_compile: ['input', 'out'],
   genos_genome_validate: ['file'],
   genos_genome_inspect: ['file'],
@@ -147,7 +150,8 @@ function validateToolArguments(toolName, args = {}) {
   }
 
   const enumValues = {
-    backend: ['directory', 'hardlink', 'copy_on_write', 'cow']
+    backend: ['directory', 'hardlink', 'copy_on_write', 'cow'],
+    mode: ['petrification', 'external_mold', 'internal_mold', 'trace']
   };
   for (const [field, values] of Object.entries(enumValues)) {
     if (args[field] !== undefined && !values.includes(args[field])) return invalid(field, `must be one of: ${values.join(', ')}.`);

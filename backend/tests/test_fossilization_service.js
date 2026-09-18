@@ -57,6 +57,12 @@ async function testPersistenceAndExcavation(db) {
   assert(excavated.read_only && excavated.resurrection === 'forbidden', 'Excavation is read-only');
   assert(excavated.integrity_verified, 'Excavated fossil must verify');
 
+  await assert.rejects(
+    () => fossilization.recordFossil({ fossilId: first.fossil.fossil_id, lineageId: 'rewritten', reason: 'tampered' }, db),
+    /constraint|unique/i,
+    'Existing fossils must be immutable'
+  );
+
   const missing = await fossilization.excavateFossil(db, 'does-not-exist');
   assert(!missing.success, 'Missing fossil must not be excavatable');
 }

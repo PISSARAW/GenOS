@@ -1,6 +1,6 @@
 # Fossilisation — Archive stratigraphique terminale des lignées d'agents
 
-- **Statut** : Partiel — `FossilRegistry` conceptuel centré sur la fossilisation terminale ; le registre est modélisé mais la persistance automatique post-apoptose reste à compléter.
+- **Statut** : Opérationnel — registre Rust, service SQLite, primitives orchestrateur, API REST et outils MCP ; excavation strictement en lecture seule.
 - **Portée** : registry fossil, modèle de lignée, ADR 0003.
 - **Dernière revue** : 2026-09-17.
 

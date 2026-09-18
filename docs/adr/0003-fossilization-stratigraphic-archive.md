@@ -67,7 +67,7 @@ Règles structurantes :
 - [x] Couche Rust (`fossil.rs` : `BurialContext`, `bury`/`excavate`/`strata`) et service `fossilizationService.js` avec les tables `fossils` / `fossil_strata`.
 - [x] Commandes CLI `record --mode|list|strata|excavate|decode` et primitives orchestrateur `fossilize|bury_fossil|fossil_strata|fossil_excavate|fossil_decode`.
 - [x] Tests : burial synchrone déterministe, propriété « excavation = lecture seule, non promouvable », intégrité inter-langage Rust/Node.
-- [ ] Outils MCP `genos_fossil_*` et endpoints REST `/api/fossils*` (alignement JS/Rust/bridge, cf. `docs/03-reference/outils-mcp.md` §9).
+- [x] Outils MCP `genos_fossil_*` et endpoints REST `/api/fossils*` (alignement JS/Rust/bridge, cf. `docs/03-reference/outils-mcp.md` §9).
 - [ ] Brancher la détection de concepts résiduels vers la boucle d'innovation (ADR 0002) en statut `candidate` uniquement.
 - [ ] ADR ultérieure si un format binaire canonique de fossile (`FossilDNA`) est introduit.
 

@@ -17,6 +17,7 @@ const CATEGORY_KIND_MAP = {
   'Workspace Control': 'cli',
   'Knowledge & Experience': 'cli',
   'Orchestration': 'cli',
+  'Fossilisation': 'cli',
 };
 
 function normalizeToolName(toolName) {

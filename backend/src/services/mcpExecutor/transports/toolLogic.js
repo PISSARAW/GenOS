@@ -137,6 +137,30 @@ function strategyResult(res) {
   return { configured: true, success: ok, status: ok ? 'completed' : 'tool_error', transport: 'strategy_primitive', output: res };
 }
 
+function fossilResult(output) {
+  return { configured: true, success: output.success !== false, status: output.success === false ? 'tool_error' : 'completed', transport: 'fossilization_service', output };
+}
+
+async function fossilTool(toolName, args) {
+  const fossilization = require('../../fossilizationService');
+  const db = await require('../../../db').getDatabase();
+  if (toolName === 'genos_fossil_record') return fossilResult(await fossilization.recordFossil({ ...args, lineage_id: args.lineage_id }, db));
+  if (toolName === 'genos_fossil_list') {
+    const fossils = await fossilization.listFossils(db, args);
+    return fossilResult({ success: true, fossils, total: fossils.length });
+  }
+  if (toolName === 'genos_fossil_strata') return fossilResult({ success: true, strata: await fossilization.listStrata(db, args) });
+  if (toolName === 'genos_fossil_excavate') return fossilResult(await fossilization.excavateFossil(db, args.fossil_id, args));
+  if (toolName === 'genos_fossil_decode') return fossilResult(await fossilization.decodeFossil(db, args.fossil_id, args));
+  return null;
+}
+
+const fossilRecordTool = (args) => fossilTool('genos_fossil_record', args);
+const fossilListTool = (args) => fossilTool('genos_fossil_list', args);
+const fossilStrataTool = (args) => fossilTool('genos_fossil_strata', args);
+const fossilExcavateTool = (args) => fossilTool('genos_fossil_excavate', args);
+const fossilDecodeTool = (args) => fossilTool('genos_fossil_decode', args);
+
 async function synapticStdpUpdate(args) {
   const strategyExecutionAdapter = require('../../strategyExecutionAdapter');
   const primitiveArgs = {
@@ -286,7 +310,12 @@ const CUSTOM_TOOL_HANDLERS = {
   genos_synaptic_prune_scale: synapticPruneScale,
   genos_computer_use: computerUse,
   genos_biomimicry_hippocampal_consolidate: hippocampalConsolidate,
-  genos_biomimicry_gate_evaluate: gateEvaluate
+  genos_biomimicry_gate_evaluate: gateEvaluate,
+  genos_fossil_record: fossilRecordTool,
+  genos_fossil_list: fossilListTool,
+  genos_fossil_strata: fossilStrataTool,
+  genos_fossil_excavate: fossilExcavateTool,
+  genos_fossil_decode: fossilDecodeTool
 };
 
 async function dispatchToTransport(toolName, args, timeoutMs) {
