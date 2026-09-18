@@ -10,7 +10,7 @@ from pathlib import Path
 MAX_LINES = 400
 MAX_PARAMETERS = 3
 MAX_COMPLEXITY = 10
-DECISION_PATTERN = r'\b(?:if|for|while|case|catch)\b|&&|\|\||\?(?!=)'
+DECISION_PATTERN = r'\b(?:if|for|while|case|catch)\b|&&|\|\||\?(?![.?=])'
 SOURCE_EXTENSIONS = {'.cjs', '.js', '.mjs', '.py', '.rs', '.ts', '.tsx'}
 EXCLUDED_PARTS = {
     '.genos', '.git', 'build', 'dist', 'node_modules', 'target', 'vendor',

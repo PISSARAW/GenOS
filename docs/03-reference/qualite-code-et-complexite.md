@@ -21,6 +21,10 @@ Le rapport strict contient les seuils, le nombre total d’écarts, le détail p
 et la liste des violations. Il sert à mesurer la dette complète ; la baseline ne
 sert qu’à empêcher l’introduction de nouveaux écarts pendant la migration.
 
+La mesure distingue les décisions (`if`, boucles, `case`, `catch`, conditions
+ternaires et opérateurs booléens) des opérateurs de sûreté JavaScript (`?.`, `??`).
+Ces derniers ne créent pas de branche métier supplémentaire et ne sont pas comptés.
+
 ## Périmètre
 
 Les extensions contrôlées sont `.js`, `.cjs`, `.mjs`, `.py`, `.rs`, `.ts` et `.tsx`.

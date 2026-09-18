@@ -15,6 +15,7 @@ def check(source: str, suffix: str = '.js') -> list[str]:
 
 
 assert not check('const run = value => { return value ? value : 0; };')
+assert not check('function run(value) { return value?.nested ?? 0; }')
 assert any('PARAMETERS 4>3' in item for item in check('function run(a, b, c, d) { return d; }'))
 assert any('COMPLEXITY 12>10' in item for item in check('function run() { if (a) {} if (b) {} if (c) {} if (d) {} if (e) {} if (f) {} if (g) {} if (h) {} if (i) {} if (j) {} if (k) {} }'))
 assert not check('def run(value):\n    return value\n', '.py')
