@@ -18,6 +18,16 @@ ne déclenchent ni autorisation, ni promotion, ni exécution d'outil. Les mondes
 possibles restent `hypothetical` et les résultats non corroborés portent le
 statut `unverified`.
 
+La tranche métaphysique expose également des analyses bornées pour le réalisme
+spéculatif, les modèles esprit-matière et les propriétés de deuxième ordre.
+Elles restent descriptives : aucun service ne conclut à la conscience, à une
+réalité indépendante ou à une position métaphysique vraie.
+
+Les critères d'identité d'un être peuvent être ajustés par
+`updateIdentityCriteria`. Toute modification doit rester explicite et être
+évaluée ensuite par `checkIdentityContinuity` ; elle ne réécrit pas l'historique
+des événements d'identité.
+
 Exemple :
 
 ```json
