@@ -24,9 +24,9 @@ async function main() {
     all: async (sql) => sql.includes('lineage_nodes') ? rows.nodes : rows.edges,
     run: async () => ({ changes: 1 })
   };
-  const scan = await runDagSweep({ db });
+  const scan = await runDagSweep({ db, rootNodeIds: ['root'] });
   assert.equal(scan.status, 'simulated');
-  const pruned = await runDagSweep({ db, prune: true });
+  const pruned = await runDagSweep({ db, rootNodeIds: ['root'], prune: true });
   assert.equal(pruned.success, true);
   assert.deepEqual(pruned.unreachableNodes, ['orphan']);
 }

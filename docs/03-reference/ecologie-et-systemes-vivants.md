@@ -56,6 +56,14 @@ Le texte est strictement réservé aux interactions avec l'utilisateur humain et
 
 - **Transport zero-texte implémenté mais non-branché aux handlers existants** : les 39 handlers utilisent encore `runGenosSync` (CLI Rust local) pour l'exécution. Les signaux zero-texte peuvent être publiés via `signalingTransportService.publishSignal()` mais les handlers ne les utilisent pas nativement — c'est une couche parallèle implémentée mais non-intégrée.
 - **`collectiveSignalDecisions.js` non implémenté** : référencé dans la liste §2 comme absent — les décisions collectives sont gérées par `agentCollaborativeDecisionMakingService.js` (orchestrateur) au lieu d'un service de décisions dédié.
+
+Le nettoyage CAS et le mark-and-sweep du DAG sont désormais exécutables via les
+primitives `cas_gc` et `dag_mark_sweep`. Le CAS exige un `casRoot` contenant des
+références JSON sous `refs/`; le DAG utilise les racines explicites
+`rootNodeIds` ou les nœuds sans parent. Les deux opérations commencent en
+`dryRun` (`dag_mark_sweep` utilise `prune: false`) et ne suppriment qu'après une
+demande explicite. Une simulation retourne `status: simulated` et ne constitue
+pas un succès opérationnel.
 - **Registres en mémoire** : la plupart des handlers utilisent des `Map` module-level perdus au redémarrage.
 - **Pas de persistance relationnelle cross-agent** : les relations chimeriques, jumeaux, plasmides sont en mémoire.
 - **Codex local requis** : les handlers appellent `genos biomimicry ...` via `runGenosSync` — si le binaire Rust n'est pas disponible, les handlers retournent `tool_error`.
