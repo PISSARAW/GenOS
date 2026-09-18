@@ -41,6 +41,25 @@ function appendBounded(value, chunk) {
   return next.length > MAX_OUTPUT_BYTES ? next.slice(-MAX_OUTPUT_BYTES) : next;
 }
 
+function processStdoutChunk({ state, chunk, onStdout }) {
+  const text = state.remainder + chunk.toString();
+  const lines = text.split(/\r?\n/);
+  state.remainder = lines.pop() || "";
+  for (const line of lines) {
+    if (!line.startsWith("GENOS_STREAM:")) {
+      state.output = appendBounded(state.output, `${line}\n`);
+      continue;
+    }
+    try {
+      const event = JSON.parse(line.slice("GENOS_STREAM:".length));
+      if (onStdout) state.callbackChain = state.callbackChain.then(() => onStdout(event));
+    } catch (_) {
+      state.output = appendBounded(state.output, `${line}\n`);
+    }
+  }
+  return state;
+}
+
 const server = new Server(
   { name: "genos-mcp", version: "3.0.0" },
   { capabilities: { tools: {} } }
@@ -65,10 +84,10 @@ function resolveGenosBin() {
   return null;
 }
 
-function runExecutable({ cmd, args, cwd = workingDir, timeoutMs = toolTimeoutMs(), env = process.env }) {
+function runExecutable({ cmd, args, cwd = workingDir, timeoutMs = toolTimeoutMs(), env = process.env, onStdout }) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, env, shell: false, detached: process.platform !== "win32" });
-    let out = "";
+    const state = { output: "", remainder: "", callbackChain: Promise.resolve() };
     let err = "";
     let settled = false;
     const timer = setTimeout(() => {
@@ -77,15 +96,18 @@ function runExecutable({ cmd, args, cwd = workingDir, timeoutMs = toolTimeoutMs(
       terminateChild(child);
       reject(new Error(`MCP tool timed out after ${timeoutMs}ms.`));
     }, timeoutMs);
-    child.stdout.on("data", (d) => { out = appendBounded(out, d); });
+    child.stdout.on("data", (d) => processStdoutChunk({ state, chunk: d, onStdout }));
     child.stderr.on("data", (d) => { err = appendBounded(err, d); });
     child.on("close", (code) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       clearTerminationTimer(child);
-      if (code === 0) resolve(out);
-      else reject(new Error(`Process exited with code ${code}: ${err || out}`));
+      if (state.remainder) state.output = appendBounded(state.output, state.remainder);
+      state.callbackChain.then(() => {
+        if (code === 0) resolve(state.output);
+        else reject(new Error(`Process exited with code ${code}: ${err || state.output}`));
+      }).catch((error) => reject(error));
     });
     child.on("error", (error) => {
       if (settled) return;
@@ -130,7 +152,7 @@ function resolveOrchestratorBridge() {
   return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || null;
 }
 
-async function runOrchestrator(payload) {
+async function runOrchestrator(payload, { onTelemetry } = {}) {
   if (payload.action === 'orchestrate' && !server.getClientCapabilities()?.sampling) {
     throw new Error('MCP_SAMPLING_UNAVAILABLE: the connected MCP client does not provide sampling. Use a sampling-capable host or callerSession.mjs.');
   }
@@ -142,7 +164,8 @@ async function runOrchestrator(payload) {
     cmd: process.execPath,
     args: [bridge, JSON.stringify({ ...payload, executor: 'caller_mcp', provider: payload.provider || process.env.GENOS_MCP_PROVIDER || 'mcp-host' })],
     cwd: workingDir,
-    env: { ...process.env, GENOS_MCP_SAMPLING_URL: samplingBroker.url, GENOS_MCP_TOOL_URL: samplingBroker.toolUrl, GENOS_MCP_SAMPLING_TOKEN: samplingBroker.token }
+    env: { ...process.env, GENOS_STREAM_TELEMETRY: '1', GENOS_MCP_SAMPLING_URL: samplingBroker.url, GENOS_MCP_TOOL_URL: samplingBroker.toolUrl, GENOS_MCP_SAMPLING_TOKEN: samplingBroker.token },
+    onStdout: onTelemetry
   });
 }
 
@@ -159,14 +182,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 const handleToolCall = createToolCallHandler({ runOrchestrator, runGenosCli, executeStrategyTool: strategyTools.executeStrategyTool });
 samplingBroker.setToolHandler((input) => handleToolCall({ params: input }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   const { name } = request.params;
   if (!toolIsLeased(name, ALL_TOOLS)) return {
     content: [{ type: "text", text: `Tool '${name}' is outside the active GenOS MCP lease.` }],
     isError: true,
     _meta: { code: 'MCP_TOOL_LEASE_DENIED' }
   };
-  return handleToolCall(request);
+  return handleToolCall(request, extra);
 });
 
 const transport = new StdioServerTransport();

@@ -48,7 +48,14 @@ try {
   const result = await client.callTool({ name: 'genos_orchestrate', arguments: {
     mission: brief.mission, background: false, timeoutMs: 1200000,
     executionBudget: { tokens: 30000, latencyMs: 1200000, events: 100, costUsd: 1 }
-  } }, undefined, { timeout: 1200000 });
+  } }, undefined, {
+    timeout: 1200000,
+    maxTotalTimeout: 1200000,
+    resetTimeoutOnProgress: true,
+    onprogress: (notification) => {
+      process.stdout.write(`GENOS_TELEMETRY:${notification.message || ''}\n`);
+    }
+  });
   process.stdout.write(`GENOS_MISSION_RESULT:${JSON.stringify(result)}\n`);
 } catch (error) {
   process.stderr.write(`GENOS_MISSION_ERROR:${error.stack || error.message}\n`);

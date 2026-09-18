@@ -34,7 +34,7 @@ function cliCall({ args, runGenosCli }) {
   return runGenosCli(withBiomimicryParams(command, args), args);
 }
 
-function orchestratorCall({ name, args, runOrchestrator }) {
+function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
   const actions = {
     genos_orchestrate: { action: 'orchestrate' },
     genos_delegate_worker: { action: 'dispatch_worker', background: false },
@@ -49,12 +49,26 @@ function orchestratorCall({ name, args, runOrchestrator }) {
     genos_biological_mode: { action: 'dispatch_biological' },
     genos_philosophy: { action: 'philosophy' }
   };
-  return runOrchestrator({ ...actions[name], ...args });
+  const request = { ...actions[name], ...args };
+  if (name === 'genos_orchestrate' && request.background === undefined) request.background = false;
+  return runOrchestrator(request, { onTelemetry });
 }
 
 export function createToolCallHandler({ runOrchestrator, runGenosCli, executeStrategyTool }) {
-  return async (request) => {
+  return async (request, extra = {}) => {
     const { name, arguments: args = {} } = request.params;
+    const progressToken = request.params?._meta?.progressToken;
+    let progress = 0;
+    const onTelemetry = progressToken === undefined || !extra.sendNotification
+      ? undefined
+      : (event) => extra.sendNotification({
+        method: 'notifications/progress',
+        params: {
+          progress: ++progress,
+          progressToken,
+          message: JSON.stringify({ type: 'telemetry', event })
+        }
+      });
     try {
       if (name === 'genos_execute_primitive') return { content: [{ type: 'text', text: await primitiveCall({ args, executeStrategyTool }) }] };
       if (name.startsWith('genos_v2_') || ['genos_snapshot', 'genos_replay', 'genos_capsule_create', 'genos_merge', 'genos_audit', 'genos_biomimicry'].includes(name)) {
@@ -62,7 +76,7 @@ export function createToolCallHandler({ runOrchestrator, runGenosCli, executeStr
         if (argumentError) return { content: [{ type: 'text', text: argumentError }], isError: true };
         return { content: [{ type: 'text', text: await cliCall({ args: { ...args, toolName: name }, runGenosCli }) }] };
       }
-      return { content: [{ type: 'text', text: await orchestratorCall({ name, args, runOrchestrator }) }] };
+      return { content: [{ type: 'text', text: await orchestratorCall({ name, args, runOrchestrator, onTelemetry }) }] };
     } catch (error) {
       return { content: [{ type: 'text', text: error.message }], isError: true };
     }
