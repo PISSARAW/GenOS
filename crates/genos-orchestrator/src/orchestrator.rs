@@ -9,7 +9,7 @@ use genos_biology::embryology::{cleave_zygote, differentiate_swarm, sculpt_archi
 use genos_biology::glycolysis::build_glycolysis_network;
 use genos_biology::lipid_membrane::build_lipid_membrane_network;
 use genos_biology::redundancy::RedundancySystem;
-use genos_biology::spore::{Spore, SporeType};
+use genos_biology::spore::{Spore, SporeFromCell, SporeType};
 use genos_biology::tissue::{TaskDelegation, Tissue};
 use genos_cell::AgentCell;
 use genos_genome::Genome;
@@ -248,9 +248,19 @@ impl BiomimeticOrchestrator {
         // Toute spore doit référencer un génome enregistré (invariant de lignée).
         self.genomes.insert(genome.genome_id(), genome.clone());
         let spore = match spore_type {
-            SporeType::BacterialEndospore => Spore::from_cell(spore_type.clone(), &worker, genome, 9999),
+            SporeType::BacterialEndospore => Spore::from_cell(SporeFromCell {
+                spore_type: spore_type.clone(),
+                cell: &worker,
+                genome,
+                bunker_armor: 9999,
+            }),
             SporeType::FungalReproductive => {
-                Spore::from_cell(spore_type.clone(), &worker, genome, 0)
+                Spore::from_cell(SporeFromCell {
+                    spore_type: spore_type.clone(),
+                    cell: &worker,
+                    genome,
+                    bunker_armor: 0,
+                })
             }
         };
         if let Some(tissue_name) = origin {

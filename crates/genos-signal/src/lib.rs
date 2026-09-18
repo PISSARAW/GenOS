@@ -4,7 +4,7 @@ pub mod matrix;
 pub mod stigmergy;
 
 pub use cascade::{Ligand, Receptor, SignalingMode};
-pub use kuramoto::KuramotoOscillator;
+pub use kuramoto::{KuramotoOscillator, KuramotoStep};
 pub use matrix::{ExtracellularMatrix, ParacrineSignal, TerritoryClaim};
 pub use stigmergy::{Pheromone, StigmergyField};
 
@@ -105,4 +105,3 @@ mod tests {
         assert!(restored.get_pheromone("BROKEN_BRANCH").unwrap().is_repellent);
     }
 }
-

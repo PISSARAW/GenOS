@@ -7,6 +7,12 @@ pub struct KuramotoOscillator {
     pub natural_frequency: f64,
 }
 
+pub struct KuramotoStep<'a> {
+    pub peers: &'a [KuramotoOscillator],
+    pub coupling_k: f64,
+    pub dt: f64,
+}
+
 impl KuramotoOscillator {
     pub fn new(id: &str, phase: f64, natural_frequency: f64) -> Self {
         Self {
@@ -16,7 +22,10 @@ impl KuramotoOscillator {
         }
     }
 
-    pub fn step(&mut self, peers: &[KuramotoOscillator], coupling_k: f64, dt: f64) {
+    pub fn step(&mut self, config: KuramotoStep<'_>) {
+        let peers = config.peers;
+        let coupling_k = config.coupling_k;
+        let dt = config.dt;
         if peers.is_empty() {
             self.phase = (self.phase + self.natural_frequency * dt) % (2.0 * PI);
             return;

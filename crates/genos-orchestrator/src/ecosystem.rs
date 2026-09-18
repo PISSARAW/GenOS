@@ -36,7 +36,7 @@ use genos_common::traits::{MemoryEntry, MemoryRepository, SearchQuery};
 use genos_dna::model::AgentDna;
 use genos_genome::Genome;
 use genos_reproduction::{CellDivision, MeioticCrossover};
-use genos_signal::{ExtracellularMatrix, KuramotoOscillator, StigmergyField};
+use genos_signal::{ExtracellularMatrix, KuramotoOscillator, KuramotoStep, StigmergyField};
 use genos_store::{
     BurialContext, Capsule, CapsuleStore, CryptobiosisStore, FossilRecord, FossilRegistry,
     FossilSpecimen, InMemoryEventStore, InMemoryVectorRepository, SedimentStratum,
@@ -184,7 +184,7 @@ impl GenosEcosystem {
     pub fn couple_oscillators(&mut self, coupling: f64, dt: f64) {
         let snapshot = self.oscillators.clone();
         for osc in self.oscillators.iter_mut() {
-            osc.step(&snapshot, coupling, dt);
+            osc.step(KuramotoStep { peers: &snapshot, coupling_k: coupling, dt });
         }
     }
 
