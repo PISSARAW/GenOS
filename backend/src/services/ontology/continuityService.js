@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
-const { getDatabase } = require('../db');
+const { getDatabase } = require('../../db');
 const { text, object, evidence, scope } = require('./ontologyContracts');
 
 function parse(row) {
