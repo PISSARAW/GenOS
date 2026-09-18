@@ -22,16 +22,16 @@ const resilience = defineFamily('resilience', [
   ['apoptosis', 'Apoptose', ['all'], ['safety', 'high_impact', 'resilient'], 'implemented', ['checkpoint', 'terminate', 'autopsy']],
   ['cryptobiosis', 'Cryptobiose', ['all'], ['safety', 'resilient', 'temporal'], 'implemented', ['freeze_spore', 'persist', 'rehydrate']],
   ['checkpoint_regeneration', 'Régénération depuis checkpoint sain', ['incident', 'security', 'critical_refactor'], ['safety', 'resilient', 'temporal'], 'implemented', ['last_good_snapshot', 'restore', 'alternate_genome']],
-  ['axolotl_regeneration', 'Régénération fonctionnelle axolotl', ['critical_refactor', 'incident', 'architecture_decision'], ['regenerative', 'adaptive', 'deep_search'], 'experimental', ['assess_regeneration', 'plan_regeneration', 'execute_regeneration', 'validate_equivalence']],
-  ['active_redundancy', 'Redondance active / hot spare', ['incident', 'security'], ['safety', 'parallel', 'high_compute'], 'experimental', ['hot_spare', 'health_switch']],
+  ['axolotl_regeneration', 'Régénération fonctionnelle axolotl', ['critical_refactor', 'incident', 'architecture_decision'], ['regenerative', 'adaptive', 'deep_search'], 'implemented', ['assess_regeneration', 'plan_regeneration', 'execute_regeneration', 'validate_equivalence']],
+  ['active_redundancy', 'Redondance active / hot spare', ['incident', 'security'], ['safety', 'parallel', 'high_compute'], 'implemented', ['hot_spare', 'health_switch']],
   ['dlq_autopsy', 'DLQ et autopsie', ['all'], ['safety', 'audit', 'resilient'], 'implemented', ['dead_letter_queue', 'forensic_autopsy']],
-  ['cyber_immunity', 'Cyber-immunité', ['security'], ['safety', 'adaptive', 'mutation'], 'experimental', ['negative_selection', 'quarantine', 'threat_memory']],
-  ['autotomy_honeypot', 'Autotomy / honeypot isolé', ['security'], ['safety', 'high_impact', 'parallel'], 'experimental', ['decoy_branch', 'observe', 'destroy_decoy']],
+  ['cyber_immunity', 'Cyber-immunité', ['security'], ['safety', 'adaptive', 'mutation'], 'implemented', ['negative_selection', 'quarantine', 'threat_memory']],
+  ['autotomy_honeypot', 'Autotomy / honeypot isolé', ['security'], ['safety', 'high_impact', 'parallel'], 'implemented', ['decoy_branch', 'observe', 'destroy_decoy']],
   ['entropy_sentinel', 'Sentinelle d’entropie', ['all'], ['safety', 'entropy', 'low_cost'], 'implemented', ['shannon_entropy', 'drift_threshold']],
   ['communication_loop_detection', 'Détection des boucles de communication', ['all'], ['safety', 'low_cost', 'collective'], 'implemented', ['message_graph', 'cycle_detection', 'artifact_gate']],
   ['execution_guardrails', 'Guardrails d’exécution', ['all'], ['safety', 'governance', 'budget'], 'implemented', ['iteration_limit', 'token_limit', 'time_limit', 'uncertainty_limit']],
   ['active_abstention_human_approval', 'Abstention active et approbation humaine', ['all'], ['safety', 'human_gate', 'governance'], 'implemented', ['uncertainty_gate', 'approval_request']],
-  ['autophagy_cleanup', 'Autophagie et nettoyage', ['all'], ['low_cost', 'resilient', 'governance'], 'experimental', ['dag_mark_sweep', 'worktree_cleanup', 'cas_gc']]
+  ['autophagy_cleanup', 'Autophagie et nettoyage', ['all'], ['low_cost', 'resilient', 'governance'], 'implemented', ['dag_mark_sweep', 'worktree_cleanup', 'cas_gc']]
 ]);
 
 module.exports = [...memory, ...resilience];

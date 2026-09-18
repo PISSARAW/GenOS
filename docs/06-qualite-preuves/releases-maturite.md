@@ -29,3 +29,10 @@ Promues : `stigmergy`, `flocking_boids`, `fish_school_search`,
 `slime_mould_network`, `grey_wolf_optimizer`, `mycelial_routing`,
 `dynamic_polyethism` et `energy_huddle`. Les handlers conservent les bornes
 de messages, de budget et d'abstention du runtime.
+
+## Release 4 — résilience et sécurité
+
+Promues : `axolotl_regeneration`, `active_redundancy`, `cyber_immunity`,
+`autotomy_honeypot` et `autophagy_cleanup`. Leur maturité indique un contrat
+exécutable ; elle n'autorise pas une action destructive implicite. Les gates
+d'approbation humaine, l'isolation et le rollback restent obligatoires.

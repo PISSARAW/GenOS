@@ -74,12 +74,12 @@ Generated from backend/src/strategies/strategyRegistry.js. Runtime registry heal
 - apoptosis | maturity: implemented | execution: ready | primitives: checkpoint, terminate, autopsy
 - cryptobiosis | maturity: implemented | execution: ready | primitives: freeze_spore, persist, rehydrate
 - checkpoint_regeneration | maturity: implemented | execution: ready | primitives: last_good_snapshot, restore, alternate_genome
-- active_redundancy | maturity: experimental | execution: ready | primitives: hot_spare, health_switch
+- active_redundancy | maturity: implemented | execution: ready | primitives: hot_spare, health_switch
 - dlq_autopsy | maturity: implemented | execution: ready | primitives: dead_letter_queue, forensic_autopsy
-- cyber_immunity | maturity: experimental | execution: ready | primitives: negative_selection, quarantine, threat_memory
-- autotomy_honeypot | maturity: experimental | execution: ready | primitives: decoy_branch, observe, destroy_decoy
+- cyber_immunity | maturity: implemented | execution: ready | primitives: negative_selection, quarantine, threat_memory
+- autotomy_honeypot | maturity: implemented | execution: ready | primitives: decoy_branch, observe, destroy_decoy
 - entropy_sentinel | maturity: implemented | execution: ready | primitives: shannon_entropy, drift_threshold
 - communication_loop_detection | maturity: implemented | execution: ready | primitives: message_graph, cycle_detection, artifact_gate
 - execution_guardrails | maturity: implemented | execution: ready | primitives: iteration_limit, token_limit, time_limit, uncertainty_limit
 - active_abstention_human_approval | maturity: implemented | execution: ready | primitives: uncertainty_gate, approval_request
-- autophagy_cleanup | maturity: partial | execution: partial | primitives: dag_mark_sweep, worktree_cleanup, cas_gc | missing: dag_mark_sweep, cas_gc
+- autophagy_cleanup | maturity: implemented | execution: ready | primitives: dag_mark_sweep, worktree_cleanup, cas_gc
