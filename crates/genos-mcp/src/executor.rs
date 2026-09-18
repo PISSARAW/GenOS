@@ -1,9 +1,14 @@
 use serde_json::{Value, json};
 use std::env;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::thread;
+
+mod executor_paths;
+mod executor_results;
+use executor_paths::{find_binary, resolve_bridge_path};
+use executor_results::{normalize_cli_result, normalize_primitive_result};
 use std::time::{Duration, Instant};
 
 #[cfg(unix)]
@@ -125,85 +130,6 @@ pub fn execute_command(mut command: Command) -> Result<(i32, String), String> {
         format!("{}\n{}", stdout_text, stderr_text)
     };
     Ok((code, text))
-}
-
-fn find_in_env() -> Option<PathBuf> {
-    env::var("GENOS_BIN")
-        .ok()
-        .map(PathBuf::from)
-        .filter(|p| {
-            p.is_file() && !p.to_string_lossy().to_ascii_lowercase().contains("program files")
-        })
-}
-
-fn find_near_current_exe(exe_name: &str) -> Option<PathBuf> {
-    let current = env::current_exe().ok()?;
-    let candidate = current.with_file_name(exe_name);
-    if candidate.is_file() {
-        return Some(candidate);
-    }
-    let repo_root = current.parent()?.parent()?.parent()?;
-    for sub in &["target/release", "target/debug"] {
-        let cand = repo_root.join(sub).join(exe_name);
-        if cand.is_file() {
-            return Some(cand);
-        }
-    }
-    None
-}
-
-fn find_in_workspace(workspace: &Path, exe_name: &str) -> Option<PathBuf> {
-    for sub in &[
-        "target/debug",
-        "target/release",
-        "../target/debug",
-        "../target/release",
-        "../../target/debug",
-        "../../target/release",
-    ] {
-        let candidate = workspace.join(sub).join(exe_name);
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-    }
-    None
-}
-
-fn find_genos_binary(workspace: &Path) -> Option<PathBuf> {
-    if let Some(p) = find_in_env() {
-        return Some(p);
-    }
-    let exe_name = if cfg!(windows) { "genos.exe" } else { "genos" };
-    find_near_current_exe(exe_name).or_else(|| find_in_workspace(workspace, exe_name))
-}
-
-fn resolve_bridge_path(workspace: &Path) -> PathBuf {
-    if let Ok(val) = env::var("GENOS_ORCHESTRATOR_BRIDGE") {
-        let p = PathBuf::from(val);
-        let normalized = p.to_string_lossy().to_ascii_lowercase();
-        if p.is_file() && !normalized.contains("program files") {
-            return p;
-        }
-    }
-    let local = workspace.join("backend/bin/genos-orchestrate.cjs");
-    if local.is_file() {
-        return local;
-    }
-    if let Ok(current) = env::current_exe() {
-        if let Some(parent) = current.parent() {
-            if let Some(repo_root) = parent.parent().and_then(|p| p.parent()) {
-                let candidate = repo_root.join("backend/bin/genos-orchestrate.cjs");
-                if candidate.is_file() {
-                    return candidate;
-                }
-            }
-            let candidate = parent.join("backend/bin/genos-orchestrate.cjs");
-            if candidate.is_file() {
-                return candidate;
-            }
-        }
-    }
-    local
 }
 
 fn execute_orchestrator(bridge: &Path, payload: &Value, workspace: &Path) -> (i32, String) {
@@ -365,7 +291,7 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
 
 fn execute_cli(workspace: &Path, name: &str, args: &Value) -> (i32, String) {
     let cli_args = build_cli_args(name, args);
-    let mut cmd = if let Some(bin) = find_genos_binary(workspace) {
+    let mut cmd = if let Some(bin) = find_binary(workspace) {
         let mut c = Command::new(bin);
         c.args(&cli_args);
         c
@@ -397,42 +323,6 @@ fn with_action(args: &Value, action: &str) -> Value {
         obj.insert("action".into(), json!(action));
     }
     payload
-}
-
-fn normalize_primitive_result(result: (i32, String)) -> (i32, String) {
-    let (code, text) = result;
-    if code != 0 {
-        return (code, text);
-    }
-    match serde_json::from_str::<Value>(&text) {
-        Ok(value) if value.get("success").and_then(Value::as_bool) == Some(true) => (0, text),
-        Ok(value) if value.get("success").and_then(Value::as_bool) == Some(false) => (1, text),
-        _ => (1, text),
-    }
-}
-
-fn normalize_cli_result(result: (i32, String)) -> (i32, String) {
-    let (code, text) = result;
-    if code != 0 {
-        return (code, text);
-    }
-    match serde_json::from_str::<Value>(&text) {
-        Ok(value) if value.get("success").and_then(Value::as_bool) == Some(false) => (1, text),
-        _ => (0, text),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{normalize_cli_result, normalize_primitive_result};
-
-    #[test]
-    fn primitive_failure_is_exposed_as_mcp_error() {
-        assert_eq!(normalize_primitive_result((0, r#"{"success":false}"#.into())).0, 1);
-        assert_eq!(normalize_primitive_result((0, r#"{"success":true}"#.into())).0, 0);
-        assert_eq!(normalize_primitive_result((0, "legacy cli help".into())).0, 1);
-        assert_eq!(normalize_cli_result((0, r#"{"success":false}"#.into())).0, 1);
-    }
 }
 
 pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, String) {
