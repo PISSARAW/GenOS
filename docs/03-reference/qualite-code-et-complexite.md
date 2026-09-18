@@ -49,3 +49,7 @@ handlers respectifs.
 Les validations de manifestes du registre utilisent également une table de stratégies
 par type d’artefact. Ajouter un nouveau type ne nécessite plus d’allonger une chaîne
 conditionnelle centrale.
+
+La suite `scripts/ci/test_check_code_quality.py` vérifie aussi le format du rapport
+strict et ses compteurs par règle. Une modification de la mesure doit donc mettre à
+jour les tests de la gate dans le même commit.
