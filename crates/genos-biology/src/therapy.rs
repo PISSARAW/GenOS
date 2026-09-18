@@ -111,6 +111,9 @@ pub fn apply_systemic_therapy_to_cell(therapy: &SystemicTherapy, cell: &mut Agen
             if cell.clinical.cure_pathology_by_name("Infection Nosocomiale de Capsule") {
                 cured.push("Infection Nosocomiale".to_string());
             }
+            if cell.clinical.active_pathologies.is_empty() {
+                cell.clinical.discharge();
+            }
         }
         SystemicTherapy::DetoxificationWashout => {
             if cell.clinical.cure_pathology_by_name("Coma Stéroïdien Iatrogène") {

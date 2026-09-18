@@ -165,7 +165,7 @@ impl ClinicalState {
 
     /// Vérifie si l'agent est indemne de toute pathologie
     pub fn is_healthy(&self) -> bool {
-        self.active_pathologies.is_empty()
+        self.active_pathologies.is_empty() && !self.is_quarantined
     }
 
     /// Vérifie si l'agent souffre d'une catégorie spécifique
