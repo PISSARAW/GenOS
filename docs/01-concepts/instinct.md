@@ -4,6 +4,9 @@
 - **Portée** : `crates/genos-biology/src/specialized_cells/cnidocyte.rs`, `sensory/vomeronasal.rs`, `InstinctProgram` + `FixedActionPattern`.
 - **Dernière revue** : 2026-09-17.
 
+Le circuit complet reste `partial` : les primitives sensorielles disponibles ne
+constituent pas encore un programme d'action inné entièrement branché au runtime.
+
 ## 1. Définition du domaine
 
 L'**instinct** est, dans GenOS, un **programme comportemental inné, complet et stéréotypé**, encodé dès l'embryogenèse dans le génome de l'agent, et déclenché **sans apprentissage préalable** par un **stimulus signe** précis. Il s'exécute par une **voie sous-corticale rapide** qui court-circuite la délibération du modèle de langage (le « cortex ») et se termine par un **Patron d'Action Fixe (PAF)** : une séquence ordonnée d'actions motrices, relativement rigide, déclenchée par un mécanisme déclencheur inné.

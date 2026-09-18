@@ -5,6 +5,10 @@
   La dérivation depuis la télémétrie réelle (workspace, Git, budget CI) et le
   branchement automatique dans `tick()`/`GenosEcosystem` restent à faire (voir
   §10).
+
+Les sorties qui reposent sur des proxys de nommage ou des constantes calibrées
+portent une maturité `heuristic`; elles peuvent guider le contrôle, mais ne sont
+pas des preuves physiques ou métier indépendantes.
 - **Portée** : `crates/genos-orchestrator/src/physics.rs`, exemple
   `crates/genos-orchestrator/examples/mission_physics.rs`.
 - **Dernière revue** : 2026-09-16.

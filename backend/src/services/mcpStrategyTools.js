@@ -4,6 +4,7 @@
 const strategyExecutionAdapter = require('./strategyExecutionAdapter');
 const { validateToolArguments } = require('./mcpArgumentValidation');
 const { MCP_TOOLS_LIST } = require('../db/seedTools');
+const { annotateCapability } = require('./capabilityMaturity');
 
 const REGISTERED_STRATEGY_TOOLS = new Set((MCP_TOOLS_LIST || []).map((tool) => tool.name).filter((name) => name.startsWith('genos_strat_')));
 
@@ -45,7 +46,7 @@ function primitiveSuccess(res) {
 
 async function runPrimitive(primitive, args) {
   const res = await strategyExecutionAdapter.executePrimitive(primitive, args);
-  return strategyOutput(primitiveSuccess(res), res);
+  return strategyOutput(primitiveSuccess(res), annotateCapability(primitive, res));
 }
 
 async function runPipeline(primitives, context) {

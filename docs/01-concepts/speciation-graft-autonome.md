@@ -4,6 +4,10 @@
 - **Portée** : `crates/genos-genome`/`crates/genos-reproduction`, `backend/src/services/agentDnaInnovation.js`, `workerEvidenceBarrierLocal.js`.
 - **Dernière revue** : 2026-09-17.
 
+Le runtime expose la maturité `partial` pour `speciate` et `graft` tant que la
+chaîne évaluation → gate → promotion → déploiement n'est pas reliée dans tous
+les contextes. Un résultat structurel réussi ne vaut donc pas promotion.
+
 ## Position sur les métaphores
 
 Comme pour l'ensemble du runtime, les termes biologiques (spéciation, graft, radiation adaptative, HGT, lignée, candidat) désignent des **politiques logicielles**, pas une équivalence avec une biologie réelle. La spéciation autonome est un modèle d'organisation : un agent peut produire une nouvelle lignée génomique réutilisable si le contexte le permet, mais l'autonomie reste un pouvoir donné au runtime, pas une capacité physique de reproduction cellulaire.
