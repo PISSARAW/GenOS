@@ -9,6 +9,7 @@ const { emit } = require('./agentOrchestrationState');
 const { consultLocalModels } = require('./agentModelRoutingService');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const selfModel = require('./selfModelService');
+const autobiographicalRecall = require('./autobiographicalMemory/orchestratorRecall');
 
 function clampShare(value) {
   return Math.max(0, Math.min(1, value));
@@ -144,7 +145,8 @@ function applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWor
 }
 
 async function applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan }) {
-  if (normalizedMission.executor === 'caller_mcp') {
+  const provider = String(normalizedMission.provider || '').toLowerCase();
+  if (normalizedMission.executor === 'caller_mcp' || provider.includes('codex') || provider.includes('mcp')) {
     autonomyPlan.localModelReview = { consulted: false, reason: 'Cognition is owned by the MCP caller.' };
     return;
   }
@@ -230,6 +232,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
   applySurvivalConstraints(autonomyPlan);
   await applySelfModel({ db, agentId, normalizedMission, autonomyPlan });
+  await autobiographicalRecall.recallBeforePlanning({ db, agentId, normalizedMission, autonomyPlan });
   await applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan });
   await applyOrganizationState({ db, agentId, autonomyPlan });
   applyCapabilityContract(autonomyPlan);
