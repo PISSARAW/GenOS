@@ -41,23 +41,23 @@ function mapHttpStatus(code, fallbackStatus = 500) {
   return fallbackStatus;
 }
 
-function errorHandler(err, req, res, next) {
-  if (res.headersSent) {
-    return next(err);
+function handleError({ error, request, response, next }) {
+  if (response.headersSent) {
+    return next(error);
   }
-  const statusCode = Number.isInteger(err.status) ? err.status : mapHttpStatus(err.code, err.statusCode || 500);
-  const errorCode = err.code || (statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : 'ERROR');
-  const message = err.message || 'An unexpected error occurred';
-  const details = err.details;
+  const statusCode = Number.isInteger(error.status) ? error.status : mapHttpStatus(error.code, error.statusCode || 500);
+  const errorCode = error.code || (statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : 'ERROR');
+  const message = error.message || 'An unexpected error occurred';
+  const details = error.details;
   const store = require('../services/asyncContext').asyncLocalStorage.getStore();
-  const requestId = req?.id || store?.get('requestId') || req?.headers?.['x-request-id'] || null;
-  const traceId = store?.get('traceId') || req?.headers?.['x-trace-id'] || null;
+  const requestId = request?.id || store?.get('requestId') || request?.headers?.['x-request-id'] || null;
+  const traceId = store?.get('traceId') || request?.headers?.['x-trace-id'] || null;
 
   if (statusCode === 500) {
-    console.error('[GenOS Server Error]', err);
+    console.error('[GenOS Server Error]', error);
   }
 
-  res.status(statusCode).json({
+  response.status(statusCode).json({
     error: {
       code: errorCode,
       message,
@@ -66,6 +66,10 @@ function errorHandler(err, req, res, next) {
       ...(details ? { details } : {})
     }
   });
+}
+
+function errorHandler(...args) {
+  return handleError({ error: args[0], request: args[1], response: args[2], next: args[3] });
 }
 
 function notFoundHandler(req, res, next) {
