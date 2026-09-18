@@ -1,4 +1,4 @@
-module.exports = { createAutonomousWorkers, splitBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget };
+module.exports = { createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget };
 
 const path = require('path');
 const circuitBreaker = require('./circuitBreaker');
@@ -133,7 +133,7 @@ async function prepareWorkerAssets(workerContext) {
   const conscience = agentConscience.createConscienceState({ currentBudget: perWorkerCognitiveBudget, baselineBudget: perWorkerCognitiveBudget });
   const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
-  const route = await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
+  const route = mission.executor === 'caller_mcp' ? {} : await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
   const workspaceRoot = await createWorkerWorkspace(workerContext, id);
   return { ...workerContext, id, identity, conscience, prompt, assignedTokens, route, workspaceRoot, evolution, mission };
 }
@@ -159,6 +159,10 @@ function validatePromptBudget(details) {
 
 async function persistWorker(db, details) {
   const { parent, perWorkerCognitiveBudget, assignment, id, identity } = details;
+  const { getAttribute, setAttribute } = require('./ontologyAttributes');
+  if (!(await getAttribute(parent.id, 'worker_capacity'))) await setAttribute({ agentId: parent.id, key: 'worker_capacity',
+    value: { role: parent.role, purpose: 'Delegate bounded mission work' },
+    modality: 'accidental', provenance: 'agentFleetWorkers' });
   // The worker INSERT and the parent budget debit must be one atomic unit:
   // otherwise two concurrent workers each read the same balance and over-allocate.
   // Retry with exponential backoff on BUDGET_INHERITANCE_FAILURE (race condition).
@@ -226,7 +230,7 @@ function workerRuntime(details) {
 
 function buildExecutionBudget(details) {
   const { executionBudget, assignedTokens, index, assignmentCount } = details;
-  const costUsd = splitBudget(executionBudget?.costUsd, index, assignmentCount);
+  const costUsd = executionBudget?.costUsd === undefined ? undefined : Math.floor(Number(executionBudget.costUsd) * 1000000 / assignmentCount) / 1000000;
   const events = splitBudget(executionBudget?.events, index, assignmentCount);
   return { ...executionBudget, tokens: assignedTokens, ...allocatedBudgetFields(costUsd, events) };
 }

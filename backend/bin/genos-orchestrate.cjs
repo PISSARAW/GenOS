@@ -151,6 +151,7 @@ async function executeMission(db, state) {
 
 async function cleanupFailure(db, state, error) {
   try { await runtime.stopMission(id); } catch (_) {}
+  await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, id).catch(() => {});
   if (!state.delegatedWorkerId) return;
   await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, state.delegatedWorkerId).catch(() => {});
   await db.run("UPDATE trinity_worlds SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", state.delegatedWorkerId).catch(() => {});

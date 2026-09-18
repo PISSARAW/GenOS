@@ -86,6 +86,7 @@ function handleOrchestrationDecision(ctx, event, eventType) {
     return;
   }
   const decision = decideFromEvent(event);
+  if (!decision) return;
   db.get('SELECT parent_agent_id FROM agents WHERE id = ?', agentId)
     .then((agent) => { applyOrchestrationDecision(ctx, agent, event, eventType, decision); })
     .catch((error) => reportOrchestrationActionFailure({ ownerId: normalizedMission.orchestratorAgentId || agentId, agentId, event, decision, error }));
@@ -210,7 +211,7 @@ function buildCapabilityPayload(normalizedMission, resolvedExecutable) {
 
 function resolveSpawnCommand(resolvedExecutable) {
   if (resolvedExecutable.endsWith('.cjs') || resolvedExecutable.endsWith('.js')) {
-    return { spawnCmd: 'node', spawnArgs: [resolvedExecutable] };
+    return { spawnCmd: process.execPath, spawnArgs: [resolvedExecutable] };
   }
   return { spawnCmd: resolvedExecutable, spawnArgs: [] };
 }

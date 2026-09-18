@@ -1,7 +1,7 @@
 const { defineFamily } = require('../defineStrategy');
 
 const direct = defineFamily('direct', [
-  ['deterministic_direct_path', 'Chemin déterministe direct', ['implementation'], ['low_cost', 'low_latency', 'deterministic'], 'implemented', ['snapshot', 'run', 'verify', 'diff', 'audit']],
+  ['deterministic_direct_path', 'Chemin déterministe direct', ['implementation', 'creative_writing'], ['low_cost', 'low_latency', 'deterministic'], 'implemented', ['snapshot', 'run', 'verify', 'diff', 'audit']],
   ['minimal_patch', 'Correctif minimal', ['implementation', 'unknown_cause_bug'], ['low_cost', 'deterministic', 'low_blast_radius'], 'implemented', ['snapshot', 'fork', 'minimal_mutation', 'tests', 'diff']],
   ['plan_execute_verify', 'Planifier–exécuter–vérifier', ['all'], ['verification', 'separation_of_duties'], 'implemented', ['plan', 'run', 'independent_verify']],
   ['dry_run_blast_radius', 'Dry-run avec blast radius', ['implementation', 'critical_refactor', 'security'], ['safety', 'low_cost'], 'implemented', ['vfs_dry_run', 'permission_check', 'blast_radius']],

@@ -9,6 +9,7 @@ const {
 } = require('./strategySelectorHelpers');
 
 const PREFERRED_PRIMARY = {
+  creative_writing: 'deterministic_direct_path',
   incident: 'mutated_incident_universes',
   unknown_cause_bug: 'falsification_forks',
   critical_refactor: 'recursive_branch_evolution',
@@ -20,6 +21,7 @@ const PREFERRED_PRIMARY = {
 };
 
 const BRANCHES = {
+  creative_writing: ['literary_creation', 'causal_twist_review', 'independent_literary_criticism'],
   incident: ['timing_and_order', 'environment_and_latency', 'state_and_cache'],
   unknown_cause_bug: ['concurrency_or_ordering', 'state_or_cache', 'configuration_or_dependency'],
   critical_refactor: ['minimal_migration', 'modular_refactor', 'architectural_replacement'],
@@ -58,6 +60,11 @@ function firstTruthy(value, fallback) {
 }
 
 function classifyProblem(problem = '') {
+  if (require('../services/aTeamService').analyzeMission(problem).primaryDomain === 'creative_writing') return 'creative_writing';
+  return classifyTechnicalProblem(problem);
+}
+
+function classifyTechnicalProblem(problem) {
   const text = String(problem).toLowerCase();
   
   // Mission requiring literal mouse/keyboard/screen control of the local machine

@@ -387,4 +387,4 @@ async function recordRuntimeFailure(ctx) {
   } catch (_) {}
 }
 
-module.exports = { handleRuntimeClose };
+module.exports = { handleRuntimeClose, handleSuccessfulReport };

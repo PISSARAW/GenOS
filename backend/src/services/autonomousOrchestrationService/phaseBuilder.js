@@ -45,6 +45,11 @@ function omitPhases(phases, phaseValidation) {
 }
 
 function buildPhases(flags, modes, branchCount) {
+  if (flags.creative) return [
+    phase('creative_baseline', ['genos_snapshot'], 'Preserve the brief and creative baseline.'),
+    phase('literary_review', ['genos_adversarial_review'], 'Independently review coherence and constraint coverage.'),
+    phase('creative_provenance', ['genos_record_decision'], 'Audit the chosen artifact and its worker influences.')
+  ];
   const phases = [
     phase('retrieve_and_diagnose', ['genos_search_failures', 'genos_diagnose'], 'Retrieve negative knowledge and establish falsifiable hypotheses.'),
     phase('snapshot_before_mutation', ['genos_snapshot'], 'Create a recoverable baseline before any risky mutation.')

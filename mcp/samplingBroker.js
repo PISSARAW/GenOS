@@ -17,13 +17,10 @@ export function createSamplingBroker(server, tools = []) {
     try {
       const input = JSON.parse(await readBody(req));
       if (req.url === '/tool') {
-        if (!toolHandler) throw new Error('MCP tool bridge is not ready.');
-        json(res, 200, { result: await toolHandler(input) });
+        json(res, 200, { result: await dispatchTool(input, toolHandler) });
         return;
       }
-      const params = { ...(input.params || input) };
-      if (!params.tools && tools.length) params.tools = tools;
-      const result = await server.createMessage(params);
+      const result = await server.createMessage(samplingParams(input, tools));
       json(res, 200, { result });
     } catch (error) {
       json(res, 502, { error: error.message });
@@ -37,6 +34,33 @@ export function createSamplingBroker(server, tools = []) {
       resolve({ url: `${root}/sample`, toolUrl: `${root}/tool`, token, setToolHandler: (handler) => { toolHandler = handler; }, close: () => listener.close() });
     });
   });
+}
+
+function agentContext(input) {
+  return input.agentContext || input.params?.agentContext || {};
+}
+
+function agentLease(context) {
+  return Array.isArray(context.toolLease) ? context.toolLease : [];
+}
+
+async function dispatchTool(input, handler) {
+  const context = agentContext(input);
+  if (!agentLease(context).includes(input.name)) throw new Error('Tool is outside the agent MCP lease.');
+  const orchestration = ['genos_orchestrate', 'genos_delegate_worker', 'genos_a_team_preview', 'genos_trinity_launch', 'genos_biological_mode'];
+  if (context.executionMode === 'worker' && orchestration.includes(input.name)) throw new Error('Workers cannot orchestrate.');
+  if (!handler) throw new Error('MCP tool bridge is not ready.');
+  return handler(input);
+}
+
+function samplingParams(input, tools) {
+  const params = { ...(input.params || input) };
+  delete params.agentContext;
+  const lease = agentLease(agentContext(input));
+  const scoped = tools.filter((tool) => lease.includes(tool.name));
+  if (scoped.length) params.tools = scoped.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+  else delete params.tools;
+  return params;
 }
 
 function readBody(req) {

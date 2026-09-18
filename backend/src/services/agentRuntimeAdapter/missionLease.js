@@ -45,6 +45,7 @@ async function attachMissionMemoryContext(normalizedMission, agentId) {
 }
 
 function isInProcessWorker(dispatchedAgent, normalizedMission, executable) {
+  if (normalizedMission.executor === 'caller_mcp') return false;
   return (dispatchedAgent.execution_mode === 'worker' && (
     config.inProcessWorkers() ||
     normalizedMission.inProcessWorker === true

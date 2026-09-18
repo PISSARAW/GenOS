@@ -144,6 +144,10 @@ function applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWor
 }
 
 async function applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan }) {
+  if (normalizedMission.executor === 'caller_mcp') {
+    autonomyPlan.localModelReview = { consulted: false, reason: 'Cognition is owned by the MCP caller.' };
+    return;
+  }
   const modelTenant = normalizedMission.workspaceId
     ? await db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', normalizedMission.workspaceId)
     : null;

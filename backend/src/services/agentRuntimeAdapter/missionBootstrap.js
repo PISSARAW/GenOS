@@ -49,7 +49,7 @@ async function provisionWorkspaceAndModel(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent } = ctx;
   Object.assign(normalizedMission, await provisionMissionWorkspace(normalizedMission, dispatchedAgent.execution_mode));
   assertMissionNotCancelled(agentId);
-  if (dispatchedAgent.execution_mode === 'worker' && !normalizedMission.localModel && normalizedMission.disableLocalModel !== true) {
+  if (normalizedMission.executor !== 'caller_mcp' && dispatchedAgent.execution_mode === 'worker' && !normalizedMission.localModel && normalizedMission.disableLocalModel !== true) {
     const workerTenant = normalizedMission.workspaceId
       ? await db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', normalizedMission.workspaceId)
       : null;

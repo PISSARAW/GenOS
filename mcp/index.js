@@ -131,6 +131,9 @@ function resolveOrchestratorBridge() {
 }
 
 async function runOrchestrator(payload) {
+  if (payload.action === 'orchestrate' && !server.getClientCapabilities()?.sampling) {
+    throw new Error('MCP_SAMPLING_UNAVAILABLE: the connected MCP client does not provide sampling. Use a sampling-capable host or callerSession.mjs.');
+  }
   const bridge = resolveOrchestratorBridge();
   if (!bridge) {
     throw new Error("GenOS orchestrator bridge not found. Set GENOS_ORCHESTRATOR_BRIDGE or install the GenOS repository.");
@@ -167,5 +170,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 const transport = new StdioServerTransport();
+server.onclose = () => samplingBroker.close();
 await server.connect(transport);
 console.error("🧬 GenOS MCP Server running on stdio");

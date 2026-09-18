@@ -194,7 +194,7 @@ function technicalAnalysis(domains) {
 }
 
 function analyzeMission(mission) {
-  const text = String(mission || '');
+  const text = String(mission || '').normalize('NFD').replace(/\p{M}/gu, '');
   if (FICTION_ARTIFACT.test(text) && CREATIVE_ACTION.test(text)) return fictionAnalysis();
   return technicalAnalysis(detectTechnicalDomains(text));
 }
