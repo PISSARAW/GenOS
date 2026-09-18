@@ -42,3 +42,10 @@ d'approbation humaine, l'isolation et le rollback restent obligatoires.
 Promue : `mcts_prm`. La recherche est bornée par les budgets et l'évaluation
 PRM reste séparée de la sélection. Les arbres et les branches rejetées sont
 conservés pour permettre le replay et l'audit.
+
+## Release 6 — services philosophiques bornés
+
+`metalogicService` et `paradoxAnalysisService` sont promus vers des analyses
+runtime bornées et testées. `mindModelsService` et
+`consciousnessMetricsService` restent conceptuels : une comparaison de modèles
+ou une métrique descriptive ne constitue pas une preuve de conscience.

@@ -42,8 +42,7 @@ const { AESTHETICS_DEFINITIONS } = require('./aestheticsDefinitions');
 const { LOGIC_DEFINITIONS } = require('./logicDefinitions');
 const { MATHEMATICS_DEFINITIONS } = require('./mathematicsDefinitions');
 
-const C = (id, ...fields) => {
-  const [label, domain, school, status, service = null, metadata = {}] = fields;
+const C = ({ id, label, domain, school, status, service = null, metadata = {} }) => {
   return {
     id, label, domain, school, status, service,
     family: metadata.family || FAMILY_BY_DOMAIN[domain] || domain,

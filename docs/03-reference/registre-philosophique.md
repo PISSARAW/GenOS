@@ -1,6 +1,6 @@
 # Registre philosophique — référence et gouvernance
 
-- **Statut** : Partiel
+- **Statut** : Opérationnel avec concepts partiels
 - **Portée** : concepts, relations et mappings philosophiques déclaratifs
 - **Dernière revue** : 2026-09-17
 
@@ -26,6 +26,11 @@ Le sous-domaine `mathematics` est documenté dans
 | Contrats | `spec/philosophical-concept.schema.json`, `spec/ontology-relation.schema.json` |
 
 La documentation explique le modèle ; elle ne duplique pas le registre canonique.
+
+La santé du registre est vérifiée au chargement et par la suite
+`backend/tests/test_philosophy_registry_health.js`. Une entrée peut rester
+`partial` ou `planned` sans devenir une capacité d'exécution : le statut
+philosophique et la maturité du service restent deux dimensions séparées.
 
 ## Contrat d'une entrée
 
@@ -77,3 +82,6 @@ Une modification du schéma, du routeur ou de la persistance nécessite un ADR.
   expérience subjective.
 - Une sortie réussie du routeur prouve uniquement qu'une opération a été traitée,
   pas que l'argument philosophique est vrai.
+
+Les analyses métalogiques et paradoxales sont des services runtime bornés et
+testés ; `implemented` signifie uniquement qu'un adaptateur exécutable existe.

@@ -30,7 +30,8 @@ assert.deepEqual(health.errors, []);
 const ids = CONCEPT_DEFINITIONS.map((concept) => concept.id);
 assert.equal(new Set(ids).size, ids.length);
 assert.ok(AESTHETICS_DEFINITIONS.length > 0);
-assert.ok(AESTHETICS_DEFINITIONS.every((concept) => concept.status === 'planned'));
+assert.ok(AESTHETICS_DEFINITIONS.some((concept) => concept.status === 'planned'));
+assert.ok(AESTHETICS_DEFINITIONS.some((concept) => concept.status === 'implemented'));
 assert.ok(AESTHETICS_DEFINITIONS.every((concept) => concept.family === 'aesthetics'));
 
 const normalized = CONCEPT_DEFINITIONS.map(normalizeConcept);
