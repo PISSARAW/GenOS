@@ -6,6 +6,12 @@ function list(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function inputList(value, name) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new Error(`${name} must be an array.`);
+  return list(value);
+}
+
 function analysis(result) {
   return boundedAnalysis(result);
 }
@@ -20,7 +26,7 @@ function falsificationStatus(comparable, matches) {
 }
 
 function assessConfirmation({ hypothesis, observations, compatible, adHoc = false, alternatives = [] } = {}) {
-  const items = list(observations);
+  const items = inputList(observations, 'observations');
   const compatibility = typeof compatible === 'boolean' ? compatible : null;
   const status = compatibility === true ? 'supported-not-verified' : compatibility === false ? 'unsupported' : 'undetermined';
   return analysis({
@@ -29,7 +35,7 @@ function assessConfirmation({ hypothesis, observations, compatible, adHoc = fals
     observations: items,
     compatible: compatibility,
     adHoc,
-    alternatives: list(alternatives),
+    alternatives: inputList(alternatives, 'alternatives'),
     status,
     limitation: 'La compatibilité avec les observations soutient une hypothèse sans la vérifier ; les hypothèses auxiliaires et alternatives restent pertinentes.',
   });
@@ -43,7 +49,7 @@ function assessFalsification({ hypothesis, predicted, observed, auxiliaryAssumpt
     hypothesis: hypothesis ?? null,
     predicted: predicted ?? null,
     observed: observed ?? null,
-    auxiliaryAssumptions: list(auxiliaryAssumptions),
+    auxiliaryAssumptions: inputList(auxiliaryAssumptions, 'auxiliaryAssumptions'),
     status: falsificationStatus(comparable, matches),
     predictionMatched: comparable ? matches : null,
     limitation: 'Une réfutation porte sur la chaîne hypothèse-prédiction et ses hypothèses auxiliaires ; elle ne localise pas toujours seule la prémisse fautive.',
@@ -51,8 +57,8 @@ function assessFalsification({ hypothesis, predicted, observed, auxiliaryAssumpt
 }
 
 function assessHypotheticoDeductive({ hypothesis, predictions, observations } = {}) {
-  const expected = list(predictions);
-  const actual = list(observations);
+  const expected = inputList(predictions, 'predictions');
+  const actual = inputList(observations, 'observations');
   const comparable = expected.length > 0 && expected.length === actual.length;
   const matches = comparable && expected.every((value, index) => value === actual[index]);
   return analysis({
@@ -67,7 +73,7 @@ function assessHypotheticoDeductive({ hypothesis, predictions, observations } = 
 }
 
 function assessDuhemQuine({ hypothesis, auxiliaryAssumptions, observedFailure } = {}) {
-  const auxiliaries = list(auxiliaryAssumptions);
+  const auxiliaries = inputList(auxiliaryAssumptions, 'auxiliaryAssumptions');
   return analysis({
     kind: 'duhem-quine-assessment',
     hypothesis: hypothesis ?? null,

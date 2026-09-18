@@ -10,6 +10,12 @@ function analysis(result) {
   return boundedAnalysis(result);
 }
 
+function validateEvidenceCount(value) {
+  if (value === undefined) return 0;
+  if (!Number.isInteger(value) || value < 0) throw new Error('evidenceCount must be a non-negative integer.');
+  return value;
+}
+
 function evaluateTruthTheory({ theory, proposition, criterion, context = null } = {}) {
   const knownTheory = TRUTH_THEORIES.includes(theory);
   const criterionProvided = typeof criterion === 'boolean';
@@ -26,8 +32,9 @@ function evaluateTruthTheory({ theory, proposition, criterion, context = null } 
 }
 
 function assessSkepticism({ claim, challenge = 'radical', evidenceCount = 0, defeaters = [], response = null } = {}) {
-  const count = Number.isInteger(evidenceCount) && evidenceCount >= 0 ? evidenceCount : 0;
-  const activeDefeaters = Array.isArray(defeaters) ? defeaters : [];
+  const count = validateEvidenceCount(evidenceCount);
+  if (!Array.isArray(defeaters)) throw new Error('defeaters must be an array.');
+  const activeDefeaters = defeaters;
   const challenged = challenge === 'radical' || activeDefeaters.length > 0;
   return analysis({
     kind: 'skeptical-challenge',
