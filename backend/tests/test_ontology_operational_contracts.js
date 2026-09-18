@@ -10,9 +10,11 @@ assert.deepEqual(contracts.evidence({}), {
 });
 assert.throws(() => contracts.text('', 'id'), /id must be a non-empty string/);
 assert.throws(() => contracts.evidence({ status: 'invalid' }), /Unknown evidence status/);
-assert.throws(() => personOther.defineOther({ subjectId: 'a', otherId: 'a' }), /must differ/);
-assert.throws(() => possibleWorlds.addAccessibility({ sourceWorldId: 'a', targetWorldId: 'a' }), /cannot access itself/);
 assert.ok(personOther.RELATION_TYPES.includes('other'));
 assert.equal(typeof possibleWorlds.createWorld, 'function');
 
-console.log('Operational ontology contract tests passed.');
+(async () => {
+  await assert.rejects(personOther.defineOther({ subjectId: 'a', otherId: 'a' }), /must differ/);
+  await assert.rejects(possibleWorlds.addAccessibility({ sourceWorldId: 'a', targetWorldId: 'a' }), /cannot access itself/);
+  console.log('Operational ontology contract tests passed.');
+})().catch(error => { console.error(error); process.exitCode = 1; });

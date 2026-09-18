@@ -59,10 +59,10 @@ const RAW_CONCEPT_DEFINITIONS = [
   C({ id: 'ontology.hypostatization', label: 'Hypostatisation', domain: 'ontology', school: 'scholastic', status: 'implemented', service: 'ontologyHypostatization' }),
   C({ id: 'ontology.stances', label: 'Réalisme / Nominalisme / Conceptualisme', domain: 'ontology', school: 'medieval-modern', status: 'implemented', service: 'ontologyStances' }),
   C({ id: 'ontology.identity-change', label: 'Identité et changement', domain: 'ontology', school: 'locke', status: 'implemented', service: 'temporalIdentityService' }),
-  C({ id: 'ontology.person-other', label: 'Personne / Autrui / Altérité', domain: 'ontology', school: 'levinas', status: 'planned' }),
+  C({ id: 'ontology.person-other', label: 'Personne / Autrui / Altérité', domain: 'ontology', school: 'levinas', status: 'partial', service: 'personOtherService' }),
   C({ id: 'ontology.whole-void-infinite', label: 'Tout / Vide / Infini', domain: 'ontology', school: 'metaphysics', status: 'partial' }),
-  C({ id: 'ontology.continuous-discrete', label: 'Continu / Discontinu', domain: 'ontology', school: 'metaphysics', status: 'planned' }),
-  C({ id: 'ontology.possible-worlds', label: 'Mondes possibles / Possibilia', domain: 'modality', school: 'leibniz-kripke', status: 'planned' }),
+  C({ id: 'ontology.continuous-discrete', label: 'Continu / Discontinu', domain: 'ontology', school: 'metaphysics', status: 'partial', service: 'continuityService' }),
+  C({ id: 'ontology.possible-worlds', label: 'Mondes possibles / Possibilia', domain: 'modality', school: 'leibniz-kripke', status: 'partial', service: 'possibleWorldService' }),
   C({ id: 'ontology.contingency-necessity', label: 'Contingence / Nécessité logique et métaphysique', domain: 'modality', school: 'modal-metaphysics', status: 'partial', service: 'contingencyService' }),
 
   C({ id: 'school.platonism', label: 'Platonisme : formes idéales', domain: 'schools', school: 'plato', status: 'implemented', service: 'platonismService' }),
