@@ -1,6 +1,6 @@
 'use strict';
 
-function C(id, label, domain, school, status, service = null) {
+function C({ id, label, domain, school, status, service = null }) {
   return { id, label, domain, school, status, service };
 }
 
