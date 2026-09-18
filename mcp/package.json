@@ -46,7 +46,7 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "node test_lease.js && node test_identity_lease.js && node test_contract_parity.mjs && node test_sampling_broker.mjs",
+    "test": "node test_lease.js && node test_identity_lease.js && node test_contract_parity.mjs && node test_sampling_broker.mjs && node test_node_cli_fallback.mjs",
     "test:smoke": "node test_smoke.mjs"
   },
   "dependencies": {
