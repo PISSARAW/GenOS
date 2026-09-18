@@ -188,7 +188,7 @@ const RAW_CONCEPT_DEFINITIONS = [
   C({ id: 'truth.internal-realism', label: 'Vérité et conséquences / réalisme interne', domain: 'truth', school: 'putnam', status: 'partial', service: 'truthSkepticismService' }),
 
   // Fiabilité, scepticisme et limites de la connaissance.
-  C({ id: 'epistemology.reliabilism', label: 'Fiabilité cognitive / Reliabilisme', domain: 'epistemology', school: 'goldman', status: 'partial', service: 'epistemics' }),
+  C({ id: 'epistemology.reliabilism', label: 'Fiabilité cognitive / Reliabilisme', domain: 'epistemology', school: 'goldman', status: 'partial', service: 'reliabilityService' }),
   C({ id: 'epistemology.process-reliabilism', label: 'Process reliabilism', domain: 'epistemology', school: 'goldman', status: 'planned' }),
   C({ id: 'epistemology.indicator-reliabilism', label: 'Indicator reliabilism', domain: 'epistemology', school: 'reliabilism', status: 'planned' }),
   C({ id: 'epistemology.virtue-epistemology', label: 'Virtue epistemology', domain: 'epistemology', school: 'zagzebski-sosa', status: 'planned' }),

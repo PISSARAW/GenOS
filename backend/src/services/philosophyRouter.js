@@ -11,7 +11,7 @@ const deonticDynamicLogic = require('./deonticDynamicLogicService');
 const nonClassicalLogic = require('./nonClassicalLogicService');
 const metalogic = require('./metalogicService');
 const paradoxAnalysis = require('./paradoxAnalysisService');
-const rationalityNorms = require('./rationalityNormsService');
+const rationalityNorms = require('./rationalityNormsService'); const reliability = require('./reliabilityService');
 const { boundedAnalysis, boundedOntologyAnalysis } = require('./philosophyAnalysisContract');
 
 const registry = validateRegistry();
@@ -145,6 +145,7 @@ const ADAPTERS = {
   'epistemology.gettierized-knowledge': ({ args }) => callService('knowledgeService', 'analyzeGettier', args),
   'epistemology.post-gettier-defenses': ({ args }) => callService('knowledgeService', 'assessPostGettierDefenses', args),
   'epistemology.rationality-norms': ({ args }) => rationalityNorms.evaluateRationality(args),
+  'epistemology.reliabilism': ({ args }) => reliability.assessReliability(args),
   'method.deduction': ({ args }) => callService('inferenceService', 'inferDeductively', args),
   'method.induction': ({ args }) => callService('inferenceService', 'inferInductively', args),
   'method.abduction': ({ args }) => callService('inferenceService', 'inferAbductively', args),

@@ -7,6 +7,7 @@ const SERVICE_MATURITY = Object.freeze({
   modalLogicService: { level: 'partial', executable: true, evidence: 'tests', note: 'Évaluation bornée sur cadres de Kripke.' },
   deonticDynamicLogicService: { level: 'partial', executable: true, evidence: 'tests', note: 'Analyse descriptive des devoirs et annonces publiques.' },
   nonClassicalLogicService: { level: 'partial', executable: true, evidence: 'tests', note: 'Valeurs de vérité bornées ; aucune promotion automatique.' },
+  reliabilityService: { level: 'partial', executable: true, evidence: 'tests', note: 'Fréquence observée d’un processus déclaré, sans garantie de vérité.' },
   metalogicService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Analyse bornée de méta-langage ; aucune preuve générale n’est inférée.' },
   paradoxAnalysisService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Comparaison bornée de solutions aux paradoxes.' },
   ontologyCore: { level: 'implemented', executable: true, evidence: 'tests', note: 'Être, substance et identité runtime.' },
