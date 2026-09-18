@@ -28,8 +28,8 @@ const {
   subscribe: busSubscribe,
   publish: busPublish,
   checkClaimConsistency,
-  PHASE,
 } = require('./supervisor');
+const { PHASE } = require('./core');
 
 // ---------------------------------------------------------------------------
 // Reasoning snapshot for "why was this cited"
@@ -53,8 +53,38 @@ function reasoningSnapshot(claim, context = {}) {
 // Revision request
 // ---------------------------------------------------------------------------
 
-function requestRevision(originalClaim, revised, reason, opts = {}) {
+function revisionContext(context) {
+  if (typeof context === 'string') return { reason: context };
+  return context || {};
+}
+
+function revisionIsMeaningful(beforeQuality, afterQuality, reason) {
+  return Math.abs(afterQuality - beforeQuality) >= 0.05 || Boolean(reason);
+}
+
+function publishRevision(revised, quality, reason) {
+  if (!revised.subject) return;
+  busPublish({
+    type: 'claim_revised', claimId: revised.id || revised.type, subject: revised.subject,
+    beforeQuality: quality.before, afterQuality: quality.after, delta: quality.delta,
+    reason, at: new Date().toISOString(),
+  });
+}
+
+function addRevisionDebt(result, revised, quality) {
+  if (!result.accepted || quality.after >= quality.before - 0.1 || result.debt.length) return;
+  result.debt.push(createEpistemicDebt({
+    reason: 'revision_lowered_quality', subject: revised.subject || revised.id,
+    claimType: revised.type,
+    description: `Revision lowered evidence quality from ${quality.before.toFixed(2)} to ${quality.after.toFixed(2)}.`,
+    severity: 'medium',
+  }));
+}
+
+function requestRevision(originalClaim, revised, context = {}) {
   if (!originalClaim || !revised) return null;
+  const opts = revisionContext(context);
+  const reason = opts.reason;
   const stakes = opts.stakes || STAKE_LEVELS.NORMAL;
 
   const beforeQuality = evidenceQuality(originalClaim);
@@ -62,7 +92,7 @@ function requestRevision(originalClaim, revised, reason, opts = {}) {
 
   // Revision is meaningful only if quality changes meaningfully.
   const delta = Math.abs(afterQuality - beforeQuality);
-  if (delta < 0.05 && !reason) {
+  if (!revisionIsMeaningful(beforeQuality, afterQuality, reason)) {
     return {
       revised: false,
       reason: 'No meaningful quality change and no explicit reason provided.',
@@ -76,31 +106,8 @@ function requestRevision(originalClaim, revised, reason, opts = {}) {
     reasons: [reason],
   });
 
-  // Emit a revision event on the contradiction bus if the subject is affected.
-  if (result.accepted && revised.subject) {
-    busPublish({
-      type: 'claim_revised',
-      claimId: revised.id || revised.type,
-      subject: revised.subject,
-      beforeQuality,
-      afterQuality,
-      delta,
-      reason,
-      at: new Date().toISOString(),
-    });
-  }
-
-  // If revision lowers quality significantly, mark as debt if it was accepted.
-  if (result.accepted && afterQuality < beforeQuality - 0.1 && result.debt.length === 0) {
-    const debt = createEpistemicDebt({
-      reason: 'revision_lowered_quality',
-      subject: revised.subject || revised.id,
-      claimType: revised.type,
-      description: `Revision lowered evidence quality from ${beforeQuality.toFixed(2)} to ${afterQuality.toFixed(2)}.`,
-      severity: 'medium',
-    });
-    result.debt.push(debt);
-  }
+  publishRevision(revised, { before: beforeQuality, after: afterQuality, delta }, reason);
+  addRevisionDebt(result, revised, { before: beforeQuality, after: afterQuality });
 
   return Object.freeze({
     revised: result.accepted,
@@ -137,16 +144,20 @@ async function reviseClaimsOnContradiction(subject, contradiction) {
 // Batch revision when new evidence arrives
 // ---------------------------------------------------------------------------
 
-function batchReviseOnEvidence(subject, newEvidenceKind, newEvidence) {
+async function batchReviseOnEvidence(subject, newEvidenceKind, newEvidence) {
   // Find claims touching this subject and re-validate.
   // In a full implementation this would query the evidence_claims table.
-  // Here we return a stub that can be wired to a store.
-  return {
-    subject,
-    evidenceKind: newEvidenceKind,
-    action: 'batch_revise_stub',
-    note: 'Wire to evidence_claims query + re-run superviseAccept per claim.',
-  };
+  if (!revisionStore) return { revised: false, status: 'store_unavailable', subject };
+  const rows = await revisionStore.all('SELECT id, claim_json FROM epistemic_claims WHERE subject = ? AND status = \'active\'', subject);
+  const evidence = { kind: newEvidenceKind, ...newEvidence };
+  const revisions = [];
+  for (const row of rows) {
+    const original = JSON.parse(row.claim_json);
+    const revised = { ...original, evidence: [...(original.evidence || []), evidence] };
+    revisions.push(requestRevisionWithHooks(original, revised, { reason: 'new_evidence' }));
+    await persistClaim(revised);
+  }
+  return { revised: true, status: 'completed', subject, evidenceKind: newEvidenceKind, count: revisions.length, revisions };
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +169,23 @@ const revisionHooks = {
   afterRevision: [],
   onQualityDrop: [],
 };
+
+let revisionStore = null;
+
+function configureRevisionStore(db) {
+  revisionStore = db || null;
+}
+
+async function persistClaim(claim) {
+  if (!revisionStore || !claim?.id) return;
+  await revisionStore.run(
+    `INSERT INTO epistemic_claims (id, subject, claim_json, quality, status, updated_at)
+     VALUES (?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
+     ON CONFLICT(id) DO UPDATE SET subject = excluded.subject, claim_json = excluded.claim_json,
+       quality = excluded.quality, status = 'active', updated_at = CURRENT_TIMESTAMP`,
+    claim.id, claim.subject || null, JSON.stringify(claim), evidenceQuality(claim)
+  );
+}
 
 function onBeforeRevision(fn) {
   revisionHooks.beforeRevision.push(fn);
@@ -197,8 +225,8 @@ function emitRevision(revision) {
 
 // Patch requestRevision to emit hooks.
 const _originalRequestRevision = requestRevision;
-function requestRevisionWithHooks(originalClaim, revised, reason, opts) {
-  const revision = _originalRequestRevision(originalClaim, revised, reason, opts);
+function requestRevisionWithHooks(originalClaim, revised, context) {
+  const revision = _originalRequestRevision(originalClaim, revised, context);
   emitRevision(revision);
   return revision;
 }
@@ -212,4 +240,6 @@ module.exports = {
   onBeforeRevision,
   onAfterRevision,
   onQualityDrop,
+  configureRevisionStore,
+  persistClaim,
 };

@@ -19,23 +19,21 @@ const {
   acceptClaim,
   acceptClaimBatch,
   checkClaimConsistency,
-  getEpistemicDebts,
   reconcileEpistemicDebts,
+} = require('./validator');
+const { PHASE, tagPhase, phaseOf } = require('./core');
+const {
+  createEpistemicDebt: createDebt,
+  getEpistemicDebts: listDebts,
+  getEpistemicDebts,
   createEpistemicDebt,
   resolveEpistemicDebt,
   unresolvedDebtCount,
   evidenceQuality,
   confidenceWithStakes,
-  PHASE,
-  tagPhase,
-  phaseOf,
   DECAY_CURVES,
   calibrationGap,
   STAKE_LEVELS,
-} = require('./validator');
-const {
-  createEpistemicDebt: createDebt,
-  getEpistemicDebts: listDebts,
 } = require('./core');
 
 // ---------------------------------------------------------------------------

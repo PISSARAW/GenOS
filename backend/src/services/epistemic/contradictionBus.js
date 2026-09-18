@@ -216,10 +216,25 @@ function publishIfNovel(eventType, payload, opts = {}) {
 // ---------------------------------------------------------------------------
 
 const pendingEvents = [];
+let eventStore = null;
+
+function configureEventStore(db) {
+  eventStore = db || null;
+}
+
+function eventId(event) {
+  return `ep_${eventFingerprint(event).slice(0, 48)}`;
+}
 
 function recordEvent(event) {
   pendingEvents.push(event);
   if (pendingEvents.length > 500) pendingEvents.shift();
+  if (eventStore) {
+    eventStore.run(
+      'INSERT OR IGNORE INTO epistemic_events (id, event_type, payload_json, emitted_at, fingerprint) VALUES (?, ?, ?, ?, ?)',
+      eventId(event), event.type, JSON.stringify(event.payload), event.emittedAt, eventFingerprint(event)
+    ).catch(() => {});
+  }
   return event;
 }
 
@@ -280,6 +295,7 @@ module.exports = {
   publishDebtResolved,
   publishIfNovel,
   publishAndRecord,
+  configureEventStore,
   recordEvent,
   pendingEvents,
   seen,

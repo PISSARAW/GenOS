@@ -206,6 +206,12 @@ Les placeholders (`none`, `n/a`, `todo`, `unverified`, `fake`, `dummy`, `mock`) 
 
 Cette detection est volontairement conservative et syntaxique. Elle peut manquer une preuve fausse mais bien formee, ou signaler un artefact reel mal formate. Elle complete, sans remplacer, la revue humaine et les controles de domaine.
 
+Les claims enregistrés dans `epistemic_claims` peuvent désormais être réévalués
+par `batchReviseOnEvidence` lorsqu'une nouvelle preuve concerne leur sujet. Les
+événements du bus sont persistés dans `epistemic_events` après la migration 028,
+avec une empreinte idempotente. La persistance ne transforme toutefois pas une
+preuve en vérité : la qualité et le statut du claim restent recalculés.
+
 ## Exemple : correction d'un defaut d'autorisation
 
 1. Le worker A formule l'hypothese `H1` : "Le middleware accepte les jetons expires". Le worker B formule `H2` : "La route ne traverse pas le middleware".
