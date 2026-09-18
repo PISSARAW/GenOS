@@ -26,7 +26,9 @@ async function createWorld(input = {}) {
 async function getWorld(input = {}) {
   const worldId = text(input.worldId || input.id, 'worldId');
   const db = await getDatabase();
-  const row = await db.get('SELECT * FROM ontology_possible_worlds WHERE id = ?', worldId);
+  const row = await db.get(`SELECT * FROM ontology_possible_worlds WHERE id = ?
+    AND (? IS NULL OR organization_id = ?) AND (? IS NULL OR project_id = ?)`, worldId,
+  input.organizationId || null, input.organizationId || null, input.projectId || null, input.projectId || null);
   return row ? { found: true, world: decode(row) } : { found: false, worldId };
 }
 
@@ -52,8 +54,8 @@ async function addAccessibility(input = {}) {
 }
 
 async function compareWorlds(input = {}) {
-  const left = await getWorld({ worldId: input.worldA });
-  const right = await getWorld({ worldId: input.worldB });
+  const left = await getWorld({ worldId: input.worldA, organizationId: input.organizationId, projectId: input.projectId });
+  const right = await getWorld({ worldId: input.worldB, organizationId: input.organizationId, projectId: input.projectId });
   if (!left.found || !right.found) throw new Error('Both worlds must exist.');
   const rightKeys = new Map(right.world.assumptions.map(item => [item.key, item.value]));
   const differences = left.world.assumptions.filter(item => rightKeys.get(item.key) !== item.value);

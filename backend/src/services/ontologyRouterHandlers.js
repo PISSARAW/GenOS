@@ -18,6 +18,8 @@ const provenance = require('./philosophy/provenanceService');
 const personOther = require('./ontology/personOtherService');
 const continuity = require('./ontology/continuityService');
 const possibleWorlds = require('./ontology/possibleWorldService');
+const speculativeRealism = require('./ontology/speculativeRealismService');
+const metaphysics = require('./ontology/metaphysicsService');
 
 function requireAgentId(args, operation) {
   const agentId = args.agentId || args.beingId || args.id || '';
@@ -139,6 +141,11 @@ async function getPossibleWorld(args) { return possibleWorlds.getWorld(args); }
 async function listPossibleWorlds(args) { return { worlds: await possibleWorlds.listWorlds(args) }; }
 async function addWorldAccessibility(args) { return possibleWorlds.addAccessibility(args); }
 async function comparePossibleWorlds(args) { return possibleWorlds.compareWorlds(args); }
+async function analyzeCorrelationLimit(args) { return speculativeRealism.analyzeCorrelationLimit(args); }
+async function compareAccessModes(args) { return speculativeRealism.compareAccessModes(args); }
+async function compareMindMatterModels(args) { return metaphysics.compareMindMatterModels(args); }
+async function registerSecondOrderProperty(args) { return metaphysics.registerSecondOrderProperty(args); }
+async function compareEmergenceAndElimination(args) { return metaphysics.compareEmergenceAndElimination(args); }
 
 const HANDLERS = {
   getBeing, listBeings, defineBeing, getAttributes, getAttribute, setAttribute, getModes,
@@ -148,6 +155,8 @@ const HANDLERS = {
   recordContinuityObservation, classifyContinuity, detectContinuityTransition,
   createPossibleWorld, getPossibleWorld, listPossibleWorlds, addWorldAccessibility,
   comparePossibleWorlds,
+  analyzeCorrelationLimit, compareAccessModes, compareMindMatterModels,
+  registerSecondOrderProperty, compareEmergenceAndElimination,
   addRelation: args => ontologyRelations.addRelation(args).then(relation => ({ added: true, relation })),
   getRelations: args => ontologyRelations.getRelations(args).then(relations => ({ relations })),
   analyzeExpression: args => semanticReference.analyzeExpression(args),

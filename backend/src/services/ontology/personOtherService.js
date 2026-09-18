@@ -49,7 +49,8 @@ async function listOtherRelations(input = {}) {
 async function evaluateAlterityBoundary(input = {}) {
   const pair = normalize(input);
   const action = text(input.action, 'action');
-  const relationList = await listOtherRelations({ subjectId: pair.subjectId, limit: 500 });
+  const relationList = await listOtherRelations({ subjectId: pair.subjectId, limit: 500,
+    organizationId: input.organizationId, projectId: input.projectId });
   const relation = relationList.find(item => item.target.id === pair.otherId && item.relationType === 'other');
   const authorized = Boolean(relation && relation.metadata.boundaries && relation.metadata.boundaries[action] === 'allowed');
   return {

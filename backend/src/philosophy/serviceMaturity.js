@@ -16,6 +16,8 @@ const SERVICE_MATURITY = Object.freeze({
   personOtherService: { level: 'partial', executable: true, evidence: 'tests', note: 'Relations d’altérité bornées, sans inférence d’autorité.' },
   continuityService: { level: 'partial', executable: true, evidence: 'tests', note: 'Mesures continues et classifications discrètes traçables.' },
   possibleWorldService: { level: 'partial', executable: true, evidence: 'tests', note: 'Mondes hypothétiques comparables, sans preuve automatique.' },
+  speculativeRealismService: { level: 'partial', executable: true, evidence: 'tests', note: 'Limites de corrélation et modes d’accès, sans verdict métaphysique.' },
+  metaphysicsService: { level: 'partial', executable: true, evidence: 'tests', note: 'Comparaison bornée des modèles esprit-matière.' },
   consciousnessService: { level: 'partial', executable: true, evidence: 'tests', note: 'Structures de qualia et d’intentionnalité simulées.' },
   propertyService: { level: 'partial', executable: true, evidence: 'tests', note: 'Propriétés, supervenience et émergence opérationnelles.' },
   phenomenologyService: { level: 'partial', executable: true, evidence: 'tests', note: 'Mappings phénoménologiques, sans accès à la première personne.' },
