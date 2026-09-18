@@ -368,7 +368,7 @@ Reply with NOTHING except the file wrapped exactly like this:
   await phaseShell(helpers, state, spec, arch);
   await phaseQA(helpers, state, spec, arch);
   await phaseDocs(helpers, state, spec, arch);
-  await phaseRuntimeRepair(helpers, state, spec, arch);
+  await phaseRuntimeRepair({ helpers, state, spec, arch });
 
   state.finishedAt = new Date().toISOString();
   saveState(state);

@@ -91,7 +91,7 @@ function attributeError(message, arch) {
   return null;
 }
 
-async function phaseRuntimeRepair(helpers, state, spec, arch) {
+async function phaseRuntimeRepair({ helpers, state, spec, arch }) {
   const { log, WORLD_DIR, saveState, checkJsSyntax, withCodeImmunity, writeArtifact, CONSTITUTION } = helpers;
   log('Phase 7: runtime verification in a headless browser...');
   let puppeteer;
