@@ -289,6 +289,7 @@ def main() -> int:
     reported = new_violations(current, load_baseline())
     if '--strict' in sys.argv:
         reported = all_violations(current)
+    if '--report-json' in sys.argv:
         write_strict_report(current)
     for line in reported:
         print(f'REJECT {line}')

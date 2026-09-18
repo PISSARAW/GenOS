@@ -53,3 +53,7 @@ conditionnelle centrale.
 La suite `scripts/ci/test_check_code_quality.py` vérifie aussi le format du rapport
 strict et ses compteurs par règle. Une modification de la mesure doit donc mettre à
 jour les tests de la gate dans le même commit.
+
+La CI publie systématiquement `quality-report.json` comme artefact. La baseline reste
+utilisée pour le verdict de régression, mais la dette complète reste observable sans
+action locale supplémentaire.
