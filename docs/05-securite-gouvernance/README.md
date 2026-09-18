@@ -7,6 +7,8 @@ Contrôle d'accès, conformité, isolation d'exécution et multi-tenant.
 - [conformite-et-gouvernance.md](conformite-et-gouvernance.md) — gouvernance, contraintes de conformité, supervision.
 - [sandbox-execution-code.md](sandbox-execution-code.md) — sandbox, isolation, limites d'exécution.
 - [gestion-projet-multi-tenant.md](gestion-projet-multi-tenant.md) — gestion de projet et modèle multi-tenant.
+- [sso-oidc-saml.md](sso-oidc-saml.md) — fédération OIDC/SAML et validation des identités.
+- [approbations-platform.md](approbations-platform.md) — approbations, tool calls et contrôles de plateforme.
 
 ## Voir aussi
 

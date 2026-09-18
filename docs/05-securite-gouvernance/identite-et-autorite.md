@@ -574,7 +574,7 @@ Ce modélisme rend les décisions explicites et traçables.
 
 ### 14.3 Ce qu’il n’a pas encore
 
-- pas de système d’identité fédéré OIDC/Entra/Azure AD ;
+- la fédération OIDC et SAML est implémentée ; les intégrations Entra/Azure AD spécifiques restent à configurer comme fournisseurs compatibles et ne constituent pas un annuaire GenOS séparé ;
 - pas d’ABAC avancé ou d’IDP multi-tenant de niveau enterprise ;
 - pas de mTLS avancée par défaut pour le transport gRPC ;
 - pas d’interface de “policy engine” à la façon des solutions IAM commerciales ;
