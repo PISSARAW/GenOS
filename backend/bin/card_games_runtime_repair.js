@@ -23,7 +23,7 @@ function startStaticServer(root) {
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
 }
 
-async function probeRuntime(browser, url, spec, arch) {
+async function probeRuntime({ browser, url, spec, arch }) {
   const page = await browser.newPage();
   const errors = [];
   const describe = (e) => {
@@ -109,7 +109,7 @@ async function phaseRuntimeRepair(helpers, state, spec, arch) {
 
   try {
     for (let round = 1; round <= rounds; round++) {
-      const errors = await probeRuntime(browser, url, spec, arch);
+      const errors = await probeRuntime({ browser, url, spec, arch });
       const unique = [...new Set(errors)];
       history.push({ round, errorCount: unique.length });
       log(`  round ${round}: ${unique.length} runtime error(s)`);
