@@ -6,11 +6,13 @@ const adapter = require('../src/services/agentRuntimeAdapter');
 const previous = process.env.GENOS_AGENT_EXECUTOR;
 const prevBin = process.env.GENOS_BIN;
 const prevMcpBin = process.env.GENOS_MCP_BIN;
+const prevLocalModel = process.env.GENOS_LOCAL_MODEL;
 
 try {
   delete process.env.GENOS_AGENT_EXECUTOR;
   delete process.env.GENOS_BIN;
   delete process.env.GENOS_MCP_BIN;
+  delete process.env.GENOS_LOCAL_MODEL;
   const defaultExecutable = adapter.configuredExecutable();
   assert.strictEqual(
     defaultExecutable,
@@ -49,7 +51,10 @@ try {
   assert(roundSource.includes('for (const workerId of continuationWorkerIds) dispatchPendingContinuation(workerId)'), 'all selected continuation workers must be dispatched even if they closed before the final initial result');
 
   process.env.GENOS_AGENT_EXECUTOR = '/tmp/custom-genos-executor';
-  assert.strictEqual(adapter.configuredExecutable(), defaultExecutable);
+  assert.throws(
+    () => adapter.configuredExecutable(),
+    (error) => error.code === 'UNSUPPORTED_EXECUTOR'
+  );
 
   const halted = adapter.runtimeExitOutcome(
     { kind: 'guardrail', reason: 'tokens budget exceeded (45001 > 45000)' },
@@ -100,4 +105,6 @@ try {
   else process.env.GENOS_BIN = prevBin;
   if (prevMcpBin === undefined) delete process.env.GENOS_MCP_BIN;
   else process.env.GENOS_MCP_BIN = prevMcpBin;
+  if (prevLocalModel === undefined) delete process.env.GENOS_LOCAL_MODEL;
+  else process.env.GENOS_LOCAL_MODEL = prevLocalModel;
 }
