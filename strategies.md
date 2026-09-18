@@ -8,7 +8,7 @@ Generated from backend/src/strategies/strategyRegistry.js. Runtime registry heal
 - minimal_patch | maturity: implemented | execution: ready | primitives: snapshot, fork, minimal_mutation, tests, diff
 - plan_execute_verify | maturity: implemented | execution: ready | primitives: plan, run, independent_verify
 - dry_run_blast_radius | maturity: implemented | execution: ready | primitives: vfs_dry_run, permission_check, blast_radius
-- entropy_model_escalation | maturity: experimental | execution: ready | primitives: slm_route, entropy_check, frontier_escalation
+- entropy_model_escalation | maturity: implemented | execution: ready | primitives: slm_route, entropy_check, frontier_escalation
 - provider_fallback | maturity: implemented | execution: ready | primitives: provider_route, fallback_chain, degraded_mode
 - computer_use_direct | maturity: implemented | execution: ready | primitives: capture, run_plan, verify
 - falsifiable_hypothesis_tree | maturity: implemented | execution: ready | primitives: diagnose, hypothesis_evidence
@@ -83,3 +83,16 @@ Generated from backend/src/strategies/strategyRegistry.js. Runtime registry heal
 - execution_guardrails | maturity: implemented | execution: ready | primitives: iteration_limit, token_limit, time_limit, uncertainty_limit
 - active_abstention_human_approval | maturity: implemented | execution: ready | primitives: uncertainty_gate, approval_request
 - autophagy_cleanup | maturity: implemented | execution: ready | primitives: dag_mark_sweep, worktree_cleanup, cas_gc
+- axolotl_regeneration | maturity: implemented | execution: ready | primitives: assess_regeneration, plan_regeneration, execute_regeneration, validate_equivalence
+- echolocation_probe | maturity: implemented | execution: ready | primitives: probe_system, observe_response, infer_hidden_structure, adapt_next_action
+- scent_trace | maturity: implemented | execution: ready | primitives: follow_trace_gradient, reinforce_causal_trail, falsify_false_trail
+- foveal_scan | maturity: implemented | execution: ready | primitives: peripheral_watch, focus_region, verify_focus
+- vibration_sense | maturity: implemented | execution: ready | primitives: detect_weak_signal, amplify_anomaly, confirm_signal
+- landmark_navigation | maturity: implemented | execution: ready | primitives: build_landmark_map, navigate_by_landmark, return_to_safe_point
+- homing_return | maturity: implemented | execution: ready | primitives: safe_checkpoint, return_to_safe_point, validate_return
+- stigmergic_mark | maturity: implemented | execution: ready | primitives: deposit_trace, reinforce_trace, evaporate_trace
+- distributed_limb_probe | maturity: implemented | execution: ready | primitives: assign_local_probe, collect_limb_signal, arbitrate_limb_feedback
+- waggle_recruitment | maturity: implemented | execution: ready | primitives: publish_waggle_signal, validate_recruitment, allocate_quorum_budget
+- immune_challenge | maturity: implemented | execution: ready | primitives: adversarial_challenge, permission_challenge, promotion_quarantine
+- feign_inert_state | maturity: implemented | execution: ready | primitives: reduce_attack_surface, observe_threat_persistence, restore_visibility
+- energy_foraging | maturity: implemented | execution: ready | primitives: estimate_patch_yield, compare_metabolic_cost, select_next_patch
