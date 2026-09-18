@@ -27,4 +27,16 @@ function boundedOntologyAnalysis(result, args = {}) {
   };
 }
 
-module.exports = { boundedAnalysis, boundedOntologyAnalysis };
+function withEpistemicContext(result, context = {}) {
+  return {
+    ...result,
+    epistemic_context: {
+      interpretive: true,
+      provenanceComplete: false,
+      promotionEligible: false,
+      ...context,
+    },
+  };
+}
+
+module.exports = { boundedAnalysis, boundedOntologyAnalysis, withEpistemicContext };

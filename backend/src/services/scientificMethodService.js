@@ -1,6 +1,6 @@
 'use strict';
 
-const { boundedAnalysis } = require('./philosophyAnalysisContract');
+const { boundedAnalysis, withEpistemicContext } = require('./philosophyAnalysisContract');
 
 function list(value) {
   return Array.isArray(value) ? value : [];
@@ -13,7 +13,10 @@ function inputList(value, name) {
 }
 
 function analysis(result) {
-  return boundedAnalysis(result);
+  return withEpistemicContext(boundedAnalysis(result), {
+    methodology: result.kind,
+    reasoningStatus: result.status,
+  });
 }
 
 function present(value) {

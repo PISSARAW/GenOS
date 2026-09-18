@@ -222,6 +222,12 @@ de validation d'un claim. Elle retourne un verdict et une confiance calibrée,
 mais `promotionEligible` reste toujours faux : la cohérence normative n'est
 pas une preuve de vérité.
 
+Les analyses scientifiques exposent également `epistemic_context`, avec la
+méthode employée, le statut du raisonnement et une provenance incomplète par
+défaut. Une confirmation, une réfutation sous hypothèses auxiliaires ou une
+réponse sceptique restent révisables et ne peuvent pas autoriser seules une
+promotion.
+
 ## Exemple : correction d'un defaut d'autorisation
 
 1. Le worker A formule l'hypothese `H1` : "Le middleware accepte les jetons expires". Le worker B formule `H2` : "La route ne traverse pas le middleware".

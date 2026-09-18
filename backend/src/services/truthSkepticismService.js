@@ -1,13 +1,16 @@
 'use strict';
 
-const { boundedAnalysis } = require('./philosophyAnalysisContract');
+const { boundedAnalysis, withEpistemicContext } = require('./philosophyAnalysisContract');
 
 const TRUTH_THEORIES = Object.freeze([
   'correspondence', 'coherence', 'pragmatist', 'deflationary', 'minimalism', 'internal-realism',
 ]);
 
 function analysis(result) {
-  return boundedAnalysis(result);
+  return withEpistemicContext(boundedAnalysis(result), {
+    methodology: result.kind,
+    reasoningStatus: result.status,
+  });
 }
 
 function validateEvidenceCount(value) {
