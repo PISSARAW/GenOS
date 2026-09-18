@@ -1,5 +1,23 @@
 # Savoir et épistémologie
 
+## Raisonnement formel borné
+
+Le registre expose désormais un premier niveau opérationnel pour certains raisonnements
+formels : logique modale et cadres de Kripke, logique déontique et dynamique, logiques
+paraconsistante et paracomplète, ainsi que déduction, induction, abduction et mise à jour
+bayésienne. Ces adaptateurs évaluent uniquement les entrées fournies ; ils ne constituent
+pas un prouveur général et ne déclenchent aucune action du runtime.
+
+Toute analyse exposée par le routeur respecte le contrat
+`genos.philosophy-analysis/v1` : `status`, `evidence`, `uncertainty`, `provenance` et
+`promotionEligible`. La promotion est toujours désactivée (`promotionEligible: false`) tant
+qu’une preuve indépendante et les gates de promotion ne l’ont pas établie. Une analyse
+contradictoire ou indéterminée reste donc un résultat explicite, jamais un succès implicite.
+
+Les modèles modaux doivent déclarer des mondes uniques et des arêtes d’accessibilité qui
+référencent ces mondes. Les annonces publiques sont simulées sur une copie logique du
+modèle ; elles ne modifient pas l’état du runtime.
+
 - **Statut** : Partiel — registre déclaratif étendu ; infrastructure de claims, preuves et confiance déjà disponible ; analyses philosophiques spécialisées encore progressives.
 - **Portée** : nature du savoir, justification, inférence, vérité, science, scepticisme et épistémologie sociale.
 - **Dernière revue** : 2026-09-17.

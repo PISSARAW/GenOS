@@ -27,6 +27,7 @@ function inferDeductively({ premises, conclusion, entails } = {}) {
     entailment: declared === null ? (identityMatch ? true : UNKNOWN) : declared,
     preservesTruth: declared === true,
     soundness: 'undetermined',
+    promotionEligible: false,
     limitation: 'Aucune analyse complète de logique formelle ; la validité déclarée ou l’identité exacte des prémisses est utilisée.',
   };
 }
@@ -44,6 +45,7 @@ function inferInductively({ observations, generalization, counterexamples } = {}
     status: items.length === 0 ? 'insufficient-observations' : exceptions.length ? 'weakened-support' : 'supported-but-non-deductive',
     support,
     ampliative: true,
+    promotionEligible: false,
     limitation: 'Le soutien inductif n’implique pas logiquement la généralisation ; le problème de l’induction reste ouvert.',
   };
 }
@@ -72,13 +74,14 @@ function inferAbductively({ observations, hypotheses } = {}) {
     hypotheses: ranked,
     bestExplanation: best,
     status: best ? 'best-explanation-candidate' : 'insufficient-ranked-hypotheses',
+    promotionEligible: false,
     limitation: 'Le meilleur score explicatif ne démontre pas la vérité de l’hypothèse ; les scores et critères sont fournis par l’appelant.',
   };
 }
 
 function checkEntailment({ premises = [], conclusion } = {}) {
   const logic = require('./propositionalLogicService');
-  return { ...logic.findCounterexample({ premises, conclusion }), kind: 'semantic-entailment', soundness: 'bounded-classical' };
+  return { ...logic.findCounterexample({ premises, conclusion }), kind: 'semantic-entailment', soundness: 'bounded-classical', promotionEligible: false };
 }
 
 function classifyArgument({ premises = [], conclusion } = {}) {

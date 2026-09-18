@@ -12,6 +12,7 @@ const nonClassicalLogic = require('./nonClassicalLogicService');
 const metalogic = require('./metalogicService');
 const paradoxAnalysis = require('./paradoxAnalysisService');
 const rationalityNorms = require('./rationalityNormsService');
+const { boundedAnalysis } = require('./philosophyAnalysisContract');
 
 const registry = validateRegistry();
 if (!registry.valid) {
@@ -127,6 +128,7 @@ const ADAPTERS = {
   'logic.truth-table': ({ args }) => propositionalLogic.truthTable(args),
   'logic.equivalence': ({ args }) => propositionalLogic.areEquivalent(args),
   'logic.modal': ({ args }) => modalLogic.evaluateFormula(args),
+  'logic.possible-worlds': ({ args }) => modalLogic.evaluateFormula(args),
   'logic.kripke-frame': ({ args }) => modalLogic.frameProperties(args),
   'logic.deontic': ({ args }) => deonticDynamicLogic.assessDuty(args),
   'logic.dynamic': ({ args }) => deonticDynamicLogic.publicAnnouncement(args),
@@ -335,14 +337,10 @@ function evaluateConcept(args = {}) {
   if (!['implemented', 'partial'].includes(concept.status)) return unavailable(concept);
   const adapter = ADAPTERS[concept.id];
   if (!adapter) return unavailable(concept);
-  return {
-    concept: concept.id,
-    status: concept.status,
-    executable: true,
-    supported: true,
-    result: copy(adapter({ args })),
-    limitation: concept.status === 'partial' ? 'Analyse opérationnelle partielle ; elle ne constitue pas une preuve de vérité.' : null,
-  };
+  const result = boundedAnalysis(copy(adapter({ args })), args);
+  return { concept: concept.id, status: concept.status, executable: true, supported: true, result,
+    evidence: result.evidence, uncertainty: result.uncertainty, provenance: result.provenance,
+    promotionEligible: false, limitation: concept.status === 'partial' ? 'Analyse opérationnelle partielle ; elle ne constitue pas une preuve de vérité.' : null };
 }
 
 async function queryOntology(args = {}) {
