@@ -91,8 +91,8 @@ Le registre déclaratif couvre notamment :
 | Sources | empirisme, rationalisme, kantisme, idées innées, tabula rasa | conceptuel ou partiel |
 | Inférence | déduction, induction, abduction, meilleure explication | conceptuel |
 | Probabilité | probabilisme objectif/subjectif, bayésianisme, Dutch book | partiel ou planifié |
-| Science | hypothético-déductivisme, confirmation, falsification | conceptuel |
-| Histoire des sciences | Duhem-Quine, Lakatos, Kuhn, incommensurabilité | conceptuel |
+| Science | hypothético-déductivisme, confirmation, falsification | partiel — analyses bornées |
+| Histoire des sciences | Duhem-Quine, Lakatos, Kuhn, incommensurabilité | partiel pour Duhem-Quine ; conceptuel pour le reste |
 | Fiabilité | reliabilisme, process/indicator reliabilism, vertus intellectuelles | partiel ou planifié |
 | Limites | scepticisme, doute cartésien, Gödel | partiel ou conceptuel |
 
@@ -151,6 +151,10 @@ La confirmation, la vérification et la falsification sont trois opérations dif
 Une observation compatible avec une hypothèse ne la vérifie pas nécessairement ; un
 contre-exemple reproductible peut la réfuter selon le contrat retenu ; et la thèse de
 Duhem-Quine rappelle qu’un test porte souvent sur un ensemble d’hypothèses auxiliaires.
+
+Les adaptateurs scientifiques sont exécutables pour des entrées bornées et testables.
+Ils retournent leur méthode, leur statut et leur contexte épistémique, mais aucune
+sortie ne constitue une preuve générale ou une autorisation de promotion.
 
 Les références à Kuhn, Lakatos et à l’incommensurabilité décrivent des cadres
 d’histoire et de philosophie des sciences. Elles ne doivent pas être utilisées comme

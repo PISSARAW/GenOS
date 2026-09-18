@@ -91,3 +91,6 @@ Une modification du schéma, du routeur ou de la persistance nécessite un ADR.
 
 Les analyses métalogiques et paradoxales sont des services runtime bornés et
 testés ; `implemented` signifie uniquement qu'un adaptateur exécutable existe.
+Les analyses scientifiques et sceptiques suivent le même principe : leur
+adaptateur est testable, mais leur `epistemic_context` reste interprétatif et
+non promouvable sans preuve indépendante.
