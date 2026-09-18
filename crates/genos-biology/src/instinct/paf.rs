@@ -55,6 +55,11 @@ impl FixedActionPattern {
     pub fn required_tools(&self) -> Vec<String> {
         self.steps.iter().map(|step| step.tool.clone()).collect()
     }
+
+    /// Budget ATP minimal requis pour parcourir toute la séquence.
+    pub fn required_atp(&self) -> f64 {
+        self.steps.len() as f64
+    }
 }
 
 /// État permissif de l'agent au moment du déclenchement.

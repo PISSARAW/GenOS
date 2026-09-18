@@ -95,6 +95,18 @@ fn apoptotic_agent_is_blocked() {
 }
 
 #[test]
+fn insufficient_atp_budget_blocks_the_complete_paf() {
+    let execution = ExecutionContext::new(
+        vec!["genos_biomimicry".to_string(), "genos_snapshot".to_string()],
+        1.0,
+    );
+    assert!(matches!(
+        run_forage(&execution),
+        InstinctOutcome::Blocked { .. }
+    ));
+}
+
+#[test]
 fn oxytocin_lowers_threshold() {
     let hormones = HormoneState {
         oxytocin: 1.0,

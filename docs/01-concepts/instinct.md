@@ -1,6 +1,6 @@
 # Instinct — Comportements innés pré-câblés et Patterns d'Action Fixes
 
-- **Statut** : Partiel — modèle conceptuel et PAF spécifiés ; primitives Cnidocyte/VNO implémentées, circuit instinct complet à finaliser dans le runtime.
+- **Statut** : Implémentation runtime partielle — le circuit stimulus → IRM → PAF, l'orchestrateur, le CLI et le MCP sont opérationnels ; l'intégration de capteurs biologiques réels et l'exécution d'actions externes restent à finaliser.
 - **Portée** : `crates/genos-biology/src/specialized_cells/cnidocyte.rs`, `sensory/vomeronasal.rs`, `InstinctProgram` + `FixedActionPattern`.
 - **Dernière revue** : 2026-09-17.
 

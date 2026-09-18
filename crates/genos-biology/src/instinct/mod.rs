@@ -82,6 +82,15 @@ impl InstinctProgram {
                 reason: "Internal state not permissive".to_string(),
             };
         }
+        if ctx.execution.atp_budget < self.paf.required_atp() {
+            return InstinctOutcome::Blocked {
+                reason: format!(
+                    "Insufficient ATP budget: required {}, available {}",
+                    self.paf.required_atp(),
+                    ctx.execution.atp_budget
+                ),
+            };
+        }
         let mut executed = 0;
         for (index, step) in self.paf.steps.iter().enumerate() {
             let authorized = ctx.execution.is_tool_authorized(&step.tool);

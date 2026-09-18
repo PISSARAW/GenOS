@@ -147,12 +147,16 @@ impl GenosEcosystem {
             })
             .collect();
         for activation in &activations {
-            if !matches!(activation.outcome, InstinctOutcome::NotTriggered { .. }) {
-                self.record_event(
-                    "INSTINCT",
-                    json!({ "locus": activation.locus, "outcome": activation.outcome }),
-                );
-            }
+            let event_type = match activation.outcome {
+                InstinctOutcome::Complete { .. } => "INSTINCT_COMPLETE",
+                InstinctOutcome::Interrupt { .. } => "INSTINCT_INTERRUPT",
+                InstinctOutcome::Blocked { .. } => "INSTINCT_BLOCKED",
+                InstinctOutcome::NotTriggered { .. } => continue,
+            };
+            self.record_event(
+                event_type,
+                json!({ "locus": activation.locus, "outcome": activation.outcome }),
+            );
         }
         self.instincts.last = activations;
     }
