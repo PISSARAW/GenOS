@@ -1,6 +1,8 @@
 'use strict';
 
 const { evaluateSurvival } = require('./survivalModelService');
+const resilience = require('./resilienceService');
+const wakeService = require('./survivalWakeService');
 
 const STATES = Object.freeze(['nominal', 'stressed', 'protected', 'dormant', 'waking', 'recovered', 'quarantined']);
 const PRESSURE_STATES = new Set(['starvation', 'infection', 'injury', 'predation', 'overgrowth', 'isolation', 'conflict', 'senescence', 'habitat_loss', 'stagnation']);
@@ -87,4 +89,30 @@ async function transition(db, command = {}) {
   return observe(db, command.agentId, { ...(command.payload || {}), forcedState: command.toState });
 }
 
-module.exports = { STATES, get, observe, transition, ensureStorage };
+async function suspend(db, command = {}) {
+  const id = ensureAgentId(command.agentId);
+  const snapshot = await resilience.freezeCryptobiosis(db, command.workspaceId || null, command.reason || 'survival dormancy', {
+    agentId: id, workspaceId: command.workspaceId || null, survivalState: await get(db, id), ...(command.statePayload || {})
+  });
+  const wake = await wakeService.arm({ db, agentId: id, condition: command.wakeCondition || { type: 'operator_or_signal' }, organizationId: command.organizationId, projectId: command.projectId });
+  const state = await observe(db, id, { energy: 0, forcedState: 'dormant', snapshotId: snapshot.snapshotId, wakeConditionId: wake.id });
+  return { success: true, state, snapshot, wakeCondition: wake };
+}
+
+async function wake(db, command = {}) {
+  const id = ensureAgentId(command.agentId);
+  const armed = command.wakeConditionId ? await wakeService.get({ db, id: command.wakeConditionId }) : (await wakeService.listArmed({ db, agentId: id }))[0];
+  if (!armed || armed.status !== 'armed') return { success: false, code: 'WAKE_CONDITION_NOT_ARMED' };
+  const current = await get(db, id);
+  if (!current || current.state !== 'dormant') return { success: false, code: 'SURVIVAL_NOT_DORMANT', state: current };
+  if (!current.snapshotId) return { success: false, code: 'SURVIVAL_SNAPSHOT_REQUIRED' };
+  const restored = await resilience.thawCryptobiosis(db, current.snapshotId, command.workspaceId);
+  if (!restored.success) return restored;
+  await wakeService.trigger({ db, id: armed.id });
+  await db.run("UPDATE cryptobiosis_snapshots SET status = 'thawed', thawed_at = CURRENT_TIMESTAMP WHERE snapshot_id = ? AND status = 'frozen'", current.snapshotId);
+  await observe(db, id, { forcedState: 'waking', snapshotId: current.snapshotId, wakeConditionId: armed.id });
+  const state = await observe(db, id, { energy: command.energy ?? 1, forcedState: 'recovered', snapshotId: current.snapshotId, wakeConditionId: armed.id });
+  return { success: true, restored, state };
+}
+
+module.exports = { STATES, get, observe, transition, suspend, wake, ensureStorage };
