@@ -53,6 +53,19 @@ pub struct CryptobiosisStore {
     vault: HashMap<String, FrozenAgent>,
 }
 
+pub struct VitrifiedFreeze<'a> {
+    pub agent_id: &'a str,
+    pub data: &'a [u8],
+    pub trehalose: f64,
+    pub armor: u32,
+}
+
+pub struct VitrifiedThaw<'a> {
+    pub agent_id: &'a str,
+    pub warm_and_wet: bool,
+    pub nutrients: bool,
+}
+
 impl CryptobiosisStore {
     pub fn new() -> Self {
         Self {
@@ -72,16 +85,16 @@ impl CryptobiosisStore {
         frozen
     }
 
-    pub fn freeze_vitrified(&mut self, agent_id: &str, data: &[u8], trehalose: f64, armor: u32) -> FrozenAgent {
-        let spore = SporeVitrifiedPayload::new(data, trehalose, armor);
+    pub fn freeze_vitrified(&mut self, config: VitrifiedFreeze<'_>) -> FrozenAgent {
+        let spore = SporeVitrifiedPayload::new(config.data, config.trehalose, config.armor);
         let frozen = FrozenAgent {
-            agent_id: agent_id.to_string(),
+            agent_id: config.agent_id.to_string(),
             state_snapshot: serde_json::Value::Null,
             vitrified_spore: Some(spore),
             frozen_at: Utc::now().to_rfc3339(),
             hydration_level: 0.0,
         };
-        self.vault.insert(agent_id.to_string(), frozen.clone());
+        self.vault.insert(config.agent_id.to_string(), frozen.clone());
         frozen
     }
 
@@ -89,10 +102,10 @@ impl CryptobiosisStore {
         self.vault.remove(agent_id)
     }
 
-    pub fn thaw_vitrified(&mut self, agent_id: &str, warm_and_wet: bool, nutrients: bool) -> Result<Vec<u8>, String> {
-        let agent = self.vault.remove(agent_id).ok_or_else(|| format!("Agent '{agent_id}' not found in cryptobiosis store"))?;
-        let spore = agent.vitrified_spore.ok_or_else(|| format!("Agent '{agent_id}' has no vitrified spore payload"))?;
-        let bytes = spore.germinate(warm_and_wet, nutrients)?;
+    pub fn thaw_vitrified(&mut self, config: VitrifiedThaw<'_>) -> Result<Vec<u8>, String> {
+        let agent = self.vault.remove(config.agent_id).ok_or_else(|| format!("Agent '{}' not found in cryptobiosis store", config.agent_id))?;
+        let spore = agent.vitrified_spore.ok_or_else(|| format!("Agent '{}' has no vitrified spore payload", config.agent_id))?;
+        let bytes = spore.germinate(config.warm_and_wet, config.nutrients)?;
         Ok(bytes.to_vec())
     }
 
