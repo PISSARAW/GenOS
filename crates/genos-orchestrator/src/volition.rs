@@ -174,6 +174,8 @@ impl GenosEcosystem {
             executed: Vec::new(),
             halt,
             verdicts: Vec::new(),
+            creative_tasks: Vec::new(),
+            creative_outcomes: Vec::new(),
         }
     }
 }

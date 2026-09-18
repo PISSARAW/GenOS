@@ -1,4 +1,7 @@
 pub mod conscience;
+pub(crate) mod creativity_adapter;
+pub(crate) mod creativity_cycle;
+pub(crate) mod execution_api;
 pub mod clinical_therapy;
 pub mod autopoiesis;
 pub mod behaviors;

@@ -1,9 +1,7 @@
 //! Boucle cognitive : observer → décider → agir, en un seul `tick`, et
 //! `run` qui itère jusqu'à l'arrêt en produisant un rapport global.
-use crate::GenosEcosystem;
-use crate::clinical_therapy::{diagnose_active_virions, first_pathology_for_cell, therapy_for_pathology};
-use crate::director::Strategy;
-use crate::learning::context_from_state;
+use crate::GenosEcosystem; use crate::clinical_therapy::{diagnose_active_virions, first_pathology_for_cell, therapy_for_pathology};
+use crate::{director::Strategy, learning::context_from_state};
 use crate::planner::{Concept, Goal};
 use crate::plasmids::Skill;
 use crate::signaling::SignalingCascade;
@@ -14,8 +12,7 @@ use genos_biology::therapy::apply_systemic_therapy_to_cell;
 use genos_biology::spore::SporeType;
 use genos_cell::AgentCell;
 use genos_signal::SignalingMode;
-use serde_json::json;
-use uuid::Uuid;
+use serde_json::json; use uuid::Uuid;
 #[derive(Clone, Debug)]
 pub struct TickReport {
     pub tick: u64,
@@ -26,6 +23,7 @@ pub struct TickReport {
     pub executed: Vec<Concept>,
     pub halt: Option<String>,
     pub verdicts: Vec<(Uuid, Verdict)>,
+    pub creative_tasks: Vec<genos_creativity::FocusedTask>, pub creative_outcomes: Vec<(Uuid, genos_creativity::CreativityOutcome)>,
 }
 /// Bilan d'une mission complète.
 #[derive(Clone, Debug)]
@@ -66,7 +64,12 @@ impl GenosEcosystem {
         // Instincts avant délibération.
         self.run_instincts(&state);
         self.director.set_context(context_from_state(&state));
-        let decision = self.director.decide(&state, goal);
+        let mut decision = self.director.decide(&state, goal);
+        let creative_tasks = self.prepare_creativity(crate::creativity_cycle::CreativityPreparation {
+            state: &state,
+            goal,
+            decision: &mut decision,
+        });
         let mut report = TickReport {
             tick: self.events.count() as u64,
             strategy: decision.strategy,
@@ -76,13 +79,14 @@ impl GenosEcosystem {
             executed: Vec::new(),
             halt: decision.halt.clone(),
             verdicts: Vec::new(),
+            creative_tasks,
+            creative_outcomes: Vec::new(),
         };
         if decision.halt.is_some() {
             self.attempt_autonomous_reproduction_if_alive();
             return report;
 }
         let mut sim = state.clone();
-        let mut executed_concepts = Vec::new();
         for step in &decision.steps {
             // Métabolisme réel : chaque concept consomme de l'ATP.
             if !self.orchestrator.metabolism.consume(step.concept.cost()) {
@@ -96,11 +100,22 @@ impl GenosEcosystem {
             sim.apply(step.concept);
             let after = sim.progress(goal);
             self.execute_concept(step.concept, &mut report);
-            self.director
-                .record(step.concept, after > before || sim.goal_reached(goal));
+            if !crate::creativity_cycle::record_creative_execution(
+                &mut report,
+                crate::creativity_cycle::CreativeExecution {
+                    concept: step.concept,
+                    before,
+                    after,
+                    simulated: &sim,
+                    goal,
+                },
+            ) {
+                self.director
+                    .record(step.concept, after > before || sim.goal_reached(goal));
+            }
             report.executed.push(step.concept);
-            executed_concepts.push(step.concept);
 }
+        self.consolidate_creativity(&mut report);
         // Attribution de crédit + reproduction autonome.
         let episode_reward = if sim.goal_reached(goal) { 1.0 } else { 0.0 };
         self.director.assign_credit(&report.executed, episode_reward);
@@ -144,24 +159,6 @@ impl GenosEcosystem {
             goals: vec![format!("{goal:?}")],
         }
 }
-    /// Exécute une séquence de concepts donnée (utilisé par les mondes isolés).
-    pub fn execute_concepts(&mut self, concepts: &[Concept]) -> Vec<Concept> {
-        let mut report = TickReport {
-            tick: 0,
-            strategy: Strategy::Solo,
-            organization: "n/a",
-            superorganism: "n/a",
-            planned: concepts.to_vec(),
-            executed: Vec::new(),
-            halt: None,
-            verdicts: Vec::new(),
-        };
-        for concept in concepts {
-            self.execute_concept(*concept, &mut report);
-            report.executed.push(*concept);
-        }
-        report.executed
-}
     fn arena_workers(&self) -> Vec<Uuid> {
         self.orchestrator
             .tissues
@@ -169,7 +166,6 @@ impl GenosEcosystem {
             .map(|tissue| tissue.somatic_cells.clone())
             .unwrap_or_default()
     }
-
     fn first_dna_agent(&self) -> Option<Uuid> {
         self.agent_dna.keys().copied().next()
     }
@@ -180,7 +176,6 @@ impl GenosEcosystem {
             .filter(|v| !v.is_neutralized)
             .count()
     }
-
     /// Guérit cliniquement la première cellule malade du tissu.
     fn cure_one_diseased(&mut self) -> bool {
         let target = self.arena_workers().into_iter().find(|id| {
@@ -201,7 +196,6 @@ impl GenosEcosystem {
         }
         false
     }
-
     fn first_diseased(&self) -> Option<Uuid> {
         self.arena_workers().into_iter().find(|id| {
             self.orchestrator
@@ -211,8 +205,7 @@ impl GenosEcosystem {
                 .unwrap_or(false)
         })
     }
-
-    fn execute_concept(&mut self, concept: Concept, report: &mut TickReport) {
+    pub(crate) fn execute_concept(&mut self, concept: Concept, report: &mut TickReport) {
         match concept {
             Concept::Observe => {
                 self.record_event("OBSERVE", json!({}));
