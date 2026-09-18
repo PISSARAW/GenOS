@@ -21,3 +21,10 @@ message Exosome {
   string organization_id = 7;
   string project_id = 8;
 }
+
+message PromptCapsule {
+  string source_agent_id = 1;
+  string recipient_agent_id = 2;
+  bytes prompt_dna = 3;
+  string encoding = 4;
+}

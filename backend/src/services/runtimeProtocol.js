@@ -6,6 +6,7 @@ root.loadSync(path.resolve(__dirname, '../../proto/agent.proto'));
 root.loadSync(path.resolve(__dirname, '../../proto/telemetry.proto'));
 const Mission = root.lookupType('genos.agent.v1.AgentMission');
 const Event = root.lookupType('genos.telemetry.v1.AgentEvent');
+const { encodePromptCapsule, decodePromptCapsule } = require('./promptTransport');
 const MAX_FRAME_BYTES = 1024 * 1024;
 
 function frame(buffer) {
@@ -15,7 +16,12 @@ function frame(buffer) {
 }
 
 function encodeMission(mission) {
-  const message = Mission.create(mission);
+  const message = Mission.create({
+    ...mission,
+    promptCapsule: mission.prompt
+      ? encodePromptCapsule({ prompt: mission.prompt, sourceAgentId: mission.agentId, recipientAgentId: mission.orchestratorAgentId })
+      : mission.promptCapsule
+  });
   return frame(Buffer.from(Mission.encode(message).finish()));
 }
 
@@ -38,7 +44,11 @@ function decodeMission(buffer) {
   const size = buffer.readUInt32BE(0);
   if (buffer.length < size + 4) throw new Error('Mission payload is incomplete');
   const message = Mission.decode(buffer.subarray(4, size + 4));
-  return Mission.toObject(message, { defaults: false });
+  const result = Mission.toObject(message, { defaults: false, bytes: Buffer });
+  if (!result.prompt && result.promptCapsule) {
+    result.prompt = decodePromptCapsule(result.promptCapsule).prompt;
+  }
+  return result;
 }
 
 function decodeMissionInput(buffer) {

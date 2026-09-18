@@ -35,6 +35,7 @@ message AgentMission {
   // to auto-discovery, silently loading an arbitrary (often huge) model.
   string local_model = 24;
   string local_routing_policy_json = 25;
+  bytes prompt_capsule = 26;
 }
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }
