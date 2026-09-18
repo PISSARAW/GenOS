@@ -47,7 +47,9 @@ function normalizeRelation(input = {}) {
     sourceKind, sourceId, relationType, targetKind, targetId, confidence,
     metadata: input.metadata && typeof input.metadata === 'object' ? input.metadata : {},
     provenance: input.provenance && typeof input.provenance === 'object' ? input.provenance : {},
-    createdBy: relationValue(input, 'createdBy', 'created_by') || null
+    createdBy: relationValue(input, 'createdBy', 'created_by') || null,
+    organizationId: relationValue(input, 'organizationId', 'organization_id') || null,
+    projectId: relationValue(input, 'projectId', 'project_id') || null
   };
 }
 
@@ -80,15 +82,17 @@ async function addRelation(input) {
   await db.run(`
     INSERT INTO ontology_relations
       (id, source_kind, source_id, relation_type, target_kind, target_id,
-       metadata_json, confidence, provenance_json, created_by, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      metadata_json, confidence, provenance_json, created_by, organization_id, project_id, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(source_kind, source_id, relation_type, target_kind, target_id)
     DO UPDATE SET metadata_json = excluded.metadata_json,
       confidence = excluded.confidence, provenance_json = excluded.provenance_json,
-      created_by = excluded.created_by, updated_at = CURRENT_TIMESTAMP
+      created_by = excluded.created_by, organization_id = excluded.organization_id,
+      project_id = excluded.project_id, updated_at = CURRENT_TIMESTAMP
   `, id, relation.sourceKind, relation.sourceId, relation.relationType,
   relation.targetKind, relation.targetId, JSON.stringify(relation.metadata),
-  relation.confidence, JSON.stringify(relation.provenance), relation.createdBy);
+  relation.confidence, JSON.stringify(relation.provenance), relation.createdBy,
+  relation.organizationId, relation.projectId);
   const row = await db.get('SELECT * FROM ontology_relations WHERE id = ?', id);
   return decode(row);
 }
@@ -101,20 +105,39 @@ async function getRelations(input = {}) {
   const relationType = relationValue(input, 'relationType', 'relation_type') || null;
   if (relationType) validateRelationType(relationType);
   const limit = Math.min(Math.max(Number(input.limit) || 100, 1), 500);
-  const { clauses, params } = relationPredicates({ direction, relationType, entityKind, entityId });
+  const queryParts = buildRelationQuery({ direction, entityKind, entityId, relationType, input });
   const db = await getDatabase();
-  const entityClause = clauses.slice(0, direction === 'both' ? 2 : 1).join(direction === 'both' ? ' OR ' : '');
-  const typeClause = relationType ? ' AND relation_type = ?' : '';
-  const query = `SELECT * FROM ontology_relations WHERE (${entityClause})${typeClause} ORDER BY created_at DESC LIMIT ?`;
-  const rows = await db.all(query, ...params, limit);
+  const rows = await db.all(queryParts.query, ...queryParts.params, limit);
   return rows.map(decode);
+}
+
+function buildRelationQuery({ direction, entityKind, entityId, relationType, input }) {
+  const relation = relationPredicates({ direction, entityKind, entityId });
+  const entityClause = relation.clauses.slice(0, direction === 'both' ? 2 : 1)
+    .join(direction === 'both' ? ' OR ' : '');
+  const filters = relationType ? ['relation_type = ?'] : [];
+  const params = relationType ? [relationType] : [];
+  const scopeFilter = relationScope(input);
+  if (scopeFilter.sql) { filters.push(scopeFilter.sql); params.push(...scopeFilter.params); }
+  const suffix = filters.length ? ` AND ${filters.join(' AND ')}` : '';
+  return { query: `SELECT * FROM ontology_relations WHERE (${entityClause})${suffix} ORDER BY created_at DESC LIMIT ?`, params: [...relation.params, ...params] };
+}
+
+function relationScope(input) {
+  const organizationId = relationValue(input, 'organizationId', 'organization_id');
+  const projectId = relationValue(input, 'projectId', 'project_id');
+  const clauses = [];
+  const params = [];
+  if (organizationId) { clauses.push('organization_id = ?'); params.push(organizationId); }
+  if (projectId) { clauses.push('project_id = ?'); params.push(projectId); }
+  return { sql: clauses.join(' AND '), params };
 }
 
 function validateDirection(direction) {
   if (!DIRECTIONS.has(direction)) throw new Error(`Unknown relation direction '${direction}'.`);
 }
 
-function relationPredicates({ direction, relationType, entityKind, entityId }) {
+function relationPredicates({ direction, entityKind, entityId }) {
   const clauses = [];
   const params = [];
   const both = direction === 'both';
@@ -124,7 +147,6 @@ function relationPredicates({ direction, relationType, entityKind, entityId }) {
   if (direction === 'incoming' || both) {
     clauses.push('(target_kind = ? AND target_id = ?)'); params.push(entityKind, entityId);
   }
-  if (relationType) { clauses.push('relation_type = ?'); params.push(relationType); }
   return { clauses, params };
 }
 

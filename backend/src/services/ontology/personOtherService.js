@@ -21,6 +21,7 @@ async function defineOther(input = {}) {
       symmetry: 'asymmetric', recognition: input.recognition || 'observed',
       boundaries: metadata.boundaries || { authority: 'none', control: 'forbidden' }, ...metadata,
     }, confidence: input.confidence, provenance: evidence(input.evidence), createdBy: input.createdBy,
+    organizationId: input.organizationId, projectId: input.projectId,
   });
   return { defined: true, relation: record };
 }
@@ -32,6 +33,7 @@ async function recordEncounter(input = {}) {
     targetKind: 'being', targetId: pair.otherId,
     metadata: object(input.context || {}, 'context'), provenance: evidence(input.evidence),
     confidence: input.confidence, createdBy: input.createdBy,
+    organizationId: input.organizationId, projectId: input.projectId,
   });
 }
 
@@ -39,6 +41,7 @@ async function listOtherRelations(input = {}) {
   const subjectId = text(input.subjectId || input.agentId, 'subjectId');
   const result = await relations.getRelations({
     entityKind: 'being', entityId: subjectId, direction: 'outgoing', limit: input.limit,
+    organizationId: input.organizationId, projectId: input.projectId,
   });
   return result.filter(item => RELATION_TYPES.includes(item.relationType));
 }

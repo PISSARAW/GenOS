@@ -65,6 +65,10 @@ const migrationRunners = [
     const { migrateOntologyConcepts } = require('./migrateOntologyConcepts');
     await migrateOntologyConcepts(db);
   }),
+  createMigrationRunner('030-ontology-relation-scopes', 'Scope generic ontology relations by tenant', async (db) => {
+    const { migrateOntologyRelationScopes } = require('./migrateOntologyRelationScopes');
+    await migrateOntologyRelationScopes(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
