@@ -45,3 +45,7 @@ Le routeur d’ontologie délègue désormais ses opérations via une table de h
 spécialisés. Cette séparation réduit la complexité du dispatch sans changer le contrat
 des opérations MCP/CLI ; les validations propres aux opérations restent dans leurs
 handlers respectifs.
+
+Les validations de manifestes du registre utilisent également une table de stratégies
+par type d’artefact. Ajouter un nouveau type ne nécessite plus d’allonger une chaîne
+conditionnelle centrale.

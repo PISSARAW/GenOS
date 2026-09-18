@@ -3,6 +3,12 @@ const { getDatabase, withTransaction } = require('../db');
 const { scopeSql } = require('../middleware/tenant');
 
 const KINDS = new Set(['model', 'prompt', 'tool', 'workflow']);
+const MANIFEST_VALIDATORS = {
+  model: { check: manifest => manifest.model_id || manifest.model || manifest.name || manifest.provider, message: 'model manifest must specify model_id, model, name, or provider.' },
+  prompt: { check: manifest => manifest.template || manifest.prompt || manifest.messages || manifest.system_prompt, message: 'prompt manifest must specify template, prompt, messages, or system_prompt.' },
+  tool: { check: manifest => manifest.name || manifest.runtime || manifest.handler || manifest.parameters, message: 'tool manifest must specify name, runtime, handler, or parameters.' },
+  workflow: { check: manifest => manifest.steps || manifest.nodes || manifest.entrypoint || manifest.tasks, message: 'workflow manifest must specify steps, nodes, entrypoint, or tasks.' },
+};
 
 function canonicalJson(val) {
   if (val === null || typeof val !== 'object') {
@@ -23,37 +29,12 @@ function validateManifest(artifactKind, manifest) {
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest) || Object.keys(manifest).length === 0) {
     return { valid: false, message: 'manifest must be a non-empty object.' };
   }
-  switch (artifactKind) {
-    case 'model': {
-      const hasModel = manifest.model_id || manifest.model || manifest.name || manifest.provider;
-      if (!hasModel) {
-        return { valid: false, message: 'model manifest must specify model_id, model, name, or provider.' };
-      }
-      break;
-    }
-    case 'prompt': {
-      const hasPrompt = manifest.template || manifest.prompt || manifest.messages || manifest.system_prompt;
-      if (!hasPrompt) {
-        return { valid: false, message: 'prompt manifest must specify template, prompt, messages, or system_prompt.' };
-      }
-      break;
-    }
-    case 'tool': {
-      const hasTool = manifest.name || manifest.runtime || manifest.handler || manifest.parameters;
-      if (!hasTool) {
-        return { valid: false, message: 'tool manifest must specify name, runtime, handler, or parameters.' };
-      }
-      break;
-    }
-    case 'workflow': {
-      const hasWorkflow = manifest.steps || manifest.nodes || manifest.entrypoint || manifest.tasks;
-      if (!hasWorkflow) {
-        return { valid: false, message: 'workflow manifest must specify steps, nodes, entrypoint, or tasks.' };
-      }
-      break;
-    }
-    default:
-      return { valid: false, message: `Unsupported artifact kind '${artifactKind}'.` };
+  const validator = MANIFEST_VALIDATORS[artifactKind];
+  if (!validator) {
+    return { valid: false, message: `Unsupported artifact kind '${artifactKind}'.` };
+  }
+  if (!validator.check(manifest)) {
+    return { valid: false, message: validator.message };
   }
   return { valid: true };
 }
