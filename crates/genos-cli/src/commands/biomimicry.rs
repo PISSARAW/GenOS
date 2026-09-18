@@ -262,7 +262,12 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             }));
         }
         BiomimicrySubcommands::Spore { action, agent_id, spore_type, warm_and_wet, nutrients } => {
-            handle_spore(&action, &agent_id, spore_type.as_deref(), (warm_and_wet.unwrap_or(true), nutrients.unwrap_or(true)));
+            handle_spore(SporeCommand {
+                action: &action,
+                agent_id: &agent_id,
+                spore_type: spore_type.as_deref(),
+                conditions: (warm_and_wet.unwrap_or(true), nutrients.unwrap_or(true)),
+            });
         }
         BiomimicrySubcommands::Bioluminescence { agent_id, color, organelle, event_type, details } => {
             let cell_id = parse_uuid(&agent_id);
@@ -307,7 +312,12 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             }
         }
         BiomimicrySubcommands::Tissue { action, name, role, stem_id, worker_id, task } => {
-            handle_tissue(&action, &name, role.as_deref(), (stem_id.as_deref(), worker_id.as_deref(), task.as_deref()));
+            handle_tissue(TissueCommand {
+                action: &action,
+                name: &name,
+                role: role.as_deref(),
+                params: (stem_id.as_deref(), worker_id.as_deref(), task.as_deref()),
+            });
         }
         BiomimicrySubcommands::Embryology { action: _, divisions, gradient } => {
             let zygote = AgentCell::new("Zygote_Origin", "Origine clonale", "Stem");

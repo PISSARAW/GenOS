@@ -7,42 +7,56 @@ use genos_biology::spore::{Spore, SporeType};
 use genos_biology::tissue::{TaskDelegation, Tissue};
 use genos_genome::Genome;
 
-pub fn handle_spore(action: &str, agent_id: &str, spore_type: Option<&str>, conditions: (bool, bool)) {
-    let genome = Genome::new(agent_id);
-    let stype = match spore_type.unwrap_or("bacterial") {
+pub struct SporeCommand<'a> {
+    pub action: &'a str,
+    pub agent_id: &'a str,
+    pub spore_type: Option<&'a str>,
+    pub conditions: (bool, bool),
+}
+
+pub fn handle_spore(command: SporeCommand<'_>) {
+    let genome = Genome::new(command.agent_id);
+    let stype = match command.spore_type.unwrap_or("bacterial") {
         "fungal" => SporeType::FungalReproductive,
         _ => SporeType::BacterialEndospore,
     };
-    if action == "germinate" {
+    if command.action == "germinate" {
         let spore = match stype {
             SporeType::BacterialEndospore => Spore::create_bacterial_endospore(&genome),
             SporeType::FungalReproductive => Spore::create_fungal_spores(&genome, 1).pop().unwrap(),
         };
-        let (warm_and_wet, nutrients) = conditions;
+        let (warm_and_wet, nutrients) = command.conditions;
         let res = spore.germinate(warm_and_wet, nutrients);
         print_json(json!({
             "success": res.is_ok(), "operation": "spore_germinate",
-            "agent_id": agent_id, "role": res.map(|c| c.role).unwrap_or_default(),
+            "agent_id": command.agent_id, "role": res.map(|c| c.role).unwrap_or_default(),
             "status": "vegetative"
         }));
     } else {
         let bunker = Spore::create_bacterial_endospore(&genome);
         print_json(json!({
             "success": true, "operation": "spore_create",
-            "agent_id": agent_id, "bunker_armor": bunker.bunker_armor,
+            "agent_id": command.agent_id, "bunker_armor": bunker.bunker_armor,
             "spore_type": format!("{:?}", bunker.spore_type), "status": "dormant"
         }));
     }
 }
 
-pub fn handle_tissue(action: &str, name: &str, role: Option<&str>, params: (Option<&str>, Option<&str>, Option<&str>)) {
-    let (stem_id, worker_id, task) = params;
+pub struct TissueCommand<'a> {
+    pub action: &'a str,
+    pub name: &'a str,
+    pub role: Option<&'a str>,
+    pub params: (Option<&'a str>, Option<&'a str>, Option<&'a str>),
+}
+
+pub fn handle_tissue(command: TissueCommand<'_>) {
+    let (stem_id, worker_id, task) = command.params;
     let stem_uuid = stem_id.and_then(|s| Uuid::parse_str(s).ok()).unwrap_or_else(Uuid::new_v4);
     let worker_uuid = worker_id.and_then(|w| Uuid::parse_str(w).ok()).unwrap_or_else(Uuid::new_v4);
-    let mut tissue = Tissue::new(name, role.unwrap_or("Collective"), stem_uuid);
+    let mut tissue = Tissue::new(command.name, command.role.unwrap_or("Collective"), stem_uuid);
     tissue.integrate_cell(worker_uuid);
 
-    if action == "delegate" {
+    if command.action == "delegate" {
         let res = tissue.delegate_task(TaskDelegation {
             from_id: stem_uuid,
             to_id: worker_uuid,
@@ -50,12 +64,12 @@ pub fn handle_tissue(action: &str, name: &str, role: Option<&str>, params: (Opti
         });
         print_json(json!({
             "success": res.is_ok(), "operation": "tissue_delegate",
-            "name": name, "result": res.unwrap_or_else(|e| e)
+            "name": command.name, "result": res.unwrap_or_else(|e| e)
         }));
     } else {
         print_json(json!({
             "success": true, "operation": "tissue_create",
-            "name": name, "stem_cell_id": stem_uuid.to_string(),
+            "name": command.name, "stem_cell_id": stem_uuid.to_string(),
             "somatic_cells": [worker_uuid.to_string()], "status": "formed"
         }));
     }
