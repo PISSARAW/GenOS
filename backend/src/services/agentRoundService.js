@@ -9,6 +9,7 @@ const {
 } = require('./agentOrchestrationState');
 const { evidenceScore, extractEvidenceReport } = require('./agentEvidenceService');
 const crypto = require('crypto');
+const durableContinuation = require('./durableContinuationService');
 
 const MAX_CONTINUATION_DISPATCH_ATTEMPTS = 3;
 
@@ -84,8 +85,10 @@ function queueContinuationMission(context) {
   const dossier = JSON.stringify(report).slice(0, 8000);
   const consumed = consumedFromPayload(survivor.payload);
   const budget = budgetFromPrevious(previous);
-  pendingContinuations.set(survivor.agentId, {
+  const continuationId = `cont_${crypto.randomUUID()}`;
+  const mission = {
     ...previous,
+    continuationId,
     prompt: `${previous.prompt}\n\nBudget round: continuation. You were selected after evidence scoring. Use the remaining ${assignedTokens} tokens only to resolve the highest-value uncertainty and return a final evidence report. Initial dossier:\n${dossier}`,
     executionBudget: {
       ...previous.executionBudget,
@@ -94,7 +97,16 @@ function queueContinuationMission(context) {
       costUsd: Math.max(0, budget.costUsd - consumed.cost)
     },
     budgetRound: { stage: 'continuation', orchestratorId }
-  });
+  };
+  pendingContinuations.set(survivor.agentId, mission);
+  durableContinuation.persistContinuation({
+    id: continuationId,
+    agentId: survivor.agentId,
+    orchestratorId,
+    mission,
+    organizationId: state.organizationId,
+    projectId: state.projectId,
+  }).catch((error) => emit(orchestratorId, 'CONTINUATION_PERSIST_FAILED', 'RECOVERY', error.message, {}, 'warning'));
   return survivor.agentId;
 }
 
@@ -175,17 +187,37 @@ function handleContinuationFailure(agentId, mission, error) {
   setTimeout(() => dispatchPendingContinuation(agentId), 50 * (2 ** (attempts - 1))).unref();
 }
 
-function dispatchPendingContinuation(agentId) {
+async function resolvePendingContinuation(agentId) {
+  const localMission = pendingContinuations.get(agentId);
+  if (localMission) return localMission;
+  const durable = await durableContinuation.loadContinuation({ agentId }).catch(() => null);
+  if (!durable?.mission) return null;
+  pendingContinuations.set(agentId, durable.mission);
+  return durable.mission;
+}
+
+function continuationIsBlocked(agentId, mission) {
+  if (!mission) return true;
+  return activeProcesses.has(agentId) || missionStarts.has(agentId);
+}
+
+function barrierCancelled(mission) {
+  return activeWorkerBarriers.get(mission.orchestratorAgentId)?.cancelled;
+}
+
+async function dispatchPendingContinuation(agentId) {
   const { startMission } = require('./agentRuntimeAdapter');
   if (activeProcesses.has(agentId) || missionStarts.has(agentId)) return;
-  const mission = pendingContinuations.get(agentId);
-  if (!mission) return;
-  if (activeWorkerBarriers.get(mission.orchestratorAgentId)?.cancelled) {
+  const mission = await resolvePendingContinuation(agentId);
+  if (continuationIsBlocked(agentId, mission)) return;
+  if (barrierCancelled(mission)) {
     pendingContinuations.delete(agentId);
     return;
   }
   pendingContinuations.delete(agentId);
-  startMission(mission).catch((error) => handleContinuationFailure(agentId, mission, error));
+  startMission(mission).then(() => {
+    durableContinuation.markContinuation({ agentId, id: mission.continuationId, status: 'dispatched' }).catch(() => {});
+  }).catch((error) => handleContinuationFailure(agentId, mission, error));
 }
 
 module.exports = { MAX_CONTINUATION_DISPATCH_ATTEMPTS, autonomousWorkerId, autonomousRoundOutcome, advanceAutonomousRound, dispatchPendingContinuation };
