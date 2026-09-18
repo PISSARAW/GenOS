@@ -232,6 +232,10 @@ def new_violations(current: dict, baseline: dict) -> list[str]:
     return reported
 
 
+def all_violations(current: dict) -> list[str]:
+    return [f'{path}: {violation}' for path, violations in current.items() for violation in violations]
+
+
 def select_paths(root: Path) -> list[Path]:
     if '--commit' in sys.argv:
         return commit_paths(root)
@@ -258,6 +262,8 @@ def main() -> int:
         print(f'Quality baseline updated: {violation_total(snapshot)} violations in {len(current)} files.')
         return 0
     reported = new_violations(current, load_baseline())
+    if '--strict' in sys.argv:
+        reported = all_violations(current)
     for line in reported:
         print(f'REJECT {line}')
     total = sum(len(violations) for violations in current.values())
