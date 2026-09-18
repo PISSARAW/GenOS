@@ -7,6 +7,7 @@ const RELATION_TYPES = Object.freeze([
   'subclass_of', 'part_of', 'contrasts_with', 'depends_on', 'refines',
   'exemplifies', 'presupposes', 'entails', 'disputes', 'interprets',
   'translates', 'has_variant', 'historically_precedes'
+  , 'other', 'encounter', 'recognizes', 'refuses_control'
 ]);
 const DIRECTIONS = new Set(['outgoing', 'incoming', 'both']);
 
@@ -16,24 +17,37 @@ function requiredText(value, name) {
   return text;
 }
 
-function normalizeRelation(input = {}) {
-  const relationType = requiredText(input.relationType || input.relation_type, 'relationType');
+function relationValue(input, camel, snake) {
+  return input[camel] === undefined ? input[snake] : input[camel];
+}
+
+function validateRelationType(relationType) {
   if (!RELATION_TYPES.includes(relationType)) {
     throw new Error(`Unknown ontology relation type '${relationType}'.`);
   }
-  const sourceKind = requiredText(input.sourceKind || input.source_kind, 'sourceKind');
-  const sourceId = requiredText(input.sourceId || input.source_id, 'sourceId');
-  const targetKind = requiredText(input.targetKind || input.target_kind, 'targetKind');
-  const targetId = requiredText(input.targetId || input.target_id, 'targetId');
-  const confidence = input.confidence === undefined ? 1 : Number(input.confidence);
+  return relationType;
+}
+
+function validateConfidence(value) {
+  const confidence = value === undefined ? 1 : Number(value);
   if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
     throw new Error('confidence must be a number between 0 and 1.');
   }
+  return confidence;
+}
+
+function normalizeRelation(input = {}) {
+  const relationType = validateRelationType(requiredText(relationValue(input, 'relationType', 'relation_type'), 'relationType'));
+  const sourceKind = requiredText(relationValue(input, 'sourceKind', 'source_kind'), 'sourceKind');
+  const sourceId = requiredText(relationValue(input, 'sourceId', 'source_id'), 'sourceId');
+  const targetKind = requiredText(relationValue(input, 'targetKind', 'target_kind'), 'targetKind');
+  const targetId = requiredText(relationValue(input, 'targetId', 'target_id'), 'targetId');
+  const confidence = validateConfidence(input.confidence);
   return {
     sourceKind, sourceId, relationType, targetKind, targetId, confidence,
     metadata: input.metadata && typeof input.metadata === 'object' ? input.metadata : {},
     provenance: input.provenance && typeof input.provenance === 'object' ? input.provenance : {},
-    createdBy: input.createdBy || input.created_by || null
+    createdBy: relationValue(input, 'createdBy', 'created_by') || null
   };
 }
 
@@ -80,28 +94,38 @@ async function addRelation(input) {
 }
 
 async function getRelations(input = {}) {
-  const entityKind = requiredText(input.entityKind || input.entity_kind, 'entityKind');
-  const entityId = requiredText(input.entityId || input.entity_id, 'entityId');
+  const entityKind = requiredText(relationValue(input, 'entityKind', 'entity_kind'), 'entityKind');
+  const entityId = requiredText(relationValue(input, 'entityId', 'entity_id'), 'entityId');
   const direction = input.direction || 'both';
-  if (!DIRECTIONS.has(direction)) throw new Error(`Unknown relation direction '${direction}'.`);
-  const relationType = input.relationType || input.relation_type || null;
-  if (relationType && !RELATION_TYPES.includes(relationType)) throw new Error(`Unknown ontology relation type '${relationType}'.`);
+  validateDirection(direction);
+  const relationType = relationValue(input, 'relationType', 'relation_type') || null;
+  if (relationType) validateRelationType(relationType);
   const limit = Math.min(Math.max(Number(input.limit) || 100, 1), 500);
-  const clauses = [];
-  const params = [];
-  if (direction === 'outgoing' || direction === 'both') {
-    clauses.push('(source_kind = ? AND source_id = ?)'); params.push(entityKind, entityId);
-  }
-  if (direction === 'incoming' || direction === 'both') {
-    clauses.push('(target_kind = ? AND target_id = ?)'); params.push(entityKind, entityId);
-  }
-  if (relationType) { clauses.push('relation_type = ?'); params.push(relationType); }
+  const { clauses, params } = relationPredicates({ direction, relationType, entityKind, entityId });
   const db = await getDatabase();
   const entityClause = clauses.slice(0, direction === 'both' ? 2 : 1).join(direction === 'both' ? ' OR ' : '');
   const typeClause = relationType ? ' AND relation_type = ?' : '';
   const query = `SELECT * FROM ontology_relations WHERE (${entityClause})${typeClause} ORDER BY created_at DESC LIMIT ?`;
   const rows = await db.all(query, ...params, limit);
   return rows.map(decode);
+}
+
+function validateDirection(direction) {
+  if (!DIRECTIONS.has(direction)) throw new Error(`Unknown relation direction '${direction}'.`);
+}
+
+function relationPredicates({ direction, relationType, entityKind, entityId }) {
+  const clauses = [];
+  const params = [];
+  const both = direction === 'both';
+  if (direction === 'outgoing' || both) {
+    clauses.push('(source_kind = ? AND source_id = ?)'); params.push(entityKind, entityId);
+  }
+  if (direction === 'incoming' || both) {
+    clauses.push('(target_kind = ? AND target_id = ?)'); params.push(entityKind, entityId);
+  }
+  if (relationType) { clauses.push('relation_type = ?'); params.push(relationType); }
+  return { clauses, params };
 }
 
 module.exports = { RELATION_TYPES, normalizeRelation, addRelation, getRelations, decode };
