@@ -1,4 +1,5 @@
 const path = require('path');
+const { randomUUID } = require('crypto');
 const { spawn } = require('child_process');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const { createOrchestratorId } = require('../src/services/orchestratorIdFactory');
@@ -8,6 +9,7 @@ const aTeamService = require('../src/services/aTeamService');
 const aTeamDispatch = require('../src/services/aTeamDispatchService');
 const trinityService = require('../src/services/trinityService');
 const trinityComparativeBarrier = require('../src/services/trinityComparativeBarrier');
+const trinityMissionSupervisor = require('../src/services/trinityMissionSupervisor');
 const biologicalTopology = require('../src/services/biologicalTopologyService');
 const dynamicOrganization = require('../src/services/dynamicOrganizationService');
 const telemetry = require('../src/services/telemetryObserver');
@@ -258,7 +260,8 @@ async function handleTrinity({ db, context }) {
     launchWorker({ context, member: { ...member, name: trinityName }, index: member.worldNumber, parent, suppliedWorkerId: workerId });
     accepted.push({ workerId, worldNumber: member.worldNumber, strategy: member.role, status: 'accepted' });
   }
-  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, trinity: { status: 'accepted', mission, capacity: workerGarage.MAX_ACTIVE_WORKERS, worlds: accepted } }));
+  const supervision = trinityMissionSupervisor.launch({ missionId, orchestratorId: context.orchestratorId, repoRoot: context.repoRoot });
+  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, trinity: { status: 'accepted', mission, missionId, capacity: workerGarage.MAX_ACTIVE_WORKERS, worlds: accepted, supervision } }));
 }
 async function selectWorker({ db, context }) {
   const { request } = context;
