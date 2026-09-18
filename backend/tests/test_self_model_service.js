@@ -29,6 +29,10 @@ async function run() {
     assert.equal(model.calibration.observations, 1);
     const repeatedCalibration = await selfModel.calibrate(db, 'self-model-run');
     assert.equal(repeatedCalibration.observations, 1);
+    assert.equal(repeatedCalibration.lastRunStatus, 'completed');
+    const calibrationEvents = await db.all("SELECT event_type FROM adaptive_state_events WHERE scope = 'orchestrator_self_model' AND key = 'self-model-agent' AND event_type = 'self_model_calibrated'");
+    assert.equal(calibrationEvents.length, 1);
+    await assert.rejects(() => selfModel.calibrate(db, 'self-model-run-nonexistent'), /not found/);
     console.log('Self-model persistence, calibration, and decision constraints passed.');
   } finally {
     await closeDatabase();

@@ -5,6 +5,7 @@ const { AdaptiveStateService } = require('./adaptiveStateService');
 const SCOPE = 'orchestrator_self_model';
 const HISTORY_LIMIT = 12;
 const DEFAULTS = Object.freeze({ confidence: 0.58, evidenceStrictness: 0.82, riskTolerance: 0.35, maxBlastRadius: 0.4 });
+const TERMINAL_STATUSES = new Set(['completed', 'failed', 'blocked', 'cancelled']);
 
 function clamp(value, fallback = 0) {
   const number = Number(value);
@@ -150,17 +151,25 @@ function calibrationUpdate(learned, row) {
   const error = Math.abs(expectedSuccess - actualSuccess) + Math.abs(expectedCost - actualCost);
   const observations = Number(learned.calibration?.observations || 0) + 1;
   const meanAbsoluteError = ((Number(learned.calibration?.meanAbsoluteError || 0) * (observations - 1)) + error / 2) / observations;
-  return { ...learned, recentRuns: Math.min(HISTORY_LIMIT, Number(learned.recentRuns || 0) + 1), confidence: clamp(expectedSuccess + (actualSuccess - expectedSuccess) * 0.2), expectedSuccess: clamp(expectedSuccess + (actualSuccess - expectedSuccess) * 0.2), expectedCost: clamp(expectedCost + (actualCost - expectedCost) * 0.2), calibration: { observations, meanAbsoluteError: Number(meanAbsoluteError.toFixed(4)), lastRunId: row.id } };
+  return { ...learned, recentRuns: Math.min(HISTORY_LIMIT, Number(learned.recentRuns || 0) + 1), confidence: clamp(expectedSuccess + (actualSuccess - expectedSuccess) * 0.2), expectedSuccess: clamp(expectedSuccess + (actualSuccess - expectedSuccess) * 0.2), expectedCost: clamp(expectedCost + (actualCost - expectedCost) * 0.2), calibration: { observations, meanAbsoluteError: Number(meanAbsoluteError.toFixed(4)), lastRunId: row.id, lastRunStatus: row.status, lastActualCost: Number(actualCost.toFixed(4)) } };
+}
+
+async function appendCalibrationEvent(db, row, calibration) {
+  await db.run(`INSERT INTO adaptive_state_events
+    (scope, key, event_type, event_payload) VALUES (?, ?, ?, ?)`,
+    SCOPE, row.agent_id, 'self_model_calibrated', JSON.stringify({ runId: row.id, status: row.status, calibration }));
 }
 
 async function calibrate(db, runId) {
   await ensureStorage(db);
   const row = await db.get('SELECT id, agent_id, status, budget_json, metrics_json FROM strategy_execution_runs WHERE id = ?', runId);
   if (!row) throw new Error(`Execution run ${runId} was not found for self-model calibration`);
+  if (!TERMINAL_STATUSES.has(row.status)) throw Object.assign(new Error(`Self-model calibration requires a terminal run status, got '${row.status}'.`), { code: 'SELF_MODEL_NON_TERMINAL_RUN' });
   const learned = await stateStore(db).restoreObject(SCOPE, row.agent_id) || {};
   if (learned.calibration?.lastRunId === row.id) return learned.calibration;
   const next = calibrationUpdate(learned, row);
   await stateStore(db).persistObject(SCOPE, row.agent_id, next, next.calibration.observations);
+  await appendCalibrationEvent(db, row, next.calibration);
   return next.calibration;
 }
 
