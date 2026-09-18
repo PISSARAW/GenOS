@@ -25,6 +25,7 @@ const {
   evaluateElectrocyteConsensus,
   computeChemotacticGradient,
   SIGNAL_TYPES,
+  unpackSignalPayload,
 } = require('./biomimeticSignalingBus');
 const { publishSignal, readSignalsForAgent, markSignalsSeen } = require('./signalingTransportService');
 
@@ -58,7 +59,7 @@ async function chemotacticFollow(subscriberAgentId, locusHash, since = null) {
     let netGradient = 0;
     for (const r of rows) {
       try {
-        const data = r.signal_blob ? JSON.parse(r.content || '{}') : {};
+        const data = r.signal_blob ? unpackSignalPayload(r.signal_blob, signalType) : {};
         netGradient += (data.isRepellent ? -1 : 1) * (data.intensity || 0);
       } catch (_) {}
     }

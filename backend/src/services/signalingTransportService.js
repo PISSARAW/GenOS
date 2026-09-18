@@ -30,6 +30,17 @@ function pushLocalLog(signalId, payload) {
   }
 }
 
+function validateSignalType(signalType) {
+  const normalizedType = String(signalType || '').trim().toLowerCase();
+  if (!normalizedType || normalizedType === SIGNAL_TYPES.TEXT) {
+    throw new Error('Zero-text signaling requires a non-text signal type.');
+  }
+  if (!Object.values(SIGNAL_TYPES).includes(normalizedType)) {
+    throw new Error(`Unsupported signal type '${signalType}'.`);
+  }
+  return normalizedType;
+}
+
 /**
  * Publie un signal zero-texte dans le bus transport.
  * - Persiste dans signal_blobs si db disponible
@@ -37,7 +48,7 @@ function pushLocalLog(signalId, payload) {
  */
 async function publishSignal(params) {
   const {
-    signalType = SIGNAL_TYPES.TEXT,
+    signalType,
     signalData = {},
     topic = '',
     senderAgentId = null,
@@ -46,9 +57,11 @@ async function publishSignal(params) {
     contentFallback = null,
   } = params;
 
+  const normalizedType = validateSignalType(signalType);
+
   const id = signalId || `sig_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const formatted = formatSignalForTransport({
-    signalType,
+    signalType: normalizedType,
     signalData,
     contentFallback,
   });

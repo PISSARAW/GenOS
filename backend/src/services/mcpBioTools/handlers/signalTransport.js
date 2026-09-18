@@ -19,7 +19,7 @@ const {
 async function handleSignalPublish(args, run) {
   const { signal_type, signal_data, topic, ttl_ms, signal_id, orchestrator_id } = args || {};
   const result = await publishSignal({
-    signalType: signal_type || 'text',
+    signalType: signal_type,
     signalData: signal_data || {},
     topic: topic || '',
     orchestratorId: orchestrator_id || null,
