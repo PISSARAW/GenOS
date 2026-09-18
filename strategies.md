@@ -28,7 +28,7 @@ Generated from backend/src/strategies/strategyRegistry.js. Runtime registry heal
 - successive_halving | maturity: implemented | execution: ready | primitives: minimum_evaluation, prune, reallocate
 - recursive_branch_evolution | maturity: implemented | execution: ready | primitives: branch_evolution, recursive_fork, prune
 - beam_search | maturity: implemented | execution: ready | primitives: rank_states, retain_top_k, expand
-- mcts_prm | maturity: prototype | execution: ready | primitives: mcts_select, prm_evaluate, backpropagate
+- mcts_prm | maturity: implemented | execution: ready | primitives: mcts_select, prm_evaluate, backpropagate
 - simulated_annealing | maturity: implemented | execution: ready | primitives: mutate, temperature_schedule, tests
 - hypermutation_reheat | maturity: implemented | execution: ready | primitives: stagnation_check, hypermutation, affinity_selection
 - genetic_strategy_algorithm | maturity: implemented | execution: ready | primitives: select, breed, mutate, evaluate

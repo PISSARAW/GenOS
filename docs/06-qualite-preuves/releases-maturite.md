@@ -36,3 +36,9 @@ Promues : `axolotl_regeneration`, `active_redundancy`, `cyber_immunity`,
 `autotomy_honeypot` et `autophagy_cleanup`. Leur maturité indique un contrat
 exécutable ; elle n'autorise pas une action destructive implicite. Les gates
 d'approbation humaine, l'isolation et le rollback restent obligatoires.
+
+## Release 5 — recherche arborescente
+
+Promue : `mcts_prm`. La recherche est bornée par les budgets et l'évaluation
+PRM reste séparée de la sélection. Les arbres et les branches rejetées sont
+conservés pour permettre le replay et l'audit.

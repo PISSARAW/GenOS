@@ -31,7 +31,7 @@ const exploration = defineFamily('exploration', [
   ['successive_halving', 'Successive halving', ['all'], ['adaptive', 'parallel', 'budget'], 'implemented', ['minimum_evaluation', 'prune', 'reallocate']],
   ['recursive_branch_evolution', 'Évolution récursive budgétée', ['critical_refactor'], ['deep_search', 'high_compute', 'adaptive'], 'implemented', ['branch_evolution', 'recursive_fork', 'prune']],
   ['beam_search', 'Beam search', ['implementation', 'architecture_decision'], ['deep_search', 'parallel'], 'implemented', ['rank_states', 'retain_top_k', 'expand']],
-  ['mcts_prm', 'MCTS + PRM', ['implementation', 'architecture_decision'], ['deep_search', 'high_compute', 'adaptive'], 'prototype', ['mcts_select', 'prm_evaluate', 'backpropagate']],
+  ['mcts_prm', 'MCTS + PRM', ['implementation', 'architecture_decision'], ['deep_search', 'high_compute', 'adaptive'], 'implemented', ['mcts_select', 'prm_evaluate', 'backpropagate']],
   ['simulated_annealing', 'Recuit simulé', ['critical_refactor', 'implementation'], ['mutation', 'deep_search', 'high_compute'], 'implemented', ['mutate', 'temperature_schedule', 'tests']],
   ['hypermutation_reheat', 'Réchauffage / hypermutation', ['critical_refactor', 'security', 'unknown_cause_bug'], ['mutation', 'high_compute', 'adaptive'], 'implemented', ['stagnation_check', 'hypermutation', 'affinity_selection']],
   ['genetic_strategy_algorithm', 'Algorithme génétique de stratégies', ['critical_refactor', 'security'], ['mutation', 'high_compute', 'deep_search'], 'implemented', ['select', 'breed', 'mutate', 'evaluate']],
