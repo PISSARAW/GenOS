@@ -210,11 +210,13 @@ async function worktreeCleanup(context) {
 }
 
 async function casGc(context) {
-  return { success: false, code: 'PRIMITIVE_UNIMPLEMENTED', error: 'CAS garbage collection is not implemented.' };
+  const collector = require('../../storageGarbageCollector');
+  return collector.runCasGc(context);
 }
 
 async function dagMarkSweep(context) {
-  return { success: false, code: 'PRIMITIVE_UNIMPLEMENTED', error: 'DAG mark and sweep is not implemented.' };
+  const collector = require('../../storageGarbageCollector');
+  return collector.runDagSweep(context);
 }
 
 module.exports = {

@@ -28,6 +28,7 @@ const {
   unpackSignalPayload,
 } = require('./biomimeticSignalingBus');
 const { publishSignal, readSignalsForAgent, markSignalsSeen } = require('./signalingTransportService');
+const relational = require('./crossAgentRelationalService');
 
 /** Décide par consensus électrocyte sur un topic donné. */
 async function electocyteDecision(topic, discharges, options = {}) {
@@ -91,8 +92,17 @@ async function orchestrateCollectiveDecision(problem, voters, mode = 'electrocyt
   return { mode, problem, status: 'hgt_plasmid_transfer', recipients: voters.length };
 }
 
+async function recordDecisionRelation(input = {}) {
+  return relational.createRelation({
+    ...input,
+    relationType: 'collaborator',
+    metadata: { topic: input.topic || null, decisionId: input.decisionId || null },
+  });
+}
+
 module.exports = {
   electocyteDecision,
   chemotacticFollow,
   orchestrateCollectiveDecision,
+  recordDecisionRelation,
 };
