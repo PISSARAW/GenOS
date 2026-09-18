@@ -137,11 +137,15 @@ async function evaluateAlterityBoundary(args) { return personOther.evaluateAlter
 async function recordContinuityObservation(args) { return continuity.recordObservation(args); }
 async function classifyContinuity(args) { return continuity.classify(args); }
 async function detectContinuityTransition(args) { return continuity.detectTransition(args); }
+async function detectPhaseTransition(args) { return continuity.detectPhaseTransition(args); }
 async function createPossibleWorld(args) { return { created: true, world: await possibleWorlds.createWorld(args) }; }
 async function getPossibleWorld(args) { return possibleWorlds.getWorld(args); }
 async function listPossibleWorlds(args) { return { worlds: await possibleWorlds.listWorlds(args) }; }
 async function addWorldAccessibility(args) { return possibleWorlds.addAccessibility(args); }
 async function comparePossibleWorlds(args) { return possibleWorlds.compareWorlds(args); }
+async function createWorldReceipt(args) { return possibleWorlds.createReceipt(args); }
+async function verifyWorldReceipt(args) { return possibleWorlds.verifyReceipt(args); }
+async function evaluateCausalDependence(args) { return possibleWorlds.evaluateCausalDependence(args); }
 async function analyzeCorrelationLimit(args) { return speculativeRealism.analyzeCorrelationLimit(args); }
 async function compareAccessModes(args) { return speculativeRealism.compareAccessModes(args); }
 async function compareMindMatterModels(args) { return metaphysics.compareMindMatterModels(args); }
@@ -153,9 +157,9 @@ const HANDLERS = {
   defineMode, activateMode, deactivateMode, getActiveHypostatizations, hypostatize,
   checkIdentityContinuity, getIdentityHistory, updateIdentityCriteria,
   defineOther, recordEncounter, listOtherRelations, evaluateAlterityBoundary,
-  recordContinuityObservation, classifyContinuity, detectContinuityTransition,
+  recordContinuityObservation, classifyContinuity, detectContinuityTransition, detectPhaseTransition,
   createPossibleWorld, getPossibleWorld, listPossibleWorlds, addWorldAccessibility,
-  comparePossibleWorlds,
+  comparePossibleWorlds, createWorldReceipt, verifyWorldReceipt, evaluateCausalDependence,
   analyzeCorrelationLimit, compareAccessModes, compareMindMatterModels,
   registerSecondOrderProperty, compareEmergenceAndElimination,
   addRelation: args => ontologyRelations.addRelation(args).then(relation => ({ added: true, relation })),

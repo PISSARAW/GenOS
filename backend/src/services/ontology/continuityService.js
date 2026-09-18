@@ -65,4 +65,12 @@ async function detectTransition(input = {}) {
     transition: current.discreteState !== previous.discreteState ? 'threshold_crossing' : 'continuous' };
 }
 
-module.exports = { recordObservation, classify, detectTransition, parse, object };
+async function detectPhaseTransition(input = {}) {
+  const transition = await detectTransition(input);
+  if (!transition.detected) return { ...transition, phaseTransition: false };
+  const direction = transition.current.value >= transition.previous.value ? 'ascending' : 'descending';
+  return { ...transition, phaseTransition: true, direction,
+    reversible: transition.current.discreteState !== 'terminal' };
+}
+
+module.exports = { recordObservation, classify, detectTransition, detectPhaseTransition, parse, object };

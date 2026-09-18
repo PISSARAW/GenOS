@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../../db');
 const { text, evidence, scope } = require('./ontologyContracts');
+const causality = require('../causalityService');
 
 function decode(row) {
   return { worldId: row.id, parentWorldId: row.parent_world_id,
@@ -62,4 +63,45 @@ async function compareWorlds(input = {}) {
   return { worldA: left.world.worldId, worldB: right.world.worldId, differences, evidenceStatus: 'unverified' };
 }
 
-module.exports = { createWorld, getWorld, listWorlds, addAccessibility, compareWorlds, decode };
+function canonicalPayload(input) {
+  return { worldId: text(input.worldId, 'worldId'), executionId: input.executionId || null,
+    outcome: input.outcome === undefined ? null : input.outcome, evidence: evidence(input.evidence) };
+}
+
+async function createReceipt(input = {}) {
+  const payload = canonicalPayload(input);
+  const payloadJson = JSON.stringify(payload);
+  const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
+  const receiptId = `wreceipt_${crypto.randomUUID()}`;
+  const currentScope = scope(input);
+  const db = await getDatabase();
+  await db.run(`INSERT INTO ontology_world_receipts
+    (id, world_id, execution_id, payload_json, payload_hash, organization_id, project_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`, receiptId, payload.worldId, payload.executionId, payloadJson,
+  payloadHash, currentScope.organizationId, currentScope.projectId);
+  return { receiptId, ...payload, payloadHash, status: 'unverified' };
+}
+
+async function verifyReceipt(input = {}) {
+  const receiptId = text(input.receiptId, 'receiptId');
+  const db = await getDatabase();
+  const row = await db.get(`SELECT * FROM ontology_world_receipts WHERE id = ?
+    AND (? IS NULL OR organization_id = ?) AND (? IS NULL OR project_id = ?)`, receiptId,
+  input.organizationId || null, input.organizationId || null, input.projectId || null, input.projectId || null);
+  if (!row) throw new Error(`Unknown world receipt '${receiptId}'.`);
+  const actualHash = crypto.createHash('sha256').update(row.payload_json).digest('hex');
+  const status = actualHash === row.payload_hash ? 'verified' : 'invalid';
+  await db.run('UPDATE ontology_world_receipts SET status = ?, verified_at = CURRENT_TIMESTAMP WHERE id = ?', status, receiptId);
+  return { receiptId, status, payloadHash: row.payload_hash, actualHash };
+}
+
+function evaluateCausalDependence(input = {}) {
+  const result = causality.computeNecessity({
+    causeAgent: text(input.causeAgent, 'causeAgent'), effectAgent: text(input.effectAgent, 'effectAgent'),
+    actualOutcome: input.actualOutcome, counterfactualOutcome: input.counterfactualOutcome,
+  });
+  return { ...result, worldId: text(input.worldId, 'worldId'), evidenceStatus: 'simulated' };
+}
+
+module.exports = { createWorld, getWorld, listWorlds, addAccessibility, compareWorlds,
+  createReceipt, verifyReceipt, evaluateCausalDependence, decode };

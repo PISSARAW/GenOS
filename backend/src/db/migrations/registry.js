@@ -69,6 +69,10 @@ const migrationRunners = [
     const { migrateOntologyRelationScopes } = require('./migrateOntologyRelationScopes');
     await migrateOntologyRelationScopes(db);
   }),
+  createMigrationRunner('031-ontology-world-receipts', 'Persist hashes and verification status for possible-world receipts', async (db) => {
+    const { migrateOntologyWorldReceipts } = require('./migrateOntologyWorldReceipts');
+    await migrateOntologyWorldReceipts(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

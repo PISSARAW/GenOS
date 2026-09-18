@@ -28,6 +28,17 @@ Les critères d'identité d'un être peuvent être ajustés par
 évaluée ensuite par `checkIdentityContinuity` ; elle ne réécrit pas l'historique
 des événements d'identité.
 
+Les extensions avancées ajoutent :
+
+- `detectPhaseTransition` pour qualifier un franchissement de seuil ;
+- `createWorldReceipt` et `verifyWorldReceipt` pour hacher et vérifier un
+  résultat de monde possible ;
+- `evaluateCausalDependence` pour relier un monde hypothétique au calcul causal
+  existant.
+
+Un reçu vérifié atteste l'intégrité du payload enregistré. Il ne prouve pas que
+le scénario simulé s'est produit dans le monde réel.
+
 Exemple :
 
 ```json
