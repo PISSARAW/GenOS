@@ -8,6 +8,7 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_fossil_strata', cat: 'Fossilisation', risk: 'Low', desc: 'List dated fossil strata in the current tenant scope' },
   { name: 'genos_fossil_excavate', cat: 'Fossilisation', risk: 'Low', desc: 'Excavate a fossil in read-only mode with integrity verification' },
   { name: 'genos_fossil_decode', cat: 'Fossilisation', risk: 'Low', desc: 'Decode residual phenotype markers from a fossil' },
+  { name: 'genos_fossil_candidate', cat: 'Fossilisation', risk: 'Amber', desc: 'Derive a non-promoted AgentDNA candidate from an intact fossil' },
   { name: 'genos_grns', cat: 'Epigenetics', risk: 'Low', desc: 'Gene Regulatory Networks integration' },
   { name: 'genos_routing_algorithm', cat: 'Ecology', risk: 'Low', desc: 'Routing algorithm execution' },
   { name: 'genos_social_trust', cat: 'Ecology', risk: 'Low', desc: 'Social trust computation' },

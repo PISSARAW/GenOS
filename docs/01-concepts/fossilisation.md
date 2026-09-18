@@ -191,7 +191,7 @@ flowchart TB
 **Cibles restantes (ADR 0003).**
 
 - Endpoints REST `/api/fossils*` et outils MCP `genos_fossil_*`.
-- Hook des concepts résiduels vers la boucle d'innovation AgentDNA (statut `candidate` uniquement).
+- Hook `POST /api/fossils/:id/candidates` et MCP `genos_fossil_candidate` vers la boucle d'innovation AgentDNA (statut `candidate` uniquement).
 
 ## 8. Processus d'exécution ou de validation
 

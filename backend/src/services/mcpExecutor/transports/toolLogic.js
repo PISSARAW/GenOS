@@ -152,6 +152,17 @@ async function fossilTool(toolName, args) {
   if (toolName === 'genos_fossil_strata') return fossilResult({ success: true, strata: await fossilization.listStrata(db, args) });
   if (toolName === 'genos_fossil_excavate') return fossilResult(await fossilization.excavateFossil(db, args.fossil_id, args));
   if (toolName === 'genos_fossil_decode') return fossilResult(await fossilization.decodeFossil(db, args.fossil_id, args));
+  if (toolName === 'genos_fossil_candidate') {
+    const excavated = await fossilization.excavateFossil(db, args.fossil_id, args);
+    if (!excavated.success || !excavated.integrity_verified) return fossilResult({ success: false, error: 'Fossil integrity verification failed.' });
+    const innovation = require('../../agentDnaInnovation');
+    return fossilResult(await innovation.captureFromFossil({
+      db,
+      record: { ...excavated.specimen, organization_id: args.organization_id, project_id: args.project_id },
+      integrityVerified: true,
+      baseGenomeRef: args.base_genome_ref
+    }));
+  }
   return null;
 }
 
@@ -160,6 +171,7 @@ const fossilListTool = (args) => fossilTool('genos_fossil_list', args);
 const fossilStrataTool = (args) => fossilTool('genos_fossil_strata', args);
 const fossilExcavateTool = (args) => fossilTool('genos_fossil_excavate', args);
 const fossilDecodeTool = (args) => fossilTool('genos_fossil_decode', args);
+const fossilCandidateTool = (args) => fossilTool('genos_fossil_candidate', args);
 
 async function synapticStdpUpdate(args) {
   const strategyExecutionAdapter = require('../../strategyExecutionAdapter');
@@ -316,6 +328,7 @@ const CUSTOM_TOOL_HANDLERS = {
   genos_fossil_strata: fossilStrataTool,
   genos_fossil_excavate: fossilExcavateTool,
   genos_fossil_decode: fossilDecodeTool
+  ,genos_fossil_candidate: fossilCandidateTool
 };
 
 async function dispatchToTransport(toolName, args, timeoutMs) {

@@ -38,6 +38,21 @@ function detectNovelConcepts(baseModel, tools) {
   return concepts;
 }
 
+function fossilConcepts(record) {
+  const payload = record && record.mineral_payload;
+  const source = [
+    ...(Array.isArray(record && record.hard_parts) ? record.hard_parts : []),
+    ...(payload && typeof payload === 'object' ? ['tools', 'contracts', 'golden_paths', 'provenance'].flatMap((key) => Array.isArray(payload[key]) ? payload[key] : []) : [])
+  ];
+  const seen = new Set();
+  return source.filter((value) => {
+    const instruction = String(value || '').trim();
+    if (!instruction || seen.has(instruction)) return false;
+    seen.add(instruction);
+    return true;
+  }).map((instruction) => ({ locus: `FOSSIL_${normalizeTool(instruction)}`, instruction }));
+}
+
 async function scopeForWorkspace(db, workspaceId) {
   if (!workspaceId) return {};
   const row = await safeGet(db, 'SELECT organization_id, project_id FROM workspaces WHERE id = ?', workspaceId);
@@ -130,6 +145,37 @@ async function captureFromSuccess(ctx) {
   });
 }
 
+async function captureFromFossil(ctx) {
+  if (!store.dnaEnabled() || !ctx || !ctx.db || !ctx.record) return null;
+  if (ctx.integrityVerified === false) return null;
+  const concepts = fossilConcepts(ctx.record);
+  if (!concepts.length) return null;
+  const scope = {
+    organizationId: ctx.record.organization_id,
+    projectId: ctx.record.project_id
+  };
+  const baseGenomeRef = ctx.baseGenomeRef || (await store.selectGenome(ctx.db, {
+    role: 'fossil-researcher',
+    mission: ctx.record.reason,
+    genomeRef: ctx.record.base_genome_ref
+  }, scope))?.id;
+  if (!baseGenomeRef) return { status: 'skipped', reason: 'base_genome_unavailable', fossilId: ctx.record.fossil_id };
+  return captureCandidate(ctx.db, {
+    baseGenomeRef,
+    name: `Fossil-${ctx.record.fossil_id.slice(0, 12)}`,
+    concept: concepts.map((concept) => concept.instruction).join(','),
+    concepts,
+    sourceAgentId: ctx.record.extinct_lineage_id,
+    evidence: {
+      source: 'stratigraphic_fossil',
+      fossilId: ctx.record.fossil_id,
+      payloadHash: ctx.record.payload_hash,
+      integrityVerified: ctx.integrityVerified !== false
+    },
+    scope
+  });
+}
+
 async function promoteCandidate(db, id) {
   const row = await safeGet(db, 'SELECT candidate_genome_ref FROM agent_genome_innovations WHERE id = ?', id);
   if (!row) {
@@ -156,6 +202,8 @@ module.exports = {
   detectNovelConcepts,
   captureCandidate,
   captureFromSuccess,
+  captureFromFossil,
+  fossilConcepts,
   promoteCandidate,
   listInnovations,
   latestToolLease,

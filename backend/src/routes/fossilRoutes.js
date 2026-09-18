@@ -20,5 +20,6 @@ router.post('/', requirePermission('workspace:write'), requireTenantScope({ writ
 router.get('/:id', requirePermission('read'), asyncHandler(controller.getById));
 router.post('/:id/excavate', requirePermission('read'), asyncHandler(controller.excavate));
 router.get('/:id/decode', requirePermission('read'), asyncHandler(controller.decode));
+router.post('/:id/candidates', requirePermission('workspace:write'), requireTenantScope({ write: true }), asyncHandler(controller.createCandidate));
 
 module.exports = router;

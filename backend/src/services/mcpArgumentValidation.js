@@ -27,6 +27,7 @@ const REQUIRED_STRINGS = {
   genos_fossil_record: ['lineage_id', 'reason'],
   genos_fossil_excavate: ['fossil_id'],
   genos_fossil_decode: ['fossil_id'],
+  genos_fossil_candidate: ['fossil_id'],
   genos_genome_compile: ['input', 'out'],
   genos_genome_validate: ['file'],
   genos_genome_inspect: ['file'],

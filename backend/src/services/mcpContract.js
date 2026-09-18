@@ -110,6 +110,7 @@ const TOOL_BASE_SCHEMAS = {
   genos_fossil_strata: { type: 'object', properties: {} },
   genos_fossil_excavate: { type: 'object', properties: { fossil_id: { type: 'string' } }, required: ['fossil_id'] },
   genos_fossil_decode: { type: 'object', properties: { fossil_id: { type: 'string' } }, required: ['fossil_id'] },
+  genos_fossil_candidate: { type: 'object', properties: { fossil_id: { type: 'string' }, base_genome_ref: { type: 'string' } }, required: ['fossil_id'] },
   genos_delegate_worker: {
     type: 'object',
     properties: {
