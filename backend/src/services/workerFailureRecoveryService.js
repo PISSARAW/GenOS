@@ -233,10 +233,10 @@ function culpritParts(culprit) {
   if (!culprit) return [];
   return [
     'DIAGNOSTIC BISECTION CAUSALE (O(log N)) :',
-    '- Pas fautif isole : Etape ' + culprit.stepNumber + ' (Snapshot: ' + (culprit.snapshotHash || 'n/a') + ', Agent: ' + (culprit.culpritAgentId || 'worker') + ')',
+    '- Pas fautif isolé : Étape ' + culprit.stepNumber + ' (Snapshot: ' + (culprit.snapshotHash || 'n/a') + ', Agent: ' + (culprit.culpritAgentId || 'worker') + ')',
     '- Cause racine : ' + (culprit.rootCauseSummary || culprit.actionDescription || "Violation d'invariant"),
     ...(culprit.targetFile ? ['- Fichier impacte : ' + culprit.targetFile] : []),
-    '- Remediation : Ce pas fautif a ete annule par rollback chirurgical. Ne pas repeter la meme mutation.'
+    '- Remédiation : Ce pas fautif a été annulé par rollback chirurgical. Ne pas répéter la même mutation.'
   ];
 }
 

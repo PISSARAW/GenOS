@@ -40,6 +40,7 @@ use genos_signal::{ExtracellularMatrix, KuramotoOscillator, KuramotoStep, Stigme
 use genos_store::{
     BurialContext, Capsule, CapsuleStore, CryptobiosisStore, FossilRecord, FossilRegistry,
     FossilSpecimen, InMemoryEventStore, InMemoryVectorRepository, SedimentStratum,
+    VitrifiedFreeze, VitrifiedThaw,
 };
 use serde_json::Value;
 use std::collections::HashMap;
@@ -366,7 +367,7 @@ impl GenosEcosystem {
     pub fn freeze_vitrified(&mut self, agent_id: &str, data: &[u8], trehalose: f64, armor: u32) {
         let _ = self
             .cryptobiosis
-            .freeze_vitrified(agent_id, data, trehalose, armor);
+            .freeze_vitrified(VitrifiedFreeze { agent_id, data, trehalose, armor });
     }
 
     pub fn thaw_vitrified(
@@ -376,7 +377,7 @@ impl GenosEcosystem {
         nutrients: bool,
     ) -> Result<Vec<u8>, String> {
         self.cryptobiosis
-            .thaw_vitrified(agent_id, warm_and_wet, nutrients)
+            .thaw_vitrified(VitrifiedThaw { agent_id, warm_and_wet, nutrients })
     }
 
     // --- Reproduction (compléments) ---

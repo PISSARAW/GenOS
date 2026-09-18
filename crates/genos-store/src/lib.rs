@@ -6,7 +6,7 @@ pub mod memory;
 pub mod snapshot;
 
 pub use capsule::{Capsule, CapsuleStore};
-pub use cryptobiosis::{CryptobiosisStore, FrozenAgent};
+pub use cryptobiosis::{CryptobiosisStore, FrozenAgent, VitrifiedFreeze, VitrifiedThaw};
 pub use event::{Event, InMemoryEventStore};
 pub use fossil::{
     decode_phenotype, BurialContext, FossilRecord, FossilRegistry, FossilSpecimen, FossilizationMode,
@@ -87,16 +87,16 @@ mod tests {
     fn test_cryptobiosis_vitrified_spore() {
         let mut vault = CryptobiosisStore::new();
         let payload = b"ACTIVE_AGENT_PROTOPLASM_AND_SYNAPSES";
-        vault.freeze_vitrified("agent_tardigrade", payload, 0.85, 500);
+        vault.freeze_vitrified(cryptobiosis::VitrifiedFreeze { agent_id: "agent_tardigrade", data: payload, trehalose: 0.85, armor: 500 });
         assert!(vault.is_dormant("agent_tardigrade"));
 
         // Hostile environment (dry) fails germination
-        let failed_thaw = vault.thaw_vitrified("agent_tardigrade", false, true);
+        let failed_thaw = vault.thaw_vitrified(cryptobiosis::VitrifiedThaw { agent_id: "agent_tardigrade", warm_and_wet: false, nutrients: true });
         assert!(failed_thaw.is_err());
 
         // Re-freeze with valid conditions
-        vault.freeze_vitrified("agent_tardigrade", payload, 0.85, 500);
-        let thawed_bytes = vault.thaw_vitrified("agent_tardigrade", true, true).expect("Vitrified spore must germinate");
+        vault.freeze_vitrified(cryptobiosis::VitrifiedFreeze { agent_id: "agent_tardigrade", data: payload, trehalose: 0.85, armor: 500 });
+        let thawed_bytes = vault.thaw_vitrified(cryptobiosis::VitrifiedThaw { agent_id: "agent_tardigrade", warm_and_wet: true, nutrients: true }).expect("Vitrified spore must germinate");
         assert_eq!(thawed_bytes, payload);
     }
 
@@ -148,4 +148,3 @@ mod tests {
         assert_eq!(strata[0].fossil_count, 2);
     }
 }
-
