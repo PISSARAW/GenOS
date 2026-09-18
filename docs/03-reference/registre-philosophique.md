@@ -94,3 +94,6 @@ testés ; `implemented` signifie uniquement qu'un adaptateur exécutable existe.
 Les analyses scientifiques et sceptiques suivent le même principe : leur
 adaptateur est testable, mais leur `epistemic_context` reste interprétatif et
 non promouvable sans preuve indépendante.
+Les adaptateurs d’épistémologie sociale et de reliabilisme suivent la même
+règle : les indices de crédibilité, de corroboration ou de fréquence observée
+restent des éléments révisables, pas des autorités autonomes.

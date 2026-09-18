@@ -218,6 +218,10 @@ introduisent une contrainte de contexte : qui produit un énoncé, depuis quelle
 position, avec quelles asymétries d’accès et quels intérêts ? Ces cadres enrichissent
 l’audit de provenance ; ils ne sont pas réduits à un simple score de fiabilité.
 
+Les adaptateurs sociaux retournent désormais un contexte épistémique explicite.
+Ils distinguent corroboration, accord, désaccord, division du travail et
+perspectives manquantes sans agréger ces signaux en vérité automatique.
+
 ## 10. Limites, garde-fous et non-objectifs
 
 - Le registre ne prouve aucune thèse philosophique.
@@ -225,8 +229,8 @@ l’audit de provenance ; ils ne sont pas réduits à un simple score de fiabili
   le concept est limité aux résultats formels et à leurs conditions.
 - Un score bayésien ou de confiance n’est pas une vérité objective sans modèle,
   données, calibration et hypothèses explicites.
-- Le reliabilisme ne permet pas encore d’évaluer automatiquement toutes les capacités
-  cognitives d’un agent.
+- Le reliabilisme évalue uniquement un processus déclaré et les observations fournies ;
+  il ne mesure pas automatiquement toutes les capacités cognitives d’un agent.
 - La connaissance par acquaintance, le savoir-faire, le témoignage et la connaissance
   propositionnelle ne doivent pas être fusionnés dans un même champ sans perte de sens.
 - Les concepts marqués `planned` dans le registre restent documentaires et retournent
