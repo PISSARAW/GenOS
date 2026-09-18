@@ -43,6 +43,12 @@ Les extensions avancées ajoutent :
 - `evaluateCausalDependence` pour relier un monde hypothétique au calcul causal
   existant.
 
+Cette opération peut recevoir un `modalModel` et un `modalFormula` facultatifs.
+Le modèle est évalué par le moteur modal borné et retourné comme contexte
+auxiliaire. Le verdict causal reste une simulation interprétative, référencée
+par `worldReference.hypothetical`, et son `epistemic_context` conserve la
+provenance incomplète tant qu'une preuve vérifiée n'est pas fournie.
+
 Un reçu vérifié atteste l'intégrité du payload enregistré. Il ne prouve pas que
 le scénario simulé s'est produit dans le monde réel.
 

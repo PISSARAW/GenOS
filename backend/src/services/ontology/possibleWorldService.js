@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { getDatabase } = require('../../db');
 const { text, evidence, scope } = require('./ontologyContracts');
 const causality = require('../causalityService');
+const modalLogic = require('../modalLogicService');
 
 function decode(row) {
   return { worldId: row.id, parentWorldId: row.parent_world_id,
@@ -115,7 +116,23 @@ function evaluateCausalDependence(input = {}) {
     causeAgent: text(input.causeAgent, 'causeAgent'), effectAgent: text(input.effectAgent, 'effectAgent'),
     actualOutcome: input.actualOutcome, counterfactualOutcome: input.counterfactualOutcome,
   });
-  return { ...result, worldId: text(input.worldId, 'worldId'), evidenceStatus: 'simulated' };
+  const worldId = text(input.worldId, 'worldId');
+  const modalEvaluation = input.modalModel
+    ? modalLogic.evaluateFormula({ formula: input.modalFormula || '□p', model: input.modalModel })
+    : null;
+  return {
+    ...result,
+    worldId,
+    evidenceStatus: 'simulated',
+    worldReference: { worldId, hypothetical: true },
+    modalEvaluation,
+    epistemic_context: {
+      interpretive: true,
+      provenanceComplete: Boolean(input.evidence?.status === 'verified'),
+      evidenceStatus: 'simulated',
+      promotionEligible: false,
+    },
+  };
 }
 
 module.exports = { createWorld, getWorld, listWorlds, addAccessibility, compareWorlds,
