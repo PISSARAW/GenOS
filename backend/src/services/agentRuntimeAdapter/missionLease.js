@@ -31,7 +31,10 @@ async function attachMissionMemoryContext(normalizedMission, agentId) {
       organizationId: normalizedMission.organizationId,
       projectId: normalizedMission.projectId,
       sessionId: normalizedMission.sessionId,
-      taskId: normalizedMission.taskId
+      taskId: normalizedMission.taskId,
+      promptGenome: normalizedMission.promptGenome,
+      promptRegulators: normalizedMission.promptRegulators,
+      promptRegulatorState: normalizedMission.promptRegulatorState
     });
     if (memoryPrompt && memoryPrompt.trim()) {
       normalizedMission.prompt = `${task}\n\nGENOS MEMORY CONTEXT\n${memoryPrompt}`;

@@ -10,11 +10,18 @@
 
 const { readFailed } = require('./agentMemoryTelemetry');
 
-async function peekVesicles(agentId) {
+async function peekVesicles(agentId, options = {}) {
   try {
     const vectorMemory = require('./vectorMemoryService');
     const engrams = await vectorMemory.uptakeVesicles(agentId, { peek: true });
-    return Array.isArray(engrams) ? engrams : [];
+    const selected = Array.isArray(engrams) ? engrams : [];
+    if (!Array.isArray(options.exosomes)) return selected;
+    const exosomeService = require('./selectiveExosomeService');
+    const admitted = exosomeService.uptake(options.exosomes, {
+      id: agentId,
+      capabilities: options.capabilities || []
+    }, options.now);
+    return selected.concat(admitted.map((exosome) => exosome.payload || exosome.signal || exosome));
   } catch (error) {
     readFailed(agentId, error, 'vesicle-peek');
     return [];

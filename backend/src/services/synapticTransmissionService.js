@@ -10,6 +10,7 @@ const zlib = require('zlib');
 const protobuf = require('protobufjs');
 const { studioBridgeRoot, phagocytizeExosomes, runGenosSync } = require('./genosCli');
 const { getDatabase } = require('../db');
+const capabilityPlasmid = require('./capabilityPlasmidService');
 const { textToVector } = require('./memoryScoring');
 
 let protoRoot = null;
@@ -165,6 +166,20 @@ async function absorbExosomes(db = null) {
     const pName = exo.plasmid_name || exo.plasmidName;
     const pCode = exo.plasmid_code || exo.plasmidCode;
     if (pName || pCode) {
+      if (exo.capability) {
+        try {
+          const plasmid = capabilityPlasmid.createPlasmid(exo.capability, {
+            hash: exo.contract_hash || exo.contractHash,
+            tests: exo.contract_tests || exo.contractTests,
+            permissions: exo.permissions,
+            provenance: exo.provenance
+          });
+          capabilityPlasmid.assimilate({ capabilities: exo.recipient_capabilities || [] }, plasmid);
+        } catch (error) {
+          errors.push(`Capability plasmid rejected: ${error.message}`);
+          continue;
+        }
+      }
       const plasmidId = `plasmid_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
       const rawVec = (Array.isArray(exo.plasmid_vector) && exo.plasmid_vector.length === 768)
         ? exo.plasmid_vector

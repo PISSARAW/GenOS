@@ -123,8 +123,8 @@ function composeBiocenose(mission, options = {}) {
   };
 }
 
-async function prepareCommunity(db, orchestratorId, mission) {
-  const composition = composeBiocenose(mission);
+async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
+  const composition = composeBiocenose(mission, options);
   if (composition.organization) {
     const dynamicOrganization = require('./dynamicOrganizationService');
     await dynamicOrganization.changeOrganization(db, {

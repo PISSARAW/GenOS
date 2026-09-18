@@ -25,9 +25,9 @@ async function applyOrganization({ db, orchestratorId, organization, reason }) {
 }
 
 async function composeMode(input = {}) {
-  const { db, orchestratorId, mode, mission } = input;
+  const { db, orchestratorId, mode, mission, options = {} } = input;
   const key = String(mode || '').trim().toLowerCase();
-  if (key === 'biocenose') return biocenoseService.prepareCommunity(db, orchestratorId, mission);
+  if (key === 'biocenose') return biocenoseService.prepareCommunity({ db, orchestratorId, mission, options });
   if (key === 'syncytium') {
     const session = await syncytiumCoordinationService.createSession(mission, { db });
     await applyOrganization({ db, orchestratorId, organization: session.organization, reason: 'Syncytium mode activation' });
@@ -49,7 +49,7 @@ async function composeMode(input = {}) {
     return session;
   }
   if (key === 'biome') {
-    const composition = biomeCoordinationService.composeBiome(mission);
+    const composition = biomeCoordinationService.composeBiome(mission, options);
     await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Biome mode activation' });
     return composition;
   }

@@ -13,6 +13,8 @@
 
 const { readFailed } = require('./agentMemoryTelemetry');
 const vesicles = require('./agentMemoryVesicles');
+const promptGenome = require('./promptGenomeService');
+const microRnaPrompt = require('./microRnaPromptService');
 
 function truncateWords(text, maxLen) {
   const str = String(text || '').trim();
@@ -144,7 +146,7 @@ function consumeAfterInjection(agentId, peekRequested) {
 
 async function collectVesicleSections(agentId, opts) {
   const peekRequested = opts.peekVesicles === true;
-  const engrams = await vesicles.peekVesicles(agentId);
+  const engrams = await vesicles.peekVesicles(agentId, opts);
   return {
     shield: findEpistemicShield(engrams),
     regular: regularVesicleLines(engrams),
@@ -206,6 +208,16 @@ function assemblePromptBlock(sections, shield) {
   return block;
 }
 
+function assembleGenomeBlock(options) {
+  if (!options.promptGenome) return '';
+  const regulated = microRnaPrompt.regulatePrompt(
+    options.promptGenome,
+    options.promptRegulators || [],
+    { state: options.promptRegulatorState, now: options.now }
+  );
+  return `${promptGenome.render(regulated)}\n\n`;
+}
+
 async function formatCognitiveMemoryPrompt(agentId, task, options) {
   const opts = options || {};
   try {
@@ -214,7 +226,7 @@ async function formatCognitiveMemoryPrompt(agentId, task, options) {
     const sections = buildMemorySections(memories, injections.regular);
     const promptBlock = assemblePromptBlock(sections, injections.shield);
     await injections.consume();
-    return promptBlock;
+    return `${assembleGenomeBlock(opts)}${promptBlock}`;
   } catch (error) {
     readFailed(agentId, error, 'memory-prompt');
     return '';

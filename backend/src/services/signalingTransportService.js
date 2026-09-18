@@ -14,6 +14,9 @@
 const { getDatabase } = require('../db');
 const { SIGNAL_TYPES, packSignalPayload, unpackSignalPayload, formatSignalForTransport } = require('./biomimeticSignalingBus');
 const { routeCollectiveSignal } = require('./collectiveSignalOrganizationRouter');
+const signalRepressor = require('./signalRepressorService');
+const boundedGossip = require('./boundedGossipService');
+const gapJunction = require('./gapJunctionService');
 
 // Court TTL par défaut pour les signaux ephemeraires (phéromones, voltage)
 const DEFAULT_SIGNAL_TTL_MS = 30_000;
@@ -41,6 +44,34 @@ function validateSignalType(signalType) {
   return normalizedType;
 }
 
+function repressionFor({ type, topic, signalData, repressors }) {
+  return signalRepressor.applyRepressors({ kind: type, topic, signalData }, repressors);
+}
+
+function deliveryMetadata(params, id, expiresAt) {
+  const { gossip, junction, senderAgentId } = params;
+  const gossipRoutes = gossip ? boundedGossip.nextHop({
+    message: { id, expiresAt }, agentId: senderAgentId, peers: gossip.peers,
+    seen: gossip.seen || new Set(), options: gossip.options
+  }) : [];
+  const junctionDelta = junction ? gapJunction.exchange(junction, senderAgentId, junction.delta) : null;
+  return { gossipRoutes, junctionDelta };
+}
+
+async function persistSignalRow(row) {
+  try {
+    const db = await getDatabase();
+    await db.run(
+      `INSERT OR REPLACE INTO signal_blobs
+       (signal_id, signal_type, signal_blob, content, topic, sender_agent_id, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+      [row.signal_id, row.signal_type, row.signal_blob, row.content, row.topic, row.sender_agent_id, row.expires_at]
+    );
+  } catch (e) {
+    console.warn('[SignalingTransport] DB publish failed, logging locally:', e.message);
+  }
+}
+
 /**
  * Publie un signal zero-texte dans le bus transport.
  * - Persiste dans signal_blobs si db disponible
@@ -55,9 +86,23 @@ async function publishSignal(params) {
     signalId = null,
     ttlMs = DEFAULT_SIGNAL_TTL_MS,
     contentFallback = null,
+    repressors = [],
+    gossip = null,
+    junction = null,
   } = params;
 
   const normalizedType = validateSignalType(signalType);
+
+  const repression = repressionFor({ type: normalizedType, topic, signalData, repressors });
+  if (!repression.accepted) {
+    return {
+      signalId: signalId || null,
+      published: false,
+      signalType: normalizedType,
+      suppressedBy: repression.suppressedBy,
+      suppressionReason: repression.reason
+    };
+  }
 
   const id = signalId || `sig_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const formatted = formatSignalForTransport({
@@ -77,25 +122,21 @@ async function publishSignal(params) {
     expires_at: expiresAt,
   };
 
-  try {
-    const db = await getDatabase();
-    await db.run(
-      `INSERT OR REPLACE INTO signal_blobs
-       (signal_id, signal_type, signal_blob, content, topic, sender_agent_id, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
-      [row.signal_id, row.signal_type, row.signal_blob, row.content, row.topic, row.sender_agent_id, row.expires_at]
-    );
-  } catch (e) {
-    // Transport peut être hors-ligne — on log localement quand même
-    console.warn('[SignalingTransport] DB publish failed, logging locally:', e.message);
-  }
+  await persistSignalRow(row);
 
   pushLocalLog(id, formatted);
   const routing = await routeCollectiveSignal({
     db: await getDatabase().catch(() => null), signalId: id, signalType: formatted.signalType,
     signalData, orchestratorId: senderAgentId
   });
-  return { signalId: id, published: true, signalType: formatted.signalType, routing };
+  const delivery = deliveryMetadata(params, id, expiresAt);
+  return {
+    signalId: id,
+    published: true,
+    signalType: formatted.signalType,
+    routing,
+    ...delivery
+  };
 }
 
 /**

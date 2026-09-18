@@ -222,7 +222,9 @@ async function handleBiological({ db, context }) {
   const parent = await ensureParent({ db, context });
   const mode = String(context.request.mode || '').trim().toLowerCase();
   const mission = context.request.mission || context.request.project_goal || context.request.goal || context.task;
-  const composition = await biologicalTopology.composeMode({ db, orchestratorId: context.orchestratorId, mode, mission });
+  const composition = await biologicalTopology.composeMode({ db, orchestratorId: context.orchestratorId, mode, mission,
+    options: { agentCount: context.request.agent_count, clusterSize: context.request.cluster_size,
+      fanout: context.request.fanout, organization: context.request.organization } });
   const members = composition.members || [];
   const garage = await workerGarage.state(db, context.orchestratorId);
   if (garage.available <= 0) {
