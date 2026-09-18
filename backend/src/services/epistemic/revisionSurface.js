@@ -30,6 +30,7 @@ const {
   checkClaimConsistency,
 } = require('./supervisor');
 const { PHASE } = require('./core');
+const crypto = require('crypto');
 
 // ---------------------------------------------------------------------------
 // Reasoning snapshot for "why was this cited"
@@ -81,6 +82,12 @@ function addRevisionDebt(result, revised, quality) {
   }));
 }
 
+function notifyBeforeRevision(original, revised, context) {
+  for (const fn of revisionHooks.beforeRevision) {
+    try { fn({ original, revised, context }); } catch (_) {}
+  }
+}
+
 function requestRevision(originalClaim, revised, context = {}) {
   if (!originalClaim || !revised) return null;
   const opts = revisionContext(context);
@@ -99,6 +106,7 @@ function requestRevision(originalClaim, revised, context = {}) {
     };
   }
 
+  notifyBeforeRevision(originalClaim, revised, opts);
   const result = superviseAccept(revised, { stakes, phase: PHASE.COMMIT });
   const snapshot = reasoningSnapshot(revised, {
     stakes,
@@ -148,16 +156,23 @@ async function batchReviseOnEvidence(subject, newEvidenceKind, newEvidence) {
   // Find claims touching this subject and re-validate.
   // In a full implementation this would query the evidence_claims table.
   if (!revisionStore) return { revised: false, status: 'store_unavailable', subject };
-  const rows = await revisionStore.all('SELECT id, claim_json FROM epistemic_claims WHERE subject = ? AND status = \'active\'', subject);
-  const evidence = { kind: newEvidenceKind, ...newEvidence };
+  if (!subject || !newEvidenceKind) return { revised: false, status: 'invalid_input', subject, error: 'subject and evidence kind are required.' };
+  const rows = await revisionStore.all('SELECT id, claim_json, revision FROM epistemic_claims WHERE subject = ? AND status = \'active\'', subject);
+  const evidence = { kind: newEvidenceKind, ...(newEvidence || {}) };
   const revisions = [];
+  const skipped = [];
   for (const row of rows) {
     const original = JSON.parse(row.claim_json);
+    if ((original.evidence || []).some((item) => JSON.stringify(item) === JSON.stringify(evidence))) {
+      skipped.push(row.id);
+      continue;
+    }
     const revised = { ...original, evidence: [...(original.evidence || []), evidence] };
-    revisions.push(requestRevisionWithHooks(original, revised, { reason: 'new_evidence' }));
-    await persistClaim(revised);
+    const revision = requestRevisionWithHooks(original, revised, { reason: 'new_evidence' });
+    revisions.push(revision);
+    await persistClaim({ ...revised, revision: Number(row.revision || 0) + 1 }, { before: original, reason: 'new_evidence' });
   }
-  return { revised: true, status: 'completed', subject, evidenceKind: newEvidenceKind, count: revisions.length, revisions };
+  return { revised: true, status: 'completed', subject, evidenceKind: newEvidenceKind, count: revisions.length, skipped, revisions };
 }
 
 // ---------------------------------------------------------------------------
@@ -176,15 +191,26 @@ function configureRevisionStore(db) {
   revisionStore = db || null;
 }
 
-async function persistClaim(claim) {
+async function persistClaim(claim, options = {}) {
   if (!revisionStore || !claim?.id) return;
+  const revision = Number(claim.revision || 0);
   await revisionStore.run(
-    `INSERT INTO epistemic_claims (id, subject, claim_json, quality, status, updated_at)
-     VALUES (?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
+    `INSERT INTO epistemic_claims (id, subject, claim_json, quality, revision, status, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
      ON CONFLICT(id) DO UPDATE SET subject = excluded.subject, claim_json = excluded.claim_json,
-       quality = excluded.quality, status = 'active', updated_at = CURRENT_TIMESTAMP`,
-    claim.id, claim.subject || null, JSON.stringify(claim), evidenceQuality(claim)
+       quality = excluded.quality, revision = excluded.revision, status = 'active', updated_at = CURRENT_TIMESTAMP`,
+    claim.id, claim.subject || null, JSON.stringify(claim), evidenceQuality(claim), revision
   );
+  if (options.before) {
+    const revisionId = `rev_${crypto.createHash('sha256').update(`${claim.id}:${revision}:${options.reason || 'revision'}`).digest('hex').slice(0, 32)}`;
+    await revisionStore.run(
+      `INSERT OR IGNORE INTO epistemic_claim_revisions
+       (id, claim_id, revision, before_json, after_json, reason, before_quality, after_quality)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      revisionId, claim.id, revision, JSON.stringify(options.before), JSON.stringify(claim),
+      options.reason || 'revision', evidenceQuality(options.before), evidenceQuality(claim)
+    );
+  }
 }
 
 function onBeforeRevision(fn) {

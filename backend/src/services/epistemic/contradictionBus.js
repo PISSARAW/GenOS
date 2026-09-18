@@ -212,10 +212,11 @@ function publishIfNovel(eventType, payload, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Persistence stub (future migration into epistemic_events table)
+// Optional durable persistence. The in-memory queue remains a bounded fallback.
 // ---------------------------------------------------------------------------
 
 const pendingEvents = [];
+const persistenceFailures = [];
 let eventStore = null;
 
 function configureEventStore(db) {
@@ -233,7 +234,10 @@ function recordEvent(event) {
     eventStore.run(
       'INSERT OR IGNORE INTO epistemic_events (id, event_type, payload_json, emitted_at, fingerprint) VALUES (?, ?, ?, ?, ?)',
       eventId(event), event.type, JSON.stringify(event.payload), event.emittedAt, eventFingerprint(event)
-    ).catch(() => {});
+    ).catch((error) => {
+      persistenceFailures.push({ eventId: eventId(event), error: error.message, at: new Date().toISOString() });
+      if (persistenceFailures.length > 100) persistenceFailures.shift();
+    });
   }
   return event;
 }
@@ -298,6 +302,7 @@ module.exports = {
   configureEventStore,
   recordEvent,
   pendingEvents,
+  persistenceFailures,
   seen,
   envelope,
 };

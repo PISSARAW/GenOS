@@ -11,6 +11,7 @@ const deonticDynamicLogic = require('./deonticDynamicLogicService');
 const nonClassicalLogic = require('./nonClassicalLogicService');
 const metalogic = require('./metalogicService');
 const paradoxAnalysis = require('./paradoxAnalysisService');
+const rationalityNorms = require('./rationalityNormsService');
 
 const registry = validateRegistry();
 if (!registry.valid) {
@@ -141,6 +142,7 @@ const ADAPTERS = {
   'epistemology.gettier-problem': ({ args }) => callService('knowledgeService', 'analyzeGettier', args),
   'epistemology.gettierized-knowledge': ({ args }) => callService('knowledgeService', 'analyzeGettier', args),
   'epistemology.post-gettier-defenses': ({ args }) => callService('knowledgeService', 'assessPostGettierDefenses', args),
+  'epistemology.rationality-norms': ({ args }) => rationalityNorms.evaluateRationality(args),
   'method.deduction': ({ args }) => callService('inferenceService', 'inferDeductively', args),
   'method.induction': ({ args }) => callService('inferenceService', 'inferInductively', args),
   'method.abduction': ({ args }) => callService('inferenceService', 'inferAbductively', args),
@@ -353,6 +355,29 @@ async function queryOntology(args = {}) {
   return { operation, result };
 }
 
+async function handleSavedAnalysis(operation, args) {
+  const analysisPersistence = require('./philosophyAnalysisPersistenceService');
+  if (operation === 'saveAnalysis') return { saved: true, analysis: await analysisPersistence.saveAnalysis(args) };
+  if (operation === 'getAnalysis') return { analysis: await analysisPersistence.getAnalysis(args) };
+  return { analyses: await analysisPersistence.listAnalyses(args) };
+}
+
+const OPERATION_HANDLERS = Object.freeze({
+  listConcepts: (args) => ({ concepts: listConcepts(args) }),
+  getConcept: (args) => ({ concept: requireConcept(args.conceptId || args.id) }),
+  registryHealth: () => registryHealth(),
+  evaluateConcept: (args) => evaluateConcept(args),
+  applyRuntimeEffect: (args) => runtimeEffects.applyRuntimeEffect(args),
+  listRelations: (args) => ({ relations: listRelations(args) }),
+  getNeighborhood: (args) => getNeighborhood(args.conceptId || args.id, args),
+  exportGraph: (args) => exportGraph(args),
+  compareEthicalFrameworks: (args) => ethicalComparison.compareEthicalFrameworks(args),
+  saveAnalysis: (args) => handleSavedAnalysis('saveAnalysis', args),
+  getAnalysis: (args) => handleSavedAnalysis('getAnalysis', args),
+  listAnalyses: (args) => handleSavedAnalysis('listAnalyses', args),
+  queryOntology,
+});
+
 async function handlePhilosophyRequest({ request } = {}) {
   if (!request || typeof request !== 'object' || Array.isArray(request)) {
     throw new Error('Philosophy request must be an object.');
@@ -360,22 +385,7 @@ async function handlePhilosophyRequest({ request } = {}) {
   const operation = String(request.operation || '').trim();
   if (!OPERATIONS.includes(operation)) throw new Error(`Unknown philosophy operation '${operation}'.`);
   const args = request.arguments && typeof request.arguments === 'object' ? request.arguments : {};
-  if (operation === 'listConcepts') return { concepts: listConcepts(args) };
-  if (operation === 'getConcept') return { concept: requireConcept(args.conceptId || args.id) };
-  if (operation === 'registryHealth') return registryHealth();
-  if (operation === 'evaluateConcept') return evaluateConcept(args);
-  if (operation === 'applyRuntimeEffect') return runtimeEffects.applyRuntimeEffect(args);
-  if (operation === 'listRelations') return { relations: listRelations(args) };
-  if (operation === 'getNeighborhood') return getNeighborhood(args.conceptId || args.id, args);
-  if (operation === 'exportGraph') return exportGraph(args);
-  if (operation === 'compareEthicalFrameworks') return ethicalComparison.compareEthicalFrameworks(args);
-  if (operation === 'saveAnalysis' || operation === 'getAnalysis' || operation === 'listAnalyses') {
-    const analysisPersistence = require('./philosophyAnalysisPersistenceService');
-    if (operation === 'saveAnalysis') return { saved: true, analysis: await analysisPersistence.saveAnalysis(args) };
-    if (operation === 'getAnalysis') return { analysis: await analysisPersistence.getAnalysis(args) };
-    return { analyses: await analysisPersistence.listAnalyses(args) };
-  }
-  return queryOntology(args);
+  return OPERATION_HANDLERS[operation](args);
 }
 
 module.exports = {

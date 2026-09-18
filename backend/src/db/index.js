@@ -19,6 +19,11 @@ const transactionTails = new WeakMap();
 const transactionStorage = new AsyncLocalStorage();
 const MAX_DATABASE_BACKUPS = 3;
 
+function configureEpistemicStores(db) {
+  require('../services/epistemic/revisionSurface').configureRevisionStore(db);
+  require('../services/epistemic/contradictionBus').configureEventStore(db);
+}
+
 // N14: best-effort copy of the database file before destructive migrations.
 // Never throws: a backup failure must never block the boot sequence.
 function backupDatabaseFile(dbPath) {
@@ -105,6 +110,7 @@ async function getDatabase(dbFilePath) {
       backupDatabaseFile(filename);
       await initializeSchema(db);
       await seedDatabase(db);
+      configureEpistemicStores(db);
       // Initialisation best-effort du persister d'état adaptatif hors-process
       // (Q-values, attractions, stigmergie, registres MCP) : ne jamais bloquer le boot.
       try { await require('./adaptiveStateBootstrap').ensureAdaptivePersister(); } catch (_) {}

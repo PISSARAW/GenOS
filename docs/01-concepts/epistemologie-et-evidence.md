@@ -212,6 +212,16 @@ par `batchReviseOnEvidence` lorsqu'une nouvelle preuve concerne leur sujet. Les
 avec une empreinte idempotente. La persistance ne transforme toutefois pas une
 preuve en vérité : la qualité et le statut du claim restent recalculés.
 
+Chaque révision est également conservée dans `epistemic_claim_revisions` avec
+les états avant/après, le motif et les qualités calculées. Une preuve identique
+déjà présente est ignorée, et une révision ne peut pas autoriser à elle seule la
+promotion d'un claim interprétatif ou disputé.
+
+Le concept `epistemology.rationality-norms` expose une analyse bornée des règles
+de validation d'un claim. Elle retourne un verdict et une confiance calibrée,
+mais `promotionEligible` reste toujours faux : la cohérence normative n'est
+pas une preuve de vérité.
+
 ## Exemple : correction d'un defaut d'autorisation
 
 1. Le worker A formule l'hypothese `H1` : "Le middleware accepte les jetons expires". Le worker B formule `H2` : "La route ne traverse pas le middleware".
