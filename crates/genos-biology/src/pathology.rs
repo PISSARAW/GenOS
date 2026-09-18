@@ -16,19 +16,25 @@ pub struct ClinicalStatusReport {
 
 /// Évalue l'état clinique global d'une cellule
 pub fn assess_agent_clinical_status(agent: &AgentCell) -> ClinicalStatusReport {
+    let mut active_pathologies = agent.clinical.active_pathologies.clone();
+    if let Some(pathology) = check_degenerative_state(agent)
+        && !active_pathologies.iter().any(|item| item.name() == pathology.name())
+    {
+        active_pathologies.push(pathology);
+    }
     let dominant_category = agent
         .clinical
         .active_pathologies
         .first()
         .map(|p| p.category());
 
-    let recommended_treatment = if agent.clinical.has_disease_category(DiseaseCategory::Autoimmune) {
+    let recommended_treatment = if active_pathologies.iter().any(|p| p.category() == DiseaseCategory::Autoimmune) {
         Some("SystemicTherapy::Tocilizumab ou ImmunosuppressiveWash".to_string())
-    } else if agent.clinical.has_disease_category(DiseaseCategory::Nosocomial) {
+    } else if active_pathologies.iter().any(|p| p.category() == DiseaseCategory::Nosocomial) {
         Some("SystemicTherapy::QuarantineIsolation & Vaccine".to_string())
-    } else if agent.clinical.has_disease_category(DiseaseCategory::Iatrogenic) {
+    } else if active_pathologies.iter().any(|p| p.category() == DiseaseCategory::Iatrogenic) {
         Some("SystemicTherapy::DetoxificationWashout ou Antidote".to_string())
-    } else if agent.clinical.has_disease_category(DiseaseCategory::Degenerative) {
+    } else if active_pathologies.iter().any(|p| p.category() == DiseaseCategory::Degenerative) {
         Some("SystemicTherapy::StemCellReplacement ou ApoptoticPruning".to_string())
     } else {
         None
@@ -37,9 +43,9 @@ pub fn assess_agent_clinical_status(agent: &AgentCell) -> ClinicalStatusReport {
     ClinicalStatusReport {
         cell_id: agent.cell_id.to_string(),
         name: agent.name.clone(),
-        is_healthy: agent.clinical.is_healthy(),
+        is_healthy: active_pathologies.is_empty() && !agent.clinical.is_quarantined,
         is_quarantined: agent.clinical.is_quarantined,
-        active_pathologies: agent.clinical.active_pathologies.clone(),
+        active_pathologies,
         dominant_category,
         recommended_treatment,
     }

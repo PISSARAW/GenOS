@@ -1,7 +1,7 @@
 //! Boucle cognitive : observer → décider → agir, en un seul `tick`, et
 //! `run` qui itère jusqu'à l'arrêt en produisant un rapport global.
 use crate::GenosEcosystem;
-use crate::clinical_therapy::therapy_for_pathology;
+use crate::clinical_therapy::{first_pathology_for_cell, therapy_for_pathology};
 use crate::director::Strategy;
 use crate::learning::context_from_state;
 use crate::planner::{Concept, Goal};
@@ -193,8 +193,8 @@ impl GenosEcosystem {
         if let Some(id) = target
             && let Some(cell) = self.orchestrator.active_cells.get_mut(&id)
         {
-            if let Some(pathology) = cell.clinical.active_pathologies.first() {
-                let therapy = therapy_for_pathology(pathology);
+            if let Some(pathology) = first_pathology_for_cell(cell) {
+                let therapy = therapy_for_pathology(&pathology);
                 let outcome = apply_systemic_therapy_to_cell(&therapy, cell);
                 return !outcome.cured_pathologies.is_empty();
             }

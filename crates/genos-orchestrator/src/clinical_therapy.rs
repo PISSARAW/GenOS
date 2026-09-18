@@ -1,4 +1,5 @@
-use genos_biology::pathology::Pathology;
+use genos_biology::pathology::{check_degenerative_state, Pathology};
+use genos_cell::AgentCell;
 use genos_biology::therapy::SystemicTherapy;
 
 pub fn therapy_for_pathology(pathology: &Pathology) -> SystemicTherapy {
@@ -21,4 +22,12 @@ pub fn therapy_for_pathology(pathology: &Pathology) -> SystemicTherapy {
         | Pathology::PrionAggregation { .. }
         | Pathology::ContextualDecay { .. } => SystemicTherapy::StemCellReplacement,
     }
+}
+
+pub fn first_pathology_for_cell(cell: &AgentCell) -> Option<Pathology> {
+    cell.clinical
+        .active_pathologies
+        .first()
+        .cloned()
+        .or_else(|| check_degenerative_state(cell))
 }
