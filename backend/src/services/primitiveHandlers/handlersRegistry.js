@@ -17,6 +17,7 @@ const collectiveAdvanced = require('./strategyCollectiveAdvanced');
 const remaining = require('./strategyRemaining');
 const structuralHandlers = require('./structuralPlasticityHandlers');
 const animalControl = require('./animalControl');
+const cognitiveMerge = require('./cognitiveMerge');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -160,6 +161,9 @@ const HANDLERS = {
   synaptic_stdp_update: memory.stdpUpdate,
   stdp: memory.stdpUpdate,
   causal_weighting: memory.stdpUpdate,
+  experience_packets: cognitiveMerge.experiencePackets,
+  knowledge_graph: cognitiveMerge.knowledgeGraph,
+  reviewed_apply: cognitiveMerge.reviewedApply,
 
   // Lot 3 — Évolution
   mutate: evolution.mutate,
