@@ -6,6 +6,7 @@ import math
 import re
 import urllib.request
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 
 def get_tokens(text):
@@ -53,7 +54,7 @@ def cosine_dense(a, b):
         return 0.0
     return sum(x * y for x, y in zip(a, b))
 
-def search_docs(query, docs_dir):
+def expand_query(query):
     alias_map = {
         'memory leak': 'apoptosis',
         'concurrency': 'flocking',
@@ -63,9 +64,47 @@ def search_docs(query, docs_dir):
         'network': 'quorum',
     }
     expanded_query = query.lower()
-    for k, v in alias_map.items():
-        if k in expanded_query:
-            expanded_query = f"{expanded_query} {v}"
+    for keyword, alias in alias_map.items():
+        if keyword in expanded_query:
+            expanded_query = f"{expanded_query} {alias}"
+    return expanded_query
+
+def markdown_files(docs_path):
+    for root, dirs, files in os.walk(docs_path):
+        dirs[:] = [d for d in dirs if d not in ('node_modules', 'target', '.git', '.gemini')]
+        for file in files:
+            if file.endswith('.md'):
+                yield Path(root) / file
+
+@dataclass
+class SearchContext:
+    docs_path: Path
+    query: str
+    query_dense: list | None
+    query_bow: dict
+
+def score_document(file_path, context):
+    try:
+        content = file_path.read_text(encoding='utf-8')
+        similarity = 0.0
+        if context.query_dense:
+            document_dense = try_ollama_embed(content[:2000])
+            if document_dense:
+                similarity = cosine_dense(context.query_dense, document_dense)
+        if similarity <= 0.0:
+            similarity = cosine_bow(context.query_bow, text_to_bow_vector(content))
+        relative_path = str(file_path.relative_to(context.docs_path))
+        if any(term in relative_path.lower() for term in get_tokens(context.query)):
+            similarity += 0.2
+        if similarity <= 0.05:
+            return None
+        preview = content[:500] + "..." if len(content) > 500 else content
+        return {"concept_file": relative_path, "similarity_score": round(similarity, 4), "excerpt": preview}
+    except Exception:
+        return None
+
+def search_docs(query, docs_dir):
+    expanded_query = expand_query(query)
 
     docs_path = Path(docs_dir)
     if not docs_path.exists():
@@ -73,42 +112,14 @@ def search_docs(query, docs_dir):
 
     query_dense = try_ollama_embed(expanded_query)
     query_bow = text_to_bow_vector(expanded_query)
+    context = SearchContext(docs_path, query, query_dense, query_bow)
 
     scored_results = []
 
-    for root, dirs, files in os.walk(docs_path):
-        dirs[:] = [d for d in dirs if d not in ('node_modules', 'target', '.git', '.gemini')]
-        for file in files:
-            if file.endswith('.md'):
-                file_path = Path(root) / file
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-
-                    sim = 0.0
-                    if query_dense:
-                        doc_dense = try_ollama_embed(content[:2000])
-                        if doc_dense:
-                            sim = cosine_dense(query_dense, doc_dense)
-
-                    if sim <= 0.0:
-                        doc_bow = text_to_bow_vector(content)
-                        sim = cosine_bow(query_bow, doc_bow)
-
-                    # Keyword bonus for title / file name matches
-                    rel_path = str(file_path.relative_to(docs_path))
-                    if any(term in rel_path.lower() for term in get_tokens(query)):
-                        sim += 0.2
-
-                    if sim > 0.05:
-                        preview = content[:500] + "..." if len(content) > 500 else content
-                        scored_results.append({
-                            "concept_file": rel_path,
-                            "similarity_score": round(sim, 4),
-                            "excerpt": preview
-                        })
-                except Exception:
-                    pass
+    for file_path in markdown_files(docs_path):
+        result = score_document(file_path, context)
+        if result:
+            scored_results.append(result)
 
     scored_results.sort(key=lambda x: x["similarity_score"], reverse=True)
 

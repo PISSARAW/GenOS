@@ -57,3 +57,7 @@ jour les tests de la gate dans le même commit.
 La CI publie systématiquement `quality-report.json` comme artefact. La baseline reste
 utilisée pour le verdict de régression, mais la dette complète reste observable sans
 action locale supplémentaire.
+
+Le premier lot de migration de la tranche 11–19 concerne les scripts de recherche
+documentaire : parcours des fichiers, calcul du score et contexte de recherche sont
+désormais séparés, sans augmenter le nombre de paramètres.
