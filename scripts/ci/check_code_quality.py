@@ -236,6 +236,31 @@ def all_violations(current: dict) -> list[str]:
     return [f'{path}: {violation}' for path, violations in current.items() for violation in violations]
 
 
+def strict_report(current: dict) -> dict:
+    violations = all_violations(current)
+    counts = {}
+    for violation in violations:
+        rule = violation.split(': ', 1)[1].split(' ', 1)[0]
+        counts[rule] = counts.get(rule, 0) + 1
+    return {
+        'limits': {'lines': MAX_LINES, 'parameters': MAX_PARAMETERS, 'complexity': MAX_COMPLEXITY},
+        'source_files': sum(1 for path in current if is_source(Path(path))),
+        'violation_count': len(violations),
+        'rule_counts': counts,
+        'violations': violations,
+    }
+
+
+def write_strict_report(current: dict) -> None:
+    for index, value in enumerate(sys.argv):
+        if value != '--report-json' or index + 1 >= len(sys.argv):
+            continue
+        report_path = Path(sys.argv[index + 1])
+        report_path.write_text(json.dumps(strict_report(current), indent=2, sort_keys=True) + '\n', encoding='utf-8')
+        print(f'Quality strict report written: {report_path}')
+        return
+
+
 def select_paths(root: Path) -> list[Path]:
     if '--commit' in sys.argv:
         return commit_paths(root)
@@ -264,6 +289,7 @@ def main() -> int:
     reported = new_violations(current, load_baseline())
     if '--strict' in sys.argv:
         reported = all_violations(current)
+        write_strict_report(current)
     for line in reported:
         print(f'REJECT {line}')
     total = sum(len(violations) for violations in current.values())
