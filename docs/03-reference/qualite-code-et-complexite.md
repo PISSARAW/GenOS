@@ -34,3 +34,10 @@ Chaque lot doit réduire au moins une violation, conserver les tests ciblés et 
 committé séparément. Les refactors de complexité doivent extraire des responsabilités
 réelles ; il est interdit de déplacer mécaniquement les branches ou de contourner la
 gate avec des annotations.
+
+## Première migration
+
+Le routeur d’ontologie délègue désormais ses opérations via une table de handlers
+spécialisés. Cette séparation réduit la complexité du dispatch sans changer le contrat
+des opérations MCP/CLI ; les validations propres aux opérations restent dans leurs
+handlers respectifs.

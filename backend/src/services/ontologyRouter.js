@@ -10,23 +10,9 @@
  * result object that the caller serializes to stdout.
  */
 
-const ontologyService = require('./ontologyService');
-const ontologyRelations = require('./ontologyRelations');
-const semanticReference = require('./philosophy/semanticReferenceService');
-const contextService = require('./philosophy/contextService');
-const speechAct = require('./philosophy/speechActService');
-const pragmatics = require('./philosophy/pragmaticsService');
-const categorization = require('./philosophy/categorizationService');
-const languageGame = require('./philosophy/languageGameService');
-const discourse = require('./philosophy/discourseService');
-const semiotics = require('./philosophy/semioticsService');
-const poetics = require('./philosophy/poeticsService');
-const deconstruction = require('./philosophy/deconstructionService');
-const hermeneutics = require('./philosophy/hermeneuticsService');
-const differenceOntology = require('./philosophy/differenceOntologyService');
-const provenance = require('./philosophy/provenanceService');
+const { HANDLERS, KNOWN_OPERATIONS } = require('./ontologyRouterHandlers');
 
-const KNOWN_OPERATIONS = new Set([
+/*
   // Being
   'getBeing',
   'listBeings',
@@ -80,7 +66,7 @@ const KNOWN_OPERATIONS = new Set([
   'createProvenanceRecord',
   'nextProvenanceVersion',
   'validateProvenanceChain',
-]);
+*/
 
 function normalizeArgs(request) {
   const args = request.arguments && typeof request.arguments === 'object' ? request.arguments : {};
@@ -105,7 +91,7 @@ function dedupeResult(raw) {
  * @param {string} context.orchestratorId
  * @returns {Promise<object>} plain serializable result
  */
-async function handleOntologyRequest({ request, orchestratorId }) {
+async function handleOntologyRequest({ request }) {
   const operation = String(request.operation || '').trim();
   if (!operation) {
     throw new Error('ontology operation is required.');
@@ -116,7 +102,12 @@ async function handleOntologyRequest({ request, orchestratorId }) {
 
   const args = normalizeArgs(request);
 
-  switch (operation) {
+  const handler = HANDLERS[operation];
+  if (!handler) {
+    throw new Error(`Unhandled ontology operation '${operation}'.`);
+  }
+  return dedupeResult(await handler(args));
+  /* switch retained in history above for migration review
     // ------------------------------------------------------------------
     // Being
     // ------------------------------------------------------------------
@@ -369,7 +360,7 @@ async function handleOntologyRequest({ request, orchestratorId }) {
     default:
       // Defensive: keep the switch exhaustive for future operations.
       throw new Error(`Unhandled ontology operation '${operation}'.`);
-  }
+  } */
 }
 
 module.exports = {
