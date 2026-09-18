@@ -69,6 +69,14 @@ les leçons dont les conditions de réutilisation s'appliquent, et renvoie :
   l'appelant est censé répercuter sur le budget, la tolérance au risque ou les portes de
   preuve — ce n'est pas un rappel décoratif.
 
+L'intégration runtime est effectuée par
+`backend/src/services/autobiographicalMemory/orchestratorRecall.js`, appelé depuis
+`buildAutonomyPlanForMission` dans `backend/src/services/agentAutonomyPlanService.js`,
+après le chargement du modèle de soi et avant la régulation du plan. Les ajustements sont
+bornés, copiés dans `autobiographicalAdjustments`, propagés à la politique de décision et
+tracés par les événements `AUTOBIOGRAPHICAL_RECALL_*`. Ils ne peuvent ni accorder une
+permission d'outil ni contourner les portes de preuve.
+
 ## Oubli
 
 `episodeStore.forgetStaleEpisodes` marque `is_forgotten = 1` les épisodes anciens
