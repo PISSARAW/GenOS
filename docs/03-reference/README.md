@@ -10,6 +10,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [integrations-ide.md](integrations-ide.md) — contrat IDE `genos.ide/v1`.
 - [ecologie-et-systemes-vivants.md](ecologie-et-systemes-vivants.md) — bus zero-texte, primitives écologiques, HGT, stigmergie, électrocytes, organisations dynamiques.
 - [registre-philosophique.md](registre-philosophique.md) — concepts, relations, mappings, maturité et garde-fous.
+- [notifications-et-alertes.md](notifications-et-alertes.md) — préférences et alertes tenant-scoped.
 - [qualite-code-et-complexite.md](qualite-code-et-complexite.md) — seuils, périmètre et audit strict de la qualité du code.
 
 ## Spécifications normatives

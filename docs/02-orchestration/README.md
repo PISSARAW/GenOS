@@ -17,6 +17,8 @@ reproduction, et les 8 modes de composition (topologies).
 - [workspaces-contrefactuel.md](workspaces-contrefactuel.md) — snapshots, bisection, restore, blast radius.
 - [git-agents.md](git-agents.md) — transposition de Git aux états d'agents.
 - [reproduction-et-replication.md](reproduction-et-replication.md) — mitose, budding, méiose, clonage.
+- [dossiers-agents-et-conscience.md](dossiers-agents-et-conscience.md) — dossiers de preuves, conscience opérationnelle et transitions.
+- [contrats-strategie-et-execution.md](contrats-strategie-et-execution.md) — contrats versionnés, sélection et approbation des runs.
 
 ## Modes de composition
 
