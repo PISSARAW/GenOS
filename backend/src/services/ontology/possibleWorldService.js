@@ -12,6 +12,14 @@ function decode(row) {
     projectId: row.project_id, createdAt: row.created_at };
 }
 
+async function requireWorldInScope(db, worldId, currentScope) {
+  const row = await db.get(`SELECT id FROM ontology_possible_worlds WHERE id = ?
+    AND (? IS NULL OR organization_id = ?) AND (? IS NULL OR project_id = ?)`, worldId,
+  currentScope.organizationId, currentScope.organizationId, currentScope.projectId, currentScope.projectId);
+  if (!row) throw new Error(`Unknown possible world '${worldId}'.`);
+  return row;
+}
+
 async function createWorld(input = {}) {
   const db = await getDatabase();
   const worldId = input.worldId || `world_${crypto.randomUUID()}`;
@@ -47,6 +55,9 @@ async function addAccessibility(input = {}) {
   const targetWorldId = text(input.targetWorldId, 'targetWorldId');
   if (sourceWorldId === targetWorldId) throw new Error('A world cannot access itself.');
   const db = await getDatabase();
+  const currentScope = scope(input);
+  await requireWorldInScope(db, sourceWorldId, currentScope);
+  await requireWorldInScope(db, targetWorldId, currentScope);
   await db.run(`INSERT OR REPLACE INTO ontology_world_accessibility
     (source_world_id, target_world_id, conditions_json, organization_id, project_id)
     VALUES (?, ?, ?, ?, ?)`, sourceWorldId, targetWorldId,
@@ -75,6 +86,7 @@ async function createReceipt(input = {}) {
   const receiptId = `wreceipt_${crypto.randomUUID()}`;
   const currentScope = scope(input);
   const db = await getDatabase();
+  await requireWorldInScope(db, payload.worldId, currentScope);
   await db.run(`INSERT INTO ontology_world_receipts
     (id, world_id, execution_id, payload_json, payload_hash, organization_id, project_id)
     VALUES (?, ?, ?, ?, ?, ?, ?)`, receiptId, payload.worldId, payload.executionId, payloadJson,
@@ -84,6 +96,7 @@ async function createReceipt(input = {}) {
 
 async function verifyReceipt(input = {}) {
   const receiptId = text(input.receiptId, 'receiptId');
+  const currentScope = scope(input);
   const db = await getDatabase();
   const row = await db.get(`SELECT * FROM ontology_world_receipts WHERE id = ?
     AND (? IS NULL OR organization_id = ?) AND (? IS NULL OR project_id = ?)`, receiptId,
@@ -91,7 +104,9 @@ async function verifyReceipt(input = {}) {
   if (!row) throw new Error(`Unknown world receipt '${receiptId}'.`);
   const actualHash = crypto.createHash('sha256').update(row.payload_json).digest('hex');
   const status = actualHash === row.payload_hash ? 'verified' : 'invalid';
-  await db.run('UPDATE ontology_world_receipts SET status = ?, verified_at = CURRENT_TIMESTAMP WHERE id = ?', status, receiptId);
+  await db.run(`UPDATE ontology_world_receipts SET status = ?, verified_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND (? IS NULL OR organization_id = ?) AND (? IS NULL OR project_id = ?)`, status, receiptId,
+  currentScope.organizationId, currentScope.organizationId, currentScope.projectId, currentScope.projectId);
   return { receiptId, status, payloadHash: row.payload_hash, actualHash };
 }
 
