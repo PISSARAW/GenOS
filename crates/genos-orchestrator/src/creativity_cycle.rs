@@ -4,7 +4,9 @@ use crate::planner::{Concept, Goal, WorldState};
 use crate::tick::TickReport;
 use crate::GenosEcosystem;
 use genos_creativity::{CreativityOutcome, FocusedTask};
+use genos_common::traits::MemoryEntry;
 use serde_json::json;
+use std::collections::HashMap;
 
 pub(crate) struct CreativityPreparation<'a> {
     pub(crate) state: &'a WorldState,
@@ -27,6 +29,7 @@ impl GenosEcosystem {
             .orchestrator
             .imagine(&creative_world(state, goal), &creative_goal(goal));
         if !tasks.is_empty() {
+            self.persist_creative_tasks(&tasks);
             self.record_event(
                 "CREATIVE_HYPOTHESES",
                 serde_json::to_value(&tasks).unwrap_or_else(|_| json!([])),
@@ -53,6 +56,22 @@ impl GenosEcosystem {
             decision.steps.extend(creative_steps);
         }
         tasks
+    }
+
+    fn persist_creative_tasks(&self, tasks: &[FocusedTask]) {
+        for task in tasks {
+            let mut tags = HashMap::new();
+            tags.insert("kind".to_string(), "creative_hypothesis".to_string());
+            tags.insert("concept".to_string(), format!("{:?}", task.concept));
+            let content = serde_json::to_string(&task.refined_payload)
+                .unwrap_or_else(|_| "creative_payload_unserializable".to_string());
+            let _ = self.remember(MemoryEntry {
+                id: format!("creative-hypothesis-{}", task.hypothesis_id),
+                content,
+                embedding: None,
+                tags,
+            });
+        }
     }
 
     pub(crate) fn consolidate_creativity(&mut self, report: &mut TickReport) {
