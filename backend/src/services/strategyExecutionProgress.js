@@ -145,6 +145,9 @@ function appendStepEvidence(step, record) {
   if (primitiveExec && Array.isArray(primitiveExec.results) && primitiveExec.results.length) {
     evidence.push({ primitiveResults: primitiveExec.results, success: primitiveExec.success, timestamp: record.now });
   }
+  if (primitiveExec && primitiveExec.controlRegulation) {
+    evidence.push({ controlRegulation: primitiveExec.controlRegulation, timestamp: record.now });
+  }
   return evidence;
 }
 
