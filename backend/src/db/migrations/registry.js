@@ -53,6 +53,10 @@ const migrationRunners = [
     const { createPhilosophyAnalysisTables } = require('./migratePhilosophyAnalyses');
     await createPhilosophyAnalysisTables(db);
   }),
+  createMigrationRunner('027-durable-agent-coordination', 'Persist cross-agent relations, collective decisions, continuations and survival wake conditions', async (db) => {
+    const { migrateDurableAgentCoordination } = require('./migrateDurableAgentCoordination');
+    await migrateDurableAgentCoordination(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
