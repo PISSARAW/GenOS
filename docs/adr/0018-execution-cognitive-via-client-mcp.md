@@ -44,4 +44,17 @@ Le serveur MCP devra négocier une capacité de génération (MCP Sampling ou
 adaptateur équivalent) et exposer un canal corrélé au runtime GenOS. Les
 missions existantes conservent leur comportement tant que `caller_mcp` n'est
 pas demandé.
+# Retour de validation opérationnelle (18 septembre 2026)
+
+Le chemin `caller_mcp` réutilise désormais le prompt et la validation des rapports
+du runtime commun plutôt que de transformer toute réponse en succès. Les workers
+héritent de l'exécuteur sans revue ni génération locale silencieuse. Le relais
+opérateur `mcp/callerSession.mjs` permet de tester réellement le protocole Sampling
+avec l'hôte LLM et une entrée interactive ouverte.
+
+Le test littéraire a obtenu une synthèse persistée et des influences vérifiées,
+mais la couverture d'outils reste incomplète. Le jeton loopback partagé n'est pas
+une capacité infalsifiable par agent : ne pas revendiquer une isolation de sécurité
+entre processus locaux hostiles. Voir la référence d'exécution cognitive pour
+les limites, les commandes et les observations exactes.
 
