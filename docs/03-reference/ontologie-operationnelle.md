@@ -55,6 +55,9 @@ le scénario simulé s'est produit dans le monde réel.
 Les migrations ontologiques sont exécutées au bootstrap, y compris sur une base
 neuve. Le test `test_ontology_tenant_runtime_integration.js` vérifie la
 séparation entre deux tenants, la création d'un reçu et sa vérification.
+Le test `test_ontology_analysis_contract.js` couvre en plus le contrat commun,
+le refus d'un monde hors scope, la détection d'un payload altéré et le pont
+causal-modal.
 
 Exemple :
 
