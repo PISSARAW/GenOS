@@ -12,4 +12,19 @@ function boundedAnalysis(result, args = {}) {
   };
 }
 
-module.exports = { boundedAnalysis };
+function ontologyEvidence(result, args) {
+  if (Array.isArray(result?.evidence)) return result.evidence;
+  if (result?.evidence && typeof result.evidence === 'object') return [result.evidence];
+  if (result?.evidenceStatus) return [{ status: result.evidenceStatus }];
+  return Array.isArray(args?.evidence) ? args.evidence : [];
+}
+
+function boundedOntologyAnalysis(result, args = {}) {
+  const normalized = boundedAnalysis({ ...result, evidence: ontologyEvidence(result, args) }, args);
+  return {
+    ...normalized,
+    provenance: { source: 'ontology-service', scope: { organizationId: args.organizationId || null, projectId: args.projectId || null }, ...normalized.provenance },
+  };
+}
+
+module.exports = { boundedAnalysis, boundedOntologyAnalysis };

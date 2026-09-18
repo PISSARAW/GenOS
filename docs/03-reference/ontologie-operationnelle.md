@@ -18,6 +18,13 @@ ne déclenchent ni autorisation, ni promotion, ni exécution d'outil. Les mondes
 possibles restent `hypothetical` et les résultats non corroborés portent le
 statut `unverified`.
 
+Les opérations d'analyse (`comparePossibleWorlds`, `createWorldReceipt`,
+`verifyWorldReceipt`, `evaluateCausalDependence` et les contrôles de continuité)
+retournent aussi le contrat `genos.philosophy-analysis/v1`. Ce contrat ajoute la
+provenance, l'incertitude, les éléments de preuve et
+`promotionEligible: false`. Il normalise la forme de sortie sans transformer
+une intégrité technique ou une simulation causale en preuve du monde réel.
+
 La tranche métaphysique expose également des analyses bornées pour le réalisme
 spéculatif, les modèles esprit-matière et les propriétés de deuxième ordre.
 Elles restent descriptives : aucun service ne conclut à la conscience, à une

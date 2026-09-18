@@ -12,7 +12,7 @@ const nonClassicalLogic = require('./nonClassicalLogicService');
 const metalogic = require('./metalogicService');
 const paradoxAnalysis = require('./paradoxAnalysisService');
 const rationalityNorms = require('./rationalityNormsService');
-const { boundedAnalysis } = require('./philosophyAnalysisContract');
+const { boundedAnalysis, boundedOntologyAnalysis } = require('./philosophyAnalysisContract');
 
 const registry = validateRegistry();
 if (!registry.valid) {
@@ -350,7 +350,8 @@ async function queryOntology(args = {}) {
     request: { operation, arguments: args.ontologyArguments || {} },
     orchestratorId: args.orchestratorId,
   });
-  return { operation, result };
+  const analysisOperations = new Set(['comparePossibleWorlds', 'createWorldReceipt', 'verifyWorldReceipt', 'evaluateCausalDependence', 'checkIdentityContinuity', 'classifyContinuity', 'detectContinuityTransition']);
+  return { operation, result: analysisOperations.has(operation) ? boundedOntologyAnalysis(result, args.ontologyArguments || {}) : result };
 }
 
 async function handleSavedAnalysis(operation, args) {
