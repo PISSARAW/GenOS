@@ -47,7 +47,7 @@ function buildSkipResult(context, ids) {
     severity: 'info',
     payload: { agentId: context.agentId }
   });
-  return { success: false, skipped: true, status: 'skipped', reason: 'Distinct sourceId and targetId required for STDP.' };
+  return { success: true, skipped: true, status: 'skipped', reason: 'Distinct sourceId and targetId required for STDP.' };
 }
 
 function normalizeSpikeTimes(preSpikeAt, postSpikeAt) {

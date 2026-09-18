@@ -1,7 +1,7 @@
 # Neurobiologie et plasticité dans GenOS
 
 - **Statut** : Implémenté — neurobiologie Rust, glial, conscience, mémoire, cycles de sommeil et temporal cognition sont disponibles dans le runtime.
-- **Portée** : `crates/genos-biology/src/neurobiology.rs`, `glial.rs`, `crates/genos-cell/src/conscience.rs`, `backend/src/services/agentConscienceService.js`, `memory.js`, `sleepCycle.js`, `temporal.js`.
+- **Portée** : `crates/genos-biology/src/neurobiology/`, `crates/genos-biology/src/glial.rs`, `crates/genos-cell/src/conscience.rs`, `backend/src/services/agentConscienceService.js`, `memoryStdp.js`, `sleepCycle.js`, `temporal.js`.
 - **Dernière revue** : 2026-09-17.
 
 ## 1. Définition
@@ -10,11 +10,11 @@ La neurobiologie dans GenOS n’est pas une simulation biologique au sens acadé
 
 Le système réel repose sur des implémentations à la fois dans le runtime Node.js et dans les crates Rust :
 
-- `crates/genos-biology/src/neurobiology.rs`
+- `crates/genos-biology/src/neurobiology/`
 - `crates/genos-biology/src/glial.rs`
 - `crates/genos-cell/src/conscience.rs`
 - `backend/src/services/agentConscienceService.js`
-- `backend/src/services/primitiveHandlers/memory.js`
+- `backend/src/services/primitiveHandlers/memoryStdp.js`
 - `backend/src/services/sleepCycle.js`
 - `backend/src/services/primitiveHandlers/temporal.js`
 - `backend/src/db/schema-tables-extensions.js`
@@ -33,7 +33,7 @@ L’objectif est d’offrir un modèle de mémoire et de cognition qui soit :
 
 ### 2.1 Arbres dendritiques
 
-L’arbre dendritique est modélisé comme une hiérarchie de compartiments avec des distances électrotoniques, des seuils NMDA, des épines dendritiques, et une dynamique d’intégration des signaux. La structure est documentée dans `crates/genos-biology/src/neurobiology.rs`.
+L’arbre dendritique est modélisé comme une hiérarchie de compartiments avec des distances électrotoniques, des seuils NMDA, des épines dendritiques, et une dynamique d’intégration des signaux. La structure est répartie dans `crates/genos-biology/src/neurobiology/`, notamment `dendrite.rs`, `soma.rs`, `axon.rs`, `synapse.rs` et `system.rs`.
 
 Les concepts clés :
 
@@ -89,7 +89,7 @@ Dans le runtime, la synapse est la structure de mémorisation et de causalité e
 
 ### 2.3 Renforcement temporel
 
-La primitive `stdpUpdate` dans `backend/src/services/primitiveHandlers/memory.js` encode un mécanisme inspiré par le STDP (Spike-Timing-Dependent Plasticity).
+La primitive `stdpUpdate` dans `backend/src/services/primitiveHandlers/memoryStdp.js` encode un mécanisme inspiré par le STDP (Spike-Timing-Dependent Plasticity).
 
 La logique est :
 
@@ -582,12 +582,12 @@ C’est une architecture particulièrement adaptée à :
 
 ## 13. Fichiers clés du repo
 
-- `crates/genos-biology/src/neurobiology.rs`
+- `crates/genos-biology/src/neurobiology/`
 - `crates/genos-cell/src/conscience.rs`
 - `backend/src/services/mcpBioTools/handlers/thalamicBridge.js`
 - `backend/src/services/agentConscienceService.js`
 - `backend/src/services/sleepCycle.js`
-- `backend/src/services/primitiveHandlers/memory.js`
+- `backend/src/services/primitiveHandlers/memoryStdp.js`
 - `backend/src/services/primitiveHandlers/temporal.js`
 - `backend/tests/test_rust_node_coherence.js`
 - `backend/tests/test_thalamic_bridge.js`
