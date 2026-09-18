@@ -26,8 +26,33 @@ function applyOrchestratorToolLease(dispatchedAgent, normalizedMission, autonomy
   }
 }
 
+function applyFanoutCorrection(mission, signal) {
+  if (!signal) return;
+  const factor = Number((1 - signal.strength).toFixed(3));
+  const workers = Number(mission.executionPolicy.requestedWorkers || mission.workerCount || 0);
+  mission.executionPolicy.workerFanoutFactor = factor;
+  mission.executionPolicy.workerFanoutLimit = Math.floor(workers * factor);
+}
+
+function applyDelayCorrection(mission, signal) {
+  if (!signal) return;
+  const delayMs = Math.max(1000, Math.round(signal.strength * 10000));
+  mission.executionPolicy.nextAttemptAt = new Date(Date.now() + delayMs).toISOString();
+}
+
+function applyDiagnosticCorrection(mission, signal) {
+  if (signal && signal.target === 'diagnostics') mission.executionPolicy.diagnosticsPriority = signal.strength;
+}
+
 function applyRegulatedPosture(normalizedMission, arbitration) {
   if (!arbitration) return;
+  const corrections = Array.isArray(arbitration.selectedCorrections) ? arbitration.selectedCorrections : [];
+  applyFanoutCorrection(normalizedMission, corrections.find((signal) => signal.target === 'worker_fanout' && signal.direction === 'inhibit'));
+  applyDelayCorrection(normalizedMission, corrections.find((signal) => signal.direction === 'delay'));
+  applyDiagnosticCorrection(normalizedMission, corrections.find((signal) => signal.direction === 'amplify'));
+  if (corrections.some((signal) => signal.target === 'action_plan' && signal.direction === 'block')) {
+    normalizedMission.autonomousOrchestration = false;
+  }
   if (arbitration.actionMode === 'probe') {
     normalizedMission.executionPolicy.allowFileEdits = false;
     normalizedMission.requiresEvidenceBeforePromotion = true;
@@ -40,6 +65,7 @@ function applyExecutionPolicy(ctx) {
   const { normalizedMission, dispatchedAgent } = ctx;
   const arbitration = ctx.autonomyPlan?.controlRegulation?.arbitration;
   const task = normalizedMission.prompt || normalizedMission.currentTask || '';
+  const requestedWorkers = Number(normalizedMission.executionPolicy?.requestedWorkers || normalizedMission.workerCount || 0);
   const silentUpdates = userProgress.silenceRequested(
     task,
     normalizedMission.silentUpdates === true || normalizedMission.executionPolicy?.silentUpdates === true
@@ -49,6 +75,7 @@ function applyExecutionPolicy(ctx) {
       ? [...new Set(normalizedMission.executionPolicy.allowedCommands.map((value) => String(value).trim()).filter(Boolean))]
       : [],
     allowFileEdits: normalizedMission.executionPolicy?.allowFileEdits === true,
+    requestedWorkers: Number.isFinite(requestedWorkers) && requestedWorkers > 0 ? requestedWorkers : 0,
     silentUpdates
   };
   applyRegulatedPosture(normalizedMission, arbitration);

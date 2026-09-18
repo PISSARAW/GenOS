@@ -1,4 +1,5 @@
 const DIRECTIONS = Object.freeze(['allow', 'inhibit', 'amplify', 'delay', 'block', 'require_evidence']);
+const MAX_FEEDBACK_CYCLES = 3;
 
 function clampUnit(value) {
   const resolved = Number(value);
@@ -212,6 +213,80 @@ function arbitrate(signals, state) {
   };
 }
 
+function nonNegativeNumber(value) {
+  const resolved = Number(value);
+  return Number.isFinite(resolved) && resolved >= 0 ? resolved : null;
+}
+
+function normalizeControlFeedback(feedback = {}) {
+  const errors = Array.isArray(feedback.errors) ? feedback.errors : [];
+  return {
+    exitCode: Number.isFinite(Number(feedback.exitCode)) ? Number(feedback.exitCode) : null,
+    evidenceScore: feedback.evidenceScore === undefined ? null : clampUnit(feedback.evidenceScore),
+    replayVerified: feedback.replayVerified === undefined ? null : Boolean(feedback.replayVerified),
+    durationMs: nonNegativeNumber(feedback.durationMs),
+    tokensUsed: nonNegativeNumber(feedback.tokensUsed),
+    workerOutcomes: Array.isArray(feedback.workerOutcomes) ? feedback.workerOutcomes : [],
+    promotionStatus: feedback.promotionStatus || null,
+    errors
+  };
+}
+
+function failedFeedbackSignal(feedback) {
+  const failed = feedback.exitCode !== null && feedback.exitCode !== 0;
+  if (!failed && feedback.errors.length === 0) return null;
+  return controlSignal({ source: 'feedback', target: 'action_plan', direction: 'block', strength: 1, reason: 'execution feedback reported a failure', evidence: feedback.errors, ttl: 1 });
+}
+
+function tokenFeedbackSignal(feedback, worldState) {
+  if (feedback.tokensUsed === null || feedback.tokensUsed <= worldState.tokens) return null;
+  return controlSignal({ source: 'feedback', target: 'worker_fanout', direction: 'inhibit', strength: 1, reason: 'execution consumed more tokens than the regulated reserve', evidence: [`tokensUsed=${feedback.tokensUsed}`, `tokens=${worldState.tokens}`], ttl: 1 });
+}
+
+function evidenceFeedbackSignal(feedback) {
+  if (feedback.evidenceScore === null || feedback.evidenceScore >= 0.8) return null;
+  return controlSignal({ source: 'feedback', target: 'promotion', direction: 'block', strength: 1, reason: 'execution feedback did not reach the evidence threshold', evidence: [`evidenceScore=${feedback.evidenceScore}`], ttl: 1 });
+}
+
+function replayFeedbackSignal(feedback) {
+  if (feedback.replayVerified !== false) return null;
+  return controlSignal({ source: 'feedback', target: 'promotion', direction: 'require_evidence', strength: 1, reason: 'replay verification is still missing after execution', evidence: ['replayVerified=false'], ttl: 1 });
+}
+
+function successFeedbackSignal(feedback) {
+  if (feedback.exitCode !== 0 || feedback.errors.length > 0) return null;
+  return controlSignal({ source: 'feedback', target: 'action_plan', direction: 'allow', strength: 0.5, reason: 'execution feedback completed without reported errors', evidence: ['exitCode=0'], ttl: 1 });
+}
+
+function feedbackSignals(feedback, worldState) {
+  return [
+    failedFeedbackSignal(feedback), tokenFeedbackSignal(feedback, worldState),
+    evidenceFeedbackSignal(feedback), replayFeedbackSignal(feedback), successFeedbackSignal(feedback)
+  ].filter(Boolean);
+}
+
+function applyControlFeedback(regulation, rawFeedback = {}) {
+  const feedback = normalizeControlFeedback(rawFeedback);
+  const previous = regulation || {};
+  const worldState = previous.worldState || { profile: {}, tokens: 0, pressures: [] };
+  const signals = [...(previous.signals || []), ...feedbackSignals(feedback, worldState)];
+  const priorCycles = Number(previous.feedbackCycles || 0);
+  if (priorCycles >= MAX_FEEDBACK_CYCLES) {
+    signals.push(controlSignal({
+      source: 'feedback', target: 'action_plan', direction: 'block', strength: 1,
+      reason: 'maximum feedback arbitration cycles reached', evidence: [`feedbackCycles=${priorCycles}`], ttl: 1
+    }));
+  }
+  return {
+    ...previous,
+    signals,
+    feedback,
+    feedbackCycles: Math.min(MAX_FEEDBACK_CYCLES, priorCycles + 1),
+    arbitration: arbitrate(signals, worldState),
+    expectedFeedback: previous.expectedFeedback || ['exitCode', 'evidenceScore', 'replayVerified', 'durationMs', 'tokensUsed']
+  };
+}
+
 function regulateAutonomyPlan(contract, budget, plan) {
   const worldState = buildWorldState(contract, budget, plan);
   const regulators = regulatorResults(worldState);
@@ -227,4 +302,4 @@ function regulateAutonomyPlan(contract, budget, plan) {
   };
 }
 
-module.exports = { controlSignal, regulateAutonomyPlan };
+module.exports = { applyControlFeedback, controlSignal, normalizeControlFeedback, regulateAutonomyPlan };

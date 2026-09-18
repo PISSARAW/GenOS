@@ -7,6 +7,7 @@
 const telemetry = require('./telemetryObserver');
 const { getDatabase } = require('../db');
 const primitiveJournal = require('./primitiveExecutionJournal');
+const { applyControlFeedback } = require('./controlRegulationService');
 
 function getAdaptationService() {
   return require('./strategyAdaptationService');
@@ -129,7 +130,34 @@ class StrategyExecutionAdapter {
   }
 
   async executePipelineWithFeedback(primitives, context = {}) {
-    return this.executePipeline(primitives, context);
+    const pipeline = await this.executePipeline(primitives, context);
+    if (!context.controlRegulation) return pipeline;
+    const failedResults = pipeline.results
+      .filter((entry) => entry.result && entry.result.success === false)
+      .map((entry) => `${entry.primitive}: ${entry.result.error || entry.result.status || 'failed'}`);
+    const regulationFeedback = {
+      exitCode: pipeline.success ? 0 : 1,
+      evidenceScore: context.evidenceScore,
+      replayVerified: context.replayVerified,
+      durationMs: context.durationMs,
+      tokensUsed: context.tokensUsed,
+      workerOutcomes: context.workerOutcomes,
+      promotionStatus: context.promotionStatus,
+      errors: failedResults
+    };
+    const controlRegulation = applyControlFeedback(context.controlRegulation, regulationFeedback);
+    telemetry.emitEvent({
+      eventType: 'CONTROL_REGULATION_FEEDBACK_REARBITRATED',
+      agentId: context.agentId || context.orchestratorId || 'system',
+      action: 'REARBITRATE_CONTROL',
+      severity: controlRegulation.arbitration.status === 'blocked' ? 'warning' : 'info',
+      detail: 'Execution feedback was applied to the multi-loop control regulation.',
+      payload: controlRegulation
+    });
+    return {
+      ...pipeline,
+      controlRegulation
+    };
   }
 
   getHandlers() {
