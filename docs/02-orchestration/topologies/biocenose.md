@@ -22,7 +22,7 @@ Le cœur fonctionnel est réparti entre :
 
 - [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des quatre rôles.
 - [backend/src/services/biocenoseService.js](../../../backend/src/services/biocenoseService.js) : analyse de mission et activation de Biocénose.
-- [backend/src/services/agentRuntimeAdapter.js](../../../backend/src/services/agentRuntimeAdapter.js) : dispatch des agents de Biocénose.
+- [backend/src/services/agentRuntimeAdapter/index.js](../../../backend/src/services/agentRuntimeAdapter/index.js) : dispatch des agents de Biocénose.
 - [backend/src/services/agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état partagé, synchronisation communautaire, barrière de fusion.
 
 Le principe est : une communauté bien structurée résout souvent des problèmes complexes mieux qu'une autorité centrale, à condition que les règles du jeu, les seuils d'évidence et les mécanismes de détection de collusion soient clairs.
@@ -950,7 +950,7 @@ Chaque agent $i$ dispose d'un bucket de calcul $B_i = (T_i, C_i, r_i)$ :
 - [BIOLOGIE_COMPUTATIONNELLE.md](../../01-concepts/biologie-computationnelle.md) : cadre biologique général
 - [biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : implémentation des quatre modes
 - [biocenoseService.js](../../../backend/src/services/biocenoseService.js) : service Biocénose
-- [agentRuntimeAdapter.js](../../../backend/src/services/agentRuntimeAdapter.js) : dispatch des agents
+- [agentRuntimeAdapter/index.js](../../../backend/src/services/agentRuntimeAdapter/index.js) : dispatch des agents
 - Commandes CLI : `genos-cli biological deploy --mode biocenose`
 
 

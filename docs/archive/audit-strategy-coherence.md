@@ -39,7 +39,7 @@ function resolveStagePrimitives(stageKey, portfolio = []) {
 
 ## 🔴 Défaut 2 : Pas de validation de cohérence au démarrage des phases
 
-**Localisation** : [backend/src/services/autonomousOrchestrationService.js](../../backend/src/services/autonomousOrchestrationService.js#L15-L50)
+**Localisation** : [backend/src/services/autonomousOrchestrationService/index.js](../../backend/src/services/autonomousOrchestrationService/index.js#L15-L50)
 
 **Problème** :
 
@@ -181,7 +181,7 @@ Mais il ne valide pas :
 
 ## 🔴 Défaut 7 : `buildAutonomyPlan()` construit un plan sans valider le support du portfolio
 
-**Localisation** : [backend/src/services/autonomousOrchestrationService.js](../../backend/src/services/autonomousOrchestrationService.js#L10-L20)
+**Localisation** : [backend/src/services/autonomousOrchestrationService/index.js](../../backend/src/services/autonomousOrchestrationService/index.js#L10-L20)
 
 **Problème** :
 

@@ -17,7 +17,7 @@ Le principe collectif déclaré par le code est :
 
 > « A decentralized collective that grows new coordination points wherever capability is needed. »
 
-La définition et la composition sont actuellement portées par [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js). Le dépôt ne fournit pas encore de `rhizomeService.js` spécialisé ; les opérations d'exécution, de budget, de reprise et de preuve s'appuient donc sur les services génériques d'orchestration.
+La définition et la composition sont portées par [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js), tandis que la coordination concrète est assurée par [rhizomeCoordinationService.js](../../../backend/src/services/rhizomeCoordinationService.js). Les opérations d'exécution, de budget, de reprise et de preuve restent partagées avec les services génériques d'orchestration.
 
 ---
 
@@ -714,7 +714,7 @@ Une fois démarré, le dashboard est accessible sur `http://127.0.0.1:<port>/`, 
 - [agentAutonomyPlanService.js](../../../backend/src/services/agentAutonomyPlanService.js) : plan d'autonomie
 - [agentFleetService.js](../../../backend/src/services/agentFleetService.js) : fleet de workers et barrière d'évidence
 - [agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état et télémétrie de mission
-- [agentRuntimeAdapter.js](../../../backend/src/services/agentRuntimeAdapter.js) : adaptation du runtime
+- [agentRuntimeAdapter/index.js](../../../backend/src/services/agentRuntimeAdapter/index.js) : adaptation du runtime
 
 
 

@@ -257,7 +257,7 @@ Le système protège notamment :
 
 ### 6.1 Lancement de mission
 
-Le lancement de mission passe par le service d’adaptation runtime : [backend/src/services/agentRuntimeAdapter.js](../../backend/src/services/agentRuntimeAdapter.js).
+Le lancement de mission passe par le service d’adaptation runtime : [backend/src/services/agentRuntimeAdapter/index.js](../../backend/src/services/agentRuntimeAdapter/index.js).
 
 Avant de démarrer, le runtime vérifie :
 
@@ -272,7 +272,7 @@ Le point clé : `authorizeMission()` fait le contrôle hiérarchique avant exéc
 
 ### 6.2 Arrêt d’une mission
 
-Le backend expose des opérations de fin de mission via [backend/src/controllers/commandController.js](../../backend/src/controllers/commandController.js) et [backend/src/services/agentRuntimeAdapter.js](../../backend/src/services/agentRuntimeAdapter.js).
+Le backend expose des opérations de fin de mission via [backend/src/controllers/commandController.js](../../backend/src/controllers/commandController.js) et [backend/src/services/agentRuntimeAdapter/index.js](../../backend/src/services/agentRuntimeAdapter/index.js).
 
 Un arrêt peut être :
 
@@ -290,7 +290,7 @@ Le `Command Palette` et les services de ligne de vie peuvent déclencher un fork
 
 ### 6.4 Délégation / workers autonomes
 
-Le runtime crée des workers autonomes dans un orchestrateur. Cela est visible dans [backend/src/services/agentRuntimeAdapter.js](../../backend/src/services/agentRuntimeAdapter.js) :
+Le runtime crée des workers autonomes dans un orchestrateur. Cela est visible dans [backend/src/services/agentRuntimeAdapter/index.js](../../backend/src/services/agentRuntimeAdapter/index.js) :
 
 - l’orchestrateur construit un plan d’autonomie ;
 - il crée les workers ;

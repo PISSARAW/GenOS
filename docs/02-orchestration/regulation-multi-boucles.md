@@ -14,7 +14,7 @@ La délibération reste possible, mais elle n'est qu'une boucle parmi d'autres. 
 
 ## 2. Contrat implémenté
 
-Le contrat est produit dans [backend/src/services/controlRegulationService.js](../../backend/src/services/controlRegulationService.js) et attaché à chaque plan créé par [backend/src/services/autonomousOrchestrationService.js](../../backend/src/services/autonomousOrchestrationService.js) sous `controlRegulation`.
+Le contrat est produit dans [backend/src/services/controlRegulationService.js](../../backend/src/services/controlRegulationService.js) et attaché à chaque plan créé par [backend/src/services/autonomousOrchestrationService/index.js](../../backend/src/services/autonomousOrchestrationService/index.js) sous `controlRegulation`.
 
 Un signal suit cette forme :
 

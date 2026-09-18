@@ -19,7 +19,7 @@ Le cœur fonctionnel actuellement exposé est :
 - [backend/src/services/agentAutonomyPlanService.js](../../../backend/src/services/agentAutonomyPlanService.js) : plan d'autonomie et activation des workers ;
 - [backend/src/services/agentFleetService.js](../../../backend/src/services/agentFleetService.js) : création, exécution et validation des workers ;
 - [backend/src/services/agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état de mission, continuations et télémétrie ;
-- [backend/src/services/agentRuntimeAdapter.js](../../../backend/src/services/agentRuntimeAdapter.js) : adaptation du runtime d'agent.
+- [backend/src/services/agentRuntimeAdapter/index.js](../../../backend/src/services/agentRuntimeAdapter/index.js) : adaptation du runtime d'agent.
 
 La définition actuelle de Biome est portée par le service générique des modes biologiques, avec une coordination opérationnelle dédiée dans `biomeCoordinationService.js` (composition, allocation des ressources, étape de forage, santé de l'écosystème). Les mécanismes détaillés ci-dessous décrivent le protocole d'orchestration attendu autour de ce contrat.
 
@@ -628,7 +628,7 @@ Le choix peut se résumer ainsi :
 - [agentAutonomyPlanService.js](../../../backend/src/services/agentAutonomyPlanService.js) : plan d'autonomie
 - [agentFleetService.js](../../../backend/src/services/agentFleetService.js) : fleet de workers et barrière d'évidence
 - [agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état et télémétrie de mission
-- [agentRuntimeAdapter.js](../../../backend/src/services/agentRuntimeAdapter.js) : adaptation du runtime
+- [agentRuntimeAdapter/index.js](../../../backend/src/services/agentRuntimeAdapter/index.js) : adaptation du runtime
 
 
 

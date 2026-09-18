@@ -1,7 +1,7 @@
 # Runtime agentique GenOS
 
 - **Statut** : Implémenté — runtime agentique (superviseur Node.js, processus enfants, SQLite, portes d'evidence) est disponible et opérationnel.
-- **Portée** : `backend/src/services/agentRuntimeAdapter.js`, `agentProcessSupervisor.js`, `backend/bin/genos-agent-runtime.cjs`.
+- **Portée** : `backend/src/services/agentRuntimeAdapter/index.js`, `agentProcessSupervisor.js`, `backend/bin/genos-agent-runtime.cjs`.
 - **Dernière revue** : 2026-09-17.
 
 ## Definition
@@ -10,7 +10,7 @@ Le runtime agentique GenOS est le plan d'execution qui transforme une mission au
 
 Ce n'est ni un ordonnanceur distribue avec reprise transparente, ni une garantie de correction d'un modele. C'est un superviseur Node.js autour de processus enfants et de fournisseurs de modeles, avec des capsules de travail isolees, une base SQLite et des portes d'evidence. Les termes biologiques designent des politiques logicielles, pas une equivalence avec une cellule vivante.
 
-Le point d'entree applicatif est [backend/src/services/agentRuntimeAdapter.js](../../backend/src/services/agentRuntimeAdapter.js). La supervision du processus est concentree dans [backend/src/services/agentProcessSupervisor.js](../../backend/src/services/agentProcessSupervisor.js), tandis que [backend/bin/genos-agent-runtime.cjs](../../backend/bin/genos-agent-runtime.cjs) adapte Codex au protocole d'evenements cadre.
+Le point d'entree applicatif est [backend/src/services/agentRuntimeAdapter/index.js](../../backend/src/services/agentRuntimeAdapter/index.js). La supervision du processus est concentree dans [backend/src/services/agentProcessSupervisor.js](../../backend/src/services/agentProcessSupervisor.js), tandis que [backend/bin/genos-agent-runtime.cjs](../../backend/bin/genos-agent-runtime.cjs) adapte Codex au protocole d'evenements cadre.
 
 ## Objectifs et frontieres
 

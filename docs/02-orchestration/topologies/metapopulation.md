@@ -701,7 +701,7 @@ Le choix peut se résumer ainsi :
 - [agentAutonomyPlanService.js](../../../backend/src/services/agentAutonomyPlanService.js) : plan d'autonomie
 - [agentFleetService.js](../../../backend/src/services/agentFleetService.js) : fleet de workers et barrière d'évidence
 - [agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état et télémétrie de mission
-- [agentRuntimeAdapter.js](../../../backend/src/services/agentRuntimeAdapter.js) : adaptation du runtime
+- [agentRuntimeAdapter/index.js](../../../backend/src/services/agentRuntimeAdapter/index.js) : adaptation du runtime
 
 
 

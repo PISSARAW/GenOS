@@ -20,7 +20,7 @@ Le cœur fonctionnel est réparti entre :
 - [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des quatre rôles synchronisés.
 - [backend/src/services/syncytiumService.js](../../../backend/src/services/syncytiumService.js) : analyse de mission et activation de Syncytium.
 - [backend/src/services/agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état partagé centralisé, synchronisation continue, détection de conflits.
-- [backend/src/services/agentRuntimeAdapter.js](../../../backend/src/services/agentRuntimeAdapter.js) : dispatch des agents avec state sharing.
+- [backend/src/services/agentRuntimeAdapter/index.js](../../../backend/src/services/agentRuntimeAdapter/index.js) : dispatch des agents avec state sharing.
 
 Le principe est : une équipe travaillant sur le même tableau, en temps réel, avec transparence totale, converge plus vite et avec moins d'erreurs d'intégration qu'une équipe où chacun travaille dans son coin.
 
@@ -1055,7 +1055,7 @@ La primitive `genos_biomimicry_conjoined_twin_bind` représente la forme la plus
 - [somaticResonance.js](../../../backend/src/services/mcpBioTools/handlers/somaticResonance.js) : handler de résonance somatique
 - [conjoinedTwinBind.js](../../../backend/src/services/mcpBioTools/handlers/conjoinedTwinBind.js) : liaison viscérale siamoise
 - [agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état partagé et synchronisation
-- [agentRuntimeAdapter.js](../../../backend/src/services/agentRuntimeAdapter.js) : dispatch des agents
+- [agentRuntimeAdapter/index.js](../../../backend/src/services/agentRuntimeAdapter/index.js) : dispatch des agents
 - [test_conjoined_twin_bind.js](../../../backend/tests/test_conjoined_twin_bind.js) : suite de tests des jumeaux siamois
 - [test_somatic_resonance.js](../../../backend/tests/test_somatic_resonance.js) : suite de tests de synchronicité somatique
 - Commandes CLI : `genos-cli biological deploy --mode syncytium`

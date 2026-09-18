@@ -1369,7 +1369,7 @@ Données brutes vérifiables : backend/locomo_full_real_results.json (566.6 Ko)
 
 ## 29. Évaluation Réelle SWE-bench Lite — Réparation Chirurgicale Autonome & Barrière d'Évidence GenOS
 
-L'évaluation a été menée en direct et en conditions réelles via le harnais d'orchestration natif `backend/src/evaluation/swe_eval_engine.js` connecté au cœur d'autonomie GenOS v3 (`autonomousOrchestrationService.js`, `vfsSandboxService.js`, `modelRouter.js`, `strategyRegistry.js`).
+L'évaluation a été menée en direct et en conditions réelles via le harnais d'orchestration natif `backend/src/evaluation/swe_eval_engine.js` connecté au cœur d'autonomie GenOS v3 (`autonomousOrchestrationService/index.js`, `vfsSandboxService.js`, `modelRouter.js`, `strategyRegistry.js`).
 
 L'inférence de réparation chirurgicale biomimétique (excision NER UvrBC) a été exécutée par `ollama://qwen2.5-coder:7b` sur 14 tâches réelles de SWE-bench Lite couvrant `psf/requests`, `pallets/flask` et `pytest-dev/pytest`.
 
@@ -1393,7 +1393,7 @@ Script de métriques             : backend/src/evaluation/swe_metrics.js
 ```
 
 ### 29.1 Pipeline d'Autonomie & Primitives Mobilisées
-1. **`autonomousOrchestrationService.js`** : Génération du plan d'autonomie formel à 7 phases et déploiement des jumeaux spécialisés (*Hypothesis Optimistic* & *Hypothesis Skeptic*).
+1. **`autonomousOrchestrationService/index.js`** : Génération du plan d'autonomie formel à 7 phases et déploiement des jumeaux spécialisés (*Hypothesis Optimistic* & *Hypothesis Skeptic*).
 2. **Workspace VFS Isolé** : Clonage et checkout déterministe sur le `base_commit` du dépôt dans `.genos-agent-worlds/swe_repos`.
 3. **Localisation de Défaut NER** : Détection des fichiers cibles par analyse de tracebacks (innermost frame), scoring de mots-clés et détection de stem nominal.
 4. **Synthèse Chirurgicale `SEARCH/REPLACE`** : Excision ciblée et greffe de remplacement avec alignement tolérant d'indentation et décapage des préfixes de ligne.
@@ -1418,7 +1418,6 @@ Exécutée en direct sur l'environnement Python 3.12 et pytest de la machine hô
 ========================================================================================
 Taux de Résolution Effectif Dynamique : 4 / 4 (100.0% Pass@1)
 ```
-
 
 
 

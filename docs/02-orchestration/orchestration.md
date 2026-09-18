@@ -6,7 +6,7 @@ L’orchestration dans GenOS est le mécanisme de planification, de partitionnem
 
 Le cœur fonctionnel est réparti entre :
 
-- [backend/src/services/autonomousOrchestrationService.js](../../backend/src/services/autonomousOrchestrationService.js) : construction du plan d’autonomie, phases, workers, budget, gates.
+- [backend/src/services/autonomousOrchestrationService/index.js](../../backend/src/services/autonomousOrchestrationService/index.js) : construction du plan d’autonomie, phases, workers, budget, gates.
 - [backend/src/services/agentRoundService.js](../../backend/src/services/agentRoundService.js) : sélection de survivants et continuation après l’étape d’évaluation initiale.
 - [backend/src/services/agentFleetService.js](../../backend/src/services/agentFleetService.js) : création des workers autonomes, barrière d’évidence, quiescence, synthèse finale.
 - [backend/src/services/agentOrchestrationState.js](../../backend/src/services/agentOrchestrationState.js) : état partagé, maps de missions, continuations, barrages et télémétrie.
@@ -169,7 +169,7 @@ Les composants ne sont pas joués comme une chaîne linéaire. Ils interagissent
 
 ## 6. Décomposition des missions
 
-Le plan de mission est construit dans [backend/src/services/autonomousOrchestrationService.js](../../backend/src/services/autonomousOrchestrationService.js).
+Le plan de mission est construit dans [backend/src/services/autonomousOrchestrationService/index.js](../../backend/src/services/autonomousOrchestrationService/index.js).
 
 Le service détecte au moins cinq dimensions :
 
@@ -654,7 +654,7 @@ Le point fort du système est qu’il est “honest” : il ne prétend pas qu�
 
 ## 19. Références directes dans le repo
 
-- [backend/src/services/autonomousOrchestrationService.js](../../backend/src/services/autonomousOrchestrationService.js)
+- [backend/src/services/autonomousOrchestrationService/index.js](../../backend/src/services/autonomousOrchestrationService/index.js)
 - [backend/src/services/agentRoundService.js](../../backend/src/services/agentRoundService.js)
 - [backend/src/services/agentFleetService.js](../../backend/src/services/agentFleetService.js)
 - [backend/src/services/agentOrchestrationState.js](../../backend/src/services/agentOrchestrationState.js)
