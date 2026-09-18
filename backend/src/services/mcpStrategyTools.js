@@ -53,19 +53,27 @@ async function runPipeline(primitives, context) {
   return strategyOutput(primitiveSuccess(res), res);
 }
 
-function handleBlameOrLineage(toolName, args) {
-  return {
-    configured: true,
-    success: true,
-    status: 'completed',
-    transport: 'strategy_primitive',
-    output: {
-      tool: toolName,
-      targetId: firstTruthy(args.target_id, args.targetId) || null,
-      evidence: [],
-      provenance: { source: 'local_strategy_bridge', complete: false }
-    }
-  };
+async function handleBlameOrLineage(toolName, args) {
+  const targetId = firstTruthy(args.target_id, args.targetId);
+  if (!targetId) return strategyOutput(false, { error: 'target_id is required.' });
+  try {
+    const { getDatabase } = require('../db');
+    const db = await getDatabase();
+    const evidence = toolName === 'genos_blame'
+      ? await db.all('SELECT event_id, event_type, action, detail, payload_json, created_at FROM telemetry_events WHERE agent_id = ? ORDER BY created_at, id LIMIT 1000', targetId)
+      : await db.all(`WITH RECURSIVE ancestors(id, depth) AS (
+          SELECT source_node_id, 1 FROM lineage_edges WHERE target_node_id = ?
+          UNION ALL
+          SELECT e.source_node_id, ancestors.depth + 1 FROM lineage_edges e JOIN ancestors ON e.target_node_id = ancestors.id
+        ) SELECT id, depth FROM ancestors ORDER BY depth, id`, targetId);
+    const complete = evidence.length > 0;
+    return strategyOutput(complete, {
+      tool: toolName, targetId, evidence,
+      provenance: { source: 'sqlite', complete, verifiedAt: new Date().toISOString() }
+    });
+  } catch (error) {
+    return strategyOutput(false, { tool: toolName, targetId, error: error.message, evidence: [] });
+  }
 }
 
 async function handleResilienceHypermutation(args) {
