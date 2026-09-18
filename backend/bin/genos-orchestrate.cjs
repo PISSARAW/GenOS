@@ -42,7 +42,15 @@ try {
   process.stderr.write(`[genos-orchestrate] Invalid JSON payload argument: ${error.message}\n`);
   process.exit(1);
 }
-const action = request.action || 'orchestrate';
+// A biological strategy hint is a first-class dispatch request. Older MCP
+// clients only knew genos_orchestrate and sent { strategy: "biocenose" }, so
+// route that shape to the same verified biological handler instead of silently
+// dropping the hint and building an unrelated technical contract.
+const biologicalModes = new Set(['biome', 'syncytium', 'holobionte', 'biocenose', 'rhizome', 'metapopulation']);
+const strategy = String(request.strategy || '').toLowerCase();
+const action = request.action || (biologicalModes.has(strategy)
+  ? 'dispatch_biological'
+  : 'orchestrate');
 const task = String(request.mission || request.task || 'Autonomous GenOS orchestration');
 let orchestratorId = request.orchestratorId;
 let id = action === 'dispatch_worker' ? request.workerId : null;
@@ -125,7 +133,15 @@ async function executeMission(db, state) {
     if (actionContext.delegatedWorkerId) state.delegatedWorkerId = actionContext.delegatedWorkerId;
     if (actionContext.reusedWorker) state.reusedWorker = true;
   }
-  if (handled) return;
+  if (handled) {
+    const topologyEvent = {
+      dispatch_team: ['TOPOLOGY_DISPATCH_ACCEPTED', 'DISPATCH_A_TEAM', 'A-Team topology accepted.'],
+      dispatch_trinity: ['TOPOLOGY_DISPATCH_ACCEPTED', 'DISPATCH_TRINITY', 'Trinity topology accepted.'],
+      dispatch_biological: ['BIOLOGICAL_MISSION_COMPLETED', 'COMPLETE_BIOLOGICAL_MODE', 'Biological topology completed.']
+    }[action];
+    if (topologyEvent) telemetry.emitEvent({ eventType: topologyEvent[0], agentId: orchestratorId, action: topologyEvent[1], detail: topologyEvent[2], payload: { action }, severity: 'info' });
+    return;
+  }
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, task);
   await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ? WHERE id = ?`, task, id);
   const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
@@ -150,6 +166,8 @@ async function executeMission(db, state) {
 }
 
 async function cleanupFailure(db, state, error) {
+  const topologyFailure = { dispatch_team: 'A_TEAM_STAGES_FAILED', dispatch_trinity: 'TRINITY_MISSION_FAILED', dispatch_biological: 'BIOLOGICAL_MISSION_FAILED' }[action];
+  if (topologyFailure) telemetry.emitEvent({ eventType: topologyFailure, agentId: id, action: 'TOPOLOGY_FAILED', detail: error.message, payload: { action }, severity: 'error' });
   try { await runtime.stopMission(id); } catch (_) {}
   await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, id).catch(() => {});
   if (!state.delegatedWorkerId) return;

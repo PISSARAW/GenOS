@@ -89,10 +89,17 @@ class TelemetryObserver extends EventEmitter {
     const event = telemetryContract.buildEvent(eventData || {}, payload, trace);
 
     this.pushToBuffer(event);
+    this.appendProcessStream(event);
     this.broadcastSSE(event);
     this.persistAsync(event);
     telemetryFanout.fanout(this, webhookService, event);
     return event;
+  }
+
+  appendProcessStream(event) {
+    const streamPath = process.env.GENOS_MCP_TELEMETRY_FILE;
+    if (!streamPath) return;
+    try { fs.appendFileSync(streamPath, `${JSON.stringify(event)}\n`, 'utf8'); } catch (_) {}
   }
 
   broadcastSSE(event) {

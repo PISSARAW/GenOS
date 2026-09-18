@@ -14,6 +14,7 @@ const workerGarage = require('./workerGarageService');
 const aTeamCoordination = require('./aTeamCoordinationService');
 const aTeamService = require('./aTeamService');
 const aTeamStageScheduler = require('./aTeamStageScheduler');
+const { emit } = require('./agentOrchestrationState');
 
 function stageRunnerPath() {
   return path.resolve(__dirname, '../../bin/genos-ateam-stage-runner.cjs');
@@ -46,6 +47,10 @@ function readSubSystems(request) {
   return [];
 }
 
+function emitImmediateCompletion({ runner, orchestratorId, planId }) {
+  if (!runner) emit(orchestratorId, 'A_TEAM_STAGES_COMPLETED', 'SCHEDULE_STAGES', 'A-Team has no deferred stages.', { planId }, 'info');
+}
+
 async function dispatchTeam({ db, context, parent, launchWorker }) {
   const request = context.request || {};
   const garage = await workerGarage.state(db, context.orchestratorId);
@@ -63,6 +68,7 @@ async function dispatchTeam({ db, context, parent, launchWorker }) {
   const stageZero = plan.members.filter((member) => member.pipelineStage === 0);
   const accepted = stageZero.map((member, index) => launchWorker({ context, member, index: index + 1, parent, suppliedWorkerId: member.workerId }));
   const runner = plan.maxStage > 0 ? spawnStageRunner({ context, plan, parentWorkspaceRoot: parent.workspace_root }) : null;
+  emitImmediateCompletion({ runner, orchestratorId: context.orchestratorId, planId: plan.planId });
   return {
     orchestratorId: context.orchestratorId,
     aTeam: {

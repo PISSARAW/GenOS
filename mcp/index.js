@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { spawn } from "child_process";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
@@ -58,6 +59,45 @@ function processStdoutChunk({ state, chunk, onStdout }) {
     }
   }
   return state;
+}
+
+function topologyTerminal(eventType) {
+  return new Set([
+    'A_TEAM_STAGES_COMPLETED', 'A_TEAM_STAGES_FAILED',
+    'TRINITY_MISSION_COMPLETED', 'TRINITY_MISSION_FAILED',
+    'BIOLOGICAL_MISSION_COMPLETED', 'BIOLOGICAL_MISSION_FAILED'
+  ]).has(eventType);
+}
+
+async function tailTelemetryFile({ filePath, onTelemetry, timeoutMs }) {
+  const startedAt = Date.now();
+  let offset = 0;
+  let buffer = '';
+  let terminal = false;
+  while (Date.now() - startedAt < timeoutMs && !terminal) {
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const parsed = await parseTelemetryLines({ content: content.slice(offset), buffer, onTelemetry });
+      offset = content.length;
+      buffer = parsed.buffer;
+      terminal = parsed.terminal;
+    } catch (_) {}
+    if (!terminal) await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
+async function parseTelemetryLines({ content, buffer, onTelemetry }) {
+  const lines = (buffer + content).split(/\r?\n/);
+  const remainder = lines.pop() || '';
+  let terminal = false;
+  for (const line of lines.filter(Boolean)) {
+    try {
+      const event = JSON.parse(line);
+      await onTelemetry(event);
+      terminal = terminal || topologyTerminal(event.eventType);
+    } catch (_) {}
+  }
+  return { buffer: remainder, terminal };
 }
 
 const server = new Server(
@@ -153,20 +193,60 @@ function resolveOrchestratorBridge() {
 }
 
 async function runOrchestrator(payload, { onTelemetry } = {}) {
-  if (payload.action === 'orchestrate' && !server.getClientCapabilities()?.sampling) {
+  const executor = String(payload.executor || '').trim().toLowerCase() || 'caller_mcp';
+  if (payload.action === 'orchestrate' && executor === 'caller_mcp' && !server.getClientCapabilities()?.sampling) {
     throw new Error('MCP_SAMPLING_UNAVAILABLE: the connected MCP client does not provide sampling. Use a sampling-capable host or callerSession.mjs.');
   }
   const bridge = resolveOrchestratorBridge();
   if (!bridge) {
     throw new Error("GenOS orchestrator bridge not found. Set GENOS_ORCHESTRATOR_BRIDGE or install the GenOS repository.");
   }
-  return runExecutable({
-    cmd: process.execPath,
-    args: [bridge, JSON.stringify({ ...payload, executor: 'caller_mcp', provider: payload.provider || process.env.GENOS_MCP_PROVIDER || 'mcp-host' })],
-    cwd: workingDir,
-    env: { ...process.env, GENOS_STREAM_TELEMETRY: '1', GENOS_MCP_SAMPLING_URL: samplingBroker.url, GENOS_MCP_TOOL_URL: samplingBroker.toolUrl, GENOS_MCP_SAMPLING_TOKEN: samplingBroker.token },
-    onStdout: onTelemetry
-  });
+  const topology = isTopologyAction(payload.action);
+  const relay = createTelemetryRelay({ topology, onTelemetry });
+  const execution = await executeBridge({ payload, bridge, executor, relay });
+  if (topology) await finishTopologyRelay({ payload, relay });
+  if (execution.error) throw execution.error;
+  return formatTopologyResult({ result: execution.result, relay, topology });
+}
+
+function isTopologyAction(action) { return ['dispatch_team', 'dispatch_trinity', 'dispatch_biological'].includes(action); }
+
+function createTelemetryRelay({ topology, onTelemetry }) {
+  const streamFile = topology ? path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'genos-mcp-')), 'telemetry.ndjson') : null;
+  const delivered = new Set();
+  const events = [];
+  const deliver = topology || onTelemetry ? (event) => {
+    const key = event.id || `${event.timestamp}:${event.eventType}:${event.agentId}`;
+    if (delivered.has(key)) return Promise.resolve();
+    delivered.add(key);
+    events.push(event);
+    return onTelemetry ? onTelemetry(event) : Promise.resolve();
+  } : undefined;
+  return { streamFile, events, deliver };
+}
+
+async function executeBridge({ payload, bridge, executor, relay }) {
+  try {
+    const result = await runExecutable({
+      cmd: process.execPath,
+      args: [bridge, JSON.stringify({ ...payload, executor, provider: payload.provider || process.env.GENOS_MCP_PROVIDER || 'mcp-host' })],
+      cwd: workingDir,
+      env: { ...process.env, GENOS_STREAM_TELEMETRY: '1', ...(relay.streamFile ? { GENOS_MCP_TELEMETRY_FILE: relay.streamFile } : {}), GENOS_MCP_SAMPLING_URL: samplingBroker.url, GENOS_MCP_TOOL_URL: samplingBroker.toolUrl, GENOS_MCP_SAMPLING_TOKEN: samplingBroker.token },
+      onStdout: relay.deliver
+    });
+    return { result, error: null };
+  } catch (error) { return { result: undefined, error }; }
+}
+
+async function finishTopologyRelay({ payload, relay }) {
+  if (!relay.streamFile) return;
+  await tailTelemetryFile({ filePath: relay.streamFile, onTelemetry: relay.deliver, timeoutMs: Math.min(toolTimeoutMs(), Number(payload.timeoutMs) || 14 * 60 * 1000) });
+  try { fs.unlinkSync(relay.streamFile); fs.rmdirSync(path.dirname(relay.streamFile)); } catch (_) {}
+}
+
+function formatTopologyResult({ result, relay, topology }) {
+  if (!topology) return result;
+  try { return JSON.stringify({ ...JSON.parse(result), telemetry: relay.events }); } catch (_) { return result; }
 }
 
 for (const tool of ALL_TOOLS) tool.inputSchema = getToolInputSchema(tool.name, tool.inputSchema);
