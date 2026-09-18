@@ -27,6 +27,8 @@ async function run() {
       { code: 'SELF_MODEL_REPLAY_REQUIRED' }
     );
     assert.equal(model.calibration.observations, 1);
+    const repeatedCalibration = await selfModel.calibrate(db, 'self-model-run');
+    assert.equal(repeatedCalibration.observations, 1);
     console.log('Self-model persistence, calibration, and decision constraints passed.');
   } finally {
     await closeDatabase();

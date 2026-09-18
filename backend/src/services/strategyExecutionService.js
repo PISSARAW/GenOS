@@ -73,7 +73,7 @@ async function recordExecutionEvent(db, agentId, event) {
   const saved = await progress.recordExecutionEvent(db, agentId, event);
   if (!saved) return null;
   const fallback = await fallbackAfterProgress(db, saved, agentId);
-  if (['failed', 'blocked', 'cancelled'].includes(saved.run.status)) await selfModel.calibrate(db, saved.run.id);
+  if (['completed', 'failed', 'blocked', 'cancelled'].includes(saved.run.status)) await selfModel.calibrate(db, saved.run.id);
   return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback };
 }
 

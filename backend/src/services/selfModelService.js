@@ -158,6 +158,7 @@ async function calibrate(db, runId) {
   const row = await db.get('SELECT id, agent_id, status, budget_json, metrics_json FROM strategy_execution_runs WHERE id = ?', runId);
   if (!row) throw new Error(`Execution run ${runId} was not found for self-model calibration`);
   const learned = await stateStore(db).restoreObject(SCOPE, row.agent_id) || {};
+  if (learned.calibration?.lastRunId === row.id) return learned.calibration;
   const next = calibrationUpdate(learned, row);
   await stateStore(db).persistObject(SCOPE, row.agent_id, next, next.calibration.observations);
   return next.calibration;
