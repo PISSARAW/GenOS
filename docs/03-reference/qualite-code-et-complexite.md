@@ -64,3 +64,7 @@ désormais séparés, sans augmenter le nombre de paramètres.
 
 Le nettoyage des artefacts applique le même principe aux parcours récursifs : les
 prédicats de répertoire et la suppression des caches sont isolés du contrôle de flux.
+
+Le service de provenance sépare maintenant la normalisation du sujet, les validations
+d’énumération et la construction du record. Le contrat `genos.provenance/v1` reste
+inchangé.

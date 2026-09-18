@@ -8,19 +8,43 @@ const EVIDENCE_STATUSES = new Set(['documented', 'observed', 'inferred', 'interp
 const INTERPRETATION_STATUSES = new Set(['none', 'conceptual', 'provisional', 'contested', 'final']);
 
 function createRecord(input = {}) {
-  const subject = input.subject;
+  const subject = requireSubject(input.subject);
+  const context = normalizeContext(input, subject);
+  assertContextEnums(context);
+  const record = buildRecord(context);
+  const validation = validateSpec('provenance-record.schema.json', record);
+  if (!validation.valid) throw new Error(`Invalid provenance record: ${validation.errors.join('; ')}`);
+  return record;
+}
+
+function requireSubject(subject) {
   if (!subject || typeof subject !== 'object' || !subject.kind || !subject.id) throw new Error('subject.kind and subject.id are required.');
-  const sourceType = input.sourceType || 'genos';
-  const evidenceStatus = input.evidenceStatus || 'documented';
-  const interpretationStatus = input.interpretationStatus || 'none';
-  assertEnum(sourceType, SOURCE_TYPES, 'sourceType');
-  assertEnum(evidenceStatus, EVIDENCE_STATUSES, 'evidenceStatus');
-  assertEnum(interpretationStatus, INTERPRETATION_STATUSES, 'interpretationStatus');
-  const record = {
+  return { kind: String(subject.kind), id: String(subject.id) };
+}
+
+function normalizeContext(input, subject) {
+  return {
+    input,
+    subject,
+    sourceType: input.sourceType || 'genos',
+    evidenceStatus: input.evidenceStatus || 'documented',
+    interpretationStatus: input.interpretationStatus || 'none',
+  };
+}
+
+function assertContextEnums(context) {
+  assertEnum(context.sourceType, SOURCE_TYPES, 'sourceType');
+  assertEnum(context.evidenceStatus, EVIDENCE_STATUSES, 'evidenceStatus');
+  assertEnum(context.interpretationStatus, INTERPRETATION_STATUSES, 'interpretationStatus');
+}
+
+function buildRecord(context) {
+  const { input, subject, sourceType, evidenceStatus, interpretationStatus } = context;
+  return {
     apiVersion: 'genos.provenance/v1',
     kind: 'ProvenanceRecord',
     recordId: input.recordId || createId(subject),
-    subject: { kind: String(subject.kind), id: String(subject.id) },
+    subject,
     version: input.version || '1.0.0',
     sourceType,
     sourceDocument: input.sourceDocument || null,
@@ -30,9 +54,6 @@ function createRecord(input = {}) {
     derivedFrom: Array.isArray(input.derivedFrom) ? input.derivedFrom : [],
     recordedAt: input.recordedAt || new Date().toISOString()
   };
-  const validation = validateSpec('provenance-record.schema.json', record);
-  if (!validation.valid) throw new Error(`Invalid provenance record: ${validation.errors.join('; ')}`);
-  return record;
 }
 
 function nextVersion(version = '1.0.0') {
