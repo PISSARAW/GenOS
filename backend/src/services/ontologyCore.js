@@ -138,12 +138,27 @@ async function ceaseBeing(agentId, reason = 'terminated') {
   return { agentId, ceasedAt: new Date().toISOString(), reason };
 }
 
+async function updateIdentityCriteria(input = {}) {
+  const agentId = input.agentId || input.beingId;
+  if (!agentId || typeof agentId !== 'string') throw new Error('updateIdentityCriteria requires a valid agentId.');
+  if (!input.criteria || typeof input.criteria !== 'object' || Array.isArray(input.criteria)) {
+    throw new Error('updateIdentityCriteria requires criteria.');
+  }
+  const db = await getDb();
+  const existing = await db.get('SELECT identity_criteria_json FROM ontology_beings WHERE id = ?', agentId);
+  if (!existing) throw new Error(`Unknown being '${agentId}'.`);
+  const criteria = { ...buildIdentityCriteria({}), ...input.criteria };
+  await db.run('UPDATE ontology_beings SET identity_criteria_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', JSON.stringify(criteria), agentId);
+  return getBeing(agentId);
+}
+
 module.exports = {
   defineBeing,
   getBeing,
   ensureBeingExists,
   listBeings,
   ceaseBeing,
+  updateIdentityCriteria,
   hashEssence,
   SUBSTANCE_TYPES
 };

@@ -128,6 +128,7 @@ async function getIdentityHistory(args) {
   const agentId = requireAgentId(args, 'getIdentityHistory');
   return { agentId, events: await ontologyService.getIdentityHistory(agentId, { limit: Number(args.limit) || 50 }) };
 }
+async function updateIdentityCriteria(args) { return { updated: true, being: await ontologyService.updateIdentityCriteria(args) }; }
 
 async function defineOther(args) { return personOther.defineOther(args); }
 async function recordEncounter(args) { return personOther.recordEncounter(args); }
@@ -150,7 +151,7 @@ async function compareEmergenceAndElimination(args) { return metaphysics.compare
 const HANDLERS = {
   getBeing, listBeings, defineBeing, getAttributes, getAttribute, setAttribute, getModes,
   defineMode, activateMode, deactivateMode, getActiveHypostatizations, hypostatize,
-  checkIdentityContinuity, getIdentityHistory,
+  checkIdentityContinuity, getIdentityHistory, updateIdentityCriteria,
   defineOther, recordEncounter, listOtherRelations, evaluateAlterityBoundary,
   recordContinuityObservation, classifyContinuity, detectContinuityTransition,
   createPossibleWorld, getPossibleWorld, listPossibleWorlds, addWorldAccessibility,
