@@ -12,7 +12,7 @@ function eventsFrom(buffer) {
   return events;
 }
 
-function runRuntime(directory, fakeCodex, mission, extraEnv = {}) {
+function runRuntime({ directory, fakeCodex, mission, extraEnv = {} }) {
   return spawnSync(process.execPath, [path.resolve(__dirname, '../bin/genos-agent-runtime.cjs')], {
     cwd: directory,
     input: JSON.stringify({
@@ -51,9 +51,9 @@ let input=''; process.stdin.on('data', c => input += c); process.stdin.on('end',
 });
 `, { mode: 0o700 });
 
-  const budget = runRuntime(directory, fakeCodex, {
+  const budget = runRuntime({ directory, fakeCodex, mission: {
     executionBudgetJson: JSON.stringify({ tokens: 1_000_000, events: 2, latencyMs: 5000, costUsd: 5 })
-  }, { RUNTIME_CASE: 'budget' });
+  }, extraEnv: { RUNTIME_CASE: 'budget' } });
   assert.notEqual(budget.status, 0);
   const budgetEvents = eventsFrom(budget.stdout);
   assert(budgetEvents.some((event) => event.eventType === 'BUDGET_EXHAUSTED'));
@@ -62,11 +62,11 @@ let input=''; process.stdin.on('data', c => input += c); process.stdin.on('end',
   const synthesisMission = {
     autonomyPlanJson: JSON.stringify({ schema: 'test', synthesisOnly: true, completedWorkerIds: ['worker-a'] })
   };
-  const valid = runRuntime(directory, fakeCodex, synthesisMission, { RUNTIME_CASE: 'valid' });
+  const valid = runRuntime({ directory, fakeCodex, mission: synthesisMission, extraEnv: { RUNTIME_CASE: 'valid' } });
   assert.equal(valid.status, 0, valid.stderr.toString());
   assert(eventsFrom(valid.stdout).some((event) => event.eventType === 'DOSSIER_INFLUENCE_VERIFIED'));
 
-  const invalid = runRuntime(directory, fakeCodex, synthesisMission, { RUNTIME_CASE: 'missing' });
+  const invalid = runRuntime({ directory, fakeCodex, mission: synthesisMission, extraEnv: { RUNTIME_CASE: 'missing' } });
   assert.notEqual(invalid.status, 0);
   assert(eventsFrom(invalid.stdout).some((event) => event.eventType === 'HARD_INVARIANT_FAILURE' && event.action === 'DOSSIER_INFLUENCE'));
 
