@@ -1,4 +1,5 @@
 pub mod conscience;
+pub mod clinical_therapy;
 pub mod autopoiesis;
 pub mod behaviors;
 pub mod diagnostics;

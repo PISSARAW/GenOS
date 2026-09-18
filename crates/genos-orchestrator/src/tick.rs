@@ -1,6 +1,7 @@
 //! Boucle cognitive : observer → décider → agir, en un seul `tick`, et
 //! `run` qui itère jusqu'à l'arrêt en produisant un rapport global.
 use crate::GenosEcosystem;
+use crate::clinical_therapy::therapy_for_pathology;
 use crate::director::Strategy;
 use crate::learning::context_from_state;
 use crate::planner::{Concept, Goal};
@@ -9,8 +10,9 @@ use crate::signaling::SignalingCascade;
 use crate::trace::Verdict;
 use genos_biology::neurobiology::Neurotransmitter;
 use genos_biology::pathology::assess_agent_clinical_status;
+use genos_biology::therapy::apply_systemic_therapy_to_cell;
 use genos_biology::spore::SporeType;
-use genos_cell::{AgentCell, ClinicalState};
+use genos_cell::AgentCell;
 use genos_signal::SignalingMode;
 use serde_json::json;
 use uuid::Uuid;
@@ -77,8 +79,7 @@ impl GenosEcosystem {
         if decision.halt.is_some() {
             self.attempt_autonomous_reproduction_if_alive();
             return report;
-        }
-
+}
         let mut sim = state.clone();
         let mut executed_concepts = Vec::new();
         for step in &decision.steps {
@@ -98,15 +99,13 @@ impl GenosEcosystem {
                 .record(step.concept, after > before || sim.goal_reached(goal));
             report.executed.push(step.concept);
             executed_concepts.push(step.concept);
-        }
-
+}
         // Attribution de crédit + reproduction autonome.
         let episode_reward = if sim.goal_reached(goal) { 1.0 } else { 0.0 };
         self.director.assign_credit(&report.executed, episode_reward);
         self.attempt_autonomous_reproduction_if_alive();
         report
-    }
-
+}
     /// Itère des ticks jusqu'à l'arrêt (ou `max_ticks`) et agrège le bilan.
     pub fn run(&mut self, goal: &Goal, max_ticks: usize) -> MissionReport {
         let agents_before = self.orchestrator.active_cells.len();
@@ -143,8 +142,7 @@ impl GenosEcosystem {
             traces: self.traces.known(),
             goals: vec![format!("{goal:?}")],
         }
-    }
-
+}
     /// Exécute une séquence de concepts donnée (utilisé par les mondes isolés).
     pub fn execute_concepts(&mut self, concepts: &[Concept]) -> Vec<Concept> {
         let mut report = TickReport {
@@ -162,8 +160,7 @@ impl GenosEcosystem {
             report.executed.push(*concept);
         }
         report.executed
-    }
-
+}
     fn arena_workers(&self) -> Vec<Uuid> {
         self.orchestrator
             .tissues
@@ -196,8 +193,11 @@ impl GenosEcosystem {
         if let Some(id) = target
             && let Some(cell) = self.orchestrator.active_cells.get_mut(&id)
         {
-            cell.clinical = ClinicalState::healthy();
-            return true;
+            if let Some(pathology) = cell.clinical.active_pathologies.first() {
+                let therapy = therapy_for_pathology(pathology);
+                let outcome = apply_systemic_therapy_to_cell(&therapy, cell);
+                return !outcome.cured_pathologies.is_empty();
+            }
         }
         false
     }
