@@ -57,6 +57,14 @@ const migrationRunners = [
     const { migrateDurableAgentCoordination } = require('./migrateDurableAgentCoordination');
     await migrateDurableAgentCoordination(db);
   }),
+  createMigrationRunner('028-epistemic-events', 'Persist epistemic events and revision claims', async (db) => {
+    const { migrateEpistemicEvents } = require('./migrateEpistemicEvents');
+    await migrateEpistemicEvents(db);
+  }),
+  createMigrationRunner('029-ontology-concepts', 'Persist continuity observations and possible worlds', async (db) => {
+    const { migrateOntologyConcepts } = require('./migrateOntologyConcepts');
+    await migrateOntologyConcepts(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
