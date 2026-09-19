@@ -1,5 +1,4 @@
 'use strict';
-
 const { validateRegistry, registryHealth: conceptRegistryHealth } = require('../philosophy/conceptRegistry');
 const relationRegistry = require('../philosophy/relationRegistry');
 const ontologyRouter = require('./ontologyRouter');
@@ -12,25 +11,22 @@ const nonClassicalLogic = require('./nonClassicalLogicService');
 const metalogic = require('./metalogicService');
 const paradoxAnalysis = require('./paradoxAnalysisService');
 const rationalityNorms = require('./rationalityNormsService'); const reliability = require('./reliabilityService');
+const specializedEpistemology = require('./specializedEpistemologyService');
 const { boundedAnalysis, boundedOntologyAnalysis } = require('./philosophyAnalysisContract');
-
 const registry = validateRegistry();
 if (!registry.valid) {
   throw new Error(`Invalid philosophical concept registry: ${registry.errors.join('; ')}`);
 }
 const definitions = registry.concepts;
-
 const OPERATIONS = Object.freeze([
   'listConcepts', 'getConcept', 'registryHealth', 'evaluateConcept', 'applyRuntimeEffect',
   'listRelations', 'getNeighborhood', 'exportGraph', 'compareEthicalFrameworks',
   'saveAnalysis', 'getAnalysis', 'listAnalyses', 'queryOntology'
 ]);
 const conceptMap = new Map(definitions.map((concept) => [concept.id, concept]));
-
 function copy(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
-
 function listConcepts(args = {}) {
   const filters = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
   return definitions
@@ -42,7 +38,6 @@ function listConcepts(args = {}) {
     .filter((concept) => !filters.maturity || concept.serviceMaturity.level === filters.maturity)
     .map(copy);
 }
-
 function listRelations(args = {}) {
   return relationRegistry.listRelations({
     relationType: args.relationType,
@@ -50,7 +45,6 @@ function listRelations(args = {}) {
     targetId: args.targetId
   }).map(copy);
 }
-
 function getNeighborhood(id, args = {}) {
   const concept = requireConcept(id);
   const relationSet = new Map();
@@ -68,7 +62,6 @@ function getNeighborhood(id, args = {}) {
   const neighbors = [...relationIds].map((neighborId) => getConcept(neighborId)).filter(Boolean);
   return { concept, relations, neighbors, depth: args.depth || 1 };
 }
-
 function exportGraph(args = {}) {
   const nodes = listConcepts(args);
   const nodeIds = new Set(nodes.map((node) => node.id));
@@ -77,11 +70,9 @@ function exportGraph(args = {}) {
   ));
   return { nodes, edges };
 }
-
 function getConcept(id) {
   return copy(conceptMap.get(String(id || '').trim()));
 }
-
 function registryHealth() {
   const health = conceptRegistryHealth();
   return {
@@ -89,13 +80,11 @@ function registryHealth() {
     conceptCount: conceptMap.size,
   };
 }
-
 function requireConcept(id) {
   const concept = getConcept(id);
   if (!concept) throw new Error(`Unknown philosophical concept '${id}'.`);
   return concept;
 }
-
 function unavailable(concept) {
   return {
     concept: concept.id,
@@ -106,7 +95,6 @@ function unavailable(concept) {
     message: 'This concept is registered but has no executable adapter yet.',
   };
 }
-
 function callService(serviceName, method, args) {
   const service = require(`./${serviceName}`);
   if (typeof service[method] !== 'function') {
@@ -114,7 +102,6 @@ function callService(serviceName, method, args) {
   }
   return service[method](args);
 }
-
 function callSelectedService({ serviceName, defaultMethod, allowedMethods, args }) {
   const method = args.operation || defaultMethod;
   if (!allowedMethods.includes(method)) {
@@ -122,8 +109,11 @@ function callSelectedService({ serviceName, defaultMethod, allowedMethods, args 
   }
   return callService(serviceName, method, args);
 }
-
 const ADAPTERS = {
+  ...Object.fromEntries(Object.keys(specializedEpistemology.RUBRICS).map((conceptId) => [
+    conceptId,
+    ({ args }) => specializedEpistemology.analyzeConcept({ ...args, conceptId }),
+  ])),
   'logic.propositional': ({ args }) => propositionalLogic.classifyFormula(args),
   'logic.truth-table': ({ args }) => propositionalLogic.truthTable(args),
   'logic.equivalence': ({ args }) => propositionalLogic.areEquivalent(args),
@@ -204,6 +194,9 @@ const ADAPTERS = {
   'time.spacetime-relativity': ({ args }) => callService('temporalIdentityService', 'spacetimeRelativity', args),
   'process.bergsonian-vital-impulse': ({ args }) => callService('bergsonService', args.operation || 'elanVital', args),
   'metaphysics.qualia': ({ args }) => callService('consciousnessService', 'recordQualia', args),
+  'metaphysics.mind-body': ({ args }) => callService('consciousnessService', 'mindBodyInteraction', args),
+  'metaphysics.supervenience': ({ args }) => callService('consciousnessService', 'checkSupervenience', args),
+  'metaphysics.emergence': ({ args }) => callService('propertyService', 'assessEmergence', args),
   'metaphysics.reference-intentionality': ({ args }) => callService('phenomenologyService', 'intentionality', args),
   'aesthetics.beauty': ({ args }) => callService('aestheticsService', 'evaluateBeauty', args),
   'aesthetics.sublime': ({ args }) => callService('aestheticsService', 'evaluateSublime', args),
@@ -326,8 +319,7 @@ const ADAPTERS = {
   'ethics.externalities': ({ args }) => callService('environmentalEthicsService', 'assessExternality', args),
   'ethics.commons': ({ args }) => callService('environmentalEthicsService', 'assessCommons', args),
 };
-
-function evaluateConcept(args = {}) {
+async function evaluateConcept(args = {}) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) {
     throw new Error('evaluateConcept arguments must be an object.');
   }
@@ -335,12 +327,11 @@ function evaluateConcept(args = {}) {
   if (!['implemented', 'partial'].includes(concept.status)) return unavailable(concept);
   const adapter = ADAPTERS[concept.id];
   if (!adapter) return unavailable(concept);
-  const result = boundedAnalysis(copy(adapter({ args })), args);
+  const result = boundedAnalysis(copy(await adapter({ args })), args);
   return { concept: concept.id, status: concept.status, executable: true, supported: true, result,
     evidence: result.evidence, uncertainty: result.uncertainty, provenance: result.provenance,
-    promotionEligible: false, limitation: concept.status === 'partial' ? 'Analyse opérationnelle partielle ; elle ne constitue pas une preuve de vérité.' : null };
+    promotionEligible: false, limitation: concept.serviceMaturity.note || 'L’adaptateur opérationnalise un mapping ; il ne prouve pas la thèse philosophique.' };
 }
-
 async function queryOntology(args = {}) {
   const operation = args.ontologyOperation || args.operationName;
   if (!operation) throw new Error('queryOntology requires ontologyOperation.');
@@ -351,14 +342,12 @@ async function queryOntology(args = {}) {
   const analysisOperations = new Set(['comparePossibleWorlds', 'createWorldReceipt', 'verifyWorldReceipt', 'evaluateCausalDependence', 'checkIdentityContinuity', 'classifyContinuity', 'detectContinuityTransition']);
   return { operation, result: analysisOperations.has(operation) ? boundedOntologyAnalysis(result, args.ontologyArguments || {}) : result };
 }
-
 async function handleSavedAnalysis(operation, args) {
   const analysisPersistence = require('./philosophyAnalysisPersistenceService');
   if (operation === 'saveAnalysis') return { saved: true, analysis: await analysisPersistence.saveAnalysis(args) };
   if (operation === 'getAnalysis') return { analysis: await analysisPersistence.getAnalysis(args) };
   return { analyses: await analysisPersistence.listAnalyses(args) };
 }
-
 const OPERATION_HANDLERS = Object.freeze({
   listConcepts: (args) => ({ concepts: listConcepts(args) }),
   getConcept: (args) => ({ concept: requireConcept(args.conceptId || args.id) }),
@@ -374,7 +363,6 @@ const OPERATION_HANDLERS = Object.freeze({
   listAnalyses: (args) => handleSavedAnalysis('listAnalyses', args),
   queryOntology,
 });
-
 async function handlePhilosophyRequest({ request } = {}) {
   if (!request || typeof request !== 'object' || Array.isArray(request)) {
     throw new Error('Philosophy request must be an object.');
@@ -384,7 +372,6 @@ async function handlePhilosophyRequest({ request } = {}) {
   const args = request.arguments && typeof request.arguments === 'object' ? request.arguments : {};
   return OPERATION_HANDLERS[operation](args);
 }
-
 module.exports = {
   OPERATIONS,
   handlePhilosophyRequest,

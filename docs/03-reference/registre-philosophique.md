@@ -32,7 +32,10 @@ La santé du registre est vérifiée au chargement et par la suite
 `partial` ou `planned` sans devenir une capacité d'exécution : le statut
 philosophique et la maturité du service restent deux dimensions séparées.
 
-La première tranche ontologique est désormais partiellement opérationnelle :
+Les adaptateurs bornés de qualia, d'intentionnalité, de supervenience,
+d'émergence et de modèles esprit-corps sont opérationnels via `evaluateConcept`
+et fournissent leurs limites dans la réponse. La première tranche ontologique
+décrite ci-dessous reste partiellement opérationnelle :
 `ontology.person-other`, `ontology.continuous-discrete` et
 `ontology.possible-worlds` disposent de services bornés, persistants et testés.
 Cette implémentation décrit des relations, des transitions et des hypothèses ;

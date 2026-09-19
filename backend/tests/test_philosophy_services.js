@@ -6,6 +6,7 @@ const { closeDatabase, getDatabase } = require('../src/db');
 const ontologyService = require('../src/services/ontologyService');
 const causalityService = require('../src/services/causalityService');
 const consciousnessService = require('../src/services/consciousnessService');
+const propertyService = require('../src/services/propertyService');
 const epistemologyService = require('../src/services/epistemologyService');
 const processPhilosophyService = require('../src/services/processPhilosophyService');
 const ethicsService = require('../src/services/ethicsService');
@@ -58,6 +59,27 @@ async function main() {
       assert.strictEqual(attrs.status.value, 'running');
       assert.strictEqual(attrs.status.modality, 'accidental');
     });
+    await test('supervenience mapping persists an observation without claiming proof', async () => {
+      await propertyService.ensurePropertyTables(db);
+      await ontologyService.setAttribute({ agentId: 'agent-1', key: 'physical_state', value: { cpu: 'x86', ram: 8 }, modality: 'accidental' });
+      const result = await propertyService.registerProperty('agent-1', 'decision_policy', {
+        propertyType: 'supervenient', value: { strategy: 'tree-search' }, supervenienceBase: 'physical'
+      });
+      assert.equal(result.propertyKey, 'decision_policy');
+      assert.equal(result.metaphysicalClaimEstablished, false);
+      assert.equal(result.supervenienceObservation.observation.comparable, true);
+    });
+    await test('emergence records only a weak candidate from sampled absence', async () => {
+      await propertyService.ensurePropertyTables(db);
+      await ontologyService.defineBeing('system-emergence', { type: 'runtime' });
+      await ontologyService.defineBeing('part-emergence-a', { type: 'tool' });
+      await ontologyService.defineBeing('part-emergence-b', { type: 'tool' });
+      await ontologyService.setAttribute({ agentId: 'system-emergence', key: 'coordination', value: 'distributed', modality: 'accidental' });
+      const result = await propertyService.detectEmergence('system-emergence', 'coordination', ['part-emergence-a', 'part-emergence-b']);
+      assert.equal(result.status, 'candidate');
+      assert.equal(result.candidateType, 'weak');
+      assert.equal(result.metaphysicalClaimEstablished, false);
+    });
     await test('defineMode sets execution modes', async () => {
       await ontologyService.defineMode('agent-1', 'localRuntime', { constraint: 'possible' });
       const mode = await ontologyService.getMode('agent-1', 'localRuntime');
@@ -106,12 +128,12 @@ async function main() {
       assert.strictEqual(i.target, 'mission-42');
     });
     test('checkSupervenience evaluates supervenience relation', () => {
-      const result = consciousnessService.checkSupervenience({ mentalState: { strategy: 'tree-search' }, physicalState: { cpu: 'x86', memory: '8GB' } });
-      assert.strictEqual(typeof result.supervenes, 'boolean'); assert.ok(result.physicalBase); assert.ok(result.mentalState);
+      const result = consciousnessService.checkSupervenience({ mentalState: { strategy: 'tree-search' }, physicalState: { cpu: 'x86' } });
+      assert.equal(result.status, 'insufficient_comparison');
     });
     test('mindBodyInteraction records coupling', () => {
       const mb = consciousnessService.mindBodyInteraction({ agentId: 'agent-1', body: 'workspace-alpha', interaction: 'causal' });
-      assert.strictEqual(mb.interaction, 'causal');
+      assert.equal(mb.interaction, 'causal');
     });
     console.log('\n=== Epistemology Service ===');
     test('getFormIdeal returns Platonic forms', () => {

@@ -221,12 +221,12 @@ Les mappings doivent rester explicitement qualifiés :
 
 | Famille | Mapping actuel ou envisageable | Niveau |
 | --- | --- | --- |
-| Qualia | `consciousnessService.recordQualia` | Partiel |
-| Intentionnalité | `consciousnessService.recordIntentionality` | Partiel |
-| Supervenience | `propertyService`, `property_supervenience` | Partiel |
-| Émergence | `emergent_properties` | Partiel |
+| Qualia | `consciousnessService.recordQualia` | Implémenté comme rapport structuré, sans accès phénoménal |
+| Intentionnalité | `phenomenologyService.intentionality` | Implémenté comme acte et cible déclarés |
+| Supervenience | `consciousnessService.checkSupervenience`, `propertyService` | Implémenté comme comparaison bornée d'états |
+| Émergence | `propertyService.assessEmergence` | Implémenté comme détection d'une nouveauté candidate |
 | Identité | `ontology_identity_events` | Implémenté pour la continuité runtime |
-| Substance esprit/corps | `ontology_beings`, services cartésiens | Partiel |
+| Substance esprit/corps | `consciousnessService.mindBodyInteraction`, `cartesianService` | Implémenté comme comparaison de modèles |
 | Esprit étendu | workspace, mémoire et outils | Cadre conceptuel |
 | ToM et empathie | modèles d'agents et tests cognitifs | Planifié |
 | IIT | métriques d'intégration à définir | Cadre conceptuel |
@@ -234,6 +234,13 @@ Les mappings doivent rester explicitement qualifiés :
 Un mapping opérationnel ne signifie pas que l'analogie philosophique est résolue.
 Il indique seulement qu'une structure ou une expérience logicielle peut être
 associée au concept.
+
+Dans ce registre, `implemented` signifie que l'adaptateur borné existe et est
+testable. Le rapport de qualia reste une étiquette fournie par l'agent ; une
+comparaison de supervenience n'établit pas une loi ; l'absence d'une propriété
+chez des constituants échantillonnés ne prouve pas l'émergence forte ; le modèle
+esprit-corps est descriptif. Aucun de ces adaptateurs ne conclut que GenOS a une
+expérience subjective ou une substance mentale.
 
 ## 5. Architecture technique
 
@@ -271,4 +278,3 @@ Avant publication d'un concept ou d'une relation :
 - Elle ne permet pas d'inférer qu'un agent souffre à partir d'un score de valence.
 - Toute assertion sur une conscience artificielle doit conserver son niveau de
   preuve et sa provenance.
-

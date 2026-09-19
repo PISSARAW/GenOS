@@ -24,7 +24,14 @@ const qualiaCatalog = {
   perceptual: ['appearance', 'illusion', 'hallucination', 'perception', 'recognition', 'misperception'],
 };
 
-function recordQualia({ agentId, experience, intensity = 1.0, valence = 0 }) {
+function finiteBounded(value, bounds) {
+  const [min, max, fallback] = bounds;
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+}
+
+function recordQualia(input = {}) {
+  const { agentId, experience, intensity = 1.0, valence = 0 } = input;
   if (!agentId || !experience) {
     throw new Error('consciousnessService.recordQualia requires agentId and experience');
   }
@@ -32,10 +39,11 @@ function recordQualia({ agentId, experience, intensity = 1.0, valence = 0 }) {
     agentId,
     timestamp: Date.now(),
     experience,
-    intensity: Math.max(0, Math.min(1, intensity)),
-    valence: Math.max(-1, Math.min(1, valence)),
-    qualiaType: 'phenomenal_quality',
-    whatItIsLike: experience, // Nagel : what-is-it-like
+    intensity: finiteBounded(intensity, [0, 1, 1]),
+    valence: finiteBounded(valence, [-1, 1, 0]),
+    qualiaType: 'reported_phenomenal_quality',
+    reportBasis: 'agent_supplied_label',
+    phenomenalAccess: 'unassessed',
   };
 }
 
@@ -67,6 +75,8 @@ function recordIntentionality({ agentId, target, mode = 'aboutness' }) {
       asItAppears: `comme ${mode}`,
     },
     timestamp: Date.now(),
+    reportBasis: 'structured_target_reference',
+    subjectiveAwareness: 'unassessed',
     brentanoMark: 'intentional_inexistence', // Brentano : l'objet est "inexistant" dans l'acte
     husserlStructure: 'noesis-noema',
   };
@@ -83,22 +93,31 @@ function recordIntentionality({ agentId, target, mode = 'aboutness' }) {
  */
 function checkSupervenience(options = {}) {
   const { mentalState, physicalState } = options;
-  const mentalA = options.mentalStateA || mentalState;
-  const mentalB = options.mentalStateB || mentalState;
-  const physicalA = options.physicalStateA || physicalState;
-  const physicalB = options.physicalStateB || physicalState;
-  if (!mentalA || !physicalA) {
+  const mentalA = options.mentalStateA ?? mentalState;
+  const mentalB = options.mentalStateB;
+  const physicalA = options.physicalStateA ?? physicalState;
+  const physicalB = options.physicalStateB;
+  if (mentalA === undefined || physicalA === undefined) {
     throw new Error('consciousnessService.checkSupervenience requires mentalState and physicalState');
   }
-  const physicalSame = hashState(physicalA) === hashState(physicalB);
-  const mentalSame = hashState(mentalA) === hashState(mentalB);
+  if (mentalB === undefined || physicalB === undefined) {
+    return { supervenes: null, status: 'insufficient_comparison', evidenceStatus: 'single_observation', limitation: 'Une observation ne teste pas l’invariance entre bases physiques.' };
+  }
+  const physicalHashA = hashState(physicalA);
+  const physicalHashB = hashState(physicalB);
+  const mentalHashA = hashState(mentalA);
+  const mentalHashB = hashState(mentalB);
+  const physicalSame = physicalHashA === physicalHashB;
+  const mentalSame = mentalHashA === mentalHashB;
+  const counterexampleObserved = physicalSame && !mentalSame;
   return {
-    supervenes: physicalSame && mentalSame,
-    physicalBase: { physicalStateA: physicalA, physicalStateB: physicalB },
-    mentalState: { mentalStateA: mentalA, mentalStateB: mentalB },
-    supervenienceClaim: physicalSame && mentalSame
-      ? 'Le mental dépend du physique — pas de différence mentale sans différence physique (Davidson, Kim).'
-      : 'Supervenience violée : différence psychologique sans différence physique (si réel).',
+    supervenes: !counterexampleObserved,
+    status: counterexampleObserved ? 'counterexample_observed' : 'no_counterexample_observed',
+    evidenceStatus: 'bounded_state_comparison',
+    candidateOnly: true,
+    physicalBase: { hashA: physicalHashA, hashB: physicalHashB, same: physicalSame },
+    mentalState: { hashA: mentalHashA, hashB: mentalHashB, same: mentalSame },
+    limitation: 'Une comparaison logicielle ne prouve pas la supervenience métaphysique.'
   };
 }
 
@@ -116,7 +135,7 @@ function mindBodyInteraction({ agentId, body, interaction = 'causal' }) {
   if (!agentId || !body) {
     throw new Error('consciousnessService.mindBodyInteraction requires agentId and body');
   }
-  const validInteractions = new Set(['causal', 'epiphenomenal', 'parallel', 'interactionist']);
+  const validInteractions = new Set(['causal', 'cartesian', 'epiphenomenal', 'parallel', 'interactionist']);
   if (!validInteractions.has(interaction)) {
     throw new Error(`consciousnessService.mindBodyInteraction invalid interaction: ${interaction}`);
   }
@@ -125,6 +144,8 @@ function mindBodyInteraction({ agentId, body, interaction = 'causal' }) {
     body, // res extensa (Descartes)
     interaction,
     timestamp: Date.now(),
+    mappingStatus: 'descriptive_model',
+    metaphysicalClaimEstablished: false,
   };
   switch (interaction) {
     case 'cartesian':
@@ -154,22 +175,7 @@ function mindBodyInteraction({ agentId, body, interaction = 'causal' }) {
 }
 
 function hashState(state) {
-  if (typeof state === 'string') return hashString(state);
-  if (state === null || state === undefined) return hashString('null');
-  try {
-    return hashString(JSON.stringify(state, Object.keys(state).sort()));
-  } catch (_) {
-    return 'unhashable';
-  }
-}
-
-function hashString(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash + char) | 0;
-  }
-  return (hash >>> 0).toString(16);
+  return require('./stateFingerprint').fingerprint(state);
 }
 
 module.exports = {

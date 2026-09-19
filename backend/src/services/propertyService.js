@@ -4,6 +4,7 @@
 
 const { getDatabase } = require('../db');
 const { getBeing, getAttributes, setAttribute } = require('./ontologyService');
+const { fingerprint } = require('./stateFingerprint');
 
 const PROPERTY_TYPES = [
   'categorical',      // Propriétés catégoriques (qualités intrinsèques)
@@ -58,6 +59,7 @@ async function registerProperty(agentId, propertyKey, options = {}) {
     intrinsic,
     registeredAt: new Date().toISOString()
   };
+  let supervenienceObservation = null;
 
   await setAttribute({
     agentId,
@@ -68,7 +70,7 @@ async function registerProperty(agentId, propertyKey, options = {}) {
 
   // Si supervenante, enregistrer la relation de supervenience
   if (supervenienceBase) {
-    await recordSupervenience(agentId, propertyKey, supervenienceBase);
+    supervenienceObservation = await recordSupervenience(agentId, propertyKey, supervenienceBase);
   }
 
   // Si dispositionnelle, enregistrer le profil dispositionnel
@@ -76,7 +78,7 @@ async function registerProperty(agentId, propertyKey, options = {}) {
     await recordDispositionalProfile(agentId, propertyKey, dispositionalProfile);
   }
 
-  return { agentId, propertyKey, ...propertyData };
+  return { agentId, propertyKey, ...propertyData, supervenienceObservation, metaphysicalClaimEstablished: false };
 }
 
 // // Supervenience (Kim/Davidson) : propriétés mentales superviennent sur base physique. // // Pas de différence mentale sans différence physique. // // /
@@ -94,9 +96,8 @@ async function recordSupervenience(agentId, supervenientProperty, base) {
   );
 
   // Vérifier le principe de supervenience : même base → même propriété
-  await verifySupervenience(agentId, supervenientProperty, base);
-
-  return { agentId, supervenientProperty, base, verified: true };
+  const observation = await verifySupervenience(agentId, supervenientProperty, base);
+  return { agentId, supervenientProperty, base, recorded: true, observation, metaphysicalClaimEstablished: false };
 }
 
 // // Vérifie la supervenience : même base physique → même propriété mentale. // // /
@@ -108,20 +109,20 @@ async function verifySupervenience(agentId, propertyKey, baseType) {
   const baseAttr = await getAttributes(agentId).then(a => a[baseKey]);
   const supervenientAttr = await getAttributes(agentId).then(a => a[propertyKey]);
 
-  if (!baseAttr || !supervenientAttr) return { verified: false, reason: 'missing_attributes' };
+  if (!baseAttr || !supervenientAttr) return { comparable: false, reason: 'missing_attributes', evidenceStatus: 'insufficient' };
 
   // Enregistrer la correspondance base→supervenant
   await db.run(
     `INSERT OR REPLACE INTO supervenience_mappings (agent_id, base_hash, supervenient_hash, property_key, base_type, verified_at)
      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
     agentId,
-    hashValue(baseAttr.value),
-    hashValue(supervenientAttr.value),
+    fingerprint(baseAttr.value),
+    fingerprint(supervenientAttr.value),
     propertyKey,
     baseType
   );
 
-  return { verified: true, baseHash: hashValue(baseAttr.value), supervenientHash: hashValue(supervenientAttr.value) };
+  return { comparable: true, baseHash: fingerprint(baseAttr.value), supervenientHash: fingerprint(supervenientAttr.value), evidenceStatus: 'single_mapping', metaphysicalClaimEstablished: false };
 }
 
 function getBasePropertyKey(baseType) {
@@ -132,12 +133,6 @@ function getBasePropertyKey(baseType) {
     'biological': 'biological_state'
   };
   return map[baseType] || 'physical_state';
-}
-
-function hashValue(value) {
-  const crypto = require('crypto');
-  const str = typeof value === 'string' ? value : JSON.stringify(value, Object.keys(value).sort());
-  return crypto.createHash('sha256').update(str).digest('hex').slice(0, 16);
 }
 
 // // Propriétés dispositionnelles (Shoemaker/Bird) : pouvoirs causaux. // // Une propriété dispositionnelle = tendance à manifester certains effets dans certaines conditions. // // /
@@ -213,6 +208,9 @@ async function registerEmergentProperty(agentId, propertyKey, options = {}) {
     irreducibilityProof = null,  // Preuve d'irreductibilité
     downwardCausation = false    // Causalité descendante
   } = options;
+  const allowedTypes = ['weak', 'strong', 'synergistic'];
+  if (!allowedTypes.includes(emergenceType)) throw new Error(`Invalid emergenceType: ${emergenceType}`);
+  if (!Array.isArray(constituentProperties)) throw new Error('constituentProperties must be an array.');
 
   const propertyData = {
     propertyType: 'emergent',
@@ -221,12 +219,15 @@ async function registerEmergentProperty(agentId, propertyKey, options = {}) {
     registeredAt: new Date().toISOString()
   };
 
-  await setAttribute({
-    agentId,
-    key: propertyKey,
-    value: propertyData,
-    modality: 'essential' // Propriétés émergentes souvent essentielles au système
-  });
+  const currentAttributes = await getAttributes(agentId);
+  if (!currentAttributes[propertyKey]) {
+    await setAttribute({
+      agentId,
+      key: propertyKey,
+      value: propertyData,
+      modality: 'essential' // Propriétés émergentes souvent essentielles au système
+    });
+  }
 
   const db = await getDb();
   await db.run(
@@ -241,12 +242,14 @@ async function registerEmergentProperty(agentId, propertyKey, options = {}) {
     downwardCausation ? 1 : 0
   );
 
-  return { agentId, propertyKey, ...propertyData };
+  return { agentId, propertyKey, ...propertyData, evidenceStatus: 'registered_claim', metaphysicalClaimEstablished: false };
 }
 
 // // Détecte l'émergence : propriété présente au niveau système mais absente des composants. // // /
 async function detectEmergence(agentId, systemPropertyKey, constituentIds) {
-  const db = await getDb();
+  if (!agentId || !systemPropertyKey || !Array.isArray(constituentIds) || constituentIds.length === 0) {
+    throw new Error('detectEmergence requires agentId, systemPropertyKey, and at least one constituent.');
+  }
 
   // Vérifier que la propriété système existe
   const systemAttr = await getAttributes(agentId).then(a => a[systemPropertyKey]);
@@ -262,14 +265,18 @@ async function detectEmergence(agentId, systemPropertyKey, constituentIds) {
   if (absentFromAll) {
     await registerEmergentProperty(agentId, systemPropertyKey, {
       constituentProperties: constituentIds,
-      emergenceType: 'strong',
+      emergenceType: 'weak',
       systemicFunction: 'system_level_coordination',
-      irreducibilityProof: 'absent_from_all_constituents'
+      irreducibilityProof: null
     });
-    return { emergent: true, type: 'strong', reason: 'absent_from_constituents' };
+    return { emergent: true, candidateType: 'weak', status: 'candidate', evidenceStatus: 'sampled_absence', constituentCount: constituentIds.length, metaphysicalClaimEstablished: false };
   }
 
-  return { emergent: false, reason: 'present_in_constituents' };
+  return { emergent: false, candidateType: null, reason: 'present_in_sampled_constituents', evidenceStatus: 'sampled_presence', constituentCount: constituentIds.length, metaphysicalClaimEstablished: false };
+}
+
+async function assessEmergence(input = {}) {
+  return detectEmergence(input.agentId, input.systemPropertyKey, input.constituentIds);
 }
 
 // // Propriétés catégoriques vs dispositionnelles (Bird/Shoemaker). // // Catégorique = qualité intrinsèque ; Dispositionnelle = pouvoir causal. // // /
@@ -372,6 +379,7 @@ module.exports = {
   testDispositionManifestation,
   registerEmergentProperty,
   detectEmergence,
+  assessEmergence,
   classifyProperty,
   getCausalPowers,
   checkPropertyIdentity,

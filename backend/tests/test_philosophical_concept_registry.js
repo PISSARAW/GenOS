@@ -50,8 +50,14 @@ const qualia = normalizeConcept({
   ...CONCEPT_DEFINITIONS.find((item) => item.id === 'metaphysics.qualia')
 });
 assert.equal(qualia.serviceMaturity.service, 'consciousnessService');
-assert.equal(qualia.serviceMaturity.level, 'partial');
+assert.equal(qualia.serviceMaturity.level, 'implemented');
 assert.equal(qualia.serviceMaturity.executable, true);
+
+for (const id of ['metaphysics.reference-intentionality', 'metaphysics.supervenience', 'metaphysics.emergence', 'metaphysics.mind-body']) {
+  const concept = normalizeConcept({ ...CONCEPT_DEFINITIONS.find((item) => item.id === id) });
+  assert.equal(concept.status, 'implemented', `${id} should expose its bounded adapter`);
+  assert.equal(concept.serviceMaturity.level, 'implemented', `${id} should have implementation evidence`);
+}
 
 const invalid = validateRegistry([{ ...CONCEPT_DEFINITIONS[0], id: 'Invalid ID' }]);
 assert.equal(invalid.valid, false);
