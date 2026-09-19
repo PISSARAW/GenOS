@@ -48,6 +48,15 @@ const suites = {
   ],
   concurrency: [
     ['seed concurrency', 'test_seed_concurrency.js']
+  ],
+  epistemicScheduler: [
+    ['active task fingerprints', 'test_epistemic_scheduler_active_registry.js'],
+    ['independent redundancy', 'test_epistemic_scheduler_redundancy.js'],
+    ['novelty allocation', 'test_epistemic_scheduler_novelty.js'],
+    ['counterexample propagation', 'test_epistemic_scheduler_counterexample.js'],
+    ['Pareto budget reallocation', 'test_epistemic_scheduler_budget.js'],
+    ['mathematical dependency graph', 'test_epistemic_scheduler_mathematical_graph.js'],
+    ['incremental Lean gate', 'test_epistemic_scheduler_lean_gate.js']
   ]
 };
 
@@ -60,7 +69,8 @@ suites.all = [
   ...suites.migration,
   ...suites.recovery,
   ...suites.providers,
-  ...suites.concurrency
+  ...suites.concurrency,
+  ...suites.epistemicScheduler
 ];
 
 function runSuite(profile) {

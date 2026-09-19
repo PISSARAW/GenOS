@@ -16,6 +16,7 @@
     "test:recovery": "node tests/run_validation_suite.js recovery",
     "test:providers": "node tests/run_validation_suite.js providers",
     "test:concurrency": "node tests/run_validation_suite.js concurrency",
+    "test:epistemic-scheduler": "node tests/run_validation_suite.js epistemicScheduler",
     "test:grpc": "node tests/test_grpc_services.js",
     "test:bench": "node tests/stress/test_framework_adversarial_bench.js",
     "test:tokens-comm": "node tests/stress/test_extreme_tokens_and_comm_bench.js",

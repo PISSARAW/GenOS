@@ -84,6 +84,29 @@ une exportation structurée `genos.mathematical-dependency-graph/v1`. Il peut ê
 construit directement à partir de résultats `genos.formal-result/v1` ; leurs
 dépendances deviennent alors des arêtes, sans passer par un résumé textuel.
 
+## Vérification Lean incrémentale
+
+`LeanIncrementalGate` n'ouvre un lemme ou un théorème que lorsque tous ses
+prérequis possèdent un reçu Lean réussi. Le nœud doit être `formalized`; un succès
+le passe à `verified`, tandis qu'un échec le place à `blocked` et ferme la frontière
+de ses descendants.
+
+Le gate refuse avant exécution les placeholders `sorry` et `admit`. Il échoue aussi
+si l'exécuteur est absent, si la version du toolchain diverge ou si un axiome non
+autorisé est signalé. Chaque reçu engage par SHA-256 le source, la version Lean,
+l'environnement, les reçus parents, les axiomes et l'horodatage.
+
+`executeLeanCheck` fournit l'exécuteur local : il vérifie d'abord `lean --version`,
+compile le source dans un répertoire temporaire isolé, puis détruit ce répertoire.
+Le scheduler exige une version épinglée ; il ne transforme jamais l'absence de Lean
+en succès simulé.
+
+La suite complète s'exécute avec :
+
+```bash
+npm --prefix backend run test:epistemic-scheduler
+```
+
 ## Voir aussi
 
 - [ADR 0031](../adr/0031-scheduler-epistemique-mathematique.md)
