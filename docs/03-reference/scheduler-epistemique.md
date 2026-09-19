@@ -47,6 +47,18 @@ fois par passe, et des agents peuvent être réservés aux vérifications indép
 Les scores et leurs composantes sont retournés pour audit ; ils ne sont jamais
 présentés comme une probabilité de vérité.
 
+## Propagation des contre-exemples
+
+`CounterexamplePropagator` utilise l'index inverse des dépendances pour atteindre
+immédiatement tous les descendants d'un nœud réfuté. Un recouvrement de domaine
+explicite invalide le descendant ; un domaine explicitement disjoint reste actif ;
+une relation de domaine inconnue suspend le descendant en attente d'une preuve
+d'applicabilité.
+
+Chaque transition publie un événement horodaté lié au résultat de contre-exemple.
+Cette propagation ne transforme donc jamais une incertitude de domaine en
+réfutation automatique.
+
 ## Voir aussi
 
 - [ADR 0031](../adr/0031-scheduler-epistemique-mathematique.md)

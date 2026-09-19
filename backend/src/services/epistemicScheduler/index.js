@@ -4,5 +4,10 @@ const { ActiveTaskRegistry } = require('./activeTaskRegistry');
 const { canonicalTask, taskFingerprint } = require('./taskFingerprint');
 const independence = require('./independencePolicy');
 const novelty = require('./noveltyAllocator');
+const { DependencyIndex } = require('./dependencyIndex');
+const counterexamples = require('./counterexamplePropagation');
 
-module.exports = { ActiveTaskRegistry, canonicalTask, taskFingerprint, ...independence, ...novelty };
+module.exports = {
+  ActiveTaskRegistry, DependencyIndex, canonicalTask, taskFingerprint,
+  ...independence, ...novelty, ...counterexamples,
+};
