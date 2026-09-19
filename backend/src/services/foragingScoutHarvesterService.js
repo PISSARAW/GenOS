@@ -17,6 +17,17 @@ class ForagingScoutHarvesterService {
     this.envMeanReturnRate = options.envMeanReturnRate || 0.35; // Seuil theta de Charnov
     this.levyExponent = options.levyExponent || 2.0; // mu dans [1, 3]
     this.pheromoneLedger = new Map();
+    this.adaptivePersister = null;
+  }
+
+  setAdaptivePersister(persister) {
+    if (!persister || !persister.makePersistentMap) return;
+    this.adaptivePersister = persister;
+    this.pheromoneLedger = persister.makePersistentMap(
+      'foraging',
+      'pheromones',
+      this.pheromoneLedger
+    );
   }
 
   /**
