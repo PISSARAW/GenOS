@@ -7,6 +7,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [outils-mcp.md](outils-mcp.md) — catalogue d'outils, leases, gating, permissions.
 - [persistance-et-donnees.md](persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
 - [resultats-formels-messagepack.md](resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.
+- [scheduler-epistemique.md](scheduler-epistemique.md) — ordonnancement par empreinte, nouveauté, dépendances, preuve et budget.
 - [modeles-et-providers.md](modeles-et-providers.md) — providers, routing, coûts, local/remote.
 - [integrations-ide.md](integrations-ide.md) — contrat IDE `genos.ide/v1`.
 - [preuves-produit-et-safe-debugging.md](preuves-produit-et-safe-debugging.md) — preuves backend et safe debugging.
