@@ -38,7 +38,7 @@ capacités requises + un profil (preuve, mémoire, budget, communication, moteur
 | **Syncytium** | `syncytiumCoordinationService` | session CRDT partagée (`syncytiumCrdtService`), cytoplasme ionique (`syncytiumCytoplasmService`), verdict de cohérence (invariants + potentiel de membrane). |
 | **Holobionte** | `holobionteCoordinationService` | hôte autorité + symbiotes en inférence **locale** (`symbioteRuntimeService.engineFor`), veto immunitaire de l'hôte (`chaperoneAgentOutput`/`evaluateCognitiveDrift`). |
 | **Métapopulation** | `metapopulationCoordinationService` | quorum pondéré, plasticité des connexions, plan de régénération (lignage/mémoire/cryptobiose). |
-| **Rhizome** | `rhizomeCoordinationService` | maille de capacités (`routeToCapability`), stigmergie (`swarmStigmergyVectorService`), cohérence Kuramoto. |
+| **Rhizome** | `rhizomeCoordinationService` | session et membres composés ; `routeToCapability` cherche parmi ces membres (ce n'est pas un routage de graphe) ; traces stigmergiques (`swarmStigmergyVectorService`), cohérence Kuramoto et pas Physarum sur les arêtes fournies par l'appelant. Pas de création automatique de branches ni de graphe de routes. |
 | **Biome** | `biomeCoordinationService` | allocation écologique des ressources, foraging optimal Charnov/Lévy (`foragingScoutHarvesterService`), santé d'écosystème (`swarmMetricsService`). |
 
 Le point d'entrée unique est `biologicalTopologyService.composeMode({ db, orchestratorId, mode, mission })` : il route chaque mode vers son service, applique l'organisation recommandée et renvoie `members`, `organization`, `capabilityContract`, et le cas échéant `sessionId`.

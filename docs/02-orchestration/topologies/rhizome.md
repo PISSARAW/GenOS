@@ -4,6 +4,8 @@
 
 Rhizome dans GenOS est un mode d'orchestration qui fait croître une mission comme un **réseau décentralisé de capacités reliées par des ponts locaux**. Au lieu de construire une hiérarchie fixe ou de répartir la mission dans des branches isolées, Rhizome ajoute des points de coordination là où le réseau rencontre un manque, une frontière ou une nouvelle dépendance.
 
+**État du code :** cette définition décrit la cible conceptuelle. Le runtime compose actuellement quatre membres fixes et fournit une session, des traces stigmergiques, une recherche de membre par rôle/capacité, une mesure de cohérence et un pas Physarum sur une liste d'arêtes passée à l'appel. Il ne construit ni ne fait croître automatiquement un graphe de branches et de routes. Les garanties et algorithmes décrits ci-dessous sont donc des contrats ou propositions de conception lorsqu'ils ne sont pas explicitement reliés à ces opérations concrètes.
+
 Le concept vient du rhizome biologique : une structure souterraine qui ne possède pas un centre unique et peut produire de nouvelles pousses à partir de plusieurs points. Dans GenOS, une mission peut donc se développer depuis plusieurs points d'entrée. Une capacité locale peut devenir un nouveau nœud, un pont peut changer de route, et une défaillance locale ne doit pas détruire la totalité du réseau.
 
 Les quatre rôles exposés par le mode sont :
@@ -17,7 +19,7 @@ Le principe collectif déclaré par le code est :
 
 > « A decentralized collective that grows new coordination points wherever capability is needed. »
 
-La définition et la composition sont portées par [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js), tandis que la coordination concrète est assurée par [rhizomeCoordinationService.js](../../../backend/src/services/rhizomeCoordinationService.js). Les opérations d'exécution, de budget, de reprise et de preuve restent partagées avec les services génériques d'orchestration.
+La définition et la composition sont portées par [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js), tandis que les opérations concrètes de session sont assurées par [rhizomeCoordinationService.js](../../../backend/src/services/rhizomeCoordinationService.js). Ce service persiste et réhydrate les sessions, dépose des traces, cherche un membre composé correspondant à un rôle ou une capacité, calcule la cohérence Kuramoto et délègue un pas Physarum. `routeToCapability` n'établit pas de chemin dans un graphe : il effectue une recherche dans la liste des membres. Les opérations d'exécution, de budget, de reprise et de preuve restent partagées avec les services génériques d'orchestration.
 
 ---
 
@@ -628,7 +630,7 @@ Deux Offshoots peuvent découvrir la même capacité. Le Scout doit comparer les
 
 ### Limite du contrat actuel
 
-Le dépôt expose le mode, ses quatre rôles et leurs hypothèses dans `biologicalModeService.js`, mais pas encore un service Rhizome spécialisé pour matérialiser le graphe, les routes ou la croissance. Cette documentation distingue donc le contrat actuellement garanti des mécanismes d'exécution proposés.
+Le dépôt expose le mode, ses quatre rôles et un service spécialisé pour les sessions, les traces, la recherche de membres et le pas Physarum. En revanche, il ne matérialise pas encore le graphe Rhizome décrit ici : pas de création de branches à la détection d'une lacune, de ponts entre branches, de calcul de routes dans un graphe, ni de boucle de croissance/réévaluation. Les limites de croissance, de fan-out, les vérifications de routes et les garanties de reprise décrites dans cette page restent des exigences de conception, sauf lorsqu'une opération du service est explicitement citée.
 
 ---
 
