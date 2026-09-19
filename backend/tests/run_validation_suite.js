@@ -32,6 +32,7 @@ const suites = {
   ],
   migration: [
     ['MsgPack migration', 'test_msgpack_migration.js'],
+    ['formal result MessagePack contract', 'test_formal_result_contract.js'],
     ['legacy migration', 'test_legacy_migration_ambiguity.js'],
     ['notification migration', 'test_notification_preference_migration.js']
   ],
