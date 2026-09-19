@@ -70,6 +70,12 @@ Les modules suivants implémentent le schéma de transport inter-agents décrit 
 - `backend/src/db/schema-next.js` — migration v45 : tables `signal_blobs`, `signal_subs`, indexes, enregistrée dans le registre des migrations (021-signal-transport) via `backend/src/db/migrations/migrateSignalTransport.js`
 - `backend/src/services/mcpBioTools/handlers/signalTransport.js` — 7 handlers MCP : genos_signal_publish, genos_signal_read, genos_signal_purge, genos_signal_electrocyte_vote, genos_signal_chemotactic_follow, genos_signal_plasmid_transfer, genos_signal_collective_decision
 
+Les outils de signalisation dédiés et les notifications émises par certains
+handlers sont deux chemins différents. L'assimilation plasmidique garde son
+opération Rust locale ; avec `orchestrator_id`, elle publie seulement
+l'identifiant du plasmide assimilé et l'agent receveur dans l'inbox. Le signal
+ne transporte ni le code plasmidique ni une capacité exécutable.
+
 Schéma d'architecture transport :
 
 ```
