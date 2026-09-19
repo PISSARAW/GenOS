@@ -1,6 +1,6 @@
 # Biomimicry Handlers — Récapitulatif des 39 primitives
 
-> Statut : toutes les primitives listées dans le diagramme runtime-agentique.md §5 sont implémentées dans `backend/src/services/mcpBioTools/handlers/`. Le schéma de transport inter-agents zero-texte (`biomimeticSignalingBus.js`, `mcpLigandReceptorService.js`) est implémenté et branché à la couche de transport persistante (`signalingTransportService.js`, migration v45 signal_blobs/signal_subs). AgentCollaborativeDecisionMakingService orchestre les décisions collectives. C'est du progressed spec/open-code, pas du produit fermé.
+> Statut : les handlers listés dans le diagramme runtime-agentique.md §5 sont présents dans `backend/src/services/mcpBioTools/handlers/`. Le transport zero-texte passe par la publication inter-agents de l'organisation ; le handler de stigmergie publie aussi les dépôts en signaux quand `orchestrator_id` est fourni. Les autres opérations locales ne convertissent pas automatiquement leurs résultats en signaux.
 
 ## Dispath MCP
 
@@ -64,7 +64,7 @@ Les modules suivants implémentent le schéma de transport inter-agents décrit 
 
 - `backend/src/services/biomimeticSignalingBus.js` — types de signal (SIGNAL_TYPES : LIGAND, VOLTAGE, PHEROMONE, PLASMID, TENSOR, TEXT), évaluation ligand-récepteur, consensus électrocyte + Kuramoto, gradient chimiotactique, formatage pour transport
 - `backend/src/services/mcpLigandReceptorService.js` — récepteurs catalytiques par outil MCP, cnidocyte reflex (détection de toxine <3µs), seuils Gibbs free energy ΔG
-- `backend/src/services/signalingTransportService.js` — persistance des signaux zero-texte dans `signal_blobs` (SQLite WAL), diffusion locale via Map, abonnements (`signal_subs`), nettoyage TTL, readSignalsForAgent/markSignalsSeen, routage collectif via collectiveSignalOrganizationRouter
+- `backend/src/services/signalingTransportService.js` — persistance des signaux zero-texte dans `signal_blobs` (SQLite WAL), diffusion immédiate via une Map locale au processus, abonnements (`signal_subs`), nettoyage TTL, readSignalsForAgent/markSignalsSeen, routage collectif via collectiveSignalOrganizationRouter. SQLite conserve les lignes ; aucun mécanisme de notification ou de diffusion inter-instance n'est implémenté.
 - `backend/src/services/collectiveSignalOrganizationRouter.js` — routage des signaux zero-texte vers organisations et orchestrateurs, extraction de topic par préfixe SIGNAL_TOPIC_PREFIXES, distribution multi-recipients
 - `backend/src/services/agentCollaborativeDecisionMakingService.js` — décision collective électrocyte (vote par potentiel de membrane), suivi chimiotactique (gradient phéromones), transfert plasmid HGT, orchestrateur multi-topologie
 - `backend/src/db/schema-next.js` — migration v45 : tables `signal_blobs`, `signal_subs`, indexes, enregistrée dans le registre des migrations (021-signal-transport) via `backend/src/db/migrations/migrateSignalTransport.js`
@@ -94,13 +94,12 @@ Clients (Agents / Orchestrateur / CLI / REST)
       → handler.error(e) en cas d'exception
 ```
 
-Tous les 91 outils MCP enregistrés dans `backend/src/db/seedTools.js` sont dispatchables via ce schéma. Les 39 handlers biomimétiques sont les plus nombreux, couvrant neurobiologie, génétique, temporalité, écologie, résilience et security.
+Les outils biomimétiques sont dispatchés via ce schéma. Les handlers couvrent neurobiologie, génétique, temporalité, écologie, résilience et sécurité ; ceux qui exécutent une opération locale conservent leur transport local.
 
 ## Limites
 
-- **Transport zero-texte implémenté mais non-branché aux handlers existants** : les 39 handlers utilisent encore `runGenosSync` (CLI Rust local) pour l'exécution. Les signaux zero-texte peuvent être publiés via `signalingTransportService.publishSignal()` mais les handlers ne les utilisent pas nativement — c'est une couche parallèle implémentée mais non-intégrée.
-- **Persistance SQLite uniquement** : pas de Redis pub/sub, pas de broadcast cluster-wide au-delà du processus Node local. Le transport est local au processus backend.
+- **Intégration sélective** : `genos_worker_publish` stocke les signaux dans le canal de l'organisation et le handler `stigmergy` peut publier ses traces comme phéromones avec `orchestrator_id`. Les autres handlers n'émettent pas automatiquement leurs résultats sur ce transport.
+- **Portée de diffusion** : la diffusion immédiate via `LOCAL_BROADCAST_LOG` est limitée au processus Node courant. Les signaux persistés dans SQLite peuvent être relus par un processus qui accède à la même base, mais il n'existe ni notification inter-processus, ni mécanisme de livraison cluster-wide ; la persistance partagée ne constitue donc pas une diffusion entre instances.
 - **Registres en mémoire** : la plupart des handlers utilisent des `Map` module-level (ex: `FETUS_REGISTRY`, `DIAPAUSE_REGISTRY`) perdus au redémarrage.
 - **Pas de persistance relationnelle cross-agent** : `crossAgentRelationalPrimitives.js` est mentionné dans le spec mais n'existe pas encore — les relations chimeriques, jumeaux, plasmides sont en mémoire.
 - **Codex local requis** : les handlers appellent `genos biomimicry ...` via `runGenosSync` — si le binaire Rust n'est pas disponible, les handlers retournent `tool_error`.
-- **Aucune intégration agents→transport dans les handlers existants** : les 39 fichiers handlers ne publient pas de signaux zero-texte — ils utilisent le CLI Rust. La couche transport est disponible mais non-consommée par les handlers actuels.
