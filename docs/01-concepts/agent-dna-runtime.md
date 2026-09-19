@@ -112,11 +112,11 @@ flowchart TB
 ## 7. Architecture technique
 
 - **Cœur Rust — crate `genos-dna`** — socle des opérations génomiques
-  - `operations.rs` : `cross`, `mutate`, `clone_dna`, `decoy`, `graft`, `speciate`.
+  - `operations.rs` : `inject`, `cross`, `mutate`, `clone_dna`, `decoy`, `graft`, `speciate`.
   - `compile.rs` : manifeste → ADN ; `express.rs` : ADN → phénotype ; `validate.rs`.
   - `sign.rs` : Ed25519 (keygen, sign, verify).
   - Dépend de `genos-genome` (identité, chromatine, `derive_child`/`derive_reproductive_child`, `validate`, `content_hash`) et `genos-reproduction` (`crossover`, `division`, `phylogeny`).
-  - Il existe un socle Rust d'opérations génomiques (`cross`, `mutate`, `clone_dna`, `graft`, `speciate`, `decoy`, `express`, `validate`) et de reproduction (`Genome::derive_child`, `Genome::derive_reproductive_child`, `CellDivision`, `MeioticCrossover`). Ces opérations sont conçues pour être invoquées de façon **autonome** par un agent/cellule : un agent peut se reproduire (birth), recevoir un plasmide (inject), se faire croiser, muter, cloner, greffer, spécier, sans intervention humaine. Cela dit, le cas d'usage principal documenté reste l'usage piloté par l'orchestrateur ou l'opérateur ; l'autonomie génomique est un pouvoir donné au runtime, pas le scénario par défaut documenté.
+  - Il existe un socle Rust d'opérations génomiques (`inject`, `cross`, `mutate`, `clone_dna`, `graft`, `speciate`, `decoy`, `express`, `validate`) et de reproduction (`Genome::derive_child`, `Genome::derive_reproductive_child`, `CellDivision`, `MeioticCrossover`). `inject` prépare un phénotype exprimé pour une cible runtime ; l'application effective reste sous la responsabilité du runtime.
 
 **CLI** : `crates/genos-cli/src/commands/genome.rs`, `genome_ops.rs`, `args/genome.rs`.
 
@@ -140,13 +140,14 @@ flowchart TB
 3. `sign` : pose `PROV.signer`, signe le flux canonique, ajoute `SIGN`, flag `SIGNED`.
 4. `express` : produit le phénotype (et `PHEN` si demandé) sans modifier l'identité/hérédité.
 5. `cross`, `mutate`, `clone_dna`, `graft`, `speciate`, `decoy` : opérations génomiques avec provenance (§7 et spec/AGENT_DNA_SPEC.md §Opérations normatives).
+6. `inject` : valide l'ADN source, recalcule son phénotype et retourne un payload ciblé `{ target_agent_id, source_genome_id, phenotype }` ; l'application au runtime est hors du crate.
 
 **Opérations normatives — usage autonome vs usage piloté**
-Les opérations génomiques (`inject`, `birth`, `cross`, `mutate`, `clone`, `graft`, `speciate`, `decoy`, `express`, `validate`) sont implémentées du côté Rust et exposées par le CLI (`genos genome ...`) et les outils MCP (`genos_genome_*`). La nomacographie est cohérente :
+Les opérations génomiques (`inject`, `birth`, `cross`, `mutate`, `clone`, `graft`, `speciate`, `decoy`, `express`, `validate`) sont définies dans le cœur Rust ou dans les adaptateurs runtime. Les opérations CLI/MCP exposées varient selon le sous-ensemble décrit en §5 ; le tableau distingue leur contrat de leur disponibilité :
 
 | Opération | Entrée | Rust existant | Effet | Usage principal documenté |
 | --- | --- | --- | --- | --- |
-| `inject` | ADN + agent cible | expression §9 | remplace/complète le phénotype et la configuration d'un agent vivant | orchestration / opérateur |
+| `inject` | ADN valide + identifiant non vide de l'agent cible | `genos_dna::operations::inject` | produit un `InjectedPhenotype` lié à la cible, en recalculant l'expression depuis l'ADN | préparation d'injection runtime |
 | `birth` | ADN | `Genome::derive_child` / `derive_reproductive_child` | engendre un nouvel agent (nouveau `genome_id`, `generation+1`, `parents=[parent]`) | orchestration / opérateur |
 | `cross` | ADN A + ADN B | `MeioticCrossover::{single_point_crossover, uniform_crossover_with_seed}` | recombinaison méiotique, barrière de spéciation | orchestration / opérateur |
 | `mutate` | ADN + taux/type | `Genome::{mutate_stochastic, hypermutate}`, `crispr_cas9_knockout`, `pseudogenize`, `duplicate_gene` | mutation ponctuelle/stochastique/CRISPR | orchestration / opérateur |
@@ -157,8 +158,7 @@ Les opérations génomiques (`inject`, `birth`, `cross`, `mutate`, `clone`, `gra
 | `express` | ADN + contexte | `Gene::express` | produit `PHEN` sans écrire le génome | orchestration / opérateur |
 | `validate` | ADN | `Genome::validate` + contrôle de conteneur | accepte/rejette | orchestration / opérateur / runtime |
 
-La différence clé n'est pas l'implémentation mais le **cas d'usage** : le socle Rust autorise un usage **autonome** (un agent/cellule peut se reproduire, se faire injecter un plasmide, se spécier sans humain), mais le document principal décrit l'usage **piloté** (orchestrateur/opérateur). La promotion d'un génome issu d'une opération autonome vers le pool sélectionnable reste gated par la boucle d'innovation (`status='candidate'` → `promote` avec preuve et approbation).
-`birth` pointe vers `Genome::derive_child` / `derive_reproductive_child` existant en Rust. `derive_reproductive_child` reprogramme l'hétérochromatine facultative en euchromatine au passage, ce qui correspond au saut méiotique/épigénétique documenté. `inject` n'est pas encore une opération Rust normative distincte dans `genos-dna::operations` ; il est documenté comme opération d'usage reposant sur l'expression et la remplacement de configuration au runtime.
+`inject(dna, target_agent_id)` valide l'ADN source, refuse un identifiant cible vide, recalcule le phénotype avec `express` et retourne `{ target_agent_id, source_genome_id, phenotype }`. Il ne modifie ni le génome source ni l'identité de la cible, et n'écrit pas la configuration runtime : l'adaptateur qui reçoit `InjectedPhenotype` est responsable d'appliquer et persister le phénotype selon ses propres règles. Cette opération est distincte de `graft`, qui modifie un génome en ajoutant un gène ou un plasmide. `birth` pointe vers `Genome::derive_child` / `derive_reproductive_child` existant en Rust. `derive_reproductive_child` reprogramme l'hétérochromatine facultative en euchromatine au passage, ce qui correspond au saut méiotique/épigénétique documenté. La promotion d'un génome issu d'une opération autonome vers le pool sélectionnable reste gated par la boucle d'innovation (`status='candidate'` → `promote` avec preuve et approbation).
 
 ## 9. Comparaison avec le marché
 

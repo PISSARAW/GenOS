@@ -54,6 +54,32 @@ pub struct SpeciateOptions {
     pub grafts: Vec<GraftSpec>,
 }
 
+/// Runtime-ready phenotype produced by injecting a genome into a live agent.
+/// The operation prepares this payload; the runtime owns applying and persisting it.
+#[derive(Clone, Debug)]
+pub struct InjectedPhenotype {
+    pub target_agent_id: String,
+    pub source_genome_id: uuid::Uuid,
+    pub phenotype: crate::model::Phenotype,
+}
+
+/// Prepares an expressed phenotype for a specific live runtime agent.
+///
+/// Injection validates the source DNA and recomputes its phenotype. It does not
+/// alter the genome, assign runtime identity, or write agent configuration.
+pub fn inject(dna: &AgentDna, target_agent_id: &str) -> Result<InjectedPhenotype, String> {
+    let target = target_agent_id.trim();
+    if target.is_empty() {
+        return Err("injection requires a non-empty target agent id".to_string());
+    }
+    crate::validate::validate(dna)?;
+    Ok(InjectedPhenotype {
+        target_agent_id: target.to_string(),
+        source_genome_id: dna.meta.genome_id,
+        phenotype: express::express(dna),
+    })
+}
+
 pub fn cross(parent_a: &AgentDna, parent_b: &AgentDna, options: &CrossOptions) -> Result<AgentDna, String> {
     let genome_a = parent_a.to_genome()?;
     let genome_b = parent_b.to_genome()?;
