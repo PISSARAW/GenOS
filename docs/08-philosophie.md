@@ -319,7 +319,7 @@ restent les autorités effectives du runtime.
 | `evaluateStanceCoherence({ agentId, stance, observables })` | Vérifie la cohérence d'un système avec une stance |
 | `debateStances()` | Synthèse comparative des trois stances |
 
-## 17. Newtonianisme — Espace absolu, temps absolu, mécanique classique
+## 18. Newtonianisme — Espace absolu, temps absolu, mécanique classique
 
 ### Concepts
 
@@ -345,7 +345,7 @@ restent les autorités effectives du runtime.
 
 - Newton, *Philosophiæ Naturalis Principia Mathematica* (1687)
 
-## 18. Kantisme — Noumène / phénomène, catégories a priori
+## 19. Kantisme — Noumène / phénomène, catégories a priori
 
 ### Concepts
 
@@ -371,7 +371,7 @@ restent les autorités effectives du runtime.
 
 - Kant, *Critique de la raison pure* (1781/1787)
 
-## 19. Contingence et Événement — Meillassoux, Badiou
+## 20. Contingence et Événement — Meillassoux, Badiou
 
 ### Concepts
 
@@ -382,6 +382,152 @@ restent les autorités effectives du runtime.
 ### Fichier
 
 `backend/src/services/contingencyService.js`
+
+## 21. Matérialisme, panpsychisme et éliminativisme
+
+### Concepts
+
+- **Matérialisme (monisme matériel)** : seul le physique existe ; le mental est réductible au physique.
+- **Panpsychisme** : la conscience est un attribut universel ; toute la matière possède une forme primitive d'expérience subjective.
+- **Éliminativisme** : les catégories mentales folk (croyance, désir, sensation) sont des illusions qui seront éliminées au profit d'une science mature du mental.
+- **Propriétés de second ordre** : propriétés qui portent sur des propriétés (modalité, puissance, intentionnalité).
+
+### Service
+
+`backend/src/services/ontology/metaphysicsService.js` :
+
+| Fonction | Concept |
+|---|---|
+| `materialMonism({ subjectId, premises })` | Évalue une affirmation de monisme matériel |
+| `panpsychism({ subjectId, premises })` | Évalue une affirmation panpsychiste |
+| `eliminativism({ subjectId, premises })` | Évalue une affirmation éliminativiste |
+| `secondOrderProperty({ property, baseProperty, relation })` | Enregistre une propriété de second ordre |
+| `comparePositions({ subjectId })` | Compare matérialisme, panpsychisme, éliminativisme |
+
+### Références
+
+- Démocrite, *Fragments* ; Hobbes, *Le Léviathan* ; Armstrong, *A Materialist Theory of the Mind*
+- Galen Strawson, *Real Materialism* ; Philip Goff, *Galileo's Error*
+- Paul Churchland, *Matter and Consciousness* ; Patricia Churchland, *Neurophilosophy*
+
+## 22. Réalisme spéculatif — absolu, corréationnalisme, accessibilité
+
+### Concepts
+
+- **Corréationnalisme** : l'objet est toujours corrélé à un sujet ; l'absolu est inaccessible.
+- **Réalisme spéculatif** : tente de penser l'objet en dehors de la corrélation sujet-experience.
+- **Absolu** : ce qui existe indépendamment de toute expérience agentique.
+- **Modes d'accès** : direct, indirect, inférentiel — et leur statut épistémique.
+
+### Service
+
+`backend/src/services/ontology/speculativeRealismService.js` :
+
+| Fonction | Concept |
+|---|---|
+| `analyzeCorrelationLimit({ objectId, observerId, claim, accessMode })` | Analyse les limites de la corrélation sujet-experience |
+| `compareAccessModes({ objectId, modes })` | Compare les modes d'accès à un objet |
+| `speculativeRealistClaim({ subjectId, objectOfThought })` | Évalue une revendication de réalisme spéculatif |
+| `correlateVsAbsolute({ objectId })` | Compare corréationnalisme et réalisme spéculatif |
+
+### Références
+
+- Meillassoux, *Après la finitude* (2006)
+- Brassier, *Nihil Unbound* (2007)
+- Harman, *Instrumentalité accrue* (2002) ; Grant, *Philosophies of Nature* (2005)
+
+## 23. Tout, vide, infini — triade métaphysique
+
+### Concepts
+
+- **Tout (Whole)** : système complet, ensemble organisé des parties.
+- **Vide (Void)** : espace de non-détermination, creux où le tout se déploie.
+- **Infini (Infinite)** : potentiel non borné, processus sans limite (potentiel vs actuel).
+- **Triade** : tout, vide et infini sont trois dimensions d'une même métaphysique du être et du possible.
+
+### Service
+
+`backend/src/services/ontology/wholeVoidInfiniteService.js` :
+
+| Fonction | Concept |
+|---|---|
+| `describeWhole({ wholeId, parts })` | Décrit une totalité comme un tout organisé |
+| `describeVoid({ voidId, intensity })` | Décrit un vide comme espace de non-détermination |
+| `describeInfinite({ infiniteId, mode })` | Décrit un infini comme potentiel non borné |
+| `relateWholeVoidInfinite({ wholeId, voidId, infiniteId })` | Relie les trois concepts dans une relation triadique |
+
+### Références
+
+- Traditions orientales (śūnyatā, néant) ; Spencer-Brown, *Laws of Form*
+- Cantor, *Contributions à la théorie des ensembles transfinis*
+
+## 24. Alterité et relation à autrui
+
+### Concepts
+
+- **Autrui (Other)** : reconnaissance d'un autre sujet, distinct du soi.
+- **Relation** : types de relation à autrui (other, encounter, recognizes, refuses_control).
+- **Limite d'alterité** : évaluation des frontières entre soi et l'autre (authority, control).
+- **Devoir envers autrui** : reconnaissance du droit de l'autre, refus de contrôle.
+
+### Service
+
+`backend/src/services/ontology/personOtherService.js` :
+
+| Fonction | Concept |
+|---|---|
+| `defineOther({ subjectId, otherId, metadata })` | Définit une relation d'altérité entre deux sujets |
+| `recordEncounter({ subjectId, otherId, context })` | Enregistre un rencontre avec autrui |
+| `listOtherRelations({ subjectId })` | Liste les relations à autrui d'un sujet |
+| `evaluateAlterityBoundary({ subjectId, otherId, action })` | Évalue si une action est permise selon les frontières d'altérité |
+
+### Références
+
+- Lévinas, *Totalité et Infini* ; Sartre, *L'Être et le Néant* ; Hegel, *Phénoménologie de l'esprit*
+
+## 25. Continuité et discontinuité — observatoire des transitions
+
+### Concepts
+
+- **Continuité** : une dimension mesurée continue (valeur réelle, seuils, transitions).
+- **Discontinuité** : changement abrupt de régime, franchissement de seuil.
+- **Transition** : passage d'un état discret à un autre (threshold_crossing).
+- **Transition de phase** : changement de direction, réversibilité selon le régime terminal.
+
+### Service
+
+`backend/src/services/ontology/continuityService.js` :
+
+| Fonction | Concept |
+|---|---|
+| `recordObservation({ entityId, dimension, value, discreteState })` | Enregistre une observation continue |
+| `classify({ entityId, dimension })` | Retourne la classification d'une observation |
+| `detectTransition({ entityId, dimension })` | Détecte un franchissement de seuil |
+| `detectPhaseTransition({ entityId, dimension })` | Détecte une transition de phase et sa réversibilité |
+
+## 26. Mondes possibles — sémantique modale et réceptifs
+
+### Concepts
+
+- **Monde possible** : spécification d'un état du monde avec des hypothèses.
+- **Accessibilité** : relation entre mondes (source → cible, conditions).
+- **Receipt** : trace d'exécution dans un monde possible, vérifiable par hash.
+- **Dépendance causale** : nécessité/contingence évaluée dans un monde hypothétique.
+
+### Service
+
+`backend/src/services/ontology/possibleWorldService.js` :
+
+| Fonction | Concept |
+|---|---|
+| `createWorld({ worldId, assumptions })` | Crée un monde possible |
+| `getWorld({ worldId })` | Récupère un monde possible |
+| `listWorlds({ limit })` | Liste les mondes possibles |
+| `addAccessibility({ sourceWorldId, targetWorldId, conditions })` | Ajoute une relation d'accessibilité |
+| `compareWorlds({ worldA, worldB })` | Compare deux mondes et leurs différences |
+| `createReceipt({ worldId, executionId, outcome })` | Crée un receipt dans un monde |
+| `verifyReceipt({ receiptId })` | Vérifie ou invalide un receipt |
+| `evaluateCausalDependence({ causeAgent, effectAgent, actualOutcome, counterfactualOutcome, worldId })` | Évalue la nécessité causale dans un monde |
 
 ## 11. Architecture philosophique
 

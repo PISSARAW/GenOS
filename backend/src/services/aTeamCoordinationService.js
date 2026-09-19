@@ -85,8 +85,7 @@ function buildHandoff(from, to, stage) {
       signalType: 'ligand',
       signalData: { ligand, concentration, from, to },
       contentFallback: ligand
-    }),
-    content: ligand
+    })
   };
 }
 

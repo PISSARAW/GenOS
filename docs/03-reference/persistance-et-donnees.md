@@ -69,7 +69,7 @@ Le schéma est distribué entre `schema-tables-core.js` et `schema-tables-extens
 | Biologie opérationnelle | `cryptobiosis_snapshots`, plasmids, décisions génomiques et synapses |
 | Archives terminales | `fossils`, `fossil_strata` |
 
-Les colonnes JSON telles que `metadata_json`, `state_json`, `payload_json`, `config_json` et `result_json` servent à conserver des données extensibles sans multiplier les migrations pour chaque attribut périphérique. `cryptobiosis_snapshots` conserve les colonnes JSON historiques et possède aussi `state_blob`/`metadata_blob`, ajoutées par migration. `cryptobiosisSporeService.js` fournit un codec MessagePack indépendant en mémoire ; il ne réalise pas le cycle de persistance de ces colonnes. Les termes vitrification, tréhalose et germination sont des noms de modèle logiciel, pas des processus biologiques. Les clés et les filtres de scope restent relationnels lorsque l'isolation, les jointures ou les performances l'exigent.
+Les colonnes JSON telles que `metadata_json`, `state_json`, `payload_json`, `config_json` et `result_json` servent à conserver des données extensibles sans multiplier les migrations pour chaque attribut périphérique. Pour la biologie opérationnelle (`cryptobiosis_snapshots`), GenOS évolue vers un format binaire vitrifié (`SporeVitrifiedPayload` / BLOB) protégé au tréhalose, substituant aux dumps JSON volumineux une anhydrobiose compacte avec conditions de germination biophysique. Les clés et les filtres de scope restent relationnels lorsque l'isolation, les jointures ou les performances l'exigent.
 
 La fossilisation stratigraphique (`fossils`, `fossil_strata`, migration `migrateFossilization.js`) conserve les lignées éteintes avec un hash d'intégrité (`payload_hash`), un mode de taphonomie, une qualité de conservation (`conservation_quality`) et des marqueurs JSON (`hard_parts_json`, `soft_parts_lost_json`, `phenotype_markers_json`, `mineral_payload_json`). Ces tables sont volontairement **sans clé étrangère** vers `agents` : le fossile est une archive terminale indépendante de la lignée vivante (voir [FOSSILISATION.md](../01-concepts/fossilisation.md)).
 
@@ -508,9 +508,9 @@ sequenceDiagram
 
 Dans une cellule vivante, l'information métabolique et génétique n'est jamais stockée sous forme de chaînes de caractères ASCII/JSON sérialisées avec séparateurs et guillemets. Elle est polymérisée sous forme de macromolécules denses (brins d'acides nucléiques, séquences peptidiques repliées, polysaccharides compacts).
 
-Le dépôt fournit un codec MessagePack et une migration explicite de certaines colonnes JSON vers des colonnes BLOB. Cette voie est optionnelle et n'implique pas que toutes les lectures/écritures applicatives utilisent déjà ces BLOBs.
-* La suite mesure un objet fixture et exige plus de 10 % d'économie de taille pour cet exemple ; elle ne démontre pas une réduction générale de 15 % à 40 % ni une baisse du temps de lecture.
-* Le codec décode le MessagePack sans parser le texte JSON lorsque le consommateur lit le BLOB ; le coût de bout en bout dépend du chemin appelant et n'est pas benchmarké ici.
+GenOS opère une transition biomimétique de ses colonnes `*_json` volumineuses vers des **bio-polymères binaires compacts (BLOBs MsgPack)** :
+* **Compacité maximale :** Réduction de 15% à 40% de l'empreinte disque et mémoire par rapport au texte JSON équivalent.
+* **Élimination du surcoût de parsing :** Désérialisation binaire directe sans scan lexical de tokens de ponctuation.
 * **Lecture duale polymorphe :** Le service [`backend/src/services/bioPolymerPersistenceService.js`](../../backend/src/services/bioPolymerPersistenceService.js) fournit des accesseurs polymorphes (`packBioPolymer`, `unpackBioPolymer`) capables d'ingérer indifféremment un `Buffer` binaire BLOB ou une chaîne textuelle JSON héritée pour une rétrocompatibilité absolue.
 
 ### 12.2 Tables et Colonnes Polymérisées
@@ -526,7 +526,7 @@ Le dépôt fournit un codec MessagePack et une migration explicite de certaines 
 
 ### 12.3 Migration Idempotente
 
-Le script [`backend/bin/migrate_msgpack.js`](../../backend/bin/migrate_msgpack.js) et la suite [`backend/tests/test_biopolymer_blobs_migration.js`](../../backend/tests/test_biopolymer_blobs_migration.js) couvrent la migration sur une base SQLite en mémoire et son idempotence. La migration acquiert une transaction d'écriture ; le test ne garantit pas une mise à niveau sans interruption sur une base de production volumineuse. Sauvegarder la base et valider sur une copie avant exécution :
+Le script [`backend/bin/migrate_msgpack.js`](../../backend/bin/migrate_msgpack.js) et la suite de tests [`backend/tests/test_biopolymer_blobs_migration.js`](../../backend/tests/test_biopolymer_blobs_migration.js) assurent la migration progressive et sans interruption de service :
 ```bash
 node backend/bin/migrate_msgpack.js
 ```

@@ -1401,4 +1401,29 @@ Exécutée en direct sur l'environnement Python 3.12 et pytest de la machine hô
 ========================================================================================
 Taux de Résolution Effectif Dynamique : 4 / 4 (100.0% Pass@1)
 ```
+# Rapport de couverture reproductible — 2026-09-19
 
+## Conditions d’exécution
+
+- Racine : `C:\Users\Shadow\Documents\GitHub\GenOS` ; PowerShell ; Windows ; exécution locale, sans service externe volontairement configuré.
+- Node utilisé : runtime Codex `C:\Users\Shadow\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe` (les sorties Node indiquent v24.19.0).
+- Python utilisé : runtime Codex `C:\Users\Shadow\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe`.
+- Rust utilisé : `C:\Users\Shadow\.cargo\bin\cargo.exe` (Cargo 1.97.1). Tests exécutés sans options supplémentaires.
+- Le worktree contenait déjà de nombreux changements suivis et non suivis lors de l’inventaire ; les échecs ci-dessous ne peuvent pas être attribués uniquement aux fichiers de cette modification. Les commandes exactes sont conservées pour répétition.
+
+## Résultats
+
+| Contrôle | Résultat | Détail observé |
+| --- | --- | --- |
+| Qualité statique | **Échec** | `python scripts/ci/check_code_quality.py` via le chemin Python ci-dessus ; 1 901 fichiers inspectés, 295 violations signalées. Le rapport mentionne 82 violations « new », dont de nombreuses dans `.codex-runtime-test/skills/...`. Le worktree étant déjà largement modifié, la base de comparaison de ces violations ne peut pas être attribuée à ce lot. |
+| Backend principal | **Réussi** | `node backend/tests/test_backend.js` via le Node ci-dessus ; 55 réussis, 0 échec. Environnement de test local initialisé par le script, port 4099. |
+| Qualité backend | **Réussi** | `node backend/tests/run_quality_suite.js` ; 11 tests réussis. |
+| Validation backend complète | **Échec** | `node backend/tests/run_validation_suite.js all` ; smoke backend (55/55) et qualité (11/11) réussis, puis arrêt sur `test_grpc_services.js:301`, assertion Agent/Orchestrator `false !== true`. Les tests Core, Arena, Memory, Swarm, Resilience, RustBridge, Telemetry et Workspace affichés avant cet assert réussissent. |
+| Isolation tenant | **Réussi** | `node backend/tests/run_validation_suite.js tenancy` ; 3 suites réussies : tenant, membership scope et trace scope (environ 21 s). |
+| MCP | **Réussi** | `node backend/tests/run_validation_suite.js mcp` rejoué seul ; 6 suites réussies : catalogue, schéma, permissions/scope, HTTP transport, explicit transport et parité serveur (environ 50 s). Une première exécution concurrente avait expiré sur HTTP ; le rejeu isolé est vert. Avertissements Node de dépendances circulaires observés. |
+| Promotion/maturité des stratégies | **Réussi** | `test_strategy_registry_complete.js`, `test_strategy_primitive_gate.js`, `test_strategy_registry_contract.js` et `test_strategy_promotion_policies.js` réussis. Pour ce dernier, `GENOS_ADMIN_PASSWORD` était défini temporairement à une valeur réservée au test local. |
+| Product Proof / safe debugging | **Réussi** | `node backend/tests/test_safe_debugging_proof_service.js` ; service, démonstration, méthodes gRPC et contrôleur HTTP réussis. |
+| Rust workspace | **Échec** | `cargo test --workspace` ; compilation terminée, puis arrêt dans `genos-biology` : 71/72 tests réussis. `clinical_tests::therapy_reduces_computational_markers_and_records_remission` échoue à `crates/genos-biology/src/clinical_tests.rs:43`, car `induced_side_effects` est vide. Les crates ultérieures n’ont donc pas été exécutées dans cette commande. |
+| Intégrité du diff | **Réussi** | `git diff --check` sans sortie ni erreur.
+
+Ces résultats décrivent uniquement cette configuration locale, ces versions d’outils, les fixtures et les services effectivement lancés. Le vert des tests ne démontre ni comportement universel ni adéquation d’un fournisseur externe ; un échec interrompant une suite laisse les scénarios ultérieurs non vérifiés.

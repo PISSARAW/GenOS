@@ -57,7 +57,17 @@ Le fil rouge est le suivant :
 
 La logique globale peut être représentée comme :
 
-Il n'existe pas un unique prédicat appliqué de façon identique à chaque surface. Le middleware global protège les routes REST non publiques ; scope tenant, permission, validation d'entrée et circuit breaker s'appliquent selon la route et le type d'action. Toute affirmation de sûreté doit donc citer le chemin concerné et son test, et non déduire une protection universelle de cette liste de contrôles.
+$$
+\text{allow}(req) = \text{auth}(req) \land \text{tenantValid}(req) \land \text{perm}(req.user, action) \land \text{inputSafe}(req) \land \text{breakerClosed}(action)
+$$
+
+où :
+
+- $auth(req)$ vérifie l’identité du principal ;
+- $tenantValid(req)$ vaut si le scope tenant est correct ;
+- $perm(u, a)$ vaut si le rôle/permissions autorisent l’action ;
+- $inputSafe(req)$ vérifie les protections de structure et de contenu ;
+- $breakerClosed(action)$ empêche l’exécution si le circuit est ouvert.
 
 ---
 

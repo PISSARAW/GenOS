@@ -13,7 +13,6 @@ const TERMINAL_STATUSES = Object.freeze([
   'completed', 'failed', 'error', 'terminated', 'apoptosis', 'blocked', 'unverified'
 ]);
 const TERMINAL = new Set(TERMINAL_STATUSES);
-const coordination = require('./aTeamCoordinationService');
 
 function defaultSleep(ms) {
   return new Promise((resolve) => { setTimeout(resolve, ms); });
@@ -53,18 +52,10 @@ function dependencyWorkerIds(plan, member, index) {
   return member.dependsOn.map((domain) => lookup.get(domain)).filter(Boolean);
 }
 
-async function workerStatus(db, workerId) {
+async function isTerminal(db, workerId) {
   const row = await db.get('SELECT status FROM agents WHERE id = ?', workerId);
-  return row ? String(row.status) : null;
-}
-
-async function collectTerminalWorkers(db, pending, failed) {
-  for (const workerId of [...pending]) {
-    const status = await workerStatus(db, workerId);
-    if (!status || !TERMINAL.has(status)) continue;
-    pending.delete(workerId);
-    if (status !== 'completed') failed.add(workerId);
-  }
+  if (!row) return false;
+  return TERMINAL.has(String(row.status));
 }
 
 async function waitForWorkersTerminal(db, workerIds, options = {}) {
@@ -74,84 +65,49 @@ async function waitForWorkersTerminal(db, workerIds, options = {}) {
   const now = options.now || Date.now;
   const startedAt = now();
   const pending = new Set(workerIds);
-  const failed = new Set();
   while (pending.size && (now() - startedAt) < timeoutMs) {
-    await collectTerminalWorkers(db, pending, failed);
+    for (const workerId of [...pending]) {
+      if (await isTerminal(db, workerId)) pending.delete(workerId);
+    }
     if (pending.size) await sleep(pollMs);
   }
-  return {
-    timedOut: pending.size > 0, pendingWorkerIds: [...pending], failedWorkerIds: [...failed],
-    elapsedMs: now() - startedAt
-  };
-}
-
-function invalidDependencies(plan, members) {
-  const byDomain = new Map(plan.members.map((member) => [member.subSystem, member]));
-  return members.flatMap((member) => member.dependsOn.filter((domain) => {
-    const dependency = byDomain.get(domain);
-    return !dependency || dependency.pipelineStage >= member.pipelineStage;
-  }).map((domain) => ({ member: member.subSystem, domain })));
+  return { timedOut: pending.size > 0, pendingWorkerIds: [...pending], elapsedMs: now() - startedAt };
 }
 
 async function runStagePlan({ db, plan, launch, options = {} }) {
   const skip = new Set(options.skipWorkerIds || []);
+  const sleep = options.sleep || defaultSleep;
+  const now = options.now || Date.now;
+  const index = domainIndex(plan);
   const results = [];
   for (let stage = 0; stage <= plan.maxStage; stage += 1) {
-    results.push(...await runStage({ db, plan, stage, skip, launch, options }));
-  }
-  return results;
-}
-
-async function runStage(input) {
-  const members = input.plan.members.filter((member) => member.pipelineStage === input.stage);
-  const invalid = invalidDependencies(input.plan, members);
-  if (invalid.length) return [{ stage: input.stage, blocked: true, reason: 'invalid_dependencies', invalidDependencies: invalid }];
-  const waitResult = await waitForDependencies(input, members);
-  if (waitResult && waitResult.blocked) return [waitResult];
-  return launchStageMembers(input, members);
-}
-
-async function waitForDependencies(input, members) {
-  const index = domainIndex(input.plan);
-  const dependencyIds = [...new Set(members.flatMap((member) => dependencyWorkerIds(input.plan, member, index)))];
-  if (!dependencyIds.length) return null;
-  const wait = await waitForWorkersTerminal(input.db, dependencyIds, input.options);
-  const blocked = wait.timedOut || wait.failedWorkerIds.length > 0;
-  return {
-    stage: input.stage, waitedFor: dependencyIds, timedOut: wait.timedOut,
-    pendingWorkerIds: wait.pendingWorkerIds, failedWorkerIds: wait.failedWorkerIds, blocked,
-    ...(blocked ? { reason: wait.timedOut ? 'dependency_timeout' : 'dependency_failed' } : {})
-  };
-}
-
-async function launchStageMembers(input, members) {
-  const results = [];
-  for (const member of members) {
-    if (input.skip.has(member.workerId)) continue;
-    await input.launch(member);
-    results.push({ stage: input.stage, launched: member.workerId, subSystem: member.subSystem });
+    const stageMembers = plan.members.filter((member) => member.pipelineStage === stage);
+    const dependencyIds = [...new Set(stageMembers.flatMap((member) => dependencyWorkerIds(plan, member, index)))];
+    if (dependencyIds.length) {
+      const wait = await waitForWorkersTerminal(db, dependencyIds, {
+        pollMs: options.pollMs, timeoutMs: options.timeoutMs, sleep, now
+      });
+      results.push({ stage, waitedFor: dependencyIds, timedOut: wait.timedOut, pendingWorkerIds: wait.pendingWorkerIds });
+    }
+    for (const member of stageMembers) {
+      if (skip.has(member.workerId)) continue;
+      await launch(member);
+      results.push({ stage, launched: member.workerId, subSystem: member.subSystem });
+    }
   }
   return results;
 }
 
 function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }) {
-  const handoffs = (Array.isArray(plan.handoffs) ? plan.handoffs : []).filter((handoff) => handoff.to === member.subSystem);
-  if (handoffs.some((handoff) => !coordination.evaluateHandoff(handoff).triggered)) {
-    throw Object.assign(new Error(`A-Team rejected an invalid handoff for '${member.subSystem}'.`), { code: 'A_TEAM_INVALID_HANDOFF' });
-  }
-  const handoffContext = handoffs.length
-    ? `\nValidated dependency handoffs: ${handoffs.map((handoff) => handoff.content).join('; ')}`
-    : '';
   return {
     action: 'dispatch_worker',
     background: false,
     orchestratorId: plan.orchestratorId,
     workerId: member.workerId,
-    mission: `${member.mission || ''}${handoffContext}`,
+    mission: member.mission,
     role: member.role,
     model_tier: member.modelTier,
     ...(member.dependsOn.length ? { depends_on: member.dependsOn } : {}),
-    ...(handoffs.length ? { handoff_signals: handoffs } : {}),
     ...(member.pipelineStage ? { pipeline_stage: member.pipelineStage } : {}),
     execution_budget: request.execution_budget || request.executionBudget,
     timeoutMs: request.timeoutMs,

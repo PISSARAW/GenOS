@@ -1,48 +1,46 @@
 # Matrice de cohérence code et documentation
 
-- **Statut** : Implémenté comme registre de suivi documentaire
-- **Portée** : contrats opérationnels ajoutés ou clarifiés en septembre 2026.
-- **Dernière revue** : 2026-09-18
+- **Statut** : registre de couverture vérifié ; les preuves décrivent une configuration et un scénario précis.
+- **Portée** : capacités opérationnelles majeures du backend, du MCP, du runtime Rust et des contrôles transverses.
+- **Dernière revue** : 2026-09-19
 
-## 1. Registre
+## Registre des capacités
 
-| Domaine | Source principale | Documentation | API/exemple | Test/protocole | Maturité |
-| --- | --- | --- | --- | --- | --- |
-| Product Proofs | `productProofController.js` | [preuves produit](../03-reference/preuves-produit-et-safe-debugging.md) | Oui | [contrats récents](tests-des-contrats-recents.md) | Implémenté |
-| OIDC/SAML | `ssoRoutes.js` | [fédération](../05-securite-gouvernance/sso-oidc-saml.md) | Oui | Rejeu et signatures | Implémenté |
-| Dossiers/conscience | `agentDossierService.js` | [dossiers](../02-orchestration/dossiers-agents-et-conscience.md) | Oui | Barrière d’evidence | Implémenté |
-| Contrats stratégie | `strategyContractService.js` | [contrats](../02-orchestration/contrats-strategie-et-execution.md) | Oui | Runs et approbations | Implémenté |
-| Notifications | `evaluationController.js` | [notifications](../03-reference/notifications-et-alertes.md) | Oui | Isolation tenant | Implémenté |
-| Releases | `releaseController.js` | [rollouts](../04-exploitation/releases-et-rollouts.md) | Oui | Canary et rollback | Implémenté |
-| Bridge Rust | `rustBridgeController.js` | [bridge](../03-reference/pont-rust-et-hallucinations.md) | Oui | Diff et replay | Implémenté |
-| Platform approvals | `platformController.js` | [approbations](../05-securite-gouvernance/approbations-platform.md) | Oui | Permission/lease/scope | Implémenté |
+Chaque ligne nomme l’implémentation, le contrat documenté, un exemple concret, un cas nominal, un refus et une preuve à rejouer ou inspecter. Les tests nommés sont des points d’entrée du dépôt ; leur réussite ne prouve que leurs données et configuration exécutées.
 
-## 2. Règle de cohérence
+| Capacité | Code principal | Contrat / exemple | Nominal | Refus | Preuve reproductible | Isolation et contrôles applicables / limites |
+| --- | --- | --- | --- | --- | --- | --- |
+| Identité, bootstrap et sessions | `backend/src/controllers/authController.js`, `backend/src/middleware/auth.js` | [identité et autorité](../05-securite-gouvernance/identite-et-autorite.md) ; connexion par jeton | émettre puis utiliser un jeton valide | jeton invalide, limite de débit ou CSRF | `backend/tests/test_auth_bootstrap.js`, `test_auth_rate_limit.js`, `test_csrf_cookie_security.js` ; audit auth | permissions par rôle ; tenant résolu depuis l’identité, pas l’entrée seule. Limite : bootstrap local dépend de la configuration serveur. |
+| Workspaces et capsules | `backend/src/services/workspaceRegistry.js`, `backend/src/services/agentDossierService.js` | [workspaces contrefactuels](../02-orchestration/workspaces-contrefactuel.md) ; deux capsules indépendantes | exécuter sur la capsule assignée | traversée de chemin, racine hors capsule ou capsule partagée | `test_agent_capsule.js`, `test_agent_workspace_isolation.js`, `test_agent_capsule_n5_regression.js` ; snapshot/diff | isolation de répertoire et confinement de chemins ; droits dépendent de l’agent et du workspace. |
+| Git des agents et branches | `backend/src/controllers/agentGitController/index.js` | [Git agents](../02-orchestration/git-agents.md) ; créer branche puis comparer | commit isolé suivi d’un diff | dépôt/racine non autorisé ou état incohérent | `test_agent_branch_checkout_contract.js`, `test_agent_diff_contract.js`, `test_agent_commit_contract.js` ; état Git et diff | scope capsule ; aucune fusion implicite sans gate. |
+| Exécution de stratégies | `backend/src/services/strategyExecutionService.js`, `backend/src/services/strategyExecutionAdapter.js` | [contrats stratégie](../02-orchestration/contrats-strategie-et-execution.md) ; stratégie `minimal_patch` | sélectionner et exécuter primitives enregistrées | primitive inconnue, étape non contractée ou budget dépassé | `test_strategy_runtime_wiring.js`, `test_strategy_primitive_gate.js`, `test_strategy_snapshot_sandbox.js` ; journal d’étapes | portefeuille du contrat, workspace et budget ; sélection expérimentale exige opt-in. |
+| Contrats et promotions de stratégie | `backend/src/services/strategyContractService.js`, `strategyPromotionPolicyService.js`, `strategyPromotionGate.js` | mêmes contrats ; rapport rejoué avec approbation | replay + vérification indépendante + approbation | preuve absente, hash altéré ou approbation manquante | `test_strategy_registry_complete.js`, `test_strategy_promotion_policies.js`, `test_epistemic_promotion_integration.js`, `test_ethical_promotion_integration.js` ; contrat et reçu | scope agent/workspace, séparation d’approbation et confinement capsule ; les preuves qualitatives ne sont pas déduites d’un succès transport. |
+| Dossiers d’agent et barrière d’évidence | `backend/src/controllers/agentDossierController.js`, `backend/src/services/agentDossierService.js` | [dossiers](../02-orchestration/dossiers-agents-et-conscience.md) ; construire un dossier depuis événements | dossier cohérent influençant une décision | dossier vide, événement non attribué ou primitive hors portefeuille | `test_agent_dossier.js`, `test_agent_evidence.js`, `test_agent_authority.js` ; rapport et provenance | scope agent/mission ; métadonnées descriptives ne prouvent pas une conscience. |
+| Mémoire et provenance | `backend/src/controllers/memoryController.js`, `backend/src/services/agentMemoryContext.js` | [mémoire](../01-concepts/runtime-agentique.md) ; écrire puis relire un souvenir sourcé | souvenir avec provenance et limites | contamination, dépassement de limite ou attribution invalide | `test_memory_invariants.js`, `test_memory_quality_provenance_contamination.js`, `test_episodic_memory_limits.js` ; provenance/historique | portée agent et limites de taille/rétention ; la mémoire ne vaut pas validation factuelle. |
+| Notifications et alertes | `backend/src/controllers/evaluationController.js`, `backend/src/services/evaluationObservabilityService.js` | [notifications](../03-reference/notifications-et-alertes.md) ; seuil d’évaluation atteint | préférence d’événement écrite dans le scope courant | destinataire d’un autre tenant ou seuil non atteint | `test_notification_preference_migration.js`, `test_evaluation_campaign_scope.js`, suite tenant ; préférence et corrélation | `organizationId`/`projectId` proviennent du scope du contrôleur ; pas de test dédié de refus inter-tenant pour les préférences dans la suite actuelle ; aucune livraison garantie par la seule création d’un événement. |
+| Releases et rollouts | `backend/src/controllers/releaseController.js`, `backend/src/routes/releaseRoutes.js`, `backend/src/grpc_services/releaseService.js` | [releases](../04-exploitation/releases-et-rollouts.md) ; canary 10 %, 8/1000 erreurs | maintenir/promotion sous seuil | métrique au-dessus du seuil ou santé invalide | `test_deployment_health.js`, `test_release_operations.js`, `test_release_promotion_truthfulness.js` ; décision/ledger | permission de déploiement, scope projet, seuil et rollback ; métriques synthétiques ne représentent pas la production. |
+| Approbations platform | `backend/src/controllers/platformController.js`, `backend/src/services/platformApprovalStore.js`, `platformApprovalPolicy.js`, `platformApprovalExecution.js` | [approbations](../05-securite-gouvernance/approbations-platform.md) ; demande puis exécution lease valide | approbation liée à la charge utile | permission, scope ou lease absent/expiré | `test_platform_safety.js`, `test_capability_lease.js`, `test_agent_tool_lease_validation.js`, `test_mcp_permission_scope_contract.js` ; reçu et audit | organisation/projet, permission explicite, lease borné ; les contrôles non applicables à une lecture publique sont marqués N/A au cas par cas. |
+| Product Proofs / safe debugging | `backend/src/controllers/productProofController.js`, `backend/src/routes/productProofRoutes.js`, `backend/src/grpc_services/productProofService.js` | [preuves produit](../03-reference/preuves-produit-et-safe-debugging.md) ; deux branches dont une avec défaut connu | isoler la branche fautive et enregistrer l’artefact | workspace hors scope ou branche non reproductible | `test_safe_debugging_proof_service.js`, endpoint `/api/product-proofs/safe-debugging/run` ; artefact + événements | capsule et workspace autorisés ; le test synthétique ne prouve pas la généralité du diagnostic. |
+| Fédération OIDC/SAML | `backend/src/routes/ssoRoutes.js`, `backend/src/grpc_services/ssoService.js` | [fédération](../05-securite-gouvernance/sso-oidc-saml.md) ; callback IdP de test | signature/nonce valides, session créée | nonce rejoué, signature ou certificat invalide | `test_sso_provider_disclosure.js` et protocole de rejeu/signature dans [contrats récents](tests-des-contrats-recents.md) ; audit et identité | tenant lié à l’IdP configuré ; clés de test uniquement ; certificats et fournisseurs externes sont configuration-dépendants. |
+| Bridge Rust / diff / replay | `backend/src/controllers/rustBridgeController.js`, `backend/src/grpc_services/rustBridgeService.js`, `crates/genos-cli` | [pont Rust](../03-reference/pont-rust-et-hallucinations.md) ; diff puis replay d’un snapshot | commande supportée dans scope | commande interdite, argument ou chemin hors scope | `test_conscience_rust_node_semantics.js`, `test_agent_replay_bisect_contract.js` ; résultat CLI/replay | confinement des chemins et arguments ; disponibilité du binaire Rust requise. |
+| Serveur MCP, permissions et leases | `mcp/index.js`, `mcp/strategyBridge.js`, route MCP et services de dispatch | [outils MCP](../03-reference/outils-mcp.md) ; appel avec lease autorisé | outil activé et schéma valide | lease expiré, permission/scope invalide, outil désactivé | `test_mcp_api_contracts.js`, `test_mcp_direct_call_enforcement.js`, `test_mcp_transport_lease.js`, `test_mcp_permission_scope_contract.js` ; enveloppe/audit | lease et scope vérifiés côté dispatch ; transport réussi ne signifie pas décision valide. |
+| gRPC et authentification | `backend/src/grpc_services/coreService.js`, `agentService.js`, `strategyService.js`, `backend/proto/` | contrats `backend/proto/` ; appel authentifié | RPC autorisé | jeton absent/invalide ou bind non sûr | `npm --prefix backend run test:grpc`, `test_grpc_auth_contract.js`, `test_grpc_bind_security.js` ; statut RPC + audit | auth obligatoire et bind confiné ; résultat borné au serveur local de test. |
+| Évaluation, expériences et benchmarks | `backend/src/controllers/evaluationController.js`, `backend/src/controllers/experimentController.js` | [évaluation qualité](evaluation-qualite.md) ; expérience avec baseline | score et métriques calculés | données incomplètes ou protocole invalide | `npm --prefix backend run test:quality` ; résultats/paramètres du benchmark | scope projet lorsqu’il y a persistance ; score dépend des données et du protocole, pas une garantie de qualité générale. |
+| Conformité et audit | `backend/src/controllers/complianceController.js`, `backend/src/services/complianceService.js` | contrôle d’accès/audit ; requête d’audit tenant | événement filtré par tenant | accès croisé tenant | `test_compliance_tenant_scope.js`, `test_audit_tenant_scope.js` ; événements d’audit | filtrage tenant et autorisation ; rétention/configuration détermine l’historique disponible. |
+| Résilience et récupération | `backend/src/controllers/resilienceController.js`, `backend/src/routes/resilienceRoutes.js`, `backend/src/services/resilienceService.js` | restauration après panne simulée | récupération vers snapshot valide | snapshot incompatible ou budget épuisé | `test_automatic_bisection_recovery.js`, `test_agent_state_snapshot_contract.js` ; snapshot et replay | scope workspace et budget ; chaos tests ne couvrent que les perturbations injectées. |
+| Runtime Rust et stockage | `crates/genos-core`, `crates/genos-store`, `crates/genos-orchestrator` | API Rust documentée par les crates ; écrire/lire un état isolé | exécution et persistance cohérentes | état invalide ou transition non permise | `cargo test --workspace` ; sorties de tests et fixtures | isolation selon identifiants/stockage du scénario ; test global n’est pas une preuve de charge production. |
+| Qualité documentaire et conformité du code | `scripts/ci/check_code_quality.py`, `.githooks/pre-commit` | [tests et validation](tests-et-validation.md) ; lancer le contrôle depuis la racine | règles de taille/complexité respectées | violation des seuils du dépôt | commande `python scripts/ci/check_code_quality.py` ; rapport ci-dessous | N/A tenant ; contrôle statique ne remplace pas les tests comportementaux. |
 
-Une ligne ne peut être déclarée « Implémenté » que si le code, le contrat exposé, un
-exemple et un test ou protocole de validation sont tous présents :
+Les lignes liées à un chemin de test marqué « si présent » doivent être remplacées par un test réel avant d’être déclarées couvertes ; une mention de protocole documentaire n’équivaut pas à un test automatisé. Les contrôles tenant, scope, permission ou lease sont consignés N/A seulement si la capacité ne manipule ni identité ni ressource protégée.
 
-\[
-Maturity_{implemented}=Code\land Contract\land Example\land Evidence
-\]
+## Règle de cohérence
 
-La présence d’un fichier ou d’une route seule ne suffit pas.
+Une capacité ne reçoit le statut opérationnel qu’avec code, contrat exposé, exemple, cas nominal, refus critique, preuve reproductible et limite connue. Une preuve conserve commande, date, versions, options, données/fixtures, et résultats. L’isolation tenant, le scope, les permissions et leases sont examinés séparément quand ils s’appliquent.
 
-## 3. Processus de mise à jour
+## Validation du dépôt
 
-Lorsqu’une route, une migration ou un contrat change :
+Les résultats datés, commandes exactes, versions/outils disponibles et limites de cette exécution sont consignés dans [tests et validation](tests-et-validation.md), section « Rapport de couverture reproductible — 2026-09-19 ». Un résultat vert ne prouve que le scénario, les fixtures et la configuration qui ont été exécutés.
 
-1. identifier la ligne concernée dans cette matrice ;
-2. mettre à jour la référence technique et l’index de famille ;
-3. ajouter ou modifier un exemple ;
-4. ajouter un scénario nominal et un scénario de refus ;
-5. mettre à jour la date de revue ;
-6. exécuter `git diff --check` et le contrôle de qualité du dépôt ;
-7. committer code et documentation avec une description cohérente.
+## Mise à jour
 
-## 4. Limites
-
-Cette matrice est un registre humain, pas une détection automatique complète. Les
-chemins de code et les routes doivent être revérifiés lors d’un changement de module.
-Une métaphore scientifique ou biologique ne doit jamais être comptée comme une preuve
-fonctionnelle.
+À chaque changement de contrat : mettre à jour le code et la documentation de référence, cette ligne, son scénario nominal et son refus ; exécuter `git diff --check`, le contrôle qualité et les suites ciblées ; joindre le rapport avec leur contexte d’exécution. Les chemins restent à revérifier si les modules changent.

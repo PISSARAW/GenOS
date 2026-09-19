@@ -21,13 +21,19 @@ function getStrategy(id) {
 function registryHealth() {
   const strategies = listStrategies();
   const missingPrimitives = [...new Set(strategies.flatMap((strategy) => strategy.missingPrimitives))].sort();
+  const invalidMaturity = strategies.filter((strategy) => !['ready', 'partial', 'experimental', 'prototype'].includes(strategy.maturity));
+  const promotionBlocked = strategies.filter((strategy) => strategy.maturity !== 'ready' || strategy.missingPrimitives.length > 0);
   return {
     total: strategies.length,
-    ready: strategies.filter((strategy) => strategy.executionStatus === 'ready').length,
+    ready: strategies.filter((strategy) => strategy.maturity === 'ready').length,
     partial: strategies.filter((strategy) => strategy.executionStatus === 'partial').length,
+    experimental: strategies.filter((strategy) => strategy.maturity === 'experimental').length,
+    prototype: strategies.filter((strategy) => strategy.maturity === 'prototype').length,
     missingPrimitives,
+    invalidMaturity: invalidMaturity.map((strategy) => strategy.id),
+    promotionBlocked: promotionBlocked.map((strategy) => strategy.id),
     registryHash: hashRegistry(strategies),
-    complete: missingPrimitives.length === 0
+    complete: missingPrimitives.length === 0 && invalidMaturity.length === 0 && promotionBlocked.length === 0
   };
 }
 
@@ -47,8 +53,9 @@ function hashRegistry(strategies = listStrategies()) {
 function toPublicStrategy(strategy) {
   const handlers = require('../services/strategyExecutionAdapter').getHandlers();
   const missingPrimitives = strategy.primitives.filter((primitive) => !handlers[primitive]);
-  const executionStatus = missingPrimitives.length ? 'partial' : 'ready';
-  const maturity = executionStatus === 'partial' ? 'partial' : strategy.maturity;
+  const declared = strategy.maturity === 'implemented' ? 'ready' : strategy.maturity;
+  const executionStatus = missingPrimitives.length ? 'partial' : declared;
+  const maturity = missingPrimitives.length ? 'partial' : declared;
   return {
     ...strategy,
     maturity,

@@ -12,8 +12,6 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { getDatabase, closeDatabase } = require('../src/db');
 const scheduler = require('../src/services/aTeamStageScheduler');
-const topologySessionStore = require('../src/services/topologySessionStore');
-const aTeamRuntimeDecision = require('../src/services/aTeamRuntimeDecisionService');
 const { emit } = require('../src/services/agentOrchestrationState');
 
 function parseArgs(argv) {
@@ -42,8 +40,6 @@ async function main() {
   const { plan, bridgePath, repoRoot, request = {}, parentWorkspaceRoot } = payload;
   if (!plan || !plan.members || !bridgePath) throw new Error('Stage runner requires plan, members and bridgePath.');
   const db = await getDatabase();
-  const session = await topologySessionStore.load(db, plan.planId);
-  if (!session) throw new Error(`Durable A-Team plan '${plan.planId}' was not found.`);
   const launch = async (member) => {
     const child = spawn(process.execPath, [bridgePath, JSON.stringify(scheduler.workerLaunchPayload({ plan, member, parentWorkspaceRoot, request }))], {
       cwd: repoRoot || process.cwd(),
@@ -62,19 +58,10 @@ async function main() {
       timeoutMs: payload.timeoutMs
     }
   });
-  const workerWait = await scheduler.waitForWorkersTerminal(db, plan.members.map((member) => member.workerId), {
-    pollMs: payload.pollMs, timeoutMs: payload.timeoutMs
-  });
-  const terminal = await aTeamRuntimeDecision.evaluateRuntimeDecision({ db, plan, stageResults: results, workerWait });
-  await topologySessionStore.save(db, {
-    id: plan.planId,
-    topology: 'a_team',
-    expectedVersion: session.storeVersion,
-    state: { ...session.state, status: terminal.decision, stageResults: results, terminalDecision: terminal, completedAt: new Date().toISOString() }
-  });
-  emit(plan.orchestratorId, 'A_TEAM_TERMINAL_DECISION', 'ARBITRATE_INTEGRATION',
-    `A-Team terminal decision: ${terminal.decision} (${terminal.reason}).`,
-    { planId: plan.planId, terminal, results }, terminal.decision === 'completed' ? 'info' : 'warning');
+  const timedOut = results.some((entry) => entry.timedOut);
+  emit(plan.orchestratorId, 'A_TEAM_STAGES_COMPLETED', 'SCHEDULE_STAGES',
+    timedOut ? 'A-Team stage scheduling finished with a dependency timeout.' : 'A-Team stage scheduling finished.',
+    { planId: plan.planId, results }, timedOut ? 'warning' : 'info');
 }
 
 main()

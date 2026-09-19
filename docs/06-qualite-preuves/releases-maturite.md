@@ -67,3 +67,36 @@ ne les traite plus comme des primitives manquantes.
 Le registre impose une vérification de clôture : aucune stratégie expérimentale
 ou prototype, aucune primitive manquante et aucune stratégie partielle ne peut
 être publiée comme prête.
+
+## Contrat du registre complet
+
+Le statut public renvoyé par `backend/src/strategies/strategyRegistry.js` est
+calculé pour **toutes** les stratégies, pas seulement celles citées dans une
+release :
+
+- `ready` : tous les handlers des primitives déclarées sont enregistrés ; les
+  gates de preuves du contrat de promotion restent nécessaires ;
+- `partial` : au moins un handler manque ; la sélection et la promotion sont
+  bloquées ;
+- `experimental` : statut déclaré explicitement ; sélection seulement avec
+  opt-in ; une promotion ne peut pas être qualifiée de prête ;
+- `prototype` : statut déclaré explicitement ; sélection seulement avec
+  opt-in ; une promotion ne peut pas être qualifiée de prête.
+
+Les anciennes déclarations internes `implemented` sont normalisées en `ready`
+dans la vue publique. `registryHealth()` compte les quatre états sur le registre
+complet, relève les identifiants à maturité inconnue et expose `promotionBlocked`
+pour tout état autre que `ready` ou toute primitive manquante. `complete` n’est
+vrai que si le registre entier est prêt. Le sélecteur échoue fermé sur maturité
+inconnue/partielle et vérifie le statut d’exécution ; les options expérimentales
+ne contournent pas l’absence de primitive.
+
+La validation du contrat compare le hash du registre et la maturité de chaque
+décision avec le registre courant. Le gate de promotion exige toujours le replay
+quand requis, une vérification indépendante, les preuves épistémiques/éthiques
+applicables et l’approbation humaine requise par le profil. Le test
+`backend/tests/test_strategy_registry_complete.js` vérifie les comptes et la
+clôture sur le registre complet ; `test_strategy_primitive_gate.js` vérifie le
+refus des primitives absentes ; `test_strategy_promotion_policies.js` couvre les
+gates de promotion. Ces tests n’attestent que la version, les handlers et les
+scénarios exécutés.
