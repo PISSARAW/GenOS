@@ -9,6 +9,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [modeles-et-providers.md](modeles-et-providers.md) — providers, routing, coûts, local/remote.
 - [integrations-ide.md](integrations-ide.md) — contrat IDE `genos.ide/v1`.
 - [preuves-produit-et-safe-debugging.md](preuves-produit-et-safe-debugging.md) — preuves backend et safe debugging.
+- [contrat-produit-et-completude.md](contrat-produit-et-completude.md) — périmètre, statuts, preuves et plateformes de la version complète.
 - [pont-rust-et-hallucinations.md](pont-rust-et-hallucinations.md) — bridge REST vers `genos-cli`, replay et hallucinations.
 - [ecologie-et-systemes-vivants.md](ecologie-et-systemes-vivants.md) — bus zero-texte, primitives écologiques, HGT, stigmergie, électrocytes, organisations dynamiques.
 - [registre-philosophique.md](registre-philosophique.md) — concepts, relations, mappings, maturité et garde-fous.
