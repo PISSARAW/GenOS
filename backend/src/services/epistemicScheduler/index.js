@@ -7,8 +7,9 @@ const novelty = require('./noveltyAllocator');
 const { DependencyIndex } = require('./dependencyIndex');
 const counterexamples = require('./counterexamplePropagation');
 const budgets = require('./budgetReallocator');
+const mathematicalGraph = require('./mathematicalDependencyGraph');
 
 module.exports = {
   ActiveTaskRegistry, DependencyIndex, canonicalTask, taskFingerprint,
-  ...independence, ...novelty, ...counterexamples, ...budgets,
+  ...independence, ...novelty, ...counterexamples, ...budgets, ...mathematicalGraph,
 };

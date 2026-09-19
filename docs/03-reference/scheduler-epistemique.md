@@ -71,6 +71,19 @@ front selon leur score de promesse. Un plancher configurable préserve une capac
 d'exploration. La somme entière des jetons est conservée et chaque mouvement porte
 un reçu `fromLineageId`, `toLineageId`, `tokens` et `reason`.
 
+## Graphe de dépendances mathématiques
+
+`MathematicalDependencyGraph` stocke des nœuds typés `conjecture`, `lemma`,
+`theorem`, `counterexample`, `artifact` ou `obligation`. Les arêtes sont `uses`,
+`implies`, `specializes`, `contradicts` ou `verifies`. Pour une dépendance causale,
+l'arête va du prérequis vers son consommateur.
+
+Les cycles dans `uses`, `implies` et `specializes` sont refusés. Le graphe expose
+la frontière actuellement ouvrable, les descendants, les racines, les feuilles et
+une exportation structurée `genos.mathematical-dependency-graph/v1`. Il peut être
+construit directement à partir de résultats `genos.formal-result/v1` ; leurs
+dépendances deviennent alors des arêtes, sans passer par un résumé textuel.
+
 ## Voir aussi
 
 - [ADR 0031](../adr/0031-scheduler-epistemique-mathematique.md)
