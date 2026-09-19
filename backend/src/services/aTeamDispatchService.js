@@ -14,6 +14,7 @@ const workerGarage = require('./workerGarageService');
 const aTeamCoordination = require('./aTeamCoordinationService');
 const aTeamService = require('./aTeamService');
 const aTeamStageScheduler = require('./aTeamStageScheduler');
+const topologySessionStore = require('./topologySessionStore');
 const { emit } = require('./agentOrchestrationState');
 
 function stageRunnerPath() {
@@ -63,6 +64,14 @@ async function dispatchTeam({ db, context, parent, launchWorker }) {
     available: garage.available
   });
   const plan = aTeamStageScheduler.stagePlanFor({ orchestratorId: context.orchestratorId, members: team.members });
+  plan.handoffs = team.handoffs;
+  plan.status = 'running';
+  plan.decision = null;
+  plan.organization = team.organization;
+  plan.capabilityContract = team.capabilityContract;
+  plan.capabilityAudit = team.capabilityAudit;
+  plan.createdAt = new Date().toISOString();
+  await topologySessionStore.save(db, { id: plan.planId, topology: 'a_team', state: plan });
   // Independent producers start now; the detached runner waits for them before
   // launching the consumer stages.
   const stageZero = plan.members.filter((member) => member.pipelineStage === 0);
