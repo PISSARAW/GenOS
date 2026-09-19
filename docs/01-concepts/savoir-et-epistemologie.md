@@ -18,7 +18,7 @@ Les modèles modaux doivent déclarer des mondes uniques et des arêtes d’acce
 référencent ces mondes. Les annonces publiques sont simulées sur une copie logique du
 modèle ; elles ne modifient pas l’état du runtime.
 
-- **Statut** : Partiel — registre déclaratif étendu ; infrastructure de claims, preuves et confiance déjà disponible ; analyses philosophiques spécialisées encore progressives.
+- **Statut** : Partiel — analyses bornées exécutables pour les claims, l’inférence, la probabilité, la fiabilité, les méthodes scientifiques, la vérité, l’épistémologie sociale, le rationalisme déclaré et le doute cartésien. Les entrées `planned` restent documentaires.
 - **Portée** : nature du savoir, justification, inférence, vérité, science, scepticisme et épistémologie sociale.
 - **Dernière revue** : 2026-09-17.
 
@@ -160,6 +160,12 @@ Les références à Kuhn, Lakatos et à l’incommensurabilité décrivent des c
 d’histoire et de philosophie des sciences. Elles ne doivent pas être utilisées comme
 algorithmes automatiques de sélection de code.
 
+Les entrées `school.rationalism` et `epistemology.cartesian-doubt` disposent également
+d’adaptateurs bornés. Ils classent respectivement des raisons a priori déclarées et
+des critères de clarté/distinction fournis par l’appelant ; ils n’établissent pas la
+vérité des prémisses. La maturité exposée par le registre reprend le service qui est
+réellement appelé par chaque adaptateur.
+
 ## 7. Architecture technique
 
 Le registre canonique est défini dans
@@ -235,6 +241,43 @@ perspectives manquantes sans agréger ces signaux en vérité automatique.
   propositionnelle ne doivent pas être fusionnés dans un même champ sans perte de sens.
 - Les concepts marqués `planned` dans le registre restent documentaires et retournent
   une évaluation non supportée tant qu’aucun adaptateur vérifiable n’existe.
+
+## 11. Plan d’implémentation des concepts `planned`
+
+Les prochains adaptateurs sont ordonnés par dépendances analytiques. Chaque lot doit
+valider ses entrées, retourner le contrat `genos.philosophy-analysis/v1`, préserver la
+provenance déclarée et l’incertitude, et garder `promotionEligible: false`. Une entrée
+ne passe à `partial` qu’après son branchement effectif dans `philosophyRouter` et
+l’ajout d’une maturité exécutable au registre des services.
+
+1. **Modèle de connaissance** — `epistemology.tripartite-definition`,
+   `epistemology.certainty-doubt`, `epistemology.doxa`,
+   `epistemology.propositional-knowledge` et
+   `epistemology.knowledge-first`, `epistemology.knowledge-assertion` et
+   `epistemology.context-discovery-justification`. Réutiliser claims, preuves,
+   confiance et provenance ; distinguer la vérité déclarée d’un résultat inféré.
+2. **Inférence et probabilité** — `method.induction-problem`,
+   `method.surprise-predictivism`, `method.dutch-book` et
+   `method.bayesian-confirmation`. Rendre les hypothèses et critères de calcul
+   explicites ; ne pas assimiler soutien probabiliste et preuve factuelle.
+3. **Fiabilité et formes de savoir** — `epistemology.acquaintance`,
+   `epistemology.know-how`, `epistemology.knowledge-wh`,
+   `epistemology.process-reliabilism`, `epistemology.indicator-reliabilism`,
+   `epistemology.virtue-epistemology`,
+   `epistemology.intellectual-virtue-vice` et
+   `epistemology.causal-theory-knowledge`. Séparer observations reproductibles,
+   compétences déclarées et relations causales effectivement observées.
+4. **Écoles et philosophie des sciences** — `school.empiricism`,
+   `school.verificationism`, `school.falsificationism`, `school.pragmatism`,
+   `school.naturalized-epistemology`, `science.raven-paradox`, `science.progress`,
+   `science.paradigm-incommensurability`, `science.normal-revolutionary` et
+   `science.godel-incompleteness`. Les cadres historiques resteront descriptifs ;
+   Gödel sera limité aux énoncés formels et conditions d’application fournis.
+
+Pour chaque lot, vérifier la cohérence entre registre, adaptateur, service et contrat
+de maturité. Une entrée insuffisante doit produire `undetermined` ou `insufficient-data`,
+jamais une réussite implicite. Les concepts restent `planned` jusqu’à leur propre
+validation.
 
 Les tests du registre et du routeur se trouvent dans
 [`backend/tests/test_philosophy_router.js`](../../backend/tests/test_philosophy_router.js).

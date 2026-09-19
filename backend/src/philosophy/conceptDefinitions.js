@@ -124,13 +124,13 @@ const RAW_CONCEPT_DEFINITIONS = [
   C({ id: 'process.sartrean-existence', label: 'Existence précède essence / mauvaise foi', domain: 'process', school: 'sartre', status: 'implemented', service: 'phenomenologyService' }),
 
   // Épistémologie — nature, portée et formes du savoir.
-  C({ id: 'epistemology.knowledge', label: 'Savoir / Knowledge', domain: 'epistemology', school: 'general', status: 'partial', service: 'epistemics' }),
+  C({ id: 'epistemology.knowledge', label: 'Savoir / Knowledge', domain: 'epistemology', school: 'general', status: 'partial', service: 'knowledgeService' }),
   C({ id: 'epistemology.tripartite-definition', label: 'Définition tripartite : croyance vraie justifiée', domain: 'epistemology', school: 'plato-gettier', status: 'planned' }),
   C({ id: 'epistemology.gettier-problem', label: 'Problème de Gettier et contre-exemples', domain: 'epistemology', school: 'gettier', status: 'partial', service: 'knowledgeService' }),
   C({ id: 'epistemology.post-gettier-defenses', label: 'Défenses post-Gettier', domain: 'epistemology', school: 'contemporary', status: 'partial', service: 'knowledgeService' }),
-  C({ id: 'epistemology.belief', label: 'Croyance / Belief', domain: 'epistemology', school: 'general', status: 'partial', service: 'epistemics' }),
-  C({ id: 'epistemology.justification', label: 'Justification épistémique', domain: 'epistemology', school: 'analytic', status: 'partial', service: 'epistemics' }),
-  C({ id: 'epistemology.truth', label: 'Vérité et connaissance', domain: 'epistemology', school: 'general', status: 'partial', service: 'epistemics' }),
+  C({ id: 'epistemology.belief', label: 'Croyance / Belief', domain: 'epistemology', school: 'general', status: 'partial', service: 'knowledgeService' }),
+  C({ id: 'epistemology.justification', label: 'Justification épistémique', domain: 'epistemology', school: 'analytic', status: 'partial', service: 'knowledgeService' }),
+  C({ id: 'epistemology.truth', label: 'Vérité et connaissance', domain: 'epistemology', school: 'general', status: 'partial', service: 'knowledgeService' }),
   C({ id: 'epistemology.plausibility', label: 'Vraisemblance / Probabilisme', domain: 'epistemology', school: 'probabilism', status: 'partial', service: 'probabilityService' }),
   C({ id: 'epistemology.certainty-doubt', label: 'Certitude / Doute', domain: 'epistemology', school: 'general', status: 'planned' }),
   C({ id: 'epistemology.doxa', label: 'Opinion / Doxa', domain: 'epistemology', school: 'plato', status: 'planned' }),
@@ -141,7 +141,7 @@ const RAW_CONCEPT_DEFINITIONS = [
   C({ id: 'epistemology.gettierized-knowledge', label: 'Connaissance gettierisée', domain: 'epistemology', school: 'gettier', status: 'partial', service: 'knowledgeService' }),
   C({ id: 'epistemology.knowledge-first', label: 'Knowledge-first epistemology', domain: 'epistemology', school: 'williamson', status: 'planned' }),
   C({ id: 'epistemology.knowledge-assertion', label: 'Knowledge account of assertion', domain: 'epistemology', school: 'williamson-turri', status: 'planned' }),
-  C({ id: 'epistemology.rationality-norms', label: 'Rationalité et normes de croyance', domain: 'epistemology', school: 'analytic', status: 'partial', service: 'epistemics' }),
+  C({ id: 'epistemology.rationality-norms', label: 'Rationalité et normes de croyance', domain: 'epistemology', school: 'analytic', status: 'partial', service: 'rationalityNormsService' }),
   C({ id: 'epistemology.context-discovery-justification', label: 'Contexte de découverte / justification', domain: 'epistemology', school: 'reichenbach', status: 'planned' }),
 
   // Écoles et positions épistémologiques.

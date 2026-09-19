@@ -17,6 +17,35 @@
  */
 
 const platonismService = require('./platonismService');
+const { boundedAnalysis, withEpistemicContext } = require('./philosophyAnalysisContract');
+
+function rationalismStatus({ aPriori, grounds, empiricalDependence }) {
+  if (aPriori === true && grounds.length > 0 && empiricalDependence === false) return 'rationalist-fit';
+  if (aPriori === false || empiricalDependence === true) return 'not-rationalist-fit';
+  return 'rationalist-status-undetermined';
+}
+
+function assessRationalism({ proposition, aPriori, grounds = [], empiricalDependence = null } = {}) {
+  if (typeof proposition !== 'string' || !proposition.trim()) {
+    throw new Error('epistemologyService.assessRationalism requires a proposition.');
+  }
+  if (!Array.isArray(grounds)) throw new Error('grounds must be an array.');
+  if (aPriori !== undefined && typeof aPriori !== 'boolean') throw new Error('aPriori must be a boolean.');
+  if (empiricalDependence !== null && typeof empiricalDependence !== 'boolean') {
+    throw new Error('empiricalDependence must be a boolean.');
+  }
+
+  const status = rationalismStatus({ aPriori, grounds, empiricalDependence });
+  return withEpistemicContext(boundedAnalysis({
+    kind: 'rationalism-assessment',
+    proposition,
+    aPriori: typeof aPriori === 'boolean' ? aPriori : null,
+    grounds,
+    empiricalDependence,
+    status,
+    limitation: 'Cette analyse classe les raisons et dépendances déclarées ; elle ne valide ni les prémisses ni la vérité de la proposition.',
+  }), { methodology: 'rationalism', reasoningStatus: status });
+}
 
 /**
  * fourCauses — Aristotélisme.
@@ -136,6 +165,7 @@ module.exports = {
   evaluateAgainstForm: platonismService.evaluateAgainstForm,
   platonicCriticism: platonismService.platonicCriticism,
   IDEAL_FORMS: platonismService.IDEAL_FORMS,
+  assessRationalism,
   fourCauses,
   noumeneVsPhenomenon,
   categoriesAPriori,

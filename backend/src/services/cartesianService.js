@@ -64,7 +64,9 @@ function methodicalDoubt({ agent, belief }) {
     clarity,
     distinctness,
     accepted: certain,
+    status: certain ? 'clear-and-distinct-candidate' : 'held-for-methodical-doubt',
     method: 'doute méthodique',
+    limitation: 'Clarté et distinction sont des critères déclarés ; cette analyse ne vérifie pas la vérité de la croyance.',
     description: certain
       ? `La croyance "${belief.id || belief}" est claire et distincte → acceptée.`
       : `La croyance "${belief.id || belief}" n'est pas claire/distincte → rejetée.`,
