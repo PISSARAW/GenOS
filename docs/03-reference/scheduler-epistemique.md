@@ -23,6 +23,18 @@ const decision = registry.register(task, { duplicatePolicy: 'coalesce' });
 Le résultat contient `decision`, `fingerprint` et `canonicalTaskId`. Les décisions
 possibles à ce stade sont `accepted`, `coalesced` et `rejected`.
 
+## Vérifications indépendantes
+
+`registerVerificationReplica` autorise une redondance bornée sans désactiver la
+déduplication générale. Chaque réplica déclare son acteur, son modèle et sa version,
+sa stratégie, sa source de preuve et son workspace. Deux exécutions partageant le
+même acteur ou le même workspace ne sont pas qualifiées d'indépendantes.
+
+La distance minimale vaut trois dimensions différentes par défaut. Le nombre de
+réplicas est borné, tandis que `verificationReplicaTarget` recommande zéro réplica
+pour un cas normal, un pour une vérification explicitement demandée, deux pour un
+risque élevé et trois pour un risque critique.
+
 ## Voir aussi
 
 - [ADR 0031](../adr/0031-scheduler-epistemique-mathematique.md)
