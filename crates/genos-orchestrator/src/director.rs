@@ -48,6 +48,7 @@ pub struct Director {
     /// Paramètres adaptatifs du contrôleur, optimisables par la population.
     pub exploration_weight: f64,
     pub stress_cost_weight: f64,
+    pub physical_memory: Option<(crate::physics::PhysicalState, Strategy)>,
 }
 
 impl Default for Director {
@@ -59,10 +60,10 @@ impl Default for Director {
             last_context: Vec::new(),
             exploration_weight: 1.5,
             stress_cost_weight: 2.0,
+            physical_memory: None,
         }
     }
 }
-
 /// Expérience apprise du directeur, sérialisable.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct DirectorState {

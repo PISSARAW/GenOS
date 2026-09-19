@@ -64,7 +64,8 @@ impl GenosEcosystem {
         // Instincts avant délibération.
         self.run_instincts(&state);
         self.director.set_context(context_from_state(&state));
-        let mut decision = self.director.decide(&state, goal);
+        let (mut decision, physical) = crate::physical_telemetry::decide(&self.director, &state, goal);
+        self.director.physical_memory = Some((physical, decision.strategy));
         let creative_tasks = self.prepare_creativity(crate::creativity_cycle::CreativityPreparation {
             state: &state,
             goal,

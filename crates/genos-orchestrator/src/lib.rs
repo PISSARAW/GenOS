@@ -27,6 +27,7 @@ pub mod organism;
 pub mod organization;
 pub mod phylogeny;
 pub mod physics;
+pub mod physical_telemetry;
 pub mod plasmids;
 pub mod planner;
 pub mod recruitment;
@@ -63,6 +64,7 @@ pub use physics::{
     ActionProfile, DecisionContext, Material, PhysicalState, Regime, UtilityInputs, action_profile,
     classify_material, determine_regime, inertia_threshold, utility_score,
 };
+pub use physical_telemetry::PhysicalTelemetry;
 pub use plasmids::{PlasmidBank, Skill};
 pub use trace::{Outcome, ReplayReport, Verdict};
 pub use tick::{MissionReport, TickReport};

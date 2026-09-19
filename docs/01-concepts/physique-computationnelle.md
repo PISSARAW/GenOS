@@ -1,10 +1,9 @@
 # Physique computationnelle — l'inerte comme couche de réalité contraignante
 
-- **Statut** : Partiel — `PhysicalState`, profils d'action, matériaux, régimes et
-  gating d'inertie sont implémentés et testés dans `genos-orchestrator::physics`.
-  La dérivation depuis la télémétrie réelle (workspace, Git, budget CI) et le
-  branchement automatique dans `tick()`/`GenosEcosystem` restent à faire (voir
-  §10).
+- **Statut** : Intégré — `tick()` dérive et conserve l'état physique, l'enrichit
+  des mesures disponibles du workspace, de Git et du budget CI, puis appelle
+  `decide_physical`. Les heuristiques restent bornées et leurs proxys ne sont
+  pas des preuves indépendantes.
 
 Les sorties qui reposent sur des proxys de nommage ou des constantes calibrées
 portent une maturité `heuristic`; elles peuvent guider le contrôle, mais ne sont
@@ -121,9 +120,14 @@ flowchart LR
 
 ## 7. Architecture technique
 
-- `crates/genos-orchestrator/src/physics.rs` : module autonome (pas de champ
-  ajouté à `Director`/`DirectorState`/`GenosEcosystem` pour respecter la limite
-  de 400 lignes déjà atteinte par `director.rs`/`ecosystem.rs`/`tick.rs`).
+- `crates/genos-orchestrator/src/physics.rs` : lois de dérivation, profils,
+  matériaux et décision gatée.
+- `crates/genos-orchestrator/src/physical_telemetry.rs` : échantillonnage best
+  effort du nombre de fichiers du workspace (hors `.git`, `target`,
+  `node_modules`), fichiers Git modifiés et branches locales. Le budget CI est
+  lu depuis `CI_BUDGET_REMAINING` / `CI_BUDGET_TOTAL` (ou leurs variantes
+  `GITHUB_RUN_ATTEMPT_REMAINING` / `GITHUB_RUN_ATTEMPT_TOTAL`). Les sources
+  absentes restent `None` et n'affectent pas l'état.
   - `PhysicalState` + `derive` (dérivation pure depuis `WorldState`).
   - `action_profile(Concept) -> ActionProfile` (registre de masses/frictions).
   - `Material` + `classify_material(path)` (heuristique de nommage).
@@ -166,19 +170,17 @@ délégués au prompt.
 
 ## 10. Limites, garde-fous, non-objectifs
 
-- Pas encore branché automatiquement dans `tick()`/`GenosEcosystem` : la
-  dérivation depuis la télémétrie réelle (nombre de branches Git, taille de
-  contexte, dette de preuve réelle) reste à faire — `derive()` n'utilise
-  aujourd'hui que les champs déjà présents sur `WorldState`.
+- Les compteurs workspace/Git et le budget CI sont des proxys bornés qui
+  modulent friction, entropie, inertie et pression. La taille de contexte, la
+  dette de preuve réelle, les dépendances/imports et la couverture de tests ne
+  sont pas mesurés. Les erreurs d'accès aux sources optionnelles laissent ces
+  mesures absentes ; l'état dérivé de `WorldState` reste actif.
   `classify_material` est une heuristique de nommage, pas une analyse réelle
   du graphe d'imports/dépendants/couverture de tests.
 - Les constantes (seuils de régime, poids de `derive`) sont des valeurs de
   départ raisonnables, pas des valeurs apprises par mission — la persistance
   de constantes apprises par type de mission (dernier point de la feuille de
   route) n'est pas implémentée.
-- `decide_physical` est une méthode additionnelle : elle n'est pas encore
-  appelée par défaut dans la boucle de mission (`run_autonomous`/`tick`) ; les
-  appelants doivent l'invoquer explicitement pour bénéficier du gating.
 - Non-objectif : ceci n'est pas un moteur physique (pas de conservation
   d'énergie stricte, pas d'intégration temporelle) — c'est un ensemble de
   règles de contrôle bornées inspirées de phénomènes physiques.
