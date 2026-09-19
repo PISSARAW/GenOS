@@ -51,6 +51,10 @@ async function migrateDurableAgentCoordination(db) {
   );
   CREATE INDEX IF NOT EXISTS idx_survival_wake_conditions_agent ON survival_wake_conditions(agent_id, status);
 `);
+  const wakeColumns = await db.all('PRAGMA table_info(survival_wake_conditions)');
+  if (wakeColumns.length && !wakeColumns.some((column) => column.name === 'snapshot_id')) {
+    await db.exec('ALTER TABLE survival_wake_conditions ADD COLUMN snapshot_id TEXT');
+  }
 }
 
 module.exports = { migrateDurableAgentCoordination };

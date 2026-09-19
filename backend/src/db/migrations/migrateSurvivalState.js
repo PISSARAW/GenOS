@@ -25,6 +25,12 @@ async function migrateSurvivalState(db) {
     CHECK (json_valid(payload_json))
   );
   CREATE INDEX IF NOT EXISTS idx_survival_state_events_agent ON survival_state_events(agent_id, id);
+  CREATE TABLE IF NOT EXISTS survival_action_receipts (
+    receipt_id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, receipt_type TEXT NOT NULL,
+    action TEXT NOT NULL, execution_id TEXT NOT NULL, evidence_ref TEXT NOT NULL,
+    outcome TEXT NOT NULL CHECK(outcome = 'succeeded'), payload_json TEXT NOT NULL CHECK(json_valid(payload_json)),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 }
 

@@ -48,9 +48,9 @@ observée : `threatLevel` doit provenir d'un signal explicite.
 | `stagnation` | stagnation `>= 0,70` | mutation contrôlée, blast radius 1 |
 
 Sous énergie `< 0,08`, `cryptobiosis_suspend` interdit tout nouveau worker et
-marque la mission `dormant`. La condition de réveil et le snapshot effectif
-restent à fournir par les services de résilience ; le runtime ne prétend pas
-qu'un snapshot existe sans reçu.
+marque la mission `dormant`. Le service persiste la condition de réveil avec
+l'identifiant du snapshot gelé ; le réveil vérifie que la condition, l'état
+dormant et le snapshot persistant correspondent avant restauration.
 
 ## Contrôles actifs
 
@@ -91,12 +91,21 @@ encore réduire ce nombre.
 ## Limites et garde-fous
 
 - Les seuils sont déterministes et locaux, pas appris automatiquement.
-- Réparation, migration, élagage et reproduction sont des demandes tant qu'un
-  exécuteur ne fournit pas de reçu typé.
+- `recordActionReceipt()` persiste un reçu typé pour réparation, migration,
+  élagage, reproduction, mutation contrôlée et élagage de workers. Il exige un
+  identifiant d'exécution, une référence de preuve et un résultat réussi, puis
+  enregistre une observation de télémétrie post-action. L'appelant doit être
+  l'exécuteur réel : soumettre un reçu ne vérifie pas lui-même le contenu de la
+  preuve ni ne lance l'action.
 - La viabilité est un indicateur de contrôle, jamais une preuve de réussite.
 - Une action de survie ne contourne ni sandbox, ni lease, ni gate de promotion.
-- La télémétrie post-action et les conditions de réveil persistées restent à
-  implémenter avant de qualifier la boucle de survie de complète.
+- La condition de réveil et son lien au snapshot sont persistés et validés,
+  mais aucun ordonnanceur n'évalue automatiquement les conditions.
+- Les reçus sont stockés et typés, mais l'intégration de tous les exécuteurs
+  reste à faire ; la télémétrie ne peut donc pas encore être garantie pour
+  chaque action réelle.
+- Le statut reste **Partiel** jusqu'à ce que les exécuteurs soient raccordés et
+  que toute la chaîne soit vérifiée de bout en bout.
 
 Voir [ADR 0013](../adr/0013-survival-model-control-plane.md) et
 [corps-orchestrator.md](corps-orchestrator.md).

@@ -3,6 +3,7 @@
 const { evaluateSurvival } = require('./survivalModelService');
 const resilience = require('./resilienceService');
 const wakeService = require('./survivalWakeService');
+const crypto = require('crypto');
 
 const STATES = Object.freeze(['nominal', 'stressed', 'protected', 'dormant', 'waking', 'recovered', 'quarantined']);
 const PRESSURE_STATES = new Set(['starvation', 'infection', 'injury', 'predation', 'overgrowth', 'isolation', 'conflict', 'senescence', 'habitat_loss', 'stagnation']);
@@ -113,18 +114,56 @@ async function suspend(db, command = {}) {
   const snapshot = await resilience.freezeCryptobiosis(db, command.workspaceId || null, command.reason || 'survival dormancy', {
     agentId: id, workspaceId: command.workspaceId || null, survivalState: await get(db, id), ...(command.statePayload || {})
   });
-  const wake = await wakeService.arm({ db, agentId: id, condition: command.wakeCondition || { type: 'operator_or_signal' }, organizationId: command.organizationId, projectId: command.projectId });
+  const savedSnapshot = await db.get("SELECT snapshot_id FROM cryptobiosis_snapshots WHERE snapshot_id = ? AND status = 'frozen'", snapshot.snapshotId);
+  if (!savedSnapshot) throw Object.assign(new Error('A persisted frozen snapshot is required before arming wake.'), { code: 'SURVIVAL_SNAPSHOT_REQUIRED' });
+  const wake = await wakeService.arm({ db, agentId: id, condition: command.wakeCondition || { type: 'operator_or_signal' }, snapshotId: savedSnapshot.snapshot_id, organizationId: command.organizationId, projectId: command.projectId });
   const state = await observe(db, id, { energy: 0, forcedState: 'dormant', snapshotId: snapshot.snapshotId, wakeConditionId: wake.id });
   return { success: true, state, snapshot, wakeCondition: wake };
 }
 
-async function wake(db, command = {}) {
-  const id = ensureAgentId(command.agentId);
+const RECEIPT_TYPES = Object.freeze({
+  isolate_restore_validate: 'repair', migrate_workspace: 'migration', prune_memory: 'pruning',
+  reproduce_strategy: 'reproduction', controlled_mutation: 'mutation', prune_workers: 'pruning'
+});
+
+async function recordActionReceipt(db, receipt = {}) {
+  const type = RECEIPT_TYPES[receipt.action];
+  if (!type || receipt.type !== type || !receipt.agentId || !receipt.executionId || !receipt.evidenceRef || receipt.outcome !== 'succeeded') {
+    throw Object.assign(new Error('A typed successful execution receipt with evidenceRef is required.'), { code: 'SURVIVAL_RECEIPT_INVALID' });
+  }
+  await ensureStorage(db);
+  await db.exec(`CREATE TABLE IF NOT EXISTS survival_action_receipts (
+    receipt_id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, receipt_type TEXT NOT NULL,
+    action TEXT NOT NULL, execution_id TEXT NOT NULL, evidence_ref TEXT NOT NULL,
+    outcome TEXT NOT NULL CHECK(outcome = 'succeeded'), payload_json TEXT NOT NULL CHECK(json_valid(payload_json)),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );`);
+  const receiptId = receipt.receiptId || `survival_receipt_${crypto.randomUUID()}`;
+  const payload = { ...receipt, receiptId, type };
+  await db.run(`INSERT INTO survival_action_receipts
+    (receipt_id, agent_id, receipt_type, action, execution_id, evidence_ref, outcome, payload_json)
+    VALUES (?, ?, ?, ?, ?, ?, 'succeeded', ?)`, receiptId, receipt.agentId, type, receipt.action, receipt.executionId, receipt.evidenceRef, JSON.stringify(payload));
+  const telemetry = await observe(db, receipt.agentId, { ...(receipt.postActionTelemetry || {}), source: 'survival_action_receipt', receiptId });
+  return { receipt: payload, telemetry };
+}
+
+async function resolveWakeContext(db, command, id) {
   const armed = command.wakeConditionId ? await wakeService.get({ db, id: command.wakeConditionId }) : (await wakeService.listArmed({ db, agentId: id }))[0];
   if (!armed || armed.status !== 'armed') return { success: false, code: 'WAKE_CONDITION_NOT_ARMED' };
   const current = await get(db, id);
   if (!current || current.state !== 'dormant') return { success: false, code: 'SURVIVAL_NOT_DORMANT', state: current };
   if (!current.snapshotId) return { success: false, code: 'SURVIVAL_SNAPSHOT_REQUIRED' };
+  if (armed.snapshotId !== current.snapshotId) return { success: false, code: 'SURVIVAL_WAKE_SNAPSHOT_MISMATCH' };
+  const persistedSnapshot = await db.get("SELECT snapshot_id FROM cryptobiosis_snapshots WHERE snapshot_id = ? AND status = 'frozen'", current.snapshotId);
+  if (!persistedSnapshot) return { success: false, code: 'SURVIVAL_SNAPSHOT_NOT_FOUND' };
+  return { success: true, armed, current };
+}
+
+async function wake(db, command = {}) {
+  const id = ensureAgentId(command.agentId);
+  const context = await resolveWakeContext(db, command, id);
+  if (!context.success) return context;
+  const { armed, current } = context;
   const restored = await resilience.thawCryptobiosis(db, current.snapshotId, command.workspaceId);
   if (!restored.success) return restored;
   await wakeService.trigger({ db, id: armed.id });
@@ -134,4 +173,4 @@ async function wake(db, command = {}) {
   return { success: true, restored, state };
 }
 
-module.exports = { STATES, get, observe, transition, suspend, wake, recoveryPlan, ensureStorage };
+module.exports = { STATES, get, observe, transition, suspend, wake, recoveryPlan, recordActionReceipt, RECEIPT_TYPES, ensureStorage };
