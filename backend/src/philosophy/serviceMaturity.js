@@ -12,6 +12,7 @@ const SERVICE_MATURITY = Object.freeze({
   inferenceService: { level: 'partial', executable: true, evidence: 'tests', note: 'Analyses bornées de déduction, induction et abduction ; aucun score fourni ne prouve la conclusion.' },
   probabilityService: { level: 'partial', executable: true, evidence: 'tests', note: 'Vérifie des probabilités déclarées et applique Bayes sous les hypothèses fournies.' },
   scientificMethodService: { level: 'partial', executable: true, evidence: 'tests', note: 'Évalue confirmation, falsification et hypothèses auxiliaires sur les observations fournies.' },
+  specializedEpistemologyService: { level: 'partial', executable: true, evidence: 'tests', note: 'Évalue des critères explicitement fournis pour les analyses spécialisées; les entrées et preuves ne sont pas vérifiées.' },
   truthSkepticismService: { level: 'partial', executable: true, evidence: 'tests', note: 'Compare des cadres de vérité et de scepticisme sans produire de verdict factuel.' },
   socialEpistemologyService: { level: 'partial', executable: true, evidence: 'tests', note: 'Analyse témoignages, désaccords, rôles et perspectives selon les entrées déclarées.' },
   epistemologyService: { level: 'partial', executable: true, evidence: 'tests', note: 'Analyse descriptive de l’argument rationaliste déclaré, sans inférer une vérité.' },

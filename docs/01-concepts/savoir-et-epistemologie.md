@@ -18,7 +18,7 @@ Les modèles modaux doivent déclarer des mondes uniques et des arêtes d’acce
 référencent ces mondes. Les annonces publiques sont simulées sur une copie logique du
 modèle ; elles ne modifient pas l’état du runtime.
 
-- **Statut** : Partiel — analyses bornées exécutables pour les claims, l’inférence, la probabilité, la fiabilité, les méthodes scientifiques, la vérité, l’épistémologie sociale, le rationalisme déclaré et le doute cartésien. Les entrées `planned` restent documentaires.
+- **Statut** : Partiel — analyses bornées exécutables pour les claims, l’inférence, la probabilité, la fiabilité, les méthodes scientifiques, la vérité, l’épistémologie sociale, le rationalisme déclaré, le doute cartésien et les rubriques épistémologiques spécialisées. Ces dernières évaluent des critères déclarés sans les vérifier.
 - **Portée** : nature du savoir, justification, inférence, vérité, science, scepticisme et épistémologie sociale.
 - **Dernière revue** : 2026-09-17.
 
@@ -239,16 +239,17 @@ perspectives manquantes sans agréger ces signaux en vérité automatique.
   il ne mesure pas automatiquement toutes les capacités cognitives d’un agent.
 - La connaissance par acquaintance, le savoir-faire, le témoignage et la connaissance
   propositionnelle ne doivent pas être fusionnés dans un même champ sans perte de sens.
-- Les concepts marqués `planned` dans le registre restent documentaires et retournent
-  une évaluation non supportée tant qu’aucun adaptateur vérifiable n’existe.
+- Les concepts épistémologiques du plan ont des adaptateurs; les autres entrées
+  `planned` restent documentaires et retournent une évaluation non supportée.
 
 ## 11. Plan d’implémentation des concepts `planned`
 
-Les prochains adaptateurs sont ordonnés par dépendances analytiques. Chaque lot doit
-valider ses entrées, retourner le contrat `genos.philosophy-analysis/v1`, préserver la
-provenance déclarée et l’incertitude, et garder `promotionEligible: false`. Une entrée
-ne passe à `partial` qu’après son branchement effectif dans `philosophyRouter` et
-l’ajout d’une maturité exécutable au registre des services.
+Les adaptateurs des quatre lots sont branchés dans `philosophyRouter` via
+`specializedEpistemologyService`. Le service expose une rubrique explicite par concept,
+retourne le contrat `genos.philosophy-analysis/v1`, conserve la provenance et
+l’incertitude déclarées et maintient `promotionEligible: false`. Les 29 entrées du plan
+sont maintenant `partial` avec une maturité de service exécutable; ce statut signifie
+qu’une analyse conditionnelle est disponible, pas que la thèse est prouvée.
 
 1. **Modèle de connaissance** — `epistemology.tripartite-definition`,
    `epistemology.certainty-doubt`, `epistemology.doxa`,
@@ -274,10 +275,16 @@ l’ajout d’une maturité exécutable au registre des services.
    `science.godel-incompleteness`. Les cadres historiques resteront descriptifs ;
    Gödel sera limité aux énoncés formels et conditions d’application fournis.
 
-Pour chaque lot, vérifier la cohérence entre registre, adaptateur, service et contrat
-de maturité. Une entrée insuffisante doit produire `undetermined` ou `insufficient-data`,
-jamais une réussite implicite. Les concepts restent `planned` jusqu’à leur propre
-validation.
+Pour les rubriques spécialisées, fournir `criteria: [{ id, supports, evidence }]` en
+reprenant les critères déclarés par `RUBRICS`. L’induction, le Dutch book, la
+confirmation bayésienne et le reliabilisme de processus réutilisent respectivement les
+entrées des services d’inférence, probabilité et fiabilité (`observations`,
+`distribution`, paramètres de Bayes, `process`). Un critère absent ou sans booléen
+`supports` reste `unknown`; aucune réussite n’est implicite. Gödel accepte seulement
+les booléens de portée formelle (`effectiveAxiomatization`, `consistentSystem`,
+`arithmeticExpressivity`) et le statut déclaré d’une phrase (`provable`, `refutable`,
+`neither`). Le service ne construit pas de preuve et laisse le résultat indéterminé
+si les hypothèses formelles manquent.
 
 Les tests du registre et du routeur se trouvent dans
 [`backend/tests/test_philosophy_router.js`](../../backend/tests/test_philosophy_router.js).
