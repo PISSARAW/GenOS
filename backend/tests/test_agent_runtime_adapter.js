@@ -19,6 +19,8 @@ try {
     path.resolve(__dirname, '../bin/genos-agent-runtime.cjs')
   );
   assert(fs.existsSync(defaultExecutable), 'bundled GenOS runtime must exist');
+  assert.equal(adapter.configuredExecutable({ executor: 'hermes' }), path.resolve(__dirname, '../bin/solar-direct-runtime-v2.cjs'));
+  assert.equal(adapter.configuredExecutable({ executor: 'antigravity' }), path.resolve(__dirname, '../bin/caller-mcp-runtime.cjs'));
   const runtimeSource = [defaultExecutable, path.resolve(__dirname, '../bin/agent-runtime-session.cjs'), path.resolve(__dirname, '../bin/agent-runtime-events.cjs')].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
   assert(runtimeSource.includes("'genos-codex-'"), 'runtime agents must receive an isolated CODEX_HOME');
   assert(runtimeSource.includes("'--dangerously-bypass-hook-trust'"), 'the control-plane policy hook must be enabled non-interactively');

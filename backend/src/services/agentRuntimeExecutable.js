@@ -48,6 +48,7 @@ function bundledRuntimeEnvironment() {
 const CODEX_RUNTIME_PATH = path.resolve(__dirname, '../../bin/genos-agent-runtime.cjs');
 const LOCAL_RUNTIME_PATH = path.resolve(__dirname, '../../bin/local-codex-runtime.cjs');
 const CALLER_MCP_RUNTIME_PATH = path.resolve(__dirname, '../../bin/caller-mcp-runtime.cjs');
+const SOLAR_RUNTIME_PATH = path.resolve(__dirname, '../../bin/solar-direct-runtime-v2.cjs');
 
 function isLocalRuntime(executable) {
   if (!executable) return false;
@@ -60,6 +61,7 @@ function configuredExecutable(mission = {}) {
   const candidate = missionExecutor || envVal;
 
   if (resolveExecutor({ ...mission, executor: candidate }) === 'caller_mcp') return CALLER_MCP_RUNTIME_PATH;
+  if (resolveExecutor({ ...mission, executor: candidate }) === 'solar-direct') return SOLAR_RUNTIME_PATH;
 
   if (
     candidate === 'local' ||
@@ -125,5 +127,6 @@ module.exports = {
   isLocalRuntime,
   CODEX_RUNTIME_PATH,
   LOCAL_RUNTIME_PATH,
-  CALLER_MCP_RUNTIME_PATH
+  CALLER_MCP_RUNTIME_PATH,
+  SOLAR_RUNTIME_PATH
 };

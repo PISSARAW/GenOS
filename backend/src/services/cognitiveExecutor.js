@@ -1,7 +1,9 @@
-const SUPPORTED_EXECUTORS = new Set(['caller_mcp', 'codex', 'local']);
+const SUPPORTED_EXECUTORS = new Set(['caller_mcp', 'codex', 'local', 'solar-direct']);
 
 function normalizeExecutor(value) {
   const executor = String(value || '').trim().toLowerCase();
+  if (executor === 'hermes' || executor === 'nous' || executor === 'nous-portal') return 'solar-direct';
+  if (executor === 'antigravity') return 'caller_mcp';
   return executor || 'codex';
 }
 

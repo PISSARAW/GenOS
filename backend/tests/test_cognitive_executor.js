@@ -5,6 +5,8 @@ const {
 
 assert.equal(normalizeExecutor(' CALLER_MCP '), 'caller_mcp');
 assert.equal(resolveExecutor({ executor: 'codex' }, {}), 'codex');
+assert.equal(resolveExecutor({ executor: 'hermes' }, {}), 'solar-direct');
+assert.equal(resolveExecutor({ executor: 'antigravity' }, {}), 'caller_mcp');
 assert.throws(
   () => resolveExecutor({ executor: 'unknown' }, {}),
   (error) => error.code === 'UNSUPPORTED_EXECUTOR'
