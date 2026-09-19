@@ -110,13 +110,25 @@ async function runTests() {
   console.log('✔ Physical database cleanup confirmed');
 
   // 7. MCP BioTools Integration Check
+  const workerId = `${orchestratorId}-worker`;
+  await db.run(
+    "INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id) VALUES (?, 'Stigmergy Worker', 'worker', 'running', 'worker', ?)",
+    workerId, orchestratorId
+  );
   const mcpDeposit = await executeBioTool('genos_biomimicry_stigmergy', {
-    agent_id: 'agent_mcp_test',
+    agent_id: workerId,
+    orchestrator_id: orchestratorId,
     target_file: 'src/core/engine.rs',
     pheromone_type: 'trail',
     amount: 1.5
   });
   assert(mcpDeposit.success, 'MCP stigmergy deposit should succeed');
+  assert.equal(mcpDeposit.transport, 'local+zero_text', 'MCP deposit should also publish an organization signal');
+  const mcpInbox = await dynOrg.inbox(db, { orchestratorId, requesterAgentId: orchestratorId });
+  const trailSignal = mcpInbox.messages.find((message) => message.signal?.locusHash === 'src/core/engine.rs');
+  assert(trailSignal, 'The published pheromone should be available in the organization inbox');
+  assert.equal(trailSignal.signalType, 'pheromone');
+  assert.equal(trailSignal.signal.intensity, 1.5);
 
   const mcpRead = await executeBioTool('genos_biomimicry_stigmergy', {
     action: 'read',

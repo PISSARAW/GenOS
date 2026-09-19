@@ -12,7 +12,7 @@ Le bus zero-texte remplace les échanges textuels verbeux entre agents par des s
 - `backend/src/services/mcpLigandReceptorService.js` — récepteurs catalytiques par outil MCP, cnidocyte reflex (détection de toxine <3µs), seuils Gibbs free energy ΔG
 - `backend/src/services/signalingTransportService.js` — persistance des signaux zero-texte dans `signal_blobs` (SQLite WAL), diffusion locale via Map, abonnements (`signal_subs`), nettoyage TTL, readSignalsForAgent/markSignalsSeen, routage collectif via collectiveSignalOrganizationRouter
 - `backend/src/services/collectiveSignalOrganizationRouter.js` — routage des signaux zero-texte vers organisations et orchestrateurs, extraction de topic par préfixe SIGNAL_TOPIC_PREFIXES, distribution multi-recipients
-- `backend/src/services/agentCollaborativeDecisionMakingService.js` — décision collective électrocyte (vote par potentiel de membrane), suivi chimiotactique (gradient phéromones), transfert plasmid HGT, orchestrateur multi-topologie
+- `backend/src/services/agentCollaborativeDecisionMakingService.js` — service de décision collective utilisé par les handlers MCP `signalTransport.js` : consensus électrocyte, suivi chimiotactique et dispatch multi-topologie. Les modes `stigmergic` et `plasmid` retournent actuellement des états de routage sans calcul de décision ni transfert.
 - `backend/src/db/schema-next.js` — migration v45 : tables `signal_blobs`, `signal_subs`, indexes, enregistrée dans le registre des migrations (021-signal-transport) via `backend/src/db/migrations/migrateSignalTransport.js`
 - `backend/src/services/mcpBioTools/handlers/signalTransport.js` — 7 handlers MCP : genos_signal_publish, genos_signal_read, genos_signal_purge, genos_signal_electrocyte_vote, genos_signal_chemotactic_follow, genos_signal_plasmid_transfer, genos_signal_collective_decision
 
@@ -52,10 +52,16 @@ Les primitives écologiques sont implémentées dans les handlers MCP et les ser
 
 Le texte est strictement réservé aux interactions avec l'utilisateur humain et à la synthèse de code source imposée par la contrainte de génération du LLM. Tous les états intermédiaires de coordination circulent sous forme de signaux physico-chimiques compacts.
 
+Le handler `genos_biomimicry_stigmergy` conserve son calcul local via le CLI Rust.
+Lorsqu'il reçoit `orchestrator_id`, il publie aussi les dépôts dans l'inbox de
+l'organisation active comme signaux `pheromone` structurés. L'appartenance à
+l'organisation et son routage restent vérifiés par `dynamicOrganizationService`.
+Sans cet identifiant, le handler conserve le comportement local.
+
 ## Limites
 
-- **Transport zero-texte implémenté mais non-branché aux handlers existants** : les 39 handlers utilisent encore `runGenosSync` (CLI Rust local) pour l'exécution. Les signaux zero-texte peuvent être publiés via `signalingTransportService.publishSignal()` mais les handlers ne les utilisent pas nativement — c'est une couche parallèle implémentée mais non-intégrée.
-- **`collectiveSignalDecisions.js` non implémenté** : référencé dans la liste §2 comme absent — les décisions collectives sont gérées par `agentCollaborativeDecisionMakingService.js` (orchestrateur) au lieu d'un service de décisions dédié.
+- **Intégration sélective** : le transport zero-texte est branché au chemin de publication inter-agents `genos_worker_publish` et aux dépôts du handler de stigmergie. Les autres handlers biomimétiques continuent d'utiliser leurs opérations locales (dont le CLI Rust) et ne publient pas automatiquement leurs résultats. Le transport ne remplace pas ces calculs.
+- **Pas de module de décision collective séparé requis** : `agentCollaborativeDecisionMakingService.js` porte déjà cette responsabilité et est appelé par les handlers MCP. Ne pas créer `collectiveSignalDecisions.js` sans besoin distinct démontré.
 
 Le nettoyage CAS et le mark-and-sweep du DAG sont désormais exécutables via les
 primitives `cas_gc` et `dag_mark_sweep`. Le CAS exige un `casRoot` contenant des
@@ -71,4 +77,3 @@ collecte et leurs tests sont disponibles.
 - **Registres en mémoire** : la plupart des handlers utilisent des `Map` module-level perdus au redémarrage.
 - **Pas de persistance relationnelle cross-agent** : les relations chimeriques, jumeaux, plasmides sont en mémoire.
 - **Codex local requis** : les handlers appellent `genos biomimicry ...` via `runGenosSync` — si le binaire Rust n'est pas disponible, les handlers retournent `tool_error`.
-- **Aucune intégration agents→transport dans les handlers existants** : les 39 fichiers handlers ne publient pas de signaux zero-texte — ils utilisent le CLI Rust. La couche transport est disponible mais non-consommée par les handlers actuels.
