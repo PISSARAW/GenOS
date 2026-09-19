@@ -6,6 +6,7 @@
  */
 
 const crypto = require('crypto');
+const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
 
 // In-memory registry of marmoset germline chimerism records
 const MARMOSET_REGISTRY = new Map();
@@ -18,7 +19,7 @@ function computeHash(data) {
   return crypto.createHash('sha256').update(JSON.stringify(data || {})).digest('hex').substring(0, 16);
 }
 
-function handleExchange(args) {
+async function handleExchange(args) {
   const donorTwinId = args.donor_twin_id || 'twin_donor_alpha';
   const proxyTwinId = args.proxy_twin_id || 'twin_proxy_beta';
   const germlinePayload = args.germline_payload || {
@@ -39,6 +40,16 @@ function handleExchange(args) {
     createdAt: new Date().toISOString()
   };
 
+  await createRelation({
+    id: stableRelationId('chimera', `marmoset-exchange:${exchangeId}`),
+    sourceAgentId: donorTwinId,
+    targetAgentId: proxyTwinId,
+    relationType: 'chimera',
+    organizationId: args.organization_id,
+    projectId: args.project_id,
+    metadata: { exchangeId, subtype: 'germline_proxy', payloadChecksum }
+  });
+
   MARMOSET_REGISTRY.set(exchangeId, record);
 
   return {
@@ -53,7 +64,7 @@ function handleExchange(args) {
   };
 }
 
-function handleSpawnProxy(args) {
+async function handleSpawnProxy(args) {
   const exchangeId = args.exchange_id;
   const childGoal = args.child_task_goal || 'continuation_task';
   const record = MARMOSET_REGISTRY.get(exchangeId);
@@ -77,6 +88,19 @@ function handleSpawnProxy(args) {
     germlineChecksum: record.payloadChecksum,
     spawnedAt: new Date().toISOString()
   };
+
+  await Promise.all([
+    createRelation({
+      id: stableRelationId('parent', `marmoset:${childId}:${record.donorTwinId}`), sourceAgentId: record.donorTwinId,
+      targetAgentId: childId, relationType: 'parent', organizationId: args.organization_id, projectId: args.project_id,
+      metadata: { exchangeId, subtype: 'genetic_donor', germlineChecksum: record.payloadChecksum }
+    }),
+    createRelation({
+      id: stableRelationId('parent', `marmoset:${childId}:${record.proxyTwinId}`), sourceAgentId: record.proxyTwinId,
+      targetAgentId: childId, relationType: 'parent', organizationId: args.organization_id, projectId: args.project_id,
+      metadata: { exchangeId, subtype: 'gestational_proxy', germlineChecksum: record.payloadChecksum }
+    })
+  ]);
 
   record.descendants.push(childRecord);
 
@@ -146,9 +170,9 @@ async function handle(args, run) {
 
   switch (action) {
     case 'exchange_germline_payload':
-      return handleExchange(args);
+      return await handleExchange(args);
     case 'spawn_proxy_descendant':
-      return handleSpawnProxy(args);
+      return await handleSpawnProxy(args);
     case 'inspect_germline_heritage':
       return handleInspect(args);
     case 'status':

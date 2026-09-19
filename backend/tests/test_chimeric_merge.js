@@ -1,5 +1,7 @@
 const assert = require('assert');
 const { executeBioTool } = require('../src/services/mcpBioTools');
+const { listRelations } = require('../src/services/crossAgentRelationalService');
+const { getDatabase } = require('../src/db');
 
 async function runTest() {
   console.log('=== TESTING CHIMERIC TETRAGAMETIC MERGE & MOSAIC HERITAGE ===');
@@ -20,6 +22,8 @@ async function runTest() {
   assert.strictEqual(fuseRes.functional_tools_count, 3);
   assert.strictEqual(fuseRes.immune_vaccines_count, 2);
   assert.ok(fuseRes.hybrid_dna_hash);
+  const lineageEdges = await listRelations({ db: await getDatabase(), agentId: 'mosaic-agent-chimeric-01' });
+  assert.ok(lineageEdges.filter((edge) => edge.relationType === 'chimera').length >= 2);
   console.log(`✅ PASS: Fused mosaic agent: DNA Hash ${fuseRes.hybrid_dna_hash.slice(0, 12)} (Coherence: ${fuseRes.coherence_score})`);
 
   // 2. Inspect dual-lineage tetragametic heritage

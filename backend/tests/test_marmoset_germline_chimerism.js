@@ -4,6 +4,8 @@
 
 const assert = require('assert');
 const { handle, MARMOSET_REGISTRY } = require('../src/services/mcpBioTools/handlers/marmosetGermlineChimerism');
+const { listRelations } = require('../src/services/crossAgentRelationalService');
+const { getDatabase } = require('../src/db');
 
 async function runTests() {
   console.log('=== TESTING MARMOSET GERMLINE CHIMERISM (FRATERNAL REPRODUCTIVE PROXY) ===');
@@ -28,6 +30,8 @@ async function runTests() {
   assert.strictEqual(exchangeRes.status, 'germline_chimerism_exchanged');
   assert.strictEqual(exchangeRes.donor_twin, donorId);
   assert.strictEqual(exchangeRes.proxy_twin, proxyId);
+  const exchangeEdges = await listRelations({ db: await getDatabase(), agentId: donorId });
+  assert.ok(exchangeEdges.some((edge) => edge.targetAgentId === proxyId && edge.relationType === 'chimera'));
   console.log('✅ PASS: Exchanged germline cells from dying donor A to healthy proxy B');
 
   // Test 2: Spawn descendant through proxy B carrying donor A's DNA
@@ -41,6 +45,8 @@ async function runTests() {
   assert.strictEqual(spawnRes.status, 'proxy_descendant_spawned');
   assert.strictEqual(spawnRes.genetic_donor_parent, donorId);
   assert.strictEqual(spawnRes.gestational_proxy_parent, proxyId);
+  const parentEdges = await listRelations({ db: await getDatabase(), agentId: spawnRes.child_agent_id });
+  assert.ok(parentEdges.filter((edge) => edge.relationType === 'parent').length >= 2);
   console.log('✅ PASS: Spawned descendant via proxy B inheriting 100% of donor A lineage');
 
   // Test 3: Inspect germline heritage

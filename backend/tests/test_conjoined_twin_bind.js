@@ -1,5 +1,7 @@
 const assert = require('assert');
 const { executeBioTool } = require('../src/services/mcpBioTools');
+const { listRelations } = require('../src/services/crossAgentRelationalService');
+const { getDatabase } = require('../src/db');
 
 async function runTest() {
   console.log('=== TESTING CONJOINED TWIN BIND & VISCERAL RESOURCE COUPLING ===');
@@ -18,6 +20,8 @@ async function runTest() {
   assert.strictEqual(bindRes.status, 'twins_conjoined');
   assert.strictEqual(bindRes.shared_token_pool, 60000);
   assert.strictEqual(bindRes.vital_coupling_score, 0.98);
+  const twinEdges = await listRelations({ db: await getDatabase(), agentId: 'agent-prover-A' });
+  assert.ok(twinEdges.some((edge) => edge.targetAgentId === 'agent-verifier-B' && edge.relationType === 'twin'));
   console.log(`✅ PASS: Conjoined visceral bind active (Coupling: ${bindRes.vital_coupling_score}, Pool: ${bindRes.shared_token_pool})`);
 
   // 2. Transfuse shared tokens across the visceral bridge

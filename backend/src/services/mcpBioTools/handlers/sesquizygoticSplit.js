@@ -6,6 +6,7 @@
  */
 
 const crypto = require('crypto');
+const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
 
 // In-memory registry of sesquizygotic pairs
 const SESQUIZYGOTIC_REGISTRY = new Map();
@@ -14,7 +15,7 @@ function hashPayload(payload) {
   return crypto.createHash('sha256').update(JSON.stringify(payload || {})).digest('hex').substring(0, 16);
 }
 
-function handleDispermicSplit(args) {
+async function handleDispermicSplit(args) {
   const maternalBase = args.maternal_base || { system_prompt: 'STANDARD_INVARIANTS', model_family: 'gemini_core' };
   const paternalVectorA = args.paternal_vector_a || { specialization: 'rust_opt', tools: ['cargo_check'] };
   const paternalVectorB = args.paternal_vector_b || { specialization: 'security_audit', tools: ['audit_tracer'] };
@@ -56,6 +57,16 @@ function handleDispermicSplit(args) {
     twins: [twin1, twin2],
     createdAt: new Date().toISOString()
   };
+
+  await createRelation({
+    id: stableRelationId('twin', `sesqui:${pairId}`),
+    sourceAgentId: twin1.agentId,
+    targetAgentId: twin2.agentId,
+    relationType: 'twin',
+    organizationId: args.organization_id,
+    projectId: args.project_id,
+    metadata: { pairId, subtype: 'sesquizygotic', maternalHash: matHash, paternalHashes: [patAHash, patBHash] }
+  });
 
   SESQUIZYGOTIC_REGISTRY.set(pairId, record);
 
@@ -126,7 +137,7 @@ async function handle(args, run) {
 
   switch (action) {
     case 'dispermic_fertilization_and_split':
-      return handleDispermicSplit(args);
+      return await handleDispermicSplit(args);
     case 'inspect_genetic_overlap':
       return handleInspect(args);
     case 'status':

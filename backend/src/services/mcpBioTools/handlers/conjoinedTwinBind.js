@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { quoteCliArg } = require('../shellQuote');
+const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
 
 // Registry for active conjoined twin pairs
 const conjoinedTwinRegistry = new Map(); /* persisterHook: conjoinedTwinRegistry */
@@ -21,7 +22,7 @@ function getPair(pairId) {
   return conjoinedTwinRegistry.get(pairId);
 }
 
-function handleConjoinedTwinBind(args = {}, run) {
+async function handleConjoinedTwinBind(args = {}, run) {
   const action = args.action || 'status';
   const pairId = args.pair_id || `conjoined-pair-${Date.now()}`;
   const twinA = args.twin_a || 'agent-core-A';
@@ -40,6 +41,11 @@ function handleConjoinedTwinBind(args = {}, run) {
   const pair = getPair(pairId);
 
   if (action === 'bind_conjoined_twins') {
+    await createRelation({
+      id: stableRelationId('twin', `conjoined:${pairId}`), sourceAgentId: twinA, targetAgentId: twinB,
+      relationType: 'twin', organizationId: args.organization_id, projectId: args.project_id,
+      metadata: { pairId, subtype: 'conjoined', status: 'active', sharedOrgans: organs }
+    });
     pair.twinA = twinA;
     pair.twinB = twinB;
     pair.sharedOrgans = organs;
@@ -110,6 +116,13 @@ function handleConjoinedTwinBind(args = {}, run) {
     pair.status = 'surgically_separated';
     pair.vitalCouplingScore = 0.0;
     pair.updatedAt = new Date().toISOString();
+    if (pair.twinA && pair.twinB) {
+      await createRelation({
+        id: stableRelationId('twin', `conjoined:${pairId}`), sourceAgentId: pair.twinA, targetAgentId: pair.twinB,
+        relationType: 'twin', organizationId: args.organization_id, projectId: args.project_id,
+        metadata: { pairId, subtype: 'conjoined', status: 'severed', sharedOrgans: pair.sharedOrgans }
+      });
+    }
 
     return {
       configured: true,

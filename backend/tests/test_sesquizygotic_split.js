@@ -4,6 +4,8 @@
 
 const assert = require('assert');
 const { handle, SESQUIZYGOTIC_REGISTRY } = require('../src/services/mcpBioTools/handlers/sesquizygoticSplit');
+const { listRelations } = require('../src/services/crossAgentRelationalService');
+const { getDatabase } = require('../src/db');
 
 async function runTests() {
   console.log('=== TESTING SESQUIZYGOTIC TWINS (SEMI-IDENTICAL SPLIT) ===');
@@ -40,6 +42,8 @@ async function runTests() {
   assert.strictEqual(splitRes.composite_identity_ratio, 0.75);
   assert.strictEqual(splitRes.twin_1.maternalBase.system_prompt, 'CONSTITUTIONAL_SECURITY_INVARIANTS_V1');
   assert.strictEqual(splitRes.twin_2.maternalBase.system_prompt, 'CONSTITUTIONAL_SECURITY_INVARIANTS_V1');
+  const twinEdges = await listRelations({ db: await getDatabase(), agentId: splitRes.twin_1.agentId });
+  assert.ok(twinEdges.some((edge) => edge.targetAgentId === splitRes.twin_2.agentId && edge.metadata.subtype === 'sesquizygotic'));
   console.log('✅ PASS: Spawned semi-identical twins (100% maternal, 50% paternal, 75% composite overlap)');
 
   // Test 2: Inspect genetic overlap

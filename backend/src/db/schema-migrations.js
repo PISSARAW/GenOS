@@ -61,6 +61,8 @@ async function applyVersionedMigrations(db) {
   await migrateOntologyRelationScopes(db);
   const { migrateOntologyWorldReceipts } = require('./migrations/migrateOntologyWorldReceipts');
   await migrateOntologyWorldReceipts(db);
+  const { migrateDurableAgentCoordination } = require('./migrations/migrateDurableAgentCoordination');
+  await migrateDurableAgentCoordination(db);
   await runRegistryMigrations(db);
 }
 

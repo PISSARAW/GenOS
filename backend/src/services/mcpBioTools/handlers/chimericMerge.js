@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { quoteCliArg } = require('../shellQuote');
+const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
 
 // State registry for chimeric mosaic agents
 const chimericRegistry = new Map(); /* persisterHook: chimericRegistry */
@@ -20,7 +21,7 @@ function getMosaic(mosaicId) {
   return chimericRegistry.get(mosaicId);
 }
 
-function handleChimericMerge(args = {}, run) {
+async function handleChimericMerge(args = {}, run) {
   const action = args.action || 'status';
   const mosaicId = args.mosaic_id || `mosaic-${Date.now()}`;
   const branchGenome = args.branch_genome || args.genome_branch_id || 'branch-functional-A';
@@ -39,6 +40,18 @@ function handleChimericMerge(args = {}, run) {
   const mosaic = getMosaic(mosaicId);
 
   if (action === 'fuse_mosaic') {
+    await Promise.all([
+      createRelation({
+        id: stableRelationId('chimera', `mosaic:${mosaicId}:${branchGenome}`), sourceAgentId: branchGenome,
+        targetAgentId: mosaicId, relationType: 'chimera', organizationId: args.organization_id, projectId: args.project_id,
+        metadata: { mosaicId, subtype: 'functional_genome_origin' }
+      }),
+      createRelation({
+        id: stableRelationId('chimera', `mosaic:${mosaicId}:${branchEpigenome}`), sourceAgentId: branchEpigenome,
+        targetAgentId: mosaicId, relationType: 'chimera', organizationId: args.organization_id, projectId: args.project_id,
+        metadata: { mosaicId, subtype: 'epigenetic_memory_origin' }
+      })
+    ]);
     mosaic.lineageGenomeId = branchGenome;
     mosaic.lineageEpigenomeId = branchEpigenome;
 

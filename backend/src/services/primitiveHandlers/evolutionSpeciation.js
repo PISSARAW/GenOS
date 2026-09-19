@@ -2,9 +2,10 @@
  * Lot 3 : speciation / plasmid / stagnation primitives — split of evolution.js.
  */
 const telemetry = require('../telemetryObserver');
-const { getDatabase } = require('../../db');
+const { getDatabase, withTransaction } = require('../../db');
 const genosCli = require('../genosCli');
 const { enforceReproductionLimits } = require('./fundamentals');
+const { recordPlasmid } = require('../crossAgentRelationalService');
 
 async function computePhylogeneticDivergence(nicheKeys) {
   if (nicheKeys.length < 2) return { divergence: null };
@@ -141,11 +142,23 @@ async function promoteMutantPlasmid(db, options) {
   const { textToVector } = require('../memoryScoring');
   const vec = (await embed(newContent)) || textToVector(newContent);
   const embeddingBuffer = Buffer.from(new Float32Array(vec).buffer);
-  await db.run(
-    `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight, embedding_blob, organization_id, project_id)
-     VALUES (?, ?, ?, ?, 'Plasmid', 2.5, ?, ?, ?)`,
-    newPlasmidId, `Plasmid Evolved (${config.plasmidName})`, newContent, mutantId, embeddingBuffer, context.organizationId || null, context.projectId || null
-  );
+  await withTransaction(db, async (tx) => {
+    await tx.run(
+      `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight, embedding_blob, organization_id, project_id)
+       VALUES (?, ?, ?, ?, 'Plasmid', 2.5, ?, ?, ?)`,
+      newPlasmidId, `Plasmid Evolved (${config.plasmidName})`, newContent, mutantId, embeddingBuffer, context.organizationId || null, context.projectId || null
+    );
+
+    await recordPlasmid({
+      db: tx,
+      plasmidId: newPlasmidId,
+      sourceAgentId: mutantId,
+      targetAgentId: agentId,
+      organizationId: context.organizationId,
+      projectId: context.projectId,
+      metadata: { originalPlasmidId: config.plasmidId, subtype: 'mutant_promotion' }
+    });
+  });
 
   await db.run("UPDATE agents SET status = 'completed' WHERE id = ?", mutantId).catch(() => {});
   await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1 WHERE id = ?", baselineId).catch(() => {});
