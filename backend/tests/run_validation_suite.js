@@ -6,6 +6,7 @@ const suites = {
     ['philosophical registry health', 'test_philosophy_registry_health.js'],
     ['mathematical philosophy registry', 'test_mathematical_philosophy_registry.js'],
     ['mathematical philosophy safety', 'test_mathematical_philosophy_safety.js'],
+    ['advanced IAM', 'test_advanced_iam.js'],
     ['mathematical promotion integration', 'test_mathematical_promotion_integration.js'],
     ['REST smoke', 'test_backend.js'],
     ['quality', 'run_quality_suite.js']

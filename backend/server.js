@@ -4,6 +4,7 @@
  */
 
 const http = require('http');
+const https = require('https');
 const cluster = require('cluster');
 const os = require('os');
 const { createApp } = require('./src/app');
@@ -16,6 +17,7 @@ const workspaceSnapshotStore = require('./src/services/workspaceSnapshotStore');
 const { terminatePid, processMatches } = require('./src/services/processTermination');
 const circuitBreaker = require('./src/services/circuitBreaker');
 const { readPort } = require('./src/services/runtimeConfig');
+const { readTransportTlsConfig, grpcServerCredentials } = require('./src/services/tlsConfig');
 const trinityMonitorServer = require('./src/services/trinityMonitorServer');
 const { attachAutobiographicalCapture } = require('./src/services/autobiographicalMemory/captureService');
 
@@ -139,8 +141,6 @@ async function createGrpcServerIfDesignated() {
   const grpc = require('@grpc/grpc-js');
   const loadAllProtos = require('./proto/index.js');
   const registerAllServices = require('./src/grpc_services/index.js');
-  const { readPrivateTlsPair } = require('./src/services/tlsConfig');
-
   const protoDescriptors = loadAllProtos();
   const grpcServer = new grpc.Server();
   for (const [, descriptor] of Object.entries(protoDescriptors)) {
@@ -148,15 +148,13 @@ async function createGrpcServerIfDesignated() {
   }
 
   const GRPC_PORT = readPort('GRPC_PORT', process.env.GRPC_PORT, 50051);
-  const tlsPair = readPrivateTlsPair(process.env.GENOS_GRPC_TLS_KEY, process.env.GENOS_GRPC_TLS_CERT);
-  const bindAddress = process.env.GRPC_BIND_ADDRESS || (tlsPair ? '0.0.0.0' : '127.0.0.1');
+  const tls = readTransportTlsConfig({ keyEnv: 'GENOS_GRPC_TLS_KEY', certEnv: 'GENOS_GRPC_TLS_CERT', caEnv: 'GENOS_GRPC_CLIENT_CA', requiredEnv: 'GENOS_GRPC_MTLS_REQUIRED' });
+  const bindAddress = process.env.GRPC_BIND_ADDRESS || (tls.pair ? '0.0.0.0' : '127.0.0.1');
   const loopback = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
-  if (!tlsPair && !loopback.has(bindAddress)) {
+  if (!tls.pair && !loopback.has(bindAddress)) {
     throw new Error('Refusing insecure gRPC on a non-loopback bind address; configure GENOS_GRPC_TLS_KEY/CERT.');
   }
-  const credentials = tlsPair
-    ? grpc.ServerCredentials.createSsl(null, [tlsPair], false)
-    : grpc.ServerCredentials.createInsecure();
+  const credentials = grpcServerCredentials(grpc, tls);
   await new Promise((resolve, reject) => {
     grpcServer.bindAsync(`${bindAddress}:${GRPC_PORT}`, credentials, (err, boundPort) => {
       if (err) return reject(new Error(`gRPC bind failed on ${bindAddress}:${GRPC_PORT}: ${err.message}`));
@@ -201,11 +199,23 @@ function registerWorkerShutdown(server, grpcServer, db) {
   process.once('SIGINT', shutdown);
 }
 
+function createHttpServer(app) {
+  const tls = readTransportTlsConfig({ keyEnv: 'GENOS_HTTP_TLS_KEY', certEnv: 'GENOS_HTTP_TLS_CERT', caEnv: 'GENOS_HTTP_CLIENT_CA', requiredEnv: 'GENOS_HTTP_MTLS_REQUIRED' });
+  if (!tls.pair) return http.createServer(app);
+  return https.createServer({
+    key: tls.pair.private_key,
+    cert: tls.pair.cert_chain,
+    ca: tls.clientCa || undefined,
+    requestCert: tls.requireClientCertificate,
+    rejectUnauthorized: tls.requireClientCertificate
+  }, app);
+}
+
 async function runWorkerProcess() {
   try {
     const db = await bootstrapWorkerDatabase();
     const app = createApp();
-    const server = http.createServer(app);
+    const server = createHttpServer(app);
     const grpcServer = await createGrpcServerIfDesignated();
     startTrinityMonitorIfEnabled();
     startAutobiographicalMemoryIfDesignated();
@@ -242,4 +252,4 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = { startServer };
+module.exports = { startServer, createHttpServer };

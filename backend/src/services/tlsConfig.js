@@ -2,11 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 function warnWin32Key(name) {
-  if (process.platform === 'win32') {
-    if (name === 'GENOS_GRPC_TLS_KEY') {
-      console.warn('[tlsConfig] win32 key ACL check skipped; verify file permissions manually.');
-    }
-  }
+  if (process.platform === 'win32' && name.endsWith('_TLS_KEY')) console.warn('[tlsConfig] win32 key ACL check skipped; verify file permissions manually.');
 }
 
 function checkKeyPermissions(name, stat) {
@@ -18,27 +14,51 @@ function checkKeyPermissions(name, stat) {
   warnWin32Key(name);
 }
 
-function readKeyMaterial(name, configuredPath) {
+function readRegularMaterial(name, configuredPath) {
   const resolved = path.resolve(String(configuredPath));
   const stat = fs.lstatSync(resolved);
   if (!stat.isFile()) throw new Error(`${name} must reference a regular file, not a symlink.`);
   if (stat.isSymbolicLink()) throw new Error(`${name} must reference a regular file, not a symlink.`);
+  return fs.readFileSync(resolved);
+}
+
+function readKeyMaterial(name, configuredPath) {
+  const resolved = path.resolve(String(configuredPath));
+  const stat = fs.lstatSync(resolved);
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`${name} must reference a regular file, not a symlink.`);
   checkKeyPermissions(name, stat);
   return fs.readFileSync(resolved);
 }
 
-function readPrivateTlsPair(keyPath, certPath) {
+function readPrivateTlsPair(keyPath, certPath, names = {}) {
   if (!keyPath) {
     if (!certPath) {
       console.warn('[tlsConfig] No TLS pair configured; falling back to insecure transport.');
       return null;
     }
   }
-  if (!keyPath) throw new Error('GENOS_GRPC_TLS_KEY and GENOS_GRPC_TLS_CERT must be configured together.');
-  if (!certPath) throw new Error('GENOS_GRPC_TLS_KEY and GENOS_GRPC_TLS_CERT must be configured together.');
-  const privateKey = readKeyMaterial('GENOS_GRPC_TLS_KEY', keyPath);
-  const certChain = readKeyMaterial('GENOS_GRPC_TLS_CERT', certPath);
+  const keyName = names.keyEnv || 'GENOS_GRPC_TLS_KEY';
+  const certName = names.certEnv || 'GENOS_GRPC_TLS_CERT';
+  if (!keyPath || !certPath) throw new Error(`${keyName} and ${certName} must be configured together.`);
+  const privateKey = readKeyMaterial(keyName, keyPath);
+  const certChain = readRegularMaterial(certName, certPath);
   return { private_key: privateKey, cert_chain: certChain };
 }
 
-module.exports = { readPrivateTlsPair };
+function readTransportTlsConfig(input) {
+  const keyPath = process.env[input.keyEnv];
+  const certPath = process.env[input.certEnv];
+  const caPath = process.env[input.caEnv];
+  const required = process.env[input.requiredEnv] === '1';
+  const pair = readPrivateTlsPair(keyPath, certPath, input);
+  if ((required || caPath) && (!pair || !caPath)) throw new Error(`${input.requiredEnv}=1 or a client CA requires a server key, certificate and client CA.`);
+  const clientCa = caPath ? readRegularMaterial(input.caEnv, caPath) : null;
+  return { pair, clientCa, requireClientCertificate: required || Boolean(clientCa) };
+}
+
+function grpcServerCredentials(grpc, tls) {
+  if (!tls.pair) return grpc.ServerCredentials.createInsecure();
+  return grpc.ServerCredentials.createSsl(tls.clientCa, [tls.pair], tls.requireClientCertificate);
+}
+
+module.exports = { readPrivateTlsPair, readTransportTlsConfig, grpcServerCredentials };

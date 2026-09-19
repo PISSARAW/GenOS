@@ -556,11 +556,11 @@ Ce modélisme rend les décisions explicites et traçables.
 | Domaine | GenOS | Systèmes du marché | Commentaire |
 |---|---|---|---|
 | Auth API | Clés d’accès + sessions + permissions | OAuth2 / OIDC / API keys / JWT | GenOS est plus simple, plus centré runtime que sur le standard IdP |
-| RBAC | admin / operator / viewer + permissions | RBAC/ABAC/Policy-as-Code | GenOS met l’accent sur le runtime et le tenant, pas sur la fédération OAuth |
+| Autorisation | RBAC + règles ABAC déclaratives à attributs | RBAC/ABAC/Policy-as-Code | GenOS lie les règles aux permissions runtime et au tenant |
 | Tenant | `organization_id` + `project_id` | tenant / account / org | Aligné sur le besoin multi-projet et multi-workspace |
 | Autorité agent | orchestrator/worker + `parent_agent_id` | Kubernetes RBAC, service accounts, job controllers | GenOS a une hiérarchie d’agents plus “runtime native” |
 | Revocation | `is_active = 0`, `revoked = 1` | token revocation, cert rotation | Similaire mais plus léger et plus local |
-| gRPC auth | shared secret + metadata | mTLS / JWT / OIDC | Cohérent avec un interne service-to-service minimal |
+| Transport | mTLS configurable pour HTTP et gRPC | mTLS / JWT / OIDC | La clé/session REST ou le secret RPC reste le contrôle applicatif |
 | MCP governance | leasing de tools | tool allowlists, policy engines | GenOS gère les permissions via `GENOS_MCP_LEASE` et `toolIsLeased()` |
 
 ### 14.2 Ce que GenOS fait bien
@@ -575,10 +575,10 @@ Ce modélisme rend les décisions explicites et traçables.
 ### 14.3 Ce qu’il n’a pas encore
 
 - la fédération OIDC et SAML est implémentée ; les intégrations Entra/Azure AD spécifiques restent à configurer comme fournisseurs compatibles et ne constituent pas un annuaire GenOS séparé ;
-- pas d’ABAC avancé ou d’IDP multi-tenant de niveau enterprise ;
-- pas de mTLS avancée par défaut pour le transport gRPC ;
-- pas d’interface de “policy engine” à la façon des solutions IAM commerciales ;
-- pas de stockage de secrets sur une KMS / vault externe.
+- l’ABAC et les politiques déclaratives sont disponibles pour les routes protégées par `requirePermission`, mais pas pour chaque contrôle métier ni chaque outil MCP ;
+- le transport gRPC et HTTP accepte le mTLS strict par configuration, mais l’identité de certificat ne remplace pas les clés d’accès / sessions REST ni le secret applicatif gRPC ;
+- le moteur de règles est local et déclaratif, sans langage de politique généraliste compatible OPA/Rego ;
+- Vault KV v2 est pris en charge comme stockage externe facultatif. Le mode local chiffré reste le défaut et le jeton d’accès au Vault doit être fourni au runtime.
 
 Autrement dit : GenOS est un système d’autorité “opérationnelle pour agents” plus qu’un IAM multi-entreprise complet.
 
@@ -586,11 +586,31 @@ Autrement dit : GenOS est un système d’autorité “opérationnelle pour agen
 
 ## 15. Points d’attention / limites
 
-1. Le stockage des secrets est hashé, mais pas injecté dans un système de sécurité matériel avancé.
+1. Les clés et sessions sont vérifiées par hash ; les secrets applicatifs sont chiffrés en mode local ou résolus depuis Vault KV v2. Aucun HSM n’est intégré.
 2. Le modèle se base sur des règles de code et une base SQLite, pas sur un cadre d’authorization centralisé.
 3. Les contrôles d’autorité agent sont forts dans les cas de runtime local, mais dépendent aussi de la rigueur des appels de service et de la cohérence du workspace.
-4. L’usurpation d’organisation est contenue par le tenant scope, mais ne remplace pas unauthenticated external trust, mTLS ou un IAM fédéré.
-5. Les rôles sont simples et lisibles, mais restent limités à un modèle RBAC chargé d’exécution, pas à une politique de “least-privilege” extrêmement dynamique.
+4. L’usurpation d’organisation est contenue par le tenant scope. mTLS vérifie la chaîne du certificat, mais le mapping SAN-vers-rôle et l’IAM fédéré complet restent à faire.
+5. Les règles ABAC ne s’appliquent qu’aux points de contrôle qui appellent `requirePermission`; elles ne remplacent pas les contrôles tenant et d’autorité agent.
+
+---
+
+## 17. ABAC, mTLS et secrets externes
+
+### 17.1 Moteur de politiques ABAC
+
+Les administrateurs peuvent gérer les règles par `GET/POST/PUT/DELETE /api/iam/policies`. Les politiques sont validées et persistées dans `iam_policies`. Elles comportent un effet `allow` ou `deny`, des actions, des sélecteurs de principal / ressource et des conditions déclaratives `all` / `any`. Les attributs disponibles comprennent `principal.role`, `principal.permissions`, `principal.authMethod`, `resource.type`, `resource.organizationId`, `resource.projectId`, `resource.id`, `request.method`, `request.path`, `environment.hour` et `environment.weekday`.
+
+Les opérateurs pris en charge sont `equals`, `notEquals`, `in`, `contains`, `exists`, `greaterThan` et `lessThan`. Aucune expression JavaScript n’est exécutée. Une règle `deny` l’emporte sur toute règle `allow`; si une politique est déclarée pour une action, l’absence de correspondance refuse l’action. Sans règle pertinente, le contrôle RBAC existant reste le repli. Chaque décision ABAC émet un événement `IAM_POLICY_EVALUATED` sans enregistrer de secret.
+
+### 17.2 mTLS pour les transports
+
+Le serveur gRPC accepte `GENOS_GRPC_CLIENT_CA` et exige alors un certificat client signé par cette CA. `GENOS_GRPC_MTLS_REQUIRED=1` fait échouer le démarrage si le certificat serveur ou la CA manque. Le serveur REST prend en charge la même exigence via `GENOS_HTTP_TLS_KEY`, `GENOS_HTTP_TLS_CERT`, `GENOS_HTTP_CLIENT_CA` et `GENOS_HTTP_MTLS_REQUIRED=1`. Chaque identité HTTP doit toujours fournir une clé d’accès ou une session ; les RPC gRPC conservent le contrôle applicatif existant en plus du certificat de transport.
+
+Les fichiers de clés sont vérifiés comme fichiers réguliers et doivent être privés sur les systèmes Unix. Les certificats clients ne sont pas encore associés à des rôles GenOS par SAN : mTLS authentifie la connexion, puis les credentials applicatifs déterminent l’autorité.
+
+### 17.3 Backend Vault pour les secrets
+
+`GENOS_SECRETS_PROVIDER=hashicorp-vault` active Vault KV v2 avec `GENOS_VAULT_ADDR`, `GENOS_VAULT_KV_MOUNT` et `GENOS_VAULT_TOKEN` ou `GENOS_VAULT_TOKEN_FILE`. Les valeurs sont stockées sous le chemin tenant `organization/project/name`; SQLite ne garde que le fournisseur et la référence. Le transport externe exige HTTPS sauf en loopback de développement. L’API tenant-scoped `/api/secrets/:name/value` est réservée aux administrateurs et ne renvoie jamais un secret d’un autre projet. Sans cette configuration, le coffre SQLite chiffré continue à utiliser `GENOS_SECRET_KEY`.
 
 ---
 

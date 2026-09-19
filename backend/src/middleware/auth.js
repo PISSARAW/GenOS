@@ -6,6 +6,7 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const { anonymousPrincipal, extractBearerToken, buildKeyPrincipal, buildSessionPrincipal } = require('./sessionPrincipal');
+const iamPolicyEngine = require('../services/iamPolicyEngine');
 
 const ROLE_PERMISSIONS = {
   admin: ['all', 'read', 'workspace:write', 'workspace:delete', 'experiment:write', 'experiment:run', 'swarm:vote', 'swarm:propose', 'mcp:execute_safe', 'mcp:execute_destructive', 'security:manage', 'override_breaker', 'emergency_kill'],
@@ -55,22 +56,39 @@ async function resolveUserFromHeaders(headers) {
 
 function requirePermission(permission) {
   return async (req, res, next) => {
-    const user = await resolveUserFromHeaders(req.headers);
-    req.user = user;
-
-    if (user.permissions.includes('all') || user.permissions.includes(permission)) {
-      return next();
-    }
-
-    if (!user.isAuthenticated) {
-      return res.status(401).json({
-        error: { code: 'UNAUTHORIZED', message: 'Authentication required for this operation', details: { requiredPermission: permission } }
+    try {
+      const user = req.user || await resolveUserFromHeaders(req.headers);
+      req.user = user;
+      if (!user.isAuthenticated) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required for this operation', details: { requiredPermission: permission } } });
+      }
+      const fallbackAllowed = user.permissions.includes('all') || user.permissions.includes(permission);
+      const context = buildAuthorizationContext(req, user, permission);
+      const decision = await iamPolicyEngine.authorize({ context, fallbackAllowed });
+      if (decision.allowed) return next();
+      if (!user.isAuthenticated) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required for this operation', details: { requiredPermission: permission } } });
+      }
+      return res.status(403).json({
+        error: { code: 'FORBIDDEN', message: `Access denied. Requires permission: ${permission}`, details: { userRole: user.role, decisionSource: decision.source } }
       });
-    }
+    } catch (error) { next(error); }
+  };
+}
 
-    return res.status(403).json({
-      error: { code: 'FORBIDDEN', message: `Access denied. Requires permission: ${permission}`, details: { userRole: user.role } }
-    });
+function buildAuthorizationContext(req, user, action) {
+  const resource = {
+    type: req.baseUrl || req.path,
+    organizationId: req.tenant?.organizationId || req.headers['x-organization-id'] || null,
+    projectId: req.tenant?.projectId || req.headers['x-project-id'] || null,
+    id: req.params?.id || req.params?.agentId || null
+  };
+  return {
+    principal: user,
+    action,
+    resource,
+    request: { method: req.method, path: req.path },
+    environment: { hour: new Date().getUTCHours(), weekday: new Date().getUTCDay() }
   };
 }
 

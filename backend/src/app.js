@@ -45,6 +45,7 @@ const releaseRoutes = require('./routes/releaseRoutes');
 const controlPlaneRoutes = require('./routes/controlPlaneRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const secretRoutes = require('./routes/secretRoutes');
+const iamPolicyRoutes = require('./routes/iamPolicyRoutes');
 const ssoRoutes = require('./routes/ssoRoutes');
 const pluginRoutes = require('./routes/pluginRoutes');
 const registryRoutes = require('./routes/registryRoutes');
@@ -134,6 +135,7 @@ function createApp() {
   app.use('/api/control-plane', controlPlaneRoutes);
   app.use('/api/webhooks', webhookRoutes);
   app.use('/api/secrets', secretRoutes);
+  app.use('/api/iam/policies', iamPolicyRoutes);
   app.use('/api/sso', ssoRoutes);
   app.use('/api/plugins', pluginRoutes);
   app.use('/api/registry', registryRoutes);

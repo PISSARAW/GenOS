@@ -6,7 +6,7 @@
 const grpc = require('@grpc/grpc-js');
 const loadAllProtos = require('./proto/index.js');
 const registerAllServices = require('./src/grpc_services/index.js');
-const { readPrivateTlsPair } = require('./src/services/tlsConfig');
+const { readTransportTlsConfig, grpcServerCredentials } = require('./src/services/tlsConfig');
 const { readPort } = require('./src/services/runtimeConfig');
 
 async function startGrpcServer() {
@@ -18,17 +18,13 @@ async function startGrpcServer() {
   }
 
   const port = readPort('GRPC_PORT', process.env.GRPC_PORT, 50051);
-  const tlsKey = process.env.GENOS_GRPC_TLS_KEY;
-  const tlsCert = process.env.GENOS_GRPC_TLS_CERT;
-  const tlsPair = readPrivateTlsPair(tlsKey, tlsCert);
-  const bindAddress = process.env.GRPC_BIND_ADDRESS || (tlsPair ? '0.0.0.0' : '127.0.0.1');
+  const tls = readTransportTlsConfig({ keyEnv: 'GENOS_GRPC_TLS_KEY', certEnv: 'GENOS_GRPC_TLS_CERT', caEnv: 'GENOS_GRPC_CLIENT_CA', requiredEnv: 'GENOS_GRPC_MTLS_REQUIRED' });
+  const bindAddress = process.env.GRPC_BIND_ADDRESS || (tls.pair ? '0.0.0.0' : '127.0.0.1');
   const loopback = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
-  if (!tlsPair && !loopback.has(bindAddress)) {
+  if (!tls.pair && !loopback.has(bindAddress)) {
     throw new Error('Refusing insecure gRPC on a non-loopback bind address; configure GENOS_GRPC_TLS_KEY/CERT.');
   }
-  const credentials = tlsPair
-    ? grpc.ServerCredentials.createSsl(null, [tlsPair], false)
-    : grpc.ServerCredentials.createInsecure();
+  const credentials = grpcServerCredentials(grpc, tls);
   server.bindAsync(
     `${bindAddress}:${port}`,
     credentials,

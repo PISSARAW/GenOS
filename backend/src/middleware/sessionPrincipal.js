@@ -49,6 +49,7 @@ function buildKeyPrincipal(keyRecord, rolePerms) {
     permissions: combinePermissions(base, extra),
     username: keyRecord.label || 'operator',
     keyId: keyRecord.id,
+    authMethod: 'access_key',
     isAuthenticated: true
   };
 }
@@ -68,6 +69,7 @@ function buildSessionPrincipal(session, rolePermissions) {
     username: session.username || 'operator',
     keyId: stableId,
     sessionId: session.id,
+    authMethod: 'session',
     isAuthenticated: true
   };
 }
