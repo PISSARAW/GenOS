@@ -34,12 +34,13 @@ async function aseriesForAgent({ db, agentId }) {
   const agent = await db.get('SELECT * FROM agents WHERE id = ?', agentId);
   if (!agent) throw new Error(`temporalIdentityService.aseriesForAgent: agent ${agentId} not found`);
   const events = await db.all(
-    'SELECT * FROM telemetry_events WHERE agent_id = ? ORDER BY created_at ASC',
+    'SELECT id, created_at, event_type FROM telemetry_events WHERE agent_id = ? ORDER BY created_at ASC',
     agentId
   );
   // Passé : tous les événements avant ou au moment présent de l'agent
+  const agentUpdatedAt = String(agent.updated_at);
   const past = events
-    .filter(e => new Date(e.created_at) <= new Date(agent.updated_at))
+    .filter(e => String(e.created_at) <= agentUpdatedAt)
     .map(e => ({
       eventId: e.id,
       time: e.created_at,
@@ -92,7 +93,7 @@ async function bseriesForAgent({ db, agentId }) {
     throw new Error('temporalIdentityService.bseriesForAgent requires agentId and db');
   }
   const events = await db.all(
-    'SELECT * FROM telemetry_events WHERE agent_id = ? ORDER BY created_at ASC',
+    'SELECT id, created_at, event_type FROM telemetry_events WHERE agent_id = ? ORDER BY created_at ASC',
     agentId
   );
   const timeline = events.map((event, index) => {
@@ -102,18 +103,17 @@ async function bseriesForAgent({ db, agentId }) {
       event: {
         id: event.id,
         created_at: event.created_at,
-        type: event.type || 'telemetry',
+        type: event.event_type || 'telemetry',
       },
       bSeriesRelations: {
         before,
         after,
-        tense: 'tenseless', // pas de présent absolu
+        tense: 'tenseless',
       },
     };
   });
   return {
     agentId,
-    agent,
     bSeries: {
       type: 'B-series (tenseless time)',
       mctaggartClaim: 'Le temps est un ordre d\'événements "avant" et "après" — sans présent absolu.',
@@ -152,6 +152,7 @@ function aSeriesPosition(events) {
 }
 
 function blockUniverse({ events = [], ontology = 'eternalism' } = {}) {
+  ontology = ontology || 'eternalism';
   if (!['eternalism', 'presentism'].includes(ontology)) {
     throw new Error(`temporalIdentityService.blockUniverse invalid ontology: ${ontology}`);
   }

@@ -13,13 +13,33 @@ const PERFORMATIVE_PATTERNS = Object.freeze([
 ]);
 
 function analyzeSpeechAct(input = {}) {
-  const utterance = String(input.utterance || '').trim();
-  if (!utterance) throw new Error('utterance must be a non-empty string.');
+  const utterance = requireNonEmpty(input.utterance, 'utterance');
+  const force = resolveForce(input, utterance);
+  const actType = resolveActType(input, utterance, force);
+  const conditions = evaluateFelicityConditions(input, force);
+  return buildSpeechActReport({ utterance, force, actType, conditions, input });
+}
+
+function requireNonEmpty(value, field) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) throw new Error(`${field} must be a non-empty string.`);
+  return trimmed;
+}
+
+function resolveForce(input, utterance) {
   const force = input.force || inferForce(utterance);
   if (!FORCES.has(force)) throw new Error(`Unknown illocutionary force '${force}'.`);
+  return force;
+}
+
+function resolveActType(input, utterance, force) {
   const actType = input.actType || classifyActType(utterance, force);
   if (!ACT_TYPES.has(actType)) throw new Error(`Unknown speech act type '${actType}'.`);
-  const conditions = evaluateFelicityConditions({ ...input, force });
+  return actType;
+}
+
+function buildSpeechActReport(ctx) {
+  const { utterance, force, actType, conditions, input } = ctx;
   return {
     utterance,
     actType,
@@ -60,15 +80,19 @@ function inferIndirectAct(utterance, force) {
   return { detected: indirect, literalForce: force === 'question' ? 'question' : force, intendedForce: indirect ? 'directive' : force };
 }
 
-function evaluateFelicityConditions(input = {}) {
-  const checks = {
+function evaluateFelicityConditions(input, force) {
+  const checks = buildFelicityChecks(input);
+  return { checks, satisfied: Object.values(checks).every(Boolean), status: 'assessed' };
+}
+
+function buildFelicityChecks(input) {
+  return {
     speaker: Boolean(input.speaker),
     addressee: Boolean(input.addressee),
     authority: input.authority !== false,
     sincerity: input.sincerity !== false,
     uptake: input.uptake !== false
   };
-  return { checks, satisfied: Object.values(checks).every(Boolean), status: 'assessed' };
 }
 
 function directionOfFit(force) {
