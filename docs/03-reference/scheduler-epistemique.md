@@ -59,6 +59,18 @@ Chaque transition publie un événement horodaté lié au résultat de contre-ex
 Cette propagation ne transforme donc jamais une incertitude de domaine en
 réfutation automatique.
 
+## Réallocation du budget des lignées
+
+`reallocateLineageBudget` construit un front de Pareto à partir de la force de
+preuve, la nouveauté, la couverture, la progression Lean et l'efficacité de coût.
+Une lignée est dominée seulement si une autre n'est pire sur aucun axe et lui est
+strictement supérieure sur au moins un axe.
+
+Le budget transférable des lignées dominées est distribué entre les lignées du
+front selon leur score de promesse. Un plancher configurable préserve une capacité
+d'exploration. La somme entière des jetons est conservée et chaque mouvement porte
+un reçu `fromLineageId`, `toLineageId`, `tokens` et `reason`.
+
 ## Voir aussi
 
 - [ADR 0031](../adr/0031-scheduler-epistemique-mathematique.md)

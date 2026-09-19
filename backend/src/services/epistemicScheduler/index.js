@@ -6,8 +6,9 @@ const independence = require('./independencePolicy');
 const novelty = require('./noveltyAllocator');
 const { DependencyIndex } = require('./dependencyIndex');
 const counterexamples = require('./counterexamplePropagation');
+const budgets = require('./budgetReallocator');
 
 module.exports = {
   ActiveTaskRegistry, DependencyIndex, canonicalTask, taskFingerprint,
-  ...independence, ...novelty, ...counterexamples,
+  ...independence, ...novelty, ...counterexamples, ...budgets,
 };
