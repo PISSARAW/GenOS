@@ -1,6 +1,6 @@
 # Spéciation et graft autonomes — flux complet d'innovation
 
-- **Statut** : Partiel — opérations `speciate`/`graft` implémentées côté Rust, boucle d'innovation côté JS, mais flux machine complet évaluation→promotion→déploiement pas encore observable dans tous les cas.
+- **Statut** : Flux observable disponible via API backend ; la promotion reste une décision explicite d'opérateur après gate.
 - **Portée** : `crates/genos-genome`/`crates/genos-reproduction`, `backend/src/services/agentDnaInnovation.js`, `workerEvidenceBarrierLocal.js`.
 - **Dernière revue** : 2026-09-17.
 
@@ -110,7 +110,7 @@ L'évaluation peut être :
 - pilotée par un agent/juge dédié (par exemple un agent de sécurité, de qualité, ou un juge comparatif) ;
 - soumise à un gate humain selon la politique du tenant.
 
-Ce qui n'est pas encore un pipeline machine complet autonome dans tous les cas, c'est la partie **décision d'évaluation → gate → éviction ou promotion** qui doit être orchestrée explicitement selon le contexte.
+L'évaluation et l'enregistrement du résultat sont accessibles via l'API. L'appel explicite à `promote` ou `reject` constitue la décision opérateur ; les juges spécialisés de risque/coût restent externes.
 
 ### 3.6 Étape 5 — Promotion (gate)
 
@@ -136,9 +136,9 @@ Le déploiement n'est pas automatique au sens "tous les agents se mettent à jou
 
 - **Opérations normatives** : `speciate`, `graft` (Rust `genos-dna::operations`), `validate`, `express`.
 - **Détection** : `detectNovelConcepts` (backend `agentDnaInnovation.js`).
-- **Capture candidat** : `captureCandidate`, `captureFromSuccess` (backend `agentDnaInnovation.js`).
+- **Capture candidat** : `captureCandidate`, `captureFromSuccess` (backend `agentDnaInnovation.js`) et `POST /genomes/innovations`.
 - **Hook de succès** : `publishLocalSuccess` → `agentDnaInnovation.captureFromSuccess` (backend `workerEvidenceBarrierLocal.js`).
-- **Promotion** : `promoteCandidate` (backend `agentDnaInnovation.js`).
+- **Évaluation, gate, promotion et rejet** : `evaluateCandidate`, `promoteCandidate`, `rejectCandidate` (backend `agentDnaInnovation.js`).
 - **Statut candidate** : `agent_genomes.status`, `agent_genome_innovations`.
 
 Voir aussi :
@@ -151,13 +151,18 @@ Voir aussi :
 - `docs/adr/0002-agentdna-innovation-loop.md`
 - `spec/AGENT_DNA_SPEC.md`
 
-## 5. Ce qui n'est pas encore produit comme flux autonome complet
+## 5. Flux observable dans le backend
 
-Le socle permet la spéciation/graft et la capture de candidats, mais **le pipeline complet "agent identifie un besoin → speciate → évalue → promeut → déploie" n'est pas encore un flux machine unique, observable dans tous les cas** :
+Le registre d'innovations expose maintenant la chaîne opérable suivante (sous les routes AgentDNA, avec `workspace:write` pour les mutations) :
 
-- la détection est automatique dans le cas du succès validé, mais pas obligatoire ni universelle ;
-- l'évaluation et la décision de promotion ne sont pas encore un pipeline autonome complet et exécutable sans orchestration externe selon le contexte (gate humain, juge dédié, politique tenant) ;
-- le déploiement reste une sélection future, pas une propagation automatique.
+- `POST /genomes/innovations` reçoit le besoin identifié (`baseGenomeRef`, `concept`, `concepts`, `evidence`) et crée un génome dérivé en statut `candidate` ; la capture automatique après succès vérifié et la capture depuis fossile utilisent le même stockage.
+- `GET /genomes/innovations` montre les candidats, preuves, évaluations et décisions dans le périmètre tenant/projet.
+- `POST /genomes/innovations/:id/evaluate` conserve un résultat de gate vérifiable : validité du génome décodé, preuve de décision substantivée et conformité à la politique de signature du tenant.
+- `POST /genomes/innovations/:id/promote` est refusé tant que la dernière évaluation n'est pas admissible. L'opérateur qui appelle cette route tranche la promotion ; le candidat devient `active`.
+- `POST /genomes/innovations/:id/reject` conserve la décision et sa raison, puis marque le génome `rejected`.
+- Après promotion, la sélection normale de génome peut le choisir au spawn. Chaque application de gènes AgentDNA écrit aussi une ligne consultable dans `GET /genomes/selections`, liée à l'innovation promue si applicable. Cela ne met pas à jour les agents déjà en cours d'exécution.
+
+L'entrée explicite peut décrire un besoin, mais ne transforme pas une preuve soumise par l'appelant en preuve vérifiée : la gate n'accepte que la preuve du hook de succès vérifié ou l'intégrité d'un fossile. Le flux n'invente pas de score de coût ou de risque ; ces évaluations spécialisées et l'approbation humaine restent apportées par l'orchestrateur ou la politique opérateur. Une évaluation refusée reste consultable et ne rend jamais le candidat sélectionnable.
 
 Donc : la capacité existe, les primitives existent, le hook existe, mais le flux **bout-en-bout autonome** n'est pas le scénario par défaut documenté comme produit fini.
 

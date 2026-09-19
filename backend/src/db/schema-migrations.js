@@ -121,8 +121,18 @@ async function createGenomeInnovationTables(db) {
     concept TEXT, evidence_json TEXT, status TEXT NOT NULL DEFAULT 'candidate',
     organization_id TEXT, project_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+  `);
+  const innovationColumns = new Set((await db.all('PRAGMA table_info(agent_genome_innovations)')).map((column) => column.name));
+  if (!innovationColumns.has('evaluation_json')) await db.exec('ALTER TABLE agent_genome_innovations ADD COLUMN evaluation_json TEXT');
+  if (!innovationColumns.has('decision_at')) await db.exec('ALTER TABLE agent_genome_innovations ADD COLUMN decision_at DATETIME');
+  await db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agent_genome_innovations_scope ON agent_genome_innovations(organization_id, project_id);
   CREATE INDEX IF NOT EXISTS idx_agent_genome_innovations_candidate ON agent_genome_innovations(candidate_genome_ref);`);
+  await db.exec(`CREATE TABLE IF NOT EXISTS agent_genome_selections (
+    id TEXT PRIMARY KEY, agent_id TEXT, genome_ref TEXT NOT NULL, innovation_id TEXT,
+    organization_id TEXT, project_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_agent_genome_selections_scope ON agent_genome_selections(organization_id, project_id, created_at);`);
 }
 
 async function ensureAgentSnapshotColumns(db) {

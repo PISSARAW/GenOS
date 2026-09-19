@@ -74,7 +74,7 @@ async function importGenomes(req, res, next) {
   }
 }
 
-module.exports = { listGenomes, getGenome, importGenomes, operateGenome, getGenomePolicy, setGenomePolicy, listInnovations, promoteInnovation, summarize };
+module.exports = { listGenomes, getGenome, importGenomes, operateGenome, getGenomePolicy, setGenomePolicy, listInnovations, listGenomeSelections, createInnovation, evaluateInnovation, promoteInnovation, rejectInnovation, summarize };
 
 async function listInnovations(req, res, next) {
   try {
@@ -85,12 +85,80 @@ async function listInnovations(req, res, next) {
   }
 }
 
+async function listGenomeSelections(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const scope = tenantScope(req);
+    let rows;
+    if (scope.organizationId && scope.projectId) rows = await db.all(
+      'SELECT * FROM agent_genome_selections WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 200',
+      scope.organizationId,
+      scope.projectId
+    );
+    else rows = await db.all('SELECT * FROM agent_genome_selections WHERE organization_id IS NULL AND project_id IS NULL ORDER BY created_at DESC LIMIT 200');
+    res.json({ success: true, selections: rows });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function createInnovation(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const body = req.body || {};
+    const concepts = Array.isArray(body.concepts) ? body.concepts : [];
+    if (!body.baseGenomeRef || !body.concept || concepts.length === 0) {
+      return res.status(400).json({ error: { code: 'INNOVATION_INPUT_REQUIRED', message: 'baseGenomeRef, concept and concepts are required.' } });
+    }
+    const created = await innovation.captureCandidate(db, {
+      baseGenomeRef: body.baseGenomeRef,
+      name: body.name,
+      concept: body.concept,
+      concepts,
+      sourceAgentId: req.user && req.user.id,
+      evidence: body.evidence || {},
+      scope: tenantScope(req)
+    });
+    res.status(201).json({ success: true, innovation: created });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function promoteInnovation(req, res, next) {
   try {
     const db = await getDatabase();
+    await assertInnovationScope(db, req);
     res.json({ success: true, innovation: await innovation.promoteCandidate(db, req.params.id) });
   } catch (error) {
     next(error);
+  }
+}
+
+async function evaluateInnovation(req, res, next) {
+  try {
+    const db = await getDatabase();
+    await assertInnovationScope(db, req);
+    res.json({ success: true, innovation: await innovation.evaluateCandidate(db, req.params.id) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function rejectInnovation(req, res, next) {
+  try {
+    const db = await getDatabase();
+    await assertInnovationScope(db, req);
+    res.json({ success: true, innovation: await innovation.rejectCandidate(db, req.params.id, req.body && req.body.reason) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function assertInnovationScope(db, req) {
+  const rows = await innovation.listInnovations(db, tenantScope(req));
+  if (!rows.some((row) => row.id === req.params.id)) {
+    throw Object.assign(new Error('Innovation not found in tenant scope'), { code: 'INNOVATION_NOT_FOUND' });
   }
 }
 

@@ -25,7 +25,11 @@ async function run() {
     concept: 'genos_sandbox_exec',
     concepts: novel,
     sourceAgentId: 'agent-innov',
-    evidence: { eventType: 'WORKER_TASK_COMPLETED' },
+    evidence: {
+      source: 'validated_worker_success',
+      eventType: 'WORKER_TASK_COMPLETED',
+      payload: { evidenceReport: { claims: [{ evidence: ['validated source evidence'] }] } }
+    },
     scope: {}
   });
   assert.ok(captured.candidateGenomeRef);
@@ -37,8 +41,15 @@ async function run() {
   assert.ok(auto);
   assert.notEqual(auto.id, captured.candidateGenomeRef);
 
+  const evaluation = await innovation.evaluateCandidate(db, captured.id);
+  assert.equal(evaluation.evaluation.eligible, true);
   const promoted = await innovation.promoteCandidate(db, captured.id);
   assert.equal(promoted.status, 'promoted');
+  const deployment = await store.workerGenesForAssignment(db, { genomeRef: captured.candidateGenomeRef }, {});
+  assert.ok(deployment);
+  assert.ok(deployment.selectionId);
+  const selection = await db.get('SELECT innovation_id FROM agent_genome_selections WHERE id = ?', deployment.selectionId);
+  assert.equal(selection.innovation_id, captured.id);
   const listed = await innovation.listInnovations(db, {});
   assert.ok(listed.length >= 1);
 

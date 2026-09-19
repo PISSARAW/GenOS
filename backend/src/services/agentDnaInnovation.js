@@ -78,9 +78,14 @@ async function latestToolLease(db, agentId) {
 function evidenceSummary(event) {
   const payload = (event && event.payload) || {};
   return {
+    source: 'validated_worker_success',
     eventType: event && event.eventType,
     severity: event && event.severity,
-    claims: Array.isArray(payload.claims) ? payload.claims.slice(0, 5) : []
+    payload: {
+      evidenceReport: payload.evidenceReport || null,
+      noAnswerProof: payload.noAnswerProof || null,
+      failure: payload.failure || null
+    }
   };
 }
 
@@ -101,7 +106,8 @@ async function captureCandidate(db, request) {
   await db.run(
     `INSERT INTO agent_genome_innovations (id, source_agent_id, base_genome_ref, candidate_genome_ref, concept, evidence_json, status, organization_id, project_id)
      VALUES (?, ?, ?, ?, ?, ?, 'candidate', ?, ?)
-     ON CONFLICT(id) DO UPDATE SET evidence_json = excluded.evidence_json`,
+     ON CONFLICT(id) DO UPDATE SET source_agent_id = excluded.source_agent_id, evidence_json = excluded.evidence_json,
+       status = 'candidate', evaluation_json = NULL, decision_at = NULL`,
     id,
     request.sourceAgentId || null,
     request.baseGenomeRef,
@@ -123,6 +129,7 @@ async function captureCandidate(db, request) {
 async function captureFromSuccess(ctx) {
   if (!store.dnaEnabled()) return null;
   const { db, mission, event } = ctx;
+  if (!require('./agentEvidenceService').hasDecisionEvidence(event)) return null;
   const agentId = mission && mission.agentId;
   if (!agentId) return null;
   const agent = await safeGet(db, 'SELECT role, workspace_id FROM agents WHERE id = ?', agentId);
@@ -177,25 +184,71 @@ async function captureFromFossil(ctx) {
 }
 
 async function promoteCandidate(db, id) {
-  const row = await safeGet(db, 'SELECT candidate_genome_ref FROM agent_genome_innovations WHERE id = ?', id);
+  const row = await safeGet(db, 'SELECT candidate_genome_ref, status, evaluation_json FROM agent_genome_innovations WHERE id = ?', id);
   if (!row) {
     throw Object.assign(new Error(`innovation '${id}' not found`), { code: 'INNOVATION_NOT_FOUND' });
   }
-  await db.run("UPDATE agent_genome_innovations SET status = 'promoted' WHERE id = ?", id);
+  if (row.status !== 'candidate') throw Object.assign(new Error('Only candidate innovations can be promoted'), { code: 'INNOVATION_NOT_CANDIDATE' });
+  let evaluation = null;
+  try { evaluation = JSON.parse(row.evaluation_json || 'null'); } catch (_) { evaluation = null; }
+  if (!evaluation || evaluation.eligible !== true) {
+    throw Object.assign(new Error('Innovation has not passed evaluation and promotion gates'), { code: 'INNOVATION_GATE_BLOCKED' });
+  }
+  await db.run("UPDATE agent_genome_innovations SET status = 'promoted', decision_at = CURRENT_TIMESTAMP WHERE id = ?", id);
   await db.run("UPDATE agent_genomes SET status = 'active' WHERE id = ?", row.candidate_genome_ref);
   return { id, status: 'promoted', candidateGenomeRef: row.candidate_genome_ref };
 }
 
+async function evaluateCandidate(db, id) {
+  const row = await safeGet(db, 'SELECT * FROM agent_genome_innovations WHERE id = ?', id);
+  if (!row) throw Object.assign(new Error(`innovation '${id}' not found`), { code: 'INNOVATION_NOT_FOUND' });
+  const model = await store.loadGenome(db, row.candidate_genome_ref);
+  const evidence = parseEvidence(row.evidence_json);
+  const sourceEvidence = hasTrustedEvidence(evidence);
+  const scope = { organizationId: row.organization_id, projectId: row.project_id };
+  const signatureRequired = await require('./agentDnaPolicy').isSignatureRequired(db, scope);
+  const checks = evaluationChecks(model, sourceEvidence, signatureRequired);
+  const evaluation = { evaluatedAt: new Date().toISOString(), checks, eligible: Object.values(checks).every(Boolean) };
+  await db.run('UPDATE agent_genome_innovations SET evaluation_json = ? WHERE id = ?', JSON.stringify(evaluation), id);
+  return { id, status: row.status, evaluation };
+}
+
+function parseEvidence(value) {
+  try { return JSON.parse(value || '{}'); } catch (_) { return {}; }
+}
+
+function hasTrustedEvidence(evidence) {
+  if (evidence.source === 'stratigraphic_fossil') return Boolean(evidence.integrityVerified && evidence.payloadHash);
+  return evidence.source === 'validated_worker_success'
+    && require('./agentEvidenceService').hasDecisionEvidence(evidence);
+}
+
+function evaluationChecks(model, sourceEvidence, signatureRequired) {
+  return {
+    genomeValid: Boolean(model && model.meta && model.genes && model.provenance),
+    sourceEvidence,
+    signaturePolicy: !signatureRequired || Boolean(model && model.signatureValid)
+  };
+}
+
+async function rejectCandidate(db, id, reason) {
+  const row = await safeGet(db, 'SELECT candidate_genome_ref, status FROM agent_genome_innovations WHERE id = ?', id);
+  if (!row) throw Object.assign(new Error(`innovation '${id}' not found`), { code: 'INNOVATION_NOT_FOUND' });
+  if (row.status !== 'candidate') throw Object.assign(new Error('Only candidate innovations can be rejected'), { code: 'INNOVATION_NOT_CANDIDATE' });
+  const decision = { decision: 'rejected', reason: String(reason || 'operator_rejected'), decidedAt: new Date().toISOString() };
+  await db.run("UPDATE agent_genome_innovations SET status = 'rejected', evaluation_json = ?, decision_at = CURRENT_TIMESTAMP WHERE id = ?", JSON.stringify(decision), id);
+  await db.run("UPDATE agent_genomes SET status = 'rejected' WHERE id = ? AND status = 'candidate'", row.candidate_genome_ref);
+  return { id, status: 'rejected', candidateGenomeRef: row.candidate_genome_ref, reason: decision.reason };
+}
+
 async function listInnovations(db, scope) {
   const ids = scope || {};
-  if (ids.organizationId && ids.projectId) {
-    return db.all(
-      'SELECT * FROM agent_genome_innovations WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 200',
-      ids.organizationId,
-      ids.projectId
-    );
-  }
-  return db.all('SELECT * FROM agent_genome_innovations ORDER BY created_at DESC LIMIT 200');
+  if (ids.organizationId && ids.projectId) return db.all(
+    'SELECT * FROM agent_genome_innovations WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 200',
+    ids.organizationId,
+    ids.projectId
+  );
+  return db.all('SELECT * FROM agent_genome_innovations WHERE organization_id IS NULL AND project_id IS NULL ORDER BY created_at DESC LIMIT 200');
 }
 
 module.exports = {
@@ -205,6 +258,8 @@ module.exports = {
   captureFromFossil,
   fossilConcepts,
   promoteCandidate,
+  evaluateCandidate,
+  rejectCandidate,
   listInnovations,
   latestToolLease,
   normalizeTool

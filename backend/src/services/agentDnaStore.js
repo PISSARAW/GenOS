@@ -1,4 +1,5 @@
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 
 const { packBioPolymer, unpackBioPolymer } = require('./bioPolymerPersistenceService');
@@ -133,10 +134,16 @@ function scoreGenome(phenotype, assignment) {
   return score;
 }
 
-async function bestMatch(db, assignment) {
+async function bestMatch(db, assignment, scope) {
   let rows = [];
   try {
-    rows = await db.all("SELECT id, phenotype_blob FROM agent_genomes WHERE COALESCE(status, 'active') != 'candidate'");
+    const ids = scope || {};
+    if (ids.organizationId && ids.projectId) rows = await db.all(
+      "SELECT id, phenotype_blob FROM agent_genomes WHERE COALESCE(status, 'active') = 'active' AND ((organization_id = ? AND project_id = ?) OR (organization_id IS NULL AND project_id IS NULL))",
+      ids.organizationId,
+      ids.projectId
+    );
+    else rows = await db.all("SELECT id, phenotype_blob FROM agent_genomes WHERE COALESCE(status, 'active') = 'active' AND organization_id IS NULL AND project_id IS NULL");
   } catch (_) {
     return null;
   }
@@ -151,14 +158,24 @@ async function bestMatch(db, assignment) {
 
 async function selectExplicit(db, assignment, scope) {
   if (assignment.genomeRef) {
+    if (!(await genomeAllowed(db, assignment.genomeRef, scope))) return null;
     const model = await loadGenome(db, assignment.genomeRef);
     return model && (await acceptGenome(db, model, scope)) ? { id: assignment.genomeRef, model } : null;
   }
   if (assignment.preferredName) {
+    if (!(await genomeAllowed(db, assignment.preferredName, scope))) return null;
     const model = await loadGenome(db, assignment.preferredName);
     return model && (await acceptGenome(db, model, scope)) ? { id: assignment.preferredName, model } : null;
   }
   return null;
+}
+
+async function genomeAllowed(db, id, scope) {
+  const row = await db.get('SELECT status, organization_id, project_id FROM agent_genomes WHERE id = ?', id);
+  if (!row || row.status === 'rejected') return false;
+  const ids = scope || {};
+  if (!ids.organizationId || !ids.projectId) return !row.organization_id && !row.project_id;
+  return (!row.organization_id && !row.project_id) || (row.organization_id === ids.organizationId && row.project_id === ids.projectId);
 }
 
 async function selectGenome(db, assignment, scope) {
@@ -167,7 +184,7 @@ async function selectGenome(db, assignment, scope) {
   if (explicit) return explicit;
   if (!dnaEnabled()) return null;
   await ensureImported(db);
-  const id = await bestMatch(db, assignment);
+  const id = await bestMatch(db, assignment, scope);
   if (!id) return null;
   const model = await loadGenome(db, id);
   return model && (await acceptGenome(db, model, scope)) ? { id, model } : null;
@@ -176,7 +193,19 @@ async function selectGenome(db, assignment, scope) {
 async function workerGenesForAssignment(db, assignment, scope) {
   const selection = await selectGenome(db, assignment, scope);
   if (!selection) return null;
-  return { genomeRef: selection.id, genes: workerGenes(selection.model) };
+  const ids = scope || {};
+  const innovation = await db.get('SELECT id FROM agent_genome_innovations WHERE candidate_genome_ref = ? AND status = ?', selection.id, 'promoted');
+  const selectionId = crypto.randomUUID();
+  await db.run(
+    'INSERT INTO agent_genome_selections (id, agent_id, genome_ref, innovation_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?)',
+    selectionId,
+    assignment.agentId || null,
+    selection.id,
+    innovation && innovation.id,
+    ids.organizationId || null,
+    ids.projectId || null
+  );
+  return { genomeRef: selection.id, selectionId, genes: workerGenes(selection.model) };
 }
 
 module.exports = {

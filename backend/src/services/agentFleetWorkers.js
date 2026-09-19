@@ -18,7 +18,7 @@ async function applyAgentDna(ctx) {
   const { db, parent, assignment, mission, evolution } = ctx;
   const scope = { organizationId: parent.organization_id, projectId: parent.project_id };
   const missionText = (mission && mission.prompt) || parent.current_task || '';
-  const selection = await agentDnaStore.workerGenesForAssignment(db, { ...assignment, mission: missionText }, scope);
+  const selection = await agentDnaStore.workerGenesForAssignment(db, { ...assignment, agentId: parent.id, mission: missionText }, scope);
   if (!selection) return;
   evolution.genes = { ...evolution.genes, ...selection.genes };
   evolution.source = 'agent_dna';
