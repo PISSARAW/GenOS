@@ -3,7 +3,7 @@
 /**
  * @file topologySessionStore.js
  * @description Durable store for topology sessions (Syncytium CRDT, Rhizome
- * stigmergy) so they survive process restarts and are shared between the
+ * stigmergy, Biome biofilm) so they survive process restarts and are shared between the
  * orchestrator process and the worker processes.
  */
 async function ensureTable(db) {

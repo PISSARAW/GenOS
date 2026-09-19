@@ -8,7 +8,7 @@ capacités deviennent **effectives** (leases d'outils, organisation).
 
 - **Composition / topologie** : *qui* exécute et *comment* ils communiquent.
   - Modes : Trinity, A-Team, Biome, Biocénose, Holobionte, Syncytium, Rhizome, Métapopulation.
-  - Organisations : les 19 topologies de `dynamicOrganizationService`.
+  - Organisations dynamiques : les 19 organisations de `dynamicOrganizationService`.
 - **Capacités / concepts** : *ce que* chaque agent sait faire (stratégie, preuve,
   mémoire, biomimétique, immunité, isolation, modèles, observabilité, perception).
 
@@ -30,23 +30,40 @@ capacités requises + un profil (preuve, mémoire, budget, communication, moteur
 
 ## 3. Câblage par topologie
 
-| Topologie | Service de coordination | Concepts câblés |
+| Topologie | Câblé dans le runtime | Contrat seulement / proposé |
 | --- | --- | --- |
-| **Trinity** | `trinityComparativeBarrier` + `trinityService` | dossiers réels → scoring par domaine (preuves réelles, pénalité dossiers vides, détection d'égalité) → fusion/escalade ; barrière comparative sur le chemin orchestrateur **et** direct (`merge_trinity` reconstruit depuis la télémétrie persistée). |
-| **A-Team** | `aTeamCoordinationService` | domaines + handoffs `ligand` inter-étapes, contrat de capacités, arbitrage Pareto de l'intégration. |
-| **Biocénose** | `biocenoseService` | évaluation communautaire : arène Pareto (`arenaTaskEvaluation`), diversité d'essaim (`swarmMetricsService`), organisation `brier_weighted_consensus`/`blind_adversarial_review`. |
-| **Syncytium** | `syncytiumCoordinationService` | session CRDT partagée (`syncytiumCrdtService`), cytoplasme ionique (`syncytiumCytoplasmService`), verdict de cohérence (invariants + potentiel de membrane). |
-| **Holobionte** | `holobionteCoordinationService` | hôte autorité + symbiotes en inférence **locale** (`symbioteRuntimeService.engineFor`), veto immunitaire de l'hôte (`chaperoneAgentOutput`/`evaluateCognitiveDrift`). |
-| **Métapopulation** | `metapopulationCoordinationService` | quorum pondéré, plasticité des connexions, plan de régénération (lignage/mémoire/cryptobiose). |
-| **Rhizome** | `rhizomeCoordinationService` | session et membres composés ; `routeToCapability` cherche parmi ces membres (ce n'est pas un routage de graphe) ; traces stigmergiques (`swarmStigmergyVectorService`), cohérence Kuramoto et pas Physarum sur les arêtes fournies par l'appelant. Pas de création automatique de branches ni de graphe de routes. |
-| **Biome** | `biomeCoordinationService` | allocation écologique des ressources, foraging optimal Charnov/Lévy (`foragingScoutHarvesterService`), santé d'écosystème (`swarmMetricsService`). |
+| **Trinity** | Parcours dédié via `agentAutonomyPlanService`, `trinityDeployService` et `trinityComparativeBarrier` ; le chemin d'orchestration et `merge_trinity` appliquent la barrière comparative. | Les capacités listées par `topologyCapabilityService` ne sont pas toutes des leases ni des effets exécutés par chaque dossier. |
+| **A-Team** | Parcours dédié via `agentAutonomyPlanService`, `aTeamDispatchService` et `aTeamCoordinationService` : domaines, handoffs et intégration. | Le contrat de capacités reste descriptif ; l'arbitrage Pareto n'est effectif que là où l'évaluateur A-Team l'appelle. |
+| **Biocénose** | `genos_biological_mode` → `biologicalTopologyService` → `biocenoseService.prepareCommunity`; évaluation communautaire et préparation d'organisation. | Les capacités du profil qui n'apparaissent pas dans ce chemin ne sont pas activées automatiquement. |
+| **Syncytium** | `genos_biological_mode` crée une session persistée ; `genos_topology_session` expose snapshot et opérations CRDT, puis évaluation de cohérence. | Le contrat ne signifie pas que chaque mission utilise ce mode ou que toute mutation passe par un opérateur humain. |
+| **Holobionte** | `genos_biological_mode` compose hôte et symbiotes ; l'inférence locale est disponible via `symbioteRuntimeService.engineFor`. | `hostVeto`/`evaluateCognitiveDrift` sont des primitives, sans appel garanti dans le chemin de composition/déploiement. Immunité automatique : proposée. |
+| **Métapopulation** | `genos_biological_mode` compose les membres ; quorum, pondération et régénération sont exposés par le service. | Ces calculs restent des appels explicites, pas une boucle autonome déclenchée par la composition. |
+| **Rhizome** | `genos_biological_mode` crée et persiste la session ; `genos_topology_session` expose snapshot, dépôt stigmergique, recherche de membre par capacité et calcul slime sur arêtes fournies. | `routeToCapability` ne fait pas de routage de graphe ; création automatique de branches et graphe de routes restent proposés. |
+| **Biome** | `genos_biological_mode` crée et persiste la session ; `genos_topology_session` expose snapshot, allocation, foraging et santé, dont les résultats sont déposés dans la matrice biofilm. | Les étapes sont déclenchées explicitement : boucle fermée d'observation, navigation et réallocation automatique restent proposées. |
 
-Le point d'entrée unique est `biologicalTopologyService.composeMode({ db, orchestratorId, mode, mission })` : il route chaque mode vers son service, applique l'organisation recommandée et renvoie `members`, `organization`, `capabilityContract`, et le cas échéant `sessionId`.
+Les parcours Trinity et A-Team ont leurs entrées d'orchestration dédiées. Pour les six modes biologiques, `genos_biological_mode` appelle `biologicalTopologyService.composeMode({ db, orchestratorId, mode, mission })`; les sessions Syncytium, Rhizome et Biome sont ensuite observables et opérables par `genos_topology_session`. La composition seule ne rend pas effectives les capacités simplement inscrites au contrat.
+
+### Plan exécuté pour Rhizome et Biome
+
+1. Exposer leurs sessions dans le catalogue MCP et le dispatch local (`genos_biological_mode`, `genos_topology_session`).
+2. Persister les sessions Biome dans `topologySessionStore`, comme celles du Rhizome, et recharger l'état depuis le stockage avant chaque opération.
+3. Donner à Rhizome les opérations `snapshot`, `deposit`, `route`, `slime`, et à Biome `snapshot`, `allocate`, `forage`, `health` ; chaque opération Biome journalise son résultat dans la matrice biofilm versionnée.
+4. Vérifier par tests de câblage et persistance que ces appels MCP aboutissent aux services correspondants.
+
+Le plan ci-dessus câble des opérations observables et explicitement appelées ; il n'implémente pas encore le routage de graphe automatique Rhizome ni une boucle autonome Biome.
 
 ## 4. Organisation & algorithmes d'essaim
 
 - `dynamicOrganizationService.changeOrganization` renvoie désormais
   `capabilities` (capacités requises) et `runStep(state, options)`.
+- Les 19 organisations dynamiques sont :
+  `specialist_expert_committee`, `blind_adversarial_review`,
+  `red_blue_coevolution`, `brier_weighted_consensus`,
+  `quorum_with_abstention`, `stigmergy`, `flocking_boids`,
+  `fish_school_search`, `slime_mould_network`, `grey_wolf_optimizer`,
+  `mycelial_routing`, `dynamic_polyethism`, `energy_huddle`,
+  `network_silence`, `strategy_arena`, `hierarchical_merge`,
+  `competitive_arena`, `isolated_recovery`, `memory_compilation`.
 - Les organisations d'essaim ne sont plus des métadonnées :
   `swarmTopologyAlgorithms.js` implémente `flockingBoids`, `fishSchoolSearch`,
   `slimeMouldNetwork` (physarum), `greyWolfOptimizer`, exposés via
@@ -95,9 +112,8 @@ Le point d'entrée unique est `biologicalTopologyService.composeMode({ db, orche
 ## 8. Organisations et autorité
 
 - `organizationAlgorithms.runOrganizationStep` implémente les 15 organisations
-  restantes (comité hub, adversarial anonyme, red/blue, consensus Brier, quorum,
-  stigmergie, energy huddle, silence, arènes, merge hiérarchique, recovery isolé,
-  mémoire, polyéthisme, routage mycélien) ; `runTopologyStep` délègue vers lui.
+  non-essaim ; `runTopologyStep` délègue vers lui lorsque l'organisation n'est
+  pas l'un des quatre algorithmes d'essaim.
 - Le routage est extrait dans `organizationRouting.js` et **applique l'autorité**
   (`assertRoutingAuthority`) : en organisation *ranked* (grey wolf), un follower
   ne peut pas adresser un autre follower (`ORGANIZATION_AUTHORITY_VIOLATION`).

@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const store = require('../src/services/topologySessionStore');
 const syncytium = require('../src/services/syncytiumCoordinationService');
 const rhizome = require('../src/services/rhizomeCoordinationService');
+const biome = require('../src/services/biomeCoordinationService');
 const tools = require('../src/services/topologySessionTools');
 
 function fakeDb() {
@@ -42,6 +43,20 @@ function fakeDb() {
   assert.equal(snap.shared.textContent, 'shared');
   const deposit = await tools.applyTopologyOperation(db, { session_id: rhiz.sessionId, operation: 'deposit', marker: 'edge:e2', amount: 2 });
   assert.equal(deposit.trail.intensity, 2);
+
+  const eco = await biome.composeBiome('Persistent environment session.', { db });
+  const allocation = await tools.applyTopologyOperation(db, {
+    session_id: eco.sessionId,
+    operation: 'allocate',
+    populations: [{ id: 'pollinators', demand: 2, priority: 1 }],
+    total_budget: 80
+  });
+  assert.equal(allocation.allocations[0].budget, 80);
+  const ecoRecord = await store.load(db, eco.sessionId);
+  assert.equal(ecoRecord.topology, 'biome');
+  assert.equal(ecoRecord.state.matrix.version, 1);
+  const ecoSnapshot = await tools.applyTopologyOperation(db, { session_id: eco.sessionId, operation: 'snapshot' });
+  assert.equal(ecoSnapshot.entries[0].kind, 'resource_allocation');
 
   await assert.rejects(() => tools.applyTopologyOperation(db, { session_id: 'nope', operation: 'snapshot' }), /Unknown topology session/);
   console.log('Topology session persistence checks: PASS');

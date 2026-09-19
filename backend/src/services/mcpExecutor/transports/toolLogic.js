@@ -314,6 +314,8 @@ function gateEvaluate(args) {
 }
 
 const CUSTOM_TOOL_HANDLERS = {
+  genos_biological_mode: (args) => require('../../topologyMcpTools').composeBiologicalMode(args),
+  genos_topology_session: (args) => require('../../topologyMcpTools').operateTopologySession(args),
   genos_deterministic_sha256_rag: deterministicRag,
   genos_replay: replay,
   genos_causal_replay_experiment: causalReplayExperiment,

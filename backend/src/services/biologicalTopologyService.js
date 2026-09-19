@@ -17,11 +17,9 @@ const rhizomeCoordinationService = require('./rhizomeCoordinationService');
 const biomeCoordinationService = require('./biomeCoordinationService');
 
 async function applyOrganization({ db, orchestratorId, organization, reason }) {
-  if (!organization) return;
+  if (!organization || !orchestratorId) return;
   const dynamicOrganization = require('./dynamicOrganizationService');
-  dynamicOrganization.changeOrganization(db, { orchestratorId, organization, reason, changedBy: orchestratorId }).catch((err) => {
-    console.error(`[BiologicalTopology] Error applying organization '${organization}' for ${orchestratorId}:`, err.message);
-  });
+  await dynamicOrganization.changeOrganization(db, { orchestratorId, organization, reason, changedBy: orchestratorId });
 }
 
 async function composeMode(input = {}) {
@@ -49,7 +47,7 @@ async function composeMode(input = {}) {
     return session;
   }
   if (key === 'biome') {
-    const composition = biomeCoordinationService.composeBiome(mission, options);
+    const composition = await biomeCoordinationService.composeBiome(mission, { ...options, db });
     await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Biome mode activation' });
     return composition;
   }

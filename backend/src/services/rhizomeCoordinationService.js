@@ -13,7 +13,26 @@ const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 const store = require('./topologySessionStore');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
+const ROLE_CAPABILITIES = Object.freeze({
+  rootless_coordinator: ['coordination'],
+  capability_offshoot: ['mission_execution', 'specialized_execution'],
+  local_bridge: ['integration'],
+  boundary_scout: ['observation', 'capability_discovery']
+});
 const sessions = new Map();
+
+function normalizeMembers(members) {
+  const roles = new Set();
+  return members.map((member) => {
+    const role = String(member?.role || '').trim();
+    const capabilities = member?.capabilities || ROLE_CAPABILITIES[role];
+    if (!role || roles.has(role) || !Array.isArray(capabilities) || !capabilities.length || capabilities.some((item) => typeof item !== 'string' || !item.trim())) {
+      throw Object.assign(new Error('Rhizome members require unique roles and non-empty typed capabilities.'), { code: 'RHIZOME_MEMBER_INVALID' });
+    }
+    roles.add(role);
+    return { ...member, role, capabilities: [...new Set(capabilities.map((item) => item.trim()))] };
+  });
+}
 
 function serialize(session) {
   return {
@@ -37,13 +56,13 @@ function rehydrate(record) {
     organization,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'rhizome', organization }),
     matrix,
-    members: Array.isArray(state.members) ? state.members : []
+    members: normalizeMembers(Array.isArray(state.members) ? state.members : [])
   };
 }
 
 async function persist(db, session) {
   if (!db) return;
-  await store.save(db, { id: session.sessionId, topology: 'rhizome', state: serialize(session) }).catch(() => {});
+  await store.save(db, { id: session.sessionId, topology: 'rhizome', state: serialize(session) });
 }
 
 async function composeRhizome(mission, options = {}) {
@@ -58,7 +77,7 @@ async function composeRhizome(mission, options = {}) {
     organization,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'rhizome', organization }),
     matrix: createSwarmMatrix(),
-    members: biologicalModeService.compose('rhizome', goal)
+    members: normalizeMembers(Array.isArray(options.members) ? options.members : biologicalModeService.compose('rhizome', goal))
   };
   sessions.set(session.sessionId, session);
   await persist(options.db, session);
@@ -66,13 +85,17 @@ async function composeRhizome(mission, options = {}) {
 }
 
 async function getSession(sessionId, db) {
-  if (sessions.has(sessionId)) return sessions.get(sessionId);
-  if (!db) throw Object.assign(new Error(`Unknown rhizome session '${sessionId}'.`), { code: 'RHIZOME_SESSION_UNKNOWN' });
-  const record = await store.load(db, sessionId);
-  if (!record || record.topology !== 'rhizome') throw Object.assign(new Error(`Unknown rhizome session '${sessionId}'.`), { code: 'RHIZOME_SESSION_UNKNOWN' });
-  const session = rehydrate(record);
-  sessions.set(sessionId, session);
-  return session;
+  if (db) {
+    const record = await store.load(db, sessionId);
+    if (record && record.topology === 'rhizome') {
+      const session = rehydrate(record);
+      sessions.set(sessionId, session);
+      return session;
+    }
+  }
+  const session = sessions.get(sessionId);
+  if (session) return session;
+  throw Object.assign(new Error(`Unknown rhizome session '${sessionId}'.`), { code: 'RHIZOME_SESSION_UNKNOWN' });
 }
 
 async function depositTrail(sessionId, marker, options = {}) {
@@ -84,9 +107,33 @@ async function depositTrail(sessionId, marker, options = {}) {
 
 async function routeToCapability(sessionId, need, options = {}) {
   const session = await getSession(sessionId, options.db);
-  const target = String(need || '');
-  const branch = session.members.find((member) => member.role === target || (member.capabilities || []).includes(target)) || null;
-  return { sessionId, need: target, branch: branch ? branch.role : null, routed: Boolean(branch) };
+  const target = String(need || '').trim();
+  if (!target) throw Object.assign(new Error('A non-empty capability need is required.'), { code: 'RHIZOME_NEED_REQUIRED' });
+  const now = Number.isFinite(options.now) ? options.now : Date.now();
+  const alternatives = routeAlternatives(session, target, now);
+  return routeDecision({ sessionId, target, alternatives, coherent: options.coherent });
+}
+
+function routeAlternatives(session, target, now) {
+  const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
+  const marker = `route:capability/${target}`;
+  return capable.map((member) => {
+    const trail = session.matrix.getDecayedIntensity(marker, now);
+    const routeMarker = `route:member/${member.role}/${target}`;
+    const memberTrail = session.matrix.getDecayedIntensity(routeMarker, now);
+    return { role: member.role, score: Number((trail + memberTrail).toFixed(4)), signals: [
+      ...(trail ? [{ marker, intensity: trail }] : []),
+      ...(memberTrail ? [{ marker: routeMarker, intensity: memberTrail }] : [])
+    ] };
+  }).sort((left, right) => right.score - left.score || left.role.localeCompare(right.role));
+}
+
+function routeDecision({ sessionId, target, alternatives, coherent }) {
+  if (!alternatives.length) return { sessionId, need: target, branch: null, routed: false, verdict: 'no_capable_member', alternatives: [] };
+  const best = alternatives[0];
+  if (best.score < 0) return { sessionId, need: target, branch: null, routed: false, verdict: 'repelled', alternatives };
+  if (coherent === false) return { sessionId, need: target, branch: null, routed: false, verdict: 'incoherent', alternatives };
+  return { sessionId, need: target, branch: best.role, routed: true, verdict: 'routed', score: best.score, signals: best.signals, alternatives };
 }
 
 async function coherence(sessionId, options = {}) {
