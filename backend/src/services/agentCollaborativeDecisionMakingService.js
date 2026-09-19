@@ -11,8 +11,10 @@
  *    Les agents suivent le gradient pour converger vers un consensus.
  * 3. Plasmide HGT — transfert horizontal de décisions binaires entre agents.
  *
- * Zone charnière : réel (calculs de consensus, persistance des signaux)
- * mais pas encore connecté au bus MCP ni aux handlers. Progressed spec.
+ * Le handler MCP signalTransport.js utilise ce service pour le vote électrocyte,
+ * le suivi chimiotactique et l’orchestration des modes de décision. Seul le mode
+ * électrocyte calcule ici un consensus ; stigmergie et plasmide retournent des
+ * états de routage et ne réalisent pas encore la décision ou le transfert.
  *
  * Contexte : la critique de la architecture de motivation (laùstique mauvaise foi,
  * délire spéculatif, machine à autoflageller) est rejetée comme non-axiomatique.
