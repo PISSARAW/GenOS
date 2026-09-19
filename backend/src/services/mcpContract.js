@@ -145,6 +145,16 @@ const TOOL_BASE_SCHEMAS = {
     },
     required: ['snapshot_id'],
   },
+  genos_evolution_assimilate_plasmid: {
+    type: 'object',
+    properties: {
+      agent_id: { type: 'string', description: 'Local recipient agent that assimilates the plasmid.' },
+      plasmid_id: { type: 'string', description: 'Identifier or name of the local plasmid.' },
+      source_agent: { type: 'string', description: 'Optional local donor label.' },
+      orchestrator_id: { type: 'string', description: 'Optional owning orchestrator; enables a bounded organization notification.' }
+    },
+    required: ['agent_id', 'plasmid_id']
+  },
   genos_execute_primitive: {
     type: 'object',
     properties: {
@@ -197,6 +207,7 @@ const TOOL_BASE_SCHEMAS = {
     properties: {
       after_id: { type: 'integer', description: 'Cursor offset.' },
       limit: { type: 'integer', description: 'Max messages to return.' },
+      orchestrator_id: { type: 'string', description: 'Owning orchestrator to monitor.' },
     },
   },
   genos_trinity_launch: {
@@ -216,9 +227,23 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       mode: { type: 'string', enum: ['biome', 'syncytium', 'holobionte', 'biocenose', 'rhizome', 'metapopulation'], description: 'Biological organization mode.' },
-      mission: { type: 'string', description: 'Mission shared by the collective.' },
+        mission: { type: 'string', description: 'Mission shared by the collective.' },
+        orchestrator_id: { type: 'string', description: 'Orchestrator whose organization should be changed.' },
     },
     required: ['mode', 'mission'],
+  },
+  genos_topology_session: {
+    type: 'object',
+    properties: {
+      session_id: { type: 'string' },
+      operation: { type: 'string', enum: ['snapshot', 'apply', 'deposit', 'route', 'slime', 'allocate', 'forage', 'health'] },
+      op: { type: 'object' }, marker: { type: 'string' }, amount: { type: 'number' },
+      is_repellent: { type: 'boolean' }, need: { type: 'string' }, edges: { type: 'array', items: { type: 'object' } },
+      populations: { type: 'array', items: { type: 'object' } }, total_budget: { type: 'number' },
+      minimum_per_population: { type: 'number' }, patch_history: { type: 'array', items: { type: 'object' } },
+      iteration: { type: 'number' }, elapsed_time_sec: { type: 'number' }, observations: { type: 'array' }
+    },
+    required: ['session_id', 'operation']
   },
   genos_merge: {
     type: 'object',

@@ -21,7 +21,7 @@ Le bus fournit des formats et des opérations de signalisation compacts pour les
 Les primitives écologiques sont implémentées dans les handlers MCP et les services Rust :
 
 - **Stigmergie** : `backend/src/services/mcpBioTools/handlers/stigmergy.js` + `crates/genos-signal/src/stigmergy.rs` — dépôt de phéromones, sélection de sentiers, évaporation, champ vectoriel
-- **HGT / Transfert Horizontal de Gènes** : `backend/src/services/mcpBioTools/handlers/evolutionAssimilatePlasmid.js` + `crates/genos-biology/src/specialized_cells/prokaryote.rs` — conjugaison de plasmides, absorption bdelloïde
+- **HGT / Assimilation plasmidique** : `backend/src/services/mcpBioTools/handlers/evolutionAssimilatePlasmid.js` + `crates/genos-cli/src/commands/reproduction.rs` — assimilation locale ; avec `orchestrator_id`, notification `plasmid` bornée dans l'inbox de l'organisation. Le signal ne transporte pas le code du plasmide et ne le transfère pas aux pairs.
 - **Electrocytes / Potentiels de membrane** : `crates/genos-biology/src/specialized_cells/electrocyte.rs` — consensus par sommation de décharges, ordre de phase Kuramoto
 - **Cnidocyte / Défense réflexe** : `crates/genos-biology/src/specialized_cells/cnidocyte.rs` + `backend/src/services/mcpLigandReceptorService.js` — détection de toxine en <3µs, harpooning balistique
 - **Ligands Paracrines** : `crates/genos-signal/src/cascade.rs` — récepteurs membranaires, seuils de concentration, cascades d'activation
@@ -70,18 +70,27 @@ si son résultat a une valeur de coordination inter-agents définie. Le calcul
 local et son résultat MCP restent la source de vérité ; un signal expose une
 partie bornée de ce résultat et ne certifie pas sa correction.
 
+| Famille observée | Chemin actuel | Décision |
+| --- | --- | --- |
+| `genos_signal_*` | Outils dédiés appuyés sur `signalingTransportService` ; certains calculs collectifs sont fournis par `agentCollaborativeDecisionMakingService`. | Conserver ce chemin dédié ; ne pas ajouter de publication automatique aux handlers locaux. |
+| Stigmergie | Calcul Rust local ; un dépôt peut aussi publier une phéromone d'organisation avec `orchestrator_id` et `agent_id`. | Intégration sélective déjà présente. |
+| Assimilation HGT | Assimilation Rust locale ; un événement d'assimilation borné peut être publié dans l'inbox d'organisation. | Premier lot réalisé ; le code plasmidique reste local. |
+| Autres handlers biomimétiques | Calcul ou état local ; aucun événement organisationnel automatique observé. | Garder local jusqu'à la définition d'un consommateur, d'une action et d'un contrat de signal. |
+
 1. **Inventorier et classer** les handlers non intégrés selon leur sortie :
    résultat strictement local, événement utile à un collectif, ou capacité
    partageable. Ne pas faire publier automatiquement les handlers.
-2. **Choisir un premier candidat** parmi les opérations écologiques à portée
-   collective, en priorité le transfert plasmidique/HGT et les traces
-   stigmergiques. La stigmergie possède déjà une publication conditionnelle ;
-   traiter le HGT comme une extension distincte et vérifier d'abord sa
-   sémantique métier.
-3. **Définir le contrat de chaque signal** avant le branchement : type,
+2. **Premier lot réalisé — notification HGT** : l'assimilation locale est
+   conservée et peut publier un signal `plasmid` avec `orchestrator_id`. Le
+   signal indique uniquement l'identifiant assimilé et le receveur ; le code
+   exécutable reste local. La stigmergie conserve sa publication conditionnelle.
+   L'inbox d'organisation n'offre pas de TTL par message : cette notification
+   suit donc la rétention existante.
+3. **Définir le contrat de chaque nouveau signal** avant le branchement : type,
    destinataire, champs autorisés et bornés, identifiants d'émetteur et
-   d'orchestrateur, TTL, déduplication et comportement si la publication
-   échoue après le calcul local.
+   d'orchestrateur, TTL lorsque le transport le prend en charge, déduplication
+   et comportement si la publication échoue après le calcul local. Ne pas
+   ajouter de payload HGT tant qu'une politique de rétention n'est pas définie.
 4. **Réutiliser le canal d'organisation** et ses contrôles d'appartenance via
    `dynamicOrganizationService.publish()`. Garder `signalingTransportService`
    pour ses outils `genos_signal_*` jusqu'à ce qu'un besoin d'intégration
@@ -89,9 +98,11 @@ partie bornée de ce résultat et ne certifie pas sa correction.
 5. **Valider chaque intégration** par tests du chemin local seul, du chemin
    avec signal, des refus d'appartenance, des entrées invalides et des échecs
    de publication. Exposer séparément le statut du calcul et celui du signal.
-6. **Étendre par lots** uniquement aux handlers dont un consommateur et une
-   action collective sont identifiés ; documenter chaque lot et son statut
-   observé avant d'annoncer une couverture générale.
+6. **Étape suivante** : identifier un consommateur, une action collective et
+   une politique de rétention pour le signal HGT avant d'ajouter tout transfert
+   de payload. Étendre ensuite par lots uniquement aux handlers dont le contrat
+   et le consommateur sont identifiés ; documenter chaque lot sans annoncer une
+   couverture générale.
 
 Le nettoyage CAS et le mark-and-sweep du DAG sont désormais exécutables via les
 primitives `cas_gc` et `dag_mark_sweep`. Le CAS exige un `casRoot` contenant des

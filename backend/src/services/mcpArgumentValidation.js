@@ -44,6 +44,7 @@ const REQUIRED_STRINGS = {
   genos_change_organization: ['organization', 'reason'],
   genos_organization_state: [],
   genos_worker_publish: ['kind', 'signal_type', 'signal_data'],
+  genos_evolution_assimilate_plasmid: ['agent_id', 'plasmid_id'],
   genos_worker_inbox: [],
   genos_capsule_create: ['snapshot_id'],
   genos_v2_init: [],

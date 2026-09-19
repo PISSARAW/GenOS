@@ -5,10 +5,9 @@
  * phéromones stigmergiques, plasmides HGT, tenseurs latents) via SQLite
  * WAL + mémoire Map pour les agents locaux.
  *
- * Ce module est le pont entre le schéma calqué biomimétique
- * (biomimeticSignalingBus.js) et la persistance commune (SQLite).
- * Il n'est pas encore importé par le bus MCP ni les handlers — c'est
- * un progressed spec/open-code.
+ * Ce module relie biomimeticSignalingBus.js au transport SQLite des outils
+ * explicites genos_signal_* et des services de décision collective. Il ne
+ * constitue pas un chemin commun au dispatch des handlers biomimétiques.
  */
 
 const { getDatabase } = require('../db');

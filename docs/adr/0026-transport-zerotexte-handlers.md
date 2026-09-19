@@ -24,6 +24,12 @@ quand l'appel fournit `orchestrator_id` et `agent_id`. L'exécution locale Rust
 reste la source de l'opération de stigmergie ; le signal expose sa trace au
 collectif sans publier le texte de sa sortie.
 
+Le handler `genos_evolution_assimilate_plasmid` peut publier un signal
+`plasmid` de type événement quand `orchestrator_id` est fourni. Le signal
+contient seulement l'identifiant du plasmide et l'agent receveur ; le code
+plasmidique reste local, car aucun chemin de validation et d'import de payload
+exécutable par les pairs n'est défini.
+
 Les autres handlers ne publient pas automatiquement leurs résultats. Chaque
 nouvelle intégration doit définir le type, le contenu borné et le destinataire
 du signal métier, puis conserver les vérifications du canal d'organisation.
@@ -31,6 +37,9 @@ du signal métier, puis conserver les vérifications du canal d'organisation.
 ## Conséquences
 
 - Sans `orchestrator_id`, le handler de stigmergie conserve le chemin local.
+- Sans `orchestrator_id`, l'assimilation plasmidique conserve également le chemin local.
+- Avec `orchestrator_id`, le handler HGT vérifie l'appartenance de l'émetteur avant l'assimilation locale.
+- La notification HGT suit la rétention des messages d'organisation ; aucun TTL par message n'est actuellement appliqué.
 - Avec l'identifiant, l'émetteur doit être membre de l'organisation active. Si
   la publication échoue après le dépôt local, le résultat indique
   `completed_signal_error` et expose l'erreur de transport.

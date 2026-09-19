@@ -1,6 +1,6 @@
 # Biomimicry Handlers — Primitives biomimétiques documentées
 
-> Statut : les handlers listés dans le diagramme runtime-agentique.md §5 sont présents dans `backend/src/services/mcpBioTools/handlers/`. Le transport zero-texte passe par la publication inter-agents de l'organisation ; le handler de stigmergie publie aussi les dépôts en signaux quand `orchestrator_id` est fourni. Les autres opérations locales ne convertissent pas automatiquement leurs résultats en signaux.
+> Statut : les handlers listés dans le diagramme runtime-agentique.md §5 sont présents dans `backend/src/services/mcpBioTools/handlers/`. Le transport zéro-texte passe par la publication inter-agents de l'organisation ; stigmergie et assimilation plasmidique publient aussi un événement borné quand `orchestrator_id` est fourni. Les autres opérations locales ne convertissent pas automatiquement leurs résultats en signaux.
 
 ## Dispath MCP
 
@@ -81,6 +81,11 @@ Chemin de stigmergie
   Appel MCP → handler stigmergy → CLI Rust (dépôt local)
                               └→ si orchestrator_id + agent_id :
                                  dynamicOrganizationService.publish()
+
+Chemin d'assimilation plasmidique
+  Appel MCP → contrôle agent/orchestrateur → CLI Rust (assimilation locale)
+                                           └→ si orchestrator_id :
+                                              signal plasmid borné dans l'inbox
 
 Chemin des autres handlers
   Appel MCP → handler local → CLI Rust / service spécialisé → réponse MCP
