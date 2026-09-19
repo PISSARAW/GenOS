@@ -4,7 +4,7 @@
 
 ## Bus de Signalisation Biomimétique
 
-Le bus zero-texte remplace les échanges textuels verbeux entre agents par des signaux physico-chimiques compacts. Cf. §"Bus de Signalisation Biomimétique" dans `runtime-agentique.md`.
+Le bus fournit des formats et des opérations de signalisation compacts pour les chemins qui l'appellent. Il ne remplace pas globalement les échanges textuels et n'est pas une étape commune aux handlers biomimétiques. Cf. §"Bus de Signalisation Biomimétique" dans `runtime-agentique.md`.
 
 ### Modules implémentés
 
@@ -50,7 +50,7 @@ Les primitives écologiques sont implémentées dans les handlers MCP et les ser
 
 ### Frontière d'Incompressibilité
 
-Le texte est strictement réservé aux interactions avec l'utilisateur humain et à la synthèse de code source imposée par la contrainte de génération du LLM. Tous les états intermédiaires de coordination circulent sous forme de signaux physico-chimiques compacts.
+Le texte reste utilisé par les interfaces et les handlers qui le requièrent. Les signaux compacts sont utilisés sur les chemins explicitement intégrés ; les états intermédiaires ne sont pas tous convertis en signaux.
 
 Le handler `genos_biomimicry_stigmergy` conserve son calcul local via le CLI Rust.
 Lorsqu'il reçoit `orchestrator_id`, il publie aussi les dépôts dans l'inbox de
@@ -62,6 +62,36 @@ Sans cet identifiant, le handler conserve le comportement local.
 
 - **Intégration sélective** : le transport zero-texte est branché au chemin de publication inter-agents `genos_worker_publish` et aux dépôts du handler de stigmergie. Les autres handlers biomimétiques continuent d'utiliser leurs opérations locales (dont le CLI Rust) et ne publient pas automatiquement leurs résultats. Le transport ne remplace pas ces calculs.
 - **Pas de module de décision collective séparé requis** : `agentCollaborativeDecisionMakingService.js` porte déjà cette responsabilité et est appelé par les handlers MCP. Ne pas créer `collectiveSignalDecisions.js` sans besoin distinct démontré.
+
+## Plan d'intégration des handlers locaux
+
+L'intégration doit rester opt-in, selon l'ADR 0026 : un handler ne publie que
+si son résultat a une valeur de coordination inter-agents définie. Le calcul
+local et son résultat MCP restent la source de vérité ; un signal expose une
+partie bornée de ce résultat et ne certifie pas sa correction.
+
+1. **Inventorier et classer** les handlers non intégrés selon leur sortie :
+   résultat strictement local, événement utile à un collectif, ou capacité
+   partageable. Ne pas faire publier automatiquement les handlers.
+2. **Choisir un premier candidat** parmi les opérations écologiques à portée
+   collective, en priorité le transfert plasmidique/HGT et les traces
+   stigmergiques. La stigmergie possède déjà une publication conditionnelle ;
+   traiter le HGT comme une extension distincte et vérifier d'abord sa
+   sémantique métier.
+3. **Définir le contrat de chaque signal** avant le branchement : type,
+   destinataire, champs autorisés et bornés, identifiants d'émetteur et
+   d'orchestrateur, TTL, déduplication et comportement si la publication
+   échoue après le calcul local.
+4. **Réutiliser le canal d'organisation** et ses contrôles d'appartenance via
+   `dynamicOrganizationService.publish()`. Garder `signalingTransportService`
+   pour ses outils `genos_signal_*` jusqu'à ce qu'un besoin d'intégration
+   directe soit établi ; ne pas créer un second chemin de routage.
+5. **Valider chaque intégration** par tests du chemin local seul, du chemin
+   avec signal, des refus d'appartenance, des entrées invalides et des échecs
+   de publication. Exposer séparément le statut du calcul et celui du signal.
+6. **Étendre par lots** uniquement aux handlers dont un consommateur et une
+   action collective sont identifiés ; documenter chaque lot et son statut
+   observé avant d'annoncer une couverture générale.
 
 Le nettoyage CAS et le mark-and-sweep du DAG sont désormais exécutables via les
 primitives `cas_gc` et `dag_mark_sweep`. Le CAS exige un `casRoot` contenant des

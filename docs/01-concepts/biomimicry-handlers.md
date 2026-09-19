@@ -1,4 +1,4 @@
-# Biomimicry Handlers — Récapitulatif des 39 primitives
+# Biomimicry Handlers — Primitives biomimétiques documentées
 
 > Statut : les handlers listés dans le diagramme runtime-agentique.md §5 sont présents dans `backend/src/services/mcpBioTools/handlers/`. Le transport zero-texte passe par la publication inter-agents de l'organisation ; le handler de stigmergie publie aussi les dépôts en signaux quand `orchestrator_id` est fourni. Les autres opérations locales ne convertissent pas automatiquement leurs résultats en signaux.
 
@@ -6,9 +6,9 @@
 
 - **Entrée** : `mcpToolRegistry.js` détecte la catégorie `bio` et dispatche vers `mcpBioTools.executeBioTool()`
 - **Dispatch** : `mcpBioTools.js` cherche `TOOL_HANDLERS[toolName]` et appelle `handler.handle(args, runGenosSync)`
-- **39 fichiers handlers** dans `backend/src/services/mcpBioTools/handlers/`, tous exportés dans `index.js` via `TOOL_HANDLERS`
+- Les primitives de cette page sont décrites dans le diagramme runtime-agentique §5. Le nombre de clés effectivement enregistrées dans `TOOL_HANDLERS` et le nombre de fichiers source sont distincts ; vérifier le registre de dispatch dans [la référence MCP](../03-reference/outils-mcp.md) et le code de `mcpToolRegistry.js`.
 
-## Les 39 handlers du diagramme §5
+## Les handlers décrits dans le diagramme §5
 
 ### Neurobiologie & Syncrotisation
 
@@ -73,14 +73,28 @@ Les modules suivants implémentent le schéma de transport inter-agents décrit 
 Schéma d'architecture transport :
 
 ```
-Agents / Orchestrateur / MCP
-  → registerSignalTransportTools()  [gens biologiques MCP]
-  → executeBioTool(toolName, args)  [dispatch handler]
-  → handler.handle(args, runGenosSync)  [logique métier]
-  → signalingTransportService.publishSignal()  [persistance signal_blobs]
-  → biomimeticSignalingBus.evaluate*()  [calculs zero-texte]
-  → MCP response (signalBlob + content)
+Chemin de publication organisationnelle
+  Agent → genos_worker_publish → dynamicOrganizationService.publish()
+        → inbox de l'organisation
+
+Chemin de stigmergie
+  Appel MCP → handler stigmergy → CLI Rust (dépôt local)
+                              └→ si orchestrator_id + agent_id :
+                                 dynamicOrganizationService.publish()
+
+Chemin des autres handlers
+  Appel MCP → handler local → CLI Rust / service spécialisé → réponse MCP
+                         (pas de publication automatique au transport)
+
+Outils genos_signal_*
+  Appel MCP → handler signalTransport → signalingTransportService
+                                      → persistance / lecture de signaux
 ```
+
+Ce schéma distingue les outils explicites `genos_signal_*` des handlers
+biomimétiques locaux. `signalingTransportService.publishSignal()` n'est pas
+une étape commune du dispatch MCP ; l'intégration au canal d'organisation
+utilise `dynamicOrganizationService.publish()`.
 
 ## Schéma de pipeline d'exécution MCP
 
