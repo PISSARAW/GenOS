@@ -13,7 +13,9 @@
     "clean:artifacts": "node scripts/clean-artifacts.mjs",
     "check:code-quality": "python scripts/ci/check_code_quality.py",
     "check:staged": "python scripts/ci/check_code_quality.py --staged",
-    "check:quality:strict": "python scripts/ci/check_code_quality.py --strict"
+    "check:quality:strict": "python scripts/ci/check_code_quality.py --strict",
+    "docs:inventory": "node scripts/docs/generate-technical-inventory.js",
+    "docs:inventory:check": "node scripts/docs/generate-technical-inventory.js --check"
   },
   "dependencies": {
     "puppeteer": "^25.10.0"

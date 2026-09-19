@@ -11,7 +11,8 @@ Ce n'est pas un framework d'agents. C'est un runtime qui essaie de rendre l'agen
 
 🌐 **Site public** : https://genoswork.vercel.app  
 🧬 **Repo + code** : https://github.com/PISSARAW/GenOS  
-📖 **Docs** : https://github.com/PISSARAW/GenOS/tree/main/docs  
+📖 **Docs** : https://github.com/PISSARAW/GenOS/tree/main/docs
+📊 **Inventaire vérifiable** : [comptages techniques](docs/03-reference/inventaire-technique.md), régénérés par `npm run docs:inventory` et contrôlables par `npm run docs:inventory:check`.
 🏁 **Démo** : `examples/safe-debugging-demo` (zéro token, exécutable)
 
 ---

@@ -1,5 +1,5 @@
 /**
- * GenOS MCP Strategy Tools — Direct execution bridge for 79 strategies and 189 referenced primitives.
+ * GenOS MCP Strategy Tools — Direct execution bridge for the registered strategy and primitive sets.
  */
 const strategyExecutionAdapter = require('./strategyExecutionAdapter');
 const { validateToolArguments } = require('./mcpArgumentValidation');

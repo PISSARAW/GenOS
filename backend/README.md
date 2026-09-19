@@ -2,7 +2,7 @@
 
 The GenOS backend is the core control plane and runtime engine for GenOS V3. It serves dual roles:
 1. **REST & gRPC Runtime:** Exposes the comprehensive REST API (Express) and gRPC microservices consumed by the GenOS Studio, CLI, and external agent runtimes.
-2. **Cognitive Memory & Biological Strategy Engine:** Houses the STDP synaptic connectome, hybrid vector/lexical search, autonomous orchestration pipelines, budget coherence validators, and the 7-lot execution primitives.
+2. **Cognitive Memory & Biological Strategy Engine:** Houses the STDP synaptic connectome, hybrid vector/lexical search, autonomous orchestration pipelines, budget coherence validators, and strategy execution primitives.
 
 For the agent-state Git API, its correspondence with Git, and the boundary between agent snapshots and real repository worktrees, see [../docs/02-orchestration/git-agents.md](../docs/02-orchestration/git-agents.md).
 
@@ -31,7 +31,7 @@ For the agent-state Git API, its correspondence with Git, and the boundary betwe
 |  +--------------------------------+  +--------------------------------+  +-------------------------------------+  |
 |                                                        |                                                          |
 |  +-------------------------------------------------------------------------------------------------------------+  |
-|  |                                      MCP Tool Registry (260 Tools)                                          |  |
+|  |                                      MCP Tool Registry (seed declarations)                                    |  |
 |  |                      Routes tool calls dynamically: Strategy / Biomimicry / CLI                              |  |
 |  +-------------------------------------------------------------------------------------------------------------+  |
 |                                                        |                                                          |
@@ -68,19 +68,12 @@ Normalizes all vector inputs to **768 dimensions** with automatic detection and 
 - **Epistemic Shield & Amygdala Filter:** Calibrated credibility scoring and cognitive drift sentinels (Shannon Entropy $H(A)$) preventing adversarial prompt gaslighting.
 
 ### 4. Strategy Dispatcher & Autonomous Orchestration
-- **79 Strategies / 189 Referenced Primitives:** Registered across 7 core functional lots. Runtime health distinguishes ready, partial, experimental, and prototype entries; registration does not imply production availability:
-  - *Lot 1 Fundamentals:* `snapshot`, `fork`, `vfs_dry_run`, `safe_revert`, `bisect_agent`, `evaluate`.
-  - *Lot 2 Memory:* `compile_memory`, `cherry_pick_golden_path`, `search_failures`, `stdp_update`.
-  - *Lot 3 Evolution:* `mutate`, `hypermutation`, `breed`, `select`, `pareto_select`, `speciation`.
-  - *Lot 4 Safety & Resilience:* `circuit_breaker`, `apoptosis`, `quarantine`, `sandbox`, `permission_check`.
-  - *Lot 5 Swarm:* `pheromone_deposit`, `trail_selection`, `brier_scores`, `quorum`, `weighted_quorum`.
-  - *Lot 6 Temporal & Causal:* explicit state merge operations, causal rebase, mutated universes, replay evidence, and conflict-safe automatic workspace promotion. When a causal base is supplied, promotions perform a three-way file merge; otherwise, only winner-only files are copied and divergent files block promotion.
-  - *Lot 7 Search & Budget:* Recursive MCTS branch pruning, UCB1 selection, PRM step evaluation.
+The strategy and primitive counts use the same family definitions composed by `strategyRegistry.js`; see the dated [technical inventory](../docs/03-reference/inventaire-technique.md) and `npm run docs:inventory`. Runtime health distinguishes ready, partial, experimental, and prototype entries; registration does not imply production availability.
 - **Budget Coherence (`src/services/budgetCoherenceService.js`):** Enforces a strict 60% worker pool / 40% orchestrator reserve split, preventing token exhaustion and budget overruns.
 - **Human Approval Promotion Gate:** High-impact mutations and autonomous promotions require cryptographically signed human approval before merging.
 
 ### 5. Unified MCP Tool Registry (`src/services/mcpToolRegistry.js`)
-Maintains a 260-tool backend registry for typed execution routing. MCP stdio servers expose a leased public subset:
+Maintains a declaration-driven backend registry for typed execution routing. Its current unique declaration count and registered biomimicry handler count are recorded in the dated [technical inventory](../docs/03-reference/inventaire-technique.md). MCP stdio servers expose a leased public subset:
 - `strategy`: Handled by `mcpStrategyTools.js`.
 - `bio`: Handled by native biomimicry adapters `mcpBioTools.js`.
 - `cli`: Dispatched through the local transport layer to `genos` binaries.
@@ -104,7 +97,7 @@ backend/
 │   │   ├── index.js              # SQLite connection pool & PRAGMA configurations
 │   │   ├── schema.js             # Table setup & FTS5 triggers
 │   │   ├── schema-tables-core.js # Core table definitions
-│   │   └── seedTools.js          # Preloaded MCP tools registry (260 tools)
+│   │   └── seedTools.js          # Preloaded MCP tool declarations
 │   ├── grpc_services/            # gRPC service implementations (lineageService.js)
 │   ├── middleware/               # RBAC, tenant isolation, and anti-CSRF filters
 │   ├── routes/                   # Resource routers
@@ -114,7 +107,7 @@ backend/
 │   │   ├── embeddingProvider.js              # Unified 768-D multi-backend embeddings
 │   │   ├── mcpToolRegistry.js                # Dynamic MCP tool dispatcher
 │   │   ├── sleepCycle.js                     # Hippocampal replay & microglial pruning
-│   │   ├── strategyExecutionAdapter.js       # 7-lot strategy dispatcher
+│   │   ├── strategyExecutionAdapter.js       # strategy dispatcher
 │   │   └── primitiveHandlers/                # Concrete primitive implementations
 │   └── strategies/               # Strategy catalog and classification families
 ├── tests/                        # Verification and regression test suite
