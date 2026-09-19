@@ -1010,15 +1010,26 @@ Pour diagnostiquer une régression subtile ou explorer un chemin inverse, l'orch
 
 L'orchestrateur modélise le profil énergétique des flottes d'agents pour réguler les quotas de tokens par minute et tracer les profils de consommation d'énergie au niveau de la planification.
 
-### 7. Topologie Stigmergique Scout / Harvester (Quête Web GAIA)
+### 7. Patrons de foraging Scout / Harvester (primitives isolées)
 
-Dans les énigmes sans fichier (77% de GAIA), l'orchestrateur découple la phase de prospection web de la phase de calcul déterministe :
-1. **Cellule Scout (Éclaireur Léger) :** Mobilise `genos_browser_act` et `genos_optimal_foraging` pour naviguer, contourner les formulaires et intercepter l'artefact brut (PDF/CSV) ou l'information clé.
-2. **Pheromone Token (Évidence Signée) :** Le Scout scelle un jeton d'évidence signé par SHA-256 sans faire gonfler le contexte de prompt.
-3. **Cellule Harvester (Moissonneur Lourd) :** L'agent analyste local récupère le token d'évidence, exécute les calculs exacts via Pandas/Python en environnement confiné et soumet la preuve à l'Arbitre de Réalité.
+Le découplage Scout / Harvester est un patron de conception, pas une topologie
+qui s'exécute actuellement dans l'orchestrateur. `genos_browser_act`,
+`genos_optimal_foraging` et `genos_foveal_crop` sont des handlers autonomes;
+aucun runtime ne transmet automatiquement l'observation d'un handler à la
+décision du suivant.
 
-> [!NOTE]
-> L'ensemble de ces primitives biomimétiques opère comme des heuristiques d'ordonnancement et des pods d'état applicatifs en mémoire (`mcpBioTools`), offrant des patrons de dérivation et de planification bio-inspirés sans intervention de pilotes de virtualisation ou de modules noyau bas niveau.
+Le service navigateur garde une session locale, mais ses actions de formulaire
+sont simulées; le service fovéal produit des coordonnées/manifests prédéfinis,
+pas un crop d'image; le service de foraging calcule une recommandation sans
+commander la navigation. `genos_computer_use` est une capacité séparée de
+contrôle du bureau. Le jeton Scout / Harvester est gardé dans un registre en
+mémoire et son SHA-256 vérifie l'intégrité des champs, sans constituer une
+signature authentifiée.
+
+Les tests associés sont des tests unitaires sur données synthétiques. Ils ne
+valident ni une quête GAIA de bout en bout ni des performances de benchmark.
+Voir [Foraging web, fovéation et navigation active](../01-concepts/biomimetisme/web-foraging.md)
+pour les limites et les étapes nécessaires à une boucle perception-action.
 
 
 

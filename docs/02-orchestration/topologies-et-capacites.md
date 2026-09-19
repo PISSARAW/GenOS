@@ -61,6 +61,10 @@ Le point d'entrée unique est `biologicalTopologyService.composeMode({ db, orche
   `genos_security_coevolution`/`genos_parasitic_pressure` ; `WEB_FORAGING` →
   `genos_browser_act`/`genos_optimal_foraging` ; `FOVEAL_PERCEPTION` →
   `genos_foveal_crop`).
+- Pour le Web, ces leases rendent les handlers appelables séparément. Elles ne
+  constituent pas un contrôleur : `browser_act`, `foveal_crop` et
+  `optimal_foraging` ne se transmettent ni observations ni actions. `COMPUTER_USE`
+  route vers le contrôle du bureau, avec son propre plan et son propre état.
 - `leaseForCapabilities(baseLease, capabilities)` élargit un lease de base sans
   jamais sortir de `KNOWN_TOOL_ALLOW_LIST` ni réintroduire `genos_orchestrate`.
 - `orchestratorLeaseForPlan(plan)` intègre `plan.capabilityContract.required` ;
@@ -103,6 +107,10 @@ Le point d'entrée unique est `biologicalTopologyService.composeMode({ db, orche
 - Les algorithmes sont déterministes et locaux (pas de consensus distribué
   global) et le supervisor n'applique qu'une étape par décision, pas une boucle
   haute fréquence.
-- La perception/web (`browser_act`, `foveal_crop`, `optimal_foraging`,
-  `computer_use`) est louable mais pas encore pilotée par une boucle
-  perception→action.
+- La perception/web reste au statut de primitives isolées. Le navigateur
+  maintient une session locale et simule les actions de formulaire; la
+  fovéation produit des ROI/manifests simulés, et le foraging renvoie un calcul
+  sans commander la navigation. `computer_use` pilote séparément le bureau et
+  n'est pas relié à cette session. Aucun flux ne chaîne actuellement capture,
+  observation, décision, action et vérification sur un même état réel. Voir
+  [Foraging web, fovéation et navigation active](../01-concepts/biomimetisme/web-foraging.md).

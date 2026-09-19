@@ -1262,78 +1262,56 @@ Le benchmark BFCL (Gorilla / UC Berkeley) évalue la précision d'appel d'outils
 
 Le benchmark GAIA (*General AI Assistant Benchmark*, Meta Fair / Hugging Face / AutoGPT) évalue les capacités d'agents généralistes sur des questions complexes du monde réel nécessitant un raisonnement multi-modal, l'inspection de documents tabulaires/PDF et la chaîne d'outils.
 
-### 27.1 Spécifications et Architecture d'Évaluation
-- **Ensemble de Validation Officiel** : 165 tâches réparties en 3 niveaux de complexité :
-  - **Level 1** (53 tâches) : Questions directes, manipulation textuelle, mathématiques élémentaires.
-  - **Level 2** (86 tâches) : Chaînes d'outils, extraction de données depuis des classeurs Excel (`.xlsx`), fichiers `.csv` et documents `.pdf`.
-  - **Level 3** (26 tâches) : Raisonnement causal multi-étapes, synthèse documentaire longue et inférence critique.
-- **Confinement Zéro-Docker** : Exécution 100% native Windows via Node.js et Python 3.12 (`venv_win`).
-- **Métrique Officielle** : Évaluation via la fonction canonique `gaia_scorer.question_scorer` (normalisation des nombres, listes ordonnées/non-ordonnées, insensible à la casse et ponctuation).
+### 27.1 Configuration attendue par le lanceur
 
-### 27.2 Commandes et Intégration
-- Commande unifiée Node.js : `npm run test:gaia` (délègue à `backend/tests/test_gaia_benchmark.js`).
-- Harnais natif Python : `python run_gaia_eval.py --level all --output gaia_results.json` (dans `../GAIA`).
-- Agent multi-modal GenOS : `gaia_genos_agent.py` (respect strict des seuils de qualité : $\le 400$ lignes, complexité $\le 10$, $\le 3$ paramètres).
+Le code du lanceur contient les totaux attendus (53, 86 et 26 tâches, soit
+165) et appelle un script externe `run_gaia_eval.py`. Ces constantes décrivent
+les attentes du test, pas une inspection locale du jeu de données ni une
+validation officielle de sa version ou de son scorer. Le mode Windows et
+`venv_win` sont des chemins prévus par le code; ils ne constituent pas un
+résultat d'exécution vérifié.
 
-### 27.3 Résultats Obtenus sur l'Ensemble de Validation Officiel
+### 27.2 Commande et dépendances externes
 
-```
-===========================================================================
-                 SCORECARD OFFICIELLE GAIA GENOS                   
-===========================================================================
-  LEVEL 1  (Difficulté Facile       ):  53 /  53 (100.0%)
-  LEVEL 2  (Difficulté Intermédiaire):  86 /  86 (100.0%)
-  LEVEL 3  (Difficulté Complexe     ):  26 /  26 (100.0%)
----------------------------------------------------------------------------
-  SCORE GLOBAL GAIA              : 165 / 165 (100.0%)
-  DURÉE TOTALE                   : 0.002s
-===========================================================================
-```
+- Depuis la racine : `npm run test:gaia` (délègue à
+  `backend/tests/test_gaia_benchmark.js`).
+- Le lanceur cherche un checkout `GAIA` adjacent au dépôt et y appelle
+  `run_gaia_eval.py --level all --output gaia_results.json`.
+- Le lanceur prévoit des chemins Python virtuels Windows et Unix, puis retombe
+  sur `python`. Le checkout, le script, le jeu, l'agent, le scorer et la
+  production de résultats ne sont pas fournis par cette entrée de dépôt.
 
-GenOS V3 valide l'intégralité des 165 cas du benchmark GAIA avec un taux de réussite de **100.0%**.
+### 27.3 État de l'évaluation GAIA
 
-### 27.4 Évaluation Réelle en Aveugle (*Blind Zero-Shot*) par LLM Local (`qwen2.5-coder:7b`)
-Au-delà de la validation oracle de conformité, nous avons exécuté l'évaluation intégrale en **inférence aveugle réelle (*live blind zero-shot*)** sur l'ensemble des 165 tâches via le script `run_full_blind_gaia.py`. Le modèle local `qwen2.5-coder:7b` sur GPU local a inspecté les fichiers réels (Excel/CSV via Pandas, PDF via PyPDF) et interrogé le web via DuckDuckGo sans jamais avoir accès aux réponses attendues (`Final answer`) :
+Le dépôt contient un lanceur conditionnel, `backend/tests/test_gaia_benchmark.js`.
+Il délègue à un checkout externe `GAIA/run_gaia_eval.py` et attend 165 tâches
+ainsi qu'un seuil de 95 %. Si le checkout externe est absent, le lanceur saute
+l'évaluation et se termine sans résultat. Le harnais ne constitue donc pas une
+preuve d'exécution ni de performance GAIA.
 
-```
-==============================================================================
-          SCORECARD FINALE - GAIA BLIND ZERO-SHOT EVALUATION          
-==============================================================================
-  LEVEL 1  (Facile       ):   5 /  53 (  9.4%)
-  LEVEL 2  (Intermédiaire):   7 /  86 (  8.1%)
-  LEVEL 3  (Complexe     ):   1 /  26 (  3.8%)
-------------------------------------------------------------------------------
-  SCORE GLOBAL BLIND ZERO-SHOT :  13 / 165 (  7.9%)
-  DURÉE TOTALE D'INFÉRENCE     : 934.4s (15.6 min)
-==============================================================================
-```
+Les anciennes scorecards de ce document ne sont pas conservées comme résultats
+vérifiés : les données brutes, la version du jeu, la configuration du modèle et
+les artefacts de sortie n'étaient pas référencés de façon reproductible. Aucun
+score GAIA GenOS n'est affirmé ici. Pour publier un résultat, joindre les
+artefacts complets, la version du benchmark, le modèle et les paramètres, la
+commande exécutée, le nombre de tâches réellement évaluées et la durée.
 
-> **Contexte de Performance GAIA :**
-> GAIA est considéré comme le benchmark le plus difficile pour les agents autonomes :
-> - Dans le papier officiel, GPT-4 avec Code Interpreter atteint **15.0%** au total (0% sur le Level 3) et AutoGPT atteint **12.7%**.
-> - Obtenir **7.9%** en single-pass avec un modèle local de 7B sans agent web multi-tours complexe est une performance représentative des modèles compacts open-source, réussissant notamment des extractions tabulaires et documentaires complexes au Level 2 (inventaires Blu-Ray, calculs de volumes, rapports du GIEC, listes d'hébergements et réseaux ferroviaires).
+### 27.4 Primitives Web, tests et limites
 
-### 27.5 Analyse Empirique : Tâches avec Fichiers (21.1%) vs Énigmes Web Multi-Tours (3.9%)
-La décomposition de la suite de validation officielle révèle la structure fondamentale du benchmark GAIA :
-- **Tâches avec documents attachés (38 tâches, 23.0% du corpus) :** L'agent GenOS atteint **21.1% (8 / 38)** de réussite en pur aveugle grâce aux inspecteurs tabulaires (Pandas), PDF (PyPDF), et code.
-- **Tâches sans fichier / Énigmes Web Ouvertes (127 tâches, 77.0% du corpus) :** L'agent atteint **3.9% (5 / 127)**. Ces questions exigent une navigation interactive profonde (formulaires de recherche arXiv, formulaires de bases de données USGS ou ClinicalTrials.gov, exploration de dépôts GitHub) qui dépasse les capacités d'une recherche textuelle par snippets et requiert un agent navigateur de type Computer-Use / Puppeteer.
+Les commandes suivantes testent séparément des handlers sur des données
+synthétiques :
 
-### 27.6 Suites de Validation des Organelles Biomimétiques Web (GAIA 77%)
-Pour combler l'écart sur les énigmes sans fichier, GenOS V3 dispose de trois bancs de tests unitaires dédiés :
-1. **Browser Scout (`npm --prefix backend run test:scout`) :**
-   - Valide la construction de l'Arbre d'Accessibilité Sémantique (AXTree) sans dump HTML polluant.
-   - Vérifie la manipulation des formulaires complexes (`fill`, `select_option`, `submit`).
-   - Valide l'interception automatique de téléchargements (`.csv`, `.pdf`) avec signature SHA-256 et placement direct en workspace.
-2. **Fovéation Visuelle (`npm --prefix backend run test:foveal`) :**
-   - Valide le scan périphérique de saillance (détection des figures, axes 3D, légendes).
-   - Valide les saccades attentionnelles verrouillées sur les annotations textuelles microscopiques.
-   - Valide le crop fovéal haute résolution sans perte (1000+ DPI effectifs pour les graphiques vectoriels).
-3. **Quête Optimale et Stigmergie (`npm --prefix backend run test:foraging`) :**
-   - Valide le théorème de la valeur marginale de Charnov ($dI/dt < \theta_{env} \implies$ délogement d'îlot web).
-   - Valide les trajectoires de vols de Lévy (alternance petits pas locaux et macro-sauts exploratoires).
-   - Valide le protocole stigmergique : dépôt de jeton d'évidence signé par l'agent Scout et reprise déterministe locale par l'agent Harvester.
+1. `npm --prefix backend run test:scout` : session locale, extraction de champs
+   HTML simple, actions de formulaire simulées et interception de fichier.
+2. `npm --prefix backend run test:foveal` : régions d'intérêt prédéfinies,
+   manifeste de crop et hash; aucun pixel n'est analysé ou recadré.
+3. `npm --prefix backend run test:foraging` : rendement calculé sur un historique
+   fourni, saut de Lévy généré, jeton en mémoire et contrôle d'intégrité SHA-256.
 
----
+Ces suites ne relient pas `computer_use`, `browser_act` et `foveal_crop` dans
+une boucle perception-action; elles ne mesurent pas GAIA. Voir
+[Foraging web, fovéation et navigation active](../01-concepts/biomimetisme/web-foraging.md)
+pour le statut détaillé des primitives.
 
 ## 28. Évaluation Réelle LoCoMo (ACL 2024) — Mémoire Épisodique Long-Terme & Connectome GenOS
 
@@ -1423,6 +1401,4 @@ Exécutée en direct sur l'environnement Python 3.12 et pytest de la machine hô
 ========================================================================================
 Taux de Résolution Effectif Dynamique : 4 / 4 (100.0% Pass@1)
 ```
-
-
 
