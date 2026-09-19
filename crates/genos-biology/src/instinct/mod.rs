@@ -12,7 +12,7 @@ pub mod paf;
 pub mod sign_stimulus;
 
 pub use innate_releasing::{HormoneState, InnateReleasingMechanism, TriggerEvaluation};
-pub use paf::{ExecutionContext, FixedActionPattern, InstinctOutcome, MotorStep};
+pub use paf::{ExecutionContext, FixedActionPattern, InstinctOutcome, MotorStep, is_supported_action};
 pub use sign_stimulus::{Modality, SignStimulus, StimulusField};
 
 use genos_genome::Gene;
@@ -94,7 +94,13 @@ impl InstinctProgram {
         let mut executed = 0;
         for (index, step) in self.paf.steps.iter().enumerate() {
             let authorized = ctx.execution.is_tool_authorized(&step.tool);
-            if step.requires_permission && !authorized {
+            if !is_supported_action(&step.action, &step.tool) {
+                return InstinctOutcome::Interrupt {
+                    at_step: index,
+                    reason: format!("Unsupported action/tool pair: {}::{}", step.tool, step.action),
+                };
+            }
+            if !authorized {
                 return InstinctOutcome::Interrupt {
                     at_step: index,
                     reason: format!("Tool not authorized: {}", step.tool),

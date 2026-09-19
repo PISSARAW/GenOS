@@ -100,7 +100,8 @@ fn handle_trigger(action: &str, params: &[String]) {
         "success": true, "feature": "instinct", "action": action,
         "instinct_id": locus, "modality": modality.as_str(), "signature": signature,
         "developmentally_locked": program.is_locked(),
-        "hormones": hormones, "outcome": outcome
+        "hormones": hormones, "outcome": outcome,
+        "execution_mode": "validation_only", "external_actions_dispatched": false
     }));
 }
 

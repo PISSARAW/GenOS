@@ -15,12 +15,24 @@ use genos_biology::instinct::{
     StimulusField,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
+
+pub trait InstinctActionExecutor: Send {
+    fn execute(&mut self, step: &MotorStep) -> Result<InstinctActionReceipt, String>;
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InstinctActionReceipt {
+    pub execution_id: String,
+    pub evidence_ref: String,
+    pub result: Value,
+}
 
 /// Trace d'une activation instinctive évaluée lors d'un tick.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InstinctActivation {
     pub locus: String,
+    pub evaluation: genos_biology::instinct::TriggerEvaluation,
     pub outcome: InstinctOutcome,
 }
 
@@ -33,6 +45,8 @@ pub struct InstinctState {
     pub volition: VolitionState,
     pub last_reflex: Option<String>,
     pub last_desire_expression: Option<String>,
+    pub action_executor: Option<Box<dyn InstinctActionExecutor>>,
+    pub authorized_tools: Vec<String>,
 }
 
 impl Default for InstinctState {
@@ -43,6 +57,8 @@ impl Default for InstinctState {
             volition: VolitionState::default(),
             last_reflex: None,
             last_desire_expression: None,
+            action_executor: None,
+            authorized_tools: Vec::new(),
         }
     }
 }
@@ -62,11 +78,8 @@ fn default_library() -> InstinctLibrary {
     ))
 }
 
-fn execution_context() -> ExecutionContext {
-    ExecutionContext::new(
-        vec!["genos_biomimicry".to_string(), "genos_snapshot".to_string()],
-        100.0,
-    )
+fn execution_context(authorized_tools: &[String]) -> ExecutionContext {
+    ExecutionContext::new(authorized_tools.to_vec(), 100.0)
 }
 
 /// Traduit l'état du monde en stimuli signes.
@@ -104,6 +117,16 @@ fn hormone_state_from(state: &WorldState) -> HormoneState {
 }
 
 impl GenosEcosystem {
+    /// Enregistre l'adaptateur hôte qui exécute les étapes PAF autorisées.
+    pub fn set_instinct_action_executor(&mut self, executor: Box<dyn InstinctActionExecutor>) {
+        self.instincts.action_executor = Some(executor);
+    }
+
+    /// Définit les outils déjà autorisés par la politique de l'agent/hôte.
+    pub fn set_instinct_authorized_tools(&mut self, tools: Vec<String>) {
+        self.instincts.authorized_tools = tools;
+    }
+
     /// Enregistre un instinct supplémentaire dans la bibliothèque de l'espèce.
     pub fn register_instinct(&mut self, program: InstinctProgram) {
         self.instincts.library.programs.push(program);
@@ -128,25 +151,34 @@ impl GenosEcosystem {
     pub(crate) fn run_instincts(&mut self, state: &WorldState) {
         let field = stimulus_field_from(state);
         let hormones = hormone_state_from(state);
-        let execution = execution_context();
-        let activations: Vec<InstinctActivation> = self
-            .instincts
-            .library
-            .programs
-            .iter()
-            .map(|program| {
+        let execution = execution_context(&self.instincts.authorized_tools);
+        let programs = self.instincts.library.programs.clone();
+        let mut activations: Vec<InstinctActivation> = programs.iter().map(|program| {
                 let ctx = InstinctRunContext {
                     field: &field,
                     hormones: &hormones,
                     execution: &execution,
                 };
+                let evaluation = program.releasing_mechanism.evaluate(&field, &hormones);
                 InstinctActivation {
                     locus: program.id.clone(),
+                    evaluation,
                     outcome: program.run(&ctx),
                 }
             })
             .collect();
-        for activation in &activations {
+        for (program, activation) in programs.iter().zip(&mut activations) {
+            if let InstinctOutcome::Complete { gain, .. } = &activation.outcome {
+                activation.outcome = self.dispatch_instinct_steps(program, *gain);
+            }
+        }
+        for (program, activation) in programs.iter().zip(&activations) {
+            if activation.evaluation.released {
+                self.record_event("INSTINCT_TRIGGER", json!({
+                    "locus": activation.locus, "evaluation": activation.evaluation,
+                    "stimuli": field.readings, "hormones": hormones
+                }));
+            }
             let event_type = match activation.outcome {
                 InstinctOutcome::Complete { .. } => "INSTINCT_COMPLETE",
                 InstinctOutcome::Interrupt { .. } => "INSTINCT_INTERRUPT",
@@ -155,10 +187,59 @@ impl GenosEcosystem {
             };
             self.record_event(
                 event_type,
-                json!({ "locus": activation.locus, "outcome": activation.outcome }),
+                json!({ "locus": activation.locus, "outcome": activation.outcome, "paf": program.paf.name }),
             );
         }
         self.instincts.last = activations;
+    }
+
+    fn dispatch_instinct_steps(&mut self, program: &InstinctProgram, gain: f64) -> InstinctOutcome {
+        let mut results = Vec::new();
+        let mut failure = None;
+        {
+            let Some(executor) = self.instincts.action_executor.as_deref_mut() else {
+                return InstinctOutcome::Blocked {
+                    reason: "No external instinct action executor is registered".to_string(),
+                };
+            };
+            for (index, step) in program.paf.steps.iter().enumerate() {
+                match executor.execute(step) {
+                    Ok(receipt) if !receipt.execution_id.trim().is_empty() && !receipt.evidence_ref.trim().is_empty() => {
+                        results.push((index, true, json!({
+                            "execution_id": receipt.execution_id,
+                            "evidence_ref": receipt.evidence_ref,
+                            "result": receipt.result
+                        })));
+                    }
+                    Ok(_) => {
+                        let reason = "Executor returned a receipt without execution_id/evidence_ref".to_string();
+                        results.push((index, false, json!({ "reason": reason })));
+                        failure = Some((index, reason));
+                        break;
+                    }
+                    Err(reason) => {
+                        results.push((index, false, json!({ "reason": reason })));
+                        failure = Some((index, reason));
+                        break;
+                    }
+                }
+            }
+        }
+        for (index, succeeded, detail) in results {
+            let step = &program.paf.steps[index];
+            let event_type = if succeeded { "INSTINCT_ACTION_EXECUTED" } else { "INSTINCT_ACTION_REFUSED" };
+            self.record_event(event_type, json!({
+                "locus": program.id, "paf": program.paf.name, "step": index,
+                "tool": step.tool, "action": step.action, "result": detail
+            }));
+        }
+        if let Some((index, reason)) = failure {
+            return InstinctOutcome::Interrupt { at_step: index, reason };
+        }
+        InstinctOutcome::Complete {
+            steps_executed: program.paf.steps.len(),
+            gain,
+        }
     }
 }
 
@@ -190,7 +271,7 @@ mod tests {
     }
 
     #[test]
-    fn run_instincts_triggers_defense_on_threat() {
+    fn runtime_without_action_permissions_vetoes_dispatch() {
         let mut eco = GenosEcosystem::new("Instinct_Unit");
         let state = WorldState {
             threat: 0.9,
@@ -200,7 +281,7 @@ mod tests {
         assert_eq!(eco.last_instincts().len(), 1);
         assert!(matches!(
             eco.last_instincts()[0].outcome,
-            InstinctOutcome::Complete { .. }
+            InstinctOutcome::Interrupt { .. }
         ));
     }
 

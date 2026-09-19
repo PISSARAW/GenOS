@@ -1,11 +1,13 @@
 # Instinct — Comportements innés pré-câblés et Patterns d'Action Fixes
 
-- **Statut** : Implémentation runtime partielle — le circuit stimulus → IRM → PAF, l'orchestrateur, le CLI et le MCP sont opérationnels ; l'intégration de capteurs biologiques réels et l'exécution d'actions externes restent à finaliser.
+- **Statut** : Implémentation runtime partielle — `tick` et `run_autonomous` appellent le dispatch hôte du PAF avec permissions explicites et reçus par action. Les stimuli restent dérivés de `WorldState`; aucun capteur physique ni adaptateur d'outil de production n'est fourni. Le CLI `trigger` est une validation seule.
 - **Portée** : `crates/genos-biology/src/specialized_cells/cnidocyte.rs`, `sensory/vomeronasal.rs`, `InstinctProgram` + `FixedActionPattern`.
 - **Dernière revue** : 2026-09-17.
 
-Le circuit complet reste `partial` : les primitives sensorielles disponibles ne
-constituent pas encore un programme d'action inné entièrement branché au runtime.
+Le circuit est branché à `tick` et `run_autonomous`. L'hôte fournit un
+`InstinctActionExecutor` et les outils que sa politique a déjà autorisés. Sans
+exécuteur ou permission, le PAF est bloqué; il n'est complet qu'après un reçu
+réussi pour chaque action. Le CLI/MCP d'évaluation ne prétend pas dispatcher.
 
 ## 1. Définition du domaine
 
@@ -213,13 +215,26 @@ Deux options, tranchées par l'[ADR 0004](../adr/0004-instinct-innate-circuits.m
 - **Option A (recommandée, phase 1)** : réutiliser `Gene` avec `developmentally_locked = true` et des loci `LOCUS_INSTINCT_*`. Aucun changement du format binaire. Les instincts sont exemptés de `mutate_stochastic` et de la méthylation.
 - **Option B (phase 2)** : ajouter une section binaire `SectionTag::Inst => b"INST"` dans [`crates/genos-dna/src/section.rs`](../../crates/genos-dna/src/section.rs), pour séparer les séquences motrices des gènes appris. Requiert un ADR dédié (changement de format).
 
-### 8.3 Points de branchement existants
+### 8.3 Points de branchement et limites actuels
 
 - **Endocrinien** : `StandardEndocrineSystem` ([methods.rs](../../crates/genos-core/src/orchestrator/methods.rs)) fournit déjà le cortisol ; étendre aux hormones de soin et de territorialité.
 - **CLI** : ajouter `"instinct"` dans le `match` de `handle_bio_feature` ([biomimicry_features.rs](../../crates/genos-cli/src/commands/biomimicry_features.rs)).
 - **MCP** : exposer la feature `instinct` du tool `genos_biomimicry` ([tools.rs](../../crates/genos-mcp/src/tools.rs), [executor.rs](../../crates/genos-mcp/src/executor.rs)).
 - **Agents** : `agents/biomimetique/instinct_*.agent.json` avec `organelles: ["instinct", "fixed-action-pattern", "innate-releasing"]`, sur le modèle de `cnidocyte_guard.agent.json`.
-- **Capteurs** : les sorties de `crates/genos-biology/src/sensory/` alimentent directement `SignStimulus`.
+- **Capteurs runtime pris en charge** : `WorldState.threat` ou `adversary` produit `Error/threat_detected`; `diseased` ou `traitor` produit `Error/integrity_breach`; `budget_pressure` produit `Pheromone/resource_exhausted`. Ces signaux viennent de l'état interne, pas de capteurs physiques. Les modalités thermique et magnétique ne sont pas raccordées.
+- **Couples outil/action admis** : `genos_biomimicry` avec `deposit_harvest_marker`, `reorient_goal_vector`, `raise_alarm` ou `neutralize_virion`; `genos_snapshot` avec `return_to_hive`.
+- **Contrôles** : catalogue fermé, outil explicitement autorisé via `set_instinct_authorized_tools()`, état permissif et budget ATP suffisant. `auto()` ne contourne pas l'autorisation. L'exécuteur hôte doit aussi appliquer lease, sandbox, approbation et gate de preuve. Aucune permission n'est accordée par défaut.
+- **Reçus et traces** : l'hôte implémente `InstinctActionExecutor` et renvoie `InstinctActionReceipt` avec `execution_id` et `evidence_ref` non vides. Le runtime journalise chaque action réussie/refusée puis le verdict terminal. `Complete` exige un reçu par action.
+
+Exemple de branchement dans un hôte Rust :
+
+```rust
+ecosystem.set_instinct_authorized_tools(policy.authorized_tools());
+ecosystem.set_instinct_action_executor(Box::new(tool_adapter));
+```
+
+L'adaptateur doit faire respecter leases, sandbox et approvals, puis ne retourner
+un reçu que lorsque l'outil a réellement réussi.
 
 ## 9. Processus d'exécution ou de validation
 
@@ -227,10 +242,10 @@ Deux options, tranchées par l'[ADR 0004](../adr/0004-instinct-innate-circuits.m
 2. **Héritage** : `Genome::derive_child()` transmet les instincts à 100 % ; ils sont exclus de l'hypermutation et de la reprogrammation Yamanaka.
 3. **Capture** : une sortie d'un capteur produit un `SignStimulus` normalisé.
 4. **Déclenchement** : l'IRM compare `S(x)` à `θ_eff` (modulé par l'endocrinien) et vérifie l'état permissif (budget, ATP, non-apoptose).
-5. **Exécution** : le PAF déroule ses pas via les outils **déjà autorisés** par `tool_policy` et le sandbox ; chaque pas reste journalisé et soumis à l'arbitre de réalité ([`runtime_arbiter.js`](../../runtime_arbiter.js)).
+5. **Dispatch PAF** : après validation du plan complet, le runtime appelle l'exécuteur hôte étape par étape. Chaque résultat doit fournir un reçu; un refus interrompt la séquence. Le CLI de biomimicry reste en mode validation seule.
 6. **Verdict** : `Complete` ou `Interrupt_k` ; un PAF interrompu n'altère pas le câblage.
 7. **Modulation** : le `RPE` dopaminergique ajuste le gain de ré-exécution ; aucune synapse n'est créée par l'instinct lui-même.
-8. **Audit** : télémétrie `INSTINCT_TRIGGER`, `INSTINCT_COMPLETE`, `INSTINCT_INTERRUPT` avec stimulus, seuil effectif, hormones et pas exécutés.
+8. **Audit** : `INSTINCT_TRIGGER` contient stimuli, seuil et hormones; chaque action externe et son reçu sont tracés avant le verdict terminal.
 
 **Règle d'or** : le bypass du cortex **n'est pas** un bypass de la preuve. Un PAF ne peut déclencher que des actions pré-autorisées, tracées et budgétées ; toute action sensible conserve approbation et journalisation.
 
@@ -251,7 +266,7 @@ Le point distinctif est l'union d'un **programme comportemental hérité et verr
 - **Non-objectif** : simuler des circuits neuronaux biologiques ou une conscience.
 - **Non-objectif** : un mécanisme par lequel un agent « décide » de manière autonome hors politique.
 - **Non-objectif** : un exécuteur de code arbitraire ; le PAF n'appelle que des outils autorisés.
-- **Garde-fou – sécurité** : le court-circuit cortical reste sous l'arbitre de réalité, le sandbox et les leases d'outils ; l'instinct n'élève jamais ses permissions.
+- **Garde-fou – sécurité** : l'exécuteur hôte conserve le catalogue fermé et l'autorisation par agent, puis applique l'arbitre de réalité, le sandbox, les leases et les approvals; l'instinct n'élargit jamais ses permissions.
 - **Garde-fou – preuve** : un déclenchement instinctif n'est pas une preuve de vérité métier ; il doit être journalisé et, pour toute action sensible, soumis au gate humain.
 - **Garde-fou – stabilité** : les loci `LOCUS_INSTINCT_*` sont exemptés de mutation et de méthylation ; une modification d'instinct est une décision d'architecture, pas une dérive d'exécution.
 - **Risque** : un stimulus signe trop permissif peut produire des déclenchements en boucle ; le seuil, le gain dopaminergique et la fréquence doivent être bornés et observés (`INSTINCT_INTERRUPT`, budgets).

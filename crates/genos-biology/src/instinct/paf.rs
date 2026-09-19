@@ -28,6 +28,19 @@ impl MotorStep {
     }
 }
 
+/// Catalogue fermé des paires outil/action prises en charge par l'hôte.
+/// Cette liste ne confère aucune autorisation à un agent.
+pub fn is_supported_action(action: &str, tool: &str) -> bool {
+    matches!(
+        (tool, action),
+        ("genos_biomimicry", "deposit_harvest_marker")
+            | ("genos_biomimicry", "reorient_goal_vector")
+            | ("genos_biomimicry", "raise_alarm")
+            | ("genos_biomimicry", "neutralize_virion")
+            | ("genos_snapshot", "return_to_hive")
+    )
+}
+
 /// Patron d'Action Fixe : séquence ordonnée, stéréotypée et pré-câblée.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FixedActionPattern {
