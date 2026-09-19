@@ -106,6 +106,8 @@ function buildPromotion(ctx) {
   return {
     require_replay: problemProfile.requires_reproducibility || highRisk,
     require_independent_verification: true,
+    require_epistemic_assurance: false,
+    epistemic_verifier_digests: [],
     require_human_approval: highRisk || problemProfile.reversibility === 'low' || portfolioHasUnimplemented(portfolio) || Boolean(philosophy?.requireHumanApproval),
     philosophy_hold: Boolean(philosophy?.holdPromotion),
     epistemic_hold: Boolean(epistemicContext.promotion.holdPromotion),
