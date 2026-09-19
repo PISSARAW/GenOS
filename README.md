@@ -2,10 +2,10 @@
 
 GenOS est un runtime pour agents autonomes où **une exécution réussie n'est pas une preuve, et une erreur n'est pas fatale**.
 
-- 8 modes d'orchestration (Trinity, A-Team, Biocénose, Holobionte, Syncytium, Biome, Rhizome, Métapopulation).
-- Snapshots atomiques, forks contrefactuels, diffs, replay déterministe, promotion par preuve.
-- Agents = cellules d'exécution : identité, génome, budget cognitif, mémoire, synapses.
-- Sécurité en couches : sandbox atomique, gates de promotion, arbitre de réalité.
+- 8 topologies câblées au runtime : Trinity, A-Team, Biocénose, Holobionte, Syncytium, Biome, Rhizome et Métapopulation. Leurs services et capacités diffèrent selon le mode.
+- Snapshots, forks contrefactuels, diffs, replay et gates de promotion fondées sur des preuves.
+- Runtime d'agents supervisés : processus, workspaces isolés, budgets, mémoire et rapports d'évidence.
+- Contrôles de sécurité : autorisations, isolation de workspace, VFS sandboxé et gates de promotion.
 
 Ce n'est pas un framework d'agents. C'est un runtime qui essaie de rendre l'agentic computation moins fertile pour les hallucinations de chaîne.
 
@@ -22,44 +22,50 @@ La plupart des orchestrateurs avancent sur une seule timeline mutable. GenOS fai
 
 | Ce que vous faites | Sortie normale | Sortie GenOS |
 | --- | --- | --- |
-| Un agent plante à moitié | Vous perdez tout, vous repeignez | Snapshot existant, branche corrompue isolée, survivants préservés |
-| Vous voulez comparer 2 approches | Lancement séquentiel, mémoire de contexte fragile | Fork contrefactuel, diff, replay, scoring Pareto |
-| Un LLM doit faire une décision critique | Success: true = promoted (souvent) | Arbitre de réalité + gates + preuves avant promotion |
+| Un agent échoue pendant une mission | L'état est difficile à reprendre | Snapshots, workspaces isolés et processus survivants supervisés |
+| Vous voulez comparer deux approches | Lancement séquentiel et contexte séparé | Forks contrefactuels, diff et replay ; l'évaluation dépend du scénario |
+| Un modèle propose une décision critique | La sortie du modèle est traitée comme résultat | Les gates peuvent exiger des preuves avant promotion |
 
 En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seulement quand il réussit.
 
 ---
 
-## 8 modes d'orchestration (biomimétique, pas décoratif)
+## Huit topologies d'orchestration
 
-- **Trinity** — 3 mondes parallèles (thèse, antithese, synthèse), fusion des résultats robustes.
-- **A-Team** — équipe plurisciplinaire instantanée, spécialisation + fusion.
-- **Biocénose** — communauté coopérative, comportements émergents.
-- **Holobionte** — sécurité intégrée à l'agent, pas ajoutée après coup.
-- **Syncytium** — mémoire collective, cohérence sans centralisation rigide.
-- **Biome** — populations spécialisées dans des niches distinctes, parallélisme à grande échelle.
-- **Rhizome** — auto-organisation, réseau non hiérarchique, résilience des chemins.
-- **Métapopulation** — plusieurs populations semi-indépendantes, diversité + échange.
+- **Trinity** — agents candidats comparés par dossiers d'évidence et barrière comparative.
+- **A-Team** — workers spécialisés par domaine, handoffs et arbitrage d'intégration.
+- **Biocénose** — consensus pondéré, quorum, métriques d'essaim et barrière d'évidence.
+- **Holobionte** — hôte avec veto immunitaire et workers symbiotes en inférence locale.
+- **Syncytium** — état partagé CRDT et vérification de cohérence des invariants.
+- **Biome** — allocation de ressources et algorithmes d'exploration inspirés du foraging.
+- **Rhizome** — sessions composées, routage par capacité entre membres et traces stigmergiques.
+- **Métapopulation** — quorum pondéré, plasticité des connexions et plan de récupération par lignage.
 
-Vous pouvez en combiner plusieurs. C'est biomimétique, pas une usine à gaz.
+Les capacités disponibles et les limites opérationnelles varient par topologie ; voir [Topologies et contrat de capacités](docs/02-orchestration/topologies-et-capacites.md).
 
 ---
 
 ## Ce qui est réel en ce moment
 
-Ce n'est pas du vaporware. Ce qui existe vraiment aujourd'hui :
+Fonctionnalités implémentées :
 
-- **Snapshots, forks, diffs, replay** sans appel LLM — parce que vous devez pouvoir reproduire un résultat avant de le croire.
-- **Demo de débogage parallèle sûr** : `examples/safe-debugging-demo` — lancez-la sans clé API.
-- **GenOS Studio** : plan de contrôle local (React + Express + SQLite).
-- **CLI Rust** + **serveur MCP** pour les intégrations.
-- **Backend Node.js** : API REST + gRPC, SQLite WAL, 360+ tests, 117 services, 41 contrôleurs.
+- **Snapshots, forks, diffs et replay** pour versionner et comparer l'état d'un workspace.
+- **Démo de débogage parallèle sûr** : `examples/safe-debugging-demo`, exécutable sans clé API.
+- **GenOS Studio** et backend Node.js : plan de contrôle, API REST, services gRPC et persistance SQLite WAL.
+- **CLI Rust** et serveur MCP stdio pour les opérations locales et les intégrations.
+- **Runtime agentique supervisé** : lance des runtimes configurés, collecte leurs événements, applique des budgets et conserve les résultats et preuves.
+- **Routage de modèles implémenté** : modèles distants via OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Together et OpenRouter ; modèles locaux via Ollama, LM Studio et vLLM ; endpoints compatibles OpenAI configurables.
+- **Politiques de routage** configurables par agent, tenant ou environnement, avec ordre de fallback ; le mode parallèle est disponible avec une limite de coût explicite.
+- **Huit topologies d'orchestration** avec services de coordination et contrats de capacités. La présence d'un mode ne signifie pas que chaque capacité du profil est complète ou activée dans chaque installation.
 
-Ce qui est encore expérimental :
+Les routes de modèles sont conditionnelles à votre environnement :
 
-- Évaluation Pareto multi-objectifs, croyances, mémoire, provenance, lignage.
-- Orchestration de swarms biomimétiques avancés.
-- Connecteurs modèles (GPT-4o, Claude 3.5, Ollama) — prévus v0.1.0.
+- une route distante demande le réseau, un modèle déclaré et la clé du fournisseur correspondante ;
+- une route locale demande un serveur d'inférence actif et un modèle de conversation disponible ;
+- `openai-compatible://` demande l'URL d'endpoint compatible configurée ;
+- la configuration d'exemple sélectionne Ollama. Les intégrations ne téléchargent pas elles-mêmes les modèles.
+
+Les primitives de perception web et de fovéation restent isolées et ne forment pas encore une boucle complète capture-observation-action-vérification. Certaines fonctions d'orchestration et d'évaluation restent expérimentales ; consultez les limites décrites dans la documentation avant de dépendre d'une capacité particulière.
 
 ---
 
@@ -92,7 +98,9 @@ node mcp/index.js
 node backend/bin/genos-orchestrate.cjs '{"mission":"..." , "background":true}'
 ```
 
-Prérequis : Rust 1.88+, Node 20.19/22.12+, Python 3 (gate qualité), Git.
+Prérequis de développement : Rust stable 1.88+, Node.js 20.19+ ou 22.12+, Git et outils de compilation C/C++ pour les dépendances natives SQLite. Python 3 est nécessaire pour lancer le contrôle qualité du dépôt. Après la copie de `.env.example`, adaptez `GENOS_DB_PATH` à un emplacement accessible sur votre machine ; la valeur `/data/genos.db` de l'exemple correspond à un chemin de déploiement.
+
+Pour les missions avec inférence, configurez une route de modèle : le `.env.example` choisit Ollama (`llama3.1:8b`), qui doit être installé, démarré et disposer de ce modèle. Vous pouvez choisir un autre fournisseur avec `GENOS_DEFAULT_MODEL` et définir sa clé API dans l'environnement du backend. Pour les missions utilisant le runtime Codex, installez Codex CLI et rendez-le accessible via `PATH` ou `CODEX_EXECUTABLE`. L'installation et la démo sans token n'exigent pas de clé de fournisseur de modèles.
 
 Démo sans token : `./examples/safe-debugging-demo/run-demo.sh` ou le fichier `.mjs` équivalent.
 
