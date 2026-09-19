@@ -35,6 +35,18 @@ réplicas est borné, tandis que `verificationReplicaTarget` recommande zéro r�
 pour un cas normal, un pour une vérification explicitement demandée, deux pour un
 risque élevé et trois pour un risque critique.
 
+## Affectation par nouveauté attendue
+
+`allocateByNovelty` classe chaque couple tâche–agent selon six signaux bornés :
+distance sémantique, couverture d'obligations ouvertes, potentiel de falsification,
+adéquation des capacités, nouveauté pour cet agent et indépendance de la source de
+preuve. Une pénalité de coût tient compte du budget disponible.
+
+L'allocation est déterministe, un agent et une tâche ne sont sélectionnés qu'une
+fois par passe, et des agents peuvent être réservés aux vérifications indépendantes.
+Les scores et leurs composantes sont retournés pour audit ; ils ne sont jamais
+présentés comme une probabilité de vérité.
+
 ## Voir aussi
 
 - [ADR 0031](../adr/0031-scheduler-epistemique-mathematique.md)
