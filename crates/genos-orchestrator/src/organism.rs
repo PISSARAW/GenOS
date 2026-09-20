@@ -59,8 +59,10 @@ impl GenosEcosystem {
         let goal = self.autonomous_goal();
         let population = self.population.as_mut()?;
         let base = self.director.clone();
+        let context = crate::learning::context_from_state(&state);
         let report = population.evolve(&|genes| {
             let mut candidate = base.clone();
+            candidate.set_context(context.clone());
             candidate.set_policy_genes(genes);
             let decision = candidate.decide(&state, &goal);
             decision.steps.iter().map(|step| step.utility).sum::<f64>()
