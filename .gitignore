@@ -1,59 +1,92 @@
-target/
-.env
-.env.*
-!.env.example
-*.db
-*.db-shm
-*.db-wal
-/target/
-target
-deploy/windows/Output/*
-backend/node_modules/*
+# Dependencies
 node_modules/
-.genos/
-.genos-agent-worlds/
-.genos-agent-worlds/backend/.genos-agent-worlds/
-.genos-agent-worlds/backend/.genos-runtime/
-.genos-agent-worlds/backend/worker_*/
-.genos-agent-worlds/backend/worker-sub-*_worker_*/
-backend/.genos-agent-worlds/
-backend/.genos-runtime/
-backend/worker_*/
-backend/worker-sub-*_worker_*/
-worker_*/
-worker-*/
-worker-sub-*/
-.genos-matrix/
-.genos-custom-studio/
-__pycache__/
-*.pyc
-capsules/
-fossils/
-vault/
+mcp/node_modules/
+backend/node_modules/
+
+# Build / target
+target/
+deploy/
+
+# Runtime data
+*.db
+*.db-backup*
 *.db-shm
 *.db-wal
-genos_server.log
-mcp/mcp-debug.log
-.genos_server.pid
-.genos_thalamus_cache.json
-test-repo/
-test_thalamus.rs
+.backend/
+backend/genos.db*
+backend/capsules/
+backend/logs/
+backend/worker_mcp_orchestrator_*
+backend/.genos*
+backend/.genos-runtime/
+backend/.genos-agent-worlds/
+backend/src/services/__pycache__/
+backend/tests/.genos*
 backend/tests/.tmp-*
-*.backup-*
+backend/tests/*.db*
+backend/tests/worker_mcp_orchestrator_*
+
+# MCP runtime artifacts
+mcp/.genos*
+mcp/.codex*
+
+# CLI runtime artifacts
+crates/genos-cli/.genos*
+crates/genos-cli/capsules/
+crates/genos-cli/fossils/
+crates/genos-orchestrator/tests/probe_*.rs
+
+# Generated artifacts
 artifacts/
+data/
+snapshots/
+test-repo/
+rhizome_graph.json
+probe.json
+cli-coverage-results.json
+cli-test-results-v2.json
+
+# Logs
 *.log
-*-results*.json
+logs/
+backend/logs/
 
-# Local run artifacts at repository root
-/0
-/probe.json
-/stig_test.txt
-/test_snapshot.json
-/snapshots/
-/*.bak.jsonl
+# Devinettes / énigmes (session work, pas du projet)
+devinette/
+devinette_*.json
+devinette_*.md
+genos_bio_riddle_result.json
+hard-stress-results.json
+token-stress-results.json
+mission.json
+mission_payload.json
+trinity_mission.json
+trinity_riddle.json
+run_trinity_simulation.py
+simulation_trinity.md
+simulation_trinity.py
+simulation_trinity_complète.py
 
+# Temporary / scratch
+*.tmp
+tmp/
+__pycache__/
+scripts/ci/__pycache__/
+scripts/diagram_enricher/
 
-# Agent runtime artifacts (untracked fixtures under .genos-runtime are kept)
-.genos-runtime/agent_*/
-backend/tests/.genos-runtime/
-*.bak.jsonl
+# OS
+.DS_Store
+Thumbs.db
+
+# Dotfiles that should not be tracked (env, proof of concept, etc.)
+.env
+.mcp.json
+.genos.md
+.genos_agent_state.json
+.codex-*
+
+# Misc
+g.cmd
+g.ps1
+llms.txt
+runtime_arbiter.js
