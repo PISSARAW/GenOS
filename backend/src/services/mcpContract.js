@@ -197,7 +197,7 @@ const TOOL_BASE_SCHEMAS = {
     properties: {
       kind: { type: 'string', description: 'Type of publication.' },
       signal_type: { type: 'string', enum: ['ligand', 'voltage', 'pheromone', 'plasmid', 'tensor'], description: 'Required non-text biomimetic signal type.' },
-      signal_data: { type: 'object', description: 'Physico-chemical signal payload (0-token).' },
+      signal_data: { type: ['object', 'string'], description: 'Physico-chemical signal payload (0-token) — object or string.' },
       orchestrator_id: { type: 'string', description: 'Owning orchestrator that may react to the collective signal.' }
     },
     required: ['kind', 'signal_type', 'signal_data'],
@@ -219,7 +219,7 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       project_goal: { type: 'string', description: 'Overarching project goal.' },
-      sub_systems: { type: 'array', items: { type: 'string' }, description: 'Distinct subsystems.' },
+      sub_systems: { type: ['array', 'string'], items: { type: 'string' }, description: 'Distinct subsystems (array of strings or comma-separated string).' },
     },
     required: ['project_goal', 'sub_systems'],
   },
