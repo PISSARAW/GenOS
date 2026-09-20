@@ -122,9 +122,10 @@ impl GenosEcosystem {
         }
         let pressure = self.instincts.volition.survival_drive;
         let spent = self.orchestrator.metabolism.consume(VITAL_REFLEX_ATP_COST);
-        if spent {
-            self.orchestrator.membrane.repair(VITAL_REFLEX_REPAIR_AMOUNT);
+        if !spent {
+            return false;
         }
+        self.orchestrator.membrane.repair(VITAL_REFLEX_REPAIR_AMOUNT);
         let reason = format!(
             "survie pure : pression={pressure:.2} (hors mission, hors deliberation)"
         );
