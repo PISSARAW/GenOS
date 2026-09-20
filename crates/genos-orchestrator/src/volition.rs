@@ -25,6 +25,8 @@ use serde_json::json;
 
 /// Coût ATP du réflexe vital : débité directement, hors coût de `Concept`.
 const VITAL_REFLEX_ATP_COST: f64 = 5.0;
+/// Coût ATP du désir libre : débité directement, hors coût de `Concept`.
+const FREE_DESIRE_ATP_COST: f64 = 2.0;
 /// Réparation de membrane appliquée par le réflexe vital, si l'ATP est disponible.
 const VITAL_REFLEX_REPAIR_AMOUNT: f64 = 0.15;
 /// En-dessous de ce seuil d'intégrité membranaire, la survie est en jeu
@@ -144,10 +146,14 @@ impl GenosEcosystem {
             return false;
         }
         let intensity = self.instincts.volition.free_desire;
+        let spent = self.orchestrator.metabolism.consume(FREE_DESIRE_ATP_COST);
+        if !spent {
+            return false;
+        }
         self.deposit_trail("VAGABONDAGE", intensity);
         self.record_event(
             "FREE_DESIRE",
-            json!({ "intensity": intensity, "reason": "desir libre, independant de toute mission" }),
+            json!({ "intensity": intensity, "atp_spent": spent, "reason": "desir libre, independant de toute mission" }),
         );
         self.instincts.last_desire_expression =
             Some(format!("vagabondage(intensite={intensity:.2})"));
