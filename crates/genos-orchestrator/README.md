@@ -394,6 +394,20 @@ cargo test -p genos-orchestrator --features api
 cargo clippy -p genos-orchestrator --all-targets
 ```
 
+## Améliorations récentes (Septembre 2026)
+
+- **Épistémologie de l'incertitude** : `uncertain`/`observed` basés sur événements d'évidence (`OBSERVE`, `HUMAN`, `INTEL`) et non plus sur le compteur monotone d'événements.
+- **Membrane** : une seule mise à jour par tick (plus de double dégradation).
+- **Évolution** : fitness utilise le contexte des bandits linéaires (apprentissage contextuel).
+- **Crédit** : `gamma^distance_to_end` au lieu de `gamma^index` (plus de crédit aux concepts finaux).
+- **Trinity** : pas de doublons `Communicate` (track des concepts appliqués).
+- **Communicate** : basé sur l'évidence, plus one-shot permanent.
+- **Staffing** : `required_workers = 5` unifié (défaut + observer).
+- **Reproduction** : retour explicite `Option<Result<...>>` au lieu de log silencieux.
+- **Réflexe vital** : échoue si ATP insuffisant (plus de succès fictif).
+- **Désir libre** : coûte `FREE_DESIRE_ATP_COST` (2.0 ATP).
+- **Clippy** : 0 warning, 132 tests passent, code formaté.
+
 ## Notes et limites
 
 - **Génétique** : les agents recrutés reçoivent **automatiquement** un ADN ; les

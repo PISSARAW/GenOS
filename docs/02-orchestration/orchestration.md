@@ -882,7 +882,31 @@ temps réel et se régénère en consommant de l'ATP. Il produit un **modèle de
 dégrade la membrane et **s'arrête** (« organisme mort ») si elle est rompue. Voir
 `examples/mission_autopoiesis.rs`.
 
----
+### 19.bis.14 Correctifs et améliorations récents (Septembre 2026)
+
+Cette version intègre plusieurs correctifs critiques et améliorations de cohérence :
+
+**Épistémologie de l'incertitude (Fix #1).** `uncertain`/`observed` ne dépendent plus du compteur monotone d'événements (`events.count()`), mais des **événements d'évidence réels** (`OBSERVE`, `HUMAN`, `INTEL`). Une action de housekeeping (réparation, instinct) ne lève plus l'incertitude ; seule une observation réelle le fait. Le test `tests/observer.rs` encode ce contrat.
+
+**Dégradation de membrane unique par tick (Fix #2).** `tick()` ne met plus à jour la membrane deux fois (une fois explicite, une via `maintain_autopoiesis`). La dégradation est désormais **exactement une fois par tick**, conforme au temps réel.
+
+**Évolution contextuelle (Fix #3).** La fitness de la `Population` utilise désormais le **contexte des bandits linéaires** (`context_from_state`) au lieu des statistiques globales. L'évolution optimise réellement les paramètres du `Director` pour l'état courant.
+
+**Assignation de crédit corrigée (Fix #4).** `Learner::assign_credit` utilise maintenant `gamma^distance_to_end` (plus de crédit aux concepts proches du but) au lieu de `gamma^index` (qui favorisait injustement les premiers concepts).
+
+**Trinity sans doublons (Fix #5).** Le préambule de stratégie tracke les concepts appliqués (`applied_concepts`) et les exclut du beam search, évitant les `Communicate` dupliqués dans les plans Trinity.
+
+**Communicate basé sur l'évidence (Fix #6).** Avec `uncertain` fondé sur les événements d'évidence, `Communicate` n'est plus un one-shot permanent. Il redevient applicable si de nouvelles preuves manquent (nouveaux virions, traces non lues).
+
+**Staffing unifié (Fix #7).** `required_workers` fixé à **5** dans `WorldState::default()` et `observer.rs`, éliminant le mismatch qui rendait `SecurePerimeter` trivialement atteint à 3 workers.
+
+**Reproduction explicite (Fix #8).** `attempt_autonomous_reproduction_if_alive` retourne `Option<Result<ReproductionOutcome, ReproductionBlocked>>` au lieu de logger silencieusement. L'appelant (`tick`) reçoit le résultat.
+
+**Réflexe vital conditionné à l'ATP (Fix #9).** `vital_reflex` ne réussit que si `metabolism.consume(5.0)` réussit. Sans ATP, le réflexe échoue et retourne `false`.
+
+**Désir libre coûteux (Fix #10).** `express_free_desire` consomme `FREE_DESIRE_ATP_COST` (2.0 ATP). Sans ATP, le désir ne s'exprime pas.
+
+**Qualité du code.** Tous les warnings clippy corrigés (`collapsible_if`, `unused_mut`, `is_multiple_of`, rustfmt). Les 132 tests passent, 0 warning clippy sur le crate.
 
 ## 20. Conclusion
 

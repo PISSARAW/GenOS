@@ -1,6 +1,7 @@
 //! Boucle cognitive : observer → décider → agir, en un seul `tick`, et
 //! `run` qui itère jusqu'à l'arrêt en produisant un rapport global.
-use crate::GenosEcosystem; use crate::clinical_therapy::{diagnose_active_virions, diagnose_clinical_markers, first_pathology_for_cell, therapy_for_pathology};
+use crate::GenosEcosystem;
+use crate::clinical_therapy::{diagnose_active_virions, first_pathology_for_cell, therapy_for_pathology};
 use crate::{director::Strategy, learning::context_from_state};
 use crate::planner::{Concept, Goal};
 use crate::plasmids::Skill;
@@ -50,8 +51,7 @@ pub fn tick(&mut self, goal: &Goal) -> TickReport {
             return self.halted_report("budget epuise: atp insuffisant");
         }
         self.maintain_autopoiesis();
-        diagnose_active_virions(self);
-        diagnose_clinical_markers(self);
+diagnose_active_virions(self);
         let state = self.observe();
         if state.apoptotic {
             return self.halted_report("etat apoptotique: volition inhibee");

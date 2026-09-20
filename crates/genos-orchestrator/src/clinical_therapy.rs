@@ -22,6 +22,7 @@ pub fn therapy_for_pathology(pathology: &Pathology) -> SystemicTherapy {
         | Pathology::PrionAggregation { .. }
         | Pathology::ContextualDecay { .. } => SystemicTherapy::StemCellReplacement,
         Pathology::ViralInfection { .. } => SystemicTherapy::Antiviral,
+        _ => SystemicTherapy::HomeostaticDoseCorrection,
     }
 }
 
