@@ -191,7 +191,7 @@ impl Director {
             return Self::halt(Strategy::Solo, "aucun progres possible : moyens inutiles au but");
         }
 
-        let (strategy, mut steps) = if scored.len() >= 2 && (scored[0].2 - scored[1].2).abs() < 0.1 {
+        let (strategy, steps) = if scored.len() >= 2 && (scored[0].2 - scored[1].2).abs() < 0.1 {
             // Deux stratégies se valent : on les explore en parallèle (Trinity).
             let mut merged = scored[0].1.clone();
             for step in &scored[1].1 {
@@ -263,7 +263,7 @@ impl Director {
                 }
             }
         }
-        let applicable_after = applicable.iter().copied().filter(|c| state.applicable(*c) && !state.failed.contains(c) && !applied.contains(c)).collect();
+        let applicable_after = applicable.iter().copied().filter(|c| state.applicable(*c) && !state.failed.contains(c) && !applied.contains(c)).collect::<Vec<_>>();
         let width = match strategy { Strategy::Solo | Strategy::Trinity => 1, Strategy::ATeam => 2, Strategy::Biocenose => 3, Strategy::Biome => 4 };
         steps.extend(self.beam_plan(&state, goal, &applicable_after, width));
         steps

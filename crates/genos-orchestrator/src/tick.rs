@@ -189,13 +189,11 @@ pub fn tick(&mut self, goal: &Goal) -> TickReport {
         });
         if let Some(id) = target
             && let Some(cell) = self.orchestrator.active_cells.get_mut(&id)
-        {
-            if let Some(pathology) = first_pathology_for_cell(cell) {
+            && let Some(pathology) = first_pathology_for_cell(cell) {
                 let therapy = therapy_for_pathology(&pathology);
                 let outcome = apply_systemic_therapy_to_cell(&therapy, cell);
                 return !outcome.cured_pathologies.is_empty();
             }
-        }
         false
     }
     fn first_diseased(&self) -> Option<Uuid> {
