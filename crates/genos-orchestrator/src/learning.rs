@@ -95,11 +95,13 @@ impl Learner {
     }
 
     /// Assignation de crédit : propage la récompense d'épisode aux concepts du
-    /// plan, atténuée par leur distance à la fin (facteur `gamma`).
+    /// plan, plus forte pour les concepts proches de la fin (facteur `gamma`).
     pub fn assign_credit(&mut self, plan: &[Concept], ctx: &[f64], reward: f64) {
         let gamma = 0.9_f64;
+        let n = plan.len();
         for (index, concept) in plan.iter().enumerate() {
-            let discounted = reward * gamma.powi(index as i32);
+            let distance_to_end = n.saturating_sub(index + 1);
+            let discounted = reward * gamma.powi(distance_to_end as i32);
             self.update(*concept, ctx, discounted);
         }
     }
