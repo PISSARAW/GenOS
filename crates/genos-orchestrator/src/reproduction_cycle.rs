@@ -49,15 +49,19 @@ pub enum ReproductionBlocked {
 }
 
 impl GenosEcosystem {
-    /// Tente une division autonome sauf si l'organisme est déjà mort
+/// Tente une division autonome sauf si l'organisme est déjà mort
     /// (membrane rompue) : appelé par `tick` à chaque cycle, sans opérateur.
-    pub(crate) fn attempt_autonomous_reproduction_if_alive(&mut self) {
-        if self.orchestrator.membrane.is_alive() {
-            if let Err(reason) = self.autonomous_reproduction_cycle() {
-                self.record_event(
-                    "REPRODUCTION_BLOCKED",
-                    json!({ "reason": reason }),
-                );
+    /// Retourne `Ok(outcome)` si division réussie, `Err(ReproductionBlocked)` si bloquée,
+    /// `None` si organisme mort.
+    pub(crate) fn attempt_autonomous_reproduction_if_alive(&mut self) -> Option<Result<ReproductionOutcome, ReproductionBlocked>> {
+        if !self.orchestrator.membrane.is_alive() {
+            return None;
+        }
+        match self.autonomous_reproduction_cycle() {
+            Ok(outcome) => Some(Ok(outcome)),
+            Err(reason) => {
+                self.record_event("REPRODUCTION_BLOCKED", json!({ "reason": reason }));
+                Some(Err(reason))
             }
         }
     }

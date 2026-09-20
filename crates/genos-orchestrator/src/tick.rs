@@ -85,7 +85,7 @@ pub fn tick(&mut self, goal: &Goal) -> TickReport {
             creative_outcomes: Vec::new(),
         };
         if decision.halt.is_some() {
-            self.attempt_autonomous_reproduction_if_alive();
+            let _ = self.attempt_autonomous_reproduction_if_alive();
             return report;
 }
         let mut sim = state.clone();
@@ -121,7 +121,7 @@ pub fn tick(&mut self, goal: &Goal) -> TickReport {
         // Attribution de crédit + reproduction autonome.
         let episode_reward = if sim.goal_reached(goal) { 1.0 } else { 0.0 };
         self.director.assign_credit(&report.executed, episode_reward);
-        self.attempt_autonomous_reproduction_if_alive();
+        let _ = self.attempt_autonomous_reproduction_if_alive();
         report
 }
     /// Itère des ticks jusqu'à l'arrêt (ou `max_ticks`) et agrège le bilan.
