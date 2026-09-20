@@ -52,7 +52,7 @@ pub struct OrganismReport {
 
 impl GenosEcosystem {
     fn evolve_policy(&mut self, tick: u64, config: &OrganismConfig) -> Option<EvolutionReport> {
-        if config.evolve_every == 0 || tick % config.evolve_every != 0 {
+        if config.evolve_every == 0 || !tick.is_multiple_of(config.evolve_every) {
             return None;
         }
         let state = self.observe();
