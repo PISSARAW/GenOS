@@ -171,7 +171,7 @@ impl Default for WorldState {
             apoptotic: false,
             workers: 0,
             tissues: 0,
-            required_workers: 3,
+            required_workers: 5,
             unsolvable: false,
             tested: BTreeSet::new(),
             failed: BTreeSet::new(),

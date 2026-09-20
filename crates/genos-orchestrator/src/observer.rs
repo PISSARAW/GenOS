@@ -92,7 +92,6 @@ impl GenosEcosystem {
             budget_pressure,
             stress,
             apoptotic: self.orchestrator.conscience_state.is_apoptotic,
-            required_workers: 5,
             ..WorldState::default()
         }
     }
