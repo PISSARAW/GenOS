@@ -52,7 +52,105 @@ const REQUIRED_STRINGS = {
   genos_trinity_launch: ['mission'],
   genos_a_team_preview: ['project_goal', 'sub_systems'],
   genos_audit: ['snapshot_id'],
-  genos_biomimicry: ['feature', 'action']
+  genos_biomimicry: ['feature', 'action'],
+  // Primitives de stratégie — arity variable (un seul paramètre primit spécifie le comportement)
+  genos_strat_snapshot: [],
+  genos_strat_checkpoint: [],
+  genos_strat_production_snapshot: [],
+  genos_strat_last_good_snapshot: [],
+  genos_strat_snapshot_test: [],
+  genos_strat_cryptobiosis_freeze: [],
+  genos_strat_freeze_spore: [],
+  genos_strat_cryptobiosis_thaw: [],
+  genos_strat_rehydrate: [],
+  genos_strat_cryptobiosis: [],
+  genos_strat_persist: [],
+  genos_strat_vitrify: [],
+  genos_strat_fork: [],
+  genos_strat_recursive_fork: [],
+  genos_strat_slm_route: [],
+  genos_strat_provider_route: [],
+  genos_strat_provider_fallback: [],
+  genos_strat_fallback_chain: [],
+  genos_strat_degraded_mode: [],
+  genos_strat_independent_reports: [],
+  genos_strat_neutral_observer: [],
+  genos_strat_synthesis: [],
+  genos_strat_security_coevolution: [],
+  genos_strat_plan: [],
+  genos_strat_role_forks: [],
+  genos_strat_common_probes: [],
+  genos_strat_probe: [],
+  genos_strat_evidence: [],
+  genos_strat_conditional_mutation: [],
+  genos_strat_belief_update: [],
+  genos_strat_expected_information_gain: [],
+  genos_strat_next_probe: [],
+  genos_strat_analyze_trajectory: [],
+  genos_strat_rank_states: [],
+  genos_strat_preserve_losers: [],
+  genos_strat_variance_analysis: [],
+  genos_strat_temperature_schedule: [],
+  genos_strat_resource_shift: [],
+  genos_strat_separation: [],
+  genos_strat_alignment: [],
+  genos_strat_cohesion: [],
+  genos_strat_weighted_barycenter: [],
+  genos_strat_path_conductivity: [],
+  genos_strat_role_gradient: [],
+  genos_strat_energy_observe: [],
+  genos_strat_elo: [],
+  genos_strat_uncertainty_gate: [],
+  genos_strat_active_refusal: [],
+  genos_strat_approval_request: [],
+  genos_strat_drift_threshold: [],
+  genos_strat_dead_letter_queue: [],
+  genos_strat_alpha_beta_delta: [],
+  genos_strat_position_update: [],
+  genos_strat_capability_route: [],
+  genos_strat_knowledge_transfer: [],
+  genos_strat_dynamic_assignment: [],
+  genos_strat_local_buffer: [],
+  genos_strat_critical_or_success_flush: [],
+  genos_strat_solver_tournament: [],
+  genos_strat_frontier_escalation: [],
+  genos_strat_impact_graph: [],
+  genos_strat_invalidate_assumption: [],
+  genos_strat_paired_evaluation: [],
+  genos_strat_heredity_experiment: [],
+  genos_strat_branch_evolution: [],
+  genos_strat_adversarial_review: [],
+  genos_strat_blind_critics: [],
+  genos_strat_phenotype_evidence: [],
+  genos_strat_validate_child: [],
+  genos_strat_alternate_genome: [],
+  genos_strat_hot_spare: [],
+  genos_strat_health_switch: [],
+  genos_strat_decoy_branch: [],
+  genos_strat_observe: [],
+  genos_strat_destroy_decoy: [],
+  genos_strat_bisect_agent: [],
+  genos_strat_entropy_check: [],
+  genos_strat_shannon_entropy: [],
+  genos_strat_evaluate: [],
+  genos_strat_minimum_evaluation: [],
+  genos_strat_verify: [],
+  genos_strat_tests: [],
+  genos_strat_independent_verify: [],
+  genos_strat_vfs_dry_run: [],
+  genos_strat_blast_radius: [],
+  genos_strat_safe_revert: [],
+  genos_strat_restore: [],
+  genos_strat_run: [],
+  genos_strat_worktree_cleanup: [],
+  genos_strat_cas_gc: [],
+  genos_strat_dag_mark_sweep: [],
+  genos_strat_record_experience: [],
+  genos_strat_compile_memory: [],
+  genos_strat_source_refs: [],
+  genos_strat_cherry_pick_golden_path: [],
+  genos_strat_cherry_pick_experience: [],
+  genos_strat_search_memory: [],
 };
 
 const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'patterns_detected', 'facts', 'steps', 'preconditions', 'bbox', 'history']);
@@ -107,9 +205,26 @@ function validateToolArguments(toolName, args = {}) {
     }
   }
 
-  for (const field of REQUIRED_STRINGS[toolName] || []) {
-    const error = validateString(args[field], field, true);
-    if (error) return error;
+  // sub_systems accepte un tableau (schéma MCP) ou une string CSV (rétrocompatibilité)
+  if (toolName === 'genos_a_team_preview' && args.sub_systems !== undefined) {
+    if (!Array.isArray(args.sub_systems) && typeof args.sub_systems !== 'string') {
+      return invalid('sub_systems', 'must be an array of strings or a comma-separated string.');
+    }
+    if (Array.isArray(args.sub_systems) && args.sub_systems.some((item) => typeof item !== 'string' || item.trim() === '')) {
+      return invalid('sub_systems', 'must contain only non-empty strings.');
+    }
+  }
+  // signal_data accepte un object (schéma MCP) ou une string non vide (rétrocompatibilité)
+  if (toolName === 'genos_worker_publish' && args.signal_data !== undefined) {
+    if (typeof args.signal_data !== 'string' && typeof args.signal_data !== 'object') {
+      return invalid('signal_data', 'must be a JSON object or a non-empty string.');
+    }
+    if (typeof args.signal_data === 'string' && args.signal_data.trim() === '') {
+      return invalid('signal_data', 'must be a non-empty string.');
+    }
+    if (typeof args.signal_data === 'object' && args.signal_data !== null && Array.isArray(args.signal_data)) {
+      return invalid('signal_data', 'must be a JSON object, not an array.');
+    }
   }
 
   if (toolName === 'genos_replay' && args.snapshot === undefined && args.snapshot_id === undefined) {
