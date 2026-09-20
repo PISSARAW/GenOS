@@ -103,10 +103,21 @@ Quand le plan de mission est assemblé, [backend/src/services/agentAutonomyPlanS
 
 Cette trace remplace les explications opaques par une preuve exploitable : pourquoi une action est amplifiée, freinée, bloquée, ou rendue dépendante d'une preuve supplémentaire.
 
+Le feedback d'exécution peut déclencher une nouvelle arbitration de la trace. Cette
+opération ajoute des signaux de feedback à l'arbitrage courant ; elle ne met pas à
+jour les poids des régulateurs et ne constitue pas un apprentissage entre missions.
+Les cycles de ré-arbitrage sont bornés à trois.
+
 ## 7. Limites
 
-Cette version ne modifie pas encore les poids par apprentissage après outcome et
-ne remplace pas les gates existants. Plusieurs axes restent des proxys : le nombre
+Le périmètre produit est celui de la régulation observable : signaux calculés à
+partir du plan, arbitrage, télémétrie et ré-arbitrage borné à partir du feedback
+d'exécution. Les résultats ne servent pas à apprendre ou persister des poids de
+régulateurs ; les paramètres des boucles ne s'ajustent donc pas automatiquement
+entre missions. Toute mention d'« apprentissage des poids après outcome » désigne
+une capacité hors périmètre, non implémentée par ce contrat.
+
+Cette régulation ne remplace pas les gates existants. Plusieurs axes restent des proxys : le nombre
 de workers ne prouve pas leur diversité, et risque plus budget ne constituent pas
 une simulation physique complète. Le rappel autobiographique vaut explicitement
 zéro tant qu'il n'est pas fourni au plan. La matrice décrit donc la couverture

@@ -796,6 +796,279 @@ stateDiagram-v2
 
 ---
 
+## 20. Simulation complète (CLI + Pipeline Rhizome)
+
+### Commande de déploiement
+
+```bash
+cargo run -p genos-cli -- biological --mode rhizome \
+  --mission "Investigate a distributed incident across services and external dependencies"
+```
+
+### Sortie de composition (JSON)
+
+```json
+{
+  "mode": "rhizome",
+  "mission": "Investigate a distributed incident across services and external dependencies",
+  "mechanisms": [],
+  "members": [
+    {"member_number": 1, "role": "rootless_coordinator"},
+    {"member_number": 2, "role": "capability_offshoot"},
+    {"member_number": 3, "role": "local_bridge"},
+    {"member_number": 4, "role": "boundary_scout"}
+  ],
+  "operation": "biological_mode",
+  "success": true
+}
+```
+
+### Pipeline d'exécution simulé (6 phases Rhizome)
+
+```
+Mission: "Investigate a distributed incident across services and external dependencies"
+   │
+   ▼
+[biologicalModeService.compose('rhizome', mission)]
+   │  → crée 4 agents contextualisés avec missions distinctes
+   ▼
+┌──────────────────────────────────────────────────────────────┐
+│ PHASE 1 — ANCAGRE INITIAL (Rootless Coordinator)             │
+│ Définit objectif partagé, invariants, limites, premier point │
+│ de coordination PROVISOIRE (pas centre permanent)            │
+│
+│ Exemple sortie Coordinator:
+│   Mission: distributed incident investigation
+│   Invariants: evidence provenance, chain of custody
+│   Boundaries: no single source of truth
+│   Initial anchor: incident-core branch
+└──────────────────────────────────────────────────────────────┘
+   │
+   ▼
+┌──────────────────────────────────────────────────────────────┐
+│ PHASE 2 — CARTOGRAPHIE DES FRONTIÈRES (Boundary Scout)       │
+│ Parcourt les frontières, cherche capacités manquantes,       │
+│ goulets d'étranglement, opportunités d'extension             │
+│
+│ Exemple rapport Scout:
+│   BOUNDARY HIT: missing OAuth2 token rotation &
+│   rate-limited bulk ingestion API
+│   Coverage gaps: auth-service, ingestion-pipeline, rate-limiter
+│   Risk: centralized auth bottleneck
+└──────────────────────────────────────────────────────────────┘
+   │
+   ▼
+┌──────────────────────────────────────────────────────────────┐
+│ PHASE 3 — RAMIFICATION (Capability Offshoot)                 │
+│ Crée une branche locale pour la lacune identifiée            │
+│ Périmètre borné, entrées/sorties, budget, critère d'arrêt    │
+│
+│ Exemple branch contract:
+│   branchId: 'rhizome-offshoot-01'
+│   capability: 'oauth2-token-rotation'
+│   parentBranch: 'incident-core'
+│   inputs: ['auth-service-logs', 'token-expiry-policies']
+│   outputs: ['token-rotator', 'evidence-bundle']
+│   budget: { tokens: 12000, timeoutMs: 30000 }
+│   status: 'active'
+└──────────────────────────────────────────────────────────────┘
+   │
+   ▼
+┌──────────────────────────────────────────────────────────────┐
+│ PHASE 4 — CONNEXION (Local Bridge)                           │
+│ Établit route vers branches voisines, traduit contrats,      │
+│ attache preuves à provenance                                 │
+│
+│ Exemple bridge contract:
+│   bridgeId: 'bridge-incident-platform'
+│   fromBranch: 'incident-core'
+│   toBranch: 'rhizome-offshoot-01'
+│   protocol: 'token-rotation-v1'
+│   provenance: ['auth-service-logs', 'policy-docs']
+│   evidenceChain: intact
+└──────────────────────────────────────────────────────────────┘
+   │
+   ▼
+┌──────────────────────────────────────────────────────────────┐
+│ PHASE 5 — EXÉCUTION LOCALE + RÉÉVALUATION                    │
+│ Branche produit résultats indépendamment                     │
+│ Scout réévalue: nouvelle lacune? route inutile? goulet?      │
+│
+│ Exemple traces stigmergiques:
+│   depositTrail('route:capability/gap', amount=5)     → intensity=5
+│   depositTrail('route:capability/gap', amount=8, repellent=true)
+│   depositTrail('route:other', amount=7)              → NEW DOMINANT PATH
+│   routeToCapability('boundary_scout')                → routed=true
+│   routeToCapability('missing_skill')                 → no_capable_member
+└──────────────────────────────────────────────────────────────┘
+   │
+   ▼
+┌──────────────────────────────────────────────────────────────┐
+│ PHASE 6 — FUSION / CONTRACTION                               │
+│ Réseau fusionné si capacités critiques couvertes & routes    │
+│ vérifiées. Branches inutiles contractées SANS perdre provenance
+│
+│ Critères canMerge:
+│   coverage(G_t, M) ≥ C_min  ET  ∀d ∈ D_critical, routeVerified(d) = 1
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Export de graphe dynamique (télémétrie temps réel)
+
+```bash
+# Exécuter un cycle complet hors-ligne et exporter le graphe en JSON
+cargo run -p genos-cli -- rhizome export --output artifacts/rhizome_graph.json
+```
+
+### Sortie d'export (exemple réel)
+
+```json
+{
+  "step": 5,
+  "phase": "6. STABLE TOPOLOGY RESTORED",
+  "nodes": [
+    {
+      "id": 1,
+      "role": "rootless_coordinator",
+      "label": "Rootless Coordinator",
+      "state": "STABLE",
+      "x": 0.32,
+      "y": 0.52
+    },
+    {
+      "id": 2,
+      "role": "boundary_scout",
+      "label": "Boundary Scout",
+      "state": "SCANNING",
+      "x": 0.68,
+      "y": 0.52
+    }
+  ],
+  "edges": [
+    {
+      "id": 1,
+      "from": 1,
+      "to": 2,
+      "kind": "coordination"
+    }
+  ],
+  "evidence_score": 0.99,
+  "logs": [
+    "Rhizome decentralized collective active (2 baseline nodes)",
+    "BOUNDARY HIT: missing OAuth2 token rotation & rate-limited bulk ingestion API",
+    "Collective growth triggered: zero central orchestrator bottleneck",
+    "BUDDING: sprouted Capability Offshoot #101 at boundary",
+    "BUDDING: sprouted Local Bridge #42 to preserve decentralized mesh",
+    "Capability Offshoot generated compliant OAuth2 token rotator",
+    "Local Bridge routed 18/18 live API edge test cases: 100% passed",
+    "Cryptographic receipt sealed: evidence barrier 0.99 validated",
+    "Proof absorbed into collective substrate memory",
+    "Ephemeral Offshoot & Bridge successfully contracted and pruned"
+  ]
+}
+```
+
+### Serveur de télémétrie temps réel (Dashboard D3.js)
+
+```bash
+# Démarrer le serveur + dashboard WebSocket (port 4790 par défaut)
+cargo run -p genos-cli -- rhizome serve --port 4790
+
+# Ou via biological mode
+cargo run -p genos-cli -- biological --mode rhizome --serve --port 4790
+```
+
+Accès:
+- Dashboard: `http://127.0.0.1:4790/`
+- WebSocket: `ws://127.0.0.1:4790/ws`
+- REST snapshot: `GET /api/graph`
+- Export JSON: `GET /api/export`
+
+Le dashboard affiche en temps réel:
+- Graphe force-directed D3.js (nœuds colorés par rôle, liens animés)
+- Phase courante du cycle de bourgeonnement
+- Score d'évidence cryptographique
+- Flux d'événements `GraphMutated`
+- Bouton d'export JSON immédiat
+
+### Validation automatisée (tests)
+
+```bash
+# Tests unitaires Rhizome — tous PASS
+node backend/tests/test_rhizome_wiring.js
+# Rhizome wiring checks: PASS
+```
+
+### Opérations stigmergiques (code)
+
+```javascript
+const rhizome = require('./src/services/rhizomeCoordinationService');
+
+// 1. Créer session
+const session = await rhizome.composeRhizome(
+  'Grow a decentralized capability network without a permanent central authority.',
+  { halfLifeMs: 60000 }  // demi-vie traces: 60s
+);
+
+// 2. Déposer traces (phéromones) - positive
+await rhizome.depositTrail(session.sessionId, 'route:capability/gap', { amount: 5 });
+// → intensity=5, dominantPath='route:capability/gap'
+
+// 3. Déposer traces - répulsif (repellent)
+await rhizome.depositTrail(session.sessionId, 'route:capability/gap', { amount: 8, isRepellent: true });
+
+// 4. Nouvelle route devient dominante
+await rhizome.depositTrail(session.sessionId, 'route:other', { amount: 7 });
+// → dominantPath='route:other' (répulsif a chassé l'ancienne)
+
+// 5. Router vers capacité
+const routed = await rhizome.routeToCapability(session.sessionId, 'boundary_scout');
+// → { routed: true, branch: 'boundary_scout', score: 0.12, verdict: 'routed' }
+
+const missing = await rhizome.routeToCapability(session.sessionId, 'missing_skill');
+// → { routed: false, verdict: 'no_capable_member' }
+
+// 6. Cohérence Kuramoto (synchronisation émergente)
+const coherence = await rhizome.coherence(session.sessionId);
+// → { orderParameter: 0.87, ... }  // proche de 1 = synchronisé
+
+// 7. Pas Physarum (optimisation réseau slime mould)
+await rhizome.runSlimeMouldStep(session.sessionId, [
+  { from: 1, to: 2, weight: 1 },
+  { from: 2, to: 3, weight: 0.5 }
+]);
+
+// 8. Fermer session (nettoyage)
+await rhizome.closeSession(session.sessionId);
+```
+
+### Cycle de plasticité observé (budding → contraction)
+
+```
+ÉTAPE 0: 2 nœuds baseline (Coordinator + Scout) — "Rhizome decentralized collective active"
+    │
+    ▼
+ÉTAPE 1: Scout détecte boundary hit — "BOUNDARY HIT: missing OAuth2 token rotation..."
+    │
+    ▼
+ÉTAPE 2: Bourgeonnement — "BUDDING: sprouted Capability Offshoot #101 at boundary"
+         "BUDDING: sprouted Local Bridge #42 to preserve decentralized mesh"
+    │
+    ▼
+ÉTAPE 3: Exécution — "Capability Offshoot generated compliant OAuth2 token rotator"
+         "Local Bridge routed 18/18 live API edge test cases: 100% passed"
+    │
+    ▼
+ÉTAPE 4: Validation — "Cryptographic receipt sealed: evidence barrier 0.99 validated"
+         "Proof absorbed into collective substrate memory"
+    │
+    ▼
+ÉTAPE 5: Contraction — "Ephemeral Offshoot & Bridge successfully contracted and pruned"
+         → Topologie stable restaurée (2 nœuds)
+```
+
+---
+
 ## Implementation & capacites (GenOS v3)
 
 Depuis la v3, cette topologie est cablee au runtime : voir

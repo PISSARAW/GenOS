@@ -5,6 +5,8 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 
 - [api-et-contrats.md](api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
 - [outils-mcp.md](outils-mcp.md) — catalogue d'outils, leases, gating, permissions.
+- [mcp-transport-config.md](mcp-transport-config.md) — transport MCP binaire, config profil, vérification.
+- [modeles-providers-routage.md](modeles-providers-routage.md) — providers, modèles, routage codex/hermes/local.
 - [persistance-et-donnees.md](persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
 - [resultats-formels-messagepack.md](resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.
 - [scheduler-epistemique.md](scheduler-epistemique.md) — ordonnancement par empreinte, nouveauté, dépendances, preuve et budget.

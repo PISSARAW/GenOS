@@ -789,6 +789,143 @@ Ces métriques aident à :
 
 ---
 
+## 14.4 Simulation complète (CLI + Pipeline)
+
+### Commande de déploiement
+
+```bash
+cargo run -p genos-cli -- biological --mode biocenose \
+  --mission "Design a secure multi-tenant payment system architecture"
+```
+
+### Sortie de composition (JSON)
+
+```json
+{
+  "mode": "biocenose",
+  "mission": "Design a secure multi-tenant payment system architecture",
+  "mechanisms": [],
+  "members": [
+    {"member_number": 1, "role": "community_facilitator"},
+    {"member_number": 2, "role": "independent_solver"},
+    {"member_number": 3, "role": "adversarial_reviewer"},
+    {"member_number": 4, "role": "consensus_observer"}
+  ],
+  "operation": "biological_mode",
+  "success": true
+}
+```
+
+### Pipeline d'exécution simulé (4 phases)
+
+```
+Mission: "Design a secure multi-tenant payment system architecture"
+   │
+   ▼
+[biocenoseService.analyzeMission] → validation appropriation Biocénose
+   │
+   ▼
+[biologicalModeService.compose('biocenose', mission)]
+   │  → crée 4 agents contextualisés avec missions distinctes
+   ▼
+┌──────────────────────────────────────────────────────────────┐
+│ PHASE 1 — ISOLATION DU SOLVER (standard model)              │
+│ Développe solution SANS accès aux autres Solvers             │
+│ Publie: Solution + Preuves + Hypothèses + Tensions non résolues
+│
+│ Exemple sortie Solver:
+│   Solution: Ledger-based transactions + Escrow + RBAC
+│   Evidence: 95% coverage, 10k TPS, OAuth 2.0 compliant
+│   Assumptions: Trusted escrow, no Byzantine actors, <500ms latency
+│   Tensions: Dispute timeout fairness? Fee transparency?
+└──────────────────────────────────────────────────────────────┘
+   │
+   ▼
+┌──────────────────────────────────────────────────────────────┐
+│ PHASE 2 — FALSIFICATION ANTAGONISTE (frontier model)        │
+│ Reviewer reçoit solution et essaie activement de la DÉMOLIR  │
+│
+│ Exemple rapport Reviewer:
+│   1. Escrow Timeout Assumption — Counter-example: collusion delay
+│      Risk: DoS via extended disputes → Rec: absolute deadline
+│   2. Byzantine Resilience Missing — Counter-example: 2/5 auditors compromised
+│      Risk: Silent corruption → Rec: independent validation from 3 sources
+│   3. Fee Transparency Gap — Impact: unpredictable costs
+│      Rec: publish fee table or auction-based pricing
+└──────────────────────────────────────────────────────────────┘
+   │
+   ▼
+┌──────────────────────────────────────────────────────────────┐
+│ PHASE 3 — MESURE DE L'ORDRE / CONSENSUS OBSERVER (standard) │
+│ Calcule métriques sur tous dossiers (Solver + Reviewer)      │
+│
+│ Exemple analyse Observer:
+│   | Metric              | Value | Interpretation              |
+│   |---------------------|-------|------------------------------|
+│   | Convergence         | 0.68  | Moderate: 68% overlap core   |
+│   | Diversity           | 0.32  | Healthy: different approaches|
+│   | Evidence Quality    | 0.82  | Good: claims well-supported  |
+│   | Critical Falsifications| 2  | Warning: 2 major flaws       |
+│
+│   Strengths: Multi-tenant isolation, transaction consistency, RBAC
+│   Weaknesses: Byzantine resilience (critical), dispute timeout (critical)
+│   Recommendation: MERGE WITH REFINEMENTS
+└──────────────────────────────────────────────────────────────┘
+   │
+   ▼
+┌──────────────────────────────────────────────────────────────┐
+│ PHASE 4 — GOUVERNANCE / FACILITATOR (frontier model)        │
+│ Définit protocole, seuils, détection collusion, escalade     │
+│
+│ Exemple protocole Facilitator:
+│   Evidence Thresholds: coverage ≥70%, security audit required,
+│                        all critical falsifications addressed
+│   Decision Boundaries:
+│     - MERGE if: convergence ≥ 0.70 AND no critical unaddressed
+│     - REFINE if: convergence ≥ 0.60 AND < 3 critical flaws
+│     - ESCALATE if: convergence < 0.60 OR > 3 critical flaws
+│   Collusion Detection:
+│     - Solvers >95% overlap → investigate
+│     - Reviewer <1 flaw/solver → investigate
+└──────────────────────────────────────────────────────────────┘
+   │
+   ▼
+[Décision de fusion]
+   convergence=0.68, criticalFlaws=2, responsiveness=0.75
+   → REFINE (continuation round ciblé sur flaws critiques)
+```
+
+### Validation automatisée (tests)
+
+```bash
+# Tests unitaires Biocénose — tous PASS
+node backend/tests/test_biocenose_brier.js
+# Biocenose Brier/quorum checks: PASS
+
+node backend/tests/test_biocenose_wiring.js
+# Biocenose wiring checks: PASS
+
+node backend/tests/test_biocenose_holobionte_services.js
+# ✅ Biocenose and Holobionte service tests passed.
+```
+
+### Métriques de décision (code)
+
+```javascript
+const convergence = measureConvergence(solutions);      // 0.68
+const criticalFlaws = falsifications.filter(f => f.severity === 'critical').length; // 2
+const responsiveness = measureResponsiveness(falsifications, solver_responses); // 0.75
+
+const canMerge = 
+  convergence >= 0.70      // seuil convergence
+  && criticalFlaws === 0   // aucune faille critique non résolue
+  && responsiveness >= 0.8; // ≥80% failles adressées
+
+// Résultat: canMerge = false → REFINE
+```
+
+---
+
 ## 15. Cas d'erreur et escalade
 
 ### Erreur 1 : Budget insuffisant

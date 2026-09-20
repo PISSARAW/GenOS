@@ -189,7 +189,7 @@ Le client envoie :
 POST /api/ide/integrations/:id/heartbeat
 ```
 
-Le serveur met à jour `last_seen_at`. Le diagnostic marque une intégration `stale` lorsque :
+Le serveur met à jour `last_seen_at`. Le diagnostic calcule `stale` lorsque :
 
 $$
 Date.now() - lastSeenAt > 5 \times 60 \times 1000
@@ -197,7 +197,9 @@ $$
 
 Une déconnexion explicite passe le statut à `revoked`. Une intégration revokée n'est plus considérée comme connectée : elle ne peut plus publier de progression ni exécuter de commandes nécessitant une session active.
 
-La déconnexion implicite n'est pas encore un processus de révocation automatique dans le code lu : elle est signalée par le diagnostic `stale`. Un opérateur ou un client doit décider ensuite de reconnecter ou de révoquer.
+`stale` est un signal de santé calculé à la lecture, pas un statut persisté ni une preuve de déconnexion. Il ne déclenche pas de révocation automatique. Une veille de l'ordinateur, une suspension de l'IDE ou une coupure réseau peuvent dépasser le seuil sans fermeture de session ; le `clientId` stable permet alors une reconnexion idempotente.
+
+**Décision de politique : ne pas révoquer automatiquement sur le seul critère `stale`.** La révocation est une décision explicite du client ou de l'opérateur, car elle invalide la session jusqu'à sa reconnexion. `stale` reste visible dans les diagnostics et peut guider une intervention. Ce choix ne suspend pas les opérations d'une intégration encore `connected` : les commandes et la progression vérifient le statut, mais pas l'âge du heartbeat. Si une politique d'expiration devient nécessaire, elle devra être définie séparément avec un délai de grâce et une transition explicite, afin de ne pas confondre silence temporaire et révocation.
 
 ---
 
@@ -381,7 +383,7 @@ GenOS est plus proche d'un control plane d'intégration que d'un remplacement de
 - Ne pas présenter `vscode`, `jetbrains` ou `antigravity` comme des extensions prêtes à installer depuis ce dépôt : ils sont des cibles contractuelles.
 - Conserver un `clientId` stable et opaque par installation client/workspace.
 - Lire contrat, capacités et commandes avant d'activer une feature optionnelle.
-- Envoyer des heartbeats réguliers, puis traiter `stale` comme une suspicion de déconnexion et non comme une révocation automatique.
+- Envoyer des heartbeats réguliers ; traiter `stale` comme un signal de supervision, sans révocation automatique. Un opérateur ou le client décide de reconnecter ou de révoquer.
 - Toujours joindre token et headers de tenant valides aux routes protégées.
 - Ne pas contourner le VFS sandbox par des chemins ou commandes directement construits côté client.
 - Ajouter des tests d'intégration HTTP pour connect/heartbeat/revoke et un client de référence avant de revendiquer une intégration IDE complète.

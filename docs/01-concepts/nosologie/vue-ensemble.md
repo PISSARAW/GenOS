@@ -3,6 +3,8 @@
 > **Synthèse exhaustive des 9 familles nosologiques et de leurs équivalents computationnels dans l'architecture biomimétique GenOS.**
 > Document assemblé à partir des rapports de 9 agents spécialistes travaillant en parallèle.
 
+> **Portée produit :** les pathologies et thérapies sont des mécanismes de simulation logicielle GenOS. Les marqueurs numériques ne mesurent pas un état de santé humain et les noms de médicaments ne constituent ni posologie ni recommandation de soin.
+
 ---
 
 ## Table des Matières
@@ -91,7 +93,9 @@ Document de référence transversal : [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.m
 | `SystemicTherapy::TelomeraseActivation` | Rallonge la limite de Hayflick | Dégénératives |
 | `SystemicTherapy::StemCellReplacement` | Remplace l'agent par une cellule souche neuve | Dégénératives, Cancers |
 
-### 4.2 Nouvelles Thérapies Proposées (à implémenter)
+### 4.2 Thérapies computationnelles implémentées
+
+Les thérapies du tableau ci-dessous sont des opérateurs déterministes sur des marqueurs GenOS normalisés. Elles n'implémentent pas les médicaments humains correspondants.
 
 | Thérapie Proposée | Famille | Rapport Source |
 |---|---|---|
@@ -111,28 +115,26 @@ Document de référence transversal : [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.m
 | `SystemicTherapy::CFTRModulatorTriad` | Génétiques | Nosologie 4 |
 | `SystemicTherapy::ChelationTherapy` | Environnementales | Nosologie 9 |
 
+Les rapports spécialisés ajoutent également les opérateurs `AllopurinolXanthineInhibitor`, `LysosomalUraturicPurge`, `DeepBrainStimulation`, `Viscosupplementation`, `SenolyticPurge`, `FetalCarrierReactivation`, `AntiAdhesionVasodilator`, `AntiNmdReadthrough`, `NeuroprotectiveAstrocyticFlush` et `BloodBrainBarrierSealant`. Ils agissent sur les marqueurs analogues du runtime; la thrombolyse est bloquée si l'état indique une barrière hémorragique.
+
 ---
 
-## 5. Feuille de Route d'Implémentation
+## 5. État de réalisation
 
-### Phase 1 : Extensions du modèle de données (genos-cell)
-- Ajouter `DiseaseCategory::Neoplastic`, `Psychiatric`, `Metabolic`, `Cardiovascular`, `Genetic`, `Environmental` dans `clinical.rs`.
-- Ajouter les variants `Pathology::*` proposés par chaque rapport spécialisé.
+### Phase 1 : Modèle clinique — réalisée
+Les catégories, pathologies et marqueurs normalisés sont dans `genos-cell/src/clinical.rs`; les champs de marqueurs sont rétrocompatibles à la désérialisation.
 
-### Phase 2 : Nouvelles thérapies systémiques (genos-biology)
-- Intégrer les 15+ nouvelles `SystemicTherapy` dans `therapy.rs`.
-- Étendre `apply_systemic_therapy_to_cell()` pour les administrer.
+### Phase 2 : Thérapies systémiques — réalisée
+Les opérateurs listés sont routés par `apply_systemic_therapy_to_cell()` vers des transformations bornées des marqueurs.
 
-### Phase 3 : Moteur de diagnostic étendu (genos-biology)
-- Ajouter les fonctions de détection spécialisées dans `pathology.rs` (`check_malignant_transformation`, `check_ischemic_necrosis`, `check_depressive_state`, etc.).
+### Phase 3 : Détecteurs — réalisée
+`detect_marker_pathologies()` évalue les familles ajoutées avec des seuils de simulation déterministes.
 
-### Phase 4 : Intégration dans l'Orchestrateur (genos-core)
-- Connecter le diagnostic automatique dans la boucle `tick()` de `orchestrator/methods.rs`.
-- Activer le déclenchement probabiliste ET manuel des pathologies iatrogènes.
+### Phase 4 : Intégration dans l'orchestrateur — réalisée
+`GenosEcosystem::tick()` enregistre les diagnostics détectés. L'administration reste une action explicite; ce modèle n'ajoute pas d'administration probabiliste automatique.
 
-### Phase 5 : Tests et validation
-- Tests unitaires pour chaque famille nosologique.
-- Tests d'intégration simulant des scénarios cliniques complexes (ex: orage cytokinique post-CAR-T suivi de détoxification).
+### Phase 5 : Tests — réalisée pour les mécanismes implémentés
+Les tests couvrent les familles ajoutées, la rémission après thérapie, le blocage thrombolytique et le diagnostic dans un tick. Les scénarios cliniques réels ne sont ni simulés ni validés par ce moteur.
 
 ---
 

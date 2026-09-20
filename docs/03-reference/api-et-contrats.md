@@ -156,16 +156,34 @@ Les arguments MCP sont canoniquement en `snake_case` : `agent_id`, `source_id`, 
 | enum | `backend` est `directory`, `hardlink` ou `copy_on_write` |
 | timeout | normalise et borne par l'executor |
 
-### Biomimétisme MCP : Affinité Stérique Ligand-Récepteur et Cnidocyte Réflexe
+### Gating et validation des outils
 
-Pour dépasser la lenteur et la rigidité du parsing de schemas JSON textuels, GenOS intègre un modèle enzymatique d'activation d'outils ([`backend/src/services/mcpLigandReceptorService.js`](../../backend/src/services/mcpLigandReceptorService.js)) :
-1. **Poche catalytique et amarrage stérique (Gibbs $\Delta G$)** : Chaque outil MCP est modélisé comme un site actif enzymatique avec des résidus essentiels. Les arguments entrants agissent comme des ligands chimiques. L'énergie libre de liaison de Gibbs $\Delta G = \Delta H - T \Delta S$ et la constante de dissociation $K_d = \exp(\Delta G / (RT))$ déterminent l'affinité. Si $\Delta G \le \Delta G_{\text{seuil}}$ (amarrage spontané exergonique), la catalyse s'exécute directement sans validation verbeuse de schema JSON.
-2. **Défense balistique réflexe par Cnidocyte (échelle microseconde)** : Inspiré des nématocystes des cnidaires ([`crates/genos-biology/src/specialized_cells/cnidocyte.rs`](../../crates/genos-biology/src/specialized_cells/cnidocyte.rs)), un filtre réflexe pré-catalytique évalue en mémoire les toxines (injections de prompts, pollution de prototype `__proto__`, injections shell `; rm -rf`) avec un chronométrage haute résolution en microsecondes (`process.hrtime.bigint()`), neutralisant l'appel malveillant sans allouer de tokens LLM ni traverser les couches de parsing JSON.
-3. **Double-mode avec rétrocompatibilité transparente** : Si l'affinité stérique est suboptimale, le moteur bascule automatiquement en mode de repli (`fallback_json_schema`) pour valider les paramètres via les schémas JSON Schema classiques.
+Le service [`biomimeticToolGatingService.js`](../../backend/src/services/biomimeticToolGatingService.js)
+classe lexicalement une requête et peut proposer des outils candidats. Ses valeurs
+en millivolts sont des scores heuristiques internes : elles ne modélisent pas une
+mesure physiologique et ne prouvent ni besoin d'outil, ni correction, ni absence
+d'hallucination. Le RPC `McpService.EvaluateGating` expose ce calcul ; le résultat
+ne remplace pas une autorisation.
 
-Les outils sont soumis au scope tenant, aux permissions, au zero trust, a l'equipement, au circuit breaker et, pour certains, a l'approbation humaine. Un outil a risque peut repondre `202` avec `success:false` et `approvalRequired:true` : c'est un etat d'attente, pas un echec de transport ni une execution reussie.
+Le helper `validateStericOrSchema()` dans `mcpContract.js` appelle un calcul
+heuristique de correspondance d'arguments (`mcpLigandReceptorService.js`). Il est
+couvert comme helper par un test unitaire, mais aucun appel de production à ce
+helper n'a été trouvé dans le dispatch MCP. Il ne réalise pas une liaison chimique,
+ne mesure pas une énergie de Gibbs et ne doit jamais être traité comme validation
+de sécurité ou de schéma. Le dispatch backend appelle séparément
+`validateToolArguments()`, puis vérifie registre, lease et gardes d'exécution.
 
-Les tests [backend/tests/test_mcp_direct_call_enforcement.js](../../backend/tests/test_mcp_direct_call_enforcement.js), [backend/tests/test_mcp_server_parity.js](../../backend/tests/test_mcp_server_parity.js), [backend/tests/test_mcp_timeout_contract.js](../../backend/tests/test_mcp_timeout_contract.js) et [backend/tests/test_cnidocyte_reflex_interception.js](../../backend/tests/test_cnidocyte_reflex_interception.js) couvrent respectivement l'enforcement, la parité minimale, les timeouts et l'interception réflexe balistique stérique.
+`checkCnidocyteReflex()` compare quelques signatures textuelles et mesure le temps
+local de son propre calcul. Ce filtre est incomplet par nature : il ne garantit pas
+la détection d'injection et ne remplace ni parsing, ni validation, ni autorisation.
+Le test [`test_cnidocyte_reflex_interception.js`](../../backend/tests/test_cnidocyte_reflex_interception.js)
+vérifie ces signatures et cas synthétiques seulement.
+
+Les tests [`test_mcp_direct_call_enforcement.js`](../../backend/tests/test_mcp_direct_call_enforcement.js),
+[`test_mcp_server_parity.js`](../../backend/tests/test_mcp_server_parity.js) et
+[`test_mcp_timeout_contract.js`](../../backend/tests/test_mcp_timeout_contract.js)
+couvrent respectivement des cas d'enforcement, la parité minimale et le délai ; ils
+ne certifient pas individuellement l'ensemble des outils MCP.
 
 ## CLI native et CLI simplifiee
 
@@ -282,10 +300,10 @@ Le test de manifeste requiert le binaire Rust `target/debug/genos.exe` sous Wind
 ```mermaid
 flowchart TB
     subgraph Clients["Consommateurs d'API"]
-        WebUI["Web UI Dashboard"]
+        WebUI["Client Web externe éventuel"]
         CLIClient["GenOS CLI Tool"]
-        IDEPlugin["Extension VSCode / JetBrains"]
-        ExtAgent["Agents Externes & SDK"]
+        IDEPlugin["Client IDE conforme au contrat"]
+        ExtAgent["Agent ou SDK externe"]
     end
 
     subgraph Gateway["Passerelle Unifiée & Validation"]
@@ -295,7 +313,7 @@ flowchart TB
     end
 
     subgraph Handlers["Contrôleurs Métier"]
-        RESTCtrl["Contrôleurs REST (Express / Axum)"]
+        RESTCtrl["Contrôleurs REST (backend Express et surfaces CLI distinctes)"]
         gRPCCtrl["Services gRPC (Tonic / gRPC Node)"]
         MCPAdapter["Serveur MCP (JSON-RPC)"]
     end
@@ -304,7 +322,12 @@ flowchart TB
     Gateway --> Handlers
 ```
 
-### 2. Séquence d'Échange gRPC (Unaire) et Streaming Événementiel SSE
+Les clients Web, extensions IDE et SDK de ce schéma sont des consommateurs
+possibles, pas des applications distribuées par ce dépôt. Le backend REST est
+Express ; Axum est utilisé par la CLI Rust pour ses fonctions locales, pas comme
+deuxième implémentation du backend REST.
+
+### 2. Séquence d'échange gRPC unaire
 
 ```mermaid
 sequenceDiagram
@@ -312,7 +335,6 @@ sequenceDiagram
     actor Client as Agent Client
     participant Gateway as API Gateway / Router
     participant gRPCServer as Serveur gRPC
-    participant SSEStream as Flux SSE (/api/events)
 
     Note over Client,gRPCServer: Contrat gRPC Unaire (Agent, Arena, Deploy, Audit, Platform)
     Client->>Gateway: Appel RPC Unaire (ex: ExecuteStep / Deploy)
@@ -323,18 +345,23 @@ sequenceDiagram
     deactivate gRPCServer
     Gateway-->>Client: Payload de résultat validé
 
-    Note over Client,SSEStream: Streaming Temps Réel via Server-Sent Events (HTTP/2)
-    Client->>SSEStream: GET /api/events?run_id=xxx (Abonnement flux)
-    activate SSEStream
-    SSEStream-->>Client: event: telemetry, data: { step: 1, metrics: {...} }
-    SSEStream-->>Client: event: evidence_barrier, data: { status: "PASSED" }
-    SSEStream-->>Client: event: complete, data: { output_json: {...} }
-    deactivate SSEStream
 ```
+
+Le flux SSE disponible est `GET /api/telemetry/stream` (également
+`GET /api/telemetry`) via `telemetryRoutes` et `telemetryController.streamSSE`.
+Il exige les contrôles tenant/permission de télémétrie, envoie un événement de
+connexion, jusqu'à dix événements récents et les événements reçus par le service
+de télémétrie. Le contrat ne promet pas des événements nommés `evidence_barrier`
+ou `complete` pour chaque mission.
 
 ### 3. Contrat de Gating Biomimétique des Outils (`EvaluateGating` & `BIOMIMETIC_GATING_POLICY`)
 
-Pour prémunir les modèles 7B contre les hallucinations d'outils et alléger leur fenêtre de contexte, les contrats de transport MCP et Agent intègrent les spécifications de gating biomimétique :
+Le RPC `EvaluateGating` applique un classement lexical pour proposer ou non des
+outils candidats. Il ne garantit pas l'absence d'hallucination et ne remplace pas
+les contrôles d'autorisation à l'exécution. Les seuils en mV sont des valeurs
+heuristiques, pas une simulation ni une mesure biologique. `AgentMission` transporte
+des champs de configuration de gating, mais cela ne garantit pas que chaque client
+ou runtime les applique.
 
 ```mermaid
 sequenceDiagram
@@ -354,7 +381,7 @@ sequenceDiagram
         Gating-->>Contract: getGatedToolSchemas(query, disinhibitedTools)
         Contract-->>Client: Schémas stricts des seuls outils désinhibés
         Client->>LLM: Prompt ciblé avec schémas pertinents (1 à 3 outils)
-        LLM-->>Client: Appel d'outil précis sans hallucination
+        LLM-->>Client: Réponse du modèle ; la validité doit être vérifiée séparément
     end
 ```
 
