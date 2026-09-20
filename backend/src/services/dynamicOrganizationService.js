@@ -236,10 +236,11 @@ function resolveSignalPayload(content, signalType, signalData) {
   if (!['ligand', 'voltage', 'pheromone', 'plasmid', 'tensor'].includes(normalizedType)) {
     throw organizationError('INVALID_SIGNAL_TYPE', `Unsupported inter-agent signal type '${signalType}'.`);
   }
-  if (signalData === undefined || signalData === null || typeof signalData !== 'object' || Array.isArray(signalData)) {
-    throw organizationError('SIGNAL_DATA_REQUIRED', 'Inter-agent organization messages require structured signal_data.');
+  if (signalData === undefined || signalData === null || (typeof signalData !== 'object' && typeof signalData !== 'string')) {
+    throw organizationError('SIGNAL_DATA_REQUIRED', 'Inter-agent organization messages require structured signal_data (object) or a string payload.');
   }
-  return formatSignalForTransport({ signalType: normalizedType, signalData });
+  const resolvedData = typeof signalData === 'string' ? { payload: signalData } : signalData;
+  return formatSignalForTransport({ signalType: normalizedType, signalData: resolvedData });
 }
 
 function assertAdversarialRecipient(state, sender, recipientAgentId) {
