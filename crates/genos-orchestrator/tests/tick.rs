@@ -35,6 +35,7 @@ fn tick_boucle_observe_decide_agit_et_persiste() {
     eco.register_dna(bad, dna);
 
     let goal = Goal::SecurePerimeter;
+    eco.record_event("INTEL", serde_json::json!({ "source": "test" }));
     let first = eco.tick(&goal);
     assert!(
         first.executed.contains(&Concept::Replay),

@@ -69,13 +69,19 @@ impl GenosEcosystem {
             + 0.20 * budget_pressure)
             .clamp(0.0, 1.0);
 
+        let evidence_events = self.events.read_stream(0).iter()
+            .filter(|e| e.event_type == "OBSERVE" || e.event_type == "HUMAN" || e.event_type == "INTEL")
+            .count();
+        let uncertain = evidence_events == 0 || active_virions >= 2;
+        let observed = evidence_events > 0;
+
         WorldState {
             tissues,
             workers,
             threat: (active_virions as f64 * 0.4).min(1.0),
             diseased,
-            uncertain: self.events.count() == 0 || active_virions >= 2,
-            observed: self.events.count() > 0,
+            uncertain,
+            observed,
             budget,
             adversary: active_virions >= 2,
             has_traces: self.traces.known() > 0,
