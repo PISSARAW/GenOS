@@ -65,12 +65,13 @@ function missionIntentPercept(input) {
 }
 
 function filesystemPercept(input) {
-  return createPercept({ kind: 'filesystem_state', source: SENSOR_SOURCES.filesystemTouch, value: { workspaceRoot: input.mission.workspaceRoot || null, capsule: input.ctx.genosCapsule || null }, cost: 0.02 });
+  const mission = input.mission;
+  return createPercept({ kind: 'filesystem_state', source: SENSOR_SOURCES.filesystemTouch, value: { workspaceRoot: mission.workspaceRoot || null, capsule: input.ctx && input.ctx.genosCapsule || null }, cost: 0.02 });
 }
 
 function terminalPercept(input) {
   const policy = input.mission.executionPolicy || {};
-  return createPercept({ kind: 'terminal_state', source: SENSOR_SOURCES.terminalHearing, value: { executable: input.ctx.executable || null, allowedCommands: list(policy.allowedCommands) }, cost: 0.02 });
+  return createPercept({ kind: 'terminal_state', source: SENSOR_SOURCES.terminalHearing, value: { executable: input.ctx && input.ctx.executable || null, allowedCommands: list(policy.allowedCommands) }, cost: 0.02 });
 }
 
 function budgetPercept(input) {
@@ -100,7 +101,7 @@ function evidencePercept(input) {
 }
 
 function temporalPercept(input) {
-  return createPercept({ kind: 'temporal_state', source: SENSOR_SOURCES.temporalPerception, value: { timeoutMs: numberOr(input.budget.timeoutMs, 0), startedAt: input.ctx.startedAt || null }, cost: 0.01 });
+  return createPercept({ kind: 'temporal_state', source: SENSOR_SOURCES.temporalPerception, value: { timeoutMs: numberOr(input.budget.timeoutMs, 0), startedAt: input.ctx && input.ctx.startedAt || null }, cost: 0.01 });
 }
 
 function collectMissionPercepts(ctx) {

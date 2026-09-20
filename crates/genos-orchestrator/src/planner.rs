@@ -273,6 +273,12 @@ impl WorldState {
                 if !self.traitor {
                     s += 0.15;
                 }
+                if self.diagnosed {
+                    s += 0.1;
+                }
+                if self.flagged == 0 && self.has_traces {
+                    s += 0.1;
+                }
                 s
             }
         }

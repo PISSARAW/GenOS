@@ -239,41 +239,33 @@ impl Director {
     ) -> Vec<Step> {
         let mut state = initial.clone();
         let mut steps = Vec::new();
-
-        // Préambule propre à la stratégie.
+        let mut applied = std::collections::BTreeSet::new();
         if strategy == Strategy::Biome && state.applicable(Concept::Observe) {
             let u = self.utility(Concept::Observe, state.stress);
             state.apply(Concept::Observe);
             steps.push(Step { concept: Concept::Observe, utility: u });
+            applied.insert(Concept::Observe);
         }
         if state.uncertain && state.applicable(Concept::Communicate) && !state.failed.contains(&Concept::Communicate) {
             let u = self.utility(Concept::Communicate, state.stress);
             state.apply(Concept::Communicate);
             steps.push(Step { concept: Concept::Communicate, utility: u });
+            applied.insert(Concept::Communicate);
         }
         if matches!(strategy, Strategy::ATeam | Strategy::Biocenose) {
-            let mut seen: BTreeSet<&'static str> = BTreeSet::new();
+            let mut seen = BTreeSet::new();
             for &c in applicable {
-                if c.is_effectful()
-                    && seen.insert(c.tag())
-                    && state.applicable(c)
-                    && !state.failed.contains(&c)
-                {
+                if c.is_effectful() && seen.insert(c.tag()) && state.applicable(c) && !state.failed.contains(&c) && !applied.contains(&c) {
                     let u = self.utility(c, state.stress);
                     state.apply(c);
                     steps.push(Step { concept: c, utility: u });
+                    applied.insert(c);
                 }
             }
         }
-
-        // Recherche plus profonde : faisceau de largeur dépendant de la stratégie.
-        let width = match strategy {
-            Strategy::Solo | Strategy::Trinity => 1,
-            Strategy::ATeam => 2,
-            Strategy::Biocenose => 3,
-            Strategy::Biome => 4,
-        };
-        steps.extend(self.beam_plan(&state, goal, applicable, width));
+        let applicable_after = applicable.iter().copied().filter(|c| state.applicable(*c) && !state.failed.contains(c) && !applied.contains(c)).collect();
+        let width = match strategy { Strategy::Solo | Strategy::Trinity => 1, Strategy::ATeam => 2, Strategy::Biocenose => 3, Strategy::Biome => 4 };
+        steps.extend(self.beam_plan(&state, goal, &applicable_after, width));
         steps
     }
 
