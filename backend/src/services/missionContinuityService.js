@@ -9,6 +9,8 @@
 const { newOrganism, recordScar, recordCheckpoint, isFunctionCovered } = require('./missionOrganismService');
 const { buildMissionHomeostasis, attachHomeostasisToOrganism, evaluateMissionHomeostasis } = require('./homeostasisService');
 const vitalSignals = require('./vitalSignalsService');
+const immuneGate = require('./immuneGateService');
+const immuneMemory = require('./immuneMemoryService');
 const regeneration = require('./regenerationService');
 const survivalModes = require('./survivalModesService');
 
@@ -84,14 +86,18 @@ async function attachContract(organism, mission) {
 
 async function observeMissionPulses(db, missionId) {
   const agents = await fetchMissionAgents(db, missionId);
+  const failed = agents.filter((a) => ['error', 'failed', 'terminated'].includes(a.status)).length;
   const pulses = [];
   for (const agent of agents) {
     const cellState = AGENT_STATUS_TO_CELL[agent.status] || 'alive';
-    const pulse = vitalSignals.buildPulse({
+    // Real emission: each pulse goes through emitCellPulse so the nervous
+    // system is observable in telemetry, with a derived stress level instead
+    // of a constant zero.
+    const pulse = vitalSignals.emitCellPulse({
       cell: agent.id,
       mission: missionId,
       state: cellState === 'dead' ? 'dead' : (cellState === 'quiescent' ? 'quiescent' : 'active'),
-      stress: 0
+      stress: vitalSignals.stressLevel({ recentFailures: failed })
     });
     pulses.push(pulse);
   }
@@ -128,12 +134,33 @@ async function evaluateContinuity(db, mission) {
   const organismWithContract = await attachContract(organism, mission);
   const agents = await fetchMissionAgents(db, mission.id);
   const context = deriveHomeostasisContext({ agents, ...mission.context });
+  // Immune wiring: dead or injured cells are an injury. The immune gate
+  // evaluates anomaly + functional coverage, and repeated failures enroll an
+  // immune memory entry so the exact retry of a failed strategy is refused.
+  const deadCells = agents
+    .filter((a) => (AGENT_STATUS_TO_CELL[a.status] || 'alive') === 'dead')
+    .map((a) => ({ identifier: a.id, kind: tissueKindForAgent(a), role: a.role, reason: a.status }));
+  const safety = deadCells.length > 0
+    ? immuneGate.isSafeToProceed({ organism: organismWithContract, context: { recentFailures: deadCells.length } })
+    : { safe: true, anomaly: { anomalyLevel: 'none' }, functionCovered: true };
+  let enrolledOrganism = organismWithContract;
+  if (deadCells.length > 0 && safety.anomaly.repeatedFailures >= 2) {
+    enrolledOrganism = deadCells.reduce(
+      (org, cell) => immuneMemory.enrollImmuneMemory(org, {
+        failureCategory: `cell_death:${cell.reason}`,
+        strategy: cell.identifier,
+        prohibitedExactRetry: true,
+        preferredResponse: 'replace_worker'
+      }),
+      organismWithContract
+    );
+  }
   const evaluation = await evaluateMissionHomeostasis(db, {
-    organism: organismWithContract,
+    organism: enrolledOrganism,
     mission,
     context
   });
-  return { organism: organismWithContract, ...evaluation };
+  return { organism: enrolledOrganism, immune: safety, ...evaluation };
 }
 
 async function transitionMissionToComplete(db, target) {
