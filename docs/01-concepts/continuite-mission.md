@@ -1,6 +1,6 @@
 # Continuité de mission — l'organisme logiciel et ses six systèmes de survie
 
-- **Statut** : Implémenté (câblé au pont d'orchestration ; succession cellulaire restante)
+- **Statut** : Partiel — gate de complétion, verifiers déclaratifs, preuves exigées, pulses et immunité câblés et testés ; régénération runtime, dormance durable, persistance de l'organisme et succession restantes.
 - **Portée** : control plane Node — `missionOrganismService`, `homeostasisContractService`, `homeostasisService`, `vitalSignalsService`, `immuneGateService`, `immuneMemoryService`, `regenerationService`, `survivalModesService`, `missionContinuityService` ; pont `backend/bin/genos-orchestrate.cjs` ; migration 033 `homeostasis_states`.
 - **Dernière revue** : 2026-09-21.
 
@@ -269,15 +269,24 @@ GenOS.
   homéostasie biologique ; chaque terme nomme un invariant de calcul.
 - **Non-objectif** : contourner les gates de preuve, sandbox, lease ou
   promotion ; la continuité contraint, elle ne libère pas.
-- **Limite** : l'évaluation d'homéostasie en fin de mission utilise le verdict
-  de sortie comme proxy `testsPassed` ; les invariants fonctionnels réels
-  exigent un contexte de mission explicite, à brancher sur les exécuteurs de
-  preuve.
-- **Limite** : la succession cellulaire (transmission contrôlée avant
-  épuisement de contexte) est suggérée par la charge allostatique mais pas
-  encore exécutée.
-- **Limite** : la mémoire immunitaire vit dans l'organisme en mémoire ; sa
-  persistance inter-processus passe par la mémoire échouée des stratégies.
+- **Implémenté et testé** : la gate de complétion (l'homéostasie contrôle
+  `MISSION_COMPLETED`, verdict `homeostasis_blocked` sinon), les verifiers
+  déclaratifs rejouables, l'évaluation des preuves exigées, l'historique
+  d'homéostasie sans collision, l'émission réelle des pulses et l'immunité
+  branchée avec interdiction de retry exact — couverts par
+  `backend/tests/test_mission_continuity.js`.
+- **Limite** : les verifiers du catalogue lisent le contexte d'évaluation ; le
+  branchement sur les exécuteurs de preuve réels (tests exécutés, fichiers
+  interdits) reste à faire.
+- **Limite** : la régénération crée la cellule dans l'organisme mais pas un
+  vrai worker ; à relier à `agentRecoveryService`.
+- **Limite** : la cryptobiose et la quiescence construisent le payload à
+  persister sans l'écrire ; le pont vers `survivalStateService.suspend()` et
+  `survival_wake_conditions` reste à faire.
+- **Limite** : l'organisme, ses cicatrices et sa mémoire immunitaire vivent en
+  RAM, réassemblés à chaque évaluation sans restauration du vécu.
+- **Limite** : la mission reste identifiée à l'agent orchestrateur racine ; la
+  succession d'orchestrateur exigera un objet mission indépendant.
 - **Garde-fou** : l'apoptose systémique n'est jamais automatique —
   `apoptosisDecision()` exige `humanAuthorized: true`.
 - **Garde-fou** : un verdict homéostatique insatisfait est rapporté tel quel ;

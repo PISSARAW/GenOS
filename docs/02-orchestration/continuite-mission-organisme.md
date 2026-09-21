@@ -1,6 +1,6 @@
 # Continuité de mission : l'organisme logiciel
 
-- **Statut** : Implémenté (câblé au pont d'orchestration, succession cellulaire restante)
+- **Statut** : Partiel (gate de complétion et immunité câblées ; régénération runtime, dormance durable et succession restantes)
 - **Portée** : control plane Node, services de survie de mission
 - **Dernière revue** : 2026-09-21
 
@@ -158,24 +158,55 @@ homéostasie cible + preuve de complétion → MISSION COMPLETE
 
 ## Limites actuelles
 
-- Les six systèmes noyaux sont implémentés, testés unitairement et câblés au
-  pont d'orchestration : `genos-orchestrate.cjs` émet des pulses vitaux pendant
-  `waitForCompletion` (toutes les ~5 s) et évalue l'homéostasie de l'organisme
-  à la finalisation ; le verdict est persisté dans `homeostasis_states`
-  (migration 033) et rapporté dans le champ `continuity` de la sortie JSON.
-- `missionContinuityService.js` assemble l'organisme depuis les agents réels
-  en base (`fetchMissionAgents` → cellules avec statut vital dérivé).
-- L'échec d'un spawn de runtime (ENOENT Windows trompeur quand le cwd capsule
-  a été réclamé par un process concurrent) est réparé : recréation du cwd,
-  handler d'erreur synchrone, probe avec retry (`spawnRuntimeWithRetry`).
-- La mémoire immunitaire vit dans l'organisme en mémoire ; sa persistance
-  inter-processus passe par la mémoire échouée existante des stratégies.
-- La succession cellulaire (transmission contrôlée avant épuisement de
-  contexte) est suggérée par la charge allostatique mais pas encore exécutée.
-- L'évaluation d'homéostasie en fin de mission utilise le verdict de sortie
-  (`outcome.success`) comme proxy `testsPassed` ; les invariants fonctionnels
-  réels (tests exécutés, fichiers interdits) exigent un contexte de mission
-  explicite, encore à brancher sur les exécuteurs de preuve.
+### Implémenté et vérifié
+
+- **Gate de complétion** : l'homéostasie est l'autorité de terminaison. Le pont
+  applique `transitionMissionToComplete()` : une mission dont le contrat est
+  insatisfait n'est jamais rapportée `success: true`, même si tous les agents
+  sont `completed`. Le verdict final devient `homeostasis_blocked` et
+  `MISSION_COMPLETION_BLOCKED` est émis.
+- **Contrat de complétion** : `genome.completionContract` est la source
+  d'autorité des invariants et des preuves exigées ; les heuristiques sur le
+  prompt ne sont qu'un repli de développement. Le contrat est accepté depuis
+  la requête MCP (`completionContract`).
+- **Verifiers déclaratifs** : les invariants persistent comme des références
+  au catalogue (`context.flag`, `context.list_empty`, `evidence.present`,
+  `mission.outcome_success`…), jamais comme des closures JS. Le contrat
+  sérialisé est rejouable après redémarrage (`serializeContract` /
+  `deserializeContract`).
+- **Preuves exigées** : `requiredEvidence` est évalué — invariants satisfaits
+  sans preuves ⇒ statut `evidence_missing`, complétion bloquée.
+- **Historique d'homéostasie** : chaque observation persiste avec un ID unique
+  (`homeostasis_state_<mission>_<uuid>`) ; dix évaluations d'une même mission
+  ne collisionnent plus.
+- **Pulses réels** : `emitCellPulse` émet en télémétrie (`CELL_PULSE`) avec un
+  niveau de stress dérivé des échecs observés.
+- **Immunité branchée** : les cellules mortes déclenchent la gate
+  (`isSafeToProceed`) ; les morts répétées enrôlent une mémoire immunitaire
+  (`prohibitedExactRetry`, `preferredResponse: replace_worker`).
+- **Tests dédiés** : `backend/tests/test_mission_continuity.js` couvre la gate,
+  l'historique, le roundtrip de contrat, les preuves exigées, les pulses,
+  l'allostasie et l'interdiction de retry exact (11 tests).
+
+### Modèle implémenté, enforcement non intégré
+
+- **Régénération runtime** : `regenerateCell()` crée la cellule dans
+  l'organisme mais pas un vrai worker (pas d'INSERT agent, pas de workspace,
+  pas de `startMission`). À relier à `agentRecoveryService`.
+- **Cryptobiose/quiescence durables** : `enterCryptobiosis()` construit le
+  payload à persister mais n'écrit pas ; pas encore de pont vers
+  `survivalStateService.suspend()` ni `survival_wake_conditions`.
+- **Organisme en RAM** : l'organisme, ses cicatrices et sa mémoire
+  immunitaire sont réassemblés à chaque évaluation sans restauration du vécu ;
+  la persistance inter-processus reste à faire.
+- **Mission = agent racine** : `fetchMissionAgents` utilise l'ID de
+  l'orchestrateur comme ID de mission ; la succession d'orchestrateur exigera
+  un objet mission indépendant.
+- **Succession cellulaire** : suggérée par la charge allostatique, pas
+  exécutée.
+- **Invariants réels** : les verifiers du catalogue lisent le contexte
+  d'évaluation ; le branchement sur les exécuteurs de preuve réels (tests
+  exécutés, fichiers interdits) reste à faire.
 
 ## Voir aussi
 
