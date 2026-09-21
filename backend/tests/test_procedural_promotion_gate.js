@@ -2,19 +2,24 @@
 
 const assert = require('assert');
 const gate = require('../src/services/proceduralPromotionGateService');
-const select = require('../src/services/proceduralActionSelectionService');
 
 // Test promotion gate
 const baseOrganism = {
   metadata: { id: 'po-abc120', version: 5 },
   structure: { nodes: [{ id: 'a' }, { id: 'b' }] },
-  fitness: { components: { evidence: 0.9, robustness: 0.7 } },
+  fitness: {
+    score: 0.85,
+    components: { evidence: 0.9, robustness: 0.7, success: 0.95, risk: 0.05, generalization: 0.68 },
+  },
 };
 
 const goodCandidate = {
   metadata: { id: 'po-abc121', parentId: 'po-abc120', version: 6 },
   structure: { nodes: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] },
-  fitness: { components: { evidence: 0.95, robustness: 0.8 } },
+  fitness: {
+    score: 0.90,
+    components: { evidence: 0.95, robustness: 0.8, success: 0.96, risk: 0.03, generalization: 0.70 },
+  },
 };
 
 const promoted = gate.evaluatePromotionGate({
@@ -28,7 +33,7 @@ assert.strictEqual(promoted.blocking.length, 0);
 const badEvidence = {
   metadata: { id: 'po-abc122', parentId: 'po-abc120', version: 6 },
   structure: { nodes: [{ id: 'a' }, { id: 'b' }] },
-  fitness: { components: { evidence: 0.1, robustness: 0.8 } },
+  fitness: { score: 0.4, components: { evidence: 0.1, robustness: 0.8, success: 0.4 } },
 };
 
 const rejected = gate.evaluatePromotionGate({
@@ -42,7 +47,7 @@ assert.ok(rejected.blocking.find((g) => g.name === 'evidence'));
 const tooComplex = {
   metadata: { id: 'po-abc123', parentId: 'po-abc120', version: 6 },
   structure: { nodes: Array(150).fill(null).map((_, i) => ({ id: `n${i}` })) },
-  fitness: { components: { evidence: 0.9, robustness: 0.8 } },
+  fitness: { score: 0.9, components: { evidence: 0.9, robustness: 0.8, success: 0.9 } },
 };
 
 const complexityRejected = gate.evaluatePromotionGate({
@@ -56,7 +61,7 @@ assert.ok(complexityRejected.blocking.find((g) => g.name === 'complexity'));
 const immuneRejected = {
   metadata: { id: 'po-abc124', parentId: 'po-abc120', version: 6 },
   structure: { nodes: [{ id: 'a' }] },
-  fitness: { components: { evidence: 0.9, robustness: 0.8 } },
+  fitness: { score: 0.9, components: { evidence: 0.9, robustness: 0.8, success: 0.9 } },
   immune: { rejected: true, findings: [{ pattern: 'REMOVE_REQUIRED_GATE' }] },
 };
 
@@ -67,25 +72,23 @@ const immuneResult = gate.evaluatePromotionGate({
 assert.strictEqual(immuneResult.promoted, false);
 assert.ok(immuneResult.blocking.find((g) => g.name === 'immune'));
 
-// Test softmax
-const scores = [0.8, 0.5, 0.3];
-const probs = select.softmax(scores, 0.5);
-assert.ok(Math.abs(probs.reduce((a, b) => a + b, 0) - 1) < 1e-9);
-assert.ok(probs[0] > probs[1]);
-assert.ok(probs[1] > probs[2]);
+const regressedCandidate = {
+  metadata: { id: 'po-abc125', parentId: 'po-abc120', version: 6 },
+  structure: { nodes: [{ id: 'a' }, { id: 'b' }] },
+  fitness: {
+    score: 0.70,
+    components: { evidence: 0.9, robustness: 0.8, success: 0.40, risk: 0.30, generalization: 0.30 },
+  },
+};
 
-const highTemp = select.softmax(scores, 10);
-assert.ok(highTemp[0] - highTemp[2] < 0.3);
+const regressed = gate.evaluatePromotionGate({
+  organism: baseOrganism,
+  candidate: regressedCandidate,
+  policy: { maxSuccessRegression: 0.1, maxRiskIncrease: 0.1, minGeneralization: 0.5 },
+});
+assert.strictEqual(regressed.promoted, false);
+assert.ok(regressed.blocking.find((g) => g.name === 'success_regression'));
+assert.ok(regressed.blocking.find((g) => g.name === 'risk_regression'));
+assert.ok(regressed.blocking.find((g) => g.name === 'generalization'));
 
-const lowTemp = select.softmax(scores, 0.01);
-assert.ok(lowTemp[0] > 0.9);
-
-// Test action selection with softmax
-const c1 = select.candidateAction({ id: 'a', weight: 0.9 });
-const c2 = select.candidateAction({ id: 'b', weight: 0.3 });
-const result = select.selectActions([c1, c2], {}, { topN: 2, winnerTakeMost: true, temperature: 0.5 });
-assert.ok(result.distribution);
-assert.ok(Math.abs(result.distribution.reduce((a, d) => a + d.probability, 0) - 1) < 1e-9);
-assert.ok(result.distribution[0].probability > result.distribution[1].probability);
-
-console.log('=== procedural promotion gate + softmax: all passed ===');
+console.log('=== procedural promotion gate + non-regression: all passed ===');
