@@ -1,6 +1,6 @@
 # Continuité de mission : l'organisme logiciel
 
-- **Statut** : Partiel (services noyau implémentés, intégration orchestrateur en cours)
+- **Statut** : Implémenté (câblé au pont d'orchestration, succession cellulaire restante)
 - **Portée** : control plane Node, services de survie de mission
 - **Dernière revue** : 2026-09-21
 
@@ -158,15 +158,24 @@ homéostasie cible + preuve de complétion → MISSION COMPLETE
 
 ## Limites actuelles
 
-- Les services noyau sont implémentés et testés unitairement, mais le câblage
-  dans la boucle d'orchestration (`genos-orchestrate.cjs`, `superviseMission`)
-  reste à faire : les pulses ne sont pas encore émis par les workers réels.
-- `evaluateMissionHomeostasis` écrit dans `homeostasis_states` mais la table
-  n'est pas encore créée par le schéma de migration principal.
+- Les six systèmes noyaux sont implémentés, testés unitairement et câblés au
+  pont d'orchestration : `genos-orchestrate.cjs` émet des pulses vitaux pendant
+  `waitForCompletion` (toutes les ~5 s) et évalue l'homéostasie de l'organisme
+  à la finalisation ; le verdict est persisté dans `homeostasis_states`
+  (migration 033) et rapporté dans le champ `continuity` de la sortie JSON.
+- `missionContinuityService.js` assemble l'organisme depuis les agents réels
+  en base (`fetchMissionAgents` → cellules avec statut vital dérivé).
+- L'échec d'un spawn de runtime (ENOENT Windows trompeur quand le cwd capsule
+  a été réclamé par un process concurrent) est réparé : recréation du cwd,
+  handler d'erreur synchrone, probe avec retry (`spawnRuntimeWithRetry`).
 - La mémoire immunitaire vit dans l'organisme en mémoire ; sa persistance
   inter-processus passe par la mémoire échouée existante des stratégies.
 - La succession cellulaire (transmission contrôlée avant épuisement de
   contexte) est suggérée par la charge allostatique mais pas encore exécutée.
+- L'évaluation d'homéostasie en fin de mission utilise le verdict de sortie
+  (`outcome.success`) comme proxy `testsPassed` ; les invariants fonctionnels
+  réels (tests exécutés, fichiers interdits) exigent un contexte de mission
+  explicite, encore à brancher sur les exécuteurs de preuve.
 
 ## Voir aussi
 
