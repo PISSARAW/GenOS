@@ -162,12 +162,15 @@ async function reconcileHomeostasis(db, target) {
 }
 
 async function transitionMissionToComplete(db, target) {
-  const { organism, mission } = target;
-  const { state, status } = await evaluateMissionHomeostasis(db, target);
+  const { organism, mission, context = {} } = target;
+  const evaluation = await evaluateMissionHomeostasis(db, { organism, mission, context });
+  const { state, status } = evaluation;
   if (status !== 'homeostasis_satisfied') {
     return {
       allowed: false,
-      reason: 'Mission homeostasis not satisfied',
+      reason: status === 'evidence_missing'
+        ? `Required evidence missing: ${(state.evidence.missing || []).join(', ')}`
+        : 'Mission homeostasis not satisfied',
       status,
       state
     };

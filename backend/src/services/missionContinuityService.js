@@ -104,6 +104,13 @@ function deriveHomeostasisContext(input = {}) {
   const completed = agents.filter((a) => ['completed', 'unverified'].includes(a.status)).length;
   const running = agents.filter((a) => a.status === 'running').length;
   return {
+    missionOutcome: input.missionOutcome === true,
+    flags: {
+      missionOutcome: input.missionOutcome === true,
+      testsPassed: input.testsPassed === true,
+      ...(input.flags || {})
+    },
+    evidence: input.evidence || [],
     functionalChecks: input.functionalChecks || {},
     structuralChecks: {
       testsPassed: input.testsPassed === true,
@@ -129,6 +136,11 @@ async function evaluateContinuity(db, mission) {
   return { organism: organismWithContract, ...evaluation };
 }
 
+async function transitionMissionToComplete(db, target) {
+  const { transitionMissionToComplete: transition } = require('./homeostasisService');
+  return transition(db, target);
+}
+
 function survivalModeFor(input = {}) {
   return survivalModes.survivalMode({
     missionIncomplete: input.missionIncomplete,
@@ -152,5 +164,6 @@ module.exports = {
   observeMissionPulses,
   deriveHomeostasisContext,
   evaluateContinuity,
+  transitionMissionToComplete,
   survivalModeFor
 };
