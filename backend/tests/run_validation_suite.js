@@ -8,6 +8,9 @@ const suites = {
     ['mathematical philosophy safety', 'test_mathematical_philosophy_safety.js'],
     ['advanced IAM', 'test_advanced_iam.js'],
     ['mathematical promotion integration', 'test_mathematical_promotion_integration.js'],
+    ['procedural organism foundations', 'test_procedural_organism_foundations.js'],
+    ['procedural organism 9-12', 'test_procedural_organism_9_12.js'],
+    ['procedural organism 13-24', 'test_procedural_organism_13_24.js'],
     ['REST smoke', 'test_backend.js'],
     ['quality', 'run_quality_suite.js']
   ],
