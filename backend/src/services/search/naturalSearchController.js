@@ -97,9 +97,9 @@ class NaturalSearchController {
       diagnostics = { reason: 'moderate pressure — adapt phenotype' }
     }
     else if (pressure.pressure < PHASE_THRESHOLDS.CLONAL_MAX) {
-      if (classification.state === SEARCH_STATE.HYPOTHESIS_LOCK_IN) {
+      if (classification.state === SEARCH_STATE.MEDIUM_VARIATION_STAGNATION && ctx.falsifiedHypotheses > 0) {
         process = SEARCH_PROCESS.REPLAY_CAUSAL
-        diagnostics = { reason: 'hypothesis lock-in — causal replay' }
+        diagnostics = { reason: 'medium variation stagnation with falsified hypothesis — causal replay' }
       } else if (ctx.falsifiedHypotheses > 0) {
         process = SEARCH_PROCESS.REPLAY_CAUSAL
         diagnostics = { reason: 'falsified hypothesis — revert to last known good' }

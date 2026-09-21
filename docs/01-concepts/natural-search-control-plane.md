@@ -1,6 +1,6 @@
 # Natural Search Control Plane
 
-- **Statut** : Implémenté — Phases 1–5 (Causal Progress Sensor, Entropy×Progression Classifier, Hypothesis Ledger, Search Pressure Model, Natural Search Controller) opérationnelles et testées.
+- **Statut** : Partiel — Phases 1–5 implémentées comme services isolés et couvertes par tests unitaires ; intégration runtime et actionnement des processus encore absentes.
 - **Portée** : `backend/src/services/search/*.js`, `backend/tests/search/test_*.js`, `docs/architecture/natural-search-control-plane.md`.
 - **Dernière revue** : 2026-09-21.
 

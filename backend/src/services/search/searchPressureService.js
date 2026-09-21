@@ -1,33 +1,18 @@
 /**
- * Search Pressure Service — Pression de recherche.
+ * Search Pressure Service v3 — refonte pour corriger l'accumulation (P1).
  *
- * Phase 4 : Modélise à quel point l'environnement indique
- * que la méthode de recherche actuelle doit changer.
+ * Au lieu d'accumuler des deltaP à chaque événement (ce qui fait qu'une même
+ * falsification remplit la pression indéfiniment), on recalcule la pression
+ * à partir de l'état courant avec inertie.
  *
- * P_search(t) ∈ [0,1]
- *
- * Augmente avec :
- *  - stagnation (pas de progrès causal)
- *  - incertitude persistante
- *  - hypothèses falsifiées
- *  - contradictions
- *  - rendements décroissants
- *  - répétitions
- *  - échecs
- *
- * Diminue avec :
- *  - nouvelles preuves
- *  - réduction d'incertitude
- *  - contraintes résolues
- *  - progression vers l'objectif
+ * P_t = λ P_{t-1} + (1-λ) P^{observed}_t
  */
 
 const SEARCH_PRESSURE_CAUSES = {
   LOW_INFORMATION_GAIN: 'low_information_gain',
   PERSISTENT_UNCERTAINTY: 'persistent_uncertainty',
-  ACTIVE_HYPOTHESIS_WEAKENED: 'active_hypothesis_weakened',
-  THREE_LOW_YIELD_STEPS: 'three_low_yield_steps',
   HYPOTHESIS_FALSIFIED: 'hypothesis_falsified',
+  THREE_LOW_YIELD_STEPS: 'three_low_yield_steps',
   CONTRADICTION: 'contradiction',
   BUDGET_PRESSURE: 'budget_pressure'
 }
@@ -46,90 +31,70 @@ class SearchPressureModel {
     this.causes = []
     this.confidence = 0
     this.recommendedRadius = ESCALATION_RADII.LOCAL
-
-    // Configuration des seuils
     this.lowYieldThreshold = options.lowYieldThreshold || 0.05
     this.stagnationWindow = options.stagnationWindow || 3
-    this.pressureDecayRate = options.pressureDecayRate || 0.1
-    this.pressureIncreaseRate = options.pressureIncreaseRate || 0.2
+    this.inertia = options.inertia ?? 0.5
     this.maxPressure = options.maxPressure || 1.0
     this.minPressure = options.minPressure || 0.0
   }
 
   /**
-   * Mettre à jour la pression en fonction de l'état actuel.
-   * @param {Object} inputs
-   * @param {number} inputs.searchYield — rendement actuel
-   * @param {number} inputs.stepsSinceProgress — pas depuis dernier progrès
-   * @param {number} inputs.falsifiedHypotheses — nombre d'hypothèses falsifiées
-   * @param {number} inputs.contradictions — nombre de contradictions détectées
-   * @param {number} inputs.activeHypothesesCount — nombre d'hypothèses actives
-   * @param {number} inputs.budgetRatio — ratio de budget consommé (0–1)
-   * @returns {{pressure, confidence, causes, recommendedRadius}}
+   * Recalculer la pression à partir de l'état courant.
+   * Observed pressure = combinaison des facteurs, chacun dans [0,1].
    */
   update(inputs) {
     const causes = []
-    let deltaPressure = 0
+    let pObserved = 0
 
     // 1. Rendement faible
     if (inputs.searchYield !== undefined && inputs.searchYield < this.lowYieldThreshold) {
-      deltaPressure += this.pressureIncreaseRate
+      pObserved += 0.3
       causes.push(SEARCH_PRESSURE_CAUSES.LOW_INFORMATION_GAIN)
     }
 
-    // 2. Stagnation
+    // 2. Stagnation (proportionnelle au nombre de pas sans progrès)
     if (inputs.stepsSinceProgress !== undefined && inputs.stepsSinceProgress >= this.stagnationWindow) {
-      deltaPressure += this.pressureIncreaseRate * (inputs.stepsSinceProgress / this.stagnationWindow)
+      const stagnationFactor = Math.min(1, inputs.stepsSinceProgress / (this.stagnationWindow * 3))
+      pObserved += 0.3 * stagnationFactor
       causes.push(SEARCH_PRESSURE_CAUSES.THREE_LOW_YIELD_STEPS)
     }
 
-    // 3. Hypothèses falsifiées
+    // 3. Hypothèses falsifiées (chaque nouvelle falsification compte)
     if (inputs.falsifiedHypotheses !== undefined && inputs.falsifiedHypotheses > 0) {
-      deltaPressure += this.pressureIncreaseRate * inputs.falsifiedHypotheses
+      const falsificationFactor = Math.min(1, inputs.falsifiedHypotheses / 3)
+      pObserved += 0.4 * falsificationFactor
       causes.push(SEARCH_PRESSURE_CAUSES.HYPOTHESIS_FALSIFIED)
     }
 
     // 4. Contradictions
     if (inputs.contradictions !== undefined && inputs.contradictions > 0) {
-      deltaPressure += this.pressureIncreaseRate * inputs.contradictions * 1.5
+      pObserved += 0.2 * Math.min(1, inputs.contradictions / 2)
       causes.push(SEARCH_PRESSURE_CAUSES.CONTRADICTION)
     }
 
-    // 5. Incertitude persistante
-    if (inputs.persistentUncertainty !== undefined && inputs.persistentUncertainty > 0.5) {
-      deltaPressure += this.pressureIncreaseRate
-      causes.push(SEARCH_PRESSURE_CAUSES.PERSISTENT_UNCERTAINTY)
-    }
-
-    // 6. Pression budgétaire
+    // 5. Budget
     if (inputs.budgetRatio !== undefined && inputs.budgetRatio > 0.8) {
-      deltaPressure += this.pressureIncreaseRate
+      pObserved += 0.2 * Math.min(1, (inputs.budgetRatio - 0.8) / 0.2)
       causes.push(SEARCH_PRESSURE_CAUSES.BUDGET_PRESSURE)
     }
 
     // Réduction si signes positifs
-    if (inputs.searchYield !== undefined && inputs.searchYield > this.lowYieldThreshold * 2) {
-      deltaPressure -= this.pressureDecayRate
-    }
-    if (inputs.uncertaintyReduction !== undefined && inputs.uncertaintyReduction > 0.1) {
-      deltaPressure -= this.pressureDecayRate * inputs.uncertaintyReduction
+    if (inputs.searchYield !== undefined && inputs.searchYield > this.lowYieldThreshold * 3) {
+      pObserved = Math.max(0, pObserved - 0.2)
     }
 
-    // Clamp
-    this.pressure = Math.max(this.minPressure, Math.min(this.maxPressure, this.pressure + deltaPressure))
+    // Inertie : P_t = λ P_{t-1} + (1-λ) P_observed
+    this.pressure = Math.max(this.minPressure, Math.min(this.maxPressure,
+      this.inertia * this.pressure + (1 - this.inertia) * pObserved
+    ))
 
-    // Confiance : proportionnelle au nombre de causes
     this.confidence = Math.min(1, causes.length * 0.3)
-
     this.causes = causes
     this.recommendedRadius = this.escalationRadius()
 
     return this.report()
   }
 
-  /**
-   * Déterminer le rayon d'escalade en fonction de la pression.
-   */
   escalationRadius() {
     if (this.pressure < 0.2) return ESCALATION_RADII.MINIMAL
     if (this.pressure < 0.4) return ESCALATION_RADII.LOCAL
@@ -138,9 +103,6 @@ class SearchPressureModel {
     return ESCALATION_RADII.RADICAL
   }
 
-  /**
-   * Obtention du rapport de pression.
-   */
   report() {
     return {
       pressure: Number(this.pressure.toFixed(3)),
@@ -150,9 +112,6 @@ class SearchPressureModel {
     }
   }
 
-  /**
-   * Réinitialiser la pression (après changement de stratégie).
-   */
   reset() {
     this.pressure = 0
     this.causes = []
