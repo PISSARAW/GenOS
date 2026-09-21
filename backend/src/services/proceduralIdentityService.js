@@ -2,7 +2,13 @@
 
 const crypto = require('crypto');
 
-function canonicalStructure(organism) {
+function num(value, fallback = 0) {
+  if (value == null) return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function structureHash(organism) {
   if (!organism || !organism.structure) return '';
   const s = organism.structure;
   const nodes = Array.isArray(s.nodes)
@@ -13,39 +19,38 @@ function canonicalStructure(organism) {
         `${a.from}->${a.to}`.localeCompare(`${b.from}->${b.to}`)
       )
     : [];
-  return JSON.stringify({
-    nodes: nodes.map((n) => ({ id: n.id, type: n.type })),
-    synapses: synapses.map((s) => ({ from: s.from, to: s.to, type: s.type })),
-  });
-}
-
-function contentHash(organism) {
-  const canonical = canonicalStructure(organism);
-  return crypto.createHash('sha256').update(canonical).digest('hex').slice(0, 16);
-}
-
-function validateId(organism) {
-  const computed = contentHash(organism);
-  return {
-    valid: organism?.metadata?.id === computed,
-    expected: computed,
-    actual: organism?.metadata?.id || null,
+  const canonical = {
+    nodes: nodes.map((n) => ({ id: n.id, type: n.type, required: n.required })),
+    synapses: synapses.map((s) => ({
+      from: s.from, to: s.to, type: s.type,
+      condition: s.condition || null,
+    })),
   };
+  return crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex').slice(0, 16);
 }
 
-function assignId(organism) {
-  const hash = contentHash(organism);
-  return {
-    ...organism,
-    metadata: {
-      ...(organism.metadata || {}),
-      id: hash,
-    },
+function stateHash(organism) {
+  const state = {
+    synapses: (organism?.structure?.synapses || []).map((s) => ({
+      from: s.from, to: s.to, weight: s.weight,
+      lifecycle: s.lifecycle,
+    })),
+    phenotype: organism?.phenotype || {},
+    immune: organism?.immune || {},
+    fitness: organism?.fitness || {},
+    plasticity: organism?.plasticity || {},
   };
+  return crypto.createHash('sha256').update(JSON.stringify(state)).digest('hex').slice(0, 16);
 }
 
-function createOccurrenceId(prefix = 'occ') {
-  return `${prefix}-${crypto.randomBytes(8).toString('hex')}`;
+function versionId(organism) {
+  const parent = organism?.metadata?.parentId || 'genesis';
+  const sHash = structureHash(organism);
+  const stHash = stateHash(organism);
+  const mutationSig = organism?.metadata?.mutationSignature || '';
+  return crypto.createHash('sha256')
+    .update(`${parent}:${sHash}:${stHash}:${mutationSig}`)
+    .digest('hex').slice(0, 16);
 }
 
 function canonicalEpisode(episode) {
@@ -59,19 +64,33 @@ function canonicalEpisode(episode) {
 }
 
 function episodeHash(episode) {
-  return crypto
-    .createHash('sha256')
+  return crypto.createHash('sha256')
     .update(JSON.stringify(canonicalEpisode(episode)))
-    .digest('hex')
-    .slice(0, 12);
+    .digest('hex').slice(0, 12);
+}
+
+function createOccurrenceId(prefix = 'occ') {
+  return `${prefix}-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
+}
+
+function validateOrganism(organism) {
+  const errors = [];
+  if (!organism) return { valid: false, errors: ['organism is null'] };
+  if (!organism.structure) errors.push('missing structure');
+  if (!Array.isArray(organism.structure?.nodes)) errors.push('structure.nodes must be array');
+  if (!Array.isArray(organism.structure?.synapses)) errors.push('structure.synapses must be array');
+  if (!organism.metadata) errors.push('missing metadata');
+  if (!organism.metadata?.id) errors.push('missing metadata.id');
+  return { valid: errors.length === 0, errors };
 }
 
 module.exports = {
-  canonicalStructure,
-  contentHash,
-  validateId,
-  assignId,
-  createOccurrenceId,
+  num,
+  structureHash,
+  stateHash,
+  versionId,
   canonicalEpisode,
   episodeHash,
+  createOccurrenceId,
+  validateOrganism,
 };
