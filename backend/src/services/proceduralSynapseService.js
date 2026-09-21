@@ -137,7 +137,10 @@ function lifecycleState(synapse, policy = {}) {
   if (s.lifecycle === "weakened") return "weakened";
   const weight = clamp01(s.weight == null ? 1.0 : Number(s.weight));
   const currentEpisode = s.lastUsageEpisode || 0;
-  return checkDormantOrWeakened({ s, policy, weight, currentEpisode });
+  const decayed = usageDecayDormant({ policy, usageEpisode: s.lastUsageEpisode || 0, weight, currentEpisode });
+  if (decayed) return "dormant";
+  if (weight < 0.2) return "weakened";
+  return "active";
 }
 
 function promoteToPruningCandidate(synapse, currentEpisode = null) {
