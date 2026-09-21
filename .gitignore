@@ -35,6 +35,8 @@ backend/tests/.genos*
 backend/tests/.tmp-*
 backend/tests/*.db*
 backend/tests/worker_mcp_orchestrator_*
+backend/worker-sub-*/
+backend/worker-sub-*/.genos-runtime/
 
 # MCP runtime artifacts
 mcp/.genos*
@@ -113,6 +115,7 @@ Thumbs.db
 .mcp.json
 .genos.md
 .genos_agent_state.json
+.genos/
 .codex-*
 
 # Misc
