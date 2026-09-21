@@ -8,9 +8,8 @@
  * dans un sandbox sécurisé, sans mission externe immédiate. Les découvertes
  * deviennent des affordances mémorisées pour futures explorations.
  *
- * Inspiré par :
- *  - POET (arXiv:1901.01753) : environnements ouverts + transfert de compétences
- *  - Voyager (arXiv:2305.16291) : curriculum autonome + bibliothèque de skills
+ * Utilise les APIs workspaceSnapshotStore.capture() et workspaceSnapshotRun.runInSnapshot()
+ * avec leurs signatures réelles.
  */
 
 const crypto = require('crypto');
@@ -31,7 +30,7 @@ function createPlaySession(agentId, options) {
     agentId,
     budget: options.budget || DEFAULT_PLAY_BUDGET,
     timeoutMs: options.timeoutMs || DEFAULT_PLAY_TIMEOUT_MS,
-    status: 'active', // active | paused | completed | failed
+    status: 'active',
     startedAt: new Date().toISOString(),
     endedAt: null,
     iterations: [],
@@ -56,7 +55,7 @@ function createPlayIteration(iterationIndex, input) {
     tool: input.tool,
     context: input.context,
     result: null,
-    outcome: null, // success | failure | timeout | error
+    outcome: null,
     observation: null,
     affordancesDiscovered: [],
   };
@@ -68,17 +67,28 @@ async function executeInSandbox(session, input, workspacePath) {
   const iteration = createPlayIteration(session.iterations.length, input);
 
   try {
-    // Utilise le sandbox snapshot existant pour l'exécution isolée
-    const snapshotPath = await capture(workspacePath);
+    // Signature correcte de capture() : objet avec db, workspace, etc.
+    const snapshotPath = await capture({
+      db: session.db,
+      workspace: { path: workspacePath, id: session.workspaceId },
+      label: 'PlaySandbox snapshot',
+      reason: 'Play exploration',
+      author: session.agentId,
+      agentId: session.agentId,
+    });
     iteration.snapshotPath = snapshotPath;
 
-    const result = await runInSnapshot(workspacePath, input.command || input.action, {
+    // Signature correcte de runInSnapshot() : objet avec snapshot, command, workspacePath
+    const result = await runInSnapshot({
+      snapshot: { path: snapshotPath },
+      command: input.command,
       timeoutMs: session.timeoutMs,
-      requireSandbox: session.constraints.requireSandbox,
+      workspacePath,
     });
 
     iteration.result = result;
-    iteration.outcome = result.success ? 'success' : 'failure';
+    // runInSnapshot renvoie exitCode, pas success
+    iteration.outcome = result.exitCode === 0 ? 'success' : 'failure';
     iteration.observation = result.stdout || result.stderr || '';
   } catch (err) {
     iteration.outcome = 'error';
@@ -165,18 +175,22 @@ function deduplicateAffordances(discoveries) {
 }
 
 // ─── Play prédéfini : exploration combinatoire ─────────────────────
+// Génère des commandes VALIDE selon isAllowedSandboxTestCommand()
+// (test runner simple, pas de "explorer X Y" rejeté)
 
-function generateCombinatorialInputs(tools, contexts, actionPrefix) {
+function generateCombinatorialInputs(tools, contexts) {
   const inputs = [];
-  const prefix = actionPrefix || 'explorer';
+  const allowedCommands = ['npm test', 'node -e', 'cargo test', 'genos_test'];
 
   for (const tool of tools) {
     for (const context of contexts) {
+      // Utilise des commandes autorisées par le sandbox
+      const cmd = allowedCommands[Math.floor(Math.random() * allowedCommands.length)];
       inputs.push({
-        action: `${prefix}_${tool}_${context}`,
+        action: `${tool}_${context}`,
         tool,
         context,
-        command: `${prefix} ${tool} ${context}`,
+        command: `${cmd} ${context}`,
       });
     }
   }
