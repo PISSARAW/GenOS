@@ -1,14 +1,6 @@
 'use strict';
 
-/**
- * @file mathematicalNichePopulationService.js
- * @description MathematicalNichePopulationService — manages populations within
- * niches with Marginal Value Theorem migration.
- * When a niche's marginal yield drops below envMeanReturnRate, migrate lineages
- * to better niches.
- */
-
-const { createMathematicalPopulation } = require('./mathematicalPopulation');
+const { MathematicalPopulation } = require('./mathematicalPopulation');
 
 class MathematicalNichePopulationService {
   constructor(opts = {}) {
@@ -20,22 +12,20 @@ class MathematicalNichePopulationService {
 
   addNiche(niche) {
     if (!niche.population) {
-      niche.population = createMathematicalPopulation({ niche });
+      niche.population = new MathematicalPopulation({ niche });
     }
     this.niches.set(niche.id, niche);
     return niche;
   }
 
-  /**
-   * Allocate a lineage to the niche with the best current marginal yield.
-   */
   allocateToBestNiche(lineage) {
     let bestNiche = null;
     let bestYield = -1;
 
     for (const [, niche] of this.niches) {
+      if (!niche.resourceHistory || niche.resourceHistory.length === 0) continue;
       const lastReturn = niche.resourceHistory[niche.resourceHistory.length - 1];
-      const marginalYield = lastReturn ? lastReturn.marginalYield : 0.5;
+      const marginalYield = lastReturn ? lastReturn.marginalYield : 0;
       if (marginalYield > bestYield) {
         bestYield = marginalYield;
         bestNiche = niche;
@@ -49,9 +39,6 @@ class MathematicalNichePopulationService {
     return bestNiche;
   }
 
-  /**
-   * Evaluate all niches and migrate those below envMeanReturnRate.
-   */
   evaluateAndMigrate() {
     const migrations = [];
 
@@ -60,13 +47,13 @@ class MathematicalNichePopulationService {
       const mvt = niche.evaluateMVT(this.envMeanReturnRate);
 
       if (mvt.shouldDepart && niche.population.lineages.size > 0) {
-        // Find the best target niche
         let targetNiche = null;
         let bestYield = -1;
         for (const [otherId, other] of this.niches) {
           if (otherId === nicheId) continue;
+          if (!other.resourceHistory || other.resourceHistory.length === 0) continue;
           const lastReturn = other.resourceHistory[other.resourceHistory.length - 1];
-          const marginalYield = lastReturn ? lastReturn.marginalYield : 0.5;
+          const marginalYield = lastReturn ? lastReturn.marginalYield : 0;
           if (marginalYield > bestYield) {
             bestYield = marginalYield;
             targetNiche = other;

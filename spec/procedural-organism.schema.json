@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProceduralOrganism",
+  "description": "Format canonique d'un organisme procédural GenOS v1",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "structure"],
+  "properties": {
+    "apiVersion": { "type": "string", "const": "genos/v1alpha1" },
+    "kind": { "type": "string", "const": "ProceduralOrganism" },
+    "metadata": {
+      "type": "object",
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "type": "string", "description": "contentHash du graphe canonique" },
+        "version": { "type": "integer", "minimum": 1 },
+        "parentId": { "type": ["string", "null"] },
+        "lineageId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "structure": {
+      "type": "object",
+      "required": ["nodes", "synapses"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string", "enum": ["action", "decision", "terminal", "gate"] },
+              "required": { "type": "boolean" },
+              "locked": { "type": "boolean" },
+              "metadata": { "type": "object" }
+            }
+          }
+        },
+        "synapses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from", "to", "type", "weight"],
+            "properties": {
+              "from": { "type": "string" },
+              "to": { "type": "string" },
+              "type": { "type": "string", "enum": ["excitatory", "inhibitory", "modulatory"] },
+              "weight": { "type": "number", "minimum": 0, "maximum": 1 },
+              "condition": { "type": "object" },
+              "plasticity": { "$ref": "#/definitions/plasticity" },
+              "evidence": { "$ref": "#/definitions/evidence" },
+              "lastActivation": { "$ref": "#/definitions/lastActivation" },
+              "lastUsageEpisode": { "type": "integer" },
+              "lifecycle": { "type": "string", "enum": ["active", "weakened", "dormant", "candidate_for_pruning", "pruned"] }
+            }
+          }
+        }
+      }
+    },
+    "phenotype": {
+      "type": "object",
+      "properties": {
+        "expression": { "type": "number", "minimum": 0, "maximum": 1 },
+        "epigeneticMarks": { "type": "object", "additionalProperties": { "type": "object", "properties": { "expression": { "type": "number", "minimum": 0, "maximum": 1 }, "note": { "type": "string" } } } },
+        "methylation": { "type": "array", "items": { "type": "object", "required": ["target", "type", "strength"], "properties": { "target": { "type": "object", "required": ["type"], "properties": { "type": { "string": ["synapse", "procedure"] }, "from": { "type": "string" }, "to": { "type": "string" }, "id": { "type": "string" } } }, "type": { "type": "string", "const": "repression" }, "strength": { "type": "number", "minimum": 0, "maximum": 1 }, "trigger": { "type": "object" }, "origin": { "type": "object" } } } }
+      }
+    },
+    "plasticity": { "$ref": "#/definitions/plasticityState" },
+    "immune": {
+      "type": "object",
+      "properties": {
+        "signatures": { "type": "array", "items": { "type": "object", "required": ["id"], "properties": { "id": { "type": "string" }, "structuralPattern": { "type": "object" }, "response": { "type": "object", "required": ["gate"], "properties": { "gate": { "type": "string", "enum": ["REJECT", "ALLOW", "QUARANTINE"] }, "strength": { "type": "number", "minimum": 0, "maximum": 1 } } } } } },
+        "rejected": { "type": "boolean" },
+        "findings": { "type": "array", "items": { "type": "object", "required": ["pattern", "match", "severity"], "properties": { "pattern": { "type": "string" }, "match": { "type": "string", "enum": ["structural", "lexical"] }, "severity": { "type": "string", "enum": ["low", "medium", "high"] } } } }
+      }
+    },
+    "ecology": {
+      "type": "object",
+      "properties": {
+        "niche": { "type": "object", "required": ["id"], "properties": { "id": { "type": "string" }, "environment": { "type": "object" }, "fitness": { "type": "number", "minimum": 0, "maximum": 1 } } },
+        "populationId": { "type": "string" },
+        "biomeId": { "type": "string" }
+      }
+    },
+    "fitness": {
+      "type": "object",
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "components": { "$ref": "#/definitions/fitnessComponents" },
+        "weights": { "type": "object", "additionalProperties": { "type": "number" } },
+        "history": { "type": "array", "items": { "type": "object", "required": ["episode", "score"], "properties": { "episode": { "type": "integer" }, "score": { "type": "number", "minimum": 0, "maximum": 1 } } } }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "properties": {
+        "parent": { "type": ["string", "null"] },
+        "descendants": { "type": "array", "items": { "type": "string" } },
+        "mutations": { "type": "array", "items": { "type": "object", "required": ["episode", "operations"], "properties": { "episode": { "type": "integer" }, "operations": { "type": "array", "items": { "type": "string" } }, "hash": { "type": "string" } } } }
+      }
+    },
+    "evidence": { "$ref": "#/definitions/evidenceList" }
+  },
+  "definitions": {
+    "plasticity": {
+      "type": "object",
+      "properties": {
+        "potentiationCount": { "type": "integer", "minimum": 0 },
+        "depressionCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "successRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "trialCount": { "type": "integer", "minimum": 0 },
+        "successCount": { "type": "integer", "minimum": 0 },
+        "failureCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "lastActivation": {
+      "type": "object",
+      "properties": {
+        "trajectoryId": { "type": ["string", "null"] },
+        "at": { "type": "string", "format": "date-time" },
+        "episode": { "type": "integer" }
+      }
+    },
+    "plasticityState": {
+      "type": "object",
+      "properties": {
+        "state": { "type": "string", "enum": ["adaptive", "fixed", "none"] },
+        "lastEpisode": { "type": "integer" }
+      }
+    },
+    "fitnessComponents": {
+      "type": "object",
+      "properties": {
+        "success": { "type": "number", "minimum": 0, "maximum": 1 },
+        "robustness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "evidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "generalization": { "type": "number", "minimum": 0, "maximum": 1 },
+        "cost": { "type": "number", "minimum": 0, "maximum": 1 },
+        "risk": { "type": "number", "minimum": 0, "maximum": 1 },
+        "complexity": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "evidenceList": {
+      "type": "object",
+      "properties": {
+        "provenance": { "type": "array", "items": { "type": "object", "required": ["episode", "outcome"], "properties": { "episode": { "type": "integer" }, "trajectory": { "type": "string" }, "outcome": { "type": "string", "enum": ["success", "failure", "partial"] } } } },
+        "contentHash": { "type": "string" }
+      }
+    }
+  }
+}

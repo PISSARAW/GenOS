@@ -1,31 +1,29 @@
 'use strict';
 
-/**
- * @file index.js
- * @description Mathematical services index — Math-1 through Math-4.
- */
+const { MathematicalCulture } = require('./mathematicalCultureService');
 
-const { createMathematicalEnvironment } = require('./mathematicalEnvironment');
-const { createResearchLineage } = require('./researchLineage');
-const { createMathematicalNiche } = require('./mathematicalNiche');
-const { createProofArtifact } = require('./proofArtifact');
-const { extractEpitopes } = require('./goalEpitopeExtractor');
-const { ProofStrategyRepertoire } = require('./proofStrategyRepertoire');
-const { MathematicalPopulation } = require('./mathematicalPopulation');
-const { MathematicalNichePopulationService } = require('./mathematicalNichePopulationService');
-const { LiteratureForager, PatchResult } = require('./mathematicalLiteratureForaging');
-const { MutationEngine } = require('./mutationEngine');
+const env = require('./mathematicalEnvironment');
+const lineage = require('./researchLineage');
+const niche = require('./mathematicalNiche');
+const artifact = require('./proofArtifact');
+const epitopes = require('./goalEpitopeExtractor');
+const repertoire = require('./proofStrategyRepertoire');
+const population = require('./mathematicalPopulation');
+const nicheService = require('./mathematicalNichePopulationService');
+const foraging = require('./mathematicalLiteratureForaging');
+const mutation = require('./mutationEngine');
 
 module.exports = {
-  createMathematicalEnvironment,
-  createResearchLineage,
-  createMathematicalNiche,
-  createProofArtifact,
-  extractEpitopes,
-  ProofStrategyRepertoire,
-  MathematicalPopulation,
-  MathematicalNichePopulationService,
-  LiteratureForager,
-  PatchResult,
-  MutationEngine,
+  createMathematicalEnvironment: env.createMathematicalEnvironment,
+  createResearchLineage: lineage.createResearchLineage,
+  createMathematicalNiche: niche.createMathematicalNiche,
+  createProofArtifact: artifact.createProofArtifact,
+  extractEpitopes: epitopes.extractEpitopes,
+  ProofStrategyRepertoire: repertoire.ProofStrategyRepertoire,
+  MathematicalPopulation: population.MathematicalPopulation,
+  MathematicalNichePopulationService: nicheService.MathematicalNichePopulationService,
+  LiteratureForager: foraging.LiteratureForager,
+  PatchResult: foraging.PatchResult,
+  MutationEngine: mutation.MutationEngine,
+  MathematicalCulture,
 };
