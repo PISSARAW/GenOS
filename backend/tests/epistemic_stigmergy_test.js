@@ -62,7 +62,7 @@ assert.strictEqual(shared.locus, 'auth');
 S.depositSignal(shared, { type: 'CLAIM_CONTRADICTION', payload: { claimId: 'C3' } });
 assert.strictEqual(shared.deposited.length, 1);
 
-const detected = S.detectSignals(shared, 'auth');
+const detected = S.detectSignals(shared, 'CLAIM_CONTRADICTION');
 assert.ok(detected.length >= 1);
 assert.ok(shared.received.length >= 1);
 
