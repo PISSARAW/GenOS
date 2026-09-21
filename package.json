@@ -18,6 +18,7 @@
     "docs:inventory:check": "node scripts/docs/generate-technical-inventory.js --check"
   },
   "dependencies": {
+    "msgpackr": "^2.1.0",
     "puppeteer": "^25.10.0"
   },
   "devDependencies": {

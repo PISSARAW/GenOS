@@ -64,14 +64,21 @@ const memory2 = immMemory.recordRejection([], sig);
 assert.strictEqual(memory2.length, 1);
 
 // 15: mutation selection — real mutations, not just envelopes
-const parent = { id: 'p1', nodes: [{ id: 'n1', type: 'inspect' }, { id: 'n2', type: 'patch', essential: true }], edges: [{ from: 'n1', to: 'n2', weight: 0.8 }] };
+const parent = {
+  metadata: { id: 'p1' },
+  structure: {
+    nodes: [{ id: 'n1', type: 'inspect' }, { id: 'n2', type: 'patch', required: true }],
+    synapses: [{ from: 'n1', to: 'n2', type: 'excitatory', weight: 0.8 }],
+  },
+};
 const variants = mutation.generateVariants(parent, 5);
 assert.strictEqual(variants.length, 5);
 assert.ok(variants[0].operations);
-assert.ok(variants[0].structure);
+assert.ok(variants[0].organism);
+assert.ok(variants[0].organism.structure);
 assert.ok(variants[0].id !== variants[1].id);
 
-const evaluated = mutation.evaluateVariants(variants, (v) => v.structure?.nodes?.length || 0);
+const evaluated = mutation.evaluateVariants(variants, (v) => v.organism?.structure?.nodes?.length || 0);
 assert.ok(evaluated[0].fitness != null);
 const survivors = mutation.selectSurvivors([{ fitness: 0.9 }, { fitness: 0.8 }, { fitness: 0.1 }], { topN: 2 });
 assert.strictEqual(survivors.length, 2);
