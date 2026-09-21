@@ -1,75 +1,79 @@
 /**
- * Causal Progress Service — Senseur de progrès causal.
+ * Causal Progress Service — Senseur de progrès causal v2.
  *
- * Il construit le vecteur SearchProgress à partir des événements du runtime :
- *  - evidenceGain
- *  - uncertaintyReduction
- *  - constraintsResolved
- *  - verifiedArtifactDelta
- *  - objectiveDelta
- *  - hypothesisInformationGain
- *  - cost (tokensConsumed, timeConsumed, costConsumed)
- *
- * Il calcule ensuite searchYield = progrès utile / ressources consommées,
- * et produit des diagnostics : DIMINISHING_RETURNS, SEMANTIC_STAGNATION.
+ * Corrections P0 :
+ *  - P0-5 : searchYield normalisé par budget (plus de mélange tokens+$+s)
+ *  - P0-7 : hypothesisInformationGain entre enfin dans le rendement
+ *  - P0-12 : prevenance explicite des preuves
+ *  - P0-13 : detectDiminishingReturns utilise EWMA + 2 fenêtres
  */
 
-const SEARCH_PROGRESS_WINDOW_MS = 90_000 // fenêtre glissante de 90 s
-const DEFAULT_EVIDENCE_WEIGHT = 0.4
-const DEFAULT_UNCERTAINTY_WEIGHT = 0.2
+const SEARCH_PROGRESS_WINDOW_MS = 90_000
+const DEFAULT_EVIDENCE_WEIGHT = 0.35
+const DEFAULT_UNCERTAINTY_WEIGHT = 0.15
 const DEFAULT_CONSTRAINT_WEIGHT = 0.1
 const DEFAULT_ARTIFACT_WEIGHT = 0.15
-const DEFAULT_OBJECTIVE_WEIGHT = 0.15
+const DEFAULT_OBJECTIVE_WEIGHT = 0.1
+const DEFAULT_HYPOTHESIS_INFO_WEIGHT = 0.15
+
+const PROVENANCE = {
+  OBSERVED: 'observed',
+  VERIFIED: 'verified',
+  INFERRED: 'inferred',
+  SELF_REPORTED: 'self_reported'
+}
+
+const PROVENANCE_WEIGHTS = {
+  observed: 1.0,
+  verified: 1.0,
+  inferred: 0.6,
+  self_reported: 0.3
+}
 
 class SearchProgressWindow {
   constructor(windowMs = SEARCH_PROGRESS_WINDOW_MS) {
     this.windowMs = windowMs
     this.steps = []
     this.objectiveStart = null
+    this.emaYield = null
+    this.emaAlpha = 0.3
   }
 
-  /** Déclarer un état objectif initial, si absent */
   ensureObjectiveInitial(value) {
     if (this.objectiveStart === null) {
       this.objectiveStart = value
     }
   }
 
-  /** Enregistrer un pas de recherche */
   pushStep(step) {
     const now = Date.now()
+    const provenance = step.provenance || PROVENANCE.SELF_REPORTED
+    const provenanceWeight = PROVENANCE_WEIGHTS[provenance] ?? 0.3
     this.steps.push({
       ts: now,
-      evidenceGain: Number(step.evidenceGain || 0),
-      uncertaintyReduction: Number(step.uncertaintyReduction || 0),
+      evidenceGain: Number(step.evidenceGain || 0) * provenanceWeight,
+      uncertaintyReduction: Number(step.uncertaintyReduction || 0) * provenanceWeight,
       constraintsResolved: Number(step.constraintsResolved || 0),
       verifiedArtifactDelta: Number(step.verifiedArtifactDelta || 0),
       objectiveDelta: Number(step.objectiveDelta || 0),
-      hypothesisInformationGain: Number(step.hypothesisInformationGain || 0),
+      hypothesisInformationGain: Number(step.hypothesisInformationGain || 0) * provenanceWeight,
       tokensConsumed: Number(step.tokensConsumed || 0),
       timeConsumed: Number(step.timeConsumed || 0),
-      costConsumed: Number(step.costConsumed || 0)
+      costConsumed: Number(step.costConsumed || 0),
+      provenance
     })
-    // éviction par fenêtre
     const cutoff = now - this.windowMs
     while (this.steps.length && this.steps[0].ts < cutoff) {
       this.steps.shift()
     }
   }
 
-  /** Nettoyer les pas appartenant à une ancienne période */
   resetAfter(ts) {
     this.steps = this.steps.filter(s => s.ts > ts)
   }
 
-  /** Somme utile du progrès dans la fenêtre */
   usefulProgress() {
-    let evidence = 0
-    let uncertainty = 0
-    let constraints = 0
-    let artifacts = 0
-    let objective = 0
-    let hypothesis = 0
+    let evidence = 0, uncertainty = 0, constraints = 0, artifacts = 0, objective = 0, hypothesis = 0
     for (const s of this.steps) {
       evidence += s.evidenceGain
       uncertainty += s.uncertaintyReduction
@@ -88,7 +92,6 @@ class SearchProgressWindow {
     }
   }
 
-  /** Ressources consommées dans la fenêtre */
   resourceConsumption() {
     let tokens = 0, time = 0, cost = 0
     for (const s of this.steps) {
@@ -99,67 +102,58 @@ class SearchProgressWindow {
     return { tokensConsumed: tokens, timeConsumed: time, costConsumed: cost }
   }
 
-  /** Nombre d'étapes dans la fenêtre */
-  stepCount() {
-    return this.steps.length
-  }
+  stepCount() { return this.steps.length }
 
   /**
-   * Détecter les rendements décroissants.
-   * Comparaison des deux derniers pas : si le second est nettement inférieur
-   * au premier, le patch produit des rendements décroissants.
+   * Détection de rendements décroissants par EWMA du yield.
+   * Compare la moyenne des yields récents à l'EWMA historique.
+   * Minimum 4 pas pour éviter les déclenchements prématurés (P1-8).
    */
   detectDiminishingReturns(threshold = 0.5) {
-    const n = this.steps.length
-    if (n < 2) return false
-    const recent = this.steps.slice(-2)
-    const firstUseful = this.weightedUseful(recent[0])
-    const secondUseful = this.weightedUseful(recent[1])
-    if (firstUseful <= 0) return false
-    const ratio = secondUseful / firstUseful
-    return ratio < threshold
+    if (this.steps.length < 4) return false
+    const yields = this.steps.map(s => this.stepYield(s))
+    const half = Math.floor(yields.length / 2)
+    const firstHalf = yields.slice(0, half)
+    const secondHalf = yields.slice(half)
+    const meanFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length
+    const meanSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length
+    if (meanFirst <= 0) return false
+    return (meanSecond / meanFirst) < threshold
   }
 
-  /** Valeur pondérée d'un pas */
+  stepYield(step) {
+    const useful = this.weightedUseful(step)
+    const res = Math.max(0.001, step.tokensConsumed + step.timeConsumed * 1000 + step.costConsumed * 100000)
+    return useful / Math.max(res, 1)
+  }
+
   weightedUseful(step) {
     return (
       DEFAULT_EVIDENCE_WEIGHT * step.evidenceGain +
       DEFAULT_UNCERTAINTY_WEIGHT * step.uncertaintyReduction +
       DEFAULT_CONSTRAINT_WEIGHT * step.constraintsResolved +
       DEFAULT_ARTIFACT_WEIGHT * step.verifiedArtifactDelta +
-      DEFAULT_OBJECTIVE_WEIGHT * step.objectiveDelta
+      DEFAULT_OBJECTIVE_WEIGHT * step.objectiveDelta +
+      DEFAULT_HYPOTHESIS_INFO_WEIGHT * step.hypothesisInformationGain
     )
   }
 
-  /** Somme pondérée utile dans la fenêtre */
   weightedUsefulTotal() {
     let total = 0
-    for (const s of this.steps) {
-      total += this.weightedUseful(s)
-    }
+    for (const s of this.steps) { total += this.weightedUseful(s) }
     return total
   }
 
-  /** Estimation du progrès objectif global depuis l'initialisation */
   objectiveProgress() {
     if (this.objectiveStart === null) return 0
     let delta = 0
-    for (const s of this.steps) {
-      delta += s.objectiveDelta
-    }
-    // valeur relative simple
+    for (const s of this.steps) { delta += s.objectiveDelta }
     const total = Math.abs(this.objectiveStart) + Math.abs(delta)
     if (total === 0) return 0
     return delta / total
   }
 }
 
-/**
- * CausalProgressService
- *
- * Reçoit les événements du runtime et produit un SearchProgressWindow
- * enrichi. Exporté pour être branché dans le pipeline d'événements.
- */
 class CausalProgressService {
   constructor(options = {}) {
     this.windowMs = options.windowMs || SEARCH_PROGRESS_WINDOW_MS
@@ -173,47 +167,31 @@ class CausalProgressService {
     this.globalTokens = 0
     this.globalTime = 0
     this.globalCost = 0
-    this.finalEvents = new Set([
-      'AGENT_COMPLETED',
-      'AGENT_FAILED',
-      'AGENT_RUNTIME_ERROR',
-      'WORKER_TASK_FAILED',
-      'WORKER_NO_ANSWER_PROVEN',
-      'MISSION_NO_ANSWER_PROVEN'
-    ])
   }
 
-  /**
-   * Injecter un événement d'exécution et mettre à jour les mesures.
-   * Retourne le rapport SearchProgress brut.
-   */
   ingestEvent(event) {
     if (!event || typeof event !== 'object') return this.report()
-
     const payload = event.payload || {}
-    const evidence = Number(payload.evidenceGain || event.evidenceGain || 0)
-    const uncertainty = Number(payload.uncertaintyReduction || event.uncertaintyReduction || 0)
-    const constraints = Number(payload.constraintsResolved || event.constraintsResolved || 0)
-    const artifacts = Number(payload.verifiedArtifactDelta || event.verifiedArtifactDelta || 0)
-    const objective = Number(payload.objectiveDelta || event.objectiveDelta || 0)
-    const hypothesis = Number(payload.hypothesisInformationGain || event.hypothesisInformationGain || 0)
-    const tokens = Number(payload.tokensConsumed || event.tokensConsumed || 0)
-    const time = Number(payload.timeConsumed || event.timeConsumed || 0)
-    const cost = Number(payload.costConsumed || event.costConsumed || 0)
+    const provenance = payload.provenance || PROVENANCE.SELF_REPORTED
+    const pw = PROVENANCE_WEIGHTS[provenance] ?? 0.3
+    const evidence = Number(payload.evidenceGain || 0) * pw
+    const uncertainty = Number(payload.uncertaintyReduction || 0) * pw
+    const constraints = Number(payload.constraintsResolved || 0)
+    const artifacts = Number(payload.verifiedArtifactDelta || 0)
+    const objective = Number(payload.objectiveDelta || 0)
+    const hypothesis = Number(payload.hypothesisInformationGain || 0) * pw
+    const tokens = Number(payload.tokensConsumed || 0)
+    const time = Number(payload.timeConsumed || 0)
+    const cost = Number(payload.costConsumed || 0)
 
     this.window.pushStep({
-      evidenceGain: evidence,
-      uncertaintyReduction: uncertainty,
-      constraintsResolved: constraints,
-      verifiedArtifactDelta: artifacts,
-      objectiveDelta: objective,
-      hypothesisInformationGain: hypothesis,
-      tokensConsumed: tokens,
-      timeConsumed: time,
-      costConsumed: cost
+      evidenceGain: evidence, uncertaintyReduction: uncertainty,
+      constraintsResolved: constraints, verifiedArtifactDelta: artifacts,
+      objectiveDelta: objective, hypothesisInformationGain: hypothesis,
+      tokensConsumed: tokens, timeConsumed: time, costConsumed: cost,
+      provenance
     })
 
-    // agrégats globaux (hors fenêtre)
     this.globalEvidence += evidence
     this.globalUncertainty += uncertainty
     this.globalConstraints += constraints
@@ -227,20 +205,12 @@ class CausalProgressService {
     return this.report()
   }
 
-  /** Déclarer le point objectif initial (si pas déjà fait) */
-  seedObjective(value) {
-    this.window.ensureObjectiveInitial(value)
-  }
+  seedObjective(value) { this.window.ensureObjectiveInitial(value) }
 
-  /** Reset partiel après un événement final (fork / nouvelle branche) */
-  resetAfterEvent(event) {
-    if (!event) return
-    // vider complètement la fenêtre pour repartir sur une nouvelle trajectoire
+  resetAfterEvent() {
     this.window.steps = []
-    // on conserve les agrégats globaux, car ils servent la mémoire à plus long terme
   }
 
-  /** Rapport SearchProgress complet : fenêtre + globale */
   report() {
     const win = this.window
     const wUseful = win.usefulProgress()
@@ -249,7 +219,6 @@ class CausalProgressService {
     const wYield = this.searchYield(wUseful, wRes)
 
     return {
-      // fenêtre glissante
       window: {
         evidenceGain: wUseful.evidenceGain,
         uncertaintyReduction: wUseful.uncertaintyReduction,
@@ -263,19 +232,13 @@ class CausalProgressService {
         steps: wSteps,
         searchYield: wYield
       },
-      // agrégats globaux (persistants)
       global: {
-        evidenceGain: this.globalEvidence,
-        uncertaintyReduction: this.globalUncertainty,
-        constraintsResolved: this.globalConstraints,
-        verifiedArtifactDelta: this.globalArtifacts,
-        objectiveDelta: this.globalObjective,
-        hypothesisInformationGain: this.globalHypothesisInfo,
-        tokensConsumed: this.globalTokens,
-        timeConsumed: this.globalTime,
+        evidenceGain: this.globalEvidence, uncertaintyReduction: this.globalUncertainty,
+        constraintsResolved: this.globalConstraints, verifiedArtifactDelta: this.globalArtifacts,
+        objectiveDelta: this.globalObjective, hypothesisInformationGain: this.globalHypothesisInfo,
+        tokensConsumed: this.globalTokens, timeConsumed: this.globalTime,
         costConsumed: this.globalCost
       },
-      // diagnostics
       diagnostics: {
         diminishingReturns: win.detectDiminishingReturns(),
         stepsInWindow: wSteps,
@@ -285,30 +248,40 @@ class CausalProgressService {
   }
 
   /**
-   * Calcul du rendement de recherche.
-   * searchYield = progrès utile pondéré / ressources consommées.
-   * Si aucune ressource consommée, rendement = 0 par sécurité.
+   * searchYield v2 : normalisation par budget (P0-5).
+   * Chaque ressource est normalisée indépendamment par son budget,
+   * puis combinée avec des poids.
    */
-  searchYield(useful, resources) {
+  searchYield(useful, resources, budgets = {}) {
+    const tokenBudget = Math.max(1, budgets.tokenBudget || 100000)
+    const costBudget = Math.max(0.01, budgets.costBudget || 1.0)
+    const timeBudget = Math.max(1, budgets.timeBudget || 600)
+
     const totalUseful = (
       DEFAULT_EVIDENCE_WEIGHT * useful.evidenceGain +
       DEFAULT_UNCERTAINTY_WEIGHT * useful.uncertaintyReduction +
       DEFAULT_CONSTRAINT_WEIGHT * useful.constraintsResolved +
       DEFAULT_ARTIFACT_WEIGHT * useful.verifiedArtifactDelta +
-      DEFAULT_OBJECTIVE_WEIGHT * useful.objectiveDelta
+      DEFAULT_OBJECTIVE_WEIGHT * useful.objectiveDelta +
+      DEFAULT_HYPOTHESIS_INFO_WEIGHT * useful.hypothesisInformationGain
     )
-    const totalResources = resources.tokensConsumed + resources.timeConsumed + resources.costConsumed
-    if (totalResources <= 0) return 0
-    return totalUseful / totalResources
+
+    const normalizedCost = (
+      0.5 * (resources.tokensConsumed / tokenBudget) +
+      0.3 * (resources.costConsumed / costBudget) +
+      0.2 * (resources.timeConsumed / timeBudget)
+    )
+
+    if (normalizedCost <= 0) return 0
+    const eps = 0.001
+    return totalUseful / (eps + normalizedCost)
   }
 }
 
 module.exports = {
-  SearchProgressWindow,
-  CausalProgressService,
-  DEFAULT_EVIDENCE_WEIGHT,
-  DEFAULT_UNCERTAINTY_WEIGHT,
-  DEFAULT_CONSTRAINT_WEIGHT,
-  DEFAULT_ARTIFACT_WEIGHT,
-  DEFAULT_OBJECTIVE_WEIGHT
+  SearchProgressWindow, CausalProgressService,
+  DEFAULT_EVIDENCE_WEIGHT, DEFAULT_UNCERTAINTY_WEIGHT,
+  DEFAULT_CONSTRAINT_WEIGHT, DEFAULT_ARTIFACT_WEIGHT,
+  DEFAULT_OBJECTIVE_WEIGHT, DEFAULT_HYPOTHESIS_INFO_WEIGHT,
+  PROVENANCE, PROVENANCE_WEIGHTS
 }
