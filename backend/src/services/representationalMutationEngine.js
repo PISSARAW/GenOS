@@ -151,19 +151,25 @@ function reprDescription(a, b, opts) {
 
 function buildReprObject(a, b, opts) {
   opts = opts || {};
+  // Calcule la distance sémantique réelle si possible
+  const aId = a && (a.id || a) || null;
+  const bId = b && (b.id || b) || null;
+  // La distance sémantique est calculée asynchnore dans evaluatePair()
+  // Ici on met 0.5 (inconnue) par défaut, elle sera mise à jour
+  // dans selectDistantParents() quand le contexte db est disponible
   return {
     name: shortName(a) + '<>' + shortName(b),
     representationType: opts.representationType || 'hybrid',
     parents: buildReprParents(a, b),
     description: reprDescription(a, b, opts),
     provenance: {
-      source_a: a && (a.id || a),
-      source_b: b && (b.id || b),
+      source_a: aId,
+      source_b: bId,
       combined_at: new Date().toISOString(),
       representation_type: opts.representationType || 'hybrid',
     },
     creativity_metrics: {
-      semantic_distance: 0.75,
+      semantic_distance: 0.5,
       remote_association: true,
       combination_depth: 2,
     },

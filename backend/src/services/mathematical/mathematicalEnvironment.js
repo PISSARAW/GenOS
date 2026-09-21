@@ -8,6 +8,7 @@
  */
 
 const crypto = require('node:crypto');
+const { createMathematicalNiche } = require('./mathematicalNiche');
 
 function envId() {
   return `math-env-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
@@ -72,6 +73,12 @@ class MathematicalEnvironment {
 
   get Artifacts() {
     return [...this.artifacts.values()];
+  }
+
+  createNiche(options) {
+    const niche = createMathematicalNiche(options);
+    this.addNiche(niche);
+    return niche;
   }
 
   summary() {

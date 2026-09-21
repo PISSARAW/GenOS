@@ -68,6 +68,14 @@ async function persistGenome(db, organism, options = {}) {
   const fitnessScore = organism?.fitness?.score ?? null;
   const status = options.status || 'active';
 
+  const toSave = {
+    ...organism,
+    metadata: {
+      ...(organism.metadata || {}),
+      id: versionId,
+    },
+  };
+
   await run(
     db,
     `INSERT INTO procedural_genomes
@@ -79,7 +87,7 @@ async function persistGenome(db, organism, options = {}) {
       stateHash,
       organism?.metadata?.parentId || null,
       organism?.metadata?.lineageId || null,
-      JSON.stringify(organism),
+      JSON.stringify(toSave),
       fitnessScore,
       organism?.fitness ? JSON.stringify(organism.fitness) : null,
       status,
@@ -89,7 +97,7 @@ async function persistGenome(db, organism, options = {}) {
     ]
   );
 
-  return organism;
+  return toSave;
 }
 
 async function loadGenome(db, versionId) {

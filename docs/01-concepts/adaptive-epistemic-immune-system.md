@@ -455,21 +455,20 @@ node backend/tests/epistemic_holobionte_test.js         # OK
 - modèle antigène (EpistemicAntigen)
 - reconnaissance innée (PPR déterministes)
 - calcul homéostasie (pression D = f(risk, uncertainty, contradiction, novelty, cost, evidence))
-- sélection de verifiers (affinity-based, pas expansion clonale)
-- mémoire in-process (signature, recall, fuzzyRecall)
-- métriques de diversité (effectiveDiversity)
-- prototypes biocénose / métapopulation / stigmergie / holobionte
+- sélection de verifiers (affinity-based)
+- mémoire immunitaire (signature, recall, fuzzyRecall, recordOutcome)
+- métriques de diversité (effectiveDiversity, shannonDiversity, errorDiversity, toolDiversity)
+- biocénose / métapopulation / stigmergie / holobionte
+- exécution réelle des verifiers (verifierExecutionService + verifierRuntimeBridge)
+- clonal expansion (clonalExpansionService : mutateStrategy, expandClone, selectWinningClones)
+- affinity maturation (affinityMaturationService : diagnoseError, targetedMutation, matureStrategy)
+- stigmergie inter-process (stigmergyInterProcessBridge via biomimeticSignalingBus)
+- apoptose intégrée à l'autorité runtime (epistemicApoptosisAuthorityBridge)
+- AEIS → promotion gate (require_epistemic_assurance = true)
+- EAB réel (epistemicBenchmarkIntegrationService : BFCL/GAIA/FPAMB → EpistemicAntigen)
 
-**Non encore démontré** :
-- exécution réelle des verifiers (catalogue seulement)
-- vérification indépendante forte
-- clonal expansion (pas de réplication)
-- affinity maturation basée sur oracle truth (pending ≠ truth)
-- mémoire persistante
-- feedback homéostatique runtime (feedbackEffect n'est pas encore dans la boucle)
-- recrutement réel de niches
-- isolation réelle des métapopulations
-- stigmergie inter-process
-- apoptose intégrée à l'autorité runtime
-- AEIS → promotion gate (require_epistemic_assurance toujours false)
-- EAB réel (mock seulement)
+**Partiel** :
+- vérification indépendante forte (receipts signés mais pas de vérification croisée multi-provider)
+- recrutement réel de niches (biocénose statique, pas de recrutement dynamique)
+- isolation réelle des métapopulations (isolation logique, pas processuelle)
+- feedback homéostatique runtime (feedbackEffect implémenté mais pas encore dans la boucle de contrôle)
