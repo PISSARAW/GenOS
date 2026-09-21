@@ -32,6 +32,7 @@ function fitness(policy, metrics = {}) {
       evidence: v('evidence', 0), generalization: v('generalization', 0),
       cost: v('cost', 0), risk: v('risk', 0), complexity: v('complexity', 0),
     },
+    weights: { ...w },
   };
 }
 

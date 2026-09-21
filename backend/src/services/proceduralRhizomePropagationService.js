@@ -24,7 +24,16 @@ function validateFragment(fragment, validator = null) {
 
 function assimilate(target, fragment) {
   if (!fragment.validated) return target;
-  return { ...target, ...fragment.procedure, id: target.id || fragment.procedure?.id, assimilatedFrom: fragment.source };
+  const allowedFields = fragment.allowedFields || ['role', 'strategy', 'tools', 'capabilities', 'prompt'];
+  const merged = { ...target };
+  for (const field of allowedFields) {
+    if (fragment.procedure?.[field] != null) {
+      merged[field] = fragment.procedure[field];
+    }
+  }
+  merged.assimilatedFrom = fragment.source;
+  merged.assimilatedAt = new Date().toISOString();
+  return merged;
 }
 
 function tracePropagation(fragments) {

@@ -14,6 +14,9 @@ assert.strictEqual(fit.withinBudget(graph, 0.9).ok, true);
 assert.strictEqual(fit.withinBudget(graph, 0.1).ok, false);
 const result = fit.fitness({ fitnessWeights: { success: 0.3, robustness: 0.2, evidence: 0.2, generalization: 0.1, cost: 0.08, risk: 0.07, complexity: 0.05 } }, { success: 1, robustness: 1, evidence: 1, generalization: 1, cost: 0, risk: 0, complexity: 0 });
 assert.ok(result.score > 0.79);
+assert.ok(result.components);
+assert.ok(result.weights);
+assert.strictEqual(result.components.success, 1);
 const h = fit.fitnessHistoryCompare([0.1, 0.3, 0.5]);
 assert.strictEqual(h.trend, "improving");
 const h2 = fit.fitnessHistoryCompare([0.5, 0.3, 0.1]);
@@ -24,6 +27,8 @@ const w1 = homeo.homeostaticWeight(0.8, 0.8, { homeostasis: { targetActivation: 
 assert.ok(w1 < 0.8);
 const w2 = homeo.homeostaticWeight(0.01, 0.01, { homeostasis: { targetActivation: 0.12, sensitivity: 0.3 } });
 assert.ok(w2 > 0.01);
+const wZero = homeo.homeostaticWeight(0.5, 0, { homeostasis: { targetActivation: 0.12, sensitivity: 0.3 } });
+assert.strictEqual(wZero, 0.5);
 const norm = homeo.normalizeActivations([0.5, 0.3, 0.2], { homeostasis: { targetActivation: 0.3, sensitivity: 0.3 } });
 assert.strictEqual(norm.length, 3);
 const rigid = homeo.isRigid([0.95, 0.03, 0.02]);

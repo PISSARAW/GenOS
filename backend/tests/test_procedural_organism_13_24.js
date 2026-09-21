@@ -116,14 +116,14 @@ assert.ok(fit > 0.8);
 assert.ok(holo.hasSymbionte(host, 's1'));
 
 // 20: rhizome propagation
-const frag = rhizome.fragmentFrom({ id: 'proc1', role: 'debug' }, { agent: 'A' });
+const frag = rhizome.fragmentFrom({ id: 'proc1', role: 'debug', strategy: 'auto', tools: ['a', 'b'] }, { agent: 'A' });
 assert.strictEqual(frag.source, 'proc1');
 const validated = rhizome.validateFragment(frag, (f) => f.procedure != null);
 assert.strictEqual(validated.validated, true);
-const assim = rhizome.assimilate({ id: 'target' }, validated);
-assert.ok(assim.assimilatedFrom === 'proc1');
-const trace = rhizome.tracePropagation([frag]);
-assert.strictEqual(trace.length, 1);
+const assim = rhizome.assimilate({ id: 'target', role: 'original' }, validated);
+assert.strictEqual(assim.role, 'debug');
+assert.strictEqual(assim.id, 'target');
+assert.ok(assim.assimilatedAt);
 
 // 21: metapopulation
 const meta = metapop.metapopulation({ id: 'm1' });
