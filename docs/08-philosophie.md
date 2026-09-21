@@ -434,167 +434,6 @@ restent les autorités effectives du runtime.
 
 - Meillassoux, *Après la finitude*
 
-## 27. Natural Creative Ecology (NCE)
-
-### 27.1. Hypothèse
-
-> La créativité artificielle peut-elle émerger de l'interaction de plusieurs mécanismes naturels de création de nouveauté, plutôt que d'un unique algorithme d'optimisation ?
-
-Cette hypothèse est implémentée dans GenOS sous le nom de **Natural Creative Ecology** (NCE). Elle postule que les six mécanismes naturels de génération de nouveauté sont complémentaires et non redondants.
-
-### 27.2. Les six niveaux naturels
-
-| Niveau | Source biologique | Fonction cognitive | Service GenOS |
-|--------|-------------------|-------------------|---------------|
-| Humain | DMN, imagination contrefactuelle | Espace de possibilités | `representationalMutationEngine.js`, `exaptationEngine.js` |
-| Animal | Curiosité, jeu, exploration | Découverte de possibilités | `curiosityService.js`, `playService.js` |
-| Végétal | Plasticité phénotypique | Adaptation de la machine | `phenotypicDevelopmentService.js` |
-| Matière | Auto-organisation, stigmergie | Structure spontanée | `biomeCoordinationService.js` (existant) |
-| Évolution | Mutation, sélection, exaptation | Accumulation transgénérationnelle | `agentEvolutionService.js` (existant) |
-| Culture | Transmission intentionnelle | Accumulation inter-agent | `culturalTransmissionService.js` |
-
-### 27.3. Boucle de créativité
-
-```
-                         WORLD
-                           │
-                     perturbation
-                           ▼
-                ┌────────────────────┐
-                │ SELF-ORGANIZATION  │ ← MATTER
-                └─────────┬──────────┘
-                          │
-                          ▼
-                ┌────────────────────┐
-                │    PLASTICITY      │ ← PLANTS
-                └─────────┬──────────┘
-                          │
-                          ▼
-                ┌────────────────────┐
-                │    EXPLORATION     │ ← ANIMALS
-                │    curiosity, play │
-                └─────────┬──────────┘
-                          │
-                     observations
-                          ▼
-                ┌────────────────────┐
-                │    IMAGINATION     │ ← HUMANS
-                │ counterfactuals,   │
-                │ reframing, remote  │
-                │ association        │
-                └─────────┬──────────┘
-                          │
-                       ideas
-                          ▼
-                   EXPERIMENTATION
-                          │
-                    evidence gate
-                          ▼
-               ┌─────────────────────┐
-               │     EVOLUTION       │
-               │ preserve / mutate   │
-               │ exapt / speciate    │
-               └─────────┬───────────┘
-                         │
-                         ▼
-               ┌─────────────────────┐
-               │       CULTURE       │
-               │ teach / imitate     │
-               │ modify / transmit   │
-               └─────────┬───────────┘
-                         │
-                  new capabilities
-                         │
-                         └──────────────► WORLD
-```
-
-### 27.4. Principe fondamental : la nouveauté crée des affordances
-
-Une découverte n'est véritablement intéressante que si elle ouvre de nouvelles possibilités :
-
-```
-OpenEndedValue(x) = Novelty(x) × FuturePossibilités(x)
-```
-
-C'est le concept de **stepping stone** : une découverte moyenne qui permet ensuite 20 autres découvertes peut être plus importante qu'une découverte spectaculaire mais terminale.
-
-### 27.5. Mécanismes par niveau
-
-#### Humain → Imagination
-- **RepresentationalMutation** : au lieu de muter une solution, on mute sa représentation (ex: "allocation de tâches" → "problème de marché" → "écosystème de niches").
-- **Recombinaison associative distante** : sélection de parents dans le graphe sémantique en maximisant `distance × compatibilité × potentiel`.
-- **Exaptation** : une capacité existante est réinvestie dans un nouveau contexte (ex: stigmergie des fourmis → protocole de communication).
-
-#### Animal → Exploration
-- **Curiosité basée sur le progrès d'apprentissage** : les agents explorent les domaines où ils progressent, pas les domaines déjà maîtrisés ni les domaines imprévisibles mais non apprenants (piège noisy-TV).
-- **PlaySandbox** : les agents peuvent explorer sans mission externe, avec un budget limité et un sandbox sécurisé.
-- **AffordanceMemory** : les capacités découvertes par l'exploration sont mémorisées pour futures réutilisations.
-
-#### Végétal → Plasticité
-- **Développement phénotypique** : le phénotype d'un agent se développe en réponse à l'environnement. Des branches (spécialisations) poussent vers les ressources et atrophient quand inutilisées.
-- **Réactivation** : une branche atrophiée peut être réactivée si le contexte change.
-
-#### Évolution → Accumulation
-- **Accumulation transgénérationnelle** : les innovations sont conservées et transmises aux générations suivantes.
-- **Exaptation évolutive** : des structures existantes sont réinvesties.
-
-#### Culture → Transmission
-- **Transmission inter-agent** : imitation, démonstration, enseignement, apprentissage, utilisation d'artefacts.
-- **Sélection culturelle** : les traits culturels sont évalués selon leur utilité, leurs preuves, leur prestige, leur fiabilité.
-- **Traditions** : des lignées d'artefacts avec variants.
-
-### 27.6. Tests d'ablation
-
-L'expérience déterminante compare :
-
-```
-BASELINE → +curiosity → +exploration → +plasticity → +selfOrg → +evolution → +culture → FULL NCE
-```
-
-avec à chaque étape les mêmes modèles, le même budget et les mêmes problèmes.
-
-Les métriques mesurées :
-- **Δ performance** : taux de succès
-- **Δ nouveauté** : distance par rapport aux solutions existantes
-- **Δ diversité** : nombre de solutions uniques
-- **Δ transfert** : capacité à résoudre des problèmes nouveaux
-- **Δ coût** : tokens/étapes nécessaires
-- **Δ découvertes** : nombre de stepping stones ouvertes
-
-Voir `backend/tests/nce_ablation_tests.js`.
-
-### 27.7. Intégration dans l'orchestrateur
-
-Les 6 moteurs sont intégrés dans `backend/bin/genos-orchestrate.cjs` via `nceIntegrationService.js`. Les améliorations sont optionnelles et non-blocantes : si un moteur échoue, la mission continue sans lui.
-
-### 27.8. Distinction par rapport aux systèmes existants
-
-| Système | Mécanisme dominant | Version NCE |
-|---------|-------------------|-------------|
-| AlphaEvolve | évolution + évaluateur auto | évolution sous preuve + niches + exaptation |
-| DGM | archive d'agents auto-modifiants | AgentDNA + lignées + phénotypes + gates |
-| POET | coévolution env/agent | coévolution env/agent/representation |
-| Voyager | curriculum auto + skills | curiosité animale + culture cumulative |
-| Co-Scientist | société d'hypothèses | topologies + imagination + épistémologie |
-| QD | solutions diverses + performantes | écosystème de niches multi-échelles |
-
-### 27.9. Références
-
-- Ten et al., *Humans monitor learning progress in curiosity-driven exploration* (PMC8514490, 2021)
-- Wu et al., *A Systematic Review of Creativity-Related Studies Applying the Remote Associates Test* (PMC7644781, 2020)
-- Beaty et al., *Network Neuroscience of Creative Cognition* (PMC6428436, 2018)
-- Kassen, *Experimental evolution of innovation novelty* (PMC66428436, 2019)
-- Colizzi et al., *Modelling the evolution of novelty* (PMC9750852, 2022)
-- Wang et al., *POET: Endlessly Generating Increasingly Complex Environments* (arXiv:1901.01753, 2019)
-- Wang et al., *Voyager: An Open-Ended Embodied Agent* (arXiv:2305.16291, 2023)
-- Qian et al., *Quality-Diversity Algorithms* (arXiv:2401.10539, 2024)
-- Morgan et al., *Human culture is uniquely open-ended* (Nature, 2024)
-- Mackintosh et al., *Intentional transmission of knowledge* (Nature Sci Rep, 2026)
-- Plant Phenotypic Plasticity (Annual Reviews, 2026)
-- Root Growth and Development (Annual Reviews, 2025) (2006)
-- Brassier, *Nihil Unbound* (2007)
-- Harman, *Instrumentalité accrue* (2002) ; Grant, *Philosophies of Nature* (2005)
-
 ## 23. Tout, vide, infini — triade métaphysique
 
 ### Concepts
@@ -938,15 +777,15 @@ le transport et le refus des effets hors allow-list. Voir [ADR 0016](adr/0016-ef
 - Badiou, *L'Être et l'Événement*
 - Meillassoux, *Après la finitude*
 
-## 27. Natural Creative Ecology (NCE)
+## 28. Natural Creative Ecology (NCE)
 
-### 27.1. Hypothèse
+### 28.1. Hypothèse
 
 > La créativité artificielle peut-elle émerger de l'interaction de plusieurs mécanismes naturels de création de nouveauté, plutôt que d'un unique algorithme d'optimisation ?
 
 Cette hypothèse est implémentée dans GenOS sous le nom de **Natural Creative Ecology** (NCE). Elle postule que les six mécanismes naturels de génération de nouveauté sont complémentaires et non redondants.
 
-### 27.2. Les six niveaux naturels
+### 28.2. Les six niveaux naturels
 
 | Niveau | Source biologique | Fonction cognitive | Service GenOS |
 |--------|-------------------|-------------------|---------------|
@@ -957,7 +796,7 @@ Cette hypothèse est implémentée dans GenOS sous le nom de **Natural Creative 
 | Évolution | Mutation, sélection, exaptation | Accumulation transgénérationnelle | `agentEvolutionService.js` (existant) |
 | Culture | Transmission intentionnelle | Accumulation inter-agent | `culturalTransmissionService.js` |
 
-### 27.3. Boucle de créativité
+### 28.3. Boucle de créativité
 
 ```
                          WORLD
@@ -1012,7 +851,7 @@ Cette hypothèse est implémentée dans GenOS sous le nom de **Natural Creative 
                          └──────────────► WORLD
 ```
 
-### 27.4. Principe fondamental : la nouveauté crée des affordances
+### 28.4. Principe fondamental : la nouveauté crée des affordances
 
 Une découverte n'est véritablement intéressante que si elle ouvre de nouvelles possibilités :
 
@@ -1022,7 +861,7 @@ OpenEndedValue(x) = Novelty(x) × FuturePossibilités(x)
 
 C'est le concept de **stepping stone** : une découverte moyenne qui permet ensuite 20 autres découvertes peut être plus importante qu'une découverte spectaculaire mais terminale.
 
-### 27.5. Mécanismes par niveau
+### 28.5. Mécanismes par niveau
 
 #### Humain → Imagination
 - **RepresentationalMutation** : au lieu de muter une solution, on mute sa représentation (ex: "allocation de tâches" → "problème de marché" → "écosystème de niches").
@@ -1047,7 +886,7 @@ C'est le concept de **stepping stone** : une découverte moyenne qui permet ensu
 - **Sélection culturelle** : les traits culturels sont évalués selon leur utilité, leurs preuves, leur prestige, leur fiabilité.
 - **Traditions** : des lignées d'artefacts avec variants.
 
-### 27.6. Tests d'ablation
+### 28.6. Tests d'ablation
 
 L'expérience déterminante compare :
 
@@ -1067,7 +906,7 @@ Les métriques mesurées :
 
 Voir `backend/tests/nce_ablation_tests.js`.
 
-### 27.7. Intégration dans l'orchestrateur
+### 28.7. Intégration dans l'orchestrateur
 
 Les 6 moteurs sont intégrés dans `backend/bin/genos-orchestrate.cjs` via `nceIntegrationService.js`. Les améliorations sont optionnelles et non-blocantes : si un moteur échoue, la mission continue sans lui.
 
