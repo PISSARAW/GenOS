@@ -24,12 +24,12 @@ const r3 = engine.exapt(l1, 'graph-theory');
 assert.ok(r3 !== null);
 assert.strictEqual(r3.type, 'exaptation');
 
-// Horizontal gene transfer
-const source = createResearchLineage({ name: 'source', strategies: ['omega', 'ring'] });
+// Horizontal gene transfer — use a source with a strategy not already in target
+const source = createResearchLineage({ name: 'source', strategies: ['ring'] });
 const target = createResearchLineage({ name: 'target', strategies: ['induction'] });
 const r4 = engine.horizontalGeneTransfer(source, target);
 assert.ok(r4 !== null);
-assert.ok(target.genome.strategies.includes('omega'));
+assert.ok(target.genome.strategies.includes('ring'));
 
 // Summary
 const s = engine.summary();

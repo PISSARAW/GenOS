@@ -349,7 +349,13 @@ mod tests {
         let world = WorldState::default();
         let hypothesis = dreaming.dream(&world, 10.0, 0).remove(0);
 
-        assert_eq!(hypothesis.simulation.state_delta.budget_before, world.budget);
-        assert_eq!(hypothesis.simulation.state_delta.tested_additions, vec![hypothesis.concept]);
+        assert_eq!(
+            hypothesis.simulation.state_delta.budget_before,
+            world.budget
+        );
+        assert_eq!(
+            hypothesis.simulation.state_delta.tested_additions,
+            vec![hypothesis.concept]
+        );
     }
 }

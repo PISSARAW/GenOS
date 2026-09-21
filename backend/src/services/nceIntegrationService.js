@@ -57,7 +57,7 @@ async function applyCuriosity(mission, config) {
   return selectCuriousDomain(
     mission.explorationDomains,
     { availableTokens: mission.budget?.tokens || 1000 },
-    config.curiosity.weights
+    { weights: config.curiosity.weights }
   );
 }
 

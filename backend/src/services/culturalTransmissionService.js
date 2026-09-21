@@ -20,20 +20,20 @@ function createTransmission(opts) {
     sourceAgentId: opts.sourceAgentId,
     targetAgentId: opts.targetAgentId,
     artifactId: opts.artifactId,
-    mode: opts.mode || 'imitation',
-    fidelity: opts.fidelity || mode.fidelity,
-    cost: opts.cost || mode.cost,
+    mode: opts.mode ?? 'imitation',
+    fidelity: opts.fidelity ?? mode.fidelity,
+    cost: opts.cost ?? mode.cost,
     timestamp: new Date().toISOString(),
     status: 'pending',
-    context: opts.context || {},
+    context: opts.context ?? {},
     outcome: null,
   };
 }
 
 function computeEfficiency(transmission, artifact, skills) {
   const mode = getMode(transmission.mode);
-  const skillGap = Math.max(0, (skills.sourceSkill || 0.5) - (skills.targetSkill || 0.3));
-  const artifactQuality = (artifact && (artifact.quality || artifact.confidence)) || 0.5;
+  const skillGap = Math.max(0, (skills.sourceSkill ?? 0.5) - (skills.targetSkill ?? 0.3));
+  const artifactQuality = (artifact && (artifact.quality ?? artifact.confidence)) ?? 0.5;
   return mode.fidelity * artifactQuality * (1 + skillGap);
 }
 
@@ -56,7 +56,7 @@ function simulateTransmission(opts) {
 }
 
 function buildOutcome(opts) {
-  const quality = (opts.artifact && (opts.artifact.quality || opts.artifact.confidence)) || 0.5;
+  const quality = (opts.artifact && (opts.artifact.quality ?? opts.artifact.confidence)) ?? 0.5;
   return {
     efficiency: opts.efficiency,
     skillGap: 0,
@@ -73,12 +73,12 @@ function createCulturalArtifact(opts) {
     agentId: opts.agentId,
     type: opts.type,
     content: opts.content,
-    lineage: opts.lineage || [opts.agentId],
-    provenance: opts.provenance || { createdBy: opts.agentId, createdAt: new Date().toISOString() },
-    quality: opts.quality || 0.5,
+    lineage: opts.lineage ?? [opts.agentId],
+    provenance: opts.provenance ?? { createdBy: opts.agentId, createdAt: new Date().toISOString() },
+    quality: opts.quality ?? 0.5,
     usageCount: 0,
     successCount: 0,
-    innovation: opts.innovation || null,
+    innovation: opts.innovation ?? null,
     createdAt: new Date().toISOString(),
     active: true,
   };

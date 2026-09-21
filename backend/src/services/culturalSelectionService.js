@@ -19,9 +19,9 @@ const SELECTION_CRITERIA = {
 
 function evaluateCulturalTrait(trait, context) {
   const scores = {
-    usefulness: trait.utility || 0,
-    evidence: trait.evidenceScore || trait.quality || 0,
-    prestige: (trait.sourcePrestige || 0.5),
+    usefulness: trait.utility ?? 0,
+    evidence: trait.evidenceScore ?? trait.quality ?? 0,
+    prestige: trait.sourcePrestige ?? 0.5,
     reliability: trait.useCount > 0 ? (trait.successCount / trait.useCount) : 0.3,
     contextualFit: computeContextualFit(trait, context),
   };
@@ -61,12 +61,12 @@ function selectCulturalTraits(traits, context, maxCount) {
 // ─── Abandon de traits obsolètes ────────────────────────────────────
 
 function pruneObsoleteTraits(traits, threshold) {
-  const minScore = threshold || 0.2;
+  const minScore = threshold ?? 0.2;
   const kept = [];
   const pruned = [];
 
   for (const trait of traits) {
-    const score = trait.quality || trait.utility || 0.5;
+    const score = trait.quality ?? trait.utility ?? 0.5;
     if (score < minScore) {
       pruned.push({ trait, score, reason: 'below_threshold' });
     } else {

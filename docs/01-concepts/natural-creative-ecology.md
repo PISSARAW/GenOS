@@ -1,6 +1,6 @@
 # Natural Creative Ecology — Créativité Artificielle Multi-Échelle
 
-- **Statut** : Implémenté — 11 services backend couvrant 6 moteurs de création de nouveauté, intégrés dans l'orchestrateur natif (`genos-orchestrate.cjs`). Tests d'ablation en cours de validation.
+- **Statut** : Prototype avancé — 6 mécanismes individuels implémentés, intégration runtime partielle. Les moteurs fonctionnent comme services mais leur interaction causale reste en cours de développement. Tests d'ablation scientifiquement valides. Boucle NCE non encore fermée.
 - **Portée** : `backend/src/services/{curiosity,representationalMutation,exaptation,play,affordanceMemory,phenotypeDevelopment,environmentGenerator,culturalTransmission,culturalSelection}Service.js`, `backend/src/services/nceIntegrationService.js`, `backend/bin/genos-orchestrate.cjs`, `backend/tests/nceAblation*.test.js`, `docs/08-philosophie.md` (section 28).
 - **Dernière revue** : 2026-09-21.
 - **Dérivé** : [Mathematical Organism](mathematical-organism.md) — implémentation NCE pour la recherche mathématique.
@@ -129,8 +129,8 @@ plasmid_divergent_optimization
 | 11 | **Coévolution env/agent/rep** | `Env ↔ Agent ↔ PR` | `environmentGeneratorService` + `representationalMutationEngine` |
 | 12 | **Stepping stones** | Préserver les "échecs prometteurs" | `cryptobiosisSporeService` + `fossilizationService` |
 | 13 | **Transmission culturelle intentionnelle** | Imitation, démonstration, enseignement | `culturalTransmissionService` |
-| 14 | **Sélection culturelle** | Utilité, preuve, prestige, fiabilité | `culturalSelectionService` |
-| 15 | **Traditions et lignées** | Artefacts avec variants, lignée | `culturalTransmissionService` + `culturalSelectionService` |
+| 14 | **Sélection culturelle** | Utilité, preuve, prestige, fiabilité (somme pondérée, Pareto en cours) | `culturalSelectionService` |
+| 15 | **Traditions et lignées** | Artefacts avec variants, lignée | `culturalSelectionService` (createTradition) + `culturalTransmissionService` (mutateArtifact) |
 | 16 | **Novelty creates affordances** | `OEV(x) = N(x) × FP(x)` | Principe transversal |
 | 17 | **Tests d'ablation** | BASELINE → +moteurs → FULL | `nce_ablation_tests.js` |
 | 18 | **Intégration orchestrateur** | `enhanceMissionWithNCE()` modifie le prompt | `nceIntegrationService` + `genos-orchestrate.cjs` |
@@ -478,7 +478,7 @@ Permet de découvrir :
 | Δ diversity | Nombre de solutions uniques |
 | Δ transfert | Capacité à résoudre des problèmes nouveaux |
 | Δ coût | Tokens/étapes nécessaires |
-| Δ discoveries | Nombre de stepping stonesouverts |
+| Δ discoveries | Nombre de stepping stones ouverts |
 
 ---
 
@@ -543,13 +543,13 @@ const nceEnhancements = await nceIntegration.enhanceMissionWithNCE(mission, db);
 
 ## 15. Limites honnêtes
 
-1. **Pas de créativité générale** : les moteurs optimisent des métriques locales sans compréhension sémantique profonde
-2. **Pas de conscience** : la "simulation mentale" est un calcul de faisabilité sur des structures JSON
-3. **Bruit stochastique** : la recombinaison associative repose sur une distance textuelle simple
-4. **Pas d'open-endedness prouvée** : la génération automatique de questions reste à développer
+1. **Pas de créativité générale** : les moteurs optimisent des métriques locales sans compréhension sémantique profonde. Le vecteur de phénotype créatif [N,Q,S,D,T,E,O,H] est documenté mais pas encore implémenté comme structure de données.
+2. **Pas de conscience** : la « simulation mentale » est un calcul de faisabilité sur des structures JSON
+3. **Pas d'open-endedness prouvée** : la génération automatique de questions reste à développer. Le champ `open_ended` dans environmentGenerator est un placeholder.
+4. **Sélection culturelle** : utilise actuellement une somme pondérée scalaire, pas encore un front Pareto non dominé
 5. **Coût computationnel** : l'évaluation de 6 moteurs augmente la latence
-6. **Pas de créativity score unique** : le modèle produit un vecteur de phénotype créatif, pas un scalaire
-7. **Documentation en avance sur le runtime** : certaines fonctions documentées ne sont pas implémentées
+6. **Boucle non fermée** : la boucle « signal → comportement → expérience → preuve → adaptation → transmission → futur comportement » n'est pas encore complètement câblée entre les moteurs
+7. **Documentation en avance sur le runtime** : certaines fonctions documentées (représentations riches, coévolution réelle, traditions actives) sont des scaffolds, pas des implémentations complètes
 
 ---
 

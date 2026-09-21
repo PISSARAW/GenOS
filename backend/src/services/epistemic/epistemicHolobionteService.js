@@ -37,6 +37,7 @@ const { recall, fuzzyRecall, recordOutcome } = require('./immuneMemoryService');
 const { regulatoryReview } = require('./epistemicInflammationAndRegulation');
 const { computePressure, tierFromPressure } = require('./epistemicHomeostasisService');
 const { dissonanceFrom, niveauCorpsent } = require('./epistemicApoptosisService');
+const { executeVerifiers } = require('./verifierExecutionService');
 
 function hostDecision(reports, opts = {}) {
   const specialistOutput = reports.specialistOutput || reports.specialist;
