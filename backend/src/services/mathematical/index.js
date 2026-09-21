@@ -13,6 +13,8 @@ const nicheService = require('./mathematicalNichePopulationService');
 const foraging = require('./mathematicalLiteratureForaging');
 const mutation = require('./mutationEngine');
 
+const { QuestionogenesisEngine } = require('./questionogenesisService');
+
 module.exports = {
   createMathematicalEnvironment: env.createMathematicalEnvironment,
   createResearchLineage: lineage.createResearchLineage,
@@ -26,4 +28,5 @@ module.exports = {
   PatchResult: foraging.PatchResult,
   MutationEngine: mutation.MutationEngine,
   MathematicalCulture,
+  QuestionogenesisEngine,
 };
