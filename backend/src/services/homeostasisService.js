@@ -1,7 +1,10 @@
 'use strict';
 
 const crypto = require('crypto');
-const { buildHomeostasisContract, evaluateContract, homeostasisStatus, HOMEOSTASIS_SCHEMA } = require('./homeostasisContractService');
+const {
+  buildHomeostasisContract, evaluateContract, homeostasisStatus,
+  serializeContract, HOMEOSTASIS_SCHEMA
+} = require('./homeostasisContractService');
 const { newOrganism, expressPhenotype } = require('./missionOrganismService');
 const telemetry = require('./telemetryObserver');
 
@@ -9,6 +12,10 @@ const HOMEOSTASIS_EVENT_PREFIX = 'HOMEOSTASIS';
 
 function homeostasisId(missionId) {
   return `homeostasis_${missionId || crypto.randomUUID()}`;
+}
+
+function homeostasisStateId(missionId) {
+  return `homeostasis_state_${missionId || 'unknown'}_${crypto.randomUUID()}`;
 }
 
 function buildDefaultFunctionalInvariants(mission) {
@@ -58,14 +65,39 @@ function defaultEvidenceRequirements(mission) {
   return required;
 }
 
+function contractInvariants(mission) {
+  // The genome completion contract is the source of authority. The prompt
+  // heuristics below are a development fallback only, never the contract.
+  const contract = mission.completionContract;
+  if (contract && Array.isArray(contract.invariants) && contract.invariants.length > 0) {
+    return contract.invariants.map((invariant) => ({
+      kind: invariant.kind,
+      label: invariant.label || invariant.id,
+      verifier: invariant.verifier,
+      check: typeof invariant.check === 'function' ? invariant.check : undefined
+    }));
+  }
+  return buildDefaultFunctionalInvariants(mission);
+}
+
+function contractEvidence(mission) {
+  const contract = mission.completionContract;
+  if (contract && Array.isArray(contract.requiredEvidence) && contract.requiredEvidence.length > 0) {
+    return contract.requiredEvidence.slice();
+  }
+  return defaultEvidenceRequirements(mission);
+}
+
 function buildMissionHomeostasis(mission) {
-  const invariants = buildDefaultFunctionalInvariants(mission);
+  const invariants = contractInvariants(mission);
   const contract = buildHomeostasisContract({
     id: homeostasisId(mission.id),
     missionId: mission.id,
     invariants,
-    requiredEvidence: defaultEvidenceRequirements(mission),
-    minimumFunctionalCoverage: mission.homeostasisMinFunctionalCoverage ?? 1
+    requiredEvidence: contractEvidence(mission),
+    minimumFunctionalCoverage: mission.homeostasisMinFunctionalCoverage
+      ?? mission.completionContract?.minimumFunctionalCoverage
+      ?? 1
   });
   return contract;
 }
@@ -95,7 +127,7 @@ async function evaluateMissionHomeostasis(db, target) {
   await db.run(
     `INSERT INTO homeostasis_states (id, mission_id, contract_json, status, state_json, observed_at)
      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-    [homeostasisId(mission.id), mission.id, JSON.stringify(contract), status, JSON.stringify(state)]
+    [homeostasisStateId(mission.id), mission.id, JSON.stringify(serializeContract(contract)), status, JSON.stringify(state)]
   );
   if (changed) {
     telemetry.emitEvent({
