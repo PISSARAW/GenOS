@@ -77,9 +77,9 @@ const survivors = mutation.selectSurvivors([{ fitness: 0.9 }, { fitness: 0.8 }, 
 assert.strictEqual(survivors.length, 2);
 
 // 16: ecological diversity
-const procA = { id: 'a' };
+const procA = { id: 'a', taskType: 'mutation' };
 const procB = { id: 'b' };
-const niches = [{ id: 'n1', scoreFor: (p) => p.id === 'a' ? 0.9 : 0.1 }];
+const niches = [{ id: 'n1', environment: { taskType: 'mutation' } }];
 const assigned = diversity.assignNiche([procA, procB], niches);
 assert.strictEqual(assigned.a.niche.id, 'n1');
 const overlap = diversity.hasNicheOverlap({ niche: { id: 'n1' } }, { niche: { id: 'n1' } });
@@ -100,12 +100,12 @@ const stats = biome.nicheStats([{ niche: { id: 'n1' }, size: 3 }]);
 assert.strictEqual(stats.n1, 3);
 
 // 18: ecological niche
-const niche1 = niche.defineNiche({ id: 'n1', environment: { lang: 'python' }, scoreFor: (p) => p.lang === 'python' ? 0.9 : 0.1 });
+const niche1 = niche.defineNiche({ id: 'n1', environment: { language: 'python' } });
 assert.strictEqual(niche1.id, 'n1');
-const score = niche.scoreInEnvironment(niche1, { lang: 'python' });
+const score = niche.scoreInEnvironment(niche1, { language: 'python' });
 assert.ok(score > 0.8);
-const sorted = niche.sortedByNicheFit([{ lang: 'js' }, { lang: 'python' }], niche1);
-assert.strictEqual(sorted[0].lang, 'python');
+const sorted = niche.sortedByNicheFit([{ language: 'js' }, { language: 'python' }], niche1);
+assert.strictEqual(sorted[0].language, 'python');
 
 // 19: holobionte
 const host = holo.holobionte({ id: 'h1', host: { fitness: 0.8 }, symbionts: [{ id: 's1', fitness: 0.9 }] });

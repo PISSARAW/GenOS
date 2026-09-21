@@ -1,4 +1,6 @@
-"use strict";
+'use strict';
+
+const { scoreForNiche } = require('./nicheScoringService');
 
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
@@ -10,7 +12,6 @@ function defineNiche(input = {}) {
   return {
     id: input.id || `niche-${Date.now()}`,
     environment: input.environment || {},
-    scoreFor: input.scoreFor || (() => 0.5),
     carryingCapacity: input.carryingCapacity || 10,
     resources: input.resources || {},
     createdAt: input.createdAt || new Date().toISOString(),
@@ -18,7 +19,7 @@ function defineNiche(input = {}) {
 }
 
 function scoreInEnvironment(niche, procedure) {
-  return clamp01(Number(niche.scoreFor(procedure)) || 0);
+  return clamp01(scoreForNiche(niche, procedure));
 }
 
 function nicheFitness(procedure, niche) {

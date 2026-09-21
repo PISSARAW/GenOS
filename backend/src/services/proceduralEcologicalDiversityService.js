@@ -1,4 +1,6 @@
-"use strict";
+'use strict';
+
+const { scoreForNiche } = require('./nicheScoringService');
 
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
@@ -9,7 +11,7 @@ function clamp01(value, fallback = 0) {
 function assignNiche(procedures, niches) {
   const result = {};
   for (const proc of procedures) {
-    const scores = niches.map((niche) => ({ niche, score: clamp01(niche.scoreFor(proc)) }));
+    const scores = niches.map((niche) => ({ niche, score: clamp01(scoreForNiche(niche, proc)) }));
     scores.sort((a, b) => b.score - a.score);
     result[proc.id] = { niche: scores[0]?.niche || null, score: scores[0]?.score || 0 };
   }
