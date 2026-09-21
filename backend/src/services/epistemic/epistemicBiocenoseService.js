@@ -5,13 +5,13 @@
  *
  * Mesure la diversité fonctionnelle réelle d'un groupe de vérificateurs
  * (et non leur simple nombre). Une monoculture cognitive — quatre modèles
- * généralistes qui se trompent ensemble — a une effective diversity ≈ 1.
+ * généralistes qui se trompent ensemble — a une effective diversity faible.
  *
  * Espèces mesurées :
  *  - species richness     : nombre de types distincts
- *  - functional diversity : niches occupées (test, replay, source, proof, artifact, benchmark)
- *  - error diversity      : taux d'erreur distincts
- *  - tool diversity       : outils / stratégies distincts
+ *  - functional diversity : niches occupées
+ *  - error diversity      : patterns d'erreur distincts (pas juste taux)
+ *  - tool diversity       : outils réels distincts
  *  - provider diversity   : modèles / backends distincts
  *  - strategy diversity   : approches distinctes
  */
@@ -39,14 +39,23 @@ function functionalDiversity(reviewers = []) {
 }
 
 function errorDiversity(reviewers = []) {
+  // Mesure la diversité des patterns d'erreur, pas seulement des taux.
+  // Deux verifiers qui se trompent sur les mêmes cas sont corrélés.
   if (!reviewers.length) return 0;
-  const errorRates = new Set(reviewers.map((r) => Math.round((r.errorRate || 0) * 10) / 10));
-  return errorRates.size / reviewers.length;
+  const errorPatterns = new Set(reviewers.flatMap((r) => {
+    const patterns = r.errorPatterns || r.errorClaims || [];
+    if (Array.isArray(patterns)) return patterns.map((p) => String(p));
+    return [String(r.errorRate || 0)];
+  }));
+  return errorPatterns.size / reviewers.length;
 }
 
 function toolDiversity(reviewers = []) {
   if (!reviewers.length) return 0;
-  const tools = new Set(reviewers.flatMap((r) => r.tools || r.strategy ? [r.type] : []));
+  const tools = new Set(reviewers.flatMap((r) => {
+    const t = r.tools || [];
+    return Array.isArray(t) ? t : [];
+  }));
   return tools.size / reviewers.length;
 }
 
@@ -66,6 +75,25 @@ function strategyDiversity(reviewers = []) {
   return strategies.size / reviewers.length;
 }
 
+function shannonDiversity(reviewers = []) {
+  // Diversité de Shannon normalisée : H / ln(N)
+  // H = -Σ p_i * ln(p_i) où p_i = proportion du reviewer de type i
+  if (!reviewers.length) return 0;
+  const counts = {};
+  for (const r of reviewers) {
+    const key = r.type || r.role || 'unknown';
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  const n = reviewers.length;
+  let h = 0;
+  for (const count of Object.values(counts)) {
+    const p = count / n;
+    if (p > 0) h -= p * Math.log(p);
+  }
+  const maxH = Math.log(Math.max(2, n));
+  return maxH > 0 ? h / maxH : 0;
+}
+
 function effectiveDiversity(reviewers = []) {
   if (!reviewers.length) return 0;
   const species = speciesRichness(reviewers);
@@ -77,7 +105,7 @@ function effectiveDiversity(reviewers = []) {
     providerDiversity(reviewers) +
     strategyDiversity(reviewers)
   ) / 5;
-  return Math.min(1, raw * Math.log2(species) / Math.log2(Math.max(2, species)));
+  return Math.min(1, raw * shannonDiversity(reviewers));
 }
 
 function isMonoculture(reviewers = [], threshold = 0.3) {
@@ -102,6 +130,7 @@ function cognitiveBiocenose(reviewers = []) {
     toolDiversity: toolDiversity(reviewers),
     providerDiversity: providerDiversity(reviewers),
     strategyDiversity: strategyDiversity(reviewers),
+    shannonDiversity: shannonDiversity(reviewers),
     effectiveDiversity: effectiveDiversity(reviewers),
     isMonoculture: isMonoculture(reviewers),
     shouldRecruit: shouldRecruit(reviewers),
@@ -117,6 +146,7 @@ module.exports = {
   toolDiversity,
   providerDiversity,
   strategyDiversity,
+  shannonDiversity,
   effectiveDiversity,
   isMonoculture,
   shouldRecruit,

@@ -49,22 +49,25 @@ function deposit(env, pheromone) {
   return pheromone;
 }
 
-function subscribe(env, niche, handler) {
-  if (!env.subscribers.has(niche)) {
-    env.subscribers.set(niche, []);
+function subscribe(env, type, handler) {
+  // `type` est le type de phéromone (CLAIM_CONTRADICTION, etc.), pas une niche.
+  if (!env.subscribers.has(type)) {
+    env.subscribers.set(type, []);
   }
-  env.subscribers.get(niche).push(handler);
+  env.subscribers.get(type).push(handler);
   return () => {
-    const handlers = env.subscribers.get(niche) || [];
+    const handlers = env.subscribers.get(type) || [];
     const idx = handlers.indexOf(handler);
     if (idx >= 0) handlers.splice(idx, 1);
   };
 }
 
-function detectRelevant(env, niche, locus = null) {
+function detectRelevant(env, type, locus = null) {
+  // `type` filtre par type de phéromone (pas par niche).
   const now = Date.now();
   return env.pheromones.filter((p) => {
     if (p.ttl && now - new Date(p.createdAt).getTime() > p.ttl) return false;
+    if (type && p.type !== type) return false;
     if (locus && p.locus && p.locus !== locus) return false;
     return true;
   });
@@ -84,8 +87,9 @@ function stigmergicSignal(type, payload, opts = {}) {
 }
 
 function sharedEpistemicEnvironment(opts = {}) {
+  // Accepte un environnement existant pour le partage inter-agent.
   return {
-    env: pheromoneEnv(),
+    env: opts.env || pheromoneEnv(),
     niche: opts.niche || 'general',
     locus: opts.locus || null,
     deposited: [],
@@ -104,8 +108,8 @@ function depositSignal(shared, signal, opts = {}) {
   return pheromone;
 }
 
-function detectSignals(shared, locus = null) {
-  const detected = detectRelevant(shared.env, shared.niche, locus || shared.locus);
+function detectSignals(shared, type = null, locus = null) {
+  const detected = detectRelevant(shared.env, type, locus || shared.locus);
   shared.received.push(...detected);
   return detected;
 }

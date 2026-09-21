@@ -12,6 +12,118 @@
 
 const { withTransaction, getDatabase } = require('../db/index');
 const synapticTransmission = require('./synapticTransmissionService');
+const proceduralConsolidation = require('./proceduralConsolidationService');
+
+/**
+ * Fetch unconsolidated episodic memories for procedural consolidation
+ */
+async function fetchUnconsolidatedEpisodes(tx) {
+  return tx.all(`
+    SELECT id, agent_id, session_id, task_id, turn_number, action_type,
+           context_state, reward_score, created_at
+    FROM episodic_memories
+    WHERE is_purged = 0 AND is_consolidated = 0
+    ORDER BY session_id, created_at, turn_number
+  `);
+}
+
+/**
+ * Group raw episode rows by session_id
+ */
+function groupEpisodesBySession(rows) {
+  const sessions = {};
+  for (const row of rows) {
+    const sid = row.session_id || 'no-session';
+    if (!sessions[sid]) sessions[sid] = [];
+    sessions[sid].push(row);
+  }
+  return sessions;
+}
+
+/**
+ * Map sessions into trajectory-episodes for proceduralConsolidationService
+ */
+function buildTrajectoryEpisodes(sessions) {
+  const episodes = [];
+  for (const [sessionId, turns] of Object.entries(sessions)) {
+    if (turns.length < 2) continue;
+    const trajectory = turns.map(t => t.action_type || 'step');
+    const avgReward = turns.reduce((s, t) => s + (t.reward_score || 0), 0) / turns.length;
+    let context = {};
+    try { context = JSON.parse(turns[0].context_state || '{}'); } catch (_) {}
+    episodes.push({
+      id: `session-${sessionId}`,
+      trajectory,
+      outcome: avgReward >= 0.5 ? 'success' : 'failure',
+      success: avgReward >= 0.5,
+      context: { sessionId, taskId: turns[0].task_id, agentId: turns[0].agent_id, ...context },
+      observedAt: turns[turns.length - 1].created_at,
+    });
+  }
+  return episodes;
+}
+
+/**
+ * Store a golden path result in genome_decisions
+ */
+async function storeGoldenPath(tx, result, opts) {
+  const crypto = require('crypto');
+  const gpId = crypto.randomUUID();
+  const title = `Golden Path (${result.path.length} steps, ${Math.round((result.provenance?.successRate || 0) * 100)}% success)`;
+  const content = JSON.stringify({
+    path: result.path,
+    provenance: result.provenance,
+    transitionContrast: result.transitionContrast,
+  });
+  await tx.run(
+    `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight, organization_id, project_id)
+     VALUES (?, ?, ?, ?, 'golden_path', 1.5, ?, ?)`,
+    gpId, title, content, 'sleep-cycle', opts.organizationId || null, opts.projectId || null
+  );
+  return gpId;
+}
+
+/**
+ * Batch-mark source episodes as consolidated
+ */
+async function markEpisodesConsolidated(tx, episodeIds) {
+  const BATCH_SIZE = 200;
+  for (let i = 0; i < episodeIds.length; i += BATCH_SIZE) {
+    const batch = episodeIds.slice(i, i + BATCH_SIZE);
+    const placeholders = batch.map(() => '?').join(',');
+    await tx.run(`UPDATE episodic_memories SET is_consolidated = 1 WHERE id IN (${placeholders})`, ...batch);
+  }
+}
+
+/**
+ * Extract episodic memories, consolidate into golden paths, mark sources consolidated
+ */
+async function consolidateProceduralMemories(tx, opts) {
+  const rows = await fetchUnconsolidatedEpisodes(tx);
+  if (rows.length < 2) {
+    return { consolidated: false, reason: 'insufficient_episodes', goldenPaths: 0, episodesMarked: 0 };
+  }
+  const sessions = groupEpisodesBySession(rows);
+  const episodes = buildTrajectoryEpisodes(sessions);
+  if (episodes.length < 2) {
+    return { consolidated: false, reason: 'insufficient_trajectories', goldenPaths: 0, episodesMarked: 0 };
+  }
+  const result = proceduralConsolidation.consolidatePath({}, episodes);
+  if (!result.consolidated) {
+    return { consolidated: false, reason: result.reason, goldenPaths: 0, episodesMarked: 0 };
+  }
+  const gpId = await storeGoldenPath(tx, result, opts);
+  const episodeIds = rows.map(r => r.id);
+  await markEpisodesConsolidated(tx, episodeIds);
+  return {
+    consolidated: true,
+    goldenPaths: 1,
+    goldenPathId: gpId,
+    pathLength: result.path.length,
+    successRate: result.provenance?.successRate || 0,
+    episodesMarked: episodeIds.length,
+  };
+}
 
 /**
  * Helper: run a single step of the sleep cycle with its own error handling
@@ -116,12 +228,14 @@ async function runSleepCycle(db = null, options = {}) {
     orphanWeightThreshold = 0.1,
     trajectoryRetentionDays = 7,
     organizationId = null,
-    projectId = null
+    projectId = null,
+    enableProceduralConsolidation = true
   } = options;
 
   try {
     let exosomeStats = { success: true, absorbedCount: 0, engramsStored: 0, plasmidsAssimilated: 0, errors: [] };
     let apoptosisCount = 0;
+    let proceduralStats = { consolidated: false, goldenPaths: 0, episodesMarked: 0 };
 
     await withTransaction(database, async (tx) => {
       await decaySynapticWeights(tx, weightDecayFactor);
@@ -137,6 +251,12 @@ async function runSleepCycle(db = null, options = {}) {
       exosomeStats = await synapticTransmission.absorbExosomes(tx);
       exosomeStats.prunedTrajectories = prunedTrajectories;
       exosomeStats.prunedSynapses = prunedSynapses?.changes || 0;
+      if (enableProceduralConsolidation) {
+        proceduralStats = await consolidateProceduralMemories(tx, {
+          organizationId: options.organizationId || null,
+          projectId: options.projectId || null
+        });
+      }
     });
 
     return {
@@ -149,6 +269,15 @@ async function runSleepCycle(db = null, options = {}) {
       exosomesAbsorbed: exosomeStats.absorbedCount,
       engramsStored: exosomeStats.engramsStored,
       plasmidsAssimilated: exosomeStats.plasmidsAssimilated,
+      proceduralConsolidation: {
+        consolidated: proceduralStats.consolidated,
+        goldenPaths: proceduralStats.goldenPaths || 0,
+        episodesMarked: proceduralStats.episodesMarked || 0,
+        goldenPathId: proceduralStats.goldenPathId || null,
+        pathLength: proceduralStats.pathLength || 0,
+        successRate: proceduralStats.successRate || 0,
+        reason: proceduralStats.reason || null,
+      },
       errors: exosomeStats.errors || []
     };
   } catch (error) {

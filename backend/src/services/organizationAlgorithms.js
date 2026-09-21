@@ -50,17 +50,24 @@ function brierMember(dossier) {
   const events = list(dossier && dossier.events);
   const report = [...events].reverse().map((event) => event.evidenceReport).find(Boolean) || {};
   const confidence = num(report.confidence, num(report.coverage, 0.5));
-  return { outcome: report.outcome, confidence: clamp01(confidence) };
+  // Le Brier ne peut être calculé que si une vérité externe (resolvedOutcome)
+  // est disponible. Sinon, on ne peut pas utiliser outcome comme ground truth.
+  // C'est le correctif du Brier circulaire : le worker ne s'auto-évalue pas.
+  const hasResolvedOutcome = report.resolvedOutcome !== undefined && report.resolvedOutcome !== null;
+  const outcome = hasResolvedOutcome ? (report.resolvedOutcome === 'success' ? 1 : 0) : null;
+  return { outcome, confidence: clamp01(confidence), hasResolvedOutcome };
 }
 
 function brierWeightedConsensus(state) {
   const members = list(state.dossiers).map(brierMember);
-  if (!members.length) return { weightedSupport: 0, meanBrier: null, participantCount: 0 };
+  // Ne conserver que les membres avec une vérité résolue.
+  const resolvedMembers = members.filter((m) => m.hasResolvedOutcome);
+  if (!resolvedMembers.length) return { weightedSupport: 0, meanBrier: null, participantCount: 0, resolvedCount: 0 };
   let weightSum = 0;
   let supportSum = 0;
   let brierSum = 0;
-  for (const member of members) {
-    const outcome = member.outcome === 'success' ? 1 : 0;
+  for (const member of resolvedMembers) {
+    const outcome = member.outcome;
     const brier = (member.confidence - outcome) ** 2;
     const weight = Math.max(0, 1 - brier);
     weightSum += weight;
@@ -69,8 +76,9 @@ function brierWeightedConsensus(state) {
   }
   return {
     weightedSupport: Number((weightSum > 0 ? supportSum / weightSum : 0).toFixed(3)),
-    meanBrier: Number((brierSum / members.length).toFixed(4)),
-    participantCount: members.length
+    meanBrier: Number((brierSum / resolvedMembers.length).toFixed(4)),
+    participantCount: resolvedMembers.length,
+    resolvedCount: resolvedMembers.length
   };
 }
 

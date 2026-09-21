@@ -7,11 +7,13 @@
  * (convergence forcée, groupthink). Chaque population produit son résultat
  * indépendamment. Seuls les résultats migrent, jamais les prompts.
  *
- * La convergence indépendante (population A et B arrivent à la même réponse
- * sans s'influencer) est plus robuste qu'un accord après influence mutuelle.
+ * Distinction cruciale :
+ *  - nativeResult : produit par la population elle-même (compte pour convergence)
+ *  - migratedResult : copié depuis une autre population (ne compte PAS)
+ *
+ * La contamination se détecte par provenance et flux d'information,
+ * pas par égalité des conclusions.
  */
-
-const crypto = require('node:crypto');
 
 function populationId() {
   return `pop-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -26,6 +28,8 @@ function createPopulation(opts = {}) {
     isolation: opts.isolation !== false,
     members: opts.members || [],
     results: [],
+    nativeResults: [],
+    migratedResults: [],
     createdAt: new Date().toISOString(),
   };
 }
@@ -40,8 +44,10 @@ function addResult(population, result) {
     provider: population.provider,
     niche: population.niche,
     producedAt: new Date().toISOString(),
+    provenance: 'native',
   };
   population.results.push(entry);
+  population.nativeResults.push(entry);
   return entry;
 }
 
@@ -53,30 +59,35 @@ function migrateResults(source, target, opts = {}) {
     migratedTo: target.id,
     migrationId: `mig-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     migratedAt: new Date().toISOString(),
+    provenance: 'migrated',
   }));
   if (opts.append !== false) {
     target.results.push(...migrated);
+    target.migratedResults.push(...migrated);
   }
   return migrated;
 }
 
 function independentConvergence(populations = []) {
   if (populations.length < 2) return null;
-  const claimSets = populations.map((p) => new Set(p.results.map((r) => r.claim)));
+  // Mesurer la convergence uniquement sur les résultats natifs (pré-migration).
+  const claimSets = populations.map((p) => new Set(p.nativeResults.map((r) => r.claim)));
   const common = [...claimSets[0]].filter((claim) => claimSets.every((s) => s.has(claim)));
   return {
     convergenceCount: common.length,
     convergenceRate: claimSets[0].size > 0 ? common.length / claimSets[0].size : 0,
     populations: populations.length,
     commonClaims: common,
+    basedOnNativeResults: true,
   };
 }
 
 function crossContamination(populations = []) {
-  if (populations.length < 2) return 0;
-  const allClaims = populations.flatMap((p) => p.results.map((r) => r.claim));
-  const unique = new Set(allClaims);
-  return allClaims.length > 0 ? 1 - unique.size / allClaims.length : 0;
+  // La contamination se mesure par flux d'information, pas par égalité des claims.
+  // Si une population a des résultats migrés d'une autre, c'est de la contamination.
+  const totalMigrated = populations.reduce((sum, p) => sum + (p.migratedResults?.length || 0), 0);
+  const totalResults = populations.reduce((sum, p) => sum + (p.results?.length || 0), 0);
+  return totalResults > 0 ? totalMigrated / totalResults : 0;
 }
 
 function migrationPlan(populations = []) {
@@ -98,6 +109,8 @@ function metapopulationReport(populations = []) {
   return {
     populations: populations.length,
     totalResults: populations.reduce((sum, p) => sum + p.results.length, 0),
+    nativeResults: populations.reduce((sum, p) => sum + p.nativeResults.length, 0),
+    migratedResults: populations.reduce((sum, p) => sum + p.migratedResults.length, 0),
     convergence: independentConvergence(populations),
     crossContamination: crossContamination(populations),
     migrationPlan: migrationPlan(populations),

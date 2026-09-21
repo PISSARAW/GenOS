@@ -215,11 +215,14 @@ function reportClaims(executionContext) {
 }
 
 function isIndependentVerification(executionContext) {
+  // La vérification indépendante doit être explicite et traçable.
+  // Accepter simplement "claims avec evidence" ou "dossiers workers" comme
+  // "vérification indépendante" est une faille critique (P0).
   if (executionContext.independentVerification === true) return true;
-  if (executionContext.evidenceVerified === true) return true;
-  if (hasEvidence(executionContext.verifiedClaims)) return true;
-  if (hasEvidence(executionContext.workerDossiers)) return true;
-  return reportHasEvidence(reportClaims(executionContext));
+  // Vérification par un receipt de vérification indépendant signé.
+  if (executionContext.independentVerifierReceipt) return true;
+  if (executionContext.verifierReceipt && executionContext.verifierReceipt.independent === true) return true;
+  return false;
 }
 
 function buildVerificationViolation(policy, executionContext) {

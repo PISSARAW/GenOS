@@ -32,20 +32,25 @@ assert.strictEqual(B.errorDiversity([]), 0);
 // ---- effective diversity ----
 
 const monoculture = [
-  { type: 'testResult', niche: 'testResult', errorRate: 0.1, provider: 'gpt', strategy: ['s1'] },
-  { type: 'testResult', niche: 'testResult', errorRate: 0.1, provider: 'gpt', strategy: ['s1'] },
-  { type: 'testResult', niche: 'testResult', errorRate: 0.1, provider: 'gpt', strategy: ['s1'] },
+  { type: 'testResult', niche: 'testResult', errorRate: 0.1, provider: 'gpt', strategy: ['s1'], tools: ['t1'] },
+  { type: 'testResult', niche: 'testResult', errorRate: 0.1, provider: 'gpt', strategy: ['s1'], tools: ['t1'] },
+  { type: 'testResult', niche: 'testResult', errorRate: 0.1, provider: 'gpt', strategy: ['s1'], tools: ['t1'] },
 ];
-assert.ok(B.effectiveDiversity(monoculture) < 0.3);
+assert.ok(B.effectiveDiversity(monoculture) < 0.3, 'monoculture doit avoir une diversité faible');
 assert.ok(B.isMonoculture(monoculture));
 
 const realDiverse = [
-  { type: 'testResult', niche: 'testResult', errorRate: 0.1, provider: 'gpt', strategy: ['s1'] },
-  { type: 'replay', niche: 'replay', errorRate: 0.5, provider: 'claude', strategy: ['s2'] },
-  { type: 'source', niche: 'source', errorRate: 0.9, provider: 'gemini', strategy: ['s3'] },
+  { type: 'testResult', niche: 'testResult', errorRate: 0.1, provider: 'gpt', strategy: ['s1'], tools: ['t1'], errorPatterns: ['Q1', 'Q2'] },
+  { type: 'replay', niche: 'replay', errorRate: 0.5, provider: 'claude', strategy: ['s2'], tools: ['t2'], errorPatterns: ['Q3', 'Q4'] },
+  { type: 'source', niche: 'source', errorRate: 0.9, provider: 'gemini', strategy: ['s3'], tools: ['t3'], errorPatterns: ['Q5', 'Q6'] },
 ];
-assert.ok(B.effectiveDiversity(realDiverse) > 0.3);
+assert.ok(B.effectiveDiversity(realDiverse) > 0.3, 'groupe diversifié doit avoir une diversité élevée');
 assert.ok(!B.isMonoculture(realDiverse));
+
+// ---- shannon diversity ----
+
+assert.ok(B.shannonDiversity(realDiverse) > 0, 'Shannon diversity doit être > 0');
+assert.ok(B.shannonDiversity(monoculture) < B.shannonDiversity(realDiverse), 'monoculture doit avoir une Shannon diversity plus faible');
 
 // ---- shouldRecruit ----
 
@@ -62,6 +67,7 @@ assert.strictEqual(B.recommendNiche(realDiverse), 'proof');
 const report = B.cognitiveBiocenose(realDiverse);
 assert.ok(report.speciesRichness >= 3);
 assert.ok(report.effectiveDiversity > 0);
+assert.ok(report.shannonDiversity > 0);
 assert.ok(!report.isMonoculture);
 assert.ok(!report.shouldRecruit);
 
