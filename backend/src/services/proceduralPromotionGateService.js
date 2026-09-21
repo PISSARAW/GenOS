@@ -72,10 +72,10 @@ function evaluatePromotionGate({ organism, candidate, policy = {} }) {
 
 function createPromotionReceipt({ organism, candidate, result }) {
   return {
-    id: identity.createOccurrenceId('prom'),
+    id: `prom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     parentId: organism?.metadata?.id || null,
-    promotedId: result.promo ? candidate?.metadata?.id : null,
-    result: result.promo ? 'PROMOTED' : 'REJECTED',
+    promotedId: result.promoted ? candidate?.metadata?.id : null,
+    result: result.promoted ? 'PROMOTED' : 'REJECTED',
     gates: result.gates,
     blocking: result.blocking,
     timestamp: new Date().toISOString(),

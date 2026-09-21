@@ -7,13 +7,19 @@ function clamp01(value, fallback = 0) {
 }
 const genomePolicy = require("./proceduralGenomePolicyService");
 
+function num(value, fallback = 0) {
+  if (value == null) return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function rewardFrom(context = {}) {
   const r = Object.assign({}, context);
-  const success = clamp01(Number(r.success) || 0);
-  const evidence = clamp01(Number(r.evidence) || (success >= 0.8 ? 1 : 0));
-  const cost = clamp01(Number(r.cost) || 0);
-  const safety = clamp01(Number(r.safety) || 0.5);
-  const causalEffect = clamp01(Number(r.causalEffect) || (success >= 0.5 ? 0.5 : 0));
+  const success = clamp01(num(r.success));
+  const evidence = clamp01(num(r.evidence));
+  const cost = clamp01(num(r.cost));
+  const safety = clamp01(num(r.safety, 0.5));
+  const causalEffect = clamp01(num(r.causalEffect));
 
   const reward = (
     0.30 * success +

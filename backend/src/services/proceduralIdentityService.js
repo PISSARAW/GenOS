@@ -51,7 +51,7 @@ function createOccurrenceId(prefix = 'occ') {
 function canonicalEpisode(episode) {
   return {
     trajectory: Array.isArray(episode.trajectory)
-      ? episode.trajectory.map(String).sort()
+      ? episode.trajectory.map(String)
       : [],
     outcome: String(episode.outcome || ''),
     context: episode.context || {},
