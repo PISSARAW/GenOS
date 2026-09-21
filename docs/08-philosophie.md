@@ -1031,12 +1031,15 @@ H = f(risk, uncertainty, contradiction, novelty, cost, evidence)
 ```
 
 ```text
-pressure < 0.25  → baseline (innate only)
-pressure < 0.50  → lean (innate + light adaptive)
-pressure < 0.70  → adaptive (innate + adaptive verifier)
-pressure < 0.90  → inflamed (+ counterexample + independent verifier)
-pressure ≥ 0.90  → systemic (+ replay + source + human escalation)
+pressure < 0.25  → baseline   (innate only)
+pressure < 0.50  → lean       (innate + light adaptive)
+pressure < 0.70  → adaptive   (innate + adaptive verifier)
+pressure < 0.90  → inflamed   (+ counterexample worker + independent verifier)
+pressure ≥ 0.90  → systemic   (+ replay + source verification + human escalation)
 ```
+
+Ces seuils correspondent à l'implémentation réelle dans
+`epistemicHomeostasisService.tierFromPressure()`.
 
 ### 29.8. Tolérance et régulateur T-reg
 
