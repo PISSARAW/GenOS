@@ -39,6 +39,7 @@
     "test:foveal": "node tests/test_foveal_vision.js",
     "test:foraging": "node tests/test_optimal_foraging.js",
     "test:fossilization": "node tests/test_fossilization_service.js && node tests/test_orchestrator_fossilization.js",
+    "test:mathematical-organism": "node tests/test_mathematical_environment.js && node tests/test_research_lineage.js && node tests/test_mathematical_niche.js && node tests/test_proof_artifact.js && node tests/test_math_goal_strategy.js && node tests/test_math_population.js && node tests/test_literature_forager.js && node tests/test_mutation_engine.js && node tests/test_math_culture.js && node tests/test_questionogenesis.js && node tests/test_mathematical_organism_integration.js",
     "test:locomo": "node src/evaluation/locomo_eval_engine.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
     "daemon": "node bin/genos-daemon.cjs",

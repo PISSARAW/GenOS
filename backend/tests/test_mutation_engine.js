@@ -24,15 +24,22 @@ const r3 = engine.exapt(l1, 'graph-theory');
 assert.ok(r3 !== null);
 assert.strictEqual(r3.type, 'exaptation');
 
-// Horizontal gene transfer — use a source with a strategy not already in target
+// HGT with immune gate
 const source = createResearchLineage({ name: 'source', strategies: ['ring'] });
 const target = createResearchLineage({ name: 'target', strategies: ['induction'] });
-const r4 = engine.horizontalGeneTransfer(source, target);
+const r4 = engine.horizontalGeneTransfer(source, target, { blocked: false });
 assert.ok(r4 !== null);
 assert.ok(target.genome.strategies.includes('ring'));
+assert.ok(r4.plasmid);
+
+// HGT blocked by immune system
+const blockedSource = createResearchLineage({ name: 'blocked', strategies: ['omega'] });
+const blockedTarget = createResearchLineage({ name: 'blocked-target', strategies: ['induction'] });
+const r5 = engine.horizontalGeneTransfer(blockedSource, blockedTarget, { blocked: true, blockReason: 'contradiction' });
+assert.ok(r5 === null);
 
 // Summary
 const s = engine.summary();
 assert.ok(s.mutations >= 4);
 
-console.log('OK Math-2 MutationEngine');
+console.log('OK MutationEngine (HGT immune gate verified)');

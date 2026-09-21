@@ -3,8 +3,11 @@
 /**
  * @file mathematicalCultureService.js
  * @description MathematicalCultureService — cultural transmission of lemmas, methods
- * and proofs between lineages. Fidelity decreases with each generation but
- * intentional transmission selects useful knowledge.
+ * and proofs between lineages. Distinguishes between theorems/lemmas (verified knowledge)
+ * and heuristics/strategies (unverified cultural traits).
+ *
+ * Fidelity decreases with each generation but intentional transmission
+ * selects useful knowledge. Unverified ideas circulate as heuristics only.
  */
 
 const crypto = require('node:crypto');
@@ -13,7 +16,7 @@ function culturalArtifactId() {
   return `culture-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
 }
 
-const CULTURAL_TYPES = Object.freeze(['lemma', 'method', 'heuristic', 'proof_pattern', 'representation']);
+const CULTURAL_TYPES = Object.freeze(['theorem', 'lemma', 'proof_pattern', 'heuristic', 'tactic', 'failed_approach']);
 
 class MathematicalCulture {
   constructor(opts = {}) {
@@ -31,6 +34,7 @@ class MathematicalCulture {
       source: artifact.source || null,
       generation: 0,
       fidelity: 1.0,
+      verified: artifact.verified || false,
       createdAt: new Date().toISOString(),
       ...artifact,
     };
@@ -40,14 +44,35 @@ class MathematicalCulture {
 
   /**
    * Transmit an artifact to a target lineage.
-   * Fidelity decreases with each transmission generation.
+   * Theorems and lemmas require proof before transmission as facts.
+   * Heuristics and strategies circulate freely but are marked unverified.
    */
-  transmit(artifactId, targetLineage, opts = {}) {
+  transmit(artifactId, targetLineage) {
     const artifact = this.artifacts.get(artifactId);
     if (!artifact) return null;
-    const intentional = opts.intentional !== false;
-    const decay = intentional ? 0.95 : 0.8;
+
+    const isFact = artifact.type === 'theorem' || artifact.type === 'lemma';
+    const decay = isFact ? this.fidelityRate : 0.8;
     const newFidelity = artifact.fidelity * decay;
+
+    // Verified facts become part of knowledge base
+    // Unverified ideas become strategies
+    if (isFact && artifact.verified) {
+      // Add to lineage knowledge (not strategies)
+      if (!targetLineage._knowledge) targetLineage._knowledge = [];
+      targetLineage._knowledge.push({
+        type: artifact.type,
+        content: artifact.content,
+        fidelity: newFidelity,
+        source: artifact.id,
+      });
+    } else {
+      // Add as strategy (unverified)
+      if (!targetLineage.genome.strategies.includes(artifact.content)) {
+        targetLineage.genome.strategies.push(artifact.content);
+      }
+    }
+
     const transmitted = {
       ...artifact,
       id: culturalArtifactId(),
@@ -57,13 +82,16 @@ class MathematicalCulture {
       transmittedAt: new Date().toISOString(),
     };
     this.artifacts.set(transmitted.id, transmitted);
-    targetLineage.genome.strategies.push(transmitted.content);
+
     this.transmissionHistory.push({
       from: artifactId,
       to: targetLineage.id,
+      type: artifact.type,
       generation: transmitted.generation,
       fidelity: newFidelity,
+      wasVerified: artifact.verified,
     });
+
     return transmitted;
   }
 
@@ -73,7 +101,7 @@ class MathematicalCulture {
   selectForTransmission(artifactId, targetLineage) {
     const artifact = this.artifacts.get(artifactId);
     if (!artifact || artifact.fidelity < 0.3) return null;
-    return this.transmit(artifactId, targetLineage, { intentional: true });
+    return this.transmit(artifactId, targetLineage);
   }
 
   summary() {

@@ -4,9 +4,11 @@
  * @file mutationEngine.js
  * @description Mutation engine for mathematical research lineages.
  * Implements mutation, recombination, exaptation, and horizontal gene transfer.
+ *
+ * HGT requires passing through the epistemic immune system before assimilation.
  */
 
-const { createResearchLineage } = require('./researchLineage');
+const { createResearchLineage, deepClone } = require('./researchLineage');
 
 const MUTATION_TYPES = Object.freeze(['point', 'insert', 'delete', 'swap', 'recombine', 'hgt']);
 
@@ -79,21 +81,50 @@ class MutationEngine {
   }
 
   /**
-   * Horizontal gene transfer: transfer a strategy from a lineage in another niche.
+   * Horizontal gene transfer with immune gate.
+   * Returns a MathematicalPlasmid if successful, null if blocked.
    */
-  horizontalGeneTransfer(sourceLineage, targetLineage) {
+  horizontalGeneTransfer(sourceLineage, targetLineage, immuneReport) {
     if (Math.random() > this.hgtRate) return null;
     const sourceStrategies = sourceLineage.genome.strategies;
     if (sourceStrategies.length === 0) return null;
+
+    // Immune gate: if blocked, transfer is rejected
+    if (immuneReport && immuneReport.blocked) {
+      return null;
+    }
+
     const transferred = sourceStrategies[Math.floor(Math.random() * sourceStrategies.length)];
+
+    // Create a plasmid with provenance and constraints
+    const plasmid = {
+      capability: transferred,
+      source: sourceLineage.id,
+      target: targetLineage.id,
+      provenance: {
+        transferredAt: new Date().toISOString(),
+        sourceFitness: sourceLineage.fitness,
+      },
+      validityDomain: {
+        assumptions: [],
+        constraints: [],
+      },
+      proofReceipt: null,
+      semanticFingerprint: null,
+    };
+
+    // Only transfer if not already present
     if (!targetLineage.genome.strategies.includes(transferred)) {
       targetLineage.genome.strategies.push(transferred);
     }
+
     const result = {
       type: 'hgt',
       source: sourceLineage.id,
       target: targetLineage.id,
       strategy: transferred,
+      plasmid,
+      immunePassed: immuneReport ? !immuneReport.blocked : true,
     };
     this.history.push(result);
     return result;
