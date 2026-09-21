@@ -32,6 +32,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 
 - [biomimetisme/](biomimetisme/README.md) — foraging web, spécialisations cellulaires, super-sens animaux, primitives de controle animal.
 - [nosologie/](nosologie/README.md) — pathologies du runtime, vue d'ensemble et 9 familles.
+- [natural-creative-ecology.md](natural-creative-ecology.md) — créativité émergente multi-échelle : imagination, exploration, plasticité, évolution, culture.
 
 ## Voir aussi
 
