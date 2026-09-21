@@ -1,9 +1,15 @@
-"use strict";
+'use strict';
 
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
   if (!Number.isFinite(resolved)) return fallback;
   return Math.max(0, Math.min(1, resolved));
+}
+
+function num(value, fallback = 0) {
+  if (value == null) return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
 function candidateAction(input = {}) {
@@ -22,10 +28,10 @@ function candidateAction(input = {}) {
 
 function activationScore(action, context = {}) {
   const a = candidateAction(action);
-  const extraContext = clamp01(Number(context?.contextBonus) || 0);
-  const rewardPrediction = clamp01(Number(context?.rewardPrediction) || 0);
-  const surprise = clamp01(Number(context?.surprise) || 0);
-  const explorationBonus = clamp01(Number(context?.explorationBonus) || 0);
+  const extraContext = clamp01(num(context?.contextBonus));
+  const rewardPrediction = clamp01(num(context?.rewardPrediction));
+  const surprise = clamp01(num(context?.surprise));
+  const explorationBonus = clamp01(num(context?.explorationBonus));
   const score =
     a.weight * 0.25 +
     a.contextMatch * 0.20 +
@@ -40,6 +46,15 @@ function activationScore(action, context = {}) {
   return clamp01(score);
 }
 
+function softmax(scores, temperature = 1.0) {
+  if (!Array.isArray(scores) || !scores.length) return [];
+  const t = Math.max(0.01, Number(temperature) || 1);
+  const maxScore = Math.max(...scores);
+  const exps = scores.map((s) => Math.exp((s - maxScore) / t));
+  const sum = exps.reduce((a, b) => a + b, 0) || 1;
+  return exps.map((e) => e / sum);
+}
+
 function selectActions(candidates, context = {}, options = {}) {
   const list = Array.isArray(candidates) ? candidates.map(candidateAction) : [];
   if (!list.length) return { selected: [], context };
@@ -49,19 +64,18 @@ function selectActions(candidates, context = {}, options = {}) {
   }));
   scored.sort((x, y) => y.score - x.score);
   const topN = Number(options?.topN) || 1;
+  const temperature = options.temperature != null ? Number(options.temperature) : 1.0;
   const winnerTakeMost = Boolean(options?.winnerTakeMost);
   const selected = scored.slice(0, topN);
-  let distribution;
+  let distribution = null;
   if (winnerTakeMost) {
-    const topScore = selected.length ? selected[0].score : 0;
-    const total = scored.reduce((acc, a) => acc + a.score, 0) || 1;
-    distribution = scored.map((a) => ({
+    const scores = scored.map((a) => a.score);
+    const probs = softmax(scores, temperature);
+    distribution = scored.map((a, i) => ({
       id: a.id,
       score: a.score,
-      probability: clamp01(a.score / total),
+      probability: probs[i],
     }));
-  } else {
-    distribution = null;
   }
   return {
     selected,
@@ -85,4 +99,5 @@ module.exports = {
   activationScore,
   selectActions,
   competitiveInhibition,
+  softmax,
 };
