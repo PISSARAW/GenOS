@@ -1,11 +1,5 @@
 'use strict';
 
-/**
- * @file mathematicalLiteratureForaging.js
- * @description MathematicalLiteratureForaging — treat the literature as a resource
- * landscape. Agents do vector search with Marginal Value Theorem.
- */
-
 const { extractEpitopes } = require('./goalEpitopeExtractor');
 
 class PatchResult {
@@ -21,6 +15,23 @@ class PatchResult {
     this.relevanceScore = opts.relevanceScore || 0;
     this.infoGain = opts.infoGain || 0;
   }
+}
+
+const RELEVANCE_RULES = [
+  ['isInductive', /induc|recursif/i, 0.3],
+  ['isEquality', /=/, 0.2],
+  ['hasQuantifier', /forall|exists|∀|∃/i, 0.2],
+  ['hasSum', /sum|∑/i, 0.1],
+];
+
+function computeScore(patchText, goalEpitopes) {
+  let score = 0;
+  for (const [epitope, pattern, weight] of RELEVANCE_RULES) {
+    if (goalEpitopes[epitope] && pattern.test(patchText)) {
+      score += weight;
+    }
+  }
+  return score;
 }
 
 class LiteratureForager {
@@ -52,9 +63,6 @@ class LiteratureForager {
     this.currentPatchTime = 0;
   }
 
-  /**
-   * Evaluate whether to depart the current patch (Marginal Value Theorem).
-   */
   shouldDepart() {
     if (!this.currentPatchId || this.currentPatchTime === 0) {
       return { shouldDepart: false, reason: 'New patch or no time elapsed' };
@@ -69,9 +77,6 @@ class LiteratureForager {
     };
   }
 
-  /**
-   * Record information gain from the current patch.
-   */
   recordReturn(infoGainDelta) {
     this.currentInfoGain += infoGainDelta;
     this.currentPatchTime += 1;
@@ -79,31 +84,19 @@ class LiteratureForager {
     return this.currentInfoGain;
   }
 
-  /**
-   * Foraging: find patches relevant to a goal.
-   */
   forage(goal, limit = 5) {
     const goalEpitopes = extractEpitopes(goal);
+    const epitopes = goalEpitopes.epitopes || {};
     const scored = [];
     for (const [, patch] of this.patches) {
-      const relevance = this.computeRelevance(patch, goalEpitopes);
+      const patchText = `${patch.statement} ${patch.assumptions.join(' ')}`.toLowerCase();
+      let score = computeScore(patchText, epitopes);
+      if (patch.formalAnalogue) score += 0.3;
+      const relevance = Math.min(1, score + (patch.relevanceScore || 0));
       scored.push({ patch, relevance });
     }
     scored.sort((a, b) => b.relevance - a.relevance);
     return scored.slice(0, limit).map(s => s.patch);
-  }
-
-  computeRelevance(patch, goalEpitopes) {
-    let score = 0;
-    const patchText = `${patch.statement} ${patch.assumptions.join(' ')}`.toLowerCase();
-    const epitopes = goalEpitopes.epitopes || {};
-
-    if (epitopes.isInductive && /induc|recursif/i.test(patchText)) score += 0.3;
-    if (epitopes.isEquality && /=/.test(patchText)) score += 0.2;
-    if (epitopes.hasQuantifier && /forall|exists|∀|∃/i.test(patchText)) score += 0.2;
-    if (epitopes.hasSum && /sum|∑/i.test(patchText)) score += 0.1;
-    if (patch.formalAnalogue) score += 0.3;
-    return Math.min(1, score + (patch.relevanceScore || 0));
   }
 
   summary() {
