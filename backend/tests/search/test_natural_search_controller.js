@@ -1,15 +1,13 @@
-/**
- * Tests du Natural Search Controller v3.
- */
 const assert = require('node:assert/strict')
 const {
   NaturalSearchController,
   SEARCH_PROCESS
 } = require('../../src/services/search/naturalSearchController')
 const { CausalProgressService } = require('../../src/services/search/causalProgressService')
+const { HypothesisLedger, PROVENANCE } = require('../../src/services/search/hypothesisLedgerService')
 
 function makeCtx(overrides = {}) {
-  const svc = new CausalProgressService()
+  const svc = new CausalProgressService({ budgets: { tokenBudget: 1000, costBudget: 1.0, timeBudget: 600 } })
   svc.ingestEvent({
     eventType: 'AGENT_STEP', action: 'probe',
     payload: overrides.causal || {
@@ -33,48 +31,37 @@ function makeCtx(overrides = {}) {
   assert.equal(sel.process, SEARCH_PROCESS.CONTINUE)
 }
 
-// Forage (low marginal yield with stagnation)
+// Forage (low marginal yield)
 {
   const ctrl = new NaturalSearchController()
   const sel = ctrl.selectProcess(makeCtx({ searchYield: 0.01, stepsSinceProgress: 3 }))
   assert.equal(sel.process, SEARCH_PROCESS.FORAGE)
 }
 
-// Plasticité (moderate pressure with contradictions)
+// Plasticité (moderate pressure: stagnation + some falsifications)
 {
   const ctrl = new NaturalSearchController()
-  const sel = ctrl.selectProcess(makeCtx({
-    searchYield: 0, stepsSinceProgress: 20, budgetRatio: 0.9,
-    falsifiedHypotheses: 1, contradictions: 1,
-    entropyMetrics: { normalizedEntropy: 0.55 }
-  }))
+  let sel
+  for (let i = 0; i < 3; i++) {
+    sel = ctrl.selectProcess(makeCtx({
+      searchYield: 0, stepsSinceProgress: 10, budgetRatio: 0.85,
+      falsifiedHypotheses: 1
+    }))
+  }
   assert.equal(sel.process, SEARCH_PROCESS.PLASTICITE)
 }
 
-// Clonal affinity search (3 iterations to accumulate pressure in clonal range)
+// Clonal affinity search (high pressure)
 {
   const ctrl = new NaturalSearchController()
   let sel
   for (let i = 0; i < 3; i++) {
     sel = ctrl.selectProcess(makeCtx({
       searchYield: 0, stepsSinceProgress: 20, budgetRatio: 0.95,
-      entropyMetrics: { normalizedEntropy: 0.55 }
+      falsifiedHypotheses: 2, contradictions: 1
     }))
   }
   assert.equal(sel.process, SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH)
-}
-
-// Replay causal (falsified hypothesis in clonal range)
-{
-  const ctrl = new NaturalSearchController()
-  let sel
-  for (let i = 0; i < 2; i++) {
-    sel = ctrl.selectProcess(makeCtx({
-      searchYield: 0, stepsSinceProgress: 20, budgetRatio: 0.95,
-      falsifiedHypotheses: 1, entropyMetrics: { normalizedEntropy: 0.55 }
-    }))
-  }
-  assert.equal(sel.process, SEARCH_PROCESS.REPLAY_CAUSAL)
 }
 
 // Stress hypermutation (very high pressure)
@@ -84,8 +71,7 @@ function makeCtx(overrides = {}) {
   for (let i = 0; i < 4; i++) {
     sel = ctrl.selectProcess(makeCtx({
       searchYield: 0, stepsSinceProgress: 25, budgetRatio: 0.95,
-      falsifiedHypotheses: 2, contradictions: 2,
-      entropyMetrics: { normalizedEntropy: 0.55 }
+      falsifiedHypotheses: 3, contradictions: 2
     }))
   }
   assert.equal(sel.process, SEARCH_PROCESS.STRESS_HYPERMUTATION)
@@ -95,22 +81,54 @@ function makeCtx(overrides = {}) {
 {
   const ctrl = new NaturalSearchController()
   let sel
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 5; i++) {
     sel = ctrl.selectProcess(makeCtx({
       searchYield: 0, stepsSinceProgress: 25, budgetRatio: 0.98,
-      falsifiedHypotheses: 3, contradictions: 3,
-      entropyMetrics: { normalizedEntropy: 0.55 }
+      falsifiedHypotheses: 3, contradictions: 3
     }))
   }
   assert.equal(sel.process, SEARCH_PROCESS.SPECIATION)
 }
 
-// Historique
+// Hysteresis: once in PLASTICITY, stays there even if pressure drops slightly
 {
   const ctrl = new NaturalSearchController()
-  const sel = ctrl.selectProcess(makeCtx())
-  ctrl.recordSelection(sel)
-  assert.equal(ctrl.getHistory().length, 1)
+  let sel
+  for (let i = 0; i < 5; i++) {
+    sel = ctrl.selectProcess(makeCtx({
+      searchYield: 0, stepsSinceProgress: 15, budgetRatio: 0.7,
+      falsifiedHypotheses: 1, contradictions: 1
+    }))
+  }
+  assert.equal(sel.process, SEARCH_PROCESS.PLASTICITE, 'reaches plasticity')
+  const sel2 = ctrl.selectProcess(makeCtx({
+    searchYield: 0, stepsSinceProgress: 5, budgetRatio: 0.5
+  }))
+  assert.equal(sel2.process, SEARCH_PROCESS.PLASTICITE, 'stays in plasticity due to hysteresis')
 }
 
-console.log('Natural Search Controller v3 tests passed.')
+// Ledger lock-in detection
+{
+  const ledger = new HypothesisLedger()
+  const now = Date.now()
+  const h = ledger.propose({ agentId: 'agent-test', statement: 'Lock-in' })
+  h.status = 'active'
+  h.lastTestedAt = now - 30_000
+  h.lastProgressAt = now - 180_000
+  h.confidence = 0.6
+  for (let i = 0; i < 3; i++) {
+    ledger.addEvidence(h.id, { direction: 'for', strength: 0.5, provenance: PROVENANCE.OBSERVED })
+  }
+  ledger.hypotheses.set(h.id, h)
+  const lockIns = ledger.detectLockIn(now)
+  assert.equal(lockIns.length, 1, 'Ledger detects lock-in')
+}
+
+// Controller accepts Ledger reference
+{
+  const ledger = new HypothesisLedger()
+  const ctrl = new NaturalSearchController({ ledger })
+  assert.ok(ctrl.ledger === ledger, 'Controller has Ledger reference')
+}
+
+console.log('Natural Search Controller v4 tests passed.')

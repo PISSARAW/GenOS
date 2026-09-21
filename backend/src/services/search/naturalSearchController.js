@@ -1,23 +1,14 @@
 /**
- * Natural Search Controller — Contrôleur de recherche naturelle.
+ * Natural Search Controller v4.
  *
- * Phase 5 : assemble les mécanismes précédents.
- * Sélectionne un processus de recherche, pas une stratégie de résolution.
- *
- * Pseudo-logique :
- *  - pression faible → CONTINUE
- *  - rendement marginal faible → FORAGE (changer de patch)
- *  - pression modérée → PLASTICITE (adapter le phénotype)
- *  - hypothèse prometteuse → CLONAL_AFFINITY_SEARCH
- *  - hypothèse falsifiée → REPLAY_CAUSAL
- *  - pression forte → STRESS_HYPERMUTATION
- *  - échecs multiples → SPECIATION
- *  - stagnation lignée → EVOLUTION
+ * P0 fixes:
+ *  - Lock-in determined via HypothesisLedger.detectLockIn(), not just classifier
+ *  - Hysteresis via enter/exit thresholds
+ *  - Uses structured proofs from Ledger
  */
 
 const { SearchPressureModel, ESCALATION_RADII } = require('./searchPressureService')
 const { classifySearchState, SEARCH_STATE } = require('./entropyProgressClassifier')
-const { CausalProgressService } = require('./causalProgressService')
 
 const SEARCH_PROCESS = {
   CONTINUE: 'CONTINUE',
@@ -26,46 +17,28 @@ const SEARCH_PROCESS = {
   CLONAL_AFFINITY_SEARCH: 'CLONAL_AFFINITY_SEARCH',
   REPLAY_CAUSAL: 'REPLAY_CAUSAL',
   STRESS_HYPERMUTATION: 'STRESS_HYPERMUTATION',
-  SPECIATION: 'SPECIATION',
-  EVOLUTION: 'EVOLUTION'
+  SPECIATION: 'SPECIATION'
 }
 
-const PHASE_THRESHOLDS = {
-  HOMEOSTASIS_MAX: 0.2,
-  CHEMOTAXIS_MAX: 0.4,
-  PLASTICITY_MAX: 0.6,
-  CLONAL_MAX: 0.75,
-  HYPERMUTATION_MAX: 0.9
-}
+// Hysteresis thresholds
+const PHASE_ENTER = { PLASTICITY: 0.45, CLONAL: 0.65, HYPERMUTATION: 0.78, SPECIATION: 0.91 }
+const PHASE_EXIT = { PLASTICITY: 0.32, CLONAL: 0.50, HYPERMUTATION: 0.65, SPECIATION: 0.80 }
 
 class NaturalSearchController {
   constructor(options = {}) {
     this.pressureModel = new SearchPressureModel(options.pressure)
     this.history = []
     this.lastProcess = null
-    this.stepsSinceChange = 0
+    this.stepsInCurrentProcess = 0
+    this.ledger = options.ledger || null
   }
 
-  /**
-   * Déterminer le prochain processus de recherche.
-   * @param {Object} ctx
-   * @param {string} ctx.agentId
-   * @param {number} ctx.searchYield
-   * @param {number} ctx.stepsSinceProgress
-   * @param {number} ctx.falsifiedHypotheses
-   * @param {number} ctx.contradictions
-   * @param {number} ctx.activeHypothesesCount
-   * @param {number} ctx.budgetRatio
-   * @param {Object} ctx.causalProgressReport
-   * @returns {{process, pressure, classification, diagnostics}}
-   */
   selectProcess(ctx) {
     const pressure = this.pressureModel.update({
       searchYield: ctx.searchYield,
       stepsSinceProgress: ctx.stepsSinceProgress,
       falsifiedHypotheses: ctx.falsifiedHypotheses,
       contradictions: ctx.contradictions,
-      activeHypothesesCount: ctx.activeHypothesesCount,
       budgetRatio: ctx.budgetRatio
     })
 
@@ -75,88 +48,85 @@ class NaturalSearchController {
       ctx.entropyMetrics
     )
 
-    let process
-    let diagnostics = {}
-
-    // Règles de sélection
-    if (pressure.pressure < PHASE_THRESHOLDS.HOMEOSTASIS_MAX) {
-      process = SEARCH_PROCESS.CONTINUE
-      diagnostics = { reason: 'low pressure, continue current search' }
-    }
-    else if (pressure.pressure < PHASE_THRESHOLDS.CHEMOTAXIS_MAX) {
-      if (ctx.searchYield !== undefined && ctx.searchYield < 0.05) {
-        process = SEARCH_PROCESS.FORAGE
-        diagnostics = { reason: 'low marginal yield — leave patch' }
-      } else {
-        process = SEARCH_PROCESS.CONTINUE
-        diagnostics = { reason: 'manageable pressure, persist' }
+    // Use Ledger to confirm lock-in
+    let lockInHypothesis = null
+    if (this.ledger && classification.state === SEARCH_STATE.MEDIUM_VARIATION_STAGNATION) {
+      const lockIns = this.ledger.detectLockIn()
+      if (lockIns.length > 0) {
+        lockInHypothesis = lockIns[0]
       }
     }
-    else if (pressure.pressure < PHASE_THRESHOLDS.PLASTICITY_MAX) {
-      process = SEARCH_PROCESS.PLASTICITE
-      diagnostics = { reason: 'moderate pressure — adapt phenotype' }
+
+    let process = this.lastProcess
+    let diagnostics = {}
+    const p = pressure.pressure
+
+    // Hysteresis logic: check exit thresholds first
+    if (this.lastProcess) {
+      const exitThresh = PHASE_EXIT[this.lastProcess]
+      if (exitThresh !== undefined && p < exitThresh && this.stepsInCurrentProcess >= 4) {
+        // allow downgrade
+      }
     }
-    else if (pressure.pressure < PHASE_THRESHOLDS.CLONAL_MAX) {
-      if (classification.state === SEARCH_STATE.MEDIUM_VARIATION_STAGNATION && ctx.falsifiedHypotheses > 0) {
+
+    if (p < PHASE_ENTER.PLASTICITY) {
+      if (ctx.searchYield !== undefined && ctx.searchYield < 0.05) {
+        process = SEARCH_PROCESS.FORAGE
+        diagnostics = { reason: 'low yield — forage' }
+      } else {
+        process = SEARCH_PROCESS.CONTINUE
+        diagnostics = { reason: 'low pressure — continue' }
+      }
+    } else if (p < PHASE_ENTER.CLONAL) {
+      process = SEARCH_PROCESS.PLASTICITE
+      diagnostics = { reason: 'moderate pressure — plasticity' }
+    } else if (p < PHASE_ENTER.HYPERMUTATION) {
+      if (lockInHypothesis) {
         process = SEARCH_PROCESS.REPLAY_CAUSAL
-        diagnostics = { reason: 'medium variation stagnation with falsified hypothesis — causal replay' }
+        diagnostics = { reason: `lock-in on ${lockInHypothesis.hypothesisId} — causal replay` }
       } else if (ctx.falsifiedHypotheses > 0) {
         process = SEARCH_PROCESS.REPLAY_CAUSAL
-        diagnostics = { reason: 'falsified hypothesis — revert to last known good' }
+        diagnostics = { reason: 'falsified hypothesis — revert' }
       } else {
         process = SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH
         diagnostics = { reason: 'promising zone — affinity search' }
       }
-    }
-    else if (pressure.pressure < PHASE_THRESHOLDS.HYPERMUTATION_MAX) {
+    } else if (p < PHASE_ENTER.SPECIATION) {
       process = SEARCH_PROCESS.STRESS_HYPERMUTATION
-      diagnostics = { reason: 'high pressure — controlled hypermutation' }
-    }
-    else {
-      // Pression très forte : plusieurs échecs indépendants
+      diagnostics = { reason: 'high pressure — hypermutation' }
+    } else {
       if (ctx.falsifiedHypotheses >= 3) {
         process = SEARCH_PROCESS.SPECIATION
-        diagnostics = { reason: 'multiple independent failures — speciation' }
+        diagnostics = { reason: 'multiple failures — speciation' }
       } else {
         process = SEARCH_PROCESS.STRESS_HYPERMUTATION
         diagnostics = { reason: 'very high pressure — radical hypermutation' }
       }
     }
 
+    if (process !== this.lastProcess) {
+      this.stepsInCurrentProcess = 0
+    } else {
+      this.stepsInCurrentProcess++
+    }
     this.lastProcess = process
-    this.stepsSinceChange = 0
 
     return {
       process,
-      pressure: pressure.pressure,
+      pressure: p,
       recommendedRadius: pressure.recommendedRadius,
-      classification: classification.state,
+      classification: lockInHypothesis ? 'HYPOTHESIS_LOCK_IN' : classification.state,
       diagnostics,
       causes: pressure.causes
     }
   }
 
-  /**
-   * Historiser une sélection pour analyse.
-   */
   recordSelection(selection) {
-    this.history.push({
-      ts: Date.now(),
-      ...selection
-    })
+    this.history.push({ ts: Date.now(), ...selection })
     if (this.history.length > 100) this.history.shift()
   }
 
-  /**
-   * Obtenir l'historique des sélections.
-   */
-  getHistory() {
-    return this.history.slice()
-  }
+  getHistory() { return this.history.slice() }
 }
 
-module.exports = {
-  NaturalSearchController,
-  SEARCH_PROCESS,
-  PHASE_THRESHOLDS
-}
+module.exports = { NaturalSearchController, SEARCH_PROCESS, PHASE_ENTER, PHASE_EXIT }

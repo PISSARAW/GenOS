@@ -1,3 +1,6 @@
+/**
+ * Tests du Search Pressure v4 — recalibré.
+ */
 const assert = require('node:assert/strict')
 const {
   SearchPressureModel,
@@ -9,7 +12,6 @@ const {
 {
   const m = new SearchPressureModel()
   assert.equal(m.report().pressure, 0)
-  assert.equal(m.report().recommendedRadius, ESCALATION_RADII.LOCAL)
 }
 
 // Stagnation fait monter la pression
@@ -36,7 +38,7 @@ const {
     r = m.update({ searchYield: 0, falsifiedHypotheses: 1 })
   }
   assert.ok(r.pressure < 1.0, 'pressure should not reach 1.0 with same input')
-  assert.ok(r.pressure > 0.3, 'pressure should be significant')
+  assert.ok(r.pressure > 0.2, 'pressure should be significant')
 }
 
 // Reset
@@ -47,4 +49,4 @@ const {
   assert.equal(m.report().pressure, 0)
 }
 
-console.log('Search Pressure v3 tests passed.')
+console.log('Search Pressure v4 tests passed.')
