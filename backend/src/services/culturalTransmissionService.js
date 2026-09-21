@@ -120,5 +120,6 @@ module.exports = {
   createTransmission,
   simulateTransmission,
   createCulturalArtifact,
+  cloneArtifact,
   mutateArtifact,
 };
