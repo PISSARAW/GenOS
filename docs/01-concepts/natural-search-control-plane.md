@@ -1,6 +1,6 @@
 # Natural Search Control Plane
 
-- **Statut** : Partiel — Phases 1–5 opérationnelles, persistance et intégration runtime en place. Actuator fonctionnel. Phases 6–12 non implémentées.
+- **Statut** : Phases 1–12 implémentées, tests passants, intégration runtime active, persistance SQLite opérationnelle.
 - **Portée** : `backend/src/services/search/*.js`, `backend/tests/search/test_*.js`, `docs/adr/0032-natural-search-control-plane.md`.
 - **Dernière revue** : 2026-09-21.
 
@@ -8,33 +8,73 @@
 
 | Composant | Statut | Fichier |
 | --- | --- | --- |
-| Causal Progress Sensor | ✅ Opérationnel | `causalProgressService.js` |
-| Entropy×Progression Classifier | ✅ Opérationnel | `entropyProgressClassifier.js` |
-| Hypothesis Ledger | ✅ Opérationnel | `hypothesisLedgerService.js` |
-| Search Pressure Model | ✅ Opérationnel | `searchPressureService.js` |
-| Natural Search Controller | ✅ Opérationnel | `naturalSearchController.js` |
-| Natural Search Actuator | ✅ Opérationnel | `naturalSearchActuatorService.js` |
-| SearchReceipt | ✅ Opérationnel | `SearchReceipt.js` |
-| Runtime Integration | ✅ Branché | `agentProcessEventPipeline.js` |
-| Persistance SQLite | ✅ Opérationnel | `searchPersistenceService.js` |
-| E2E Runtime Test | ✅ Passing | `test_natural_search_runtime_e2e.js` |
+| Causal Progress Sensor | ✅ | `causalProgressService.js` |
+| Entropy×Progression Classifier | ✅ | `entropyProgressClassifier.js` |
+| Hypothesis Ledger | ✅ | `hypothesisLedgerService.js` |
+| Search Pressure Model | ✅ | `searchPressureService.js` |
+| Natural Search Controller | ✅ | `naturalSearchController.js` |
+| Natural Search Actuator | ✅ | `naturalSearchActuatorService.js` |
+| SearchReceipt | ✅ | `SearchReceipt.js` |
+| Runtime Integration | ✅ | `agentProcessEventPipeline.js` |
+| Persistance SQLite | ✅ | `searchPersistenceService.js` |
+| **SearchGenome (Phase 6)** | ✅ | `searchGenomeService.js` |
+| **Cognitive Affinity Maturation (Phase 7)** | ✅ | `cognitiveAffinityService.js` |
+| **Generalized Foraging (Phase 8)** | ✅ | `searchPatchService.js` |
+| **Causal Replay (Phase 9)** | ✅ | `causalReplayService.js` |
+| **Negative Search Memory (Phase 10)** | ✅ | `negativeSearchMemoryService.js` |
+| **Evolution of Search Processes (Phase 11)** | ✅ | `searchEvolutionService.js` |
+| **Cultural Transmission / Plasmides (Phase 12)** | ✅ | `searchCultureService.js` |
 
-## Fonctionnement
+## Architecture finale
 
-Pour chaque événement du runtime :
-1. Alimentation du CausalProgress avec les preuves
-2. Détection des preuves d'erreur/aucun progrès
-3. Calcul de la pression avec inertie
-4. Sélection du processus par le contrôleur
-5. Exécution via l'Actuator (si non-CONTINUE)
-6. Émission d'événements traçables
+```
+Event
+  ↓
+Swarm Sentinel
+  ↓
+Natural Search Control Plane
+  ├─ Causal Progress Sensor
+  ├─ Entropy×Progress Classifier
+  ├─ Hypothesis Ledger
+  ├─ Search Pressure Model
+  ├─ Natural Search Controller
+  ├─ Natural Search Actuator
+  ├─ SearchPersistence (SQLite)
+  └─ Phases 6–12:
+      ├─ SearchGenome + hypermutation
+      ├─ Cognitive Affinity Maturation
+      ├─ Generalized Foraging (SearchPatch)
+      ├─ Causal Replay
+      ├─ Negative Memory
+      ├─ Search Evolution
+      └─ Cultural Transmission (Plasmides)
+  ↓
+GenOS primitives (replay, fork, foraging, recovery)
+```
 
-## Phases reportées
+## Principe fondamental
 
-- Phase 6 : Hypermutation structurée du SearchGenome
-- Phase 7 : Affinité cognitive
-- Phase 8 : Foraging généralisé
-- Phase 9 : Replay causal automatique
-- Phase 10 : Mémoire négative
-- Phase 11 : Évolution des processus
-- Phase 12 : Transmission/plasmides
+> **Nature is not a database of solutions. Nature is a collection of search processes.**
+
+$$
+\boxed{
+\text{Observe}
+\rightarrow
+\text{Measure progress}
+\rightarrow
+\text{Sense pressure}
+\rightarrow
+\text{Change search process}
+\rightarrow
+\text{Test}
+\rightarrow
+\text{Remember}
+}
+$$
+
+## Références biologiques
+
+1. Spiro, Parkinson & Othmer 1997 — chemotaxie bactérienne
+2. Schwab, Casasa & Moczek 2019 — plasticité développementale
+3. Foster 2007 — mutagenèse de stress
+4. Bowers, Boyle & Damoiseaux 2018 — maturation d'affinité
