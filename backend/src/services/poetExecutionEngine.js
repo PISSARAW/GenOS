@@ -38,7 +38,7 @@ async function executeAgentOnEnvironment(agent, environment, options) {
 
     // Exécute les étapes de l'agent
     for (let step = 0; step < maxSteps; step++) {
-      const stepResult = await executeStep(agent, environment, executionContext, { timeoutMs });
+      const stepResult = await executeStep({ agent, environment, executionContext }, { timeoutMs });
       results.steps.push(stepResult);
 
       if (stepResult.isFinal) {
@@ -76,34 +76,33 @@ function buildExecutionContext(agent, environment) {
   };
 }
 
-async function executeStep(agent, environment, ctx, opts) {
-  ctx.stepCount++;
-  const prompt = buildStepPrompt(agent, environment, ctx);
+async function executeStep(ctx, opts) {
+  ctx.executionCtx.stepCount++;
+  const prompt = buildStepPrompt(ctx.agent, ctx.environment, ctx.executionCtx);
 
   try {
-    // Exécute la commande de l'agent dans le snapshot
     const result = await runInSnapshot({
-      snapshot: { path: environment.snapshotPath },
+      snapshot: { path: ctx.environment.snapshotPath },
       command: prompt,
       timeoutMs: opts.timeoutMs,
-      workspacePath: environment.workspacePath,
+      workspacePath: ctx.environment.workspacePath,
     });
 
     const output = result.stdout || '';
     const success = result.exitCode === 0;
 
-    ctx.memory.push({ step: ctx.stepCount, prompt, output, success });
+    ctx.executionCtx.memory.push({ step: ctx.executionCtx.stepCount, prompt, output, success });
 
     return {
-      step: ctx.stepCount,
+      step: ctx.executionCtx.stepCount,
       success,
       output,
       exitCode: result.exitCode,
-      isFinal: success && environmentGoalMet(environment, ctx),
+      isFinal: success && environmentGoalMet(ctx.environment, ctx.executionCtx),
     };
   } catch (err) {
     return {
-      step: ctx.stepCount,
+      step: ctx.executionCtx.stepCount,
       success: false,
       output: err.message,
       exitCode: -1,
