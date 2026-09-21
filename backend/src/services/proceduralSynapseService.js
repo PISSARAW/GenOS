@@ -12,13 +12,14 @@ function defaultSynapse(from = "?", to = "?") {
     from,
     to,
     weight: 1.0,
-    plasticity: { weight: 1.0, potentiationCount: 0, depressionCount: 0, lastActivation: null },
+    plasticity: { weight: 1.0, potentiationCount: 0, depressionCount: 0 },
     evidence: { successRate: 0, trialCount: 0, successCount: 0, failureCount: 0 },
     type: "excitatory",
     lifecycle: "active",
     dormantSince: null,
     pruningCandidateSince: null,
-    lastUsage: null,
+    lastActivation: { trajectoryId: null, at: null, episode: null },
+    lastUsageEpisode: null,
   };
 }
 
@@ -49,10 +50,13 @@ function synapseFrom(edge = {}) {
 
 function activate(synapse, context = {}) {
   const s = Object.assign({}, synapse);
-  s.plasticity = Object.assign({}, s.plasticity, {
-    lastActivation: context.trajectory || new Date().toISOString(),
-  });
-  s.lastUsage = context.trajectory || new Date().toISOString();
+  s.plasticity = Object.assign({}, s.plasticity);
+  s.lastActivation = {
+    trajectoryId: context.trajectory || null,
+    at: new Date().toISOString(),
+    episode: context.episode != null ? context.episode : (s.lastActivation?.episode || 0),
+  };
+  s.lastUsageEpisode = context.episode != null ? context.episode : s.lastUsageEpisode;
   return s;
 }
 
@@ -74,9 +78,9 @@ function successfulTransition(synapse) {
 }
 
 function computeEffectiveWeight(synapse, plasticityPolicy = {}) {
-  const w = clamp01(Number(synapse.weight) || 1.0);
+  const w = clamp01(synapse.weight == null ? 1.0 : Number(synapse.weight));
   if (synapse.type === "inhibitory") {
-    const inhibitionStrength = clamp01(Number(synapse.inhibitionStrength) || 1.0);
+    const inhibitionStrength = clamp01(synapse.inhibitionStrength == null ? 1.0 : Number(synapse.inhibitionStrength));
     return -w * inhibitionStrength;
   }
   if (synapse.type === "modulatory") {
@@ -89,45 +93,58 @@ function isPrunable(synapse, policy = {}) {
   if (!policy?.pruning?.enabled) return false;
   if (synapse.lifecycle === "pruned") return true;
   if (synapse.lifecycle !== "candidate_for_pruning") return false;
-  const cooldown = Number(policy?.pruning?.pruningCooldownEpisodes) || 20;
-  if (synapse.pruningCandidateSince == null) return false;
-  const since = new Date(synapse.pruningCandidateSince).getTime();
-  const now = contextNow().getTime();
-  return (now - since) > cooldown;
+  const cooldownEpisodes = Number(policy?.pruning?.pruningCooldownEpisodes) || 20;
+  if (synapse.pruningCandidateSince?.episode == null) return false;
+  const currentEpisode = synapse.lastUsageEpisode || 0;
+  return (currentEpisode - synapse.pruningCandidateSince.episode) > cooldownEpisodes;
 }
 
 function contextNow() {
   return new Date();
 }
 
-function usageDecayDormant(policy, usage, weight) {
+function usageDecayDormant(params) {
+  const policy = params?.policy;
+  const usageEpisode = params?.usageEpisode;
+  const weight = params?.weight;
+  const currentEpisode = params?.currentEpisode;
   const halfLife = Number(policy?.pruning?.decayHalfLifeEpisodes) || 80;
-  if (!(usage > 0 && halfLife > 0)) return false;
-  const age = Math.max(0, contextNow().getTime() - new Date(usage).getTime());
-  const decayFactor = Math.pow(0.5, age / (halfLife * 1000 * 60 * 60 * 1000));
+  if (!(usageEpisode > 0 && halfLife > 0)) return false;
+  const age = currentEpisode - usageEpisode;
+  const decayFactor = Math.pow(0.5, age / halfLife);
   return weight * decayFactor < 0.05;
+}
+
+function checkCandidateState(s) {
+  return Number(s.pruningCandidateSince?.episode != null) ? "candidate_for_pruning" : "dormant";
+}
+
+function checkDormantOrWeakened(params) {
+  const s = params?.s;
+  const policy = params?.policy;
+  const weight = params?.weight;
+  const currentEpisode = params?.currentEpisode;
+  if (usageDecayDormant({ policy, usageEpisode: s.lastUsageEpisode || 0, weight, currentEpisode })) return "dormant";
+  if (weight < 0.2) return "weakened";
+  return "active";
 }
 
 function lifecycleState(synapse, policy = {}) {
   const s = synapse;
   if (s.lifecycle === "pruned") return "pruned";
-  if (s.lifecycle === "candidate_for_pruning") {
-    return Number(s.pruningCandidateSince != null) ? "candidate_for_pruning" : "dormant";
-  }
+  if (s.lifecycle === "candidate_for_pruning") return checkCandidateState(s);
   if (s.lifecycle === "dormant") return "dormant";
   if (s.lifecycle === "weakened") return "weakened";
-  const usage = Number(s.lastUsage || 0);
-  const weight = clamp01(Number(s.weight) || 1.0);
-  if (usageDecayDormant(policy, usage, weight)) return "dormant";
-  if (weight < 0.2) return "weakened";
-  return "active";
+  const weight = clamp01(s.weight == null ? 1.0 : Number(s.weight));
+  const currentEpisode = s.lastUsageEpisode || 0;
+  return checkDormantOrWeakened({ s, policy, weight, currentEpisode });
 }
 
-function promoteToPruningCandidate(synapse) {
+function promoteToPruningCandidate(synapse, currentEpisode = null) {
   if (synapse.lifecycle === "pruned") return synapse;
   return Object.assign({}, synapse, {
     lifecycle: "candidate_for_pruning",
-    pruningCandidateSince: new Date().toISOString(),
+    pruningCandidateSince: { episode: currentEpisode ?? synapse.lastUsageEpisode ?? 0, at: new Date().toISOString() },
   });
 }
 

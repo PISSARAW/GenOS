@@ -9,7 +9,7 @@ function clamp01(value, fallback = 0) {
 function expressionForEnvironment(procedure, environment) {
   const marks = procedure?.epigenetic_marks || {};
   const envMarks = marks[environment] || marks.default || {};
-  const expression = clamp01(Number(envMarks.expression) ?? 1);
+  const expression = envMarks.expression == null ? 1 : clamp01(Number(envMarks.expression));
   return {
     procedureId: procedure?.id || null,
     environment,
