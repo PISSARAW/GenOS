@@ -779,7 +779,7 @@ le transport et le refus des effets hors allow-list. Voir [ADR 0016](adr/0016-ef
 
 ## 28. Natural Creative Ecology (NCE)
 
-### 27.1. Hypothèse
+### 28.1. Hypothèse
 
 > La créativité artificielle peut-elle émerger de l'interaction de plusieurs mécanismes naturels de création de nouveauté, plutôt que d'un unique algorithme d'optimisation ?
 
