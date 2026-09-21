@@ -21,9 +21,7 @@ async function runGrpcSuite() {
   console.log('=== STARTING GENOS gRPC MICROSERVICES VERIFICATION SUITE ===\n');
 
   // Clear any leftover DB path from previous tests
-  console.log('DEBUG: GENOS_DB_PATH before delete:', process.env.GENOS_DB_PATH);
   delete process.env.GENOS_DB_PATH;
-  console.log('DEBUG: GENOS_DB_PATH after delete:', process.env.GENOS_DB_PATH);
 
   // 1. Boot local gRPC test server
   const server = new grpc.Server();
@@ -236,12 +234,13 @@ async function runGrpcSuite() {
     await db.run("INSERT OR REPLACE INTO organizations (id, name) VALUES (?, ?)", 'grpc-org', 'gRPC test organization');
     await db.run("INSERT OR REPLACE INTO projects (id, organization_id, name) VALUES (?, ?, ?)", 'grpc-project', 'grpc-org', 'gRPC test project');
     await db.run(
-      "INSERT OR REPLACE INTO workspaces (id, name, path, organization_id, project_id) VALUES (?, ?, ?, ?, ?)",
+      "INSERT OR REPLACE INTO workspaces (id, name, path, organization_id, project_id, isolated) VALUES (?, ?, ?, ?, ?, ?)",
       'ws-test-identity',
       'gRPC identity workspace',
       process.cwd(),
       'grpc-org',
-      'grpc-project'
+      'grpc-project',
+      1
     );
     const provRes = await callRpc(wsClient, 'ProvisionWorkspace', {
       workspace_id: 'ws-test-identity',
@@ -303,7 +302,6 @@ async function runGrpcSuite() {
       organization_id: 'grpc-org',
       project_id: 'grpc-project'
     });
-    console.log(`  DEBUG: DispatchWorker response:`, JSON.stringify(orchRes, null, 2));
     assert.strictEqual(orchRes.success, true);
     console.log(`  ✅ PASS: OrchestratorService DispatchWorker -> status: ${orchRes.status}`);
 

@@ -60,9 +60,7 @@ function assertWorkspacePresent(worker, worker_id) {
 }
 
 async function assertWorkspaceIsolated(db, worker) {
-  console.log(`DEBUG assertWorkspaceIsolated: worker.workspace_id = ${worker.workspace_id}`);
   const existing = await db.get(`SELECT id, path, isolated FROM workspaces WHERE id = ?`, worker.workspace_id);
-  console.log(`DEBUG assertWorkspaceIsolated: existing =`, existing);
   if (!existing || !existing.isolated) throw new Error(`Worker ${worker.worker_id || 'unknown'} workspace is not isolated`);
 }
 
