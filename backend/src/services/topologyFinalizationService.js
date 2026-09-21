@@ -22,7 +22,7 @@ async function finalizeTopology(input = {}) {
   const sessionId = input.sessionId || `topology-${randomUUID()}`;
   const audit = resolvedAudit(input);
   const decision = resolvedDecision(input, audit);
-  const record = buildRecord(input, sessionId, { decision, audit });
+  const record = buildRecord(input, sessionId, decision, audit);
   record.stateVersion = await persistFinalization(input.db, record);
   return record;
 }

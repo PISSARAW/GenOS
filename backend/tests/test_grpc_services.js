@@ -20,6 +20,11 @@ process.env.GENOS_GRPC_SHARED_SECRET = testGrpcSecret;
 async function runGrpcSuite() {
   console.log('=== STARTING GENOS gRPC MICROSERVICES VERIFICATION SUITE ===\n');
 
+  // Clear any leftover DB path from previous tests
+  console.log('DEBUG: GENOS_DB_PATH before delete:', process.env.GENOS_DB_PATH);
+  delete process.env.GENOS_DB_PATH;
+  console.log('DEBUG: GENOS_DB_PATH after delete:', process.env.GENOS_DB_PATH);
+
   // 1. Boot local gRPC test server
   const server = new grpc.Server();
   const descriptors = loadAllProtos();
@@ -298,6 +303,7 @@ async function runGrpcSuite() {
       organization_id: 'grpc-org',
       project_id: 'grpc-project'
     });
+    console.log(`  DEBUG: DispatchWorker response:`, JSON.stringify(orchRes, null, 2));
     assert.strictEqual(orchRes.success, true);
     console.log(`  ✅ PASS: OrchestratorService DispatchWorker -> status: ${orchRes.status}`);
 

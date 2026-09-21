@@ -1,0 +1,106 @@
+{
+  "capsule_id": "b831640d-8967-4c7e-aa8e-b154383f2bee",
+  "boundary_id": "sandbox_boundary",
+  "hash": "ae96623944681d324bf681901efb48de47af2c03cd4fd61130ba59a37400b283",
+  "data": {
+    "agent_id": "3540a0ed-8e08-48eb-87a0-39ce6bbd9365",
+    "branch_id": "branch-e3f6969f",
+    "created_at": "2026-09-20T17:43:39.763740200+00:00",
+    "genome": {
+      "apiVersion": "v0alpha1",
+      "bud_scars": 0,
+      "capabilities": [
+        "inspect",
+        "reason",
+        "mutate"
+      ],
+      "cell_id": "3540a0ed-8e08-48eb-87a0-39ce6bbd9365",
+      "cognition": {
+        "conscience": {
+          "baseline_budget": 100.0,
+          "current_budget": 100.0,
+          "dissonance_level": 0.0,
+          "eureka_moments": 0,
+          "is_apoptotic": false,
+          "max_dissonance_threshold": 50.0,
+          "revision": 0
+        },
+        "organelles": []
+      },
+      "conscience": {
+        "baseline_budget": 100.0,
+        "current_budget": 100.0,
+        "dissonance_level": 0.0,
+        "eureka_moments": 0,
+        "is_apoptotic": false,
+        "max_dissonance_threshold": 50.0,
+        "revision": 0
+      },
+      "hayflick_limit": 50,
+      "identity": {
+        "cell_id": "3540a0ed-8e08-48eb-87a0-39ce6bbd9365",
+        "name": "Kofi-c6d05d",
+        "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+        "role": "independent_reviewer"
+      },
+      "kind": "AgentGenome",
+      "memory": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true,
+        "type": "cognitive"
+      },
+      "memory_policy": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true
+      },
+      "metadata": {
+        "name": "Kofi-c6d05d",
+        "version": "0.1.0"
+      },
+      "model_policy": {
+        "preferred": "default"
+      },
+      "models": {
+        "preferred": "default"
+      },
+      "name": "Kofi-c6d05d",
+      "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+      "objectives": {
+        "operational_mode": "autonomous",
+        "primary": "independent_reviewer"
+      },
+      "organelles": [],
+      "policies": {
+        "ephemeral_ttl": null,
+        "hayflick_limit": 50,
+        "is_ephemeral": false,
+        "is_senescent": false
+      },
+      "role": "independent_reviewer",
+      "tool_policy": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test"
+        ]
+      },
+      "tools": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test"
+        ]
+      }
+    },
+    "snapshot_id": "snap-e3f6969f32ea4ba984fb6d5703dc219a",
+    "state": {
+      "dissonance": 0.0,
+      "entropy": 0.42,
+      "execution_status": "quiescent",
+      "genesis_hash": "653c2594a4ac3c11ed6583fe2309a24f2b6c2b62dbf9edbce685e42dc3efdf7b",
+      "working_memory": []
+    },
+    "world_id": "world-matrix-0"
+  },
+  "created_at": "2026-09-20T17:43:39.798290+00:00"
+}

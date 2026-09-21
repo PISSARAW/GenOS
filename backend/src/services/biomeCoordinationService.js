@@ -24,7 +24,6 @@ function serialize(session) {
     mechanisms: session.mechanisms,
     capabilityContract: session.capabilityContract,
     members: session.members,
-    finalization: session.finalization || null,
     matrix: {
       matrixId: session.matrix.matrixId,
       version: session.matrix.version,
@@ -41,13 +40,11 @@ function rehydrate(record) {
   matrix.version = Number(state.matrix?.version) || 0;
   for (const [key, entry] of state.matrix?.entries || []) matrix.entries.set(key, entry);
   matrix.history = Array.isArray(state.matrix?.history) ? state.matrix.history : [];
-  return { sessionId: record.id, ...state, matrix, persistVersion: record.storeVersion };
+  return { sessionId: record.id, ...state, matrix };
 }
 
 async function persist(session, db) {
-  if (!db) return;
-  await topologySessionStore.save(db, { id: session.sessionId, topology: 'biome', state: serialize(session), expectedVersion: session.persistVersion || 0 });
-  session.persistVersion = (session.persistVersion || 0) + 1;
+  if (db) await topologySessionStore.save(db, { id: session.sessionId, topology: 'biome', state: serialize(session) });
 }
 
 async function composeBiome(mission, options = {}) {
@@ -58,7 +55,6 @@ async function composeBiome(mission, options = {}) {
   const organization = options.organization || DEFAULT_ORGANIZATION;
   const session = {
     sessionId: `biome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    persistVersion: 0,
     mode: 'biome',
     mission: goal,
     organization,
@@ -117,74 +113,6 @@ async function assessSessionHealth(sessionId, observations, options = {}) {
   return { sessionId, ...result, matrixVersion: session.matrix.version };
 }
 
-async function recordObservationDecisions(sessionId, observations, options = {}) {
-  const session = await getSession(sessionId, options.db);
-  for (const entry of [...(observations.exploitable || []), ...(observations.rejected || []), ...(observations.absent || [])]) {
-    biofilmMatrix.deposit(session.matrix, { key: `observation:${entry.role}`, kind: 'patch_observation_decision', ...entry });
-  }
-  await persist(session, options.db);
-  return { sessionId, matrixVersion: session.matrix.version };
-}
-
-async function finalizeBiomeSession(sessionId, dossiers, options = {}) {
-  let session = await getSession(sessionId, options.db);
-  if (session.finalization) return session.finalization;
-  const populations = session.members.map((member) => ({ id: member.role, demand: 1, priority: 1 }));
-  const allocation = await allocateSessionResources(sessionId, populations, {
-    db: options.db,
-    totalBudget: options.totalBudget === undefined ? populations.length * 1000 : options.totalBudget,
-    minimumPerPopulation: options.minimumPerPopulation || 0
-  });
-  const observations = classifyDossiers(session.members, dossiers);
-  await recordObservationDecisions(sessionId, observations, { db: options.db });
-  const foraging = await forageSession(sessionId, observations.patchHistory, { db: options.db, iteration: 1, elapsedTimeSec: Math.max(1, observations.patchHistory.length), random: () => 0.5 });
-  const health = await assessSessionHealth(sessionId, observations.exploitable.map((item) => ({ label: item.role })), { db: options.db });
-  const quorumRatio = Number.isFinite(options.quorumRatio) ? options.quorumRatio : 0.5;
-  if (quorumRatio < 0 || quorumRatio > 1) throw Object.assign(new Error('Biome quorum ratio must be between zero and one.'), { code: 'BIOME_QUORUM_INVALID' });
-  const quorum = {
-    reached: observations.exploitable.length >= 2 && observations.exploitable.length / session.members.length >= quorumRatio,
-    support: Number((observations.exploitable.length / Math.max(1, session.members.length)).toFixed(3)),
-    quorumRatio,
-    population: session.members.length,
-    acceptedDossiers: observations.exploitable.length
-  };
-  const decision = allocation.conserved && quorum.reached && health.verdict === 'resilient' ? 'completed' : 'blocked';
-  const result = {
-    sessionId,
-    mode: 'biome',
-    decision,
-    reason: decision === 'completed' ? 'budget_conserved_quorum_and_health_acceptable' : 'budget_quorum_or_health_gate_failed',
-    allocation,
-    observations,
-    foraging,
-    health,
-    quorum,
-    matrixVersion: health.matrixVersion
-  };
-  session = await getSession(sessionId, options.db);
-  session.finalization = result;
-  await persist(session, options.db);
-  return result;
-}
-
-function classifyDossiers(members, dossiers) {
-  const byRole = new Map((Array.isArray(dossiers) ? dossiers : []).map((dossier) => [dossier.role, dossier.report]));
-  const patchHistory = [];
-  const accepted = [];
-  const rejected = [];
-  const absent = [];
-  for (const member of members) {
-    const report = byRole.get(member.role);
-    if (!report) { absent.push({ role: member.role, status: 'absent' }); continue; }
-    const claims = Array.isArray(report.claims) ? report.claims : [];
-    const facts = claims.flatMap((claim) => Array.isArray(claim?.evidence) ? claim.evidence : []).filter(Boolean);
-    if (!facts.length) { rejected.push({ role: member.role, status: 'rejected', reason: 'no_exploitable_evidence' }); continue; }
-    accepted.push({ role: member.role, status: 'exploitable', evidenceCount: facts.length });
-    patchHistory.push(...facts.map((fact) => ({ infoGain: 1, sourceRole: member.role, fact: String(fact).slice(0, 500) })));
-  }
-  return { patchHistory, exploitable: accepted, rejected, absent };
-}
-
 function allocateResources(populations, options = {}) {
   const list = Array.isArray(populations) ? populations : [];
   const totalBudget = options.totalBudget === undefined ? list.length * 1000 : options.totalBudget;
@@ -236,7 +164,7 @@ function forageStep(patchHistory, options = {}) {
   const elapsedTimeSec = Number.isFinite(options.elapsedTimeSec) ? options.elapsedTimeSec : 1;
   return {
     patchYield: defaultForaging.evaluatePatchYield(Array.isArray(patchHistory) ? patchHistory : [], elapsedTimeSec),
-    levyStep: defaultForaging.computeLevyFlightStep(iteration, options.random)
+    levyStep: defaultForaging.computeLevyFlightStep(iteration)
   };
 }
 
@@ -256,7 +184,5 @@ module.exports = {
   allocateSessionResources,
   forageSession,
   assessSessionHealth,
-  recordObservationDecisions,
-  finalizeBiomeSession,
   rehydrate
 };

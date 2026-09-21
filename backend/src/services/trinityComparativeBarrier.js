@@ -10,10 +10,6 @@
 const trinityService = require('./trinityService');
 const { workerEvidenceDossiers } = require('./agentEvidenceService');
 const { emit } = require('./agentOrchestrationState');
-const { withTransaction } = require('../db');
-// Stubbed: trinityMergeArtifact.js missing — bridge recovery
-function createOrReuseMergeArtifact() { return { id: 'stub', merged: false }; }
-module.exports = { createOrReuseMergeArtifact };
 
 function reportOf(event) {
   if (!event) return null;
@@ -130,6 +126,13 @@ async function promoteWinner(db, input = {}) {
   const winnerAgent = await db.get("SELECT workspace_id, id, name FROM agents WHERE id = ?", winner.agentId);
   const orchestratorAgent = await db.get("SELECT workspace_id, id, name FROM agents WHERE id = ?", orchestratorId);
 
+  // Mettre à jour le statut des worlds
+  await db.run("UPDATE trinity_worlds SET status = 'merged', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId);
+  for (const world of comparison.scoredWorlds || []) {
+    if (world.worldNumber === result.selectedWorld || !world.agentId) continue;
+    await db.run("UPDATE trinity_worlds SET status = 'compared', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", world.agentId);
+  }
+
   // Appliquer le merge réel si les workspace paths sont disponibles
   let mergeArtifact = null;
   if (winnerAgent && orchestratorAgent && winnerAgent.workspace_id && orchestratorAgent.workspace_id) {
@@ -138,13 +141,24 @@ async function promoteWinner(db, input = {}) {
 
     if (winnerWorkspace && orchestratorWorkspace && winnerWorkspace.path && orchestratorWorkspace.path) {
       try {
-        mergeArtifact = await createOrReuseMergeArtifact({
-          sourceDir: winnerWorkspace.path,
-          targetRoot: orchestratorWorkspace.path,
-          missionId,
+        const fs = require('fs/promises');
+        const path = require('path');
+        const { copyTree } = require('../agentWorkspaceLifecycle/copy');
+        const { removeSensitiveFiles } = require('../agentWorkspaceLifecycle/copy');
+
+        const sourceDir = winnerWorkspace.path;
+        const targetDir = path.join(orchestratorWorkspace.path, `merged_world_${result.selectedWorld}_${Date.now()}`);
+
+        await fs.mkdir(targetDir, { recursive: true });
+        await copyTree({ state: { bytes: 0, limit: Infinity, entries: 0 }, isExcluded: () => false }, { source: sourceDir, destination: targetDir, relative: '' });
+        await removeSensitiveFiles(targetDir);
+
+        mergeArtifact = {
+          sourceWorkspace: sourceDir,
+          targetWorkspace: targetDir,
           worldNumber: result.selectedWorld,
           role: result.selectedRole
-        });
+        };
 
         emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_CREATED', 'MERGE', `Created merge artifact from World ${result.selectedWorld} (${result.selectedRole}).`, mergeArtifact, 'info');
       } catch (mergeError) {
@@ -153,38 +167,8 @@ async function promoteWinner(db, input = {}) {
     }
   }
 
-  await updateWorldStatuses({
-    db,
-    worlds: comparison.scoredWorlds || [],
-    missionId,
-    selectedWorld: result.selectedWorld,
-    winnerStatus: mergeArtifact ? 'merged' : 'selected'
-  });
-  if (!mergeArtifact) {
-    return { promoted: false, reason: 'promotion_pending_artifact_apply', worldNumber: result.selectedWorld, agentId: winner.agentId };
-  }
   emit(orchestratorId, 'TRINITY_WINNER_SELECTED', 'SELECT_TRINITY', `Selected World ${result.selectedWorld} (${result.selectedRole}) merged.`, { missionId, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, artifact: mergeArtifact }, 'info');
   return { promoted: true, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId, artifact: mergeArtifact };
-}
-
-async function updateWorldStatuses(input) {
-  const { db, worlds, missionId, selectedWorld, winnerStatus } = input;
-  const missionPrefix = `${escapeLike(String(missionId || ''))}%`;
-  await withTransaction(db, async (tx) => {
-    const selected = worlds.find((world) => world.worldNumber === selectedWorld);
-    const existing = await tx.get(
-      "SELECT agent_id FROM trinity_worlds WHERE id LIKE ? ESCAPE '\\' AND status IN ('selected', 'merged') LIMIT 1",
-      missionPrefix
-    );
-    if (existing && selected && existing.agent_id !== selected.agentId) {
-      throw Object.assign(new Error('A different Trinity world is already selected for promotion.'), { code: 'TRINITY_PROMOTION_CONFLICT' });
-    }
-    for (const world of worlds) {
-      if (!world.agentId) continue;
-      const status = world.worldNumber === selectedWorld ? winnerStatus : 'compared';
-      await tx.run("UPDATE trinity_worlds SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id LIKE ? ESCAPE '\\' AND agent_id = ?", status, missionPrefix, world.agentId);
-    }
-  });
 }
 
 module.exports = { applyTrinityComparison, buildWorldReports, buildWorldReportsFromMission, latestReport, promoteWinner };

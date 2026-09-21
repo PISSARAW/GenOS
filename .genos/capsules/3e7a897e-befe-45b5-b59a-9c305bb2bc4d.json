@@ -1,0 +1,106 @@
+{
+  "capsule_id": "3e7a897e-befe-45b5-b59a-9c305bb2bc4d",
+  "boundary_id": "sandbox_boundary",
+  "hash": "972df95b5c5f7366be1485606fa5b5a109bcb3a6356a596095b27d0f444c5eeb",
+  "data": {
+    "agent_id": "6b1a0380-7536-4ef3-b3b2-80b6ba701be3",
+    "branch_id": "branch-0e90d4bf",
+    "created_at": "2026-09-20T17:22:32.229049100+00:00",
+    "genome": {
+      "apiVersion": "v0alpha1",
+      "bud_scars": 0,
+      "capabilities": [
+        "inspect",
+        "reason",
+        "mutate"
+      ],
+      "cell_id": "6b1a0380-7536-4ef3-b3b2-80b6ba701be3",
+      "cognition": {
+        "conscience": {
+          "baseline_budget": 100.0,
+          "current_budget": 100.0,
+          "dissonance_level": 0.0,
+          "eureka_moments": 0,
+          "is_apoptotic": false,
+          "max_dissonance_threshold": 50.0,
+          "revision": 0
+        },
+        "organelles": []
+      },
+      "conscience": {
+        "baseline_budget": 100.0,
+        "current_budget": 100.0,
+        "dissonance_level": 0.0,
+        "eureka_moments": 0,
+        "is_apoptotic": false,
+        "max_dissonance_threshold": 50.0,
+        "revision": 0
+      },
+      "hayflick_limit": 50,
+      "identity": {
+        "cell_id": "6b1a0380-7536-4ef3-b3b2-80b6ba701be3",
+        "name": "Implement · mutate worker: Je m'appelle Chidi 22d4bc, ce qui signifie 'Dieu existe…",
+        "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+        "role": "implementation"
+      },
+      "kind": "AgentGenome",
+      "memory": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true,
+        "type": "cognitive"
+      },
+      "memory_policy": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true
+      },
+      "metadata": {
+        "name": "Implement · mutate worker: Je m'appelle Chidi 22d4bc, ce qui signifie 'Dieu existe…",
+        "version": "0.1.0"
+      },
+      "model_policy": {
+        "preferred": "default"
+      },
+      "models": {
+        "preferred": "default"
+      },
+      "name": "Implement · mutate worker: Je m'appelle Chidi 22d4bc, ce qui signifie 'Dieu existe…",
+      "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+      "objectives": {
+        "operational_mode": "autonomous",
+        "primary": "implementation"
+      },
+      "organelles": [],
+      "policies": {
+        "ephemeral_ttl": null,
+        "hayflick_limit": 50,
+        "is_ephemeral": false,
+        "is_senescent": false
+      },
+      "role": "implementation",
+      "tool_policy": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test"
+        ]
+      },
+      "tools": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test"
+        ]
+      }
+    },
+    "snapshot_id": "snap-0e90d4bf9b6e46e0aea34eca74acaf01",
+    "state": {
+      "dissonance": 0.0,
+      "entropy": 0.42,
+      "execution_status": "quiescent",
+      "genesis_hash": "c325a1a1d6d72c914c991472f45f657c82d0a041f52df145ba91db89e1d1152e",
+      "working_memory": []
+    },
+    "world_id": "world-matrix-0"
+  },
+  "created_at": "2026-09-20T17:22:32.278743900+00:00"
+}

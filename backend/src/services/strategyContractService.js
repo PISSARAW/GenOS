@@ -48,7 +48,19 @@ function bool(value, fallback) {
 
 function buildPhilosophyContext(input) {
   const ctx = input.philosophyContext || input.philosophy_context;
-  return ctx ? philosophyPolicy.buildPromotionPolicy({ philosophyContext: ctx }) : null;
+  if (!ctx) return null;
+  const guardContext = philosophicalGuard.buildContext(ctx);
+  const policyContext = philosophyPolicy.buildPromotionPolicy({ philosophyContext: ctx });
+  return {
+    ...guardContext,
+    interpretive: policyContext.interpretive,
+    interpretiveConcepts: policyContext.interpretiveConcepts,
+    holdPromotion: policyContext.holdPromotion,
+    requireHumanApproval: policyContext.requireHumanApproval,
+    requireProvenance: policyContext.requireProvenance,
+    provenanceComplete: policyContext.provenanceComplete,
+    missingProvenance: policyContext.missingProvenance
+  };
 }
 
 function buildEthicalContext(input) {

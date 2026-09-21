@@ -1,0 +1,1001 @@
+{
+  "C:\\Users\\Shadow\\Documents\\GitHub\\BFCL": {
+    "branch": "genos-daemon/BFCL",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\BFCL",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:46.624Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:28:57.910Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:02.254Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:28:59.242Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:05.967Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:28:59.914Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:30.111Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:52.682Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:46.624Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\Black-Whale": {
+    "branch": "genos-daemon/Black-Whale",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\Black-Whale",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:46.752Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:28:58.048Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:02.566Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:28:59.396Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:06.403Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:00.095Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:30.303Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:52.934Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:46.752Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\CabinetTandian": {
+    "branch": "genos-daemon/CabinetTandian",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\CabinetTandian",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:46.890Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:28:58.163Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:02.773Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:28:59.526Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:06.683Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:00.240Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:30.447Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:53.177Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:46.890Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\EkoRubix-AS": {
+    "branch": "genos-daemon/EkoRubix-AS",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\EkoRubix-AS",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:47.015Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:28:58.290Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:03.034Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:28:59.676Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:06.947Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:00.396Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:30.918Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:53.381Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:47.015Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\Exocompute": {
+    "branch": "genos-daemon/Exocompute",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\Exocompute",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:47.189Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:28:58.514Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:03.370Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:28:59.886Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:07.567Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:00.666Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:31.185Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:53.705Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:47.189Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\FP-AMB": {
+    "branch": "genos-daemon/FP-AMB",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\FP-AMB",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:47.316Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:28:58.630Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:03.571Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:29:00.044Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:07.788Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:00.867Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:31.311Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:53.923Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:47.316Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\GAIA": {
+    "branch": "genos-daemon/GAIA",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\GAIA",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:47.468Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:28:58.793Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:03.742Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:29:00.354Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:08.019Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:01.050Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:31.450Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:54.110Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:47.468Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\GenOS": {
+    "branch": "genos-daemon/GenOS",
+    "base": "v3",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\GenOS",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "baseRef": "origin/v3",
+      "reason": "error: cannot rebase: You have unstaged changes.\nerror: Please commit or stash them."
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: error: cannot rebase: You have unstaged changes.\nerror: Please commit or stash them."
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:49.090Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:29:00.548Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:06.665Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:29:02.444Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:11.992Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:03.165Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:33.592Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:56.826Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:49.090Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\InjecAgent": {
+    "branch": "genos-daemon/InjecAgent",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\InjecAgent",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:49.216Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:29:00.662Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:07.158Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:29:02.563Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:12.354Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:03.316Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:33.712Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:56.994Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:49.216Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\Kumuisi": {
+    "branch": "genos-daemon/Kumuisi",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\Kumuisi",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:49.338Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:29:00.802Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:07.347Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:29:02.700Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:12.719Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:03.502Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:33.837Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:57.210Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:49.338Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\Kumuisi-Colis": {
+    "branch": "genos-daemon/Kumuisi-Colis",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\Kumuisi-Colis",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:49.473Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:29:00.942Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:07.623Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:29:02.840Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:13.042Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:03.772Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:33.957Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:57.454Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:49.473Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\locomo": {
+    "branch": "genos-daemon/locomo",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\locomo",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:49.636Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:29:01.078Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:07.802Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:29:02.979Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:13.440Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:03.920Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:34.099Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:57.629Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:49.636Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\SWE-bench": {
+    "branch": "genos-daemon/SWE-bench",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\SWE-bench",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:50.133Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:29:01.222Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:07.975Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:29:03.185Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:13.775Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:04.046Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:34.222Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:57.816Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:50.133Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\Tandian": {
+    "branch": "genos-daemon/Tandian",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\Tandian",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:50.419Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:29:01.372Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:08.171Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:29:03.381Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:14.173Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:04.202Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:34.373Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:58.018Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:50.419Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\Tout-du-tout-magazine": {
+    "branch": "genos-daemon/Tout-du-tout-magazine",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\Tout-du-tout-magazine",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:50.747Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:29:01.617Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:08.510Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:29:03.678Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:14.814Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:04.470Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:34.646Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:58.684Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:50.747Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\WilfridNaomie": {
+    "branch": "genos-daemon/WilfridNaomie",
+    "base": "main",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\WilfridNaomie",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:50.907Z",
+    "history": [
+      {
+        "at": "2026-09-20T15:29:01.733Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T16:29:08.700Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:29:03.869Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:15.123Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:04.600Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:34.795Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:58.863Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:50.907Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\TDT": {
+    "branch": "genos-daemon/TDT",
+    "base": "master",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\TDT",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "reason": "fetch failed: "
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: fetch failed: "
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T09:31:50.596Z",
+    "history": [
+      {
+        "at": "2026-09-20T16:29:08.338Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T17:29:03.547Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T18:29:14.499Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-20T19:29:04.331Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T07:31:34.512Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T08:31:58.489Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T09:31:50.596Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  }
+}

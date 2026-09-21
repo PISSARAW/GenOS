@@ -37,8 +37,7 @@ function composeHolobiont(mission, options = {}) {
 function reportText(dossier) {
   const events = Array.isArray(dossier?.events) ? dossier.events : [];
   const report = [...events].reverse().map((event) => event.evidenceReport).find(Boolean) || {};
-  const selected = Object.keys(report).length ? report : dossier;
-  return (selected.claims || []).map((claim) => claim.statement).filter(Boolean).join('\n') || selected.artifactText || '';
+  return (report.claims || []).map((claim) => claim.statement).filter(Boolean).join('\n') || report.artifactText || '';
 }
 
 function hostVeto(dossier = {}) {

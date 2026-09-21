@@ -1,0 +1,106 @@
+{
+  "capsule_id": "cc97b3a4-6655-4499-b2d6-40ad386826c2",
+  "boundary_id": "sandbox_boundary",
+  "hash": "ee7a798642e9330ee2e338b1b79f46e93fc2759ca232c2d709c3b4e0f5ee7bfe",
+  "data": {
+    "agent_id": "632efcda-8319-43bb-8ed5-946d69032792",
+    "branch_id": "branch-2ccd8cc1",
+    "created_at": "2026-09-20T17:42:36.964989300+00:00",
+    "genome": {
+      "apiVersion": "v0alpha1",
+      "bud_scars": 0,
+      "capabilities": [
+        "inspect",
+        "reason",
+        "mutate"
+      ],
+      "cell_id": "632efcda-8319-43bb-8ed5-946d69032792",
+      "cognition": {
+        "conscience": {
+          "baseline_budget": 100.0,
+          "current_budget": 100.0,
+          "dissonance_level": 0.0,
+          "eureka_moments": 0,
+          "is_apoptotic": false,
+          "max_dissonance_threshold": 50.0,
+          "revision": 0
+        },
+        "organelles": []
+      },
+      "conscience": {
+        "baseline_budget": 100.0,
+        "current_budget": 100.0,
+        "dissonance_level": 0.0,
+        "eureka_moments": 0,
+        "is_apoptotic": false,
+        "max_dissonance_threshold": 50.0,
+        "revision": 0
+      },
+      "hayflick_limit": 50,
+      "identity": {
+        "cell_id": "632efcda-8319-43bb-8ed5-946d69032792",
+        "name": "Griot-025542",
+        "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+        "role": "implementation"
+      },
+      "kind": "AgentGenome",
+      "memory": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true,
+        "type": "cognitive"
+      },
+      "memory_policy": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true
+      },
+      "metadata": {
+        "name": "Griot-025542",
+        "version": "0.1.0"
+      },
+      "model_policy": {
+        "preferred": "default"
+      },
+      "models": {
+        "preferred": "default"
+      },
+      "name": "Griot-025542",
+      "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+      "objectives": {
+        "operational_mode": "autonomous",
+        "primary": "implementation"
+      },
+      "organelles": [],
+      "policies": {
+        "ephemeral_ttl": null,
+        "hayflick_limit": 50,
+        "is_ephemeral": false,
+        "is_senescent": false
+      },
+      "role": "implementation",
+      "tool_policy": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test"
+        ]
+      },
+      "tools": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test"
+        ]
+      }
+    },
+    "snapshot_id": "snap-2ccd8cc1fd184148b6faa22a1fbffe10",
+    "state": {
+      "dissonance": 0.0,
+      "entropy": 0.42,
+      "execution_status": "quiescent",
+      "genesis_hash": "be71e62357be637dc3e49d5ff2f2a52f67034f9793c259f132b5e919a7dd20aa",
+      "working_memory": []
+    },
+    "world_id": "world-matrix-0"
+  },
+  "created_at": "2026-09-20T17:42:37.055583900+00:00"
+}

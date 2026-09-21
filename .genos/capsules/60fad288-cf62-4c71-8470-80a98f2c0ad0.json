@@ -1,0 +1,106 @@
+{
+  "capsule_id": "60fad288-cf62-4c71-8470-80a98f2c0ad0",
+  "boundary_id": "sandbox_boundary",
+  "hash": "0fef5d5e285285416283530d82b72a6e4200ff897a79a2c4d7d43bd8aebc6cf9",
+  "data": {
+    "agent_id": "9c39bda4-036a-44b7-a581-4a60c8f79aaa",
+    "branch_id": "branch-03a0191c",
+    "created_at": "2026-09-20T18:32:32.923908400+00:00",
+    "genome": {
+      "apiVersion": "v0alpha1",
+      "bud_scars": 0,
+      "capabilities": [
+        "inspect",
+        "reason",
+        "mutate"
+      ],
+      "cell_id": "9c39bda4-036a-44b7-a581-4a60c8f79aaa",
+      "cognition": {
+        "conscience": {
+          "baseline_budget": 100.0,
+          "current_budget": 100.0,
+          "dissonance_level": 0.0,
+          "eureka_moments": 0,
+          "is_apoptotic": false,
+          "max_dissonance_threshold": 50.0,
+          "revision": 0
+        },
+        "organelles": []
+      },
+      "conscience": {
+        "baseline_budget": 100.0,
+        "current_budget": 100.0,
+        "dissonance_level": 0.0,
+        "eureka_moments": 0,
+        "is_apoptotic": false,
+        "max_dissonance_threshold": 50.0,
+        "revision": 0
+      },
+      "hayflick_limit": 50,
+      "identity": {
+        "cell_id": "9c39bda4-036a-44b7-a581-4a60c8f79aaa",
+        "name": "Zola-838fdb",
+        "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+        "role": "implementation"
+      },
+      "kind": "AgentGenome",
+      "memory": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true,
+        "type": "cognitive"
+      },
+      "memory_policy": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true
+      },
+      "metadata": {
+        "name": "Zola-838fdb",
+        "version": "0.1.0"
+      },
+      "model_policy": {
+        "preferred": "default"
+      },
+      "models": {
+        "preferred": "default"
+      },
+      "name": "Zola-838fdb",
+      "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+      "objectives": {
+        "operational_mode": "autonomous",
+        "primary": "implementation"
+      },
+      "organelles": [],
+      "policies": {
+        "ephemeral_ttl": null,
+        "hayflick_limit": 50,
+        "is_ephemeral": false,
+        "is_senescent": false
+      },
+      "role": "implementation",
+      "tool_policy": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test"
+        ]
+      },
+      "tools": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test"
+        ]
+      }
+    },
+    "snapshot_id": "snap-03a0191c62e34f35b4fcd6930a580688",
+    "state": {
+      "dissonance": 0.0,
+      "entropy": 0.42,
+      "execution_status": "quiescent",
+      "genesis_hash": "acdb9e204e797a74101caa648533fb50b9828ff355f3791aed36e594a6329be4",
+      "working_memory": []
+    },
+    "world_id": "world-matrix-0"
+  },
+  "created_at": "2026-09-20T18:32:33.022122800+00:00"
+}

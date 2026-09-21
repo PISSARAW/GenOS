@@ -1,0 +1,167 @@
+{
+  "capsule_id": "333ac2f2-722b-49f0-9e9f-1013d92ac61b",
+  "boundary_id": "sandbox_boundary",
+  "hash": "3f474ca07265205adc9858e932f5d0f78328e1790d72d4f5b13521c7d3c77048",
+  "data": {
+    "agent_id": "a6c433e3-fc7f-4f56-81e3-fa85f480dc2f",
+    "branch_id": "branch-71770cd5",
+    "created_at": "2026-09-21T07:41:58.383352+00:00",
+    "genome": {
+      "apiVersion": "v0alpha1",
+      "bud_scars": 0,
+      "capabilities": [
+        "inspect",
+        "reason",
+        "mutate",
+        "orchestrate",
+        "delegate",
+        "snapshot",
+        "replay",
+        "merge",
+        "audit",
+        "biomimicry"
+      ],
+      "cell_id": "a6c433e3-fc7f-4f56-81e3-fa85f480dc2f",
+      "cognition": {
+        "conscience": {
+          "baseline_budget": 100.0,
+          "current_budget": 100.0,
+          "dissonance_level": 0.0,
+          "eureka_moments": 0,
+          "is_apoptotic": false,
+          "max_dissonance_threshold": 50.0,
+          "revision": 0
+        },
+        "organelles": []
+      },
+      "conscience": {
+        "baseline_budget": 100.0,
+        "current_budget": 100.0,
+        "dissonance_level": 0.0,
+        "eureka_moments": 0,
+        "is_apoptotic": false,
+        "max_dissonance_threshold": 50.0,
+        "revision": 0
+      },
+      "hayflick_limit": 50,
+      "identity": {
+        "cell_id": "a6c433e3-fc7f-4f56-81e3-fa85f480dc2f",
+        "name": "Mandla-c2a83b",
+        "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+        "role": "implementation"
+      },
+      "kind": "AgentGenome",
+      "memory": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true,
+        "type": "cognitive"
+      },
+      "memory_policy": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true
+      },
+      "metadata": {
+        "name": "Mandla-c2a83b",
+        "version": "0.1.0"
+      },
+      "model_policy": {
+        "preferred": "default"
+      },
+      "models": {
+        "preferred": "default"
+      },
+      "name": "Mandla-c2a83b",
+      "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+      "objectives": {
+        "operational_mode": "autonomous",
+        "primary": "implementation"
+      },
+      "organelles": [],
+      "policies": {
+        "ephemeral_ttl": null,
+        "hayflick_limit": 50,
+        "is_ephemeral": false,
+        "is_senescent": false
+      },
+      "role": "implementation",
+      "tool_policy": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test",
+          "genos_orchestrate",
+          "genos_delegate_worker",
+          "genos_snapshot",
+          "genos_replay",
+          "genos_merge",
+          "genos_audit",
+          "genos_biomimicry",
+          "genos_biological_mode",
+          "genos_a_team_preview",
+          "genos_trinity_launch",
+          "genos_worker_publish",
+          "genos_worker_inbox",
+          "genos_organization_state",
+          "genos_change_strategy",
+          "genos_report_progress",
+          "genos_change_organization",
+          "genos_execute_primitive",
+          "genos_capsule_create",
+          "genos_v2_init",
+          "genos_v2_fork",
+          "genos_fossil_record",
+          "genos_fossil_list",
+          "genos_fossil_strata",
+          "genos_fossil_excavate",
+          "genos_fossil_decode",
+          "genos_fossil_candidate",
+          "genos_topology_session"
+        ]
+      },
+      "tools": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test",
+          "genos_orchestrate",
+          "genos_delegate_worker",
+          "genos_snapshot",
+          "genos_replay",
+          "genos_merge",
+          "genos_audit",
+          "genos_biomimicry",
+          "genos_biological_mode",
+          "genos_a_team_preview",
+          "genos_trinity_launch",
+          "genos_worker_publish",
+          "genos_worker_inbox",
+          "genos_organization_state",
+          "genos_change_strategy",
+          "genos_report_progress",
+          "genos_change_organization",
+          "genos_execute_primitive",
+          "genos_capsule_create",
+          "genos_v2_init",
+          "genos_v2_fork",
+          "genos_fossil_record",
+          "genos_fossil_list",
+          "genos_fossil_strata",
+          "genos_fossil_excavate",
+          "genos_fossil_decode",
+          "genos_fossil_candidate",
+          "genos_topology_session"
+        ]
+      }
+    },
+    "snapshot_id": "snap-71770cd56d0d459684e549f555aea3cf",
+    "state": {
+      "dissonance": 0.0,
+      "entropy": 0.42,
+      "execution_status": "quiescent",
+      "genesis_hash": "8aa6be44ab71170c50cd4e54dd2f82bb8bb89507656dbf138d7f30244fd2e339",
+      "working_memory": []
+    },
+    "world_id": "world-matrix-0"
+  },
+  "created_at": "2026-09-21T07:41:58.424796900+00:00"
+}

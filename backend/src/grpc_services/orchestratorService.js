@@ -42,7 +42,7 @@ async function dispatchWorker(ctx) {
 
 async function fetchWorker(db, worker_id, orchestrator_id) {
   return db.get(
-    `SELECT a.workspace_id AS workspaceId, COALESCE(a.organization_id, w.organization_id) AS organizationId, COALESCE(a.project_id, w.project_id) AS projectId, w.path AS workspaceRoot, a.model_tier AS modelTier
+    `SELECT a.id AS worker_id, a.workspace_id AS workspace_id, w.organization_id AS organizationId, w.project_id AS projectId, w.path AS workspaceRoot, a.model_tier AS modelTier
      FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
      WHERE a.id = ? AND a.parent_agent_id = ? AND a.execution_mode = 'worker'`,
     worker_id, orchestrator_id
@@ -60,7 +60,9 @@ function assertWorkspacePresent(worker, worker_id) {
 }
 
 async function assertWorkspaceIsolated(db, worker) {
+  console.log(`DEBUG assertWorkspaceIsolated: worker.workspace_id = ${worker.workspace_id}`);
   const existing = await db.get(`SELECT id, path, isolated FROM workspaces WHERE id = ?`, worker.workspace_id);
+  console.log(`DEBUG assertWorkspaceIsolated: existing =`, existing);
   if (!existing || !existing.isolated) throw new Error(`Worker ${worker.worker_id || 'unknown'} workspace is not isolated`);
 }
 

@@ -1,0 +1,106 @@
+{
+  "capsule_id": "b914df95-42db-4f2f-8a25-5d11e12582c1",
+  "boundary_id": "sandbox_boundary",
+  "hash": "2331f1f259560b80d89831aab41a308b5c916a65226ec6ab12b5ff7090c8f4d3",
+  "data": {
+    "agent_id": "3f185a85-5594-4053-9d46-918aa925bdff",
+    "branch_id": "branch-e315b091",
+    "created_at": "2026-09-20T17:52:41.132239700+00:00",
+    "genome": {
+      "apiVersion": "v0alpha1",
+      "bud_scars": 0,
+      "capabilities": [
+        "inspect",
+        "reason",
+        "mutate"
+      ],
+      "cell_id": "3f185a85-5594-4053-9d46-918aa925bdff",
+      "cognition": {
+        "conscience": {
+          "baseline_budget": 100.0,
+          "current_budget": 100.0,
+          "dissonance_level": 0.0,
+          "eureka_moments": 0,
+          "is_apoptotic": false,
+          "max_dissonance_threshold": 50.0,
+          "revision": 0
+        },
+        "organelles": []
+      },
+      "conscience": {
+        "baseline_budget": 100.0,
+        "current_budget": 100.0,
+        "dissonance_level": 0.0,
+        "eureka_moments": 0,
+        "is_apoptotic": false,
+        "max_dissonance_threshold": 50.0,
+        "revision": 0
+      },
+      "hayflick_limit": 50,
+      "identity": {
+        "cell_id": "3f185a85-5594-4053-9d46-918aa925bdff",
+        "name": "MCP GenOS Orchestrator",
+        "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+        "role": "Autonomous Orchestrator"
+      },
+      "kind": "AgentGenome",
+      "memory": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true,
+        "type": "cognitive"
+      },
+      "memory_policy": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true
+      },
+      "metadata": {
+        "name": "MCP GenOS Orchestrator",
+        "version": "0.1.0"
+      },
+      "model_policy": {
+        "preferred": "default"
+      },
+      "models": {
+        "preferred": "default"
+      },
+      "name": "MCP GenOS Orchestrator",
+      "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+      "objectives": {
+        "operational_mode": "autonomous",
+        "primary": "Autonomous Orchestrator"
+      },
+      "organelles": [],
+      "policies": {
+        "ephemeral_ttl": null,
+        "hayflick_limit": 50,
+        "is_ephemeral": false,
+        "is_senescent": false
+      },
+      "role": "Autonomous Orchestrator",
+      "tool_policy": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test"
+        ]
+      },
+      "tools": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test"
+        ]
+      }
+    },
+    "snapshot_id": "snap-e315b0912ad3482fbd2aff0d0127a3ea",
+    "state": {
+      "dissonance": 0.0,
+      "entropy": 0.42,
+      "execution_status": "quiescent",
+      "genesis_hash": "d6f76a577558aa0f5e92579571990283a6341b53cbc2ca274b1cbf48e07a4f60",
+      "working_memory": []
+    },
+    "world_id": "world-matrix-0"
+  },
+  "created_at": "2026-09-20T17:52:41.182128700+00:00"
+}

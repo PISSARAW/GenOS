@@ -5,15 +5,14 @@
  */
 
 class SwarmPheromoneMatrix {
-  constructor(defaultHalfLifeMs = 60000, clock = Date.now) {
+  constructor(defaultHalfLifeMs = 60000) {
     this.halfLifeMs = defaultHalfLifeMs;
-    this.clock = typeof clock === 'function' ? clock : Date.now;
     this.trails = new Map(); // marker -> { intensity, lastUpdatedMs }
     this.oscillators = new Map(); // agentId -> { phase, naturalFreq }
   }
 
   depositTrace(marker, amount, isRepellent = false) {
-    const now = this.clock();
+    const now = Date.now();
     const current = this.getDecayedIntensity(marker, now);
     const delta = isRepellent ? -Math.abs(amount) : Math.abs(amount);
     const newIntensity = Math.max(-100.0, Math.min(100.0, current + delta));
@@ -25,7 +24,7 @@ class SwarmPheromoneMatrix {
     return this.trails.get(marker);
   }
 
-  getDecayedIntensity(marker, now = this.clock()) {
+  getDecayedIntensity(marker, now = Date.now()) {
     const entry = this.trails.get(marker);
     if (!entry) return 0.0;
     const elapsedMs = Math.max(0, now - entry.lastUpdatedMs);
@@ -60,7 +59,7 @@ class SwarmPheromoneMatrix {
   }
 
   selectDominantPath() {
-    const now = this.clock();
+    const now = Date.now();
     let bestMarker = null;
     let highestIntensity = -Infinity;
     for (const marker of this.trails.keys()) {
@@ -77,8 +76,8 @@ class SwarmPheromoneMatrix {
   }
 }
 
-function createSwarmMatrix(halfLifeMs, clock) {
-  return new SwarmPheromoneMatrix(halfLifeMs, clock);
+function createSwarmMatrix(halfLifeMs) {
+  return new SwarmPheromoneMatrix(halfLifeMs);
 }
 
 module.exports = {

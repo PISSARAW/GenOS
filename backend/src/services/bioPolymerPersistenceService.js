@@ -74,9 +74,11 @@ async function migrateColumnPairs(db, config) {
 }
 
 async function migrateTableBioPolymers(db, tableConfig) {
-  const { table, blobCol } = tableConfig;
+  const { table, jsonCol, blobCol } = tableConfig;
   const exists = await tableExists(db, table);
   if (!exists) return 0;
+  const columns = await db.all(`PRAGMA table_info(${table})`);
+  if (!columns.some((c) => c.name === jsonCol)) return 0;
   await ensureColumn(db, { table, column: blobCol, definition: 'BLOB' });
   return migrateColumnPairs(db, tableConfig);
 }

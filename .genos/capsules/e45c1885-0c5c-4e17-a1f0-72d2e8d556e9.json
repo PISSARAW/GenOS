@@ -1,0 +1,106 @@
+{
+  "capsule_id": "e45c1885-0c5c-4e17-a1f0-72d2e8d556e9",
+  "boundary_id": "sandbox_boundary",
+  "hash": "2497cfce3b2a13210352a55b815e98f033332ad1f1c515476d008ad243d82437",
+  "data": {
+    "agent_id": "fb1c9424-92ab-43a2-9dd2-3eb37031c9bb",
+    "branch_id": "branch-b124af31",
+    "created_at": "2026-09-20T17:22:16.833718700+00:00",
+    "genome": {
+      "apiVersion": "v0alpha1",
+      "bud_scars": 0,
+      "capabilities": [
+        "inspect",
+        "reason",
+        "mutate"
+      ],
+      "cell_id": "fb1c9424-92ab-43a2-9dd2-3eb37031c9bb",
+      "cognition": {
+        "conscience": {
+          "baseline_budget": 100.0,
+          "current_budget": 100.0,
+          "dissonance_level": 0.0,
+          "eureka_moments": 0,
+          "is_apoptotic": false,
+          "max_dissonance_threshold": 50.0,
+          "revision": 0
+        },
+        "organelles": []
+      },
+      "conscience": {
+        "baseline_budget": 100.0,
+        "current_budget": 100.0,
+        "dissonance_level": 0.0,
+        "eureka_moments": 0,
+        "is_apoptotic": false,
+        "max_dissonance_threshold": 50.0,
+        "revision": 0
+      },
+      "hayflick_limit": 50,
+      "identity": {
+        "cell_id": "fb1c9424-92ab-43a2-9dd2-3eb37031c9bb",
+        "name": "Chidi-22d4bc",
+        "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+        "role": "implementation"
+      },
+      "kind": "AgentGenome",
+      "memory": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true,
+        "type": "cognitive"
+      },
+      "memory_policy": {
+        "consolidation": true,
+        "ltd_decay": true,
+        "synaptic_pruning": true
+      },
+      "metadata": {
+        "name": "Chidi-22d4bc",
+        "version": "0.1.0"
+      },
+      "model_policy": {
+        "preferred": "default"
+      },
+      "models": {
+        "preferred": "default"
+      },
+      "name": "Chidi-22d4bc",
+      "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+      "objectives": {
+        "operational_mode": "autonomous",
+        "primary": "implementation"
+      },
+      "organelles": [],
+      "policies": {
+        "ephemeral_ttl": null,
+        "hayflick_limit": 50,
+        "is_ephemeral": false,
+        "is_senescent": false
+      },
+      "role": "implementation",
+      "tool_policy": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test"
+        ]
+      },
+      "tools": {
+        "allowed_tools": [
+          "genos_inspect",
+          "genos_test"
+        ]
+      }
+    },
+    "snapshot_id": "snap-b124af31a88c46588e6ceb424b9dcb79",
+    "state": {
+      "dissonance": 0.0,
+      "entropy": 0.42,
+      "execution_status": "quiescent",
+      "genesis_hash": "c6998efe43a09ea0264d587326f16e12470658ed44c902ea4c4b1a535f49767d",
+      "working_memory": []
+    },
+    "world_id": "world-matrix-0"
+  },
+  "created_at": "2026-09-20T17:22:16.889314900+00:00"
+}

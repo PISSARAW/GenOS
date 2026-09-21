@@ -1481,16 +1481,6 @@ name = "genos-common"
 version = "0.1.0"
 
 [[package]]
-name = "genos-creativity"
-version = "0.1.0"
-dependencies = [
- "rand 0.10.2",
- "serde",
- "serde_json",
- "uuid",
-]
-
-[[package]]
 name = "genos-dna"
 version = "0.1.0"
 dependencies = [
@@ -1546,7 +1536,6 @@ dependencies = [
  "genos-biology",
  "genos-cell",
  "genos-common",
- "genos-creativity",
  "genos-dna",
  "genos-genome",
  "genos-immune",

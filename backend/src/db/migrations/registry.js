@@ -25,7 +25,7 @@ const migrationRunners = [
     await migrateAllBioPolymers(db);
   }),
   createMigrationRunner('020-structural-knowledge-graph', 'Add knowledge_graph_relations, learned_traits tables and synapse consolidation columns', async (db) => {
-    const { migrateStructuralKnowledgeGraph } = require('../../services/db/migrations/migrateStructuralKnowledgeGraph');
+    const { migrateStructuralKnowledgeGraph } = require('./migrateStructuralKnowledgeGraph');
     await migrateStructuralKnowledgeGraph(db);
   }),
   createMigrationRunner('021-signal-transport', 'Add zero-text signaling tables (signal_blobs, signal_subs) for inter-agent transport', async (db) => {
@@ -80,6 +80,10 @@ const migrationRunners = [
 ];
 
 async function runMigration(db, version, description) {
+  const runner = migrationRunners.find((r) => r.name === version);
+  if (runner) {
+    await runner.run(db);
+  }
   await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);
 }
 
