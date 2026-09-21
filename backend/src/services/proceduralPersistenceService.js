@@ -31,12 +31,12 @@ function all(db, sql, params = []) {
 
 const TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS procedural_genomes (
-    id TEXT PRIMARY KEY,
-    version INTEGER NOT NULL DEFAULT 1,
-    parent_id TEXT,
+    version_id TEXT PRIMARY KEY,
+    structure_hash TEXT NOT NULL,
+    state_hash TEXT NOT NULL,
+    parent_version_id TEXT,
     lineage_id TEXT,
     organism_json TEXT NOT NULL,
-    structure_hash TEXT NOT NULL,
     fitness_score REAL,
     fitness_json TEXT,
     status TEXT NOT NULL DEFAULT 'active',
@@ -49,7 +49,8 @@ const TABLE_SQL = `
 
   CREATE INDEX IF NOT EXISTS idx_progen_status ON procedural_genomes(status);
   CREATE INDEX IF NOT EXISTS idx_progen_lineage ON procedural_genomes(lineage_id);
-  CREATE INDEX IF NOT EXISTS idx_progen_parent ON procedural_genomes(parent_id);
+  CREATE INDEX IF NOT EXISTS idx_progen_parent ON procedural_genomes(parent_version_id);
+  CREATE INDEX IF NOT EXISTS idx_progen_structure ON procedural_genomes(structure_hash);
   CREATE INDEX IF NOT EXISTS idx_progen_org ON procedural_genomes(organization_id, project_id);
 `;
 
@@ -61,40 +62,41 @@ async function migrateProceduralGenomes(db) {
 }
 
 async function persistGenome(db, organism, options = {}) {
-  const id = identity.assignId(organism);
-  const structureHash = identity.contentHash(id);
-  const fitnessScore = id.fitness?.score ?? null;
+  const structureHash = identity.structureHash(organism);
+  const stateHash = identity.stateHash(organism);
+  const versionId = identity.versionId(organism);
+  const fitnessScore = organism?.fitness?.score ?? null;
   const status = options.status || 'active';
 
   await run(
     db,
     `INSERT INTO procedural_genomes
-      (id, version, parent_id, lineage_id, organism_json, structure_hash, fitness_score, fitness_json, status, episode, organization_id, project_id)
+      (version_id, structure_hash, state_hash, parent_version_id, lineage_id, organism_json, fitness_score, fitness_json, status, episode, organization_id, project_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      id.metadata.id,
-      id.metadata.version || 1,
-      id.metadata.parentId || null,
-      id.metadata.lineageId || null,
-      JSON.stringify(id),
+      versionId,
       structureHash,
+      stateHash,
+      organism?.metadata?.parentId || null,
+      organism?.metadata?.lineageId || null,
+      JSON.stringify(organism),
       fitnessScore,
-      id.fitness ? JSON.stringify(id.fitness) : null,
+      organism?.fitness ? JSON.stringify(organism.fitness) : null,
       status,
-      id.plasticity?.lastEpisode || 0,
+      organism?.plasticity?.lastEpisode || 0,
       options.organizationId || null,
       options.projectId || null,
     ]
   );
 
-  return id;
+  return organism;
 }
 
-async function loadGenome(db, id) {
+async function loadGenome(db, versionId) {
   const row = await get(
     db,
-    'SELECT organism_json FROM procedural_genomes WHERE id = ?',
-    id
+    'SELECT organism_json FROM procedural_genomes WHERE version_id = ?',
+    versionId
   );
   if (!row || !row.organism_json) return null;
   return JSON.parse(row.organism_json);
@@ -106,7 +108,7 @@ async function listGenomesByLineage(db, lineageId, options = {}) {
     db,
     `SELECT organism_json FROM procedural_genomes
      WHERE lineage_id = ?
-     ORDER BY version ASC
+     ORDER BY created_at ASC
      LIMIT ?`,
     [lineageId, limit]
   );
@@ -117,7 +119,7 @@ async function listActiveGenomes(db, options = {}) {
   const limit = options.limit || 50;
   const rows = await all(
     db,
-    `SELECT organism_json FROM procedural_genomes
+    `SELECT organism_json, version_id FROM procedural_genomes
      WHERE status = 'active'
      ORDER BY fitness_score DESC NULLS LAST
      LIMIT ?`,
@@ -126,17 +128,17 @@ async function listActiveGenomes(db, options = {}) {
   return rows.map((r) => JSON.parse(r.organism_json));
 }
 
-async function updateGenomeStatus(db, id, status) {
+async function updateGenomeStatus(db, versionId, status) {
   await run(
     db,
-    `UPDATE procedural_genomes SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-    [status, id]
+    `UPDATE procedural_genomes SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE version_id = ?`,
+    [status, versionId]
   );
 }
 
-async function getPhylogeny(db, id) {
+async function getPhylogeny(db, versionId) {
   const genomes = [];
-  let current = await loadGenome(db, id);
+  let current = await loadGenome(db, versionId);
   while (current) {
     genomes.unshift(current);
     if (current.metadata?.parentId) {

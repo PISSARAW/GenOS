@@ -2,22 +2,23 @@
 
 /**
  * @file playService.js
- * @description Service de jeu (PlaySandbox) pour l'exploration libre.
+ * @description PlaySandbox — exploration libre dans un sandbox.
  *
- * Un agent en mode PLAY peut essayer des combinaisons d'outils et de contextes
- * dans un sandbox sécurisé, sans mission externe immédiate. Les découvertes
- * deviennent des affordances mémorisées pour futures explorations.
- *
- * Utilise les APIs workspaceSnapshotStore.capture() et workspaceSnapshotRun.runInSnapshot()
- * avec leurs signatures réelles.
+ * Correction P0 : utilise correctement les APIs de snapshot.
+ * - capture() retourne { id, workspaceId, snapshotHash, metadata, snapshotPath }
+ * - runInSnapshot() attend { snapshot: { path, ... }, command, timeoutMs, workspacePath }
+ * - Seules les commandes autorisées par sandboxCommandPolicy sont utilisées
  */
 
 const crypto = require('crypto');
 const { runInSnapshot } = require('./workspaceSnapshotRun');
-const { capture } = require('./workspaceSnapshotStore');
+const { capture, readManifest } = require('./workspaceSnapshotStore');
 
 const DEFAULT_PLAY_BUDGET = 10;
 const DEFAULT_PLAY_TIMEOUT_MS = 30000;
+
+// Commandes réellement autorisées par sandboxCommandPolicy.js
+const ALLOWED_SANDBOX_COMMANDS = ['npm test', 'npm run check', 'pytest', 'cargo test'];
 
 // ─── Session de jeu ─────────────────────────────────────────────────
 
@@ -35,6 +36,8 @@ function createPlaySession(agentId, options) {
     endedAt: null,
     iterations: [],
     discoveries: [],
+    db: options.db || null,
+    workspaceId: options.workspaceId || null,
     constraints: {
       requireSandbox: options.requireSandbox !== false,
       allowNetwork: options.allowNetwork === true,
@@ -67,27 +70,28 @@ async function executeInSandbox(session, input, workspacePath) {
   const iteration = createPlayIteration(session.iterations.length, input);
 
   try {
-    // Signature correcte de capture() : objet avec db, workspace, etc.
-    const snapshotPath = await capture({
+    // 1. Capture : retourne { id, workspaceId, snapshotHash, metadata, snapshotPath }
+    const snapshot = await capture({
       db: session.db,
-      workspace: { path: workspacePath, id: session.workspaceId },
+      workspace: workspacePath ? { path: workspacePath, id: session.workspaceId } : undefined,
       label: 'PlaySandbox snapshot',
       reason: 'Play exploration',
       author: session.agentId,
       agentId: session.agentId,
     });
-    iteration.snapshotPath = snapshotPath;
 
-    // Signature correcte de runInSnapshot() : objet avec snapshot, command, workspacePath
+    iteration.snapshotId = snapshot?.id;
+
+    // 2. runInSnapshot : utilise le snapshotPath du résultat de capture()
+    const snapshotPath = snapshot?.snapshotPath || snapshot?.metadata?.snapshotPath;
     const result = await runInSnapshot({
-      snapshot: { path: snapshotPath },
+      snapshot: { path: snapshotPath, id: snapshot?.id },
       command: input.command,
       timeoutMs: session.timeoutMs,
       workspacePath,
     });
 
     iteration.result = result;
-    // runInSnapshot renvoie exitCode, pas success
     iteration.outcome = result.exitCode === 0 ? 'success' : 'failure';
     iteration.observation = result.stdout || result.stderr || '';
   } catch (err) {
@@ -104,7 +108,7 @@ function extractAffordances(iteration) {
   const affordances = [];
   const observation = iteration.observation || '';
 
-  // Détection de patterns : "X peut faire Y" ou "X supporte Y"
+  // Pattern : "X peut faire Y" ou "X supporte Y"
   const peutPattern = /(\w[\w\s]{2,30})\s+(peut|supporte|permet|offre)\s+(\w[\w\s]{2,50})/gi;
   let match;
 
@@ -118,7 +122,7 @@ function extractAffordances(iteration) {
     });
   }
 
-  // Détection de succès d'outil
+  // Succès d'outil
   if (iteration.outcome === 'success' && iteration.tool) {
     affordances.push({
       capability: iteration.tool,
@@ -132,13 +136,17 @@ function extractAffordances(iteration) {
   return affordances;
 }
 
-// ─── Session de jeu complète ────────────────────────────────────────
+// ─── Session complète ───────────────────────────────────────────────
 
 async function runPlaySession(agentId, ctx) {
   ctx = ctx || {};
   const workspacePath = ctx.workspacePath;
   const inputs = ctx.inputs || [];
-  const session = createPlaySession(agentId, ctx.options);
+  const session = createPlaySession(agentId, {
+    ...ctx.options,
+    db: ctx.db,
+    workspaceId: ctx.workspaceId,
+  });
   const discoveries = [];
 
   for (const input of inputs) {
@@ -174,23 +182,21 @@ function deduplicateAffordances(discoveries) {
   return Array.from(seen.values());
 }
 
-// ─── Play prédéfini : exploration combinatoire ─────────────────────
-// Génère des commandes VALIDE selon isAllowedSandboxTestCommand()
-// (test runner simple, pas de "explorer X Y" rejeté)
+// ─── Génération combinatoire de commandes valides ───────────────────
 
 function generateCombinatorialInputs(tools, contexts) {
   const inputs = [];
-  const allowedCommands = ['npm test', 'node -e', 'cargo test', 'genos_test'];
 
   for (const tool of tools) {
     for (const context of contexts) {
-      // Utilise des commandes autorisées par le sandbox
-      const cmd = allowedCommands[Math.floor(Math.random() * allowedCommands.length)];
+      // Sélectionne une commande autorisée
+      const cmd = ALLOWED_SANDBOX_COMMANDS[Math.floor(Math.random() * ALLOWED_SANDBOX_COMMANDS.length)];
       inputs.push({
         action: `${tool}_${context}`,
         tool,
         context,
-        command: `${cmd} ${context}`,
+        // La commande doit être exacte (sans suffixe de contexte qui la rendrait invalide)
+        command: cmd,
       });
     }
   }
@@ -201,6 +207,7 @@ function generateCombinatorialInputs(tools, contexts) {
 module.exports = {
   DEFAULT_PLAY_BUDGET,
   DEFAULT_PLAY_TIMEOUT_MS,
+  ALLOWED_SANDBOX_COMMANDS,
   createPlaySession,
   createPlayIteration,
   executeInSandbox,

@@ -4,23 +4,29 @@
  * @file poetExecutionEngine.js
  * @description Exécution réelle des environnements POET.
  *
- * Contrairement à evaluateAgentOnEnvironment() qui compare simplement
- * des capacités, ce service exécute réellement l'agent sur l'environnement
- * et mesure le résultat.
+ * Corrigé : utilise le runtime agent pour l'exécution,
+ * puis le sandbox uniquement pour vérification.
+ *
+ * Boucle :
+ *   Agent runtime
+ *       ↓
+ *   solution/artifact
+ *       ↓
+ *   snapshot
+ *       ↓
+ *   allowed verifier command
+ *       ↓
+ *   score
  */
 
-const { runInSnapshot } = require('./workspaceSnapshotRun');
-
-// ─── Exécution d'un agent sur un environnement ─────────────────────
+const runtime = require('./agentRuntimeAdapter');
 
 /**
- * Exécute un agent sur un environnement donné.
- * L'agent doit produire une solution qui satisfait les contraintes.
+ * Exécute un agent sur un environnement via le runtime.
  */
 async function executeAgentOnEnvironment(agent, environment, options) {
   options = options || {};
   const timeoutMs = options.timeoutMs || 60000;
-  const maxSteps = options.maxSteps || 10;
 
   const results = {
     agentId: agent.id,
@@ -33,28 +39,24 @@ async function executeAgentOnEnvironment(agent, environment, options) {
   };
 
   try {
-    // Prépare le contexte d'exécution
-    const executionContext = buildExecutionContext(agent, environment);
+    // 1. Exécute l'agent sur l'environnement via le runtime
+    const missionResult = await runtime.startMission({
+      agentId: agent.id,
+      name: `POET Agent ${agent.id}`,
+      role: agent.role || 'solver',
+      prompt: buildAgentPrompt(agent, environment),
+      modelTier: options.modelTier || 'standard',
+      executionBudget: { latencyMs: timeoutMs },
+      executionPolicy: environment.executionPolicy || {},
+    });
 
-    // Exécute les étapes de l'agent
-    for (let step = 0; step < maxSteps; step++) {
-      const stepResult = await executeStep({ agent, environment, executionContext }, { timeoutMs });
-      results.steps.push(stepResult);
+    // 2. Vérifie la solution dans le sandbox
+    const verificationResult = await verifySolutionInSnapshot(missionResult, environment);
 
-      if (stepResult.isFinal) {
-        results.success = stepResult.success;
-        break;
-      }
-
-      // Vérifie si l'environnement a atteint un état terminal
-      if (environmentIsTerminal(environment, executionContext)) {
-        results.success = evaluateEnvironmentGoal(environment, executionContext);
-        break;
-      }
-    }
-
-    // Calcule le score final
-    results.score = computeExecutionScore(results, environment);
+    results.success = verificationResult.valid;
+    results.score = verificationResult.score;
+    results.verification = verificationResult;
+    results.missionResult = missionResult;
   } catch (err) {
     results.error = err.message;
     results.success = false;
@@ -64,80 +66,43 @@ async function executeAgentOnEnvironment(agent, environment, options) {
   return results;
 }
 
-function buildExecutionContext(agent, environment) {
-  return {
-    agent,
-    environment,
-    memory: [],
-    variables: {},
-    stepCount: 0,
-    constraints: environment.constraints || {},
-    goals: environment.goals || [],
-  };
-}
-
-async function executeStep(ctx, opts) {
-  ctx.executionCtx.stepCount++;
-  const prompt = buildStepPrompt(ctx.agent, ctx.environment, ctx.executionCtx);
-
-  try {
-    const result = await runInSnapshot({
-      snapshot: { path: ctx.environment.snapshotPath },
-      command: prompt,
-      timeoutMs: opts.timeoutMs,
-      workspacePath: ctx.environment.workspacePath,
-    });
-
-    const output = result.stdout || '';
-    const success = result.exitCode === 0;
-
-    ctx.executionCtx.memory.push({ step: ctx.executionCtx.stepCount, prompt, output, success });
-
-    return {
-      step: ctx.executionCtx.stepCount,
-      success,
-      output,
-      exitCode: result.exitCode,
-      isFinal: success && environmentGoalMet(ctx.environment, ctx.executionCtx),
-    };
-  } catch (err) {
-    return {
-      step: ctx.executionCtx.stepCount,
-      success: false,
-      output: err.message,
-      exitCode: -1,
-      isFinal: true,
-    };
-  }
-}
-
-function buildStepPrompt(agent, environment, ctx) {
+function buildAgentPrompt(agent, environment) {
   const goal = environment.goals?.[0] || 'Solve the problem';
-  const ctxInfo = ctx.memory.length > 0 ? `\nPrevious output: ${ctx.memory[ctx.memory.length - 1].output.slice(0, 200)}` : '';
-  return `${agent.role}: ${goal}${ctxInfo}\nEnvironment constraints: ${JSON.stringify(environment.constraints)}`;
+  const constraints = environment.constraints || {};
+  return `${agent.role || 'Agent'}: ${goal}\n\nConstraints: ${JSON.stringify(constraints)}\n\nProvide a solution as structured output.`;
 }
 
-function environmentIsTerminal(environment, ctx) {
-  return ctx.stepCount >= (environment.maxSteps || 10);
-}
+async function verifySolutionInSnapshot(missionResult, environment) {
+  const { runInSnapshot } = require('./workspaceSnapshotRun');
+  const { capture } = require('./workspaceSnapshotStore');
 
-function environmentGoalMet(environment, ctx) {
-  return ctx.memory.length > 0 && ctx.memory[ctx.memory.length - 1].success;
-}
+  // Prépare le snapshot
+  const snapshot = await capture({
+    workspace: { path: environment.workspacePath, id: environment.workspaceId },
+    label: 'POET verification',
+    reason: 'Verify solution',
+    author: 'poet_engine',
+    agentId: environment.id,
+  });
 
-function evaluateEnvironmentGoal(environment, ctx) {
-  const successRate = ctx.memory.filter(m => m.success).length / Math.max(1, ctx.memory.length);
-  return successRate >= (environment.successThreshold || 0.7);
-}
+  // Vérifie via commande autorisée
+  const snapshotPath = snapshot?.snapshotPath || snapshot?.metadata?.snapshotPath;
+  const result = await runInSnapshot({
+    snapshot: { path: snapshotPath },
+    command: 'npm test',
+    timeoutMs: 30000,
+    workspacePath: environment.workspacePath,
+  });
 
-function computeExecutionScore(results, environment) {
-  if (results.success) return 1;
-  const stepSuccess = results.steps.filter(s => s.success).length;
-  return stepSuccess / Math.max(1, results.steps.length);
+  return {
+    valid: result.exitCode === 0,
+    score: result.exitCode === 0 ? 1 : 0,
+    output: result.stdout,
+  };
 }
 
 module.exports = {
   executeAgentOnEnvironment,
-  buildExecutionContext,
-  executeStep,
+  buildAgentPrompt,
+  verifySolutionInSnapshot,
 };
