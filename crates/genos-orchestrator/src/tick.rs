@@ -1,6 +1,8 @@
 //! Boucle cognitive : observer → décider → agir, en un seul `tick`, et
 //! `run` qui itère jusqu'à l'arrêt en produisant un rapport global.
-use crate::GenosEcosystem; use crate::clinical_therapy::{diagnose_active_virions, diagnose_clinical_markers, first_pathology_for_cell, therapy_for_pathology};
+
+use crate::GenosEcosystem;
+use crate::clinical_therapy::{diagnose_active_virions, first_pathology_for_cell, therapy_for_pathology};
 use crate::{director::Strategy, learning::context_from_state};
 use crate::planner::{Concept, Goal};
 use crate::plasmids::Skill;
@@ -12,7 +14,9 @@ use genos_biology::therapy::apply_systemic_therapy_to_cell;
 use genos_biology::spore::SporeType;
 use genos_cell::AgentCell;
 use genos_signal::SignalingMode;
-use serde_json::json; use uuid::Uuid;
+use serde_json::json;
+use uuid::Uuid;
+
 #[derive(Clone, Debug)]
 pub struct TickReport {
     pub tick: u64,
@@ -23,7 +27,6 @@ pub struct TickReport {
     pub executed: Vec<Concept>,
     pub halt: Option<String>,
     pub verdicts: Vec<(Uuid, Verdict)>,
-    pub creative_tasks: Vec<genos_creativity::FocusedTask>, pub creative_outcomes: Vec<(Uuid, genos_creativity::CreativityOutcome)>,
 }
 /// Bilan d'une mission complète.
 #[derive(Clone, Debug)]
@@ -51,7 +54,6 @@ pub fn tick(&mut self, goal: &Goal) -> TickReport {
         }
         self.maintain_autopoiesis();
         diagnose_active_virions(self);
-        diagnose_clinical_markers(self);
         let state = self.observe();
         if state.apoptotic {
             return self.halted_report("etat apoptotique: volition inhibee");
@@ -67,11 +69,6 @@ pub fn tick(&mut self, goal: &Goal) -> TickReport {
         self.director.set_context(context_from_state(&state));
         let (mut decision, physical) = crate::physical_telemetry::decide(&self.director, &state, goal);
         self.director.physical_memory = Some((physical, decision.strategy));
-        let creative_tasks = self.prepare_creativity(crate::creativity_cycle::CreativityPreparation {
-            state: &state,
-            goal,
-            decision: &mut decision,
-        });
         let mut report = TickReport {
             tick: self.events.count() as u64,
             strategy: decision.strategy,
@@ -81,13 +78,11 @@ pub fn tick(&mut self, goal: &Goal) -> TickReport {
             executed: Vec::new(),
             halt: decision.halt.clone(),
             verdicts: Vec::new(),
-            creative_tasks,
-            creative_outcomes: Vec::new(),
         };
         if decision.halt.is_some() {
             let _ = self.attempt_autonomous_reproduction_if_alive();
             return report;
-}
+        }
         let mut sim = state.clone();
         for step in &decision.steps {
             // Métabolisme réel : chaque concept consomme de l'ATP.
@@ -102,28 +97,16 @@ pub fn tick(&mut self, goal: &Goal) -> TickReport {
             sim.apply(step.concept);
             let after = sim.progress(goal);
             self.execute_concept(step.concept, &mut report);
-            if !crate::creativity_cycle::record_creative_execution(
-                &mut report,
-                crate::creativity_cycle::CreativeExecution {
-                    concept: step.concept,
-                    before,
-                    after,
-                    simulated: &sim,
-                    goal,
-                },
-            ) {
-                self.director
-                    .record(step.concept, after > before || sim.goal_reached(goal));
-            }
+            self.director
+                .record(step.concept, after > before || sim.goal_reached(goal));
             report.executed.push(step.concept);
-}
-        self.consolidate_creativity(&mut report);
+        }
         // Attribution de crédit + reproduction autonome.
         let episode_reward = if sim.goal_reached(goal) { 1.0 } else { 0.0 };
         self.director.assign_credit(&report.executed, episode_reward);
         let _ = self.attempt_autonomous_reproduction_if_alive();
         report
-}
+    }
     /// Itère des ticks jusqu'à l'arrêt (ou `max_ticks`) et agrège le bilan.
     pub fn run(&mut self, goal: &Goal, max_ticks: usize) -> MissionReport {
         let agents_before = self.orchestrator.active_cells.len();
@@ -157,237 +140,8 @@ pub fn tick(&mut self, goal: &Goal) -> TickReport {
             verdicts,
             agents_before,
             agents_after: self.orchestrator.active_cells.len(),
-            traces: self.traces.known(),
-            goals: vec![format!("{goal:?}")],
-        }
-}
-    fn arena_workers(&self) -> Vec<Uuid> {
-        self.orchestrator
-            .tissues
-            .get("Arena")
-            .map(|tissue| tissue.somatic_cells.clone())
-            .unwrap_or_default()
-    }
-    fn first_dna_agent(&self) -> Option<Uuid> {
-        self.agent_dna.keys().copied().next()
-    }
-    fn active_virions(&self) -> usize {
-        self.virology
-            .virions
-            .iter()
-            .filter(|v| !v.is_neutralized)
-            .count()
-    }
-    /// Guérit cliniquement la première cellule malade du tissu.
-    fn cure_one_diseased(&mut self) -> bool {
-        let target = self.arena_workers().into_iter().find(|id| {
-            self.orchestrator
-                .active_cells
-                .get(id)
-                .map(|cell| !assess_agent_clinical_status(cell).is_healthy)
-                .unwrap_or(false)
-        });
-        if let Some(id) = target
-            && let Some(cell) = self.orchestrator.active_cells.get_mut(&id)
-            && let Some(pathology) = first_pathology_for_cell(cell) {
-                let therapy = therapy_for_pathology(&pathology);
-                let outcome = apply_systemic_therapy_to_cell(&therapy, cell);
-                return !outcome.cured_pathologies.is_empty();
-            }
-        false
-    }
-    fn first_diseased(&self) -> Option<Uuid> {
-        self.arena_workers().into_iter().find(|id| {
-            self.orchestrator
-                .active_cells
-                .get(id)
-                .map(|cell| !assess_agent_clinical_status(cell).is_healthy)
-                .unwrap_or(false)
-        })
-    }
-    pub(crate) fn execute_concept(&mut self, concept: Concept, report: &mut TickReport) {
-        match concept {
-            Concept::Observe => {
-                self.record_event("OBSERVE", json!({}));
-                let _ = self.senses.electrolocate(&[1.0, 1.0, 1.0]);
-            }
-            Concept::Organize => {
-                if !self.orchestrator.tissues.contains_key("Arena") {
-                    let _ = self.orchestrator.create_tissue("Arena", "Mission");
-                }
-            }
-            Concept::Recruit => {
-                if self.orchestrator.tissues.contains_key("Arena") {
-                    let n = self.arena_workers().len() + 1;
-                    if let Ok(id) = self.orchestrator.add_worker(
-                        "Arena",
-                        AgentCell::new(format!("Recrue_{n}"), "auto", "Specialist"),
-                    ) {
-                        // Tout agent recruté reçoit un ADN (mutation/croisement possibles).
-                        let genome = genos_genome::Genome::new(&format!("RECRUE_{n}"));
-                        let dna = crate::dna_ops::from_genome(&genome, &format!("Recrue_{n}"));
-                        self.register_dna(id, dna);
-                    }
-                }
-            }
-            Concept::Delegate => {
-                if let Some(id) = self.arena_workers().first().copied() {
-                    let _ = self.orchestrator.delegate_task("Arena", (id, "mission"));
-                }
-            }
-            Concept::Audit => {
-                if !self.arena_workers().is_empty() {
-                    let _ = self
-                        .orchestrator
-                        .audit_collusion("Arena", ("Worker", 900, true));
-                }
-            }
-            Concept::Immune => {
-                use genos_immune::{AntibodyDetector, Antigen};
-                if !self
-                    .orchestrator
-                    .immune_selection
-                    .detectors
-                    .iter()
-                    .any(|d| d.id == "auto")
-                {
-                    self.orchestrator
-                        .immune_selection
-                        .detectors
-                        .push(AntibodyDetector::new("auto", "THREAT", 0.8));
-                }
-                let _ = self.orchestrator.detect_immune_threat(&Antigen {
-                    id: "threat".to_string(),
-                    epitope: "THREAT".to_string(),
-                    danger_level: 0.9,
-                });
-                // L'immunité neutralise une menace active — sauf adversaire non trompé.
-                if self.active_virions() < 2
-                    && let Some(index) =
-                        self.virology.virions.iter().position(|v| !v.is_neutralized)
-                {
-                    self.virology.virions[index].is_neutralized = true;
-                }
-            }
-            Concept::Virology => {
-                if self.active_virions() < 2
-                    && let Some(index) =
-                        self.virology.virions.iter().position(|v| !v.is_neutralized)
-                {
-                    self.virology.virions[index].is_neutralized = true;
-                }
-            }
-            Concept::Throttle => {
-                let _ = self.throttle_flux(120.0);
-            }
-            Concept::Therapy => {
-                if !self.cure_one_diseased()
-                    && let Some(id) = self.arena_workers().first().copied()
-                {
-                    let _ = self.execute_skill(id, Skill::Heal);
-                }
-            }
-            Concept::Spore => {
-                // Quarantaine : sporule une cellule malade en priorité.
-                let target = self.first_diseased().or_else(|| self.arena_workers().last().copied());
-                if let Some(id) = target {
-                    let _ = self
-                        .orchestrator
-                        .sporulate_cell(id, SporeType::BacterialEndospore);
-                }
-            }
-            Concept::Glia => {
-                let note = self.glial_pass();
-                let mut cured = 0;
-                while cured < 2 && self.cure_one_diseased() {
-                    cured += 1;
-                }
-                self.record_event("GLIA", json!({ "note": note, "cured": cured }));
-            }
-            Concept::Signaling => {
-                let ligand = SignalingCascade::ligand("ATP", SignalingMode::Paracrine, 1.0);
-                let _ = self.signaling.emit(ligand);
-            }
-            Concept::Stigmergy => {
-                self.deposit_trail("TRAIL", 1.0);
-            }
-            Concept::Quorum => {
-                self.quorum.add_cells(1);
-                self.quorum.step(1.0);
-            }
-            Concept::Neuro => {
-                self.neuro
-                    .receive("orchestrator", Neurotransmitter::Dopamine, 1.0);
-            }
-            Concept::Mutate => {
-                if let Some(id) = self.first_dna_agent() {
-                    let _ = self.mutate_agent(id);
-                }
-            }
-            Concept::Cross => {
-                if let Some(id) = self.first_dna_agent() {
-                    let _ = self.crossover_agent(id);
-                }
-            }
-            Concept::Endosymbiosis => {
-                let workers = self.arena_workers();
-                if workers.len() >= 2 {
-                    let _ = self.orchestrator.trigger_endosymbiosis(workers[0], workers[1]);
-                }
-            }
-            Concept::Genomics => {
-                if let Some(id) = self.first_dna_agent()
-                    && let Some(dna) = self.agent_dna(id)
-                {
-                    let _ = crate::dna_ops::content_hash(dna);
-                }
-                self.record_event("GENOMICS", json!({}));
-            }
-            Concept::Plasmid => {
-                let needy: Vec<Uuid> = self
-                    .review_agents()
-                    .into_iter()
-                    .filter(|(_, verdict)| *verdict == Verdict::NeedsPlasmid)
-                    .map(|(id, _)| id)
-                    .collect();
-                for id in needy {
-                    self.act_on_verdict(id);
-                }
-            }
-            Concept::Feign => {
-                let note = match self.first_dna_agent() {
-                    Some(id) => self.feign(id),
-                    None => "aucun ADN : feinte ignoree".to_string(),
-                };
-                // Leurre : les virions sont trompés/absorbés (cohérence avec la simulation).
-                for virion in self.virology.virions.iter_mut() {
-                    virion.is_neutralized = true;
-                }
-                self.record_event("FEIGN", json!({ "note": note }));
-            }
-            Concept::Kill => {
-                if let Some((id, _)) = self
-                    .review_agents()
-                    .into_iter()
-                    .find(|(_, verdict)| *verdict == Verdict::Cull)
-                {
-                    self.act_on_verdict(id);
-                }
-            }
-            Concept::Replay => {
-                report.verdicts = self.review_agents();
-                let ids: Vec<Uuid> = report.verdicts.iter().map(|(id, _)| *id).collect();
-                for id in ids {
-                    self.act_on_verdict(id);
-                }
-            }
-            Concept::Communicate => {
-                let answer = self.communicate("Ping");
-                self.record_event("HUMAN", json!({ "answer": answer }));
-            }
-            Concept::Actuate => {
-                // L'action externe est gérée par la boucle incarnée (Environment).
-            }
+            traces: self.events.count(),
+            goals: vec![format!("{:?}", goal)],
         }
     }
 }

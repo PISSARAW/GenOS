@@ -171,7 +171,7 @@ impl GenosEcosystem {
         self.bare_report(None)
     }
 
-    fn bare_report(&self, halt: Option<String>) -> TickReport {
+fn bare_report(&self, halt: Option<String>) -> TickReport {
         TickReport {
             tick: self.events.count() as u64,
             strategy: Strategy::Solo,
@@ -181,8 +181,6 @@ impl GenosEcosystem {
             executed: Vec::new(),
             halt,
             verdicts: Vec::new(),
-            creative_tasks: Vec::new(),
-            creative_outcomes: Vec::new(),
         }
     }
 }

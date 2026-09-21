@@ -1,6 +1,4 @@
 pub mod conscience;
-pub(crate) mod creativity_adapter;
-pub(crate) mod creativity_cycle;
 pub(crate) mod execution_api;
 pub mod clinical_therapy;
 pub mod autopoiesis;
@@ -165,17 +163,6 @@ mod tests {
         let antigen = genos_immune::Antigen { id: "threat-1".into(), epitope: "SQL_INJECTION".into(), danger_level: 0.9 };
         assert!(orch.detect_immune_threat(&antigen));
         assert_eq!(orch.immune_selection.memory_pool.len(), 1);
-    }
-
-    #[test]
-    fn test_orchestrator_can_access_imagination() {
-        let mut orch = BiomimeticOrchestrator::new("Imagination_Prime", 50.0, 100.0);
-        let tasks = orch.imagine(
-            &genos_creativity::WorldState::default(),
-            &genos_creativity::Goal::Explore,
-        );
-        assert!(!tasks.is_empty());
-        assert!(orch.creativity_metrics().dreams_generated >= 1);
     }
 
     #[test]

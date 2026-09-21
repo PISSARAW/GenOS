@@ -42,12 +42,15 @@ pub struct CreativityMetrics {
 
 #[derive(Clone, Debug)]
 pub struct CreativityEngine {
-    pub config: CreativityConfig,
-    pub current_tick: u64,
-    pub dreaming: DreamingPhase,
-    pub salience: SalienceGate,
-    pub dopamine: DopamineEngine,
-    pub consolidation: CrossConsolidation,
+    config: CreativityConfig,
+    dreaming: DreamingPhase,
+    salience: SalienceGate,
+    dopamine: DopamineSignal,
+    consolidation: CrossConsolidation,
+    pending_focused: VecDeque<FocusedTask>,
+    executing_tasks: Vec<FocusedTask>,
+    metrics: CreativityMetrics,
+    current_tick: u64,
 }
 
 impl Default for CreativityEngine {
@@ -144,8 +147,8 @@ impl CreativityEngine {
             }
         }
 
-        self.metrics.policies_active = self.consolidation.policies.len();
-        self.metrics.novel_concepts_promoted = self.consolidation.policies.len() as u64;
+        self.metrics.policies_active = self.consolidation.policies().len();
+        self.metrics.novel_concepts_promoted = self.consolidation.policies().len() as u64;
     }
 
     /// Vérifie si une politique émergente s'applique
@@ -172,8 +175,6 @@ impl CreativityEngine {
     pub fn executing_count(&self) -> usize {
         self.executing_tasks.len()
     }
-
-    pub fn tick(&mut self) {}
 
     pub fn update_config(&mut self, config: CreativityConfig) {
         self.config = config.clone();

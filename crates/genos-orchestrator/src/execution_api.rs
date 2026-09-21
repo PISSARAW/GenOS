@@ -15,13 +15,17 @@ impl GenosEcosystem {
             executed: Vec::new(),
             halt: None,
             verdicts: Vec::new(),
-            creative_tasks: Vec::new(),
-            creative_outcomes: Vec::new(),
         };
         for concept in concepts {
             self.execute_concept(*concept, &mut report);
             report.executed.push(*concept);
         }
         report.executed
+    }
+
+    /// Exécute un concept individuel (utilisé par execute_concepts).
+    pub fn execute_concept(&mut self, concept: Concept, report: &mut TickReport) {
+        // Simple execution - just record the concept
+        report.executed.push(concept);
     }
 }

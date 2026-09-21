@@ -17,6 +17,7 @@ pub struct FocusedTask {
     pub metadata: HashMap<String, Value>,
 }
 
+#[derive(Clone, Debug)]
 pub struct SalienceGate {
     threshold: f64,
     min_novelty: f64,

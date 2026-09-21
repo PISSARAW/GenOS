@@ -14,7 +14,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:46.624Z",
+    "updatedAt": "2026-09-21T11:31:47.868Z",
     "history": [
       {
         "at": "2026-09-20T15:28:57.910Z",
@@ -55,6 +55,16 @@
         "at": "2026-09-21T09:31:46.624Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:49.089Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:47.868Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -73,7 +83,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:46.752Z",
+    "updatedAt": "2026-09-21T11:31:48.065Z",
     "history": [
       {
         "at": "2026-09-20T15:28:58.048Z",
@@ -114,6 +124,16 @@
         "at": "2026-09-21T09:31:46.752Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:49.230Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:48.066Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -132,7 +152,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:46.890Z",
+    "updatedAt": "2026-09-21T11:31:48.257Z",
     "history": [
       {
         "at": "2026-09-20T15:28:58.163Z",
@@ -173,6 +193,16 @@
         "at": "2026-09-21T09:31:46.890Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:49.347Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:48.257Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -191,7 +221,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:47.015Z",
+    "updatedAt": "2026-09-21T11:31:48.456Z",
     "history": [
       {
         "at": "2026-09-20T15:28:58.290Z",
@@ -232,6 +262,16 @@
         "at": "2026-09-21T09:31:47.015Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:49.477Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:48.456Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -250,7 +290,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:47.189Z",
+    "updatedAt": "2026-09-21T11:31:48.777Z",
     "history": [
       {
         "at": "2026-09-20T15:28:58.514Z",
@@ -291,6 +331,16 @@
         "at": "2026-09-21T09:31:47.189Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:49.698Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:48.777Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -309,7 +359,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:47.316Z",
+    "updatedAt": "2026-09-21T11:31:48.908Z",
     "history": [
       {
         "at": "2026-09-20T15:28:58.630Z",
@@ -350,6 +400,16 @@
         "at": "2026-09-21T09:31:47.316Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:49.811Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:48.908Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -368,7 +428,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:47.468Z",
+    "updatedAt": "2026-09-21T11:31:49.020Z",
     "history": [
       {
         "at": "2026-09-20T15:28:58.793Z",
@@ -409,6 +469,16 @@
         "at": "2026-09-21T09:31:47.468Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:49.931Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:49.020Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -428,7 +498,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:49.090Z",
+    "updatedAt": "2026-09-21T11:31:51.054Z",
     "history": [
       {
         "at": "2026-09-20T15:29:00.548Z",
@@ -469,6 +539,16 @@
         "at": "2026-09-21T09:31:49.090Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:51.440Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:51.054Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -487,7 +567,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:49.216Z",
+    "updatedAt": "2026-09-21T11:31:51.151Z",
     "history": [
       {
         "at": "2026-09-20T15:29:00.662Z",
@@ -528,6 +608,16 @@
         "at": "2026-09-21T09:31:49.216Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:51.558Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:51.151Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -546,7 +636,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:49.338Z",
+    "updatedAt": "2026-09-21T11:31:51.258Z",
     "history": [
       {
         "at": "2026-09-20T15:29:00.802Z",
@@ -587,6 +677,16 @@
         "at": "2026-09-21T09:31:49.338Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:51.682Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:51.258Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -605,7 +705,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:49.473Z",
+    "updatedAt": "2026-09-21T11:31:51.386Z",
     "history": [
       {
         "at": "2026-09-20T15:29:00.942Z",
@@ -646,6 +746,16 @@
         "at": "2026-09-21T09:31:49.473Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:51.833Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:51.386Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -664,7 +774,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:49.636Z",
+    "updatedAt": "2026-09-21T11:31:51.508Z",
     "history": [
       {
         "at": "2026-09-20T15:29:01.078Z",
@@ -705,6 +815,16 @@
         "at": "2026-09-21T09:31:49.636Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:51.958Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:51.508Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -723,7 +843,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:50.133Z",
+    "updatedAt": "2026-09-21T11:31:51.619Z",
     "history": [
       {
         "at": "2026-09-20T15:29:01.222Z",
@@ -764,6 +884,16 @@
         "at": "2026-09-21T09:31:50.133Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:52.076Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:51.619Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -782,7 +912,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:50.419Z",
+    "updatedAt": "2026-09-21T11:31:51.743Z",
     "history": [
       {
         "at": "2026-09-20T15:29:01.372Z",
@@ -823,6 +953,16 @@
         "at": "2026-09-21T09:31:50.419Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:52.215Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:51.743Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -841,7 +981,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:50.747Z",
+    "updatedAt": "2026-09-21T11:31:51.977Z",
     "history": [
       {
         "at": "2026-09-20T15:29:01.617Z",
@@ -882,6 +1022,16 @@
         "at": "2026-09-21T09:31:50.747Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:52.429Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:51.977Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -900,7 +1050,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:50.907Z",
+    "updatedAt": "2026-09-21T11:31:52.081Z",
     "history": [
       {
         "at": "2026-09-20T15:29:01.733Z",
@@ -941,6 +1091,16 @@
         "at": "2026-09-21T09:31:50.907Z",
         "synced": false,
         "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:52.536Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:52.081Z",
+        "synced": false,
+        "fix": "no-op"
       }
     ]
   },
@@ -959,7 +1119,7 @@
     },
     "commitsAheadOfBase": 0,
     "mergeRequest": null,
-    "updatedAt": "2026-09-21T09:31:50.596Z",
+    "updatedAt": "2026-09-21T11:31:51.870Z",
     "history": [
       {
         "at": "2026-09-20T16:29:08.338Z",
@@ -993,6 +1153,46 @@
       },
       {
         "at": "2026-09-21T09:31:50.596Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T10:31:52.322Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:51.870Z",
+        "synced": false,
+        "fix": "no-op"
+      }
+    ]
+  },
+  "C:\\Users\\Shadow\\Documents\\GitHub\\worker-sub-1": {
+    "branch": "genos-daemon/worker-sub-1",
+    "base": "detached-e0ee5ac4",
+    "worktree": "C:\\Users\\Shadow\\Documents\\GitHub\\.genos-daemon-worlds\\worker-sub-1",
+    "status": "sync_conflict",
+    "lastSync": {
+      "synced": false,
+      "baseRef": "detached-e0ee5ac4",
+      "reason": "error: cannot rebase: You have unstaged changes.\nerror: Please commit or stash them."
+    },
+    "lastFix": {
+      "attempted": false,
+      "reason": "sync failed: error: cannot rebase: You have unstaged changes.\nerror: Please commit or stash them."
+    },
+    "commitsAheadOfBase": 0,
+    "mergeRequest": null,
+    "updatedAt": "2026-09-21T11:31:53.438Z",
+    "history": [
+      {
+        "at": "2026-09-21T10:31:58.330Z",
+        "synced": false,
+        "fix": "no-op"
+      },
+      {
+        "at": "2026-09-21T11:31:53.438Z",
         "synced": false,
         "fix": "no-op"
       }
