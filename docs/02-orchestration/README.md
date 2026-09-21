@@ -11,6 +11,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [theorie-du-soi-orchestrator.md](theorie-du-soi-orchestrator.md) — modèle opérationnel, calibration, biais et contraintes de décision.
 - [memoire-autobiographique.md](memoire-autobiographique.md) — épisodes vécus, saillance, consolidation en leçons, rappel avant décision, oubli.
 - [architecture-survie.md](architecture-survie.md) — viabilité, pressions vitales, homéostasie, dormance et reproduction validée.
+- [continuite-mission-organisme.md](continuite-mission-organisme.md) — organisme de mission, six systèmes de continuité, régénération et apoptose contrôlée.
 - [topologies-et-capacites.md](topologies-et-capacites.md) — contrat de capacités (8 modes + 19 organisations), leases effectifs.
 - [primitives-executables.md](primitives-executables.md) — primitives formelles, contrats, budgets, promotion.
 - [workflows-et-jobs.md](workflows-et-jobs.md) — workflows, jobs, graphes d'états, transitions.
@@ -28,3 +29,4 @@ reproduction, et les 8 modes de composition (topologies).
 
 - [../01-concepts/README.md](../01-concepts/README.md) — fondations théoriques.
 - [../03-reference/api-et-contrats.md](../03-reference/api-et-contrats.md) — surfaces d'exécution.
+- [continuite-mission-organisme.md](continuite-mission-organisme.md) — l'organisme de mission et ses six systèmes de continuité.

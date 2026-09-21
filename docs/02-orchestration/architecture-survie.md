@@ -108,4 +108,6 @@ encore réduire ce nombre.
   que toute la chaîne soit vérifiée de bout en bout.
 
 Voir [ADR 0013](../adr/0013-survival-model-control-plane.md) et
-[corps-orchestrator.md](corps-orchestrator.md).
+[corps-orchestrator.md](corps-orchestrator.md). Pour la continuité de mission
+vue comme organisme (régénération, cicatrices, quiescence, apoptose contrôlée),
+voir [continuite-mission-organisme.md](continuite-mission-organisme.md).
