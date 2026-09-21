@@ -2,7 +2,7 @@
 
 const crypto = require('crypto');
 const { buildHomeostasisContract, evaluateContract, homeostasisStatus, HOMEOSTASIS_SCHEMA } = require('./homeostasisContractService');
-const { newOrganism, recordCheckpoint, expressPhenotype } = require('./missionOrganismService');
+const { newOrganism, expressPhenotype } = require('./missionOrganismService');
 const telemetry = require('./telemetryObserver');
 
 const HOMEOSTASIS_EVENT_PREFIX = 'HOMEOSTASIS';
