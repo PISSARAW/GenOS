@@ -10,7 +10,12 @@ const { pack, unpack } = require('msgpackr');
 
 function packBioPolymer(data) {
   if (data === undefined || data === null) return null;
-  return pack(data);
+  try {
+    return pack(data);
+  } catch (_) {
+    // Fallback JSON si msgpackr n'est pas disponible.
+    return Buffer.from(JSON.stringify(data), 'utf8');
+  }
 }
 
 function unpackBioPolymer(source) {
