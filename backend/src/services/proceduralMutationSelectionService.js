@@ -9,79 +9,98 @@ function clamp01(value, fallback = 0) {
 const fitness = require('./proceduralFitnessService');
 const crypto = require('crypto');
 
-function cloneGraph(graph = {}) {
-  return {
-    nodes: Array.isArray(graph.nodes) ? graph.nodes.map((n) => ({ ...n })) : [],
-    edges: Array.isArray(graph.edges) ? graph.edges.map((e) => ({ ...e })) : [],
-    metadata: graph.metadata ? { ...graph.metadata } : {},
-  };
+function cloneOrganism(org) {
+  return JSON.parse(JSON.stringify(org));
 }
 
 function addNodeVariant(parent, index) {
-  const g = cloneGraph(parent);
-  const newId = `node-${(g.nodes?.length || 0)}`;
-  g.nodes = g.nodes || [];
-  g.nodes.push({ id: newId, type: 'generated', source: 'mutation', generated: true });
-  return g;
+  const org = cloneOrganism(parent);
+  const newId = `node-${(org.structure?.nodes?.length || 0)}`;
+  org.structure = org.structure || { nodes: [], synapses: [] };
+  org.structure.nodes = org.structure.nodes || [];
+  org.structure.nodes.push({ id: newId, type: 'generated', source: 'mutation' });
+  return {
+    organism: org,
+    operation: { op: 'ADD_NODE', target: { id: newId, type: 'generated' } },
+  };
 }
 
 function removeNodeVariant(parent, index) {
-  const g = cloneGraph(parent);
-  if (!g.nodes?.length) return g;
-  const target = g.nodes.findIndex((n) => !n.essential && !n.locked);
-  if (target >= 0) g.nodes.splice(target, 1);
-  return g;
+  const org = cloneOrganism(parent);
+  org.structure = org.structure || { nodes: [], synapses: [] };
+  org.structure.nodes = org.structure.nodes || [];
+  const target = org.structure.nodes.findIndex((n) => !n.required && !n.locked);
+  let op = { op: 'REMOVE_NODE', target: null };
+  if (target >= 0) {
+    const removed = org.structure.nodes.splice(target, 1)[0];
+    op.target = { id: removed.id, type: removed.type };
+  }
+  return { organism: org, operation: op };
 }
 
-function addEdgeVariant(parent, index) {
-  const g = cloneGraph(parent);
-  if ((g.nodes?.length || 0) < 2) return g;
-  const src = g.nodes[0];
-  const tgt = g.nodes[g.nodes.length - 1];
-  g.edges = g.edges || [];
-  g.edges.push({ from: src.id, to: tgt.id, type: 'excitatory', weight: 0.5, generated: true });
-  return g;
+function addSynapseVariant(parent, index) {
+  const org = cloneOrganism(parent);
+  org.structure = org.structure || { nodes: [], synapses: [] };
+  org.structure.nodes = org.structure.nodes || [];
+  org.structure.synapses = org.structure.synapses || [];
+  let op = { op: 'ADD_SYNAPSE', target: null };
+  if (org.structure.nodes.length >= 2) {
+    const src = org.structure.nodes[0];
+    const tgt = org.structure.nodes[org.structure.nodes.length - 1];
+    const synapse = { from: src.id, to: tgt.id, type: 'excitatory', weight: 0.5 };
+    org.structure.synapses.push(synapse);
+    op.target = { from: src.id, to: tgt.id };
+  }
+  return { organism: org, operation: op };
 }
 
-function removeEdgeVariant(parent, index) {
-  const g = cloneGraph(parent);
-  if (!g.edges?.length) return g;
-  const target = g.edges.findIndex((e) => !e.essential);
-  if (target >= 0) g.edges.splice(target, 1);
-  return g;
+function removeSynapseVariant(parent, index) {
+  const org = cloneOrganism(parent);
+  org.structure = org.structure || { nodes: [], synapses: [] };
+  org.structure.synapses = org.structure.synapses || [];
+  const target = org.structure.synapses.findIndex((s) => !s.essential);
+  let op = { op: 'REMOVE_SYNAPSE', target: null };
+  if (target >= 0) {
+    const removed = org.structure.synapses.splice(target, 1)[0];
+    op.target = { from: removed.from, to: removed.to };
+  }
+  return { organism: org, operation: op };
 }
 
 function adjustWeightVariant(parent, index) {
-  const g = cloneGraph(parent);
-  if (!g.edges?.length) return g;
-  const edge = g.edges[index % g.edges.length];
-  const input = `${parent.id || ''}-${index}-${edge?.from || ''}-${edge?.to || ''}`;
+  const org = cloneOrganism(parent);
+  org.structure = org.structure || { nodes: [], synapses: [] };
+  org.structure.synapses = org.structure.synapses || [];
+  let op = { op: 'ADJUST_WEIGHT', target: null, delta: 0 };
+  if (org.structure.synapses.length) {
+    const synapse = org.structure.synapses[index % org.structure.synapses.length];
+    const input = `${parent.metadata?.id || ''}-${index}-${synapse.from}-${synapse.to}`;
     const hash = crypto.createHash('sha256').update(input).digest('hex').slice(0, 8);
     const delta = (parseInt(hash, 16) / 0xFFFFFFFF - 0.5) * 0.2;
-  edge.weight = clamp01((edge.weight || 0.5) + delta);
-  edge.adjusted = true;
-  return g;
+    synapse.weight = clamp01((synapse.weight || 0.5) + delta);
+    op.target = { from: synapse.from, to: synapse.to };
+    op.delta = delta;
+    op.before = { weight: (synapse.weight || 0.5) - delta };
+    op.after = { weight: synapse.weight };
+  }
+  return { organism: org, operation: op };
 }
 
-const MUTATION_OPS = [addNodeVariant, removeNodeVariant, addEdgeVariant, removeEdgeVariant, adjustWeightVariant];
+const MUTATION_OPS = [addNodeVariant, removeNodeVariant, addSynapseVariant, removeSynapseVariant, adjustWeightVariant];
 
-function contentHash(obj) {
-  const s = JSON.stringify(obj);
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  return Math.abs(h).toString(16).padStart(8, '0');
-}
-
-function generateVariants(parent = {}, count = 4, options = {}) {
+function generateVariants(parent = {}, count = 4) {
   const variants = [];
   for (let i = 0; i < count; i++) {
     const op = MUTATION_OPS[i % MUTATION_OPS.length];
-    const structure = op(parent, i);
+    const result = op(parent, i);
+    const contentId = crypto.createHash('sha256')
+      .update(JSON.stringify(result.organism.structure))
+      .digest('hex').slice(0, 12);
     variants.push({
-      id: `v-${contentHash(structure)}`,
-      parentId: parent.id || null,
-      operations: [op.name],
-      structure,
+      id: `v-${contentId}`,
+      parentId: parent.metadata?.id || null,
+      operations: [result.operation],
+      organism: result.organism,
       fitness: null,
       immuneRejected: false,
       immuneFindings: [],
@@ -112,6 +131,5 @@ module.exports = {
   selectSurvivors,
   survivorsDiversity,
   MUTATION_OPS,
-  cloneGraph,
-  contentHash,
+  cloneOrganism,
 };
