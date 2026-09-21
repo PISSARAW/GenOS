@@ -211,8 +211,8 @@ function evaluatePolicy(claim, opts) {
   const decayCurve = _resolveDecayCurve(opts.decayCurve);
   const tails = opts.tails || 0;
 
-  const acceptance = _runAcceptance(claim, effectiveStakes, decayCurve, tails);
-  const metrics = _extractQualityMetrics(acceptance, claim, effectiveStakes, decayCurve, tails);
+  const acceptance = _runAcceptance(claim, { effectiveStakes, decayCurve, tails });
+  const metrics = _extractQualityMetrics({ acceptance, claim, effectiveStakes, decayCurve, tails });
   const { quality, calibrated, gap } = metrics;
 
   const consistencyIssues = checkClaimConsistency([claim]);

@@ -65,12 +65,16 @@ function normalizeEvidence(input) {
 }
 
 function normalizeCost(input) {
+  // Le coût ne doit pas créer de boucle positive :
+  // un budget faible ne doit pas augmenter la pression.
+  // Au contraire, un budget faible doit réduire l'effort disponible.
+  // Donc cost = 0 quand le budget est suffisant, et cost = 1 seulement quand
+  // le budget est épuisé et qu'on doit escalader (pas vérifier davantage).
   if (!input || typeof input !== 'object') return 0;
   const budget = Number(input.budgetRemaining);
-  const reference = Number(input.budgetReference) || 1;
-  if (!isFinite(budget) || budget < 0) return 0.5;
-  if (reference <= 0) return 0;
-  return clampAt(Math.max(0, 1 - budget / reference), 0, 1);
+  if (!isFinite(budget) || budget < 0) return 0;
+  if (budget === 0) return 1; // échec → escalade, pas vérification
+  return 0; // budget suffisant → pas de pression liée au coût
 }
 
 const DEFAULT_WEIGHTS = Object.freeze({
@@ -90,24 +94,24 @@ function computePressure(input, weights = DEFAULT_WEIGHTS) {
   const evidence = normalizeEvidence(input);
   const cost = normalizeCost(input);
 
-  const wRisk = Number(weights.risk || 0);
-  const wUnc = Number(weights.uncertainty || 0);
-  const wCon = Number(weights.contradiction || 0);
-  const wNov = Number(weights.novelty || 0);
-  const wEv = Number(weights.evidence || 0);
-  const wCost = Number(weights.cost || 0);
-  const total = wRisk + wUnc + wCon + wNov + wEv + wCost || 1;
+  const total = totalWeights(weights);
+  if (total === 0) return 0;
 
   const pressure = (
-    wRisk * risk +
-    wUnc * uncertainty +
-    wCon * contradiction +
-    wNov * novelty +
-    wEv * evidence +
-    wCost * cost
+    (weights.risk || 0) * risk +
+    (weights.uncertainty || 0) * uncertainty +
+    (weights.contradiction || 0) * contradiction +
+    (weights.novelty || 0) * novelty +
+    (weights.evidence || 0) * evidence +
+    (weights.cost || 0) * cost
   ) / total;
 
   return clampAt(isFinite(pressure) ? pressure : 0, 0, 1);
+}
+
+function totalWeights(weights) {
+  const keys = ['risk', 'uncertainty', 'contradiction', 'novelty', 'evidence', 'cost'];
+  return keys.reduce((sum, key) => sum + (Number(weights[key]) || 0), 0) || 1;
 }
 
 function tierFromPressure(pressure) {
@@ -139,4 +143,5 @@ module.exports = {
   normalizeNovelty,
   normalizeEvidence,
   normalizeCost,
+  totalWeights,
 };

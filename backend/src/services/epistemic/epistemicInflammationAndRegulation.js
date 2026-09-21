@@ -79,9 +79,19 @@ function inhibit(reason, signal) {
 function inhibitionReason(antigen, rejectionReason, context = {}) {
   const unjustified = !isJustifiedRejection(rejectionReason);
   const novel = isNovelClaim(antigen, context.immuneMemory);
+
+  // Un danger signal connu ne doit jamais être inhibé par le régulateur.
+  const dangerSignals = ['SELF_VERIFICATION', 'FORGED_RECEIPT', 'INVALID_TEST_RESULT',
+    'PROVENANCE_INTEGRITY_FAILURE', 'UNRESOLVED_VERIFIED_CONTRADICTION'];
+  const isDangerSignal = dangerSignals.includes(rejectionReason);
+
+  // Le T-reg ne peut pas supprimer un danger signal : il ne doit pas toucher
+  // aux signaux qui indiquent une preuve forgée, une autoverification,
+  // un test invalide, une provenance corrompue ou une contradiction non résolue.
+  if (isDangerSignal) return null;
+
+  // Le T-reg inhibe les rejets injustifiés (sur-vérification, dogme, nouveauté).
   if (unjustified && novel) return 'régulateur: rejet injustifié sur revendication inhabituelle';
-  const selfVerified = antigen && antigen.epitopes && antigen.epitopes.provenance && antigen.epitopes.provenance.selfVerified;
-  if (selfVerified && novel) return 'régulateur: autoverification + nouveauté non douteuse';
   if (unjustified && context.knownSubject) return 'régulateur: revendication connue, suspicion de sur-vérification';
   return null;
 }

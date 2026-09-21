@@ -39,40 +39,33 @@ const { computePressure, tierFromPressure } = require('./epistemicHomeostasisSer
 const { dissonanceFrom, niveauCorpsent } = require('./epistemicApoptosisService');
 
 function hostDecision(reports, opts = {}) {
-  const { specialistOutput, immuneReport, memoryReport } = reports;
-  const stakes = opts.stakes || 'normal';
+  const specialistOutput = reports.specialistOutput || reports.specialist;
+  const immuneReport = reports.immuneReport || reports.immune;
+  const memoryReport = reports.memoryReport || reports.memory;
   const hostVeto = opts.hostVeto !== false;
-
-  // Le Host rejoute si l'Immune symbiont bloque et que le régulateur n'a pas inhibé.
-  if (immuneReport.blocked && !immuneReport.regulatorInhibited && hostVeto) {
+  const shouldVeto = Boolean(immuneReport && immuneReport.blocked && !immuneReport.regulatorInhibited && hostVeto);
+  if (shouldVeto) {
     return {
       accepted: false,
       reason: `Host veto: ${immuneReport.blockReason}`,
-      specialistOutput,
-      immuneReport,
-      memoryReport,
+      specialistOutput, immuneReport, memoryReport,
       finalAuthority: 'host',
     };
   }
-
-  // Le Host accepte si l'Immune approuve OU si le régulateur inhibe le rejet.
   return {
     accepted: true,
-    reason: immuneReport.blocked
+    reason: immuneReport && immuneReport.blocked
       ? 'Host override: régulateur a inhibé le rejet'
       : 'Host approbation: immune report favorable',
-    specialistOutput,
-    immuneReport,
-    memoryReport,
+    specialistOutput, immuneReport, memoryReport,
     finalAuthority: 'host',
   };
 }
 
 function immuneSymbiontReview(antigen, context = {}) {
   const pipeline = runAdaptivePipeline(antigen, context);
-  const decision = pipeline.decision;
-  const blocked = decision === 'quarantaine' || decision === 'quarantaine_adaptative';
-  const blockReason = blocked ? `decision: ${decision}` : null;
+  const blocked = isImmuneDecisionBlocked(pipeline);
+  const blockReason = blocked ? `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}` : null;
 
   // Régulateur T-reg : vérifie que le système ne rejette pas pour une mauvaise raison.
   const regulator = blockReason
@@ -88,8 +81,15 @@ function immuneSymbiontReview(antigen, context = {}) {
     regulatorInhibited: regulator.inhibit,
     regulatorReason: regulator.reason,
     pipeline,
-    decision,
+    decision: pipeline.decision?.innate?.decision?.action || pipeline.decision?.decision || 'unknown',
   };
+}
+
+function isImmuneDecisionBlocked(pipeline) {
+  const innateDecision = pipeline.decision?.innate?.decision || pipeline.decision?.decision || {};
+  const action = typeof innateDecision === 'object' ? innateDecision.action : innateDecision;
+  return action === 'quarantine' || action === 'quarantaine'
+    || action === 'quarantaine_adaptative' || action === 'neutraliser' || action === 'neutralize';
 }
 
 function memorySymbiontLookup(antigen, context = {}) {
@@ -126,52 +126,49 @@ function specialistSymbioteSolve(antigen, context = {}) {
   };
 }
 
+function homeostasisInputFrom(antigen) {
+  return {
+    ...antigen,
+    risk: antigen.risk?.score !== undefined ? antigen.risk.score : 0,
+    evidence: antigen.epitopes?.evidence ? [antigen.epitopes.evidence] : [],
+    validityDomain: antigen.epitopes?.validityDomain,
+    contradictions: antigen.contradictions || [],
+    novelty: antigen.novelty || 0,
+    subject: antigen.claim,
+    knownSubjects: antigen.knownSubjects || [],
+    budgetRemaining: antigen.budgetRemaining,
+    budgetReference: antigen.budgetReference,
+  };
+}
+
 function epistemicHolobionte(antigen, context = {}) {
-  // 1. Specialist résout.
   const specialist = specialistSymbioteSolve(antigen, context);
-
-  // 2. Memory cherche les échecs connus.
-  const memory = memorySymbiontLookup(antigen, {
-    ...context,
-    domain: context.domain,
-  });
-
-  // 3. Immune vérifie.
+  const memory = memorySymbiontLookup(antigen, { ...context, domain: context.domain });
   const immune = immuneSymbiontReview(antigen, {
     ...context,
     immuneMemory: context.immuneMemory,
     knownSubject: memory.hasMemory,
   });
-
-  // 4. Host arbitre.
   const host = hostDecision(
-    { specialistOutput: specialist, immuneReport: immune, memoryReport: memory },
+    { specialist, immune, memory },
     { stakes: context.stakes, hostVeto: context.hostVeto },
   );
-
-  // 5. Biocénose : mesure la diversité des vérificateurs.
   const biocenose = cognitiveBiocenose(
     immune.pipeline?.decision?.assignedVerifiers?.map((v) => ({
-      type: v.verifier,
-      niche: v.verifier,
-      strategy: v.strategy,
+      type: v.verifier, niche: v.verifier, strategy: v.strategy,
     })) || [],
   );
-
-  // 6. Pression homéostatique.
-  const pressure = computePressure(antigen);
+  const pressure = computePressure(homeostasisInputFrom(antigen));
   const tier = tierFromPressure(pressure);
 
-  // 7. Mise à jour de la mémoire (affinity maturation).
   if (context.immuneMemory) {
     recordOutcome(context.immuneMemory, antigen, {
       domain: context.domain,
-      success: host.accepted,
+      outcome: 'pending',
       effectiveResponse: memory.effectiveResponse,
     });
   }
 
-  // 8. Dissonance épistémique (apoptose).
   const dissonance = dissonanceFrom([
     host.accepted ? 0 : 1,
     immune.blocked ? 1 : 0,
@@ -183,10 +180,7 @@ function epistemicHolobionte(antigen, context = {}) {
     accepted: host.accepted,
     reason: host.reason,
     finalAuthority: 'host',
-    specialist,
-    immune,
-    memory,
-    biocenose,
+    specialist, immune, memory, biocenose,
     homeostasis: { pressure, tier },
     epistemicDissonance: dissonance,
     statusLevel,

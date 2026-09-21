@@ -18,8 +18,17 @@ const SEUIL_SIGNATURE_FAIBLE = 0.4;
 
 function signatureFrom(entry) {
   if (typeof entry === 'string') return stableFingerprint(entry);
+  if (entry && entry.claim) return antigenSignature(entry);
   const canonical = stableFingerprint(entry.pattern || entry.signature || entry.action || '');
   return canonical;
+}
+
+function antigenSignature(antigen) {
+  const evidenceKind = antigen.epitopes?.evidence?.kind || 'no-evidence';
+  const domain = antigen.epitopes?.validityDomain?.domain || antigen.domain || 'general';
+  const assumptions = (antigen.epitopes?.assumptions || []).sort().join(',');
+  const producer = antigen.producer?.model || antigen.producer?.name || 'unknown';
+  return stableFingerprint(JSON.stringify([antigen.claim, evidenceKind, domain, assumptions, producer].sort()));
 }
 
 function stableFingerprint(text) {
@@ -38,6 +47,7 @@ function makeEntry(pattern, opts = {}) {
     affinity: typeof opts.affinity === 'number' ? opts.affinity : 0.5,
     failures: 0,
     successes: 0,
+    pending: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -77,11 +87,31 @@ function recordOutcome(memory, pattern, opts = {}) {
   const sig = signatureFrom(pattern);
   let entry = memory.find((e) => e.signature === sig);
   if (!entry) {
-    entry = makeEntry(pattern, { domain: opts.domain, evidence: opts.evidence, effectiveResponse: opts.effectiveResponse, affinity: 0.4 });
+    entry = makeEntry(pattern, {
+      domain: opts.domain,
+      evidence: opts.evidence,
+      effectiveResponse: opts.effectiveResponse,
+      affinity: 0.4,
+      pending: true,
+    });
     memory.push(entry);
   }
   entry.updatedAt = new Date().toISOString();
-  updateEntryAffinity(entry, opts.success);
+
+  // Règle critique : host.accepted ≠ success.
+  // Tant que la vérité n'est pas résolue par un oracle externe,
+  // l'outcome reste 'pending' et n'affecte pas l'affinité.
+  if (opts.outcome === 'pending') {
+    entry.pending = true;
+    return entry;
+  }
+
+  // Seul un oracle externe peut marquer un résultat comme success/failure.
+  if (opts.outcome === 'success' || opts.outcome === 'failure') {
+    entry.pending = false;
+    updateEntryAffinity(entry, opts.outcome === 'success');
+  }
+
   entry.effectiveResponse = opts.effectiveResponse || entry.effectiveResponse;
   return entry;
 }

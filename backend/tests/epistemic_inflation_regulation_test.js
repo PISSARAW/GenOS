@@ -54,8 +54,24 @@ assert.strictEqual(unjustReject.action, 'inhibit_rejection');
 const justifiedReject = I.regulatoryReview({ claim: 'old claim', epitopes: { evidence: { kind: 'test_result' } } }, 'contradiction avérée', { immuneMemory: mem, knownSubject: true });
 assert.ok(!justifiedReject.inhibit);
 
-const selfVerifiedNovel = I.regulatoryReview({ epitopes: { provenance: { selfVerified: true } } }, 'autoverification', { immuneMemory: [], knownSubject: false });
-assert.ok(selfVerifiedNovel.inhibit);
+// Un danger signal (SELF_VERIFICATION) ne doit jamais être inhibé par le T-reg,
+// même si la revendication est nouvelle. C'est le principe de non-suppression
+// des signaux de danger connus.
+const selfVerifiedNovel = I.regulatoryReview(
+  { claim: 'nouvelle revendication', epitopes: { provenance: { selfVerified: true } } },
+  'SELF_VERIFICATION',
+  { immuneMemory: [], knownSubject: false },
+);
+assert.ok(!selfVerifiedNovel.inhibit, 'T-reg ne doit pas inhiber un danger signal');
+
+// En revanche, un rejet injustifié (ex: aucune source web) sur une nouveauté
+// peut être inhibé car ce n'est pas un danger signal.
+const unjustifiedNovel = I.regulatoryReview(
+  { claim: 'revendication inédite', epitopes: { evidence: { kind: 'test_result' } } },
+  'aucune source externe',
+  { immuneMemory: [], knownSubject: false },
+);
+assert.ok(unjustifiedNovel.inhibit, 'T-reg inhibe un rejet injustifié sur nouveauté');
 
 // ---- novelty ----
 

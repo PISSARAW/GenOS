@@ -48,17 +48,25 @@ assert.strictEqual(fr[0].affinity, 0.8);
 // ---- recordOutcome ----
 
 const fresh = [];
-const after = M.recordOutcome(fresh, 'P1', { domain: 'auth', success: true, effectiveResponse: 'alt' });
+// Tant que la vérité n'est pas résolue, l'outcome reste 'pending'.
+const afterPending = M.recordOutcome(fresh, 'P1', { domain: 'auth', outcome: 'pending', effectiveResponse: 'alt' });
+assert.strictEqual(afterPending.pending, true);
+assert.strictEqual(afterPending.successes, 0);
+assert.strictEqual(afterPending.failures, 0);
+
+// Seul un oracle externe peut marquer un résultat comme success/failure.
+const after = M.recordOutcome(fresh, 'P1', { domain: 'auth', outcome: 'success', effectiveResponse: 'alt' });
+assert.strictEqual(after.pending, false);
 assert.strictEqual(after.successes, 1);
 assert.strictEqual(after.failures, 0);
 assert.strictEqual(after.affinity, 1);
 
-const after2 = M.recordOutcome(fresh, 'P1', { domain: 'auth', success: false });
+const after2 = M.recordOutcome(fresh, 'P1', { domain: 'auth', outcome: 'failure' });
 assert.strictEqual(after2.successes, 1);
 assert.strictEqual(after2.failures, 1);
 assert.strictEqual(after2.affinity, 0.5);
 
-const after3 = M.recordOutcome(fresh, 'P1', { domain: 'auth', success: true });
+const after3 = M.recordOutcome(fresh, 'P1', { domain: 'auth', outcome: 'success' });
 assert.strictEqual(after3.affinity, 2 / 3);
 
 // ---- priorityRank ----
