@@ -14,13 +14,13 @@ const CELL_STATES = Object.freeze([
 ]);
 
 const VITAL_SIGNAL_KIND = Object.freeze({
-  CELL_PULSE: 'cell_pulse',
-  VITAL_TELEMETRY: 'vital_telemetry',
-  STRESS_SIGNAL: 'stress_signal',
-  CELL_LOSS: 'cell_loss',
-  CELL_DEATH: 'cell_death',
-  TISSUE_REGENERATION: 'tissue_regeneration',
-  HOMEOSTASIS_DEVIATION: 'homeostasis_deviation'
+  CELL_PULSE: 'CELL_PULSE',
+  VITAL_TELEMETRY: 'VITAL_TELEMETRY',
+  STRESS_SIGNAL: 'STRESS_SIGNAL',
+  CELL_LOSS: 'CELL_LOSS',
+  CELL_DEATH: 'CELL_DEATH',
+  TISSUE_REGENERATION: 'TISSUE_REGENERATION',
+  HOMEOSTASIS_DEVIATION: 'HOMEOSTASIS_DEVIATION'
 });
 
 function clamp01(value, fallback = 0) {
@@ -124,7 +124,7 @@ function emitVitalEvent(eventType, payload, severity = 'info') {
   telemetry.emitEvent({
     eventType,
     agentId: payload.cell || payload.mission || 'system',
-    action: eventType,
+    action: eventType.toLowerCase(),
     detail: `Vital signal: ${eventType}`,
     payload,
     sessionId: payload.mission || 'vital',
