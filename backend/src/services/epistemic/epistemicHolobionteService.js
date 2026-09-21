@@ -68,6 +68,14 @@ function immuneSymbiontReview(antigen, context = {}) {
   const blocked = isImmuneDecisionBlocked(pipeline);
   const blockReason = blocked ? `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}` : null;
 
+  // Exécution réelle des verifiers sélectionnés.
+  const verifiers = pipeline.decision?.assignedVerifiers?.map((v) => ({
+    type: v.verifier,
+    strategy: v.strategy || [],
+    affinity: v.affinity || 0.5,
+  })) || [];
+  const verifierResults = executeVerifiers(antigen, verifiers, context);
+
   // Régulateur T-reg : vérifie que le système ne rejette pas pour une mauvaise raison.
   const regulator = blockReason
     ? regulatoryReview(antigen, blockReason, {
@@ -83,6 +91,7 @@ function immuneSymbiontReview(antigen, context = {}) {
     regulatorReason: regulator.reason,
     pipeline,
     decision: pipeline.decision?.innate?.decision?.action || pipeline.decision?.decision || 'unknown',
+    verifierResults,
   };
 }
 
