@@ -93,8 +93,9 @@ function buildImmuneSystem(input = {}) {
   };
 }
 
-function nervousSignal(kind, payload, origin) {
-  return { kind, payload: payload || {}, origin: origin || null, at: new Date().toISOString() };
+function nervousSignal(input) {
+  const kind = input.kind;
+  return { kind, payload: input.payload || {}, origin: input.origin || null, at: new Date().toISOString() };
 }
 
 function buildNervousSystem(input = {}) {
