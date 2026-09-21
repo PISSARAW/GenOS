@@ -88,10 +88,9 @@ simulation_trinity.md
 simulation_trinity.py
 simulation_trinity_complète.py
 
-# Check/debug scripts
+# Test files (explicit scratch tests only; real suites use descriptive names)
 check_*.js
 fix_*.js
-test_*.js
 
 # Temporary / scratch
 *.tmp
