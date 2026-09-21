@@ -3,6 +3,7 @@
 - **Statut** : Implémenté — 11 services backend couvrant 6 moteurs de création de nouveauté, intégrés dans l'orchestrateur natif (`genos-orchestrate.cjs`). Tests d'ablation en cours de validation.
 - **Portée** : `backend/src/services/{curiosity,representationalMutation,exaptation,play,affordanceMemory,phenotypeDevelopment,environmentGenerator,culturalTransmission,culturalSelection}Service.js`, `backend/src/services/nceIntegrationService.js`, `backend/bin/genos-orchestrate.cjs`, `backend/tests/nceAblation*.test.js`, `docs/08-philosophie.md` (section 28).
 - **Dernière revue** : 2026-09-21.
+- **Dérivé** : [Mathematical Organism](mathematical-organism.md) — implémentation NCE pour la recherche mathématique.
 
 ---
 
