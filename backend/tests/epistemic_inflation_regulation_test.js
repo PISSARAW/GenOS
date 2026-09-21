@@ -44,7 +44,7 @@ assert.ok(effortSystemic.includes('replay'));
 
 // ---- régulateur ----
 
-const mem = [M.memoryEntry('old-claim', 'general', 'e', { affinity: 0.9 })];
+const mem = [M.memoryEntry('old-claim', { domain: 'general', evidence: 'e', affinity: 0.9 })];
 const novelAntigen = { claim: 'revendication inédite' };
 
 const unjustReject = I.regulatoryReview(novelAntigen, 'aucune source externe', { immuneMemory: mem, knownSubject: false });

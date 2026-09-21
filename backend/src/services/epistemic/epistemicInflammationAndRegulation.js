@@ -55,7 +55,7 @@ function recommendedEffort(tier, inflation) {
 
 function isNovelClaim(antigen, memory) {
   if (!antigen || !antigen.claim) return true;
-  const memo = recall(memory, antigen);
+  const memo = recall(memory, antigen.claim);
   return !memo;
 }
 

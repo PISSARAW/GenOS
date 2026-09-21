@@ -935,3 +935,221 @@ Les 6 moteurs sont intégrés dans `backend/bin/genos-orchestrate.cjs` via `nceI
 - Mackintosh et al., *Intentional transmission of knowledge* (Nature Sci Rep, 2026)
 - Plant Phenotypic Plasticity (Annual Reviews, 2026)
 - Root Growth and Development (Annual Reviews, 2025)
+
+## 29. Adaptive Epistemic Immune System — système immunitaire épistémique
+
+L'Epistemic Assurance v2 devient un véritable système immunitaire adaptatif.
+L'antigène épistémique est l'unité biologique qui porte une affirmation,
+ses preuves, ses hypothèses et sa provenance. Le système immunitaire
+reconnaît, vérifie et neutralise les formes de conviction trompeuses.
+
+### 29.1. Antigène épistémique
+
+```text
+EpistemicAntigen {
+  claim: Claim
+  epitopes: {
+    assumptions: Assumption[]
+    evidence: Evidence
+    validityDomain: ValidityDomain
+    dependencies: ResultRef[]
+    provenance: Provenance
+  }
+  producer: ActorIdentity
+  risk: EpistemicRisk
+  state: "unrecognized" | "tolerated" | "challenged" | "quarantined" | "neutralized" | "verified"
+}
+```
+
+Un antigène n'est pas « la mauvaise information ». C'est une unité qui doit
+être reconnue. Une affirmation vraie passe elle aussi devant le système.
+
+### 29.2. Immunité innée
+
+La première couche, très peu coûteuse, vérifie sans LLM :
+
+```text
+EMPTY_EVIDENCE          danger 0.75  → quarantine
+SELF_VERIFICATION       danger 0.90  → quarantine
+NO_PROVENANCE           danger 0.65  → challenge
+STALE_SOURCE            danger 0.55  → challenge
+SELF_CONTAINED_CYCLE    danger 0.60  → challenge
+INVALID_TEST_RESULT     danger 0.70  → quarantine
+TEST_RESULT_NO_COVERAGE danger 0.45  → challenge
+ASSUMPTION_COUNT_HIGH   danger 0.30  → monitor
+```
+
+Ces patterns sont l'équivalent fonctionnel des Pattern Recognition Receptors.
+
+### 29.3. Immunité adaptative — anticorps spécialisés
+
+Chaque vérificateur correspond à un epitope de preuve reconnu :
+
+```text
+epitope = test_result          → TestResultVerifier
+epitope = replay               → ReplayVerifier
+epitope = source               → SourceVerifier
+epitope = proof                → ProofVerifier
+epitope = artifact             → ArtifactVerifier
+epitope = benchmark            → BenchmarkVerifier
+```
+
+Un oracle n'est pas simplement un validateur générique. C'est un effecteur
+spécialisé produit après reconnaissance.
+
+### 29.4. Sélection clonale
+
+Quand un nouvel antigène apparaît, les vérificateurs les plus affins sont
+recrutés. L'expansion clonale favorise les vérificateurs historiquement
+fiables (Brier corrigé), pas des IA au hasard.
+
+### 29.5. Affinity maturation
+
+Après chaque problème dont on connaît la vérité, la stratégie de vérification
+évolue :
+
+```text
+prediction + verification + oracle truth
+  → performance historique
+  → mutation / sélection
+  → meilleure stratégie de vérification
+```
+
+### 29.6. Mémoire immunitaire épistémique
+
+Le système retient les signatures de fausses preuves, les types de claim
+trompeurs, les vérificateurs qui ont échoué, les contre-exemples décisifs.
+La prochaine exposition à un pattern connu déclenche une réponse plus rapide.
+
+### 29.7. Inflammation — homéostasie de l'effort
+
+Le niveau d'assurance n'est pas une table arbitraire. Il découle d'une réponse
+homéostatique aux signaux de danger :
+
+```text
+H = f(risk, uncertainty, contradiction, novelty, cost, evidence)
+```
+
+```text
+pressure < 0.25  → baseline (innate only)
+pressure < 0.50  → lean (innate + light adaptive)
+pressure < 0.70  → adaptive (innate + adaptive verifier)
+pressure < 0.90  → inflamed (+ counterexample + independent verifier)
+pressure ≥ 0.90  → systemic (+ replay + source + human escalation)
+```
+
+### 29.8. Tolérance et régulateur T-reg
+
+Un claim inhabituel n'est pas automatiquement mauvais. Le régulateur épistémique
+vérifie que le système immunitaire ne rejette pas le claim pour une mauvaise
+raison (sur-vérification, dogme, rejet automatique de nouveauté).
+
+### 29.9. Apoptose épistémique
+
+Un agent qui accumule des signaux de désalignement (fabricated evidence,
+self-verification, false claim promoted, ignored contradiction) augmente sa
+dissonance épistémique. À certains seuils :
+
+```text
+warning → reduced authority → quarantine → apoptosis
+```
+
+L'apoptose est suivie d'une autopsie qui alimente la mémoire immunitaire.
+
+### 29.10. Biocénose cognitive
+
+Le système mesure la diversité fonctionnelle réelle des vérificateurs. Une
+monoculture cognitive — quatre modèles généralistes qui se trompent ensemble —
+a une effective diversity ≈ 1. Le système recrute alors une autre niche.
+
+### 29.11. Métapopulation épistémique
+
+Les populations de raisonnement sont isolées pour éviter la contamination
+(convergence forcée, groupthink). Seuls les résultats migrent, jamais les
+prompts. La convergence indépendante est plus robuste qu'un accord après
+influence mutuelle.
+
+### 29.12. Stigmergie épistémique
+
+Les agents ne conversent pas. Ils déposent des marqueurs structurés dans un
+environnement épistémique partagé :
+
+```text
+pheromone { type: CLAIM_CONTRADICTION, payload: { claimId, weight } }
+pheromone { type: EVIDENCE_FAILURE, payload: { verifier, reason } }
+pheromone { type: ASSUMPTION_UNEXPLORED, payload: { assumptionId } }
+```
+
+### 29.13. Holobionte épistémique
+
+L'holobionte est la topologie d'une décision sensible :
+
+```text
+              Host (orchestrateur)
+               │ owns final authority
+     ┌─────────┼─────────┐
+     ▼         ▼         ▼
+ Specialist   Immune    Memory
+   solver     verifier  known failures
+     │         │         │
+     └─────────┼─────────┘
+               ▼
+           host veto
+```
+
+L'Immune symbiont ne résout pas la tâche. Il cherche : toxic evidence,
+contradiction, self-verification, known failure pattern, invalid provenance.
+Le Memory symbiont cherche : déjà vu ? quelle réponse immunitaire fonctionnait ?
+Le Host garde l'autorité finale.
+
+### 29.14. Challenge immunitaire épistémique
+
+Le benchmark EAB attaque le système avec des pathogènes épistémiques :
+
+```text
+P01 fake evidence           P06 self-verification
+P02 irrelevant evidence     P07 hidden assumption
+P03 unanimous false consensus P08 false citation
+P04 stale knowledge          P09 incomplete passing test
+P05 verifier gaming         P10 correlated model failure
+```
+
+Mesures : recognition rate, neutralization rate, false-positive rate,
+immune escape rate, response cost, response latency, memory response gain,
+autoimmune rate.
+
+### 29.15. Règle de biométisme
+
+> On ne peut utiliser un nom biologique que si une propriété ou dynamique du
+> mécanisme biologique est réellement implémentée et testable.
+
+- « immune memory » exige : exposition 1 → apprentissage ; exposition 2
+  similaire → réponse mesurablement plus rapide/meilleure.
+- « clonal selection » exige réellement : population, affinity, selection,
+  expansion.
+- « homeostasis » exige : variable cible, perturbation, feedback, retour vers
+  une plage stable.
+- « biocenose » exige : niches, diversité, interactions, pression écologique.
+- « apoptosis » exige : signal, seuil, mort, autopsie, nettoyage.
+
+Cette discipline empêche GenOS de devenir un framework classique recouvert
+d'étiquettes biologiques.
+
+### 29.16. Services
+
+| Service | Fichier |
+|---------|---------|
+| Antigène épistémique | `epistemic/antigenModel.js` |
+| Immunité innée | `epistemic/innateEpistemicImmunity.js` |
+| Immunité adaptative | `epistemic/adaptiveImmuneResponse.js` |
+| Vérificateurs spécialisés | `epistemic/verifierCatalogService.js` |
+| Mémoire immunitaire | `epistemic/immuneMemoryService.js` |
+| Inflammation + régulation | `epistemic/epistemicInflammationAndRegulation.js` |
+| Apoptose épistémique | `epistemic/epistemicApoptosisService.js` |
+| Biocénose cognitive | `epistemic/epistemicBiocenoseService.js` |
+| Métapopulation épistémique | `epistemic/epistemicMetapopulationService.js` |
+| Stigmergie épistémique | `epistemic/epistemicStigmergyService.js` |
+| Sélection écologique | `epistemic/epistemicEcologicalSelectionService.js` |
+| Holobionte épistémique | `epistemic/epistemicHolobionteService.js` |
+| Challenge immunitaire | `epistemic/epistemicChallengeService.js` |
+| Homéostasie épistémique | `epistemic/epistemicHomeostasisService.js` |

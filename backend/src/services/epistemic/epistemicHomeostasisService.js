@@ -19,7 +19,7 @@ function clampAt(x, min, max) {
 }
 
 function normalizeRisk(input) {
-  const raw = Number(input && input.risk === 'object' ? input.risk.score : 0);
+  const raw = Number(input && typeof input.risk === 'object' && input.risk !== null ? input.risk.score : 0);
   return clampAt(isFinite(raw) ? raw : 0, 0, 1);
 }
 
