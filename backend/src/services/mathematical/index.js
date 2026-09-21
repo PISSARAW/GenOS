@@ -2,7 +2,7 @@
 
 /**
  * @file index.js
- * @description Mathematical services index — Math-1 Substrate + Math-2 Ecology.
+ * @description Mathematical services index — Math-1 through Math-4.
  */
 
 const { createMathematicalEnvironment } = require('./mathematicalEnvironment');
@@ -13,6 +13,8 @@ const { extractEpitopes } = require('./goalEpitopeExtractor');
 const { ProofStrategyRepertoire } = require('./proofStrategyRepertoire');
 const { MathematicalPopulation } = require('./mathematicalPopulation');
 const { MathematicalNichePopulationService } = require('./mathematicalNichePopulationService');
+const { LiteratureForager, PatchResult } = require('./mathematicalLiteratureForaging');
+const { MutationEngine } = require('./mutationEngine');
 
 module.exports = {
   createMathematicalEnvironment,
@@ -23,4 +25,7 @@ module.exports = {
   ProofStrategyRepertoire,
   MathematicalPopulation,
   MathematicalNichePopulationService,
+  LiteratureForager,
+  PatchResult,
+  MutationEngine,
 };
