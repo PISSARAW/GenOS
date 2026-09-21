@@ -235,7 +235,8 @@ class CausalProgressService {
   /** Reset partiel après un événement final (fork / nouvelle branche) */
   resetAfterEvent(event) {
     if (!event) return
-    this.window.resetAfter(Date.now() - this.windowMs - 1)
+    // vider complètement la fenêtre pour repartir sur une nouvelle trajectoire
+    this.window.steps = []
     // on conserve les agrégats globaux, car ils servent la mémoire à plus long terme
   }
 

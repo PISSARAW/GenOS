@@ -154,15 +154,15 @@ const { CausalProgressService, SearchProgressWindow } = require('../../src/servi
       eventType: 'AGENT_STEP',
       action: 'probe',
       payload: {
-        evidenceGain: 0.2,
-        uncertaintyReduction: 0.1,
+        evidenceGain: 0.5,
+        uncertaintyReduction: 0.3,
         constraintsResolved: 1,
-        verifiedArtifactDelta: 0.1,
-        objectiveDelta: 0.1,
-        hypothesisInformationGain: 0.05,
-        tokensConsumed: 10,
-        timeConsumed: 0.1,
-        costConsumed: 0.001
+        verifiedArtifactDelta: 0.2,
+        objectiveDelta: 0.2,
+        hypothesisInformationGain: 0.1,
+        tokensConsumed: 1,
+        timeConsumed: 0.01,
+        costConsumed: 0.0001
       }
     })
   }
@@ -170,7 +170,7 @@ const { CausalProgressService, SearchProgressWindow } = require('../../src/servi
   const report = svc.report()
   const win = report.window
 
-  assert.ok(win.evidenceGain > 0.5, 'evidence accumulates')
+  assert.ok(win.evidenceGain > 2.0, 'evidence accumulates')
   assert.ok(win.constraintsResolved >= 6, 'constraints resolved count reflects steps')
   assert.ok(win.searchYield > 0.1, 'productive search yield is high enough')
 }
@@ -246,6 +246,8 @@ const { CausalProgressService, SearchProgressWindow } = require('../../src/servi
     })
   }
 
+  const yieldBeforeProof = svc.report().window.searchYield
+
   // Phase 2 : soudain, une preuve réelle
   svc.ingestEvent({
     eventType: 'EVIDENCE_REPORT',
@@ -278,7 +280,7 @@ const { CausalProgressService, SearchProgressWindow } = require('../../src/servi
     'constraint resolution is captured'
   )
   assert.ok(
-    report.window.searchYield > 0.05,
+    report.window.searchYield > yieldBeforeProof,
     'yield improves after genuine evidence'
   )
 
