@@ -1,8 +1,3 @@
-/**
- * Event-stream processing pipeline for a supervised agent runtime: decodes
- * frames, records execution events, evaluates guardrails and conscience, and
- * translates child lifecycle and close signals.
- */
 const { decodeEvents, MAX_FRAME_BYTES } = require('./runtimeProtocol');
 const strategyExecution = require('./strategyExecutionService');
 const hallucinationMonitor = require('./hallucinationMonitoringService');
@@ -18,6 +13,7 @@ const { finalizeChildClose } = require('./agentProcessOutcome');
 const { activeProcesses, emit, updateAgent } = require('./agentOrchestrationState');
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const workerGarage = require('./workerGarageService');
+const { checkNaturalSearchControl, clearSearchState } = require('./search/naturalSearchRuntime');
 
 function applyDomainStateFromEvent(state, event, eventType) {
   if (eventType === 'EVIDENCE_REPORT') {
@@ -81,7 +77,6 @@ function checkStrategyGuardrail(ctx, event, decision) {
 function checkSwarmSentinel(ctx, event, finalEvent) {
   const { agentId } = ctx;
   const sentinelResult = swarmSentinel.inspectEvent(agentId, event);
-  // Swarm Sentinel: Surveillance active de l'entropie de Shannon & effondrement de boucle
   if (sentinelResult.intervention && !ctx.state.termination && !finalEvent) {
     emit(agentId, 'SWARM_ENTROPY_COLLAPSE', 'SENTINEL_HALT', sentinelResult.reason, {
       state: sentinelResult.state, normalizedEntropy: sentinelResult.normalizedEntropy
@@ -147,7 +142,6 @@ async function runConscienceCheck(ctx, event, observation) {
   const { db, agentId, conscienceState } = ctx;
   const eventType = event.eventType;
   const { isHallucinationEvent, isErrorEvent, isSuccessEvent } = classifyConscienceEvent(event, eventType, observation);
-  // Évaluation de la Conscience Cognitive
   if (isErrorEvent || isHallucinationEvent) {
     const cognitiveHealth = buildCognitiveHealth(event, isHallucinationEvent);
     const evalResult = agentConscience.evaluateBranch(conscienceState, {
@@ -194,6 +188,7 @@ async function processEventQueueImpl(ctx) {
       if (checkSwarmSentinel(ctx, currentEvent, finalEvent)) continue;
       if (checkInteractionDeadlock(ctx, currentEvent, finalEvent)) continue;
       if (await runConscienceCheck(ctx, currentEvent, observation)) continue;
+      if (await checkNaturalSearchControl(ctx, currentEvent, finalEvent)) continue;
       await advanceAutonomousRound(normalizedMission, currentEvent);
     } catch (err) {
       console.error('Error processing event', err);
@@ -212,16 +207,12 @@ function parseEventPayload(event) {
 
 function enqueueStatusUpdate(ctx, event, nextStatus) {
   if (!(nextStatus || event.currentTask)) return;
-  // Ne pas mettre à jour le statut pour AGENT_COMPLETED si aucun statut explicite n'est fourni.
-  // Le verdict de domaine sera évalué dans finalizeChildClose et pourra déclasser l'agent en 'unverified'.
   if (event.eventType === 'AGENT_COMPLETED' && !event.status) return;
   ctx.state.executionQueue = ctx.state.executionQueue.then(() => { return updateAgent(ctx.agentId, nextStatus, event.currentTask); });
 }
 
 function handleDecodedEvent(ctx, event) {
   const payload = parseEventPayload(event);
-  // Ne pas forcer 'completed' sur AGENT_COMPLETED — le verdict de domaine
-  // est évalué dans finalizeChildClose et peut downgrader vers 'unverified'.
   const nextStatus = event.status;
   if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'MISSION_NO_ANSWER_PROVEN'].includes(event.eventType)) {
     ctx.state.terminalEventSeen = true;
@@ -280,10 +271,9 @@ async function handleChildClose(ctx, code, signal) {
   } catch (err) {
     console.error(`[AgentSupervisor] Error draining event queue for ${agentId}:`, err);
   } finally {
-    // Keep the process visible to the orchestration barrier until every final
-    // event (including continuation selection) has been recorded.
     activeProcesses.delete(agentId);
     swarmSentinel.clearAgent(agentId);
+    clearSearchState(agentId);
   }
 
   try {
@@ -299,7 +289,6 @@ async function handleChildClose(ctx, code, signal) {
       ctx.emitTracked('AGENT_FINALIZATION_ERROR', 'FINALIZATION', err.message, { code, signal, stack: err.stack }, 'error', 'error');
     } catch (persistErr) {
       console.error(`[AgentSupervisor] Could not persist finalization failure for ${agentId}:`, persistErr);
-      // Dernier recours: écrire dans stderr pour s'assurer que l'erreur est visible
       process.stderr.write(`[AgentSupervisor] CRITICAL: Could not persist finalization failure for ${agentId}: ${persistErr.message}\n`);
     }
   } finally {
@@ -317,21 +306,9 @@ async function handleChildClose(ctx, code, signal) {
 }
 
 module.exports = {
-  applyDomainStateFromEvent,
-  checkDossierInfluence,
-  checkHallucination,
-  checkStrategyGuardrail,
-  checkSwarmSentinel,
-  checkInteractionDeadlock,
-  classifyConscienceEvent,
-  buildCognitiveHealth,
-  runConscienceCheck,
-  isFinalEvent,
-  processEventQueueImpl,
-  handleDecodedEvent,
-  handleStdoutData,
-  handleStderrData,
-  handleStdinError,
-  handleChildError,
-  handleChildClose
+  applyDomainStateFromEvent, checkDossierInfluence, checkHallucination, checkStrategyGuardrail,
+  checkSwarmSentinel, checkInteractionDeadlock, classifyConscienceEvent, buildCognitiveHealth,
+  runConscienceCheck, isFinalEvent, processEventQueueImpl, handleDecodedEvent, handleStdoutData,
+  handleStderrData, handleStdinError, handleChildError, handleChildClose, checkNaturalSearchControl,
+  clearSearchState
 };

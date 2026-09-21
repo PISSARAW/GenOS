@@ -5,6 +5,8 @@
  * @description ResearchLineage — a population of mathematical research strategies.
  * Genome = strategies, representation operators, research policies.
  * Phenotype = currently expressed topology, tools and methods.
+ *
+ * Deep clone prevents parent-child mutation aliasing.
  */
 
 const crypto = require('node:crypto');
@@ -27,26 +29,37 @@ const STRATEGY_TYPES = Object.freeze([
   'representation_change',
 ]);
 
+function deepClone(value) {
+  if (value === null || value === undefined) return value;
+  if (typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(deepClone);
+  const cloned = {};
+  for (const key of Object.keys(value)) {
+    cloned[key] = deepClone(value[key]);
+  }
+  return cloned;
+}
+
 class ResearchLineage {
   constructor(options = {}) {
     this.id = options.id || lineageId();
     this.name = options.name || this.id;
     this.genome = {
-      strategies: options.genome?.strategies || options.strategies || ['induction'],
-      representationOperators: options.genome?.representationOperators || ['hybrid'],
-      researchPolicy: options.genome?.researchPolicy || {
+      strategies: deepClone(options.genome?.strategies || options.strategies || ['induction']),
+      representationOperators: deepClone(options.genome?.representationOperators || ['hybrid']),
+      researchPolicy: deepClone(options.genome?.researchPolicy || {
         explorationRate: 0.3,
         exploitationThreshold: 0.7,
         mutationRate: 0.1,
-      },
+      }),
     };
     this.phenotype = {
-      activeTools: options.phenotype?.activeTools || ['lean'],
+      activeTools: deepClone(options.phenotype?.activeTools || ['lean']),
       currentRepresentation: options.phenotype?.currentRepresentation || 'standard',
       expressedTopology: options.phenotype?.expressedTopology || 'linear',
     };
     this.generation = options.generation || 0;
-    this.parents = options.parents || [];
+    this.parents = deepClone(options.parents || []);
     this.fitness = options.fitness || null;
     this.createdAt = new Date().toISOString();
   }
@@ -66,8 +79,8 @@ class ResearchLineage {
   fork(newGenomeOverrides = {}) {
     return new ResearchLineage({
       name: `${this.name}-fork-${Date.now()}`,
-      genome: { ...this.genome, ...newGenomeOverrides },
-      phenotype: { ...this.phenotype },
+      genome: { ...deepClone(this.genome), ...deepClone(newGenomeOverrides) },
+      phenotype: deepClone(this.phenotype),
       generation: this.generation + 1,
       parents: [this.id, ...this.parents].slice(0, 2),
     });
@@ -94,4 +107,5 @@ module.exports = {
   createResearchLineage,
   STRATEGY_TYPES,
   lineageId,
+  deepClone,
 };

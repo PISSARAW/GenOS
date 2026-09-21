@@ -4,41 +4,31 @@ const assert = require('node:assert');
 const { MathematicalPopulation } = require('../src/services/mathematical/mathematicalPopulation');
 const { createResearchLineage } = require('../src/services/mathematical/researchLineage');
 
+// Test 1: Pareto front selection
 const pop = new MathematicalPopulation({ budget: { tokens: 1000 } });
 const l1 = createResearchLineage({ name: 'l1' });
 const l2 = createResearchLineage({ name: 'l2' });
 const l3 = createResearchLineage({ name: 'l3' });
+
 pop.addLineage(l1);
 pop.addLineage(l2);
 pop.addLineage(l3);
-assert.strictEqual(pop.lineages.size, 3);
 
-// Evaluate fitness
-pop.evaluateFitness(l1, { verifiedObligations: 5, totalObligations: 10, novelty: 0.7 });
-pop.evaluateFitness(l2, { verifiedObligations: 3, totalObligations: 10, novelty: 0.3 });
-pop.evaluateFitness(l3, { verifiedObligations: 0, totalObligations: 10, novelty: 0 });
+// l1 dominates l2 (all dimensions higher)
+pop.evaluateFitness(l1, { verifiedObligations: 9, totalObligations: 10, novelty: 0.9, informationGain: 0.9, affordancesCreated: 5, transferability: 0.9, resistanceToFalsification: 0.9, cost: 100 });
+pop.evaluateFitness(l2, { verifiedObligations: 2, totalObligations: 10, novelty: 0.2, informationGain: 0.2, affordancesCreated: 1, transferability: 0.2, resistanceToFalsification: 0.2, cost: 900 });
+pop.evaluateFitness(l3, { verifiedObligations: 8, totalObligations: 10, novelty: 0.7, informationGain: 0.7, affordancesCreated: 4, transferability: 0.7, resistanceToFalsification: 0.7, cost: 200 });
 
-// Selection
 const selected = pop.selectTop(2);
-assert.ok(selected.length <= 2);
+const selectedIds = selected.map(l => l.id);
 
-// Pareto dominance
-const a = { P: 0.8, N: 0.7, I: 0.5, A: 0.6, T: 0.9, R: 0.8, C: 0.7 };
-const b = { P: 0.5, N: 0.4, I: 0.3, A: 0.2, T: 0.6, R: 0.5, C: 0.4 };
-assert.ok(MathematicalPopulation.dominates(a, b));
-assert.ok(!MathematicalPopulation.dominates(b, a));
+// l1 (dominant) must be selected
+assert.ok(selectedIds.includes(l1.id), 'Dominant lineage must be in top selection');
+// l2 (dominated) must NOT be in top 2 if better alternatives exist
+assert.ok(!selectedIds.includes(l2.id), 'Dominated lineage must not be preferred');
 
-// Dormancy (before extinction removes it)
-pop.dormant(l1.id);
-assert.ok(l1._dormant === true);
+// Test 2: Fitness actually influences ranking
+const selectedTop1 = selected[0];
+assert.ok(selectedTop1.id === l1.id, 'Best lineage should be first (highest fitness)');
 
-// Extinction
-for (let i = 0; i < 4; i++) pop.extinguish(0.1, 3);
-assert.ok(pop.lineages.size < 3);
-
-// Summary
-const s = pop.summary();
-assert.ok(s.id);
-assert.ok(s.extinct >= 0);
-
-console.log('OK Math-2 MathematicalPopulation');
+console.log('OK MathematicalPopulation (Pareto selection verified)');

@@ -41,14 +41,70 @@ class MathematicalPopulation {
     return atLeastOneBetter;
   }
 
+  /**
+   * Non-dominated sorting (NSGA-II style) for Pareto selection.
+   * Returns topK lineages from the best Pareto fronts.
+   */
   selectTop(topK = 3) {
-    const lineages = this.lineages;
     const entries = [];
-    for (const [, entry] of lineages) {
+    for (const [, entry] of this.lineages) {
       entries.push(entry);
     }
     if (entries.length <= topK) return entries;
-    return entries.slice(0, topK);
+
+    // Non-dominated sorting
+    const fronts = [];
+    const dominatedBy = new Map();
+    const dominatesCount = new Map();
+
+    for (const entry of entries) {
+      dominatedBy.set(entry.id, []);
+      dominatesCount.set(entry.id, 0);
+    }
+
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = 0; j < entries.length; j++) {
+        if (i === j) continue;
+        const a = entries[i].fitness || {};
+        const b = entries[j].fitness || {};
+        if (MathematicalPopulation.dominates(a, b)) {
+          dominatedBy.get(entries[i].id).push(entries[j].id);
+        } else if (MathematicalPopulation.dominates(b, a)) {
+          dominatesCount.set(entries[i].id, dominatesCount.get(entries[i].id) + 1);
+        }
+      }
+    }
+
+    // Build fronts
+    let remaining = new Set(entries.map(e => e.id));
+    while (remaining.size > 0) {
+      const front = [];
+      for (const id of remaining) {
+        if (dominatesCount.get(id) === 0) {
+          front.push(entries.find(e => e.id === id));
+        }
+      }
+      if (front.length === 0) break;
+      fronts.push(front);
+      for (const entry of front) {
+        remaining.delete(entry.id);
+        for (const dominatedId of dominatedBy.get(entry.id)) {
+          dominatesCount.set(dominatedId, dominatesCount.get(dominatedId) - 1);
+        }
+      }
+    }
+
+    const selected = [];
+    for (const front of fronts) {
+      if (selected.length + front.length <= topK) {
+        selected.push(...front);
+      } else {
+        const remainingSlots = topK - selected.length;
+        selected.push(...front.slice(0, remainingSlots));
+        break;
+      }
+    }
+    return selected;
   }
 
   extinguish(threshold = 0.1, maxGenerationsBelow = 3) {
