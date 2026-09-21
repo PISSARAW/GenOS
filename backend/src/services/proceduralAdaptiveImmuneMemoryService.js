@@ -1,5 +1,7 @@
 "use strict";
 
+const identity = require('./proceduralIdentityService');
+
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
   if (!Number.isFinite(resolved)) return fallback;
@@ -8,7 +10,7 @@ function clamp01(value, fallback = 0) {
 
 function immuneSignatureFrom(input = {}) {
   return {
-    id: input.id || `sig-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: input.id || identity.createOccurrenceId('sig'),
     pattern: input.pattern || "",
     mutationPattern: input.mutationPattern || [],
     context: input.context || {},

@@ -1,18 +1,10 @@
 'use strict';
 
-/**
- * @file nceIntegrationService.js
- * @description Intégration des 6 moteurs Natural Creative Ecology (NCE) dans l'orchestrateur GenOS natif.
- */
-
 const { selectCuriousDomain } = require('./curiosityExplorerService');
 const { generateContextualRepresentations } = require('./representationalMutationEngine');
 const { generateExaptations } = require('./exaptationEngine');
-const { createPlaySession, runPlaySession, generateCombinatorialInputs } = require('./playService');
-const { createPhenotypeState, developFromEnvironment } = require('./phenotypicDevelopmentService');
-const { createEnvironmentPopulation, coevolveGeneration, generateCurriculum } = require('./environmentGeneratorService');
-const { createCulturalArtifact, simulateTransmission } = require('./culturalTransmissionService');
 const { selectCulturalTraits } = require('./culturalSelectionService');
+const { createEnvironmentPopulation } = require('./environmentGeneratorService');
 
 function createNCEConfig(options) {
   options = options || {};
@@ -21,39 +13,18 @@ function createNCEConfig(options) {
     representationalMutation: { enabled: options.reprMutation !== false },
     exaptation: { enabled: options.exaptation !== false },
     playSandbox: { enabled: options.play !== false, budget: options.playBudget || 5 },
-    phenotypicDevelopment: { enabled: options.phenotype !== false },
-    environmentCoevolution: { enabled: options.envCoev !== false, populationSize: options.envPopulation || 8 },
-    culturalTransmission: { enabled: options.culture !== false },
+    phenotype: { enabled: options.phenotype !== false },
+    envCoev: { enabled: options.envCoev !== false },
+    culture: { enabled: options.culture !== false },
   };
 }
 
-async function enhanceMissionWithNCE(mission, db) {
-  const config = createNCEConfig(mission.nceOptions);
-  const enhancements = {
-    curiousDomains: [],
-    representations: [],
-    exaptations: [],
-    phenotypeState: null,
-    environmentPopulation: [],
-    culturalTraits: [],
-  };
-
-  try {
-    enhancements.curiousDomains = await applyCuriosity(mission, config);
-    enhancements.representations = await applyRepresentationalMutation(mission, config, db);
-    enhancements.exaptations = await applyExaptation(mission, config, db);
-    enhancements.phenotypeState = await applyPhenotypicDevelopment(mission, config);
-    enhancements.environmentPopulation = await applyEnvironmentCoevolution(mission, config);
-    enhancements.culturalTraits = await applyCulturalSelection(mission, config);
-  } catch (err) {
-    enhancements.error = err.message;
-  }
-
-  return enhancements;
+async function safeExecute(fn) {
+  try { return await fn(); } catch (e) { return null; }
 }
 
 async function applyCuriosity(mission, config) {
-  if (!config.curiosity.enabled || !mission.explorationDomains) return [];
+  if (!mission.explorationDomains) return [];
   return selectCuriousDomain(
     mission.explorationDomains,
     { availableTokens: mission.budget?.tokens || 1000 },
@@ -62,7 +33,6 @@ async function applyCuriosity(mission, config) {
 }
 
 async function applyRepresentationalMutation(mission, config, db) {
-  if (!config.representationalMutation.enabled) return [];
   if ((mission.knownConcepts || []).length < 2) return [];
   const result = await generateContextualRepresentations(
     { db },
@@ -73,7 +43,6 @@ async function applyRepresentationalMutation(mission, config, db) {
 }
 
 async function applyExaptation(mission, config, db) {
-  if (!config.exaptation.enabled) return [];
   const all = [];
   for (const cap of (mission.existingCapabilities || []).slice(0, 3)) {
     const result = await generateExaptations(cap, { db }, { limit: 3 });
@@ -82,36 +51,78 @@ async function applyExaptation(mission, config, db) {
   return all;
 }
 
-async function applyPhenotypicDevelopment(mission, config) {
-  if (!config.phenotypicDevelopment.enabled || !mission.genome) return null;
-  const state = createPhenotypeState(mission.genome);
-  if (mission.environment) developFromEnvironment(state, mission.environment);
-  return state;
+async function applyEnvCoev(mission, config, db) {
+  const pop = createEnvironmentPopulation(mission, { size: 3 });
+  return pop.environments || [];
 }
 
-async function applyEnvironmentCoevolution(mission, config) {
-  if (!config.environmentCoevolution.enabled) return [];
-  return createEnvironmentPopulation(
-    config.environmentCoevolution.populationSize,
-    ['creative_exploration', 'coordination_challenge']
-  );
+async function applyCulture(mission, config) {
+  return selectCulturalTraits(mission.culturalTraits, {}, 3);
 }
 
-async function applyCulturalSelection(mission, config) {
-  if (!config.culturalTransmission.enabled || !mission.culturalTraits) return [];
-  return selectCulturalTraits(mission.culturalTraits, { keywords: mission.keywords }, 5);
+async function enhanceMissionWithNCE(mission, config, db) {
+  config = config || createNCEConfig();
+  const enhancements = { curiousDomains: [], representations: [], exaptations: [], environments: [], culturalTraits: [], phenotype: null };
+
+  const c1 = await safeExecute(() => applyCuriosity(mission, config));
+  if (c1) enhancements.curiousDomains = c1;
+
+  const c2 = await safeExecute(() => applyRepresentationalMutation(mission, config, db));
+  if (c2) enhancements.representations = c2;
+
+  const c3 = await safeExecute(() => applyExaptation(mission, config, db));
+  if (c3) enhancements.exaptations = c3;
+
+  const c4 = await safeExecute(() => applyEnvCoev(mission, config, db));
+  if (c4) enhancements.environments = c4;
+
+  const c5 = await safeExecute(() => applyCulture(mission, config));
+  if (c5) enhancements.culturalTraits = c5;
+
+  return enhancements;
 }
 
-async function createPlaySessionForMission(opts) {
+function buildPromptEnrichment(options) {
+  const additions = [];
+  const sections = [
+    { data: options.curiousDomains, header: 'Domaines a explorer (curiosite)', limit: 3, extract: (d) => d.domainId || d },
+    { data: options.exaptations, header: 'Exaptations disponibles', limit: 2, extract: (e) => e.questions ? e.questions[0] : JSON.stringify(e).slice(0, 80) },
+    { data: options.representations, header: 'Representations alternatives', limit: 2, extract: (r) => r.description || r.name || JSON.stringify(r).slice(0, 80) },
+    { data: options.culturalTraits, header: 'Traits culturels', limit: 3, extract: (t) => t.name || t.id || JSON.stringify(t).slice(0, 80) },
+  ];
+
+  for (const s of sections) {
+    if (s.data && s.data.length > 0) {
+      additions.push(`\n\n## ${s.header}\n${s.data.slice(0, s.limit).map(s.extract).join(s.header.includes('curiosite') ? ', ' : '\n')}`);
+    }
+  }
+
+  return additions.join('');
+}
+
+function enhancePromptWithNCE(prompt, options) {
+  options = options || {};
+  const additions = buildPromptEnrichment(options);
+
+  return {
+    enhancedPrompt: additions.length > 0 ? prompt + additions : prompt,
+    domain: options.domain,
+    keywords: options.keywords || [],
+    curiousDomains: options.curiousDomains || [],
+    representations: options.representations || [],
+    exaptations: options.exaptations || [],
+    culturalTraits: options.culturalTraits || [],
+    explorationDomains: options.explorationDomains || [],
+  };
+}
+
+async function createPlaySessionForMission(mission, opts) {
   opts = opts || {};
-  const inputs = opts.mission?.playInputs || generateCombinatorialInputs(
-    opts.mission?.availableTools || ['inspect', 'patch', 'test'],
-    opts.mission?.availableContexts || ['src/', 'tests/', 'docs/'],
-    'explore'
-  );
-
-  return runPlaySession(opts.agentId, {
-    workspacePath: opts.workspacePath,
+  const { createPlaySession, runPlaySession, generateCombinatorialInputs } = require('./playService');
+  const tools = opts.tools || ['genos_test', 'genos_patch', 'genos_research'];
+  const contexts = opts.contexts || opts.environments || mission.explorationDomains || ['general'];
+  const inputs = generateCombinatorialInputs(tools, contexts);
+  return runPlaySession(opts.agentId || 'mission_agent', {
     inputs: inputs.slice(0, opts.budget || 5),
     options: { requireSandbox: true, timeoutMs: opts.timeoutMs || 30000 },
   });
@@ -120,5 +131,6 @@ async function createPlaySessionForMission(opts) {
 module.exports = {
   createNCEConfig,
   enhanceMissionWithNCE,
+  enhancePromptWithNCE,
   createPlaySessionForMission,
 };

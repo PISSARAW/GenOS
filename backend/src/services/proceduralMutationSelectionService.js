@@ -7,6 +7,7 @@ function clamp01(value, fallback = 0) {
 }
 
 const fitness = require('./proceduralFitnessService');
+const crypto = require('crypto');
 
 function cloneGraph(graph = {}) {
   return {
@@ -54,7 +55,9 @@ function adjustWeightVariant(parent, index) {
   const g = cloneGraph(parent);
   if (!g.edges?.length) return g;
   const edge = g.edges[index % g.edges.length];
-  const delta = (Math.random() - 0.5) * 0.2;
+  const input = `${parent.id || ''}-${index}-${edge?.from || ''}-${edge?.to || ''}`;
+    const hash = crypto.createHash('sha256').update(input).digest('hex').slice(0, 8);
+    const delta = (parseInt(hash, 16) / 0xFFFFFFFF - 0.5) * 0.2;
   edge.weight = clamp01((edge.weight || 0.5) + delta);
   edge.adjusted = true;
   return g;

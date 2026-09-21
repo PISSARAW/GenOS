@@ -2,6 +2,8 @@
 
 const { scoreForNiche } = require('./nicheScoringService');
 
+const identity = require('./proceduralIdentityService');
+
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
   if (!Number.isFinite(resolved)) return fallback;
@@ -10,7 +12,7 @@ function clamp01(value, fallback = 0) {
 
 function defineNiche(input = {}) {
   return {
-    id: input.id || `niche-${Date.now()}`,
+    id: input.id || identity.createOccurrenceId('niche'),
     environment: input.environment || {},
     carryingCapacity: input.carryingCapacity || 10,
     resources: input.resources || {},

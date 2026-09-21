@@ -1,5 +1,7 @@
 "use strict";
 
+const identity = require('./proceduralIdentityService');
+
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
   if (!Number.isFinite(resolved)) return fallback;
@@ -8,7 +10,7 @@ function clamp01(value, fallback = 0) {
 
 function population(input = {}) {
   return {
-    id: input.id || `pop-${Date.now()}`,
+    id: input.id || identity.createOccurrenceId('pop'),
     niche: input.niche || { id: "default" },
     size: Number(input.size) || 0,
     procedures: input.procedures || [],

@@ -45,7 +45,7 @@ function assignId(organism) {
 }
 
 function createOccurrenceId(prefix = 'occ') {
-  return `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+  return `${prefix}-${crypto.randomBytes(8).toString('hex')}`;
 }
 
 function canonicalEpisode(episode) {

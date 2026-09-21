@@ -57,8 +57,15 @@ const popG = M.createPopulation({ niche: 'G' });
 M.addResult(popF, { claim: 'same claim', confidence: 0.5 });
 M.addResult(popG, { claim: 'same claim', confidence: 0.5 });
 
+// La contamination se mesure par provenance (migratedResults), pas par égalité.
+// Ici les claims sont natifs (pas migrés), donc pas de contamination.
 const contamination = M.crossContamination([popF, popG]);
-assert.ok(contamination > 0);
+assert.strictEqual(contamination, 0, 'claims natifs identiques ≠ contamination');
+
+// Après migration, la contamination est mesurée.
+M.migrateResults(popF, popG, { append: true });
+const afterMigration = M.crossContamination([popF, popG]);
+assert.ok(afterMigration > 0, 'migration augmente la contamination');
 
 // ---- migration plan ----
 

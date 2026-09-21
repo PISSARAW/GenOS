@@ -1,5 +1,7 @@
 "use strict";
 
+const identity = require('./proceduralIdentityService');
+
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
   if (!Number.isFinite(resolved)) return fallback;
@@ -8,7 +10,7 @@ function clamp01(value, fallback = 0) {
 
 function metapopulation(input = {}) {
   return {
-    id: input.id || `meta-${Date.now()}`,
+    id: input.id || identity.createOccurrenceId('meta'),
     populations: input.populations || [],
     recolonizers: input.recolonizers || [],
     collapsed: input.collapsed || [],

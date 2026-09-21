@@ -1,5 +1,7 @@
 'use strict';
 
+const identity = require('./proceduralIdentityService');
+
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
   if (!Number.isFinite(resolved)) return fallback;
@@ -70,7 +72,7 @@ function evaluatePromotionGate({ organism, candidate, policy = {} }) {
 
 function createPromotionReceipt({ organism, candidate, result }) {
   return {
-    id: `prom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: identity.createOccurrenceId('prom'),
     parentId: organism?.metadata?.id || null,
     promotedId: result.promo ? candidate?.metadata?.id : null,
     result: result.promo ? 'PROMOTED' : 'REJECTED',

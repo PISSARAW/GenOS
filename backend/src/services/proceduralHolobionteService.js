@@ -1,5 +1,7 @@
 "use strict";
 
+const identity = require('./proceduralIdentityService');
+
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
   if (!Number.isFinite(resolved)) return fallback;
@@ -8,7 +10,7 @@ function clamp01(value, fallback = 0) {
 
 function holobionte(input = {}) {
   return {
-    id: input.id || `holo-${Date.now()}`,
+    id: input.id || identity.createOccurrenceId('holo'),
     host: input.host || { id: "host", procedure: null },
     symbionts: input.symbionts || [],
     fitness: input.fitness || 0,

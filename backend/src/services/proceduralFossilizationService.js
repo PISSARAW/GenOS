@@ -1,5 +1,7 @@
 "use strict";
 
+const identity = require('./proceduralIdentityService');
+
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
   if (!Number.isFinite(resolved)) return fallback;
@@ -8,7 +10,7 @@ function clamp01(value, fallback = 0) {
 
 function fossilRecord(input = {}) {
   return {
-    id: input.id || `foss-${Date.now()}`,
+    id: input.id || identity.createOccurrenceId('foss'),
     genotype: input.genotype || null,
     phenotype: input.phenotype || null,
     niche: input.niche || null,

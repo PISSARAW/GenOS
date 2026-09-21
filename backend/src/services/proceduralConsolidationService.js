@@ -1,5 +1,7 @@
 'use strict';
 
+const identity = require('./proceduralIdentityService');
+
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
   if (!Number.isFinite(resolved)) return fallback;
@@ -10,7 +12,7 @@ const genomePolicy = require('./proceduralGenomePolicyService');
 
 function episodeFrom(input = {}) {
   return {
-    id: input.id || `ep-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: input.id || identity.createOccurrenceId('ep'),
     trajectory: Array.isArray(input.trajectory) ? input.trajectory : [],
     outcome: input.outcome || null,
     success: Boolean(input.outcome === 'success' || input.success),
@@ -127,7 +129,7 @@ function consolidatePath(policy, episodes) {
   }
   const transitions = contrastTransitions(successEpisodes, failureEpisodes);
   const goldenPath = {
-    id: `gp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: identity.createOccurrenceId('gp'),
     path: common,
     provenance: {
       episodeCount: relevant.length,

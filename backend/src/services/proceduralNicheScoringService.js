@@ -8,6 +8,8 @@ const SCORING_RULES = [
   { type: 'diff', envKey: 'complexity', procKey: 'complexity', maxScore: 0.1, multiplier: 0.1 },
 ];
 
+const identity = require('./proceduralIdentityService');
+
 function scoreForNiche(niche, procedure) {
   if (!niche || !niche.environment || !procedure) return 0;
   const env = niche.environment;
@@ -42,7 +44,7 @@ function applyRule(rule, env, procedure) {
 
 function createNiche(environment, options = {}) {
   return {
-    id: options.id || `niche-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: options.id || identity.createOccurrenceId('niche'),
     environment,
     carryingCapacity: options.carryingCapacity || 10,
     resources: options.resources || {},

@@ -43,11 +43,15 @@ S.deposit(env2, S.createPheromone('VERIFIER_SUCCESS', { verifier: 'A' }, { locus
 S.deposit(env2, S.createPheromone('VERIFIER_FAILURE', { verifier: 'B' }, { locus: 'auth' }));
 S.deposit(env2, S.createPheromone('DOMAIN_GAP', { domain: 'security' }, { locus: 'security' }));
 
-const all = S.detectRelevant(env2, 'general', null);
-assert.strictEqual(all.length, 3);
+// Filtrer par type de phéromone.
+const successOnly = S.detectRelevant(env2, 'VERIFIER_SUCCESS', null);
+assert.strictEqual(successOnly.length, 1);
 
-const authOnly = S.detectRelevant(env2, 'general', 'auth');
+const authOnly = S.detectRelevant(env2, null, 'auth');
 assert.strictEqual(authOnly.length, 2);
+
+const all = S.detectRelevant(env2, null, null);
+assert.strictEqual(all.length, 3);
 
 // ---- shared environment ----
 

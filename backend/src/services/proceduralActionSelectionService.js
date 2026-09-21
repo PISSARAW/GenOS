@@ -1,5 +1,7 @@
 'use strict';
 
+const identity = require('./proceduralIdentityService');
+
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
   if (!Number.isFinite(resolved)) return fallback;
@@ -14,7 +16,7 @@ function num(value, fallback = 0) {
 
 function candidateAction(input = {}) {
   const a = Object.assign({}, input);
-  a.id = a.id || `action-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  a.id = a.id || identity.createOccurrenceId('action');
   a.weight = clamp01(a.weight == null ? 0.5 : Number(a.weight));
   a.contextMatch = clamp01(a.contextMatch == null ? 0.5 : Number(a.contextMatch));
   a.expectedUtility = clamp01(a.expectedUtility == null ? 0.5 : Number(a.expectedUtility));

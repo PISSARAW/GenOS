@@ -1,5 +1,7 @@
 "use strict";
 
+const identity = require('./proceduralIdentityService');
+
 function clamp01(value, fallback = 0) {
   const resolved = Number(value);
   if (!Number.isFinite(resolved)) return fallback;
@@ -8,7 +10,7 @@ function clamp01(value, fallback = 0) {
 
 function methylationMarkFrom(input = {}) {
   return {
-    id: input.id || `me-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: input.id || identity.createOccurrenceId('me'),
     target: input.target || { type: "edge", from: "?", to: "?" },
     type: input.type || "repression",
     strength: clamp01(Number(input.strength) || 0.9),

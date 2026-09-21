@@ -22,11 +22,11 @@ assert.strictEqual(B.functionalDiversity([]), 0);
 // ---- error diversity ----
 
 const varied = [
-  { type: 'a', errorRate: 0.1 },
-  { type: 'b', errorRate: 0.5 },
-  { type: 'c', errorRate: 0.9 },
+  { type: 'a', errorRate: 0.1, errorPatterns: ['Q1', 'Q2'] },
+  { type: 'b', errorRate: 0.5, errorPatterns: ['Q3', 'Q4'] },
+  { type: 'c', errorRate: 0.9, errorPatterns: ['Q5', 'Q6'] },
 ];
-assert.ok(B.errorDiversity(varied) > 0);
+assert.ok(B.errorDiversity(varied) > 0, 'error diversity doit être > 0 pour patterns distincts');
 assert.strictEqual(B.errorDiversity([]), 0);
 
 // ---- effective diversity ----

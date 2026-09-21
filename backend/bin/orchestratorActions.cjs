@@ -187,9 +187,28 @@ async function ensureParent({ db, context }) {
   return parent;
 }
 function workerLaunchPayload({ context, member, workerId, parent }) {
+  // Enrichissement NCE du prompt si disponible
+  let enrichedPrompt = member.mission;
+  if (context.nceEnrichments) {
+    const topologyNCE = require('../src/services/topologyNCEService');
+    enrichedPrompt = topologyNCE.enrichWorkerPromptSync(member.mission, {
+      topology: context.nceEnrichments.topology,
+      role: member.role,
+      domain: context.nceEnrichments.domain,
+      keywords: context.nceEnrichments.keywords,
+      curiousDomains: context.nceEnrichments.curiousDomains,
+      representations: context.nceEnrichments.representations,
+      exaptations: context.nceEnrichments.exaptations,
+      culturalTraits: context.nceEnrichments.culturalTraits,
+      explorationDomains: context.nceEnrichments.explorationDomains,
+    });
+  }
+
   return {
     action: 'dispatch_worker', background: false, orchestratorId: context.orchestratorId, workerId,
-    mission: member.mission, role: member.role, model_tier: member.modelTier,
+    mission: enrichedPrompt,
+    role: member.role,
+    model_tier: member.modelTier,
     ...(member.name ? { name: member.name } : {}),
     ...(Array.isArray(member.dependsOn) && member.dependsOn.length ? { depends_on: member.dependsOn } : {}),
     ...(member.pipelineStage ? { pipeline_stage: member.pipelineStage } : {}),
@@ -197,7 +216,7 @@ function workerLaunchPayload({ context, member, workerId, parent }) {
     execution_budget: context.request.execution_budget || context.request.executionBudget,
     timeoutMs: context.request.timeoutMs,
     workspace_root: context.request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
-    reuseChecked: true
+    reuseChecked: true,
   };
 }
 function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
@@ -220,48 +239,20 @@ function buildBiologicalOutput({ context, mode, mission, members, accepted, topo
     }
   };
 }
-async function handleBiological({ db, context }) {
-  const parent = await ensureParent({ db, context });
-  const mode = String(context.request.mode || '').trim().toLowerCase();
-  const mission = context.request.mission || context.request.project_goal || context.request.goal || context.task;
-  const composition = await biologicalTopology.composeMode({ db, orchestratorId: context.orchestratorId, mode, mission,
-    options: { agentCount: context.request.agent_count, clusterSize: context.request.cluster_size,
-      fanout: context.request.fanout, organization: context.request.organization } });
-  const members = composition.members || [];
-  const garage = await workerGarage.state(db, context.orchestratorId);
-  if (garage.available <= 0) {
-    const msg = `${mode} requires free worker slots, but worker garage is full (slots: ${garage.occupied}/${garage.capacity} used)`;
-    throw Object.assign(new Error(msg), { code: 'WORKER_GARAGE_FULL' });
-  }
-  const selected = selectMembers(members, garage.available);
-  const accepted = selected.map((member, index) => launchWorker({ context, member, index: index + 1, parent }));
-  const topology = composition ? { organization: composition.organization, capabilityContract: composition.capabilityContract } : {};
-  const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
-  process.stdout.write(JSON.stringify(out));
+
+async function handleTeam(opts) {
+  const handlers = require('../bin/topologyHandlers.cjs');
+  return handlers.handleTeam(opts.db, opts.context);
 }
 
-async function handleTeam({ db, context }) {
-  const parent = await ensureParent({ db, context });
-  const result = await aTeamDispatch.dispatchTeam({ db, context, parent, launchWorker });
-  process.stdout.write(JSON.stringify(result));
+async function handleBiological(opts) {
+  const handlers = require('../bin/topologyHandlers.cjs');
+  return handlers.handleBiological(opts.db, opts.context);
 }
-async function handleTrinity({ db, context }) {
-  const parent = await ensureParent({ db, context });
-  const garage = await workerGarage.state(db, context.orchestratorId);
-  if (garage.available < 3) throw Object.assign(new Error(`Trinity requires 3 free worker slots, but worker garage is full (slots: ${garage.occupied}/${garage.capacity} used — wait or increase MAX_ACTIVE_WORKERS).`), { code: 'WORKER_GARAGE_FULL' });
-  const mission = context.request.mission || context.request.project_goal || context.request.goal || 'Trinity comparative mission';
-  const members = trinityService.compose(mission);
-  const missionId = `trinity_${context.orchestratorId}_${randomUUID()}`;
-  const accepted = [];
-  for (const member of members) {
-    const workerId = createOrchestratorId(`worker_${context.orchestratorId}_${member.worldNumber}`);
-    const trinityName = `Trinity Worker (World ${member.worldNumber}: ${member.label})`;
-    await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, 'queued', ?)`, `${missionId}_world_${member.worldNumber}`, mission, member.worldNumber, trinityName, member.role, workerId);
-    launchWorker({ context, member: { ...member, name: trinityName }, index: member.worldNumber, parent, suppliedWorkerId: workerId });
-    accepted.push({ workerId, worldNumber: member.worldNumber, strategy: member.role, status: 'accepted' });
-  }
-  const supervision = trinityMissionSupervisor.launch({ missionId, orchestratorId: context.orchestratorId, repoRoot: context.repoRoot });
-  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, trinity: { status: 'accepted', mission, missionId, capacity: workerGarage.MAX_ACTIVE_WORKERS, worlds: accepted, supervision } }));
+
+async function handleTrinity(opts) {
+  const handlers = require('../bin/topologyHandlers.cjs');
+  return handlers.handleTrinity(opts.db, opts.context);
 }
 async function selectWorker({ db, context }) {
   const { request } = context;
