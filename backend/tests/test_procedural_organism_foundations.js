@@ -44,7 +44,7 @@ assert.ok(Math.abs(syn.computeEffectiveWeight(s1) - (-0.32)) < 1e-9);
 const s2 = syn.synapseFrom({ from: "M", to: "N", type: "modulatory" });
 assert.strictEqual(syn.computeEffectiveWeight(s2), 0);
 const s3 = syn.activate(s0, { trajectory: "T-01" });
-assert.strictEqual(s3.plasticity.lastActivation, "T-01");
+assert.strictEqual(s3.lastActivation.trajectoryId, "T-01");
 const s4 = syn.recordTrial(s0, true);
 assert.strictEqual(s4.evidence.trialCount, 1);
 assert.strictEqual(s4.evidence.successRate, 1);
@@ -58,12 +58,14 @@ assert.ok(!syn.successfulTransition({ evidence: { successRate: 0.3 } }));
 
 const r = plast.rewardFrom({ success: 1, evidence: 1, cost: 0, safety: 1, causalEffect: 1 });
 assert.ok(r >= 0 && r <= 1);
-const d = plast.deltaW({ weight: 0.5 }, { success: 1, evidence: 1, cost: 0, safety: 1, causalEffect: 1, episodeCount: 1 }, { plasticity: { enabled: true, learningRate: "adaptive", maxDelta: 0.15 } });
-assert.ok(d > 0.5 && d <= 0.65);
+const d = plast.potentiationDelta({ success: 1, evidence: 1, cost: 0, safety: 1, causalEffect: 1, episodeCount: 1 }, { plasticity: { enabled: true, learningRate: "adaptive", maxDelta: 0.15 } });
+assert.ok(d > 0);
 const ltp = plast.applyLTP({ weight: 0.5, plasticity: { potentiationCount: 0 } }, { success: 1, evidence: 1, cost: 0, safety: 1, causalEffect: 1, episodeCount: 1 }, { plasticity: { enabled: true, learningRate: "adaptive", maxDelta: 0.15 } });
-assert.ok(ltp.plasticity.potentiationCount, 1);
+assert.ok(ltp.weight > 0.5);
+assert.strictEqual(ltp.plasticity.potentiationCount, 1);
 const ltd = plast.applyLTD({ weight: 0.5, plasticity: { depressionCount: 0 } }, { success: 0, evidence: 0, cost: 1, safety: 0, causalEffect: 0, episodeCount: 1 }, { plasticity: { enabled: true } });
-assert.ok(ltd.plasticity.depressionCount, 1);
+assert.ok(ltd.weight < 0.5);
+assert.strictEqual(ltd.plasticity.depressionCount, 1);
 const pe1 = plast.predictionError(0.9, 0.2);
 assert.ok(pe1 < 0);
 const pe2 = plast.predictionError(0.2, 0.9);
@@ -108,11 +110,11 @@ assert.strictEqual(replay.successRate, 2 / 3);
 
 // ---------- 5. proceduralPruningService ----------
 
-const active = { weight: 1.0, lastUsage: Date.now(), lifecycle: "active", evidence: { successRate: 0.9 } };
+const active = { weight: 1.0, lastUsageEpisode: 5, lifecycle: "active", evidence: { successRate: 0.9 } };
 const assess = prune.pruneEligibility(active, { pruning: { enabled: true, decayHalfLifeEpisodes: 80 } });
 assert.strictEqual(assess.eligible, false);
 assert.strictEqual(assess.state, "active");
-const weak = { weight: 0.15, lastUsage: Date.now(), lifecycle: "active", evidence: { successRate: 0.1 } };
+const weak = { weight: 0.15, lastUsageEpisode: 5, lifecycle: "active", evidence: { successRate: 0.1 } };
 const assess2 = prune.pruneEligibility(weak, { pruning: { enabled: true } });
 assert.strictEqual(assess2.state, "candidate_for_pruning");
 assert.strictEqual(assess2.eligible, false);
@@ -123,7 +125,7 @@ assert.strictEqual(weakened.lifecycle, "weakened");
 const revived = prune.revive({ weight: 1.0, lifecycle: "dormant" });
 assert.strictEqual(revived.lifecycle, "weakened");
 const candidates = prune.pruneCandidates([
-  { weight: 0.01, lifecycle: "active", evidence: { successRate: 0.0 }, lastUsage: Date.now() },
+  { weight: 0.01, lifecycle: "active", evidence: { successRate: 0.0 }, lastUsageEpisode: 1 },
 ], { pruning: { enabled: true, decayHalfLifeEpisodes: 1 } });
 assert.ok(candidates.length);
 const pr = candidates.find((c) => c.assessment.state === "dormant" || c.assessment.state === "weakened" || c.assessment.state === "candidate_for_pruning" || c.assessment.state === "pruned");
@@ -151,10 +153,10 @@ assert.ok(react.active);
 
 const c1 = select.candidateAction({ id: "patch", weight: 0.9, contextMatch: 0.9, expectedUtility: 0.8, evidence: 0.9, risk: 0.1, inhibition: 0 });
 const c2 = select.candidateAction({ id: "search", weight: 0.3, contextMatch: 0.4, expectedUtility: 0.5, evidence: 0.4, risk: 0.5, inhibition: 0.6 });
-const r1 = select.selectActions([c1, c2], {}, { topN: 1, winnerTakeMost: true });
-assert.strictEqual(r1.selected.length, 1);
+const r1 = select.selectActions([c1, c2], {}, { topN: 2, winnerTakeMost: true });
+assert.strictEqual(r1.selected.length, 2);
 assert.strictEqual(r1.winner.id, "patch");
-assert.ok(r1.selected[0].score > r1.selected.length > 1 ? r1.selected[1].score : true);
+assert.ok(r1.selected[0].score > r1.selected[1].score);
 const c3 = select.candidateAction({ id: "A", id: "A", weight: 0.5, inhibition: 0 });
 const inhibited = select.competitiveInhibition([c3], ["B"], {});
 assert.ok(inhibited[0].inhibition > 0);

@@ -26,28 +26,39 @@ function rewardFrom(context = {}) {
   return clamp01(reward);
 }
 
-function deltaW(synapse, context = {}, policy = {}) {
+function potentiationDelta(context = {}, policy = {}) {
   const p = genomePolicy.policyFrom(policy);
   const eta = genomePolicy.learningRateFor(p, Number(context.episodeCount) || 0);
   const reward = rewardFrom(context);
-  const delta = eta * reward;
-  const w = clamp01(Number(synapse.weight) || 1.0);
-  return clamp01(w + delta);
+  return eta * reward;
+}
+
+function depressionDelta(context = {}, policy = {}) {
+  const p = genomePolicy.policyFrom(policy);
+  const eta = genomePolicy.learningRateFor(p, Number(context.episodeCount) || 0);
+  const loss = rewardFrom({ success: 1 - (context.success || 0), safety: 1 - (context.safety || 0.5), cost: context.cost || 0 });
+  return -eta * loss;
 }
 
 function applyLTP(synapse, context = {}, policy = {}) {
-  const p = Object.assign({}, synapse, { weight: deltaW(synapse, context, policy) });
+  const w = clamp01(synapse.weight == null ? 1.0 : Number(synapse.weight));
+  const delta = potentiationDelta(context, policy);
+  const newWeight = clamp01(w + delta);
+  const p = Object.assign({}, synapse, { weight: newWeight });
   p.plasticity = Object.assign({}, p.plasticity || {}, {
-    weight: clamp01(p.weight),
+    weight: newWeight,
     potentiationCount: (p.plasticity?.potentiationCount || 0) + 1,
   });
   return p;
 }
 
 function applyLTD(synapse, context = {}, policy = {}) {
-  const p = Object.assign({}, synapse, { weight: deltaW(synapse, context, policy) });
+  const w = clamp01(synapse.weight == null ? 1.0 : Number(synapse.weight));
+  const delta = depressionDelta(context, policy);
+  const newWeight = clamp01(w + delta);
+  const p = Object.assign({}, synapse, { weight: newWeight });
   p.plasticity = Object.assign({}, p.plasticity || {}, {
-    weight: clamp01(p.weight),
+    weight: newWeight,
     depressionCount: (p.plasticity?.depressionCount || 0) + 1,
   });
   return p;
@@ -67,7 +78,8 @@ function surpriseScore(predictionError, policy = {}) {
 
 module.exports = {
   rewardFrom,
-  deltaW,
+  potentiationDelta,
+  depressionDelta,
   applyLTP,
   applyLTD,
   predictionError,
