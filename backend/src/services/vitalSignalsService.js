@@ -64,23 +64,27 @@ function interpretCellState(pulse, leaseTimeoutMs, minimumRequiredBudget) {
 }
 
 function stressLevel(input = {}) {
-  const recentFailures = Number(input.recentFailures || 0);
-  const contextSaturation = clamp01(input.contextSaturation);
-  const uncertainty = clamp01(input.uncertainty);
-  const budgetPressure = clamp01(input.budgetPressure);
-  const epistemicDissonance = clamp01(input.epistemicDissonance);
-  const weights = {
-    failure: Number(input.weights?.failure ?? 0.30),
-    context: Number(input.weights?.context ?? 0.20),
-    uncertainty: Number(input.weights?.uncertainty ?? 0.15),
-    budget: Number(input.weights?.budget ?? 0.20),
-    dissonance: Number(input.weights?.dissonance ?? 0.15)
+  // Unified with allostaticLoad: the previous implementation computed a
+  // normalization that was always 1 and used hard-coded coefficients that
+  // ignored the configured weights. One load function, one set of weights.
+  return allostaticLoad({
+    failurePressure: Math.min(1, Number(input.recentFailures || 0) / 3),
+    contextSaturation: input.contextSaturation,
+    uncertainty: input.uncertainty,
+    budgetPressure: input.budgetPressure,
+    epistemicDissonance: input.epistemicDissonance,
+    weights: input.weights
+  });
+}
+
+function boundedFactors(input = {}) {
+  return {
+    F: Math.max(0, Math.min(1, Number(input.failurePressure || 0))),
+    C: clamp01(input.contextSaturation),
+    U: clamp01(input.uncertainty),
+    B: clamp01(input.budgetPressure),
+    D: clamp01(input.epistemicDissonance)
   };
-  const total = weights.failure + weights.context + weights.uncertainty + weights.budget + weights.dissonance;
-  const normalized = total > 0
-    ? (weights.failure + weights.context + weights.uncertainty + weights.budget + weights.dissonance) / total
-    : 1;
-  return Math.min(1, (recentFailures * 0.1 + contextSaturation * 0.25 + uncertainty * 0.2 + budgetPressure * 0.25 + epistemicDissonance * 0.2) * (1 / normalized));
 }
 
 function boundWeights(input = {}) {

@@ -101,8 +101,8 @@ function nervousSignal(input) {
 function buildNervousSystem(input = {}) {
   return {
     telemetry: input.telemetry || null,
-    heartbeats: (input.heartbeats || []).map(h => nervousSignal('heartbeat', h)),
-    signals: (input.signals || []).map(s => nervousSignal(s.kind, s.payload, s.origin)),
+    heartbeats: (input.heartbeats || []).map(h => nervousSignal({ kind: 'heartbeat', payload: h })),
+    signals: (input.signals || []).map(s => nervousSignal({ kind: s.kind, payload: s.payload, origin: s.origin })),
     assembledAt: new Date().toISOString()
   };
 }
@@ -240,7 +240,7 @@ function updateMetabolism(organism, input = {}) {
 }
 
 function addSignal(organism, signal) {
-  const normalized = nervousSignal(signal.kind, signal.payload, signal.origin);
+  const normalized = nervousSignal({ kind: signal.kind, payload: signal.payload, origin: signal.origin });
   return Object.assign({}, organism, {
     nervousSystem: Object.assign({}, organism.nervousSystem, {
       signals: [...organism.nervousSystem.signals, normalized]
