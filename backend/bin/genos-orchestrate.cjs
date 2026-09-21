@@ -19,6 +19,7 @@ const orchestrationCoverage = require('../src/services/orchestrationCoverageServ
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 const { handleAction, handleBackground, initializeMission } = require('./orchestratorActions.cjs');
 const { summarizeAgents } = require('../src/services/orchestratorOutcome');
+const missionContinuity = require('../src/services/missionContinuityService');
 
 // A stray async DB write (SQLITE_BUSY, closed handle at shutdown, ...) must not
 // crash the whole mission: log it and let the mission timeout/finalization run.
@@ -84,9 +85,16 @@ const SCRIPT_START_TIME = Date.now();
 async function waitForCompletion(db) {
   const baseTimeout = Number(policyRequest.timeoutMs || request.timeoutMs || 14 * 60 * 1000);
   const deadline = Math.max(Date.now() + 5000, SCRIPT_START_TIME + baseTimeout);
+  let pulseTick = 0;
   while (Date.now() < deadline) {
     const agents = await db.all('SELECT id, status FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
     if (agents.length && agents.every((agent) => ['blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed', 'quarantined'].includes(agent.status))) return agents;
+    // Mission continuity: emit vital pulses every ~5s so the nervous system
+    // observes the living fleet while the mission runs.
+    pulseTick += 1;
+    if (pulseTick % 10 === 0) {
+      try { await missionContinuity.observeMissionPulses(db, id); } catch (_) {}
+    }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('GenOS orchestrator timed out');
@@ -142,6 +150,28 @@ async function executeMission(db, state) {
     if (topologyEvent) telemetry.emitEvent({ eventType: topologyEvent[0], agentId: orchestratorId, action: topologyEvent[1], detail: topologyEvent[2], payload: { action }, severity: 'info' });
     return;
   }
+
+  // NCE: enhance the mission with creative ecology before agent creation
+  const nceIntegration = require('../src/services/nceIntegrationService');
+  let nceEnhancements = {};
+  try {
+    nceEnhancements = await nceIntegration.enhanceMissionWithNCE({
+      prompt: task,
+      domain: request.domain || request.problem_domain,
+      keywords: request.keywords || [],
+      budget: request.executionBudget || request.execution_budget || {},
+      explorationDomains: request.exploration_domains || request.explorationDomains,
+      knownConcepts: request.known_concepts || request.knownConcepts,
+      existingCapabilities: request.existing_capabilities || request.existingCapabilities,
+      genome: request.agent_dna || request.agentDna,
+      environment: request.environment_context || request.environmentContext,
+      culturalTraits: request.cultural_traits || request.culturalTraits,
+      nceOptions: request.nce_options || request.nceOptions,
+    }, db);
+  } catch (nceErr) {
+    telemetry.emitEvent({ eventType: 'NCE_ENHANCEMENT_ERROR', agentId: orchestratorId, action: 'NCE_SKIPPED', detail: nceErr.message, severity: 'warn' });
+  }
+
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, task);
   await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ? WHERE id = ?`, task, id);
   const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
@@ -157,11 +187,25 @@ async function executeMission(db, state) {
   await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider });
   const agents = await waitForCompletion(db);
   const outcome = summarizeAgents(agents);
+  // Mission continuity: evaluate the organism's homeostasis at finalization.
+  // The verdict is persisted in homeostasis_states and reported in the output;
+  // it never fabricates success — an unsatisfied contract reports as-is.
+  let continuity = null;
+  try {
+    const mission = missionContinuity.buildMissionInput(id, task, {
+      context: { functionalChecks: outcome.success ? { missionOutcome: true } : {}, testsPassed: outcome.success === true }
+    });
+    const evaluation = await missionContinuity.evaluateContinuity(db, mission);
+    continuity = { status: evaluation.status, homeostasisSatisfied: evaluation.state.homeostasisSatisfied, failedInvariants: evaluation.state.failedInvariants.map((f) => f.label || f.id) };
+    telemetry.emitEvent({ eventType: 'MISSION_CONTINUITY_EVALUATED', agentId: id, action: 'CONTINUITY_EVALUATE', detail: `Mission homeostasis: ${evaluation.status}`, severity: 'info', payload: continuity });
+  } catch (continuityError) {
+    continuity = { status: 'unknown', error: continuityError.message };
+  }
   const telemetryRows = await db.all('SELECT event_type, action, detail, severity, payload_json FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
   const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
   const coverage = await orchestrationCoverage.auditMission(db, id).catch((err) => ({ error: err.message, verdict: 'audit-incomplete' }));
   telemetry.emitEvent({ eventType: 'ORCHESTRATION_AUDIT_COMPLETED', agentId: id, action: 'COVERAGE_AUDIT', detail: `Orchestration coverage verdict: ${coverage.verdict}`, severity: 'info', payload: { observedTools: coverage.protocol?.observedCount || 0, verdict: coverage.verdict } });
-  process.stdout.write(JSON.stringify({ orchestratorId: id, agents, success: outcome.success, verdict: outcome.verdict, telemetry: telemetryRows, token_usage: tokenUsage(runs), coverage }));
+  process.stdout.write(JSON.stringify({ orchestratorId: id, agents, success: outcome.success, verdict: outcome.outcome, continuity, telemetry: telemetryRows, nce: { enhancementsApplied: Object.keys(nceEnhancements).filter((k) => nceEnhancements[k] && k !== 'error').length, curiousDomains: nceEnhancements.curiousDomains?.length || 0, representations: nceEnhancements.representations?.length || 0, exaptations: nceEnhancements.exaptations?.length || 0, environments: nceEnhancements.environmentPopulation?.length || 0 }, token_usage: tokenUsage(runs), coverage }));
   if (!outcome.success) process.exitCode = 2;
 }
 
