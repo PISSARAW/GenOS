@@ -57,13 +57,13 @@ async function run() {
   // ---- revokeAuthority ----
 
   updateAgentCalls = [];
-  const revoked = await B.revokeAuthority(db, 'agent-3', 'quarantine', 'dissonance élevée');
+  const revoked = await B.revokeAuthority(db, 'agent-3', { level: 'quarantine', reason: 'dissonance élevée' });
   assert.ok(revoked.ok);
   assert.strictEqual(revoked.newStatus, 'quarantined');
   assert.ok(updateAgentCalls.some((c) => c.id === 'agent-3' && c.status === 'quarantined'));
 
   updateAgentCalls = [];
-  const restricted = await B.revokeAuthority(db, 'agent-3', 'reduced_authority', 'dissonance modérée');
+  const restricted = await B.revokeAuthority(db, 'agent-3', { level: 'reduced_authority', reason: 'dissonance modérée' });
   assert.ok(restricted.ok);
   assert.strictEqual(restricted.newStatus, 'restricted');
   assert.ok(updateAgentCalls.some((c) => c.id === 'agent-3' && c.status === 'restricted'));

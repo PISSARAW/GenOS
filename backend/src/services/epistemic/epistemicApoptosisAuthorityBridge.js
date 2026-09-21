@@ -60,7 +60,8 @@ function createApoptosisAuthorityBridge(deps = {}) {
   /**
    * Révoque l'autorité d'un agent (quarantaine ou réduction).
    */
-  async function revokeAuthority(db, agentId, level, reason) {
+  async function revokeAuthority(db, agentId, opts = {}) {
+    const { level, reason } = opts;
     const agent = await db.get('SELECT id, name, status, role FROM agents WHERE id = ?', agentId);
     if (!agent) return { ok: false, reason: 'agent_not_found' };
 
@@ -78,10 +79,10 @@ function createApoptosisAuthorityBridge(deps = {}) {
   async function revokeIfDissonant(db, agentId, dissonance) {
     const { SEUILS } = require('./epistemicApoptosisService');
     if (dissonance >= SEUILS.quarantine) {
-      return revokeAuthority(db, agentId, 'quarantine', `dissonance=${dissonance}`);
+      return revokeAuthority(db, agentId, { level: 'quarantine', reason: `dissonance=${dissonance}` });
     }
     if (dissonance >= SEUILS.reduced_authority) {
-      return revokeAuthority(db, agentId, 'reduced_authority', `dissonance=${dissonance}`);
+      return revokeAuthority(db, agentId, { level: 'reduced_authority', reason: `dissonance=${dissonance}` });
     }
     return { ok: false, reason: 'no_revocation_needed', dissonance };
   }
