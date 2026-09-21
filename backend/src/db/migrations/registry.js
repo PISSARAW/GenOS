@@ -77,6 +77,10 @@ const migrationRunners = [
     const { migrateSurvivalState } = require('./migrateSurvivalState');
     await migrateSurvivalState(db);
   }),
+  createMigrationRunner('033-homeostasis-states', 'Persist mission homeostasis contract evaluations', async (db) => {
+    const { migrateHomeostasisStates } = require('./migrateHomeostasisStates');
+    await migrateHomeostasisStates(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
