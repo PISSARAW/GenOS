@@ -117,15 +117,15 @@ seuil apoptosis = 50
 | Antigène | `EpistemicAntigen` — unité claim + epitopes + producer + risk + state | Pas de protéine ; une structure de données |
 | Immunité innée | `innateEpistemicImmunity` — PPR déterministes (EMPTY_EVIDENCE, SELF_VERIFICATION, etc.) | Pas de cellule ; des fonctions synchrones |
 | Immunité adaptative | `adaptiveImmuneResponse` — vérificateurs spécialisés avec affinité | Pas de lymphocyte ; des objets avec `affinity` et `strategy` |
-| Sélection clonale | `verifierCatalogService.selectTopClones` — recrute les vérificateurs les plus affins | Pas de réplication ; un tri par `fit = affinity × success_rate` |
-| Affinity maturation | `immuneMemoryService.recordOutcome` — met à jour l'affinité selon succès/échecs | Pas de mutation génétique ; une mise à jour de score |
-| Mémoire immunitaire | `immuneMemoryService` — signature, recall, fuzzyRecall | Pas de cellule mémoire ; un tableau en mémoire |
+| Sélection clonale | `verifierCatalogService.selectTopClones` + `clonalExpansionService.expandClone` — recrute et clone les vérificateurs les plus affins | Pas de réplication ; un tri par `fit = affinity × success_rate` + 4 mutations de stratégie |
+| Affinity maturation | `affinityMaturationService.matureStrategy` — mutation ciblée après résolution oracle truth | Pas de mutation génétique ; 5 mutations de stratégie diagnostiquées |
+| Mémoire immunitaire | `immuneMemoryService` — signature, recall, fuzzyRecall, recordOutcome | Pas de cellule mémoire ; un tableau en mémoire |
 | Inflammation | `epistemicInflammationAndRegulation` — pression → effort | Pas de cytokine ; un calcul de pression |
 | Tolérance / T-reg | `regulatoryReview` — inhibe les rejets injustifiés | Pas de cellule T ; une fonction qui vérifie la justification |
-| Apoptose | `epistemicApoptosisService` — dissonance → seuils → autopsie | Pas de mort cellulaire ; un agent marqué `apoptotique` |
+| Apoptose | `epistemicApoptosisService` + `epistemicApoptosisAuthorityBridge` — dissonance → seuils → autopsie → révocation runtime | Pas de mort cellulaire ; un agent marqué `apoptotique` + statut DB mis à jour |
 | Biocénose | `epistemicBiocenoseService` — diversité fonctionnelle des reviewers | Pas d'écosystème ; des métriques de diversité |
 | Métapopulation | `epistemicMetapopulationService` — populations isolées + migration contrôlée | Pas de géographie ; des populations avec `isolation` et `migrateResults` |
-| Stigmergie | `epistemicStigmergyService` — phéromones structurées + détection | Pas de phéromone chimique ; des marqueurs en mémoire |
+| Stigmergie | `epistemicStigmergyService` + `stigmergyInterProcessBridge` — phéromones structurées + persistance | Pas de phéromone chimique ; des marqueurs en mémoire + bus de signaux |
 | Holobionte | `epistemicHolobionteService` — Host + Specialist + Immune + Memory | Pas de symbiose biologique ; une orchestration de services |
 
 ## 4. Cas d'usage et objectifs métier
@@ -267,17 +267,24 @@ Une information arrive dans l'organisme GenOS
 | Immunité adaptative | `epistemic/adaptiveEpistemicResponse.js` | `adaptiveCheck`, `adaptiveResponse`, `scanAntigen` |
 | Décision adaptative | `epistemic/adaptiveEpistemicDecision.js` | `decisionFromAdaptive`, `summarize`, `describe` |
 | Vérificateurs spécialisés | `epistemic/verifierCatalogService.js` | `defaultCatalog`, `selectTopClones`, `clonalRank` |
-| Mémoire immunitaire | `epistemic/immuneMemoryService.js` | `recall`, `fuzzyRecall`, `recordOutcome`, `priorityRank` |
+| Exécution des verifiers | `epistemic/verifierExecutionService.js` | `executeVerifier`, `executeVerifiers`, `createReceipt` |
+| Pont runtime worker | `epistemic/verifierRuntimeBridge.js` | `buildVerifierWorker`, `executeVerifierWorkers` |
+| Mémoire immunitaire | `epistemic/immuneMemoryService.js` | `recall`, `fuzzyRecall`, `recordOutcome`, `signatureFrom` |
 | Réponse adaptative | `epistemic/adaptiveImmuneResponse.js` | `assembleAntigen`, `adaptiveImmuneResponse`, `runAdaptivePipeline` |
 | Inflammation + régulation | `epistemic/epistemicInflammationAndRegulation.js` | `assignPressureTier`, `shouldInflame`, `recommendedEffort`, `regulatoryReview` |
 | Apoptose épistémique | `epistemic/epistemicApoptosisService.js` | `dissonanceFrom`, `niveauCorpsent`, `accumulate`, `apoptose`, `autopsy` |
+| Pont autorité runtime | `epistemic/epistemicApoptosisAuthorityBridge.js` | `createApoptosisAuthorityBridge`, `applyEpistemicApoptosis`, `revokeAuthority` |
 | Biocénose cognitive | `epistemic/epistemicBiocenoseService.js` | `cognitiveBiocenose`, `effectiveDiversity`, `isMonoculture`, `shouldRecruit` |
 | Métapopulation | `epistemic/epistemicMetapopulationService.js` | `createPopulation`, `migrateResults`, `independentConvergence`, `metapopulationReport` |
 | Stigmergie | `epistemic/epistemicStigmergyService.js` | `createPheromone`, `broadcast`, `deposit`, `subscribe`, `sharedEpistemicEnvironment` |
+| Pont inter-process | `epistemic/stigmergyInterProcessBridge.js` | `depositPheromone`, `readPheromones` |
 | Sélection écologique | `epistemic/epistemicEcologicalSelectionService.js` | `brierScore`, `weightedConsensus`, `consensusQuality`, `ecologicalSelection` |
-| Holobionte | `epistemic/epistemicHolobionteService.js` | `epistemicHolobionte`, `hostDecision`, `immuneSymbiontReview`, `memorySymbiontLookup` |
 | Challenge immunitaire | `epistemic/epistemicChallengeService.js` | `createPathogen`, `runChallenge`, `challengeReport`, `challengeMetrics` |
+| Intégration benchmarks | `epistemic/epistemicBenchmarkIntegrationService.js` | `transformBenchmarkCase`, `executeBenchmarkCase`, `runBenchmarkSuite` |
+| Expansion clonale | `epistemic/clonalExpansionService.js` | `expandClone`, `mutateStrategy`, `selectWinningClones` |
+| Affinity maturation | `epistemic/affinityMaturationService.js` | `diagnoseError`, `targetedMutation`, `matureStrategy` |
 | Homéostasie | `epistemic/epistemicHomeostasisService.js` | `computePressure`, `tierFromPressure`, `feedbackEffect` |
+| Holobionte | `epistemic/epistemicHolobionteService.js` | `epistemicHolobionte`, `hostDecision`, `immuneSymbiontReview`, `memorySymbiontLookup` |
 
 ### Hiérarchie d'appel
 
@@ -294,11 +301,16 @@ epistemicHolobionte(antigen, context)
   │     │     │     │     ├── neededSignals(antigen, context)
   │     │     │     │     └── adaptiveTriggerScore(antigen, context)
   │     │     │     └── adaptiveResponse(evaluation)
-  │     │     └── selectTopClones(catalog, antigen, opts)  [clonal selection]
+  │     │     ├── selectTopClones(catalog, antigen, opts)  [clonal selection]
+  │     │     ├── expandClone(parent, opts)                [clonal expansion]
+  │     │     ├── executeVerifierWorkers(antigen, verifiers) [exécution réelle]
+  │     │     ├── matureStrategy(verification, oracleTruth) [affinity maturation]
+  │     │     └── depositPheromone(signal)                 [stigmergie inter-process]
   │     └── regulatoryReview(antigen, blockReason, context) [T-reg]
   ├── hostDecision({ specialist, immune, memory }, opts)   [host veto]
   ├── cognitiveBiocenose(reviewers)                          [diversité]
   ├── computePressure(antigen)                               [homéostasie]
+  ├── applyEpistemicApoptosis(db, agentId, signals)          [apoptose → révocation]
   └── recordOutcome(memory, antigen, opts)                   [affinity maturation]
 ```
 

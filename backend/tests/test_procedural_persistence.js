@@ -24,15 +24,6 @@ function get(db, sql, params = []) {
   });
 }
 
-function all(db, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
-}
-
 async function testPersistence() {
   const dbPath = path.join(__dirname, `test-procedural-${Date.now()}.db`);
   const sqlite3 = require('sqlite3').verbose();
@@ -57,7 +48,7 @@ async function testPersistence() {
   assert.ok(saved.metadata.id, 'saved should have id');
   assert.strictEqual(saved.metadata.version, 1);
 
-  const raw = await get(db, 'SELECT id, organism_json FROM procedural_genomes WHERE id = ?', [saved.metadata.id]);
+  const raw = await get(db, 'SELECT version_id, organism_json FROM procedural_genomes WHERE version_id = ?', [saved.metadata.id]);
   assert.ok(raw, 'raw row should exist');
   assert.ok(raw.organism_json, 'organism_json should exist');
 
