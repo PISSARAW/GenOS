@@ -4,8 +4,7 @@ const trinityService = require('../src/services/trinityService');
 const trinityMissionSupervisor = require('../src/services/trinityMissionSupervisor');
 const { workerGarage } = require('../src/services/garage');
 const { randomUUID } = require('crypto');
-
-// ─── Fonctions utilitaires locales (pas de dépendance circulaire) ────
+const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
 
 function createOrchestratorId(prefix) {
   return `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
@@ -22,8 +21,8 @@ function buildBiologicalOutput({ context, mode, mission, members, accepted, topo
       status: 'accepted', mode, mission,
       capacity: workerGarage.MAX_ACTIVE_WORKERS,
       mechanisms: members[0]?.mechanisms || [],
-      ...topology, members: accepted,
-    },
+      ...topology, members: accepted
+    }
   };
 }
 
@@ -51,27 +50,6 @@ function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
     role: member.role,
     modelTier: member.modelTier,
     status: 'accepted',
-  };
-}
-
-function workerLaunchPayload({ context, member, workerId, parent }) {
-  const { aTeamService } = require('../src/services/aTeamService');
-  return {
-    action: 'dispatch_worker',
-    background: false,
-    orchestratorId: context.orchestratorId,
-    workerId,
-    mission: member.mission,
-    role: member.role,
-    model_tier: member.modelTier,
-    ...(member.name ? { name: member.name } : {}),
-    ...(Array.isArray(member.dependsOn) && member.dependsOn.length ? { depends_on: member.dependsOn } : {}),
-    ...(member.pipelineStage ? { pipeline_stage: member.pipelineStage } : {}),
-    ...(member.engine === 'local' ? { localRuntime: true } : {}),
-    execution_budget: context.request.execution_budget || context.request.executionBudget,
-    timeoutMs: context.request.timeoutMs,
-    workspace_root: context.request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
-    reuseChecked: true,
   };
 }
 
@@ -111,8 +89,6 @@ function buildNCEEnrichments(context, topology) {
   });
 }
 
-// ─── Handlers de topologies avec NCE ────────────────────────────────
-
 async function handleTeam(db, context) {
   const parent = await ensureParent({ db, context });
   context.nceEnrichments = await buildNCEEnrichments(context, 'team');
@@ -129,14 +105,11 @@ async function handleBiological(db, context) {
   const { biologicalTopology } = require('./orchestratorActions');
   const composition = await biologicalTopology.composeMode({
     db, orchestratorId: context.orchestratorId, mode, mission,
-    options: { agentCount: context.request.agent_count, clusterSize: context.request.cluster_size, fanout: context.request.fanout, organization: context.request.organization },
+    options: { agentCount: context.request.agent_count, clusterSize: context.request.cluster_size, fanout: context.request.fanout, organization: context.request.organization }
   });
   const members = composition.members || [];
   const garage = await workerGarage.state(db, context.orchestratorId);
-  if (garage.available <= 0) {
-    const msg = `${mode} requires free worker slots, but worker garage is full (slots: ${garage.occupied}/${garage.capacity} used)`;
-    throw Object.assign(new Error(msg), { code: 'WORKER_GARAGE_FULL' });
-  }
+  if (garage.available <= 0) throw Object.assign(new Error(`${mode} requires free worker slots, but worker garage is full`), { code: 'WORKER_GARAGE_FULL' });
   const selected = selectMembers(members, garage.available);
   const accepted = selected.map((member, index) => launchWorker({ context, member, index: index + 1, parent }));
   const topology = composition ? { organization: composition.organization, capabilityContract: composition.capabilityContract } : {};
@@ -147,7 +120,7 @@ async function handleBiological(db, context) {
 async function handleTrinity(db, context) {
   const parent = await ensureParent({ db, context });
   const garage = await workerGarage.state(db, context.orchestratorId);
-  if (garage.available < 3) throw Object.assign(new Error(`Trinity requires 3 free worker slots, but worker garage is full (slots: ${garage.occupied}/${garage.capacity} used — wait or increase MAX_ACTIVE_WORKERS).`), { code: 'WORKER_GARAGE_FULL' });
+  if (garage.available < 3) throw Object.assign(new Error(`Trinity requires 3 free worker slots`), { code: 'WORKER_GARAGE_FULL' });
   const mission = context.request.mission || context.request.project_goal || context.request.goal || 'Trinity comparative mission';
   context.nceEnrichments = await buildNCEEnrichments(context, 'trinity');
   const members = trinityService.compose(mission);
