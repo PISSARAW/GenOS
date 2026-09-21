@@ -17,10 +17,8 @@
 
 const { createPathogen, challengeReport, challengeMetrics } = require('./epistemicChallengeService');
 
-function transformBenchmarkCase(benchmarkCase) {
-  // Transformer un cas de benchmark en pathogène AEIS.
-  // Un cas BFCL/GAIA/FPAMB a une question, des outils, et une réponse attendue.
-  const antigen = createPathogen(benchmarkCase.type || 'BENCHMARK_CASE', {
+function buildAntigenFromCase(benchmarkCase) {
+  const opts = {
     domain: benchmarkCase.domain || 'general',
     description: benchmarkCase.question || benchmarkCase.prompt || 'benchmark case',
     epitopes: {
@@ -28,7 +26,12 @@ function transformBenchmarkCase(benchmarkCase) {
     },
     dangerLevel: benchmarkCase.difficulty || 0.5,
     isPathogen: true,
-  });
+  };
+  return createPathogen(benchmarkCase.type || 'BENCHMARK_CASE', opts);
+}
+
+function transformBenchmarkCase(benchmarkCase) {
+  const antigen = buildAntigenFromCase(benchmarkCase);
   antigen.claim = { text: benchmarkCase.question || benchmarkCase.prompt || '' };
   antigen.benchmarkTruth = benchmarkCase.expectedAnswer || benchmarkCase.answer || null;
   antigen.benchmarkMetadata = benchmarkCase;
