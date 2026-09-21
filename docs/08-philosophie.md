@@ -529,6 +529,138 @@ restent les autorités effectives du runtime.
 | `verifyReceipt({ receiptId })` | Vérifie ou invalide un receipt |
 | `evaluateCausalDependence({ causeAgent, effectAgent, actualOutcome, counterfactualOutcome, worldId })` | Évalue la nécessité causale dans un monde |
 
+## 27. Organisme procédural — du génome à l'organisme procédural adaptatif
+
+### Concepts
+
+GenOS ne stocke pas une procédure comme un graphe logique figé. Il la maintient comme un
+**organisme procédural** : une entité vivante dont le squelette structurel est un graphe, mais
+dont la compétence effective résulte de l'interaction entre plusieurs couches.
+
+| Couche | Concept biologique | Invariant computationnel | Service |
+| --- | --- | --- | --- |
+| Règles d'apprentissage | génome ≠ procédure acquise | le génome code la *politique d'acquisition*, pas la procédure | `proceduralGenomePolicyService` |
+| Arêtes plastiques | synapses procédurales | chaque transition porte un poids `w`, un compteur de potentiations/dépressions, une trace d'activation et un taux de succès | `proceduralSynapseService` |
+| Renforcement / affaiblissement | LTP / LTD procédurale | `Δw = η·reward` avec une récompense riche (succès, preuve, coût, sécurité, effet causal) | `proceduralPlasticityService` |
+| Consolidation | hippocampe → cortex | les épisodes répétés sont extraits en **golden paths** stables pendant le cycle de sommeil | `proceduralConsolidationService` |
+| Élagage | pruning synaptique | un état multi-niveaux `active → weakened → dormant → candidate_for_pruning → pruned` avant suppression | `proceduralPruningService` |
+| Inhibition | Dead Ends actifs | certaines transitions sont inhibibles sous conditions (contexte, preuve manquante), pas seulement mémorisées comme négatives | `proceduralInhibitionService` |
+| Sélection d'action | ganglions de la base | à partir de plusieurs transitions candidates, une **sélection compétitive** compute un score `A_i` et produit un gagnant sous pression structurée | `proceduralActionSelectionService` |
+| Erreur de prédiction | signal dopaminergique fonctionnel | `δ = R_observé − R_attendu` déclenche LTD, augmentation de plasticité locale ou recherche de mutation — pas de mutation artificielle après N runs | `proceduralPredictionErrorService` |
+| Fitness multi-objectif | sélection naturelle§ | `F = w₁·succès + w₂·robustesse + w₃·preuve + w₄·généralisation − coût − risque − complexité` | `proceduralFitnessService` |
+| Homéostasie | budget énergétique | `C(G) = α|V| + β|E| + γ·tokenCost + δ·executionCost` ; une mutation n'est pas meilleure juste parce qu'elle augmente le succès à coût structuré | `proceduralFitnessService` |
+| Plasticité homéostatique | stabilité des taux d'activation | `w′ = w · target/observed` empêche la domination irréversible d'une seule procédure | `proceduralHomeostaticPlasticityService` |
+| Expression épigénétique | épigénétique | le même genome s'exprime différemment selon l'environnement (`enabled / conditional / silenced`) | `proceduralEpigeneticService` |
+| Méthylation procédurale | marques répressives | une marque cible une arête/procédure, avec un déclencheur environnemental et une provenance | `proceduralMethylationService` |
+| Inspection immunitaire innée | système immunitaire | toute mutation est inspectée avant sandbox : bypass de politique, suppression de vérification, élévation de permissions, accès hors lease, réduction de preuves, contournement sandbox | `proceduralImmuneInspectionService` |
+| Mémoire immunitaire adaptative | immunité adaptative | les mutations rejetées forment des signatures rappelées pour un rejet rapide des mutations similaires | `proceduralAdaptiveImmuneMemoryService` |
+| Mutation et sélection naturelle | évolution | variants générés, évalués par environnement, survivors sélectionnés — pas de suppression automatique des non-gagnants | `proceduralMutationSelectionService` |
+| Non-darwinisme naïf | diversité de niche | plusieurs lignées peuvent coexister si elles occupent des niches procédurales différentes | `proceduralEcologicalDiversityService` |
+| Populations procédurales | biome | le biome gère des populations de genomes par niche (debugging, recherche, planification, …) | `proceduralBiomePopulationService` |
+| Niches écologiques | écologie | la fitness est évaluée dans un environnement délimité, pas globalement | `proceduralEcologicalNicheService` |
+| Symbiose procédurale | holobionte | une procédure hôte peut composer avec des sous-procédures spécialisées (sécurité, mémoire, vérification) | `proceduralHolobionteService` |
+| Propagation rhizomique | rhizome | fragments utiles se propagent entre agents après validation locale, pas par copie directe | `proceduralRhizomePropagationService` |
+| Métapopulation | métapopulation | plusieurs populations conservent des familles de procédures différentes ; le collapsus d'une population laisse les autres recoloniser | `proceduralMetapopulationService` |
+| Apoptose procédurale | apoptose | déclenchée par `fitness < τ ∧ risk > ρ ∧ recoveryAttempts > N`, avec autopsie puis fossilisation | `proceduralApoptosisService` |
+| Cryptobiose | cryptobiose | procédures inutiles temporairement entrent en veille quasi-zéro, réactivables si le niche revient | `proceduralCryptobiosisService` |
+| Fossilisation / phylogénie | archive stratigraphique | à la mort, le genotype, phenotype, niche, mutations, fitness history, causal evidence, cause de fermeture et descendants sont archivés et une phylogénie procédurale peut être reconstruite | `proceduralFossilizationService` |
+
+### Le squelette vs l'organisme
+
+Le papier (et les graphes classiques) ne modélisent que le squelette :
+
+```text
+Procedural Graph
+  → mutations
+  → benchmark
+  → promotion
+```
+
+GenOS le transforme en organisme complet :
+
+```text
+Procedural Organism
+  ├── structural graph (squelette)
+  ├── synaptic weights (w, LTP/LTD)
+  ├── excitatory edges
+  ├── inhibitory edges
+  ├── plasticity state (potentiation / depression / lastActivation)
+  ├── epigenetic expression (marks, milieu dépendant)
+  ├── fitness history (multi-objectif, environnementale)
+  ├── niche (population, biome)
+  ├── immune status (inné + adaptatif)
+  ├── lineage (descendants, fossilisation)
+  └── energy budget (coût, complexité, token)
+```
+
+### La boucle
+
+```text
+ENVIRONMENT
+  ↓
+procedural niche
+  ↓
+PROCEDURAL ORGANISM
+  ↓
+action selection (ganglions de la base)
+  ↓
+execution
+  ↓
+outcome
+  ↓
+prediction error δ
+  ↓
+┌──────────────┬──────────────┬──────────────┐
+│ LTP          │ LTD          │ inhibition   │
+└──────────────┴──────────────┴──────────────┘
+  ↓
+plasticity (Δw = η·reward, reward riche)
+  ↓
+┌──────────────────┐   ┌──────────────────┐
+│ consolidation    │   │ mutation         │
+│ (sleep/replay)   │   │ (surprise-based) │
+└──────────────────┘   └──────────────────┘
+  ↓                        ↓
+  reproduced path     candidate variant
+                           ↓
+                    immune inspection
+                           ↓
+                    sandbox / challenge
+                           ↓
+                    causal trials + fitness
+                           ↓
+              ┌─────────────┴─────────────┐
+              │ survive                  │ reject
+              │                         │
+              ▼                         ▼
+         reproduce              immune memory
+              │
+              ▼
+           lineage
+```
+
+### Invariant clé
+
+Chaque mécanisme biologique doit correspondre à un invariant informatique mesurable.
+Sinon, le vocabulaire reste décoratif.
+
+- LTP/LTD : poids + compteurs + taux de succès observables.
+- Pruning : état explicite dans la base, pas suppression immédiate.
+- Inhibition : type d'arête `inhibitory`, condition exprimable, force mesurable.
+- Homéostasie : coût total `C(G)` et fitness multi-objectif réels.
+- Épigénétique : même genome, phénotype exprimé différent selon environnement.
+- Immunité : mutations rejetées mémorisées comme signatures, pas juste un log.
+- Niches : fitness calculée dans un environnement délimité, pas globalement.
+- Apoptose / fossilisation : mort explicite, autopsie, archive reconstituable.
+
+### Références conceptuelles
+
+- Synthèse de l'épigénétique procédurale : `docs/01-concepts/genome-et-epigenetique.md`
+- Instinct vs apprentissage vs organisme procédural : `docs/01-concepts/instinct.md`
+- Fossilisation et archive stratigraphique : `docs/01-concepts/fossilisation.md`
+- Matrice synapse / causalité : survient dans `genome_decisions.synaptic_weight` et les services de causalité (`causalityService`).
+- Prediction error et learning progress : réutilise `curiosityService` (Ten et al., 2021) et `survivalModelService` (homéostasie).
+
 ## 11. Architecture philosophique
 
 ### Effets runtime contrôlés
