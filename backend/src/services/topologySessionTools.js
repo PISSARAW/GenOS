@@ -20,7 +20,7 @@ async function applySyncytium(db, sessionId, args) {
 }
 
 async function depositRhizome(db, sessionId, args) {
-  return rhizome.depositTrail(sessionId, args.marker || args.key, { db, amount: args.amount, isRepellent: args.is_repellent });
+  return rhizome.depositTrail(sessionId, args.marker || args.key, { db, amount: args.amount, isRepellent: args.is_repellent, operationId: args.operation_id });
 }
 
 async function routeRhizome(db, sessionId, args) {

@@ -66,9 +66,9 @@ class ForagingScoutHarvesterService {
   /**
    * Calcule le prochain saut d'exploration selon une distribution de Lévy
    */
-  computeLevyFlightStep(iteration = 1) {
+  computeLevyFlightStep(iteration = 1, random = Math.random) {
     // Génération d'une longueur de pas selon Pareto/Lévy : P(l) ~ l^(-mu)
-    const u = Math.max(0.0001, Math.random());
+    const u = Math.max(0.0001, Math.min(0.9999, Number(random()) || 0.5));
     const stepLength = Math.max(1, Math.round(Math.pow(u, -1 / (this.levyExponent - 1))));
 
     // Classification du mouvement
