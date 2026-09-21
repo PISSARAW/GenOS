@@ -1156,3 +1156,7 @@ d'étiquettes biologiques.
 | Holobionte épistémique | `epistemic/epistemicHolobionteService.js` |
 | Challenge immunitaire | `epistemic/epistemicChallengeService.js` |
 | Homéostasie épistémique | `epistemic/epistemicHomeostasisService.js` |
+
+La fiche de concept complète (10 sections, statut Implémenté) se trouve dans
+[`docs/01-concepts/adaptive-epistemic-immune-system.md`](01-concepts/adaptive-epistemic-immune-system.md).
+Index : [`docs/01-concepts/README.md`](01-concepts/README.md).
