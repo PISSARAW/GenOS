@@ -1,6 +1,33 @@
 'use strict';
 
-const identity = require('../services/proceduralIdentityService');
+const identity = require('./proceduralIdentityService');
+
+function run(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+}
+
+function get(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+}
+
+function all(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+}
 
 const TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS procedural_genomes (
@@ -27,7 +54,10 @@ const TABLE_SQL = `
 `;
 
 async function migrateProceduralGenomes(db) {
-  await db.exec(TABLE_SQL);
+  const statements = TABLE_SQL.split(';').filter(s => s.trim());
+  for (const stmt of statements) {
+    await run(db, stmt);
+  }
 }
 
 async function persistGenome(db, organism, options = {}) {
@@ -36,7 +66,8 @@ async function persistGenome(db, organism, options = {}) {
   const fitnessScore = id.fitness?.score ?? null;
   const status = options.status || 'active';
 
-  await db.run(
+  await run(
+    db,
     `INSERT INTO procedural_genomes
       (id, version, parent_id, lineage_id, organism_json, structure_hash, fitness_score, fitness_json, status, episode, organization_id, project_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -60,7 +91,8 @@ async function persistGenome(db, organism, options = {}) {
 }
 
 async function loadGenome(db, id) {
-  const row = await db.get(
+  const row = await get(
+    db,
     'SELECT organism_json FROM procedural_genomes WHERE id = ?',
     id
   );
@@ -70,7 +102,8 @@ async function loadGenome(db, id) {
 
 async function listGenomesByLineage(db, lineageId, options = {}) {
   const limit = options.limit || 50;
-  const rows = await db.all(
+  const rows = await all(
+    db,
     `SELECT organism_json FROM procedural_genomes
      WHERE lineage_id = ?
      ORDER BY version ASC
@@ -82,7 +115,8 @@ async function listGenomesByLineage(db, lineageId, options = {}) {
 
 async function listActiveGenomes(db, options = {}) {
   const limit = options.limit || 50;
-  const rows = await db.all(
+  const rows = await all(
+    db,
     `SELECT organism_json FROM procedural_genomes
      WHERE status = 'active'
      ORDER BY fitness_score DESC NULLS LAST
@@ -93,7 +127,8 @@ async function listActiveGenomes(db, options = {}) {
 }
 
 async function updateGenomeStatus(db, id, status) {
-  await db.run(
+  await run(
+    db,
     `UPDATE procedural_genomes SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
     [status, id]
   );
@@ -122,4 +157,7 @@ module.exports = {
   updateGenomeStatus,
   getPhylogeny,
   TABLE_SQL,
+  run,
+  get,
+  all,
 };
