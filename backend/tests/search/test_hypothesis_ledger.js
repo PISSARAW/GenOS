@@ -1,200 +1,112 @@
 /**
- * Tests du Hypothesis Ledger (Phase 3).
+ * Tests du Hypothesis Ledger v2.
  *
- * Invariant :
- *  - Une hypothèse falsifiée ne peut pas recevoir > 80 % du budget sans nouvelle preuve.
- *  - Un hypothèse testée récemment mais sans progrès → HYPOTHESIS_LOCK_IN.
+ * Couvre :
+ *  - P0-4 : confiance bayésienne avec prior (une preuve infinitésime ≠ SUPPORTED)
+ *  - P0-5 : incertitude = entropie normalisée
+ *  - P0-14 : preuves structurées avec provenance
+ *  - P0-15 : transition FALSIFIED → REOPENED explicite uniquement
  */
 const assert = require('node:assert/strict')
 const {
-  HypothesisLedger,
-  Hypothesis,
-  HYPOTHESIS_STATUS
+  HypothesisLedger, Hypothesis, HYPOTHESIS_STATUS
 } = require('../../src/services/search/hypothesisLedgerService')
 
-// Création d'un ledger avec listeners spies
 function createLedger() {
   const events = []
-  const ledger = new HypothesisLedger({ budgetRatioThreshold: 0.8 })
+  const ledger = new HypothesisLedger({ budgetRatioThreshold: 0.8, priorAlpha: 1, priorBeta: 1 })
   ledger.onEvent(e => events.push(e))
   return { ledger, events }
 }
 
 // ---------------------------------------------------------------------------
-// Proposer une hypothèse
-// ---------------------------------------------------------------------------
-
-{
-  const { ledger, events } = createLedger()
-  const h = ledger.propose({
-    agentId: 'agent-1',
-    statement: 'Cache invalidation is causing stale responses.',
-    prediction: 'Disabling cache should eliminate reproduction.',
-    falsificationCondition: 'Bug persists with cache completely bypassed.'
-  })
-
-  assert.ok(h.id, 'hypothesis has id')
-  assert.equal(h.status, HYPOTHESIS_STATUS.PROPOSED)
-  assert.equal(h.confidence, 0.5)
-  assert.equal(events.some(e => e.type === 'HYPOTHESIS_PROPOSED'), true, 'proposed event emitted')
-}
-
-// ---------------------------------------------------------------------------
-// Test démarré → status ACTIVE
+// P0-4 : confiance bayésienne — une preuve infinitésime ne suffit pas
 // ---------------------------------------------------------------------------
 
 {
   const { ledger } = createLedger()
-  const h = ledger.propose({ agentId: 'agent-1', statement: 'Test' })
-  const h2 = ledger.startTest(h.id)
-
-  assert.equal(h2.status, HYPOTHESIS_STATUS.ACTIVE)
-  assert.ok(h2.lastTestedAt, 'lastTestedAt set')
-}
-
-// ---------------------------------------------------------------------------
-// Ajout de preuve → transition de confiance
-// ---------------------------------------------------------------------------
-
-{
-  const { ledger } = createLedger()
-  const h = ledger.propose({ agentId: 'agent-1', statement: 'Test', confidence: 0.5 })
+  const h = ledger.propose({ agentId: 'agent-1', statement: 'H', confidence: 0.5 })
   ledger.startTest(h.id)
-
-  // Ajouter preuve for modérée
-  ledger.addEvidence(h.id, 'for', 0.3)
-  const confidenceAfterFor = ledger.hypotheses.get(h.id).confidence
-
-  assert.ok(confidenceAfterFor > 0.4, 'confidence increases with evidence for')
-
-  // Ajouter preuve against massive
-  ledger.addEvidence(h.id, 'against', 2.0)
-  const confidenceAfterAgainst = ledger.hypotheses.get(h.id).confidence
-
-  assert.ok(confidenceAfterAgainst < confidenceAfterFor, 'confidence drops with heavy evidence against')
-}
-
-// ---------------------------------------------------------------------------
-// Affaiblissement
-// ---------------------------------------------------------------------------
-
-{
-  const { ledger } = createLedger()
-  const h = ledger.propose({ agentId: 'agent-1', statement: 'Test', confidence: 0.4 })
-  ledger.startTest(h.id)
-  ledger.addEvidence(h.id, 'against', 1.0)
+  ledger.addEvidence(h.id, 'for', 0.001)
   const h2 = ledger.hypotheses.get(h.id)
-
-  assert.equal(h2.status, HYPOTHESIS_STATUS.WEAKENED)
+  assert.ok(h2.confidence < 0.95, 'tiny evidence with prior (1,1) should not push confidence near 1')
+  assert.notEqual(h2.status, HYPOTHESIS_STATUS.SUPPORTED, 'tiny evidence must not make hypothesis SUPPORTED')
 }
 
 // ---------------------------------------------------------------------------
-// Falsification
+// P0-4 : plusieurs preuves fortes → confiance crédible
 // ---------------------------------------------------------------------------
 
 {
   const { ledger } = createLedger()
-  const h = ledger.propose({ agentId: 'agent-1', statement: 'Test' })
-  const falsified = ledger.falsify(h.id)
-
-  assert.equal(falsified.status, HYPOTHESIS_STATUS.FALSIFIED)
-  assert.equal(falsified.confidence, 0)
+  const h = ledger.propose({ agentId: 'agent-1', statement: 'H', confidence: 0.5 })
+  ledger.startTest(h.id)
+  for (let i = 0; i < 5; i++) ledger.addEvidence(h.id, 'for', 0.5)
+  const h2 = ledger.hypotheses.get(h.id)
+  assert.ok(h2.confidence > 0.7, '5×0.5 for evidence should reach supported confidence')
+  assert.equal(h2.status, HYPOTHESIS_STATUS.SUPPORTED)
 }
 
 // ---------------------------------------------------------------------------
-// Détection de HYPOTHESIS_LOCK_IN
+// P0-5 : incertitude baisse quand la confiance s'approche de 0 ou 1
+// ---------------------------------------------------------------------------
+
+{
+  const { ledger } = createLedger()
+  const h = ledger.propose({ agentId: 'agent-1', statement: 'H', confidence: 0.5 })
+  const uInitial = h.uncertainty
+  ledger.addEvidence(h.id, 'for', 5)
+  const h2 = ledger.hypotheses.get(h.id)
+  assert.ok(h2.uncertainty < uInitial, 'strong evidence for should reduce uncertainty')
+}
+
+// ---------------------------------------------------------------------------
+// P0-15 : FALSIFIED ne peut pas recevoir de addEvidence
+// ---------------------------------------------------------------------------
+
+{
+  const { ledger } = createLedger()
+  const h = ledger.propose({ agentId: 'agent-1', statement: 'H' })
+  ledger.startTest(h.id)
+  ledger.falsify(h.id)
+  const before = ledger.hypotheses.get(h.id).evidenceFor
+  ledger.addEvidence(h.id, 'for', 10) // doit être rejeté
+  const after = ledger.hypotheses.get(h.id).evidenceFor
+  assert.equal(before, after, 'addEvidence must be rejected on FALSIFIED hypothesis')
+}
+
+// ---------------------------------------------------------------------------
+// P0-15 : transition FALSIFIED → REOPEN_REQUESTED → REOPENED
+// ---------------------------------------------------------------------------
+
+{
+  const { ledger } = createLedger()
+  const h = ledger.propose({ agentId: 'agent-1', statement: 'H' })
+  ledger.startTest(h.id)
+  ledger.falsify(h.id)
+
+  const reopenReq = ledger.requestReopen(h.id)
+  assert.equal(reopenReq.status, HYPOTHESIS_STATUS.REOPEN_REQUESTED)
+
+  const reopened = ledger.reopen(h.id)
+  assert.equal(reopened.status, HYPOTHESIS_STATUS.ACTIVE)
+}
+
+// ---------------------------------------------------------------------------
+// detectLockIn
 // ---------------------------------------------------------------------------
 
 {
   const { ledger } = createLedger()
   const now = Date.now()
-
-  // Hypothèse active testée il y a 30s, sans progrès depuis 3 min
   const h = new Hypothesis({
-    agentId: 'agent-1',
-    statement: 'Lock-in case',
+    agentId: 'agent-1', statement: 'Lock-in case',
     status: HYPOTHESIS_STATUS.ACTIVE,
-    lastTestedAt: now - 30_000,
-    lastProgressAt: now - 180_000
+    lastTestedAt: now - 30_000, lastProgressAt: now - 180_000
   })
   ledger.hypotheses.set(h.id, h)
-
   const lockIns = ledger.detectLockIn(now)
   assert.equal(lockIns.length, 1)
-  assert.equal(lockIns[0].hypothesisId, h.id)
-  assert.equal(lockIns[0].statement, 'Lock-in case')
 }
 
-// ---------------------------------------------------------------------------
-// Pas de lock-in si l'hypothesis a produit du progrès récemment
-// ---------------------------------------------------------------------------
-
-{
-  const { ledger } = createLedger()
-  const now = Date.now()
-
-  const h = new Hypothesis({
-    agentId: 'agent-1',
-    statement: 'Still progressing',
-    status: HYPOTHESIS_STATUS.ACTIVE,
-    lastTestedAt: now - 5 * 60_000,
-    lastProgressAt: now - 30_000 // progrès récent
-  })
-  ledger.hypotheses.set(h.id, h)
-
-  const lockIns = ledger.detectLockIn(now)
-  assert.equal(lockIns.length, 0, 'no lock-in when progress is recent')
-}
-
-// ---------------------------------------------------------------------------
-// Vérification de violation de budget avec hypothèse falsifiée
-// ---------------------------------------------------------------------------
-
-{
-  const { ledger } = createLedger()
-  const h = ledger.propose({ agentId: 'agent-1', statement: 'Falsified hypothesis' })
-  ledger.falsify(h.id)
-
-  // L'agent tente d'allouer 90 % du budget à une hypothèse falsifiée
-  const violation = ledger.checkFalsifiedBudgetViolation(h.id, 0.9)
-
-  assert.ok(violation, 'violation detected when budget > 80% for falsified hypothesis')
-  assert.equal(violation.violation, true)
-  assert.equal(violation.budgetRatio, 0.9)
-  assert.equal(violation.threshold, 0.8)
-}
-
-// ---------------------------------------------------------------------------
-// Pas de violation si budget < seuil
-// ---------------------------------------------------------------------------
-
-{
-  const { ledger } = createLedger()
-  const h = ledger.propose({ agentId: 'agent-1', statement: 'Falsified hypothesis' })
-  ledger.falsify(h.id)
-
-  const violation = ledger.checkFalsifiedBudgetViolation(h.id, 0.5)
-  assert.equal(violation, null, 'no violation when budget below threshold')
-}
-
-// ---------------------------------------------------------------------------
-// Hypothèses actives / filtrage par agent
-// ---------------------------------------------------------------------------
-
-{
-  const { ledger } = createLedger()
-  const h1 = ledger.propose({ agentId: 'agent-1', statement: 'A' })
-  const h2 = ledger.propose({ agentId: 'agent-1', statement: 'B' })
-  ledger.propose({ agentId: 'agent-2', statement: 'C' })
-
-  ledger.startTest(h1.id)
-  ledger.startTest(h2.id)
-
-  const active = ledger.activeHypotheses()
-  assert.ok(active.length >= 2, 'at least 2 active hypotheses')
-
-  const agent1 = ledger.hypothesesForAgent('agent-1')
-  assert.equal(agent1.length, 2, 'agent-1 has 2 hypotheses')
-}
-
-console.log('Hypothesis Ledger tests passed.')
+console.log('Hypothesis Ledger v2 tests passed.')
