@@ -172,8 +172,34 @@ async function executeMission(db, state) {
     telemetry.emitEvent({ eventType: 'NCE_ENHANCEMENT_ERROR', agentId: orchestratorId, action: 'NCE_SKIPPED', detail: nceErr.message, severity: 'warn' });
   }
 
-  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, task);
-  await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ? WHERE id = ?`, task, id);
+  // NCE: Build enhanced prompt with creative ecology proposals
+  let enhancedPrompt = task;
+  let nceMetadata = {};
+  if (nceEnhancements && Object.keys(nceEnhancements).length > 0) {
+    const promptAdditions = [];
+    if (nceEnhancements.curiousDomains && nceEnhancements.curiousDomains.length > 0) {
+      promptAdditions.push(`\n\n## Creative Exploration Targets\nPrioritize these domains based on learning potential: ${nceEnhancements.curiousDomains.map(d => d.domainId || d).join(', ')}`);
+    }
+    if (nceEnhancements.representations && nceEnhancements.representations.length > 0) {
+      promptAdditions.push(`\n\n## Alternative Problem Representations\nConsider these reframings:\n${nceEnhancements.representations.map(r => `- ${r.description || r.name || JSON.stringify(r).slice(0,100)}`).slice(0,3).join('\n')}`);
+    }
+    if (nceEnhancements.exaptations && nceEnhancements.exaptations.length > 0) {
+      promptAdditions.push(`\n\n## Exaptation Proposals\nExisting capabilities that might solve new problems:\n${nceEnhancements.exaptations.slice(0,3).map(e => `- ${e.questions ? e.questions[0] : JSON.stringify(e).slice(0,100)}`).join('\n')}`);
+    }
+    if (promptAdditions.length > 0) {
+      enhancedPrompt = task + promptAdditions.join('');
+    }
+    nceMetadata = {
+      representations: (nceEnhancements.representations || []).length,
+      exaptations: (nceEnhancements.exaptations || []).length,
+      curiousDomains: (nceEnhancements.curiousDomains || []).length,
+      environments: (nceEnhancements.environmentPopulation || []).length,
+      culturalTraits: (nceEnhancements.culturalTraits || []).length,
+    };
+  }
+
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, enhancedPrompt);
+  await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = COALESCE(metadata_json, '{}') WHERE id = ?`, enhancedPrompt, id);
   const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
   const requestTimeoutMs = policyRequest.timeoutMs || request.timeoutMs;
   const missionBudget = { ...(policyRequest.executionBudget || policyRequest.execution_budget || {}) };
@@ -184,7 +210,7 @@ async function executeMission(db, state) {
   const useLocalRuntime = executor === 'local' || policyRequest.local_runtime === true
     || /^(1|true)$/i.test(String(process.env.GENOS_ORCHESTRATOR_LOCAL || ''))
     || String(process.env.GENOS_AGENT_EXECUTOR || '').trim().toLowerCase() === 'local';
-  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider });
+  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: enhancedPrompt, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider });
   const agents = await waitForCompletion(db);
   const outcome = summarizeAgents(agents);
   // Mission continuity: evaluate the organism's homeostasis at finalization.
