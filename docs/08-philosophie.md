@@ -779,7 +779,7 @@ le transport et le refus des effets hors allow-list. Voir [ADR 0016](adr/0016-ef
 
 ## 28. Natural Creative Ecology (NCE)
 
-### 28.1. Hypothèse
+### 27.1. Hypothèse
 
 > La créativité artificielle peut-elle émerger de l'interaction de plusieurs mécanismes naturels de création de nouveauté, plutôt que d'un unique algorithme d'optimisation ?
 
@@ -910,7 +910,7 @@ Voir `backend/tests/nce_ablation_tests.js`.
 
 Les 6 moteurs sont intégrés dans `backend/bin/genos-orchestrate.cjs` via `nceIntegrationService.js`. Les améliorations sont optionnelles et non-blocantes : si un moteur échoue, la mission continue sans lui.
 
-### 27.8. Distinction par rapport aux systèmes existants
+### 28.8. Distinction par rapport aux systèmes existants
 
 | Système | Mécanisme dominant | Version NCE |
 |---------|-------------------|-------------|
@@ -921,7 +921,7 @@ Les 6 moteurs sont intégrés dans `backend/bin/genos-orchestrate.cjs` via `nceI
 | Co-Scientist | société d'hypothèses | topologies + imagination + épistémologie |
 | QD | solutions diverses + performantes | écosystème de niches multi-échelles |
 
-### 27.9. Références
+### 28.9. Références
 
 - Ten et al., *Humans monitor learning progress in curiosity-driven exploration* (PMC8514490, 2021)
 - Wu et al., *A Systematic Review of Creativity-Related Studies Applying the Remote Associates Test* (PMC7644781, 2020)
