@@ -216,6 +216,27 @@ function resolveSpawnCommand(resolvedExecutable) {
   return { spawnCmd: resolvedExecutable, spawnArgs: [] };
 }
 
+function spawnRuntimeWithRetry(spawnSpec, spawnOptions) {
+  // A missing spawn cwd reports as a misleading `spawn <exe> ENOENT` on
+  // Windows: a concurrent process (backend server, daemon, delayed cleanup)
+  // can reclaim the capsule directory between provisioning and runtime spawn.
+  // Recreate the cwd before spawning, and probe the command so a transient
+  // antivirus lock does not kill the mission either.
+  const { spawnSync } = require('child_process');
+  const fsSync = require('fs');
+  if (spawnOptions && spawnOptions.cwd) {
+    try { fsSync.mkdirSync(spawnOptions.cwd, { recursive: true }); } catch (_) {}
+  }
+  const isNodeScript = spawnSpec.cmd === process.execPath;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const probe = spawnSync(spawnSpec.cmd, isNodeScript ? ['-e', ''] : ['--version'], { stdio: 'ignore', timeout: 5000 });
+    if (!probe.error) break;
+    if (!fsSync.existsSync(spawnSpec.cmd) || attempt === 2) break;
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
+  }
+  return spawn(spawnSpec.cmd, spawnSpec.args, spawnOptions);
+}
+
 async function superviseMission(options) {
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable } = options;
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
@@ -225,12 +246,18 @@ async function superviseMission(options) {
   const workspaceRoot = normalizedMission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
   const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
   const { spawnCmd, spawnArgs } = resolveSpawnCommand(resolvedExecutable);
-  const child = spawn(spawnCmd, spawnArgs, {
+  const child = spawnRuntimeWithRetry({ cmd: spawnCmd, args: spawnArgs }, {
     cwd: workspaceRoot,
     env: buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates),
     stdio: ['pipe', 'pipe', 'pipe'],
     detached: process.platform !== 'win32'
   });
+  // Attach the error handler synchronously: a spawn that fails immediately
+  // (ENOENT under antivirus scan, missing runtime) emits 'error' before the
+  // async setup below completes, and an unhandled 'error' event crashes the
+  // whole bridge process. Buffer it and replay once the full ctx exists.
+  let earlyChildError = null;
+  child.on('error', (error) => { earlyChildError = earlyChildError || error; });
   const runtimeStartedAt = new Date().toISOString();
   activeProcesses.set(agentId, child);
   await db.run('UPDATE agents SET runtime_pid = ?, runtime_started_at = ?, runtime_executable = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', child.pid, runtimeStartedAt, spawnCmd, agentId);
@@ -264,6 +291,12 @@ async function superviseMission(options) {
   child.stdin.on('error', (error) => { handleStdinError(ctx, error); });
   child.on('error', (error) => { handleChildError(ctx, error); });
   child.on('close', (code, signal) => { handleChildClose(ctx, code, signal); });
+  // Replay a spawn error that fired before ctx existed, and fail the mission
+  // through the normal error path instead of crashing the bridge.
+  if (earlyChildError) {
+    handleChildError(ctx, earlyChildError);
+    throw Object.assign(new Error(`Runtime spawn failed: ${earlyChildError.message}`), { code: 'AGENT_RUNTIME_SPAWN_FAILED' });
+  }
   await updateAgent(agentId, 'running', normalizedMission.prompt);
   emitTracked('WORKER_RUNTIME_CAPABILITIES', 'LEASE', 'Worker runtime capabilities activated.', buildCapabilityPayload(normalizedMission, resolvedExecutable), 'info', 'running');
   emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, {

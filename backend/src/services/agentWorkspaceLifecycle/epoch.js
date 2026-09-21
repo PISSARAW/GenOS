@@ -10,7 +10,12 @@ function newEpochToken() {
 
 async function writeEpochMarker(workspaceRoot) {
   const token = newEpochToken();
-  await fs.writeFile(path.join(workspaceRoot, EPOCH_MARKER_FILENAME), token);
+  const markerPath = path.join(workspaceRoot, EPOCH_MARKER_FILENAME);
+  // A concurrent process (backend server, daemon, delayed cleanup) may reclaim
+  // the capsule directory between its creation and this marker write; recreate
+  // the directory instead of failing the whole mission bootstrap with ENOENT.
+  await fs.mkdir(workspaceRoot, { recursive: true });
+  await fs.writeFile(markerPath, token);
   return token;
 }
 
