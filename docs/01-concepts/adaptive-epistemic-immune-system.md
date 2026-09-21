@@ -449,6 +449,27 @@ node backend/tests/epistemic_holobionte_test.js         # OK
 
 ### Statut
 
-- **Statut** : Implémenté
-- **Portée** : Services épistémiques, tests unitaires, documentation
-- **Dernière revue** : 2026-09-21
+- **Statut** : Partiel / Prototype exécutable
+
+**Implémenté** :
+- modèle antigène (EpistemicAntigen)
+- reconnaissance innée (PPR déterministes)
+- calcul homéostasie (pression D = f(risk, uncertainty, contradiction, novelty, cost, evidence))
+- sélection de verifiers (affinity-based, pas expansion clonale)
+- mémoire in-process (signature, recall, fuzzyRecall)
+- métriques de diversité (effectiveDiversity)
+- prototypes biocénose / métapopulation / stigmergie / holobionte
+
+**Non encore démontré** :
+- exécution réelle des verifiers (catalogue seulement)
+- vérification indépendante forte
+- clonal expansion (pas de réplication)
+- affinity maturation basée sur oracle truth (pending ≠ truth)
+- mémoire persistante
+- feedback homéostatique runtime (feedbackEffect n'est pas encore dans la boucle)
+- recrutement réel de niches
+- isolation réelle des métapopulations
+- stigmergie inter-process
+- apoptose intégrée à l'autorité runtime
+- AEIS → promotion gate (require_epistemic_assurance toujours false)
+- EAB réel (mock seulement)
