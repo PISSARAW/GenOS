@@ -70,6 +70,7 @@ Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 - [intelligence-de-nuee.md](01-concepts/intelligence-de-nuee.md) — phéromones, consensus, quorum, stigmergie.
 - [fossilisation.md](01-concepts/fossilisation.md) — archive stratigraphique terminale des lignées.
 - [philosophie-des-mathematiques.md](01-concepts/philosophie-des-mathematiques.md) — objets mathématiques, fondements, infini et preuve.
+- [adaptive-epistemic-immune-system.md](01-concepts/adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif (antigène, immunité innée/adaptative, sélection clonale, mémoire, inflammation, biocénose, métapopulation, stigmergie, holobionte, challenge).
 
 ### 2. Biomimétisme spécialisé
 
