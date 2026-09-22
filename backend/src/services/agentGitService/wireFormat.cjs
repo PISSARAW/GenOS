@@ -23,7 +23,7 @@ function wireObject(commit) {
     signature_algorithm: commit.signatureAlgorithm,
     author_key_id: commit.authorKeyId || null,
     public_key_fingerprint: commit.publicKeyFingerprint || null,
-    signed_commit_envelope: commit.signedCommitEnvelope || null,
+    commit_envelope: commit.commitEnvelope || commit.signedCommitEnvelope || null,
     metadata_json: commit.metadataJson || '{}'
   };
 }
