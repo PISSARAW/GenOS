@@ -26,5 +26,11 @@ async function hook(req, res, next) { try { res.status(201).json(await agentGit.
 async function mergeBase(req, res, next) { try { res.json(await agentGit.mergeBase(req)); } catch (error) { next(error); } }
 async function archive(req, res, next) { try { res.status(201).json(await agentGit.archive(req)); } catch (error) { next(error); } }
 async function rebaseInteractive(req, res, next) { try { res.status(201).json(await agentGit.rebaseInteractive(req)); } catch (error) { next(error); } }
+async function stage(req, res, next) { try { res.status(201).json(await agentGit.stage(req)); } catch (error) { next(error); } }
+async function unstage(req, res, next) { try { res.status(201).json(await agentGit.unstage(req)); } catch (error) { next(error); } }
+async function status(req, res, next) { try { res.json(await agentGit.status(req)); } catch (error) { next(error); } }
+async function commitFromIndex(req, res, next) { try { res.status(201).json(await agentGit.commitFromIndex(req, req.body || {})); } catch (error) { next(error); } }
+async function reset(req, res, next) { try { res.json(await agentGit.reset(req)); } catch (error) { next(error); } }
+async function mergeBaseDag(req, res, next) { try { res.json(await agentGit.mergeBaseDag(req)); } catch (error) { next(error); } }
 
-module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, merge, replay, bisect, log, revert, rebase, rebaseInteractive, remoteReceive, reflog, show, fsck, gc, blame, describe, note, hook, mergeBase, archive };
+module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, merge, replay, bisect, log, revert, rebase, rebaseInteractive, remoteReceive, reflog, show, fsck, gc, blame, describe, note, hook, mergeBase, archive, stage, unstage, status, commitFromIndex, reset, mergeBaseDag };
