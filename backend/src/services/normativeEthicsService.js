@@ -31,7 +31,18 @@ function evaluateActUtilitarianism({ action, outcomes = [] }) {
     action,
     utility,
     outcomes,
-    verdict: utility > 0 ? 'permissible-by-consequence' : 'impermissible-by-consequence',
+    assessment: {
+      type: 'utilitarian-assessment',
+      utility,
+      note: utility > 0
+        ? 'L\'action produit une utilité positive sous les hypothèses fournies.'
+        : 'L\'action produit une utilité négative ou nulle sous les hypothèses fournies.',
+    },
+    assumptions: [
+      'Les probabilités et utilités fournies sont déclaratives, non vérifiées.',
+      'L\'évaluation ne couvre pas les effets indirects non déclarés.',
+      'Aucun verdict n\'est émis ; seulement un bilan sous hypothèses explicites.',
+    ],
     executable: false,
   };
 }
@@ -45,8 +56,14 @@ function evaluateRuleUtilitarianism({ action, rule, expectedOutcomes = [] }) {
     ...assessment,
     framework: 'rule-utilitarianism',
     rule,
-    verdict: assessment.utility > 0 ? 'rule-supported' : 'rule-rejected',
-  };
+    ruleAssessment: {
+      type: 'rule-assessment',
+      supported: assessment.utility > 0,
+      note: assessment.utility > 0
+        ? 'La règle supporte l\'action sous les hypothèses fournies.'
+        : 'La règle ne supporte pas l\'action sous les hypothèses fournies.',
+    },
+  });
 }
 
 function evaluateCategoricalImperative({ action, maxim, universalizedMaxim, contradiction = null, treatsPersonsAsEnds = true }) {
@@ -61,7 +78,19 @@ function evaluateCategoricalImperative({ action, maxim, universalizedMaxim, cont
     universalizedMaxim: universalizedMaxim || maxim,
     universalizable: noContradiction,
     respectsPersons,
-    verdict: noContradiction && respectsPersons ? 'permissible' : 'impermissible',
+    assessment: {
+      type: 'categorical-imperative-assessment',
+      universalizable: noContradiction,
+      respectsPersons,
+      note: noContradiction && respectsPersons
+        ? 'La maxime peut être universalisée sans contradiction et respecte les personnes comme fins.'
+        : 'La maxime rencontre une contradiction à l\'universalisation ou ne respecte pas les personnes comme fins.',
+    },
+    assumptions: [
+      'La contradiction est évaluée sur la maxime déclarée, pas sur l\'intention réelle.',
+      'Le respect des personnes est binaire sur la base du paramètre fourni.',
+      'Aucun verdict n\'est émis ; seulement une évaluation structurelle des conditions.',
+    ],
     executable: false,
   };
 }
@@ -82,7 +111,19 @@ function evaluateDoubleEffect({ action, intendedGood, foreseenHarm, meansEnd = f
     framework: 'doctrine-of-double-effect',
     action,
     conditions,
-    verdict: permitted ? 'permissible-under-double-effect' : 'not-justified',
+    assessment: {
+      type: 'double-effect-assessment',
+      permitted,
+      conditions,
+      note: permitted
+        ? 'Les conditions de la doctrine du double effet sont remplies sous les hypothèses fournies.'
+        : 'Au moins une condition de la doctrine du double effet n\'est pas remplie.',
+    },
+    assumptions: [
+      'Les conditions sont évaluées sur les déclarations fournies, non sur la réalité.',
+      'La doctrine du double effet est un cadre d\'analyse, pas un verdict automatique.',
+      'Aucun verdict n\'est émis.',
+    ],
     executable: false,
   };
 }
@@ -98,7 +139,20 @@ function assessVirtueEthics({ agentId, virtues = {}, context = null }) {
     virtues: scores,
     context,
     eudaimoniaScore: mean,
-    verdict: mean >= 0.7 ? 'flourishing-character' : mean >= 0.4 ? 'developing-character' : 'deficient-character',
+    assessment: {
+      type: 'virtue-ethics-reading',
+      mean,
+      note: mean >= 0.7
+        ? 'Les vertus déclarées atteignent un seuil élevé de cohérence — lecture épicurienne d\'un caractère florissant.'
+        : mean >= 0.4
+          ? 'Les vertus déclarées sont en développement — lecture d\'un caractère en construction.'
+          : 'Les vertus déclarées sont faibles — lecture d\'un caractère déficient.',
+    },
+    assumptions: [
+      'Les scores de vertus sont déclaratifs, pas mesurés.',
+      'La moyenne arithmétique n\'est pas une mesure valide de l\'eudaimonia.',
+      'Aucun verdict n\'est émis ; seule une lecture structurée est fournie.',
+    ],
     executable: false,
   };
 }

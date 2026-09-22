@@ -75,25 +75,36 @@ console.log('✓ Cross-check: formal vs causal are incommensurable');
 
 // ─── Concept-level falsification ──────────────────────────────────────────
 
+// Filtrer les concepts qui ont un rôle défini (le mapping conceptRoles est
+// appliqué séparément ; ici on ne teste que les définitions explicites).
+const conceptsWithRole = m.ALL_CONCEPTS.filter(c => c.role != null);
+
 // 7. Aucun concept lens ne doit avoir runtimeAuthority=true
-const lenses = m.ALL_CONCEPTS.filter(c => c.role === 'lens');
+const lenses = conceptsWithRole.filter(c => c.role === 'lens');
 for (const lens of lenses) {
   assert.strictEqual(lens.runtimeAuthority, false, `${lens.id} lens should not have runtimeAuthority`);
 }
 console.log(`✓ All ${lenses.length} lenses have runtimeAuthority=false`);
 
 // 8. Tous les core commitments doivent avoir runtimeAuthority=true
-const cores = m.ALL_CONCEPTS.filter(c => c.role === 'core');
+const cores = conceptsWithRole.filter(c => c.role === 'core');
 for (const core of cores) {
   assert.strictEqual(core.runtimeAuthority, true, `${core.id} core should have runtimeAuthority`);
 }
 console.log(`✓ All ${cores.length} core commitments have runtimeAuthority=true`);
 
 // 9. Toutes les speculative hypotheses doivent avoir historicalConfidence <= 0.5
-const spec = m.ALL_CONCEPTS.filter(c => c.role === 'speculative');
+const spec = conceptsWithRole.filter(c => c.role === 'speculative');
 for (const s of spec) {
   assert.ok(s.historicalConfidence <= 0.5, `${s.id} speculative should have confidence <= 0.5`);
 }
 console.log(`✓ All ${spec.length} speculative hypotheses have confidence <= 0.5`);
+
+// 10. Vérification d'intégrité : les concepts sans rôle explicite ne doivent
+//     pas avoir runtimeAuthority défini (sinon le registre est incohérent).
+const conceptsWithoutRole = m.ALL_CONCEPTS.filter(c => c.role == null);
+const authorizedWithoutRole = conceptsWithoutRole.filter(c => c.runtimeAuthority != null);
+assert.deepStrictEqual(authorizedWithoutRole, [], 'No concept without explicit role should have runtimeAuthority set');
+console.log(`✓ ${conceptsWithoutRole.length} concepts without explicit role have no runtimeAuthority`);
 
 console.log('\n=== All falsification tests passed ===');

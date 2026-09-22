@@ -82,10 +82,15 @@ async function executeInSandbox(session, input, workspacePath) {
 
     iteration.snapshotId = snapshot?.id;
 
-    // 2. runInSnapshot : utilise le snapshotPath du résultat de capture()
-    const snapshotPath = snapshot?.snapshotPath || snapshot?.metadata?.snapshotPath;
+    // 2. runInSnapshot : utilise storagePath du résultat de capture()
+    const snapshotPath = snapshot?.metadata?.storagePath;
+    if (!snapshotPath) {
+      iteration.outcome = 'error';
+      iteration.observation = 'Play capture returned no storagePath';
+      return iteration;
+    }
     const result = await runInSnapshot({
-      snapshot: { path: snapshotPath, id: snapshot?.id },
+      snapshot: { id: snapshot?.id, snapshot_hash: snapshot?.snapshotHash, metadata: snapshot?.metadata },
       command: input.command,
       timeoutMs: session.timeoutMs,
       workspacePath,

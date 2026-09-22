@@ -61,15 +61,20 @@ function sensationCriteria({ sensation }) {
   if (!sensation) throw new Error('epicureanService.sensationCriteria requires a sensation');
   const clarity = sensation.clarity || 'clear';
   const intensity = sensation.intensity || 'strong';
-  const truthValue = clarity === 'clear' && intensity === 'strong' ? 'true' : 'doubtful';
   return {
     sensation,
-    truthValue,
+    clarity,
+    intensity,
     criterion: 'sensation',
     assessment: {
       type: 'sensation-reading',
-      note: `La sensation (${clarity}, ${intensity}) est le critère de vérité épicurien.`,
+      note: `La sensation (${clarity}, ${intensity}) est le critère de vérité épicurien. Ce n\'est pas un verdict de vérité factuelle mais une lecture du cadre épistémique épicurien.`,
     },
+    assumptions: [
+      'La sensation est traitée comme critère de vérité dans le cadre épistémique épicurien.',
+      'La clarté et l\'intensité sont déclaratives, non mesurées.',
+      'Ce cadre ne produit pas de vérité factuelle ; il expose une convention épistémique.',
+    ],
     executable: false,
     runtimeAuthority: false,
   };
@@ -83,11 +88,20 @@ function ataraxieAnalysis({ agent }) {
   const tranquility = agent.tranquility ?? agent.cognitive_budget ?? null;
   return {
     agentId: agent.id,
-    ataraxie: tranquility !== null ? tranquility >= 0.8 : null,
     tranquility,
     assessment: tranquility !== null
-      ? { type: 'tranquility-reading', note: `Tranquillité à ${tranquility}. L'ataraxie (≥0.8) est le but épicurien, mais c'est une lecture, pas un verdict.` }
+      ? {
+          type: 'tranquility-reading',
+          level: tranquility,
+          threshold: 0.8,
+          note: `Tranquillité mesurée à ${tranquility}. Dans le cadre épicurien, l'ataraxie (absence de trouble) est le but — mais un seuil numérique ne la constitue pas ; cette lecture expose une interprétation, pas un verdict.`,
+        }
       : { type: 'no-data', note: 'Aucune métrique disponible pour une lecture épicurienne de la tranquillité.' },
+    assumptions: [
+      'Le but épicurien est l\'ataraxie (absence de trouble de l\'esprit), pas un score ≥ 0.8.',
+      'Un seuil numérique ne constitue pas une condition nécessaire ou suffisante d\'ataraxie.',
+      'Cette analyse expose une lecture, pas un verdict de réalisation.',
+    ],
     executable: false,
     runtimeAuthority: false,
   };

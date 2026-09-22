@@ -99,11 +99,22 @@ function assessIndependence(evidenceA, evidenceB) {
     };
   }
 
-  // Si sources différentes → probablement indépendant
+  // Si sources différentes → degré d'indépendance à établir
+  // Deux sources différentes ne suffisent pas : elles peuvent partager la
+  // même base de données, le même modèle, les mêmes prémisses, ou le même
+  // environnement d'exécution. On retourne un statut de dépendance, pas un
+  // verdict d'indépendance.
   return {
-    independent: true,
-    reason: 'Different sources — evidence likely independent',
-    caveat: 'Verified independence requires explicit validation of no shared upstream dependencies',
+    dependencyStatus: 'unknown',
+    reason: 'Different sources — independence not yet established',
+    caveat: 'Different sources do not guarantee independence. Shared upstream dependencies (datasets, model families, retrievers, execution environment, premises) must be explicitly ruled out.',
+    upstreamConsiderations: [
+      'shared dataset IDs',
+      'shared model family / training data',
+      'shared retriever or index',
+      'shared execution environment',
+      'shared premises or axioms',
+    ],
   };
 }
 
@@ -179,7 +190,7 @@ function evidenceReport({ claims = [], evidence = [], dependencies = [] } = {}) 
       evidenceCount: typedEvidence.length,
       distinctTypes: [...new Set(typedEvidence.map((e) => e.type))],
       independencePairs: independenceMap.length,
-      note: 'Evidence is typed and independence is established. No single score is produced.',
+      note: 'Evidence is typed and dependency relationships have been assessed; independence is only established where explicitly demonstrated.',
     },
     executable: false,
     runtimeAuthority: false,

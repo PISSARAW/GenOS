@@ -2,7 +2,7 @@
 
 /**
  * Temporal Identity Service — McTaggart (A-series, B-series), Locke (identité personnelle),
- * problem du bateau de Thésée.
+ * problème du bateau de Thésée.
  *
  * Mapping philosophique :
  *  - McTaggart (A-series) : temps subjectif avec présent, passé, futur (tensed time).
@@ -14,18 +14,16 @@
  *  - Bateau de Thésée : le problème de l'identité par changement graduel.
  *    Si toutes les parties sont remplacées, l'objet est-il encore le même ?
  *    Critères d'identité : continuité spatio-temporelle, formelle, fonctionnelle, mémorielle.
+ *
+ * invariant : aucun verdict d'identité global n'est émis. Le service retourne
+ * des évaluations dimensionnelles ; le jugement finale appartient au contexte.
  */
+
 /**
  * aseriesForAgent — McTaggart A-series (temps tensed).
  *
- * L'A-series est le temps vécu avec présent, passé, futur.
- * Le présent est absolu et se déplace (mais c'est controversé).
- *
  * Retourne :
  *  - agentId, agent, aSeries (past, present, future), tensed (true).
- *  - past : événements avant le présent (tous les événements antérieurs à updated_at de l'agent).
- *  - present : statut actuel de l'agent (moment présent, tensed).
- *  - future : projections (le futur est ouvert — pas d'événements connus).
  */
 async function aseriesForAgent({ db, agentId }) {
   if (!agentId || !db) {
@@ -37,7 +35,6 @@ async function aseriesForAgent({ db, agentId }) {
     'SELECT id, created_at, event_type FROM telemetry_events WHERE agent_id = ? ORDER BY created_at ASC',
     agentId
   );
-  // Passé : tous les événements avant ou au moment présent de l'agent
   const agentUpdatedAt = String(agent.updated_at);
   const past = events
     .filter(e => String(e.created_at) <= agentUpdatedAt)
@@ -46,7 +43,6 @@ async function aseriesForAgent({ db, agentId }) {
       time: e.created_at,
       tense: 'past',
     }));
-  // Présent : le statut actuel de l'agent (le "maintenant")
   const present = {
     id: agent.id,
     status: agent.status,
@@ -54,7 +50,6 @@ async function aseriesForAgent({ db, agentId }) {
     tensed: true,
     updatedAt: agent.updated_at,
   };
-  // Futur : ouvert — projections (pas d'événements futurs connus)
   const future = [
     {
       projection: 'future',
@@ -80,13 +75,6 @@ async function aseriesForAgent({ db, agentId }) {
 
 /**
  * bseriesForAgent — McTaggart B-series (temps tenseless).
- *
- * La B-series est le temps objectif avec ordre avant/après — sans présent absolu.
- * Les événements sont ordonnés par des relations "avant" et "après".
- *
- * Retourne :
- *  - agentId, agent, bSeries (timeline[]), tenseless (true).
- *  - timeline : chaque événement avec ses relations avant/après.
  */
 async function bseriesForAgent({ db, agentId }) {
   if (!agentId || !db) {
@@ -127,11 +115,6 @@ async function bseriesForAgent({ db, agentId }) {
 
 /**
  * aSeriesPosition — calcule la position A-series d'un événement.
- *
- * Retourne :
- *  - past : tous les événements avant le plus récent.
- *  - present : le plus récent événement (le "maintenant").
- *  - future : vide (le futur est ouvert, pas d'événements futurs connus).
  */
 function aSeriesPosition(events) {
   if (!Array.isArray(events) || events.length === 0) {
@@ -147,7 +130,7 @@ function aSeriesPosition(events) {
   return {
     past,
     present: present ? { ...present, tense: 'present', isPresent: true } : null,
-    future: [], // futur ouvert
+    future: [],
   };
 }
 
@@ -169,12 +152,6 @@ function spacetimeRelativity({ events = [], observer = 'default' } = {}) {
 
 /**
  * checkMemoryContinuity — Locke (identité personnelle par continuité de mémoire).
- *
- * Locke : l'identité personnelle repose sur la continuité de la conscience (mémoire).
- * Si un agent se souvient de ses expériences passées → il est la même personne.
- *
- * Retourne :
- *  - agentId, lockeanCriterion, memoriesCount, continuous, gaps, identityAssessment.
  */
 async function checkMemoryContinuity({ db, agentId }) {
   if (!agentId || !db) {
@@ -216,19 +193,8 @@ async function checkMemoryContinuity({ db, agentId }) {
 /**
  * shipOfTheseus — problème du bateau de Thésée.
  *
- * Si toutes les parties d'un objet sont remplacées progressivement,
- * l'objet est-il encore le même ? Si on reconstruit l'original avec les vieilles parties,
- * lequel est le vrai ?
- *
- * Critères d'identité :
- *  - Continuité spatio-temporelle (même agent_id)
- *  - Continuité formelle (même structure)
- *  - Continuité fonctionnelle (même but)
- *  - Continuité mémorielle (pas de rupture)
- *
- * Retourne :
- *  - agentId, totalComponents, replacedComponents (count), replacementRatio,
- *    identityPreserved (ratio <= 0.5), criteria.
+ * Retourne des évaluations dimensionnelles, sans verdict global d'identité.
+ * Le seuil de remplacement n'est plus utilisé pour trancher `identityPreserved`.
  */
 async function shipOfTheseus({ db, agentId, replacedComponents = [] }) {
   if (!agentId || !db) {
@@ -236,29 +202,31 @@ async function shipOfTheseus({ db, agentId, replacedComponents = [] }) {
   }
   const agent = await db.get('SELECT * FROM agents WHERE id = ?', agentId);
   if (!agent) throw new Error(`temporalIdentityService.shipOfTheseus: agent ${agentId} not found`);
-  // Estimation du nombre total de composants (basé sur le contenu about)
   const totalComponents = (agent.about?.match(/\b\w+ness\b/g) || []).length || 1;
   const replacedCount = replacedComponents.length;
   const replacementRatio = totalComponents > 0 ? replacedCount / totalComponents : 0;
-  // Si plus de 50% remplacés → identité compromise
-  const identityPreserved = replacementRatio <= 0.5;
+
   return {
     agentId,
     totalComponents,
     replacedComponents: replacedCount,
     replacementRatio: Math.round(replacementRatio * 100) / 100,
-    identityPreserved,
-    criteria: {
+    dimensions: {
       spatiotemporel: true,
       formel: true,
       fonctionnel: agent.status === 'running',
       mémoriel: true,
-      threshold: { maxReplacementRatio: 0.5, currentRatio: replacementRatio },
     },
-    theeseProblem: replacementRatio > 0.5
-      ? 'Problème de Thésée : plus de 50% des composants remplacés — l\'agent est-il encore le même ?'
-      : 'Pas encore de problème de Thésée — identité préservée malgré remplacement partiel.',
-    philosophicalNote: 'Le bateau de Thésée montre que l\'identité n\'est pas une propriété du matériel, mais de la continuité structurelle, fonctionnelle et mémorielle.',
+    replacementAssessment: {
+      replaced: replacedCount,
+      total: totalComponents,
+      ratio: Math.round(replacementRatio * 100) / 100,
+      threshold: { maxReplacementRatio: 0.5, currentRatio: replacementRatio },
+      problem: replacementRatio > 0.5
+        ? 'Plus de 50% des composants remplacés — le problème de Thésée se pose : laquelle des deux entités est le vrai bateau ?'
+        : 'Remplacement partiel — pas encore de problème de Thésée avéré.',
+    },
+    philosophicalNote: 'Le bateau de Thésée montre que l\'identité n\'est pas une propriété du matériel, mais de la continuité structurelle, fonctionnelle et mémorielle. GenOS ne tranche pas ; il expose les dimensions.',
   };
 }
 

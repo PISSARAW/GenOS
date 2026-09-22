@@ -47,12 +47,12 @@ const ind2 = algebra.assessIndependence(ev1, ev3);
 assert.strictEqual(ind2.independent, 'partial', 'Same source, different method → partial');
 console.log('✓ assessIndependence: same source, different method → partial');
 
-// Different sources → likely independent
+// Different sources → independence not yet established
 const ev4 = algebra.createEvidenceProfile({ type: 'observational', source: 'human-expert' });
 const ev5 = algebra.createEvidenceProfile({ type: 'observational', source: 'automated-test' });
 const ind3 = algebra.assessIndependence(ev4, ev5);
-assert.strictEqual(ind3.independent, true, 'Different sources → likely independent');
-console.log('✓ assessIndependence: different sources → likely independent');
+assert.strictEqual(ind3.dependencyStatus, 'unknown', 'Different sources do not establish independence');
+console.log('✓ assessIndependence: different sources → dependencyStatus unknown');
 
 // ─── compareEvidenceStrength ──────────────────────────────────────────────
 

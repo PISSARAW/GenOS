@@ -10,7 +10,11 @@
  *    Nécessité = contrefactuel valide (Y dépend de X).
  *    Contingence = contrefactuel invalide (Y sans X est possible).
  *  - Déterminisme : un état initial unique → un état final unique.
+ *
+ * invariant : aucune observation n'est fabriquée par le service. Les résultats
+ * dépendent exclusivement des données fournies par l'appelant.
  */
+
 const causalLinks = new Map();
 const counterfactualRegistry = new Map();
 
@@ -38,7 +42,8 @@ function recordCausalLink({ causeAgent, effectAgent, mechanism = 'tool_call' }) 
  *  - Contingent : l'effet se produit AUSSI en l'absence de la cause.
  *    → actualOutcome === counterfactualOutcome → contingence.
  *
- * Retourne un objet structuré avec verdict, causeAgent, effectAgent, reason.
+ * Les deux observations doivent être fournies par l'appelant ; le service
+ * ne les invente pas.
  */
 function computeNecessity({ causeAgent, effectAgent, actualOutcome, counterfactualOutcome }) {
   if (!causeAgent || !effectAgent) {
@@ -58,18 +63,22 @@ function computeNecessity({ causeAgent, effectAgent, actualOutcome, counterfactu
 /**
  * simulateCounterfactual — Lewis (scénario contrefactuel).
  *
- * Simule un monde possible où la cause est retirée, pour évaluer la dépendance.
+ * Enregistre un couple d'observations dont l'analyse de nécessité dépend.
+ * Les résultats `actualOutcome` et `counterfactualOutcome` sont fournis par
+ * l'appelant ; ils ne sont pas fabriqués par le service.
  */
-function simulateCounterfactual({ causeAgent, effectAgent, scenario }) {
+function simulateCounterfactual({ causeAgent, effectAgent, scenario, actualOutcome, counterfactualOutcome }) {
   if (!causeAgent || !effectAgent || !scenario) {
     throw new Error('causalityService.simulateCounterfactual requires causeAgent, effectAgent, scenario');
   }
-  const counterfactualOutcome = 'blocked';
+  if (actualOutcome === undefined || counterfactualOutcome === undefined) {
+    throw new Error('causalityService.simulateCounterfactual requires actualOutcome and counterfactualOutcome');
+  }
   const entry = {
     causeAgent,
     effectAgent,
     scenario,
-    actualOutcome: 'completed',
+    actualOutcome,
     counterfactualOutcome,
     registeredAt: Date.now(),
   };
@@ -79,25 +88,52 @@ function simulateCounterfactual({ causeAgent, effectAgent, scenario }) {
     causeAgent,
     effectAgent,
     scenario,
-    actualOutcome: 'completed',
+    actualOutcome,
     counterfactualOutcome,
     causalEffect: verdict.verdict === 'necessary' ? 'prevented_block' : 'no_prevention',
     verdict: verdict.verdict,
   };
 }
 
+/**
+ * isDeterministic — vérifie si plusieurs exécutions produisent le même
+ * résultat final. Cela documente une régularité, pas le déterminisme au sens
+ * philosophique : des mécanismes différents peuvent mener au même résultat.
+ *
+ * Retourne un rapport structuré, pas un booléen unique.
+ */
 function isDeterministic(executionRuns) {
-  if (!Array.isArray(executionRuns) || executionRuns.length === 0) return false;
-  const firstOutcome = executionRuns[0]?.finalOutcome ?? null;
-  return executionRuns.every(run => (run?.finalOutcome ?? null) === firstOutcome);
+  if (!Array.isArray(executionRuns) || executionRuns.length === 0) {
+    return { deterministic: false, reason: 'No execution runs provided' };
+  }
+  const outcomes = executionRuns.map(run => run?.finalOutcome ?? null);
+  const firstOutcome = outcomes[0];
+  const allSame = outcomes.every(o => o === firstOutcome);
+  return {
+    deterministic: allSame,
+    reason: allSame
+      ? 'All observed runs produced the same final outcome'
+      : 'Observed runs produced different final outcomes',
+    outcomeCounts: groupBy(outcomes),
+    caveat: 'Identical final outcomes do not establish determinism; different mechanisms may converge.',
+  };
+}
+
+function groupBy(values) {
+  const groups = new Map();
+  for (const v of values) {
+    const key = String(v);
+    groups.set(key, (groups.get(key) || 0) + 1);
+  }
+  return Object.fromEntries(groups);
 }
 
 /**
- * isIndeterministic — complément : détecte l'indétermination.
+ * isIndeterministic — complément : détecte l'indétermination observable.
  */
 function isIndeterministic(executionRuns) {
   if (!Array.isArray(executionRuns) || executionRuns.length < 2) return false;
-  return !isDeterministic(executionRuns);
+  return !isDeterministic(executionRuns).deterministic;
 }
 
 function checkRegularity(links) {
