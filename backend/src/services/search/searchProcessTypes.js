@@ -1,0 +1,26 @@
+const SEARCH_PROCESS = {
+  CONTINUE: 'CONTINUE',
+  FORAGE: 'FORAGE',
+  PLASTICITE: 'PLASTICITE',
+  CLONAL_AFFINITY_SEARCH: 'CLONAL_AFFINITY_SEARCH',
+  REPLAY_CAUSAL: 'REPLAY_CAUSAL',
+  STRESS_HYPERMUTATION: 'STRESS_HYPERMUTATION',
+  SPECIATION: 'SPECIATION',
+  EVOLUTION: 'EVOLUTION'
+};
+
+const PROVENANCE = {
+  OBSERVED: 'observed',
+  VERIFIED: 'verified',
+  INFERRED: 'inferred',
+  SELF_REPORTED: 'self_reported'
+};
+
+const PROVENANCE_WEIGHTS = {
+  observed: 1.0,
+  verified: 1.0,
+  inferred: 0.6,
+  self_reported: 0.3
+};
+
+module.exports = { SEARCH_PROCESS, PROVENANCE, PROVENANCE_WEIGHTS };

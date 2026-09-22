@@ -1,13 +1,4 @@
-const SEARCH_PROCESS = {
-  CONTINUE: 'CONTINUE',
-  FORAGE: 'FORAGE',
-  PLASTICITE: 'PLASTICITE',
-  CLONAL_AFFINITY_SEARCH: 'CLONAL_AFFINITY_SEARCH',
-  REPLAY_CAUSAL: 'REPLAY_CAUSAL',
-  STRESS_HYPERMUTATION: 'STRESS_HYPERMUTATION',
-  SPECIATION: 'SPECIATION',
-  EVOLUTION: 'EVOLUTION'
-};
+const { SEARCH_PROCESS } = require('./searchProcessTypes');
 
 function evolvePopulation(context) {
   const population = context.population || 1;

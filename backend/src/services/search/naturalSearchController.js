@@ -9,17 +9,7 @@
 
 const { SearchPressureModel, ESCALATION_RADII } = require('./searchPressureService')
 const { classifySearchState, SEARCH_STATE } = require('./entropyProgressClassifier')
-
-const SEARCH_PROCESS = {
-  CONTINUE: 'CONTINUE',
-  FORAGE: 'FORAGE',
-  PLASTICITE: 'PLASTICITE',
-  CLONAL_AFFINITY_SEARCH: 'CLONAL_AFFINITY_SEARCH',
-  REPLAY_CAUSAL: 'REPLAY_CAUSAL',
-  STRESS_HYPERMUTATION: 'STRESS_HYPERMUTATION',
-  SPECIATION: 'SPECIATION',
-  EVOLUTION: 'EVOLUTION'
-}
+const { SEARCH_PROCESS } = require('./searchProcessTypes')
 
 // Hysteresis thresholds
 const PHASE_ENTER = {
