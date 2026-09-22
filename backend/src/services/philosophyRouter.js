@@ -35,8 +35,16 @@ function listConcepts(args = {}) {
     .filter((concept) => !filters.school || concept.school === filters.school)
     .filter((concept) => !filters.status || concept.status === filters.status)
     .filter((concept) => !filters.genosDomain || concept.genosDomains.includes(filters.genosDomain))
+    .filter((concept) => matchesNewFilters(concept, filters))
     .filter((concept) => !filters.maturity || concept.serviceMaturity.level === filters.maturity)
     .map(copy);
+}
+
+function matchesNewFilters(concept, filters) {
+  if (filters.role && concept.role !== filters.role) return false;
+  if (filters.runtimeAuthority !== undefined && concept.runtimeAuthority !== filters.runtimeAuthority) return false;
+  if (filters.falsifiable !== undefined && concept.falsifiable !== filters.falsifiable) return false;
+  return true;
 }
 function listRelations(args = {}) {
   return relationRegistry.listRelations({
