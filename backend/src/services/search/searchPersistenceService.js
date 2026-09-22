@@ -9,8 +9,8 @@ class SearchPersistence {
   }
 
   async initTables() {
-    const sqls = [
-      `CREATE TABLE IF NOT EXISTS search_hypotheses (
+    await this.db.exec(`
+      CREATE TABLE IF NOT EXISTS search_hypotheses (
         id TEXT PRIMARY KEY,
         agent_id TEXT NOT NULL,
         parent_hypothesis_id TEXT,
@@ -25,10 +25,10 @@ class SearchPersistence {
         last_tested_at DATETIME,
         last_progress_at DATETIME,
         FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
-      )`,
-      `CREATE INDEX IF NOT EXISTS idx_search_hypotheses_agent ON search_hypotheses(agent_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_search_hypotheses_status ON search_hypotheses(status)`,
-      `CREATE TABLE IF NOT EXISTS search_proofs (
+      );
+      CREATE INDEX IF NOT EXISTS idx_search_hypotheses_agent ON search_hypotheses(agent_id);
+      CREATE INDEX IF NOT EXISTS idx_search_hypotheses_status ON search_hypotheses(status);
+      CREATE TABLE IF NOT EXISTS search_proofs (
         id TEXT PRIMARY KEY,
         hypothesis_id TEXT NOT NULL,
         direction TEXT NOT NULL CHECK (direction IN ('for', 'against')),
@@ -42,9 +42,9 @@ class SearchPersistence {
         source_tool TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (hypothesis_id) REFERENCES search_hypotheses(id) ON DELETE CASCADE
-      )`,
-      `CREATE INDEX IF NOT EXISTS idx_search_proofs_hypothesis ON search_proofs(hypothesis_id)`,
-      `CREATE TABLE IF NOT EXISTS search_pressure_state (
+      );
+      CREATE INDEX IF NOT EXISTS idx_search_proofs_hypothesis ON search_proofs(hypothesis_id);
+      CREATE TABLE IF NOT EXISTS search_pressure_state (
         agent_id TEXT PRIMARY KEY,
         pressure REAL NOT NULL DEFAULT 0.0,
         confidence REAL NOT NULL DEFAULT 0.0,
@@ -54,8 +54,8 @@ class SearchPersistence {
         last_progress_step INTEGER NOT NULL DEFAULT 0,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
-      )`,
-      `CREATE TABLE IF NOT EXISTS search_decisions (
+      );
+      CREATE TABLE IF NOT EXISTS search_decisions (
         id TEXT PRIMARY KEY,
         agent_id TEXT NOT NULL,
         process TEXT NOT NULL,
@@ -67,40 +67,13 @@ class SearchPersistence {
         diagnostics TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
-      )`,
-      `CREATE INDEX IF NOT EXISTS idx_search_decisions_agent ON search_decisions(agent_id)`
-    ];
-
-    for (const sql of sqls) {
-      await new Promise((resolve, reject) => {
-        this.db.run(sql, err => err ? reject(err) : resolve());
-      });
-    }
-  }
-
-  async run(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.run(sql, params, function(err) {
-        if (err) reject(err);
-        else resolve({ lastID: this.lastID, changes: this.changes });
-      });
-    });
-  }
-
-  async get(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.get(sql, params, (err, row) => err ? reject(err) : resolve(row));
-    });
-  }
-
-  async all(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows || []));
-    });
+      );
+      CREATE INDEX IF NOT EXISTS idx_search_decisions_agent ON search_decisions(agent_id);
+    `);
   }
 
   async saveHypothesis(h) {
-    return this.run(`
+    await this.db.run(`
       INSERT OR REPLACE INTO search_hypotheses
       (id, agent_id, parent_hypothesis_id, branch_id, statement, prediction,
        falsification_condition, confidence, uncertainty, status,
@@ -112,7 +85,7 @@ class SearchPersistence {
   }
 
   async saveProof(p) {
-    return this.run(`
+    await this.db.run(`
       INSERT OR REPLACE INTO search_proofs
       (id, hypothesis_id, direction, strength, provenance, reliability,
        independent, evidence_ref, receipt_ref, source_agent, source_tool, created_at)
@@ -123,7 +96,7 @@ class SearchPersistence {
   }
 
   async savePressureState(agentId, s) {
-    return this.run(`
+    await this.db.run(`
       INSERT OR REPLACE INTO search_pressure_state
       (agent_id, pressure, confidence, causes, recommended_radius, step_count,
        last_progress_step, updated_at)
@@ -134,7 +107,7 @@ class SearchPersistence {
 
   async saveDecision(agentId, selection) {
     const id = `dec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    await this.run(`
+    await this.db.run(`
       INSERT INTO search_decisions
       (id, agent_id, process, classification, pressure, search_yield,
        steps_since_progress, falsified_hypotheses, diagnostics)
@@ -147,19 +120,19 @@ class SearchPersistence {
   }
 
   async loadHypothesesForAgent(agentId) {
-    return this.all('SELECT * FROM search_hypotheses WHERE agent_id = ? ORDER BY created_at', agentId);
+    return this.db.all('SELECT * FROM search_hypotheses WHERE agent_id = ? ORDER BY created_at', agentId);
   }
 
   async loadProofsForHypothesis(hypothesisId) {
-    return this.all('SELECT * FROM search_proofs WHERE hypothesis_id = ? ORDER BY created_at', hypothesisId);
+    return this.db.all('SELECT * FROM search_proofs WHERE hypothesis_id = ? ORDER BY created_at', hypothesisId);
   }
 
   async loadPressureState(agentId) {
-    return this.get('SELECT * FROM search_pressure_state WHERE agent_id = ?', agentId);
+    return this.db.get('SELECT * FROM search_pressure_state WHERE agent_id = ?', agentId);
   }
 
   async loadRecentDecisions(agentId, limit) {
-    return this.all('SELECT * FROM search_decisions WHERE agent_id = ? ORDER BY created_at DESC LIMIT ?', [agentId, limit || 20]);
+    return this.db.all('SELECT * FROM search_decisions WHERE agent_id = ? ORDER BY created_at DESC LIMIT ?', [agentId, limit || 20]);
   }
 }
 

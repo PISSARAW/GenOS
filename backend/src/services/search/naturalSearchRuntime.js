@@ -4,18 +4,45 @@ const { NaturalSearchController, SEARCH_PROCESS } = require('./naturalSearchCont
 const { NaturalSearchActuator } = require('./naturalSearchActuatorService');
 const { HypothesisLedger, HYPOTHESIS_STATUS } = require('./hypothesisLedgerService');
 const { CausalProgressService } = require('./causalProgressService');
+const { SearchPersistence } = require('./searchPersistenceService');
+const { getDatabase } = require('../../db');
 
 const agentSearchState = new Map();
+let cachedDb = null;
 
-function getOrCreateSearchState(agentId) {
+async function ensureDb() {
+  if (cachedDb) return cachedDb;
+  try {
+    cachedDb = await getDatabase();
+    return cachedDb;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function getOrCreateSearchState(agentId) {
   if (!agentSearchState.has(agentId)) {
+    const db = await ensureDb();
     const ledger = new HypothesisLedger({ budgetRatioThreshold: 0.8 });
     const controller = new NaturalSearchController({ ledger });
-    const actuator = new NaturalSearchActuator();
+    const actuator = new NaturalSearchActuator({ db });
     const causalProgress = new CausalProgressService();
-    agentSearchState.set(agentId, { ledger, controller, actuator, causalProgress, stepCount: 0, lastProgressStep: 0 });
+    const persistence = new SearchPersistence(db);
+    agentSearchState.set(agentId, {
+      ledger, controller, actuator, causalProgress,
+      persistence, stepCount: 0, lastProgressStep: 0
+    });
+    if (db) {
+      await persistence.initTables().catch(() => {});
+    }
   }
   return agentSearchState.get(agentId);
+}
+
+async function ensurePersistenceTables(persistence) {
+  try {
+    await persistence.initTables();
+  } catch (_) {}
 }
 
 function clearSearchState(agentId) {
@@ -108,17 +135,56 @@ function emitAction(agentId, process, receipt) {
   }, receipt.status === 'success' ? 'info' : 'warning');
 }
 
-function executeProcess(selection, ledger, actuator) {
-  if (selection.process === SEARCH_PROCESS.CONTINUE) return null;
+function executeProcess({ selection, searchCtx, actuator }) {
+  if (selection.process === SEARCH_PROCESS.CONTINUE) return Promise.resolve(null);
 
-  const ctx = selection.context || {};
-  return actuator.executeSync(selection.process, {
-    agentId: ctx.agentId || selection.agentId,
-    lockInHypothesis: selection.classification === 'HYPOTHESIS_LOCK_IN' ? { hypothesisId: ledger.detectLockIn()[0]?.hypothesisId } : null,
-    lastKnownGood: `checkpoint_${ctx.agentId || selection.agentId}`,
-    topology: ctx.topology || 'isolated',
-    tools: ctx.tools || ['grep', 'test']
+  const agentId = searchCtx.agentId || selection.agentId;
+  return actuator.execute(selection.process, {
+    agentId,
+    lockInHypothesis: selection.lockInHypothesis || null,
+    lastKnownGood: `checkpoint_${agentId}`,
+    topology: searchCtx.topology || 'isolated',
+    tools: searchCtx.tools || ['grep', 'test']
   });
+}
+
+async function persistSearchState(agentId, searchState, selection) {
+  const { ledger, causalProgress, persistence } = searchState;
+  if (!persistence || !persistence.db) return;
+
+  try {
+    // Persist all active hypotheses
+    const hypotheses = ledger.hypothesesForAgent(agentId);
+    for (const h of hypotheses) {
+      try {
+        await persistence.saveHypothesis(h);
+      } catch (_) {}
+    }
+
+    // Persist recent decisions
+    await persistence.saveDecision(agentId, {
+      process: selection.process,
+      classification: selection.classification,
+      pressure: selection.pressure,
+      searchYield: selection.searchYield,
+      stepsSinceProgress: selection.stepsSinceProgress,
+      falsifiedHypotheses: selection.falsifiedHypotheses || 0,
+      diagnostics: selection.diagnostics
+    });
+
+    // Persist pressure state from causal progress report
+    const report = causalProgress.report();
+    await persistence.savePressureState(agentId, {
+      pressure: report.window.searchYield || 0,
+      confidence: 0,
+      causes: report.diagnostics.diminishingReturns ? ['diminishing_returns'] : [],
+      recommendedRadius: report.diagnostics.diminishingReturns ? 'local' : 'medium',
+      stepCount: searchState.stepCount,
+      lastProgressStep: searchState.lastProgressStep
+    });
+  } catch (err) {
+    console.warn(`[Natural Search] Persistence error for ${agentId}:`, err.message);
+  }
 }
 
 async function checkNaturalSearchControl(ctx, event) {
@@ -126,7 +192,7 @@ async function checkNaturalSearchControl(ctx, event) {
 
   try {
     const searchState = getOrCreateSearchState(agentId);
-    const { ledger, controller, actuator, causalProgress } = searchState;
+    const { ledger, controller, actuator, causalProgress, persistence } = searchState;
 
     applyBudget(searchState, normalizedMission);
     causalProgress.ingestEvent(event);
@@ -140,11 +206,15 @@ async function checkNaturalSearchControl(ctx, event) {
 
     const searchCtx = buildSearchContext(ctx, searchState);
     const selection = controller.selectProcess(searchCtx);
+    selection.lockInHypothesis = selection.classification === 'HYPOTHESIS_LOCK_IN' ? (ledger.detectLockIn()[0]?.hypothesisId || null) : null;
 
     emitDecision(agentId, selection, searchCtx);
 
-    const receipt = executeProcess(selection, ledger, actuator);
+    const receipt = await executeProcess({ selection, searchCtx, actuator });
     if (receipt) emitAction(agentId, selection.process, receipt);
+
+    // Persist hypotheses, proofs, pressure state, and decision to SQLite
+    await persistSearchState(agentId, searchState, selection);
 
     return false;
 
@@ -155,4 +225,14 @@ async function checkNaturalSearchControl(ctx, event) {
   }
 }
 
-module.exports = { checkNaturalSearchControl, getOrCreateSearchState, clearSearchState };
+module.exports = { checkNaturalSearchControl, getOrCreateSearchState, clearSearchState, ensureDb, initializeNaturalSearchRuntime };
+
+async function initializeNaturalSearchRuntime(db) {
+  cachedDb = db;
+  const dbModule = require('../../db');
+  try {
+    if (dbModule.getDatabase && typeof dbModule.getDatabase === 'function') {
+      cachedDb = await dbModule.getDatabase();
+    }
+  } catch (_) {}
+}

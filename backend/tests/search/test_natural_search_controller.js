@@ -1,7 +1,10 @@
 const assert = require('node:assert/strict');
 const {
   NaturalSearchController,
-  SEARCH_PROCESS
+  SEARCH_PROCESS,
+  PHASE_ENTER,
+  PHASE_EXIT,
+  MIN_DWELL_STEPS
 } = require('../../src/services/search/naturalSearchController');
 const { CausalProgressService } = require('../../src/services/search/causalProgressService');
 const { HypothesisLedger, PROVENANCE } = require('../../src/services/search/hypothesisLedgerService');
@@ -12,23 +15,55 @@ function makeCtx(overrides = {}) {
     eventType: 'AGENT_STEP', action: 'p',
     payload: { evidenceGain: 0, tokensConsumed: 100, timeConsumed: 1, costConsumed: 0.01, provenance: 'observed' }
   });
-  return { agentId: 'a', searchYield: 0, stepsSinceProgress: 0, falsifiedHypotheses: 0, contradictions: 0, activeHypothesesCount: 1, budgetRatio: 0.3, causalProgressReport: svc.report(), entropyMetrics: { normalizedEntropy: 0.3 }, ...overrides };
+  return {
+    agentId: 'a', searchYield: 0, stepsSinceProgress: 0, falsifiedHypotheses: 0,
+    contradictions: 0, activeHypothesesCount: 1, budgetRatio: 0.3,
+    causalProgressReport: svc.report(), entropyMetrics: { normalizedEntropy: 0.3 },
+    ...overrides
+  };
 }
 
-// Plasticité (need ~5 iters to reach P >= 0.45)
+// Chaque test utilise un contrôleur neuf pour isoler les comportements.
+// Les tests d'hystérésis utilisent un mock de pression (_force) pour contrôler
+// exactement la valeur de pression à chaque étape.
+
+// --- Tests seuils d'entrée (contexte stable, convergence pression naturelle) ---
+
+// Plasticité (~5 iters pour atteindre P >= 0.45)
 {
   const ctrl = new NaturalSearchController();
   let sel;
   for (let i = 0; i < 6; i++) sel = ctrl.selectProcess(makeCtx({ searchYield: 0, stepsSinceProgress: 8, budgetRatio: 0.8 }));
-  assert.equal(sel.process, SEARCH_PROCESS.PLASTICITE);
+  assert.equal(sel.process, SEARCH_PROCESS.PLASTICITE, 'doit entrer en PLASTICITE');
 }
 
-// Clonal affinity search
+// Clonal affinity search — montée vers CLONAL avec mock de pression
+// pour maintenir p dans la bande [0.65, 0.78) sans déclencher STRESS_HYPERMUTATION
 {
   const ctrl = new NaturalSearchController();
-  let sel;
-  for (let i = 0; i < 10; i++) sel = ctrl.selectProcess(makeCtx({ searchYield: 0, stepsSinceProgress: 10, budgetRatio: 0.85, falsifiedHypotheses: 1 }));
-  assert.equal(sel.process, SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH);
+  const origUpdate = ctrl.pressureModel.update.bind(ctrl.pressureModel);
+  ctrl.pressureModel._force = null;
+  ctrl.pressureModel.update = function (inputs) {
+    const out = origUpdate(inputs);
+    if (this._force !== null && this._force !== undefined) out.pressure = this._force;
+    return out;
+  };
+  const base = {
+    agentId: 'a', searchYield: 0.15, stepsSinceProgress: 2,
+    falsifiedHypotheses: 0, contradictions: 0, budgetRatio: 0.3,
+    causalProgressReport: { window: { searchYield: 0.15 } },
+    entropyMetrics: {}
+  };
+
+  // Entrée PLASTICITE à p=0.46
+  ctrl.pressureModel._force = 0.46;
+  let sel = ctrl.selectProcess(base);
+  assert.equal(sel.process, SEARCH_PROCESS.PLASTICITE, 'doit entrer en PLASTICITE');
+
+  // Montée vers CLONAL à p=0.70 (entre PHASE_ENTER.CLONAL=0.65 et PHASE_ENTER.STRESS=0.78)
+  ctrl.pressureModel._force = 0.70;
+  for (let i = 0; i < 5; i++) sel = ctrl.selectProcess(base);
+  assert.equal(sel.process, SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH, 'doit monter en CLONAL quand p >= 0.65');
 }
 
 // Stress hypermutation
@@ -36,7 +71,7 @@ function makeCtx(overrides = {}) {
   const ctrl = new NaturalSearchController();
   let sel;
   for (let i = 0; i < 6; i++) sel = ctrl.selectProcess(makeCtx({ searchYield: 0, stepsSinceProgress: 20, budgetRatio: 0.95, falsifiedHypotheses: 2, contradictions: 2 }));
-  assert.equal(sel.process, SEARCH_PROCESS.STRESS_HYPERMUTATION);
+  assert.equal(sel.process, SEARCH_PROCESS.STRESS_HYPERMUTATION, 'doit atteindre STRESS_HYPERMUTATION');
 }
 
 // Speciation
@@ -44,10 +79,52 @@ function makeCtx(overrides = {}) {
   const ctrl = new NaturalSearchController();
   let sel;
   for (let i = 0; i < 8; i++) sel = ctrl.selectProcess(makeCtx({ searchYield: 0, stepsSinceProgress: 25, budgetRatio: 0.98, falsifiedHypotheses: 3, contradictions: 3 }));
-  assert.equal(sel.process, SEARCH_PROCESS.SPECIATION);
+  assert.equal(sel.process, SEARCH_PROCESS.SPECIATION, 'doit atteindre SPECIATION');
 }
 
-// Ledger lock-in
+// --- Test hystérésis (mock de pression) ---
+// Scénario audit : 0.46 → PLASTICITE, 0.44 → hold, 0.46 → hold, 0.30 dwelled → sortie
+{
+  const ctrl = new NaturalSearchController();
+  const origUpdate = ctrl.pressureModel.update.bind(ctrl.pressureModel);
+  ctrl.pressureModel._force = null;
+  ctrl.pressureModel.update = function (inputs) {
+    const out = origUpdate(inputs);
+    if (this._force !== null && this._force !== undefined) out.pressure = this._force;
+    return out;
+  };
+  const base = {
+    agentId: 'a', searchYield: 0.15, stepsSinceProgress: 2,
+    falsifiedHypotheses: 0, contradictions: 0, budgetRatio: 0.3,
+    causalProgressReport: { window: { searchYield: 0.15 } },
+    entropyMetrics: {}
+  };
+
+  // 1) p=0.46 → entrée PLASTICITE (0.45 < 0.46 < 0.65)
+  ctrl.pressureModel._force = 0.46;
+  let r = ctrl.selectProcess(base);
+  assert.equal(r.process, SEARCH_PROCESS.PLASTICITE, 'entrée PLASTICITE à p=0.46');
+  assert.equal(ctrl.stepsSinceChange, 1, 'stepsSinceChange=1 après entrée');
+
+  // 2) p=0.44 → hold PLASTICITE (0.44 < enter 0.45 mais > exit 0.32)
+  ctrl.pressureModel._force = 0.44;
+  r = ctrl.selectProcess(base);
+  assert.equal(r.process, SEARCH_PROCESS.PLASTICITE, 'hold PLASTICITE (p > exit)');
+  assert.ok(r.diagnostics.reason && r.diagnostics.reason.startsWith('hysteresis'), 'diagnostic hold');
+
+  // 3) p=0.46 → PLASTICITE (rebond, pas de hold car p >= enter)
+  ctrl.pressureModel._force = 0.46;
+  r = ctrl.selectProcess(base);
+  assert.equal(r.process, SEARCH_PROCESS.PLASTICITE, 'rebond PLASTICITE (p >= enter)');
+
+  // 4) p=0.30 avec dwell=3 → sortie (p < exit 0.32 + dwell >= 3)
+  ctrl.pressureModel._force = 0.30;
+  ctrl.stepsSinceChange = MIN_DWELL_STEPS; // force dwell satisfait
+  r = ctrl.selectProcess(base);
+  assert.notEqual(r.process, SEARCH_PROCESS.PLASTICITE, 'sortie PLASTICITE quand p < exit + dwell');
+}
+
+// --- Ledger lock-in ---
 {
   const ledger = new HypothesisLedger();
   const now = Date.now();

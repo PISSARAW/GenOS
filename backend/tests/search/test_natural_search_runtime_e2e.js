@@ -113,8 +113,8 @@ async function runRuntimeE2ETest() {
   assert.equal(selection.process, SEARCH_PROCESS.REPLAY_CAUSAL, 'REPLAY_CAUSAL selected on lock-in');
   await persistence.saveDecision(agentId, { ...selection, searchYield, stepsSinceProgress: 10 });
 
-  // Step 6: Execute via actuator
-  const receipt = actuator.executeSync(selection.process, {
+  // Step 6: Execute via actuator (async)
+  const receipt = await actuator.execute(selection.process, {
     agentId,
     lockInHypothesis: { hypothesisId: hCache.id },
     lastKnownGood: `checkpoint_${agentId}`,

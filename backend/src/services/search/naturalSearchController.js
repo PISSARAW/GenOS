@@ -75,24 +75,32 @@ class NaturalSearchController {
     const p = pressure.pressure
 
     // Track steps since last process change (before deciding)
-    if (this.lastProcess) {
-      this.stepsSinceChange++
-    } else {
+    const justChanged = !this.lastProcess || process !== this.lastProcess
+    if (justChanged) {
       this.stepsSinceChange = 1
+    } else {
+      this.stepsSinceChange++
     }
 
-    // Hysteresis: hold current process if exit threshold not yet crossed
-    // or minimum dwell time not yet satisfied.
+    // Hysteresis: hold current process only to prevent premature DOWNGRADE.
+    // Upward transitions (pressure rising into a higher band) are always
+    // allowed — hysteresis protects against oscillation, not progression.
     const exitThresh = PHASE_EXIT[this.lastProcess]
     let holdProcess = false
     if (this.lastProcess && exitThresh !== undefined) {
-      if (p < exitThresh && this.stepsSinceChange >= MIN_DWELL_STEPS) {
-        // Exit threshold crossed + dwell satisfied → allow transition
-        holdProcess = false
-      } else {
-        // Either still above exit threshold, or dwell not yet satisfied → hold
-        holdProcess = true
+      const pBelowEnter = p < PHASE_ENTER[this.lastProcess] // pression hors bande actuelle vers le bas
+      if (pBelowEnter) {
+        // Tentative de downgrade : bloquer si seuil de sortie non franchi ou dwell insuffisant
+        if (p < exitThresh && this.stepsSinceChange >= MIN_DWELL_STEPS) {
+          // Seuil de sortie franchi + dwell satisfait → autoriser le downgrade
+          holdProcess = false
+        } else {
+          // Seuil non franchi ou dwell insuffisant → bloquer pour éviter oscillation
+          holdProcess = true
+        }
       }
+      // Si p >= PHASE_ENTER[lastProcess] (pression dans bande actuelle ou au-dessus),
+      // pas de hold → permet la montée vers un niveau supérieur
     }
 
     if (holdProcess) {
@@ -166,4 +174,4 @@ class NaturalSearchController {
   getHistory() { return this.history.slice() }
 }
 
-module.exports = { NaturalSearchController, SEARCH_PROCESS, PHASE_ENTER, PHASE_EXIT }
+module.exports = { NaturalSearchController, SEARCH_PROCESS, PHASE_ENTER, PHASE_EXIT, MIN_DWELL_STEPS }
