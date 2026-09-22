@@ -9,4 +9,5 @@ serde_json = "1.0"
 uuid = { version = "1.10", features = ["v4", "serde"] }
 sha2 = "0.10"
 rand = "0.10"
+genos-store = { path = "../genos-store" }
 

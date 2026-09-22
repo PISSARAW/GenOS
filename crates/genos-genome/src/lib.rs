@@ -3,6 +3,7 @@ pub mod development;
 pub mod developmental;
 pub mod epigenome;
 pub mod fitness;
+pub mod fork;
 pub mod fossil;
 pub mod gene;
 pub mod genome;
