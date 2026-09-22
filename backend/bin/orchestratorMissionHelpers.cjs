@@ -93,9 +93,17 @@ function buildEnhancedPrompt(nceEnhancements, task) {
 }
 
 async function prepareMission(opts) {
-  const { db, enhancedPrompt, id, policyRequest, request } = opts;
-  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, enhancedPrompt);
-  await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = COALESCE(metadata_json, '{}') WHERE id = ?`, enhancedPrompt, id);
+  const { db, enhancedPrompt, id, policyRequest, request, nceMetadata } = opts;
+  const existing = await db.get(`SELECT metadata_json FROM agents WHERE id = ?`, id).catch(() => null);
+  let metadataJson = existing?.metadata_json || '{}';
+  try {
+    const parsed = JSON.parse(metadataJson);
+    if (nceMetadata && typeof nceMetadata === 'object' && Object.keys(nceMetadata).length > 0) {
+      metadataJson = JSON.stringify({ ...parsed, nceMetadata });
+    }
+  } catch (_) { /* garder l'existant */ }
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task, metadata_json) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?, ?)`, id, enhancedPrompt, metadataJson);
+  await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = ? WHERE id = ?`, enhancedPrompt, metadataJson, id);
   const contracts = require('../src/services/strategyContractService');
   const strategyContract = await contracts.saveContract(db, { agentId: id, problem: enhancedPrompt, createdBy: 'mcp_orchestrate' });
   const requestTimeoutMs = policyRequest.timeoutMs || request.timeoutMs;
@@ -123,20 +131,7 @@ async function startOrchestratorMission(opts) {
   await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: enhancedPrompt, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider });
 }
 
-function buildMissionContext(outcome, policyRequest, request) {
-  return {
-    completionContract: policyRequest.completionContract || request.completionContract || null,
-    invariants: policyRequest.invariants || request.invariants || null,
-    safetyConstraints: policyRequest.safetyConstraints || request.safetyConstraints || null,
-    context: {
-      missionOutcome: outcome.success === true,
-      flags: { missionOutcome: outcome.success === true },
-      evidence: outcome.success === true ? ['mission_outcome'] : [],
-      functionalChecks: outcome.functionalChecks || {},
-      structuralChecks: outcome.structuralChecks || {}
-    }
-  };
-}
+const { buildMissionContext } = require('./orchestratorMissionHelpersBuildContext.cjs');
 
 function buildContinuity(evaluation) {
   return {

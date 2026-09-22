@@ -16,10 +16,11 @@ const helpers = require('./orchestratorMissionHelpers.cjs');
 const {
   buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
   prepareMission, startOrchestratorMission,
-  buildMissionContext, buildContinuity, emitCompletionEvent,
+  buildContinuity, emitCompletionEvent,
   gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup,
   emitTopologyEvent, tokenUsage
 } = helpers;
+const { buildMissionContext } = require('./orchestratorMissionHelpersBuildContext.cjs');
 
 process.on('unhandledRejection', (reason) => {
   console.error('[genos-orchestrate] Unhandled rejection:', reason && reason.stack ? reason.stack : reason);
@@ -100,14 +101,14 @@ async function prepareRuntime(initDb) {
 }
 
 async function evaluateMissionContinuity(opts) {
-  const { db, id, task, outcome } = opts;
+  const { db, id, task, outcome, agents } = opts;
   let continuity = null;
   let mission = null;
   let completionGate = { allowed: false, reason: 'continuity evaluation did not run' };
   let evaluation = null;
   let organism = null;
   try {
-    const context = buildMissionContext(outcome, policyRequest, request);
+    const context = await buildMissionContext(outcome, policyRequest, request, db, id, agents);
     mission = missionContinuity.buildMissionInput(id, task, {
       completionContract: context.completionContract,
       invariants: context.invariants,
@@ -128,6 +129,29 @@ async function evaluateMissionContinuity(opts) {
   return { continuity, completionGate, evaluation, organism, mission };
 }
 
+async function handleHomeostasisContinuation({ db, id, task, request, mission, completionGate, evaluation, organism, finalVerdict, continuity }) {
+  const summarizeAgents = require('../src/services/orchestratorOutcome').summarizeAgents;
+  const result = await maybeDispatchContinuation({
+    db, orchestratorId: id, task, request, mission: { ...mission, id },
+    completionGate, evaluation, organism, finalVerdict, continuity
+  });
+  if (!result.dispatched || !result.dispatched.targetAgentId) {
+    return { continuity, completionGate, evaluation, organism, finalVerdict: result.finalVerdict };
+  }
+  if (!continuity) continuity = {};
+  continuity.dispatched = result.dispatched;
+  const reeval = await waitForContinuationAndReevaluate({
+    db, id, task, evaluateMissionContinuity, summarizeAgents, continuationResult: result
+  });
+  return {
+    continuity: reeval.continuity || continuity,
+    completionGate: reeval.completionGate || completionGate,
+    evaluation: reeval.evaluation || evaluation,
+    organism: reeval.organism || organism,
+    finalVerdict: (reeval.completionGate && reeval.completionGate.allowed) ? 'completed' : result.finalVerdict
+  };
+}
+
 async function executeMission(db, state) {
   await initializeMission({ db, action, orchestratorId, task });
   const actionContext = buildActionContext({ db, action, request, task, orchestratorId, id, waitForCompletion });
@@ -139,12 +163,12 @@ async function executeMission(db, state) {
 
   const nceEnhancements = await applyNceEnhancements(buildNceInput(request), db, orchestratorId);
   const { enhancedPrompt, nceMetadata } = buildEnhancedPrompt(nceEnhancements, task);
-  const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request });
+  const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });
   await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime });
   const agents = await waitForCompletion(db);
   const { summarizeAgents } = require('../src/services/orchestratorOutcome');
   const outcome = summarizeAgents(agents);
-  const result = await evaluateMissionContinuity({ db, id, task, outcome });
+  const result = await evaluateMissionContinuity({ db, id, task, outcome, agents });
   let continuity = result.continuity;
   let completionGate = result.completionGate;
   let evaluation = result.evaluation;
@@ -154,30 +178,12 @@ async function executeMission(db, state) {
   const missionSuccess = completionGate.allowed === true;
   let finalVerdict = missionSuccess ? outcome.outcome : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.outcome);
 
-  // Homeostasis continuation loop: dispatch a bounded recovery worker,
-  // wait for it, then re-evaluate homeostasis.
-  let continuationResult = await maybeDispatchContinuation({
-    db, orchestratorId: id, task, request, mission: { ...mission, id },
-    completionGate, evaluation, organism, finalVerdict, continuity
-  });
-  finalVerdict = continuationResult.finalVerdict;
-  if (continuationResult.dispatched && continuationResult.dispatched.targetAgentId) {
-    if (!continuity) continuity = {};
-    continuity.dispatched = continuationResult.dispatched;
-    const reeval = await waitForContinuationAndReevaluate({
-      db, id, task,
-      evaluateMissionContinuity,
-      summarizeAgents,
-      continuationResult
-    });
-    continuity = reeval.continuity || continuity;
-    completionGate = reeval.completionGate || completionGate;
-    evaluation = reeval.evaluation || evaluation;
-    organism = reeval.organism || organism;
-    if (completionGate.allowed === true) {
-      finalVerdict = 'completed';
-    }
-  }
+  const contResult = await handleHomeostasisContinuation({ db, id, task, request, mission, completionGate, evaluation, organism, finalVerdict, continuity });
+  continuity = contResult.continuity;
+  completionGate = contResult.completionGate;
+  evaluation = contResult.evaluation;
+  organism = contResult.organism;
+  finalVerdict = contResult.finalVerdict;
 
   emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate, id });
   if (!missionSuccess && finalVerdict !== 'completed') process.exitCode = 2;
