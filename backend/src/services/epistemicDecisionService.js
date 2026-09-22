@@ -73,6 +73,12 @@ function buildDecisionContext(input = {}) {
   const missingProvenance = analyses.filter((item) => !item.provenanceComplete).map((item) => item.analysisId);
   const unsupported = analyses.filter((item) => !item.evidencePresent).map((item) => item.analysisId);
   const hasResults = analyses.length > 0;
+  const verifierDigests = [];
+  if (Array.isArray(input.epistemic_verifier_digests)) {
+    for (const d of input.epistemic_verifier_digests) {
+      if (typeof d === 'string' && d.length) verifierDigests.push(d);
+    }
+  }
   return {
     analyses,
     analysisIds: analyses.map((item) => item.analysisId),
@@ -85,7 +91,8 @@ function buildDecisionContext(input = {}) {
       requireIndependentVerification: hasResults,
       requireHumanApproval: interpretive,
       requireProvenance: hasResults,
-    }
+    },
+    verifierDigests
   };
 }
 

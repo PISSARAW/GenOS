@@ -5,6 +5,7 @@ const philosophicalGuard = require('./philosophicalPromotionGuard');
 const philosophyPolicy = require('./philosophyPromotionPolicyService');
 const ethicalComparisonPolicy = require('./ethicalComparisonPolicyService');
 const epistemicDecision = require('./epistemicDecisionService');
+const { resolveTrustedVerifierDigests } = require('./epistemicAssuranceAssemblyBuilder');
 
 function getStrategyHandlers() {
   return require('./strategyExecutionAdapter').getHandlers();
@@ -119,7 +120,7 @@ function buildPromotion(ctx) {
     require_replay: problemProfile.requires_reproducibility || highRisk,
     require_independent_verification: true,
     require_epistemic_assurance: true,
-    epistemic_verifier_digests: [],
+    epistemic_verifier_digests: resolveTrustedVerifierDigests(ctx),
     require_human_approval: highRisk || problemProfile.reversibility === 'low' || portfolioHasUnimplemented(portfolio) || Boolean(philosophy?.requireHumanApproval),
     philosophy_hold: Boolean(philosophy?.holdPromotion),
     epistemic_hold: Boolean(epistemicContext.promotion.holdPromotion),
