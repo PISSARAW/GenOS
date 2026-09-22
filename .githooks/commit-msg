@@ -14,3 +14,22 @@ if [[ ! "$COMMIT_MSG" =~ ^\[[A-Z]+\] ]]; then
   echo "$COMMIT_MSG"
   exit 1
 fi
+
+# GenOS Commit Receipt — si le message contient "Receipt:", vérifier
+# que les fichiers listés correspondent exactement au diff indexé.
+if grep -qi "^Receipt:" "$COMMIT_MSG_FILE"; then
+  PYTHON_BIN=""
+  for candidate in python3 py python "$LOCALAPPDATA/Programs/Python/Python312/python.exe"; do
+    if [ -n "$candidate" ] && "$candidate" -c "import sys" 2>/dev/null; then
+      PYTHON_BIN="$candidate"
+      break
+    fi
+  done
+  if [ -n "$PYTHON_BIN" ]; then
+    "$PYTHON_BIN" scripts/ci/commit_receipt.py "$COMMIT_MSG_FILE"
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+      exit $exit_code
+    fi
+  fi
+fi
