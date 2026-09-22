@@ -39,12 +39,16 @@ function signObject(stateHash, metadata) {
   return crypto.createHmac('sha256', signingSecret()).update(payload).digest('hex');
 }
 
-function buildSignedEnvelope({ id, commitHash: commit, treeHash: tree, agentId, workspaceId, createdAt }) {
+// Point 15 : l'enveloppe est un conteneur Base64 NON signé (l'intégrité est
+// assurée par signature = Sign(commit_hash)). Le nom historique
+// signed_commit_envelope était trompeur ; le champ exposé est commit_envelope,
+// la colonne DB garde son nom pour compatibilité.
+function buildCommitEnvelope({ id, commitHash: commit, treeHash: tree, agentId, workspaceId, createdAt }) {
   const envelope = {
     v: 1,
     id,
     commitHash: commit,
-    treeHash,
+    treeHash: tree,
     agentId,
     workspaceId,
     createdAt,
@@ -76,7 +80,7 @@ async function storeObject(db, opts) {
   const commit = commitHash({ tree, parents, metadata: meta });
   const signature = signObject(commit, meta);
   const createdAt = new Date().toISOString();
-  const envelope = buildSignedEnvelope({ id, commitHash: commit, treeHash: tree, agentId, workspaceId, createdAt });
+  const envelope = buildCommitEnvelope({ id, commitHash: commit, treeHash: tree, agentId, workspaceId, createdAt });
   await db.run(
     `INSERT INTO agent_git_objects (id, agent_id, workspace_id, object_kind, ref_name, remote_name, state_hash, state_json, metadata_json, signature, created_by, parent_commit_id, tree_hash, commit_hash, signature_algorithm, author_key_id, public_key_fingerprint, signed_commit_envelope)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -85,7 +89,7 @@ async function storeObject(db, opts) {
   for (const [position, parentId] of parents.entries()) {
     await db.run('INSERT OR IGNORE INTO agent_git_commit_parents (commit_id, parent_commit_id, position) VALUES (?, ?, ?)', id, parentId, position);
   }
-  return { id, agentId, workspaceId, kind, refName: refName || null, remoteName: remoteName || null, stateHash: crypto.createHash('sha256').update(JSON.stringify(state)).digest('hex'), treeHash: tree, commitHash: commit, signature, parentCommitIds: parents, signatureAlgorithm: algorithm, authorKeyId: authorKeyId(), publicKeyFingerprint: publicKeyFingerprint(), signedCommitEnvelope: envelope, metadataJson: JSON.stringify(meta) };
+  return { id, agentId, workspaceId, kind, refName: refName || null, remoteName: remoteName || null, stateHash: crypto.createHash('sha256').update(JSON.stringify(state)).digest('hex'), treeHash: tree, commitHash: commit, signature, parentCommitIds: parents, signatureAlgorithm: algorithm, authorKeyId: authorKeyId(), publicKeyFingerprint: publicKeyFingerprint(), commitEnvelope: envelope, signedCommitEnvelope: envelope, metadataJson: JSON.stringify(meta) };
 }
 
 module.exports = { storeObject };

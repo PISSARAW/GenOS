@@ -41,7 +41,7 @@ function validateSignature(incoming, state) {
 }
 
 function readEnvelope(incoming) {
-  const raw = incoming.signed_commit_envelope || incoming.signedCommitEnvelope;
+  const raw = incoming.commit_envelope || incoming.signed_commit_envelope || incoming.signedCommitEnvelope;
   if (!raw) return null;
   return JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
 }

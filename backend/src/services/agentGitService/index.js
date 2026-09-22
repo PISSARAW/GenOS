@@ -58,14 +58,21 @@ function signObject(stateHash, metadata) {
 
 function verifyObjectSignature(object) {
   if (!object.signature) return false;
-  // Utiliser l'algorithme stocké dans signature_algorithm (auto-descriptif)
-  // avec fallback sur la configuration courante pour les anciens objets
+  // Point 14 : l'algorithme vient de l'OBJET (auto-descriptif), pas de la
+  // config courante — une ancienne signature HMAC reste vérifiable après
+  // activation Ed25519, et inversement.
   const isEd25519 = (object.signature_algorithm || signingAlgorithm()) === 'ed25519';
   const authHash = object.commit_hash || object.tree_hash || object.state_hash;
-  const expected = Buffer.from(signObject(authHash, json(object.metadata_json, {})), isEd25519 ? 'base64' : 'utf8');
+  const metadata = json(object.metadata_json, {});
+  const payload = signingPayload(authHash, metadata);
   const actual = Buffer.from(object.signature, isEd25519 ? 'base64' : 'utf8');
+  if (isEd25519) {
+    const key = process.env.GENOS_AGENT_GIT_SIGNING_PUBLIC_KEY || process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY;
+    if (!key) return false;
+    return crypto.verify(null, payload, key, actual);
+  }
+  const expected = Buffer.from(signObject(authHash, metadata), 'utf8');
   if (actual.length !== expected.length) return false;
-  if (isEd25519) return crypto.verify(null, signingPayload(authHash, json(object.metadata_json, {})), process.env.GENOS_AGENT_GIT_SIGNING_PUBLIC_KEY || process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY, actual);
   return crypto.timingSafeEqual(actual, expected);
 }
 
@@ -121,11 +128,25 @@ async function createCommit(req, options = {}) {
   await enforceHooks({ db, agentId: options.agentId, hookName: 'pre-commit', context: state });
   await enforceHooks({ db, agentId: options.agentId, hookName: 'signature-required', context: state });
   const refName = options.refName || 'main';
-  const currentRef = await db.get('SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', options.agentId, refName);
-  const parentCommitId = currentRef?.object_id || null;
+  // Parent : HEAD de la ref visée ; si la ref n'existe pas encore (nouvelle
+  // branche), le parent est le HEAD de main — un commit sur une branche
+  // fraîche n'est PAS un root orphelin.
+  const parentCommitId = await resolveParentCommitId({ db, agentId: options.agentId, refName, explicitParent: options.parentCommitId });
   const result = await storeObject(db, { agentId: options.agentId, workspaceId: state.agent.workspace_id, kind: options.kind || 'commit', refName, remoteName: options.remoteName, state, createdBy: req.user?.username || 'agent-git', metadata: options.metadata || {}, parentCommitId });
   await updateRef({ db, req, agentId: options.agentId, refName, objectId: result.id, options: { expectedVersion: options.expectedVersion, leaseToken: options.leaseToken, action: options.kind || 'commit' } });
   return { ...result, parentCommitId };
+}
+
+async function resolveParentCommitId(ctx) {
+  const { db, agentId, refName, explicitParent } = ctx;
+  if (explicitParent) return explicitParent;
+  const currentRef = await db.get('SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, refName);
+  if (currentRef?.object_id) return currentRef.object_id;
+  if (refName !== 'main') {
+    const mainRef = await db.get('SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, 'main');
+    if (mainRef?.object_id) return mainRef.object_id;
+  }
+  return null;
 }
 
 async function performRemotePush(opts) {

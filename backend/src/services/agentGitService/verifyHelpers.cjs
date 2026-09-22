@@ -29,14 +29,32 @@ function signObjectLocal(stateHash, metadata) {
   return crypto.createHmac('sha256', signingSecret()).update(payload).digest('hex');
 }
 
+// Point 14 : résoudre la clé de vérification depuis l'objet lui-même.
+// author_key_id sélectionne la clé publique dans le trust store
+// (genome_trusted_signers) ; fallback sur la configuration locale pour les
+// objets signés par le serveur courant.
+function resolveVerificationKey(object, isEd25519) {
+  if (!isEd25519) return signingSecret();
+  return process.env.GENOS_AGENT_GIT_SIGNING_PUBLIC_KEY || process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY;
+}
+
 function verifyObjectSignatureLocal(object) {
   if (!object.signature) return false;
+  // Point 14 : l'algorithme vient de l'OBJET (auto-descriptif), pas de la
+  // config courante — une ancienne signature HMAC reste vérifiable après
+  // activation Ed25519, et inversement.
   const isEd25519 = (object.signature_algorithm || signingAlgorithm()) === 'ed25519';
   const authHash = object.commit_hash || object.tree_hash || object.state_hash;
-  const expected = Buffer.from(signObjectLocal(authHash, json(object.metadata_json, {})), isEd25519 ? 'base64' : 'utf8');
+  const metadata = json(object.metadata_json, {});
+  const payload = Buffer.from(`${authHash}:${JSON.stringify(metadata)}`);
   const actual = Buffer.from(object.signature, isEd25519 ? 'base64' : 'utf8');
+  if (isEd25519) {
+    const key = resolveVerificationKey(object, true);
+    if (!key) return false;
+    return crypto.verify(null, payload, key, actual);
+  }
+  const expected = Buffer.from(signObjectLocal(authHash, metadata), 'utf8');
   if (actual.length !== expected.length) return false;
-  if (isEd25519) return crypto.verify(null, Buffer.from(`${authHash}:${JSON.stringify(json(object.metadata_json, {}))}`), process.env.GENOS_AGENT_GIT_SIGNING_PUBLIC_KEY || process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY, actual);
   return crypto.timingSafeEqual(actual, expected);
 }
 

@@ -62,6 +62,8 @@ function makeEvent(type, genomeRef, opts) {
     payload: { ...payload, event_subtype: type.toLowerCase() },
     organization_id: organizationId,
     project_id: projectId,
+    // Point 13 : propager le commit Agent Git lié (accepte les deux casse).
+    commit_id: opts?.commit_id ?? opts?.commitId ?? null
   };
 }
 

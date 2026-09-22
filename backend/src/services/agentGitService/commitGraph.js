@@ -15,10 +15,35 @@ async function getCommit(db, commitId) {
 async function findMergeBase(db, commitIdA, commitIdB) {
   const ancestorsA = await collectAncestors(db, commitIdA);
   const ancestorsB = await collectAncestors(db, commitIdB);
-  const common = ancestorsA.filter(a => ancestorsB.some(b => b.id === a.id));
+  const idsB = new Set(ancestorsB.map(b => b.id));
+  const common = ancestorsA.filter(a => idsB.has(a.id));
   if (common.length === 0) return null;
-  common.sort((a, b) => b.created_at.localeCompare(a.created_at));
-  return common[0];
+  // Point 12 : best ancestor = ancêtre commun non dominé par un autre ancêtre
+  // commun. Le tri par created_at (ancienne implémentation) choisit l'ancêtre
+  // le plus récent, qui peut être dominé par un ancêtre plus profond — mauvais
+  // merge-base avec des imports distants ou des merges croisés.
+  const dominated = await collectDominatedIds(db, common);
+  const candidates = common.filter(c => !dominated.has(c.id));
+  const best = (candidates.length ? candidates : common);
+  return best.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+}
+
+// Un ancêtre commun C est dominé s'il existe un autre ancêtre commun D
+// (D != C) tel que C est un ancêtre STRICT de D (C est plus profond que D).
+async function collectDominatedIds(db, common) {
+  const dominated = new Set();
+  for (const candidate of common) {
+    if (dominated.has(candidate.id)) continue;
+    const candidateAncestors = await collectAncestors(db, candidate.id);
+    const candidateAncestorIds = new Set(candidateAncestors.map(a => a.id));
+    candidateAncestorIds.delete(candidate.id);
+    for (const other of common) {
+      if (other.id !== candidate.id && candidateAncestorIds.has(other.id)) {
+        dominated.add(other.id);
+      }
+    }
+  }
+  return dominated;
 }
 
 async function collectAncestors(db, commitId) {
