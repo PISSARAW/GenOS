@@ -123,7 +123,7 @@ function validateRequiredFields(organism, errors) {
   if (!organism.kind) errors.push('missing kind');
   if (!organism.metadata) errors.push('missing metadata');
   if (!organism.metadata?.id) errors.push('missing metadata.id');
-  if (!organism.metadata?.version) errors.push('missing metadata.version');
+  if (organism.metadata?.version == null) errors.push('missing metadata.version');
   if (!organism.structure) errors.push('missing structure');
   if (!Array.isArray(organism.structure?.nodes)) errors.push('structure.nodes must be array');
   if (!Array.isArray(organism.structure?.synapses)) errors.push('structure.synapses must be array');
@@ -267,7 +267,9 @@ function validateMetadataVersion(organism, errors) {
   const version = organism.metadata?.version;
   if (version == null) {
     errors.push('metadata.version is required');
-  } else if (Number.isInteger(version) && version < 1) {
+  } else if (!Number.isInteger(version)) {
+    errors.push('metadata.version must be an integer');
+  } else if (version < 1) {
     errors.push('metadata.version must be >= 1');
   }
 }

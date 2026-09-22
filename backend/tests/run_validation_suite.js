@@ -11,6 +11,7 @@ const suites = {
     ['procedural organism foundations', 'test_procedural_organism_foundations.js'],
     ['procedural organism 9-12', 'test_procedural_organism_9_12.js'],
     ['procedural organism 13-24', 'test_procedural_organism_13_24.js'],
+    ['procedural graph semantics', 'test_procedural_graph_semantics.js'],
     ['procedural promotion gate', 'test_procedural_promotion_gate.js'],
     ['REST smoke', 'test_backend.js'],
     ['quality', 'run_quality_suite.js']
