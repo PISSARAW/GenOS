@@ -108,6 +108,10 @@ const migrationRunners = [
     const { migrationV015 } = require('./migrateGenomeEventLog');
     await migrationV015.run(db);
   }),
+  createMigrationRunner('036-cognitive-recipe-performance', 'Persist per-context performance of cognitive recipes (feeds NCE evolution and key genesis)', async (db) => {
+    const { migrateCognitiveRecipePerformance } = require('./migrateCognitiveRecipePerformance');
+    await migrateCognitiveRecipePerformance(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

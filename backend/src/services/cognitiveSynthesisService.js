@@ -30,6 +30,7 @@
 
 const { emit } = require('./agentOrchestrationState');
 const { latestReport } = require('./trinityComparativeBarrier');
+const recipeMemory = require('./cognitiveRecipeMemoryService');
 
 const MAX_TENSIONS = 8;
 
@@ -153,7 +154,32 @@ async function applyCognitiveSynthesis(ctx) {
   emit(ctx.agentId, 'COGNITIVE_SYNTHESIS_COMPLETED', 'SYNTHESIZE_COGNITION',
     `Cognitive synthesis: ${confrontations.length} open confrontation(s), ${synthesis.reconciledPositions} position(s) reconciled, ${synthesis.irreconcilableResidue.length} irreconcilable residue item(s).`,
     plan.cognitiveSynthesis, 'info');
+  await recordOutcome(ctx, plan, positions);
   return plan.cognitiveSynthesis;
+}
+
+/**
+ * Persistance du registre de performance : alimente l'évolution NCE
+ * (point 9) et la genèse (point 10). Échec doux — la synthèse reste
+ * valide même si la persistance échoue.
+ */
+async function recordOutcome(ctx, plan, positions) {
+  if (!ctx.db || !plan.cognitivePortfolio) return;
+  try {
+    const report = await recipeMemory.recordMissionOutcome(ctx.db, {
+      portfolio: plan.cognitivePortfolio,
+      synthesis: plan.cognitiveSynthesis,
+      context: recipeMemory.contextKey(plan.cognitivePortfolio.needs || [])
+    });
+    if (report.recorded > 0) {
+      emit(ctx.agentId, 'COGNITIVE_PERFORMANCE_RECORDED', 'REMEMBER_COGNITION',
+        `Recorded performance for ${report.recorded} recipe(s) in context '${report.context}'.`,
+        report, 'info');
+    }
+  } catch (error) {
+    emit(ctx.agentId, 'COGNITIVE_PERFORMANCE_RECORD_FAILED', 'REMEMBER_COGNITION',
+      `Failed to record recipe performance: ${error.message}`, { error: error.message }, 'warning');
+  }
 }
 
 module.exports = {

@@ -186,6 +186,33 @@ Deux propriétés du bias de diversité, apprises en implémentant :
   extension du schéma) ;
 - `backend/tests/test_cognitive_key_genesis.js` — 9 groupes.
 
+**Persistance du registre de performance (suite des points 9/10) :**
+
+- `backend/src/db/migrations/migrateCognitiveRecipePerformance.js`
+  (migration `036-cognitive-recipe-performance`) — table
+  `cognitive_recipe_performance` : une ligne par (recette, contexte),
+  agrégée par upsert (runs, gain cumulé, dossiers utiles, clés
+  persistées pour reconstitution) ;
+- `backend/src/services/cognitiveRecipeMemoryService.js` —
+  `recordMissionOutcome` (appelé par la barrier de synthèse après
+  chaque mission : signal STRUCTUREL, pas une note LLM — dossier
+  utile = claims + tests, gain = profondeur des positions testées),
+  `performanceMap` (export au format evolveRecipes/findCandidates,
+  gain MOYEN par run — une recette testée 100 fois au gain moyen faible
+  ne domine pas une recette constamment utile),
+  `recordedRecipes` (reconstitution des recettes depuis le registre) ;
+- `cognitiveSynthesisService.js` — `recordOutcome` en échec doux (la
+  synthèse reste valide si la persistance échoue), émet
+  `COGNITIVE_PERFORMANCE_RECORDED` ;
+- `backend/tests/test_cognitive_recipe_memory.js` — 9 groupes (SQLite
+  en mémoire : upsert, agrégation runs, isolation par contexte,
+  export performance, bout-en-bout registre → genèse).
+
+La boucle est fermée : missions → synthèse → registre persistant →
+performanceMap → évolution NCE / genèse. Les runs runtime du
+benchmark (mesure de sortie E > A/B/C/D) s'appuieront sur ce registre
+pour corréler distance cognitive et qualité des dossiers.
+
 ## Principes
 
 1. **Indépendance doctrinale** — le test : « peut-on expliquer comment
