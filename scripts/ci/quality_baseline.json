@@ -1,10 +1,9 @@
 {
   "backend/bin/agent-runtime-prompt.cjs": {
-    "COMPLEXITY": 2
+    "COMPLEXITY": 1
   },
   "backend/bin/card_games_runtime_repair.js": {
-    "COMPLEXITY": 5,
-    "PARAMETERS": 2
+    "COMPLEXITY": 3
   },
   "backend/bin/genos-apoptosis.cjs": {
     "COMPLEXITY": 1
@@ -19,33 +18,23 @@
     "COMPLEXITY": 1
   },
   "backend/bin/run_agent_world_card_games.js": {
-    "COMPLEXITY": 7,
+    "COMPLEXITY": 5,
     "PARAMETERS": 1
   },
   "backend/src/controllers/authController.js": {
     "COMPLEXITY": 2
   },
-  "backend/src/controllers/commandController.js": {
-    "COMPLEXITY": 2,
-    "PARAMETERS": 1
-  },
   "backend/src/controllers/daemonController.js": {
     "COMPLEXITY": 1
   },
   "backend/src/controllers/deployController.js": {
-    "COMPLEXITY": 5
+    "COMPLEXITY": 2
   },
   "backend/src/controllers/evalController.js": {
     "COMPLEXITY": 1
   },
-  "backend/src/controllers/experimentController.js": {
-    "COMPLEXITY": 2
-  },
-  "backend/src/controllers/frameworkController.js": {
-    "COMPLEXITY": 1
-  },
   "backend/src/controllers/ideController.js": {
-    "COMPLEXITY": 2
+    "COMPLEXITY": 1
   },
   "backend/src/controllers/memoryControllerPrune.js": {
     "COMPLEXITY": 1
@@ -55,9 +44,6 @@
   },
   "backend/src/controllers/ragController.js": {
     "COMPLEXITY": 2
-  },
-  "backend/src/controllers/registryController.js": {
-    "COMPLEXITY": 4
   },
   "backend/src/controllers/releaseController.js": {
     "COMPLEXITY": 4
@@ -72,13 +58,13 @@
     "COMPLEXITY": 4
   },
   "backend/src/controllers/validation/graphValidation.js": {
-    "COMPLEXITY": 6
+    "COMPLEXITY": 5
   },
   "backend/src/controllers/workflowController.js": {
     "COMPLEXITY": 3
   },
   "backend/src/controllers/workspaceController.js": {
-    "COMPLEXITY": 8
+    "COMPLEXITY": 6
   },
   "backend/src/controllers/workspaceControllerFiles.js": {
     "COMPLEXITY": 1
@@ -86,11 +72,8 @@
   "backend/src/db/index.js": {
     "COMPLEXITY": 1
   },
-  "backend/src/db/schema-migrations.js": {
-    "COMPLEXITY": 1
-  },
   "backend/src/db/seed.js": {
-    "COMPLEXITY": 3
+    "COMPLEXITY": 2
   },
   "backend/src/evaluation/locomo_eval_engine.js": {
     "COMPLEXITY": 1
@@ -105,8 +88,7 @@
     "COMPLEXITY": 1
   },
   "backend/src/middleware/errorHandler.js": {
-    "COMPLEXITY": 2,
-    "PARAMETERS": 1
+    "COMPLEXITY": 2
   },
   "backend/src/middleware/security.js": {
     "COMPLEXITY": 1
@@ -114,18 +96,17 @@
   "backend/src/middleware/tenant.js": {
     "COMPLEXITY": 3
   },
+  "backend/src/philosophy/conceptRegistry.js": {
+    "COMPLEXITY": 1
+  },
   "backend/src/routes/ssoRoutes.js": {
-    "COMPLEXITY": 4,
-    "PARAMETERS": 1
-  },
-  "backend/src/services/_shared.js": {
-    "COMPLEXITY": 11
-  },
-  "backend/src/services/aTeamComparativeBarrier.js": {
     "COMPLEXITY": 4
   },
-  "backend/src/services/aTeamCoordinationService.js": {
-    "COMPLEXITY": 1
+  "backend/src/services/_shared.js": {
+    "COMPLEXITY": 7
+  },
+  "backend/src/services/aTeamComparativeBarrier.js": {
+    "COMPLEXITY": 3
   },
   "backend/src/services/aTeamIntegrationObserver.js": {
     "PARAMETERS": 2
@@ -133,88 +114,77 @@
   "backend/src/services/aTeamService.js": {
     "PARAMETERS": 1
   },
+  "backend/src/services/aestheticsService.js": {
+    "COMPLEXITY": 2
+  },
   "backend/src/services/agentCapsuleService.js": {
     "COMPLEXITY": 1
   },
   "backend/src/services/agentDossierService.js": {
     "COMPLEXITY": 3
   },
-  "backend/src/services/agentEvolutionService.js": {
-    "COMPLEXITY": 2,
-    "PARAMETERS": 1
-  },
-  "backend/src/services/agentGitService/hooks.js": {
-    "COMPLEXITY": 1,
-    "PARAMETERS": 1
-  },
   "backend/src/services/agentGitService/index.js": {
-    "COMPLEXITY": 7
+    "COMPLEXITY": 4
   },
   "backend/src/services/agentGitService/refs.js": {
     "COMPLEXITY": 1
   },
+  "backend/src/services/agentMemoryStore.js": {
+    "COMPLEXITY": 2
+  },
   "backend/src/services/agentModelRoutingService.js": {
     "COMPLEXITY": 2,
-    "PARAMETERS": 2
+    "PARAMETERS": 1
   },
   "backend/src/services/agentProcessOutcome.js": {
-    "COMPLEXITY": 2,
-    "PARAMETERS": 1
+    "COMPLEXITY": 1
+  },
+  "backend/src/services/agentProcessSupervisor.js": {
+    "COMPLEXITY": 1
   },
   "backend/src/services/agentRuntimeExecutable.js": {
     "COMPLEXITY": 3
   },
-  "backend/src/services/arenaService.js": {
-    "COMPLEXITY": 7,
-    "PARAMETERS": 1
-  },
   "backend/src/services/arenaSolvers.js": {
-    "COMPLEXITY": 1
-  },
-  "backend/src/services/biocenoseService.js": {
-    "COMPLEXITY": 3
-  },
-  "backend/src/services/biologicalTopologyService.js": {
-    "PARAMETERS": 1
-  },
-  "backend/src/services/biomeCoordinationService.js": {
     "COMPLEXITY": 1
   },
   "backend/src/services/biomimeticToolGatingService.js": {
     "COMPLEXITY": 1
   },
-  "backend/src/services/budgetCoherenceService.js": {
-    "COMPLEXITY": 2
-  },
   "backend/src/services/chromatinLock.js": {
     "COMPLEXITY": 1
+  },
+  "backend/src/services/cinemaMusicService.js": {
+    "PARAMETERS": 1
   },
   "backend/src/services/cognitiveMonitor.js": {
     "COMPLEXITY": 1
   },
+  "backend/src/services/collectiveSignalOrganizationRouter.js": {
+    "COMPLEXITY": 1
+  },
   "backend/src/services/complianceService.js": {
-    "COMPLEXITY": 1,
-    "PARAMETERS": 1
+    "COMPLEXITY": 1
   },
-  "backend/src/services/computerUseService.js": {
-    "COMPLEXITY": 3
-  },
-  "backend/src/services/daemonRepoWorkerService.js": {
+  "backend/src/services/embeddingProvider.js": {
     "COMPLEXITY": 3,
     "PARAMETERS": 1
   },
-  "backend/src/services/embeddingProvider.js": {
-    "COMPLEXITY": 5,
-    "PARAMETERS": 1
+  "backend/src/services/epistemic/core.js": {
+    "PARAMETERS": 2
   },
-  "backend/src/services/episodicMemoryService.js": {
+  "backend/src/services/epistemic/validator.js": {
     "COMPLEXITY": 2
   },
   "backend/src/services/epistemics.js": {
-    "COMPLEXITY": 3
+    "COMPLEXITY": 2
   },
-  "backend/src/services/frameworkAdapters.js": {
-    "COMPLEXITY": 1
+  "backend/src/services/ethicalComparisonPolicyService.js": {
+    "COMPLEXITY": 2
+  },
+  "backend/src/services/ethicalComparisonService.js": {
+    "COMPLEXITY": 1,
+    "PARAMETERS": 1
   },
   "backend/src/services/frameworkRunner.js": {
     "COMPLEXITY": 1,
@@ -222,9 +192,6 @@
   },
   "backend/src/services/geneticsConstants.js": {
     "COMPLEXITY": 1
-  },
-  "backend/src/services/genosCli.js": {
-    "COMPLEXITY": 2
   },
   "backend/src/services/genosCliEnv.js": {
     "COMPLEXITY": 1
@@ -237,16 +204,28 @@
     "COMPLEXITY": 1
   },
   "backend/src/services/hallucinationMonitoringService.js": {
-    "COMPLEXITY": 4
-  },
-  "backend/src/services/holobionteCoordinationService.js": {
-    "COMPLEXITY": 1
+    "COMPLEXITY": 3
   },
   "backend/src/services/inferenceGatewayService.js": {
     "COMPLEXITY": 2
   },
   "backend/src/services/localCodeWorkerService.js": {
     "COMPLEXITY": 1
+  },
+  "backend/src/services/mathematical/goalEpitopeExtractor.js": {
+    "COMPLEXITY": 2
+  },
+  "backend/src/services/mathematical/mathematicalOrganismRuntime.js": {
+    "LINES": 1
+  },
+  "backend/src/services/mathematical/mathematicalPopulation.js": {
+    "COMPLEXITY": 2
+  },
+  "backend/src/services/mathematical/mutationEngine.js": {
+    "COMPLEXITY": 2
+  },
+  "backend/src/services/mathematical/symbiontSolver.js": {
+    "LINES": 1
   },
   "backend/src/services/mcpBioTools/handlers/browserScout.js": {
     "COMPLEXITY": 1
@@ -258,9 +237,6 @@
     "COMPLEXITY": 1
   },
   "backend/src/services/mcpBioTools/handlers/cryptophasia.js": {
-    "COMPLEXITY": 1
-  },
-  "backend/src/services/mcpBioTools/handlers/echolocation.js": {
     "COMPLEXITY": 1
   },
   "backend/src/services/mcpBioTools/handlers/fovealVision.js": {
@@ -296,36 +272,35 @@
   "backend/src/services/mcpExecutor/config.js": {
     "COMPLEXITY": 2
   },
-  "backend/src/services/mcpToolRegistry.js": {
+  "backend/src/services/ontologyStances.js": {
     "COMPLEXITY": 1
-  },
-  "backend/src/services/memoryScoring.js": {
-    "COMPLEXITY": 2,
-    "PARAMETERS": 1
-  },
-  "backend/src/services/metapopulationCoordinationService.js": {
-    "COMPLEXITY": 2
   },
   "backend/src/services/orchestrationActionExecutor.js": {
-    "COMPLEXITY": 2
-  },
-  "backend/src/services/orchestrationCoverageService.js": {
-    "COMPLEXITY": 1
-  },
-  "backend/src/services/orchestrationDecisionService.js": {
     "COMPLEXITY": 1
   },
   "backend/src/services/pathSafety.js": {
     "COMPLEXITY": 1
   },
-  "backend/src/services/platformSafetyService.js": {
-    "COMPLEXITY": 4
+  "backend/src/services/philosophicalPromotionGuard.js": {
+    "COMPLEXITY": 1
+  },
+  "backend/src/services/philosophy/deconstructionService.js": {
+    "COMPLEXITY": 1
+  },
+  "backend/src/services/philosophy/discourseService.js": {
+    "COMPLEXITY": 1
+  },
+  "backend/src/services/philosophy/pragmaticsService.js": {
+    "COMPLEXITY": 1
+  },
+  "backend/src/services/philosophy/semioticsService.js": {
+    "COMPLEXITY": 1
+  },
+  "backend/src/services/philosophyPromotionPolicyService.js": {
+    "COMPLEXITY": 1
   },
   "backend/src/services/primitiveHandlers/detection/cycleDetection.js": {
     "COMPLEXITY": 3
-  },
-  "backend/src/services/primitiveHandlers/fundamentals/index.js": {
-    "COMPLEXITY": 6
   },
   "backend/src/services/primitiveHandlers/searchTreeOps.js": {
     "COMPLEXITY": 2
@@ -340,36 +315,15 @@
     "COMPLEXITY": 1
   },
   "backend/src/services/primitiveHandlers/strategyOptimization.js": {
-    "COMPLEXITY": 2
+    "COMPLEXITY": 1
   },
   "backend/src/services/primitiveHandlers/strategyPlanning.js": {
-    "COMPLEXITY": 5
-  },
-  "backend/src/services/primitiveHandlers/strategyRemaining/index.js": {
-    "COMPLEXITY": 1
-  },
-  "backend/src/services/primitiveHandlers/strategySwarm.js": {
-    "COMPLEXITY": 1
-  },
-  "backend/src/services/primitiveHandlers/temporal.js": {
-    "COMPLEXITY": 5,
-    "PARAMETERS": 1
+    "COMPLEXITY": 3
   },
   "backend/src/services/proactiveGitHubAnalyst.js": {
     "COMPLEXITY": 2
   },
-  "backend/src/services/provenanceResolver.js": {
-    "COMPLEXITY": 3,
-    "PARAMETERS": 2
-  },
   "backend/src/services/resilienceDrift.js": {
-    "COMPLEXITY": 1
-  },
-  "backend/src/services/resilienceService.js": {
-    "COMPLEXITY": 3,
-    "PARAMETERS": 4
-  },
-  "backend/src/services/safeDebuggingProofService.js": {
     "COMPLEXITY": 1
   },
   "backend/src/services/sandboxCommandPolicy.js": {
@@ -378,40 +332,23 @@
   "backend/src/services/sleepCycle.js": {
     "COMPLEXITY": 1
   },
-  "backend/src/services/specValidator.js": {
-    "COMPLEXITY": 8,
-    "PARAMETERS": 1
-  },
   "backend/src/services/strategyCoherenceValidator.js": {
     "COMPLEXITY": 1
   },
   "backend/src/services/strategyExecutionEvents.js": {
     "COMPLEXITY": 2
   },
-  "backend/src/services/swarmMetricsService.js": {
-    "COMPLEXITY": 5
-  },
-  "backend/src/services/swarmSentinelService.js": {
-    "COMPLEXITY": 3
-  },
   "backend/src/services/swarmTopologyAlgorithms.js": {
     "COMPLEXITY": 1
   },
   "backend/src/services/synapticSpikeTrainService.js": {
-    "COMPLEXITY": 2,
-    "PARAMETERS": 1
+    "COMPLEXITY": 1
   },
   "backend/src/services/synapticTransmissionService.js": {
     "COMPLEXITY": 2
   },
-  "backend/src/services/topologySessionTools.js": {
-    "COMPLEXITY": 1
-  },
   "backend/src/services/trinityComparativeBarrier.js": {
     "COMPLEXITY": 5
-  },
-  "backend/src/services/trinityService.js": {
-    "COMPLEXITY": 1
   },
   "backend/src/services/vfsSandboxService.js": {
     "COMPLEXITY": 4,
@@ -423,12 +360,6 @@
   },
   "backend/src/services/workerFailureRecoveryService.js": {
     "COMPLEXITY": 3
-  },
-  "backend/src/services/workerGarageService.js": {
-    "COMPLEXITY": 1
-  },
-  "backend/src/services/workflowConditions.js": {
-    "COMPLEXITY": 1
   },
   "backend/src/services/workspaceDiagnosticsService.js": {
     "COMPLEXITY": 1
@@ -461,12 +392,6 @@
   "backend/tests/test_grpc_services.js": {
     "COMPLEXITY": 1
   },
-  "backend/tests/test_reproduction_evolution.js": {
-    "COMPLEXITY": 1
-  },
-  "backend/tests/test_runtime_budget_and_influence.js": {
-    "PARAMETERS": 1
-  },
   "backend/tests/test_security_coevolution_matrix.js": {
     "COMPLEXITY": 1
   },
@@ -476,17 +401,8 @@
   "backend/tests/test_vector_search_coherence.js": {
     "COMPLEXITY": 1
   },
-  "backend/tests/verify_agent_lifecycle.js": {
-    "PARAMETERS": 1
-  },
-  "crates/genos-biology/src/spore.rs": {
-    "PARAMETERS": 1
-  },
   "crates/genos-cli/src/commands/biomimicry.rs": {
     "COMPLEXITY": 1
-  },
-  "crates/genos-cli/src/commands/biomimicry_ops.rs": {
-    "PARAMETERS": 2
   },
   "crates/genos-cli/src/commands/hallucination.rs": {
     "COMPLEXITY": 1
@@ -494,16 +410,13 @@
   "crates/genos-cli/src/commands/reproduction.rs": {
     "COMPLEXITY": 1
   },
-  "crates/genos-mcp/src/executor.rs": {
-    "LINES": 1
+  "crates/genos-mcp/src/main.rs": {
+    "COMPLEXITY": 1
   },
   "crates/genos-mcp/src/tools.rs": {
     "COMPLEXITY": 1
   },
   "crates/genos-orchestrator/tests/recruitment.rs": {
-    "PARAMETERS": 1
-  },
-  "crates/genos-signal/src/kuramoto.rs": {
     "PARAMETERS": 1
   },
   "crates/genos-simple-cli/src/handlers/advanced.rs": {
@@ -512,13 +425,10 @@
   "crates/genos-simple-cli/src/handlers/query.rs": {
     "COMPLEXITY": 1
   },
-  "crates/genos-store/src/cryptobiosis.rs": {
-    "PARAMETERS": 2
+  "genos_autoscan.js": {
+    "COMPLEXITY": 1
   },
-  "scripts/analysis/refactor.mjs": {
-    "PARAMETERS": 1
-  },
-  "scripts/clean-artifacts.mjs": {
+  "mcp/argumentValidation.js": {
     "COMPLEXITY": 1
   },
   "scripts/orchestration/anthony_orchestrator.mjs": {
@@ -526,11 +436,5 @@
   },
   "scripts/orchestration/orchestrator_cli.mjs": {
     "COMPLEXITY": 2
-  },
-  "scripts/tools/genos_mcp_provider.py": {
-    "PARAMETERS": 1
-  },
-  "scripts/tools/knowledge_rag.py": {
-    "COMPLEXITY": 1
   }
 }

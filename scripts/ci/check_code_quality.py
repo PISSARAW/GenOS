@@ -168,14 +168,16 @@ def staged_paths(root: Path) -> list[Path]:
 
 
 def all_paths(root: Path) -> list[Path]:
-    import os
+    """Lister les fichiers suivis + non-suivis non-ignorés (respecte .gitignore)."""
+    result = subprocess.run(
+        ['git', 'ls-files', '--cached', '--others', '--exclude-standard'],
+        cwd=root, check=True, capture_output=True, text=True,
+    )
     paths = []
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in EXCLUDED_PARTS and not d.startswith('.genos-')]
-        for filename in filenames:
-            p = Path(dirpath) / filename
-            if is_source(p):
-                paths.append(p)
+    for line in result.stdout.splitlines():
+        p = root / line
+        if p.exists() and is_source(p):
+            paths.append(p)
     return paths
 
 
