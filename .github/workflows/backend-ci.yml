@@ -91,6 +91,25 @@ jobs:
         working-directory: backend
         run: npm run test:validation
 
+  agent-git:
+    name: Agent Git SQLite e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        run: npm ci --prefix backend
+
+      - name: Run agent-git suites (real SQLite)
+        working-directory: backend
+        run: npm run test:agent-git
+
   notes:
     name: CI notes
     runs-on: ubuntu-latest

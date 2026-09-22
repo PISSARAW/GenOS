@@ -7,6 +7,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "test": "node tests/test_backend.js",
+    "test:agent-git": "node tests/test_agent_git_sqlite_e2e.js && node tests/test_agent_git_foundations.js && node tests/test_agent_git_invariants_p0.js && node tests/test_agent_git_head_index.js && node tests/test_agent_git_state_operations.js && node tests/test_agent_git_advanced_operations.js && node tests/test_agent_git_advanced_features.js && node tests/test_agent_git_remote_ssrf.js",
     "test:quality": "node tests/run_quality_suite.js",
     "test:validation": "node tests/run_validation_suite.js all",
     "test:security": "node tests/run_validation_suite.js security",
