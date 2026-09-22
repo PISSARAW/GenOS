@@ -2,29 +2,25 @@
 // MCP-to-backend bridge. It owns one complete GenOS mission, including the
 // authority contract and bounded worker fleet, then returns its telemetry.
 const path = require('path');
-const { spawn } = require('child_process');
 const { getDatabase, closeDatabase } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const { createOrchestratorId } = require('../src/services/orchestratorIdFactory');
-const contracts = require('../src/services/strategyContractService');
-const workerGarage = require('../src/services/workerGarageService');
-const aTeamService = require('../src/services/aTeamService');
-const trinityService = require('../src/services/trinityService');
-const biologicalMode = require('../src/services/biologicalModeService');
-const dynamicOrganization = require('../src/services/dynamicOrganizationService');
 const telemetry = require('../src/services/telemetryObserver');
-const strategyAdaptation = require('../src/services/strategyAdaptationService');
-const userProgress = require('../src/services/userProgressService');
-const orchestrationCoverage = require('../src/services/orchestrationCoverageService');
-const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
-const { maybeDispatchContinuation } = require('./homeostasisContinuationHelper.cjs');
-const { handleAction, handleBackground, initializeMission } = require('./orchestratorActions.cjs');
-const { summarizeAgents } = require('../src/services/orchestratorOutcome');
 const missionContinuity = require('../src/services/missionContinuityService');
-const homeostasisContinuation = require('../src/services/homeostasisContinuationService');
+const { maybeDispatchContinuation } = require('./homeostasisContinuationHelper.cjs');
+const { waitForContinuationAndReevaluate } = require('./continuationFeedbackLoop.cjs');
+const { handleAction, handleBackground, initializeMission } = require('./orchestratorActions.cjs');
+const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
+const helpers = require('./orchestratorMissionHelpers.cjs');
 
-// A stray async DB write (SQLITE_BUSY, closed handle at shutdown, ...) must not
-// crash the whole mission: log it and let the mission timeout/finalization run.
+const {
+  buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
+  prepareMission, startOrchestratorMission,
+  buildMissionContext, buildContinuity, emitCompletionEvent,
+  gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup,
+  emitTopologyEvent, tokenUsage
+} = helpers;
+
 process.on('unhandledRejection', (reason) => {
   console.error('[genos-orchestrate] Unhandled rejection:', reason && reason.stack ? reason.stack : reason);
 });
@@ -45,35 +41,18 @@ try {
   process.stderr.write(`[genos-orchestrate] Invalid JSON payload argument: ${error.message}\n`);
   process.exit(1);
 }
-// A biological strategy hint is a first-class dispatch request. Older MCP
-// clients only knew genos_orchestrate and sent { strategy: "biocenose" }, so
-// route that shape to the same verified biological handler instead of silently
-// dropping the hint and building an unrelated technical contract.
+
 const biologicalModes = new Set(['biome', 'syncytium', 'holobionte', 'biocenose', 'rhizome', 'metapopulation']);
 const strategy = String(request.strategy || '').toLowerCase();
-const action = request.action || (biologicalModes.has(strategy)
-  ? 'dispatch_biological'
-  : 'orchestrate');
+const action = request.action || (biologicalModes.has(strategy) ? 'dispatch_biological' : 'orchestrate');
 const task = String(request.mission || request.task || 'Autonomous GenOS orchestration');
 let orchestratorId = request.orchestratorId;
 let id = action === 'dispatch_worker' ? request.workerId : null;
-// Accept the policy at the top level (current schema) and inside `arguments`
-// while older long-lived MCP clients refresh their cached tool schema.
 const policyRequest = request.arguments && typeof request.arguments === 'object' ? request.arguments : request;
 const allowedCommands = normalizeAllowedCommands(policyRequest.allowed_commands) || [];
 const allowFileEdits = policyRequest.allow_file_edits === true;
 
-// This bridge creates a root authority boundary. A delegated worker must never
-// be able to enter it, even if a globally configured/public GenOS MCP endpoint
-// accidentally leaks into the worker's Codex process.
-const workerSafeActions = new Set([
-  'organization_publish',
-  'organization_inbox',
-  'organization_state',
-  // Philosophy is a bounded registry/query surface; workers must not recurse
-  // into orchestration, but may use this read-only MCP action.
-  'philosophy'
-]);
+const workerSafeActions = new Set(['organization_publish', 'organization_inbox', 'organization_state', 'philosophy']);
 if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' && !workerSafeActions.has(action)) {
   const owner = process.env.GENOS_ORCHESTRATOR_AGENT_ID || 'its orchestrator';
   const msg = `GenOS worker recursion blocked: delegated workers must return evidence to ${owner}, not create another orchestrator.`;
@@ -91,8 +70,6 @@ async function waitForCompletion(db) {
   while (Date.now() < deadline) {
     const agents = await db.all('SELECT id, status FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
     if (agents.length && agents.every((agent) => ['blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed', 'quarantined'].includes(agent.status))) return agents;
-    // Mission continuity: emit vital pulses every ~5s so the nervous system
-    // observes the living fleet while the mission runs.
     pulseTick += 1;
     if (pulseTick % 10 === 0) {
       try { await missionContinuity.observeMissionPulses(db, id); } catch (_) {}
@@ -100,14 +77,6 @@ async function waitForCompletion(db) {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('GenOS orchestrator timed out');
-}
-
-function tokenUsage(runs) {
-  const executionRuns = runs.map((run) => {
-    let metrics = {}; try { metrics = JSON.parse(run.metrics_json || '{}'); } catch (_) {}
-    return { agentId: run.agent_id, status: run.status, tokens: Number(metrics.tokens || 0) };
-  });
-  return { executionRuns, totalTokens: executionRuns.reduce((sum, run) => sum + run.tokens, 0), allRunsCompleted: executionRuns.length > 0 && executionRuns.every((run) => run.status === 'completed') };
 }
 
 async function prepareRuntime(initDb) {
@@ -130,230 +99,88 @@ async function prepareRuntime(initDb) {
   if (!id) id = action === 'dispatch_worker' ? createOrchestratorId(`worker_${orchestratorId}`) : orchestratorId;
 }
 
+async function evaluateMissionContinuity(opts) {
+  const { db, id, task, outcome } = opts;
+  let continuity = null;
+  let mission = null;
+  let completionGate = { allowed: false, reason: 'continuity evaluation did not run' };
+  let evaluation = null;
+  let organism = null;
+  try {
+    const context = buildMissionContext(outcome, policyRequest, request);
+    mission = missionContinuity.buildMissionInput(id, task, {
+      completionContract: context.completionContract,
+      invariants: context.invariants,
+      safetyConstraints: context.safetyConstraints,
+      context: context.context
+    });
+    const evalResult = await missionContinuity.evaluateContinuity(db, mission);
+    evaluation = evalResult;
+    organism = evalResult.organism;
+    continuity = buildContinuity(evalResult);
+    const gate = await missionContinuity.transitionMissionToComplete(db, { organism: evalResult.organism, mission, context: context.context });
+    completionGate = { allowed: gate.allowed, reason: gate.reason || null };
+    emitCompletionEvent({ id, gateAllowed: gate.allowed, evaluation: evalResult, continuity, completionGate });
+  } catch (continuityError) {
+    continuity = { status: 'unknown', error: continuityError.message };
+    completionGate = { allowed: false, reason: continuityError.message };
+  }
+  return { continuity, completionGate, evaluation, organism, mission };
+}
+
 async function executeMission(db, state) {
   await initializeMission({ db, action, orchestratorId, task });
-  const actionContext = buildActionContext();
-  const handled = await runActionWithCleanup(actionContext, state);
-  if (handled) return;
+  const actionContext = buildActionContext({ db, action, request, task, orchestratorId, id, waitForCompletion });
+  const handled = await runActionWithCleanup(actionContext, handleAction, state);
+  if (handled) {
+    emitTopologyEvent(actionContext.orchestratorId, actionContext.action);
+    return;
+  }
 
-  const nceEnhancements = await applyNceEnhancements();
-  const { enhancedPrompt, nceMetadata } = buildEnhancedPrompt(nceEnhancements);
-  const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs } = await prepareMission({ db, enhancedPrompt });
-  await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs });
+  const nceEnhancements = await applyNceEnhancements(buildNceInput(request), db, orchestratorId);
+  const { enhancedPrompt, nceMetadata } = buildEnhancedPrompt(nceEnhancements, task);
+  const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request });
+  await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime });
   const agents = await waitForCompletion(db);
+  const { summarizeAgents } = require('../src/services/orchestratorOutcome');
   const outcome = summarizeAgents(agents);
-  const { continuity, completionGate, evaluation, organism } = await evaluateMissionContinuity({ db, id, task, outcome });
+  const result = await evaluateMissionContinuity({ db, id, task, outcome });
+  let continuity = result.continuity;
+  let completionGate = result.completionGate;
+  let evaluation = result.evaluation;
+  let organism = result.organism;
+  const mission = result.mission;
   const { telemetryRows, runs, coverage } = await gatherTelemetryAndCoverage(db, id);
   const missionSuccess = completionGate.allowed === true;
   let finalVerdict = missionSuccess ? outcome.outcome : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.outcome);
 
-  // Homeostasis continuation: when the gate blocks, dispatch a bounded recovery
-  // worker to resolve the deviation instead of exiting with failure.
-  const continuationResult = await maybeDispatchContinuation({
+  // Homeostasis continuation loop: dispatch a bounded recovery worker,
+  // wait for it, then re-evaluate homeostasis.
+  let continuationResult = await maybeDispatchContinuation({
     db, orchestratorId: id, task, request, mission: { ...mission, id },
     completionGate, evaluation, organism, finalVerdict, continuity
   });
   finalVerdict = continuationResult.finalVerdict;
-  if (continuationResult.dispatched) {
+  if (continuationResult.dispatched && continuationResult.dispatched.targetAgentId) {
     if (!continuity) continuity = {};
     continuity.dispatched = continuationResult.dispatched;
-  }
-
-  emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate });
-  if (!missionSuccess) process.exitCode = 2;
-
-  function buildActionContext() {
-    return { db, action, request, task, orchestratorId, id, repoRoot: path.resolve(__dirname, '../..'), bridgePath: __filename, waitForCompletion };
-  }
-
-  async function runActionWithCleanup(actionContext, state) {
-    let handled = false;
-    try {
-      handled = await handleAction(actionContext);
-    } finally {
-      if (actionContext.delegatedWorkerId) state.delegatedWorkerId = actionContext.delegatedWorkerId;
-      if (actionContext.reusedWorker) state.reusedWorker = true;
-    }
-    if (handled) {
-      emitTopologyEvent(actionContext.orchestratorId);
-    }
-    return handled;
-  }
-
-  function emitTopologyEvent(orchestratorId) {
-    const topologyEvent = {
-      dispatch_team: ['TOPOLOGY_DISPATCH_ACCEPTED', 'DISPATCH_A_TEAM', 'A-Team topology accepted.'],
-      dispatch_trinity: ['TOPOLOGY_DISPATCH_ACCEPTED', 'DISPATCH_TRINITY', 'Trinity topology accepted.'],
-      dispatch_biological: ['BIOLOGICAL_MISSION_COMPLETED', 'COMPLETE_BIOLOGICAL_MODE', 'Biological topology completed.']
-    }[action];
-    if (topologyEvent) telemetry.emitEvent({ eventType: topologyEvent[0], agentId: orchestratorId, action: topologyEvent[1], detail: topologyEvent[2], payload: { action }, severity: 'info' });
-  }
-
-  async function applyNceEnhancements() {
-    const nceIntegration = require('../src/services/nceIntegrationService');
-    const nceInput = buildNceInput();
-    try {
-      return await nceIntegration.enhanceMissionWithNCE(nceInput, db);
-    } catch (nceErr) {
-      telemetry.emitEvent({ eventType: 'NCE_ENHANCEMENT_ERROR', agentId: orchestratorId, action: 'NCE_SKIPPED', detail: nceErr.message, severity: 'warn' });
-      return {};
-    }
-  }
-
-  function buildNceInput() {
-    const get = (obj, ...keys) => {
-      for (const k of keys) {
-        const v = obj?.[k];
-        if (v !== undefined && v !== null) return v;
-      }
-      return undefined;
-    };
-    return {
-      prompt: task,
-      domain: get(request, 'domain', 'problem_domain'),
-      keywords: request.keywords || [],
-      budget: get(request, 'executionBudget', 'execution_budget') || {},
-      explorationDomains: get(request, 'exploration_domains', 'explorationDomains'),
-      knownConcepts: get(request, 'known_concepts', 'knownConcepts'),
-      existingCapabilities: get(request, 'existing_capabilities', 'existingCapabilities'),
-      genome: get(request, 'agent_dna', 'agentDna'),
-      environment: get(request, 'environment_context', 'environmentContext'),
-      culturalTraits: get(request, 'cultural_traits', 'culturalTraits'),
-      nceOptions: get(request, 'nce_options', 'nceOptions'),
-    };
-  }
-
-  function buildEnhancedPrompt(nceEnhancements) {
-    const { buildPromptEnrichment, hasResult } = require('../src/services/ncePromptService');
-    let enhancedPrompt = task;
-    const nceMetadata = {};
-    if (nceEnhancements && Object.keys(nceEnhancements).length > 0) {
-      const promptAdditions = buildPromptEnrichment(nceEnhancements);
-      if (promptAdditions) enhancedPrompt = task + promptAdditions;
-      if (hasResult(nceEnhancements.curiosity?.ranking)) nceMetadata.curiosity = nceEnhancements.curiosity.selectedDomainId;
-      if (hasResult(nceEnhancements.representations)) nceMetadata.representations = nceEnhancements.representations.length;
-      if (hasResult(nceEnhancements.exaptations)) nceMetadata.exaptations = nceEnhancements.exaptations.length;
-      if (hasResult(nceEnhancements.environments)) nceMetadata.environments = nceEnhancements.environments.length;
-      if (hasResult(nceEnhancements.culturalTraits)) nceMetadata.culturalTraits = nceEnhancements.culturalTraits.length;
-    }
-    return { enhancedPrompt, nceMetadata };
-  }
-
-  async function prepareMission(options = {}) {
-    const { db, enhancedPrompt } = options;
-    await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, enhancedPrompt);
-    await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = COALESCE(metadata_json, '{}') WHERE id = ?`, enhancedPrompt, id);
-    const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
-    const requestTimeoutMs = policyRequest.timeoutMs || request.timeoutMs;
-    const missionBudget = { ...(policyRequest.executionBudget || policyRequest.execution_budget || {}) };
-    applyLatencyBudget(missionBudget, requestTimeoutMs);
-    const useLocalRuntime = checkLocalRuntime();
-    return { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs };
-  }
-
-  function applyLatencyBudget(budget, timeoutMs) {
-    if (timeoutMs && !budget.latencyMs) {
-      budget.latencyMs = Math.max(1000, Number(timeoutMs) - 4000);
-    }
-  }
-
-  function checkLocalRuntime() {
-    const executor = String(policyRequest.executor || request.executor || '').trim().toLowerCase();
-    return executor === 'local' || policyRequest.local_runtime === true
-      || /^(1|true)$/i.test(String(process.env.GENOS_ORCHESTRATOR_LOCAL || ''))
-      || String(process.env.GENOS_AGENT_EXECUTOR || '').trim().toLowerCase() === 'local';
-  }
-
-  async function startOrchestratorMission(options = {}) {
-    const { db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs } = options;
-    await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: enhancedPrompt, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider });
-  }
-
-  async function evaluateMissionContinuity(options = {}) {
-    const { db, id, task, outcome } = options;
-    let continuity = null;
-    let completionGate = { allowed: false, reason: 'continuity evaluation did not run' };
-    try {
-      const context = buildMissionContext(outcome);
-      const mission = missionContinuity.buildMissionInput(id, task, {
-        completionContract: context.completionContract,
-        invariants: context.invariants,
-        safetyConstraints: context.safetyConstraints,
-        context: context.context
-      });
-      const evaluation = await missionContinuity.evaluateContinuity(db, mission);
-      continuity = buildContinuity(evaluation);
-      const gate = await missionContinuity.transitionMissionToComplete(db, { organism: evaluation.organism, mission, context: context.context });
-      completionGate = { allowed: gate.allowed, reason: gate.reason || null };
-      emitCompletionEvent({ id, gateAllowed: gate.allowed, evaluation, continuity, completionGate });
-    } catch (continuityError) {
-      continuity = { status: 'unknown', error: continuityError.message };
-      completionGate = { allowed: false, reason: continuityError.message };
-    }
-    return { continuity, completionGate, evaluation: evaluation || null, organism: evaluation ? evaluation.organism : null };
-  }
-
-  function buildMissionContext(outcome) {
-    return {
-      completionContract: policyRequest.completionContract || request.completionContract || null,
-      invariants: policyRequest.invariants || request.invariants || null,
-      safetyConstraints: policyRequest.safetyConstraints || request.safetyConstraints || null,
-      context: {
-        missionOutcome: outcome.success === true,
-        flags: { missionOutcome: outcome.success === true },
-        evidence: outcome.success === true ? ['mission_outcome'] : [],
-        functionalChecks: outcome.functionalChecks || {},
-        structuralChecks: outcome.structuralChecks || {}
-      }
-    };
-  }
-
-  function buildContinuity(evaluation) {
-    return {
-      status: evaluation.status,
-      homeostasisSatisfied: evaluation.state.homeostasisSatisfied,
-      missingEvidence: evaluation.state.evidence ? evaluation.state.evidence.missing : [],
-      failedInvariants: evaluation.state.failedInvariants.map((f) => f.label || f.id)
-    };
-  }
-
-  function emitCompletionEvent({ id, gateAllowed, evaluation, continuity, completionGate }) {
-    telemetry.emitEvent({
-      eventType: gateAllowed ? 'MISSION_COMPLETED' : 'MISSION_COMPLETION_BLOCKED',
-      agentId: id,
-      action: gateAllowed ? 'COMPLETE' : 'COMPLETION_GATE',
-      detail: gateAllowed
-        ? 'Mission homeostasis satisfied: completion authorized.'
-        : `Completion blocked by homeostasis gate: ${evaluation.status}`,
-      payload: { ...continuity, completionGate },
-      sessionId: id,
-      severity: gateAllowed ? 'info' : 'warning'
+    const reeval = await waitForContinuationAndReevaluate({
+      db, id, task,
+      evaluateMissionContinuity,
+      summarizeAgents,
+      continuationResult
     });
+    continuity = reeval.continuity || continuity;
+    completionGate = reeval.completionGate || completionGate;
+    evaluation = reeval.evaluation || evaluation;
+    organism = reeval.organism || organism;
+    if (completionGate.allowed === true) {
+      finalVerdict = 'completed';
+    }
   }
 
-  async function gatherTelemetryAndCoverage(db, id) {
-    const telemetryRows = await db.all('SELECT event_type, action, detail, severity, payload_json FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
-    const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
-    const coverage = await orchestrationCoverage.auditMission(db, id).catch((err) => ({ error: err.message, verdict: 'audit-incomplete' }));
-    telemetry.emitEvent({ eventType: 'ORCHESTRATION_AUDIT_COMPLETED', agentId: id, action: 'COVERAGE_AUDIT', detail: `Orchestration coverage verdict: ${coverage.verdict}`, severity: 'info', payload: { observedTools: coverage.protocol?.observedCount || 0, verdict: coverage.verdict } });
-    return { telemetryRows, runs, coverage };
-  }
-
-  function emitFinalTelemetry(options = {}) {
-    const { telemetryRows, runs, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate } = options;
-    const nceInfo = buildNceInfo(nceEnhancements);
-    process.stdout.write(JSON.stringify({ orchestratorId: id, agents, success: missionSuccess, verdict: finalVerdict, completionGate, continuity, telemetry: telemetryRows, nce: nceInfo, token_usage: tokenUsage(runs), coverage }));
-  }
-
-  function buildNceInfo(nceEnhancements) {
-    return {
-      enhancementsApplied: Object.keys(nceEnhancements).filter((k) => nceEnhancements[k] && k !== 'error').length,
-      curiosityRanking: nceEnhancements.curiosity?.ranking?.length || 0,
-      representations: nceEnhancements.representations?.length || 0,
-      exaptations: nceEnhancements.exaptations?.length || 0,
-      environments: nceEnhancements.environments?.length || 0
-    };
-  }
+  emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate, id });
+  if (!missionSuccess && finalVerdict !== 'completed') process.exitCode = 2;
 }
 
 async function cleanupFailure(db, state, error) {

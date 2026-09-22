@@ -161,6 +161,78 @@ test('maybeDispatchContinuation: continuation dispatched when not immune-blocked
   assert.ok(result.dispatched.targetAgentId);
 });
 
+test('classifyDeviation: unsafe takes priority over failed invariants', () => {
+  const d = continuation.classifyDeviation({
+    status: 'unsafe',
+    state: { failedInvariants: [{ id: 'safety_x' }] }
+  });
+  assert.strictEqual(d, 'unsafe_action', 'unsafe status must produce unsafe_action, not failed_proof');
+});
+
+test('empty contract cannot complete', async () => {
+  const db = await getDatabase(TMP_DB);
+  const { evaluateContract } = require('../src/services/homeostasisContractService');
+  const state = evaluateContract({ invariants: [], requiredEvidence: [] }, { flags: {} });
+  assert.strictEqual(state.homeostasisSatisfied, false, '0 invariants must not satisfy homeostasis');
+  assert.strictEqual(state.ratio, 0, 'ratio must be 0 when no invariants exist');
+});
+
+test('continuation budget is enforced', async () => {
+  const db = await getDatabase(TMP_DB);
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, current_task) VALUES (?, 'orch_budget', 'orchestrator', 'idle', 'orchestrator', NULL, NULL, 'standard', 'TypeScript', 'Branch', 'test')`, 'orch_budget');
+  const org = organism.newOrganism({ genome: { objective: 'x' } });
+  let lastResult;
+  // Simulate successive re-evaluations with new state versions (as would happen
+  // after each continuation worker terminates and homeostasis is re-evaluated).
+  for (let i = 0; i < 5; i++) {
+    lastResult = await continuation.dispatchHomeostasisContinuation({
+      db,
+      orchestratorId: 'orch_budget',
+      mission: { id: 'm_budget', task: 'test task', objective: 'test' },
+      organismState: org,
+      evaluation: { status: 'evidence_missing', state: { evidence: { satisfied: false }, stateVersion: `v${i}` } }
+    });
+  }
+  assert.ok(lastResult.exhausted, 'after exceeding MAX_HOMEOSTASIS_CONTINUATIONS, dispatch must report exhausted');
+  assert.strictEqual(lastResult.targetAgentId, null, 'exhausted dispatch must not create an agent');
+});
+
+test('continuation idempotency: same stateVersion dispatches once', async () => {
+  const db = await getDatabase(TMP_DB);
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, current_task) VALUES (?, 'orch_idem', 'orchestrator', 'idle', 'orchestrator', NULL, NULL, 'standard', 'TypeScript', 'Branch', 'test')`, 'orch_idem');
+  const org = organism.newOrganism({ genome: { objective: 'x' } });
+  const result1 = await continuation.dispatchHomeostasisContinuation({
+    db,
+    orchestratorId: 'orch_idem',
+    mission: { id: 'm_idem', task: 'test task', objective: 'test' },
+    organismState: org,
+    evaluation: { status: 'evidence_missing', state: { evidence: { satisfied: false }, stateVersion: 'idem_v1' } }
+  });
+  assert.ok(result1.targetAgentId, 'first dispatch must create agent');
+  const result2 = await continuation.dispatchHomeostasisContinuation({
+    db,
+    orchestratorId: 'orch_idem',
+    mission: { id: 'm_idem', task: 'test task', objective: 'test' },
+    organismState: org,
+    evaluation: { status: 'evidence_missing', state: { evidence: { satisfied: false }, stateVersion: 'idem_v1' } }
+  });
+  assert.ok(result2.idempotent, 'second dispatch with same stateVersion must be idempotent');
+  // Only one continuation_queue record for this (mission, stateVersion)
+  const rows = await db.all(`SELECT id FROM continuation_queue WHERE json_extract(mission_json, '$.homeostasisStateVersion') = 'idem_v1'`);
+  assert.strictEqual(rows.length, 1, 'idempotent dispatch must not create a duplicate continuation record');
+});
+
+test('isImmuneBlocked rejects continuation when category is prohibited', () => {
+  let org = organism.newOrganism({ genome: { objective: 'x' } });
+  org = immuneMemory.enrollImmuneMemory(org, {
+    failureCategory: 'homeostasis:missing_work',
+    strategy: 'homeostasis_continuation',
+    prohibitedExactRetry: true
+  });
+  const blocked = continuation.isImmuneBlocked(org, 'missing_work', 'homeostasis_continuation');
+  assert.strictEqual(blocked, true, 'isImmuneBlocked must return true when immune memory prohibits');
+});
+
 async function main() {
   let passed = 0, failed = 0;
   for (const entry of TESTS) {

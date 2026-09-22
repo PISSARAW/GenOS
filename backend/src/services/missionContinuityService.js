@@ -6,7 +6,7 @@
  * l'homéostasie, émet les pulses vitaux et décide des modes de survie.
  */
 
-const { newOrganism, recordScar, recordCheckpoint, isFunctionCovered } = require('./missionOrganismService');
+const { newOrganism, buildPhenotype, buildMemorySystem, buildSurvivalSystem, buildImmuneSystem, buildNervousSystem, recordScar, recordCheckpoint, isFunctionCovered } = require('./missionOrganismService');
 const { buildMissionHomeostasis, attachHomeostasisToOrganism, evaluateMissionHomeostasis } = require('./homeostasisService');
 const vitalSignals = require('./vitalSignalsService');
 const immuneGate = require('./immuneGateService');
@@ -117,16 +117,6 @@ async function assembleOrganism(db, mission) {
   const organism = newOrganism({ id: organismId, genome: buildGenome(mission), tissues: cells });
   await persistOrganismState(db, organism);
   return organism;
-}
-
-function buildPhenotype(input = {}) {
-  return {
-    id: `phenotype_${crypto.randomUUID()}`,
-    currentPlan: input.currentPlan || null,
-    activeExecution: input.activeExecution || null,
-    currentState: input.currentState || null,
-    expressedAt: new Date().toISOString()
-  };
 }
 
 async function persistOrganismState(db, organism) {
