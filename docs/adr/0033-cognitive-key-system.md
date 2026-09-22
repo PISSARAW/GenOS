@@ -211,7 +211,9 @@ n'interviendrait qu'après validation expérimentale (point 8 du plan).
 4. ✅ Branchement A-Team/Trinity via le phénotype (cette révision)
 5. ✅ Compositions maximisant la distance cognitive (cette révision)
 6. ✅ Confrontation + synthèse par l'orchestrateur (cette révision)
-7. Benchmark par ablation (A-F)
+7. ✅ Benchmark par ablation (A-F) — couche structurelle (cette
+   révision : harness + tests + README ; la mesure de sortie requiert
+   des runs runtime complets, protocole documenté)
 8. Compilation progressive des 347 concepts
 9. Mutation/recombinaison/exaptation NCE des recettes
 10. Création de nouvelles clés, après validation expérimentale
