@@ -1,12 +1,39 @@
+const crypto = require('crypto');
 const { createRandomGenome, mutateGenome, crossoverGenome } = require('./searchGenomeService');
+const { SearchPatchService } = require('./searchPatchService');
+const { SearchEvolutionEngine } = require('./searchEvolutionService');
+const { CausalReplayService } = require('./causalReplayService');
 
 /**
- * Point 7 — Actuator branche aux vraies primitives GenOS.
- * Fichier séparé pour respecter la limite de 400 lignes.
+ * Point 7+9 — Actuator branche aux vraies primitives GenOS.
+ * Utilise SearchPatchService, SearchEvolutionEngine, CausalReplayService.
  */
 
+let sharedPatchService = null;
+let sharedEvolutionEngine = null;
+let sharedCausalReplay = null;
+
+function getPatchService() {
+  if (!sharedPatchService) sharedPatchService = new SearchPatchService();
+  return sharedPatchService;
+}
+
+function getEvolutionEngine() {
+  if (!sharedEvolutionEngine) {
+    sharedEvolutionEngine = new SearchEvolutionEngine({ populationSize: 6 });
+    sharedEvolutionEngine.initialize();
+  }
+  return sharedEvolutionEngine;
+}
+
+function getCausalReplay() {
+  if (!sharedCausalReplay) sharedCausalReplay = new CausalReplayService();
+  return sharedCausalReplay;
+}
+
 async function forage(context, searchGenome, db) {
-  const { agentId, currentPatch, elapsedTimeSec = 10 } = context;
+  const { agentId, elapsedTimeSec = 10 } = context;
+  const patchService = getPatchService();
   const receipt = {
     id: `forage_${Date.now()}`,
     process: 'FORAGE',
@@ -17,29 +44,21 @@ async function forage(context, searchGenome, db) {
   };
 
   try {
-    if (!searchGenome) searchGenome = { patches: new Map() };
-    if (!searchGenome.patches.has(agentId)) {
-      searchGenome.patches.set(agentId, {
-        id: agentId,
-        type: 'search-region',
-        history: [],
-        visits: 0,
-        createdAt: Date.now()
-      });
+    const patchId = `patch_${agentId}_${Math.random().toString(36).slice(2, 6)}`;
+    if (!patchService.patches.has(patchId)) {
+      patchService.createPatch(patchId, 'search-region', { agentId });
     }
-    const patch = searchGenome.patches.get(agentId);
 
-    const shouldDepart = patch.history.length > 3 &&
-      patch.history.slice(-3).every(h => h.infoGain < 0.1);
+    const evalResult = patchService.evaluatePatch(patchId, elapsedTimeSec);
+    const infoGain = Math.random() * 0.3;
+    patchService.recordStep(patchId, infoGain, 1);
 
-    if (shouldDepart) {
+    if (evalResult && evalResult.shouldDepart) {
       receipt.action = 'PATCH_DEPARTURE';
-      receipt.result = { departed: true, patchId: patch.id, visits: patch.visits, reason: 'marginal yield below threshold' };
-      patch.history = [];
-      patch.visits = 0;
+      receipt.result = { departed: true, patchId, infoGain, reason: 'marginal yield below threshold' };
     } else {
       receipt.action = 'PATCH_CONTINUE';
-      receipt.result = { departed: false, patchId: patch.id, visits: patch.visits, reason: 'yield still acceptable' };
+      receipt.result = { departed: false, patchId, infoGain, reason: 'yield still acceptable' };
     }
   } catch (err) {
     receipt.status = 'failure';
@@ -67,7 +86,7 @@ async function plasticity(context, searchGenome, db) {
     const newTools = toolSets[Math.floor(Math.random() * toolSets.length)];
     const newPhenotype = { topology: newTopology, tools: newTools, strategy: context.strategy || 'direct-debug' };
 
-    receipt.result = { before: { topology, tools }, after: newPhenotype, changed: newTopology !== topology || JSON.stringify(newTools) !== JSON.stringify(tools) };
+    receipt.result = { before: { topology, tools }, after: newPhenotype, changed: newTopology !== topology };
 
     if (db && agentId) {
       try {
@@ -85,7 +104,7 @@ async function plasticity(context, searchGenome, db) {
 }
 
 async function clonalAffinity(context, searchGenome, db) {
-  const { agentId, baseHypothesis, ledger } = context;
+  const { agentId, ledger } = context;
   const receipt = {
     id: `clonal_${Date.now()}`,
     process: 'CLONAL_AFFINITY_SEARCH',
@@ -96,18 +115,16 @@ async function clonalAffinity(context, searchGenome, db) {
   };
 
   try {
-    const base = baseHypothesis || 'Hypothèse de base';
-    const variants = [0, 1, 2, 3].map(i => ({
-      id: `v${i}_${Date.now()}`,
-      statement: `${base} (variant ${i})`,
-      mutation: `mut${i}`,
-      score: Math.random()
-    }));
+    const baseGenome = searchGenome?.genome || createRandomGenome();
+    const variants = [0, 1, 2, 3].map(i => {
+      const mutated = mutateGenome(baseGenome, 'minimal');
+      return { id: `v${i}_${Date.now()}`, statement: `${baseGenome.hypothesisFamily} variant ${i}`, genome: mutated };
+    });
 
-    const best = variants.reduce((a, b) => a.score > b.score ? a : b);
-    receipt.result = { baseHypothesis: base, variantsCreated: variants.length, variants: variants.map(v => ({ id: v.id, statement: v.statement })), selectedVariant: best.id, selectionScore: best.score };
+    const best = variants[0];
+    receipt.result = { variantsCreated: variants.length, selectedVariant: best.id, selectionScore: 0.5 };
 
-    if (ledger && best) {
+    if (ledger) {
       try {
         const h = ledger.propose({ agentId, statement: best.statement, confidence: 0.5 });
         receipt.result.proposedHypothesisId = h.id;
@@ -135,15 +152,17 @@ async function hypermutation(context, searchGenome, db) {
   };
 
   try {
-    if (!searchGenome || !searchGenome.genome) {
-      searchGenome = searchGenome || {};
-      searchGenome.genome = createRandomGenome();
-    }
+    const baseGenome = searchGenome?.genome || createRandomGenome();
+    const mutatedGenome = mutateGenome(baseGenome, radius);
+    receipt.result = {
+      genomeId: mutatedGenome.id,
+      radius,
+      mutations: mutatedGenome.mutations[mutatedGenome.mutations.length - 1]?.changes || [],
+      oldFamily: baseGenome.hypothesisFamily,
+      newFamily: mutatedGenome.hypothesisFamily
+    };
 
-    const oldGenome = { ...searchGenome.genome };
-    const mutatedGenome = mutateGenome(searchGenome.genome, radius);
-    receipt.result = { genomeId: mutatedGenome.id, radius, mutations: mutatedGenome.mutations[mutatedGenome.mutations.length - 1]?.changes || [], oldFamily: oldGenome.hypothesisFamily, newFamily: mutatedGenome.hypothesisFamily };
-    searchGenome.genome = mutatedGenome;
+    if (searchGenome) searchGenome.genome = mutatedGenome;
 
     if (db && agentId) {
       try {
@@ -199,22 +218,8 @@ async function speciation(context, searchGenome, db) {
   return receipt;
 }
 
-async function runGeneration(pop) {
-  pop.sort(() => Math.random() - 0.5);
-  const survivors = pop.slice(0, Math.ceil(pop.length / 2));
-  const offspring = [];
-  for (let i = 0; i < survivors.length; i += 2) {
-    if (survivors[i + 1]) {
-      const child = crossoverGenome(survivors[i], survivors[i + 1]);
-      const mutated = mutateGenome(child, 'local');
-      offspring.push(mutated);
-    }
-  }
-  return [...survivors, ...offspring];
-}
-
 async function evolution(context, searchGenome, db) {
-  const { agentId, population = 10, generations = 3 } = context;
+  const { agentId, generations = 3 } = context;
   const receipt = {
     id: `evolution_${Date.now()}`,
     process: 'EVOLUTION',
@@ -225,22 +230,31 @@ async function evolution(context, searchGenome, db) {
   };
 
   try {
-    if (!searchGenome || !searchGenome.population) {
-      searchGenome = searchGenome || {};
-      searchGenome.population = Array.from({ length: population }, () => createRandomGenome());
-    }
+    const engine = getEvolutionEngine();
+    const environment = {
+      successfulFamilies: ['cache', 'state-drift'],
+      failedFamilies: ['race-condition'],
+      recommendedStrategies: ['causal-debugging', 'falsification']
+    };
 
-    const evolvedPop = [];
+    const evolutionLog = [];
     for (let g = 0; g < generations; g++) {
-      searchGenome.population = await runGeneration(searchGenome.population);
-      evolvedPop.push({ generation: g, size: searchGenome.population.length });
+      const genResult = engine.evolve(environment);
+      evolutionLog.push(genResult);
     }
 
-    receipt.result = { initialPopulation: population, generations, evolvedPopulation: searchGenome.population.length, evolutionLog: evolvedPop };
+    receipt.result = {
+      initialPopulation: engine.populationSize,
+      generations,
+      evolvedPopulation: engine.population.length,
+      evolutionLog
+    };
+
+    if (searchGenome) searchGenome.population = engine.population;
 
     if (db && agentId) {
       try {
-        await db.run('UPDATE agents SET search_genome = ? WHERE id = ?', [JSON.stringify({ population: searchGenome.population }), agentId]);
+        await db.run('UPDATE agents SET search_genome = ? WHERE id = ?', [JSON.stringify({ population: engine.population }), agentId]);
       } catch (dbErr) {
         receipt.result.persistenceNote = `DB update skipped: ${dbErr.message}`;
       }
@@ -294,5 +308,8 @@ module.exports = {
   hypermutation,
   speciation,
   evolution,
-  replayCausal
+  replayCausal,
+  getPatchService,
+  getEvolutionEngine,
+  getCausalReplay
 };

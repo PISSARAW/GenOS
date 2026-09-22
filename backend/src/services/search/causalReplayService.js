@@ -5,12 +5,15 @@
  */
 
 const { emit } = require('../agentOrchestrationState');
-const { NaturalSearchActuator } = require('./naturalSearchActuatorService');
 
 class CausalReplayService {
   constructor(options = {}) {
-    this.actuator = options.actuator || new NaturalSearchActuator();
+    this.actuator = options.actuator || null;
     this.replayHistory = new Map();
+  }
+
+  setActuator(actuator) {
+    this.actuator = actuator;
   }
 
   findCausalCommitment(history, hypothesisStatement) {

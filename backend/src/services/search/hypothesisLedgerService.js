@@ -157,6 +157,15 @@ class HypothesisLedger {
     return h
   }
 
+  proofsByIds(ids) {
+    const result = []
+    for (const id of ids) {
+      const p = this.proofs.get(id)
+      if (p) result.push(p)
+    }
+    return result
+  }
+
   save() {
     const hypotheses = []
     for (const h of this.hypotheses.values()) {

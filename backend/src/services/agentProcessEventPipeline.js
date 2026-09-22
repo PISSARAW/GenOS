@@ -273,7 +273,7 @@ async function handleChildClose(ctx, code, signal) {
   } finally {
     activeProcesses.delete(agentId);
     swarmSentinel.clearAgent(agentId);
-    clearSearchState(agentId);
+    await clearSearchState(agentId);
   }
 
   try {

@@ -8,6 +8,18 @@ class SearchPersistence {
     this.db = db;
   }
 
+  async run(sql, params = []) {
+    return this.db.run(sql, params);
+  }
+
+  async get(sql, params = []) {
+    return this.db.get(sql, params);
+  }
+
+  async all(sql, params = []) {
+    return this.db.all(sql, params);
+  }
+
   async initTables() {
     await this.db.exec(`
       CREATE TABLE IF NOT EXISTS search_hypotheses (
@@ -69,6 +81,33 @@ class SearchPersistence {
         FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
       );
       CREATE INDEX IF NOT EXISTS idx_search_decisions_agent ON search_decisions(agent_id);
+      CREATE TABLE IF NOT EXISTS search_patch_visits (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        patch_id TEXT NOT NULL,
+        info_gain REAL NOT NULL DEFAULT 0.0,
+        departed INTEGER NOT NULL DEFAULT 0,
+        visited_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+      );
+      CREATE TABLE IF NOT EXISTS search_genome_snapshots (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        process TEXT NOT NULL,
+        genome_json TEXT NOT NULL,
+        mutations_json TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+      );
+      CREATE TABLE IF NOT EXISTS search_replay_log (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        restore_point TEXT NOT NULL,
+        state_restored INTEGER NOT NULL DEFAULT 0,
+        snapshot_id TEXT,
+        replayed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+      );
     `);
   }
 
@@ -117,6 +156,30 @@ class SearchPersistence {
         selection.stepsSinceProgress, selection.falsifiedHypotheses || 0,
         JSON.stringify(selection.diagnostics || {})]);
     return id;
+  }
+
+  async savePatchVisit(agentId, patchId, infoGain, departed) {
+    await this.db.run(`
+      INSERT INTO search_patch_visits (id, agent_id, patch_id, info_gain, departed, visited_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `, [`pv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        agentId, patchId, infoGain || 0, departed ? 1 : 0]);
+  }
+
+  async saveGenomeSnapshot(agentId, process, genome, mutations) {
+    await this.db.run(`
+      INSERT INTO search_genome_snapshots (id, agent_id, process, genome_json, mutations_json, created_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `, [`gs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        agentId, process, JSON.stringify(genome), JSON.stringify(mutations || null)]);
+  }
+
+  async saveReplayLog(agentId, restorePoint, stateRestored, snapshotId) {
+    await this.db.run(`
+      INSERT INTO search_replay_log (id, agent_id, restore_point, state_restored, snapshot_id, replayed_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `, [`rl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        agentId, restorePoint, stateRestored ? 1 : 0, snapshotId || null]);
   }
 
   async loadHypothesesForAgent(agentId) {

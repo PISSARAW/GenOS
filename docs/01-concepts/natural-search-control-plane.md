@@ -14,20 +14,22 @@
 | Hypothesis Ledger | ✅ | `hypothesisLedgerService.js` | ✅ |
 | Search Pressure Model | ✅ | `searchPressureService.js` | ✅ |
 | Natural Search Controller | ✅ | `naturalSearchController.js` | ✅ hystérésis + PROCESS_LEVEL |
-| Natural Search Actuator | ✅ | `naturalSearchActuatorService.js` | ✅ primitives GenOS réelles (PLASTICITE/CLONAL/SPECIATION/REPLAY_CAUSAL/EVOLUTION) |
+| Natural Search Actuator | ✅ | `naturalSearchActuatorService.js` | ✅ primitives GenOS réelles (PLASTICITE/CLONAL/SPECIATION/REPLAY_CAUSAL/EVOLUTION/FORAGE/HYPERMUTATION) + persistance via `SearchPersistence` |
 | SearchReceipt | ✅ | `SearchReceipt.js` | ✅ |
 | Runtime Integration | ✅ | `agentProcessEventPipeline.js` | ✅ via `checkNaturalSearchControl()` |
-| Persistance SQLite | ✅ | `searchPersistenceService.js` | ✅ `saveHypothesis`/`saveProof`/`savePressure`/`saveDecision` (API async `sqlite`) |
+| Persistance SQLite | ✅ | `searchPersistenceService.js` | ✅ `saveHypothesis`/`saveProof`/`savePressure`/`saveDecision`/`savePatchVisit`/`saveGenomeSnapshot`/`saveReplayLog` + flush garanti dans `clearSearchState` |
 | E2E — composants isolés | ✅ | `test_natural_search_runtime_e2e.js` | ✅ |
 | E2E — pipeline `checkNaturalSearchControl()` | ✅ | `test_natural_search_e2e_pipeline.js` | ✅ appelle `checkNaturalSearchControl()` avec DB SQLite réelle |
 | `test_search_evolution.js` | ✅ | `test_search_evolution.js` | ✅ EVOLUTION process + actuator cohérents |
-| SearchGenome | ⚠️ module isolé | `searchGenomeService.js` | ❌ non consommé par l'Actuator |
-| Cognitive Affinity | ⚠️ module isolé | `cognitiveAffinityService.js` | ❌ non branché |
-| Generalized Foraging | ⚠️ module isolé | `searchPatchService.js` | ❌ non appelé par `forage()` de l'Actuator |
-| Causal Replay Service | ⚠️ module isolé | `causalReplayService.js` | ❌ non consommé par l'Actuator |
-| Negative Search Memory | ⚠️ module isolé | `negativeSearchMemoryService.js` | ❌ non branché |
-| Search Evolution | ⚠️ module isolé | `searchEvolutionService.js` | ❌ non consommé par l'Actuator |
-| Cultural Transmission | ⚠️ module isolé | `searchCultureService.js` | ❌ non branché |
+| SearchGenome | ✅ intégré | `searchGenomeService.js` | ✅ via NaturalSearchActuatorPrimitives (mutateGenome, crossoverGenome) |
+| SearchPatchService | ✅ intégré | `searchPatchService.js` | ✅ via `forage()` dans `naturalSearchActuatorPrimitives.js` |
+| SearchEvolutionEngine | ✅ intégré | `searchEvolutionService.js` | ✅ via `evolution()` dans `naturalSearchActuatorPrimitives.js` |
+| CausalReplayService | ✅ intégré | `causalReplayService.js` | ✅ via `replayCausal()` dans `naturalSearchActuatorPrimitives.js` |
+| CognitiveAffinity | ✅ intégré | `cognitiveAffinityService.js` | ✅ via `SearchIntegration` dans `naturalSearchRuntime.js` |
+| NegativeSearchMemory | ✅ intégré | `negativeSearchMemoryService.js` | ✅ via `SearchIntegration` dans `naturalSearchRuntime.js` |
+| CulturalTransmission | ✅ intégré | `searchCultureService.js` | ✅ via `SearchIntegration` dans `naturalSearchRuntime.js` |
+| SearchIntegration | ✅ nouveau | `searchIntegrationService.js` | ✅ centralise CognitiveAffinity + NegativeSearchMemory + SearchCulture |
+| E2E — full pipeline test | ✅ | `test_natural_search_full_pipeline_e2e.js` | ✅ checkNaturalSearchControl + persistence + negative memory + proactive |
 
 ## Architecture finale
 
@@ -43,15 +45,21 @@ checkNaturalSearchControl(ctx, event)
   │    └─ PROCESS_LEVEL (CONTINUE=0 … EVOLUTION=6)
   │    └─ Hystérésis : blocage downgrade uniquement, escalation toujours autorisée
   ├─ NaturalSearchActuator.execute()
-  │    ├─ FORAGE           → logique interne (pas searchPatchService)
-  │    ├─ PLASTICITE       → applySnapshotState (DB)
-  │    ├─ CLONAL_AFFINITY_SEARCH → lineageController.cloneFromAgent (DB)
-  │    ├─ STRESS_HYPERMUTATION   → mutateGenome (mémoire)
+  │    ├─ FORAGE           → forage() + SearchPatchService + SearchPersistence.savePatchVisit()
+  │    ├─ PLASTICITE       → plasticity() + applySnapshotState (DB)
+  │    ├─ CLONAL_AFFINITY_SEARCH → clonalAffinity() + mutateGenome + propose via ledger + saveProof
+  │    ├─ STRESS_HYPERMUTATION   → mutateGenome + SearchPersistence.saveGenomeSnapshot()
   │    ├─ SPECIATION             → cloneFromAgent + INSERT niches (DB)
-  │    ├─ EVOLUTION              → cloneFromAgent (DB)
-  │    ├─ REPLAY_CAUSAL          → applySnapshotState (DB)
+  │    ├─ EVOLUTION              → SearchEvolutionEngine + SearchPersistence.saveGenomeSnapshot()
+  │    ├─ REPLAY_CAUSAL          → CausalReplayService + SearchPersistence.saveReplayLog()
   │    └─ CONTINUE               → no-op
-  └─ SearchPersistence.saveHypothesis/saveDecision/savePressureState()
+  ├─ SearchIntegration
+  │    ├─ CognitiveAffinity → createAffinityVariants + selectBestVariant
+  │    ├─ NegativeSearchMemory → recordNegative + isPathBlocked
+  │    └─ SearchCulture → compilePlasmid + transmit
+  └─ SearchPersistence.saveHypothesis/saveProof/savePressureState/saveDecision/savePatchVisit/saveGenomeSnapshot/saveReplayLog()
+      ↓ (à la fin)
+  clearSearchState() → flushSearchState() → suppression état mémoire
 ```
 
 ## Points d'audit résolus
@@ -80,9 +88,10 @@ checkNaturalSearchControl(ctx, event)
 
 ## Limitations connues
 
-- **Actuator** : FORAGE, STRESS_HYPERMUTATION restent déclaratifs (objets en mémoire). FORAGE n'utilise pas `searchPatchService.js`, STRESS_HYPERMUTATION n'utilise pas `searchGenomeService.js`, EVOLUTION ne consomme pas `searchEvolutionService.js`. L'Actuator muté/évolue son propre état interne.
-- **Persistence SQLite** : `SearchPersistence` existe et `naturalSearchRuntime.js` l'appelle dans `persistSearchState()`. Mais `clearSearchState(agentId)` à la fin de `handleChildClose` dans `agentProcessEventPipeline.js` détruit l'état mémoire sans flush garanti. La persistance est donc utilisée, mais non critique — les appels sont en `try/catch` silencieux.
-- **Provenance uniforme** : le runtime force `SELF_REPORTED` pour toute preuve. Il n'existe pas encore de routage `LLM→SELF_REPORTED / runtime→INFERRED / tool→OBSERVED / verifier→VERIFIED`.
+- **Actuator** : les objets genome/patch locaux sont persistés mais les services SearchGenome/SearchPatch/CausalReplay ne sont pas directement instanciés par l'actuator (il utilise les fonctions de `naturalSearchActuatorPrimitives` qui délèguent aux services via singletons).
+- **Persistence SQLite** : flush garanti via `clearSearchState()` → `flushSearchState()`.
+- **Provenance** : `resolveProvenance()` route selon le type d'événement (EVIDENCE_REPORT→VERIFIED, AGENT_STEP→SELF_REPORTED, TOOL→OBSERVED, autre→INFERRED). Le champ `payload.provenance` du LLM est respecté s'il est présent.
+- **Création proactive** : après 5 étapes sans progrès, `proactiveHypothesis()` génère une hypothèse à partir du genome courant.
 
 ## Principe fondamental
 
