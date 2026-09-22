@@ -85,7 +85,7 @@ async function storeObject(db, opts) {
   for (const [position, parentId] of parents.entries()) {
     await db.run('INSERT OR IGNORE INTO agent_git_commit_parents (commit_id, parent_commit_id, position) VALUES (?, ?, ?)', id, parentId, position);
   }
-  return { id, agentId, workspaceId, kind, refName: refName || null, remoteName: remoteName || null, treeHash: tree, commitHash: commit, signature, parentCommitIds: parents, signatureAlgorithm: algorithm, authorKeyId: authorKeyId(), publicKeyFingerprint: publicKeyFingerprint(), signedCommitEnvelope: envelope };
+  return { id, agentId, workspaceId, kind, refName: refName || null, remoteName: remoteName || null, stateHash: crypto.createHash('sha256').update(JSON.stringify(state)).digest('hex'), treeHash: tree, commitHash: commit, signature, parentCommitIds: parents, signatureAlgorithm: algorithm, authorKeyId: authorKeyId(), publicKeyFingerprint: publicKeyFingerprint(), signedCommitEnvelope: envelope, metadataJson: JSON.stringify(meta) };
 }
 
 module.exports = { storeObject };

@@ -1,0 +1,148 @@
+'use strict';
+
+/**
+ * Controlled Causal Experiment — moteur causal commun GenOS.
+ *
+ * Ce service implémente le pattern fondamental :
+ *
+ *   snapshot W
+ *      │
+ *   control replay ── W baseline
+ *      │
+ *   do(X := x')
+ *      │
+ *   intervention replay ── W candidate
+ *      │
+ *   verify controls (same initial state)
+ *      │
+ *   compare trajectories
+ *      │
+ *   CausalReceipt
+ *
+ * Aucun verdict n'est émis — seul un receipt avec preuves est retourné.
+ * Ce moteur est partagé par proceduralCausalValidation, causalityService
+ * et tout futur sous-système nécessitant une validation causale contrôlée.
+ */
+
+const EVIDENCE_LEVELS = Object.freeze({
+  STRONG: 'strong',
+  MODERATE: 'moderate',
+  WEAK: 'weak',
+  NONE: 'none',
+});
+
+function createExperiment({ name = 'unnamed', runner, control, intervention, initialState }) {
+  if (typeof runner !== 'function') throw new Error('ControlledCausalExperiment requires a runner function');
+  if (!initialState) throw new Error('ControlledCausalExperiment requires an explicit initialState');
+
+  return {
+    name,
+    runner,
+    control,
+    intervention,
+    initialState,
+    executedAt: null,
+    baseline: null,
+    candidate: null,
+    receipt: null,
+  };
+}
+
+function executeBaseline(experiment) {
+  return experiment.runner(experiment.control, experiment.initialState);
+}
+
+function executeIntervention(experiment) {
+  return experiment.runner(experiment.intervention, experiment.initialState);
+}
+
+function compareTrajectories(baselineTrajectory, candidateTrajectory) {
+  const divergences = findDivergencePoints(baselineTrajectory, candidateTrajectory);
+  return {
+    diverged: divergences.length > 0,
+    divergenceCount: divergences.length,
+    firstDivergence: divergences.length ? divergences[0] : null,
+    baselineLength: baselineTrajectory.length,
+    candidateLength: candidateTrajectory.length,
+  };
+}
+
+function findDivergencePoints(baseline, candidate) {
+  const divergences = [];
+  const maxLen = Math.max(baseline.length, candidate.length);
+  for (let i = 0; i < maxLen; i++) {
+    const b = i < baseline.length ? baseline[i] : null;
+    const c = i < candidate.length ? candidate[i] : null;
+    if (b !== c) {
+      divergences.push({ step: i, baseline: b, candidate: c });
+    }
+  }
+  return divergences;
+}
+
+function buildCausalReceipt({ experiment, baselineResult, candidateResult, baselineTrajectory, candidateTrajectory, trajectoryComparison }) {
+  const controlSnapshot = experiment.initialState;
+  const sameInitialState = controlSnapshot === experiment.initialState || JSON.stringify(controlSnapshot) === JSON.stringify(experiment.initialState);
+
+  const evidenceStrength = assessEvidenceStrength({
+    sameInitialState,
+    divergenceCount: trajectoryComparison.divergenceCount,
+    baselineLength: baselineTrajectory.length,
+    candidateLength: candidateTrajectory.length,
+  });
+
+  return {
+    experimentName: experiment.name,
+    executedAt: Date.now(),
+    controlSnapshot,
+    interventionApplied: true,
+    baselineOutcome: baselineResult,
+    candidateOutcome: candidateResult,
+    trajectoryComparison,
+    evidenceStrength,
+    sameInitialState,
+    caveat: 'Same initial state is necessary but not sufficient for causal inference.',
+    executable: false,
+    runtimeAuthority: false,
+  };
+}
+
+function assessEvidenceStrength({ sameInitialState, divergenceCount, baselineLength, candidateLength }) {
+  if (!sameInitialState) return EVIDENCE_LEVELS.NONE;
+  if (divergenceCount === 0) return EVIDENCE_LEVELS.NONE;
+  if (baselineLength > 0 && candidateLength > 0 && Math.abs(baselineLength - candidateLength) <= 1) return EVIDENCE_LEVELS.STRONG;
+  if (divergenceLength <= 3) return EVIDENCE_LEVELS.MODERATE;
+  return EVIDENCE_LEVELS.WEAK;
+}
+
+function runControlledExperiment({ name, runner, control, intervention, initialState, trajectoryExtractor }) {
+  const experiment = createExperiment({ name, runner, control, intervention, initialState });
+
+  const baselineResult = executeBaseline(experiment);
+  const candidateResult = executeIntervention(experiment);
+
+  const baselineTrajectory = trajectoryExtractor ? trajectoryExtractor(baselineResult) : (baselineResult?.turns || []);
+  const candidateTrajectory = trajectoryExtractor ? trajectoryExtractor(candidateResult) : (candidateResult?.turns || []);
+
+  const trajectoryComparison = compareTrajectories(baselineTrajectory, candidateTrajectory);
+
+  return buildCausalReceipt({
+    experiment,
+    baselineResult,
+    candidateResult,
+    baselineTrajectory,
+    candidateTrajectory,
+    trajectoryComparison,
+  });
+}
+
+module.exports = {
+  EVIDENCE_LEVELS,
+  createExperiment,
+  executeBaseline,
+  executeIntervention,
+  compareTrajectories,
+  findDivergencePoints,
+  buildCausalReceipt,
+  runControlledExperiment,
+};

@@ -3,7 +3,8 @@
 const { verifyObjectSignatureLocal, signingAlgorithm } = require('./verifyHelpers.cjs');
 
 function validateRemoteIdAndHash(incoming) {
-  if (!incoming?.id || !incoming.stateHash) return { valid: false, error: 'Signed remote object is required.' };
+  const stateHash = incoming?.state_hash || incoming?.stateHash;
+  if (!incoming?.id || !stateHash) return { valid: false, error: 'Signed remote object is required.' };
   return { valid: true };
 }
 
@@ -18,22 +19,35 @@ function validateRemoteSignature(incoming) {
 }
 
 function validateStateHashMatch(actualHash, incoming) {
-  if (actualHash !== incoming.stateHash) return { valid: false, error: 'State hash mismatch: payload does not match the signed stateHash.' };
+  const expected = incoming.state_hash || incoming.stateHash;
+  if (actualHash !== expected) return { valid: false, error: 'State hash mismatch: payload does not match the signed stateHash.' };
   return { valid: true };
 }
 
 function validateSignature(incoming, state) {
-  if (!verifyObjectSignatureLocal({ ...incoming, state_hash: incoming.stateHash, state_json: state, metadata_json: '{}' })) {
+  // Point 3 : le wire est canonical snake_case (wireFormat.cjs). On reconstruit
+  // l'objet tel que verifyObjectSignatureLocal l'attend, avec les métadonnées
+  // réelles du sender (pas '{}' par défaut).
+  const candidate = {
+    ...incoming,
+    state_hash: incoming.state_hash || incoming.stateHash,
+    state_json: typeof state === 'string' ? state : JSON.stringify(state),
+    metadata_json: incoming.metadata_json || '{}'
+  };
+  if (!verifyObjectSignatureLocal(candidate)) {
     return { valid: false, error: 'Remote signature verification failed.' };
   }
   return { valid: true };
 }
 
 function validateEnvelope(incoming) {
-  if (!incoming.signedCommitEnvelope) return true;
+  if (!incoming.signed_commit_envelope && !incoming.signedCommitEnvelope) return true;
   try {
-    const envelope = JSON.parse(Buffer.from(incoming.signedCommitEnvelope, 'base64').toString('utf8'));
-    if (envelope.commitHash !== incoming.commitHash && envelope.commitHash !== incoming.stateHash) {
+    const raw = incoming.signed_commit_envelope || incoming.signedCommitEnvelope;
+    const envelope = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+    const commitHash = incoming.commit_hash || incoming.commitHash;
+    const stateHash = incoming.state_hash || incoming.stateHash;
+    if (envelope.commitHash !== commitHash && envelope.commitHash !== stateHash) {
       return { valid: false, error: 'Envelope commit hash mismatch.' };
     }
     if (envelope.algorithm && envelope.algorithm !== (incoming.signature_algorithm || signingAlgorithm())) {

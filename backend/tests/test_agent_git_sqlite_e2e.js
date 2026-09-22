@@ -137,7 +137,7 @@ async function main() {
     'la décision cherry-pickée doit être présente dans l état committé (préfixée target)'
   );
 
-  // Revert du commit cherry-pické : le commit de revert capture l état après
+  // Revert du commit cherry-piqué : le commit de revert capture l état après
   // annulation — la décision doit avoir disparu de l état committé.
   const rev = await agentGit.revert({ ...makeReq(), body: { objectId: pick.id, targetAgentId: 'agent-e2e-2' } });
   assert.ok(rev.success, 'revert doit réussir');
@@ -149,7 +149,36 @@ async function main() {
     'après revert, la décision cherry-pickée ne doit plus être dans l état committé'
   );
 
+  // --- Point 3 : format wire canonical — push -> receiveRemote sans mock ---
+  const { wireObject } = require('../src/services/agentGitService/wireFormat.cjs');
+  const commitForWire = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'main', metadata: { message: 'wire' } });
+  const wire = wireObject(commitForWire);
+  // Le wire doit être snake_case complet et auto-suffisant pour le receiver.
+  assert.equal(wire.commit_hash, commitForWire.commitHash, 'wire.commit_hash = commitHash du commit');
+  assert.equal(wire.state_hash, commitForWire.stateHash, 'wire.state_hash = stateHash du commit');
+  assert.equal(wire.signature_algorithm, 'hmac-sha256');
+  assert.ok(wire.metadata_json && wire.metadata_json !== '{}', 'le wire transporte les métadonnées réelles');
+
+  // receiveRemote sur l'objet wire réel (signé par storeObject, pas à la main).
+  const received = await agentGit.receiveRemote({
+    ...makeReq(),
+    body: { remoteName: 'e2e-remote', object: wire, state: JSON.parse((await db.get('SELECT state_json FROM agent_git_objects WHERE id = ?', commitForWire.id)).state_json) }
+  });
+  assert.ok(received.success, `receiveRemote doit accepter un vrai objet wire signé (erreur: ${received.error || 'aucune'})`);
+  const remoteRow = await db.get('SELECT state_hash, state_json FROM agent_git_objects WHERE id = ?', received.id);
+  assert.equal(remoteRow.state_hash, wire.state_hash, 'l objet remote persisté garde le state_hash du sender');
+
+  // Un objet wire falsifié (state_hash modifié) doit être rejeté et quarantiné.
+  const tampered = { ...wire, state_hash: 'f'.repeat(64) };
+  const rejected = await agentGit.receiveRemote({
+    ...makeReq(),
+    body: { remoteName: 'e2e-remote', object: tampered, state: JSON.parse(remoteRow.state_json) }
+  });
+  assert.equal(rejected.success, false, 'un state_hash falsifié doit être rejeté');
+  assert.ok(rejected.quarantined, 'l objet falsifié doit être quarantiné');
+
   console.log('[OK] point 1 - SQLite réel : schéma crypto complet, createCommit + parent + signature vérifiés');
+  console.log('[OK] point 3 - format wire canonical: push/receive vérifiés sur objets réellement signés');
   console.log('[OK] point 4 - patch REPLACE + identityOf (decisions/plasmids/permissions) sur SQLite réel');
   console.log('[OK] point 5 - cherry-pick/revert committent l état résultant réel (target + patch)');
   console.log(`     commit=${commit.id} commitHash=${commit.commitHash.slice(0, 12)}…`);

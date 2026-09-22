@@ -17,6 +17,7 @@
 
 const causalLinks = new Map();
 const counterfactualRegistry = new Map();
+const { runControlledExperiment, EVIDENCE_LEVELS } = require('./controlledCausalExperimentService');
 
 function recordCausalLink({ causeAgent, effectAgent, mechanism = 'tool_call' }) {
   if (!causeAgent || !effectAgent) {
@@ -167,6 +168,13 @@ function listCausalLinks({ agentId = null, limit = 100 } = {}) {
     .slice(0, limit);
 }
 
+function runCausalExperiment({ name, runner, control, intervention, initialState, trajectoryExtractor }) {
+  if (!runner || typeof runner !== 'function') {
+    throw new Error('causalityService.runCausalExperiment requires a runner function');
+  }
+  return runControlledExperiment({ name, runner, control, intervention, initialState, trajectoryExtractor });
+}
+
 function listCounterfactuals() {
   return Array.from(counterfactualRegistry.values());
 }
@@ -183,4 +191,6 @@ module.exports = {
   listCausalLinks,
   listCounterfactuals,
   counterfactualRegistry,
+  runCausalExperiment,
+  EVIDENCE_LEVELS,
 };

@@ -10,6 +10,7 @@ const { treeHash, commitHash } = require('./canonical');
 const { storeObject } = require('./storeObjectHelper.cjs');
 const causalOps = require('./causalOps.cjs');
 const { verifyRemoteObject } = require('./remoteVerification.cjs');
+const { wireObject } = require('./wireFormat.cjs');
 
 // Agent Git remotes are fetched server-side, so a caller-controlled remoteUrl
 // is an SSRF vector. Reuse the provider endpoint policy (blocks loopback,
@@ -133,7 +134,10 @@ async function performRemotePush(opts) {
   const response = await globalThis.fetch(remotePath, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
-    body: JSON.stringify({ ...req.body, objectId: commit.id, object: commit, state })
+    // Point 3 : format wire canonical unique (snake_case). L'état envoyé est
+    // EXACTEMENT celui du commit — pas un collectState frais dont le hash
+    // différerait de la signature vérifiée par le receiver.
+    body: JSON.stringify({ ...req.body, objectId: commit.id, object: wireObject(commit), state })
   });
   if (!response.ok) throw new Error(`Remote push failed with HTTP ${response.status}.`);
 }
@@ -195,20 +199,21 @@ async function receiveRemote(req) {
   const db = await getDatabase();
   if (!verification.valid) {
     // Mettre en quarantine pour inspection manuelle
-    const q = await quarantineIncoming(db, incoming, state, verification.error);
+    const q = await quarantineIncoming(db, { incoming, state, reason: verification.error });
     return { success: false, error: verification.error, ...q };
   }
   // Vérifier que les parents sont disponibles (fast-forward check)
-  if (incoming.parentCommitIds && incoming.parentCommitIds.length > 0) {
-    for (const parentId of incoming.parentCommitIds) {
+  const parentIds = incoming.parent_commit_ids || incoming.parentCommitIds || [];
+  if (parentIds.length > 0) {
+    for (const parentId of parentIds) {
       const parent = await db.get('SELECT id FROM agent_git_objects WHERE id = ?', parentId);
       if (!parent) {
-        const q = await quarantineIncoming(db, incoming, state, `missing_parent:${parentId}`);
+        const q = await quarantineIncoming(db, { incoming, state, reason: `missing_parent:${parentId}` });
         return { success: false, error: `Missing parent commit: ${parentId}`, ...q };
       }
     }
   }
-  const stored = await storeObject(db, { agentId: incoming.agentId, workspaceId: incoming.workspaceId, kind: 'remote', refName: incoming.refName, remoteName: req.body?.remoteName || 'default', state, createdBy: req.user?.username || 'remote', metadata: { receivedFrom: req.ip || 'remote', sourceObjectId: incoming.id }, locked: true });
+  const stored = await storeObject(db, { agentId: incoming.agent_id || incoming.agentId, workspaceId: incoming.workspace_id || incoming.workspaceId, kind: 'remote', refName: incoming.ref_name || incoming.refName, remoteName: req.body?.remoteName || 'default', state, createdBy: req.user?.username || 'remote', metadata: { receivedFrom: req.ip || 'remote', sourceObjectId: incoming.id }, locked: true });
   return { success: true, operation: 'remote-receive', ...stored };
 }
 
