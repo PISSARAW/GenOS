@@ -48,6 +48,7 @@ function normalizeKey(key) {
     kind: 'CognitiveKey',
     id: key.id,
     label: key.label,
+    family: key.family || null,
     operation: key.operation,
     instruction: key.instruction,
     questions: key.questions || [],

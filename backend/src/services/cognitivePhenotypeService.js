@@ -21,7 +21,7 @@
  */
 
 const { COGNITIVE_KEYS } = require('../cognition/cognitiveKeyDefinitions');
-const { composeRecipe } = require('../cognition/cognitiveComposer');
+const { composePortfolio } = require('../cognition/cognitivePortfolio');
 
 const PHENOTYPE_HEADER = 'Cognitive phenotype for this mission (apply each operation in order):';
 
@@ -45,34 +45,18 @@ function inferCognitiveNeeds(missionText, keys = COGNITIVE_KEYS) {
     .sort();
 }
 
-function recipeIdFor(index) {
-  return `recipe.mission-worker-${index + 1}`;
-}
-
-function recipeLabelFor(member) {
-  const label = member && member.label ? member.label : `worker-${(member && member.role) || 'default'}`;
-  return `Phénotype cognitif — ${label}`;
-}
-
 /**
- * Compose le phénotype d'un worker : recette validée + bloc prompt.
- * Échoue doucement (phenotype: null) si la composition est invalide —
- * le worker part sans phénotype plutôt que sans mission.
+ * Compose le phénotype d'un worker depuis une recette déjà validée
+ * par le portfolio. Échoue doucement (null) si la recette est vide.
  */
-function buildWorkerPhenotype({ member, needs, index, options }) {
-  const composition = composeRecipe({
-    id: recipeIdFor(index),
-    label: recipeLabelFor(member),
-    needs,
-    options
-  });
-  if (!composition.valid) return null;
+function phenotypeFromRecipe(recipe) {
+  if (!recipe || !Array.isArray(recipe.keys) || recipe.keys.length === 0) return null;
   return {
-    recipeId: composition.recipe.id,
-    keys: composition.recipe.keys,
-    instructions: phenotypeInstructions(composition.recipe.keys),
-    metrics: composition.metrics,
-    tensions: composition.metrics.tensions
+    recipeId: recipe.id,
+    keys: recipe.keys,
+    instructions: phenotypeInstructions(recipe.keys),
+    metrics: recipe.metrics || null,
+    tensions: (recipe.metrics && recipe.metrics.tensions) || []
   };
 }
 
@@ -106,10 +90,10 @@ function formatPhenotypePrompt(phenotype) {
 }
 
 /**
- * Attache les phénotypes à tous les membres actifs du plan.
- * La diversité d'équipe est garantie par exclusion cumulative : chaque
- * worker compose hors des clés déjà attribuées (les recettes se
- * recouvrent seulement si le registre est épuisé).
+ * Attache les phénotypes à tous les membres actifs du plan via un
+ * CognitivePortfolio : les recettes sont composées pour maximiser la
+ * distance cognitive entre workers (opérations, familles, besoins),
+ * pas seulement la pertinence individuelle (ADR 0033, point 5).
  * Retourne le nombre de membres phénotypés (0 si disabled).
  */
 function attachPhenotypesToPlan({ plan, missionText, options }) {
@@ -117,21 +101,25 @@ function attachPhenotypesToPlan({ plan, missionText, options }) {
   const needs = inferCognitiveNeeds(missionText);
   if (needs.length === 0) return { attached: 0, reason: 'no_needs_inferred' };
   const members = activeMembers(plan);
-  const assignedKeys = new Set();
+  if (members.length === 0) return { attached: 0, reason: 'no_members' };
+  const portfolio = composePortfolio({
+    id: 'recipe.mission',
+    label: 'Phénotype cognitif',
+    needs,
+    recipeCount: members.length,
+    options
+  });
   members.forEach((member, index) => {
-    const phenotype = buildWorkerPhenotype({
-      member,
-      needs,
-      index,
-      options: { ...(options || {}), excludeKeys: [...assignedKeys] }
-    });
-    if (phenotype) {
-      member.cognitiveRecipe = phenotype;
-      phenotype.keys.forEach((keyId) => assignedKeys.add(keyId));
-    }
+    const phenotype = phenotypeFromRecipe(portfolio.recipes[index]);
+    if (phenotype) member.cognitiveRecipe = phenotype;
   });
   const attached = members.filter((member) => member.cognitiveRecipe).length;
-  return { attached, needs, members: members.length };
+  return {
+    attached,
+    needs,
+    members: members.length,
+    portfolio: portfolio.metrics
+  };
 }
 
 /**
@@ -146,7 +134,7 @@ function activeMembers(plan) {
 module.exports = {
   phenotypeEnabled,
   inferCognitiveNeeds,
-  buildWorkerPhenotype,
+  phenotypeFromRecipe,
   formatPhenotypePrompt,
   attachPhenotypesToPlan,
   activeMembers

@@ -28,6 +28,11 @@
       "description": "Namespace cognitive. en segments dash-separated, aligné sur le style des identifiants de concepts."
     },
     "label": { "type": "string", "minLength": 1 },
+    "family": {
+      "type": ["string", "null"],
+      "enum": ["epistemology", "structure", "logic", "interpretation", "perspective", null],
+      "description": "Famille cognitive du catalogue (métadonnée ajoutée à l'agrégation, troisième axe de la distance cognitive du portfolio)."
+    },
     "operation": {
       "type": "string",
       "enum": [

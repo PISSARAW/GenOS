@@ -27,12 +27,17 @@ const { LOGIC_KEYS } = require('./cognitiveKeyLogic');
 const { INTERPRETATION_KEYS } = require('./cognitiveKeyInterpretation');
 const { PERSPECTIVE_KEYS } = require('./cognitiveKeyPerspective');
 
+// La famille est une métadonnée d'organisation du catalogue, ajoutée à
+// l'agrégation (pas dans les fichiers famille) : elle sert de troisième
+// axe à la distance cognitive du portfolio (ADR 0033, point 5).
+const withFamily = (family, keys) => keys.map((key) => ({ ...key, family }));
+
 const COGNITIVE_KEYS = [
-  ...EPISTEMOLOGY_KEYS,
-  ...STRUCTURE_KEYS,
-  ...LOGIC_KEYS,
-  ...INTERPRETATION_KEYS,
-  ...PERSPECTIVE_KEYS
+  ...withFamily('epistemology', EPISTEMOLOGY_KEYS),
+  ...withFamily('structure', STRUCTURE_KEYS),
+  ...withFamily('logic', LOGIC_KEYS),
+  ...withFamily('interpretation', INTERPRETATION_KEYS),
+  ...withFamily('perspective', PERSPECTIVE_KEYS)
 ];
 
 module.exports = { COGNITIVE_KEYS };

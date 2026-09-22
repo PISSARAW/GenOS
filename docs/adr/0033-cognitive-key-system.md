@@ -93,6 +93,30 @@ PhilosophicalConcept
   inférence, phénotype, prompt, attachement, diversité, intégration
   `buildWorkerPrompt`).
 
+**Point 5 (distance cognitive, cette révision) :**
+
+- `backend/src/cognition/cognitivePortfolio.js` — `CognitivePortfolio` :
+  N recettes maximisant la distance cognitive paire-à-paire. Distance
+  = moyenne de trois distances Jaccard (opérations, familles, besoins).
+  Métriques : meanPairwiseDistance, minPairwiseDistance,
+  pairwiseDistances, crossTensions (conflits déclarés entre deux
+  recettes DIFFÉRENTES — matière de la confrontation du point 6) ;
+- `cognitiveComposer.js` — `diversityBias` injectable dans le score de
+  sélection (le portfolio guide le glouton du composer) ;
+- `cognitiveKeyDefinitions.js` — métadonnée `family` ajoutée à
+  l'agrégation (3e axe de distance), normalisée `null` dans le registre ;
+- `cognitivePhenotypeService.js` — remplace l'exclusion cumulative du
+  point 4 par le portfolio ; expose `portfolio.metrics` au plan ;
+- `backend/tests/test_cognitive_portfolio.js` — 12 groupes (Jaccard,
+  portfolio, couverture garantie par recette, distance paire-à-paire,
+  tensions inter-recettes, attachement, prompt).
+
+Deux propriétés du bias de diversité, apprises en implémentant :
+- **cumulatif** (1/(1+porteurs)) : un bias binaire faisait converger
+  les recettes impaires vers le même optimum local ;
+- **plafonné par l'utilité** : sans plafond, le portfolio fabrique des
+  recettes décoratives (distance 1.0, zéro couverture des besoins).
+
 ## Principes
 
 1. **Indépendance doctrinale** — le test : « peut-on expliquer comment
@@ -163,7 +187,7 @@ n'interviendrait qu'après validation expérimentale (point 8 du plan).
    maths, art, narration, jeu, cinéma — cette révision)
 3. ✅ `CognitiveRecipe` + `CognitiveComposer` (cette révision)
 4. ✅ Branchement A-Team/Trinity via le phénotype (cette révision)
-5. Compositions maximisant la distance cognitive
+5. ✅ Compositions maximisant la distance cognitive (cette révision)
 6. Confrontation + synthèse par l'orchestrateur
 7. Benchmark par ablation (A-F)
 8. Compilation progressive des 347 concepts

@@ -92,7 +92,8 @@ function bestCandidate(candidates, needs, search) {
     const utility = utilityScore(key, needs, state.coveredNeeds);
     const novelty = state.usedOperations.has(key.operation) ? 0 : 1;
     const tension = options.tensionBonus * tensionContribution(key, state.selectedIds);
-    const score = utility + 0.5 * novelty + tension - 0.1 * weight;
+    const diversity = options.diversityBias ? options.diversityBias(key) : 0;
+    const score = utility + 0.5 * novelty + tension + diversity - 0.1 * weight;
     if (score > bestScore) {
       bestScore = score;
       best = { index, key };
