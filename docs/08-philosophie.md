@@ -1160,3 +1160,15 @@ d'étiquettes biologiques.
 La fiche de concept complète (10 sections, statut Implémenté) se trouve dans
 [`docs/01-concepts/adaptive-epistemic-immune-system.md`](01-concepts/adaptive-epistemic-immune-system.md).
 Index : [`docs/01-concepts/README.md`](01-concepts/README.md).
+
+## 11. Architecture philosophique
+
+Le registre philosophique classifie les concepts en 5 catégories opérationnelles :
+**core** (7), **operational** (13), **analogy** (8), **lens** (60), **speculative** (4).
+
+Chaque concept porte des métadonnées : `role`, `falsifiable`, `scope`, `knownLimits`, `historicalConfidence`.
+Voir [`GENOS_PHILOSOPHICAL_CONSTITUTION.md`](../GENOS_PHILOSOPHICAL_CONSTITUTION.md).
+
+Le graphe utilise 9 types de relations : `operationalizes`, `analogizesTo`, `inspiredBy`, `assumes`, `caveat`, `notEquivalentTo`, `underdetermines`, `conflictsWith`, `illustrates`.
+
+Tous les services philosophiques sont `executable: false`. Les frameworks produisent des `assessment`, pas des verdicts.
