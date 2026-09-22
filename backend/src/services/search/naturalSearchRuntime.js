@@ -2,7 +2,11 @@ const { emit } = require('../agentOrchestrationState');
 const swarmSentinel = require('../swarmSentinelService');
 const { NaturalSearchController, SEARCH_PROCESS } = require('./naturalSearchController');
 const { NaturalSearchActuator } = require('./naturalSearchActuatorService');
-const { HypothesisLedger, HYPOTHESIS_STATUS } = require('./hypothesisLedgerService');
+const {
+    HypothesisLedger,
+    HYPOTHESIS_STATUS,
+    PROVENANCE
+} = require('./hypothesisLedgerService');
 const { CausalProgressService } = require('./causalProgressService');
 const { SearchPersistence } = require('./searchPersistenceService');
 const { getDatabase } = require('../../db');
@@ -62,7 +66,8 @@ function ingestEvidence(searchState, payload) {
     }
     ledger.addEvidence(targetHypId, {
       direction: 'for', strength: payload.evidenceStrength || 0.5,
-      provenance: payload.evidenceProvenance || ledger.PROVENANCE.SELF_REPORTED, reliability: 0.7,
+      provenance: PROVENANCE.SELF_REPORTED,
+      reliability: 0.7,
       independent: true, evidenceRef: payload.evidenceRef || null
     });
     searchState.lastProgressStep = searchState.stepCount;
@@ -125,7 +130,7 @@ function ingestFailureEvidence(searchState, event) {
     return;
   }
   ledger.addEvidence(targetHypId, {
-    direction: 'against', strength: 0.5, provenance: ledger.PROVENANCE.SELF_REPORTED,
+  direction: 'against', strength: 0.5, provenance: PROVENANCE.SELF_REPORTED,
     reliability: 0.8, independent: true, evidenceRef: `error:${event.eventType}`
   });
 }
@@ -180,7 +185,11 @@ function emitAction(agentId, process, receipt) {
 function executeProcess({ selection, searchCtx, actuator }) {
   if (selection.process === SEARCH_PROCESS.CONTINUE) return Promise.resolve(null);
 
-  const agentId = searchCtx.agentId || selection.agentId;
+  const agentId = searchCtx.agentId;
+  if (!agentId) {
+    console.warn('[Natural Search] executeProcess called without agentId in searchCtx');
+    return Promise.resolve(null);
+  }
   return actuator.execute(selection.process, {
     agentId,
     lockInHypothesis: selection.lockInHypothesis || null,
