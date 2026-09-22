@@ -3,93 +3,366 @@
   "$id": "https://genos.ai/spec/philosophical-concept.schema.json",
   "title": "PhilosophicalConcept",
   "type": "object",
-  "required": ["apiVersion", "kind", "id", "label", "family", "domain", "school", "status"],
+  "required": [
+    "apiVersion",
+    "kind",
+    "id",
+    "label",
+    "family",
+    "domain",
+    "school",
+    "status"
+  ],
   "properties": {
-    "apiVersion": { "type": "string", "const": "genos.philosophy/v1" },
-    "kind": { "type": "string", "const": "PhilosophicalConcept" },
-    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
-    "label": { "type": "string", "minLength": 1 },
-    "family": { "type": "string", "minLength": 1 },
+    "apiVersion": {
+      "type": "string",
+      "const": "genos.philosophy/v1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "PhilosophicalConcept"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "family": {
+      "type": "string",
+      "minLength": 1
+    },
     "genosDomains": {
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["ontology", "consciousness", "cognition", "phenomenology", "identity", "social-cognition", "wellbeing", "computation", "prediction", "epistemics", "ethics", "causality", "process"]
+        "enum": [
+          "ontology",
+          "consciousness",
+          "cognition",
+          "phenomenology",
+          "identity",
+          "social-cognition",
+          "wellbeing",
+          "computation",
+          "prediction",
+          "epistemics",
+          "ethics",
+          "causality",
+          "process"
+        ]
       }
     },
-    "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "labels": {
       "type": "object",
       "additionalProperties": {
         "type": "array",
-        "items": { "type": "string", "minLength": 1 }
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
-    "domain": { "type": "string", "minLength": 1 },
-    "school": { "type": "string", "minLength": 1 },
+    "domain": {
+      "type": "string",
+      "minLength": 1
+    },
+    "school": {
+      "type": "string",
+      "minLength": 1
+    },
     "status": {
       "type": "string",
-      "enum": ["registered", "implemented", "partial", "interpretive", "disputed", "planned"]
+      "enum": [
+        "registered",
+        "implemented",
+        "partial",
+        "interpretive",
+        "disputed",
+        "planned"
+      ]
     },
-    "service": { "type": ["string", "null"] },
-    "authors": { "type": "array", "items": { "type": "string" } },
-    "works": { "type": "array", "items": { "type": "string" } },
-    "definition": { "type": "string" },
-    "examples": { "type": "array", "items": { "type": "string" } },
+    "service": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "authors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "works": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "definition": {
+      "type": "string"
+    },
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "relations": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["type", "target"],
+        "required": [
+          "type",
+          "target"
+        ],
         "properties": {
-          "type": { "type": "string" },
-          "target": { "type": "string" },
-          "note": { "type": "string" }
+          "type": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
         },
         "additionalProperties": false
       }
     },
-    "claims": { "type": "array", "items": { "type": "string" } },
-    "adapters": { "type": "array", "items": { "type": "string" } },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "adapters": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "evidenceLevel": {
       "type": "string",
-      "enum": ["philosophical", "conceptual", "empirical", "operational"]
+      "enum": [
+        "philosophical",
+        "conceptual",
+        "empirical",
+        "operational"
+      ]
     },
     "mapping": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "properties": {
-        "kind": { "type": "string", "enum": ["analogy", "service", "data", "experiment"] },
-        "target": { "type": "string" },
-        "note": { "type": "string" }
+        "kind": {
+          "type": "string",
+          "enum": [
+            "analogy",
+            "service",
+            "data",
+            "experiment"
+          ]
+        },
+        "target": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
       },
-      "required": ["kind", "target"],
+      "required": [
+        "kind",
+        "target"
+      ],
       "additionalProperties": false
     },
     "serviceMaturity": {
       "type": "object",
-      "required": ["service", "level", "executable", "evidence", "note"],
+      "required": [
+        "service",
+        "level",
+        "executable",
+        "evidence",
+        "note"
+      ],
       "properties": {
-        "service": { "type": ["string", "null"] },
-        "level": { "type": "string", "enum": ["implemented", "partial", "conceptual", "planned"] },
-        "executable": { "type": "boolean" },
-        "evidence": { "type": "string", "enum": ["tests", "documentation", "empirical", "none"] },
-        "note": { "type": "string" }
+        "service": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "implemented",
+            "partial",
+            "conceptual",
+            "planned"
+          ]
+        },
+        "executable": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "type": "string",
+          "enum": [
+            "tests",
+            "documentation",
+            "empirical",
+            "none"
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
       },
       "additionalProperties": false
     },
     "provenance": {
       "type": "object",
       "properties": {
-        "version": { "type": "string" },
-        "sourceType": { "type": "string", "enum": ["primary", "secondary", "genos"] },
-        "sourceDocument": { "type": "string" },
-        "sourceLocator": { "type": "string" },
-        "evidenceStatus": { "type": "string" },
-        "interpretationStatus": { "type": "string" },
-        "derivedFrom": { "type": "array", "items": { "type": "string" } },
-        "recordedAt": { "type": "string" }
+        "version": {
+          "type": "string"
+        },
+        "sourceType": {
+          "type": "string",
+          "enum": [
+            "primary",
+            "secondary",
+            "genos"
+          ]
+        },
+        "sourceDocument": {
+          "type": "string"
+        },
+        "sourceLocator": {
+          "type": "string"
+        },
+        "evidenceStatus": {
+          "type": "string"
+        },
+        "interpretationStatus": {
+          "type": "string"
+        },
+        "derivedFrom": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "recordedAt": {
+          "type": "string"
+        }
       },
       "additionalProperties": false
+    },
+    "cognitiveKeys": {
+      "type": "array",
+      "description": "Clés cognitives déclarées par ce concept (ADR 0033, point 8). Chaque entrée est une CognitiveKey complète au sens de spec/cognitive-key.schema.json, SANS derivedFrom (ajouté automatiquement = id du concept). Le compilateur cognitiveKeyCompiler les valide et les fusionne dans le registre.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "operation",
+          "instruction",
+          "inputs",
+          "outputs",
+          "usefulWhen",
+          "failureModes",
+          "cost",
+          "evidenceRequired"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^cognitive\\.[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation": {
+            "type": "string"
+          },
+          "instruction": {
+            "type": "string",
+            "minLength": 40
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inputs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "usefulWhen": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "failureModes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "compatibleWith": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "conflictsWith": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cost": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "evidenceRequired": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false
