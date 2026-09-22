@@ -31,7 +31,10 @@ impl MeioticCrossover {
         let mut child = parent_a.derive_reproductive_child();
         child.set_identity(Uuid::new_v4());
         child.parent_ids = vec![parent_a.genome_id(), parent_b.genome_id()];
-        child.generation = parent_a.generation.max(parent_b.generation).saturating_add(1);
+        child.generation = parent_a
+            .generation
+            .max(parent_b.generation)
+            .saturating_add(1);
 
         let (a_mat, _a_pat) = Self::crossover(
             &parent_a.chromosome_maternal,
@@ -68,10 +71,7 @@ fn build_extra_chromosomes<R: RngExt + ?Sized>(
 pub struct GenealogyTree;
 
 impl GenealogyTree {
-    pub fn build_lineage(
-        _root: &Genome,
-        descendants: &[Genome],
-    ) -> Vec<(Uuid, Vec<Uuid>)> {
+    pub fn build_lineage(_root: &Genome, descendants: &[Genome]) -> Vec<(Uuid, Vec<Uuid>)> {
         let mut children_map: std::collections::HashMap<Uuid, Vec<Uuid>> =
             std::collections::HashMap::new();
         for desc in descendants {
