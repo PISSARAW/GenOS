@@ -103,6 +103,23 @@ function eventTypeName(operation) {
   }[operation] || 'BIRTH';
 }
 
+async function logGenomeEvent({ db, operation, params, scope, model, id }) {
+  const parentRefs = gatherParentRefs(operation, params);
+  const eventPayload = {
+    operation,
+    contentHash: model.contentHash,
+    source: 'agentDnaOperations.runOperation',
+    name: model.meta.name,
+    geneCount: Object.keys(model.genes).length,
+  };
+  await genomeEventLog.recordEvent(db, genomeEventLog.makeEvent(eventTypeName(operation), id, {
+    parentRefs: parentRefs || undefined,
+    payload: operation === 'decoy' ? { ...eventPayload, decoy: true } : eventPayload,
+    organizationId: scope.organizationId,
+    projectId: scope.projectId,
+  }));
+}
+
 async function runOperation(db, request) {
   const operation = request.operation;
   const params = request.params || {};
@@ -131,7 +148,7 @@ async function runOperation(db, request) {
     await store.saveGenome(db, model, { id, organizationId: scope.organizationId, projectId: scope.projectId });
 
     // B1: enregistrer l'événement genome_events pour cette opération
-    logGenomeEvent(db, operation, params, scope, model, id);
+    await logGenomeEvent({ db, operation, params, scope, model, id });
 
     return {
       genomeRef: id,
