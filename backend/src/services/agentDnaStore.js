@@ -205,7 +205,12 @@ async function workerGenesForAssignment(db, assignment, scope) {
     ids.organizationId || null,
     ids.projectId || null
   );
-  return { genomeRef: selection.id, selectionId, genes: workerGenes(selection.model) };
+  return {
+    genomeRef: selection.id,
+    selectionId,
+    genes: workerGenes(selection.model),
+    phenotypeHash: selection.model?.contentHash || null
+  };
 }
 
 module.exports = {

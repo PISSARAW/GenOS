@@ -84,19 +84,33 @@ function verifyEd25519(signerHex, message, signature) {
   }
 }
 
-function verifySignature(sections) {
+async function verifySignature(sections, scope) {
   const signature = sections.get('SIGN');
-  if (!signature) return { signed: false, signer: null, valid: false };
+  if (!signature) return { signed: false, signer: null, valid: false, trusted: false };
   const provenance = sections.get('PROV');
-  if (!provenance) return { signed: true, signer: null, valid: false };
+  if (!provenance) return { signed: true, signer: null, valid: false, trusted: false };
   let signer = null;
   try {
     signer = unpack(provenance)[7];
   } catch (_) {
-    return { signed: true, signer: null, valid: false };
+    return { signed: true, signer: null, valid: false, trusted: false };
   }
-  if (!signer) return { signed: true, signer: null, valid: false };
-  return { signed: true, signer, valid: verifyEd25519(signer, canonicalFlux(sections), signature) };
+  if (!signer) return { signed: true, signer, valid: false, trusted: false };
+
+  const valid = verifyEd25519(signer, canonicalFlux(sections), signature);
+
+  // B6: vérifier que le signataire est dans le trust store du tenant
+  let trusted = false;
+  if (valid && scope && scope.organizationId && scope.projectId) {
+    const { isSignerTrusted } = require('./genomeTrustStore');
+    try {
+      trusted = await isSignerTrusted({ organizationId: scope.organizationId, projectId: scope.projectId }, signer);
+    } catch (_) {
+      trusted = false;
+    }
+  }
+
+  return { signed: true, signer, valid, trusted };
 }
 
 function uuidFromBuffer(buffer) {

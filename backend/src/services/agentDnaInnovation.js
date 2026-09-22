@@ -141,15 +141,37 @@ async function captureFromSuccess(ctx) {
   const tools = await latestToolLease(db, agentId);
   const concepts = detectNovelConcepts(base.model, tools);
   if (!concepts.length) return null;
+
+  // B4: croiser les outils loués avec les événements d'exécution pour vérifier l'usage effectif
+  const contributionEvidence = await findToolUsageEvidence(db, agentId, concepts);
+
   return captureCandidate(db, {
     baseGenomeRef: base.id,
     name: `${base.model.meta.name}-${concepts[0].locus.toLowerCase().slice(0, 24)}`,
     concept: concepts.map((concept) => concept.instruction).join(','),
     concepts,
     sourceAgentId: agentId,
-    evidence: evidenceSummary(event),
+    evidence: { ...evidenceSummary(event), contributionEvidence },
     scope
   });
+}
+
+async function findToolUsageEvidence(db, agentId, concepts) {
+  const evidence = {};
+  const usageRows = await safeGet(
+    db,
+    `SELECT COUNT(*) as cnt FROM telemetry_events
+     WHERE agent_id = ? AND event_type = 'WORKER_TOOL_USED'
+     AND created_at >= (SELECT created_at FROM telemetry_events WHERE agent_id = ? AND event_type = 'WORKER_CAPABILITY_LEASED' ORDER BY created_at DESC LIMIT 1)`,
+    agentId, agentId
+  );
+  for (const concept of concepts) {
+    evidence[concept.locus] = {
+      observed: Number(usageRows?.cnt || 0) > 0,
+      method: usageRows?.cnt > 0 ? 'observed' : 'heuristic'
+    };
+  }
+  return evidence;
 }
 
 async function captureFromFossil(ctx) {
@@ -203,11 +225,20 @@ async function evaluateCandidate(db, id) {
   const row = await safeGet(db, 'SELECT * FROM agent_genome_innovations WHERE id = ?', id);
   if (!row) throw Object.assign(new Error(`innovation '${id}' not found`), { code: 'INNOVATION_NOT_FOUND' });
   const model = await store.loadGenome(db, row.candidate_genome_ref);
+
+  // B5: charger le parent pour comparaison
+  const parent = row.base_genome_ref ? await store.loadGenome(db, row.base_genome_ref) : null;
+
   const evidence = parseEvidence(row.evidence_json);
   const sourceEvidence = hasTrustedEvidence(evidence);
   const scope = { organizationId: row.organization_id, projectId: row.project_id };
   const signatureRequired = await require('./agentDnaPolicy').isSignatureRequired(db, scope);
-  const checks = evaluationChecks(model, sourceEvidence, signatureRequired);
+  const checks = evaluationChecks({
+    model,
+    parent,
+    evidence: sourceEvidence,
+    signature: signatureRequired
+  });
   const evaluation = { evaluatedAt: new Date().toISOString(), checks, eligible: Object.values(checks).every(Boolean) };
   await db.run('UPDATE agent_genome_innovations SET evaluation_json = ? WHERE id = ?', JSON.stringify(evaluation), id);
   return { id, status: row.status, evaluation };
@@ -223,12 +254,20 @@ function hasTrustedEvidence(evidence) {
     && require('./agentEvidenceService').hasDecisionEvidence(evidence);
 }
 
-function evaluationChecks(model, sourceEvidence, signatureRequired) {
+function evaluationChecks({ model, parent, evidence, signature }) {
   return {
     genomeValid: Boolean(model && model.meta && model.genes && model.provenance),
-    sourceEvidence,
-    signaturePolicy: !signatureRequired || Boolean(model && model.signatureValid)
+    sourceEvidence: evidence,
+    signaturePolicy: !signature || Boolean(model && model.signatureValid),
+    superiorToParent: parent ? isSuperiorToParent(model, parent) : null
   };
+}
+
+function isSuperiorToParent(model, parent) {
+  if (!parent || !parent.genes) return true;
+  const candidateGenes = Object.keys(model.genes || {}).length;
+  const parentGenes = Object.keys(parent.genes).length;
+  return candidateGenes > parentGenes;
 }
 
 async function rejectCandidate(db, id, reason) {
