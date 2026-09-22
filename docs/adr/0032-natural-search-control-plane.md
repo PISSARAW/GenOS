@@ -24,49 +24,49 @@ Implémenter un **Natural Search Control Plane** en plusieurs phases au-dessus d
 
 | Phase | Composant | Statut | Fichier |
 | --- | --- | --- | --- |
-| 1 | Causal Progress Sensor | ✅ intégré | `causalProgressService.js` |
-| 2 | Entropy × Progression Classifier | ✅ intégré | `entropyProgressClassifier.js` |
-| 3 | Hypothesis Ledger | ✅ intégré | `hypothesisLedgerService.js` |
-| 4 | Search Pressure Model | ✅ intégré | `searchPressureService.js` |
-| 5 | Natural Search Controller | ✅ intégré | `naturalSearchController.js` |
-| 5.5 | Natural Search Actuator | ✅ intégré | `naturalSearchActuatorService.js` |
-| 5.5 | SearchPersistence (SQLite) | ✅ intégré | `searchPersistenceService.js` |
-| 5.5 | Runtime Integration via `checkNaturalSearchControl()` | ✅ intégré | `agentProcessEventPipeline.js` |
-| 7 | Actuator → primitives GenOS réelles | ✅ intégré | `naturalSearchActuatorService.js` |
-| 8 | Persistance SQLite opérationnelle | ✅ intégré | API Promise `sqlite` |
-| 9 | E2E pipeline test | ✅ intégré | `test_natural_search_e2e_pipeline.js` |
-| 10 | Docs synchronisées | ✅ intégré | `natural-search-control-plane.md` + ADR 0032 |
+|| 1 | Causal Progress Sensor | ✅ intégré | `causalProgressService.js` |
+|| 2 | Entropy × Progression Classifier | ✅ intégré | `entropyProgressClassifier.js` |
+|| 3 | Hypothesis Ledger | ✅ intégré | `hypothesisLedgerService.js` |
+|| 4 | Search Pressure Model | ✅ intégré | `searchPressureService.js` |
+|| 5 | Natural Search Controller | ✅ intégré | `naturalSearchController.js` |
+|| 5.5 | Natural Search Actuator | ✅ intégré | `naturalSearchActuatorService.js` + `naturalSearchActuatorPrimitives.js` |
+|| 5.5 | SearchPersistence (SQLite) | ✅ intégré | `searchPersistenceService.js` |
+|| 5.5 | Runtime Integration via `checkNaturalSearchControl()` | ✅ intégré | `agentProcessEventPipeline.js` |
+|| 6 | SearchIntegration (CognitiveAffinity + NegativeSearchMemory + SearchCulture) | ✅ intégré | `searchIntegrationService.js` |
+
+### Primitives consommées via `naturalSearchActuatorPrimitives.js`
+
+|| Processus | Primitive utilisée |
+|| --- | --- |
+|| FORAGE | `SearchPatchService` (évaluation départ/continuation) |
+|| PLASTICITE | `UPDATE agents.topology/tools` (DB) |
+|| CLONAL_AFFINITY_SEARCH | `mutateGenome` + `createRandomGenome` (SearchGenome) |
+|| STRESS_HYPERMUTATION | `mutateGenome` (SearchGenome) + `SearchPersistence.saveGenomeSnapshot` |
+|| SPECIATION | `cloneFromAgent` (lineage) + `INSERT` niches (DB) |
+|| EVOLUTION | `crossoverGenome` + `mutateGenome` (SearchGenome) + `SearchEvolutionEngine` |
+|| REPLAY_CAUSAL | `SELECT snapshot` + `applySnapshotState` (DB) + `CausalReplayService` |
 
 ### Tests
 
-| Couverture | Statut | Fichier |
-| --- | --- | --- |
-| Composants isolés (LED, Controller, Actuator, Persistence en mémoire) | ✅ | `test_natural_search_runtime_e2e.js` |
-| `checkNaturalSearchControl()` avec DB SQLite | ✅ | `test_natural_search_e2e_pipeline.js` |
-| Evolution process | ✅ | `test_search_evolution.js` |
+|| Couverture | Statut | Fichier |
+|| --- | --- | --- |
+|| Composants isolés (LED, Controller, Actuator, Persistence en mémoire) | ✅ | `test_natural_search_runtime_e2e.js` |
+|| `checkNaturalSearchControl()` avec DB SQLite | ✅ | `test_natural_search_e2e_pipeline.js` |
+|| Full pipeline (checkNaturalSearchControl + persistence + negative memory + proactive) | ✅ | `test_natural_search_full_pipeline_e2e.js` |
 
-### Modules hors pipeline
+### Fonctionnalités cross-cutting
 
-| Module | Statut | Fichier |
-| --- | --- | --- |
-| Cognitive Affinity Maturation | ⚠️ module isolé | `cognitiveAffinityService.js` |
-| Negative Search Memory | ⚠️ module isolé | `negativeSearchMemoryService.js` |
-| Cultural Transmission / Plasmides | ⚠️ module isolé | `searchCultureService.js` |
+|| Fonctionnalité | Implémentation |
+|| --- | --- |
+|| Routage de provenance | `resolveProvenance()` — LLM→SELF_REPORTED / event→INFERRED / tool→OBSERVED / evidence→VERIFIED |
+|| Flush garanti | `clearSearchState()` → `flushSearchState()` avant suppression mémoire |
+|| Création proactive d'hypothèses | `proactiveHypothesis()` après 5 étapes sans progrès |
 
-## Plan de stabilisation
+### Limitations connues
 
-1. ✅ Corriger le modèle de croyance bayésien
-2. ✅ Normaliser le searchYield avec budgets
-3. ✅ Séparer medium-stagnation de vrai lock-in via le Ledger
-4. ✅ Refaire Search Pressure comme signal d'état avec inertie
-5. ✅ Brancher le pipeline dans `agentProcessEventPipeline.js`
-6. ✅ `NaturalSearchActuator` : primitives GenOS réelles intégrées (PLASTICITE, CLONAL_AFFINITY_SEARCH, SPECIATION, REPLAY_CAUSAL, EVOLUTION, FORAGE, STRESS_HYPERMUTATION) — voir limitations pour la consommation des services SearchGenome/SearchPatch/CausalReplay
-7. ✅ Persistence SQLite : service implémenté, appelé par `persistSearchState()` et `flushSearchState()` dans `naturalSearchRuntime.js`, `clearSearchState()` dans `handleChildClose` flush l'état mémoire avant suppression
-8. ✅ Test E2E pipeline : `test_natural_search_full_pipeline_e2e.js` appelle `checkNaturalSearchControl()` avec DB SQLite, persiste hypothèses + décisions + pression + negative memory
-9. ✅ Modules isolés intégrés : `SearchPatchService`, `SearchEvolutionEngine`, `CausalReplayService`, `CognitiveAffinity`, `NegativeSearchMemory`, `SearchCulture` branchés via `SearchIntegration`
-10. ✅ Actuator → primitives GenOS réelles avec persistance `SearchPersistence`
-11. ✅ Runtime → création proactive d'hypothèses (`proactiveHypothesis` après 5 étapes sans progrès)
-12. ✅ Routage de provenance : `resolveProvenance()` — LLM→SELF_REPORTED / event→INFERRED / tool→OBSERVED / evidence→VERIFIED
+- L'Actuator passe par `naturalSearchActuatorPrimitives.js` qui délègue aux services via singletons, pas par injection directe.
+- `STRESS_HYPERMUTATION` et `FORAGE` construisent encore des objets locaux (genome/patch) en plus des appels services.
+- `resolveProvenance` respecte `payload.provenance` du LLM s'il est présent (sinon routage automatique).
 
 ## Références
 

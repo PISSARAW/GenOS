@@ -1,6 +1,6 @@
 # Natural Search Control Plane
 
-- **Statut** : Phases 1–10 intégrées et testées.
+- **Statut** : Phases 1–6 implémentées et testées. Phases 7–12 : modules prototypes présents, intégration complète aux primitives runtime en cours.
 - **Portée** : `backend/src/services/search/*.js`, `backend/tests/search/test_*.js`, `docs/adr/0032-natural-search-control-plane.md`.
 - **Dernière revue** : 2026-09-22.
 - **Jeu de tests** : `npm --prefix backend run test:natural-search` lance `test_natural_search_controller.js` (Controller + hystérésis), `test_natural_search_runtime_e2e.js` (LED, Controller, Actuator, Persistence SQLite en mémoire) et `test_natural_search_e2e_pipeline.js` (pipeline réel `checkNaturalSearchControl()` avec DB SQLite). Tous passent. Le `run_validation_suite.js profile=smoke` exécute les 4 suites Natural Search.
@@ -21,15 +21,13 @@
 | E2E — composants isolés | ✅ | `test_natural_search_runtime_e2e.js` | ✅ |
 | E2E — pipeline `checkNaturalSearchControl()` | ✅ | `test_natural_search_e2e_pipeline.js` | ✅ appelle `checkNaturalSearchControl()` avec DB SQLite réelle |
 | `test_search_evolution.js` | ✅ | `test_search_evolution.js` | ✅ EVOLUTION process + actuator cohérents |
-| SearchGenome | ✅ intégré | `searchGenomeService.js` | ✅ via NaturalSearchActuatorPrimitives (mutateGenome, crossoverGenome) |
-| SearchPatchService | ✅ intégré | `searchPatchService.js` | ✅ via `forage()` dans `naturalSearchActuatorPrimitives.js` |
-| SearchEvolutionEngine | ✅ intégré | `searchEvolutionService.js` | ✅ via `evolution()` dans `naturalSearchActuatorPrimitives.js` |
-| CausalReplayService | ✅ intégré | `causalReplayService.js` | ✅ via `replayCausal()` dans `naturalSearchActuatorPrimitives.js` |
-| CognitiveAffinity | ✅ intégré | `cognitiveAffinityService.js` | ✅ via `SearchIntegration` dans `naturalSearchRuntime.js` |
-| NegativeSearchMemory | ✅ intégré | `negativeSearchMemoryService.js` | ✅ via `SearchIntegration` dans `naturalSearchRuntime.js` |
-| CulturalTransmission | ✅ intégré | `searchCultureService.js` | ✅ via `SearchIntegration` dans `naturalSearchRuntime.js` |
-| SearchIntegration | ✅ nouveau | `searchIntegrationService.js` | ✅ centralise CognitiveAffinity + NegativeSearchMemory + SearchCulture |
-| E2E — full pipeline test | ✅ | `test_natural_search_full_pipeline_e2e.js` | ✅ checkNaturalSearchControl + persistence + negative memory + proactive |
+|| SearchGenome | ✅ intégré | `searchGenomeService.js` | ✅ via Actuator (FORAGE/STRESS_HYPERMUTATION/EVOLUTION) |
+|| Cognitive Affinity | ✅ intégré | `cognitiveAffinityService.js` | ✅ via Actuator (CLONAL_AFFINITY_SEARCH → createVariants + selectBestVariant) |
+|| Generalized Foraging | ✅ intégré | `searchPatchService.js` | ✅ via Actuator (FORAGE → patch lifecycle) |
+|| Causal Replay Service | ✅ intégré | `causalReplayService.js` | ✅ via Actuator (REPLAY_CAUSAL → checkpoints + replay) |
+|| Negative Search Memory | ✅ intégré | `negativeSearchMemoryService.js` | ✅ via runtime (falsification → recordNegativeOutcome) |
+|| Search Evolution | ✅ intégré | `searchEvolutionService.js` | ✅ via Actuator (EVOLUTION → evolveSearchPopulation) |
+|| Cultural Transmission | ✅ intégré | `searchCultureService.js` | ✅ via runtime (succès EVOLUTION/CLONAL → compilePlasmid + transmit) |
 
 ## Architecture finale
 
@@ -44,20 +42,18 @@ checkNaturalSearchControl(ctx, event)
   ├─ NaturalSearchController.selectProcess()
   │    └─ PROCESS_LEVEL (CONTINUE=0 … EVOLUTION=6)
   │    └─ Hystérésis : blocage downgrade uniquement, escalation toujours autorisée
-  ├─ NaturalSearchActuator.execute()
-  │    ├─ FORAGE           → forage() + SearchPatchService + SearchPersistence.savePatchVisit()
-  │    ├─ PLASTICITE       → plasticity() + applySnapshotState (DB)
-  │    ├─ CLONAL_AFFINITY_SEARCH → clonalAffinity() + mutateGenome + propose via ledger + saveProof
-  │    ├─ STRESS_HYPERMUTATION   → mutateGenome + SearchPersistence.saveGenomeSnapshot()
-  │    ├─ SPECIATION             → cloneFromAgent + INSERT niches (DB)
-  │    ├─ EVOLUTION              → SearchEvolutionEngine + SearchPersistence.saveGenomeSnapshot()
-  │    ├─ REPLAY_CAUSAL          → CausalReplayService + SearchPersistence.saveReplayLog()
-  │    └─ CONTINUE               → no-op
-  ├─ SearchIntegration
-  │    ├─ CognitiveAffinity → createAffinityVariants + selectBestVariant
-  │    ├─ NegativeSearchMemory → recordNegative + isPathBlocked
-  │    └─ SearchCulture → compilePlasmid + transmit
-  └─ SearchPersistence.saveHypothesis/saveProof/savePressureState/saveDecision/savePatchVisit/saveGenomeSnapshot/saveReplayLog()
+  ||  ├─ NaturalSearchActuator.execute()
+  ||  │    ├─ FORAGE           → forage() + SearchPatchService (patch lifecycle + MVT)
+  ||  │    ├─ PLASTICITE       → plasticity() + applySnapshotState (DB)
+  ||  │    ├─ CLONAL_AFFINITY_SEARCH → clonalAffinity() + CognitiveAffinity (createVariants + selectBestVariant) + ledger.propose
+  ||  │    ├─ STRESS_HYPERMUTATION   → hypermutation() + SearchGenomeService.mutateGenome + saveGenomeSnapshot
+  ||  │    ├─ SPECIATION             → speciation() + INSERT niches (DB)
+  ||  │    ├─ EVOLUTION              → evolution() + SearchEvolutionEngine.evolve + saveGenomeSnapshot
+  ||  │    ├─ REPLAY_CAUSAL          → replayCausal() + CausalReplayService (checkpoints) + saveReplayLog
+  ||  │    └─ CONTINUE               → no-op
+  ||  ├─ Negative Search Memory (falsification → recordNegativeOutcome)
+  ||  ├─ Cultural Transmission (succès EVOLUTION/CLONAL → compilePlasmid + transmit)
+  ||  └─ SearchPersistence.saveHypothesis/saveProof/savePressureState/saveDecision/savePatchVisit/saveGenomeSnapshot/saveReplayLog()
       ↓ (à la fin)
   clearSearchState() → flushSearchState() → suppression état mémoire
 ```
