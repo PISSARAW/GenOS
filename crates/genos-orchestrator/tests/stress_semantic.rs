@@ -10,7 +10,7 @@ fn stress_pese_sur_l_organisation() {
     let mut sick = AgentCell::new("x", "x", "W");
     sick.clinical.inflammatory_index = 25.0;
     eco.orchestrator.add_worker("Arena", sick).unwrap();
-    eco.orchestrator.conscience_state.dissonance_level = 50.0;
+    eco.orchestrator.cognitive_regulation_state.dissonance_level = 50.0;
 
     let state = eco.observe();
     assert!(state.dissonance > 0.0);

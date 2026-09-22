@@ -73,8 +73,8 @@ impl GenosEcosystem {
     fn collect_workspace_signals(&mut self) -> Vec<WorkspaceSignal> {
         let membrane_distress = 1.0 - self.orchestrator.membrane.total_integrity();
         let atp_ratio = (self.orchestrator.metabolism.available() / self.orchestrator.metabolism.capacity.max(1e-9)).clamp(0.0, 1.0);
-        let dissonance_distress = (self.orchestrator.conscience_state.dissonance_level
-            / self.orchestrator.conscience_state.max_dissonance_threshold.max(1e-9))
+        let dissonance_distress = (self.orchestrator.cognitive_regulation_state.dissonance_level
+            / self.orchestrator.cognitive_regulation_state.max_dissonance_threshold.max(1e-9))
         .clamp(0.0, 1.0);
         vec![
             WorkspaceSignal { name: "membrane".to_string(), salience: membrane_distress.clamp(0.0, 1.0) },

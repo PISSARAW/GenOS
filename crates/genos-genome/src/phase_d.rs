@@ -216,12 +216,22 @@ impl Default for EvolutionaryOperatorPool {
 // D.5 — Cycle évolutif complet (intégrateur Phase D)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/// Résumé de la dernière évaluation de population (observé par Phase F).
+#[derive(Clone, Debug, Default)]
+pub struct EvaluationSummary {
+    pub best_fitness: f64,
+    pub mean_fitness: f64,
+    pub evaluated: usize,
+}
+
 #[derive(Clone, Debug)]
 pub struct PhaseDCycle {
     fitness: ExperimentalFitness,
     diversity: QDDiversityEngine,
     env: EnvironmentManager,
     operators: EvolutionaryOperatorPool,
+    last_evaluation: EvaluationSummary,
+    operator_usage: HashMap<String, u32>,
 }
 
 impl PhaseDCycle {
@@ -231,12 +241,16 @@ impl PhaseDCycle {
             diversity: QDDiversityEngine::new(vec![]),
             env: EnvironmentManager::new(tasks),
             operators: EvolutionaryOperatorPool::new(),
+            last_evaluation: EvaluationSummary::default(),
+            operator_usage: HashMap::new(),
         }
     }
 
     /// Évalue toute la population sur l'environnement courant.
     pub fn evaluate(&mut self, population: &[Genome]) -> Vec<f64> {
-        population.iter().map(|g| self.evaluate_one(g)).collect()
+        let scores: Vec<f64> = population.iter().map(|g| self.evaluate_one(g)).collect();
+        self.last_evaluation = summarize(&scores);
+        scores
     }
 
     fn evaluate_one(&mut self, genome: &Genome) -> f64 {
@@ -273,99 +287,46 @@ impl PhaseDCycle {
     pub fn diversity_mut(&mut self) -> &mut QDDiversityEngine {
         &mut self.diversity
     }
+
+    /// Résumé de la dernière évaluation (best/mean fitness réels).
+    pub fn last_evaluation(&self) -> &EvaluationSummary {
+        &self.last_evaluation
+    }
+
+    /// Dernier best fitness mesuré (0.0 si aucune évaluation).
+    pub fn last_best_fitness(&self) -> f64 {
+        self.last_evaluation.best_fitness
+    }
+
+    /// Dernier mean fitness mesuré (0.0 si aucune évaluation).
+    pub fn last_mean_fitness(&self) -> f64 {
+        self.last_evaluation.mean_fitness
+    }
+
+    /// Compteur cumulé d'usage des opérateurs (observé par Phase F).
+    pub fn operator_usage(&self) -> &HashMap<String, u32> {
+        &self.operator_usage
+    }
+
+    /// Enregistre l'usage d'un opérateur (mutation, crossover, sélection…).
+    pub fn record_operator_use(&mut self, operator: &str, count: u32) {
+        *self.operator_usage.entry(operator.to_string()).or_insert(0) += count;
+    }
+}
+
+fn summarize(scores: &[f64]) -> EvaluationSummary {
+    if scores.is_empty() {
+        return EvaluationSummary::default();
+    }
+    let best = scores.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let mean = scores.iter().sum::<f64>() / scores.len() as f64;
+    EvaluationSummary {
+        best_fitness: best,
+        mean_fitness: mean,
+        evaluated: scores.len(),
+    }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use rand::SeedableRng;
-
-    fn genome() -> Genome {
-        let mut g = Genome::new("PHASE_D_TEST");
-        let gene = crate::gene::Gene::new("PD_GENE", "ATGCATGCATGC");
-        g.insert_gene(gene);
-        g
-    }
-
-    #[test]
-    fn experimental_fitness_measure() {
-        let mut ef = ExperimentalFitness::new();
-        let g = genome();
-        let score = ef.measure(&g, "task1");
-        assert!(score >= 0.0);
-    }
-
-    #[test]
-    fn experimental_fitness_significance() {
-        let mut ef = ExperimentalFitness::new();
-        let g = genome();
-        for _ in 0..4 {
-            ef.measure(&g, "task1");
-        }
-        assert!(ef.is_significant("task1", 0.5));
-    }
-
-    #[test]
-    fn experimental_fitness_ablation() {
-        let mut ef = ExperimentalFitness::new();
-        let g = genome();
-        let score = ef.ablate_and_measure(&g, "task1");
-        assert!(score >= 0.0);
-    }
-
-    #[test]
-    fn qd_engine_expand() {
-        let mut engine = QDDiversityEngine::new(vec![]);
-        let mut g = genome();
-        g.extra_chromosomes
-            .push(crate::dna::DnaStrand::synthesize("ATGCATGCATGCATGCATGC"));
-        let expanded = engine.expand_if_needed(&g, "far_genome");
-        assert!(expanded);
-        assert_eq!(engine.coverage().1, 1);
-    }
-
-    #[test]
-    fn qd_engine_insert() {
-        let mut engine = QDDiversityEngine::new(vec![Niche {
-            id: "n1".into(),
-            center: vec![1.0, 1.0, 0.0],
-            radius: 5.0,
-            occupant: None,
-            best_fitness: 0.0,
-        }]);
-        let g = genome();
-        let inserted = engine.evaluate_and_insert(&g, "g1", 50.0);
-        assert!(inserted);
-    }
-
-    #[test]
-    fn environment_shift() {
-        let mut env = EnvironmentManager::new(vec!["a".into(), "b".into()]);
-        env.shift_to_next_phase();
-        assert_eq!(env.phase, 1);
-    }
-
-    #[test]
-    fn operator_pool_adapt_low_diversity() {
-        let mut pool = EvolutionaryOperatorPool::new();
-        let initial = pool.crossover_rate;
-        pool.adapt(0.1, -0.5);
-        assert!(pool.crossover_rate > initial);
-    }
-
-    #[test]
-    fn phase_d_cycle_evaluate() {
-        let mut cycle = PhaseDCycle::new(vec!["t1".into(), "t2".into()]);
-        let pop = vec![genome(), genome()];
-        let scores = cycle.evaluate(&pop);
-        assert_eq!(scores.len(), 2);
-    }
-
-    #[test]
-    fn phase_d_cycle_shift_and_adapt() {
-        let mut cycle = PhaseDCycle::new(vec!["t1".into()]);
-        cycle.shift_environment();
-        cycle.adapt_operators(0.1, -0.3);
-        assert_eq!(cycle.env.phase, 1);
-    }
-}
+#[path = "phase_d_tests.rs"]
+mod tests;

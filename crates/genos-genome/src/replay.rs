@@ -1,7 +1,7 @@
 //! Trajectory replay: reconstruct and replay evolutionary trajectories
 //! from fossil records and event sequences.
 //!
-//! Complements the SelfModel in conscience.rs: while SelfModel records
+//! Complements the SelfModel in metacognition.rs: while SelfModel records
 //! GenerationSnapshot entries during live evolution, this module reconstructs
 //! and replays entire trajectories from serialized fossils and event logs.
 
@@ -211,7 +211,9 @@ mod tests {
         let events = vec![
             EvolutionEvent::Mutate { rate: 0.1 },
             EvolutionEvent::Select { pressure: 0.5 },
-            EvolutionEvent::EnvironmentalChange { params: vec![1, 2, 3] },
+            EvolutionEvent::EnvironmentalChange {
+                params: vec![1, 2, 3],
+            },
         ];
         let result = TrajectoryReplay::replay_trajectory(&ancestor, &events);
         assert_eq!(result.fitness_trajectory.len(), events.len() + 1);

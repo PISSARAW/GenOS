@@ -1,8 +1,12 @@
-//! Phase F — Conscience : auto-modèle et métacognition pour le moteur D.
+//! Phase F — Métacognition : auto-modèle évolutionnaire pour le moteur D.
 //!
 //! Le moteur D observe ses propres processus de recherche/évolution, détecte
 //! des patterns dans sa propre trajectoire (stagnation, biais, boucles), et
 //! s'adapte en conséquence via des ajustements de ses paramètres internes.
+//!
+//! Ce module est un self-model ÉVOLUTIONNAIRE (trajectoire de fitness,
+//! usage des opérateurs) — pas une conscience. Le terme « conscience » est
+//! réservé au programme expérimental qui évaluera plusieurs indicateurs.
 
 use crate::phase_d::PhaseDCycle;
 use serde::{Deserialize, Serialize};
@@ -57,6 +61,17 @@ impl GenerationSnapshot {
     }
 }
 
+/// Rapport d'une itération de la boucle métacognitive (Phase F runtime).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MetacognitionStepReport {
+    pub generation: u32,
+    pub best_fitness: f64,
+    pub mean_fitness: f64,
+    pub signals: Vec<CognitiveSignal>,
+    pub adjustment: Adjustment,
+    pub scores: Vec<f64>,
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // F.3 — Auto-modèle : détection de stagnation, biais, boucles
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -85,28 +100,31 @@ impl SelfModel {
         }
         let recent = &self.trajectory[self.trajectory.len() - window..];
         let first = recent[0].best_fitness;
-        recent.iter().all(|s| (s.best_fitness - first).abs() < self.stagnation_threshold)
+        recent
+            .iter()
+            .all(|s| (s.best_fitness - first).abs() < self.stagnation_threshold)
     }
 
-    /// Calcule le biais cumulé dans la sélection des opérateurs.
+    /// Biais cumulé : usage agrégé par opérateur sur toute la trajectoire.
+    /// bias = max_k usage_k / Σ_k usage_k
     pub fn detect_bias(&self) -> f64 {
-        let total: u32 = self
-            .trajectory
-            .iter()
-            .flat_map(|s| s.operator_usage.values())
-            .sum();
+        let aggregate = self.aggregate_operator_usage();
+        let total: u32 = aggregate.values().sum();
         if total == 0 {
             return 0.0;
         }
-        let mut max_usage = 0u32;
+        let max_usage = aggregate.values().copied().max().unwrap_or(0);
+        max_usage as f64 / total as f64
+    }
+
+    fn aggregate_operator_usage(&self) -> HashMap<String, u32> {
+        let mut aggregate: HashMap<String, u32> = HashMap::new();
         for snapshot in &self.trajectory {
-            for &count in snapshot.operator_usage.values() {
-                if count > max_usage {
-                    max_usage = count;
-                }
+            for (op, count) in &snapshot.operator_usage {
+                *aggregate.entry(op.clone()).or_insert(0) += count;
             }
         }
-        max_usage as f64 / total as f64
+        aggregate
     }
 
     /// Détecte une boucle : pattern répétitif dans la trajectoire.
@@ -146,6 +164,7 @@ pub struct MetacognitionEngine {
     model: SelfModel,
     bias_threshold: f64,
     stagnation_window: usize,
+    generation: u32,
 }
 
 impl MetacognitionEngine {
@@ -154,6 +173,7 @@ impl MetacognitionEngine {
             model: SelfModel::new(),
             bias_threshold: 0.7,
             stagnation_window: 5,
+            generation: 0,
         }
     }
 
@@ -174,12 +194,12 @@ impl MetacognitionEngine {
         if !signals.is_empty() {
             return signals;
         }
-        let coverage = cycle.diversity().coverage();
-        let diversity = if coverage.1 > 0 {
-            coverage.0 as f64 / coverage.1 as f64
-        } else {
-            0.0
-        };
+        let diversity = self
+            .model
+            .trajectory
+            .last()
+            .map(|s| s.diversity_score)
+            .unwrap_or(0.0);
         if diversity > 0.6 {
             signals.push(CognitiveSignal::DiverseEnough);
         } else if diversity < 0.3 {
@@ -188,19 +208,15 @@ impl MetacognitionEngine {
         signals
     }
 
-    fn build_snapshot(&self, cycle: &PhaseDCycle, generation: u32) -> GenerationSnapshot {
+    fn build_snapshot(&self, cycle: &mut PhaseDCycle, generation: u32) -> GenerationSnapshot {
         let coverage = cycle.diversity().coverage();
-        let diversity_score = if coverage.1 > 0 {
-            coverage.0 as f64 / coverage.1 as f64
-        } else {
-            0.0
-        };
+        let diversity_score = coverage_ratio(coverage);
         GenerationSnapshot {
             generation,
-            best_fitness: 0.0,
-            mean_fitness: 0.0,
+            best_fitness: cycle.last_best_fitness(),
+            mean_fitness: cycle.last_mean_fitness(),
             diversity_score,
-            operator_usage: HashMap::new(),
+            operator_usage: cycle.operator_usage().clone(),
             niche_coverage: coverage,
         }
     }
@@ -229,6 +245,36 @@ impl MetacognitionEngine {
         }
     }
 
+    /// Boucle métacognitive complète pour une génération :
+    /// évalue la population, observe, décide, applique.
+    ///
+    /// C'est le point d'entrée runtime de la Phase F : le moteur D
+    /// s'auto-observe PENDANT l'évolution réelle, pas à côté.
+    pub fn run_cycle(
+        &mut self,
+        cycle: &mut PhaseDCycle,
+        population: &[crate::genome::Genome],
+    ) -> MetacognitionStepReport {
+        self.generation += 1;
+        let scores = cycle.evaluate(population);
+        let signals = self.monitor(cycle, self.generation);
+        let adjustment = Self::decide_adjustment(&signals);
+        self.apply_adjustment(adjustment.clone(), cycle);
+        MetacognitionStepReport {
+            generation: self.generation,
+            best_fitness: cycle.last_best_fitness(),
+            mean_fitness: cycle.last_mean_fitness(),
+            signals,
+            adjustment,
+            scores,
+        }
+    }
+
+    /// Dernière génération observée par cette instance.
+    pub fn generation(&self) -> u32 {
+        self.generation
+    }
+
     fn expand_search(&self, cycle: &mut PhaseDCycle) {
         let engine = cycle.diversity_mut();
         engine.spawn_radius = (engine.spawn_radius * 1.5).min(10.0);
@@ -238,7 +284,8 @@ impl MetacognitionEngine {
     fn switch_operators(&self, cycle: &mut PhaseDCycle) {
         let pool = cycle.operators_mut();
         pool.crossover_rate = 0.9 - pool.crossover_rate;
-        pool.mutator.mutation_rates.nucleotide = (pool.mutator.mutation_rates.nucleotide * 1.3).min(0.5);
+        pool.mutator.mutation_rates.nucleotide =
+            (pool.mutator.mutation_rates.nucleotide * 1.3).min(0.5);
     }
 
     fn reset_environment(&self, cycle: &mut PhaseDCycle) {
@@ -247,7 +294,8 @@ impl MetacognitionEngine {
 
     fn increase_mutation(&self, cycle: &mut PhaseDCycle) {
         let pool = cycle.operators_mut();
-        pool.mutator.mutation_rates.nucleotide = (pool.mutator.mutation_rates.nucleotide * 1.2).min(0.5);
+        pool.mutator.mutation_rates.nucleotide =
+            (pool.mutator.mutation_rates.nucleotide * 1.2).min(0.5);
         pool.mutator.mutation_rates.gene = (pool.mutator.mutation_rates.gene * 1.2).min(0.5);
     }
 
@@ -268,72 +316,14 @@ impl Default for MetacognitionEngine {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn self_model_detects_stagnation_in_flat_trajectory() {
-        let mut model = SelfModel::new();
-        for i in 0..6 {
-            let mut snap = GenerationSnapshot::new(i, 1.0, 0.5);
-            snap.best_fitness = 10.0;
-            model.record(snap);
-        }
-        assert!(model.detect_stagnation(5));
-    }
-
-    #[test]
-    fn self_model_detects_loop_in_repeating_trajectory() {
-        let mut model = SelfModel::new();
-        for _ in 0..2 {
-            for i in 0..3 {
-                let mut snap = GenerationSnapshot::new(i, 5.0, 2.0);
-                snap.best_fitness = 5.0 + i as f64 * 0.00001;
-                model.record(snap);
-            }
-        }
-        assert!(model.detect_loop());
-    }
-
-    #[test]
-    fn metacognition_returns_stagnation_for_flat_inputs() {
-        let mut engine = MetacognitionEngine::new();
-        let cycle = PhaseDCycle::new(vec!["t1".into()]);
-        let mut detected = false;
-        for i in 0..10 {
-            let signals = engine.monitor(&mut cycle.clone(), i);
-            if signals.contains(&CognitiveSignal::StagnationDetected) {
-                detected = true;
-                break;
-            }
-        }
-        assert!(detected);
-    }
-
-    #[test]
-    fn adjustment_modifies_operator_probabilities() {
-        let engine = MetacognitionEngine::new();
-        let mut cycle = PhaseDCycle::new(vec!["t1".into()]);
-        let initial_rate = cycle.operators_mut().crossover_rate;
-        engine.apply_adjustment(Adjustment::SwitchOperators, &mut cycle);
-        let new_rate = cycle.operators_mut().crossover_rate;
-        assert_ne!(initial_rate, new_rate);
-    }
-
-    #[test]
-    fn self_model_no_stagnation_with_progress() {
-        let mut model = SelfModel::new();
-        for i in 0..6 {
-            let mut snap = GenerationSnapshot::new(i, 10.0 + i as f64, 5.0);
-            model.record(snap);
-        }
-        assert!(!model.detect_stagnation(5));
-    }
-
-    #[test]
-    fn detect_bias_returns_zero_when_empty() {
-        let model = SelfModel::new();
-        assert_eq!(model.detect_bias(), 0.0);
+fn coverage_ratio(coverage: (usize, usize)) -> f64 {
+    if coverage.1 > 0 {
+        coverage.0 as f64 / coverage.1 as f64
+    } else {
+        0.0
     }
 }
+
+#[cfg(test)]
+#[path = "metacognition_tests.rs"]
+mod tests;

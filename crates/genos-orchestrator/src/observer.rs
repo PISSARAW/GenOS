@@ -38,7 +38,7 @@ impl GenosEcosystem {
             .count();
 
         // Entrées de stress : dissonance, inflammation, échec, pression budgétaire.
-        let dissonance = self.orchestrator.conscience_state.dissonance_level;
+        let dissonance = self.orchestrator.cognitive_regulation_state.dissonance_level;
         let il6: f64 = self
             .orchestrator
             .active_cells
@@ -96,7 +96,7 @@ impl GenosEcosystem {
             failure_rate,
             budget_pressure,
             stress,
-            apoptotic: self.orchestrator.conscience_state.is_apoptotic,
+            apoptotic: self.orchestrator.cognitive_regulation_state.is_apoptotic,
             curiosity_hint,
             ..WorldState::default()
         }

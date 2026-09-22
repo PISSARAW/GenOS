@@ -45,7 +45,9 @@ pub mod worlds;
 #[cfg(feature = "api")]
 pub mod thalamus;
 
-pub use conscience::{Conscience, ConscienceState};
+pub use conscience::{Conscience, CognitiveRegulationState};
+#[deprecated(since = "0.3", note = "Use CognitiveRegulationState instead")]
+pub type ConscienceState = CognitiveRegulationState;
 pub use autopoiesis::{Membrane, SelfModel, SelfRepairReport};
 pub use director::{Decision, Director, Step, Strategy};
 pub use drives::{AutonomyGateReport, Drives, GoalSelector, Volition};

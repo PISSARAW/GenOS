@@ -58,7 +58,7 @@ fn apoptose_inhibe_la_volition_sans_ressusciter_l_agent() {
     assert_eq!(GoalSelector::select(&state), Goal::Conserve);
 
     let mut eco = GenosEcosystem::new("terminal");
-    eco.orchestrator.conscience_state.is_apoptotic = true;
+    eco.orchestrator.cognitive_regulation_state.is_apoptotic = true;
     let report = eco.tick_autonomous();
     assert!(report.halt.is_some());
     assert!(report.executed.is_empty());

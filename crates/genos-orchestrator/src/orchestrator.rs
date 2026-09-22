@@ -16,7 +16,7 @@ use genos_genome::Genome;
 use genos_immune::{Antigen, ClonalSelection};
 
 use crate::autopoiesis::Membrane;
-use crate::conscience::{Conscience, ConscienceState};
+use crate::conscience::{Conscience, CognitiveRegulationState};
 use crate::metabolism::Metabolism;
 use crate::planner::{Goal, WorldState};
 
@@ -27,7 +27,7 @@ use crate::planner::{Goal, WorldState};
 pub struct BiomimeticOrchestrator {
     pub orchestrator_id: Uuid,
     pub name: String,
-    pub conscience_state: ConscienceState,
+    pub cognitive_regulation_state: CognitiveRegulationState,
     pub tissues: HashMap<String, Tissue>,
     pub dormant_spores: Vec<Spore>,
     /// Tissu d'origine de chaque spore (clé = identifiant de la cellule parente),
@@ -69,7 +69,7 @@ impl BiomimeticOrchestrator {
         Self {
             orchestrator_id: root_id,
             name: name.to_string(),
-            conscience_state: ConscienceState::default(),
+            cognitive_regulation_state: CognitiveRegulationState::default(),
             tissues: HashMap::new(),
             dormant_spores: Vec::new(),
             spore_tissue_map: HashMap::new(),
@@ -141,7 +141,7 @@ impl BiomimeticOrchestrator {
     }
 
     /// Évalue la conscience d'un agent ouvrier (dissonance / apoptose)
-    pub fn evaluate_worker(&mut self, worker_id: Uuid, loop_metrics: (u32, f64)) -> Result<ConscienceState, String> {
+    pub fn evaluate_worker(&mut self, worker_id: Uuid, loop_metrics: (u32, f64)) -> Result<CognitiveRegulationState, String> {
         let (errors_in_loop, progress_score) = loop_metrics;
         let worker = self.active_cells.get_mut(&worker_id)
             .ok_or_else(|| format!("Cellule {} non trouvée", worker_id))?;
@@ -149,13 +149,13 @@ impl BiomimeticOrchestrator {
         Ok(worker.conscience.clone())
     }
 
-    pub fn evaluate_orchestrator(&mut self, loop_metrics: (u32, f64)) -> ConscienceState {
+    pub fn evaluate_orchestrator(&mut self, loop_metrics: (u32, f64)) -> CognitiveRegulationState {
         // Never panic if the root cell was removed: keep the last known state.
         if let Some(root) = self.active_cells.get_mut(&self.orchestrator_id) {
             self.conscience.evaluate_branch(&mut root.conscience, loop_metrics.0, loop_metrics.1);
-            self.conscience_state = root.conscience.clone();
+            self.cognitive_regulation_state = root.conscience.clone();
         }
-        self.conscience_state.clone()
+        self.cognitive_regulation_state.clone()
     }
 
     /// Détache une cellule de tous les tissus qui la référencent.
