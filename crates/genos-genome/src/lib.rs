@@ -3,6 +3,7 @@ pub mod development;
 pub mod developmental;
 pub mod epigenome;
 pub mod fitness;
+pub mod fossil;
 pub mod gene;
 pub mod genome;
 pub mod grn;
@@ -17,6 +18,7 @@ pub mod plasmid_v2;
 pub mod reproduction;
 pub mod self_modifying;
 pub mod translation;
+pub mod replay;
 
 pub use conscience::{
     Adjustment, CognitiveSignal, GenerationSnapshot, MetacognitionEngine, SelfModel,
