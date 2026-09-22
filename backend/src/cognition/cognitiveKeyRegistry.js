@@ -146,14 +146,37 @@ function unusedOperations(keys) {
  * donc l'échec de résolution n'invalide jamais une clé.
  * `conceptIds` (Set ou tableau) permet d'injecter un référentiel déterministe.
  */
-function loadConceptIds() {
+function conceptArraysFromRegistry() {
+  const mod = require('../philosophy/conceptDefinitions');
+  return [
+    mod.CONCEPT_DEFINITIONS,
+    mod.ALL_CONCEPTS,
+    mod.AESTHETICS_DEFINITIONS,
+    mod.LOGIC_DEFINITIONS,
+    mod.MATHEMATICS_DEFINITIONS
+  ];
+}
+
+function optionalConceptModule(moduleName, exportName) {
   try {
-    const mod = require('../philosophy/conceptDefinitions');
-    const concepts = mod.CONCEPT_DEFINITIONS || mod.ALL_CONCEPTS || [];
-    return new Set(concepts.map((concept) => concept.id));
+    const mod = require(`../philosophy/${moduleName}`);
+    return mod[exportName];
   } catch (e) {
     return null;
   }
+}
+
+function loadConceptIds() {
+  const arrays = [
+    ...conceptArraysFromRegistry(),
+    optionalConceptModule('aestheticsDefinitions', 'AESTHETICS_DEFINITIONS'),
+    optionalConceptModule('logicDefinitions', 'LOGIC_DEFINITIONS'),
+    optionalConceptModule('mathematicsDefinitions', 'MATHEMATICS_DEFINITIONS'),
+    optionalConceptModule('coreDefinitions', 'CORE_DEFINITIONS')
+  ].filter((list) => Array.isArray(list));
+  if (arrays.length === 0) return null;
+  const concepts = arrays.flat();
+  return new Set(concepts.map((concept) => concept.id));
 }
 
 function resolveProvenance(keys = COGNITIVE_KEYS, conceptIds = null) {

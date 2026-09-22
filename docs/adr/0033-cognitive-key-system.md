@@ -38,15 +38,21 @@ PhilosophicalConcept
    Worker phenotype  — la cognition appartient au PHÉNOTYPE, jamais au génome
 ```
 
-**Point 1 (cette ADR) : le contrat `CognitiveKey`.**
+**Point 1 (contrat, commit 14d7ede8) et point 2 (extraction, cette révision) :**
 
 - `spec/cognitive-key.schema.json` — contrat JSON Schema (apiVersion
-  `genos.cognition/v1`, kind `CognitiveKey`) ;
-- `backend/src/cognition/cognitiveKeyDefinitions.js` — catalogue seed de
-  12 clés (une à deux par famille : épistémologie, causalité, structure,
-  représentation, logique/limites, jeu/variation, éthique/perspectives) ;
+  `genos.cognition/v1`, kind `CognitiveKey`), vocabulaire d'opérations
+  fermé à 41 valeurs ;
+- `backend/src/cognition/cognitiveKeyDefinitions.js` — agrégation des
+  5 fichiers famille ;
+- `backend/src/cognition/cognitiveKey{Epistemology,Structure,Logic,Interpretation,Perspective}.js`
+  — catalogue de 42 clés réparties par famille cognitive :
+  épistémologie/causalité (7), structure/représentation (7),
+  logique/limites (6), interprétation/jeu/variation (11),
+  perspectives/éthique (11) ;
 - `backend/src/cognition/cognitiveKeyRegistry.js` — normalisation,
-  validation schéma, intégrité croisée, couverture du vocabulaire ;
+  validation schéma, intégrité croisée, couverture du vocabulaire,
+  résolution de provenance multi-modules (défensive) ;
 - `backend/tests/test_cognitive_key_registry.js` — tests du registre.
 
 ## Principes
@@ -104,18 +110,19 @@ n'interviendrait qu'après validation expérimentale (point 8 du plan).
 
 ### Négatives
 
-- Seed volontairement restreint (12 clés) : les domaines art/jeu/cinéma
-  ne sont couverts que par `frame-analysis` et `experimental-isolation` ;
+- Catalogue manuel de 42 clés : les domaines art/jeu/cinéma sont couverts
+  (mimèsis, montage, cercle magique, alea, agôn, mimicry, cubisme,
+  minimalisme, maximalisme, aura) mais l'extraction n'est pas exhaustive ;
 - `usefulWhen` est un vocabulaire libre en v1 — le rapprochement avec le
   profil de problème attend le CognitiveComposer (point 3) ;
-- La denylist doctrinale est heuristique (parfait : elle attrape les
+- La denylist doctrinale est heuristique (parfaite : elle attrape les
   mentions explicites, pas les paraphrases).
 
 ## Prochaines étapes (plan en 10 points)
 
-1. ✅ Contrat `CognitiveKey` (cette ADR)
-2. Extraction manuelle 20-30 clés (causalité, épistémologie, logique,
-   maths, art, narration, jeu, cinéma)
+1. ✅ Contrat `CognitiveKey` (commit 14d7ede8)
+2. ✅ Extraction manuelle 42 clés (causalité, épistémologie, logique,
+   maths, art, narration, jeu, cinéma — cette révision)
 3. `CognitiveRecipe` + `CognitiveComposer`
 4. Branchement A-Team/Trinity via le phénotype
 5. Compositions maximisant la distance cognitive
