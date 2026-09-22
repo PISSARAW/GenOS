@@ -33,9 +33,9 @@ async function waitForContinuationAndReevaluate(input = {}) {
     return { evaluation: null, organism: null, completionGate: { allowed: false, reason: 'continuation_timeout' }, continuity: null };
   }
   try {
-    const refreshedAgents = await db.all('SELECT id, status FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
+    const refreshedAgents = await db.all('SELECT id, status, parent_agent_id FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
     const refreshedOutcome = summarizeAgents(refreshedAgents);
-    const reeval = await evaluateMissionContinuity({ db, id, task, outcome: refreshedOutcome });
+    const reeval = await evaluateMissionContinuity({ db, id, task, outcome: refreshedOutcome, agents: refreshedAgents });
     const gateAllowed = reeval.completionGate && reeval.completionGate.allowed === true;
     telemetry.emitEvent({
       eventType: gateAllowed ? 'MISSION_HOMEOSTASIS_ACHIEVED' : 'MISSION_HOMEOSTASIS_CONTINUED',
