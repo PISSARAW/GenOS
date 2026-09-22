@@ -22,7 +22,13 @@ function getSignals(topology) {
 function enrichWorkerPromptSync(prompt, options) {
   options = options || {};
   const signals = getSignals(options.topology || 'worker');
-  return enhancePromptWithNCE(prompt, { ...options, signals });
+  const result = enhancePromptWithNCE(prompt, { ...options, signals });
+  if (typeof result !== 'object' || result === null) {
+    return prompt;
+  }
+  return typeof result.enhancedPrompt === 'string'
+    ? result.enhancedPrompt
+    : prompt;
 }
 
 async function computeNCEForTopology(task, options) {
