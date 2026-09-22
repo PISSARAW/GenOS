@@ -1,12 +1,5 @@
 /**
  * Zero-Text Inter-Agent Signaling Transport Service
- *
- * Persiste et distribue les signaux zero-texte (ligands, potentiels,
- * phéromones stigmergiques, plasmides HGT, tenseurs latents) via SQLite
- * WAL + mémoire Map pour les agents locaux.
- *
- * Pipeline d'un signal (si non supprimé par coalescer) :
- *   persist → event bus publish → coalescer → route collectif → receptors → plasticity
  */
 
 const { getDatabase } = require('../db');
@@ -18,6 +11,8 @@ const gapJunction = require('./gapJunctionService');
 const receptor = require('./signalReceptorService');
 const signalEventBus = require('./signalEventBus');
 const signalCoalescer = require('./signalCoalescerService');
+const plasticity = require('./synapticPlasticityService');
+const tensor = require('./tensorCompatibilityService');
 
 const DEFAULT_SIGNAL_TTL_MS = 30_000;
 const LOCAL_BROADCAST_LOG = new Map();
@@ -69,14 +64,22 @@ async function persistSignalRow(row) {
   }
 }
 
-async function publishSignal(params) {
-  const signal = await buildSignalFromParams(params);
-  if (!signal.accepted) return signal.result;
+function validateTensor(signal) {
+  if (signal.normalizedType !== 'tensor' || !signal.signalData) return null;
+  const validation = tensor.validateTensorContract(signal.signalData.contract || {});
+  if (!validation.valid) {
+    return {
+      signalId: signal.id,
+      published: false,
+      signalType: signal.normalizedType,
+      suppressedBy: 'tensor_contract_validation',
+      suppressionReason: `Invalid tensor contract: ${validation.errors.join(', ')}`,
+    };
+  }
+  return null;
+}
 
-  await persistSignalRow(buildRow({ id: signal.id, formatted: signal.formatted, topic: signal.topic, senderAgentId: signal.senderAgentId, expiresAt: signal.expiresAt }));
-  pushLocalLog(signal.id, signal.formatted);
-
-  // Emit to event bus (push model — subscribers wake up immediately)
+function emitToBus(signal) {
   signalEventBus.publish({
     signalId: signal.id,
     signalType: signal.normalizedType,
@@ -85,27 +88,23 @@ async function publishSignal(params) {
     senderAgentId: signal.senderAgentId,
     concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0,
   });
+}
 
-  // Coalescer: anti-spam + refractory period
-  const coalesced = signalCoalescer.coalesce({
-    signalId: signal.id,
-    signalType: signal.normalizedType,
-    signalData: signal.signalData,
-    topic: signal.topic,
-    senderAgentId: signal.senderAgentId,
-  });
-  if (!coalesced) {
-    return {
-      signalId: signal.id,
-      published: true,
-      coalesced: true,
-      suppressed: true,
-      signalType: signal.formatted.signalType,
-      routing: { routed: false, reason: 'coalesced' },
-    };
+function handleSuppressed(signal) {
+  if (signal.senderAgentId) {
+    plasticity.recordSignalOutcome({ senderId: signal.senderAgentId, receiverId: null, outcome: 'suppressed', signalType: signal.normalizedType });
   }
+  return {
+    signalId: signal.id,
+    published: true,
+    coalesced: true,
+    suppressed: true,
+    signalType: signal.formatted.signalType,
+    routing: { routed: false, reason: 'coalesced' },
+  };
+}
 
-  // Route collectif + récepteurs (déterminisme sans LLM)
+async function routeAndDispatch(signal, params) {
   const routing = await routeCollectiveSignal({
     db: await getDatabase().catch(() => null),
     signalId: signal.id,
@@ -114,8 +113,7 @@ async function publishSignal(params) {
     orchestratorId: signal.senderAgentId,
   });
   const delivery = deliveryMetadata(params, signal.id, signal.expiresAt);
-
-  dispatchReceptorsIfNeeded({
+  const dispatchResult = await dispatchReceptorsIfNeeded({
     signalId: signal.id,
     signalType: signal.formatted.signalType,
     signalData: signal.signalData,
@@ -123,17 +121,48 @@ async function publishSignal(params) {
     senderAgentId: signal.senderAgentId,
     ttlMs: signal.ttlMs,
     publishSignal,
-  }).catch(() => {});
-
+  });
+  if (signal.senderAgentId && routing.recipients) {
+    for (const recipient of routing.recipients) {
+      if (recipient.agentId) {
+        const outcome = dispatchResult.dispatched ? 'receptor_triggered' : 'no_effect';
+        plasticity.recordSignalOutcome({ senderId: signal.senderAgentId, receiverId: recipient.agentId, outcome, signalType: signal.normalizedType });
+      }
+    }
+  }
   return {
     signalId: signal.id,
     published: true,
-    coalesced: coalesced.coalesced,
-    coalescedCount: coalesced.coalescedCount,
+    coalesced: false,
+    coalescedCount: 1,
     signalType: signal.formatted.signalType,
     routing,
     ...delivery,
   };
+}
+
+async function publishSignal(params) {
+  const signal = await buildSignalFromParams(params);
+  if (!signal.accepted) return signal.result;
+
+  const tensorError = validateTensor(signal);
+  if (tensorError) return tensorError;
+
+  await persistSignalRow(buildRow({ id: signal.id, formatted: signal.formatted, topic: signal.topic, senderAgentId: signal.senderAgentId, expiresAt: signal.expiresAt }));
+  pushLocalLog(signal.id, signal.formatted);
+
+  emitToBus(signal);
+
+  const coalesced = signalCoalescer.coalesce({
+    signalId: signal.id,
+    signalType: signal.normalizedType,
+    signalData: signal.signalData,
+    topic: signal.topic,
+    senderAgentId: signal.senderAgentId,
+  });
+  if (!coalesced) return handleSuppressed(signal);
+
+  return await routeAndDispatch(signal, params);
 }
 
 async function buildSignalFromParams(params) {
@@ -195,7 +224,6 @@ async function dispatchReceptorsIfNeeded(signal) {
 }
 
 async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100) {
-  // Read signals from topics the agent is subscribed to (not its own signals)
   let sql = `SELECT DISTINCT s.signal_id, s.signal_type, s.signal_blob, s.content, s.topic, s.sender_agent_id, s.created_at
              FROM signal_blobs s
              LEFT JOIN signal_subs sub ON sub.topic = s.topic AND sub.subscriber_agent_id = ?
@@ -265,6 +293,10 @@ module.exports = {
   markSignalsSeen,
   purgeExpiredSignals,
   localSignalsSince,
+  dispatchReceptorsIfNeeded,
+  buildRow,
+  buildRejectedResult,
+  buildSignalFromParams,
   DEFAULT_SIGNAL_TTL_MS,
   LOCAL_BROADCAST_LOG,
 };

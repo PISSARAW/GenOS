@@ -5,9 +5,7 @@
  * Chaque handler publie/lit/consomme les signaux via le transport persistant.
  */
 
-const { publishSignal } = require('../../signalingTransportService');
-const { readSignalsForAgent } = require('../../signalingTransportService');
-const { purgeExpiredSignals } = require('../../signalingTransportService');
+const { publishSignal, readSignalsForAgent, markSignalsSeen, purgeExpiredSignals } = require('../../signalingTransportService');
 const {
   electocyteDecision,
   chemotacticFollow,
@@ -55,6 +53,10 @@ async function handleSignalRead(args, run) {
     since || null,
     limit != null ? Number(limit) : 100
   );
+  // Mark signals as seen to prevent re-read loops
+  if (signals.length > 0 && agent_id) {
+    await markSignalsSeen(agent_id, signals.map(s => s.signalId));
+  }
   return {
     configured: true,
     success: true,

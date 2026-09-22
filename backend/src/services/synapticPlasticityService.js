@@ -99,6 +99,10 @@ function getAllWeights() {
   return result;
 }
 
+function resetWeights() {
+  channelWeights.clear();
+}
+
 module.exports = {
   reinforce,
   depress,
@@ -109,6 +113,7 @@ module.exports = {
   getWeakChannels,
   pruneWeakChannels,
   getAllWeights,
+  resetWeights,
   DEFAULT_WEIGHT,
   REINFORCEMENT,
   DEPRESSION,

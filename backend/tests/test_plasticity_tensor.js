@@ -6,7 +6,14 @@ const assert = require('assert');
 const plasticity = require('../src/services/synapticPlasticityService');
 const tensor = require('../src/services/tensorCompatibilityService');
 
+function resetAll() {
+  plasticity.resetWeights();
+}
+
+// ── Synaptic Plasticity ──────────────────────────────────────────────────────
+
 function testInitialWeight() {
+  resetAll();
   const w = plasticity.getChannelWeight('a', 'b');
   assert.strictEqual(w.weight, plasticity.DEFAULT_WEIGHT);
   assert.strictEqual(w.hits, 0);
@@ -14,6 +21,7 @@ function testInitialWeight() {
 }
 
 function testReinforceIncreasesWeight() {
+  resetAll();
   plasticity.reinforce('a', 'b', 'ligand');
   const w = plasticity.getChannelWeight('a', 'b');
   assert.ok(w.weight > plasticity.DEFAULT_WEIGHT);
@@ -21,12 +29,14 @@ function testReinforceIncreasesWeight() {
 }
 
 function testDepressDecreasesWeight() {
+  resetAll();
   plasticity.depress('a', 'b', 'ligand');
   const w = plasticity.getChannelWeight('a', 'b');
   assert.ok(w.weight < plasticity.DEFAULT_WEIGHT + plasticity.REINFORCEMENT);
 }
 
 function testStrongDepressLargerEffect() {
+  resetAll();
   const sender = 'sd-' + Date.now();
   const receiver = 'sd-recv';
   plasticity.reinforce(sender, receiver, 'ligand');
@@ -42,19 +52,30 @@ function testStrongDepressLargerEffect() {
   assert.ok(afterStrong < afterWeak, 'Strong depress should lower weight more than weak depress');
 }
 
-function testRecordOutcomeUseful() {
-  plasticity.recordSignalOutcome({ senderId: 'p', receiverId: 'q', outcome: 'useful', signalType: 'voltage' });
+function testRecordOutcomeReceptorTriggered() {
+  resetAll();
+  plasticity.recordSignalOutcome({ senderId: 'p', receiverId: 'q', outcome: 'receptor_triggered', signalType: 'voltage' });
   const w = plasticity.getChannelWeight('p', 'q');
   assert.ok(w.weight > plasticity.DEFAULT_WEIGHT);
 }
 
-function testRecordOutcomeError() {
-  plasticity.recordSignalOutcome({ senderId: 'p', receiverId: 'q', outcome: 'error', signalType: 'voltage' });
+function testRecordOutcomeSuppressed() {
+  resetAll();
+  plasticity.recordSignalOutcome({ senderId: 'p', receiverId: 'q', outcome: 'suppressed', signalType: 'voltage' });
   const w = plasticity.getChannelWeight('p', 'q');
   assert.ok(w.weight < plasticity.DEFAULT_WEIGHT);
 }
 
+function testRecordOutcomeNoEffect() {
+  resetAll();
+  plasticity.recordSignalOutcome({ senderId: 'p', receiverId: 'q', outcome: 'no_effect', signalType: 'voltage' });
+  const w = plasticity.getChannelWeight('p', 'q');
+  assert.ok(w.weight < plasticity.DEFAULT_WEIGHT);
+  assert.ok(w.weight >= plasticity.DEFAULT_WEIGHT - plasticity.DEPRESSION - 0.001);
+}
+
 function testWeightBounds() {
+  resetAll();
   for (let i = 0; i < 20; i++) plasticity.reinforce('bound-a', 'bound-b', 'ligand');
   const w = plasticity.getChannelWeight('bound-a', 'bound-b');
   assert.ok(w.weight <= plasticity.MAX_WEIGHT);
@@ -65,6 +86,7 @@ function testWeightBounds() {
 }
 
 function testGetTopChannels() {
+  resetAll();
   plasticity.reinforce('top-1', 'top-2', 'ligand');
   plasticity.reinforce('top-1', 'top-2', 'ligand');
   const top = plasticity.getTopChannels(5);
@@ -73,10 +95,21 @@ function testGetTopChannels() {
 }
 
 function testPruneWeakChannels() {
+  resetAll();
   for (let i = 0; i < 8; i++) plasticity.recordSignalOutcome({ senderId: 'weak-1', receiverId: 'weak-2', outcome: 'noise', signalType: 'noise' });
   const pruned = plasticity.pruneWeakChannels(0.1);
   assert.ok(pruned.length > 0);
 }
+
+function testResetClearsAll() {
+  plasticity.reinforce('x', 'y', 'ligand');
+  plasticity.resetWeights();
+  const w = plasticity.getChannelWeight('x', 'y');
+  assert.strictEqual(w.weight, plasticity.DEFAULT_WEIGHT);
+  assert.strictEqual(w.hits, 0);
+}
+
+// ── Tensor Compatibility ─────────────────────────────────────────────────────
 
 function testValidateValidContract() {
   const result = tensor.validateTensorContract({
@@ -167,6 +200,7 @@ function testWrapInvalidTensorThrows() {
 }
 
 async function run() {
+  // Plasticity
   testInitialWeight();
   console.log('[PASS] initial weight is DEFAULT_WEIGHT');
 
@@ -179,11 +213,14 @@ async function run() {
   testStrongDepressLargerEffect();
   console.log('[PASS] strongDepress has larger effect than depress');
 
-  testRecordOutcomeUseful();
-  console.log('[PASS] recordSignalOutcome useful reinforces');
+  testRecordOutcomeReceptorTriggered();
+  console.log('[PASS] recordSignalOutcome receptor_triggered reinforces');
 
-  testRecordOutcomeError();
-  console.log('[PASS] recordSignalOutcome error depresses');
+  testRecordOutcomeSuppressed();
+  console.log('[PASS] recordSignalOutcome suppressed strong-depresses');
+
+  testRecordOutcomeNoEffect();
+  console.log('[PASS] recordSignalOutcome no_effect depresses');
 
   testWeightBounds();
   console.log('[PASS] weight stays within [MIN_WEIGHT, MAX_WEIGHT]');
@@ -194,6 +231,10 @@ async function run() {
   testPruneWeakChannels();
   console.log('[PASS] pruneWeakChannels removes atrophied channels');
 
+  testResetClearsAll();
+  console.log('[PASS] resetWeights clears all state');
+
+  // Tensor
   testValidateValidContract();
   console.log('[PASS] validateTensorContract accepts valid contract');
 
