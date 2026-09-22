@@ -139,6 +139,53 @@ Deux propriétés du bias de diversité, apprises en implémentant :
   matière cognitive, confrontations ouvertes/écartées, synthèse
   structurelle, barrier inerte sans portfolio, insufficient_diverse).
 
+**Points 7-8 (ablation + compilation, cette révision) :**
+
+- `benchmarks/cognitive-key-ablation/` — harness A-F mesurant la couche
+  structurelle (recettes distinctes, distance, couverture d'union,
+  réutilisation, tensions). Constat central : D (pertinence seule)
+  converge comme A (1 recette, distance 0) ; E produit 3 recettes
+  distinctes sans perte de couverture. La mesure de sortie (qualité
+  des dossiers) requiert des runs runtime — protocole documenté dans
+  le README du benchmark. `GENOS_COGNITIVE_PHENOTYPE` ajouté à
+  `SAFE_GENOS_ENV` (le flag ne se propageait pas au runtime enfant) ;
+- `spec/philosophical-concept.schema.json` — champ `cognitiveKeys` :
+  un concept peut déclarer des clés (sans `derivedFrom`, ajouté
+  automatiquement) ;
+- `backend/src/cognition/cognitiveKeyCompiler.js` — compilation
+  progressive : collecte les clés déclarées, injecte la provenance,
+  valide contre le contrat complet (enum fermé, doctrine, minLength),
+  fusionne avec priorité au catalogue manuel. Déclaratif — l'extraction
+  sémantique automatique reste exclue (l'extraction manuelle du point 2
+  est la voie validée) ;
+- `backend/tests/test_cognitive_ablation.js` (8 groupes) et
+  `test_cognitive_key_compiler.js` (8 groupes).
+
+**Point 9 (évolution NCE, cette révision) :**
+
+- `backend/src/cognition/cognitiveRecipeEvolution.js` — trois opérateurs
+  déterministes sans LLM : MUTATION (remplacement via compatibleWith
+  ou permutation, mutant revalidé par le contrat), RECOMBINAISON
+  (croisement préfixe/suffixe sans doublon, héritage des deux parents),
+  EXAPTATION (transfert d'une recette performante vers un nouveau
+  profil de besoins, refusée si aucune clé ne couvre — exaptation
+  décorative interdite). Sélection par registre de performance
+  injecté (le service ne devine pas la performance) ;
+- `backend/tests/test_cognitive_recipe_evolution.js` — 9 groupes.
+
+**Point 10 (genèse de nouvelles clés, cette révision) :**
+
+- `backend/src/cognition/cognitiveKeyGenesis.js` — pipeline en trois
+  étages fail-closed : CANDIDATURE (paires de clés co-occurrentes dans
+  ≥ 2 recettes performantes), PROPOSITION (instruction COMPOSÉE des
+  clés sources, provenance = clés sources, jamais un philosophe),
+  VALIDATION EXPÉRIMENTALE (admission refusée sans preuve : ≥ 3 runs,
+  gain > 0, contexte décrit). L'opération composée n'étend PAS
+  l'enum silencieusement : l'admission d'une opération nouvelle est un
+  changement de contrat explicite (le registre la rejette jusqu'à
+  extension du schéma) ;
+- `backend/tests/test_cognitive_key_genesis.js` — 9 groupes.
+
 ## Principes
 
 1. **Indépendance doctrinale** — le test : « peut-on expliquer comment
@@ -214,9 +261,13 @@ n'interviendrait qu'après validation expérimentale (point 8 du plan).
 7. ✅ Benchmark par ablation (A-F) — couche structurelle (cette
    révision : harness + tests + README ; la mesure de sortie requiert
    des runs runtime complets, protocole documenté)
-8. Compilation progressive des 347 concepts
-9. Mutation/recombinaison/exaptation NCE des recettes
-10. Création de nouvelles clés, après validation expérimentale
+8. ✅ Compilation progressive des concepts (cette révision : champ
+   `cognitiveKeys` + compilateur déclaratif, priorité catalogue manuel)
+9. ✅ Mutation/recombinaison/exaptation NCE des recettes (cette
+   révision : trois opérateurs revalidés par le contrat)
+10. ✅ Création de nouvelles clés après validation expérimentale
+    (cette révision : genèse fail-closed, admission = preuve
+    obligatoire + changement de contrat explicite pour l'enum)
 
 ## Références
 
