@@ -1,4 +1,6 @@
 pub mod dna;
+pub mod development;
+pub mod developmental;
 pub mod epigenome;
 pub mod gene;
 pub mod genome;
@@ -7,6 +9,12 @@ pub mod plasmid_v2;
 pub mod translation;
 
 pub use dna::{DnaNucleotide, DnaStrand, Mutagen, RnaNucleotide, RnaPolymerase, RnaStrand};
+pub use development::{Embryogenesis, EmbryogenesisContext, EmbryogenesisProgram, DevelopmentalSignal, MorphogenGradient};
+pub use developmental::{
+    CellLineage, DevelopmentalState, GeneRoleExpr, GeneRoleProfile, Morphogen, MorphogenDef,
+    HoxExpression, HoxCoordinationParams, HoxGene, Constraint, EpigeneticMarkActivation,
+    DevelopmentContext, DevelopmentOutput, DevelopmentProgram, GenomeCoord, MorphogenApplicationParams,
+};
 pub use epigenome::{DevelopmentalStage, EpigeneticMark, Epigenome, Mark, MarkParams, StressParams, StressRecord};
 pub use gene::{ChromatinState, ExpressionContext, Gene, Plasmid, Spliceosome};
 pub use genome::{DEFAULT_HAYFLICK_LIMIT, Genome, INSTINCT_LOCUS_PREFIX};
@@ -67,7 +75,6 @@ mod tests {
         });
         assert_eq!(res_locked, Err("OFF: Heterochromatin locked".to_string()));
 
-        // Generic pioneer factor
         let pioneer_generic = vec!["PIONEER_FACTOR".to_string()];
         let res_generic = gene.express(ExpressionContext {
             active_tfs: &pioneer_generic,
@@ -76,7 +83,6 @@ mod tests {
         });
         assert!(res_generic.is_ok(), "Generic pioneer factor must unlock facultative heterochromatin");
 
-        // Locus-specific pioneer factor
         let pioneer_locus = vec!["PIONEER_SOMATIC_GENE".to_string()];
         let res_locus = gene.express(ExpressionContext {
             active_tfs: &pioneer_locus,
