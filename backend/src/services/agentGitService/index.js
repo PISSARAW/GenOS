@@ -54,10 +54,11 @@ function signObject(stateHash, metadata) {
 function verifyObjectSignature(object) {
   if (!object.signature) return false;
   const isEd25519 = signingAlgorithm() === 'ed25519';
-  const expected = Buffer.from(signObject(object.state_hash, json(object.metadata_json, {})), isEd25519 ? 'base64' : 'utf8');
+  const authHash = object.commit_hash || object.tree_hash || object.state_hash;
+  const expected = Buffer.from(signObject(authHash, json(object.metadata_json, {})), isEd25519 ? 'base64' : 'utf8');
   const actual = Buffer.from(object.signature, isEd25519 ? 'base64' : 'utf8');
   if (actual.length !== expected.length) return false;
-  if (isEd25519) return crypto.verify(null, signingPayload(object.state_hash, json(object.metadata_json, {})), process.env.GENOS_AGENT_GIT_SIGNING_PUBLIC_KEY || process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY, actual);
+  if (isEd25519) return crypto.verify(null, signingPayload(authHash, json(object.metadata_json, {})), process.env.GENOS_AGENT_GIT_SIGNING_PUBLIC_KEY || process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY, actual);
   return crypto.timingSafeEqual(actual, expected);
 }
 
@@ -111,6 +112,7 @@ async function createCommit(req, options = {}) {
   const state = options.state || await collectState(db, req, options.agentId);
   if (!state) throw Object.assign(new Error('Agent is not available in the current tenant.'), { code: 'AGENT_NOT_FOUND' });
   await enforceHooks({ db, agentId: options.agentId, hookName: 'pre-commit', context: state });
+  await enforceHooks({ db, agentId: options.agentId, hookName: 'signature-required', context: state });
   const refName = options.refName || 'main';
   const currentRef = await db.get('SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', options.agentId, refName);
   const parentCommitId = currentRef?.object_id || null;
@@ -166,9 +168,10 @@ async function fetch(req) {
 async function verifyRemoteObject(incoming, state) {
   if (!incoming?.id || !incoming.stateHash) return { valid: false, error: 'Signed remote object is required.' };
   if (!state) return { valid: false, error: 'Remote state payload is required.' };
+  if (!incoming.signature) return { valid: false, error: 'Remote signature is required (unsigned remote objects are rejected).' };
   const actualHash = hashState(state);
   if (actualHash !== incoming.stateHash) return { valid: false, error: 'State hash mismatch: payload does not match the signed stateHash.' };
-  if (incoming.signature && !verifyObjectSignature({ ...incoming, state_hash: incoming.stateHash, state_json: state, metadata_json: '{}' })) {
+  if (!verifyObjectSignature({ ...incoming, state_hash: incoming.stateHash, state_json: state, metadata_json: '{}' })) {
     return { valid: false, error: 'Remote signature verification failed.' };
   }
   return { valid: true, error: null };
@@ -268,6 +271,10 @@ async function fsck(req) {
     const tree = treeHash(state);
     if (object.tree_hash && object.tree_hash !== tree) issues.push({ id: object.id, issue: 'tree_hash_mismatch' });
     const parents = await db.all('SELECT parent_commit_id FROM agent_git_commit_parents WHERE commit_id = ?', object.id);
+    const parentHashes = parents.map(p => p.parent_commit_id);
+    const metadata = json(object.metadata_json, {});
+    const expectedCommit = commitHash({ tree, parents: parentHashes, metadata });
+    if (object.commit_hash && object.commit_hash !== expectedCommit) issues.push({ id: object.id, issue: 'commit_hash_mismatch' });
     for (const { parent_commit_id: parentId } of parents) {
       if (!objects.some((candidate) => candidate.id === parentId)) issues.push({ id: object.id, issue: 'missing_parent', parentId });
     }

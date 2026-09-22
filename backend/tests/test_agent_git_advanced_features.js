@@ -23,7 +23,14 @@ for (const key of Object.keys(require.cache)) {
 }
 
 const service = require('../src/services/agentGitService');
+const crypto = require('crypto');
 const req = { body: { agentId: 'agent-1', objectId: 'one', field: 'agent.cognitive_budget', expectedValue: 10, refName: 'main' }, tenant: { organizationId: 'org', projectId: 'project' }, user: { username: 'tester' } };
+
+function signRemoteObject(obj) {
+  const secret = process.env.GENOS_AGENT_GIT_SIGNING_SECRET || process.env.GENOS_GRPC_SHARED_SECRET || 'genos-agent-git-development-secret';
+  return crypto.createHmac('sha256', secret).update(`${obj.stateHash}:${JSON.stringify({})}`).digest('hex');
+}
+
 (async () => {
   const log = await service.log(req);
   assert.equal(log.success, true);
@@ -33,7 +40,9 @@ const req = { body: { agentId: 'agent-1', objectId: 'one', field: 'agent.cogniti
   const bisect = await service.bisect(req);
   assert.equal(bisect.success, false); // one object is insufficient
   const stateHash = service.hashState(state);
-  const remote = await service.receiveRemote({ body: { remoteName: 'registry', object: { id: 'remote', agentId: 'agent-1', workspaceId: 'ws', refName: 'main', stateHash }, state }, user: { username: 'remote' }, ip: '127.0.0.1' });
+  const remoteObj = { id: 'remote', agentId: 'agent-1', workspaceId: 'ws', refName: 'main', stateHash };
+  remoteObj.signature = signRemoteObject(remoteObj);
+  const remote = await service.receiveRemote({ body: { remoteName: 'registry', object: remoteObj, state }, user: { username: 'remote' }, ip: '127.0.0.1' });
   assert.equal(remote.success, true);
   assert.ok(writes.some((entry) => entry.sql.includes('signature')));
   console.log('Advanced agent-git features passed.');

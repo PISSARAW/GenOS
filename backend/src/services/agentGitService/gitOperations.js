@@ -4,6 +4,7 @@ const { getCommit, findMergeBase, collectAncestors } = require('./commitGraph');
 const { computePatch, applyPatch, replaceState } = require('./dagOperations');
 const { storeObject } = require('./storeObjectHelper.cjs');
 const { updateRef } = require('./refs');
+const { enforceHooks } = require('./hooks');
 const { mergeArraySection } = require('./mergeHelpers.cjs');
 const { getDatabase } = require('../../db');
 
@@ -80,10 +81,12 @@ async function merge(req) {
   const right = await getObjectScoped(db, req, rightId);
   if (!left || !right) return { success: false, error: 'Both commits must exist.' };
 
+  const targetAgentId = req.body?.targetAgentId || left.agent_id;
   const base = await findMergeBase(db, leftId, rightId);
   const merged = buildMergedState({ base, left, right, name: req.body?.name });
 
-  const targetAgentId = req.body?.targetAgentId || left.agent_id;
+  await enforceHooks({ db, agentId: targetAgentId, hookName: 'merge-validation', context: merged.storeState });
+
   const result = await replaceState(req, {
     targetAgentId,
     state: merged.storeState,
