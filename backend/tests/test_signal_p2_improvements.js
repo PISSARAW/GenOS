@@ -149,7 +149,7 @@ function testRejectsOversizedPayload() {
   const bigData = 'x'.repeat(100 * 1024); // 100KB > 64KB limit
   const result = signalValidation.validatePayloadSize({ data: bigData }, null);
   assert.strictEqual(result.valid, false);
-  assert.ok(result.reason.includes('64'));
+  assert.ok(result.reason.includes('65536'));
   console.log('[PASS] Oversized signalData rejected');
 }
 
