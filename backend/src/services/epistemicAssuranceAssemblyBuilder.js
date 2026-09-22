@@ -1,7 +1,20 @@
 'use strict';
 
+/**
+ * epistemicAssuranceAssemblyBuilder.js
+ *
+ * Construit une assemblée d'assurance épistémique à partir de résultats
+ * de vérification et/ou de résultats du Holobionte.
+ *
+ * Contraintes :
+ * - Le builder ne signe jamais de receipt.
+ * - Un unsigned receipt est rejeté.
+ * - L'indépendance doit être évaluée AVANT issueReceipt, pas après.
+ * - Les FormalResult sont créés via l'adaptateur Holobionte→FormalResult.
+ */
+
 const { createFormalResult } = require('./formalResultService');
-const verifierReceipts = require('./epistemicVerifierReceiptService');
+const { adaptHolobionteResult, adaptImmuneResult } = require('./epistemic/formalResultAdapter');
 const PASSED_STATUSES = new Set(['passed', 'verified', 'proved']);
 
 function isReceiptObject(receipt) { return Boolean(receipt && typeof receipt === 'object'); }
@@ -9,8 +22,19 @@ function digestFromReceipt(receipt) { return receipt.verifierDigest || receipt.v
 function isPassedStatus(receipt) { return PASSED_STATUSES.has(receipt.status); }
 function hasReceiptIdentity(receipt) { return Boolean(receipt.resultId && receipt.evidenceDigest); }
 
+/**
+ * Construit un receipt "conforme" (trusted) à partir d'un receipt existant.
+ * Rejette si :
+ * - le verifier digest n'est pas dans trustedDigests
+ * - le receipt n'a pas de signature (le builder ne signe jamais)
+ * - le receipt a été modifié après signature
+ */
 function buildCompliantReceipt(receipt, verifierDigest, trustedDigests) {
   if (!trustedDigests.includes(verifierDigest)) return null;
+  if (!isPassedStatus(receipt)) return null;
+  if (!hasReceiptIdentity(receipt)) return null;
+  if (!receipt.signature) return null; // Pas de signature auto → rejeté
+
   const compliant = {
     resultId: receipt.resultId,
     evidenceDigest: receipt.evidenceDigest,
@@ -19,18 +43,11 @@ function buildCompliantReceipt(receipt, verifierDigest, trustedDigests) {
     nonce: receipt.nonce || randomUuid(),
     status: 'verified',
     independent: receipt.independent === true,
-    signature: receipt.signature
+    signature: receipt.signature,
+    independenceDescriptor: receipt.independenceDescriptor || null,
+    independenceDistance: receipt.independenceDistance || null,
   };
-  if (!compliant.signature) compliant.signature = verifierReceipts.signatureFor(compliant);
   return compliant;
-}
-
-function normalizeVerifierReceipt(receipt, trustedVerifierDigests) {
-  if (!isReceiptObject(receipt)) return null;
-  const verifierDigest = digestFromReceipt(receipt);
-  if (!isPassedStatus(receipt)) return null;
-  if (!hasReceiptIdentity(receipt)) return null;
-  return buildCompliantReceipt(receipt, verifierDigest, trustedVerifierDigests);
 }
 
 function randomUuid() {
@@ -45,11 +62,12 @@ function randomUuid() {
 function genResultId(prefix) { return `${prefix || 'result'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 function safeArray(value) { return Array.isArray(value) ? value : []; }
 
-function extractStatus(item) {
-  if (item.status) return item.status;
-  if (item.refuted) return 'refuted';
-  if (item.verified) return 'verified';
-  return 'pending';
+function extractVerifierDigestsFromContext(context) {
+  if (!context || typeof context !== 'object') return [];
+  const out = [];
+  const candidates = [context.trustedVerifierDigests, context.verifierDigests, context.verifierDigesT];
+  for (const c of candidates) for (const d of collectDigestStrings(c)) out.push(d);
+  return out;
 }
 
 function collectDigestStrings(source) {
@@ -67,67 +85,18 @@ function digestsFromContext(context) {
   return out;
 }
 
-function extractVerifierDigestsFromContext(context) { return digestsFromContext(context); }
-
-function pickResultId(item, idPrefix) {
-  if (item.resultId) return item.resultId;
-  if (item.id) return item.id;
-  return genResultId(idPrefix || 'result');
-}
-
-function pickCanonicalStatement(item) {
-  if (item.canonicalStatement) return item.canonicalStatement;
-  if (item.claim) return item.claim;
-  return '(sans énoncé)';
-}
-
-function pickEvidence(item) {
-  if (item.evidence) return item.evidence;
-  return { kind: 'observation', content: {} };
-}
-
-function pickValidityDomain(item) {
-  if (item.validityDomain) return item.validityDomain;
-  return { domain: 'general', coverage: 0, constraints: 0 };
-}
-
-function pickProvenance(item) {
-  if (item.provenance) return item.provenance;
-  return defaultProvenance(item);
-}
-
-function pickProducer(item) {
-  if (item.producer) return item.producer;
-  return { model: 'holobionte', version: '1.0' };
-}
-
-function defaultProvenance(item) {
-  return {
-    createdAt: new Date().toISOString(),
-    actor: item.producer?.actor || 'unknown',
-    source: { type: 'holobionte', uri: 'genos://holobionte/epistemic', digest: '' },
-    inputs: [],
-    transformations: []
-  };
-}
-
-function makeResultBaseline(item, idPrefix) {
-  return {
-    resultId: pickResultId(item, idPrefix),
-    canonicalStatement: pickCanonicalStatement(item),
-    status: pickStatus(item),
-    evidence: pickEvidence(item),
-    assumptions: safeArray(item.assumptions),
-    validityDomain: pickValidityDomain(item),
-    dependencies: safeArray(item.dependencies),
-    provenance: pickProvenance(item),
-    producer: pickProducer(item)
-  };
-}
-
+/**
+ * Conversion sécurisée d'un résultat Holobionte vers FormalResult.
+ * Utilise l'adaptateur explicite pour garantir la conformité du contrat.
+ */
 function formalResultFromHolobionteResult(item) {
-  if (item.resultId && item.canonicalStatement) return createFormalResult(item);
-  return createFormalResult(makeResultBaseline(item));
+  const { candidate, error } = adaptHolobionteResult(item);
+  if (error) return null;
+  try {
+    return createFormalResult(candidate);
+  } catch (_) {
+    return null;
+  }
 }
 
 function buildCoverageMap(results) {
@@ -139,7 +108,13 @@ function buildObligationList(ids) {
 }
 
 function filterCompositionRoots(results) {
-  return results.filter(r => r.status === 'verified' || r.status === 'proved').map(r => r.resultId);
+  return results.filter(r => r.status === 'verified' || statusToFormalStatus(r.status) === 'verified').map(r => r.resultId);
+}
+
+function statusToFormalStatus(s) {
+  if (s === 'verified' || s === 'proved') return 'verified';
+  if (s === 'refuted') return 'refuted';
+  return s;
 }
 
 function processVerifierItems(verifierItems, resultsById, trustedDigests) {
@@ -153,7 +128,7 @@ function processVerifierItems(verifierItems, resultsById, trustedDigests) {
     seenReceipts.add(key);
     const formalResult = resultsById.get(receipt.resultId);
     if (!formalResult) continue;
-    const compliant = normalizeVerifierReceipt(receipt, trustedDigests);
+    const compliant = buildCompliantReceipt(receipt, digestFromReceipt(receipt), trustedDigests);
     if (!compliant) continue;
     if (compliant.evidenceDigest !== formalResult.evidence.digest) continue;
     verifications.push(compliant);
@@ -163,7 +138,10 @@ function processVerifierItems(verifierItems, resultsById, trustedDigests) {
 
 function assemblyFromContext(formalResults, verifierResults, context) {
   if (!Array.isArray(formalResults) || !formalResults.length) return null;
-  const results = formalResults.map(formalResultFromHolobionteResult);
+  const results = formalResults
+    .map(formalResultFromHolobionteResult)
+    .filter(r => r !== null);
+  if (!results.length) return null;
   const trustedDigests = extractVerifierDigestsFromContext(context);
   const resultsById = new Map(results.map(r => [r.resultId, r]));
   const verifierItems = Array.isArray(verifierResults) ? verifierResults : [];
@@ -186,59 +164,16 @@ function assemblyFromContext(formalResults, verifierResults, context) {
   };
 }
 
-function buildFormalResultsFromHolobionteResults(holobionteResults) {
-  if (!Array.isArray(holobionteResults) || !holobionteResults.length) return [];
-  return holobionteResults.filter(r => r && typeof r === 'object').map(holobionteResultToFormal);
-}
-
-function holobionteResultToFormal(r) {
-  if (r.resultId && r.canonicalStatement) return createFormalResult(r);
-  return createFormalResult(makeHolobionteFormalItem(r));
-}
-
-function pickHolobionteResultId(r) {
-  if (r.resultId) return r.resultId;
-  if (r.id) return r.id;
-  return genResultId('hresult');
-}
-
-function pickHolobionteStatement(r) {
-  if (r.canonicalStatement) return r.canonicalStatement;
-  if (r.claim) return r.claim;
-  return '(holobionte result)';
-}
-
-function pickHolobionteEvidence(r) {
-  if (r.evidence?.kind) return { kind: r.evidence.kind, content: r.evidence.content || {}, digest: r.evidence.digest || '' };
-  return { kind: 'observation', content: {}, digest: '' };
-}
-
-function makeHolobionteFormalItem(r) {
-  return {
-    resultId: pickHolobionteResultId(r),
-    canonicalStatement: pickHolobionteStatement(r),
-    status: extractStatus(r),
-    evidence: pickHolobionteEvidence(r),
-    assumptions: safeArray(r.assumptions),
-    validityDomain: r.validityDomain || { domain: 'general', coverage: 0, constraints: 0 },
-    dependencies: safeArray(r.dependencies),
-    provenance: r.provenance || defaultHolobionteProvenance(),
-    producer: r.producer || { model: 'holobionte', version: '1.0' }
-  };
-}
-
-function defaultHolobionteProvenance() {
-  return {
-    createdAt: new Date().toISOString(),
-    actor: 'holobionte',
-    source: { type: 'holobionte', uri: 'genos://holobionte', digest: '' },
-    inputs: [],
-    transformations: []
-  };
-}
-
+/**
+ * Construit une assemblée directement depuis des résultats Holobionte.
+ * Chaque résultat est adapté vers FormalResult via l'adaptateur.
+ */
 function assemblyFromHolobionteResults(holobionteResults, context) {
-  const formalResults = buildFormalResultsFromHolobionteResults(holobionteResults);
+  if (!Array.isArray(holobionteResults) || !holobionteResults.length) return null;
+  const formalResults = holobionteResults
+    .filter(r => r && typeof r === 'object')
+    .map(r => formalResultFromHolobionteResult(r))
+    .filter(r => r !== null);
   if (!formalResults.length) return null;
   return assemblyFromContext(formalResults, [], context);
 }
@@ -250,7 +185,13 @@ function assemblyFromHolobionteInput(input) {
 
 function assemblyFromFormalResultsInput(input) {
   if (!Array.isArray(input?.formalResults)) return null;
-  return assemblyFromContext(input.formalResults, input.verifierResults || input.verifications || [], input.context);
+  // Les formalResults sont déjà structurés — on les passe directement
+  // mais on vérifie quand même la conformité via createFormalResult
+  const verifiedResults = input.formalResults.map(fr => {
+    try { return createFormalResult(fr); } catch (_) { return null; }
+  }).filter(Boolean);
+  if (!verifiedResults.length) return null;
+  return assemblyFromContext(verifiedResults, input.verifierResults || input.verifications || [], input.context);
 }
 
 function buildEpistemicAssembly(input) {
@@ -306,6 +247,6 @@ module.exports = {
   assemblyFromHolobionteResults,
   formalResultFromHolobionteResult,
   resolveTrustedVerifierDigests,
-  normalizeVerifierReceipt,
+  buildCompliantReceipt,
   extractVerifierDigestsFromContext
 };

@@ -45,7 +45,7 @@
     "test:mathematical-organism": "node tests/test_mathematical_environment.js && node tests/test_research_lineage.js && node tests/test_mathematical_niche.js && node tests/test_proof_artifact.js && node tests/test_math_goal_strategy.js && node tests/test_math_population.js && node tests/test_literature_forager.js && node tests/test_mutation_engine.js && node tests/test_math_culture.js && node tests/test_questionogenesis.js && node tests/test_mathematical_organism_integration.js && node tests/test_mathematical_organism_runtime.js && node tests/test_symbiont_solver.js && node tests/test_mathematical_invariants.js && node tests/test_math_structural_a_e2e.js && node tests/test_math_structural_b_e2e.js && node tests/test_math_kernel_e2e.js",
     "test:math-structural": "node tests/test_math_structural_a_e2e.js && node tests/test_math_structural_b_e2e.js",
     "test:math-kernel": "node tests/test_math_kernel_e2e.js",
-    "test:locomo": "node src/evaluation/locomo_eval_engine.js",
+    "test:aeis": "cross-env GENOS_EPISTEMIC_RECEIPT_SECRET=test-secret node tests/test_aeis_e2e.js && node tests/epistemic_holobionte_test.js && node tests/verifier_execution_test.js && node tests/clonal_expansion_test.js && node tests/affinity_maturation_test.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
     "daemon": "node bin/genos-daemon.cjs",
     "daemon:interactive": "node bin/genos-daemon.cjs --interactive",
@@ -73,5 +73,8 @@
     "onnx-proto": {
       "protobufjs": "^7.6.6"
     }
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
   }
 }

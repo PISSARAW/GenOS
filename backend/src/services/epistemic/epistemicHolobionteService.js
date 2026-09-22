@@ -63,7 +63,7 @@ function hostDecision(reports, opts = {}) {
   };
 }
 
-function immuneSymbiontReview(antigen, context = {}) {
+async function immuneSymbiontReview(antigen, context = {}) {
   const pipeline = runAdaptivePipeline(antigen, context);
   const blocked = isImmuneDecisionBlocked(pipeline);
   const blockReason = blocked ? `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}` : null;
@@ -74,7 +74,7 @@ function immuneSymbiontReview(antigen, context = {}) {
     strategy: v.strategy || [],
     affinity: v.affinity || 0.5,
   })) || [];
-  const verifierResults = executeVerifierWorkers(antigen, verifiers, context);
+  const verifierResults = await executeVerifierWorkers(antigen, verifiers, context);
 
   // Régulateur T-reg : vérifie que le système ne rejette pas pour une mauvaise raison.
   const regulator = blockReason
@@ -151,10 +151,10 @@ function homeostasisInputFrom(antigen) {
   };
 }
 
-function epistemicHolobionte(antigen, context = {}) {
+async function epistemicHolobionte(antigen, context = {}) {
   const specialist = specialistSymbioteSolve(antigen, context);
   const memory = memorySymbiontLookup(antigen, { ...context, domain: context.domain });
-  const immune = immuneSymbiontReview(antigen, {
+  const immune = await immuneSymbiontReview(antigen, {
     ...context,
     immuneMemory: context.immuneMemory,
     knownSubject: memory.hasMemory,

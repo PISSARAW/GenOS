@@ -86,10 +86,25 @@ function runTestAdapter(antigen, verifier, context) {
    Mesure la couverture du claim par rapport aux preuves disponibles.
    ============================================================ */
 
+function safeNormalizedEvidence(antigen) {
+  const raw = antigen?.epitopes?.evidence;
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  return [raw];
+}
+
+function safeClaimText(antigen) {
+  const claim = antigen?.claim;
+  if (!claim) return '';
+  if (typeof claim === 'string') return claim;
+  if (typeof claim === 'object' && claim.text) return claim.text;
+  return '';
+}
+
 function runCoverageAdapter(antigen, verifier, context) {
   const observations = [];
   const counterexamples = [];
-  const evidence = antigen.epitopes?.evidence || [];
+  const evidence = safeNormalizedEvidence(antigen);
   const assumptions = antigen.epitopes?.assumptions || [];
   const coverageTarget = verifier.coverageTarget || context?.coverageTarget || 0.85;
 
@@ -123,8 +138,8 @@ function runCoverageAdapter(antigen, verifier, context) {
 function runBehaviorAdapter(antigen, verifier, context) {
   const observations = [];
   const counterexamples = [];
-  const claim = antigen.claim || '(sans claim)';
-  const evidence = antigen.epitopes?.evidence || [];
+  const claim = safeClaimText(antigen) || '(sans claim)';
+  const evidence = safeNormalizedEvidence(antigen);
 
   observations.push(
     observationRecord('behavior:search', {
