@@ -145,10 +145,11 @@ async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100)
   let sql = `SELECT signal_id, signal_type, signal_blob, content, topic, sender_agent_id, created_at
              FROM signal_blobs
              WHERE signal_type != 'text' AND topic != ''
+             AND sender_agent_id = ?
              ${since ? 'AND created_at > ?' : ''}
              ORDER BY created_at DESC
              LIMIT ?`;
-  const vals = since ? [since, limit] : [limit];
+  const vals = since ? [subscriberAgentId, since, limit] : [subscriberAgentId, limit];
 
   try {
     const db = await getDatabase();

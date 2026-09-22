@@ -50,14 +50,26 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
   }
 
   try {
-    // 1. Agents avec budget de signalisation actif dans la même org
+    // 1. Récupérer l'organisation/projet de l'orchestrateur émetteur
+    const orchestratorWorkspace = await db.get(
+      `SELECT w.organization_id as organizationId, w.project_id as projectId
+       FROM agents a
+       JOIN workspaces w ON a.workspace_id = w.id
+       WHERE a.id = ? AND a.status = 'orchestrator'`,
+      orchestratorId
+    );
+    const scopeOrgId = orchestratorWorkspace ? orchestratorWorkspace.organizationId : null;
+    const scopeProjId = orchestratorWorkspace ? orchestratorWorkspace.projectId : null;
+
+    // 2. Agents avec budget de signalisation actif dans la même org/projet
     const orgRows = await db.all(
       `SELECT DISTINCT a.id, a.name
        FROM agents a
        JOIN workspaces w ON a.workspace_id = w.id
        WHERE a.id != ? AND a.status = 'active'
+       AND (w.organization_id = ? OR w.project_id = ?)
        LIMIT 50`,
-      [orchestratorId || '']
+      [orchestratorId || '', scopeOrgId, scopeProjId]
     );
     for (const row of orgRows) {
       recipients.push({ kind: 'agent', agentId: row.id, agentName: row.name });

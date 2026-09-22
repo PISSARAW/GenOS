@@ -22,7 +22,7 @@ async function handleSignalPublish(args, run) {
     signalType: signal_type,
     signalData: signal_data || {},
     topic: topic || '',
-    orchestratorId: orchestrator_id || null,
+    senderAgentId: orchestrator_id || null,
     ttlMs: ttl_ms != null ? Number(ttl_ms) : undefined,
     signalId: signal_id || undefined,
   });

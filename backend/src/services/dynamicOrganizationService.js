@@ -118,24 +118,17 @@ async function assertOrchestrator(db, orchestratorId) {
 
 async function assertMember(db, orchestratorId, agentId) {
   if (!agentId || agentId === orchestratorId) return { id: agentId || orchestratorId, role: 'orchestrator', execution_mode: 'orchestrator' };
-  let agent = await db.get(
-    "SELECT id, role, execution_mode FROM agents WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker'",
-    agentId, orchestratorId
+  const agent = await db.get(
+    "SELECT id, role, execution_mode, parent_agent_id FROM agents WHERE id = ? AND execution_mode = 'worker'",
+    agentId
   );
   if (!agent) {
-    const existing = await db.get('SELECT id, role, execution_mode FROM agents WHERE id = ?', agentId);
-    if (existing) {
-      await db.run('UPDATE agents SET parent_agent_id = ? WHERE id = ?', orchestratorId, agentId);
-      agent = { ...existing, parent_agent_id: orchestratorId };
-    } else {
-      await db.run(
-        "INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, parent_agent_id, current_task) VALUES (?, ?, 'worker', 'idle', 'worker', ?, 'organization member')",
-        agentId, 'Member ' + agentId, orchestratorId
-      );
-      agent = { id: agentId, role: 'worker', execution_mode: 'worker', parent_agent_id: orchestratorId };
-    }
+    return null; // Agent does not exist
   }
-  return agent;
+  if (agent.parent_agent_id !== orchestratorId) {
+    return null; // Agent belongs to a different orchestrator - access denied
+  }
+  return { id: agent.id, role: agent.role, execution_mode: agent.execution_mode, parent_agent_id: agent.parent_agent_id };
 }
 
 async function getState(db, orchestratorId) {
