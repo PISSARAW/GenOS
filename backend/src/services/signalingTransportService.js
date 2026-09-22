@@ -118,27 +118,24 @@ function handleSuppressed(signal) {
 }
 
 async function dispatchReceptorsIfNeeded(signal) {
-  const triggered = receptor.matchReceptors({
-    signalId: signal.signalId,
-    signalType: signal.signalType,
-    semanticType: signal.signalData?.semanticType || signal.signalType,
-    concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0,
-    topic: signal.topic,
-    senderAgentId: signal.senderAgentId,
-  });
-  if (triggered.length === 0) return { dispatched: false };
-  const dispatched = await receptor.dispatchActions(
-    triggered,
+  // Use matchAndDispatch to get proper llmRequired flag (not reconstructed)
+  const result = await receptor.matchAndDispatch(
     {
       signalId: signal.signalId,
       signalType: signal.signalType,
-      signalData: signal.signalData,
+      semanticType: signal.signalData?.semanticType || signal.signalType,
+      concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0,
       topic: signal.topic,
       senderAgentId: signal.senderAgentId,
     },
     { publishSignal: signal.publishSignal }
   );
-  return { dispatched: true, results: dispatched };
+  return {
+    dispatched: result.dispatched.length > 0,
+    results: result.dispatched,
+    triggered: result.triggered,
+    llmRequired: result.llmRequired,
+  };
 }
 
 async function routeAndDispatch(signal, params) {
@@ -174,6 +171,8 @@ async function routeAndDispatch(signal, params) {
       }
     }
   }
+  // Emit to EventBus AFTER coalescing and routing (anti-spam gate passed)
+  emitToBus(signal);
   return {
     signalId: signal.id,
     published: true,
@@ -181,6 +180,7 @@ async function routeAndDispatch(signal, params) {
     coalescedCount: 1,
     signalType: signal.formatted.signalType,
     routing,
+    llmRequired: dispatchResult.llmRequired || false,
     ...delivery,
   };
 }
@@ -202,11 +202,11 @@ async function publishSignal(params) {
   const tensorError = validateTensor(signal);
   if (tensorError) return tensorError;
 
+  // 1. Persist BEFORE any emission
   await persistSignalRow(buildRow({ id: signal.id, formatted: signal.formatted, topic: signal.topic, senderAgentId: signal.senderAgentId, expiresAt: signal.expiresAt }));
   pushLocalLog(signal.id, signal.formatted);
 
-  emitToBus(signal);
-
+  // 2. Coalesce BEFORE EventBus (anti-spam gate)
   const coalesced = signalCoalescer.coalesce({
     signalId: signal.id,
     signalType: signal.normalizedType,
@@ -216,6 +216,7 @@ async function publishSignal(params) {
   });
   if (!coalesced) return handleSuppressed(signal);
 
+  // 3. Route + dispatch (EventBus emission happens AFTER coalescing)
   return await routeAndDispatch(signal, params);
 }
 
@@ -254,9 +255,10 @@ function buildRow({ id, formatted, topic, senderAgentId, expiresAt }) {
 }
 
 async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100) {
+  // Use signal_subscriptions (topic-based) instead of mixed signal_subs
   let sql = `SELECT DISTINCT s.signal_id, s.signal_type, s.signal_blob, s.content, s.topic, s.sender_agent_id, s.created_at
              FROM signal_blobs s
-             LEFT JOIN signal_subs sub ON sub.topic = s.topic AND sub.subscriber_agent_id = ?
+             LEFT JOIN signal_subscriptions sub ON sub.topic = s.topic AND sub.subscriber_agent_id = ?
              WHERE s.signal_type != 'text'
              AND s.sender_agent_id != ?
              AND (sub.subscriber_agent_id IS NOT NULL OR s.topic = '')
@@ -292,9 +294,10 @@ async function markSignalsSeen(subscriberAgentId, signalIds) {
   try {
     await db.exec('BEGIN IMMEDIATE');
     for (const sid of signalIds) {
+      // Use signal_deliveries (signal_id, subscriber_agent_id) PK for ACK tracking
       await db.run(
-        `INSERT OR REPLACE INTO signal_subs (signal_id, topic, subscriber_agent_id, last_seen_at)
-         VALUES (?, '', ?, CURRENT_TIMESTAMP)`,
+        `INSERT OR REPLACE INTO signal_deliveries (signal_id, subscriber_agent_id, status, seen_at)
+         VALUES (?, ?, 'seen', CURRENT_TIMESTAMP)`,
         [sid, subscriberAgentId]
       );
     }
@@ -309,7 +312,8 @@ async function purgeExpiredSignals() {
   try {
     const db = await getDatabase();
     await retryDbOperation(() => db.run(`DELETE FROM signal_blobs WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP`));
-    await retryDbOperation(() => db.run(`DELETE FROM signal_subs WHERE subscriber_agent_id NOT IN (SELECT id FROM agents)`));
+    await retryDbOperation(() => db.run(`DELETE FROM signal_subscriptions WHERE subscriber_agent_id NOT IN (SELECT id FROM agents)`));
+    await retryDbOperation(() => db.run(`DELETE FROM signal_deliveries WHERE subscriber_agent_id NOT IN (SELECT id FROM agents)`));
   } catch (e) {
     console.warn('[SignalingTransport] purgeExpiredSignals failed after retries:', e.message);
   }

@@ -17,8 +17,14 @@ const suites = {
     ['procedural primitives', 'test_procedural_primitives.js'],
     ['procedural causal validation', 'test_procedural_causal_validation.js'],
     ['procedural E2E autonome', 'test_procedural_e2e_autonome.js'],
+    ['philosophy falsification', 'test_philosophy_falsification.js'],
+    ['typed evidence algebra', 'test_typed_evidence_algebra.js'],
     ['REST smoke', 'test_backend.js'],
-    ['quality', 'run_quality_suite.js']
+    ['quality', 'run_quality_suite.js'],
+    ['natural search controller', 'search/test_natural_search_controller.js'],
+    ['natural search runtime E2E', 'search/test_natural_search_runtime_e2e.js'],
+    ['natural search pipeline E2E', 'search/test_natural_search_e2e_pipeline.js'],
+    ['natural search evolution', 'search/test_search_evolution.js']
   ],
   grpc: [
     ['gRPC integration', 'test_grpc_services.js']
@@ -70,11 +76,19 @@ const suites = {
     ['Pareto budget reallocation', 'test_epistemic_scheduler_budget.js'],
     ['mathematical dependency graph', 'test_epistemic_scheduler_mathematical_graph.js'],
     ['incremental Lean gate', 'test_epistemic_scheduler_lean_gate.js']
+  ],
+  signalPlane: [
+    ['signal receptor service', 'test_signal_receptor_service.js'],
+    ['signal event bus', 'test_signal_event_bus.js'],
+    ['signal pipeline integration', 'test_signal_pipeline_integration.js'],
+    ['plasticity tensor', 'test_plasticity_tensor.js'],
+    ['semantic loop detector', 'test_semantic_loop_detector.js']
   ]
 };
 
 suites.all = [
   ...suites.smoke,
+  ...suites.signalPlane,
   ...suites.grpc,
   ...suites.mcp,
   ...suites.security,

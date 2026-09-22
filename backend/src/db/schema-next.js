@@ -4,10 +4,10 @@
 //! Tables:
 //!  - signal_blobs: signaux zero-texte persistés (ligands, potentiels,
 //!    phéromones, plasmides, tenseurs latents)
-//!  - signal_subs: abonnements d'agents à des topics de signal
+//!  - signal_subscriptions: abonnements d'agents à des topics de signal
+//!  - signal_deliveries: livraisons de signaux à des abonnés avec statut ACK
 //!
 //! Cette extension est chargée par schema.js via la migration v45.
-//!
 
 const CREATE_SIGNAL_BLOBS_SQL = `
 CREATE TABLE IF NOT EXISTS signal_blobs (
@@ -27,24 +27,30 @@ CREATE INDEX IF NOT EXISTS signal_blobs_topic_idx ON signal_blobs(topic, created
 CREATE INDEX IF NOT EXISTS signal_blobs_sender_idx ON signal_blobs(sender_agent_id, created_at);
 CREATE INDEX IF NOT EXISTS signal_blobs_expires_idx ON signal_blobs(expires_at) WHERE expires_at IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS signal_subs (
-    signal_id TEXT PRIMARY KEY,
-    topic TEXT NOT NULL,
+CREATE TABLE IF NOT EXISTS signal_subscriptions (
     subscriber_agent_id TEXT NOT NULL,
-    last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    topic TEXT NOT NULL,
+    filter TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (subscriber_agent_id, topic),
     FOREIGN KEY (subscriber_agent_id) REFERENCES agents(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS signal_subs_subscriber_idx ON signal_subs(subscriber_agent_id, last_seen_at);
-CREATE INDEX IF NOT EXISTS signal_subs_topic_idx ON signal_subs(topic);
-`;
+CREATE INDEX IF NOT EXISTS signal_subscriptions_topic_idx ON signal_subscriptions(topic);
 
-const CREATE_SIGNAL_BLOBS_INDEXES_SQL = `
-CREATE INDEX IF NOT EXISTS signal_blobs_topic_idx ON signal_blobs(topic, created_at);
-CREATE INDEX IF NOT EXISTS signal_blobs_sender_idx ON signal_blobs(sender_agent_id, created_at);
-CREATE INDEX IF NOT EXISTS signal_blobs_expires_idx ON signal_blobs(expires_at) WHERE expires_at IS NOT NULL;
-CREATE INDEX IF NOT EXISTS signal_subs_subscriber_idx ON signal_subs(subscriber_agent_id, last_seen_at);
-CREATE INDEX IF NOT EXISTS signal_subs_topic_idx ON signal_subs(topic);
+CREATE TABLE IF NOT EXISTS signal_deliveries (
+    signal_id TEXT NOT NULL,
+    subscriber_agent_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'delivered', 'seen', 'acked')),
+    delivered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    seen_at DATETIME,
+    acked_at DATETIME,
+    PRIMARY KEY (signal_id, subscriber_agent_id),
+    FOREIGN KEY (subscriber_agent_id) REFERENCES agents(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS signal_deliveries_subscriber_idx ON signal_deliveries(subscriber_agent_id, status);
+CREATE INDEX IF NOT EXISTS signal_deliveries_signal_idx ON signal_deliveries(signal_id);
 `;
 
 /** Idempotent v45 migration — safe to call on every startup. */
@@ -52,4 +58,4 @@ async function applyV45Migration(db) {
   await db.exec(CREATE_SIGNAL_BLOBS_SQL);
 }
 
-module.exports = { applyV45Migration, CREATE_SIGNAL_BLOBS_SQL, CREATE_SIGNAL_BLOBS_INDEXES_SQL };
+module.exports = { applyV45Migration, CREATE_SIGNAL_BLOBS_SQL };

@@ -1,18 +1,5 @@
 /**
  * Collective Signal Organization Router
- *
- * Résulte le routage des signaux zero-texte vers les organisations et
- * orchestrateurs concernés. Détermine quels agents/topologies doivent
- * recevoir un signal donné selon son type, topic et l'orchestrateur
- * émetteur.
- *
- * Cette couche est le pont entre le transport persistant (signalingTransportService)
- * et l'organisation dynamique (dynamicOrganizationService). Elle met à jour
- * les abonnements stigmergiques et distribue les signaux aux topologies
- * avec des budgets de signalisation configurés.
- *
- * Progressed spec : le routage est implémenté mais les topologies concernées
- * ne sont pas toutes actives — le bus zero-texte est orphelin côté consommation.
  */
 
 const { getDatabase } = require('../db');
@@ -25,21 +12,55 @@ const SIGNAL_TOPIC_PREFIXES = {
   tensor: 'latent/',
 };
 
+const ROUTE_MAP = {
+  ligand: (signal) => signal.cascadeSignal ? 'hierarchical_merge' : null,
+  voltage: (signal) => (signal.consensusReached && Number(signal.kuramotoOrder) >= 0.7 && Number(signal.totalVoltageMv) >= Number(signal.thresholdMv || 300)) ? 'quorum_with_abstention' : null,
+  pheromone: (signal) => Number(signal.netGradient) > 0 ? 'slime_mould_network' : Number(signal.netGradient) < 0 ? 'network_silence' : null,
+};
+
 function proposedRoute(signalType, signal = {}) {
   const type = String(signalType || '').trim().toLowerCase();
-  if (type === 'ligand' && signal.cascadeSignal) return { organization: 'hierarchical_merge' };
-  if (type === 'voltage' && signal.consensusReached && Number(signal.kuramotoOrder) >= 0.7
-    && Number(signal.totalVoltageMv) >= Number(signal.thresholdMv || 300)) {
-    return { organization: 'quorum_with_abstention' };
+  const routeFn = ROUTE_MAP[type];
+  return routeFn ? { organization: routeFn(signal) } : null;
+}
+
+function buildScopeConditions(scope) {
+  const conditions = [];
+  const params = [];
+  if (scope.orgId) {
+    conditions.push('w.organization_id = ?');
+    params.push(scope.orgId);
   }
-  if (type === 'pheromone' && Number(signal.netGradient) > 0) return { organization: 'slime_mould_network' };
-  if (type === 'pheromone' && Number(signal.netGradient) < 0) return { organization: 'network_silence' };
-  return null;
+  if (scope.projId) {
+    conditions.push('w.project_id = ?');
+    params.push(scope.projId);
+  }
+  return { conditions, params };
+}
+
+async function fetchAgentRecipients(db, orchestratorId, scope) {
+  if (!scope.orgId && !scope.projId) return [];
+  const { conditions, params: scopeParams } = buildScopeConditions(scope);
+  return db.all(
+    `SELECT DISTINCT a.id, a.name
+     FROM agents a JOIN workspaces w ON a.workspace_id = w.id
+     WHERE a.id != ? AND a.status = 'active'
+     AND ${conditions.join(' AND ')} LIMIT ?`,
+    [orchestratorId || '', ...scopeParams, 50]
+  );
+}
+
+async function fetchOrgBudgetRecipients(db) {
+  return db.all(
+    `SELECT o.id, o.name, os.budget_mv
+     FROM organizations o JOIN organization_signal_budgets os ON o.id = os.organization_id
+     WHERE os.enabled = 1 AND os.budget_mv > 0 LIMIT 10`
+  );
 }
 
 /**
- * Détermine les destinataires d'un signal selon son type, topic et orchestrateur.
- * Retourne la liste des agents/organisations cibles + metadata de routage.
+ * Détermine les destinataires d'un signal.
+ * Scope strict : même organisation ET même projet que l'orchestrateur.
  */
 async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}, orchestratorId = null }) {
   const topic = extractTopic(signalType, signalData);
@@ -50,44 +71,21 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
   }
 
   try {
-    // 1. Récupérer l'organisation/projet de l'orchestrateur émetteur
-    const orchestratorWorkspace = await db.get(
+    const ws = await db.get(
       `SELECT w.organization_id as organizationId, w.project_id as projectId
-       FROM agents a
-       JOIN workspaces w ON a.workspace_id = w.id
-       WHERE a.id = ? AND a.status = 'orchestrator'`,
+       FROM agents a JOIN workspaces w ON a.workspace_id = w.id
+       WHERE a.id = ? AND a.execution_mode = 'orchestrator'`,
       orchestratorId
     );
-    const scopeOrgId = orchestratorWorkspace ? orchestratorWorkspace.organizationId : null;
-    const scopeProjId = orchestratorWorkspace ? orchestratorWorkspace.projectId : null;
+    const scope = { orgId: ws?.organizationId, projId: ws?.projectId };
 
-    // 2. Agents avec budget de signalisation actif dans la même org/projet
-    const orgRows = await db.all(
-      `SELECT DISTINCT a.id, a.name
-       FROM agents a
-       JOIN workspaces w ON a.workspace_id = w.id
-       WHERE a.id != ? AND a.status = 'active'
-       AND (w.organization_id = ? OR w.project_id = ?)
-       LIMIT 50`,
-      [orchestratorId || '', scopeOrgId, scopeProjId]
-    );
-    for (const row of orgRows) {
+    for (const row of await fetchAgentRecipients(db, orchestratorId, scope)) {
       recipients.push({ kind: 'agent', agentId: row.id, agentName: row.name });
     }
-
-    // 2. Organisations avec budget de signalisation configuré
-    const orgBudgetRows = await db.all(
-      `SELECT o.id, o.name, os.budget_mv
-       FROM organizations o
-       JOIN organization_signal_budgets os ON o.id = os.organization_id
-       WHERE os.enabled = 1 AND os.budget_mv > 0
-       LIMIT 10`
-    );
-    for (const row of orgBudgetRows) {
+    for (const row of await fetchOrgBudgetRecipients(db)) {
       recipients.push({ kind: 'organization', organizationId: row.id, organizationName: row.name, budgetMv: row.budget_mv });
     }
   } catch (e) {
-    // Router en local si la requête échoue — pas de blocage du transport
     console.warn('[SignalRouter] routeCollectiveSignal query failed, local-only routing:', e.message);
   }
 

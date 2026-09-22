@@ -123,10 +123,10 @@ async function assertMember(db, orchestratorId, agentId) {
     agentId
   );
   if (!agent) {
-    return null; // Agent does not exist
+    throw organizationError('AGENT_NOT_FOUND', `Agent '${agentId}' is not a known worker.`);
   }
   if (agent.parent_agent_id !== orchestratorId) {
-    return null; // Agent belongs to a different orchestrator - access denied
+    throw organizationError('ORGANIZATION_ACCESS_DENIED', `Agent '${agentId}' is not a member of orchestrator '${orchestratorId}'s organization.`);
   }
   return { id: agent.id, role: agent.role, execution_mode: agent.execution_mode, parent_agent_id: agent.parent_agent_id };
 }

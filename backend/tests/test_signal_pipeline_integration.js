@@ -94,7 +94,7 @@ function testPipelineCoalescedSignal() {
   console.log('[PASS] Plasticity suppressed outcome recorded');
 }
 
-function testFullPipelineNoReceptorMatch() {
+async function testFullPipelineNoReceptorMatch() {
   resetAll();
 
   // Signal with no matching receptor
@@ -110,10 +110,20 @@ function testFullPipelineNoReceptorMatch() {
   const triggered = receptor.matchReceptors(signal);
   assert.strictEqual(triggered.length, 0);
 
-  // When no receptor matches → LLM required
-  const result = { llmRequired: triggered.length === 0 };
-  assert.strictEqual(result.llmRequired, true);
-  console.log('[PASS] No receptor match → LLM required');
+  // When no receptor matches → LLM required (from matchAndDispatch, not reconstructed)
+  const matchResult = await receptor.matchAndDispatch(
+    {
+      signalId: signal.signalId,
+      signalType: signal.signalType,
+      semanticType: signal.signalData?.semanticType || signal.signalType,
+      concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0,
+      topic: signal.topic,
+      senderAgentId: signal.senderAgentId,
+    },
+    { publishSignal: async () => ({ signalId: 'sig-cascade' }) }
+  );
+  assert.strictEqual(matchResult.llmRequired, true, 'matchAndDispatch should return llmRequired=true when no receptor matches');
+  console.log('[PASS] No receptor match → LLM required (from matchAndDispatch)');
 
   // Plasticity: no effect
   plasticity.recordSignalOutcome({ senderId: 'worker-x', receiverId: 'worker-y', outcome: 'no_effect', signalType: signal.signalType });

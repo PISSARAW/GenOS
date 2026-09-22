@@ -6,7 +6,11 @@
  *   - Coalescing: rapid updates about the same topic are aggregated
  *   - Threshold crossing: only emit when a value crosses a boundary
  *
- * This service sits between raw signals and the event bus / receptor dispatch.
+ * Cette couche est entre les signaux bruts et l'event bus / dispatch récepteur.
+ *
+ * Corrections P2 :
+ *   - Le premier signal est maintenant bufferisé
+ *   - shouldCoalesce enregistre le signal dans le buffer avant de décider
  */
 
 const crypto = require('crypto');
@@ -62,7 +66,6 @@ function shouldCoalesce(signal, topic, opts = {}) {
   buf.signals.push(signal);
   buf.lastEmitAt = now;
 
-  // If enough time has passed since first buffered signal, flush
   const age = now - buf.firstEmitAt;
   if (age >= coalesceMs) {
     coalescingBuffer.delete(topic);

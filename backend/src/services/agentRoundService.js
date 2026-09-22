@@ -9,6 +9,7 @@ const {
 } = require('./agentOrchestrationState');
 const { evidenceScore, extractEvidenceReport } = require('./agentEvidenceService');
 const crypto = require('crypto');
+const { buildContinuationContext } = require('../../bin/agent-runtime-prompt.cjs');
 const durableContinuation = require('./durableContinuationService');
 
 const MAX_CONTINUATION_DISPATCH_ATTEMPTS = 3;
@@ -86,10 +87,11 @@ function queueContinuationMission(context) {
   const consumed = consumedFromPayload(survivor.payload);
   const budget = budgetFromPrevious(previous);
   const continuationId = `cont_${crypto.randomUUID()}`;
+  const diffPrompt = buildContinuationContext(previous, report, assignedTokens);
   const mission = {
     ...previous,
     continuationId,
-    prompt: `${previous.prompt}\n\nBudget round: continuation. You were selected after evidence scoring. Use the remaining ${assignedTokens} tokens only to resolve the highest-value uncertainty and return a final evidence report. Initial dossier:\n${dossier}`,
+    prompt: diffPrompt,
     executionBudget: {
       ...previous.executionBudget,
       tokens: assignedTokens,
