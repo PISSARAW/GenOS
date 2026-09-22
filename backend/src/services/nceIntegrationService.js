@@ -29,7 +29,13 @@ async function enhanceMissionWithNCE(mission, db) {
   if (!mission) return {};
   const config = createNCEConfig(mission.nceOptions);
 
-  const enhancements = { curiosity: null, representations: [], exaptations: [], environments: [], culturalTraits: [] };
+  const enhancements = {
+    curiosity: null,
+    representations: [],
+    exaptations: [],
+    environments: [],
+    culturalTraits: [],
+  };
 
   const c1 = await safeExecute(() => applyCuriosity(mission, config));
   if (c1) enhancements.curiosity = c1;

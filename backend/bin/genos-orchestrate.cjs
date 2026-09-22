@@ -215,7 +215,7 @@ async function executeMission(db, state) {
     if (nceEnhancements && Object.keys(nceEnhancements).length > 0) {
       const promptAdditions = buildPromptEnrichment(nceEnhancements);
       if (promptAdditions) enhancedPrompt = task + promptAdditions;
-      if (hasResult(nceEnhancements.curiosity)) nceMetadata.curiosity = nceEnhancements.curiosity.selectedDomainId;
+      if (hasResult(nceEnhancements.curiosity?.ranking)) nceMetadata.curiosity = nceEnhancements.curiosity.selectedDomainId;
       if (hasResult(nceEnhancements.representations)) nceMetadata.representations = nceEnhancements.representations.length;
       if (hasResult(nceEnhancements.exaptations)) nceMetadata.exaptations = nceEnhancements.exaptations.length;
       if (hasResult(nceEnhancements.environments)) nceMetadata.environments = nceEnhancements.environments.length;
@@ -333,10 +333,10 @@ async function executeMission(db, state) {
   function buildNceInfo(nceEnhancements) {
     return {
       enhancementsApplied: Object.keys(nceEnhancements).filter((k) => nceEnhancements[k] && k !== 'error').length,
-      curiousDomains: nceEnhancements.curiousDomains?.length || 0,
+      curiosityRanking: nceEnhancements.curiosity?.ranking?.length || 0,
       representations: nceEnhancements.representations?.length || 0,
       exaptations: nceEnhancements.exaptations?.length || 0,
-      environments: nceEnhancements.environmentPopulation?.length || 0
+      environments: nceEnhancements.environments?.length || 0
     };
   }
 }

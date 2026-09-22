@@ -196,7 +196,7 @@ function workerLaunchPayload({ context, member, workerId, parent }) {
       role: member.role,
       domain: context.nceEnrichments.domain,
       keywords: context.nceEnrichments.keywords,
-      curiousDomains: context.nceEnrichments.curiousDomains,
+      curiosity: context.nceEnrichments.curiosity,
       representations: context.nceEnrichments.representations,
       exaptations: context.nceEnrichments.exaptations,
       culturalTraits: context.nceEnrichments.culturalTraits,

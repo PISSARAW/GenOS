@@ -47,7 +47,7 @@ function enhancePromptWithNCE(prompt, options) {
   options = options || {};
   const additions = [];
   
-  pushSection(additions, options.curiousDomains, CURIOSITY_CFG);
+  pushSection(additions, options.curiosity?.ranking, CURIOSITY_CFG);
   pushSection(additions, options.exaptations, EXAPT_CFG);
   pushSection(additions, options.representations, REPR_CFG);
   pushSection(additions, options.culturalTraits, CULT_CFG);
