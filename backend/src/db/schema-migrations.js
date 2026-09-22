@@ -69,6 +69,8 @@ async function applyVersionedMigrations(db) {
   await migrationV015.run(db);
   const { migrationV016 } = require('./migrations/migrateGenomeTrustedSigners');
   await migrationV016.run(db);
+  const { migrationV017 } = require('./migrations/migrateGenomeEventLogCommitId');
+  await migrationV017.run(db);
   await runRegistryMigrations(db);
 }
 
