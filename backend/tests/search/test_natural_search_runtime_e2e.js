@@ -123,7 +123,7 @@ async function runRuntimeE2ETest() {
   });
 
   console.log(`Actuator receipt: ${receipt.action} (${receipt.status})`);
-  assert.ok(receipt.isSuccess(), 'Actuator executed successfully');
+  assert.equal(receipt.status, 'success', 'Actuator executed successfully');
 
   // Step 7: Verify persistence
   const savedHyp = await persistence.loadHypothesesForAgent(agentId);

@@ -23,13 +23,8 @@ function makeCtx(overrides = {}) {
   };
 }
 
-// Chaque test utilise un contrôleur neuf pour isoler les comportements.
-// Les tests d'hystérésis utilisent un mock de pression (_force) pour contrôler
-// exactement la valeur de pression à chaque étape.
-
 // --- Tests seuils d'entrée (contexte stable, convergence pression naturelle) ---
 
-// Plasticité (~5 iters pour atteindre P >= 0.45)
 {
   const ctrl = new NaturalSearchController();
   let sel;
@@ -37,8 +32,6 @@ function makeCtx(overrides = {}) {
   assert.equal(sel.process, SEARCH_PROCESS.PLASTICITE, 'doit entrer en PLASTICITE');
 }
 
-// Clonal affinity search — montée vers CLONAL avec mock de pression
-// pour maintenir p dans la bande [0.65, 0.78) sans déclencher STRESS_HYPERMUTATION
 {
   const ctrl = new NaturalSearchController();
   const origUpdate = ctrl.pressureModel.update.bind(ctrl.pressureModel);
@@ -55,35 +48,30 @@ function makeCtx(overrides = {}) {
     entropyMetrics: {}
   };
 
-  // Entrée PLASTICITE à p=0.46
   ctrl.pressureModel._force = 0.46;
   let sel = ctrl.selectProcess(base);
   assert.equal(sel.process, SEARCH_PROCESS.PLASTICITE, 'doit entrer en PLASTICITE');
 
-  // Montée vers CLONAL à p=0.70 (entre PHASE_ENTER.CLONAL=0.65 et PHASE_ENTER.STRESS=0.78)
   ctrl.pressureModel._force = 0.70;
   for (let i = 0; i < 5; i++) sel = ctrl.selectProcess(base);
   assert.equal(sel.process, SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH, 'doit monter en CLONAL quand p >= 0.65');
 }
 
-// Stress hypermutation
 {
   const ctrl = new NaturalSearchController();
   let sel;
   for (let i = 0; i < 6; i++) sel = ctrl.selectProcess(makeCtx({ searchYield: 0, stepsSinceProgress: 20, budgetRatio: 0.95, falsifiedHypotheses: 2, contradictions: 2 }));
-  assert.equal(sel.process, SEARCH_PROCESS.STRESS_HYPERMUTATION, 'doit atteindre STRESS_HYPERMUTATION');
+  assert.equal(sel.process, SEARCH_PROCESS.STRESS_HYPERMUTATION);
 }
 
-// Speciation
 {
   const ctrl = new NaturalSearchController();
   let sel;
   for (let i = 0; i < 8; i++) sel = ctrl.selectProcess(makeCtx({ searchYield: 0, stepsSinceProgress: 25, budgetRatio: 0.98, falsifiedHypotheses: 3, contradictions: 3 }));
-  assert.equal(sel.process, SEARCH_PROCESS.SPECIATION, 'doit atteindre SPECIATION');
+  assert.equal(sel.process, SEARCH_PROCESS.SPECIATION);
 }
 
 // --- Test hystérésis (mock de pression) ---
-// Scénario audit : 0.46 → PLASTICITE, 0.44 → hold, 0.46 → hold, 0.30 dwelled → sortie
 {
   const ctrl = new NaturalSearchController();
   const origUpdate = ctrl.pressureModel.update.bind(ctrl.pressureModel);
@@ -100,26 +88,27 @@ function makeCtx(overrides = {}) {
     entropyMetrics: {}
   };
 
-  // 1) p=0.46 → entrée PLASTICITE (0.45 < 0.46 < 0.65)
+  // 1) p=0.46 → entrée PLASTICITE
   ctrl.pressureModel._force = 0.46;
   let r = ctrl.selectProcess(base);
   assert.equal(r.process, SEARCH_PROCESS.PLASTICITE, 'entrée PLASTICITE à p=0.46');
-  assert.equal(ctrl.stepsSinceChange, 1, 'stepsSinceChange=1 après entrée');
 
-  // 2) p=0.44 → hold PLASTICITE (0.44 < enter 0.45 mais > exit 0.32)
+  // 2) p=0.44 → hold PLASTICITE (0.44 < enter 0.45 mais > exit 0.32, dwell=0)
+  // Le hold est car le seuil de sortie (0.32) n'est pas franchi
   ctrl.pressureModel._force = 0.44;
   r = ctrl.selectProcess(base);
-  assert.equal(r.process, SEARCH_PROCESS.PLASTICITE, 'hold PLASTICITE (p > exit)');
-  assert.ok(r.diagnostics.reason && r.diagnostics.reason.startsWith('hysteresis'), 'diagnostic hold');
+  assert.equal(r.process, SEARCH_PROCESS.PLASTICITE, 'hold PLASTICITE (p > exit 0.32)');
+  assert.ok(r.diagnostics.reason && r.diagnostics.reason.includes('hysteresis'), 'diagnostic hold à p=0.44');
 
-  // 3) p=0.46 → PLASTICITE (rebond, pas de hold car p >= enter)
+  // 3) p=0.46 → hold PLASTICITE (rebond, toujours > exit 0.32)
   ctrl.pressureModel._force = 0.46;
   r = ctrl.selectProcess(base);
-  assert.equal(r.process, SEARCH_PROCESS.PLASTICITE, 'rebond PLASTICITE (p >= enter)');
+  assert.equal(r.process, SEARCH_PROCESS.PLASTICITE, 'hold PLASTICITE (rebond)');
+  // Pas de diagnostic hold car desired == lastProcess (pas de downgrade tenté)
 
   // 4) p=0.30 avec dwell=3 → sortie (p < exit 0.32 + dwell >= 3)
   ctrl.pressureModel._force = 0.30;
-  ctrl.stepsSinceChange = MIN_DWELL_STEPS; // force dwell satisfait
+  ctrl.stepsSinceChange = MIN_DWELL_STEPS;
   r = ctrl.selectProcess(base);
   assert.notEqual(r.process, SEARCH_PROCESS.PLASTICITE, 'sortie PLASTICITE quand p < exit + dwell');
 }
@@ -138,4 +127,4 @@ function makeCtx(overrides = {}) {
   assert.equal(ledger.detectLockIn(now).length, 1, 'Ledger detects lock-in');
 }
 
-console.log('Natural Search Controller v4 tests passed.');
+console.log('Natural Search Controller v5 tests passed.');

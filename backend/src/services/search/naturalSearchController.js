@@ -1,39 +1,45 @@
 /**
- * Natural Search Controller v4.
- *
- * P0 fixes:
- *  - Lock-in determined via HypothesisLedger.detectLockIn(), not just classifier
- *  - Hysteresis via enter/exit thresholds
- *  - Uses structured proofs from Ledger
+ * Natural Search Controller v5 — avec niveaux de processus pour hystérésis correcte.
  */
 
 const { SearchPressureModel, ESCALATION_RADII } = require('./searchPressureService')
 const { classifySearchState, SEARCH_STATE } = require('./entropyProgressClassifier')
 const { SEARCH_PROCESS } = require('./searchProcessTypes')
 
-// Hysteresis thresholds
+// Niveaux pour déterminer les transitions autorisées
+const PROCESS_LEVEL = {
+  [SEARCH_PROCESS.CONTINUE]: 0,
+  [SEARCH_PROCESS.FORAGE]: 1,
+  [SEARCH_PROCESS.PLASTICITE]: 2,
+  [SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH]: 3,
+  [SEARCH_PROCESS.REPLAY_CAUSAL]: 3,
+  [SEARCH_PROCESS.STRESS_HYPERMUTATION]: 4,
+  [SEARCH_PROCESS.SPECIATION]: 5,
+  [SEARCH_PROCESS.EVOLUTION]: 6
+};
+
 const PHASE_ENTER = {
   [SEARCH_PROCESS.PLASTICITE]: 0.45,
   [SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH]: 0.65,
   [SEARCH_PROCESS.STRESS_HYPERMUTATION]: 0.78,
   [SEARCH_PROCESS.SPECIATION]: 0.91
-}
+};
 const PHASE_EXIT = {
   [SEARCH_PROCESS.PLASTICITE]: 0.32,
   [SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH]: 0.50,
   [SEARCH_PROCESS.STRESS_HYPERMUTATION]: 0.65,
   [SEARCH_PROCESS.SPECIATION]: 0.80
-}
-const MIN_DWELL_STEPS = 3
+};
+const MIN_DWELL_STEPS = 3;
 
 class NaturalSearchController {
   constructor(options = {}) {
-    this.pressureModel = new SearchPressureModel(options.pressure)
-    this.history = []
-    this.lastProcess = null
-    this.stepsInCurrentProcess = 0
-    this.stepsSinceChange = 0
-    this.ledger = options.ledger || null
+    this.pressureModel = new SearchPressureModel(options.pressure);
+    this.history = [];
+    this.lastProcess = null;
+    this.stepsInCurrentProcess = 0;
+    this.stepsSinceChange = 0;
+    this.ledger = options.ledger || null;
   }
 
   selectProcess(ctx) {
@@ -43,108 +49,82 @@ class NaturalSearchController {
       falsifiedHypotheses: ctx.falsifiedHypotheses,
       contradictions: ctx.contradictions,
       budgetRatio: ctx.budgetRatio
-    })
+    });
 
     const classification = classifySearchState(
       ctx.agentId,
       ctx.causalProgressReport,
       ctx.entropyMetrics
-    )
+    );
 
-    // Use Ledger to confirm lock-in
-    let lockInHypothesis = null
+    let lockInHypothesis = null;
     if (this.ledger && classification.state === SEARCH_STATE.MEDIUM_VARIATION_STAGNATION) {
-      const lockIns = this.ledger.detectLockIn()
-      if (lockIns.length > 0) {
-        lockInHypothesis = lockIns[0]
-      }
+      const lockIns = this.ledger.detectLockIn();
+      if (lockIns.length > 0) lockInHypothesis = lockIns[0];
     }
 
-    let process = this.lastProcess
-    let diagnostics = {}
-    const p = pressure.pressure
+    let process = this.lastProcess;
+    let diagnostics = {};
+    const p = pressure.pressure;
 
-    // Track steps since last process change (before deciding)
-    const justChanged = !this.lastProcess || process !== this.lastProcess
-    if (justChanged) {
-      this.stepsSinceChange = 1
-    } else {
-      this.stepsSinceChange++
-    }
+    // Déterminer le processus désiré
+    const hasSignificantLineagePressure = ctx.lineagePressure &&
+      (ctx.lineagePressure.falsifiedCount >= 3 || ctx.lineagePressure.supportedCount >= 3);
 
-    // Hysteresis: hold current process only to prevent premature DOWNGRADE.
-    // Upward transitions (pressure rising into a higher band) are always
-    // allowed — hysteresis protects against oscillation, not progression.
-    const exitThresh = PHASE_EXIT[this.lastProcess]
-    let holdProcess = false
-    if (this.lastProcess && exitThresh !== undefined) {
-      const pBelowEnter = p < PHASE_ENTER[this.lastProcess] // pression hors bande actuelle vers le bas
-      if (pBelowEnter) {
-        // Tentative de downgrade : bloquer si seuil de sortie non franchi ou dwell insuffisant
-        if (p < exitThresh && this.stepsSinceChange >= MIN_DWELL_STEPS) {
-          // Seuil de sortie franchi + dwell satisfait → autoriser le downgrade
-          holdProcess = false
-        } else {
-          // Seuil non franchi ou dwell insuffisant → bloquer pour éviter oscillation
-          holdProcess = true
-        }
-      }
-      // Si p >= PHASE_ENTER[lastProcess] (pression dans bande actuelle ou au-dessus),
-      // pas de hold → permet la montée vers un niveau supérieur
-    }
-
-    if (holdProcess) {
-      diagnostics = { reason: `hysteresis hold on ${this.lastProcess}` }
-    } else {
-      // Determine process based on current pressure
-      const hasSignificantLineagePressure = ctx.lineagePressure &&
-        (ctx.lineagePressure.falsifiedCount >= 3 || ctx.lineagePressure.supportedCount >= 3)
-
-      if (hasSignificantLineagePressure) {
-        process = SEARCH_PROCESS.EVOLUTION
-        diagnostics = { reason: 'lineage pressure — evolution triggered' }
-      } else if (p < PHASE_ENTER[SEARCH_PROCESS.PLASTICITE]) {
-        if (ctx.searchYield !== undefined && ctx.searchYield < 0.05) {
-          process = SEARCH_PROCESS.FORAGE
-          diagnostics = { reason: 'low yield — forage' }
-        } else {
-          process = SEARCH_PROCESS.CONTINUE
-          diagnostics = { reason: 'low pressure — continue' }
-        }
-      } else if (p < PHASE_ENTER[SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH]) {
-        process = SEARCH_PROCESS.PLASTICITE
-        diagnostics = { reason: 'moderate pressure — plasticity' }
-      } else if (p < PHASE_ENTER[SEARCH_PROCESS.STRESS_HYPERMUTATION]) {
-        if (lockInHypothesis) {
-          process = SEARCH_PROCESS.REPLAY_CAUSAL
-          diagnostics = { reason: `lock-in on ${lockInHypothesis.hypothesisId} — causal replay` }
-        } else if (ctx.falsifiedHypotheses > 0) {
-          process = SEARCH_PROCESS.REPLAY_CAUSAL
-          diagnostics = { reason: 'falsified hypothesis — revert' }
-        } else {
-          process = SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH
-          diagnostics = { reason: 'promising zone — affinity search' }
-        }
-      } else if (p < PHASE_ENTER[SEARCH_PROCESS.SPECIATION]) {
-        process = SEARCH_PROCESS.STRESS_HYPERMUTATION
-        diagnostics = { reason: 'high pressure — hypermutation' }
+    let desired;
+    if (hasSignificantLineagePressure) {
+      desired = SEARCH_PROCESS.EVOLUTION;
+    } else if (p < PHASE_ENTER[SEARCH_PROCESS.PLASTICITE]) {
+      if (ctx.searchYield !== undefined && ctx.searchYield < 0.05) {
+        desired = SEARCH_PROCESS.FORAGE;
       } else {
-        if (ctx.falsifiedHypotheses >= 3) {
-          process = SEARCH_PROCESS.SPECIATION
-          diagnostics = { reason: 'multiple failures — speciation' }
-        } else {
-          process = SEARCH_PROCESS.STRESS_HYPERMUTATION
-          diagnostics = { reason: 'very high pressure — radical hypermutation' }
-        }
+        desired = SEARCH_PROCESS.CONTINUE;
+      }
+    } else if (p < PHASE_ENTER[SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH]) {
+      desired = SEARCH_PROCESS.PLASTICITE;
+    } else if (p < PHASE_ENTER[SEARCH_PROCESS.STRESS_HYPERMUTATION]) {
+      if (lockInHypothesis || ctx.falsifiedHypotheses > 0) {
+        desired = SEARCH_PROCESS.REPLAY_CAUSAL;
+      } else {
+        desired = SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH;
+      }
+    } else if (p < PHASE_ENTER[SEARCH_PROCESS.SPECIATION]) {
+      desired = SEARCH_PROCESS.STRESS_HYPERMUTATION;
+    } else {
+      desired = (ctx.falsifiedHypotheses >= 3) ? SEARCH_PROCESS.SPECIATION : SEARCH_PROCESS.STRESS_HYPERMUTATION;
+    }
+
+    // Hystérésis : bloquer uniquement les downgrades prématurés
+    const currentLevel = PROCESS_LEVEL[this.lastProcess] ?? -1;
+    const desiredLevel = PROCESS_LEVEL[desired] ?? -1;
+
+    if (this.lastProcess && desiredLevel < currentLevel) {
+      // Downgrade — vérifier seuil de sortie + dwell
+      const exitThresh = PHASE_EXIT[this.lastProcess];
+      if (exitThresh !== undefined && p < exitThresh && this.stepsSinceChange >= MIN_DWELL_STEPS) {
+        process = desired;
+        diagnostics = { reason: `downgrade from ${this.lastProcess} to ${desired} (p=${p.toFixed(3)} < exit=${exitThresh}, dwell=${this.stepsSinceChange})` };
+      } else {
+        process = this.lastProcess;
+        diagnostics = { reason: `hysteresis hold on ${this.lastProcess} (desired: ${desired}, p=${p.toFixed(3)}, exit=${exitThresh}, dwell=${this.stepsSinceChange})` };
+      }
+    } else {
+      // Upgrade ou maintien — toujours autoriser
+      process = desired;
+      if (desiredLevel > currentLevel && this.lastProcess) {
+        diagnostics = { reason: `escalade from ${this.lastProcess} to ${desired} (p=${p.toFixed(3)})` };
+      } else if (!this.lastProcess) {
+        diagnostics = { reason: `initial process: ${desired}` };
       }
     }
 
+    // Mise à jour des compteurs
     if (process !== this.lastProcess) {
-      this.stepsInCurrentProcess = 0
+      this.stepsInCurrentProcess = 0;
     } else {
-      this.stepsInCurrentProcess++
+      this.stepsInCurrentProcess++;
     }
-    this.lastProcess = process
+    this.lastProcess = process;
 
     return {
       process,
@@ -153,15 +133,15 @@ class NaturalSearchController {
       classification: lockInHypothesis ? 'HYPOTHESIS_LOCK_IN' : classification.state,
       diagnostics,
       causes: pressure.causes
-    }
+    };
   }
 
   recordSelection(selection) {
-    this.history.push({ ts: Date.now(), ...selection })
-    if (this.history.length > 100) this.history.shift()
+    this.history.push({ ts: Date.now(), ...selection });
+    if (this.history.length > 100) this.history.shift();
   }
 
-  getHistory() { return this.history.slice() }
+  getHistory() { return this.history.slice(); }
 }
 
-module.exports = { NaturalSearchController, SEARCH_PROCESS, PHASE_ENTER, PHASE_EXIT, MIN_DWELL_STEPS }
+module.exports = { NaturalSearchController, SEARCH_PROCESS, PHASE_ENTER, PHASE_EXIT, MIN_DWELL_STEPS };
