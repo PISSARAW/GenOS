@@ -86,7 +86,10 @@ function countOverlap(textA, textB) {
   const setB = new Set(b);
   let count = 0;
   for (const w of a) if (setB.has(w)) count++;
-  return count;
+  // Retourne un ratio normalisé (mots communs / taille du plus petit ensemble)
+  // pour une métrique dimensionnellement cohérente.
+  const minSize = Math.min(a.length, b.length);
+  return minSize > 0 ? count / minSize : 0;
 }
 
 function computeAlignment(analysis, newContext) {

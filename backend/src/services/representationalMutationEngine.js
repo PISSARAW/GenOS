@@ -130,7 +130,14 @@ function buildSelectionResult(pairs, k) {
   const selected = sorted.slice(0, k);
   const avgScore = computeAvgScore(selected);
   return {
-    parents: selected.map((p) => ({ a: p.a, b: p.b })),
+    parents: selected.map((p) => ({
+      a: p.a,
+      b: p.b,
+      distance: p.distance,
+      compatibility: p.compatibility,
+      potential: p.potential,
+      score: p.score,
+    })),
     pairs: selected,
     score: avgScore,
     reason: selected.length > 0
@@ -194,7 +201,11 @@ function buildReprObject(a, b, opts) {
 
 function recombineConcepts(a, b, ctx) {
   ctx = ctx || {};
-  const opts = { problemText: ctx.problemText, representationType: ctx.representationType };
+  const opts = {
+    problemText: ctx.problemText,
+    representationType: ctx.representationType,
+    pair: ctx.pair,
+  };
   return { id: buildReprId(), ...buildReprObject(a, b, opts) };
 }
 
