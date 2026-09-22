@@ -1,11 +1,13 @@
 pub mod dna;
 pub mod gene;
 pub mod genome;
+pub mod grn;
 pub mod translation;
 
 pub use dna::{DnaNucleotide, DnaStrand, Mutagen, RnaNucleotide, RnaPolymerase, RnaStrand};
 pub use gene::{ChromatinState, ExpressionContext, Gene, Plasmid, Spliceosome};
 pub use genome::{DEFAULT_HAYFLICK_LIMIT, Genome, INSTINCT_LOCUS_PREFIX};
+pub use grn::{GRN, GRNEdge, GRNNode};
 pub use translation::{AminoAcidToken, Codon, Ribosome, UnfoldedProtein};
 
 #[cfg(test)]
