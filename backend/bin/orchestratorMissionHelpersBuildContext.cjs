@@ -2,8 +2,8 @@
 
 const { collectMissionEvidence } = require('../src/services/missionEvidenceCollector');
 
-function buildHomeostasisContext(opts) {
-  const { outcome, policyRequest, request, flags, evidence, profiles, dossierCount } = opts;
+function makeHomeostasisContext(opts) {
+  const { outcome, policyRequest = {}, request = {}, flags, evidence, profiles, dossierCount } = opts;
   flags.missionOutcome = outcome.success === true;
   return {
     completionContract: policyRequest.completionContract || request.completionContract || null,
@@ -21,32 +21,37 @@ function buildHomeostasisContext(opts) {
   };
 }
 
-function fallbackContext(opts) {
-  return buildHomeostasisContext({
-    ...opts,
+function makeFallbackContext(opts) {
+  const { outcome, policyRequest, request } = opts;
+  return makeHomeostasisContext({
+    outcome,
+    policyRequest: policyRequest || {},
+    request: request || {},
     flags: { missionOutcome: true },
-    evidence: opts.outcome.success === true ? ['mission_outcome'] : [],
+    evidence: outcome.success === true ? ['mission_outcome'] : [],
     profiles: [],
     dossierCount: 0,
   });
 }
 
 async function buildMissionContext(opts) {
-  const { outcome, db, missionId, agents } = opts;
+  const { outcome, db, missionId, agents, policyRequest = {}, request = {} } = opts;
   if (!db || !missionId) {
-    return fallbackContext(opts);
+    return makeFallbackContext({ outcome, policyRequest, request });
   }
   let runtimeEvidence = null;
   try {
     runtimeEvidence = await collectMissionEvidence(db, missionId, agents || []);
   } catch {
-    return fallbackContext(opts);
+    return makeFallbackContext({ outcome, policyRequest, request });
   }
   if (!runtimeEvidence) {
-    return fallbackContext(opts);
+    return makeFallbackContext({ outcome, policyRequest, request });
   }
-  return buildHomeostasisContext({
-    ...opts,
+  return makeHomeostasisContext({
+    outcome,
+    policyRequest,
+    request,
     flags: runtimeEvidence.flags || { missionOutcome: true },
     evidence: runtimeEvidence.evidence || [],
     profiles: runtimeEvidence.profiles || [],
