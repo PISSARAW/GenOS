@@ -1,0 +1,18 @@
+{
+  "author": { "name": "string", "meaning": "string" },
+  "outcome": "success|failed|no_answer",
+  "claims": [{ "statement": "specific conclusion", "evidence": ["test output, receipt, or inspected artifact"] }],
+  "uncertainties": ["anything not verified"],
+  "tests": ["command and result"],
+  "dossierInfluence": [{ "workerId": "delegated worker id", "usedClaims": ["claim used or rejected"], "influence": "how this dossier changed or constrained the synthesis" }],
+  "artifact": "creative when applicable",
+  "artifactText": "creative work when applicable",
+  "creativeEvaluation": {
+    "rubric": { "craft": 0, "coherence": 0, "originality": 0, "emotionalImpact": 0, "constraintCoverage": 0 },
+    "constraintCoverage": 0,
+    "revisions": [],
+    "criticEvidence": []
+  },
+  "failure": { "category": "unresolved_task|falsified_hypothesis|capability_mismatch|transient_runtime", "reason": "why the mission failed", "evidence": ["concrete observations"] },
+  "noAnswerProof": { "method": "bounded exhaustive method", "evidence": ["proof artifacts"] }
+}

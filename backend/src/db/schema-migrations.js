@@ -25,7 +25,6 @@ async function applyVersionedMigrations(db) {
   await createAgentGitTables(db);
   await ensureAgentGitObjectColumns(db);
   await createAgentGitHistoryTables(db);
-  await createAgentGitCommitParentsTable(db);
   await ensureEpisodicColumns(db);
   await migrateAgentStatusConstraint(db);
   await migrateLineageNodeTypeConstraint(db);
@@ -160,18 +159,6 @@ async function createAgentGitTables(db) {
 async function ensureAgentGitObjectColumns(db) {
   const agentGitColumns = new Set((await db.all('PRAGMA table_info(agent_git_objects)')).map((column) => column.name));
   if (!agentGitColumns.has('signature')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN signature TEXT');
-  if (!agentGitColumns.has('tree_hash')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN tree_hash TEXT');
-  if (!agentGitColumns.has('parent_commit_id')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN parent_commit_id TEXT');
-}
-
-async function createAgentGitCommitParentsTable(db) {
-  await db.exec(`CREATE TABLE IF NOT EXISTS agent_git_commit_parents (
-    commit_id TEXT NOT NULL,
-    parent_commit_id TEXT NOT NULL,
-    position INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (commit_id, parent_commit_id)
-  );
-  CREATE INDEX IF NOT EXISTS idx_agent_git_commit_parents_parent ON agent_git_commit_parents(parent_commit_id);`);
 }
 
 async function createAgentGitHistoryTables(db) {

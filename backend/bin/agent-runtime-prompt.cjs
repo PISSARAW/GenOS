@@ -1,6 +1,14 @@
 /**
- * Agent runtime prompt building and plan compaction helpers.
+ * Agent runtime prompt builder — P2 zero-prompt refinement.
+ *
+ * Rules enforced by runtime (leases, sandbox, schema) are NOT repeated
+ * in the prompt. The prompt contains only what the model must *understand*,
+ * not what the runtime can *improve*.
  */
+
+const path = require('path');
+const fs = require('fs');
+
 function compactStrategyContract(contract = {}, worker = false) {
   if (worker) {
     return {
@@ -59,6 +67,19 @@ function compactAutonomyPlan(plan = {}) {
   };
 }
 
+/**
+ * Build differential continuation context — only the delta, not the
+ * accumulated prompt history.
+ */
+function buildContinuationContext(previous, dossier, assignedTokens) {
+  const report = dossier ? JSON.stringify(dossier).slice(0, 8000) : '';
+  return [
+    `Continuation round. Budget: ${assignedTokens} tokens.`,
+    report ? `Evidence delta:\n${report}` : '',
+    'Resolve the highest-value uncertainty. Return only the updated evidence delta.',
+  ].filter(Boolean).join('\n\n');
+}
+
 function buildAgentRuntimePrompt(ctx) {
   const {
     selfIntro, mission, conscienceBlock, memoryBlock, authorityInstruction,
@@ -80,6 +101,8 @@ function buildAgentRuntimePrompt(ctx) {
     }
   }
 
+  const outputSchemaRef = 'Output must conform to the schema at backend/bin/agent-output-schema.json';
+
   return [
     `${selfIntro}`,
     `Agent role: ${mission.role || 'Autonomous implementation agent'}.`,
@@ -87,10 +110,9 @@ function buildAgentRuntimePrompt(ctx) {
     memoryBlock ? `${memoryBlock}` : '',
     authorityInstruction,
     gatingDirective ? `[BIOMIMETIC GATING]\n${gatingDirective}` : '',
-    'Work directly in the assigned repository and implement the mission completely.',
-    `Keep changes scoped to the repository, inspect existing code before editing, run relevant tests, and report concrete progress. Your final response must be a single JSON object with this schema: {"author":{"name":"${agentName}","meaning":"${nameMeaning}"},"outcome":"success|failed|no_answer","claims":[{"statement":"specific conclusion","evidence":["test output, receipt, or inspected artifact"]}],"uncertainties":["anything not verified"],"tests":["command and result"],"dossierInfluence":[{"workerId":"delegated worker id","usedClaims":["claim used or rejected"],"influence":"how this dossier changed or constrained the synthesis"}],"artifact":"creative when applicable","artifactText":"creative work when applicable","creativeEvaluation":{"rubric":{"craft":0,"coherence":0,"originality":0,"emotionalImpact":0,"constraintCoverage":0},"constraintCoverage":0,"revisions":[],"criticEvidence":[]},"failure":{"category":"unresolved_task|falsified_hypothesis|capability_mismatch|transient_runtime","reason":"why the mission failed","evidence":["concrete observations"]},"noAnswerProof":{"method":"bounded exhaustive method","evidence":["proof artifacts"]}}. If you cannot complete the mission, set outcome=failed and explain it explicitly; do not hide failure behind a successful process exit. Set outcome=no_answer only with concrete proof that no answer exists in the stated scope. Do not state a conclusion as fact without at least one evidence entry; use uncertainties instead.`,
+    outputSchemaRef,
     strategyContract.selected_strategy?.primary
-      ? `Follow this auditable GenOS strategy contract. Primary strategy: ${strategyContract.selected_strategy.primary}.\nContract:\n${JSON.stringify(runtimeContract, null, 2)}\n\nExecutable Strategy Primitives: The 7 lots of GenOS primitives are executable via MCP tools (e.g. genos_strat_mcts_select, genos_strat_compile_memory, genos_strat_mutate, genos_strat_stdp_update, genos_strat_evaluate, genos_strat_bisect_agent, genos_strat_vfs_dry_run) or genos_execute_primitive. Invoke them at appropriate stages of the mission.`
+      ? `Follow this auditable GenOS strategy contract. Primary strategy: ${strategyContract.selected_strategy.primary}.\nContract:\n${JSON.stringify(runtimeContract, null, 2)}`
       : 'No explicit strategy contract was attached; use the safest verified execution path.',
     !isWorker && autonomyPlan.schema
       ? `Autonomous orchestration plan. Its phases and tools are decision gates, not a mandatory script: choose and invoke only the smallest safe tools justified by current evidence. Record every elected action and preserve replay/merge evidence before promotion:\n${JSON.stringify(runtimeAutonomyPlan, null, 2)}`
@@ -104,11 +126,11 @@ function buildAgentRuntimePrompt(ctx) {
     !isWorker && executionPolicy.silentUpdates !== true
       ? 'Keep the user informed through genos_report_progress at meaningful milestones: when the active approach changes, a substantial unit finishes, a blocker appears, or the team enters final verification. Report concise outcomes and next steps, not internal chain-of-thought or every tool call.'
       : !isWorker ? 'The user explicitly requested silent execution. Do not call genos_report_progress; return only the final mission result.' : '',
-    isWorker && effectiveLease.length ? `Your enforceable GenOS MCP lease is limited to: ${effectiveLease.join(', ')}.` : '',
+    isWorker && effectiveLease.length ? `[LEASE] Tools: ${effectiveLease.join(', ')}.` : '',
     genosCapsule.id
-      ? `Your active GenOS capsule is ${genosCapsule.id}. For capsule tools, pass capsule_id=${genosCapsule.id} and root=${genosCapsule.root}. This capsule was created by the control plane; do not invent or replace its identity.`
+      ? `[CAPSULE] ${genosCapsule.id} (root=${genosCapsule.root}). Created by control plane; do not modify identity.`
       : '',
-    `Execution policy: file edits are ${allowFileEdits ? 'allowed inside this capsule' : 'not allowed'}; the only authorized shell commands are ${allowedCommands.length ? allowedCommands.map((command) => JSON.stringify(command)).join(', ') : 'none'}. Do not attempt any other shell command, including discovery or Git commands.`,
+    allowFileEdits ? '[EDIT] Allowed in capsule.' : '[EDIT] Not allowed.',
     `Mission:\n${mission.prompt || mission.currentTask || 'Inspect the repository and report the next safe action.'}`
   ].filter(Boolean).join('\n\n');
 }
@@ -116,5 +138,6 @@ function buildAgentRuntimePrompt(ctx) {
 module.exports = {
   compactStrategyContract,
   compactAutonomyPlan,
-  buildAgentRuntimePrompt
+  buildAgentRuntimePrompt,
+  buildContinuationContext,
 };
