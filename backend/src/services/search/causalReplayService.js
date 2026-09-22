@@ -2,18 +2,14 @@
  * Causal Replay — Phase 9.
  *
  * Rejoue à partir du dernier point connu bon après une falsification.
+ * Récursion brisée : ne fait plus appel à l'Actuator.
  */
 
 const { emit } = require('../agentOrchestrationState');
 
 class CausalReplayService {
-  constructor(options = {}) {
-    this.actuator = options.actuator || null;
+  constructor() {
     this.replayHistory = new Map();
-  }
-
-  setActuator(actuator) {
-    this.actuator = actuator;
   }
 
   findCausalCommitment(history, hypothesisStatement) {
@@ -42,24 +38,34 @@ class CausalReplayService {
 
   async replay(agentId, failedHypothesis, events, ledger) {
     const checkpoints = this.createCheckpoints(events);
-    const lastGoodCheckpoint = checkpoints.length > 1 ? checkpoints[checkpoints.length - 2] : checkpoints[0];
+    const lastGoodCheckpoint = checkpoints.length > 1
+      ? checkpoints[checkpoints.length - 2]
+      : checkpoints[0];
 
-    const receipt = await this.actuator.execute('REPLAY_CAUSAL', {
-      agentId,
-      lockInHypothesis: { hypothesisId: failedHypothesis.id },
-      lastKnownGood: `checkpoint_${lastGoodCheckpoint.start}`,
-      topology: 'isolated',
-      tools: ['grep', 'test']
-    });
+    emit(agentId, 'CAUSAL_REPLAY_INITIATED', 'REPLAY',
+      `Replay from checkpoint ${lastGoodCheckpoint.start}`, {
+        failedHypothesis: failedHypothesis.statement,
+        checkpointIndex: checkpoints.length - 2,
+        checkpointCount: checkpoints.length
+      }, 'info');
 
-    emit(agentId, 'CAUSAL_REPLAY_INITIATED', 'REPLAY', `Replay from checkpoint ${lastGoodCheckpoint.start}`, {
-      receiptId: receipt.id,
-      failedHypothesis: failedHypothesis.statement,
-      checkpointIndex: checkpoints.length - 2
-    }, 'info');
-
-    return { receipt, lastGoodCheckpoint };
+    return {
+      receipt: {
+        id: `replay_${Date.now()}`,
+        process: 'REPLAY_CAUSAL',
+        timestamp: Date.now(),
+        action: 'REPLAY_INITIATED',
+        result: {
+          restorePoint: `checkpoint_${lastGoodCheckpoint.start}`,
+          checkpointIndex: checkpoints.length - 2,
+          checkpointCount: checkpoints.length,
+          stateRestored: false
+        },
+        status: 'success'
+      },
+      lastGoodCheckpoint
+    };
   }
 }
 
-module.exports = { CausalReplayService }
+module.exports = { CausalReplayService };
