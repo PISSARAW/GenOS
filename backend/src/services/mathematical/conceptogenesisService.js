@@ -28,8 +28,8 @@ class ConceptogenesisEngine {
     const invariants = this.miner.mineInvariants(observations);
 
     const abstractions = [];
-    for (const inv of invariants) {
-      const abs = this.abstractionFormer.formAbstraction(inv.evidence || []);
+    if (invariants.length >= 3) {
+      const abs = this.abstractionFormer.formAbstraction(invariants);
       if (abs) abstractions.push(abs);
     }
 
