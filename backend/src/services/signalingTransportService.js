@@ -103,6 +103,7 @@ function emitToBus(signal) {
     senderAgentId: signal.senderAgentId,
     concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0,
     recipientAgentIds: signal.recipientAgentIds,
+    llmRequired: signal.llmRequired === true,
   });
 }
 
@@ -200,7 +201,7 @@ async function routeAndDispatch(signal, params) {
   const recipientAgentIds = (routing.recipients || [])
     .filter((r) => r.kind === 'agent' && r.agentId)
     .map((r) => r.agentId);
-  emitToBus({ ...signal, recipientAgentIds });
+  emitToBus({ ...signal, recipientAgentIds, llmRequired: dispatchResult.llmRequired || false });
   return {
     signalId: signal.id,
     published: true,

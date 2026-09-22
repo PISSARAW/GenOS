@@ -12,6 +12,7 @@ const signalEventBus = require('./signalEventBus');
 const { getDatabase } = require('../db');
 const plasticity = require('./synapticPlasticityService');
 const { startMission } = require('./agentRuntimeAdapter/missionExecution');
+const escalation = require('./cognitiveEscalationService');
 
 const registeredWakeHandlers = new Map();
 
@@ -50,11 +51,32 @@ function startSignalPlaneSubscriber() {
     }
   });
 
-  // Also listen for LLM-required signals (no receptor matched)
+  // Also listen for LLM-required signals (no receptor matched → escalate to cognition)
   signalEventBus.onSignal(async (signal) => {
     if (!signal.llmRequired) return;
-    console.log(`[SignalPlaneSubscriber] LLM escalation required for signal ${signal.signalId} (type=${signal.signalType})`);
-    // TODO: wire to cognitive escalation service
+    if (!escalation.shouldEscalate(signal)) return;
+
+    const target = await escalation.selectCognitiveTarget(signal);
+    const context = escalation.buildMinimalContext(signal);
+
+    console.log(`[SignalPlaneSubscriber] LLM escalation → ${target} (signal=${signal.signalId}, type=${signal.signalType})`);
+
+    try {
+      await startMission({
+        agentId: target,
+        prompt: '',
+        role: 'llm-escalation',
+        signalTriggered: true,
+        triggerSignalId: signal.signalId,
+        triggerSignalType: signal.signalType,
+        triggerSignalTopic: signal.topic,
+        escalationContext: context,
+      });
+      escalation.recordEscalationOutcome(signal.signalId, 'dispatched', 0);
+    } catch (err) {
+      console.warn(`[SignalPlaneSubscriber] Escalation startMission failed for ${target}:`, err.message);
+      escalation.recordEscalationOutcome(signal.signalId, 'failed', 0);
+    }
   });
 
   console.log('[SignalPlaneSubscriber] Started — listening for routed signals');
