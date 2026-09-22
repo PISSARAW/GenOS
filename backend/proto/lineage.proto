@@ -11,5 +11,46 @@ message Empty {}
 message LineageScopeRequest { string organization_id = 1; string project_id = 2; string workspace_id = 3; }
 message PingResponse { string status = 1; }
 message PhylogenyResponse { string nodes_json = 1; string edges_json = 2; int32 node_count = 3; }
-message RecordLineageRequest { string agent_id = 1; string parent_id = 2; string role = 3; float score = 4; string organization_id = 5; string project_id = 6; string workspace_id = 7; }
+
+// Enriched lineage record with family history
+message RecordLineageRequest {
+  string agent_id = 1;
+  string parent_id = 2;
+  string role = 3;
+  float score = 4;
+  string organization_id = 5;
+  string project_id = 6;
+  string workspace_id = 7;
+  // New fields for family history
+  repeated string parent_ids = 8;           // multiple parents (for fusion/merge)
+  string lineage_story = 9;                  // narrative description of the lineage
+  int32 generation = 10;                     // generation depth
+  string inherited_policy = 11;              // inherited behavioral policy
+  string mutation_signature = 12;            // what mutated from parent(s)
+  float inherited_traits_score = 13;         // score of inherited characteristics
+  string family_branch = 14;                 // branch identifier within family
+}
+
 message RecordLineageResponse { bool success = 1; }
+
+// Family history for autobiographical lineage
+message FamilyHistoryEntry {
+  string agent_id = 1;
+  string parent_id = 2;
+  string event_type = 3;                     // birth, mutation, merge, fission, death
+  string narrative = 4;
+  map<string, string> inherited_traits = 5;
+  int64 occurred_at = 6;
+}
+
+message FamilyHistoryRequest {
+  string agent_id = 1;
+  int32 max_depth = 2;
+}
+
+message FamilyHistoryResponse {
+  repeated FamilyHistoryEntry ancestors = 1;
+  repeated FamilyHistoryEntry descendants = 2;
+  int32 depth = 3;
+  string family_story = 4;
+}

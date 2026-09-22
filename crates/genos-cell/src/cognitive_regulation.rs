@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-/// L'état de conscience d'une cellule ou d'un agent.
+/// L'état de régulation cognitive d'une cellule ou d'un agent.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ConscienceState {
+pub struct CognitiveRegulationState {
     pub current_budget: f64,
     pub baseline_budget: f64,
     pub dissonance_level: f64,
@@ -12,7 +12,7 @@ pub struct ConscienceState {
     pub revision: u64,
 }
 
-impl Default for ConscienceState {
+impl Default for CognitiveRegulationState {
     fn default() -> Self {
         Self {
             current_budget: 100.0,
@@ -26,7 +26,7 @@ impl Default for ConscienceState {
     }
 }
 
-impl ConscienceState {
+impl CognitiveRegulationState {
     pub fn reduce_dissonance(&mut self, amount: f64) {
         if amount.is_finite() && amount > 0.0 {
             self.dissonance_level = (self.dissonance_level - amount).max(0.0);
@@ -89,45 +89,45 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_conscience_state_accumulation_and_apoptosis() {
-        let mut conscience = ConscienceState::default();
-        assert_eq!(conscience.dissonance_level, 0.0);
-        assert_eq!(conscience.harmony_percentage(), 100);
+    fn test_cognitive_regulation_state_accumulation_and_apoptosis() {
+        let mut reg = CognitiveRegulationState::default();
+        assert_eq!(reg.dissonance_level, 0.0);
+        assert_eq!(reg.harmony_percentage(), 100);
 
-        let apoptotic = conscience.accumulate_dissonance(10.0, 2.0);
+        let apoptotic = reg.accumulate_dissonance(10.0, 2.0);
         assert!(!apoptotic);
-        assert_eq!(conscience.dissonance_level, 8.0);
-        assert_eq!(conscience.revision, 1);
-        assert!(!conscience.is_apoptotic);
+        assert_eq!(reg.dissonance_level, 8.0);
+        assert_eq!(reg.revision, 1);
+        assert!(!reg.is_apoptotic);
 
         // Dépasser le seuil (50.0)
-        let apoptotic = conscience.accumulate_dissonance(45.0, 0.0);
+        let apoptotic = reg.accumulate_dissonance(45.0, 0.0);
         assert!(apoptotic);
-        assert!(conscience.is_apoptotic);
-        assert_eq!(conscience.current_budget, 0.0);
-        assert_eq!(conscience.harmony_percentage(), 0);
+        assert!(reg.is_apoptotic);
+        assert_eq!(reg.current_budget, 0.0);
+        assert_eq!(reg.harmony_percentage(), 0);
     }
 
     #[test]
-    fn test_conscience_state_eureka_relief() {
-        let mut conscience = ConscienceState::default();
-        conscience.accumulate_dissonance(20.0, 0.0);
-        assert_eq!(conscience.dissonance_level, 20.0);
+    fn test_cognitive_regulation_state_eureka_relief() {
+        let mut reg = CognitiveRegulationState::default();
+        reg.accumulate_dissonance(20.0, 0.0);
+        assert_eq!(reg.dissonance_level, 20.0);
 
-        conscience.trigger_eureka();
-        assert_eq!(conscience.eureka_moments, 1);
-        assert_eq!(conscience.dissonance_level, 10.0);
+        reg.trigger_eureka();
+        assert_eq!(reg.eureka_moments, 1);
+        assert_eq!(reg.dissonance_level, 10.0);
     }
 
     #[test]
     fn test_eureka_counter_saturates() {
-        let mut conscience = ConscienceState {
+        let mut reg = CognitiveRegulationState {
             eureka_moments: u32::MAX,
             ..Default::default()
         };
 
-        conscience.trigger_eureka();
+        reg.trigger_eureka();
 
-        assert_eq!(conscience.eureka_moments, u32::MAX);
+        assert_eq!(reg.eureka_moments, u32::MAX);
     }
 }

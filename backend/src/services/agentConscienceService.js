@@ -1,10 +1,13 @@
 /**
- * Service de Conscience Cognitive pour les agents GenOS.
- * Réimplémente et étend le modèle d'évaluation de la Conscience (ConscienceState) :
+ * Service de Régulation Cognitive pour les agents GenOS.
+ * Réimplémente et étend le modèle d'évaluation de la régulation cognitive (CognitiveRegulationState) :
  * - Suivi de la dissonance cognitive et de l'harmonie
  * - Enregistrement des illuminations / découvertes (Eurêka)
  * - Déclenchement de l'apoptose cognitive en cas d'échec critique ou boucle infinie
  * - Formatage introspectif pour sensibiliser l'agent à son état cognitif
+ *
+ * NOTE: Conceptuallement, cette couche est nommée "régulation cognitive" et non "conscience",
+ * car elle constitue un contrôleur de cohérence interne, pas une théorie de la conscience.
  */
 
 const config = require('../config/orchestratorConfig');
@@ -15,7 +18,7 @@ const DEFAULT_EUREKA_LIMIT = 3;
 const persistTails = new Map();
 const { resolveConflictIntoState } = require('./conscienceMerge');
 
-function createConscienceState(initial = {}) {
+function createCognitiveRegulationState(initial = {}) {
   const finiteOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
   return {
     currentBudget: Math.max(0, finiteOr(initial.currentBudget, DEFAULT_BASELINE_BUDGET)),
@@ -54,7 +57,7 @@ function computePenalty(summary) {
 
 /**
  * Évalue la santé cognitive de l'agent / de la branche.
- * @param {object} state État de conscience courant
+ * @param {object} state État de régulation cognitive courant
  * @param {object} metrics Métriques observées (erreurs, progression, santé cognitive)
  * @returns {object} { state, apoptoticTriggered, harmony }
  */
@@ -118,12 +121,13 @@ function markApoptotic(state) {
 
 /**
  * Formate un bloc d'introspection cognitive à injecter dans le prompt de l'agent.
+ * Rétrocompatible : l'ancien nom formatConsciencePrompt est conservé comme alias.
  */
-function formatConsciencePrompt(state) {
-  const safeState = createConscienceState(state);
+function formatCognitiveRegulationPrompt(state) {
+  const safeState = createCognitiveRegulationState(state);
   const harmony = Math.max(0, Math.min(100, Math.round(((safeState.maxDissonanceThreshold - safeState.dissonanceLevel) / safeState.maxDissonanceThreshold) * 100)));
   return [
-    `[ÉTAT DE CONSCIENCE & HARMONIE COGNITIVE]`,
+    `[ÉTAT DE RÉGULATION COGNITIVE & HARMONIE INTERNE]`,
     `- Dissonance cognitive : ${safeState.dissonanceLevel.toFixed(1)} / ${safeState.maxDissonanceThreshold.toFixed(1)} (Seuil d'apoptose)`,
     `- Harmonie interne : ${harmony}%`,
     `- Événements Eurêka validés : ${safeState.eurekaMoments}`,
@@ -132,14 +136,15 @@ function formatConsciencePrompt(state) {
   ].join('\n');
 }
 
-/**
- * Persiste l'état de conscience en base SQLite si les colonnes existent.
- */
-async function persistConscienceState(..._args) {
+// Rétrocompatibilité
+const formatConsciencePrompt = formatCognitiveRegulationPrompt;
+const createConscienceState = createCognitiveRegulationState;
+
+async function persistCognitiveRegulationState(..._args) {
   const [db, agentId, state, options] = _args;
   const opts = options || {};
   const previousTail = persistTails.get(agentId) || Promise.resolve();
-  const operation = previousTail.catch(() => {}).then(() => { return persistConscienceStateNow(db, agentId, state, true, opts); });
+  const operation = previousTail.catch(() => {}).then(() => { return persistStateNow(db, agentId, state, true, opts); });
   const tracked = operation.catch(() => {}).finally(() => {
     if (persistTails.get(agentId) === tracked) persistTails.delete(agentId);
   });
@@ -147,7 +152,7 @@ async function persistConscienceState(..._args) {
   return operation;
 }
 
-async function recordConscienceTransition(db, transition) {
+async function recordCognitiveRegulationTransition(db, transition) {
   const options = transition.options || {};
   const reason = String(options.reason || 'evaluation');
   const fromApoptotic = transition.previous.is_apoptotic ? 1 : 0;
@@ -167,7 +172,7 @@ async function recordConscienceTransition(db, transition) {
   );
 }
 
-async function persistConscienceStateNow(..._args) {
+async function persistStateNow(..._args) {
   const [db, agentId, state, retryArg, optionsArg] = _args;
   const retry = retryArg === undefined ? true : retryArg;
   const options = optionsArg || {};
@@ -176,7 +181,7 @@ async function persistConscienceStateNow(..._args) {
     agentId
   );
   if (!previous) {
-    throw new Error(`Agent ${agentId} not found in database for conscience persistence`);
+    throw new Error(`Agent ${agentId} not found in database for cognitive regulation persistence`);
   }
   const result = await db.run(
       `UPDATE agents SET 
@@ -199,30 +204,27 @@ async function persistConscienceStateNow(..._args) {
       state.revision
   );
   if (result.changes !== 1) {
-    if (!retry) throw new Error(`Conscience state conflict for agent ${agentId} at revision ${state.revision}`);
+    if (!retry) throw new Error(`Cognitive regulation state conflict for agent ${agentId} at revision ${state.revision}`);
     const current = await db.get(
       'SELECT dissonance_level, eureka_count, cognitive_budget, cognitive_baseline_budget, cognitive_max_dissonance, is_apoptotic, conscience_revision, updated_at FROM agents WHERE id = ?',
       agentId
     );
-    if (!current) throw new Error(`Conscience state conflict for agent ${agentId} at revision ${state.revision}`);
+    if (!current) throw new Error(`Cognitive regulation state conflict for agent ${agentId} at revision ${state.revision}`);
     resolveConflictIntoState(state, previous, current);
-    return persistConscienceStateNow(db, agentId, state, false, options);
+    return persistStateNow(db, agentId, state, false, options);
   }
-  await recordConscienceTransition(db, { agentId, previous, state, options });
+  await recordCognitiveRegulationTransition(db, { agentId, previous, state, options });
   state.revision += 1;
 }
 
-/**
- * Charge l'état de conscience depuis la base SQLite.
- */
-async function loadConscienceState(db, agentId) {
+async function loadCognitiveRegulationState(db, agentId) {
   try {
     const row = await db.get(
       'SELECT dissonance_level, eureka_count, cognitive_budget, cognitive_baseline_budget, cognitive_max_dissonance, is_apoptotic, conscience_revision FROM agents WHERE id = ?',
       agentId
     );
-    if (!row) return createConscienceState();
-    return createConscienceState({
+    if (!row) return createCognitiveRegulationState();
+    return createCognitiveRegulationState({
       dissonanceLevel: row.dissonance_level,
       eurekaMoments: row.eureka_count,
       currentBudget: row.cognitive_budget,
@@ -232,14 +234,11 @@ async function loadConscienceState(db, agentId) {
       revision: row.conscience_revision
     });
   } catch (error) {
-    throw new Error(`Unable to load conscience state for agent ${agentId}: ${error.message}`);
+    throw new Error(`Unable to load cognitive regulation state for agent ${agentId}: ${error.message}`);
   }
 }
 
-/**
- * Récupère l'historique des transitions de conscience pour un agent.
- */
-async function getConscienceTransitions(db, agentId, options = {}) {
+async function getCognitiveRegulationTransitions(db, agentId, options = {}) {
   const limit = Math.max(1, Math.min(200, Math.floor(Number(options.limit) || 50)));
   const offset = Math.max(0, Math.floor(Number(options.offset) || 0));
   try {
@@ -259,7 +258,7 @@ async function getConscienceTransitions(db, agentId, options = {}) {
     );
     return rows || [];
   } catch (error) {
-    throw new Error(`Unable to load conscience transitions for agent ${agentId}: ${error.message}`);
+    throw new Error(`Unable to load cognitive regulation transitions for agent ${agentId}: ${error.message}`);
   }
 }
 
@@ -268,12 +267,14 @@ module.exports = {
   DEFAULT_BASELINE_BUDGET,
   DEFAULT_EUREKA_WINDOW_MS,
   DEFAULT_EUREKA_LIMIT,
+  createCognitiveRegulationState,
   createConscienceState,
   evaluateBranch,
   triggerEureka,
   markApoptotic,
+  formatCognitiveRegulationPrompt,
   formatConsciencePrompt,
-  persistConscienceState,
-  loadConscienceState,
-  getConscienceTransitions
+  persistCognitiveRegulationState,
+  loadCognitiveRegulationState,
+  getCognitiveRegulationTransitions
 };

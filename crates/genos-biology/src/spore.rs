@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use crate::cell::{AgentCell, Organelle};
-use crate::cell::ConscienceState;
+use crate::cell::CognitiveRegulationState;
 use crate::genome::Genome;
 use uuid::Uuid;
 
@@ -15,7 +15,7 @@ pub struct Spore {
     pub spore_type: SporeType,
     pub genome: Genome,
     pub parent_cell_id: Uuid,
-    pub conscience: ConscienceState,
+    pub conscience: CognitiveRegulationState,
     pub organelles: Vec<Organelle>,
     pub bunker_armor: u32,
 }
@@ -33,7 +33,7 @@ impl Spore {
             spore_type,
             genome,
             parent_cell_id: Uuid::new_v4(),
-            conscience: ConscienceState::default(),
+            conscience: CognitiveRegulationState::default(),
             organelles: Vec::new(),
             bunker_armor,
         }

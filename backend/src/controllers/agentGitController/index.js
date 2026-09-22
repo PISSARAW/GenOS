@@ -32,5 +32,11 @@ async function status(req, res, next) { try { res.json(await agentGit.status(req
 async function commitFromIndex(req, res, next) { try { res.status(201).json(await agentGit.commitFromIndex(req, req.body || {})); } catch (error) { next(error); } }
 async function reset(req, res, next) { try { res.json(await agentGit.reset(req)); } catch (error) { next(error); } }
 async function mergeBaseDag(req, res, next) { try { res.json(await agentGit.mergeBaseDag(req)); } catch (error) { next(error); } }
+async function hgtCherryPick(req, res, next) { try { res.status(201).json(await agentGit.hgtCherryPick(req)); } catch (error) { next(error); } }
+async function speciation(req, res, next) { try { res.status(201).json(await agentGit.speciation(req)); } catch (error) { next(error); } }
+async function recombination(req, res, next) { try { res.status(201).json(await agentGit.recombination(req)); } catch (error) { next(error); } }
+async function migration(req, res, next) { try { res.status(201).json(await agentGit.migration(req)); } catch (error) { next(error); } }
+async function fossil(req, res, next) { try { res.status(201).json(await agentGit.fossil(req)); } catch (error) { next(error); } }
+async function apoptosis(req, res, next) { try { res.json(await agentGit.apoptosis(req)); } catch (error) { next(error); } }
 
-module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, merge, replay, bisect, log, revert, rebase, rebaseInteractive, remoteReceive, reflog, show, fsck, gc, blame, describe, note, hook, mergeBase, archive, stage, unstage, status, commitFromIndex, reset, mergeBaseDag };
+module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, merge, replay, bisect, log, revert, rebase, rebaseInteractive, remoteReceive, reflog, show, fsck, gc, blame, describe, note, hook, mergeBase, archive, stage, unstage, status, commitFromIndex, reset, mergeBaseDag, hgtCherryPick, speciation, recombination, migration, fossil, apoptosis };

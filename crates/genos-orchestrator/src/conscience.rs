@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-pub use genos_cell::conscience::ConscienceState;
+pub use genos_cell::cognitive_regulation::CognitiveRegulationState;
+
+/// Type alias for backward compatibility.
+pub type ConscienceState = CognitiveRegulationState;
 
 /// Le modèle d'évaluation (Conscience) qui juge la qualité cognitive d'une branche.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

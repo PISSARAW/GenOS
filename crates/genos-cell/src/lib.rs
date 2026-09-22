@@ -1,7 +1,7 @@
 ﻿use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-pub mod conscience;
-pub use conscience::ConscienceState;
+pub mod cognitive_regulation;
+pub use cognitive_regulation::CognitiveRegulationState;
 pub mod clinical;
 pub use clinical::{ClinicalState, DiseaseCategory, Pathology};
 pub mod interoception;
@@ -48,7 +48,7 @@ pub struct AgentCell {
     pub name: String,
     pub name_meaning: String,
     pub role: String,
-    pub conscience: ConscienceState,
+    pub conscience: CognitiveRegulationState,
     pub organelles: Vec<Organelle>,
     #[serde(default)]
     pub bud_scars: u32,
@@ -97,7 +97,7 @@ impl Default for AgentCell {
             name: name.to_string(),
             name_meaning: meaning.to_string(),
             role: "Autonomous Node".to_string(),
-            conscience: ConscienceState::default(),
+            conscience: CognitiveRegulationState::default(),
             organelles: Vec::new(),
             bud_scars: 0,
             bud_scar_ids: Vec::new(),
@@ -122,7 +122,7 @@ impl AgentCell {
             name: name.into(),
             name_meaning: name_meaning.into(),
             role: role.into(),
-            conscience: ConscienceState::default(),
+            conscience: CognitiveRegulationState::default(),
             organelles: Vec::new(),
             bud_scars: 0,
             bud_scar_ids: Vec::new(),
@@ -233,4 +233,3 @@ impl AgentCell {
 
 #[cfg(test)]
 mod tests;
-
