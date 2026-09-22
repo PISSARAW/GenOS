@@ -31,6 +31,11 @@ class MathematicalCulture {
     let proofReceipt = null;
     let formalResult = null;
 
+    // Reject forged verified: true without a real ProofArtifact.isVerified()
+    if (artifact.verified === true && !artifact.proofArtifact) {
+      throw new Error('Verified artifacts require a ProofArtifact with isVerified() === true. Forged verified is forbidden.');
+    }
+
     // Derive verified from proofArtifact.isVerified() automatically
     // It is forbidden to simply pass verified: true — the API must derive it
     if (artifact.proofArtifact) {

@@ -40,10 +40,12 @@ const target = createResearchLineage({ name: 'target', strategies: ['induction']
 const proofArtifact = createMockVerifiedProofArtifact('ring_lemma');
 const r4 = engine.horizontalGeneTransfer(source, target, proofArtifact, { blocked: false });
 assert.ok(r4 !== null);
-assert.ok(target.genome.strategies.includes('ring_lemma'));
+// Lemmas vérifiés vont dans _knowledge (pas strategies) — comportement correct du point 3
+assert.ok(target._knowledge && target._knowledge.length === 1, 'Lemma should be in knowledge base');
+assert.ok(target._knowledge[0].proofArtifact, 'Knowledge should preserve ProofArtifact reference');
 assert.ok(r4.plasmid);
 assert.strictEqual(r4.plasmid.assimilationStatus, 'assimilated');
-assert.strictEqual(r4.plasmid.type, 'lemma');
+assert.strictEqual(r4.plasmid.type, 'knowledge');
 
 // HGT blocked by immune system
 const blockedSource = createResearchLineage({ name: 'blocked', strategies: ['omega'] });
