@@ -51,6 +51,7 @@ const suites = {
     ['execution reconnection', 'test_execution_loop_reconnections.js']
   ],
   continuity: [
+    ['homeostasis continuation', 'test_homeostasis_continuation.js'],
     ['mission continuity', 'test_mission_continuity.js']
   ],
   providers: [

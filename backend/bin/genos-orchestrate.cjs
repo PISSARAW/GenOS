@@ -17,9 +17,11 @@ const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
 const orchestrationCoverage = require('../src/services/orchestrationCoverageService');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
+const { maybeDispatchContinuation } = require('./homeostasisContinuationHelper.cjs');
 const { handleAction, handleBackground, initializeMission } = require('./orchestratorActions.cjs');
 const { summarizeAgents } = require('../src/services/orchestratorOutcome');
 const missionContinuity = require('../src/services/missionContinuityService');
+const homeostasisContinuation = require('../src/services/homeostasisContinuationService');
 
 // A stray async DB write (SQLITE_BUSY, closed handle at shutdown, ...) must not
 // crash the whole mission: log it and let the mission timeout/finalization run.
@@ -140,10 +142,20 @@ async function executeMission(db, state) {
   await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs });
   const agents = await waitForCompletion(db);
   const outcome = summarizeAgents(agents);
-  const { continuity, completionGate } = await evaluateMissionContinuity({ db, id, task, outcome });
+  const { continuity, completionGate, evaluation, organism } = await evaluateMissionContinuity({ db, id, task, outcome });
   const { telemetryRows, runs, coverage } = await gatherTelemetryAndCoverage(db, id);
   const missionSuccess = completionGate.allowed === true;
-  const finalVerdict = missionSuccess ? outcome.outcome : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.outcome);
+  let finalVerdict = missionSuccess ? outcome.outcome : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.outcome);
+
+  // Homeostasis continuation: when the gate blocks, dispatch a bounded recovery
+  // worker to resolve the deviation instead of exiting with failure.
+  const continuationResult = await maybeDispatchContinuation({
+    db, orchestratorId: id, task, request, mission: { ...mission, id },
+    completionGate, evaluation, organism, finalVerdict, continuity
+  });
+  finalVerdict = continuationResult.finalVerdict;
+  if (continuationResult.dispatched) continuity.dispatched = continuationResult.dispatched;
+
   emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate });
   if (!missionSuccess) process.exitCode = 2;
 
@@ -275,7 +287,7 @@ async function executeMission(db, state) {
       continuity = { status: 'unknown', error: continuityError.message };
       completionGate = { allowed: false, reason: continuityError.message };
     }
-    return { continuity, completionGate };
+    return { continuity, completionGate, evaluation, organism: evaluation ? evaluation.organism : null };
   }
 
   function buildMissionContext(outcome) {
