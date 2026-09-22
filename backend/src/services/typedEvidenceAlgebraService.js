@@ -79,7 +79,7 @@ function assessIndependence(evidenceA, evidenceB) {
 
   const sameSource = evidenceA.source === evidenceB.source;
   const sameType = evidenceA.type === evidenceB.type;
-  const sameMethod = (evidenceA.properties?.method || null) === (evidenceB.properties?.method || null);
+  const sameMethod = (evidenceA.properties.method || null) === (evidenceB.properties.method || null);
 
   // Si même source, même type, même méthode → non indépendant
   if (sameSource && sameType && sameMethod) {

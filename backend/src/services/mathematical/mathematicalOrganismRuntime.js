@@ -21,10 +21,11 @@ const { extractEpitopes } = require('./goalEpitopeExtractor');
 
 const { LeanIncrementalGate } = require('../epistemicScheduler/leanIncrementalGate');
 const { MathematicalDependencyGraph } = require('../epistemicScheduler/mathematicalDependencyGraph');
+const { createFormalizationRegistry } = require('./formalizationArtifact');
 
 const { observe, extractMotifs } = require('./mathematicalOrganismObserve');
 const { question } = require('./mathematicalOrganismQuestion');
-const { allocate, explore, verify, generateLeanSource } = require('./mathematicalOrganismExplore');
+const { allocate, explore, verify } = require('./mathematicalOrganismExplore');
 const { select, mutate, transmit, horizontalTransfer, evaluate, hasConverged, getSummary } = require('./mathematicalOrganismSelectMutate');
 const { createConceptogenesisEngine } = require('./conceptogenesisService');
 
@@ -52,6 +53,7 @@ class MathematicalOrganismRuntime {
     this.forager = new LiteratureForager({ envMeanReturnRate: options.envMeanReturnRate || 0.35 });
     this.leanGate = options.leanGate || null;
     this.dependencyGraph = new MathematicalDependencyGraph();
+    this.formalizationRegistry = createFormalizationRegistry();
     this.generation = 0;
     this.budget = options.budget || { tokens: 10000, cpu: 3600 };
     this.spent = { tokens: 0, cpu: 0 };

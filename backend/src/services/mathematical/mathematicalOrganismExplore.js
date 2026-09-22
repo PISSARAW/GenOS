@@ -8,6 +8,7 @@
 const crypto = require('node:crypto');
 const { createFormalResult } = require('../formalResultService');
 const { createProofArtifact } = require('./proofArtifact');
+const { createFormalizationArtifact } = require('./formalizationArtifact');
 
 function allocate(runtime) {
   for (const [, niche] of runtime.nicheService.niches) {
@@ -91,9 +92,13 @@ async function verify(runtime, attempts) {
       statement: attempt.goal,
       domain: runtime.environment.problem.domain,
     });
-    artifact.attachFormalResult(formalResult);
+    const formalization = createFormalizationArtifact({
+      naturalStatement: attempt.goal,
+      formalStatement: attempt.goal,
+    });
+    artifact.attachFormalResult(formalResult, formalization);
 
-    const leanSource = generateLeanSource(attempt);
+    const leanSource = formalization.generateLeanSource({ proofBody: '  simp' });
     let success = false;
     try {
       success = await artifact.verifyThroughLean(runtime.leanGate, leanSource);
@@ -158,4 +163,4 @@ function recordFailure(runtime, attempt) {
   runtime.metrics.totalFailed++;
 }
 
-module.exports = { allocate, explore, verify, generateLeanSource };
+module.exports = { allocate, explore, verify };

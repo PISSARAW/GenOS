@@ -94,29 +94,18 @@ async function testRuntimeWithValidSources() {
       const statementMatch = src.includes(expected);
       const hasSorry = src.includes('sorry') || src.includes('admit');
       if (hasSorry) {
-        return { nodeId: input.nodeId, status: 'failed', reason: 'placeholder_proof', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, axioms: [], checkedAt: new Date().toISOString() };
+        return { exitCode: 1, nodeId: input.nodeId, status: 'failed', reason: 'placeholder_proof', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, axioms: [], checkedAt: new Date().toISOString() };
       }
       if (statementMatch) {
-        return { nodeId: input.nodeId, status: 'passed', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, dependencyReceiptDigests: [], axioms: [], checkedAt: new Date().toISOString() };
+        return { exitCode: 0, nodeId: input.nodeId, status: 'passed', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, dependencyReceiptDigests: [], axioms: [], checkedAt: new Date().toISOString() };
       }
-      return { nodeId: input.nodeId, status: 'failed', reason: 'proof_failed_wrong_statement', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, axioms: [], checkedAt: new Date().toISOString() };
+      return { exitCode: 1, nodeId: input.nodeId, status: 'failed', reason: 'proof_failed_wrong_statement', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, axioms: [], checkedAt: new Date().toISOString() };
     },
     toolchainVersion: 'lean-4.9.0',
     environmentDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
   });
   
   runtime.setLeanGate(gate);
-
-// Override generateLeanSource to produce valid Lean WITHOUT sorry/admit
-  // Using the actual goal from the environment problem statement
-  runtime.generateLeanSource = (attempt) => {
-    const goal = attempt.goal || 'unspecified_goal';
-    const safeGoal = goal.replace(/\"/g, '\\\"').substring(0, 200);
-    // Structure: theorem name : statement := by proof term
-    // The proof term 'norm_num' works for simple arithmetic goals;
-    // for general goals, a real autoformalizer would provide the proof.
-    return `theorem attempt : "${safeGoal}" := by norm_num`;
-  };
 
   await runtime.run(1);  // Run exactly 1 step
 
