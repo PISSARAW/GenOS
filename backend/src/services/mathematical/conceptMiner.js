@@ -18,7 +18,7 @@ class ConceptMiner {
   }
 
   mineInvariants(observations) {
-    if (!observations || observations.length < 3) return [];
+    if (!observations || observations.length < 1) return [];
 
     const invariants = [];
 
@@ -31,7 +31,44 @@ class ConceptMiner {
     const relational = this.mineRelationalInvariants(observations);
     invariants.push(...relational);
 
+    const typePatterns = this.mineTypePatterns(observations);
+    invariants.push(...typePatterns);
+
     return invariants.filter(inv => inv.support >= this.minSupport && inv.confidence >= this.minConfidence);
+  }
+
+  /**
+   * Mine patterns from anomaly types.
+   * When the same anomaly type appears repeatedly across observations,
+   * it signals a structural pattern worth noting.
+   */
+  mineTypePatterns(observations) {
+    const typeCounts = {};
+    for (const obs of observations) {
+      const type = obs.type || 'unknown';
+      typeCounts[type] = (typeCounts[type] || 0) + 1;
+    }
+
+    const invariants = [];
+    const total = observations.length;
+
+    for (const [type, count] of Object.entries(typeCounts)) {
+      const support = count / total;
+      // Only emit if the pattern is significant (appears in >= 30% of observations)
+      // and we have enough observations
+      if (support >= 0.3 && total >= 3) {
+        invariants.push({
+          type: 'type_pattern',
+          statement: `Recurring anomaly type "${type}" observed in ${(support * 100).toFixed(0)}% of observations`,
+          support,
+          confidence: support,
+          evidence: observations.filter(o => o.type === type).map(o => o.description || o.source),
+          metadata: { anomalyType: type, count, total },
+        });
+      }
+    }
+
+    return invariants;
   }
 
   mineStructuralInvariants(observations) {

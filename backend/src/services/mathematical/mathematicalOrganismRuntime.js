@@ -144,8 +144,49 @@ class MathematicalOrganismRuntime {
       description: a.description || '',
       source: a.source || null,
       confidence: a.confidence != null ? a.confidence : 0.5,
+      // Structured data for ConceptMiner (point 8 fix)
+      context: a.context || {},
+      output: a.output || {},
     })), {
       problem: this.environment?.problem,
+      targetDomain: this.environment?.problem?.domain,
+    });
+
+    // Point 7 : M7 causal — les concepts produits ont un effet sur l'écologie
+    for (const concept of concepts) {
+      if (!concept) continue;
+
+      // Si le concept est une représentation mutante, créer une niche
+      if (concept.type === 'representation' && concept.target) {
+        const existingNiche = [...this.nicheService.niches.values()].find(n => n.representation === concept.target);
+        if (!existingNiche) {
+          const newNiche = this.environment.createNiche({
+            name: `Concept-${concept.target}`,
+            representation: concept.target,
+            formulation: `Concept-driven niche: ${concept.original} → ${concept.target}`,
+          });
+          this.nicheService.addNiche(newNiche);
+        }
+      }
+
+      // Si le concept est un invariant structurel, créer une obligation
+      if (concept.type === 'structural_invariant' || concept.type === 'numerical_invariant') {
+        // L'invariant devient une question pour la questionogenesis
+        this.questionogenesis.observeAnomaly({
+          type: 'invariant_opportunity',
+          description: concept.statement,
+          confidence: concept.confidence || 0.5,
+          niche: null,
+        });
+      }
+    }
+
+    this.metrics.totalConcepts = (this.metrics.totalConcepts || 0) + concepts.length;
+    this.history.push({
+      event: 'conceptogenesis',
+      step: this.currentStep,
+      conceptsGenerated: concepts.length,
+      timestamp: new Date().toISOString(),
     });
     transmit(this, verified);
     horizontalTransfer(this);
