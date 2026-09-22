@@ -101,6 +101,14 @@ impl Genome {
         child
     }
 
+    pub fn clone_with_new_id(&self, new_id: Uuid) -> Self {
+        let mut clone = self.clone();
+        clone.genome_id = new_id;
+        clone.parent_ids = vec![self.genome_id];
+        clone.bud_scars.clear();
+        clone
+    }
+
     pub fn derive_reproductive_child(&self) -> Self {
         let mut child = self.derive_child();
         for gene in child.genes.values_mut() {

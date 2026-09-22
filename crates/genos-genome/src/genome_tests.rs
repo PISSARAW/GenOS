@@ -193,3 +193,48 @@ fn test_genome_mutate_stochastic_and_hypermutate() {
     let hyper_mutations = genome.hypermutate(0.2, &mut rng);
     assert!(hyper_mutations > 0);
 }
+
+#[test]
+fn clone_produces_identical_chromosome_sequences() {
+    let mut genome = Genome::new("CLONE_TEST");
+    genome.insert_gene(Gene::new("GENE_A", "ATGC"));
+    let clone = genome.clone_with_new_id(Uuid::new_v4());
+    assert_eq!(
+        genome.chromosome_maternal.as_slice(),
+        clone.chromosome_maternal.as_slice()
+    );
+    assert_eq!(
+        genome.chromosome_paternal.as_slice(),
+        clone.chromosome_paternal.as_slice()
+    );
+}
+
+#[test]
+fn clone_produces_new_genome_id() {
+    let genome = Genome::new("CLONE_TEST");
+    let clone = genome.clone_with_new_id(Uuid::new_v4());
+    assert_ne!(genome.genome_id(), clone.genome_id());
+}
+
+#[test]
+fn clone_parent_ids_contains_original_genome_id() {
+    let genome = Genome::new("CLONE_TEST");
+    let clone = genome.clone_with_new_id(Uuid::new_v4());
+    assert_eq!(clone.parent_ids, vec![genome.genome_id()]);
+}
+
+#[test]
+fn clone_generation_equals_original_generation() {
+    let genome = Genome::new("CLONE_TEST");
+    let clone = genome.clone_with_new_id(Uuid::new_v4());
+    assert_eq!(clone.generation, genome.generation);
+}
+
+#[test]
+fn clone_gene_count_equals_original_gene_count() {
+    let mut genome = Genome::new("CLONE_TEST");
+    genome.insert_gene(Gene::new("GENE_A", "ATGC"));
+    genome.insert_gene(Gene::new("GENE_B", "CGTA"));
+    let clone = genome.clone_with_new_id(Uuid::new_v4());
+    assert_eq!(clone.genes.len(), genome.genes.len());
+}
