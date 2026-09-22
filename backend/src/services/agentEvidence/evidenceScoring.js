@@ -108,4 +108,53 @@ function evidenceScore(payload = {}, context = {}) {
   return boundedEvidenceScore(creativeScore(report));
 }
 
-module.exports = { evidenceScore };
+/**
+ * typedEvidenceSummary — integrate typed evidence algebra into the scoring path.
+ *
+ * When the report carries typed evidence (from typedEvidenceAlgebraService),
+ * we produce a typed profile alongside the legacy numeric score. The numeric
+ * score is preserved for backward compatibility; the typed profile is returned
+ * in the `typedEvidence` field of the result.
+ *
+ * This does NOT replace evidenceScore — it extends it.
+ */
+function typedEvidenceSummary(payload = {}, context = {}) {
+  const { evidenceReport } = require('../typedEvidenceAlgebraService');
+  const report = payload.evidenceReport || payload.report || {};
+  const claims = Array.isArray(report.claims) ? report.claims : [];
+
+  const { evidence, claimStatements } = extractTypedEvidence(claims);
+  const typedReport = evidenceReport({ claims: claimStatements, evidence });
+
+  return {
+    legacyScore: evidenceScore(payload, context),
+    typedEvidence: typedReport,
+    note: 'Legacy numeric score preserved. Typed evidence profile provides evidence types, independence mapping, and incommensurability caveats.',
+    executable: false,
+    runtimeAuthority: false,
+  };
+}
+
+/**
+ * extractTypedEvidence — extract typed evidence profiles from claims array.
+ * Reduces complexity of typedEvidenceSummary.
+ */
+function extractTypedEvidence(claims) {
+  const evidence = [];
+  const claimStatements = [];
+  for (const claim of claims) {
+    claimStatements.push(claim.statement || claim);
+    if (Array.isArray(claim.evidence)) {
+      for (const ev of claim.evidence) {
+        if (ev.type) {
+          evidence.push(ev);
+        } else if (typeof ev === 'string' && ev.trim()) {
+          evidence.push({ type: 'observational', source: ev });
+        }
+      }
+    }
+  }
+  return { evidence, claimStatements };
+}
+
+module.exports = { evidenceScore, typedEvidenceSummary };

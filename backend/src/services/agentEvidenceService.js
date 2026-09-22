@@ -19,7 +19,7 @@ const {
   validateDossierInfluence
 } = require('./agentEvidence/dossierValidation');
 const { hasDecisionEvidence, decisionEvidenceFailure } = require('./agentEvidence/decisionEvidence');
-const { evidenceScore } = require('./agentEvidence/evidenceScoring');
+const { evidenceScore, typedEvidenceSummary } = require('./agentEvidence/evidenceScoring');
 const { extractEvidenceReport, boundedScore } = require('./agentEvidence/evidenceHelpers');
 
 module.exports = {
@@ -36,5 +36,6 @@ module.exports = {
   clusterWorkerDossiers,
   dossierDigest,
   boundedScore,
-  evidenceScore
+  evidenceScore,
+  typedEvidenceSummary
 };
