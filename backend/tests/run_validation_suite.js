@@ -19,6 +19,7 @@ const suites = {
     ['procedural E2E autonome', 'test_procedural_e2e_autonome.js'],
     ['philosophy falsification', 'test_philosophy_falsification.js'],
     ['typed evidence algebra', 'test_typed_evidence_algebra.js'],
+    ['normative ethics assessment', 'test_normative_ethics_service.js'],
     ['REST smoke', 'test_backend.js'],
     ['quality', 'run_quality_suite.js'],
     ['natural search controller', 'search/test_natural_search_controller.js'],

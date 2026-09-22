@@ -63,7 +63,7 @@ function evaluateRuleUtilitarianism({ action, rule, expectedOutcomes = [] }) {
         ? 'La règle supporte l\'action sous les hypothèses fournies.'
         : 'La règle ne supporte pas l\'action sous les hypothèses fournies.',
     },
-  });
+  };
 }
 
 function evaluateCategoricalImperative({ action, maxim, universalizedMaxim, contradiction = null, treatsPersonsAsEnds = true }) {
@@ -143,10 +143,10 @@ function assessVirtueEthics({ agentId, virtues = {}, context = null }) {
       type: 'virtue-ethics-reading',
       mean,
       note: mean >= 0.7
-        ? 'Les vertus déclarées atteignent un seuil élevé de cohérence — lecture épicurienne d\'un caractère florissant.'
+        ? "Les vertus déclarées atteignent un seuil élevé de cohérence — lecture aristotélicienne d'un caractère florissant."
         : mean >= 0.4
-          ? 'Les vertus déclarées sont en développement — lecture d\'un caractère en construction.'
-          : 'Les vertus déclarées sont faibles — lecture d\'un caractère déficient.',
+          ? "Les vertus déclarées sont en développement — lecture d'un caractère en construction."
+          : "Les vertus déclarées sont faibles — lecture d'un caractère déficient.",
     },
     assumptions: [
       'Les scores de vertus sont déclaratifs, pas mesurés.',
