@@ -77,8 +77,8 @@ impl Default for ExperimentalFitness {
 #[derive(Clone, Debug)]
 pub struct QDDiversityEngine {
     archive: QDArchive,
-    spawn_radius: f64,
-    max_niches: usize,
+    pub spawn_radius: f64,
+    pub max_niches: usize,
 }
 
 impl QDDiversityEngine {
@@ -173,8 +173,8 @@ impl EnvironmentManager {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EvolutionaryOperatorPool {
-    mutator: SelfModifyingMutator,
-    crossover_rate: f64,
+    pub mutator: SelfModifyingMutator,
+    pub crossover_rate: f64,
 }
 
 impl EvolutionaryOperatorPool {
@@ -265,6 +265,11 @@ impl PhaseDCycle {
     }
 
     /// Accès au moteur de diversité.
+    pub fn diversity(&self) -> &QDDiversityEngine {
+        &self.diversity
+    }
+
+    /// Accès mutable au moteur de diversité.
     pub fn diversity_mut(&mut self) -> &mut QDDiversityEngine {
         &mut self.diversity
     }

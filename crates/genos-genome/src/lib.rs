@@ -11,14 +11,18 @@ pub mod mutation_rates;
 pub mod mutation_scales;
 pub mod niches;
 pub mod phenotype;
+pub mod conscience;
 pub mod phase_d;
 pub mod plasmid_v2;
 pub mod reproduction;
 pub mod self_modifying;
 pub mod translation;
 
+pub use conscience::{
+    Adjustment, CognitiveSignal, GenerationSnapshot, MetacognitionEngine, SelfModel,
+};
 pub use dna::{DnaNucleotide, DnaStrand, Mutagen, RnaNucleotide, RnaPolymerase, RnaStrand};
-pub use development::{Embryogenesis, EmbryogenesisContext, EmbryogenesisProgram, EmbryogenesisSignal, MorphogenGradient};
+pub use development::{Embryogenesis, EmbryogenesisContext, EmbryogenesisProgram, MorphogenGradient};
 pub use developmental::{CellLineage, Constraint, DevelopmentContext, DevelopmentOutput, DevelopmentProgram, DevelopmentalState, EpigeneticMarkActivation, GeneRoleExpr, GeneRoleProfile, GenomeCoord, HoxCoordinationParams, HoxExpression, HoxGene, Morphogen, MorphogenDef, MorphogenApplicationParams};
 pub use epigenome::{DevelopmentalStage, EpigeneticMark, Epigenome, Mark, MarkParams, StressParams, StressRecord};
 pub use gene::{ChromatinState, ExpressionContext, Gene, Plasmid, Spliceosome};
