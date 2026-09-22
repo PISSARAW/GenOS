@@ -1,13 +1,15 @@
 pub mod dna;
+pub mod epigenome;
 pub mod gene;
 pub mod genome;
 pub mod grn;
 pub mod translation;
 
 pub use dna::{DnaNucleotide, DnaStrand, Mutagen, RnaNucleotide, RnaPolymerase, RnaStrand};
+pub use epigenome::{DevelopmentalStage, EpigeneticMark, Epigenome, Mark, MarkParams, StressParams, StressRecord};
 pub use gene::{ChromatinState, ExpressionContext, Gene, Plasmid, Spliceosome};
 pub use genome::{DEFAULT_HAYFLICK_LIMIT, Genome, INSTINCT_LOCUS_PREFIX};
-pub use grn::{GRN, GRNEdge, GRNNode};
+pub use grn::{GRNEdge, GRNNode, GRN};
 pub use translation::{AminoAcidToken, Codon, Ribosome, UnfoldedProtein};
 
 #[cfg(test)]
