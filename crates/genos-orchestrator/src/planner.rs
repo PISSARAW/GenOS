@@ -147,6 +147,10 @@ pub struct WorldState {
     pub unsolvable: bool,
     pub tested: BTreeSet<Concept>,
     pub failed: BTreeSet<Concept>,
+    /// Indice de curiosité NCE (0..1) calculé par le backend Node.js
+    /// via curiosityService. Surcharge le signal de curiosité par défaut
+    /// quand il est > 0.
+    pub curiosity_hint: f64,
 }
 
 impl Default for WorldState {
@@ -175,6 +179,7 @@ impl Default for WorldState {
             unsolvable: false,
             tested: BTreeSet::new(),
             failed: BTreeSet::new(),
+            curiosity_hint: 0.0,
         }
     }
 }

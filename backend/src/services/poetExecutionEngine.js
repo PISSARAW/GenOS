@@ -20,9 +20,40 @@
  */
 
 const runtime = require('./agentRuntimeAdapter');
+const telemetry = require('./telemetryObserver');
+
+const TERMINAL_EVENTS = new Set([
+  'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR',
+  'AGENT_HALTED', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN',
+  'MISSION_NO_ANSWER_PROVEN',
+]);
+
+/**
+ * Attend la fin réelle de la mission de l'agent via le flux telemetry.
+ * Résout quand un événement terminal est émis pour cet agent.
+ */
+function waitForMissionTermination(agentId, timeoutMs) {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs;
+    let timer = null;
+    const handler = (event) => {
+      if (event.agentId !== agentId) return;
+      if (!TERMINAL_EVENTS.has(event.eventType)) return;
+      clearTimeout(timer);
+      telemetry.removeListener('telemetry', handler);
+      resolve({ terminated: true, eventType: event.eventType, event });
+    };
+    telemetry.on('telemetry', handler);
+    timer = setTimeout(() => {
+      telemetry.removeListener('telemetry', handler);
+      resolve({ terminated: false, eventType: 'TIMEOUT' });
+    }, timeoutMs);
+  });
+}
 
 /**
  * Exécute un agent sur un environnement via le runtime.
+ * Attend réellement la fin de l'agent avant de vérifier.
  */
 async function executeAgentOnEnvironment(agent, environment, options) {
   options = options || {};
@@ -39,8 +70,8 @@ async function executeAgentOnEnvironment(agent, environment, options) {
   };
 
   try {
-    // 1. Exécute l'agent sur l'environnement via le runtime
-    const missionResult = await runtime.startMission({
+    // 1. Lance l'agent sur l'environnement via le runtime
+    const missionPromise = runtime.startMission({
       agentId: agent.id,
       name: `POET Agent ${agent.id}`,
       role: agent.role || 'solver',
@@ -50,13 +81,21 @@ async function executeAgentOnEnvironment(agent, environment, options) {
       executionPolicy: environment.executionPolicy || {},
     });
 
-    // 2. Vérifie la solution dans le sandbox
-    const verificationResult = await verifySolutionInSnapshot(missionResult, environment);
+    // 2. Attend réellement la fin de l'agent (événement terminal)
+    const termination = await waitForMissionTermination(agent.id, timeoutMs);
+
+    if (!termination.terminated) {
+      results.error = `Mission did not terminate within ${timeoutMs}ms (last event: ${termination.eventType})`;
+      results.endedAt = new Date().toISOString();
+      return results;
+    }
+
+    // 3. Vérifie la solution dans le sandbox
+    const verificationResult = await verifySolutionInSnapshot(results, environment);
 
     results.success = verificationResult.valid;
     results.score = verificationResult.score;
     results.verification = verificationResult;
-    results.missionResult = missionResult;
   } catch (err) {
     results.error = err.message;
     results.success = false;
@@ -86,9 +125,16 @@ async function verifySolutionInSnapshot(missionResult, environment) {
   });
 
   // Vérifie via commande autorisée
-  const snapshotPath = snapshot?.snapshotPath || snapshot?.metadata?.snapshotPath;
+  const snapshotPath = snapshot?.metadata?.storagePath;
+  if (!snapshotPath) {
+    return {
+      valid: false,
+      score: 0,
+      output: 'POET verification: capture returned no storagePath',
+    };
+  }
   const result = await runInSnapshot({
-    snapshot: { path: snapshotPath },
+    snapshot: { id: snapshot?.id, snapshot_hash: snapshot?.snapshotHash, metadata: snapshot?.metadata },
     command: 'npm test',
     timeoutMs: 30000,
     workspacePath: environment.workspacePath,

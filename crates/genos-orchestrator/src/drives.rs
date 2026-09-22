@@ -41,11 +41,22 @@ impl Drives {
             - if state.traitor { 1.0 } else { 0.0 }
             - 0.5 * state.stress)
             .clamp(0.0, 1.0);
+        let stress_factor = (1.0 - state.stress).clamp(0.0, 1.0);
+        let default_curiosity = stress_factor
+            * if state.observed { 0.3 } else { 1.0 };
+        // Pont NCE → Rust : le signal de curiosité du backend Node.js
+        // (basé sur learning progress, IG, novelty, affordances, risk, cost)
+        // pilote Goal::Explore quand il est disponible.
+        let nce_curiosity = state.curiosity_hint.clamp(0.0, 1.0);
+        let curiosity = if nce_curiosity > 0.0 {
+            nce_curiosity * (1.0 - state.stress * 0.5)
+        } else {
+            default_curiosity
+        };
         Self {
             energy: (1.0 - state.budget_pressure).clamp(0.0, 1.0),
             integrity,
-            curiosity: (1.0 - state.stress).clamp(0.0, 1.0)
-                * if state.observed { 0.3 } else { 1.0 },
+            curiosity: curiosity.clamp(0.0, 1.0),
             survival: (0.35 * state.budget_pressure
                 + 0.25 * state.stress
                 + 0.20 * state.threat
