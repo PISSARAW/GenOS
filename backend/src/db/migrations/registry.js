@@ -104,6 +104,10 @@ const migrationRunners = [
     CREATE INDEX IF NOT EXISTS idx_agent_phenotype_genome ON agent_phenotype_states(genome_id);
     CREATE INDEX IF NOT EXISTS idx_agent_phenotype_strength ON agent_phenotype_states(strength);`);
   }),
+  createMigrationRunner('V015_genome_event_log', 'Table genome_events pour l\'event sourcing unifié du génome', async (db) => {
+    const { migrationV015 } = require('./migrateGenomeEventLog');
+    await migrationV015.run(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

@@ -65,8 +65,8 @@ async function applyVersionedMigrations(db) {
   await migrateDurableAgentCoordination(db);
   const { migrateAdvancedIam } = require('./migrations/migrateAdvancedIam');
   await migrateAdvancedIam(db);
-  const { migrateGenomeEventLog } = require('./migrations/migrateGenomeEventLog');
-  await migrateGenomeEventLog(db);
+  const { migrationV015 } = require('./migrations/migrateGenomeEventLog');
+  await migrationV015.run(db);
   await runRegistryMigrations(db);
 }
 

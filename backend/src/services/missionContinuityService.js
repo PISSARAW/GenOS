@@ -14,6 +14,16 @@ const immuneMemory = require('./immuneMemoryService');
 const regeneration = require('./regenerationService');
 const survivalModes = require('./survivalModesService');
 
+function safeParseJson(row, column, fallback) {
+  try {
+    const value = row[column];
+    if (!value) return fallback;
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
 const TISSUE_KINDS = Object.freeze({
   orchestrator: 'orchestrator',
   worker: 'workers',
@@ -61,32 +71,39 @@ async function fetchMissionAgents(db, missionId) {
   );
 }
 
+function buildGenome(mission, existingState = null) {
+  return {
+    objective: mission.objective || mission.task || null,
+    invariants: mission.invariants || (existingState?.genome?.invariants) || [],
+    completionContract: mission.completionContract || (existingState?.genome?.completionContract) || null,
+    safetyConstraints: mission.safetyConstraints || (existingState?.genome?.safetyConstraints) || []
+  };
+}
+
+function buildPhenotypeFromState(existingState) {
+  if (existingState?.phenotype) {
+    return {
+      currentPlan: existingState.phenotype.currentPlan,
+      activeExecution: existingState.phenotype.activeExecution,
+      currentState: existingState.phenotype.currentState
+    };
+  }
+  return buildPhenotype({});
+}
+
 async function assembleOrganism(db, mission) {
   const agents = await fetchMissionAgents(db, mission.id);
   const cells = agents.map(agentToCell);
   const organismId = `organism_${mission.id}`;
 
-  // Try to restore existing organism state from DB
   const existingState = await restoreOrganismState(db, organismId);
-  let organism;
 
   if (existingState && existingState.memory) {
-    // Restore organism from persisted state
-    const genome = {
-      objective: mission.objective || mission.task || null,
-      invariants: mission.invariants || existingState.genome?.invariants || [],
-      completionContract: mission.completionContract || existingState.genome?.completionContract || null,
-      safetyConstraints: mission.safetyConstraints || existingState.genome?.safetyConstraints || []
-    };
-    const phenotype = existingState.phenotype
-      ? { currentPlan: existingState.phenotype.currentPlan, activeExecution: existingState.phenotype.activeExecution, currentState: existingState.phenotype.currentState }
-      : buildPhenotype({});
-
-    organism = {
+    const organism = {
       id: organismId,
-      genome,
-      phenotype,
-      tissues: existingState.tissues || cells,
+      genome: buildGenome(mission, existingState),
+      phenotype: buildPhenotypeFromState(existingState),
+      tissues: cells,
       metabolism: existingState.metabolism || { tokens: 0, cost: 0, latencyMs: 0, computeCycles: 0, sampledAt: new Date().toISOString() },
       immuneSystem: existingState.immuneSystem || buildImmuneSystem({ evidenceGates: [], tests: [], anomalyDetection: null, quarantine: null }),
       nervousSystem: existingState.nervousSystem || buildNervousSystem({ heartbeats: [], signals: [] }),
@@ -94,19 +111,11 @@ async function assembleOrganism(db, mission) {
       survival: existingState.survival || buildSurvivalSystem({ regeneration: null, quiescence: null, cryptobiosis: null, apoptosis: null }),
       assembledAt: new Date().toISOString()
     };
-  } else {
-    // Create new organism
-    const genome = {
-      objective: mission.objective || mission.task || null,
-      invariants: mission.invariants || [],
-      completionContract: mission.completionContract || null,
-      safetyConstraints: mission.safetyConstraints || []
-    };
-    organism = newOrganism({ id: organismId, genome, tissues: cells });
-    // Persist the new organism state for future restorations
-    await persistOrganismState(db, organism);
+    return organism;
   }
 
+  const organism = newOrganism({ id: organismId, genome: buildGenome(mission), tissues: cells });
+  await persistOrganismState(db, organism);
   return organism;
 }
 
@@ -156,18 +165,18 @@ async function restoreOrganismState(db, organismId) {
   );
   if (!row) return null;
 
-  const memory = row.memory_json ? { ...row.memory_json, checkpoints: row.memory_json.checkpoints || [], scars: row.memory_json.scars || [], failedStrategies: row.memory_json.failedStrategies || [] } : { checkpoints: [], scars: [], failedStrategies: [] };
-  const survival = row.survival_json || { regeneration: null, quiescence: null, cryptobiosis: null, apoptosis: null };
+  const memoryRaw = safeParseJson(row, 'memory_json', { checkpoints: [], scars: [], failedStrategies: [] });
+  const memory = { ...memoryRaw, checkpoints: memoryRaw.checkpoints || [], scars: memoryRaw.scars || [], failedStrategies: memoryRaw.failedStrategies || [] };
 
   return {
-    genome: row.genome_json ? JSON.parse(row.genome_json) : {},
-    phenotype: row.phenotype_json ? JSON.parse(row.phenotype_json) : {},
-    tissues: row.tissues_json ? JSON.parse(row.tissues_json) : [],
-    metabolism: row.metabolism_json ? JSON.parse(row.metabolism_json) : { tokens: 0, cost: 0, latencyMs: 0, computeCycles: 0 },
-    immuneSystem: row.immune_system_json ? JSON.parse(row.immune_system_json) : { evidenceGates: [], tests: [], anomalyDetection: null, quarantine: null },
-    nervousSystem: row.nervous_system_json ? JSON.parse(row.nervous_system_json) : { heartbeats: [], signals: [] },
+    genome: safeParseJson(row, 'genome_json', {}),
+    phenotype: safeParseJson(row, 'phenotype_json', {}),
+    tissues: safeParseJson(row, 'tissues_json', []),
+    metabolism: safeParseJson(row, 'metabolism_json', { tokens: 0, cost: 0, latencyMs: 0, computeCycles: 0 }),
+    immuneSystem: safeParseJson(row, 'immune_system_json', { evidenceGates: [], tests: [], anomalyDetection: null, quarantine: null }),
+    nervousSystem: safeParseJson(row, 'nervous_system_json', { heartbeats: [], signals: [] }),
     memory,
-    survival
+    survival: safeParseJson(row, 'survival_json', { regeneration: null, quiescence: null, cryptobiosis: null, apoptosis: null })
   };
 }
 
@@ -258,6 +267,8 @@ async function evaluateContinuity(db, mission) {
       }),
       organismWithContract
     );
+    // Persist organism after immune memory mutation
+    await persistOrganismState(db, enrolledOrganism);
   }
   const evaluation = await evaluateMissionHomeostasis(db, {
     organism: enrolledOrganism,

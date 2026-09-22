@@ -175,15 +175,14 @@ function evaluateContract(contract, context) {
   const functionalRequired = contract.invariants.filter(i => i.kind === FUNCTIONAL).length || 1;
   const functionalRatio = functionalSatisfied / functionalRequired;
   const totalSatisfied = results.filter(r => r.satisfied).length;
-  const total = results.length || 1;
-  const invariantsSatisfied = totalSatisfied === results.length;
+  const invariantsSatisfied = results.length > 0 && totalSatisfied === results.length;
   return {
     schema: HOMEOSTASIS_SCHEMA,
     missionId: contract.missionId,
     evaluatedAt: new Date().toISOString(),
-    totalInvariants: total,
+    totalInvariants: results.length,
     satisfiedInvariants: totalSatisfied,
-    ratio: totalSatisfied / total,
+    ratio: results.length > 0 ? totalSatisfied / results.length : 0,
     functionalSatisfied,
     functionalRequired,
     functionalRatio,
