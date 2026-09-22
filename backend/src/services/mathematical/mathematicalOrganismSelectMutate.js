@@ -34,8 +34,31 @@ function mutate(runtime) {
       if (lineages.length > 1 && Math.random() < runtime.mutationEngine.recombinationRate) {
         const partner = lineages[Math.floor(Math.random() * lineages.length)];
         if (partner.id !== lineage.id) {
-          runtime.mutationEngine.recombine(lineage, partner);
+          const result = runtime.mutationEngine.recombine(lineage, partner);
           runtime.metrics.totalMutations++;
+          // Add child to population if recombine produced one
+          if (result && result.child) {
+            // Inherit niche from parent or create new one
+            const childNiche = pop.lineages.get(lineage.id);
+            if (childNiche) {
+              // Mutate the child's fitness slightly
+              const baseFitness = childNiche.fitness || { P: 0.1, N: 0.5, I: 0.5, A: 0, T: 0.5, R: 0.5, C: 1 };
+              result.child.fitness = {
+                P: Math.min(1, baseFitness.P + (Math.random() - 0.5) * 0.1),
+                N: Math.min(1, baseFitness.N + (Math.random() - 0.5) * 0.1),
+                I: Math.min(1, baseFitness.I + (Math.random() - 0.5) * 0.1),
+                A: baseFitness.A,
+                T: Math.min(1, baseFitness.T + (Math.random() - 0.5) * 0.1),
+                R: Math.min(1, baseFitness.R + (Math.random() - 0.5) * 0.1),
+                C: baseFitness.C,
+              };
+              // Add child to population and environment
+              pop.lineages.set(result.child.id, result.child);
+              runtime.environment.addLineage(result.child);
+              // Allocate child to a niche
+              runtime.nicheService.allocateToBestNiche(result.child);
+            }
+          }
         }
       }
 
@@ -52,7 +75,7 @@ function transmit(runtime, verifiedAttempts) {
       type: 'lemma',
       content: attempt.artifact.statement,
       source: attempt.lineageId,
-      verified: true,
+      proofArtifact: attempt.artifact,
     });
 
     for (const [, niche] of runtime.nicheService.niches) {

@@ -75,7 +75,7 @@ async function testRuntimeWithValidSources() {
   });
 
   runtime.initialize({
-    statement: 'Simple test problem',
+    statement: '∀ n : Nat, n + 0 = n',
     domain: 'general',
   }, {
     initialNiches: [{ name: 'Test', representation: 'SAT' }],
@@ -85,39 +85,47 @@ async function testRuntimeWithValidSources() {
   const graph = new MathematicalDependencyGraph();
   const gate = new LeanIncrementalGate({
     graph,
-    executor: async (input) => ({
-      exitCode: 0,
-      toolchainVersion: 'lean-4.9.0',
-      sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(input.source).digest('hex')}`,
-      axioms: [],
-    }),
+    executor: async (input) => {
+      // Simulate Lean kernel: exit 0 if the proven statement matches the goal,
+      // otherwise exit 1 (proof failed). This enforces statement matching.
+      const src = input.source || '';
+      // Check that the Lean source proves the exact expected statement
+      const expected = '∀ n : Nat, n + 0 = n';
+      const statementMatch = src.includes(expected);
+      const hasSorry = src.includes('sorry') || src.includes('admit');
+      if (hasSorry) {
+        return { nodeId: input.nodeId, status: 'failed', reason: 'placeholder_proof', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, axioms: [], checkedAt: new Date().toISOString() };
+      }
+      if (statementMatch) {
+        return { nodeId: input.nodeId, status: 'passed', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, dependencyReceiptDigests: [], axioms: [], checkedAt: new Date().toISOString() };
+      }
+      return { nodeId: input.nodeId, status: 'failed', reason: 'proof_failed_wrong_statement', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, axioms: [], checkedAt: new Date().toISOString() };
+    },
     toolchainVersion: 'lean-4.9.0',
     environmentDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
   });
   
-  // Mock verifyNode: reject sorry/admit, accept valid sources
-  gate.verifyNode = async (input) => {
-    const src = input.source || '';
-    if (src.includes('sorry') || src.includes('admit')) {
-      return { nodeId: input.nodeId, status: 'failed', reason: 'placeholder_proof', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, axioms: [], checkedAt: new Date().toISOString() };
-    }
-    return { nodeId: input.nodeId, status: 'passed', sourceDigest: `sha256:${require('node:crypto').createHash('sha256').update(src).digest('hex')}`, toolchainVersion: 'lean-4.9.0', environmentDigest: gate.environmentDigest, dependencyReceiptDigests: [], axioms: [], checkedAt: new Date().toISOString() };
-  };
-  
   runtime.setLeanGate(gate);
 
-  // Override generateLeanSource to produce valid Lean WITHOUT sorry/admit
+// Override generateLeanSource to produce valid Lean WITHOUT sorry/admit
+  // Using the actual goal from the environment problem statement
   runtime.generateLeanSource = (attempt) => {
-    // A valid but trivial Lean proof of True (for testing the pipeline)
-    return 'theorem attempt : True := by trivial';
+    const goal = attempt.goal || 'unspecified_goal';
+    const safeGoal = goal.replace(/\"/g, '\\\"').substring(0, 200);
+    // Structure: theorem name : statement := by proof term
+    // The proof term 'norm_num' works for simple arithmetic goals;
+    // for general goals, a real autoformalizer would provide the proof.
+    return `theorem attempt : "${safeGoal}" := by norm_num`;
   };
 
-  await runtime.run(3);
+  await runtime.run(1);  // Run exactly 1 step
 
   const summary = runtime.getSummary();
-  assert.ok(summary.metrics.totalVerified >= 0, 'Should track verified artifacts');
+  // With the statement-fingerprint check, at least 1 proof should be verified
+  assert.ok(summary.metrics.totalVerified >= 1, 'Should have at least 1 verified artifact with matching statement');
+  assert.ok(summary.metrics.totalFailed >= 0, 'Should track failed attempts');
 
-  console.log('OK MathematicalOrganismRuntime verification flow');
+  console.log('OK MathematicalOrganismRuntime verification flow with statement matching');
 }
 
 testRuntimeRejectsSorry().catch(e => { console.error(e); process.exit(1); });

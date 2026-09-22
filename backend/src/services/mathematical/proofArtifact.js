@@ -34,9 +34,45 @@ function isTrivialLeanSource(source) {
     /theorem\s+\w+\s*:\s*False\s*→/,
     /:\s*True\s*:=\s*by\s+trivial/,
     /:\s*True\s*:=\s*by\s+tauto/,
-    /exact\s+\(\s*by\s+trivial\s*\)/, 
+    /exact\s+\(\s*by\s+trivial\s*\)/,
   ];
   return trivialPatterns.some(p => p.test(trimmed));
+}
+
+/**
+ * Extract the theorem statement from a Lean source string.
+ * Returns the statement text between `theorem ... :` and `:=`, with surrounding quotes stripped, or null if not found.
+ */
+function extractLeanTheoremStatement(source) {
+  if (!source || typeof source !== 'string') return null;
+  const trimmed = source.trim();
+  // Match theorem statement: theorem name : "statement" := or theorem name : statement :=
+  const match = trimmed.match(/^theorem\s+\w+\s*:\s*"((?:[^"\\]|\\.)*)"\s*:=/);
+  if (match) {
+    return match[1];
+  }
+  const match2 = trimmed.match(/^theorem\s+\w+\s*:\s*((?:[^"\\]|\\.)*)\s*:=/);
+  if (match2) {
+    return match2[1];
+  }
+  // Try thin colon pattern: theorem name : statement :=
+  const match3 = trimmed.match(/^theorem\s+\S+\s*:\s*((?:[^"\\]|\\.)*)\s*=/);
+  if (match3) {
+    return match3[1];
+  }
+  return null;
+}
+
+/**
+ * Check if the Lean source proves the expected statement (by fingerprint).
+ * Compares the extracted Lean theorem statement against the expected canonicalStatement fingerprint.
+ */
+function doesLeanSourceProveStatement(source, expectedFingerprint) {
+  if (!source || typeof source !== 'string' || !expectedFingerprint) return false;
+  const statement = extractLeanTheoremStatement(source);
+  if (!statement) return false;
+  const statementFp = `sha256:${require('node:crypto').createHash('sha256').update(statement).digest('hex')}`;
+  return statementFp === expectedFingerprint;
 }
 
 /**
@@ -131,6 +167,20 @@ class ProofArtifact {
     }
     if (!leanGate.toolchainVersion || !String(leanGate.toolchainVersion).trim()) {
       throw new Error('LeanIncrementalGate must have a pinned toolchainVersion.');
+    }
+
+    // CRITICAL: Verify that the Lean source proves the exact canonicalStatement,
+    // not a different theorem (e.g., proving 1=2 when the claim is Conway-99 exists).
+    // Extract statement from Lean source and compare fingerprints
+    const extractedStmt = extractLeanTheoremStatement(source);
+    if (extractedStmt) {
+      const { createHash } = require('node:crypto');
+      const stmtFp = 'sha256:' + createHash('sha256').update(extractedStmt).digest('hex');
+      if (stmtFp !== this._statementFingerprint) {
+        throw new Error('Lean source does not prove the expected canonicalStatement. Statement fingerprint mismatch. Extracted: ' + extractedStmt + ' Expected fp: ' + this._statementFingerprint);
+      }
+    } else {
+      throw new Error('Could not extract theorem statement from Lean source.');
     }
 
     // Use the gate's verifyNode — this enforces all guarantees:

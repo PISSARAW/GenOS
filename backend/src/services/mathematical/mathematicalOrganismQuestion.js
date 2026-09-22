@@ -36,14 +36,22 @@ function question(runtime, observations) {
   }
 
   for (const q of questions) {
-    if (q.niche && !runtime.nicheService.niches.has(q.niche)) {
+    if (q.createdNiche) {
       const niche = runtime.environment.createNiche({
         name: `Question-${q.id}`,
         representation: 'general',
         formulation: q.text,
       });
       runtime.nicheService.addNiche(niche);
-      q.createdNiche = niche.id;
+      q.niche = niche.id;
+    } else if (q.niche && !runtime.nicheService.niches.has(q.niche)) {
+      const niche = runtime.environment.createNiche({
+        name: `Question-${q.id}`,
+        representation: 'general',
+        formulation: q.text,
+      });
+      runtime.nicheService.addNiche(niche);
+      q.niche = niche.id;
     }
   }
 

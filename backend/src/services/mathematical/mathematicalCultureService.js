@@ -31,31 +31,33 @@ class MathematicalCulture {
     let proofReceipt = null;
     let formalResult = null;
 
-    // Require actual proof for verified artifacts
-    if (artifact.verified) {
-      if (artifact.proofArtifact && artifact.proofArtifact.isVerified()) {
-        verified = true;
+    // Derive verified from proofArtifact.isVerified() automatically
+    // It is forbidden to simply pass verified: true — the API must derive it
+    if (artifact.proofArtifact) {
+      verified = artifact.proofArtifact.isVerified();
+      if (verified) {
         proofReceipt = artifact.proofArtifact._leanReceipt;
-      } else if (artifact.formalResult && artifact.formalResult.status === 'verified' && artifact.formalResult.evidence?.kind === 'proof') {
-        verified = true;
-        proofReceipt = artifact.formalResult.provenance?.leanReceipt || null;
-      } else {
-        throw new Error('Verified artifacts require a valid ProofArtifact (with Lean receipt) or FormalResult(status=verified, evidence=proof). Cannot forge verified: true.');
       }
     }
 
+    // If not derived from proofArtifact, check formalResult as fallback
+    if (!verified && artifact.formalResult && artifact.formalResult.status === 'verified' && artifact.formalResult.evidence?.kind === 'proof') {
+      verified = true;
+      proofReceipt = artifact.formalResult.provenance?.leanReceipt || null;
+    }
+
     const stored = {
+      ...artifact,
       id: artifact.id || culturalArtifactId(),
       type: artifact.type || 'heuristic',
       content: artifact.content || '',
       source: artifact.source || null,
-      generation: 0,
-      fidelity: 1.0,
+      generation: artifact.generation !== undefined ? artifact.generation : 0,
+      fidelity: artifact.fidelity !== undefined ? artifact.fidelity : 1.0,
       verified,
       proofReceipt,
       formalResult,
       createdAt: new Date().toISOString(),
-      ...artifact,
     };
     this.artifacts.set(stored.id, stored);
     return stored;

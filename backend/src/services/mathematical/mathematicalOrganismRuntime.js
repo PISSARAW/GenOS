@@ -26,6 +26,7 @@ const { observe, extractMotifs } = require('./mathematicalOrganismObserve');
 const { question } = require('./mathematicalOrganismQuestion');
 const { allocate, explore, verify, generateLeanSource } = require('./mathematicalOrganismExplore');
 const { select, mutate, transmit, horizontalTransfer, evaluate, hasConverged, getSummary } = require('./mathematicalOrganismSelectMutate');
+const { createConceptogenesisEngine } = require('./conceptogenesisService');
 
 function runtimeId() {
   return `math-org-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
@@ -46,6 +47,7 @@ class MathematicalOrganismRuntime {
       exaptationRate: options.exaptationRate || 0.1,
     });
     this.questionogenesis = new QuestionogenesisEngine();
+    this.conceptogenesis = createConceptogenesisEngine({ miner: { confidenceThreshold: 0.15 } });
     this.strategyRepertoire = new ProofStrategyRepertoire();
     this.forager = new LiteratureForager({ envMeanReturnRate: options.envMeanReturnRate || 0.35 });
     this.leanGate = options.leanGate || null;
@@ -134,6 +136,15 @@ class MathematicalOrganismRuntime {
     const verified = await verify(this, attempts);
     select(this);
     mutate(this);
+    // M7: Conceptogenesis - invent new concepts from observations
+    const concepts = await this.conceptogenesis.inventConcepts(observations.anomalies.map(a => ({
+      type: a.type || 'unexpected_invariant',
+      description: a.description || '',
+      source: a.source || null,
+      confidence: a.confidence != null ? a.confidence : 0.5,
+    })), {
+      problem: this.environment?.problem,
+    });
     transmit(this, verified);
     horizontalTransfer(this);
     evaluate(this);

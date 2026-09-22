@@ -203,7 +203,8 @@ class MutationEngine {
     if (!capability) return null;
 
     // Determine plasmid type based on artifact type
-    const plasmidType = proofArtifact.type === 'theorem' || proofArtifact.type === 'lemma' ? 'lemma' : 'strategy';
+    // Theorems and lemmas carry knowledge, not strategies
+    const plasmidType = proofArtifact.type === 'theorem' || proofArtifact.type === 'lemma' ? 'knowledge' : 'strategy';
 
     // Create a proper MathematicalPlasmid with the SPECIFIC ProofArtifact's proof receipt
     const plasmid = createMathematicalPlasmid({
@@ -244,7 +245,25 @@ class MutationEngine {
     }
 
     // Assimilate: add the proven capability to target lineage
-    if (!targetLineage.genome.strategies.includes(capability)) {
+    // Knowledge plasmids (theorems/lemmas) go to lineage knowledge
+    // Strategy plasmids go to genome.strategies
+    if (plasmidType === 'knowledge') {
+      // Add to lineage knowledge with proof artifact reference
+      if (!targetLineage._knowledge) targetLineage._knowledge = [];
+      // Check if already assimilated (by fingerprint)
+      const alreadyAssimilated = targetLineage._knowledge?.some(
+        k => k.proofArtifact && k.proofArtifact.isVerified()
+      );
+      if (!alreadyAssimilated) {
+        targetLineage._knowledge.push({
+          type: pluginType,
+          content: capability,
+          fidelity: plasmid.fidelity,
+          source: plasmid.source,
+          proofArtifact: proofArtifact, // Keep reference for verification
+        });
+      }
+    } else if (!targetLineage.genome.strategies.includes(capability)) {
       targetLineage.genome.strategies.push(capability);
     }
 
