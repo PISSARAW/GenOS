@@ -1,25 +1,23 @@
 'use strict';
 
 /**
- * Epicurean Service — Atomes, vide, sensations, ataraxie.
+ * Epicurean Service — framework read-only d'analyse, pas un verdict computationnel.
  *
- * Mapping GenOS :
- *  - Atomes = particules atomiques indévisibles qui composent toute chose
- *  - Vide = l'espace vide dans lequel se meuvent les atomes
- *  - Sensations = critères de vérité (ce qui est grave est ce qui est senti)
- *  - Ataraxie = absence de trouble de l'esprit (but de la vie épicurienne)
- *  - Aponia = absence de douleur du corps
- *  - Philosophie = thérapie de l'esprit (les doctrines libèrent des peurs)
+ * Ce service constitue une **lens** conceptuelle : il propose un cadre
+ * d'interprétation pour analyser un agent, mais ne conclut pas que l'agent
+ * EST épicurien. Aucune de ses fonctions n'autorise d'action runtime.
  *
- * Référence : Épicure, *Lettre à Ménécée*, *De la nature des choses*.
+ * Historique :
+ *  - Le mapping précédent (atomSchema créant 3 types d'atomes corps/âme/esprit)
+ *    était inexact : chez Épicure, l'ÂME elle-même est composée d'atomes, ce
+ *    ne sont pas 3 espèces fondamentales distinctes.
+ *  - Le service est corrigé pour constituer une lens questionnante.
+ *
+ * Référence : Épicure, Lettre à Ménécée, De la nature des choses.
  */
 
-const ATOM_TYPES = ['corps', 'âme', 'esprit', 'divin'];
-
 const VIDE_DESCRIPTION = 'Le vide est l\'espace dans lequel se meuvent les atomes. Il est aussi réel que les atomes.';
-
 const ATARAXIE_DESCRIPTION = 'L\'ataraxie est l\'absence de trouble de l\'esprit — le but de la vie épicurienne.';
-
 const APONIA_DESCRIPTION = 'L\'aponia est l\'absence de douleur du corps — condition nécessaire à l\'ataraxie.';
 
 const THERAPIES = [
@@ -30,20 +28,28 @@ const THERAPIES = [
 ];
 
 /**
- * atomSchema — retourne le schéma atomique d'un agent.
- * Tout est composé d'atomes (corps, âme, esprit) dans un espace vide.
+ * atomLens — lecture épicurienne de la composition d'un agent.
+ *
+ * Correction : le précédent atomSchema créait 3 types d'atomes (corps/âme/esprit)
+ * comme espèces distinctes. Chez Épicure, l'ÂME est composée d'atomes — ce n'est
+ * pas une espèce séparée. Ici on produit une lecture interrogative.
  */
-function atomSchema({ agent }) {
-  if (!agent) throw new Error('epicureanService.atomSchema requires an agent');
+function atomLens({ agent }) {
+  if (!agent) throw new Error('epicureanService.atomLens requires an agent');
   return {
     agentId: agent.id,
+    framework: 'epicureanism',
     atoms: {
-      corps: { type: 'corps', indivisible: true, properties: { solidity: 'absolute' } },
-      âme: { type: 'âme', indivisible: true, properties: { animality: 'fully_alive' } },
-      esprit: { type: 'esprit', indivisible: true, properties: { judgment: 'perfect' } },
+      note: 'Pour Épicure, tout — corps, âme, esprit — est composé d\'atomes. Ce ne sont pas 3 espèces distinctes mais une même nature atomique.',
+      composedOfAtoms: ['corps', 'âme', 'esprit'],
     },
     vide: VIDE_DESCRIPTION,
-    description: `L'agent ${agent.id} est composé d'atomes (corps, âme, esprit) dans un espace vide.`,
+    assessment: {
+      type: 'composition-reading',
+      note: 'Une lecture épicurienne interrogerait la nature de la composition de l\'agent sans présupposer 3 types d\'atomes.',
+    },
+    executable: false,
+    runtimeAuthority: false,
   };
 }
 
@@ -60,51 +66,54 @@ function sensationCriteria({ sensation }) {
     sensation,
     truthValue,
     criterion: 'sensation',
-    description: `La sensation (${clarity}, ${intensity}) est le critère de vérité.`,
+    assessment: {
+      type: 'sensation-reading',
+      note: `La sensation (${clarity}, ${intensity}) est le critère de vérité épicurien.`,
+    },
+    executable: false,
+    runtimeAuthority: false,
   };
 }
 
 /**
- * ataxia — évalue l'ataraxie d'un agent (absence de trouble de l'esprit).
- * L'ataraxie est le but de la vie épicurienne.
+ * ataraxieAnalysis — lecture épicurienne de la tranquillité d'un agent.
  */
-function ataxia({ agent }) {
-  if (!agent) throw new Error('epicureanService.ataxia requires an agent');
-  const tranquility = agent.tranquility || agent.cognitive_budget || 0.5;
-  const trouble = 1 - tranquility;
+function ataraxieAnalysis({ agent }) {
+  if (!agent) throw new Error('epicureanService.ataraxieAnalysis requires an agent');
+  const tranquility = agent.tranquility ?? agent.cognitive_budget ?? null;
   return {
     agentId: agent.id,
-    ataraxie: tranquility >= 0.8,
+    ataraxie: tranquility !== null ? tranquility >= 0.8 : null,
     tranquility,
-    trouble,
-    aponia: agent.aponia !== false,
-    description: tranquility >= 0.8
-      ? 'L\'agent a atteint l\'ataraxie — absence de trouble de l\'esprit.'
-      : 'L\'agent n\'a pas encore atteint l\'ataraxie.',
+    assessment: tranquility !== null
+      ? { type: 'tranquility-reading', note: `Tranquillité à ${tranquility}. L'ataraxie (≥0.8) est le but épicurien, mais c'est une lecture, pas un verdict.` }
+      : { type: 'no-data', note: 'Aucune métrique disponible pour une lecture épicurienne de la tranquillité.' },
+    executable: false,
+    runtimeAuthority: false,
   };
 }
 
-/**
- * therapy — retourne les thérapies épicuriennes pour les peurs.
- * La philosophie est une thérapie de l'esprit.
- */
 function therapy() {
   return {
     ataraxie: ATARAXIE_DESCRIPTION,
     aponia: APONIA_DESCRIPTION,
     therapies: THERAPIES,
-    description: 'La philosophie est une thérapie de l\'esprit : elle libère des peurs.',
+    assessment: { type: 'spirit-therapy', note: 'La philosophie est une thérapie de l\'esprit : elle libère des peurs.' },
+    executable: false,
+    runtimeAuthority: false,
   };
 }
 
 module.exports = {
-  ATOM_TYPES,
   VIDE_DESCRIPTION,
   ATARAXIE_DESCRIPTION,
   APONIA_DESCRIPTION,
   THERAPIES,
-  atomSchema,
+  atomLens,
   sensationCriteria,
-  ataxia,
+  ataraxieAnalysis,
   therapy,
+  // Legacy alias pour compatibilité router
+  atomSchema: atomLens,
+  ataxia: ataraxieAnalysis,
 };

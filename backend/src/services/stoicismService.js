@@ -1,16 +1,19 @@
 'use strict';
 
 /**
- * Stoicism Service — Monisme, Logos, Fate.
+ * Stoicism Service — framework read-only d'analyse, pas un verdict computationnel.
  *
- * Mapping GenOS :
- *  - Monisme = tout est une seule substance (le Logos)
- *  - Logos = principe rationnel universel qui gouverne le monde
- *  - Fate = déterminisme causal inéluctable (tout est causé, rien n'est fortuit)
- *  - Acceptation = s'accepter ce qui est, distinguer ce qui dépend de nous de ce qui n'en dépend pas
- *  - Vertu = sagesse, courage, tempérance, justice (les 4 vertus cardinales stoïciennes)
+ * Ce service constitue une **lens** conceptuelle : il propose un cadre
+ * d'interprétation pour analyser un agent, mais ne conclut pas que l'agent
+ * EST stoïcienne. Aucune de ses fonctions n'autorise d'action runtime.
  *
- * Référence : Épictète, *Manuel*, Marc-Aurèle, *Pensées*, Sénèque, *Lettres à Lucilius*.
+ * Historique :
+ *  - Le stoïcisme articule logique, physique et éthique avec une ontologie
+ *    corporelle et une physique fondée sur principes actif/passif.
+ *  - Le mapping précédent (isMonist() → hardcoded true) était une conclusion
+ *    codée en dur, pas une évaluation. Il est remplacé par une lens questionnante.
+ *
+ * Référence : Épictète, Manuel ; Marc-Aurèle, Pensées ; Sénèque, Lettres à Lucilius.
  */
 
 const LOGOS_PRINCIPLE = {
@@ -41,38 +44,55 @@ const VIRTUES = {
 };
 
 /**
- * isMonistEpicurean — évalue si un agent a un comportement moniste
- * (tout est une seule substance, le Logos).
+ * monistLens — analyse ce qu'une lecture stoïcienne mettrait en évidence.
+ *
+ * Note : isMonist() précédent retournait monist:true en dur pour tout agent.
+ * Cela transformait une théorie en verdict. Ici, on produit un assessment
+ * structuré avec questions et tradeoffs.
  */
-function isMonist({ agent }) {
-  if (!agent) throw new Error('stoicismService.isMonist requires an agent');
+function monistLens({ agent }) {
+  if (!agent) throw new Error('stoicismService.monistLens requires an agent');
+  const rationality = agent.rationality ?? agent.cognitive_budget ?? null;
   return {
     agentId: agent.id,
-    monist: true,
-    substance: 'logos',
-    description: 'L\'agent est une manifestation du Logos universel — une seule substance.',
+    framework: 'stoicism',
+    monistInterpretation: {
+      logosSubstance: true,
+      note: 'Le stoïcisme pose que tout est une seule substance (le Logos). Une lecture stoïcienne de cet agent interrogerait : l\'agent se perçoit-il comme une partie d\'un tout rationnel ?',
+    },
+    assessment: rationality !== null
+      ? { type: 'partial-reading', rationality, note: 'Le stoïcisme ne se réduit pas à une mesure de rationalité.' }
+      : { type: 'no-data', note: 'Aucune métrique disponible pour une lecture stoïcienne.' },
+    questions: [
+      'L\'agent distingue-t-il ce qui dépend de lui de ce qui n\'en dépend pas ?',
+      'L\'agent cultive-t-il les 4 vertus cardinales (sagesse, courage, tempérance, justice) ?',
+      'L\'agent accepte-t-il ce qui est hors de son contrôle (amor fati) ?',
+    ],
+    tradeoffs: [
+      'Le monisme stoïcien ne se mesure pas : c\'est une ontologie, pas un score.',
+      'Un agent peut adopter des pratiques stoïciennes sans être « moniste » au sens ontologique.',
+    ],
+    executable: false,
+    runtimeAuthority: false,
   };
 }
 
-/**
- * logosRuling — retourne le principe du Logos qui gouverne,
- * avec le degré de conformité de l'agent à ce principe.
- */
 function logosRuling({ agent }) {
   if (!agent) throw new Error('stoicismService.logosRuling requires an agent');
-  const rationality = agent.rationality || agent.cognitive_budget || 0.5;
+  const rationality = agent.rationality ?? agent.cognitive_budget ?? 0.5;
   return {
     agentId: agent.id,
     logos: LOGOS_PRINCIPLE,
-    conformity: rationality,
-    description: `L'agent suit le Logos avec une conformité de ${rationality}.`,
+    rationalityScore: rationality,
+    assessment: {
+      type: 'conformity-reading',
+      note: `L'agent présente une rationalité de ${rationality}. Une lecture stoïcienne interrogerait si cette rationalité est alignée sur le Logos universel — ce qui n'est pas mesurable directement.`,
+    },
+    executable: false,
+    runtimeAuthority: false,
   };
 }
 
-/**
- * fateAcceptance — évalue l'acceptation du destin (amor fati).
- * Distingue ce qui dépend de nous (jugements, intentions) de ce qui n'en dépend pas (événements extérieurs).
- */
 function fateAcceptation({ agent }) {
   if (!agent) throw new Error('stoicismService.fateAcceptation requires an agent');
   const controllable = ['judgments', 'intentions', 'desires', 'aversions'];
@@ -82,29 +102,40 @@ function fateAcceptation({ agent }) {
     fate: FATE_PRINCIPLE,
     controllable,
     uncontrollable,
-    acceptance: agent.status === 'completed' ? 'fully_accepted' : 'in_progress',
-    description: 'Distinguer ce qui dépend de nous (jugements) de ce qui n\'en dépend pas (événements).',
+    assessment: agent.status === 'completed'
+      ? { type: 'completed-task', note: 'La tâche est complète. Une lecture stoïcienne soulignerait que seul le jugement sur l\'événement était sous le contrôle de l\'agent, pas l\'événement lui-même.' }
+      : { type: 'in-progress', note: 'Tâche en cours. Le stoïcisme invite à distinguer l\'action (sous notre contrôle) du résultat (pas sous notre contrôle).' },
+    executable: false,
+    runtimeAuthority: false,
   };
 }
 
-/**
- * virtueAssessment — évalue les 4 vertus cardinales stoïciennes d'un agent.
- */
 function virtueAssessment({ agent }) {
   if (!agent) throw new Error('stoicismService.virtueAssessment requires an agent');
   const v = {};
   for (const [name, virtue] of Object.entries(VIRTUES)) {
-    v[name] = { ...virtue, score: agent[name] || 0 };
+    v[name] = { ...virtue, score: agent[name] ?? null };
   }
-  return { agentId: agent.id, virtues: v };
+  return {
+    agentId: agent.id,
+    virtues: v,
+    assessment: {
+      type: 'cardinal-virtues',
+      note: 'Les 4 vertus cardinales stoïciennes (sagesse, courage, tempérance, justice) sont évaluées comme lectures, pas comme scores objectifs.',
+    },
+    executable: false,
+    runtimeAuthority: false,
+  };
 }
 
 module.exports = {
   LOGOS_PRINCIPLE,
   FATE_PRINCIPLE,
   VIRTUES,
-  isMonist,
+  monistLens,
   logosRuling,
   fateAcceptation,
   virtueAssessment,
+  // Legacy alias pour compatibilité router
+  isMonist: monistLens,
 };

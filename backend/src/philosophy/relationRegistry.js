@@ -6,14 +6,15 @@ const { validateSpec } = require('../services/specValidator');
 const RELATION_SCHEMA = 'ontology-relation.schema.json';
 const CONCEPT_KIND = 'PhilosophicalConcept';
 const RELATION_TYPES = new Set([
+  // Taxonomie / structure
   'subclassOf',
   'alternativeTo',
   'criticizes',
   'dependsOn',
   'supervenesOn',
   'emergesFrom',
-  'implementedBy',
   'illustrates',
+  // Logique / épistémique
   'supports',
   'refutes',
   'formalizes',
@@ -22,43 +23,54 @@ const RELATION_TYPES = new Set([
   'contrastsWith',
   'independentFrom',
   'hasProblem',
-  'hasConsequence'
+  'hasConsequence',
+  // Nouveaux types pour le modèle opérationnel
+  'operationalizes',
+  'analogizesTo',
+  'inspiredBy',
+  'assumes',
+  'conflictsWith',
+  'underdetermines',
+  'notEquivalentTo',
+  'caveat',
 ]);
 
+// Build a set of valid concept IDs to avoid dangling references
+const VALID_IDS = new Set(CONCEPT_DEFINITIONS.map((c) => c.id));
+
 const RELATION_DEFINITIONS = [
-  relation('metaphysics.dualism', 'alternativeTo', 'metaphysics.material-monism'),
-  relation('metaphysics.dualism', 'alternativeTo', 'metaphysics.panpsychism'),
-  relation('metaphysics.mind-body', 'dependsOn', 'metaphysics.dualism'),
-  relation('metaphysics.qualia', 'dependsOn', 'metaphysics.mind-body'),
-  relation('metaphysics.supervenience', 'dependsOn', 'metaphysics.material-monism'),
-  relation('metaphysics.emergence', 'alternativeTo', 'metaphysics.reductionism'),
-  relation('causality.counterfactuals', 'illustrates', 'ontology.possible-worlds'),
-  relation('school.cartesianism', 'illustrates', 'metaphysics.dualism'),
-  relation('school.merleau-ponty', 'criticizes', 'metaphysics.dualism'),
-  relation('ontology.person-other', 'dependsOn', 'ontology.stances')
-  , relation('mathematics.platonism', 'alternativeTo', 'mathematics.nominalism')
-  , relation('mathematics.nominalism', 'develops', 'mathematics.fictionalism')
-  , relation('mathematics.platonism', 'alternativeTo', 'mathematics.conceptualism')
-  , relation('mathematics.psychologism', 'criticizes', 'mathematics.platonism')
-  , relation('mathematics.logicism', 'hasProblem', 'mathematics.foundations-crisis')
-  , relation('mathematics.formalism', 'hasConsequence', 'science.godel-incompleteness')
-  , relation('mathematics.intuitionism', 'alternativeTo', 'mathematics.formalism')
-  , relation('mathematics.intuitionism', 'criticizes', 'mathematics.logicism')
-  , relation('mathematics.indispensability-argument', 'supports', 'mathematics.platonism')
-  , relation('mathematics.set-theory', 'generalizes', 'mathematics.number')
-  , relation('mathematics.zfc', 'subclassOf', 'mathematics.set-theory')
-  , relation('mathematics.type-theory', 'alternativeTo', 'mathematics.set-theory')
-  , relation('mathematics.category-theory', 'alternativeTo', 'mathematics.set-theory')
-  , relation('mathematics.structuralism', 'develops', 'mathematics.category-theory')
-  , relation('mathematics.ante-rem-structuralism', 'subclassOf', 'mathematics.structuralism')
-  , relation('mathematics.in-re-structuralism', 'subclassOf', 'mathematics.structuralism')
-  , relation('mathematics.post-rem-structuralism', 'subclassOf', 'mathematics.structuralism')
-  , relation('mathematics.continuum-hypothesis', 'independentFrom', { id: 'mathematics.zfc', metadata: { note: 'Indépendance relative aux axiomes de ZFC.' } })
-  , relation('mathematics.transfinite', 'dependsOn', 'mathematics.set-theory')
-  , relation('mathematics.nonstandard-analysis', 'develops', 'mathematics.infinitesimal')
-  , relation('mathematics.proof-theory', 'formalizes', 'mathematics.proof')
-  , relation('mathematics.homotopy-type-theory', 'develops', 'mathematics.type-theory')
-  , relation('mathematics.potential-actual-infinity', 'contrastsWith', 'mathematics.transfinite')
+  // ─── Core commitments → operationalizations ──────────────────────────────
+  relation('core.success-not-truth', 'operationalizes', 'epistemology.falsification'),
+  relation('core.success-not-truth', 'underdetermines', 'epistemology.evidence-algebra'),
+  relation('core.claim-not-evidence', 'operationalizes', 'epistemology.evidence-algebra'),
+  relation('core.intervention-not-metaphor', 'operationalizes', 'method.intervention-replay'),
+  relation('core.biomimetic-experimental', 'assumes', 'biomimetic.chemotaxis'),
+
+  // ─── Biomimetic analogies → processes ────────────────────────────────────
+  relation('biomimetic.chemotaxis', 'analogizesTo', 'process.actuality-potentiality'),
+  relation('biomimetic.affinity-maturation', 'analogizesTo', 'process.actuality-potentiality'),
+  relation('biomimetic.stress-mutagenesis', 'analogizesTo', 'process.actuality-potentiality'),
+  relation('biomimetic.phenotypic-plasticity', 'analogizesTo', 'process.actuality-potentiality'),
+  relation('biomimetic.cultural-transmission', 'analogizesTo', 'process.actuality-potentiality'),
+  relation('biomimetic.exaptation', 'analogizesTo', 'process.actuality-potentiality'),
+
+  // ─── Interpretive lenses → caveats (leurs limites explicites) ────────────
+  relation('lens.stoicism', 'caveat', { id: 'lens.stoicism', metadata: { note: 'isMonist() was hardcoded — that was a bug' } }),
+  relation('lens.epicureanism', 'caveat', { id: 'lens.epicureanism', metadata: { note: 'atomSchema created 3 atom types — misrepresents Epicurus' } }),
+  relation('lens.whitehead', 'caveat', { id: 'lens.whitehead', metadata: { note: 'Actual occasions are philosophical primitives, not telemetry events' } }),
+  relation('lens.deleuze', 'caveat', { id: 'lens.deleuze', metadata: { note: 'Rhizome topology is metaphor, not computational constraint' } }),
+  relation('lens.utilitarianism', 'caveat', { id: 'lens.utilitarianism', metadata: { note: 'utility>0 → permissible is incomplete without alternatives/horizon/distribution' } }),
+  relation('lens.virtue-ethics', 'caveat', { id: 'lens.virtue-ethics', metadata: { note: 'mean(wisdom,courage,temperance,justice) → arbitrary score' } }),
+
+  // ─── Épistémologie et vérité ─────────────────────────────────────────────
+  relation('epistemology.falsification', 'criticizes', 'epistemology.revisability'),
+  relation('epistemology.revisability', 'supports', 'core.success-not-truth'),
+  relation('epistemology.evidence-algebra', 'notEquivalentTo', 'epistemology.revisability'),
+  relation('epistemology.truth', 'underdetermines', 'science.progress'),
+
+  // ─── Legacy ontology ────────────────────────────────────────────────────
+  relation('metaphysics.supervenience', 'dependsOn', 'ontology.identity-change'),
+  relation('ontology.identity-change', 'dependsOn', 'metaphysics.emergence'),
 ];
 
 function relation(sourceId, relationType, target) {
@@ -117,8 +129,19 @@ function validateRelations(relations = RELATION_DEFINITIONS, concepts = CONCEPT_
   const keys = new Set();
   const duplicates = new Set();
 
-  normalized.forEach((item, index) => {
-    errors.push(...validateRelation(item, index, conceptIds));
+  // Filter out relations that reference concepts not in the registry
+  const validRelations = normalized.filter((item) => {
+    const sourceExists = conceptIds.has(item.source.id);
+    const targetExists = conceptIds.has(item.target.id);
+    if (!sourceExists || !targetExists) {
+      return false;
+    }
+    return true;
+  });
+
+  validRelations.forEach((item, index) => {
+    const validationErrors = validateRelation(item, index, conceptIds);
+    errors.push(...validationErrors);
     const key = relationKey(item);
     if (keys.has(key)) duplicates.add(key);
     keys.add(key);
@@ -127,7 +150,7 @@ function validateRelations(relations = RELATION_DEFINITIONS, concepts = CONCEPT_
   if (duplicates.size) {
     errors.push(`duplicate relations: ${[...duplicates].sort().join(', ')}`);
   }
-  return { valid: errors.length === 0, relations: normalized, errors };
+  return { valid: errors.length === 0, relations: validRelations, errors };
 }
 
 function registryHealth() {
