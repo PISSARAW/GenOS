@@ -356,6 +356,15 @@ function localSignalsSince(sinceTs) {
   return results;
 }
 
+const signalDelivery = require('./signalDeliveryService');
+
+const subscribeAgent = signalDelivery.subscribeAgent;
+const unsubscribeAgent = signalDelivery.unsubscribeAgent;
+const recordPendingDelivery = signalDelivery.recordPendingDelivery;
+const markDelivered = signalDelivery.markDelivered;
+const ackDelivery = signalDelivery.ackDelivery;
+const getPendingDeliveries = signalDelivery.getPendingDeliveries;
+
 module.exports = {
   publishSignal,
   readSignalsForAgent,
@@ -366,6 +375,12 @@ module.exports = {
   buildRow,
   buildRejectedResult,
   buildSignalFromParams,
+  subscribeAgent,
+  unsubscribeAgent,
+  recordPendingDelivery,
+  markDelivered,
+  ackDelivery,
+  getPendingDeliveries,
   DEFAULT_SIGNAL_TTL_MS,
   LOCAL_BROADCAST_LOG,
 };

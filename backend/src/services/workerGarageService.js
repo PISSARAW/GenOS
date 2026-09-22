@@ -1,4 +1,6 @@
 const config = require('../config/orchestratorConfig');
+const { registerWakeHandler, unregisterWakeHandler } = require('./signalPlaneSubscriber');
+const { startMission } = require('./agentRuntimeAdapter/missionExecution');
 
 function maxActiveWorkers() {
   return config.maxActiveWorkers();
@@ -201,6 +203,7 @@ async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }
     error.code = 'WORKER_NOT_IDLE';
     throw error;
   }
+  unregisterWakeHandler(workerId);
   await requireAvailableSlot(db, orchestratorId, workerId);
   const limit = maxActiveWorkers();
   const reservation = await db.run(
@@ -232,6 +235,23 @@ async function releaseSlot(db, { orchestratorId, workerId }) {
      WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'running'`,
     workerId, orchestratorId
   );
+  if (result.changes === 1) {
+    registerWakeHandler(workerId, async (signal) => {
+      try {
+        await startMission({
+          agentId: workerId,
+          prompt: '',
+          role: 'signal-wake',
+          signalTriggered: true,
+          triggerSignalId: signal.signalId,
+          triggerSignalType: signal.signalType,
+          triggerSignalTopic: signal.topic,
+        });
+      } finally {
+        unregisterWakeHandler(workerId);
+      }
+    });
+  }
   return result.changes === 1;
 }
 
