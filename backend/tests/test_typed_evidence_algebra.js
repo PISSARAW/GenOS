@@ -34,24 +34,27 @@ console.log('✓ createEvidenceProfile: rejects invalid type');
 
 // ─── assessIndependence ──────────────────────────────────────────────────
 
-// Same LLM, same method → not independent
+// Same LLM, same method → proven_dependent
 const ev1 = algebra.createEvidenceProfile({ type: 'observational', source: 'llm-claude', properties: { method: 'direct' } });
 const ev2 = algebra.createEvidenceProfile({ type: 'observational', source: 'llm-claude', properties: { method: 'direct' } });
 const ind1 = algebra.assessIndependence(ev1, ev2);
-assert.strictEqual(ind1.independent, false, 'Same source+type+method must not be independent');
-console.log('✓ assessIndependence: same source+type+method → not independent');
+assert.strictEqual(ind1.dependencyStatus, 'proven_dependent', 'Same source+type+method must be proven_dependent');
+assert.strictEqual(ind1.legacyIndependent, false, 'legacyIndependent=false for proven_dependent');
+console.log('✓ assessIndependence: same source+type+method → proven_dependent');
 
-// Same source, different method → partial
+// Same source, different method → partially_dependent
 const ev3 = algebra.createEvidenceProfile({ type: 'observational', source: 'llm-claude', properties: { method: 'chain-of-thought' } });
 const ind2 = algebra.assessIndependence(ev1, ev3);
-assert.strictEqual(ind2.independent, 'partial', 'Same source, different method → partial');
-console.log('✓ assessIndependence: same source, different method → partial');
+assert.strictEqual(ind2.dependencyStatus, 'partially_dependent', 'Same source, different method → partially_dependent');
+assert.strictEqual(ind2.legacyIndependent, 'partial', 'legacyIndependent=partial for partially_dependent');
+console.log('✓ assessIndependence: same source, different method → partially_dependent');
 
-// Different sources → independence not yet established
+// Different sources → unknown
 const ev4 = algebra.createEvidenceProfile({ type: 'observational', source: 'human-expert' });
 const ev5 = algebra.createEvidenceProfile({ type: 'observational', source: 'automated-test' });
 const ind3 = algebra.assessIndependence(ev4, ev5);
-assert.strictEqual(ind3.dependencyStatus, 'unknown', 'Different sources do not establish independence');
+assert.strictEqual(ind3.dependencyStatus, 'unknown', 'Different sources → unknown');
+assert.strictEqual(ind3.legacyIndependent, null, 'legacyIndependent=null for unknown');
 console.log('✓ assessIndependence: different sources → dependencyStatus unknown');
 
 // ─── compareEvidenceStrength ──────────────────────────────────────────────
@@ -102,8 +105,8 @@ const llmProof2 = algebra.createEvidenceProfile({
   properties: { method: 'auto-formalization' },
 });
 const llmInd = algebra.assessIndependence(llmProof1, llmProof2);
-assert.strictEqual(llmInd.independent, false, 'Two proofs from same LLM with same method must NOT be independent');
-console.log('✓ Two proofs from same LLM are NOT independent');
+assert.strictEqual(llmInd.dependencyStatus, 'proven_dependent', 'Two proofs from same LLM with same method must be proven_dependent');
+console.log('✓ Two proofs from same LLM are proven_dependent');
 
 // ─── EVIDENCE_TYPES completeness ──────────────────────────────────────────
 

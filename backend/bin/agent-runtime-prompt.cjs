@@ -3,11 +3,8 @@
  *
  * Rules enforced by runtime (leases, sandbox, schema) are NOT repeated
  * in the prompt. The prompt contains only what the model must *understand*,
- * not what the runtime can *improve*.
+ * not what the runtime can *enforce*.
  */
-
-const path = require('path');
-const fs = require('fs');
 
 function compactStrategyContract(contract = {}, worker = false) {
   if (worker) {
@@ -101,48 +98,87 @@ function buildSilenceBlock(isWorker, executionPolicy) {
   return executionPolicy.silentUpdates !== true ? 'Keep the user informed through genos_report_progress at meaningful milestones: when the active approach changes, a substantial unit finishes, a blocker appears, or the team enters final verification. Report concise outcomes and next steps, not internal chain-of-thought or every tool call.' : 'The user explicitly requested silent execution. Do not call genos_report_progress; return only the final mission result.';
 }
 
+function buildLeaseHint(isWorker, effectiveLease) {
+  return isWorker && effectiveLease.length ? `[LEASE] Tools: ${effectiveLease.join(', ')}.` : '';
+}
+
+function buildNonInteractiveHint(executionPolicy) {
+  if (!executionPolicy || executionPolicy.nonInteractive !== true) return '';
+  return `[NON-INTERACTIVE]\nNON-INTERACTIVE MODE: Do not ask for user confirmation. Execute autonomously using the available tools and report progress via genos_report_progress.`;
+}
+
+function buildFileEditHint(isWorker, allowFileEdits) {
+  return !isWorker && allowFileEdits ? `[FILE EDIT]\nFILE EDIT ENABLED: You may create, modify, or delete files within the workspace using file editing tools.` : '';
+}
+
+function buildCommandHint(isWorker, allowedCommands) {
+  return !isWorker && allowedCommands && allowedCommands.length > 0 ? `[COMMANDS]\nCOMMANDS ALLOWED: You may execute the following shell commands: ${allowedCommands.join(', ')}.` : '';
+}
+
+function buildCapsuleHint(isolation, capsuleId) {
+  return `[CAPSULE] Isolation: ${isolation}. Capsule ID: ${capsuleId}.`;
+}
+
+function buildWorkspaceHint(wsRoot) {
+  return `[WORKSPACE] Root: ${wsRoot}`;
+}
+
+function buildReviewHint(isWorker, runtimeAutonomyPlan) {
+  if (isWorker || !runtimeAutonomyPlan.localModelReview?.consulted) return '';
+  return 'The local-model review above is advisory evidence. Explicitly compare it with the strategy contract before dispatching, replaying, merging, or rejecting its recommendations; mention the accepted or rejected recommendations in your final evidence report.';
+}
+
+function buildParasitismHint(isWorker, autonomyPlan) {
+  if (isWorker || !autonomyPlan.parasitism?.enabled) return '';
+  return 'Parasitic pressure is enabled for this risk profile. If—and only if—you can construct a schema-valid parasite/agent genome manifest inside an isolated capsule, run genos_parasitic_pressure there with evolution enabled; keep its report as evidence and never merge it automatically.';
+}
+
 function buildAgentRuntimePrompt(ctx) {
-  const {
-    selfIntro, mission, conscienceBlock, memoryBlock, authorityInstruction,
-    agentName, nameMeaning, strategyContract, runtimeContract, isWorker,
-    autonomyPlan, runtimeAutonomyPlan, executionPolicy, toolLease, genosCapsule,
-    allowFileEdits, allowedCommands
-  } = ctx;
+  const params = {
+    selfIntro: ctx.selfIntro,
+    mission: ctx.mission,
+    conscienceBlock: ctx.conscienceBlock,
+    memoryBlock: ctx.memoryBlock,
+    authorityInstruction: ctx.authorityInstruction,
+    strategyContract: ctx.strategyContract,
+    runtimeContract: ctx.runtimeContract,
+    isWorker: ctx.isWorker,
+    autonomyPlan: ctx.autonomyPlan,
+    runtimeAutonomyPlan: ctx.runtimeAutonomyPlan,
+    executionPolicy: ctx.executionPolicy,
+    toolLease: ctx.toolLease,
+    genosCapsule: ctx.genosCapsule,
+    isolationMode: ctx.isolationMode,
+    workspacePath: ctx.workspacePath,
+    allowFileEdits: ctx.allowFileEdits,
+    allowedCommands: ctx.allowedCommands,
+    enableToolGating: ctx.enableToolGating,
+  };
 
-  const gating = resolveToolGating(ctx);
-  const { effectiveLease, gatingDirective } = applyToolGating(toolLease, gating);
-
-  const effectiveCapsuleId = genosCapsule ? `${genosCapsule.id}_run_${Date.now()}` : '';
-  const effectiveIsolation = ctx.isolationMode || 'Branch';
-  const effectiveWorkspacePath = ctx.workspacePath || process.env.GENOS_WORKSPACE_ROOT || '';
-  const workspaceRoot = effectiveWorkspacePath;
-
-  const leaseInstruction = effectiveLease.length ? `[LEASE] Tools: ${effectiveLease.join(', ')}.` : '';
-  const isNonInteractive = ctx.executionPolicy && ctx.executionPolicy.nonInteractive === true;
-  const nonInteractiveHint = isNonInteractive ? 'NON-INTERACTIVE MODE: Do not ask for user confirmation. Execute autonomously using the available tools and report progress via genos_report_progress.' : '';
-  const fileEditHint = !isWorker && allowFileEdits ? 'FILE EDIT ENABLED: You may create, modify, or delete files within the workspace using file editing tools.' : '';
-  const commandHint = !isWorker && allowedCommands && allowedCommands.length > 0 ? `COMMANDS ALLOWED: You may execute the following shell commands: ${allowedCommands.join(', ')}.` : '';
-
-  const authorityHint = authorityInstruction || '';
+  const gating = resolveToolGating(params);
+  const { effectiveLease, gatingDirective } = applyToolGating(params.toolLease, gating);
+  const capsuleId = params.genosCapsule ? `${params.genosCapsule.id}_run_${Date.now()}` : '';
+  const isolation = params.isolationMode || 'Branch';
+  const wsRoot = params.workspacePath || process.env.GENOS_WORKSPACE_ROOT || '';
 
   return [
-    `${selfIntro}`,
-    `Agent role: ${mission.role || 'Autonomous implementation agent'}.`,
-    `${conscienceBlock}`,
-    memoryBlock ? `${memoryBlock}` : '',
-    authorityHint,
+    `${params.selfIntro}`,
+    `Agent role: ${params.mission.role || 'Autonomous implementation agent'}.`,
+    `${params.conscienceBlock}`,
+    params.memoryBlock ? `${params.memoryBlock}` : '',
+    params.authorityInstruction || '',
     gatingDirective ? `[BIOMIMETIC GATING]\n${gatingDirective}` : '',
-    buildStrategyBlock(runtimeContract, strategyContract),
-    buildAutonomyBlock(isWorker, autonomyPlan, runtimeAutonomyPlan),
-    !isWorker && runtimeAutonomyPlan.localModelReview?.consulted ? 'The local-model review above is advisory evidence. Explicitly compare it with the strategy contract before dispatching, replaying, merging, or rejecting its recommendations; mention the accepted or rejected recommendations in your final evidence report.' : '',
-    !isWorker && autonomyPlan.parasitism?.enabled ? 'Parasitic pressure is enabled for this risk profile. If—and only if—you can construct a schema-valid parasite/agent genome manifest inside an isolated capsule, run genos_parasitic_pressure there with evolution enabled; keep its report as evidence and never merge it automatically.' : '',
-    buildSilenceBlock(isWorker, executionPolicy),
-    isWorker && effectiveLease.length ? leaseInstruction : '',
-    nonInteractiveHint ? `[NON-INTERACTIVE]\n${nonInteractiveHint}` : '',
-    fileEditHint ? `[FILE EDIT]\n${fileEditHint}` : '',
-    commandHint ? `[COMMANDS]\n${commandHint}` : '',
-    `[CAPSULE] Isolation: ${effectiveIsolation}. Capsule ID: ${effectiveCapsuleId}.`,
-    `[WORKSPACE] Root: ${workspaceRoot}`,
+    buildStrategyBlock(params.runtimeContract, params.strategyContract),
+    buildAutonomyBlock(params.isWorker, params.autonomyPlan, params.runtimeAutonomyPlan),
+    buildReviewHint(params.isWorker, params.runtimeAutonomyPlan),
+    buildParasitismHint(params.isWorker, params.autonomyPlan),
+    buildSilenceBlock(params.isWorker, params.executionPolicy),
+    buildLeaseHint(params.isWorker, effectiveLease),
+    buildNonInteractiveHint(params.executionPolicy),
+    buildFileEditHint(params.isWorker, params.allowFileEdits),
+    buildCommandHint(params.isWorker, params.allowedCommands),
+    buildCapsuleHint(isolation, capsuleId),
+    buildWorkspaceHint(wsRoot),
   ].filter(Boolean).join('\n\n');
 }
 

@@ -81,31 +81,36 @@ function assessIndependence(evidenceA, evidenceB) {
   const sameType = evidenceA.type === evidenceB.type;
   const sameMethod = (evidenceA.properties.method || null) === (evidenceB.properties.method || null);
 
-  // Si même source, même type, même méthode → non indépendant
+  // Si même source, même type, même méthode → prouvé dépendant
   if (sameSource && sameType && sameMethod) {
     return {
-      independent: false,
+      dependencyStatus: 'proven_dependent',
+      legacyIndependent: false,
       reason: 'Same source, type, and method — evidence is not independent',
       caveat: 'Two outputs from the same LLM with the same method are not independent proofs',
+      upstreamConsiderations: [],
     };
   }
 
-  // Si même source mais méthodes différentes → partiellement indépendant
+  // Si même source mais méthodes différentes → partiellement dépendant
   if (sameSource && !sameMethod) {
     return {
-      independent: 'partial',
+      dependencyStatus: 'partially_dependent',
+      legacyIndependent: 'partial',
       reason: 'Same source but different methods — partial independence',
       caveat: 'Same LLM with different methods may share systematic biases',
+      upstreamConsiderations: ['shared source'],
     };
   }
 
-  // Si sources différentes → degré d'indépendance à établir
+  // Sources différentes → dépendance à établir
   // Deux sources différentes ne suffisent pas : elles peuvent partager la
   // même base de données, le même modèle, les mêmes prémisses, ou le même
   // environnement d'exécution. On retourne un statut de dépendance, pas un
   // verdict d'indépendance.
   return {
     dependencyStatus: 'unknown',
+    legacyIndependent: null,
     reason: 'Different sources — independence not yet established',
     caveat: 'Different sources do not guarantee independence. Shared upstream dependencies (datasets, model families, retrievers, execution environment, premises) must be explicitly ruled out.',
     upstreamConsiderations: [
