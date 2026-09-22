@@ -16,9 +16,39 @@ const tensor = require('./tensorCompatibilityService');
 
 const DEFAULT_SIGNAL_TTL_MS = 30_000;
 const LOCAL_BROADCAST_LOG = new Map();
+const MAX_LOCAL_LOG_SIZE = 1000;
+const MAX_SIGNAL_DATA_BYTES = 64 * 1024;
+const MAX_SIGNAL_BLOB_BYTES = 1024 * 1024;
+const RATE_LIMIT_PER_MINUTE = 120;
+
+const rateLimitWindow = new Map();
+
+function checkRateLimit(senderId) {
+  const now = Date.now();
+  const windowStart = now - 60_000;
+  const entry = rateLimitWindow.get(senderId) || { count: 0, resetAt: now + 60_000 };
+  if (entry.resetAt < windowStart) {
+    entry.count = 0;
+    entry.resetAt = now + 60_000;
+  }
+  entry.count++;
+  rateLimitWindow.set(senderId, entry);
+  if (entry.count > RATE_LIMIT_PER_MINUTE) return false;
+  if (rateLimitWindow.size > 1000) {
+    const cutoff = now - 120_000;
+    for (const [k, v] of rateLimitWindow) {
+      if (v.resetAt < cutoff) rateLimitWindow.delete(k);
+    }
+  }
+  return true;
+}
 
 function pushLocalLog(signalId, payload) {
   LOCAL_BROADCAST_LOG.set(signalId, { payload, t: Date.now() });
+  if (LOCAL_BROADCAST_LOG.size > MAX_LOCAL_LOG_SIZE) {
+    const oldest = LOCAL_BROADCAST_LOG.keys().next().value;
+    LOCAL_BROADCAST_LOG.delete(oldest);
+  }
   const cutoff = Date.now() - 60_000;
   for (const [id, entry] of LOCAL_BROADCAST_LOG) {
     if (entry.t < cutoff) LOCAL_BROADCAST_LOG.delete(id);
@@ -34,6 +64,19 @@ function validateSignalType(signalType) {
     throw new Error(`Unsupported signal type '${signalType}'.`);
   }
   return normalizedType;
+}
+
+function validatePayloadSize(signalData, signalBlob) {
+  if (signalData) {
+    const dataSize = Buffer.byteLength(JSON.stringify(signalData), 'utf8');
+    if (dataSize > MAX_SIGNAL_DATA_BYTES) {
+      return { valid: false, reason: `signalData exceeds ${MAX_SIGNAL_DATA_BYTES} bytes (${dataSize})` };
+    }
+  }
+  if (signalBlob && signalBlob.length > MAX_SIGNAL_BLOB_BYTES) {
+    return { valid: false, reason: `signalBlob exceeds ${MAX_SIGNAL_BLOB_BYTES} bytes (${signalBlob.length})` };
+  }
+  return { valid: true };
 }
 
 function repressionFor({ type, topic, signalData, repressors }) {
@@ -113,15 +156,20 @@ async function routeAndDispatch(signal, params) {
     orchestratorId: signal.senderAgentId,
   });
   const delivery = deliveryMetadata(params, signal.id, signal.expiresAt);
-  const dispatchResult = await dispatchReceptorsIfNeeded({
-    signalId: signal.id,
-    signalType: signal.formatted.signalType,
-    signalData: signal.signalData,
-    topic: signal.topic,
-    senderAgentId: signal.senderAgentId,
-    ttlMs: signal.ttlMs,
-    publishSignal,
-  });
+  let dispatchResult = { dispatched: false };
+  try {
+    dispatchResult = await dispatchReceptorsIfNeeded({
+      signalId: signal.id,
+      signalType: signal.formatted.signalType,
+      signalData: signal.signalData,
+      topic: signal.topic,
+      senderAgentId: signal.senderAgentId,
+      ttlMs: signal.ttlMs,
+      publishSignal,
+    });
+  } catch (err) {
+    console.warn(`[SignalingTransport] dispatchReceptors failed for ${signal.id}: ${err.message}`);
+  }
   if (signal.senderAgentId && routing.recipients) {
     for (const recipient of routing.recipients) {
       if (recipient.agentId) {
@@ -144,6 +192,15 @@ async function routeAndDispatch(signal, params) {
 async function publishSignal(params) {
   const signal = await buildSignalFromParams(params);
   if (!signal.accepted) return signal.result;
+
+  if (signal.senderAgentId && !checkRateLimit(signal.senderAgentId)) {
+    return { signalId: signal.id, published: false, signalType: signal.normalizedType, suppressedBy: 'rate_limit', suppressionReason: `Exceeded ${RATE_LIMIT_PER_MINUTE}/min` };
+  }
+
+  const sizeCheck = validatePayloadSize(signal.signalData, signal.formatted?.signalBlob);
+  if (!sizeCheck.valid) {
+    return { signalId: signal.id, published: false, signalType: signal.normalizedType, suppressedBy: 'payload_size', suppressionReason: sizeCheck.reason };
+  }
 
   const tensorError = validateTensor(signal);
   if (tensorError) return tensorError;
@@ -230,6 +287,7 @@ async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100)
              WHERE s.signal_type != 'text'
              AND s.sender_agent_id != ?
              AND (sub.subscriber_agent_id IS NOT NULL OR s.topic = '')
+             AND (s.expires_at IS NULL OR s.expires_at > CURRENT_TIMESTAMP)
              ${since ? 'AND s.created_at > ?' : ''}
              ORDER BY s.created_at DESC
              LIMIT ?`;
@@ -258,12 +316,19 @@ async function markSignalsSeen(subscriberAgentId, signalIds) {
   if (!signalIds || !signalIds.length) return;
   const db = await getDatabase().catch(() => null);
   if (!db) return;
-  for (const sid of signalIds) {
-    await db.run(
-      `INSERT OR REPLACE INTO signal_subs (signal_id, topic, subscriber_agent_id, last_seen_at)
-       VALUES (?, '', ?, CURRENT_TIMESTAMP)`,
-      [sid, subscriberAgentId]
-    ).catch(() => {});
+  try {
+    await db.exec('BEGIN IMMEDIATE');
+    for (const sid of signalIds) {
+      await db.run(
+        `INSERT OR REPLACE INTO signal_subs (signal_id, topic, subscriber_agent_id, last_seen_at)
+         VALUES (?, '', ?, CURRENT_TIMESTAMP)`,
+        [sid, subscriberAgentId]
+      );
+    }
+    await db.exec('COMMIT');
+  } catch (e) {
+    try { await db.exec('ROLLBACK'); } catch (_) {}
+    console.warn('[SignalingTransport] markSignalsSeen failed:', e.message);
   }
 }
 

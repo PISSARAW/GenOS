@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS signal_subs (
 );
 
 CREATE INDEX IF NOT EXISTS signal_subs_subscriber_idx ON signal_subs(subscriber_agent_id, last_seen_at);
+CREATE INDEX IF NOT EXISTS signal_subs_topic_idx ON signal_subs(topic);
 `;
 
 const CREATE_SIGNAL_BLOBS_INDEXES_SQL = `
@@ -43,6 +44,7 @@ CREATE INDEX IF NOT EXISTS signal_blobs_topic_idx ON signal_blobs(topic, created
 CREATE INDEX IF NOT EXISTS signal_blobs_sender_idx ON signal_blobs(sender_agent_id, created_at);
 CREATE INDEX IF NOT EXISTS signal_blobs_expires_idx ON signal_blobs(expires_at) WHERE expires_at IS NOT NULL;
 CREATE INDEX IF NOT EXISTS signal_subs_subscriber_idx ON signal_subs(subscriber_agent_id, last_seen_at);
+CREATE INDEX IF NOT EXISTS signal_subs_topic_idx ON signal_subs(topic);
 `;
 
 /** Idempotent v45 migration — safe to call on every startup. */
