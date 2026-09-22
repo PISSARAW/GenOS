@@ -1,8 +1,8 @@
 # Natural Creative Ecology — Créativité Artificielle Multi-Échelle
 
-- **Statut** : Prototype avancé — 6 mécanismes individuels implémentés, intégration runtime partielle. Les moteurs fonctionnent comme services mais leur interaction causale reste en cours de développement. Tests d'ablation scientifiquement valides. Boucle NCE non encore fermée.
-- **Portée** : `backend/src/services/{curiosity,representationalMutation,exaptation,play,affordanceMemory,phenotypeDevelopment,environmentGenerator,culturalTransmission,culturalSelection}Service.js`, `backend/src/services/nceIntegrationService.js`, `backend/bin/genos-orchestrate.cjs`, `backend/tests/nceAblation*.test.js`, `docs/08-philosophie.md` (section 28).
-- **Dernière revue** : 2026-09-21.
+- **Statut** : Infrastructure opérationnelle — 7 moteurs implémentés et câblés, pont curiosité Node→Rust, TOPOLOGY_SIGNALS appliqué, dispatch_worker enrichi, tests contractuels 4/4 verts. Tests d'ablation en prototype (pas scientifiquement valides). Boucle NCE fermée côté orchestrateur natif.
+- **Portée** : `backend/src/services/{curiosityService,curiosityExplorerService,curiosityBridgeService,nceIntegrationService,ncePromptService,nceEngines,representationalMutationEngine,exaptationEngine,playService,phenotypicDevelopmentService,environmentGeneratorService,culturalTransmissionService,culturalSelectionService,culturalLearningService}.js`, `backend/bin/{genos-orchestrate.cjs,topologyHandlers.cjs,orchestratorActions.cjs}`, `crates/genos-orchestrator/src/{drives,observer}.rs`, `backend/tests/nce_contract_tests.js`, `docs/08-philosophie.md`.
+- **Dernière revue** : 2026-09-22.
 - **Dérivé** : [Mathematical Organism](mathematical-organism.md) — implémentation NCE pour la recherche mathématique.
 
 ---
@@ -67,11 +67,28 @@ Métriques : `dreams_generated`, `unique_concepts_generated`, `recombined_hypoth
 ```rust
 energy
 integrity
-curiosity
+curiosity   // ← signal NCE injecté depuis Node via .genos/curiosity_bridge.json
 survival
 ```
 
 Peut choisir `Goal::Explore` sans mission externe.
+
+### Pont curiosité Node ↔ Rust
+
+```text
+curiosityService.js (Node)
+    │
+    ▼
+curiosityBridgeService.js → .genos/curiosity_bridge.json
+    │
+    ▼
+observer.rs → WorldState.curiosity_hint
+    │
+    ▼
+drives.rs → Goal::Explore
+```
+
+Le backend Node calcule `computeCuriosity()` (learning progress, IG, novelty, affordances, risk, cost) et l'écrit dans un fichier JSON partagé. Le Rust (`observer.rs:read_curiosity_bridge()`) lit ce fichier et injecte la valeur dans `WorldState.curiosity_hint`. `drives.rs` utilise cette valeur pour piloter `Goal::Explore` lorsque `curiosity > 0.5 && !observed`.
 
 ### Évolution multi-îlots (`crates/genos-orchestrator/evolution.rs`)
 
@@ -103,12 +120,13 @@ plasmid_divergent_optimization
 | Limite | Conséquence |
 |--------|-------------|
 | Nouveauté = `1/(1+Occurrences(c))` | Pas de nouveauté conceptuelle |
-| Curiosity = `low stress + not observed` | Pas de mesure du progrès d'apprentissage |
+| Curiosity = `low stress + not observed` | Pas de mesure du progrès d'apprentissage (corrigé via NCE) |
 | Payload = placeholder structuré | Pas de monde imaginaire riche |
-| Pas d'exaptation | Pas de réinvestissement de capacités |
-| Pas de transmission culturelle | Pas d'accélération inter-agent |
-| Pas de plasticité phénotypique | Agents statiques |
-| Pas de coévolution environnement | Pas de POET-like |
+| Pas d'exaptation | Pas de réinvestissement de capacités (corrigé via NCE) |
+| Pas de transmission culturelle | Pas d'accélération inter-agent (corrigé via NCE) |
+| Pas de plasticité phénotypique | Agents statiques (corrigé via NCE) |
+| Pas de coévolution environnement | Pas de POET-like (corrigé via NCE) |
+| TOPOLOGY_SIGNALS décoratif | Moteurs NCE inconditionnels par topologie (corrigé via NCE) |
 
 ---
 
@@ -122,18 +140,22 @@ plasmid_divergent_optimization
 | 4 | **Recombinaison associative distante** | `score(A,B) = distance × compatibilité × potentiel` | `representationalMutationEngine` |
 | 5 | **Curiosité basée sur le progrès** (Ten et al.) | `C = wₙN + wᵢIG + wₗLP + wₐA - w_cC - w_rR` | `curiosityService` |
 | 6 | **Robustesse noisy-TV** (Jarrett et al.) | Réduire A si LP=0 | `curiosityService` |
-| 7 | **PlaySandbox** | Budget limité, sandbox obligatoire, rollback | `playService` |
-| 8 | **AffordanceMemory** | Mémoriser les capacités découvertes | `affordanceMemoryService` |
-| 9 | **Plasticité phénotypique** | `Structure(agent) = f(genome, env, history)` | `phenotypeDevelopmentService` |
-| 10 | **Coévolution env/agent** (POET) | Génération simultanée d'environnements | `environmentGeneratorService` |
-| 11 | **Coévolution env/agent/rep** | `Env ↔ Agent ↔ PR` | `environmentGeneratorService` + `representationalMutationEngine` |
-| 12 | **Stepping stones** | Préserver les "échecs prometteurs" | `cryptobiosisSporeService` + `fossilizationService` |
-| 13 | **Transmission culturelle intentionnelle** | Imitation, démonstration, enseignement | `culturalTransmissionService` |
-| 14 | **Sélection culturelle** | Utilité, preuve, prestige, fiabilité (somme pondérée, Pareto en cours) | `culturalSelectionService` |
-| 15 | **Traditions et lignées** | Artefacts avec variants, lignée | `culturalSelectionService` (createTradition) + `culturalTransmissionService` (mutateArtifact) |
-| 16 | **Novelty creates affordances** | `OEV(x) = N(x) × FP(x)` | Principe transversal |
-| 17 | **Tests d'ablation** | BASELINE → +moteurs → FULL | `nce_ablation_tests.js` |
-| 18 | **Intégration orchestrateur** | `enhanceMissionWithNCE()` modifie le prompt | `nceIntegrationService` + `genos-orchestrate.cjs` |
+| 7 | **Pont curiosité Node ↔ Rust** | Signal NCE pilote Goal::Explore | `curiosityBridgeService` + `observer.rs` + `drives.rs` |
+| 8 | **PlaySandbox** | Budget limité, sandbox obligatoire, rollback | `playService` |
+| 9 | **AffordanceMemory** | Mémoriser les capacités découvertes | `affordanceMemoryService` |
+| 10 | **Plasticité phénotypique** | `Structure(agent) = f(genome, env, history)` | `phenotypeDevelopmentService` |
+| 11 | **Coévolution env/agent** (POET) | Génération simultanée d'environnements | `environmentGeneratorService` |
+| 12 | **Coévolution env/agent/rep** | `Env ↔ Agent ↔ PR` | `environmentGeneratorService` + `representationalMutationEngine` |
+| 13 | **Stepping stones** | Préserver les « échecs prometteurs » | `cryptobiosisSporeService` + `fossilizationService` |
+| 14 | **Transmission culturelle intentionnelle** | Imitation, démonstration, enseignement | `culturalTransmissionService` |
+| 15 | **Sélection culturelle** | Utilité, preuve, prestige, fiabilité (somme pondérée) | `culturalSelectionService` |
+| 16 | **Traditions et lignées** | Artefacts avec variants, lignée | `culturalSelectionService` (createTradition) + `culturalTransmissionService` (mutateArtifact) |
+| 17 | **Apprentissage culturel avec benchmark Δ** | `testBeforeTransmission()` → `testAfterTransmission()` avec relevance × fidelity × quality × skillGap | `culturalLearningService` |
+| 18 | **Intégration orchestrateur natif** | `enhanceMissionWithNCE()` + `topologyHandlers` (TOPOLOGY_SIGNALS) + `dispatch_worker` enrichi | `nceIntegrationService` + `genos-orchestrate.cjs` + `topologyHandlers.cjs` + `orchestratorActions.cjs` |
+| 19 | **TOPOLOGY_SIGNALS** | Filtrage conditionnel des moteurs par topologie (worker, team, trinity, biological) | `topologyNCEService` + `ncePromptService` |
+| 20 | **Novelty creates affordances** | `OEV(x) = N(x) × FP(x)` | Principe transversal |
+| 21 | **Tests contractuels** | Contrats : flags .enabled, Play+Phenotype dans boucle, enrichWorkerPromptSync retourne string | `nce_contract_tests.js` |
+| 22 | **Tests d'ablation** | BASELINE → +moteurs → FULL (prototype, pas scientifiquement valides) | `nce_ablation_tests.js` |
 
 ---
 
@@ -276,6 +298,12 @@ Z
 score(A,B) = distance(A,B) × compatibilité(A,B) × potentiel(A,B)
 ```
 
+**Compatibilité** : basée sur Jaccard lexical (name + description + id + metadata) — favorise les paires innovantes (diversité 1 - Jaccard) mais pas incompréhensibles. Formule : `diversity × 0.7 + categoryBonus + 0.2`.
+
+**Distance sémantique** : calculée via le graphe de connaissances (`structuralKnowledgeGraph`) — 1-hop (0.5), 2-hop (0.75), ou 1.0 (non connecté).
+
+**Parents** : les paires sélectionnées conservent nom, description, metadata (pas des IDs nus). La distance réelle est injectée dans `creativity_metrics.semantic_distance`.
+
 ### Changement de représentation
 
 ```text
@@ -296,6 +324,8 @@ Could X + Y create Z?
 Could X become a tool instead of a strategy?
 Could X operate at another scale?
 ```
+
+**Nouveauté** : calculée via Jaccard lexical entre l'origine et la cible (`1 - |∩| / |∪|`). L'ancienne métrique basée sur les caractères (`1 - shared/maxLen`) a été remplacée.
 
 ---
 
@@ -533,7 +563,20 @@ const nceEnhancements = await nceIntegration.enhanceMissionWithNCE(mission, db);
 | `workers` | Non modifiés (nécessite topologie) |
 | `topology` | Non modifiée (nécessite auto-organisation) |
 
-### Garanties
+### TOPOLOGY_SIGNALS
+
+Contrôle quels moteurs NCE sont actifs par topologie :
+
+| Topologie | Curiosité | Exaptation | RepresentationalMutation | Culture | Play | Phenotype |
+|-----------|-----------|------------|--------------------------|---------|------|-----------|
+| worker | ✓ | ✓ | | | | |
+| team | ✓ | ✓ | ✓ | ✓ | | |
+| trinity | ✓ | ✓ | ✓ | ✓ | | ✓ |
+| biological | ✓ | ✓ | | ✓ | | ✓ |
+
+Appliqué dans `ncePromptService.js:enhancePromptWithNCE()` : si `signals.X === false`, le moteur X est omis du prompt final.
+
+---
 
 - **Non-blocant** : si un moteur échoue, la mission continue
 - **Optionnel** : activable via `request.nceOptions`
@@ -544,12 +587,12 @@ const nceEnhancements = await nceIntegration.enhanceMissionWithNCE(mission, db);
 ## 15. Limites honnêtes
 
 1. **Pas de créativité générale** : les moteurs optimisent des métriques locales sans compréhension sémantique profonde. Le vecteur de phénotype créatif [N,Q,S,D,T,E,O,H] est documenté mais pas encore implémenté comme structure de données.
-2. **Pas de conscience** : la « simulation mentale » est un calcul de faisabilité sur des structures JSON
+2. **Pas de conscience** : la « simulation mentale » est un calcul de faisabilité sur des structures JSON.
 3. **Pas d'open-endedness prouvée** : la génération automatique de questions reste à développer. Le champ `open_ended` dans environmentGenerator est un placeholder.
-4. **Sélection culturelle** : utilise actuellement une somme pondérée scalaire, pas encore un front Pareto non dominé
-5. **Coût computationnel** : l'évaluation de 6 moteurs augmente la latence
-6. **Boucle non fermée** : la boucle « signal → comportement → expérience → preuve → adaptation → transmission → futur comportement » n'est pas encore complètement câblée entre les moteurs
-7. **Documentation en avance sur le runtime** : certaines fonctions documentées (représentations riches, coévolution réelle, traditions actives) sont des scaffolds, pas des implémentations complètes
+4. **Sélection culturelle** : utilise actuellement une somme pondérée scalaire, pas encore un front Pareto non dominé. L'apprentissage culturel (`culturalLearningService`) corrige partiellement avec un benchmark Δ avant/après.
+5. **Coût computationnel** : l'évaluation de 7 moteurs augmente la latence.
+6. **Tests d'ablation** : prototype (`nce_ablation_tests.js` explicitement marqué "pas scientifiquement valides"). Seuls les tests contractuels (`nce_contract_tests.js`) sont fiables.
+7. **Documentation-code sync** : certaines fonctions documentées (représentations riches, coévolution réelle, traditions actives) sont des scaffolds, pas des implémentations complètes. La liste des 22 mécanismes ci-dessus fait foi.
 
 ---
 
@@ -599,5 +642,5 @@ Chaque mécanisme biologique doit correspondre à **un invariant computationnel 
 | `5219faaf` | Génération d'environnements co-évolutifs |
 | `cc9d151f` | Transmission + sélection culturelle |
 | `9b66cab4` | Intégration orchestrateur natif |
-| `c712087f` | Tests d'ablation scientifiques |
-| `76c6ab4a` | Documentation section 28 |
+| `7e13195a` | P0 : contexte NCE complet, TOPOLOGY_SIGNALS, dispatch_worker, compatibilityScore Jaccard, exaptation Jaccard, pont Node→Rust, tests contractuels 4/4 |
+| `7e13195a` | Suppression nceWorkerEnrichment mort |

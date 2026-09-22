@@ -1,8 +1,8 @@
 # Continuité de mission : l'organisme logiciel
 
-- **Statut** : Partiel (gate de complétion et immunité câblées ; régénération runtime, dormance durable et succession restantes)
+- **Statut** : Partiel (gate de complétion, feedback loop continuation, bornage/idempotence, preuves runtime, immunité enforceable ; régénération runtime, dormance durable et succession restantes)
 - **Portée** : control plane Node, services de survie de mission
-- **Dernière revue** : 2026-09-21
+- **Dernière revue** : 2026-09-22
 
 ## Définition
 
@@ -72,7 +72,58 @@ politique).
 pas satisfait — c'est la matérialisation du principe « un transport réussi
 n'est pas une preuve de décision valide ».
 
-## 3. Signaux vitaux
+## 3. Feedback loop de continuation
+
+Quand l'homéostasie bloque, GenOS ne sort pas en échec. Il boucle :
+
+```text
+HOMEOSTASIS BLOCÉE
+   ↓
+classifyDeviation() → missing_work | failed_proof | unsafe_action | incomplete
+   ↓
+dispatch worker_homeostasis_<uuid> (borné : max 3 par déviation, idempotence)
+   ↓
+WAIT FOR TERMINAL STATE (10 min max)
+   ↓
+refresh agents + collect evidence runtime
+   ↓
+réévalue homéostasie
+   ↓
+┌──────────────┬───────────────┐
+│ satisfaite   │ encore bloquée│
+↓              ↓
+COMPLETE       re-dispatch (si budget restant) ou EXHAUSTED
+```
+
+**Bornage** : `MAX_HOMEOSTASIS_CONTINUATIONS = 3` — chaque compteur est par
+`(missionId, deviation)` dans la table `continuation_queue`.
+
+**Idempotence** : `decisionId = hash(missionId, deviation, stateVersion)` — un
+re-dispatch avec la même identité retourne `{ idempotent: true }` sans créer de
+doublon.
+
+**Sécurité** : le worker de continuation hérite des permissions du parent (jamais
+l'inverse). Si `prohibitExactRetry` est activé pour cette catégorie immunitaire,
+le dispatch est refusé.
+
+## 4. Preuves runtime
+
+Le contexte d'évaluation n'est plus synthétique. `missionEvidenceCollector.js`
+collecte :
+
+- `worker_evidence` : dossiers workers (`evidenceReport`)
+- `test_suite_passed` : `WORKER_EVIDENCE_BARRIER_SATISFIED` en télémétrie
+- `evidence_report` : événements `EVIDENCE_REPORT`
+- `execution_run_complete` : `strategy_execution_runs.status = completed`
+- `agent_completed` : événements `AGENT_COMPLETED`
+- `homeostasis_achieved` : événements `MISSION_COMPLETED`
+
+Les flags contextuels : `testsPassed`, `workerEvidenceComplete`, `noFailedAgents`,
+`allAgentsCompleted`, `verifierReceiptPresent`.
+
+Fallback : `['mission_outcome']` si DB absente ou erreur.
+
+## 5. Signaux vitaux
 
 Chaque cellule émet un pulse :
 
@@ -101,14 +152,14 @@ incertitude, pression budgétaire et dissonance épistémique. Au-delà du seuil
 GenOS suggère un checkpoint, une réduction de périmètre ou une succession
 cellulaire **avant** la rupture.
 
-## 4. Système immunitaire
+## 6. Système immunitaire
 
 Deux couches :
 
 - **Gates de preuve** (`immuneGateService.js`) : évaluation pondérée de gates, scan de menaces (injection SQL/commande/traversée/prompt), détection d'anomalie multi-niveaux, décision de quarantaine. `isSafeToProceed()` combine anomalie et couverture fonctionnelle des tissus.
 - **Mémoire immunitaire** (`immuneMemoryService.js`) : après `Stratégie A → crash → retry A → crash`, l'organisme produit un anticorps conceptuel — une signature d'échec SHA-256 avec `prohibitedExactRetry: true` et une réponse préférée (`replace_worker`). La reconnaissance d'une signature déjà vue interdit le retry exact et propose la réponse apprise.
 
-## 5. Régénération
+## 7. Régénération
 
 La mort d'une cellule déclenche `assessDamage()` :
 
@@ -125,7 +176,7 @@ stateBefore / stateAfter / successful`) qui rejoint les `bud_scars`
 conceptuels. `verifyFunctionalEquivalence()` confirme que les rôles requis
 sont couverts après régénération.
 
-## 6. Survie : quiescence, cryptobiose, apoptose
+## 8. Survie : quiescence, cryptobiose, apoptose
 
 Un organisme vivant possède des états sains non actifs. GenOS les formalise :
 
@@ -145,15 +196,18 @@ avec `survivalStateService.suspend()` et les snapshots gelés existants.
 ```text
 SENSE (pulses, télémétrie)
    ↓
-HOMEOSTASIS CHECK (contrat d'invariants)
+HOMEOSTASIS CHECK (contrat d'invariants + preuves runtime)
    ↓
-healthy → continue | stress → ALLOSTASIS | injury → IMMUNE RESPONSE
+satisfaite → MISSION COMPLETE
+bloquée   → DISPATCH continuation (borné, idempotent)
    ↓
-deviation → REGENERATION (évaluation, remplacement, cicatrice)
+WAIT TERMINAL → REFRESH → REEVALUATE
    ↓
-viable-inactif → QUIESCENCE | starved → CRYPTOBIOSIS | irrecoverable → APOPTOSIS
+satisfaite | encore bloquée → EXHAUSTED
    ↓
-homéostasie cible + preuve de complétion → MISSION COMPLETE
+stress → ALLOSTASIE | injury → IMMUNITAIRE → RÉGÉNÉRATION
+   ↓
+viable → QUIESCENCE | starved → CRYPTOBIOSE | irrecoverable → APOPTOSE
 ```
 
 ## Limites actuelles
@@ -165,6 +219,15 @@ homéostasie cible + preuve de complétion → MISSION COMPLETE
   insatisfait n'est jamais rapportée `success: true`, même si tous les agents
   sont `completed`. Le verdict final devient `homeostasis_blocked` et
   `MISSION_COMPLETION_BLOCKED` est émis.
+- **Feedback loop** : dispatch worker continuation, attente terminaison,
+  réévaluation homéostasie — couvert par
+  `backend/tests/test_homeostasis_continuation.js` (16 tests).
+- **Bornage + idempotence** : budget MAX=3, décision déterministe, compteur par
+  `(mission, deviation)`.
+- **Sécurité continuation** : permissions héritées du parent, pas élargies ;
+  mémoire immunitaire = contrainte dure.
+- **Preuves runtime** : collecte depuis dossiers workers, strategy_execution_runs,
+  telemetry_events — couvert par `backend/tests/test_mission_evidence.js` (10 tests).
 - **Contrat de complétion** : `genome.completionContract` est la source
   d'autorité des invariants et des preuves exigées ; les heuristiques sur le
   prompt ne sont qu'un repli de développement. Le contrat est accepté depuis
@@ -184,9 +247,8 @@ homéostasie cible + preuve de complétion → MISSION COMPLETE
 - **Immunité branchée** : les cellules mortes déclenchent la gate
   (`isSafeToProceed`) ; les morts répétées enrôlent une mémoire immunitaire
   (`prohibitedExactRetry`, `preferredResponse: replace_worker`).
-- **Tests dédiés** : `backend/tests/test_mission_continuity.js` couvre la gate,
-  l'historique, le roundtrip de contrat, les preuves exigées, les pulses,
-  l'allostasie et l'interdiction de retry exact (11 tests).
+- **Tests dédiés** : `backend/tests/test_mission_continuity.js` (10 tests),
+  `test_homeostasis_continuation.js` (16 tests), `test_mission_evidence.js` (10 tests).
 
 ### Modèle implémenté, enforcement non intégré
 
@@ -204,9 +266,6 @@ homéostasie cible + preuve de complétion → MISSION COMPLETE
   un objet mission indépendant.
 - **Succession cellulaire** : suggérée par la charge allostatique, pas
   exécutée.
-- **Invariants réels** : les verifiers du catalogue lisent le contexte
-  d'évaluation ; le branchement sur les exécuteurs de preuve réels (tests
-  exécutés, fichiers interdits) reste à faire.
 
 ## Voir aussi
 
