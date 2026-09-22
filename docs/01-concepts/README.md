@@ -20,7 +20,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [physique-computationnelle.md](physique-computationnelle.md) — l'inerte : inertie, friction, entropie, seuils, matériaux, gating de décision.
 - [imagination-et-simulation.md](imagination-et-simulation.md) — recombinaison de fragments, simulation interne, contrôle et preuve.
 - [conscience-esprit-mental.md](conscience-esprit-mental.md) — taxonomie de la conscience, de l'esprit et du mental.
-- [adaptive-epistemic-immune-system.md](adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif (antigène, immunité innée/adaptative, sélection clonale, mémoire, inflammation, biocénose, métapopulation, stigmergie, holobionte, challenge).
+- [adaptive-epistemic-immune-system.md](adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif (antigène, immunité innée/adaptative, sélection clonale, mémoire, inflammation, biocénose, métapopulation, stigmergie, holobionte, challenge). **v2.0 : intégré au pipeline de promotion.**
 
 ## Mémoire, collectif et évolution
 
@@ -34,6 +34,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [biomimetisme/](biomimetisme/README.md) — foraging web, spécialisations cellulaires, super-sens animaux, primitives de controle animal.
 - [nosologie/](nosologie/README.md) — pathologies du runtime, vue d'ensemble et 9 familles.
 - [natural-creative-ecology.md](natural-creative-ecology.md) — créativité émergente multi-échelle : imagination, exploration, plasticité, évolution, culture.
+- [signal-plane-zero-text.md](signal-plane-zero-text.md) — transport zero-text inter-agents : récepteurs, coalescing, EventBus, plasticité.
 - [natural-search-control-plane.md](natural-search-control-plane.md) — plan de contrôle de recherche naturelle : pression, progrès causal, ledger d'hypothèses, contrôleur.
 
 ## Voir aussi

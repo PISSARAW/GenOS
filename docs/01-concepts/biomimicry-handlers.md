@@ -60,20 +60,19 @@
 
 ## Couche de transport zero-texte
 
-Les modules suivants implémentent le schéma de transport inter-agents décrit dans le §"Bus de Signalisation Biomimétique" du runtime-agentique.md :
+> **Documentation complète** : [signal-plane-zero-text.md](./signal-plane-zero-text.md)
+> — couvre le pipeline, les services, le schéma DB, les tests et les limites.
 
-- `backend/src/services/biomimeticSignalingBus.js` — types de signal (SIGNAL_TYPES : LIGAND, VOLTAGE, PHEROMONE, PLASMID, TENSOR, TEXT), évaluation ligand-récepteur, consensus électrocyte + Kuramoto, gradient chimiotactique, formatage pour transport
-- `backend/src/services/mcpLigandReceptorService.js` — récepteurs catalytiques par outil MCP, cnidocyte reflex (détection de toxine <3µs), seuils Gibbs free energy ΔG
-- `backend/src/services/signalingTransportService.js` — persistance des signaux zero-texte dans `signal_blobs` (SQLite WAL), publication via event bus push, coalescing anti-spam (période réfractaire 2s, fenêtre de coalescence 500ms), dispatch aux récepteurs (actions déterminus sans LLM), routage collectif via collectiveSignalOrganizationRouter. readSignalsForAgent filtre par topic d'abonnement (signal_subs).
-- `backend/src/services/signalReceptorService.js` — registre de récepteurs avec ligand/threshold/target, matching déterministe via evaluateLigandReactivity, dispatchers : emit_signal, wake_worker, update_agent, change_organization. LLM requis uniquement quand aucun récepteur ne match.
-- `backend/src/services/signalEventBus.js` — EventEmitter singleton pour notifications push (onSignal, onSignalType, onTopic, onAgent). Modèle event-driven : les workers sont réveillés immédiatement au lieu de polling.
-- `backend/src/services/signalCoalescerService.js` — anti-spam : période réfractaire par sender+topic (2s par défaut) + coalescence des signaux rapides sur le même topic (500ms). Les signaux supprimés sont persistés mais pas routés vers les récepteurs.
-- `backend/src/services/synapticPlasticityService.js` — apprentissage Hebbien des canaux A→B : renforcement (+0.1) si signal utile, dépression (-0.05) si aucun effet, forte dépression (-0.15) si erreur. Les canaux fréquemment utiles deviennent plus forts ; les bruyants s'atrophient.
-- `backend/src/services/tensorCompatibilityService.js` — contrat de provenance pour tenseurs (family, model, dimensions, normalization, metric). Deux tenseurs ne sont compatibles que si family+model+dimensions+normalization+metric identiques. wrapTensorSignal valide avant encapsulation.
-- `backend/src/services/collectiveSignalOrganizationRouter.js` — routage des signaux zero-texte vers organisations et orchestrateurs (tenant/project/orchestrator scoped), extraction de topic par préfixe SIGNAL_TOPIC_PREFIXES, distribution multi-recipients
-- `backend/src/services/agentCollaborativeDecisionMakingService.js` — décision collective électrocyte (vote par potentiel de membrane), suivi chimiotactique (gradient phéromones), transfert plasmid HGT, orchestrateur multi-topologie
-- `backend/src/db/schema-next.js` — migration v45 : tables `signal_blobs`, `signal_subs`, indexes, enregistrée dans le registre des migrations (021-signal-transport) via `backend/src/db/migrations/migrateSignalTransport.js`
-- `backend/src/services/mcpBioTools/handlers/signalTransport.js` — 7 handlers MCP : genos_signal_publish, genos_signal_read, genos_signal_purge, genos_signal_electrocyte_vote, genos_signal_chemotactic_follow, genos_signal_plasmid_transfer, genos_signal_collective_decision
+Les modules suivants implémentent le transport zero-texte :
+
+- `signalingTransportService.js` — pipeline complet : persist → coalesce → route → EventBus
+- `signalReceptorService.js` — registre récepteurs + actions déterministes (emit_signal, wake_worker, update_agent, change_organization)
+- `signalEventBus.js` — EventEmitter avec souscription destination-based (`onRecipient`) pour wake-up
+- `signalCoalescerService.js` — anti-spam : période réfractaire 2s + coalescing 500ms
+- `synapticPlasticityService.js` — poids Hebbien influençant le routage
+- `collectiveSignalOrganizationRouter.js` — scope strict (org ET projet), tri par plasticité
+- `signalPlaneSubscriber.js` — consumer production EventBus (registerWakeHandler), démarré dans `server.js`
+- `schema-next.js` — tables `signal_blobs`, `signal_subscriptions`, `signal_deliveries`
 
 Les outils de signalisation dédiés et les notifications émises par certains
 handlers sont deux chemins différents. L'assimilation plasmidique garde son
@@ -129,9 +128,10 @@ Les outils biomimétiques sont dispatchés via ce schéma. Les handlers couvrent
 ## Limites
 
 - **Intégration sélective** : `genos_worker_publish` stocke les signaux dans le canal de l'organisation et le handler `stigmergy` peut publier ses traces comme phéromones avec `orchestrator_id`. Les autres handlers n'émettent pas automatiquement leurs résultats sur ce transport.
-- **Portée de diffusion** : la diffusion immédiate via `LOCAL_BROADCAST_LOG` est limitée au processus Node courant. Les signaux persistés dans SQLite peuvent être relus par un processus qui accède à même base, mais il n'existe pas de mécanisme de livraison cluster-wide ; la persistance partagée ne constitue donc pas une diffusion entre instances.
-- **Event bus local** : `signalEventBus` est un EventEmitter en mémoire — les workers d'autres processus Node ne reçoivent pas les notifications push. Pour un vrai multi-process, un transport distribué (Redis, SQLite triggers + polling) serait nécessaire (P3).
-- **Coalescing en mémoire** : `signalCoalescerService` maintient les périodes réfractaires en mémoire — perdu au redémarrage. Pas de coalescing inter-process.
+- **EventBus local** : `signalEventBus` est un EventEmitter en mémoire — les workers d'autres processus Node ne reçoivent pas les notifications push. Le `signalPlaneSubscriber` est le consumer production mais reste local au processus. Pour un vrai multi-process, un transport distribué (Redis, SQLite triggers + polling) serait nécessaire (P3).
+- **Coalescing en mémoire** : `signalCoalescerService` maintient les périodes réfractaires et buffers en mémoire — perdu au redémarrage. Pas de coalescing inter-process.
+- **Plasticité en mémoire** : `synapticPlasticityService` garde les poids en mémoire (Map). Perdus au redémarrage — pas de persistance SQLite (TODO P3).
+- **LLM escalation** : quand `llmRequired=true`, le signal est logué par le subscriber mais pas encore routé vers un service cognitif spécifique (TODO).
 - **Registres en mémoire** : la plupart des handlers utilisent des `Map` module-level (ex: `FETUS_REGISTRY`, `DIAPAUSE_REGISTRY`) perdus au redémarrage.
 - **Relations cross-agent** : le service `crossAgentRelationalService.js` persiste dans SQLite les liens chimériques, jumeaux, parent-enfant et plasmidiques produits par les handlers de fusion chimérique, jumeaux conjoin(t)s/sesquizygotiques, chimérisme germinal et promotion plasmidique. Cette table de relations est durable ; les registres de détails de chaque handler restent distincts et peuvent encore dépendre de leur persistance adaptative.
 - **Codex local requis** : les handlers appellent `genos biomimicry ...` via `runGenosSync` — si le binaire Rust n'est pas disponible, les handlers retournent `tool_error`.
