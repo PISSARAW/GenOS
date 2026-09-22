@@ -8,7 +8,7 @@ const { mergeAgents } = require('./merge');
 const { snapshotAgentState, commitAgentState, branchAgentState, checkoutAgentState, restoreAgentState } = require('./snapshots');
 const { cherryPickAgentState } = require('./cherryPick');
 const { replayAgentState, bisectAgentState } = require('./replay');
-const { cloneNode } = require('./clone');
+const { cloneNode, cloneFromAgent, cloneFromNode, insertClonedAgent } = require('./clone');
 const { killNode } = require('./kill');
 const { getPhylogeny, getAlleles, performCrossover } = require('./genetics');
 
@@ -26,6 +26,9 @@ module.exports = {
   replayAgentState,
   bisectAgentState,
   cloneNode,
+  cloneFromAgent,
+  cloneFromNode,
+  insertClonedAgent,
   killNode,
   getGenomeGraph,
   synthesizeGenome,

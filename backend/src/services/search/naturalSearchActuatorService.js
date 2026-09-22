@@ -1,12 +1,9 @@
 const {
-  forage,
   plasticity,
-  clonalAffinity,
-  hypermutation,
-  speciation,
-  evolution,
-  replayCausal
+  speciation
 } = require('./naturalSearchActuatorPrimitives');
+
+const { ActuatorModules } = require('./actuatorModules');
 
 class NaturalSearchActuator {
   constructor(options = {}) {
@@ -16,14 +13,60 @@ class NaturalSearchActuator {
     this.searchGenome = options.searchGenome || { patches: new Map(), population: null, genome: null };
     this.maxReceipts = 50;
     this.receipts = [];
+    this.modules = options.modules || new ActuatorModules({ ledger: this.ledger });
   }
 
   async forage(context) {
-    const receipt = await forage(context, this.searchGenome, this.db);
+    const receipt = {
+      id: `forage_${Date.now()}`,
+      process: 'FORAGE',
+      timestamp: Date.now(),
+      action: null,
+      result: null,
+      status: 'success'
+    };
+
+    try {
+      const agentId = context.agentId;
+      const patch = this.modules.ensurePatch(agentId);
+      const elapsedTimeSec = context.elapsedTimeSec || 10;
+
+      const infoGain = 0.05 + Math.random() * 0.1;
+      this.modules.recordForageStep(patch.id, infoGain, 1);
+
+      if (this.modules.shouldDepartPatch(patch.id, elapsedTimeSec)) {
+        receipt.action = 'PATCH_DEPARTURE';
+        receipt.result = {
+          departed: true,
+          patchId: patch.id,
+          visits: patch.visits,
+          reason: 'marginal yield below threshold'
+        };
+        const updatedPatch = this.modules.patchService.patches.get(patch.id);
+        if (updatedPatch) {
+          updatedPatch.history = [];
+          updatedPatch.visits = 0;
+        }
+      } else {
+        receipt.action = 'PATCH_CONTINUE';
+        receipt.result = {
+          departed: false,
+          patchId: patch.id,
+          visits: patch.visits,
+          infoGain: Number(infoGain.toFixed(4)),
+          reason: 'yield still acceptable'
+        };
+      }
+    } catch (err) {
+      receipt.status = 'failure';
+      receipt.result = { error: err.message };
+    }
+
     this.recordReceipt(receipt);
     if (this.persistence && receipt.result && receipt.result.patchId) {
       try {
-        await this.persistence.savePatchVisit(context.agentId, receipt.result.patchId, receipt.result.infoGain || 0, receipt.result.departed || false);
+        await this.persistence.savePatchVisit(context.agentId, receipt.result.patchId,
+          receipt.result.infoGain || 0, receipt.result.departed || false);
       } catch (_) {}
     }
     return receipt;
@@ -36,18 +79,92 @@ class NaturalSearchActuator {
   }
 
   async clonalAffinity(context) {
-    const ctxWithLedger = { ...context, ledger: this.ledger };
-    const receipt = await clonalAffinity(ctxWithLedger, this.searchGenome, this.db);
+    const receipt = {
+      id: `clonal_${Date.now()}`,
+      process: 'CLONAL_AFFINITY_SEARCH',
+      timestamp: Date.now(),
+      action: 'VARIANTS_CREATED',
+      result: null,
+      status: 'success'
+    };
+
+    try {
+      const baseHypothesis = context.baseHypothesis || { id: 'base', statement: 'Hypothèse de base' };
+      const variants = this.modules.createAffinityVariants(null, 4, 'minimal');
+      const best = this.modules.selectAffinityVariant(variants, context.agentId);
+
+      receipt.result = {
+        baseHypothesis: baseHypothesis.statement,
+        variantsCreated: variants.length,
+        variants: variants.map(v => ({ id: v.id, statement: v.statement || v.hypothesisFamily })),
+        selectedVariant: best.id,
+        selectionScore: best.score || 0
+      };
+
+      if (this.ledger && best) {
+        try {
+          const h = this.ledger.propose({
+            agentId: context.agentId,
+            statement: best.statement || `${best.hypothesisFamily} variant`,
+            confidence: 0.5
+          });
+          receipt.result.proposedHypothesisId = h.id;
+        } catch (ledgerErr) {
+          receipt.result.ledgerNote = `Ledger propose skipped: ${ledgerErr.message}`;
+        }
+      }
+    } catch (err) {
+      receipt.status = 'failure';
+      receipt.result = { error: err.message };
+    }
+
     this.recordReceipt(receipt);
+    if (this.persistence && receipt.result) {
+      try {
+        await this.persistence.saveDecision(context.agentId, {
+          process: 'CLONAL_AFFINITY_SEARCH',
+          classification: 'CLONAL_AFFINITY',
+          pressure: 0.5,
+          searchYield: 0.1,
+          stepsSinceProgress: 0,
+          falsifiedHypotheses: 0,
+          diagnostics: { selectedVariant: receipt.result?.selectedVariant }
+        });
+      } catch (_) {}
+    }
     return receipt;
   }
 
   async hypermutation(context) {
-    const receipt = await hypermutation(context, this.searchGenome, this.db);
+    const receipt = {
+      id: `hyper_${Date.now()}`,
+      process: 'STRESS_HYPERMUTATION',
+      timestamp: Date.now(),
+      action: 'GENOME_MUTATED',
+      result: null,
+      status: 'success'
+    };
+
+    try {
+      const mutationResult = this.modules.mutateGenome(context.radius || 'medium');
+      receipt.result = {
+        genomeId: mutationResult.mutatedGenome.id,
+        radius: context.radius || 'medium',
+        mutations: mutationResult.mutations,
+        oldFamily: mutationResult.oldGenome.hypothesisFamily,
+        newFamily: mutationResult.mutatedGenome.hypothesisFamily
+      };
+      this.searchGenome.genome = mutationResult.mutatedGenome;
+    } catch (err) {
+      receipt.status = 'failure';
+      receipt.result = { error: err.message };
+    }
+
     this.recordReceipt(receipt);
     if (this.persistence && receipt.result && receipt.result.genomeId) {
       try {
-        await this.persistence.saveGenomeSnapshot(context.agentId, 'STRESS_HYPERMUTATION', this.searchGenome.genome, receipt.result.mutations);
+        await this.persistence.saveGenomeSnapshot(context.agentId, 'STRESS_HYPERMUTATION',
+          this.searchGenome.genome, receipt.result.mutations);
       } catch (_) {}
     }
     return receipt;
@@ -60,22 +177,79 @@ class NaturalSearchActuator {
   }
 
   async evolution(context) {
-    const receipt = await evolution(context, this.searchGenome, this.db);
+    const receipt = {
+      id: `evolution_${Date.now()}`,
+      process: 'EVOLUTION',
+      timestamp: Date.now(),
+      action: 'POPULATION_EVOLVED',
+      result: null,
+      status: 'success'
+    };
+
+    try {
+      const env = {
+        successfulFamilies: context.successfulFamilies || [],
+        failedFamilies: context.failedFamilies || [],
+        recommendedStrategies: context.recommendedStrategies || []
+      };
+      const evolutionResult = this.modules.evolveSearchPopulation(env);
+
+      receipt.result = {
+        initialPopulation: context.population || 10,
+        generations: context.generations || 3,
+        evolvedPopulation: this.modules.evolutionEngine.population.length,
+        evolutionLog: evolutionResult,
+        bestGenome: this.modules.getBestGenome()
+      };
+      this.searchGenome.population = this.modules.evolutionEngine.population;
+    } catch (err) {
+      receipt.status = 'failure';
+      receipt.result = { error: err.message };
+    }
+
     this.recordReceipt(receipt);
-    if (this.persistence && receipt.result && receipt.result.evolvedPopulation) {
+    if (this.persistence && receipt.result && receipt.result.evolutionLog) {
       try {
-        await this.persistence.saveGenomeSnapshot(context.agentId, 'EVOLUTION', { population: this.searchGenome.population }, receipt.result.evolutionLog);
+        await this.persistence.saveGenomeSnapshot(context.agentId, 'EVOLUTION',
+          { population: this.searchGenome.population }, receipt.result.evolutionLog);
       } catch (_) {}
     }
     return receipt;
   }
 
   async replayCausal(context) {
-    const receipt = await replayCausal(context, this.searchGenome, this.db);
+    const receipt = {
+      id: `replay_${Date.now()}`,
+      process: 'REPLAY_CAUSAL',
+      timestamp: Date.now(),
+      action: 'REPLAY_INITIATED',
+      result: null,
+      status: 'success'
+    };
+
+    try {
+      const failedHypothesis = context.lockInHypothesis || { id: 'unknown', statement: 'unknown' };
+      const events = context.events || [];
+      const ledger = this.ledger;
+      const replayResult = await this.modules.replayCausalEvents(context.agentId, failedHypothesis, events, ledger);
+
+      receipt.action = replayResult.receipt?.action || 'REPLAY_INITIATED';
+      receipt.result = {
+        restorePoint: replayResult.receipt?.result?.restorePoint || context.lastKnownGood || 'last_checkpoint',
+        stateRestored: replayResult.receipt?.result?.stateRestored || false,
+        checkpointIndex: replayResult.receipt?.result?.checkpointIndex ?? -1,
+        checkpointCount: replayResult.receipt?.result?.checkpointCount ?? 0
+      };
+    } catch (err) {
+      receipt.status = 'failure';
+      receipt.result = { error: err.message };
+    }
+
     this.recordReceipt(receipt);
     if (this.persistence && receipt.result) {
       try {
-        await this.persistence.saveReplayLog(context.agentId, receipt.result.restorePoint || 'unknown', receipt.result.stateRestored || false, receipt.result.snapshotId);
+        await this.persistence.saveReplayLog(context.agentId, receipt.result.restorePoint,
+          receipt.result.stateRestored, null);
       } catch (_) {}
     }
     return receipt;

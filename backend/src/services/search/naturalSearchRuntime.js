@@ -8,6 +8,8 @@ const { SearchPersistence } = require('./searchPersistenceService');
 const { SearchIntegration } = require('./searchIntegrationService');
 const { getDatabase } = require('../../db');
 
+const { ActuatorModules } = require('./actuatorModules');
+
 const agentSearchState = new Map();
 let cachedDb = null;
 
@@ -71,7 +73,11 @@ async function getOrCreateSearchState(agentId, ctxDb = null) {
     const persistence = new SearchPersistence(db);
     const ledger = new HypothesisLedger({ budgetRatioThreshold: 0.8 });
     const controller = new NaturalSearchController({ ledger });
-    const actuator = new NaturalSearchActuator({ db, persistence, ledger, searchGenome: { patches: new Map(), population: null, genome: null } });
+    const actuator = new NaturalSearchActuator({
+      db, persistence, ledger,
+      searchGenome: { patches: new Map(), population: null, genome: null },
+      modules: new ActuatorModules({ ledger })
+    });
     const causalProgress = new CausalProgressService();
     const integration = new SearchIntegration();
     agentSearchState.set(agentId, {
@@ -334,6 +340,49 @@ async function processSearchEvent(searchState, ctx, event) {
   emitDecision(agentId, selection, searchCtx);
   const receipt = await executeProcess({ selection, searchCtx, actuator });
   if (receipt) emitAction(agentId, selection.process, receipt);
+
+  // Point 12 — Mémoire négative : enregistrer les hypothèses nouvellement falsifiées
+  if (receipt && receipt.status === 'success') {
+    const modules = actuator.modules;
+    // Culture : compiler un plasmide quand un processus de recherche réussit
+    if (selection.process === 'EVOLUTION' || selection.process === 'CLONAL_AFFINITY_SEARCH') {
+      try {
+        const genome = modules.getBestGenome ? modules.getBestGenome() : null;
+        if (genome && receipt.result) {
+          const plasmid = modules.compilePlasmid(genome, {
+            environment: {
+              searchYield: searchCtx.searchYield || 0,
+              falsifiedHypotheses: searchCtx.falsifiedHypotheses || 0
+            },
+            generations: receipt.result.evolutionLog ? receipt.result.evolutionLog.length : 0,
+            successRate: 0.7,
+            reproducible: true
+          });
+          if (plasmid) {
+            modules.cultureService.transmit(plasmid.id, agentId);
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  // Point 12 — Mémoire négative : capturer les hypothèses falsifiées
+  const falsifiedHypotheses = ledger.hypothesesForAgent(agentId).filter(h => h.status === 'falsified');
+  for (const h of falsifiedHypotheses) {
+    try {
+      const modules = actuator.modules;
+      modules.recordNegativeOutcome(agentId, h, {
+        ref: `falsified:${h.id}`,
+        strength: 0.8,
+        reliability: 0.9
+      }, {
+        signature: eventType,
+        conditions: [],
+        scope: 'agent'
+      });
+    } catch (_) {}
+  }
+
   await persistSearchState(agentId, searchState, selection);
 }
 

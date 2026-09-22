@@ -155,5 +155,8 @@ async function cloneNode(req, res) {
 }
 
 module.exports = {
-  cloneNode
+  cloneNode,
+  cloneFromAgent,
+  cloneFromNode,
+  insertClonedAgent
 };
