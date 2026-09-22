@@ -177,10 +177,62 @@ async function main() {
   assert.equal(rejected.success, false, 'un state_hash falsifié doit être rejeté');
   assert.ok(rejected.quarantined, 'l objet falsifié doit être quarantiné');
 
+  // --- Point 19 : un événement de télémétrie ne change PAS le tree durable ---
+  const { treeHash } = require('../src/services/agentGitService/canonical');
+  const beforeTree = treeHash({ ...pickState, events: [{ event_id: 'e1' }] });
+  const afterTree = treeHash({ ...pickState, events: [{ event_id: 'e1' }, { event_id: 'e2', event_type: 'TELEMETRY' }] });
+  assert.equal(beforeTree, afterTree, 'le tree_hash doit ignorer la section events (Evidence Tree séparé)');
+
+  // --- Point 13 : makeEvent propage commit_id ---
+  const { makeEvent } = require('../src/services/genomeEventLog');
+  const evt = makeEvent('MUTATION', 'genome-ref-1', { commitId: 'C42' });
+  assert.equal(evt.commit_id, 'C42', 'makeEvent doit propager commitId -> commit_id');
+  const evt2 = makeEvent('MUTATION', 'genome-ref-1', { commit_id: 'C43' });
+  assert.equal(evt2.commit_id, 'C43', 'makeEvent doit propager commit_id tel quel');
+
+  // --- Points 9/10/12 : rebase sémantique sur SQLite réel ---
+  // Setup: agent 1 avec main (C1) puis branche feature (C2, C3), agent garde C1'.
+  await db.run('DELETE FROM genome_decisions WHERE created_by = ?', 'agent-e2e-1');
+  await db.run("INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES ('d-base', 'Base', 'base', 'agent-e2e-1', 'strategy', 1)");
+  const baseCommit = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'main', metadata: { message: 'base' } });
+  await db.run("INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES ('d-f1', 'F1', 'feature1', 'agent-e2e-1', 'strategy', 1)");
+  const feature1 = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'feature', metadata: { message: 'f1' } });
+  await db.run("INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES ('d-f2', 'F2', 'feature2', 'agent-e2e-1', 'strategy', 1)");
+  const feature2 = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'feature', metadata: { message: 'f2' } });
+  // main avance indépendamment (C1').
+  await db.run("INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES ('d-main2', 'Main2', 'main avance', 'agent-e2e-1', 'strategy', 1)");
+  const mainAdvanced = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'main', metadata: { message: 'main2' } });
+
+  // Point 12 : merge-base de feature2 et main2 = baseCommit (best ancestor).
+  const mb = await agentGit.mergeBase({ ...makeReq(), body: { leftObjectId: feature2.id, rightObjectId: mainAdvanced.id } });
+  assert.ok(mb.success, 'mergeBase doit réussir');
+  assert.equal(mb.mergeBaseObjectId, baseCommit.id, 'le merge-base doit être le commit de base commun');
+
+  // Point 9/10 : rebase de feature sur main2 — 2 commits rejoués A', B' chaînés.
+  const reb = await agentGit.rebase({ ...makeReq(), body: { ontoObjectId: mainAdvanced.id, headObjectId: feature2.id } });
+  assert.ok(reb.success, 'rebase doit réussir');
+  assert.equal(reb.replayedCommits.length, 2, 'les 2 commits feature doivent être rejoués');
+  assert.equal(reb.newCommits.length, 2, 'le rebase doit produire 2 nouveaux commits (pas un squash)');
+  // Le dernier commit rebase doit avoir le premier comme parent (chaînage A'->B').
+  const rebasedLast = await db.get('SELECT parent_commit_id FROM agent_git_objects WHERE id = ?', reb.id);
+  assert.equal(rebasedLast.parent_commit_id, reb.newCommits[0], 'B\' doit avoir A\' comme parent');
+  // A' doit avoir onto (main2) comme parent.
+  const rebasedFirst = await db.get('SELECT parent_commit_id FROM agent_git_objects WHERE id = ?', reb.newCommits[0]);
+  assert.equal(rebasedFirst.parent_commit_id, mainAdvanced.id, 'A\' doit avoir onto (main2) comme parent');
+  // L état final contient les décisions des deux côtés (main2 + feature).
+  const rebState = JSON.parse((await db.get('SELECT state_json FROM agent_git_objects WHERE id = ?', reb.id)).state_json);
+  const rebDecisionIds = (rebState.decisions || []).map(d => d.id);
+  assert.ok(rebDecisionIds.some(id => String(id).endsWith('d-main2')), 'l état rebase contient la décision de main2');
+  assert.ok(rebDecisionIds.some(id => String(id).endsWith('d-f2')), 'l état rebase contient la décision feature2');
+
   console.log('[OK] point 1 - SQLite réel : schéma crypto complet, createCommit + parent + signature vérifiés');
   console.log('[OK] point 3 - format wire canonical: push/receive vérifiés sur objets réellement signés');
   console.log('[OK] point 4 - patch REPLACE + identityOf (decisions/plasmids/permissions) sur SQLite réel');
   console.log('[OK] point 5 - cherry-pick/revert committent l état résultant réel (target + patch)');
+  console.log('[OK] point 9/10 - rebase: diff(BASE,commit) + commits A\'/B\' chaînés, pas de squash');
+  console.log('[OK] point 12 - merge-base best-ancestor sur graphe réel');
+  console.log('[OK] point 13 - makeEvent propage commit_id');
+  console.log('[OK] point 19 - events exclus du tree durable (Evidence Tree séparé)');
   console.log(`     commit=${commit.id} commitHash=${commit.commitHash.slice(0, 12)}…`);
 }
 
