@@ -16,6 +16,7 @@ const suites = {
     ['procedural runtime E2E', 'test_procedural_runtime_e2e.js'],
     ['procedural primitives', 'test_procedural_primitives.js'],
     ['procedural causal validation', 'test_procedural_causal_validation.js'],
+    ['procedural E2E autonome', 'test_procedural_e2e_autonome.js'],
     ['REST smoke', 'test_backend.js'],
     ['quality', 'run_quality_suite.js']
   ],
