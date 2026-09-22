@@ -12,6 +12,7 @@ pub struct Niche {
 }
 
 /// Archive de diversité par Quality-Diversity.
+#[derive(Clone, Debug)]
 pub struct QDArchive {
     pub niches: Vec<Niche>,
     pub descriptor_fn: fn(&Genome) -> Vec<f64>,
@@ -74,7 +75,7 @@ fn default_descriptor(genome: &Genome) -> Vec<f64> {
     vec![gene_count, total_volume, extra]
 }
 
-fn euclidean_distance(a: &[f64], b: &[f64]) -> f64 {
+pub fn euclidean_distance(a: &[f64], b: &[f64]) -> f64 {
     a.iter()
         .zip(b.iter())
         .map(|(x, y)| (x - y).powi(2))
@@ -189,6 +190,7 @@ mod tests {
     #[test]
     fn environment_shift_rotates_weights() {
         let mut env = EnvironmentState::new(vec!["t1".into(), "t2".into(), "t3".into()]);
+        env.task_weights = vec![0.6, 0.3, 0.1];
         let initial = env.task_weights.clone();
         env.shift();
         assert_ne!(env.task_weights, initial);

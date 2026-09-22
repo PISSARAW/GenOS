@@ -2,6 +2,7 @@ use crate::genome::Genome;
 use crate::mutation_rates::MutationRates;
 use crate::mutation_scales::{MutationResult, MutationScale};
 use rand::Rng;
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 
 /// Opérateur évolutif auto-modifiable : ses propres taux évoluent.
@@ -138,14 +139,13 @@ mod tests {
 
     #[test]
     fn self_modifying_mutator_mutates() {
-        let mutator = SelfModifyingMutator::new(MutationRates {
+        let mut mutator = SelfModifyingMutator::new(MutationRates {
             nucleotide: 0.3,
             codon: 0.0,
             gene: 0.5,
             segment: 0.0,
             chromosome: 0.0,
             genome: 0.0,
-            intergenomic: 0.0,
         });
         let mut genome = Genome::new("SELF_MOD");
         let gene = crate::gene::Gene::new("MOD_GENE", "ATGCATGCATGC");
@@ -164,7 +164,6 @@ mod tests {
             segment: 0.0,
             chromosome: 0.0,
             genome: 0.0,
-            intergenomic: 0.0,
         });
         let initial_rate = mutator.mutation_rates.nucleotide;
         mutator.auto_adjust(-0.5);
@@ -180,7 +179,6 @@ mod tests {
             segment: 0.0,
             chromosome: 0.0,
             genome: 0.0,
-            intergenomic: 0.0,
         });
         let initial_rate = mutator.mutation_rates.nucleotide;
         mutator.auto_adjust(0.5);
