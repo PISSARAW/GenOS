@@ -61,17 +61,15 @@ async function migrateProceduralGenomes(db) {
   }
 }
 
+function validatePersistInput(organism) {
+  if (!organism.apiVersion) throw new Error('missing apiVersion');
+  if (!organism.kind) throw new Error('missing kind');
+  if (!organism.metadata) throw new Error('missing metadata');
+}
+
 async function persistGenome(db, organism, options = {}) {
-  // Validate basic required fields (early return pattern)
-  if (!organism.apiVersion) {
-    throw new Error('missing apiVersion');
-  }
-  if (!organism.kind) {
-    throw new Error('missing kind');
-  }
-  if (!organism.metadata) {
-    throw new Error('missing metadata');
-  }
+  // Phase 0: Validate basic required fields (early return pattern)
+  validatePersistInput(organism);
   
   // Phase 1: Compute hashes and versionId first
   const structureHash = identity.structureHash(organism);

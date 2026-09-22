@@ -18,6 +18,7 @@ const remaining = require('./strategyRemaining');
 const structuralHandlers = require('./structuralPlasticityHandlers');
 const animalControl = require('./animalControl');
 const cognitiveMerge = require('./cognitiveMerge');
+const procedural = require('./proceduralHandlers');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -365,6 +366,9 @@ const HANDLERS = {
   context_compaction: (ctx = {}) => require('./structuralPlasticity').contextCompaction(ctx),
 
   ...structuralHandlers,
+
+  // Lot 16 — Organisme Procédural (mutation -> immune -> seal -> semantics -> gate -> persist)
+  ...procedural.HANDLERS,
 
   // Lot 15 — Orchestration native (Rust) — Activation plasticité structurelle
   activate_structural_plasticity: async (ctx = {}) => {

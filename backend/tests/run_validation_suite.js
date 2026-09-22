@@ -14,6 +14,8 @@ const suites = {
     ['procedural graph semantics', 'test_procedural_graph_semantics.js'],
     ['procedural promotion gate', 'test_procedural_promotion_gate.js'],
     ['procedural runtime E2E', 'test_procedural_runtime_e2e.js'],
+    ['procedural primitives', 'test_procedural_primitives.js'],
+    ['procedural causal validation', 'test_procedural_causal_validation.js'],
     ['REST smoke', 'test_backend.js'],
     ['quality', 'run_quality_suite.js']
   ],
