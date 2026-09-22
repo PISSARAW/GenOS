@@ -5,10 +5,38 @@ const { validateSpec } = require('../services/specValidator');
 const { GENOS_SUBDOMAINS, subdomainsForConcept } = require('./genosSubdomains');
 const { maturityForConcept } = require('./serviceMaturity');
 const { mappingForConcept } = require('./runtimeMappings');
+const { DEFAULTS_BY_ROLE, ROLE_BY_ID } = require('./conceptRoles');
 
 const CONCEPT_SCHEMA = 'philosophical-concept.schema.json';
 
+function resolveRole(concept) {
+  if (concept.role != null) return concept.role;
+  return ROLE_BY_ID.get(concept.id) || null;
+}
+
+function resolveDefaults(role) {
+  return role ? (DEFAULTS_BY_ROLE[role] || {}) : {};
+}
+
+function resolveKnownLimits(concept, defaults) {
+  return concept.knownLimits && concept.knownLimits.length
+    ? concept.knownLimits
+    : (defaults.knownLimits || []);
+}
+
+function resolveField(conceptValue, defaultKey, defaults) {
+  return conceptValue ?? defaults[defaultKey] ?? null;
+}
+
 function normalizeConcept(concept) {
+  const resolvedRole = resolveRole(concept);
+  const defaults = resolveDefaults(resolvedRole);
+  const knownLimits = resolveKnownLimits(concept, defaults);
+  const runtimeAuthority = resolveField(concept.runtimeAuthority, 'runtimeAuthority', defaults);
+  const falsifiable = resolveField(concept.falsifiable, 'falsifiable', defaults);
+  const scope = resolveField(concept.scope, 'scope', defaults);
+  const historicalConfidence = resolveField(concept.historicalConfidence, 'historicalConfidence', defaults);
+
   return {
     apiVersion: 'genos.philosophy/v1',
     kind: 'PhilosophicalConcept',
@@ -33,8 +61,16 @@ function normalizeConcept(concept) {
     mapping: concept.mapping || mappingForConcept(concept.id),
     serviceMaturity: maturityForConcept(concept),
     provenance: concept.provenance || {
-      version: '1.0.0', sourceType: 'genos', evidenceStatus: 'documented', interpretationStatus: 'conceptual'
-    }
+      version: '1.0.0',      sourceType: 'genos',
+      evidenceStatus: 'documented',
+      interpretationStatus: 'conceptual',
+    },
+    role: resolvedRole,
+    runtimeAuthority,
+    falsifiable,
+    scope,
+    knownLimits,
+    historicalConfidence,
   };
 }
 

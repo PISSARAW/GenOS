@@ -1,7 +1,7 @@
 # Natural Creative Ecology — Créativité Artificielle Multi-Échelle
 
-- **Statut** : Infrastructure opérationnelle — 7 moteurs implémentés et câblés, pont curiosité Node→Rust, TOPOLOGY_SIGNALS appliqué, dispatch_worker enrichi, tests contractuels 4/4 verts. Tests d'ablation en prototype (pas scientifiquement valides). Boucle NCE fermée côté orchestrateur natif.
-- **Portée** : `backend/src/services/{curiosityService,curiosityExplorerService,curiosityBridgeService,nceIntegrationService,ncePromptService,nceEngines,representationalMutationEngine,exaptationEngine,playService,phenotypicDevelopmentService,environmentGeneratorService,culturalTransmissionService,culturalSelectionService,culturalLearningService}.js`, `backend/bin/{genos-orchestrate.cjs,topologyHandlers.cjs,orchestratorActions.cjs}`, `crates/genos-orchestrator/src/{drives,observer}.rs`, `backend/tests/nce_contract_tests.js`, `docs/08-philosophie.md`.
+- **Statut** : Infrastructure opérationnelle — 7 moteurs implémentés et câblés, pont curiosité Node→Rust actif (`WorldState.curiosity_hint` pilote `Goal::Explore`), POET attend la fin réelle de l'agent via télémétrie, `nceMetadata` persisté dans `metadata_json`, TOPOLOGY_SIGNALS appliqué, dispatch_worker enrichi, tests contractuels 4/4 verts. Tests d'ablation en prototype (pas scientifiquement valides). Boucle NCE fermée côté orchestrateur natif.
+- **Portée** : `backend/src/services/{curiosityService,curiosityExplorerService,curiosityBridgeService,nceIntegrationService,ncePromptService,nceEngines,representationalMutationEngine,exaptationEngine,playService,phenotypicDevelopmentService,environmentGeneratorService,culturalTransmissionService,culturalSelectionService,culturalLearningService,poetExecutionEngine}.js`, `backend/bin/{genos-orchestrate.cjs,topologyHandlers.cjs,orchestratorActions.cjs,orchestratorMissionHelpers.cjs}`, `crates/genos-orchestrator/src/{drives,observer,planner}.rs`, `backend/tests/nce_contract_tests.js`, `docs/08-philosophie.md`.
 - **Dernière revue** : 2026-09-22.
 - **Dérivé** : [Mathematical Organism](mathematical-organism.md) — implémentation NCE pour la recherche mathématique.
 
@@ -62,7 +62,7 @@ CrossConsolidation
 
 Métriques : `dreams_generated`, `unique_concepts_generated`, `recombined_hypotheses`, `prediction_error`, `validated_hypotheses`, `novel_concepts_promoted`
 
-### Drives endogènes (`crates/genos-orchestrator/drives.rs`)
+### Drives endogènes (`crates/genos-orchestrator/src/drives.rs`)
 
 ```rust
 energy
@@ -89,6 +89,8 @@ drives.rs → Goal::Explore
 ```
 
 Le backend Node calcule `computeCuriosity()` (learning progress, IG, novelty, affordances, risk, cost) et l'écrit dans un fichier JSON partagé. Le Rust (`observer.rs:read_curiosity_bridge()`) lit ce fichier et injecte la valeur dans `WorldState.curiosity_hint`. `drives.rs` utilise cette valeur pour piloter `Goal::Explore` lorsque `curiosity > 0.5 && !observed`.
+
+**État actuel** : le pont est actif. `WorldState.curiosity_hint` (champ `f64` dans `planner.rs`, défaut `0.0`) est lu par `observer.rs` et consommé par `drives.rs:from_state()` pour surcharger le signal de curiosité par défaut quand il est strictement positif.
 
 ### Évolution multi-îlots (`crates/genos-orchestrator/evolution.rs`)
 
@@ -125,7 +127,7 @@ plasmid_divergent_optimization
 | Pas d'exaptation | Pas de réinvestissement de capacités (corrigé via NCE) |
 | Pas de transmission culturelle | Pas d'accélération inter-agent (corrigé via NCE) |
 | Pas de plasticité phénotypique | Agents statiques (corrigé via NCE) |
-| Pas de coévolution environnement | Pas de POET-like (corrigé via NCE) |
+| Pas de coévolution environnement | Pas de POET-like (corrigé via NCE — `poetExecutionEngine` attend la fin réelle de l'agent via télémétrie, puis vérifie le snapshot) |
 | TOPOLOGY_SIGNALS décoratif | Moteurs NCE inconditionnels par topologie (corrigé via NCE) |
 
 ---
@@ -156,6 +158,9 @@ plasmid_divergent_optimization
 | 20 | **Novelty creates affordances** | `OEV(x) = N(x) × FP(x)` | Principe transversal |
 | 21 | **Tests contractuels** | Contrats : flags .enabled, Play+Phenotype dans boucle, enrichWorkerPromptSync retourne string | `nce_contract_tests.js` |
 | 22 | **Tests d'ablation** | BASELINE → +moteurs → FULL (prototype, pas scientifiquement valides) | `nce_ablation_tests.js` |
+| 23 | **POET attend l'agent** | `waitForMissionTermination()` via télémétrie avant vérification snapshot | `poetExecutionEngine` |
+| 24 | **Pont NCE → Rust** | `curiosity_hint` dans `WorldState` pilote `Goal::Explore` | `drives.rs` + `planner.rs` + `observer.rs` |
+| 25 | **nceMetadata persisté** | `metadata_json.nceMetadata` écrit par `prepareMission` | `orchestratorMissionHelpers.cjs` + `genos-orchestrate.cjs` |
 
 ---
 
@@ -643,4 +648,6 @@ Chaque mécanisme biologique doit correspondre à **un invariant computationnel 
 | `cc9d151f` | Transmission + sélection culturelle |
 | `9b66cab4` | Intégration orchestrateur natif |
 | `7e13195a` | P0 : contexte NCE complet, TOPOLOGY_SIGNALS, dispatch_worker, compatibilityScore Jaccard, exaptation Jaccard, pont Node→Rust, tests contractuels 4/4 |
-| `7e13195a` | Suppression nceWorkerEnrichment mort |
+| `a95d1584` | Points 7-8 : parents conservent distance/compatibility/potential/score, countOverlap ratio normalisé |
+| `d3e9ee5b` | Points 5-6 : POET attend l'agent via télémétrie, snapshot contract corrigé, pont NCE→Rust (`curiosity_hint`), `tissue_scheduler` |
+| `2c62dcab` | Points 9-10 : doc ablation correcte, `nceMetadata` persisté dans `metadata_json` |
