@@ -53,11 +53,12 @@ Implémenter un **Natural Search Control Plane** en plusieurs phases au-dessus d
 3. ✅ Séparer medium-stagnation de vrai lock-in via le Ledger
 4. ✅ Refaire Search Pressure comme signal d'état avec inertie
 5. ✅ Brancher le pipeline dans `agentProcessEventPipeline.js`
-6. ✅ Ajouter un `NaturalSearchActuator` reliant décisions aux primitives GenOS
-7. ✅ Persister le Ledger et la pression en SQLite
-8. ✅ Écrire un test E2E complet
-9. ✅ Intégrer SearchGenome, SearchPatch, CausalReplay, SearchEvolution via `naturalSearchActuatorPrimitives.js`
-10. ✅ Synchroniser docs/code (ADR 0032 + concept)
+6. ⚠️ `NaturalSearchActuator` présent et connecté aux primitives GenOS, partiel (seuls PLASTICITE/CLONAL/SPECIATION/REPLAY_CAUSAL modifient de vrais états)
+7. ⚠️ `SearchPersistenceService` implémenté (API async `sqlite`), mais `naturalSearchRuntime.js` efface l'état mémoire à la fin (`clearSearchState`) sans flush garanti
+8. ⚠️ Tests E2E sur composants isolés (`test_natural_search_runtime_e2e.js`), pas de test traversant `agentProcessEventPipeline → checkNaturalSearchControl`
+9. ❌ Modules isolés non intégrés au pipeline
+10. ❌ Runtime ne crée pas d'hypothèses de lui-même (seulement `maybeProposeHypothesis` réactif à `hypothesisId`/gain externe — Ledger demeure vide sans événement porteur)
+11. ❌ Provenance uniforme `SELF_REPORTED` forcée par le runtime ; pas de routage `LLM→SELF_REPORTED / runtime→INFERRED / tool→OBSERVED / verifier→VERIFIED`
 
 ## Références
 
