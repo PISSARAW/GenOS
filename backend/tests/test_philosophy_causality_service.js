@@ -45,9 +45,9 @@ async function main() {
     });
     test('isDeterministic checks outcomes determinism', () => {
       const runs = [{ finalOutcome: 'completed' }, { finalOutcome: 'completed' }, { finalOutcome: 'completed' }];
-      assert.strictEqual(causalityService.isDeterministic(runs), true);
+      assert.strictEqual(causalityService.isDeterministic(runs).deterministic, true);
       runs.push({ finalOutcome: 'failed' });
-      assert.strictEqual(causalityService.isDeterministic(runs), false);
+      assert.strictEqual(causalityService.isDeterministic(runs).deterministic, false);
     });
     test('checkRegularity validates causal ordering', () => {
       const links = [{ timestamp: 1000, causeAgent: 'a', effectAgent: 'b' }, { timestamp: 2000, causeAgent: 'b', effectAgent: 'c' }];

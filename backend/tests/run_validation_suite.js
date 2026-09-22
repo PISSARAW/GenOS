@@ -3,9 +3,21 @@ const path = require('node:path');
 
 const suites = {
   smoke: [
-    ['philosophical registry health', 'test_philosophy_registry_health.js'],
+    ['philosophy registry health', 'test_philosophy_registry_health.js'],
+    ['philosophy registry contracts', 'test_philosophy_registry_contracts.js'],
     ['mathematical philosophy registry', 'test_mathematical_philosophy_registry.js'],
     ['mathematical philosophy safety', 'test_mathematical_philosophy_safety.js'],
+    ['philosophy falsification', 'test_philosophy_falsification.js'],
+    ['typed evidence algebra', 'test_typed_evidence_algebra.js'],
+    ['fork identity service', 'test_fork_identity_service.js'],
+    ['normative ethics assessment', 'test_normative_ethics_service.js'],
+    ['ontology relation registry', 'test_ontology_relation_registry.js'],
+    ['philosophy ethics service', 'test_philosophy_ethics_service.js'],
+    ['philosophy causality service', 'test_philosophy_causality_service.js'],
+    ['philosophy ontology stances', 'test_philosophy_ontology_stances_service.js'],
+    ['philosophy modern services', 'test_modern_philosophy_services.js'],
+    ['philosophy mcp integration', 'test_philosophy_mcp_integration.js'],
+    ['political philosophy service', 'test_political_philosophy_service.js'],
     ['advanced IAM', 'test_advanced_iam.js'],
     ['mathematical promotion integration', 'test_mathematical_promotion_integration.js'],
     ['procedural organism foundations', 'test_procedural_organism_foundations.js'],

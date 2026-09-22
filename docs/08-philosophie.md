@@ -1164,7 +1164,7 @@ Index : [`docs/01-concepts/README.md`](01-concepts/README.md).
 ## 11. Architecture philosophique
 
 Le registre philosophique classifie les concepts en 5 catégories opérationnelles :
-**core** (7), **operational** (13), **analogy** (8), **lens** (60), **speculative** (4).
+**core** (11), **operational** (29), **analogy** (119), **lens** (197), **speculative** (18) — total 374 concepts.
 
 Chaque concept porte des métadonnées : `role`, `falsifiable`, `scope`, `knownLimits`, `historicalConfidence`.
 Voir [`GENOS_PHILOSOPHICAL_CONSTITUTION.md`](../GENOS_PHILOSOPHICAL_CONSTITUTION.md).
