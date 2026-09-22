@@ -14,6 +14,8 @@ const progress = require('./strategyExecutionProgress');
 const promotionGate = require('./strategyPromotionGate');
 const selfModel = require('./selfModelService');
 const survivalState = require('./survivalStateService');
+const { evaluateReportWithAeis } = require('./epistemic/aeisPromotionBridge');
+const { listVerifierDigests } = require('./verifierTrustRegistry');
 
 function normalizedBudget(input) {
   const source = input || {};
@@ -105,7 +107,20 @@ async function approveRun(db, id, options) {
   const promotion = await promotionGate.loadPromotionContext(db, row, settings);
   if (!promotion.report) throw new Error(`Execution run ${id} cannot be promoted without an evidence report.`);
   const receipt = promotionGate.assertApprovalProof(promotion, settings, id);
-  const gateContext = promotionGate.buildGateContext(promotion, settings, receipt);
+
+  // AEIS : évaluation épistémique du rapport via le Holobionte
+  let aeisEvaluation = null;
+  try {
+    aeisEvaluation = await evaluateReportWithAeis(promotion.report, {
+      domain: promotion.contract?.problem_profile?.domain || 'general',
+      trustedVerifierDigests: listVerifierDigests(),
+      immuneMemory: [],
+    });
+  } catch (_) {
+    // AEIS ne doit pas bloquer la promotion — le gate évaluera l'absence
+  }
+
+  const gateContext = promotionGate.buildGateContext({ promotion, options: settings, receipt, aeisEvaluation });
   const model = await selfModel.load(db, promotion.agentId, { mission: settings });
   selfModel.assertPromotionConstraints(model, gateContext);
   promotionGate.assertPromotionGate(promotion.contract, gateContext);

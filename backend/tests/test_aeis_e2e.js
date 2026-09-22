@@ -1,14 +1,5 @@
 'use strict';
 
-/**
- * E2E AEIS pipeline test.
- *
- * Scénario : un claim non vérifié entre dans le Holobionte,
- * un verifier adapter produit des observations (pas un stub),
- * le receipt reste immuable, l'assembly est construit automatiquement,
- * et la promotion est refusée en l'absence de preuve formelle.
- */
-
 const assert = require('node:assert');
 
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = process.env.GENOS_EPISTEMIC_RECEIPT_SECRET || 'test-secret-e2e';
@@ -20,7 +11,6 @@ const { adaptHolobionteResult, adaptImmuneResult } = require('../src/services/ep
 const { createFormalResult } = require('../src/services/formalResultService');
 const { issueReceipt, validateReceipt } = require('../src/services/epistemicVerifierReceiptService');
 const { evaluateIndependence } = require('../src/services/epistemicScheduler/independencePolicy');
-const { buildPreReceipt } = require('../src/services/epistemic/verifierReceiptBuilder');
 const { executeVerifierWithAdapter } = require('../src/services/epistemic/verifierAdapters');
 
 async function test(name, fn) {
@@ -117,14 +107,12 @@ async function run() {
       independent: false,
     });
 
-    // Le receipt est valide
     assert.strictEqual(
       validateReceipt(receipt, ['sha256:' + 'b'.repeat(64)]),
       true,
       'valid receipt should pass validation'
     );
 
-    // Modification après signature → invalid
     const tampered = { ...receipt, independent: true };
     assert.strictEqual(
       validateReceipt(tampered, ['sha256:' + 'b'.repeat(64)]),
@@ -194,32 +182,30 @@ async function run() {
   });
 
   // 12. Adapters : evidence normalisée (objet → array)
-  await test('Adapter coverage normalise evidence objet', () => {
-    const { executeVerifierWithAdapter: exec } = require('../src/services/epistemic/verifierAdapters');
+  await test('Adapter coverage normalise evidence objet', async () => {
     const antigen = {
       claim: 'X',
       epitopes: {
-        evidence: { kind: 'test_result', digest: 'sha256:abc' }, // objet, pas array
+        evidence: { kind: 'test_result', digest: 'sha256:abc' },
       },
     };
-    const result = exec(
+    const result = await executeVerifierWithAdapter(
       antigen,
       { type: 'coverage', coverageTarget: 0.5 },
       {}
     );
-    // L'adapter doit traiter l'evidence comme un tableau d'un élément
     assert.ok(result.observations.length > 0);
   });
 
   // 13. Adapters : claim text normalisé
-  await test('Adapter behavior normalise claim objet', () => {
+  await test('Adapter behavior normalise claim objet', async () => {
     const antigen = {
       claim: { text: 'Claim text object' },
       epitopes: {
         evidence: { kind: 'test_result' },
       },
     };
-    const result = executeVerifierWithAdapter(
+    const result = await executeVerifierWithAdapter(
       antigen,
       { type: 'behavior', searchScope: 'local' },
       {}

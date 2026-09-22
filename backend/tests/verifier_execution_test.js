@@ -2,14 +2,11 @@
 
 const assert = require('node:assert');
 
-// Le service de receipt signé requiert cette variable.
 if (!process.env.GENOS_EPISTEMIC_RECEIPT_SECRET) {
   process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'test-secret-for-verifier-execution';
 }
 
 const V = require('../src/services/epistemic/verifierExecutionService');
-
-// ---- création de receipt ----
 
 const antigen = {
   id: 'ag-1',
@@ -28,44 +25,42 @@ const verifier = {
   affinity: 0.8,
 };
 
-// ---- executeVerifier ----
+async function run() {
+  const result = await V.executeVerifier(antigen, verifier, {});
+  assert.ok(result.status === 'verified' || result.status === 'refuted' || result.status === 'inconclusive');
+  assert.ok(result.receipt);
+  assert.ok(result.receipt.evidenceDigest || result.receipt.signature, 'receipt devrait avoir un digest ou une signature');
+  assert.strictEqual(result.resultId, 'ag-1');
+  assert.strictEqual(result.evidenceDigest, 'sha256:abc');
+  assert.strictEqual(result.verifierDigest, 'testResult');
+  assert.ok(result.executedAt);
 
-const result = V.executeVerifier(antigen, verifier, {});
-assert.ok(result.status === 'verified' || result.status === 'refuted' || result.status === 'inconclusive');
-assert.ok(result.receipt);
-assert.ok(result.receipt.evidenceDigest || result.receipt.signature, 'receipt devrait avoir un digest ou une signature');
-assert.strictEqual(result.resultId, 'ag-1');
-assert.strictEqual(result.evidenceDigest, 'sha256:abc');
-assert.strictEqual(result.verifierDigest, 'testResult');
-assert.ok(result.executedAt);
+  const verifiers = [
+    { type: 'testResult', strategy: ['reproduire'], affinity: 0.7 },
+    { type: 'counterexample', strategy: ['chercher contre-exemple'], affinity: 0.6 },
+  ];
 
-// ---- executeVerifiers ----
+  const weakAntigen = {
+    id: 'ag-weak',
+    claim: 'Y est vrai',
+    epitopes: { evidence: { kind: 'observation' } },
+    producer: { model: 'test-model' },
+  };
+  const results = await V.executeVerifiers(weakAntigen, verifiers, {});
+  assert.strictEqual(results.status, 'refuted', 'counterexample verifier should refute weak antigen');
+  assert.strictEqual(results.results.length, 2);
+  assert.strictEqual(results.summary.refuted, 1);
 
-const verifiers = [
-  { type: 'testResult', strategy: ['reproduire'], affinity: 0.7 },
-  { type: 'counterexample', strategy: ['chercher contre-exemple'], affinity: 0.6 },
-];
+  const noVerifier = await V.executeVerifiers(antigen, [], {});
+  assert.strictEqual(noVerifier.status, 'no_verifier');
 
-// Un antigène sans digest permet au counterexample verifier de trouver un contre-exemple.
-const weakAntigen = {
-  id: 'ag-weak',
-  claim: 'Y est vrai',
-  epitopes: { evidence: { kind: 'observation' } },
-  producer: { model: 'test-model' },
-};
-const results = V.executeVerifiers(weakAntigen, verifiers, {});
-assert.strictEqual(results.status, 'refuted', 'counterexample verifier should refute weak antigen');
-assert.strictEqual(results.results.length, 2);
-assert.strictEqual(results.summary.refuted, 1);
+  const noAntigen = await V.executeVerifier(null, verifier, {});
+  assert.strictEqual(noAntigen.status, 'inconclusive');
 
-// ---- pas de verifier ----
+  console.log('OK verifierExecutionService');
+}
 
-const noVerifier = V.executeVerifiers(antigen, [], {});
-assert.strictEqual(noVerifier.status, 'no_verifier');
-
-// ---- pas d'antigen ----
-
-const noAntigen = V.executeVerifier(null, verifier, {});
-assert.strictEqual(noAntigen.status, 'inconclusive');
-
-console.log('OK verifierExecutionService');
+run().catch(err => {
+  console.error('FAIL:', err.message);
+  process.exit(1);
+});

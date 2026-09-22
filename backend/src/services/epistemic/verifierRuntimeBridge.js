@@ -4,17 +4,21 @@
  * Pont entre les verifiers AEIS et le runtime worker GenOS.
  *
  * Les verifiers assignés par le Holobionte sont exécutés comme des workers
- * isolés via `workerEvidenceBarrierPipeline`. Chaque worker reçoit :
+ * isolés via `executeVerifierWithAdapter`. Chaque worker reçoit :
  * - l'antigène épistémique
  * - la stratégie du verifier
  * - un budget d'exécution
  *
- * Les résultats sont retournés au Holobionte pour décision finale.
+ * Corrections P0-P1 :
+ * - independencePolicy évalue l'indépendance AVANT issueReceipt
+ * - Le receipt signé porte l'indépendance calculée (immuable après signature)
+ * - executeVerifierWithAdapter est async (await)
  */
 
 const { executeVerifierWithAdapter } = require('./verifierAdapters');
 const { buildPreReceipt } = require('./verifierReceiptBuilder');
 const { issueReceipt } = require('../epistemicVerifierReceiptService');
+const { evaluateIndependence } = require('../epistemicScheduler/independencePolicy');
 
 function buildVerifierWorker(antigen, verifier) {
   return {
@@ -42,10 +46,30 @@ function buildVerifierPrompt(antigen, verifier) {
   ].join('\n');
 }
 
+function buildVerifierDescriptor(verifier, antigen) {
+  return {
+    actorId: `verifier-${verifier.type}`,
+    model: verifier.type,
+    version: '1.0',
+    strategy: (verifier.strategy || []).join(','),
+    evidenceSource: antigen.id || 'unknown',
+    workspaceId: `ws-verifier-${verifier.type}`,
+  };
+}
+
+/**
+ * Évalue l'indépendance d'un verifier par rapport aux verifiers précédents.
+ * L'indépendance est déterminée AVANT la signature du receipt.
+ */
+function evaluateVerifierIndependence(verifier, antigen, priorVerifiers) {
+  const descriptor = buildVerifierDescriptor(verifier, antigen);
+  const priorDescriptors = priorVerifiers.map(v => buildVerifierDescriptor(v, antigen));
+  return evaluateIndependence(descriptor, priorDescriptors);
+}
+
 /**
  * Exécute un batch de verifiers comme des workers isolés.
- * Chaque worker est exécuté via `executeVerifier` (pas de véritable
- * isolation processuelle, mais isolation logique via le receipt signé).
+ * L'indépendance est calculée avant signature — le receipt est immuable.
  */
 async function executeVerifierWorkers(antigen, verifiers, opts = {}) {
   if (!verifiers || !verifiers.length) {
@@ -53,15 +77,19 @@ async function executeVerifierWorkers(antigen, verifiers, opts = {}) {
   }
 
   const results = [];
+  const executedVerifiers = [];
+
   for (const verifier of verifiers) {
     try {
-      const { status, observations, counterexamples } = executeVerifierWithAdapter(
+      const { status, observations, counterexamples } = await executeVerifierWithAdapter(
         antigen,
         verifier,
         { worker: buildVerifierWorker(antigen, verifier), timeoutMs: opts.timeoutMs || 30000 }
       );
-      // Construit un pre-receipt intermédiaire, puis signature via
-      // epistemicVerifierReceiptService pour unifier tous les receipts AEIS.
+
+      // Évalue l'indépendance AVANT de signer le receipt
+      const independence = evaluateVerifierIndependence(verifier, antigen, executedVerifiers);
+
       const preReceipt = buildPreReceipt({
         resultId: antigen.id,
         evidenceDigest: antigen.epitopes?.evidence?.digest,
@@ -71,7 +99,14 @@ async function executeVerifierWorkers(antigen, verifiers, opts = {}) {
         counterexamples,
       });
 
+      // L'indépendance calculée est incluse dans le pre-receipt signé
+      preReceipt.independent = independence.independent;
+      preReceipt.independenceDescriptor = independence.descriptor;
+      preReceipt.independenceDistance = independence.distance;
+
       const signedReceipt = issueReceipt(preReceipt);
+
+      executedVerifiers.push(verifier);
 
       results.push({
         status,
@@ -110,4 +145,5 @@ module.exports = {
   buildVerifierWorker,
   buildVerifierPrompt,
   executeVerifierWorkers,
+  evaluateVerifierIndependence,
 };

@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('node:crypto');
+
 /**
  * Holobionte épistémique — topologie d'une décision sensible.
  *
@@ -38,6 +40,9 @@ const { regulatoryReview } = require('./epistemicInflammationAndRegulation');
 const { computePressure, tierFromPressure } = require('./epistemicHomeostasisService');
 const { dissonanceFrom, niveauCorpsent } = require('./epistemicApoptosisService');
 const { executeVerifierWorkers } = require('./verifierRuntimeBridge');
+const { expandClone, selectWinningClones } = require('./clonalExpansionService');
+const { matureStrategy } = require('./affinityMaturationService');
+const { depositPheromone } = require('./stigmergyInterProcessBridge');
 
 function hostDecision(reports, opts = {}) {
   const specialistOutput = reports.specialistOutput || reports.specialist;
@@ -63,12 +68,33 @@ function hostDecision(reports, opts = {}) {
   };
 }
 
+function selectBestVerifier(verifiers) {
+  if (!verifiers || verifiers.length === 0) return null;
+  return verifiers.reduce((a, b) => (a.affinity >= b.affinity ? a : b));
+}
+
+async function depositVerifierPheromone(antigen, verifierResults, verifiers) {
+  if (!verifierResults.results || verifierResults.results.length === 0) return;
+  const verified = verifierResults.results.filter(r => r.status === 'verified').length;
+  const refuted = verifierResults.results.filter(r => r.status === 'refuted').length;
+
+  try {
+    await depositPheromone({
+      type: refuted > 0 ? 'epistemic_contradiction' : 'epistemic_verifier_success',
+      payload: { antigenId: antigen.id, verified, refuted, verifiers: verifiers.map(v => v.type) },
+      locus: antigen.id,
+      locusHash: antigen.id ? `sha256:${crypto.createHash('sha256').update(antigen.id).digest('hex')}` : null,
+      intensity: refuted > 0 ? 0.9 : 0.5,
+      isRepellent: refuted > 0,
+    }, {});
+  } catch (_) { /* stigmergie ne doit pas bloquer */ }
+}
+
 async function immuneSymbiontReview(antigen, context = {}) {
   const pipeline = runAdaptivePipeline(antigen, context);
   const blocked = isImmuneDecisionBlocked(pipeline);
   const blockReason = blocked ? `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}` : null;
 
-  // Exécution des verifiers sélectionnés via le runtime bridge.
   const verifiers = pipeline.decision?.assignedVerifiers?.map((v) => ({
     type: v.verifier,
     strategy: v.strategy || [],
@@ -76,7 +102,11 @@ async function immuneSymbiontReview(antigen, context = {}) {
   })) || [];
   const verifierResults = await executeVerifierWorkers(antigen, verifiers, context);
 
-  // Régulateur T-reg : vérifie que le système ne rejette pas pour une mauvaise raison.
+  const bestVerifier = selectBestVerifier(verifiers);
+  const clones = bestVerifier ? expandClone(bestVerifier, { count: 2 }) : [];
+
+  await depositVerifierPheromone(antigen, verifierResults, verifiers);
+
   const regulator = blockReason
     ? regulatoryReview(antigen, blockReason, {
         immuneMemory: context.immuneMemory || [],
@@ -92,6 +122,7 @@ async function immuneSymbiontReview(antigen, context = {}) {
     pipeline,
     decision: pipeline.decision?.innate?.decision?.action || pipeline.decision?.decision || 'unknown',
     verifierResults,
+    clones,
   };
 }
 
@@ -204,4 +235,7 @@ module.exports = {
   memorySymbiontLookup,
   specialistSymbioteSolve,
   epistemicHolobionte,
+  expandClone,
+  matureStrategy,
+  depositPheromone,
 };

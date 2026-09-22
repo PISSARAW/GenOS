@@ -1,5 +1,17 @@
 'use strict';
 
+/**
+ * epistemicVerifierReceiptService.js
+ *
+ * Service de signature des receipts de vérification épistémique.
+ *
+ * Le receipt est immuable après signature — toute modification est détectée
+ * par validateReceipt() qui recalcule l'HMAC.
+ *
+ * Le receipt contient l'indépendance calculée par independencePolicy,
+ * incluse dans la signature pour garantir l'intégrité.
+ */
+
 const crypto = require('node:crypto');
 
 function secretKey() {
@@ -17,6 +29,8 @@ function payloadText(receipt) {
     receipt.nonce,
     receipt.status,
     receipt.independent === true ? 'independent' : 'dependent',
+    receipt.independenceDescriptor ? JSON.stringify(receipt.independenceDescriptor) : '',
+    receipt.independenceDistance !== undefined ? String(receipt.independenceDistance) : '',
   ].join('\u0000');
 }
 
@@ -33,6 +47,8 @@ function issueReceipt(input = {}) {
     nonce: input.nonce || crypto.randomUUID(),
     status: input.status || 'verified',
     independent: input.independent === true,
+    independenceDescriptor: input.independenceDescriptor || null,
+    independenceDistance: input.indistanceDistance !== undefined ? input.indistanceDistance : null,
   };
   return { ...receipt, signature: signatureFor(receipt) };
 }
@@ -56,4 +72,4 @@ function validateReceipt(receipt, trustedVerifierDigests = []) {
   return crypto.timingSafeEqual(received, expected);
 }
 
-module.exports = { issueReceipt, validateReceipt };
+module.exports = { issueReceipt, validateReceipt, signatureFor };

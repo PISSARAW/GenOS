@@ -10,6 +10,9 @@
  */
 
 const { isPathWithinRoot, resolveWorkspacesRoot } = require('./workspaceRegistry');
+const { evaluateReportWithAeis } = require('./epistemic/aeisPromotionBridge');
+const { listVerifierDigests } = require('./verifierTrustRegistry');
+const { buildGateContext } = require('./promotionGateContext');
 
 const PROMOTION_FALLBACK_PRIMITIVES = ['stdp_update', 'cherry_pick_golden_path'];
 function safeJson(value, fallback) {
@@ -188,25 +191,6 @@ function assertApprovalProof(promotion, options, runId) {
   }
   if (isNonEmptyString(options.approvedBy)) return null;
   throw new Error(`Execution run ${runId} requires a human approval proof (humanApprovalReceipt, human_approval evidence or approvedBy).`);
-}
-
-function buildGateContext(promotion, options, receipt) {
-  return {
-    agentId: options.agentId || promotion.agentId,
-    report: promotion.report,
-    replayReceipt: options.replayReceipt,
-    independentVerification: options.independentVerification,
-    evidenceVerified: options.evidenceVerified,
-    verifiedClaims: options.verifiedClaims,
-    workerDossiers: options.workerDossiers,
-    philosophyEvidence: options.philosophyEvidence,
-    philosophyProvenanceVerified: options.philosophyProvenanceVerified,
-    epistemicEvidence: options.epistemicEvidence,
-    epistemicEvidenceVerified: options.epistemicEvidenceVerified,
-    epistemicVerification: options.epistemicVerification,
-    ethicalReview: options.ethicalReview,
-    humanApprovalReceipt: receipt || options.humanApprovalReceipt || null
-  };
 }
 
 function describeViolations(violations) {

@@ -1,23 +1,10 @@
 'use strict';
 
-/**
- * Exécution réelle des verifiers spécialisés.
- *
- * Chaque verifier expose un type et une stratégie. Ce service
- * dispatche vers l'adapter correspondant (test, coverage, behavior,
- * artifact) qui produit de vraies observations, pas des stubs.
- *
- * Les receipts produits sont transmis à `epistemicVerifierReceiptService.issueReceipt()`
- * pour signature HMAC, afin d'unifier tous les receipts AEIS derrière un seul format
- * et une seule source de signature.
- */
-
 const { executeVerifierWithAdapter, computeEvidenceDigest } = require('./verifierAdapters');
 const { buildPreReceipt } = require('./verifierReceiptBuilder');
 const { issueReceipt } = require('../epistemicVerifierReceiptService');
 
 function mapVerifierTypeToAdapter(verifierType) {
-  // Mapping entre les types de vérificateurs et les adapters correspondants
   const map = {
     testResult: 'test',
     test: 'test',
@@ -31,7 +18,7 @@ function mapVerifierTypeToAdapter(verifierType) {
   return map[verifierType] || verifierType;
 }
 
-function executeVerifier(antigen, verifier, context = {}) {
+async function executeVerifier(antigen, verifier, context = {}) {
   if (!antigen || !verifier) {
     return {
       status: 'inconclusive',
@@ -41,20 +28,16 @@ function executeVerifier(antigen, verifier, context = {}) {
     };
   }
 
-  // Mapping du type de verifier vers l'adapter correspondant
   const adapterType = mapVerifierTypeToAdapter(verifier.type);
   const mappedVerifier = { ...verifier, type: adapterType };
-
-  // Exécution via l'adapter correspondant au type de verifier
   const adapterContext = { ...context, originalVerifierType: verifier.type };
-  const { status, observations, counterexamples } = executeVerifierWithAdapter(
+
+  const { status, observations, counterexamples } = await executeVerifierWithAdapter(
     antigen,
     mappedVerifier,
     adapterContext
   );
 
-  // Construction du pre-receipt intermédiaire, puis signature via
-  // epistemicVerifierReceiptService pour unifier tous les receipts AEIS.
   const preReceipt = buildPreReceipt({
     resultId: antigen.id,
     evidenceDigest: antigen.epitopes?.evidence?.digest || computeEvidenceDigest(observations),
@@ -78,24 +61,19 @@ function executeVerifier(antigen, verifier, context = {}) {
   };
 }
 
-function checkForCounterexample(antigen, verifier) {
-  // Délégue à l'adapter de comportement si présent
+async function checkForCounterexample(antigen, verifier) {
   const { runBehaviorAdapter } = require('./verifierAdapters');
-  const result = runBehaviorAdapter(antigen, verifier, {});
+  const result = await runBehaviorAdapter(antigen, verifier, {});
   return result?.counterexamples?.length > 0;
 }
 
-module.exports = {
-  executeVerifier,
-  executeVerifiers,
-  checkForCounterexample,
-};
-
-function executeVerifiers(antigen, verifiers, context = {}) {
+async function executeVerifiers(antigen, verifiers, context = {}) {
   if (!verifiers || !verifiers.length) {
     return { status: 'no_verifier', results: [] };
   }
-  const results = verifiers.map((v) => executeVerifier(antigen, v, context));
+  const results = await Promise.all(
+    verifiers.map((v) => executeVerifier(antigen, v, context))
+  );
   const verified = results.filter((r) => r.status === 'verified').length;
   const refuted = results.filter((r) => r.status === 'refuted').length;
   const inconclusive = results.filter((r) => r.status === 'inconclusive').length;
@@ -106,3 +84,9 @@ function executeVerifiers(antigen, verifiers, context = {}) {
     summary: { verified, refuted, inconclusive },
   };
 }
+
+module.exports = {
+  executeVerifier,
+  executeVerifiers,
+  checkForCounterexample,
+};
