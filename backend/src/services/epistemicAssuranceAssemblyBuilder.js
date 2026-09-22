@@ -1,111 +1,153 @@
 'use strict';
 
-/**
- * epistemicAssuranceAssemblyBuilder.js
- *
- * Produit l'objet `report.epistemicAssembly` attendu par
- * epistemicAssurancePolicy dans le pipeline de promotion AEIS.
- *
- * Flux : AEIS → FormalResults → obligation census → verifier receipts →
- * assemblyBuilder → report.epistemicAssembly → promotion gate.
- */
-
 const { createFormalResult } = require('./formalResultService');
 const verifierReceipts = require('./epistemicVerifierReceiptService');
-
 const PASSED_STATUSES = new Set(['passed', 'verified', 'proved']);
 
-function formalResultFromHolobionteResult(item) {
-  if (item.resultId && item.canonicalStatement) {
-    return createFormalResult(item);
-  }
-  const result = {
-    resultId: item.resultId || item.id || `result-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    canonicalStatement: item.canonicalStatement || item.claim || '(sans énoncé)',
-    status: item.status || 'pending',
-    evidence: item.evidence || { kind: 'observation', content: {} },
-    assumptions: Array.isArray(item.assumptions) ? item.assumptions : [],
-    validityDomain: item.validityDomain || { domain: 'general', coverage: 0, constraints: 0 },
-    dependencies: Array.isArray(item.dependencies) ? item.dependencies : [],
-    provenance: item.provenance || {
-      createdAt: new Date().toISOString(),
-      actor: item.producer?.actor || 'unknown',
-      source: { type: 'holobionte', uri: 'genos://holobionte/epistemic', digest: '' },
-      inputs: [],
-      transformations: []
-    },
-    producer: item.producer || { model: 'holobionte', version: '1.0' }
-  };
-  return createFormalResult(result);
-}
+function isReceiptObject(receipt) { return Boolean(receipt && typeof receipt === 'object'); }
+function digestFromReceipt(receipt) { return receipt.verifierDigest || receipt.verifier || receipt.id || ''; }
+function isPassedStatus(receipt) { return PASSED_STATUSES.has(receipt.status); }
+function hasReceiptIdentity(receipt) { return Boolean(receipt.resultId && receipt.evidenceDigest); }
 
-function normalizeVerifierReceipt(receipt, trustedVerifierDigests) {
-  if (!receipt || typeof receipt !== 'object') return null;
-  const verifierDigest = receipt.verifierDigest || receipt.verifier || receipt.id || '';
-  if (!trustedVerifierDigests.includes(verifierDigest)) return null;
-  const hasIndependentFlag = receipt.independent === true;
-  if (!PASSED_STATUSES.has(receipt.status)) return null;
-  if (!receipt.resultId || !receipt.evidenceDigest) return null;
-  const compliantReceipt = {
+function buildCompliantReceipt(receipt, verifierDigest, trustedDigests) {
+  if (!trustedDigests.includes(verifierDigest)) return null;
+  const compliant = {
     resultId: receipt.resultId,
     evidenceDigest: receipt.evidenceDigest,
     verifierDigest,
     checkedAt: receipt.checkedAt || receipt.createdAt || new Date().toISOString(),
-    nonce: receipt.nonce || cryptoRandomUUID(),
+    nonce: receipt.nonce || randomUuid(),
     status: 'verified',
-    independent: hasIndependentFlag,
+    independent: receipt.independent === true,
     signature: receipt.signature
   };
-  if (!compliantReceipt.signature) {
-    compliantReceipt.signature = verifierReceipts.signatureFor(compliantReceipt);
-  }
-  return compliantReceipt;
+  if (!compliant.signature) compliant.signature = verifierReceipts.signatureFor(compliant);
+  return compliant;
 }
 
-function cryptoRandomUUID() {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+function normalizeVerifierReceipt(receipt, trustedVerifierDigests) {
+  if (!isReceiptObject(receipt)) return null;
+  const verifierDigest = digestFromReceipt(receipt);
+  if (!isPassedStatus(receipt)) return null;
+  if (!hasReceiptIdentity(receipt)) return null;
+  return buildCompliantReceipt(receipt, verifierDigest, trustedVerifierDigests);
+}
+
+function randomUuid() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
     const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    const v = char === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
 }
 
-function extractVerifierDigestsFromContext(context) {
-  if (!context || typeof context !== 'object') return [];
-  const digests = [];
-  const sources = [
-    context.trustedVerifierDigests,
-    context.verifierDigests,
-    context.verifierDigesT
-  ];
-  for (const source of sources) {
-    if (Array.isArray(source)) {
-      for (const d of source) {
-        if (typeof d === 'string' && d.length) digests.push(d);
-      }
-    }
-  }
-  return digests;
+function genResultId(prefix) { return `${prefix || 'result'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
+function safeArray(value) { return Array.isArray(value) ? value : []; }
+
+function extractStatus(item) {
+  if (item.status) return item.status;
+  if (item.refuted) return 'refuted';
+  if (item.verified) return 'verified';
+  return 'pending';
 }
 
-function assemblyFromContext(formalResults, verifierResults, context) {
-  if (!Array.isArray(formalResults) || !formalResults.length) {
-    return null;
-  }
-  const results = formalResults.map(formalResultFromHolobionteResult);
-  const trustedDigests = extractVerifierDigestsFromContext(context);
-  const resultsById = new Map(results.map(r => [r.resultId, r]));
+function collectDigestStrings(source) {
+  if (!Array.isArray(source)) return [];
+  const out = [];
+  for (const d of source) if (typeof d === 'string' && d.length) out.push(d);
+  return out;
+}
 
+function digestsFromContext(context) {
+  if (!context || typeof context !== 'object') return [];
+  const out = [];
+  const candidates = [context.trustedVerifierDigests, context.verifierDigests, context.verifierDigesT];
+  for (const c of candidates) for (const d of collectDigestStrings(c)) out.push(d);
+  return out;
+}
+
+function extractVerifierDigestsFromContext(context) { return digestsFromContext(context); }
+
+function pickResultId(item, idPrefix) {
+  if (item.resultId) return item.resultId;
+  if (item.id) return item.id;
+  return genResultId(idPrefix || 'result');
+}
+
+function pickCanonicalStatement(item) {
+  if (item.canonicalStatement) return item.canonicalStatement;
+  if (item.claim) return item.claim;
+  return '(sans énoncé)';
+}
+
+function pickEvidence(item) {
+  if (item.evidence) return item.evidence;
+  return { kind: 'observation', content: {} };
+}
+
+function pickValidityDomain(item) {
+  if (item.validityDomain) return item.validityDomain;
+  return { domain: 'general', coverage: 0, constraints: 0 };
+}
+
+function pickProvenance(item) {
+  if (item.provenance) return item.provenance;
+  return defaultProvenance(item);
+}
+
+function pickProducer(item) {
+  if (item.producer) return item.producer;
+  return { model: 'holobionte', version: '1.0' };
+}
+
+function defaultProvenance(item) {
+  return {
+    createdAt: new Date().toISOString(),
+    actor: item.producer?.actor || 'unknown',
+    source: { type: 'holobionte', uri: 'genos://holobionte/epistemic', digest: '' },
+    inputs: [],
+    transformations: []
+  };
+}
+
+function makeResultBaseline(item, idPrefix) {
+  return {
+    resultId: pickResultId(item, idPrefix),
+    canonicalStatement: pickCanonicalStatement(item),
+    status: pickStatus(item),
+    evidence: pickEvidence(item),
+    assumptions: safeArray(item.assumptions),
+    validityDomain: pickValidityDomain(item),
+    dependencies: safeArray(item.dependencies),
+    provenance: pickProvenance(item),
+    producer: pickProducer(item)
+  };
+}
+
+function formalResultFromHolobionteResult(item) {
+  if (item.resultId && item.canonicalStatement) return createFormalResult(item);
+  return createFormalResult(makeResultBaseline(item));
+}
+
+function buildCoverageMap(results) {
+  return results.map(r => ({ resultId: r.resultId, obligationId: r.resultId, evidenceDigest: r.evidence.digest }));
+}
+
+function buildObligationList(ids) {
+  return ids.map(id => ({ id, required: true, description: `Obligation ${id}` }));
+}
+
+function filterCompositionRoots(results) {
+  return results.filter(r => r.status === 'verified' || r.status === 'proved').map(r => r.resultId);
+}
+
+function processVerifierItems(verifierItems, resultsById, trustedDigests) {
   const verifications = [];
   const seenReceipts = new Set();
-  const verifierItems = Array.isArray(verifierResults) ? verifierResults : [];
-
   for (const vr of verifierItems) {
-    if (!vr || typeof vr !== 'object') continue;
-    const receipt = vr.receipt || vr;
+    const receipt = vr?.receipt || vr;
+    if (!isReceiptObject(receipt)) continue;
     const key = receipt.resultId + '|' + (receipt.verifierDigest || receipt.verifier || '');
     if (seenReceipts.has(key)) continue;
     seenReceipts.add(key);
@@ -116,32 +158,27 @@ function assemblyFromContext(formalResults, verifierResults, context) {
     if (compliant.evidenceDigest !== formalResult.evidence.digest) continue;
     verifications.push(compliant);
   }
+  return verifications;
+}
 
+function assemblyFromContext(formalResults, verifierResults, context) {
+  if (!Array.isArray(formalResults) || !formalResults.length) return null;
+  const results = formalResults.map(formalResultFromHolobionteResult);
+  const trustedDigests = extractVerifierDigestsFromContext(context);
+  const resultsById = new Map(results.map(r => [r.resultId, r]));
+  const verifierItems = Array.isArray(verifierResults) ? verifierResults : [];
+  const verifications = processVerifierItems(verifierItems, resultsById, trustedDigests);
   const obligationIds = results.map(r => r.resultId);
-  const coverage = results.map(r => ({
-    resultId: r.resultId,
-    obligationId: r.resultId,
-    evidenceDigest: r.evidence.digest
-  }));
-
-  const compositionRoots = results
-    .filter(r => r.status === 'verified' || r.status === 'proved')
-    .map(r => r.resultId);
-
   return {
     results,
     verifications,
-    obligations: obligationIds.map(id => ({
-      id,
-      required: true,
-      description: `Obligation ${id}`
-    })),
-    coverage,
+    obligations: buildObligationList(obligationIds),
+    coverage: buildCoverageMap(results),
     constraintAttestations: [],
     equivalences: [],
     relations: [],
     contradictionResolutions: [],
-    compositionRoots,
+    compositionRoots: filterCompositionRoots(results),
     failureReuses: [],
     contributions: [],
     workerIds: (context?.workerIds || []).filter(Boolean),
@@ -149,92 +186,117 @@ function assemblyFromContext(formalResults, verifierResults, context) {
   };
 }
 
-function buildEpistemicAssembly(input) {
-  if (!input || typeof input !== 'object') return null;
-  if (input.results && Array.isArray(input.results)) {
-    return assemblyFromContext(
-      input.results,
-      input.verifications || input.verifierResults || [],
-      input
-    );
-  }
-  if (input.holobionteResults && Array.isArray(input.holobionteResults)) {
-    return assemblyFromHolobionteResults(input.holobionteResults, input.context);
-  }
-  if (input.formalResults && Array.isArray(input.formalResults)) {
-    return assemblyFromContext(
-      input.formalResults,
-      input.verifierResults || input.verifications || [],
-      input.context
-    );
-  }
-  return null;
+function buildFormalResultsFromHolobionteResults(holobionteResults) {
+  if (!Array.isArray(holobionteResults) || !holobionteResults.length) return [];
+  return holobionteResults.filter(r => r && typeof r === 'object').map(holobionteResultToFormal);
+}
+
+function holobionteResultToFormal(r) {
+  if (r.resultId && r.canonicalStatement) return createFormalResult(r);
+  return createFormalResult(makeHolobionteFormalItem(r));
+}
+
+function pickHolobionteResultId(r) {
+  if (r.resultId) return r.resultId;
+  if (r.id) return r.id;
+  return genResultId('hresult');
+}
+
+function pickHolobionteStatement(r) {
+  if (r.canonicalStatement) return r.canonicalStatement;
+  if (r.claim) return r.claim;
+  return '(holobionte result)';
+}
+
+function pickHolobionteEvidence(r) {
+  if (r.evidence?.kind) return { kind: r.evidence.kind, content: r.evidence.content || {}, digest: r.evidence.digest || '' };
+  return { kind: 'observation', content: {}, digest: '' };
+}
+
+function makeHolobionteFormalItem(r) {
+  return {
+    resultId: pickHolobionteResultId(r),
+    canonicalStatement: pickHolobionteStatement(r),
+    status: extractStatus(r),
+    evidence: pickHolobionteEvidence(r),
+    assumptions: safeArray(r.assumptions),
+    validityDomain: r.validityDomain || { domain: 'general', coverage: 0, constraints: 0 },
+    dependencies: safeArray(r.dependencies),
+    provenance: r.provenance || defaultHolobionteProvenance(),
+    producer: r.producer || { model: 'holobionte', version: '1.0' }
+  };
+}
+
+function defaultHolobionteProvenance() {
+  return {
+    createdAt: new Date().toISOString(),
+    actor: 'holobionte',
+    source: { type: 'holobionte', uri: 'genos://holobionte', digest: '' },
+    inputs: [],
+    transformations: []
+  };
 }
 
 function assemblyFromHolobionteResults(holobionteResults, context) {
-  if (!Array.isArray(holobionteResults) || !holobionteResults.length) return null;
-  const formalResults = holobionteResults
-    .filter(r => r && typeof r === 'object')
-    .map(r => {
-      if (r.resultId && r.canonicalStatement) {
-        return createFormalResult(r);
-      }
-      const item = {
-        resultId: r.resultId || r.id || `hresult-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        canonicalStatement: r.canonicalStatement || r.claim || '(holobionte result)',
-        status: r.status || (r.refuted ? 'refuted' : (r.verified ? 'verified' : 'pending')),
-        evidence: {
-          kind: r.evidence?.kind || 'observation',
-          content: r.evidence?.content || {},
-          digest: r.evidence?.digest || ''
-        },
-        assumptions: Array.isArray(r.assumptions) ? r.assumptions : [],
-        validityDomain: r.validityDomain || { domain: 'general', coverage: 0, constraints: 0 },
-        dependencies: Array.isArray(r.dependencies) ? r.dependencies : [],
-        provenance: r.provenance || {
-          createdAt: new Date().toISOString(),
-          actor: 'holobionte',
-          source: { type: 'holobionte', uri: 'genos://holobionte', digest: '' },
-          inputs: [],
-          transformations: []
-        },
-        producer: r.producer || { model: 'holobionte', version: '1.0' }
-      };
-      return createFormalResult(item);
-    });
-
+  const formalResults = buildFormalResultsFromHolobionteResults(holobionteResults);
+  if (!formalResults.length) return null;
   return assemblyFromContext(formalResults, [], context);
+}
+
+function assemblyFromHolobionteInput(input) {
+  if (!Array.isArray(input?.holobionteResults)) return null;
+  return assemblyFromHolobionteResults(input.holobionteResults, input.context);
+}
+
+function assemblyFromFormalResultsInput(input) {
+  if (!Array.isArray(input?.formalResults)) return null;
+  return assemblyFromContext(input.formalResults, input.verifierResults || input.verifications || [], input.context);
+}
+
+function buildEpistemicAssembly(input) {
+  if (!input || typeof input !== 'object') return null;
+  if (input.results && Array.isArray(input.results)) return assemblyFromContext(input.results, input.verifications || input.verifierResults || [], input);
+  if (input.holobionteResults) return assemblyFromHolobionteInput(input);
+  if (input.formalResults) return assemblyFromFormalResultsInput(input);
+  return null;
+}
+
+function tryDirectDigests(src) { const digests = digestsFromContext(src); return digests.length ? digests : null; }
+
+function tryRuntimeVerifiers(src) {
+  const list = src.runtimeVerifiers;
+  if (!Array.isArray(list)) return null;
+  const extracted = list.map(v => v?.verifierDigest || v?.digest || v?.id || '').filter(d => typeof d === 'string' && d.length);
+  return extracted.length ? extracted : null;
+}
+
+function tryVerifierTypes(src) {
+  const list = src.verifierTypes;
+  if (!Array.isArray(list)) return null;
+  const filtered = list.filter(d => typeof d === 'string' && d.length);
+  return filtered.length ? filtered : null;
+}
+
+function tryVerifiersOrCatalog(src) {
+  const list = src.verifiers || src.catalog;
+  if (!Array.isArray(list)) return null;
+  const extracted = list.map(v => v?.id || v?.type || v?.digest || '').filter(d => typeof d === 'string' && d.length);
+  return extracted.length ? extracted : null;
+}
+
+function resolveFromSource(src) {
+  if (!src || typeof src !== 'object') return null;
+  return tryDirectDigests(src) || tryRuntimeVerifiers(src) || tryVerifierTypes(src) || tryVerifiersOrCatalog(src);
 }
 
 function resolveTrustedVerifierDigests(ctx) {
   if (!ctx || typeof ctx !== 'object') return [];
-  const sources = [];
-  if (ctx.epistemicContext) sources.push(ctx.epistemicContext);
-  if (ctx.verifierContext) sources.push(ctx.verifierContext);
-  if (ctx.epistemic_context && ctx.epistemicContext !== ctx.epistemic_context) sources.push(ctx.epistemic_context);
-  sources.push(ctx);
-  for (const src of sources) {
-    if (!src || typeof src !== 'object') continue;
-    const digests = extractVerifierDigestsFromContext(src);
-    if (digests.length) return digests;
-    if (Array.isArray(src.runtimeVerifiers)) {
-      const extracted = src.runtimeVerifiers
-        .map(v => v?.verifierDigest || v?.digest || v?.id || '')
-        .filter(d => typeof d === 'string' && d.length);
-      if (extracted.length) return extracted;
-    }
-    if (Array.isArray(src.verifierTypes)) {
-      const filtered = src.verifierTypes.filter(d => typeof d === 'string' && d.length);
-      if (filtered.length) return filtered;
-    }
-    if (Array.isArray(src.verifiers) || Array.isArray(src.catalog)) {
-      const list = src.verifiers || src.catalog;
-      const extracted = list
-        .map(v => v?.id || v?.type || v?.digest || '')
-        .filter(d => typeof d === 'string' && d.length);
-      if (extracted.length) return extracted;
-    }
-  }
+  const candidates = [];
+  if (ctx.epistemicContext) candidates.push(ctx.epistemicContext);
+  if (ctx.verifierContext) candidates.push(ctx.verifierContext);
+  if (ctx.epistemic_context && ctx.epistemicContext !== ctx.epistemic_context) candidates.push(ctx.epistemic_context);
+  candidates.push(ctx);
+  for (const src of candidates) { const result = resolveFromSource(src); if (result) return result; }
   return [];
 }
 

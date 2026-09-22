@@ -86,6 +86,23 @@ async function materialize(db, id, targetPath) {
   return targetPath;
 }
 
+function gatherParentRefs(operation, params) {
+  if (operation === 'cross' && params.parentId) {
+    return [params.genomeId, params.parentId];
+  }
+  if (operation === 'speciate' && params.genomeId) {
+    return [params.genomeId];
+  }
+  return null;
+}
+
+function eventTypeName(operation) {
+  return {
+    cross: 'CROSSOVER', mutate: 'MUTATION', clone: 'CLONE',
+    graft: 'GRAFT', decoy: 'BIRTH', speciate: 'BIRTH'
+  }[operation] || 'BIRTH';
+}
+
 async function runOperation(db, request) {
   const operation = request.operation;
   const params = request.params || {};
@@ -113,8 +130,8 @@ async function runOperation(db, request) {
     const id = params.outputId || `${operation}-${model.contentHash.slice(0, 16)}`;
     await store.saveGenome(db, model, { id, organizationId: scope.organizationId, projectId: scope.projectId });
 
-    // B1: Enregistrer l'événement dans genome_events
-    await logGenomeEvent(db, operation, params, scope, model, id);
+    // B1: enregistrer l'événement genome_events pour cette opération
+    logGenomeEvent(db, operation, params, scope, model, id);
 
     return {
       genomeRef: id,
@@ -126,38 +143,6 @@ async function runOperation(db, request) {
   } finally {
     fs.rmSync(workDir, { recursive: true, force: true });
   }
-}
-
-function gatherParentRefs(operation, params) {
-  if (operation === 'cross' && params.parentId) {
-    return [params.genomeId, params.parentId];
-  }
-  if (operation === 'speciate' && params.genomeId) {
-    return [params.genomeId];
-  }
-  return null;
-}
-
-async function logGenomeEvent(db, operation, params, scope, model, id) {
-  const parentRefs = gatherParentRefs(operation, params);
-  const eventPayload = {
-    operation,
-    contentHash: model.contentHash,
-    source: 'agentDnaOperations.runOperation',
-    name: model.meta.name,
-    geneCount: Object.keys(model.genes).length,
-  };
-  const eventType = {
-    cross: 'CROSSOVER', mutate: 'MUTATION', clone: 'CLONE',
-    graft: 'GRAFT', decoy: 'BIRTH', speciate: 'BIRTH'
-  }[operation] || 'BIRTH';
-  const opts = {
-    parentRefs: parentRefs || undefined,
-    payload: operation === 'decoy' ? { ...eventPayload, decoy: true } : eventPayload,
-    organizationId: scope.organizationId,
-    projectId: scope.projectId,
-  };
-  await genomeEventLog.recordEvent(db, genomeEventLog.makeEvent(eventType, id, opts));
 }
 
 module.exports = { runOperation, buildArgs, SUPPORTED };
