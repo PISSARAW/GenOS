@@ -73,6 +73,26 @@ PhilosophicalConcept
   d'assertions (validation, FK, permutation, tensions, métriques,
   composition, déterminisme, injection).
 
+**Point 4 (branchement runtime, cette révision) :**
+
+- `backend/src/services/cognitivePhenotypeService.js` — déduit les
+  besoins cognitifs de la mission (v1 : vocabulaire `usefulWhen` matché),
+  compose une recette par worker (exclusion cumulative → diversité
+  d'équipe), formate le bloc prompt (instructions opérationnelles +
+  tensions productives, jamais la provenance doctrinale) ;
+- `agentAutonomyPlanService.js` — attache les phénotypes aux membres
+  actifs après les plans Trinity/A-Team, émet
+  `COGNITIVE_PHENOTYPE_ATTACHED` ;
+- `agentFleetWorkers.js` — `buildWorkerPrompt` injecte le bloc
+  phénotype quand `assignment.cognitiveRecipe` existe ;
+- `cognitiveComposer.js` — `excludeKeys` (diversité d'équipe) ;
+- feature flag `GENOS_COGNITIVE_PHENOTYPE` (défaut OFF, opt-in —
+  prérequis pour l'ablation du point 7 : le groupe témoin A tourne
+  sans le flag, E avec) ;
+- `backend/tests/test_cognitive_phenotype.js` — 9 groupes (flag,
+  inférence, phénotype, prompt, attachement, diversité, intégration
+  `buildWorkerPrompt`).
+
 ## Principes
 
 1. **Indépendance doctrinale** — le test : « peut-on expliquer comment
@@ -142,7 +162,7 @@ n'interviendrait qu'après validation expérimentale (point 8 du plan).
 2. ✅ Extraction manuelle 42 clés (causalité, épistémologie, logique,
    maths, art, narration, jeu, cinéma — cette révision)
 3. ✅ `CognitiveRecipe` + `CognitiveComposer` (cette révision)
-4. Branchement A-Team/Trinity via le phénotype
+4. ✅ Branchement A-Team/Trinity via le phénotype (cette révision)
 5. Compositions maximisant la distance cognitive
 6. Confrontation + synthèse par l'orchestrateur
 7. Benchmark par ablation (A-F)

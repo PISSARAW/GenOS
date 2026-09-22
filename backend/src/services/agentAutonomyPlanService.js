@@ -11,6 +11,7 @@ const topologyCapabilityService = require('./topologyCapabilityService');
 const selfModel = require('./selfModelService');
 const autobiographicalRecall = require('./autobiographicalMemory/orchestratorRecall');
 const survivalState = require('./survivalStateService');
+const cognitivePhenotype = require('./cognitivePhenotypeService');
 
 function clampShare(value) {
   return Math.max(0, Math.min(1, value));
@@ -231,6 +232,13 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   const effectiveOrchestratorReserve = resolveEffectiveOrchestratorReserve(autonomyPlan, configuredOrchestratorReserve);
   applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
   applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
+  const phenotypeReport = cognitivePhenotype.attachPhenotypesToPlan({
+    plan: autonomyPlan,
+    missionText: missionText(normalizedMission)
+  });
+  if (phenotypeReport.attached > 0) {
+    emit(agentId, 'COGNITIVE_PHENOTYPE_ATTACHED', 'COGNITIVE_COMPOSE', `Composed cognitive recipes for ${phenotypeReport.attached} worker(s).`, { needs: phenotypeReport.needs, recipes: phenotypeReport.attached }, 'info');
+  }
   applySurvivalConstraints(autonomyPlan);
   await survivalState.observe(db, agentId, {
     ...autonomyPlan.survival.state,

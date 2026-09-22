@@ -48,7 +48,8 @@ function resolveOptions(options) {
   return {
     ...merged,
     maxKeys: Math.max(1, Math.floor(merged.maxKeys)),
-    maxCostWeight: Math.max(1, Math.floor(merged.maxCostWeight))
+    maxCostWeight: Math.max(1, Math.floor(merged.maxCostWeight)),
+    excludeKeys: new Set(merged.excludeKeys || [])
   };
 }
 
@@ -81,41 +82,53 @@ function tensionContribution(key, selectedIds) {
   return key.conflictsWith.filter((otherId) => selectedIds.has(otherId)).length;
 }
 
-function selectKeys(keys, needs, options) {
-  const selected = [];
-  const selectedIds = new Set();
-  const coveredNeeds = new Set();
-  const usedOperations = new Set();
-  let usedWeight = 0;
+function bestCandidate(candidates, needs, search) {
+  const { options, state } = search;
+  let best = null;
+  let bestScore = -Infinity;
+  candidates.forEach((key, index) => {
+    const weight = keyCostWeight(key);
+    if (state.usedWeight + weight > options.maxCostWeight) return;
+    const utility = utilityScore(key, needs, state.coveredNeeds);
+    const novelty = state.usedOperations.has(key.operation) ? 0 : 1;
+    const tension = options.tensionBonus * tensionContribution(key, state.selectedIds);
+    const score = utility + 0.5 * novelty + tension - 0.1 * weight;
+    if (score > bestScore) {
+      bestScore = score;
+      best = { index, key };
+    }
+  });
+  return { best, bestScore };
+}
 
-  const candidates = [...keys];
-  while (selected.length < options.maxKeys && candidates.length > 0) {
-    let best = null;
-    let bestScore = -Infinity;
-    candidates.forEach((key, index) => {
-      const weight = keyCostWeight(key);
-      if (usedWeight + weight > options.maxCostWeight) return;
-      const utility = utilityScore(key, needs, coveredNeeds);
-      const novelty = usedOperations.has(key.operation) ? 0 : 1;
-      const tension = options.tensionBonus * tensionContribution(key, selectedIds);
-      const score = utility + 0.5 * novelty + tension - 0.1 * weight;
-      if (score > bestScore) {
-        bestScore = score;
-        best = { index, key };
-      }
-    });
+function selectKeys(keys, needs, options) {
+  const excluded = options.excludeKeys || new Set();
+  const pool = keys.filter((key) => !excluded.has(key.id));
+  if (pool.length === 0) return [];
+  const state = {
+    selected: [],
+    selectedIds: new Set(),
+    coveredNeeds: new Set(),
+    usedOperations: new Set(),
+    usedWeight: 0
+  };
+
+  const candidates = [...pool];
+  const search = { options, state };
+  while (state.selected.length < options.maxKeys && candidates.length > 0) {
+    const { best, bestScore } = bestCandidate(candidates, needs, search);
     if (!best || bestScore <= 0) break;
     const { key } = best;
-    selected.push(key);
-    selectedIds.add(key.id);
-    usedOperations.add(key.operation);
-    usedWeight += keyCostWeight(key);
+    state.selected.push(key);
+    state.selectedIds.add(key.id);
+    state.usedOperations.add(key.operation);
+    state.usedWeight += keyCostWeight(key);
     key.usefulWhen.forEach((need) => {
-      if (needs.includes(need)) coveredNeeds.add(need);
+      if (needs.includes(need)) state.coveredNeeds.add(need);
     });
     candidates.splice(best.index, 1);
   }
-  return selected;
+  return state.selected;
 }
 
 /**
