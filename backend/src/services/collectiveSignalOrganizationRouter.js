@@ -22,7 +22,9 @@ const ROUTE_MAP = {
 function proposedRoute(signalType, signal = {}) {
   const type = String(signalType || '').trim().toLowerCase();
   const routeFn = ROUTE_MAP[type];
-  return routeFn ? { organization: routeFn(signal) } : null;
+  if (!routeFn) return null;
+  const organization = routeFn(signal);
+  return organization ? { organization } : null;
 }
 
 function buildScopeConditions(scope) {
@@ -42,20 +44,33 @@ function buildScopeConditions(scope) {
 async function fetchAgentRecipients(db, orchestratorId, scope) {
   if (!scope.orgId && !scope.projId) return [];
   const { conditions, params: scopeParams } = buildScopeConditions(scope);
+  const conditionsWithParent = [
+    ...conditions,
+    'a.parent_agent_id = ?',
+    "a.execution_mode = 'worker'",
+    "a.status NOT IN ('completed','terminated','apoptosis','error','failed','unverified','quarantined')",
+  ];
+  const parentParam = orchestratorId || '';
   return db.all(
     `SELECT DISTINCT a.id, a.name
      FROM agents a JOIN workspaces w ON a.workspace_id = w.id
-     WHERE a.id != ? AND a.status = 'active'
-     AND ${conditions.join(' AND ')} LIMIT ?`,
-    [orchestratorId || '', ...scopeParams, 50]
+     WHERE a.id != ? AND ${conditionsWithParent.join(' AND ')} LIMIT ?`,
+    [parentParam, ...scopeParams, parentParam, 50]
   );
 }
 
-async function fetchOrgBudgetRecipients(db) {
+async function fetchOrgBudgetRecipients(db, orgId) {
+  const conditions = ['os.enabled = 1', 'os.budget_mv > 0'];
+  const params = [];
+  if (orgId) {
+    conditions.push('o.id = ?');
+    params.push(orgId);
+  }
   return db.all(
     `SELECT o.id, o.name, os.budget_mv
      FROM organizations o JOIN organization_signal_budgets os ON o.id = os.organization_id
-     WHERE os.enabled = 1 AND os.budget_mv > 0 LIMIT 10`
+     WHERE ${conditions.join(' AND ')} LIMIT 10`,
+    params
   );
 }
 
@@ -86,7 +101,7 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
     }
     // Sort by plasticity weight descending (most reinforced channels first)
     recipients.sort((a, b) => (b.weight || 0) - (a.weight || 0));
-    for (const row of await fetchOrgBudgetRecipients(db)) {
+    for (const row of await fetchOrgBudgetRecipients(db, scope.orgId)) {
       recipients.push({ kind: 'organization', organizationId: row.id, organizationName: row.name, budgetMv: row.budget_mv });
     }
   } catch (e) {

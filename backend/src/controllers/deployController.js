@@ -12,6 +12,16 @@ const circuitBreaker = require('../services/circuitBreaker');
 const strategyContracts = require('../services/strategyContractService');
 const agentAuthority = require('../services/agentAuthorityService');
 const AgentRepository = require('../repositories/agent.repository');
+const {
+  buildStartMissionParams,
+  buildStartAgentResponse,
+  handleStartAgentError,
+  emitStartAgentTelemetry,
+  fetchScopedWorker,
+  startWorkerMissionWithFallback,
+  emitDispatchWorkerTelemetry,
+  handleDispatchWorkerError
+} = require('./deployHelpers');
 
 function workspaceScope(req, alias = '') {
   const prefix = alias ? `${alias}.` : '';
@@ -127,8 +137,8 @@ async function listTrinityWorlds(req, res, next) {
       `SELECT tw.*, a.workspace_id, w.name AS workspace_name 
        FROM trinity_worlds tw 
        LEFT JOIN agents a ON a.id = tw.agent_id 
-       LEFT JOIN workspaces w ON w.id = a.workspace_id 
-       WHERE (${scope.clause}) OR tw.agent_id IS NULL 
+       LEFT JOIN workspaces w ON w.id = a.workspace_id
+       WHERE (${scope.clause}) OR tw.agent_id IS NULL
        ORDER BY tw.created_at DESC`,
       ...scope.params
     );
@@ -137,6 +147,7 @@ async function listTrinityWorlds(req, res, next) {
     next(error);
   }
 }
+
 async function deleteAgent(req, res, next) {
   const db = await getDatabase();
   try {
@@ -148,18 +159,20 @@ async function deleteAgent(req, res, next) {
     res.json({ success: true, agentId: req.params.id, stopped });
   } catch (error) { next(error); }
 }
+
 async function stopAgent(req, res, next) {
   const db = await getDatabase();
   try {
     if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
     const persistedRuntime = await db.get('SELECT runtime_pid FROM agents WHERE id = ?', req.params.id);
     const processStopped = runtimeAdapter.stopMission(req.params.id) || Boolean(persistedRuntime?.runtime_pid);
-    if (!processStopped) await db.run("UPDATE agents SET status = CASE WHEN status = 'running' THEN 'idle' ELSE status END, updated_at = CURRENT_TIMESTAMP WHERE id = ?", req.params.id);
+    if (!processStopped) await workerGarage.enterIdleState(db, req.params.id, null);
     const agent = await db.get('SELECT status FROM agents WHERE id = ?', req.params.id);
     telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: req.params.id, action: 'STOP', detail: `Agent stop requested by ${req.user?.username || 'operator'}.`, severity: 'warning', payload: { actor: req.user?.username || null, tenant: req.tenant || null, processStopped } });
     res.json({ stopped: processStopped, status: processStopped ? 'stopping' : (agent?.status || 'idle') });
   } catch (error) { next(error); }
 }
+
 async function scopedAgentIds(db, req, requestedIds) {
   const scope = workspaceScope(req, 'w');
   const params = [...scope.params];
@@ -180,7 +193,7 @@ async function stopAgents(req, res, next) {
     let stopped = 0;
     for (const agentId of agentIds) {
       if (runtimeAdapter.stopMission(agentId)) stopped += 1;
-      else await db.run("UPDATE agents SET status = CASE WHEN status = 'running' THEN 'idle' ELSE status END, updated_at = CURRENT_TIMESTAMP WHERE id = ?", agentId);
+      else await workerGarage.enterIdleState(db, agentId, null);
     }
     res.json({ success: true, requested: agentIds.length, stopped });
   } catch (error) { next(error); }
@@ -199,10 +212,12 @@ async function deleteAgents(req, res, next) {
     res.json({ success: true, deleted: agentIds.length, stopped });
   } catch (error) { next(error); }
 }
+
 async function subscribeAgent(req, res) { res.json({ success: true }); }
 async function getAgentHistory(req, res) { res.json([]); }
 async function pingAgent(req, res, next) { res.json({ status: 'acknowledged' }); }
 async function ingestAgentEvent(req, res) { res.json({ success: true }); }
+
 async function startAgent(req, res) {
   const db = await getDatabase();
   try {
@@ -212,21 +227,7 @@ async function startAgent(req, res) {
     await agentAuthority.authorizeMission(db, agent.id, req.body?.orchestratorAgentId, agent.workspace_id);
     const contract = await strategyContracts.getLatestContract(db, agent.id);
     if (!contract) return res.status(409).json({ error: { code: 'STRATEGY_CONTRACT_REQUIRED', message: 'No strategy contract is available for this agent.' } });
-    const startPromise = runtimeAdapter.startMission({
-      agentId: agent.id,
-      name: agent.name,
-      role: agent.role,
-      prompt: req.body?.prompt || agent.current_task || agent.about || '',
-      modelTier: agent.model_tier,
-      executionMode: agent.execution_mode,
-      workspaceId: agent.workspace_id,
-      workspaceRoot: agent.workspace_root,
-      workspaceIsolation: agent.isolation_mode,
-      agentType: agent.agent_type,
-      orchestratorAgentId: req.body?.orchestratorAgentId,
-      strategyContract: contract.contract,
-      executionBudget: req.body?.executionBudget || {}
-    });
+    const startPromise = runtimeAdapter.startMission(buildStartMissionParams({ agent, contract, req }));
     const result = await Promise.race([
       startPromise.then((value) => value),
       new Promise((resolve) => setTimeout(() => resolve({ started: true, queued: true }), 25))
@@ -234,42 +235,37 @@ async function startAgent(req, res) {
     startPromise.catch(async (error) => {
       await db.run("UPDATE agents SET status='error', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", error.message, agent.id).catch(() => {});
     });
-    telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: agent.id, action: 'START', detail: `Agent start requested by ${req.user?.username || 'operator'}.`, severity: 'info', payload: { actor: req.user?.username || null, orchestratorAgentId: req.body?.orchestratorAgentId || null, tenant: req.tenant || null } });
-    res.status(result?.duplicate ? 200 : 202).json({ success: true, started: !result?.duplicate, duplicate: Boolean(result?.duplicate), status: result?.duplicate ? 'already_running' : 'queued' });
+    emitStartAgentTelemetry({ agent, req });
+    res.status(result?.duplicate ? 200 : 202).json(buildStartAgentResponse(result));
   } catch (err) {
-    const status = err.code === 'AGENT_EXECUTOR_UNAVAILABLE' ? 503 : 409;
-    res.status(status).json({ error: { code: err.code || 'START_FAILED', message: err.message } });
+    handleStartAgentError(err, res);
   }
 }
+
 async function getWorkerGarage(req, res) {
   const db = await getDatabase();
   if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Orchestrator not found in the selected project.' } });
   const garage = await workerGarage.state(db, req.params.id);
   res.json(garage);
 }
+
 async function dispatchWorker(req, res) {
   const db = await getDatabase();
   try {
     const orchestratorId = req.params.id;
     const workerId = req.params.workerId || req.body.workerId;
-    
+
     const circuit = circuitBreaker.canExecute('worker_deployment', 'operator');
     if (!circuit.allowed) {
       return res.status(503).json({ error: { code: circuit.reason, message: circuit.message } });
     }
-    
+
     const scope = workspaceScope(req, 'ww');
-    const scopedPair = await db.get(`SELECT worker.id, worker.name, worker.role, worker.model_tier, worker.agent_type, worker.isolation_mode, ww.id AS workspace_id, ww.path AS workspace_root
-      FROM agents worker
-      JOIN workspaces ww ON ww.id = worker.workspace_id
-      JOIN agents orchestrator ON orchestrator.id = worker.parent_agent_id
-      JOIN workspaces wo ON wo.id = orchestrator.workspace_id
-      WHERE worker.id = ? AND orchestrator.id = ? AND worker.execution_mode = 'worker'
-        AND ${scope.clause}
-        AND wo.organization_id = ww.organization_id AND wo.project_id = ww.project_id`, workerId, orchestratorId, ...scope.params);
+    const scopedPair = await fetchScopedWorker({ db, scope, workerId, orchestratorId });
     if (!scopedPair) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Worker and orchestrator must belong to the selected project.' } });
+
     await agentAuthority.authorizeMission(db, workerId, orchestratorId, scopedPair.workspace_id || null);
-    
+
     const slot = await workerGarage.reserveSlot(db, {
       orchestratorId,
       workerId,
@@ -277,34 +273,14 @@ async function dispatchWorker(req, res) {
       role: scopedPair.role,
       mission: req.body.mission || 'Assigned mission'
     });
-    const startPromise = runtimeAdapter.startMission({
-      agentId: workerId,
-      name: req.body.name || scopedPair.name,
-      role: scopedPair.role,
-      prompt: req.body.mission || 'Assigned mission',
-      modelTier: scopedPair.model_tier,
-      executionMode: 'worker',
-      agentType: scopedPair.agent_type,
-      workspaceId: scopedPair.workspace_id,
-      workspaceRoot: scopedPair.workspace_root,
-      workspaceIsolation: scopedPair.isolation_mode,
-      orchestratorAgentId: orchestratorId,
-      executionBudget: req.body.executionBudget || {}
-    });
-    startPromise.catch(async (error) => {
-      await db.run("UPDATE agents SET status='idle', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", `Dispatch failed: ${error.message}`, workerId).catch(() => {});
-    });
-    telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: workerId, action: 'DISPATCH', detail: `Worker dispatched by ${req.user?.username || 'operator'}.`, severity: 'info', payload: { actor: req.user?.username || null, orchestratorId, tenant: req.tenant || null } });
-    
+    await startWorkerMissionWithFallback({ db, req, scoped: scopedPair, workerId, orchestratorId });
+    emitDispatchWorkerTelemetry({ workerId, orchestratorId, req });
     res.status(202).json({ ...slot, started: true, status: 'queued' });
   } catch (err) {
-    if (err.code === 'AGENT_NOT_FOUND' || err.code === 'WORKER_ORCHESTRATOR_MISMATCH' || err.code === 'ORCHESTRATOR_NOT_FOUND') {
-      res.status(404).json({ error: { code: err.code, message: err.message } });
-    } else {
-      res.status(409).json({ error: { code: err.code || 'DISPATCH_ERROR', message: err.message, garage: err.garage } });
-    }
+    handleDispatchWorkerError(err, res);
   }
 }
+
 async function getStrategyContract(req, res) {
   const db = await getDatabase();
   if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
