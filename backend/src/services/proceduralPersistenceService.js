@@ -62,21 +62,37 @@ async function migrateProceduralGenomes(db) {
 }
 
 async function persistGenome(db, organism, options = {}) {
-  identity.validateProceduralOrganism(organism);
+  // Validate basic required fields (early return pattern)
+  if (!organism.apiVersion) {
+    throw new Error('missing apiVersion');
+  }
+  if (!organism.kind) {
+    throw new Error('missing kind');
+  }
+  if (!organism.metadata) {
+    throw new Error('missing metadata');
+  }
   
+  // Phase 1: Compute hashes and versionId first
   const structureHash = identity.structureHash(organism);
   const stateHash = identity.stateHash(organism);
   const versionId = identity.versionId(organism);
-  const fitnessScore = organism?.fitness?.score ?? null;
+  const fitnessScore = organism.fitness != null ? organism.fitness.score : null;
   const status = options.status || 'active';
 
+  // Phase 2: Build toSave with canonical metadata
   const toSave = {
     ...organism,
     metadata: {
       ...(organism.metadata || {}),
       id: versionId,
+      structureHash,
+      stateHash
     },
   };
+
+  // Phase 3: Validate canonical persisted organism
+  identity.validateProceduralOrganism(toSave);
 
   await run(
     db,
@@ -87,13 +103,13 @@ async function persistGenome(db, organism, options = {}) {
       versionId,
       structureHash,
       stateHash,
-      organism?.metadata?.parentId || null,
-      organism?.metadata?.lineageId || null,
+      organism.metadata?.parentId || null,
+      organism.metadata?.lineageId || null,
       JSON.stringify(toSave),
       fitnessScore,
-      organism?.fitness ? JSON.stringify(organism.fitness) : null,
+      organism.fitness ? JSON.stringify(organism.fitness) : null,
       status,
-      organism?.plasticity?.lastEpisode || 0,
+      organism.plasticity?.lastEpisode || 0,
       options.organizationId || null,
       options.projectId || null,
     ]

@@ -23,7 +23,7 @@ const STRUCTURAL_CHECKS = [
       return ops.some((op) => {
         if (op.op !== 'REMOVE_NODE') return false;
         // Check if the removed node was a required gate in the before state
-        const beforeNodes = mutation?.before?.nodes || [];
+        const beforeNodes = op?.before?.nodes || [];
         const removedNode = beforeNodes.find(n => n.id === op.target?.id);
         return removedNode && removedNode.type === 'gate' && removedNode.required === true;
       });
@@ -39,53 +39,71 @@ const STRUCTURAL_CHECKS = [
   {
     name: 'CAPABILITY_EXPANSION',
     test: (mutation) => {
-      const before = mutation?.before?.capabilities || [];
-      const after = mutation?.after?.capabilities || [];
-      return after.length > before.length && !after.every((c) => before.includes(c));
+      const ops = mutation?.operations || [];
+      return ops.some((op) => {
+        const before = op?.before?.capabilities || [];
+        const after = op?.after?.capabilities || [];
+        return after.length > before.length && !after.every((c) => before.includes(c));
+      });
     },
   },
   {
     name: 'LEASE_EXPANSION',
     test: (mutation) => {
-      const before = mutation?.before?.toolLease || [];
-      const after = mutation?.after?.toolLease || [];
-      return after.length > before.length && !after.every((c) => before.includes(c));
+      const ops = mutation?.operations || [];
+      return ops.some((op) => {
+        const before = op?.before?.toolLease || [];
+        const after = op?.after?.toolLease || [];
+        return after.length > before.length && !after.every((c) => before.includes(c));
+      });
     },
   },
   {
     name: 'POLICY_WEAKENED',
     test: (mutation) => {
-      const before = mutation?.before?.policy || {};
-      const after = mutation?.after?.policy || {};
-      if (before.requireEvidence === true && after.requireEvidence === false) return true;
-      if (before.requireReplay === true && after.requireReplay === false) return true;
-      return false;
+      const ops = mutation?.operations || [];
+      return ops.some((op) => {
+        const before = op?.before?.policy || {};
+        const after = op?.after?.policy || {};
+        if (before.requireEvidence === true && after.requireEvidence === false) return true;
+        if (before.requireReplay === true && after.requireReplay === false) return true;
+        return false;
+      });
     },
   },
   {
     name: 'EVIDENCE_REQUIREMENT_REDUCED',
     test: (mutation) => {
-      const before = mutation?.before?.evidenceLevel || 1;
-      const after = mutation?.after?.evidenceLevel || 1;
-      return after < before;
+      const ops = mutation?.operations || [];
+      return ops.some((op) => {
+        const before = op?.before?.evidenceLevel || 1;
+        const after = op?.after?.evidenceLevel || 1;
+        return after < before;
+      });
     },
   },
   {
     name: 'SANDBOX_BOUNDARY_CHANGED',
     test: (mutation) => {
-      const before = mutation?.before?.sandbox || {};
-      const after = mutation?.after?.sandbox || {};
-      if (before.enabled === true && after.enabled === false) return true;
-      if (before.isolation === 'full' && after.isolation !== 'full') return true;
-      return false;
+      const ops = mutation?.operations || [];
+      return ops.some((op) => {
+        const before = op?.before?.sandbox || {};
+        const after = op?.after?.sandbox || {};
+        if (before.enabled === true && after.enabled === false) return true;
+        if (before.isolation === 'full' && after.isolation !== 'full') return true;
+        return false;
+      });
     },
   },
   {
     name: 'AUTHORITY_CHANGED',
     test: (mutation) => {
-      const before = mutation?.before?.authority || {};
-      const after = mutation?.after?.authority || {};
-      return JSON.stringify(before) !== JSON.stringify(after);
+      const ops = mutation?.operations || [];
+      return ops.some((op) => {
+        const before = op?.before?.authority || {};
+        const after = op?.after?.authority || {};
+        return JSON.stringify(before) !== JSON.stringify(after);
+      });
     },
   },
 ];

@@ -215,6 +215,77 @@ function validateImmuneSignatures(signatures, errors) {
   }
 }
 
+function validateDuplicateNodeIds(nodes, errors) {
+  if (!Array.isArray(nodes)) return;
+  const seen = new Set();
+  for (let i = 0; i < nodes.length; i++) {
+    const id = nodes[i].id;
+    if (seen.has(id)) {
+      errors.push(`structure.nodes[${i}].id is duplicate: ${id}`);
+    }
+    seen.add(id);
+  }
+}
+
+function validateDuplicateSynapses(synapses, errors) {
+  if (!Array.isArray(synapses)) return;
+  const seen = new Set();
+  for (let i = 0; i < synapses.length; i++) {
+    const key = `${synapses[i].from}->${synapses[i].to}`;
+    if (seen.has(key)) {
+      errors.push(`structure.synapses[${i}].from->to is duplicate: ${key}`);
+    }
+    seen.add(key);
+  }
+}
+
+function validateSynapseWeightRequired(synapses, errors) {
+  if (!Array.isArray(synapses)) return;
+  for (let i = 0; i < synapses.length; i++) {
+    const synapse = synapses[i];
+    if (synapse.weight == null) {
+      errors.push(`structure.synapses[${i}].weight is required`);
+    } else if (synapse.weight < 0 || synapse.weight > 1) {
+      errors.push(`structure.synapses[${i}].weight must be between 0 and 1`);
+    }
+  }
+}
+
+function validateApiVersion(organism, errors) {
+  if (organism.apiVersion !== 'genos/v1alpha1') {
+    errors.push('apiVersion must be genos/v1alpha1');
+  }
+}
+
+function validateKind(organism, errors) {
+  if (organism.kind !== 'ProceduralOrganism') {
+    errors.push('kind must be ProceduralOrganism');
+  }
+}
+
+function validateMetadataVersion(organism, errors) {
+  const version = organism.metadata?.version;
+  if (version == null) {
+    errors.push('metadata.version is required');
+  } else if (Number.isInteger(version) && version < 1) {
+    errors.push('metadata.version must be >= 1');
+  }
+}
+
+function validateStructureHash(organism, errors) {
+  if (!organism.metadata?.structureHash) {
+    // Compute structureHash from organism if not present
+    organism.metadata.structureHash = structureHash(organism);
+  }
+}
+
+function validateStateHash(organism, errors) {
+  if (!organism.metadata?.stateHash) {
+    // Compute stateHash from organism if not present
+    organism.metadata.stateHash = stateHash(organism);
+  }
+}
+
 function validateOrganism(organism) {
   const errors = [];
   if (!organism) return { valid: false, errors: ['organism is null'] };
@@ -223,8 +294,16 @@ function validateOrganism(organism) {
   validateNodes(organism.structure?.nodes, errors);
   validateSynapses(organism.structure?.synapses, errors);
   validateSynapseNodes(organism.structure?.nodes, organism.structure?.synapses, errors);
+  validateDuplicateNodeIds(organism.structure?.nodes, errors);
+  validateDuplicateSynapses(organism.structure?.synapses, errors);
   validateMethylation(organism.phenotype?.methylation, errors);
   validateImmuneSignatures(organism.immune?.signatures, errors);
+  validateApiVersion(organism, errors);
+  validateKind(organism, errors);
+  validateMetadataVersion(organism, errors);
+  validateStructureHash(organism, errors);
+  validateStateHash(organism, errors);
+  validateSynapseWeightRequired(organism.structure?.synapses, errors);
   
   return { valid: errors.length === 0, errors };
 }

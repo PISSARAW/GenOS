@@ -18,16 +18,19 @@ function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
-function pickNodeType() {
-  return VALID_NODE_TYPES[Math.floor(Math.random() * VALID_NODE_TYPES.length)];
+function pickNodeType(parentId, mutationIndex) {
+  const input = `${parentId || 'genesis'}-${mutationIndex}`;
+  const hash = crypto.createHash('sha256').update(input).digest('hex').slice(0, 8);
+  const index = parseInt(hash, 16) % VALID_NODE_TYPES.length;
+  return VALID_NODE_TYPES[index];
 }
 
 function addNodeVariant(parent, index) {
   const org = cloneOrganism(parent);
   org.structure = org.structure || { nodes: [], synapses: [] };
   org.structure.nodes = org.structure.nodes || [];
-  const newId = `node-${org.structure.nodes.length}`;
-  const nodeType = pickNodeType();
+  const newId = `node:${crypto.createHash('sha256').update(`${parent.metadata?.id || 'genesis'}-${index}-addnode`).digest('hex').slice(0, 8)}`;
+  const nodeType = pickNodeType(parent.metadata?.id || 'genesis', index);
   const newNode = { id: newId, type: nodeType, required: false, locked: false, metadata: { generated: true, source: 'mutation' } };
   org.structure.nodes.push(newNode);
   const before = deepClone(org.structure.nodes.slice(0, -1));
@@ -119,7 +122,10 @@ function adjustWeightVariant(parent, index) {
   if (org.structure.synapses.length) {
     const synapseIdx = index % org.structure.synapses.length;
     const synapse = org.structure.synapses[synapseIdx];
-    const beforeWeight = synapse.weight || 0.5;
+    const beforeWeight =
+      synapse.weight == null
+        ? 0.5
+        : Number(synapse.weight);
     const input = `${parent.metadata?.id || ''}-${index}-${synapse.from}-${synapse.to}`;
     const hash = crypto.createHash('sha256').update(input).digest('hex').slice(0, 8);
     const delta = (parseInt(hash, 16) / 0xFFFFFFFF - 0.5) * 0.2;
@@ -140,6 +146,11 @@ function generateVariants(parent = {}, count = 4) {
   for (let i = 0; i < count; i++) {
     const op = MUTATION_OPS[i % MUTATION_OPS.length];
     const result = op(parent, i);
+    // Propagate parentId to organism.metadata for promotion gate compatibility
+    result.organism.metadata = {
+      ...parent.metadata,
+      parentId: parent.metadata?.id || null,
+    };
     const contentId = crypto.createHash('sha256')
       .update(JSON.stringify(result.organism.structure))
       .digest('hex').slice(0, 12);
