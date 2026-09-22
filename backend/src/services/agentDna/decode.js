@@ -126,6 +126,76 @@ function toProvenance(raw) {
   };
 }
 
+function toEpigenomeMarks(raw, marks) {
+  if (!Array.isArray(raw)) return;
+  for (const entry of raw) {
+    if (Array.isArray(entry) && entry.length >= 3) {
+      marks[entry[0]] = { kind: entry[1], level: Number(entry[2]) || 0 };
+    }
+  }
+}
+
+function toEpigenome(raw) {
+  if (raw === null) return null;
+  const marks = {};
+  if (Array.isArray(raw[0])) toEpigenomeMarks(raw[0], marks);
+  return {
+    marks,
+    stage: raw[1] || 'Zygote',
+    stressMemory: Array.isArray(raw[2]) ? raw[2] : [],
+    generation: Number(raw[3]) || 0
+  };
+}
+
+function toGrnNodes(raw, nodes) {
+  if (!Array.isArray(raw)) return;
+  for (const entry of raw) {
+    if (Array.isArray(entry) && entry.length >= 2) {
+      nodes[entry[0]] = { isTf: Boolean(entry[1]), basalExpression: Number(entry[2]) || 0 };
+    }
+  }
+}
+
+function toGrnEdges(raw, edges) {
+  if (!Array.isArray(raw)) return;
+  for (const entry of raw) {
+    if (Array.isArray(entry) && entry.length >= 3) {
+      edges.push({ from: entry[0], to: entry[1], weight: Number(entry[2]) || 0 });
+    }
+  }
+}
+
+function toGrn(raw) {
+  if (raw === null) return null;
+  const nodes = {};
+  const edges = [];
+  if (Array.isArray(raw[0])) toGrnNodes(raw[0], nodes);
+  if (Array.isArray(raw[1])) toGrnEdges(raw[1], edges);
+  return { nodes, edges };
+}
+
+function toDevelopment(raw) {
+  if (raw === null) return null;
+  return {
+    stage: raw[0] || 'Zygote',
+    lineageCommitment: raw[1] || null,
+    morphogens: Array.isArray(raw[2]) ? raw[2] : [],
+    differentiationSignal: raw[3] || null
+  };
+}
+
+function decodePhenotype(model) {
+  const current = express(model);
+  if (model.phenotype) {
+    const cached = model.phenotype;
+    model.phenotypeCacheValid = cached.role === current.role
+      && cached.strategy === current.strategy
+      && JSON.stringify(cached.tools) === JSON.stringify(current.tools)
+      && JSON.stringify(cached.capabilities) === JSON.stringify(current.capabilities);
+  }
+  model.phenotype = current;
+}
+
 function decodeBuffer(buffer) {
   const { sections } = decodeContainer(buffer);
   const model = {
@@ -141,19 +211,12 @@ function decodeBuffer(buffer) {
     scars: arrayOr(optional(sections, 'SCAR')).map(uuidFromBuffer),
     phenotype: toPhenotype(optional(sections, 'PHEN')),
     provenance: toProvenance(optional(sections, 'PROV')),
+    epigenome: toEpigenome(optional(sections, 'EPIE')),
+    grn: toGrn(optional(sections, 'GRN_')),
+    development: toDevelopment(optional(sections, 'DEVO')),
     raw: buffer
   };
-  // Recalculate phenotype and compare against cached PHEN if present.
-  const current = express(model);
-  if (model.phenotype) {
-    const cached = model.phenotype;
-    const cacheMatches = cached.role === current.role
-      && cached.strategy === current.strategy
-      && JSON.stringify(cached.tools) === JSON.stringify(current.tools)
-      && JSON.stringify(cached.capabilities) === JSON.stringify(current.capabilities);
-    model.phenotypeCacheValid = cacheMatches;
-  }
-  model.phenotype = current;
+  decodePhenotype(model);
   const signature = verifySignature(sections);
   model.signed = signature.signed;
   model.signer = signature.signer;

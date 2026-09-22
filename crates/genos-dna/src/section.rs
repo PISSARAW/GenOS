@@ -11,6 +11,9 @@ pub enum SectionTag {
     Phen,
     Prov,
     Sign,
+    Epigenome,
+    Grn,
+    Development,
 }
 
 impl SectionTag {
@@ -27,6 +30,9 @@ impl SectionTag {
             SectionTag::Phen => *b"PHEN",
             SectionTag::Prov => *b"PROV",
             SectionTag::Sign => *b"SIGN",
+            SectionTag::Epigenome => *b"EPIE",
+            SectionTag::Grn => *b"GRN_",
+            SectionTag::Development => *b"DEVO",
         }
     }
 
@@ -43,6 +49,9 @@ impl SectionTag {
             b"PHEN" => Some(SectionTag::Phen),
             b"PROV" => Some(SectionTag::Prov),
             b"SIGN" => Some(SectionTag::Sign),
+            b"EPIE" => Some(SectionTag::Epigenome),
+            b"GRN_" => Some(SectionTag::Grn),
+            b"DEVO" => Some(SectionTag::Development),
             _ => None,
         }
     }
