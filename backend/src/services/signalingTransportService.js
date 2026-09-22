@@ -13,35 +13,12 @@ const signalEventBus = require('./signalEventBus');
 const signalCoalescer = require('./signalCoalescerService');
 const plasticity = require('./synapticPlasticityService');
 const tensor = require('./tensorCompatibilityService');
+const signalMetrics = require('./signalMetricsService');
+const { checkRateLimit, validatePayloadSize, validateArgs, retryDbOperation } = require('./signalValidationUtils');
 
 const DEFAULT_SIGNAL_TTL_MS = 30_000;
 const LOCAL_BROADCAST_LOG = new Map();
 const MAX_LOCAL_LOG_SIZE = 1000;
-const MAX_SIGNAL_DATA_BYTES = 64 * 1024;
-const MAX_SIGNAL_BLOB_BYTES = 1024 * 1024;
-const RATE_LIMIT_PER_MINUTE = 120;
-
-const rateLimitWindow = new Map();
-
-function checkRateLimit(senderId) {
-  const now = Date.now();
-  const windowStart = now - 60_000;
-  const entry = rateLimitWindow.get(senderId) || { count: 0, resetAt: now + 60_000 };
-  if (entry.resetAt < windowStart) {
-    entry.count = 0;
-    entry.resetAt = now + 60_000;
-  }
-  entry.count++;
-  rateLimitWindow.set(senderId, entry);
-  if (entry.count > RATE_LIMIT_PER_MINUTE) return false;
-  if (rateLimitWindow.size > 1000) {
-    const cutoff = now - 120_000;
-    for (const [k, v] of rateLimitWindow) {
-      if (v.resetAt < cutoff) rateLimitWindow.delete(k);
-    }
-  }
-  return true;
-}
 
 function pushLocalLog(signalId, payload) {
   LOCAL_BROADCAST_LOG.set(signalId, { payload, t: Date.now() });
@@ -66,19 +43,6 @@ function validateSignalType(signalType) {
   return normalizedType;
 }
 
-function validatePayloadSize(signalData, signalBlob) {
-  if (signalData) {
-    const dataSize = Buffer.byteLength(JSON.stringify(signalData), 'utf8');
-    if (dataSize > MAX_SIGNAL_DATA_BYTES) {
-      return { valid: false, reason: `signalData exceeds ${MAX_SIGNAL_DATA_BYTES} bytes (${dataSize})` };
-    }
-  }
-  if (signalBlob && signalBlob.length > MAX_SIGNAL_BLOB_BYTES) {
-    return { valid: false, reason: `signalBlob exceeds ${MAX_SIGNAL_BLOB_BYTES} bytes (${signalBlob.length})` };
-  }
-  return { valid: true };
-}
-
 function repressionFor({ type, topic, signalData, repressors }) {
   return signalRepressor.applyRepressors({ kind: type, topic, signalData }, repressors);
 }
@@ -96,14 +60,19 @@ function deliveryMetadata(params, id, expiresAt) {
 async function persistSignalRow(row) {
   try {
     const db = await getDatabase();
-    await db.run(
-      `INSERT OR REPLACE INTO signal_blobs
-       (signal_id, signal_type, signal_blob, content, topic, sender_agent_id, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
-      [row.signal_id, row.signal_type, row.signal_blob, row.content, row.topic, row.sender_agent_id, row.expires_at]
-    );
+    await retryDbOperation(() => {
+      signalMetrics.recordDbRetry();
+      return db.run(
+        `INSERT OR REPLACE INTO signal_blobs
+         (signal_id, signal_type, signal_blob, content, topic, sender_agent_id, created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+        [row.signal_id, row.signal_type, row.signal_blob, row.content, row.topic, row.sender_agent_id, row.expires_at]
+      );
+    });
+    signalMetrics.recordPublish();
   } catch (e) {
-    console.warn('[SignalingTransport] DB publish failed, logging locally:', e.message);
+    signalMetrics.recordDbError(e);
+    console.warn('[SignalingTransport] DB publish failed after retries:', e.message);
   }
 }
 
@@ -137,6 +106,7 @@ function handleSuppressed(signal) {
   if (signal.senderAgentId) {
     plasticity.recordSignalOutcome({ senderId: signal.senderAgentId, receiverId: null, outcome: 'suppressed', signalType: signal.normalizedType });
   }
+  signalMetrics.recordSuppressed();
   return {
     signalId: signal.id,
     published: true,
@@ -145,6 +115,30 @@ function handleSuppressed(signal) {
     signalType: signal.formatted.signalType,
     routing: { routed: false, reason: 'coalesced' },
   };
+}
+
+async function dispatchReceptorsIfNeeded(signal) {
+  const triggered = receptor.matchReceptors({
+    signalId: signal.signalId,
+    signalType: signal.signalType,
+    semanticType: signal.signalData?.semanticType || signal.signalType,
+    concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0,
+    topic: signal.topic,
+    senderAgentId: signal.senderAgentId,
+  });
+  if (triggered.length === 0) return { dispatched: false };
+  const dispatched = await receptor.dispatchActions(
+    triggered,
+    {
+      signalId: signal.signalId,
+      signalType: signal.signalType,
+      signalData: signal.signalData,
+      topic: signal.topic,
+      senderAgentId: signal.senderAgentId,
+    },
+    { publishSignal: signal.publishSignal }
+  );
+  return { dispatched: true, results: dispatched };
 }
 
 async function routeAndDispatch(signal, params) {
@@ -170,6 +164,8 @@ async function routeAndDispatch(signal, params) {
   } catch (err) {
     console.warn(`[SignalingTransport] dispatchReceptors failed for ${signal.id}: ${err.message}`);
   }
+  signalMetrics.recordDispatch();
+  if (dispatchResult.dispatched) signalMetrics.recordTrigger();
   if (signal.senderAgentId && routing.recipients) {
     for (const recipient of routing.recipients) {
       if (recipient.agentId) {
@@ -190,11 +186,12 @@ async function routeAndDispatch(signal, params) {
 }
 
 async function publishSignal(params) {
+  validateArgs(params);
   const signal = await buildSignalFromParams(params);
   if (!signal.accepted) return signal.result;
 
   if (signal.senderAgentId && !checkRateLimit(signal.senderAgentId)) {
-    return { signalId: signal.id, published: false, signalType: signal.normalizedType, suppressedBy: 'rate_limit', suppressionReason: `Exceeded ${RATE_LIMIT_PER_MINUTE}/min` };
+    return { signalId: signal.id, published: false, signalType: signal.normalizedType, suppressedBy: 'rate_limit', suppressionReason: `Exceeded 120/min` };
   }
 
   const sizeCheck = validatePayloadSize(signal.signalData, signal.formatted?.signalBlob);
@@ -256,30 +253,6 @@ function buildRow({ id, formatted, topic, senderAgentId, expiresAt }) {
   };
 }
 
-async function dispatchReceptorsIfNeeded(signal) {
-  const triggered = receptor.matchReceptors({
-    signalId: signal.signalId,
-    signalType: signal.signalType,
-    semanticType: signal.signalData?.semanticType || signal.signalType,
-    concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0,
-    topic: signal.topic,
-    senderAgentId: signal.senderAgentId,
-  });
-  if (triggered.length === 0) return { dispatched: false };
-  const dispatched = await receptor.dispatchActions(
-    triggered,
-    {
-      signalId: signal.signalId,
-      signalType: signal.signalType,
-      signalData: signal.signalData,
-      topic: signal.topic,
-      senderAgentId: signal.senderAgentId,
-    },
-    { publishSignal: signal.publishSignal }
-  );
-  return { dispatched: true, results: dispatched };
-}
-
 async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100) {
   let sql = `SELECT DISTINCT s.signal_id, s.signal_type, s.signal_blob, s.content, s.topic, s.sender_agent_id, s.created_at
              FROM signal_blobs s
@@ -295,7 +268,7 @@ async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100)
 
   try {
     const db = await getDatabase();
-    const rows = await db.all(sql, vals);
+    const rows = await retryDbOperation(() => db.all(sql, vals));
     return rows.map(r => ({
       signalId: r.signal_id,
       signalType: r.signal_type,
@@ -307,7 +280,7 @@ async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100)
       decoded: r.signal_blob ? unpackSignalPayload(r.signal_blob, r.signal_type) : null,
     }));
   } catch (e) {
-    console.warn('[SignalingTransport] readSignalsForAgent failed:', e.message);
+    console.warn('[SignalingTransport] readSignalsForAgent failed after retries:', e.message);
     return [];
   }
 }
@@ -335,10 +308,10 @@ async function markSignalsSeen(subscriberAgentId, signalIds) {
 async function purgeExpiredSignals() {
   try {
     const db = await getDatabase();
-    await db.run(`DELETE FROM signal_blobs WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP`);
-    await db.run(`DELETE FROM signal_subs WHERE subscriber_agent_id NOT IN (SELECT id FROM agents)`);
+    await retryDbOperation(() => db.run(`DELETE FROM signal_blobs WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP`));
+    await retryDbOperation(() => db.run(`DELETE FROM signal_subs WHERE subscriber_agent_id NOT IN (SELECT id FROM agents)`));
   } catch (e) {
-    console.warn('[SignalingTransport] purgeExpiredSignals failed:', e.message);
+    console.warn('[SignalingTransport] purgeExpiredSignals failed after retries:', e.message);
   }
 }
 
