@@ -45,11 +45,10 @@ class MathematicalCulture {
       }
     }
 
-    // If not derived from proofArtifact, check formalResult as fallback
-    if (!verified && artifact.formalResult && artifact.formalResult.status === 'verified' && artifact.formalResult.evidence?.kind === 'proof') {
-      verified = true;
-      proofReceipt = artifact.formalResult.provenance?.leanReceipt || null;
-    }
+    // Fallback supprimé : seul ProofArtifact.isVerified() fait autorité.
+    // Le fallback formalResult.status === 'verified' contourne la preuve Lean
+    // et permet à un agent de forger son autorité épistémique sans receipt kernel.
+    // Si le fallback est réintroduit plus tard, il devra vérifier un LeanIncrementalGate receipt.
 
     const stored = {
       ...artifact,
@@ -87,18 +86,38 @@ class MathematicalCulture {
     // Verified facts become part of knowledge base
     // Unverified ideas become strategies
     if (isFact && artifact.verified) {
-      // Add to lineage knowledge (not strategies)
-      if (!targetLineage._knowledge) targetLineage._knowledge = [];
-      targetLineage._knowledge.push({
-        type: artifact.type,
-        content: artifact.content,
-        verified: artifact.verified,
-        proofArtifact: artifact.proofArtifact,
-        semanticFingerprint: artifact.proofArtifact?._formalResult?.semanticFingerprint,
-        validityDomain: artifact.proofArtifact?._formalResult?.validityDomain,
-        fidelity: newFidelity,
-        source: artifact.id,
-      });
+      // Only transmit as verified knowledge when we have a genuine ProofArtifact
+      // that has passed Lean verification. A formalResult with status 'verified'
+      // but no ProofArtifact or without a real Lean receipt is not sufficient —
+      // it could be a forged or self-declared verification.
+      const hasRealProof = Boolean(
+        artifact.proofArtifact
+        && typeof artifact.proofArtifact.isVerified === 'function'
+        && artifact.proofArtifact.isVerified()
+      );
+      if (!hasRealProof) {
+        // Fall through: treat as unverified strategy
+        if (!targetLineage.genome.strategies.includes(artifact.content)) {
+          targetLineage.genome.strategies.push(artifact.content);
+        }
+      } else {
+        // Add to lineage knowledge (not strategies)
+        if (!targetLineage._knowledge) targetLineage._knowledge = [];
+        targetLineage._knowledge.push({
+          type: artifact.type,
+          content: artifact.content,
+          verified: artifact.verified,
+          proofArtifact: artifact.proofArtifact,
+          semanticFingerprint: artifact.proofArtifact && artifact.proofArtifact._formalResult
+            ? artifact.proofArtifact._formalResult.semanticFingerprint
+            : null,
+          validityDomain: artifact.proofArtifact && artifact.proofArtifact._formalResult
+            ? artifact.proofArtifact._formalResult.validityDomain
+            : null,
+          fidelity: newFidelity,
+          source: artifact.id,
+        });
+      }
     } else {
       // Add as strategy (unverified)
       if (!targetLineage.genome.strategies.includes(artifact.content)) {

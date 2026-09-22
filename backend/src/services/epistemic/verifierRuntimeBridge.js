@@ -12,7 +12,9 @@
  * Les résultats sont retournés au Holobionte pour décision finale.
  */
 
-const { executeVerifier } = require('./verifierExecutionService');
+const { executeVerifierWithAdapter } = require('./verifierAdapters');
+const { buildPreReceipt } = require('./verifierReceiptBuilder');
+const { issueReceipt } = require('../epistemicVerifierReceiptService');
 
 function buildVerifierWorker(antigen, verifier) {
   return {
@@ -53,12 +55,34 @@ async function executeVerifierWorkers(antigen, verifiers, opts = {}) {
   const results = [];
   for (const verifier of verifiers) {
     try {
-      const worker = buildVerifierWorker(antigen, verifier);
-      const result = executeVerifier(antigen, verifier, {
-        worker,
-        timeoutMs: opts.timeoutMs || 30000,
+      const { status, observations, counterexamples } = executeVerifierWithAdapter(
+        antigen,
+        verifier,
+        { worker: buildVerifierWorker(antigen, verifier), timeoutMs: opts.timeoutMs || 30000 }
+      );
+      // Construit un pre-receipt intermédiaire, puis signature via
+      // epistemicVerifierReceiptService pour unifier tous les receipts AEIS.
+      const preReceipt = buildPreReceipt({
+        resultId: antigen.id,
+        evidenceDigest: antigen.epitopes?.evidence?.digest,
+        verifierDigest: verifier.type,
+        status,
+        observations,
+        counterexamples,
       });
-      results.push(result);
+
+      const signedReceipt = issueReceipt(preReceipt);
+
+      results.push({
+        status,
+        resultId: antigen.id,
+        evidenceDigest: antigen.epitopes?.evidence?.digest || signedReceipt.evidenceDigest || 'none',
+        verifierDigest: verifier.type,
+        observations,
+        counterexamples,
+        receipt: signedReceipt,
+        executedAt: new Date().toISOString(),
+      });
     } catch (err) {
       results.push({
         status: 'error',

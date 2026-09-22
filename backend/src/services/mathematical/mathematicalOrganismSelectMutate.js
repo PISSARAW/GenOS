@@ -52,11 +52,11 @@ function mutate(runtime) {
                 R: Math.min(1, baseFitness.R + (Math.random() - 0.5) * 0.1),
                 C: baseFitness.C,
               };
-              // Add child to population and environment
+              // Naissance biomimétique dans la population parentale (deme).
+              // L'enfant est ajouté UNIQUEMENT à la population parentale.
+              // Toute migration future (allocateToBestNiche) se fera explicitement,
+              // évitant la double appartenance simultanée parent/enfant niches.
               pop.lineages.set(result.child.id, result.child);
-              runtime.environment.addLineage(result.child);
-              // Allocate child to a niche
-              runtime.nicheService.allocateToBestNiche(result.child);
             }
           }
         }

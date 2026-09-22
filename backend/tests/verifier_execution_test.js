@@ -1,6 +1,12 @@
 'use strict';
 
 const assert = require('node:assert');
+
+// Le service de receipt signé requiert cette variable.
+if (!process.env.GENOS_EPISTEMIC_RECEIPT_SECRET) {
+  process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'test-secret-for-verifier-execution';
+}
+
 const V = require('../src/services/epistemic/verifierExecutionService');
 
 // ---- création de receipt ----
@@ -27,7 +33,7 @@ const verifier = {
 const result = V.executeVerifier(antigen, verifier, {});
 assert.ok(result.status === 'verified' || result.status === 'refuted' || result.status === 'inconclusive');
 assert.ok(result.receipt);
-assert.ok(result.receipt.digest);
+assert.ok(result.receipt.evidenceDigest || result.receipt.signature, 'receipt devrait avoir un digest ou une signature');
 assert.strictEqual(result.resultId, 'ag-1');
 assert.strictEqual(result.evidenceDigest, 'sha256:abc');
 assert.strictEqual(result.verifierDigest, 'testResult');

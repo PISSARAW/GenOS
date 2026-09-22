@@ -3,31 +3,32 @@
 /**
  * Exécution réelle des verifiers spécialisés.
  *
- * Chaque verifier expose une stratégie de vérification. Ce service
- * l'exécute contre un antigène et produit un receipt signé.
+ * Chaque verifier expose un type et une stratégie. Ce service
+ * dispatche vers l'adapter correspondant (test, coverage, behavior,
+ * artifact) qui produit de vraies observations, pas des stubs.
+ *
+ * Les receipts produits sont transmis à `epistemicVerifierReceiptService.issueReceipt()`
+ * pour signature HMAC, afin d'unifier tous les receipts AEIS derrière un seul format
+ * et une seule source de signature.
  */
 
-const crypto = require('node:crypto');
+const { executeVerifierWithAdapter, computeEvidenceDigest } = require('./verifierAdapters');
+const { buildPreReceipt } = require('./verifierReceiptBuilder');
+const { issueReceipt } = require('../epistemicVerifierReceiptService');
 
-function createReceipt(payload) {
-  // Ce receipt est un format de résultat intermédiaire (non signé).
-  // Pour un receipt signé et indépendant, utiliser epistemicVerifierReceiptService.issueReceipt.
-  // Ce format intermédiaire est converti au format signé par le bridge AEIS.
-  const { resultId, evidenceDigest, verifierDigest, status, observations, counterexamples } = payload;
-  const canonical = JSON.stringify([resultId, evidenceDigest, verifierDigest, status, observations, counterexamples].sort());
-  const digest = `sha256:${crypto.createHash('sha256').update(canonical).digest('hex')}`;
-  return {
-    digest,
-    resultId,
-    evidenceDigest,
-    verifierDigest,
-    status,
-    createdAt: new Date().toISOString(),
-    // Ces champs sont remplis lors de la conversion vers le format signé AEIS
-    nonce: null,
-    independent: false,
-    signature: null,
+function mapVerifierTypeToAdapter(verifierType) {
+  // Mapping entre les types de vérificateurs et les adapters correspondants
+  const map = {
+    testResult: 'test',
+    test: 'test',
+    coverage: 'coverage',
+    behavior: 'behavior',
+    counterexample: 'behavior',
+    artifact: 'artifact',
+    repro: 'artifact',
+    replay: 'test',
   };
+  return map[verifierType] || verifierType;
 }
 
 function executeVerifier(antigen, verifier, context = {}) {
@@ -40,67 +41,55 @@ function executeVerifier(antigen, verifier, context = {}) {
     };
   }
 
-  const observations = [];
-  const counterexamples = [];
+  // Mapping du type de verifier vers l'adapter correspondant
+  const adapterType = mapVerifierTypeToAdapter(verifier.type);
+  const mappedVerifier = { ...verifier, type: adapterType };
 
-  // Exécution de la stratégie du verifier.
-  const strategy = verifier.strategy || [];
-  for (const step of strategy) {
-    observations.push({
-      step,
-      result: 'executed',
-      timestamp: new Date().toISOString(),
-    });
-  }
+  // Exécution via l'adapter correspondant au type de verifier
+  const adapterContext = { ...context, originalVerifierType: verifier.type };
+  const { status, observations, counterexamples } = executeVerifierWithAdapter(
+    antigen,
+    mappedVerifier,
+    adapterContext
+  );
 
-  // Recherche de contre-exemples (simulée pour l'instant).
-  const hasCounterexample = checkForCounterexample(antigen, verifier);
-  if (hasCounterexample) {
-    counterexamples.push({
-      type: 'counterexample',
-      description: 'Found a counterexample to the claim',
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  // Détermination du statut.
-  let status = 'verified';
-  if (counterexamples.length > 0) {
-    status = 'refuted';
-  } else if (observations.length === 0) {
-    status = 'inconclusive';
-  }
-
-  // Création du receipt signé.
-  const receipt = createReceipt({
+  // Construction du pre-receipt intermédiaire, puis signature via
+  // epistemicVerifierReceiptService pour unifier tous les receipts AEIS.
+  const preReceipt = buildPreReceipt({
     resultId: antigen.id,
-    evidenceDigest: antigen.epitopes?.evidence?.digest || 'none',
+    evidenceDigest: antigen.epitopes?.evidence?.digest || computeEvidenceDigest(observations),
     verifierDigest: verifier.type,
     status,
     observations,
     counterexamples,
   });
 
+  const signedReceipt = issueReceipt(preReceipt);
+
   return {
     status,
     resultId: antigen.id,
-    evidenceDigest: antigen.epitopes?.evidence?.digest || 'none',
+    evidenceDigest: antigen.epitopes?.evidence?.digest || signedReceipt.evidenceDigest,
     verifierDigest: verifier.type,
     observations,
     counterexamples,
-    receipt,
+    receipt: signedReceipt,
     executedAt: new Date().toISOString(),
   };
 }
 
 function checkForCounterexample(antigen, verifier) {
-  // Simulation : un verifier de type 'counterexample' trouve toujours
-  // un contre-exemple si l'antigène n'a pas de preuve forte.
-  if (verifier.type === 'counterexample') {
-    return !antigen.epitopes?.evidence?.digest;
-  }
-  return false;
+  // Délégue à l'adapter de comportement si présent
+  const { runBehaviorAdapter } = require('./verifierAdapters');
+  const result = runBehaviorAdapter(antigen, verifier, {});
+  return result?.counterexamples?.length > 0;
 }
+
+module.exports = {
+  executeVerifier,
+  executeVerifiers,
+  checkForCounterexample,
+};
 
 function executeVerifiers(antigen, verifiers, context = {}) {
   if (!verifiers || !verifiers.length) {
@@ -117,8 +106,3 @@ function executeVerifiers(antigen, verifiers, context = {}) {
     summary: { verified, refuted, inconclusive },
   };
 }
-
-module.exports = {
-  executeVerifier,
-  executeVerifiers,
-};

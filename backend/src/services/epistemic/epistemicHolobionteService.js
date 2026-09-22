@@ -37,7 +37,7 @@ const { recall, fuzzyRecall, recordOutcome } = require('./immuneMemoryService');
 const { regulatoryReview } = require('./epistemicInflammationAndRegulation');
 const { computePressure, tierFromPressure } = require('./epistemicHomeostasisService');
 const { dissonanceFrom, niveauCorpsent } = require('./epistemicApoptosisService');
-const { executeVerifiers } = require('./verifierExecutionService');
+const { executeVerifierWorkers } = require('./verifierRuntimeBridge');
 
 function hostDecision(reports, opts = {}) {
   const specialistOutput = reports.specialistOutput || reports.specialist;
@@ -68,13 +68,13 @@ function immuneSymbiontReview(antigen, context = {}) {
   const blocked = isImmuneDecisionBlocked(pipeline);
   const blockReason = blocked ? `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}` : null;
 
-  // Exécution réelle des verifiers sélectionnés.
+  // Exécution des verifiers sélectionnés via le runtime bridge.
   const verifiers = pipeline.decision?.assignedVerifiers?.map((v) => ({
     type: v.verifier,
     strategy: v.strategy || [],
     affinity: v.affinity || 0.5,
   })) || [];
-  const verifierResults = executeVerifiers(antigen, verifiers, context);
+  const verifierResults = executeVerifierWorkers(antigen, verifiers, context);
 
   // Régulateur T-reg : vérifie que le système ne rejette pas pour une mauvaise raison.
   const regulator = blockReason
