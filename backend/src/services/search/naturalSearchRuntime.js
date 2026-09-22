@@ -69,6 +69,48 @@ function ingestEvidence(searchState, payload) {
   }
 }
 
+/**
+ * Point 3 — Création d'hypothèses à partir d'événements runtime.
+ * Si l'événement porte un hypothesisInformationGain > 0 ou un statement explicite,
+ * on crée automatiquement une hypothèse dans le Ledger.
+ */
+function maybeProposeHypothesis(searchState, payload, agentId) {
+  const { ledger } = searchState;
+
+  // Cas 1: l'événement porte un statement explicite (HYPOTHESIS_PROPOSAL)
+  if (payload.hypothesisStatement) {
+    const h = ledger.propose({
+      agentId,
+      statement: payload.hypothesisStatement,
+      prediction: payload.hypothesisPrediction || null,
+      falsificationCondition: payload.hypothesisFalsification || null,
+      confidence: payload.hypothesisConfidence ?? 0.5
+    });
+    ledger.startTest(h.id);
+    return h;
+  }
+
+  // Cas 2: l'événement porte un hypothesisInformationGain > 0
+  // et aucune hypothèse active n'existe pour cet agent → proposer une hypothèse par défaut
+  const hypothesisGain = Number(payload.hypothesisInformationGain || 0);
+  if (hypothesisGain > 0) {
+    const activeHyps = ledger.activeHypotheses();
+    if (activeHyps.length === 0) {
+      const h = ledger.propose({
+        agentId,
+        statement: `Hypothèse auto-générée (gain=${hypothesisGain.toFixed(3)})`,
+        prediction: null,
+        falsificationCondition: null,
+        confidence: 0.5
+      });
+      ledger.startTest(h.id);
+      return h;
+    }
+  }
+
+  return null;
+}
+
 function ingestFailureEvidence(searchState, event) {
   const { ledger } = searchState;
   const targetHypId = event.payload?.hypothesisId || null;
@@ -197,6 +239,9 @@ async function checkNaturalSearchControl(ctx, event) {
     applyBudget(searchState, normalizedMission);
     causalProgress.ingestEvent(event);
     ingestEvidence(searchState, event.payload || {});
+
+    // Point 3 — Création d'hypothèses à partir d'événements runtime
+    maybeProposeHypothesis(searchState, event.payload || {}, agentId);
 
     if (['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(event.eventType)) {
       ingestFailureEvidence(searchState, event);
