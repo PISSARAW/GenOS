@@ -157,6 +157,84 @@ class HypothesisLedger {
     return h
   }
 
+  save() {
+    const hypotheses = []
+    for (const h of this.hypotheses.values()) {
+      hypotheses.push({
+        id: h.id,
+        agentId: h.agentId,
+        parentHypothesisId: h.parentHypothesisId,
+        branchId: h.branchId,
+        statement: h.statement,
+        prediction: h.prediction,
+        falsificationCondition: h.falsificationCondition,
+        confidence: h.confidence,
+        uncertainty: h.uncertainty,
+        status: h.status,
+        createdAt: h.createdAt,
+        lastTestedAt: h.lastTestedAt,
+        lastProgressAt: h.lastProgressAt,
+        proofIds: h.proofIds
+      })
+    }
+    return { hypotheses, proofs: Array.from(this.proofs.values()) }
+  }
+
+  load(state) {
+    if (!state) return this
+    if (state.hypotheses) this._loadHypotheses(state.hypotheses)
+    if (state.proofs) this._loadProofs(state.proofs)
+    this.notify({ type: 'HYPOTHESIS_LOADED', hypotheses: this.activeHypotheses() })
+    return this
+  }
+
+  _loadHypotheses(hDataList) {
+    for (const hData of hDataList) {
+      const h = {
+        id: hData.id,
+        agentId: hData.agentId,
+        parentHypothesisId: hData.parentHypothesisId || null,
+        branchId: hData.branchId || null,
+        statement: hData.statement || '',
+        prediction: hData.prediction || null,
+        falsificationCondition: hData.falsificationCondition || null,
+        confidence: hData.confidence ?? 0.5,
+        uncertainty: hData.uncertainty ?? 1.0,
+        status: hData.status || HYPOTHESIS_STATUS.PROPOSED,
+        createdAt: hData.createdAt || Date.now(),
+        lastTestedAt: hData.lastTestedAt || null,
+        lastProgressAt: hData.lastProgressAt || null,
+        proofIds: hData.proofIds || []
+      }
+      this.hypotheses.set(h.id, h)
+    }
+  }
+
+  _loadProofs(pDataList) {
+    for (const pData of pDataList) {
+      const id = pData.id || crypto.randomBytes(6).toString('hex')
+      const proofRecord = {
+        id,
+        hypothesisId: pData.hypothesisId,
+        direction: pData.direction === 'against' ? 'against' : 'for',
+        strength: Math.max(0, Number(pData.strength || 1)),
+        provenance: pData.provenance || PROVENANCE.SELF_REPORTED,
+        reliability: Math.max(0, Math.min(1, Number(pData.reliability || 0.5))),
+        independent: pData.independent !== false,
+        evidenceRef: pData.evidenceRef || null,
+        receiptRef: pData.receiptRef || null,
+        sourceAgent: pData.sourceAgent || null,
+        sourceTool: pData.sourceTool || null,
+        createdAt: Date.now()
+      }
+      this.proofs.set(id, proofRecord)
+      const hypothesis = this.hypotheses.get(proofRecord.hypothesisId)
+      if (hypothesis && !hypothesis.proofIds.includes(id)) {
+        hypothesis.proofIds.push(id)
+      }
+    }
+  }
+
   reopen(hypothesisId) {
     const h = this.hypotheses.get(hypothesisId)
     if (!h || h.status !== HYPOTHESIS_STATUS.REOPEN_REQUESTED) return null

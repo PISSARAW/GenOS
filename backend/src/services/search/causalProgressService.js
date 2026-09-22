@@ -27,12 +27,35 @@ const PROVENANCE_WEIGHTS = {
   self_reported: 0.3
 }
 
+/**
+ * Normalise la consommation de ressources par rapport aux budgets de mission.
+ * Utilisé par searchYield(), stepYield() et detectDiminishingReturns().
+ */
+const normalizedResourcePressure = (resources, budgets) => {
+  const tb = Math.max(1, budgets.tokenBudget)
+  const cb = Math.max(0.01, budgets.costBudget)
+  const tmb = Math.max(1, budgets.timeBudget)
+  return (
+    0.5 * (resources.tokensConsumed / tb) +
+    0.3 * (resources.costConsumed / cb) +
+    0.2 * (resources.timeConsumed / tmb)
+  )
+}
+
 class SearchProgressWindow {
   constructor(options = {}) {
     this.windowMs = options.windowMs || SEARCH_PROGRESS_WINDOW_MS
     this.steps = []
     this.objectiveStart = null
     this.budgets = options.budgets || { tokenBudget: 100000, costBudget: 1.0, timeBudget: 600 }
+  }
+
+  /**
+   * Pression normalisée — utilisée par searchYield ET stepYield.
+   * Délegue vers la fonction partagée normalizedResourcePressure.
+   */
+  normalizedPressure(resources) {
+    return normalizedResourcePressure(resources, this.budgets)
   }
 
   ensureObjectiveInitial(value) {
@@ -101,14 +124,7 @@ class SearchProgressWindow {
    * Pression normalisée — utilisée par searchYield ET stepYield.
    */
   normalizedPressure(resources) {
-    const tb = Math.max(1, this.budgets.tokenBudget)
-    const cb = Math.max(0.01, this.budgets.costBudget)
-    const tmb = Math.max(1, this.budgets.timeBudget)
-    return (
-      0.5 * (resources.tokensConsumed / tb) +
-      0.3 * (resources.costConsumed / cb) +
-      0.2 * (resources.timeConsumed / tmb)
-    )
+    return normalizedResourcePressure(resources, this.budgets)
   }
 
   stepYield(step) {
@@ -179,32 +195,34 @@ class CausalProgressService {
     if (!event || typeof event !== 'object') return this.report()
     const payload = event.payload || {}
     const provenance = payload.provenance || PROVENANCE.SELF_REPORTED
-    const pw = PROVENANCE_WEIGHTS[provenance] ?? 0.3
 
-    const evidence = Number(payload.evidenceGain || 0) * pw
-    const uncertainty = Number(payload.uncertaintyReduction || 0) * pw
+    const evidence = Number(payload.evidenceGain || 0)
+    const uncertainty = Number(payload.uncertaintyReduction || 0)
     const constraints = Number(payload.constraintsResolved || 0)
     const artifacts = Number(payload.verifiedArtifactDelta || 0)
     const objective = Number(payload.objectiveDelta || 0)
-    const hypothesis = Number(payload.hypothesisInformationGain || 0) * pw
+    const hypothesis = Number(payload.hypothesisInformationGain || 0)
     const tokens = Number(payload.tokensConsumed || 0)
     const time = Number(payload.timeConsumed || 0)
     const cost = Number(payload.costConsumed || 0)
 
     this.window.pushStep({
-      evidenceGain: evidence, uncertaintyReduction: uncertainty,
-      constraintsResolved: constraints, verifiedArtifactDelta: artifacts,
-      objectiveDelta: objective, hypothesisInformationGain: hypothesis,
+      evidenceGain: evidence * PROVENANCE_WEIGHTS[provenance],
+      uncertaintyReduction: uncertainty * PROVENANCE_WEIGHTS[provenance],
+      constraintsResolved: constraints,
+      verifiedArtifactDelta: artifacts,
+      objectiveDelta: objective,
+      hypothesisInformationGain: hypothesis * PROVENANCE_WEIGHTS[provenance],
       tokensConsumed: tokens, timeConsumed: time, costConsumed: cost,
       provenance
     })
 
-    this.globalEvidence += evidence
-    this.globalUncertainty += uncertainty
+    this.globalEvidence += evidence * PROVENANCE_WEIGHTS[provenance]
+    this.globalUncertainty += uncertainty * PROVENANCE_WEIGHTS[provenance]
     this.globalConstraints += constraints
     this.globalArtifacts += artifacts
     this.globalObjective += objective
-    this.globalHypothesisInfo += hypothesis
+    this.globalHypothesisInfo += hypothesis * PROVENANCE_WEIGHTS[provenance]
     this.globalTokens += tokens
     this.globalTime += time
     this.globalCost += cost

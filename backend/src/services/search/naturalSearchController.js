@@ -17,12 +17,14 @@ const SEARCH_PROCESS = {
   CLONAL_AFFINITY_SEARCH: 'CLONAL_AFFINITY_SEARCH',
   REPLAY_CAUSAL: 'REPLAY_CAUSAL',
   STRESS_HYPERMUTATION: 'STRESS_HYPERMUTATION',
-  SPECIATION: 'SPECIATION'
+  SPECIATION: 'SPECIATION',
+  EVOLUTION: 'EVOLUTION'
 }
 
 // Hysteresis thresholds
 const PHASE_ENTER = { PLASTICITY: 0.45, CLONAL: 0.65, HYPERMUTATION: 0.78, SPECIATION: 0.91 }
 const PHASE_EXIT = { PLASTICITY: 0.32, CLONAL: 0.50, HYPERMUTATION: 0.65, SPECIATION: 0.80 }
+const MIN_DWELL_STEPS = 3
 
 class NaturalSearchController {
   constructor(options = {}) {
@@ -30,6 +32,7 @@ class NaturalSearchController {
     this.history = []
     this.lastProcess = null
     this.stepsInCurrentProcess = 0
+    this.stepsSinceChange = 0
     this.ledger = options.ledger || null
   }
 
@@ -61,15 +64,35 @@ class NaturalSearchController {
     let diagnostics = {}
     const p = pressure.pressure
 
-    // Hysteresis logic: check exit thresholds first
+    // Hysteresis: track steps since last process change
+    if (process === this.lastProcess) {
+      this.stepsSinceChange++
+    } else {
+      this.stepsSinceChange = 0
+      this.stepsInCurrentProcess = 0
+    }
+
+    // Hysteresis logic: check exit thresholds first (prevent rapid switching)
     if (this.lastProcess) {
       const exitThresh = PHASE_EXIT[this.lastProcess]
-      if (exitThresh !== undefined && p < exitThresh && this.stepsInCurrentProcess >= 4) {
-        // allow downgrade
+      if (
+        exitThresh !== undefined &&
+        p < exitThresh &&
+        this.stepsSinceChange >= MIN_DWELL_STEPS
+      ) {
+        // allow downgrade after minimum dwell time
       }
     }
 
-    if (p < PHASE_ENTER.PLASTICITY) {
+    // Determine process based on current pressure with hysteresis
+    // First check lineage pressure for evolution trigger
+    const hasSignificantLineagePressure = ctx.lineagePressure &&
+      (ctx.lineagePressure.falsifiedCount >= 3 || ctx.lineagePressure.supportedCount >= 3)
+    
+    if (hasSignificantLineagePressure) {
+      process = SEARCH_PROCESS.EVOLUTION
+      diagnostics = { reason: 'lineage pressure — evolution triggered' }
+    } else if (p < PHASE_ENTER.PLASTICITY) {
       if (ctx.searchYield !== undefined && ctx.searchYield < 0.05) {
         process = SEARCH_PROCESS.FORAGE
         diagnostics = { reason: 'low yield — forage' }

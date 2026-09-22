@@ -57,11 +57,23 @@ function buildSearchContext(ctx, searchState) {
   const falsifiedHyps = ledger.hypothesesForAgent(agentId).filter(h => h.status === 'falsified').length;
   const entropyMetrics = swarmSentinel.getAgentEntropy(agentId);
 
+  // Lineage pressure: track across missions/generations
+  const lineagePressure = ledger.hypothesesForAgent(agentId).reduce((acc, h) => {
+    if (h.status === 'falsified') {
+      acc.falsifiedCount++
+    }
+    if (h.status === 'supported') {
+      acc.supportedCount++
+    }
+    return acc
+  }, { falsifiedCount: 0, supportedCount: 0 })
+
   return {
     agentId, searchYield, stepsSinceProgress, falsifiedHypotheses: falsifiedHyps,
     contradictions: 0, activeHypothesesCount: ledger.activeHypotheses().length,
-    budgetRatio: ctx.budgetRatio || 0.3, causalProgressReport: causalReport, entropyMetrics
-  };
+    budgetRatio: ctx.budgetRatio || 0.3, causalProgressReport: causalReport, entropyMetrics,
+    lineagePressure
+  }
 }
 
 function applyBudget(searchState, normalizedMission) {
