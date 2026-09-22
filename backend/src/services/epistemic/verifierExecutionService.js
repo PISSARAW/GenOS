@@ -10,6 +10,9 @@
 const crypto = require('node:crypto');
 
 function createReceipt(payload) {
+  // Ce receipt est un format de résultat intermédiaire (non signé).
+  // Pour un receipt signé et indépendant, utiliser epistemicVerifierReceiptService.issueReceipt.
+  // Ce format intermédiaire est converti au format signé par le bridge AEIS.
   const { resultId, evidenceDigest, verifierDigest, status, observations, counterexamples } = payload;
   const canonical = JSON.stringify([resultId, evidenceDigest, verifierDigest, status, observations, counterexamples].sort());
   const digest = `sha256:${crypto.createHash('sha256').update(canonical).digest('hex')}`;
@@ -20,6 +23,10 @@ function createReceipt(payload) {
     verifierDigest,
     status,
     createdAt: new Date().toISOString(),
+    // Ces champs sont remplis lors de la conversion vers le format signé AEIS
+    nonce: null,
+    independent: false,
+    signature: null,
   };
 }
 

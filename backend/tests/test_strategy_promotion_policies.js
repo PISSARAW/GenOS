@@ -70,19 +70,24 @@ async function run() {
   assert(evalFail.violations.some((v) => v.policy === 'require_independent_verification'));
   assert(evalFail.violations.some((v) => v.policy === 'require_human_approval'));
 
-  const evalPass = promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
+  // Un receipt indépendant signé (mock car sans secret) doit maintenant être rejeté
+  // si la liste de vérificateurs de confiance est vide (comportement attendu)
+  const evalWithUnsignedReceipt = promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
     replayVerified: true,
-    independentVerification: true,
-    humanApprovalReceipt: {
-      approved: true,
-      approvalId: 'approval-test',
-      approverId: 'reviewer-test',
-      approvedAt: new Date().toISOString(),
-      payloadHash: 'a'.repeat(64)
+    independentVerifierReceipt: {
+      resultId: 'test-result',
+      evidenceDigest: 'sha256:' + 'a'.repeat(64),
+      verifierDigest: 'sha256:' + 'b'.repeat(64),
+      independent: true,
+      status: 'verified',
+      checkedAt: new Date().toISOString(),
+      nonce: 'test-nonce',
+      signature: 'fake-signature-for-now'
     }
   });
-  assert.equal(evalPass.eligible, true);
-  assert.equal(evalPass.violations.length, 0);
+  // Sans trustedVerifierDigests configurés, le receipt ne peut pas être validé
+  assert.equal(evalWithUnsignedReceipt.eligible, false);
+  assert(evalWithUnsignedReceipt.violations.some((v) => v.policy === 'require_independent_verification'));
   assert.equal(
     promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
       replayVerified: true,

@@ -214,20 +214,41 @@ function reportClaims(executionContext) {
   return report.claims;
 }
 
-function isIndependentVerification(executionContext) {
-  // La vérification indépendante doit être explicite et traçable.
-  // Accepter simplement "claims avec evidence" ou "dossiers workers" comme
-  // "vérification indépendante" est une faille critique (P0).
-  if (executionContext.independentVerification === true) return true;
-  // Vérification par un receipt de vérification indépendant signé.
-  if (executionContext.independentVerifierReceipt) return true;
-  if (executionContext.verifierReceipt && executionContext.verifierReceipt.independent === true) return true;
-  return false;
+function isReceiptLoaded(receipt) {
+  return Boolean(receipt && typeof receipt === 'object');
+}
+
+function hasRequiredFields(receipt) {
+  return Boolean(
+    receipt.independent &&
+    receipt.resultId &&
+    receipt.evidenceDigest &&
+    receipt.verifierDigest &&
+    receipt.signature &&
+    receipt.checkedAt &&
+    receipt.nonce
+  );
+}
+
+function hasTrustedDigests(digests) {
+  return Array.isArray(digests) && digests.length > 0;
+}
+
+function isIndependentVerification(executionContext, trustedVerifierDigests) {
+  if (!executionContext) return false;
+  const receipt = executionContext.independentVerifierReceipt;
+  if (!isReceiptLoaded(receipt)) return false;
+  if (!hasRequiredFields(receipt)) return false;
+  if (!hasTrustedDigests(trustedVerifierDigests)) return false;
+  if (isNaN(Date.parse(receipt.checkedAt))) return false;
+  const { validateReceipt } = require('./epistemicVerifierReceiptService');
+  return validateReceipt(receipt, trustedVerifierDigests);
 }
 
 function buildVerificationViolation(policy, executionContext) {
   if (!policy.require_independent_verification) return null;
-  if (isIndependentVerification(executionContext)) return null;
+  const trustedDigests = policy.epistemic_verifier_digests || (executionContext && executionContext.trustedVerifierDigests) || [];
+  if (isIndependentVerification(executionContext, trustedDigests)) return null;
   return {
     policy: 'require_independent_verification',
     message: 'Contract requires independent verification or verified evidence before promotion.'
@@ -365,7 +386,6 @@ function buildPostPromotionResult(actionsTaken) {
   if (!mergeBlocked && !preservationFailed) return result;
   return { ...result, error: selectPostPromotionError(mergeBlocked) };
 }
-
 async function applyPostPromotionPolicies(db, contract = {}, executionContext = {}) {
   const policy = contract.promotion || {};
   const preserved = await preserveRejectedBranches(db, policy, executionContext);

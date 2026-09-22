@@ -46,10 +46,17 @@ function reportHasVerifiedClaims(report) {
 }
 
 function hasIndependentSupport(context = {}) {
-  return context.independentVerification === true
-    || context.evidenceVerified === true
-    || (Array.isArray(context.verifiedClaims) && context.verifiedClaims.length > 0)
-    || reportHasVerifiedClaims(context.report);
+  // L'indépendance doit être attestée par un receipt signé, pas déclarée.
+  // Vérification via le service épistémique de validation de receipt.
+  const receipt = context.independentVerifierReceipt;
+  if (receipt && typeof receipt === 'object' && receipt.independent === true && receipt.signature) {
+    const { validateReceipt } = require('./epistemicVerifierReceiptService');
+    const trustedDigests = (context && context.trustedVerifierDigests) || [];
+    if (trustedDigests.length > 0) {
+      return validateReceipt(receipt, trustedDigests);
+    }
+  }
+  return false;
 }
 
 function evaluatePromotion(contract = {}, executionContext = {}) {
