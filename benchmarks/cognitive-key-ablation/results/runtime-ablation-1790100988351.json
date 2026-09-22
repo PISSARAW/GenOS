@@ -1,0 +1,34 @@
+{
+  "model": "qwen2.5:14b",
+  "missions": 1,
+  "launched": [
+    {
+      "arm": "A",
+      "mission": 0,
+      "orchestratorId": "mcp_orchestrator_86f1af6a-34cf-477e-84a2-18cb78dacc1e"
+    },
+    {
+      "arm": "E",
+      "mission": 0,
+      "orchestratorId": "mcp_orchestrator_92ee0757-a5ca-467d-ae6c-d1d342c84a46"
+    }
+  ],
+  "outcomes": [
+    {
+      "orchestratorId": "mcp_orchestrator_86f1af6a-34cf-477e-84a2-18cb78dacc1e",
+      "status": "idle",
+      "cognitiveEvents": 0,
+      "workerReports": 0
+    },
+    {
+      "orchestratorId": "mcp_orchestrator_92ee0757-a5ca-467d-ae6c-d1d342c84a46",
+      "status": "idle",
+      "cognitiveEvents": 0,
+      "workerReports": 0
+    }
+  ],
+  "registry": [],
+  "completed": 2,
+  "timedOut": [],
+  "runAt": "2026-09-22T18:16:28.349Z"
+}
