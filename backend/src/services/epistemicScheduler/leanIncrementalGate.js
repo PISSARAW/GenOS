@@ -2,6 +2,7 @@
 
 const { createHash } = require('node:crypto');
 const { pack } = require('msgpackr');
+const { globalRegistry } = require('../mathematical/verificationRegistry');
 
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 const PLACEHOLDER_PROOF = /\b(?:sorry|admit)\b/u;
@@ -34,7 +35,16 @@ class LeanIncrementalGate {
     this.environmentDigest = options.environmentDigest;
     this.allowedAxioms = new Set(options.allowedAxioms || []);
     this.clock = options.clock || (() => new Date().toISOString());
-    this.publish = options.publish || (() => {});
+    // Default publish: register verified receipts in the global registry if no
+    // explicit registry is provided, so the VerificationRegistry becomes the
+    // single source of truth across the whole process.
+    const explicitRegistry = options.registry || null;
+    const registry = explicitRegistry || globalRegistry;
+    const userPublish = options.publish || null;
+    this.publish = (receipt) => {
+      registry.registerVerified(receipt);
+      if (userPublish) userPublish(receipt);
+    };
     this.receipts = new Map();
   }
 

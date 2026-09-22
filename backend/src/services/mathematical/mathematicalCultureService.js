@@ -11,6 +11,7 @@
  */
 
 const crypto = require('node:crypto');
+const { globalRegistry } = require('./verificationRegistry');
 
 function culturalArtifactId() {
   return `culture-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
@@ -24,6 +25,11 @@ class MathematicalCulture {
     this.artifacts = new Map();
     this.transmissionHistory = [];
     this.fidelityRate = opts.fidelityRate != null ? opts.fidelityRate : 0.9;
+    // VerificationRegistry is the single source of truth.
+    // When supplied, the culture asks the registry "is this receipt valid?"
+    // instead of trusting ProofArtifact.isVerified().
+    // Default: use the global registry.
+    this.registry = opts.registry !== undefined ? opts.registry : globalRegistry;
   }
 
   addArtifact(artifact) {
@@ -31,16 +37,20 @@ class MathematicalCulture {
     let proofReceipt = null;
     let formalResult = null;
 
-    // Reject forged verified: true without a real ProofArtifact.isVerified()
+    // Reject forged verified: true without a real ProofArtifact
     if (artifact.verified === true && !artifact.proofArtifact) {
       throw new Error('Verified artifacts require a ProofArtifact with isVerified() === true. Forged verified is forbidden.');
     }
 
-    // Derive verified from proofArtifact.isVerified() automatically
-    // It is forbidden to simply pass verified: true — the API must derive it
     if (artifact.proofArtifact) {
-      verified = artifact.proofArtifact.isVerified();
-      if (verified) {
+      // Primary path: ask the VerificationRegistry whether this artifact's
+      // receipt is genuinely verified by the Lean kernel.
+      if (this.registry && this.registry.isLeanReceiptValid(artifact.proofArtifact._leanReceipt)) {
+        verified = true;
+        proofReceipt = artifact.proofArtifact._leanReceipt;
+      } else if (!this.registry && artifact.proofArtifact.isVerified()) {
+        // Legacy fallback when no registry is supplied (back-compat for tests).
+        verified = true;
         proofReceipt = artifact.proofArtifact._leanReceipt;
       }
     }
@@ -85,39 +95,23 @@ class MathematicalCulture {
 
     // Verified facts become part of knowledge base
     // Unverified ideas become strategies
+    // Note: artifact.verified is already computed correctly in addArtifact()
+    // using the VerificationRegistry when supplied.
     if (isFact && artifact.verified) {
-      // Only transmit as verified knowledge when we have a genuine ProofArtifact
-      // that has passed Lean verification. A formalResult with status 'verified'
-      // but no ProofArtifact or without a real Lean receipt is not sufficient —
-      // it could be a forged or self-declared verification.
-      const hasRealProof = Boolean(
-        artifact.proofArtifact
-        && typeof artifact.proofArtifact.isVerified === 'function'
-        && artifact.proofArtifact.isVerified()
-      );
-      if (!hasRealProof) {
-        // Fall through: treat as unverified strategy
-        if (!targetLineage.genome.strategies.includes(artifact.content)) {
-          targetLineage.genome.strategies.push(artifact.content);
-        }
-      } else {
-        // Add to lineage knowledge (not strategies)
-        if (!targetLineage._knowledge) targetLineage._knowledge = [];
-        targetLineage._knowledge.push({
-          type: artifact.type,
-          content: artifact.content,
-          verified: artifact.verified,
-          proofArtifact: artifact.proofArtifact,
-          semanticFingerprint: artifact.proofArtifact && artifact.proofArtifact._formalResult
-            ? artifact.proofArtifact._formalResult.semanticFingerprint
-            : null,
-          validityDomain: artifact.proofArtifact && artifact.proofArtifact._formalResult
-            ? artifact.proofArtifact._formalResult.validityDomain
-            : null,
-          fidelity: newFidelity,
-          source: artifact.id,
-        });
-      }
+      // Add to lineage knowledge (not strategies)
+      if (!targetLineage._knowledge) targetLineage._knowledge = [];
+      const pf = artifact.proofArtifact;
+      const formalResult = pf && pf._formalResult ? pf._formalResult : null;
+      targetLineage._knowledge.push({
+        type: artifact.type,
+        content: artifact.content,
+        verified: artifact.verified,
+        proofArtifact: pf,
+        semanticFingerprint: formalResult ? formalResult.semanticFingerprint : null,
+        validityDomain: formalResult ? formalResult.validityDomain : null,
+        fidelity: newFidelity,
+        source: artifact.id,
+      });
     } else {
       // Add as strategy (unverified)
       if (!targetLineage.genome.strategies.includes(artifact.content)) {
