@@ -75,6 +75,11 @@ impl GenosEcosystem {
         let uncertain = evidence_events == 0 || active_virions >= 2;
         let observed = evidence_events > 0;
 
+        // Pont NCE → Rust : lit le signal de curiosité calculé par le backend Node
+        // (curiosityBridgeService) et l'injecte dans WorldState.curiosity_hint.
+        // drives.rs utilise cette valeur pour piloter Goal::Explore.
+        let curiosity_hint = read_curiosity_bridge();
+
         WorldState {
             tissues,
             workers,
@@ -92,7 +97,28 @@ impl GenosEcosystem {
             budget_pressure,
             stress,
             apoptotic: self.orchestrator.conscience_state.is_apoptotic,
+            curiosity_hint,
             ..WorldState::default()
         }
+    }
+}
+
+/// Lit le fichier bridge NCE (écrit par curiosityBridgeService.js) pour injecter
+/// la curiosité calculée par le backend Node dans le WorldState Rust.
+fn read_curiosity_bridge() -> f64 {
+    let bridge_path = std::env::var("GENOS_WORKSPACE_ROOT")
+        .map(|p| format!("{}/.genos/curiosity_bridge.json", p))
+        .unwrap_or_else(|_| "./.genos/curiosity_bridge.json".to_string());
+    match std::fs::read_to_string(&bridge_path) {
+        Ok(content) => {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                json.get("curiosity_hint")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0)
+            } else {
+                0.0
+            }
+        }
+        Err(_) => 0.0,
     }
 }

@@ -16,11 +16,13 @@ function getCategory(x) {
   return ((x && x.metadata && x.metadata.category) || (x && x.category) || '').toLowerCase();
 }
 
+function parentFromConcept(proto, role) {
+  const id = proto && (proto.id || proto);
+  return { id, name: proto?.name || id || '', description: proto?.description || '', role, metadata: proto?.metadata || {} };
+}
+
 function buildReprParents(a, b) {
-  return [
-    { id: a && (a.id || a), role: 'parent_a' },
-    { id: b && (b.id || b), role: 'parent_b' },
-  ];
+  return [parentFromConcept(a, 'parent_a'), parentFromConcept(b, 'parent_b')];
 }
 
 function buildReprId() {
@@ -51,10 +53,22 @@ async function semanticDistance(sourceId, targetId, db) {
 }
 
 function compatibilityScore(a, b) {
-  const au = getCategory(a);
-  const bu = getCategory(b);
-  if (!au || !bu) return 0.5;
-  return au === bu ? 0.4 : 0.7;
+  // Similarité sémantique basée sur les features textuelles (Jaccard)
+  const aText = conceptText(a);
+  const bText = conceptText(b);
+  const aWords = new Set(aText.split(/[^a-z0-9]+/).filter((w) => w.length > 3));
+  const bWords = new Set(bText.split(/[^a-z0-9]+/).filter((w) => w.length > 3));
+  if (aWords.size === 0 && bWords.size === 0) return 0.5;
+  const intersection = new Set([...aWords].filter((w) => bWords.has(w)));
+  const union = new Set([...aWords, ...bWords]);
+  return 1 - intersection.size / union.size;
+}
+
+function conceptText(c) {
+  if (!c) return '';
+  return [c.name || '', c.description || '', c.id || '', JSON.stringify(c.metadata || {})]
+    .join(' ')
+    .toLowerCase();
 }
 
 function potentialFromKeywords(a, b, keywords) {
@@ -74,13 +88,15 @@ function potentialScore(a, b, problemContext) {
   return potentialFromKeywords(a, b, kw);
 }
 
-async function evaluatePair(sourceId, targetId, ctx) {
+async function evaluatePair(sourceConcept, targetConcept, ctx) {
+  const sourceId = sourceConcept?.id || sourceConcept;
+  const targetId = targetConcept?.id || targetConcept;
   const [dist, compat, pot] = await Promise.all([
     semanticDistance(sourceId, targetId, ctx.db),
-    Promise.resolve(compatibilityScore({ id: sourceId }, { id: targetId })),
-    Promise.resolve(potentialScore({ id: sourceId }, { id: targetId }, ctx.problemContext)),
+    Promise.resolve(compatibilityScore(sourceConcept, targetConcept)),
+    Promise.resolve(potentialScore(sourceConcept, targetConcept, ctx.problemContext)),
   ]);
-  return { a: sourceId, b: targetId, distance: dist, compatibility: compat, potential: pot, score: dist * compat * pot };
+  return { a: sourceId, b: targetId, sourceConcept, targetConcept, distance: dist, compatibility: compat, potential: pot, score: dist * compat * pot };
 }
 
 function sortPairs(pairs) {
@@ -96,8 +112,12 @@ async function collectPairs(candidates, ctx, targetDistance) {
   const pairs = [];
   for (let i = 0; i < candidates.length; i++) {
     for (let j = i + 1; j < Math.min(candidates.length, i + 10); j++) {
-      if (candidates[i] === candidates[j]) continue;
-      const scored = await evaluatePair(candidates[i], candidates[j], ctx);
+      const a = candidates[i];
+      const b = candidates[j];
+      const aId = a?.id || a;
+      const bId = b?.id || b;
+      if (aId === bId) continue;
+      const scored = await evaluatePair(a, b, ctx);
       if (scored.distance < targetDistance * 0.7) continue;
       pairs.push(scored);
     }
@@ -119,15 +139,15 @@ function buildSelectionResult(pairs, k) {
   };
 }
 
-async function selectDistantParents(candidateIds, ctx) {
+async function selectDistantParents(candidateConcepts, ctx) {
   ctx = ctx || {};
   const maxCandidates = ctx.maxCandidates || 20;
   const targetDistance = ctx.targetDistance || 0.6;
   const k = ctx.k || 2;
-  if (!candidateIds || candidateIds.length < 2) {
+  if (!candidateConcepts || candidateConcepts.length < 2) {
     return { parents: [], pairs: [], score: 0, reason: 'Pas assez de candidats' };
   }
-  const candidates = candidateIds.slice(0, maxCandidates);
+  const candidates = candidateConcepts.slice(0, maxCandidates);
   const pairs = await collectPairs(candidates, ctx, targetDistance);
   return buildSelectionResult(pairs, k);
 }
@@ -149,30 +169,26 @@ function reprDescription(a, b, opts) {
   return templates[repType] || templates.hybrid;
 }
 
+function buildProvenance(a, b, repType) {
+  return {
+    source_a: a && (a.id || a) || null,
+    source_b: b && (b.id || b) || null,
+    combined_at: new Date().toISOString(),
+    representation_type: repType || 'hybrid',
+  };
+}
+
 function buildReprObject(a, b, opts) {
   opts = opts || {};
-  // Calcule la distance sémantique réelle si possible
-  const aId = a && (a.id || a) || null;
-  const bId = b && (b.id || b) || null;
-  // La distance sémantique est calculée asynchnore dans evaluatePair()
-  // Ici on met 0.5 (inconnue) par défaut, elle sera mise à jour
-  // dans selectDistantParents() quand le contexte db est disponible
+  const repType = opts.representationType || 'hybrid';
+  const realDistance = opts.pair?.distance || 0.5;
   return {
     name: shortName(a) + '<>' + shortName(b),
-    representationType: opts.representationType || 'hybrid',
+    representationType: repType,
     parents: buildReprParents(a, b),
     description: reprDescription(a, b, opts),
-    provenance: {
-      source_a: aId,
-      source_b: bId,
-      combined_at: new Date().toISOString(),
-      representation_type: opts.representationType || 'hybrid',
-    },
-    creativity_metrics: {
-      semantic_distance: 0.5,
-      remote_association: true,
-      combination_depth: 2,
-    },
+    provenance: buildProvenance(a, b, repType),
+    creativity_metrics: { semantic_distance: realDistance, remote_association: true, combination_depth: 2 },
   };
 }
 
@@ -221,18 +237,16 @@ async function generateRepresentations(problem, candidateConcepts, options) {
   const k = options.k || 2;
   const targetDistance = options.targetDistance || 0.6;
   const ctx = { problemContext: problem, db: options.db, k, targetDistance };
-  const selection = await selectDistantParents(
-    candidateConcepts.map((c) => c.id || c),
-    ctx
-  );
+  // Passe les concepts complets à selectDistantParents (pas des IDs nus)
+  const selection = await selectDistantParents(candidateConcepts, ctx);
   if (!selection.parents.length) {
     return { representations: [], best: null, scores: [], parentSelection: selection, reason: selection.reason };
   }
   const representations = [];
   const scores = [];
   for (const pair of selection.parents) {
-    const aConcept = await findConceptById(candidateConcepts, pair.a);
-    const bConcept = await findConceptById(candidateConcepts, pair.b);
+    const aConcept = pair.sourceConcept || await findConceptById(candidateConcepts, pair.a);
+    const bConcept = pair.targetConcept || await findConceptById(candidateConcepts, pair.b);
     const opts = { problem, pair, representationTypes };
     const result = await generateForPair(aConcept, bConcept, opts);
     representations.push(...result.representations);

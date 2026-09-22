@@ -78,14 +78,24 @@ async function ensureParent({ db, context }) {
   return parent;
 }
 
+function getNceContextField(ctx, camel, snake) {
+  return ctx?.request?.[camel] || ctx?.request?.[snake];
+}
+
 function buildNCEEnrichments(context, topology) {
   const nceService = require('../src/services/topologyNCEService');
   return nceService.computeNCEForTopology(context.task, {
     topology,
     role: topology + '_agent',
-    domain: context.request?.domain || context.request?.problem_domain,
+    db: context.db,
+    domain: getNceContextField(context, 'domain', 'problem_domain'),
     keywords: context.request?.keywords || [],
     budget: context.request?.execution_budget || context.request?.executionBudget || {},
+    explorationDomains: getNceContextField(context, 'explorationDomains', 'exploration_domains') || [],
+    knownConcepts: getNceContextField(context, 'knownConcepts', 'known_concepts') || [],
+    existingCapabilities: getNceContextField(context, 'existingCapabilities', 'existing_capabilities') || [],
+    culturalTraits: getNceContextField(context, 'culturalTraits', 'cultural_traits') || [],
+    nceOptions: getNceContextField(context, 'nceOptions', 'nce_options'),
   });
 }
 

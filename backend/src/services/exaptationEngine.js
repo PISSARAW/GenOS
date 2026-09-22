@@ -102,11 +102,15 @@ function computeAlignment(analysis, newContext) {
 
 function computeNovelty(analysis, newContext) {
   if (!newContext) return 0;
-  const origin = analysis.origin_context.toLowerCase();
+  const origin = (analysis.origin_context || '').toLowerCase();
   const target = JSON.stringify(newContext).toLowerCase();
-  const shared = countOverlap(origin, target);
-  const maxLen = Math.max(origin.length, target.length, 1);
-  return clamp(1 - shared / maxLen, 0, 1);
+  // Jaccard lexical : 1 - |A ∩ B| / |A ∪ B|
+  const aWords = new Set(origin.split(/[^a-z0-9]+/).filter((w) => w.length > 3));
+  const bWords = new Set(target.split(/[^a-z0-9]+/).filter((w) => w.length > 3));
+  if (aWords.size === 0 && bWords.size === 0) return 0;
+  const intersection = new Set([...aWords].filter((w) => bWords.has(w)));
+  const union = new Set([...aWords, ...bWords]);
+  return clamp(1 - intersection.size / union.size, 0, 1);
 }
 
 function computeFeasibility(analysis, pattern) {

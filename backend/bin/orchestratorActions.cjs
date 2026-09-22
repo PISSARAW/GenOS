@@ -186,24 +186,9 @@ async function ensureParent({ db, context }) {
   });
   return parent;
 }
-function workerLaunchPayload({ context, member, workerId, parent }) {
-  // Enrichissement NCE du prompt si disponible
-  let enrichedPrompt = member.mission;
-  if (context.nceEnrichments) {
-    const topologyNCE = require('../src/services/topologyNCEService');
-    enrichedPrompt = topologyNCE.enrichWorkerPromptSync(member.mission, {
-      topology: context.nceEnrichments.topology,
-      role: member.role,
-      domain: context.nceEnrichments.domain,
-      keywords: context.nceEnrichments.keywords,
-      curiosity: context.nceEnrichments.curiosity,
-      representations: context.nceEnrichments.representations,
-      exaptations: context.nceEnrichments.exaptations,
-      culturalTraits: context.nceEnrichments.culturalTraits,
-      explorationDomains: context.nceEnrichments.explorationDomains,
-    });
-  }
-
+function workerLaunchPayload(args) {
+  const { context, member, workerId, parent } = args;
+  const enrichedPrompt = buildEnrichedPrompt({ context, member, args });
   return {
     action: 'dispatch_worker', background: false, orchestratorId: context.orchestratorId, workerId,
     mission: enrichedPrompt,
@@ -218,6 +203,23 @@ function workerLaunchPayload({ context, member, workerId, parent }) {
     workspace_root: context.request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
     reuseChecked: true,
   };
+}
+
+function buildEnrichedPrompt({ context, member, args }) {
+  if (!context.nceEnrichments && !args?.db) return member.mission;
+  const topologyNCE = require('../src/services/topologyNCEService');
+  const enrichments = context.nceEnrichments || {};
+  return topologyNCE.enrichWorkerPromptSync(member.mission, {
+    topology: enrichments.topology || 'worker',
+    role: member.role,
+    domain: enrichments.domain || context.request?.domain,
+    keywords: enrichments.keywords || context.request?.keywords || [],
+    curiosity: enrichments.curiosity,
+    representations: enrichments.representations,
+    exaptations: enrichments.exaptations,
+    culturalTraits: enrichments.culturalTraits,
+    explorationDomains: enrichments.explorationDomains || context.request?.explorationDomains || [],
+  });
 }
 function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
   const workerId = suppliedWorkerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
@@ -314,8 +316,11 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
     missionBudget.latencyMs = Math.max(1000, Number(context.request.timeoutMs) - 4000);
   }
   const workerPrompt = aTeamService.dependencyPrompt(context.task, context.request.depends_on);
+  
+  // Enrichissement NCE pour le worker direct (même mécanisme que les topologies)
   const localRuntime = requestLocalRuntime(context.request);
-  await dispatchWorkerMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerPrompt, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), timeoutMs: context.request.timeoutMs, localRuntime });
+  const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, modelTier: parent.model_tier }, workerId: context.id, parent });
+  await dispatchWorkerMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerLaunch.mission, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), timeoutMs: context.request.timeoutMs, localRuntime });
 }
 function requestLocalRuntime(request = {}) {
   if (request.localRuntime === true) return true;

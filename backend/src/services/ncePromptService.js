@@ -45,12 +45,22 @@ function pushSection(additions, data, cfg) {
 
 function enhancePromptWithNCE(prompt, options) {
   options = options || {};
+  const signals = options.signals || {};
   const additions = [];
   
-  pushSection(additions, options.curiosity?.ranking, CURIOSITY_CFG);
-  pushSection(additions, options.exaptations, EXAPT_CFG);
-  pushSection(additions, options.representations, REPR_CFG);
-  pushSection(additions, options.culturalTraits, CULT_CFG);
+  // TOPOLOGY_SIGNALS contrôle quels moteurs sont actifs par topologie
+  if (signals.curiosity !== false) {
+    pushSection(additions, options.curiosity?.ranking, CURIOSITY_CFG);
+  }
+  if (signals.exaptation !== false) {
+    pushSection(additions, options.exaptations, EXAPT_CFG);
+  }
+  if (signals.representationalMutation !== false) {
+    pushSection(additions, options.representations, REPR_CFG);
+  }
+  if (signals.culture !== false) {
+    pushSection(additions, options.culturalTraits, CULT_CFG);
+  }
   
   return {
     enhancedPrompt: additions.length > 0 ? prompt + additions.join('') : prompt,
