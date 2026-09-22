@@ -64,13 +64,111 @@ async function fetchMissionAgents(db, missionId) {
 async function assembleOrganism(db, mission) {
   const agents = await fetchMissionAgents(db, mission.id);
   const cells = agents.map(agentToCell);
-  const genome = {
-    objective: mission.objective || mission.task || null,
-    invariants: mission.invariants || [],
-    completionContract: mission.completionContract || null,
-    safetyConstraints: mission.safetyConstraints || []
+  const organismId = `organism_${mission.id}`;
+
+  // Try to restore existing organism state from DB
+  const existingState = await restoreOrganismState(db, organismId);
+  let organism;
+
+  if (existingState && existingState.memory) {
+    // Restore organism from persisted state
+    const genome = {
+      objective: mission.objective || mission.task || null,
+      invariants: mission.invariants || existingState.genome?.invariants || [],
+      completionContract: mission.completionContract || existingState.genome?.completionContract || null,
+      safetyConstraints: mission.safetyConstraints || existingState.genome?.safetyConstraints || []
+    };
+    const phenotype = existingState.phenotype
+      ? { currentPlan: existingState.phenotype.currentPlan, activeExecution: existingState.phenotype.activeExecution, currentState: existingState.phenotype.currentState }
+      : buildPhenotype({});
+
+    organism = {
+      id: organismId,
+      genome,
+      phenotype,
+      tissues: existingState.tissues || cells,
+      metabolism: existingState.metabolism || { tokens: 0, cost: 0, latencyMs: 0, computeCycles: 0, sampledAt: new Date().toISOString() },
+      immuneSystem: existingState.immuneSystem || buildImmuneSystem({ evidenceGates: [], tests: [], anomalyDetection: null, quarantine: null }),
+      nervousSystem: existingState.nervousSystem || buildNervousSystem({ heartbeats: [], signals: [] }),
+      memory: existingState.memory,
+      survival: existingState.survival || buildSurvivalSystem({ regeneration: null, quiescence: null, cryptobiosis: null, apoptosis: null }),
+      assembledAt: new Date().toISOString()
+    };
+  } else {
+    // Create new organism
+    const genome = {
+      objective: mission.objective || mission.task || null,
+      invariants: mission.invariants || [],
+      completionContract: mission.completionContract || null,
+      safetyConstraints: mission.safetyConstraints || []
+    };
+    organism = newOrganism({ id: organismId, genome, tissues: cells });
+    // Persist the new organism state for future restorations
+    await persistOrganismState(db, organism);
+  }
+
+  return organism;
+}
+
+function buildPhenotype(input = {}) {
+  return {
+    id: `phenotype_${crypto.randomUUID()}`,
+    currentPlan: input.currentPlan || null,
+    activeExecution: input.activeExecution || null,
+    currentState: input.currentState || null,
+    expressedAt: new Date().toISOString()
   };
-  return newOrganism({ id: `organism_${mission.id}`, genome, tissues: cells });
+}
+
+async function persistOrganismState(db, organism) {
+  const memory = organism.memory || buildMemorySystem({ checkpoints: [], scars: [], failedStrategies: [], provenance: [] });
+  const survival = organism.survival || buildSurvivalSystem({ regeneration: null, quiescence: null, cryptobiosis: null, apoptosis: null });
+  const immuneSystem = organism.immuneSystem || buildImmuneSystem({ evidenceGates: [], tests: [], anomalyDetection: null, quarantine: null });
+  const nervousSystem = organism.nervousSystem || buildNervousSystem({ heartbeats: [], signals: [] });
+  const phenotype = organism.phenotype || buildPhenotype({
+    currentPlan: organism.phenotype?.currentPlan,
+    activeExecution: organism.phenotype?.activeExecution,
+    currentState: organism.phenotype?.currentState
+  });
+  const metabolism = organism.metabolism || { tokens: 0, cost: 0, latencyMs: 0, computeCycles: 0, sampledAt: new Date().toISOString() };
+
+  await db.run(
+    `INSERT OR REPLACE INTO mission_organism_state (organism_id, genome_json, phenotype_json, tissues_json, metabolism_json, immune_system_json, nervous_system_json, memory_json, survival_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      organism.id,
+      JSON.stringify(organism.genome),
+      JSON.stringify(phenotype),
+      JSON.stringify(organism.tissues),
+      JSON.stringify(metabolism),
+      JSON.stringify(immuneSystem),
+      JSON.stringify(nervousSystem),
+      JSON.stringify(memory),
+      JSON.stringify(survival)
+    ]
+  );
+}
+
+async function restoreOrganismState(db, organismId) {
+  const row = await db.get(
+    `SELECT genome_json, phenotype_json, tissues_json, metabolism_json, immune_system_json, nervous_system_json, memory_json, survival_json FROM mission_organism_state WHERE organism_id = ?`,
+    organismId
+  );
+  if (!row) return null;
+
+  const memory = row.memory_json ? { ...row.memory_json, checkpoints: row.memory_json.checkpoints || [], scars: row.memory_json.scars || [], failedStrategies: row.memory_json.failedStrategies || [] } : { checkpoints: [], scars: [], failedStrategies: [] };
+  const survival = row.survival_json || { regeneration: null, quiescence: null, cryptobiosis: null, apoptosis: null };
+
+  return {
+    genome: row.genome_json ? JSON.parse(row.genome_json) : {},
+    phenotype: row.phenotype_json ? JSON.parse(row.phenotype_json) : {},
+    tissues: row.tissues_json ? JSON.parse(row.tissues_json) : [],
+    metabolism: row.metabolism_json ? JSON.parse(row.metabolism_json) : { tokens: 0, cost: 0, latencyMs: 0, computeCycles: 0 },
+    immuneSystem: row.immune_system_json ? JSON.parse(row.immune_system_json) : { evidenceGates: [], tests: [], anomalyDetection: null, quarantine: null },
+    nervousSystem: row.nervous_system_json ? JSON.parse(row.nervous_system_json) : { heartbeats: [], signals: [] },
+    memory,
+    survival
+  };
 }
 
 function buildMissionInput(missionId, task, extras = {}) {

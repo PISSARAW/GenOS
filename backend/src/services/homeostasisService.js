@@ -124,10 +124,11 @@ async function evaluateMissionHomeostasis(db, target) {
   const status = homeostasisStatus(state);
   const previous = await lastHomeostasisState(db, mission.id);
   const changed = !previous || previous.status !== status;
+  const contractId = contract.id || homeostasisId(mission.id);
   await db.run(
-    `INSERT INTO homeostasis_states (id, mission_id, contract_json, status, state_json, observed_at)
+    `INSERT INTO homeostasis_states (id, contract_id, mission_id, status, state_json, observed_at)
      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-    [homeostasisStateId(mission.id), mission.id, JSON.stringify(serializeContract(contract)), status, JSON.stringify(state)]
+    [homeostasisStateId(mission.id), contractId, mission.id, status, JSON.stringify(state)]
   );
   if (changed) {
     telemetry.emitEvent({
