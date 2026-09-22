@@ -27,6 +27,23 @@ class MathematicalCulture {
   }
 
   addArtifact(artifact) {
+    let verified = false;
+    let proofReceipt = null;
+    let formalResult = null;
+
+    // Require actual proof for verified artifacts
+    if (artifact.verified) {
+      if (artifact.proofArtifact && artifact.proofArtifact.isVerified()) {
+        verified = true;
+        proofReceipt = artifact.proofArtifact._leanReceipt;
+      } else if (artifact.formalResult && artifact.formalResult.status === 'verified' && artifact.formalResult.evidence?.kind === 'proof') {
+        verified = true;
+        proofReceipt = artifact.formalResult.provenance?.leanReceipt || null;
+      } else {
+        throw new Error('Verified artifacts require a valid ProofArtifact (with Lean receipt) or FormalResult(status=verified, evidence=proof). Cannot forge verified: true.');
+      }
+    }
+
     const stored = {
       id: artifact.id || culturalArtifactId(),
       type: artifact.type || 'heuristic',
@@ -34,7 +51,9 @@ class MathematicalCulture {
       source: artifact.source || null,
       generation: 0,
       fidelity: 1.0,
-      verified: artifact.verified || false,
+      verified,
+      proofReceipt,
+      formalResult,
       createdAt: new Date().toISOString(),
       ...artifact,
     };

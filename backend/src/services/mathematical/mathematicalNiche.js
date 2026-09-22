@@ -20,8 +20,6 @@ class MathematicalNiche {
     this.formulation = options.formulation || '';
     this.representation = options.representation || 'SAT';
     // Single source of truth: population owns lineages
-    // niche.lineages is a view/accessor to population.lineages
-    this._lineages = new Map(); // Legacy, deprecated - use population
     this.stigmergicTraces = [];
     this.resourceHistory = [];
     this.totalInfoGain = 0;
@@ -39,30 +37,29 @@ class MathematicalNiche {
 
   /**
    * Get lineages from population (single source of truth).
-   * Falls back to internal _lineages for backward compatibility.
+   * Population MUST be set before adding lineages.
    */
   get lineages() {
-    if (this._population && this._population.lineages) {
-      return this._population.lineages;
+    if (!this._population || !this._population.lineages) {
+      throw new Error('Niche population not initialized. Call NichePopulationService.addNiche() first.');
     }
-    return this._lineages;
+    return this._population.lineages;
   }
 
   addLineage(lineage) {
-    // Add to population if available (single source of truth)
-    if (this._population) {
-      this._population.addLineage(lineage);
+    // Add to population (single source of truth)
+    if (!this._population) {
+      throw new Error('Niche population not initialized. Call NichePopulationService.addNiche() first.');
     }
-    // Also keep in internal map for backward compatibility
-    this._lineages.set(lineage.id, lineage);
+    this._population.addLineage(lineage);
     return lineage;
   }
 
   removeLineage(lineageId) {
-    if (this._population) {
-      this._population.lineages.delete(lineageId);
+    if (!this._population) {
+      throw new Error('Niche population not initialized.');
     }
-    this._lineages.delete(lineageId);
+    this._population.lineages.delete(lineageId);
   }
 
   addTrace(trace) {

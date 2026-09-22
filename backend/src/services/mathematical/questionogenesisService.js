@@ -54,7 +54,7 @@ class QuestionogenesisEngine {
    */
   generateQuestion(anomaly, context = {}) {
     // Select template based on anomaly type
-    const template = this.selectTemplate(anomaly, context);
+    const template = this.selectTemplate(anomaly);
     const filledTemplate = this.fillTemplate(template, anomaly, context);
 
     const question = {
@@ -71,14 +71,7 @@ class QuestionogenesisEngine {
       context: { ...context },
     };
 
-    this.questions.set(question.id, question);
-
-    // Automatically create niche if requested
-    if (context.createNiche !== false) {
-      question.createdNiche = this.createNicheForQuestion(question, context);
-    }
-
-    // Compute question value
+    // Compute question value FIRST
     question.value = this.computeQuestionValue(question, context);
 
     this.questionValueHistory.push({
@@ -87,40 +80,55 @@ class QuestionogenesisEngine {
       timestamp: new Date().toISOString(),
     });
 
+    // Only create niche if question value exceeds threshold (default 0.15)
+    const threshold = context.valueThreshold ?? 0.15;
+    if (context.createNiche !== false && question.value.total >= threshold) {
+      question.createdNiche = this.createNicheForQuestion(question, context);
+    } else if (question.value.total < threshold) {
+      // Low-value questions are archived, not turned into niches
+      question.state = 'archived';
+      question.archiveReason = `Value ${question.value.total.toFixed(3)} below threshold ${threshold}`;
+    }
+
+    this.questions.set(question.id, question);
+
     return question;
   }
 
-  selectTemplate(anomaly, context) {
-    // Choose template based on anomaly type and context
-    if (anomaly.type === 'unexpected_invariant') {
-      return QUESTION_TEMPLATES[Math.floor(Math.random() * QUESTION_TEMPLATES.length)];
+  selectTemplate(anomaly) {
+    const type = anomaly?.type;
+    if (type === 'fitness_stagnation') {
+      const t = QUESTION_TEMPLATES.find(x => x.type === 'extremal');
+      return t || QUESTION_TEMPLATES[0];
     }
-    if (anomaly.type === 'fitness_stagnation') {
-      return QUESTION_TEMPLATES.find(t => t.type === 'extremal') || QUESTION_TEMPLATES[0];
-    }
-    if (anomaly.type === 'mvt_departure') {
-      return QUESTION_TEMPLATES.find(t => t.type === 'decomposition') || QUESTION_TEMPLATES[0];
+    if (type === 'mvt_departure') {
+      const t = QUESTION_TEMPLATES.find(x => x.type === 'decomposition');
+      return t || QUESTION_TEMPLATES[0];
     }
     return QUESTION_TEMPLATES[Math.floor(Math.random() * QUESTION_TEMPLATES.length)];
   }
 
-  fillTemplate(template, anomaly, context) {
-    const params = {
-      object: context.object || 'structure',
-      condition: anomaly.description || 'condition P',
-      property: context.property || 'property Q',
-      parameter: context.parameter || 'size',
-      phenomenon: anomaly.description || 'phenomenon X',
-      transformation: context.transformation || 'operation T',
-      structure: context.structure || 'structure S',
-      components: context.components || 'simpler parts',
-      objects: context.objects || 'structures',
-      notion1: context.notion1 || 'concept A',
-      notion2: context.notion2 || 'concept B',
-      class: context.class || 'structures',
-      constraint: context.constraint || 'additional constraint',
+  buildTemplateParams(anomaly, context) {
+    const get = (obj, key, fallback) => (obj && obj[key] != null ? obj[key] : fallback);
+    return {
+      object: get(context, 'object', 'structure'),
+      condition: get(anomaly, 'description', 'condition P'),
+      property: get(context, 'property', 'property Q'),
+      parameter: get(context, 'parameter', 'size'),
+      phenomenon: get(anomaly, 'description', 'phenomenon X'),
+      transformation: get(context, 'transformation', 'operation T'),
+      structure: get(context, 'structure', 'structure S'),
+      components: get(context, 'components', 'simpler parts'),
+      objects: get(context, 'objects', 'structures'),
+      notion1: get(context, 'notion1', 'concept A'),
+      notion2: get(context, 'notion2', 'concept B'),
+      class: get(context, 'class', 'structures'),
+      constraint: get(context, 'constraint', 'additional constraint'),
     };
+  }
 
+  fillTemplate(template, anomaly, context) {
+    const params = this.buildTemplateParams(anomaly, context);
     let text = template.template;
     for (const [key, value] of Object.entries(params)) {
       text = text.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
@@ -193,13 +201,26 @@ class QuestionogenesisEngine {
       state: 'open',
       generatedAt: new Date().toISOString(),
     };
-    this.questions.set(question.id, question);
 
-    if (context.createNiche !== false) {
+    // Compute question value FIRST
+    question.value = this.computeQuestionValue(question, context);
+
+    this.questionValueHistory.push({
+      questionId: question.id,
+      value: question.value,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Only create niche if question value exceeds threshold
+    const threshold = context.valueThreshold ?? 0.15;
+    if (context.createNiche !== false && question.value.total >= threshold) {
       question.createdNiche = this.createNicheForQuestion(question, context);
+    } else if (question.value.total < threshold) {
+      question.state = 'archived';
+      question.archiveReason = `Value ${question.value.total.toFixed(3)} below threshold ${threshold}`;
     }
 
-    question.value = this.computeQuestionValue(question, context);
+    this.questions.set(question.id, question);
     return question;
   }
 

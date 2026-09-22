@@ -3,12 +3,15 @@
 const assert = require('node:assert');
 const { createMathematicalNiche } = require('../src/services/mathematical/mathematicalNiche');
 const { createResearchLineage } = require('../src/services/mathematical/researchLineage');
+const { MathematicalNichePopulationService } = require('../src/services/mathematical/mathematicalNichePopulationService');
 
+const nps = new MathematicalNichePopulationService();
 const niche = createMathematicalNiche({
   name: 'SAT-formulation',
   representation: 'SAT',
   formulation: 'Encode Goldbach as SAT',
 });
+nps.addNiche(niche); // Initialize population
 assert.ok(niche.id);
 assert.strictEqual(niche.representation, 'SAT');
 

@@ -15,7 +15,7 @@ const foraging = require('./mathematicalLiteratureForaging');
 const mutation = require('./mutationEngine');
 
 const { QuestionogenesisEngine } = require('./questionogenesisService');
-const { ConceptogenesisEngine, createConceptogenesisEngine } = require('./conceptogenesisService');
+const { ConceptogenesisEngine, createConceptogenesisEngine, CONCEPT_TYPES } = require('./conceptogenesisEngine');
 const { SymbiontExecutor, createSymbiontExecutor, SOLVER_TYPES } = require('./symbiontSolver');
 
 module.exports = {
@@ -39,4 +39,5 @@ module.exports = {
   SymbiontExecutor,
   createSymbiontExecutor,
   SOLVER_TYPES,
+  CONCEPT_TYPES,
 };

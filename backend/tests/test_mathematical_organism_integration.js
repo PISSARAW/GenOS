@@ -34,9 +34,19 @@ nps.allocateToBestNiche(l2);
 const pop = satNiche.population;
 pop.evaluateFitness(l1, { verifiedObligations: 2, totalObligations: 5, novelty: 0.6 });
 
-// Culture
+// Culture - requires valid ProofArtifact for verified artifacts
+const createMockVerifiedProofArtifact = () => ({
+  isVerified: () => true,
+  _leanReceipt: { status: 'passed', receiptDigest: 'sha256:mock' },
+});
+
 const culture = new math.MathematicalCulture();
-const culturalArtifact = culture.addArtifact({ type: 'lemma', content: 'graph_coloring_bounds', verified: true });
+const culturalArtifact = culture.addArtifact({ 
+  type: 'lemma', 
+  content: 'graph_coloring_bounds', 
+  verified: true,
+  proofArtifact: createMockVerifiedProofArtifact(),
+});
 culture.transmit(culturalArtifact.id, l2);
 
 // Verify integration

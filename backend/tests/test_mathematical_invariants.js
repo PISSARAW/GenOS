@@ -140,12 +140,20 @@ async function testHGTUnverifiedBlocked() {
 
   const target = math.createResearchLineage({ name: 'target', strategies: ['induction'] });
 
-  const result = engine.horizontalGeneTransfer(source, target, { blocked: false });
+  // Test with unverified ProofArtifact (no isVerified or isVerified returns false)
+  const unverifiedArtifact = {
+    statement: 'unverified_lemma',
+    isVerified: () => false,
+    _leanReceipt: { status: 'passed', receiptDigest: 'sha256:' + 'a'.repeat(64) },
+    _formalResult: { canonicalStatement: 'unverified_lemma', domain: 'general' },
+    type: 'lemma',
+    domain: 'general',
+  };
 
-  // Should be blocked by AEIS gate due to insufficient verification
-  assert.ok(result !== null, 'HGT should return result object');
-  assert.strictEqual(result.immunePassed, false, 'Unverified lemma should be blocked by AEIS');
-  assert.ok(result.blockReason === 'insufficient_source_verification' || result.blockReason === 'lemma_requires_proof_receipt');
+  const result = engine.horizontalGeneTransfer(source, target, unverifiedArtifact, { blocked: false });
+
+  // Should return null for unverified artifacts (early rejection)
+  assert.strictEqual(result, null, 'Unverified artifact should be rejected early (return null)');
 
   console.log('  ✓ HGT blocks unverified lemmas\n');
 }
@@ -176,7 +184,10 @@ async function testMigrationSingleSource() {
 // INVARIANT 6: MVT departs only on real marginal yield
 async function testMVTRealMarginal() {
   console.log('Test 6: MVT uses real marginal yield');
+  const { MathematicalNichePopulationService } = require('../src/services/mathematical/mathematicalNichePopulationService');
+  const nps = new MathematicalNichePopulationService();
   const niche = math.createMathematicalNiche({ name: 'test', representation: 'SAT' });
+  nps.addNiche(niche); // Initialize population
 
   // Record some returns
   niche.recordReturn(1.0, 1); // yield = 1.0
@@ -288,8 +299,13 @@ async function testCultureKnowledgeSeparation() {
   const culture = new math.MathematicalCulture({ fidelityRate: 0.9 });
   const target = math.createResearchLineage({ name: 'target' });
 
+  const createMockVerifiedProofArtifact = () => ({
+    isVerified: () => true,
+    _leanReceipt: { status: 'passed', receiptDigest: 'sha256:mock' },
+  });
+
   // Verified lemma -> knowledge
-  const lemma = culture.addArtifact({ type: 'lemma', content: 'important_lemma', verified: true });
+  const lemma = culture.addArtifact({ type: 'lemma', content: 'important_lemma', verified: true, proofArtifact: createMockVerifiedProofArtifact() });
   culture.transmit(lemma.id, target);
   assert.ok(target._knowledge && target._knowledge.length === 1, 'Verified lemma should be in knowledge');
   assert.ok(!target.genome.strategies.includes('important_lemma'), 'Verified lemma should NOT be in strategies');

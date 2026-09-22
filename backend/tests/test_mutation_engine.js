@@ -24,24 +24,42 @@ const r3 = engine.exapt(l1, 'graph-theory');
 assert.ok(r3 !== null);
 assert.strictEqual(r3.type, 'exaptation');
 
-// HGT with immune gate - source needs verified fitness to pass AEIS
+// HGT with immune gate - requires a verified ProofArtifact
+const createMockVerifiedProofArtifact = (statement) => ({
+  statement,
+  isVerified: () => true,
+  _leanReceipt: { status: 'passed', receiptDigest: 'sha256:' + 'a'.repeat(64) }, // Valid SHA-256 format
+  _formalResult: { canonicalStatement: statement, domain: 'general' },
+  type: 'lemma',
+  domain: 'general',
+});
+
 const source = createResearchLineage({ name: 'source', strategies: ['ring'] });
-source.fitness = { P: 0.5, N: 0.5, I: 0.5, A: 0, T: 0.5, R: 0.5, C: 1 }; // Verified fitness
+source.fitness = { P: 0.5, N: 0.5, I: 0.5, A: 0, T: 0.5, R: 0.5, C: 1 }; // Verified fitness for AEIS
 const target = createResearchLineage({ name: 'target', strategies: ['induction'] });
-const r4 = engine.horizontalGeneTransfer(source, target, { blocked: false });
+const proofArtifact = createMockVerifiedProofArtifact('ring_lemma');
+const r4 = engine.horizontalGeneTransfer(source, target, proofArtifact, { blocked: false });
 assert.ok(r4 !== null);
-assert.ok(target.genome.strategies.includes('ring'));
+assert.ok(target.genome.strategies.includes('ring_lemma'));
 assert.ok(r4.plasmid);
 assert.strictEqual(r4.plasmid.assimilationStatus, 'assimilated');
+assert.strictEqual(r4.plasmid.type, 'lemma');
 
 // HGT blocked by immune system
 const blockedSource = createResearchLineage({ name: 'blocked', strategies: ['omega'] });
 const blockedTarget = createResearchLineage({ name: 'blocked-target', strategies: ['induction'] });
-const r5 = engine.horizontalGeneTransfer(blockedSource, blockedTarget, { blocked: true, blockReason: 'contradiction' });
+const r5 = engine.horizontalGeneTransfer(blockedSource, blockedTarget, null, { blocked: true, blockReason: 'contradiction' });
 assert.ok(r5 === null);
+
+// HGT with unverified artifact should fail
+const unverifiedSource = createResearchLineage({ name: 'unverified', strategies: ['fake'] });
+const unverifiedTarget = createResearchLineage({ name: 'unverified-target', strategies: ['induction'] });
+const unverifiedArtifact = { isVerified: () => false };
+const r6 = engine.horizontalGeneTransfer(unverifiedSource, unverifiedTarget, unverifiedArtifact, { blocked: false });
+assert.ok(r6 === null || r6.plasmid?.assimilationStatus === 'rejected', 'Unverified artifact should be rejected');
 
 // Summary
 const s = engine.summary();
 assert.ok(s.mutations >= 4);
 
-console.log('OK MutationEngine (HGT immune gate verified)');
+console.log('OK MutationEngine (HGT requires verified ProofArtifact)');

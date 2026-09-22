@@ -1,0 +1,95 @@
+'use strict';
+
+/**
+ * @file conceptogenesisEngine.js
+ * @description ConceptogenesisEngine — orchestrates the full concept invention pipeline.
+ * observations -> invariants -> abstractions -> representations -> compression -> transfer
+ */
+
+const { ConceptMiner, conceptId, CONCEPT_TYPES } = require('./conceptMiner');
+const { AbstractionFormer } = require('./abstractionFormer');
+const { RepresentationMutator } = require('./representationMutator');
+const { CompressionEvaluator } = require('./compressionEvaluator');
+const { TransferTester } = require('./transferTester');
+
+class ConceptogenesisEngine {
+  constructor(opts = {}) {
+    this.miner = new ConceptMiner(opts.miner);
+    this.abstractionFormer = new AbstractionFormer(opts.abstraction);
+    this.representationMutator = new RepresentationMutator(opts.representation);
+    this.compressionEvaluator = new CompressionEvaluator();
+    this.transferTester = require('./transferTester').TransferTester;
+    this.concepts = new Map();
+    this.history = [];
+  }
+
+  async inventConcepts(observations, options = {}) {
+    const invariants = this.miner.mineInvariants(observations);
+
+    const abstractions = [];
+    for (const inv of invariants) {
+      const abs = this.abstractionFormer.formAbstraction(inv.evidence || []);
+      if (abs) abstractions.push(abs);
+    }
+
+    const representations = [];
+    if (options.problem) {
+      representations.push(...this.representationMutator.mutateRepresentation(options.problem));
+    }
+
+    const evaluated = [];
+    for (const concept of [...invariants, ...abstractions, ...representations]) {
+      const evalResult = this.compressionEvaluator.evaluate(concept, observations);
+      if (evalResult.isUseful) {
+        evaluated.push({ ...concept, compression: evalResult });
+      }
+    }
+
+    if (options.targetDomain) {
+      const TransferTester = require('./transferTester').TransferTester;
+      const transferTester = new TransferTester();
+      for (const concept of evaluated) {
+        const transfer = await transferTester.testTransfer(
+          concept,
+          options.targetDomain,
+          options.testCases || []
+        );
+        concept.transfer = transfer;
+      }
+    }
+
+    for (const concept of evaluated) {
+      if (!concept.id) concept.id = `concept-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      this.concepts.set(concept.id, concept);
+    }
+
+    this.history.push({
+      timestamp: new Date().toISOString(),
+      observationsCount: observations.length,
+      conceptsGenerated: evaluated.length,
+    });
+
+    return evaluated;
+  }
+
+  getConcept(id) {
+    return this.concepts.get(id);
+  }
+
+  summary() {
+    return {
+      concepts: this.concepts.size,
+      historyLength: this.history.length,
+    };
+  }
+}
+
+function createConceptogenesisEngine(options) {
+  return new ConceptogenesisEngine(options);
+}
+
+module.exports = {
+  ConceptogenesisEngine,
+  createConceptogenesisEngine,
+  CONCEPT_TYPES: require('./conceptMiner').CONCEPT_TYPES,
+};

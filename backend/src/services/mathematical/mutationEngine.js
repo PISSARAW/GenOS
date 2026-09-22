@@ -186,43 +186,43 @@ class MutationEngine {
 
   /**
    * Horizontal gene transfer with AEIS gate.
+   * Transfers a specific ProofArtifact (with its proof receipt) rather than random strategy.
    * Returns a MathematicalPlasmid if successful, null if blocked.
-   * The plasmid carries full epistemic provenance and must pass immune check.
+   * The plasmid carries the specific ProofArtifact's proof receipt.
    */
-  horizontalGeneTransfer(sourceLineage, targetLineage, immuneReport) {
+  horizontalGeneTransfer(sourceLineage, targetLineage, proofArtifact, immuneReport) {
     if (Math.random() > this.hgtRate) return null;
-    const sourceStrategies = sourceLineage.genome.strategies;
-    if (sourceStrategies.length === 0) return null;
+    if (!proofArtifact || !proofArtifact.isVerified()) return null;
 
     // Immune gate: if blocked, transfer is rejected
     if (immuneReport && immuneReport.blocked) {
       return null;
     }
 
-    const transferred = sourceStrategies[Math.floor(Math.random() * sourceStrategies.length)];
+    const capability = proofArtifact.statement || proofArtifact._formalResult?.canonicalStatement || '';
+    if (!capability) return null;
 
-    // Determine plasmid type based on source fitness
-    const isVerified = sourceLineage.fitness && sourceLineage.fitness.P > 0.5;
-    const plasmidType = isVerified ? 'lemma' : 'strategy';
+    // Determine plasmid type based on artifact type
+    const plasmidType = proofArtifact.type === 'theorem' || proofArtifact.type === 'lemma' ? 'lemma' : 'strategy';
 
-    // Create a proper MathematicalPlasmid with full provenance
+    // Create a proper MathematicalPlasmid with the SPECIFIC ProofArtifact's proof receipt
     const plasmid = createMathematicalPlasmid({
       type: plasmidType,
-      capability: transferred,
+      capability,
       source: sourceLineage.id,
       target: targetLineage.id,
       sourceFitness: sourceLineage.fitness,
       sourceGeneration: sourceLineage.generation,
-      proofReceipt: isVerified ? sourceLineage._lastLeanReceipt : null,
+      proofReceipt: proofArtifact._leanReceipt, // SPECIFIC artifact's proof receipt
       validityDomain: {
-        assumptions: sourceLineage.genome.researchPolicy?.assumptions || [],
-        constraints: sourceLineage.genome.researchPolicy?.constraints || [],
-        domain: sourceLineage.genome.researchPolicy?.domain || 'general',
+        assumptions: proofArtifact._formalResult?.assumptions || [],
+        constraints: proofArtifact._formalResult?.validityDomain?.constraints || [],
+        domain: proofArtifact.domain || 'general',
       },
       compatibility: {
         requiredFitness: 0.1,
         excludedDomains: [],
-        requiredRepresentations: sourceLineage.phenotype?.currentRepresentation ? [sourceLineage.phenotype.currentRepresentation] : [],
+        requiredRepresentations: proofArtifact._formalResult?.provenance?.transformations?.includes('lean') ? ['lean'] : [],
       },
     });
 
@@ -234,7 +234,7 @@ class MutationEngine {
         type: 'hgt',
         source: sourceLineage.id,
         target: targetLineage.id,
-        strategy: transferred,
+        capability,
         plasmid,
         immunePassed: false,
         blockReason: aeisResult.reason,
@@ -243,9 +243,9 @@ class MutationEngine {
       return result;
     }
 
-    // Assimilate: add to target lineage
-    if (!targetLineage.genome.strategies.includes(transferred)) {
-      targetLineage.genome.strategies.push(transferred);
+    // Assimilate: add the proven capability to target lineage
+    if (!targetLineage.genome.strategies.includes(capability)) {
+      targetLineage.genome.strategies.push(capability);
     }
 
     // Track assimilated plasmids
@@ -258,7 +258,7 @@ class MutationEngine {
       type: 'hgt',
       source: sourceLineage.id,
       target: targetLineage.id,
-      strategy: transferred,
+      capability,
       plasmid,
       immunePassed: true,
     };

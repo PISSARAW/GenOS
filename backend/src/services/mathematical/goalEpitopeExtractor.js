@@ -77,10 +77,8 @@ function extractEpitopesRegex(text) {
  * @param {Object} leanAST - Parsed Lean AST (from lean --ast or similar)
  * @returns {Object} Epitope extraction result
  */
-function extractEpitopesFromLeanAST(leanAST) {
-  if (!leanAST) return { epitopes: {}, operators: [], structureHints: [], source: 'lean_ast' };
-
-  const epitopes = {
+function createEmptyEpitopes() {
+  return {
     hasAssumptions: false,
     hasQuantifier: false,
     hasImplication: false,
@@ -97,91 +95,114 @@ function extractEpitopesFromLeanAST(leanAST) {
     hasFunction: false,
     hasSet: false,
   };
+}
 
-  // Traverse Lean AST and extract structural features
-  function traverse(node) {
-    if (!node || typeof node !== 'object') return;
+function checkQuantifiers(kind, name, epitopes) {
+  if (kind.includes('Forall') || kind.includes('Exists') || name === '∀' || name === '∃') {
+    epitopes.hasQuantifier = true;
+  }
+}
 
-    const kind = node.kind || node.type || '';
-    const name = node.name || '';
+function checkImplications(kind, name, epitopes) {
+  if (kind.includes('Implies') || kind.includes('Arrow') || name === '→' || name === '→') {
+    epitopes.hasImplication = true;
+  }
+}
 
-    // Quantifiers
-    if (kind.includes('Forall') || kind.includes('Exists') || name === '∀' || name === '∃') {
-      epitopes.hasQuantifier = true;
-    }
+function checkEquality(kind, name, epitopes) {
+  if (kind.includes('Eq') || name === '=') {
+    epitopes.isEquality = true;
+  }
+}
 
-    // Implications
-    if (kind.includes('Implies') || kind.includes('Arrow') || name === '→' || name === '→') {
-      epitopes.hasImplication = true;
-    }
+function checkInequality(kind, name, epitopes) {
+  if (kind.includes('Le') || kind.includes('Lt') || kind.includes('Ge') || kind.includes('Gt') ||
+      name === '<' || name === '>' || name === '≤' || name === '≥') {
+    epitopes.isInequality = true;
+  }
+}
 
-    // Equality/Inequality
-    if (kind.includes('Eq') || name === '=') {
-      epitopes.isEquality = true;
-    }
-    if (kind.includes('Le') || kind.includes('Lt') || kind.includes('Ge') || kind.includes('Gt') ||
-        name === '<' || name === '>' || name === '≤' || name === '≥') {
-      epitopes.isInequality = true;
-    }
+function checkLogicalConnectives(kind, name, epitopes) {
+  if (kind.includes('And') || name === '∧') epitopes.hasConjunction = true;
+  if (kind.includes('Or') || name === '∨') epitopes.hasDisjunction = true;
+  if (kind.includes('Not') || name === '¬') epitopes.hasNegation = true;
+}
 
-    // Logical connectives
-    if (kind.includes('And') || name === '∧') epitopes.hasConjunction = true;
-    if (kind.includes('Or') || name === '∨') epitopes.hasDisjunction = true;
-    if (kind.includes('Not') || name === '¬') epitopes.hasNegation = true;
+function checkSumsProducts(kind, name, epitopes) {
+  if (kind.includes('Sum') || kind.includes('Finset.sum') || name === '∑') epitopes.hasSum = true;
+  if (kind.includes('Prod') || kind.includes('Finset.prod') || name === '∏') epitopes.hasProduct = true;
+}
 
-    // Sums/Products
-    if (kind.includes('Sum') || kind.includes('Finset.sum') || name === '∑') epitopes.hasSum = true;
-    if (kind.includes('Prod') || kind.includes('Finset.prod') || name === '∏') epitopes.hasProduct = true;
+function checkIntegralsLimits(kind, name, epitopes) {
+  if (kind.includes('Integral') || name === '∫') epitopes.hasIntegral = true;
+  if (kind.includes('Limit') || name === 'lim') epitopes.hasLimit = true;
+}
 
-    // Integrals/Limits
-    if (kind.includes('Integral') || name === '∫') epitopes.hasIntegral = true;
-    if (kind.includes('Limit') || name === 'lim') epitopes.hasLimit = true;
+function checkInduction(kind, epitopes) {
+  if (kind.includes('Induction') || kind.includes('Nat.rec') || kind.includes('Nat.strong_rec')) {
+    epitopes.isInductive = true;
+  }
+}
 
-    // Induction
-    if (kind.includes('Induction') || kind.includes('Nat.rec') || kind.includes('Nat.strong_rec')) {
-      epitopes.isInductive = true;
-    }
+function checkFunctions(kind, epitopes) {
+  if (kind.includes('Fun') || kind.includes('Pi') || kind.includes('Lambda')) {
+    epitopes.hasFunction = true;
+  }
+}
 
-    // Functions
-    if (kind.includes('Fun') || kind.includes('Pi') || kind.includes('Lambda')) {
-      epitopes.hasFunction = true;
-    }
+function checkSets(kind, name, epitopes) {
+  if (kind.includes('Set') || kind.includes('Subset') || name === '∈' || name === '⊆') {
+    epitopes.hasSet = true;
+  }
+}
 
-    // Sets
-    if (kind.includes('Set') || kind.includes('Subset') || name === '∈' || name === '⊆') {
-      epitopes.hasSet = true;
-    }
+function checkAssumptions(kind, epitopes) {
+  if (kind.includes('Have') || kind.includes('Assume')) {
+    epitopes.hasAssumptions = true;
+  }
+}
 
-    // Assumptions (hypotheses in context)
-    if (kind.includes('Have') || kind.includes('Assume')) {
-      epitopes.hasAssumptions = true;
-    }
+function processNode(node, epitopes) {
+  if (!node || typeof node !== 'object') return;
 
-    // Recurse into children
-    for (const key of Object.keys(node)) {
-      const child = node[key];
-      if (Array.isArray(child)) {
-        child.forEach(traverse);
-      } else if (child && typeof child === 'object') {
-        traverse(child);
-      }
+  const kind = node.kind || node.type || '';
+  const name = node.name || '';
+
+  checkQuantifiers(kind, name, epitopes);
+  checkImplications(kind, name, epitopes);
+  checkEquality(kind, name, epitopes);
+  checkInequality(kind, name, epitopes);
+  checkLogicalConnectives(kind, name, epitopes);
+  checkSumsProducts(kind, name, epitopes);
+  checkIntegralsLimits(kind, name, epitopes);
+  checkInduction(kind, epitopes);
+  checkFunctions(kind, epitopes);
+  checkSets(kind, name, epitopes);
+  checkAssumptions(kind, epitopes);
+
+  for (const key of Object.keys(node)) {
+    const child = node[key];
+    if (Array.isArray(child)) {
+      child.forEach((c) => processNode(c, epitopes));
+    } else if (child && typeof child === 'object') {
+      processNode(child, epitopes);
     }
   }
+}
 
-  traverse(leanAST);
+function extractEpitopesFromLeanAST(leanAST) {
+  if (!leanAST) return { epitopes: {}, operators: [], structureHints: [], source: 'lean_ast' };
 
-  // Derive operators and structure hints from epitopes
-  const operators = [];
-  for (const [epitope, operatorName] of OPERATOR_RULES) {
-    if (epitopes[epitope]) operators.push(operatorName);
-  }
+  const epitopes = createEmptyEpitopes();
+  processNode(leanAST, epitopes);
 
-  const structureHints = [];
-  for (const [requiredEpitopes, hintName] of STRUCTURE_HINTS_RULES) {
-    if (requiredEpitopes.every(e => epitopes[e])) {
-      structureHints.push(hintName);
-    }
-  }
+  const operators = OPERATOR_RULES
+    .filter(([epitope]) => epitopes[epitope])
+    .map(([, operatorName]) => operatorName);
+
+  const structureHints = STRUCTURE_HINTS_RULES
+    .filter(([requiredEpitopes]) => requiredEpitopes.every(e => epitopes[e]))
+    .map(([, hintName]) => hintName);
 
   return { epitopes, operators, structureHints, source: 'lean_ast' };
 }
