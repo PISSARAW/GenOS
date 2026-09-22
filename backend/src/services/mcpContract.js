@@ -163,6 +163,20 @@ const TOOL_BASE_SCHEMAS = {
     },
     required: ['primitive_name'],
   },
+  genos_procedural_registry_list: {
+    type: 'object',
+    properties: {
+      scope: { type: 'string', enum: ['runners', 'evaluators', 'environments', 'snapshots'], description: 'Registry scope to list.' },
+    },
+    required: ['scope'],
+  },
+  genos_procedural_runner_resolve: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', description: 'Runner ID to resolve.' },
+    },
+    required: ['id'],
+  },
   genos_change_strategy: {
     type: 'object',
     properties: {

@@ -1,8 +1,15 @@
 # Organisme Procédural — Système de Circuits Adaptatifs
 
-- **Statut** : Implémenté — 24 services backend couvrant l'ensemble du cycle de vie d'une procédure (plasticité, consolidation, pruning, inhibition, sélection, épigénétique, immunité, apoptose, fossilisation, etc.).
-- **Portée** : `backend/src/services/procedural*Service.js` (24 services), `backend/tests/test_procedural_organism_*.js` (3 fichiers de tests), `docs/08-philosophie.md` (section 27).
-- **Dernière revue** : 2026-09-21.
+|- **Statut** : Implémenté — sous-runtime procédural v1 (`backend/src/services/proceduralRuntimeService.js` +
+  les services associés), avec cycle DRAFT → SEALED, validation sémantique, preuve causale (prototype
+  comparatif accouplé), promotion sous preuve, persistance versionnée, lignée, immunité innée +
+  adaptative, registre de runners/evaluateurs et primitives MCP. Tests : `npm run test:procedural`
+  (11 fichiers).
+|- **Portée** : `backend/src/services/procedural*Service.js`, `backend/src/services/proceduralRegistryService.js`,
+  `backend/src/services/primitiveHandlers/proceduralHandlers.js`, `backend/tests/test_procedural_*.js`,
+  `backend/bin/genos-registry-tool.cjs`.
+|- **Dernière revue** : 2026-09-22 (revue critique en cours, voir `docs/01-concepts/procedural-causality-notes.md`
+  et les tickets de revue associés).
 
 ## 1. Définition du domaine
 
@@ -107,6 +114,61 @@ Procedural Organism
 ```
 
 Le graphe du papier devient seulement son **squelette**.
+
+---
+
+## 3.5 La boucle d'apprentissage procédural (Learning Cycle)
+
+La boucle de l'organisme procédural est maintenant implémentée comme un service autonome `proceduralLearningCycleService`. Ce service orchestre le cycle complet d'apprentissage procédural sans nécessiter d'orchestration manuelle par un test ou un agent externe.
+
+```text
+execution outcome
+      ↓
+prediction error δ = observed - expected
+      ↓
+plasticity (LTD si δ < 0, LTP si δ > 0)
+      ↓
+consolidation (si seuil atteint: golden path extrait)
+      ↓
+evolution trigger (si surprise > seuil)
+```
+
+**Service :** `backend/src/services/proceduralLearningCycleService.js`
+
+| Fonction | Rôle |
+|---|---|
+| `runLearningCycle({ expectedReward, observedReward, synapse, episodes, options })` | Orchestre le cycle complet: prediction error → plasticity → consolidation → evolution trigger |
+| `buildEpisodes(outcomes)` | Construit des épisodes structurés à partir de résultats d'exécution |
+
+**Propriétés :**
+- Le cycle est **déterministe** : même entrée → même sortie.
+- La plasticité est **delta-based** : `applyLTD` / `applyLTP` avec reward riche (success, evidence, cost, safety).
+- La consolidation est **seuil-based** : `consolidatePath` extrait le golden path si `successRate ≥ threshold` ET `episodes.count ≥ minEpisodes`.
+- Le trigger d'évolution est **surprise-based** : `triggerMutationSearch = true` si `|δ| > surpriseThreshold` ET `δ < -0.25`.
+
+---
+
+## 3.6 Sélection Pareto/Niche multi-objectif
+
+La sélection naturelle procédurale utilise désormais un algorithme Pareto/niche multi-objectif pour éviter de promouvoir uniquement la mutation de fitness la plus élevée, au détriment de la diversité.
+
+**Service :** `backend/src/services/proceduralMutationSelectionService.js`
+
+| Fonction | Rôle |
+|---|---|
+| `paretoFront(variants, objectives)` | Retourne le front de Pareto: candidats non dominés sur les objectifs `success`, `robustness`, `evidence`, `generalization` |
+| `nicheSelection(variants, options)` | Parmi les candidats Pareto-optimaux, préserve la diversité par niche (parentId), au plus `maxPerNiche` par niche |
+
+**Implémentation :**
+- `paretoFront` : un candidat A est dominé par B si B ≥ A sur tous les objectifs ET B > A sur au moins un.
+- `nicheSelection` : trie par niche, garde les `maxPerNiche` meilleurs par niche.
+
+**Intégration dans le runtime :** `runEvolutionCycle` utilise `paretoFront` puis `nicheSelection` pour sélectionner le candidat promu. Le candidat gagnant est le plus fitness parmi les survivants niche-és.
+
+**Invariants mesurables :**
+- Le front de Pareto est **non-vide** si au moins un candidat viable existe.
+- La sélection niche-ée préserve au moins un candidat par niche présente dans le front.
+- Le candidat promu est **toujours dans le front de Pareto** (jamais dominé).
 
 ---
 
@@ -610,16 +672,22 @@ Chaque mécanisme biologique doit correspondre à un invariant informatique mesu
 
 ## 7. Tests
 
-Les tests sont dans 3 fichiers dédiés :
+`npm run test:procedural` exécute **11 fichiers** :
 
 - `backend/tests/test_procedural_organism_foundations.js` — Points 1-8 (genome, synapse, plasticity, consolidation, pruning, inhibition, action selection, prediction error)
 - `backend/tests/test_procedural_organism_9_12.js` — Points 9-12 (fitness, homeostatic plasticity, epigenetic, methylation)
 - `backend/tests/test_procedural_organism_13_24.js` — Points 13-24 (immune, mutation, ecology, holobionte, rhizome, metapopulation, apoptosis, cryptobiosis, fossilization)
+- `backend/tests/test_procedural_identity.js` — structureHash/stateHash/versionId, scellement, validation cryptographique
+- `backend/tests/test_procedural_persistence.js` — persistence SQLite, load, phylogeny
+- `backend/tests/test_procedural_promotion_gate.js` — gates de promotion, non-régression, lineage, complexity
+- `backend/tests/test_procedural_graph_semantics.js` — validité sémantique, dominance gates requis, détection bypass
+- `backend/tests/test_procedural_runtime_e2e.js` — cycle d'évolution complet (DRAFT → SEALED → PROMOTED), persistence, phylogeny
+- `backend/tests/test_procedural_primitives.js` — intégration handlers/proceduralHandlers.js (procedural_evolve, procedural_load, procedural_seal, procedural_causal_check)
+- `backend/tests/test_procedural_causal_validation.js` — validation causale paired-fork (CAUSAL_IMPROVEMENT / REGRESSION / NO_EFFECT)
+- `backend/tests/test_procedural_e2e_autonome.js` — scénario complet P0 → surprise → LTD → consolidation → mutation → causal proof → promotion
 
 ```bash
-node backend/tests/test_procedural_organism_foundations.js
-node backend/tests/test_procedural_organism_9_12.js
-node backend/tests/test_procedural_organism_13_24.js
+npm run test:procedural
 ```
 
 ---

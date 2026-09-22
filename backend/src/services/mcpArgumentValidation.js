@@ -239,6 +239,12 @@ function validateToolArguments(toolName, args = {}) {
   if (toolName === 'genos_execute_strategy_pipeline' && !Array.isArray(args.primitives || args.pipeline)) {
     return invalid('primitives', 'primitives or pipeline must be an array.');
   }
+  if (toolName === 'genos_procedural_registry_list' && !['runners', 'evaluators', 'environments', 'snapshots'].includes(args.scope)) {
+    return invalid('scope', 'scope must be one of: runners, evaluators, environments, snapshots.');
+  }
+  if (toolName === 'genos_procedural_runner_resolve' && typeof args.id !== 'string') {
+    return invalid('id', 'id must be a string.');
+  }
   if (toolName === 'genos_deterministic_sha256_rag') {
     if (!['ingest', 'search'].includes(args.action)) return invalid('action', 'must be ingest or search.');
     const field = args.action === 'ingest' ? 'document' : 'query';

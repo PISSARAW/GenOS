@@ -17,7 +17,9 @@ const EXTRA_STRATEGY_TOOLS = new Set([
   'genos_synaptic_stdp_update',
   'genos_synaptic_prune_scale',
   'genos_blame',
-  'genos_lineage'
+  'genos_lineage',
+  'genos_procedural_registry_list',
+  'genos_procedural_runner_resolve'
 ]);
 
 function isStrategyTool(toolName) {
@@ -161,9 +163,19 @@ async function handleExecutePrimitive(args) {
   return runPrimitive(primitive, firstTruthy(args.context, args));
 }
 
-function handleExecuteStrategyPipeline(args) {
+async function handleExecuteStrategyPipeline(args) {
   const primitives = firstTruthy(args.primitives, args.pipeline) || [];
   return runPipeline(primitives, firstTruthy(args.context, args));
+}
+
+async function handleProceduralRegistryList(args) {
+  const { run } = require('../bin/genos-registry-tool.cjs');
+  return run('list-runners', args);
+}
+
+async function handleProceduralRunnerResolve(args) {
+  const { run } = require('../bin/genos-registry-tool.cjs');
+  return run('resolve-runner', args);
 }
 
 const STRATEGY_HANDLERS = {
@@ -175,7 +187,9 @@ const STRATEGY_HANDLERS = {
   genos_synaptic_stdp_update: handleSynapticStdpUpdate,
   genos_synaptic_prune_scale: handleSynapticPruneScale,
   genos_execute_primitive: handleExecutePrimitive,
-  genos_execute_strategy_pipeline: handleExecuteStrategyPipeline
+  genos_execute_strategy_pipeline: handleExecuteStrategyPipeline,
+  genos_procedural_registry_list: handleProceduralRegistryList,
+  genos_procedural_runner_resolve: handleProceduralRunnerResolve
 };
 
 async function dispatchStrategyTool(toolName, args) {
