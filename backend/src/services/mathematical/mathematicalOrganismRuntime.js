@@ -28,6 +28,7 @@ const { question } = require('./mathematicalOrganismQuestion');
 const { allocate, explore, verify } = require('./mathematicalOrganismExplore');
 const { select, mutate, transmit, horizontalTransfer, evaluate, hasConverged, getSummary } = require('./mathematicalOrganismSelectMutate');
 const { createConceptogenesisEngine } = require('./conceptogenesisService');
+const { createSymbiontExecutor } = require('./symbiontExecutor');
 
 function runtimeId() {
   return `math-org-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
@@ -54,6 +55,7 @@ class MathematicalOrganismRuntime {
     this.leanGate = options.leanGate || null;
     this.dependencyGraph = new MathematicalDependencyGraph();
     this.formalizationRegistry = createFormalizationRegistry();
+    this.symbiontExecutor = createSymbiontExecutor();
     this.generation = 0;
     this.budget = options.budget || { tokens: 10000, cpu: 3600 };
     this.spent = { tokens: 0, cpu: 0 };
@@ -138,6 +140,10 @@ class MathematicalOrganismRuntime {
     const verified = await verify(this, attempts);
     select(this);
     mutate(this);
+    // M3 : Symbiosis — exécute les solveurs liés aux représentations de niches
+    // Chaque niche avec reconnue comme type de solveur appelle son symbionte
+    const symbiontResults = await this.executeSymbionts(observations);
+
     // M7: Conceptogenesis - invent new concepts from observations
     const concepts = await this.conceptogenesis.inventConcepts(observations.anomalies.map(a => ({
       type: a.type || 'unexpected_invariant',
@@ -211,6 +217,41 @@ class MathematicalOrganismRuntime {
     }
     this.running = false;
     return getSummary(this);
+  }
+
+  /**
+   * M3 : Execute symbiont solvers for niches that match known solver types.
+   * Each niche representation (SAT, SMT, CP-SAT, ILP, etc.) calls its symbionte.
+   */
+  async executeSymbionts(observations) {
+    if (!this.symbiontExecutor) return [];
+
+    const results = [];
+    const knownSolvers = this.symbiontExecutor.listSolvers();
+
+    for (const obs of observations.niches) {
+      const representation = obs.representation;
+      if (!knownSolvers.includes(representation)) continue;
+
+      try {
+        const problem = { statement: obs.formulation || representation };
+        const result = await this.symbiontExecutor.execute(representation, problem, {
+          certificationRequired: false,
+        });
+        results.push({ niche: obs.id, representation, result });
+        this.history.push({
+          event: 'symbiont_execution',
+          step: this.currentStep,
+          solver: representation,
+          status: result.status,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (e) {
+        results.push({ niche: obs.id, representation, error: e.message });
+      }
+    }
+
+    return results;
   }
 }
 

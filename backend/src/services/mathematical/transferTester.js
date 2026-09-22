@@ -38,6 +38,7 @@ class TransferTester {
       targetDomain,
       successRate: actualRate,
       applicable: true,
+      validationStatus: 'heuristic-transfer-estimate', // Point 9 : jamais 'transfer-validated' — c'est une heuristique, pas une preuve
       testResults,
       heuristics: {
         compressionBonus,
