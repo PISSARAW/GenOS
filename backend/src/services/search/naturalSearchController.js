@@ -22,8 +22,18 @@ const SEARCH_PROCESS = {
 }
 
 // Hysteresis thresholds
-const PHASE_ENTER = { PLASTICITY: 0.45, CLONAL: 0.65, HYPERMUTATION: 0.78, SPECIATION: 0.91 }
-const PHASE_EXIT = { PLASTICITY: 0.32, CLONAL: 0.50, HYPERMUTATION: 0.65, SPECIATION: 0.80 }
+const PHASE_ENTER = {
+  [SEARCH_PROCESS.PLASTICITE]: 0.45,
+  [SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH]: 0.65,
+  [SEARCH_PROCESS.STRESS_HYPERMUTATION]: 0.78,
+  [SEARCH_PROCESS.SPECIATION]: 0.91
+}
+const PHASE_EXIT = {
+  [SEARCH_PROCESS.PLASTICITE]: 0.32,
+  [SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH]: 0.50,
+  [SEARCH_PROCESS.STRESS_HYPERMUTATION]: 0.65,
+  [SEARCH_PROCESS.SPECIATION]: 0.80
+}
 const MIN_DWELL_STEPS = 3
 
 class NaturalSearchController {
@@ -64,66 +74,70 @@ class NaturalSearchController {
     let diagnostics = {}
     const p = pressure.pressure
 
-    // Hysteresis: track steps since last process change
-    if (process === this.lastProcess) {
+    // Track steps since last process change (before deciding)
+    if (this.lastProcess) {
       this.stepsSinceChange++
     } else {
-      this.stepsSinceChange = 0
-      this.stepsInCurrentProcess = 0
+      this.stepsSinceChange = 1
     }
 
-    // Hysteresis logic: check exit thresholds first (prevent rapid switching)
-    if (this.lastProcess) {
-      const exitThresh = PHASE_EXIT[this.lastProcess]
-      if (
-        exitThresh !== undefined &&
-        p < exitThresh &&
-        this.stepsSinceChange >= MIN_DWELL_STEPS
-      ) {
-        // allow downgrade after minimum dwell time
+    // Hysteresis: hold current process if exit threshold not yet crossed
+    // or minimum dwell time not yet satisfied.
+    const exitThresh = PHASE_EXIT[this.lastProcess]
+    let holdProcess = false
+    if (this.lastProcess && exitThresh !== undefined) {
+      if (p < exitThresh && this.stepsSinceChange >= MIN_DWELL_STEPS) {
+        // Exit threshold crossed + dwell satisfied → allow transition
+        holdProcess = false
+      } else {
+        // Either still above exit threshold, or dwell not yet satisfied → hold
+        holdProcess = true
       }
     }
 
-    // Determine process based on current pressure with hysteresis
-    // First check lineage pressure for evolution trigger
-    const hasSignificantLineagePressure = ctx.lineagePressure &&
-      (ctx.lineagePressure.falsifiedCount >= 3 || ctx.lineagePressure.supportedCount >= 3)
-    
-    if (hasSignificantLineagePressure) {
-      process = SEARCH_PROCESS.EVOLUTION
-      diagnostics = { reason: 'lineage pressure — evolution triggered' }
-    } else if (p < PHASE_ENTER.PLASTICITY) {
-      if (ctx.searchYield !== undefined && ctx.searchYield < 0.05) {
-        process = SEARCH_PROCESS.FORAGE
-        diagnostics = { reason: 'low yield — forage' }
-      } else {
-        process = SEARCH_PROCESS.CONTINUE
-        diagnostics = { reason: 'low pressure — continue' }
-      }
-    } else if (p < PHASE_ENTER.CLONAL) {
-      process = SEARCH_PROCESS.PLASTICITE
-      diagnostics = { reason: 'moderate pressure — plasticity' }
-    } else if (p < PHASE_ENTER.HYPERMUTATION) {
-      if (lockInHypothesis) {
-        process = SEARCH_PROCESS.REPLAY_CAUSAL
-        diagnostics = { reason: `lock-in on ${lockInHypothesis.hypothesisId} — causal replay` }
-      } else if (ctx.falsifiedHypotheses > 0) {
-        process = SEARCH_PROCESS.REPLAY_CAUSAL
-        diagnostics = { reason: 'falsified hypothesis — revert' }
-      } else {
-        process = SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH
-        diagnostics = { reason: 'promising zone — affinity search' }
-      }
-    } else if (p < PHASE_ENTER.SPECIATION) {
-      process = SEARCH_PROCESS.STRESS_HYPERMUTATION
-      diagnostics = { reason: 'high pressure — hypermutation' }
+    if (holdProcess) {
+      diagnostics = { reason: `hysteresis hold on ${this.lastProcess}` }
     } else {
-      if (ctx.falsifiedHypotheses >= 3) {
-        process = SEARCH_PROCESS.SPECIATION
-        diagnostics = { reason: 'multiple failures — speciation' }
-      } else {
+      // Determine process based on current pressure
+      const hasSignificantLineagePressure = ctx.lineagePressure &&
+        (ctx.lineagePressure.falsifiedCount >= 3 || ctx.lineagePressure.supportedCount >= 3)
+
+      if (hasSignificantLineagePressure) {
+        process = SEARCH_PROCESS.EVOLUTION
+        diagnostics = { reason: 'lineage pressure — evolution triggered' }
+      } else if (p < PHASE_ENTER[SEARCH_PROCESS.PLASTICITE]) {
+        if (ctx.searchYield !== undefined && ctx.searchYield < 0.05) {
+          process = SEARCH_PROCESS.FORAGE
+          diagnostics = { reason: 'low yield — forage' }
+        } else {
+          process = SEARCH_PROCESS.CONTINUE
+          diagnostics = { reason: 'low pressure — continue' }
+        }
+      } else if (p < PHASE_ENTER[SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH]) {
+        process = SEARCH_PROCESS.PLASTICITE
+        diagnostics = { reason: 'moderate pressure — plasticity' }
+      } else if (p < PHASE_ENTER[SEARCH_PROCESS.STRESS_HYPERMUTATION]) {
+        if (lockInHypothesis) {
+          process = SEARCH_PROCESS.REPLAY_CAUSAL
+          diagnostics = { reason: `lock-in on ${lockInHypothesis.hypothesisId} — causal replay` }
+        } else if (ctx.falsifiedHypotheses > 0) {
+          process = SEARCH_PROCESS.REPLAY_CAUSAL
+          diagnostics = { reason: 'falsified hypothesis — revert' }
+        } else {
+          process = SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH
+          diagnostics = { reason: 'promising zone — affinity search' }
+        }
+      } else if (p < PHASE_ENTER[SEARCH_PROCESS.SPECIATION]) {
         process = SEARCH_PROCESS.STRESS_HYPERMUTATION
-        diagnostics = { reason: 'very high pressure — radical hypermutation' }
+        diagnostics = { reason: 'high pressure — hypermutation' }
+      } else {
+        if (ctx.falsifiedHypotheses >= 3) {
+          process = SEARCH_PROCESS.SPECIATION
+          diagnostics = { reason: 'multiple failures — speciation' }
+        } else {
+          process = SEARCH_PROCESS.STRESS_HYPERMUTATION
+          diagnostics = { reason: 'very high pressure — radical hypermutation' }
+        }
       }
     }
 

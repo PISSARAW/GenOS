@@ -114,44 +114,7 @@ async function runOperation(db, request) {
     await store.saveGenome(db, model, { id, organizationId: scope.organizationId, projectId: scope.projectId });
 
     // B1: Enregistrer l'événement dans genome_events
-    const eventPayload = {
-      operation,
-      contentHash: model.contentHash,
-      source: 'agentDnaOperations.runOperation',
-      name: model.meta.name,
-      geneCount: Object.keys(model.genes).length,
-    };
-
-    // Déterminer les parents pour l'événement
-    const parentRefs = [];
-    if (operation === 'cross' && params.parentId) {
-      parentRefs.push(params.genomeId, params.parentId);
-    } else if (operation === 'speciate' && params.genomeId) {
-      parentRefs.push(params.genomeId);
-    }
-
-    switch (operation) {
-      case 'cross':
-        await genomeEventLog.recordCrossover(db, id, parentRefs, eventPayload, scope);
-        break;
-      case 'mutate':
-        await genomeEventLog.recordMutation(db, id, eventPayload, scope);
-        break;
-      case 'clone':
-        await genomeEventLog.recordClone(db, id, eventPayload, scope);
-        break;
-      case 'graft':
-        await genomeEventLog.recordGraft(db, id, eventPayload, scope);
-        break;
-      case 'decoy':
-        await genomeEventLog.recordBirth(db, id, parentRefs, { ...eventPayload, decoy: true }, scope);
-        break;
-      case 'speciate':
-        await genomeEventLog.recordBirth(db, id, parentRefs.length ? parentRefs : [params.genomeId], eventPayload, scope);
-        break;
-      default:
-        await genomeEventLog.recordBirth(db, id, parentRefs, eventPayload, scope);
-    }
+    await logGenomeEvent(db, operation, params, scope, model, id);
 
     return {
       genomeRef: id,
@@ -163,6 +126,38 @@ async function runOperation(db, request) {
   } finally {
     fs.rmSync(workDir, { recursive: true, force: true });
   }
+}
+
+function gatherParentRefs(operation, params) {
+  if (operation === 'cross' && params.parentId) {
+    return [params.genomeId, params.parentId];
+  }
+  if (operation === 'speciate' && params.genomeId) {
+    return [params.genomeId];
+  }
+  return null;
+}
+
+async function logGenomeEvent(db, operation, params, scope, model, id) {
+  const parentRefs = gatherParentRefs(operation, params);
+  const eventPayload = {
+    operation,
+    contentHash: model.contentHash,
+    source: 'agentDnaOperations.runOperation',
+    name: model.meta.name,
+    geneCount: Object.keys(model.genes).length,
+  };
+  const eventType = {
+    cross: 'CROSSOVER', mutate: 'MUTATION', clone: 'CLONE',
+    graft: 'GRAFT', decoy: 'BIRTH', speciate: 'BIRTH'
+  }[operation] || 'BIRTH';
+  const opts = {
+    parentRefs: parentRefs || undefined,
+    payload: operation === 'decoy' ? { ...eventPayload, decoy: true } : eventPayload,
+    organizationId: scope.organizationId,
+    projectId: scope.projectId,
+  };
+  await genomeEventLog.recordEvent(db, genomeEventLog.makeEvent(eventType, id, opts));
 }
 
 module.exports = { runOperation, buildArgs, SUPPORTED };

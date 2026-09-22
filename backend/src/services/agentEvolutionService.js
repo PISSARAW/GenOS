@@ -90,16 +90,21 @@ async function evolveWorkerGenome(parentAgent, assignment, options = {}) {
 
   // B1: Enregistrer l'événement de crossover
   const scope = options.scope || {};
-  await genomeEventLog.recordCrossover(db, crossover.childId, [parentA.id, parentB.id], {
-    operation: 'cross',
-    contentHash: crossover.genomeHash,
-    source: 'agentEvolutionService.evolveWorkerGenome',
-    crossoverStrategy: crossover.crossoverStrategy,
-    mutationRateApplied: crossover.mutationRateApplied,
-    predictedFitness: crossover.predictedFitnessScore,
-    parentFingerprint: crossover.parentFingerprint,
-    reproducibilitySeed: crossover.reproducibilitySeed,
-  }, scope);
+  await genomeEventLog.recordEvent(db, genomeEventLog.makeEvent('CROSSOVER', crossover.childId, {
+    parentRefs: [parentA.id, parentB.id],
+    payload: {
+      operation: 'cross',
+      contentHash: crossover.genomeHash,
+      source: 'agentEvolutionService.evolveWorkerGenome',
+      crossoverStrategy: crossover.crossoverStrategy,
+      mutationRateApplied: crossover.mutationRateApplied,
+      predictedFitness: crossover.predictedFitnessScore,
+      parentFingerprint: crossover.parentFingerprint,
+      reproducibilitySeed: crossover.reproducibilitySeed,
+    },
+    organizationId: scope.organizationId,
+    projectId: scope.projectId,
+  }));
 
   return {
     genomeRef: crossover.childId,

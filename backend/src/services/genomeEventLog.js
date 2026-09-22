@@ -1,5 +1,9 @@
 /**
  * Genome Event Log — event sourcing unifié pour l'ADN des agents.
+ *
+ * Chaque modification héréditaire d'un AgentDNA produit un événement.
+ * Les types couverts : BIRTH, CROSSOVER, MUTATION, GRAFT, CLONE,
+ * EPIGENETIC_CHANGE, PROMOTION, REJECTION, EXTINCTION
  */
 
 const { getDatabase } = require('../db');
@@ -26,8 +30,8 @@ async function ensureTable(db) {
   `);
 }
 
-async function logEvent(db, event) {
-  const { genome_ref, event_type, payload, parent_event_id, organization_id, project_id } = event;
+async function recordEvent(db, event) {
+  const { genome_ref, event_type, payload, organization_id, project_id } = event;
   if (!genome_ref || !event_type || !EVENT_TYPES.has(event_type)) {
     throw new Error(`Invalid genome event: ${JSON.stringify(event)}`);
   }
@@ -35,102 +39,64 @@ async function logEvent(db, event) {
   await db.run(
     `INSERT INTO genome_events (id, genome_ref, event_type, payload_json, parent_event_id, organization_id, project_id)
      VALUES (?,?,?,?,?,?,?)`,
-    id, genome_ref, event_type, JSON.stringify(payload || {}), parent_event_id || null, organization_id || null, project_id || null
+    id,
+    genome_ref,
+    event_type,
+    JSON.stringify(payload || {}),
+    event.parent_event_id || null,
+    organization_id || null,
+    project_id || null
   );
   return { id, genome_ref, event_type };
 }
 
-async function recordBirth(db, genomeRef, parentRefs, payload, scope) {
-  return logEvent(db, {
+function makeEvent(type, genomeRef, opts) {
+  const { parentRefs = null, payload = {}, organizationId = null, projectId = null } = opts || {};
+  return {
     genome_ref: genomeRef,
-    event_type: 'BIRTH',
-    payload: { ...payload, event_subtype: 'birth' },
-    parent_event_id: null,
-    organization_id: scope.organizationId,
-    project_id: scope.projectId
-  });
+    event_type: type,
+    parent_event_id: Array.isArray(parentRefs) && parentRefs.length ? parentRefs[0] : null,
+    payload: { ...payload, event_subtype: type.toLowerCase() },
+    organization_id: organizationId,
+    project_id: projectId,
+  };
 }
 
-async function recordCrossover(db, genomeRef, parentRefs, payload, scope) {
-  return logEvent(db, {
-    genome_ref: genomeRef,
-    event_type: 'CROSSOVER',
-    payload: { ...payload, event_subtype: 'crossover' },
-    parent_event_id: null,
-    organization_id: scope.organizationId,
-    project_id: scope.projectId
-  });
+async function recordBirth(db, genomeRef, opts) {
+  return recordEvent(db, makeEvent('BIRTH', genomeRef, opts));
 }
 
-async function recordMutation(db, genomeRef, payload, scope) {
-  return logEvent(db, {
-    genome_ref: genomeRef,
-    event_type: 'MUTATION',
-    payload: { ...payload, event_subtype: 'mutation' },
-    parent_event_id: null,
-    organization_id: scope.organizationId,
-    project_id: scope.projectId
-  });
+async function recordCrossover(db, genomeRef, opts) {
+  return recordEvent(db, makeEvent('CROSSOVER', genomeRef, opts));
 }
 
-async function recordGraft(db, genomeRef, payload, scope) {
-  return logEvent(db, {
-    genome_ref: genomeRef,
-    event_type: 'GRAFT',
-    payload: { ...payload, event_subtype: 'graft' },
-    parent_event_id: null,
-    organization_id: scope.organizationId,
-    project_id: scope.projectId
-  });
+async function recordMutation(db, genomeRef, opts) {
+  return recordEvent(db, makeEvent('MUTATION', genomeRef, opts));
 }
 
-async function recordClone(db, genomeRef, payload, scope) {
-  return logEvent(db, {
-    genome_ref: genomeRef,
-    event_type: 'CLONE',
-    payload: { ...payload, event_subtype: 'clone' },
-    parent_event_id: null,
-    organization_id: scope.organizationId,
-    project_id: scope.projectId
-  });
+async function recordGraft(db, genomeRef, opts) {
+  return recordEvent(db, makeEvent('GRAFT', genomeRef, opts));
 }
 
-async function recordPromotion(db, genomeRef, payload, scope) {
-  return logEvent(db, {
-    genome_ref: genomeRef,
-    event_type: 'PROMOTION',
-    payload: { ...payload, event_subtype: 'promotion' },
-    parent_event_id: null,
-    organization_id: scope.organizationId,
-    project_id: scope.projectId
-  });
+async function recordClone(db, genomeRef, opts) {
+  return recordEvent(db, makeEvent('CLONE', genomeRef, opts));
 }
 
-async function recordRejection(db, genomeRef, payload, scope) {
-  return logEvent(db, {
-    genome_ref: genomeRef,
-    event_type: 'REJECTION',
-    payload: { ...payload, event_subtype: 'rejection' },
-    parent_event_id: null,
-    organization_id: scope.organizationId,
-    project_id: scope.projectId
-  });
+async function recordPromotion(db, genomeRef, opts) {
+  return recordEvent(db, makeEvent('PROMOTION', genomeRef, opts));
 }
 
-async function recordExtinction(db, genomeRef, payload, scope) {
-  return logEvent(db, {
-    genome_ref: genomeRef,
-    event_type: 'EXTINCTION',
-    payload: { ...payload, event_subtype: 'extinction' },
-    parent_event_id: null,
-    organization_id: scope.organizationId,
-    project_id: scope.projectId
-  });
+async function recordRejection(db, genomeRef, opts) {
+  return recordEvent(db, makeEvent('REJECTION', genomeRef, opts));
+}
+
+async function recordExtinction(db, genomeRef, opts) {
+  return recordEvent(db, makeEvent('EXTINCTION', genomeRef, opts));
 }
 
 module.exports = {
   ensureTable,
-  logEvent,
+  recordEvent,
   recordBirth,
   recordCrossover,
   recordMutation,
