@@ -40,14 +40,17 @@ function validateSignature(incoming, state) {
   return { valid: true };
 }
 
+function readEnvelope(incoming) {
+  const raw = incoming.signed_commit_envelope || incoming.signedCommitEnvelope;
+  if (!raw) return null;
+  return JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+}
+
 function validateEnvelope(incoming) {
-  if (!incoming.signed_commit_envelope && !incoming.signedCommitEnvelope) return true;
   try {
-    const raw = incoming.signed_commit_envelope || incoming.signedCommitEnvelope;
-    const envelope = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
-    const commitHash = incoming.commit_hash || incoming.commitHash;
-    const stateHash = incoming.state_hash || incoming.stateHash;
-    if (envelope.commitHash !== commitHash && envelope.commitHash !== stateHash) {
+    const envelope = readEnvelope(incoming);
+    if (!envelope) return true;
+    if (envelopeCommitMismatch(envelope, incoming)) {
       return { valid: false, error: 'Envelope commit hash mismatch.' };
     }
     if (envelope.algorithm && envelope.algorithm !== (incoming.signature_algorithm || signingAlgorithm())) {
@@ -57,6 +60,12 @@ function validateEnvelope(incoming) {
     return { valid: false, error: 'Invalid signed commit envelope.' };
   }
   return true;
+}
+
+function envelopeCommitMismatch(envelope, incoming) {
+  const commitHash = incoming.commit_hash || incoming.commitHash;
+  const stateHash = incoming.state_hash || incoming.stateHash;
+  return envelope.commitHash !== commitHash && envelope.commitHash !== stateHash;
 }
 
 async function verifyRemoteObject(incoming, state) {

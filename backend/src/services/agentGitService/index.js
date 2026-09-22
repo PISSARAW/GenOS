@@ -192,6 +192,18 @@ async function quarantineIncoming(db, opts) {
   return { quarantined: true, quarantineId: id, reason };
 }
 
+async function checkRemoteParents(db, incoming, state) {
+  const parentIds = incoming.parent_commit_ids || incoming.parentCommitIds || [];
+  for (const parentId of parentIds) {
+    const parent = await db.get('SELECT id FROM agent_git_objects WHERE id = ?', parentId);
+    if (!parent) {
+      const q = await quarantineIncoming(db, { incoming, state, reason: `missing_parent:${parentId}` });
+      return { success: false, error: `Missing parent commit: ${parentId}`, ...q };
+    }
+  }
+  return null;
+}
+
 async function receiveRemote(req) {
   const incoming = req.body?.object;
   const state = req.body?.state || null;
@@ -203,16 +215,8 @@ async function receiveRemote(req) {
     return { success: false, error: verification.error, ...q };
   }
   // Vérifier que les parents sont disponibles (fast-forward check)
-  const parentIds = incoming.parent_commit_ids || incoming.parentCommitIds || [];
-  if (parentIds.length > 0) {
-    for (const parentId of parentIds) {
-      const parent = await db.get('SELECT id FROM agent_git_objects WHERE id = ?', parentId);
-      if (!parent) {
-        const q = await quarantineIncoming(db, { incoming, state, reason: `missing_parent:${parentId}` });
-        return { success: false, error: `Missing parent commit: ${parentId}`, ...q };
-      }
-    }
-  }
+  const parentFailure = await checkRemoteParents(db, incoming, state);
+  if (parentFailure) return parentFailure;
   const stored = await storeObject(db, { agentId: incoming.agent_id || incoming.agentId, workspaceId: incoming.workspace_id || incoming.workspaceId, kind: 'remote', refName: incoming.ref_name || incoming.refName, remoteName: req.body?.remoteName || 'default', state, createdBy: req.user?.username || 'remote', metadata: { receivedFrom: req.ip || 'remote', sourceObjectId: incoming.id }, locked: true });
   return { success: true, operation: 'remote-receive', ...stored };
 }
