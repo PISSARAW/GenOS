@@ -28,6 +28,7 @@ const { getDatabase, closeDatabase } = require('../src/db');
 const continuation = require('../src/services/homeostasisContinuationService');
 const immuneMemory = require('../src/services/immuneMemoryService');
 const organism = require('../src/services/missionOrganismService');
+const { maybeDispatchContinuation } = require('../bin/homeostasisContinuationHelper.cjs');
 
 const TESTS = [];
 function test(name, fn) { TESTS.push({ name, fn }); }
@@ -52,13 +53,13 @@ test('classifyDeviation: incomplete fallback', () => {
   assert.strictEqual(d, 'incomplete');
 });
 
-test('immuneAdvice: returns null when no memory', () => {
+test('getImmuneAdvice: returns null when no memory', () => {
   const org = organism.newOrganism({ genome: { objective: 'x' } });
   const advice = continuation.getImmuneAdvice(org, 'missing_work');
   assert.strictEqual(advice, null);
 });
 
-test('immuneAdvice: returns response when memory exists', () => {
+test('getImmuneAdvice: returns response when memory exists', () => {
   let org = organism.newOrganism({ genome: { objective: 'x' } });
   org = immuneMemory.enrollImmuneMemory(org, {
     failureCategory: 'homeostasis:missing_work',
@@ -68,6 +69,19 @@ test('immuneAdvice: returns response when memory exists', () => {
   const advice = continuation.getImmuneAdvice(org, 'missing_work');
   assert.ok(advice);
   assert.strictEqual(advice.preferredResponse, 'replace_worker');
+});
+
+test('getImmuneAdvice: prohibits exact retry when enrolled', () => {
+  let org = organism.newOrganism({ genome: { objective: 'x' } });
+  org = immuneMemory.enrollImmuneMemory(org, {
+    failureCategory: 'homeostasis:missing_work',
+    strategy: 'homeostasis_continuation',
+    prohibitedExactRetry: true,
+    preferredResponse: 'replace_worker'
+  });
+  const advice = continuation.getImmuneAdvice(org, 'missing_work');
+  assert.ok(advice);
+  assert.strictEqual(advice.prohibitExactRetry, true);
 });
 
 test('buildPrompt: includes deviation and failed invariants', () => {
@@ -95,6 +109,56 @@ test('dispatchHomeostasisContinuation inserts agent and starts mission', async (
   assert.ok(agents.length > 0, 'homeostasis continuation agent must be inserted');
   assert.ok(result.targetAgentId, 'result must include targetAgentId');
   assert.strictEqual(result.deviation, 'missing_work');
+});
+
+test('maybeDispatchContinuation: immune refusal blocks continuation', async () => {
+  const db = await getDatabase(TMP_DB);
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, current_task) VALUES (?, 'orch_immune', 'orchestrator', 'idle', 'orchestrator', NULL, NULL, 'standard', 'TypeScript', 'Branch', 'test')`, 'orch_immune');
+  let org = organism.newOrganism({ genome: { objective: 'x' } });
+  org = immuneMemory.enrollImmuneMemory(org, {
+    failureCategory: 'homeostasis:missing_work',
+    strategy: 'homeostasis_continuation',
+    prohibitedExactRetry: true,
+    preferredResponse: 'replace_worker'
+  });
+  const continuity = {};
+  const result = await maybeDispatchContinuation({
+    db,
+    orchestratorId: 'orch_immune',
+    task: 'test',
+    request: {},
+    mission: { id: 'm1', task: 'test task', objective: 'test' },
+    completionGate: { allowed: false },
+    evaluation: { status: 'evidence_missing', state: {} },
+    organism: org,
+    finalVerdict: 'homeostasis_blocked',
+    continuity
+  });
+  assert.strictEqual(result.blockedByImmune, true);
+  assert.strictEqual(result.dispatched, null);
+  assert.ok(continuity.immuneBlocked);
+});
+
+test('maybeDispatchContinuation: continuation dispatched when not immune-blocked', async () => {
+  const db = await getDatabase(TMP_DB);
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, current_task) VALUES (?, 'orch_normal', 'orchestrator', 'idle', 'orchestrator', NULL, NULL, 'standard', 'TypeScript', 'Branch', 'test')`, 'orch_normal');
+  const org = organism.newOrganism({ genome: { objective: 'x' } });
+  const continuity = {};
+  const result = await maybeDispatchContinuation({
+    db,
+    orchestratorId: 'orch_normal',
+    task: 'test',
+    request: {},
+    mission: { id: 'm2', task: 'test task', objective: 'test' },
+    completionGate: { allowed: false },
+    evaluation: { status: 'evidence_missing', state: {} },
+    organism: org,
+    finalVerdict: 'homeostasis_blocked',
+    continuity
+  });
+  assert.strictEqual(result.blockedByImmune, false);
+  assert.ok(result.dispatched);
+  assert.ok(result.dispatched.targetAgentId);
 });
 
 async function main() {

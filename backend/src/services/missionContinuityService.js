@@ -226,13 +226,11 @@ function deriveHomeostasisContext(input = {}) {
     missionOutcome: input.missionOutcome === true,
     flags: {
       missionOutcome: input.missionOutcome === true,
-      testsPassed: input.testsPassed === true,
       ...(input.flags || {})
     },
     evidence: input.evidence || [],
     functionalChecks: input.functionalChecks || {},
     structuralChecks: {
-      testsPassed: input.testsPassed === true,
       forbiddenFilesChanged: input.forbiddenFilesChanged || [],
       ...(input.structuralChecks || {})
     },
@@ -261,7 +259,7 @@ async function evaluateContinuity(db, mission) {
     enrolledOrganism = deadCells.reduce(
       (org, cell) => immuneMemory.enrollImmuneMemory(org, {
         failureCategory: `cell_death:${cell.reason}`,
-        strategy: cell.identifier,
+        strategy: 'cell_death',
         prohibitedExactRetry: true,
         preferredResponse: 'replace_worker'
       }),

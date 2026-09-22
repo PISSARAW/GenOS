@@ -4,16 +4,10 @@ const crypto = require('crypto');
 const telemetry = require('./telemetryObserver');
 const immuneMemory = require('./immuneMemoryService');
 
-const DEVIATION_RULES = [
-  { check: (s) => s.failedInvariants && s.failedInvariants.length > 0, value: 'failed_proof' },
-  { check: (s) => s.evidence && !s.evidence.satisfied, value: 'missing_work' }
-];
-
 function classifyDeviation(evaluation = {}) {
   const state = evaluation.state || {};
-  for (const rule of DEVIATION_RULES) {
-    if (rule.check(state)) return rule.value;
-  }
+  if (state.evidence && !state.evidence.satisfied) return 'missing_work';
+  if (state.failedInvariants && state.failedInvariants.length > 0) return 'failed_proof';
   if (evaluation.status === 'evidence_missing') return 'missing_work';
   if (evaluation.status === 'unsafe') return 'unsafe_action';
   return 'incomplete';
@@ -54,7 +48,13 @@ function buildPrompt(mission, deviation, evaluation = {}) {
 }
 
 async function getOrchContext(db, orchestratorId) {
-  return db.get('SELECT workspace_id, fleet_id, model_tier, language, isolation_mode FROM agents WHERE id = ?', orchestratorId);
+  return db.get(
+    `SELECT a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode,
+       w.organization_id, w.project_id
+     FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
+     WHERE a.id = ?`,
+    orchestratorId
+  );
 }
 
 function resolveRole(advice) {

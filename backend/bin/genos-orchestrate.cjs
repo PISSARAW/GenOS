@@ -154,7 +154,10 @@ async function executeMission(db, state) {
     completionGate, evaluation, organism, finalVerdict, continuity
   });
   finalVerdict = continuationResult.finalVerdict;
-  if (continuationResult.dispatched) continuity.dispatched = continuationResult.dispatched;
+  if (continuationResult.dispatched) {
+    if (!continuity) continuity = {};
+    continuity.dispatched = continuationResult.dispatched;
+  }
 
   emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate });
   if (!missionSuccess) process.exitCode = 2;
@@ -287,7 +290,7 @@ async function executeMission(db, state) {
       continuity = { status: 'unknown', error: continuityError.message };
       completionGate = { allowed: false, reason: continuityError.message };
     }
-    return { continuity, completionGate, evaluation, organism: evaluation ? evaluation.organism : null };
+    return { continuity, completionGate, evaluation: evaluation || null, organism: evaluation ? evaluation.organism : null };
   }
 
   function buildMissionContext(outcome) {
@@ -297,7 +300,7 @@ async function executeMission(db, state) {
       safetyConstraints: policyRequest.safetyConstraints || request.safetyConstraints || null,
       context: {
         missionOutcome: outcome.success === true,
-        flags: { missionOutcome: outcome.success === true, testsPassed: outcome.success === true },
+        flags: { missionOutcome: outcome.success === true },
         evidence: outcome.success === true ? ['mission_outcome'] : [],
         functionalChecks: outcome.functionalChecks || {},
         structuralChecks: outcome.structuralChecks || {}
