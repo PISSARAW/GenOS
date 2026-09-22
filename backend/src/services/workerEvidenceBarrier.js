@@ -14,6 +14,7 @@ const {
 const { validateWorkerDossiers } = require('./agentEvidenceService');
 const { applyTrinityComparison } = require('./trinityComparativeBarrier');
 const { applyAteamIntegration } = require('./aTeamComparativeBarrier');
+const { applyCognitiveSynthesis } = require('./cognitiveSynthesisService');
 const helpers = require('./workerEvidenceBarrierHelpers');
 
 const {
@@ -208,6 +209,7 @@ async function finishPartialBarrier(ctx) {
   }
   await applyTrinityComparison({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable }).catch(() => {});
   await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable }).catch(() => {});
+  await applyCognitiveSynthesis({ agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable }).catch(() => {});
   await finalizePartial({
     agentId: ctx.agentId,
     workers: ctx.workers,
@@ -223,6 +225,7 @@ async function finishSatisfiedBarrier(ctx) {
   validateWorkerDossiers(dossiers, ctx.workers, { contract: readContract({ contractRecord: ctx.contractRecord }) });
   await applyTrinityComparison({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
+  await applyCognitiveSynthesis({ agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await finalizeSatisfied({
     agentId: ctx.agentId,
     workers: ctx.workers,

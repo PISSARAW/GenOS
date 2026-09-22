@@ -114,12 +114,19 @@ function attachPhenotypesToPlan({ plan, missionText, options }) {
     if (phenotype) member.cognitiveRecipe = phenotype;
   });
   const attached = members.filter((member) => member.cognitiveRecipe).length;
-  return {
+  const report = {
     attached,
     needs,
     members: members.length,
     portfolio: portfolio.metrics
   };
+  if (plan) {
+    plan.cognitivePortfolio = {
+      recipes: portfolio.recipes,
+      metrics: portfolio.metrics
+    };
+  }
+  return report;
 }
 
 /**

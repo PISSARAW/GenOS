@@ -117,6 +117,28 @@ Deux propriétés du bias de diversité, apprises en implémentant :
 - **plafonné par l'utilité** : sans plafond, le portfolio fabrique des
   recettes décoratives (distance 1.0, zéro couverture des besoins).
 
+**Point 6 (confrontation & synthèse, cette révision) :**
+
+- `backend/src/services/cognitiveSynthesisService.js` — troisième
+  barrier du workerEvidenceBarrier (à côté de Trinity et A-Team) :
+  confronte les analyses produites sous des recettes différentes.
+  Confrontation = tensions inter-recettes AVEC matière (les deux
+  dossiers ont exprimé des claims — une tension sans matière est
+  écartée, pas de fausse confrontation). Synthèse STRUCTURELLE (pas
+  générative, aucun LLM) selon l'opération perspective-reconciliation :
+  conditions de validité (tests + uncertainties par position), niveau
+  commun (intersection des clés), résidu irréconciliable explicite ;
+- `workerEvidenceBarrier.js` — `applyCognitiveSynthesis` dans les deux
+  chemins (partial + satisfied), échec doux comme les autres barriers ;
+- `agentFleetWorkers.js` — le worker porte sa recette
+  (`cognitiveRecipe` dans workerIdentity) pour la traçabilité
+  dossiers → recettes ;
+- `cognitivePhenotypeService.js` — `plan.cognitivePortfolio` exposé
+  (recettes + métriques) pour la barrier de synthèse ;
+- `backend/tests/test_cognitive_synthesis.js` — 8 groupes (positions,
+  matière cognitive, confrontations ouvertes/écartées, synthèse
+  structurelle, barrier inerte sans portfolio, insufficient_diverse).
+
 ## Principes
 
 1. **Indépendance doctrinale** — le test : « peut-on expliquer comment
@@ -188,7 +210,7 @@ n'interviendrait qu'après validation expérimentale (point 8 du plan).
 3. ✅ `CognitiveRecipe` + `CognitiveComposer` (cette révision)
 4. ✅ Branchement A-Team/Trinity via le phénotype (cette révision)
 5. ✅ Compositions maximisant la distance cognitive (cette révision)
-6. Confrontation + synthèse par l'orchestrateur
+6. ✅ Confrontation + synthèse par l'orchestrateur (cette révision)
 7. Benchmark par ablation (A-F)
 8. Compilation progressive des 347 concepts
 9. Mutation/recombinaison/exaptation NCE des recettes
