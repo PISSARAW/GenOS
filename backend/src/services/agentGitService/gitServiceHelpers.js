@@ -4,7 +4,6 @@ const { validateProviderEndpointAsync } = require('../providerEndpointPolicy');
 const { enforceHooks } = require('./hooks');
 const { applyState } = require('./state');
 const { updateRef } = require('./refs');
-
 async function assertRemoteGitUrl(rawUrl) {
   if (process.env.GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES === '1') return;
   await validateProviderEndpointAsync(String(rawUrl), { localOnly: false });
@@ -116,18 +115,21 @@ async function collectState(db, req, agentId) {
   return { schema: 'genos.agent-git-state/v1', agent, decisions, memories, runs, plasmids, permissions, events, children, capturedAt: new Date().toISOString() };
 }
 
-async function storeObject({ db, agentId, workspaceId, kind, refName, remoteName, state, createdBy, metadata = {}, locked = false }) {
+async function storeObject({ db, agentId, workspaceId, kind, refName, remoteName, state, createdBy, metadata = {}, locked = false, parentCommitId = null }) {
   const id = `agent-git-${kind}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const stateJson = JSON.stringify(state);
   const objectMetadata = { ...metadata, locked, stateSchema: state.schema, signatureAlgorithm: signingAlgorithm() };
   const stateHash = hashState(state);
   const signature = signObject(stateHash, objectMetadata);
   await db.run(
-    `INSERT INTO agent_git_objects (id, agent_id, workspace_id, object_kind, ref_name, remote_name, state_hash, state_json, metadata_json, signature, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, agentId, workspaceId, kind, refName || null, remoteName || null, stateHash, stateJson, JSON.stringify(objectMetadata), signature, createdBy || 'agent-git'
+    `INSERT INTO agent_git_objects (id, agent_id, workspace_id, object_kind, ref_name, remote_name, state_hash, state_json, metadata_json, signature, created_by, parent_commit_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id, agentId, workspaceId, kind, refName || null, remoteName || null, stateHash, stateJson, JSON.stringify(objectMetadata), signature, createdBy || 'agent-git', parentCommitId
   );
-  return { id, agentId, workspaceId, kind, refName: refName || null, remoteName: remoteName || null, stateHash, signature };
+  if (parentCommitId) {
+    await db.run('INSERT OR IGNORE INTO agent_git_commit_parents (commit_id, parent_commit_id) VALUES (?, ?)', id, parentCommitId);
+  }
+  return { id, agentId, workspaceId, kind, refName: refName || null, remoteName: remoteName || null, stateHash, signature, parentCommitId };
 }
 
 async function getObject(db, req, objectId) {
@@ -137,12 +139,15 @@ async function getObject(db, req, objectId) {
 
 async function createCommit(req, options = {}) {
   const db = await getDatabase();
-  const state = await collectState(db, req, options.agentId);
+  const state = options.metadata?.state || await collectState(db, req, options.agentId);
   if (!state) throw Object.assign(new Error('Agent is not available in the current tenant.'), { code: 'AGENT_NOT_FOUND' });
   await enforceHooks({ db, agentId: options.agentId, hookName: 'pre-commit', context: state });
-  const result = await storeObject(db, { agentId: options.agentId, workspaceId: state.agent.workspace_id, kind: options.kind || 'commit', refName: options.refName || 'main', remoteName: options.remoteName, state, createdBy: username(req, 'agent-git'), metadata: options.metadata || {} });
-  await updateRef({ db, req, agentId: options.agentId, refName: options.refName || 'main', objectId: result.id, options: { expectedVersion: options.expectedVersion, leaseToken: options.leaseToken, action: options.kind || 'commit' } });
-  return result;
+  const refName = options.refName || 'main';
+  const currentRef = await db.get('SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', options.agentId, refName);
+  const parentCommitId = currentRef?.object_id || null;
+  const result = await storeObject(db, { agentId: options.agentId, workspaceId: state.agent.workspace_id, kind: options.kind || 'commit', refName, remoteName: options.remoteName, state, createdBy: username(req, 'agent-git'), metadata: options.metadata || {}, parentCommitId });
+  await updateRef({ db, req, agentId: options.agentId, refName, objectId: result.id, options: { expectedVersion: options.expectedVersion, leaseToken: options.leaseToken, action: options.kind || 'commit' } });
+  return { ...result, parentCommitId };
 }
 
 function guardFastForward(req, currentRef) {

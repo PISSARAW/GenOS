@@ -4,6 +4,8 @@ const { validateProviderEndpointAsync } = require('../providerEndpointPolicy');
 const { enforceHooks } = require('./hooks');
 const { applyState } = require('./state');
 const { updateRef } = require('./refs');
+const { treeHash, commitHash } = require('./canonical');
+const { storeObject } = require('./storeObjectHelper.cjs');
 
 // Agent Git remotes are fetched server-side, so a caller-controlled remoteUrl
 // is an SSRF vector. Reuse the provider endpoint policy (blocks loopback,
@@ -99,20 +101,6 @@ function changedSections(left, right) {
   return sections.filter((section) => JSON.stringify(left?.[section]) !== JSON.stringify(right?.[section]));
 }
 
-async function storeObject(db, { agentId, workspaceId, kind, refName, remoteName, state, createdBy, metadata = {}, locked = false }) {
-  const id = `agent-git-${kind}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
-  const stateJson = JSON.stringify(state);
-  const objectMetadata = { ...metadata, locked, stateSchema: state.schema, signatureAlgorithm: signingAlgorithm() };
-  const stateHash = hashState(state);
-  const signature = signObject(stateHash, objectMetadata);
-  await db.run(
-    `INSERT INTO agent_git_objects (id, agent_id, workspace_id, object_kind, ref_name, remote_name, state_hash, state_json, metadata_json, signature, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, agentId, workspaceId, kind, refName || null, remoteName || null, stateHash, stateJson, JSON.stringify(objectMetadata), signature, createdBy || 'agent-git'
-  );
-  return { id, agentId, workspaceId, kind, refName: refName || null, remoteName: remoteName || null, stateHash, signature };
-}
-
 async function getObject(db, req, objectId) {
   const scope = scopeSql(req, 'w');
   return db.get(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.id = ? AND ${scope.clause}`, objectId, ...scope.params);
@@ -120,12 +108,15 @@ async function getObject(db, req, objectId) {
 
 async function createCommit(req, options = {}) {
   const db = await getDatabase();
-  const state = await collectState(db, req, options.agentId);
+  const state = options.metadata?.state || await collectState(db, req, options.agentId);
   if (!state) throw Object.assign(new Error('Agent is not available in the current tenant.'), { code: 'AGENT_NOT_FOUND' });
   await enforceHooks({ db, agentId: options.agentId, hookName: 'pre-commit', context: state });
-  const result = await storeObject(db, { agentId: options.agentId, workspaceId: state.agent.workspace_id, kind: options.kind || 'commit', refName: options.refName || 'main', remoteName: options.remoteName, state, createdBy: req.user?.username || 'agent-git', metadata: options.metadata || {} });
-  await updateRef({ db, req, agentId: options.agentId, refName: options.refName || 'main', objectId: result.id, options: { expectedVersion: options.expectedVersion, leaseToken: options.leaseToken, action: options.kind || 'commit' } });
-  return result;
+  const refName = options.refName || 'main';
+  const currentRef = await db.get('SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', options.agentId, refName);
+  const parentCommitId = currentRef?.object_id || null;
+  const result = await storeObject(db, { agentId: options.agentId, workspaceId: state.agent.workspace_id, kind: options.kind || 'commit', refName, remoteName: options.remoteName, state, createdBy: req.user?.username || 'agent-git', metadata: options.metadata || {}, parentCommitId });
+  await updateRef({ db, req, agentId: options.agentId, refName, objectId: result.id, options: { expectedVersion: options.expectedVersion, leaseToken: options.leaseToken, action: options.kind || 'commit' } });
+  return { ...result, parentCommitId };
 }
 
 async function push(req) {
@@ -168,6 +159,9 @@ async function receiveRemote(req) {
   const db = await getDatabase();
   const state = req.body?.state || null;
   if (!state) return { success: false, error: 'Remote state payload is required.' };
+  const actualHash = hashState(state);
+  if (actualHash !== incoming.stateHash) return { success: false, error: 'State hash mismatch: payload does not match the signed stateHash.' };
+  if (incoming.signature && !verifyObjectSignature({ ...incoming, state_hash: incoming.stateHash, state_json: state, metadata_json: '{}' })) return { success: false, error: 'Remote signature verification failed.' };
   const stored = await storeObject(db, { agentId: incoming.agentId, workspaceId: incoming.workspaceId, kind: 'remote', refName: incoming.refName, remoteName: req.body?.remoteName || 'default', state, createdBy: req.user?.username || 'remote', metadata: { receivedFrom: req.ip || 'remote', sourceObjectId: incoming.id }, locked: true });
   return { success: true, operation: 'remote-receive', ...stored };
 }
@@ -189,14 +183,7 @@ async function tag(req) {
   return { success: true, operation: 'tag', ...(await createCommit(req, { agentId: req.body?.agentId, kind: 'tag', refName: req.body?.tagName, metadata: { stable: true }, locked: req.body?.locked !== false })) };
 }
 
-async function cherryPick(req) {
-  const db = await getDatabase();
-  const object = await getObject(db, req, req.body?.objectId);
-  if (!object) return { success: false, error: 'Agent object not found.' };
-  const state = JSON.parse(object.state_json);
-  const result = await applyState(db, req, req.body?.targetAgentId, state, req.body?.sections || ['decisions', 'memories', 'plasmids', 'permissions']);
-  return { success: true, operation: 'cherry-pick', objectId: object.id, ...result };
-}
+
 
 async function diff(req) {
   const db = await getDatabase();
@@ -208,29 +195,8 @@ async function diff(req) {
 }
 
 async function merge(req) {
-  const db = await getDatabase();
-  const left = await collectState(db, req, req.body?.leftAgentId);
-  const right = await collectState(db, req, req.body?.rightAgentId);
-  if (!left || !right) return { success: false, error: 'Both agents must exist in the current tenant.' };
-  if (left.agent.workspace_id !== right.agent.workspace_id) return { success: false, error: 'Agents must share a workspace.' };
-  const unique = (items, key) => [...new Map(items.map((item) => [key(item), item])).values()];
-  const conflicts = [];
-  if (left.agent.role !== right.agent.role && req.body?.role == null) conflicts.push({ section: 'strategy', field: 'role', left: left.agent.role, right: right.agent.role });
-  if (left.agent.model_tier !== right.agent.model_tier && req.body?.modelTier == null) conflicts.push({ section: 'runtime', field: 'model_tier', left: left.agent.model_tier, right: right.agent.model_tier });
-  if (conflicts.length && req.body?.resolution !== 'ours' && req.body?.resolution !== 'theirs') return { success: false, operation: 'merge', conflict: true, conflicts, resolutionRequired: true };
-  const winner = req.body?.resolution === 'theirs' ? right : left;
-  const merged = {
-    ...left,
-    agent: { ...winner.agent, name: req.body?.name || `Merge of ${left.agent.name} + ${right.agent.name}`, role: req.body?.role || winner.agent.role, cognitive_budget: Math.min(Number(left.agent.cognitive_budget || 0), Number(right.agent.cognitive_budget || 0)), dissonance_level: Math.max(Number(left.agent.dissonance_level || 0), Number(right.agent.dissonance_level || 0)) },
-    decisions: unique([...left.decisions, ...right.decisions], (item) => `${item.title}:${item.content}`),
-    memories: unique([...left.memories, ...right.memories], (item) => `${item.action_input}:${item.observation_output}:${item.created_at}`),
-    runs: unique([...left.runs, ...right.runs], (item) => item.id),
-    plasmids: unique([...left.plasmids, ...right.plasmids], (item) => item.plasmid_id),
-    permissions: unique([...left.permissions, ...right.permissions], (item) => `${item.organization_id}:${item.project_id}`)
-  };
-  const result = await applyState(db, req, req.body?.targetAgentId || left.agent.id, merged, ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']);
-  const object = await storeObject(db, { agentId: result.targetAgentId, workspaceId: merged.agent.workspace_id, kind: 'commit', refName: 'merge', state: merged, createdBy: req.user?.username || 'agent-git', metadata: { mergeParents: [left.agent.id, right.agent.id] } });
-  return { success: true, operation: 'merge', ...result, ...object, parentAgentIds: [left.agent.id, right.agent.id], conflictsResolved: conflicts.length };
+  const { merge: dagMerge } = require('./gitOperations');
+  return dagMerge(req);
 }
 
 async function replay(req) {
@@ -252,29 +218,13 @@ async function log(req) {
 }
 
 async function revert(req) {
-  const db = await getDatabase();
-  const object = await getObject(db, req, req.body?.objectId);
-  if (!object) return { success: false, error: 'Agent object not found.' };
-  const current = await collectState(db, req, req.body?.targetAgentId || object.agent_id);
-  const target = JSON.parse(object.state_json);
-  const inverse = { ...current, agent: current.agent, decisions: (current.decisions || []).filter((item) => !(target.decisions || []).some((candidate) => candidate.id === item.id)), memories: (current.memories || []).filter((item) => !(target.memories || []).some((candidate) => candidate.id === item.id)) };
-  const result = await applyState(db, req, req.body?.targetAgentId || object.agent_id, inverse, ['decisions', 'memories']);
-  const commit = await storeObject(db, { agentId: result.targetAgentId, workspaceId: current.agent.workspace_id, kind: 'commit', refName: req.body?.refName || 'main', state: inverse, createdBy: req.user?.username || 'agent-git', metadata: { revertOf: object.id, inverse: true } });
-  return { success: true, operation: 'revert', revertedObjectId: object.id, ...result, ...commit };
+  const { revert: dagRevert } = require('./gitOperations');
+  return dagRevert(req);
 }
 
 async function rebase(req) {
-  const db = await getDatabase();
-  const ours = await getObject(db, req, req.body?.oursObjectId);
-  const onto = await getObject(db, req, req.body?.ontoObjectId);
-  if (!ours || !onto) return { success: false, error: 'Both rebase objects are required.' };
-  const oursState = JSON.parse(ours.state_json); const ontoState = JSON.parse(onto.state_json);
-  const conflicts = changedSections(oursState, ontoState).filter((section) => section !== 'capturedAt').map((section) => ({ section, ours: oursState[section], onto: ontoState[section] }));
-  if (conflicts.length && req.body?.resolution !== 'ours' && req.body?.resolution !== 'onto') return { success: false, operation: 'rebase', conflict: true, conflicts, resolutionRequired: true };
-  const base = req.body?.resolution === 'onto' ? ontoState : oursState;
-  const result = await applyState(db, req, req.body?.targetAgentId || ours.agent_id, base, req.body?.sections || ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']);
-  const commit = await storeObject(db, { agentId: result.targetAgentId, workspaceId: base.agent.workspace_id, kind: 'commit', refName: req.body?.refName || ours.ref_name || 'main', state: base, createdBy: req.user?.username || 'agent-git', metadata: { rebaseFrom: ours.id, rebaseOnto: onto.id, conflictsResolved: conflicts.length } });
-  return { success: true, operation: 'rebase', ...result, ...commit, conflictsResolved: conflicts.length };
+  const { rebase: dagRebase } = require('./gitOperations');
+  return dagRebase(req);
 }
 
 async function reflog(req) {
@@ -297,8 +247,12 @@ async function fsck(req) {
     let state; try { state = JSON.parse(object.state_json); } catch (_) { issues.push({ id: object.id, issue: 'invalid_json' }); continue; }
     if (hashState(state) !== object.state_hash) issues.push({ id: object.id, issue: 'state_hash_mismatch' });
     if (!verifyObjectSignature(object)) issues.push({ id: object.id, issue: 'invalid_signature' });
-    const metadata = json(object.metadata_json, {});
-    if (metadata.parentObjectId && !objects.some((candidate) => candidate.id === metadata.parentObjectId)) issues.push({ id: object.id, issue: 'missing_parent' });
+    const tree = treeHash(state);
+    if (object.tree_hash && object.tree_hash !== tree) issues.push({ id: object.id, issue: 'tree_hash_mismatch' });
+    const parents = await db.all('SELECT parent_commit_id FROM agent_git_commit_parents WHERE commit_id = ?', object.id);
+    for (const { parent_commit_id: parentId } of parents) {
+      if (!objects.some((candidate) => candidate.id === parentId)) issues.push({ id: object.id, issue: 'missing_parent', parentId });
+    }
   }
   return { success: true, operation: 'fsck', checked: objects.length, healthy: issues.length === 0, issues };
 }
@@ -340,33 +294,9 @@ async function hook(req) {
   return { success: true, operation: 'hook', agentId, hookName, enabled: req.body?.enabled !== false };
 }
 
-async function rebaseInteractive(req) {
-    const db = await getDatabase();
-    const ids = Array.isArray(req.body?.objectIds) ? req.body.objectIds : [];
-    if (!ids.length) return { success: false, error: 'objectIds are required.' };
-    const objects = [];
-    for (const id of ids) { const object = await getObject(db, req, id); if (!object) return { success: false, error: `Object '${id}' not found.` }; objects.push(object); }
-    const actions = req.body?.actions || ids.map(() => ({ action: 'pick' }));
-    const conflicts = actions.map((item, index) => item.action === 'edit' && !item.state ? { index, reason: 'edit requires state' } : null).filter(Boolean);
-    if (conflicts.length) return { success: false, operation: 'rebase-interactive', conflict: true, conflicts, plan: actions };
-    let merged = {};
-    for (const [index, item] of actions.entries()) {
-      if (item.action === 'drop') continue;
-      const next = item.action === 'edit' ? item.state : JSON.parse(objects[index].state_json);
-      merged = { ...merged, ...next, agent: { ...(merged.agent || {}), ...(next.agent || {}) } };
-    }
-    const agentId = req.body?.targetAgentId || objects[0].agent_id;
-    const commit = await storeObject(db, { agentId, workspaceId: merged.agent?.workspace_id, kind: 'commit', refName: req.body?.refName || 'main', state: merged, createdBy: req.user?.username || 'agent-git', metadata: { interactiveRebase: ids, actions } });
-    return { success: true, operation: 'rebase-interactive', ...commit, appliedActions: actions };
-}
-
 async function mergeBase(req) {
-  const db = await getDatabase(); const left = await collectState(db, req, req.body?.leftAgentId); const right = await collectState(db, req, req.body?.rightAgentId);
-  if (!left || !right) return { success: false, error: 'Both agents must exist.' };
-  const objects = await db.all(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND ${scopeSql(req, 'w').clause} ORDER BY o.created_at ASC`, left.agent.id, ...scopeSql(req, 'w').params);
-  const rightObjects = await db.all(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND ${scopeSql(req, 'w').clause} ORDER BY o.created_at ASC`, right.agent.id, ...scopeSql(req, 'w').params);
-  const rightHashes = new Set(rightObjects.map((object) => object.state_hash)); const base = objects.reverse().find((object) => rightHashes.has(object.state_hash));
-  return { success: true, operation: 'diff-merge-base', mergeBaseObjectId: base?.id || null, leftHash: hashState(left), rightHash: hashState(right), changedSections: changedSections(left, right) };
+  const { mergeBase: dagMergeBase } = require('./dagOperations');
+  return dagMergeBase(req);
 }
 
 async function archive(req) {
@@ -379,21 +309,23 @@ async function archive(req) {
 }
 
 async function bisect(req) {
-  const db = await getDatabase();
-  const agentId = req.body?.agentId;
-  const field = String(req.body?.field || '').trim();
-  const expected = req.body?.expectedValue;
-  const scope = scopeSql(req, 'w');
-  const objects = await db.all(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND o.object_kind IN ('commit', 'stash', 'remote') AND ${scope.clause} ORDER BY o.created_at, o.id`, agentId, ...scope.params);
-  if (objects.length < 2) return { success: false, error: 'At least two agent Git objects are required.' };
-  const value = (object) => String(field).split('.').reduce((current, key) => current == null ? undefined : current[key], JSON.parse(object.state_json));
-  const matches = (object) => JSON.stringify(value(object)) === JSON.stringify(expected);
-  let low = 1; let high = objects.length - 1; let culprit = -1; let iterations = 0;
-  while (low <= high) { const middle = Math.floor((low + high) / 2); iterations += 1; if (matches(objects[middle])) low = middle + 1; else { culprit = middle; high = middle - 1; } }
-  return { success: true, operation: 'bisect', agentId, field, expectedValue: expected, anomalyFound: culprit >= 0, culpritObjectId: culprit >= 0 ? objects[culprit].id : null, iterations, complexity: `O(log2(${objects.length}))` };
+  const { bisect: dagBisect } = require('./gitOperations');
+  return dagBisect(req);
+}
+
+async function cherryPick(req) {
+  const { cherryPick: dagCherryPick } = require('./gitOperations');
+  return dagCherryPick(req);
 }
 
 module.exports = {
-  hashState, signObject, collectState, changedSections, createCommit, push, fetch, receiveRemote, pull, stash, tag, cherryPick, diff, merge, replay, bisect, log, show, fsck, gc, blame, note, hook, mergeBase, archive, revert, rebase, rebaseInteractive, applyState, getObject,
-  enforceHooks, applyState, updateRef, scopeSql, loadAgent, signObject, verifyObjectSignature, json
+  hashState, signObject, collectState, changedSections, createCommit, push, fetch, receiveRemote, pull, stash, tag, cherryPick, diff, merge, replay, bisect, log, show, fsck, gc, blame, note, hook, mergeBase, archive, revert, rebase, applyState, getObject,
+  enforceHooks, updateRef, scopeSql, loadAgent, verifyObjectSignature, json, treeHash, commitHash,
+  // DAG + HEAD/Index operations
+  reset: require('./dagOperations').reset, replaceState: require('./dagOperations').replaceState,
+  computePatch: require('./dagOperations').computePatch, applyPatch: require('./dagOperations').applyPatch,
+  mergeBaseDag: require('./dagOperations').mergeBase,
+  stage: require('./headIndexWrappers.cjs').stage, unstage: require('./headIndexWrappers.cjs').unstage,
+  status: require('./headIndex.cjs').status, commitFromIndex: require('./commitFromIndex.cjs'),
+  rebaseInteractive: require('./rebaseInteractive.cjs')
 };

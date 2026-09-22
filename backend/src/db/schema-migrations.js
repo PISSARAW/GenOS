@@ -25,6 +25,8 @@ async function applyVersionedMigrations(db) {
   await createAgentGitTables(db);
   await ensureAgentGitObjectColumns(db);
   await createAgentGitHistoryTables(db);
+  await createAgentGitCommitParentsTable(db);
+  await createAgentGitIndexesTable(db);
   await ensureEpisodicColumns(db);
   await migrateAgentStatusConstraint(db);
   await migrateLineageNodeTypeConstraint(db);
@@ -165,6 +167,8 @@ async function createAgentGitTables(db) {
 async function ensureAgentGitObjectColumns(db) {
   const agentGitColumns = new Set((await db.all('PRAGMA table_info(agent_git_objects)')).map((column) => column.name));
   if (!agentGitColumns.has('signature')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN signature TEXT');
+  if (!agentGitColumns.has('tree_hash')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN tree_hash TEXT');
+  if (!agentGitColumns.has('commit_hash')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN commit_hash TEXT');
 }
 
 async function createAgentGitHistoryTables(db) {
@@ -173,6 +177,27 @@ async function createAgentGitHistoryTables(db) {
   CREATE TABLE IF NOT EXISTS agent_git_notes (id TEXT PRIMARY KEY, object_id TEXT NOT NULL, agent_id TEXT NOT NULL, note_json TEXT NOT NULL, created_by TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS agent_git_hooks (hook_key TEXT PRIMARY KEY, agent_id TEXT NOT NULL, hook_name TEXT NOT NULL, policy_json TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS agent_git_archives (id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, object_id TEXT NOT NULL, archive_hash TEXT NOT NULL, archive_json TEXT NOT NULL, created_by TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);`);
+}
+
+async function createAgentGitCommitParentsTable(db) {
+  await db.exec(`CREATE TABLE IF NOT EXISTS agent_git_commit_parents (
+    commit_id TEXT NOT NULL,
+    parent_commit_id TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (commit_id, parent_commit_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_agent_git_commit_parents_parent ON agent_git_commit_parents(parent_commit_id);`);
+}
+
+async function createAgentGitIndexesTable(db) {
+  await db.exec(`CREATE TABLE IF NOT EXISTS agent_git_indexes (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    index_json TEXT NOT NULL DEFAULT '{}',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_agent_git_indexes_agent ON agent_git_indexes(agent_id);`);
 }
 
 async function ensureEpisodicColumns(db) {
