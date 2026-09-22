@@ -1531,6 +1531,7 @@ dependencies = [
 name = "genos-genome"
 version = "0.1.0"
 dependencies = [
+ "genos-store",
  "rand 0.10.2",
  "serde",
  "serde_json",

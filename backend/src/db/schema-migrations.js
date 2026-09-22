@@ -170,6 +170,10 @@ async function ensureAgentGitObjectColumns(db) {
   if (!agentGitColumns.has('tree_hash')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN tree_hash TEXT');
   if (!agentGitColumns.has('commit_hash')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN commit_hash TEXT');
   if (!agentGitColumns.has('parent_commit_id')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN parent_commit_id TEXT');
+  if (!agentGitColumns.has('signature_algorithm')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN signature_algorithm TEXT');
+  if (!agentGitColumns.has('author_key_id')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN author_key_id TEXT');
+  if (!agentGitColumns.has('public_key_fingerprint')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN public_key_fingerprint TEXT');
+  if (!agentGitColumns.has('signed_commit_envelope')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN signed_commit_envelope TEXT');
 }
 
 async function createAgentGitHistoryTables(db) {
@@ -177,7 +181,9 @@ async function createAgentGitHistoryTables(db) {
   CREATE TABLE IF NOT EXISTS agent_git_reflog (id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, ref_name TEXT NOT NULL, old_object_id TEXT, new_object_id TEXT, action TEXT NOT NULL, actor TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS agent_git_notes (id TEXT PRIMARY KEY, object_id TEXT NOT NULL, agent_id TEXT NOT NULL, note_json TEXT NOT NULL, created_by TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS agent_git_hooks (hook_key TEXT PRIMARY KEY, agent_id TEXT NOT NULL, hook_name TEXT NOT NULL, policy_json TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-  CREATE TABLE IF NOT EXISTS agent_git_archives (id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, object_id TEXT NOT NULL, archive_hash TEXT NOT NULL, archive_json TEXT NOT NULL, created_by TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);`);
+  CREATE TABLE IF NOT EXISTS agent_git_archives (id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, object_id TEXT NOT NULL, archive_hash TEXT NOT NULL, archive_json TEXT NOT NULL, created_by TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+  CREATE TABLE IF NOT EXISTS agent_git_quarantine (id TEXT PRIMARY KEY, remote_name TEXT NOT NULL, incoming_id TEXT, reason TEXT NOT NULL, state_json TEXT, signature TEXT, received_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+  CREATE INDEX IF NOT EXISTS idx_agent_git_quarantine_remote ON agent_git_quarantine(remote_name, received_at);`);
 }
 
 async function createAgentGitCommitParentsTable(db) {

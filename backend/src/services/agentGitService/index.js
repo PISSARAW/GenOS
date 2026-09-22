@@ -8,6 +8,8 @@ const { applyState } = require('./state');
 const { updateRef } = require('./refs');
 const { treeHash, commitHash } = require('./canonical');
 const { storeObject } = require('./storeObjectHelper.cjs');
+const causalOps = require('./causalOps.cjs');
+const { verifyRemoteObject } = require('./remoteVerification.cjs');
 
 // Agent Git remotes are fetched server-side, so a caller-controlled remoteUrl
 // is an SSRF vector. Reuse the provider endpoint policy (blocks loopback,
@@ -55,7 +57,9 @@ function signObject(stateHash, metadata) {
 
 function verifyObjectSignature(object) {
   if (!object.signature) return false;
-  const isEd25519 = signingAlgorithm() === 'ed25519';
+  // Utiliser l'algorithme stocké dans signature_algorithm (auto-descriptif)
+  // avec fallback sur la configuration courante pour les anciens objets
+  const isEd25519 = (object.signature_algorithm || signingAlgorithm()) === 'ed25519';
   const authHash = object.commit_hash || object.tree_hash || object.state_hash;
   const expected = Buffer.from(signObject(authHash, json(object.metadata_json, {})), isEd25519 ? 'base64' : 'utf8');
   const actual = Buffer.from(object.signature, isEd25519 ? 'base64' : 'utf8');
@@ -175,24 +179,35 @@ async function fetch(req) {
   return { success: true, operation: 'fetch', remoteName, remote: await response.json(), objects };
 }
 
-async function verifyRemoteObject(incoming, state) {
-  if (!incoming?.id || !incoming.stateHash) return { valid: false, error: 'Signed remote object is required.' };
-  if (!state) return { valid: false, error: 'Remote state payload is required.' };
-  if (!incoming.signature) return { valid: false, error: 'Remote signature is required (unsigned remote objects are rejected).' };
-  const actualHash = hashState(state);
-  if (actualHash !== incoming.stateHash) return { valid: false, error: 'State hash mismatch: payload does not match the signed stateHash.' };
-  if (!verifyObjectSignature({ ...incoming, state_hash: incoming.stateHash, state_json: state, metadata_json: '{}' })) {
-    return { valid: false, error: 'Remote signature verification failed.' };
-  }
-  return { valid: true, error: null };
+
+async function quarantineIncoming(db, opts) {
+  const { incoming, state, reason } = opts;
+  const id = `agent-git-quarantine-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+  const sql = 'INSERT INTO agent_git_quarantine (id, remote_name, incoming_id, reason, state_json, signature) VALUES (?, ?, ?, ?, ?, ?)';
+  await db.run(sql, id, incoming.remoteName || 'unknown', incoming.id, reason, JSON.stringify(state), incoming.signature || null);
+  return { quarantined: true, quarantineId: id, reason };
 }
 
 async function receiveRemote(req) {
   const incoming = req.body?.object;
   const state = req.body?.state || null;
   const verification = await verifyRemoteObject(incoming, state);
-  if (!verification.valid) return { success: false, error: verification.error };
   const db = await getDatabase();
+  if (!verification.valid) {
+    // Mettre en quarantine pour inspection manuelle
+    const q = await quarantineIncoming(db, incoming, state, verification.error);
+    return { success: false, error: verification.error, ...q };
+  }
+  // Vérifier que les parents sont disponibles (fast-forward check)
+  if (incoming.parentCommitIds && incoming.parentCommitIds.length > 0) {
+    for (const parentId of incoming.parentCommitIds) {
+      const parent = await db.get('SELECT id FROM agent_git_objects WHERE id = ?', parentId);
+      if (!parent) {
+        const q = await quarantineIncoming(db, incoming, state, `missing_parent:${parentId}`);
+        return { success: false, error: `Missing parent commit: ${parentId}`, ...q };
+      }
+    }
+  }
   const stored = await storeObject(db, { agentId: incoming.agentId, workspaceId: incoming.workspaceId, kind: 'remote', refName: incoming.refName, remoteName: req.body?.remoteName || 'default', state, createdBy: req.user?.username || 'remote', metadata: { receivedFrom: req.ip || 'remote', sourceObjectId: incoming.id }, locked: true });
   return { success: true, operation: 'remote-receive', ...stored };
 }
@@ -229,16 +244,7 @@ async function merge(req) {
   return dagMerge(req);
 }
 
-async function replay(req) {
-  const db = await getDatabase();
-  const object = await getObject(db, req, req.body?.objectId);
-  if (!object) return { success: false, error: 'Agent object not found.' };
-  const state = JSON.parse(object.state_json);
-  const digest = hashState(state);
-  const events = Array.isArray(state.events) ? state.events : [];
-  const replayVerified = digest === object.state_hash && verifyObjectSignature(object);
-  return { success: replayVerified, status: replayVerified ? 'completed' : 'verification_failed', operation: 'replay', objectId: object.id, replayVerified, state, stateHash: digest, runtimeReplay: { eventCount: events.length, ordered: events.every((event, index, all) => index === 0 || String(all[index - 1].created_at) <= String(event.created_at)), events }, applied: false };
-}
+async function replay(req) { return causalOps.replay(req); }
 
 async function log(req) {
   const db = await getDatabase();
@@ -269,32 +275,7 @@ async function show(req) {
   return { success: true, operation: 'show', object: { ...object, state: JSON.parse(object.state_json), metadata: json(object.metadata_json, {}), signatureValid: verifyObjectSignature(object) } };
 }
 
-async function verifySingleObject(object, objects) {
-  const issues = [];
-  let state;
-  try { state = JSON.parse(object.state_json); } catch (_) { issues.push({ id: object.id, issue: 'invalid_json' }); return issues; }
-  if (hashState(state) !== object.state_hash) issues.push({ id: object.id, issue: 'state_hash_mismatch' });
-  if (!verifyObjectSignature(object)) issues.push({ id: object.id, issue: 'invalid_signature' });
-  const tree = treeHash(state);
-  if (object.tree_hash && object.tree_hash !== tree) issues.push({ id: object.id, issue: 'tree_hash_mismatch' });
-  const parents = await db.all('SELECT parent_commit_id FROM agent_git_commit_parents WHERE commit_id = ?', object.id);
-  for (const { parent_commit_id: parentId } of parents) {
-    if (!objects.some((candidate) => candidate.id === parentId)) issues.push({ id: object.id, issue: 'missing_parent', parentId });
-  }
-  return issues;
-}
-
-async function fsck(req) {
-  const db = await getDatabase();
-  const scope = scopeSql(req, 'w');
-  const objects = await db.all(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND ${scope.clause}`, req.body?.agentId, ...scope.params);
-  const issues = [];
-  for (const object of objects) {
-    const objectIssues = await verifySingleObject(object, objects);
-    issues.push(...objectIssues);
-  }
-  return { success: true, operation: 'fsck', checked: objects.length, healthy: issues.length === 0, issues };
-}
+async function fsck(req) { return causalOps.fsck(req); }
 
 async function describe(req) {
   const db = await getDatabase(); const object = await getObject(db, req, req.body?.objectId);
@@ -311,12 +292,7 @@ async function gc(req) {
   return { success: true, operation: 'gc', pruned: stale.length, kept: Math.min(keep, rows.length) };
 }
 
-async function blame(req) {
-  const db = await getDatabase(); const state = await collectState(db, req, req.body?.agentId);
-  if (!state) return { success: false, error: 'Agent not found.' };
-  const section = String(req.body?.section || 'decisions'); const rows = Array.isArray(state[section]) ? state[section] : [];
-  return { success: true, operation: 'blame', agentId: state.agent.id, section, entries: rows.map((item) => ({ id: item.id || item.event_id || item.action_input, sourceAgentId: item.created_by || item.agent_id || state.agent.id, createdAt: item.created_at })) };
-}
+async function blame(req) { return causalOps.blame(req); }
 
 async function note(req) {
   const db = await getDatabase(); const object = await getObject(db, req, req.body?.objectId);
@@ -366,5 +342,12 @@ module.exports = {
   mergeBaseDag: require('./dagOperations').mergeBase,
   stage: require('./headIndexWrappers.cjs').stage, unstage: require('./headIndexWrappers.cjs').unstage,
   status: require('./headIndex.cjs').status, commitFromIndex: require('./commitFromIndex.cjs'),
-  rebaseInteractive: require('./rebaseInteractive.cjs')
+  rebaseInteractive: require('./rebaseInteractive.cjs'),
+  // Biomimetic operations (point 8)
+  hgtCherryPick: require('./biomimeticOps.cjs').hgtCherryPick,
+  speciation: require('./biomimeticOps.cjs').speciation,
+  recombination: require('./biomimeticOps.cjs').recombination,
+  migration: require('./biomimeticOps.cjs').migration,
+  fossil: require('./biomimeticOps.cjs').fossil,
+  apoptosis: require('./biomimeticOps.cjs').apoptosis
 };

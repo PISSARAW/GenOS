@@ -163,7 +163,23 @@ async function consumeJsonResponse(context, response) {
   const normalized = normalizeMessageContent(content);
   const text = normalized.text;
   for (const token of tokenize(text)) await context.options.onToken(token);
-  return buildFinalResponse({ text, toolCalls: normalized.toolCalls, responseFormat: context.options.responseFormat, prompt: context.options.prompt, payload, provider: context.configuration.provider, modelName: context.configuration.modelName });
+  const result = buildFinalResponse({ text, toolCalls: normalized.toolCalls, responseFormat: context.options.responseFormat, prompt: context.options.prompt, payload, provider: context.configuration.provider, modelName: context.configuration.modelName });
+  if (result.structured) {
+    const { validateOutput, repairOutput } = require('./agentOutputSchemaService');
+    let violations = validateOutput(result.structured);
+    let candidate = result.structured;
+    if (violations.length > 0) {
+      candidate = repairOutput(result.structured);
+      violations = validateOutput(candidate);
+      if (violations.length === 0) {
+        result.structured = candidate;
+      } else {
+        result.schemaViolation = { error: 'OUTPUT_SCHEMA_VIOLATION', violations };
+        result.structured = candidate;
+      }
+    }
+  }
+  return result;
 }
 
 async function consumeResponse(context, response) {
@@ -213,10 +229,12 @@ async function generateDirect(options) {
   }
 }
 
-async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint, priority = 'bulk', agentId, organizationId, projectId, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080, responseFormat }) {
+async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint, priority = 'bulk', agentId, organizationId, projectId, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080, responseFormat, enforceSchema = true }) {
   const effectiveTimeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Math.min(Number(timeoutMs), 30 * 60 * 1000)) : 30000;
-  const options = { model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint, seed, stream, signal, displayWidth, displayHeight, responseFormat };
   const configuration = modelConfiguration(model, endpoint);
+  const isOpenAiCompatible = ['openai', 'ollama', 'lmstudio', 'vllm', 'openai-compatible', 'groq', 'deepseek', 'together', 'openrouter', 'mistral'].includes(configuration.provider);
+  const effectiveFormat = responseFormat || (enforceSchema && isOpenAiCompatible ? 'json_object' : undefined);
+  const options = { model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint, seed, stream, signal, displayWidth, displayHeight, responseFormat: effectiveFormat };
   const targetEndpoint = endpoint || configuration.endpoint;
   if (inferenceGateway.isLocalProvider(configuration.provider, targetEndpoint)) {
     return inferenceGateway.schedule(() => generateDirect(options), { provider: configuration.provider, priority, agentId, organizationId, projectId });

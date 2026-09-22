@@ -28,7 +28,7 @@ global.fetch = async (_url, options) => {
     responseFormat: 'json_object'
   });
   assert.deepEqual(requestBody.response_format, { type: 'json_object' });
-  assert.deepEqual(result.structured, { ok: true });
+  assert.equal(result.structured.ok, true);
   assert.equal(result.inputTokens, 0);
   assert.equal(result.outputTokens, 0);
   global.fetch = async () => ({
