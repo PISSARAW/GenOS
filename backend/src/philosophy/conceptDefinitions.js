@@ -42,10 +42,61 @@ const { AESTHETICS_DEFINITIONS } = require('./aestheticsDefinitions');
 const { LOGIC_DEFINITIONS } = require('./logicDefinitions');
 const { MATHEMATICS_DEFINITIONS } = require('./mathematicsDefinitions');
 
-const C = ({ id, label, domain, school, status, service = null, metadata = {} }) => {
+// Rôles déclaratifs et valeurs par défaut (conceptRoles.js)
+const { DEFAULTS_BY_ROLE, ROLE_BY_ID } = require('./conceptRoles');
+
+function deriveRole({ id }) {
+  if (!id) return 'speculative';
+  if (id.startsWith('core.')) return 'core';
+  if (id.startsWith('causality.')) return 'operational';
+  if (id.startsWith('biomimetic.')) return 'analogy';
+  if (id.startsWith('lens.')) return 'lens';
+  if (id.startsWith('school.')) return 'lens';
+  if (ROLE_BY_ID.has(id)) return ROLE_BY_ID.get(id);
+  return 'speculative';
+}
+
+function deriveScope(_id, domain) {
+  const map = {
+    ontology: 'ontological',
+    causality: 'causal',
+    epistemology: 'epistemic',
+  };
+  return map[domain] || 'general';
+}
+
+const C = ({
+  id,
+  label,
+  domain,
+  school,
+  status,
+  service = null,
+  serviceMaturity = null,
+  role = null,
+  runtimeAuthority = null,
+  falsifiable = null,
+  scope = null,
+  knownLimits = null,
+  historicalConfidence = null,
+  metadata = {}
+}) => {
+  const resolvedRole = role || deriveRole({ id });
+  const defaults = DEFAULTS_BY_ROLE[resolvedRole] || DEFAULTS_BY_ROLE.speculative;
   return {
-    id, label, domain, school, status, service,
+    id,
+    label,
+    domain,
+    school,
+    status,
+    service,
     family: metadata.family || FAMILY_BY_DOMAIN[domain] || domain,
+    role: resolvedRole,
+    runtimeAuthority: (runtimeAuthority != null) ? runtimeAuthority : defaults.runtimeAuthority,
+    falsifiable: (falsifiable != null) ? falsifiable : defaults.falsifiable,
+    scope: scope || defaults.scope,
+    knownLimits: knownLimits || defaults.knownLimits,
+    historicalConfidence: (historicalConfidence != null) ? historicalConfidence : defaults.historicalConfidence,
     ...metadata,
   };
 };
@@ -250,22 +301,73 @@ const RAW_CONCEPT_DEFINITIONS = [
   C({ id: 'ethics.commons', label: 'Tragédie des communs', domain: 'normative-ethics', school: 'hardin-ostrom', status: 'implemented', service: 'environmentalEthicsService' }),
 ];
 
+function finalizeConcept(raw) {
+  const role = raw.role || deriveRole({ id: raw.id });
+  const defaults = DEFAULTS_BY_ROLE[role] || DEFAULTS_BY_ROLE.speculative;
+  const out = Object.assign({}, raw);
+  out.role = role;
+  out.runtimeAuthority = (out.runtimeAuthority != null) ? out.runtimeAuthority : defaults.runtimeAuthority;
+  out.falsifiable = (out.falsifiable != null) ? out.falsifiable : defaults.falsifiable;
+  out.scope = out.scope || defaults.scope;
+  out.knownLimits = Array.isArray(out.knownLimits)
+    ? out.knownLimits
+    : defaults.knownLimits.map(l => l);
+  out.historicalConfidence = (out.historicalConfidence != null) ? out.historicalConfidence : defaults.historicalConfidence;
+  if (!out.family) {
+    out.family = FAMILY_BY_DOMAIN[out.domain] || out.domain;
+  }
+  return Object.freeze(out);
+}
+
 const CORE_IDS = new Set(CORE_DEFINITIONS.map((concept) => concept.id));
 const LEGACY_DEFINITIONS = RAW_CONCEPT_DEFINITIONS.filter((concept) => !CORE_IDS.has(concept.id));
+
+const FINALIZED_CORE = CORE_DEFINITIONS.map(finalizeConcept);
+const FINALIZED_LEGACY = LEGACY_DEFINITIONS.map(finalizeConcept);
+const FINALIZED_AESTHETICS = AESTHETICS_DEFINITIONS.map(finalizeConcept);
+const FINALIZED_LOGIC = LOGIC_DEFINITIONS.map(finalizeConcept);
+const FINALIZED_MATHEMATICS = MATHEMATICS_DEFINITIONS.map(finalizeConcept);
+
 const CONCEPT_DEFINITIONS = Object.freeze([
-  ...CORE_DEFINITIONS,
-  ...LEGACY_DEFINITIONS,
-  ...AESTHETICS_DEFINITIONS,
-  ...LOGIC_DEFINITIONS,
-  ...MATHEMATICS_DEFINITIONS,
+  ...FINALIZED_CORE,
+  ...FINALIZED_LEGACY,
+  ...FINALIZED_AESTHETICS,
+  ...FINALIZED_LOGIC,
+  ...FINALIZED_MATHEMATICS,
 ]);
+
+// Agrégats par rôle (mirrors conceptRoles.js pour les tests et le routeur)
+const ROLE_BUCKETS = (() => {
+  const buckets = {
+    core: [],
+    operational: [],
+    analogy: [],
+    lens: [],
+    speculative: [],
+  };
+  for (const concept of CONCEPT_DEFINITIONS) {
+    const bucket = buckets[concept.role] || buckets.speculative;
+    bucket.push(concept);
+  }
+  return Object.freeze(buckets);
+})();
 
 module.exports = {
   CONCEPT_DEFINITIONS,
+  ALL_CONCEPTS: CONCEPT_DEFINITIONS,
+  CORE_COMMITMENTS: ROLE_BUCKETS.core,
+  OPERATIONAL_THEORIES: ROLE_BUCKETS.operational,
+  BIOMIMETIC_ANALOGIES: ROLE_BUCKETS.analogy,
+  INTERPRETIVE_LENS: ROLE_BUCKETS.lens,
+  SPECULATIVE_HYPOTHESES: ROLE_BUCKETS.speculative,
+  FILTERED_LEGACY: LEGACY_DEFINITIONS,
   CORE_DEFINITIONS,
   LEGACY_DEFINITIONS,
   AESTHETICS_DEFINITIONS,
   LOGIC_DEFINITIONS,
   MATHEMATICS_DEFINITIONS,
   FAMILY_BY_DOMAIN,
+  C,
+  deriveRole,
+  deriveScope,
 };
