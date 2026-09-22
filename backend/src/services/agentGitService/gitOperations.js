@@ -46,18 +46,28 @@ async function cherryPick(req) {
   const targetAgentId = req.body?.targetAgentId || object.agent_id;
   const result = await applyPatch(req, { targetAgentId, patch, sections });
 
+  // Point 5 : le commit doit capturer l'état RÉSULTANT du cherry-pick
+  // (target + patch), pas l'état source du commit d'origine.
+  const resultingState = await collectStateScoped(db, req, targetAgentId);
   const commitResult = await storeObject(db, {
     agentId: targetAgentId,
     workspaceId: object.workspace_id,
     kind: 'commit',
     refName: req.body?.refName || 'main',
-    state: JSON.parse(object.state_json),
+    state: resultingState,
     createdBy: req.user?.username || 'agent-git',
     metadata: { cherryPickedFrom: object.id, cherryPicked: true, patchOpCount: patch.operations.length }
   });
 
   await updateRef({ db, req, agentId: targetAgentId, refName: req.body?.refName || 'main', objectId: commitResult.id, options: { action: 'cherry-pick' } });
   return { success: true, operation: 'cherry-pick', objectId: object.id, ...result, ...commitResult };
+}
+
+async function collectStateScoped(db, req, agentId) {
+  const { collectState } = require('./index');
+  const state = await collectState(db, req, agentId);
+  if (state) return state;
+  throw Object.assign(new Error('Target agent not available.'), { code: 'AGENT_NOT_FOUND' });
 }
 
 async function buildCherryPickPatch(ctx) {
@@ -223,12 +233,15 @@ async function revert(req) {
     sections: ['decisions', 'memories', 'runs', 'plasmids', 'permissions']
   });
 
+  // Point 5 : le commit de revert capture l'état APRÈS application du patch
+  // inverse — pas l'état du commit qu'on vient d'annuler.
+  const resultingState = await collectStateScoped(db, req, targetAgentId);
   const commitResult = await storeObject(db, {
     agentId: targetAgentId,
     workspaceId: object.workspace_id,
     kind: 'commit',
     refName: req.body?.refName || 'main',
-    state: JSON.parse(object.state_json),
+    state: resultingState,
     createdBy: req.user?.username || 'agent-git',
     metadata: { revertOf: object.id, reverted: true, inversePatch: true }
   });

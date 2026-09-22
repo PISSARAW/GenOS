@@ -111,8 +111,47 @@ async function main() {
   assert.equal(state.plasmids.length, 0, 'REMOVE supprime le plasmide P42 via plasmid_id');
   assert.equal(state.permissions[0].permissions_json, '["mcp:read"]', 'REPLACE permission par clé de scope');
 
+  // --- Point 5 : cherry-pick et revert committent l'état RÉSULTANT ---
+  // Setup : un second agent avec une décision propre.
+  await db.run(
+    'INSERT INTO agents (id, workspace_id, name, role, status, cognitive_budget, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    'agent-e2e-2', (await db.get('SELECT id FROM workspaces LIMIT 1'))?.id || null, 'AgentE2E2', 'worker', 'idle', 50, new Date().toISOString()
+  );
+  await db.run(
+    'INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES (?, ?, ?, ?, ?, ?)',
+    'd-src', 'Decision source', 'contenu source', 'agent-e2e-1', 'strategy', 1
+  );
+  const srcCommit = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'main', metadata: { message: 'src' } });
+
+  // Cherry-pick du commit source vers l'agent 2.
+  const pick = await agentGit.cherryPick({ ...makeReq(), body: { objectId: srcCommit.id, targetAgentId: 'agent-e2e-2' } });
+  assert.ok(pick.success, 'cherry-pick doit réussir');
+  const pickRow = await db.get('SELECT state_json, tree_hash FROM agent_git_objects WHERE id = ?', pick.id);
+  const pickState = JSON.parse(pickRow.state_json);
+  const pickTree = require('../src/services/agentGitService/canonical').treeHash(pickState);
+  assert.equal(pickRow.tree_hash, pickTree, 'tree du commit cherry-pick = hash de son propre state_json');
+  // L'état committé doit refléter l'agent 2 (cible), pas l'agent 1 (source).
+  assert.equal(pickState.agent.id, 'agent-e2e-2', 'le commit cherry-pick capture l état de la CIBLE');
+  assert.ok(
+    (pickState.decisions || []).some(d => d.id === 'agent-git-decision-agent-e2e-2-d-src'),
+    'la décision cherry-pickée doit être présente dans l état committé (préfixée target)'
+  );
+
+  // Revert du commit cherry-pické : le commit de revert capture l état après
+  // annulation — la décision doit avoir disparu de l état committé.
+  const rev = await agentGit.revert({ ...makeReq(), body: { objectId: pick.id, targetAgentId: 'agent-e2e-2' } });
+  assert.ok(rev.success, 'revert doit réussir');
+  const revRow = await db.get('SELECT state_json FROM agent_git_objects WHERE id = ?', rev.id);
+  const revState = JSON.parse(revRow.state_json);
+  assert.equal(revState.agent.id, 'agent-e2e-2', 'le commit de revert capture l état de la cible');
+  assert.ok(
+    !(revState.decisions || []).some(d => String(d.id).endsWith('d-src')),
+    'après revert, la décision cherry-pickée ne doit plus être dans l état committé'
+  );
+
   console.log('[OK] point 1 - SQLite réel : schéma crypto complet, createCommit + parent + signature vérifiés');
   console.log('[OK] point 4 - patch REPLACE + identityOf (decisions/plasmids/permissions) sur SQLite réel');
+  console.log('[OK] point 5 - cherry-pick/revert committent l état résultant réel (target + patch)');
   console.log(`     commit=${commit.id} commitHash=${commit.commitHash.slice(0, 12)}…`);
 }
 
