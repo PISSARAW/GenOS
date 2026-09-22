@@ -196,6 +196,10 @@ class CausalProgressService {
     const payload = event.payload || {}
     const provenance = payload.provenance || PROVENANCE.SELF_REPORTED
 
+    const provenanceWeight =
+      PROVENANCE_WEIGHTS[provenance]
+      ?? PROVENANCE_WEIGHTS[PROVENANCE.SELF_REPORTED]
+
     const evidence = Number(payload.evidenceGain || 0)
     const uncertainty = Number(payload.uncertaintyReduction || 0)
     const constraints = Number(payload.constraintsResolved || 0)
@@ -207,22 +211,22 @@ class CausalProgressService {
     const cost = Number(payload.costConsumed || 0)
 
     this.window.pushStep({
-      evidenceGain: evidence * PROVENANCE_WEIGHTS[provenance],
-      uncertaintyReduction: uncertainty * PROVENANCE_WEIGHTS[provenance],
+      evidenceGain: evidence * provenanceWeight,
+      uncertaintyReduction: uncertainty * provenanceWeight,
       constraintsResolved: constraints,
       verifiedArtifactDelta: artifacts,
       objectiveDelta: objective,
-      hypothesisInformationGain: hypothesis * PROVENANCE_WEIGHTS[provenance],
+      hypothesisInformationGain: hypothesis * provenanceWeight,
       tokensConsumed: tokens, timeConsumed: time, costConsumed: cost,
       provenance
     })
 
-    this.globalEvidence += evidence * PROVENANCE_WEIGHTS[provenance]
-    this.globalUncertainty += uncertainty * PROVENANCE_WEIGHTS[provenance]
+    this.globalEvidence += evidence * provenanceWeight
+    this.globalUncertainty += uncertainty * provenanceWeight
     this.globalConstraints += constraints
     this.globalArtifacts += artifacts
     this.globalObjective += objective
-    this.globalHypothesisInfo += hypothesis * PROVENANCE_WEIGHTS[provenance]
+    this.globalHypothesisInfo += hypothesis * provenanceWeight
     this.globalTokens += tokens
     this.globalTime += time
     this.globalCost += cost

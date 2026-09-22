@@ -2,7 +2,7 @@ const { emit } = require('../agentOrchestrationState');
 const swarmSentinel = require('../swarmSentinelService');
 const { NaturalSearchController, SEARCH_PROCESS } = require('./naturalSearchController');
 const { NaturalSearchActuator } = require('./naturalSearchActuatorService');
-const { HypothesisLedger } = require('./hypothesisLedgerService');
+const { HypothesisLedger, HYPOTHESIS_STATUS } = require('./hypothesisLedgerService');
 const { CausalProgressService } = require('./causalProgressService');
 
 const agentSearchState = new Map();
@@ -25,27 +25,40 @@ function clearSearchState(agentId) {
 function ingestEvidence(searchState, payload) {
   const { ledger } = searchState;
   if (payload.evidenceGain || payload.evidenceRef) {
-    const activeHyps = ledger.activeHypotheses();
-    if (activeHyps.length > 0) {
-      ledger.addEvidence(activeHyps[0].id, {
-        direction: 'for', strength: payload.evidenceStrength || 0.5,
-        provenance: payload.evidenceProvenance || 'observed', reliability: 0.7,
-        independent: true, evidenceRef: payload.evidenceRef || null
-      });
+    const targetHypId = payload.hypothesisId || null;
+    if (!targetHypId) return;
+    const target = ledger.hypotheses.get(targetHypId);
+    if (!target) return;
+    if (target.status === HYPOTHESIS_STATUS.FALSIFIED) {
+      ledger.notify({ type: 'HYPOTHESIS_REJECTED_EVIDENCE_ON_FALSIFIED', hypothesisId: targetHypId });
+      return;
     }
+    ledger.addEvidence(targetHypId, {
+      direction: 'for', strength: payload.evidenceStrength || 0.5,
+      provenance: payload.evidenceProvenance || ledger.PROVENANCE.SELF_REPORTED, reliability: 0.7,
+      independent: true, evidenceRef: payload.evidenceRef || null
+    });
     searchState.lastProgressStep = searchState.stepCount;
   }
 }
 
 function ingestFailureEvidence(searchState, event) {
   const { ledger } = searchState;
-  const activeHyps = ledger.activeHypotheses();
-  if (activeHyps.length > 0) {
-    ledger.addEvidence(activeHyps[0].id, {
-      direction: 'against', strength: 0.5, provenance: 'observed',
-      reliability: 0.8, independent: true, evidenceRef: `error:${event.eventType}`
-    });
+  const targetHypId = event.payload?.hypothesisId || null;
+  if (!targetHypId) {
+    ledger.notify({ type: 'HYPOTHESIS_REJECTED_EVIDENCE_ON_FALSIFIED', hypothesisId: null });
+    return;
   }
+  const target = ledger.hypotheses.get(targetHypId);
+  if (!target) return;
+  if (target.status === HYPOTHESIS_STATUS.FALSIFIED) {
+    ledger.notify({ type: 'HYPOTHESIS_REJECTED_EVIDENCE_ON_FALSIFIED', hypothesisId: targetHypId });
+    return;
+  }
+  ledger.addEvidence(targetHypId, {
+    direction: 'against', strength: 0.5, provenance: ledger.PROVENANCE.SELF_REPORTED,
+    reliability: 0.8, independent: true, evidenceRef: `error:${event.eventType}`
+  });
 }
 
 function buildSearchContext(ctx, searchState) {
@@ -57,23 +70,18 @@ function buildSearchContext(ctx, searchState) {
   const falsifiedHyps = ledger.hypothesesForAgent(agentId).filter(h => h.status === 'falsified').length;
   const entropyMetrics = swarmSentinel.getAgentEntropy(agentId);
 
-  // Lineage pressure: track across missions/generations
   const lineagePressure = ledger.hypothesesForAgent(agentId).reduce((acc, h) => {
-    if (h.status === 'falsified') {
-      acc.falsifiedCount++
-    }
-    if (h.status === 'supported') {
-      acc.supportedCount++
-    }
-    return acc
-  }, { falsifiedCount: 0, supportedCount: 0 })
+    if (h.status === 'falsified') acc.falsifiedCount++;
+    if (h.status === 'supported') acc.supportedCount++;
+    return acc;
+  }, { falsifiedCount: 0, supportedCount: 0 });
 
   return {
     agentId, searchYield, stepsSinceProgress, falsifiedHypotheses: falsifiedHyps,
     contradictions: 0, activeHypothesesCount: ledger.activeHypotheses().length,
     budgetRatio: ctx.budgetRatio || 0.3, causalProgressReport: causalReport, entropyMetrics,
     lineagePressure
-  }
+  };
 }
 
 function applyBudget(searchState, normalizedMission) {
