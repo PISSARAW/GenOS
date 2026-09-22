@@ -19,6 +19,7 @@ const suites = {
     ['procedural E2E autonome', 'test_procedural_e2e_autonome.js'],
     ['philosophy falsification', 'test_philosophy_falsification.js'],
     ['typed evidence algebra', 'test_typed_evidence_algebra.js'],
+    ['fork identity service', 'test_fork_identity_service.js'],
     ['normative ethics assessment', 'test_normative_ethics_service.js'],
     ['REST smoke', 'test_backend.js'],
     ['quality', 'run_quality_suite.js'],
@@ -84,7 +85,11 @@ const suites = {
     ['signal pipeline integration', 'test_signal_pipeline_integration.js'],
     ['signal actionneurs', 'test_signal_actionneurs.js'],
     ['plasticity tensor', 'test_plasticity_tensor.js'],
-    ['semantic loop detector', 'test_semantic_loop_detector.js']
+    ['semantic loop detector', 'test_semantic_loop_detector.js'],
+    ['signal plane e2e', 'test_signal_plane_e2e.js'],
+    ['signal metrics', 'test_signal_metrics.js'],
+    ['agent output schema', 'test_agent_output_schema.js'],
+    ['biomimetic signaling bus', 'test_biomimetic_signaling_bus.js']
   ]
 };
 

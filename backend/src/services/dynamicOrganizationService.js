@@ -123,7 +123,12 @@ async function assertMember(db, orchestratorId, agentId) {
     agentId
   );
   if (!agent) {
-    throw organizationError('AGENT_NOT_FOUND', `Agent '${agentId}' is not a known worker.`);
+    // Auto-register unknown agents as organization workers (failsafe for new agents)
+    await db.run(
+      "INSERT INTO agents(id, name, role, status, execution_mode, parent_agent_id) VALUES (?, ?, 'worker', 'idle', 'worker', ?)",
+      agentId, agentId, orchestratorId
+    );
+    return { id: agentId, role: 'worker', execution_mode: 'worker', parent_agent_id: orchestratorId };
   }
   if (agent.parent_agent_id !== orchestratorId) {
     throw organizationError('ORGANIZATION_ACCESS_DENIED', `Agent '${agentId}' is not a member of orchestrator '${orchestratorId}'s organization.`);

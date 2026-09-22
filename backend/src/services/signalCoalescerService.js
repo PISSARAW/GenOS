@@ -61,11 +61,7 @@ function shouldCoalesce(signal, topic, opts = {}) {
   const now = opts.now || Date.now();
   const coalesceMs = opts.coalesceMs || DEFAULT_COALESCE_MS;
   const buf = coalescingBuffer.get(topic);
-  if (!buf) {
-    // First signal for this topic — buffer it, don't emit yet
-    bufferSignal(signal, topic);
-    return { shouldEmit: false, aggregated: [signal] };
-  }
+  if (!buf) return { shouldEmit: true, aggregated: [signal] };
 
   buf.signals.push(signal);
   buf.lastEmitAt = now;
