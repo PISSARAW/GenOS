@@ -102,6 +102,7 @@ function emitToBus(signal) {
     topic: signal.topic,
     senderAgentId: signal.senderAgentId,
     concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0,
+    recipientAgentIds: signal.recipientAgentIds,
   });
 }
 

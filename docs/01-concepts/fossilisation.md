@@ -197,7 +197,7 @@ flowchart TB
 
 **Burial (synchrone, borne O(secondes)).**
 
-1. Une terminaison survient : apoptose (`ConscienceState` / `resilienceService.evaluateApoptosis`), purge mémoire (`sleepCycle`), ou fin de mission.
+1. Une terminaison survient : apoptose (`CognitiveRegulationState` / `resilienceService.evaluateApoptosis`), purge mémoire (`sleepCycle`), ou fin de mission.
 2. `S(L)` est évalué ; si `B(L) = 1`, la capture démarre **avant** le garbage collection.
 3. Triage dur/mou : invariants retenus, contexte volatil marqué perdu.
 4. Minéralisation : `payload_hash`, encodage canonique, mode de taphonomie.

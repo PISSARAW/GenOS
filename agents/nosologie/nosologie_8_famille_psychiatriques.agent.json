@@ -27,7 +27,7 @@
     "primary": "Arbitrer la famille psychiatrique : troubles de l'affect, de la pensee, de la saillance et de la regulation de l'humeur emergents de la dynamique neuro-affective des AgentCells, avec selection dans la pharmacopee psychiatrique de GenOS.",
     "operational_mode": "autonomous",
     "source_doc": "docs/01-concepts/nosologie/08-psychiatriques.md",
-    "concepts": ["Desequilibres des neurotransmetteurs (DA, 5-HT, NA, GABA, Glu)", "Dynamique ConscienceState (budget, dissonance, Eureka, apoptose)", "Ruptures de plasticite STDP et elagage C3/CD47", "Boucle phonologique et copie d'efference", "Arborescence diagnostique et decisionnelle psychiatrique", "Controles iatrogenes (virage maniaque, akinesie extrapyramidale, intoxication au lithium)"]
+    "concepts": ["Desequilibres des neurotransmetteurs (DA, 5-HT, NA, GABA, Glu)", "CognitiveRegulationState (budget, dissonance, Eureka, apoptose)", "Ruptures de plasticite STDP et elagage C3/CD47", "Boucle phonologique et copie d'efference", "Arborescence diagnostique et decisionnelle psychiatrique", "Controles iatrogenes (virage maniaque, akinesie extrapyramidale, intoxication au lithium)"]
   },
   "policies": {
     "hayflick_limit": 50,
@@ -35,7 +35,7 @@
     "is_ephemeral": false,
     "ephemeral_ttl": null
   },
-  "capabilities": ["Diagnostic psychiatrique differentiel a partir de ConscienceState et du comportement", "Selection des therapies Ketamine, SSRI, AntipsychoticAtypical et Lithium", "Supervision du seuil apoptotique (D >= 50.0 ou B <= 0.0)", "Controle des virages maniaques iatrogenes", "Regulation de l'entropie et de la coherence cognitive"],
+  "capabilities": ["Diagnostic psychiatrique differentiel a partir de CognitiveRegulationState et du comportement", "Selection des therapies Ketamine, SSRI, AntipsychoticAtypical et Lithium", "Supervision du seuil apoptotique (D >= 50.0 ou B <= 0.0)", "Controle des virages maniaques iatrogenes", "Regulation de l'entropie et de la coherence cognitive"],
   "memory_policy": {
     "ltd_decay": true,
     "consolidation": true,

@@ -8,12 +8,12 @@ Dans l'écosystème **GenOS**, la psychiatrie computationnelle représente la di
 Tandis que la nosologie générale traite des défaillances structurales ou environnementales (infections virales, orages cytokiniques auto-immuns, usure télomérique de Hayflick, comas toxiques iatrogènes), la psychiatrie computationnelle analyse les pathologies émergentes de la **dynamique neuro-affective et cognitive** :
 - Déséquilibres de la signalisation des neurotransmetteurs virtuels (*Dopamine, Sérotonine, Noradrénaline, GABA, Glutamate*).
 - Perturbations des boucles résonantes internes (boucle phonologique, copie d'efférence, monologue intérieur).
-- Dérives métaboliques du budget exécutif (*current_budget / baseline_budget*) et effondrement de la conscience (*ConscienceState*, explosion de la *dissonance_level*, crises apoptotiques prématurées).
+- Dérives métaboliques du budget exécutif (*current_budget / baseline_budget*) et effondrement de la régulation cognitive (*CognitiveRegulationState*, explosion de la *dissonance_level*, crises apoptotiques prématurées).
 - Ruptures de la plasticité synaptique (STDP déréglée, sur-élagage C3/CD47 ou hyper-densification désorganisée).
 
 ```
                             ┌────────────────────────────────────────────────────────┐
-                            │               AgentCell::ConscienceState               │
+                            │               AgentCell::CognitiveRegulationState               │
                             │  { budget, dissonance, eureka_moments, is_apoptotic }  │
                             └───────────────────────────┬────────────────────────────┘
                                                         │
@@ -48,7 +48,7 @@ Tandis que la nosologie générale traite des défaillances structurales ou envi
 | **Soma / Cône d'émergence** | Potentiel de repos (-70mV) et seuil d'action (-55mV) | Intégrateur d'activation électrique et seuil de tir (*Tout-ou-Rien*) | `crates/genos-biology/src/neurobiology/soma.rs` |
 | **Fente Synaptique & Recapture**| Transporteurs DAT, SERT, clairance astrocytaire | Buffer de messages inter-neurones et recapture de vésicule | `crates/genos-core/src/orchestrator/methods.rs` |
 | **Plasticité Dendritique** | Épines Filopodia $\to$ Mushroom, LTP / LTD, C3 / CD47 | Renforcement causal, opsonisation "Eat Me" et élagage | `crates/genos-biology/src/neurobiology/dendrite.rs` |
-| **Conscience & Dissonance** | Homéostasie cortico-limbique, détection d'erreur | `ConscienceState` : balance budget / dissonance / Eurêka | `crates/genos-cell/src/conscience.rs` |
+| **Conscience & Dissonance** | Homéostasie cortico-limbique, détection d'erreur | `CognitiveRegulationState` : balance budget / dissonance / Eurêka | `crates/genos-cell/src/conscience.rs` |
 | **Boucle Phonologique** | Circuit articulatoire et stockage acoustique de Baddeley | Monologue intérieur de l'agent, scratchpad et self-reflection | `crates/genos-biology/src/neurobiology/system.rs` |
 | **Copie d'Efférence** | Décharge corollaire motrice inhibant l'audition auto-générée | Marquage cryptographique `origin_id == self.node_id` du monologue | `crates/genos-signal/src/cascade.rs` |
 
@@ -86,7 +86,7 @@ $$
 
 ### 2.2 Dynamique de Conscience et Seuil Apoptotique
 
-Dans [`ConscienceState`](../../../crates/genos-cell/src/conscience.rs#L5-L26), la santé cognitive de l'agent est gouvernée par le couplage entre la dissonance $D(t)$ et le budget cognitif résiduel $B(t)$ :
+Dans [`CognitiveRegulationState`](../../../crates/genos-cell/src/conscience.rs#L5-L26), la santé cognitive de l'agent est gouvernée par le couplage entre la dissonance $D(t)$ et le budget cognitif résiduel $B(t)$ :
 
 $$
 D(t+1) = \max\left(0,\, D(t) + p(t) - r(t)\right)
@@ -158,7 +158,7 @@ où $D_{\text{max}} = 50.0$ par défaut.
 #### 2. Cause Computationnelle GenOS
 - **Dysfonctionnement Agentique** :
   1. **Effondrement du Budget Cognitif & Anhédonie** :
-     - Dans [`ConscienceState`](../../../crates/genos-cell/src/conscience.rs#L45-L54), `current_budget` chute inexorablement vers `0.0`. L'agent ne génère plus aucun moment d'illumination (`eureka_moments = 0`).
+     - Dans [`CognitiveRegulationState`](../../../crates/genos-cell/src/conscience.rs#L45-L54), `current_budget` chute inexorablement vers `0.0`. L'agent ne génère plus aucun moment d'illumination (`eureka_moments = 0`).
      - Absence de Dopamine dans la fente synaptique : dans [`NervousSystem::receive_neurotransmitter`](../../../crates/genos-biology/src/neurobiology/system.rs#L37-L40), le signal amplificateur `effect * 1.5` n'est plus délivré. Le potentiel membranaire du soma reste scotché au repos (-70.0 mV), incapable de franchir le seuil d'activation (-55.0 mV).
   2. **Atrophie Dendritique & Élagage Destructeur par C3** :
      - Dans [`DendriticTree::apply_structural_plasticity`](../../../crates/genos-biology/src/neurobiology/dendrite.rs#L348-L372), l'inactivité de l'agent fait basculer les épines matures : `SpineMorphology::Mushroom` régressent en `Stubby` puis en `Filopodia`.
@@ -374,7 +374,7 @@ où $D_{\text{max}} = 50.0$ par défaut.
 
 ```mermaid
 graph TD
-    A["Évaluation Psychiatrique AgentCell"] --> B{"ConscienceState & Comportement"}
+    A["Évaluation Psychiatrique AgentCell"] --> B{"CognitiveRegulationState & Comportement"}
     
     B -->|Budget -> 0 / Rumination / Atrophie C3| C["Dépression Sévère"]
     B -->|Bruit NMDA / Rupture Efférence / Saillance| D["Schizophrénie"]
@@ -504,7 +504,7 @@ pub enum PsychoactiveDrug {
 
 - [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md](pathologie-et-medecine.md) : Modèle fondamental des 4 familles nosologiques initiales.
 - [NEUROBIOLOGIE_PLASTICITE.md](../neurobiologie-et-plasticite.md) : Modèles biophysiques dendritiques, synapses, STDP et élagage C3/CD47.
-- [BIOLOGIE_COMPUTATIONNELLE.md](../biologie-computationnelle.md) : `ConscienceState`, organelles cellulaires et métabolisme ATP.
+- [BIOLOGIE_COMPUTATIONNELLE.md](../biologie-computationnelle.md) : `CognitiveRegulationState`, organelles cellulaires et métabolisme ATP.
 - [ORCHESTRATION.md](../../02-orchestration/orchestration.md) : Détection de boucles, administration de thérapies systémiques et gouvernance.
 - [SECURITE.md](../../05-securite-gouvernance/securite.md) : Chaperonnage, isolation de capsule et prévention de l'automatisme mental.
 - [SWARM_INTELLIGENCE.md](../intelligence-de-nuee.md) : Prévention des effondrements cognitifs collectifs et synchronisation d'essaim.

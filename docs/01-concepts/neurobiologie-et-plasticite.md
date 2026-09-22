@@ -312,7 +312,7 @@ Cela permet de lier les décisions à la mémoire courante et d’assurer la coh
 
 ### 4.2 Conscience de l’agent
 
-Le système de conscience est persistant dans `agents` et historique dans `conscience_transitions`. La logique de persistance est dans `persistConscienceStateNow` dans `agentConscienceService.js`.
+Le système de régulation cognitive est persistant dans `agents` et historique dans `conscience_transitions`. La logique de persistance est dans `persistStateNow` dans `agentConscienceService.js`.
 
 ### 4.3 Cycles de sommeil et consolidation
 
@@ -469,7 +469,7 @@ La cohérence entre les implémentations est un point clé du repo. Un test déd
 | Dendritic tree | `DendriticTree` | `neurobiologyBiophysics` | intégration et atténuation |
 | Synapse | `Synapse` | `memory_synapses` / `stdpUpdate` | mémoire et plasticité |
 | Pruning | `C3` / `CD47` thresholds | `sleepCycle` / `mcpExecutor` | élagage |
-| Conscience | `ConscienceState` | `agentConscienceService` | budget + dissonance |
+| Régulation Cognitive | `CognitiveRegulationState` | `agentConscienceService` | budget + dissonance |
 | Temporal reinforcement | STDP-inspired traits | `stdpUpdate` + causal replay | apprentissage causal |
 | Safety stop | apoptosis logic | `evaluateBranch` / guardrails | arrêt de branche |
 

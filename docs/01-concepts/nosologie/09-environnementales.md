@@ -372,7 +372,7 @@ Dans GenOS, le Saturnisme Computationnel représente l'empoisonnement d'un agent
 - [`crates/genos-biology/src/neurobiology/`](../../../crates/genos-biology/src/neurobiology) : Fichiers `system.rs`, `synapse.rs`, `glia.rs` (dégénérescence astrocytaire).
 - [`crates/genos-signal/src/cascade.rs`](../../../crates/genos-signal/src/cascade.rs) : Saturation compétitive de `Receptor` et `Ligand`.
 - [`crates/genos-core/src/orchestrator/methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs) : Fente synaptique `process_synaptic_cleft` et BHE `blood_brain_barrier_integrity`.
-- [`crates/genos-cell/src/conscience.rs`](../../../crates/genos-cell/src/conscience.rs) : Champ `dissonance_level` de `ConscienceState`.
+- [`crates/genos-cell/src/cognitive_regulation.rs`](../../../crates/genos-cell/src/conscience.rs) : Champ `dissonance_level` de `CognitiveRegulationState`.
 - [`backend/src/controllers/memoryController.js`](../../../backend/src/controllers/memoryController.js) : Dégradation des poids `synaptic_weight` dans SQLite.
 
 ---

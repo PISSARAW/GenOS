@@ -40,7 +40,7 @@
     "declenchement d'Eureka : D <- D/2 et B <- min(B_base, B + 50)",
     "application de penalites errors, repetition et drift via evaluateBranch",
     "apoptose si D >= D_max ou B <= 0",
-    "persistance de l'etat dans agents et conscience_transitions via persistConscienceStateNow",
+    "persistence de l'etat dans agents et conscience_transitions via persistCognitiveRegulationState",
     "suivi des cles cognitive_budget, cognitive_baseline_budget, cognitive_max_dissonance, conscience_revision et eureka_count"
   ],
   "memory_policy": {
