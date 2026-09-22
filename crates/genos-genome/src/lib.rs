@@ -10,6 +10,7 @@ pub mod mutation_rates;
 pub mod mutation_scales;
 pub mod phenotype;
 pub mod plasmid_v2;
+pub mod reproduction;
 pub mod translation;
 
 pub use dna::{DnaNucleotide, DnaStrand, Mutagen, RnaNucleotide, RnaPolymerase, RnaStrand};
@@ -25,4 +26,5 @@ pub use linkage_epistasis::{
     LinkageEpistasisEngine, LinkageGroup, LinkageResult,
 };
 pub use plasmid_v2::{PlasmidCycleResult, PlasmidInstance, PlasmidParams, PlasmidPool};
+pub use reproduction::{GenealogyTree, MeioticCrossover};
 pub use translation::{AminoAcidToken, Codon, Ribosome, UnfoldedProtein};
