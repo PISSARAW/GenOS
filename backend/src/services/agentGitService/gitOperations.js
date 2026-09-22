@@ -6,6 +6,7 @@ const { storeObject } = require('./storeObjectHelper.cjs');
 const { updateRef } = require('./refs');
 const { enforceHooks } = require('./hooks');
 const { mergeArraySection } = require('./mergeHelpers.cjs');
+const { mergeEvents, mergeChildren } = require('./mergeDrivers.cjs');
 const { getDatabase } = require('../../db');
 
 function scopeSql(req, alias = 'w') {
@@ -104,19 +105,41 @@ function buildMergedState(ctx) {
   const rightState = JSON.parse(right.state_json);
   const patchLeft = computePatch(baseState, leftState);
   const patchRight = computePatch(baseState, rightState);
+  const ms = buildMergeSections({ baseState, patchLeft, patchRight, leftState, rightState });
+  return { storeState: buildMergeStoreState({ baseState, leftState, rightState, nameOverride, mergeSections: ms }) };
+}
 
+function buildMergeSections(ctx) {
+  const { baseState, patchLeft, patchRight, leftState, rightState } = ctx;
   return {
-    storeState: buildMergeStoreState({
-      baseState, leftState, rightState, nameOverride,
-      mergeSections: {
-        decisions: mergeArraySection({ base: baseState.decisions || [], patchLeft, patchRight, sectionName: 'decisions' }),
-        memories: mergeArraySection({ base: baseState.memories || [], patchLeft, patchRight, sectionName: 'memories' }),
-        runs: mergeArraySection({ base: baseState.runs || [], patchLeft, patchRight, sectionName: 'runs' }),
-        plasmids: mergeArraySection({ base: baseState.plasmids || [], patchLeft, patchRight, sectionName: 'plasmids' }),
-        permissions: mergePermissionSection({ base: baseState.permissions || [], left: leftState.permissions || [], right: rightState.permissions || [] })
-      }
-    })
+    decisions: mergeDecisionsSection({ baseState, patchLeft, patchRight }),
+    memories: mergeMemoriesSection({ baseState, patchLeft, patchRight }),
+    runs: mergeRunsSection({ baseState, patchLeft, patchRight }),
+    plasmids: mergePlasmidsSection({ baseState, patchLeft, patchRight }),
+    permissions: mergePermissionSection({ base: baseState.permissions || [], left: leftState.permissions || [], right: rightState.permissions || [] }),
+    events: mergeEvents({ base: baseState.events || [], left: leftState.events || [], right: rightState.events || [] }),
+    children: mergeChildren({ base: baseState.children || [], left: leftState.children || [], right: rightState.children || [] })
   };
+}
+
+function mergeDecisionsSection(ctx) {
+  const { baseState, patchLeft, patchRight } = ctx;
+  return mergeArraySection({ base: baseState.decisions || [], patchLeft, patchRight, sectionName: 'decisions' });
+}
+
+function mergeMemoriesSection(ctx) {
+  const { baseState, patchLeft, patchRight } = ctx;
+  return mergeArraySection({ base: baseState.memories || [], patchLeft, patchRight, sectionName: 'memories' });
+}
+
+function mergeRunsSection(ctx) {
+  const { baseState, patchLeft, patchRight } = ctx;
+  return mergeArraySection({ base: baseState.runs || [], patchLeft, patchRight, sectionName: 'runs' });
+}
+
+function mergePlasmidsSection(ctx) {
+  const { baseState, patchLeft, patchRight } = ctx;
+  return mergeArraySection({ base: baseState.plasmids || [], patchLeft, patchRight, sectionName: 'plasmids' });
 }
 
 function buildMergeStoreState(ctx) {
@@ -127,7 +150,9 @@ function buildMergeStoreState(ctx) {
       ...(leftState.agent || baseState.agent),
       name: nameOverride || `Merge of left + right`
     },
-    ...mergeSections
+    ...mergeSections,
+    events: mergeSections.events || [],
+    children: mergeSections.children || []
   };
 }
 
