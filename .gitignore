@@ -122,3 +122,10 @@ g.cmd
 g.ps1
 llms.txt
 runtime_arbiter.js
+genos_autoscan*.cjs
+genos_scan_inline.cjs
+scripts/audit_inbox.cjs
+scripts/run_triage.cjs
+scripts/triage_inbox.cjs
+scripts/autonomous/genos_self_scan_wrapper.cjs
+backend/scripts/genos-autoscan.cjs
