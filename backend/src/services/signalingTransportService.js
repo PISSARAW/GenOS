@@ -16,6 +16,7 @@ const { routeCollectiveSignal } = require('./collectiveSignalOrganizationRouter'
 const signalRepressor = require('./signalRepressorService');
 const boundedGossip = require('./boundedGossipService');
 const gapJunction = require('./gapJunctionService');
+const receptor = require('./signalReceptorService');
 
 // Court TTL par défaut pour les signaux ephemeraires (phéromones, voltage)
 const DEFAULT_SIGNAL_TTL_MS = 30_000;
@@ -93,49 +94,71 @@ async function publishSignal(params) {
   const normalizedType = validateSignalType(signalType);
 
   const repression = repressionFor({ type: normalizedType, topic, signalData, repressors });
-  if (!repression.accepted) {
-    return {
-      signalId: signalId || null,
-      published: false,
-      signalType: normalizedType,
-      suppressedBy: repression.suppressedBy,
-      suppressionReason: repression.reason
-    };
-  }
+  if (!repression.accepted) return buildRejectedResult(signalId, normalizedType, repression);
 
   const id = signalId || `sig_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const formatted = formatSignalForTransport({
-    signalType: normalizedType,
-    signalData,
-    contentFallback,
-  });
-
+  const formatted = formatSignalForTransport({ signalType: normalizedType, signalData, contentFallback });
   const expiresAt = ttlMs > 0 ? new Date(Date.now() + ttlMs).toISOString() : null;
-  const row = {
-    signal_id: id,
-    signal_type: formatted.signalType,
-    signal_blob: formatted.signalBlob || null,
-    content: formatted.content || '',
-    topic: String(topic || '').trim(),
-    sender_agent_id: senderAgentId || null,
-    expires_at: expiresAt,
-  };
 
-  await persistSignalRow(row);
-
+  await persistSignalRow(buildRow({ id, formatted, topic, senderAgentId, expiresAt }));
   pushLocalLog(id, formatted);
+
   const routing = await routeCollectiveSignal({
     db: await getDatabase().catch(() => null), signalId: id, signalType: formatted.signalType,
     signalData, orchestratorId: senderAgentId
   });
   const delivery = deliveryMetadata(params, id, expiresAt);
+
+  dispatchReceptorsIfNeeded({
+    signalId: id, signalType: formatted.signalType, signalData,
+    topic: String(topic || '').trim(), senderAgentId, ttlMs, publishSignal,
+  }).catch((err) => console.warn('[Receptor] dispatch failed:', err.message));
+
+  return { signalId: id, published: true, signalType: formatted.signalType, routing, ...delivery };
+}
+
+function buildRejectedResult(signalId, normalizedType, repression) {
   return {
-    signalId: id,
-    published: true,
-    signalType: formatted.signalType,
-    routing,
-    ...delivery
+    signalId: signalId || null, published: false, signalType: normalizedType,
+    suppressedBy: repression.suppressedBy, suppressionReason: repression.reason,
   };
+}
+
+function buildRow({ id, formatted, topic, senderAgentId, expiresAt }) {
+  return {
+    signal_id: id, signal_type: formatted.signalType, signal_blob: formatted.signalBlob || null,
+    content: formatted.content || '', topic: String(topic || '').trim(),
+    sender_agent_id: senderAgentId || null, expires_at: expiresAt,
+  };
+}
+
+/**
+ * Dispatch signal to registered receptors for deterministic action.
+ * If a receptor matches, the action fires without LLM invocation.
+ */
+async function dispatchReceptorsIfNeeded(signal) {
+  const triggered = receptor.matchReceptors({
+    signalId: signal.signalId,
+    signalType: signal.signalType,
+    semanticType: signal.signalData?.semanticType || signal.signalType,
+    concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0,
+    topic: signal.topic,
+    senderAgentId: signal.senderAgentId,
+  });
+
+  if (triggered.length === 0) return { dispatched: false };
+
+  const dispatched = await receptor.dispatchActions(triggered, {
+    signalId: signal.signalId,
+    signalType: signal.signalType,
+    signalData: signal.signalData,
+    topic: signal.topic,
+    senderAgentId: signal.senderAgentId,
+  }, {
+    publishSignal: signal.publishSignal,
+  });
+
+  return { dispatched: true, results: dispatched };
 }
 
 /**
