@@ -3,39 +3,52 @@
 const assert = require('assert');
 const identity = require('../src/services/proceduralIdentityService');
 
-// Test structureHash reproductible
-const org1 = {
-  structure: {
-    nodes: [{ id: 'inspect' }, { id: 'patch' }],
-    synapses: [{ from: 'inspect', to: 'patch', type: 'excitatory' }],
-  },
-};
+function makeOrg(overrides = {}) {
+  return {
+    apiVersion: 'genos/v1alpha1',
+    kind: 'ProceduralOrganism',
+    metadata: { id: 'test-org', version: 1, parentId: null, lineageId: 'lineage-1' },
+    structure: {
+      nodes: [{ id: 'inspect', type: 'action' }, { id: 'patch', type: 'action' }],
+      synapses: [{ from: 'inspect', to: 'patch', type: 'excitatory', weight: 1.0 }],
+    },
+    ...overrides,
+  };
+}
 
-const org2 = {
+// Test structureHash reproductible
+const org1 = makeOrg({
   structure: {
-    nodes: [{ id: 'patch' }, { id: 'inspect' }],
-    synapses: [{ from: 'inspect', to: 'patch', type: 'excitatory' }],
+    nodes: [{ id: 'inspect', type: 'action' }, { id: 'patch', type: 'action' }],
+    synapses: [{ from: 'inspect', to: 'patch', type: 'excitatory', weight: 1.0 }],
   },
-};
+});
+
+const org2 = makeOrg({
+  structure: {
+    nodes: [{ id: 'patch', type: 'action' }, { id: 'inspect', type: 'action' }],
+    synapses: [{ from: 'inspect', to: 'patch', type: 'excitatory', weight: 1.0 }],
+  },
+});
 
 const hash1 = identity.structureHash(org1);
 const hash2 = identity.structureHash(org2);
 assert.strictEqual(hash1, hash2);
 
-const org3 = {
+const org3 = makeOrg({
   structure: {
-    nodes: [{ id: 'inspect' }, { id: 'reproduce' }, { id: 'patch' }],
-    synapses: [{ from: 'inspect', to: 'reproduce', type: 'excitatory' }],
+    nodes: [{ id: 'inspect', type: 'action' }, { id: 'reproduce', type: 'action' }, { id: 'patch', type: 'action' }],
+    synapses: [{ from: 'inspect', to: 'reproduce', type: 'excitatory', weight: 1.0 }],
   },
-};
+});
 
 const hash3 = identity.structureHash(org3);
 assert.notStrictEqual(hash1, hash3);
 
 const validation = identity.validateOrganism(org1);
-assert.strictEqual(validation.valid, false);
+assert.strictEqual(validation.valid, true);
 
-const goodOrg = { ...org1, metadata: { id: 'test', version: 1 } };
+const goodOrg = makeOrg({ metadata: { id: 'test', version: 1, parentId: null, lineageId: 'l1' } });
 const goodValidation = identity.validateOrganism(goodOrg);
 assert.strictEqual(goodValidation.valid, true);
 

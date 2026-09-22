@@ -62,6 +62,8 @@ async function migrateProceduralGenomes(db) {
 }
 
 async function persistGenome(db, organism, options = {}) {
+  identity.validateProceduralOrganism(organism);
+  
   const structureHash = identity.structureHash(organism);
   const stateHash = identity.stateHash(organism);
   const versionId = identity.versionId(organism);

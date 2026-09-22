@@ -27,7 +27,7 @@ const STRUCTURAL_CHECKS = [
     name: 'ADD_DIRECT_TERMINAL_EDGE',
     test: (mutation) => {
       const ops = mutation?.operations || [];
-      return ops.some((op) => op.op === 'ADD_EDGE' && op.target?.to === 'DIRECT_TERMINAL');
+      return ops.some((op) => (op.op === 'ADD_EDGE' || op.op === 'ADD_SYNAPSE') && op.target?.to === 'DIRECT_TERMINAL');
     },
   },
   {

@@ -63,8 +63,7 @@
       "properties": {
         "expression": { "type": "number", "minimum": 0, "maximum": 1 },
         "epigeneticMarks": { "type": "object", "additionalProperties": { "type": "object", "properties": { "expression": { "type": "number", "minimum": 0, "maximum": 1 }, "note": { "type": "string" } } } },
-        "methylation": { "type": "array", "items": { "type": "object", "required": ["target", "type", "strength"], "properties": { "target": { "type": "object", "required": ["type"], "properties": { "type": "string",
-"enum": ["synapse", "procedure"], "from": { "type": "string" }, "to": { "type": "string" }, "id": { "type": "string" } } }, "type": { "type": "string", "const": "repression" }, "strength": { "type": "number", "minimum": 0, "maximum": 1 }, "trigger": { "type": "object" }, "origin": { "type": "object" } } } }
+        "methylation": { "type": "array", "items": { "type": "object", "required": ["target", "type", "strength"], "properties": { "target": { "type": "object", "required": ["type"], "properties": { "type": { "type": "string", "enum": ["synapse", "procedure"] }, "from": { "type": "string" }, "to": { "type": "string" }, "id": { "type": "string" } } }, "type": { "type": "string", "const": "repression" }, "strength": { "type": "number", "minimum": 0, "maximum": 1 }, "trigger": { "type": "object" }, "origin": { "type": "object" } } } }
       }
     },
     "plasticity": { "$ref": "#/definitions/plasticityState" },

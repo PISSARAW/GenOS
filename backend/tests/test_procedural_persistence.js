@@ -24,6 +24,26 @@ function get(db, sql, params = []) {
   });
 }
 
+function makeOrg(overrides = {}) {
+  const baseMetadata = { id: 'test-org', version: 1, parentId: null, lineageId: 'lineage-1' };
+  const mergedMetadata = { ...baseMetadata, ...(overrides.metadata || {}) };
+  if (!mergedMetadata.id) {
+    mergedMetadata.id = 'test-org';
+  }
+  const base = {
+    apiVersion: 'genos/v1alpha1',
+    kind: 'ProceduralOrganism',
+    metadata: mergedMetadata,
+    structure: {
+      nodes: [{ id: 'inspect', type: 'action' }, { id: 'patch', type: 'action' }],
+      synapses: [{ from: 'inspect', to: 'patch', type: 'excitatory', weight: 1.0 }],
+    },
+  };
+  // Merge overrides but exclude metadata since we already handled it
+  const { metadata: _meta, ...restOverrides } = overrides;
+  return { ...base, ...restOverrides };
+}
+
 async function testPersistence() {
   const dbPath = path.join(__dirname, `test-procedural-${Date.now()}.db`);
   const sqlite3 = require('sqlite3').verbose();
@@ -34,15 +54,15 @@ async function testPersistence() {
     await run(db, stmt);
   }
 
-  const testOrg = {
-    metadata: { parentId: null, version: 1 },
+  const testOrg = makeOrg({
+    metadata: { parentId: null, version: 1, lineageId: 'lineage-1' },
     structure: {
-      nodes: [{ id: 'inspect' }, { id: 'patch' }],
+      nodes: [{ id: 'inspect', type: 'action' }, { id: 'patch', type: 'action' }],
       synapses: [{ from: 'inspect', to: 'patch', type: 'excitatory', weight: 1.0 }],
     },
     fitness: { score: 0.85, components: { success: 0.9 } },
     plasticity: { lastEpisode: 42 },
-  };
+  });
 
   const saved = await persistence.persistGenome(db, testOrg, { status: 'active' });
   assert.ok(saved.metadata.id, 'saved should have id');
@@ -61,15 +81,15 @@ async function testPersistence() {
   assert.ok(Array.isArray(phylogeny));
 
   const orgV2Structure = {
-    nodes: [{ id: 'inspect' }, { id: 'reproduce' }, { id: 'patch' }],
+    nodes: [{ id: 'inspect', type: 'action' }, { id: 'reproduce', type: 'action' }, { id: 'patch', type: 'action' }],
     synapses: [{ from: 'inspect', to: 'reproduce', type: 'excitatory', weight: 1.0 }],
   };
-  const orgV2 = {
-    metadata: { parentId: saved.metadata.id, version: 2 },
+  const orgV2 = makeOrg({
+    metadata: { parentId: saved.metadata.id, version: 2, lineageId: 'lineage-1' },
     structure: orgV2Structure,
     fitness: { score: 0.9, components: { success: 0.95 } },
     plasticity: { lastEpisode: 50 },
-  };
+  });
   const savedV2 = await persistence.persistGenome(db, orgV2, { status: 'active' });
   assert.notStrictEqual(savedV2.metadata.id, saved.metadata.id);
   const phylogenyV2 = await persistence.getPhylogeny(db, savedV2.metadata.id);

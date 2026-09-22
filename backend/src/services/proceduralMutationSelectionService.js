@@ -13,15 +13,27 @@ function cloneOrganism(org) {
   return JSON.parse(JSON.stringify(org));
 }
 
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 function addNodeVariant(parent, index) {
   const org = cloneOrganism(parent);
-  const newId = `node-${(org.structure?.nodes?.length || 0)}`;
   org.structure = org.structure || { nodes: [], synapses: [] };
   org.structure.nodes = org.structure.nodes || [];
-  org.structure.nodes.push({ id: newId, type: 'generated', source: 'mutation' });
+  const newId = `node-${org.structure.nodes.length}`;
+  const newNode = { id: newId, type: 'generated', source: 'mutation', required: false, locked: false };
+  org.structure.nodes.push(newNode);
+  const before = deepClone(org.structure.nodes.slice(0, -1));
+  const after = deepClone(org.structure.nodes);
   return {
     organism: org,
-    operation: { op: 'ADD_NODE', target: { id: newId, type: 'generated' } },
+    operation: {
+      op: 'ADD_NODE',
+      target: { id: newId, type: 'generated' },
+      before: { nodes: before },
+      after: { nodes: after }
+    },
   };
 }
 
@@ -29,11 +41,13 @@ function removeNodeVariant(parent, index) {
   const org = cloneOrganism(parent);
   org.structure = org.structure || { nodes: [], synapses: [] };
   org.structure.nodes = org.structure.nodes || [];
-  const target = org.structure.nodes.findIndex((n) => !n.required && !n.locked);
-  let op = { op: 'REMOVE_NODE', target: null };
-  if (target >= 0) {
-    const removed = org.structure.nodes.splice(target, 1)[0];
+  const before = deepClone(org.structure.nodes);
+  const targetIdx = org.structure.nodes.findIndex((n) => !n.required && !n.locked);
+  let op = { op: 'REMOVE_NODE', target: null, before: { nodes: before }, after: null };
+  if (targetIdx >= 0) {
+    const removed = org.structure.nodes.splice(targetIdx, 1)[0];
     op.target = { id: removed.id, type: removed.type };
+    op.after = { nodes: deepClone(org.structure.nodes) };
   }
   return { organism: org, operation: op };
 }
@@ -43,13 +57,15 @@ function addSynapseVariant(parent, index) {
   org.structure = org.structure || { nodes: [], synapses: [] };
   org.structure.nodes = org.structure.nodes || [];
   org.structure.synapses = org.structure.synapses || [];
-  let op = { op: 'ADD_SYNAPSE', target: null };
+  const before = deepClone(org.structure.synapses);
+  let op = { op: 'ADD_SYNAPSE', target: null, before: { synapses: before }, after: null };
   if (org.structure.nodes.length >= 2) {
     const src = org.structure.nodes[0];
     const tgt = org.structure.nodes[org.structure.nodes.length - 1];
     const synapse = { from: src.id, to: tgt.id, type: 'excitatory', weight: 0.5 };
     org.structure.synapses.push(synapse);
-    op.target = { from: src.id, to: tgt.id };
+    op.target = { from: src.id, to: tgt.id, type: 'excitatory' };
+    op.after = { synapses: deepClone(org.structure.synapses) };
   }
   return { organism: org, operation: op };
 }
@@ -58,11 +74,13 @@ function removeSynapseVariant(parent, index) {
   const org = cloneOrganism(parent);
   org.structure = org.structure || { nodes: [], synapses: [] };
   org.structure.synapses = org.structure.synapses || [];
-  const target = org.structure.synapses.findIndex((s) => !s.essential);
-  let op = { op: 'REMOVE_SYNAPSE', target: null };
-  if (target >= 0) {
-    const removed = org.structure.synapses.splice(target, 1)[0];
+  const before = deepClone(org.structure.synapses);
+  const targetIdx = org.structure.synapses.findIndex((s) => !s.essential);
+  let op = { op: 'REMOVE_SYNAPSE', target: null, before: { synapses: before }, after: null };
+  if (targetIdx >= 0) {
+    const removed = org.structure.synapses.splice(targetIdx, 1)[0];
     op.target = { from: removed.from, to: removed.to };
+    op.after = { synapses: deepClone(org.structure.synapses) };
   }
   return { organism: org, operation: op };
 }
@@ -71,17 +89,20 @@ function adjustWeightVariant(parent, index) {
   const org = cloneOrganism(parent);
   org.structure = org.structure || { nodes: [], synapses: [] };
   org.structure.synapses = org.structure.synapses || [];
-  let op = { op: 'ADJUST_WEIGHT', target: null, delta: 0 };
+  let op = { op: 'ADJUST_WEIGHT', target: null, delta: 0, before: null, after: null };
   if (org.structure.synapses.length) {
-    const synapse = org.structure.synapses[index % org.structure.synapses.length];
+    const synapseIdx = index % org.structure.synapses.length;
+    const synapse = org.structure.synapses[synapseIdx];
+    const beforeWeight = synapse.weight || 0.5;
     const input = `${parent.metadata?.id || ''}-${index}-${synapse.from}-${synapse.to}`;
     const hash = crypto.createHash('sha256').update(input).digest('hex').slice(0, 8);
     const delta = (parseInt(hash, 16) / 0xFFFFFFFF - 0.5) * 0.2;
-    synapse.weight = clamp01((synapse.weight || 0.5) + delta);
+    const newWeight = clamp01(beforeWeight + delta);
+    synapse.weight = newWeight;
     op.target = { from: synapse.from, to: synapse.to };
     op.delta = delta;
-    op.before = { weight: (synapse.weight || 0.5) - delta };
-    op.after = { weight: synapse.weight };
+    op.before = { weight: beforeWeight };
+    op.after = { weight: newWeight };
   }
   return { organism: org, operation: op };
 }
