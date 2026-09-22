@@ -19,11 +19,12 @@ async function applyAgentDna(ctx) {
   const scope = { organizationId: parent.organization_id, projectId: parent.project_id };
   const missionText = (mission && mission.prompt) || parent.current_task || '';
   const selection = await agentDnaStore.workerGenesForAssignment(db, { ...assignment, agentId: parent.id, mission: missionText }, scope);
-  if (!selection) return;
+  if (!selection) return null;
   evolution.genes = { ...evolution.genes, ...selection.genes };
   evolution.source = 'agent_dna';
   evolution.dnaGenomeRef = selection.genomeRef;
   assignment.genomeRef = selection.genomeRef;
+  return { genes: selection.genes, genomeRef: selection.genomeRef };
 }
 
 function calculateInheritedCognitiveBudget(parentBudget, workerShare, workerCount) {
@@ -101,16 +102,28 @@ function samePath(firstPath, secondPath) {
     : normalizedFirst === normalizedSecond;
 }
 
+function formatDnaPromptBlock(dnaSelection) {
+  if (!dnaSelection || !dnaSelection.genes || !dnaSelection.genes.role) return null;
+  const { genes } = dnaSelection;
+  const parts = [`Inherited DNA phenotype — role: ${genes.role}, strategy: ${genes.strategy}.`];
+  if (genes.prompt) parts.push(`DNA prompt brief: ${genes.prompt}`);
+  if (Array.isArray(genes.tools) && genes.tools.length) parts.push(`DNA tools: ${genes.tools.join(', ')}.`);
+  if (Array.isArray(genes.capabilities) && genes.capabilities.length) parts.push(`DNA capabilities: ${genes.capabilities.join(', ')}.`);
+  return parts.join(' ');
+}
+
 function buildWorkerPrompt(details) {
-  const { identity, conscience, assignment, context } = details;
+  const { identity, conscience, assignment, context, dnaSelection } = details;
   const creative = assignment.artifact === 'creative' || /author|literary|dramaturg/i.test(assignment.role || '');
   const cognitivePhenotype = require('./cognitivePhenotypeService');
   const phenotypeBlock = cognitivePhenotype.formatPhenotypePrompt(assignment.cognitiveRecipe);
+  const dnaPrompt = formatDnaPromptBlock(dnaSelection);
   return [
     identity.introduction,
     agentConscience.formatConsciencePrompt(conscience),
     context.mission.prompt || context.parent.current_task || 'Autonomous task execution',
     `Assigned branch: ${assignment.label}.`,
+    dnaPrompt,
     Array.isArray(assignment.capabilities) && assignment.capabilities.length ? `Owned capabilities: ${assignment.capabilities.join(', ')}.` : null,
     `Hypothesis: ${assignment.hypothesis}`,
     phenotypeBlock,
@@ -132,9 +145,9 @@ async function prepareWorkerAssets(workerContext) {
   const identity = agentIdentity.generateAgentIdentity({ preferredName: assignment.preferredName || assignment.name, role: assignment.role, excludeNames: usedNames, stableKey: id });
   usedNames.push(identity.name);
   const evolution = await agentEvolution.evolveWorkerGenome(parent, assignment, { strategy: plan.strategyContract?.primary || 'tree-search', db });
-  await applyAgentDna({ db, parent, assignment, mission, evolution });
+  const dnaSelection = await applyAgentDna({ db, parent, assignment, mission, evolution });
   const conscience = agentConscience.createConscienceState({ currentBudget: perWorkerCognitiveBudget, baselineBudget: perWorkerCognitiveBudget });
-  const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext });
+  const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext, dnaSelection });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
   const route = mission.executor === 'caller_mcp' ? {} : await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
   const workspaceRoot = await createWorkerWorkspace(workerContext, id);
