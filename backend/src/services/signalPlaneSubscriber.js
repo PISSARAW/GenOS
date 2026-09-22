@@ -13,6 +13,7 @@ const { getDatabase } = require('../db');
 const plasticity = require('./synapticPlasticityService');
 const { startMission } = require('./agentRuntimeAdapter/missionExecution');
 const escalation = require('./cognitiveEscalationService');
+const { markSignalDelivered } = require('./signalDeliveryHelpers');
 
 const registeredWakeHandlers = new Map();
 
@@ -41,6 +42,8 @@ function startSignalPlaneSubscriber() {
 
     for (const recipientId of signal.recipientAgentIds) {
       const handler = registeredWakeHandlers.get(recipientId);
+      // Mark as delivered when the wake handler processes it
+      await markSignalDelivered(signal.signalId, recipientId);
       if (handler) {
         try {
           await handler(signal);

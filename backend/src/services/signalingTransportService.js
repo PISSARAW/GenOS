@@ -1,7 +1,3 @@
-/**
- * Zero-Text Inter-Agent Signaling Transport Service
- */
-
 const { getDatabase } = require('../db');
 const { SIGNAL_TYPES, packSignalPayload, unpackSignalPayload, formatSignalForTransport } = require('./biomimeticSignalingBus');
 const { routeCollectiveSignal } = require('./collectiveSignalOrganizationRouter');
@@ -18,6 +14,8 @@ const { checkRateLimit, validatePayloadSize, validateArgs, retryDbOperation } = 
 const { startMission: runtimeStartMission } = require('./agentRuntimeAdapter/missionExecution');
 const { updateAgent: runtimeUpdateAgent } = require('./agentOrchestrationState');
 const dynamicOrg = require('./dynamicOrganizationService');
+const signalDelivery = require('./signalDeliveryService');
+const { recordPendingDeliveries } = require('./signalDeliveryHelpers');
 
 const DEFAULT_SIGNAL_TTL_MS = 30_000;
 const LOCAL_BROADCAST_LOG = new Map();
@@ -123,7 +121,6 @@ function handleSuppressed(signal) {
 }
 
 async function dispatchReceptorsIfNeeded(signal) {
-  // Full action context: production actionneurs câblés
   const ctx = {
     publishSignal: signal.publishSignal,
     startMission: async (mission) => {
@@ -140,7 +137,6 @@ async function dispatchReceptorsIfNeeded(signal) {
       return { changed: true, organization: result };
     },
   };
-  // Use matchAndDispatch to get proper llmRequired flag (not reconstructed)
   const result = await receptor.matchAndDispatch(
     {
       signalId: signal.signalId,
@@ -196,11 +192,11 @@ async function routeAndDispatch(signal, params) {
   signalMetrics.recordDispatch();
   if (dispatchResult.dispatched) signalMetrics.recordTrigger();
   updatePlasticityForRecipients(signal, dispatchResult, routing);
-  // Emit to EventBus AFTER coalescing and routing (anti-spam gate passed)
-  // Enrich signal with recipient IDs for destination-based wake-up
   const recipientAgentIds = (routing.recipients || [])
     .filter((r) => r.kind === 'agent' && r.agentId)
     .map((r) => r.agentId);
+  // Record pending deliveries (pending → delivered → seen → acked)
+  await recordPendingDeliveries(signal.id, recipientAgentIds);
   emitToBus({ ...signal, recipientAgentIds, llmRequired: dispatchResult.llmRequired || false });
   return {
     signalId: signal.id,
@@ -231,11 +227,9 @@ async function publishSignal(params) {
   const tensorError = validateTensor(signal);
   if (tensorError) return tensorError;
 
-  // 1. Persist BEFORE any emission
   await persistSignalRow(buildRow({ id: signal.id, formatted: signal.formatted, topic: signal.topic, senderAgentId: signal.senderAgentId, expiresAt: signal.expiresAt }));
   pushLocalLog(signal.id, signal.formatted);
 
-  // 2. Coalesce BEFORE EventBus (anti-spam gate)
   const coalesced = signalCoalescer.coalesce({
     signalId: signal.id,
     signalType: signal.normalizedType,
@@ -245,7 +239,6 @@ async function publishSignal(params) {
   });
   if (!coalesced) return handleSuppressed(signal);
 
-  // 3. Route + dispatch (EventBus emission happens AFTER coalescing)
   return await routeAndDispatch(signal, params);
 }
 
@@ -284,7 +277,6 @@ function buildRow({ id, formatted, topic, senderAgentId, expiresAt }) {
 }
 
 async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100) {
-  // Use signal_subscriptions (topic-based) instead of mixed signal_subs
   let sql = `SELECT DISTINCT s.signal_id, s.signal_type, s.signal_blob, s.content, s.topic, s.sender_agent_id, s.created_at
              FROM signal_blobs s
              LEFT JOIN signal_subscriptions sub ON sub.topic = s.topic AND sub.subscriber_agent_id = ?
@@ -323,7 +315,6 @@ async function markSignalsSeen(subscriberAgentId, signalIds) {
   try {
     await db.exec('BEGIN IMMEDIATE');
     for (const sid of signalIds) {
-      // Use signal_deliveries (signal_id, subscriber_agent_id) PK for ACK tracking
       await db.run(
         `INSERT OR REPLACE INTO signal_deliveries (signal_id, subscriber_agent_id, status, seen_at)
          VALUES (?, ?, 'seen', CURRENT_TIMESTAMP)`,
@@ -357,8 +348,6 @@ function localSignalsSince(sinceTs) {
   }
   return results;
 }
-
-const signalDelivery = require('./signalDeliveryService');
 
 const subscribeAgent = signalDelivery.subscribeAgent;
 const unsubscribeAgent = signalDelivery.unsubscribeAgent;
