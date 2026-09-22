@@ -93,7 +93,12 @@ function reportRates({ total, recognized, neutralized, immuneEscapes, memoryHits
 
 function autoImmunityMetrics(results) {
   const benignResults = results.filter((r) => r.type && r.type.startsWith('B'));
-  const benignRejected = benignResults.filter((r) => !r.recognized).length;
+  const benignRejected = benignResults.filter((r) =>
+    r.neutralized === true ||
+    r.decision === 'reject' ||
+    r.decision === 'quarantine' ||
+    r.decision === 'hold_for_human'
+  ).length;
   const benignTotal = benignResults.length;
   const autoimmuneRate = benignTotal > 0 ? benignRejected / benignTotal : 0;
   return { autoimmuneRate, benignRejected, benignTotal };
@@ -143,9 +148,9 @@ function runChallenge(pathogens = [], immuneSystem = null) {
     const memoryHit = immuneSystem ? immuneSystem.hasMemory(pathogen) : false;
     const elapsedMs = Date.now() - startAt;
 
-    // Simulation de coût réel (mesuré, pas inventé).
-    const tokensUsed = Math.floor(Math.random() * 500) + 100;
-    const callsMade = Math.floor(Math.random() * 3) + 1;
+    // Métriques non mesurées : null, pas de simulation aléatoire.
+    const tokensUsed = null;
+    const callsMade = null;
 
     return {
       pathogen: pathogen.id,
@@ -155,7 +160,7 @@ function runChallenge(pathogens = [], immuneSystem = null) {
       memoryHit,
       falsePositive: !recognized && neutralized,
       immuneEscape: recognized && !neutralized,
-      autoImmune: !recognized && !neutralized && pathogen.dangerLevel < 0.3,
+      autoImmune: neutralized === true,
       tokensUsed,
       callsMade,
       elapsedMs,

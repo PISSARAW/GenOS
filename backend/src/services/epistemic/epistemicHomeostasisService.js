@@ -19,8 +19,17 @@ function clampAt(x, min, max) {
 }
 
 function normalizeRisk(input) {
-  const raw = Number(input && typeof input.risk === 'object' && input.risk !== null ? input.risk.score : 0);
-  return clampAt(isFinite(raw) ? raw : 0, 0, 1);
+  let raw;
+  if (!input || typeof input !== 'object') {
+    raw = 0;
+  } else if (typeof input.risk === 'number' && isFinite(input.risk)) {
+    raw = input.risk;
+  } else if (input.risk && typeof input.risk === 'object' && isFinite(Number(input.risk.score))) {
+    raw = Number(input.risk.score);
+  } else {
+    raw = 0;
+  }
+  return clampAt(raw, 0, 1);
 }
 
 function normalizeContradiction(input) {
