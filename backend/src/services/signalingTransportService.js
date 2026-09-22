@@ -17,6 +17,8 @@ const signalRepressor = require('./signalRepressorService');
 const boundedGossip = require('./boundedGossipService');
 const gapJunction = require('./gapJunctionService');
 const receptor = require('./signalReceptorService');
+const signalEventBus = require('./signalEventBus');
+const signalCoalescer = require('./signalCoalescerService');
 
 // Court TTL par défaut pour les signaux ephemeraires (phéromones, voltage)
 const DEFAULT_SIGNAL_TTL_MS = 30_000;
@@ -78,57 +80,65 @@ async function persistSignalRow(row) {
  * - Log localement pour les agents du même processus
  */
 async function publishSignal(params) {
-  const {
-    signalType,
-    signalData = {},
-    topic = '',
-    senderAgentId = null,
-    signalId = null,
-    ttlMs = DEFAULT_SIGNAL_TTL_MS,
-    contentFallback = null,
-    repressors = [],
-    gossip = null,
-    junction = null,
-  } = params;
+  const signal = await buildSignalFromParams(params);
+  if (!signal.accepted) return signal.result;
 
+  await persistSignalRow(buildRow({ id: signal.id, formatted: signal.formatted, topic: signal.topic, senderAgentId: signal.senderAgentId, expiresAt: signal.expiresAt }));
+  pushLocalLog(signal.id, signal.formatted);
+
+  // Emit to event bus + run coalescer (anti-spam)
+  const emitResult = emitToBusAndCoalesce({ id: signal.id, signalType: signal.normalizedType, signalData: signal.signalData, topic: signal.topic, senderAgentId: signal.senderAgentId, concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0 }, { ttlMs: signal.ttlMs, publishSignal });
+  if (emitResult.suppressed) {
+    return { signalId: signal.id, published: true, coalesced: true, suppressed: true, signalType: signal.formatted.signalType, routing: { routed: false, reason: 'coalesced' } };
+  }
+
+  return await routeAndDispatchSignal({ params, signal, publishSignal }, emitResult);
+}
+
+async function routeAndDispatchSignal(ctx, emitResult) {
+  const { params, signal, publishSignal } = ctx;
+  const routing = await routeCollectiveSignal({ db: await getDatabase().catch(() => null), signalId: signal.id, signalType: signal.formatted.signalType, signalData: signal.signalData, orchestratorId: signal.senderAgentId });
+  const delivery = deliveryMetadata(params, signal.id, signal.expiresAt);
+  dispatchReceptorsIfNeeded({ signalId: signal.id, signalType: signal.formatted.signalType, signalData: signal.signalData, topic: signal.topic, senderAgentId: signal.senderAgentId, ttlMs: signal.ttlMs, publishSignal }).catch(() => {});
+  return { signalId: signal.id, published: true, coalesced: emitResult.coalesced, coalescedCount: emitResult.coalescedCount, signalType: signal.formatted.signalType, routing, ...delivery };
+}
+
+async function buildSignalFromParams(params) {
+  const { signalType, signalData = {}, topic = '', senderAgentId = null, signalId = null, ttlMs = DEFAULT_SIGNAL_TTL_MS, contentFallback = null, repressors = [] } = params;
   const normalizedType = validateSignalType(signalType);
-
   const repression = repressionFor({ type: normalizedType, topic, signalData, repressors });
-  if (!repression.accepted) return buildRejectedResult(signalId, normalizedType, repression);
-
+  if (!repression.accepted) return { accepted: false, result: buildRejectedResult(signalId, normalizedType, repression) };
   const id = signalId || `sig_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const formatted = formatSignalForTransport({ signalType: normalizedType, signalData, contentFallback });
-  const expiresAt = ttlMs > 0 ? new Date(Date.now() + ttlMs).toISOString() : null;
+  return { accepted: true, id, formatted, normalizedType, signalData, topic: String(topic || '').trim(), senderAgentId, ttlMs, expiresAt: ttlMs > 0 ? new Date(Date.now() + ttlMs).toISOString() : null };
+}
 
-  await persistSignalRow(buildRow({ id, formatted, topic, senderAgentId, expiresAt }));
-  pushLocalLog(id, formatted);
-
-  const routing = await routeCollectiveSignal({
-    db: await getDatabase().catch(() => null), signalId: id, signalType: formatted.signalType,
-    signalData, orchestratorId: senderAgentId
-  });
-  const delivery = deliveryMetadata(params, id, expiresAt);
-
-  dispatchReceptorsIfNeeded({
-    signalId: id, signalType: formatted.signalType, signalData,
-    topic: String(topic || '').trim(), senderAgentId, ttlMs, publishSignal,
-  }).catch((err) => console.warn('[Receptor] dispatch failed:', err.message));
-
-  return { signalId: id, published: true, signalType: formatted.signalType, routing, ...delivery };
+function emitToBusAndCoalesce(signal, ctx) {
+  signalEventBus.publish(signal);
+  const coalesced = signalCoalescer.coalesce(signal);
+  if (!coalesced) return { suppressed: true };
+  return { suppressed: false, coalesced: coalesced.coalesced, coalescedCount: coalesced.coalescedCount };
 }
 
 function buildRejectedResult(signalId, normalizedType, repression) {
   return {
-    signalId: signalId || null, published: false, signalType: normalizedType,
-    suppressedBy: repression.suppressedBy, suppressionReason: repression.reason,
+    signalId: signalId || null,
+    published: false,
+    signalType: normalizedType,
+    suppressedBy: repression.suppressedBy,
+    suppressionReason: repression.reason,
   };
 }
 
 function buildRow({ id, formatted, topic, senderAgentId, expiresAt }) {
   return {
-    signal_id: id, signal_type: formatted.signalType, signal_blob: formatted.signalBlob || null,
-    content: formatted.content || '', topic: String(topic || '').trim(),
-    sender_agent_id: senderAgentId || null, expires_at: expiresAt,
+    signal_id: id,
+    signal_type: formatted.signalType,
+    signal_blob: formatted.signalBlob || null,
+    content: formatted.content || '',
+    topic: String(topic || '').trim(),
+    sender_agent_id: senderAgentId || null,
+    expires_at: expiresAt,
   };
 }
 
@@ -148,15 +158,17 @@ async function dispatchReceptorsIfNeeded(signal) {
 
   if (triggered.length === 0) return { dispatched: false };
 
-  const dispatched = await receptor.dispatchActions(triggered, {
-    signalId: signal.signalId,
-    signalType: signal.signalType,
-    signalData: signal.signalData,
-    topic: signal.topic,
-    senderAgentId: signal.senderAgentId,
-  }, {
-    publishSignal: signal.publishSignal,
-  });
+  const dispatched = await receptor.dispatchActions(
+    triggered,
+    {
+      signalId: signal.signalId,
+      signalType: signal.signalType,
+      signalData: signal.signalData,
+      topic: signal.topic,
+      senderAgentId: signal.senderAgentId,
+    },
+    { publishSignal: signal.publishSignal }
+  );
 
   return { dispatched: true, results: dispatched };
 }
