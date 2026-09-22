@@ -25,6 +25,12 @@ class SignalEventBus extends EventEmitter {
     if (signal.senderAgentId) {
       this.emit(`agent:${signal.senderAgentId}`, signal);
     }
+    // Emit to recipient-specific channels for destination-based wake-up
+    if (signal.recipientAgentIds) {
+      for (const recipientId of signal.recipientAgentIds) {
+        this.emit(`recipient:${recipientId}`, signal);
+      }
+    }
   }
 
   onSignal(listener) {
@@ -39,8 +45,20 @@ class SignalEventBus extends EventEmitter {
     this.on(`topic:${topic}`, listener);
   }
 
+  /**
+   * Subscribe to signals sent BY a given agent (source-based).
+   */
   onAgent(agentId, listener) {
     this.on(`agent:${agentId}`, listener);
+  }
+
+  /**
+   * Subscribe to signals destined TO a given agent (recipient-based).
+   * This is the primary wake-up path: a worker listens for signals
+   * where it is the intended destination.
+   */
+  onRecipient(agentId, listener) {
+    this.on(`recipient:${agentId}`, listener);
   }
 }
 

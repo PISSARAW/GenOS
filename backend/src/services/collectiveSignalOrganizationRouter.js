@@ -3,6 +3,7 @@
  */
 
 const { getDatabase } = require('../db');
+const plasticity = require('./synapticPlasticityService');
 
 const SIGNAL_TOPIC_PREFIXES = {
   ligand: 'ligand/',
@@ -80,8 +81,11 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
     const scope = { orgId: ws?.organizationId, projId: ws?.projectId };
 
     for (const row of await fetchAgentRecipients(db, orchestratorId, scope)) {
-      recipients.push({ kind: 'agent', agentId: row.id, agentName: row.name });
+      const channelWeight = plasticity.getChannelWeight(orchestratorId, row.id);
+      recipients.push({ kind: 'agent', agentId: row.id, agentName: row.name, weight: channelWeight.weight });
     }
+    // Sort by plasticity weight descending (most reinforced channels first)
+    recipients.sort((a, b) => (b.weight || 0) - (a.weight || 0));
     for (const row of await fetchOrgBudgetRecipients(db)) {
       recipients.push({ kind: 'organization', organizationId: row.id, organizationName: row.name, budgetMv: row.budget_mv });
     }

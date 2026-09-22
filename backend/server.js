@@ -14,6 +14,7 @@ const jobWorker = require('./src/services/jobWorker');
 const { enableGriotAutostart } = require('./src/services/griotAutostart');
 const runtimeAdapter = require('./src/services/agentRuntimeAdapter');
 const workspaceSnapshotStore = require('./src/services/workspaceSnapshotStore');
+const signalPlaneSubscriber = require('./src/services/signalPlaneSubscriber');
 const { terminatePid, processMatches } = require('./src/services/processTermination');
 const circuitBreaker = require('./src/services/circuitBreaker');
 const { readPort } = require('./src/services/runtimeConfig');
@@ -219,6 +220,7 @@ async function runWorkerProcess() {
     const grpcServer = await createGrpcServerIfDesignated();
     startTrinityMonitorIfEnabled();
     startAutobiographicalMemoryIfDesignated();
+    signalPlaneSubscriber.startSignalPlaneSubscriber();
 
     server.listen(PORT, () => {
       console.log(`[GenOS Full-Stack] Server running on port ${PORT}`);

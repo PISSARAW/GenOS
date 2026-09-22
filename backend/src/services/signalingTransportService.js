@@ -15,6 +15,9 @@ const plasticity = require('./synapticPlasticityService');
 const tensor = require('./tensorCompatibilityService');
 const signalMetrics = require('./signalMetricsService');
 const { checkRateLimit, validatePayloadSize, validateArgs, retryDbOperation } = require('./signalValidationUtils');
+const { startMission: runtimeStartMission } = require('./agentRuntimeAdapter/missionExecution');
+const { updateAgent: runtimeUpdateAgent } = require('./agentOrchestrationState');
+const dynamicOrg = require('./dynamicOrganizationService');
 
 const DEFAULT_SIGNAL_TTL_MS = 30_000;
 const LOCAL_BROADCAST_LOG = new Map();
@@ -118,6 +121,23 @@ function handleSuppressed(signal) {
 }
 
 async function dispatchReceptorsIfNeeded(signal) {
+  // Full action context: production actionneurs câblés
+  const ctx = {
+    publishSignal: signal.publishSignal,
+    startMission: async (mission) => {
+      const result = await runtimeStartMission(mission);
+      return { started: true, agentId: mission.agentId, result };
+    },
+    updateAgent: async (agentId, status, currentTask) => {
+      await runtimeUpdateAgent(agentId, status, currentTask);
+      return { updated: true, agentId, status };
+    },
+    changeOrganization: async (options) => {
+      const db = await getDatabase();
+      const result = await dynamicOrg.changeOrganization(db, options);
+      return { changed: true, organization: result };
+    },
+  };
   // Use matchAndDispatch to get proper llmRequired flag (not reconstructed)
   const result = await receptor.matchAndDispatch(
     {
@@ -128,7 +148,7 @@ async function dispatchReceptorsIfNeeded(signal) {
       topic: signal.topic,
       senderAgentId: signal.senderAgentId,
     },
-    { publishSignal: signal.publishSignal }
+    ctx
   );
   return {
     dispatched: result.dispatched.length > 0,
@@ -136,6 +156,16 @@ async function dispatchReceptorsIfNeeded(signal) {
     triggered: result.triggered,
     llmRequired: result.llmRequired,
   };
+}
+
+function updatePlasticityForRecipients(signal, dispatchResult, routing) {
+  if (!signal.senderAgentId || !routing.recipients) return;
+  for (const recipient of routing.recipients) {
+    if (recipient.agentId) {
+      const outcome = dispatchResult.dispatched ? 'receptor_triggered' : 'no_effect';
+      plasticity.recordSignalOutcome({ senderId: signal.senderAgentId, receiverId: recipient.agentId, outcome, signalType: signal.normalizedType });
+    }
+  }
 }
 
 async function routeAndDispatch(signal, params) {
@@ -163,16 +193,13 @@ async function routeAndDispatch(signal, params) {
   }
   signalMetrics.recordDispatch();
   if (dispatchResult.dispatched) signalMetrics.recordTrigger();
-  if (signal.senderAgentId && routing.recipients) {
-    for (const recipient of routing.recipients) {
-      if (recipient.agentId) {
-        const outcome = dispatchResult.dispatched ? 'receptor_triggered' : 'no_effect';
-        plasticity.recordSignalOutcome({ senderId: signal.senderAgentId, receiverId: recipient.agentId, outcome, signalType: signal.normalizedType });
-      }
-    }
-  }
+  updatePlasticityForRecipients(signal, dispatchResult, routing);
   // Emit to EventBus AFTER coalescing and routing (anti-spam gate passed)
-  emitToBus(signal);
+  // Enrich signal with recipient IDs for destination-based wake-up
+  const recipientAgentIds = (routing.recipients || [])
+    .filter((r) => r.kind === 'agent' && r.agentId)
+    .map((r) => r.agentId);
+  emitToBus({ ...signal, recipientAgentIds });
   return {
     signalId: signal.id,
     published: true,

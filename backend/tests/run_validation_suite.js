@@ -81,6 +81,7 @@ const suites = {
     ['signal receptor service', 'test_signal_receptor_service.js'],
     ['signal event bus', 'test_signal_event_bus.js'],
     ['signal pipeline integration', 'test_signal_pipeline_integration.js'],
+    ['signal actionneurs', 'test_signal_actionneurs.js'],
     ['plasticity tensor', 'test_plasticity_tensor.js'],
     ['semantic loop detector', 'test_semantic_loop_detector.js']
   ]
