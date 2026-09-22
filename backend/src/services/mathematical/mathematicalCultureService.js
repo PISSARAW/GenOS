@@ -87,6 +87,10 @@ class MathematicalCulture {
       targetLineage._knowledge.push({
         type: artifact.type,
         content: artifact.content,
+        verified: artifact.verified,
+        proofArtifact: artifact.proofArtifact,
+        semanticFingerprint: artifact.proofArtifact?._formalResult?.semanticFingerprint,
+        validityDomain: artifact.proofArtifact?._formalResult?.validityDomain,
         fidelity: newFidelity,
         source: artifact.id,
       });

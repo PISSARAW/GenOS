@@ -15,7 +15,7 @@ const { createResearchLineage, deepClone } = require('./researchLineage');
 
 const MUTATION_TYPES = Object.freeze(['point', 'insert', 'delete', 'swap', 'recombine', 'hgt']);
 
-const PLASMID_TYPES = Object.freeze(['lemma', 'strategy', 'representation', 'tactic', 'heuristic']);
+const PLASMID_TYPES = Object.freeze(['knowledge', 'lemma', 'strategy', 'representation', 'tactic', 'heuristic']);
 
 /**
  * Create a MathematicalPlasmid for HGT.
@@ -256,9 +256,9 @@ class MutationEngine {
       );
       if (!alreadyAssimilated) {
         targetLineage._knowledge.push({
-          type: pluginType,
+          type: plasmidType,
           content: capability,
-          fidelity: plasmid.fidelity,
+          fidelity: 1.0,
           source: plasmid.source,
           proofArtifact: proofArtifact, // Keep reference for verification
         });
