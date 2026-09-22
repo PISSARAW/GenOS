@@ -55,6 +55,24 @@ PhilosophicalConcept
   résolution de provenance multi-modules (défensive) ;
 - `backend/tests/test_cognitive_key_registry.js` — tests du registre.
 
+**Point 3 (composition, cette révision) :**
+
+- `spec/cognitive-recipe.schema.json` — contrat CognitiveRecipe
+  (`genos.cognition/v1`) : composition temporaire de clés, `ordering`
+  permutation exacte, `objective` increase/avoid ;
+- `backend/src/cognition/cognitiveRecipeService.js` — validation (FK
+  dure sur les keys, contrairement à `derivedFrom`), métriques dérivées
+  : coveredNeeds, operations distinctes, cost pondéré, **tensions
+  productives** (paires conflictsWith incluses — surfacées, jamais
+  rejetées), compléments réalisés ;
+- `backend/src/cognition/cognitiveComposer.js` — sélection gloutonne
+  qualité-diversité : gain marginal décroissant sur les besoins couverts,
+  bonus d'opération nouvelle, bonus de tension productive, malus de coût,
+  budgets `maxKeys`/`maxCostWeight`. Déterministe, sans LLM ;
+- `backend/tests/test_cognitive_recipe_composer.js` — 12 groupes
+  d'assertions (validation, FK, permutation, tensions, métriques,
+  composition, déterminisme, injection).
+
 ## Principes
 
 1. **Indépendance doctrinale** — le test : « peut-on expliquer comment
@@ -123,7 +141,7 @@ n'interviendrait qu'après validation expérimentale (point 8 du plan).
 1. ✅ Contrat `CognitiveKey` (commit 14d7ede8)
 2. ✅ Extraction manuelle 42 clés (causalité, épistémologie, logique,
    maths, art, narration, jeu, cinéma — cette révision)
-3. `CognitiveRecipe` + `CognitiveComposer`
+3. ✅ `CognitiveRecipe` + `CognitiveComposer` (cette révision)
 4. Branchement A-Team/Trinity via le phénotype
 5. Compositions maximisant la distance cognitive
 6. Confrontation + synthèse par l'orchestrateur

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/cognitive-recipe.schema.json",
+  "title": "CognitiveRecipe",
+  "description": "Contrat d'une composition temporaire de CognitiveKeys orientée mission. Une recette appartient au phénotype cognitif d'un worker pour UNE mission, jamais au génome. Les tensions entre clés (conflictsWith) sont surfacées comme productives, jamais rejetées. Les métriques dérivées (coverage, diversity, cost, tensions) sont calculées par cognitiveRecipeService, pas déclarées à la main.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "id", "label", "keys"],
+  "properties": {
+    "apiVersion": { "type": "string", "const": "genos.cognition/v1" },
+    "kind": { "type": "string", "const": "CognitiveRecipe" },
+    "id": {
+      "type": "string",
+      "description": "Namespace recipe. en segments dash-separated. Le pattern et l'unicité sont enforced par cognitiveRecipeService (specValidator ne supporte pas pattern)."
+    },
+    "label": { "type": "string" },
+    "keys": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs des CognitiveKeys composées. Non vide, chaque ID doit exister dans le registre (FK dure : les clés sont internes et stables, contrairement à derivedFrom)."
+    },
+    "ordering": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Ordre d'application des clés. Vide = ordre de listing. Si présent, doit être une permutation exacte de keys (validé par le service)."
+    },
+    "objective": {
+      "type": ["object", "null"],
+      "properties": {
+        "increase": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Besoins cognitifs que la recette vise (ex. explanatory_depth, falsifiability)."
+        },
+        "avoid": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Écueils visés (ex. premature_convergence, redundant_perspectives)."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
