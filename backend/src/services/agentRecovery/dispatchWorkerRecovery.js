@@ -185,7 +185,7 @@ async function recordRecoveryLineage(db, source, target) {
 
 async function persistRecoveryAgent(db, source, target) {
   if (target.sameIdentity) {
-    await db.run("UPDATE agents SET status = 'idle', updated_at = CURRENT_TIMESTAMP WHERE id = ?", target.targetId);
+    await workerGarage.enterIdleState(db, target.targetId, source.parent_agent_id);
     return;
   }
   await withTransaction(db, async () => {

@@ -236,23 +236,46 @@ async function releaseSlot(db, { orchestratorId, workerId }) {
     workerId, orchestratorId
   );
   if (result.changes === 1) {
-    registerWakeHandler(workerId, async (signal) => {
-      try {
-        await startMission({
-          agentId: workerId,
-          prompt: '',
-          role: 'signal-wake',
-          signalTriggered: true,
-          triggerSignalId: signal.signalId,
-          triggerSignalType: signal.signalType,
-          triggerSignalTopic: signal.topic,
-        });
-      } finally {
-        unregisterWakeHandler(workerId);
-      }
-    });
+    armWakeHandler(workerId);
   }
   return result.changes === 1;
+}
+
+/**
+ * Centralized idle transition: every worker entering idle state
+ * MUST go through this to guarantee the wake handler is armed.
+ * Without this, workers are "physiologically deaf" to signals.
+ */
+async function enterIdleState(db, agentId, orchestratorId) {
+  if (!db || !agentId) return false;
+  const result = await db.run(
+    `UPDATE agents SET status = 'idle', current_task = NULL, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND status != 'idle'`,
+    agentId
+  );
+  if ((result?.changes || 0) === 1) {
+    armWakeHandler(agentId);
+    return true;
+  }
+  return false;
+}
+
+function armWakeHandler(workerId) {
+  registerWakeHandler(workerId, async (signal) => {
+    try {
+      await startMission({
+        agentId: workerId,
+        prompt: '',
+        role: 'signal-wake',
+        signalTriggered: true,
+        triggerSignalId: signal.signalId,
+        triggerSignalType: signal.signalType,
+        triggerSignalTopic: signal.topic,
+      });
+    } finally {
+      unregisterWakeHandler(workerId);
+    }
+  });
 }
 
 module.exports = {
@@ -269,5 +292,7 @@ module.exports = {
   state,
   requireAvailableSlot,
   reserveSlot,
-  releaseSlot
+  releaseSlot,
+  enterIdleState,
+  armWakeHandler
 };

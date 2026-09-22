@@ -47,8 +47,12 @@ async function clearQuarantineState(db, targetId, reason) {
     '[RELEASED] ' + reason,
     targetId
   );
-  if ((result?.changes || 0) !== 1) return null;
-  return before;
+  if ((result?.changes || 0) === 1) {
+    const workerGarage = require('../workerGarageService');
+    workerGarage.armWakeHandler(targetId);
+    return before;
+  }
+  return null;
 }
 
 function emitReleaseTelemetry(command, previous) {
