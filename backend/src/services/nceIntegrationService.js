@@ -6,7 +6,7 @@
  * Signature simplifiée : enhanceMissionWithNCE(mission, db)
  */
 
-const { applyCuriosity, applyRepresentationalMutation, applyExaptation, applyEnvCoev, applyCulture } = require('./nceEngines');
+const { applyCuriosity, applyRepresentationalMutation, applyExaptation, applyEnvCoev, applyCulture, applyPlay, applyPhenotype } = require('./nceEngines');
 
 function createNCEConfig(options) {
   options = options || {};
@@ -35,22 +35,26 @@ async function enhanceMissionWithNCE(mission, db) {
     exaptations: [],
     environments: [],
     culturalTraits: [],
+    play: null,
+    phenotype: null,
   };
 
-  const c1 = await safeExecute(() => applyCuriosity(mission, config));
-  if (c1) enhancements.curiosity = c1;
+  const engines = [
+    { fn: () => applyCuriosity(mission, config), key: 'curiosity' },
+    { fn: () => applyRepresentationalMutation(mission, config, db), key: 'representations' },
+    { fn: () => applyExaptation(mission, config, db), key: 'exaptations' },
+    { fn: () => applyEnvCoev(mission, config), key: 'environments' },
+    { fn: () => applyCulture(mission, config), key: 'culturalTraits' },
+    { fn: () => applyPlay(mission, config, db), key: 'play' },
+    { fn: () => applyPhenotype(mission, config, db), key: 'phenotype' },
+  ];
 
-  const c2 = await safeExecute(() => applyRepresentationalMutation(mission, config, db));
-  if (c2) enhancements.representations = c2;
-
-  const c3 = await safeExecute(() => applyExaptation(mission, config, db));
-  if (c3) enhancements.exaptations = c3;
-
-  const c4 = await safeExecute(() => applyEnvCoev(mission));
-  if (c4) enhancements.environments = c4;
-
-  const c5 = await safeExecute(() => applyCulture(mission, config));
-  if (c5) enhancements.culturalTraits = c5;
+  for (const engine of engines) {
+    const result = await safeExecute(engine.fn);
+    if (hasResult(result)) {
+      enhancements[engine.key] = result;
+    }
+  }
 
   return enhancements;
 }

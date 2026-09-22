@@ -71,6 +71,9 @@ const RELATION_DEFINITIONS = [
   // ─── Legacy ontology ────────────────────────────────────────────────────
   relation('metaphysics.supervenience', 'dependsOn', 'ontology.identity-change'),
   relation('ontology.identity-change', 'dependsOn', 'metaphysics.emergence'),
+
+  // ─── Mathématiques : indépendances et fondements ─────────────────────────
+  relation('mathematics.continuum-hypothesis', 'independentFrom', 'mathematics.zfc'),
 ];
 
 function relation(sourceId, relationType, target) {

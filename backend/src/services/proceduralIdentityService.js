@@ -35,7 +35,7 @@ function structureHash(organism) {
     })),
     synapses: synapses.map((s) => ({
       from: s.from, to: s.to, type: s.type,
-      condition: s.condition || null,
+      condition: canonicalizeObject(s.condition || null),
     })),
   };
   return crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex').slice(0, 16);
@@ -61,6 +61,10 @@ function stateHash(organism) {
     synapses: synapses.map((s) => ({
       from: s.from, to: s.to, weight: s.weight,
       lifecycle: s.lifecycle,
+      plasticity: canonicalizeObject(s.plasticity || {}),
+      evidence: canonicalizeObject(s.evidence || {}),
+      lastActivation: s.lastActivation != null ? s.lastActivation : undefined,
+      lastUsageEpisode: s.lastUsageEpisode != null ? s.lastUsageEpisode : undefined,
     })),
     phenotype: canonicalizeObject(organism?.phenotype || {}),
     immune: canonicalizeObject(organism?.immune || {}),
@@ -350,4 +354,5 @@ module.exports = {
   createOccurrenceId,
   validateOrganism,
   validateProceduralOrganism,
+  canonicalizeObject,
 };

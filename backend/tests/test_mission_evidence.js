@@ -108,7 +108,7 @@ test('buildMissionContext produces real evidence kinds when db available', async
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, parent_agent_id, current_task) VALUES (?, 'orch', 'orchestrator', 'completed', 'orchestrator', NULL, 'test')`, 'orch_ctx_test');
   await db.run(`INSERT INTO telemetry_events (event_type, action, detail, payload_json, agent_id, severity) VALUES (?, 'COMPLETE', 'done', '{}', ?, 'info')`, 'AGENT_COMPLETED', 'orch_ctx_test');
 
-  const result = await helpers.buildMissionContext({ success: true }, {}, {}, db, 'orch_ctx_test', agents);
+  const result = await buildMissionContext({ db, missionId: 'orch_ctx_test', agents, outcome: { success: true }, policyRequest: {}, request: {} });
   assert.ok(result.context.evidence, 'evidence should exist');
   assert.ok(Array.isArray(result.context.evidence), 'evidence should be array');
   assert.ok(result.context.flags, 'flags should exist');
@@ -116,7 +116,7 @@ test('buildMissionContext produces real evidence kinds when db available', async
 });
 
 test('buildMissionContext falls back to synthetic when no db', async () => {
-  const result = await helpers.buildMissionContext({ success: true }, {}, {});
+  const result = await buildMissionContext({ db: null, missionId: 'no_db', agents: [], outcome: { success: true }, policyRequest: {}, request: {} });
   assert.ok(result.context);
   assert.strictEqual(result.context.missionOutcome, true);
   assert.ok(Array.isArray(result.context.evidence));
