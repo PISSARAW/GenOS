@@ -2,8 +2,7 @@
 
 const assert = require('node:assert/strict');
 const dbModule = require('../src/db');
-const { createMockDb, clearServiceCache } = require('./test_agent_git_mock_helper.cjs');
-const originalGetDatabase = dbModule.getDatabase;
+const { installMock, clearServiceCache } = require('./test_agent_git_mock_helper.cjs');
 
 const agents = {
   a1: { id: 'a1', workspace_id: 'ws', name: 'Agent1', role: 'worker', status: 'idle', cognitive_budget: 50, created_at: '2026-01-01' }
@@ -11,36 +10,7 @@ const agents = {
 
 const indexStore = {};
 
-const db = {
-  get: async (sql, ...args) => {
-    if (sql.includes('FROM agents a') || sql.includes('FROM agents')) return agents[args[0]] || agents.a1;
-    if (sql.includes('agent_git_indexes')) {
-      const agentId = args[0];
-      return indexStore[agentId] || null;
-    }
-    return null;
-  },
-  all: async () => [],
-  run: async (sql, ...args) => {
-    if (sql.includes('INSERT INTO agent_git_indexes')) {
-      indexStore[args[1]] = { id: args[0], agent_id: args[1], index_json: args[2] };
-      return { changes: 1 };
-    }
-    if (sql.includes('UPDATE agent_git_indexes')) {
-      const agentId = args[1];
-      if (indexStore[agentId]) indexStore[agentId].index_json = args[0];
-      return { changes: 1 };
-    }
-    if (sql.includes('DELETE FROM agent_git_indexes')) {
-      delete indexStore[args[0]];
-      return { changes: 1 };
-    }
-    return { changes: 1 };
-  },
-  exec: async () => ({ changes: 0 })
-};
-
-dbModule.getDatabase = async () => db;
+installMock({ agents, objects: {} });
 clearServiceCache();
 const service = require('../src/services/agentGitService');
 
@@ -95,7 +65,5 @@ async function testCommitFromIndex() {
   } catch (error) {
     console.error('\n✗ Test failed:', error.message);
     process.exitCode = 1;
-  } finally {
-    dbModule.getDatabase = originalGetDatabase;
   }
 })();

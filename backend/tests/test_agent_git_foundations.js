@@ -1,8 +1,6 @@
-'use strict';
-
 const assert = require('node:assert/strict');
 const dbModule = require('../src/db');
-const { createMockDb, clearServiceCache } = require('./test_agent_git_mock_helper.cjs');
+const { installMock, clearServiceCache } = require('./test_agent_git_mock_helper.cjs');
 
 const agents = {
   left: { id: 'left', workspace_id: 'ws', name: 'Left', role: 'worker', status: 'idle', cognitive_budget: 80 },
@@ -15,12 +13,12 @@ const objects = {
   source: { id: 'obj-source', agent_id: 'left', workspace_id: 'ws', object_kind: 'commit', state_hash: 'hash-source', state_json: JSON.stringify(stateLeft), metadata_json: '{}' }
 };
 
-dbModule.getDatabase = createMockDb(agents, objects);
+installMock({ agents, objects });
 clearServiceCache();
 const service = require('../src/services/agentGitService');
 
 function makeReq(overrides = {}) {
-  return { body: { agentId: 'left', ...overrides }, tenant: { organizationId: 'org', projectId: 'project' }, user: { username: 'tester' } };
+  return { body: { agentId: 'left', ...overrides }, tenant: { organizationId: 'org', projectId: 'proj' }, user: { username: 'tester' } };
 }
 
 async function testTreeHashStable() {
