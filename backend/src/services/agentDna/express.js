@@ -2,9 +2,13 @@ const DEFAULT_TEMP = 0.45;
 const DEFAULT_TOP_P = 0.9;
 const DEFAULT_STRATEGY = 'tree-search';
 
+// Chromatin states: 0=eucromatin, 1=heterochromatin constitutive, 2=heterochromatin facultative
 function isSilenced(gene) {
   if (gene.methylated) return true;
-  return gene.chromatin === 1;
+  if (gene.chromatin === 1) return true;
+  if (gene.chromatin === 2 && gene.locked) return true;
+  if (Number.isFinite(gene.volume) && gene.volume <= 0) return true;
+  return false;
 }
 
 function parseUnit(value, fallback) {

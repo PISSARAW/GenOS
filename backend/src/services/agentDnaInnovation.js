@@ -143,7 +143,7 @@ async function captureFromSuccess(ctx) {
   if (!concepts.length) return null;
 
   // B4: croiser les outils loués avec les événements d'exécution pour vérifier l'usage effectif
-  const contributionEvidence = await findToolUsageEvidence(db, agentId, concepts);
+  const contributionEvidence = await findToolUsageEvidence(db, { agentId, concepts });
 
   return captureCandidate(db, {
     baseGenomeRef: base.id,
@@ -156,20 +156,27 @@ async function captureFromSuccess(ctx) {
   });
 }
 
-async function findToolUsageEvidence(db, agentId, concepts) {
+async function findToolUsageEvidence(db, opts) {
+  const { agentId, concepts } = opts;
   const evidence = {};
-  const usageRows = await safeGet(
+  const sinceRow = await safeGet(
     db,
-    `SELECT COUNT(*) as cnt FROM telemetry_events
-     WHERE agent_id = ? AND event_type = 'WORKER_TOOL_USED'
-     AND created_at >= (SELECT created_at FROM telemetry_events WHERE agent_id = ? AND event_type = 'WORKER_CAPABILITY_LEASED' ORDER BY created_at DESC LIMIT 1)`,
-    agentId, agentId
+    `SELECT created_at FROM telemetry_events WHERE agent_id = ? AND event_type = 'WORKER_CAPABILITY_LEASED' ORDER BY created_at DESC LIMIT 1`,
+    agentId
   );
+  const since = sinceRow?.created_at;
+  if (!since) return evidence;
   for (const concept of concepts) {
-    evidence[concept.locus] = {
-      observed: Number(usageRows?.cnt || 0) > 0,
-      method: usageRows?.cnt > 0 ? 'observed' : 'heuristic'
-    };
+    const toolName = concept.instruction;
+    const row = await safeGet(
+      db,
+      `SELECT COUNT(*) as cnt FROM telemetry_events
+       WHERE agent_id = ? AND event_type = 'WORKER_TOOL_USED'
+       AND created_at >= ? AND json_extract(payload_json, '$.toolName') = ?`,
+      agentId, since, toolName
+    );
+    const cnt = Number(row?.cnt || 0);
+    evidence[concept.locus] = { observed: cnt > 0, method: cnt > 0 ? 'observed' : 'heuristic' };
   }
   return evidence;
 }
@@ -248,10 +255,21 @@ function parseEvidence(value) {
   try { return JSON.parse(value || '{}'); } catch (_) { return {}; }
 }
 
+function contributionPasses(evidence) {
+  const contribution = evidence.contributionEvidence;
+  if (!contribution || typeof contribution !== 'object') return false;
+  const entries = Object.values(contribution);
+  if (entries.length === 0) return false;
+  const observed = entries.filter((entry) => entry && entry.observed === true).length;
+  return observed > 0 && observed >= entries.length / 2;
+}
+
 function hasTrustedEvidence(evidence) {
+  if (!evidence || typeof evidence !== 'object') return false;
   if (evidence.source === 'stratigraphic_fossil') return Boolean(evidence.integrityVerified && evidence.payloadHash);
-  return evidence.source === 'validated_worker_success'
-    && require('./agentEvidenceService').hasDecisionEvidence(evidence);
+  if (evidence.source !== 'validated_worker_success') return false;
+  if (!require('./agentEvidenceService').hasDecisionEvidence(evidence)) return false;
+  return contributionPasses(evidence);
 }
 
 function evaluationChecks({ model, parent, evidence, signature }) {

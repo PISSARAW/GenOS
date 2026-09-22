@@ -213,7 +213,7 @@ async function workerGenesForAssignment(db, assignment, scope) {
     genomeRef: selection.id,
     selectionId,
     genes: workerGenes(selection.model),
-    phenotypeHash: selection.model?.contentHash || null
+    genomeContentHash: selection.model?.contentHash || null
   };
 }
 

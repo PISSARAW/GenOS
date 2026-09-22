@@ -143,7 +143,17 @@ function decodeBuffer(buffer) {
     provenance: toProvenance(optional(sections, 'PROV')),
     raw: buffer
   };
-  if (model.phenotype === null) model.phenotype = express(model);
+  // Recalculate phenotype and compare against cached PHEN if present.
+  const current = express(model);
+  if (model.phenotype) {
+    const cached = model.phenotype;
+    const cacheMatches = cached.role === current.role
+      && cached.strategy === current.strategy
+      && JSON.stringify(cached.tools) === JSON.stringify(current.tools)
+      && JSON.stringify(cached.capabilities) === JSON.stringify(current.capabilities);
+    model.phenotypeCacheValid = cacheMatches;
+  }
+  model.phenotype = current;
   const signature = verifySignature(sections);
   model.signed = signature.signed;
   model.signer = signature.signer;
