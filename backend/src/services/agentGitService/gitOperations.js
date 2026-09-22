@@ -1,7 +1,7 @@
 'use strict';
 
 const { getCommit, findMergeBase, collectAncestors } = require('./commitGraph');
-const { computePatch, applyPatch, replaceState } = require('./dagOperations');
+const { computePatch, applyPatch, replaceState, applyOperationToState } = require('./dagOperations');
 const { storeObject } = require('./storeObjectHelper.cjs');
 const { updateRef } = require('./refs');
 const { enforceHooks } = require('./hooks');
@@ -304,26 +304,9 @@ function applyPatchToState(state, patch) {
   const newState = { ...state };
   for (const op of patch.operations) {
     if (!op.section) continue;
-    applySingleOp({ newState, op });
+    applyOperationToState(newState, op);
   }
   return newState;
-}
-
-function applySingleOp(ctx) {
-  const { newState, op } = ctx;
-  if (op.op === 'ADD') {
-    newState[op.section] = [...(newState[op.section] || []), op.item];
-  } else if (op.op === 'REMOVE') {
-    newState[op.section] = (newState[op.section] || []).filter(i => i.id !== op.itemId);
-  } else if (op.op === 'REPLACE') {
-    const section = newState[op.section] || [];
-    const idx = section.findIndex(i => i.id === op.itemId);
-    if (idx >= 0) {
-      newState[op.section] = [...section.slice(0, idx), op.item, ...section.slice(idx + 1)];
-    } else {
-      newState[op.section] = [...section, op.item];
-    }
-  }
 }
 
 async function commitRebase(ctx) {
@@ -360,4 +343,4 @@ function buildRebaseStoreState(currentState, onto, head) {
   };
 }
 
-module.exports = { cherryPick, merge, revert, rebase, bisect };
+module.exports = { cherryPick, merge, revert, rebase };

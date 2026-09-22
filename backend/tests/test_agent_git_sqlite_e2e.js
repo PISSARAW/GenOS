@@ -79,7 +79,40 @@ async function main() {
   assert.ok(shown.success, 'show doit réussir');
   assert.equal(shown.object.signatureValid, true, 'la signature du commit doit se vérifier via show()');
 
+  // --- Point 4 : computePatch/applyPatch avec REPLACE + identityOf ---
+  const { computePatch } = require('../src/services/agentGitService/dagOperations');
+  const fromState = {
+    decisions: [{ id: 'd1', title: 'A', content: 'original' }],
+    plasmids: [{ plasmid_id: 'P42', status: 'active' }],
+    permissions: [{ organization_id: 'org1', project_id: 'proj1', permissions_json: '[]', denied_tools_json: '[]' }]
+  };
+  const toState = {
+    decisions: [{ id: 'd1', title: 'A', content: 'modifié' }],           // -> REPLACE d1
+    plasmids: [],                                                        // -> REMOVE P42 (via plasmid_id)
+    permissions: [{ organization_id: 'org1', project_id: 'proj1', permissions_json: '["mcp:read"]', denied_tools_json: '[]' }] // -> REPLACE scope org1:proj1
+  };
+  const patch = computePatch(fromState, toState);
+  const ops = (section) => patch.operations.filter(o => o.section === section);
+  assert.equal(ops('decisions').length, 1, 'une opération decisions');
+  assert.equal(ops('decisions')[0].op, 'REPLACE', 'd1 modifié => REPLACE (et non ADD+REMOVE)');
+  assert.equal(ops('decisions')[0].itemId, 'd1');
+  assert.equal(ops('plasmids').length, 1, 'une opération plasmids');
+  assert.equal(ops('plasmids')[0].op, 'REMOVE', 'plasmide absent de toState => REMOVE');
+  assert.equal(ops('plasmids')[0].itemId, 'P42', 'identité plasmid = plasmid_id');
+  assert.equal(ops('permissions').length, 1, 'une opération permissions');
+  assert.equal(ops('permissions')[0].op, 'REPLACE', 'permission même scope modifiée => REPLACE');
+  assert.equal(ops('permissions')[0].itemId, 'org1:proj1', 'identité permission = clé de scope');
+
+  // applyPatch doit appliquer REPLACE et REMOVE par identité de section.
+  const { applyOperationToState } = require('../src/services/agentGitService/dagOperations');
+  const state = JSON.parse(JSON.stringify(fromState));
+  for (const op of patch.operations) applyOperationToState(state, op);
+  assert.equal(state.decisions[0].content, 'modifié', 'REPLACE remplace d1 en place');
+  assert.equal(state.plasmids.length, 0, 'REMOVE supprime le plasmide P42 via plasmid_id');
+  assert.equal(state.permissions[0].permissions_json, '["mcp:read"]', 'REPLACE permission par clé de scope');
+
   console.log('[OK] point 1 - SQLite réel : schéma crypto complet, createCommit + parent + signature vérifiés');
+  console.log('[OK] point 4 - patch REPLACE + identityOf (decisions/plasmids/permissions) sur SQLite réel');
   console.log(`     commit=${commit.id} commitHash=${commit.commitHash.slice(0, 12)}…`);
 }
 

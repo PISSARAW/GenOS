@@ -5,6 +5,7 @@ const { getDatabase } = require('../../db');
 const { treeHash } = require('./canonical');
 const crypto = require('crypto');
 const { json, verifyObjectSignatureLocal, verifySingleObject } = require('./verifyHelpers.cjs');
+const { identityOf } = require('./sectionIdentity.cjs');
 
 function scopeSql(req, alias = 'w') {
   if (!req.tenant) return { clause: '1 = 1', params: [] };
@@ -59,7 +60,7 @@ async function replay(req) {
 async function buildCausalBlame(db, commit, section) {
   const state = JSON.parse(commit.state_json);
   const items = Array.isArray(state[section]) ? state[section] : [];
-  const itemIds = new Set(items.map(i => i.id || i.event_id || i.action_input));
+  const itemIds = new Set(items.map(i => identityOf(section, i)));
   const history = [];
   let current = commit;
   const visited = new Set();
@@ -67,7 +68,7 @@ async function buildCausalBlame(db, commit, section) {
     visited.add(current.id);
     const currentItems = JSON.parse(current.state_json);
     const currentSection = Array.isArray(currentItems[section]) ? currentItems[section] : [];
-    collectBlameEntries({ currentSection, itemIds, current, history });
+    collectBlameEntries({ currentSection, itemIds, current, history, section });
     if (current.parentIds && current.parentIds.length > 0) current = await getCommit(db, current.parentIds[0]);
     else current = null;
   }
@@ -75,9 +76,9 @@ async function buildCausalBlame(db, commit, section) {
 }
 
 function collectBlameEntries(ctx) {
-  const { currentSection, itemIds, current, history } = ctx;
+  const { currentSection, itemIds, current, history, section } = ctx;
   for (const item of currentSection) {
-    const id = item.id || item.event_id || item.action_input;
+    const id = identityOf(section, item);
     if (itemIds.has(id)) history.push({ commitId: current.id, item, createdAt: current.created_at, introducedBy: current.created_by || 'unknown', metadata: json(current.metadata_json, {}) });
   }
 }

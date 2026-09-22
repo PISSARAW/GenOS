@@ -1,18 +1,20 @@
 'use strict';
 
+const { identityOf } = require('./sectionIdentity.cjs');
+
 function mergeArraySection(ctx) {
   const { base, patchLeft, patchRight, sectionName } = ctx;
-  const leftAdds = new Set(filterOps(patchLeft.operations, sectionName, 'ADD').map(o => o.item.id));
+  const leftAdds = new Set(filterOps(patchLeft.operations, sectionName, 'ADD').map(o => identityOf(sectionName, o.item)));
   const leftRemoves = new Set(filterOps(patchLeft.operations, sectionName, 'REMOVE').map(o => o.itemId));
-  const rightAdds = new Set(filterOps(patchRight.operations, sectionName, 'ADD').map(o => o.item.id));
+  const rightAdds = new Set(filterOps(patchRight.operations, sectionName, 'ADD').map(o => identityOf(sectionName, o.item)));
   const rightRemoves = new Set(filterOps(patchRight.operations, sectionName, 'REMOVE').map(o => o.itemId));
 
-  const kept = filterBaseItems(base, leftRemoves, rightRemoves);
+  const kept = filterBaseItems({ base, leftRemoves, rightRemoves, sectionName });
   const result = [...kept.items];
   const seen = new Set(kept.seen);
 
-  appendAddOps({ result, seen, addOps: filterOps(patchLeft.operations, sectionName, 'ADD'), conflictingRemoves: rightRemoves });
-  appendAddOps({ result, seen, addOps: filterOps(patchRight.operations, sectionName, 'ADD'), conflictingRemoves: leftRemoves });
+  appendAddOps({ result, seen, addOps: filterOps(patchLeft.operations, sectionName, 'ADD'), conflictingRemoves: rightRemoves, sectionName });
+  appendAddOps({ result, seen, addOps: filterOps(patchRight.operations, sectionName, 'ADD'), conflictingRemoves: leftRemoves, sectionName });
   return result;
 }
 
@@ -20,23 +22,26 @@ function filterOps(operations, section, op) {
   return operations.filter(o => o.section === section && o.op === op);
 }
 
-function filterBaseItems(base, leftRemoves, rightRemoves) {
+function filterBaseItems(ctx) {
+  const { base, leftRemoves, rightRemoves, sectionName } = ctx;
   const seen = new Set();
   const items = [];
   for (const item of base) {
-    if (leftRemoves.has(item.id) || rightRemoves.has(item.id)) continue;
+    const id = identityOf(sectionName, item);
+    if (leftRemoves.has(id) || rightRemoves.has(id)) continue;
     items.push(item);
-    seen.add(item.id);
+    seen.add(id);
   }
   return { items, seen };
 }
 
 function appendAddOps(ctx) {
-  const { result, seen, addOps, conflictingRemoves } = ctx;
+  const { result, seen, addOps, conflictingRemoves, sectionName } = ctx;
   for (const op of addOps) {
-    if (!seen.has(op.item.id) && !conflictingRemoves.has(op.item.id)) {
+    const id = identityOf(sectionName, op.item);
+    if (!seen.has(id) && !conflictingRemoves.has(id)) {
       result.push(op.item);
-      seen.add(op.item.id);
+      seen.add(id);
     }
   }
 }

@@ -9,6 +9,7 @@ const {
   replacePlasmidState,
   replacePermissionState
 } = require('./replaceStateHelpers.cjs');
+const { identityOf } = require('./sectionIdentity.cjs');
 
 function bodyValue(req, key) {
   if (!req.body) return undefined;
@@ -93,17 +94,16 @@ function computeSectionPatch(ctx) {
   const { fromState, toState, section, operations } = ctx;
   const fromItems = fromState[section] || [];
   const toItems = toState[section] || [];
-  const idResolver = section === 'plasmids' ? 'plasmid_id' : 'id';
-  const fromMap = buildIdMap(fromItems, idResolver);
-  const toMap = buildIdMap(toItems, idResolver);
-  computeAddedOrReplaced({ toItems, fromMap, operations, section, idResolver });
-  computeRemoved({ fromItems, toMap, operations, section, idResolver });
+  const fromMap = buildIdMap(fromItems, section);
+  const toMap = buildIdMap(toItems, section);
+  computeAddedOrReplaced({ toItems, fromMap, operations, section });
+  computeRemoved({ fromItems, toMap, operations, section });
 }
 
 function computeAddedOrReplaced(ctx) {
-  const { toItems, fromMap, operations, section, idResolver } = ctx;
+  const { toItems, fromMap, operations, section } = ctx;
   for (const item of toItems) {
-    const id = item[idResolver];
+    const id = identityOf(section, item);
     if (id === undefined || !fromMap.has(id)) {
       operations.push({ op: 'ADD', section, item });
     } else if (JSON.stringify(fromMap.get(id)) !== JSON.stringify(item)) {
@@ -113,19 +113,19 @@ function computeAddedOrReplaced(ctx) {
 }
 
 function computeRemoved(ctx) {
-  const { fromItems, toMap, operations, section, idResolver } = ctx;
+  const { fromItems, toMap, operations, section } = ctx;
   for (const item of fromItems) {
-    const id = item[idResolver];
+    const id = identityOf(section, item);
     if (id !== undefined && !toMap.has(id)) {
       operations.push({ op: 'REMOVE', section, itemId: id });
     }
   }
 }
 
-function buildIdMap(items, idResolver) {
+function buildIdMap(items, section) {
   const map = new Map();
   for (const item of items) {
-    const id = item[idResolver];
+    const id = identityOf(section, item);
     if (id !== undefined) map.set(id, item);
   }
   return map;
@@ -138,14 +138,30 @@ async function applyPatch(req, { targetAgentId, patch, sections }) {
   const newState = { ...current };
   for (const operation of patch.operations || []) {
     if (!sections || sections.includes(operation.section)) {
-      if (operation.op === 'ADD') {
-        newState[operation.section] = [...(newState[operation.section] || []), operation.item];
-      } else if (operation.op === 'REMOVE') {
-        newState[operation.section] = (newState[operation.section] || []).filter(i => i.id !== operation.itemId);
-      }
+      applyOperationToState(newState, operation);
     }
   }
   return replaceState(req, { targetAgentId, state: newState, sections: sections || ['decisions', 'memories', 'runs', 'plasmids', 'permissions'] });
 }
 
-module.exports = { mergeBase, reset, replaceState, computePatch, applyPatch };
+// Point 4 : application générique unique des opérations de patch.
+// ADD / REMOVE / REPLACE, identité par section via identityOf().
+function applyOperationToState(state, operation) {
+  if (operation.op === 'ADD') {
+    state[operation.section] = [...(state[operation.section] || []), operation.item];
+    return;
+  }
+  if (operation.op === 'REMOVE') {
+    state[operation.section] = (state[operation.section] || []).filter(i => identityOf(operation.section, i) !== operation.itemId);
+    return;
+  }
+  if (operation.op === 'REPLACE') {
+    const section = state[operation.section] || [];
+    const idx = section.findIndex(i => identityOf(operation.section, i) === operation.itemId);
+    state[operation.section] = idx >= 0
+      ? [...section.slice(0, idx), operation.item, ...section.slice(idx + 1)]
+      : [...section, operation.item];
+  }
+}
+
+module.exports = { mergeBase, reset, replaceState, computePatch, applyPatch, applyOperationToState };
