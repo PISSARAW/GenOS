@@ -61,6 +61,11 @@ function assimilateChild(pop, child) {
     T: Math.min(1, baseFitness.T + d), R: Math.min(1, baseFitness.R + d), C: baseFitness.C,
   };
   pop.lineages.set(child.id, child);
+  // Enregistrement global dans l'environnement (identité globale),
+  // sans réallocation immédiate (la migration viendra plus tard).
+  if (pop.population?.environment) {
+    pop.population.environment.addLineage(child);
+  }
 }
 
 function transmit(runtime, verifiedAttempts) {

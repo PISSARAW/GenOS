@@ -175,14 +175,24 @@ class MathematicalOrganismRuntime {
         }
       }
 
-      // Si le concept est un invariant structurel, créer une obligation
+      // Si le concept est un invariant structurel ou numérique,
+      // le faire générer comme question directement par le questionogenesis.
+      // Ne plus utiliser observeAnomaly (qui ne serait pas consommé automatiquement
+      // par la prochaine boucle). generateQuestion crée immédiatement la niche
+      // si la valeur de la question dépasse le seuil.
       if (concept.type === 'structural_invariant' || concept.type === 'numerical_invariant') {
-        // L'invariant devient une question pour la questionogenesis
-        this.questionogenesis.observeAnomaly({
+        runtime.questionogenesis.generateQuestion({
+          id: `anom-${Date.now()}`,
           type: 'invariant_opportunity',
           description: concept.statement,
+          source: concept.id,
           confidence: concept.confidence || 0.5,
-          niche: null,
+          observedAt: new Date().toISOString(),
+        }, {
+          domain: runtime.environment?.problem?.domain || 'general',
+          object: 'structure',
+          property: 'property',
+          createNiche: true,
         });
       }
     }

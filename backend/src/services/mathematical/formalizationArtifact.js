@@ -52,6 +52,13 @@ class FormalizationArtifact {
     this.environmentDigest = options.environmentDigest || null;
     this.provenance = options.provenance || null;
     this.createdAt = new Date().toISOString();
+
+    // ─── Immutability : l'artefact devient autorité après construction ───
+    // Deep-freeze des collections et de l'objet lui-même pour empêcher
+    // la mutation post-enregistrement (cf. revue architecture 2026-09-22).
+    Object.freeze(this.imports);
+    Object.freeze(this.provenance);
+    Object.freeze(this);
   }
 
   /**
@@ -116,7 +123,17 @@ class FormalizationArtifact {
     if (!headerMatch) {
       return { matched: false, headerStatement: null, error: 'Could not extract theorem header from Lean source.' };
     }
-    const headerStatement = headerMatch[1].trim();
+    let headerStatement = headerMatch[1].trim();
+    // Normalize: collapse all whitespace (including newlines) into single spaces.
+    // This handles multi-line theorem headers like:
+    //   theorem foo
+    //   (n : Nat)
+    //   :
+    //   n + 0 = n := by
+    // The formalStatement is a single-line normalized expression, so we must
+    // normalize the extracted header the same way before fingerprint comparison.
+    headerStatement = headerStatement.replace(/\s+/g, ' ');
+    headerStatement = headerStatement.trim();
     // Compare fingerprints.
     const sourceFp = formalStatementFingerprint(headerStatement);
     if (!sourceFp) {

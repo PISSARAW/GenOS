@@ -5,7 +5,7 @@
  * @description Mutation engine for mathematical research lineages.
  * Implements mutation, recombination, exaptation, and horizontal gene transfer.
  *
- * HGT requires passing through the epistemic immune system before assimilation.
+ * HGT requires passing through the AEIS (Adaptive Epistemic Immune System) gate before assimilation.
  * MathematicalPlasmid carries full epistemic provenance: capability, validity domain,
  * proof receipt, semantic fingerprint, and compatibility requirements.
  */
@@ -14,96 +14,75 @@ const crypto = require('node:crypto');
 const { createResearchLineage, deepClone } = require('./researchLineage');
 
 const MUTATION_TYPES = Object.freeze(['point', 'insert', 'delete', 'swap', 'recombine', 'hgt']);
-
 const PLASMID_TYPES = Object.freeze(['knowledge', 'lemma', 'strategy', 'representation', 'tactic', 'heuristic']);
+
+function computeSemanticFingerprint(options = {}) {
+  const capability = options._canonicalStatement || options.capability || '';
+  return `sha256:${crypto.createHash('sha256').update(
+    capability +
+    JSON.stringify(options.validityDomain || {}) +
+    (options._assumptions || []).join(',')
+  ).digest('hex')}`;
+}
 
 /**
  * Create a MathematicalPlasmid for HGT.
  * A plasmid is a unit of epistemic transfer with full provenance.
+ *
+ * Sémantique du fingerprint :
+ * - semanticFingerprint : identité de la CONNAISSANCE (théorème + domaine + hypothèses)
+ * - id (eventId) : identité de l'ÉVÉNEMENT de transfert (hash avec source/cible/temps)
  */
 function createMathematicalPlasmid(options = {}) {
-  const capability = options.capability || '';
-  const source = options.source || '';
-  const proofReceipt = options.proofReceipt || null;
-  const semanticFingerprint = options.semanticFingerprint || `sha256:${crypto.createHash('sha256').update(capability + source + Date.now()).digest('hex')}`;
-
+  const vd = options.validityDomain || {};
+  const c = options.compatibility || {};
   return {
     id: `plasmid-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
     type: options.type || 'strategy',
-    capability,
-    source,
+    capability: options.capability || '',
+    source: options.source || '',
     target: options.target || null,
-    provenance: {
+    provenance: Object.assign({
       transferredAt: new Date().toISOString(),
       sourceFitness: options.sourceFitness || null,
       sourceGeneration: options.sourceGeneration || 0,
       originalDiscovery: options.originalDiscovery || null,
-      ...options.provenance,
-    },
-    validityDomain: {
-      assumptions: options.validityDomain?.assumptions || [],
-      constraints: options.validityDomain?.constraints || [],
-      domain: options.validityDomain?.domain || 'general',
-    },
-    proofReceipt,
-    semanticFingerprint,
-    compatibility: {
-      requiredFitness: options.compatibility?.requiredFitness || 0.1,
-      excludedDomains: options.compatibility?.excludedDomains || [],
-      requiredRepresentations: options.compatibility?.requiredRepresentations || [],
-    },
-    assimilationStatus: 'pending', // pending | assimilated | rejected
+    }, options.provenance),
+    validityDomain: { assumptions: vd.assumptions || [], constraints: vd.constraints || [], domain: vd.domain || 'general' },
+    proofReceipt: options.proofReceipt || null,
+    semanticFingerprint: options.semanticFingerprint || computeSemanticFingerprint(options),
+    compatibility: { requiredFitness: c.requiredFitness || 0.1, excludedDomains: c.excludedDomains || [], requiredRepresentations: c.requiredRepresentations || [] },
+    assimilationStatus: 'pending',
   };
 }
 
-/**
- * AEIS (Adaptive Epistemic Immune System) gate for HGT.
- * Checks compatibility, verifies proof receipt, prevents contamination.
- */
-function aeisGate(sourceLineage, targetLineage, plasmid) {
-  // 1. Check if source has verified results (fitness.P > threshold)
+function checkSourceFitness(sourceLineage, plasmid) {
   const sourceFitness = sourceLineage.fitness;
   if (!sourceFitness || (sourceFitness.P || 0) < (plasmid.compatibility.requiredFitness || 0.1)) {
     return { blocked: true, reason: 'insufficient_source_verification', sourceFitness: sourceFitness?.P || 0 };
   }
+  return { blocked: false };
+}
 
-  // 2. Check proof receipt validity
+function checkProofReceipt(plasmid) {
   if (plasmid.proofReceipt) {
     const receipt = plasmid.proofReceipt;
     if (receipt.status !== 'passed') {
       return { blocked: true, reason: 'invalid_proof_receipt', receiptStatus: receipt.status };
     }
-    // Verify receipt digest is valid SHA-256
     const SHA256 = /^sha256:[a-f0-9]{64}$/;
     if (!SHA256.test(receipt.receiptDigest || '')) {
       return { blocked: true, reason: 'invalid_receipt_digest' };
     }
-  } else if (plasmid.type === 'lemma') {
-    // Lemmas require proof receipt
+  } else if (plasmid.type === 'lemma' || plasmid.type === 'knowledge') {
     return { blocked: true, reason: 'lemma_requires_proof_receipt' };
   }
+  return { blocked: false };
+}
 
-  // 3. Check validity domain compatibility
-  const targetDomain = targetLineage.genome?.researchPolicy?.domain || 'general';
-  if (plasmid.validityDomain.domain !== 'general' && plasmid.validityDomain.domain !== targetDomain) {
-    // Allow but flag - may need adaptation
-    // Not blocking, just noting
-  }
-
-  // 4. Check for contradiction with target's existing knowledge
-  const targetStrategies = targetLineage.genome?.strategies || [];
-  const contradictions = plasmid.compatibility.excludedDomains.filter(d => targetStrategies.includes(d));
-  if (contradictions.length > 0) {
-    return { blocked: true, reason: 'domain_contradiction', contradictions };
-  }
-
-  // 5. Semantic fingerprint uniqueness (prevent duplicate transfer)
-  if (targetLineage._assimilatedPlasmids?.includes(plasmid.semanticFingerprint)) {
-    return { blocked: true, reason: 'already_assimilated', fingerprint: plasmid.semanticFingerprint };
-  }
-
-  // 6. Fitness compatibility - prevent parasitic transfer from low-fitness to high-fitness
+function checkFitnessCompatibility(sourceLineage, targetLineage, plasmid) {
   const targetFitness = targetLineage.fitness;
+  const sourceFitness = sourceLineage.fitness;
   if (targetFitness && sourceFitness) {
     const sourceAvg = Object.values(sourceFitness).reduce((a, b) => a + b, 0) / 7;
     const targetAvg = Object.values(targetFitness).reduce((a, b) => a + b, 0) / 7;
@@ -111,6 +90,30 @@ function aeisGate(sourceLineage, targetLineage, plasmid) {
       return { blocked: true, reason: 'parasitic_transfer_risk', sourceAvg, targetAvg };
     }
   }
+  return { blocked: false };
+}
+
+/**
+ * AEIS (Adaptive Epistemic Immune System) gate for HGT.
+ * Checks compatibility, verifies proof receipt, prevents contamination.
+ */
+function aeisGate(sourceLineage, targetLineage, plasmid) {
+  // 1. Source fitness verification
+  const fitnessCheck = checkSourceFitness(sourceLineage, plasmid);
+  if (fitnessCheck.blocked) return fitnessCheck;
+
+  // 2. Proof receipt validity
+  const receiptCheck = checkProofReceipt(plasmid);
+  if (receiptCheck.blocked) return receiptCheck;
+
+  // 3. Semantic fingerprint uniqueness (prevent duplicate transfer)
+  if (targetLineage._assimilatedPlasmids?.includes(plasmid.semanticFingerprint)) {
+    return { blocked: true, reason: 'already_assimilated', fingerprint: plasmid.semanticFingerprint };
+  }
+
+  // 4. Fitness compatibility check
+  const compatCheck = checkFitnessCompatibility(sourceLineage, targetLineage, plasmid);
+  if (compatCheck.blocked) return compatCheck;
 
   return { blocked: false, plasmid };
 }
@@ -194,7 +197,6 @@ class MutationEngine {
     if (Math.random() > this.hgtRate) return null;
     if (!proofArtifact || !proofArtifact.isVerified()) return null;
 
-    // Immune gate: if blocked, transfer is rejected
     if (immuneReport && immuneReport.blocked) {
       return null;
     }
@@ -202,11 +204,14 @@ class MutationEngine {
     const capability = proofArtifact.statement || proofArtifact._formalResult?.canonicalStatement || '';
     if (!capability) return null;
 
-    // Determine plasmid type based on artifact type
-    // Theorems and lemmas carry knowledge, not strategies
     const plasmidType = proofArtifact.type === 'theorem' || proofArtifact.type === 'lemma' ? 'knowledge' : 'strategy';
+    const canonicalStmt = proofArtifact._formalResult?.canonicalStatement || capability;
+    const vDomain = proofArtifact._formalResult?.validityDomain || {};
+    const assumptions = proofArtifact._formalResult?.assumptions || [];
+    const semanticFp = `sha256:${crypto.createHash('sha256').update(
+      canonicalStmt + JSON.stringify(vDomain) + assumptions.join(',')
+    ).digest('hex')}`;
 
-    // Create a proper MathematicalPlasmid with the SPECIFIC ProofArtifact's proof receipt
     const plasmid = createMathematicalPlasmid({
       type: plasmidType,
       capability,
@@ -214,10 +219,13 @@ class MutationEngine {
       target: targetLineage.id,
       sourceFitness: sourceLineage.fitness,
       sourceGeneration: sourceLineage.generation,
-      proofReceipt: proofArtifact._leanReceipt, // SPECIFIC artifact's proof receipt
+      proofReceipt: proofArtifact._leanReceipt,
+      semanticFingerprint: semanticFp,
+      _canonicalStatement: canonicalStmt,
+      _assumptions: assumptions,
       validityDomain: {
-        assumptions: proofArtifact._formalResult?.assumptions || [],
-        constraints: proofArtifact._formalResult?.validityDomain?.constraints || [],
+        assumptions: assumptions,
+        constraints: vDomain.constraints || [],
         domain: proofArtifact.domain || 'general',
       },
       compatibility: {
@@ -227,7 +235,6 @@ class MutationEngine {
       },
     });
 
-    // Run AEIS gate
     const aeisResult = aeisGate(sourceLineage, targetLineage, plasmid);
     if (aeisResult.blocked) {
       plasmid.assimilationStatus = 'rejected';
@@ -245,14 +252,10 @@ class MutationEngine {
     }
 
     // Assimilate: add the proven capability to target lineage
-    // Knowledge plasmids (theorems/lemmas) go to lineage knowledge
-    // Strategy plasmids go to genome.strategies
     if (plasmidType === 'knowledge') {
-      // Add to lineage knowledge with proof artifact reference
       if (!targetLineage._knowledge) targetLineage._knowledge = [];
-      // Check if already assimilated (by fingerprint)
       const alreadyAssimilated = targetLineage._knowledge?.some(
-        k => k.proofArtifact && k.proofArtifact.isVerified()
+        k => k.semanticFingerprint === plasmid.semanticFingerprint
       );
       if (!alreadyAssimilated) {
         targetLineage._knowledge.push({
@@ -260,7 +263,9 @@ class MutationEngine {
           content: capability,
           fidelity: 1.0,
           source: plasmid.source,
-          proofArtifact: proofArtifact, // Keep reference for verification
+          proofArtifact: proofArtifact,
+          semanticFingerprint: plasmid.semanticFingerprint,
+          validityDomain: plasmid.validityDomain,
         });
       }
     } else if (!targetLineage.genome.strategies.includes(capability)) {
@@ -303,4 +308,5 @@ module.exports = {
   createMathematicalPlasmid,
   aeisGate,
   PLASMID_TYPES,
+  computeSemanticFingerprint,
 };

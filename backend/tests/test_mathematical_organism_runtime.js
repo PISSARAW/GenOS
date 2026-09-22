@@ -104,8 +104,19 @@ async function testRuntimeWithValidSources() {
     toolchainVersion: 'lean-4.9.0',
     environmentDigest: 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
   });
-  
+
   runtime.setLeanGate(gate);
+
+  // Pré-enregistrer la formalisation pour l'énoncé testé
+  // (simule une autoformalisation préalable par le système)
+  const { createFormalizationArtifact } = require('../src/services/mathematical/formalizationArtifact');
+  const formalization = createFormalizationArtifact({
+    naturalStatement: '∀ n : Nat, n + 0 = n',
+    formalStatement: '∀ n : Nat, n + 0 = n',
+    formalLanguage: 'lean4',
+    formalizer: 'genos-autoformalizer-v0',
+  });
+  runtime.formalizationRegistry.add(formalization);
 
   await runtime.run(1);  // Run exactly 1 step
 

@@ -69,6 +69,26 @@ async function verify(runtime, attempts) {
   const verified = [];
 
   for (const attempt of attempts) {
+    // ─── FormalizationRegistry lookup ───
+    // Si une formalisation existe déjà pour cet énoncé naturel, on l'utilise
+    // comme autorité immuable. Sinon, on crée un artefact en état UNFORMALIZED
+    // (formalStatement vide = obligation d'autoformalisation).
+    const existing = runtime.formalizationRegistry.getByCanonical(attempt.goal);
+    let formalization;
+    if (existing) {
+      formalization = existing;
+    } else {
+      // État épistémique : UNFORMALIZED
+      // naturalStatement porte le sens humain, formalStatement est vide tant
+      // qu'aucune autoformalisation n'a été validée.
+      formalization = createFormalizationArtifact({
+        naturalStatement: attempt.goal,
+        formalStatement: '', // <-- UNFORMALIZED : pas encore de formalisation Lean
+        formalizer: null,
+      });
+      runtime.formalizationRegistry.add(formalization);
+    }
+
     const formalResult = createFormalResult({
       canonicalStatement: attempt.goal,
       status: 'formalized',
@@ -85,19 +105,23 @@ async function verify(runtime, attempts) {
       },
       producer: { model: 'mathematical_organism', version: '1.0' },
     });
-
     const artifact = createProofArtifact({
       id: attempt.id,
       type: 'obligation',
       statement: attempt.goal,
       domain: runtime.environment.problem.domain,
     });
-    const formalization = createFormalizationArtifact({
-      naturalStatement: attempt.goal,
-      formalStatement: attempt.goal,
-    });
     artifact.attachFormalResult(formalResult, formalization);
 
+    // Si formalStatement est vide (UNFORMALIZED), on ne peut pas générer de Lean source
+    if (!formalization.formalStatement) {
+      recordFailure(runtime, attempt);
+      continue;
+    }
+
+    // Generate Lean source from the immutable FormalizationArtifact.
+    // The theorem header comes from the FormalizationArtifact (binding authority),
+    // the proof body is supplied here. The worker never controls the header.
     const leanSource = formalization.generateLeanSource({ proofBody: '  simp' });
     let success = false;
     try {
@@ -120,29 +144,13 @@ async function verify(runtime, attempts) {
   return verified;
 }
 
-function generateLeanSource(attempt) {
-  // Generate Lean source that states the actual goal using a proof term.
-  // The Lean kernel must compile this exact theorem with a proof.
-  // The statement must match the canonicalStatement for verification to pass.
-  // A real autoformalizer would convert the goal to proper Lean syntax with a valid proof.
-  const goal = attempt.goal || 'unspecified_goal';
-  // NOTE: We preserve the original goal statement including colons (e.g., ∀ n : Nat).
-  // The statementFingerprint check in verifyThroughLean ensures the proven statement
-  // matches the canonicalStatement. Stripping colons would break the fingerprint invariant.
-  const safeGoal = goal.replace(/\"/g, '\\"').substring(0, 200);
-  // Structure: theorem name : statement := by proof term
-  // The proof term 'norm_num' works for simple arithmetic goals;
-  // for general goals, a real autoformalizer would provide the proof.
-  return `theorem attempt : "${safeGoal}" := by norm_num`;
-}
-
 function recordSuccess(runtime, attempt) {
   runtime.strategyRepertoire.recordOutcome(attempt.strategy, true);
 
   for (const [, niche] of runtime.nicheService.niches) {
     const lineage = niche.population?.lineages.get(attempt.lineageId);
     if (lineage) {
-      const current = lineage.fitness || { P: 0, N: 0.5, I: 0.5, A: 0, T: 0.5, R: 0.5, C: 1 };
+      const current = lineage.fitness || { P: 0, N: 0.5, I: 0.5, A: 0, T: 0, R: 0.5, C: 1 };
       lineage.fitness = {
         P: Math.min(1, current.P + 0.1),
         N: current.N,
