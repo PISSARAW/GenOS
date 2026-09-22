@@ -40,6 +40,7 @@
     "test:foraging": "node tests/test_optimal_foraging.js",
     "test:fossilization": "node tests/test_fossilization_service.js && node tests/test_orchestrator_fossilization.js",
     "test:procedural": "node tests/test_procedural_organism_foundations.js && node tests/test_procedural_organism_9_12.js && node tests/test_procedural_organism_13_24.js && node tests/test_procedural_identity.js && node tests/test_procedural_persistence.js && node tests/test_procedural_promotion_gate.js && node tests/test_procedural_graph_semantics.js && node tests/test_procedural_runtime_e2e.js",
+    "test:cognitive-keys": "node tests/test_cognitive_key_registry.js",
     "test:mathematical-organism": "node tests/test_mathematical_environment.js && node tests/test_research_lineage.js && node tests/test_mathematical_niche.js && node tests/test_proof_artifact.js && node tests/test_math_goal_strategy.js && node tests/test_math_population.js && node tests/test_literature_forager.js && node tests/test_mutation_engine.js && node tests/test_math_culture.js && node tests/test_questionogenesis.js && node tests/test_mathematical_organism_integration.js && node tests/test_mathematical_organism_runtime.js && node tests/test_symbiont_solver.js && node tests/test_mathematical_invariants.js",
     "test:locomo": "node src/evaluation/locomo_eval_engine.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",

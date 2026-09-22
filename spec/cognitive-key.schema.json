@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/cognitive-key.schema.json",
+  "title": "CognitiveKey",
+  "description": "Contrat d'une primitive cognitive extraite d'un concept philosophique. Une CognitiveKey est une opération mentale, ni une identité ni une croyance : elle doit être utilisable sans mentionner le philosophe, l'école ou le mouvement qui l'a inspirée (règle d'indépendance doctrinale, appliquée par cognitiveKeyRegistry sur label, instruction et questions). La provenance doctrinale vit uniquement dans derivedFrom.",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "id",
+    "label",
+    "operation",
+    "instruction",
+    "inputs",
+    "outputs",
+    "usefulWhen",
+    "failureModes",
+    "cost",
+    "evidenceRequired",
+    "derivedFrom"
+  ],
+  "properties": {
+    "apiVersion": { "type": "string", "const": "genos.cognition/v1" },
+    "kind": { "type": "string", "const": "CognitiveKey" },
+    "id": {
+      "type": "string",
+      "pattern": "^cognitive\\.[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Namespace cognitive. en segments dash-separated, aligné sur le style des identifiants de concepts."
+    },
+    "label": { "type": "string", "minLength": 1 },
+    "operation": {
+      "type": "string",
+      "enum": [
+        "observation-inference-separation",
+        "falsification-search",
+        "regularity-cause-separation",
+        "counterfactual-variation",
+        "structural-abstraction",
+        "category-suspicion",
+        "boundary-probe",
+        "frame-analysis",
+        "experimental-isolation",
+        "least-favored-position",
+        "assumption-inversion",
+        "perspective-reconciliation"
+      ],
+      "description": "Vocabulaire fermé des opérations cognitives primitives, aligné sur le catalogue v1 : chaque valeur est utilisée par au moins une clé du registre (couverture vérifiée par cognitiveKeyRegistry). Étendre ce vocabulaire est un changement de contrat explicite (ADR 0033)."
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 40,
+      "description": "Instruction de pensée exécutable, injectée dans le phénotype temporaire du worker. Décrit une opération, jamais une doctrine."
+    },
+    "questions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Questions de sondage optionnelles, soumises à la règle d'indépendance doctrinale."
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Ce que l'opération consomme (hypothesis, candidate_cause, ...)."
+    },
+    "outputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Ce que l'opération produit (control_world, refutation_tests, ...)."
+    },
+    "transform": {
+      "type": ["object", "null"],
+      "required": ["input", "output"],
+      "properties": {
+        "input": { "type": "string", "minLength": 1 },
+        "output": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false,
+      "description": "Transformation de représentation optionnelle (ex. concrete_system vers relational_structure)."
+    },
+    "usefulWhen": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Besoins cognitifs couverts (causal_uncertainty, representation_lock_in, ...). Vocabulaire libre en v1 ; le CognitiveComposer (point 3 du plan) le rapprochera du profil de problème."
+    },
+    "failureModes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Modes d'échec connus de l'opération. Obligatoire : une clé sans modes d'échec déclarés sur-déclare sa portée."
+    },
+    "compatibleWith": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^cognitive\\.[a-z0-9]+(?:-[a-z0-9]+)*$" },
+      "description": "Clés avec lesquelles cette clé compose utilement. Doivent exister dans le registre (intégrité vérifiée)."
+    },
+    "conflictsWith": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^cognitive\\.[a-z0-9]+(?:-[a-z0-9]+)*$" },
+      "description": "Clés dont l'application simultanée produit une tension productive ou une contradiction. Doivent exister dans le registre (intégrité vérifiée)."
+    },
+    "cost": { "type": "string", "enum": ["low", "medium", "high"] },
+    "evidenceRequired": {
+      "type": "boolean",
+      "description": "L'application de la clé doit produire des artefacts de preuve vérifiables (aligné sur les gates GenOS)."
+    },
+    "derivedFrom": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
+      "description": "Concepts philosophiques sources (IDs du registre conceptuel). Résolution SOUPLE et informative : les IDs de concepts évoluent indépendamment, l'échec de résolution n'invalide jamais la clé (rapporté comme avertissement par resolveProvenance)."
+    },
+    "provenance": {
+      "type": ["object", "null"],
+      "properties": {
+        "version": { "type": "string" },
+        "sourceType": { "type": "string", "enum": ["primary", "secondary", "genos"] },
+        "sourceDocument": { "type": "string" },
+        "sourceLocator": { "type": "string" },
+        "extractionStatus": { "type": "string" },
+        "recordedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
