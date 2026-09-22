@@ -1,0 +1,100 @@
+name: GenOS backend CI
+
+on:
+  push:
+    branches: [main, next, v3]
+  pull_request:
+    branches: [main, next, v3]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    name: Code quality gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        run: npm ci --prefix backend
+
+      - name: Code quality gate
+        working-directory: backend
+        run: python3 ../scripts/ci/check_code_quality.py --strict --report-json reports/quality.json
+
+      - name: Upload quality report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-report-${{ github.run_id }}
+          path: backend/reports/quality.json
+          retention-days: 14
+
+  procedural:
+    name: Procedural organism suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        run: npm ci --prefix backend
+
+      - name: Run procedural tests
+        working-directory: backend
+        run: npm run test:procedural
+
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: procedural-failure-${{ github.run_id }}
+          path: |
+            backend/tests/**/*.log
+            backend/*.log
+          retention-days: 3
+
+  validation:
+    name: Validation safety suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        run: npm ci --prefix backend
+
+      - name: Run validation suite
+        working-directory: backend
+        run: npm run test:validation
+
+  notes:
+    name: CI notes
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "No repository secrets required by this workflow."
+          echo "Tests run headless with ephemeral SQLite databases created in the test process."

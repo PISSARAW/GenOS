@@ -1,0 +1,85 @@
+name: GenOS backend validation
+
+on:
+  push:
+    branches: [main, next, v3]
+  pull_request:
+    branches: [main, next, v3]
+  workflow_dispatch:
+
+jobs:
+  quality:
+    name: Code quality gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install backend deps
+        run: npm ci --prefix backend
+
+      - name: Quality gate (all source files)
+        run: python3 scripts/ci/check_code_quality.py --strict --report-json reports/quality.json
+        working-directory: backend
+
+      - name: Upload quality report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-report
+          path: backend/reports/quality.json
+
+  procedural:
+    name: Procedural organism suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install backend deps
+        run: npm ci --prefix backend
+
+      - name: Run procedural test suite
+        run: npm run test:procedural
+        working-directory: backend
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: procedural-test-failure-logs
+          path: |
+            backend/tests/*.log
+            backend/*.log
+
+  validation:
+    name: Validation safety suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install backend deps
+        run: npm ci --prefix backend
+
+      - name: Run validation suite
+        run: npm run test:validation
+        working-directory: backend
+
+  notes:
+    name: Notes
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No secrets required for this workflow. Backend tests run headless with ephemeral SQLite."

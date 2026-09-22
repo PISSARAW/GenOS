@@ -1,0 +1,80 @@
+name: GenOS CI (backend + MCP)
+
+on:
+  push:
+    branches: ['v3', 'main']
+  pull_request:
+    branches: ['v3', 'main']
+
+# Visibilité : runs publics uniquement si le repo est public.
+# Secrets et variables d'environnement ne sont jamais exposés dans les logs.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+      - name: Quality gate (staged logic compatible with PR diffs)
+        working-directory: backend
+        run: python scripts/ci/check_code_quality.py --strict
+      - name: Backend validation suite
+        working-directory: backend
+        run: npm run test:validation
+      - name: Procedural organism suite
+        working-directory: backend
+        run: npm run test:procedural
+
+  mcp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install MCP deps
+        run: npm ci --prefix mcp
+      - name: MCP lease / dispatch enforcement
+        working-directory: mcp
+        run: node test_lease.js && node test_identity_lease.js && node test_node_cli_fallback.mjs
+
+  backend-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install all deps
+        run: npm ci && npm ci --prefix backend
+      - name: Backend smoke tests
+        working-directory: backend
+        run: node tests/test_backend.js
+      - name: Procedural primitives handler integration
+        working-directory: backend
+        run: node tests/test_primitive_handlers.js
+
+  # Champs secrets : aucun secret n'est requis pour les tests publics ci-dessus.
+  # Si plus tard un job dépend d'un secret (ex. MCP host distant), il doit :
+  #   - être marqué explicitement dans le workflow et la doc,
+  #   - échouer clairement quand le secret est absent,
+  #   - ne jamais récupérer/exposer le secret dans les logs (masking natif GitHub).
+  # policy: secrets-on-demand — aucun secret déclaré ici, aucun job ne les demande.
