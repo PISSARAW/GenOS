@@ -50,6 +50,9 @@ const suites = {
     ['causal bisection', 'test_automatic_bisection_recovery.js'],
     ['execution reconnection', 'test_execution_loop_reconnections.js']
   ],
+  continuity: [
+    ['mission continuity', 'test_mission_continuity.js']
+  ],
   providers: [
     ['provider registry', 'test_supported_model_providers.js'],
     ['Ollama protocol', 'test_ollama_native_protocol.js'],
@@ -77,6 +80,7 @@ suites.all = [
   ...suites.tenancy,
   ...suites.migration,
   ...suites.recovery,
+  ...suites.continuity,
   ...suites.providers,
   ...suites.concurrency,
   ...suites.epistemicScheduler
