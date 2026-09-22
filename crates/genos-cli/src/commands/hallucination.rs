@@ -59,80 +59,112 @@ fn has_evidence(claim: &Value) -> bool {
     }
 }
 
+fn extract_agent_id(val: &Value) -> String {
+    val.get("agent_id")
+        .or_else(|| val.get("id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown-agent")
+        .to_string()
+}
+
+fn extract_dissonance(val: &Value) -> f64 {
+    val.get("state")
+        .and_then(|s| {
+            s.get("conscience")
+                .and_then(|c| c.get("dissonance_level").or_else(|| c.get("dissonance")))
+                .or_else(|| s.get("dissonance_level"))
+                .or_else(|| s.get("dissonance"))
+        })
+        .or_else(|| {
+            val.get("conscience")
+                .and_then(|c| c.get("dissonance_level").or_else(|| c.get("dissonance")))
+        })
+        .or_else(|| val.get("dissonance_level"))
+        .or_else(|| val.get("dissonance"))
+        .and_then(|d| d.as_f64())
+        .unwrap_or(0.0)
+}
+
+fn collect_claims(val: &Value) -> Vec<&Value> {
+    let mut all_claims: Vec<&Value> = Vec::new();
+    if let Some(arr) = val.get("claims").and_then(|c| c.as_array()) {
+        all_claims.extend(arr);
+    }
+    if let Some(arr) = val.get("evidenceReport").or_else(|| val.get("evidence_report")).and_then(|r| r.get("claims")).and_then(|c| c.as_array()) {
+        all_claims.extend(arr);
+    }
+    if let Some(arr) = val.get("report").and_then(|r| r.get("claims")).and_then(|c| c.as_array()) {
+        all_claims.extend(arr);
+    }
+    all_claims
+}
+
+fn collect_unverified_claims(val: &Value) -> Vec<&Value> {
+    let mut all_unverified: Vec<&Value> = Vec::new();
+    if let Some(arr) = val.get("unverifiedClaims").or_else(|| val.get("unverified_claims")).and_then(|c| c.as_array()) {
+        all_unverified.extend(arr);
+    }
+    if let Some(arr) = val.get("evidenceReport").or_else(|| val.get("evidence_report")).and_then(|r| r.get("unverifiedClaims").or_else(|| r.get("unverified_claims"))).and_then(|c| c.as_array()) {
+        all_unverified.extend(arr);
+    }
+    all_unverified
+}
+
+fn analyze_claims(claims: &[&Value]) -> (usize, usize, Vec<String>, Vec<String>) {
+    let mut total_claims = 0;
+    let mut unsupported_claims = 0;
+    let mut unverified_claims = Vec::new();
+    let mut inconsistencies = Vec::new();
+
+    for c in claims {
+        total_claims += 1;
+        if !has_evidence(c) {
+            unsupported_claims += 1;
+            let statement = c.get("statement").or_else(|| c.get("claim")).and_then(|s| s.as_str()).unwrap_or("unnamed claim");
+            inconsistencies.push(format!("Claim lacks evidence or receipts: {}", statement));
+        }
+    }
+
+    (total_claims, unsupported_claims, unverified_claims, inconsistencies)
+}
+
+fn analyze_unverified_claims(unverified: &[&Value], unverified_claims: &mut Vec<String>, inconsistencies: &mut Vec<String>) {
+    for u in unverified {
+        let text = u.as_str().unwrap_or("unverified claim").to_string();
+        inconsistencies.push(format!("Explicit unverified claim declared: {}", text));
+        unverified_claims.push(text);
+    }
+}
+
+fn analyze_proposal(val: &Value, inconsistencies: &mut Vec<String>) {
+    let proposal = val.get("proposal")
+        .or_else(|| val.get("evidenceReport").and_then(|r| r.get("proposal")))
+        .or_else(|| val.get("evidence_report").and_then(|r| r.get("proposal")));
+    if let Some(p) = proposal {
+        if let Some(tests) = p.get("tests").and_then(|t| t.as_array()) {
+            let failing = tests.iter().filter(|t| {
+                t.get("exitCode").or_else(|| t.get("exit_code"))
+                    .and_then(|e| e.as_i64())
+                    .map(|c| c != 0)
+                    .unwrap_or(false)
+            }).count();
+            if failing > 0 {
+                inconsistencies.push(format!("Proposal contains {} failing test(s)", failing));
+            }
+        }
+    }
+}
+
 pub fn parse_snapshot(snapshot: &str) -> SnapshotAnalysis {
     if let Ok(content) = fs::read_to_string(snapshot) {
         if let Ok(val) = serde_json::from_str::<Value>(&content) {
-            let agent = val.get("agent_id")
-                .or_else(|| val.get("id"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown-agent")
-                .to_string();
-
-            let dissonance = val.get("state")
-                .and_then(|s| {
-                    s.get("conscience")
-                        .and_then(|c| c.get("dissonance_level").or_else(|| c.get("dissonance")))
-                        .or_else(|| s.get("dissonance_level"))
-                        .or_else(|| s.get("dissonance"))
-                })
-                .or_else(|| {
-                    val.get("conscience")
-                        .and_then(|c| c.get("dissonance_level").or_else(|| c.get("dissonance")))
-                })
-                .or_else(|| val.get("dissonance_level"))
-                .or_else(|| val.get("dissonance"))
-                .and_then(|d| d.as_f64())
-                .unwrap_or(0.0);
-
-            let mut total_claims = 0;
-            let mut unsupported_claims = 0;
-            let mut unverified_claims = Vec::new();
-            let mut inconsistencies = Vec::new();
-
-            let mut all_claims: Vec<&Value> = Vec::new();
-            if let Some(arr) = val.get("claims").and_then(|c| c.as_array()) {
-                all_claims.extend(arr);
-            }
-            if let Some(arr) = val.get("evidenceReport").or_else(|| val.get("evidence_report")).and_then(|r| r.get("claims")).and_then(|c| c.as_array()) {
-                all_claims.extend(arr);
-            }
-            if let Some(arr) = val.get("report").and_then(|r| r.get("claims")).and_then(|c| c.as_array()) {
-                all_claims.extend(arr);
-            }
-
-            for c in all_claims {
-                total_claims += 1;
-                if !has_evidence(c) {
-                    unsupported_claims += 1;
-                    let statement = c.get("statement").or_else(|| c.get("claim")).and_then(|s| s.as_str()).unwrap_or("unnamed claim");
-                    inconsistencies.push(format!("Claim lacks evidence or receipts: {}", statement));
-                }
-            }
-
-            let mut all_unverified: Vec<&Value> = Vec::new();
-            if let Some(arr) = val.get("unverifiedClaims").or_else(|| val.get("unverified_claims")).and_then(|c| c.as_array()) {
-                all_unverified.extend(arr);
-            }
-            if let Some(arr) = val.get("evidenceReport").or_else(|| val.get("evidence_report")).and_then(|r| r.get("unverifiedClaims").or_else(|| r.get("unverified_claims"))).and_then(|c| c.as_array()) {
-                all_unverified.extend(arr);
-            }
-            for u in all_unverified {
-                let text = u.as_str().unwrap_or("unverified claim").to_string();
-                inconsistencies.push(format!("Explicit unverified claim declared: {}", text));
-                unverified_claims.push(text);
-            }
-
-            let proposal = val.get("proposal")
-                .or_else(|| val.get("evidenceReport").and_then(|r| r.get("proposal")))
-                .or_else(|| val.get("evidence_report").and_then(|r| r.get("proposal")));
-            if let Some(p) = proposal {
-                if let Some(tests) = p.get("tests").and_then(|t| t.as_array()) {
-                    let failing = tests.iter().filter(|t| t.get("exitCode").or_else(|| t.get("exit_code")).and_then(|e| e.as_i64()).map(|c| c != 0).unwrap_or(false)).count();
-                    if failing > 0 {
-                        inconsistencies.push(format!("Proposal contains {} failing test(s)", failing));
-                    }
-                }
-            }
+            let agent = extract_agent_id(&val);
+            let dissonance = extract_dissonance(&val);
+            let claims = collect_claims(&val);
+            let (total_claims, unsupported_claims, mut unverified_claims, mut inconsistencies) = analyze_claims(&claims);
+            let unverified = collect_unverified_claims(&val);
+            analyze_unverified_claims(&unverified, &mut unverified_claims, &mut inconsistencies);
+            analyze_proposal(&val, &mut inconsistencies);
 
             return SnapshotAnalysis {
                 agent_id: agent,

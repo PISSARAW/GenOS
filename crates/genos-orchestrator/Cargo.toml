@@ -20,6 +20,8 @@ genos-sensorimotor = { path = "../genos-sensorimotor" }
 genos-dna = { path = "../genos-dna" }
 genos-api = { path = "../genos-api", optional = true }
 rand = "0.10"
+tokio = { version = "1", features = ["sync", "macros", "time"] }
+crossbeam = "0.8"
 
 [features]
 # Accès à la couche serveur/sécurité de GenOS (tokio + reqwest).

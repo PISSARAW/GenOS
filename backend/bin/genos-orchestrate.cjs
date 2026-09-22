@@ -130,129 +130,215 @@ async function prepareRuntime(initDb) {
 
 async function executeMission(db, state) {
   await initializeMission({ db, action, orchestratorId, task });
-  const actionContext = { db, action, request, task, orchestratorId, id, repoRoot: path.resolve(__dirname, '../..'), bridgePath: __filename, waitForCompletion };
-  let handled = false;
-  try {
-    handled = await handleAction(actionContext);
-  } finally {
-    // A delegated worker that fails mid-dispatch must still be handed to
-    // cleanupFailure: startWorker sets delegatedWorkerId before its mission
-    // starts, so propagate it even when handleAction rejects.
-    if (actionContext.delegatedWorkerId) state.delegatedWorkerId = actionContext.delegatedWorkerId;
-    if (actionContext.reusedWorker) state.reusedWorker = true;
+  const actionContext = buildActionContext();
+  const handled = await runActionWithCleanup(actionContext, state);
+  if (handled) return;
+
+  const nceEnhancements = await applyNceEnhancements();
+  const { enhancedPrompt, nceMetadata } = buildEnhancedPrompt(nceEnhancements);
+  const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs } = await prepareMission({ db, enhancedPrompt });
+  await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs });
+  const agents = await waitForCompletion(db);
+  const outcome = summarizeAgents(agents);
+  const { continuity, completionGate } = await evaluateMissionContinuity({ db, id, task, outcome });
+  const { telemetryRows, runs, coverage } = await gatherTelemetryAndCoverage(db, id);
+  const missionSuccess = completionGate.allowed === true;
+  const finalVerdict = missionSuccess ? outcome.outcome : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.outcome);
+  emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate });
+  if (!missionSuccess) process.exitCode = 2;
+
+  function buildActionContext() {
+    return { db, action, request, task, orchestratorId, id, repoRoot: path.resolve(__dirname, '../..'), bridgePath: __filename, waitForCompletion };
   }
-  if (handled) {
+
+  async function runActionWithCleanup(actionContext, state) {
+    let handled = false;
+    try {
+      handled = await handleAction(actionContext);
+    } finally {
+      if (actionContext.delegatedWorkerId) state.delegatedWorkerId = actionContext.delegatedWorkerId;
+      if (actionContext.reusedWorker) state.reusedWorker = true;
+    }
+    if (handled) {
+      emitTopologyEvent(actionContext.orchestratorId);
+    }
+    return handled;
+  }
+
+  function emitTopologyEvent(orchestratorId) {
     const topologyEvent = {
       dispatch_team: ['TOPOLOGY_DISPATCH_ACCEPTED', 'DISPATCH_A_TEAM', 'A-Team topology accepted.'],
       dispatch_trinity: ['TOPOLOGY_DISPATCH_ACCEPTED', 'DISPATCH_TRINITY', 'Trinity topology accepted.'],
       dispatch_biological: ['BIOLOGICAL_MISSION_COMPLETED', 'COMPLETE_BIOLOGICAL_MODE', 'Biological topology completed.']
     }[action];
     if (topologyEvent) telemetry.emitEvent({ eventType: topologyEvent[0], agentId: orchestratorId, action: topologyEvent[1], detail: topologyEvent[2], payload: { action }, severity: 'info' });
-    return;
   }
 
-  // NCE: enhance the mission with creative ecology before agent creation
-  const nceIntegration = require('../src/services/nceIntegrationService');
-  const { buildPromptEnrichment, hasResult } = require('../src/services/ncePromptService');
-  let nceEnhancements = {};
-  try {
-    nceEnhancements = await nceIntegration.enhanceMissionWithNCE({
-      prompt: task,
-      domain: request.domain || request.problem_domain,
-      keywords: request.keywords || [],
-      budget: request.executionBudget || request.execution_budget || {},
-      explorationDomains: request.exploration_domains || request.explorationDomains,
-      knownConcepts: request.known_concepts || request.knownConcepts,
-      existingCapabilities: request.existing_capabilities || request.existingCapabilities,
-      genome: request.agent_dna || request.agentDna,
-      environment: request.environment_context || request.environmentContext,
-      culturalTraits: request.cultural_traits || request.culturalTraits,
-      nceOptions: request.nce_options || request.nceOptions,
-    }, db);
-  } catch (nceErr) {
-    telemetry.emitEvent({ eventType: 'NCE_ENHANCEMENT_ERROR', agentId: orchestratorId, action: 'NCE_SKIPPED', detail: nceErr.message, severity: 'warn' });
-  }
-
-  // NCE: Build enhanced prompt with creative ecology proposals
-  let enhancedPrompt = task;
-  const nceMetadata = {};
-  if (nceEnhancements && Object.keys(nceEnhancements).length > 0) {
-    const promptAdditions = buildPromptEnrichment(nceEnhancements);
-    if (promptAdditions) {
-      enhancedPrompt = task + promptAdditions;
+  async function applyNceEnhancements() {
+    const nceIntegration = require('../src/services/nceIntegrationService');
+    const nceInput = buildNceInput();
+    try {
+      return await nceIntegration.enhanceMissionWithNCE(nceInput, db);
+    } catch (nceErr) {
+      telemetry.emitEvent({ eventType: 'NCE_ENHANCEMENT_ERROR', agentId: orchestratorId, action: 'NCE_SKIPPED', detail: nceErr.message, severity: 'warn' });
+      return {};
     }
-    if (hasResult(nceEnhancements.curiosity)) nceMetadata.curiosity = nceEnhancements.curiosity.selectedDomainId;
-    if (hasResult(nceEnhancements.representations)) nceMetadata.representations = nceEnhancements.representations.length;
-    if (hasResult(nceEnhancements.exaptations)) nceMetadata.exaptations = nceEnhancements.exaptations.length;
-    if (hasResult(nceEnhancements.environments)) nceMetadata.environments = nceEnhancements.environments.length;
-    if (hasResult(nceEnhancements.culturalTraits)) nceMetadata.culturalTraits = nceEnhancements.culturalTraits.length;
   }
 
-  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, enhancedPrompt);
-  await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = COALESCE(metadata_json, '{}') WHERE id = ?`, enhancedPrompt, id);
-  const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
-  const requestTimeoutMs = policyRequest.timeoutMs || request.timeoutMs;
-  const missionBudget = { ...(policyRequest.executionBudget || policyRequest.execution_budget || {}) };
-  if (requestTimeoutMs && !missionBudget.latencyMs) {
-    missionBudget.latencyMs = Math.max(1000, Number(requestTimeoutMs) - 4000);
+  function buildNceInput() {
+    const get = (obj, ...keys) => {
+      for (const k of keys) {
+        const v = obj?.[k];
+        if (v !== undefined && v !== null) return v;
+      }
+      return undefined;
+    };
+    return {
+      prompt: task,
+      domain: get(request, 'domain', 'problem_domain'),
+      keywords: request.keywords || [],
+      budget: get(request, 'executionBudget', 'execution_budget') || {},
+      explorationDomains: get(request, 'exploration_domains', 'explorationDomains'),
+      knownConcepts: get(request, 'known_concepts', 'knownConcepts'),
+      existingCapabilities: get(request, 'existing_capabilities', 'existingCapabilities'),
+      genome: get(request, 'agent_dna', 'agentDna'),
+      environment: get(request, 'environment_context', 'environmentContext'),
+      culturalTraits: get(request, 'cultural_traits', 'culturalTraits'),
+      nceOptions: get(request, 'nce_options', 'nceOptions'),
+    };
   }
-  const executor = String(policyRequest.executor || request.executor || '').trim().toLowerCase();
-  const useLocalRuntime = executor === 'local' || policyRequest.local_runtime === true
-    || /^(1|true)$/i.test(String(process.env.GENOS_ORCHESTRATOR_LOCAL || ''))
-    || String(process.env.GENOS_AGENT_EXECUTOR || '').trim().toLowerCase() === 'local';
-  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: enhancedPrompt, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider });
-  const agents = await waitForCompletion(db);
-  const outcome = summarizeAgents(agents);
-  // Mission continuity: the homeostasis contract is the completion AUTHORITY.
-  // outcome.success alone can never finalize a mission: the organism must
-  // satisfy its invariants AND its required evidence. An unsatisfied contract
-  // downgrades the verdict — success is never fabricated.
-  let continuity = null;
-  let completionGate = { allowed: false, reason: 'continuity evaluation did not run' };
-  try {
-    const mission = missionContinuity.buildMissionInput(id, task, {
+
+  function buildEnhancedPrompt(nceEnhancements) {
+    const { buildPromptEnrichment, hasResult } = require('../src/services/ncePromptService');
+    let enhancedPrompt = task;
+    const nceMetadata = {};
+    if (nceEnhancements && Object.keys(nceEnhancements).length > 0) {
+      const promptAdditions = buildPromptEnrichment(nceEnhancements);
+      if (promptAdditions) enhancedPrompt = task + promptAdditions;
+      if (hasResult(nceEnhancements.curiosity)) nceMetadata.curiosity = nceEnhancements.curiosity.selectedDomainId;
+      if (hasResult(nceEnhancements.representations)) nceMetadata.representations = nceEnhancements.representations.length;
+      if (hasResult(nceEnhancements.exaptations)) nceMetadata.exaptations = nceEnhancements.exaptations.length;
+      if (hasResult(nceEnhancements.environments)) nceMetadata.environments = nceEnhancements.environments.length;
+      if (hasResult(nceEnhancements.culturalTraits)) nceMetadata.culturalTraits = nceEnhancements.culturalTraits.length;
+    }
+    return { enhancedPrompt, nceMetadata };
+  }
+
+  async function prepareMission(options = {}) {
+    const { db, enhancedPrompt } = options;
+    await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, enhancedPrompt);
+    await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = COALESCE(metadata_json, '{}') WHERE id = ?`, enhancedPrompt, id);
+    const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
+    const requestTimeoutMs = policyRequest.timeoutMs || request.timeoutMs;
+    const missionBudget = { ...(policyRequest.executionBudget || policyRequest.execution_budget || {}) };
+    applyLatencyBudget(missionBudget, requestTimeoutMs);
+    const useLocalRuntime = checkLocalRuntime();
+    return { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs };
+  }
+
+  function applyLatencyBudget(budget, timeoutMs) {
+    if (timeoutMs && !budget.latencyMs) {
+      budget.latencyMs = Math.max(1000, Number(timeoutMs) - 4000);
+    }
+  }
+
+  function checkLocalRuntime() {
+    const executor = String(policyRequest.executor || request.executor || '').trim().toLowerCase();
+    return executor === 'local' || policyRequest.local_runtime === true
+      || /^(1|true)$/i.test(String(process.env.GENOS_ORCHESTRATOR_LOCAL || ''))
+      || String(process.env.GENOS_AGENT_EXECUTOR || '').trim().toLowerCase() === 'local';
+  }
+
+  async function startOrchestratorMission(options = {}) {
+    const { db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs } = options;
+    await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: enhancedPrompt, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider });
+  }
+
+  async function evaluateMissionContinuity(options = {}) {
+    const { db, id, task, outcome } = options;
+    let continuity = null;
+    let completionGate = { allowed: false, reason: 'continuity evaluation did not run' };
+    try {
+      const context = buildMissionContext(outcome);
+      const mission = missionContinuity.buildMissionInput(id, task, {
+        completionContract: context.completionContract,
+        invariants: context.invariants,
+        safetyConstraints: context.safetyConstraints,
+        context: context.context
+      });
+      const evaluation = await missionContinuity.evaluateContinuity(db, mission);
+      continuity = buildContinuity(evaluation);
+      const gate = await missionContinuity.transitionMissionToComplete(db, { organism: evaluation.organism, mission, context: context.context });
+      completionGate = { allowed: gate.allowed, reason: gate.reason || null };
+      emitCompletionEvent({ id, gateAllowed: gate.allowed, evaluation, continuity, completionGate });
+    } catch (continuityError) {
+      continuity = { status: 'unknown', error: continuityError.message };
+      completionGate = { allowed: false, reason: continuityError.message };
+    }
+    return { continuity, completionGate };
+  }
+
+  function buildMissionContext(outcome) {
+    return {
       completionContract: policyRequest.completionContract || request.completionContract || null,
+      invariants: policyRequest.invariants || request.invariants || null,
+      safetyConstraints: policyRequest.safetyConstraints || request.safetyConstraints || null,
       context: {
         missionOutcome: outcome.success === true,
         flags: { missionOutcome: outcome.success === true, testsPassed: outcome.success === true },
-        evidence: outcome.success === true ? ['mission_outcome'] : []
+        evidence: outcome.success === true ? ['mission_outcome'] : [],
+        functionalChecks: outcome.functionalChecks || {},
+        structuralChecks: outcome.structuralChecks || {}
       }
-    });
-    const evaluation = await missionContinuity.evaluateContinuity(db, mission);
-    continuity = {
+    };
+  }
+
+  function buildContinuity(evaluation) {
+    return {
       status: evaluation.status,
       homeostasisSatisfied: evaluation.state.homeostasisSatisfied,
       missingEvidence: evaluation.state.evidence ? evaluation.state.evidence.missing : [],
       failedInvariants: evaluation.state.failedInvariants.map((f) => f.label || f.id)
     };
-    const gate = await missionContinuity.transitionMissionToComplete(db, { organism: evaluation.organism, mission });
-    completionGate = { allowed: gate.allowed, reason: gate.reason || null };
+  }
+
+  function emitCompletionEvent({ id, gateAllowed, evaluation, continuity, completionGate }) {
     telemetry.emitEvent({
-      eventType: gate.allowed ? 'MISSION_COMPLETED' : 'MISSION_COMPLETION_BLOCKED',
+      eventType: gateAllowed ? 'MISSION_COMPLETED' : 'MISSION_COMPLETION_BLOCKED',
       agentId: id,
-      action: gate.allowed ? 'COMPLETE' : 'COMPLETION_GATE',
-      detail: gate.allowed
+      action: gateAllowed ? 'COMPLETE' : 'COMPLETION_GATE',
+      detail: gateAllowed
         ? 'Mission homeostasis satisfied: completion authorized.'
         : `Completion blocked by homeostasis gate: ${evaluation.status}`,
       payload: { ...continuity, completionGate },
       sessionId: id,
-      severity: gate.allowed ? 'info' : 'warning'
+      severity: gateAllowed ? 'info' : 'warning'
     });
-  } catch (continuityError) {
-    continuity = { status: 'unknown', error: continuityError.message };
-    completionGate = { allowed: false, reason: continuityError.message };
   }
-  const telemetryRows = await db.all('SELECT event_type, action, detail, severity, payload_json FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
-  const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
-  const coverage = await orchestrationCoverage.auditMission(db, id).catch((err) => ({ error: err.message, verdict: 'audit-incomplete' }));
-  telemetry.emitEvent({ eventType: 'ORCHESTRATION_AUDIT_COMPLETED', agentId: id, action: 'COVERAGE_AUDIT', detail: `Orchestration coverage verdict: ${coverage.verdict}`, severity: 'info', payload: { observedTools: coverage.protocol?.observedCount || 0, verdict: coverage.verdict } });
-  // Completion authority: homeostasis gate overrides outcome.success. A
-  // mission whose contract is unsatisfied is never reported successful, even
-  // when every agent reached a terminal 'completed' status.
-  const missionSuccess = outcome.success === true && completionGate.allowed === true;
-  const finalVerdict = missionSuccess ? outcome.outcome : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.outcome);
-  process.stdout.write(JSON.stringify({ orchestratorId: id, agents, success: missionSuccess, verdict: finalVerdict, completionGate, continuity, telemetry: telemetryRows, nce: { enhancementsApplied: Object.keys(nceEnhancements).filter((k) => nceEnhancements[k] && k !== 'error').length, curiousDomains: nceEnhancements.curiousDomains?.length || 0, representations: nceEnhancements.representations?.length || 0, exaptations: nceEnhancements.exaptations?.length || 0, environments: nceEnhancements.environmentPopulation?.length || 0 }, token_usage: tokenUsage(runs), coverage }));
-  if (!missionSuccess) process.exitCode = 2;
+
+  async function gatherTelemetryAndCoverage(db, id) {
+    const telemetryRows = await db.all('SELECT event_type, action, detail, severity, payload_json FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
+    const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
+    const coverage = await orchestrationCoverage.auditMission(db, id).catch((err) => ({ error: err.message, verdict: 'audit-incomplete' }));
+    telemetry.emitEvent({ eventType: 'ORCHESTRATION_AUDIT_COMPLETED', agentId: id, action: 'COVERAGE_AUDIT', detail: `Orchestration coverage verdict: ${coverage.verdict}`, severity: 'info', payload: { observedTools: coverage.protocol?.observedCount || 0, verdict: coverage.verdict } });
+    return { telemetryRows, runs, coverage };
+  }
+
+  function emitFinalTelemetry(options = {}) {
+    const { telemetryRows, runs, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate } = options;
+    const nceInfo = buildNceInfo(nceEnhancements);
+    process.stdout.write(JSON.stringify({ orchestratorId: id, agents, success: missionSuccess, verdict: finalVerdict, completionGate, continuity, telemetry: telemetryRows, nce: nceInfo, token_usage: tokenUsage(runs), coverage }));
+  }
+
+  function buildNceInfo(nceEnhancements) {
+    return {
+      enhancementsApplied: Object.keys(nceEnhancements).filter((k) => nceEnhancements[k] && k !== 'error').length,
+      curiousDomains: nceEnhancements.curiousDomains?.length || 0,
+      representations: nceEnhancements.representations?.length || 0,
+      exaptations: nceEnhancements.exaptations?.length || 0,
+      environments: nceEnhancements.environmentPopulation?.length || 0
+    };
+  }
 }
 
 async function cleanupFailure(db, state, error) {

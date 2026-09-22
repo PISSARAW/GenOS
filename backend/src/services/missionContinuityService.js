@@ -64,20 +64,26 @@ async function fetchMissionAgents(db, missionId) {
 async function assembleOrganism(db, mission) {
   const agents = await fetchMissionAgents(db, mission.id);
   const cells = agents.map(agentToCell);
-  return newOrganism({
-    id: `organism_${mission.id}`,
-    genome: {
-      objective: mission.objective || mission.task || null,
-      invariants: mission.invariants || [],
-      completionContract: mission.completionContract || null,
-      safetyConstraints: mission.safetyConstraints || []
-    },
-    tissues: cells
-  });
+  const genome = {
+    objective: mission.objective || mission.task || null,
+    invariants: mission.invariants || [],
+    completionContract: mission.completionContract || null,
+    safetyConstraints: mission.safetyConstraints || []
+  };
+  return newOrganism({ id: `organism_${mission.id}`, genome, tissues: cells });
 }
 
 function buildMissionInput(missionId, task, extras = {}) {
-  return { id: missionId, objective: task, ...extras };
+  const { completionContract, invariants, safetyConstraints, context, ...rest } = extras;
+  return {
+    id: missionId,
+    objective: task,
+    completionContract,
+    invariants,
+    safetyConstraints,
+    context,
+    ...rest
+  };
 }
 
 async function attachContract(organism, mission) {

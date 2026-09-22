@@ -29,6 +29,8 @@ const {
   getWorkspaceFiles
 } = require('./workspaceControllerFiles');
 
+const { getDiff, bisect, rollback, previewRollback } = require('./workspaceControllerBisection');
+
 async function listWorkspaces(req, res) {
   const db = await getDatabase();
   const scope = req.tenant
@@ -82,27 +84,40 @@ async function listWorkspaces(req, res) {
   res.json(result);
 }
 
-async function createWorkspace(req, res) {
-  let { name, language = 'TypeScript', description = '', visibility = 'Private', tags } = req.body || {};
-  if (typeof name === 'string') name = sanitizeString(name).trim();
-  if (typeof description === 'string') description = sanitizeString(description);
-  if (typeof language === 'string') language = sanitizeString(language).trim();
-  if (typeof name !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/.test(name) || path.basename(name) !== name || name === '.' || name === '..') {
-    return res.status(400).json({ error: { code: 'INVALID_NAME', message: 'Workspace name must be 1-128 safe filename characters.' } });
-  }
-  if (typeof language !== 'string' || !language || language.length > 64 || typeof description !== 'string' || description.length > 10_000 || !['Private', 'Public'].includes(visibility)) {
-    return res.status(400).json({ error: { code: 'INVALID_WORKSPACE_FIELDS', message: 'language, description, and visibility are invalid.' } });
-  }
+function validateWorkspaceInput(options = {}) {
+  const { name, language, description, visibility } = options;
+  let cleanName = name;
+  let cleanLanguage = language;
+  let cleanDescription = description;
 
+  if (typeof cleanName === 'string') cleanName = sanitizeString(cleanName).trim();
+  if (typeof cleanDescription === 'string') cleanDescription = sanitizeString(cleanDescription);
+  if (typeof cleanLanguage === 'string') cleanLanguage = sanitizeString(cleanLanguage).trim();
+  if (typeof cleanName !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/.test(cleanName) || path.basename(cleanName) !== cleanName || cleanName === '.' || cleanName === '..') {
+    return { error: { code: 'INVALID_NAME', message: 'Workspace name must be 1-128 safe filename characters.' } };
+  }
+  if (typeof cleanLanguage !== 'string' || !cleanLanguage || cleanLanguage.length > 64 || typeof cleanDescription !== 'string' || cleanDescription.length > 10_000 || !['Private', 'Public'].includes(visibility)) {
+    return { error: { code: 'INVALID_WORKSPACE_FIELDS', message: 'language, description, and visibility are invalid.' } };
+  }
+  return { name: cleanName, language: cleanLanguage, description: cleanDescription, visibility };
+}
+
+function buildCleanTags(language, tags) {
   let cleanTags = [language.toLowerCase()];
   if (Array.isArray(tags)) {
     cleanTags = tags.map(t => (typeof t === 'string' ? sanitizeString(t) : String(t)));
   }
+  return cleanTags;
+}
 
-  const db = await getDatabase();
+function checkTenantScope(req, res) {
   if ((req.headers['x-organization-id'] || req.headers['x-project-id']) && !req.tenant) {
     return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A valid organization and project scope is required' } });
   }
+  return null;
+}
+
+function buildWorkspaceIdAndPath(name, req) {
   const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
   const tenantKey = req.tenant ? `${req.tenant.organizationId}:${req.tenant.projectId}` : '';
   const suffix = tenantKey ? `-${crypto.createHash('sha256').update(tenantKey).digest('hex').slice(0, 8)}` : '';
@@ -110,29 +125,34 @@ async function createWorkspace(req, res) {
   const wsPath = req.tenant
     ? path.join(WORKSPACES_ROOT, '.genos-tenants', req.tenant.organizationId.replace(/[^a-zA-Z0-9._-]/g, '_'), req.tenant.projectId.replace(/[^a-zA-Z0-9._-]/g, '_'), name)
     : path.join(WORKSPACES_ROOT, name);
+  return { id, wsPath };
+}
 
-  // Defense in depth: the name whitelist above already forbids separators and
-  // `..`, but never let a derived workspace path escape the workspaces root.
+function validateWorkspacePath(wsPath) {
   if (!isPathContained(WORKSPACES_ROOT, wsPath)) {
-    return res.status(400).json({ error: { code: 'WORKSPACE_PATH_ESCAPE', message: 'Workspace path escapes the workspaces root.' } });
+    return { error: { code: 'WORKSPACE_PATH_ESCAPE', message: 'Workspace path escapes the workspaces root.' } };
   }
+  return null;
+}
 
-  try {
-    if (!fs.existsSync(wsPath)) {
-      fs.mkdirSync(wsPath, { recursive: true });
-    }
-    const markerPath = path.join(wsPath, '.genos-workspace');
-    if (!fs.existsSync(markerPath)) fs.writeFileSync(markerPath, 'GenOS managed workspace\n');
-  } catch (err) {
-    return res.status(500).json({ error: { code: 'WORKSPACE_CREATE_FAILED', message: err.message } });
+function createWorkspaceDirectory(wsPath) {
+  if (!fs.existsSync(wsPath)) {
+    fs.mkdirSync(wsPath, { recursive: true });
   }
+  const markerPath = path.join(wsPath, '.genos-workspace');
+  if (!fs.existsSync(markerPath)) fs.writeFileSync(markerPath, 'GenOS managed workspace\n');
+}
 
+async function persistWorkspace(options = {}) {
+  const { db, id, name, wsPath, visibility, language, description, cleanTags, req } = options;
   await db.run(
     `INSERT INTO workspaces (id, name, path, visibility, language, description, tags, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET name=excluded.name, path=excluded.path, visibility=excluded.visibility, language=excluded.language, description=excluded.description, tags=excluded.tags, updated_at=CURRENT_TIMESTAMP`,
     id, name, wsPath, visibility, language, description, JSON.stringify(cleanTags), req.tenant?.organizationId || null, req.tenant?.projectId || null
   );
+}
 
+function emitWorkspaceCreatedEvent(name, id) {
   telemetry.emitEvent({
     eventType: 'WORKSPACE_CREATED',
     agentId: 'workspace_controller',
@@ -140,6 +160,35 @@ async function createWorkspace(req, res) {
     detail: `Created workspace: ${name} (${id})`,
     severity: 'info'
   });
+}
+
+async function createWorkspace(req, res) {
+  let { name, language = 'TypeScript', description = '', visibility = 'Private', tags } = req.body || {};
+
+  const validation = validateWorkspaceInput({ name, language, description, visibility });
+  if (validation.error) return res.status(400).json(validation);
+  ({ name, language, description, visibility } = validation);
+
+  const cleanTags = buildCleanTags(language, tags);
+
+  const db = await getDatabase();
+  const tenantError = checkTenantScope(req, res);
+  if (tenantError) return tenantError;
+
+  const { id, wsPath } = buildWorkspaceIdAndPath(name, req);
+
+  const pathError = validateWorkspacePath(wsPath);
+  if (pathError) return res.status(400).json(pathError);
+
+  try {
+    createWorkspaceDirectory(wsPath);
+  } catch (err) {
+    return res.status(500).json({ error: { code: 'WORKSPACE_CREATE_FAILED', message: err.message } });
+  }
+
+  await persistWorkspace({ db, id, name, wsPath, visibility, language, description, cleanTags, req });
+
+  emitWorkspaceCreatedEvent(name, id);
 
   res.status(201).json({
     success: true,
@@ -224,135 +273,6 @@ async function restoreSnapshot(req, res) {
     const code = /not found/i.test(error.message) ? 'SNAPSHOT_NOT_FOUND' : 'SNAPSHOT_RESTORE_FAILED';
     res.status(code === 'SNAPSHOT_NOT_FOUND' ? 404 : 500).json({ error: { code, message: error.message } });
   }
-}
-
-const bisectionService = require('../services/bisectionService');
-const { MAX_BISECTION_SNAPSHOTS } = bisectionService;
-
-async function getDiff(req, res, next) {
-  try {
-    const db = await getDatabase();
-    const base = req.query.base;
-    const target = req.query.target;
-    if (!base || !target) return res.status(400).json({ error: { code: 'MISSING_BRANCHES', message: 'Both base and target workspaces are required.' } });
-    const scope = req.tenant
-      ? { clause: 'organization_id = ? AND project_id = ?', params: [req.tenant.organizationId, req.tenant.projectId] }
-      : { clause: 'organization_id IS NULL AND project_id IS NULL', params: [] };
-    const baseWorkspace = await db.get(`SELECT * FROM workspaces WHERE ${scope.clause} AND (id = ? OR name = ?)`, ...scope.params, base, base);
-    const targetWorkspace = await findWorkspace(db, req, target);
-    if (!targetWorkspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${target}` } });
-    if (baseWorkspace) {
-      const sameWorkspace = baseWorkspace.id === targetWorkspace.id;
-      const [baseSnapshot, targetSnapshot] = await Promise.all([
-        db.get(`SELECT s.*, w.path AS workspace_path FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE s.workspace_id = ? ORDER BY s.step_number ${sameWorkspace ? 'ASC' : 'DESC'} LIMIT 1`, baseWorkspace.id),
-        db.get('SELECT s.*, w.path AS workspace_path FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE s.workspace_id = ? ORDER BY s.step_number DESC LIMIT 1', targetWorkspace.id)
-      ]);
-      if (baseSnapshot && targetSnapshot) {
-        const [baseManifest, targetManifest] = await Promise.all([
-          snapshotStore.readManifest(baseSnapshot),
-          snapshotStore.readManifest(targetSnapshot)
-        ]);
-        const baseFiles = new Map(baseManifest.files.map((file) => [file.path, file]));
-        const targetFiles = new Map(targetManifest.files.map((file) => [file.path, file]));
-        const files = [...new Set([...baseFiles.keys(), ...targetFiles.keys()])].sort();
-        const manifestDiff = files
-          .filter((file) => baseFiles.get(file)?.hash !== targetFiles.get(file)?.hash)
-          .map((file) => ({
-            file,
-            additions: targetFiles.has(file) && !baseFiles.has(file) ? 1 : 0,
-            deletions: baseFiles.has(file) && !targetFiles.has(file) ? 1 : 0,
-            category: 'Snapshot manifest',
-            collisionRisk: 'UNKNOWN'
-          }));
-        return res.json(bisectionService.diffWorkspaces(baseWorkspace.name, targetWorkspace.name, { diffEntries: manifestDiff }));
-      }
-    }
-    const trajectories = await db.all('SELECT * FROM trajectories WHERE workspace_id = ? ORDER BY created_at ASC', targetWorkspace.id);
-    const snapshots = await db.all('SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC', targetWorkspace.id);
-    const diffEntries = [];
-    for (const trajectory of trajectories) {
-      let lines = [];
-      try { lines = JSON.parse(trajectory.diff_lines || '[]'); } catch (_) {}
-      const additions = lines.filter((line) => (line.type || line.kind) === 'addition' || String(line.content || line.text || line).startsWith('+')).length;
-      const deletions = lines.filter((line) => (line.type || line.kind) === 'deletion' || String(line.content || line.text || line).startsWith('-')).length;
-      diffEntries.push({ file: trajectory.diff_file || 'unknown', category: 'Trajectory', additions, deletions, collisionRisk: 'UNKNOWN', author: trajectory.author_name, notes: trajectory.title });
-    }
-    for (const snapshot of snapshots) {
-      if (!snapshot.diff_summary) continue;
-      diffEntries.push({ file: snapshot.label, category: 'Snapshot', additions: 0, deletions: 0, collisionRisk: 'UNKNOWN', author: snapshot.author, notes: snapshot.diff_summary });
-    }
-    const diff = bisectionService.diffWorkspaces(base, targetWorkspace.name, { diffEntries });
-    res.json(diff);
-  } catch (err) {
-    next(err);
-  }
-}
-
-async function bisect(req, res, next) {
-  try {
-    const { workspaceId, testCommand, timeoutMs } = req.body || {};
-    if (!workspaceId || !String(testCommand || '').trim()) return res.status(400).json({ error: { code: 'BISECTION_INPUT_REQUIRED', message: 'workspaceId and testCommand are required.' } });
-    if (!snapshotStore.isAllowedTestCommand(testCommand)) {
-      return res.status(400).json({ error: { code: 'TEST_COMMAND_NOT_ALLOWED', message: 'testCommand must be one of the allow-listed test commands (npm test, npm run check, pytest, cargo test).' } });
-    }
-    const normalizedCommand = String(testCommand).trim().replace(/\s+/g, ' ');
-    const db = await getDatabase();
-    const workspace = await findWorkspace(db, req, workspaceId);
-    if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${workspaceId}` } });
-    const rows = await db.all(
-      'SELECT s.*, w.path AS workspace_path FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE s.workspace_id = ? ORDER BY s.step_number ASC LIMIT ?',
-      workspace.id,
-      MAX_BISECTION_SNAPSHOTS + 1
-    );
-    if (rows.length > MAX_BISECTION_SNAPSHOTS) {
-      return res.status(413).json({ error: { code: 'BISECTION_HISTORY_TOO_LARGE', message: `Snapshot history exceeds the ${MAX_BISECTION_SNAPSHOTS}-snapshot bisection limit.` } });
-    }
-    const history = rows.filter((row) => {
-      try {
-        const metadata = JSON.parse(row.metadata || '{}');
-        return metadata.storage === 'durable-filesystem' && metadata.manifestPath && fs.existsSync(metadata.manifestPath);
-      } catch (_) {
-        return false;
-      }
-    });
-    if (history.length < 2) return res.status(409).json({ error: { code: 'NO_DURABLE_SNAPSHOTS', message: 'Capture at least two durable snapshots before running bisection.' } });
-    const result = await bisectionService.autoBisectWorkspaceAnomaly(db, {
-      workspaceId: workspace.id,
-      workspaceRoot: workspace.path,
-      testCommand: normalizedCommand,
-      snapshotHistory: history,
-      timeoutMs: Math.min(Number(timeoutMs) || 30000, 120000),
-      autoRollback: false
-    });
-    telemetry.emitEvent({ eventType: 'WORKSPACE_BISECTION_COMPLETED', agentId: req.user?.username || 'studio', action: 'BISECTION', detail: `Bisection completed for ${workspace.id}`, payload: { workspaceId: workspace.id, command: normalizedCommand, result } });
-    res.json(result);
-  } catch (error) { next(error); }
-}
-
-async function rollback(req, res, next) {
-  try {
-    const { workspaceId, step, stepNumber, snapshotId } = req.body || {};
-    const id = workspaceId || req.params.id;
-    const db = await getDatabase();
-    const workspace = await findWorkspace(db, req, id);
-    if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${id}` } });
-    const reference = snapshotId ?? stepNumber ?? step;
-    if (reference == null) return res.status(400).json({ error: { code: 'SNAPSHOT_REQUIRED', message: 'A snapshot step or id is required.' } });
-    const result = await snapshotStore.restore({ db, workspace, reference, author: req.user?.username || 'studio' });
-    telemetry.emitEvent({ eventType: 'WORKSPACE_ROLLBACK_COMPLETED', agentId: req.user?.username || 'studio', action: 'ROLLBACK', detail: `Rolled back ${workspace.id} to ${result.restoredSnapshot.id}`, payload: { workspaceId: workspace.id, snapshotId: result.restoredSnapshot.id, safetySnapshotId: result.safetySnapshot.id, strategy: result.strategy } });
-    res.json({ ...result, rollback: true });
-  } catch (error) { next(error); }
-}
-
-async function previewRollback(req, res, next) {
-  try {
-    const db = await getDatabase();
-    const workspace = await findWorkspace(db, req, req.params.id);
-    if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${req.params.id}` } });
-    const reference = req.query.step ?? req.query.stepNumber ?? req.query.snapshotId;
-    if (reference == null) return res.status(400).json({ error: { code: 'SNAPSHOT_REQUIRED', message: 'A snapshot step or id is required.' } });
-    res.json(await snapshotStore.preview({ db, workspace, reference }));
-  } catch (error) { next(error); }
 }
 
 module.exports = {

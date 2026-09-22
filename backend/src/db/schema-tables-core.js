@@ -76,6 +76,7 @@ const TABLES_CORE_BASE = [
 "    parent_agent_id TEXT,",
 "    lineage_relation TEXT DEFAULT 'independent',",
 "    about TEXT,",
+"    metadata_json TEXT DEFAULT '{}',",
 "    current_task TEXT,",
 "    runtime_pid INTEGER,",
 "    runtime_started_at DATETIME,",

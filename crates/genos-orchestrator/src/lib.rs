@@ -33,6 +33,7 @@ pub mod reproduction_cycle;
 pub mod sensory;
 pub mod signaling;
 pub mod snapshots;
+pub mod tissue_scheduler;
 pub mod token_bucket;
 pub mod trace;
 pub mod virology;
@@ -71,6 +72,11 @@ pub use worlds::{Hypothesis, Multiverse, WorldOutcome};
 pub use planner::{Concept, Goal, WorldState, ActionStats};
 pub use recruitment::{Candidate, Demand, RecruitmentDecision, RecruitmentPlanner, Selection};
 pub use token_bucket::{AgentComputeBucket, BucketState, PenaltyReport, RewardReport, SchedulingDecision, TokenBucketScheduler};
+pub use tissue_scheduler::{
+    InProcessPoolConfig, InProcessTask, InProcessTaskResult, InProcessWorkerPool, PoolHealth,
+    SchedulerHealth, SquadBudget, SquadHealth, SquadTask, SquadTaskResult,
+    TissueBudget, TissueHealth, TissueScheduler, TissueSchedulerConfig, WorkerBudget,
+};
 
 // Accès direct à tout l'écosystème GenOS depuis le crate orchestrateur.
 pub use genos_biology;

@@ -18,7 +18,7 @@ const diagnosis = defineFamily('diagnosis', [
   ['causal_bisection', 'Bisection causale', ['unknown_cause_bug', 'incident'], ['deterministic', 'temporal', 'low_cost'], 'implemented', ['bisect_agent', 'snapshot_test']],
   ['loop_detection_lkgs', 'Détection de boucle et LKGS', ['all'], ['safety', 'deterministic'], 'implemented', ['analyze_trajectory', 'safe_revert']],
   ['assumption_invalidation', 'Invalidation d’hypothèse architecturale', ['architecture_decision', 'critical_refactor'], ['information_gain', 'causal'], 'implemented', ['invalidate_assumption', 'impact_graph']],
-  ['cognitive_blame', 'Blame cognitif', ['all'], ['audit', 'causal', 'low_cost'], 'implemented', ['blame', 'lineage', 'provenance']]
+  ['diagnose_baseline', 'Diagnostic de référence', ['all'], ['information_gain', 'verification', 'low_cost'], 'implemented', ['diagnose', 'hypothesis_evidence']],
 ]);
 
 const exploration = defineFamily('exploration', [

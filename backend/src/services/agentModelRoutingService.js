@@ -97,7 +97,8 @@ function rankLocalModels(models, modelTier) {
   return [...models].sort((left, right) => direction * (modelScale(left) - modelScale(right)));
 }
 
-async function localWorkerRoute(db, agentId, role, modelTier, tenant = {}) {
+async function localWorkerRoute(options = {}) {
+  const { db, agentId, role, modelTier, tenant = {} } = options;
   const cpuCount = os.cpus().length;
   const load = machineLoad();
   const freeMemoryRatio = os.freemem() / os.totalmem();

@@ -1,8 +1,8 @@
 /**
  * Causal Progress Service v3 — Senseur de progrès causal.
  *
- * Correction P0 : provenance appliquée une seule fois dans pushStep(),
- * ingestEvent() transmet les valeurs brutes.
+ * Correction P0 : provenance appliquée une seule fois dans ingestEvent(),
+ * pushStep() stocke les valeurs déjà pondérées. Globaux et fenêtre cohérents.
  */
 
 const SEARCH_PROGRESS_WINDOW_MS = 90_000
@@ -40,25 +40,23 @@ class SearchProgressWindow {
   }
 
   /**
-   * Appliquer le poids de provenance ICI, une seule fois.
-   * ingestEvent() fournit les valeurs brutes.
+   * Les valeurs sont déjà pondérées par ingestEvent().
+   * pushStep() stocke telles quelles.
    */
   pushStep(step) {
     const now = Date.now()
-    const provenance = step.provenance || PROVENANCE.SELF_REPORTED
-    const pw = PROVENANCE_WEIGHTS[provenance] ?? 0.3
     this.steps.push({
       ts: now,
-      evidenceGain: Number(step.evidenceGain || 0) * pw,
-      uncertaintyReduction: Number(step.uncertaintyReduction || 0) * pw,
+      evidenceGain: Number(step.evidenceGain || 0),
+      uncertaintyReduction: Number(step.uncertaintyReduction || 0),
       constraintsResolved: Number(step.constraintsResolved || 0),
       verifiedArtifactDelta: Number(step.verifiedArtifactDelta || 0),
       objectiveDelta: Number(step.objectiveDelta || 0),
-      hypothesisInformationGain: Number(step.hypothesisInformationGain || 0) * pw,
+      hypothesisInformationGain: Number(step.hypothesisInformationGain || 0),
       tokensConsumed: Number(step.tokensConsumed || 0),
       timeConsumed: Number(step.timeConsumed || 0),
       costConsumed: Number(step.costConsumed || 0),
-      provenance
+      provenance: step.provenance || PROVENANCE.SELF_REPORTED
     })
     const cutoff = now - this.windowMs
     while (this.steps.length && this.steps[0].ts < cutoff) {
@@ -180,12 +178,15 @@ class CausalProgressService {
   ingestEvent(event) {
     if (!event || typeof event !== 'object') return this.report()
     const payload = event.payload || {}
-    const evidence = Number(payload.evidenceGain || 0)
-    const uncertainty = Number(payload.uncertaintyReduction || 0)
+    const provenance = payload.provenance || PROVENANCE.SELF_REPORTED
+    const pw = PROVENANCE_WEIGHTS[provenance] ?? 0.3
+
+    const evidence = Number(payload.evidenceGain || 0) * pw
+    const uncertainty = Number(payload.uncertaintyReduction || 0) * pw
     const constraints = Number(payload.constraintsResolved || 0)
     const artifacts = Number(payload.verifiedArtifactDelta || 0)
     const objective = Number(payload.objectiveDelta || 0)
-    const hypothesis = Number(payload.hypothesisInformationGain || 0)
+    const hypothesis = Number(payload.hypothesisInformationGain || 0) * pw
     const tokens = Number(payload.tokensConsumed || 0)
     const time = Number(payload.timeConsumed || 0)
     const cost = Number(payload.costConsumed || 0)
@@ -195,10 +196,9 @@ class CausalProgressService {
       constraintsResolved: constraints, verifiedArtifactDelta: artifacts,
       objectiveDelta: objective, hypothesisInformationGain: hypothesis,
       tokensConsumed: tokens, timeConsumed: time, costConsumed: cost,
-      provenance: payload.provenance || PROVENANCE.SELF_REPORTED
+      provenance
     })
 
-    // Agrégats globaux (pondérés via pushStep -> valeurs déjà dans window)
     this.globalEvidence += evidence
     this.globalUncertainty += uncertainty
     this.globalConstraints += constraints

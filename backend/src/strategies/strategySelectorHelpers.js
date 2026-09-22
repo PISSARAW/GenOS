@@ -1,75 +1,136 @@
+'use strict';
+
 /**
  * @file strategySelectorHelpers.js
- * @description Trait bonuses pour le sélecteur de stratégie.
- *
- * Les bonus axolotl sont appliqués dans applyTraitBonusesSix :
- * - strategy.axolotl (régénération fonctionnelle) bonusée quand problème structurel
- * - strategy.adaptive (plasticité) bonusée quand haute incertitude
+ * @description Helper functions for strategy selection
  */
 
-function applyTraitBonusesOne(state, traits, profile) {
-  if (traits.has('information_gain')) state.score += profile.uncertainty * 24;
-  if (traits.has('deep_search')) state.score += profile.complexity * 18;
-  if (traits.has('safety')) state.score += profile.risk === 'high' ? 24 : 7;
-  if (traits.has('reproducible') && profile.requires_reproducibility) state.score += 17;
+const {
+  PREFERRED_PRIMARY,
+  HIGH_RISK_TYPES,
+  HIGH_RISK_TERMS,
+  REPRODUCIBILITY_TYPES,
+  OBJECTIVE_CONFLICT_TYPES,
+  TEMPORAL_TYPES,
+  EVALUABILITY_TERMS,
+  REVERSIBILITY_TERMS,
+  UNCERTAINTY_DEFAULTS,
+  BRANCHES,
+} = require('./strategySelectorConstants');
+
+const { applyTraitBonusesOne, applyTraitBonusesTwo, applyTraitBonusesThree, applyTraitBonusesFour, applyTraitBonusesFive, applyTraitBonusesSix } = require('./strategySelectorHelpers');
+
+function includesAny(text, terms) {
+  return terms.some((term) => text.includes(term));
 }
 
-function applyTraitBonusesTwo(state, traits, profile) {
-  if (traits.has('temporal') && profile.temporal_dependency) state.score += 15;
-  if (traits.has('multi_objective') && profile.objectives_conflict) state.score += 18;
-  if (traits.has('verification') && profile.evaluability === 'deterministic_tests') state.score += 13;
-  if (traits.has('low_cost')) state.score += 6;
-  if (traits.has('human_gate') && profile.risk === 'high') state.score += 11;
+function firstDefined(value, fallback) {
+  if (value === undefined || value === null) return fallback;
+  return value;
 }
 
-function applyTraitBonusesThree(state, traits, profile) {
-  if (traits.has('deterministic') && profile.requires_reproducibility) state.score += 12;
-  if (traits.has('low_latency') && profile.complexity < 0.6) state.score += 10;
-  if (traits.has('causal') && profile.temporal_dependency) state.score += 12;
-  if (traits.has('parallel') && profile.complexity >= 0.7) state.score += 10;
+function firstTruthy(value, fallback) {
+  if (value) return value;
+  return fallback;
 }
 
-function applyTraitBonusesFour(state, traits, profile) {
-  if (traits.has('high_compute') && profile.complexity >= 0.7) state.score += 9;
-  if (traits.has('diversity') && profile.uncertainty >= 0.7) state.score += 9;
-  if (traits.has('specialization') && profile.type !== 'implementation') state.score += 7;
-  if (traits.has('adaptive') && profile.uncertainty >= 0.7) state.score += 8;
+function classifyTechnicalProblem(problem) {
+  const text = String(problem).toLowerCase();
+
+  if (includesAny(text, ['ouvre le bloc-notes', 'ouvre notepad', 'open notepad', 'open the notepad', 'contrôle du pc', 'prends le contrôle', 'take control of the computer', 'take control of the desktop', 'computer use', 'desktop control', 'clique sur', 'click the screen', 'click on the screen', 'capture d\'écran', 'take a screenshot', 'appuie sur la touche', 'press the key', 'move the mouse', 'bouge la souris', 'contrôle clavier souris', 'keyboard and mouse'])) return 'desktop_control';
+
+  if (text.includes('critical_bug_fix') || text.includes('hotfix') || includesAny(text, ['incident', 'production', 'intermittent', 'rare crash', 'outage', 'p0', 'sev1'])) return 'incident';
+
+  if (includesAny(text, ['unknown cause', 'root cause', 'cause inconnue', 'diagnose', 'debug', 'investigate', 'why does it', 'bug', 'fix'])) return 'unknown_cause_bug';
+
+  if (includesAny(text, ['security', 'vulnerability', 'threat', 'attack', 'sécurité', 'cve', 'exploit', 'injection'])) return 'security';
+
+  if (includesAny(text, ['research', 'hypothesis', 'scientific', 'experiment', 'recherche', 'poc', 'proof of concept', 'benchmark'])) return 'scientific_research';
+
+  if (includesAny(text, ['refactor', 'migration', 'monolith', 'rewrite', 'architecture critique', 'legacy', 'technical debt'])) return 'critical_refactor';
+
+  if (includesAny(text, ['architecture', 'decision', 'trade-off', 'compare options', 'choisir', 'design doc', 'system design'])) return 'architecture_decision';
+
+  return 'implementation';
 }
 
-function applyTraitBonusesFive(state, traits, profile) {
-  if (traits.has('mutation') && profile.objectives_conflict) state.score += 5;
+function classifyProblem(problem = '') {
+  if (require('../services/aTeamService').analyzeMission(problem).primaryDomain === 'creative_writing') return 'creative_writing';
+  return classifyTechnicalProblem(problem);
 }
 
-function animalControlBonus(traits, profile) {
-  return [
-    traits.has('probe_control') ? Number(profile.uncertainty >= 0.7) * 7 : 0,
-    traits.has('spatial_memory') ? Number(profile.complexity >= 0.7) * 7 : 0,
-    traits.has('metabolic_budget') ? Number(profile.complexity < 0.6) * 5 : 0
-  ].reduce((sum, value) => sum + value, 0);
+function normalizeProfileType(type, problem) {
+  const resolved = type || classifyProblem(problem);
+  if (!PREFERRED_PRIMARY[resolved]) return classifyProblem(`${String(resolved)} ${problem}`);
+  return resolved;
 }
 
-/**
- * Trait bonus axolotl — axe 3 (état larval stratégique).
- *
- * Bonus les stratégies "regenerative" quand le problème est structurel
- * (défaillance topologique, pas juste fonctionnelle).
- *
- * Bonus les stratégies "adaptive" quand l'incertitude est haute —
- * le système reste en état larvaire (plastique) pour garder sa capacité
- * de transformation.
- */
-function applyTraitBonusesSix(state, traits, profile) {
-  if (traits.has('regenerative') && profile.type === 'critical_refactor') state.score += 12;
-  if (traits.has('regenerative') && profile.uncertainty >= 0.7) state.score += 8;
-  if (traits.has('adaptive') && profile.uncertainty >= 0.7) state.score += 6;
-  state.score += animalControlBonus(traits, profile);
+function isHighRisk(type, text) {
+  if (HIGH_RISK_TYPES.includes(type)) return true;
+  return includesAny(text, HIGH_RISK_TERMS);
+}
+
+function computeComplexity(problem, highRisk) {
+  const lengthFactor = Math.min(String(problem).length / 600, 0.28);
+  let value = 0.42 + lengthFactor;
+  if (highRisk) value += 0.18;
+  return Math.min(0.95, value);
+}
+
+function resolveRisk(highRisk, type) {
+  if (highRisk) return 'high';
+  if (type === 'architecture_decision') return 'medium';
+  return 'low';
+}
+
+function resolveEvaluability(text) {
+  if (includesAny(text, EVALUABILITY_TERMS)) return 'deterministic_tests';
+  return 'multi_objective_evidence';
+}
+
+function resolveReversibility(text) {
+  if (includesAny(text, REVERSIBILITY_TERMS)) return 'low';
+  return 'high';
+}
+
+function profileProblem(problem = '', overrides = {}) {
+  const type = normalizeProfileType(overrides.type, problem);
+  const text = String(problem).toLowerCase();
+  const highRisk = isHighRisk(type, text);
+  return {
+    type,
+    complexity: firstDefined(overrides.complexity, computeComplexity(problem, highRisk)),
+    uncertainty: firstDefined(overrides.uncertainty, firstDefined(UNCERTAINTY_DEFAULTS[type], 0.46)),
+    risk: firstTruthy(overrides.risk, resolveRisk(highRisk, type)),
+    evaluability: firstTruthy(overrides.evaluability, resolveEvaluability(text)),
+    reversibility: firstTruthy(overrides.reversibility, resolveReversibility(text)),
+    requires_reproducibility: firstDefined(overrides.requires_reproducibility, REPRODUCIBILITY_TYPES.includes(type)),
+    objectives_conflict: firstDefined(overrides.objectives_conflict, OBJECTIVE_CONFLICT_TYPES.includes(type)),
+    temporal_dependency: firstDefined(overrides.temporal_dependency, TEMPORAL_TYPES.includes(type))
+  };
 }
 
 module.exports = {
-  applyTraitBonusesOne,
-  applyTraitBonusesTwo,
-  applyTraitBonusesThree,
-  applyTraitBonusesFour,
-  applyTraitBonusesFive,
-  applyTraitBonusesSix
+  includesAny,
+  firstDefined,
+  firstTruthy,
+  classifyProblem,
+  classifyTechnicalProblem,
+  normalizeProfileType,
+  isHighRisk,
+  computeComplexity,
+  resolveRisk,
+  resolveEvaluability,
+  resolveReversibility,
+  profileProblem,
+  PREFERRED_PRIMARY,
+  BRANCHES,
+  UNCERTAINTY_DEFAULTS,
+  HIGH_RISK_TYPES,
+  HIGH_RISK_TERMS,
+  REPRODUCIBILITY_TYPES,
+  OBJECTIVE_CONFLICT_TYPES,
+  TEMPORAL_TYPES,
+  EVALUABILITY_TERMS,
+  REVERSIBILITY_TERMS,
 };

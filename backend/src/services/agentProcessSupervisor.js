@@ -222,7 +222,7 @@ function spawnRuntimeWithRetry(spawnSpec, spawnOptions) {
   // can reclaim the capsule directory between provisioning and runtime spawn.
   // Recreate the cwd before spawning, and probe the command so a transient
   // antivirus lock does not kill the mission either.
-  const { spawnSync } = require('child_process');
+  const { spawnSync, spawn } = require('child_process');
   const fsSync = require('fs');
   if (spawnOptions && spawnOptions.cwd) {
     try { fsSync.mkdirSync(spawnOptions.cwd, { recursive: true }); } catch (_) {}
@@ -234,7 +234,28 @@ function spawnRuntimeWithRetry(spawnSpec, spawnOptions) {
     if (!fsSync.existsSync(spawnSpec.cmd) || attempt === 2) break;
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
   }
-  return spawn(spawnSpec.cmd, spawnSpec.args, spawnOptions);
+  // Windows can emit an unhandled 'error' on a stdio Socket immediately after
+  // spawn returns if the child-side pipe handle closes before the parent has
+  // attached its handlers (antivirus, fast-failing runtime, handle recycling).
+  // Attach no-op error sinks on the stdio streams synchronously so those
+  // socket-level errors never become unhandled rejections, then retry the spawn
+  // a few times when it throws a transient ENOTCONN/ECONNREFUSED.
+  const maxAttempts = 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const child = spawn(spawnSpec.cmd, spawnSpec.args, spawnOptions);
+      if (child.stdin) child.stdin.on('error', () => {});
+      if (child.stdout) child.stdout.on('error', () => {});
+      if (child.stderr) child.stderr.on('error', () => {});
+      return child;
+    } catch (err) {
+      if (attempt < maxAttempts - 1 && (err.code === 'ENOTCONN' || err.code === 'ECONNREFUSED' || err.code === 'EPERM' || err.code === 'EACCES')) {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
+        continue;
+      }
+      throw err;
+    }
+  }
 }
 
 async function superviseMission(options) {
