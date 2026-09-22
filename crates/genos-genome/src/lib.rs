@@ -8,6 +8,7 @@ pub mod grn;
 pub mod linkage_epistasis;
 pub mod mutation_rates;
 pub mod mutation_scales;
+pub mod phenotype;
 pub mod plasmid_v2;
 pub mod translation;
 
