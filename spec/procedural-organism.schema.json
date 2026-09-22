@@ -9,12 +9,15 @@
     "kind": { "type": "string", "const": "ProceduralOrganism" },
     "metadata": {
       "type": "object",
-      "required": ["id", "version"],
+      "required": ["id", "version", "structureHash", "stateHash"],
       "properties": {
-        "id": { "type": "string", "description": "contentHash du graphe canonique" },
+        "id": { "type": "string", "description": "versionId = SHA256(parentVersionId + structureHash + stateHash + mutationSignature)" },
         "version": { "type": "integer", "minimum": 1 },
+        "structureHash": { "type": "string", "description": "SHA256 of canonical structure (nodes + synapses)" },
+        "stateHash": { "type": "string", "description": "SHA256 of canonical state (weights + phenotype + immune + fitness + plasticity)" },
         "parentId": { "type": ["string", "null"] },
         "lineageId": { "type": "string" },
+        "mutationSignature": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       }

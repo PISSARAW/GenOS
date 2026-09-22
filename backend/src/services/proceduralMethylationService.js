@@ -11,7 +11,7 @@ function clamp01(value, fallback = 0) {
 function methylationMarkFrom(input = {}) {
   return {
     id: input.id || identity.createOccurrenceId('me'),
-    target: input.target || { type: "edge", from: "?", to: "?" },
+    target: input.target || { type: "synapse", from: "?", to: "?" },
     type: input.type || "repression",
     strength: clamp01(Number(input.strength) || 0.9),
     trigger: input.trigger || {},
@@ -32,7 +32,7 @@ function expressionAfterMethylation(expression, mark) {
 
 function targetsEdge(mark, from, to) {
   const t = mark?.target || {};
-  return t.type === "edge" && t.from === from && t.to === to;
+  return t.type === "synapse" && t.from === from && t.to === to;
 }
 
 function targetsProcedure(mark, procedureId) {

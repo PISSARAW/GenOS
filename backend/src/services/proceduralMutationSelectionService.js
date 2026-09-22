@@ -6,8 +6,9 @@ function clamp01(value, fallback = 0) {
   return Math.max(0, Math.min(1, resolved));
 }
 
-const fitness = require('./proceduralFitnessService');
 const crypto = require('crypto');
+
+const VALID_NODE_TYPES = ['action', 'decision', 'terminal', 'gate'];
 
 function cloneOrganism(org) {
   return JSON.parse(JSON.stringify(org));
@@ -17,12 +18,17 @@ function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+function pickNodeType() {
+  return VALID_NODE_TYPES[Math.floor(Math.random() * VALID_NODE_TYPES.length)];
+}
+
 function addNodeVariant(parent, index) {
   const org = cloneOrganism(parent);
   org.structure = org.structure || { nodes: [], synapses: [] };
   org.structure.nodes = org.structure.nodes || [];
   const newId = `node-${org.structure.nodes.length}`;
-  const newNode = { id: newId, type: 'generated', source: 'mutation', required: false, locked: false };
+  const nodeType = pickNodeType();
+  const newNode = { id: newId, type: nodeType, required: false, locked: false, metadata: { generated: true, source: 'mutation' } };
   org.structure.nodes.push(newNode);
   const before = deepClone(org.structure.nodes.slice(0, -1));
   const after = deepClone(org.structure.nodes);
@@ -30,7 +36,7 @@ function addNodeVariant(parent, index) {
     organism: org,
     operation: {
       op: 'ADD_NODE',
-      target: { id: newId, type: 'generated' },
+      target: { id: newId, type: nodeType },
       before: { nodes: before },
       after: { nodes: after }
     },
@@ -41,13 +47,33 @@ function removeNodeVariant(parent, index) {
   const org = cloneOrganism(parent);
   org.structure = org.structure || { nodes: [], synapses: [] };
   org.structure.nodes = org.structure.nodes || [];
-  const before = deepClone(org.structure.nodes);
+  org.structure.synapses = org.structure.synapses || [];
+  
+  const beforeNodes = deepClone(org.structure.nodes);
+  const beforeSynapses = deepClone(org.structure.synapses);
+  
   const targetIdx = org.structure.nodes.findIndex((n) => !n.required && !n.locked);
-  let op = { op: 'REMOVE_NODE', target: null, before: { nodes: before }, after: null };
+  let op = { op: 'REMOVE_NODE', target: null, before: { nodes: beforeNodes, synapses: beforeSynapses }, after: null };
+  
   if (targetIdx >= 0) {
     const removed = org.structure.nodes.splice(targetIdx, 1)[0];
-    op.target = { id: removed.id, type: removed.type };
-    op.after = { nodes: deepClone(org.structure.nodes) };
+    const removedId = removed.id;
+    
+    // Remove incident synapses
+    const remainingSynapses = org.structure.synapses.filter(
+      s => s.from !== removedId && s.to !== removedId
+    );
+    const removedSynapses = org.structure.synapses.filter(
+      s => s.from === removedId || s.to === removedId
+    );
+    org.structure.synapses = remainingSynapses;
+    
+    op.target = { id: removedId, type: removed.type };
+    op.after = { 
+      nodes: deepClone(org.structure.nodes),
+      synapses: deepClone(org.structure.synapses)
+    };
+    op.removedSynapses = removedSynapses.map(s => ({ from: s.from, to: s.to }));
   }
   return { organism: org, operation: op };
 }

@@ -48,15 +48,15 @@ assert.ok(epigen.isEnabled(0.8));
 assert.ok(epigen.isSilenced(0.1));
 
 // Point 12: methylation
-const m1 = methyl.methylationMarkFrom({ target: { type: "edge", from: "inspect", to: "patch" }, strength: 0.9, type: "repression", trigger: { environment: "production" } });
+const m1 = methyl.methylationMarkFrom({ target: { type: "synapse", from: "inspect", to: "patch" }, strength: 0.9, type: "repression", trigger: { environment: "production" } });
 assert.strictEqual(m1.type, "repression");
 assert.ok(Math.abs(methyl.expressionAfterMethylation(1.0, m1) - 0.1) < 1e-9);
 assert.ok(methyl.targetsEdge(m1, "inspect", "patch"));
 assert.ok(!methyl.targetsEdge(m1, "inspect", "deploy"));
 assert.ok(methyl.targetsProcedure({ target: { type: "procedure", id: "p1" } }, "p1"));
 const marks = [
-  methyl.methylationMarkFrom({ target: { type: "edge", from: "a", to: "b" }, trigger: { environment: "production" } }),
-  methyl.methylationMarkFrom({ target: { type: "edge", from: "c", to: "d" }, trigger: { environment: "development" } }),
+  methyl.methylationMarkFrom({ target: { type: "synapse", from: "a", to: "b" }, trigger: { environment: "production" } }),
+  methyl.methylationMarkFrom({ target: { type: "synapse", from: "c", to: "d" }, trigger: { environment: "development" } }),
 ];
 const prodMarks = methyl.methylationByEnvironment(marks, "production");
 assert.strictEqual(prodMarks.length, 1);

@@ -21,74 +21,83 @@ function immuneSignatureFrom(input = {}) {
   };
 }
 
+function checkOperationTypes(ops, pattern) {
+  if (!pattern.operationTypes) return true;
+  return ops.some(op => pattern.operationTypes.includes(op.op));
+}
+
+function checkTargetNodeTypes(ops, pattern) {
+  if (!pattern.targetNodeTypes) return true;
+  return ops.some(op => op.target?.type && pattern.targetNodeTypes.includes(op.target.type));
+}
+
+function checkCapabilityExpansion(mutation, pattern) {
+  if (pattern.capabilityExpansion !== true) return true;
+  const before = mutation?.before?.capabilities || [];
+  const after = mutation?.after?.capabilities || [];
+  return after.length > before.length && !after.every(c => before.includes(c));
+}
+
+function checkLeaseExpansion(mutation, pattern) {
+  if (pattern.leaseExpansion !== true) return true;
+  const before = mutation?.before?.toolLease || [];
+  const after = mutation?.after?.toolLease || [];
+  return after.length > before.length && !after.every(c => before.includes(c));
+}
+
+function checkPolicyWeakened(mutation, pattern) {
+  if (pattern.policyWeakened !== true) return true;
+  const before = mutation?.before?.policy || {};
+  const after = mutation?.after?.policy || {};
+  if (before.requireEvidence === true && after.requireEvidence === false) return true;
+  if (before.requireReplay === true && after.requireReplay === false) return true;
+  return false;
+}
+
+function checkEvidenceRequirementReduced(mutation, pattern) {
+  if (pattern.evidenceRequirementReduced !== true) return true;
+  const before = mutation?.before?.evidenceLevel || 1;
+  const after = mutation?.after?.evidenceLevel || 1;
+  return after < before;
+}
+
+function checkSandboxBoundaryChanged(mutation, pattern) {
+  if (pattern.sandboxBoundaryChanged !== true) return true;
+  const before = mutation?.before?.sandbox || {};
+  const after = mutation?.after?.sandbox || {};
+  if (before.enabled === true && after.enabled === false) return true;
+  if (before.isolation === 'full' && after.isolation !== 'full') return true;
+  return false;
+}
+
+function checkAuthorityChanged(mutation, pattern) {
+  if (pattern.authorityChanged !== true) return true;
+  const before = mutation?.before?.authority || {};
+  const after = mutation?.after?.authority || {};
+  return JSON.stringify(before) !== JSON.stringify(after);
+}
+
+const STRUCTURAL_CHECKS = [
+  checkOperationTypes,
+  checkTargetNodeTypes,
+  checkCapabilityExpansion,
+  checkLeaseExpansion,
+  checkPolicyWeakened,
+  checkEvidenceRequirementReduced,
+  checkSandboxBoundaryChanged,
+  checkAuthorityChanged,
+];
+
 function matchStructuralPattern(signature, mutation) {
   if (!signature.structuralPattern) return { matched: false };
   
   const ops = mutation?.operations || [];
   const pattern = signature.structuralPattern;
   
-  // Check for specific operation types
-  if (pattern.operationTypes) {
-    const hasMatchingOp = ops.some(op => pattern.operationTypes.includes(op.op));
-    if (!hasMatchingOp) return { matched: false };
-  }
-  
-  // Check for target node types
-  if (pattern.targetNodeTypes) {
-    const hasMatchingTarget = ops.some(op => 
-      op.target?.type && pattern.targetNodeTypes.includes(op.target.type)
-    );
-    if (!hasMatchingTarget) return { matched: false };
-  }
-  
-  // Check for affected capabilities expansion
-  if (pattern.capabilityExpansion === true) {
-    const before = mutation?.before?.capabilities || [];
-    const after = mutation?.after?.capabilities || [];
-    const expanded = after.length > before.length && !after.every(c => before.includes(c));
-    if (!expanded) return { matched: false };
-  }
-  
-  // Check for lease expansion
-  if (pattern.leaseExpansion === true) {
-    const before = mutation?.before?.toolLease || [];
-    const after = mutation?.after?.toolLease || [];
-    const expanded = after.length > before.length && !after.every(c => before.includes(c));
-    if (!expanded) return { matched: false };
-  }
-  
-  // Check for policy weakening
-  if (pattern.policyWeakened === true) {
-    const before = mutation?.before?.policy || {};
-    const after = mutation?.after?.policy || {};
-    if (before.requireEvidence === true && after.requireEvidence === false) return { matched: true };
-    if (before.requireReplay === true && after.requireReplay === false) return { matched: true };
-    return { matched: false };
-  }
-  
-  // Check for evidence requirement reduction
-  if (pattern.evidenceRequirementReduced === true) {
-    const before = mutation?.before?.evidenceLevel || 1;
-    const after = mutation?.after?.evidenceLevel || 1;
-    if (after < before) return { matched: true };
-    return { matched: false };
-  }
-  
-  // Check for sandbox boundary changes
-  if (pattern.sandboxBoundaryChanged === true) {
-    const before = mutation?.before?.sandbox || {};
-    const after = mutation?.after?.sandbox || {};
-    if (before.enabled === true && after.enabled === false) return { matched: true };
-    if (before.isolation === 'full' && after.isolation !== 'full') return { matched: true };
-    return { matched: false };
-  }
-  
-  // Check for authority changes
-  if (pattern.authorityChanged === true) {
-    const before = mutation?.before?.authority || {};
-    const after = mutation?.after?.authority || {};
-    if (JSON.stringify(before) !== JSON.stringify(after)) return { matched: true };
-    return { matched: false };
+  for (const check of STRUCTURAL_CHECKS) {
+    if (!check(ops, pattern, mutation)) {
+      return { matched: false };
+    }
   }
   
   return { matched: true };

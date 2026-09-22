@@ -17,7 +17,8 @@ const fossil = require('../src/services/proceduralFossilizationService');
 // 13: immune inspection — structural (not just lexical)
 const structuralDanger = immune.inspectMutation({
   id: 'm1',
-  operations: [{ op: 'REMOVE_NODE', target: { id: 'verify', type: 'REQUIRED_GATE' } }],
+  operations: [{ op: 'REMOVE_NODE', target: { id: 'verify' } }],
+  before: { nodes: [{ id: 'verify', type: 'gate', required: true }] },
 });
 assert.strictEqual(structuralDanger.safe, false);
 assert.ok(structuralDanger.structuralFindings > 0);
@@ -41,7 +42,7 @@ assert.strictEqual(safeMutation.safe, true);
 const safeNoMarks = immune.inspectMutation({ id: 'm4' });
 assert.strictEqual(safeNoMarks.safe, true);
 
-const multi = immune.inspectMultiple([{ code: 'a' }, { operations: [{ op: 'REMOVE_NODE', target: { type: 'REQUIRED_GATE' } }] }]);
+const multi = immune.inspectMultiple([{ code: 'a' }, { operations: [{ op: 'REMOVE_NODE', target: { id: 'verify' } }], before: { nodes: [{ id: 'verify', type: 'gate', required: true }] } }]);
 assert.strictEqual(multi.length, 2);
 assert.ok(immune.hasFindings(structuralDanger));
 assert.ok(!immune.hasFindings(safeMutation));
@@ -65,9 +66,11 @@ assert.strictEqual(memory2.length, 1);
 
 // 15: mutation selection — real mutations, not just envelopes
 const parent = {
-  metadata: { id: 'p1' },
+  apiVersion: 'genos/v1alpha1',
+  kind: 'ProceduralOrganism',
+  metadata: { id: 'p1', version: 1, parentId: null, lineageId: 'l1' },
   structure: {
-    nodes: [{ id: 'n1', type: 'inspect' }, { id: 'n2', type: 'patch', required: true }],
+    nodes: [{ id: 'n1', type: 'action', metadata: { action: 'inspect' } }, { id: 'n2', type: 'action', required: true, metadata: { action: 'patch' } }],
     synapses: [{ from: 'n1', to: 'n2', type: 'excitatory', weight: 0.8 }],
   },
 };
@@ -77,6 +80,12 @@ assert.ok(variants[0].operations);
 assert.ok(variants[0].organism);
 assert.ok(variants[0].organism.structure);
 assert.ok(variants[0].id !== variants[1].id);
+
+// Validate all generated variants pass schema validation
+for (const v of variants) {
+  const validation = require('../src/services/proceduralIdentityService').validateOrganism(v.organism);
+  assert.strictEqual(validation.valid, true, `Variant ${v.id} validation failed: ${validation.errors.join(', ')}`);
+}
 
 const evaluated = mutation.evaluateVariants(variants, (v) => v.organism?.structure?.nodes?.length || 0);
 assert.ok(evaluated[0].fitness != null);

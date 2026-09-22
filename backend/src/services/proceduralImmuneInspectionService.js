@@ -20,7 +20,13 @@ const STRUCTURAL_CHECKS = [
     name: 'REMOVE_REQUIRED_GATE',
     test: (mutation) => {
       const ops = mutation?.operations || [];
-      return ops.some((op) => op.op === 'REMOVE_NODE' && op.target?.type === 'REQUIRED_GATE');
+      return ops.some((op) => {
+        if (op.op !== 'REMOVE_NODE') return false;
+        // Check if the removed node was a required gate in the before state
+        const beforeNodes = mutation?.before?.nodes || [];
+        const removedNode = beforeNodes.find(n => n.id === op.target?.id);
+        return removedNode && removedNode.type === 'gate' && removedNode.required === true;
+      });
     },
   },
   {
