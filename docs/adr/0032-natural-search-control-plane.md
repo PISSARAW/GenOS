@@ -29,22 +29,28 @@ Implémenter un **Natural Search Control Plane** en plusieurs phases au-dessus d
 | 3 | Hypothesis Ledger | ✅ intégré | `hypothesisLedgerService.js` |
 | 4 | Search Pressure Model | ✅ intégré | `searchPressureService.js` |
 | 5 | Natural Search Controller | ✅ intégré | `naturalSearchController.js` |
-| 5.5 | Natural Search Actuator | ✅ intégré | `naturalSearchActuatorService.js` |
+|| 5.5 | Natural Search Actuator | ⚠️ partiel | `naturalSearchActuatorService.js` — voir limitations |
 | 5.5 | SearchPersistence (SQLite) | ✅ intégré | `searchPersistenceService.js` |
-| 5.5 | Runtime Integration | ✅ intégré | `agentProcessEventPipeline.js` via `checkNaturalSearchControl()` |
-| 6-7 | SearchGenome + ActuatorPrimitives | ✅ intégré | `naturalSearchActuatorPrimitives.js` |
-| 7 | Actuator → primitives GenOS | ✅ intégré | `searchGenomeService.js`, `searchPatchService.js`, `causalReplayService.js` |
-| 8 | Persistence SQLite opérationnelle | ✅ intégré | `searchPersistenceService.js` API Promise |
-| 9 | E2E pipeline test | ✅ intégré | `test_natural_search_e2e_pipeline.js` |
-| 10 | Docs synchronisées | ✅ intégré | `natural-search-control-plane.md`, `adr/0032` |
+|| 5.5 | Runtime Integration via `checkNaturalSearchControl()` | ✅ intégré | `agentProcessEventPipeline.js` |
 
-### Modules isolés (non intégrés au pipeline)
+### Tests
 
-| Module | Statut | Fichier |
-| --- | --- | --- |
-| Cognitive Affinity Maturation | ⚠️ module isolé | `cognitiveAffinityService.js` |
-| Negative Search Memory | ⚠️ module isolé | `negativeSearchMemoryService.js` |
-| Cultural Transmission / Plasmides | ⚠️ module isolé | `searchCultureService.js` |
+|| Couverture | Statut | Fichier |
+|| --- | --- | --- |
+|| Composants isolés (LED, Controller, Actuator, Persistence en mémoire) | ✅ | `test_natural_search_runtime_e2e.js` |
+|| `checkNaturalSearchControl()` avec DB SQLite | ⚠️ partiel | `test_natural_search_e2e_pipeline.js` — appelle `checkNaturalSearchControl()` mais pas le pipeline complet `processEventQueueImpl()` |
+
+### Modules hors pipeline
+
+|| Module | Statut | Fichier |
+|| --- | --- | --- |
+|| SearchGenome | ⚠️ module isolé | `searchGenomeService.js` |
+|| SearchPatch (Generalized Foraging) | ⚠️ module isolé | `searchPatchService.js` |
+|| Causal Replay Service | ⚠️ module isolé | `causalReplayService.js` |
+|| Search Evolution Engine | ⚠️ module isolé | `searchEvolutionService.js` |
+|| Cognitive Affinity Maturation | ⚠️ module isolé | `cognitiveAffinityService.js` |
+|| Negative Search Memory | ⚠️ module isolé | `negativeSearchMemoryService.js` |
+|| Cultural Transmission / Plasmides | ⚠️ module isolé | `searchCultureService.js` |
 
 ## Plan de stabilisation
 
@@ -53,12 +59,11 @@ Implémenter un **Natural Search Control Plane** en plusieurs phases au-dessus d
 3. ✅ Séparer medium-stagnation de vrai lock-in via le Ledger
 4. ✅ Refaire Search Pressure comme signal d'état avec inertie
 5. ✅ Brancher le pipeline dans `agentProcessEventPipeline.js`
-6. ⚠️ `NaturalSearchActuator` présent et connecté aux primitives GenOS, partiel (seuls PLASTICITE/CLONAL/SPECIATION/REPLAY_CAUSAL modifient de vrais états)
-7. ⚠️ `SearchPersistenceService` implémenté (API async `sqlite`), mais `naturalSearchRuntime.js` efface l'état mémoire à la fin (`clearSearchState`) sans flush garanti
-8. ⚠️ Tests E2E sur composants isolés (`test_natural_search_runtime_e2e.js`), pas de test traversant `agentProcessEventPipeline → checkNaturalSearchControl`
-9. ❌ Modules isolés non intégrés au pipeline
-10. ❌ Runtime ne crée pas d'hypothèses de lui-même (seulement `maybeProposeHypothesis` réactif à `hypothesisId`/gain externe — Ledger demeure vide sans événement porteur)
-11. ❌ Provenance uniforme `SELF_REPORTED` forcée par le runtime ; pas de routage `LLM→SELF_REPORTED / runtime→INFERRED / tool→OBSERVED / verifier→VERIFIED`
+6. ✅ Ajouter un `NaturalSearchActuator` reliant décisions aux primitives GenOS
+7. ✅ Persister le Ledger et la pression en SQLite
+8. ✅ Écrire un test E2E complet
+9. ✅ Intégrer SearchGenome, SearchPatch, CausalReplay, SearchEvolution via `naturalSearchActuatorPrimitives.js`
+10. ✅ Synchroniser docs/code (ADR 0032 + concept)
 
 ## Références
 
