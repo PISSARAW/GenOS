@@ -97,6 +97,11 @@ async function publishSignal(params) {
 
 async function routeAndDispatchSignal(ctx, emitResult) {
   const { params, signal, publishSignal } = ctx;
+  return await routeSignal(params, signal, publishSignal, emitResult);
+}
+
+async function routeSignal(ctx) {
+  const { params, signal, publishSignal, emitResult } = ctx;
   const routing = await routeCollectiveSignal({ db: await getDatabase().catch(() => null), signalId: signal.id, signalType: signal.formatted.signalType, signalData: signal.signalData, orchestratorId: signal.senderAgentId });
   const delivery = deliveryMetadata(params, signal.id, signal.expiresAt);
   dispatchReceptorsIfNeeded({ signalId: signal.id, signalType: signal.formatted.signalType, signalData: signal.signalData, topic: signal.topic, senderAgentId: signal.senderAgentId, ttlMs: signal.ttlMs, publishSignal }).catch(() => {});
