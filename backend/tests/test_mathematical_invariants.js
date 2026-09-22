@@ -306,26 +306,10 @@ async function testCultureKnowledgeSeparation() {
 // INVARIANT 10: FormalResult integrity - semantic fingerprint matches
 async function testFormalResultIntegrity() {
   console.log('Test 10: FormalResult integrity');
-  const result = createFormalResult({
-    canonicalStatement: 'Test theorem',
-    status: 'formalized',
-    evidence: { kind: 'proof', content: 'proof' },
-    assumptions: [],
-    validityDomain: { statement: 'general', constraints: [] },
-    dependencies: [],
-    provenance: {
-      createdAt: new Date().toISOString(),
-      actor: 'test',
-      source: { type: 'test', uri: 'test', digest: 'sha256:0000000000000000000000000000000000000000000000000000000000000000' },
-      inputs: [],
-      transformations: [],
-    },
-    producer: { model: 'test', version: '1.0' },
-  });
-
-  // Encode and decode
+  // Encode and decode - test round-trip integrity
   const { encodeFormalResult, decodeFormalResult } = require('../src/services/formalResultService');
-  const encoded = encodeFormalResult({
+  const timestamp = new Date().toISOString();
+  const input = {
     canonicalStatement: 'Test theorem',
     status: 'formalized',
     evidence: { kind: 'proof', content: 'proof' },
@@ -333,16 +317,18 @@ async function testFormalResultIntegrity() {
     validityDomain: { statement: 'general', constraints: [] },
     dependencies: [],
     provenance: {
-      createdAt: new Date().toISOString(),
+      createdAt: timestamp,
       actor: 'test',
       source: { type: 'test', uri: 'test', digest: 'sha256:0000000000000000000000000000000000000000000000000000000000000000' },
       inputs: [],
       transformations: [],
     },
     producer: { model: 'test', version: '1.0' },
-  });
-
+  };
+  const result = createFormalResult(input);
+  const encoded = encodeFormalResult(input);
   const decoded = decodeFormalResult(encoded);
+
   assert.strictEqual(decoded.resultId, result.resultId, 'Result ID must match after round-trip');
   assert.strictEqual(decoded.semanticFingerprint, result.semanticFingerprint, 'Semantic fingerprint must match');
   assert.strictEqual(decoded.evidence.digest, result.evidence.digest, 'Evidence digest must match');
