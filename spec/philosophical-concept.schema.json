@@ -232,6 +232,36 @@
       },
       "additionalProperties": false
     },
+    "role": {
+      "type": "string",
+      "enum": [
+        "core",
+        "operational",
+        "analogy",
+        "lens",
+        "speculative"
+      ]
+    },
+    "runtimeAuthority": {
+      "type": "boolean"
+    },
+    "falsifiable": {
+      "type": "boolean"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "knownLimits": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "historicalConfidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
     "provenance": {
       "type": "object",
       "properties": {
