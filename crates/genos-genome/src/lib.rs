@@ -3,6 +3,7 @@ pub mod epigenome;
 pub mod gene;
 pub mod genome;
 pub mod grn;
+pub mod plasmid_v2;
 pub mod translation;
 
 pub use dna::{DnaNucleotide, DnaStrand, Mutagen, RnaNucleotide, RnaPolymerase, RnaStrand};
@@ -10,6 +11,7 @@ pub use epigenome::{DevelopmentalStage, EpigeneticMark, Epigenome, Mark, MarkPar
 pub use gene::{ChromatinState, ExpressionContext, Gene, Plasmid, Spliceosome};
 pub use genome::{DEFAULT_HAYFLICK_LIMIT, Genome, INSTINCT_LOCUS_PREFIX};
 pub use grn::{GRNEdge, GRNNode, GRN};
+pub use plasmid_v2::{PlasmidInstance, PlasmidCycleResult, PlasmidParams, PlasmidPool};
 pub use translation::{AminoAcidToken, Codon, Ribosome, UnfoldedProtein};
 
 #[cfg(test)]
