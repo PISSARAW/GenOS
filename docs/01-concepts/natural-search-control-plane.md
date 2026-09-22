@@ -1,56 +1,67 @@
 # Natural Search Control Plane
 
-- **Statut** : Phases 1–12 implémentées, tests passants, intégration runtime active, persistance SQLite opérationnelle.
+- **Statut** : Phases 1–8 implémentées et testées (Points 1–8). Phases 9–12 : modules isolés non intégrés.
 - **Portée** : `backend/src/services/search/*.js`, `backend/tests/search/test_*.js`, `docs/adr/0032-natural-search-control-plane.md`.
-- **Dernière revue** : 2026-09-21.
+- **Dernière revue** : 2026-09-22.
 
 ## État d'implémentation
 
-| Composant | Statut | Fichier |
-| --- | --- | --- |
-| Causal Progress Sensor | ✅ | `causalProgressService.js` |
-| Entropy×Progression Classifier | ✅ | `entropyProgressClassifier.js` |
-| Hypothesis Ledger | ✅ | `hypothesisLedgerService.js` |
-| Search Pressure Model | ✅ | `searchPressureService.js` |
-| Natural Search Controller | ✅ | `naturalSearchController.js` |
-| Natural Search Actuator | ✅ | `naturalSearchActuatorService.js` |
-| SearchReceipt | ✅ | `SearchReceipt.js` |
-| Runtime Integration | ✅ | `agentProcessEventPipeline.js` |
-| Persistance SQLite | ✅ | `searchPersistenceService.js` |
-| **SearchGenome (Phase 6)** | ✅ | `searchGenomeService.js` |
-| **Cognitive Affinity Maturation (Phase 7)** | ✅ | `cognitiveAffinityService.js` |
-| **Generalized Foraging (Phase 8)** | ✅ | `searchPatchService.js` |
-| **Causal Replay (Phase 9)** | ✅ | `causalReplayService.js` |
-| **Negative Search Memory (Phase 10)** | ✅ | `negativeSearchMemoryService.js` |
-| **Evolution of Search Processes (Phase 11)** | ✅ | `searchEvolutionService.js` |
-| **Cultural Transmission / Plasmides (Phase 12)** | ✅ | `searchCultureService.js` |
+| Composant | Statut | Fichier | Intégration pipeline |
+| --- | --- | --- | --- |
+| Causal Progress Sensor | ✅ | `causalProgressService.js` | ✅ via `checkNaturalSearchControl()` |
+| Entropy×Progression Classifier | ✅ | `entropyProgressClassifier.js` | ✅ |
+| Hypothesis Ledger | ✅ | `hypothesisLedgerService.js` | ✅ |
+| Search Pressure Model | ✅ | `searchPressureService.js` | ✅ |
+| Natural Search Controller | ✅ | `naturalSearchController.js` | ✅ |
+| Natural Search Actuator | ✅ | `naturalSearchActuatorService.js` | ✅ primitives GenOS réelles |
+| SearchReceipt | ✅ | `SearchReceipt.js` | ✅ |
+| Runtime Integration | ✅ | `agentProcessEventPipeline.js` | ✅ via `checkNaturalSearchControl()` |
+| Persistance SQLite | ✅ | `searchPersistenceService.js` | ✅ saveHypothesis/saveProof/savePressure/saveDecision |
+| E2E Pipeline Test | ✅ | `test_natural_search_e2e_pipeline.js` | ✅ entrée via `checkNaturalSearchControl()` |
+| SearchGenome | ✅ | `searchGenomeService.js` | ✅ via `naturalSearchActuatorPrimitives.js` |
+| Cognitive Affinity | ⚠️ module isolé | `cognitiveAffinityService.js` | ❌ non branché |
+| Generalized Foraging | ✅ | `searchPatchService.js` | ✅ via `forage()` primitive |
+| Causal Replay Service | ✅ | `causalReplayService.js` | ✅ via `replayCausal()` primitive |
+| Negative Search Memory | ⚠️ module isolé | `negativeSearchMemoryService.js` | ❌ non branché |
+| Search Evolution | ✅ | `searchEvolutionService.js` | ✅ via `evolution()` primitive |
+| Cultural Transmission | ⚠️ module isolé | `searchCultureService.js` | ❌ non branché |
 
 ## Architecture finale
 
 ```
-Event
+Event (AGENT_STEP / EVIDENCE_REPORT / AGENT_FAILED)
   ↓
-Swarm Sentinel
+agentProcessEventPipeline.processEventQueueImpl()
   ↓
-Natural Search Control Plane
-  ├─ Causal Progress Sensor
-  ├─ Entropy×Progress Classifier
-  ├─ Hypothesis Ledger
-  ├─ Search Pressure Model
-  ├─ Natural Search Controller
-  ├─ Natural Search Actuator
-  ├─ SearchPersistence (SQLite)
-  └─ Phases 6–12:
-      ├─ SearchGenome + hypermutation
-      ├─ Cognitive Affinity Maturation
-      ├─ Generalized Foraging (SearchPatch)
-      ├─ Causal Replay
-      ├─ Negative Memory
-      ├─ Search Evolution
-      └─ Cultural Transmission (Plasmides)
-  ↓
-GenOS primitives (replay, fork, foraging, recovery)
+checkNaturalSearchControl(ctx, event)
+  ├─ CausalProgressService.ingestEvent()
+  ├─ HypothesisLedger.addEvidence() / propose()
+  ├─ NaturalSearchController.selectProcess()
+  ├─ NaturalSearchActuator.execute()
+  │    ├─ FORAGE → SearchPatchService (gestion patches)
+  │    ├─ PLASTICITE → applySnapshotState (DB agents.topology/tools)
+  │    ├─ CLONAL_AFFINITY_SEARCH → SearchGenomeService variants
+  │    ├─ STRESS_HYPERMUTATION → mutateGenome (DB agents.search_genome)
+  │    ├─ SPECIATION → SearchPatchService (DB search_niches)
+  │    ├─ EVOLUTION → crossoverGenome + mutateGenome (DB agents.search_genome)
+  │    └─ REPLAY_CAUSAL → agent_state_snapshots (DB)
+  └─ SearchPersistence.saveHypothesis/saveDecision/savePressureState()
 ```
+
+## Points d'audit résolus
+
+| Point | Description | Statut |
+| --- | --- | --- |
+| 1 | Hystérésis : mapping PHASE_EXIT + logique hold | ✅ corrigé |
+| 2 | Actuator : enum EVOLUTION + méthodes *Sync | ✅ corrigé |
+| 3 | Hypothèses à partir d'événements runtime | ✅ implémenté |
+| 4 | Preuve → hypothèse par hypothesisId | ✅ implémenté |
+| 5 | executeProcess({selection, searchCtx, actuator}) | ✅ corrigé |
+| 6 | Source unique enum searchProcessTypes.js | ✅ implémenté |
+| 7 | Actuator → primitives GenOS réelles | ✅ implémenté |
+| 8 | Persistence SQLite opérationnelle | ✅ implémenté |
+| 9 | E2E passant par checkNaturalSearchControl() | ✅ implémenté |
+| 10 | Docs/code synchronisées | ✅ implémenté |
 
 ## Principe fondamental
 

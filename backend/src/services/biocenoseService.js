@@ -36,10 +36,23 @@ function brierMember(dossier) {
   };
 }
 
-function brierScore(member) {
+function oracleTruth(oracleResult) {
+  if (oracleResult === 'success' || oracleResult === true) return 1;
+  if (oracleResult === 'failed' || oracleResult === false) return 0;
+  const num = Number(oracleResult);
+  if (Number.isFinite(num)) return clamp01(num);
+  return null;
+}
+
+function voteSupport(outcome) {
+  return outcome === 'success' || outcome === true ? 1 : 0;
+}
+
+function brierScore(member, oracleResult) {
   const confidence = clamp01(member?.confidence ?? 0.5);
-  const outcome = member?.outcome === 'success' || member?.outcome === true ? 1 : (member?.outcome === 'failed' || member?.outcome === false ? 0 : 0.5);
-  return (confidence - outcome) ** 2;
+  const truth = oracleTruth(oracleResult);
+  if (truth === null) return null;
+  return (confidence - truth) ** 2;
 }
 
 function quorumWithAbstention(votes, options = {}) {
@@ -60,20 +73,24 @@ function quorumWithAbstention(votes, options = {}) {
 
 function brierConsensus(dossiers, options = {}) {
   const members = (Array.isArray(dossiers) ? dossiers : []).map(brierMember);
-  if (!members.length) return { reached: false, weightedSupport: 0, meanBrier: null, participantCount: 0 };
+  const truth = oracleTruth(options.oracleResult);
+  const quorumRatio = Number.isFinite(options.quorumRatio) ? options.quorumRatio : 0.5;
+  if (!members.length || truth === null) {
+    return { reached: false, weightedSupport: 0, meanBrier: null, participantCount: members.length, quorumRatio, oracleMissing: true };
+  }
   let weightSum = 0;
   let supportSum = 0;
   let brierSum = 0;
   for (const member of members) {
-    const brier = brierScore(member);
+    const brier = brierScore(member, truth);
+    if (brier === null) continue;
     const weight = Math.max(0, 1 - brier);
-    const support = member.outcome === 'success' || member.outcome === true ? 1 : 0;
+    const support = voteSupport(member.outcome);
     weightSum += weight;
     supportSum += weight * support;
     brierSum += brier;
   }
   const weightedSupport = weightSum > 0 ? supportSum / weightSum : 0;
-  const quorumRatio = Number.isFinite(options.quorumRatio) ? options.quorumRatio : 0.5;
   return {
     reached: weightedSupport >= quorumRatio,
     weightedSupport: Number(weightedSupport.toFixed(3)),
@@ -152,6 +169,6 @@ module.exports = {
   evaluateCommunity,
   prepareCommunity,
   brierConsensus,
-  quorumWithAbstention
-  , hierarchicalQuorumPlan: hierarchicalQuorum.planForAgentCount
+  quorumWithAbstention,
+  hierarchicalQuorumPlan: hierarchicalQuorum.planForAgentCount
 };

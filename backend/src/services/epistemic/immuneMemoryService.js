@@ -26,9 +26,12 @@ function signatureFrom(entry) {
 function antigenSignature(antigen) {
   const evidenceKind = antigen.epitopes?.evidence?.kind || 'no-evidence';
   const domain = antigen.epitopes?.validityDomain?.domain || antigen.domain || 'general';
-  const assumptions = (antigen.epitopes?.assumptions || []).sort().join(',');
+  const assumptions = [...(antigen.epitopes?.assumptions || [])].sort();
   const producer = antigen.producer?.model || antigen.producer?.name || 'unknown';
-  return stableFingerprint(JSON.stringify([antigen.claim, evidenceKind, domain, assumptions, producer].sort()));
+  const canonical = { assumptions, claim: antigen.claim, domain, evidenceKind, producer };
+  const sortedKeys = Object.keys(canonical).sort();
+  const ordered = sortedKeys.reduce((obj, k) => { obj[k] = canonical[k]; return obj; }, {});
+  return stableFingerprint(JSON.stringify(ordered));
 }
 
 function stableFingerprint(text) {
@@ -71,7 +74,7 @@ function fuzzyRecall(memory, pattern, opts = {}) {
   if (!memory || !Array.isArray(memory)) return [];
   const sig = signatureFrom(pattern);
   const threshold = opts.threshold || SEUIL_RAPPEL_AUTOMATIQUE;
-  const candidates = memory.filter((entry) => entry.signature === sig || entry.domain === opts.domain);
+  const candidates = memory.filter((entry) => entry.signature === sig);
   return candidates.filter((e) => e.affinity >= threshold);
 }
 

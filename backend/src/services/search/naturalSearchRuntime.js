@@ -24,9 +24,9 @@ async function ensureDb() {
   }
 }
 
-async function getOrCreateSearchState(agentId) {
+async function getOrCreateSearchState(agentId, ctxDb = null) {
   if (!agentSearchState.has(agentId)) {
-    const db = await ensureDb();
+    const db = ctxDb || await ensureDb();
     const ledger = new HypothesisLedger({ budgetRatioThreshold: 0.8 });
     const controller = new NaturalSearchController({ ledger });
     const actuator = new NaturalSearchActuator({ db });
@@ -242,7 +242,7 @@ async function checkNaturalSearchControl(ctx, event) {
   const { agentId, normalizedMission } = ctx;
 
   try {
-    const searchState = getOrCreateSearchState(agentId);
+    const searchState = await getOrCreateSearchState(agentId, ctx.db);
     const { ledger, controller, actuator, causalProgress, persistence } = searchState;
 
     applyBudget(searchState, normalizedMission);

@@ -184,7 +184,8 @@ function _applyContradictionOverride(overrideOpts) {
   if (!_contradictionConfig().enabled) {
     return { route, decision, reason };
   }
-  const worst = _worstContradiction(consistencyIssues);
+  const claimIssues = consistencyIssues.filter((i) => i.claims && i.claims.includes(claim.id));
+  const worst = _worstContradiction(claimIssues);
   if (!worst || worst.gap <= _contradictionConfig().threshold) {
     return { route, decision, reason };
   }
@@ -201,7 +202,7 @@ function _applyContradictionOverride(overrideOpts) {
 
 // Single-claim policy evaluation
 
-function evaluatePolicy(claim, opts) {
+function evaluatePolicy(claim, opts, precomputedConsistency) {
   if (!opts) opts = {};
   if (!_isPlainClaim(claim)) {
     return _invalidClaimResult();
@@ -215,7 +216,7 @@ function evaluatePolicy(claim, opts) {
   const metrics = _extractQualityMetrics({ acceptance, claim, effectiveStakes, decayCurve, tails });
   const { quality, calibrated, gap } = metrics;
 
-  const consistencyIssues = checkClaimConsistency([claim]);
+  const consistencyIssues = precomputedConsistency || checkClaimConsistency([claim]);
 
   let result;
   if (acceptance.accepted) {
@@ -283,7 +284,7 @@ function evaluatePolicyBatch(claims, opts) {
   const overrides = _collectContradictionOverrides(consistencyIssues, claims);
 
   const evaluations = claims.map((c) =>
-    evaluatePolicy(c, Object.assign({}, opts, { stakes: effectiveStakes, consistencyIssues })),
+    evaluatePolicy(c, Object.assign({}, opts, { stakes: effectiveStakes }), consistencyIssues),
   );
 
   const byRoute = {
@@ -303,6 +304,7 @@ function evaluatePolicyBatch(claims, opts) {
   return Object.freeze({
     evaluations,
     byRoute,
+    overrides,
     summary: {
       total: claims.length,
       forward: byRoute[ROUTE.FORWARD].length,
