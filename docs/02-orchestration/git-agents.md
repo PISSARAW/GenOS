@@ -30,7 +30,7 @@ Un état GenOS contient notamment :
 - les plasmides et permissions ;
 - les événements et les enfants de lineage.
 
-Chaque objet reçoit un hash SHA-256 de son état et une signature HMAC-SHA256 par défaut, ou Ed25519 si une clé privée est configurée. Les refs pointent vers les objets et sont mises à jour avec une version et un lease token optionnel.
+Chaque objet reçoit un `tree_hash` (hash de l’arbre durable sans volatils) et un `commit_hash` (hash incluant parents et métadonnées). La signature est HMAC-SHA256 par défaut, ou Ed25519 si une clé privée est configurée. Les refs pointent vers les objets et sont mises à jour avec une version et un lease token optionnel.
 
 ## 3. Modèle logique et mathématique
 
@@ -41,7 +41,6 @@ A = (I, D, M, R, P, Q, E, C)
 $$
 
 avec :
-
 - $I$ = identité et configuration de l’agent ;
 - $D$ = décisions ;
 - $M$ = mémoires ;
@@ -51,25 +50,28 @@ avec :
 - $E$ = événements ;
 - $C$ = enfants et relations de lineage.
 
-Le hash d’état est :
+L’état est séparé en deux composantes :
 
+1. **Arbre durable** (sans volatils) :
 $$
-H(A) = SHA256(JSON.stringify(A))
-$$
-
-Une opération de diff compare les sections de $A_1$ et $A_2$ :
-
-$$
-\Delta(A_1, A_2) = \{s \mid JSON(A_1[s]) \neq JSON(A_2[s])\}
+A_{durable} = stripVolatileFields(A)
 $$
 
-La signature porte sur le hash et les métadonnées :
+où `stripVolatileFields` retire `capturedAt`, `runtime_pid`, `runtime_started_at`, `updated_at`.
 
+2. **Hash d’arbre** :
 $$
-S = Sign(H(A) : metadata)
+treeHash = SHA256(canonicalize(A_{durable}))
 $$
 
-Cela garantit l’intégrité de la représentation stockée. Cela ne prouve pas à lui seul la justesse métier des décisions contenues dans l’état.
+3. **Hash de commit** (inclut les parents et métadonnées) :
+$$
+commitHash = SHA256(canonicalize(\{tree, parents, metadata\}))
+$$
+
+Cela garantit que :
+- deux snapshots identiques à des instants différents produisent le même `tree_hash` ;
+- le `commit_hash` distingue des commits ayant même arbre mais parents/métadonnées différents.
 
 ## 4. Analogies biologiques et limites réelles
 
@@ -80,7 +82,7 @@ La transposition reprend les invariants de Git sans prétendre à une équivalen
 | agent versionné | cellule avec identité et état | l’état est un JSON relationnel, pas une cellule biologique |
 | branche d’agent | lignée ou hypothèse concurrente | une ref ne crée pas automatiquement un nouveau workspace |
 | fork de mission | différenciation d’un descendant | le fork d’agent et le fork de fichiers sont deux mécanismes distincts |
-| merge contrôlé | intégration de traits compatibles | les conflits sont surtout détectés sur des champs et sections connus |
+| merge contrôlé | intégration de traits compatibles | les conflits sont détectés via computePatch sur le DAG |
 | pruning / GC | élimination d’artefacts inutiles | le GC Git agentique est explicite et vise surtout stash/remote |
 
 Les concepts biologiques de lineage, sélection et apoptose restent des modèles d’organisation. Ils ne remplacent ni la vérification de preuve, ni la validation des tests, ni l’approbation humaine.
@@ -97,7 +99,7 @@ Un agent descendant travaille dans un état ou une capsule séparée. `diff`, `r
 
 ### 5.3 Partager une mémoire ou une décision
 
-`cherry-pick` applique sélectivement des sections d’un objet vers un autre agent. Le transfert par défaut porte sur les décisions, mémoires, plasmides et permissions, pas sur les événements historiques.
+`cherry-pick` applique `computePatch(parentCommit, targetCommit)` via `applyPatch` sur les sections cibles. Le transfert par défaut porte sur les décisions, mémoires, plasmides et permissions, pas sur les événements historiques.
 
 ### 5.4 Maintenir un dépôt de code avec un agent
 
@@ -124,25 +126,27 @@ flowchart LR
 
 | Git fait | GenOS fait avec les agents | Stockage ou service | Différence à retenir |
 |---|---|---|---|
-| `commit` | capture l’état complet et crée un objet signé | `agent_git_objects` | versionne l’état d’agent, pas les fichiers du dépôt |
+| `commit` | capture l’état complet et crée un objet signé avec `tree_hash` + `commit_hash` | `agent_git_objects` | versionne l’état d’agent, pas les fichiers du dépôt |
 | `branch` | déplace une ref nommée vers un objet d’état | `agent_git_refs` | une ref agentique ne vaut pas automatiquement une branche Git fichier |
-| `checkout` / `reset` | applique un snapshot à un agent cible | `applyState()` / `checkoutAgentState()` | peut réécrire des sections persistées de l’agent |
-| `diff` | compare les sections `agent`, `decisions`, `memories`, `runs`, etc. | `collectState()` | diff sémantique d’état, pas diff ligne par ligne |
-| `merge` | déduplique les collections et demande une résolution de conflit | `merge()` | conflits ciblés sur `role` et `model_tier`, autres sections fusionnées par déduplication |
-| `merge-base` | cherche un ancêtre commun par hash d’état | `mergeBase()` | recherche dans les objets d’agent, indépendante du DAG Git de fichiers |
-| `rebase` | rejoue un état sur une autre base | `rebase()` | les sections divergentes peuvent exiger `ours` ou `onto` |
+| `checkout` / `reset` | applique un snapshot à un agent cible | `replaceState()` / `reset()` | peut réécrire des sections persistées de l’agent |
+| `diff` | compare les sections et expose `changedSections` + `treeHash` | `collectState()` + `treeHash()` | diff sémantique + hashs canoniques |
+| `merge` | fusion 3-way via DAG (mergeBase + computePatch base→left, base→right) | `merge()` / `gitOperations.merge` | détection de conflits par section, deny-wins sur permissions |
+| `merge-base` | ancêtre commun via parcours DAG de `agent_git_commit_parents` | `mergeBaseDag()` / `commitGraph.findMergeBase` | parcours BFS des parents, indépendant du temps |
+| `rebase` | rejoue les commits depuis le merge-base via `replayOntoBase` | `rebase()` / `gitOperations.rebase` | re-joue les patches sémantiques sur la nouvelle base |
 | `stash` | enregistre un snapshot temporaire | objet `stash` | la rétention est manuelle via `gc` |
 | `tag` | crée un objet stable éventuellement verrouillé | objet `tag` | un tag verrouillé ne peut pas être remplacé |
 | `push` | crée un objet `remote` et peut l’envoyer par HTTP | `remote/push` | pas de transport Git SSH ou `git://` dans ce service |
+| `receiveRemote` | vérifie `hash(state) === incoming.stateHash` + signature avant import | `receiveRemote()` | quarantaine implicite, vérification d'intégrité stricte |
 | `fetch` | récupère les objets distants disponibles | `remote/fetch` | ne modifie pas l’agent cible |
-| `pull` | applique un objet distant, éventuellement par sections | `applyState()` | pull est une application d’état, pas un checkout de fichiers |
-| `cherry-pick` | copie des sections sélectionnées d’un objet | `applyState()` | transfert sémantique et partiel |
-| `revert` | crée un nouvel état inverse pour décisions/mémoires | `revert()` | ne supprime pas l’objet historique original |
+| `pull` | applique un objet distant, éventuellement par sections | `replaceState()` | pull est une application d’état, pas un checkout de fichiers |
+| `cherry-pick` | applique `computePatch(parentCommit, targetCommit)` via `applyPatch` | `cherryPick()` / `gitOperations.cherryPick` | transfert par delta sémantique, pas copie brute |
+| `revert` | applique `inversePatch = computePatch(targetState, parentState)` | `revert()` / `gitOperations.revert` | supprime via `applyPatch`, ne supprime pas l’historique |
 | `log` | liste les objets et valide leur signature | `agent_git_objects` | historique borné à 1000 objets |
 | `reflog` | trace les déplacements de refs | `agent_git_reflog` | audit des pointeurs, séparé du lineage métier |
 | `blame` | remonte l’agent source et la date d’un item | `blame()` | provenance au niveau des éléments d’état |
+| `bisect` | recherche binaire causale via `collectAncestors` sur le DAG | `bisect()` / `gitOperations.bisect` | parcours causal, pas chronologique |
 | `hook` | active `pre-commit`, `pre-push`, `merge-validation` ou signature requise | `agent_git_hooks` | hooks synchrones et politiques GenOS |
-| `fsck` | vérifie JSON, hash, signature et parents déclarés | `fsck()` | intégrité de l’objet, pas santé métier complète |
+| `fsck` | vérifie JSON, `state_hash`, `tree_hash`, signature et `agent_git_commit_parents` | `fsck()` | intégrité DAG + hashs, pas santé métier complète |
 | `gc` | supprime les vieux objets `stash` et `remote` | `gc()` | déclenchement explicite, commits conservés |
 | `worktree` | crée un environnement fichier isolé pour un worker ou daemon | workspace lifecycle / daemon | hors de `agentGitService` |
 | pull request | ouvre une revue de code après correctif testé | daemon + `gh` CLI | concerne le dépôt Git réel, pas un objet d’état agentique |
@@ -154,11 +158,11 @@ Git fichier                              GenOS agentique
 -----------                              ---------------
 modifier des fichiers                    modifier décisions / mémoire / configuration
         |                                         |
-git add + git commit                     collectState + hashState + signature
+git add + git commit                     collectState + treeHash + commitHash + signature
         |                                         |
 branche Git / HEAD                       agent_git_refs / reflog
         |                                         |
-diff ligne / merge 3-way                 diff de sections / merge d'état
+diff ligne / merge 3-way                 diff de sections / merge DAG (computePatch)
         |                                         |
 tests + revue + push                     evidence + policy gate + promotion
         |                                         |
@@ -173,15 +177,17 @@ Les routes sont montées sous `/api/lineage` et protégées par le scope tenant.
 |---|---|
 | `POST /agents/git/commit` | créer un commit d’état |
 | `POST /agents/git/diff` | comparer deux agents |
-| `POST /agents/git/merge` | fusionner deux états |
+| `POST /agents/git/merge` | fusionner deux états (3-way DAG) |
 | `POST /agents/git/rebase` | rebaser un objet |
 | `POST /agents/git/push`, `/fetch`, `/pull` | répliquer et appliquer des objets distants |
 | `POST /agents/git/log`, `/show`, `/reflog`, `/fsck` | inspecter et vérifier l’historique |
 | `POST /agents/git/blame`, `/note`, `/describe`, `/archive` | provenance, annotation et archivage |
 | `POST /agents/git/stash`, `/tag`, `/cherry-pick`, `/revert` | opérations de transfert et de restauration |
+| `POST /agents/git/stage`, `/unstage`, `/status`, `/commit-from-index` | staging index (agent Git index) |
+| `POST /agents/git/replace-state`, `/apply-patch`, `/compute-patch` | opérations DAG bas niveau |
 | `POST /agents/git/hook`, `/gc`, `/bisect`, `/merge-base` | politiques, maintenance et analyse |
 
-Les tables principales sont `agent_git_objects`, `agent_git_refs`, `agent_git_reflog`, `agent_git_hooks`, `agent_git_notes` et `agent_git_archives`. Le scope `organization_id` / `project_id` empêche les opérations inter-tenants et les merges entre workspaces différents.
+Les tables principales sont `agent_git_objects`, `agent_git_refs`, `agent_git_reflog`, `agent_git_hooks`, `agent_git_notes`, `agent_git_archives`, `agent_git_commit_parents` et `agent_git_indexes`. Le scope `organization_id` / `project_id` empêche les opérations inter-tenants et les merges entre workspaces différents.
 
 Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/workspaceSnapshotStore.js) capture des snapshots checksumés et [agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée un worktree Git ou une copie non-Git. Le daemon ajoute une branche persistante et une automatisation de pull request.
 
@@ -192,9 +198,11 @@ Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/worksp
 1. Vérifier l’existence de l’agent dans le scope tenant courant.
 2. Collecter l’état relationnel avec `collectState()`.
 3. Exécuter le hook `pre-commit` s’il est configuré.
-4. Calculer le hash et signer les métadonnées.
-5. Persister l’objet et avancer la ref avec contrôle de version.
-6. Écrire l’entrée de reflog.
+4. Lire la ref courante pour obtenir le `parentCommitId`.
+5. Calculer `tree_hash` (via `canonicalize(stripVolatileFields(state))`) et `commit_hash` (via `canonicalize({tree, parents, metadata})`).
+6. Signer l’objet et persister dans `agent_git_objects` avec `tree_hash`, `commit_hash`, `parent_commit_id`.
+7. Si `parentCommitId` existe, insérer dans `agent_git_commit_parents`.
+8. Avancer la ref avec contrôle de version et écrire l’entrée de reflog.
 
 ### Promotion d’un changement de workspace
 
@@ -205,7 +213,7 @@ Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/worksp
 5. Effectuer un merge 3-way si une base causale existe.
 6. Bloquer la promotion en cas de conflit ou de preuve manquante.
 
-Le service [strategyPromotionPolicyService.js](../../backend/src/services/strategyPromotionPolicyService.js) ne doit pas être confondu avec `agentGitService` : il fusionne des fichiers de workspace après validation, alors que `agentGitService.merge()` fusionne des états d’agents.
+Le service [strategyPromotionPolicyService.js](../../backend/src/services/strategyPromotionPolicyService.js) ne doit pas être confondu avec `agentGitService` : il fusionne des fichiers de workspace après validation, alors que `agentGitService.merge()` fusionne des états d’agents via le DAG.
 
 ## 9. Comparaison avec Git et le marché
 
@@ -230,77 +238,21 @@ La bonne architecture est donc complémentaire : Git pour les fichiers et le cod
 - La signature est vérifiée avec la configuration de clé du serveur ; il n’y a pas de négociation d’algorithme par objet.
 - `push` et `fetch` distants utilisent HTTP ; ils ne sont pas un transport Git natif.
 - Le verrouillage des refs est optimiste ; une concurrence peut produire `AGENT_REF_CONFLICT` ou `AGENT_REF_LEASE_CONFLICT`.
-- Le merge d’état détecte principalement les conflits de rôle et de modèle ; les collections sont fusionnées par déduplication.
+- Le merge utilise un DAG de commits (`agent_git_commit_parents`) pour le merge-base ; les patches sont calculés via `computePatch(base, left)` et `computePatch(base, right)`.
+- `cherry-pick` applique `computePatch(parentCommit, targetCommit)` + `applyPatch`, pas une copie brute d’état.
+- `revert` applique `inversePatch = computePatch(targetState, parentState)`, supprimant les éléments attendus.
+- `bisect` parcours le DAG causal (`collectAncestors`) au lieu d’un `ORDER BY created_at`.
 - Le replay vérifie l’intégrité et l’ordre des événements capturés ; il ne garantit pas une re-exécution déterministe de tous les effets externes.
 - Le GC doit être appelé explicitement et ne purge que les catégories prévues.
 
 ### Garde-fous obligatoires
 
-- ne pas confondre `state_hash` avec une preuve de vérité métier ;
+- ne pas confondre `state_hash` avec une preuve de vérité métier ; le `tree_hash` est stable par conception, le `commit_hash` inclut les parents ;
 - exiger replay, evidence et approbation humaine pour les promotions à impact élevé ;
 - conserver les branches rejetées lorsqu’une policy l’impose ;
 - utiliser un worktree ou une capsule isolée avant toute mutation de fichiers ;
-- garder les secrets de signature hors du dépôt et configurer Ed25519 en production lorsque la chaîne de clés est disponible ; pour AgentDNA, la signature est conditionnelle à une clé Ed25519 déployée — sans clé, la chaîne d'intégrité n'est pas fermée par défaut (le vérificateur est strict Ed25519, pas de HMAC fallback).
+- garder les secrets de signature hors du dépôt et configurer Ed25519 en production lorsque la chaîne de clés est disponible ; pour AgentDNA, la signature est conditionnelle à une clé Ed25519 déployée — sans clé, la chaîne d’intégrité n’est pas fermée par défaut (le vérificateur est strict Ed25519, pas de HMAC fallback).
 
 ### Non-objectifs
 
 Cette transposition ne cherche pas à remplacer Git, à fournir une blockchain, à rendre une décision correcte par le seul fait qu’elle est signée, ni à donner à un agent un accès autonome illimité au dépôt ou à la production.
-
-
-
----
-
-## Schémas d'Architecture et d'Opérations Git Transposées aux Agents
-
-### 1. Topologie des Objets et Worktrees Agentiques
-
-```mermaid
-flowchart TB
-    subgraph GitModel["Modèle Objet Git-Agent"]
-        Commit["Agent Commit (Snapshot État + Preuves + Parent)"]
-        Tree["Agent Tree (Arborescence Fichiers + Mémoire)"]
-        Blob["Agent Blob (Contenu Fichier / Épisode)"]
-        Ref["Agent Ref (Pointeur de Branche / HEAD)"]
-    end
-
-    subgraph Worktrees["Worktrees Isolés (Capsules)"]
-        WT1["Worktree Agent 1 (Branche Feature-A)"]
-        WT2["Worktree Agent 2 (Branche Fix-B)"]
-        WT3["Worktree Main (Branche Tronc)"]
-    end
-
-    Commit --> Tree
-    Tree --> Blob
-    Ref --> Commit
-    WT1 & WT2 & WT3 -.-> Ref
-```
-
-### 2. Séquence d'Isolation Contrefactuelle et Cherry-Pick de Décision
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant MainAgent as Agent Tronc (HEAD)
-    participant ForkEngine as Moteur de Worktree
-    participant ExperAgent as Agent Expérimental
-    participant Verifier as Validateur d'Intégrité
-
-    MainAgent->>ForkEngine: Création d'une branche contrefactuelle (git checkout -b hypo/x)
-    activate ForkEngine
-    ForkEngine->>ExperAgent: Instanciation dans worktree dédié (Sandbox VFS)
-    deactivate ForkEngine
-    
-    activate ExperAgent
-    ExperAgent->>ExperAgent: Test d'hypothèse risquée (Modifications fichiers + DB)
-    ExperAgent->>ExperAgent: Commit local de la découverte (c1)
-    ExperAgent->>Verifier: Soumission pour validation
-    deactivate ExperAgent
-    
-    activate Verifier
-    Verifier->>Verifier: Vérification des assertions
-    Verifier-->>MainAgent: Cherry-pick certifié du commit c1
-    deactivate Verifier
-    
-    MainAgent->>MainAgent: Application atomique sur le tronc (git cherry-pick c1)
-    MainAgent->>ForkEngine: Destruction sécurisée du worktree expérimental
-```
