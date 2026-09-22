@@ -67,8 +67,22 @@ function recordSignalRouted() {
 /**
  * Record LLM escalation (cognitive wakeup).
  */
+function recordLlmWakeup() {
+  metrics.llmWakeups++;
+}
+
+function recordLlmWakeupOutcome({ useful }) {
+  if (useful) metrics.llmWakeupsWithAction++;
+}
+
+function recordWorkerWakeup() {
+  metrics.signalsWithAction++;
+}
+
 function recordLlmEscalation() {
   metrics.signalsLlmEscalated++;
+  recordLlmWakeup();
+  recordImpact(0, 1.0);
 }
 
 /**
@@ -224,6 +238,9 @@ module.exports = {
   recordTrigger,
   recordSignalRouted,
   recordLlmEscalation,
+  recordLlmWakeup,
+  recordLlmWakeupOutcome,
+  recordWorkerWakeup,
   recordLlmWakeupWithAction,
   recordSignalWithAction,
   recordSignalOrgChanged,

@@ -14,6 +14,7 @@ const plasticity = require('./synapticPlasticityService');
 const { startMission } = require('./agentRuntimeAdapter/missionExecution');
 const escalation = require('./cognitiveEscalationService');
 const { markSignalDelivered } = require('./signalDeliveryHelpers');
+const signalMetrics = require('./signalMetricsService');
 
 const registeredWakeHandlers = new Map();
 
@@ -44,6 +45,8 @@ function startSignalPlaneSubscriber() {
       const handler = registeredWakeHandlers.get(recipientId);
       // Mark as delivered when the wake handler processes it
       await markSignalDelivered(signal.signalId, recipientId);
+      // Record worker wakeup for metrics
+      signalMetrics.recordWorkerWakeup();
       if (handler) {
         try {
           await handler(signal);
@@ -63,6 +66,7 @@ function startSignalPlaneSubscriber() {
     const context = escalation.buildMinimalContext(signal);
 
     console.log(`[SignalPlaneSubscriber] LLM escalation → ${target} (signal=${signal.signalId}, type=${signal.signalType})`);
+    signalMetrics.recordLlmEscalation();
 
     try {
       await startMission({
@@ -75,8 +79,10 @@ function startSignalPlaneSubscriber() {
         triggerSignalTopic: signal.topic,
         escalationContext: context,
       });
+      signalMetrics.recordLlmWakeupOutcome({ useful: true });
       escalation.recordEscalationOutcome(signal.signalId, 'dispatched', 0);
     } catch (err) {
+      signalMetrics.recordLlmWakeupOutcome({ useful: false });
       console.warn(`[SignalPlaneSubscriber] Escalation startMission failed for ${target}:`, err.message);
       escalation.recordEscalationOutcome(signal.signalId, 'failed', 0);
     }

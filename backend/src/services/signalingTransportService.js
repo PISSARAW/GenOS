@@ -195,6 +195,10 @@ async function routeAndDispatch(signal, params) {
   const recipientAgentIds = (routing.recipients || [])
     .filter((r) => r.kind === 'agent' && r.agentId)
     .map((r) => r.agentId);
+  if (recipientAgentIds.length > 0) {
+    signalMetrics.recordSignalRouted();
+    if (dispatchResult.dispatched) signalMetrics.recordSignalWithAction();
+  }
   // Record pending deliveries (pending → delivered → seen → acked)
   await recordPendingDeliveries(signal.id, recipientAgentIds);
   emitToBus({ ...signal, recipientAgentIds, llmRequired: dispatchResult.llmRequired || false });
