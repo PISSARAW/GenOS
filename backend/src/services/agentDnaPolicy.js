@@ -24,8 +24,11 @@ async function isSignatureRequired(db, scope) {
       ids.projectId
     );
     return Boolean(row && row.require_signed);
-  } catch (_) {
-    return false;
+  } catch (err) {
+    // Fail-closed: database unavailable in a protected scope blocks genome selection.
+    // Never silently disable signature enforcement.
+    console.error('[agentDnaPolicy] Failed to read genome policy; defaulting to require_signed=true:', err.message);
+    return true;
   }
 }
 

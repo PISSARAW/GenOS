@@ -5,6 +5,7 @@ const path = require('path');
 const { packBioPolymer, unpackBioPolymer } = require('./bioPolymerPersistenceService');
 const { decodeBuffer, decodeFile, workerGenes } = require('./agentDna');
 const policy = require('./agentDnaPolicy');
+const { verifySignerTrust } = require('./agentDna/container');
 
 const ROLE_STOPWORDS = new Set([
   'worker', 'agent', 'the', 'and', 'for', 'from', 'with', 'mission', 'task',
@@ -97,8 +98,11 @@ function dnaEnabled() {
 }
 
 async function acceptGenome(db, model, scope) {
-  if (!(await policy.isSignatureRequired(db, scope))) return true;
-  return model.signatureValid === true;
+  const required = await policy.isSignatureRequired(db, scope);
+  if (!required) return true;
+  if (!model.signatureValid) return false;
+  if (!model.signer) return false;
+  return verifySignerTrust(model.signer, scope, db);
 }
 
 async function ensureImported(db) {

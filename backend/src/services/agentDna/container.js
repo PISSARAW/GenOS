@@ -84,33 +84,30 @@ function verifyEd25519(signerHex, message, signature) {
   }
 }
 
-async function verifySignature(sections, scope) {
+function verifySignature(sections) {
   const signature = sections.get('SIGN');
-  if (!signature) return { signed: false, signer: null, valid: false, trusted: false };
+  if (!signature) return { signed: false, signer: null, valid: false };
   const provenance = sections.get('PROV');
-  if (!provenance) return { signed: true, signer: null, valid: false, trusted: false };
+  if (!provenance) return { signed: true, signer: null, valid: false };
   let signer = null;
   try {
     signer = unpack(provenance)[7];
   } catch (_) {
-    return { signed: true, signer: null, valid: false, trusted: false };
+    return { signed: true, signer: null, valid: false };
   }
-  if (!signer) return { signed: true, signer, valid: false, trusted: false };
-
+  if (!signer) return { signed: true, signer, valid: false };
   const valid = verifyEd25519(signer, canonicalFlux(sections), signature);
+  return { signed: true, signer, valid };
+}
 
-  // B6: vérifier que le signataire est dans le trust store du tenant
-  let trusted = false;
-  if (valid && scope && scope.organizationId && scope.projectId) {
-    const { isSignerTrusted } = require('./genomeTrustStore');
-    try {
-      trusted = await isSignerTrusted({ organizationId: scope.organizationId, projectId: scope.projectId }, signer);
-    } catch (_) {
-      trusted = false;
-    }
+async function verifySignerTrust(signer, scope, db) {
+  if (!signer || !db || !scope?.organizationId) return false;
+  try {
+    const { isSignerTrusted } = require('../genomeTrustStore');
+    return await isSignerTrusted(db, scope.organizationId, signer);
+  } catch (_) {
+    return false;
   }
-
-  return { signed: true, signer, valid, trusted };
 }
 
 function uuidFromBuffer(buffer) {
@@ -124,4 +121,4 @@ function decodeContainer(buffer) {
   return { header, sections: readSections(buffer, header) };
 }
 
-module.exports = { decodeContainer, contentHash, canonicalFlux, verifySignature, uuidFromBuffer, HEADER_LEN, FORMAT_VERSION };
+module.exports = { decodeContainer, contentHash, canonicalFlux, verifySignature, verifySignerTrust, uuidFromBuffer, HEADER_LEN, FORMAT_VERSION };

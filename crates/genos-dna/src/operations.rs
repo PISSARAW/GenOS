@@ -109,7 +109,7 @@ pub fn cross(parent_a: &AgentDna, parent_b: &AgentDna, options: &CrossOptions) -
 }
 
 pub fn mutate(dna: &AgentDna, options: &MutateOptions) -> Result<AgentDna, String> {
-    let mut genome = dna.to_genome()?;
+    let mut genome = dna.to_genome()?.derive_child();
     let seed = resolve_seed(&options.seed, &format!("mutate:{}", dna.meta.genome_id));
     let mut rng = seeded_rng(&seed);
     let kind = if let Some(locus) = &options.locus {
@@ -172,7 +172,7 @@ pub fn decoy(dna: &AgentDna, options: &DecoyOptions) -> Result<AgentDna, String>
 
 /// Adds an acquired concept to an existing genome (gene or plasmid).
 pub fn graft(dna: &AgentDna, spec: &GraftSpec) -> Result<AgentDna, String> {
-    let mut genome = dna.to_genome()?;
+    let mut genome = dna.to_genome()?.derive_child();
     apply_graft(&mut genome, spec)?;
     let mut provenance = dna.provenance.clone();
     provenance.parents = vec![dna.meta.genome_id];

@@ -1,6 +1,6 @@
 const { unpack } = require('msgpackr');
 
-const { decodeContainer, contentHash, verifySignature, uuidFromBuffer } = require('./container');
+const { decodeContainer, contentHash, verifySignature, verifySignerTrust, uuidFromBuffer } = require('./container');
 const { decodeInstruction, splitStrandPayload } = require('./packing');
 const { express } = require('./express');
 
