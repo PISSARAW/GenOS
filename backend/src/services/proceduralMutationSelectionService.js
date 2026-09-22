@@ -81,6 +81,21 @@ function removeNodeVariant(parent, index) {
   return { organism: org, operation: op };
 }
 
+function findAbsentPair(nodes, synapses, seed) {
+  const existing = new Set(synapses.map((s) => `${s.from}->${s.to}`));
+  const candidates = [];
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = 0; j < nodes.length; j++) {
+      if (i === j) continue;
+      const key = `${nodes[i].id}->${nodes[j].id}`;
+      if (!existing.has(key)) candidates.push([nodes[i], nodes[j]]);
+    }
+  }
+  if (!candidates.length) return null;
+  const hash = crypto.createHash('sha256').update(`${seed}-addsynapse`).digest('hex').slice(0, 8);
+  return candidates[parseInt(hash, 16) % candidates.length];
+}
+
 function addSynapseVariant(parent, index) {
   const org = cloneOrganism(parent);
   org.structure = org.structure || { nodes: [], synapses: [] };
@@ -89,12 +104,14 @@ function addSynapseVariant(parent, index) {
   const before = deepClone(org.structure.synapses);
   let op = { op: 'ADD_SYNAPSE', target: null, before: { synapses: before }, after: null };
   if (org.structure.nodes.length >= 2) {
-    const src = org.structure.nodes[0];
-    const tgt = org.structure.nodes[org.structure.nodes.length - 1];
-    const synapse = { from: src.id, to: tgt.id, type: 'excitatory', weight: 0.5 };
-    org.structure.synapses.push(synapse);
-    op.target = { from: src.id, to: tgt.id, type: 'excitatory' };
-    op.after = { synapses: deepClone(org.structure.synapses) };
+    const seed = `${parent.metadata?.id || 'genesis'}-${index}`;
+    const pair = findAbsentPair(org.structure.nodes, org.structure.synapses, seed);
+    if (pair) {
+      const [src, tgt] = pair;
+      org.structure.synapses.push({ from: src.id, to: tgt.id, type: 'excitatory', weight: 0.5 });
+      op.target = { from: src.id, to: tgt.id, type: 'excitatory' };
+      op.after = { synapses: deepClone(org.structure.synapses) };
+    }
   }
   return { organism: org, operation: op };
 }
@@ -146,6 +163,8 @@ function generateVariants(parent = {}, count = 4) {
   for (let i = 0; i < count; i++) {
     const op = MUTATION_OPS[i % MUTATION_OPS.length];
     const result = op(parent, i);
+    // NO_OP (mutation non applicable) — on ne garde pas le variant
+    if (!result.operation.target) continue;
     // Propagate parentId to organism.metadata for promotion gate compatibility
     result.organism.metadata = {
       ...parent.metadata,

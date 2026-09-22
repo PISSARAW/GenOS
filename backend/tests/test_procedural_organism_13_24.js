@@ -15,34 +15,53 @@ const crypto = require('../src/services/proceduralCryptobiosisService');
 const fossil = require('../src/services/proceduralFossilizationService');
 
 // 13: immune inspection — structural (not just lexical)
+// Protocol: op.before/op.after (per-operation), not mutation-level before/after
 const structuralDanger = immune.inspectMutation({
   id: 'm1',
-  operations: [{ op: 'REMOVE_NODE', target: { id: 'verify' } }],
-  before: { nodes: [{ id: 'verify', type: 'gate', required: true }] },
+  operations: [{
+    op: 'REMOVE_NODE',
+    target: { id: 'verify' },
+    before: { nodes: [{ id: 'verify', type: 'gate', required: true }] },
+  }],
 });
 assert.strictEqual(structuralDanger.safe, false);
 assert.ok(structuralDanger.structuralFindings > 0);
 
 const policyWeakened = immune.inspectMutation({
   id: 'm2',
-  before: { policy: { requireEvidence: true, requireReplay: true } },
-  after: { policy: { requireEvidence: false, requireReplay: false } },
+  operations: [{
+    op: 'UPDATE_POLICY',
+    before: { policy: { requireEvidence: true, requireReplay: true } },
+    after: { policy: { requireEvidence: false, requireReplay: false } },
+  }],
 });
 assert.strictEqual(policyWeakened.safe, false);
 assert.ok(policyWeakened.structuralFindings > 0);
 
 const safeMutation = immune.inspectMutation({
   id: 'm3',
-  operations: [{ op: 'ADD_EDGE', target: { from: 'inspect', to: 'reproduce' } }],
-  before: { policy: { requireEvidence: true } },
-  after: { policy: { requireEvidence: true } },
+  operations: [{
+    op: 'ADD_EDGE',
+    target: { from: 'inspect', to: 'reproduce' },
+    before: { policy: { requireEvidence: true } },
+    after: { policy: { requireEvidence: true } },
+  }],
 });
 assert.strictEqual(safeMutation.safe, true);
 
 const safeNoMarks = immune.inspectMutation({ id: 'm4' });
 assert.strictEqual(safeNoMarks.safe, true);
 
-const multi = immune.inspectMultiple([{ code: 'a' }, { operations: [{ op: 'REMOVE_NODE', target: { id: 'verify' } }], before: { nodes: [{ id: 'verify', type: 'gate', required: true }] } }]);
+const multi = immune.inspectMultiple([
+  { code: 'a' },
+  {
+    operations: [{
+      op: 'REMOVE_NODE',
+      target: { id: 'verify' },
+      before: { nodes: [{ id: 'verify', type: 'gate', required: true }] },
+    }],
+  },
+]);
 assert.strictEqual(multi.length, 2);
 assert.ok(immune.hasFindings(structuralDanger));
 assert.ok(!immune.hasFindings(safeMutation));
