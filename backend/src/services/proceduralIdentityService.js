@@ -273,17 +273,38 @@ function validateMetadataVersion(organism, errors) {
 }
 
 function validateStructureHash(organism, errors) {
-  if (!organism.metadata?.structureHash) {
-    // Compute structureHash from organism if not present
-    organism.metadata.structureHash = structureHash(organism);
+  const declared = organism.metadata?.structureHash;
+  if (!declared) {
+    errors.push('metadata.structureHash is required');
+    return;
+  }
+  const computed = structureHash(organism);
+  if (declared !== computed) {
+    errors.push(`metadata.structureHash mismatch: declared ${declared}, computed ${computed}`);
   }
 }
 
 function validateStateHash(organism, errors) {
-  if (!organism.metadata?.stateHash) {
-    // Compute stateHash from organism if not present
-    organism.metadata.stateHash = stateHash(organism);
+  const declared = organism.metadata?.stateHash;
+  if (!declared) {
+    errors.push('metadata.stateHash is required');
+    return;
   }
+  const computed = stateHash(organism);
+  if (declared !== computed) {
+    errors.push(`metadata.stateHash mismatch: declared ${declared}, computed ${computed}`);
+  }
+}
+
+function sealOrganism(organism) {
+  // Sealing derives identity from content: structureHash, stateHash, versionId.
+  // Pure: returns a new object, never mutates the input.
+  const sealed = JSON.parse(JSON.stringify(organism || {}));
+  sealed.metadata = sealed.metadata || {};
+  sealed.metadata.structureHash = structureHash(sealed);
+  sealed.metadata.stateHash = stateHash(sealed);
+  sealed.metadata.id = versionId(sealed);
+  return sealed;
 }
 
 function validateOrganism(organism) {
@@ -321,6 +342,7 @@ module.exports = {
   structureHash,
   stateHash,
   versionId,
+  sealOrganism,
   canonicalEpisode,
   episodeHash,
   createOccurrenceId,

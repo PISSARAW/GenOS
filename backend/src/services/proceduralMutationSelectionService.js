@@ -158,6 +158,55 @@ function adjustWeightVariant(parent, index) {
 
 const MUTATION_OPS = [addNodeVariant, removeNodeVariant, addSynapseVariant, removeSynapseVariant, adjustWeightVariant];
 
+const IDENTITY_FIELDS = ['id', 'version', 'structureHash', 'stateHash', 'mutationSignature', 'updatedAt'];
+
+function withoutIdentity(metadata) {
+  const meta = { ...(metadata || {}) };
+  for (const field of IDENTITY_FIELDS) delete meta[field];
+  return meta;
+}
+
+function mutationSignature(operations) {
+  const canonical = (operations || []).map((op) => ({
+    op: op.op,
+    target: op.target || null,
+  }));
+  return crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex').slice(0, 16);
+}
+
+function sealCandidate(parent, variant, evaluation) {
+  const identity = require('./proceduralIdentityService');
+  const organism = cloneOrganism(variant?.organism || {});
+  const signature = mutationSignature(variant?.operations || []);
+  const parentVersion = Number(parent?.metadata?.version) || 0;
+  organism.metadata = {
+    ...withoutIdentity(parent?.metadata),
+    ...withoutIdentity(organism.metadata),
+    parentId: parent?.metadata?.id || null,
+    version: parentVersion + 1,
+    mutationSignature: signature,
+  };
+  if (evaluation?.fitness != null) {
+    organism.fitness = evaluation.fitness;
+  }
+  if (evaluation?.immune) {
+    organism.immune = evaluation.immune;
+  }
+  organism.metadata.structureHash = identity.structureHash(organism);
+  organism.metadata.stateHash = identity.stateHash(organism);
+  organism.metadata.id = identity.versionId(organism);
+  organism.metadata.updatedAt = new Date().toISOString();
+  return organism;
+}
+
+function draftMetadata(parent) {
+  // A draft candidate inherits NO identity fields from the parent:
+  // id/version/hashes/mutationSignature are only set by sealCandidate().
+  const meta = withoutIdentity(parent?.metadata);
+  meta.parentId = parent?.metadata?.id || null;
+  return meta;
+}
+
 function generateVariants(parent = {}, count = 4) {
   const variants = [];
   for (let i = 0; i < count; i++) {
@@ -165,11 +214,7 @@ function generateVariants(parent = {}, count = 4) {
     const result = op(parent, i);
     // NO_OP (mutation non applicable) — on ne garde pas le variant
     if (!result.operation.target) continue;
-    // Propagate parentId to organism.metadata for promotion gate compatibility
-    result.organism.metadata = {
-      ...parent.metadata,
-      parentId: parent.metadata?.id || null,
-    };
+    result.organism.metadata = draftMetadata(parent);
     const contentId = crypto.createHash('sha256')
       .update(JSON.stringify(result.organism.structure))
       .digest('hex').slice(0, 12);
@@ -207,6 +252,8 @@ module.exports = {
   evaluateVariants,
   selectSurvivors,
   survivorsDiversity,
+  sealCandidate,
+  mutationSignature,
   MUTATION_OPS,
   cloneOrganism,
 };

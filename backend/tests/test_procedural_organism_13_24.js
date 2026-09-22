@@ -100,10 +100,17 @@ assert.ok(variants[0].organism);
 assert.ok(variants[0].organism.structure);
 assert.ok(variants[0].id !== variants[1].id);
 
-// Validate all generated variants pass schema validation
+// Validate all generated variants: drafts carry no identity, sealed candidates
+// must pass full validation (hashes recomputed and verified)
 for (const v of variants) {
-  const validation = require('../src/services/proceduralIdentityService').validateOrganism(v.organism);
-  assert.strictEqual(validation.valid, true, `Variant ${v.id} validation failed: ${validation.errors.join(', ')}`);
+  assert.strictEqual(v.organism.metadata.id, undefined, 'draft must not inherit parent id');
+  assert.strictEqual(v.organism.metadata.version, undefined, 'draft must not inherit parent version');
+  const sealed = mutation.sealCandidate(parent, v, null);
+  assert.strictEqual(sealed.metadata.version, parent.metadata.version + 1);
+  assert.strictEqual(sealed.metadata.parentId, parent.metadata.id);
+  assert.notStrictEqual(sealed.metadata.id, parent.metadata.id);
+  const validation = require('../src/services/proceduralIdentityService').validateOrganism(sealed);
+  assert.strictEqual(validation.valid, true, `Sealed ${v.id} validation failed: ${validation.errors.join(', ')}`);
 }
 
 const evaluated = mutation.evaluateVariants(variants, (v) => v.organism?.structure?.nodes?.length || 0);

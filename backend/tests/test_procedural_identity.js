@@ -46,11 +46,40 @@ const hash3 = identity.structureHash(org3);
 assert.notStrictEqual(hash1, hash3);
 
 const validation = identity.validateOrganism(org1);
-assert.strictEqual(validation.valid, true);
+assert.strictEqual(validation.valid, false, 'unsealed organism must be invalid');
+assert.ok(validation.errors.includes('metadata.structureHash is required'));
 
 const goodOrg = makeOrg({ metadata: { id: 'test', version: 1, parentId: null, lineageId: 'l1' } });
 const goodValidation = identity.validateOrganism(goodOrg);
-assert.strictEqual(goodValidation.valid, true);
+assert.strictEqual(goodValidation.valid, false, 'unsealed organism must be invalid');
+
+// sealOrganism(): derive identity from content, pure function
+const org1Copy = JSON.parse(JSON.stringify(org1));
+const sealedOrg = identity.sealOrganism(org1);
+assert.strictEqual(JSON.stringify(org1Copy), JSON.stringify(org1), 'sealOrganism must not mutate input');
+assert.ok(sealedOrg.metadata.structureHash);
+assert.ok(sealedOrg.metadata.stateHash);
+assert.ok(sealedOrg.metadata.id);
+const sealedValidation = identity.validateOrganism(sealedOrg);
+assert.strictEqual(sealedValidation.valid, true, `sealed organism must be valid: ${sealedValidation.errors.join(', ')}`);
+
+// validateOrganism() must be pure — no silent repair
+const sealedFrozen = JSON.parse(JSON.stringify(sealedOrg));
+identity.validateOrganism(sealedOrg);
+assert.strictEqual(JSON.stringify(sealedFrozen), JSON.stringify(sealedOrg), 'validateOrganism must not mutate');
+
+// Tampered hashes must be detected (cryptographic invariant)
+const tamperedStructure = JSON.parse(JSON.stringify(sealedOrg));
+tamperedStructure.metadata.structureHash = 'deadbeefdeadbeef';
+assert.strictEqual(identity.validateOrganism(tamperedStructure).valid, false, 'tampered structureHash must fail');
+
+const tamperedState = JSON.parse(JSON.stringify(sealedOrg));
+tamperedState.metadata.stateHash = 'deadbeefdeadbeef';
+assert.strictEqual(identity.validateOrganism(tamperedState).valid, false, 'tampered stateHash must fail');
+
+const rogueNode = JSON.parse(JSON.stringify(sealedOrg));
+rogueNode.structure.nodes.push({ id: 'rogue', type: 'action' });
+assert.strictEqual(identity.validateOrganism(rogueNode).valid, false, 'structure modified without re-sealing must fail');
 
 const occId = identity.createOccurrenceId('test');
 assert.ok(occId.startsWith('test-'));
