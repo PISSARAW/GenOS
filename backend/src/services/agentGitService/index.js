@@ -108,7 +108,7 @@ async function getObject(db, req, objectId) {
 
 async function createCommit(req, options = {}) {
   const db = await getDatabase();
-  const state = options.metadata?.state || await collectState(db, req, options.agentId);
+  const state = options.state || await collectState(db, req, options.agentId);
   if (!state) throw Object.assign(new Error('Agent is not available in the current tenant.'), { code: 'AGENT_NOT_FOUND' });
   await enforceHooks({ db, agentId: options.agentId, hookName: 'pre-commit', context: state });
   const refName = options.refName || 'main';
@@ -117,6 +117,17 @@ async function createCommit(req, options = {}) {
   const result = await storeObject(db, { agentId: options.agentId, workspaceId: state.agent.workspace_id, kind: options.kind || 'commit', refName, remoteName: options.remoteName, state, createdBy: req.user?.username || 'agent-git', metadata: options.metadata || {}, parentCommitId });
   await updateRef({ db, req, agentId: options.agentId, refName, objectId: result.id, options: { expectedVersion: options.expectedVersion, leaseToken: options.leaseToken, action: options.kind || 'commit' } });
   return { ...result, parentCommitId };
+}
+
+async function performRemotePush(opts) {
+  const { req, remoteUrl, commit, state } = opts;
+  const remotePath = `${String(remoteUrl).replace(/\/$/, '')}/api/lineage/agents/git/remote/push`;
+  const response = await globalThis.fetch(remotePath, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
+    body: JSON.stringify({ ...req.body, objectId: commit.id, object: commit, state })
+  });
+  if (!response.ok) throw new Error(`Remote push failed with HTTP ${response.status}.`);
 }
 
 async function push(req) {
@@ -130,11 +141,7 @@ async function push(req) {
   if (req.body?.remoteUrl) {
     await assertRemoteGitUrl(req.body.remoteUrl);
     const state = await collectState(await getDatabase(), req, agentId);
-    const response = await globalThis.fetch(`${String(req.body.remoteUrl).replace(/\/$/, '')}/api/lineage/agents/git/remote/push`, {
-      method: 'POST', headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
-      body: JSON.stringify({ ...req.body, objectId: commit.id, object: commit, state })
-    });
-    if (!response.ok) throw new Error(`Remote push failed with HTTP ${response.status}.`);
+    await performRemotePush({ req, remoteUrl: req.body.remoteUrl, commit, state });
   }
   return { success: true, operation: 'push', remoteName, force: req.body?.force === true, tracking: { ahead: 1, behind: 0 }, ...commit };
 }
@@ -144,24 +151,35 @@ async function fetch(req) {
   const remoteName = String(req.body?.remoteName || 'default').trim();
   const scope = scopeSql(req, 'w');
   const objects = await db.all(`SELECT o.id, o.agent_id, o.state_hash, o.ref_name, o.created_at FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.object_kind = 'remote' AND o.remote_name = ? AND ${scope.clause} ORDER BY o.created_at DESC`, remoteName, ...scope.params);
-  if (req.body?.remoteUrl) {
-    await assertRemoteGitUrl(req.body.remoteUrl);
-    const response = await globalThis.fetch(`${String(req.body.remoteUrl).replace(/\/$/, '')}/api/lineage/agents/git/remote/fetch`, { method: 'POST', headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) }, body: JSON.stringify({ ...req.body, remoteName }) });
-    if (!response.ok) throw new Error(`Remote fetch failed with HTTP ${response.status}.`);
-    return { success: true, operation: 'fetch', remoteName, remote: await response.json(), objects };
+  if (!req.body?.remoteUrl) return { success: true, operation: 'fetch', remoteName, objects };
+  await assertRemoteGitUrl(req.body.remoteUrl);
+  const fetchPath = `${String(req.body.remoteUrl).replace(/\/$/, '')}/api/lineage/agents/git/remote/fetch`;
+  const response = await globalThis.fetch(fetchPath, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
+    body: JSON.stringify({ ...req.body, remoteName })
+  });
+  if (!response.ok) throw new Error(`Remote fetch failed with HTTP ${response.status}.`);
+  return { success: true, operation: 'fetch', remoteName, remote: await response.json(), objects };
+}
+
+async function verifyRemoteObject(incoming, state) {
+  if (!incoming?.id || !incoming.stateHash) return { valid: false, error: 'Signed remote object is required.' };
+  if (!state) return { valid: false, error: 'Remote state payload is required.' };
+  const actualHash = hashState(state);
+  if (actualHash !== incoming.stateHash) return { valid: false, error: 'State hash mismatch: payload does not match the signed stateHash.' };
+  if (incoming.signature && !verifyObjectSignature({ ...incoming, state_hash: incoming.stateHash, state_json: state, metadata_json: '{}' })) {
+    return { valid: false, error: 'Remote signature verification failed.' };
   }
-  return { success: true, operation: 'fetch', remoteName, objects };
+  return { valid: true, error: null };
 }
 
 async function receiveRemote(req) {
   const incoming = req.body?.object;
-  if (!incoming?.id || !incoming.stateHash) return { success: false, error: 'Signed remote object is required.' };
-  const db = await getDatabase();
   const state = req.body?.state || null;
-  if (!state) return { success: false, error: 'Remote state payload is required.' };
-  const actualHash = hashState(state);
-  if (actualHash !== incoming.stateHash) return { success: false, error: 'State hash mismatch: payload does not match the signed stateHash.' };
-  if (incoming.signature && !verifyObjectSignature({ ...incoming, state_hash: incoming.stateHash, state_json: state, metadata_json: '{}' })) return { success: false, error: 'Remote signature verification failed.' };
+  const verification = await verifyRemoteObject(incoming, state);
+  if (!verification.valid) return { success: false, error: verification.error };
+  const db = await getDatabase();
   const stored = await storeObject(db, { agentId: incoming.agentId, workspaceId: incoming.workspaceId, kind: 'remote', refName: incoming.refName, remoteName: req.body?.remoteName || 'default', state, createdBy: req.user?.username || 'remote', metadata: { receivedFrom: req.ip || 'remote', sourceObjectId: incoming.id }, locked: true });
   return { success: true, operation: 'remote-receive', ...stored };
 }
@@ -309,7 +327,7 @@ async function archive(req) {
 }
 
 async function bisect(req) {
-  const { bisect: dagBisect } = require('./gitOperations');
+  const { bisect: dagBisect } = require('./bisect.cjs');
   return dagBisect(req);
 }
 

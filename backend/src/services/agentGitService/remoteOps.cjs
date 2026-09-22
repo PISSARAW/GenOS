@@ -9,7 +9,8 @@ async function checkPushVersion(req, db, agentId) {
   }
 }
 
-async function performRemotePush(req, url, commit, state) {
+async function performRemotePush(opts) {
+  const { req, url, commit, state } = opts;
   await assertRemoteGitUrl(url);
   const response = await globalThis.fetch(`${String(url).replace(/\/$/, '')}/api/lineage/agents/git/remote/push`, {
     method: 'POST',
@@ -28,7 +29,7 @@ async function push(req, { createCommit, collectState, enforceHooks, getDatabase
   const commit = await createCommit(req, { agentId, kind: 'remote', refName: req.body?.refName || 'main', remoteName, metadata: { pushed: true, remoteUrl: req.body?.remoteUrl || null } });
   if (req.body?.remoteUrl) {
     const state = await collectState(await getDatabase(), req, agentId);
-    await performPush(req, req.body.remoteUrl, { commit, state });
+    await performRemotePush({ req, url: req.body.remoteUrl, commit, state });
   }
   return { success: true, operation: 'push', remoteName, force: req.body?.force === true, tracking: { ahead: 1, behind: 0 }, ...commit };
 }

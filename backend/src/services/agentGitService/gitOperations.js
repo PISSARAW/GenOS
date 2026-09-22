@@ -3,6 +3,8 @@
 const { getCommit, findMergeBase, collectAncestors } = require('./commitGraph');
 const { computePatch, applyPatch, replaceState } = require('./dagOperations');
 const { storeObject } = require('./storeObjectHelper.cjs');
+const { updateRef } = require('./refs');
+const { mergeArraySection } = require('./mergeHelpers.cjs');
 const { getDatabase } = require('../../db');
 
 function scopeSql(req, alias = 'w') {
@@ -18,6 +20,15 @@ async function getObjectScoped(db, req, objectId) {
 
 function emptyState() {
   return { decisions: [], memories: [], runs: [], plasmids: [], permissions: [] };
+}
+
+function collectDeniedTools(permissions) {
+  const denied = new Set();
+  for (const p of permissions) {
+    const items = JSON.parse(p.denied_tools_json || '[]');
+    for (const d of items) denied.add(d);
+  }
+  return denied;
 }
 
 // --- Cherry-Pick ---
@@ -43,6 +54,7 @@ async function cherryPick(req) {
     metadata: { cherryPickedFrom: object.id, cherryPicked: true, patchOpCount: patch.operations.length }
   });
 
+  await updateRef({ db, req, agentId: targetAgentId, refName: req.body?.refName || 'main', objectId: commitResult.id, options: { action: 'cherry-pick' } });
   return { success: true, operation: 'cherry-pick', objectId: object.id, ...result, ...commitResult };
 }
 
@@ -118,6 +130,8 @@ function buildMergeStoreState(ctx) {
 
 async function createMergeCommit(ctx) {
   const { db, req, left, base, merged, leftId, rightId } = ctx;
+  const isMerge = base && base.id !== leftId && base.id !== rightId;
+  const mergeParents = isMerge ? [leftId, rightId] : [leftId];
   const commitResult = await storeObject(db, {
     agentId: req.body?.targetAgentId || left.agent_id,
     workspaceId: left.workspace_id,
@@ -128,80 +142,40 @@ async function createMergeCommit(ctx) {
     metadata: {
       mergeParents: [leftId, rightId],
       mergeBase: base?.id || null,
-      parentCommitId: leftId
+      merge: isMerge,
+      fastForward: !isMerge
     },
-    parentCommitId: leftId
+    parentCommitIds: mergeParents
   });
-
-  if (base && base.id !== leftId && base.id !== rightId) {
-    await db.run('INSERT OR IGNORE INTO agent_git_commit_parents (commit_id, parent_commit_id) VALUES (?, ?)', commitResult.id, rightId);
-  }
+  await updateRef({ db, req, agentId: req.body?.targetAgentId || left.agent_id, refName: req.body?.refName || 'merge', objectId: commitResult.id, options: { action: 'merge' } });
   return commitResult;
-}
-
-function mergeArraySection(ctx) {
-  const { base, patchLeft, patchRight, sectionName } = ctx;
-  const leftAdds = new Set(filterOps(patchLeft.operations, sectionName, 'ADD').map(o => o.item.id));
-  const leftRemoves = new Set(filterOps(patchLeft.operations, sectionName, 'REMOVE').map(o => o.itemId));
-  const rightAdds = new Set(filterOps(patchRight.operations, sectionName, 'ADD').map(o => o.item.id));
-  const rightRemoves = new Set(filterOps(patchRight.operations, sectionName, 'REMOVE').map(o => o.itemId));
-
-  const kept = filterBaseItems(base, leftRemoves, rightRemoves);
-  const result = [...kept.items];
-  const seen = new Set(kept.seen);
-
-  appendAddOps({ result, seen, addOps: filterOps(patchLeft.operations, sectionName, 'ADD'), conflictingRemoves: rightRemoves });
-  appendAddOps({ result, seen, addOps: filterOps(patchRight.operations, sectionName, 'ADD'), conflictingRemoves: leftRemoves });
-  return result;
-}
-
-function filterOps(operations, section, op) {
-  return operations.filter(o => o.section === section && o.op === op);
-}
-
-function filterBaseItems(base, leftRemoves, rightRemoves) {
-  const seen = new Set();
-  const items = [];
-  for (const item of base) {
-    if (leftRemoves.has(item.id) || rightRemoves.has(item.id)) continue;
-    items.push(item);
-    seen.add(item.id);
-  }
-  return { items, seen };
-}
-
-function appendAddOps(ctx) {
-  const { result, seen, addOps, conflictingRemoves } = ctx;
-  for (const op of addOps) {
-    if (!seen.has(op.item.id) && !conflictingRemoves.has(op.item.id)) {
-      result.push(op.item);
-      seen.add(op.item.id);
-    }
-  }
 }
 
 function mergePermissionSection(ctx) {
   const { base, left, right } = ctx;
   const all = [...base, ...left, ...right];
   const denyWins = collectDeniedTools(all);
-  const allows = [];
-  for (const p of all) {
-    const perms = JSON.parse(p.permissions_json || '[]');
-    const filtered = [...new Set(perms.filter(t => !denyWins.has(t)))];
-    if (filtered.length > 0) {
-      allows.push({ ...p, permissions_json: JSON.stringify(filtered) });
-    }
-  }
-  return allows;
+  const byKey = buildPermMap(all);
+  return flattenPermMap(byKey, denyWins);
 }
 
-function collectDeniedTools(permissions) {
-  const denied = new Set();
-  for (const p of permissions) {
-    const items = JSON.parse(p.denied_tools_json || '[]');
-    for (const d of items) denied.add(d);
+function buildPermMap(all) {
+  const byKey = {};
+  for (const p of all) {
+    const k = `${p.organization_id || ''}:${p.project_id || ''}`;
+    if (!byKey[k]) byKey[k] = { org: p.organization_id, proj: p.project_id, perms: new Set() };
+    for (const t of JSON.parse(p.permissions_json || '[]')) byKey[k].perms.add(t);
   }
-  return denied;
+  return byKey;
+}
+
+function flattenPermMap(byKey, denyWins) {
+  return Object.values(byKey).map(m => ({
+    organization_id: m.org,
+    project_id: m.proj,
+    permissions_json: JSON.stringify([...m.perms].filter(t => !denyWins.has(t))),
+    denied_tools_json: JSON.stringify([...denyWins])
+  }));
 }
 
 // --- Revert ---
@@ -231,6 +205,7 @@ async function revert(req) {
     metadata: { revertOf: object.id, reverted: true, inversePatch: true }
   });
 
+  await updateRef({ db, req, agentId: targetAgentId, refName: req.body?.refName || 'main', objectId: commitResult.id, options: { action: 'revert' } });
   return { success: true, operation: 'revert', revertedObjectId: object.id, ...result, ...commitResult };
 }
 
@@ -260,22 +235,26 @@ async function rebase(req) {
 
   const base = await findMergeBase(db, headId, ontoId);
   const replayedIds = [];
-  const currentState = await replayOntoBase({ db, base, headId, replayedIds });
+  const currentState = await replayOntoBase({ db, base, head, onto, headId, replayedIds });
 
   const commitResult = await commitRebase({ db, req, onto, head, base, currentState, replayedIds, ontoId });
+  const targetAgentId = req.body?.targetAgentId || head.agent_id;
+  await updateRef({ db, req, agentId: targetAgentId, refName: req.body?.refName || head.ref_name || 'main', objectId: commitResult.id, options: { action: 'rebase' } });
   return { success: true, operation: 'rebase', ...commitResult, replayedCommits: replayedIds, mergeBase: base?.id || null };
 }
 
 async function replayOntoBase(ctx) {
-  const { db, base, headId, replayedIds } = ctx;
+  const { db, base, onto, headId, replayedIds } = ctx;
   const commitsToReplay = await collectCommitsToReplay(db, base, headId);
-  const baseState = base ? JSON.parse(base.state_json) : { ...emptyState(), agent: {} };
-  let currentState = { ...baseState };
+  const ontoState = JSON.parse(onto.state_json);
+  let currentState = { ...ontoState };
+  let prevState = { ...ontoState };
 
   for (const commit of commitsToReplay) {
     const commitState = JSON.parse(commit.state_json);
-    const patch = computePatch(baseState, commitState);
+    const patch = computePatch(prevState, commitState);
     currentState = applyPatchToState(currentState, patch);
+    prevState = commitState;
     replayedIds.push(commit.id);
   }
   return currentState;
@@ -297,13 +276,26 @@ function applyPatchToState(state, patch) {
   const newState = { ...state };
   for (const op of patch.operations) {
     if (!op.section) continue;
-    if (op.op === 'ADD') {
-      newState[op.section] = [...(newState[op.section] || []), op.item];
-    } else if (op.op === 'REMOVE') {
-      newState[op.section] = (newState[op.section] || []).filter(i => i.id !== op.itemId);
-    }
+    applySingleOp({ newState, op });
   }
   return newState;
+}
+
+function applySingleOp(ctx) {
+  const { newState, op } = ctx;
+  if (op.op === 'ADD') {
+    newState[op.section] = [...(newState[op.section] || []), op.item];
+  } else if (op.op === 'REMOVE') {
+    newState[op.section] = (newState[op.section] || []).filter(i => i.id !== op.itemId);
+  } else if (op.op === 'REPLACE') {
+    const section = newState[op.section] || [];
+    const idx = section.findIndex(i => i.id === op.itemId);
+    if (idx >= 0) {
+      newState[op.section] = [...section.slice(0, idx), op.item, ...section.slice(idx + 1)];
+    } else {
+      newState[op.section] = [...section, op.item];
+    }
+  }
 }
 
 async function commitRebase(ctx) {
@@ -338,63 +330,6 @@ function buildRebaseStoreState(currentState, onto, head) {
     },
     schema: 'genos.agent-git-state/v1'
   };
-}
-
-// --- Bisect ---
-
-async function bisect(req) {
-  const db = await getDatabase();
-  const goodId = req.body?.goodObjectId;
-  const badId = req.body?.badObjectId;
-  const field = String(req.body?.field || '').trim();
-  const expected = req.body?.expectedValue;
-
-  if (!goodId || !badId) return { success: false, error: 'Both goodObjectId and badObjectId are required (causal bisect).' };
-
-  const badAncestors = await collectAncestors(db, badId);
-  const goodAncestors = await collectAncestors(db, goodId);
-  const causalPath = badAncestors.filter(a => goodAncestors.some(g => g.id === a.id) || a.id === goodId);
-  causalPath.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-
-  if (causalPath.length < 2) return { success: false, error: 'At least two commits on the causal path are required.' };
-
-  const value = (object) => String(field).split('.').reduce((current, key) => current == null ? undefined : current[key], JSON.parse(object.state_json));
-  const matches = (object) => JSON.stringify(value(object)) === JSON.stringify(expected);
-
-  const { culprit, iterations } = runBinarySearch(causalPath, matches);
-
-  return {
-    success: true,
-    operation: 'bisect',
-    goodCommitId: goodId,
-    badCommitId: badId,
-    field,
-    expectedValue: expected,
-    anomalyFound: culprit >= 0,
-    culpritObjectId: culprit >= 0 ? causalPath[culprit].id : null,
-    causalPathLength: causalPath.length,
-    iterations,
-    complexity: `O(log2(${causalPath.length}))`
-  };
-}
-
-function runBinarySearch(sortedArray, predicate) {
-  let low = 1;
-  let high = sortedArray.length - 1;
-  let culprit = -1;
-  let iterations = 0;
-
-  while (low <= high) {
-    const middle = Math.floor((low + high) / 2);
-    iterations += 1;
-    if (predicate(sortedArray[middle])) {
-      low = middle + 1;
-    } else {
-      culprit = middle;
-      high = middle - 1;
-    }
-  }
-  return { culprit, iterations };
 }
 
 module.exports = { cherryPick, merge, revert, rebase, bisect };

@@ -169,6 +169,7 @@ async function ensureAgentGitObjectColumns(db) {
   if (!agentGitColumns.has('signature')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN signature TEXT');
   if (!agentGitColumns.has('tree_hash')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN tree_hash TEXT');
   if (!agentGitColumns.has('commit_hash')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN commit_hash TEXT');
+  if (!agentGitColumns.has('parent_commit_id')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN parent_commit_id TEXT');
 }
 
 async function createAgentGitHistoryTables(db) {
