@@ -52,7 +52,10 @@ class MathematicalCulture {
     if (!artifact) return null;
 
     const isFact = artifact.type === 'theorem' || artifact.type === 'lemma';
-    const decay = isFact ? this.fidelityRate : 0.8;
+    // Use configured fidelityRate for facts, slightly lower for heuristics
+    const factDecay = this.fidelityRate;
+    const heuristicDecay = Math.max(0.5, this.fidelityRate - 0.1); // At least 0.5
+    const decay = isFact ? factDecay : heuristicDecay;
     const newFidelity = artifact.fidelity * decay;
 
     // Verified facts become part of knowledge base

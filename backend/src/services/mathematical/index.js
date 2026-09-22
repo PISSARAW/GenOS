@@ -1,6 +1,7 @@
 'use strict';
 
 const { MathematicalCulture } = require('./mathematicalCultureService');
+const { MathematicalOrganismRuntime, createMathematicalOrganismRuntime } = require('./mathematicalOrganismRuntime');
 
 const env = require('./mathematicalEnvironment');
 const lineage = require('./researchLineage');
@@ -14,6 +15,8 @@ const foraging = require('./mathematicalLiteratureForaging');
 const mutation = require('./mutationEngine');
 
 const { QuestionogenesisEngine } = require('./questionogenesisService');
+const { ConceptogenesisEngine, createConceptogenesisEngine } = require('./conceptogenesisService');
+const { SymbiontExecutor, createSymbiontExecutor, SOLVER_TYPES } = require('./symbiontSolver');
 
 module.exports = {
   createMathematicalEnvironment: env.createMathematicalEnvironment,
@@ -29,4 +32,11 @@ module.exports = {
   MutationEngine: mutation.MutationEngine,
   MathematicalCulture,
   QuestionogenesisEngine,
+  ConceptogenesisEngine,
+  createConceptogenesisEngine,
+  MathematicalOrganismRuntime,
+  createMathematicalOrganismRuntime,
+  SymbiontExecutor,
+  createSymbiontExecutor,
+  SOLVER_TYPES,
 };

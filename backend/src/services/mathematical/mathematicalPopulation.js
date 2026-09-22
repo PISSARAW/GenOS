@@ -42,7 +42,7 @@ class MathematicalPopulation {
   }
 
   /**
-   * Non-dominated sorting (NSGA-II style) for Pareto selection.
+   * Non-dominated sorting (NSGA-II style) for Pareto selection with crowding distance for diversity preservation.
    * Returns topK lineages from the best Pareto fronts.
    */
   selectTop(topK = 3) {
@@ -100,25 +100,74 @@ class MathematicalPopulation {
         selected.push(...front);
       } else {
         const remainingSlots = topK - selected.length;
-        selected.push(...front.slice(0, remainingSlots));
+        // Apply crowding distance for diversity preservation within the front
+        const withCrowding = this.computeCrowdingDistance(front);
+        withCrowding.sort((a, b) => b.crowdingDistance - a.crowdingDistance);
+        selected.push(...withCrowding.slice(0, remainingSlots).map(c => c.entry));
         break;
       }
     }
     return selected;
   }
 
-  extinguish(threshold = 0.1, maxGenerationsBelow = 3) {
+  /**
+   * Compute crowding distance for diversity preservation (NSGA-II).
+   * Higher distance = more isolated = preferred for diversity.
+   */
+  computeCrowdingDistance(front) {
+    if (front.length <= 2) {
+      return front.map(entry => ({ entry, crowdingDistance: Infinity }));
+    }
+
+    const keys = ['P', 'N', 'I', 'A', 'T', 'R', 'C'];
+    const distances = new Map(front.map(entry => [entry.id, 0]));
+
+    for (const key of keys) {
+      // Sort front by this objective
+      const sorted = [...front].sort((a, b) => (a.fitness?.[key] ?? 0) - (b.fitness?.[key] ?? 0));
+      const minVal = sorted[0].fitness?.[key] ?? 0;
+      const maxVal = sorted[sorted.length - 1].fitness?.[key] ?? 0;
+      const range = maxVal - minVal;
+
+      if (range === 0) continue;
+
+      // Boundary points get infinite distance
+      distances.set(sorted[0].id, Infinity);
+      distances.set(sorted[sorted.length - 1].id, Infinity);
+
+      // Intermediate points
+      for (let i = 1; i < sorted.length - 1; i++) {
+        const prev = sorted[i - 1].fitness?.[key] ?? 0;
+        const next = sorted[i + 1].fitness?.[key] ?? 0;
+        const currentDist = distances.get(sorted[i].id) || 0;
+        distances.set(sorted[i].id, currentDist + (next - prev) / range);
+      }
+    }
+
+    return front.map(entry => ({
+      entry,
+      crowdingDistance: distances.get(entry.id) || 0,
+    }));
+  }
+
+  extinguish(threshold = 0.1, maxGenerationsBelow = 5) {
     const extinct = [];
     for (const [id, lineage] of this.lineages) {
       const fitness = lineage.fitness || { P: 0 };
-      const minFitness = Math.min(...Object.values(fitness));
-      if (minFitness < threshold) {
+      // Only consider core fitness dimensions (P, N, I, T, R, C), not A which starts at 0
+      const coreDimensions = ['P', 'N', 'I', 'T', 'R', 'C'];
+      const coreValues = coreDimensions.map(k => fitness[k] ?? 0);
+      const minCoreFitness = Math.min(...coreValues);
+      if (minCoreFitness < threshold) {
         lineage._belowThresholdGenerations = (lineage._belowThresholdGenerations || 0) + 1;
         if (lineage._belowThresholdGenerations >= maxGenerationsBelow) {
           this.lineages.delete(id);
           extinct.push(id);
           this.extinctCount += 1;
         }
+      } else {
+        // Reset counter if fitness improves
+        lineage._belowThresholdGenerations = 0;
       }
     }
     return extinct;

@@ -32,6 +32,11 @@ class MathematicalNichePopulationService {
       }
     }
 
+    // If no niche has history, pick the first one
+    if (!bestNiche && this.niches.size > 0) {
+      bestNiche = this.niches.values().next().value;
+    }
+
     if (bestNiche) {
       bestNiche.addLineage(lineage);
       bestNiche.population.addLineage(lineage);
@@ -39,12 +44,36 @@ class MathematicalNichePopulationService {
     return bestNiche;
   }
 
+  /**
+   * Compute ecosystem-wide mean return rate from all niches.
+   * MVT threshold = total info gain / total time across all patches.
+   */
+  computeEcosystemMeanReturnRate() {
+    let totalInfoGain = 0;
+    let totalTimeCost = 0;
+    for (const [, niche] of this.niches) {
+      for (const entry of niche.resourceHistory) {
+        totalInfoGain += entry.infoGain;
+        totalTimeCost += entry.timeCost;
+      }
+    }
+    if (totalTimeCost > 0) {
+      this.envMeanReturnRate = totalInfoGain / totalTimeCost;
+    }
+    return this.envMeanReturnRate;
+  }
+
   evaluateAndMigrate() {
+    // Update ecosystem mean return rate before evaluating
+    this.computeEcosystemMeanReturnRate();
+
     const migrations = [];
 
     for (const [nicheId, niche] of this.niches) {
       if (!niche.population) continue;
-      const mvt = niche.evaluateMVT(this.envMeanReturnRate);
+      // Pass all niches for ecosystem rate computation
+      const allNiches = [...this.niches.values()];
+      const mvt = niche.evaluateMVT(this.envMeanReturnRate, allNiches);
 
       if (mvt.shouldDepart && niche.population.lineages.size > 0) {
         let targetNiche = null;

@@ -211,61 +211,65 @@ MathematicalOrganism
 ## 6. Boucle mathématique complète
 
 ```text
-                     MATHEMATICAL WORLD
-                            │
-                    unknown / anomaly
-                            │
-                            ▼
-              ┌────────────────────────┐
-              │ M8 QUESTIONOGENESIS    │
-              │ new niches / problems  │
-              └───────────┬────────────┘
+                      MATHEMATICAL WORLD
+                             │
+                     unknown / anomaly
+                             │
+                             ▼
+               ┌────────────────────────┐
+               │ M8 QUESTIONOGENESIS    │
+               │ new niches / problems  │
+               └───────────┬────────────┘
+                           │
+                           ▼
+               ┌────────────────────────┐
+               │ M7 IMAGINATION         │
+               │ representations        │
+               │ concepts / invariants  │
+               └───────────┬────────────┘
+                           │
+                  possible approaches
+                           │
+           ┌───────────────┼───────────────┐
+           ▼               ▼               ▼
+        Niche A          Niche B          Niche C
+           │               │               │
+           └─────── M6 EVOLUTION ──────────┘
+                           │
+                 populations / lineages
+                           │
+                           ▼
+                  M2 ANIMAL FORAGING
+               explore ↔ exploit ↔ migrate
+                           │
+                           ▼
+                  M3 MATHEMATICAL SYMBIOSIS
+               Sage / PARI / GAP / nauty / SAT
+                           │
+                           ▼
+                     M4 CERTIFIED NUMERICS
+               intervals / exact / SDP / ARB
+                           │
+                           ▼
+                     M1 IMMUNITY
+                  falsify / formalize
+                           │
+             ┌─────────────┴─────────────┐
+             │                           │
+           FAIL                        PASS
+             │                           │
+        repellent                    memory
+        mutation                     fossil
+        extinction                   culture
+             │                           │
+             └────────────┬──────────────┘
+                          ▼
+                 M5 LITERATURE FORAGING
                           │
                           ▼
-              ┌────────────────────────┐
-              │ M7 IMAGINATION         │
-              │ representations        │
-              │ concepts / invariants  │
-              └───────────┬────────────┘
+                   NEW AFFORDANCES
                           │
-                 possible approaches
-                          │
-          ┌───────────────┼───────────────┐
-          ▼               ▼               ▼
-       Niche A          Niche B          Niche C
-          │               │               │
-          └─────── M6 EVOLUTION ──────────┘
-                          │
-                populations / lineages
-                          │
-                          ▼
-                 M2 ANIMAL FORAGING
-              explore ↔ exploit ↔ migrate
-                          │
-                          ▼
-                 M3 CULTURAL TRANSMISSION
-              lemmas / methods between lineages
-                          │
-                          ▼
-                    M1 IMMUNITY
-                 falsify / formalize
-                          │
-            ┌─────────────┴─────────────┐
-            │                           │
-          FAIL                        PASS
-            │                           │
-       repellent                    memory
-       mutation                     fossil
-       extinction                   culture
-            │                           │
-            └────────────┬──────────────┘
-                         ▼
-                M5 LITERATURE FORAGING
-                         │
-                         ▼
-                  NEW AFFORDANCES
-                         │
-                         └────────────► WORLD
+                          └────────────► WORLD
 ```
 
 ---
@@ -278,7 +282,7 @@ MathematicalOrganism
 | AlphaEvolve | Évolution seule | Pas de culture, pas de foraging |
 | POET | Coévolution env-agent | Pas d'immunité, pas de culture |
 | Voyager | Accumulation compétences | Pas de niches, pas de MVT |
-| **GenOS Math** | NCE complète (6+1 niveaux) | Implémenté et testé |
+| **GenOS Math** | NCE complète (6+1 niveaux) | Prototype architectural avancé |
 
 ---
 
