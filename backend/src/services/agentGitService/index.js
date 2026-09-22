@@ -1,3 +1,5 @@
+'use strict';
+
 const crypto = require('crypto');
 const { getDatabase } = require('../../db');
 const { validateProviderEndpointAsync } = require('../providerEndpointPolicy');
@@ -132,19 +134,27 @@ async function performRemotePush(opts) {
   if (!response.ok) throw new Error(`Remote push failed with HTTP ${response.status}.`);
 }
 
+async function checkPushVersion(req, db, agentId) {
+  const currentRef = await db.get('SELECT version FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, req.body?.refName || 'main');
+  if (req.body?.force !== true && req.body?.expectedVersion != null && Number(req.body.expectedVersion) !== Number(currentRef?.version || 0)) {
+    throw Object.assign(new Error('Push rejected: remote tracking ref diverged.'), { code: 'AGENT_PUSH_NON_FAST_FORWARD' });
+  }
+}
+
+async function executeRemotePush(req, agentId, commit) {
+  await assertRemoteGitUrl(req.body.remoteUrl);
+  const state = await collectState(await getDatabase(), req, agentId);
+  await performRemotePush({ req, remoteUrl: req.body.remoteUrl, commit, state });
+}
+
 async function push(req) {
   const agentId = String(req.body?.agentId || '').trim();
   const remoteName = String(req.body?.remoteName || 'default').trim();
   const db = await getDatabase();
   await enforceHooks({ db, agentId, hookName: 'pre-push', context: await collectState(db, req, agentId) });
-  const currentRef = await db.get('SELECT version FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, req.body?.refName || 'main');
-  if (req.body?.force !== true && req.body?.expectedVersion != null && Number(req.body.expectedVersion) !== Number(currentRef?.version || 0)) throw Object.assign(new Error('Push rejected: remote tracking ref diverged.'), { code: 'AGENT_PUSH_NON_FAST_FORWARD' });
+  await checkPushVersion(req, db, agentId);
   const commit = await createCommit(req, { agentId, kind: 'remote', refName: req.body?.refName || 'main', remoteName, metadata: { pushed: true, remoteUrl: req.body?.remoteUrl || null } });
-  if (req.body?.remoteUrl) {
-    await assertRemoteGitUrl(req.body.remoteUrl);
-    const state = await collectState(await getDatabase(), req, agentId);
-    await performRemotePush({ req, remoteUrl: req.body.remoteUrl, commit, state });
-  }
+  if (req.body?.remoteUrl) await executeRemotePush(req, agentId, commit);
   return { success: true, operation: 'push', remoteName, force: req.body?.force === true, tracking: { ahead: 1, behind: 0 }, ...commit };
 }
 
@@ -205,7 +215,6 @@ async function tag(req) {
 }
 
 
-
 async function diff(req) {
   const db = await getDatabase();
   const left = await collectState(db, req, req.body?.leftAgentId);
@@ -260,24 +269,29 @@ async function show(req) {
   return { success: true, operation: 'show', object: { ...object, state: JSON.parse(object.state_json), metadata: json(object.metadata_json, {}), signatureValid: verifyObjectSignature(object) } };
 }
 
+async function verifySingleObject(object, objects) {
+  const issues = [];
+  let state;
+  try { state = JSON.parse(object.state_json); } catch (_) { issues.push({ id: object.id, issue: 'invalid_json' }); return issues; }
+  if (hashState(state) !== object.state_hash) issues.push({ id: object.id, issue: 'state_hash_mismatch' });
+  if (!verifyObjectSignature(object)) issues.push({ id: object.id, issue: 'invalid_signature' });
+  const tree = treeHash(state);
+  if (object.tree_hash && object.tree_hash !== tree) issues.push({ id: object.id, issue: 'tree_hash_mismatch' });
+  const parents = await db.all('SELECT parent_commit_id FROM agent_git_commit_parents WHERE commit_id = ?', object.id);
+  for (const { parent_commit_id: parentId } of parents) {
+    if (!objects.some((candidate) => candidate.id === parentId)) issues.push({ id: object.id, issue: 'missing_parent', parentId });
+  }
+  return issues;
+}
+
 async function fsck(req) {
-  const db = await getDatabase(); const scope = scopeSql(req, 'w');
+  const db = await getDatabase();
+  const scope = scopeSql(req, 'w');
   const objects = await db.all(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND ${scope.clause}`, req.body?.agentId, ...scope.params);
   const issues = [];
   for (const object of objects) {
-    let state; try { state = JSON.parse(object.state_json); } catch (_) { issues.push({ id: object.id, issue: 'invalid_json' }); continue; }
-    if (hashState(state) !== object.state_hash) issues.push({ id: object.id, issue: 'state_hash_mismatch' });
-    if (!verifyObjectSignature(object)) issues.push({ id: object.id, issue: 'invalid_signature' });
-    const tree = treeHash(state);
-    if (object.tree_hash && object.tree_hash !== tree) issues.push({ id: object.id, issue: 'tree_hash_mismatch' });
-    const parents = await db.all('SELECT parent_commit_id FROM agent_git_commit_parents WHERE commit_id = ?', object.id);
-    const parentHashes = parents.map(p => p.parent_commit_id);
-    const metadata = json(object.metadata_json, {});
-    const expectedCommit = commitHash({ tree, parents: parentHashes, metadata });
-    if (object.commit_hash && object.commit_hash !== expectedCommit) issues.push({ id: object.id, issue: 'commit_hash_mismatch' });
-    for (const { parent_commit_id: parentId } of parents) {
-      if (!objects.some((candidate) => candidate.id === parentId)) issues.push({ id: object.id, issue: 'missing_parent', parentId });
-    }
+    const objectIssues = await verifySingleObject(object, objects);
+    issues.push(...objectIssues);
   }
   return { success: true, operation: 'fsck', checked: objects.length, healthy: issues.length === 0, issues };
 }
