@@ -5,9 +5,8 @@
  * phéromones stigmergiques, plasmides HGT, tenseurs latents) via SQLite
  * WAL + mémoire Map pour les agents locaux.
  *
- * Ce module relie biomimeticSignalingBus.js au transport SQLite des outils
- * explicites genos_signal_* et des services de décision collective. Il ne
- * constitue pas un chemin commun au dispatch des handlers biomimétiques.
+ * Pipeline d'un signal (si non supprimé par coalescer) :
+ *   persist → event bus publish → coalescer → route collectif → receptors → plasticity
  */
 
 const { getDatabase } = require('../db');
@@ -20,15 +19,11 @@ const receptor = require('./signalReceptorService');
 const signalEventBus = require('./signalEventBus');
 const signalCoalescer = require('./signalCoalescerService');
 
-// Court TTL par défaut pour les signaux ephemeraires (phéromones, voltage)
 const DEFAULT_SIGNAL_TTL_MS = 30_000;
-
-// Registre local des signaux broadcast (non-persistés, volatils)
-const LOCAL_BROADCAST_LOG = new Map(); // signalId -> { payload, t }
+const LOCAL_BROADCAST_LOG = new Map();
 
 function pushLocalLog(signalId, payload) {
   LOCAL_BROADCAST_LOG.set(signalId, { payload, t: Date.now() });
-  // Nettoyage anciens logs (> 30s)
   const cutoff = Date.now() - 60_000;
   for (const [id, entry] of LOCAL_BROADCAST_LOG) {
     if (entry.t < cutoff) LOCAL_BROADCAST_LOG.delete(id);
@@ -74,11 +69,6 @@ async function persistSignalRow(row) {
   }
 }
 
-/**
- * Publie un signal zero-texte dans le bus transport.
- * - Persiste dans signal_blobs si db disponible
- * - Log localement pour les agents du même processus
- */
 async function publishSignal(params) {
   const signal = await buildSignalFromParams(params);
   if (!signal.accepted) return signal.result;
@@ -86,43 +76,76 @@ async function publishSignal(params) {
   await persistSignalRow(buildRow({ id: signal.id, formatted: signal.formatted, topic: signal.topic, senderAgentId: signal.senderAgentId, expiresAt: signal.expiresAt }));
   pushLocalLog(signal.id, signal.formatted);
 
-  // Emit to event bus + run coalescer (anti-spam)
-  const emitResult = emitToBusAndCoalesce({ id: signal.id, signalType: signal.normalizedType, signalData: signal.signalData, topic: signal.topic, senderAgentId: signal.senderAgentId, concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0 }, { ttlMs: signal.ttlMs, publishSignal });
-  if (emitResult.suppressed) {
-    return { signalId: signal.id, published: true, coalesced: true, suppressed: true, signalType: signal.formatted.signalType, routing: { routed: false, reason: 'coalesced' } };
+  // Emit to event bus (push model — subscribers wake up immediately)
+  signalEventBus.publish({
+    signalId: signal.id,
+    signalType: signal.normalizedType,
+    signalData: signal.signalData,
+    topic: signal.topic,
+    senderAgentId: signal.senderAgentId,
+    concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0,
+  });
+
+  // Coalescer: anti-spam + refractory period
+  const coalesced = signalCoalescer.coalesce({
+    signalId: signal.id,
+    signalType: signal.normalizedType,
+    signalData: signal.signalData,
+    topic: signal.topic,
+    senderAgentId: signal.senderAgentId,
+  });
+  if (!coalesced) {
+    return {
+      signalId: signal.id,
+      published: true,
+      coalesced: true,
+      suppressed: true,
+      signalType: signal.formatted.signalType,
+      routing: { routed: false, reason: 'coalesced' },
+    };
   }
 
-  return await routeAndDispatchSignal({ params, signal, publishSignal }, emitResult);
-}
-
-async function routeAndDispatchSignal(ctx, emitResult) {
-  const { params, signal, publishSignal } = ctx;
-  return await routeSignal(params, signal, publishSignal, emitResult);
-}
-
-async function routeSignal(ctx) {
-  const { params, signal, publishSignal, emitResult } = ctx;
-  const routing = await routeCollectiveSignal({ db: await getDatabase().catch(() => null), signalId: signal.id, signalType: signal.formatted.signalType, signalData: signal.signalData, orchestratorId: signal.senderAgentId });
+  // Route collectif + récepteurs (déterminisme sans LLM)
+  const routing = await routeCollectiveSignal({
+    db: await getDatabase().catch(() => null),
+    signalId: signal.id,
+    signalType: signal.formatted.signalType,
+    signalData: signal.signalData,
+    orchestratorId: signal.senderAgentId,
+  });
   const delivery = deliveryMetadata(params, signal.id, signal.expiresAt);
-  dispatchReceptorsIfNeeded({ signalId: signal.id, signalType: signal.formatted.signalType, signalData: signal.signalData, topic: signal.topic, senderAgentId: signal.senderAgentId, ttlMs: signal.ttlMs, publishSignal }).catch(() => {});
-  return { signalId: signal.id, published: true, coalesced: emitResult.coalesced, coalescedCount: emitResult.coalescedCount, signalType: signal.formatted.signalType, routing, ...delivery };
+
+  dispatchReceptorsIfNeeded({
+    signalId: signal.id,
+    signalType: signal.formatted.signalType,
+    signalData: signal.signalData,
+    topic: signal.topic,
+    senderAgentId: signal.senderAgentId,
+    ttlMs: signal.ttlMs,
+    publishSignal,
+  }).catch(() => {});
+
+  return {
+    signalId: signal.id,
+    published: true,
+    coalesced: coalesced.coalesced,
+    coalescedCount: coalesced.coalescedCount,
+    signalType: signal.formatted.signalType,
+    routing,
+    ...delivery,
+  };
 }
 
 async function buildSignalFromParams(params) {
   const { signalType, signalData = {}, topic = '', senderAgentId = null, signalId = null, ttlMs = DEFAULT_SIGNAL_TTL_MS, contentFallback = null, repressors = [] } = params;
   const normalizedType = validateSignalType(signalType);
   const repression = repressionFor({ type: normalizedType, topic, signalData, repressors });
-  if (!repression.accepted) return { accepted: false, result: buildRejectedResult(signalId, normalizedType, repression) };
+  if (!repression.accepted) {
+    return { accepted: false, result: buildRejectedResult(signalId, normalizedType, repression) };
+  }
   const id = signalId || `sig_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const formatted = formatSignalForTransport({ signalType: normalizedType, signalData, contentFallback });
   return { accepted: true, id, formatted, normalizedType, signalData, topic: String(topic || '').trim(), senderAgentId, ttlMs, expiresAt: ttlMs > 0 ? new Date(Date.now() + ttlMs).toISOString() : null };
-}
-
-function emitToBusAndCoalesce(signal, ctx) {
-  signalEventBus.publish(signal);
-  const coalesced = signalCoalescer.coalesce(signal);
-  if (!coalesced) return { suppressed: true };
-  return { suppressed: false, coalesced: coalesced.coalesced, coalescedCount: coalesced.coalescedCount };
 }
 
 function buildRejectedResult(signalId, normalizedType, repression) {
@@ -147,10 +170,6 @@ function buildRow({ id, formatted, topic, senderAgentId, expiresAt }) {
   };
 }
 
-/**
- * Dispatch signal to registered receptors for deterministic action.
- * If a receptor matches, the action fires without LLM invocation.
- */
 async function dispatchReceptorsIfNeeded(signal) {
   const triggered = receptor.matchReceptors({
     signalId: signal.signalId,
@@ -160,9 +179,7 @@ async function dispatchReceptorsIfNeeded(signal) {
     topic: signal.topic,
     senderAgentId: signal.senderAgentId,
   });
-
   if (triggered.length === 0) return { dispatched: false };
-
   const dispatched = await receptor.dispatchActions(
     triggered,
     {
@@ -174,22 +191,21 @@ async function dispatchReceptorsIfNeeded(signal) {
     },
     { publishSignal: signal.publishSignal }
   );
-
   return { dispatched: true, results: dispatched };
 }
 
-/**
- * Lit les signaux non-lus pour un agent donné (topics qu'il écoute).
- */
 async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100) {
-  let sql = `SELECT signal_id, signal_type, signal_blob, content, topic, sender_agent_id, created_at
-             FROM signal_blobs
-             WHERE signal_type != 'text' AND topic != ''
-             AND sender_agent_id = ?
-             ${since ? 'AND created_at > ?' : ''}
-             ORDER BY created_at DESC
+  // Read signals from topics the agent is subscribed to (not its own signals)
+  let sql = `SELECT DISTINCT s.signal_id, s.signal_type, s.signal_blob, s.content, s.topic, s.sender_agent_id, s.created_at
+             FROM signal_blobs s
+             LEFT JOIN signal_subs sub ON sub.topic = s.topic AND sub.subscriber_agent_id = ?
+             WHERE s.signal_type != 'text'
+             AND s.sender_agent_id != ?
+             AND (sub.subscriber_agent_id IS NOT NULL OR s.topic = '')
+             ${since ? 'AND s.created_at > ?' : ''}
+             ORDER BY s.created_at DESC
              LIMIT ?`;
-  const vals = since ? [subscriberAgentId, since, limit] : [subscriberAgentId, limit];
+  const vals = since ? [subscriberAgentId, subscriberAgentId, since, limit] : [subscriberAgentId, subscriberAgentId, limit];
 
   try {
     const db = await getDatabase();
@@ -210,9 +226,6 @@ async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100)
   }
 }
 
-/**
- * Marque les signaux comme vus pour un abonné.
- */
 async function markSignalsSeen(subscriberAgentId, signalIds) {
   if (!signalIds || !signalIds.length) return;
   const db = await getDatabase().catch(() => null);
@@ -226,9 +239,6 @@ async function markSignalsSeen(subscriberAgentId, signalIds) {
   }
 }
 
-/**
- * Nettoie les signaux expirés.
- */
 async function purgeExpiredSignals() {
   try {
     const db = await getDatabase();
@@ -239,10 +249,6 @@ async function purgeExpiredSignals() {
   }
 }
 
-/**
- * Diffusion locale immédiate (hors DB) — pour les agents du même processus.
- * Retourne les signaux reçus depuis une horodatage.
- */
 function localSignalsSince(sinceTs) {
   const results = [];
   for (const [id, entry] of LOCAL_BROADCAST_LOG) {
