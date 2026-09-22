@@ -5,6 +5,7 @@ const path = require('path');
 const genosCli = require('./genosCli');
 const store = require('./agentDnaStore');
 const agentDna = require('./agentDna');
+const genomeEventLog = require('./genomeEventLog');
 
 const SUPPORTED = new Set(['cross', 'mutate', 'clone', 'decoy', 'graft', 'speciate']);
 
@@ -111,6 +112,47 @@ async function runOperation(db, request) {
     const model = agentDna.decodeBuffer(fs.readFileSync(paths.output));
     const id = params.outputId || `${operation}-${model.contentHash.slice(0, 16)}`;
     await store.saveGenome(db, model, { id, organizationId: scope.organizationId, projectId: scope.projectId });
+
+    // B1: Enregistrer l'événement dans genome_events
+    const eventPayload = {
+      operation,
+      contentHash: model.contentHash,
+      source: 'agentDnaOperations.runOperation',
+      name: model.meta.name,
+      geneCount: Object.keys(model.genes).length,
+    };
+
+    // Déterminer les parents pour l'événement
+    const parentRefs = [];
+    if (operation === 'cross' && params.parentId) {
+      parentRefs.push(params.genomeId, params.parentId);
+    } else if (operation === 'speciate' && params.genomeId) {
+      parentRefs.push(params.genomeId);
+    }
+
+    switch (operation) {
+      case 'cross':
+        await genomeEventLog.recordCrossover(db, id, parentRefs, eventPayload, scope);
+        break;
+      case 'mutate':
+        await genomeEventLog.recordMutation(db, id, eventPayload, scope);
+        break;
+      case 'clone':
+        await genomeEventLog.recordClone(db, id, eventPayload, scope);
+        break;
+      case 'graft':
+        await genomeEventLog.recordGraft(db, id, eventPayload, scope);
+        break;
+      case 'decoy':
+        await genomeEventLog.recordBirth(db, id, parentRefs, { ...eventPayload, decoy: true }, scope);
+        break;
+      case 'speciate':
+        await genomeEventLog.recordBirth(db, id, parentRefs.length ? parentRefs : [params.genomeId], eventPayload, scope);
+        break;
+      default:
+        await genomeEventLog.recordBirth(db, id, parentRefs, eventPayload, scope);
+    }
+
     return {
       genomeRef: id,
       contentHash: model.contentHash,

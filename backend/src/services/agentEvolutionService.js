@@ -6,6 +6,7 @@
 
 const genetics = require('./geneticsService');
 const { getDatabase } = require('../db');
+const genomeEventLog = require('./genomeEventLog');
 
 function resolveArchetypeGenes(role = 'worker') {
   if (/security|vulnerability|threat/i.test(role)) {
@@ -76,14 +77,32 @@ function buildParentB(assignment) {
   };
 }
 
-function evolveWorkerGenome(parentAgent, assignment, options = {}) {
+async function evolveWorkerGenome(parentAgent, assignment, options = {}) {
   const parentA = buildParentA(parentAgent, options);
   const parentB = buildParentB(assignment);
   const crossover = genetics.crossoverGenome(parentA, parentB, {
     strategy: fallback(options.crossoverStrategy, 'uniform'),
     mutationRate: options.mutationRate === undefined ? 0.08 : options.mutationRate
   });
+
+  // B2: Récupérer la DB et enregistrer l'événement CROSSOVER
+  const db = options.db || (await getDatabase());
+
+  // B1: Enregistrer l'événement de crossover
+  const scope = options.scope || {};
+  await genomeEventLog.recordCrossover(db, crossover.childId, [parentA.id, parentB.id], {
+    operation: 'cross',
+    contentHash: crossover.genomeHash,
+    source: 'agentEvolutionService.evolveWorkerGenome',
+    crossoverStrategy: crossover.crossoverStrategy,
+    mutationRateApplied: crossover.mutationRateApplied,
+    predictedFitness: crossover.predictedFitnessScore,
+    parentFingerprint: crossover.parentFingerprint,
+    reproducibilitySeed: crossover.reproducibilitySeed,
+  }, scope);
+
   return {
+    genomeRef: crossover.childId,
     crossoverId: crossover.childId,
     genes: crossover.childGenes,
     predictedFitness: crossover.predictedFitnessScore,

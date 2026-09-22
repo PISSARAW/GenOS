@@ -140,7 +140,7 @@ async function mutate(context) {
   const parent = loaded.parent;
   const mutations = Array.isArray(context.mutations) ? [...context.mutations] : [];
   if (mutations.length === 0) pushExploratoryMutation(mutations, parent, context);
-  const evolved = agentEvolutionService.evolveWorkerGenome(parent, { role: context.role || 'mutant' }, {
+  const evolved = await agentEvolutionService.evolveWorkerGenome(parent, { role: context.role || 'mutant' }, {
     strategy: context.strategy,
     crossoverStrategy: context.crossoverStrategy,
     mutationRate: context.mutationRate

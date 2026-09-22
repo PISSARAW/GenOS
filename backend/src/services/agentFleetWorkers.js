@@ -128,7 +128,7 @@ async function prepareWorkerAssets(workerContext) {
   const id = autonomousWorkerId(orchestrator.id, index + 1);
   const identity = agentIdentity.generateAgentIdentity({ preferredName: assignment.preferredName || assignment.name, role: assignment.role, excludeNames: usedNames, stableKey: id });
   usedNames.push(identity.name);
-  const evolution = agentEvolution.evolveWorkerGenome(parent, assignment, { strategy: plan.strategyContract?.primary || 'tree-search' });
+  const evolution = await agentEvolution.evolveWorkerGenome(parent, assignment, { strategy: plan.strategyContract?.primary || 'tree-search', db });
   await applyAgentDna({ db, parent, assignment, mission, evolution });
   const conscience = agentConscience.createConscienceState({ currentBudget: perWorkerCognitiveBudget, baselineBudget: perWorkerCognitiveBudget });
   const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext });
@@ -205,7 +205,7 @@ function formatWorker(details) {
   const capabilityContract = plan && plan.capabilityContract ? plan.capabilityContract.required : [];
   const toolLease = workerToolLeaseForCapabilities(assignment.role, capabilityContract);
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
-  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, assignments: assignmentList, mission }), executionPolicy: mission.executionPolicy, executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens, index, assignmentCount: assignmentList.length || 1 }), orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }, genome: evolution.genes, predictedFitness: evolution.predictedFitness };
+  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, assignments: assignmentList, mission }), executionPolicy: mission.executionPolicy, executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens, index, assignmentCount: assignmentList.length || 1 }), orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }, genome: evolution.genes, genomeRef: evolution.genomeRef, predictedFitness: evolution.predictedFitness };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
   return worker;
 }

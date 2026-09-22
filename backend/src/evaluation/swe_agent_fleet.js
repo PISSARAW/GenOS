@@ -82,7 +82,7 @@ async function registerSweFleet(db, fleetConfig) {
   for (const spec of workerSpecs) {
     const workerId = `agent_${spec.name.toLowerCase()}_${hash}`;
     const identity = generateAgentIdentity({ preferredName: spec.name, role: spec.role });
-    const genome = evolveWorkerGenome(lead, { role: spec.role });
+    const genome = await evolveWorkerGenome(lead, { role: spec.role });
     const worker = buildAgentEntity({
       id: workerId,
       name: `${spec.name}-${hash}`,
