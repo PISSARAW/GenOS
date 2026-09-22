@@ -6,7 +6,7 @@ Cette spécification définit le format canonique **Procedural Organism** v1 : l
 
 - Format **JSON** canonique (sérialisable SQLite/MessagePack).
 - Normatif côté Node.js par les types de `backend/src/services/procedural*Service.js`.
-- Interopérable avec les services existants via contentHash.
+- Interopérable avec les services existants via les hashes canoniques (structureHash/stateHash/versionId).
 
 ## Non-objectifs
 
@@ -21,10 +21,13 @@ apiVersion: genos/v1alpha1
 kind: ProceduralOrganism
 
 metadata:
-  id: "po-abc123"              # contentHash du graphe canonique
-  version: 5                    # incrémenté à chaque mutation
+  id: "po-abc123"              # versionId = SHA256(parentId + structureHash + stateHash + mutationSignature)
+  version: 5                    # incrémenté à chaque mutation (entier >= 1)
   parentId: "po-abc120"         # null pour les génomes initiaux
   lineageId: "lineage-debug-1"
+  structureHash: "9f2c..."      # SHA256 du squelette canonique (nodes + synapses)
+  stateHash: "7b1e..."          # SHA256 de l'état canonique (weights + phenotype + immune + fitness + plasticity)
+  mutationSignature: "c48a..."  # SHA256 des opérations canoniques de la mutation
   createdAt: "2026-09-21T..."
   updatedAt: "2026-09-21T..."
 
@@ -159,31 +162,82 @@ evidence:
 |-------|------|-------------|
 | `apiVersion` | string | `genos/v1alpha1` |
 | `kind` | string | `ProceduralOrganism` |
-| `metadata.id` | string | contentHash du graphe canonique |
-| `metadata.version` | integer | version incrémentée à chaque mutation |
+| `metadata.id` | string | `versionId` = SHA256(parentId + structureHash + stateHash + mutationSignature) |
+| `metadata.version` | integer | version incrémentée à chaque mutation (entier ≥ 1) |
+| `metadata.structureHash` | string | SHA256 du squelette canonique (nodes + synapses, triés) |
+| `metadata.stateHash` | string | SHA256 de l'état canonique (weights + phenotype + immune + fitness + plasticity) |
+| `metadata.mutationSignature` | string | SHA256 des opérations canoniques de la mutation |
 | `structure.nodes` | array | nœuds du graphe procédural |
 | `structure.synapses` | array | arêtes plastiques avec poids et preuve |
 
-## Identité et contentHash
+## Identité et versioning
 
-L'`metadata.id` est un **contentHash** du graphe canonique (structure seule, sans état mutable).
+L'identité d'un organisme est **composée** : le squelette, l'état et la lignée
+participent tous à `metadata.id`.
 
-```javascript
-function contentHash(organism) {
-  const canonical = {
-    nodes: organism.structure.nodes.sort((a, b) => a.id.localeCompare(b.id)),
-    synapses: organism.structure.synapses.sort((a, b) => 
-      `${a.from}->${a.to}`.localeCompare(`${b.from}->${b.to}`)
-    ).map(s => ({ from: s.from, to: s.to, type: s.type })),
-  };
-  return sha256(JSON.stringify(canonical)).slice(0, 16);
-}
+```
+structureHash     = SHA256(canonical(nodes, synapses))          — identité du squelette
+stateHash         = SHA256(canonical(weights, phenotype,        — identité de l'état
+                                   immune, fitness, plasticity))
+mutationSignature = SHA256(canonical(operations))               — empreinte de la mutation
+metadata.id       = versionId = SHA256(parentId + structureHash
+                                       + stateHash + mutationSignature)
 ```
 
+Implémentation de référence : `backend/src/services/proceduralIdentityService.js`
+(`structureHash`, `stateHash`, `versionId`, `sealOrganism`).
+
 Cela garantit :
-- **Reproductibilité** : même graphe → même hash.
-- **Dé-duplication** : deux organismes identiques ont le même id.
-- **Versioning** : toute mutation structurelle change le hash.
+- **Reproductibilité** : même graphe + même état + même lignée → même id.
+- **Séparation structure/état** : deux organismes au squelette identique mais
+  d'état différent (poids, épigénétique) ont des ids distincts.
+- **Versioning** : toute mutation (structurelle ou d'état) change le hash.
+- **Traçabilité** : l'id encode le parent — une phylogénie est vérifiable.
+
+## Scellement (DRAFT → SEALED)
+
+Un variant généré par `generateVariants()` est un **DRAFT** : il ne porte
+**aucun** champ d'identité (`id`, `version`, `structureHash`, `stateHash`,
+`mutationSignature` sont absents de ses métadonnées). Un draft n'est pas un
+organisme valide au sens du validateur.
+
+Le scellement (`sealCandidate(parent, variant, evaluation)` dans
+`proceduralMutationSelectionService.js`, ou `sealOrganism(organism)` dans
+`proceduralIdentityService.js`) produit le **SEALED** :
+
+```
+metadata.parentId          = parent.metadata.id
+metadata.version           = parent.metadata.version + 1
+metadata.mutationSignature = SHA256(operations)
+metadata.structureHash     = recomputé
+metadata.stateHash         = recomputé
+metadata.id                = versionId(...)
+```
+
+`validateOrganism()` est **pur** : il vérifie `metadata.structureHash` et
+`metadata.stateHash` contre les valeurs recalculées (invariant
+cryptographique), sans jamais les réparer. Un hash déclaré erroné —
+typiquement un hash hérité du parent — est détecté comme mismatch.
+
+## Sémantique du graphe
+
+La validité **structurelle** (schema) ne suffit pas : un graphe schema-valide
+peut être non exécutable. La validité **sémantique**
+(`proceduralGraphSemanticsService.validateGraphSemantics()`, séparée du
+validator de schema) exige :
+
+- **Entrée** : le premier nœud de `structure.nodes` est l'entrypoint.
+- **Sortie** : tout nœud `type: "terminal"` est atteignable depuis l'entrypoint.
+- **Gates obligatoires** : tout nœud `type: "gate"` avec `required: true` est
+  atteignable depuis l'entrypoint.
+- **Accessibilité** : tous les nœuds sont accessibles depuis l'entrypoint
+  (un nœud orphelin `B → TERMINAL` sans chemin depuis l'entrée est invalide).
+- **Terminals sans sortie** : un nœud terminal n'a pas de synapse sortante
+  (vers un nœud existant ou `DIRECT_TERMINAL`).
+
+Un graphe `START → A` avec `B → TERMINAL` où B est inaccessible est donc
+**schema-valide mais sémantiquement invalide** : la procédure n'est pas
+exécutable.
 
 ## Cycle de vie
 
@@ -224,7 +278,7 @@ Promu ou Rejeté
 
 Les objets `ProceduralOrganism` sont **immutables** une fois persistés.
 Toute mutation crée un nouveau objet avec :
-- nouveau `metadata.id` (contentHash)
+- nouveau `metadata.id` (versionId recomposé)
 - `metadata.version` incrémenté
 - `metadata.parentId` = ancien id
 

@@ -13,6 +13,7 @@ const suites = {
     ['procedural organism 13-24', 'test_procedural_organism_13_24.js'],
     ['procedural graph semantics', 'test_procedural_graph_semantics.js'],
     ['procedural promotion gate', 'test_procedural_promotion_gate.js'],
+    ['procedural runtime E2E', 'test_procedural_runtime_e2e.js'],
     ['REST smoke', 'test_backend.js'],
     ['quality', 'run_quality_suite.js']
   ],
