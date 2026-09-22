@@ -6,14 +6,14 @@
  * Contrairement à homeostasisService.js qui vérifie les invariants de MISSION,
  * ce service régule les variables propres à l'AGENT, même entre deux objectifs.
  *
- * Variables régulées :
- *   - energy (ATP cognitif)
- *   - memory pressure (charge mémorielle)
- *   - social/reputational state
- *   - model drift (dérive du modèle LLM)
- *   - context window pressure
+ * Contraintes asymétriques (audit P1) — chaque variable a un MODE de régulation :
+ *   - MIN    : la valeur ne doit pas descendre sous le seuil
+ *   - MAX    : la valeur ne doit pas dépasser le seuil
+ *   - RANGE  : la valeur doit rester dans [min, max]
+ *   - SETPOINT : symétrique (réservé aux vraies homeostasies symétriques)
  *
- * L'homéostasie agentique est continue, pas seulement mission-gatée.
+ * « Aucune pression de contexte » n'est PAS une pathologie. « Énergie maximale »
+ * n'est PAS une violation. L'ancien modèle setpoint symétrique flaggait les deux.
  */
 
 const crypto = require('crypto');
@@ -22,6 +22,58 @@ const HOMEOSTASIS_AGENT_TABLE = 'organism_homeostasis';
 
 function uuid() {
   return crypto.randomUUID();
+}
+
+/**
+ * Définition canonique des contraintes — une source de vérité.
+ */
+const HOMEOSTATIC_CONSTRAINTS = {
+  energy:         { mode: 'MIN',   min: 0.4 },
+  memoryPressure: { mode: 'MAX',   max: 0.7 },
+  socialState:    { mode: 'RANGE', min: 0.2, max: 0.9 },
+  modelDrift:     { mode: 'MAX',   max: 0.3 },
+  contextPressure:{ mode: 'MAX',   max: 0.8 },
+  integrity:      { mode: 'MIN',   min: 0.8 },
+  stress:         { mode: 'MAX',   max: 0.7 }
+};
+
+function checkConstraint(name, value) {
+  const c = HOMEOSTATIC_CONSTRAINTS[name];
+  if (!c) return null;
+  if (c.mode === 'MIN') return checkMin(name, value, c.min);
+  if (c.mode === 'MAX') return checkMax(name, value, c.max);
+  if (c.mode === 'RANGE') return checkRange(name, value, c);
+  return null;
+}
+
+function checkMin(name, value, min) {
+  if (value >= min) return null;
+  return {
+    dimension: name,
+    value,
+    violation: `below_min_${min}`,
+    severity: value < min / 2 ? 'critical' : 'degraded'
+  };
+}
+
+function checkMax(name, value, max) {
+  if (value <= max) return null;
+  return {
+    dimension: name,
+    value,
+    violation: `above_max_${max}`,
+    severity: value > (max + 1) / 2 ? 'critical' : 'degraded'
+  };
+}
+
+function checkRange(name, value, c) {
+  if (value >= c.min && value <= c.max) return null;
+  return {
+    dimension: name,
+    value,
+    violation: `outside_${c.min}_${c.max}`,
+    severity: 'degraded'
+  };
 }
 
 async function ensureAgentHomeostasisSchema(db) {
@@ -48,67 +100,68 @@ async function ensureAgentHomeostasisSchema(db) {
   await db.run(`CREATE INDEX IF NOT EXISTS idx_org_homeo_agent ON ${HOMEOSTASIS_AGENT_TABLE}(agent_id, observed_at)`);
 }
 
+function collectViolations(values) {
+  const violations = [];
+  for (const [name, value] of Object.entries(values)) {
+    if (value === undefined || value === null) continue;
+    const v = checkConstraint(name, value);
+    if (v) violations.push(v);
+  }
+  return violations;
+}
+
 /**
  * Évalue l'homéostasie de l'agent sur toutes ses dimensions.
+ *
+ * Les valeurs non fournies (`undefined`) sont neutres : aucune donnée ≠
+ * violation. L'ancien comportement flaggait `contextPressure = 0` par défaut.
  */
 async function evaluateAgentHomeostasis(db, agentId, options = {}) {
   await ensureAgentHomeostasisSchema(db);
 
-  const {
-    energy = 0.5,
-    memoryPressure = 0,
-    socialState = 0.5,
-    modelDrift = 0,
-    contextPressure = 0,
-    integrity = 1.0,
-    stress = 0
-  } = options;
-
-  // Calculer le statut global
-  const dimensions = {
-    energy: { value: energy, target: 0.6, tolerance: 0.2 },
-    memoryPressure: { value: memoryPressure, target: 0.3, tolerance: 0.3 },
-    socialState: { value: socialState, target: 0.5, tolerance: 0.3 },
-    modelDrift: { value: modelDrift, target: 0.1, tolerance: 0.2 },
-    contextPressure: { value: contextPressure, target: 0.4, tolerance: 0.3 },
-    integrity: { value: integrity, target: 0.9, tolerance: 0.15 },
-    stress: { value: stress, target: 0.2, tolerance: 0.3 }
+  const values = {
+    energy: options.energy,
+    memoryPressure: options.memoryPressure,
+    socialState: options.socialState,
+    modelDrift: options.modelDrift,
+    contextPressure: options.contextPressure,
+    integrity: options.integrity,
+    stress: options.stress
   };
 
-  let violatedCount = 0;
-  const violations = [];
+  const violations = collectViolations(values);
+  const status = computeStatus(violations);
+  const state = buildState(agentId, values, status);
 
-  for (const [key, dim] of Object.entries(dimensions)) {
-    const deviation = Math.abs(dim.value - dim.target);
-    if (deviation > dim.tolerance + 1e-9) {
-      violatedCount++;
-      violations.push({
-        dimension: key,
-        value: dim.value,
-        target: dim.target,
-        deviation: Math.round(deviation * 100) / 100
-      });
-    }
-  }
+  await persistState(db, state);
 
-  let status = 'nominal';
-  if (violatedCount >= 3) status = 'critical';
-  else if (violatedCount >= 1) status = 'degraded';
+  return { state, status, violations, violatedCount: violations.length };
+}
 
-  const state = {
+function computeStatus(violations) {
+  const criticalCount = violations.filter(v => v.severity === 'critical').length;
+  if (criticalCount >= 1 || violations.length >= 3) return 'critical';
+  if (violations.length >= 1) return 'degraded';
+  return 'nominal';
+}
+
+function buildState(agentId, values, status) {
+  return {
     id: uuid(),
     agent_id: agentId,
-    energy,
-    memory_pressure: memoryPressure,
-    social_state: socialState,
-    model_drift: modelDrift,
-    context_pressure: contextPressure,
-    integrity,
-    stress,
+    energy: values.energy ?? 0.5,
+    memory_pressure: values.memoryPressure ?? 0,
+    social_state: values.socialState ?? 0.5,
+    model_drift: values.modelDrift ?? 0,
+    context_pressure: values.contextPressure ?? 0,
+    integrity: values.integrity ?? 1.0,
+    stress: values.stress ?? 0,
     status,
     observed_at: new Date().toISOString()
   };
+}
 
+async function persistState(db, state) {
   await db.run(
     `INSERT INTO ${HOMEOSTASIS_AGENT_TABLE}
       (id, agent_id, energy, memory_pressure, social_state, model_drift, context_pressure, integrity, stress, status, observed_at)
@@ -116,8 +169,6 @@ async function evaluateAgentHomeostasis(db, agentId, options = {}) {
     state.id, state.agent_id, state.energy, state.memory_pressure, state.social_state,
     state.model_drift, state.context_pressure, state.integrity, state.stress, state.status, state.observed_at
   );
-
-  return { state, status, violations, violatedCount };
 }
 
 /**
@@ -182,7 +233,7 @@ function formatHomeostasisPrompt(homeostasisState) {
   if (homeostasisState.violations && homeostasisState.violations.length > 0) {
     lines.push(``, `[VIOLATIONS]`);
     for (const v of homeostasisState.violations) {
-      lines.push(`- ${v.dimension}: ${v.value} (cible: ${v.target}, écart: ${v.deviation})`);
+      lines.push(`- ${v.dimension}: ${v.value} (${v.violation})`);
     }
   }
 
@@ -195,5 +246,7 @@ module.exports = {
   recommendActions,
   formatHomeostasisPrompt,
   ensureAgentHomeostasisSchema,
+  checkConstraint,
+  HOMEOSTATIC_CONSTRAINTS,
   HOMEOSTASIS_AGENT_TABLE
 };

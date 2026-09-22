@@ -23,6 +23,7 @@ const crypto = require('crypto');
 const { buildAgentSelf, extractActiveConstraints, formatAgentSelfPrompt } = require('./agentSelfService');
 const { buildFamilyStory, formatFamilyStoryPrompt } = require('./familyHistoryService');
 const { formatHomeostasisPrompt, evaluateAgentHomeostasis } = require('./organismHomeostasisService');
+const { senseAgentRuntime } = require('./machineInteroceptionService');
 
 /**
  * Constroit le WorkerSelf — projection du AgentSelf pour un worker.
@@ -53,16 +54,29 @@ async function buildWorkerSelf(db, params) {
     familyStory = await buildFamilyStory(db, agentId, { maxDepth: 3 });
   } catch (_) {}
 
-  // Évaluer l'homéostasie
+  // Évaluer l'homéostasie À PARTIR DE L'INTÉROCEPTION RÉELLE (P1) :
+  // l'agent ressent sa machine (télémétrie), l'appelant ne fournit plus
+  // les valeurs. Fallback explicite si la télémétrie est indisponible.
   let homeostasis = null;
   try {
+    const sensing = await senseAgentRuntime(db, agentId);
+    homeostasis = await evaluateAgentHomeostasis(db, agentId, {
+      energy: sensing.variables.energy,
+      memoryPressure: sensing.variables.memory_pressure,
+      socialState: sensing.variables.social_state,
+      modelDrift: sensing.variables.model_drift,
+      contextPressure: sensing.variables.context_pressure,
+      integrity: sensing.variables.integrity,
+      stress: sensing.variables.stress
+    });
+  } catch (_) {
     homeostasis = await evaluateAgentHomeostasis(db, agentId, {
       energy: agentSelf.regulatory.energy,
       memoryPressure: estimateMemoryPressure(agentSelf),
       stress: agentSelf.regulatory.stress,
       integrity: agentSelf.regulatory.integrity
-    });
-  } catch (_) {}
+    }).catch(() => null);
+  }
 
   // Construire les réponses aux 9 questions
   const nineAnswers = buildNineAnswers(agentSelf, familyStory, homeostasis);

@@ -1,4 +1,5 @@
 pub mod conscience;
+pub mod core_self;
 pub(crate) mod execution_api;
 pub mod clinical_therapy;
 pub mod autopoiesis;
@@ -54,7 +55,13 @@ pub use drives::{AutonomyGateReport, Drives, GoalSelector, Volition};
 pub use ecosystem::GenosEcosystem;
 pub use environment::{Action, EmbodiedReport, Environment, Feedback, FileSandbox, Percept, ProcessSandbox};
 pub use evolution::{EvolutionReport, Individual, InnovationBlocked, Island, Population, QualityProof};
-pub use global_workspace::{GlobalWorkspaceReport, WorkspaceSignal};
+pub use global_workspace::{
+    BroadcastEffect, GlobalWorkspaceReport, WorkspaceConsumer, WorkspaceEvent, WorkspaceSignal,
+};
+pub use core_self::{
+    AgencyAttribution, AgencyComparator, Claim, CognitiveProvenance, CoreSelf, CoreSelfState,
+    Intention, ObservedOutcome,
+};
 pub use instincts::{InstinctActivation, InstinctState};
 pub use metabolism::Metabolism;
 pub use learning::{LinearBandit, Learner, context_from_state};
