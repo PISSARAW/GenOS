@@ -18,6 +18,8 @@ const userProgress = require('../src/services/userProgressService');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 const { dispatchWorkerMission } = require('../src/services/orchestratorDispatchService');
 const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
+const { workerToolLeaseForCapabilities } = require('../src/services/agentOrchestrationState');
+const { buildCapabilityManifest } = require('../src/services/capabilityResolverService');
 async function findReusableWorker({ context, db }) {
   if (context.action !== 'dispatch_worker' || context.request.workerId) return null;
   return workerGarage.findReusableWorker(db, context.orchestratorId, {
@@ -287,10 +289,28 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
   }
   const workerPrompt = aTeamService.dependencyPrompt(context.task, context.request.depends_on);
 
-  // Enrichissement NCE pour le worker direct (même mécanisme que les topologies)
   const localRuntime = requestLocalRuntime(context.request);
-  const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, modelTier: parent.model_tier }, workerId: context.id, parent });
-  await dispatchWorkerMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerLaunch.mission, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), timeoutMs: context.request.timeoutMs, localRuntime });
+
+  const capabilityCtx = buildCapabilityContext(context, parent, missionBudget);
+  const capabilityManifest = buildCapabilityManifest(capabilityCtx);
+  const capabilities = capabilityManifest.owned || [];
+  const toolLease = workerToolLeaseForCapabilities(worker.role, capabilities);
+
+  const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, modelTier: parent.model_tier }, workerId: context.id, parent, capabilities, capabilityManifest, toolLease });
+
+  await dispatchWorkerMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerLaunch.mission, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease, capabilityManifest, capabilities, timeoutMs: context.request.timeoutMs, localRuntime });
+}
+
+function buildCapabilityContext(context, parent, missionBudget) {
+  const request = context.request || {};
+  return {
+    prompt: context.task,
+    role: String(request.role || 'worker'),
+    domain: request.domain,
+    mode: request.mode,
+    organization: request.organization,
+    budget: { tokens: missionBudget.tokens || 10000 },
+  };
 }
 function requestLocalRuntime(request = {}) {
   if (request.localRuntime === true) return true;

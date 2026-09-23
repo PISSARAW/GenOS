@@ -140,7 +140,7 @@ function buildAgentRuntimePrompt(ctx) {
     conscienceBlock: ctx.conscienceBlock,
     memoryBlock: ctx.memoryBlock,
     workerSelfBlock: ctx.workerSelfBlock || '',
-    authorityInstruction: ctx.authorInstruction,
+    authorityInstruction: ctx.authorityInstruction,
     strategyContract: ctx.strategyContract,
     runtimeContract: ctx.runtimeContract,
     isWorker: ctx.isWorker,
@@ -154,6 +154,8 @@ function buildAgentRuntimePrompt(ctx) {
     allowFileEdits: ctx.allowFileEdits,
     allowedCommands: ctx.allowedCommands,
     enableToolGating: ctx.enableToolGating,
+    capabilityManifest: ctx.capabilityManifest,
+    capabilities: ctx.capabilities,
   };
 
   const gating = resolveToolGating(params);
@@ -170,6 +172,7 @@ function buildAgentRuntimePrompt(ctx) {
     params.memoryBlock ? `${params.memoryBlock}` : '',
     params.authorityInstruction || '',
     gatingDirective ? `[BIOMIMETIC GATING]\n${gatingDirective}` : '',
+    buildCapabilityBlock(params.isWorker, params.capabilities, params.capabilityManifest),
     buildStrategyBlock(params.runtimeContract, params.strategyContract),
     buildAutonomyBlock(params.isWorker, params.autonomyPlan, params.runtimeAutonomyPlan),
     buildReviewHint(params.isWorker, params.runtimeAutonomyPlan),
@@ -184,9 +187,25 @@ function buildAgentRuntimePrompt(ctx) {
   ].filter(Boolean).join('\n\n');
 }
 
+function buildCapabilityBlock(isWorker, capabilities, manifest) {
+  if (!isWorker) return '';
+  const items = [];
+  if (Array.isArray(capabilities) && capabilities.length) {
+    items.push(`Capabilities: ${capabilities.join(', ')}.`);
+  }
+  if (manifest && manifest.currently_expressed && manifest.currently_expressed.length) {
+    const entries = manifest.currently_expressed.slice(0, 5).map((e) => {
+      return e.capability_id ? `${e.capability_id} (${e.utility != null ? e.utility.toFixed(2) : 'n/a'})` : null;
+    }).filter(Boolean);
+    if (entries.length) items.push(`Manifest: ${entries.join(', ')}.`);
+  }
+  return items.length ? `[CAPABILITY]\n${items.join(' ')}` : '';
+}
+
 module.exports = {
   compactStrategyContract,
   compactAutonomyPlan,
   buildAgentRuntimePrompt,
   buildContinuationContext,
+  buildCapabilityBlock,
 };

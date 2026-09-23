@@ -36,6 +36,9 @@ message AgentMission {
   string local_model = 24;
   string local_routing_policy_json = 25;
   bytes prompt_capsule = 26;
+  // Dynamic capability contract and manifest for capability-aware dispatch.
+  repeated string capabilities = 27;
+  string capability_manifest_json = 28;
 }
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }

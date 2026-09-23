@@ -197,7 +197,9 @@ function buildMissionEnvelope(ctx, identity, runtimeStrategyContract) {
     executionPolicyJson: JSON.stringify(normalizedMission.executionPolicy),
     executionBudgetJson: JSON.stringify(runtimeBudget || {}),
     localModel: normalizedMission.localModel || '',
-    localRoutingPolicyJson: JSON.stringify(normalizedMission.localRoutingPolicy || {})
+    localRoutingPolicyJson: JSON.stringify(normalizedMission.localRoutingPolicy || {}),
+    capabilities: normalizedMission.capabilities || [],
+    capabilityManifestJson: normalizedMission.capabilityManifestJson || null,
   };
 }
 
@@ -216,46 +218,59 @@ function resolveSpawnCommand(resolvedExecutable) {
   return { spawnCmd: resolvedExecutable, spawnArgs: [] };
 }
 
-function spawnRuntimeWithRetry(spawnSpec, spawnOptions) {
-  // A missing spawn cwd reports as a misleading `spawn <exe> ENOENT` on
-  // Windows: a concurrent process (backend server, daemon, delayed cleanup)
-  // can reclaim the capsule directory between provisioning and runtime spawn.
-  // Recreate the cwd before spawning, and probe the command so a transient
-  // antivirus lock does not kill the mission either.
-  const { spawnSync, spawn } = require('child_process');
+function ensureCwd(spawnOptions) {
+  if (!spawnOptions || !spawnOptions.cwd) return;
   const fsSync = require('fs');
-  if (spawnOptions && spawnOptions.cwd) {
-    try { fsSync.mkdirSync(spawnOptions.cwd, { recursive: true }); } catch (_) {}
-  }
+  try { fsSync.mkdirSync(spawnOptions.cwd, { recursive: true }); } catch (_) {}
+}
+
+function probeCommand(spawnSpec) {
+  const { spawnSync } = require('child_process');
+  const fsSync = require('fs');
   const isNodeScript = spawnSpec.cmd === process.execPath;
   for (let attempt = 0; attempt < 3; attempt++) {
     const probe = spawnSync(spawnSpec.cmd, isNodeScript ? ['-e', ''] : ['--version'], { stdio: 'ignore', timeout: 5000 });
-    if (!probe.error) break;
-    if (!fsSync.existsSync(spawnSpec.cmd) || attempt === 2) break;
+    if (!probe.error) return true;
+    if (!fsSync.existsSync(spawnSpec.cmd) || attempt === 2) return false;
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
   }
-  // Windows can emit an unhandled 'error' on a stdio Socket immediately after
-  // spawn returns if the child-side pipe handle closes before the parent has
-  // attached its handlers (antivirus, fast-failing runtime, handle recycling).
-  // Attach no-op error sinks on the stdio streams synchronously so those
-  // socket-level errors never become unhandled rejections, then retry the spawn
-  // a few times when it throws a transient ENOTCONN/ECONNREFUSED.
-  const maxAttempts = 3;
+  return false;
+}
+
+function attachNoopErrorSinks(child) {
+  if (child.stdin) child.stdin.on('error', () => {});
+  if (child.stdout) child.stdout.on('error', () => {});
+  if (child.stderr) child.stderr.on('error', () => {});
+}
+
+function isTransientSpawnError(err) {
+  return err.code === 'ENOTCONN' || err.code === 'ECONNREFUSED' || err.code === 'EPERM' || err.code === 'EACCES';
+}
+
+function spawnWithRetry(spawnSpec, spawnOptions, maxAttempts) {
+  const { spawn } = require('child_process');
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const child = spawn(spawnSpec.cmd, spawnSpec.args, spawnOptions);
-      if (child.stdin) child.stdin.on('error', () => {});
-      if (child.stdout) child.stdout.on('error', () => {});
-      if (child.stderr) child.stderr.on('error', () => {});
+      attachNoopErrorSinks(child);
       return child;
     } catch (err) {
-      if (attempt < maxAttempts - 1 && (err.code === 'ENOTCONN' || err.code === 'ECONNREFUSED' || err.code === 'EPERM' || err.code === 'EACCES')) {
-        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
-        continue;
-      }
-      throw err;
+      const canRetry = attempt < maxAttempts - 1 && isTransientSpawnError(err);
+      if (!canRetry) throw err;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
     }
   }
+}
+
+function spawnRuntimeWithRetry(spawnSpec, spawnOptions) {
+  // A missing spawn cwd reports as a misleading `spawn <exe> ENOENT` on
+  // Windows. Recreate the cwd before spawning, and probe the command so a
+  // transient antivirus lock does not kill the mission either.
+  ensureCwd(spawnOptions);
+  probeCommand(spawnSpec);
+  // Windows can emit an unhandled 'error' on a stdio Socket immediately after
+  // spawn returns. Attach no-op error sinks and retry on transient errors.
+  return spawnWithRetry(spawnSpec, spawnOptions, 3);
 }
 
 async function superviseMission(options) {

@@ -91,11 +91,14 @@ function parseMission(mission) {
   const genosCapsule = parseJson(mission.genosCapsuleJson, {}, '{}');
   const executionPolicy = parseJson(mission.executionPolicyJson, {}, '{}');
   const executionBudget = parseJson(mission.executionBudgetJson, {}, '{}');
+  const capabilityManifest = parseJson(mission.capabilityManifestJson, null, 'null');
   const isWorker = mission.executionMode === 'worker';
   return {
     strategyContract,
     autonomyPlan,
     toolLease,
+    capabilities: Array.isArray(mission.capabilities) ? mission.capabilities : [],
+    capabilityManifest,
     genosCapsule,
     executionPolicy,
     executionBudget,
@@ -133,6 +136,7 @@ function createState(mission, data) {
     authorityInstruction: buildAuthorityInstruction(mission, data.isWorker, data.autonomyPlan),
     runtimeContract: compactStrategyContract(data.strategyContract, data.isWorker),
     runtimeAutonomyPlan: compactAutonomyPlan(data.autonomyPlan),
+    capabilityManifest: data.capabilityManifest,
     agentName: identity.agentName,
     nameMeaning: identity.nameMeaning,
     selfIntro: identity.selfIntro,
@@ -212,7 +216,9 @@ function buildPrompt(state) {
     toolLease: state.toolLease,
     genosCapsule: state.genosCapsule,
     allowFileEdits: state.allowFileEdits,
-    allowedCommands: state.allowedCommands
+    allowedCommands: state.allowedCommands,
+    capabilityManifest: state.capabilityManifest,
+    capabilities: state.capabilities,
   });
 }
 

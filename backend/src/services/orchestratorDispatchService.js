@@ -1,6 +1,7 @@
 const runtimeAdapter = require('./agentRuntimeAdapter');
 
 function buildWorkerMission(input = {}) {
+  const manifestJson = input.capabilityManifest ? JSON.stringify(input.capabilityManifest) : null;
   return {
     agentId: input.agentId,
     orchestratorAgentId: input.orchestratorAgentId,
@@ -18,6 +19,8 @@ function buildWorkerMission(input = {}) {
     executionBudget: input.executionBudget || {},
     executionPolicy: input.executionPolicy || {},
     toolLease: input.toolLease,
+    capabilities: input.capabilities,
+    capabilityManifestJson: manifestJson,
     strategyContract: input.strategyContract,
     timeoutMs: input.timeoutMs,
     localRuntime: input.localRuntime,
