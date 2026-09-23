@@ -192,6 +192,18 @@ const migrationRunners = [
     const { run } = require('./migrateScopeTimeIndexes');
     await run(db);
   }),
+  createMigrationRunner('057-collective-snapshots', 'Persist append-only collective state snapshots with provenance chain', async (db) => {
+    const { run } = require('./migrateCollectiveSnapshots');
+    await run(db);
+  }),
+  createMigrationRunner('058-telemetry-normalized-view', 'Create canonical telemetry normalized view for dashboards', async (db) => {
+    const { run } = require('./migrateTelemetryView');
+    await run(db);
+  }),
+  createMigrationRunner('059-daemon-evidence-balance-view', 'Create daemon evidence balance view for handoff compiler', async (db) => {
+    const { run } = require('./migrateDaemonEvidenceView');
+    await run(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
