@@ -1,0 +1,160 @@
+{
+  "date": "2026-09-23",
+  "budget": 120,
+  "stats": {
+    "react": {
+      "success": 8,
+      "total": 12,
+      "avgExpansions": 9.8
+    },
+    "tot": {
+      "success": 10,
+      "total": 12,
+      "avgExpansions": 28.8
+    },
+    "mcts": {
+      "success": 3,
+      "total": 12,
+      "avgExpansions": 120
+    },
+    "genos": {
+      "success": 6,
+      "total": 12,
+      "avgExpansions": 10.6
+    }
+  },
+  "results": [
+    {
+      "task": "bw-sussman",
+      "domain": "blocksworld",
+      "react": true,
+      "tot": true,
+      "mcts": true,
+      "genos": true,
+      "genosExpansions": 2,
+      "genosPressure": 0,
+      "genosProcess": "CONTINUE"
+    },
+    {
+      "task": "bw-sussman-4",
+      "domain": "blocksworld",
+      "react": true,
+      "tot": true,
+      "mcts": true,
+      "genos": true,
+      "genosExpansions": 2,
+      "genosPressure": 0,
+      "genosProcess": "CONTINUE"
+    },
+    {
+      "task": "bw-reverse-4",
+      "domain": "blocksworld",
+      "react": true,
+      "tot": true,
+      "mcts": true,
+      "genos": true,
+      "genosExpansions": 8,
+      "genosPressure": 0,
+      "genosProcess": "CONTINUE"
+    },
+    {
+      "task": "bw-swap",
+      "domain": "blocksworld",
+      "react": false,
+      "tot": true,
+      "mcts": false,
+      "genos": false,
+      "genosExpansions": 14,
+      "genosPressure": 0.104,
+      "genosProcess": "none"
+    },
+    {
+      "task": "bw-tower-5",
+      "domain": "blocksworld",
+      "react": false,
+      "tot": true,
+      "mcts": false,
+      "genos": false,
+      "genosExpansions": 14,
+      "genosPressure": 0.032,
+      "genosProcess": "none"
+    },
+    {
+      "task": "bw-conflict",
+      "domain": "blocksworld",
+      "react": true,
+      "tot": true,
+      "mcts": false,
+      "genos": false,
+      "genosExpansions": 14,
+      "genosPressure": 0.056,
+      "genosProcess": "none"
+    },
+    {
+      "task": "bw-table-6",
+      "domain": "blocksworld",
+      "react": false,
+      "tot": false,
+      "mcts": false,
+      "genos": false,
+      "genosExpansions": 14,
+      "genosPressure": 0.026,
+      "genosProcess": "none"
+    },
+    {
+      "task": "bw-detour",
+      "domain": "blocksworld",
+      "react": true,
+      "tot": true,
+      "mcts": false,
+      "genos": false,
+      "genosExpansions": 14,
+      "genosPressure": 0.12,
+      "genosProcess": "none"
+    },
+    {
+      "task": "trap-key-detour",
+      "domain": "trapchain",
+      "react": true,
+      "tot": true,
+      "mcts": false,
+      "genos": true,
+      "genosExpansions": 13,
+      "genosPressure": 0.03,
+      "genosProcess": "CONTINUE"
+    },
+    {
+      "task": "trap-long-detour",
+      "domain": "trapchain",
+      "react": true,
+      "tot": true,
+      "mcts": false,
+      "genos": true,
+      "genosExpansions": 10,
+      "genosPressure": 0,
+      "genosProcess": "CONTINUE"
+    },
+    {
+      "task": "trap-culdesac",
+      "domain": "trapchain",
+      "react": true,
+      "tot": true,
+      "mcts": false,
+      "genos": true,
+      "genosExpansions": 8,
+      "genosPressure": 0,
+      "genosProcess": "CONTINUE"
+    },
+    {
+      "task": "trap-far-key",
+      "domain": "trapchain",
+      "react": false,
+      "tot": false,
+      "mcts": false,
+      "genos": false,
+      "genosExpansions": 14,
+      "genosPressure": 0.105,
+      "genosProcess": "none"
+    }
+  ]
+}

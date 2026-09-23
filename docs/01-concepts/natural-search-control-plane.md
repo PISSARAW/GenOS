@@ -98,6 +98,12 @@ checkNaturalSearchControl(ctx, event)
 - **Création proactive** : après 5 étapes sans progrès, `proactiveHypothesis()` génère une hypothèse à partir du genome courant.
 - **Encapsulation** : les 7 modules isolés (SearchGenome, CognitiveAffinity, SearchPatch, CausalReplay, NegativeSearchMemory, SearchEvolution, SearchCulture) sont directement instanciés par `ActuatorModules` dans l'Actuator, pas via `SearchIntegration` (service non existant dans ce commit).
 
+## Expérience décisive planning-gap (2026-09-23)
+
+- **Protocole** : même modèle du monde (successeurs + heuristique partagés), même budget (120 expansions), vérificateur indépendant qui rejoue chaque plan. 12 tâches long-horizon (Blocksworld type Sussman + TrapChain à clés/détours). Commande : `npm --prefix backend run test:planning-gap`. Résultats bruts : `benchmarks/planning-gap/results/2026-09-23-baseline.json`.
+- **Résultat** : ReAct 8/12, ToT 10/12, MCTS 3/12, GenOS 6/12. La myopie est démontrée (`bw-swap` piège le glouton pendant que ToT réussit), mais **le planning gap n'est pas fermé** : à budget égal, ToT fait mieux que le contrôleur actuel.
+- **Lecture** : le contrôle pression + hystérésis + ledger + mémoire négative sous-explore sur les tours longues (largeur dictée par le rayon trop souvent à 1–2, faisceau tronqué à 4). Piste : élargir le rayon STRUCTUREL/RADICAL et conserver la diversité du faisceau au lieu de tronquer au meilleur score heuristique.
+
 ## Principe fondamental
 
 > **Nature is not a database of solutions. Nature is a collection of search processes.**
