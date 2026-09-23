@@ -17,6 +17,7 @@ const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 const { dispatchWorkerMission } = require('../src/services/orchestratorDispatchService');
+const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
 async function findReusableWorker({ context, db }) {
   if (context.action !== 'dispatch_worker' || context.request.workerId) return null;
   return workerGarage.findReusableWorker(db, context.orchestratorId, {
@@ -25,15 +26,26 @@ async function findReusableWorker({ context, db }) {
 }
 function getRunnerStdio(processId) {
   const logDir = process.env.GENOS_RUNNER_LOG_DIR;
-  if (!logDir) return 'ignore';
+  if (!logDir) return ['pipe', 'pipe', 'pipe'];
   try {
     const fs = require('fs');
     fs.mkdirSync(logDir, { recursive: true });
-    const fd = fs.openSync(path.join(logDir, `${processId}.log`), 'a');
-    return ['ignore', fd, fd];
+    return ['pipe', 'pipe', 'pipe'];
   } catch {
-    return 'ignore';
+    return ['pipe', 'pipe', 'pipe'];
   }
+}
+
+function launchDetached(context, runnerRequest, detachedProcessId) {
+  const stdio = getRunnerStdio(detachedProcessId);
+  if (process.platform === 'win32') {
+    const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: false, windowsHide: true, stdio });
+    runner.unref();
+    return runner;
+  }
+  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, stdio });
+  runner.unref();
+  return runner;
 }
 function buildRunnerEnv() {
   return {
@@ -47,7 +59,13 @@ function buildRunnerEnv() {
 }
 
 function spawnDetachedRunner(context, runnerRequest, runnerEnv) {
-  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, shell: true, stdio: getRunnerStdio(runnerRequest.detachedProcessId), env: runnerEnv });
+  if (process.platform === 'win32') {
+    const args = [context.bridgePath, JSON.stringify(runnerRequest)];
+    const runner = spawn('cmd.exe', ['/c', process.execPath, ...args], { cwd: context.repoRoot, detached: true, stdio: 'ignore', env: runnerEnv });
+    runner.unref();
+    return runner;
+  }
+  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, shell: true, stdio: 'ignore', env: runnerEnv });
   runner.unref();
   return runner;
 }
@@ -270,7 +288,6 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
   const workerPrompt = aTeamService.dependencyPrompt(context.task, context.request.depends_on);
 
   // Enrichissement NCE pour le worker direct (même mécanisme que les topologies)
-  await ensureWorkerNceEnrichments(context).catch(() => {});
   const localRuntime = requestLocalRuntime(context.request);
   const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, modelTier: parent.model_tier }, workerId: context.id, parent });
   await dispatchWorkerMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerLaunch.mission, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease: runtime.workerToolLease(worker.role), timeoutMs: context.request.timeoutMs, localRuntime });
