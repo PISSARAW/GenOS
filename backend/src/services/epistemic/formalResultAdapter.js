@@ -82,14 +82,17 @@ function mapEvidenceKind(holobionteKind) {
   return HOLOBIONTE_TO_FORMAL_EVIDENCE_KIND[holobionteKind] || 'reproducible_artifact';
 }
 
-function adaptEvidence(rawEvidence, fallbackContent) {
+function adaptEvidence(rawEvidence, fallbackContent, producedBy) {
   const content = (rawEvidence && (rawEvidence.content || rawEvidence.digest))
     ? { digest: rawEvidence.digest, content: rawEvidence.content }
     : fallbackContent || { note: 'preuve holobionte' };
+  const reproduction = (rawEvidence && rawEvidence.reproduction)
+    || { command: producedBy || 'aeis:holobionte-review', environment: 'genos' };
   return {
     kind: mapEvidenceKind(rawEvidence && rawEvidence.kind),
     content,
-    reproduction: rawEvidence && rawEvidence.reproduction || { command: 'holobionte:review', environment: 'genos' },
+    reproduction,
+    reproductionProvided: Boolean(rawEvidence && rawEvidence.reproduction),
   };
 }
 
@@ -128,6 +131,10 @@ function adaptHolobionteResult(holobionteResult) {
   } };
 }
 
+function immuneReproduction() {
+  return { command: 'aeis:immune-review', environment: 'genos' };
+}
+
 function buildImmuneCandidate({ resultId, statement, status, verifierResults, blocked }) {
   return {
     resultId,
@@ -136,7 +143,8 @@ function buildImmuneCandidate({ resultId, statement, status, verifierResults, bl
     evidence: {
       kind: status === 'refuted' ? 'counterexample' : 'reproducible_artifact',
       content: { immuneStatus: status, verifierCount: verifierResults.length, blocked: blocked || false },
-      reproduction: { command: 'holobionte:immune-review', environment: 'genos' },
+      reproduction: immuneReproduction(),
+      reproductionProvided: false,
     },
     assumptions: [],
     validityDomain: { statement, constraints: [] },

@@ -72,13 +72,14 @@ function candidateValidityDomain(antigen, statement) {
 
 function candidateFromAntigen(antigen) {
   const statement = typeof antigen.claim === 'string' ? antigen.claim : '(claim)';
+  const reproCommand = antigen.reproCommand || 'aeis:claim-to-formal';
   return {
     canonicalStatement: statement,
     status: 'tested',
     evidence: {
       kind: 'reproducible_artifact',
       content: { claim: statement, antigenId: antigen.id },
-      reproduction: { command: 'holobionte:review', environment: 'genos' },
+      reproduction: { command: reproCommand, environment: 'genos' },
     },
     assumptions: candidateAssumptions(antigen),
     validityDomain: candidateValidityDomain(antigen, statement),
@@ -198,20 +199,31 @@ function stableIdFor(statement, existingId) {
   return `sha256:${crypto.createHash('sha256').update(`antigen:${statement}`).digest('hex')}`;
 }
 
+function epitopesFromClaim(claim, domain) {
+  return {
+    evidence: claim.evidence?.[0] || { kind: 'reproducible_artifact' },
+    assumptions: claim.assumptions || [],
+    validityDomain: claim.validityDomain || { domain },
+    dependencies: claim.dependencies || [],
+    provenance: claim.provenance || null,
+  };
+}
+
+function reproCommandFrom(claim) {
+  if (claim.test && claim.test.command) return claim.test.command;
+  if (claim.artifact && claim.artifact.buildCommand) return claim.artifact.buildCommand;
+  return null;
+}
+
 function claimToAntigen(claim, domain = 'general') {
   const statement = statementFromClaim(claim);
   return {
     id: claim.id || stableIdFor(statement),
     claim: statement,
-    epitopes: {
-      evidence: claim.evidence?.[0] || { kind: 'reproducible_artifact' },
-      assumptions: claim.assumptions || [],
-      validityDomain: claim.validityDomain || { domain },
-      dependencies: claim.dependencies || [],
-      provenance: claim.provenance || null,
-    },
+    epitopes: epitopesFromClaim(claim, domain),
     producer: claim.producer || { model: 'worker', version: '1.0' },
     risk: claim.risk || { score: 0.5 },
+    reproCommand: reproCommandFrom(claim),
   };
 }
 
