@@ -152,4 +152,38 @@ test('summary() expose tous les compteurs', () => {
   Math.random = originalRandom;
 });
 
-console.log('\n✓ All MutationEngine ablation tests passed.');
+// Test 9: rate=1, Math.random()=0.999999 → toujours (boundary haute)
+test('Tous les mécanismes rate=1 avec Math.random()=0.999999 → toujours', () => {
+  const engine = new MutationEngine({ mutationRate: 1, recombinationRate: 1, hgtRate: 1, exaptationRate: 1 });
+  
+  Math.random = () => 0.999999;
+  
+  let counts = { point: 0, recombine: 0, exapt: 0, hgt: 0 };
+  for (let i = 0; i < 10; i++) {
+    const lineage = createTestLineage(`pt${i}`);
+    const p1 = createTestLineage(`p1_${i}`);
+    const p2 = createTestLineage(`p2_${i}`);
+    const source = createTestLineage(`src${i}`);
+    const target = createTestLineage(`tgt${i}`);
+    const artifact = { isVerified: () => true, statement: `test${i}` };
+    
+    if (engine.pointMutate(lineage)) counts.point++;
+    if (engine.recombine(p1, p2)) counts.recombine++;
+    if (engine.exapt(lineage, 'ctx')) counts.exapt++;
+    const hgtResult = engine.horizontalGeneTransfer(source, target, artifact, null);
+    if (hgtResult && hgtResult.immunePassed) counts.hgt++;
+  }
+  
+  assert.strictEqual(counts.point, 10, 'Toutes les mutations doivent se produire');
+  assert.strictEqual(counts.recombine, 10, 'Toutes les recombinaisons doivent se produire');
+  assert.strictEqual(counts.exapt, 10, 'Toutes les exaptations doivent se produire');
+  assert.strictEqual(counts.hgt, 10, 'Tous les HGT doivent être assimilés');
+  assert.strictEqual(engine.pointMutations, 10);
+  assert.strictEqual(engine.recombinations, 10);
+  assert.strictEqual(engine.exaptations, 10);
+  assert.strictEqual(engine.hgtAttempts, 10);
+  assert.strictEqual(engine.hgtAssimilations, 10);
+  assert.strictEqual(engine.hgtRejections, 0);
+  
+  Math.random = originalRandom;
+});

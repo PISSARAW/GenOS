@@ -204,7 +204,9 @@ class MutationEngine {
    * The plasmid carries the specific ProofArtifact's proof receipt.
    */
   horizontalGeneTransfer(sourceLineage, targetLineage, proofArtifact, immuneReport) {
+    // Gate probabiliste : hgtRate=0 → jamais, hgtRate=1 → toujours.
     if (Math.random() >= this.hgtRate) return null;
+    // hgtAttempts = HGT SÉLECTIONNÉ pour exécution (après tirage).
     this.hgtAttempts++;
     if (!proofArtifact || !proofArtifact.isVerified()) return null;
     if (immuneReport && immuneReport.blocked) {
