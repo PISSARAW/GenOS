@@ -220,6 +220,10 @@ const migrationRunners = [
     const { run } = require('./migrateProjectionOutbox');
     await run(db);
   }),
+  createMigrationRunner('064-analytics-views-p1', 'Create daemon interoception, lineage traversal, family tree and communication scope views', async (db) => {
+    const { run } = require('./migrateAnalyticsViewsP1');
+    await run(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
