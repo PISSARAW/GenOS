@@ -152,6 +152,10 @@ const migrationRunners = [
     const { migrateRelationCommunicationProfile } = require('./migrateRelationCommunicationProfile');
     await migrateRelationCommunicationProfile(db);
   }),
+  createMigrationRunner('047-transactive-memory', 'Persist agent expertise by domain and communication shadow log (Phases 4-5)', async (db) => {
+    const { migrateTransactiveMemory } = require('./migrateTransactiveMemory');
+    await migrateTransactiveMemory(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
