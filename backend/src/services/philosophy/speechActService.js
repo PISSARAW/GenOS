@@ -5,6 +5,7 @@ const ACT_TYPES = new Set(['constative', 'performative']);
 
 const PERFORMATIVE_PATTERNS = Object.freeze([
   [/^je promets\b/i, 'commissive'],
+  [/^je prends en charge\b/i, 'commissive'],
   [/^je m'engage\b/i, 'commissive'],
   [/^je vous remercie\b/i, 'expressive'],
   [/^je m'excuse\b/i, 'expressive'],
@@ -56,7 +57,7 @@ function buildSpeechActReport(ctx) {
 }
 
 function inferForce(utterance) {
-  if (/^(je promets|je m'engage)\b/i.test(utterance)) return 'commissive';
+  if (/^(je promets|je m'engage|je prends en charge)\b/i.test(utterance)) return 'commissive';
   if (/^(je vous remercie|je m'excuse)\b/i.test(utterance)) return 'expressive';
   if (/^(je déclare|je nomme)\b/i.test(utterance)) return 'declarative';
   if (/^(pouvez-vous|pourriez-vous|seriez-vous disposé)/i.test(utterance)) return 'directive';

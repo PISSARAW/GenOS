@@ -8,6 +8,7 @@
 const { getDatabase } = require('../../db');
 const { getSignalPlaneMetrics } = require('../signalMetricsService');
 const { selectAudience } = require('./audienceSelectorService');
+const { firewallOf } = require('./epistemicIndependenceService');
 const { selectEncoding } = require('./selectiveEncodingService');
 const { estimateCost, estimateNaiveBroadcast } = require('./communicationCostService');
 
@@ -210,8 +211,8 @@ function finalizeDecision(ctx) {
     action: ctx.selection.action, scope: scopeFor(ids.length), recipients: ids,
     encoding: ctx.selection.encoding, grounding: ctx.grounding, ttlMs: ctx.input.ttlMs || 60000,
     reasonCodes: reasonCodesFor(ctx.selection, ctx.capability, Boolean(ctx.intent.independenceRequired)),
-    meta: { utility: ctx.utility, gain: ctx.gain, cost: ctx.cost.total, breakdown: ctx.cost.breakdown,
-      novelty: ctx.novelty, groups: ctx.groups, escalation: escalationMetaOf(ctx.selection.action, ctx.input) }
+    meta: { utility: ctx.utility, gain: ctx.gain, cost: ctx.cost.total, breakdown: ctx.cost.breakdown, novelty: ctx.novelty,
+      groups: ctx.groups, escalation: escalationMetaOf(ctx.selection.action, ctx.input), firewall: firewallOf(ctx.intent) }
   };
 }
 

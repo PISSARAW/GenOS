@@ -176,6 +176,10 @@ const migrationRunners = [
     const { migrateVerbalEscalation } = require('./migrateVerbalEscalation');
     await migrateVerbalEscalation(db);
   }),
+  createMigrationRunner('053-communication-outcomes', 'Persist communication outcome journal feeding learning (Phase 12)', async (db) => {
+    const { migrateCommunicationOutcomes } = require('./migrateCommunicationOutcomes');
+    await migrateCommunicationOutcomes(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

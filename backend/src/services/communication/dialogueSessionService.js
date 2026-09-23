@@ -2,6 +2,7 @@
 
 const { analyzeSpeechAct } = require('../philosophy/speechActService');
 const { createLanguageGame, evaluateMove } = require('../philosophy/languageGameService');
+const { compileFromReport } = require('./speechActCompilerService');
 const { ensureVerbalTables, assertArtifactKind, getEscalation } = require('./verbalEscalationService');
 
 const DIALOGUE_DIRECT = new Set(['COMMITMENT_NEGOTIATION', 'HUMAN_EXPLANATION_REQUIRED']);
@@ -64,13 +65,15 @@ async function appendTurn(input) {
   const count = await turnCount(db, session.id);
   if (count >= Number(session.maxTurns)) return forceCloseUnresolved(db, session.id, used);
   const speechAct = analyzeSpeechAct({ utterance: input.utterance, speaker: input.speaker });
+  const compiled = compileFromReport(speechAct, { utterance: input.utterance, speaker: input.speaker });
+  const stored = Object.assign({}, speechAct, { compiled });
   await db.run(
     `INSERT INTO dialogue_turns (escalation_id, seq, speaker_agent_id, utterance_text, speech_act_json, tokens_used)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [session.id, count + 1, input.speaker, input.utterance, JSON.stringify(speechAct), Number(input.tokensUsed || 0)]
+    [session.id, count + 1, input.speaker, input.utterance, JSON.stringify(stored), Number(input.tokensUsed || 0)]
   );
   await db.run('UPDATE verbal_escalations SET tokens_used = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [used, session.id]);
-  return { turn: count + 1, speechAct, closed: false, tokensUsed: used };
+  return { turn: count + 1, speechAct, compiled, closed: false, tokensUsed: used };
 }
 
 async function closeSession(input) {
