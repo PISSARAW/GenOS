@@ -26,6 +26,13 @@
  * LLM (missions runtime complètes) requiert des runs Ollama et appartient
  * à runtime-ablation.cjs.
  *
+ * ANTI-TAUTOLOGIE : tous les bras passent par la MÊME fonction
+ * decideWithSelf avec des entrées lésées (pas de fonctions ad hoc par
+ * bras). Un Δ n'existe que si l'entrée ablatée change réellement la
+ * sortie sur au moins un scénario. La preuve causale complète (dégradation
+ * observée en ablatant le runtime P1 réel) vit dans
+ * backend/tests/test_self_ablation_p1.js.
+ *
  * Métriques par bras :
  *   - decisionEntropy : diversité des décisions produites (0 = figé)
  *   - actionsTaken : nombre d'actions effectivement décidées
@@ -77,39 +84,43 @@ const SCENARIOS = [
 // ── Simulateur de l'agent avec strates ablatables ───────────────
 
 function decideWithSelf(ctx) {
-  // La décision dépend de l'état interne ressenti, des leçons apprises ET
-  // des recommandations homeostatiques (flèche G : la régulation agit
-  // sur la décision, pas seulement sur le prompt).
-  const { interoception, event, lessons, homeostasis } = ctx;
+  // VOIE UNIQUE : toutes les ablations passent ici avec des entrées
+  // lésées. Le self-model calibré conditionne les actions à fort enjeu
+  // (quarantine, pause_and_revise, repair_membrane) : sans calibration,
+  // l'agent ne peut pas s'engager et retombe sur un repli sûr.
+  // Les leçons (mémoire) n'ouvrent la voie apply_lessons que si ≥ 2.
+  // Les recommandations homeostatiques (flèche G) orientent l'action.
+  const { interoception, event, lessons, homeostasis, selfModel } = ctx;
+  const calibrated = Boolean(selfModel && selfModel.calibrated);
   if (homeostasis && homeostasis.status === 'critical') return 'enter_survival_mode';
-  if (homeostasis && homeostasis.recommendations.includes('quarantine_and_repair')) return 'quarantine';
+  if (homeostasis && homeostasis.recommendations.includes('quarantine_and_repair')) {
+    return calibrated ? 'quarantine' : 'explore';
+  }
   if (interoception.energy < 0.3) return 'conserve_energy';
-  if (interoception.integrity < 0.5) return 'repair_membrane';
-  if (event.salience > 0.8 && interoception.stress > 0.5) return 'pause_and_revise';
+  if (interoception.integrity < 0.5) return calibrated ? 'repair_membrane' : 'explore';
+  if (event.salience > 0.8 && interoception.stress > 0.5) {
+    return calibrated ? 'pause_and_revise' : 'explore';
+  }
   if (lessons.length >= 2) return 'apply_lessons';
   return 'explore';
 }
 
-function decideWithoutSelfModel() {
-  // Self-model ablaté : pas d'accès à l'état interne → décision fixe.
-  return 'explore';
+function lesionFor(arm, ctx) {
+  // Lésion d'entrée par bras, même voie de décision pour tous.
+  // B — self-model ablaté : plus de calibration (pas de fonction ad hoc).
+  // C — mémoire ablatée : aucune leçon mobilisable.
+  // D — interoception ablatée : état interne figé aux neutres.
+  // G — homéostasie ablatée : traité dans runArm (homeostasis=null).
+  if (arm === 'B') return { ...ctx, selfModel: null };
+  if (arm === 'C') return { ...ctx, lessons: [] };
+  if (arm === 'D') {
+    return { ...ctx, interoception: { energy: 0.5, integrity: 1.0, stress: 0.0 } };
+  }
+  return ctx;
 }
 
-function decideWithoutMemory(event) {
-  // Mémoire autobiographique ablatée : réaction à l'événement seul.
-  return event.salience > 0.8 ? 'pause_and_revise' : 'explore';
-}
-
-function decideWithoutInteroception(ctx) {
-  // Interoception ablatée : état interne figé aux neutres.
-  return decideWithSelf({ ...ctx, interoception: { energy: 0.5, integrity: 1.0, stress: 0.0 } });
-}
-
-function decideFor(ablated, ctx) {
-  if (ablated.selfModel) return decideWithoutSelfModel();
-  if (ablated.memory) return decideWithoutMemory(ctx.event);
-  if (ablated.interoception) return decideWithoutInteroception(ctx);
-  return decideWithSelf(ctx);
+function decideFor(arm, ctx) {
+  return decideWithSelf(lesionFor(arm, ctx));
 }
 
 // ── Bras du protocole ──────────────────────────────────────────
@@ -117,14 +128,13 @@ function decideFor(ablated, ctx) {
 function runArm(arm, scenario, lessons) {
   const intero = scenario.interoception;
   const ablated = {
-    selfModel: arm === 'B',
-    memory: arm === 'C',
-    interoception: arm === 'D',
     workspace: arm === 'E',
     agency: arm === 'F',
     homeostasis: arm === 'G',
     metacognition: arm === 'H'
   };
+  // Self-model calibré pour tous les bras : le bras B le perd via
+  // lesionFor (même voie de décision, entrée lésée).
 
   // 1. Homeostasis d'abord (si non ablatée) — la régulation précède la
   // décision : ses recommandations orientent l'action (flèche G).
@@ -133,8 +143,15 @@ function runArm(arm, scenario, lessons) {
     homeostasis = evaluateSync(intero);
   }
 
-  // 2. Décision (avec/sans les strates du soi)
-  let decision = decideFor(ablated, { interoception: intero, event: scenario.event, lessons, homeostasis });
+  // 2. Décision par la voie unique (lésions B/C/D via lesionFor).
+  const ctx = {
+    interoception: intero,
+    event: scenario.event,
+    lessons,
+    homeostasis,
+    selfModel: { calibrated: true }
+  };
+  let decision = decideFor(arm, ctx);
 
   const homeostasisStatus = homeostasis ? homeostasis.status : 'nominal';
   const homeostasisViolations = homeostasis ? homeostasis.violatedCount : 0;
@@ -258,54 +275,89 @@ function measureArm(arm, results) {
  * Exécute le benchmark complet : chaque bras × chaque scénario.
  * Les leçons accumulées simulent la mémoire autobiographique (croissante
  * au fil des scénarios pour le bras mémoire intact).
+ *
+ * Le couplage est mesuré PAR SCÉNARIO (décision A vs décision bras ablaté
+ * sur le même scénario) : scenariosChanged compte les scénarios où
+ * l'ablation change réellement la décision. homeostasisDisplayDelta compte
+ * seulement les statuts affichés (NON causal, reporté pour mémoire).
  */
 function runSelfAblation() {
   const arms = {};
+  const perScenario = {};
   for (const arm of ARMS) {
     const results = [];
+    const decisions = [];
     let lessons = [];
     for (const scenario of SCENARIOS) {
-      results.push(runScenario(arm, scenario, lessons));
+      const out = runScenario(arm, scenario, lessons);
+      results.push(out);
+      decisions.push(out.decision);
       if (arm !== 'C') lessons.push(`lesson-${scenario.id}`);
     }
+    perScenario[arm] = decisions;
     arms[arm] = measureArm(arm, results);
   }
 
   // Couplage causal Self → Action : P(action|self) − P(action|self ablated)
-  // par strate. Si une strate est décorative, son Δ = 0.
+  // par strate ET par scénario. Un bras est causal ssi au moins un
+  // scénario change de décision (ou attribution/broadcast).
   const coupling = {};
   for (const arm of ARMS.slice(1)) {
     const a = arms.A;
     const b = arms[arm];
-    coupling[arm] = {
-      decisionDelta: a.decisions.join() !== b.decisions.join() ? 1 : 0,
+    const changed = changedScenarios(perScenario.A, perScenario[arm]);
+    const entry = {
+      decisionDelta: changed.length > 0 ? 1 : 0,
+      scenariosChanged: changed.length,
+      changedScenarios: changed,
       attributionDelta: Number((a.selfAttributionRate - b.selfAttributionRate).toFixed(4)),
-      broadcastDelta: a.broadcastEffectsTotal - b.broadcastEffectsTotal,
-      homeostasisDelta: a.homeostasisCriticals + a.homeostasisDegradeds - (b.homeostasisCriticals + b.homeostasisDegradeds)
+      broadcastDelta: a.broadcastEffectsTotal - b.broadcastEffectsTotal
     };
+    if (arm === 'G') {
+      entry.homeostasisBehavioralDelta = changed.length;
+      entry.homeostasisDisplayDelta = behavioralDisplaySplit(a, b);
+      entry.homeostasisNote = 'display counts status, not behavior; only behavioral delta is causal';
+    }
+    coupling[arm] = entry;
   }
 
   return {
     protocol: 'self-ablation-A-H',
     scenarios: SCENARIOS.length,
+    scenarioIds: SCENARIOS.map((s) => s.id),
     arms,
     coupling,
     verdict: verdictOf(coupling)
   };
 }
 
+function changedScenarios(reference, ablated) {
+  const out = [];
+  for (let i = 0; i < SCENARIOS.length; i += 1) {
+    if (reference[i] !== ablated[i]) out.push(SCENARIOS[i].id);
+  }
+  return out;
+}
+
+function behavioralDisplaySplit(a, b) {
+  return a.homeostasisCriticals + a.homeostasisDegradeds - (b.homeostasisCriticals + b.homeostasisDegradeds);
+}
+
 function verdictOf(coupling) {
   const causalArms = Object.entries(coupling)
-    .filter(([, delta]) => delta.decisionDelta > 0 || delta.attributionDelta !== 0 || delta.broadcastDelta !== 0)
+    .filter(([, delta]) => (delta.scenariosChanged || 0) > 0 || delta.attributionDelta !== 0 || delta.broadcastDelta !== 0)
     .map(([arm]) => arm);
+  const decorative = Object.keys(coupling).filter((arm) => !causalArms.includes(arm));
   return {
     selfIsCausal: causalArms.length > 0,
     causalStrata: causalArms,
-    decorativeStrata: Object.keys(coupling).filter((arm) => !causalArms.includes(arm))
+    decorativeStrata: decorative,
+    requiresRuntimeProof: decorative,
+    runtimeProof: 'backend/tests/test_self_ablation_p1.js'
   };
 }
 
-module.exports = { runSelfAblation, runArm, measureArm, SCENARIOS, ARMS };
+module.exports = { runSelfAblation, runArm, measureArm, changedScenarios, SCENARIOS, ARMS };
 
 if (require.main === module) {
   const result = runSelfAblation();

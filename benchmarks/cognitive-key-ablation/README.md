@@ -76,19 +76,29 @@ scénarios déterministes.
 | Bras | Strate ablatée | Δ mesuré |
 | --- | --- | --- |
 | A | aucune (full organism) | référence |
-| B | self-model (operational) | decisionDelta=1 |
-| C | mémoire autobiographique | decisionDelta=1 |
-| D | interoception | decisionDelta=1 |
+| B | self-model (operational) | decisionDelta=1 (2/4 scénarios : S1, S4) |
+| C | mémoire autobiographique | decisionDelta=0 — décorative ici, preuve runtime P1 requise |
+| D | interoception | decisionDelta=1 (2/4 scénarios : S2, S4) |
 | E | global workspace | broadcastDelta=3 |
 | F | agency comparator | decisionDelta=1, attributionDelta=0.75 |
-| G | homeostasis | decisionDelta=1, homeostasisDelta=2 |
+| G | homeostasis | behavioralDelta=1 (S1 seul) ; displayDelta=2 (non causal) |
 | H | metacognition | decisionDelta=1 |
 
 ## Verdict mesuré
 
-**Les 7 strates sont causales dans la chaîne de décision de référence** :
-abler n'importe laquelle casse une capacité mesurable (diversité de
-décision, attribution d'agency, effets de broadcast, régulation).
+**6 strates sur 7 sont causales dans la chaîne de décision de référence.**
+Le bras C (mémoire) ne change aucune décision sur ces 4 scénarios :
+avec la voie de décision unique, `lessons=[]` ne diverge que là où
+`apply_lessons` aurait été pris sans ajustement métacognitif — ce qui
+n'arrive sur aucun scénario ici. La causalité de la mémoire est prouvée
+par ailleurs en ablatant le runtime P1 réel
+(`backend/tests/test_self_ablation_p1.js` : leçons présentes vs absentes
+dans `buildNineAnswers`).
+
+**G est causal sur 1/4 scénarios (S1) et cosmétique sur S2–S4** : sans
+homéostasie, S2/S3/S4 donnent des décisions identiques. Le
+`homeostasisDisplayDelta=2` compte des statuts affichés, pas un effet
+comportemental — seul `homeostasisBehavioralDelta=1` est causal.
 
 Deux flèches ont été fermées pour rendre G et H causaux :
 - **G (homeostasis → décision)** : les recommandations homeostatiques
@@ -103,6 +113,12 @@ Deux flèches ont été fermées pour rendre G et H causaux :
 Ce harness mesure la **chaîne de décision de référence** (déterministe,
 sans LLM) : perception → interoception → homeostasis → workspace →
 décision → attribution → métacognition, avec chaque strate ablatable.
+
+**Anti-tautologie** : tous les bras B/C/D/G passent par la même fonction
+`decideWithSelf` avec des entrées lésées — aucun `decisionDelta` ne vient
+d'une fonction ad hoc par bras. Un Δ n'existe que si l'entrée ablatée
+change réellement la sortie sur au moins un scénario (compté dans
+`scenariosChanged` / `changedScenarios`).
 
 Le câblage de PRODUCTION de chaque flèche est un statut distinct :
 

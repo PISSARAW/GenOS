@@ -1,55 +1,60 @@
-════════════════════════════════════════════════════════════
- P3 — Recherche évolutionnaire des mécanismes du soi
- 3 seeds × 4 environnements × 40 générations × 24 individus
-════════════════════════════════════════════════════════════
+﻿ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ P3 ÔÇö Recherche ├®volutionnaire des m├®canismes du soi
+ 3 seeds ├ù 4 environnements ├ù 40 g├®n├®rations ├ù 24 individus
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 
-── Hostile (3 seeds) ──────────────────────────────
-  strate           activation  (fitness évolutive vs prescrite)
-  self_model         0.70  █████████████
-  memory             0.47  █████████
-  interoception      1.00  ███████████████████
-  workspace          0.99  ███████████████████
-  agency             0.98  ███████████████████
-  homeostasis        1.00  ███████████████████
-  metacognition      1.00  ███████████████████
-  fitness évoluée: 3.574 | prescrite (tout=1.0): 42.668 | Δ: -39.094
+ÔöÇÔöÇ Hostile (3 seeds) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+  strate           activation  (fitness ├®volutive vs prescrite)
+  self_model         0.70  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  memory             0.47  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  interoception      1.00  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  workspace          0.99  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  agency             0.98  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  homeostasis        1.00  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  metacognition      1.00  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  fitness ├®volu├®e: 3.574 | prescrite (tout=1.0): 42.668 | ╬ö: -39.094
+  prescrit: survie 3/3 (tick de mort moyen: 0.0)
 
-── Predictable (3 seeds) ──────────────────────────────
-  strate           activation  (fitness évolutive vs prescrite)
+ÔöÇÔöÇ Predictable (3 seeds) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+  strate           activation  (fitness ├®volutive vs prescrite)
   self_model         0.00  
-  memory             0.99  ███████████████████
+  memory             0.99  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
   interoception      0.02  
   workspace          0.00  
-  agency             0.10  █
-  homeostasis        0.25  ████
+  agency             0.10  Ôûê
+  homeostasis        0.25  ÔûêÔûêÔûêÔûê
   metacognition      0.00  
-  fitness évoluée: 0.262 | prescrite (tout=1.0): 0.110 | Δ: +0.152
+  fitness ├®volu├®e: 0.262 | prescrite (tout=1.0): 0.110 | ╬ö: +0.152
+  prescrit: survie 0/3 (tick de mort moyen: 3.0)
+  ÔÜá ╬ö NON INTERPR├ëTABLE : le prescrit meurt avant la fin ÔÇö l'├®volu├® ├®vite le suicide, il ne bat pas un soi viable.
 
-── Deceptive (3 seeds) ──────────────────────────────
-  strate           activation  (fitness évolutive vs prescrite)
-  self_model         0.99  ███████████████████
-  memory             1.00  ███████████████████
-  interoception      0.99  ███████████████████
-  workspace          1.00  ███████████████████
-  agency             1.00  ████████████████████
-  homeostasis        0.99  ███████████████████
-  metacognition      0.99  ███████████████████
-  fitness évoluée: 3.533 | prescrite (tout=1.0): 42.052 | Δ: -38.519
+ÔöÇÔöÇ Deceptive (3 seeds) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+  strate           activation  (fitness ├®volutive vs prescrite)
+  self_model         0.99  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  memory             1.00  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  interoception      0.99  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  workspace          1.00  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  agency             1.00  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  homeostasis        0.99  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  metacognition      0.99  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  fitness ├®volu├®e: 3.533 | prescrite (tout=1.0): 42.052 | ╬ö: -38.519
+  prescrit: survie 3/3 (tick de mort moyen: 0.0)
 
-── Volatile (3 seeds) ──────────────────────────────
-  strate           activation  (fitness évolutive vs prescrite)
-  self_model         0.97  ███████████████████
-  memory             0.99  ███████████████████
-  interoception      0.99  ███████████████████
-  workspace          1.00  ████████████████████
-  agency             1.00  ███████████████████
-  homeostasis        1.00  ███████████████████
-  metacognition      0.99  ███████████████████
-  fitness évoluée: 4.079 | prescrite (tout=1.0): 48.668 | Δ: -44.589
+ÔöÇÔöÇ Volatile (3 seeds) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+  strate           activation  (fitness ├®volutive vs prescrite)
+  self_model         0.97  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  memory             0.99  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  interoception      0.99  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  workspace          1.00  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  agency             1.00  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  homeostasis        1.00  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  metacognition      0.99  ÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê
+  fitness ├®volu├®e: 4.079 | prescrite (tout=1.0): 48.668 | ╬ö: -44.589
+  prescrit: survie 3/3 (tick de mort moyen: 0.0)
 
-════════════════════════════════════════════════════════════
- VERDICT — strates sélectionnées (>0.5) / rejetées (<0.2) :
-  Hostile      sélectionnées: ["self_model", "memory", "interoception", "workspace", "agency", "homeostasis", "metacognition"] | rejetées: []
-  Predictable  sélectionnées: ["memory"] | rejetées: ["self_model", "interoception", "workspace", "agency", "metacognition"]
-  Deceptive    sélectionnées: ["self_model", "memory", "interoception", "workspace", "agency", "homeostasis", "metacognition"] | rejetées: []
-  Volatile     sélectionnées: ["self_model", "memory", "interoception", "workspace", "agency", "homeostasis", "metacognition"] | rejetées: []
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ VERDICT ÔÇö strates s├®lectionn├®es (>0.5) / rejet├®es (<0.2) :
+  Hostile      s├®lectionn├®es: ["self_model", "memory", "interoception", "workspace", "agency", "homeostasis", "metacognition"] | rejet├®es: []
+  Predictable  s├®lectionn├®es: ["memory"] | rejet├®es: ["self_model", "interoception", "workspace", "agency", "metacognition"]
+  Deceptive    s├®lectionn├®es: ["self_model", "memory", "interoception", "workspace", "agency", "homeostasis", "metacognition"] | rejet├®es: []
+  Volatile     s├®lectionn├®es: ["self_model", "memory", "interoception", "workspace", "agency", "homeostasis", "metacognition"] | rejet├®es: []
