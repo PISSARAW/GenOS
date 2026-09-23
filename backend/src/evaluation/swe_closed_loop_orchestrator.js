@@ -304,91 +304,76 @@ function formatMissionResult(instanceId, finalPatch, finalStatus) {
 async function solveTaskWithFleet(task, options = {}) {
   const db = await getDatabase();
   const modelUri = options.model || 'ollama://deepseek-coder-v2:latest';
-  const instanceId = task.instance_id;
-  const fleetId = `fleet_${Date.now()}`;
-
-  console.log(`\n======================================================================`);
-  console.log(`[REAL GENOS BIOCÉNOSE FLEET] Launching Mission for: ${instanceId}`);
-  console.log(`Repository: ${task.repo} | Base Commit: ${task.base_commit.slice(0, 8)}`);
-  console.log(`======================================================================`);
-
-  const bioContext = initBiocenoseBiome({ task, fleetId });
-  const fleet = await registerSweFleet(db, { fleetId, instanceId, repo: task.repo });
+  const fleet = await initFleet(task, db);
   const repoDir = ensureRepoReady(task);
-
-  console.log(`[EMPIRICAL PROBE] Nia probing bug reproduction on host...`);
   const probe = probeBugReproduction(task);
-  console.log(`  -> Reproduction: ${probe.reproduced ? 'CONFIRMED' : 'PASSED'} | Signal: ${probe.traceback.length} bytes`);
+  const bioContext = initBiocenoseBiome({ task, fleetId: fleet.id });
+  const context = {
+    task, modelUri, db, fleet, repoDir, probe, bioContext,
+    deadEndLedger: createDeadEndLedger(),
+    mirror: forkMirrorPair({ instanceId: task.instance_id, mission: task.problem_statement }),
+    candidates: locateCandidateFiles(repoDir, task.problem_statement, { testHints: parseTestList(task.FAIL_TO_PASS), traceback: probe.traceback })
+  };
+  const { finalPatch, finalStatus } = await runAttemptLoop(context);
+  await retireSweFleet(db, fleet);
+  return formatMissionResult(task.instance_id, finalPatch, finalStatus);
+}
 
-  const candidates = locateCandidateFiles(repoDir, task.problem_statement, {
-    testHints: parseTestList(task.FAIL_TO_PASS),
-    traceback: probe.traceback
-  });
-  console.log(`[SPATIAL MAPPING] Candidate loci: ${candidates.slice(0, 3).join(', ')}`);
+async function initFleet(task, db) {
+  const fleetId = `fleet_${Date.now()}`;
+  const fleet = await registerSweFleet(db, { fleetId, instanceId: task.instance_id, repo: task.repo });
+  console.log(`\n[REAL GENOS BIOCÉNOSE FLEET] Launching Mission for: ${task.instance_id}`);
+  console.log(`Repository: ${task.repo} | Base Commit: ${task.base_commit.slice(0, 8)}`);
+  return fleet;
+}
 
-  const mirror = forkMirrorPair({ instanceId, mission: task.problem_statement });
-  console.log(`[MIRROR TWIN FORK] Right Twin (Constructive: ${mirror.rightTwin.id}) vs Left Twin (Situs Inversus: ${mirror.leftTwin.id})`);
-
-  const deadEndLedger = createDeadEndLedger();
+async function runAttemptLoop(context) {
+  let feedback = '';
   let finalPatch = '';
   let finalStatus = 'UNRESOLVED';
-  let feedback = '';
-
   for (let attempt = 1; attempt <= 3; attempt++) {
     const branchWorld = attempt === 1 ? 'Alpha' : (attempt === 2 ? 'Beta' : 'Gamma');
-    const targetRelFile = selectAdaptiveLocus({ candidates, attempt, probeTraceback: probe.traceback });
-    const stratLabel = attempt === 1 ? 'MINIMAL_PATCH' : (attempt === 2 ? 'ADVERSARIAL_REVIEW' : 'TRINITY_SITUS_INVERSUS');
-    console.log(`\n[ATTEMPT ${attempt} | WORLD ${branchWorld}] Strategy: ${stratLabel} | Target Locus: ${targetRelFile}`);
-
-    const targetAbsFile = path.join(repoDir, targetRelFile);
-    const originalSource = fs.readFileSync(targetAbsFile, 'utf8');
-    const enrichedStmt = probe.traceback ? `${task.problem_statement}\n${probe.traceback}` : task.problem_statement;
-    const { excerpt } = extractRelevantExcerpt(originalSource, enrichedStmt, targetRelFile);
-    const headerLines = originalSource.split('\n').slice(0, 35).join('\n');
-
-    const synapticMemory = attempt > 1 ? await harvestSynapticEngrams({ agentId: fleet.coder.id }) : '';
-    const prompt = buildSurgicalPrompt({
-      task, targetRelFile, excerpt, headerLines, feedback, synapticMemory, probeTraceback: probe.traceback, deadEndLedger, attempt
-    });
-    let patchResult;
-    try {
-      patchResult = await synthesizePatch({ db, prompt, modelUri, originalSource, targetRelFile });
-    } catch (llmErr) {
-      const reason = `LLM inference failed (${llmErr.code || llmErr.message})`;
-      console.warn(`  [LLM ERROR] ${reason}`);
-      feedback = reason;
-      deadEndLedger.recordDeadEnd({ attempt, locus: targetRelFile, reason });
-      continue;
-    }
-
-    if (!patchResult.success) {
-      feedback = 'Search and replace block could not be matched against source lines.';
-      deadEndLedger.recordDeadEnd({ attempt, locus: targetRelFile, reason: feedback });
-      continue;
-    }
-
-    const execRes = await verifyAndValidateAttempt({
-      patchResult, originalSource, targetAbsFile, repoDir, fleetId, bioContext, fleet, mirror, task
-    });
-    if (!execRes.ok) {
-      feedback = execRes.feedback;
-      deadEndLedger.recordDeadEnd({ attempt, locus: targetRelFile, reason: feedback });
-      continue;
-    }
-
-    console.log(`\n[DYNAMIC PYTEST] Nia verifying attempt ${attempt} on host...`);
-    const outcome = await processAttemptOutcome({ db, fleet, attempt, dynamicResult: execRes.dynamicResult, instanceId });
+    const targetRelFile = selectAdaptiveLocus({ candidates: context.candidates, attempt, probeTraceback: context.probe.traceback });
+    const outcome = await executeAttempt({ context, targetRelFile, attempt, feedback });
     if (outcome.resolved) {
       finalPatch = outcome.patch;
       finalStatus = outcome.status;
       break;
     }
     feedback = outcome.feedback;
-    deadEndLedger.recordDeadEnd({ attempt, locus: targetRelFile, reason: outcome.feedback });
+    context.deadEndLedger.recordDeadEnd({ attempt, locus: targetRelFile, reason: feedback });
   }
+  return { finalPatch, finalStatus };
+}
 
-  await retireSweFleet(db, fleet);
-  return formatMissionResult(instanceId, finalPatch, finalStatus);
+async function executeAttempt({ context, targetRelFile, attempt, feedback }) {
+  const { task, modelUri, db, fleet, repoDir, probe, bioContext, deadEndLedger, mirror, candidates } = context;
+  const targetAbsFile = path.join(repoDir, targetRelFile);
+  const originalSource = fs.readFileSync(targetAbsFile, 'utf8');
+  const enrichedStmt = probe.traceback ? `${task.problem_statement}\n${probe.traceback}` : task.problem_statement;
+  const { excerpt } = extractRelevantExcerpt(originalSource, enrichedStmt, targetRelFile);
+  const headerLines = originalSource.split('\n').slice(0, 35).join('\n');
+  const synapticMemory = attempt > 1 ? await harvestSynapticEngrams({ agentId: fleet.coder.id }) : '';
+  const prompt = buildSurgicalPrompt({
+    task, targetRelFile, excerpt, headerLines, feedback, synapticMemory, probeTraceback: probe.traceback, deadEndLedger, attempt
+  });
+  let patchResult;
+  try {
+    patchResult = await synthesizePatch({ db, prompt, modelUri, originalSource, targetRelFile });
+  } catch (llmErr) {
+    return { resolved: false, feedback: `LLM inference failed (${llmErr.code || llmErr.message})` };
+  }
+  if (!patchResult.success) {
+    return { resolved: false, feedback: 'Search and replace block could not be matched against source lines.' };
+  }
+  const validation = await verifyAndValidateAttempt({
+    patchResult, originalSource, targetAbsFile, repoDir, fleetId: fleet.id, bioContext, fleet, mirror, task
+  });
+  if (!validation.ok) {
+    return { resolved: false, feedback: validation.feedback };
+  }
+  const dynamicResult = validation.dynamicResult;
+  return await processAttemptOutcome({ db, fleet, attempt, dynamicResult, instanceId: task.instance_id });
 }
 
 module.exports = {
