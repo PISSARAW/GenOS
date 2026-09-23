@@ -37,7 +37,7 @@ function mutate(runtime) {
           const result = runtime.mutationEngine.recombine(lineage, partner);
           runtime.metrics.totalMutations++;
           if (result && result.child) {
-            assimilateChild(pop, result.child);
+            assimilateChild(runtime, pop, result.child);
           }
         }
       }
@@ -47,7 +47,7 @@ function mutate(runtime) {
   }
 }
 
-function assimilateChild(pop, child) {
+function assimilateChild(runtime, pop, child) {
   // Naissance biomimétique dans la population parentale (deme).
   // L'enfant est ajouté UNIQUEMENT à la population parentale.
   // Toute migration future (allocateToBestNiche) se fera explicitement,
@@ -60,11 +60,11 @@ function assimilateChild(pop, child) {
     I: Math.min(1, baseFitness.I + d), A: baseFitness.A,
     T: Math.min(1, baseFitness.T + d), R: Math.min(1, baseFitness.R + d), C: baseFitness.C,
   };
-  pop.lineages.set(child.id, child);
-  // Enregistrement global dans l'environnement (identité globale),
-  // sans réallocation immédiate (la migration viendra plus tard).
-  if (pop.population?.environment) {
-    pop.population.environment.addLineage(child);
+  pop.addLineage(child);
+  // Enregistrement global dans l'environnement (identité globale) :
+  // environment = identité globale, population = localisation écologique.
+  if (runtime.environment) {
+    runtime.environment.addLineage(child);
   }
 }
 
