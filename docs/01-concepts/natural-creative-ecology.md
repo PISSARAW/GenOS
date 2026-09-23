@@ -1,6 +1,6 @@
 # Natural Creative Ecology — Créativité Artificielle Multi-Échelle
 
-- **Statut** : Infrastructure opérationnelle — 7 moteurs implémentés et câblés, pont curiosité Node→Rust actif (`WorldState.curiosity_hint` pilote `Goal::Explore`), POET attend la fin réelle de l'agent via télémétrie, `nceMetadata` persisté dans `metadata_json`, TOPOLOGY_SIGNALS appliqué, dispatch_worker enrichi, tests contractuels 4/4 verts. Tests d'ablation en prototype (pas scientifiquement valides). Boucle NCE fermée côté orchestrateur natif.
+- **Statut** : Infrastructure opérationnelle — 7 moteurs implémentés et câblés, pont curiosité Node→Rust actif (`WorldState.curiosity_hint` pilote `Goal::Explore`), POET attend la fin réelle de l'agent via télémétrie, `nceMetadata` persisté dans `metadata_json`, TOPOLOGY_SIGNALS appliqué, dispatch_worker enrichi, tests contractuels 7/7 verts. Tests d'ablation en prototype (pas scientifiquement valides). Boucle NCE fermée côté orchestrateur natif.
 - **Portée** : `backend/src/services/{curiosityService,curiosityExplorerService,curiosityBridgeService,nceIntegrationService,ncePromptService,nceEngines,representationalMutationEngine,exaptationEngine,playService,phenotypicDevelopmentService,environmentGeneratorService,culturalTransmissionService,culturalSelectionService,culturalLearningService,poetExecutionEngine}.js`, `backend/bin/{genos-orchestrate.cjs,topologyHandlers.cjs,orchestratorActions.cjs,orchestratorMissionHelpers.cjs}`, `crates/genos-orchestrator/src/{drives,observer,planner}.rs`, `backend/tests/nce_contract_tests.js`, `docs/08-philosophie.md`.
 - **Dernière revue** : 2026-09-22.
 - **Dérivé** : [Mathematical Organism](mathematical-organism.md) — implémentation NCE pour la recherche mathématique.
@@ -651,3 +651,4 @@ Chaque mécanisme biologique doit correspondre à **un invariant computationnel 
 | `a95d1584` | Points 7-8 : parents conservent distance/compatibility/potential/score, countOverlap ratio normalisé |
 | `d3e9ee5b` | Points 5-6 : POET attend l'agent via télémétrie, snapshot contract corrigé, pont NCE→Rust (`curiosity_hint`), `tissue_scheduler` |
 | `2c62dcab` | Points 9-10 : doc ablation correcte, `nceMetadata` persisté dans `metadata_json` |
+| `local` | Fermeture NCE : `buildTopologyOptions` unique, `nceOptions` transmis aux moteurs, `workerLaunchPayload` unique, `dispatch_worker` enrichi, POET collecte l'artifact réel, `measureCulturalTransfer` (Δ benchmark observé), tests 7/7 |

@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel — gate de complétion, feedback loop continuation, bornage/idempotence, preuves runtime, immunité enforceable câblés et testés ; régénération runtime, dormance durable, persistance de l'organisme et succession restantes.
 - **Portée** : control plane Node — `missionOrganismService`, `homeostasisContractService`, `homeostasisService`, `homeostasisContinuationService`, `missionContinuityService`, `missionEvidenceCollector`, `vitalSignalsService`, `immuneGateService`, `immuneMemoryService`, `regenerationService`, `survivalModesService` ; pont `backend/bin/genos-orchestrate.cjs` + helpers `continuationFeedbackLoop.cjs`, `orchestratorMissionHelpersBuildContext.cjs` ; migrations 033 `homeostasis_states`, 034 `mission_organism_state`, 027 `continuation_queue`.
-- **Dernière revue** : 2026-09-22.
+- **Dernière revue** : 2026-09-23.
 
 ## 1. Définition du domaine
 
@@ -93,12 +93,16 @@ Pour éviter les boucles de continuation infinies, chaque décision de
 continuation porte un identité déterministe :
 
 $$
-\delta = \mathrm{sha256}(\text{missionId}, \text{deviation}, \text{stateVersion})
+\delta = \mathrm{sha256}(\text{missionId}, \text{deviation}, \text{fingerprint}, \text{round})
 $$
 
-Un re-dispatch avec la même identité retourne `{ idempotent: true }` sans créer
-de doublon dans `continuation_queue`. Le budget est compté par `(missionId,
-déviation)` avec un plafond `MAX_HOMEOSTASIS_CONTINUATIONS = 3`.
+où `fingerprint = sha256(missing\_evidence, failed\_invariants)` est stable
+pour un même état bloqué, et `round` est le compteur de tentatives déjà
+consommées. Un re-dispatch avec la même empreinte encore active retourne
+`{ idempotent: true }` sans créer de doublon dans `continuation_queue`. Le
+budget est compté par `(missionId, déviation)` avec un plafond
+`MAX_HOMEOSTASIS_CONTINUATIONS = 3` ; `unsafe_action` ne dispatch jamais
+(quarantaine / `WAIT_HUMAN`).
 
 ### 2.5 États vitaux mesurables
 
@@ -344,17 +348,21 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
   déclaratifs rejouables, l'évaluation des preuves exigées, l'historique
   d'homéostasie sans collision, l'émission réelle des pulses et l'immunité
   branchée avec interdiction de retry exact, le feedback loop de continuation
-  borné et idempotent, les preuves runtime collectées depuis les dossiers
-  workers et la télémétrie — couverts par `backend/tests/test_mission_continuity.js`
-  (10 tests) et `backend/tests/test_mission_evidence.js` (10 tests) et
-  `backend/tests/test_homeostasis_continuation.js` (16 tests).
+   borné et idempotent (boucle dispatch → attente terminal → réévaluation,
+   jusqu'à satisfaction ou épuisement), les preuves runtime collectées depuis
+   les dossiers workers et la télémétrie — couverts par
+   `backend/tests/test_mission_continuity.js` (13 tests) et
+   `backend/tests/test_mission_evidence.js` (10 tests) et
+   `backend/tests/test_homeostasis_continuation.js` (18 tests).
 - **Limite** : la régénération crée la cellule dans l'organisme mais pas un
-  vrai worker ; à relier à `agentRecoveryService`.
+   vrai worker ; à relier à `agentRecoveryService`.
 - **Limite** : la cryptobiose et la quiescence construisent le payload à
-  persister sans l'écrire ; le pont vers `survivalStateService.suspend()` et
-  `survival_wake_conditions` reste à faire.
-- **Limite** : l'organisme, ses cicatrices et sa mémoire immunitaire vivent en
-  RAM, réassemblés à chaque évaluation sans restauration du vécu.
+   persister sans l'écrire ; le pont vers `survivalStateService.suspend()` et
+   `survival_wake_conditions` reste à faire.
+- **Limite** : l'organisme est persisté (`mission_organism_state`, migration
+   034) et restauré à chaque évaluation — mémoire et cicatrices survivent au
+   restart, tissus rafraîchis depuis les agents vivants ; la dormance durable
+   (écriture + réveil) reste à faire.
 - **Limite** : la mission reste identifiée à l'agent orchestrateur racine ; la
   succession d'orchestrateur exigera un objet mission indépendant.
 - **Garde-fou** : l'apoptose systémique n'est jamais automatique —

@@ -59,9 +59,24 @@ une **réponse adaptative** que l'évolution retrouve seule.
 
 ## Limites honnêtes
 
-- La fitness est une **simulation économique** (récolte/coût), pas une
-  mission réelle : elle encode une hypothèse de bénéfice par strate et
-  milieu. Les profils de bénéfices sont déclarés, pas découverts.
+- **Circularité partielle (assumée et contrôlée).** La fitness est une
+  **simulation économique** (récolte/coût), pas une mission réelle : elle
+  encode une hypothèse de bénéfice par strate et milieu. Les profils de
+  bénéfices sont déclarés dans `benefit_profile`, pas découverts —
+  l'évolution retrouve ce qu'on y a mis. Le contrôle par permutation le
+  prouve (`benefit_profile_permutation_controls_selection`) : le classement
+  agency vs homéostasie S'INVERSE entre Deceptive et Hostile, exactement
+  comme la table déclarée le dicte. P3 mesure donc une **direction de
+  sélection sous hypothèses**, pas une découverte de mécanismes. La vraie
+  preuve exigerait des bénéfices mesurés sur tâches réelles (détection de
+  pannes, filtrage de bruit observé) et le couplage aux mécanismes P1/P2.
+- **Δ Predictable non interprétable.** En Predictable, « évolution >
+  prescrite » (+0.152) est un **artefact de mort métabolique précoce** :
+  le prescrit (tout=1.0) meurt au tick ~3 de sur-activation (survie 0/3,
+  `prescribed_survived=false` dans le rapport) et reçoit la fitness
+  pénalisée ×0.1 ; l'évolué minimal survit. L'évolué évite le suicide du
+  prescrit, il ne bat pas un soi complet viable. Le runner l'affiche
+  explicitement (`⚠ Δ NON INTERPRÉTABLE`).
 - 40 générations × 24 individus n'atteignent pas la fitness de
   l'architecture prescrite (3.5–4.0 vs 42) : l'expérience mesure la
   **direction de sélection**, pas la convergence complète.
@@ -72,6 +87,6 @@ une **réponse adaptative** que l'évolution retrouve seule.
 ## Reproduction
 
 ```bash
-cargo test -p genos-orchestrator --lib self_evolution   # 8 assertions
+cargo test -p genos-orchestrator --lib self_evolution   # 11 tests (dont artefact Predictable + contrôle permutation)
 cargo run -p genos-orchestrator --example self_evolution_experiment
 ```

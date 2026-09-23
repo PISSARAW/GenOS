@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel (gate de complétion, feedback loop continuation, bornage/idempotence, preuves runtime, immunité enforceable ; régénération runtime, dormance durable et succession restantes)
 - **Portée** : control plane Node, services de survie de mission
-- **Dernière revue** : 2026-09-22
+- **Dernière revue** : 2026-09-23
 
 ## Définition
 
@@ -98,13 +98,17 @@ COMPLETE       re-dispatch (si budget restant) ou EXHAUSTED
 **Bornage** : `MAX_HOMEOSTASIS_CONTINUATIONS = 3` — chaque compteur est par
 `(missionId, deviation)` dans la table `continuation_queue`.
 
-**Idempotence** : `decisionId = hash(missionId, deviation, stateVersion)` — un
-re-dispatch avec la même identité retourne `{ idempotent: true }` sans créer de
-doublon.
+**Idempotence** : `decisionId = hash(missionId, deviation, fingerprint, round)`
+avec `fingerprint = hash(missing_evidence, failed_invariants)` — un re-dispatch
+avec la même empreinte encore active retourne `{ idempotent: true }` sans créer
+de doublon ; chaque round terminé (completed/failed) libère le round suivant
+jusqu'au plafond.
 
-**Sécurité** : le worker de continuation hérite des permissions du parent (jamais
-l'inverse). Si `prohibitExactRetry` est activé pour cette catégorie immunitaire,
-le dispatch est refusé.
+**Sécurité** : `unsafe_action` ne dispatch jamais (quarantaine / `WAIT_HUMAN`).
+Sinon le worker de continuation hérite des permissions du parent (jamais
+l'inverse : $P_{continuation} \subseteq P_{parent}$). Si `prohibitExactRetry`
+est activé — catégorie correspondante ou toute mémoire interdisant la stratégie
+`homeostasis_continuation` — le dispatch est refusé.
 
 ## 4. Preuves runtime
 
@@ -247,20 +251,21 @@ viable → QUIESCENCE | starved → CRYPTOBIOSE | irrecoverable → APOPTOSE
 - **Immunité branchée** : les cellules mortes déclenchent la gate
   (`isSafeToProceed`) ; les morts répétées enrôlent une mémoire immunitaire
   (`prohibitedExactRetry`, `preferredResponse: replace_worker`).
-- **Tests dédiés** : `backend/tests/test_mission_continuity.js` (10 tests),
-  `test_homeostasis_continuation.js` (16 tests), `test_mission_evidence.js` (10 tests).
+- **Tests dédiés** : `backend/tests/test_mission_continuity.js` (13 tests),
+   `test_homeostasis_continuation.js` (18 tests), `test_mission_evidence.js` (10 tests).
 
 ### Modèle implémenté, enforcement non intégré
 
 - **Régénération runtime** : `regenerateCell()` crée la cellule dans
-  l'organisme mais pas un vrai worker (pas d'INSERT agent, pas de workspace,
-  pas de `startMission`). À relier à `agentRecoveryService`.
+   l'organisme mais pas un vrai worker (pas d'INSERT agent, pas de workspace,
+   pas de `startMission`). À relier à `agentRecoveryService`.
 - **Cryptobiose/quiescence durables** : `enterCryptobiosis()` construit le
-  payload à persister mais n'écrit pas ; pas encore de pont vers
-  `survivalStateService.suspend()` ni `survival_wake_conditions`.
-- **Organisme en RAM** : l'organisme, ses cicatrices et sa mémoire
-  immunitaire sont réassemblés à chaque évaluation sans restauration du vécu ;
-  la persistance inter-processus reste à faire.
+   payload à persister mais n'écrit pas ; pas encore de pont vers
+   `survivalStateService.suspend()` ni `survival_wake_conditions`.
+- **Organisme persisté, dormance non durable** : l'organisme est persisté
+   (`mission_organism_state`, migration 034) et restauré à chaque évaluation —
+   mémoire et cicatrices survivent au restart, tissus rafraîchis depuis les
+   agents vivants ; l'écriture + réveil de dormance restent à faire.
 - **Mission = agent racine** : `fetchMissionAgents` utilise l'ID de
   l'orchestrateur comme ID de mission ; la succession d'orchestrateur exigera
   un objet mission indépendant.

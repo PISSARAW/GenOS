@@ -58,7 +58,8 @@ Implémenter un **Natural Search Control Plane** en plusieurs phases au-dessus d
 
 || Fonctionnalité | Implémentation |
 || --- | --- |
-|| Routage de provenance | `resolveProvenance()` — LLM→SELF_REPORTED / event→INFERRED / tool→OBSERVED / evidence→VERIFIED |
+|| Routage de provenance | `resolveProvenance()` — autorité runtime uniquement (payload ignoré) : LLM→SELF_REPORTED / event→INFERRED / tool→OBSERVED / evidence→VERIFIED |
+|| Protocole hypothèses | `hypothesisEventProtocol.js` — HYPOTHESIS_PROPOSED / TEST_STARTED / PROGRESS / FALSIFIED / SUSPENDED |
 || Flush garanti | `clearSearchState()` → `flushSearchState()` avant suppression mémoire |
 || Création proactive d'hypothèses | `proactiveHypothesis()` après 5 étapes sans progrès |
 
@@ -66,7 +67,9 @@ Implémenter un **Natural Search Control Plane** en plusieurs phases au-dessus d
 
 - L'Actuator passe par `naturalSearchActuatorPrimitives.js` qui délègue aux services via singletons, pas par injection directe.
 - `STRESS_HYPERMUTATION` et `FORAGE` construisent encore des objets locaux (genome/patch) en plus des appels services.
-- `resolveProvenance` respecte `payload.provenance` du LLM s'il est présent (sinon routage automatique).
+- `resolveProvenance` ignore `payload.provenance` / `payload.evidenceProvenance` : autorité runtime uniquement.
+- `STRESS_HYPERMUTATION` et `FORAGE` construisent encore des objets locaux (genome/patch) en plus des appels services.
+- Durabilité inter-redémarrage (rechargement Ledger depuis SQLite au boot) non démontrée : le runtime persiste à chaque step + flush, mais ne recharge pas l'état au démarrage.
 
 ## Références
 
