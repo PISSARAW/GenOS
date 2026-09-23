@@ -159,7 +159,9 @@ async function executeMission(db, state) {
 
   const nceEnhancements = await applyNceEnhancements(buildNceInput(request), db, orchestratorId);
   const { enhancedPrompt, nceMetadata } = buildEnhancedPrompt(nceEnhancements, task);
-  const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });
+  const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });
+  const workerGarage = require('../src/services/workerGarageService');
+  workerGarage.setDynamicCapacity(id, garageDecision.capacity);
   await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime });
   const agents = await waitForCompletion(db);
   const { summarizeAgents } = require('../src/services/orchestratorOutcome');

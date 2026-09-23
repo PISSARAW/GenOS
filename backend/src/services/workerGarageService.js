@@ -2,8 +2,28 @@ const config = require('../config/orchestratorConfig');
 const { registerWakeHandler, unregisterWakeHandler } = require('./signalPlaneSubscriber');
 const runtimeMissionExecution = require('./agentRuntimeAdapter/missionExecution');
 
+const dynamicCapacities = new Map();
+
 function maxActiveWorkers() {
   return config.maxActiveWorkers();
+}
+
+function getDynamicCapacity(orchestratorId) {
+  if (orchestratorId && dynamicCapacities.has(orchestratorId)) {
+    return dynamicCapacities.get(orchestratorId);
+  }
+  return maxActiveWorkers();
+}
+
+function setDynamicCapacity(orchestratorId, capacity) {
+  if (!orchestratorId) return;
+  const safeCapacity = Math.max(1, Math.min(capacity, maxActiveWorkers()));
+  dynamicCapacities.set(orchestratorId, safeCapacity);
+}
+
+function releaseDynamicCapacity(orchestratorId) {
+  if (!orchestratorId) return;
+  dynamicCapacities.delete(orchestratorId);
 }
 
 function projectCapacity() {
@@ -125,7 +145,7 @@ async function state(db, orchestratorId) {
   const isParentDead = parent && (Boolean(parent.is_apoptotic) || ['apoptosis', 'terminated', 'completed', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status));
   if (isParentDead) {
     return {
-      capacity: maxActiveWorkers(),
+      capacity: getDynamicCapacity(orchestratorId),
       occupied: 0,
       available: 0,
       activeWorkers: [],
@@ -143,7 +163,7 @@ async function state(db, orchestratorId) {
     orchestratorId
   );
   const activeWorkers = dbWorkers;
-  const capacity = maxActiveWorkers();
+  const capacity = getDynamicCapacity(orchestratorId);
 
   return {
     capacity,
@@ -156,7 +176,7 @@ async function state(db, orchestratorId) {
 async function requireAvailableSlot(db, orchestratorId, workerId = null) {
   const garage = await state(db, orchestratorId);
   const alreadyActive = workerId && garage.activeWorkers.some((worker) => worker.id === workerId);
-  const limit = maxActiveWorkers();
+  const limit = getDynamicCapacity(orchestratorId);
   if (!alreadyActive && garage.available === 0) {
     const error = new Error(`Worker garage is full (slots: ${garage.occupied}/${limit} used — wait or increase MAX_ACTIVE_WORKERS). Orchestrator '${orchestratorId}' cannot dispatch more workers.`);
     error.code = 'WORKER_GARAGE_FULL';
@@ -205,7 +225,7 @@ async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }
   }
   unregisterWakeHandler(workerId);
   await requireAvailableSlot(db, orchestratorId, workerId);
-  const limit = maxActiveWorkers();
+  const limit = getDynamicCapacity(orchestratorId);
   const reservation = await db.run(
     `UPDATE agents SET name = ?, role = ?, current_task = ?, status = 'running', updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'idle' AND (
@@ -294,5 +314,8 @@ module.exports = {
   reserveSlot,
   releaseSlot,
   enterIdleState,
-  armWakeHandler
+  armWakeHandler,
+  getDynamicCapacity,
+  setDynamicCapacity,
+  releaseDynamicCapacity
 };

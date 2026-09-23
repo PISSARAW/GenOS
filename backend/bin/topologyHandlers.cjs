@@ -21,7 +21,7 @@ function buildBiologicalOutput({ context, mode, mission, members, accepted, topo
     orchestratorId: context.orchestratorId,
     biologicalMode: {
       status: 'accepted', mode, mission,
-      capacity: workerGarage.MAX_ACTIVE_WORKERS,
+      capacity: workerGarage.getDynamicCapacity(context.orchestratorId),
       mechanisms: members[0]?.mechanisms || [],
       ...topology, members: accepted
     }
@@ -138,7 +138,7 @@ async function handleTrinity(db, context) {
     accepted.push({ workerId, worldNumber: member.worldNumber, strategy: member.role, status: 'accepted' });
   }
   const supervision = trinityMissionSupervisor.launch({ missionId, orchestratorId: context.orchestratorId, repoRoot: context.repoRoot });
-  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, trinity: { status: 'accepted', mission, missionId, capacity: workerGarage.MAX_ACTIVE_WORKERS, worlds: accepted, supervision } }));
+  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, trinity: { status: 'accepted', mission, missionId, capacity: workerGarage.getDynamicCapacity(context.orchestratorId), worlds: accepted, supervision } }));
 }
 
 module.exports = { handleTeam, handleBiological, handleTrinity };

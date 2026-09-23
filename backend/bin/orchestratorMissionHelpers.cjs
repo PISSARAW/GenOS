@@ -5,6 +5,7 @@ const telemetry = require('../src/services/telemetryObserver');
 const { summarizeAgents } = require('../src/services/orchestratorOutcome');
 const orchestrationCoverage = require('../src/services/orchestrationCoverageService');
 const missionContinuity = require('../src/services/missionContinuityService');
+const { decideGarageCapacity } = require('../src/services/garageCapacityService');
 
 function buildActionContext(ctx) {
   return {
@@ -117,17 +118,19 @@ function mergeMetadataJson(existing, nceMetadata) {
 
 async function prepareMission(opts) {
   const { db, enhancedPrompt, id, policyRequest, request, nceMetadata } = opts;
+  const contracts = require('../src/services/strategyContractService');
   const existing = await db.get(`SELECT metadata_json FROM agents WHERE id = ?`, id).catch(() => null);
-  const metadataJson = mergeMetadataJson(existing?.metadata_json, nceMetadata);
+  const metadataJson = mergeMetadataJson(existing?.metadata_json, { nceMetadata });
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task, metadata_json) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?, ?)`, id, enhancedPrompt, metadataJson);
   await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = ? WHERE id = ?`, enhancedPrompt, metadataJson, id);
-  const contracts = require('../src/services/strategyContractService');
   const strategyContract = await contracts.saveContract(db, { agentId: id, problem: enhancedPrompt, createdBy: 'mcp_orchestrate' });
+  const garageDecision = decideGarageCapacity({ contract: strategyContract.contract, topology: request.action });
+  await db.run(`UPDATE agents SET metadata_json = ? WHERE id = ?`, mergeMetadataJson(metadataJson, { garageCapacity: garageDecision.capacity, garageDecision }), id);
   const requestTimeoutMs = policyRequest.timeoutMs || request.timeoutMs;
   const missionBudget = { ...(policyRequest.executionBudget || policyRequest.execution_budget || request.executionBudget || request.execution_budget || {}) };
   applyLatencyBudget(missionBudget, requestTimeoutMs);
   const useLocalRuntime = checkLocalRuntime(policyRequest, request);
-  return { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs };
+  return { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision };
 }
 
 function applyLatencyBudget(budget, timeoutMs) {
