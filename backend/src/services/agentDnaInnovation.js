@@ -281,11 +281,29 @@ function evaluationChecks({ model, parent, evidence, signature }) {
   };
 }
 
+function hasNoRegression(candidate, parent) {
+  const parentTools = parent.phenotype?.tools || [];
+  const parentCaps = parent.phenotype?.capabilities || [];
+  const candTools = candidate.phenotype?.tools || [];
+  const candCaps = candidate.phenotype?.capabilities || [];
+  return parentTools.every((t) => candTools.includes(t)) && parentCaps.every((c) => candCaps.includes(c));
+}
+
+function hasImprovement(candidate, parent) {
+  const candTools = candidate.phenotype?.tools || [];
+  const parentTools = parent.phenotype?.tools || [];
+  const candCaps = candidate.phenotype?.capabilities || [];
+  const parentCaps = parent.phenotype?.capabilities || [];
+  const hasNewTool = candTools.some((t) => !parentTools.includes(t));
+  const hasNewCap = candCaps.some((c) => !parentCaps.includes(c));
+  const fewerSilenced = (candidate.phenotype?.silenced || []).length < (parent.phenotype?.silenced || []).length;
+  return hasNewTool || hasNewCap || fewerSilenced;
+}
+
 function isSuperiorToParent(model, parent) {
   if (!parent || !parent.genes) return true;
-  const candidateGenes = Object.keys(model.genes || {}).length;
-  const parentGenes = Object.keys(parent.genes).length;
-  return candidateGenes > parentGenes;
+  if (!hasNoRegression(model, parent)) return false;
+  return hasImprovement(model, parent);
 }
 
 async function rejectCandidate(db, id, reason) {
