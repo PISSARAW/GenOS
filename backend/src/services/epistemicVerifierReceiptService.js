@@ -48,7 +48,7 @@ function issueReceipt(input = {}) {
     status: input.status || 'verified',
     independent: input.independent === true,
     independenceDescriptor: input.independenceDescriptor || null,
-    independenceDistance: input.indistanceDistance !== undefined ? input.indistanceDistance : null,
+    independenceDistance: input.independenceDistance !== undefined ? input.independenceDistance : null,
   };
   return { ...receipt, signature: signatureFor(receipt) };
 }
