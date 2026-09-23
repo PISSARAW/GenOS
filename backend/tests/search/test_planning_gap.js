@@ -73,6 +73,29 @@ function checkGenosInstrumentation(results) {
   assert.ok(pressured, 'GenOS doit mesurer une pression');
 }
 
+function optimalLength(task) {
+  if (task.domain !== 'blocksworld') return null;
+  const opt = Domain.bfsOptimal(task, 5000);
+  return opt ? opt.length : null;
+}
+
+function printOptimalRow(id, opt, row) {
+  const parts = [id, `opt:${opt}`];
+  for (const key of ['react', 'tot', 'mcts', 'genos']) {
+    parts.push(`${key}:${row[key].valid ? row[key].plan.length : 'X'}`);
+  }
+  console.log(parts.join(' | '));
+}
+
+function reportOptimality(results, tasks) {
+  console.log('\n--- Longueur vs optimal BFS (blocksworld) ---');
+  for (let i = 0; i < results.length; i += 1) {
+    const opt = optimalLength(tasks[i]);
+    if (opt === null) continue;
+    printOptimalRow(tasks[i].id, opt, results[i]);
+  }
+}
+
 function checkMyopiaExists(results) {
   const trap = results.find((r) => !r.react.valid && (r.tot.valid || r.mcts.valid || r.genos.valid));
   assert.ok(trap, 'Au moins une tâche doit piéger le glouton myope pendant qu\'une recherche globale réussit');
@@ -90,6 +113,7 @@ function runPlanningGap() {
   checkGenosInstrumentation(results);
   const stats = summarize(results);
   printTable(results, stats);
+  reportOptimality(results, tasks);
   checkMyopiaExists(results);
   console.log('\n=== PLANNING-GAP PASSED (harness valide, succès non truqué) ===');
   return { results, stats };

@@ -14,6 +14,7 @@ const suites = {
     ['ontology relation registry', 'test_ontology_relation_registry.js'],
     ['philosophy ethics service', 'test_philosophy_ethics_service.js'],
     ['philosophy causality service', 'test_philosophy_causality_service.js'],
+    ['controlled causal experiment', 'test_controlled_causal_experiment.js'],
     ['philosophy ontology stances', 'test_philosophy_ontology_stances_service.js'],
     ['philosophy modern services', 'test_modern_philosophy_services.js'],
     ['philosophy mcp integration', 'test_philosophy_mcp_integration.js'],
@@ -105,7 +106,9 @@ const suites = {
     ['signal plane e2e', 'test_signal_plane_e2e.js'],
     ['signal metrics', 'test_signal_metrics.js'],
     ['agent output schema', 'test_agent_output_schema.js'],
-    ['biomimetic signaling bus', 'test_biomimetic_signaling_bus.js']
+    ['biomimetic signaling bus', 'test_biomimetic_signaling_bus.js'],
+    ['dynamic organization', 'test_dynamic_organization.js'],
+    ['worker idle lifecycle', 'test_worker_idle_lifecycle.js']
   ]
 };
 

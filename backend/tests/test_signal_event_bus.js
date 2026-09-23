@@ -73,9 +73,14 @@ async function testEventBusAgentFilter() {
   bus.removeAllListeners();
 }
 
+function resetCoalescer() {
+  if (coalescer.clearAllCoalescerState) coalescer.clearAllCoalescerState();
+}
+
 async function testCoalescerSuppressesDuplicate() {
+  resetCoalescer();
   const senderA = 'agent-a';
-  const topic = 'status';
+  const topic = 'status-' + Date.now();
 
   const sig1 = { signalId: 's1', signalType: 'ligand', topic, senderAgentId: senderA, signalData: {} };
   const sig2 = { signalId: 's2', signalType: 'ligand', topic, senderAgentId: senderA, signalData: {} };
@@ -88,8 +93,9 @@ async function testCoalescerSuppressesDuplicate() {
 }
 
 async function testCoalescerAllowsAfterRefractory() {
+  resetCoalescer();
   const senderA = 'agent-a';
-  const topic = 'status';
+  const topic = 'status-' + Date.now();
 
   const sig1 = { signalId: 's1', signalType: 'ligand', topic, senderAgentId: senderA, signalData: {} };
   coalescer.coalesce(sig1, { refractoryMs: 10, coalesceMs: 5 });
@@ -102,25 +108,33 @@ async function testCoalescerAllowsAfterRefractory() {
 }
 
 async function testCoalescerDifferentTopics() {
+  resetCoalescer();
   const senderA = 'agent-a';
+  const stamp = Date.now();
 
-  const sig1 = { signalId: 's1', signalType: 'ligand', topic: 'auth', senderAgentId: senderA, signalData: {} };
+  const sig1 = { signalId: 's1', signalType: 'ligand', topic: 'auth-' + stamp, senderAgentId: senderA, signalData: {} };
   coalescer.coalesce(sig1, { refractoryMs: 5000 });
 
-  const sig2 = { signalId: 's2', signalType: 'ligand', topic: 'mission', senderAgentId: senderA, signalData: {} };
+  const sig2 = { signalId: 's2', signalType: 'ligand', topic: 'mission-' + stamp, senderAgentId: senderA, signalData: {} };
   const result2 = coalescer.coalesce(sig2, { refractoryMs: 5000 });
   assert.ok(result2 !== null, 'Signal on different topic should pass');
 }
 
 async function testCoalescerDifferentSenders() {
-  const topic = 'auth';
+  resetCoalescer();
+  const topic = 'auth-' + Date.now();
 
   const sig1 = { signalId: 's1', signalType: 'ligand', topic, senderAgentId: 'a', signalData: {} };
-  coalescer.coalesce(sig1, { refractoryMs: 5000 });
+  const first = coalescer.coalesce(sig1, { refractoryMs: 0, coalesceMs: 60000 });
+  assert.ok(first !== null, 'First sender passes and opens window');
 
   const sig2 = { signalId: 's2', signalType: 'ligand', topic, senderAgentId: 'b', signalData: {} };
-  const result2 = coalescer.coalesce(sig2, { refractoryMs: 5000 });
-  assert.ok(result2 !== null, 'Signal from different sender should pass');
+  const result2 = coalescer.coalesce(sig2, { refractoryMs: 0, coalesceMs: 60000 });
+  assert.strictEqual(result2, null, 'Second sender buffered inside open window (true coalescing)');
+  assert.strictEqual(coalescer.getBufferedCount(topic), 1, 'One signal buffered');
+  const aggregated = coalescer.flushAndAggregate(topic);
+  assert.ok(aggregated, 'Buffered signals aggregate into one emission');
+  assert.strictEqual(aggregated.coalescedCount, 1, 'Aggregate covers buffered signal');
 }
 
 async function testCheckRefractory() {
@@ -161,7 +175,7 @@ async function run() {
   console.log('[PASS] Coalescer allows different topics');
 
   await testCoalescerDifferentSenders();
-  console.log('[PASS] Coalescer allows different senders');
+  console.log('[PASS] Coalescer coalesces different senders in window');
 
   await testCheckRefractory();
   console.log('[PASS] checkRefractory works correctly');

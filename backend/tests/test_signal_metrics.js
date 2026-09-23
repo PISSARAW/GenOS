@@ -141,23 +141,51 @@ function testCWRPerfect() {
 
 function testCWRMixed() {
   setup();
-  // 4 wakeups: 3 with action, 1 without (just logging)
-  signalMetrics.recordLlmWakeupWithAction();
-  signalMetrics.recordLlmWakeupWithAction();
-  signalMetrics.recordLlmWakeupWithAction();
-  signalMetrics.recordLlmWakeupWithAction();
+  // 4 wakeups: 3 useful, 1 wasted
+  signalMetrics.recordLlmWakeup();
+  signalMetrics.recordLlmWakeupOutcome({ useful: true });
 
-  // Reduce wakeupsWithAction by manually adjusting (can't call private fn)
-  // Instead, we use reset and re-record
-  signalMetrics.resetMetrics();
-  // 4 total, 3 useful
-  signalMetrics.recordLlmWakeupWithAction();
-  signalMetrics.recordLlmWakeupWithAction();
-  signalMetrics.recordLlmWakeupWithAction();
+  signalMetrics.recordLlmWakeup();
+  signalMetrics.recordLlmWakeupOutcome({ useful: true });
+
+  signalMetrics.recordLlmWakeup();
+  signalMetrics.recordLlmWakeupOutcome({ useful: true });
+
+  signalMetrics.recordLlmWakeup();
+  signalMetrics.recordLlmWakeupOutcome({ useful: false });
 
   const cwr = signalMetrics.getCWRMetrics();
-  assert.strictEqual(cwr.cwr, 1);  // 3/3 = 1
-  assert.strictEqual(cwr.totalWakeups, 3);
+  assert.strictEqual(cwr.cwr, 0.75);
+  assert.strictEqual(cwr.totalWakeups, 4);
+  assert.strictEqual(cwr.wakeupsWithAction, 3);
+}
+
+function testCERMultiRecipientCapped() {
+  setup();
+  // One signal routed to 5 recipients: signal-CER must stay in [0,1].
+  signalMetrics.recordSignalRouted();
+  for (let i = 0; i < 5; i++) {
+    signalMetrics.recordSignalWithAction('sig-multi');
+    signalMetrics.recordDeliveryEnqueued();
+    signalMetrics.recordDeliveryUseful();
+  }
+  const cer = signalMetrics.getCERMetrics();
+  assert.strictEqual(cer.cer, 1);
+  assert.strictEqual(cer.usefulSignals, 1);
+  assert.strictEqual(cer.routedSignals, 1);
+  assert.strictEqual(cer.cerDelivery, 1);
+  assert.strictEqual(cer.deliveryTotal, 5);
+  assert.strictEqual(cer.deliveryUseful, 5);
+}
+
+function testCERDeliveryPartial() {
+  setup();
+  signalMetrics.recordSignalRouted();
+  signalMetrics.recordDeliveryEnqueued();
+  signalMetrics.recordDeliveryUseful();
+  signalMetrics.recordDeliveryEnqueued();
+  const cer = signalMetrics.getCERMetrics();
+  assert.strictEqual(cer.cerDelivery, 0.5);
 }
 
 // ── resetMetrics tests ────────────────────────────────────────────────────────
@@ -266,6 +294,12 @@ async function run() {
 
   testCWRMixed();
   console.log('[PASS] CWR mixed');
+
+  testCERMultiRecipientCapped();
+  console.log('[PASS] CER multi-recipient capped at 1');
+
+  testCERDeliveryPartial();
+  console.log('[PASS] CER delivery partial');
 
   testResetClearsAll();
   console.log('[PASS] resetMetrics clears all');

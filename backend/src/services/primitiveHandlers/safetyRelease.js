@@ -32,7 +32,7 @@ async function authorizeReleaseTarget(db, command) {
 }
 
 async function readQuarantineState(db, targetId) {
-  return db.get('SELECT id, status, isolation_mode FROM agents WHERE id = ?', targetId);
+  return db.get('SELECT id, status, isolation_mode, execution_mode FROM agents WHERE id = ?', targetId);
 }
 
 function isQuarantinedRow(row) {
@@ -42,17 +42,23 @@ function isQuarantinedRow(row) {
 async function clearQuarantineState(db, targetId, reason) {
   const before = await readQuarantineState(db, targetId);
   if (!isQuarantinedRow(before)) return null;
-  const result = await db.run(
-    "UPDATE agents SET status = 'idle', isolation_mode = 'None', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'blocked' AND isolation_mode = 'Quarantine'",
+  const workerGarage = require('../workerGarageService');
+  if (before.execution_mode === 'worker') {
+    const transitioned = await workerGarage.enterIdleState(db, targetId, null);
+    if (!transitioned) return null;
+  } else {
+    const result = await db.run(
+      "UPDATE agents SET status = 'idle', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'blocked'",
+      targetId
+    );
+    if ((result?.changes || 0) !== 1) return null;
+  }
+  await db.run(
+    "UPDATE agents SET isolation_mode = 'None', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND isolation_mode = 'Quarantine'",
     '[RELEASED] ' + reason,
     targetId
-  );
-  if ((result?.changes || 0) === 1) {
-    const workerGarage = require('../workerGarageService');
-    workerGarage.armWakeHandler(targetId);
-    return before;
-  }
-  return null;
+  ).catch(() => {});
+  return before;
 }
 
 function emitReleaseTelemetry(command, previous) {
