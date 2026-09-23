@@ -1,7 +1,7 @@
 ---
 title: "Mathematical Organism — GenOS Mathématique"
 description: "Écosystème de recherche mathématique formel — Natural Creative Ecology appliquée aux preuves"
-version: 1.1.0
+version: 1.1.1
 author: GenOS
 created: 2026-09-21
 tags: [mathematics, proofs, ecology, biomimicry, lean, sat, nce]
@@ -335,6 +335,16 @@ MathematicalOrganism
   aucun `FormalResult` : il est compté en `totalUnformalized` (échec de
   formalisation, catégorie distincte de l'échec de preuve) et tracé comme
   `unformalized_obligation` dans l'historique du runtime.
+- **Sémantique de mesure pour ablations (M6).** Les taux numériques utilisent
+  `??` et non `||` (`mutationRate`, `recombinationRate`, `hgtRate`,
+  `exaptationRate`, `fidelityRate`, `envMeanReturnRate`) : passer `0` désactive
+  réellement le mécanisme, condition des comparaisons `FULL-NCE vs -EVOLUTION`.
+  Le tirage de recombinaison vit uniquement dans `MutationEngine.recombine()` —
+  `mutate()` ne pré-filtre pas (un double tirage ramènerait `r=0.2` à `~0.04`)
+  et `totalMutations` n'est incrémenté que sur enfant réel. `totalHGT` n'est
+  incrémenté que si `immunePassed === true` et
+  `assimilationStatus === 'assimilated'` : un transfert bloqué par l'AEIS n'est
+  jamais compté comme HGT réussi.
 
 ---
 
@@ -368,6 +378,11 @@ sans Lean : mocks et registres) et le test kernel (`test_math_kernel_e2e.js`).
 (`executeLeanCheck` vérifie `lean --version`) et échoue explicitement sinon —
 jamais de succès simulé. La séparation est stricte : structural-tests d'un côté,
 kernel-tests de l'autre.
+
+> **Pré-ablations.** Avant toute campagne `FULL-NCE vs -EVOLUTION`, vérifier que
+> le mécanisme ablaté est réellement désactivé (`taux: 0` conservé grâce à `??`),
+> que `totalMutations` ne compte que les recombinaisons réussies et que `totalHGT`
+> ne compte que les transferts assimilés (voir §6).
 
 ---
 
