@@ -477,7 +477,7 @@ node backend/tests/epistemic_holobionte_test.js         # OK
 - stigmergie inter-process (stigmergyInterProcessBridge via biomimeticSignalingBus)
 - apoptose intégrée à l'autorité runtime (epistemicApoptosisAuthorityBridge)
 - AEIS → promotion gate (require_epistemic_assurance = true)
-- EAB réel (epistemicBenchmarkIntegrationService : BFCL/GAIA/FPAMB → EpistemicAntigen)
+- Intégration benchmark partielle (epistemicBenchmarkIntegrationService : cas → EpistemicAntigen avec solverAnswer/groundTruth séparés, FAR = answerCorrect=false AND aeisDecision=PROMOTE) — pas de benchmark EAB complet
 
 **Partiel** :
 - vérification indépendante forte (receipts signés mais pas de vérification croisée multi-provider)

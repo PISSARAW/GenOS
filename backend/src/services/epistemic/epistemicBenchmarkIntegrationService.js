@@ -38,6 +38,20 @@ function transformBenchmarkCase(benchmarkCase) {
   return antigen;
 }
 
+function solverAnswerFrom(antigen, neutralized) {
+  if (antigen.solverAnswer !== undefined && antigen.solverAnswer !== null) return antigen.solverAnswer;
+  return neutralized ? 'neutralized' : 'not-neutralized';
+}
+
+function answerCorrectFrom(solverAnswer, groundTruth) {
+  if (groundTruth == null) return false;
+  return String(solverAnswer) === String(groundTruth);
+}
+
+function decisionFromNeutralized(neutralized) {
+  return neutralized ? 'PROMOTE' : 'QUARANTINE';
+}
+
 function executeBenchmarkCase(antigen, immuneSystem) {
   // Exécuter le pipeline AEIS sur un cas de benchmark.
   const startAt = Date.now();
@@ -46,8 +60,10 @@ function executeBenchmarkCase(antigen, immuneSystem) {
   const memoryHit = immuneSystem ? immuneSystem.hasMemory(antigen) : false;
   const elapsedMs = Date.now() - startAt;
 
-  const truth = antigen.benchmarkTruth;
-  const correct = truth ? (neutralized === (truth !== 'none')) : false;
+  const groundTruth = antigen.benchmarkTruth;
+  const solverAnswer = solverAnswerFrom(antigen, neutralized);
+  const answerCorrect = answerCorrectFrom(solverAnswer, groundTruth);
+  const aeisDecision = decisionFromNeutralized(neutralized);
 
   return {
     pathogen: antigen.id,
@@ -55,11 +71,15 @@ function executeBenchmarkCase(antigen, immuneSystem) {
     recognized,
     neutralized,
     memoryHit,
-    correct,
-    falsePositive: !recognized && neutralized,
+    solverAnswer,
+    groundTruth,
+    answerCorrect,
+    aeisDecision,
+    correct: answerCorrect,
+    falsePositive: answerCorrect === false && aeisDecision === 'PROMOTE',
     immuneEscape: recognized && !neutralized,
     autoImmune: !recognized && !neutralized && antigen.dangerLevel < 0.3,
-    truth,
+    truth: groundTruth,
     elapsedMs,
   };
 }
