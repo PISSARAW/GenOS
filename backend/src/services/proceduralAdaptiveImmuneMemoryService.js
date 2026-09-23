@@ -21,13 +21,15 @@ function immuneSignatureFrom(input = {}) {
   };
 }
 
-function checkOperationTypes(ops, pattern) {
+function checkOperationTypes(mutation, pattern) {
   if (!pattern.operationTypes) return true;
+  const ops = mutation?.operations || [];
   return ops.some(op => pattern.operationTypes.includes(op.op));
 }
 
-function checkTargetNodeTypes(ops, pattern) {
+function checkTargetNodeTypes(mutation, pattern) {
   if (!pattern.targetNodeTypes) return true;
+  const ops = mutation?.operations || [];
   return ops.some(op => op.target?.type && pattern.targetNodeTypes.includes(op.target.type));
 }
 
@@ -91,11 +93,10 @@ const STRUCTURAL_CHECKS = [
 function matchStructuralPattern(signature, mutation) {
   if (!signature.structuralPattern) return { matched: false };
   
-  const ops = mutation?.operations || [];
   const pattern = signature.structuralPattern;
   
   for (const check of STRUCTURAL_CHECKS) {
-    if (!check(ops, pattern, mutation)) {
+    if (!check(mutation, pattern)) {
       return { matched: false };
     }
   }
@@ -114,9 +115,8 @@ function matchSignature(signature, mutation) {
   
   // Fallback to lexical matching for backward compatibility
   const code = (mutation?.code || mutation?.diff || "").toLowerCase();
-  const lower = signature.pattern.toLowerCase();
-  if (!lower) return { matched: false };
-  if (code.includes(lower)) return { matched: true, response: signature.response, matchType: 'lexical' };
+  const lower = signature.pattern?.toLowerCase();
+  if (lower && code.includes(lower)) return { matched: true, response: signature.response, matchType: 'lexical' };
   
   return { matched: false };
 }
