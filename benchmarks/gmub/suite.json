@@ -1,0 +1,37 @@
+{
+  "name": "gmub-v1",
+  "description": "GenOS Model Uplift Benchmark : paires appariees solo vs genos vs compute_control, ladder emergente, HMB.",
+  "modes": ["solo", "genos", "compute_control"],
+  "requiredRunFields": [
+    "suite",
+    "case_id",
+    "model",
+    "mode",
+    "genos_commit",
+    "topology",
+    "declared_capabilities",
+    "activated_capabilities",
+    "observed_capabilities",
+    "seed",
+    "tokens",
+    "cost_usd",
+    "latency_ms",
+    "score"
+  ],
+  "stats": { "method": "paired_bootstrap", "reps": 2000, "alpha": 0.05, "margin": 0 },
+  "verdictRule": "LCB95(D) > margin => beaten, sinon inconclusif",
+  "domains": [
+    "reasoning_short",
+    "reasoning_deep",
+    "math",
+    "code",
+    "retrieval",
+    "epistemic",
+    "impossible",
+    "long_horizon",
+    "recovery",
+    "adversarial",
+    "tool_use",
+    "repo_coding"
+  ]
+}

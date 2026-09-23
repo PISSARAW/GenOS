@@ -1,0 +1,14 @@
+{
+  "suite": "gmub-v1",
+  "model": "llama-b",
+  "stats": { "reps": 500, "seed": 7, "alpha": 0.05, "delta": 0 },
+  "cost": { "soloQuality": 0.46, "genosQuality": 0.73, "soloCost": 1, "genosCost": 2.8, "soloTokens": 1000, "genosTokens": 3100 },
+  "runs": [
+    { "suite": "gmub-v1", "case_id": "c1", "model": "llama-a", "mode": "solo", "score": 0.38 },
+    { "suite": "gmub-v1", "case_id": "c1", "model": "llama-b", "mode": "solo", "score": 0.46 },
+    { "suite": "gmub-v1", "case_id": "c1", "model": "astra", "mode": "solo", "score": 0.69 },
+    { "suite": "gmub-v1", "case_id": "c1", "model": "llama-b", "mode": "genos", "score": 0.73 },
+    { "suite": "gmub-v1", "case_id": "c2", "model": "llama-b", "mode": "solo", "score": 0.44 },
+    { "suite": "gmub-v1", "case_id": "c2", "model": "llama-b", "mode": "genos", "score": 0.71 }
+  ]
+}
