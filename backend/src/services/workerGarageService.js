@@ -250,7 +250,7 @@ async function enterIdleState(db, agentId, orchestratorId) {
   if (!db || !agentId) return false;
   const result = await db.run(
     `UPDATE agents SET status = 'idle', current_task = NULL, updated_at = CURRENT_TIMESTAMP
-     WHERE id = ? AND status != 'idle'`,
+     WHERE id = ? AND status != 'idle' AND execution_mode = 'worker'`,
     agentId
   );
   if ((result?.changes || 0) === 1) {

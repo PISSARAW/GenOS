@@ -121,7 +121,7 @@ function buildMinimalContext(signal) {
     topic: signal.topic || null,
     sender: signal.senderAgentId || null,
     signalId: signal.signalId || signal.id || null,
-    dataKeys: Object.keys(data),
+    data: data,
     salience: extractSalience(signal),
     escalatedAt: new Date().toISOString(),
   };

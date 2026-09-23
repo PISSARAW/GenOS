@@ -7,10 +7,6 @@
  *   - Threshold crossing: only emit when a value crosses a boundary
  *
  * Cette couche est entre les signaux bruts et l'event bus / dispatch récepteur.
- *
- * Corrections P2 :
- *   - Le premier signal est maintenant bufferisé
- *   - shouldCoalesce enregistre le signal dans le buffer avant de décider
  */
 
 const crypto = require('crypto');

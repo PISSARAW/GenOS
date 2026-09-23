@@ -48,17 +48,7 @@ function repressionFor({ type, topic, signalData, repressors }) {
   return signalRepressor.applyRepressors({ kind: type, topic, signalData }, repressors);
 }
 
-function deliveryMetadata(params, id, expiresAt) {
-  const { gossip, junction, senderAgentId } = params;
-  const gossipRoutes = gossip ? boundedGossip.nextHop({
-    message: { id, expiresAt }, agentId: senderAgentId, peers: gossip.peers,
-    seen: gossip.seen || new Set(), options: gossip.options
-  }) : [];
-  const junctionDelta = junction ? gapJunction.exchange(junction, senderAgentId, junction.delta) : null;
-  return { gossipRoutes, junctionDelta };
-}
-
-async function persistSignalRow(row) {
+function persistSignalRow(row) {
   try {
     const db = await getDatabase();
     await retryDbOperation(() => {
@@ -174,7 +164,6 @@ async function routeAndDispatch(signal, params) {
     signalData: signal.signalData,
     orchestratorId: signal.senderAgentId,
   });
-  const delivery = deliveryMetadata(params, signal.id, signal.expiresAt);
   let dispatchResult = { dispatched: false };
   try {
     dispatchResult = await dispatchReceptorsIfNeeded({
@@ -197,9 +186,7 @@ async function routeAndDispatch(signal, params) {
     .map((r) => r.agentId);
   if (recipientAgentIds.length > 0) {
     signalMetrics.recordSignalRouted();
-    if (dispatchResult.dispatched) signalMetrics.recordSignalWithAction();
   }
-  // Record pending deliveries (pending → delivered → seen → acked)
   await recordPendingDeliveries(signal.id, recipientAgentIds);
   emitToBus({ ...signal, recipientAgentIds, llmRequired: dispatchResult.llmRequired || false });
   return {
@@ -210,7 +197,6 @@ async function routeAndDispatch(signal, params) {
     signalType: signal.formatted.signalType,
     routing,
     llmRequired: dispatchResult.llmRequired || false,
-    ...delivery,
   };
 }
 

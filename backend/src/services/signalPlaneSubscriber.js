@@ -37,34 +37,26 @@ function unregisterWakeHandler(agentId) {
  * Start the production subscriber.
  * Listens on the EventBus and dispatches to registered wake handlers.
  */
-function startSignalPlaneSubscriber() {
-  signalEventBus.onSignal(async (signal) => {
-    if (!signal.recipientAgentIds || !signal.recipientAgentIds.length) return;
+function handleWorkerSignal(signal) {
+  if (!signal.recipientAgentIds || !signal.recipientAgentIds.length) return;
+  for (const recipientId of signal.recipientAgentIds) {
+    const handler = registeredWakeHandlers.get(recipientId);
+    if (!handler) continue;
+    markSignalDelivered(signal.signalId, recipientId).catch(() => {});
+    signalMetrics.recordSignalWithAction();
+    handler(signal).catch((err) => {
+      console.warn(`[SignalPlaneSubscriber] Wake handler failed for ${recipientId}:`, err.message);
+    });
+  }
+}
 
-    for (const recipientId of signal.recipientAgentIds) {
-      const handler = registeredWakeHandlers.get(recipientId);
-      // Mark as delivered when the wake handler processes it
-      await markSignalDelivered(signal.signalId, recipientId);
-      // Record worker wakeup for metrics
-      signalMetrics.recordWorkerWakeup();
-      if (handler) {
-        try {
-          await handler(signal);
-        } catch (err) {
-          console.warn(`[SignalPlaneSubscriber] Wake handler failed for ${recipientId}:`, err.message);
-        }
-      }
-    }
-  });
+function handleLlmEscalation(signal) {
+  if (!signal.llmRequired) return;
+  if (signal.recipientAgentIds && signal.recipientAgentIds.length) return;
+  if (!escalation.shouldEscalate(signal)) return;
 
-  // Also listen for LLM-required signals (no receptor matched → escalate to cognition)
-  signalEventBus.onSignal(async (signal) => {
-    if (!signal.llmRequired) return;
-    if (!escalation.shouldEscalate(signal)) return;
-
-    const target = await escalation.selectCognitiveTarget(signal);
+  escalation.selectCognitiveTarget(signal).then(async (target) => {
     const context = escalation.buildMinimalContext(signal);
-
     console.log(`[SignalPlaneSubscriber] LLM escalation → ${target} (signal=${signal.signalId}, type=${signal.signalType})`);
     signalMetrics.recordLlmEscalation();
 
@@ -86,8 +78,16 @@ function startSignalPlaneSubscriber() {
       console.warn(`[SignalPlaneSubscriber] Escalation startMission failed for ${target}:`, err.message);
       escalation.recordEscalationOutcome(signal.signalId, 'failed', 0);
     }
+  }).catch((err) => {
+    console.warn(`[SignalPlaneSubscriber] Escalation target selection failed:`, err.message);
+    signalMetrics.recordLlmEscalation();
+    signalMetrics.recordLlmWakeupOutcome({ useful: false });
   });
+}
 
+function startSignalPlaneSubscriber() {
+  signalEventBus.onSignal(handleWorkerSignal);
+  signalEventBus.onSignal(handleLlmEscalation);
   console.log('[SignalPlaneSubscriber] Started — listening for routed signals');
 }
 
