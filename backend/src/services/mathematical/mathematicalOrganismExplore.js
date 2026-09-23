@@ -89,6 +89,14 @@ async function verify(runtime, attempts) {
       runtime.formalizationRegistry.add(formalization);
     }
 
+    // Séquence épistémique : natural statement → lookup → formalStatement
+    // absent ? → obligation UNFORMALIZED (échec de formalisation, PAS échec
+    // de preuve : aucun FormalResult n'est créé dans ce cas).
+    if (!formalization.formalStatement) {
+      recordUnformalized(runtime, attempt, formalization);
+      continue;
+    }
+
     const formalResult = createFormalResult({
       canonicalStatement: attempt.goal,
       status: 'formalized',
@@ -112,12 +120,6 @@ async function verify(runtime, attempts) {
       domain: runtime.environment.problem.domain,
     });
     artifact.attachFormalResult(formalResult, formalization);
-
-    // Si formalStatement est vide (UNFORMALIZED), on ne peut pas générer de Lean source
-    if (!formalization.formalStatement) {
-      recordFailure(runtime, attempt);
-      continue;
-    }
 
     // Generate Lean source from the immutable FormalizationArtifact.
     // The theorem header comes from the FormalizationArtifact (binding authority),
@@ -169,6 +171,19 @@ function recordSuccess(runtime, attempt) {
 function recordFailure(runtime, attempt) {
   runtime.strategyRepertoire.recordOutcome(attempt.strategy, false);
   runtime.metrics.totalFailed++;
+}
+
+function recordUnformalized(runtime, attempt, formalization) {
+  // Échec de formalisation, catégorie distincte de l'échec de preuve :
+  // la stratégie n'est pas pénalisée, aucun FormalResult n'existe.
+  runtime.metrics.totalUnformalized = (runtime.metrics.totalUnformalized || 0) + 1;
+  runtime.history.push({
+    event: 'unformalized_obligation',
+    step: runtime.currentStep,
+    attempt: attempt.id,
+    formalization: formalization?.id || null,
+    timestamp: new Date().toISOString(),
+  });
 }
 
 module.exports = { allocate, explore, verify };
