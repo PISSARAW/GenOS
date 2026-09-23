@@ -87,8 +87,9 @@ Persistent, territory-bound agentic processes maintaining an evidence-grounded m
 - **Investigator** (`investigation/`): deterministic detectors (test-regression, flaky-signal, broken-import, missing-sibling-test) producing observations, wired to the Natural Search ledger via `daemonNaturalSearchAdapter.js` (no duplicated engine).
 - **Verifier** (`verification/`): epistemic immune system — head freshness, scope existence, per-detector rules; reproduction counts only strictly post-creation events.
 - **Stigmergy** (`daemonStigmergyService.js`): territorial pheromones steer attention, never truth; evaporation decay; fail-soft forwarding to `stigmergyInterProcessBridge`.
-- **Tables** (migrations 037–043): `daemon_territories`, `daemon_runtime_state`, `daemon_events`, `territory_graph_nodes/edges`, `daemon_findings`, `daemon_finding_evidence`, `daemon_stigmergy_markers`.
-- **Tests**: `backend/tests/test_daemon_*.js` (12 suites). Contracts: `spec/daemon-territory.schema.json`, `spec/daemon-finding.schema.json`, `spec/resident-daemon.schema.json`.
+- **Repair** (`repair/`): isolated `RepairEpisode` on `REPAIRABLE` findings — scoped lease (allowed commands, budget, expiry, `genos-repair/` branch), claimed and executed by a worker in an isolated capsule, never by the daemon; expired episodes reconciled.
+- **Tables** (migrations 037–045, 050): `daemon_territories`, `daemon_runtime_state`, `daemon_events`, `territory_graph_nodes/edges`, `daemon_findings`, `daemon_finding_evidence`, `daemon_stigmergy_markers`, `daemon_handoffs`, `daemon_handoff_feedback`, `daemon_repair_episodes`.
+- **Tests**: `backend/tests/test_daemon_*.js` (16 suites). Contracts: `spec/daemon-territory.schema.json`, `spec/daemon-finding.schema.json`, `spec/resident-daemon.schema.json`.
 
 ---
 
@@ -124,7 +125,10 @@ backend/
 │   │   │   ├── cartography/                  # Territorial knowledge graph
 │   │   │   ├── findings/                     # Canonical epistemic findings
 │   │   │   ├── investigation/                # Deterministic anomaly detectors
-│   │   │   └── verification/                 # Epistemic immune system
+│   │   │   ├── verification/                 # Epistemic immune system
+│   │   │   ├── handoff/                      # TerritoryBrief + feedback plasticity
+│   │   │   ├── reconciliation/               # Continuous autophagy sweeps
+│   │   │   └── repair/                       # Isolated repair episodes (D14)
 │   │   └── primitiveHandlers/                # Concrete primitive implementations
 │   └── strategies/               # Strategy catalog and classification families
 ├── tests/                        # Verification and regression test suite

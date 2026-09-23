@@ -582,12 +582,12 @@ Rejeté : le graphe doit être index dérivé reconstructible, pas cache opaque.
 10. ✅ **D8** — `ResidentInvestigator` + 4 détecteurs déterministes
 11. ✅ **D9** — `Verifier` + reproduction + règles par détecteur
 12. ✅ **D10** — marqueurs stigmergiques territoriaux (attention, pas vérité)
-13. **D11** — `Handoff Protocol` (`TerritoryBrief` + signal `TERRITORY_BRIEF_READY`)
-14. **D12** — feedback/plasticité des handoffs
-15. **D13** — `Reconciler`/autophagie
-16. **D14** — `RepairEpisode` isolé (lease + tracking, exécution par worker)
+13. ✅ **D11** — `Handoff Protocol` (`TerritoryBrief` + signal `TERRITORY_BRIEF_READY`)
+14. ✅ **D12** — feedback/plasticité des handoffs
+15. ✅ **D13** — `Reconciler`/autophagie
+16. ✅ **D14** — `RepairEpisode` isolé (lease + tracking, exécution par worker)
 
-## État d'implémentation (2026-09-23, D0–D10)
+## État d'implémentation (2026-09-23, D0–D14)
 
 | Sprint | Livraison | Fichiers | Écart au plan |
 | ------ | --------- | -------- | ------------- |
@@ -602,8 +602,12 @@ Rejeté : le graphe doit être index dérivé reconstructible, pas cache opaque.
 | D8 | payload 041 + journal lecture + 4 détecteurs + investigateur | `daemonEventLog.js`, `investigation/` (2 fichiers), `migrateDaemonEventPayload.js` | `pickCandidateFile()` non réutilisé (obsolète comme prévu) |
 | D9 | `detector_id` 042 + verifier + reproduction | `verification/` (2 fichiers), `migrateDaemonFindingDetector.js` | reproduction causale complète (snapshot+contrôle) différée ; v1 = re-observation d'événements indépendants |
 | D10 | marqueurs 043 + decay + pont partagé | `daemonStigmergyService.js`, `migrateDaemonStigmergy.js` | `PERFORMANCE_REGRESSION` sans mapping pont (local-only, honnête) ; `genos-signal` Rust non branché (pont JS utilisé) |
+| D11 | handoffs 044 + brief mission-first + signal zero-text | `handoff/` (3 fichiers), `migrateDaemonHandoffs.js` | brief complet récupéré sur demande uniquement, jamais dans le signal |
+| D12 | feedback 045 + plasticité par démotion | `handoffFeedbackService.js`, `migrateDaemonHandoffFeedback.js` | comptage explicite, pas d'entraînement de modèle |
+| D13 | reconciler + expiry déclarée + rétention journal | `reconciliation/reconcilerService.js` | PIDs/capsules/leases orphelins hors scope tant que D14 non persisté |
+| D14 | repair episodes 050 + lease scopée + exécution worker | `repair/repairEpisodeService.js`, `migrateDaemonRepair.js` | service sans filesystem (capsule provisionnée par le worker) ; reconciler expire les épisodes périmés |
 
-Chaque sprint : suite de tests dédiée (`backend/tests/test_daemon_*.js`, 12 suites vertes), quality gate 0 violation sur les fichiers du sprint. Deux bugs réels trouvés par les tests : parsing TZ de `last_observed_at`, comparaison de formats `created_at` mixtes.
+Chaque sprint : suite de tests dédiée (`backend/tests/test_daemon_*.js`, 16 suites vertes), quality gate 0 violation sur les fichiers du sprint. Deux bugs réels trouvés par les tests : parsing TZ de `last_observed_at`, comparaison de formats `created_at` mixtes.
 
 ## Références
 

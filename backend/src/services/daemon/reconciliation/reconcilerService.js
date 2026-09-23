@@ -12,9 +12,12 @@
  * Hors scope v1 (aucune table ne les piste encore) : PIDs stale,
  * capsules/worktrees orphelins, leases, branches de repair
  * abandonnées — le sweep les couvrira quand D14+ les persistera.
+ * D14 : les épisodes de repair persistés sont expirés ici
+ * (OPEN/CLAIMED au-delà de expires_at → EXPIRED).
  */
 
 const stigmergyService = require('../daemonStigmergyService');
+const repairService = require('../repair/repairEpisodeService');
 
 const DEFAULT_EVENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const DEFAULT_HANDOFF_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -74,7 +77,8 @@ async function sweep(db, args) {
     expiredFindings: await expireFindings(db, scope),
     prunedEvents: await pruneEvents(db, scope),
     expiredHandoffs: await expireHandoffs(db, scope),
-    evaporatedMarkers: evaporated.evaporated
+    evaporatedMarkers: evaporated.evaporated,
+    expiredRepairs: (await repairService.expireEpisodes(db, scope)).expired
   };
 }
 

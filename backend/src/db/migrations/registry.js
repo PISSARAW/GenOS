@@ -164,6 +164,10 @@ const migrationRunners = [
     const { migrateUpliftTables } = require('./migrateUpliftTables');
     await migrateUpliftTables(db);
   }),
+  createMigrationRunner('050-daemon-repair', 'Persist isolated repair episodes leased to workers (ADR 0034 D14)', async (db) => {
+    const { migrateDaemonRepair } = require('./migrateDaemonRepair');
+    await migrateDaemonRepair(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
