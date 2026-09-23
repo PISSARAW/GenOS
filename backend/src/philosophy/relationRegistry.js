@@ -36,8 +36,6 @@ const RELATION_TYPES = new Set([
 ]);
 
 // Build a set of valid concept IDs to avoid dangling references
-const VALID_IDS = new Set(CONCEPT_DEFINITIONS.map((c) => c.id));
-
 const RELATION_DEFINITIONS = [
   // ─── Core commitments → operationalizations ──────────────────────────────
   relation('core.success-not-truth', 'operationalizes', 'epistemology.falsification'),
@@ -132,17 +130,9 @@ function validateRelations(relations = RELATION_DEFINITIONS, concepts = CONCEPT_
   const keys = new Set();
   const duplicates = new Set();
 
-  // Filter out relations that reference concepts not in the registry
-  const validRelations = normalized.filter((item) => {
-    const sourceExists = conceptIds.has(item.source.id);
-    const targetExists = conceptIds.has(item.target.id);
-    if (!sourceExists || !targetExists) {
-      return false;
-    }
-    return true;
-  });
-
-  validRelations.forEach((item, index) => {
+  // Validate ALL relations — do NOT silently drop dangling ones.
+  // A dangling reference must produce a validation error, not disappear.
+  normalized.forEach((item, index) => {
     const validationErrors = validateRelation(item, index, conceptIds);
     errors.push(...validationErrors);
     const key = relationKey(item);
@@ -153,21 +143,30 @@ function validateRelations(relations = RELATION_DEFINITIONS, concepts = CONCEPT_
   if (duplicates.size) {
     errors.push(`duplicate relations: ${[...duplicates].sort().join(', ')}`);
   }
-  return { valid: errors.length === 0, relations: validRelations, errors };
+
+  // Only count relations that passed validation (no errors) as valid.
+  const validRelations = normalized.filter((_, index) => {
+    // A relation is valid if no errors were reported for it.
+    // Errors are pushed in order, so we check if any error references this index.
+    return !errors.some((error) => error.startsWith(`relations[${index}]`));
+  });
+
+  return { valid: errors.length === 0, relations: normalized, validRelations, errors };
 }
 
 function registryHealth() {
   const result = validateRelations();
   return {
     valid: result.valid,
-    relationCount: result.relations.length,
-    relationTypes: [...new Set(result.relations.map((item) => item.relationType))].sort(),
+    relationCount: result.validRelations.length,
+    danglingCount: result.relations.length - result.validRelations.length,
+    relationTypes: [...new Set(result.validRelations.map((item) => item.relationType))].sort(),
     errors: result.errors
   };
 }
 
 function listRelations(filters = {}) {
-  return validateRelations().relations.filter((item) => {
+  return validateRelations().validRelations.filter((item) => {
     if (filters.relationType && item.relationType !== filters.relationType) return false;
     if (filters.sourceId && item.source.id !== filters.sourceId) return false;
     if (filters.targetId && item.target.id !== filters.targetId) return false;

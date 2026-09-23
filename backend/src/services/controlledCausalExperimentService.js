@@ -1,29 +1,5 @@
 'use strict';
 
-/**
- * Controlled Causal Experiment — moteur causal commun GenOS.
- *
- * Ce service implémente le pattern fondamental :
- *
- *   snapshot W
- *      │
- *   control replay ── W baseline
- *      │
- *   do(X := x')
- *      │
- *   intervention replay ── W candidate
- *      │
- *   verify controls (same initial state)
- *      │
- *   compare trajectories
- *      │
- *   CausalReceipt
- *
- * Aucun verdict n'est émis — seul un receipt avec preuves est retourné.
- * Ce moteur est partagé par proceduralCausalValidation, causalityService
- * et tout futur sous-système nécessitant une validation causale contrôlée.
- */
-
 const EVIDENCE_LEVELS = Object.freeze({
   STRONG: 'strong',
   MODERATE: 'moderate',
@@ -33,7 +9,7 @@ const EVIDENCE_LEVELS = Object.freeze({
 
 function createExperiment({ name = 'unnamed', runner, control, intervention, initialState }) {
   if (typeof runner !== 'function') throw new Error('ControlledCausalExperiment requires a runner function');
-  if (!initialState) throw new Error('ControlledCausalExperiment requires an explicit initialState');
+  if (initialState === undefined) throw new Error('ControlledCausalExperiment requires an explicit initialState');
 
   return {
     name,
@@ -81,11 +57,7 @@ function findDivergencePoints(baseline, candidate) {
 }
 
 function buildCausalReceipt({ experiment, baselineResult, candidateResult, baselineTrajectory, candidateTrajectory, trajectoryComparison }) {
-  const controlSnapshot = experiment.initialState;
-  const sameInitialState = controlSnapshot === experiment.initialState || JSON.stringify(controlSnapshot) === JSON.stringify(experiment.initialState);
-
   const evidenceStrength = assessEvidenceStrength({
-    sameInitialState,
     divergenceCount: trajectoryComparison.divergenceCount,
     baselineLength: baselineTrajectory.length,
     candidateLength: candidateTrajectory.length,
@@ -94,21 +66,18 @@ function buildCausalReceipt({ experiment, baselineResult, candidateResult, basel
   return {
     experimentName: experiment.name,
     executedAt: Date.now(),
-    controlSnapshot,
     interventionApplied: true,
     baselineOutcome: baselineResult,
     candidateOutcome: candidateResult,
     trajectoryComparison,
     evidenceStrength,
-    sameInitialState,
     caveat: 'Same initial state is necessary but not sufficient for causal inference.',
     executable: false,
     runtimeAuthority: false,
   };
 }
 
-function assessEvidenceStrength({ sameInitialState, divergenceCount, baselineLength, candidateLength }) {
-  if (!sameInitialState) return EVIDENCE_LEVELS.NONE;
+function assessEvidenceStrength({ divergenceCount, baselineLength, candidateLength }) {
   if (divergenceCount === 0) return EVIDENCE_LEVELS.NONE;
   if (baselineLength > 0 && candidateLength > 0 && Math.abs(baselineLength - candidateLength) <= 1) return EVIDENCE_LEVELS.STRONG;
   if (divergenceCount <= 3) return EVIDENCE_LEVELS.MODERATE;
