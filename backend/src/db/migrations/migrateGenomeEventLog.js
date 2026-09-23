@@ -13,9 +13,13 @@ const migrationV015 = {
         event_type TEXT NOT NULL,
         payload_json TEXT NOT NULL DEFAULT '{}',
         parent_event_id TEXT,
+        previous_event_id TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         organization_id TEXT,
-        project_id TEXT
+        project_id TEXT,
+        parent_genome_refs TEXT,
+        prev_event_hash TEXT,
+        event_hash TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_genome_events_genome_ref ON genome_events(genome_ref);
       CREATE INDEX IF NOT EXISTS idx_genome_events_type ON genome_events(event_type);
