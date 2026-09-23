@@ -58,8 +58,6 @@ function toGene(arr) {
     methylated: Boolean(arr[4]),
     volume: arr[5],
     locked: Boolean(arr[6]),
-    activator: nullOr(arr[7]),
-    repressor: nullOr(arr[8]),
     requiredActivator: nullOr(arr[7]),
     boundRepressor: nullOr(arr[8]),
     exons: arrayOr(arr[9]).map((range) => [range[0], range[1]])

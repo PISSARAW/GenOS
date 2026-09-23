@@ -23,7 +23,7 @@ function baseModel() {
 }
 
 function testParityActivatorNaming() {
-  const gene = { locus: 'X', chromatin: 0, methylated: false, volume: 1, locked: false, requiredActivator: 'TF_ALPHA', activator: 'TF_ALPHA' };
+  const gene = { locus: 'X', chromatin: 0, methylated: false, volume: 1, locked: false, requiredActivator: 'TF_ALPHA' };
   assert.equal(isSilenced(gene, { activeTfs: [], activeMirnas: [] }), true);
   assert.equal(isSilenced(gene, { activeTfs: ['TF_ALPHA'], activeMirnas: [] }), false);
   console.log('parity activator naming ok');
@@ -74,23 +74,16 @@ function testEpigenomeMarks() {
   console.log('epigenome marks ok');
 }
 
+function attestationValid(cached, current) {
+  return JSON.stringify(cached) === JSON.stringify(current);
+}
+
 function testFullAttestation() {
   const model = baseModel();
   const first = express(model);
   const cached = { ...first, temp: 0.99 };
   const current = express(model);
-  const valid = cached.role === current.role
-    && cached.strategy === current.strategy
-    && cached.temp === current.temp
-    && cached.topP === current.topP
-    && cached.prompt === current.prompt
-    && JSON.stringify(cached.tools) === JSON.stringify(current.tools)
-    && JSON.stringify(cached.capabilities) === JSON.stringify(current.capabilities)
-    && JSON.stringify(cached.exprTfs) === JSON.stringify(current.exprTfs)
-    && JSON.stringify(cached.exprMirnas) === JSON.stringify(current.exprMirnas)
-    && JSON.stringify(cached.silenced) === JSON.stringify(current.silenced)
-    && cached.expressed === current.expressed;
-  assert.equal(valid, false, 'tampered temp must invalidate cache attestation');
+  assert.equal(attestationValid(cached, current), false, 'tampered temp must invalidate cache attestation');
   console.log('phenotype attestation ok');
 }
 
