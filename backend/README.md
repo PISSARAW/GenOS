@@ -96,6 +96,15 @@ Persistent, territory-bound agentic processes maintaining an evidence-grounded m
 - **Tables** (migrations 037–045, 050, 054–055): `daemon_territories`, `daemon_runtime_state`, `daemon_events`, `territory_graph_nodes/edges`, `daemon_findings`, `daemon_finding_evidence`, `daemon_stigmergy_markers`, `daemon_handoffs`, `daemon_handoff_feedback`, `daemon_repair_episodes`, `daemon_phenotypes`, `daemon_eval_runs`, `daemon_promotions`.
 - **Tests**: `backend/tests/test_daemon_*.js` (24 suites). Contracts: `spec/daemon-territory.schema.json`, `spec/daemon-finding.schema.json`, `spec/resident-daemon.schema.json`.
 
+### 7. Écosystème agentique 11-15 (`src/services/*`, ADR 0037)
+Cinq systèmes qui font passer GenOS d'agents sophistiqués à un écosystème gouverné ; la fitness reste toujours relative à une niche. Contrats : `spec/ecosystem-11-15.schema.json`.
+- **Environnement et niches** (`environmentModelService.js`, `nicheResolverService.js`) : `EnvironmentState` persistant, dérive `ENVIRONMENT_DRIFT`, construction de niche explicite et soumise à autorité.
+- **Substrat cognitif** (`hostRuntimeIdentityService.js`, `cognitiveSubstrateResolverService.js`) : agent ≠ LLM ; hôte natif par défaut (native-first), `requestedModel` ≠ `servedModel` tracés ; modèle puissant ≠ autorité supérieure.
+- **Physiologie collective** (`collectivePhysiologyService.js`, `informationFlowResolverService.js`) : topologie ≠ physiologie ; monoculture cognitive, homéostasie, quorum pondéré (jamais vérité) ; routage ciblé plutôt que broadcast.
+- **Gouvernance** (`governancePlaneService.js`) : plan orthogonal, `APPROVE / DENY / BOUNDED_APPROVE / HUMAN_REVIEW`, gate morphogenèse, approbation humaine = autorisation (pas preuve). `dynamicOrganizationService.assertMember()` refuse désormais les agents inconnus (`UNKNOWN_AGENT`, incarnation explicite requise).
+- **Interoception collective** (`collectiveInteroceptionService.js`) : vital signs multidimensionnels (pas de score unique) ; télémétrie manquante = incertitude (`unknown / partially observed`).
+- **Tests**: `backend/tests/test_ecosystem_11_15.js`.
+
 ---
 
 ## Directory Layout

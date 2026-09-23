@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ecosystem-11-15",
+  "description": "Contrats H0 : environnement/niches (11), substrat cognitif (12), physiologie collective (13), gouvernance (14), interoception collective (15). Fitness toujours relative a une niche.",
+  "type": "object",
+  "definitions": {
+    "environmentState": {
+      "type": "object",
+      "required": ["identity", "type"],
+      "properties": {
+        "identity": { "type": "string" },
+        "type": { "type": "string", "enum": ["repository", "workspace", "organization", "documentary", "computational", "operational"] },
+        "territory": { "type": "object" },
+        "resources": { "type": "object" },
+        "constraints": { "type": "array", "items": { "type": "string" } },
+        "hazards": { "type": "array", "items": { "type": "string" } },
+        "affordances": { "type": "array", "items": { "type": "string" } },
+        "actors": { "type": "array" },
+        "artifacts": { "type": "array" },
+        "uncertainty": { "type": "number", "minimum": 0, "maximum": 1 },
+        "volatility": { "type": "number", "minimum": 0, "maximum": 1 },
+        "novelty": { "type": "number", "minimum": 0, "maximum": 1 },
+        "resourcePressure": { "type": "number", "minimum": 0, "maximum": 1 },
+        "competitivePressure": { "type": "number", "minimum": 0, "maximum": 1 },
+        "cooperativePressure": { "type": "number", "minimum": 0, "maximum": 1 },
+        "temporalState": { "type": "string" },
+        "domainOracles": { "type": "array", "items": { "type": "string" } },
+        "environmentalHistory": { "type": "array" }
+      }
+    },
+    "niche": {
+      "type": "object",
+      "required": ["id", "environment", "function", "successCriteria"],
+      "properties": {
+        "id": { "type": "string" },
+        "environment": { "type": "string" },
+        "function": { "type": "string" },
+        "resources": { "type": "object" },
+        "pressures": { "type": "object" },
+        "requiredEvidence": { "type": "array", "items": { "type": "string" } },
+        "competition": { "type": "array", "items": { "type": "string" } },
+        "successCriteria": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "cognitiveSubstrateDecision": {
+      "type": "object",
+      "required": ["substrate", "origin", "reason"],
+      "properties": {
+        "substrate": { "type": "string" },
+        "model": { "type": ["string", "null"] },
+        "origin": { "type": "string", "enum": ["native", "delegated", "deterministic"] },
+        "reason": { "type": "string" },
+        "expectedCapability": { "type": "number" },
+        "expectedCost": { "type": "number" },
+        "expectedLatency": { "type": "number" },
+        "fallbacks": { "type": "array", "items": { "type": "string" } },
+        "evidenceRequirements": { "type": "array", "items": { "type": "string" } },
+        "requestedModel": { "type": ["string", "null"] },
+        "servedModel": { "type": ["string", "null"] }
+      }
+    },
+    "collectivePhysiology": {
+      "type": "object",
+      "properties": {
+        "members": { "type": "array" },
+        "signalingState": { "type": "object" },
+        "gradients": { "type": "array" },
+        "pheromoneFields": { "type": "array" },
+        "quorumState": { "type": "object" },
+        "synchronization": { "type": "number" },
+        "informationFlow": { "type": "object" },
+        "resourceFlow": { "type": "object" },
+        "roleDistribution": { "type": "object" },
+        "collectiveStress": { "type": "number" },
+        "diversity": { "type": "number" },
+        "coherence": { "type": "number" },
+        "independence": { "type": "number" },
+        "redundancy": { "type": "number" },
+        "congestion": { "type": "number" }
+      }
+    },
+    "governanceContext": {
+      "type": "object",
+      "required": ["principal", "actionRisk"],
+      "properties": {
+        "principal": { "type": "string" },
+        "organization": { "type": ["string", "null"] },
+        "project": { "type": ["string", "null"] },
+        "authority": { "type": "string" },
+        "leases": { "type": "array" },
+        "taints": { "type": "array", "items": { "type": "string" } },
+        "dataClassification": { "type": "string" },
+        "actionRisk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+        "reversibility": { "type": "string" },
+        "affectedResources": { "type": "array" },
+        "autonomyLevel": { "type": "string" },
+        "requiredApprovals": { "type": "array" },
+        "complianceConstraints": { "type": "array" }
+      }
+    },
+    "collectiveHealthState": {
+      "type": "object",
+      "properties": {
+        "missionProgress": { "type": "number" },
+        "epistemicHealth": { "type": "number" },
+        "cognitiveDiversity": { "type": "number" },
+        "communicationHealth": { "type": "number" },
+        "topologyHealth": { "type": "number" },
+        "resourceHealth": { "type": "number" },
+        "modelHealth": { "type": "number" },
+        "proceduralHealth": { "type": "number" },
+        "memoryHealth": { "type": "number" },
+        "resilienceHealth": { "type": "number" },
+        "governanceHealth": { "type": "number" },
+        "environmentalFit": { "type": "number" },
+        "plasticity": { "type": "number" },
+        "coordinationOverhead": { "type": "number" },
+        "systemicRisk": { "type": "number" },
+        "observabilityDegraded": { "type": "boolean" }
+      }
+    }
+  },
+  "properties": {
+    "environment": { "$ref": "#/definitions/environmentState" },
+    "niche": { "$ref": "#/definitions/niche" },
+    "substrateDecision": { "$ref": "#/definitions/cognitiveSubstrateDecision" },
+    "physiology": { "$ref": "#/definitions/collectivePhysiology" },
+    "governance": { "$ref": "#/definitions/governanceContext" },
+    "health": { "$ref": "#/definitions/collectiveHealthState" }
+  }
+}

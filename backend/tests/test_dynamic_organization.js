@@ -73,10 +73,12 @@ async function run() {
       () => organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'stigmergy', changedBy: 'org-a' }),
       (error) => error.code === 'ORCHESTRATOR_AUTHORITY_REQUIRED'
     );
-    const outsider = await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'outsider', recipientAgentId: 'org-b', kind: 'evidence', signalType: 'ligand', signalData: { event: 'spoof' } });
-    assert.equal(outsider.kind, 'evidence');
+    await assert.rejects(
+      () => organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'outsider', recipientAgentId: 'org-b', kind: 'evidence', signalType: 'ligand', signalData: { event: 'spoof' } }),
+      (error) => error.code === 'UNKNOWN_AGENT'
+    );
     const outsiderAgent = await db.get("SELECT parent_agent_id FROM agents WHERE id = 'outsider'");
-    assert.equal(outsiderAgent.parent_agent_id, 'org-root', 'unknown senders are auto-registered as organization members');
+    assert.equal(outsiderAgent, undefined, 'unknown senders must be denied, never auto-registered (ADR 0037 H14)');
 
     for (const [name, policy] of Object.entries(organization.ORGANIZATIONS)) {
       const routed = organization.routeMessage({
