@@ -72,6 +72,52 @@ fn deceptive_env_selects_agency() {
 }
 
 #[test]
+fn predictable_prescribed_dies_early_artifact() {
+    // Le Δ « évolution > prescrite » en Predictable est un artefact :
+    // le prescrit (tout=1.0) meurt de sur-activation précoce (fitness
+    // pénalisée ×0.1), l'évolué minimal survit. Comparer les deux
+    // fitness sans le dire, c'est comparer un vivant à un mort.
+    let outcome = survival_fitness_detailed(&[1.0; 7], &EnvironmentKind::Predictable, 30);
+    assert!(!outcome.survived, "prescribed must die early in predictable");
+    assert!(outcome.death_tick.unwrap_or(30) < 10, "death must be early, got {:?}", outcome.death_tick);
+    let report = evolve_self_strata(&EnvironmentKind::Predictable, 40, 42);
+    assert!(!report.prescribed_survived);
+    assert!(report.prescribed_death_tick.unwrap_or(30) < 10);
+}
+
+#[test]
+fn hostile_prescribed_survives_contrast() {
+    // Contraste : en Hostile, le prescrit survit — la comparaison y est honnête.
+    let outcome = survival_fitness_detailed(&[1.0; 7], &EnvironmentKind::Hostile, 30);
+    assert!(outcome.survived, "prescribed must survive in hostile");
+    assert_eq!(outcome.death_tick, None);
+}
+
+#[test]
+fn benefit_profile_permutation_controls_selection() {
+    // CONTRÔLE DE CIRCULARITÉ : les bénéfices sont déclarés dans la
+    // fitness, donc l'évolution retrouve ce qu'on y a mis. Preuve : le
+    // classement de deux génotypes fixes S'INVERSE entre milieux —
+    // l'agency gagne en Deceptive, l'homéostasie en Hostile.
+    // Sans bénéfices mesurés sur tâches réelles, P3 reste une vérification
+    // de direction de sélection, pas une découverte.
+    let agency = [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+    let homeostasis = [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let deceptive_agency = survival_fitness(&agency, &EnvironmentKind::Deceptive, 30);
+    let deceptive_homeo = survival_fitness(&homeostasis, &EnvironmentKind::Deceptive, 30);
+    assert!(
+        deceptive_agency > deceptive_homeo,
+        "deceptive must favor agency: {deceptive_agency} vs {deceptive_homeo}"
+    );
+    let hostile_agency = survival_fitness(&agency, &EnvironmentKind::Hostile, 30);
+    let hostile_homeo = survival_fitness(&homeostasis, &EnvironmentKind::Hostile, 30);
+    assert!(
+        hostile_homeo > hostile_agency,
+        "hostile must favor homeostasis: {hostile_homeo} vs {hostile_agency}"
+    );
+}
+
+#[test]
 fn reports_are_deterministic_per_seed() {
     let a = evolve_self_strata(&EnvironmentKind::Volatile, 20, 7);
     let b = evolve_self_strata(&EnvironmentKind::Volatile, 20, 7);

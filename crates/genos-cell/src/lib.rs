@@ -5,7 +5,7 @@ pub use cognitive_regulation::CognitiveRegulationState;
 pub mod clinical;
 pub use clinical::{ClinicalState, DiseaseCategory, Pathology};
 pub mod interoception;
-pub use interoception::InteroceptionState;
+pub use interoception::{BiologicalAnalogy, InteroceptionState, MachineInteroception};
 pub mod autopoiesis;
 pub use autopoiesis::MetabolicPool;
 mod division;

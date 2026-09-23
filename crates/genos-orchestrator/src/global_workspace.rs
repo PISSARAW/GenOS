@@ -67,10 +67,17 @@ pub struct GlobalWorkspaceReport {
     pub effects: Vec<BroadcastEffect>,
     /// Cohérence de l'instant : faible dispersion des saillances = état
     /// unifié (sous-systèmes alignés), forte dispersion = état fragmenté.
+    /// HEURISTIQUE de cohérence inspirée d'IIT, PAS une mesure de Φ : deux
+    /// modules indépendants à 0.5/0.5 scorent parfaitement sans partager
+    /// aucune information. Voir `causal_integration` pour la mesure causale.
     pub integration_index: f64,
-    /// Confiance métacognitive : croît avec le volume réel d'expérience
-    /// accumulée par le Directeur (nombre d'épisodes appris), pas une
-    /// auto-évaluation arbitraire.
+    /// Intégration CAUSALE : ce que la diffusion a réellement produit —
+    /// propagation (effets / diffusions), diversité (modules distincts
+    /// touchés). Un workspace qui sélectionne sans modifier ne score pas.
+    pub causal_integration: f64,
+    /// Confiance métacognitive CALIBRÉE : calibration des prédictions ×
+    /// volume d'expérience. Un agent qui se trompe systématiquement ne
+    /// gagne jamais confiance, même après des milliers d'épisodes.
     pub metacognitive_confidence: f64,
 }
 
@@ -103,6 +110,7 @@ impl GenosEcosystem {
         // La diffusion est CAUSALE : chaque consommateur s'ajuste.
         let effects = self.dispatch_broadcast(&broadcast_events);
         let integration_index = integration_index(&signals);
+        let causal_integration = causal_integration_index(&broadcast_events, &effects);
         let metacognitive_confidence = self.metacognitive_confidence();
         GlobalWorkspaceReport {
             signals,
@@ -110,6 +118,7 @@ impl GenosEcosystem {
             broadcast_events,
             effects,
             integration_index,
+            causal_integration,
             metacognitive_confidence,
         }
     }
@@ -211,12 +220,14 @@ impl GenosEcosystem {
         ]
     }
 
-    /// Confiance métacognitive réelle : dérivée du nombre d'épisodes
-    /// effectivement appris par le Directeur (`Learner`), avec rendement
-    /// décroissant — pas un plafond arbitraire ni une valeur simulée.
+    /// Confiance métacognitive CALIBRÉE : calibration des prédictions du
+    /// Directeur (1 − erreur) × saturation du volume d'épisodes.
+    /// Volume seul ne suffit plus : 1000 épisodes faux → confiance basse.
     fn metacognitive_confidence(&self) -> f64 {
         let episodes = self.director.learner.episodes as f64;
-        (episodes / (episodes + CONFIDENCE_HALF_SATURATION_EPISODES)).clamp(0.0, 1.0)
+        let volume = episodes / (episodes + CONFIDENCE_HALF_SATURATION_EPISODES);
+        let calibration = self.director.learner.calibration_score();
+        (calibration * (0.5 + 0.5 * volume)).clamp(0.0, 1.0)
     }
 }
 
@@ -233,6 +244,20 @@ fn integration_index(signals: &[WorkspaceSignal]) -> f64 {
         .sum::<f64>()
         / signals.len() as f64;
     (1.0 - variance.sqrt()).clamp(0.0, 1.0)
+}
+
+/// Intégration CAUSALE : propagation (effets / diffusions) × diversité
+/// (modules distincts touchés). Un workspace qui sélectionne sans modifier
+/// ne score pas.
+fn causal_integration_index(events: &[WorkspaceEvent], effects: &[BroadcastEffect]) -> f64 {
+    if events.is_empty() {
+        return 0.0;
+    }
+    let propagation = (effects.len() as f64) / (events.len() as f64);
+    let modules: std::collections::HashSet<&str> =
+        effects.iter().map(|e| e.module.as_str()).collect();
+    let diversity = (modules.len() as f64) / (events.len() as f64).max(1.0);
+    (propagation * diversity).clamp(0.0, 1.0)
 }
 
 #[cfg(test)]

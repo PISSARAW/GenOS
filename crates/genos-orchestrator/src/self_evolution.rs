@@ -77,12 +77,40 @@ impl EnvironmentKind {
 /// Fitness de survie avec gènes bornés : l'activation d'une strate est
 /// un niveau d'investissement ∈ [0,1], le clamp garantit la sémantique
 /// même si le mutateur gaussien dépasse les bornes.
+///
+/// AVERTISSEMENT CIRCULARITÉ : les bénéfices par strate et milieu sont
+/// DÉCLARÉS dans `benefit_profile` — l'évolution retrouve ce qu'on y a
+/// mis. Ce module mesure une DIRECTION DE SÉLECTION sous hypothèses
+/// déclarées, pas une découverte. Le contrôle par permutation
+/// (voir tests) le démontre : permuter le profil permute la sélection.
 pub fn survival_fitness(genes: &[f64], kind: &EnvironmentKind, ticks: usize) -> f64 {
+    survival_fitness_detailed(genes, kind, ticks).fitness
+}
+
+/// Résultat détaillé d'un épisode : fitness + sort (survie ou mort).
+/// Expose le tick de mort pour ne pas comparer une fitness de survivant
+/// à une fitness pénalisée de mort précoce sans le dire (artefact Δ).
+#[derive(Clone, Debug, PartialEq)]
+pub struct SurvivalOutcome {
+    pub fitness: f64,
+    pub survived: bool,
+    pub death_tick: Option<u64>,
+}
+
+pub fn survival_fitness_detailed(
+    genes: &[f64],
+    kind: &EnvironmentKind,
+    ticks: usize,
+) -> SurvivalOutcome {
     let clamped: Vec<f64> = genes.iter().map(|g| g.clamp(0.0, 1.0)).collect();
     survival_fitness_clamped(&clamped, kind, ticks)
 }
 
-fn survival_fitness_clamped(genes: &[f64], kind: &EnvironmentKind, ticks: usize) -> f64 {
+fn survival_fitness_clamped(
+    genes: &[f64],
+    kind: &EnvironmentKind,
+    ticks: usize,
+) -> SurvivalOutcome {
     let benefits = kind.benefit_profile();
     let mut energy = 1.0;
     let mut performance = 0.0;
@@ -117,11 +145,19 @@ fn survival_fitness_clamped(genes: &[f64], kind: &EnvironmentKind, ticks: usize)
 
         if energy <= 0.0 {
             // Mort métabolique : la sur-activation des strates coûte la vie.
-            return performance * 0.1;
+            return SurvivalOutcome {
+                fitness: performance * 0.1,
+                survived: false,
+                death_tick: Some(tick as u64),
+            };
         }
     }
 
-    performance + energy // survivre en gardant de l'énergie est mieux
+    SurvivalOutcome {
+        fitness: performance + energy,
+        survived: true,
+        death_tick: None,
+    }
 }
 
 /// Bruit déterministe (pas de RNG externe : fitness reproductible).
@@ -148,6 +184,13 @@ pub struct SelfEvolutionReport {
     pub mean_fitness: f64,
     /// Fitness d'un agent prescrit (toutes strates à 1.0).
     pub prescribed_fitness: f64,
+    /// L'agent prescrit a-t-il survécu à l'épisode de référence ?
+    /// Faux en Predictable : le Δ « évolution > prescrite » est un
+    /// artefact de mort métabolique précoce du prescrit, pas une
+    /// supériorité de l'évolué sur un soi complet viable.
+    pub prescribed_survived: bool,
+    /// Tick de mort du prescrit (None si survie).
+    pub prescribed_death_tick: Option<u64>,
     /// Les strates sélectionnées spontanément (> 0.5 d'activation moyenne).
     pub selected_strata: Vec<String>,
     /// Les strates rejetées (< 0.2 d'activation moyenne).
@@ -216,7 +259,7 @@ pub fn evolve_self_strata(
         })
         .collect();
     let mean_fitness = individuals.iter().map(|i| i.fitness).sum::<f64>() / n;
-    let prescribed_fitness = survival_fitness(&vec![1.0; SELF_GENES.len()], kind, 30);
+    let prescribed = survival_fitness_detailed(&vec![1.0; SELF_GENES.len()], kind, 30);
 
     let selected_strata = mean_activation
         .iter()
@@ -234,7 +277,9 @@ pub fn evolve_self_strata(
         generations,
         mean_activation,
         mean_fitness: (mean_fitness * 1000.0).round() / 1000.0,
-        prescribed_fitness: (prescribed_fitness * 1000.0).round() / 1000.0,
+        prescribed_fitness: (prescribed.fitness * 1000.0).round() / 1000.0,
+        prescribed_survived: prescribed.survived,
+        prescribed_death_tick: prescribed.death_tick,
         selected_strata,
         rejected_strata,
     }

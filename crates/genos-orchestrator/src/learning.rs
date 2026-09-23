@@ -70,6 +70,10 @@ impl LinearBandit {
 pub struct Learner {
     pub bands: HashMap<Concept, LinearBandit>,
     pub episodes: u64,
+    /// Erreur absolue cumulée |prédit − observé| : la confiance doit refléter
+    /// la calibration réelle, pas le seul volume d'épisodes.
+    pub sum_abs_error: f64,
+    pub calibration_observations: u64,
 }
 
 impl Learner {
@@ -89,9 +93,13 @@ impl Learner {
     }
 
     pub fn update(&mut self, concept: Concept, ctx: &[f64], reward: f64) {
+        let clamped = reward.clamp(0.0, 1.0);
+        let predicted = self.predict(concept, ctx);
         let band = self.bands.entry(concept).or_default();
-        band.update(ctx, reward.clamp(0.0, 1.0), 0.2);
+        band.update(ctx, clamped, 0.2);
         self.episodes += 1;
+        self.sum_abs_error += (predicted - clamped).abs();
+        self.calibration_observations += 1;
     }
 
     /// Assignation de crédit : propage la récompense d'épisode aux concepts du
@@ -104,5 +112,20 @@ impl Learner {
             let discounted = reward * gamma.powi(distance_to_end as i32);
             self.update(*concept, ctx, discounted);
         }
+    }
+
+    /// Erreur absolue moyenne de prédiction (0 = parfaitement calibré).
+    pub fn calibration_mae(&self) -> f64 {
+        if self.calibration_observations == 0 {
+            return 0.5;
+        }
+        self.sum_abs_error / self.calibration_observations.max(1) as f64
+    }
+
+    /// Score de calibration dans [0, 1] : 1 = prédictions fiables.
+    /// Un agent qui se trompe systématiquement ne gagne jamais confiance,
+    /// même après des milliers d'épisodes.
+    pub fn calibration_score(&self) -> f64 {
+        (1.0 / (1.0 + 2.0 * self.calibration_mae())).clamp(0.0, 1.0)
     }
 }

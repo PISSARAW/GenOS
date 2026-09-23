@@ -1,5 +1,75 @@
 use serde::{Deserialize, Serialize};
 
+// ─── Niveau 1 : réalité machine mesurable ─────────────────────────────
+// Ces variables se branchent sur de la télémétrie réelle (réserve de calcul,
+// occupation du contexte, pression mémoire, latence, taux d'erreur, charge
+// de contradiction, incertitude non résolue, profondeur de file, disponibilité
+// réseau, intégrité sémantique). Voir backend machineInteroceptionService.js
+// qui dérive les mêmes variables depuis telemetry_events / episodic_memories.
+// Jamais fournies à la main par l'appelant : ressenties, pas déclarées.
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct MachineInteroception {
+    pub compute_reserve: f64,
+    pub context_occupancy: f64,
+    pub memory_pressure: f64,
+    pub inference_latency: f64,
+    pub error_rate: f64,
+    pub contradiction_load: f64,
+    pub unresolved_uncertainty: f64,
+    pub queue_pressure: f64,
+    pub network_availability: f64,
+    pub semantic_integrity: f64,
+}
+
+impl Default for MachineInteroception {
+    fn default() -> Self {
+        Self {
+            compute_reserve: 1.0,
+            context_occupancy: 0.0,
+            memory_pressure: 0.0,
+            inference_latency: 0.0,
+            error_rate: 0.0,
+            contradiction_load: 0.0,
+            unresolved_uncertainty: 0.5,
+            queue_pressure: 0.0,
+            network_availability: 1.0,
+            semantic_integrity: 1.0,
+        }
+    }
+}
+
+// ─── Niveau 2 : analogie biomimétique DÉRIVÉE ─────────────────────────
+// Direction causale imposée : machine → biologie. Jamais l'inverse.
+// Ces « -like » sont des lectures interprétatives, pas des mesures.
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct BiologicalAnalogy {
+    pub cortisol_like: f64,
+    pub dopamine_like: f64,
+    pub adenosine_like: f64,
+}
+
+impl BiologicalAnalogy {
+    pub fn from_machine(machine: &MachineInteroception) -> Self {
+        Self {
+            cortisol_like: (machine.error_rate + machine.queue_pressure) * 0.5,
+            dopamine_like: (machine.compute_reserve * machine.semantic_integrity).clamp(0.0, 1.0),
+            adenosine_like: (machine.context_occupancy + machine.memory_pressure) * 0.5,
+        }
+    }
+}
+
+impl MachineInteroception {
+    pub fn biological_analogy(&self) -> BiologicalAnalogy {
+        BiologicalAnalogy::from_machine(self)
+    }
+}
+
+// ─── Vue biomimétique historique (legacy) ─────────────────────────────
+// Conservée pour compatibilité. Ne pas l'utiliser comme source de vérité :
+// préférer MachineInteroception + BiologicalAnalogy ci-dessus.
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct CortisolAdrenalineAxis {
     pub cortisol_level: f64,
