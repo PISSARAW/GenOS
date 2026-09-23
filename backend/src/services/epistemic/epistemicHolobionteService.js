@@ -90,6 +90,43 @@ async function depositVerifierPheromone(antigen, verifierResults, verifiers) {
   } catch (_) { /* stigmergie ne doit pas bloquer */ }
 }
 
+function oracleFrom(ctx, antigen) {
+  return ctx.oracleTruth || antigen.benchmarkTruth || antigen.oracleTruth || null;
+}
+
+function applyOracleToClones(clones, cloneResults, oracleTruth) {
+  for (let i = 0; i < clones.length; i += 1) {
+    const clone = clones[i];
+    const result = cloneResults.results[i];
+    if (!result || result.status === 'error') continue;
+    const success = oracleTruth
+      ? String(result.status) === String(oracleTruth.expectedStatus || result.status)
+      : false;
+    if (!oracleTruth) continue;
+    clone.pending = false;
+    clone.usageCount += 1;
+    if (success) {
+      clone.successes += 1;
+    } else {
+      clone.failures += 1;
+    }
+    const total = clone.successes + clone.failures;
+    clone.affinity = total > 0 ? clone.successes / total : clone.affinity;
+  }
+}
+
+async function runClonalSelectionCycle(parent, antigen, ctx) {
+  const clones = expandClone(parent, { count: 2 });
+  const oracleTruth = oracleFrom(ctx, antigen);
+  const cloneResults = await executeVerifierWorkers(antigen, clones, ctx);
+  applyOracleToClones(clones, cloneResults, oracleTruth);
+  const selection = selectWinningClones(parent, clones);
+  const maturation = oracleTruth
+    ? matureStrategy({ strategy: selection.winner.strategy || [] }, oracleTruth)
+    : null;
+  return { clones, cloneResults, selection, maturation, oracleResolved: Boolean(oracleTruth) };
+}
+
 async function immuneSymbiontReview(antigen, context = {}) {
   const pipeline = runAdaptivePipeline(antigen, context);
   const blocked = isImmuneDecisionBlocked(pipeline);
@@ -103,7 +140,9 @@ async function immuneSymbiontReview(antigen, context = {}) {
   const verifierResults = await executeVerifierWorkers(antigen, verifiers, context);
 
   const bestVerifier = selectBestVerifier(verifiers);
-  const clones = bestVerifier ? expandClone(bestVerifier, { count: 2 }) : [];
+  const clonal = bestVerifier
+    ? await runClonalSelectionCycle(bestVerifier, antigen, context)
+    : { clones: [], selection: null, maturation: null, oracleResolved: false };
 
   await depositVerifierPheromone(antigen, verifierResults, verifiers);
 
@@ -122,7 +161,10 @@ async function immuneSymbiontReview(antigen, context = {}) {
     pipeline,
     decision: pipeline.decision?.innate?.decision?.action || pipeline.decision?.decision || 'unknown',
     verifierResults,
-    clones,
+    clones: clonal.clones,
+    clonalSelection: clonal.selection,
+    affinityMaturation: clonal.maturation,
+    oracleResolved: clonal.oracleResolved,
   };
 }
 
