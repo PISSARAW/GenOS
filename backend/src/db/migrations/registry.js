@@ -228,6 +228,10 @@ const migrationRunners = [
     const { run } = require('./migrateAnalyticsP1P2');
     await run(db);
   }),
+  createMigrationRunner('066-outbox-triggers', 'Create outbox triggers on graph tables for automatic projection events', async (db) => {
+    const { run } = require('./migrateOutboxTriggers');
+    await run(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
