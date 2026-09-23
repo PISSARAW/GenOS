@@ -156,7 +156,7 @@ function buildAgentRuntimePrompt(ctx) {
   };
 
   const gating = resolveToolGating(params);
-  const { effectiveLease, gatingDirective } = applyToolGating(params.toolLease, gating);
+  const { effectiveLease, directive: gatingDirective } = applyToolGating(params.toolLease, gating);
   const capsuleId = params.genosCapsule ? `${params.genosCapsule.id}_run_${Date.now()}` : '';
   const isolation = params.isolationMode || 'Branch';
   const wsRoot = params.workspacePath || process.env.GENOS_WORKSPACE_ROOT || '';

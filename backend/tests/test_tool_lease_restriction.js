@@ -53,7 +53,7 @@ function checkOrchestratorLease() {
 }
 
 function checkRestrictionOnlyNarrows() {
-  const policy = leasePolicy.derivePolicyLease('orchestrator', 'coordinator', {});
+  const policy = leasePolicy.derivePolicyLease({ execution_mode: 'orchestrator', role: 'coordinator', plan: {} });
   const restricted = leasePolicy.restrictProvidedLease(
     ['genos_snapshot', 'genos_orchestrate', 'genos_unknown_tool', ' genos_run ', 'genos_snapshot'],
     policy
@@ -61,7 +61,7 @@ function checkRestrictionOnlyNarrows() {
   assert.deepEqual(restricted, ['genos_snapshot']);
   assert.deepEqual(leasePolicy.restrictProvidedLease([], policy), [...policy]);
   assert.deepEqual(leasePolicy.restrictProvidedLease(undefined, policy), [...policy]);
-  const workerPolicy = leasePolicy.derivePolicyLease('worker', 'implementation', {});
+  const workerPolicy = leasePolicy.derivePolicyLease({ executionMode: 'worker', role: 'implementation', plan: {}, capabilities: [] });
   const workerRestricted = leasePolicy.restrictProvidedLease(['genos_run', 'genos_adversarial_review'], workerPolicy);
   assert.deepEqual(workerRestricted, []);
   console.log('  supplied lease can only restrict: ok');

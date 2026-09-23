@@ -60,12 +60,13 @@ function enforceMissionToolLease(ctx) {
   const mission = ctx.normalizedMission || {};
   const role = mission.role || dispatched.role;
   const provided = mission.toolLease;
+  const capabilities = mission.capabilities || (ctx.autonomyPlan && ctx.autonomyPlan.capabilityContract) || [];
   agentAuthority.assertToolLeaseFresh(
     { id: ctx.agentId, execution_mode: dispatched.execution_mode, role },
     provided,
     ctx.autonomyPlan
   );
-  const policy = leasePolicy.derivePolicyLease(dispatched.execution_mode, role, ctx.autonomyPlan);
+  const policy = leasePolicy.derivePolicyLease({ execution_mode: dispatched.execution_mode, role, plan: ctx.autonomyPlan, capabilities });
   mission.toolLease = leasePolicy.restrictProvidedLease(provided, policy);
   ctx.normalizedMission = mission;
 }

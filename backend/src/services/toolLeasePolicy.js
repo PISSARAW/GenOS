@@ -111,7 +111,9 @@ const KNOWN_TOOL_ALLOW_LIST = [
   'genos_guardrails_verify',
   'genos_topology_session',
   'genos_execute_primitive',
-  'genos_execute_strategy_pipeline'
+  'genos_execute_strategy_pipeline',
+  'genos_parasitic_pressure',
+  'genos_run'
 ];
 
 // Maps a topology capability (see topologyCapabilityService.GENOS_CAPABILITIES)
@@ -154,8 +156,12 @@ const CAPABILITY_TOOLS = Object.freeze({
   GOVERNANCE_APPROVAL: ['genos_record_decision'],
   COMPLIANCE: [],
   WEB_FORAGING: ['genos_browser_act', 'genos_optimal_foraging'],
-  FOVEAL_PERCEPTION: ['genos_foveal_crop', 'genos_execute_primitive'],
-  COMPUTER_USE: ['genos_computer_use']
+  FOVEAL_PERCEPTION: ['genos_foveal_crop'],
+  COMPUTER_USE: ['genos_computer_use'],
+  PROCEDURAL_MEMORY: ['genos_record_experience', 'genos_cherry_pick_experience'],
+  PROCEDURAL_GUIDANCE: ['genos_execute_strategy_pipeline'],
+  PROCEDURAL_EVOLUTION: ['genos_resilience_hypermutation', 'genos_repository_genome'],
+  PROCEDURAL_CAUSAL_VALIDATION: ['genos_causal_replay_experiment', 'genos_workspace_experiment']
 });
 
 function normalizeToolName(value) {
@@ -256,10 +262,10 @@ function orchestratorLeaseForPlan(plan, extraKnown) {
   return lease.filter((tool) => !isOrchestrateVariant(tool));
 }
 
-function derivePolicyLease(executionMode, role, plan) {
-  const mode = normalizeToolName(executionMode);
-  if (mode === 'worker') return workerLeaseForRole(role);
-  return orchestratorLeaseForPlan(plan);
+function derivePolicyLease(input) {
+  const mode = normalizeToolName(input.executionMode);
+  if (mode === 'worker') return leaseForCapabilities(workerLeaseForRole(input.role), input.capabilities);
+  return orchestratorLeaseForPlan(input.plan);
 }
 
 function restrictProvidedLease(provided, policyLease) {
@@ -280,7 +286,7 @@ function restrictProvidedLease(provided, policyLease) {
 function staleLeaseTools(agent, lease) {
   const provided = Array.isArray(lease) ? lease : [];
   const current = agent || {};
-  const policy = new Set(derivePolicyLease(current.execution_mode, current.role, current.plan).map(normalizeToolName));
+  const policy = new Set(derivePolicyLease({ executionMode: current.execution_mode, role: current.role, plan: current.plan }).map(normalizeToolName));
   const stale = [];
   for (const tool of provided) {
     const name = normalizeToolName(tool);
