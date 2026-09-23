@@ -32,6 +32,27 @@ function holobionteToFormalResult(antigen, holobionteResult) {
   }
 }
 
+function actorFromReceipt(receipt) {
+  if (receipt.independenceDescriptor && receipt.independenceDescriptor.actorId) {
+    return receipt.independenceDescriptor.actorId;
+  }
+  return receipt.actorId || receipt.verifierDigest || 'unknown';
+}
+
+function buildConstraintAttestations(verifications, obligationIds) {
+  const sorted = [...obligationIds].sort();
+  const seen = new Set();
+  const attestations = [];
+  for (const receipt of verifications) {
+    if (receipt.independent !== true) continue;
+    const actorId = actorFromReceipt(receipt);
+    if (seen.has(actorId)) continue;
+    seen.add(actorId);
+    attestations.push({ actorId, obligationIds: sorted, independent: true });
+  }
+  return attestations;
+}
+
 /**
  * Construit une assemblée d'assurance à partir des résultats Holobionte.
  * Les verifications sont extraites des receipts EXISTANTS sans les modifier.
@@ -42,13 +63,15 @@ function buildAssuranceAssemblyFromHolobionte(antigens, holobionteResults, conte
     .filter(Boolean);
 
   const verifiedResults = results.filter(r => r.status === 'verified' || r.status === 'tested');
+  const verifications = extractSignedVerifications(holobionteResults);
+  const obligationIds = results.map(r => r.resultId);
 
   return {
     results,
-    verifications: extractSignedVerifications(holobionteResults),
+    verifications,
     obligations: results.map(r => ({ id: r.resultId, required: true, description: `Validation of claim: ${r.canonicalStatement}` })),
     coverage: results.map(r => ({ resultId: r.resultId, obligationId: r.resultId, evidenceDigest: r.evidence.digest })),
-    constraintAttestations: [],
+    constraintAttestations: buildConstraintAttestations(verifications, obligationIds),
     equivalences: [],
     relations: [],
     contradictionResolutions: [],
@@ -135,6 +158,7 @@ async function evaluateReportWithAeis(report, context = {}) {
 module.exports = {
   holobionteToFormalResult,
   buildAssuranceAssemblyFromHolobionte,
+  buildConstraintAttestations,
   evaluateAeisForPromotion,
   claimToAntigen,
   extractAntigensFromReport,

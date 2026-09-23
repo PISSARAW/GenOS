@@ -136,6 +136,27 @@ function processVerifierItems(verifierItems, resultsById, trustedDigests) {
   return verifications;
 }
 
+function actorFromVerification(receipt) {
+  if (receipt.independenceDescriptor && receipt.independenceDescriptor.actorId) {
+    return receipt.independenceDescriptor.actorId;
+  }
+  return receipt.actorId || receipt.verifierDigest || 'unknown';
+}
+
+function buildConstraintAttestations(verifications, obligationIds) {
+  const sorted = [...obligationIds].sort();
+  const seen = new Set();
+  const attestations = [];
+  for (const receipt of verifications) {
+    if (receipt.independent !== true) continue;
+    const actorId = actorFromVerification(receipt);
+    if (seen.has(actorId)) continue;
+    seen.add(actorId);
+    attestations.push({ actorId, obligationIds: sorted, independent: true });
+  }
+  return attestations;
+}
+
 function assemblyFromContext(formalResults, verifierResults, context) {
   if (!Array.isArray(formalResults) || !formalResults.length) return null;
   const results = formalResults
@@ -152,7 +173,7 @@ function assemblyFromContext(formalResults, verifierResults, context) {
     verifications,
     obligations: buildObligationList(obligationIds),
     coverage: buildCoverageMap(results),
-    constraintAttestations: [],
+    constraintAttestations: buildConstraintAttestations(verifications, obligationIds),
     equivalences: [],
     relations: [],
     contradictionResolutions: [],
@@ -160,7 +181,7 @@ function assemblyFromContext(formalResults, verifierResults, context) {
     failureReuses: [],
     contributions: [],
     workerIds: (context?.workerIds || []).filter(Boolean),
-    trustedVerifierDigests
+    trustedVerifierDigests: trustedDigests
   };
 }
 
@@ -256,5 +277,6 @@ module.exports = {
   formalResultFromHolobionteResult,
   resolveTrustedVerifierDigests,
   buildCompliantReceipt,
+  buildConstraintAttestations,
   extractVerifierDigestsFromContext
 };
