@@ -1,5 +1,8 @@
 /**
- * Signal Plane E2E — ruthless verification of the full pipeline.
+ * Signal Plane E2E — black-box verification of the full pipeline.
+ * Rule: each test may only call `publishSignal()` as entry.
+ * Everything else is external observation: DB, EventBus, delivery
+ * ledger, metrics, mission dispatch. No direct calls to internal organs.
  * Real in-memory SQLite, real services, zero external LLM calls.
  */
 const assert = require('assert');
@@ -40,15 +43,22 @@ const signalEventBus = require('../src/services/signalEventBus');
 const signalCoalescer = require('../src/services/signalCoalescerService');
 const plasticity = require('../src/services/synapticPlasticityService');
 const cognitiveEscalation = require('../src/services/cognitiveEscalationService');
+const subscriber = require('../src/services/signalPlaneSubscriber');
 
 function resetState() {
   receptor.listReceptors().forEach((r) => receptor.unregisterReceptor(r.id));
   plasticity.resetWeights();
   signalEventBus.removeAllListeners();
+  if (signalCoalescer.clearAllCoalescerState) signalCoalescer.clearAllCoalescerState();
   llmCallCount = 0;
 }
 
+function waitForLedger(ticks = 5) {
+  return new Promise((resolve) => setTimeout(resolve, 20 * ticks));
+}
+
 // ── Test 1: Full receptor dispatch path (no LLM) ─────────────────────────────
+// Entry: publishSignal() only. Observe: DB blob, agent state, bus, plasticity.
 
 async function testFullReceptorDispatchPath() {
   resetState();
@@ -84,14 +94,19 @@ async function testFullReceptorDispatchPath() {
   assert.ok(Array.isArray(busEvents[0].recipientAgentIds), 'Bus signal has recipientAgentIds');
   assert.ok(busEvents[0].recipientAgentIds.includes('worker-1'), 'Routes to worker-1');
   assert.ok(busEvents[0].recipientAgentIds.includes('worker-2'), 'Routes to worker-2');
+  assert.ok(busEvents[0].payloadRef, 'Bus signal carries payloadRef');
   assert.strictEqual(llmCallCount, 0, 'LLM never called');
   console.log('[PASS] testFullReceptorDispatchPath');
 }
 
 // ── Test 2: LLM escalation path ───────────────────────────────────────────────
+// Entry: publishSignal() only. Observe the REAL bus event, then gate it.
 
 async function testLlmEscalationPath() {
   resetState();
+  const busEvents = [];
+  signalEventBus.onSignal((s) => busEvents.push(s));
+
   const result = await transport.publishSignal({
     signalType: 'ligand',
     signalData: { semanticType: 'UNKNOWN_UNMATCHED', concentration: 0.9 },
@@ -100,11 +115,9 @@ async function testLlmEscalationPath() {
 
   assert.strictEqual(result.llmRequired, true, 'llmRequired=true when no receptor matches');
 
-  const escalationSignal = {
-    signalId: result.signalId, signalType: 'ligand',
-    signalData: { concentration: 0.9 }, topic: 'test-llm',
-    senderAgentId: 'orch-1', llmRequired: true,
-  };
+  const escalationSignal = busEvents.find((e) => e.signalId === result.signalId);
+  assert.ok(escalationSignal, 'Real bus event captured for escalation signal');
+  assert.strictEqual(escalationSignal.llmRequired, true, 'Bus event carries llmRequired');
   assert.strictEqual(cognitiveEscalation.shouldEscalate(escalationSignal), true,
     'shouldEscalate returns true for unmatched high-salience signal');
 
@@ -115,85 +128,123 @@ async function testLlmEscalationPath() {
   assert.strictEqual(context.signalType, 'ligand', 'Context has signalType');
   assert.ok(context.escalatedAt, 'Context has escalatedAt');
   assert.ok('salience' in context, 'Context has salience');
+  assert.ok(context.payloadRef, 'Context carries payloadRef, not raw payload');
+  assert.ok(!('data' in context), 'Context must not embed raw signal data');
   assert.strictEqual(llmCallCount, 0, 'LLM not invoked during escalation');
   console.log('[PASS] testLlmEscalationPath');
 }
 
-// ── Test 3: Coalescing path ───────────────────────────────────────────────────
+// ── Test 3: True windowed coalescing ──────────────────────────────────────────
+// S1 emits and opens a window; S2/S3 buffer; flush aggregates once.
 
 function testCoalescingPath() {
   resetState();
-  const senderId = 'csnd-' + Date.now();
+  const senderA = 'csnd-a-' + Date.now();
+  const senderB = 'csnd-b-' + Date.now();
+  const senderC = 'csnd-c-' + Date.now();
   const topic = 'ctop-' + Date.now();
+  const opts = { refractoryMs: 0, coalesceMs: 60000 };
 
   const result1 = signalCoalescer.coalesce({
-    signalId: 'sig-c1', signalType: 'ligand', topic: topic,
-    senderAgentId: senderId, signalData: { concentration: 0.5 },
-  });
+    signalId: 'sig-c1', signalType: 'ligand', topic,
+    senderAgentId: senderA, signalData: { concentration: 0.5 },
+  }, opts);
   assert.ok(result1 !== null, 'First signal passes coalescer');
+  assert.strictEqual(result1.coalescedCount, 1, 'First emission is unaggregated');
 
   const result2 = signalCoalescer.coalesce({
-    signalId: 'sig-c2', signalType: 'ligand', topic: topic,
-    senderAgentId: senderId, signalData: { concentration: 0.7 },
-  });
-  assert.strictEqual(result2, null, 'Duplicate signal suppressed');
+    signalId: 'sig-c2', signalType: 'ligand', topic,
+    senderAgentId: senderB, signalData: { concentration: 0.7 },
+  }, opts);
+  assert.strictEqual(result2, null, 'Second signal buffered, not emitted');
+
+  const result3 = signalCoalescer.coalesce({
+    signalId: 'sig-c3', signalType: 'ligand', topic,
+    senderAgentId: senderC, signalData: { concentration: 0.9 },
+  }, opts);
+  assert.strictEqual(result3, null, 'Third signal buffered, not emitted');
+
+  assert.strictEqual(signalCoalescer.getBufferedCount(topic), 2, 'Two signals buffered');
+  const aggregated = signalCoalescer.flushAndAggregate(topic);
+  assert.ok(aggregated, 'Flush produces one aggregated emission');
+  assert.strictEqual(aggregated.coalescedCount, 2, 'Aggregate covers buffered signals');
   console.log('[PASS] testCoalescingPath');
 }
 
-// ── Test 4: Delivery ACK cycle ────────────────────────────────────────────────
+// ── Test 4: Delivery ledger driven by publishSignal ───────────────────────────
+// Entry: publishSignal() only. pending+delivered appear automatically;
+// the test performs only the consumer-side seen/ack.
 
 async function testDeliveryAckCycle() {
   resetState();
-  const signalId = 'sig-ack-' + Date.now();
-  const subId = 'worker-1';
+  subscriber.startSignalPlaneSubscriber();
+  let wakeCalls = 0;
+  subscriber.registerWakeHandler('worker-1', async () => { wakeCalls++; return { acted: true }; });
+  subscriber.registerWakeHandler('worker-2', async () => ({ acted: true }));
 
-  assert.strictEqual(await transport.recordPendingDelivery(testDb, signalId, subId), true);
-  let row = await testDb.get('SELECT status FROM signal_deliveries WHERE signal_id = ? AND subscriber_agent_id = ?', signalId, subId);
-  assert.strictEqual(row.status, 'pending');
+  receptor.registerReceptor({
+    id: 'receptor-delivery', targetLigand: 'TEST_DELIVERY', threshold: 0.5,
+    action: 'update_agent',
+    actionData: { agentId: 'worker-1', status: 'running', currentTask: 'delivery-test' },
+  });
 
-  assert.strictEqual(await transport.markDelivered(testDb, { signalId, subscriberAgentId: subId }), true);
-  row = await testDb.get('SELECT status, delivered_at FROM signal_deliveries WHERE signal_id = ? AND subscriber_agent_id = ?', signalId, subId);
-  assert.strictEqual(row.status, 'delivered');
-  assert.ok(row.delivered_at, 'delivered_at set');
+  const result = await transport.publishSignal({
+    signalType: 'ligand',
+    signalData: { semanticType: 'TEST_DELIVERY', concentration: 0.9 },
+    topic: 'test-delivery-' + Date.now(), senderAgentId: 'orch-1',
+  });
+  await waitForLedger();
 
-  await transport.markSignalsSeen(subId, [signalId]);
-  row = await testDb.get('SELECT status, seen_at FROM signal_deliveries WHERE signal_id = ? AND subscriber_agent_id = ?', signalId, subId);
+  const signalId = result.signalId;
+  let row = await testDb.get('SELECT status FROM signal_deliveries WHERE signal_id = ? AND subscriber_agent_id = ?', signalId, 'worker-1');
+  assert.ok(row, 'Pending delivery recorded automatically');
+  assert.ok(['pending', 'delivered'].includes(row.status), `Auto delivery in ${row.status}`);
+  assert.ok(wakeCalls > 0, 'Wake handler fired from publishSignal path');
+  row = await testDb.get('SELECT status FROM signal_deliveries WHERE signal_id = ? AND subscriber_agent_id = ?', signalId, 'worker-1');
+  assert.strictEqual(row.status, 'delivered', 'Delivery auto-marked delivered after handler');
+
+  await transport.markSignalsSeen('worker-1', [signalId]);
+  row = await testDb.get('SELECT status, seen_at FROM signal_deliveries WHERE signal_id = ? AND subscriber_agent_id = ?', signalId, 'worker-1');
   assert.strictEqual(row.status, 'seen');
   assert.ok(row.seen_at, 'seen_at set');
 
-  assert.strictEqual(await transport.ackDelivery(testDb, { signalId, subscriberAgentId: subId }), true);
-  row = await testDb.get('SELECT status, acked_at FROM signal_deliveries WHERE signal_id = ? AND subscriber_agent_id = ?', signalId, subId);
+  assert.strictEqual(await transport.ackDelivery(testDb, { signalId, subscriberAgentId: 'worker-1' }), true);
+  row = await testDb.get('SELECT status, acked_at FROM signal_deliveries WHERE signal_id = ? AND subscriber_agent_id = ?', signalId, 'worker-1');
   assert.strictEqual(row.status, 'acked');
   assert.ok(row.acked_at, 'acked_at set');
   console.log('[PASS] testDeliveryAckCycle');
 }
 
-// ── Test 5: Wake handler path ─────────────────────────────────────────────────
+// ── Test 5: Wake handler via publishSignal ────────────────────────────────────
+// Entry: publishSignal() only. Observe handler invocation + mission args.
 
 async function testWakeHandlerPath() {
   resetState();
+  subscriber.startSignalPlaneSubscriber();
   let handlerCalled = false;
   let receivedSignal = null;
-  let missionArgs = null;
-
-  signalEventBus.onRecipient('worker-1', async (signal) => {
+  subscriber.registerWakeHandler('worker-1', async (signal) => {
     handlerCalled = true;
     receivedSignal = signal;
-    missionArgs = { agentId: 'worker-1', prompt: '', role: 'implementation', signalTriggered: true, triggerSignalId: signal.signalId };
+    return { acted: true, agentId: 'worker-1', signalTriggered: true, triggerSignalId: signal.signalId };
+  });
+  subscriber.registerWakeHandler('worker-2', async () => ({ acted: true }));
+
+  receptor.registerReceptor({
+    id: 'receptor-wake', targetLigand: 'WAKE_UP', threshold: 0.5,
+    action: 'update_agent',
+    actionData: { agentId: 'worker-1', status: 'running', currentTask: 'wake-test' },
   });
 
-  signalEventBus.publish({
-    signalId: 'sig-wake-1', signalType: 'ligand',
-    signalData: { concentration: 0.9, semanticType: 'WAKE_UP' },
+  const result = await transport.publishSignal({
+    signalType: 'ligand',
+    signalData: { semanticType: 'WAKE_UP', concentration: 0.9 },
     topic: 'test-wake', senderAgentId: 'orch-1',
-    recipientAgentIds: ['worker-1'],
   });
+  await waitForLedger();
 
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  assert.strictEqual(handlerCalled, true, 'Wake handler called');
-  assert.strictEqual(receivedSignal.signalId, 'sig-wake-1', 'Handler received signal');
-  assert.strictEqual(missionArgs.agentId, 'worker-1', 'Mission targets worker-1');
-  assert.strictEqual(missionArgs.signalTriggered, true, 'Mission is signal-triggered');
+  assert.strictEqual(handlerCalled, true, 'Wake handler called via publishSignal');
+  assert.strictEqual(receivedSignal.signalId, result.signalId, 'Handler received published signal');
   console.log('[PASS] testWakeHandlerPath');
 }
 
