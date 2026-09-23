@@ -70,14 +70,15 @@ Promise.resolve().then(function() {
   // 1. AgentSelf 5 layers
   test('AgentSelf — 5 layers present', function() {
     var self = {
+      apiVersion: 'genos.agent-self/v1',
       identity: { id: 't1', name: 'Test', generation: 0, parents: [] },
       autobiographical: { episodeCount: 0, lessonCount: 0 },
       operational: { competence: {} },
-      regulatory: {},
+      regulatory: { energy: 0.5, integrity: 1.0 },
       narrative: { authority: 'none' }
     };
     var r = AgentSelf.validateAgentSelf(self);
-    assert(r.valid, 'valid AgentSelf');
+    assert(r.valid, 'valid AgentSelf: ' + (r.errors || []).join(', '));
   });
 
   // 2. Narrative authority

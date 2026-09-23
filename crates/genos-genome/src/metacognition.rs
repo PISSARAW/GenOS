@@ -76,12 +76,12 @@ pub struct MetacognitionStepReport {
 // F.3 — Auto-modèle : détection de stagnation, biais, boucles
 // ═══════════════════════════════════════════════════════════════════════════════
 
-pub struct SelfModel {
+pub struct EvolutionarySelfModel {
     trajectory: Vec<GenerationSnapshot>,
     stagnation_threshold: f64,
 }
 
-impl SelfModel {
+impl EvolutionarySelfModel {
     pub fn new() -> Self {
         Self {
             trajectory: Vec::new(),
@@ -150,7 +150,7 @@ impl SelfModel {
     }
 }
 
-impl Default for SelfModel {
+impl Default for EvolutionarySelfModel {
     fn default() -> Self {
         Self::new()
     }
@@ -161,7 +161,7 @@ impl Default for SelfModel {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 pub struct MetacognitionEngine {
-    model: SelfModel,
+    model: EvolutionarySelfModel,
     bias_threshold: f64,
     stagnation_window: usize,
     generation: u32,
@@ -170,7 +170,7 @@ pub struct MetacognitionEngine {
 impl MetacognitionEngine {
     pub fn new() -> Self {
         Self {
-            model: SelfModel::new(),
+            model: EvolutionarySelfModel::new(),
             bias_threshold: 0.7,
             stagnation_window: 5,
             generation: 0,
@@ -305,7 +305,7 @@ impl MetacognitionEngine {
         pool.mutator.mutation_rates.gene = (pool.mutator.mutation_rates.gene * 0.9).max(0.001);
     }
 
-    pub fn model(&self) -> &SelfModel {
+    pub fn model(&self) -> &EvolutionarySelfModel {
         &self.model
     }
 }

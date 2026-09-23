@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/agent-self.schema.json",
+  "title": "AgentSelf",
+  "description": "Contrat canonique cross-language du soi agentique. Une seule source de vérité pour Node (agentSelfService) et Rust (CoreSelf, SelfModel, CognitiveRegulation). Cinq strates : identity (qui), operational (capacités et calibration), regulatory (état interne régulé), autobiographical (mémoire et lignée), core (frontière self/world et agency). Chaque champ porte sa provenance : les couches supérieures dérivent des couches inférieures, jamais l'inverse.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "agentId", "identity", "operational", "regulatory", "autobiographical"],
+  "properties": {
+    "apiVersion": { "type": "string", "const": "genos.agent-self/v1" },
+    "kind": { "type": "string", "const": "AgentSelf" },
+    "agentId": { "type": "string", "minLength": 1 },
+    "version": {
+      "type": "string",
+      "description": "Hash canonique du soi — change quand son contenu change."
+    },
+    "identity": {
+      "$ref": "#/$defs/IdentitySelf"
+    },
+    "operational": {
+      "$ref": "#/$defs/OperationalSelf"
+    },
+    "regulatory": {
+      "$ref": "#/$defs/RegulatorySelf"
+    },
+    "autobiographical": {
+      "$ref": "#/$defs/AutobiographicalSelf"
+    },
+    "core": {
+      "$ref": "#/$defs/CoreSelfLayer"
+    }
+  },
+  "$defs": {
+    "IdentitySelf": {
+      "type": "object",
+      "description": "Qui suis-je — identité administrative et lignée.",
+      "required": ["id", "name", "generation"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "nameMeaning": { "type": ["string", "null"] },
+        "birth": { "type": ["string", "null"], "description": "ISO date de création." },
+        "parents": { "type": "array", "items": { "type": "string" } },
+        "lineageId": { "type": ["string", "null"] },
+        "generation": { "type": "integer", "minimum": 0 },
+        "creatorIntent": { "type": ["string", "null"] },
+        "inheritedTraits": { "type": "array", "items": { "type": "string" } },
+        "role": { "type": "string" },
+        "executionMode": { "type": "string" }
+      }
+    },
+    "OperationalSelf": {
+      "type": "object",
+      "description": "Ce que je sais faire — capacités, calibration réelle.",
+      "required": ["competence"],
+      "properties": {
+        "capabilities": { "type": "array", "items": { "type": "string" } },
+        "competence": {
+          "type": "object",
+          "required": ["confidence"],
+          "properties": {
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+            "calibrationObservations": { "type": "integer", "minimum": 0 },
+            "meanAbsoluteError": { "type": "number", "minimum": 0 }
+          }
+        },
+        "limitations": {
+          "type": "object",
+          "properties": {
+            "knownWeaknesses": { "type": "array", "items": { "type": "string" } },
+            "tokenBudget": { "type": "number" },
+            "workerLimit": { "type": "number" },
+            "maxBlastRadius": { "type": "number" }
+          }
+        },
+        "biases": { "type": "object" },
+        "strategies": { "type": "object" },
+        "tools": { "type": "array", "items": { "type": "string" } },
+        "modelTier": { "type": "string" }
+      }
+    },
+    "RegulatorySelf": {
+      "type": "object",
+      "description": "Mon état interne régulé — ressenti via interoception, pas fourni.",
+      "required": ["energy", "integrity"],
+      "properties": {
+        "energy": { "type": "number", "minimum": 0, "maximum": 1 },
+        "stress": { "type": "number", "minimum": 0, "maximum": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "uncertainty": { "type": "number", "minimum": 0, "maximum": 1 },
+        "dissonance": { "type": "number" },
+        "fatigue": { "type": "number", "minimum": 0, "maximum": 1 },
+        "integrity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "harmonyPercentage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "cognitiveBudget": { "type": "number" },
+        "isApoptotic": { "type": "boolean" }
+      }
+    },
+    "AutobiographicalSelf": {
+      "type": "object",
+      "description": "Mon histoire — épisodes, leçons, tournants, lignée.",
+      "required": ["episodeCount", "lessonCount"],
+      "properties": {
+        "episodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "salience"],
+            "properties": {
+              "id": { "type": "string" },
+              "kind": { "type": "string" },
+              "salience": { "type": "number", "minimum": 0, "maximum": 1 },
+              "when": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "lessons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "claim", "confidence"],
+            "properties": {
+              "id": { "type": "string" },
+              "claim": { "type": "string" },
+              "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+              "recommendation": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "turningPoints": { "type": "array", "items": { "type": "object" } },
+        "episodeCount": { "type": "integer", "minimum": 0 },
+        "lessonCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "CoreSelfLayer": {
+      "type": "object",
+      "description": "Frontière self/world et attribution d'agency — la strate P1.",
+      "properties": {
+        "agencyCalibration": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Proportion réelle d'actions attribuées au soi."
+        },
+        "lastAttributions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["actionId", "attributedToSelf", "predictionError"],
+            "properties": {
+              "actionId": { "type": "string" },
+              "attributedToSelf": { "type": "boolean" },
+              "predictionError": { "type": "number" },
+              "causalConfidence": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          }
+        },
+        "selfOriginRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Fraction des claims actifs d'origine SelfGenerated/SelfObserved."
+        }
+      }
+    }
+  }
+}

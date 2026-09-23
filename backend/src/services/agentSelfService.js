@@ -1,8 +1,15 @@
 'use strict';
 
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { load: loadSelfModel } = require('./selfModelService');
 const { loadCognitiveRegulationState } = require('./agentConscienceService');
+
+// Contrat canonique cross-language (P2) : une seule définition du soi,
+// partagée Node/Rust via spec/agent-self.schema.json.
+const AGENT_SELF_SPEC_PATH = path.join(__dirname, '..', '..', '..', 'spec', 'agent-self.schema.json');
+const AGENT_SELF_API_VERSION = 'genos.agent-self/v1';
 
 function uuid() {
   return crypto.randomUUID();
@@ -39,8 +46,10 @@ async function buildAgentSelf(db, agentId, options = {}) {
   }
 
   return {
-    schema: 'genos.agent-self/v1alpha',
+    apiVersion: AGENT_SELF_API_VERSION,
+    kind: 'AgentSelf',
     agentId,
+    schema: 'genos.agent-self/v1alpha',
     version: computeVersion(agentRow, selfModel, cognitiveRegulation),
     identity: buildIdentityCore(agentRow, options),
     autobiographical: await buildAutobiographicalSelf(db, agentId),
@@ -205,12 +214,24 @@ function extractActiveConstraints(agentSelf) {
 
 function validateAgentSelf(agentSelf) {
   const errors = [];
+  if (agentSelf.apiVersion !== AGENT_SELF_API_VERSION) errors.push(`apiVersion must be ${AGENT_SELF_API_VERSION}`);
   if (!agentSelf.identity?.id) errors.push('missing identity.id');
   if (!agentSelf.identity?.name) errors.push('missing identity.name');
   if (!agentSelf.regulatory) errors.push('missing regulatory layer');
   if (!agentSelf.operational) errors.push('missing operational layer');
   if (!agentSelf.autobiographical) errors.push('missing autobiographical layer');
-  return { valid: errors.length === 0, errors };
+  if (agentSelf.regulatory && (agentSelf.regulatory.energy === undefined || agentSelf.regulatory.integrity === undefined)) {
+    errors.push('regulatory requires energy and integrity');
+  }
+  return { valid: errors.length === 0, errors, specPath: AGENT_SELF_SPEC_PATH };
+}
+
+/**
+ * Charge le contrat canonique (spec/agent-self.schema.json).
+ * Source unique partagée avec Rust — les deux langages valident le même $id.
+ */
+function loadAgentSelfSpec() {
+  return JSON.parse(fs.readFileSync(AGENT_SELF_SPEC_PATH, 'utf8'));
 }
 
 function formatAgentSelfPrompt(agentSelf) {
@@ -240,10 +261,12 @@ module.exports = {
   buildAgentSelf,
   extractActiveConstraints,
   validateAgentSelf,
+  loadAgentSelfSpec,
   formatAgentSelfPrompt,
   buildIdentityCore,
   buildOperationalSelf,
   buildRegulatorySelf,
   buildAutobiographicalSelf,
-  computeVersion
+  computeVersion,
+  AGENT_SELF_API_VERSION
 };

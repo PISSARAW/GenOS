@@ -14,7 +14,7 @@ fn biased_cycle() -> PhaseDCycle {
 
 #[test]
 fn self_model_detects_stagnation_in_flat_trajectory() {
-    let mut model = SelfModel::new();
+    let mut model = EvolutionarySelfModel::new();
     for i in 0..6 {
         let mut snap = GenerationSnapshot::new(i, 10.0, 5.0);
         snap.best_fitness = 10.0;
@@ -25,7 +25,7 @@ fn self_model_detects_stagnation_in_flat_trajectory() {
 
 #[test]
 fn self_model_detects_loop_in_repeating_trajectory() {
-    let mut model = SelfModel::new();
+    let mut model = EvolutionarySelfModel::new();
     for _ in 0..2 {
         for i in 0..3 {
             let mut snap = GenerationSnapshot::new(i, 5.0, 2.0);
@@ -63,7 +63,7 @@ fn adjustment_modifies_operator_probabilities() {
 
 #[test]
 fn self_model_no_stagnation_with_progress() {
-    let mut model = SelfModel::new();
+    let mut model = EvolutionarySelfModel::new();
     for i in 0..6 {
         let snap = GenerationSnapshot::new(i, 10.0 + i as f64, 5.0);
         model.record(snap);
@@ -73,7 +73,7 @@ fn self_model_no_stagnation_with_progress() {
 
 #[test]
 fn detect_bias_returns_zero_when_empty() {
-    let model = SelfModel::new();
+    let model = EvolutionarySelfModel::new();
     assert_eq!(model.detect_bias(), 0.0);
 }
 
@@ -104,7 +104,7 @@ fn monitor_records_operator_usage() {
 
 #[test]
 fn detect_bias_aggregates_across_generations() {
-    let mut model = SelfModel::new();
+    let mut model = EvolutionarySelfModel::new();
     for generation in 0..3 {
         let mut snap = GenerationSnapshot::new(generation, 10.0, 5.0);
         snap.operator_usage.insert("mutation".into(), 10);
@@ -122,7 +122,7 @@ fn detect_bias_aggregates_across_generations() {
 
 #[test]
 fn detect_bias_not_inflated_by_single_generation_max() {
-    let mut model = SelfModel::new();
+    let mut model = EvolutionarySelfModel::new();
     for generation in 0..3 {
         let mut snap = GenerationSnapshot::new(generation, 10.0, 5.0);
         snap.operator_usage.insert("mutation".into(), 10);

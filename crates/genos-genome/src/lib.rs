@@ -42,8 +42,8 @@ pub use linkage_epistasis::{
     LinkageResult,
 };
 pub use metacognition::{
-    Adjustment, CognitiveSignal, GenerationSnapshot, MetacognitionEngine, MetacognitionStepReport,
-    SelfModel,
+    Adjustment, CognitiveSignal, EvolutionarySelfModel, GenerationSnapshot, MetacognitionEngine,
+    MetacognitionStepReport,
 };
 pub use mutation_rates::MutationRates;
 pub use plasmid_v2::{PlasmidCycleResult, PlasmidInstance, PlasmidParams, PlasmidPool};

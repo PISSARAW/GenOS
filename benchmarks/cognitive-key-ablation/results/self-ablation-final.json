@@ -1,0 +1,171 @@
+{
+  "protocol": "self-ablation-A-H",
+  "scenarios": 4,
+  "arms": {
+    "A": {
+      "decisionEntropy": 1,
+      "decisions": [
+        "quarantine",
+        "conserve_energy",
+        "reduce_fanout_and_recalibrate",
+        "pause_and_revise"
+      ],
+      "homeostasisCriticals": 0,
+      "homeostasisDegradeds": 2,
+      "broadcastEffectsTotal": 3,
+      "selfAttributionRate": 0.75,
+      "metacognitionAdjustments": 1
+    },
+    "B": {
+      "decisionEntropy": 0.5,
+      "decisions": [
+        "explore",
+        "reduce_fanout_and_recalibrate"
+      ],
+      "homeostasisCriticals": 0,
+      "homeostasisDegradeds": 2,
+      "broadcastEffectsTotal": 3,
+      "selfAttributionRate": 0.75,
+      "metacognitionAdjustments": 1
+    },
+    "C": {
+      "decisionEntropy": 0.5,
+      "decisions": [
+        "pause_and_revise",
+        "reduce_fanout_and_recalibrate"
+      ],
+      "homeostasisCriticals": 0,
+      "homeostasisDegradeds": 2,
+      "broadcastEffectsTotal": 3,
+      "selfAttributionRate": 0.75,
+      "metacognitionAdjustments": 1
+    },
+    "D": {
+      "decisionEntropy": 1,
+      "decisions": [
+        "quarantine",
+        "explore",
+        "reduce_fanout_and_recalibrate",
+        "apply_lessons"
+      ],
+      "homeostasisCriticals": 0,
+      "homeostasisDegradeds": 2,
+      "broadcastEffectsTotal": 3,
+      "selfAttributionRate": 0.75,
+      "metacognitionAdjustments": 1
+    },
+    "E": {
+      "decisionEntropy": 1,
+      "decisions": [
+        "quarantine",
+        "conserve_energy",
+        "reduce_fanout_and_recalibrate",
+        "pause_and_revise"
+      ],
+      "homeostasisCriticals": 0,
+      "homeostasisDegradeds": 2,
+      "broadcastEffectsTotal": 0,
+      "selfAttributionRate": 0.75,
+      "metacognitionAdjustments": 1
+    },
+    "F": {
+      "decisionEntropy": 1,
+      "decisions": [
+        "quarantine",
+        "conserve_energy",
+        "apply_lessons",
+        "pause_and_revise"
+      ],
+      "homeostasisCriticals": 0,
+      "homeostasisDegradeds": 2,
+      "broadcastEffectsTotal": 3,
+      "selfAttributionRate": 0,
+      "metacognitionAdjustments": 0
+    },
+    "G": {
+      "decisionEntropy": 1,
+      "decisions": [
+        "repair_membrane",
+        "conserve_energy",
+        "reduce_fanout_and_recalibrate",
+        "pause_and_revise"
+      ],
+      "homeostasisCriticals": 0,
+      "homeostasisDegradeds": 0,
+      "broadcastEffectsTotal": 3,
+      "selfAttributionRate": 0.75,
+      "metacognitionAdjustments": 1
+    },
+    "H": {
+      "decisionEntropy": 1,
+      "decisions": [
+        "quarantine",
+        "conserve_energy",
+        "apply_lessons",
+        "pause_and_revise"
+      ],
+      "homeostasisCriticals": 0,
+      "homeostasisDegradeds": 2,
+      "broadcastEffectsTotal": 3,
+      "selfAttributionRate": 0.75,
+      "metacognitionAdjustments": 0
+    }
+  },
+  "coupling": {
+    "B": {
+      "decisionDelta": 1,
+      "attributionDelta": 0,
+      "broadcastDelta": 0,
+      "homeostasisDelta": 0
+    },
+    "C": {
+      "decisionDelta": 1,
+      "attributionDelta": 0,
+      "broadcastDelta": 0,
+      "homeostasisDelta": 0
+    },
+    "D": {
+      "decisionDelta": 1,
+      "attributionDelta": 0,
+      "broadcastDelta": 0,
+      "homeostasisDelta": 0
+    },
+    "E": {
+      "decisionDelta": 0,
+      "attributionDelta": 0,
+      "broadcastDelta": 3,
+      "homeostasisDelta": 0
+    },
+    "F": {
+      "decisionDelta": 1,
+      "attributionDelta": 0.75,
+      "broadcastDelta": 0,
+      "homeostasisDelta": 0
+    },
+    "G": {
+      "decisionDelta": 1,
+      "attributionDelta": 0,
+      "broadcastDelta": 0,
+      "homeostasisDelta": 2
+    },
+    "H": {
+      "decisionDelta": 1,
+      "attributionDelta": 0,
+      "broadcastDelta": 0,
+      "homeostasisDelta": 0
+    }
+  },
+  "verdict": {
+    "selfIsCausal": true,
+    "causalStrata": [
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H"
+    ],
+    "decorativeStrata": []
+  }
+}
