@@ -73,6 +73,8 @@ async function applyVersionedMigrations(db) {
   await migrationV016.run(db);
   const { migrationV017 } = require('./migrations/migrateGenomeEventLogCommitId');
   await migrationV017.run(db);
+  const { migrationV018 } = require('./migrations/migrateAgentPermissionsCompositePk');
+  await migrationV018.run(db);
   await runRegistryMigrations(db);
 }
 

@@ -225,13 +225,51 @@ async function main() {
   assert.ok(rebDecisionIds.some(id => String(id).endsWith('d-main2')), 'l état rebase contient la décision de main2');
   assert.ok(rebDecisionIds.some(id => String(id).endsWith('d-f2')), 'l état rebase contient la décision feature2');
 
+  // --- Point 11 : bisect sur DAG avec merge (tri topologique) ---
+  // Fusion de feature-rebasé dans main, puis bisect base..merge.
+  const mergeRes = await agentGit.merge({ ...makeReq(), body: { leftObjectId: mainAdvanced.id, rightObjectId: reb.id } });
+  assert.ok(mergeRes.success, 'merge doit réussir');
+  // Après le merge, on introduit une régression du budget puis on bisect.
+  await db.run('UPDATE agents SET cognitive_budget = 10 WHERE id = ?', 'agent-e2e-1');
+  const regressed = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'main', metadata: { message: 'regression' } });
+  const bs = await agentGit.bisect({
+    ...makeReq(),
+    body: {
+      goodObjectId: baseCommit.id,
+      badObjectId: regressed.id,
+      field: 'agent.cognitive_budget',
+      expectedValue: 50
+    }
+  });
+  assert.ok(bs.success, 'bisect doit réussir sur un DAG avec merge');
+  assert.ok(bs.anomalyFound, 'le bisect doit trouver le commit qui a fait diverger le budget');
+  assert.equal(bs.culpritObjectId, regressed.id, 'le coupable est le commit de régression');
+  assert.equal(bs.causalPathLength >= 3, true, 'le chemin causal doit traverser le merge');
+
+  // Tri topologique: le commit de merge doit être le DERNIER du chemin causal.
+  const { buildCausalPath } = require('../src/services/agentGitService/bisect.cjs');
+  const path = await buildCausalPath(db, baseCommit.id, mergeRes.id);
+  assert.equal(path[path.length - 1].id, mergeRes.id, 'le merge doit être en fin de chemin causal (tri topologique)');
+
+  // --- Point 18 : permissions multi-scopes sans collision PK ---
+  const permInfo = await db.all('PRAGMA table_info(agent_permissions)');
+  const pkCols = permInfo.filter(c => c.pk > 0).map(c => c.name).sort();
+  assert.deepEqual(pkCols, ['agent_id', 'organization_id', 'project_id'], 'agent_permissions doit avoir une PK composite (agent_id, organization_id, project_id)');
+  // Deux scopes distincts pour le même agent doivent coexister.
+  await db.run("INSERT INTO agent_permissions (agent_id, permissions_json, denied_tools_json, organization_id, project_id) VALUES ('agent-e2e-1', '[\"mcp:read\"]', '[]', 'org-a', 'proj-a')");
+  await db.run("INSERT INTO agent_permissions (agent_id, permissions_json, denied_tools_json, organization_id, project_id) VALUES ('agent-e2e-1', '[\"mcp:write\"]', '[]', 'org-b', 'proj-b')");
+  const permCount = await db.get("SELECT COUNT(*) AS n FROM agent_permissions WHERE agent_id = 'agent-e2e-1'");
+  assert.equal(permCount.n, 2, 'deux scopes de permissions doivent coexister pour un même agent');
+
   console.log('[OK] point 1 - SQLite réel : schéma crypto complet, createCommit + parent + signature vérifiés');
   console.log('[OK] point 3 - format wire canonical: push/receive vérifiés sur objets réellement signés');
   console.log('[OK] point 4 - patch REPLACE + identityOf (decisions/plasmids/permissions) sur SQLite réel');
   console.log('[OK] point 5 - cherry-pick/revert committent l état résultant réel (target + patch)');
   console.log('[OK] point 9/10 - rebase: diff(BASE,commit) + commits A\'/B\' chaînés, pas de squash');
+  console.log('[OK] point 11 - bisect DAG: tri topologique, merge en fin de chemin causal');
   console.log('[OK] point 12 - merge-base best-ancestor sur graphe réel');
   console.log('[OK] point 13 - makeEvent propage commit_id');
+  console.log('[OK] point 18 - agent_permissions PK composite, multi-scope sans collision');
   console.log('[OK] point 19 - events exclus du tree durable (Evidence Tree séparé)');
   console.log(`     commit=${commit.id} commitHash=${commit.commitHash.slice(0, 12)}…`);
 }

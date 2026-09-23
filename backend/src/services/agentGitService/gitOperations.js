@@ -85,7 +85,10 @@ async function buildCherryPickPatch(ctx) {
 
 async function merge(req) {
   const db = await getDatabase();
-  const { leftId, rightId } = req.body || {};
+  // L'API documentée est leftObjectId/rightObjectId (cf. message d'erreur et
+  // merge-base) ; leftId/rightId reste accepté pour compat.
+  const leftId = req.body?.leftObjectId || req.body?.leftId;
+  const rightId = req.body?.rightObjectId || req.body?.rightId;
   if (!leftId || !rightId) return { success: false, error: 'Both leftObjectId and rightObjectId are required.' };
 
   const left = await getObjectScoped(db, req, leftId);
