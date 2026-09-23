@@ -78,6 +78,18 @@ Maintains a declaration-driven backend registry for typed execution routing. Its
 - `bio`: Handled by native biomimicry adapters `mcpBioTools.js`.
 - `cli`: Dispatched through the local transport layer to `genos` binaries.
 
+### 6. Resident Daemon Ecology (`src/services/daemon/`, ADR 0034)
+Persistent, territory-bound agentic processes maintaining an evidence-grounded model of their environment across missions. The daemon observes and knows; the orchestrator decides; the worker intervenes. No automatic repair: findings escalate to `REPAIRABLE`, mutation requires a lease.
+- **Territory** (`daemonTerritoryService.js`): commit-aware scoping (`repo/ref/path/commit`); knowledge goes `STALE` on HEAD change, never silently carried over.
+- **Event physiology** (`daemonEventBridgeService.js`, `daemonReceptorRegistry.js`, `daemonWakePolicyService.js`): deterministic receptors first, LLM only on pressure; cooldown + wake budget against signal storms.
+- **Cartographer** (`cartography/`): derived knowledge graph (directories, files, symbols, `CONTAINS`/`IMPORTS`); incremental updates provably equal clean rebuilds.
+- **Findings** (`findings/`): canonical epistemic objects with typed evidence (supporting/contradicting × 6 natures), closed lifecycle (`REFUTED`/`EXPIRED` terminal), provenance by reference.
+- **Investigator** (`investigation/`): deterministic detectors (test-regression, flaky-signal, broken-import, missing-sibling-test) producing observations, wired to the Natural Search ledger via `daemonNaturalSearchAdapter.js` (no duplicated engine).
+- **Verifier** (`verification/`): epistemic immune system — head freshness, scope existence, per-detector rules; reproduction counts only strictly post-creation events.
+- **Stigmergy** (`daemonStigmergyService.js`): territorial pheromones steer attention, never truth; evaporation decay; fail-soft forwarding to `stigmergyInterProcessBridge`.
+- **Tables** (migrations 037–043): `daemon_territories`, `daemon_runtime_state`, `daemon_events`, `territory_graph_nodes/edges`, `daemon_findings`, `daemon_finding_evidence`, `daemon_stigmergy_markers`.
+- **Tests**: `backend/tests/test_daemon_*.js` (12 suites). Contracts: `spec/daemon-territory.schema.json`, `spec/daemon-finding.schema.json`, `spec/resident-daemon.schema.json`.
+
 ---
 
 ## Directory Layout
@@ -108,6 +120,11 @@ backend/
 │   │   ├── mcpToolRegistry.js                # Dynamic MCP tool dispatcher
 │   │   ├── sleepCycle.js                     # Hippocampal replay & microglial pruning
 │   │   ├── strategyExecutionAdapter.js       # strategy dispatcher
+│   │   ├── daemon/                           # Resident daemon ecology (ADR 0034)
+│   │   │   ├── cartography/                  # Territorial knowledge graph
+│   │   │   ├── findings/                     # Canonical epistemic findings
+│   │   │   ├── investigation/                # Deterministic anomaly detectors
+│   │   │   └── verification/                 # Epistemic immune system
 │   │   └── primitiveHandlers/                # Concrete primitive implementations
 │   └── strategies/               # Strategy catalog and classification families
 ├── tests/                        # Verification and regression test suite

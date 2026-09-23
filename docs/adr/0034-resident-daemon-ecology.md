@@ -1,7 +1,7 @@
 ---
 title: Resident Daemon Ecology
 date: 2026-09-23
-status: proposed
+status: accepted
 authors: Bruney
 decision-id: 0034
 ---
@@ -571,10 +571,39 @@ Rejeté : le graphe doit être index dérivé reconstructible, pas cache opaque.
 ## Prochaines étapes (immédiates)
 
 1. ✅ **ADR 0034** (ce document)
-2. **D0** — Contrat `ResidentDaemon` + modèle `Territory` (schémas + types)
-3. **D1** — Migration SQLite + tables minimales + migration `daemon_repo_state.json`
-4. **D2** — `ResidentDaemonRuntime` + `resident_daemon.agent.json` + registration
-5. **D3** — `EventBridge` + receptors zero-text + fallback timer
+2. ✅ **D0** — Contrat `ResidentDaemon` + modèle `Territory` (schémas + types)
+3. ✅ **D1** — Migration SQLite + tables minimales + migration `daemon_repo_state.json`
+4. ✅ **D2** — `ResidentDaemonRuntime` + `resident_daemon.agent.json` + registration
+5. ✅ **D3** — `EventBridge` + receptors zero-text + fallback timer
+6. ✅ **D4** — `TerritoryInteroception` + homéostasie (journal `daemon_events`)
+7. ✅ **D5** — `Cartographer` v1 + graphe incrémental (`rebuild == incremental` testé)
+8. ✅ **D6** — `Finding` + preuve typée + lifecycle fermé
+9. ✅ **D7** — `NaturalSearch` adapter (ledger + pression, zéro moteur dupliqué)
+10. ✅ **D8** — `ResidentInvestigator` + 4 détecteurs déterministes
+11. ✅ **D9** — `Verifier` + reproduction + règles par détecteur
+12. ✅ **D10** — marqueurs stigmergiques territoriaux (attention, pas vérité)
+13. **D11** — `Handoff Protocol` (`TerritoryBrief` + signal `TERRITORY_BRIEF_READY`)
+14. **D12** — feedback/plasticité des handoffs
+15. **D13** — `Reconciler`/autophagie
+16. **D14** — `RepairEpisode` isolé (lease + tracking, exécution par worker)
+
+## État d'implémentation (2026-09-23, D0–D10)
+
+| Sprint | Livraison | Fichiers | Écart au plan |
+| ------ | --------- | -------- | ------------- |
+| D0 | 3 contrats JSON (`genos.daemon/v1`) | `spec/daemon-territory.schema.json`, `spec/daemon-finding.schema.json`, `spec/resident-daemon.schema.json` | — |
+| D1 | migration 037 + `daemonTerritoryService` + migration legacy | `migrateDaemonTerritory.js`, `daemonTerritoryService.js`, `daemonLegacyMigration.js` | — |
+| D2 | runtime + génome `resident_daemon` | `residentDaemonRuntime.js`, `agents/daemons/resident_daemon.agent.json` | pas de `daemonRegistryService`/`daemonLifecycleService` séparés (fonctions dans le runtime v1) |
+| D3 | bridge + registre + wake policy | `daemonEventBridgeService.js`, `daemonReceptorRegistry.js`, `daemonWakePolicyService.js` | réutilise `signalReceptorService` comme transport, pas de doublon |
+| D4 | journal 038 + interoception + `combinePressures` | `migrateDaemonEvents.js`, `daemonTerritoryInteroceptionService.js` | 6 variables mesurées, 10 déclarées `deferred` (D5/D6) — aucune valeur fantôme |
+| D5 | graphe 039 + scan/incrémental + adapter JS | `cartography/` (4 fichiers), `migrateTerritoryGraph.js` | relations CALLS/EXTENDS/etc. différées ; invariant `rebuild == incremental` tenu après correction d'un vrai bug (IMPORTS entrants) |
+| D6 | findings 040 + lifecycle + preuve typée | `findings/` (3 fichiers), `migrateDaemonFindings.js` | `confidence` interdit ; provenance par référence uniquement |
+| D7 | adapter ledger + pression | `daemonNaturalSearchAdapter.js` | testé contre les vraies classes `HypothesisLedger`/`SearchPressureModel` |
+| D8 | payload 041 + journal lecture + 4 détecteurs + investigateur | `daemonEventLog.js`, `investigation/` (2 fichiers), `migrateDaemonEventPayload.js` | `pickCandidateFile()` non réutilisé (obsolète comme prévu) |
+| D9 | `detector_id` 042 + verifier + reproduction | `verification/` (2 fichiers), `migrateDaemonFindingDetector.js` | reproduction causale complète (snapshot+contrôle) différée ; v1 = re-observation d'événements indépendants |
+| D10 | marqueurs 043 + decay + pont partagé | `daemonStigmergyService.js`, `migrateDaemonStigmergy.js` | `PERFORMANCE_REGRESSION` sans mapping pont (local-only, honnête) ; `genos-signal` Rust non branché (pont JS utilisé) |
+
+Chaque sprint : suite de tests dédiée (`backend/tests/test_daemon_*.js`, 12 suites vertes), quality gate 0 violation sur les fichiers du sprint. Deux bugs réels trouvés par les tests : parsing TZ de `last_observed_at`, comparaison de formats `created_at` mixtes.
 
 ## Références
 
