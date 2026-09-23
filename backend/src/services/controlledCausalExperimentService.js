@@ -45,6 +45,9 @@ function compareTrajectories(baselineTrajectory, candidateTrajectory) {
 
 function findDivergencePoints(baseline, candidate) {
   const divergences = [];
+  // Only compare positions that exist in both trajectories.
+  // If lengths differ, the difference is a divergence in itself — reported
+  // via baselineLength/candidateLength in the comparison object.
   const minLen = Math.min(baseline.length, candidate.length);
   for (let i = 0; i < minLen; i++) {
     if (baseline[i] !== candidate[i]) {
@@ -86,7 +89,10 @@ function assessEvidenceStrength({ divergenceCount, baselineLength, candidateLeng
 }
 
 function runControlledExperiment({ name, runner, control, intervention, initialState, trajectoryExtractor }) {
-  const experiment = createExperiment({ name, runner, control, intervention, initialState });
+  // Deep-clone initialState so baseline and intervention runs are independent.
+  // Without this, a runner that mutates state would corrupt the second run.
+  const safeInitialState = initialState !== undefined ? JSON.parse(JSON.stringify(initialState)) : undefined;
+  const experiment = createExperiment({ name, runner, control, intervention, initialState: safeInitialState });
 
   const baselineResult = executeBaseline(experiment);
   const candidateResult = executeIntervention(experiment);

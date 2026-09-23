@@ -1,0 +1,55 @@
+════════════════════════════════════════════════════════════
+ P3 — Recherche évolutionnaire des mécanismes du soi
+ 3 seeds × 4 environnements × 40 générations × 24 individus
+════════════════════════════════════════════════════════════
+
+── Hostile (3 seeds) ──────────────────────────────
+  strate           activation  (fitness évolutive vs prescrite)
+  self_model         0.70  █████████████
+  memory             0.47  █████████
+  interoception      1.00  ███████████████████
+  workspace          0.99  ███████████████████
+  agency             0.98  ███████████████████
+  homeostasis        1.00  ███████████████████
+  metacognition      1.00  ███████████████████
+  fitness évoluée: 3.574 | prescrite (tout=1.0): 42.668 | Δ: -39.094
+
+── Predictable (3 seeds) ──────────────────────────────
+  strate           activation  (fitness évolutive vs prescrite)
+  self_model         0.00  
+  memory             0.99  ███████████████████
+  interoception      0.02  
+  workspace          0.00  
+  agency             0.10  █
+  homeostasis        0.25  ████
+  metacognition      0.00  
+  fitness évoluée: 0.262 | prescrite (tout=1.0): 0.110 | Δ: +0.152
+
+── Deceptive (3 seeds) ──────────────────────────────
+  strate           activation  (fitness évolutive vs prescrite)
+  self_model         0.99  ███████████████████
+  memory             1.00  ███████████████████
+  interoception      0.99  ███████████████████
+  workspace          1.00  ███████████████████
+  agency             1.00  ████████████████████
+  homeostasis        0.99  ███████████████████
+  metacognition      0.99  ███████████████████
+  fitness évoluée: 3.533 | prescrite (tout=1.0): 42.052 | Δ: -38.519
+
+── Volatile (3 seeds) ──────────────────────────────
+  strate           activation  (fitness évolutive vs prescrite)
+  self_model         0.97  ███████████████████
+  memory             0.99  ███████████████████
+  interoception      0.99  ███████████████████
+  workspace          1.00  ████████████████████
+  agency             1.00  ███████████████████
+  homeostasis        1.00  ███████████████████
+  metacognition      0.99  ███████████████████
+  fitness évoluée: 4.079 | prescrite (tout=1.0): 48.668 | Δ: -44.589
+
+════════════════════════════════════════════════════════════
+ VERDICT — strates sélectionnées (>0.5) / rejetées (<0.2) :
+  Hostile      sélectionnées: ["self_model", "memory", "interoception", "workspace", "agency", "homeostasis", "metacognition"] | rejetées: []
+  Predictable  sélectionnées: ["memory"] | rejetées: ["self_model", "interoception", "workspace", "agency", "metacognition"]
+  Deceptive    sélectionnées: ["self_model", "memory", "interoception", "workspace", "agency", "homeostasis", "metacognition"] | rejetées: []
+  Volatile     sélectionnées: ["self_model", "memory", "interoception", "workspace", "agency", "homeostasis", "metacognition"] | rejetées: []

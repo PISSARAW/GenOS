@@ -1,5 +1,6 @@
 pub mod conscience;
 pub mod core_self;
+pub mod self_evolution;
 pub(crate) mod execution_api;
 pub mod clinical_therapy;
 pub mod autopoiesis;
