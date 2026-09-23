@@ -6,6 +6,30 @@ const path = require('path');
 const fsSync = require('fs');
 const { spawnSync } = require('child_process');
 const { resolveExecutor } = require('./cognitiveExecutor');
+const { harnessRuntime } = require('./harnessCatalog');
+
+function normalizeCatalogName(candidate, mission) {
+  const source = mission || {};
+  if (candidate === 'local-codex-runtime') return 'local';
+  if (candidate === 'genos-local-runtime') return 'local';
+  if (candidate === 'genos-agent-runtime') return 'codex';
+  if (source.agentType === 'Local') return 'local';
+  if (source.modelTier === 'Local') return 'local';
+  if (source.localRuntime === true) return 'local';
+  if (source.execution_mode === 'local') return 'local';
+  return candidate || null;
+}
+
+function catalogExecutable(candidate, mission) {
+  try {
+    const name = normalizeCatalogName(candidate, mission);
+    if (!name) return null;
+    const resolved = resolveExecutor({ executor: name });
+    return harnessRuntime(resolved);
+  } catch (_) {
+    return null;
+  }
+}
 
 function resolveBundled(repositoryRoot, name) {
   const isWin = process.platform === 'win32';
@@ -59,6 +83,8 @@ function configuredExecutable(mission = {}) {
   const envVal = String(process.env.GENOS_AGENT_EXECUTOR || '').trim();
   const missionExecutor = String(mission.executor || mission.runtime || '').trim();
   const candidate = missionExecutor || envVal;
+  const catalogHit = catalogExecutable(candidate, mission);
+  if (catalogHit) return catalogHit;
 
   if (resolveExecutor({ ...mission, executor: candidate }) === 'caller_mcp') return CALLER_MCP_RUNTIME_PATH;
   if (resolveExecutor({ ...mission, executor: candidate }) === 'solar-direct') return SOLAR_RUNTIME_PATH;
