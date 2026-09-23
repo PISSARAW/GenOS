@@ -31,24 +31,20 @@ class StorageCapabilityRegistry {
   }
 
   async registerGraph() {
-    const { LadybugGraphRepository } = require('./graph/ladybugStore');
+    const { LadybugStore } = require('./graph/ladybugStore');
     return this.register('graph', 'ladybug', async () => {
-      const repo = new LadybugGraphRepository();
-      await repo.init();
-      const available = repo.available;
-      await repo.close();
-      return available;
+      const store = new LadybugStore();
+      await store.init();
+      return store.available !== false;
     });
   }
 
   async registerAnalytics() {
-    const { DuckDBAnalyticsStore } = require('./analytics/duckdbStore');
+    const { DuckDBStore } = require('./analytics/duckdbStore');
     return this.register('analytics', 'duckdb', async () => {
-      const store = new DuckDBAnalyticsStore();
+      const store = new DuckDBStore();
       await store.init();
-      const available = store.available;
-      await store.close();
-      return available;
+      return store.available !== false;
     });
   }
 
@@ -68,7 +64,6 @@ class StorageCapabilityRegistry {
         const { getDatabase } = require('../db');
         const db = await getDatabase();
         const result = await db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='rag_chunks_vec'");
-        await db.close();
         return !!result;
       } catch (_) {
         return false;
@@ -81,8 +76,8 @@ class StorageCapabilityRegistry {
       try {
         const { getDatabase } = require('../db');
         const db = await getDatabase();
-        await db.close();
-        return true;
+        const result = await db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='agents'");
+        return !!result;
       } catch (_) {
         return false;
       }
