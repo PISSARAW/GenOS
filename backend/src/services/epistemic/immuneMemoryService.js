@@ -70,12 +70,67 @@ function recall(memory, pattern) {
   return best;
 }
 
-function fuzzyRecall(memory, pattern, opts = {}) {
+function tokensOf(text) {
+  return new Set(String(text || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+}
+
+function jaccardSimilarity(left, right) {
+  const a = tokensOf(left);
+  const b = tokensOf(right);
+  if (a.size === 0 || b.size === 0) return 0;
+  let intersection = 0;
+  for (const token of a) {
+    if (b.has(token)) intersection += 1;
+  }
+  return intersection / (a.size + b.size - intersection);
+}
+
+function claimTextFromObject(pattern) {
+  if (typeof pattern.claim === 'string') return pattern.claim;
+  if (pattern.claim && pattern.claim.text) return pattern.claim.text;
+  return null;
+}
+
+function claimTextOf(pattern) {
+  if (!pattern || typeof pattern !== 'object') return String(pattern || '');
+  const direct = claimTextFromObject(pattern);
+  if (direct) return direct;
+  if (pattern.pattern && typeof pattern.pattern === 'object') return claimTextOf(pattern.pattern);
+  return String(pattern.pattern || pattern.signature || '');
+}
+
+function similarEntries(memory, pattern, threshold) {
+  const reference = claimTextOf(pattern);
+  if (!reference) return [];
+  return memory.filter((entry) => {
+    if (entry.affinity < SEUIL_SIGNATURE_FAIBLE) return false;
+    return jaccardSimilarity(reference, claimTextOf(entry)) >= threshold;
+  });
+}
+
+function thresholdRecall(memory, pattern, opts = {}) {
   if (!memory || !Array.isArray(memory)) return [];
   const sig = signatureFrom(pattern);
   const threshold = opts.threshold || SEUIL_RAPPEL_AUTOMATIQUE;
   const candidates = memory.filter((entry) => entry.signature === sig);
   return candidates.filter((e) => e.affinity >= threshold);
+}
+
+function mergeRecallResults(exact, similar, threshold) {
+  const seen = new Set(exact.map((e) => e.id));
+  const merged = exact.slice();
+  for (const entry of similar) {
+    if (seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    merged.push(entry);
+  }
+  return merged.filter((e) => e.affinity >= threshold);
+}
+
+function fuzzyRecall(memory, pattern, opts = {}) {
+  const exact = thresholdRecall(memory, pattern, opts);
+  const similar = similarEntries(memory, pattern, opts.similarity || 0.4);
+  return mergeRecallResults(exact, similar, opts.threshold || SEUIL_RAPPEL_AUTOMATIQUE);
 }
 
 function updateEntryAffinity(entry, success) {
@@ -137,8 +192,10 @@ module.exports = {
   memoryEntry,
   recall,
   fuzzyRecall,
+  thresholdRecall,
   recordOutcome,
   priorityRank,
+  jaccardSimilarity,
   SEUIL_RAPPEL_AUTOMATIQUE,
   SEUIL_SIGNATURE_FAIBLE,
 };
