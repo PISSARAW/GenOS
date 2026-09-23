@@ -68,7 +68,8 @@ const DANGER_SIGNAL_REGISTRY = [
     check: (antigen) => {
       const p = antigen.epitopes.provenance;
       if (!p || !p.source) return false;
-      const ageHours = (Date.now() - Date.parse(p.source.bornAt || p.provenance.bornAt || '1970-01-01')) / 3600000;
+      const nested = p.provenance || {};
+      const ageHours = (Date.now() - Date.parse(p.source.bornAt || nested.bornAt || '1970-01-01')) / 3600000;
       return ageHours > 72 * 24;
     },
     response: 'challenge',

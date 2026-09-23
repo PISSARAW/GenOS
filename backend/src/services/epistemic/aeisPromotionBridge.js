@@ -13,6 +13,7 @@
  * - L'indépendance est portée par le receipt signé, pas ajoutée après coup.
  */
 
+const crypto = require('node:crypto');
 const { evaluateEpistemicAssurance } = require('../epistemicAssuranceService');
 const { adaptImmuneResult } = require('./formalResultAdapter');
 const { createFormalResult } = require('../formalResultService');
@@ -53,13 +54,80 @@ function buildConstraintAttestations(verifications, obligationIds) {
   return attestations;
 }
 
+function candidateAssumptions(antigen) {
+  const raw = antigen.epitopes?.assumptions || [];
+  return raw.map((item, i) => {
+    if (typeof item === 'string') return { id: `assumption-${i}`, statement: item };
+    return { id: item.id || `assumption-${i}`, statement: item.statement || String(item) };
+  });
+}
+
+function candidateValidityDomain(antigen, statement) {
+  const raw = antigen.epitopes?.validityDomain || {};
+  return {
+    statement: raw.statement || raw.domain || statement,
+    constraints: Array.isArray(raw.constraints) ? raw.constraints : [],
+  };
+}
+
+function candidateFromAntigen(antigen) {
+  const statement = typeof antigen.claim === 'string' ? antigen.claim : '(claim)';
+  return {
+    canonicalStatement: statement,
+    status: 'tested',
+    evidence: {
+      kind: 'reproducible_artifact',
+      content: { claim: statement, antigenId: antigen.id },
+      reproduction: { command: 'holobionte:review', environment: 'genos' },
+    },
+    assumptions: candidateAssumptions(antigen),
+    validityDomain: candidateValidityDomain(antigen, statement),
+    dependencies: [],
+    provenance: {
+      createdAt: new Date().toISOString(),
+      actor: 'holobionte',
+      source: {
+        type: 'holobionte',
+        uri: 'genos://holobionte',
+        digest: stableIdFor(statement),
+      },
+      inputs: [],
+      transformations: ['claim-to-formal'],
+    },
+    producer: antigen.producer || { model: 'worker', version: '1.0' },
+  };
+}
+
+function bindAntigenToFormalResult(antigen) {
+  try {
+    const formalResult = createFormalResult(candidateFromAntigen(antigen));
+    antigen.id = formalResult.resultId;
+    antigen.epitopes.evidence = {
+      ...antigen.epitopes.evidence,
+      kind: formalResult.evidence.kind,
+      digest: formalResult.evidence.digest,
+    };
+    antigen.formalResult = formalResult;
+    return formalResult;
+  } catch (_) {
+    return null;
+  }
+}
+
+function resolveFormalResult(antigen, holobionteResult) {
+  if (antigen.formalResult) return antigen.formalResult;
+  return holobionteToFormalResult(antigen, holobionteResult);
+}
+
 /**
  * Construit une assemblée d'assurance à partir des résultats Holobionte.
  * Les verifications sont extraites des receipts EXISTANTS sans les modifier.
+ * Les FormalResults pré-créés (bindés avant vérification) sont réutilisés
+ * pour garantir receipt.resultId === result.resultId.
  */
 function buildAssuranceAssemblyFromHolobionte(antigens, holobionteResults, context = {}) {
   const results = antigens
-    .map((antigen, i) => holobionteToFormalResult(antigen, holobionteResults[i]))
+    .map((antigen, i) => resolveFormalResult(antigen, holobionteResults[i]))
     .filter(Boolean);
 
   const verifiedResults = results.filter(r => r.status === 'verified' || r.status === 'tested');
@@ -98,6 +166,8 @@ function extractSignedVerifications(holobionteResults) {
 async function evaluateAeisForPromotion(antigens, context = {}) {
   const { epistemicHolobionte } = require('./epistemicHolobionteService');
 
+  for (const antigen of antigens) bindAntigenToFormalResult(antigen);
+
   const holobionteResults = await Promise.all(
     antigens.map(antigen => epistemicHolobionte(antigen, {
       ...context,
@@ -119,9 +189,20 @@ async function evaluateAeisForPromotion(antigens, context = {}) {
   };
 }
 
+function statementFromClaim(claim) {
+  return claim.statement || claim.claim || String(claim);
+}
+
+function stableIdFor(statement, existingId) {
+  if (existingId) return existingId;
+  return `sha256:${crypto.createHash('sha256').update(`antigen:${statement}`).digest('hex')}`;
+}
+
 function claimToAntigen(claim, domain = 'general') {
+  const statement = statementFromClaim(claim);
   return {
-    claim: claim.statement || claim.claim || String(claim),
+    id: claim.id || stableIdFor(statement),
+    claim: statement,
     epitopes: {
       evidence: claim.evidence?.[0] || { kind: 'reproducible_artifact' },
       assumptions: claim.assumptions || [],
@@ -159,6 +240,7 @@ module.exports = {
   holobionteToFormalResult,
   buildAssuranceAssemblyFromHolobionte,
   buildConstraintAttestations,
+  bindAntigenToFormalResult,
   evaluateAeisForPromotion,
   claimToAntigen,
   extractAntigensFromReport,
