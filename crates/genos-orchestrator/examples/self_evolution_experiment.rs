@@ -33,7 +33,14 @@ fn main() {
         }
         let evo: f64 = runs.iter().map(|r| r.mean_fitness).sum::<f64>() / runs.len() as f64;
         let pres: f64 = runs.iter().map(|r| r.prescribed_fitness).sum::<f64>() / runs.len() as f64;
-        println!("  fitness évoluée: {:.3} | prescrite (tout=1.0): {:.3} | Δ: {:+.3}\n", evo, pres, evo - pres);
+        let survived = runs.iter().filter(|r| r.prescribed_survived).count();
+        let death = runs.iter().filter_map(|r| r.prescribed_death_tick).sum::<u64>() as f64 / runs.len() as f64;
+        println!("  fitness évoluée: {:.3} | prescrite (tout=1.0): {:.3} | Δ: {:+.3}", evo, pres, evo - pres);
+        println!("  prescrit: survie {}/{} (tick de mort moyen: {:.1})", survived, runs.len(), death);
+        if survived == 0 {
+            println!("  ⚠ Δ NON INTERPRÉTABLE : le prescrit meurt avant la fin — l'évolué évite le suicide, il ne bat pas un soi viable.");
+        }
+        println!();
     }
 
     // Verdict global

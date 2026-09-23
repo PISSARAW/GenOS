@@ -11,11 +11,12 @@ const {
 const health = registryHealth();
 assert.equal(health.valid, true, health.errors.join('; '));
 assert.equal(health.relationCount, RELATION_DEFINITIONS.length);
-assert.ok(health.relationTypes.includes('alternativeTo'));
+assert.ok(health.relationTypes.includes('operationalizes'));
+assert.ok(health.relationTypes.includes('caveat'));
 
-const alternatives = listRelations({ relationType: 'alternativeTo' });
-assert.ok(alternatives.length > 0);
-assert.ok(alternatives.every((item) => item.relationType === 'alternativeTo'));
+const operationalizes = listRelations({ relationType: 'operationalizes' });
+assert.ok(operationalizes.length > 0);
+assert.ok(operationalizes.every((item) => item.relationType === 'operationalizes'));
 
 const invalidTarget = validateRelations([{
   source: { kind: 'PhilosophicalConcept', id: 'metaphysics.dualism' },

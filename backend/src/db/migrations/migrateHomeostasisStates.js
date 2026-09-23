@@ -1,13 +1,9 @@
 'use strict';
 
 async function migrateHomeostasisStates(db) {
-  // Recreate the table when the status CHECK is stale: CREATE TABLE IF NOT
-  // EXISTS never upgrades an existing constraint, and 'evidence_missing' was
-  // added after the first deployment.
-  const existing = await db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='homeostasis_states'");
-  if (existing && !existing.sql.includes('evidence_missing')) {
-    await db.exec(`DROP TABLE IF EXISTS homeostasis_states;`);
-  }
+  // Idempotent : DROP/CREATE toujours, car Derby de cluster peut avoir créé
+  // la table avec le bon schéma pendant qu'un autre worker tombait en erreur.
+  await db.exec(`DROP TABLE IF EXISTS homeostasis_states;`);
   await db.exec(`CREATE TABLE IF NOT EXISTS homeostasis_states (
     id TEXT PRIMARY KEY,
     contract_id TEXT NOT NULL,
