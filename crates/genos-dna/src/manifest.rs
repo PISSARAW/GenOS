@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct ManifestMetadata {
@@ -32,7 +32,7 @@ pub struct AllowedTools {
     pub allowed_tools: Vec<String>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ModelPolicy {
     #[serde(default)]
     pub preferred: Option<String>,
@@ -58,6 +58,16 @@ pub struct Manifest {
     pub model_policy: Option<ModelPolicy>,
     #[serde(default)]
     pub models: Option<ModelPolicy>,
+    #[serde(default)]
+    pub cognition: Option<serde_json::Value>,
+    #[serde(default)]
+    pub memory_policy: Option<serde_json::Value>,
+    #[serde(default)]
+    pub memory: Option<serde_json::Value>,
+    #[serde(default)]
+    pub policies: Option<serde_json::Value>,
+    #[serde(default)]
+    pub objectives_block: Option<serde_json::Value>,
 }
 
 impl Manifest {

@@ -32,6 +32,71 @@ pub struct Phenotype {
 }
 
 #[derive(Clone, Debug, Default)]
+pub struct EpiMark {
+    pub kind: String,
+    pub level: f64,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct EpigenomeState {
+    pub marks: BTreeMap<String, EpiMark>,
+    pub stage: String,
+    pub stress_memory: Vec<String>,
+    pub generation: u64,
+}
+
+impl EpigenomeState {
+    pub fn new() -> Self {
+        Self { marks: BTreeMap::new(), stage: "Zygote".to_string(), stress_memory: Vec::new(), generation: 0 }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct GrnNode {
+    pub is_tf: bool,
+    pub basal_expression: f64,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct GrnEdge {
+    pub from: String,
+    pub to: String,
+    pub weight: f64,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct GrnState {
+    pub nodes: BTreeMap<String, GrnNode>,
+    pub edges: Vec<GrnEdge>,
+}
+
+impl GrnState {
+    pub fn new() -> Self {
+        Self { nodes: BTreeMap::new(), edges: Vec::new() }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct DevelopmentState {
+    pub stage: String,
+    pub lineage_commitment: Option<String>,
+    pub morphogens: Vec<String>,
+    pub differentiation_signal: Option<String>,
+}
+
+impl DevelopmentState {
+    pub fn new() -> Self {
+        Self { stage: "Zygote".to_string(), lineage_commitment: None, morphogens: Vec::new(), differentiation_signal: None }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct UnknownSection {
+    pub tag: [u8; 4],
+    pub payload: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct Mutation {
     pub gene: Option<String>,
     pub kind: String,
@@ -81,6 +146,10 @@ pub struct AgentDna {
     pub enhancers: Vec<String>,
     pub extra_chromosomes: Vec<DnaStrand>,
     pub scars: Vec<Uuid>,
+    pub epigenome: EpigenomeState,
+    pub grn: GrnState,
+    pub development: DevelopmentState,
+    pub unknown_sections: Vec<UnknownSection>,
     pub phenotype: Option<Phenotype>,
     pub provenance: Provenance,
 }
@@ -106,6 +175,10 @@ impl AgentDna {
             enhancers: genome.regulatory_enhancers.clone(),
             extra_chromosomes: genome.extra_chromosomes.clone(),
             scars: genome.bud_scars.clone(),
+            epigenome: default_epigenome(genome),
+            grn: default_grn(genome),
+            development: DevelopmentState::new(),
+            unknown_sections: Vec::new(),
             phenotype: None,
             provenance,
         }
@@ -135,4 +208,30 @@ fn epoch_seconds() -> i64 {
         Ok(duration) => duration.as_secs() as i64,
         Err(_) => 0,
     }
+}
+
+fn default_epigenome(genome: &Genome) -> EpigenomeState {
+    let mut marks = BTreeMap::new();
+    for (locus, gene) in &genome.genes {
+        if gene.is_methylated {
+            marks.insert(locus.clone(), EpiMark { kind: "Methylation".to_string(), level: 1.0 });
+        }
+    }
+    EpigenomeState {
+        marks,
+        stage: "Zygote".to_string(),
+        stress_memory: Vec::new(),
+        generation: u64::from(genome.generation),
+    }
+}
+
+fn default_grn(genome: &Genome) -> GrnState {
+    let mut nodes = BTreeMap::new();
+    for (locus, gene) in &genome.genes {
+        let is_tf = locus.starts_with("TF_")
+            || locus.starts_with("PIONEER_")
+            || gene.required_activator.is_some();
+        nodes.insert(locus.clone(), GrnNode { is_tf, basal_expression: gene.expression_volume.clamp(0.0, 1.0) });
+    }
+    GrnState { nodes, edges: Vec::new() }
 }

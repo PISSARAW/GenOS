@@ -79,6 +79,10 @@ pub fn build_sections(dna: &AgentDna) -> Result<Vec<Section>, String> {
     push_enhancers(&mut sections, dna);
     push_extra_chromosomes(&mut sections, dna);
     push_scars(&mut sections, dna);
+    push_epigenome(&mut sections, dna)?;
+    push_grn(&mut sections, dna)?;
+    push_development(&mut sections, dna)?;
+    push_unknowns(&mut sections, dna);
     if let Some(phenotype) = &dna.phenotype {
         sections.push(Section::new(SectionTag::Phen, pack(&wire::phenotype_to_wire(phenotype))?));
     }
@@ -131,6 +135,40 @@ fn push_scars(sections: &mut Vec<Section>, dna: &AgentDna) {
     let list: Vec<UuidBytes> = dna.scars.iter().map(|id| UuidBytes(*id)).collect();
     if let Ok(payload) = pack(&list) {
         sections.push(Section::new(SectionTag::Scar, payload));
+    }
+}
+
+fn push_epigenome(sections: &mut Vec<Section>, dna: &AgentDna) -> Result<(), String> {
+    if dna.epigenome.marks.is_empty() && dna.epigenome.stress_memory.is_empty() {
+        return Ok(());
+    }
+    sections.push(Section::new(SectionTag::Epigenome, pack(&wire::epigenome_to_wire(&dna.epigenome))?));
+    Ok(())
+}
+
+fn push_grn(sections: &mut Vec<Section>, dna: &AgentDna) -> Result<(), String> {
+    if dna.grn.nodes.is_empty() && dna.grn.edges.is_empty() {
+        return Ok(());
+    }
+    sections.push(Section::new(SectionTag::Grn, pack(&wire::grn_to_wire(&dna.grn))?));
+    Ok(())
+}
+
+fn push_development(sections: &mut Vec<Section>, dna: &AgentDna) -> Result<(), String> {
+    if dna.development.stage == "Zygote"
+        && dna.development.lineage_commitment.is_none()
+        && dna.development.morphogens.is_empty()
+        && dna.development.differentiation_signal.is_none()
+    {
+        return Ok(());
+    }
+    sections.push(Section::new(SectionTag::Development, pack(&wire::development_to_wire(&dna.development))?));
+    Ok(())
+}
+
+fn push_unknowns(sections: &mut Vec<Section>, dna: &AgentDna) {
+    for unknown in &dna.unknown_sections {
+        sections.push(Section::new(SectionTag::Unknown(unknown.tag), unknown.payload.clone()));
     }
 }
 
@@ -234,7 +272,7 @@ fn read_section(bytes: &[u8], entry: &SectionEntry, table_end: usize) -> Result<
 
 fn read_entry(bytes: &[u8], base: usize) -> Result<SectionEntry, String> {
     let tag_bytes = [bytes[base], bytes[base + 1], bytes[base + 2], bytes[base + 3]];
-    let tag = SectionTag::from_bytes(tag_bytes).ok_or_else(|| format!("unknown section tag {:?}", tag_bytes))?;
+    let tag = SectionTag::from_bytes_lossy(tag_bytes);
     Ok(SectionEntry {
         tag,
         offset: read_u32(bytes, base + 4),
@@ -264,6 +302,10 @@ struct DnaParts {
     enhancers: Vec<String>,
     extra_chromosomes: Vec<DnaStrand>,
     scars: Vec<uuid::Uuid>,
+    epigenome: crate::model::EpigenomeState,
+    grn: crate::model::GrnState,
+    development: crate::model::DevelopmentState,
+    unknowns: Vec<crate::model::UnknownSection>,
     phenotype: Option<Phenotype>,
 }
 
@@ -278,6 +320,10 @@ fn build_model(sections: &[Section]) -> Result<AgentDna, String> {
         enhancers: parts.enhancers,
         extra_chromosomes: parts.extra_chromosomes,
         scars: parts.scars,
+        epigenome: parts.epigenome,
+        grn: parts.grn,
+        development: parts.development,
+        unknown_sections: parts.unknowns,
         phenotype: parts.phenotype,
         provenance: read_provenance(sections)?,
     })
@@ -289,6 +335,10 @@ fn read_optional(sections: &[Section]) -> Result<DnaParts, String> {
         enhancers: read_enhancers(sections)?,
         extra_chromosomes: read_extra(sections)?,
         scars: read_scars(sections)?,
+        epigenome: read_epigenome(sections)?,
+        grn: read_grn(sections)?,
+        development: read_development(sections)?,
+        unknowns: read_unknowns(sections),
         phenotype: read_phenotype(sections)?,
     })
 }
@@ -365,6 +415,44 @@ fn read_phenotype(sections: &[Section]) -> Result<Option<crate::model::Phenotype
         }
         None => Ok(None),
     }
+}
+
+fn read_epigenome(sections: &[Section]) -> Result<crate::model::EpigenomeState, String> {
+    match optional(sections, SectionTag::Epigenome) {
+        Some(payload) => {
+            let wire: wire::WireEpigenome = unpack(payload)?;
+            Ok(wire::wire_to_epigenome(wire))
+        }
+        None => Ok(crate::model::EpigenomeState::new()),
+    }
+}
+
+fn read_grn(sections: &[Section]) -> Result<crate::model::GrnState, String> {
+    match optional(sections, SectionTag::Grn) {
+        Some(payload) => {
+            let wire: wire::WireGrn = unpack(payload)?;
+            Ok(wire::wire_to_grn(wire))
+        }
+        None => Ok(crate::model::GrnState::new()),
+    }
+}
+
+fn read_development(sections: &[Section]) -> Result<crate::model::DevelopmentState, String> {
+    match optional(sections, SectionTag::Development) {
+        Some(payload) => {
+            let wire: wire::WireDevelopment = unpack(payload)?;
+            Ok(wire::wire_to_development(wire))
+        }
+        None => Ok(crate::model::DevelopmentState::new()),
+    }
+}
+
+fn read_unknowns(sections: &[Section]) -> Vec<crate::model::UnknownSection> {
+    sections
+        .iter()
+        .filter(|section| section.tag.is_unknown())
+        .map(|section| crate::model::UnknownSection { tag: section.tag.as_bytes(), payload: section.payload.clone() })
+        .collect()
 }
 
 fn pack<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, String> {

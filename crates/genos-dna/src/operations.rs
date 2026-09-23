@@ -105,7 +105,7 @@ pub fn cross(parent_a: &AgentDna, parent_b: &AgentDna, options: &CrossOptions) -
         ..Provenance::default()
     };
     let name = format!("{}x{}", parent_a.meta.name, parent_b.meta.name);
-    Ok(rebuild(&child, &name, provenance))
+    Ok(rebuild_cross(&child, parent_a, parent_b, &name, provenance))
 }
 
 pub fn mutate(dna: &AgentDna, options: &MutateOptions) -> Result<AgentDna, String> {
@@ -136,18 +136,71 @@ pub fn mutate(dna: &AgentDna, options: &MutateOptions) -> Result<AgentDna, Strin
         to: String::new(),
     });
     let name = format!("{}_mut{}", dna.meta.name, provenance.mutations.len());
-    Ok(rebuild(&genome, &name, provenance))
+    Ok(rebuild_inheriting(&genome, dna, &name, provenance))
+}
+
+pub struct ClonePair {
+    pub mother: AgentDna,
+    pub daughter: AgentDna,
+}
+
+pub fn clone_dna_pair(dna: &AgentDna, options: &CloneOptions) -> Result<ClonePair, String> {
+    let genome = dna.to_genome()?;
+    let seed = resolve_seed(&options.seed, &format!("clone:{}", dna.meta.genome_id));
+    if options.mode.as_str() == "budding" {
+        let limits = (0, genome.hayflick_limit, options.mutation_rate);
+        let result = CellDivision::budding_with_limit_and_mutation(&genome, options.daughter_volume, limits)?;
+        let mother = rebuild_inheriting(&result.mother, dna, &dna.meta.name, mother_provenance(dna));
+        let mut daughter_prov = daughter_provenance(dna, &options.mode);
+        daughter_prov.mutations.push(mother_scar_mutation(&result.mother));
+        let daughter_name = format!("{}_clone_{}", dna.meta.name, options.mode);
+        let daughter = rebuild_inheriting(&result.daughter, dna, &daughter_name, daughter_prov);
+        return Ok(ClonePair { mother, daughter });
+    }
+    Ok(ClonePair { mother: dna.clone(), daughter: clone_dna(dna, options)? })
+}
+
+fn mother_provenance(dna: &AgentDna) -> Provenance {
+    Provenance {
+        source_manifest: dna.provenance.source_manifest.clone(),
+        source_doc: dna.provenance.source_doc.clone(),
+        parents: vec![dna.meta.genome_id],
+        mutations: vec![Mutation {
+            gene: None,
+            kind: "budding:mother_scar".to_string(),
+            from: String::new(),
+            to: "scar+1".to_string(),
+        }],
+        ..Provenance::default()
+    }
+}
+
+fn daughter_provenance(dna: &AgentDna, _mode: &str) -> Provenance {
+    Provenance {
+        source_manifest: dna.provenance.source_manifest.clone(),
+        source_doc: dna.provenance.source_doc.clone(),
+        parents: vec![dna.meta.genome_id],
+        ..Provenance::default()
+    }
+}
+
+fn mother_scar_mutation(mother: &genos_genome::Genome) -> Mutation {
+    Mutation {
+        gene: None,
+        kind: "budding:mother_scar_recorded".to_string(),
+        from: String::new(),
+        to: format!("mother_scars={}", mother.bud_scars.len()),
+    }
 }
 
 pub fn clone_dna(dna: &AgentDna, options: &CloneOptions) -> Result<AgentDna, String> {
+    if options.mode.as_str() == "budding" {
+        return Ok(clone_dna_pair(dna, options)?.daughter);
+    }
     let genome = dna.to_genome()?;
     let seed = resolve_seed(&options.seed, &format!("clone:{}", dna.meta.genome_id));
     let child = match options.mode.as_str() {
         "fission" | "binary_fission" => CellDivision::binary_fission_with_seed(&genome, options.mutation_rate, &seed)?.1,
-        "budding" => {
-            let limits = (0, genome.hayflick_limit, options.mutation_rate);
-            CellDivision::budding_with_limit_and_mutation(&genome, options.daughter_volume, limits)?.daughter
-        }
         _ => CellDivision::mitosis_attested(&genome)?.clone,
     };
     let provenance = Provenance {
@@ -157,7 +210,7 @@ pub fn clone_dna(dna: &AgentDna, options: &CloneOptions) -> Result<AgentDna, Str
         ..Provenance::default()
     };
     let name = format!("{}_clone_{}", dna.meta.name, options.mode);
-    Ok(rebuild(&child, &name, provenance))
+    Ok(rebuild_inheriting(&child, dna, &name, provenance))
 }
 
 pub fn decoy(dna: &AgentDna, options: &DecoyOptions) -> Result<AgentDna, String> {
@@ -177,7 +230,7 @@ pub fn graft(dna: &AgentDna, spec: &GraftSpec) -> Result<AgentDna, String> {
     let mut provenance = dna.provenance.clone();
     provenance.parents = vec![dna.meta.genome_id];
     provenance.mutations.push(graft_mutation(spec, "graft"));
-    Ok(rebuild(&genome, &dna.meta.name, provenance))
+    Ok(rebuild_inheriting(&genome, dna, &dna.meta.name, provenance))
 }
 
 /// Derives a new genome from a parent and distills acquired concepts into it.
@@ -203,7 +256,7 @@ pub fn speciate(dna: &AgentDna, options: &SpeciateOptions) -> Result<AgentDna, S
     for spec in &options.grafts {
         provenance.mutations.push(graft_mutation(spec, "speciation"));
     }
-    Ok(rebuild(&child, &options.name, provenance))
+    Ok(rebuild_inheriting(&child, dna, &options.name, provenance))
 }
 
 fn apply_graft(genome: &mut Genome, spec: &GraftSpec) -> Result<(), String> {
@@ -274,6 +327,55 @@ fn rebuild(genome: &Genome, name: &str, provenance: Provenance) -> AgentDna {
     let mut dna = AgentDna::from_genome(genome, name, provenance);
     dna.phenotype = Some(express::express(&dna));
     dna
+}
+
+fn rebuild_cross(genome: &Genome, parent_a: &AgentDna, parent_b: &AgentDna, name: &str, provenance: Provenance) -> AgentDna {
+    let mut dna = AgentDna::from_genome(genome, name, provenance);
+    dna.epigenome = parent_a.epigenome.clone();
+    dna.epigenome.generation = u64::from(genome.generation);
+    dna.grn = parent_a.grn.clone();
+    merge_parent_grn(&mut dna, parent_b);
+    sync_grn_nodes(&mut dna, genome);
+    dna.development = parent_a.development.clone();
+    dna.unknown_sections = parent_a.unknown_sections.clone();
+    dna.phenotype = Some(express::express(&dna));
+    dna
+}
+
+fn merge_parent_grn(dna: &mut AgentDna, parent: &AgentDna) {
+    for edge in &parent.grn.edges {
+        if !dna.grn.edges.iter().any(|item| item.from == edge.from && item.to == edge.to) {
+            dna.grn.edges.push(edge.clone());
+        }
+    }
+    for (locus, mark) in &parent.epigenome.marks {
+        dna.epigenome.marks.entry(locus.clone()).or_insert(mark.clone());
+    }
+}
+
+fn rebuild_inheriting(genome: &Genome, parent: &AgentDna, name: &str, provenance: Provenance) -> AgentDna {
+    let mut dna = AgentDna::from_genome(genome, name, provenance);
+    dna.epigenome = parent.epigenome.clone();
+    dna.epigenome.generation = u64::from(genome.generation);
+    dna.grn = parent.grn.clone();
+    sync_grn_nodes(&mut dna, genome);
+    dna.development = parent.development.clone();
+    dna.unknown_sections = parent.unknown_sections.clone();
+    dna.phenotype = Some(express::express(&dna));
+    dna
+}
+
+fn sync_grn_nodes(dna: &mut AgentDna, genome: &Genome) {
+    for (locus, gene) in &genome.genes {
+        dna.grn.nodes.entry(locus.clone()).or_insert(crate::model::GrnNode {
+            is_tf: locus.starts_with("TF_") || locus.starts_with("PIONEER_"),
+            basal_expression: gene.expression_volume.clamp(0.0, 1.0),
+        });
+    }
+    let live: std::collections::HashSet<String> = genome.genes.keys().cloned().collect();
+    dna.grn.nodes.retain(|locus, _| live.contains(locus));
+    dna.grn.edges.retain(|edge| live.contains(&edge.from) && live.contains(&edge.to));
+    dna.epigenome.marks.retain(|locus, _| live.contains(locus));
 }
 
 fn seeded_rng(seed: &str) -> StdRng {

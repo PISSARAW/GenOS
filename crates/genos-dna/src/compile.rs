@@ -1,7 +1,7 @@
 use genos_genome::{Gene, Genome};
 
 use crate::express::{self, DEFAULT_TOP_P, DEFAULT_TEMP};
-use crate::manifest::Manifest;
+use crate::manifest::{Manifest, ModelPolicy};
 use crate::model::{AgentDna, Provenance};
 
 pub const MAX_LOCUS: usize = 64;
@@ -17,7 +17,9 @@ pub fn compile_manifest(manifest: &Manifest) -> Result<AgentDna, String> {
     insert_role_genes(&mut genome, &role, manifest);
     insert_capability_genes(&mut genome, &manifest.capabilities)?;
     insert_tool_genes(&mut genome, manifest.allowed_tools())?;
+    insert_policy_genes(&mut genome, manifest)?;
     let mut dna = AgentDna::from_genome(&genome, &name, build_provenance(manifest));
+    preserve_manifest_labels(&mut dna, manifest);
     dna.phenotype = Some(express::express(&dna));
     Ok(dna)
 }
@@ -105,5 +107,67 @@ fn build_provenance(manifest: &Manifest) -> Provenance {
         source_manifest: Some(manifest.display_name().to_string()),
         source_doc: manifest.objectives.source_doc.clone(),
         ..Provenance::default()
+    }
+}
+
+fn insert_policy_genes(genome: &mut Genome, manifest: &Manifest) -> Result<(), String> {
+    insert_json_gene(genome, "COGNITION", &manifest.cognition)?;
+    insert_json_gene(genome, "MEMORY_POLICY", &manifest.memory_policy)?;
+    insert_json_gene(genome, "MEMORY", &manifest.memory)?;
+    insert_json_gene(genome, "POLICIES", &manifest.policies)?;
+    insert_json_gene(genome, "MODEL_POLICY", &manifest.model_policy)?;
+    Ok(())
+}
+
+fn insert_json_gene(genome: &mut Genome, locus: &str, value: &dyn JsonValue) -> Result<(), String> {
+    let Some(text) = value.as_json_text() else { return Ok(()) };
+    if text.trim().is_empty() || text == "null" {
+        return Ok(());
+    }
+    genome.insert_gene(Gene::new(locus, &truncate_instruction(&text)));
+    Ok(())
+}
+
+trait JsonValue {
+    fn as_json_text(&self) -> Option<String>;
+}
+
+impl JsonValue for Option<serde_json::Value> {
+    fn as_json_text(&self) -> Option<String> {
+        self.as_ref().map(|value| value.to_string())
+    }
+}
+
+impl JsonValue for Option<ModelPolicy> {
+    fn as_json_text(&self) -> Option<String> {
+        self.as_ref().and_then(|policy| serde_json::to_string(policy).ok())
+    }
+}
+
+fn truncate_instruction(text: &str) -> String {
+    let trimmed = text.trim();
+    if trimmed.len() > 512 {
+        trimmed[..512].to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn preserve_manifest_labels(dna: &mut AgentDna, manifest: &Manifest) {
+    insert_label(dna, "manifest.kind", manifest.kind.as_deref());
+    insert_label(dna, "manifest.apiVersion", manifest.api_version.as_deref());
+    if let Some(name) = &manifest.identity.name {
+        insert_label(dna, "identity.name", Some(name));
+    }
+    if let Some(meaning) = &manifest.identity.name_meaning {
+        insert_label(dna, "identity.name_meaning", Some(meaning));
+    }
+}
+
+fn insert_label(dna: &mut AgentDna, key: &str, value: Option<&str>) {
+    if let Some(text) = value {
+        if !text.trim().is_empty() {
+            dna.meta.labels.insert(key.to_string(), text.to_string());
+        }
     }
 }

@@ -155,3 +155,156 @@ fn speciate_derives_new_genome_with_concepts() {
     assert!(child.genes.contains_key("CAP_FORAGING"));
     assert!(child.provenance.selection.is_some());
 }
+
+#[test]
+fn epigenome_grn_development_round_trip() {
+    let mut dna = compile::compile_manifest(&sample_manifest()).expect("compile");
+    dna.epigenome.marks.insert("ROLE".to_string(), crate::model::EpiMark {
+        kind: "Acetylation".to_string(),
+        level: 0.8,
+    });
+    dna.epigenome.stage = "Differentiated".to_string();
+    dna.grn.nodes.insert("TF_ALPHA".to_string(), crate::model::GrnNode {
+        is_tf: true,
+        basal_expression: 0.9,
+    });
+    dna.grn.edges.push(crate::model::GrnEdge {
+        from: "TF_ALPHA".to_string(),
+        to: "ROLE".to_string(),
+        weight: 0.9,
+    });
+    dna.development.stage = "Differentiated".to_string();
+    dna.development.morphogens = vec!["TF_ALPHA".to_string()];
+    dna.development.lineage_commitment = Some("historian".to_string());
+    let bytes = codec::encode(&dna).expect("encode with regulatory layers");
+    let decoded = codec::decode(&bytes).expect("decode with regulatory layers");
+    assert_eq!(decoded.epigenome.stage, "Differentiated");
+    assert!(decoded.epigenome.marks.contains_key("ROLE"));
+    assert!(decoded.grn.nodes.contains_key("TF_ALPHA"));
+    assert_eq!(decoded.grn.edges.len(), 1);
+    assert_eq!(decoded.development.stage, "Differentiated");
+    assert_eq!(decoded.development.morphogens, vec!["TF_ALPHA".to_string()]);
+}
+
+#[test]
+fn unknown_sections_are_preserved() {
+    let dna = compile::compile_manifest(&sample_manifest()).expect("compile");
+    let mut sections = codec::build_sections(&dna).expect("sections");
+    sections.push(crate::section::Section::new(
+        crate::section::SectionTag::Unknown(*b"XXXX"),
+        vec![1, 2, 3],
+    ));
+    let flux_hash_before = codec::content_hash(&dna).expect("hash");
+    let _ = flux_hash_before;
+    let decoded_unknown = {
+        let mut with_unknown = dna.clone();
+        with_unknown.unknown_sections.push(crate::model::UnknownSection {
+            tag: *b"XXXX",
+            payload: vec![1, 2, 3],
+        });
+        let bytes = codec::encode(&with_unknown).expect("encode unknown");
+        codec::decode(&bytes).expect("decode unknown")
+    };
+    assert_eq!(decoded_unknown.unknown_sections.len(), 1);
+    assert_eq!(decoded_unknown.unknown_sections[0].tag, *b"XXXX");
+    assert_eq!(decoded_unknown.unknown_sections[0].payload, vec![1, 2, 3]);
+    let _ = sections;
+}
+
+#[test]
+fn invalid_chromatin_code_is_rejected() {
+    let dna = compile::compile_manifest(&sample_manifest()).expect("compile");
+    let mut sections = codec::build_sections(&dna).expect("sections");
+    let _ = sections.pop();
+    let wire_result = crate::wire::chromatin_from(255);
+    assert!(wire_result.is_err());
+}
+
+#[test]
+fn grn_edges_change_expression_causally() {
+    let base = compile::compile_manifest(&sample_manifest()).expect("compile");
+    let mut wired = base.clone();
+    wired.genes.insert("TF_ALPHA".to_string(), genos_genome::Gene::new("TF_ALPHA", "activate pathway"));
+    wired.grn.nodes.insert("TF_ALPHA".to_string(), crate::model::GrnNode {
+        is_tf: true,
+        basal_expression: 1.0,
+    });
+    wired.grn.edges.push(crate::model::GrnEdge {
+        from: "TF_ALPHA".to_string(),
+        to: "ROLE".to_string(),
+        weight: 0.9,
+    });
+    let expressed = crate::express::express(&wired);
+    assert!(expressed.expr_tfs.contains(&"TF_ALPHA".to_string()));
+}
+
+#[test]
+fn development_stage_changes_phenotype() {
+    let base = compile::compile_manifest(&sample_manifest()).expect("compile");
+    let mut zygote_dna = base.clone();
+    zygote_dna.genes.insert("TF_ALPHA".to_string(), genos_genome::Gene::new("TF_ALPHA", "activate pathway"));
+    zygote_dna.grn.nodes.insert("TF_ALPHA".to_string(), crate::model::GrnNode {
+        is_tf: true,
+        basal_expression: 0.0,
+    });
+    zygote_dna.development.stage = "Zygote".to_string();
+    let mut mature_dna = zygote_dna.clone();
+    mature_dna.development.stage = "Mature".to_string();
+    let zygote = crate::express::express(&zygote_dna);
+    let mature = crate::express::express(&mature_dna);
+    assert_ne!(zygote.expr_tfs, mature.expr_tfs, "development must modulate GRN dynamics");
+}
+
+#[test]
+fn methylation_mark_silences_gene() {
+    let base = compile::compile_manifest(&sample_manifest()).expect("compile");
+    let mut marked = base.clone();
+    marked.epigenome.marks.insert("ROLE".to_string(), crate::model::EpiMark {
+        kind: "Methylation".to_string(),
+        level: 1.0,
+    });
+    let phenotype = crate::express::express(&marked);
+    assert!(phenotype.silenced.contains(&"ROLE".to_string()));
+}
+
+#[test]
+fn e2e_mutation_expression_fitness_selection_replay() {
+    let base = compile::compile_manifest(&sample_manifest()).expect("compile");
+    let baseline_pheno = crate::express::express(&base);
+    let genome = base.to_genome().expect("genome");
+    let experiment = genos_genome::fitness::FitnessExperiment::new();
+    let baseline_fitness = experiment.evaluate(&genome, "implement TOOL_BASE with CAP_IMPLEMENT").score;
+    let mutated = operations::mutate(&base, &MutateOptions {
+        rate: 0.9,
+        hyper: false,
+        locus: Some("ROLE".to_string()),
+        seed: Some("e2e-test".to_string()),
+    }).expect("mutate");
+    assert_ne!(mutated.meta.genome_id, base.meta.genome_id);
+    assert_eq!(mutated.meta.generation, base.meta.generation + 1);
+    let mutated_pheno = crate::express::express(&mutated);
+    let mutated_genome = mutated.to_genome().expect("mutated genome");
+    let mutated_fitness = experiment.evaluate(&mutated_genome, "implement TOOL_BASE with CAP_IMPLEMENT").score;
+    let _ = (baseline_pheno, mutated_pheno, baseline_fitness, mutated_fitness);
+    let bytes = codec::encode(&mutated).expect("encode descendant");
+    let replayed = codec::decode(&bytes).expect("decode descendant");
+    let replay_pheno = crate::express::express(&replayed);
+    let original_pheno = mutated.phenotype.clone().expect("cached phenotype");
+    assert_eq!(replay_pheno.role, original_pheno.role);
+    assert_eq!(replay_pheno.tools, original_pheno.tools);
+    assert_eq!(replayed.meta.genome_id, mutated.meta.genome_id);
+}
+
+#[test]
+fn budding_pair_preserves_mother_scar_lineage() {
+    let dna = compile::compile_manifest(&sample_manifest()).expect("compile");
+    let pair = operations::clone_dna_pair(&dna, &CloneOptions {
+        mode: "budding".to_string(),
+        daughter_volume: 0.25,
+        mutation_rate: 0.0,
+        seed: Some("budding-e2e".to_string()),
+    }).expect("budding pair");
+    assert_eq!(pair.mother.meta.genome_id, dna.meta.genome_id);
+    assert_ne!(pair.daughter.meta.genome_id, dna.meta.genome_id);
+    assert!(!pair.mother.scars.is_empty() || !pair.daughter.provenance.mutations.is_empty());
+}

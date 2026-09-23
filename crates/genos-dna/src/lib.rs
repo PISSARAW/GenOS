@@ -13,9 +13,9 @@ pub mod sign;
 
 pub use header::{Header, HEADER_LEN, SECTION_ENTRY_LEN, FORMAT_VERSION, MAGIC};
 pub use section::{Section, SectionTag};
-pub use model::{AgentDna, Decoy, Meta, Mutation, Phenotype, Provenance, Selection};
+pub use model::{AgentDna, Decoy, DevelopmentState, EpigenomeState, EpiMark, GrnEdge, GrnNode, GrnState, Meta, Mutation, Phenotype, Provenance, Selection, UnknownSection};
 pub use operations::{
-    clone_dna, cross, decoy, graft, inject, mutate, speciate, CloneOptions, CrossOptions,
+    clone_dna, clone_dna_pair, cross, decoy, graft, inject, mutate, speciate, CloneOptions, ClonePair, CrossOptions,
     DecoyOptions, GraftSpec, InjectedPhenotype, MutateOptions, SpeciateOptions,
 };
 
