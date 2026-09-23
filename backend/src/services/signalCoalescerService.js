@@ -53,27 +53,57 @@ function recordEmission(senderId, topic, opts = {}) {
   }
 }
 
+function pickConcentration(signals) {
+  let best = 0;
+  for (const s of signals) {
+    const v = Number(s.signalData?.concentration ?? s.signalData?.intensity ?? 0);
+    if (Number.isFinite(v) && v > best) best = v;
+  }
+  return best;
+}
+
+function aggregateSignals(signals, topic) {
+  const first = signals[0] || {};
+  return {
+    ...first,
+    topic: first.topic || topic,
+    signalData: {
+      ...(first.signalData || {}),
+      concentration: pickConcentration(signals),
+      coalescedFrom: signals.map((s) => s.signalId),
+    },
+    coalesced: signals.length > 1,
+    coalescedCount: signals.length,
+    signals,
+  };
+}
+
 function shouldCoalesce(signal, topic, opts = {}) {
   const now = opts.now || Date.now();
   const coalesceMs = opts.coalesceMs || DEFAULT_COALESCE_MS;
   const buf = coalescingBuffer.get(topic);
   if (!buf) return { shouldEmit: true, aggregated: [signal] };
-
-  buf.signals.push(signal);
-  buf.lastEmitAt = now;
-
   const age = now - buf.firstEmitAt;
   if (age >= coalesceMs) {
+    const aggregated = [...buf.signals, signal];
     coalescingBuffer.delete(topic);
-    return { shouldEmit: true, aggregated: buf.signals };
+    return { shouldEmit: true, aggregated };
   }
-
+  buf.signals.push(signal);
+  buf.lastEmitAt = now;
   return { shouldEmit: false, aggregated: buf.signals };
 }
 
 function bufferSignal(signal, topic) {
-  coalescingBuffer.set(topic, {
-    signals: [signal],
+  const key = topic || signal.topic || 'default';
+  const existing = coalescingBuffer.get(key);
+  if (existing) {
+    existing.signals.push(signal);
+    existing.lastEmitAt = Date.now();
+    return;
+  }
+  coalescingBuffer.set(key, {
+    signals: [],
     firstEmitAt: Date.now(),
     lastEmitAt: Date.now(),
   });
@@ -86,43 +116,58 @@ function flushBufferedTopic(topic) {
   return buf.signals;
 }
 
+function flushAndAggregate(topic, opts = {}) {
+  const buffered = flushBufferedTopic(topic);
+  if (!buffered.length) return null;
+  return aggregateSignals(buffered, topic);
+}
+
+function clearAllCoalescerState() {
+  coalescingBuffer.clear();
+  refractoryLog.clear();
+}
+
 /**
- * Filter a signal through coalescing + refractory checks.
- * Returns null if signal should be suppressed.
+ * True windowed coalescing + refractory:
+ * S1 emits immediately and opens a window; S2..Sn inside the window
+ * are buffered (return null); the first signal after the window
+ * aggregates buffered + itself into one emission.
  */
 function coalesce(signal, opts = {}) {
   const now = opts.now || Date.now();
   const topic = signal.topic || 'default';
   const senderId = signal.senderAgentId;
-
-  // 1. Check refractory period
   const refractory = checkRefractory(senderId, topic, { now, refractoryMs: opts.refractoryMs });
   if (!refractory.allowed) return null;
-
-  // 2. Coalesce rapid signals
   const coalesceResult = shouldCoalesce(signal, topic, { now, coalesceMs: opts.coalesceMs });
   if (!coalesceResult.shouldEmit) return null;
-
-  // 3. Record emission and return aggregated signals
   recordEmission(senderId, topic, { now });
-  return {
-    ...signal,
-    coalesced: coalesceResult.aggregated.length > 1,
-    coalescedCount: coalesceResult.aggregated.length,
-    signals: coalesceResult.aggregated,
-  };
+  if (coalesceResult.aggregated.length <= 1) {
+    bufferSignal(signal, topic);
+  }
+  return aggregateSignals(coalesceResult.aggregated, topic);
 }
 
 function getBufferedTopics() {
   return [...coalescingBuffer.keys()];
 }
 
+function getBufferedCount(topic) {
+  return coalescingBuffer.get(topic)?.signals.length || 0;
+}
+
 module.exports = {
   coalesce,
   checkRefractory,
   recordEmission,
+  bufferSignal,
+  shouldCoalesce,
+  aggregateSignals,
   flushBufferedTopic,
+  flushAndAggregate,
   getBufferedTopics,
+  getBufferedCount,
+  clearAllCoalescerState,
   DEFAULT_REFRACTORY_MS,
   DEFAULT_COALESCE_MS,
 };

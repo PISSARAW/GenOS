@@ -197,6 +197,30 @@ function buildStreamResponse(streamed, context) {
   };
 }
 
+/**
+ * Streaming output is speculative; validated output is authoritative.
+ * When enforceSchema is true, parse the accumulated text locally
+ * regardless of provider-native structured support.
+ */
+function attachSchemaValidation(result, text) {
+  let schema;
+  try {
+    schema = require('./agentOutputSchemaService');
+  } catch {
+    return result;
+  }
+  const parsed = schema.parseAndValidate(text || '');
+  if (parsed.ok) {
+    result.structured = parsed.output;
+    return result;
+  }
+  if (parsed.error === 'OUTPUT_SCHEMA_VIOLATION') {
+    result.structured = schema.repairOutput(schema.extractJson?.(text) || {});
+    result.schemaViolation = { error: 'OUTPUT_SCHEMA_VIOLATION', violations: parsed.violations };
+  }
+  return result;
+}
+
 function buildFinalResponse(info) {
   const usage = info.payload.usage || {};
   return {
@@ -224,6 +248,7 @@ module.exports = {
   buildRequestBody,
   resolveResponseContent,
   buildStreamResponse,
+  attachSchemaValidation,
   buildFinalResponse,
   readStreamingResponse,
   readOllamaStream,

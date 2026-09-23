@@ -37,16 +37,40 @@ function unregisterWakeHandler(agentId) {
  * Start the production subscriber.
  * Listens on the EventBus and dispatches to registered wake handlers.
  */
+function recordWorkerSuccess(signal) {
+  signalMetrics.recordSignalWithAction(signal.signalId);
+  signalMetrics.recordDeliveryUseful();
+  signalMetrics.recordOutcome('state_changed');
+}
+
+function recordWorkerIgnored() {
+  signalMetrics.recordOutcome('ignored');
+}
+
+function handleWorkerResult(signal, result) {
+  if (result && result.acted === false) {
+    recordWorkerIgnored();
+    return;
+  }
+  recordWorkerSuccess(signal);
+}
+
 function handleWorkerSignal(signal) {
   if (!signal.recipientAgentIds || !signal.recipientAgentIds.length) return;
   for (const recipientId of signal.recipientAgentIds) {
     const handler = registeredWakeHandlers.get(recipientId);
-    if (!handler) continue;
+    if (!handler) {
+      signalMetrics.recordOutcome('ignored');
+      continue;
+    }
     markSignalDelivered(signal.signalId, recipientId).catch(() => {});
-    signalMetrics.recordSignalWithAction();
-    handler(signal).catch((err) => {
-      console.warn(`[SignalPlaneSubscriber] Wake handler failed for ${recipientId}:`, err.message);
-    });
+    handler(signal).then(
+      (result) => handleWorkerResult(signal, result),
+      (err) => {
+        signalMetrics.recordOutcome('ignored');
+        console.warn(`[SignalPlaneSubscriber] Wake handler failed for ${recipientId}:`, err.message);
+      }
+    );
   }
 }
 
@@ -72,16 +96,19 @@ function handleLlmEscalation(signal) {
         escalationContext: context,
       });
       signalMetrics.recordLlmWakeupOutcome({ useful: true });
-      escalation.recordEscalationOutcome(signal.signalId, 'dispatched', 0);
+      signalMetrics.recordOutcome('llm_success');
+      escalation.recordEscalationOutcome(signal.signalId, 'dispatched', 1);
     } catch (err) {
       signalMetrics.recordLlmWakeupOutcome({ useful: false });
+      signalMetrics.recordOutcome('llm_failed');
       console.warn(`[SignalPlaneSubscriber] Escalation startMission failed for ${target}:`, err.message);
-      escalation.recordEscalationOutcome(signal.signalId, 'failed', 0);
+      escalation.recordEscalationOutcome(signal.signalId, 'failed', 1);
     }
   }).catch((err) => {
     console.warn(`[SignalPlaneSubscriber] Escalation target selection failed:`, err.message);
     signalMetrics.recordLlmEscalation();
     signalMetrics.recordLlmWakeupOutcome({ useful: false });
+    signalMetrics.recordOutcome('llm_failed');
   });
 }
 

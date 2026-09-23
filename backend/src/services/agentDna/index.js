@@ -13,8 +13,15 @@ function workerGenes(model) {
     role: phenotype.role,
     strategy: phenotype.strategy,
     tools: phenotype.tools,
+    capabilities: phenotype.capabilities,
+    prompt: phenotype.prompt,
     temp: phenotype.temp,
-    topP: phenotype.topP
+    topP: phenotype.topP,
+    exprTfs: phenotype.exprTfs,
+    exprMirnas: phenotype.exprMirnas,
+    silenced: phenotype.silenced,
+    expressed: phenotype.expressed,
+    genomeContentHash: model.contentHash || null
   };
 }
 

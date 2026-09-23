@@ -10,6 +10,10 @@
 
 const { getDatabase } = require('../db');
 
+// Deduplication sets: one signal with N recipients counts once for signal-CER.
+const actionSignalIds = new Set();
+const orgChangedSignalIds = new Set();
+
 const metrics = {
   signalsPublished: 0,
   signalsCoalesced: 0,
@@ -21,6 +25,9 @@ const metrics = {
   signalsLlmEscalated: 0,
   signalsWithAction: 0,
   signalsOrgChanged: 0,
+  // Delivery-based CER tracking
+  deliveriesTotal: 0,
+  deliveriesUseful: 0,
   // CWR tracking
   llmWakeups: 0,
   llmWakeupsWithAction: 0,
@@ -89,23 +96,77 @@ function recordLlmWakeupWithAction() {
 }
 
 /**
- * Record a signal that produced a receptor-triggered action (deterministic dispatch).
+ * Record a signal that produced a receptor-triggered action.
+ * Signal-based: one signal with N recipients counts once (CER in [0,1]).
+ * Must be called AFTER the handler succeeds, never before.
  */
-function recordSignalWithAction() {
+function recordSignalWithAction(signalId) {
+  if (signalId != null) {
+    if (actionSignalIds.has(signalId)) return false;
+    actionSignalIds.add(signalId);
+  }
   metrics.signalsWithAction++;
+  return true;
 }
 
 /**
  * Record a signal that caused an organization topology change.
+ * Same signal-based dedup as recordSignalWithAction.
  */
-function recordSignalOrgChanged() {
+function recordSignalOrgChanged(signalId) {
+  if (signalId != null) {
+    if (orgChangedSignalIds.has(signalId)) return false;
+    orgChangedSignalIds.add(signalId);
+  }
   metrics.signalsOrgChanged++;
+  return true;
+}
+
+/**
+ * Record a delivery enqueued (per-recipient) for delivery-based CER.
+ */
+function recordDeliveryEnqueued() {
+  metrics.deliveriesTotal++;
+}
+
+/**
+ * Record a delivery that produced an observable action (post-success only).
+ */
+function recordDeliveryUseful() {
+  metrics.deliveriesUseful++;
+}
+
+/**
+ * Ledger-observable outcome → (impact, cost) proxy.
+ * Impact is 1 only when the ledger shows a state transition
+ * (delivered→acted, org changed, artifact committed); 0 otherwise.
+ * Cost is 1 for LLM cognition, 0 for deterministic dispatch.
+ * These are proxies until downstream-gain measurement lands.
+ */
+function impactForOutcome(outcome) {
+  const table = {
+    suppressed: { impact: 0, cost: 0 },
+    ignored: { impact: 0, cost: 0 },
+    seen: { impact: 0, cost: 0 },
+    state_changed: { impact: 1, cost: 0 },
+    artifact: { impact: 1, cost: 0 },
+    org_changed: { impact: 1, cost: 0 },
+    llm_success: { impact: 1, cost: 1 },
+    llm_failed: { impact: 0, cost: 1 },
+  };
+  return table[outcome] || { impact: 0, cost: 0 };
+}
+
+/**
+ * Record an observable outcome (suppressed/ignored/state_changed/...).
+ */
+function recordOutcome(outcome) {
+  const mapped = impactForOutcome(outcome);
+  recordImpact(mapped.impact, mapped.cost);
 }
 
 /**
  * Accumulate impact and cost for a signal.
- *   impact: 1.0 dispatched, 0.5 seen, 0 suppressed
- *   cost: 1 LLM escalation, 0 deterministic
  */
 function recordImpact(impact, cost) {
   const safeImpact = impact == null ? 0 : Number(impact);
@@ -133,6 +194,8 @@ function resetMetrics() {
     if (typeof metrics[key] === 'number') metrics[key] = 0;
     else metrics[key] = null;
   }
+  actionSignalIds.clear();
+  orgChangedSignalIds.clear();
 }
 
 /**
@@ -161,21 +224,27 @@ function getVoIMetrics() {
 }
 
 /**
- * Compute CER (Communication Efficiency Ratio).
- *   CER = usefulSignals / routedSignals
- *   usefulSignals = signalsWithAction + signalsOrgChanged
- *   Range [0, 1], higher is better.
+ * Compute CER (Communication Efficiency Ratio), signal-based.
+ *   CER_s = signals with >=1 action / routed signals, clamped to [0,1].
+ * Delivery-based CER_d = useful deliveries / total deliveries.
  */
 function getCERMetrics() {
   const routed = metrics.signalsRouted;
   const useful = metrics.signalsWithAction + metrics.signalsOrgChanged;
-  const cer = routed > 0 ? useful / routed : 0;
+  const raw = routed > 0 ? useful / routed : 0;
+  const cer = Math.min(1, Math.max(0, raw));
+  const dTotal = metrics.deliveriesTotal;
+  const dUseful = metrics.deliveriesUseful;
+  const cerDelivery = dTotal > 0 ? Math.min(1, dUseful / dTotal) : 0;
   return {
     cer,
     usefulSignals: useful,
     routedSignals: routed,
     signalsWithAction: metrics.signalsWithAction,
     signalsOrgChanged: metrics.signalsOrgChanged,
+    cerDelivery,
+    deliveryUseful: dUseful,
+    deliveryTotal: dTotal,
   };
 }
 
@@ -238,6 +307,10 @@ module.exports = {
   recordLlmWakeupWithAction,
   recordSignalWithAction,
   recordSignalOrgChanged,
+  recordDeliveryEnqueued,
+  recordDeliveryUseful,
+  impactForOutcome,
+  recordOutcome,
   recordImpact,
   recordDbError,
   recordDbRetry,

@@ -46,16 +46,22 @@ function toStrand(payload) {
 
 function toGene(arr) {
   const packed = bytesOr(arr[1]);
+  const chromatin = arr[3];
+  if (chromatin !== 0 && chromatin !== 1 && chromatin !== 2) {
+    throw new Error(`Invalid chromatin code ${chromatin}: expected 0, 1 or 2`);
+  }
   return {
     locus: arr[0],
     instruction: decodeInstruction(packed, arr[2]),
     length: arr[2],
-    chromatin: arr[3],
+    chromatin,
     methylated: Boolean(arr[4]),
     volume: arr[5],
     locked: Boolean(arr[6]),
     activator: nullOr(arr[7]),
     repressor: nullOr(arr[8]),
+    requiredActivator: nullOr(arr[7]),
+    boundRepressor: nullOr(arr[8]),
     exons: arrayOr(arr[9]).map((range) => [range[0], range[1]])
   };
 }
@@ -190,8 +196,15 @@ function decodePhenotype(model) {
     const cached = model.phenotype;
     model.phenotypeCacheValid = cached.role === current.role
       && cached.strategy === current.strategy
+      && cached.temp === current.temp
+      && cached.topP === current.topP
+      && cached.prompt === current.prompt
       && JSON.stringify(cached.tools) === JSON.stringify(current.tools)
-      && JSON.stringify(cached.capabilities) === JSON.stringify(current.capabilities);
+      && JSON.stringify(cached.capabilities) === JSON.stringify(current.capabilities)
+      && JSON.stringify(cached.exprTfs) === JSON.stringify(current.exprTfs)
+      && JSON.stringify(cached.exprMirnas) === JSON.stringify(current.exprMirnas)
+      && JSON.stringify(cached.silenced) === JSON.stringify(current.silenced)
+      && cached.expressed === current.expressed;
   }
   model.phenotype = current;
 }

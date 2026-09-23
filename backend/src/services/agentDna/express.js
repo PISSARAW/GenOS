@@ -13,6 +13,27 @@ function finalizePhenotype(phenotype, name) {
   if (!phenotype.prompt) phenotype.prompt = `${phenotype.role}: ${name}`;
   phenotype.temp = parseUnit(phenotype.temp, DEFAULT_TEMP);
   phenotype.topP = parseUnit(phenotype.topP, DEFAULT_TOP_P);
+  phenotype.tools.sort();
+  phenotype.capabilities.sort();
+  phenotype.silenced.sort();
+  phenotype.exprTfs.sort();
+  phenotype.exprMirnas.sort();
+}
+
+function cloneGenes(genes) {
+  const out = {};
+  for (const [locus, gene] of Object.entries(genes || {})) {
+    out[locus] = { ...gene };
+  }
+  return out;
+}
+
+function applyDevelopmentVolume(development, genes) {
+  if (development && development.stage === 'Senescent') {
+    for (const gene of Object.values(genes)) {
+      gene.volume = (Number(gene.volume) || 1) * 0.7;
+    }
+  }
 }
 
 function express(model) {
@@ -22,22 +43,23 @@ function express(model) {
     temp: DEFAULT_TEMP, topP: DEFAULT_TOP_P, prompt: '',
     exprTfs: [], exprMirnas: [], silenced: [], expressed: 0
   };
-  const genes = {};
-  for (const [locus, gene] of Object.entries(model.genes || {})) {
-    genes[locus] = { ...gene };
-  }
+  const genes = cloneGenes(model.genes);
   if (model.epigenome) applyEpigenomeMarks(model.epigenome, genes);
-  const activeTfs = computeActiveTfs(model.grn, genes);
-  const context = { activeTfs, activeMirnas: computeActiveMirnas(genes, { activeTfs, activeMirnas: [] }) };
+  applyDevelopmentVolume(model.development, genes);
+  const activeTfs = computeActiveTfs(model.grn, genes, model.development);
+  const context = { activeTfs, activeMirnas: [] };
+  context.activeMirnas = computeActiveMirnas(genes, context);
+  const fullContext = { activeTfs, activeMirnas: context.activeMirnas };
   for (const locus of Object.keys(genes)) {
     const gene = genes[locus];
-    if (isSilenced(gene, context)) phenotype.silenced.push(locus);
+    if (isSilenced(gene, fullContext)) phenotype.silenced.push(locus);
     else {
       phenotype.expressed += 1;
       classify(locus, gene, phenotype);
-      if (gene.activated) phenotype.exprTfs.push(locus);
     }
   }
+  phenotype.exprTfs = activeTfs;
+  phenotype.exprMirnas = fullContext.activeMirnas;
   finalizePhenotype(phenotype, name);
   return phenotype;
 }

@@ -8,6 +8,7 @@ const {
   buildRequestBody,
   resolveResponseContent,
   buildStreamResponse,
+  attachSchemaValidation,
   buildFinalResponse,
   readStreamingResponse,
   readOllamaStream,
@@ -147,14 +148,28 @@ function assertModelConfigured(configuration, apiKey) {
   throw new Error(`No API key configured for model ${configuration.uri}.`);
 }
 
+function validateStructuredCandidate(candidate) {
+  const { validateOutput, repairOutput } = require('./agentOutputSchemaService');
+  let violations = validateOutput(candidate);
+  if (!violations.length) return { structured: candidate };
+  const repaired = repairOutput(candidate);
+  violations = validateOutput(repaired);
+  if (!violations.length) return { structured: repaired };
+  return { structured: repaired, schemaViolation: { error: 'OUTPUT_SCHEMA_VIOLATION', violations } };
+}
+
 async function consumeOllamaStream(context, response, idleTimeoutMs) {
   const streamed = await readOllamaStream(response, context.options.onToken, idleTimeoutMs);
-  return buildStreamResponse(streamed, { options: context.options, provider: context.configuration.provider, modelName: context.configuration.modelName });
+  const result = buildStreamResponse(streamed, { options: context.options, provider: context.configuration.provider, modelName: context.configuration.modelName });
+  if (context.options.enforceSchema !== false) return attachSchemaValidation(result, streamed.text);
+  return result;
 }
 
 async function consumeTextStream(context, response, idleTimeoutMs) {
   const streamed = await readStreamingResponse(response, context.options.onToken, idleTimeoutMs);
-  return buildStreamResponse(streamed, { options: context.options, provider: context.configuration.provider, modelName: context.configuration.modelName });
+  const result = buildStreamResponse(streamed, { options: context.options, provider: context.configuration.provider, modelName: context.configuration.modelName });
+  if (context.options.enforceSchema !== false) return attachSchemaValidation(result, streamed.text);
+  return result;
 }
 
 async function consumeJsonResponse(context, response) {
@@ -164,22 +179,12 @@ async function consumeJsonResponse(context, response) {
   const text = normalized.text;
   for (const token of tokenize(text)) await context.options.onToken(token);
   const result = buildFinalResponse({ text, toolCalls: normalized.toolCalls, responseFormat: context.options.responseFormat, prompt: context.options.prompt, payload, provider: context.configuration.provider, modelName: context.configuration.modelName });
+  if (context.options.enforceSchema === false) return result;
   if (result.structured) {
-    const { validateOutput, repairOutput } = require('./agentOutputSchemaService');
-    let violations = validateOutput(result.structured);
-    let candidate = result.structured;
-    if (violations.length > 0) {
-      candidate = repairOutput(result.structured);
-      violations = validateOutput(candidate);
-      if (violations.length === 0) {
-        result.structured = candidate;
-      } else {
-        result.schemaViolation = { error: 'OUTPUT_SCHEMA_VIOLATION', violations };
-        result.structured = candidate;
-      }
-    }
+    Object.assign(result, validateStructuredCandidate(result.structured));
+    return result;
   }
-  return result;
+  return attachSchemaValidation(result, text);
 }
 
 async function consumeResponse(context, response) {
@@ -234,7 +239,7 @@ async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30
   const configuration = modelConfiguration(model, endpoint);
   const isOpenAiCompatible = ['openai', 'ollama', 'lmstudio', 'vllm', 'openai-compatible', 'groq', 'deepseek', 'together', 'openrouter', 'mistral'].includes(configuration.provider);
   const effectiveFormat = responseFormat || (enforceSchema && isOpenAiCompatible ? 'json_object' : undefined);
-  const options = { model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint, seed, stream, signal, displayWidth, displayHeight, responseFormat: effectiveFormat };
+  const options = { model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint, seed, stream, signal, displayWidth, displayHeight, responseFormat: effectiveFormat, enforceSchema };
   const targetEndpoint = endpoint || configuration.endpoint;
   if (inferenceGateway.isLocalProvider(configuration.provider, targetEndpoint)) {
     return inferenceGateway.schedule(() => generateDirect(options), { provider: configuration.provider, priority, agentId, organizationId, projectId });

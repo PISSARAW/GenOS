@@ -81,6 +81,11 @@ function validateTensor(signal) {
   return null;
 }
 
+function dataKeysOf(signalData) {
+  if (!signalData || typeof signalData !== 'object') return [];
+  return Object.keys(signalData).slice(0, 20);
+}
+
 function emitToBus(signal) {
   signalEventBus.publish({
     signalId: signal.id,
@@ -91,6 +96,10 @@ function emitToBus(signal) {
     concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0,
     recipientAgentIds: signal.recipientAgentIds,
     llmRequired: signal.llmRequired === true,
+    payloadRef: signal.id,
+    artifactRef: signal.signalData?.artifactRef || signal.signalData?.artifact_id || null,
+    semanticType: signal.signalData?.semanticType || signal.normalizedType,
+    dataKeys: dataKeysOf(signal.signalData),
   });
 }
 
@@ -99,6 +108,7 @@ function handleSuppressed(signal) {
     plasticity.recordSignalOutcome({ senderId: signal.senderAgentId, receiverId: null, outcome: 'suppressed', signalType: signal.normalizedType });
   }
   signalMetrics.recordSuppressed();
+  signalMetrics.recordOutcome('suppressed');
   return {
     signalId: signal.id,
     published: true,
@@ -198,7 +208,10 @@ async function routeAndDispatch(signal, params) {
   }
   if (recipientAgentIds.length > 0) {
     signalMetrics.recordSignalRouted();
+    for (const rid of recipientAgentIds) signalMetrics.recordDeliveryEnqueued();
     await recordPendingDeliveries(signal.id, recipientAgentIds);
+  } else {
+    signalMetrics.recordOutcome('ignored');
   }
   emitToBus({ ...signal, recipientAgentIds, llmRequired: false });
   return {
