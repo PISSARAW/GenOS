@@ -11,6 +11,7 @@ const { storeObject } = require('./storeObjectHelper.cjs');
 const causalOps = require('./causalOps.cjs');
 const { verifyRemoteObject } = require('./remoteVerification.cjs');
 const { wireObject } = require('./wireFormat.cjs');
+const remotePersist = require('./remotePersist.cjs');
 
 // Agent Git remotes are fetched server-side, so a caller-controlled remoteUrl
 // is an SSRF vector. Reuse the provider endpoint policy (blocks loopback,
@@ -131,8 +132,13 @@ async function createCommit(req, options = {}) {
   // Parent : HEAD de la ref visée ; si la ref n'existe pas encore (nouvelle
   // branche), le parent est le HEAD de main — un commit sur une branche
   // fraîche n'est PAS un root orphelin.
-  const parentCommitId = await resolveParentCommitId({ db, agentId: options.agentId, refName, explicitParent: options.parentCommitId });
-  const result = await storeObject(db, { agentId: options.agentId, workspaceId: state.agent.workspace_id, kind: options.kind || 'commit', refName, remoteName: options.remoteName, state, createdBy: req.user?.username || 'agent-git', metadata: options.metadata || {}, parentCommitId });
+  // Bug audit #5 : stash et tag sont des points FLOTTANTS — jamais le fallback
+  // main (sinon un stash devient l'enfant du HEAD de main et pollue la lignée).
+  const kind = options.kind || 'commit';
+  const parentCommitId = kind === 'commit' || kind === 'remote'
+    ? await resolveParentCommitId({ db, agentId: options.agentId, refName, explicitParent: options.parentCommitId })
+    : null;
+  const result = await storeObject(db, { agentId: options.agentId, workspaceId: state.agent.workspace_id, kind, refName, remoteName: options.remoteName, state, createdBy: req.user?.username || 'agent-git', metadata: options.metadata || {}, parentCommitId });
   await updateRef({ db, req, agentId: options.agentId, refName, objectId: result.id, options: { expectedVersion: options.expectedVersion, leaseToken: options.leaseToken, action: options.kind || 'commit' } });
   return { ...result, parentCommitId };
 }
@@ -172,8 +178,14 @@ async function checkPushVersion(req, db, agentId) {
 
 async function executeRemotePush(req, agentId, commit) {
   await assertRemoteGitUrl(req.body.remoteUrl);
-  const state = await collectState(await getDatabase(), req, agentId);
-  await performRemotePush({ req, remoteUrl: req.body.remoteUrl, commit, state });
+  // Bug audit #1 : envoyer l'état EXACT du commit (state_json persisté), pas un
+  // collectState frais — capturedAt diffère => state_hash mismatch systématique
+  // côté receiver. Le wire transporte commit.state_hash ; le payload doit hasher
+  // identiquement.
+  const db = await getDatabase();
+  const stored = await db.get('SELECT state_json FROM agent_git_objects WHERE id = ?', commit.id);
+  if (!stored) throw Object.assign(new Error('Pushed commit not found in local store.'), { code: 'COMMIT_NOT_FOUND' });
+  await performRemotePush({ req, remoteUrl: req.body.remoteUrl, commit, state: JSON.parse(stored.state_json) });
 }
 
 async function push(req) {
@@ -238,7 +250,10 @@ async function receiveRemote(req) {
   // Vérifier que les parents sont disponibles (fast-forward check)
   const parentFailure = await checkRemoteParents(db, incoming, state);
   if (parentFailure) return parentFailure;
-  const stored = await storeObject(db, { agentId: incoming.agent_id || incoming.agentId, workspaceId: incoming.workspace_id || incoming.workspaceId, kind: 'remote', refName: incoming.ref_name || incoming.refName, remoteName: req.body?.remoteName || 'default', state, createdBy: req.user?.username || 'remote', metadata: { receivedFrom: req.ip || 'remote', sourceObjectId: incoming.id }, locked: true });
+  // Bug audit #6 : stocker l'objet REÇU tel quel (id, signature, hashes du
+  // sender), pas un storeObject qui re-signe et perd les parents. La
+  // provenance (signature du sender) doit rester vérifiable après réception.
+  const stored = await remotePersist.persistRemoteObject(db, { req, incoming, state });
   return { success: true, operation: 'remote-receive', ...stored };
 }
 

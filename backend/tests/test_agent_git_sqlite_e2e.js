@@ -39,6 +39,62 @@ async function ensureAgent(db) {
   );
 }
 
+async function runRebaseScenario(db, req, agentGit) {
+  // --- Points 9/10/12 : rebase sémantique sur SQLite réel ---
+  // Setup: agent 1 avec main (C1) puis branche feature (C2, C3), agent garde C1'.
+  await db.run('DELETE FROM genome_decisions WHERE created_by = ?', 'agent-e2e-1');
+  await db.run("INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES ('d-base', 'Base', 'base', 'agent-e2e-1', 'strategy', 1)");
+  const baseCommit = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'main', metadata: { message: 'base' } });
+  await db.run("INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES ('d-f1', 'F1', 'feature1', 'agent-e2e-1', 'strategy', 1)");
+  const feature1 = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'feature', metadata: { message: 'f1' } });
+  await db.run("INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES ('d-f2', 'F2', 'feature2', 'agent-e2e-1', 'strategy', 1)");
+  const feature2 = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'feature', metadata: { message: 'f2' } });
+  // main avance indépendamment (C1').
+  await db.run("INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES ('d-main2', 'Main2', 'main avance', 'agent-e2e-1', 'strategy', 1)");
+  const mainAdvanced = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'main', metadata: { message: 'main2' } });
+
+  // Point 12 : merge-base de feature2 et main2 = baseCommit (best ancestor).
+  const mb = await agentGit.mergeBase({ ...makeReq(), body: { leftObjectId: feature2.id, rightObjectId: mainAdvanced.id } });
+  assert.ok(mb.success, 'mergeBase doit réussir');
+  assert.equal(mb.mergeBaseObjectId, baseCommit.id, 'le merge-base doit être le commit de base commun');
+
+  // Point 9/10 : rebase de feature sur main2 — 2 commits rejoués A', B' chaînés.
+  const reb = await agentGit.rebase({ ...makeReq(), body: { ontoObjectId: mainAdvanced.id, headObjectId: feature2.id } });
+  assert.ok(reb.success, 'rebase doit réussir');
+  assert.equal(reb.replayedCommits.length, 2, 'les 2 commits feature doivent être rejoués');
+  assert.equal(reb.newCommits.length, 2, 'le rebase doit produire 2 nouveaux commits (pas un squash)');
+  // Le dernier commit rebase doit avoir le premier comme parent (chaînage A'->B').
+  const rebasedLast = await db.get('SELECT parent_commit_id FROM agent_git_objects WHERE id = ?', reb.id);
+  assert.equal(rebasedLast.parent_commit_id, reb.newCommits[0], 'B\' doit avoir A\' comme parent');
+  // A' doit avoir onto (main2) comme parent.
+  const rebasedFirst = await db.get('SELECT parent_commit_id FROM agent_git_objects WHERE id = ?', reb.newCommits[0]);
+  assert.equal(rebasedFirst.parent_commit_id, mainAdvanced.id, 'A\' doit avoir onto (main2) comme parent');
+  // L état final contient les décisions des deux côtés (main2 + feature).
+  const rebState = JSON.parse((await db.get('SELECT state_json FROM agent_git_objects WHERE id = ?', reb.id)).state_json);
+  const rebDecisionIds = (rebState.decisions || []).map(d => d.id);
+  assert.ok(rebDecisionIds.some(id => String(id).endsWith('d-main2')), 'l état rebase contient la décision de main2');
+  assert.ok(rebDecisionIds.some(id => String(id).endsWith('d-f2')), 'l état rebase contient la décision feature2');
+
+  // --- Audit auto #2/#3 : assertions EXACTES (pas .some()) ---
+  // #2: aucun doublon — chaque décision apparaît exactement une fois.
+  const rebCounts = {};
+  for (const id of rebDecisionIds) rebCounts[id] = (rebCounts[id] || 0) + 1;
+  const dupes = Object.entries(rebCounts).filter(([, n]) => n > 1);
+  assert.deepEqual(dupes, [], `aucune décision dupliquée après rebase (trouvé: ${JSON.stringify(dupes)})`);
+  // #3: l état rebase doit être ÉCRIT en DB — les décisions en DB après rebase
+  // doivent correspondre à celles du commit (replaceState préfixe les ids:
+  // agent-git-decision-<agent>-<originalId>, on compare le suffixe original).
+  const freshAfterRebase = await agentGit.collectState(db, req, 'agent-e2e-1');
+  const suffixOf = (id) => String(id).split('-').slice(-2).join('-');
+  assert.equal(
+    (freshAfterRebase.decisions || []).map(d => suffixOf(d.id)).sort().join(','),
+    rebDecisionIds.map(id => suffixOf(id)).sort().join(','),
+    'l état DB après rebase doit correspondre aux décisions du commit rebase (état écrit, pas fantôme)'
+  );
+
+  return { baseCommit, mainAdvanced, reb };
+}
+
 async function main() {
   const db = await dbModule.getDatabase(DB_PATH);
   await ensureAgent(db);
@@ -177,6 +233,27 @@ async function main() {
   assert.equal(rejected.success, false, 'un state_hash falsifié doit être rejeté');
   assert.ok(rejected.quarantined, 'l objet falsifié doit être quarantiné');
 
+  // --- Audit auto #1 : push end-to-end (executeRemotePush -> receiveRemote) ---
+  // Le payload envoyé doit hasher exactement comme wire.state_hash (pas de
+  // collectState frais dont capturedAt diffère).
+  const pushCommit = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'main', metadata: { message: 'push-e2e' } });
+  const pushWire = wireObject(pushCommit);
+  const pushState = JSON.parse((await db.get('SELECT state_json FROM agent_git_objects WHERE id = ?', pushCommit.id)).state_json);
+  const crypto2 = require('crypto');
+  const payloadHash = crypto2.createHash('sha256').update(JSON.stringify(pushState)).digest('hex');
+  assert.equal(payloadHash, pushWire.state_hash, 'le state du commit doit hasher comme wire.state_hash (payload push cohérent)');
+
+  // --- Audit auto #6 : le remote stocké garde signature + parents du sender ---
+  const remoteParents = await db.all('SELECT parent_commit_id FROM agent_git_commit_parents WHERE commit_id = ?', received.id);
+  assert.ok(remoteParents.length >= 1, 'le commit remote stocké doit garder ses parents du wire');
+  const remoteSig = await db.get('SELECT signature, state_hash FROM agent_git_objects WHERE id = ?', received.id);
+  assert.equal(remoteSig.signature, wire.signature, 'la signature du remote stocké = signature du sender (provenance)');
+
+  // --- Audit auto #5 : stash et tag sont des points FLOTTANTS ---
+  const stashObj = await agentGit.stash({ ...makeReq(), body: { agentId: 'agent-e2e-1' } });
+  const stashParents = await db.all('SELECT parent_commit_id FROM agent_git_commit_parents WHERE commit_id = ?', stashObj.id);
+  assert.equal(stashParents.length, 0, 'un stash ne doit avoir AUCUN parent (point flottant)');
+
   // --- Point 19 : un événement de télémétrie ne change PAS le tree durable ---
   const { treeHash } = require('../src/services/agentGitService/canonical');
   const beforeTree = treeHash({ ...pickState, events: [{ event_id: 'e1' }] });
@@ -190,45 +267,15 @@ async function main() {
   const evt2 = makeEvent('MUTATION', 'genome-ref-1', { commit_id: 'C43' });
   assert.equal(evt2.commit_id, 'C43', 'makeEvent doit propager commit_id tel quel');
 
-  // --- Points 9/10/12 : rebase sémantique sur SQLite réel ---
-  // Setup: agent 1 avec main (C1) puis branche feature (C2, C3), agent garde C1'.
-  await db.run('DELETE FROM genome_decisions WHERE created_by = ?', 'agent-e2e-1');
-  await db.run("INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES ('d-base', 'Base', 'base', 'agent-e2e-1', 'strategy', 1)");
-  const baseCommit = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'main', metadata: { message: 'base' } });
-  await db.run("INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES ('d-f1', 'F1', 'feature1', 'agent-e2e-1', 'strategy', 1)");
-  const feature1 = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'feature', metadata: { message: 'f1' } });
-  await db.run("INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES ('d-f2', 'F2', 'feature2', 'agent-e2e-1', 'strategy', 1)");
-  const feature2 = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'feature', metadata: { message: 'f2' } });
-  // main avance indépendamment (C1').
-  await db.run("INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES ('d-main2', 'Main2', 'main avance', 'agent-e2e-1', 'strategy', 1)");
-  const mainAdvanced = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'main', metadata: { message: 'main2' } });
-
-  // Point 12 : merge-base de feature2 et main2 = baseCommit (best ancestor).
-  const mb = await agentGit.mergeBase({ ...makeReq(), body: { leftObjectId: feature2.id, rightObjectId: mainAdvanced.id } });
-  assert.ok(mb.success, 'mergeBase doit réussir');
-  assert.equal(mb.mergeBaseObjectId, baseCommit.id, 'le merge-base doit être le commit de base commun');
-
-  // Point 9/10 : rebase de feature sur main2 — 2 commits rejoués A', B' chaînés.
-  const reb = await agentGit.rebase({ ...makeReq(), body: { ontoObjectId: mainAdvanced.id, headObjectId: feature2.id } });
-  assert.ok(reb.success, 'rebase doit réussir');
-  assert.equal(reb.replayedCommits.length, 2, 'les 2 commits feature doivent être rejoués');
-  assert.equal(reb.newCommits.length, 2, 'le rebase doit produire 2 nouveaux commits (pas un squash)');
-  // Le dernier commit rebase doit avoir le premier comme parent (chaînage A'->B').
-  const rebasedLast = await db.get('SELECT parent_commit_id FROM agent_git_objects WHERE id = ?', reb.id);
-  assert.equal(rebasedLast.parent_commit_id, reb.newCommits[0], 'B\' doit avoir A\' comme parent');
-  // A' doit avoir onto (main2) comme parent.
-  const rebasedFirst = await db.get('SELECT parent_commit_id FROM agent_git_objects WHERE id = ?', reb.newCommits[0]);
-  assert.equal(rebasedFirst.parent_commit_id, mainAdvanced.id, 'A\' doit avoir onto (main2) comme parent');
-  // L état final contient les décisions des deux côtés (main2 + feature).
-  const rebState = JSON.parse((await db.get('SELECT state_json FROM agent_git_objects WHERE id = ?', reb.id)).state_json);
-  const rebDecisionIds = (rebState.decisions || []).map(d => d.id);
-  assert.ok(rebDecisionIds.some(id => String(id).endsWith('d-main2')), 'l état rebase contient la décision de main2');
-  assert.ok(rebDecisionIds.some(id => String(id).endsWith('d-f2')), 'l état rebase contient la décision feature2');
+  const { baseCommit, mainAdvanced, reb } = await runRebaseScenario(db, req, agentGit);
 
   // --- Point 11 : bisect sur DAG avec merge (tri topologique) ---
   // Fusion de feature-rebasé dans main, puis bisect base..merge.
-  const mergeRes = await agentGit.merge({ ...makeReq(), body: { leftObjectId: mainAdvanced.id, rightObjectId: reb.id } });
+  const mergeRes = await agentGit.merge({ ...makeReq(), body: { leftObjectId: mainAdvanced.id, rightObjectId: reb.id, name: 'MergeE2E' } });
   assert.ok(mergeRes.success, 'merge doit réussir');
+  // Audit auto #7 : body.name doit être honoré.
+  const mergeState = JSON.parse((await db.get('SELECT state_json FROM agent_git_objects WHERE id = ?', mergeRes.id)).state_json);
+  assert.equal(mergeState.agent.name, 'MergeE2E', 'merge(body.name) doit nommer l agent fusionné');
   // Après le merge, on introduit une régression du budget puis on bisect.
   await db.run('UPDATE agents SET cognitive_budget = 10 WHERE id = ?', 'agent-e2e-1');
   const regressed = await agentGit.createCommit(req, { agentId: 'agent-e2e-1', refName: 'main', metadata: { message: 'regression' } });
