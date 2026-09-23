@@ -188,6 +188,10 @@ const migrationRunners = [
     const { migrateDaemonEvaluation } = require('./migrateDaemonEvaluation');
     await migrateDaemonEvaluation(db);
   }),
+  createMigrationRunner('056-scope-time-indexes', 'Add scope/time, agent/event, bidirectional lineage, continuation, communication and daemon indexes', async (db) => {
+    const { run } = require('./migrateScopeTimeIndexes');
+    await run(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
