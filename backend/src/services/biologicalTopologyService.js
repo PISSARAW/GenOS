@@ -51,16 +51,19 @@ async function composeMode(input = {}) {
     await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Biome mode activation' });
     return composition;
   }
-  if (key === 'axolotl' || key === 'plastique') {
-    const mode = axolotlTopologyService.getTopologyMode(orchestratorId);
-    return {
-      mode: mode.mode,
-      plastique: mode.mode === 'plastique',
-      members: biologicalModeService.compose('axolotl', mission),
-      modeInfo: mode
-    };
-  }
+  if (input.mode === 'plastique' || input.mode === 'axolotl') return composeAxolotl(input);
   return { members: biologicalModeService.compose(key, mission) };
+}
+
+function composeAxolotl(input) {
+  const { db, orchestratorId, mission, options } = input;
+  const mode = input.mode === 'plastique' ? { mode: 'plastique', setAt: null, defaulted: false } : axolotlTopologyService.getTopologyMode(orchestratorId);
+  return {
+    mode: mode.mode,
+    plastique: mode.mode === 'plastique',
+    members: biologicalModeService.compose('axolotl', mission),
+    modeInfo: mode
+  };
 }
 
 module.exports = { composeMode };

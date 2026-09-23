@@ -56,7 +56,8 @@ function reportWorkerDispatch(ctx, autonomousWorkers) {
 
 function registerAutonomousRound(ctx, autonomousWorkers) {
   const { agentId, autonomyPlan } = ctx;
-  if (autonomousWorkers.length && autonomyPlan.tokenPolicy.rounds?.continuation?.survivorCount) {
+  const survivorCount = autonomyPlan.tokenPolicy.rounds?.continuation?.survivorCount;
+  if (autonomousWorkers.length && Number.isInteger(survivorCount) && survivorCount > 0) {
     autonomousRounds.set(agentId, {
       plan: autonomyPlan,
       workerIds: new Set(autonomousWorkers.map((worker) => worker.agentId)),
