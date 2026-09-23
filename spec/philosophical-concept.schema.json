@@ -11,7 +11,8 @@
     "family",
     "domain",
     "school",
-    "status"
+    "status",
+    "role"
   ],
   "properties": {
     "apiVersion": {

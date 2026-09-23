@@ -132,8 +132,12 @@ function validateRelations(relations = RELATION_DEFINITIONS, concepts = CONCEPT_
 
   // Validate ALL relations — do NOT silently drop dangling ones.
   // A dangling reference must produce a validation error, not disappear.
+  const invalidIndices = new Set();
   normalized.forEach((item, index) => {
     const validationErrors = validateRelation(item, index, conceptIds);
+    if (validationErrors.length > 0) {
+      invalidIndices.add(index);
+    }
     errors.push(...validationErrors);
     const key = relationKey(item);
     if (keys.has(key)) duplicates.add(key);
@@ -144,12 +148,8 @@ function validateRelations(relations = RELATION_DEFINITIONS, concepts = CONCEPT_
     errors.push(`duplicate relations: ${[...duplicates].sort().join(', ')}`);
   }
 
-  // Only count relations that passed validation (no errors) as valid.
-  const validRelations = normalized.filter((_, index) => {
-    // A relation is valid if no errors were reported for it.
-    // Errors are pushed in order, so we check if any error references this index.
-    return !errors.some((error) => error.startsWith(`relations[${index}]`));
-  });
+  // A relation is valid only if no errors were reported for its exact index.
+  const validRelations = normalized.filter((_, index) => !invalidIndices.has(index));
 
   return { valid: errors.length === 0, relations: normalized, validRelations, errors };
 }

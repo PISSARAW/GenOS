@@ -45,12 +45,10 @@ function compareTrajectories(baselineTrajectory, candidateTrajectory) {
 
 function findDivergencePoints(baseline, candidate) {
   const divergences = [];
-  const maxLen = Math.max(baseline.length, candidate.length);
-  for (let i = 0; i < maxLen; i++) {
-    const b = i < baseline.length ? baseline[i] : null;
-    const c = i < candidate.length ? candidate[i] : null;
-    if (b !== c) {
-      divergences.push({ step: i, baseline: b, candidate: c });
+  const minLen = Math.min(baseline.length, candidate.length);
+  for (let i = 0; i < minLen; i++) {
+    if (baseline[i] !== candidate[i]) {
+      divergences.push({ step: i, baseline: baseline[i], candidate: candidate[i] });
     }
   }
   return divergences;
@@ -79,7 +77,10 @@ function buildCausalReceipt({ experiment, baselineResult, candidateResult, basel
 
 function assessEvidenceStrength({ divergenceCount, baselineLength, candidateLength }) {
   if (divergenceCount === 0) return EVIDENCE_LEVELS.NONE;
+  // STRONG requires equal-length trajectories (same granularity of observation).
   if (baselineLength > 0 && candidateLength > 0 && Math.abs(baselineLength - candidateLength) <= 1) return EVIDENCE_LEVELS.STRONG;
+  // MODERATE: few divergences suggest a localized causal effect.
+  // The threshold (3) is conservative — above this, noise dominates signal.
   if (divergenceCount <= 3) return EVIDENCE_LEVELS.MODERATE;
   return EVIDENCE_LEVELS.WEAK;
 }

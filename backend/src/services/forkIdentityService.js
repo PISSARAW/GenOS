@@ -11,6 +11,9 @@ function requireAgentPair(a, b) {
 
 function compare(a, b) {
   requireAgentPair(a, b);
+  if (a === b) {
+    throw new Error('forkIdentityService.compare: cannot compare an agent with itself (same reference)');
+  }
   return {
     comparedAt: Date.now(),
     dimensions: {
