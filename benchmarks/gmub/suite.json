@@ -20,6 +20,13 @@
   ],
   "stats": { "method": "paired_bootstrap", "reps": 2000, "alpha": 0.05, "margin": 0 },
   "verdictRule": "LCB95(D) > margin => beaten, sinon inconclusif",
+  "control": {
+    "strategies": ["independent_samples", "self_consistency", "retry", "majority_vote"],
+    "rule": "meme modele, memes cas, sans architecture GenOS ; C > B > A exige avec IC95 sur les trois paires",
+    "budgetMatching": "tokens, temps et cout $ plafonnes a egalite pour la comparaison efficiency-matched"
+  },
+  "wmc": { "description": "plus petit modele + GenOS depassant un frontier solo donne", "margin": 0 },
+  "unfavorable": "inclure des cas triviaux ou GenOS doit etre neutre ou moins efficace (garde-fou anti-sur-affirmation)",
   "domains": [
     "reasoning_short",
     "reasoning_deep",

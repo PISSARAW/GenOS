@@ -5,6 +5,8 @@ const path = require('path');
 const { summarizePaired } = require('../../backend/src/services/uplift/pairedStats');
 const { buildLadder, upliftCard } = require('../../backend/src/services/uplift/ladderService');
 const { summarizeCost } = require('../../backend/src/services/uplift/costAccounting');
+const { triplesFor, summarizeABC } = require('../../backend/src/services/uplift/computeControl');
+const { weakestCrossover } = require('../../backend/src/services/uplift/wmcService');
 
 function loadJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -32,7 +34,23 @@ function runReport(input) {
   const stats = summarizePaired(pairs, input.stats || {});
   const card = upliftCard({ baseModel: input.model, genosScore: stats.delta !== null ? meanSolo(runs, input) + stats.delta : null }, ladder);
   const cost = summarizeCost(input.cost || {});
-  return { suite: input.suite, model: input.model, ladder, stats, card, cost, kind: 'metric', qualityGuarantee: false };
+  const abc = summarizeABC(triplesFor(runs, input), input.stats || {});
+  const wmc = weakestWmc(input, ladder);
+  return { suite: input.suite, model: input.model, ladder, stats, card, cost, abc, wmc, kind: 'metric', qualityGuarantee: false };
+}
+
+function weakestWmc(input, ladder) {
+  if (!input.wmc || !input.wmc.frontier) return null;
+  const frontier = ladder.find((s) => s.model === input.wmc.frontier);
+  if (!frontier) return null;
+  const cands = ladder.map((s) => ({ model: s.model, soloScore: s.score, genosScore: genosMean(input, s.model) }));
+  return weakestCrossover(cands, { score: frontier.score, margin: input.wmc.margin || 0 });
+}
+
+function genosMean(input, model) {
+  const vals = (input.runs || []).filter((r) => r.model === model && r.mode === 'genos').map((r) => r.score);
+  if (!vals.length) return null;
+  return vals.reduce((s, v) => s + v, 0) / vals.length;
 }
 
 function meanSolo(runs, input) {
