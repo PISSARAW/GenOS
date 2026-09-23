@@ -1,19 +1,27 @@
 'use strict';
 
 const telemetry = require('../src/services/telemetryObserver');
+const { markContinuation } = require('../src/services/durableContinuationService');
 
 const CONTINUATION_WAIT_TIMEOUT_MS = 10 * 60 * 1000;
+
+// Unified terminal states — MUST match genos-orchestrate.cjs waitForCompletion
+const TERMINAL_STATES = new Set(['completed', 'error', 'terminated', 'apoptosis', 'unverified', 'failed', 'quarantined', 'blocked']);
+
+function isTerminalStatus(status) {
+  return TERMINAL_STATES.has(status);
+}
 
 async function waitUntilTerminal(db, agentId) {
   const deadline = Date.now() + CONTINUATION_WAIT_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const row = await db.get('SELECT status FROM agents WHERE id = ?', agentId);
-    if (row && ['completed', 'error', 'failed', 'terminated', 'apoptosis', 'quarantined'].includes(row.status)) {
-      return true;
+    if (row && isTerminalStatus(row.status)) {
+      return row.status;
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
-  return false;
+  return null; // timeout
 }
 
 function timeoutResult() {
@@ -46,11 +54,28 @@ function emitReevalEvent(input = {}) {
   });
 }
 
+// Close the continuation_queue record when worker reaches terminal state.
+// Uses durableContinuationService.markConsistency for consistency.
+async function closeContinuation(db, decisionId, finalStatus) {
+  const queueStatus = (finalStatus === 'completed') ? 'completed' : 'failed';
+  try {
+    await markContinuation({ db, id: decisionId, status: queueStatus });
+  } catch {
+    // Fallback: direct SQL if service unavailable
+    await db.run(
+      `UPDATE continuation_queue SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [queueStatus, decisionId]
+    );
+  }
+}
+
 async function waitForContinuationAndReevaluate(input = {}) {
   const { db, id, continuationResult } = input;
   const contAgentId = continuationResult.dispatched.targetAgentId;
-  const reachedTerminal = await waitUntilTerminal(db, contAgentId);
-  if (!reachedTerminal) {
+  const decisionId = continuationResult.dispatched.decisionId;
+  const finalStatus = await waitUntilTerminal(db, contAgentId);
+  
+  if (!finalStatus) {
     telemetry.emitEvent({
       eventType: 'HOMEOSTASIS_CONTINUATION_TIMEOUT',
       agentId: id,
@@ -59,8 +84,14 @@ async function waitForContinuationAndReevaluate(input = {}) {
       payload: { continuationAgentId: contAgentId },
       severity: 'warning'
     });
+    // Still close the queue record on timeout
+    if (decisionId) await closeContinuation(db, decisionId, 'terminated');
     return timeoutResult();
   }
+
+  // Close the continuation_queue record now that worker is terminal
+  if (decisionId) await closeContinuation(db, decisionId, finalStatus);
+
   try {
     const reeval = await refreshAndEvaluate(input);
     emitReevalEvent({ id, contAgentId, reeval });
@@ -125,4 +156,4 @@ async function runBoundedContinuationLoop(input = {}) {
   return current;
 }
 
-module.exports = { waitForContinuationAndReevaluate, runBoundedContinuationLoop, CONTINUATION_WAIT_TIMEOUT_MS };
+module.exports = { waitForContinuationAndReevaluate, runBoundedContinuationLoop, CONTINUATION_WAIT_TIMEOUT_MS, TERMINAL_STATES, isTerminalStatus };

@@ -6,7 +6,7 @@
  * l'homéostasie, émet les pulses vitaux et décide des modes de survie.
  */
 
-const { newOrganism, buildPhenotype, buildMemorySystem, buildSurvivalSystem, buildImmuneSystem, buildNervousSystem, recordScar, recordCheckpoint, isFunctionCovered } = require('./missionOrganismService');
+const { newOrganism, buildPhenotype, buildMemorySystem, buildSurvivalSystem, buildImmuneSystem, buildNervousSystem, recordScar, recordCheckpoint, isFunctionCovered, buildTissues } = require('./missionOrganismService');
 const { buildMissionHomeostasis, attachHomeostasisToOrganism, evaluateMissionHomeostasis } = require('./homeostasisService');
 const vitalSignals = require('./vitalSignalsService');
 const immuneGate = require('./immuneGateService');
@@ -31,20 +31,23 @@ const TISSUE_KINDS = Object.freeze({
   recovery: 'recoveryCells'
 });
 
+// Cell state mapping: completed is a normal end (quiescent/retired), not death.
+// Only pathological terminations count as death.
 const AGENT_STATUS_TO_CELL = Object.freeze({
   running: 'alive',
   idle: 'alive',
-  completed: 'dead',
+  completed: 'quiescent',
   blocked: 'quiescent',
+  unverified: 'quiescent',
   error: 'dead',
   terminated: 'dead',
   apoptosis: 'dead',
   quarantined: 'injured',
-  unverified: 'dead',
   failed: 'dead'
 });
 
-const TERMINAL_STATUSES = new Set(['completed', 'error', 'terminated', 'apoptosis', 'unverified', 'failed']);
+// Terminal states: states where an agent will not make further progress.
+const TERMINAL_STATUSES = new Set(['completed', 'error', 'terminated', 'apoptosis', 'unverified', 'failed', 'blocked']);
 
 function tissueKindForAgent(agent) {
   if (agent.execution_mode === 'worker') {
@@ -98,12 +101,16 @@ async function assembleOrganism(db, mission) {
 
   const existingState = await restoreOrganismState(db, organismId);
 
+  // Always normalize tissues into canonical structure { workers, orchestrator, verifiers, recoveryCells }
+  // even after restoration, so downstream code (isFunctionCovered, regenerationService) works correctly.
+  const normalizedTissues = buildTissues(cells);
+
   if (existingState && existingState.memory) {
     const organism = {
       id: organismId,
       genome: buildGenome(mission, existingState),
       phenotype: buildPhenotypeFromState(existingState),
-      tissues: cells,
+      tissues: normalizedTissues,
       metabolism: existingState.metabolism || { tokens: 0, cost: 0, latencyMs: 0, computeCycles: 0, sampledAt: new Date().toISOString() },
       immuneSystem: existingState.immuneSystem || buildImmuneSystem({ evidenceGates: [], tests: [], anomalyDetection: null, quarantine: null }),
       nervousSystem: existingState.nervousSystem || buildNervousSystem({ heartbeats: [], signals: [] }),
@@ -193,9 +200,6 @@ async function observeMissionPulses(db, missionId) {
   const pulses = [];
   for (const agent of agents) {
     const cellState = AGENT_STATUS_TO_CELL[agent.status] || 'alive';
-    // Real emission: each pulse goes through emitCellPulse so the nervous
-    // system is observable in telemetry, with a derived stress level instead
-    // of a constant zero.
     const pulse = vitalSignals.emitCellPulse({
       cell: agent.id,
       mission: missionId,
@@ -209,8 +213,11 @@ async function observeMissionPulses(db, missionId) {
 
 function deriveHomeostasisContext(input = {}) {
   const agents = input.agents || [];
-  const failed = agents.filter((a) => ['error', 'failed', 'terminated'].includes(a.status)).length;
-  const completed = agents.filter((a) => ['completed', 'unverified'].includes(a.status)).length;
+  // Distinguish historical failures from current functional state.
+  // Only agents that are currently dead/injured count as recent failures.
+  // Completed/quiescent agents are retired, not failed.
+  const failed = agents.filter((a) => ['error', 'failed', 'terminated', 'apoptosis'].includes(a.status)).length;
+  const completed = agents.filter((a) => ['completed', 'unverified', 'blocked'].includes(a.status)).length;
   const running = agents.filter((a) => a.status === 'running').length;
   return {
     missionOutcome: input.missionOutcome === true,
@@ -235,9 +242,8 @@ async function evaluateContinuity(db, mission) {
   const organismWithContract = await attachContract(organism, mission);
   const agents = await fetchMissionAgents(db, mission.id);
   const context = deriveHomeostasisContext({ agents, ...mission.context });
-  // Immune wiring: dead or injured cells are an injury. The immune gate
-  // evaluates anomaly + functional coverage, and repeated failures enroll an
-  // immune memory entry so the exact retry of a failed strategy is refused.
+
+  // Immune wiring: only currently dead cells are an injury, not retired ones.
   const deadCells = agents
     .filter((a) => (AGENT_STATUS_TO_CELL[a.status] || 'alive') === 'dead')
     .map((a) => ({ identifier: a.id, kind: tissueKindForAgent(a), role: a.role, reason: a.status }));
@@ -255,7 +261,6 @@ async function evaluateContinuity(db, mission) {
       }),
       organismWithContract
     );
-    // Persist organism after immune memory mutation
     await persistOrganismState(db, enrolledOrganism);
   }
   const evaluation = await evaluateMissionHomeostasis(db, {

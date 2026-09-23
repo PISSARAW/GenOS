@@ -64,7 +64,11 @@ function buildEvidenceFlags({ agents, dossiers, telemetry }) {
   const hasVerifiedBarrier = telemetry.some(t => t.event_type === 'WORKER_EVIDENCE_BARRIER_SATISFIED');
   return {
     missionOutcome: completed > 0 && failed === 0,
-    testsPassed: hasVerifiedBarrier,
+    // CRITICAL FIX: WORKER_EVIDENCE_BARRIER_SATISFIED means "all workers terminal
+    // and dossiers attached to synthesis" — NOT "tests passed". These are
+    // fundamentally different claims. testsPassed should only be true when
+    // there is actual test execution evidence (receipt with exitCode 0).
+    testsPassed: hasVerifiedBarrier && hasRealTestReceipt(telemetry),
     workerEvidenceComplete: hasDossierReports,
     noFailedAgents: failed === 0,
     allAgentsCompleted: completed === agents.length && agents.length > 0,
@@ -72,12 +76,33 @@ function buildEvidenceFlags({ agents, dossiers, telemetry }) {
   };
 }
 
+// A real test receipt must contain evidence of actual test execution
+// (exit code, suite name, command), not just a barrier satisfaction event.
+function hasRealTestReceipt(telemetry) {
+  for (const t of telemetry) {
+    if (t.event_type !== 'WORKER_EVIDENCE_BARRIER_SATISFIED') continue;
+    try {
+      const payload = JSON.parse(t.payload_json || '{}');
+      // Only count as test_suite_passed if the payload explicitly confirms
+      // test execution with exit code 0
+      if (payload.exitCode === 0 && payload.suite) return true;
+    } catch {
+      // ignore parse errors
+    }
+  }
+  return false;
+}
+
 function buildEvidenceKinds({ dossiers, runs, telemetry }) {
   const kinds = new Set();
   if (dossiers.some(d => d.events.some(e => e.evidenceReport))) kinds.add('worker_evidence');
   if (runs.some(r => r.status === 'completed')) kinds.add('execution_run_complete');
   if (telemetry.some(t => t.event_type === 'EVIDENCE_REPORT')) kinds.add('evidence_report');
-  if (telemetry.some(t => t.event_type === 'WORKER_EVIDENCE_BARRIER_SATISFIED')) kinds.add('test_suite_passed');
+  // CRITICAL FIX: WORKER_EVIDENCE_BARRIER_SATISFIED does NOT imply test_suite_passed.
+  // It means "all workers terminal and dossiers attached". Only add test_suite_passed
+  // if there is a real test receipt with exitCode 0.
+  if (hasRealTestReceipt(telemetry)) kinds.add('test_suite_passed');
+  if (telemetry.some(t => t.event_type === 'WORKER_EVIDENCE_BARRIER_SATISFIED')) kinds.add('worker_evidence_barrier_satisfied');
   if (telemetry.some(t => t.event_type === 'AGENT_COMPLETED')) kinds.add('agent_completed');
   if (telemetry.some(t => t.event_type === 'MISSION_COMPLETED')) kinds.add('homeostasis_achieved');
   return [...kinds];

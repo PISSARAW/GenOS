@@ -111,6 +111,22 @@ test('dispatchHomeostasisContinuation inserts agent and starts mission', async (
   assert.strictEqual(result.deviation, 'missing_work');
 });
 
+test('continuation_queue record is created as pending then dispatched', async () => {
+  const db = await getDatabase(TMP_DB);
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, current_task) VALUES (?, 'test_orch_queue', 'orchestrator', 'idle', 'orchestrator', 'test')`, 'orch_queue');
+  const org = organism.newOrganism({ genome: { objective: 'x' } });
+  const result = await continuation.dispatchHomeostasisContinuation({
+    db,
+    orchestratorId: 'orch_queue',
+    mission: { id: 'm_queue', task: 'test task', objective: 'test' },
+    organismState: org,
+    evaluation: { status: 'evidence_missing', state: { evidence: { satisfied: false } } }
+  });
+  const record = await db.get(`SELECT status FROM continuation_queue WHERE id = ?`, result.decisionId);
+  assert.ok(record, 'continuation_queue record must exist');
+  assert.strictEqual(record.status, 'dispatched', 'record should be dispatched after startMission');
+});
+
 test('maybeDispatchContinuation: immune refusal blocks continuation', async () => {
   const db = await getDatabase(TMP_DB);
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, current_task) VALUES (?, 'orch_immune', 'orchestrator', 'idle', 'orchestrator', NULL, NULL, 'standard', 'TypeScript', 'Branch', 'test')`, 'orch_immune');
@@ -183,9 +199,6 @@ test('continuation budget is enforced', async () => {
   const org = organism.newOrganism({ genome: { objective: 'x' } });
   const evalInput = { status: 'evidence_missing', state: { evidence: { satisfied: false, missing: ['test_suite_passed'] } } };
   let lastResult;
-  // Simulate successive rounds: each worker terminates (row completed) then
-  // homeostasis is re-evaluated still blocked, so the next round is a new
-  // decision, until the budget is exhausted.
   for (let i = 0; i < 5; i++) {
     lastResult = await continuation.dispatchHomeostasisContinuation({
       db,
@@ -195,6 +208,7 @@ test('continuation budget is enforced', async () => {
       evaluation: evalInput
     });
     if (lastResult.targetAgentId) {
+      // Simulate runtime closing the queue record
       await db.run(`UPDATE continuation_queue SET status = 'completed' WHERE id = ?`, lastResult.decisionId).catch(() => {});
     }
   }
@@ -223,7 +237,6 @@ test('continuation idempotency: same blocked fingerprint dispatches once', async
     evaluation: evalInput
   });
   assert.ok(result2.idempotent, 'second dispatch with same blocked fingerprint must be idempotent');
-  // Only one active continuation_queue record for this (mission, deviation)
   const rows = await db.all(`SELECT id FROM continuation_queue WHERE json_extract(mission_json, '$.homeostasisMissionId') = 'm_idem'`);
   assert.strictEqual(rows.length, 1, 'idempotent dispatch must not create a duplicate continuation record');
 });

@@ -27,8 +27,6 @@ function getImmuneAdvice(organismState, deviation) {
 
 // Immune advice becomes a hard constraint: if the category itself is prohibited
 // (not just the exact signature), reject the candidate continuation strategy.
-// Also enforced across categories: any memory prohibiting this strategy
-// (e.g. cell_death enrollments) blocks an identical autonomous retry.
 function isImmuneBlocked(organismState, deviation, strategy) {
   const response = immuneMemory.immuneResponse(organismState, {
     failureCategory: `homeostasis:${deviation}`,
@@ -176,6 +174,13 @@ function emitDispatchTelemetry(info) {
   });
 }
 
+// State machine for continuation_queue:
+//   pending → worker idle, not yet started (safe for restart/redispatch)
+//   dispatched → startMission() has been called (runtime exists)
+//   completed / failed → terminal
+// This eliminates the crash window: if we crash between INSERT and startMission,
+// the record is PENDING and can be re-dispatched. If we crash after startMission,
+// the record is DISPATCHED and can be reconciled with the runtime.
 async function dispatchHomeostasisContinuation(input = {}) {
   const { db, orchestratorId, mission, organismState, evaluation } = input;
   const deviation = classifyDeviation(evaluation);
@@ -232,15 +237,45 @@ async function dispatchHomeostasisContinuation(input = {}) {
   const agent = buildAgentValues(deviation, advice, orchCtx);
   agent.prompt = prompt;
   await persistHomeostasisAgent(db, agent, orchestratorId);
+
+  // Step 1: Create queue record as PENDING (safe for restart)
   await db.run(
     `INSERT INTO continuation_queue (id, agent_id, orchestrator_id, mission_json, status, attempts)
-     VALUES (?, ?, ?, ?, 'dispatched', ?)`,
+     VALUES (?, ?, ?, ?, 'pending', ?)`,
     decisionId, agent.id, orchestratorId,
     JSON.stringify({ homeostasisMissionId: mission.id, homeostasisFingerprint: fingerprint, deviation }),
     priorRounds + 1
   );
+
+  // Step 2: Start the mission runtime
   const { startMission } = require('./agentRuntimeAdapter');
-  await startMission(buildRecoveryMission(agent, mission, orchestratorId));
+  const recoveryMission = buildRecoveryMission(agent, mission, orchestratorId);
+  
+  try {
+    await startMission(recoveryMission);
+  } catch (startErr) {
+    // Failed to start: mark queue record as failed
+    await db.run(
+      `UPDATE continuation_queue SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [decisionId]
+    );
+    telemetry.emitEvent({
+      eventType: 'HOMEOSTASIS_CONTINUATION_START_FAILED',
+      agentId: orchestratorId,
+      action: 'START_FAILED',
+      detail: `Continuation worker ${agent.id} failed to start: ${startErr.message}`,
+      payload: { missionId: mission.id, deviation, targetAgentId: agent.id, decisionId },
+      severity: 'error'
+    });
+    return { targetAgentId: agent.id, deviation, decisionId, continuationRound: priorRounds + 1, exhausted: false, startFailed: true };
+  }
+
+  // Step 3: Mark as DISPATCHED only after runtime is confirmed started
+  await db.run(
+    `UPDATE continuation_queue SET status = 'dispatched', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    [decisionId]
+  );
+
   emitDispatchTelemetry({ orchestratorId, missionId: mission.id, targetAgentId: agent.id, deviation, role: agent.role, decisionId, continuationRound: priorRounds + 1 });
   return { targetAgentId: agent.id, deviation, preferredResponse: agent.role, decisionId, continuationRound: priorRounds + 1, exhausted: false };
 }
