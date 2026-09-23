@@ -118,10 +118,12 @@ class NaturalSearchController {
       }
     }
 
-    // Mise à jour des compteurs
+    // Mise à jour des compteurs : stepsSinceChange = steps depuis dernier changement
     if (process !== this.lastProcess) {
+      this.stepsSinceChange = 0;
       this.stepsInCurrentProcess = 0;
     } else {
+      this.stepsSinceChange++;
       this.stepsInCurrentProcess++;
     }
     this.lastProcess = process;

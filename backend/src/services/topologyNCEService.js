@@ -31,6 +31,27 @@ function enrichWorkerPromptSync(prompt, options) {
     : prompt;
 }
 
+function getField(request, camel, snake) {
+  return request?.[camel] ?? request?.[snake];
+}
+
+function buildTopologyOptions(context, topology) {
+  const request = context?.request || {};
+  return {
+    topology,
+    role: topology + '_agent',
+    db: context?.db,
+    domain: getField(request, 'domain', 'problem_domain'),
+    keywords: request.keywords || [],
+    budget: request.execution_budget || request.executionBudget || {},
+    explorationDomains: getField(request, 'explorationDomains', 'exploration_domains') || [],
+    knownConcepts: getField(request, 'knownConcepts', 'known_concepts') || [],
+    existingCapabilities: getField(request, 'existingCapabilities', 'existing_capabilities') || [],
+    culturalTraits: getField(request, 'culturalTraits', 'cultural_traits') || [],
+    nceOptions: getField(request, 'nceOptions', 'nce_options'),
+  };
+}
+
 async function computeNCEForTopology(task, options) {
   options = options || {};
   const enhancements = await nceIntegration.enhanceMissionWithNCE({
@@ -42,6 +63,7 @@ async function computeNCEForTopology(task, options) {
     knownConcepts: options.knownConcepts,
     existingCapabilities: options.existingCapabilities,
     culturalTraits: options.culturalTraits,
+    nceOptions: options.nceOptions,
   }, options.db);
 
   return {
@@ -58,6 +80,8 @@ async function computeNCEForTopology(task, options) {
 
 module.exports = {
   TOPOLOGY_SIGNALS,
+  getSignals,
   enrichWorkerPromptSync,
   computeNCEForTopology,
+  buildTopologyOptions,
 };

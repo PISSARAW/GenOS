@@ -9,6 +9,7 @@ const { SearchIntegration } = require('./searchIntegrationService');
 const { getDatabase } = require('../../db');
 
 const { ActuatorModules } = require('./actuatorModules');
+const { handleHypothesisProtocol } = require('./hypothesisEventProtocol');
 
 const agentSearchState = new Map();
 let cachedDb = null;
@@ -81,7 +82,7 @@ async function getOrCreateSearchState(agentId, ctxDb = null) {
     const causalProgress = new CausalProgressService();
     const integration = new SearchIntegration();
     agentSearchState.set(agentId, {
-      ledger, controller, actuator, causalProgress, persistence, integration,
+      agentId, ledger, controller, actuator, causalProgress, persistence, integration,
       stepCount: 0, lastProgressStep: 0
     });
     if (db) {
@@ -97,14 +98,15 @@ async function clearSearchState(agentId) {
 }
 
 /**
- * Point 12 — Routage de provenance selon la source du signal.
- *   LLM output        → SELF_REPORTED (l'agent rapporte ses propres résultats)
- *   Runtime/event     → INFERRED (déduit de l'observation d'événements)
- *   Tool execution    → OBSERVED (mesure externe directe)
- *   Verifier/evidence → VALIDATED (confirmé par un tiers)
+ * Routage de provenance selon la source du signal — autorité runtime.
+ * L'agent ne choisit jamais son niveau : payload.provenance et
+ * payload.evidenceProvenance sont ignorés (SELF_REPORTED forcé par défaut).
+ *   LLM output        → SELF_REPORTED
+ *   Runtime/event     → INFERRED
+ *   Tool execution    → OBSERVED
+ *   Verifier/evidence → VERIFIED
  */
 function resolveProvenance(payload, eventType) {
-  if (payload.provenance) return payload.provenance;
   if (['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType)) return PROVENANCE.VERIFIED;
   if (eventType === 'TOOL_EXECUTED' || eventType === 'TOOL_RESULT') return PROVENANCE.OBSERVED;
   if (eventType === 'AGENT_STEP' || eventType === 'AGENT_MESSAGE') return PROVENANCE.SELF_REPORTED;
@@ -133,35 +135,12 @@ function ingestEvidence(searchState, payload, eventType) {
 }
 
 function maybeProposeHypothesis(searchState, payload, agentId) {
-  const { ledger } = searchState;
+  return handleHypothesisProtocol({ ledger: searchState.ledger, eventType: null, payload, agentId });
+}
 
-  if (payload.hypothesisStatement) {
-    const h = ledger.propose({
-      agentId,
-      statement: payload.hypothesisStatement,
-      prediction: payload.hypothesisPrediction || null,
-      falsificationCondition: payload.hypothesisFalsification || null,
-      confidence: payload.hypothesisConfidence ?? 0.5
-    });
-    ledger.startTest(h.id);
-    return h;
-  }
-
-  const hypothesisGain = Number(payload.hypothesisInformationGain || 0);
-  if (hypothesisGain > 0) {
-    const activeHyps = ledger.activeHypotheses();
-    if (activeHyps.length === 0) {
-      const h = ledger.propose({
-        agentId,
-        statement: `Hypothèse auto-générée (gain=${hypothesisGain.toFixed(3)})`,
-        prediction: null, falsificationCondition: null, confidence: 0.5
-      });
-      ledger.startTest(h.id);
-      return h;
-    }
-  }
-
-  return null;
+function handleLifecycleEvent(args) {
+  const { searchState, eventType, payload, agentId } = args;
+  return handleHypothesisProtocol({ ledger: searchState.ledger, eventType, payload, agentId });
 }
 
 /**
@@ -189,7 +168,8 @@ function proactiveHypothesis(searchState, agentId) {
 }
 
 function ingestFailureEvidence(searchState, event) {
-  const { ledger } = searchState;
+  const { ledger, integration } = searchState;
+  const agentId = searchState.agentId;
   const targetHypId = event.payload?.hypothesisId || null;
   if (!targetHypId) {
     ledger.notify({ type: 'HYPOTHESIS_REJECTED_EVIDENCE_ON_FALSIFIED', hypothesisId: null });
@@ -207,7 +187,6 @@ function ingestFailureEvidence(searchState, event) {
     reliability: 0.8, independent: true, evidenceRef: `error:${event.eventType}`
   });
 
-  const { integration } = searchState;
   if (integration) {
     try {
       integration.recordNegative(agentId, target, { ref: event.eventType, strength: 0.5, reliability: 0.8 }, { signature: event.eventType, conditions: [], scope: 'agent' });
@@ -306,7 +285,8 @@ async function persistSearchState(agentId, searchState, selection) {
   }
 }
 
-async function checkNaturalSearchControl(ctx, event) {
+async function checkNaturalSearchControl(ctx, event, finalEvent = null) {
+  void finalEvent;
   const { agentId, normalizedMission } = ctx;
   try {
     const searchState = await getOrCreateSearchState(agentId, ctx.db);
@@ -319,14 +299,45 @@ async function checkNaturalSearchControl(ctx, event) {
   }
 }
 
+function handlePostReceiptPlasmid({ selection, receipt, searchCtx, actuator, agentId }) {
+  if (!receipt || receipt.status !== 'success') return;
+  if (selection.process !== 'EVOLUTION' && selection.process !== 'CLONAL_AFFINITY_SEARCH') return;
+  try {
+    const genome = actuator.modules.getBestGenome ? actuator.modules.getBestGenome() : null;
+    if (!genome || !receipt.result) return;
+    const plasmid = actuator.modules.compilePlasmid(genome, {
+      environment: { searchYield: searchCtx.searchYield || 0, falsifiedHypotheses: searchCtx.falsifiedHypotheses || 0 },
+      generations: receipt.result.evolutionLog ? receipt.result.evolutionLog.length : 0,
+      successRate: 0.7, reproducible: true,
+    });
+    if (plasmid) actuator.modules.cultureService.transmit(plasmid.id, agentId);
+  } catch (_) {}
+}
+
+function handlePostReceiptFalsified({ searchState, agentId, eventType }) {
+  const falsified = searchState.ledger.hypothesesForAgent(agentId).filter(h => h.status === 'falsified');
+  for (const h of falsified) {
+    try {
+      searchState.actuator.modules.recordNegativeOutcome(agentId, h,
+        { ref: `falsified:${h.id}`, strength: 0.8, reliability: 0.9 },
+        { signature: eventType, conditions: [], scope: 'agent' });
+    } catch (_) {}
+  }
+}
+
+function handlePostReceiptMemory({ searchState, selection, receipt, searchCtx, agentId, eventType }) {
+  handlePostReceiptPlasmid({ selection, receipt, searchCtx, actuator: searchState.actuator, agentId });
+  handlePostReceiptFalsified({ searchState, agentId, eventType });
+}
+
 async function processSearchEvent(searchState, ctx, event) {
   const eventType = event.eventType || 'AGENT_STEP';
   const { agentId, normalizedMission } = ctx;
-  const { ledger, controller, actuator, causalProgress, persistence } = searchState;
+  const { ledger, controller, actuator, causalProgress } = searchState;
   applyBudget(searchState, normalizedMission);
   causalProgress.ingestEvent(event);
   ingestEvidence(searchState, event.payload || {}, eventType);
-  maybeProposeHypothesis(searchState, event.payload || {}, agentId);
+  handleLifecycleEvent({ searchState, eventType, payload: event.payload || {}, agentId });
   if (searchState.stepCount > 5 && (searchState.stepCount - searchState.lastProgressStep) > 5) {
     proactiveHypothesis(searchState, agentId);
   }
@@ -340,49 +351,7 @@ async function processSearchEvent(searchState, ctx, event) {
   emitDecision(agentId, selection, searchCtx);
   const receipt = await executeProcess({ selection, searchCtx, actuator });
   if (receipt) emitAction(agentId, selection.process, receipt);
-
-  // Point 12 — Mémoire négative : enregistrer les hypothèses nouvellement falsifiées
-  if (receipt && receipt.status === 'success') {
-    const modules = actuator.modules;
-    // Culture : compiler un plasmide quand un processus de recherche réussit
-    if (selection.process === 'EVOLUTION' || selection.process === 'CLONAL_AFFINITY_SEARCH') {
-      try {
-        const genome = modules.getBestGenome ? modules.getBestGenome() : null;
-        if (genome && receipt.result) {
-          const plasmid = modules.compilePlasmid(genome, {
-            environment: {
-              searchYield: searchCtx.searchYield || 0,
-              falsifiedHypotheses: searchCtx.falsifiedHypotheses || 0
-            },
-            generations: receipt.result.evolutionLog ? receipt.result.evolutionLog.length : 0,
-            successRate: 0.7,
-            reproducible: true
-          });
-          if (plasmid) {
-            modules.cultureService.transmit(plasmid.id, agentId);
-          }
-        }
-      } catch (_) {}
-    }
-  }
-
-  // Point 12 — Mémoire négative : capturer les hypothèses falsifiées
-  const falsifiedHypotheses = ledger.hypothesesForAgent(agentId).filter(h => h.status === 'falsified');
-  for (const h of falsifiedHypotheses) {
-    try {
-      const modules = actuator.modules;
-      modules.recordNegativeOutcome(agentId, h, {
-        ref: `falsified:${h.id}`,
-        strength: 0.8,
-        reliability: 0.9
-      }, {
-        signature: eventType,
-        conditions: [],
-        scope: 'agent'
-      });
-    } catch (_) {}
-  }
-
+  handlePostReceiptMemory({ searchState, selection, receipt, searchCtx, agentId, eventType });
   await persistSearchState(agentId, searchState, selection);
 }
 
