@@ -148,6 +148,10 @@ const migrationRunners = [
     const { migrateDaemonHandoffFeedback } = require('./migrateDaemonHandoffFeedback');
     await migrateDaemonHandoffFeedback(db);
   }),
+  createMigrationRunner('046-relation-communication-profile', 'Enrich agent_relations with class and measurable communication properties (Phase 2)', async (db) => {
+    const { migrateRelationCommunicationProfile } = require('./migrateRelationCommunicationProfile');
+    await migrateRelationCommunicationProfile(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

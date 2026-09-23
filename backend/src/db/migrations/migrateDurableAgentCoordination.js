@@ -3,7 +3,14 @@
 async function migrateDurableAgentCoordination(db) {
   await db.exec(`CREATE TABLE IF NOT EXISTS agent_relations (
     id TEXT PRIMARY KEY, source_agent_id TEXT NOT NULL, target_agent_id TEXT NOT NULL,
-    relation_type TEXT NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}',
+    relation_type TEXT NOT NULL, relation_class TEXT,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    familiarity REAL NOT NULL DEFAULT 0, interaction_count INTEGER NOT NULL DEFAULT 0,
+    shared_history REAL NOT NULL DEFAULT 0, authority REAL NOT NULL DEFAULT 0,
+    trust_for_domain REAL NOT NULL DEFAULT 0, common_ground_estimate REAL NOT NULL DEFAULT 0,
+    epistemic_independence REAL NOT NULL DEFAULT 1, error_correlation REAL NOT NULL DEFAULT 0,
+    disclosure_level REAL NOT NULL DEFAULT 1, preferred_dialect TEXT,
+    last_interaction TEXT,
     organization_id TEXT, project_id TEXT, provenance_hash TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     CHECK (json_valid(metadata_json)), CHECK (source_agent_id <> target_agent_id)
@@ -11,6 +18,9 @@ async function migrateDurableAgentCoordination(db) {
   CREATE INDEX IF NOT EXISTS idx_agent_relations_source ON agent_relations(source_agent_id, relation_type);
   CREATE INDEX IF NOT EXISTS idx_agent_relations_target ON agent_relations(target_agent_id, relation_type);
   CREATE INDEX IF NOT EXISTS idx_agent_relations_scope ON agent_relations(organization_id, project_id);
+  CREATE INDEX IF NOT EXISTS idx_agent_relations_class ON agent_relations(relation_class);
+  CREATE INDEX IF NOT EXISTS idx_agent_relations_familiarity ON agent_relations(familiarity);
+  CREATE INDEX IF NOT EXISTS idx_agent_relations_epistemic ON agent_relations(epistemic_independence);
 
   CREATE TABLE IF NOT EXISTS collective_decisions (
     id TEXT PRIMARY KEY, topic TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open',

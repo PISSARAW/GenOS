@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/common-ground.schema.json",
+  "title": "CommonGroundEntry",
+  "description": "Une entrée du Common Ground Ledger : qui sait quoi, avec quel statut et quelle provenance. Les paires d'agents sont ordonnées canoniquement (agent_a < agent_b).",
+  "type": "object",
+  "required": ["agentA", "agentB", "domain", "semanticFingerprint", "status", "confidence"],
+  "properties": {
+    "agentA": { "type": "string", "minLength": 1 },
+    "agentB": { "type": "string", "minLength": 1 },
+    "domain": { "type": "string", "minLength": 1 },
+    "semanticFingerprint": { "type": "string", "pattern": "^sha256:" },
+    "status": {
+      "type": "string",
+      "enum": ["proposed", "grounded", "stale", "revoked", "contradicted"]
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "groundedAt": { "type": ["string", "null"], "format": "date-time" },
+    "lastConfirmedAt": { "type": ["string", "null"], "format": "date-time" },
+    "expiresAt": { "type": ["string", "null"], "format": "date-time" },
+    "provenance": { "type": "object" }
+  },
+  "additionalProperties": false
+}
