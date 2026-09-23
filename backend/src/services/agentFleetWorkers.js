@@ -41,8 +41,26 @@ function intersectLease(dnaTools, lease) {
   return lease.filter((tool) => allowed.has(String(tool)));
 }
 
+function manifestFallbackCaps(assignment) {
+  try {
+    const { buildLaunchCapabilities } = require('./agents/agentIncarnationPayloadService');
+    const built = buildLaunchCapabilities({
+      role: assignment.role,
+      prompt: `${assignment.label || ''} ${assignment.hypothesis || ''}`.trim(),
+      capabilitiesHint: assignment.capabilities,
+    });
+    return built.capabilities;
+  } catch (_) {
+    return Array.isArray(assignment.capabilities) ? assignment.capabilities : [];
+  }
+}
+
 function effectiveToolLease(assignment, capabilityContract, dnaSelection) {
-  const base = workerToolLeaseForCapabilities(assignment.role, capabilityContract);
+  const hinted = Array.isArray(assignment.capabilities) && assignment.capabilities.length
+    ? assignment.capabilities
+    : manifestFallbackCaps(assignment);
+  const merged = [...new Set([...(capabilityContract || []), ...hinted])];
+  const base = workerToolLeaseForCapabilities(assignment.role, merged);
   if (!dnaSelection || !dnaSelection.genes) return base;
   const dnaTools = dnaSelection.genes.tools;
   const assignmentTools = assignment.tools;
@@ -145,13 +163,14 @@ function formatDnaPromptBlock(dnaSelection) {
 }
 
 function buildWorkerPrompt(details) {
-  const { identity, conscience, assignment, context, dnaSelection } = details;
+  const { identity, conscience, assignment, context, dnaSelection, workerSelfBlock } = details;
   const creative = assignment.artifact === 'creative' || /author|literary|dramaturg/i.test(assignment.role || '');
   const cognitivePhenotype = require('./cognitivePhenotypeService');
   const phenotypeBlock = cognitivePhenotype.formatPhenotypePrompt(assignment.cognitiveRecipe);
   const dnaPrompt = formatDnaPromptBlock(dnaSelection);
   return [
     identity.introduction,
+    workerSelfBlock || null,
     agentConscience.formatConsciencePrompt(conscience),
     context.mission.prompt || context.parent.current_task || 'Autonomous task execution',
     `Assigned branch: ${assignment.label}.`,
@@ -181,7 +200,20 @@ async function prepareWorkerAssets(workerContext) {
     ? dnaAuthorityEvolution(dnaSelection)
     : await agentEvolution.evolveWorkerGenome(parent, assignment, { strategy: plan.strategyContract?.primary || 'tree-search', db });
   const conscience = agentConscience.createConscienceState({ currentBudget: perWorkerCognitiveBudget, baselineBudget: perWorkerCognitiveBudget });
-  const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext, dnaSelection });
+
+  // Build WorkerSelf for introspection
+  let workerSelfBlock = '';
+  try {
+    const workerSelf = require('./workerSelfService');
+    const ws = await workerSelf.buildWorkerSelf(db, {
+      agentId: id,
+      workerRole: assignment.role,
+      workerContext: { mission: mission.prompt, hypothesis: assignment.hypothesis, capabilities: assignment.capabilities }
+    });
+    workerSelfBlock = workerSelf.formatWorkerSelfPrompt(ws);
+  } catch (_) {}
+
+  const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext, dnaSelection, workerSelfBlock });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
   const route = mission.executor === 'caller_mcp' ? {} : await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
   const workspaceRoot = await createWorkerWorkspace(workerContext, id);

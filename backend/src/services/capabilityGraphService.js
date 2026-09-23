@@ -240,20 +240,34 @@ function buildGraph() {
 }
 
 const CAPABILITY_GRAPH = buildGraph();
+const CUSTOM_CONCEPTS = new Map();
 
-function getConcept(id) { return CAPABILITY_GRAPH[id] || null; }
+function registerConcept(def = {}) {
+  if (!def.id || !def.kind) throw new Error('registerConcept requires id and kind.');
+  const key = `${def.kind}:${def.id}`;
+  const entry = graphEntry({ id: def.id, category: def.kind, ...def });
+  CUSTOM_CONCEPTS.set(key, entry);
+  return entry;
+}
+
+function getAllConcepts() {
+  if (!CUSTOM_CONCEPTS.size) return CAPABILITY_GRAPH;
+  return Object.freeze({ ...CAPABILITY_GRAPH, ...Object.fromEntries(CUSTOM_CONCEPTS) });
+}
+
+function getConcept(id) { return getAllConcepts()[id] || null; }
 function findConceptsByCategory(cat) {
-  return Object.values(CAPABILITY_GRAPH).filter(c => c.category === cat);
+  return Object.values(getAllConcepts()).filter(c => c.category === cat);
 }
 function findCompatibleConcepts(topology) {
-  return Object.values(CAPABILITY_GRAPH).filter(c => c.compatible_topologies.includes(topology));
+  return Object.values(getAllConcepts()).filter(c => c.compatible_topologies.includes(topology));
 }
 function resolveCapabilities(ids) {
-  return (ids || []).map(id => CAPABILITY_GRAPH[`capability:${id}`] || null).filter(Boolean);
+  const all = getAllConcepts();
+  return (ids || []).map(id => all[`capability:${id}`] || null).filter(Boolean);
 }
-function getAllConcepts() { return CAPABILITY_GRAPH; }
 function findByMetadata(field, value) {
-  return Object.values(CAPABILITY_GRAPH).filter(c => {
+  return Object.values(getAllConcepts()).filter(c => {
     const v = c[field];
     return Array.isArray(v) ? v.includes(value) : v === value;
   });
@@ -262,5 +276,5 @@ function findByMetadata(field, value) {
 module.exports = {
   CAPABILITY_GRAPH, getConcept, findConceptsByCategory,
   findCompatibleConcepts, resolveCapabilities, getAllConcepts,
-  findByMetadata, GENOS_CONCEPT_COUNT: Object.keys(CAPABILITY_GRAPH).length
+  findByMetadata, registerConcept, GENOS_CONCEPT_COUNT: Object.keys(CAPABILITY_GRAPH).length
 };

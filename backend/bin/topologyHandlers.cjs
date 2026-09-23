@@ -7,13 +7,29 @@ const aTeamDispatch = require('../src/services/aTeamDispatchService');
 const biologicalTopology = require('../src/services/biologicalTopologyService');
 const { randomUUID } = require('crypto');
 const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
+const { buildLaunchCapabilities } = require('../src/services/agents/agentIncarnationPayloadService');
 
 function createOrchestratorId(prefix) {
   return `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
 }
 
 function selectMembers(members, available) {
-  return members.slice(0, available);
+  if (!Array.isArray(members)) return [];
+  if (available < members.length) {
+    throw Object.assign(
+      new Error(`Biological dispatch requires ${members.length} free worker slots, but only ${available} available`),
+      { code: 'WORKER_GARAGE_FULL' }
+    );
+  }
+  return members.slice();
+}
+
+function collectMechanisms(members) {
+  const seen = new Set();
+  for (const member of Array.isArray(members) ? members : []) {
+    for (const mechanism of member.mechanisms || []) seen.add(mechanism);
+  }
+  return [...seen];
 }
 
 function buildBiologicalOutput({ context, mode, mission, members, accepted, topology }) {
@@ -22,7 +38,7 @@ function buildBiologicalOutput({ context, mode, mission, members, accepted, topo
     biologicalMode: {
       status: 'accepted', mode, mission,
       capacity: workerGarage.getDynamicCapacity(context.orchestratorId),
-      mechanisms: members[0]?.mechanisms || [],
+      mechanisms: collectMechanisms(members),
       ...topology, members: accepted
     }
   };
@@ -42,8 +58,21 @@ function getRunnerStdio(workerId) {
   }
 }
 
+function launchCapabilities(context, member) {
+  return buildLaunchCapabilities({
+    role: member.role,
+    prompt: member.mission || context.task,
+    domain: context.request?.domain,
+    mode: context.request?.mode,
+    organization: context.request?.organization,
+    budgetTokens: context.request?.execution_budget?.tokens,
+    capabilitiesHint: member.capabilities,
+  });
+}
+
 function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
   const workerId = suppliedWorkerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
+  const launchCaps = launchCapabilities(context, member);
   const runnerEnv = {
     ...process.env,
     GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || '',
@@ -54,7 +83,7 @@ function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
   };
   const runner = require('child_process').spawn(
     process.execPath,
-    [context.bridgePath, JSON.stringify(workerLaunchPayload({ context, member, workerId, parent }))],
+    [context.bridgePath, JSON.stringify(workerLaunchPayload({ context, member, workerId, parent, capabilities: launchCaps.capabilities, capabilityManifest: launchCaps.capabilityManifest, toolLease: launchCaps.toolLease }))],
     { cwd: context.repoRoot, detached: true, shell: true, stdio: getRunnerStdio(workerId), env: runnerEnv }
   );
   runner.unref();

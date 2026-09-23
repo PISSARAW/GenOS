@@ -9,8 +9,9 @@ const workerGarage = require('../workerGarageService');
 const bisectionService = require('../bisectionService');
 const {
   pendingWorkerRecoveries, activeWorkerRecoveryDispatches, pendingContinuations,
-  activeWorkerBarriers, emit, updateAgent, workerToolLease
+  activeWorkerBarriers, emit, updateAgent
 } = require('../agentOrchestrationState');
+const { buildLaunchCapabilities } = require('../agents/agentIncarnationPayloadService');
 const { createIsolatedWorkspace, cleanupWorkspace } = require('../agentWorkspaceLifecycleService');
 const { createOrchestratorId } = require('../orchestratorIdFactory');
 const agentEvolution = require('../agentEvolutionService');
@@ -234,8 +235,23 @@ async function cancelRecoveryDispatch(db, target, workspace) {
   });
 }
 
+function recoveryCapabilities(mission, target) {
+  try {
+    return buildLaunchCapabilities({
+      role: target.role,
+      prompt: target.prompt || mission.prompt,
+      domain: mission.domain,
+      capabilitiesHint: mission.capabilities || target.capabilities,
+      budgetTokens: (mission.executionBudget || {}).tokens,
+    });
+  } catch (_) {
+    return { capabilities: [], capabilityManifest: null, toolLease: [] };
+  }
+}
+
 function buildRecoveryMission(input) {
   const { mission, sourceAgentId, target, workspace, bisectionResult, report, orchestratorId, decision, nextVariant } = input;
+  const launchCaps = recoveryCapabilities(mission, target);
   return {
     ...mission,
     agentId: target.targetId,
@@ -256,7 +272,9 @@ function buildRecoveryMission(input) {
     localModel: decision.action === 'replace_worker' ? undefined : mission.localModel,
     localRoutingPolicy: decision.action === 'replace_worker' ? undefined : mission.localRoutingPolicy,
     disableLocalModel: decision.action === 'replace_worker',
-    toolLease: workerToolLease(target.role),
+    toolLease: launchCaps.toolLease,
+    capabilities: launchCaps.capabilities,
+    capabilityManifest: launchCaps.capabilityManifest,
     autonomousOrchestration: false
   };
 }

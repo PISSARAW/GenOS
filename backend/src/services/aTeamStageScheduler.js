@@ -98,7 +98,25 @@ async function runStagePlan({ db, plan, launch, options = {} }) {
   return results;
 }
 
+function launchCapabilities(member, request) {
+  try {
+    const { buildLaunchCapabilities } = require('./agents/agentIncarnationPayloadService');
+    return buildLaunchCapabilities({
+      role: member.role,
+      prompt: member.mission,
+      domain: request.domain,
+      mode: request.mode,
+      organization: request.organization,
+      budgetTokens: (request.execution_budget || request.executionBudget || {}).tokens,
+      capabilitiesHint: member.capabilities,
+    });
+  } catch (_) {
+    return { capabilities: [], capabilityManifest: null, toolLease: [] };
+  }
+}
+
 function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }) {
+  const launchCaps = launchCapabilities(member, request);
   return {
     action: 'dispatch_worker',
     background: false,
@@ -109,6 +127,9 @@ function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }
     model_tier: member.modelTier,
     ...(member.dependsOn.length ? { depends_on: member.dependsOn } : {}),
     ...(member.pipelineStage ? { pipeline_stage: member.pipelineStage } : {}),
+    capabilities: launchCaps.capabilities,
+    capabilityManifest: launchCaps.capabilityManifest,
+    toolLease: launchCaps.toolLease,
     execution_budget: request.execution_budget || request.executionBudget,
     timeoutMs: request.timeoutMs,
     workspace_root: request.workspace_root || parentWorkspaceRoot,
