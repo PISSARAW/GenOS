@@ -3,236 +3,119 @@
 const { getPhenotype } = require('../agents/phenotypeRegistryService');
 const { contractFor, missingCapabilities } = require('../topologyCapabilityService');
 const { capabilityToolSet } = require('../toolLeasePolicy');
+const { planGenotypeActions, planEpigeneticChanges, planPlasmidActions } = require('./morphogenesisPlanActions');
 
 function phenotypeFitnessForTopology(phenotypeId, contract) {
   const phenotype = getPhenotype(phenotypeId);
   if (!phenotype) return { fit: false, score: 0, missing: contract.required || [] };
   const required = contract.required || [];
   const owned = new Set(phenotype.capabilities || []);
-  const missing = required.filter((cap) => !owned.has(cap));
-  const penalty = computePenalty(phenotype.authorityProfile || {}, contract.profile || {});
-  const score = required.length === 0 ? 0.5 : Math.max(0, 1 - missing.length / required.length - penalty);
-  return { fit: missing.length === 0 && penalty < 0.3, score, missing };
+  const missing = required.filter((c) => !owned.has(c));
+  return { fit: missing.length === 0, score: missing.length === 0 ? 1 : (required.length - missing.length) / required.length, missing };
 }
 
-function computePenalty(auth, needs) {
-  let penalty = 0;
-  if (needs.communication === 'broadcast' && !auth.broadcast) penalty += 0.3;
-  if (needs.budget === 'pooled' && !auth.delegate) penalty += 0.2;
-  return penalty;
+function diffTopology(current, target) {
+  const changes = [];
+  if (current.mode !== target.mode) changes.push({ field: 'mode', from: current.mode, to: target.mode });
+  if (current.organization !== target.organization) changes.push({ field: 'organization', from: current.organization, to: target.organization });
+  if (current.topology !== target.topology) changes.push({ field: 'topology', from: current.topology, to: target.topology });
+  return changes;
 }
 
-function safeField(obj, key) {
-  return obj && obj[key] || null;
-}
-
-function diffTopology(current, proposed) {
-  const cs = current && current.topologyState || {};
-  const pm = proposed || {};
-  const fromMode = safeField(cs, 'mode');
-  const toMode = safeField(pm, 'mode');
-  const fromOrg = safeField(cs, 'organization');
-  const toOrg = safeField(pm, 'organization');
-  return { modeChanged: fromMode !== toMode, organizationChanged: fromOrg !== toOrg, fromMode, toMode, fromOrganization: fromOrg, toOrganization: toOrg };
-}
-
-function classifyAgent(agent, contract) {
-  const c = phenotypeFitnessForTopology(agent.phenotype, contract);
-  if (c.fit) return { type: 'preserve', data: { agentId: agent.id, phenotype: agent.phenotype, score: c.score } };
-  if (c.score > 0.3) return { type: 'rebind', data: { agentId: agent.id, phenotype: agent.phenotype, missing: c.missing, score: c.score } };
-  return { type: 'retire', data: { agentId: agent.id, phenotype: agent.phenotype, reason: c.missing.length > 0 ? 'incompatible_capabilities' : 'insufficient_authority' } };
-}
-
-function classifyAgents(agents, contract) {
-  const result = { preserve: [], retire: [], rebind: [] };
+function classifyAgents(agents, targetTopology) {
+  const result = { compatible: [], incompatible: [] };
   for (const agent of agents) {
-    const entry = classifyAgent(agent, contract);
-    result[entry.type].push(entry.data);
+    const fitness = phenotypeFitnessForTopology(agent.phenotype, contractFor(targetTopology));
+    if (fitness.fit) result.compatible.push(agent);
+    else result.incompatible.push({ agent, missing: fitness.missing });
   }
   return result;
 }
 
-const CAPABILITY_RULES = [
-  { caps: ['STRATEGY_PORTFOLIO', 'TOPOLOGY'], phenotype: 'Orchestrator' },
-  { caps: ['EVIDENCE_BARRIER', 'EPISTEMICS_BRIER'], phenotype: 'Verifier' },
-  { caps: ['PROVENANCE', 'GRAPH_MEMORY'], phenotype: 'Specialist' },
-  { caps: ['SIGNALING_BUS', 'LIGAND_RECEPTOR'], phenotype: 'SubOrchestrator' }
-];
-
-function selectPhenotypeForCapabilities(caps) {
-  if (!caps || caps.length === 0) return 'AdaptiveWorker';
-  const capSet = new Set(caps);
-  for (const rule of CAPABILITY_RULES) {
-    if (rule.caps.some((c) => capSet.has(c))) return rule.phenotype;
+function planSpawns(missingCapabilities, targetTopology, budget) {
+  const spawns = [];
+  const contract = contractFor(targetTopology);
+  for (const cap of missingCapabilities) {
+    spawns.push({ phenotype: targetTopology, capabilities: [cap], budget: budget / Math.max(1, missingCapabilities.length) });
   }
-  return 'AdaptiveWorker';
+  return spawns;
 }
 
-function planSpawns(contract, agents) {
-  const missing = missingCapabilities(contract, agents.flatMap((a) => {
-    const p = getPhenotype(a.phenotype);
-    return p ? p.capabilities || [] : [];
-  }));
-  if (missing.length === 0) return [];
-  const pheno = selectPhenotypeForCapabilities(missing);
-  return [{ role: pheno === 'Orchestrator' ? 'orchestrator' : 'worker', phenotype: pheno, capabilities: missing, lease: capabilityToolSet(missing), reason: 'fills_capability_gap', priority: 'critical' }];
+function computeBudgetReallocation(agents, newAgents, totalBudget) {
+  const perAgent = totalBudget / Math.max(1, agents.length + newAgents.length);
+  return { perAgent, totalAllocated: perAgent * (agents.length + newAgents.length) };
 }
 
-function computeBudgetReallocation(ctx, classification, spawns) {
-  const cb = ctx.currentState && ctx.currentState.budgets || { total: 0, allocated: 0, remaining: 0, perAgent: {} };
-  const b = ctx.budget || {};
-  const rs = classification.retire.reduce((s, a) => s + ((cb.perAgent[a.agentId] && cb.perAgent[a.agentId].allocated) || 0), 0);
-  const sc = spawns.length * (b.spawnCost || 500);
-  const rc = classification.rebind.length * (b.rebindCost || 100);
-  const nr = Math.max(0, (cb.remaining || 0) + rs - sc - rc);
-  return { previousRemaining: cb.remaining || 0, retireSavings: rs, spawnCost: sc, rebindCost: rc, netChange: rs - sc - rc, newRemaining: nr };
+function buildTransitionSequence(preserve, retire, spawn, rebind) {
+  const sequence = [];
+  for (const a of retire) sequence.push({ step: 'retire', agentId: a.agentId, action: 'terminate' });
+  for (const s of spawn) sequence.push({ step: 'spawn', phenotype: s.phenotype, action: 'incarnate' });
+  for (const r of rebind) sequence.push({ step: 'rebind', agentId: r.agentId, action: 'reassign' });
+  for (const p of preserve) sequence.push({ step: 'preserve', agentId: p.agentId, action: 'keep' });
+  return sequence;
 }
 
-function addPhase(phases, cfg) {
-  if (cfg.count > 0) {
-    phases.push({ order: phases.length + 1, action: cfg.action, description: cfg.desc, targets: cfg.targetFn(), rollbackAction: cfg.rollbackAction, estimatedDurationMs: cfg.count * cfg.durationMs });
-  }
-}
-
-function buildTransitionSequence(c, s) {
-  const p = [];
-  addPhase(p, { count: c.retire.length, action: 'retire', desc: 'Terminate incompatible agents', targetFn: () => c.retire.map((a) => a.agentId), rollbackAction: 'restore', durationMs: 500 });
-  addPhase(p, { count: s.length, action: 'spawn', desc: 'Incarnate new agents for missing capabilities', targetFn: () => s.map((x) => ({ phenotype: x.phenotype, role: x.role, capabilities: x.capabilities })), rollbackAction: 'terminate', durationMs: 2000 });
-  addPhase(p, { count: c.rebind.length, action: 'rebind', desc: 'Migrate partially-compatible agents to new subgraphs', targetFn: () => c.rebind.map((a) => ({ agentId: a.agentId, phenotype: a.phenotype })), rollbackAction: 'restore_assignments', durationMs: 800 });
-  addPhase(p, { count: c.preserve.length, action: 'preserve', desc: 'Maintain compatible agents', targetFn: () => c.preserve.map((a) => ({ agentId: a.agentId, phenotype: a.phenotype })), rollbackAction: 'none', durationMs: 200 });
-  return p;
-}
-
-function computeRiskFactors(stats) {
-  const rf = [];
-  if (stats.s > 2) rf.push(0.3);
-  if (stats.r > 3) rf.push(0.25);
-  if (stats.b > 5) rf.push(0.2);
-  if (stats.ops > 10) rf.push(0.15);
-  return rf;
-}
-
-function estimateCostFromPlan(stats) {
-  const tokens = (stats.r * 50) + (stats.s * 500) + (stats.b * 150) + (stats.p * 30);
-  const latency = stats.ph.reduce((sum, x) => sum + (x.estimatedDurationMs || 0), 0);
-  const ops = stats.r + stats.s + stats.b + stats.p;
-  const rf = computeRiskFactors({ s: stats.s, r: stats.r, b: stats.b, ops });
-  const risk = Math.min(1, rf.reduce((sum, x) => sum + x, 0.05));
-  return { tokens, latency, risk: Number(risk.toFixed(3)), operationCount: ops, breakdown: { retireTokens: stats.r * 50, spawnTokens: stats.s * 500, rebindTokens: stats.b * 150, preserveTokens: stats.p * 30 } };
-}
-
-function safeArrayCount(arr) {
-  return arr && arr.length || 0;
-}
-
-function estimateCost(plan) {
-  if (!plan) return { tokens: 0, latency: 0, risk: 1 };
-  const ph = plan.transitionSequence || [];
-  return estimateCostFromPlan({ r: safeArrayCount(plan.retireAgents), s: safeArrayCount(plan.spawnAgents), b: safeArrayCount(plan.rebindAgents), p: safeArrayCount(plan.preserveAgents), ph });
+function assemblePlan(components) {
+  return {
+    fromVersion: components.fromVersion,
+    reason: components.reason,
+    topologyChanges: components.topologyChanges,
+    preserveAgents: components.preserve,
+    retireAgents: components.retire,
+    spawnAgents: components.spawn,
+    rebindAgents: components.rebind,
+    capabilityChanges: components.capabilityChanges,
+    budgetReallocation: components.budget,
+    expectedBenefit: components.expectedBenefit,
+    expectedCost: components.expectedCost,
+    transitionSequence: components.sequence
+  };
 }
 
 function buildContracts(ctx) {
-  const cs = ctx.currentState;
-  const pt = ctx.proposedTopology;
-  const currentTopo = cs.topologyState || {};
-  return {
-    cc: contractFor({ mode: currentTopo.mode, organization: currentTopo.organization }),
-    pc: contractFor({ mode: pt.mode, organization: pt.organization })
-  };
+  const targetTopology = ctx.proposedTopology || 'specialist_expert_committee';
+  const contracts = { pc: contractFor(targetTopology), required: contractFor(targetTopology).required || [] };
+  contracts.missing = missingCapabilities(ctx.currentState, contracts.pc);
+  return contracts;
 }
 
 function buildPlanComponents(ctx, contracts) {
-  const td = diffTopology(ctx.currentState, ctx.proposedTopology);
-  const agents = Array.from(ctx.currentState.agents ? ctx.currentState.agents.values() : []);
-  const cls = classifyAgents(agents, contracts.pc);
-  const spawns = contracts.pc.required && contracts.pc.required.length > 0 ? planSpawns(contracts.pc, agents) : [];
-  const phases = buildTransitionSequence(cls, spawns);
-  const budget = computeBudgetReallocation(ctx, cls, spawns);
-  const cost = estimateCostFromPlan({ r: cls.retire.length, s: spawns.length, b: cls.rebind.length, p: cls.preserve.length, ph: phases });
-  return { td, cls, spawns, contracts, phases, budget, cost, agentCount: agents.length };
-}
-
-function assemblePlan(c) {
+  const agents = ctx.currentState && ctx.currentState.agents ? Array.from(ctx.currentState.agents.values()) : [];
+  const classified = classifyAgents(agents, ctx.proposedTopology || 'specialist_expert_committee');
+  const spawnList = planSpawns(contracts.missing, ctx.proposedTopology || 'specialist_expert_committee', ctx.budget || 0);
+  const budget = computeBudgetReallocation(classified.compatible, spawnList, ctx.budget || 0);
+  const sequence = buildTransitionSequence(classified.compatible, classified.incompatible.map((x) => x.agent), spawnList, []);
+  const fromVersion = ctx.currentState ? ctx.currentState.currentMorphologyVersion || 0 : 0;
+  const topologyChanges = diffTopology(ctx.currentState || {}, { mode: ctx.proposedTopology || 'specialist_expert_committee' });
   return {
-    version: '1.0', createdAt: new Date().toISOString(), topoDiff: c.td,
-    topologyChanges: { from: { mode: c.td.fromMode, organization: c.td.fromOrganization }, to: { mode: c.td.toMode, organization: c.td.toOrganization }, changed: c.td.modeChanged || c.td.organizationChanged },
-    preserveAgents: c.cls.preserve, retireAgents: c.cls.retire, spawnAgents: c.spawns, rebindAgents: c.cls.rebind,
-    capabilityChanges: { added: c.contracts.pc.required ? c.contracts.pc.required.filter((x) => !(c.contracts.cc.required || []).includes(x)) : [], removed: (c.contracts.cc.required || []).filter((x) => !(c.contracts.pc.required || []).includes(x)), leases: c.spawns.map((x) => ({ phenotype: x.phenotype, tools: x.lease })) },
-    budgetReallocation: c.budget, transitionSequence: c.phases,
-    expectedBenefit: { capabilityCoverage: 1, agentEfficiency: c.cls.preserve.length / Math.max(1, c.agentCount), riskReduction: c.cls.retire.length > 0 ? 0.3 : 0, estimatedValue: (c.cls.preserve.length * 100) + (c.spawns.length * 200) - (c.cls.retire.length * 50) },
-    expectedCost: c.cost, rollbackPlan: null
+    fromVersion,
+    reason: ctx.reason || 'morphogenesis',
+    topologyChanges,
+    preserve: classified.compatible,
+    retire: classified.incompatible.map((x) => x.agent),
+    spawn: spawnList,
+    rebind: [],
+    capabilityChanges: contracts.missing.map((cap) => ({ capability: cap, action: 'acquire' })),
+    budget,
+    expectedBenefit: contracts.missing.length > 0 ? 0.7 : 0.3,
+    expectedCost: { tokens: spawnList.length * 1000, latency: spawnList.length * 5000, risk: 0.3 },
+    sequence
   };
 }
 
-function planMorphogenesis(ctx) {
-  if (!ctx || !ctx.currentState || !ctx.proposedTopology) throw new Error('planMorphogenesis requires ctx.currentState and ctx.proposedTopology');
-  const contracts = buildContracts(ctx);
-  const components = buildPlanComponents(ctx, contracts);
-  const plan = assemblePlan(components);
-  plan.rollbackPlan = generateRollbackPlan(plan);
-  return plan;
-}
-
-function validatePlan(ctx) {
-  if (!ctx || !ctx.plan) return { valid: false, errors: ['Missing plan'] };
-  const errors = [];
-  const warnings = [];
-  validateStructure(ctx.plan, errors);
-  errors.push(...checkConstraints(ctx.plan, ctx.constraints));
-  warnings.push(...checkRiskWarnings(ctx.plan));
-  return { valid: errors.length === 0, errors, warnings };
-}
-
-function validateStructure(plan, errors) {
-  if (!plan.topologyChanges) errors.push('Missing topologyChanges');
-  if (!plan.transitionSequence || plan.transitionSequence.length === 0) errors.push('Empty transitionSequence');
-}
-
-function checkConstraints(plan, constraints) {
-  if (!constraints) return [];
-  const errors = [];
-  if (exceedsLimit(plan.retireAgents, constraints.maxRetire)) errors.push('Retire count exceeds max');
-  if (exceedsLimit(plan.spawnAgents, constraints.maxSpawn)) errors.push('Spawn count exceeds max');
-  if (belowMinimum(plan.preserveAgents, constraints.minPreserve)) errors.push('Preserve count below min');
-  if (exceedsBudgetImpact(plan, constraints.maxBudgetImpact)) errors.push('Budget impact exceeds limit');
-  return errors;
-}
-
-function exceedsLimit(arr, max) {
-  return Boolean(max && arr && arr.length > max);
-}
-
-function belowMinimum(arr, min) {
-  return Boolean(min && arr && arr.length < min);
-}
-
-function exceedsBudgetImpact(plan, limit) {
-  const budget = plan.budgetReallocation;
-  return Boolean(limit && budget && budget.netChange < -limit);
-}
-
-function checkRiskWarnings(plan) {
-  const warnings = [];
-  const risk = plan.expectedCost && plan.expectedCost.risk;
-  if (risk > 0.8) warnings.push('High risk transition (>0.8)');
-  const retired = plan.retireAgents && plan.retireAgents.length || 0;
-  const preserved = plan.preserveAgents && plan.preserveAgents.length || 0;
-  if (retired > preserved * 2) warnings.push('Disproportionate retirement ratio');
-  return warnings;
-}
-
-function buildReversePhases(transitionSequence) {
-  return [...transitionSequence].reverse().map((ph, i) => ({ order: i + 1, action: ph.rollbackAction, originalAction: ph.action, description: 'Rollback: ' + ph.rollbackAction + ' for phase ' + ph.order, targets: ph.targets, estimatedDurationMs: ph.estimatedDurationMs })).filter((x) => x.action !== 'none');
-}
-
 function generateRollbackPlan(plan) {
-  if (!plan) return null;
-  const rev = buildReversePhases(plan.transitionSequence || []);
-  const rb = plan.budgetReallocation ? { netChange: -(plan.budgetReallocation.netChange), restoredAmount: plan.budgetReallocation.newRemaining } : null;
+  const rev = [];
+  if (plan.retireAgents) {
+    for (const a of plan.retireAgents) {
+      rev.push({ agentId: a.agentId, estimatedDurationMs: 1000, action: 'reincarnate' });
+    }
+  }
+  if (plan.spawnAgents) {
+    for (const s of plan.spawnAgents) {
+      rev.push({ phenotype: s.phenotype, estimatedDurationMs: 2000, action: 'terminate' });
+    }
+  }
   return {
-    version: '1.0', createdAt: new Date().toISOString(),
-    triggerConditions: ['transition_failure_rate > 0.3', 'capability_degradation > 0.2', 'budget_exhaustion', 'manual_rollback_request'],
-    reverseSequence: rev, budgetRestore: rb,
     restoreActions: {
       retired: plan.retireAgents ? plan.retireAgents.map((a) => ({ agentId: a.agentId, action: 'reincarnate', phenotype: a.phenotype })) : [],
       spawned: plan.spawnAgents ? plan.spawnAgents.map((s, i) => ({ idx: i, action: 'terminate', phenotype: s.phenotype })) : [],
@@ -243,4 +126,29 @@ function generateRollbackPlan(plan) {
   };
 }
 
-module.exports = { planMorphogenesis, validatePlan, estimateCost, generateRollbackPlan, phenotypeFitnessForTopology, diffTopology, classifyAgents, planSpawns, computeBudgetReallocation, buildTransitionSequence };
+function planMorphogenesis(ctx) {
+  const contracts = buildContracts(ctx);
+  const components = buildPlanComponents(ctx, contracts);
+  const targetAgents = components.preserve.concat(components.rebind).map((a) => ({ id: a.agentId, capabilities: (getPhenotype(a.phenotype) || {}).capabilities || [] }));
+  const plan = assemblePlan(components);
+  plan.genotypeActions = planGenotypeActions({ requiredCapabilities: contracts.pc.required || [], availableGenomes: ctx.availableGenomes || [], targetAgents, db: ctx.db });
+  plan.epigeneticChanges = planEpigeneticChanges({ agentStates: ctx.currentState && ctx.currentState.agents ? Array.from(ctx.currentState.agents.values()) : [], pressure: ctx.pressure || 0, evidence: ctx.evidence || [] });
+  plan.plasmidActions = planPlasmidActions({ requiredCapabilities: contracts.pc.required || [], availablePlasmids: ctx.availablePlasmids || [], targetAgents });
+  plan.rollbackPlan = generateRollbackPlan(plan);
+  return plan;
+}
+
+function validatePlan(ctx) {
+  const plan = ctx.plan;
+  const errors = [];
+  if (!plan.topologyChanges || plan.topologyChanges.length === 0) errors.push('no topology changes');
+  if (!plan.spawnAgents || plan.spawnAgents.length === 0) errors.push('no spawn agents planned');
+  if (!plan.rollbackPlan) errors.push('no rollback plan');
+  return { valid: errors.length === 0, errors };
+}
+
+function estimateCost(plan) {
+  return plan.expectedCost || { tokens: 0, latency: 0, risk: 0 };
+}
+
+module.exports = { planMorphogenesis, validatePlan, estimateCost, generateRollbackPlan, phenotypeFitnessForTopology, diffTopology, classifyAgents, planSpawns, computeBudgetReallocation, buildTransitionSequence, planGenotypeActions, planEpigeneticChanges, planPlasmidActions };
