@@ -124,6 +124,10 @@ const migrationRunners = [
     const { migrateTerritoryGraph } = require('./migrateTerritoryGraph');
     await migrateTerritoryGraph(db);
   }),
+  createMigrationRunner('040-daemon-findings', 'Persist canonical epistemic findings and typed evidence (ADR 0034 D6)', async (db) => {
+    const { migrateDaemonFindings } = require('./migrateDaemonFindings');
+    await migrateDaemonFindings(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
