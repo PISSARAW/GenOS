@@ -68,23 +68,44 @@ async function buildWorldReportsFromMission(db, missionId) {
   return reports;
 }
 
+function worldReportFor(params) {
+  const { worker, member, byWorker, index } = params;
+  const report = latestReport(byWorker.get(worker.agentId));
+  return {
+    worldNumber: member.worldNumber || worker.worldNumber || index + 1,
+    role: member.role || worker.role || worker.label || `world_${index + 1}`,
+    agentId: worker.agentId || null,
+    name: worker.name || null,
+    outcome: report?.outcome || 'no_evidence',
+    claims: Array.isArray(report?.claims) ? report.claims : [],
+    tests: Array.isArray(report?.tests) ? report.tests : [],
+    uncertainties: Array.isArray(report?.uncertainties) ? report.uncertainties : [],
+    report: report || undefined
+  };
+}
+
 function buildWorldReports(workers, dossiers, options = {}) {
   const byWorker = new Map((dossiers || []).map((dossier) => [dossier.workerId, dossier]));
   const members = Array.isArray(options.members) ? options.members : [];
-  return (workers || []).map((worker, index) => {
-    const member = members[index] || {};
-    const report = latestReport(byWorker.get(worker.agentId));
-    return {
-      worldNumber: member.worldNumber || worker.worldNumber || index + 1,
-      role: member.role || worker.role || worker.label || `world_${index + 1}`,
-      agentId: worker.agentId || null,
-      name: worker.name || null,
-      outcome: report?.outcome || 'no_evidence',
-      claims: Array.isArray(report?.claims) ? report.claims : [],
-      tests: Array.isArray(report?.tests) ? report.tests : [],
-      uncertainties: Array.isArray(report?.uncertainties) ? report.uncertainties : [],
-      report: report || undefined
-    };
+  return (workers || []).map((worker, index) => worldReportFor({ worker, member: members[index] || {}, byWorker, index }));
+}
+
+function buildComparison(trinity, result) {
+  return {
+    canMerge: result.canMerge,
+    selectedWorld: result.selectedWorld,
+    selectedRole: result.selectedRole || null,
+    bestScore: result.bestScore,
+    tied: result.comparativeAnalysis?.tied === true
+  };
+}
+
+async function recordComparison(ctx, trinity, result) {
+  await trinityService.recordWorldComparison(ctx.db, {
+    missionId: trinity.missionId,
+    orchestratorId: ctx.agentId,
+    comparison: result.comparativeAnalysis,
+    decision: { canMerge: result.canMerge, threshold: Number(trinity.threshold) || 0.70 }
   });
 }
 
@@ -95,80 +116,78 @@ async function applyTrinityComparison(ctx) {
   const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, ctx.workers || []);
   const worldReports = buildWorldReports(ctx.workers || [], dossiers, { members: trinity.members || [] });
   const result = trinityService.mergeTrinityEvidence(worldReports, { domain: trinity.domain, threshold });
-  await trinityService.recordWorldComparison(ctx.db, {
-    missionId: trinity.missionId,
-    orchestratorId: ctx.agentId,
-    comparison: result.comparativeAnalysis,
-    decision: { canMerge: result.canMerge, threshold }
-  });
-  trinity.comparison = {
-    canMerge: result.canMerge,
-    selectedWorld: result.selectedWorld,
-    selectedRole: result.selectedRole || null,
-    bestScore: result.bestScore,
-    tied: result.comparativeAnalysis?.tied === true
-  };
+  await recordComparison(ctx, trinity, result);
+  trinity.comparison = buildComparison(trinity, result);
   trinity.comparison.promotion = await promoteWinner(ctx.db, { missionId: trinity.missionId, orchestratorId: ctx.agentId, result });
-  emit(ctx.agentId, 'TRINITY_COMPARATIVE_BARRIER', 'COMPARE_TRINITY', result.canMerge
-    ? `Trinity merged World ${result.selectedWorld} (${result.selectedRole}) score=${result.bestScore}.`
-    : `Trinity escalated: no world met the evidence threshold (best ${result.bestScore}).`, trinity.comparison, result.canMerge ? 'info' : 'warning');
+  emitComparison(ctx, trinity, result);
   return result;
+}
+
+function emitComparison(ctx, trinity, result) {
+  const detail = result.canMerge
+    ? `Trinity merged World ${result.selectedWorld} (${result.selectedRole}) score=${result.bestScore}.`
+    : `Trinity escalated: no world met the evidence threshold (best ${result.bestScore}).`;
+  emit(ctx.agentId, 'TRINITY_COMPARATIVE_BARRIER', 'COMPARE_TRINITY', detail, trinity.comparison, result.canMerge ? 'info' : 'warning');
+}
+
+function validateMergeInput(db, result) {
+  if (!result || result.canMerge !== true || !result.selectedWorld) return { valid: false, reason: 'no_merge' };
+  const comparison = result.comparativeAnalysis || {};
+  const winner = (comparison.scoredWorlds || []).find((w) => w.worldNumber === result.selectedWorld);
+  if (!db || !winner || !winner.agentId) return { valid: false, reason: 'no_winner_agent' };
+  return { valid: true, winner };
+}
+
+async function loadMergeContext(db, winner, orchestratorId) {
+  const winnerAgent = await db.get("SELECT workspace_id, id, name FROM agents WHERE id = ?", winner.agentId);
+  const orchestratorAgent = await db.get("SELECT workspace_id, id, name FROM agents WHERE id = ?", orchestratorId);
+  return { winnerAgent, orchestratorAgent };
+}
+
+async function updateWorldStatuses(db, result, winner) {
+  await db.run("UPDATE trinity_worlds SET status = 'merged', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId);
+  const scored = result.comparativeAnalysis?.scoredWorlds || [];
+  for (const world of scored) {
+    if (world.worldNumber === result.selectedWorld || !world.agentId) continue;
+    await db.run("UPDATE trinity_worlds SET status = 'compared', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", world.agentId);
+  }
+}
+
+async function createMergeArtifact(db, params) {
+  const { result, context, orchestratorId } = params;
+  const { winnerAgent, orchestratorAgent } = context;
+  if (!winnerAgent?.workspace_id || !orchestratorAgent?.workspace_id) return null;
+  const winnerWorkspace = await db.get("SELECT path FROM workspaces WHERE id = ?", winnerAgent.workspace_id);
+  const orchestratorWorkspace = await db.get("SELECT path FROM workspaces WHERE id = ?", orchestratorAgent.workspace_id);
+  if (!winnerWorkspace?.path || !orchestratorWorkspace?.path) return null;
+  try {
+    const fs = require('fs/promises');
+    const path = require('path');
+    const { copyTree, removeSensitiveFiles } = require('../agentWorkspaceLifecycle/copy');
+    const sourceDir = winnerWorkspace.path;
+    const targetDir = path.join(orchestratorWorkspace.path, `merged_world_${result.selectedWorld}_${Date.now()}`);
+    await fs.mkdir(targetDir, { recursive: true });
+    await copyTree({ state: { bytes: 0, limit: Infinity, entries: 0 }, isExcluded: () => false }, { source: sourceDir, destination: targetDir, relative: '' });
+    await removeSensitiveFiles(targetDir);
+    const artifact = { sourceWorkspace: sourceDir, targetWorkspace: targetDir, worldNumber: result.selectedWorld, role: result.selectedRole };
+    emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_CREATED', 'MERGE', `Created merge artifact from World ${result.selectedWorld} (${result.selectedRole}).`, artifact, 'info');
+    return artifact;
+  } catch (mergeError) {
+    emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_FAILED', 'MERGE', `Failed to create merge artifact from World ${result.selectedWorld}: ${mergeError.message}`, { error: mergeError.message }, 'error');
+    return null;
+  }
 }
 
 async function promoteWinner(db, input = {}) {
   const { missionId, orchestratorId, result } = input;
-  if (!result || result.canMerge !== true || !result.selectedWorld) return { promoted: false, reason: 'no_merge' };
-  const comparison = result.comparativeAnalysis || {};
-  const winner = (comparison.scoredWorlds || []).find((world) => world.worldNumber === result.selectedWorld) || null;
-  if (!db || !winner || !winner.agentId) return { promoted: false, reason: 'no_winner_agent' };
-
-  // Récupérer les agents pour obtenir les workspace paths
-  const winnerAgent = await db.get("SELECT workspace_id, id, name FROM agents WHERE id = ?", winner.agentId);
-  const orchestratorAgent = await db.get("SELECT workspace_id, id, name FROM agents WHERE id = ?", orchestratorId);
-
-  // Mettre à jour le statut des worlds
-  await db.run("UPDATE trinity_worlds SET status = 'merged', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId);
-  for (const world of comparison.scoredWorlds || []) {
-    if (world.worldNumber === result.selectedWorld || !world.agentId) continue;
-    await db.run("UPDATE trinity_worlds SET status = 'compared', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", world.agentId);
-  }
-
-  // Appliquer le merge réel si les workspace paths sont disponibles
-  let mergeArtifact = null;
-  if (winnerAgent && orchestratorAgent && winnerAgent.workspace_id && orchestratorAgent.workspace_id) {
-    const winnerWorkspace = await db.get("SELECT path FROM workspaces WHERE id = ?", winnerAgent.workspace_id);
-    const orchestratorWorkspace = await db.get("SELECT path FROM workspaces WHERE id = ?", orchestratorAgent.workspace_id);
-
-    if (winnerWorkspace && orchestratorWorkspace && winnerWorkspace.path && orchestratorWorkspace.path) {
-      try {
-        const fs = require('fs/promises');
-        const path = require('path');
-        const { copyTree } = require('../agentWorkspaceLifecycle/copy');
-        const { removeSensitiveFiles } = require('../agentWorkspaceLifecycle/copy');
-
-        const sourceDir = winnerWorkspace.path;
-        const targetDir = path.join(orchestratorWorkspace.path, `merged_world_${result.selectedWorld}_${Date.now()}`);
-
-        await fs.mkdir(targetDir, { recursive: true });
-        await copyTree({ state: { bytes: 0, limit: Infinity, entries: 0 }, isExcluded: () => false }, { source: sourceDir, destination: targetDir, relative: '' });
-        await removeSensitiveFiles(targetDir);
-
-        mergeArtifact = {
-          sourceWorkspace: sourceDir,
-          targetWorkspace: targetDir,
-          worldNumber: result.selectedWorld,
-          role: result.selectedRole
-        };
-
-        emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_CREATED', 'MERGE', `Created merge artifact from World ${result.selectedWorld} (${result.selectedRole}).`, mergeArtifact, 'info');
-      } catch (mergeError) {
-        emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_FAILED', 'MERGE', `Failed to create merge artifact from World ${result.selectedWorld}: ${mergeError.message}`, { error: mergeError.message }, 'error');
-      }
-    }
-  }
-
-  emit(orchestratorId, 'TRINITY_WINNER_SELECTED', 'SELECT_TRINITY', `Selected World ${result.selectedWorld} (${result.selectedRole}) merged.`, { missionId, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, artifact: mergeArtifact }, 'info');
-  return { promoted: true, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId, artifact: mergeArtifact };
+  const validation = validateMergeInput(db, result);
+  if (!validation.valid) return { promoted: false, reason: validation.reason };
+  const { winner } = validation;
+  const context = await loadMergeContext(db, winner, orchestratorId);
+  await updateWorldStatuses(db, result, winner);
+  const artifact = await createMergeArtifact(db, { result, context, orchestratorId });
+  emit(orchestratorId, 'TRINITY_WINNER_SELECTED', 'SELECT_TRINITY', `Selected World ${result.selectedWorld} (${result.selectedRole}) merged.`, { missionId, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, artifact }, 'info');
+  return { promoted: true, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId, artifact };
 }
 
 module.exports = { applyTrinityComparison, buildWorldReports, buildWorldReportsFromMission, latestReport, promoteWinner };

@@ -21,6 +21,8 @@ const { evolveWorkerGenome } = require('../agentEvolutionService');
 const { resolveGenotype } = require('../morphogenesis/genotypeResolverService');
 const { formatPhenotypePrompt } = require('../cognitivePhenotypeService');
 const { buildExpressionContext } = require('./agentExpressionContextService');
+const { initClinicalState } = require('../medical/clinicalStateService');
+const { surveillanceScan } = require('../medical/immuneSurveillanceService');
 
 function uuid() { return crypto.randomUUID(); }
 function safeArray(v) { return Array.isArray(v) ? v : []; }
@@ -383,7 +385,13 @@ async function incarnateAgent(opts) {
   const incSummary = { agentId, role: request.role, leaseCount: lease.length };
   emitIncarnation({ parent, identity, role: request.role, summary: incSummary });
 
+  // Initialize clinical state for the new agent and run initial surveillance scan
+  try {
+    await initClinicalState(db, agentId);
+    await surveillanceScan(db, agentId, {});
+  } catch (_) { /* medical runtime best-effort */ }
+
   return descriptor;
 }
 
-module.exports = { incarnateAgent, buildDna, computeLease, setupAuthority, setupWorkspace };
+module.exports = { incarnateAgent, buildDna, computeLease, setupAuthority, setupWorkspace, initClinicalState, surveillanceScan };

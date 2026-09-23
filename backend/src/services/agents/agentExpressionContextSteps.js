@@ -23,7 +23,7 @@ const { buildCapabilityManifest } = require('../capabilityResolverService');
 const { getRelations, getState: getCollectiveState } = require('../collectiveStateService');
 const { getPhenotype, getAuthorityProfile } = require('./phenotypeRegistryService');
 const { phenotypeFromRecipe } = require('../cognitivePhenotypeService');
-const { getClinicalState, refreshClinicalState, getClinicalSummary } = require('../clinicalStateService');
+const { getClinicalState, refreshClinicalState, getClinicalSummary } = require('../medical/clinicalStateService');
 
 function safeArray(v) { return Array.isArray(v) ? v : []; }
 function firstDef(...vals) {
