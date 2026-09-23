@@ -216,6 +216,10 @@ const migrationRunners = [
     const { migrateIntegrityHardening } = require('./migrateIntegrityHardening');
     await migrateIntegrityHardening(db);
   }),
+  createMigrationRunner('063-projection-outbox', 'Create transactional outbox tables for async projections', async (db) => {
+    const { run } = require('./migrateProjectionOutbox');
+    await run(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
