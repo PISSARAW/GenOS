@@ -1,0 +1,53 @@
+{
+  "cases": [
+    {
+      "id": "math-001",
+      "prompt": "What is 17 * 23? Reply with only the number.",
+      "expected": "391",
+      "domain": "math"
+    },
+    {
+      "id": "math-002",
+      "prompt": "A train leaves at 3:15 PM and arrives at 7:45 PM. How many hours is the journey? Reply with only the number (can be decimal).",
+      "expected": "4.5",
+      "domain": "math"
+    },
+    {
+      "id": "code-001",
+      "prompt": "Write a Python function that returns the nth Fibonacci number. Reply with only the code, no explanation.",
+      "expected": "def fib(n):",
+      "pattern": "defs+(fib|fibonacci)s*(n)",
+      "domain": "code"
+    },
+    {
+      "id": "reasoning-001",
+      "prompt": "If all Bloops are Razzies and all Razzies are Lazzies, are all Bloops definitely Lazzies? Reply with only Yes or No.",
+      "expected": "Yes",
+      "domain": "reasoning"
+    },
+    {
+      "id": "reasoning-002",
+      "prompt": "A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How much does the ball cost? Reply with only the amount in cents.",
+      "expected": "5",
+      "domain": "reasoning"
+    },
+    {
+      "id": "retrieval-001",
+      "prompt": "What is the capital city of Japan? Reply with only the city name.",
+      "expected": "Tokyo",
+      "domain": "retrieval"
+    },
+    {
+      "id": "epistemic-001",
+      "prompt": "You are told that a coin landed heads 10 times in a row. What is the probability it lands heads on the 11th flip? Reply with only the probability as a decimal.",
+      "expected": "0.5",
+      "domain": "epistemic"
+    },
+    {
+      "id": "trivial-001",
+      "prompt": "What color is the sky on a clear day? Reply with only the color.",
+      "expected": "blue",
+      "domain": "reasoning"
+    }
+  ]
+}
