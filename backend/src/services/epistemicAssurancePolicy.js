@@ -3,7 +3,11 @@
 const assurance = require('./epistemicAssuranceService');
 
 function assemblyFrom(executionContext) {
+  if (!executionContext) return null;
   if (executionContext.epistemicAssembly) return executionContext.epistemicAssembly;
+  if (executionContext.aeisEvaluation && executionContext.aeisEvaluation.assembly) {
+    return executionContext.aeisEvaluation.assembly;
+  }
   return executionContext.report?.epistemicAssembly;
 }
 
