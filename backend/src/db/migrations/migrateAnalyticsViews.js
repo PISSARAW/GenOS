@@ -40,14 +40,15 @@ SELECT
     a.role,
     a.parent_agent_id,
     a.workspace_id,
-    a.organization_id,
-    a.project_id,
+    w.organization_id,
+    w.project_id,
     a.created_at,
     a.updated_at,
     COALESCE(SUM(CASE WHEN t.event_type LIKE '%ERROR%' OR t.severity = 'error' THEN 1 ELSE 0 END), 0) AS error_count,
     COALESCE(SUM(CASE WHEN t.event_type LIKE '%COMPLETED%' THEN 1 ELSE 0 END), 0) AS completion_count,
     COALESCE(SUM(CASE WHEN t.event_type LIKE '%EUREKA%' THEN 1 ELSE 0 END), 0) AS eureka_count
 FROM agents a
+LEFT JOIN workspaces w ON w.id = a.workspace_id
 LEFT JOIN telemetry_events t ON t.agent_id = a.id
 GROUP BY a.id;
 
@@ -56,7 +57,6 @@ SELECT
     sender_id,
     outcome,
     COUNT(*) AS total,
-    AVG(json_extract(payload_json, '$.latencyMs')) AS avg_latency_ms,
     MAX(created_at) AS last_communication_at
 FROM communication_outcomes
 GROUP BY sender_id, outcome;
@@ -64,18 +64,13 @@ GROUP BY sender_id, outcome;
 CREATE VIEW IF NOT EXISTS v_uplift_pairs_enriched AS
 SELECT
     u.id,
-    u.run_id,
-    u.control_agent_id,
-    u.treatment_agent_id,
-    u.control_outcome,
-    u.treatment_outcome,
+    u.suite,
+    u.case_id,
+    u.solo_run_id,
+    u.genos_run_id,
     u.delta,
-    u.created_at,
-    c.name AS control_agent_name,
-    t.name AS treatment_agent_name
-FROM uplift_pairs u
-LEFT JOIN agents c ON c.id = u.control_agent_id
-LEFT JOIN agents t ON t.id = u.treatment_agent_id;
+    u.created_at
+FROM uplift_pairs u;
 `);
   }
 };
