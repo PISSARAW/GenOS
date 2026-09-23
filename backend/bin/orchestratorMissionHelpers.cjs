@@ -53,26 +53,38 @@ async function applyNceEnhancements(nceInput, db, orchestratorId) {
   }
 }
 
+function pickOr(obj, keys, fallback) {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (v !== undefined && v !== null) return v;
+  }
+  return fallback;
+}
+
+function resolveWorkspacePath(request) {
+  return pickOr(request, ['workspacePath', 'workspace_path']);
+}
+
+function resolveWorkspaceId(request) {
+  return pickOr(request, ['workspaceId', 'workspace_id']);
+}
+
 function buildNceInput(request) {
-  const get = (obj, ...keys) => {
-    for (const k of keys) {
-      const v = obj?.[k];
-      if (v !== undefined && v !== null) return v;
-    }
-    return undefined;
-  };
   return {
-    prompt: request.mission || request.task || 'Autonomous GenOS orchestration',
-    domain: get(request, 'domain', 'problem_domain'),
-    keywords: request.keywords || [],
-    budget: get(request, 'executionBudget', 'execution_budget') || {},
-    explorationDomains: get(request, 'exploration_domains', 'explorationDomains'),
-    knownConcepts: get(request, 'known_concepts', 'knownConcepts'),
-    existingCapabilities: get(request, 'existing_capabilities', 'existingCapabilities'),
-    genome: get(request, 'agent_dna', 'agentDna'),
-    environment: get(request, 'environment_context', 'environmentContext'),
-    culturalTraits: get(request, 'cultural_traits', 'culturalTraits'),
-    nceOptions: get(request, 'nce_options', 'nceOptions'),
+    prompt: pickOr(request, ['mission', 'task'], 'Autonomous GenOS orchestration'),
+    domain: pickOr(request, ['domain', 'problem_domain']),
+    keywords: pickOr(request, ['keywords'], []),
+    budget: pickOr(request, ['executionBudget', 'execution_budget'], {}),
+    explorationDomains: pickOr(request, ['exploration_domains', 'explorationDomains']),
+    knownConcepts: pickOr(request, ['known_concepts', 'knownConcepts']),
+    existingCapabilities: pickOr(request, ['existing_capabilities', 'existingCapabilities']),
+    genome: pickOr(request, ['agent_dna', 'agentDna']),
+    environment: pickOr(request, ['environment_context', 'environmentContext']),
+    culturalTraits: pickOr(request, ['cultural_traits', 'culturalTraits']),
+    nceOptions: pickOr(request, ['nce_options', 'nceOptions']),
+    workspacePath: resolveWorkspacePath(request),
+    workspaceId: resolveWorkspaceId(request),
+    agentId: request.agentId,
   };
 }
 
@@ -92,22 +104,27 @@ function buildEnhancedPrompt(nceEnhancements, task) {
   return { enhancedPrompt, nceMetadata };
 }
 
-async function prepareMission(opts) {
-  const { db, enhancedPrompt, id, policyRequest, request, nceMetadata } = opts;
-  const existing = await db.get(`SELECT metadata_json FROM agents WHERE id = ?`, id).catch(() => null);
-  let metadataJson = existing?.metadata_json || '{}';
+function mergeMetadataJson(existing, nceMetadata) {
+  let metadataJson = existing || '{}';
   try {
     const parsed = JSON.parse(metadataJson);
     if (nceMetadata && typeof nceMetadata === 'object' && Object.keys(nceMetadata).length > 0) {
       metadataJson = JSON.stringify({ ...parsed, nceMetadata });
     }
   } catch (_) { /* garder l'existant */ }
+  return metadataJson;
+}
+
+async function prepareMission(opts) {
+  const { db, enhancedPrompt, id, policyRequest, request, nceMetadata } = opts;
+  const existing = await db.get(`SELECT metadata_json FROM agents WHERE id = ?`, id).catch(() => null);
+  const metadataJson = mergeMetadataJson(existing?.metadata_json, nceMetadata);
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task, metadata_json) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?, ?)`, id, enhancedPrompt, metadataJson);
   await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = ? WHERE id = ?`, enhancedPrompt, metadataJson, id);
   const contracts = require('../src/services/strategyContractService');
   const strategyContract = await contracts.saveContract(db, { agentId: id, problem: enhancedPrompt, createdBy: 'mcp_orchestrate' });
   const requestTimeoutMs = policyRequest.timeoutMs || request.timeoutMs;
-  const missionBudget = { ...(policyRequest.executionBudget || policyRequest.execution_budget || {}) };
+  const missionBudget = { ...(policyRequest.executionBudget || policyRequest.execution_budget || request.executionBudget || request.execution_budget || {}) };
   applyLatencyBudget(missionBudget, requestTimeoutMs);
   const useLocalRuntime = checkLocalRuntime(policyRequest, request);
   return { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs };
@@ -196,6 +213,7 @@ module.exports = {
   applyNceEnhancements,
   buildNceInput,
   buildEnhancedPrompt,
+  mergeMetadataJson,
   prepareMission,
   applyLatencyBudget,
   checkLocalRuntime,

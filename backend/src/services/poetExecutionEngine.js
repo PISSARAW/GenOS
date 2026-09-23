@@ -71,6 +71,8 @@ function launchAgentMission(agent, environment, opts) {
     modelTier: opts.modelTier || 'standard',
     executionBudget: { latencyMs: opts.timeoutMs },
     executionPolicy: environment.executionPolicy || {},
+    workspaceRoot: environment.workspacePath,
+    workspaceId: environment.workspaceId,
   });
 }
 
@@ -139,6 +141,16 @@ function buildAgentPrompt(agent, environment) {
 async function verifySolutionInSnapshot(missionResult, environment) {
   const { runInSnapshot } = require('./workspaceSnapshotRun');
   const { capture } = require('./workspaceSnapshotStore');
+
+  // Vérification causale : l'agent doit avoir produit un artifact/solution
+  const artifact = missionResult?.artifact || missionResult?.solution;
+  if (!artifact) {
+    return {
+      valid: false,
+      score: 0,
+      output: 'POET verification: no artifact or solution produced by agent run',
+    };
+  }
 
   // Prépare le snapshot
   const snapshot = await capture({

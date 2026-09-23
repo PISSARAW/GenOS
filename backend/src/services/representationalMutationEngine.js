@@ -233,7 +233,7 @@ async function generateForPair(aConcept, bConcept, opts) {
   const out = [];
   const scores = [];
   for (const repType of opts.representationTypes) {
-    const ctx = { problemText: opts.problem.problem || opts.problem.domain, representationType: repType };
+    const ctx = { problemText: opts.problem.problem || opts.problem.domain, representationType: repType, pair: opts.pair };
     const repr = recombineConcepts(aConcept, bConcept, ctx);
     const score = computeRepresentationQuality(repr, opts.problem, opts.pair);
     out.push(repr);

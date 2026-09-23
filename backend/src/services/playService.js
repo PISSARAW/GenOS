@@ -127,16 +127,9 @@ function extractAffordances(iteration) {
     });
   }
 
-  // Succès d'outil
-  if (iteration.outcome === 'success' && iteration.tool) {
-    affordances.push({
-      capability: iteration.tool,
-      verb: 'peut',
-      target: iteration.action || 'cette action',
-      source: 'successful_execution',
-      confidence: 0.7,
-    });
-  }
+  // NOTE: Pas d'affordance basée sur iteration.tool — une commande shell
+  // générique (npm test, pytest) ne prouve pas que le tool a été invoqué.
+  // L'affordance nécessite une preuve d'usage réel (exécution tracée du tool).
 
   return affordances;
 }
