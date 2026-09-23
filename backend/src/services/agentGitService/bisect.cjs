@@ -18,14 +18,9 @@ async function bisect(req) {
   }
 
   const value = (object) => String(field).split('.').reduce((current, key) => current == null ? undefined : current[key], JSON.parse(object.state_json));
-  const matches = (object) => JSON.stringify(value(object)) === JSON.stringify(expected);
+  const isGood = (object) => JSON.stringify(value(object)) === JSON.stringify(expected);
 
-  // Point 11 : recherche binaire valide sur DAG. Le tri par created_at seul ne
-  // produit pas d'ordre total monotone dans un graphe avec merges — on tri
-  // topologiquement (un commit vient toujours après ses parents), puis la
-  // recherche binaire reste correcte : si C[i] est good, tous ses ancêtres
-  // le sont aussi.
-  const { culprit, iterations } = runBinarySearch(causalPath, matches);
+  const outcome = runDagBisect({ candidates: causalPath, isGood });
 
   return {
     success: true,
@@ -34,11 +29,11 @@ async function bisect(req) {
     badCommitId: badId,
     field,
     expectedValue: expected,
-    anomalyFound: culprit >= 0,
-    culpritObjectId: culprit >= 0 ? causalPath[culprit].id : null,
+    anomalyFound: outcome.culpritIndex >= 0,
+    culpritObjectId: outcome.culpritIndex >= 0 ? causalPath[outcome.culpritIndex].id : null,
     causalPathLength: causalPath.length,
-    iterations,
-    complexity: `O(log2(${causalPath.length}))`
+    iterations: outcome.iterations,
+    complexity: `O(${outcome.iterations} tests, <= ${causalPath.length} eliminations)`
   };
 }
 
@@ -58,16 +53,12 @@ async function buildCausalPath(db, goodId, badId) {
   return topologicalSort(path);
 }
 
-// Tri topologique par profondeur ancestrale : un commit est toujours placé
-// après tous ses ancêtres. En cas d'égalité de profondeur (branches
-// parallèles), created_at départage — mais l'ordre reste causalement valide,
-// ce que created_at seul ne garantit pas (horloges distantes, merges croisés).
 function topologicalSort(commits) {
   const byId = new Map(commits.map(c => [c.id, c]));
   const depthCache = new Map();
   const depthOf = (commit, seen = new Set()) => {
     if (depthCache.has(commit.id)) return depthCache.get(commit.id);
-    if (seen.has(commit.id)) return 0; // cycle défensif
+    if (seen.has(commit.id)) return 0;
     seen.add(commit.id);
     let depth = 0;
     for (const parentId of commit.parentIds || []) {
@@ -82,23 +73,99 @@ function topologicalSort(commits) {
     .map(e => e.commit);
 }
 
-function runBinarySearch(sortedArray, predicate) {
-  let low = 1;
-  let high = sortedArray.length - 1;
-  let culprit = -1;
-  let iterations = 0;
-
-  while (low <= high) {
-    const middle = Math.floor((low + high) / 2);
-    iterations += 1;
-    if (predicate(sortedArray[middle])) {
-      low = middle + 1;
-    } else {
-      culprit = middle;
-      high = middle - 1;
-    }
+function buildAncestorIndex(candidates) {
+  const byId = new Map(candidates.map(c => [c.id, c]));
+  const index = new Map();
+  for (const candidate of candidates) {
+    index.set(candidate.id, collectAncestorIds({ start: candidate, byId }));
   }
-  return { culprit, iterations };
+  return index;
 }
 
-module.exports = { bisect, buildCausalPath, runBinarySearch, topologicalSort };
+function collectAncestorIds(ctx) {
+  const { start, byId } = ctx;
+  const seen = new Set([start.id]);
+  const stack = [...(start.parentIds || [])];
+  while (stack.length > 0) {
+    const id = stack.pop();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const node = byId.get(id);
+    if (node) stack.push(...(node.parentIds || []));
+  }
+  return seen;
+}
+
+function pickPivot(ctx) {
+  const { candidates, ancestorIndex, tested } = ctx;
+  const total = candidates.length;
+  let best = null;
+  let bestScore = -2;
+  for (const candidate of candidates) {
+    if (tested && tested.has(candidate.id)) continue;
+    const count = countInSet({ ancestorSet: ancestorIndex.get(candidate.id), candidates });
+    const score = Math.min(count, total - count);
+    if (score > bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+  return best || candidates[0];
+}
+
+function countInSet(ctx) {
+  const { ancestorSet, candidates } = ctx;
+  let count = 0;
+  for (const c of candidates) if (ancestorSet.has(c.id)) count += 1;
+  return count;
+}
+
+function runDagBisect(ctx) {
+  const { candidates, isGood } = ctx;
+  const ancestorIndex = buildAncestorIndex(candidates);
+  let remaining = [...candidates];
+  const tested = new Set();
+  let iterations = 0;
+  while (remaining.length > 1) {
+    const pivot = pickPivot({ candidates: remaining, ancestorIndex, tested });
+    iterations += 1;
+    tested.add(pivot.id);
+    const next = isGood(pivot)
+      ? eliminateAncestors({ remaining, pivot, ancestorIndex })
+      : keepAncestors({ remaining, pivot, ancestorIndex });
+    if (next.length === remaining.length) {
+      if (tested.size >= remaining.length) break;
+      continue;
+    }
+    remaining = next;
+    if (iterations > candidates.length * 2) break;
+  }
+  return finishBisect({ candidates, remaining, iterations, isGood });
+}
+
+function eliminateAncestors(ctx) {
+  const { remaining, pivot, ancestorIndex } = ctx;
+  const gone = ancestorIndex.get(pivot.id);
+  return remaining.filter(c => !gone.has(c.id));
+}
+
+function keepAncestors(ctx) {
+  const { remaining, pivot, ancestorIndex } = ctx;
+  const kept = ancestorIndex.get(pivot.id);
+  return remaining.filter(c => kept.has(c.id));
+}
+
+function finishBisect(ctx) {
+  const { candidates, remaining, iterations, isGood } = ctx;
+  if (remaining.length === 0) return { culpritIndex: -1, iterations };
+  const last = remaining[remaining.length - 1];
+  if (isGood(last)) return { culpritIndex: -1, iterations };
+  return { culpritIndex: candidates.findIndex(c => c.id === last.id), iterations };
+}
+
+function runBinarySearch(sortedArray, predicate) {
+  const outcome = runDagBisect({ candidates: sortedArray, isGood: predicate });
+  return { culprit: outcome.culpritIndex, iterations: outcome.iterations };
+}
+
+module.exports = { bisect, buildCausalPath, runBinarySearch, runDagBisect, topologicalSort };

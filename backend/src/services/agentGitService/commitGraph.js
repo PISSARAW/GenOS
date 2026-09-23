@@ -6,7 +6,7 @@ async function getCommit(db, commitId) {
   const obj = await db.get('SELECT * FROM agent_git_objects WHERE id = ?', commitId);
   if (!obj) return null;
   const parents = await db.all(
-    'SELECT parent_commit_id FROM agent_git_commit_parents WHERE commit_id = ? ORDER BY rowid',
+    'SELECT parent_commit_id FROM agent_git_commit_parents WHERE commit_id = ? ORDER BY position, rowid',
     commitId
   );
   return { ...obj, parentIds: parents.map(p => p.parent_commit_id) };

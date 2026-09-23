@@ -1,6 +1,6 @@
 'use strict';
 
-const { verifyObjectSignatureLocal, signingAlgorithm } = require('./verifyHelpers.cjs');
+const { verifyObjectSignatureLocal, verifyObjectSignatureWithStore, signingAlgorithm } = require('./verifyHelpers.cjs');
 
 function validateRemoteIdAndHash(incoming) {
   const stateHash = incoming?.state_hash || incoming?.stateHash;
@@ -24,18 +24,42 @@ function validateStateHashMatch(actualHash, incoming) {
   return { valid: true };
 }
 
-function validateSignature(incoming, state) {
-  // Point 3 : le wire est canonical snake_case (wireFormat.cjs). On reconstruit
-  // l'objet tel que verifyObjectSignatureLocal l'attend, avec les métadonnées
-  // réelles du sender (pas '{}' par défaut).
+async function validateSignature(incoming, state, ctx = {}) {
   const candidate = {
     ...incoming,
     state_hash: incoming.state_hash || incoming.stateHash,
     state_json: typeof state === 'string' ? state : JSON.stringify(state),
     metadata_json: incoming.metadata_json || '{}'
   };
-  if (!verifyObjectSignatureLocal(candidate)) {
-    return { valid: false, error: 'Remote signature verification failed.' };
+  if (verifyObjectSignatureLocal(candidate)) return { valid: true };
+  if (ctx.db) {
+    const trusted = await verifyObjectSignatureWithStore({ db: ctx.db, object: candidate, tenantId: ctx.tenantId });
+    if (trusted) return { valid: true };
+  }
+  return { valid: false, error: 'Remote signature verification failed.' };
+}
+
+function parseMetadata(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'object') return raw;
+  try { return JSON.parse(raw); } catch (_) { return null; }
+}
+
+function validateTreeAndCommit(ctx) {
+  const { incoming, state } = ctx;
+  const { treeHash, commitHash } = require('./canonical');
+  const parents = incoming.parent_commit_ids || incoming.parentCommitIds || [];
+  const metadata = parseMetadata(incoming.metadata_json);
+  if (metadata === null) return { valid: false, error: 'Remote metadata_json is not valid JSON.' };
+  const expectedTree = treeHash(state);
+  const wireTree = incoming.tree_hash || incoming.treeHash;
+  if (wireTree && wireTree !== expectedTree) {
+    return { valid: false, error: 'Tree hash mismatch: state does not match the signed tree_hash.' };
+  }
+  const expectedCommit = commitHash({ tree: expectedTree, parents, metadata });
+  const wireCommit = incoming.commit_hash || incoming.commitHash;
+  if (wireCommit && wireCommit !== expectedCommit) {
+    return { valid: false, error: 'Commit hash mismatch: parents/metadata/tree do not match the signed commit_hash.' };
   }
   return { valid: true };
 }
@@ -68,7 +92,7 @@ function envelopeCommitMismatch(envelope, incoming) {
   return envelope.commitHash !== commitHash && envelope.commitHash !== stateHash;
 }
 
-async function verifyRemoteObject(incoming, state) {
+async function verifyRemoteObject(incoming, state, ctx = {}) {
   const idCheck = validateRemoteIdAndHash(incoming);
   if (!idCheck.valid) return idCheck;
   const stateCheck = validateRemoteState(state);
@@ -77,8 +101,10 @@ async function verifyRemoteObject(incoming, state) {
   if (!sigCheck.valid) return sigCheck;
   const hashCheck = validateStateHashMatch(require('crypto').createHash('sha256').update(JSON.stringify(state)).digest('hex'), incoming);
   if (!hashCheck.valid) return hashCheck;
-  const sigVerify = validateSignature(incoming, state);
+  const sigVerify = await validateSignature(incoming, state, ctx);
   if (!sigVerify.valid) return sigVerify;
+  const treeCheck = validateTreeAndCommit({ incoming, state });
+  if (!treeCheck.valid) return treeCheck;
   const envelopeOk = validateEnvelope(incoming);
   if (envelopeOk === false) return envelopeOk;
   return { valid: true, error: null };

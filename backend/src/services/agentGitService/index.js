@@ -10,17 +10,8 @@ const { treeHash, commitHash } = require('./canonical');
 const { storeObject } = require('./storeObjectHelper.cjs');
 const causalOps = require('./causalOps.cjs');
 const { verifyRemoteObject } = require('./remoteVerification.cjs');
-const { wireObject } = require('./wireFormat.cjs');
 const remotePersist = require('./remotePersist.cjs');
-
-// Agent Git remotes are fetched server-side, so a caller-controlled remoteUrl
-// is an SSRF vector. Reuse the provider endpoint policy (blocks loopback,
-// private ranges and metadata addresses) unless an operator explicitly opts
-// into private remotes for a trusted self-hosted topology.
-async function assertRemoteGitUrl(rawUrl) {
-  if (process.env.GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES === '1') return;
-  await validateProviderEndpointAsync(String(rawUrl), { localOnly: false });
-}
+const { assertRemoteGitUrl, executeRemotePush, resolvePushTip, recordPushReceipt } = require('./pushTransport.cjs');
 
 function scopeSql(req, alias = 'w') {
   if (!req.tenant) return { clause: '1 = 1', params: [] };
@@ -155,20 +146,6 @@ async function resolveParentCommitId(ctx) {
   return null;
 }
 
-async function performRemotePush(opts) {
-  const { req, remoteUrl, commit, state } = opts;
-  const remotePath = `${String(remoteUrl).replace(/\/$/, '')}/api/lineage/agents/git/remote/push`;
-  const response = await globalThis.fetch(remotePath, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
-    // Point 3 : format wire canonical unique (snake_case). L'état envoyé est
-    // EXACTEMENT celui du commit — pas un collectState frais dont le hash
-    // différerait de la signature vérifiée par le receiver.
-    body: JSON.stringify({ ...req.body, objectId: commit.id, object: wireObject(commit), state })
-  });
-  if (!response.ok) throw new Error(`Remote push failed with HTTP ${response.status}.`);
-}
-
 async function checkPushVersion(req, db, agentId) {
   const currentRef = await db.get('SELECT version FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, req.body?.refName || 'main');
   if (req.body?.force !== true && req.body?.expectedVersion != null && Number(req.body.expectedVersion) !== Number(currentRef?.version || 0)) {
@@ -176,27 +153,18 @@ async function checkPushVersion(req, db, agentId) {
   }
 }
 
-async function executeRemotePush(req, agentId, commit) {
-  await assertRemoteGitUrl(req.body.remoteUrl);
-  // Bug audit #1 : envoyer l'état EXACT du commit (state_json persisté), pas un
-  // collectState frais — capturedAt diffère => state_hash mismatch systématique
-  // côté receiver. Le wire transporte commit.state_hash ; le payload doit hasher
-  // identiquement.
-  const db = await getDatabase();
-  const stored = await db.get('SELECT state_json FROM agent_git_objects WHERE id = ?', commit.id);
-  if (!stored) throw Object.assign(new Error('Pushed commit not found in local store.'), { code: 'COMMIT_NOT_FOUND' });
-  await performRemotePush({ req, remoteUrl: req.body.remoteUrl, commit, state: JSON.parse(stored.state_json) });
-}
-
 async function push(req) {
   const agentId = String(req.body?.agentId || '').trim();
   const remoteName = String(req.body?.remoteName || 'default').trim();
+  const refName = req.body?.refName || 'main';
   const db = await getDatabase();
   await enforceHooks({ db, agentId, hookName: 'pre-push', context: await collectState(db, req, agentId) });
   await checkPushVersion(req, db, agentId);
-  const commit = await createCommit(req, { agentId, kind: 'remote', refName: req.body?.refName || 'main', remoteName, metadata: { pushed: true, remoteUrl: req.body?.remoteUrl || null } });
+  const tip = await resolvePushTip({ db, req, agentId, refName });
+  const commit = tip.commit;
   if (req.body?.remoteUrl) await executeRemotePush(req, agentId, commit);
-  return { success: true, operation: 'push', remoteName, force: req.body?.force === true, tracking: { ahead: 1, behind: 0 }, ...commit };
+  await recordPushReceipt({ db, req, agentId, refName, remoteName, commitId: commit.id });
+  return { success: true, operation: 'push', remoteName, force: req.body?.force === true, tracking: { ahead: 0, behind: 0 }, ...commit };
 }
 
 async function fetch(req) {
@@ -240,8 +208,8 @@ async function checkRemoteParents(db, incoming, state) {
 async function receiveRemote(req) {
   const incoming = req.body?.object;
   const state = req.body?.state || null;
-  const verification = await verifyRemoteObject(incoming, state);
   const db = await getDatabase();
+  const verification = await verifyRemoteObject(incoming, state, { db, tenantId: req.tenant?.organizationId || null });
   if (!verification.valid) {
     // Mettre en quarantine pour inspection manuelle
     const q = await quarantineIncoming(db, { incoming, state, reason: verification.error });

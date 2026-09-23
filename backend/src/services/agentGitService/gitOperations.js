@@ -85,30 +85,51 @@ async function buildCherryPickPatch(ctx) {
 
 async function merge(req) {
   const db = await getDatabase();
-  // L'API documentée est leftObjectId/rightObjectId (cf. message d'erreur et
-  // merge-base) ; leftId/rightId reste accepté pour compat.
+  const ids = resolveMergeIds(req);
+  if (!ids.ok) return ids.error;
+  const sides = await loadMergeSides({ db, req, ids });
+  if (!sides.ok) return sides.error;
+  const base = await findMergeBase(db, ids.leftId, ids.rightId);
+  const merged = buildMergedState({ base, left: sides.left, right: sides.right, nameOverride: req.body?.name });
+  const conflict = checkMergeConflicts({ merged, base, ids });
+  if (conflict) return conflict;
+  return commitMergedState({ db, req, sides, base, merged, ids });
+}
+
+function resolveMergeIds(req) {
   const leftId = req.body?.leftObjectId || req.body?.leftId;
   const rightId = req.body?.rightObjectId || req.body?.rightId;
-  if (!leftId || !rightId) return { success: false, error: 'Both leftObjectId and rightObjectId are required.' };
+  if (!leftId || !rightId) return { ok: false, error: { success: false, error: 'Both leftObjectId and rightObjectId are required.' } };
+  return { ok: true, leftId, rightId };
+}
 
-  const left = await getObjectScoped(db, req, leftId);
-  const right = await getObjectScoped(db, req, rightId);
-  if (!left || !right) return { success: false, error: 'Both commits must exist.' };
+async function loadMergeSides(ctx) {
+  const { db, req, ids } = ctx;
+  const left = await getObjectScoped(db, req, ids.leftId);
+  const right = await getObjectScoped(db, req, ids.rightId);
+  if (!left || !right) return { ok: false, error: { success: false, error: 'Both commits must exist.' } };
+  return { ok: true, left, right };
+}
 
-  const targetAgentId = req.body?.targetAgentId || left.agent_id;
-  const base = await findMergeBase(db, leftId, rightId);
-  const merged = buildMergedState({ base, left, right, nameOverride: req.body?.name });
+function checkMergeConflicts(ctx) {
+  const { merged, base, ids } = ctx;
+  if (merged.conflicts && merged.conflicts.length > 0) {
+    return { success: false, operation: 'merge', conflicts: merged.conflicts, mergeBase: base?.id || null, leftCommitId: ids.leftId, rightCommitId: ids.rightId, error: 'Merge conflicts require explicit resolution.' };
+  }
+  return null;
+}
 
+async function commitMergedState(ctx) {
+  const { db, req, sides, base, merged, ids } = ctx;
+  const targetAgentId = req.body?.targetAgentId || sides.left.agent_id;
   await enforceHooks({ db, agentId: targetAgentId, hookName: 'merge-validation', context: merged.storeState });
-
   const result = await replaceState(req, {
     targetAgentId,
     state: merged.storeState,
     sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']
   });
-
-  const commitResult = await createMergeCommit({ db, req, left, base, merged, leftId, rightId });
-  return { success: true, operation: 'merge', ...result, ...commitResult, mergeBase: base?.id || null, leftCommitId: leftId, rightCommitId: rightId };
+  const commitResult = await createMergeCommit({ db, req, left: sides.left, base, merged, leftId: ids.leftId, rightId: ids.rightId });
+  return { success: true, operation: 'merge', ...result, ...commitResult, mergeBase: base?.id || null, leftCommitId: ids.leftId, rightCommitId: ids.rightId };
 }
 
 function buildMergedState(ctx) {
@@ -119,19 +140,27 @@ function buildMergedState(ctx) {
   const patchLeft = computePatch(baseState, leftState);
   const patchRight = computePatch(baseState, rightState);
   const ms = buildMergeSections({ baseState, patchLeft, patchRight, leftState, rightState });
-  return { storeState: buildMergeStoreState({ baseState, leftState, rightState, nameOverride, mergeSections: ms }) };
+  return { storeState: buildMergeStoreState({ baseState, leftState, rightState, nameOverride, mergeSections: ms.sections }), conflicts: ms.conflicts };
 }
 
 function buildMergeSections(ctx) {
   const { baseState, patchLeft, patchRight, leftState, rightState } = ctx;
+  const decisions = mergeDecisionsSection({ baseState, patchLeft, patchRight });
+  const memories = mergeMemoriesSection({ baseState, patchLeft, patchRight });
+  const runs = mergeRunsSection({ baseState, patchLeft, patchRight });
+  const plasmids = mergePlasmidsSection({ baseState, patchLeft, patchRight });
+  const permissions = mergePermissionSection({ base: baseState.permissions || [], left: leftState.permissions || [], right: rightState.permissions || [] });
   return {
-    decisions: mergeDecisionsSection({ baseState, patchLeft, patchRight }),
-    memories: mergeMemoriesSection({ baseState, patchLeft, patchRight }),
-    runs: mergeRunsSection({ baseState, patchLeft, patchRight }),
-    plasmids: mergePlasmidsSection({ baseState, patchLeft, patchRight }),
-    permissions: mergePermissionSection({ base: baseState.permissions || [], left: leftState.permissions || [], right: rightState.permissions || [] }),
-    events: mergeEvents({ base: baseState.events || [], left: leftState.events || [], right: rightState.events || [] }),
-    children: mergeChildren({ base: baseState.children || [], left: leftState.children || [], right: rightState.children || [] })
+    sections: {
+      decisions: decisions.merged,
+      memories: memories.merged,
+      runs: runs.merged,
+      plasmids: plasmids.merged,
+      permissions: permissions.merged,
+      events: mergeEvents({ base: baseState.events || [], left: leftState.events || [], right: rightState.events || [] }),
+      children: mergeChildren({ base: baseState.children || [], left: leftState.children || [], right: rightState.children || [] })
+    },
+    conflicts: [...decisions.conflicts, ...memories.conflicts, ...runs.conflicts, ...plasmids.conflicts, ...permissions.conflicts]
   };
 }
 
@@ -194,29 +223,67 @@ async function createMergeCommit(ctx) {
 
 function mergePermissionSection(ctx) {
   const { base, left, right } = ctx;
-  const all = [...base, ...left, ...right];
-  const denyWins = collectDeniedTools(all);
-  const byKey = buildPermMap(all);
-  return flattenPermMap(byKey, denyWins);
-}
-
-function buildPermMap(all) {
-  const byKey = {};
-  for (const p of all) {
-    const k = `${p.organization_id || ''}:${p.project_id || ''}`;
-    if (!byKey[k]) byKey[k] = { org: p.organization_id, proj: p.project_id, perms: new Set() };
-    for (const t of JSON.parse(p.permissions_json || '[]')) byKey[k].perms.add(t);
+  const denyWins = collectDeniedTools([...base, ...left, ...right]);
+  const baseMap = buildScopeMap(base);
+  const leftMap = buildScopeMap(left);
+  const rightMap = buildScopeMap(right);
+  const keys = new Set([...baseMap.keys(), ...leftMap.keys(), ...rightMap.keys()]);
+  const merged = [];
+  const conflicts = [];
+  for (const key of keys) {
+    mergeOneScope({ key, baseMap, leftMap, rightMap, denyWins, merged, conflicts });
   }
-  return byKey;
+  return { merged, conflicts };
 }
 
-function flattenPermMap(byKey, denyWins) {
-  return Object.values(byKey).map(m => ({
-    organization_id: m.org,
-    project_id: m.proj,
-    permissions_json: JSON.stringify([...m.perms].filter(t => !denyWins.has(t))),
+function buildScopeMap(rows) {
+  const map = new Map();
+  for (const p of rows || []) {
+    const k = `${p.organization_id || ''}:${p.project_id || ''}`;
+    map.set(k, { org: p.organization_id, proj: p.project_id, allows: new Set(parseJsonArray(p.permissions_json)) });
+  }
+  return map;
+}
+
+function parseJsonArray(raw) {
+  try {
+    const v = JSON.parse(raw || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch (_) { return []; }
+}
+
+function mergeOneScope(ctx) {
+  const { key, baseMap, leftMap, rightMap, denyWins, merged, conflicts } = ctx;
+  const baseAllows = baseMap.get(key)?.allows || new Set();
+  const leftAllows = leftMap.get(key)?.allows || new Set();
+  const rightAllows = rightMap.get(key)?.allows || new Set();
+  const effective = intersectSets(leftAllows, rightAllows);
+  const unilateral = findUnilateralGrants({ baseAllows, leftAllows, rightAllows, effective });
+  for (const tool of unilateral) {
+    conflicts.push({ section: 'permissions', itemId: key, reason: 'privilege-requires-approval', tool });
+  }
+  const meta = leftMap.get(key) || rightMap.get(key) || baseMap.get(key);
+  if (effective.size === 0 && !leftMap.has(key) && !rightMap.has(key)) return;
+  merged.push({
+    organization_id: meta.org,
+    project_id: meta.proj,
+    permissions_json: JSON.stringify([...effective].filter(t => !denyWins.has(t))),
     denied_tools_json: JSON.stringify([...denyWins])
-  }));
+  });
+}
+
+function intersectSets(left, right) {
+  return new Set([...left].filter(t => right.has(t)));
+}
+
+function findUnilateralGrants(ctx) {
+  const { baseAllows, leftAllows, rightAllows, effective } = ctx;
+  const union = new Set([...leftAllows, ...rightAllows]);
+  const grants = [];
+  for (const tool of union) {
+    if (!baseAllows.has(tool) && !effective.has(tool)) grants.push(tool);
+  }
+  return grants;
 }
 
 // --- Revert ---

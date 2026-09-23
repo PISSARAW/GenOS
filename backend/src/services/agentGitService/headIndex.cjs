@@ -31,11 +31,12 @@ async function setHeadRef(ctx, agentId, targetRefName) {
   const { db, req } = ctx;
   const headRef = await getHeadRef(db, req, agentId);
   const currentTarget = headRef?.object_id || null;
+  await db.run('DELETE FROM agent_git_refs WHERE ref_key = ?', `agent-${agentId}:HEAD`);
   await db.run(
     `INSERT INTO agent_git_refs (ref_key, agent_id, ref_name, object_id, version, updated_at)
-     VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
-     ON CONFLICT(ref_key) DO UPDATE SET object_id = excluded.object_id, version = version + 1, updated_at = CURRENT_TIMESTAMP`,
-    `agent-${agentId}:HEAD`, agentId, targetRefName
+     VALUES (?, ?, 'HEAD', ?, 1, CURRENT_TIMESTAMP)
+     ON CONFLICT(agent_id, ref_name) DO UPDATE SET object_id = excluded.object_id, version = version + 1, updated_at = CURRENT_TIMESTAMP`,
+    `${agentId}:HEAD`, agentId, targetRefName
   );
   await db.run('INSERT INTO agent_git_reflog (id, agent_id, ref_name, old_object_id, new_object_id, action, actor) VALUES (?, ?, ?, ?, ?, ?, ?)',
     `reflog-head-${Date.now()}-${require('crypto').randomBytes(3).toString('hex')}`,

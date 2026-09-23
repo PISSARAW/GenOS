@@ -1,112 +1,61 @@
 'use strict';
 
-/**
- * mergeDrivers.cjs — merge drivers sémantiques pour chaque section agentique.
- *
- * Chaque driver définit une règle de fusion adaptée au type de données :
- * - events : union + provenance (les événements sont cumulatifs)
- * - children : union + provenance (les enfants sont cumulatifs)
- * - decisions : conflit explicite (les décisions sont mutuellement exclusives)
- * - memories : union + provenance (les mémoires sont cumulatives)
- * - runs : union + provenance (les runs sont cumulatifs)
- * - plasmids : union + provenance (les plasmides sont cumulatifs)
- * - permissions : deny-wins / intersection conservative (déjà dans gitOperations.js)
- */
+function idOf(items, key) {
+  return new Set((items || []).map(e => e[key]));
+}
 
-function mergeEvents(ctx) {
-  const { base, left, right } = ctx;
-  const baseIds = new Set((base || []).map(e => e.event_id));
-  const leftItems = (left || []).filter(e => !baseIds.has(e.event_id));
-  const rightItems = (right || []).filter(e => !baseIds.has(e.event_id));
+function mergeById(ctx) {
+  const { base, left, right, key } = ctx;
+  const baseMap = new Map((base || []).map(e => [e[key], e]));
+  const out = new Map(baseMap);
+  applySide({ out, baseMap, side: left, key });
+  applySide({ out, baseMap, side: right, key });
   const seen = new Set();
-  const result = [...(base || [])];
-  for (const item of [...leftItems, ...rightItems]) {
-    if (!seen.has(item.event_id)) {
-      result.push(item);
-      seen.add(item.event_id);
+  const result = [];
+  for (const item of [...(base || []), ...(left || []), ...(right || [])]) {
+    const id = item[key];
+    if (out.has(id) && !seen.has(id)) {
+      result.push(out.get(id));
+      seen.add(id);
     }
   }
   return result;
+}
+
+function applySide(ctx) {
+  const { out, baseMap, side, key } = ctx;
+  for (const item of side || []) {
+    const id = item[key];
+    if (!baseMap.has(id)) {
+      if (!out.has(id)) out.set(id, item);
+      continue;
+    }
+    if (JSON.stringify(baseMap.get(id)) !== JSON.stringify(item)) out.set(id, item);
+  }
+}
+
+function mergeEvents(ctx) {
+  return mergeById({ ...ctx, key: 'event_id' });
 }
 
 function mergeChildren(ctx) {
-  const { base, left, right } = ctx;
-  const baseIds = new Set((base || []).map(c => c.id));
-  const leftItems = (left || []).filter(c => !baseIds.has(c.id));
-  const rightItems = (right || []).filter(c => !baseIds.has(c.id));
-  const seen = new Set();
-  const result = [...(base || [])];
-  for (const item of [...leftItems, ...rightItems]) {
-    if (!seen.has(item.id)) {
-      result.push(item);
-      seen.add(item.id);
-    }
-  }
-  return result;
+  return mergeById({ ...ctx, key: 'id' });
 }
 
 function mergeDecisions(ctx) {
-  const { base, left, right } = ctx;
-  const baseIds = new Set((base || []).map(d => d.id));
-  const leftItems = (left || []).filter(d => !baseIds.has(d.id));
-  const rightItems = (right || []).filter(d => !baseIds.has(d.id));
-  const seen = new Set();
-  const result = [...(base || [])];
-  for (const item of [...leftItems, ...rightItems]) {
-    if (!seen.has(item.id)) {
-      result.push(item);
-      seen.add(item.id);
-    }
-  }
-  return result;
+  return mergeById({ ...ctx, key: 'id' });
 }
 
 function mergeMemories(ctx) {
-  const { base, left, right } = ctx;
-  const baseIds = new Set((base || []).map(m => m.id));
-  const leftItems = (left || []).filter(m => !baseIds.has(m.id));
-  const rightItems = (right || []).filter(m => !baseIds.has(m.id));
-  const seen = new Set();
-  const result = [...(base || [])];
-  for (const item of [...leftItems, ...rightItems]) {
-    if (!seen.has(item.id)) {
-      result.push(item);
-      seen.add(item.id);
-    }
-  }
-  return result;
+  return mergeById({ ...ctx, key: 'id' });
 }
 
 function mergeRuns(ctx) {
-  const { base, left, right } = ctx;
-  const baseIds = new Set((base || []).map(r => r.id));
-  const leftItems = (left || []).filter(r => !baseIds.has(r.id));
-  const rightItems = (right || []).filter(r => !baseIds.has(r.id));
-  const seen = new Set();
-  const result = [...(base || [])];
-  for (const item of [...leftItems, ...rightItems]) {
-    if (!seen.has(item.id)) {
-      result.push(item);
-      seen.add(item.id);
-    }
-  }
-  return result;
+  return mergeById({ ...ctx, key: 'id' });
 }
 
 function mergePlasmids(ctx) {
-  const { base, left, right } = ctx;
-  const baseIds = new Set((base || []).map(p => p.plasmid_id));
-  const leftItems = (left || []).filter(p => !baseIds.has(p.plasmid_id));
-  const rightItems = (right || []).filter(p => !baseIds.has(p.plasmid_id));
-  const seen = new Set();
-  const result = [...(base || [])];
-  for (const item of [...leftItems, ...rightItems]) {
-    if (!seen.has(item.plasmid_id)) {
-      result.push(item);
-      seen.add(item.plasmid_id);
-    }
-  }
-  return result;
+  return mergeById({ ...ctx, key: 'plasmid_id' });
 }
 
 module.exports = {

@@ -101,6 +101,7 @@ async function blame(req) {
 }
 
 async function detectCycles(db, objects) {
+  const parentMap = await loadParentMap(db, objects);
   const cycles = [];
   const visited = new Set();
   const inStack = new Set();
@@ -110,15 +111,38 @@ async function detectCycles(db, objects) {
     if (visited.has(id)) return;
     visited.add(id);
     inStack.add(id);
-    const obj = objMap.get(id);
-    if (obj) {
-      const parents = obj.parent_commit_id ? [obj.parent_commit_id] : [];
-      for (const pid of parents) { if (objMap.has(pid)) dfs(pid, [...path, id]); }
-    }
+    for (const pid of parentMap.get(id) || []) { if (objMap.has(pid)) dfs(pid, [...path, id]); }
     inStack.delete(id);
   }
   for (const obj of objects) { if (!visited.has(obj.id)) dfs(obj.id, []); }
   return cycles;
+}
+
+async function loadParentMap(db, objects) {
+  const map = new Map(objects.map(o => [o.id, o.parent_commit_id ? [o.parent_commit_id] : []]));
+  try {
+    const ids = objects.map(o => o.id);
+    const chunkSize = 200;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const marks = chunk.map(() => '?').join(',');
+      const rows = await db.all(`SELECT commit_id, parent_commit_id FROM agent_git_commit_parents WHERE commit_id IN (${marks}) ORDER BY position, rowid`, ...chunk);
+      const grouped = new Map();
+      for (const row of rows || []) {
+        if (!grouped.has(row.commit_id)) grouped.set(row.commit_id, []);
+        grouped.get(row.commit_id).push(row.parent_commit_id);
+      }
+      for (const [commitId, parents] of grouped) map.set(commitId, parents);
+    }
+  } catch (_) {}
+  return map;
+}
+
+function checkSymbolicHead(ctx) {
+  const { ref, branchNames, issues } = ctx;
+  if (ref.object_id && !branchNames.has(ref.object_id)) {
+    issues.push({ id: ref.ref_key, issue: 'dangling_head', refName: ref.ref_name, objectId: ref.object_id });
+  }
 }
 
 // verifySingleObject est importé depuis verifyHelpers.cjs
@@ -132,8 +156,14 @@ async function fsck(req) {
   const cycles = await detectCycles(db, objects);
   for (const cycle of cycles) issues.push({ id: cycle.start, issue: 'dag_cycle', cycle: cycle.cycle });
   const refs = await db.all(`SELECT ref_key, agent_id, ref_name, object_id FROM agent_git_refs WHERE agent_id = ?`, req.body?.agentId);
+  const commitIds = new Set(objects.map(o => o.id));
+  const branchNames = new Set(refs.map(r => r.ref_name));
   for (const ref of refs) {
-    if (ref.object_id && !objects.some(o => o.id === ref.object_id)) issues.push({ id: ref.ref_key, issue: 'dangling_ref', refName: ref.ref_name, objectId: ref.object_id });
+    if (ref.ref_name === 'HEAD') {
+      checkSymbolicHead({ ref, branchNames, issues });
+      continue;
+    }
+    if (ref.object_id && !commitIds.has(ref.object_id)) issues.push({ id: ref.ref_key, issue: 'dangling_ref', refName: ref.ref_name, objectId: ref.object_id });
   }
   return { success: true, operation: 'fsck', checked: objects.length, healthy: issues.length === 0, issues };
 }
