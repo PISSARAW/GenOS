@@ -54,38 +54,20 @@ const HIGH_PRESSURE_THRESHOLD = 0.7;
 const MIN_BUDGET_FOR_CREATIVITY = 100;
 const MAX_BUDGET_PRESSURE_TOKENS = 200;
 
+const PRESSURE_CONDITIONS = Object.freeze([
+  (failureState) => (failureState?.repeatedDeadEnds || 0) >= 3,
+  (agentCtx) => (agentCtx?.dissonance || 0) > HIGH_PRESSURE_THRESHOLD,
+  (failureState) => failureState?.lowInformationGain === true,
+  (problemState) => (problemState?.uncertainty || 0) > HIGH_PRESSURE_THRESHOLD,
+  (problemState) => (problemState?.novelty || 0) > HIGH_PRESSURE_THRESHOLD,
+  (failureState) => (failureState?.repeatedDeadEnds || 0) >= DEAD_END_THRESHOLD,
+  (budget) => budget > MAX_BUDGET_PRESSURE_TOKENS,
+]);
+
 function getPhenotypeMaxLevel(phenotype) {
   if (!phenotype) return CREATIVITY_LEVELS.OFF;
   const level = PHENOTYPES_MAX_LEVEL[phenotype];
   return level !== undefined ? level : CREATIVITY_LEVELS.OFF;
-}
-
-function hasExhaustedSpace(failureState) {
-  return (failureState?.repeatedDeadEnds || 0) >= 3;
-}
-
-function hasFailedRepresentation(agentCtx) {
-  return (agentCtx?.dissonance || 0) > HIGH_PRESSURE_THRESHOLD;
-}
-
-function hasLowInformationGain(failureState) {
-  return failureState?.lowInformationGain === true;
-}
-
-function hasHighUncertainty(problemState) {
-  return (problemState?.uncertainty || 0) > HIGH_PRESSURE_THRESHOLD;
-}
-
-function hasNovelDomain(problemState) {
-  return (problemState?.novelty || 0) > HIGH_PRESSURE_THRESHOLD;
-}
-
-function hasRepeatedDeadEnd(failureState) {
-  return (failureState?.repeatedDeadEnds || 0) >= DEAD_END_THRESHOLD;
-}
-
-function hasAvailableBudget(budget) {
-  return (budget || 0) > MAX_BUDGET_PRESSURE_TOKENS;
 }
 
 function computePressureScore(ctx) {
@@ -94,15 +76,8 @@ function computePressureScore(ctx) {
   const failureState = problemState.failureState || {};
   const budget = problemState.budget?.tokens || 0;
 
-  let score = 0;
-  if (hasExhaustedSpace(failureState)) score += 1;
-  if (hasFailedRepresentation(agentCtx)) score += 1;
-  if (hasLowInformationGain(failureState)) score += 1;
-  if (hasHighUncertainty(problemState)) score += 1;
-  if (hasNovelDomain(problemState)) score += 1;
-  if (hasRepeatedDeadEnd(failureState)) score += 1;
-  if (hasAvailableBudget(budget)) score += 1;
-  return score;
+  const inputs = [failureState, agentCtx, failureState, problemState, problemState, failureState, budget];
+  return PRESSURE_CONDITIONS.reduce((score, cond, i) => cond(inputs[i]) ? score + 1 : score, 0);
 }
 
 function pressureToLevel(score, maxLevel) {
