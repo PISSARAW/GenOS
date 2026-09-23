@@ -5,7 +5,7 @@ const philosophicalGuard = require('./philosophicalPromotionGuard');
 const philosophyPolicy = require('./philosophyPromotionPolicyService');
 const ethicalComparisonPolicy = require('./ethicalComparisonPolicyService');
 const epistemicDecision = require('./epistemicDecisionService');
-const { resolveTrustedVerifierDigests } = require('./epistemicAssuranceAssemblyBuilder');
+const { resolveTrustedVerifierDigests } = require('./verifierTrustRegistry');
 
 function getStrategyHandlers() {
   return require('./strategyExecutionAdapter').getHandlers();

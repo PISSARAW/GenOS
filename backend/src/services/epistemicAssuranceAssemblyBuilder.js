@@ -231,14 +231,22 @@ function resolveFromSource(src) {
 }
 
 function resolveTrustedVerifierDigests(ctx) {
-  if (!ctx || typeof ctx !== 'object') return [];
+  if (!ctx || typeof ctx !== 'object') return centralDigests();
   const candidates = [];
   if (ctx.epistemicContext) candidates.push(ctx.epistemicContext);
   if (ctx.verifierContext) candidates.push(ctx.verifierContext);
   if (ctx.epistemic_context && ctx.epistemicContext !== ctx.epistemic_context) candidates.push(ctx.epistemic_context);
   candidates.push(ctx);
   for (const src of candidates) { const result = resolveFromSource(src); if (result) return result; }
-  return [];
+  return centralDigests();
+}
+
+function centralDigests() {
+  try {
+    return require('./verifierTrustRegistry').listVerifierDigests();
+  } catch (_) {
+    return [];
+  }
 }
 
 module.exports = {
