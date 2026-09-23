@@ -180,6 +180,14 @@ const migrationRunners = [
     const { migrateCommunicationOutcomes } = require('./migrateCommunicationOutcomes');
     await migrateCommunicationOutcomes(db);
   }),
+  createMigrationRunner('054-daemon-phenotype', 'Persist pressure-gated ecological phenotypes (ADR 0034 D16)', async (db) => {
+    const { migrateDaemonPhenotype } = require('./migrateDaemonPhenotype');
+    await migrateDaemonPhenotype(db);
+  }),
+  createMigrationRunner('055-daemon-evaluation', 'Persist daemon eval runs and promotion receipts (ADR 0034 D17/D18/D20)', async (db) => {
+    const { migrateDaemonEvaluation } = require('./migrateDaemonEvaluation');
+    await migrateDaemonEvaluation(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

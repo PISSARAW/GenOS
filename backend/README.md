@@ -88,8 +88,13 @@ Persistent, territory-bound agentic processes maintaining an evidence-grounded m
 - **Verifier** (`verification/`): epistemic immune system — head freshness, scope existence, per-detector rules; reproduction counts only strictly post-creation events.
 - **Stigmergy** (`daemonStigmergyService.js`): territorial pheromones steer attention, never truth; evaporation decay; fail-soft forwarding to `stigmergyInterProcessBridge`.
 - **Repair** (`repair/`): isolated `RepairEpisode` on `REPAIRABLE` findings — scoped lease (allowed commands, budget, expiry, `genos-repair/` branch), claimed and executed by a worker in an isolated capsule, never by the daemon; expired episodes reconciled.
-- **Tables** (migrations 037–045, 050): `daemon_territories`, `daemon_runtime_state`, `daemon_events`, `territory_graph_nodes/edges`, `daemon_findings`, `daemon_finding_evidence`, `daemon_stigmergy_markers`, `daemon_handoffs`, `daemon_handoff_feedback`, `daemon_repair_episodes`.
-- **Tests**: `backend/tests/test_daemon_*.js` (16 suites). Contracts: `spec/daemon-territory.schema.json`, `spec/daemon-finding.schema.json`, `spec/resident-daemon.schema.json`.
+- **Legacy autofix (deprecated, D15)**: mtime file picking removed, `runAutofixCycle` is a permanent no-op pointing to `RepairEpisode`; branch sync + MR maintenance kept.
+- **Specialization** (`specialization/`, D16): pressure-gated ecological phenotypes (security, contract, dependency, documentation) — budding on measured pressure, dormancy when it falls, never deleted.
+- **Evaluation** (`evaluation/`, D17–D18): deterministic warm-start proxy benchmark (cold vs warm recall) and 6-arm biomimetic ablations; runs persisted for promotion evidence.
+- **Scheduling** (`scheduling/`, D19): metabolic compute scheduler — testable U(a) utility, gated LLM reasoning, wake budgets.
+- **Maturity** (`maturity/`, D20): evidence-gated experimental → stable promotion with persisted receipts; status EXPERIMENTAL until live LLM A/B/C protocol runs.
+- **Tables** (migrations 037–045, 050, 054–055): `daemon_territories`, `daemon_runtime_state`, `daemon_events`, `territory_graph_nodes/edges`, `daemon_findings`, `daemon_finding_evidence`, `daemon_stigmergy_markers`, `daemon_handoffs`, `daemon_handoff_feedback`, `daemon_repair_episodes`, `daemon_phenotypes`, `daemon_eval_runs`, `daemon_promotions`.
+- **Tests**: `backend/tests/test_daemon_*.js` (24 suites). Contracts: `spec/daemon-territory.schema.json`, `spec/daemon-finding.schema.json`, `spec/resident-daemon.schema.json`.
 
 ---
 
@@ -128,7 +133,11 @@ backend/
 │   │   │   ├── verification/                 # Epistemic immune system
 │   │   │   ├── handoff/                      # TerritoryBrief + feedback plasticity
 │   │   │   ├── reconciliation/               # Continuous autophagy sweeps
-│   │   │   └── repair/                       # Isolated repair episodes (D14)
+│   │   │   ├── repair/                       # Isolated repair episodes (D14)
+│   │   │   ├── specialization/               # Ecological phenotypes (D16)
+│   │   │   ├── evaluation/                   # Warm-start + ablations (D17-D18)
+│   │   │   ├── scheduling/                   # Metabolic compute scheduler (D19)
+│   │   │   └── maturity/                     # Promotion gate (D20)
 │   │   └── primitiveHandlers/                # Concrete primitive implementations
 │   └── strategies/               # Strategy catalog and classification families
 ├── tests/                        # Verification and regression test suite

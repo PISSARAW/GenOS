@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { runFullAudit } = require('./proactiveGitHubAnalyst');
-const { runFleetDaemonCycle } = require('./daemonRepoWorkerService');
+const { runFleetDaemonCycle, AUTOFIX_DEPRECATION_REASON } = require('./daemonRepoWorkerService');
 
 const repoRoot = path.resolve(__dirname, '../../..');
 const configDir = process.env.GENOS_CONFIG_DIR || path.join(repoRoot, '.genos');
@@ -257,20 +257,24 @@ async function runProactiveCycle(options = {}) {
   const auditResult = runFullAudit(agentConfig, githubDir);
 
   // Beyond reporting: keep working on each repo's dedicated daemon branch,
-  // rebase it onto the branch the human is actively using, apply a verified
-  // fix per cycle, and open a merge request once commits are ready.
+  // rebase it onto the branch the human is actively using, and open a merge
+  // request once commits are ready.
+  // D15 : l'autofix LLM au mtime est déprécié (no-op). Le cycle ne commet
+  // plus aucun patch : la réparation passe par RepairEpisode (daemon/repair).
   // Opt-in only (options.autofix === true): the plain on-demand audit
   // endpoint/tests stay side-effect-free; the `genos-daemon` executable
-  // itself requests autofix explicitly for both its one-shot and
+  // itself requests maintenance explicitly for both its one-shot and
   // continuous `--daemon` modes.
   let maintenance = [];
+  let autofixNotice = null;
   if (options.autofix === true) {
     const repos = auditResult.analyses.map((analysis) => ({ name: analysis.name, path: analysis.path }));
     maintenance = await runFleetDaemonCycle(repos);
+    autofixNotice = AUTOFIX_DEPRECATION_REASON;
   }
 
   saveDaemonConfig({ lastRun: new Date().toISOString() });
-  return { config: { ...config, ...agentConfig }, audit: auditResult, maintenance };
+  return { config: { ...config, ...agentConfig }, audit: auditResult, maintenance, autofixNotice };
 }
 
 module.exports = {

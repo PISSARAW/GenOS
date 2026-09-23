@@ -1,18 +1,25 @@
 /**
  * Daemon Repo Worker Service - maintains persistent git worktrees per repo,
- * rebases onto human branch, applies verified fixes, opens PRs via gh CLI.
+ * rebases onto human branch, opens PRs via gh CLI.
+ *
+ * D15 (ADR 0034) : le choix de fichier au mtime (pickCandidateFile) est
+ * SUPPRIMÉ — mtime n'est pas un signal causal — et le cycle d'autofix LLM
+ * (runAutofixCycle) est DÉPRÉCIÉ en no-op permanent. La seule voie de
+ * réparation est le RepairEpisode (daemon/repair) ouvert sur un finding
+ * REPAIRABLE et exécuté par un worker en capsule isolée. Ce module ne
+ * conserve que la maintenance de branches (sync + MR) ; il n'écrit plus
+ * jamais de patch.
  */
 const fs = require('fs'), path = require('path'), { spawnSync } = require('child_process');
-const modelRouter = require('./modelRouter'), localCodeWorker = require('./localCodeWorkerService'), telemetry = require('./telemetryObserver');
+const telemetry = require('./telemetryObserver');
 
 const repoRoot = path.resolve(__dirname, '../../..');
 const stateFile = path.join(repoRoot, '.genos', 'daemon_repo_state.json');
 const lockFile = stateFile + '.lock';
 const DAEMON_BRANCH_PREFIX = 'genos-daemon', WORKTREE_ROOT_NAME = '.genos-daemon-worlds';
-const AUTOFIX_DISABLED = /^(1|true)$/i.test(process.env.GENOS_DAEMON_DISABLE_AUTOFIX || '');
 const MR_DISABLED = /^(1|true)$/i.test(process.env.GENOS_DAEMON_DISABLE_PR || '');
-const MODEL_TIMEOUT_MS = Number(process.env.GENOS_DAEMON_MODEL_TIMEOUT_MS) || 90000;
-const MAX_PROMPT_CHARS = Number(process.env.GENOS_DAEMON_MAX_PROMPT_CHARS) || 80000;
+
+const AUTOFIX_DEPRECATION_REASON = 'deprecated since D15: mtime autofix removed — open a RepairEpisode (daemon/repair) from a REPAIRABLE finding instead';
 
 function acquireLock() {
   try { fs.writeFileSync(lockFile, process.pid.toString(), { flag: 'wx' }); return true; } catch { return false; }
@@ -63,64 +70,14 @@ function detectTestCommand(wt) {
   return null;
 }
 
-function listCandidateFiles(wt) {
-  const r = git(['ls-files'], wt); if (r.code !== 0) return [];
-  return r.stdout.split('\n').map(f => f.trim()).filter(Boolean).filter(f => localCodeWorker.safePath(f)).filter(f => /\.(js|ts|tsx|jsx|py|rs|go|java|rb|cjs|mjs)$/i.test(f));
-}
-
-function pickCandidateFile(wt) {
-  const files = listCandidateFiles(wt).map(rel => { try { const st = fs.statSync(path.join(wt, rel)); return { rel, mtime: st.mtimeMs, size: st.size }; } catch { return null; } }).filter(f => f && f.size > 0 && f.size < 60000);
-  files.sort((a, b) => b.mtime - a.mtime); return files[0] || null;
-}
-
-async function checkDeadEnd(key) {
-  try { const m = require('./primitiveHandlers/memoryDeadEnds'); return await m.avoidKnownDeadEnds({ task: key, agentId: 'daemon' }); }
-  catch (e) { console.warn(`[Daemon] checkDeadEnd failed for ${key}:`, e.message); return { isDeadEndRisk: false, warning: null }; }
-}
-
-async function recordOutcome({ taskKey, repoName, relPath, success, detail }) {
-  try {
-    const vm = require('./vectorMemoryService');
-    await vm.storeMemory('daemon', success ? `Fixed ${relPath} in ${repoName}: ${detail}` : `Attempted fix on ${taskKey} did not pan out: ${detail}`, null, {
-      category: success ? 'Experience' : 'Failure', title: success ? `Daemon fix: ${repoName}/${relPath}` : `Daemon dead end: ${taskKey}`
-    });
-  } catch (_) {}
-}
-
-function resolveDeadEndWarning(d) { return d.isDeadEndRisk ? `\n\nKNOWN DEAD END: ${d.warning || 'a previous attempt on this file did not work.'} Propose a materially different, more conservative fix or return an empty patch.` : ''; }
-
-function buildAutofixPrompt({ repo, candidate, testCommand, content, deadEndWarning }) {
-  const c = content.length > MAX_PROMPT_CHARS ? content.slice(0, MAX_PROMPT_CHARS) + '\n... [truncated]' : content;
-  return [`You are the GenOS autonomous maintainer daemon for the repository "${repo.name}".`, `Review the file "${candidate.rel}" below for one concrete, narrowly-scoped bug or inconsistency you can fix with high confidence.`, 'If you find a genuine fix, return exactly this JSON object and nothing else:', `{"format":"genos.file-replacement/v1","patches":[{"path":"${candidate.rel}","content":"<complete corrected file content>"}],"tests":["${testCommand}"],"evidence":"<what was wrong and why this fixes it>"}`, `If nothing needs fixing, return {"format":"genos.file-replacement/v1","patches":[],"tests":["${testCommand}"],"evidence":"no fix needed"}.`, 'Never invent an issue; an empty patches array is a valid and expected outcome. Never touch tests, lockfiles, manifests, or secrets.' + deadEndWarning, '--- FILE CONTENT ---', c].join('\n\n');
-}
-
-async function requestDaemonProposal({ repo, taskKey, prompt, candidate }) {
-  let gen; try { gen = await modelRouter.generate({ db: null, agentId: `daemon:${repo.name}`, prompt, timeoutMs: MODEL_TIMEOUT_MS }); }
-  catch (e) { await recordOutcome({ taskKey, repoName: repo.name, relPath: candidate.rel, success: false, detail: `model routing failed: ${e.message}` }); return { error: `model routing failed: ${e.message}` }; }
-  let prop; try { prop = localCodeWorker.parseProposal(gen.text || ''); }
-  catch (e) { await recordOutcome({ taskKey, repoName: repo.name, relPath: candidate.rel, success: false, detail: `invalid proposal: ${e.message}` }); return { error: `invalid proposal: ${e.message}` }; }
-  return { generated: gen, proposal: prop };
-}
-
-async function executeVerifiedPatch({ repo, session, candidate, taskKey, fetched }) {
-  let res; try { res = await localCodeWorker.executeProposal({ workspaceRoot: session.worktree, text: fetched.generated.text }); }
-  catch (e) { await recordOutcome({ taskKey, repoName: repo.name, relPath: candidate.rel, success: false, detail: `patch execution failed: ${e.message}` }); return { attempted: true, applied: false, file: candidate.rel, reason: `patch execution failed: ${e.message}` }; }
-  if (res.testStatus !== 'passed') { await recordOutcome({ taskKey, repoName: repo.name, relPath: candidate.rel, success: false, detail: `tests failed after patch, rolled back: ${JSON.stringify(res.tests)}` }); return { attempted: true, applied: false, file: candidate.rel, reason: 'tests failed after patch; rolled back', tests: res.tests }; }
-  const msg = `[GenOS Daemon] ${fetched.proposal.evidence || 'Automated fix'}`.slice(0, 240);
-  git(['add', '-u'], session.worktree); const cr = git(['commit', '-m', msg], session.worktree);
-  const ok = cr.code === 0; await recordOutcome({ taskKey, repoName: repo.name, relPath: candidate.rel, success: ok, detail: fetched.proposal.evidence || 'automated fix' });
-  return { attempted: true, applied: ok, file: candidate.rel, evidence: fetched.proposal.evidence, tests: res.tests };
-}
-
-async function runAutofixCycle(repo, s) {
-  if (AUTOFIX_DISABLED) return { attempted: false, reason: 'autofix disabled via GENOS_DAEMON_DISABLE_AUTOFIX' };
-  const tc = detectTestCommand(s.worktree); if (!tc) return { attempted: false, reason: 'no allow-listed test command detected for this repository' };
-  const cand = pickCandidateFile(s.worktree); if (!cand) return { attempted: false, reason: 'no eligible source file found' };
-  const key = `${repo.name}:${cand.rel}`, dw = resolveDeadEndWarning(await checkDeadEnd(key)), cnt = fs.readFileSync(path.join(s.worktree, cand.rel), 'utf8');
-  const f = await requestDaemonProposal({ repo, taskKey: key, prompt: buildAutofixPrompt({ repo, candidate: cand, testCommand: tc, content: cnt, deadEndWarning: dw }), candidate: cand });
-  if (f.error) return { attempted: true, applied: false, reason: f.error };
-  if (!f.proposal.patches.length) return { attempted: true, applied: false, file: cand.rel, reason: f.proposal.evidence || 'no fix needed' };
-  return executeVerifiedPatch({ repo, session: s, candidate: cand, taskKey: key, fetched: f });
+/**
+ * D15 : le choix au mtime est supprimé (aucune causalité entre date de
+ * modification et présence de bug). Ne pas réintroduire de tri temporel
+ * ici : la localisation vient des détecteurs déterministes
+ * (daemon/investigation) via les findings.
+ */
+async function runAutofixCycle() {
+  return { attempted: false, reason: AUTOFIX_DEPRECATION_REASON };
 }
 
 function pushBranch(s) { return git(['push', '-u', 'origin', s.branch], s.worktree, { timeoutMs: 30000 }); }
@@ -141,7 +98,7 @@ function openMergeRequest(repo, s) {
 }
 
 function recordSkippedRepo({ state, key, previousRecord, reason }) { const r = { ...previousRecord, status: 'skipped', reason, updatedAt: new Date().toISOString() }; state[key] = r; saveState(state); return r; }
-function resolveCycleFix(repo, s, sync) { return sync.synced ? runAutofixCycle(repo, s) : { attempted: false, reason: `sync failed: ${sync.reason}` }; }
+async function resolveCycleFix(repo, s, sync) { const r = await runAutofixCycle(); return sync.synced ? r : { attempted: false, reason: `sync failed: ${sync.reason}` }; }
 function resolveAheadCount(s, sync, prev) { return sync.synced ? commitsAheadOfBase(s) : prev.commitsAheadOfBase || 0; }
 function maybeOpenMergeRequest({ repo, session, sync, ahead, previousRequest }) { if (!(sync.synced && ahead > 0 && (!previousRequest || previousRequest.commitCount !== ahead))) return previousRequest || null; const mr = openMergeRequest(repo, session); return { ...mr, commitCount: ahead, updatedAt: new Date().toISOString() }; }
 
@@ -164,4 +121,4 @@ async function runFleetDaemonCycle(repos) {
   const res = []; for (const repo of repos) { try { res.push({ repo: repo.name, ...(await runRepoDaemonCycle(repo)) }); } catch (e) { res.push({ repo: repo.name, status: 'error', reason: e.message }); } } return res;
 }
 
-module.exports = { daemonBranchName, worktreePath, ensureDaemonWorktree, syncWithUpstream, fetchUpstream, commitsAheadOfBase, detectTestCommand, pickCandidateFile, runAutofixCycle, openMergeRequest, runRepoDaemonCycle, runFleetDaemonCycle, loadState, saveState };
+module.exports = { daemonBranchName, worktreePath, ensureDaemonWorktree, syncWithUpstream, fetchUpstream, commitsAheadOfBase, detectTestCommand, runAutofixCycle, openMergeRequest, runRepoDaemonCycle, runFleetDaemonCycle, loadState, saveState, AUTOFIX_DEPRECATION_REASON };

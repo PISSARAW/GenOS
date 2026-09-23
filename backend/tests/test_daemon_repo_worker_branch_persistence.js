@@ -61,15 +61,13 @@ async function runTests() {
   assert.equal(ahead, 0, 'the daemon branch has no commits of its own yet');
   console.log('  ✅ Daemon branch rebased cleanly onto the latest state of the current branch.');
 
-  console.log('\n=== TEST 3: Autofix respects its safety opt-out ===');
-  process.env.GENOS_DAEMON_DISABLE_AUTOFIX = '1';
-  delete require.cache[require.resolve('../src/services/daemonRepoWorkerService')];
-  const daemonWorkerDisabled = require('../src/services/daemonRepoWorkerService');
-  const fixResult = await daemonWorkerDisabled.runAutofixCycle(repo, session1);
+  console.log('\n=== TEST 3: Autofix is deprecated since D15 (no mtime pick, no patch) ===');
+  const fixResult = await daemonWorker.runAutofixCycle(repo, session1);
   assert.equal(fixResult.attempted, false);
-  assert.ok(/disabled/i.test(fixResult.reason), 'the disabled reason must be surfaced');
-  delete process.env.GENOS_DAEMON_DISABLE_AUTOFIX;
-  console.log('  ✅ GENOS_DAEMON_DISABLE_AUTOFIX correctly short-circuits the autofix cycle.');
+  assert.ok(/deprecated/i.test(fixResult.reason), 'the deprecation reason must be surfaced');
+  assert.equal(daemonWorker.pickCandidateFile, undefined, 'mtime file picking must be gone from exports');
+  assert.ok(/RepairEpisode/.test(daemonWorker.AUTOFIX_DEPRECATION_REASON), 'the notice must point to RepairEpisode');
+  console.log('  ✅ runAutofixCycle is a deprecated no-op pointing to RepairEpisode.');
 
   console.log('\n=== TEST 4: Merge request creation respects its safety opt-out ===');
   process.env.GENOS_DAEMON_DISABLE_PR = '1';
