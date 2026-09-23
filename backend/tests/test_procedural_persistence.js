@@ -99,8 +99,12 @@ async function testPersistence() {
   const active = await persistence.listActiveGenomes(db);
   assert.ok(active.length >= 1);
 
-  db.close();
-  fs.unlinkSync(dbPath);
+  await new Promise((resolve) => db.close(resolve));
+  try {
+    fs.unlinkSync(dbPath);
+  } catch (e) {
+    if (e.code !== 'EBUSY' && e.code !== 'EPERM') throw e;
+  }
   console.log('=== procedural persistence: all passed ===');
 }
 

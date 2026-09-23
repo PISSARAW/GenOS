@@ -182,8 +182,12 @@ async function main() {
   assert.ok(stages.has('causal') || stages.has('semantics') || stages.has('gate'),
     `des candidats doivent être écartés par les gates: ${[...stages].join(', ')}`);
 
-  db.close();
-  fs.unlinkSync(dbPath);
+  await new Promise((resolve) => db.close(resolve));
+  try {
+    fs.unlinkSync(dbPath);
+  } catch (e) {
+    if (e.code !== 'EBUSY' && e.code !== 'EPERM') throw e;
+  }
   console.log('=== procedural E2E autonome (P0 defect -> causal repair -> P1 promoted): all passed ===');
 }
 

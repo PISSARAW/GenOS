@@ -75,15 +75,40 @@ function inspectVariant(variant) {
   };
 }
 
+function buildStructuralPattern(variant) {
+  const ops = variant.operations || [];
+  return {
+    operationTypes: ops.map((o) => o.op),
+    targetNodeTypes: ops.map((o) => o.target?.type).filter(Boolean),
+  };
+}
+
 function recordAdaptiveRejection(variant, reason) {
+  // Adaptive immune memory is ONLY for security/policy/sandbox/authority
+  // violations (innate immune rejection). Fitness, causal, evidence or gate
+  // rejections on quality grounds must NOT create immune memory — otherwise
+  // every low-fitness operation type would become "auto-immune" forbidden.
+  // The signature uses the structural matcher (operationTypes +
+  // targetNodeTypes) so recall can actually match; the lexical pattern is
+  // left empty to avoid over-broad substring matches.
+  const ops = variant.operations || [];
   const sig = adaptive.immuneSignatureFrom({
-    pattern: JSON.stringify((variant.operations || []).map((o) => o.op)),
-    mutationPattern: (variant.operations || []).map((o) => o.op),
-    structuralPattern: null,
-    context: { variantId: variant.id, reason: reason || 'rejected' },
+    pattern: '',
+    mutationPattern: ops.map((o) => o.op),
+    structuralPattern: buildStructuralPattern(variant),
+    context: {
+      variantId: variant.id,
+      lineageId: variant.parentId || null,
+      reason: reason || 'immune-rejected',
+    },
     response: { gate: 'REJECT', strength: 1.0 },
   });
   adaptiveMemory.push(sig);
+}
+
+function isImmuneGateBlock(gateResult) {
+  const blocking = gateResult.blocking || [];
+  return blocking.some((g) => g.name === 'immune');
 }
 
 function receiptEvaluatorId(options) {
@@ -104,8 +129,23 @@ function receiptTrials(options) {
   return 1;
 }
 
+function evaluationHashFor(receipt) {
+  const crypto = require('crypto');
+  const canonical = JSON.stringify({
+    candidateId: receipt.candidateId || null,
+    parentId: receipt.parentId || null,
+    evaluatorId: receipt.evaluatorId || null,
+    runnerId: receipt.runnerId || null,
+    environmentId: receipt.environmentId || null,
+    snapshotId: receipt.snapshotId || null,
+    trials: receipt.trials,
+    metrics: receipt.metrics || {},
+  });
+  return crypto.createHash('sha256').update(canonical).digest('hex').slice(0, 16);
+}
+
 function buildReceipt(variant, metrics, options) {
-  return {
+  const receipt = {
     candidateId: variant.id || null,
     parentId: variant.parentId || null,
     evaluatorId: receiptEvaluatorId(options),
@@ -119,6 +159,54 @@ function buildReceipt(variant, metrics, options) {
       causal: Boolean(options.causalRunner || options.runnerId),
     },
   };
+  receipt.evaluationHash = evaluationHashFor(receipt);
+  return receipt;
+}
+
+function metricsMatchFitness(sealed, receipt) {
+  const components = sealed.fitness?.components || {};
+  const metrics = receipt.metrics || {};
+  for (const key of Object.keys(components)) {
+    if (metrics[key] == null) continue;
+    const expected = Math.max(0, Math.min(1, Number(metrics[key])));
+    const actual = Number(components[key]);
+    if (!Number.isFinite(expected) || Math.abs(expected - actual) > 1e-9) return false;
+  }
+  return true;
+}
+
+function checkReceiptBinding(ctx, receipt, errors) {
+  if (receipt.parentId !== ctx.parent?.metadata?.id) {
+    errors.push(`receipt parent mismatch: ${receipt.parentId} != ${ctx.parent?.metadata?.id}`);
+  }
+  if (receipt.candidateId !== ctx.variant?.id) {
+    errors.push(`receipt candidate mismatch: ${receipt.candidateId} != ${ctx.variant?.id}`);
+  }
+  if (!receipt.evaluatorId && !receipt.runnerId) {
+    errors.push('receipt has neither evaluatorId nor runnerId');
+  }
+}
+
+function checkReceiptTrials(receipt, errors) {
+  if (!Number.isFinite(Number(receipt.trials)) || Number(receipt.trials) < 1) {
+    errors.push(`receipt trials invalid: ${receipt.trials}`);
+  }
+}
+
+function checkReceiptIntegrity(ctx) {
+  const sealed = ctx.sealed || {};
+  const receipt = sealed.evaluationReceipt;
+  if (!receipt) return { valid: false, errors: ['evaluation receipt missing'] };
+  const errors = [];
+  checkReceiptBinding(ctx, receipt, errors);
+  checkReceiptTrials(receipt, errors);
+  if (!metricsMatchFitness(sealed, receipt)) {
+    errors.push('receipt metrics do not match sealed fitness components');
+  }
+  if (receipt.evaluationHash !== evaluationHashFor(receipt)) {
+    errors.push('receipt evaluationHash mismatch: receipt was tampered or misbound');
+  }
+  return { valid: errors.length === 0, errors };
 }
 
 function evaluateVariant(variant, options) {
@@ -186,6 +274,10 @@ function gateStep(ctx) {
   if (!sealed.evaluationReceipt) {
     return { stage: 'evaluation', rejected: true, sealed, reason: 'evaluation receipt missing: promotion refused' };
   }
+  const integrity = checkReceiptIntegrity({ sealed, variant: ctx.variant, parent: ctx.parent });
+  if (!integrity.valid) {
+    return { stage: 'evaluation', rejected: true, sealed, reason: `receipt integrity refused: ${integrity.errors.join('; ')}` };
+  }
   const schema = identity.validateOrganism(sealed);
   if (!schema.valid) {
     return { stage: 'schema', rejected: true, sealed, reason: schema.errors.join('; ') };
@@ -199,7 +291,9 @@ function gateStep(ctx) {
     candidate: sealed,
     policy: ctx.opts.policy || {},
   });
-  if (!gateResult.promoted) recordAdaptiveRejection(ctx.variant, 'gate');
+  if (!gateResult.promoted && isImmuneGateBlock(gateResult)) {
+    recordAdaptiveRejection(ctx.variant, 'gate-immune');
+  }
   return { stage: 'gate', rejected: !gateResult.promoted, sealed, gate: gateResult, causal: ctx.causal.causal || null };
 }
 
@@ -212,7 +306,6 @@ function assessCandidate(parent, variant, options) {
   }
   ctx.causal = causalStage(parent, variant, ctx.opts);
   if (ctx.causal.rejected) {
-    recordAdaptiveRejection(variant, ctx.causal.reason);
     return { stage: 'causal', rejected: true, causal: ctx.causal.causal, reason: ctx.causal.reason };
   }
   ctx.evaluated = evaluateStep(ctx);
@@ -275,4 +368,7 @@ module.exports = {
   inspectVariant,
   getAdaptiveMemory,
   resetAdaptiveMemory,
+  checkReceiptIntegrity,
+  evaluationHashFor,
+  buildStructuralPattern,
 };

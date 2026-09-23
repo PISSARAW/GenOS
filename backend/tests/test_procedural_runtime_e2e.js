@@ -123,8 +123,12 @@ async function testRuntimeCycle() {
     assert.strictEqual(phylogeny2[2].metadata.id, p2.metadata.id);
   }
 
-  db.close();
-  fs.unlinkSync(dbPath);
+  await new Promise((resolve) => db.close(resolve));
+  try {
+    fs.unlinkSync(dbPath);
+  } catch (e) {
+    if (e.code !== 'EBUSY' && e.code !== 'EPERM') throw e;
+  }
   console.log('=== procedural runtime E2E: all passed ===');
 }
 

@@ -8,8 +8,9 @@
 |- **Portée** : `backend/src/services/procedural*Service.js`, `backend/src/services/proceduralRegistryService.js`,
   `backend/src/services/primitiveHandlers/proceduralHandlers.js`, `backend/tests/test_procedural_*.js`,
   `backend/bin/genos-registry-tool.cjs`.
-|- **Dernière revue** : 2026-09-22 (revue critique en cours, voir `docs/01-concepts/procedural-causality-notes.md`
-  et les tickets de revue associés).
+|- **Dernière revue** : 2026-09-23 (passe corrective : fitness scellée Pareto/niche, immunité
+  structurelle sécurité-uniquement, niche écologique, intégrité du receipt, test Pareto déterministe ;
+  voir `docs/01-concepts/procedural-causality-notes.md` pour les limites causales documentées).
 
 ## 1. Définition du domaine
 
@@ -157,12 +158,14 @@ La sélection naturelle procédurale utilise désormais un algorithme Pareto/nic
 
 | Fonction | Rôle |
 |---|---|
-| `paretoFront(variants, objectives)` | Retourne le front de Pareto: candidats non dominés sur les objectifs `success`, `robustness`, `evidence`, `generalization` |
-| `nicheSelection(variants, options)` | Parmi les candidats Pareto-optimaux, préserve la diversité par niche (parentId), au plus `maxPerNiche` par niche |
+| `paretoFront(variants, objectives)` | Retourne le front de Pareto: candidats non dominés sur les objectifs `success`, `robustness`, `evidence`, `generalization`, lus via `resolvedFitness()` (fitness **scellée** prioritaire) |
+| `nicheSelection(variants, options)` | Parmi les candidats Pareto-optimaux, préserve la diversité par niche **écologique** (`nicheKey()`), au plus `maxPerNiche` par niche |
+| `resolvedFitness(variant)` | Fitness effective unique : `sealed.fitness ?? fitness ?? null` (les variants runtime portent `fitness: null`, l'évaluée vit sous `sealed.fitness`) |
+| `nicheKey(variant)` | Clé de niche écologique : `sealed.ecology.niche.id ?? assessment.environmentId ?? sealed.evaluationReceipt.environmentId ?? … ?? 'default'` — une lignée (`parentId`) n'est **pas** une niche |
 
 **Implémentation :**
-- `paretoFront` : un candidat A est dominé par B si B ≥ A sur tous les objectifs ET B > A sur au moins un.
-- `nicheSelection` : trie par niche, garde les `maxPerNiche` meilleurs par niche.
+- `paretoFront` : un candidat A est dominé par B si B ≥ A sur tous les objectifs ET B > A sur au moins un (vecteurs construits depuis la fitness scellée).
+- `nicheSelection` : groupe par `nicheKey()`, garde les `maxPerNiche` meilleurs (score scellé) par niche.
 
 **Intégration dans le runtime :** `runEvolutionCycle` utilise `paretoFront` puis `nicheSelection` pour sélectionner le candidat promu. Le candidat gagnant est le plus fitness parmi les survivants niche-és.
 
@@ -171,7 +174,8 @@ La sélection naturelle procédurale utilise désormais un algorithme Pareto/nic
 - La sélection niche-ée préserve au moins un candidat par niche présente dans le front.
 - Le candidat promu est **toujours dans le front de Pareto** (jamais dominé).
 - Tous les candidats sont **évalués avant toute promotion** ; le runtime ne promeut jamais le premier acceptable mais le meilleur survivant Pareto/niche.
-- **Aucune promotion sans évaluation spécifique au candidat** : chaque candidat scellé porte un `evaluationReceipt` (candidateId, parentId, evaluatorId, environmentId, snapshotId, trials, metrics, provenance) ; sans fitness issue de sa propre évaluation, la fitness parent n'est jamais héritée.
+- **Aucune promotion sans évaluation spécifique au candidat** : chaque candidat scellé porte un `evaluationReceipt` (candidateId, parentId, evaluatorId, runnerId, environmentId, snapshotId, trials, metrics, provenance, `evaluationHash`) ; sans fitness issue de sa propre évaluation, la fitness parent n'est jamais héritée.
+- **Intégrité du receipt vérifiée, pas seulement sa présence** : `checkReceiptIntegrity()` refuse la promotion si le receipt est rebondé (`parentId`/`candidateId` incohérents), `trials < 1`, sans `evaluatorId`/`runnerId` identifiables, si les métriques ne correspondent pas aux composantes scellées, ou si `evaluationHash` est invalide.
 - **Causalité accouplée prouvée** : les deux forks reçoivent une copie indépendante de l'état initial (deep clone) et le hash snapshot de chaque copie est comparé ; `sameInitialState` est prouvé, pas affirmé.
 - **Gates requis dominants** : un gate `required` n'est pas seulement reachable, il domine tout terminal protégé (suppression virtuelle du gate ⇒ aucun terminal protégé atteignable, sinon BYPASS ⇒ INVALID).
 
@@ -579,7 +583,7 @@ L'immunité innée détecte : bypass de politique, suppression de vérification,
 
 L'immunité adaptative transforme les mutations rejetées en **signatures** pour un rejet rapide des mutations similaires.
 
-**Câblage runtime effectif** (`proceduralRuntimeService.js`) : `recallRejection()` est appelé avant toute mutation (un variant reconnu est rejeté au stage `immune`), et `recordRejection()` mémorise chaque rejet immunitaire ou gate. La mémoire adaptative vit dans le runtime, pas à côté.
+**Câblage runtime effectif** (`proceduralRuntimeService.js`) : `recallRejection()` est appelé avant toute mutation (un variant reconnu est rejeté au stage `immune`). La mémorisation est **sécurité-uniquement** : seuls les rejets immunitaires innés (et les gates bloqués sur `immune`) créent une signature via `recordAdaptiveRejection()` — les rejets fitness/causal/evidence ne polluent jamais la mémoire (pas d'auto-immunité procédurale). La signature est **structurelle** (`operationTypes` + `targetNodeTypes`, pattern lexical vide) afin que le rappel matche réellement ; la mémoire adaptative vit dans le runtime, pas à côté.
 
 **Services :** `proceduralImmuneInspectionService.js`, `proceduralAdaptiveImmuneMemoryService.js`
 
@@ -675,12 +679,12 @@ Chaque mécanisme biologique doit correspondre à un invariant informatique mesu
 | Inhibition | type d'arête `inhibitory`, condition exprimable, force mesurable |
 | Homéostasie | coût total `C(G)` et fitness multi-objectif réels |
 | Épigénétique | même genome, phénotype exprimé différent selon environnement |
-| Immunité | mutations rejetées mémorisées comme signatures, pas juste un log ; mémoire adaptative branchée au runtime (recall avant, record après) |
-| Promotion | `evaluationReceipt` obligatoire par candidat, fitness parent jamais héritée |
-| Sélection | tous évalués avant promotion, promu = meilleur survivant Pareto/niche |
+| Immunité | rejets **sécurité** mémorisés comme signatures **structurelles** matchables, pas juste un log ; mémoire adaptative branchée au runtime (recall avant, record sécurité-uniquement) ; rejets fitness/evidence exclus |
+| Promotion | `evaluationReceipt` obligatoire **et intègre** par candidat (`evaluationHash` vérifié), fitness parent jamais héritée |
+| Sélection | tous évalués avant promotion, promu = meilleur survivant Pareto/niche lu sur fitness **scellée** |
 | Causalité | forks isolés (deep clone + hash snapshot), `sameInitialState` prouvé |
 | Gates requis | dominance vérifiée (bypass ⇒ INVALID), pas simple accessibilité |
-| Niches | fitness calculée dans un environnement délimité, pas globalement |
+| Niches | fitness calculée dans un environnement délimité, pas globalement ; clé de niche **écologique** (`environmentId`/`niche.id`), jamais le `parentId` de lignée |
 | Apoptose / fossilisation | mort explicite, autopsie, archive reconstituable |
 
 ---
@@ -700,7 +704,7 @@ Chaque mécanisme biologique doit correspondre à un invariant informatique mesu
 - `backend/tests/test_procedural_primitives.js` — intégration handlers/proceduralHandlers.js (procedural_evolve, procedural_load, procedural_seal, procedural_causal_check)
 - `backend/tests/test_procedural_causal_validation.js` — validation causale paired-fork (CAUSAL_IMPROVEMENT / REGRESSION / NO_EFFECT)
 - `backend/tests/test_procedural_e2e_autonome.js` — scénario complet P0 → surprise → LTD → consolidation → mutation → causal proof → promotion
-- `backend/tests/test_procedural_learning_cycle.js` — front de Pareto, sélection par niche, cycle learning (LTP/LTD/consolidation) et intégration runtime Pareto/niche
+- `backend/tests/test_procedural_learning_cycle.js` — front de Pareto, sélection par niche **écologique**, câblage fitness scellée, intégrité du receipt, rappel adaptatif (sécurité-uniquement), cycle learning (LTP/LTD/consolidation) et intégration runtime Pareto/niche **déterministe** (métriques par opération, gagnant `ADJUST_WEIGHT` asserté — aucun `Math.random()`)
 
 ```bash
 npm run test:procedural

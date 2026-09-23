@@ -292,10 +292,17 @@ function survivorsDiversity(survivors) {
 
 const PARETO_OBJECTIVES = ['success', 'robustness', 'evidence', 'generalization'];
 
+function resolvedFitness(variant) {
+  return variant?.sealed?.fitness
+    ?? variant?.fitness
+    ?? null;
+}
+
 function objectiveVector(variant, objectives) {
-  const comps = variant?.fitness?.components || {};
+  const fitness = resolvedFitness(variant);
+  const comps = fitness?.components || {};
   return (objectives || PARETO_OBJECTIVES).map((k) => {
-    const raw = comps[k] != null ? comps[k] : variant?.fitness?.[k];
+    const raw = comps[k] != null ? comps[k] : fitness?.[k];
     const n = Number(raw);
     return Number.isFinite(n) ? n : 0;
   });
@@ -323,8 +330,18 @@ function paretoFront(variants, objectives) {
 }
 
 function fitnessScore(variant) {
-  const s = Number(variant?.fitness?.score);
+  const s = Number(resolvedFitness(variant)?.score);
   return Number.isFinite(s) ? s : 0;
+}
+
+function nicheKey(variant) {
+  return (
+    variant?.sealed?.ecology?.niche?.id
+    ?? variant?.assessment?.environmentId
+    ?? variant?.sealed?.evaluationReceipt?.environmentId
+    ?? variant?.sealed?.ecology?.nicheId
+    ?? 'default'
+  );
 }
 
 function nicheSelection(variants, options) {
@@ -333,7 +350,7 @@ function nicheSelection(variants, options) {
   const cap = Number.isFinite(maxPer) && maxPer > 0 ? Math.floor(maxPer) : 2;
   const groups = new Map();
   for (const v of list) {
-    const key = v.parentId || v?.organism?.metadata?.parentId || 'unknown';
+    const key = nicheKey(v);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(v);
   }
@@ -352,6 +369,10 @@ module.exports = {
   survivorsDiversity,
   paretoFront,
   nicheSelection,
+  nicheKey,
+  resolvedFitness,
+  objectiveVector,
+  fitnessScore,
   PARETO_OBJECTIVES,
   sealCandidate,
   mutationSignature,

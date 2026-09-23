@@ -98,8 +98,12 @@ async function testProceduralPrimitives() {
   const noVersionId = await proceduralHandlers.loadOrganism({ db });
   assert.strictEqual(noVersionId.success, false);
 
-  db.close();
-  fs.unlinkSync(dbPath);
+  await new Promise((resolve) => db.close(resolve));
+  try {
+    fs.unlinkSync(dbPath);
+  } catch (e) {
+    if (e.code !== 'EBUSY' && e.code !== 'EPERM') throw e;
+  }
   console.log('=== procedural primitives: all passed ===');
 }
 
