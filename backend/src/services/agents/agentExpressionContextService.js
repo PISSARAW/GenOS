@@ -26,7 +26,7 @@ const {
   identityFromRow, instinctFromRegulation, generateAgentIdentity,
   loadCognitiveRegulationState, createCognitiveRegulationState,
   evaluateAgentHomeostasis, phenotypeFromRecipe, safeArray, firstDef, clamp01,
-  loadClinicalState, buildClinicalState,
+  loadClinicalState, buildClinicalState, loadVitalStates,
 } = require('./agentExpressionContextSteps');
 
 const contracts = require('./agentExpressionContextContracts');
@@ -162,6 +162,11 @@ function assembleContext(parts) {
     currentPressure: parts.currentPressure,
     budget: parts.budget,
     clinicalState: parts.clinicalState,
+    sensorium: parts.vital.sensorium,
+    metabolicState: parts.vital.metabolicState,
+    resilienceEnvelope: parts.vital.resilienceEnvelope,
+    developmentalState: parts.vital.developmentalState,
+    proceduralSymbionts: parts.vital.proceduralSymbionts,
     agentId: parts.agentId,
     builtAt: new Date().toISOString()
   };
@@ -187,7 +192,8 @@ async function buildExpressionContext(opts) {
   const regulatorySnapshot = contracts.realRegulatoryOf(agentId, contracts.regulatoryStubOf(agentId, all));
   const cognitivePhenotype = contracts.phenotypeStubOf(agentId, identity.creativeState);
   const strategyTrajectory = contracts.trajectoryStubOf(agentId);
-  const context = assembleContext({ ...all, ...identity, clinicalState, epistemicState, memoryContext, regulatorySnapshot, cognitivePhenotype, strategyTrajectory });
+  const vital = loadVitalStates(agentId);
+  const context = assembleContext({ ...all, ...identity, clinicalState, epistemicState, memoryContext, regulatorySnapshot, cognitivePhenotype, strategyTrajectory, vital });
 
   contextCache.set(agentId, context);
 

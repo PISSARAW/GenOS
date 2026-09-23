@@ -23,6 +23,7 @@ const { buildCapabilityManifest } = require('../capabilityResolverService');
 const { getRelations, getState: getCollectiveState } = require('../collectiveStateService');
 const { getPhenotype, getAuthorityProfile } = require('./phenotypeRegistryService');
 const { phenotypeFromRecipe } = require('../cognitivePhenotypeService');
+const { getClinicalState, refreshClinicalState, getClinicalSummary } = require('../clinicalStateService');
 
 function safeArray(v) { return Array.isArray(v) ? v : []; }
 function firstDef(...vals) {
@@ -265,6 +266,44 @@ function instinctFromRegulation(cr) {
   };
 }
 
+// Step 17: Load or refresh clinical state from medical runtime
+async function loadClinicalState({ db, agentId, context = {} }) {
+  if (!db || !agentId) return null;
+  try {
+    const state = await getClinicalState(db, agentId);
+    if (!state) return null;
+    const refreshed = await refreshClinicalState(db, agentId, {
+      cognitiveIntegrity: context.cognitiveIntegrity,
+      stress: context.stress,
+      energy: context.energy,
+      budgetRatio: context.budgetRatio,
+      dissonance: context.dissonance,
+      apoptosisRisk: context.apoptosisRisk,
+    });
+    return buildClinicalState(refreshed);
+  } catch (_) {
+    return null;
+  }
+}
+
+// Build a decision-ready clinical summary
+function buildClinicalState(state) {
+  if (!state) return null;
+  const summary = getClinicalSummary(state);
+  return {
+    wellnessScore: summary.wellnessScore,
+    status: summary.status,
+    cellCycleState: summary.cellCycleState,
+    immuneTiter: summary.immuneTiter,
+    inflammatoryIndex: summary.inflammatoryIndex,
+    plasmidLoad: summary.plasmidLoad,
+    iatrogenicLoad: summary.iatrogenicLoad,
+    pathogenBurden: summary.pathogenBurden,
+    requiresTherapy: summary.wellnessScore < 0.5 || summary.iatrogenicLoad > 0.6,
+    quarantineRequired: summary.pathogenBurden > 0.8 || (summary.status === 'critical' && summary.cellCycleState === 'M'),
+  };
+}
+
 module.exports = {
   loadAgentRow, buildCognitiveSelf, loadGenotype, deriveEpigeneticState,
   derivePlasmids, computePhenotype, buildManifest, loadAuthority,
@@ -272,5 +311,34 @@ module.exports = {
   loadMemory, loadAncestralContext, computeUncertaintyAndPressure, loadBudget,
   identityFromRow, instinctFromRegulation, generateAgentIdentity,
   loadCognitiveRegulationState, createCognitiveRegulationState,
-  evaluateAgentHomeostasis, phenotypeFromRecipe, safeArray, firstDef, clamp01
+  evaluateAgentHomeostasis, phenotypeFromRecipe, safeArray, firstDef, clamp01,
+  loadClinicalState, buildClinicalState, loadVitalStates,
 };
+
+// Vital states 6-10 : sens, métabolisme, survie, développement, organes.
+// Chargement tolérant : un organe manquant donne null, jamais d'exception.
+function loadVitalStates(agentId) {
+  return safeVital(agentId);
+}
+
+function safeVital(agentId) {
+  try {
+    const sensorium = safeRequire('../perception/sensoriumService').getSensorium(agentId);
+    const metabolic = safeRequire('../metabolism/metabolicStateService').getMetabolic(`worker:${agentId}`);
+    const resilience = safeRequire('../resilience/resilienceStateService').getResilience(agentId);
+    const developmental = safeRequire('../development/developmentalStateService').getDevelopmental(agentId);
+    const symbionts = safeRequire('../proceduralSymbiont/symbiontService').forHost(agentId);
+    const envelope = safeRequire('../resilience/resilienceEnvelopeService').getEnvelope(agentId);
+    return { sensorium, metabolicState: metabolic, resilience, developmentalState: developmental, proceduralSymbionts: symbionts, resilienceEnvelope: envelope };
+  } catch (_) {
+    return { sensorium: null, metabolicState: null, resilience: null, developmentalState: null, proceduralSymbionts: [], resilienceEnvelope: null };
+  }
+}
+
+function safeRequire(path) {
+  try {
+    return require(path);
+  } catch (_) {
+    return null;
+  }
+}

@@ -5,6 +5,7 @@ const { contractFor, missingCapabilities } = require('../topologyCapabilityServi
 const { capabilityToolSet } = require('../toolLeasePolicy');
 const { planGenotypeActions, planEpigeneticChanges, planPlasmidActions } = require('./morphogenesisPlanActions');
 const { annotatePlanWithSubstrates } = require('../../storage/compute/computeSubstrateResolver');
+const { extendPlan } = require('./morphogenesisPlanExtensions');
 const controlLoop = require('./cognitiveControlLoopService');
 
 function candidateFor(topology, contracts, cost) {
@@ -233,6 +234,7 @@ function planMorphogenesis(ctx) {
     strategyTrajectory: ctx.strategyTrajectory
   };
   plan.utility = computeMorphologyUtility(utilityCtx);
+  extendPlan({ plan, reason: components.reason, pressures: ctx.pressure });
   // Compute Substrate Resolver: annotate each step with the optimal substrate
   // based on action type and current load. Falls back to CPU if DB unavailable.
   try {
