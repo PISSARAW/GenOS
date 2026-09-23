@@ -1,5 +1,42 @@
 'use strict';
 
+const NODE_TYPES = new Set([
+  'Agent', 'Genome', 'Mission', 'Claim', 'Evidence', 'Finding', 'Daemon',
+  'Territory', 'Commit', 'Snapshot', 'Phenotype', 'Capability', 'Memory',
+  'Concept', 'Experiment', 'Tool', 'LineageNode', 'LineageEdge',
+  'Relation', 'Synapse', 'CollectiveDecision', 'CollectiveVote',
+  'Continuation', 'SurvivalWake', 'DaemonTerritory', 'DaemonEvent',
+  'DaemonStigmergy', 'DaemonHandoff', 'DaemonRepair', 'DaemonEval',
+  'DaemonPhenotype', 'TrinityWorld', 'WorldGraphNode', 'WorldGraphEdge',
+]);
+
+const EDGE_TYPES = new Set([
+  'PARENT_OF', 'DESCENDS_FROM', 'MUTATED_FROM', 'CROSSED_WITH',
+  'HAS_GENOME', 'HAS_PHENOTYPE', 'KNOWS', 'COMMUNICATES_WITH', 'TRUSTS',
+  'REPORTS_TO', 'CLAIMS', 'SUPPORTS', 'CONTRADICTS', 'DERIVED_FROM',
+  'REMEMBERS', 'ASSOCIATED_WITH', 'CAUSED_BY', 'OBSERVED', 'FOUND',
+  'VALIDATED_BY', 'REFUTED_BY', 'EXECUTED', 'USES', 'DEPENDS_ON',
+  'FORKED_FROM', 'MERGED_FROM', 'PARENT_COMMIT', 'PRESERVES',
+  'TRANSFERRED_TO', 'RELATION', 'SYNAPSE', 'TERRITORY_EDGE',
+  'CONCEPT_RELATION', 'WORLD_GRAPH_EDGE',
+]);
+
+function escapeCypherString(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function validateNodeType(label) {
+  if (!NODE_TYPES.has(label)) {
+    throw new Error(`Unknown node type: ${label}`);
+  }
+}
+
+function validateEdgeType(label) {
+  if (!EDGE_TYPES.has(label)) {
+    throw new Error(`Unknown edge type: ${label}`);
+  }
+}
+
 /**
  * LadybugDB Graph Store — graph traversal, lineage, provenance, social graph.
  * Projection from SQLite source of truth.
@@ -32,28 +69,38 @@ class LadybugStore {
 
   async upsertNode(node) {
     const { id, label, properties } = node;
-    const props = JSON.stringify(properties || {});
-    await this._conn.query(`MERGE (n:${label} {id: '${id}'}) SET n += ${props}`);
+    validateNodeType(label);
+    const escapedId = escapeCypherString(id);
+    const escapedProps = escapeCypherString(JSON.stringify(properties || {}));
+    await this._conn.query(`MERGE (n:${label} {id: '${escapedId}'}) SET n += ${escapedProps}`);
   }
 
   async upsertEdge(edge) {
     const { id, source, target, label, properties } = edge;
-    const props = JSON.stringify(properties || {});
-    await this._conn.query(`MATCH (s {id: '${source}'}), (t {id: '${target}'}) MERGE (s)-[r:${label} {id: '${id}'}]->(t) SET r += ${props}`);
+    validateEdgeType(label);
+    const escapedSource = escapeCypherString(source);
+    const escapedTarget = escapeCypherString(target);
+    const escapedId = escapeCypherString(id);
+    const escapedProps = escapeCypherString(JSON.stringify(properties || {}));
+    await this._conn.query(`MATCH (s {id: '${escapedSource}'}), (t {id: '${escapedTarget}'}) MERGE (s)-[r:${label} {id: '${escapedId}'}]->(t) SET r += ${escapedProps}`);
   }
 
   async neighbors(query) {
     const { nodeId, direction = 'both', limit = 50 } = query;
+    const escapedId = escapeCypherString(nodeId);
     const arrow = direction === 'out' ? '->' : direction === 'in' ? '<-' : '-';
-    return this._conn.query(`MATCH (n {id: '${nodeId}'})${arrow}[r]${arrow}(m) RETURN m.id AS node_id, type(r) AS label LIMIT ${limit}`);
+    return this._conn.query(`MATCH (n {id: '${escapedId}'})${arrow}[r]${arrow}(m) RETURN m.id AS node_id, type(r) AS label LIMIT ${limit}`);
   }
 
   async traverse(query) {
     const { startId, maxDepth = 4 } = query;
-    return this._conn.query(`MATCH p = (start {id: '${startId}'})-[*1..${maxDepth}]-(end) RETURN nodes(p) AS nodes, relationships(p) AS edges`);
+    const escapedId = escapeCypherString(startId);
+    return this._conn.query(`MATCH p = (start {id: '${escapedId}'})-[*1..${maxDepth}]-(end) RETURN nodes(p) AS nodes, relationships(p) AS edges`);
   }
 
   async executeQuery(cypher) {
+    // Security: never expose executeQuery directly to workers/LLMs
+    console.warn('executeQuery is deprecated — use typed methods instead');
     return this._conn.query(cypher);
   }
 
