@@ -214,6 +214,54 @@ async function run() {
     assert.ok(result.observations[0].detail.claim.includes('Claim text object'));
   });
 
+  // 14. Bon claim : eligible, bindé, gate sans violations
+  await test('Bon claim eligible, binde, gate OK', async () => {
+    const { listVerifierDigests } = require('../src/services/verifierTrustRegistry');
+    const { buildGateContext } = require('../src/services/promotionGateContext');
+    const policy = require('../src/services/epistemicAssurancePolicy');
+    const report = {
+      claims: [
+        { statement: '2+2=4', evidence: [{ kind: 'reproducible_artifact' }] },
+      ],
+    };
+    const result = await evaluateReportWithAeis(report, {
+      domain: 'general',
+      trustedVerifierDigests: listVerifierDigests(),
+      immuneMemory: [],
+    });
+    assert.strictEqual(result.evaluation.eligible, true);
+    const fr = result.assembly.results[0];
+    const rc = result.assembly.verifications.find((v) => v.resultId === fr.resultId);
+    assert.ok(rc, 'receipt lie au FormalResult');
+    assert.strictEqual(rc.evidenceDigest, fr.evidence.digest);
+    const gate = buildGateContext({
+      promotion: { agentId: 'agent-e2e', report },
+      options: { agentId: 'agent-e2e' },
+      receipt: null,
+      aeisEvaluation: result,
+    });
+    assert.ok(gate.epistemicAssembly, 'assembly injectee dans le gate context');
+    const violations = policy.evaluate(
+      { require_epistemic_assurance: true, epistemic_verifier_digests: listVerifierDigests() },
+      gate
+    );
+    assert.deepStrictEqual(violations, []);
+  });
+
+  // 15. Sans assembly AEIS la promotion gate refuse
+  await test('Sans assembly la gate refuse', () => {
+    const { buildGateContext } = require('../src/services/promotionGateContext');
+    const policy = require('../src/services/epistemicAssurancePolicy');
+    const gate = buildGateContext({
+      promotion: { agentId: 'agent-e2e', report: {} },
+      options: { agentId: 'agent-e2e' },
+      receipt: null,
+      aeisEvaluation: null,
+    });
+    const violations = policy.evaluate({ require_epistemic_assurance: true }, gate);
+    assert.ok(violations.length > 0, 'missing assembly doit violer la gate');
+  });
+
   console.log('\n✅ All E2E AEIS tests passed.');
 }
 
