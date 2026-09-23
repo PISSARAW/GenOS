@@ -19,7 +19,8 @@ function emptyTally() {
     transportMessages: 0, fanoutCognitive: 0,
     redundantSent: 0, redundantAvoided: 0,
     success: 0, verifiedSuccess: 0, contamination: 0, independenceViolations: 0,
-    costUnits: 0, bytesOut: 0, wallMs: 0, refsTransmitted: 0, refsNaive: 0
+    costUnits: 0, bytesOut: 0, wallMs: 0, refsTransmitted: 0, refsNaive: 0,
+    byDomain: {}
   };
 }
 
@@ -59,11 +60,20 @@ function tallyNaiveIntent(snap, intent, tally) {
   tally.costUnits += recipients.length * 0.436;
   tally.refsTransmitted += intent.semanticRefs.length * recipients.length;
   tally.refsNaive += intent.semanticRefs.length * recipients.length;
+  const domain = intent.domain || 'unknown';
+  const d = tally.byDomain[domain] || { intents: 0, cost: 0, success: 0, recipients: 0 };
+  d.intents += 1;
+  d.cost += recipients.length * 0.436;
+  d.recipients += recipients.length;
+  tally.byDomain[domain] = d;
   for (const id of recipients) {
     if (knownAll({ snap, agentA: intent.senderAgentId, agentB: id, refs: intent.semanticRefs })) tally.redundantSent += 1;
   }
   const outcome = successOf(snap, intent, recipients);
-  if (outcome.success) tally.success += 1;
+  if (outcome.success) {
+    tally.success += 1;
+    d.success += 1;
+  }
   if (outcome.verified) tally.verifiedSuccess += 1;
   const leaked = contaminationOf(snap, intent, recipients);
   tally.contamination += leaked;
@@ -90,11 +100,20 @@ function tallyZeroTextIntent(snap, intent, tally) {
   tally.costUnits += 0.02 * subs.length + 0.01;
   tally.refsTransmitted += intent.semanticRefs.length * subs.length;
   tally.refsNaive += intent.semanticRefs.length * subs.length;
+  const domain = intent.domain || 'unknown';
+  const d = tally.byDomain[domain] || { intents: 0, cost: 0, success: 0, recipients: 0 };
+  d.intents += 1;
+  d.cost += 0.02 * subs.length + 0.01;
+  d.recipients += subs.length;
+  tally.byDomain[domain] = d;
   for (const id of subs) {
     if (knownAll({ snap, agentA: intent.senderAgentId, agentB: id, refs: intent.semanticRefs })) tally.redundantSent += 1;
   }
   const outcome = successOf(snap, intent, subs);
-  if (outcome.success) tally.success += 1;
+  if (outcome.success) {
+    tally.success += 1;
+    d.success += 1;
+  }
   if (outcome.verified) tally.verifiedSuccess += 1;
   tally.contamination += contaminationOf(snap, intent, subs);
 }

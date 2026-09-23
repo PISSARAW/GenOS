@@ -157,6 +157,75 @@ async function getOutcomeRates(input) {
   return { total, byOutcome, actionRate: ratioOf(acted, total), wasteRate: ratioOf(wasted, total) };
 }
 
+async function getExtendedMetrics(input) {
+  const db = input.db || await getDatabase();
+  const rates = getRates();
+  const wake = getWakePrecision();
+  const shadow = await getShadowReduction({ db });
+  const outcomes = await getOutcomeRates({ db });
+
+  // Per-domain breakdown
+  const domainRows = await db.all(
+    `SELECT domain, COUNT(*) AS n,
+            SUM(CASE WHEN outcome = 'action_taken' THEN 1 ELSE 0 END) AS acted,
+            SUM(CASE WHEN outcome = 'no_effect' OR outcome = 'ignored' THEN 1 ELSE 0 END) AS wasted,
+            SUM(tokens_used) AS tokens
+     FROM communication_outcomes GROUP BY domain`
+  );
+  const byDomain = {};
+  for (const row of domainRows) {
+    byDomain[row.domain || 'unknown'] = {
+      total: Number(row.n),
+      acted: Number(row.acted),
+      wasted: Number(row.wasted),
+      tokens: Number(row.tokens),
+      actionRate: ratioOf(Number(row.acted), Number(row.n)),
+      wasteRate: ratioOf(Number(row.wasted), Number(row.n))
+    };
+  }
+
+  // Per-channel breakdown
+  const channelRows = await db.all(
+    `SELECT channel, COUNT(*) AS n,
+            SUM(CASE WHEN outcome = 'action_taken' THEN 1 ELSE 0 END) AS acted,
+            SUM(CASE WHEN outcome = 'no_effect' OR outcome = 'ignored' THEN 1 ELSE 0 END) AS wasted
+     FROM communication_outcomes GROUP BY channel`
+  );
+  const byChannel = {};
+  for (const row of channelRows) {
+    byChannel[row.channel || 'unknown'] = {
+      total: Number(row.n),
+      acted: Number(row.acted),
+      wasted: Number(row.wasted),
+      actionRate: ratioOf(Number(row.acted), Number(row.n)),
+      wasteRate: ratioOf(Number(row.wasted), Number(row.n))
+    };
+  }
+
+  // Per-agent breakdown (sender)
+  const agentRows = await db.all(
+    `SELECT sender_id, COUNT(*) AS n,
+            SUM(CASE WHEN outcome = 'action_taken' THEN 1 ELSE 0 END) AS acted,
+            SUM(tokens_used) AS tokens
+     FROM communication_outcomes GROUP BY sender_id ORDER BY n DESC LIMIT 50`
+  );
+  const byAgent = {};
+  for (const row of agentRows) {
+    byAgent[row.sender_id] = {
+      total: Number(row.n),
+      acted: Number(row.acted),
+      tokens: Number(row.tokens),
+      actionRate: ratioOf(Number(row.acted), Number(row.n))
+    };
+  }
+
+  return {
+    rates, wake, shadow, outcomes, counters: getMetrics(),
+    byDomain, byChannel, byAgent,
+    computedAt: new Date().toISOString()
+  };
+}
+
 module.exports = {
   recordDecision,
   recordTokens,
@@ -172,5 +241,6 @@ module.exports = {
   getRates,
   getWakePrecision,
   getShadowReduction,
-  getOutcomeRates
+  getOutcomeRates,
+  getExtendedMetrics
 };

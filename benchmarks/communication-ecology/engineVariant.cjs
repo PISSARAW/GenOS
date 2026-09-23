@@ -42,27 +42,44 @@ function recordVerbal(tally, decision) {
   if (decision.action === 'HUMAN') tally.humans += 1;
 }
 
+function ensureDomain(tally, domain) {
+  if (!tally.byDomain[domain]) tally.byDomain[domain] = { intents: 0, cost: 0, success: 0, recipients: 0 };
+  return tally.byDomain[domain];
+}
+
+function recordSilence(ctx) {
+  ctx.tally.silence += 1;
+  const meta = ctx.decision.meta || {};
+  if (meta.stage === 'novelty') ctx.tally.redundantAvoided += 1;
+}
+
 function recordOutcome(ctx) {
   const decision = ctx.decision;
+  const meta = decision.meta || {};
   const recipients = decision.recipients || [];
+  const domain = ctx.intent.domain || 'undefined';
+  const d = ensureDomain(ctx.tally, domain);
+  const cost = Number(meta.cost || 0);
+
   ctx.tally.recipients += recipients.length;
   ctx.tally.fanoutCognitive += recipients.length;
   ctx.tally.transportMessages += decision.action === 'SILENCE' ? 0 : 1;
-  const groups = ((decision.meta || {}).groups || []);
-  countRefs(ctx, groups, recipients);
-  ctx.tally.costUnits += Number((decision.meta || {}).cost || 0);
-  if (decision.action === 'SILENCE') {
-    ctx.tally.silence += 1;
-    if ((decision.meta || {}).stage === 'novelty') ctx.tally.redundantAvoided += 1;
-    return;
-  }
-  scoreRouted(ctx, recipients);
+  countRefs(ctx, meta.groups || [], recipients);
+  ctx.tally.costUnits += cost;
+
+  if (decision.action === 'SILENCE') return recordSilence(ctx);
+
+  d.intents += 1;
+  d.cost += cost;
+  d.recipients += recipients.length;
+  scoreRouted(ctx, recipients, d);
 }
 
-function scoreRouted(ctx, recipients) {
+function scoreRouted(ctx, recipients, d) {
   const capable = capableIn({ snap: ctx.snap, candidates: recipients, domain: ctx.intent.domain, senderId: ctx.intent.senderAgentId });
   if (capable.length === 0) return;
   ctx.tally.success += 1;
+  d.success += 1;
   if (!ctx.intent.independenceRequired) {
     ctx.tally.verifiedSuccess += 1;
     return;

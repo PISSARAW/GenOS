@@ -55,7 +55,11 @@ function summarize(name, tally, baseline) {
     wallMs: tally.wallMs,
     deltaRatio: Math.round(ratioOf(tally.refsTransmitted, tally.refsNaive) * 1000) / 1000,
     reductionVsNaive: baseline > 0 ? Math.round((1 - tally.costUnits / baseline) * 1000) / 1000 : 0,
-    wakeupRatioVsNaive: ratioOf(tally.wakeups, baseline)
+    wakeupRatioVsNaive: ratioOf(tally.wakeups, baseline),
+    byDomain: tally.byDomain || {},
+    silenceRate: Math.round(ratioOf(tally.silence, tally.intents) * 1000) / 1000,
+    costPerSuccess: tally.success > 0 ? Math.round(tally.costUnits / tally.success * 1000) / 1000 : 0,
+    precision: Math.round(ratioOf(tally.success, tally.recipients) * 1000) / 1000
   };
 }
 
@@ -96,10 +100,21 @@ async function runScenario(key) {
 
 function printTable(result) {
   console.log(`\n## ${result.scenario} — ${result.label} (seed ${result.seed})`);
-  console.log('| arm | silence | recip | variants | llm | wake | msgs | fanout | redun | success | verif | contam | cost | reduc | delta |');
-  console.log('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+  console.log('| arm | silence | recip | variants | llm | wake | msgs | fanout | redun | success | verif | contam | cost | reduc | delta | silR | c/prec |');
+  console.log('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |');
   for (const arm of result.arms) {
-    console.log(`| ${arm.variant} | ${arm.silence} | ${arm.recipients} | ${arm.variants} | ${arm.llmCalls} | ${arm.wakeups} | ${arm.transportMessages} | ${arm.fanoutCognitive} | ${arm.redundantSent} | ${arm.success} | ${arm.verifiedSuccess} | ${arm.contamination} | ${arm.costUnits} | ${arm.reductionVsNaive} | ${arm.deltaRatio} |`);
+    console.log(`| ${arm.variant} | ${arm.silence} | ${arm.recipients} | ${arm.variants} | ${arm.llmCalls} | ${arm.wakeups} | ${arm.transportMessages} | ${arm.fanoutCognitive} | ${arm.redundantSent} | ${arm.success} | ${arm.verifiedSuccess} | ${arm.contamination} | ${arm.costUnits} | ${arm.reductionVsNaive} | ${arm.deltaRatio} | ${arm.silenceRate} | ${arm.costPerSuccess}/${arm.precision} |`);
+  }
+  if (result.arms && result.arms.length > 0) {
+    const last = result.arms[result.arms.length - 1];
+    if (last.byDomain && Object.keys(last.byDomain).length > 0) {
+      console.log('\nbyDomain (last arm):');
+      console.log('| domain | intents | recipients | success | cost |');
+      console.log('| --- | --- | --- | --- | --- |');
+      for (const [domain, data] of Object.entries(last.byDomain)) {
+        console.log(`| ${domain} | ${data.intents} | ${data.recipients} | ${data.success} | ${Math.round(data.cost * 1000) / 1000} |`);
+      }
+    }
   }
   if (result.ablations) {
     console.log('\nablations vs D-full (cost, wakeups, success) :');
