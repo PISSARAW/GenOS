@@ -21,7 +21,8 @@ function checkRateLimit(senderId) {
   entry.count++;
   rateLimitWindow.set(senderId, entry);
   if (entry.count > RATE_LIMIT_PER_MINUTE) return false;
-  if (rateLimitWindow.size > 1000) {
+  // Periodic cleanup to prevent memory leak — run every 1000 calls or if map is large
+  if (rateLimitWindow.size > 1000 || (rateLimitWindow.size > 0 && Math.random() < 0.001)) {
     const cutoff = now - 120_000;
     for (const [k, v] of rateLimitWindow) {
       if (v.resetAt < cutoff) rateLimitWindow.delete(k);

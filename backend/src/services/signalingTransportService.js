@@ -51,15 +51,14 @@ function repressionFor({ type, topic, signalData, repressors }) {
 async function persistSignalRow(row) {
   try {
     const db = await getDatabase();
-    await retryDbOperation(() => {
-      signalMetrics.recordDbRetry();
-      return db.run(
+    await retryDbOperation(() =>
+      db.run(
         `INSERT OR REPLACE INTO signal_blobs
          (signal_id, signal_type, signal_blob, content, topic, sender_agent_id, created_at, expires_at)
          VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
         [row.signal_id, row.signal_type, row.signal_blob, row.content, row.topic, row.sender_agent_id, row.expires_at]
-      );
-    });
+      )
+    );
     signalMetrics.recordPublish();
   } catch (e) {
     signalMetrics.recordDbError(e);
@@ -320,9 +319,15 @@ async function markSignalsSeen(subscriberAgentId, signalIds) {
   try {
     await db.exec('BEGIN IMMEDIATE');
     for (const sid of signalIds) {
+      // Use INSERT OR IGNORE first, then UPDATE to avoid regressing 'acked' status
       await db.run(
-        `INSERT OR REPLACE INTO signal_deliveries (signal_id, subscriber_agent_id, status, seen_at)
-         VALUES (?, ?, 'seen', CURRENT_TIMESTAMP)`,
+        `INSERT OR IGNORE INTO signal_deliveries (signal_id, subscriber_agent_id, status, seen_at)
+         VALUES (?, ?, 'pending', CURRENT_TIMESTAMP)`,
+        [sid, subscriberAgentId]
+      );
+      await db.run(
+        `UPDATE signal_deliveries SET status = 'seen', seen_at = CURRENT_TIMESTAMP
+         WHERE signal_id = ? AND subscriber_agent_id = ? AND status != 'acked'`,
         [sid, subscriberAgentId]
       );
     }
