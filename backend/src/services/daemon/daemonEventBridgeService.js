@@ -19,6 +19,7 @@ const receptorRegistry = require('./daemonReceptorRegistry');
 const wakePolicyService = require('./daemonWakePolicyService');
 const territoryService = require('./daemonTerritoryService');
 const daemonRuntime = require('./residentDaemonRuntime');
+const { migrateDaemonEvents } = require('../../db/migrations/migrateDaemonEvents');
 
 function createBridge(options) {
   const opts = options || {};
@@ -82,6 +83,7 @@ async function ingestEvent(bridge, event) {
   const receptor = receptorRegistry.getReceptorFor(event.type);
   const cheap = await applyCheapUpdate(bridge, event, receptor);
   const wake = await maybeWakeRuntime(bridge, event, receptor);
+  const logged = await logIngestedEvent(bridge, event, { receptor, wake });
   return {
     ingested: true,
     eventType: event.type,
@@ -91,8 +93,30 @@ async function ingestEvent(bridge, event) {
     woke: wake.woke,
     wakeReason: wake.reason,
     llmRequired: false,
-    handoffRequested: receptor.handoffRequested === true
+    handoffRequested: receptor.handoffRequested === true,
+    logged
   };
+}
+
+async function logIngestedEvent(bridge, event, outcome) {
+  if (!bridge.db) return false;
+  const { receptor, wake } = outcome || {};
+  if (!receptor || !wake) return false;
+  try {
+    await migrateDaemonEvents(bridge.db);
+    await bridge.db.run(
+      `INSERT INTO daemon_events (territory_id, event_type, priority, woke, handoff_requested)
+       VALUES (?, ?, ?, ?, ?)`,
+      event.territoryId,
+      event.type,
+      receptor.priority,
+      wake.woke ? 1 : 0,
+      receptor.handoffRequested === true ? 1 : 0
+    );
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 module.exports = {

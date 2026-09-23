@@ -116,6 +116,10 @@ const migrationRunners = [
     const { migrateDaemonTerritory } = require('./migrateDaemonTerritory');
     await migrateDaemonTerritory(db);
   }),
+  createMigrationRunner('038-daemon-events', 'Persist territorial event journal for daemon interoception (ADR 0034 D4)', async (db) => {
+    const { migrateDaemonEvents } = require('./migrateDaemonEvents');
+    await migrateDaemonEvents(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
