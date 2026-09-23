@@ -2,7 +2,9 @@
 
 const trinityService = require('../src/services/trinityService');
 const trinityMissionSupervisor = require('../src/services/trinityMissionSupervisor');
-const { workerGarage } = require('../src/services/garage');
+const workerGarage = require('../src/services/workerGarageService');
+const aTeamDispatch = require('../src/services/aTeamDispatchService');
+const biologicalTopology = require('../src/services/biologicalTopologyService');
 const { randomUUID } = require('crypto');
 const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
 
@@ -54,14 +56,13 @@ function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
 }
 
 async function ensureParent({ db, context }) {
-  const contracts = require('../src/services/contracts');
-  const { createOrchestratorId: createId } = require('./orchestratorActions');
+  const contracts = require('../src/services/strategyContractService');
   let parent = await db.get(
     "SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'",
     context.orchestratorId
   );
   if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status))) {
-    context.orchestratorId = createId('mcp_orchestrator');
+    context.orchestratorId = createOrchestratorId('mcp_orchestrator');
     await db.run(
       `INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`,
       context.orchestratorId, context.task
@@ -89,7 +90,6 @@ function buildNCEEnrichments(context, topology) {
 async function handleTeam(db, context) {
   const parent = await ensureParent({ db, context });
   context.nceEnrichments = await buildNCEEnrichments(context, 'team');
-  const { aTeamDispatch } = require('./orchestratorActions');
   const result = await aTeamDispatch.dispatchTeam({ db, context, parent, launchWorker });
   process.stdout.write(JSON.stringify(result));
 }
@@ -99,7 +99,6 @@ async function handleBiological(db, context) {
   const mode = String(context.request.mode || '').trim().toLowerCase();
   const mission = context.request.mission || context.request.project_goal || context.request.goal || context.task;
   context.nceEnrichments = await buildNCEEnrichments(context, 'biological');
-  const { biologicalTopology } = require('./orchestratorActions');
   const composition = await biologicalTopology.composeMode({
     db, orchestratorId: context.orchestratorId, mode, mission,
     options: { agentCount: context.request.agent_count, clusterSize: context.request.cluster_size, fanout: context.request.fanout, organization: context.request.organization }
