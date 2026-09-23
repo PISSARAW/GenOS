@@ -102,7 +102,7 @@ function greyWolfOptimizer(pack, options = {}) {
   const step = num(options.step, 0.1);
   const roles = ['alpha', 'beta', 'delta'];
   return ranked.map((wolf, index) => {
-    const target = leaders[index] || wolf;
+    const target = index < 3 ? leaders[index] : leaders[0];
     return {
       id: wolf.id,
       role: roles[index] || 'omega',
@@ -118,19 +118,17 @@ function magnitude(vector) {
   return vector ? Math.hypot(num(vector.x, 0), num(vector.y, 0)) : 0;
 }
 
+const PREFERRED_ORG_FILTERS = Object.freeze({
+  grey_wolf_optimizer: (step, limit) => (step.pack || []).filter((wolf) => wolf.role && wolf.role !== 'omega').slice(0, limit).map((wolf) => wolf.id),
+  fish_school_search: (step, limit) => [...(step.individuals || [])].sort((a, b) => magnitude(b.volitive) - magnitude(a.volitive)).slice(0, limit).map((entry) => entry.id),
+  flocking_boids: (step, limit) => [...(step.agents || [])].sort((a, b) => magnitude(b.vector) - magnitude(a.vector)).slice(0, limit).map((entry) => entry.id),
+});
+
 function preferredAgents(organization, step, limit = 3) {
   const org = String(organization || '').trim().toLowerCase();
   if (!step || limit <= 0) return [];
-  if (org === 'grey_wolf_optimizer') {
-    return (step.pack || []).filter((wolf) => wolf.role && wolf.role !== 'omega').slice(0, limit).map((wolf) => wolf.id);
-  }
-  if (org === 'fish_school_search') {
-    return [...(step.individuals || [])].sort((a, b) => magnitude(b.volitive) - magnitude(a.volitive)).slice(0, limit).map((entry) => entry.id);
-  }
-  if (org === 'flocking_boids') {
-    return [...(step.agents || [])].sort((a, b) => magnitude(b.vector) - magnitude(a.vector)).slice(0, limit).map((entry) => entry.id);
-  }
-  return [];
+  const fn = PREFERRED_ORG_FILTERS[org];
+  return fn ? fn(step, limit) : [];
 }
 
 function runTopologyStep(organization, state = {}, options = {}) {

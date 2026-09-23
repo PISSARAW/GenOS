@@ -83,7 +83,7 @@ async function getSession(sessionId, db) {
 }
 
 function isIonicFlux(op) {
-  return Boolean(op && op.kind && typeof op.kind.type === 'string' && op.kind.type.startsWith('flux_'));
+  return Boolean(op && op.kind && typeof op.kind === 'object' && typeof op.kind.type === 'string' && op.kind.type.startsWith('flux_'));
 }
 
 function assessConsistency(session) {

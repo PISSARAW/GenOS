@@ -36,7 +36,7 @@ function applySurvivalConstraints(plan) {
   });
   plan.exploration = buildExploration(plan.workers, plan.dispatchWorkers);
   plan.dispatchDecision = buildDispatchDecision(plan.workers, plan.dispatchWorkers);
-  plan.dispatchDecision.reason = plan.survival.constraints.suspend ? 'survival_dormancy' : 'homeostasis_guard';
+  plan.dispatchDecision.reason = plan.survival.constraints.suspend ? 'survival_dormancy' : (plan.dispatchDecision.reason || 'homeostasis_guard');
   plan.survival.constraints.requestedWorkerFanout = requestedWorkers;
   plan.survival.constraints.appliedWorkerFanout = plan.dispatchWorkers.length;
   return plan;

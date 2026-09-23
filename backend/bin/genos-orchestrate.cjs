@@ -65,7 +65,7 @@ if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' &&
 const SCRIPT_START_TIME = Date.now();
 
 async function waitForCompletion(db) {
-  const baseTimeout = Number(policyRequest.timeoutMs || request.timeoutMs || 14 * 60 * 1000);
+  const baseTimeout = Number(policyRequest.timeoutMs ?? request.timeoutMs ?? 14 * 60 * 1000);
   const deadline = Math.max(Date.now() + 5000, SCRIPT_START_TIME + baseTimeout);
   let pulseTick = 0;
   while (Date.now() < deadline) {

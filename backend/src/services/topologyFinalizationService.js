@@ -33,7 +33,7 @@ function resolvedAudit(input) {
 
 function resolvedDecision(input, audit) {
   const requested = input.decision || 'blocked';
-  if (requested === 'completed' && audit.missing.length) return 'blocked';
+  if (audit.missing.length) return 'blocked';
   return requested;
 }
 

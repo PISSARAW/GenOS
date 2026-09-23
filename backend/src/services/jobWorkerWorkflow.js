@@ -66,7 +66,7 @@ function createWorkflowContext(db, run, loaded) {
 }
 
 function resolveTemplate(template, context) {
-  return String(template || '').replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], context) ?? '');
+  return String(template || '').replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => { if (value == null) return ''; if (typeof value !== 'object') return ''; return value[part]; }, context) ?? '');
 }
 
 function shouldRun(node, input) {

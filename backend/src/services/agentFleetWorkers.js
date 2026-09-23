@@ -74,8 +74,8 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
     throw new Error(`Worker deployment rejected: ${circuit.message}`);
   }
   
-  const plan = options.plan || options;
-  const mission = options.mission || (arguments[3] || {});
+  const plan = options.plan ?? options;
+  const mission = options.mission ?? (arguments[3] || {});
   const assignments = plan.dispatchWorkers || [];
   validateAssignments(assignments);
   const parent = await db.get(
@@ -250,13 +250,35 @@ function workerInsertValues(details) {
   return [id, identity.name, identity.name_meaning, assignment.role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null, route.selectedModel || assignment.modelTier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id, `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt, conscience.dissonanceLevel, conscience.eurekaMoments, conscience.currentBudget, conscience.isApoptotic ? 1 : 0];
 }
 
+function resolveGenotypeRef(evolution) {
+  return evolution && (evolution.dnaGenomeRef || evolution.genomeRef) || null;
+}
+
+function buildWorkerMeta(details) {
+  const { parent, plan, mission, index, evolution, dnaSelection } = details;
+  const assignmentList = details.assignments || plan?.dispatchWorkers || [];
+  const genotypeRef = resolveGenotypeRef(evolution);
+  return {
+    executionPolicy: mission.executionPolicy,
+    executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens: details.assignedTokens, index, assignmentCount: assignmentList.length || 1 }),
+    orchestratorAgentId: parent.id,
+    budgetRound: { stage: 'initial', orchestratorId: parent.id },
+    genome: evolution.genes,
+    genomeRef: genotypeRef,
+    genotypeRef,
+    phenotypeHash: phenotypeHash(dnaSelection),
+    genomeContentHash: (evolution && evolution.genomeContentHash) || null,
+    dnaAuthority: Boolean(dnaSelection),
+    predictedFitness: evolution.predictedFitness
+  };
+}
+
 function formatWorker(details) {
-  const { id, identity, assignment, parent, plan, mission, route, workspaceRoot, prompt, assignedTokens, index, evolution, orchestrator, dnaSelection } = details;
+  const { id, identity, assignment, parent, plan, mission, route, workspaceRoot, prompt, evolution, orchestrator, dnaSelection } = details;
   const capabilityContract = plan && plan.capabilityContract ? plan.capabilityContract.required : [];
   const toolLease = effectiveToolLease(assignment, capabilityContract, dnaSelection);
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
-  const genotypeRef = (evolution && (evolution.dnaGenomeRef || evolution.genomeRef)) || null;
-  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, assignments: assignmentList, mission }), executionPolicy: mission.executionPolicy, executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens, index, assignmentCount: assignmentList.length || 1 }), orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }, genome: evolution.genes, genomeRef: genotypeRef, genotypeRef, phenotypeHash: phenotypeHash(dnaSelection), genomeContentHash: (evolution && evolution.genomeContentHash) || null, dnaAuthority: Boolean(dnaSelection), predictedFitness: evolution.predictedFitness };
+  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, assignments: assignmentList, mission }), ...buildWorkerMeta(details) };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
   return worker;
 }

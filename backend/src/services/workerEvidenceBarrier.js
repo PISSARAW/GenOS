@@ -138,7 +138,7 @@ async function runEvidenceBarrier(barrierContext) {
       workers: workers,
       contract: readContract({ contractRecord: barrierContext.contractRecord }),
       barrier: barrier,
-      timeoutMs: barrierContext.normalizedMission.workerBarrierTimeoutMs ||
+      timeoutMs: barrierContext.normalizedMission.workerBarrierTimeoutMs ??
         (barrierContext.normalizedMission.timeoutMs ? Math.min(8000, Math.floor(barrierContext.normalizedMission.timeoutMs * 0.35)) : 60000)
     });
   } catch (error) {
