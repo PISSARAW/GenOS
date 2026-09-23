@@ -184,11 +184,26 @@ async function routeAndDispatch(signal, params) {
   const recipientAgentIds = (routing.recipients || [])
     .filter((r) => r.kind === 'agent' && r.agentId)
     .map((r) => r.agentId);
+  // F2: Ne pas envoyer aux workers si aucun récepteur n'a matché (LLM escalation uniquement)
+  if (dispatchResult.llmRequired) {
+    // Don't route to workers — let the LLM escalation handler deal with it
+    await recordPendingDeliveries(signal.id, []);
+    emitToBus({ ...signal, recipientAgentIds: [], llmRequired: true });
+    return {
+      signalId: signal.id,
+      published: true,
+      coalesced: false,
+      coalescedCount: 1,
+      signalType: signal.formatted.signalType,
+      routing,
+      llmRequired: true,
+    };
+  }
   if (recipientAgentIds.length > 0) {
     signalMetrics.recordSignalRouted();
+    await recordPendingDeliveries(signal.id, recipientAgentIds);
   }
-  await recordPendingDeliveries(signal.id, recipientAgentIds);
-  emitToBus({ ...signal, recipientAgentIds, llmRequired: dispatchResult.llmRequired || false });
+  emitToBus({ ...signal, recipientAgentIds, llmRequired: false });
   return {
     signalId: signal.id,
     published: true,
@@ -196,7 +211,7 @@ async function routeAndDispatch(signal, params) {
     coalescedCount: 1,
     signalType: signal.formatted.signalType,
     routing,
-    llmRequired: dispatchResult.llmRequired || false,
+    llmRequired: false,
   };
 }
 
