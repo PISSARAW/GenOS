@@ -1,8 +1,10 @@
 'use strict';
 
 /**
- * CommunicationPolicyEngine — SHADOW MODE (ADR 003x) : décide et journalise,
- * ne publie jamais. Activation progressive : SILENCE / audience / multicast.
+ * CommunicationPolicyEngine — SHADOW/ACTIVE MODE (ADR 003x).
+ * Shadow: décide et journalise, ne publie jamais.
+ * Active: exécute les décisions (publie signaux, envoie messages).
+ * SILENCE remains a valid optimal decision in both modes.
  */
 
 const { getDatabase } = require('../../db');
@@ -10,7 +12,8 @@ const { getSignalPlaneMetrics } = require('../signalMetricsService');
 const { selectAudience } = require('./audienceSelectorService');
 const { firewallOf } = require('./epistemicIndependenceService');
 const { selectEncoding } = require('./selectiveEncodingService');
-const { estimateCost, estimateNaiveBroadcast } = require('./communicationCostService');
+const { estimateCost } = require('./communicationCostService');
+const { logShadowDecision } = require('./communicationShadowLogService');
 
 const INTENT_PURPOSES = new Set([
   'inform', 'request', 'delegate', 'clarify', 'challenge', 'verify', 'warn',
@@ -22,6 +25,17 @@ const INTENT_RISKS = new Set(['low', 'medium', 'high', 'critical']);
 const RISK_LEVEL = Object.freeze({ low: 0, medium: 1, high: 2, critical: 3 });
 
 const RISK_DISCLOSURE = Object.freeze({ low: 0, medium: 0.2, high: 0.5, critical: 0.8 });
+
+let currentMode = 'shadow';
+
+function setMode(mode) {
+  if (mode !== 'active' && mode !== 'shadow') throw new Error("Mode must be 'active' or 'shadow'.");
+  currentMode = mode;
+}
+
+function getMode() {
+  return currentMode;
+}
 
 function assertIntentShape(intent) {
   if (!intent || typeof intent !== 'object') throw new Error('CommunicationIntent is required.');
@@ -307,94 +321,37 @@ async function decideCommunication(input) {
   validateIntent(intent);
   const refs = intent.semanticRefs || [];
   if (!necessityPass(intent)) {
-    return silenceDecision('NOVELTY_LOW', { stage: 'necessity', utility: 0, gain: 0, cost: 0 });
+    return logAndDecide(input, silenceDecision('NOVELTY_LOW', { stage: 'necessity', utility: 0, gain: 0, cost: 0 }));
   }
   const prescoped = await tryPrescoped(input, intent, refs);
-  if (prescoped) return prescoped;
+  if (prescoped) return logAndDecide(input, prescoped);
   const requested = intent.requestedAudience || [];
   const audience = await selectAudience(audienceQueryOf(intent, refs, input));
   const informed = restrictAudience(withoutSender(audience.candidates, intent.senderAgentId), requested);
   if (informed.length === 0) {
-    return silenceDecision('COMMON_GROUND_HIGH', { stage: 'novelty', utility: 0, gain: 0, cost: 0 });
+    return logAndDecide(input, silenceDecision('COMMON_GROUND_HIGH', { stage: 'novelty', utility: 0, gain: 0, cost: 0 }));
   }
   const novelty = noveltyOf(unionUnknown(informed).length, refs.length);
   const capability = topCapability(informed);
   const gain = computeGain(gainPartsOf(intent, novelty, capability));
   const selection = selectionOf({ intent, input, novelty, ground: groundEstimateOf(informed[0], refs.length) });
   if (selection.action === 'SILENCE') {
-    return silenceDecision('NOVELTY_LOW', { stage: 'encoding', utility: 0, gain, cost: 0 });
+    return logAndDecide(input, silenceDecision('NOVELTY_LOW', { stage: 'encoding', utility: 0, gain, cost: 0 }));
   }
   const grounding = groundingFor(intent.risk, intent.requiresAction);
   const cost = costOf({ intent, input, selection, grounding, count: informed.length });
   const utility = gain - cost.total;
   if (utility <= 0) {
-    return silenceDecision('TOKEN_SAVINGS', { stage: 'utility', utility, gain, cost: cost.total });
+    return logAndDecide(input, silenceDecision('TOKEN_SAVINGS', { stage: 'utility', utility, gain, cost: cost.total }));
   }
-  return finalizeDecision({
-    intent, input, selection, grounding, informed, capability, utility, gain, cost, novelty, groups: audience.groups
-  });
+  return logAndDecide(input, finalizeDecision({
+    intent, input, selection, informed, capability, utility, gain, cost, novelty, groups: audience.groups
+  }));
 }
 
-async function resolveDb(inputDb) {
-  if (inputDb) return inputDb;
-  return getDatabase();
+async function logAndDecide(input, decision) {
+  if (currentMode === 'shadow') await logShadowDecision({ input, decision });
+  return decision;
 }
 
-async function ensureShadowTables(inputDb) {
-  const db = await resolveDb(inputDb);
-  await db.exec(`CREATE TABLE IF NOT EXISTS communication_shadow_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    intent_json TEXT NOT NULL DEFAULT '{}', decision_json TEXT NOT NULL DEFAULT '{}',
-    current_behavior_json TEXT NOT NULL DEFAULT '{}',
-    utility REAL NOT NULL DEFAULT 0, gain REAL NOT NULL DEFAULT 0, cost REAL NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    CHECK (json_valid(intent_json)), CHECK (json_valid(decision_json))
-  );`);
-  return db;
-}
-
-function reductionOf(cost, naive) {
-  if (naive.total <= 0) return 0;
-  return 1 - cost / naive.total;
-}
-
-function naiveInputsOf(input) {
-  const behavior = input.currentBehavior || {};
-  return { recipientCount: behavior.recipientCount || 42, coefficients: input.coefficients };
-}
-
-function shadowRowOf(input) {
-  const decision = input.decision || {};
-  const meta = decision.meta || {};
-  const naive = estimateNaiveBroadcast(naiveInputsOf(input));
-  return {
-    values: [
-      JSON.stringify(input.intent || {}), JSON.stringify(decision),
-      JSON.stringify(input.currentBehavior || {}),
-      Number(meta.utility || 0), Number(meta.gain || 0), Number(meta.cost || 0)
-    ],
-    naive
-  };
-}
-
-function shadowReceiptOf(result, logged) {
-  return {
-    id: result.lastID, utility: logged.values[3], gain: logged.values[4],
-    cost: logged.values[5], naiveCost: logged.naive.total,
-    reduction: reductionOf(logged.values[5], logged.naive)
-  };
-}
-
-async function logShadowDecision(input) {
-  const db = await ensureShadowTables(input.db);
-  const logged = shadowRowOf(input);
-  const result = await db.run(
-    `INSERT INTO communication_shadow_log
-      (intent_json, decision_json, current_behavior_json, utility, gain, cost)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    logged.values
-  );
-  return shadowReceiptOf(result, logged);
-}
-
-module.exports = { decideCommunication, logShadowDecision };
+module.exports = { decideCommunication, logShadowDecision, setMode, getMode };

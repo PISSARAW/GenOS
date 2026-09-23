@@ -18,6 +18,7 @@ const { localWorkerRoute } = require('../agentModelRoutingService');
 const { restrictProvidedLease, normalizeToolName } = require('../toolLeasePolicy');
 const { workerGenesForAssignment } = require('../agentDnaStore');
 const { evolveWorkerGenome } = require('../agentEvolutionService');
+const { resolveGenotype } = require('../morphogenesis/genotypeResolverService');
 const { formatPhenotypePrompt } = require('../cognitivePhenotypeService');
 const { buildExpressionContext } = require('./agentExpressionContextService');
 
@@ -63,6 +64,26 @@ async function buildDna(ctx) {
     organizationId: parent?.organization_id || request?.workspace?.organizationId,
     projectId: parent?.project_id || request?.workspace?.projectId
   };
+  const requirements = {
+    domain: request.role,
+    traits: safeArray(request.capabilityManifest?.owned),
+    constraints: safeArray(request.phenotype?.constraints),
+    mission: request.mission?.prompt || ''
+  };
+  try {
+    const decision = await resolveGenotype({ requirements, availableGenomes: [], db });
+    if (decision.action === 'reuse' && decision.genomeRef) {
+      const assignment = {
+        role: request.role,
+        capabilities: safeArray(request.capabilityManifest?.owned),
+        mission: request.mission?.prompt || '',
+        genomeRef: decision.genomeRef,
+        preferredName: request.phenotype?.preferredName,
+        tools: safeArray(request.phenotype?.tools)
+      };
+      return await workerGenesForAssignment(db, { ...assignment, agentId: parent?.id }, scope);
+    }
+  } catch (_) { /* Fall through to legacy path */ }
   const assignment = {
     role: request.role,
     capabilities: safeArray(request.capabilityManifest?.owned),
