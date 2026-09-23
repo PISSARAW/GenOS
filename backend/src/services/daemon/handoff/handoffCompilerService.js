@@ -12,6 +12,7 @@
 
 const crypto = require('node:crypto');
 const { migrateDaemonHandoffs } = require('../../../db/migrations/migrateDaemonHandoffs');
+const { migrateDaemonFindings } = require('../../../db/migrations/migrateDaemonFindings');
 const territoryService = require('../daemonTerritoryService');
 const findingService = require('../findings/findingService');
 const graphStore = require('../cartography/graphStore');
@@ -87,6 +88,7 @@ function toBriefFinding(ranked) {
 async function compileBrief(db, args) {
   if (!db || !args || !args.territoryId) return { compiled: false, reason: 'args-required' };
   await migrateDaemonHandoffs(db);
+  await migrateDaemonFindings(db);
   const stored = await territoryService.getTerritory(db, { id: args.territoryId });
   if (!stored.found) return { compiled: false, reason: 'unknown-territory' };
   const territory = stored.territory;

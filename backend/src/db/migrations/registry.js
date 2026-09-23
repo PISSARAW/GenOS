@@ -144,6 +144,10 @@ const migrationRunners = [
     const { migrateDaemonHandoffs } = require('./migrateDaemonHandoffs');
     await migrateDaemonHandoffs(db);
   }),
+  createMigrationRunner('045-daemon-handoff-feedback', 'Persist orchestrator feedback on handoffs for plasticity (ADR 0034 D12)', async (db) => {
+    const { migrateDaemonHandoffFeedback } = require('./migrateDaemonHandoffFeedback');
+    await migrateDaemonHandoffFeedback(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
