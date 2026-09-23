@@ -51,7 +51,15 @@ async function handleBackground(context) {
     workerId: context.action === 'dispatch_worker' ? context.id : context.request.workerId,
     ...(context.action === 'dispatch_worker' ? { reuseChecked: true, reuseWorkerId: reusableWorker?.id || null } : {})
   };
-  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, stdio: getRunnerStdio(detachedProcessId) });
+  const runnerEnv = {
+    ...process.env,
+    GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || '',
+    GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || '',
+    GENOS_DEFAULT_MODEL: process.env.GENOS_DEFAULT_MODEL || '',
+    GENOS_RUNNER_LOG_DIR: process.env.GENOS_RUNNER_LOG_DIR || '',
+    GENOS_EXECUTION_MODE: process.env.GENOS_EXECUTION_MODE || 'orchestrator'
+  };
+  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, shell: true, stdio: getRunnerStdio(detachedProcessId), env: runnerEnv });
   runner.unref();
   let trackingDb = null;
   try {

@@ -44,10 +44,18 @@ function getRunnerStdio(workerId) {
 
 function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
   const workerId = suppliedWorkerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
+  const runnerEnv = {
+    ...process.env,
+    GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || '',
+    GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || '',
+    GENOS_DEFAULT_MODEL: process.env.GENOS_DEFAULT_MODEL || '',
+    GENOS_RUNNER_LOG_DIR: process.env.GENOS_RUNNER_LOG_DIR || '',
+    GENOS_EXECUTION_MODE: process.env.GENOS_EXECUTION_MODE || 'orchestrator'
+  };
   const runner = require('child_process').spawn(
     process.execPath,
     [context.bridgePath, JSON.stringify(workerLaunchPayload({ context, member, workerId, parent }))],
-    { cwd: context.repoRoot, detached: true, stdio: getRunnerStdio(workerId) }
+    { cwd: context.repoRoot, detached: true, shell: true, stdio: getRunnerStdio(workerId), env: runnerEnv }
   );
   runner.unref();
   return {
