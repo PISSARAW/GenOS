@@ -28,7 +28,7 @@ function makeCtx(overrides = {}) {
 {
   const ctrl = new NaturalSearchController();
   let sel;
-  for (let i = 0; i < 6; i++) sel = ctrl.selectProcess(makeCtx({ searchYield: 0, stepsSinceProgress: 8, budgetRatio: 0.8 }));
+  for (let i = 0; i < 4; i++) sel = ctrl.selectProcess(makeCtx({ searchYield: 0, stepsSinceProgress: 8, budgetRatio: 0.8 }));
   assert.equal(sel.process, SEARCH_PROCESS.PLASTICITE, 'doit entrer en PLASTICITE');
 }
 
@@ -54,13 +54,35 @@ function makeCtx(overrides = {}) {
 
   ctrl.pressureModel._force = 0.70;
   for (let i = 0; i < 5; i++) sel = ctrl.selectProcess(base);
-  assert.equal(sel.process, SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH, 'doit monter en CLONAL quand p >= 0.65');
+  assert.equal(sel.process, SEARCH_PROCESS.STRESS_HYPERMUTATION, 'doit monter en STRESS quand p >= 0.60');
+}
+
+{
+  const ctrl = new NaturalSearchController();
+  const origUpdate2 = ctrl.pressureModel.update.bind(ctrl.pressureModel);
+  ctrl.pressureModel._force = null;
+  ctrl.pressureModel.update = function (inputs) {
+    const out = origUpdate2(inputs);
+    if (this._force !== null && this._force !== undefined) out.pressure = this._force;
+    return out;
+  };
+  const base2 = {
+    agentId: 'a', searchYield: 0.15, stepsSinceProgress: 2,
+    falsifiedHypotheses: 0, contradictions: 0, budgetRatio: 0.3,
+    causalProgressReport: { window: { searchYield: 0.15 } },
+    entropyMetrics: {}
+  };
+
+  ctrl.pressureModel._force = 0.56;
+  let sel;
+  for (let i = 0; i < 5; i++) sel = ctrl.selectProcess(base2);
+  assert.equal(sel.process, SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH, 'doit monter en CLONAL quand p >= 0.55');
 }
 
 {
   const ctrl = new NaturalSearchController();
   let sel;
-  for (let i = 0; i < 6; i++) sel = ctrl.selectProcess(makeCtx({ searchYield: 0, stepsSinceProgress: 20, budgetRatio: 0.95, falsifiedHypotheses: 2, contradictions: 2 }));
+  for (let i = 0; i < 4; i++) sel = ctrl.selectProcess(makeCtx({ searchYield: 0, stepsSinceProgress: 20, budgetRatio: 0.95, falsifiedHypotheses: 2, contradictions: 2 }));
   assert.equal(sel.process, SEARCH_PROCESS.STRESS_HYPERMUTATION);
 }
 
@@ -88,26 +110,24 @@ function makeCtx(overrides = {}) {
     entropyMetrics: {}
   };
 
-  // 1) p=0.46 → entrée PLASTICITE
+  // 1) p=0.46 → entrée PLASTICITE (> enter 0.35)
   ctrl.pressureModel._force = 0.46;
   let r = ctrl.selectProcess(base);
   assert.equal(r.process, SEARCH_PROCESS.PLASTICITE, 'entrée PLASTICITE à p=0.46');
 
-  // 2) p=0.44 → hold PLASTICITE (0.44 < enter 0.45 mais > exit 0.32, dwell=0)
-  // Le hold est car le seuil de sortie (0.32) n'est pas franchi
-  ctrl.pressureModel._force = 0.44;
+  // 2) p=0.30 → downgrade tenté (FORAGE) mais hold PLASTICITE (0.30 > exit 0.25, dwell=0)
+  ctrl.pressureModel._force = 0.30;
   r = ctrl.selectProcess(base);
-  assert.equal(r.process, SEARCH_PROCESS.PLASTICITE, 'hold PLASTICITE (p > exit 0.32)');
-  assert.ok(r.diagnostics.reason && r.diagnostics.reason.includes('hysteresis'), 'diagnostic hold à p=0.44');
+  assert.equal(r.process, SEARCH_PROCESS.PLASTICITE, 'hold PLASTICITE (p > exit 0.25)');
+  assert.ok(r.diagnostics.reason && r.diagnostics.reason.includes('hysteresis'), 'diagnostic hold à p=0.30');
 
-  // 3) p=0.46 → hold PLASTICITE (rebond, toujours > exit 0.32)
+  // 3) p=0.46 → hold PLASTICITE (rebond, toujours > exit 0.25)
   ctrl.pressureModel._force = 0.46;
   r = ctrl.selectProcess(base);
   assert.equal(r.process, SEARCH_PROCESS.PLASTICITE, 'hold PLASTICITE (rebond)');
-  // Pas de diagnostic hold car desired == lastProcess (pas de downgrade tenté)
 
-  // 4) p=0.30 avec dwell=3 → sortie (p < exit 0.32 + dwell >= 3)
-  ctrl.pressureModel._force = 0.30;
+  // 4) p=0.20 avec dwell=3 → sortie (p < exit 0.25 + dwell >= 3)
+  ctrl.pressureModel._force = 0.20;
   ctrl.stepsSinceChange = MIN_DWELL_STEPS;
   r = ctrl.selectProcess(base);
   assert.notEqual(r.process, SEARCH_PROCESS.PLASTICITE, 'sortie PLASTICITE quand p < exit + dwell');

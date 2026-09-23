@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * Politiques planning-gap à budget égal.
  * Même modèle du monde (successeurs + heuristique), seul le contrôle diffère.
@@ -6,6 +8,7 @@ const Domain = require('./planningGapDomain');
 const { NaturalSearchController } = require('./naturalSearchController');
 const { HypothesisLedger, PROVENANCE } = require('./hypothesisLedgerService');
 const { NegativeSearchMemory } = require('./negativeSearchMemoryService');
+const { mctsPolicy } = require('./planningGapMcts');
 
 function makeBudget(limit) {
   return { limit, used: 0 };
@@ -116,106 +119,6 @@ function totResult(hooks, frontier, budget) {
   return { policy: 'tot', plan, valid: v.valid, expansions: budget.used };
 }
 
-function mctsPolicy(task, budgetLimit, maxDepth) {
-  const budget = makeBudget(budgetLimit);
-  const hooks = domainHooks(task);
-  const root = { state: hooks.start(), plan: [], visits: 0, value: 0, children: null, parent: null };
-  while (budget.used < budget.limit) {
-    if (!consume(budget, 1)) break;
-    const path = selectPath(root);
-    const leaf = path[path.length - 1];
-    if (hooks.isGoal(leaf.state)) break;
-    expandNode(leaf, hooks);
-    const reward = rolloutCounted({ leaf, hooks, budget, maxDepth });
-    backpropPath(path, reward);
-    if (hooks.isGoal(bestDescendant(root))) break;
-  }
-  const plan = extractBestPlan({ root, hooks });
-  const v = hooks.verify(plan);
-  return { policy: 'mcts', plan, valid: v.valid, expansions: budget.used };
-}
-
-function uctScore(spec) {
-  if (spec.child.visits === 0) return Infinity;
-  const exploit = spec.child.value / spec.child.visits;
-  const explore = 1.4 * Math.sqrt(Math.log(1 + spec.parent.visits) / spec.child.visits);
-  return exploit + explore;
-}
-
-function selectPath(root) {
-  const path = [root];
-  let node = root;
-  while (node.children && node.children.length > 0) {
-    let best = node.children[0];
-    let bestS = uctScore({ child: best, parent: node });
-    for (const c of node.children.slice(1)) {
-      const s = uctScore({ child: c, parent: node });
-      if (s > bestS) {
-        bestS = s;
-        best = c;
-      }
-    }
-    node = best;
-    path.push(node);
-  }
-  return path;
-}
-
-function expandNode(leaf, hooks) {
-  if (leaf.children) return;
-  hooks._s = leaf.state;
-  const cands = hooks.successors(leaf.state).slice(0, 4);
-  hooks._s = leaf.state;
-  const ranked = rankByHeuristic(cands, hooks);
-  leaf.children = ranked.map((r) => ({
-    state: hooks.apply(leaf.state, r.move),
-    plan: leaf.plan.concat([r.move.action]),
-    visits: 0, value: -r.h * 0.1, children: null, parent: leaf,
-  }));
-}
-
-function rolloutCounted(spec) {
-  let state = spec.leaf.state;
-  let best = spec.hooks.heuristic(state);
-  for (let i = 0; i < spec.maxDepth; i += 1) {
-    if (spec.hooks.isGoal(state)) return 10;
-    if (!consume(spec.budget, 1)) break;
-    const cands = spec.hooks.successors(state);
-    if (cands.length === 0) return -5;
-    spec.hooks._s = state;
-    const ranked = rankByHeuristic(cands, spec.hooks);
-    state = spec.hooks.apply(state, ranked[0].move);
-    if (ranked[0].h < best) best = ranked[0].h;
-  }
-  return spec.hooks.isGoal(state) ? 10 : -best * 0.1;
-}
-
-function backpropPath(path, reward) {
-  for (const n of path) {
-    n.visits += 1;
-    n.value += reward;
-  }
-}
-
-function bestDescendant(root) {
-  let node = root;
-  while (node.children && node.children.length > 0) {
-    node.children.sort((a, b) => b.value - a.value);
-    node = node.children[0];
-  }
-  return node.state;
-}
-
-function extractBestPlan(spec) {
-  let node = spec.root;
-  while (node.children && node.children.length > 0) {
-    node.children.sort((a, b) => b.value - a.value);
-    node = node.children[0];
-    if (spec.hooks.isGoal(node.state)) return node.plan;
-  }
-  return node.plan;
-}
-
 // --- GenOS : contrôleur réel + ledger + mémoire négative ---
 function radiusWidth(radius) {
   if (radius === 'minimal') return 1;
@@ -316,21 +219,47 @@ function prefixOf(plan) {
 
 function isPrefixBlocked(spec) {
   const pref = prefixOf(spec.plan);
-  if (!pref) return false;
+  if (!pref || pref === '>') return false;
   const trails = spec.memory.getActiveTrails(spec.agentId);
   for (const t of trails) {
     const tp = prefixOf(String(t.statement || '').split('>'));
-    if (tp && tp === pref) return true;
+    if (tp && tp === pref) {
+      return true;
+    }
   }
   return false;
 }
 
+function recordPrefixFailure(spec) {
+  const pref = prefixOf(spec.plan);
+  if (!pref || pref === '>') return;
+  const hDelta = spec.prevH !== undefined ? spec.prevH - spec.currentH : 0;
+  const sig = `prefix:${pref}|dh=${hDelta.toFixed(2)}`;
+  const h = spec.ledger.propose({ agentId: spec.agentId, statement: sig, confidence: 0.4 });
+  spec.ledger.startTest(h.id);
+  spec.memory.recordFailure(spec.agentId, h,
+    { ref: 'prefix-dead-end', strength: 0.7, reliability: 0.8 },
+    { signature: 'planning-gap', conditions: [`prefix=${pref}`, `dh=${hDelta.toFixed(2)}`], scope: 'agent' }
+  );
+}
+
 function selectDiverse(sorted, width) {
-  if (width <= 1) return sorted.slice(0, 1);
+  if (width <= 1 || sorted.length <= width) return sorted.slice(0, Math.max(1, width));
   const head = sorted.slice(0, width - 1);
   const tail = sorted.slice(width - 1);
   if (tail.length === 0) return head;
-  head.push(tail[tail.length - 1]);
+  // Novelty pick: candidate with largest mean h-distance from head picks
+  const headH = head.map(n => n.h);
+  let bestNovel = tail[0];
+  let bestDist = -1;
+  for (const cand of tail) {
+    const meanDist = headH.reduce((sum, h) => sum + Math.abs(cand.h - h), 0) / headH.length;
+    if (meanDist > bestDist) {
+      bestDist = meanDist;
+      bestNovel = cand;
+    }
+  }
+  head.push(bestNovel);
   return head;
 }
 
@@ -348,7 +277,11 @@ function trackProgress(spec) {
 }
 
 function rewindBeams(spec) {
-  recordBlocked({ ledger: spec.ledger, memory: spec.memory, agentId: spec.agentId, beams: spec.beams });
+  // True rewind: record ALL beam prefixes as negative knowledge with delta-h
+  for (const b of spec.beams) {
+    recordPrefixFailure({ ledger: spec.ledger, memory: spec.memory, agentId: spec.agentId,
+      plan: b.plan, prevH: b.h !== undefined ? b.h : spec.bestH, currentH: spec.bestH });
+  }
   spec.beams.length = 0;
   spec.beams.push(spec.checkpoint);
   if (spec.pressure > 0.8 && spec.falsified >= 2) return true;

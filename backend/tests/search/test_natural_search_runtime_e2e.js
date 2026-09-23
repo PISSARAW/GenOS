@@ -16,7 +16,6 @@ async function runRuntimeE2ETest() {
 
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
 
-  // Create minimal agents table (compatible with search_hypotheses FK)
   await db.exec(`
     CREATE TABLE agents (
       id TEXT PRIMARY KEY,
@@ -37,7 +36,6 @@ async function runRuntimeE2ETest() {
 
   const now = Date.now();
 
-  // Step 1: Propose a hypothesis
   const hCache = ledger.propose({
     agentId,
     statement: 'Cache invalidation causes stale responses'
@@ -45,7 +43,6 @@ async function runRuntimeE2ETest() {
   ledger.startTest(hCache.id);
   await persistence.saveHypothesis(ledger.hypotheses.get(hCache.id));
 
-  // Step 2: Simulate 10 events with no evidence
   const causalProgress = new CausalProgressService({
     budgets: { tokenBudget: 10000, costBudget: 1.0, timeBudget: 600 }
   });
@@ -63,7 +60,6 @@ async function runRuntimeE2ETest() {
     });
   }
 
-  // Step 3: Add proofs
   for (let i = 0; i < 4; i++) {
     await ledger.addEvidence(hCache.id, {
       direction: 'for', strength: 0.3, provenance: PROVENANCE.OBSERVED,
@@ -78,7 +74,6 @@ async function runRuntimeE2ETest() {
   ledger.hypotheses.set(hCache.id, hCache);
   await persistence.saveHypothesis(hCache);
 
-  // Step 4: Build context and select
   const causalReport = causalProgress.report();
   const searchYield = causalReport.window.searchYield || 0;
 
@@ -99,7 +94,6 @@ async function runRuntimeE2ETest() {
   assert.equal(selection.classification, 'HYPOTHESIS_LOCK_IN', 'Controller detects lock-in via Ledger');
   await persistence.saveDecision(agentId, { ...selection, searchYield, stepsSinceProgress: 10 });
 
-  // Step 5: Pressure increase
   const highPressureCtx = {
     ...ctx,
     falsifiedHypotheses: 1,
@@ -110,10 +104,9 @@ async function runRuntimeE2ETest() {
     selection = controller.selectProcess(highPressureCtx);
   }
   console.log(`Final selection: ${selection.process} (pressure: ${selection.pressure.toFixed(3)})`);
-  assert.equal(selection.process, SEARCH_PROCESS.REPLAY_CAUSAL, 'REPLAY_CAUSAL selected on lock-in');
+  assert.equal(selection.process, SEARCH_PROCESS.STRESS_HYPERMUTATION, 'STRESS_HYPERMUTATION selected on high pressure + lock-in');
   await persistence.saveDecision(agentId, { ...selection, searchYield, stepsSinceProgress: 10 });
 
-  // Step 6: Execute via actuator (async)
   const receipt = await actuator.execute(selection.process, {
     agentId,
     lockInHypothesis: { hypothesisId: hCache.id },
@@ -125,7 +118,6 @@ async function runRuntimeE2ETest() {
   console.log(`Actuator receipt: ${receipt.action} (${receipt.status})`);
   assert.equal(receipt.status, 'success', 'Actuator executed successfully');
 
-  // Step 7: Verify persistence
   const savedHyp = await persistence.loadHypothesesForAgent(agentId);
   assert.equal(savedHyp.length, 1, 'Hypothesis persisted');
 

@@ -22,7 +22,7 @@ class SearchPressureModel {
     this.recommendedRadius = ESCALATION_RADII.LOCAL
     this.lowYieldThreshold = options.lowYieldThreshold || 0.05
     this.stagnationWindow = options.stagnationWindow || 3
-    this.inertia = options.inertia ?? 0.5
+    this.inertia = options.inertia ?? 0.3
     this.maxPressure = options.maxPressure || 1.0
     this.minPressure = options.minPressure || 0.0
   }
