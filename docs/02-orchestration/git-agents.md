@@ -204,6 +204,21 @@ Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/worksp
 7. Si `parentCommitId` existe, insérer dans `agent_git_commit_parents`.
 8. Avancer la ref avec contrôle de version et écrire l’entrée de reflog.
 
+### Commit de morphogenèse
+
+Chaque transition du runtime morphogénétique est versionnée par [morphogenesisGitService.js](../../backend/src/services/morphogenesis/morphogenesisGitService.js) via `executeVersionedTransition` : `VALIDATE → SNAPSHOT → APPLY → VERIFY → COMMIT`, avec `revert` en cas d’échec.
+
+Le contexte de commit (`buildCommitContext`) enregistre :
+
+- la topologie (`topologyChanges`, `targetOrganization`) ;
+- les agents (`preserve`, `retire`, `spawn`, `rebind`) ;
+- les capacités et baux (`capabilityChanges`, `leaseChanges`) ;
+- les relations (`relationChanges`) ;
+- la génétique (`plasmidActions`, `genotypeActions`, `epigeneticChanges`) ;
+- les budgets (`budgetReallocation`, `budgetPatch`) et le substrat d’exécution (`executionSubstrate`).
+
+La preuve (`evidence`) contient `transitionId`, `planId`, versions pré/post, `rollback` et la référence contrefactuelle (`plan.counterfactualRef || receipt.counterfactualRef`), propagée par `attachCounterfactual` depuis le cycle `fork → experiment → compare → promote`. Les lignées utilisent `branchLineage`, les lignées éteintes sont fossilisées (`fossiliseLineage`, sans résurrection).
+
 ### Promotion d’un changement de workspace
 
 1. Créer ou reprendre une capsule/worktree isolée.

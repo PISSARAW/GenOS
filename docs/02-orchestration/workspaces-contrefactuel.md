@@ -575,3 +575,9 @@ stateDiagram-v2
     FusionTronc --> [*]
     PurgeSansTrace --> [*]
 ```
+
+### 4. Convention de nommage : CounterfactualVFS et sélection quantum-inspired
+
+Le substrat ci-dessus est un **CounterfactualVFS** classique (Copy-on-Write, deltas par monde, promotion par gate de preuves). Il ne doit plus être nommé « QuantumVFS » : les forks ne sont pas une superposition physique et la promotion n’est pas un effondrement quantique.
+
+Le terme **quantum-inspired selection** désigne uniquement l’analogie suivante : les mondes candidats restent ouverts jusqu’au gate de décision, puis un seul est promu. Aucun calcul n’a lieu sur QPU ; un QPU réel ne serait qu’un organe spécialisé (optimisation, échantillonnage) appelé explicitement, jamais un worker LLM « mis sur QPU ». Les identifiants historiques (`quantum-world`, `sandbox-backend: quantum`) sont conservés pour compatibilité et désignent ce backend contrefactuel classique.

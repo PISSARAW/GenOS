@@ -223,3 +223,17 @@ stateDiagram-v2
     
     ApoptoseTherapeutique --> [*]
 ```
+
+## Runtime clinique gradué (implémenté)
+
+Le backend porte le runtime médical permanent : [clinicalStateService.js](../../../backend/src/services/clinicalStateService.js) (tables `clinical_states`, `immune_events`, `pathologies`, `treatments`), consommé par [immuneSurveillanceService.js](../../../backend/src/services/immuneSurveillanceService.js).
+
+Un échec ordinaire de tâche n’est pas une maladie. Un processus pathologique est une dysfonction persistante : réplication incontrôlée, attaque de composants légitimes, signal nuisible transmis entre agents, dégradation progressive de mémoire, mutation héréditaire invalidante, consommation incontrôlée de ressources.
+
+La réponse est graduée, jamais `anomalie → apoptose` :
+
+```text
+surveillanceScan → biopsy → diagnose → therapy proportionnée → monitor
+```
+
+Seules les pathologies confirmées à haute confiance (`cognitive_metastasis`, `quarantine_breach`) déclenchent une quarantaine (`status = 'blocked'`, `cell_cycle_state = 'arrested'`). Les thérapies restent proportionnées (correction homéostatique, suppression de plasmide, reset d’expression, inhibition du cycle, apoptose ciblée en dernier ressort) avec traçabilité des événements immunitaires.
