@@ -13,6 +13,7 @@
 
 const { migrateDaemonHandoffFeedback } = require('../../../db/migrations/migrateDaemonHandoffFeedback');
 const { migrateDaemonHandoffs } = require('../../../db/migrations/migrateDaemonHandoffs');
+const plasticity = require('../../synapticPlasticityService');
 
 const VERDICTS = ['USED', 'DECISIVE', 'IRRELEVANT', 'STALE', 'WRONG', 'INCOMPLETE'];
 const DEMOTE_AFTER_PRESENTATIONS = 8;
@@ -30,7 +31,20 @@ async function recordFeedback(db, input) {
     input.findingId,
     input.verdict
   );
+  maybePlasticitySignal(input);
   return { recorded: true, briefId: input.briefId, findingId: input.findingId, verdict: input.verdict };
+}
+
+function maybePlasticitySignal(input) {
+  const outcomes = {
+    DECISIVE: 'state_changed',
+    USED: 'state_changed',
+    WRONG: 'ignored',
+    STALE: 'ignored'
+  };
+  const outcome = outcomes[input.verdict];
+  if (!outcome) return;
+  plasticity.recordSignalOutcome({ senderId: input.findingId, receiverId: input.briefId, outcome, signalType: 'handoff' });
 }
 
 async function usefulness(db, query) {

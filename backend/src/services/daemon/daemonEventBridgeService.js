@@ -19,6 +19,8 @@ const receptorRegistry = require('./daemonReceptorRegistry');
 const wakePolicyService = require('./daemonWakePolicyService');
 const territoryService = require('./daemonTerritoryService');
 const daemonRuntime = require('./residentDaemonRuntime');
+const handoffCompiler = require('./handoff/handoffCompilerService');
+const signalEventBus = require('../signalEventBus');
 const { migrateDaemonEvents } = require('../../db/migrations/migrateDaemonEvents');
 const { migrateDaemonEventPayload } = require('../../db/migrations/migrateDaemonEventPayload');
 
@@ -83,6 +85,19 @@ async function ingestEvent(bridge, event) {
   if (!validation.ok) return { ingested: false, errors: validation.errors };
   const receptor = receptorRegistry.getReceptorFor(event.type);
   const cheap = await applyCheapUpdate(bridge, event, receptor);
+  let handoffSignal = null;
+  if (receptor.handoffRequested && bridge.db) {
+    try {
+      const result = await handoffCompiler.compileBrief(bridge.db, {
+        territoryId: event.territoryId,
+        mission: event.payload && event.payload.mission
+      });
+      if (result.compiled && result.signal) {
+        signalEventBus.publish(result.signal);
+        handoffSignal = result.signal;
+      }
+    } catch (_) { /* handoff failure must not block ingestion */ }
+  }
   const wake = await maybeWakeRuntime(bridge, event, receptor);
   const logged = await logIngestedEvent(bridge, event, { receptor, wake });
   return {
@@ -95,6 +110,7 @@ async function ingestEvent(bridge, event) {
     wakeReason: wake.reason,
     llmRequired: false,
     handoffRequested: receptor.handoffRequested === true,
+    handoffSignal,
     logged
   };
 }
