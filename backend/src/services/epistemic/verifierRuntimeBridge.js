@@ -21,8 +21,11 @@ const { issueReceipt } = require('../epistemicVerifierReceiptService');
 const { evaluateIndependence } = require('../epistemicScheduler/independencePolicy');
 
 function buildVerifierWorker(antigen, verifier) {
+  const agentId = `verifier-${verifier.type}-${verifier.id || 'anon'}`;
   return {
-    agentId: `verifier-${verifier.type}-${verifier.id || 'anon'}`,
+    agentId,
+    workspaceId: verifier.workspaceId || `ws-${agentId}`,
+    executionId: `${agentId}-${Date.now()}`,
     label: verifier.type,
     prompt: buildVerifierPrompt(antigen, verifier),
     role: 'verifier',
@@ -46,25 +49,134 @@ function buildVerifierPrompt(antigen, verifier) {
   ].join('\n');
 }
 
-function buildVerifierDescriptor(verifier, antigen) {
+function pick(value, fallback) {
+  if (value !== undefined && value !== null && value !== '') return value;
+  return fallback;
+}
+
+function runtimeActorId(verifier, worker) {
+  const fallback = `verifier-${verifier.type}-${verifier.id || 'anon'}`;
+  const fromVerifier = pick(verifier.actorId, pick(verifier.agentId, null));
+  if (fromVerifier) return fromVerifier;
+  if (worker && worker.agentId) return worker.agentId;
+  return fallback;
+}
+
+function runtimeWorkspaceId(verifier, worker, actorId) {
+  if (verifier.workspaceId) return verifier.workspaceId;
+  if (worker && worker.workspaceId) return worker.workspaceId;
+  return `ws-${actorId}`;
+}
+
+function buildVerifierDescriptor(verifier, antigen, worker) {
+  const actorId = runtimeActorId(verifier, worker);
+  const strategy = (verifier.strategy || []).join(',');
   return {
-    actorId: `verifier-${verifier.type}`,
-    model: verifier.type,
-    version: '1.0',
-    strategy: (verifier.strategy || []).join(','),
-    evidenceSource: antigen.id || 'unknown',
-    workspaceId: `ws-verifier-${verifier.type}`,
+    actorId,
+    model: pick(pick(verifier.model, verifier.provider), verifier.type),
+    version: pick(verifier.version, '1.0'),
+    strategy: pick(strategy, verifier.type),
+    evidenceSource: pick(antigen.id, 'unknown'),
+    workspaceId: runtimeWorkspaceId(verifier, worker, actorId),
+    executionId: pick(pick(verifier.executionId, worker && worker.agentId), null),
+    contextDigest: pick(verifier.contextDigest, null),
+    toolchainDigest: pick(verifier.toolchainDigest, null),
+  };
+}
+
+function producerActorId(producer) {
+  const fromProducer = pick(producer.actorId, pick(producer.agentId, null));
+  if (fromProducer) return fromProducer;
+  return `producer-${pick(producer.model, 'worker')}`;
+}
+
+function buildProducerDescriptor(antigen) {
+  const producer = antigen.producer || {};
+  const actorId = producerActorId(producer);
+  return {
+    actorId,
+    model: pick(pick(producer.model, producer.name), 'worker'),
+    version: pick(producer.version, '1.0'),
+    strategy: pick(producer.strategy, 'solve'),
+    evidenceSource: pick(antigen.id, 'unknown'),
+    workspaceId: pick(pick(producer.workspaceId, antigen.workspaceId), `ws-${actorId}`),
   };
 }
 
 /**
- * Évalue l'indépendance d'un verifier par rapport aux verifiers précédents.
- * L'indépendance est déterminée AVANT la signature du receipt.
+ * Évalue l'indépendance d'un verifier par rapport au PRODUCTEUR
+ * puis par rapport aux verifiers précédents.
+ * Le premier verifier n'est plus automatiquement indépendant :
+ * il doit être indépendant du producer du claim.
  */
 function evaluateVerifierIndependence(verifier, antigen, priorVerifiers) {
-  const descriptor = buildVerifierDescriptor(verifier, antigen);
-  const priorDescriptors = priorVerifiers.map(v => buildVerifierDescriptor(v, antigen));
+  const worker = buildVerifierWorker(antigen, verifier);
+  const descriptor = buildVerifierDescriptor(verifier, antigen, worker);
+  const producerDescriptor = buildProducerDescriptor(antigen || {});
+  const vsProducer = evaluateIndependence(descriptor, [producerDescriptor]);
+  if (!vsProducer.independent) return vsProducer;
+  const priorDescriptors = priorVerifiers.map((v) => buildVerifierDescriptor(v, antigen));
   return evaluateIndependence(descriptor, priorDescriptors);
+}
+
+function summarizeResults(results) {
+  const verified = results.filter((r) => r.status === 'verified').length;
+  const refuted = results.filter((r) => r.status === 'refuted').length;
+  const inconclusive = results.filter((r) => r.status === 'inconclusive').length;
+  const errors = results.filter((r) => r.status === 'error').length;
+  return { verified, refuted, inconclusive, errors };
+}
+
+function aggregateStatus(summary) {
+  if (summary.refuted > 0) return 'refuted';
+  if (summary.verified > 0) return 'verified';
+  return 'inconclusive';
+}
+
+function signVerifierResult(antigen, verifier, signed) {
+  const preReceipt = buildPreReceipt({
+    resultId: antigen.id,
+    evidenceDigest: antigen.epitopes?.evidence?.digest,
+    verifierDigest: verifier.type,
+    status: signed.outcome.status,
+    observations: signed.outcome.observations,
+    counterexamples: signed.outcome.counterexamples,
+  });
+  preReceipt.independent = signed.independence.independent;
+  preReceipt.independenceDescriptor = signed.independence.descriptor;
+  preReceipt.independenceDistance = signed.independence.distance;
+  const signedReceipt = issueReceipt(preReceipt);
+  return {
+    status: signed.outcome.status,
+    resultId: antigen.id,
+    evidenceDigest: antigen.epitopes?.evidence?.digest || signedReceipt.evidenceDigest || 'none',
+    verifierDigest: verifier.type,
+    observations: signed.outcome.observations,
+    counterexamples: signed.outcome.counterexamples,
+    receipt: signedReceipt,
+    executedAt: new Date().toISOString(),
+  };
+}
+
+function errorVerifierResult(verifier, err) {
+  return {
+    status: 'error',
+    verifierDigest: verifier.type,
+    error: err.message,
+    observations: [],
+    counterexamples: [],
+  };
+}
+
+async function runSingleVerifier(antigen, verifier, ctx) {
+  const worker = buildVerifierWorker(antigen, verifier);
+  const outcome = await executeVerifierWithAdapter(
+    antigen,
+    verifier,
+    { worker, timeoutMs: ctx.opts.timeoutMs || 30000 }
+  );
+  const independence = evaluateVerifierIndependence(verifier, antigen, ctx.executedVerifiers);
+  return signVerifierResult(antigen, verifier, { outcome, independence });
 }
 
 /**
@@ -81,69 +193,22 @@ async function executeVerifierWorkers(antigen, verifiers, opts = {}) {
 
   for (const verifier of verifiers) {
     try {
-      const { status, observations, counterexamples } = await executeVerifierWithAdapter(
-        antigen,
-        verifier,
-        { worker: buildVerifierWorker(antigen, verifier), timeoutMs: opts.timeoutMs || 30000 }
-      );
-
-      // Évalue l'indépendance AVANT de signer le receipt
-      const independence = evaluateVerifierIndependence(verifier, antigen, executedVerifiers);
-
-      const preReceipt = buildPreReceipt({
-        resultId: antigen.id,
-        evidenceDigest: antigen.epitopes?.evidence?.digest,
-        verifierDigest: verifier.type,
-        status,
-        observations,
-        counterexamples,
-      });
-
-      // L'indépendance calculée est incluse dans le pre-receipt signé
-      preReceipt.independent = independence.independent;
-      preReceipt.independenceDescriptor = independence.descriptor;
-      preReceipt.independenceDistance = independence.distance;
-
-      const signedReceipt = issueReceipt(preReceipt);
-
+      results.push(await runSingleVerifier(antigen, verifier, { executedVerifiers, opts }));
       executedVerifiers.push(verifier);
-
-      results.push({
-        status,
-        resultId: antigen.id,
-        evidenceDigest: antigen.epitopes?.evidence?.digest || signedReceipt.evidenceDigest || 'none',
-        verifierDigest: verifier.type,
-        observations,
-        counterexamples,
-        receipt: signedReceipt,
-        executedAt: new Date().toISOString(),
-      });
     } catch (err) {
-      results.push({
-        status: 'error',
-        verifierDigest: verifier.type,
-        error: err.message,
-        observations: [],
-        counterexamples: [],
-      });
+      results.push(errorVerifierResult(verifier, err));
     }
   }
 
-  const verified = results.filter((r) => r.status === 'verified').length;
-  const refuted = results.filter((r) => r.status === 'refuted').length;
-  const inconclusive = results.filter((r) => r.status === 'inconclusive').length;
-  const errors = results.filter((r) => r.status === 'error').length;
-
-  return {
-    status: refuted > 0 ? 'refuted' : (verified > 0 ? 'verified' : 'inconclusive'),
-    results,
-    summary: { verified, refuted, inconclusive, errors },
-  };
+  const summary = summarizeResults(results);
+  return { status: aggregateStatus(summary), results, summary };
 }
 
 module.exports = {
   buildVerifierWorker,
   buildVerifierPrompt,
+  buildVerifierDescriptor,
+  buildProducerDescriptor,
   executeVerifierWorkers,
   evaluateVerifierIndependence,
 };
