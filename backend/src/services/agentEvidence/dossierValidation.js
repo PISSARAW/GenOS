@@ -31,7 +31,7 @@ function collectEmptyDossiers(dossiers, expected) {
   return empty;
 }
 
-function validateWorkerDossiers(dossiers, workers) {
+function validateWorkerDossiers(dossiers, workers, options = {}) {
   const expected = new Set();
   const actual = new Set();
   const coveredBranches = new Set();

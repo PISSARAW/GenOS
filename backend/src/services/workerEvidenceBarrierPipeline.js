@@ -2,7 +2,7 @@
  * Sequential specialist pipeline: dependency validation and staged dispatch.
  */
 const { emit, updateAgent } = require('./agentOrchestrationState');
-const { workerEvidenceDossiers } = require('./agentEvidenceService');
+const { workerEvidenceDossiers, recordWorkerEvidence } = require('./agentEvidenceService');
 const { dossierDigest } = require('./agentEvidence/workerEvidence');
 const workerGarage = require('./workerGarageService');
 const { advanceAutonomousRound } = require('./agentRoundService');
@@ -230,7 +230,24 @@ async function reportDispatchFailure(ctx, worker, reason) {
   await releaseSlotAfterFailure(ctx, worker);
   await scheduleWorkspaceCleanup(worker.agentId).catch(() => undefined);
   emit(ctx.orchestratorId, 'AUTONOMOUS_WORKER_DISPATCH_FAILED', 'DISPATCH', reason.message, { workerId: worker.agentId, stage: ctx.stage }, 'error');
+  const failureEvent = {
+    eventType: 'AGENT_FAILED',
+    action: 'DISPATCH',
+    detail: reason.message,
+    payload: { failure: { category: 'dispatch_failure', reason: reason.message } }
+  };
+  try { await recordWorkerEvidence(worker, failureEvent); } catch (_) {}
   await advanceAutonomousRound(worker, { eventType: 'AGENT_RUNTIME_ERROR', payload: {}, detail: reason.message });
+}
+
+function hasRunnableExecutable(executable) {
+  if (!executable) return false;
+  try {
+    const fs = require('fs');
+    return fs.existsSync(executable) && fs.statSync(executable).isFile();
+  } catch (_) {
+    return false;
+  }
 }
 
 async function reconcileDispatchResults(ctx, results) {

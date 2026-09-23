@@ -38,6 +38,8 @@ function computeEfficiency(transmission, artifact, skills) {
 }
 
 function simulateTransmission(opts) {
+  // PROTOTYPE : gain synthétique, pas une mesure. Voir measureCulturalTransfer
+  // pour la mesure benchmark-avant/après réellement observée.
   const transmission = opts.transmission;
   const artifact = opts.artifact;
   const skills = opts.skills || {};
@@ -106,6 +108,23 @@ function updateMutatedFields(mutated, artifact, context) {
   mutated.createdAt = new Date().toISOString();
 }
 
+/**
+ * Mesure réelle d'un transfert culturel : benchmark B avant, intégration
+ * de l'artifact chez B, même benchmark après, Δ observé.
+ * Les benchmarks sont injectés pour rester testables sans runtime.
+ */
+async function measureCulturalTransfer(opts) {
+  const { benchmarkBefore, integrateArtifact, benchmarkAfter } = opts || {};
+  if (typeof benchmarkBefore !== 'function') throw new Error('benchmarkBefore is required.');
+  if (typeof integrateArtifact !== 'function') throw new Error('integrateArtifact is required.');
+  if (typeof benchmarkAfter !== 'function') throw new Error('benchmarkAfter is required.');
+  const before = await benchmarkBefore();
+  await integrateArtifact();
+  const after = await benchmarkAfter();
+  const delta = Number(after) - Number(before);
+  return { before: Number(before), after: Number(after), delta, measured: true };
+}
+
 function mutateArtifact(opts) {
   const artifact = opts.artifact;
   const context = opts.context;
@@ -119,6 +138,7 @@ module.exports = {
   TRANSMISSION_MODES,
   createTransmission,
   simulateTransmission,
+  measureCulturalTransfer,
   createCulturalArtifact,
   cloneArtifact,
   mutateArtifact,

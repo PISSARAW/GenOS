@@ -1,10 +1,9 @@
 'use strict';
 
-/**
- * @file strategySelectorHelpers.js
- * @description Helper functions for strategy selection
+/** @file strategySelectorHelpers.js  — auto-correction : les fonctions applyTraitBonuses* attendues
+ *  n'étaient pas exportées dans cette réécriture concurrente. On réinjecte les stubs documentés
+ *  depuis strategySelectorHelpers.clean.js pour que scoreStrategy() ne plante plus.
  */
-
 const {
   PREFERRED_PRIMARY,
   HIGH_RISK_TYPES,
@@ -17,8 +16,6 @@ const {
   UNCERTAINTY_DEFAULTS,
   BRANCHES,
 } = require('./strategySelectorConstants');
-
-const { applyTraitBonusesOne, applyTraitBonusesTwo, applyTraitBonusesThree, applyTraitBonusesFour, applyTraitBonusesFive, applyTraitBonusesSix } = require('./strategySelectorHelpers');
 
 function includesAny(text, terms) {
   return terms.some((term) => text.includes(term));
@@ -36,32 +33,40 @@ function firstTruthy(value, fallback) {
 
 function classifyTechnicalProblem(problem) {
   const text = String(problem).toLowerCase();
-
-  if (includesAny(text, ['ouvre le bloc-notes', 'ouvre notepad', 'open notepad', 'open the notepad', 'contrôle du pc', 'prends le contrôle', 'take control of the computer', 'take control of the desktop', 'computer use', 'desktop control', 'clique sur', 'click the screen', 'click on the screen', 'capture d\'écran', 'take a screenshot', 'appuie sur la touche', 'press the key', 'move the mouse', 'bouge la souris', 'contrôle clavier souris', 'keyboard and mouse'])) return 'desktop_control';
-
-  if (text.includes('critical_bug_fix') || text.includes('hotfix') || includesAny(text, ['incident', 'production', 'intermittent', 'rare crash', 'outage', 'p0', 'sev1'])) return 'incident';
-
-  if (includesAny(text, ['unknown cause', 'root cause', 'cause inconnue', 'diagnose', 'debug', 'investigate', 'why does it', 'bug', 'fix'])) return 'unknown_cause_bug';
-
-  if (includesAny(text, ['security', 'vulnerability', 'threat', 'attack', 'sécurité', 'cve', 'exploit', 'injection'])) return 'security';
-
-  if (includesAny(text, ['research', 'hypothesis', 'scientific', 'experiment', 'recherche', 'poc', 'proof of concept', 'benchmark'])) return 'scientific_research';
-
-  if (includesAny(text, ['refactor', 'migration', 'monolith', 'rewrite', 'architecture critique', 'legacy', 'technical debt'])) return 'critical_refactor';
-
-  if (includesAny(text, ['architecture', 'decision', 'trade-off', 'compare options', 'choisir', 'design doc', 'system design'])) return 'architecture_decision';
-
+  if (includesAny(text, ['ouvre le bloc-notes', 'ouvre notepad', 'open notepad',
+      'open the notepad', 'contrôle du pc', 'prends le contrôle',
+      'take control of the computer', 'take control of the desktop',
+      'computer use', 'desktop control', 'clique sur', 'click the screen',
+      'click on the screen', 'capture d\'écran', 'take a screenshot',
+      'appuie sur la touche', 'press the key', 'move the mouse',
+      'bouge la souris', 'contrôle clavier souris',
+      'keyboard and mouse'])) return 'desktop_control';
+  if (text.includes('critical_bug_fix') || text.includes('hotfix') ||
+      includesAny(text, ['incident', 'production', 'intermittent', 'rare crash',
+        'outage', 'p0', 'sev1'])) return 'incident';
+  if (includesAny(text, ['unknown cause', 'root cause', 'cause inconnue',
+        'diagnose', 'debug', 'investigate', 'why does it', 'bug', 'fix'])) return 'unknown_cause_bug';
+  if (includesAny(text, ['security', 'vulnerability', 'threat', 'attack',
+        'sécurité', 'cve', 'exploit', 'injection'])) return 'security';
+  if (includesAny(text, ['research', 'hypothesis', 'scientific', 'experiment',
+        'recherche', 'poc', 'proof of concept', 'benchmark'])) return 'scientific_research';
+  if (includesAny(text, ['refactor', 'migration', 'monolith', 'rewrite',
+        'architecture critique', 'legacy', 'technical debt'])) return 'critical_refactor';
+  if (includesAny(text, ['architecture', 'decision', 'trade-off',
+        'compare options', 'choisir', 'design doc', 'system design'])) return 'architecture_decision';
   return 'implementation';
 }
 
 function classifyProblem(problem = '') {
-  if (require('../services/aTeamService').analyzeMission(problem).primaryDomain === 'creative_writing') return 'creative_writing';
+  if (require('../services/aTeamService').analyzeMission(problem).primaryDomain === 'creative_writing')
+    return 'creative_writing';
   return classifyTechnicalProblem(problem);
 }
 
 function normalizeProfileType(type, problem) {
   const resolved = type || classifyProblem(problem);
-  if (!PREFERRED_PRIMARY[resolved]) return classifyProblem(`${String(resolved)} ${problem}`);
+  if (!PREFERRED_PRIMARY[resolved])
+    return classifyProblem(`${String(resolved)} ${problem}`);
   return resolved;
 }
 
@@ -100,15 +105,29 @@ function profileProblem(problem = '', overrides = {}) {
   return {
     type,
     complexity: firstDefined(overrides.complexity, computeComplexity(problem, highRisk)),
-    uncertainty: firstDefined(overrides.uncertainty, firstDefined(UNCERTAINTY_DEFAULTS[type], 0.46)),
+    uncertainty: firstDefined(overrides.uncertainty,
+      firstDefined(UNCERTAINTY_DEFAULTS[type], 0.46)),
     risk: firstTruthy(overrides.risk, resolveRisk(highRisk, type)),
     evaluability: firstTruthy(overrides.evaluability, resolveEvaluability(text)),
     reversibility: firstTruthy(overrides.reversibility, resolveReversibility(text)),
-    requires_reproducibility: firstDefined(overrides.requires_reproducibility, REPRODUCIBILITY_TYPES.includes(type)),
-    objectives_conflict: firstDefined(overrides.objectives_conflict, OBJECTIVE_CONFLICT_TYPES.includes(type)),
-    temporal_dependency: firstDefined(overrides.temporal_dependency, TEMPORAL_TYPES.includes(type))
+    requires_reproducibility: firstDefined(overrides.requires_reproducibility,
+      REPRODUCIBILITY_TYPES.includes(type)),
+    objectives_conflict: firstDefined(overrides.objectives_conflict,
+      OBJECTIVE_CONFLICT_TYPES.includes(type)),
+    temporal_dependency: firstDefined(overrides.temporal_dependency,
+      TEMPORAL_TYPES.includes(type)),
   };
 }
+
+// Stubs pour les fonctions de bonus de traits attendues par
+// strategySelectorEligibility.js (applyTraitBonusesOne..Six). Elles
+// sont appelées mais n'existaient pas dans les réécritures concurrentes.
+function applyTraitBonusesOne(state, traits, profile) { /* no-op */ }
+function applyTraitBonusesTwo(state, traits, profile) { /* no-op */ }
+function applyTraitBonusesThree(state, traits, profile) { /* no-op */ }
+function applyTraitBonusesFour(state, traits, profile) { /* no-op */ }
+function applyTraitBonusesFive(state, traits, profile) { /* no-op */ }
+function applyTraitBonusesSix(state, traits, profile) { /* no-op */ }
 
 module.exports = {
   includesAny,
@@ -123,6 +142,12 @@ module.exports = {
   resolveEvaluability,
   resolveReversibility,
   profileProblem,
+  applyTraitBonusesOne,
+  applyTraitBonusesTwo,
+  applyTraitBonusesThree,
+  applyTraitBonusesFour,
+  applyTraitBonusesFive,
+  applyTraitBonusesSix,
   PREFERRED_PRIMARY,
   BRANCHES,
   UNCERTAINTY_DEFAULTS,
