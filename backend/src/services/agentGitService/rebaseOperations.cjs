@@ -45,6 +45,16 @@ async function rebase(req) {
   const squash = req.body?.squash === true || req.body?.mode === 'squash';
   const replayedIds = [];
   const replay = await replayCommits({ db, base, onto, headId, replayedIds, squash });
+  // Bug audit #3 : comme cherry-pick/revert (point 5), le rebase doit ÉCRIRE
+  // l'état résultant dans la DB — sinon les commits A'/B' capturent un état
+  // fantôme et l'agent reste sur son ancien état (prouvé: DB != commit final).
+  const targetAgentId = req.body?.targetAgentId || head.agent_id;
+  const { replaceState } = require('./dagOperations');
+  await replaceState(req, {
+    targetAgentId,
+    state: replay.currentState,
+    sections: ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']
+  });
   const commitResult = await commitRebase({ db, req, onto, head, base, currentState: replay.currentState, replayedIds, ontoId, replayed: replay.replayedCommits });
   return finalizeRebase({ db, req, head, commitResult, replayedIds, base });
 }
@@ -79,11 +89,33 @@ async function replayCommits(ctx) {
     const commitState = JSON.parse(commit.state_json);
     const patch = computePatch(previousOriginal, commitState);
     currentState = applyPatchToState(currentState, patch);
+    // Bug audit #2 : l'état de l'agent est PARTAGÉ entre branches (collectState
+    // lit toute la DB de l'agent) — ontoState contient déjà les items des
+    // commits rejoués. Un ADD sur un item déjà présent créait un DOUBLON
+    // (prouvé: y1 apparaissait 2x). Déduplication par identité de section.
+    currentState = dedupeSections(currentState);
     previousOriginal = commitState;
     replayedIds.push(commit.id);
     if (!squash) replayedCommits.push({ id: commit.id, state: currentState });
   }
   return { currentState, replayedCommits };
+}
+
+// Déduplique chaque section d'état par identité stable (identityOf), en
+// gardant la DERNIÈRE occurrence (celle du patch le plus récent).
+function dedupeSections(state) {
+  const { identityOf } = require('./sectionIdentity.cjs');
+  const result = { ...state };
+  for (const section of ['decisions', 'memories', 'runs', 'plasmids', 'permissions']) {
+    if (!Array.isArray(result[section])) continue;
+    const byId = new Map();
+    for (const item of result[section]) {
+      const id = identityOf(section, item);
+      byId.set(id === undefined ? Symbol.for(String(Math.random())) : id, item);
+    }
+    result[section] = [...byId.values()];
+  }
+  return result;
 }
 
 async function collectCommitsToReplay(db, base, headId) {

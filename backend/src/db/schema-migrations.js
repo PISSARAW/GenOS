@@ -75,6 +75,8 @@ async function applyVersionedMigrations(db) {
   await migrationV017.run(db);
   const { migrationV018 } = require('./migrations/migrateAgentPermissionsCompositePk');
   await migrationV018.run(db);
+  const { migrationV019 } = require('./migrations/migrateAgentPermissionsNotNull');
+  await migrationV019.run(db);
   await runRegistryMigrations(db);
 }
 

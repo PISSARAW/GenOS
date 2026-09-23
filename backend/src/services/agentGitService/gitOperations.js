@@ -97,7 +97,7 @@ async function merge(req) {
 
   const targetAgentId = req.body?.targetAgentId || left.agent_id;
   const base = await findMergeBase(db, leftId, rightId);
-  const merged = buildMergedState({ base, left, right, name: req.body?.name });
+  const merged = buildMergedState({ base, left, right, nameOverride: req.body?.name });
 
   await enforceHooks({ db, agentId: targetAgentId, hookName: 'merge-validation', context: merged.storeState });
 

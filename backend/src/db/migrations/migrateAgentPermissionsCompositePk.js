@@ -30,31 +30,33 @@ const migration = {
 
     const hasTaint = tableInfo.some((c) => c.name === 'taint_policy');
     const taintColumn = hasTaint ? 'taint_policy,' : '';
-    const taintSelect = hasTaint ? 'taint_policy,' : '';
-    await db.exec(`
-      CREATE TABLE agent_permissions_v18 (
-        agent_id TEXT NOT NULL,
-        permissions_json TEXT NOT NULL DEFAULT '[]',
-        denied_tools_json TEXT NOT NULL DEFAULT '[]',
-        organization_id TEXT,
-        project_id TEXT,
-        ${taintColumn}
-        PRIMARY KEY (agent_id, organization_id, project_id)
-      );
-      INSERT INTO agent_permissions_v18 (agent_id, permissions_json, denied_tools_json, organization_id, project_id, ${taintSelect} _rowid_)
-        SELECT agent_id, permissions_json, denied_tools_json, organization_id, project_id, ${taintSelect} rowid
-        FROM agent_permissions
-        WHERE rowid IN (SELECT MAX(rowid) FROM agent_permissions GROUP BY agent_id, organization_id, project_id);
-      DROP TABLE agent_permissions;
-      ALTER TABLE agent_permissions_v18 RENAME TO agent_permissions;
-      CREATE INDEX IF NOT EXISTS idx_agent_permissions_agent ON agent_permissions(agent_id);
-    `);
-    // Nettoyer la colonne technique _rowid_ copiée (elle n'existe que si la
-    // table d'origine avait rowid implicite — SQLite la rejette silencieusement
-    // si absente, donc on tente et on ignore l'échec).
+    // Bug audit #8 : rebuild TRANSACTIONNEL — sans BEGIN/COMMIT, un crash au
+    // milieu (entre DROP et RENAME) laissait la DB sans table agent_permissions.
+    await db.exec('BEGIN IMMEDIATE');
     try {
-      await db.exec('ALTER TABLE agent_permissions DROP COLUMN _rowid_');
-    } catch (_) { /* colonne absente ou SQLite < 3.35 : rien à faire */ }
+      await db.exec(`
+        CREATE TABLE agent_permissions_v18 (
+          agent_id TEXT NOT NULL,
+          permissions_json TEXT NOT NULL DEFAULT '[]',
+          denied_tools_json TEXT NOT NULL DEFAULT '[]',
+          organization_id TEXT,
+          project_id TEXT,
+          ${taintColumn}
+          PRIMARY KEY (agent_id, organization_id, project_id)
+        );
+        INSERT INTO agent_permissions_v18 (agent_id, permissions_json, denied_tools_json, organization_id, project_id)
+          SELECT agent_id, permissions_json, denied_tools_json, organization_id, project_id
+          FROM agent_permissions
+          WHERE rowid IN (SELECT MAX(rowid) FROM agent_permissions GROUP BY agent_id, organization_id, project_id);
+        DROP TABLE agent_permissions;
+        ALTER TABLE agent_permissions_v18 RENAME TO agent_permissions;
+        CREATE INDEX IF NOT EXISTS idx_agent_permissions_agent ON agent_permissions(agent_id);
+      `);
+      await db.exec('COMMIT');
+    } catch (err) {
+      await db.exec('ROLLBACK');
+      throw err;
+    }
   },
 };
 

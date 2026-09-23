@@ -232,7 +232,9 @@ async function getPermissionRow(db, request) {
   if (organizationId && projectId) {
     return db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, organizationId, projectId);
   }
-  return db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id IS NULL AND project_id IS NULL', agentId);
+  // V019: les scopes NULL sont normalisés en '' (NOT NULL DEFAULT '') —
+  // IS NULL ne matche plus rien depuis la migration.
+  return db.get("SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = '' AND project_id = ''", agentId);
 }
 
 function resolvePermissions(permissionRow, agentId) {
