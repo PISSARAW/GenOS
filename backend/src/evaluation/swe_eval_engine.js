@@ -3,7 +3,7 @@
  * Harness connecting SWE-bench tasks to the GenOS Autonomy Core:
  * - autonomousOrchestrationService (7-phase Autonomy Plan & Mirror Twins)
  * - strategyRegistry (Biomimicry & Resilience strategies)
- * - vfsSandboxService (Pre-flight Blast Radius & Quantum VFS)
+ * - vfsSandboxService (Pre-flight Blast Radius & Counterfactual VFS — classical Copy-on-Write ensemble; 'quantum' reserved for quantum-inspired selection analogy, never a real QPU claim)
  * - modelRouter (Local Multi-LLM inference via Ollama)
  * - agentEvidenceService (Evidence Barrier & Proof Gate)
  */

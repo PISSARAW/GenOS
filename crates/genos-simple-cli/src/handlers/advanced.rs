@@ -110,9 +110,12 @@ pub fn handle_advanced(cmd: &AdvancedCommands, _yes: bool) {
             exit_on_command_failure(cmd.status());
         }
         AdvancedCommands::Quantum { args } => {
-            println!("Mode Quantique (World Run - Sandbox Quantum)...");
+            // Classical counterfactual ensemble (VFS Copy-on-Write worlds + promotion gate).
+            // "Quantum" here means quantum-inspired selection analogy (open candidates until
+            // evidence gate), NOT physical superposition or QPU execution. IDs kept for compat.
+            println!("Mode Mondes Possibles (World Run - Counterfactual VFS, classique)...");
             let mut cmd = Command::new(cargo_program());
-            if args.is_empty() { println!("(Mode auto : exécution du monde en backend quantique)"); cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run", "--provider", "local", "--root", "./", "--world-id", "quantum-world", "--command", "start", "--sandbox-backend", "quantum"]); }
+            if args.is_empty() { println!("(Mode auto : execution du monde en backend contrefactuel classique)"); cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run", "--provider", "local", "--root", "./", "--world-id", "quantum-world", "--command", "start", "--sandbox-backend", "quantum"]); }
             else { cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]); cmd.args(args); }
             exit_on_command_failure(cmd.status());
         }

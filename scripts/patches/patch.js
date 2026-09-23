@@ -14,7 +14,7 @@ file = file.replace(
 const originalParse = `            for line in code_response.lines() {
                 if line.starts_with("FILE: ") {
                     if !current_file.is_empty() {
-                        mind.cognitive_state.quantum_vfs.deltas.insert(current_file.clone(), current_content.clone());
+                        mind.cognitive_state.counterfactual_vfs.deltas.insert(current_file.clone(), current_content.clone());
                     }
                     current_file = line.trim_start_matches("FILE: ").trim().to_string();
                     current_content.clear();
@@ -24,7 +24,7 @@ const originalParse = `            for line in code_response.lines() {
                 }
             }
             if !current_file.is_empty() {
-                mind.cognitive_state.quantum_vfs.deltas.insert(current_file.clone(), current_content.clone());
+                mind.cognitive_state.counterfactual_vfs.deltas.insert(current_file.clone(), current_content.clone());
             }
             
             // Simulation d'une trace d'exécution pour la VTA
@@ -36,13 +36,13 @@ const originalParse = `            for line in code_response.lines() {
 const newParse = `            for line in code_response.lines() {
                 if line.starts_with("FILE: ") {
                     if !current_file.is_empty() {
-                        mind.cognitive_state.quantum_vfs.deltas.insert(current_file.clone(), current_content.clone());
+                        mind.cognitive_state.counterfactual_vfs.deltas.insert(current_file.clone(), current_content.clone());
                     }
                     current_file = line.trim_start_matches("FILE: ").trim().to_string();
                     current_content.clear();
                 } else if line.starts_with("CMD: ") {
                     if !current_file.is_empty() {
-                        mind.cognitive_state.quantum_vfs.deltas.insert(current_file.clone(), current_content.clone());
+                        mind.cognitive_state.counterfactual_vfs.deltas.insert(current_file.clone(), current_content.clone());
                         current_file.clear();
                         current_content.clear();
                     }
@@ -73,7 +73,7 @@ const newParse = `            for line in code_response.lines() {
                 }
             }
             if !current_file.is_empty() {
-                mind.cognitive_state.quantum_vfs.deltas.insert(current_file.clone(), current_content.clone());
+                mind.cognitive_state.counterfactual_vfs.deltas.insert(current_file.clone(), current_content.clone());
             }
             
             mind.trace.sequence.push(genos_core::cell::events::CellEvent::TaskExecuted {
