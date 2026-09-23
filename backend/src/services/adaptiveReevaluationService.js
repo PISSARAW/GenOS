@@ -13,10 +13,17 @@ const {
   contractFor, missingCapabilities, capabilitiesForMode,
 } = require('./topologyCapabilityService');
 
-const REEVALUATION_RATE_LIMIT_MS = Number(process.env.GENOS_REEVAL_RATE_LIMIT_MS) || 30000;
-const REGRET_THRESHOLD = Number(process.env.GENOS_REGRET_THRESHOLD) || 0.35;
-const WORKER_STALL_MS = Number(process.env.GENOS_WORKER_STALL_MS) || 60000;
 const PROVENANCE_SOURCE = 'adaptiveReevaluationService';
+
+let reevaluationRateLimitMs = Number(process.env.GENOS_REEVAL_RATE_LIMIT_MS) || 30000;
+let regretThreshold = Number(process.env.GENOS_REGRET_THRESHOLD) || 0.35;
+let workerStallMs = Number(process.env.GENOS_WORKER_STALL_MS) || 60000;
+
+let currentConfig = {
+  rateLimitMs: reevaluationRateLimitMs,
+  regretThreshold,
+  workerStallMs,
+};
 
 const lastReevaluation = new Map();
 const reevaluationLog = [];
@@ -81,7 +88,7 @@ function computeWorkerStallRegret(activeWorkers) {
   const t = Date.now();
   const stalled = activeWorkers.filter((w) => {
     const last = w.lastUpdate || w.lastHeartbeat || w.updatedAt || 0;
-    return t - last > WORKER_STALL_MS;
+    return t - last > workerStallMs;
   }).length;
   return clamp01(stalled / activeWorkers.length);
 }
@@ -159,7 +166,7 @@ function detectStalledWorkers(activeWorkers) {
   const t = Date.now();
   return activeWorkers.filter((w) => {
     const last = w.lastUpdate || w.lastHeartbeat || w.updatedAt || 0;
-    return t - last > WORKER_STALL_MS;
+    return t - last > workerStallMs;
   });
 }
 
@@ -168,7 +175,7 @@ function logReevaluation(entry) {
     id: `reeval_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
     timestamp: new Date().toISOString(),
     provenance: PROVENANCE_SOURCE,
-    threshold: REGRET_THRESHOLD,
+    threshold: regretThreshold,
     ...entry,
   };
   reevaluationLog.push(record);
@@ -178,7 +185,7 @@ function logReevaluation(entry) {
 
 function checkRateLimit(agentId) {
   const last = lastReevaluation.get(agentId) || 0;
-  return Date.now() - last >= REEVALUATION_RATE_LIMIT_MS;
+  return Date.now() - last >= reevaluationRateLimitMs;
 }
 
 function updateRateLimit(agentId) {
@@ -270,7 +277,7 @@ function maybeReevaluate(ctx) {
     return { reevaluated: false, reason: 'rate_limited', regret: null };
   }
   const regret = computeRegretScore(ctx);
-  if (regret.score < REGRET_THRESHOLD) {
+  if (regret.score < regretThreshold) {
     logReevaluation({ agentId, regret, action: 'no_action', reason: 'below_threshold', events: [] });
     return { reevaluated: false, reason: 'below_threshold', regret };
   }
@@ -293,9 +300,21 @@ function getReevaluationLog(limit = 100) {
 }
 
 function configure(options = {}) {
-  if (options.rateLimitMs != null) process.env.GENOS_REEVAL_RATE_LIMIT_MS = String(options.rateLimitMs);
-  if (options.regretThreshold != null) process.env.GENOS_REGRET_THRESHOLD = String(options.regretThreshold);
-  if (options.workerStallMs != null) process.env.GENOS_WORKER_STALL_MS = String(options.workerStallMs);
+  if (options.rateLimitMs != null) {
+    reevaluationRateLimitMs = Number(options.rateLimitMs);
+  }
+  if (options.regretThreshold != null) {
+    regretThreshold = Number(options.regretThreshold);
+  }
+  if (options.workerStallMs != null) {
+    workerStallMs = Number(options.workerStallMs);
+  }
+  currentConfig = {
+    rateLimitMs: reevaluationRateLimitMs,
+    regretThreshold,
+    workerStallMs,
+  };
+  return { ...currentConfig };
 }
 
 module.exports = {
