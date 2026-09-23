@@ -532,3 +532,43 @@ node backend/bin/migrate_msgpack.js
 ```
 Cette migration crée les colonnes `BLOB` manquantes via `ALTER TABLE ... ADD COLUMN`, convertit les payloads JSON en bio-polymères binaires compressés dans une transaction atomique avec rollback de sécurité, et maintient l'intégrité référentielle.
 
+---
+
+## 16. Persistance polyglotte : SQLite canonique, projections reconstruisibles
+
+### 16.1 Règle d'autorité
+
+SQLite est la seule vérité canonique. LadybugDB (graphe), DuckDB (analytique), LanceDB (vecteurs, candidat) et FTS5/`sqlite-vec` (recherche) sont des **projections reconstruisibles** : leur destruction ne fait perdre aucune donnée, `rebuild` les régénère depuis SQLite. Un transport réussi ne prouve jamais une décision valide : un événement inconnu est enregistré en échec (`UNSUPPORTED_EVENT`), jamais marqué projeté silencieusement.
+
+### 16.2 Faisceau de données
+
+Tous les chemins sont résolus par [`backend/src/storage/storagePaths.js`](../../backend/src/storage/storagePaths.js) sous `.genos/data/` (avec `manifest.json` portable) :
+
+| Organe | Fournisseur | Fichier |
+| --- | --- | --- |
+| Opérationnel (canonique) | SQLite | `operational/genos.db` |
+| Graphe | LadybugDB (`@ladybugdb/core`), fallback CTE SQLite | `graph/world.lbdb` |
+| Analytique | DuckDB (`sqlite_scanner`, vues `projection.*`) | `analytics/analytics.duckdb` |
+| Vecteurs | `sqlite-vec` (primaire), LanceDB (candidat) | `vectors/genos.lance` |
+| Objets | fichiers/CAS | `objects/` |
+
+### 16.3 Outbox transactionnelle (migrations 063 et 066)
+
+La migration `063-projection-outbox` crée `projection_events` (journal append-only avec curseurs `graph/analytics/search_projected_at`), `projection_consumers`, `projection_failures` et `projection_rebuilds`. La migration `066-outbox-triggers` pose des triggers `AFTER INSERT/UPDATE/DELETE` **schéma-aware** : clés composites déterministes (`memory:<source>:<target>`, `vote:<decision>:<voter>`), scopes `direct` / `via_workspace` / `via_territory` selon les colonnes réelles de chaque table, types d'événements distincts par opération (`RELATION_ADDED/UPDATED/REMOVED`). Les triggers ignorent les tables absentes au lieu de faire échouer le boot, et l'événement ne transporte que la clé — le projecteur **relit la ligne canonique** dans SQLite.
+
+### 16.4 Projecteurs
+
+[`GraphProjector`](../../backend/src/storage/projection/graphProjector.js), [`AnalyticsProjector`](../../backend/src/storage/projection/analyticsProjector.js) et [`SearchProjector`](../../backend/src/storage/projection/searchProjector.js) consomment l'outbox par batch avec curseur, file d'échecs et réessai. Le projecteur graphe écrit via une implémentation Ladybug unique ([`LadybugStore`](../../backend/src/storage/graph/ladybugStore.js), vocabulaire fermé `NODE_TYPES`/`EDGE_TYPES`, propriétés sérialisées en map Cypher, suppressions `deleteNode/deleteEdge`) ou le fallback CTE SQLite (lecture seule sur tables canoniques). Les votes (`VOTE_CAST/...`) sont un `NO_GRAPH_EFFECT` explicite : les votes vivent dans SQLite, le graphe ne stocke que les nœuds de décision.
+
+### 16.5 Registre de capacités et politique de promotion
+
+[`StorageCapabilityRegistry`](../../backend/src/storage/capabilityRegistry.js) sonde chaque moteur à l'init (`registerAll`) et expose `available/degraded`. Politique vectorielle : `sqlite-vec` est primaire ; LanceDB n'est utilisé par [`StorageQueryPlanner`](../../backend/src/storage/query/storageQueryPlanner.js) que si `promotionPolicy.promoted` (seuils : 1 000 000 vecteurs, +25 % p95, reçu de benchmark via `evaluateVectorPromotion`). Le planner ne ferme jamais le singleton SQLite qu'il n'a pas créé.
+
+### 16.6 CLI et preuve E2E
+
+`node backend/bin/genos-storage.cjs doctor|status|rebuild <graph|analytics|search|all>|verify|compact` : diagnostic des capacités, rebuilds avec comptages et checksums SHA-256, `VACUUM/ANALYZE`. Le test [`backend/tests/test_storage_polyglot_e2e.js`](../../backend/tests/test_storage_polyglot_e2e.js) est l'autorité exécutable : base vierge, câblage, politique vectorielle, factory graphe, trigger → `AGENT_CREATED` à payload-clé, honnêteté du projecteur, index FTS, scopes et mapping `UPDATE/DELETE`.
+
+### 16.7 Limites connues
+
+Le rebuild graphe couvre agents, relations, lignée, synapses, graphe de connaissances et graphe territorial ; génomes, fossiles, plasmides, claims/evidence, findings daemon et Git DAG ne sont pas encore projetés. La portabilité inter-machine du faisceau (copie de `.genos/data`) n'a pas de test dédié.
+
