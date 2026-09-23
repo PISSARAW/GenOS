@@ -15,6 +15,7 @@
  */
 
 const crypto = require('node:crypto');
+const { runIsolated } = require('../sandboxExecutor');
 
 /* ============================================================
    Utilitaires communs
@@ -40,45 +41,98 @@ function computeEvidenceDigest(observations) {
   return `sha256:${crypto.createHash('sha256').update(canonical).digest('hex')}`;
 }
 
+function resolveSandboxTarget(config, verifier, context) {
+  return {
+    command: config.command || config.buildCommand,
+    cwd: config.cwd || verifier.cwd || context?.cwd || process.cwd(),
+    timeout: context?.timeoutMs || config.timeoutMs || 30000,
+  };
+}
+
+function truncateOutput(text) {
+  const s = String(text || '');
+  return s.length > 2000 ? s.slice(0, 2000) : s;
+}
+
+function executionDetail(command, execution) {
+  return {
+    command,
+    commandHash: execution.commandHash,
+    exitCode: execution.exitCode,
+    success: execution.success,
+    timedOut: execution.timedOut,
+    durationMs: execution.durationMs,
+    stdout: truncateOutput(execution.stdout),
+    stderr: truncateOutput(execution.stderr),
+    outcome: execution.success ? 'executed' : 'failed',
+  };
+}
+
+function rejectionDetail(command, err) {
+  return {
+    command,
+    outcome: 'rejected',
+    note: err.message,
+  };
+}
+
 /* ============================================================
    Adapter : test
-   Exécute un test unitaire/integration réel si fourni,
-   sinon produit une observation structurée avec échec explicite.
+   Exécute réellement la commande via sandboxExecutor.
+   verified dépend de l'exécution, jamais de la présence de command.
    ============================================================ */
 
-function runTestAdapter(antigen, verifier, context) {
-  const observations = [];
+function noTestSpecified() {
+  const observations = [observationRecord('test:execute', {
+    outcome: 'no_test_specified',
+    note: 'Aucun test configuré pour ce verifier',
+  })];
+  return { observations, counterexamples: [], status: 'inconclusive' };
+}
+
+function collectTestCounterexamples(execution, testConfig) {
   const counterexamples = [];
-  const testConfig = verifier.test || context?.testConfig || null;
-
-  if (testConfig && testConfig.command) {
-    observations.push(
-      observationRecord('test:execute', {
-        command: testConfig.command,
-        outcome: 'executed',
-        exitCode: 0,
-      })
-    );
-    if (testConfig.expectFailure && testConfig.failureCondition) {
-      counterexamples.push({
-        type: 'counterexample',
-        description: testConfig.failureDescription || 'Test revealed a failure condition',
-        timestamp: nowIso(),
-      });
-    }
-  } else {
-    observations.push(
-      observationRecord('test:execute', {
-        outcome: 'no_test_specified',
-        note: 'Aucun test configuré pour ce verifier',
-      })
-    );
+  if (!execution.success) {
+    counterexamples.push({
+      type: 'test_failure',
+      description: `Test command failed with exit ${execution.exitCode}`,
+      timestamp: nowIso(),
+    });
+    return counterexamples;
   }
+  if (testConfig.expectFailure && testConfig.failureCondition) {
+    counterexamples.push({
+      type: 'counterexample',
+      description: testConfig.failureDescription || 'Test revealed a failure condition',
+      timestamp: nowIso(),
+    });
+  }
+  return counterexamples;
+}
 
-  const hasCoverage = observations.some((o) => o.result === 'executed');
-  const status = counterexamples.length > 0 ? 'refuted' : (hasCoverage ? 'verified' : 'inconclusive');
+async function executeConfiguredTest(target, testConfig) {
+  const observations = [];
+  try {
+    const execution = await runIsolated({
+      command: target.command,
+      cwd: target.cwd,
+      timeoutMs: target.timeout,
+    });
+    observations.push(observationRecord('test:execute', executionDetail(target.command, execution)));
+    const counterexamples = collectTestCounterexamples(execution, testConfig);
+    const status = counterexamples.length > 0 ? 'refuted' : 'verified';
+    return { observations, counterexamples, status };
+  } catch (err) {
+    observations.push(observationRecord('test:execute', rejectionDetail(target.command, err)));
+    return { observations, counterexamples: [], status: 'inconclusive', reason: err.message };
+  }
+}
 
-  return { observations, counterexamples, status };
+async function runTestAdapter(antigen, verifier, context) {
+  const testConfig = verifier.test || context?.testConfig || null;
+  if (!testConfig?.command) return noTestSpecified();
+  const target = resolveSandboxTarget(testConfig, verifier, context || {});
+  return executeConfiguredTest(target, testConfig);
 }
 
 /* ============================================================
@@ -186,38 +240,57 @@ function runCustomCounterexampleProposal(verifier, antigenContext, counterexampl
    Construit et valide un artefact reproductible.
    ============================================================ */
 
-function runArtifactAdapter(antigen, verifier, context) {
+async function executeConfiguredBuild(target, artifactConfig, observations) {
+  try {
+    const execution = await runIsolated({
+      command: target.command,
+      cwd: target.cwd,
+      timeoutMs: target.timeout,
+    });
+    observations.push(observationRecord('artifact:build', executionDetail(target.command, execution)));
+    observations.push(
+      observationRecord('artifact:validate', {
+        validation: artifactConfig.validation || 'structural',
+        outcome: execution.success ? 'valid' : 'invalid',
+      })
+    );
+    return execution;
+  } catch (err) {
+    observations.push(observationRecord('artifact:build', rejectionDetail(target.command, err)));
+    return null;
+  }
+}
+
+async function runArtifactAdapter(antigen, verifier, context) {
   const observations = [];
   const counterexamples = [];
   const artifactConfig = verifier.artifact || context?.artifactConfig || null;
 
   observations.push(observationRecord('artifact:prepare', { artifactType: artifactConfig?.type || 'unknown' }));
 
-  if (artifactConfig && artifactConfig.buildCommand) {
-    observations.push(
-      observationRecord('artifact:build', {
-        command: artifactConfig.buildCommand,
-        outcome: 'built',
-      })
-    );
-    observations.push(
-      observationRecord('artifact:validate', {
-        validation: artifactConfig.validation || 'structural',
-        outcome: 'valid',
-      })
-    );
-  } else {
+  if (!artifactConfig?.buildCommand) {
     observations.push(
       observationRecord('artifact:validate', {
         outcome: 'no_artifact_specified',
         note: 'Aucun artefact configuré pour ce verifier',
       })
     );
+    return { observations, counterexamples, status: 'inconclusive' };
   }
 
-  const hasArtifact = observations.some((o) => o.step.startsWith('artifact:build'));
-  const status = hasArtifact ? 'verified' : 'inconclusive';
-  return { observations, counterexamples, status };
+  const target = resolveSandboxTarget(artifactConfig, verifier, context || {});
+  const execution = await executeConfiguredBuild(target, artifactConfig, observations);
+  if (!execution) return { observations, counterexamples, status: 'inconclusive' };
+  if (!execution.success) {
+    counterexamples.push({
+      type: 'artifact_build_failure',
+      description: `Build command failed with exit ${execution.exitCode}`,
+      timestamp: nowIso(),
+    });
+    return { observations, counterexamples, status: 'refuted' };
+  }
+
+  return { observations, counterexamples, status: 'verified' };
 }
 
 /* ============================================================
@@ -235,7 +308,7 @@ function selectAdapter(verifierType) {
   return ADAPTER_MAP[verifierType] || null;
 }
 
-function executeVerifierWithAdapter(antigen, verifier, context) {
+async function executeVerifierWithAdapter(antigen, verifier, context) {
   if (!antigen || !verifier) {
     return {
       status: 'inconclusive',
@@ -262,7 +335,7 @@ function executeVerifierWithAdapter(antigen, verifier, context) {
   };
 
   try {
-    return adapter(antigen, verifier, ctx);
+    return await adapter(antigen, verifier, ctx);
   } catch (err) {
     return {
       status: 'error',
