@@ -24,6 +24,7 @@ async function migrateDaemonEvents(db) {
         CHECK (priority IN ('low', 'medium', 'high')),
       woke INTEGER NOT NULL DEFAULT 0,
       handoff_requested INTEGER NOT NULL DEFAULT 0,
+      payload_json TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_daemon_events_territory

@@ -128,6 +128,10 @@ const migrationRunners = [
     const { migrateDaemonFindings } = require('./migrateDaemonFindings');
     await migrateDaemonFindings(db);
   }),
+  createMigrationRunner('041-daemon-event-payload', 'Add localizing payload to daemon event journal (ADR 0034 D8)', async (db) => {
+    const { migrateDaemonEventPayload } = require('./migrateDaemonEventPayload');
+    await migrateDaemonEventPayload(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
