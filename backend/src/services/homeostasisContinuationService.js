@@ -6,8 +6,6 @@ const immuneMemory = require('./immuneMemoryService');
 
 const MAX_HOMEOSTASIS_CONTINUATIONS = 3;
 
-// Safety-first classification: an unsafe status must never be masked by a
-// failed invariant (which an unsafe evaluation almost certainly also has).
 function classifyDeviation(evaluation = {}) {
   if (evaluation.status === 'unsafe') return 'unsafe_action';
   const state = evaluation.state || {};
@@ -25,8 +23,6 @@ function getImmuneAdvice(organismState, deviation) {
   return response && response.recognized ? response.response : null;
 }
 
-// Immune advice becomes a hard constraint: if the category itself is prohibited
-// (not just the exact signature), reject the candidate continuation strategy.
 function isImmuneBlocked(organismState, deviation, strategy) {
   const response = immuneMemory.immuneResponse(organismState, {
     failureCategory: `homeostasis:${deviation}`,
@@ -138,20 +134,16 @@ function persistHomeostasisAgent(db, agent, orchestratorId) {
   );
 }
 
-function buildRecoveryMission(agent, mission, orchestratorId) {
-  // Permissions inheritance: continuation worker MUST NOT have broader access
-  // than its parent. Default to restricted unless parent explicitly allowed edits.
-  const parentPolicy = mission.executionPolicy || {};
-  const inheritedFileEdits = parentPolicy.allowFileEdits === true;
-
+function buildRecoveryMission({ agent, mission, orchestratorId, queueJson = {} }) {
+  const inheritedPolicy = queueJson?.executionPolicy || mission.executionPolicy || {};
   return {
     agentId: agent.id,
     name: agent.name,
     role: agent.role,
     prompt: agent.prompt,
     executionBudget: { tokens: 8000, events: 5, costUsd: 0.5 },
-    executionPolicy: { allowFileEdits: inheritedFileEdits },
-    workspaceRoot: mission.workspaceRoot,
+    executionPolicy: inheritedPolicy,
+    workspaceRoot: queueJson?.workspaceRoot || mission.workspaceRoot,
     workspaceId: agent.workspaceId,
     fleetId: agent.fleetId,
     modelTier: agent.modelTier,
@@ -174,114 +166,7 @@ function emitDispatchTelemetry(info) {
   });
 }
 
-// State machine for continuation_queue:
-//   pending → worker idle, not yet started (safe for restart/redispatch)
-//   dispatched → startMission() has been called (runtime exists)
-//   completed / failed → terminal
-// This eliminates the crash window: if we crash between INSERT and startMission,
-// the record is PENDING and can be re-dispatched. If we crash after startMission,
-// the record is DISPATCHED and can be reconciled with the runtime.
-async function dispatchHomeostasisContinuation(input = {}) {
-  const { db, orchestratorId, mission, organismState, evaluation } = input;
-  const deviation = classifyDeviation(evaluation);
-  if (deviation === 'unsafe_action') {
-    telemetry.emitEvent({
-      eventType: 'HOMEOSTASIS_UNSAFE_QUARANTINED',
-      agentId: orchestratorId,
-      action: 'WAIT_HUMAN',
-      detail: 'Unsafe homeostasis: continuation refused, quarantine / human gate required.',
-      payload: { missionId: mission.id, deviation },
-      severity: 'error'
-    });
-    return { targetAgentId: null, deviation, quarantined: true, exhausted: false };
-  }
-  const advice = getImmuneAdvice(organismState, deviation);
-  const fingerprint = continuationFingerprint(evaluation);
-  const priorRounds = await countHomeostasisContinuations(db, mission.id, deviation);
-  const decisionId = continuationDecisionId({ missionId: mission.id, deviation, fingerprint, round: priorRounds });
-
-  // Idempotency first: an active continuation for the same blocked fingerprint
-  // must not spawn a duplicate worker.
-  const activeRecord = await findActiveContinuation({ db, missionId: mission.id, deviation, fingerprint });
-  if (activeRecord) {
-    return { targetAgentId: activeRecord.agent_id, deviation, preferredResponse: advice?.preferredResponse || null, decisionId: activeRecord.id, continuationRound: priorRounds, exhausted: false, idempotent: true };
-  }
-
-  if (priorRounds >= MAX_HOMEOSTASIS_CONTINUATIONS) {
-    telemetry.emitEvent({
-      eventType: 'HOMEOSTASIS_CONTINUATION_BUDGET_EXHAUSTED',
-      agentId: orchestratorId,
-      action: 'BUDGET_EXHAUSTED',
-      detail: `Homeostasis continuation budget (${MAX_HOMEOSTASIS_CONTINUATIONS}) exhausted for deviation=${deviation}`,
-      payload: { missionId: mission.id, deviation, decisionId, priorRounds },
-      severity: 'warning'
-    });
-    return { targetAgentId: null, deviation, exhausted: true, decisionId, continuationRound: priorRounds };
-  }
-
-  // Immune hard constraint: refuse if category prohibits this strategy
-  if (isImmuneBlocked(organismState, deviation, 'homeostasis_continuation')) {
-    telemetry.emitEvent({
-      eventType: 'HOMEOSTASIS_CONTINUATION_IMMUNE_BLOCKED',
-      agentId: orchestratorId,
-      action: 'IMMUNE_REFUSAL',
-      detail: `Immune memory prohibits homeostasis_continuation for deviation=${deviation}`,
-      payload: { missionId: mission.id, deviation, decisionId },
-      severity: 'warning'
-    });
-    return { targetAgentId: null, deviation, immuneBlocked: true, decisionId, continuationRound: priorRounds };
-  }
-
-  const prompt = buildPrompt(mission, deviation, evaluation);
-  const orchCtx = await getOrchContext(db, orchestratorId);
-  const agent = buildAgentValues(deviation, advice, orchCtx);
-  agent.prompt = prompt;
-  await persistHomeostasisAgent(db, agent, orchestratorId);
-
-  // Step 1: Create queue record as PENDING (safe for restart)
-  await db.run(
-    `INSERT INTO continuation_queue (id, agent_id, orchestrator_id, mission_json, status, attempts)
-     VALUES (?, ?, ?, ?, 'pending', ?)`,
-    decisionId, agent.id, orchestratorId,
-    JSON.stringify({ homeostasisMissionId: mission.id, homeostasisFingerprint: fingerprint, deviation }),
-    priorRounds + 1
-  );
-
-  // Step 2: Start the mission runtime
-  const { startMission } = require('./agentRuntimeAdapter');
-  const recoveryMission = buildRecoveryMission(agent, mission, orchestratorId);
-  
-  try {
-    await startMission(recoveryMission);
-  } catch (startErr) {
-    // Failed to start: mark queue record as failed
-    await db.run(
-      `UPDATE continuation_queue SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-      [decisionId]
-    );
-    telemetry.emitEvent({
-      eventType: 'HOMEOSTASIS_CONTINUATION_START_FAILED',
-      agentId: orchestratorId,
-      action: 'START_FAILED',
-      detail: `Continuation worker ${agent.id} failed to start: ${startErr.message}`,
-      payload: { missionId: mission.id, deviation, targetAgentId: agent.id, decisionId },
-      severity: 'error'
-    });
-    return { targetAgentId: agent.id, deviation, decisionId, continuationRound: priorRounds + 1, exhausted: false, startFailed: true };
-  }
-
-  // Step 3: Mark as DISPATCHED only after runtime is confirmed started
-  await db.run(
-    `UPDATE continuation_queue SET status = 'dispatched', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-    [decisionId]
-  );
-
-  emitDispatchTelemetry({ orchestratorId, missionId: mission.id, targetAgentId: agent.id, deviation, role: agent.role, decisionId, continuationRound: priorRounds + 1 });
-  return { targetAgentId: agent.id, deviation, preferredResponse: agent.role, decisionId, continuationRound: priorRounds + 1, exhausted: false };
-}
-
-async function findActiveContinuation(input = {}) {
-  const { db, missionId, deviation, fingerprint } = input;
+async function findActiveContinuation({ db, missionId, deviation, fingerprint }) {
   try {
     return await db.get(
       `SELECT id, agent_id, status FROM continuation_queue
@@ -295,6 +180,124 @@ async function findActiveContinuation(input = {}) {
   } catch {
     return null;
   }
+}
+
+async function persistQueueRecord({ db, decisionId, agent, orchestratorId, mission, fingerprint, deviation, priorRounds }) {
+  await db.run(
+    `INSERT INTO continuation_queue (id, agent_id, orchestrator_id, mission_json, status, attempts)
+     VALUES (?, ?, ?, ?, 'pending', ?)`,
+    decisionId, agent.id, orchestratorId,
+    JSON.stringify({
+      homeostasisMissionId: mission.id,
+      homeostasisFingerprint: fingerprint,
+      deviation,
+      executionPolicy: mission.executionPolicy || null,
+      workspaceRoot: mission.workspaceRoot || null,
+      allowedCommands: mission.allowedCommands || null,
+      toolLease: mission.toolLease || null,
+    }),
+    priorRounds + 1
+  );
+}
+
+async function startContinuationRuntime({ db, agent, mission, orchestratorId, decisionId }) {
+  const { startMission } = require('./agentRuntimeAdapter');
+  const queueJson = {
+    executionPolicy: mission.executionPolicy || null,
+    workspaceRoot: mission.workspaceRoot || null,
+    allowedCommands: mission.allowedCommands || null,
+    toolLease: mission.toolLease || null,
+  };
+  const recoveryMission = buildRecoveryMission({ agent, mission, orchestratorId, queueJson });
+  try {
+    await startMission(recoveryMission);
+  } catch (startErr) {
+    await db.run(
+      `UPDATE continuation_queue SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [decisionId]
+    );
+    telemetry.emitEvent({
+      eventType: 'HOMEOSTASIS_CONTINUATION_START_FAILED',
+      agentId: orchestratorId,
+      action: 'START_FAILED',
+      detail: `Continuation worker ${agent.id} failed to start: ${startErr.message}`,
+      payload: { missionId: mission.id, deviation: classifyDeviation({}), targetAgentId: agent.id, decisionId },
+      severity: 'error'
+    });
+    return false;
+  }
+  await db.run(
+    `UPDATE continuation_queue SET status = 'dispatched', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    [decisionId]
+  );
+  return true;
+}
+
+async function checkEarlyExit({ db, mission, organismState, evaluation, advice, fingerprint, priorRounds }) {
+  const orchestratorId = mission.orchestratorId;
+  const deviation = classifyDeviation(evaluation);
+  const decisionId = continuationDecisionId({ missionId: mission.id, deviation, fingerprint, round: priorRounds });
+  if (deviation === 'unsafe_action') {
+    telemetry.emitEvent({
+      eventType: 'HOMEOSTASIS_UNSAFE_QUARANTINED',
+      agentId: orchestratorId,
+      action: 'WAIT_HUMAN',
+      detail: 'Unsafe homeostasis: continuation refused, quarantine / human gate required.',
+      payload: { missionId: mission.id, deviation },
+      severity: 'error'
+    });
+    return { targetAgentId: null, deviation, quarantined: true, exhausted: false };
+  }
+  const activeRecord = await findActiveContinuation({ db, missionId: mission.id, deviation, fingerprint });
+  if (activeRecord) {
+    return { targetAgentId: activeRecord.agent_id, deviation, preferredResponse: advice?.preferredResponse || null, decisionId: activeRecord.id, continuationRound: priorRounds, exhausted: false, idempotent: true };
+  }
+  if (priorRounds >= MAX_HOMEOSTASIS_CONTINUATIONS) {
+    telemetry.emitEvent({
+      eventType: 'HOMEOSTASIS_CONTINUATION_BUDGET_EXHAUSTED',
+      agentId: orchestratorId,
+      action: 'BUDGET_EXHAUSTED',
+      detail: `Homeostasis continuation budget (${MAX_HOMEOSTASIS_CONTINUATIONS}) exhausted for deviation=${deviation}`,
+      payload: { missionId: mission.id, deviation, decisionId, priorRounds },
+      severity: 'warning'
+    });
+    return { targetAgentId: null, deviation, exhausted: true, decisionId, continuationRound: priorRounds };
+  }
+  if (isImmuneBlocked(organismState, deviation, 'homeostasis_continuation')) {
+    telemetry.emitEvent({
+      eventType: 'HOMEOSTASIS_CONTINUATION_IMMUNE_BLOCKED',
+      agentId: orchestratorId,
+      action: 'IMMUNE_REFUSAL',
+      detail: `Immune memory prohibits homeostasis_continuation for deviation=${deviation}`,
+      payload: { missionId: mission.id, deviation, decisionId },
+      severity: 'warning'
+    });
+    return { targetAgentId: null, deviation, immuneBlocked: true, decisionId, continuationRound: priorRounds };
+  }
+  return null;
+}
+
+async function dispatchHomeostasisContinuation({ db, mission, organismState, evaluation }) {
+  const orchestratorId = mission.orchestratorId;
+  const deviation = classifyDeviation(evaluation);
+  const advice = getImmuneAdvice(organismState, deviation);
+  const fingerprint = continuationFingerprint(evaluation);
+  const priorRounds = await countHomeostasisContinuations(db, mission.id, deviation);
+  const earlyExit = await checkEarlyExit({ db, mission, organismState, evaluation, advice, fingerprint, priorRounds });
+  if (earlyExit) return earlyExit;
+  const decisionId = continuationDecisionId({ missionId: mission.id, deviation, fingerprint, round: priorRounds });
+  const prompt = buildPrompt(mission, deviation, evaluation);
+  const orchCtx = await getOrchContext(db, orchestratorId);
+  const agent = buildAgentValues(deviation, advice, orchCtx);
+  agent.prompt = prompt;
+  await persistHomeostasisAgent(db, agent, orchestratorId);
+  await persistQueueRecord({ db, decisionId, agent, orchestratorId, mission, fingerprint, deviation, priorRounds });
+  const started = await startContinuationRuntime({ db, agent, mission, orchestratorId, decisionId });
+  if (!started) {
+    return { targetAgentId: agent.id, deviation, decisionId, continuationRound: priorRounds + 1, exhausted: false, startFailed: true };
+  }
+  emitDispatchTelemetry({ orchestratorId, missionId: mission.id, targetAgentId: agent.id, deviation, role: agent.role, decisionId, continuationRound: priorRounds + 1 });
+  return { targetAgentId: agent.id, deviation, preferredResponse: agent.role, decisionId, continuationRound: priorRounds + 1, exhausted: false };
 }
 
 module.exports = {

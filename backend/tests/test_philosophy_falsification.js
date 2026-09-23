@@ -62,7 +62,8 @@ console.log('✓ Falsification 4: ataraxieAnalysis frames as lecture, not verdic
 const proof1 = algebra.createEvidenceProfile({ type: 'formal', source: 'gpt-4', properties: { method: 'lean' } });
 const proof2 = algebra.createEvidenceProfile({ type: 'formal', source: 'gpt-4', properties: { method: 'lean' } });
 const independence = algebra.assessIndependence(proof1, proof2);
-assert.strictEqual(independence.independent, false, 'Same LLM + same method = not independent');
+assert.strictEqual(independence.legacyIndependent, false, 'Same LLM + same method = not independent');
+assert.strictEqual(independence.dependencyStatus, 'proven_dependent', 'Same LLM + same method = proven dependent');
 console.log('✓ Cross-check: two proofs from same LLM are not independent');
 
 // 6. Preuves de types différents ne sont PAS directement comparables

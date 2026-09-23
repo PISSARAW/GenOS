@@ -67,7 +67,7 @@ function mapServiceResult(input = {}) {
 
 function buildSafeMission(input = {}) {
   const { mission, orchestratorId } = input;
-  return { ...(mission || {}), id: (mission && mission.id) || orchestratorId };
+  return { ...(mission || {}), id: (mission && mission.id) || orchestratorId, orchestratorId };
 }
 
 async function dispatchGuarded(input = {}) {
@@ -81,7 +81,7 @@ async function dispatchGuarded(input = {}) {
   }
   const safeMission = buildSafeMission(input);
   const result = await homeostasisContinuation.dispatchHomeostasisContinuation({
-    db, orchestratorId, mission: safeMission, organismState: organism, evaluation
+    db, mission: safeMission, organismState: organism, evaluation
   });
   return mapServiceResult({ result, finalVerdict, continuity });
 }
