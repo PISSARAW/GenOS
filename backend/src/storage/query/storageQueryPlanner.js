@@ -15,7 +15,7 @@
  *   mixed cognitive retrieval  → parallel fan-out + fusion
  */
 
-const { StorageCapabilityRegistry } = require('./capabilityRegistry');
+const { StorageCapabilityRegistry } = require('../capabilityRegistry');
 
 class StorageQueryPlanner {
   constructor() {
@@ -31,17 +31,6 @@ class StorageQueryPlanner {
     return this._registry;
   }
 
-  /**
-   * Route a query to the appropriate engine(s).
-   *
-   * Intent types:
-   *   - 'exact'         → SQLite
-   *   - 'text'          → FTS5
-   *   - 'semantic'      → sqlite-vec / LanceDB
-   *   - 'graph'         → LadybugDB
-   *   - 'analytics'     → DuckDB
-   *   - 'mixed'         → parallel fan-out + fusion
-   */
   async query(request) {
     const { intent, ...params } = request;
     switch (intent) {
@@ -63,63 +52,55 @@ class StorageQueryPlanner {
   }
 
   async _exactQuery(params) {
-    const { getDatabase } = require('../db');
+    const { getDatabase } = require('../../db');
     const db = await getDatabase();
     const { sql, args } = params;
     const result = await db.all(sql, args || []);
-    await db.close();
     return { engine: 'sqlite', results: result };
   }
 
   async _textQuery(params) {
-    const { getDatabase } = require('../db');
+    const { getDatabase } = require('../../db');
     const db = await getDatabase();
     const { sql, args } = params;
     const result = await db.all(sql, args || []);
-    await db.close();
     return { engine: 'fts5', results: result };
   }
 
   async _semanticQuery(params) {
-    // Use LanceDB if available, else sqlite-vec
     if (this._registry.isAvailable('vector')) {
-      const { LanceVectorRepository } = require('./vector/lanceVectorRepository');
+      const { LanceVectorRepository } = require('../vector/lanceVectorRepository');
       const repo = new LanceVectorRepository();
       await repo.init();
       const results = await repo.search(params.table, params.vector, params.limit || 10);
       return { engine: 'lancedb', results };
     }
-    // Fallback: sqlite-vec
-    const { getDatabase } = require('../db');
+    const { getDatabase } = require('../../db');
     const db = await getDatabase();
     const result = await db.all(params.sql, params.args || []);
-    await db.close();
     return { engine: 'sqlite-vec', results: result };
   }
 
   async _graphQuery(params) {
     if (this._registry.isAvailable('graph')) {
-      const { LadybugGraphRepository } = require('./graph/ladybugStore');
-      const repo = new LadybugGraphRepository();
-      await repo.init();
-      await repo.ensureSchema();
-      const results = await repo.traverse(params);
-      await repo.close();
+      const { LadybugStore } = require('../graph/ladybugStore');
+      const store = new LadybugStore();
+      await store.init();
+      const results = await store.traverse(params);
+      await store.close();
       return { engine: 'ladybug', results };
     }
-    // Fallback: SQLite bounded CTE
-    const { SQLiteGraphRepository } = require('./graph/graphRepository');
-    const { getDatabase } = require('../db');
+    const { SQLiteGraphRepository } = require('../graph/graphRepository');
+    const { getDatabase } = require('../../db');
     const db = await getDatabase();
     const repo = new SQLiteGraphRepository(db);
     const results = await repo.traverse(params);
-    await db.close();
     return { engine: 'sqlite-cte', results };
   }
 
   async _analyticsQuery(params) {
     if (this._registry.isAvailable('analytics')) {
-      const { DuckDBAnalyticsStore } = require('./analytics/duckdbStore');
+      const { DuckDBAnalyticsStore } = require('../analytics/duckdbStore');
       const store = new DuckDBAnalyticsStore();
       await store.init();
       if (params.sqlitePath) {
@@ -129,26 +110,23 @@ class StorageQueryPlanner {
       await store.close();
       return { engine: 'duckdb', results };
     }
-    // Fallback: SQLite aggregation
-    const { getDatabase } = require('../db');
+    const { getDatabase } = require('../../db');
     const db = await getDatabase();
     const result = await db.all(params.sql, params.args || []);
-    await db.close();
     return { engine: 'sqlite', results: result };
   }
 
   async _mixedQuery(params) {
-    // Parallel fan-out to multiple engines, then fuse results
-    const promises = [];
-    if (params.exact) promises.push(this._exactQuery(params.exact));
-    if (params.text) promises.push(this._textQuery(params.text));
-    if (params.semantic) promises.push(this._semanticQuery(params.semantic));
-    if (params.graph) promises.push(this._graphQuery(params.graph));
-    const results = await Promise.allSettled(promises);
+    const tasks = [];
+    if (params.exact) tasks.push({ intent: 'exact', promise: this._exactQuery(params.exact) });
+    if (params.text) tasks.push({ intent: 'text', promise: this._textQuery(params.text) });
+    if (params.semantic) tasks.push({ intent: 'semantic', promise: this._semanticQuery(params.semantic) });
+    if (params.graph) tasks.push({ intent: 'graph', promise: this._graphQuery(params.graph) });
+    const results = await Promise.allSettled(tasks.map((t) => t.promise));
     return {
       engine: 'mixed',
       results: results.map((r, i) => ({
-        intent: ['exact', 'text', 'semantic', 'graph'][i],
+        intent: tasks[i].intent,
         status: r.status,
         value: r.status === 'fulfilled' ? r.value : null,
         reason: r.status === 'rejected' ? r.reason.message : null,

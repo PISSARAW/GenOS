@@ -35,7 +35,9 @@ class StorageCapabilityRegistry {
     return this.register('graph', 'ladybug', async () => {
       const store = new LadybugStore();
       await store.init();
-      return store.available !== false;
+      const available = store.available;
+      await store.close();
+      return available;
     });
   }
 
