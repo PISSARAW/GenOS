@@ -51,14 +51,14 @@ function createMathematicalPlasmid(options = {}) {
     validityDomain: { assumptions: vd.assumptions || [], constraints: vd.constraints || [], domain: vd.domain || 'general' },
     proofReceipt: options.proofReceipt || null,
     semanticFingerprint: options.semanticFingerprint || computeSemanticFingerprint(options),
-    compatibility: { requiredFitness: c.requiredFitness || 0.1, excludedDomains: c.excludedDomains || [], requiredRepresentations: c.requiredRepresentations || [] },
+    compatibility: { requiredFitness: c.requiredFitness ?? 0.1, excludedDomains: c.excludedDomains || [], requiredRepresentations: c.requiredRepresentations || [] },
     assimilationStatus: 'pending',
   };
 }
 
 function checkSourceFitness(sourceLineage, plasmid) {
   const sourceFitness = sourceLineage.fitness;
-  if (!sourceFitness || (sourceFitness.P || 0) < (plasmid.compatibility.requiredFitness || 0.1)) {
+  if (!sourceFitness || (sourceFitness.P ?? 0) < (plasmid.compatibility.requiredFitness ?? 0.1)) {
     return { blocked: true, reason: 'insufficient_source_verification', sourceFitness: sourceFitness?.P || 0 };
   }
   return { blocked: false };
@@ -120,10 +120,10 @@ function aeisGate(sourceLineage, targetLineage, plasmid) {
 
 class MutationEngine {
   constructor(opts = {}) {
-    this.mutationRate = opts.mutationRate || 0.1;
-    this.recombinationRate = opts.recombinationRate || 0.2;
-    this.hgtRate = opts.hgtRate || 0.05;
-    this.exaptationRate = opts.exaptationRate || 0.1;
+    this.mutationRate = opts.mutationRate ?? 0.1;
+    this.recombinationRate = opts.recombinationRate ?? 0.2;
+    this.hgtRate = opts.hgtRate ?? 0.05;
+    this.exaptationRate = opts.exaptationRate ?? 0.1;
     this.history = [];
     this.assimilatedPlasmids = new Set(); // Track globally assimilated plasmids
   }

@@ -31,12 +31,15 @@ function mutate(runtime) {
     for (const lineage of lineages) {
       runtime.mutationEngine.pointMutate(lineage);
 
-      if (lineages.length > 1 && Math.random() < runtime.mutationEngine.recombinationRate) {
+      // Single stochastic gate lives inside MutationEngine.recombine().
+      // Do not pre-filter here: a double draw would square the rate
+      // (r=0.2 -> ~0.04) and break ablation measurements.
+      if (lineages.length > 1) {
         const partner = lineages[Math.floor(Math.random() * lineages.length)];
         if (partner.id !== lineage.id) {
           const result = runtime.mutationEngine.recombine(lineage, partner);
-          runtime.metrics.totalMutations++;
           if (result && result.child) {
+            runtime.metrics.totalMutations++;
             assimilateChild(runtime, pop, result.child);
           }
         }
@@ -114,7 +117,9 @@ function horizontalTransfer(runtime) {
       if (!verifiedArtifact) continue; // Skip HGT if no verified artifact available
 
       const result = runtime.mutationEngine.horizontalGeneTransfer(source, target, verifiedArtifact, immuneReport);
-      if (result) {
+      // Count only truly assimilated transfers: AEIS rejections carry
+      // immunePassed:false and assimilationStatus:'rejected'.
+      if (result?.immunePassed === true && result.plasmid?.assimilationStatus === 'assimilated') {
         runtime.metrics.totalHGT++;
       }
     }

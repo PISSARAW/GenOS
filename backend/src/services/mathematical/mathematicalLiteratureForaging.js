@@ -123,7 +123,7 @@ class LiteratureForager {
     this.patches = new Map();
     this.currentPatchId = null;
     this.patchHistory = [];
-    this.envMeanReturnRate = opts.envMeanReturnRate || 0.35;
+    this.envMeanReturnRate = opts.envMeanReturnRate ?? 0.35;
     this.totalInfoGain = 0;
     this.currentInfoGain = 0;
     this.currentPatchTime = 0;

@@ -39,19 +39,19 @@ class MathematicalOrganismRuntime {
     this.id = options.id || runtimeId();
     this.environment = options.environment || null;
     this.nicheService = new MathematicalNichePopulationService({
-      envMeanReturnRate: options.envMeanReturnRate || 0.35,
+      envMeanReturnRate: options.envMeanReturnRate ?? 0.35,
     });
-    this.culture = new MathematicalCulture({ fidelityRate: options.fidelityRate || 0.9 });
+    this.culture = new MathematicalCulture({ fidelityRate: options.fidelityRate ?? 0.9 });
     this.mutationEngine = new MutationEngine({
-      mutationRate: options.mutationRate || 0.1,
-      recombinationRate: options.recombinationRate || 0.2,
-      hgtRate: options.hgtRate || 0.05,
-      exaptationRate: options.exaptationRate || 0.1,
+      mutationRate: options.mutationRate ?? 0.1,
+      recombinationRate: options.recombinationRate ?? 0.2,
+      hgtRate: options.hgtRate ?? 0.05,
+      exaptationRate: options.exaptationRate ?? 0.1,
     });
     this.questionogenesis = new QuestionogenesisEngine();
     this.conceptogenesis = createConceptogenesisEngine({ miner: { confidenceThreshold: 0.15 } });
     this.strategyRepertoire = new ProofStrategyRepertoire();
-    this.forager = new LiteratureForager({ envMeanReturnRate: options.envMeanReturnRate || 0.35 });
+    this.forager = new LiteratureForager({ envMeanReturnRate: options.envMeanReturnRate ?? 0.35 });
     this.leanGate = options.leanGate || null;
     this.dependencyGraph = new MathematicalDependencyGraph();
     this.formalizationRegistry = createFormalizationRegistry();

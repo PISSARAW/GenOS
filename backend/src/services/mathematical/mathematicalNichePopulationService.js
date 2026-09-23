@@ -6,7 +6,7 @@ class MathematicalNichePopulationService {
   constructor(opts = {}) {
     this.id = opts.id || `nps-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     this.niches = new Map();
-    this.envMeanReturnRate = opts.envMeanReturnRate || 0.35;
+    this.envMeanReturnRate = opts.envMeanReturnRate ?? 0.35;
     this.migrationHistory = [];
   }
 
