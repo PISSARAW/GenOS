@@ -55,6 +55,7 @@ async function recordObservation(db, args, observation) {
     headSha: observation.headSha,
     status: proposal.proposed ? 'HYPOTHESIZED' : 'OBSERVED',
     hypothesisId: proposal.proposed ? toHypothesisId(proposal.hypothesisId) : null,
+    detectorId: observation.detectorId || null,
     createdBy: args.daemonId || 'daemon.resident',
     limitations: ['detector observation, not independently verified']
   });

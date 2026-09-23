@@ -53,6 +53,7 @@ function rowToFinding(row) {
     headSha: row.head_sha,
     status: row.status,
     hypothesisId: row.hypothesis_id || null,
+    detectorId: row.detector_id || null,
     createdBy: row.created_by,
     limitations: safeParseArray(row.limitations_json),
     provenanceRecordIds: safeParseArray(row.provenance_record_ids_json),
@@ -75,11 +76,13 @@ async function createFinding(db, input) {
   const validation = validateFindingInput(input);
   if (!validation.ok) return { created: false, errors: validation.errors };
   await migrateDaemonFindings(db);
+  const { migrateDaemonFindingDetector } = require('../../../db/migrations/migrateDaemonFindingDetector');
+  await migrateDaemonFindingDetector(db);
   await db.run(
     `INSERT INTO daemon_findings
       (id, territory_id, claim, scope_type, scope_value, head_sha, status,
-       hypothesis_id, created_by, limitations_json, provenance_record_ids_json, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       hypothesis_id, detector_id, created_by, limitations_json, provenance_record_ids_json, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO NOTHING`,
     input.id,
     input.territoryId,
@@ -89,6 +92,7 @@ async function createFinding(db, input) {
     input.headSha,
     input.status || 'OBSERVED',
     input.hypothesisId || null,
+    input.detectorId || null,
     input.createdBy,
     JSON.stringify(input.limitations),
     JSON.stringify(input.provenanceRecordIds || []),

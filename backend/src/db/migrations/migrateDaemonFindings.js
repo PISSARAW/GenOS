@@ -26,6 +26,7 @@ async function migrateDaemonFindings(db) {
           'REFUTED', 'STALE', 'EXPIRED'
         )),
       hypothesis_id TEXT,
+      detector_id TEXT,
       created_by TEXT NOT NULL,
       limitations_json TEXT NOT NULL DEFAULT '[]',
       provenance_record_ids_json TEXT NOT NULL DEFAULT '[]',

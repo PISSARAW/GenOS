@@ -132,6 +132,10 @@ const migrationRunners = [
     const { migrateDaemonEventPayload } = require('./migrateDaemonEventPayload');
     await migrateDaemonEventPayload(db);
   }),
+  createMigrationRunner('042-daemon-finding-detector', 'Add detector id to daemon findings for verifier rules (ADR 0034 D9)', async (db) => {
+    const { migrateDaemonFindingDetector } = require('./migrateDaemonFindingDetector');
+    await migrateDaemonFindingDetector(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
