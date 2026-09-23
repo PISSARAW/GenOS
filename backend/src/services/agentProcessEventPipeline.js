@@ -4,7 +4,7 @@ const hallucinationMonitor = require('./hallucinationMonitoringService');
 const resilienceService = require('./resilienceService');
 const { extractEvidenceReport, validateDossierInfluence } = require('./agentEvidenceService');
 const { advanceAutonomousRound, dispatchPendingContinuation } = require('./agentRoundService');
-const { dispatchWorkerRecovery } = require('./agentRecoveryService');
+const agentRecoveryService = require('./agentRecoveryService');
 const agentConscience = require('./agentConscienceService');
 const cognitiveMonitor = require('./cognitiveMonitor');
 const swarmSentinel = require('./swarmSentinelService');
@@ -293,7 +293,7 @@ async function handleChildClose(ctx, code, signal) {
     }
   } finally {
     try {
-      await dispatchWorkerRecovery(agentId);
+      await agentRecoveryService.dispatchWorkerRecovery(agentId);
     } catch (err) {
       console.error(`[AgentSupervisor] Error dispatching worker recovery for ${agentId}:`, err);
     }

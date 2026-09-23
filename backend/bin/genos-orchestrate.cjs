@@ -108,7 +108,7 @@ async function evaluateMissionContinuity(opts) {
   let evaluation = null;
   let organism = null;
   try {
-    const context = await buildMissionContext(outcome, policyRequest, request, db, id, agents);
+    const context = await buildMissionContext({ outcome, policyRequest, request, db, missionId: id, agents });
     mission = missionContinuity.buildMissionInput(id, task, {
       completionContract: context.completionContract,
       invariants: context.invariants,
@@ -172,7 +172,7 @@ async function executeMission(db, state) {
   const mission = result.mission;
   const { telemetryRows, runs, coverage } = await gatherTelemetryAndCoverage(db, id);
   const missionSuccess = completionGate.allowed === true;
-  let finalVerdict = missionSuccess ? outcome.outcome : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.outcome);
+  let finalVerdict = missionSuccess ? outcome.verdict : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.verdict);
 
   const contResult = await handleHomeostasisContinuation({ db, id, task, request, mission, completionGate, evaluation, organism, finalVerdict, continuity });
   continuity = contResult.continuity;

@@ -12,7 +12,7 @@ const agentIdentity = require('./agentIdentityService');
 const agentConscience = require('./agentConscienceService');
 const immuneSystem = require('./immuneSystem');
 const { advanceAutonomousRound } = require('./agentRoundService');
-const { queueWorkerRecovery } = require('./agentRecoveryService');
+const agentRecoveryService = require('./agentRecoveryService');
 const { scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
 
 function isCodeWorkerRole(role) {
@@ -345,7 +345,7 @@ async function publishLocalFailure(ctx) {
   reportMilestone(ctx.mission, failed);
   await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, failed);
   await advanceAutonomousRound(ctx.mission, failed);
-  if (blocked === false) queueWorkerRecovery(ctx.mission, failed);
+  if (blocked === false) agentRecoveryService.queueWorkerRecovery(ctx.mission, failed);
   await scheduleWorkspaceCleanup(ctx.mission.agentId);
   return { started: false, executionRun: ctx.executionRun, local: true, error: ctx.error.message };
 }

@@ -11,7 +11,7 @@ const plasticity = require('./synapticPlasticityService');
 const tensor = require('./tensorCompatibilityService');
 const signalMetrics = require('./signalMetricsService');
 const { checkRateLimit, validatePayloadSize, validateArgs, retryDbOperation } = require('./signalValidationUtils');
-const { startMission: runtimeStartMission } = require('./agentRuntimeAdapter/missionExecution');
+const runtimeMissionExecution = require('./agentRuntimeAdapter/missionExecution');
 const { updateAgent: runtimeUpdateAgent } = require('./agentOrchestrationState');
 const dynamicOrg = require('./dynamicOrganizationService');
 const signalDelivery = require('./signalDeliveryService');
@@ -123,7 +123,7 @@ async function dispatchReceptorsIfNeeded(signal) {
   const ctx = {
     publishSignal: signal.publishSignal,
     startMission: async (mission) => {
-      const result = await runtimeStartMission(mission);
+      const result = await runtimeMissionExecution.startMission(mission);
       return { started: true, agentId: mission.agentId, result };
     },
     updateAgent: async (agentId, status, currentTask) => {

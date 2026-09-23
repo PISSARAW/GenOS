@@ -197,6 +197,7 @@ async function dispatchStageWorkers(ctx) {
   for (const worker of ctx.stageWorkers) {
     try {
       await startMissionFor(worker, ctx.contract);
+
       results.push({ ok: true, worker: worker });
     } catch (reason) {
       results.push({ ok: false, worker: worker, reason: reason });

@@ -6,11 +6,11 @@ const ROOT = path.resolve(__dirname, '..');
 const SANCTIONED = new Set([
   'src/services/workerGarageService.js',
   'tests/test_worker_idle_lifecycle.js',
-]);
+].map(p => path.normalize(p)));
 const ORCHESTRATOR_EXEMPT = new Set([
   'bin/orchestratorMissionHelpers.cjs',
   'src/services/primitiveHandlers/safetyRelease.js',
-]);
+].map(p => path.normalize(p)));
 
 function listProdFiles(dir, out) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

@@ -178,7 +178,7 @@ async function restoreOrganismState(db, organismId) {
 }
 
 function buildMissionInput(missionId, task, extras = {}) {
-  const { completionContract, invariants, safetyConstraints, context, ...rest } = extras;
+  const { completionContract, invariants, safetyConstraints, context, executionPolicy, workspaceRoot, allowedCommands, toolLease, ...rest } = extras;
   return {
     id: missionId,
     objective: task,
@@ -186,6 +186,10 @@ function buildMissionInput(missionId, task, extras = {}) {
     invariants,
     safetyConstraints,
     context,
+    executionPolicy,
+    workspaceRoot,
+    allowedCommands,
+    toolLease,
     ...rest
   };
 }

@@ -11,7 +11,7 @@
 const signalEventBus = require('./signalEventBus');
 const { getDatabase } = require('../db');
 const plasticity = require('./synapticPlasticityService');
-const { startMission } = require('./agentRuntimeAdapter/missionExecution');
+const runtimeMissionExecution = require('./agentRuntimeAdapter/missionExecution');
 const escalation = require('./cognitiveEscalationService');
 const { markSignalDelivered } = require('./signalDeliveryHelpers');
 const signalMetrics = require('./signalMetricsService');
@@ -85,7 +85,7 @@ function handleLlmEscalation(signal) {
     signalMetrics.recordLlmEscalation();
 
     try {
-      await startMission({
+      await runtimeMissionExecution.startMission({
         agentId: target,
         prompt: '',
         role: 'llm-escalation',

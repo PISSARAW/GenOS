@@ -172,53 +172,7 @@ async function handleOrganizationRead({ db, request, action, orchestratorId }) {
     : await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit });
   process.stdout.write(JSON.stringify(result || { orchestratorId, organization: 'specialist_expert_committee', version: 0 }));
 }
-async function ensureParent({ db, context }) {
-  let parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", context.orchestratorId);
-  if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status))) {
-    context.orchestratorId = createOrchestratorId('mcp_orchestrator');
-    await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
-      VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, context.orchestratorId, context.task);
-    parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", context.orchestratorId);
-  }
-  if (!parent) throw new Error(`Orchestrator '${context.orchestratorId}' was not found.`);
-  if (!await contracts.getLatestContract(db, context.orchestratorId)) await contracts.saveContract(db, {
-    agentId: context.orchestratorId, problem: context.task, createdBy: 'mcp_' + context.action
-  });
-  return parent;
-}
-function workerLaunchPayload(args) {
-  return require('./workerLaunchPayload.cjs').workerLaunchPayload(args);
-}
 
-async function ensureWorkerNceEnrichments(context) {
-  if (context.nceEnrichments) return context.nceEnrichments;
-  const topologyNCE = require('../src/services/topologyNCEService');
-  context.nceEnrichments = await topologyNCE.computeNCEForTopology(
-    context.task,
-    topologyNCE.buildTopologyOptions(context, 'worker')
-  );
-  return context.nceEnrichments;
-}
-function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
-  const workerId = suppliedWorkerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
-  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(workerLaunchPayload({ context, member, workerId, parent }))], { cwd: context.repoRoot, detached: true, stdio: getRunnerStdio(workerId) });
-  runner.unref();
-  return { workerId, subSystem: member.subSystem, memberNumber: member.memberNumber || index, role: member.role, modelTier: member.modelTier, status: 'accepted' };
-}
-function selectMembers(members, available) {
-  return members.slice(0, available);
-}
-function buildBiologicalOutput({ context, mode, mission, members, accepted, topology }) {
-  return {
-    orchestratorId: context.orchestratorId,
-    biologicalMode: {
-      status: 'accepted', mode, mission,
-      capacity: workerGarage.MAX_ACTIVE_WORKERS,
-      mechanisms: members[0]?.mechanisms || [],
-      ...topology, members: accepted
-    }
-  };
-}
 
 async function handleTeam(opts) {
   const handlers = require('../bin/topologyHandlers.cjs');
@@ -368,4 +322,4 @@ async function handleAction(context) {
   return true;
 }
 if (require.main === module) require('./orchestratorActionsCli.cjs').run({ handleAction }).catch((e) => { console.error(e.message); process.exit(1); });
-module.exports = { handleAction, handleBackground, initializeMission, workerLaunchPayload };
+module.exports = { handleAction, handleBackground, initializeMission };

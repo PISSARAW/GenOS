@@ -188,21 +188,28 @@ function toDevelopment(raw) {
   };
 }
 
+function fieldsMatch(cached, current) {
+  return cached.role === current.role
+    && cached.strategy === current.strategy
+    && cached.temp === current.temp
+    && cached.topP === current.topP
+    && cached.prompt === current.prompt
+    && cached.expressed === current.expressed;
+}
+
+function arraysMatch(cached, current) {
+  return JSON.stringify(cached.tools) === JSON.stringify(current.tools)
+    && JSON.stringify(cached.capabilities) === JSON.stringify(current.capabilities)
+    && JSON.stringify(cached.exprTfs) === JSON.stringify(current.exprTfs)
+    && JSON.stringify(cached.exprMirnas) === JSON.stringify(current.exprMirnas)
+    && JSON.stringify(cached.silenced) === JSON.stringify(current.silenced);
+}
+
 function decodePhenotype(model) {
   const current = express(model);
   if (model.phenotype) {
     const cached = model.phenotype;
-    model.phenotypeCacheValid = cached.role === current.role
-      && cached.strategy === current.strategy
-      && cached.temp === current.temp
-      && cached.topP === current.topP
-      && cached.prompt === current.prompt
-      && JSON.stringify(cached.tools) === JSON.stringify(current.tools)
-      && JSON.stringify(cached.capabilities) === JSON.stringify(current.capabilities)
-      && JSON.stringify(cached.exprTfs) === JSON.stringify(current.exprTfs)
-      && JSON.stringify(cached.exprMirnas) === JSON.stringify(current.exprMirnas)
-      && JSON.stringify(cached.silenced) === JSON.stringify(current.silenced)
-      && cached.expressed === current.expressed;
+    model.phenotypeCacheValid = fieldsMatch(cached, current) && arraysMatch(cached, current);
   }
   model.phenotype = current;
 }

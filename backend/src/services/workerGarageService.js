@@ -1,6 +1,6 @@
 const config = require('../config/orchestratorConfig');
 const { registerWakeHandler, unregisterWakeHandler } = require('./signalPlaneSubscriber');
-const { startMission } = require('./agentRuntimeAdapter/missionExecution');
+const runtimeMissionExecution = require('./agentRuntimeAdapter/missionExecution');
 
 function maxActiveWorkers() {
   return config.maxActiveWorkers();
@@ -263,7 +263,7 @@ async function enterIdleState(db, agentId, orchestratorId) {
 function armWakeHandler(workerId) {
   registerWakeHandler(workerId, async (signal) => {
     try {
-      await startMission({
+      await runtimeMissionExecution.startMission({
         agentId: workerId,
         prompt: '',
         role: 'signal-wake',

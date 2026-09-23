@@ -1,6 +1,6 @@
 const { activeProcesses, missionStarts, cancelledStarts, autonomousRounds, activeWorkerBarriers, pendingWorkerRecoveries, pendingContinuations, emit, updateAgent, orchestratorToolLease } = require('../agentOrchestrationState');
 const { dispatchPendingContinuation } = require('../agentRoundService');
-const { dispatchWorkerRecovery } = require('../agentRecoveryService');
+
 const { provisionMissionWorkspace, createIsolatedWorkspace, trackWorkspace } = require('../agentWorkspaceLifecycleService');
 const { runLocalWorker, runEvidenceBarrier } = require('../agentFleetService');
 const { superviseMission, runtimeExitOutcome } = require('../agentProcessSupervisor');

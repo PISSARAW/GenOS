@@ -55,12 +55,6 @@ function buildExecutionResult(decision) {
   };
 }
 
-/**
- * Simulate execution of a communication decision.
- * @param {object} decision — from decideCommunication
- * @param {object} intent — the original intent
- * @returns {Promise<{ executed: boolean, simulatedOutcome: object }>}
- */
 async function simulateExecution(decision) {
   if (!decision || decision.action === 'SILENCE') {
     return buildSilenceResult(decision && decision.encoding);
@@ -76,32 +70,51 @@ async function tryLogShadow(input) {
   }
 }
 
-async function learnFromCycle(db, intent, decision, simulatedOutcome) {
-  const results = [];
-  for (const receiverId of decision.recipients) {
-    const result = await learnFromOutcome({
-      db, senderId: intent.senderAgentId, receiverId,
-      domain: intent.domain, semanticRefs: intent.semanticRefs || [],
-      channel: decision.action, actionTaken: simulatedOutcome.actionTaken,
-      recipientKnew: simulatedOutcome.recipientKnew,
-      interpretationCorrect: simulatedOutcome.interpretationCorrect,
-      tokensUsed: simulatedOutcome.tokensUsed
-    });
-    results.push(result);
-  }
-  return results.pop() || null;
+function buildLearnQuery(ctx, receiverId) {
+  return {
+    db: ctx.db, senderId: ctx.intent.senderAgentId, receiverId,
+    domain: ctx.intent.domain, semanticRefs: ctx.intent.semanticRefs || [],
+    channel: ctx.decision.action, actionTaken: ctx.outcome.actionTaken,
+    recipientKnew: ctx.outcome.recipientKnew,
+    interpretationCorrect: ctx.outcome.interpretationCorrect,
+    tokensUsed: ctx.outcome.tokensUsed
+  };
 }
 
-/**
- * Execute a full communication cycle.
- * @param {object} params — { db, intent, opts }
- */
-async function runCycle({ db, intent, opts = {} }) {
-  if (!intent) throw new Error('runCycle: intent is required.');
-  if (!intent.senderAgentId) throw new Error('runCycle: intent.senderAgentId is required.');
+async function learnFromReceivers(ctx) {
+  let lastResult = null;
+  for (const receiverId of ctx.decision.recipients) {
+    const query = buildLearnQuery(ctx, receiverId);
+    lastResult = await learnFromOutcome(query);
+  }
+  return lastResult;
+}
 
-  const resolvedDb = await resolveDb(db);
-  const input = {
+function updateMetrics(outcome) {
+  if (outcome.actionTaken) recordUsefulAction();
+  else if (outcome.tokensUsed > 0) recordRedundant();
+}
+
+function buildReceipt(ctx) {
+  const recipients = ctx.decision.recipients || [];
+  return {
+    decision: ctx.decision,
+    outcome: {
+      executed: ctx.outcome.actionTaken !== undefined,
+      actionTaken: ctx.outcome.actionTaken || false,
+      recipientKnew: ctx.outcome.recipientKnew || false,
+      tokensUsed: ctx.outcome.tokensUsed || 0,
+      channel: ctx.decision.encoding, recipientCount: recipients.length
+    },
+    agency: { autonomous: ctx.agency.autonomous, reason: ctx.agency.reason },
+    shadow: ctx.shadow,
+    utility: (ctx.decision.meta && ctx.decision.meta.utility) || 0,
+    cost: (ctx.decision.meta && ctx.decision.meta.cost) || 0
+  };
+}
+
+function buildInput(intent, resolvedDb, opts) {
+  return {
     db: resolvedDb, intent,
     maxCost: opts.maxCost || 1.0,
     maxCandidates: opts.maxCandidates || 5,
@@ -109,21 +122,30 @@ async function runCycle({ db, intent, opts = {} }) {
     dialectAvailable: opts.dialectAvailable !== false,
     trigger: opts.trigger, ttlMs: opts.ttlMs || 60000
   };
+}
+
+async function runCycle(params) {
+  const { db, intent, opts = {} } = params;
+  if (!intent) throw new Error('runCycle: intent is required.');
+  if (!intent.senderAgentId) throw new Error('runCycle: intent.senderAgentId is required.');
+
+  const resolvedDb = await resolveDb(db);
+  const input = buildInput(intent, resolvedDb, opts);
 
   const decision = await decideCommunication(input);
   recordDecision(decision);
 
   const shadowReceipt = await tryLogShadow(input);
 
-  const sim = await simulateExecution(decision, intent);
+  const sim = await simulateExecution(decision);
   const executed = sim.executed;
   const simulatedOutcome = sim.simulatedOutcome;
 
   let learnResult = null;
   if (executed && decision.recipients && decision.recipients.length > 0) {
-    learnResult = await learnFromCycle(resolvedDb, intent, decision, simulatedOutcome);
-    if (simulatedOutcome.actionTaken) recordUsefulAction();
-    else if (simulatedOutcome.tokensUsed > 0) recordRedundant();
+    const ctx = { db: resolvedDb, intent, decision, outcome: simulatedOutcome };
+    learnResult = await learnFromReceivers(ctx);
+    updateMetrics(simulatedOutcome);
   }
 
   const agency = await assessAgency({
@@ -137,26 +159,9 @@ async function runCycle({ db, intent, opts = {} }) {
     reasonCodes: decision.reasonCodes || []
   };
 
-  const receipt = {
-    decision,
-    outcome: {
-      executed, actionTaken: simulatedOutcome.actionTaken || false,
-      recipientKnew: simulatedOutcome.recipientKnew || false,
-      tokensUsed: simulatedOutcome.tokensUsed || 0,
-      channel: decision.encoding, recipientCount: outcome.recipientCount
-    },
-    agency: { autonomous: agency.autonomous, reason: agency.reason },
-    shadow: shadowReceipt,
-    utility: (decision.meta && decision.meta.utility) || 0,
-    cost: (decision.meta && decision.meta.cost) || 0
-  };
-
-  return { decision, outcome, agency, receipt };
+  return { decision, outcome, agency, receipt: buildReceipt({ decision, outcome: simulatedOutcome, agency, shadow: shadowReceipt }) };
 }
 
-/**
- * Run cycles for multiple intents sequentially.
- */
 async function runCycleBatch(cycles, globalOpts = {}) {
   const results = [];
   for (const c of cycles) {

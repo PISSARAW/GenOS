@@ -29,12 +29,17 @@ function buildBiologicalOutput({ context, mode, mission, members, accepted, topo
 }
 
 function getRunnerStdio(workerId) {
-  const path = require('path');
-  const fs = require('fs');
-  const logDir = path.join(process.cwd(), 'logs', 'workers');
-  if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-  const logPath = path.join(logDir, `${workerId}.log`);
-  return ['ignore', fs.openSync(logPath, 'a'), fs.openSync(logPath, 'a')];
+  const logDir = process.env.GENOS_RUNNER_LOG_DIR;
+  if (!logDir) return 'ignore';
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    fs.mkdirSync(logDir, { recursive: true });
+    const fd = fs.openSync(path.join(logDir, `${workerId}.log`), 'a');
+    return ['ignore', fd, fd];
+  } catch {
+    return 'ignore';
+  }
 }
 
 function launchWorker({ context, member, index, parent, suppliedWorkerId }) {

@@ -16,7 +16,7 @@ const {
   activeProcesses, activeWorkerBarriers, workerEvidenceRounds, emit, updateAgent
 } = require('./agentOrchestrationState');
 const { recordWorkerEvidence, hasDecisionEvidence, decisionEvidenceFailure } = require('./agentEvidenceService');
-const { queueWorkerRecovery, applyOrganizationDecision } = require('./agentRecoveryService');
+const agentRecoveryService = require('./agentRecoveryService');
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const agentConscience = require('./agentConscienceService');
 const { terminateChild } = require('./processTermination');
@@ -98,7 +98,7 @@ function applyOrchestrationDecision(ctx, ...args) {
   const ownerId = agent?.parent_agent_id || agentId;
   emit(ownerId, 'ORCHESTRATION_DECISION', decision.action, decision.reason, { sourceAgentId: agentId, sourceEvent: eventType, ...decision }, 'info');
   if (decision.organization) {
-    applyOrganizationDecision(ownerId, decision.organization, decision.reason)
+    agentRecoveryService.applyOrganizationDecision(ownerId, decision.organization, decision.reason)
       .catch((error) => reportOrchestrationActionFailure({ ownerId, agentId, event, decision, error }));
   }
   actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: agentId, decision, event, workspaceRoot })
@@ -147,7 +147,7 @@ function emitTrackedImpl(ctx, ...args) {
   recordWorkerEvidence(ctx.normalizedMission, event);
   reportUserMilestone(ctx, event);
   const workerFailure = isWorkerFailureEvent(ctx.dispatchedAgent, eventType);
-  if (workerFailure) queueWorkerRecovery(ctx.normalizedMission, event);
+  if (workerFailure) agentRecoveryService.queueWorkerRecovery(ctx.normalizedMission, event);
   handleWorkerNoAnswer(ctx, event, eventType);
   handleOrchestrationDecision(ctx, event, eventType);
   enqueueTrackedEvent(ctx, event);
