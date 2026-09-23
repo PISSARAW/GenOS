@@ -94,15 +94,19 @@ function oracleFrom(ctx, antigen) {
   return ctx.oracleTruth || antigen.benchmarkTruth || antigen.oracleTruth || null;
 }
 
+function isOracleResolved(oracleTruth) {
+  return oracleTruth && typeof oracleTruth === 'object' && 'expectedStatus' in oracleTruth;
+}
+
 function applyOracleToClones(clones, cloneResults, oracleTruth) {
+  if (!isOracleResolved(oracleTruth)) return;
   for (let i = 0; i < clones.length; i += 1) {
     const clone = clones[i];
     const result = cloneResults.results[i];
     if (!result || result.status === 'error') continue;
-    const success = oracleTruth
-      ? String(result.status) === String(oracleTruth.expectedStatus || result.status)
-      : false;
-    if (!oracleTruth) continue;
+    // oracleTruth.expectedStatus doit correspondre au status produit par le verifier.
+    // Si le verifier a produit 'verified' et l'oracle attend 'verified', c'est un succès.
+    const success = String(result.status) === String(oracleTruth.expectedStatus);
     clone.pending = false;
     clone.usageCount += 1;
     if (success) {
@@ -113,6 +117,18 @@ function applyOracleToClones(clones, cloneResults, oracleTruth) {
     const total = clone.successes + clone.failures;
     clone.affinity = total > 0 ? clone.successes / total : clone.affinity;
   }
+}
+
+function diagnoseWinnerError(oracleTruth, winnerResult) {
+  if (!isOracleResolved(oracleTruth) || !winnerResult) return 'incomplete';
+  const actual = String(winnerResult.status);
+  const expected = String(oracleTruth.expectedStatus);
+  if (actual === expected) return 'true_positive';
+  // Le verifier a dit 'verified' mais l'oracle dit que c'est faux → false_positive
+  if (actual === 'verified' && expected === 'refuted') return 'false_positive';
+  // Le verifier a dit 'refuted' mais l'oracle dit que c'est vrai → false_negative
+  if (actual === 'refuted' && expected === 'verified') return 'false_negative';
+  return 'inconclusive';
 }
 
 async function runClonalSelectionCycle(parent, antigen, ctx) {

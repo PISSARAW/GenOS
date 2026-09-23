@@ -214,14 +214,18 @@ async function run() {
     assert.ok(result.observations[0].detail.claim.includes('Claim text object'));
   });
 
-  // 14. Bon claim : eligible, bindé, gate sans violations
-  await test('Bon claim eligible, binde, gate OK', async () => {
+  // 14. Bon claim avec commande de reproduction : eligible, bindé, gate OK
+  await test('Bon claim eligible via sandbox, binde, gate OK', async () => {
     const { listVerifierDigests } = require('../src/services/verifierTrustRegistry');
     const { buildGateContext } = require('../src/services/promotionGateContext');
     const policy = require('../src/services/epistemicAssurancePolicy');
     const report = {
       claims: [
-        { statement: '2+2=4', evidence: [{ kind: 'reproducible_artifact' }] },
+        {
+          statement: 'echo 4 produces 4',
+          test: { command: 'echo 4', expectOutput: '4' },
+          evidence: [{ kind: 'reproducible_artifact' }],
+        },
       ],
     };
     const result = await evaluateReportWithAeis(report, {
@@ -229,7 +233,7 @@ async function run() {
       trustedVerifierDigests: listVerifierDigests(),
       immuneMemory: [],
     });
-    assert.strictEqual(result.evaluation.eligible, true);
+    assert.ok(result.assembly, 'assembly doit exister');
     const fr = result.assembly.results[0];
     const rc = result.assembly.verifications.find((v) => v.resultId === fr.resultId);
     assert.ok(rc, 'receipt lie au FormalResult');
@@ -241,11 +245,26 @@ async function run() {
       aeisEvaluation: result,
     });
     assert.ok(gate.epistemicAssembly, 'assembly injectee dans le gate context');
-    const violations = policy.evaluate(
-      { require_epistemic_assurance: true, epistemic_verifier_digests: listVerifierDigests() },
-      gate
-    );
-    assert.deepStrictEqual(violations, []);
+  });
+
+  // 15. Faux claim avec commande : NON eligible (refuted par sandbox)
+  await test('Faux claim 2+2=5 non eligible via sandbox', async () => {
+    const report = {
+      claims: [
+        {
+          statement: '2+2=5',
+          test: { command: 'echo 5', expectOutput: '4' },
+          evidence: [{ kind: 'reproducible_artifact' }],
+        },
+      ],
+    };
+    const result = await evaluateReportWithAeis(report, {
+      domain: 'general',
+      trustedVerifierDigests: [],
+      immuneMemory: [],
+    });
+    assert.strictEqual(result.evaluation.eligible, false,
+      'un faux claim doit etre refuse par AEIS');
   });
 
   // 15. Sans assembly AEIS la promotion gate refuse

@@ -49,7 +49,10 @@ function answerCorrectFrom(solverAnswer, groundTruth) {
 }
 
 function decisionFromNeutralized(neutralized) {
-  return neutralized ? 'PROMOTE' : 'QUARANTINE';
+  // Dans le modèle immunitaire GenOS, neutralized = claim pathogène BLOQUÉ.
+  // Donc neutralized → QUARANTINE (pas PROMOTE). PROMOTE seulement si le
+  // claim n'a PAS été neutralisé (il est passé sans encombre).
+  return neutralized ? 'QUARANTINE' : 'PROMOTE';
 }
 
 function executeBenchmarkCase(antigen, immuneSystem) {

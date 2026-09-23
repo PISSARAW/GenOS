@@ -172,10 +172,21 @@ function errorVerifierResult(verifier, err) {
 
 async function runSingleVerifier(antigen, verifier, ctx) {
   const worker = buildVerifierWorker(antigen, verifier);
+  // Injecter la commande de reproduction dans le verifier pour que
+  // l'adapter (test/artifact) puisse réellement l'exécuter via sandbox.
+  const enriched = { ...verifier };
+  if (!enriched.test && !enriched.artifact && antigen.reproCommand) {
+    const looksLikeArtifact = enriched.type === 'artifact' || enriched.type === 'proof' || enriched.type === 'repro' || enriched.type === 'benchmark';
+    if (looksLikeArtifact) {
+      enriched.artifact = { buildCommand: antigen.reproCommand };
+    } else {
+      enriched.test = { command: antigen.reproCommand };
+    }
+  }
   const outcome = await executeVerifierWithAdapter(
     antigen,
-    verifier,
-    { worker, timeoutMs: ctx.opts.timeoutMs || 30000 }
+    enriched,
+    { worker, timeoutMs: ctx.opts.timeoutMs || 30000, testConfig: enriched.test, artifactConfig: enriched.artifact }
   );
   const independence = evaluateVerifierIndependence(verifier, antigen, ctx.executedVerifiers);
   return signVerifierResult(antigen, verifier, { outcome, independence });

@@ -100,6 +100,21 @@ function collectTestCounterexamples(execution, testConfig) {
     });
     return counterexamples;
   }
+  // Vérification de la sortie attendue (expectOutput).
+  if (testConfig.expectOutput !== undefined) {
+    const actual = (execution.stdout || '').trim();
+    const expected = String(testConfig.expectOutput).trim();
+    if (actual !== expected) {
+      counterexamples.push({
+        type: 'output_mismatch',
+        description: `Expected output '${expected}', got '${actual}'`,
+        expected,
+        actual,
+        timestamp: nowIso(),
+      });
+      return counterexamples;
+    }
+  }
   if (testConfig.expectFailure && testConfig.failureCondition) {
     counterexamples.push({
       type: 'counterexample',
@@ -206,7 +221,11 @@ function runBehaviorAdapter(antigen, verifier, context) {
   detectWeakCounterexample(antigen, context, counterexamples);
   runCustomCounterexampleProposal(verifier, { antigen, context }, counterexamples);
 
-  const status = counterexamples.length > 0 ? 'refuted' : 'verified';
+  // « Absence de réfutation ≠ preuve ». Ne jamais retourner 'verified'
+  // depuis un behavior adapter : il n'a ni oracle, ni source exécutée,
+  // ni outil externe. 'verified' doit venir d'un adapter qui a réellement
+  // exécuté quelque chose (test, artifact build, source lookup).
+  const status = counterexamples.length > 0 ? 'refuted' : 'inconclusive';
   return { observations, counterexamples, status };
 }
 

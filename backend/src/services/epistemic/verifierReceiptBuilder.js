@@ -58,6 +58,8 @@ function makeBasePreReceipt(result, evidenceDigest, payload) {
     // L'indépendance est déterminée par le bridge / AEIS,
     // pas par le résultat brut. Par défaut : false (dépendant).
     independent: false,
+    // Les obligations couvertes par ce verifier (census indépendant).
+    coveredObligations: result?.coveredObligations || null,
   };
 }
 

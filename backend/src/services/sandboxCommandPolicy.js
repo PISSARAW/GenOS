@@ -18,8 +18,15 @@ function isAllowedSandboxTestCommand(command) {
   const normalized = normalizeSandboxCommand(command);
   if (!normalized || normalized.length > MAX_COMMAND_LENGTH) return false;
   if (BASE_COMMANDS.has(normalized)) return true;
+  
+  // Commandes echo simples pour les tests AEIS (output vérifié).
   const parts = normalized.split(' ');
   if (parts.length > MAX_COMMAND_PARTS) return false;
+  
+  if (parts[0] === 'echo') {
+    return parts.slice(1).every(arg => SAFE_ARGUMENT.test(arg));
+  }
+  
   if (parts[0] === 'npm') {
     if (parts[1] !== 'test' && !(parts[1] === 'run' && parts[2] === 'check')) return false;
     const args = parts.slice(parts[1] === 'test' ? 2 : 3);

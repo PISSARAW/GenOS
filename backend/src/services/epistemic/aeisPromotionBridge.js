@@ -40,17 +40,33 @@ function actorFromReceipt(receipt) {
   return receipt.actorId || receipt.verifierDigest || 'unknown';
 }
 
-function buildConstraintAttestations(verifications, obligationIds) {
-  const sorted = [...obligationIds].sort();
+function buildConstraintAttestations(verifications, obligations) {
+  // Vrai census : chaque attestation est indépendante. On ne donne PAS
+  // la liste complète des obligations à chaque acteur. Chaque receipt
+  // porte ce que ce verifier a réellement validé (coveredObligations),
+  // et le census ne passe que si l'union couvre toutes les obligations.
+  const sorted = [...obligations].sort();
   const seen = new Set();
   const attestations = [];
+  
   for (const receipt of verifications) {
     if (receipt.independent !== true) continue;
     const actorId = actorFromReceipt(receipt);
     if (seen.has(actorId)) continue;
     seen.add(actorId);
-    attestations.push({ actorId, obligationIds: sorted, independent: true });
+    
+    // Les obligations couvertes par CE verifier spécifique.
+    const covered = receipt.coveredObligations
+      ? [...receipt.coveredObligations].sort()
+      : (receipt.evidenceDigest ? sorted : []);
+    
+    attestations.push({
+      actorId,
+      obligationIds: covered,
+      independent: true,
+    });
   }
+  
   return attestations;
 }
 
