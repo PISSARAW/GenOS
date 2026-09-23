@@ -1,7 +1,7 @@
 ---
 title: "Mathematical Organism — GenOS Mathématique"
 description: "Écosystème de recherche mathématique formel — Natural Creative Ecology appliquée aux preuves"
-version: 1.0.0
+version: 1.1.0
 author: GenOS
 created: 2026-09-21
 tags: [mathematics, proofs, ecology, biomimicry, lean, sat, nce]
@@ -23,6 +23,7 @@ Le **Mathematical Organism** est un système de recherche mathématique formel q
 | **Évolution** | Accumulation transgénérationnelle | Mutation, recombinaison, HGT, extinction, dormance | `mutationEngine.js` |
 | **Culture** | Transmission fidèle mais ouverte | Propagation de lemmes, méthodes, heuristiques entre lignages | `mathematicalCultureService.js` |
 | **M8** | Questionogenesis | Génération de nouvelles questions depuis anomalies | `questionogenesisService.js` |
+| **M7** | Conceptogenesis | Invention de concepts et d'invariants depuis observations | `conceptogenesisService.js` |
 
 ### Invariant fondamental
 
@@ -133,6 +134,46 @@ GoalEpitope {
 }
 ```
 
+### 2.6 Artefact de formalisation (pont immuable)
+
+```text
+FormalizationArtifact {
+  naturalStatement: "..."            // sens humain
+  formalStatement: "∀ n : Nat, ..."  // sens machine (vide = UNFORMALIZED)
+  formalLanguage: "lean4"
+  imports: ["Mathlib"]               // émis en tête du source Lean généré
+  environmentDigest, provenance, formalizer
+  // deep-freeze récursif après construction : l'artefact devient autorité
+}
+FormalizationRegistry {
+  byNaturalFingerprint / byFormalFingerprint / byId
+  getByCanonical(naturalStatement) → artefact ou null
+}
+```
+
+Séquence épistémique de `verify()` — aucun `FormalResult` n'existe avant le test
+de formalisation :
+
+```text
+énoncé naturel
+  → FormalizationRegistry.getByCanonical()
+  → formalStatement absent ? ── oui ──→ obligation UNFORMALIZED
+  │                                     (compteur totalUnformalized : échec de
+  │                                      formalisation, PAS échec de preuve ;
+  │                                      la stratégie n'est pas pénalisée)
+  └── non ──→ FormalResult(status="formalized")
+               → header Lean généré par GenOS depuis l'artefact immuable
+               → corps de preuve du worker après `:=`
+               → generateLeanSource() = imports + header + preuve
+               → LeanIncrementalGate → receipt → ProofArtifact
+```
+
+Le worker ne contrôle jamais le header : `checkSourceBinding()` exige que le
+théorème prouvé corresponde exactement au `formalStatement` (les lignes d'import
+générées en tête sont ignorées avant extraction du header, qui reste soumis au
+contrôle de fingerprint exact). Un nom d'import non conforme (`/^[\w.]+$/`) est
+rejeté pour interdire l'injection de code Lean via les imports.
+
 ---
 
 ## 3. Analogies biologiques et limites réelles
@@ -157,7 +198,7 @@ GoalEpitope {
 
 ### CU1 : Preuve de Conway-99
 
-Une lignée explore la niche SAT. Après 10 itérations, le rendement marginal chute. La MVT déclenche une migration vers la niche « algebraic ». Une recombinaison produit une nouvelle stratégie. Un lemme utile migre (HGT) vers une autre niche.
+Une lignée explore la niche SAT. Après 10 itérations, le rendement marginal chute. La MVT déclenche une migration vers la niche « algebraic ». Une recombinaison produit une nouvelle stratégie. L'enfant est enregistré dans la population parentale et dans `environment.lineages`. Un lemme utile migre (HGT) vers une autre niche.
 
 ### CU2 : Foraging littéraire
 
@@ -171,7 +212,7 @@ Un lemme utile est découvert par une lignage. Il est transmis à d'autres gén�
 
 ## 5. Architecture technique
 
-### Services implémentés (10 services)
+### Services implémentés (15 services)
 
 | Service | Fichier | Rôle |
 |---|---|---|
@@ -186,7 +227,11 @@ Un lemme utile est découvert par une lignage. Il est transmis à d'autres gén�
 | MutationEngine | `mathematical/mutationEngine.js` | Mutation, recombinaison, HGT, exaptation |
 | MathematicalCulture | `mathematical/mathematicalCultureService.js` | Transmission culturelle de lemmes |
 | QuestionogenesisEngine | `mathematical/questionogenesisService.js` | Génération de questions depuis anomalies |
+| ConceptogenesisEngine | `mathematical/conceptogenesisService.js` | Invention de concepts et d'invariants (M7) |
+| FormalizationArtifact | `mathematical/formalizationArtifact.js` | Pont immuable énoncé naturel → Lean, registre, deep-freeze récursif |
+| MathematicalOrganismRuntime | `mathematical/mathematicalOrganismRuntime.js` + `mathematicalOrganism{Observe,Question,Explore,SelectMutate}.js` | Boucle observe → question → explore → verify → select → mutate → transmit |
 | NichePopulationService | `mathematical/mathematicalNichePopulationService.js` | Allocation + migration entre niches |
+| SymbiontExecutor | `mathematical/symbiontExecutor.js` | Solveurs externes branchés par représentation de niche (M3) |
 
 ### Hiérarchie d'appel
 
@@ -269,8 +314,27 @@ MathematicalOrganism
                           ▼
                    NEW AFFORDANCES
                           │
-                          └────────────► WORLD
+                           └────────────► WORLD
 ```
+
+### Fermetures causales garanties par le runtime
+
+- **Concept → Question → Niche → Population (M7/M8).** `generateQuestion()` peut
+  produire un descriptor `createdNiche` ; la fonction commune
+  `materializeQuestionNiche()` (`mathematicalOrganismQuestion.js`) le matérialise
+  via `environment.createNiche()` + `nicheService.addNiche()` et rattache l'id réel
+  à la question. Le chemin M7 (invariants structurels ou numériques issus de la
+  conceptogenèse) et le chemin M8 (anomalies observées) partagent cette voie :
+  aucune niche ne reste à l'état de descriptor interne.
+- **Reproduction : identité globale vs localisation écologique.** L'enfant issu de
+  recombinaison est enregistré dans la population parentale (`pop.addLineage`)
+  **et** dans `environment.lineages` (`assimilateChild(runtime, pop, child)`, sans
+  réallocation immédiate). L'environnement porte l'identité globale, la population
+  la localisation écologique.
+- **Obligations non formalisées.** Un énoncé sans `formalStatement` ne produit
+  aucun `FormalResult` : il est compté en `totalUnformalized` (échec de
+  formalisation, catégorie distincte de l'échec de preuve) et tracé comme
+  `unformalized_obligation` dans l'historique du runtime.
 
 ---
 
@@ -288,21 +352,22 @@ MathematicalOrganism
 
 ## 8. Tests et validation
 
-Tous les services ont des tests unitaires dans `backend/tests/test_math_*.js` :
+La suite complète s'exécute avec :
 
 ```bash
-node backend/tests/test_mathematical_environment.js
-node backend/tests/test_research_lineage.js
-node backend/tests/test_mathematical_niche.js
-node backend/tests/test_proof_artifact.js
-node backend/tests/test_math_goal_strategy.js
-node backend/tests/test_math_population.js
-node backend/tests/test_literature_forager.js
-node backend/tests/test_mutation_engine.js
-node backend/tests/test_math_culture.js
-node backend/tests/test_questionogenesis.js
-node backend/tests/test_mathematical_organism_integration.js
+npm --prefix backend run test:mathematical-organism
+npm --prefix backend run test:math-kernel
 ```
+
+`test:mathematical-organism` couvre l'environnement, les lignées, les niches, les
+`ProofArtifact`, les stratégies, les populations, le foraging, les mutations, la
+culture, la questionogenèse, le runtime, les symbiontes et les invariants, plus les
+tests E2E structurels (`test_math_structural_a_e2e.js`, `test_math_structural_b_e2e.js`,
+sans Lean : mocks et registres) et le test kernel (`test_math_kernel_e2e.js`).
+`test:math-kernel` exécute le test kernel seul : **il exige un vrai Lean installé**
+(`executeLeanCheck` vérifie `lean --version`) et échoue explicitement sinon —
+jamais de succès simulé. La séparation est stricte : structural-tests d'un côté,
+kernel-tests de l'autre.
 
 ---
 
