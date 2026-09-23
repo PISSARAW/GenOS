@@ -111,7 +111,7 @@ function assessEvidenceStrength({ sameInitialState, divergenceCount, baselineLen
   if (!sameInitialState) return EVIDENCE_LEVELS.NONE;
   if (divergenceCount === 0) return EVIDENCE_LEVELS.NONE;
   if (baselineLength > 0 && candidateLength > 0 && Math.abs(baselineLength - candidateLength) <= 1) return EVIDENCE_LEVELS.STRONG;
-  if (divergenceLength <= 3) return EVIDENCE_LEVELS.MODERATE;
+  if (divergenceCount <= 3) return EVIDENCE_LEVELS.MODERATE;
   return EVIDENCE_LEVELS.WEAK;
 }
 
