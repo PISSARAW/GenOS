@@ -48,7 +48,7 @@ function repressionFor({ type, topic, signalData, repressors }) {
   return signalRepressor.applyRepressors({ kind: type, topic, signalData }, repressors);
 }
 
-function persistSignalRow(row) {
+async function persistSignalRow(row) {
   try {
     const db = await getDatabase();
     await retryDbOperation(() => {
