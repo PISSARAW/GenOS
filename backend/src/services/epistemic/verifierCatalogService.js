@@ -174,6 +174,17 @@ function clonalRank(catalog, antigen, strategyBias) {
     .sort((a, b) => b.fit - a.fit);
 }
 
+const TOPUP_PRIORITY = Object.freeze([
+  'behavior',
+  'coverage',
+  'source',
+  'testResult',
+  'replay',
+  'proof',
+  'artifact',
+  'benchmark',
+]);
+
 function selectTopClones(catalog, antigen, opts = {}) {
   const strategyBias = opts.strategyBias || null;
   const count = opts.count || 1;
@@ -181,7 +192,7 @@ function selectTopClones(catalog, antigen, opts = {}) {
   const selected = ranked.slice(0, Math.max(1, count)).map((r) => r.verifier);
   if (selected.length >= Math.max(1, count)) return selected;
   const seen = new Set(selected.map((v) => v.type));
-  for (const kind of VERIFIER_KINDS) {
+  for (const kind of TOPUP_PRIORITY) {
     if (selected.length >= Math.max(1, count)) break;
     if (seen.has(kind) || !catalog[kind]) continue;
     seen.add(kind);
