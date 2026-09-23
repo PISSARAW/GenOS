@@ -276,5 +276,6 @@ module.exports = {
   formatConsciencePrompt,
   persistCognitiveRegulationState,
   loadCognitiveRegulationState,
+  loadConscienceState: loadCognitiveRegulationState,
   getCognitiveRegulationTransitions
 };
