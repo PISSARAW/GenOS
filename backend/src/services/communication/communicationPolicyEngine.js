@@ -1,13 +1,8 @@
 'use strict';
 
 /**
- * CommunicationPolicyEngine — SHADOW MODE.
- *
- * decideCommunication(intent) ne modifie RIEN : il produit une
- * CommunicationDecision + utilité expliquée. logShadowDecision consigne
- * la décision face au comportement courant pour calibration hors-ligne.
- * Activation progressive : SILENCE / audience / multicast d'abord
- * (voir ordre d'implémentation de l'ADR 003x).
+ * CommunicationPolicyEngine — SHADOW MODE (ADR 003x) : décide et journalise,
+ * ne publie jamais. Activation progressive : SILENCE / audience / multicast.
  */
 
 const { getDatabase } = require('../../db');
@@ -42,6 +37,28 @@ function assertIntentContent(intent) {
   if (intent.semanticRefs !== undefined && !Array.isArray(intent.semanticRefs)) {
     throw new Error('CommunicationIntent.semanticRefs must be an array.');
   }
+  if (intent.requestedAudience !== undefined && intent.requestedAudience !== null && !Array.isArray(intent.requestedAudience)) {
+    throw new Error('CommunicationIntent.requestedAudience must be an array or null.');
+  }
+}
+
+function restrictAudience(informed, requested) {
+  if (!requested || requested.length === 0) return informed;
+  return informed.filter((candidate) => requested.indexOf(candidate.agentId) >= 0);
+}
+
+function stigmergyEligible(intent, input) {
+  if (!input.stigmergyAvailable) return false;
+  if (intent.purpose !== 'inform' && intent.purpose !== 'coordinate') return false;
+  if (intent.urgency >= 0.3 || riskLevelOf(intent.risk) > 1) return false;
+  return true;
+}
+
+function globalEligible(intent, input) {
+  if (!input.allowGlobal) return false;
+  if (intent.purpose !== 'warn') return false;
+  if (intent.urgency < 0.8 || riskLevelOf(intent.risk) < 2) return false;
+  return true;
 }
 
 function validateIntent(intent) {
@@ -191,6 +208,98 @@ function finalizeDecision(ctx) {
   };
 }
 
+async function subscribersOf(db, topic) {
+  const rows = await db.all(
+    'SELECT subscriber_agent_id AS id FROM signal_subscriptions WHERE topic = ? ORDER BY subscriber_agent_id ASC',
+    [topic]
+  );
+  return rows.map((row) => row.id);
+}
+
+async function decideStigmergy(input, intent, refs) {
+  const cost = estimateCost({
+    encoding: 'semantic-fingerprint', recipientCount: 0, grounding: 'none',
+    contaminationRisk: 0, disclosureRisk: 0, coefficients: input.coefficients
+  });
+  const gain = computeGain({
+    novelty: refs.length > 0 ? 0.5 : 0, relevance: 0.6, actionability: 0.4,
+    urgency: intent.urgency, capability: 0.5,
+    riskLevel: riskLevelOf(intent.risk), baseRate: baseRateOf()
+  });
+  const utility = gain - cost.total;
+  if (utility <= 0) {
+    return silenceDecision('TOKEN_SAVINGS', { stage: 'utility', utility, gain, cost: cost.total });
+  }
+  return {
+    action: 'STIGMERGY', scope: 'STIGMERGY', recipients: [], encoding: 'semantic-fingerprint',
+    grounding: 'none', ttlMs: input.ttlMs || 60000, reasonCodes: ['TOKEN_SAVINGS'],
+    meta: { utility, gain, cost: cost.total, breakdown: cost.breakdown, channel: 'environment' }
+  };
+}
+
+function broadcastGrounding(risk, requiresAction) {
+  const level = groundingFor(risk, requiresAction);
+  if (level === 'human_confirmation') return 'verified_ack';
+  return level;
+}
+
+async function decideLocalBroadcast(input, intent, refs) {
+  const subscribers = await subscribersOf(input.db, input.receptorTopic);
+  const recipients = subscribers.filter((id) => id !== intent.senderAgentId);
+  if (recipients.length === 0) {
+    return silenceDecision('COMMON_GROUND_HIGH', { stage: 'scope', utility: 0, gain: 0, cost: 0 });
+  }
+  const grounding = broadcastGrounding(intent.risk, intent.requiresAction);
+  const cost = estimateCost({
+    encoding: 'semantic-fingerprint', recipientCount: recipients.length, grounding,
+    contaminationRisk: 0.3, disclosureRisk: disclosureOf(intent.risk), coefficients: input.coefficients
+  });
+  const gain = computeGain({
+    novelty: 0.7, relevance: 0.8, actionability: intent.requiresAction ? 1 : 0.4,
+    urgency: intent.urgency, capability: 0.5,
+    riskLevel: riskLevelOf(intent.risk), baseRate: baseRateOf()
+  });
+  const utility = gain - cost.total;
+  if (utility <= 0) {
+    return silenceDecision('TOKEN_SAVINGS', { stage: 'utility', utility, gain, cost: cost.total });
+  }
+  return {
+    action: 'SIGNAL', scope: 'LOCAL_BROADCAST', recipients, encoding: 'semantic-fingerprint',
+    grounding, ttlMs: input.ttlMs || 60000, reasonCodes: ['BROADCAST_FANOUT'],
+    meta: { utility, gain, cost: cost.total, breakdown: cost.breakdown, variants: 1, receptorTopic: input.receptorTopic }
+  };
+}
+
+async function decideGlobalBroadcast(input, intent, refs) {
+  const fleet = Math.max(1, Number(input.fleetSize || 1000));
+  const grounding = broadcastGrounding(intent.risk, intent.requiresAction);
+  const cost = estimateCost({
+    encoding: 'semantic-fingerprint', recipientCount: fleet, grounding,
+    contaminationRisk: 0.5, disclosureRisk: disclosureOf(intent.risk), coefficients: input.coefficients
+  });
+  const gain = computeGain({
+    novelty: 0.5, relevance: 1, actionability: 1,
+    urgency: intent.urgency, capability: 0.5,
+    riskLevel: riskLevelOf(intent.risk), baseRate: baseRateOf()
+  });
+  const utility = gain - cost.total;
+  if (utility <= 0) {
+    return silenceDecision('TOKEN_SAVINGS', { stage: 'utility', utility, gain, cost: cost.total });
+  }
+  return {
+    action: 'SIGNAL', scope: 'GLOBAL_BROADCAST', recipients: [], encoding: 'semantic-fingerprint',
+    grounding, ttlMs: input.ttlMs || 60000, reasonCodes: ['BROADCAST_FANOUT', 'COGNITIVE_WAKE'],
+    meta: { utility, gain, cost: cost.total, breakdown: cost.breakdown, variants: 1, fleetSize: fleet }
+  };
+}
+
+async function tryPrescoped(input, intent, refs) {
+  if (input.receptorTopic) return decideLocalBroadcast(input, intent, refs);
+  if (globalEligible(intent, input)) return decideGlobalBroadcast(input, intent, refs);
+  if (stigmergyEligible(intent, input)) return decideStigmergy(input, intent, refs);
+  return null;
+}
+
 async function decideCommunication(input) {
   const intent = input.intent || {};
   validateIntent(intent);
@@ -198,8 +307,11 @@ async function decideCommunication(input) {
   if (!necessityPass(intent)) {
     return silenceDecision('NOVELTY_LOW', { stage: 'necessity', utility: 0, gain: 0, cost: 0 });
   }
+  const prescoped = await tryPrescoped(input, intent, refs);
+  if (prescoped) return prescoped;
+  const requested = intent.requestedAudience || [];
   const audience = await selectAudience(audienceQueryOf(intent, refs, input));
-  const informed = withoutSender(audience.candidates, intent.senderAgentId);
+  const informed = restrictAudience(withoutSender(audience.candidates, intent.senderAgentId), requested);
   if (informed.length === 0) {
     return silenceDecision('COMMON_GROUND_HIGH', { stage: 'novelty', utility: 0, gain: 0, cost: 0 });
   }

@@ -156,6 +156,14 @@ const migrationRunners = [
     const { migrateTransactiveMemory } = require('./migrateTransactiveMemory');
     await migrateTransactiveMemory(db);
   }),
+  createMigrationRunner('048-signal-grounding', 'Extend signal_deliveries with zero-text grounding levels (Phase 7)', async (db) => {
+    const { migrateSignalGrounding } = require('./migrateSignalGrounding');
+    await migrateSignalGrounding(db);
+  }),
+  createMigrationRunner('049-uplift-tables', 'Persist GMUB/GCAB paired runs, pairs and comparisons (ADR 0035)', async (db) => {
+    const { migrateUpliftTables } = require('./migrateUpliftTables');
+    await migrateUpliftTables(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
