@@ -35,6 +35,22 @@ function formalStatementFingerprint(statement) {
   return `sha256:${createHash('sha256').update(statement.normalize('NFC').trim()).digest('hex')}`;
 }
 
+/**
+ * deepFreeze — gèle récursivement un objet (tableaux et objets imbriqués
+ * inclus) pour rendre l'artefact réellement immuable après construction.
+ * Un Object.freeze de surface laisserait `provenance.source.uri` mutable.
+ */
+function deepFreeze(value, seen) {
+  if (!value || typeof value !== 'object') return value;
+  const known = seen || new WeakSet();
+  if (known.has(value)) return value;
+  known.add(value);
+  for (const key of Object.getOwnPropertyNames(value)) {
+    deepFreeze(value[key], known);
+  }
+  return Object.freeze(value);
+}
+
 class FormalizationArtifact {
   constructor(options = {}) {
     this.id = options.id || `formalization-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -54,11 +70,9 @@ class FormalizationArtifact {
     this.createdAt = new Date().toISOString();
 
     // ─── Immutability : l'artefact devient autorité après construction ───
-    // Deep-freeze des collections et de l'objet lui-même pour empêcher
-    // la mutation post-enregistrement (cf. revue architecture 2026-09-22).
-    Object.freeze(this.imports);
-    Object.freeze(this.provenance);
-    Object.freeze(this);
+    // Deep-freeze récursif : les objets imbriqués (provenance.source, ...)
+    // sont gelés eux aussi (cf. revue architecture 2026-09-23).
+    deepFreeze(this);
   }
 
   /**
