@@ -30,7 +30,7 @@ async function stateFromOrchestrator(db, orchestratorId) {
       heading: score % 360,
       fitness: agent.status === 'completed' ? 1 : (agent.status === 'running' ? 0.5 : 0)
     };
-  });
+  }).sort((a, b) => a.id.localeCompare(b.id));
   const edges = [];
   for (let index = 1; index < pack.length; index += 1) {
     edges.push({ id: `${pack[index - 1].id}->${pack[index].id}`, conductivity: 0.5, flow: pack[index].fitness });
@@ -42,7 +42,15 @@ async function applyStepForOrchestrator(orchestratorId, options = {}) {
   const db = options.db || await require('../db').getDatabase();
   const current = await dynamicOrganization.getState(db, orchestratorId).catch(() => null);
   if (!current || !current.organization) return null;
-  const state = options.state || { ...(await stateFromOrchestrator(db, orchestratorId)), orchestratorId };
+  const stateFromDb = await stateFromOrchestrator(db, orchestratorId);
+  const state = {
+    ...stateFromDb,
+    ...options.state,
+    agents: options.state?.agents || stateFromDb.agents,
+    pack: options.state?.pack || stateFromDb.pack,
+    edges: options.state?.edges || stateFromDb.edges,
+    orchestratorId
+  };
   const step = swarmTopologyAlgorithms.runTopologyStep(current.organization, state, options);
   if (!step) return null;
   const preferred = swarmTopologyAlgorithms.preferredAgents(current.organization, step);

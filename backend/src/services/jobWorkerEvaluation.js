@@ -54,7 +54,12 @@ function validateEvaluationConfig(parsed) {
 
 async function loadEvaluationCases(db, job) {
   if (!job.dataset_id) return [];
-  return db.all('SELECT c.* FROM dataset_cases c JOIN datasets d ON d.id = c.dataset_id WHERE c.dataset_id = ? AND d.organization_id = ? AND d.project_id = ?', job.dataset_id, job.organization_id, job.project_id);
+  const orgId = job.organization_id;
+  const projId = job.project_id;
+  if (orgId !== null && projId !== null) {
+    return db.all('SELECT c.* FROM dataset_cases c JOIN datasets d ON d.id = c.dataset_id WHERE c.dataset_id = ? AND d.organization_id = ? AND d.project_id = ?', job.dataset_id, orgId, projId);
+  }
+  return db.all('SELECT c.* FROM dataset_cases c WHERE c.dataset_id = ?', job.dataset_id);
 }
 
 function dedupeCheckpointResults(checkpointResults, knownCases) {
