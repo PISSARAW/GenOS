@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/communication-decision.schema.json",
+  "title": "CommunicationDecision",
+  "description": "Le moteur produit une décision d'action, pas un message textuel.",
+  "type": "object",
+  "required": ["action", "scope", "recipients", "encoding", "grounding", "ttlMs", "reasonCodes"],
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": ["SILENCE", "SELF", "ENVIRONMENT", "STIGMERGY", "SIGNAL", "STRUCTURED", "DIALECT", "MICRO_UTTERANCE", "DIALOGUE", "HUMAN"],
+      "description": "L'action de communication choisie."
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["SELF", "UNICAST", "SELECTIVE_MULTICAST", "QUORUM", "LOCAL_BROADCAST", "GLOBAL_BROADCAST", "STIGMERGY"],
+      "description": "Portée de diffusion."
+    },
+    "recipients": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "IDs des récepteurs ciblés."
+    },
+    "encoding": {
+      "type": "string",
+      "enum": ["formal-result", "ontology-patch", "contract-hash", "semantic-fingerprint", "symbol-dialect"],
+      "description": "Encodage du payload."
+    },
+    "grounding": {
+      "type": "string",
+      "enum": ["none", "transport_ack", "semantic_ack", "action_ack", "verified_ack", "human_confirmation"],
+      "description": "Niveau d'ancrage requis."
+    },
+    "ttlMs": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Time-to-live en millisecondes."
+    },
+    "reasonCodes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "RECIPIENT_EXPERT",
+          "INDEPENDENCE_REQUIRED",
+          "COMMON_GROUND_HIGH",
+          "COMMON_GROUND_MEDIUM",
+          "COMMON_GROUND_LOW",
+          "EPISTEMIC_INDEPENDENCE",
+          "NOVELTY_HIGH",
+          "NOVELTY_MEDIUM",
+          "NOVELTY_LOW",
+          "TOKEN_SAVINGS",
+          "BROADCAST_FANOUT",
+          "COGNITIVE_WAKE",
+          "DISCLOSURE_RISK",
+          "UNKNOWN_DIALECT_VERSION"
+        ],
+        "description": "Codes de raison justifiant la décision."
+      },
+      "description": "Liste non exhaustive de codes de raison."
+    }
+  },
+  "additionalProperties": false
+}

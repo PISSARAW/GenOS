@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/communication-intent.schema.json",
+  "title": "CommunicationIntent",
+  "description": "Exprime le besoin, pas le message. Le but est borné et structurel.",
+  "type": "object",
+  "required": ["senderAgentId", "purpose", "semanticRefs", "requiresAction", "urgency", "risk", "domain", "independenceRequired"],
+  "properties": {
+    "senderAgentId": { "type": "string", "minLength": 1 },
+    "purpose": {
+      "type": "string",
+      "enum": ["inform", "request", "delegate", "clarify", "challenge", "verify", "warn", "negotiate", "commit", "recruit", "coordinate", "handoff", "teach", "escalate"],
+      "description": "Le but structurel de la communication."
+    },
+    "semanticRefs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^sha256:" },
+      "description": "Références canoniques (hashs, ontology IDs, contrat IDs) visés."
+    },
+    "requiresAction": { "type": "boolean", "description": "Cette intent nécessite une action du récepteur." },
+    "urgency": { "type": "number", "minimum": 0, "maximum": 1, "description": "Urgence de 0 (bas) à 1 (critique)." },
+    "risk": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "Niveau de risque associé à l'ignorance ou au mauvais routage."
+    },
+    "domain": {
+      "type": "string",
+      "description": "Domaine de compétence requis (ex: security.auth, database.routing)."
+    },
+    "requestedAudience": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Agents ciblés explicitement (null = laissé au Policy Engine)."
+    },
+    "expiresAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Échéance ISO de cet intent."
+    },
+    "independenceRequired": {
+      "type": "boolean",
+      "description": "Vrai si l'indépendance épistémique du récepteur est requise (vérificateur indépendant, pas parent/enfant)."
+    }
+  },
+  "additionalProperties": false
+}

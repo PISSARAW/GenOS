@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/grounding-receipt.schema.json",
+  "title": "GroundingReceipt",
+  "description": "Receipt confirming grounding level for a communicated item.",
+  "type": "object",
+  "required": ["communicationId", "receiverId", "semanticHash", "groundingLevel", "confirmedAt"],
+  "properties": {
+    "communicationId": { "type": "string", "minLength": 1, "description": "ID de la communication originale." },
+    "receiverId": { "type": "string", "minLength": 1, "description": "ID du récepteur." },
+    "semanticHash": { "type": "string", "pattern": "^sha256:", "description": "Hash sémantique de l'information ancrée." },
+    "groundingLevel": {
+      "type": "string",
+      "enum": ["none", "transport_ack", "semantic_ack", "action_ack", "verified_ack", "human_confirmation"],
+      "description": "Niveau d'ancrage atteint."
+    },
+    "confirmedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Horodateur ISO du confirmation."
+    },
+    "provenance": {
+      "type": "object",
+      "description": "D'où venait l'information (source_agent, domain, fingerprint)."
+    },
+    "dispute": {
+      "type": "boolean",
+      "description": "True si le grounding a été contesté ou invalidé."
+    }
+  },
+  "additionalProperties": false
+}
