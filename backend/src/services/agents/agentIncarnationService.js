@@ -19,6 +19,7 @@ const { restrictProvidedLease, normalizeToolName } = require('../toolLeasePolicy
 const { workerGenesForAssignment } = require('../agentDnaStore');
 const { evolveWorkerGenome } = require('../agentEvolutionService');
 const { formatPhenotypePrompt } = require('../cognitivePhenotypeService');
+const { buildExpressionContext } = require('./agentExpressionContextService');
 
 function uuid() { return crypto.randomUUID(); }
 function safeArray(v) { return Array.isArray(v) ? v : []; }
@@ -273,13 +274,30 @@ function descriptorMetadata(d) {
   };
 }
 
+function descriptorExpressionContext(d) {
+  const ec = d.expressionContext;
+  if (!ec) return { expressionContext: null };
+  return {
+    expressionContext: {
+      agentId: ec.agentId,
+      phenotype: ec.phenotype,
+      capabilities: ec.capabilities,
+      budget: ec.budget,
+      uncertainty: ec.uncertainty,
+      currentPressure: ec.currentPressure,
+      builtAt: ec.builtAt
+    }
+  };
+}
+
 function composeDescriptor(ctx) {
   return {
     ...descriptorIdentity(ctx),
     ...descriptorRuntime(ctx),
     ...descriptorGenome(ctx),
     ...descriptorContracts(ctx),
-    ...descriptorMetadata(ctx)
+    ...descriptorMetadata(ctx),
+    ...descriptorExpressionContext(ctx)
   };
 }
 
@@ -331,7 +349,16 @@ async function incarnateAgent(opts) {
   const authorityProfile = setupAuthority({ request, agentId, lease });
   const route = await tryRoute({ db, parent, request });
 
-  const descriptor = composeDescriptor({ agentId, identity, request, lease, workspaceRoot, authorityProfile, evolution, dnaSelection, route, prompt, conscience });
+  // Build unified expression context — single operational identity for all decision services
+  let expressionContext = null;
+  try {
+    expressionContext = await buildExpressionContext({
+      agentId, db, parentOrchestrator: parent,
+      mission: request.mission, assignment: request
+    });
+  } catch (_) { expressionContext = null; }
+
+  const descriptor = composeDescriptor({ agentId, identity, request, lease, workspaceRoot, authorityProfile, evolution, dnaSelection, route, prompt, conscience, expressionContext });
   const incSummary = { agentId, role: request.role, leaseCount: lease.length };
   emitIncarnation({ parent, identity, role: request.role, summary: incSummary });
 
