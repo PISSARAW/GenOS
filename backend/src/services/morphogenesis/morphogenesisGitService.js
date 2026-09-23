@@ -72,6 +72,13 @@ function buildEvidence(plan, receipt) {
   };
 }
 
+function attachCounterfactual(plan, receipt, counterfactual) {
+  if (!counterfactual) return null;
+  const ref = counterfactual.lifecycleId || counterfactual.winner?.worldId || null;
+  if (ref && receipt && !receipt.counterfactualRef) receipt.counterfactualRef = ref;
+  if (ref && plan && !plan.counterfactualRef) plan.counterfactualRef = ref;
+  return ref;
+}
 function buildReason(plan) {
   if (plan.reason) return plan.reason;
   if (plan.targetOrganization) return `morphogenesis:${plan.targetOrganization}`;
@@ -128,6 +135,7 @@ async function commitTransition(db, ctx) {
       transitionId: receipt.transitionId,
       planId: plan.id,
       committed: receipt.committed,
+      counterfactual: receipt.counterfactualRef || null,
     },
     parentCommitId,
   });
@@ -177,6 +185,7 @@ async function executeVersionedTransition(ctx) {
 
   // Run the transition
   const receipt = await executeTransition(ctx);
+  attachCounterfactual(plan, receipt, ctx.counterfactual);
 
   if (!receipt.committed || !agentId) {
     return { receipt, commit: null };
