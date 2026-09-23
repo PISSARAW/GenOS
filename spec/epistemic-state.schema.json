@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/epistemic-state.schema.json",
+  "title": "EpistemicState",
+  "description": "Contrat de l'état épistémique d'un agent : ses croyances, hypothèses, réfutations, incertitudes et contradictions. L'épistémique trace la fiabilité des connaissances, pas les connaissances elles-mêmes. Chaque claim porte sa provenance et sa calibration.",
+  "type": "object",
+  "required": ["id", "version", "timestamp", "claims", "hypotheses", "refutations", "uncertainties", "contradictions", "evidenceLinks", "confidence", "calibration", "provenance", "independenceGraph", "knownUnknowns", "unresolvedQuestions"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "description": "Identifiant unique de l'état épistémique." },
+    "version": { "type": "string", "description": "Version sémantique de l'état (change quand le contenu change)." },
+    "timestamp": { "type": "string", "format": "date-time", "description": "Horodatage ISO 8601 du dernier calcul." },
+    "claims": {
+      "type": "array",
+      "description": "Croyances actuellement tenues par l'agent.",
+      "items": {
+        "type": "object",
+        "required": ["id", "statement", "confidence", "source"],
+        "properties": {
+          "id": { "type": "string" },
+          "statement": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "source": { "type": "string", "description": "Origine du claim (observation, inférence, autorité)." },
+          "evidenceIds": { "type": "array", "items": { "type": "string" } },
+          "epistemicStatus": { "type": "string", "enum": ["justified", "provisional", "defeated"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "description": "Hypothèses en cours de test ou candidates à tester.",
+      "items": {
+        "type": "object",
+        "required": ["id", "statement", "falsifiable", "testStatus"],
+        "properties": {
+          "id": { "type": "string" },
+          "statement": { "type": "string" },
+          "falsifiable": { "type": "boolean" },
+          "testStatus": { "type": "string", "enum": ["untested", "testing", "supported", "refuted", "inconclusive"] },
+          "predictedEvidence": { "type": "array", "items": { "type": "string" } },
+          "rivalHypothesisIds": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "refutations": {
+      "type": "array",
+      "description": "Réfutations enregistrées : un claim falsifié et les preuves qui l'ont défait.",
+      "items": {
+        "type": "object",
+        "required": ["id", "refutedClaimId", "refutingEvidence", "timestamp"],
+        "properties": {
+          "id": { "type": "string" },
+          "refutedClaimId": { "type": "string" },
+          "refutingEvidence": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "uncertainties": {
+      "type": "array",
+      "description": "Zones d'incertitude déclarées par l'agent (ce qu'il ne sait pas).",
+      "items": {
+        "type": "object",
+        "required": ["id", "domain", "description", "severity"],
+        "properties": {
+          "id": { "type": "string" },
+          "domain": { "type": "string", "description": "Domaine de l'incertitude." },
+          "description": { "type": "string" },
+          "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "unknownsCount": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "contradictions": {
+      "type": "array",
+      "description": "Contradictions actives détectées entre claims, hypothèses ou preuves.",
+      "items": {
+        "type": "object",
+        "required": ["id", "claimIds", "description", "severity", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "claimIds": { "type": "array", "minItems": 2, "items": { "type": "string" } },
+          "description": { "type": "string" },
+          "severity": { "type": "string", "enum": ["minor", "major", "fatal"] },
+          "status": { "type": "string", "enum": ["active", "resolving", "resolved", "accepted"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "evidenceLinks": {
+      "type": "array",
+      "description": "Liens entre preuves et claims/hypotheses qu'ils soutiennent ou réfutent.",
+      "items": {
+        "type": "object",
+        "required": ["evidenceId", "targetId", "relation"],
+        "properties": {
+          "evidenceId": { "type": "string" },
+          "targetId": { "type": "string" },
+          "relation": { "type": "string", "enum": ["supports", "refutes", "weakens", "strengthens"] },
+          "weight": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Indice de confiance global dans l'état épistémique actuel."
+    },
+    "calibration": {
+      "type": "object",
+      "description": "Calibration : écart entre confiance prédite et exactitude observée.",
+      "required": ["brierScore", "calibrationError"],
+      "properties": {
+        "brierScore": { "type": "number", "minimum": 0, "maximum": 1 },
+        "calibrationError": { "type": "number", "minimum": 0, "maximum": 1 },
+        "observationsCount": { "type": "integer", "minimum": 0 },
+        "lastCalibratedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Provenance de l'état épistémique (sources, chaîne de dérivation).",
+      "required": ["source", "derivedAt"],
+      "properties": {
+        "source": { "type": "string", "enum": ["self", "lineage", "external", "computed"] },
+        "derivedAt": { "type": "string", "format": "date-time" },
+        "derivationChain": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "independenceGraph": {
+      "type": "object",
+      "description": "Graphe d'indépendance entre sources de preuves (évite de compter plusieurs fois une même source).",
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "type"],
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string", "enum": ["observation", "inference", "authority", "experiment"] },
+              "independentFrom": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": false
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source", "target", "relation"],
+            "properties": {
+              "source": { "type": "string" },
+              "target": { "type": "string" },
+              "relation": { "type": "string", "enum": ["correlated", "independent", "derived_from"] }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "knownUnknowns": {
+      "type": "array",
+      "description": "Inconnus connus : ce que l'agent sait ne pas savoir.",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "impact"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "impact": { "type": "string", "enum": ["low", "medium", "high"] },
+          "resolutionStrategy": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "unresolvedQuestions": {
+      "type": "array",
+      "description": "Questions ouvertes qui attendent une réponse.",
+      "items": {
+        "type": "object",
+        "required": ["id", "question", "priority"],
+        "properties": {
+          "id": { "type": "string" },
+          "question": { "type": "string" },
+          "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "askedAt": { "type": "string", "format": "date-time" },
+          "deadline": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

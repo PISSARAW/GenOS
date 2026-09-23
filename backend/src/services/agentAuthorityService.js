@@ -51,9 +51,11 @@ async function authorizeWorker(db, agent, orchestratorAgentId) {
 function assertToolLeaseFresh(agent, toolLease, plan) {
   if (!Array.isArray(toolLease)) return;
   if (toolLease.length === 0) return;
-  const stale = leasePolicy.staleLeaseTools({ execution_mode: agent.execution_mode, role: agent.role, plan }, toolLease);
+  const current = agent || {};
+  const caps = current.capabilities !== undefined ? current.capabilities : (plan && plan.capabilityContract !== undefined ? plan.capabilityContract : current.plan);
+  const stale = leasePolicy.staleLeaseTools({ execution_mode: current.execution_mode, role: current.role, plan: plan || current.plan }, toolLease, caps);
   if (stale.length === 0) return;
-  throw authorityError('AGENT_TOOL_LEASE_STALE', `Tool lease for agent '${agent.id}' is stale for role '${agent.role}': ${stale.join(', ')} falls outside the current policy.`);
+  throw authorityError('AGENT_TOOL_LEASE_STALE', `Tool lease for agent '${current.id}' is stale for role '${current.role}': ${stale.join(', ')} falls outside the current policy.`);
 }
 
 async function authorizeMission(db, agentOrOptions, ...legacyArgs) {
@@ -61,7 +63,8 @@ async function authorizeMission(db, agentOrOptions, ...legacyArgs) {
   const { agentId, orchestratorAgentId, workspaceId } = options;
   const agent = await db.get('SELECT id, name, execution_mode, parent_agent_id, workspace_id, status, isolation_mode, role FROM agents WHERE id = ?', agentId);
   assertMissionAgent(agent, agentId, workspaceId);
-  assertToolLeaseFresh(agent, options.toolLease, options.plan || options.autonomyPlan);
+  const caps = options.capabilities !== undefined ? options.capabilities : (options.plan || options.autonomyPlan);
+  assertToolLeaseFresh({ ...agent, capabilities: caps }, options.toolLease, options.plan || options.autonomyPlan);
   if (agent.execution_mode === 'orchestrator') return agent;
   return authorizeWorker(db, agent, orchestratorAgentId);
 }

@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/strategy-trajectory.schema.json",
+  "title": "StrategyTrajectory",
+  "description": "Contrat de la trajectoire stratégique d'un agent : phases traversées, stratégie actuelle et passées, transitions entre stratégies, résultats et regrets. La trajectoire permet d'apprendre des changements de stratégie, pas seulement des résultats.",
+  "type": "object",
+  "required": ["id", "version", "timestamp", "phases", "currentStrategy", "previousStrategies", "transitions", "transitionReasons", "outcomes", "regret", "evidenceGain", "informationGain", "cost"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "description": "Identifiant unique de la trajectoire stratégique." },
+    "version": { "type": "string", "description": "Version sémantique de la trajectoire." },
+    "timestamp": { "type": "string", "format": "date-time", "description": "Horodatage ISO 8601 du dernier état." },
+    "phases": {
+      "type": "array",
+      "description": "Phases stratégiques traversées (exploration, exploitation, pivot, etc.).",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "startedAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "endedAt": { "type": ["string", "null"], "format": "date-time" },
+          "outcome": { "type": "string", "enum": ["success", "failure", "partial", "abandoned"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "currentStrategy": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifiant de la stratégie actuellement active."
+    },
+    "previousStrategies": {
+      "type": "array",
+      "description": "Identifiants des stratégies précédemment utilisées.",
+      "items": { "type": "string" }
+    },
+    "transitions": {
+      "type": "array",
+      "description": "Transitions entre stratégies (changement de cap).",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "timestamp", "reason"],
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "reason": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "transitionReasons": {
+      "type": "array",
+      "description": "Raisons de changement de stratégie (avec fréquence).",
+      "items": {
+        "type": "object",
+        "required": ["reason", "count"],
+        "properties": {
+          "reason": { "type": "string" },
+          "count": { "type": "integer", "minimum": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "outcomes": {
+      "type": "array",
+      "description": "Résultats de chaque stratégie utilisée.",
+      "items": {
+        "type": "object",
+        "required": ["strategyId", "outcome", "value"],
+        "properties": {
+          "strategyId": { "type": "string" },
+          "outcome": { "type": "string", "enum": ["success", "failure", "partial", "abandoned"] },
+          "value": { "type": "number", "description": "Valeur numérique du résultat (ex. score, reward)." }
+        },
+        "additionalProperties": false
+      }
+    },
+    "regret": {
+      "type": "object",
+      "description": "Regret cumulé de la trajectoire (différence entre valeur obtenue et valeur optimale).",
+      "required": ["cumulative", "maxPossible"],
+      "properties": {
+        "cumulative": { "type": "number", "minimum": 0 },
+        "maxPossible": { "type": "number", "minimum": 0 },
+        "perStrategy": {
+          "type": "object",
+          "description": "Regret par stratégie (map stratégie -> regret).",
+          "additionalProperties": { "type": "number" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidenceGain": {
+      "type": "object",
+      "description": "Gain de preuves accumulé au fil de la trajectoire.",
+      "required": ["total", "byStrategy"],
+      "properties": {
+        "total": { "type": "number", "minimum": 0 },
+        "byStrategy": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "informationGain": {
+      "type": "object",
+      "description": "Gain d'information (réduction d'incertitude) au fil de la trajectoire.",
+      "required": ["total", "byStrategy"],
+      "properties": {
+        "total": { "type": "number", "minimum": 0 },
+        "byStrategy": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "cost": {
+      "type": "object",
+      "description": "Coût cumulé de la trajectoire.",
+      "required": ["totalTokens", "totalCompute"],
+      "properties": {
+        "totalTokens": { "type": "integer", "minimum": 0 },
+        "totalCompute": { "type": "number", "minimum": 0 },
+        "byStrategy": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "tokens": { "type": "integer", "minimum": 0 },
+              "compute": { "type": "number", "minimum": 0 }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

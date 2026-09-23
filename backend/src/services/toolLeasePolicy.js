@@ -201,11 +201,37 @@ function orchestratorCoreLease() {
   return [...ORCHESTRATOR_CORE_LEASE];
 }
 
+function rawCapabilityList(value) {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === 'object') return value.required || value.owned || value.capabilities || [];
+  return [value];
+}
+
+function dedupeUpper(list) {
+  const out = [];
+  for (const entry of list) {
+    const key = String(entry || '').trim().toUpperCase();
+    if (!key) continue;
+    if (out.indexOf(key) !== -1) continue;
+    out.push(key);
+  }
+  return out;
+}
+
+function normalizeCapabilities(value) {
+  return dedupeUpper(rawCapabilityList(value));
+}
+
+function resolveExecutionMode(input) {
+  const raw = input.executionMode ?? input.execution_mode ?? input.mode ?? '';
+  return normalizeToolName(raw);
+}
+
 function capabilityToolSet(capabilities) {
   const known = knownToolSet([]);
   const tools = [];
-  for (const capability of Array.isArray(capabilities) ? capabilities : []) {
-    const mapped = CAPABILITY_TOOLS[String(capability || '').trim().toUpperCase()] || [];
+  for (const capability of normalizeCapabilities(capabilities)) {
+    const mapped = CAPABILITY_TOOLS[capability] || [];
     for (const tool of mapped) {
       const name = normalizeToolName(tool);
       if (!name || isOrchestrateVariant(name) || !known.has(name)) continue;
@@ -263,9 +289,14 @@ function orchestratorLeaseForPlan(plan, extraKnown) {
 }
 
 function derivePolicyLease(input) {
-  const mode = normalizeToolName(input.executionMode);
-  if (mode === 'worker') return leaseForCapabilities(workerLeaseForRole(input.role), input.capabilities);
-  return orchestratorLeaseForPlan(input.plan);
+  const src = input || {};
+  const mode = resolveExecutionMode(src);
+  if (mode === 'worker') {
+    const caps = normalizeCapabilities(src.capabilities);
+    const effective = caps.length ? caps : normalizeCapabilities(src.plan && src.plan.capabilityContract);
+    return leaseForCapabilities(workerLeaseForRole(src.role), effective);
+  }
+  return orchestratorLeaseForPlan(src.plan);
 }
 
 function restrictProvidedLease(provided, policyLease) {
@@ -283,10 +314,11 @@ function restrictProvidedLease(provided, policyLease) {
   return restricted;
 }
 
-function staleLeaseTools(agent, lease) {
+function staleLeaseTools(agent, lease, capabilities) {
   const provided = Array.isArray(lease) ? lease : [];
   const current = agent || {};
-  const policy = new Set(derivePolicyLease({ executionMode: current.execution_mode, role: current.role, plan: current.plan }).map(normalizeToolName));
+  const explicit = capabilities !== undefined ? capabilities : (current.capabilities || current.plan);
+  const policy = new Set(derivePolicyLease({ executionMode: current.execution_mode || current.executionMode, role: current.role, plan: current.plan, capabilities: explicit }).map(normalizeToolName));
   const stale = [];
   for (const tool of provided) {
     const name = normalizeToolName(tool);
@@ -333,6 +365,8 @@ module.exports = {
   RED_ROLE_ALLOW_LIST,
   BLUE_ROLE_ALLOW_LIST,
   normalizeToolName,
+  normalizeCapabilities,
+  resolveExecutionMode,
   isOrchestrateVariant,
   normalizeRole,
   roleInAllowList,

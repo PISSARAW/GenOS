@@ -55,18 +55,37 @@ function isInProcessWorker(dispatchedAgent, normalizedMission, executable) {
   )) || (normalizedMission.localModel && (normalizedMission.localRuntime === true || isLocalRuntime(executable)));
 }
 
+function requiredOf(contract) {
+  if (Array.isArray(contract)) return contract;
+  if (contract && Array.isArray(contract.required)) return contract.required;
+  return [];
+}
+
+function directCaps(mission) {
+  const direct = mission.capabilities || mission.capabilityContract;
+  const req = requiredOf(direct);
+  return req.length ? req : [];
+}
+
+function missionCapabilities(mission, plan) {
+  const direct = directCaps(mission);
+  if (direct.length) return direct;
+  const contract = mission.capabilityContract || (plan && plan.capabilityContract);
+  return requiredOf(contract);
+}
+
 function enforceMissionToolLease(ctx) {
   const dispatched = ctx.dispatchedAgent || {};
   const mission = ctx.normalizedMission || {};
   const role = mission.role || dispatched.role;
   const provided = mission.toolLease;
-  const capabilities = mission.capabilities || (ctx.autonomyPlan && ctx.autonomyPlan.capabilityContract) || [];
+  const capabilities = missionCapabilities(mission, ctx.autonomyPlan);
   agentAuthority.assertToolLeaseFresh(
-    { id: ctx.agentId, execution_mode: dispatched.execution_mode, role },
+    { id: ctx.agentId, execution_mode: dispatched.execution_mode, role, capabilities, plan: ctx.autonomyPlan },
     provided,
     ctx.autonomyPlan
   );
-  const policy = leasePolicy.derivePolicyLease({ execution_mode: dispatched.execution_mode, role, plan: ctx.autonomyPlan, capabilities });
+  const policy = leasePolicy.derivePolicyLease({ executionMode: dispatched.execution_mode, role, plan: ctx.autonomyPlan, capabilities });
   mission.toolLease = leasePolicy.restrictProvidedLease(provided, policy);
   ctx.normalizedMission = mission;
 }

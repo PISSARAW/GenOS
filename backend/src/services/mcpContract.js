@@ -89,7 +89,7 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       mission: { type: 'string', description: 'Goal or user request to achieve.' },
-      strategy: { type: 'string', description: 'Optional strategy hint from the 78 available.' },
+      strategy: { type: 'string', description: 'Optional strategy hint from the available strategies.' },
       background: { type: 'boolean', description: 'Defaults to true: return a launch receipt and run detached. False waits within the MCP timeout.' },
       executor: { type: 'string', enum: ['caller_mcp', 'codex', 'local', 'hermes', 'antigravity'], description: 'Cognitive executor: Codex, Hermes/Nous, Antigravity host, or all discovered local models.' },
       provider: { type: 'string', description: 'Optional provider identity recorded for caller_mcp provenance.' },

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/cognitive-phenotype.schema.json",
+  "title": "CognitivePhenotype",
+  "description": "Contrat du phénotype cognitif temporaire d'un worker : recette cognitive appliquée pour une mission, tensions entre clés, niveau de synthèse et capacité de mutation. Le phénotype exprime le génie, il ne le modifie pas.",
+  "type": "object",
+  "required": ["id", "version", "timestamp", "recipeId", "keys", "tensions", "synthesisLevel", "phase", "utility", "canMutate"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "description": "Identifiant unique du phénotype cognitif." },
+    "version": { "type": "string", "description": "Version sémantique du phénotype." },
+    "timestamp": { "type": "string", "format": "date-time", "description": "Horodatage ISO 8601 du dernier calcul." },
+    "recipeId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifiant de la recette cognitive appliquée."
+    },
+    "recipeVersion": {
+      "type": "string",
+      "description": "Version de la recette cognitive utilisée."
+    },
+    "keys": {
+      "type": "array",
+      "description": "IDs des CognitiveKeys composant ce phénotype.",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "tensions": {
+      "type": "array",
+      "description": "Tensions productives entre clés (conflictsWith de la recette).",
+      "items": {
+        "type": "object",
+        "required": ["keyA", "keyB", "description", "productive"],
+        "properties": {
+          "keyA": { "type": "string" },
+          "keyB": { "type": "string" },
+          "description": { "type": "string" },
+          "productive": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "synthesisLevel": {
+      "type": "string",
+      "enum": ["none", "emerging", "partial", "full"],
+      "description": "Niveau de synthèse atteint entre les clés composées."
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["formation", "active", "evaluating", "mutating", "stable", "dissolving"],
+      "description": "Phase de vie du phénotype."
+    },
+    "utility": {
+      "type": "object",
+      "description": "Métriques d'utilité du phénotype.",
+      "required": ["coverage", "diversity", "cost"],
+      "properties": {
+        "coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "diversity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "cost": { "type": "number", "minimum": 0 },
+        "adaptationCount": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "canMutate": {
+      "type": "boolean",
+      "description": "Si vrai, le phénotype peut encore changer de recette en cours de mission."
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/regulatory-snapshot.schema.json",
+  "title": "RegulatorySnapshot",
+  "description": "Contrat de l'instantané régulateur d'un agent : besoins primaires (énergie, intégrité, curiosité, survie), modulateurs neurochimiques (stress, dopamine, adrénaline, cortisol, ocytocine) et état cognitif (dissonance, harmonie). Un snapshot est un état ponctuel du système régulateur, pas une prédiction.",
+  "type": "object",
+  "required": ["agentId", "revision", "timestamp", "drives", "modulators", "cognitive"],
+  "properties": {
+    "agentId": { "type": "string", "minLength": 1, "description": "Identifiant de l'agent régulé." },
+    "revision": { "type": "integer", "minimum": 0, "description": "Révision du snapshot (incrémentée à chaque mise à jour)." },
+    "timestamp": { "type": "string", "format": "date-time", "description": "Horodatage ISO 8601 du snapshot." },
+    "drives": {
+      "type": "object",
+      "description": "Besoins primaires de l'agent (0 = satisfait, 1 = urgence maximale).",
+      "required": ["energy", "integrity", "curiosity", "survival"],
+      "properties": {
+        "energy": { "type": "number", "minimum": 0, "maximum": 1, "description": "Niveau d'énergie disponible (0 = épuisé)." },
+        "integrity": { "type": "number", "minimum": 0, "maximum": 1, "description": "Intégrité du soi (0 = dommages critiques)." },
+        "curiosity": { "type": "number", "minimum": 0, "maximum": 1, "description": "Désir d'explorer et d'apprendre." },
+        "survival": { "type": "number", "minimum": 0, "maximum": 1, "description": "Priorité de survie (0 = aucune menace)." }
+      },
+      "additionalProperties": false
+    },
+    "modulators": {
+      "type": "object",
+      "description": "Modulateurs neurochimiques (0 = absent, 1 = saturation).",
+      "required": ["stress", "threat", "dopamine", "adrenaline", "cortisol", "oxytocin"],
+      "properties": {
+        "stress": { "type": "number", "minimum": 0, "maximum": 1 },
+        "threat": { "type": "number", "minimum": 0, "maximum": 1 },
+        "dopamine": { "type": "number", "minimum": 0, "maximum": 1, "description": "Signal de récompense et de motivation." },
+        "adrenaline": { "type": "number", "minimum": 0, "maximum": 1, "description": "Activation de lutte ou fuite." },
+        "cortisol": { "type": "number", "minimum": 0, "maximum": 1, "description": "Hormone du stress chronique." },
+        "oxytocin": { "type": "number", "minimum": 0, "maximum": 1, "description": "Signal de confiance et de lien social." }
+      },
+      "additionalProperties": false
+    },
+    "cognitive": {
+      "type": "object",
+      "description": "État cognitif dérivé des modulateurs et besoins.",
+      "required": ["dissonance", "harmony"],
+      "properties": {
+        "dissonance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Dissonance cognitive (0 = cohérent, 1 = contradiction majeure)."
+        },
+        "harmony": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Harmonie interne (0 = chaos, 1 = équilibre)."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

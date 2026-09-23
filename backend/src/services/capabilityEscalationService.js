@@ -21,7 +21,10 @@ const DECISION_TYPES = Object.freeze({
   SUBSTITUTE: 'substitute',
   CHANGE_STRATEGY: 'changeStrategy',
   CHANGE_TOPOLOGY: 'changeTopology',
-  DELEGATE: 'delegate'
+  DELEGATE: 'delegate',
+  ASSIMILATE_PLASMID: 'assimilatePlasmid',
+  SPAWN_SPECIALIST_GENOTYPE: 'spawnSpecialistGenotype',
+  EVOLVE_GENOTYPE: 'evolveGenotype'
 });
 
 const PROVENANCE_LOG = [];
@@ -138,25 +141,35 @@ const DENIAL_RULES = [
   }
 ];
 
+function firstDenyingRule(request, context) {
+  for (const rule of DENIAL_RULES) {
+    if (rule.test(request, context)) return rule;
+  }
+  return null;
+}
+
+function shouldBoundedGrant(request, budget) {
+  const cost = request.estimatedCost || 0;
+  const limit = budget?.maxEscalationCost || 500;
+  return cost > limit || request.authorityNeeded === 'elevated';
+}
+
 function evaluateRequest(ctx) {
   if (!ctx || typeof ctx !== 'object') throw new Error('Invalid context');
   const { request, currentState, budget, activeCapabilities } = ctx;
   if (!request || !request.capability) return buildDeny(request || {}, { reason: 'invalid_request' });
 
   const context = { currentState, budget, activeCapabilities };
-  for (const rule of DENIAL_RULES) {
-    if (rule.test(request, context)) {
-      return buildDeny(request, {
-        reason: rule.reason,
-        fallbackCapabilities: rule.fb ? rule.fb(request) : [],
-        alternativeApproaches: rule.alt || []
-      });
-    }
+  const rule = firstDenyingRule(request, context);
+  if (rule) {
+    return buildDeny(request, {
+      reason: rule.reason,
+      fallbackCapabilities: rule.fb ? rule.fb(request) : [],
+      alternativeApproaches: rule.alt || []
+    });
   }
 
-  if (request.estimatedCost > (budget?.maxEscalationCost || 500) || request.authorityNeeded === 'elevated') {
-    return buildBoundedGrant(request, budget);
-  }
+  if (shouldBoundedGrant(request, budget)) return buildBoundedGrant(request, budget);
   return buildGrant(request, budget);
 }
 
@@ -220,6 +233,18 @@ function routeDecision(strategy, request, context) {
       type: DECISION_TYPES.CHANGE_STRATEGY, capability: request.capability,
       message: 'Switch to alternative strategy'
     },
+    [DECISION_TYPES.ASSIMILATE_PLASMID]: {
+      type: DECISION_TYPES.ASSIMILATE_PLASMID, capability: request.capability,
+      plasmidId: context.plasmidId || null, message: 'Assimilate compatible plasmid (revocable, lease-gated)'
+    },
+    [DECISION_TYPES.SPAWN_SPECIALIST_GENOTYPE]: {
+      type: DECISION_TYPES.SPAWN_SPECIALIST_GENOTYPE, capability: request.capability,
+      genomeId: context.genomeId || null, message: 'Spawn specialist genotype'
+    },
+    [DECISION_TYPES.EVOLVE_GENOTYPE]: {
+      type: DECISION_TYPES.EVOLVE_GENOTYPE, capability: request.capability,
+      message: 'Propose cross/mutate/graft candidate (evaluation required)'
+    },
     [DECISION_TYPES.CHANGE_TOPOLOGY]: {
       type: DECISION_TYPES.CHANGE_TOPOLOGY, capability: request.capability,
       message: 'Restructure topology to accommodate'
@@ -245,14 +270,21 @@ function checkBudget(request, budget) {
   return { ok: (request.estimatedCost || 0) <= limit };
 }
 
+function getAuthorityTools(capability) {
+  return CAPABILITY_TOOLS[capability.toUpperCase()] || [];
+}
+
+function toolsAreInLease(tools, lease) {
+  return tools.every(t => lease.includes(t));
+}
+
 function checkAuthority(request, state) {
   const needed = request.authorityNeeded;
   if (!needed || needed === 'none') return { ok: true };
   if (!state) return { ok: false };
-  const tools = CAPABILITY_TOOLS[request.capability.toUpperCase()] || [];
+  const tools = getAuthorityTools(request.capability);
   if (tools.length === 0) return { ok: true };
-  const lease = buildLease(request.capability, state);
-  return { ok: tools.every(t => lease.includes(t)) };
+  return { ok: toolsAreInLease(tools, buildLease(request.capability, state)) };
 }
 
 function buildLease(capability, state) {

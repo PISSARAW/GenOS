@@ -4,6 +4,7 @@ const { getPhenotype } = require('../agents/phenotypeRegistryService');
 const { contractFor, missingCapabilities } = require('../topologyCapabilityService');
 const { capabilityToolSet } = require('../toolLeasePolicy');
 const { planGenotypeActions, planEpigeneticChanges, planPlasmidActions } = require('./morphogenesisPlanActions');
+const { buildIdentityExtensions } = require('./morphogenesisPlanIdentity');
 const { annotatePlanWithSubstrates } = require('../../storage/compute/computeSubstrateResolver');
 const { extendPlan } = require('./morphogenesisPlanExtensions');
 const controlLoop = require('./cognitiveControlLoopService');
@@ -221,6 +222,7 @@ function planMorphogenesis(ctx) {
   plan.genotypeActions = planGenotypeActions({ requiredCapabilities: contracts.pc.required || [], availableGenomes: ctx.availableGenomes || [], targetAgents, db: ctx.db });
   plan.epigeneticChanges = planEpigeneticChanges({ agentStates: ctx.currentState && ctx.currentState.agents ? Array.from(ctx.currentState.agents.values()) : [], pressure: ctx.pressure || 0, evidence: ctx.evidence || [] });
   plan.plasmidActions = planPlasmidActions({ requiredCapabilities: contracts.pc.required || [], availablePlasmids: ctx.availablePlasmids || [], targetAgents });
+  Object.assign(plan, buildIdentityExtensions({ expression: ctx.expression || {}, problem: ctx.problem, event: ctx.event, checkpoint: ctx.checkpoint, ancestral: ctx.ancestral }));
   plan.rollbackPlan = generateRollbackPlan(plan);
   const selection = selectTopology(ctx, contracts, plan.expectedCost);
   plan.selectedTopology = selection.topology;

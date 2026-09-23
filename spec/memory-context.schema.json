@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/memory-context.schema.json",
+  "title": "MemoryContext",
+  "description": "Contrat de la mémoire opérationnelle d'un agent : faits pertinents, épisodes, procédures, culs-de-sac connus et contradictions non résolues. La mémoire est un filtre de sélection, pas un enregistrement exhaustif. Le tokenBudget limite l'injection dans le contexte LLM.",
+  "type": "object",
+  "required": ["id", "version", "timestamp", "relevantFacts", "relevantEpisodes", "procedures", "knownDeadEnds", "unresolvedContradictions", "provenanceRefs", "tokenBudget"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "description": "Identifiant unique du contexte de mémoire." },
+    "version": { "type": "string", "description": "Version sémantique (change quand la mémoire change)." },
+    "timestamp": { "type": "string", "format": "date-time", "description": "Horodatage ISO 8601 du dernier accès." },
+    "relevantFacts": {
+      "type": "array",
+      "description": "Faits pertinents pour la mission actuelle, extraits de la mémoire à long terme.",
+      "items": {
+        "type": "object",
+        "required": ["id", "fact", "relevanceScore"],
+        "properties": {
+          "id": { "type": "string" },
+          "fact": { "type": "string" },
+          "relevanceScore": { "type": "number", "minimum": 0, "maximum": 1 },
+          "sourceEpisodeId": { "type": ["string", "null"] },
+          "lastAccessedAt": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "relevantEpisodes": {
+      "type": "array",
+      "description": "Épisodes mémoriels pertinents (expériences passées structurées).",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "salience", "outcome"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string", "enum": ["success", "failure", "near_miss", "discovery", "lesson"] },
+          "salience": { "type": "number", "minimum": 0, "maximum": 1 },
+          "outcome": { "type": "string", "enum": ["positive", "negative", "mixed", "neutral"] },
+          "summary": { "type": "string" },
+          "when": { "type": "string", "format": "date-time" },
+          "lessonIds": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "procedures": {
+      "type": "array",
+      "description": "Procédures apprises (séquences d'actions réutilisables).",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "steps"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "steps": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "successRate": { "type": "number", "minimum": 0, "maximum": 1 },
+          "usageCount": { "type": "integer", "minimum": 0 },
+          "domain": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "knownDeadEnds": {
+      "type": "array",
+      "description": "Culs-de-sac connus : approches essayées et échouées, à ne pas répéter.",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "approach", "failedAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "approach": { "type": "string", "description": "L'approche qui a échoué." },
+          "failedAt": { "type": "string", "format": "date-time" },
+          "evidenceOfFailure": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "unresolvedContradictions": {
+      "type": "array",
+      "description": "Contradictions entre souvenirs ou entre mémoire et réalité actuelle.",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["open", "investigating", "resolved"] },
+          "memoryClaimId": { "type": ["string", "null"] },
+          "realityEvidenceId": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "provenanceRefs": {
+      "type": "array",
+      "description": "Références de provenance vers les sources de la mémoire.",
+      "items": {
+        "type": "object",
+        "required": ["refId", "sourceType"],
+        "properties": {
+          "refId": { "type": "string" },
+          "sourceType": { "type": "string", "enum": ["episode", "fact", "procedure", "external"] },
+          "sourcePath": { "type": "string" },
+          "retrievedAt": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "tokenBudget": {
+      "type": "object",
+      "description": "Budget de tokens pour l'injection mémoire dans le contexte LLM.",
+      "required": ["allocated", "consumed"],
+      "properties": {
+        "allocated": { "type": "integer", "minimum": 0 },
+        "consumed": { "type": "integer", "minimum": 0 },
+        "remaining": { "type": "integer", "minimum": 0 },
+        "priority": { "type": "string", "enum": ["low", "normal", "high"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
