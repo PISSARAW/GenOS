@@ -136,6 +136,10 @@ const migrationRunners = [
     const { migrateDaemonFindingDetector } = require('./migrateDaemonFindingDetector');
     await migrateDaemonFindingDetector(db);
   }),
+  createMigrationRunner('043-daemon-stigmergy', 'Persist territorial stigmergy markers with decay (ADR 0034 D10)', async (db) => {
+    const { migrateDaemonStigmergy } = require('./migrateDaemonStigmergy');
+    await migrateDaemonStigmergy(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
