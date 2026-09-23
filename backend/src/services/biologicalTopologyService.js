@@ -1,14 +1,6 @@
 'use strict';
 
-/**
- * @file biologicalTopologyService.js
- * @description Single dispatch point for biological-mode composition. Modes
- * with a dedicated coordination service (Biocenose, Syncytium) get their real
- * runtime wiring and organization; the remaining modes fall back to role
- * composition.
- */
 const biologicalModeService = require('./biologicalModeService');
-const axolotlTopologyService = require('./axolotlTopologyService');
 const biocenoseService = require('./biocenoseService');
 const syncytiumCoordinationService = require('./syncytiumCoordinationService');
 const holobionteCoordinationService = require('./holobionteCoordinationService');
@@ -51,19 +43,17 @@ async function composeMode(input = {}) {
     await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Biome mode activation' });
     return composition;
   }
-  if (input.mode === 'plastique' || input.mode === 'axolotl') return composeAxolotl(input);
+  if (key === 'axolotl' || key === 'plastique') {
+    const axolotlTopologyService = require('./axolotlTopologyService');
+    const mode = axolotlTopologyService.getTopologyMode(orchestratorId);
+    return {
+      mode: mode.mode,
+      plastique: mode.mode === 'plastique',
+      members: biologicalModeService.compose('axolotl', mission),
+      modeInfo: mode,
+    };
+  }
   return { members: biologicalModeService.compose(key, mission) };
-}
-
-function composeAxolotl(input) {
-  const { db, orchestratorId, mission, options } = input;
-  const mode = input.mode === 'plastique' ? { mode: 'plastique', setAt: null, defaulted: false } : axolotlTopologyService.getTopologyMode(orchestratorId);
-  return {
-    mode: mode.mode,
-    plastique: mode.mode === 'plastique',
-    members: biologicalModeService.compose('axolotl', mission),
-    modeInfo: mode
-  };
 }
 
 module.exports = { composeMode };
