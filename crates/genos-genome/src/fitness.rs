@@ -1,8 +1,7 @@
 use crate::genome::Genome;
-use rand::SeedableRng;
-use rand::RngExt;
-use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct FitnessRecord {
@@ -11,33 +10,31 @@ pub struct FitnessRecord {
     pub replication: u32,
 }
 
+#[derive(Clone, Debug, Default)]
+struct TaskProfile {
+    required_tools: Vec<String>,
+    required_caps: Vec<String>,
+    family: String,
+}
+
 pub struct FitnessExperiment;
 
 impl FitnessExperiment {
     pub fn new() -> Self { Self }
 
     pub fn evaluate(&self, genome: &Genome, task: &str) -> FitnessRecord {
-        let genes = &genome.genes;
-        let gene_count = genes.len().max(1) as f64;
-        let task_lower = task.to_lowercase();
-        let total_volume: f64 = genes.values().map(|g| g.expression_volume).sum();
-        let score = if task_lower.contains("math") || task_lower.contains("logic") {
-            let strategy_genes = genes.keys().filter(|l| l.starts_with("STRATEGY_")).count() as f64;
-            let tool_count = genes.keys().filter(|l| l.starts_with("TOOL_")).count() as f64;
-            (strategy_genes * 15.0 + tool_count * 10.0 + total_volume * 5.0).clamp(0.0, 100.0)
-        } else if task_lower.contains("code") || task_lower.contains("implement") {
-            let tool_count = genes.keys().filter(|l| l.starts_with("TOOL_")).count() as f64;
-            let extra_count = genome.extra_chromosomes.len() as f64;
-            (tool_count * 12.0 + extra_count * 8.0 + total_volume * 6.0).clamp(0.0, 100.0)
-        } else if task_lower.contains("creative") || task_lower.contains("write") {
-            let strategy_genes = genes.keys().filter(|l| l.starts_with("STRATEGY_")).count() as f64;
-            let prompt_genes = genes.keys().filter(|l| l.starts_with("OBJECTIVE_")).count() as f64;
-            (strategy_genes * 10.0 + prompt_genes * 15.0 + total_volume * 8.0).clamp(0.0, 100.0)
-        } else {
-            let complexity = genome.extra_chromosomes.len() as f64 * 0.1;
-            ((total_volume / gene_count) * 50.0 + complexity * 10.0).clamp(0.0, 100.0)
-        };
+        let profile = task_profile(task);
+        let expressed = expressed_loci(genome);
+        let score = behavioral_score(genome, &profile, &expressed, task);
         FitnessRecord { score, task_id: task.to_string(), replication: 0 }
+    }
+
+    pub fn evaluate_instance(&self, genome: &Genome, task: &str, instance: u32) -> FitnessRecord {
+        let key = format!("{task}::instance{instance}");
+        let profile = task_profile(&key);
+        let expressed = expressed_loci(genome);
+        let score = behavioral_score(genome, &profile, &expressed, &key);
+        FitnessRecord { score, task_id: task.to_string(), replication: instance }
     }
 }
 
@@ -48,15 +45,129 @@ impl Default for FitnessExperiment {
 pub fn replicate_fitness(input: (&Genome, &str, u32)) -> Vec<FitnessRecord> {
     let (genome, task, n) = input;
     let experiment = FitnessExperiment::new();
-    let base_seed = genome.genome_id().as_u128() as u64;
-    (0..n).map(|i| {
-        let mut r = experiment.evaluate(genome, task);
-        r.replication = i;
-        let mut rng = StdRng::seed_from_u64(base_seed ^ (i as u64).wrapping_mul(0x9e3779b97f4a7c15));
-        let noise = rng.random_range(0.0..10.0) - 5.0;
-        r.score = (r.score + noise).clamp(0.0, 100.0);
-        r
-    }).collect()
+    (0..n).map(|i| experiment.evaluate_instance(genome, task, i)).collect()
+}
+
+fn task_profile(task: &str) -> TaskProfile {
+    let lower = task.to_lowercase();
+    let mut profile = TaskProfile::default();
+    profile.family = task_family(&lower);
+    profile.required_tools = required_tools(&lower);
+    profile.required_caps = required_caps(&lower, &profile.family);
+    profile
+}
+
+fn task_family(lower: &str) -> String {
+    if lower.contains("math") || lower.contains("logic") {
+        "math".to_string()
+    } else if lower.contains("code") || lower.contains("implement") {
+        "code".to_string()
+    } else if lower.contains("creative") || lower.contains("write") {
+        "creative".to_string()
+    } else {
+        "general".to_string()
+    }
+}
+
+fn required_tools(lower: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for token in lower.split(|c: char| !c.is_ascii_alphanumeric()) {
+        if token.starts_with("tool") && token.len() > 4 {
+            out.push(token.to_uppercase());
+        }
+    }
+    if out.is_empty() {
+        out.push("TOOL_BASE".to_string());
+    }
+    out
+}
+
+fn required_caps(lower: &str, family: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for token in lower.split(|c: char| !c.is_ascii_alphanumeric()) {
+        if token.starts_with("cap") && token.len() > 3 {
+            out.push(token.to_uppercase());
+        }
+    }
+    if out.is_empty() {
+        out.push(match family {
+            "math" => "CAP_LOGIC".to_string(),
+            "code" => "CAP_IMPLEMENT".to_string(),
+            "creative" => "CAP_WRITE".to_string(),
+            _ => "CAP_GENERAL".to_string(),
+        });
+    }
+    out
+}
+
+fn expressed_loci(genome: &Genome) -> Vec<String> {
+    genome
+        .genes
+        .iter()
+        .filter(|(_, gene)| gene.p53_repair_check())
+        .map(|(locus, _)| locus.clone())
+        .collect()
+}
+
+fn behavioral_score(genome: &Genome, profile: &TaskProfile, expressed: &[String], key: &str) -> f64 {
+    let tool_outcomes = mean_outcome(genome, &profile.required_tools, expressed, key, "tool");
+    let cap_outcomes = mean_outcome(genome, &profile.required_caps, expressed, key, "cap");
+    let strategy_bonus = strategy_bonus(genome, expressed);
+    let viability = viability_baseline(expressed);
+    let cost = execution_cost(genome);
+    ((tool_outcomes * 55.0 + cap_outcomes * 25.0 + strategy_bonus * 10.0 + viability) - cost).clamp(0.0, 100.0)
+}
+
+fn viability_baseline(expressed: &[String]) -> f64 {
+    (expressed.len() as f64).min(5.0)
+}
+
+fn mean_outcome(genome: &Genome, required: &[String], expressed: &[String], key: &str, kind: &str) -> f64 {
+    if required.is_empty() {
+        return 1.0;
+    }
+    let total: f64 = required.iter().map(|item| trial_outcome(genome, item, expressed, key, kind)).sum();
+    total / required.len() as f64
+}
+
+fn trial_outcome(genome: &Genome, item: &str, expressed: &[String], key: &str, kind: &str) -> f64 {
+    let present = expressed.iter().any(|locus| locus.contains(item) || item.contains(locus.as_str()));
+    let draw = hash_draw(genome, key, item, kind);
+    if present {
+        if draw < 0.85 { 1.0 } else { 0.0 }
+    } else if draw < 0.05 {
+        1.0
+    } else {
+        0.0
+    }
+}
+
+fn hash_draw(genome: &Genome, key: &str, item: &str, kind: &str) -> f64 {
+    let mut hasher = DefaultHasher::new();
+    genome.genome_id().hash(&mut hasher);
+    key.hash(&mut hasher);
+    item.hash(&mut hasher);
+    kind.hash(&mut hasher);
+    let raw = hasher.finish();
+    (raw % 10_000) as f64 / 10_000.0
+}
+
+fn strategy_bonus(genome: &Genome, expressed: &[String]) -> f64 {
+    let has_strategy = expressed.iter().any(|locus| locus == "STRATEGY" || locus.starts_with("STRATEGY_"));
+    let has_objective = expressed.iter().any(|locus| locus.starts_with("OBJECTIVE_"));
+    let _ = genome;
+    match (has_strategy, has_objective) {
+        (true, true) => 1.0,
+        (true, false) => 0.6,
+        (false, true) => 0.4,
+        (false, false) => 0.0,
+    }
+}
+
+fn execution_cost(genome: &Genome) -> f64 {
+    let volume: f64 = genome.genes.values().map(|gene| gene.expression_volume).sum();
+    let extra = genome.extra_chromosomes.len() as f64;
+    volume * 0.2 + extra * 0.5
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

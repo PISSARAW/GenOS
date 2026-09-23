@@ -102,12 +102,12 @@ impl SelfModifyingMutator {
                     1 => {
                         gene.is_methylated = !gene.is_methylated;
                         results.push(MutationResult {
-                            scale: MutationScale::Gene,
-                            effect: crate::mutation_scales::MutationEffect::Substitution,
+                            scale: crate::mutation_scales::MutationScale::Epigenetic,
+                            effect: crate::mutation_scales::MutationEffect::EpigeneticChange,
                             affected_locus: Some(locus.clone()),
                             positions_changed: 0,
                             successful: true,
-                            description: format!("Methylation toggle {}", locus),
+                            description: format!("Epigenetic methylation toggle {}", locus),
                         });
                     }
                     _ => {

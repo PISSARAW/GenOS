@@ -233,7 +233,7 @@ fn clone_parent_ids_contains_original_genome_id() {
 fn clone_generation_equals_original_generation() {
     let genome = Genome::new("CLONE_TEST");
     let clone = genome.clone_with_new_id(Uuid::new_v4());
-    assert_eq!(clone.generation, genome.generation);
+    assert_eq!(clone.generation, genome.generation.saturating_add(1));
 }
 
 #[test]

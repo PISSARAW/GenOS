@@ -13,6 +13,7 @@ pub enum MutationScale {
     Chromosome,
     Genome,
     Intergenomic,
+    Epigenetic,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -29,6 +30,7 @@ pub enum MutationEffect {
     Fusion,
     Fission { breakpoint: usize },
     TransposonInsertion { source_locus: String, target_position: usize },
+    EpigeneticChange,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -180,12 +182,12 @@ impl MultiScaleMutator {
                     if let Some(gene) = genome.genes.get_mut(locus) {
                         gene.is_methylated = !gene.is_methylated;
                         results.push(MutationResult {
-                            scale: MutationScale::Gene,
-                            effect: MutationEffect::Substitution,
+                            scale: MutationScale::Epigenetic,
+                            effect: MutationEffect::EpigeneticChange,
                             affected_locus: Some(locus.clone()),
-                            positions_changed: gene.dna.len(),
+                            positions_changed: 0,
                             successful: true,
-                            description: format!("Gene methylation toggle of {}", locus),
+                            description: format!("Epigenetic methylation toggle of {}", locus),
                         });
                     }
                 }

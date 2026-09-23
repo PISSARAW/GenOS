@@ -137,6 +137,7 @@ impl Gene {
             return Err("DESTROYED: microRNA targeted decay".to_string());
         }
 
+        Ribosome::quality_control_nmd(&mature_mrna, false)?;
         let protein = Ribosome::translate(&mature_mrna);
         protein.fold()
     }

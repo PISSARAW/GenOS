@@ -105,6 +105,7 @@ impl Genome {
         let mut clone = self.clone();
         clone.genome_id = new_id;
         clone.parent_ids = vec![self.genome_id];
+        clone.generation = self.generation.saturating_add(1);
         clone.bud_scars.clear();
         clone
     }

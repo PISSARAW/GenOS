@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """GenOS Commit Receipt — verify that files listed in the commit message
-are present in the staged diff.
+are present in the staged diff (local hook) or in the committed diff (CI).
 
 A commit message MAY declare a receipt block:
   [FIX] Example change
@@ -9,13 +9,21 @@ A commit message MAY declare a receipt block:
     backend/src/foo.js
     backend/src/bar.js
 
-If present, every file in Receipt: must appear in `git diff --cached --name-only`.
-If any are missing or extra files are staged, the commit is rejected.
-If no Receipt: block exists, the check passes (backwards-compatible).
+If present, every file in Receipt: must appear in the diff and vice versa.
+If no Receipt: block exists, the check passes, unless --require-receipt
+is given (used by the commit-msg hook for code tags).
+
+Modes:
+  commit_receipt.py <commit-msg-file> [--require-receipt]
+  commit_receipt.py --sha <commit-sha> [--require-receipt]
 """
 
+import re
 import subprocess
 import sys
+
+
+RECEIPT_REQUIRED_TAGS = {"FEAT", "FIX", "EVOLUTION", "REFACTOR"}
 
 
 def staged_files():
@@ -24,6 +32,22 @@ def staged_files():
         capture_output=True, text=True, check=True,
     )
     return set(line for line in result.stdout.splitlines() if line)
+
+
+def committed_files(sha):
+    result = subprocess.run(
+        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", sha],
+        capture_output=True, text=True, check=True,
+    )
+    return set(line for line in result.stdout.splitlines() if line)
+
+
+def committed_message(sha):
+    result = subprocess.run(
+        ["git", "log", "--format=%B", "-n", "1", sha],
+        capture_output=True, text=True, check=True,
+    )
+    return result.stdout
 
 
 def parse_receipt(commit_msg):
@@ -49,24 +73,34 @@ def parse_receipt(commit_msg):
     return files if in_receipt else None
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: commit_receipt.py <commit-msg-file>", file=sys.stderr)
-        sys.exit(1)
+def first_tag(commit_msg):
+    first = (commit_msg.splitlines() or [""])[0]
+    match = re.match(r"^\[([A-Z]+)\]", first.strip())
+    return match.group(1) if match else None
 
-    with open(sys.argv[1], "r", encoding="utf-8") as f:
-        commit_msg = f.read()
 
+def check_receipt(commit_msg, changed, require_receipt):
     declared = parse_receipt(commit_msg)
     if declared is None:
-        # No receipt block — nothing to verify.
-        sys.exit(0)
+        if require_receipt or first_tag(commit_msg) in RECEIPT_REQUIRED_TAGS:
+            tag = first_tag(commit_msg)
+            print(
+                "❌ [Commit Receipt] Bloc Receipt: manquant. "
+                f"Les commits [{tag}] doivent lister exactement les fichiers modifies.",
+                file=sys.stderr,
+            )
+            print("Ajoutez a la fin du message :", file=sys.stderr)
+            print("  Receipt:", file=sys.stderr)
+            for path in sorted(changed):
+                print(f"    {path}", file=sys.stderr)
+            return 1
+        return 0
 
     declared_set = set(declared)
-    staged = staged_files()
+    changed_set = set(changed)
 
-    missing = declared_set - staged
-    extra = staged - declared_set
+    missing = declared_set - changed_set
+    extra = changed_set - declared_set
 
     if missing:
         print("❌ [Commit Receipt] Fichier(s) declare(s) absent(s) du diff:", file=sys.stderr)
@@ -80,8 +114,36 @@ def main():
     if missing or extra:
         print("", file=sys.stderr)
         print("Le message de commit doit lister exactement les fichiers modifies.", file=sys.stderr)
-        sys.exit(1)
+        return 1
+    return 0
+
+
+def main():
+    args = sys.argv[1:]
+    require_receipt = "--require-receipt" in args
+    args = [a for a in args if a != "--require-receipt"]
+
+    if "--sha" in args:
+        idx = args.index("--sha")
+        try:
+            sha = args[idx + 1]
+        except IndexError:
+            print("Usage: commit_receipt.py --sha <sha> [--require-receipt]", file=sys.stderr)
+            return 1
+        commit_msg = committed_message(sha)
+        changed = committed_files(sha)
+        # Merge commits touch many files legitimately: only enforce when
+        # the message carries an explicit Receipt: block or a code tag.
+        return check_receipt(commit_msg, changed, require_receipt)
+
+    if len(args) < 1:
+        print("Usage: commit_receipt.py <commit-msg-file> [--require-receipt]", file=sys.stderr)
+        return 1
+
+    with open(args[0], "r", encoding="utf-8") as f:
+        commit_msg = f.read()
+    return check_receipt(commit_msg, staged_files(), require_receipt)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
