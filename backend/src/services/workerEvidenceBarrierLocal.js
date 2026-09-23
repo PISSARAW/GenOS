@@ -11,6 +11,7 @@ const { emit, updateAgent } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');
 const agentConscience = require('./agentConscienceService');
 const immuneSystem = require('./immuneSystem');
+const { buildWorkerSelf, formatWorkerSelfPrompt } = require('./workerSelfService');
 const { advanceAutonomousRound } = require('./agentRoundService');
 const agentRecoveryService = require('./agentRecoveryService');
 const { scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
@@ -28,9 +29,7 @@ function isCodeWorkerMission(mission) {
 
 function estimatePromptTokens(prompt) {
   return Math.ceil(Buffer.byteLength(String(prompt), 'utf8') / 4);
-}
-
-function resolveTokenBudget(mission) {
+} function resolveTokenBudget(mission) {
   if (!mission) return 0;
   if (!mission.executionBudget) return 0;
   return Number(mission.executionBudget.tokens);
@@ -74,9 +73,10 @@ function isOrchestratorMission(mission) {
 }
 
 function buildAnalysisPrompt(ctx) {
-  if (ctx.codeWorker) return ctx.selfIntro + '\n' + ctx.conscienceBlock + '\nYou are a bounded GenOS local code worker (' + ctx.agentName + '). Return only strict JSON. Branch mission:\n' + ctx.prompt;
-  if (ctx.orchestrator) return ctx.selfIntro + '\n' + ctx.conscienceBlock + '\nYou are a GenOS orchestrator (' + ctx.agentName + '). Mission:\n' + ctx.prompt;
-  return ctx.selfIntro + '\n' + ctx.conscienceBlock + '\nYou are a bounded GenOS local worker (' + ctx.agentName + '). Analyse this assigned branch. Branch mission:\n' + ctx.prompt;
+  const ws = ctx.workerSelfBlock ? ctx.workerSelfBlock + '\n' : '';
+  if (ctx.codeWorker) return ctx.selfIntro + '\n' + ws + ctx.conscienceBlock + '\nYou are a bounded GenOS local code worker (' + ctx.agentName + '). Return only strict JSON. Branch mission:\n' + ctx.prompt;
+  if (ctx.orchestrator) return ctx.selfIntro + '\n' + ws + ctx.conscienceBlock + '\nYou are a GenOS orchestrator (' + ctx.agentName + '). Mission:\n' + ctx.prompt;
+  return ctx.selfIntro + '\n' + ws + ctx.conscienceBlock + '\nYou are a bounded GenOS local worker (' + ctx.agentName + '). Analyse this assigned branch. Branch mission:\n' + ctx.prompt;
 }
 
 function resolveMaxTokens(budget, estimate) {
@@ -108,7 +108,6 @@ async function generateWorkerResult(ctx) {
 function consumedTokensOf(result) {
   return Number(result.inputTokens) + Number(result.outputTokens);
 }
-
 function throwIfConsumedOverBudget(consumed, budget) {
   if (budget <= 0) return;
   if (consumed <= budget) return;
@@ -188,7 +187,6 @@ function resolveLatency(mission) {
   if (mission.executionBudget.latencyMs === null) return 30000;
   return Number(mission.executionBudget.latencyMs);
 }
-
 async function emitLocalStarted(ctx) {
   const started = emit(ctx.mission.agentId, 'LOCAL_WORKER_STARTED', 'LOCAL_MODEL', 'Started local-model worker.', { model: ctx.localModel, criteria: ctx.criteria }, 'info', 'running');
   await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, started);
@@ -278,13 +276,16 @@ async function runGenerationStage(ctx) {
   const conscienceState = await agentConscience.loadConscienceState(ctx.db, ctx.mission.agentId);
   const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
   const workerModel = resolveWorkerModel(ctx.mission);
+  let wsBlock = '';
+  try { wsBlock = formatWorkerSelfPrompt(await buildWorkerSelf(ctx.db, { agentId: ctx.mission.agentId, workerRole: ctx.mission.role || 'worker', workerContext: { mission: ctx.mission.prompt } })); } catch (_) {}
   const promptText = buildAnalysisPrompt({
     codeWorker: codeWorker,
     orchestrator: isOrchestratorMission(ctx.mission),
     selfIntro: selfIntro,
     conscienceBlock: conscienceBlock,
     agentName: agentName,
-    prompt: ctx.mission.prompt
+    prompt: ctx.mission.prompt,
+    workerSelfBlock: wsBlock
   });
   const result = await generateWorkerResult({
     db: ctx.db,

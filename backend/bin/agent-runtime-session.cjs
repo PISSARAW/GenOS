@@ -9,6 +9,7 @@ const agentIdentity = require('../src/services/agentIdentityService');
 const agentConscience = require('../src/services/agentConscienceService');
 const strategyAdapter = require('../src/services/strategyExecutionAdapter');
 const agentMemory = require('../src/services/agentMemoryContext');
+const workerSelfService = require('../src/services/workerSelfService');
 const trajectoryService = require('../src/services/trajectoryService');
 const { getDatabase } = require('../src/db');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
@@ -138,6 +139,7 @@ function createState(mission, data) {
     conscienceState: agentConscience.createConscienceState(),
     conscienceBlock: '',
     memoryBlock: '',
+    workerSelfBlock: '',
     prompt: '',
     db: null,
     hasAgentInDb: false,
@@ -178,12 +180,26 @@ async function loadMemoryBlock(state) {
   } catch (_) {}
 }
 
+async function loadWorkerSelfBlock(state) {
+  try {
+    if (!state.isWorker) return;
+    if (!state.mission.agentId) return;
+    const ws = await workerSelfService.buildWorkerSelf(state.db, {
+      agentId: state.mission.agentId,
+      workerRole: state.mission.role || 'worker',
+      workerContext: { mission: state.mission.prompt, hypothesis: state.mission.hypothesis, capabilities: state.mission.capabilities }
+    });
+    state.workerSelfBlock = workerSelfService.formatWorkerSelfPrompt(ws);
+  } catch (_) {}
+}
+
 function buildPrompt(state) {
   return buildAgentRuntimePrompt({
     selfIntro: state.selfIntro,
     mission: state.mission,
     conscienceBlock: state.conscienceBlock,
     memoryBlock: state.memoryBlock,
+    workerSelfBlock: state.workerSelfBlock,
     authorityInstruction: state.authorityInstruction,
     agentName: state.agentName,
     nameMeaning: state.nameMeaning,
@@ -205,6 +221,7 @@ async function buildState(mission, data) {
   await loadConscienceState(state);
   state.conscienceBlock = agentConscience.formatConsciencePrompt(state.conscienceState);
   await loadMemoryBlock(state);
+  await loadWorkerSelfBlock(state);
   state.prompt = buildPrompt(state);
   state.estimatedTokens = Math.ceil(Buffer.byteLength(state.prompt, 'utf8') / 4);
   return state;
