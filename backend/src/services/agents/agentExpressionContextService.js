@@ -12,6 +12,10 @@
  *   buildExpressionContext({ agentId, db, parentOrchestrator, mission, assignment })
  *   updateExpressionContext({ agentId, updates, db })
  *   getExpressionContext(agentId)
+ *
+ * Spec-shaped EpistemicState / MemoryContext / RegulatorySnapshot /
+ * CognitivePhenotype / StrategyTrajectory literals live in
+ * agentExpressionContextContracts (keeps every function under the gate).
  */
 
 const {
@@ -21,8 +25,11 @@ const {
   loadMemory, loadAncestralContext, computeUncertaintyAndPressure, loadBudget,
   identityFromRow, instinctFromRegulation, generateAgentIdentity,
   loadCognitiveRegulationState, createCognitiveRegulationState,
-  evaluateAgentHomeostasis, phenotypeFromRecipe, safeArray, firstDef, clamp01
+  evaluateAgentHomeostasis, phenotypeFromRecipe, safeArray, firstDef, clamp01,
+  loadClinicalState, buildClinicalState,
 } = require('./agentExpressionContextSteps');
+
+const contracts = require('./agentExpressionContextContracts');
 
 // ---------------------------------------------------------------------------
 // Internal cache
@@ -31,134 +38,157 @@ const {
 const contextCache = new Map();
 
 // ---------------------------------------------------------------------------
+// Section loaders (each: max 3 params, CC <= 10)
+// ---------------------------------------------------------------------------
+
+function scopeOf(input) {
+  const parent = input.parentOrchestrator || {};
+  const workspace = input.assignment?.workspace || {};
+  return {
+    organizationId: parent.organization_id || workspace.organizationId,
+    projectId: parent.project_id || workspace.projectId
+  };
+}
+
+async function loadCoreState(opts) {
+  const { agentId, db, parentOrchestrator, mission, assignment } = opts || {};
+  const role = assignment?.role || 'worker';
+  const scope = scopeOf({ parentOrchestrator, assignment });
+  const agentRow = await loadAgentRow(db, agentId);
+  const cognitiveSelf = await buildCognitiveSelf({ db, agentId, role, mission, assignment });
+  const genotype = await loadGenotype({ db, parentOrchestrator, assignment, scope });
+  const epigeneticState = deriveEpigeneticState(genotype);
+  const plasmids = derivePlasmids(genotype);
+  const phenotype = computePhenotype({ genotype, epigeneticState, assignment });
+  return { agentId, db, parentOrchestrator, mission, assignment, role, agentRow, cognitiveSelf, genotype, epigeneticState, plasmids, phenotype };
+}
+
+function loadSocialState(core) {
+  const { phenotype, mission, assignment, agentId, cognitiveSelf } = core;
+  return {
+    capabilityManifest: buildManifest({ phenotype, mission, assignment, budget: assignment?.budget }),
+    authority: loadAuthority({ phenotype, assignment, parentOrchestrator: core.parentOrchestrator }),
+    relations: loadRelations({ agentId, assignment }),
+    communicationManifest: buildCommunicationManifest({ phenotype, assignment }),
+    commonGround: loadCommonGround({ cognitiveSelf, assignment }),
+    topologyMembership: loadTopology({ agentId, assignment })
+  };
+}
+
+async function loadMemoryState(core) {
+  const memory = loadMemory({ cognitiveSelf: core.cognitiveSelf });
+  const ancestralContext = await loadAncestralContext({ db: core.db, agentId: core.agentId });
+  return { memory, proceduralMemory: memory.procedural, ancestralContext };
+}
+
+async function loadPressureState(core) {
+  let cognitiveRegulation = null;
+  try {
+    cognitiveRegulation = await loadCognitiveRegulationState(core.db, core.agentId);
+  } catch (_) {
+    cognitiveRegulation = createCognitiveRegulationState({});
+  }
+  const computed = await computeUncertaintyAndPressure({ db: core.db, agentId: core.agentId, cognitiveSelf: core.cognitiveSelf });
+  const budget = loadBudget({ assignment: core.assignment, cognitiveRegulation, parentOrchestrator: core.parentOrchestrator });
+  return { cognitiveRegulation, uncertainty: computed.uncertainty, currentPressure: computed.currentPressure, budget };
+}
+
+function homeostasisInputOf(all) {
+  return {
+    energy: all.currentPressure.energy,
+    memoryPressure: all.currentPressure.memoryPressure,
+    stress: all.currentPressure.stress,
+    integrity: all.cognitiveSelf?.regulatory?.integrity
+  };
+}
+
+function clinicalInputOf(all) {
+  return {
+    cognitiveIntegrity: all.cognitiveSelf?.regulatory?.integrity,
+    stress: all.currentPressure.stress,
+    energy: all.currentPressure.energy,
+    budgetRatio: all.budget.remaining / Math.max(1, all.budget.cognitive || 1),
+    dissonance: all.cognitiveRegulation?.dissonanceLevel,
+    apoptosisRisk: all.cognitiveRegulation?.isApoptotic ? 0.5 : 0
+  };
+}
+
+async function loadIdentityState(all) {
+  const identity = all.agentRow
+    ? identityFromRow(all.agentRow, all.agentId, all.role)
+    : generateAgentIdentity({ role: all.role, stableKey: all.agentId });
+  const instinctState = instinctFromRegulation(all.cognitiveRegulation);
+  const creativeState = all.assignment?.cognitiveRecipe
+    ? phenotypeFromRecipe(all.assignment.cognitiveRecipe)
+    : null;
+  let homeostasis = null;
+  try {
+    const homeoResult = await evaluateAgentHomeostasis(all.db, all.agentId, homeostasisInputOf(all));
+    homeostasis = { status: homeoResult.status, violations: homeoResult.violations };
+  } catch (_) {
+    homeostasis = { status: all.currentPressure.status, violations: [] };
+  }
+  return { identity, instinctState, creativeState, homeostasis };
+}
+
+function assembleContext(parts) {
+  return {
+    identity: parts.identity,
+    self: parts.cognitiveSelf,
+    cognitiveRegulation: parts.cognitiveRegulation,
+    regulatoryState: parts.regulatorySnapshot,
+    homeostasis: parts.homeostasis,
+    instinctState: parts.instinctState,
+    creativeState: parts.creativeState,
+    cognitivePhenotype: parts.cognitivePhenotype,
+    genotype: parts.genotype,
+    epigeneticState: parts.epigeneticState,
+    plasmids: parts.plasmids,
+    phenotype: parts.phenotype,
+    capabilities: parts.phenotype.capabilities,
+    capabilityManifest: parts.capabilityManifest,
+    authority: parts.authority,
+    relations: parts.relations,
+    communicationManifest: parts.communicationManifest,
+    commonGround: parts.commonGround,
+    topologyMembership: parts.topologyMembership,
+    memory: parts.memory,
+    memoryContext: parts.memoryContext,
+    proceduralMemory: parts.proceduralMemory,
+    epistemicState: parts.epistemicState,
+    strategyTrajectory: parts.strategyTrajectory,
+    ancestralContext: parts.ancestralContext,
+    uncertainty: parts.uncertainty,
+    currentPressure: parts.currentPressure,
+    budget: parts.budget,
+    clinicalState: parts.clinicalState,
+    agentId: parts.agentId,
+    builtAt: new Date().toISOString()
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Main: buildExpressionContext
 // ---------------------------------------------------------------------------
 
 async function buildExpressionContext(opts) {
-  const { agentId, db, parentOrchestrator, mission, assignment } = opts || {};
-
+  const agentId = opts?.agentId;
   if (!agentId) throw new Error('buildExpressionContext requires agentId');
 
-  const role = assignment?.role || 'worker';
-  const scope = {
-    organizationId: parentOrchestrator?.organization_id || assignment?.workspace?.organizationId,
-    projectId: parentOrchestrator?.project_id || assignment?.workspace?.projectId
-  };
+  const core = await loadCoreState(opts);
+  const social = loadSocialState(core);
+  const memState = await loadMemoryState(core);
+  const pressure = await loadPressureState(core);
+  const all = { ...core, ...social, ...memState, ...pressure };
+  const identity = await loadIdentityState(all);
+  const clinicalState = await loadClinicalState({ db: core.db, agentId, context: clinicalInputOf(all) });
+  const epistemicState = contracts.realEpistemicOf(agentId, contracts.epistemicStubOf(agentId, core.cognitiveSelf));
+  const memoryContext = contracts.memoryStubOf(agentId, { memory: memState.memory, budget: pressure.budget });
+  const regulatorySnapshot = contracts.realRegulatoryOf(agentId, contracts.regulatoryStubOf(agentId, all));
+  const cognitivePhenotype = contracts.phenotypeStubOf(agentId, identity.creativeState);
+  const strategyTrajectory = contracts.trajectoryStubOf(agentId);
+  const context = assembleContext({ ...all, ...identity, clinicalState, epistemicState, memoryContext, regulatorySnapshot, cognitivePhenotype, strategyTrajectory });
 
-  // Step 1: Load agent row
-  const agentRow = await loadAgentRow(db, agentId);
-
-  // Step 2: Build CognitiveSelf
-  const cognitiveSelf = await buildCognitiveSelf({ db, agentId, role, mission, assignment });
-
-  // Step 3: Load genotype
-  const genotype = await loadGenotype({ db, parentOrchestrator, assignment, scope });
-
-  // Step 4: Epigenetic state
-  const epigeneticState = deriveEpigeneticState(genotype);
-
-  // Step 5: Plasmids
-  const plasmids = derivePlasmids(genotype);
-
-  // Step 6: Phenotype
-  const phenotype = computePhenotype({ genotype, epigeneticState, assignment });
-
-  // Step 7: Capability manifest
-  const capabilityManifest = buildManifest({ phenotype, mission, assignment, budget: assignment?.budget });
-
-  // Step 8: Authority
-  const authority = loadAuthority({ phenotype, assignment, parentOrchestrator });
-
-  // Step 9: Relations
-  const relations = loadRelations({ agentId, assignment });
-
-  // Step 10: Communication manifest
-  const communicationManifest = buildCommunicationManifest({ phenotype, assignment });
-
-  // Step 11: Common ground
-  const commonGround = loadCommonGround({ cognitiveSelf, assignment });
-
-  // Step 12: Topology membership
-  const topologyMembership = loadTopology({ agentId, assignment });
-
-  // Step 13: Memory
-  const memory = loadMemory({ cognitiveSelf });
-  const proceduralMemory = memory.procedural;
-
-  // Step 14: Ancestral context
-  const ancestralContext = await loadAncestralContext({ db, agentId });
-
-  // Cognitive regulation (needed for budget + uncertainty)
-  let cognitiveRegulation = null;
-  try {
-    cognitiveRegulation = await loadCognitiveRegulationState(db, agentId);
-  } catch (_) {
-    cognitiveRegulation = createCognitiveRegulationState({});
-  }
-
-  // Step 15: Uncertainty and pressure
-  const { uncertainty, currentPressure } = await computeUncertaintyAndPressure({ db, agentId, cognitiveSelf });
-
-  // Step 16: Budget
-  const budget = loadBudget({ assignment, cognitiveRegulation, parentOrchestrator });
-
-  // Identity (from agentRow or generated)
-  const identity = agentRow
-    ? identityFromRow(agentRow, agentId, role)
-    : generateAgentIdentity({ role, stableKey: agentId });
-
-  // Instinct state (from cognitive regulation)
-  const instinctState = instinctFromRegulation(cognitiveRegulation);
-
-  // Creative state
-  const creativeState = assignment?.cognitiveRecipe
-    ? phenotypeFromRecipe(assignment.cognitiveRecipe)
-    : null;
-
-  // Homeostasis
-  let homeostasis = null;
-  try {
-    const homeoResult = await evaluateAgentHomeostasis(db, agentId, {
-      energy: currentPressure.energy,
-      memoryPressure: currentPressure.memoryPressure,
-      stress: currentPressure.stress,
-      integrity: cognitiveSelf?.regulatory?.integrity
-    });
-    homeostasis = { status: homeoResult.status, violations: homeoResult.violations };
-  } catch (_) {
-    homeostasis = { status: currentPressure.status, violations: [] };
-  }
-
-  // Assemble the full context
-  const context = {
-    identity,
-    self: cognitiveSelf,
-    cognitiveRegulation,
-    homeostasis,
-    instinctState,
-    creativeState,
-    genotype,
-    epigeneticState,
-    plasmids,
-    phenotype,
-    capabilities: phenotype.capabilities,
-    capabilityManifest,
-    authority,
-    relations,
-    communicationManifest,
-    commonGround,
-    topologyMembership,
-    memory,
-    proceduralMemory,
-    ancestralContext,
-    uncertainty,
-    currentPressure,
-    budget,
-    agentId,
-    builtAt: new Date().toISOString()
-  };
-
-  // Cache it
   contextCache.set(agentId, context);
 
   return context;

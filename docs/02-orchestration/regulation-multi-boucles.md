@@ -122,3 +122,27 @@ de workers ne prouve pas leur diversité, et risque plus budget ne constituent p
 une simulation physique complète. Le rappel autobiographique vaut explicitement
 zéro tant qu'il n'est pas fourni au plan. La matrice décrit donc la couverture
 opérationnelle observée, pas une personnalité, une émotion ou une conscience.
+
+## 8. Pont régulateur unique et boucle causale (implémenté)
+
+- **Statut** : Implémenté (périmètre : snapshot, modulation, feedback RPE).
+- **Dernière revue** : 2026-09-23.
+
+Les bridges ad hoc (`curiosity_hint`, `dopamine_bridge`, …) sont remplacés par
+un contrat unique : `RegulatorySnapshot`
+([spec/regulatory-snapshot.schema.json](../../spec/regulatory-snapshot.schema.json)),
+produit par [backend/src/services/regulation/regulatoryBridgeService.js](../../backend/src/services/regulation/regulatoryBridgeService.js)
+(multi-drives, modulateurs, révision CAS).
+
+Invariants tenus :
+
+- drives et hormones **modulent** les poids de décision, jamais des permissions ;
+- une curiosité haute ne contourne jamais un gate de preuve ;
+- `AgentExpressionContext` charge le snapshot réel avec fallback
+  ([backend/src/services/agents/agentExpressionContextService.js](../../backend/src/services/agents/agentExpressionContextService.js)) ;
+- après chaque action, [backend/src/services/morphogenesis/causalLoopService.js](../../backend/src/services/morphogenesis/causalLoopService.js)
+  applique le RPE au régulateur (`regulation.revision`) : dopamine/cortisol/stress
+  bornés dans `[0,1]`, sans apprentissage inter-missions des poids.
+
+Non-objectifs : pas de persistance Rust↔Node temps réel au-delà du snapshot
+versionné, pas d'ajustement automatique des paramètres de boucles entre missions.

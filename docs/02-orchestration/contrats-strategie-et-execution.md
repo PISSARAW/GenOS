@@ -56,5 +56,34 @@ approbation éventuelle doivent encore être satisfaits.
 ## 6. Limites
 
 Le contrat rend la décision traçable ; il ne garantit pas que le provider respecte la
-stratégie. La preuve finale doit inclure les événements d’exécution et les artefacts
+stratégie. La preuve finale doit inclure les événements d'exécution et les artefacts
 de test. Les mutations de contrat doivent produire une nouvelle version.
+
+## 7. Boucle de contrôle cognitive (implémenté)
+
+- **Statut** : Implémenté (périmètre : sélection de topologie pilotée par les 5 états).
+- **Dernière revue** : 2026-09-23.
+
+Le choix de morphologie ne dépend plus seulement de `mission + capabilities + budget`.
+[backend/src/services/morphogenesis/cognitiveControlLoopService.js](../../backend/src/services/morphogenesis/cognitiveControlLoopService.js)
+(`decideMorphology`) score chaque topologie candidate à partir de :
+
+- pression épistémique (`uncertainty`, `contradiction`, `evidenceDeficit`,
+  `independenceDeficit`, `unresolvedHypotheses`, `calibrationError`) ;
+- réutilisation mémoire (`MemoryContext`, pénalité des dead-ends) ;
+- poids régulateurs (exploration, conservation, tolérance au risque) ;
+- ajustement cognitif / stratégique ;
+- biais topologique : `seek_independent_verification` → `trinity`,
+  `explore` → topologie exploratoire, `commit`/`hold` → stabilisation.
+
+[backend/src/services/morphogenesis/morphogenesisPlannerService.js](../../backend/src/services/morphogenesis/morphogenesisPlannerService.js)
+(`planMorphogenesis`) construit les candidats `{courante, proposée, trinity}`,
+délègue le choix quand `ctx.expression` est présent (`plan.selectedTopology`,
+`plan.controlReceipt`), sinon garde le comportement historique. La fermeture
+post-action (`Evidence → révision → RPE → consolidation → performances
+stratégie/recette → expérience morphologique`) est assurée par le
+`causalLoopService`.
+
+Limites : `MemoryRouter`, `StrategyResolver` et `PhenotypeResolver` ne sont pas
+encore appelés en live dans l'expression (stubs enrichis avec fallback) ; les
+priors empiriques inter-missions restent hors périmètre.
