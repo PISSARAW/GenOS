@@ -237,9 +237,9 @@ function memberDependencies(composition, member, producers) {
   return [];
 }
 
-function buildAssignment(composition, member, index, producers) {
+function buildAssignment(composition, member, context) {
   const { goal } = composition;
-  const dependsOn = memberDependencies(composition, member, producers);
+  const dependsOn = memberDependencies(composition, member, context.producers);
   const observer = isObserverRole(member.role);
   return {
     subSystem: member.subSystem,
@@ -263,7 +263,7 @@ function compose(options = {}) {
     modelTier: String(composition.tiers[index] || 'standard').trim()
   }));
   const producers = members.filter((member) => !isObserverRole(member.role)).map((member) => member.subSystem);
-  return members.map((member, index) => buildAssignment(composition, member, index, producers));
+  return members.map((member, index) => buildAssignment(composition, member, { index, producers }));
 }
 
 function memberLabel(member) {

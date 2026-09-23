@@ -48,7 +48,7 @@ function contaminationFailure(worker, domain, report, teamDomains) {
   return null;
 }
 
-function constraintFailure(worker, member, domain, report) {
+function constraintFailure(worker, member, report) {
   const dependsOn = Array.isArray(member.dependsOn) ? member.dependsOn : [];
   if (!dependsOn.length) return null;
   const constraints = report.integrationConstraints || report.constraints;
@@ -56,8 +56,8 @@ function constraintFailure(worker, member, domain, report) {
   return {
     code: 'WORKER_INTEGRATION_CONSTRAINT_MISSING',
     workerId: worker.agentId,
-    domain,
-    message: `Consumer '${domain || worker.agentId}' returned no integration constraints.`
+    domain: member.domain,
+    message: `Consumer '${member.domain || worker.agentId}' returned no integration constraints.`
   };
 }
 
@@ -76,7 +76,7 @@ function observeAteamIntegration({ members, workers, dossiers } = {}) {
     if (!report) return;
     const contamination = contaminationFailure(worker, domain, report, teamDomains);
     if (contamination) failures.push(contamination);
-    const constraints = constraintFailure(worker, member, domain, report);
+    const constraints = constraintFailure(worker, member, report);
     if (constraints) integrationFailures.push(constraints);
   });
 

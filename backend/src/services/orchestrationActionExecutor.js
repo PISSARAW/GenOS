@@ -143,19 +143,22 @@ async function deferAction(context) {
   return { executed: false, deferred: true, reason: 'missing_required_evidence' };
 }
 
+async function markReceipt(context, status) {
+  if (!context.db || !context.sourceEventId) return;
+  await context.db.run(`UPDATE orchestration_action_receipts SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?`, status, context.orchestratorId, context.sourceEventId, context.decision.tool);
+}
+
 async function runAction(context, args) {
   let result;
   try {
     result = await mcp.execute({ agentId: context.orchestratorId, toolName: context.decision.tool, args });
   } catch (error) {
     result = { success: false, status: 'failed', error: error.message || String(error) };
-    if (context.db && context.sourceEventId) {
-      await context.db.run(`UPDATE orchestration_action_receipts SET status = 'failed', completed_at = CURRENT_TIMESTAMP WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?`, context.orchestratorId, context.sourceEventId, context.decision.tool);
-    }
+    await markReceipt(context, 'failed');
     emitExecution(context, args, result);
     throw error;
   }
-  if (context.db && context.sourceEventId) await context.db.run(`UPDATE orchestration_action_receipts SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?`, result.success ? 'completed' : 'failed', context.orchestratorId, context.sourceEventId, context.decision.tool);
+  await markReceipt(context, result.success ? 'completed' : 'failed');
   emitExecution(context, args, result);
   if (result.success && context.decision.tool === 'genos_record_experience') await compileMemory(context, args);
   try {
