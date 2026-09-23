@@ -16,10 +16,7 @@ const { recordFossil } = require('../fossilizationService');
 
 function uuid() { return crypto.randomUUID(); }
 
-/**
- * Build a commit context from a morphogenesis plan and receipt.
- */
-function buildCommitContext(plan, receipt, collectiveState) {
+function collectActionChanges(receipt) {
   const changes = [];
   for (const a of receipt.actionsTaken || []) {
     if (a.status === 'success' && a.detail) {
@@ -31,22 +28,69 @@ function buildCommitContext(plan, receipt, collectiveState) {
       });
     }
   }
+  return changes;
+}
 
-  const evidence = {
+function pushMapped(changes, items, mapFn) {
+  if (!Array.isArray(items)) return changes;
+  for (const it of items) changes.push(mapFn(it));
+  return changes;
+}
+
+function collectPlanChanges(plan) {
+  let changes = [];
+  pushMapped(changes, plan.topologyChanges, (t) => ({ type: 'topology', field: t.field, from: t.from, to: t.to }));
+  pushMapped(changes, plan.preserveAgents, (a) => ({ type: 'preserve', agentId: a.agentId || a.id }));
+  pushMapped(changes, plan.retireAgents, (a) => ({ type: 'retire', agentId: a.agentId || a.id }));
+  pushMapped(changes, plan.spawnAgents, (s) => ({ type: 'spawn', phenotype: s.phenotype, capabilities: s.capabilities }));
+  pushMapped(changes, plan.rebindAgents, (r) => ({ type: 'rebind', agentId: r.agentId || r.id }));
+  pushMapped(changes, plan.capabilityChanges, (c) => ({ type: 'capability', capability: c.capability, action: c.action }));
+  pushMapped(changes, plan.leaseChanges, (l) => ({ type: 'lease', lease: l.lease || l.tool, action: l.action }));
+  pushMapped(changes, plan.relationChanges, (r) => ({ type: 'relation', relation: r.relation || r.kind }));
+  pushMapped(changes, plan.plasmidActions, (p) => ({ type: 'plasmid', action: p.action, plasmidId: p.plasmidId }));
+  pushMapped(changes, plan.genotypeActions, (g) => ({ type: 'dna', action: g.action, targetAgentId: g.targetAgentId }));
+  pushMapped(changes, plan.epigeneticChanges, (e) => ({ type: 'epigenetic', agentId: e.agentId }));
+  if (plan.budgetReallocation || plan.budgetPatch) {
+    changes.push({ type: 'budget', reallocation: plan.budgetReallocation, patch: plan.budgetPatch });
+  }
+  if (plan.executionSubstrate) {
+    changes.push({ type: 'substrate', substrate: plan.executionSubstrate });
+  }
+  return changes;
+}
+
+function buildEvidence(plan, receipt) {
+  return {
     transitionId: receipt.transitionId,
     planId: plan.id,
     preVersion: receipt.preStateSnapshot?.morphologyVersion,
     postVersion: receipt.postStateSnapshot?.morphologyVersion,
     actionCount: receipt.actionsTaken?.length || 0,
     rollback: receipt.rollbackReceipt ? true : false,
+    targetOrganization: plan.targetOrganization || null,
+    counterfactual: plan.counterfactualRef || receipt.counterfactualRef || null,
   };
+}
 
-  const reason = plan.reason || plan.targetOrganization
-    ? `morphogenesis:${plan.targetOrganization || 'topology-change'}`
-    : 'morphogenesis:auto';
+function buildReason(plan) {
+  if (plan.reason) return plan.reason;
+  if (plan.targetOrganization) return `morphogenesis:${plan.targetOrganization}`;
+  return 'morphogenesis:auto';
+}
+
+/**
+ * Build a commit context from a morphogenesis plan and receipt.
+ */
+function buildCommitContext(plan, receipt, collectiveState) {
+  const changes = collectActionChanges(receipt).concat(collectPlanChanges(plan));
+  const evidence = buildEvidence(plan, receipt);
+  if (collectiveState && evidence.preVersion === undefined) {
+    evidence.preVersion = collectiveState.currentMorphologyVersion || null;
+  }
+  const reason = buildReason(plan);
 
   return {
-    message: `[MORPHOGENESIS] ${plan.targetOrganization || 'transition'} — ${changes.length} action(s)`,
+    message: `[MORPHOGENESIS] ${plan.targetOrganization || 'transition'} — ${changes.length} change(s)`,
     reason,
     evidence,
     changes,
