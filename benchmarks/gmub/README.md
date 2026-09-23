@@ -35,3 +35,31 @@ et réexportés en JSON.
 Ablations `full vs -memory / -epistemics / -biomimicry / -evolution /
 -recovery / -topology` : `Contribution = S(G) - S(G-cap)`, même harness,
 `mode: ablation`.
+
+Attribution des gains (`capabilityAttribution`) : un gain n'est attribué à
+une topologie que si `observed ⊆ activated ⊆ declared` (leases
+`toolLeasePolicy` + opérations réellement appelées, voir
+`docs/02-orchestration/topologies-et-capacites.md`). Sinon le verdict est
+`contract_only`, `leased_without_effect`, `observed_without_lease` ou
+`unscoped_activation` — pas d'attribution au « Biome ».
+
+Test biomimétique (`biomimicryTest`) : `bioSuperior` exige une victoire
+IC95 sur les trois dimensions `exploration`, `recovery`, `diversity`.
+
+## Carte GenOS Capability Uplift (template de publication)
+
+```text
+GENOS CAPABILITY UPLIFT — <version GenOS> / <suite>
+Base model:            <M>
+Standalone tier:       <Tx> (ladder emergente, jamais manuelle)
+GenOS effective tier:  <Ty>   Tier uplift: +<n>   HMB: <modele>
+Quality uplift:        <Δ pts>   95% CI: [<lcb>, <ucb>]   (LCB95 > margin, sinon inconclusif)
+Cost multiplier:       <×>   Token multiplier: <×>   Quality / $: <+/-%>
+ABC:                   C > B > A : <oui/non> (bonus d'organisation prouve)
+WMC:                   <plus petit modele + GenOS > frontier>
+Domains improved / neutral / degraded: <a / b / c>
+Attribution:           <attributable | motif de refus>   Provenance: <hash>
+```
+
+`kind: metric`, `qualityGuarantee: false` : la carte informe la policy,
+elle n'autorise rien à elle seule.

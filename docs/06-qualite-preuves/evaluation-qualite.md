@@ -304,6 +304,32 @@ La qualite dans GenOS est un processus de mesure, de trace et de controle. Les t
 
 Un score est une metrique. Un test execute est une evidence conditionnelle. Une garantie n'existe que lorsqu'un controle effectif applique la propriete revendiquee. Cette distinction est ce qui permet a GenOS de rester utile a la decision sans sur-affirmer ce que ses evaluations peuvent prouver.
 
+---
+
+## 13. Prolongement longitudinal : GMUB / GCAB (ADR 0035)
+
+La couche ci-dessus mesure un run isole. GMUB/GCAB mesure l'evolution
+cognitive de GenOS entre versions, sans second framework parallele :
+
+- **GMUB** : ladder solo emergente (tiers jamais decides a la main),
+  paires appariees meme cas `solo vs genos vs compute_control`,
+  bootstrap 95%, Highest Model Beaten (HMB), tier uplift, WMC, budgets
+  tokens/$/temps. Modules `backend/src/services/uplift/` (`pairedStats`,
+  `ladderService`, `costAccounting`, `computeControl`, `wmcService`),
+  persistance `uplift_runs/pairs/comparisons` (migration `049`),
+  harness `benchmarks/gmub/`.
+- **GCAB** : attribution `observed ⊆ activated ⊆ declared`
+  (`capabilityAttribution`, contre le risque d'attribuer au « Biome » un
+  gain venant d'un worker supplementaire), ablations
+  (`Contribution = S(G) - S(G-cap)`), test biomimetique
+  (`bioSuperior` sur exploration/recovery/diversite).
+
+Regle de victoire : un modele est declare battu seulement si
+`LCB95(D) > margin`, sinon **inconclusif**. Le controle compute naif
+exige `C > B > A` (GenOS > compute naif > solo) pour parler de bonus
+d'organisation plutot que de tokens supplementaires. Comme les graders,
+ces sorties portent `kind: 'metric'` et `qualityGuarantee: false`.
+
 
 ---
 

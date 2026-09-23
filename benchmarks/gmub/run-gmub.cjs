@@ -7,6 +7,9 @@ const { buildLadder, upliftCard } = require('../../backend/src/services/uplift/l
 const { summarizeCost } = require('../../backend/src/services/uplift/costAccounting');
 const { triplesFor, summarizeABC } = require('../../backend/src/services/uplift/computeControl');
 const { weakestCrossover } = require('../../backend/src/services/uplift/wmcService');
+const { attributionVerdict } = require('../../backend/src/services/uplift/capabilityAttribution');
+const { ablationTable } = require('../../backend/src/services/uplift/ablationService');
+const { biomimeticVerdict } = require('../../backend/src/services/uplift/biomimicryTest');
 
 function loadJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -36,7 +39,33 @@ function runReport(input) {
   const cost = summarizeCost(input.cost || {});
   const abc = summarizeABC(triplesFor(runs, input), input.stats || {});
   const wmc = weakestWmc(input, ladder);
-  return { suite: input.suite, model: input.model, ladder, stats, card, cost, abc, wmc, kind: 'metric', qualityGuarantee: false };
+  const gcab = gcabSection(input);
+  return { suite: input.suite, model: input.model, ladder, stats, card, cost, abc, wmc, gcab, kind: 'metric', qualityGuarantee: false };
+}
+
+function gcabSection(input) {
+  const cfg = input.gcab || {};
+  if (emptyGcab(cfg)) return null;
+  return {
+    attribution: gcabAttribution(cfg),
+    ablations: ablationTable(cfg.ablations || [], input.stats || {}),
+    biomimicry: gcabBiomimicry(cfg, input.stats || {})
+  };
+}
+
+function emptyGcab(cfg) {
+  return !cfg.run && !cfg.ablations && !cfg.biomimicry;
+}
+
+function gcabAttribution(cfg) {
+  if (!cfg.run) return null;
+  return attributionVerdict(cfg.run, cfg.contract || null);
+}
+
+function gcabBiomimicry(cfg, stats) {
+  const samples = cfg.biomimicry || [];
+  if (!samples.length) return null;
+  return biomimeticVerdict(samples, stats);
 }
 
 function weakestWmc(input, ladder) {
