@@ -333,9 +333,11 @@ const ADAPTER_ALIASES = {
   benchmark: 'artifact',
 };
 
-function selectAdapter(verifierType) {
-  if (ADAPTER_MAP[verifierType]) return ADAPTER_MAP[verifierType];
-  const aliased = ADAPTER_ALIASES[verifierType];
+function selectAdapter(verifier) {
+  if (verifier.artifact) return runArtifactAdapter;
+  if (verifier.test) return runTestAdapter;
+  if (ADAPTER_MAP[verifier.type]) return ADAPTER_MAP[verifier.type];
+  const aliased = ADAPTER_ALIASES[verifier.type];
   return (aliased && ADAPTER_MAP[aliased]) || null;
 }
 
@@ -349,7 +351,7 @@ async function executeVerifierWithAdapter(antigen, verifier, context) {
     };
   }
 
-  const adapter = selectAdapter(verifier.type);
+  const adapter = selectAdapter(verifier);
   if (!adapter) {
     return {
       status: 'inconclusive',

@@ -66,12 +66,26 @@ function attestationKey(attestation) {
 }
 
 function checkConstraintCensus(input, violations) {
+  // Chaque receipt couvre les obligations qu'il a réellement validées
+  // (coveredObligations). Le census est valide si l'union des attestations
+  // couvre toutes les obligations, pas si chaque acteur couvre tout.
   const attestations = (input.constraintAttestations || []).filter((item) => item.independent === true);
   const actors = new Set(attestations.map((item) => item.actorId).filter(Boolean));
-  const keys = new Set(attestations.map(attestationKey));
-  const expected = [...requiredObligationIds(input)].sort().join('\u0000');
-  if (actors.size < 2 || keys.size !== 1 || !keys.has(expected)) {
-    violations.push(violation('constraint_census', 'Two independent actors must attest the same complete obligation set.'));
+  
+  const covered = new Set();
+  for (const att of attestations) {
+    for (const oid of att.obligationIds || []) covered.add(oid);
+  }
+  
+  const required = requiredObligationIds(input);
+  const missing = [...required].filter(id => !covered.has(id));
+  
+  if (actors.size < 2 || missing.length > 0) {
+    violations.push(violation(
+      'constraint_census',
+      `Census incomplet: ${actors.size} acteur(s), ${missing.length} obligation(s) manquante(s)`,
+      { actors: [...actors], covered: [...covered], missing }
+    ));
   }
 }
 

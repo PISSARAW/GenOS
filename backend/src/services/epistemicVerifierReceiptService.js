@@ -21,7 +21,7 @@ function secretKey() {
 }
 
 function payloadText(receipt) {
-  return [
+  const fields = [
     receipt.resultId,
     receipt.evidenceDigest,
     receipt.verifierDigest,
@@ -31,7 +31,11 @@ function payloadText(receipt) {
     receipt.independent === true ? 'independent' : 'dependent',
     receipt.independenceDescriptor ? JSON.stringify(receipt.independenceDescriptor) : '',
     receipt.independenceDistance !== undefined ? String(receipt.independenceDistance) : '',
-  ].join('\u0000');
+  ];
+  if (Array.isArray(receipt.coveredObligations)) {
+    fields.push([...receipt.coveredObligations].sort().join(','));
+  }
+  return fields.join('\u0000');
 }
 
 function signatureFor(receipt) {
@@ -50,6 +54,9 @@ function issueReceipt(input = {}) {
     independenceDescriptor: input.independenceDescriptor || null,
     independenceDistance: input.independenceDistance !== undefined ? input.independenceDistance : null,
   };
+  if (Array.isArray(input.coveredObligations)) {
+    receipt.coveredObligations = [...input.coveredObligations];
+  }
   return { ...receipt, signature: signatureFor(receipt) };
 }
 

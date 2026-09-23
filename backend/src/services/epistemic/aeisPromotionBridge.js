@@ -231,6 +231,15 @@ function reproCommandFrom(claim) {
   return null;
 }
 
+function verificationContractFrom(claim) {
+  // Conserve le contrat de vérification complet (test + artifact),
+  // pas seulement la commande. `expectOutput` doit voyager jusqu'au sandbox.
+  return {
+    test: claim.test || null,
+    artifact: claim.artifact || null,
+  };
+}
+
 function claimToAntigen(claim, domain = 'general') {
   const statement = statementFromClaim(claim);
   return {
@@ -240,6 +249,7 @@ function claimToAntigen(claim, domain = 'general') {
     producer: claim.producer || { model: 'worker', version: '1.0' },
     risk: claim.risk || { score: 0.5 },
     reproCommand: reproCommandFrom(claim),
+    verificationContract: verificationContractFrom(claim),
   };
 }
 

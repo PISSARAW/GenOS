@@ -147,6 +147,8 @@ function signVerifierResult(antigen, verifier, signed) {
   preReceipt.independent = signed.independence.independent;
   preReceipt.independenceDescriptor = signed.independence.descriptor;
   preReceipt.independenceDistance = signed.independence.distance;
+  // Le verifier couvre l'obligation correspondant au claim qu'il valide.
+  preReceipt.coveredObligations = [antigen.id];
   const signedReceipt = issueReceipt(preReceipt);
   return {
     status: signed.outcome.status,
@@ -172,10 +174,16 @@ function errorVerifierResult(verifier, err) {
 
 async function runSingleVerifier(antigen, verifier, ctx) {
   const worker = buildVerifierWorker(antigen, verifier);
-  // Injecter la commande de reproduction dans le verifier pour que
-  // l'adapter (test/artifact) puisse réellement l'exécuter via sandbox.
+  // Injecter le contrat de vérification complet (test + artifact) pour que
+  // l'adapter puisse réellement exécuter via sandbox avec expectOutput.
   const enriched = { ...verifier };
-  if (!enriched.test && !enriched.artifact && antigen.reproCommand) {
+  const contract = antigen.verificationContract;
+  if (contract?.test) {
+    enriched.test = contract.test;
+  } else if (contract?.artifact) {
+    enriched.artifact = contract.artifact;
+  } else if (antigen.reproCommand && !enriched.test && !enriched.artifact) {
+    // Fallback : reconstruire depuis reproCommand seul.
     const looksLikeArtifact = enriched.type === 'artifact' || enriched.type === 'proof' || enriched.type === 'repro' || enriched.type === 'benchmark';
     if (looksLikeArtifact) {
       enriched.artifact = { buildCommand: antigen.reproCommand };

@@ -137,9 +137,20 @@ async function runClonalSelectionCycle(parent, antigen, ctx) {
   const cloneResults = await executeVerifierWorkers(antigen, clones, ctx);
   applyOracleToClones(clones, cloneResults, oracleTruth);
   const selection = selectWinningClones(parent, clones);
-  const maturation = oracleTruth
-    ? matureStrategy({ strategy: selection.winner.strategy || [] }, oracleTruth)
-    : null;
+  
+  // Calculer le vrai diagnostic de confusion pour piloter la maturation.
+  let maturation = null;
+  if (oracleTruth && selection?.winner) {
+    const winnerResult = cloneResults.results.find(r => r.resultId === selection.winner.id) || cloneResults.results[0];
+    const diagnosis = diagnoseWinnerError(oracleTruth, winnerResult);
+    maturation = matureStrategy({
+      strategy: selection.winner.strategy || [],
+      falsePositive: diagnosis === 'false_positive',
+      falseNegative: diagnosis === 'false_negative',
+      complete: diagnosis === 'true_positive' || diagnosis === 'true_negative',
+    }, oracleTruth);
+  }
+  
   return { clones, cloneResults, selection, maturation, oracleResolved: Boolean(oracleTruth) };
 }
 

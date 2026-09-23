@@ -230,9 +230,10 @@ async function run() {
     };
     const result = await evaluateReportWithAeis(report, {
       domain: 'general',
-      trustedVerifierDigests: listVerifierDigests(),
       immuneMemory: [],
     });
+    // Après exécution, le registry a enregistré tous les verifiers utilisés.
+    const trustedDigests = listVerifierDigests();
     assert.ok(result.assembly, 'assembly doit exister');
     const fr = result.assembly.results[0];
     const rc = result.assembly.verifications.find((v) => v.resultId === fr.resultId);
@@ -245,10 +246,16 @@ async function run() {
       aeisEvaluation: result,
     });
     assert.ok(gate.epistemicAssembly, 'assembly injectee dans le gate context');
+    const violations = policy.evaluate(
+      { require_epistemic_assurance: true, epistemic_verifier_digests: trustedDigests },
+      gate
+    );
+    assert.deepStrictEqual(violations, []);
   });
 
-  // 15. Faux claim avec commande : NON eligible (refuted par sandbox)
+  // 15. Faux claim avec commande : NON eligible (refuté par sandbox)
   await test('Faux claim 2+2=5 non eligible via sandbox', async () => {
+    const { listVerifierDigests } = require('../src/services/verifierTrustRegistry');
     const report = {
       claims: [
         {
@@ -260,11 +267,20 @@ async function run() {
     };
     const result = await evaluateReportWithAeis(report, {
       domain: 'general',
-      trustedVerifierDigests: [],
+      trustedVerifierDigests: listVerifierDigests(),
       immuneMemory: [],
     });
     assert.strictEqual(result.evaluation.eligible, false,
       'un faux claim doit etre refuse par AEIS');
+    // Verifier que le refus vient bien du sandbox (output_mismatch),
+    // pas d'une liste de trust vide.
+    const allResults = result.holobionteResults
+      .flatMap(r => r.immune.verifierResults.results);
+    const refuted = allResults.some(r =>
+      r.status === 'refuted' &&
+      r.counterexamples.some(c => c.type === 'output_mismatch')
+    );
+    assert.ok(refuted, 'le faux claim doit etre refute par output_mismatch');
   });
 
   // 15. Sans assembly AEIS la promotion gate refuse
