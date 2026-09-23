@@ -299,24 +299,22 @@ async function checkNaturalSearchControl(ctx, event, finalEvent = null) {
   }
 }
 
-function handlePostReceiptPlasmid({ selection, receipt, searchCtx, actuator, agentId }) {
-  if (!receipt || receipt.status !== 'success') return;
-  if (selection.process !== 'EVOLUTION' && selection.process !== 'CLONAL_AFFINITY_SEARCH') return;
-  try {
-    const genome = actuator.modules.getBestGenome ? actuator.modules.getBestGenome() : null;
-    if (!genome || !receipt.result) return;
-    const plasmid = actuator.modules.compilePlasmid(genome, {
-      environment: { searchYield: searchCtx.searchYield || 0, falsifiedHypotheses: searchCtx.falsifiedHypotheses || 0 },
-      generations: receipt.result.evolutionLog ? receipt.result.evolutionLog.length : 0,
-      successRate: 0.7, reproducible: true,
-    });
-    if (plasmid) actuator.modules.cultureService.transmit(plasmid.id, agentId);
-  } catch (_) {}
-}
-
-function handlePostReceiptFalsified({ searchState, agentId, eventType }) {
-  const falsified = searchState.ledger.hypothesesForAgent(agentId).filter(h => h.status === 'falsified');
-  for (const h of falsified) {
+function handlePostReceiptMemory({ searchState, selection, receipt, searchCtx, agentId, eventType }) {
+  if (receipt?.status !== 'success') return;
+  const isEvoProcess = selection.process === 'EVOLUTION' || selection.process === 'CLONAL_AFFINITY_SEARCH';
+  if (isEvoProcess) {
+    try {
+      const genome = searchState.actuator.modules.getBestGenome ? searchState.actuator.modules.getBestGenome() : null;
+      if (genome && receipt.result) {
+        const plasmid = searchState.actuator.modules.compilePlasmid(genome, {
+          environment: { searchYield: searchCtx.searchYield || 0, falsifiedHypotheses: searchCtx.falsifiedHypotheses || 0 },
+          generations: receipt.result.evolutionLog ? receipt.result.evolutionLog.length : 0, successRate: 0.7, reproducible: true,
+        });
+        if (plasmid) searchState.actuator.modules.cultureService.transmit(plasmid.id, agentId);
+      }
+    } catch (_) {}
+  }
+  for (const h of searchState.ledger.hypothesesForAgent(agentId).filter(h => h.status === 'falsified')) {
     try {
       searchState.actuator.modules.recordNegativeOutcome(agentId, h,
         { ref: `falsified:${h.id}`, strength: 0.8, reliability: 0.9 },
@@ -325,17 +323,9 @@ function handlePostReceiptFalsified({ searchState, agentId, eventType }) {
   }
 }
 
-function handlePostReceiptMemory({ searchState, selection, receipt, searchCtx, agentId, eventType }) {
-  handlePostReceiptPlasmid({ selection, receipt, searchCtx, actuator: searchState.actuator, agentId });
-  handlePostReceiptFalsified({ searchState, agentId, eventType });
-}
-
-async function processSearchEvent(searchState, ctx, event) {
-  const eventType = event.eventType || 'AGENT_STEP';
-  const { agentId, normalizedMission } = ctx;
-  const { ledger, controller, actuator, causalProgress } = searchState;
+function handleEventIngestion({ searchState, ctx, event, eventType, agentId, normalizedMission }) {
   applyBudget(searchState, normalizedMission);
-  causalProgress.ingestEvent(event);
+  searchState.causalProgress.ingestEvent(event);
   ingestEvidence(searchState, event.payload || {}, eventType);
   handleLifecycleEvent({ searchState, eventType, payload: event.payload || {}, agentId });
   if (searchState.stepCount > 5 && (searchState.stepCount - searchState.lastProgressStep) > 5) {
@@ -345,12 +335,28 @@ async function processSearchEvent(searchState, ctx, event) {
     ingestFailureEvidence(searchState, event);
   }
   searchState.stepCount++;
+}
+
+function resolveLockInHypothesis(selection, ledger) {
+  return selection.classification === 'HYPOTHESIS_LOCK_IN' ? (ledger.detectLockIn()[0]?.hypothesisId || null) : null;
+}
+
+async function executeSearchStep(searchState, ctx) {
+  const { ledger, controller, actuator } = searchState;
   const searchCtx = buildSearchContext(ctx, searchState);
   const selection = controller.selectProcess(searchCtx);
-  selection.lockInHypothesis = selection.classification === 'HYPOTHESIS_LOCK_IN' ? (ledger.detectLockIn()[0]?.hypothesisId || null) : null;
-  emitDecision(agentId, selection, searchCtx);
+  selection.lockInHypothesis = resolveLockInHypothesis(selection, ledger);
+  emitDecision(ctx.agentId, selection, searchCtx);
   const receipt = await executeProcess({ selection, searchCtx, actuator });
-  if (receipt) emitAction(agentId, selection.process, receipt);
+  if (receipt) emitAction(ctx.agentId, selection.process, receipt);
+  return { selection, searchCtx, receipt };
+}
+
+async function processSearchEvent(searchState, ctx, event) {
+  const eventType = event.eventType || 'AGENT_STEP';
+  const { agentId, normalizedMission } = ctx;
+  handleEventIngestion({ searchState, ctx, event, eventType, agentId, normalizedMission });
+  const { selection, searchCtx, receipt } = await executeSearchStep(searchState, ctx);
   handlePostReceiptMemory({ searchState, selection, receipt, searchCtx, agentId, eventType });
   await persistSearchState(agentId, searchState, selection);
 }
