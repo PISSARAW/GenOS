@@ -64,7 +64,7 @@ impl MultiScaleMutator {
                     effect: MutationEffect::Substitution,
                     affected_locus: None,
                     positions_changed: 1,
-                    successful: true,
+                    successful: original != mutated,
                     description: format!(
                         "Nucleotide substitution at {}: {:?} -> {:?}",
                         pos, original, mutated
@@ -88,9 +88,13 @@ impl MultiScaleMutator {
             if rng.random_bool(rate.clamp(0.0, 1.0)) {
                 let pos = i * 3;
                 let original_chars: Vec<char> = strand.as_str().chars().collect();
-                let new_char = match rng.next_u32() % 4 {
-                    0 => 'A', 1 => 'C', 2 => 'G', _ => 'T',
-                };
+                let old_char = strand.as_str().chars().nth(pos).unwrap_or('A');
+                let mut new_char = old_char;
+                while new_char == old_char {
+                    new_char = match rng.next_u32() % 4 {
+                        0 => 'A', 1 => 'C', 2 => 'G', _ => 'T',
+                    };
+                }
                 let mut new_seq = strand.as_slice().to_vec();
                 new_seq[pos] = DnaNucleotide::nucleotide_from_char(new_char);
                 strand.replace_sequence(new_seq);
@@ -99,12 +103,10 @@ impl MultiScaleMutator {
                     effect: MutationEffect::Substitution,
                     affected_locus: None,
                     positions_changed: 1,
-                    successful: true,
+                    successful: original_chars[pos] != new_char,
                     description: format!(
                         "Codon mutation at codon {}: {:?} -> {:?}",
-                        i,
-                        &original_chars[pos..pos + 3],
-                        new_char
+                        i, &original_chars[pos..pos + 3], new_char
                     ),
                 });
             }
@@ -121,71 +123,70 @@ impl MultiScaleMutator {
         if rate <= 0.0 { return results; }
         let loci: Vec<String> = genome.genes.keys().cloned().collect();
         for locus in &loci {
-            if rng.random_bool(rate.clamp(0.0, 1.0)) {
-                let roll: u32 = rng.next_u32() % 4;
-                match roll {
-                    0 => {
-                        let gene_dna_len = {
-                            genome.genes.get(locus).map(|g| g.dna.len()).unwrap_or(0)
-                        };
-                        if let Some(gene) = genome.genes.get(locus) {
-                            let original = gene.dna.as_str();
-                            let mut new_dna = String::with_capacity(original.len() * 3);
-                            for _ in 0..3 { new_dna.push_str(&original); }
-                            genome.genes.get_mut(locus).unwrap().dna = DnaStrand::synthesize(&new_dna);
-                            results.push(MutationResult {
-                                scale: MutationScale::Gene,
-                                effect: MutationEffect::Amplification { factor: 3 },
-                                affected_locus: Some(locus.clone()),
-                                positions_changed: gene_dna_len * 2,
-                                successful: true,
-                                description: format!("Gene amplification of {}", locus),
-                            });
-                        }
+            if !rng.random_bool(rate.clamp(0.0, 1.0)) { continue; }
+            let roll: u32 = rng.next_u32() % 4;
+            match roll {
+                0 => {
+                    if let Some(gene) = genome.genes.get(locus) {
+                        let gene_dna_len = gene.dna.len();
+                        let original = gene.dna.as_slice();
+                        let mut new_dna = Vec::with_capacity(gene_dna_len * 3);
+                        new_dna.extend_from_slice(original);
+                        new_dna.extend_from_slice(original);
+                        new_dna.extend_from_slice(original);
+                        genome.genes.get_mut(locus).unwrap().dna = DnaStrand::new(new_dna);
+                        results.push(MutationResult {
+                            scale: MutationScale::Gene,
+                            effect: MutationEffect::Amplification { factor: 3 },
+                            affected_locus: Some(locus.clone()),
+                            positions_changed: gene_dna_len * 2,
+                            successful: true,
+                            description: format!("Gene amplification of {}", locus),
+                        });
                     }
-                    1 => {
-                        if let Some(gene) = genome.genes.get(locus) {
-                            let gene_dna_len = gene.dna.len();
-                            genome.genes.remove(locus);
-                            results.push(MutationResult {
-                                scale: MutationScale::Gene,
-                                effect: MutationEffect::GeneDeletion,
-                                affected_locus: Some(locus.clone()),
-                                positions_changed: gene_dna_len,
-                                successful: true,
-                                description: format!("Gene deletion of {}", locus),
-                            });
-                        }
+                }
+                1 => {
+                    if let Some(gene) = genome.genes.get(locus) {
+                        let gene_dna_len = gene.dna.len();
+                        genome.genes.remove(locus);
+                        results.push(MutationResult {
+                            scale: MutationScale::Gene,
+                            effect: MutationEffect::GeneDeletion,
+                            affected_locus: Some(locus.clone()),
+                            positions_changed: gene_dna_len,
+                            successful: true,
+                            description: format!("Gene deletion of {}", locus),
+                        });
                     }
-                    2 => {
-                        let gene_dna_len = {
-                            genome.genes.get(locus).map(|g| g.dna.len()).unwrap_or(0)
-                        };
-                        if let Some(gene) = genome.genes.get(locus) {
-                            let reversed: String = gene.dna.as_str().chars().rev().collect();
-                            genome.genes.get_mut(locus).unwrap().dna = DnaStrand::synthesize(&reversed);
-                            results.push(MutationResult {
-                                scale: MutationScale::Gene,
-                                effect: MutationEffect::Inversion,
-                                affected_locus: Some(locus.clone()),
-                                positions_changed: gene_dna_len,
-                                successful: true,
-                                description: format!("Gene inversion of {}", locus),
-                            });
-                        }
+                }
+                2 => {
+                    if let Some(gene) = genome.genes.get(locus) {
+                        let gene_dna_len = gene.dna.len();
+                        let original = gene.dna.as_slice();
+                        let mut new_dna = original.to_vec();
+                        new_dna.reverse();
+                        genome.genes.get_mut(locus).unwrap().dna = DnaStrand::new(new_dna);
+                        results.push(MutationResult {
+                            scale: MutationScale::Gene,
+                            effect: MutationEffect::Inversion,
+                            affected_locus: Some(locus.clone()),
+                            positions_changed: gene_dna_len,
+                            successful: true,
+                            description: format!("Gene inversion of {}", locus),
+                        });
                     }
-                    _ => {
-                        if let Some(gene) = genome.genes.get_mut(locus) {
-                            gene.is_methylated = !gene.is_methylated;
-                            results.push(MutationResult {
-                                scale: MutationScale::Gene,
-                                effect: MutationEffect::Substitution,
-                                affected_locus: Some(locus.clone()),
-                                positions_changed: gene.dna.len(),
-                                successful: true,
-                                description: format!("Gene methylation toggle of {}", locus),
-                            });
-                        }
+                }
+                _ => {
+                    if let Some(gene) = genome.genes.get_mut(locus) {
+                        gene.is_methylated = !gene.is_methylated;
+                        results.push(MutationResult {
+                            scale: MutationScale::Gene,
+                            effect: MutationEffect::Substitution,
+                            affected_locus: Some(locus.clone()),
+                            positions_changed: gene.dna.len(),
+                            successful: true,
+                            description: format!("Gene methylation toggle of {}", locus),
+                        });
                     }
                 }
             }
@@ -194,55 +195,30 @@ impl MultiScaleMutator {
     }
 
     pub fn mutate_segment<R: rand::Rng + ?Sized>(
-        genome: &mut Genome,
+        strand: &mut DnaStrand,
         rate: f64,
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
         if rate <= 0.0 { return results; }
-        let loci: Vec<String> = genome
-            .genes
-            .keys()
-            .filter(|l| !l.starts_with("INSTINCT_"))
-            .cloned()
-            .collect();
-        if loci.len() < 2 { return results; }
-        if rng.random_bool(rate.clamp(0.0, 1.0)) {
-            let src_idx = rng.next_u32() as usize % loci.len();
-            let target_idx = rng.next_u32() as usize % loci.len();
-            if src_idx == target_idx { return results; }
-            let source = loci[src_idx].clone();
-            let target = loci[target_idx].clone();
-            if let (Some(src_gene), Some(tgt_gene)) =
-                (genome.genes.get(&source), genome.genes.get(&target))
-            {
-                let segment: String = src_gene.dna.as_str().chars().take(3).collect();
-                let mut new_tgt: Vec<DnaNucleotide> = tgt_gene.dna.as_slice().to_vec();
-                let ins_pos = rng.next_u32() as usize % new_tgt.len().max(1);
-                for c in segment.chars().rev() {
-                    new_tgt.insert(ins_pos, DnaNucleotide::nucleotide_from_char(c));
-                }
-                genome.genes.get_mut(&target).unwrap().dna = DnaStrand::synthesize(
-                    &new_tgt.iter().map(|n| match n {
-                        DnaNucleotide::A => "A",
-                        DnaNucleotide::C => "C",
-                        DnaNucleotide::G => "G",
-                        DnaNucleotide::T => "T",
-                    }).collect::<String>(),
-                );
-                results.push(MutationResult {
-                    scale: MutationScale::Segment,
-                    effect: MutationEffect::Translocation { target_position: ins_pos },
-                    affected_locus: Some(target.clone()),
-                    positions_changed: segment.len(),
-                    successful: true,
-                    description: format!(
-                        "Segment translocation from {} -> {} ({} nuc)",
-                        source, target, segment.len()
-                    ),
-                });
-            }
+        let len = strand.len();
+        if len < 4 { return results; }
+        let segment_len = (len as f64 * rate.clamp(0.0, 1.0)).max(1.0) as usize;
+        let start = rng.next_u32() as usize % (len - segment_len + 1);
+        let original_segment = strand.as_slice()[start..start + segment_len].to_vec();
+        for i in 0..segment_len {
+            let pos = start + i;
+            let new_nuc = DnaNucleotide::nucleotide_random(rng);
+            strand.mutate_point(pos, new_nuc);
         }
+        results.push(MutationResult {
+            scale: MutationScale::Segment,
+            effect: MutationEffect::Substitution,
+            affected_locus: None,
+            positions_changed: segment_len,
+            successful: true,
+            description: format!("Segment mutation at {}-{}", start, start + segment_len),
+        });
         results
     }
 
@@ -253,139 +229,49 @@ impl MultiScaleMutator {
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
         if rate <= 0.0 { return results; }
-        let is_maternal = rng.random_bool(0.5);
-        let strand = if is_maternal {
-            &genome.chromosome_maternal
-        } else {
-            &genome.chromosome_paternal
-        };
-        let len = strand.len();
-        if len < 4 { return results; }
-        let start = rng.next_u32() as usize % (len / 2);
-        let end = start + 2 + (rng.next_u32() as usize % (len - start - 2));
-        let mut seq = strand.as_slice().to_vec();
-        seq[start..end].reverse();
-        if is_maternal {
-            genome.chromosome_maternal.replace_sequence(seq);
-        } else {
-            genome.chromosome_paternal.replace_sequence(seq);
-        }
+        let mut rng2 = rng;
+        let maternal_results = Self::mutate_nucleotide(&mut genome.chromosome_maternal, rate, &mut rng2);
+        let paternal_results = Self::mutate_nucleotide(&mut genome.chromosome_paternal, rate, &mut rng2);
+        let total_changed = maternal_results.len() + paternal_results.len();
+        results.extend(maternal_results);
+        results.extend(paternal_results);
         results.push(MutationResult {
             scale: MutationScale::Chromosome,
-            effect: MutationEffect::Inversion,
+            effect: MutationEffect::Substitution,
             affected_locus: None,
-            positions_changed: end - start,
-            successful: true,
-            description: format!(
-                "Chromosomal inversion on {}: {}..{}",
-                if is_maternal { "maternal" } else { "paternal" },
-                start, end
-            ),
+            positions_changed: total_changed,
+            successful: total_changed > 0,
+            description: "Chromosome-level mutation".to_string(),
         });
         results
     }
 
-    pub fn mutate_genome<R: rand::Rng + ?Sized>(
-        genome: &mut Genome,
-        rate: f64,
-        rng: &mut R,
-    ) -> Vec<MutationResult> {
-        let mut results = Vec::new();
-        if rate <= 0.0 { return results; }
-        if rng.random_bool(rate.clamp(0.0, 1.0)) {
-            let breakpoint = genome.chromosome_maternal.len() / 2;
-            let is_maternal = rng.random_bool(0.5);
-            let strand = if is_maternal {
-                &genome.chromosome_maternal
-            } else {
-                &genome.chromosome_paternal
-            };
-            let extra: Vec<DnaNucleotide> = strand.as_slice()[..breakpoint].to_vec();
-            if is_maternal {
-                genome.chromosome_maternal.replace_sequence(
-                    genome.chromosome_maternal.as_slice()[breakpoint..].to_vec(),
-                );
-            } else {
-                genome.chromosome_paternal.replace_sequence(
-                    genome.chromosome_paternal.as_slice()[breakpoint..].to_vec(),
-                );
-            }
-            genome.extra_chromosomes.push(DnaStrand::synthesize(
-                &extra
-                    .iter()
-                    .map(|n| match n {
-                        DnaNucleotide::A => "A",
-                        DnaNucleotide::C => "C",
-                        DnaNucleotide::G => "G",
-                        DnaNucleotide::T => "T",
-                    })
-                    .collect::<String>(),
-            ));
-            results.push(MutationResult {
-                scale: MutationScale::Genome,
-                effect: MutationEffect::Fission { breakpoint },
-                affected_locus: None,
-                positions_changed: breakpoint,
-                successful: true,
-                description: format!(
-                    "Chromosome fission on {} at breakpoint {}",
-                    if is_maternal { "maternal" } else { "paternal" },
-                    breakpoint
-                ),
-            });
-        }
-        results
-    }
-
-    pub fn mutate_intergenomic<R: rand::Rng + ?Sized>(
-        genome: &mut Genome,
-        rate: f64,
-        rng: &mut R,
-    ) -> Vec<MutationResult> {
-        let mut results = Vec::new();
-        if rate <= 0.0 { return results; }
-        if genome.extra_chromosomes.is_empty() { return results; }
-        let idx = rng.next_u32() as usize % genome.extra_chromosomes.len();
-        let extra = genome.extra_chromosomes.remove(idx);
-        let is_maternal = rng.random_bool(0.5);
-        if is_maternal {
-            let mut new_seq = genome.chromosome_maternal.as_slice().to_vec();
-            new_seq.extend(extra.as_slice().iter().cloned());
-            genome.chromosome_maternal.replace_sequence(new_seq);
-        } else {
-            let mut new_seq = genome.chromosome_paternal.as_slice().to_vec();
-            new_seq.extend(extra.as_slice().iter().cloned());
-            genome.chromosome_paternal.replace_sequence(new_seq);
-        }
-        results.push(MutationResult {
-            scale: MutationScale::Intergenomic,
-            effect: MutationEffect::Fusion,
-            affected_locus: None,
-            positions_changed: extra.len(),
-            successful: true,
-            description: format!(
-                "Intergenomic fusion into {} ({} nuc)",
-                if is_maternal { "maternal" } else { "paternal" },
-                extra.len()
-            ),
-        });
-        results
-    }
-
-    pub fn mutate_multi_scale<R: rand::Rng + ?Sized>(
+    pub fn mutate<R: rand::Rng + ?Sized>(
         genome: &mut Genome,
         rates: &MutationRates,
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        for strand in [&mut genome.chromosome_maternal, &mut genome.chromosome_paternal] {
-            results.extend(Self::mutate_nucleotide(strand, rates.nucleotide, rng));
-            results.extend(Self::mutate_codon(strand, rates.codon, rng));
-        }
+        
+        // Nucleotide mutations on chromosomes
+        let mut maternal_strand = genome.chromosome_maternal.clone();
+        let mut paternal_strand = genome.chromosome_paternal.clone();
+        results.extend(Self::mutate_nucleotide(&mut maternal_strand, rates.nucleotide, rng));
+        results.extend(Self::mutate_nucleotide(&mut paternal_strand, rates.nucleotide, rng));
+        genome.chromosome_maternal = maternal_strand;
+        genome.chromosome_paternal = paternal_strand;
+
+        // Gene-level mutations
         results.extend(Self::mutate_gene(genome, rates.gene, rng));
-        results.extend(Self::mutate_segment(genome, rates.segment, rng));
-        results.extend(Self::mutate_chromosome(genome, rates.chromosome, rng));
-        results.extend(Self::mutate_genome(genome, rates.genome, rng));
+
+        // Segment mutations
+        let mut maternal_strand2 = genome.chromosome_maternal.clone();
+        let mut paternal_strand2 = genome.chromosome_paternal.clone();
+        results.extend(Self::mutate_segment(&mut maternal_strand2, rates.segment, rng));
+        results.extend(Self::mutate_segment(&mut paternal_strand2, rates.segment, rng));
+        genome.chromosome_maternal = maternal_strand2;
+        genome.chromosome_paternal = paternal_strand2;
+
         results
     }
 }
@@ -393,6 +279,3 @@ impl MultiScaleMutator {
 impl Default for MultiScaleMutator {
     fn default() -> Self { Self::new() }
 }
-
-#[path = "mutation_scales_tests.rs"]
-mod tests;

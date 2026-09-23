@@ -30,7 +30,7 @@ impl ExperimentalFitness {
     /// Mesure le fitness sur une tâche avec réplication (n=3).
     pub fn measure(&mut self, genome: &Genome, task: &str) -> f64 {
         let exp = FitnessExperiment::new();
-        let replicated = exp.replicate(genome, task, 3);
+        let replicated = crate::fitness::replicate_fitness((genome, task, 3));
         let mean = replicated.iter().map(|r| r.score).sum::<f64>() / replicated.len().max(1) as f64;
         self.records.entry(task.to_string()).or_default().push(mean);
         mean
