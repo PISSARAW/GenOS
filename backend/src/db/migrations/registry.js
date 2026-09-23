@@ -140,6 +140,10 @@ const migrationRunners = [
     const { migrateDaemonStigmergy } = require('./migrateDaemonStigmergy');
     await migrateDaemonStigmergy(db);
   }),
+  createMigrationRunner('044-daemon-handoffs', 'Persist compiled territory briefs for orchestrator handoff (ADR 0034 D11)', async (db) => {
+    const { migrateDaemonHandoffs } = require('./migrateDaemonHandoffs');
+    await migrateDaemonHandoffs(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
