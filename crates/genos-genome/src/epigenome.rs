@@ -135,7 +135,8 @@ impl Epigenome {
         if self.stress_memory.is_empty() {
             return 0.0;
         }
-        self.stress_memory.iter().map(|r| r.intensity).sum::<f64>() / self.stress_memory.len() as f64
+        self.stress_memory.iter().map(|r| r.intensity).sum::<f64>()
+            / self.stress_memory.len() as f64
     }
 
     pub fn inherits_from(parent: &Epigenome, stress_context: f64) -> Self {
@@ -263,7 +264,10 @@ mod tests {
         });
         epi_b.stage = DevelopmentalStage::Pluripotent;
 
-        assert_ne!(epi_a.marks["TOOL_SEARCH"].kind, epi_b.marks["TOOL_SEARCH"].kind);
+        assert_ne!(
+            epi_a.marks["TOOL_SEARCH"].kind,
+            epi_b.marks["TOOL_SEARCH"].kind
+        );
         assert_ne!(epi_a.stage, epi_b.stage);
     }
 }

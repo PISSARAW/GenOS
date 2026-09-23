@@ -25,7 +25,11 @@ fn extract_markers(genome: &Genome) -> Vec<Melanosome> {
     markers
 }
 
-pub fn fossilize_genome(registry: &mut FossilRegistry, genome: &Genome, reason: &str) -> genos_store::fossil::FossilRecord {
+pub fn fossilize_genome(
+    registry: &mut FossilRegistry,
+    genome: &Genome,
+    reason: &str,
+) -> genos_store::fossil::FossilRecord {
     let mut ctx = BurialContext::new(&genome.lineage_id().to_string(), reason);
     ctx.mode = FossilizationMode::Petrification;
     ctx.hard_parts = extract_hard_parts(genome);

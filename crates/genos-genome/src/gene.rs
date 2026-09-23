@@ -100,7 +100,8 @@ impl Gene {
         }
 
         // L'hétérochromatine facultative peut être décondensée par des facteurs pionniers
-        let is_condensed = self.chromatin_state == ChromatinState::HeterochromatinFacultative || self.developmentally_locked;
+        let is_condensed = self.chromatin_state == ChromatinState::HeterochromatinFacultative
+            || self.developmentally_locked;
         if is_condensed {
             let pioneer_locus = format!("PIONEER_{}", self.locus);
             let has_pioneer = ctx.active_tfs.iter().any(|tf| {
@@ -161,10 +162,12 @@ mod plasmid_tests {
         let plasmid = Plasmid::new("ATG_GENE");
         let empty_tfs = Vec::new();
         let empty_rnas = Vec::new();
-        assert!(plasmid.express(ExpressionContext {
-            active_tfs: &empty_tfs,
-            alternative_splicing: None,
-            micro_rnas: &empty_rnas,
-        }).is_ok());
+        assert!(plasmid
+            .express(ExpressionContext {
+                active_tfs: &empty_tfs,
+                alternative_splicing: None,
+                micro_rnas: &empty_rnas,
+            })
+            .is_ok());
     }
 }

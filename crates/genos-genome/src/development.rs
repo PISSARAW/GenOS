@@ -1,4 +1,4 @@
-use crate::epigenome::{DevelopmentalStage, Epigenome, EpigeneticMark};
+use crate::epigenome::{DevelopmentalStage, EpigeneticMark, Epigenome};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -14,8 +14,14 @@ pub struct EmbryogenesisContext {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum DevelopmentalSignal {
-    PathwayActivation { pathway: String, magnitude: f64 },
-    GeneKnockdown { target_locus: String, reduction: f64 },
+    PathwayActivation {
+        pathway: String,
+        magnitude: f64,
+    },
+    GeneKnockdown {
+        target_locus: String,
+        reduction: f64,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -60,12 +66,24 @@ impl Embryogenesis {
         for signal in &ctx.signals {
             match signal {
                 DevelopmentalSignal::PathwayActivation { pathway, magnitude } => {
-                    program.gene_expression_profile.entry(pathway.clone()).or_insert(0.0);
+                    program
+                        .gene_expression_profile
+                        .entry(pathway.clone())
+                        .or_insert(0.0);
                     *program.gene_expression_profile.get_mut(pathway).unwrap() += magnitude;
                 }
-                DevelopmentalSignal::GeneKnockdown { target_locus, reduction } => {
-                    program.gene_expression_profile.entry(target_locus.clone()).or_insert(1.0);
-                    *program.gene_expression_profile.get_mut(target_locus).unwrap() -= reduction;
+                DevelopmentalSignal::GeneKnockdown {
+                    target_locus,
+                    reduction,
+                } => {
+                    program
+                        .gene_expression_profile
+                        .entry(target_locus.clone())
+                        .or_insert(1.0);
+                    *program
+                        .gene_expression_profile
+                        .get_mut(target_locus)
+                        .unwrap() -= reduction;
                 }
             }
         }
@@ -76,29 +94,49 @@ impl Embryogenesis {
             .map(|(l, _)| l.clone())
             .collect();
         if let Some(ref lineage) = program.expressed_lineage {
-            if blocks.iter().any(|b| b.to_uppercase().contains(&lineage.to_uppercase())) {
+            if blocks
+                .iter()
+                .any(|b| b.to_uppercase().contains(&lineage.to_uppercase()))
+            {
                 program.expressed_lineage = Some("BIPOTENT_UNCOMMITTED".to_string());
             }
         }
         for (locus, mark) in &epigenome.marks {
-            program.epigenetic_landscape.insert(locus.clone(), mark.level);
+            program
+                .epigenetic_landscape
+                .insert(locus.clone(), mark.level);
         }
         if epigenome.stage != DevelopmentalStage::Zygote {
-            program.gene_expression_profile.entry("STAGE_SPECIFIC".to_string()).or_insert(0.0);
-            *program.gene_expression_profile.get_mut("STAGE_SPECIFIC").unwrap() += 0.3;
+            program
+                .gene_expression_profile
+                .entry("STAGE_SPECIFIC".to_string())
+                .or_insert(0.0);
+            *program
+                .gene_expression_profile
+                .get_mut("STAGE_SPECIFIC")
+                .unwrap() += 0.3;
         }
         program
     }
 }
 
 fn dominant_morphogen(field: &HashMap<String, f64>) -> Option<String> {
-    field.iter().max_by(|a, b| a.1.partial_cmp(b.1).unwrap()).map(|(n, _)| n.to_uppercase())
+    field
+        .iter()
+        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+        .map(|(n, _)| n.to_uppercase())
 }
 
 // ── Compatibility types ─────────────────────────────────────────────────
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub enum CellLineage { Neural, Mesoderm, Endoderm, Ectoderm, Germline }
+pub enum CellLineage {
+    Neural,
+    Mesoderm,
+    Endoderm,
+    Ectoderm,
+    Germline,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct DevelopmentalState {
@@ -108,7 +146,10 @@ pub struct DevelopmentalState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum GeneRoleExpr { Constitutive, DevelopmentallyActivated {} }
+pub enum GeneRoleExpr {
+    Constitutive,
+    DevelopmentallyActivated {},
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct GeneRoleProfile {
@@ -127,22 +168,44 @@ pub struct EpigeneticMarkActivation {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct Morphogen { pub name: String, pub concentration: f64 }
+pub struct Morphogen {
+    pub name: String,
+    pub concentration: f64,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct MorphogenDef { pub name: String, pub source: String, pub sink: String, pub diffusion_rate: f64 }
+pub struct MorphogenDef {
+    pub name: String,
+    pub source: String,
+    pub sink: String,
+    pub diffusion_rate: f64,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct HoxExpression { pub hox_name: String, pub level: f64, pub constraint: Constraint }
+pub struct HoxExpression {
+    pub hox_name: String,
+    pub level: f64,
+    pub constraint: Constraint,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct Constraint { pub type_: String, pub value: f64 }
+pub struct Constraint {
+    pub type_: String,
+    pub value: f64,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct HoxCoordinationParams { pub hox_genes: Vec<HoxGene>, pub body_length: f64 }
+pub struct HoxCoordinationParams {
+    pub hox_genes: Vec<HoxGene>,
+    pub body_length: f64,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct HoxGene { pub name: String, pub position: f64, pub base_expression: f64 }
+pub struct HoxGene {
+    pub name: String,
+    pub position: f64,
+    pub base_expression: f64,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct DevelopmentContext {
@@ -286,8 +349,14 @@ mod tests {
         let e = Epigenome::new();
         let ctx = EmbryogenesisContext {
             signals: vec![
-                DevelopmentalSignal::PathwayActivation { pathway: "WNT".to_string(), magnitude: 0.5 },
-                DevelopmentalSignal::GeneKnockdown { target_locus: "GB".to_string(), reduction: 0.3 },
+                DevelopmentalSignal::PathwayActivation {
+                    pathway: "WNT".to_string(),
+                    magnitude: 0.5,
+                },
+                DevelopmentalSignal::GeneKnockdown {
+                    target_locus: "GB".to_string(),
+                    reduction: 0.3,
+                },
             ],
             morphogens: vec![],
             energy_budget: 1.0,

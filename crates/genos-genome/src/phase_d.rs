@@ -5,9 +5,11 @@
 use crate::fitness::{CausalAblation, FitnessExperiment};
 use crate::genome::Genome;
 use crate::niches::{euclidean_distance, EnvironmentState, Niche, QDArchive};
+use crate::reproduction::MeioticCrossover;
 use crate::self_modifying::SelfModifyingMutator;
 use rand::Rng;
 use rand::RngExt;
+use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -258,6 +260,51 @@ impl PhaseDCycle {
     pub fn evaluate(&mut self, population: &[Genome]) -> Vec<f64> {
         let scores: Vec<f64> = population.iter().map(|g| self.evaluate_one(g)).collect();
         self.last_evaluation = summarize(&scores);
+        scores
+    }
+
+    /// Applique la mutation ENREGISTRÉE : toute mutation passe par ici pour
+    /// alimenter `operator_usage` (observé par la Phase F). Ne pas contourner
+    /// par `operators_mut()` pour muter.
+    pub fn apply_mutation<R: Rng + ?Sized>(&mut self, genome: &mut Genome, rng: &mut R) {
+        self.operators.apply_mutation(genome, rng);
+        self.record_operator_use("mutation", 1);
+    }
+
+    /// Tirage de croisement ENREGISTRÉ : n'enregistre « crossover » que si
+    /// le croisement a réellement lieu (jamais de succès simulé).
+    pub fn decide_crossover<R: Rng + ?Sized>(&mut self, rng: &mut R) -> bool {
+        if self.operators.should_crossover(rng) {
+            self.record_operator_use("crossover", 1);
+            return true;
+        }
+        false
+    }
+
+    /// Un pas d'évolution réel : évalue, puis mute chaque génome et croise
+    /// les paires adjacentes (enfant = fertilisation réelle). Chaque
+    /// application d'opérateur est enregistrée — c'est la source qui
+    /// alimente `detect_bias` en production. Déterministe par seed.
+    pub fn evolve_step(&mut self, population: &mut Vec<Genome>, seed: u64) -> Vec<f64> {
+        let scores = self.evaluate(population);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+        let mut i = 0;
+        while i < population.len() {
+            if i + 1 < population.len() && self.decide_crossover(&mut rng) {
+                let child = MeioticCrossover::fertilize(
+                    &population[i].clone(),
+                    &population[i + 1].clone(),
+                    &mut rng,
+                );
+                population[i + 1] = child;
+                i += 2;
+            } else {
+                let mut genome = population[i].clone();
+                self.apply_mutation(&mut genome, &mut rng);
+                population[i] = genome;
+                i += 1;
+            }
+        }
         scores
     }
 

@@ -1,4 +1,6 @@
-use crate::mutation_scales::{MultiScaleMutator, MutationEffect, MutationRates, MutationResult, MutationScale};
+use crate::mutation_scales::{
+    MultiScaleMutator, MutationEffect, MutationRates, MutationResult, MutationScale,
+};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 

@@ -72,7 +72,10 @@ impl GRN {
 
     pub fn add_node(&mut self, params: GRNNodeParams) {
         let locus = params.locus.clone();
-        self.nodes.insert(locus.clone(), GRNNode::new(params.locus, params.basal_expression, params.is_tf));
+        self.nodes.insert(
+            locus.clone(),
+            GRNNode::new(params.locus, params.basal_expression, params.is_tf),
+        );
     }
 
     pub fn add_edge(&mut self, params: GRNEdgeParams) {
@@ -86,10 +89,15 @@ impl GRN {
             let mut updates: Vec<(String, f64)> = Vec::new();
 
             for node in self.nodes.values() {
-                let input: f64 = self.edges.iter()
+                let input: f64 = self
+                    .edges
+                    .iter()
                     .filter(|e| e.target == node.locus)
                     .map(|e| {
-                        let source_expr = self.nodes.get(&e.source).map_or(0.0, |n| n.current_expression);
+                        let source_expr = self
+                            .nodes
+                            .get(&e.source)
+                            .map_or(0.0, |n| n.current_expression);
                         e.weight * source_expr
                     })
                     .sum();
@@ -129,11 +137,20 @@ mod tests {
     use super::*;
 
     fn node(locus: &str, basal: f64, is_tf: bool) -> GRNNodeParams {
-        GRNNodeParams { locus: locus.to_string(), basal_expression: basal, is_tf }
+        GRNNodeParams {
+            locus: locus.to_string(),
+            basal_expression: basal,
+            is_tf,
+        }
     }
 
     fn edge(params: (&str, &str, f64, f64)) -> GRNEdgeParams {
-        GRNEdgeParams { source: params.0.to_string(), target: params.1.to_string(), weight: params.2, threshold: params.3 }
+        GRNEdgeParams {
+            source: params.0.to_string(),
+            target: params.1.to_string(),
+            weight: params.2,
+            threshold: params.3,
+        }
     }
 
     #[test]
@@ -148,8 +165,14 @@ mod tests {
 
         grn.propagate();
 
-        assert!(grn.get_expression("GENE_B").unwrap() > 0.5, "GENE_B should be activated by TF_A");
-        assert!(grn.get_expression("GENE_C").unwrap() < 0.3, "GENE_C should be repressed by TF_A");
+        assert!(
+            grn.get_expression("GENE_B").unwrap() > 0.5,
+            "GENE_B should be activated by TF_A"
+        );
+        assert!(
+            grn.get_expression("GENE_C").unwrap() < 0.3,
+            "GENE_C should be repressed by TF_A"
+        );
     }
 
     #[test]

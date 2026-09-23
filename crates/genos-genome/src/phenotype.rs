@@ -1,5 +1,5 @@
-use crate::translation::{AminoAcidToken, Codon, Ribosome, UnfoldedProtein};
 use crate::dna::{DnaStrand, RnaPolymerase};
+use crate::translation::{AminoAcidToken, Codon, Ribosome, UnfoldedProtein};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -28,7 +28,9 @@ pub struct PhenotypeResult {
 pub struct PhenotypeEngine;
 
 impl PhenotypeEngine {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 
     pub fn express(genome: &crate::genome::Genome, gene_locus: &str) -> Option<Phenotype> {
         let gene = genome.genes.get(gene_locus)?;
@@ -58,13 +60,20 @@ impl PhenotypeEngine {
 
     fn compute_stability(protein: &UnfoldedProtein) -> f64 {
         let n = protein.amino_acids.len().max(1) as f64;
-        let unique = protein.amino_acids.iter().collect::<std::collections::HashSet<_>>().len() as f64;
+        let unique = protein
+            .amino_acids
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len() as f64;
         (unique / n).clamp(0.0, 1.0)
     }
 
     pub fn assess_novelty(phenotype: &Phenotype, archive: &[(String, f64)]) -> f64 {
-        if archive.is_empty() { return 1.0; }
-        let min_dist = archive.iter()
+        if archive.is_empty() {
+            return 1.0;
+        }
+        let min_dist = archive
+            .iter()
             .map(|(seq, _)| Self::sequence_distance(&phenotype.protein_sequence, seq))
             .fold(f64::INFINITY, f64::min);
         min_dist.min(1.0)
@@ -74,9 +83,7 @@ impl PhenotypeEngine {
         let la = a.len().max(1) as f64;
         let lb = b.len().max(1) as f64;
         let max_len = la.max(lb);
-        let mismatches = a.chars().zip(b.chars())
-            .filter(|(ca, cb)| ca != cb)
-            .count() as f64;
+        let mismatches = a.chars().zip(b.chars()).filter(|(ca, cb)| ca != cb).count() as f64;
         let len_diff = (la - lb).abs();
         (mismatches + len_diff) / max_len
     }
@@ -96,7 +103,9 @@ impl PhenotypeEngine {
 }
 
 impl Default for PhenotypeEngine {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]

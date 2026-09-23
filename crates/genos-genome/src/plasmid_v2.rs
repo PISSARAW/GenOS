@@ -144,7 +144,9 @@ impl PlasmidPool {
     pub fn prune_incompatible(&mut self) {
         let mut keep = Vec::new();
         for plasmid in &self.plasmids {
-            let conflicts = keep.iter().any(|p: &PlasmidInstance| !p.is_compatible(plasmid));
+            let conflicts = keep
+                .iter()
+                .any(|p: &PlasmidInstance| !p.is_compatible(plasmid));
             if !conflicts {
                 keep.push(plasmid.clone());
             }
@@ -217,7 +219,9 @@ mod tests {
     #[test]
     fn plasmid_pool_cycle_prunes_lost() {
         let mut pool = PlasmidPool::new(0.0);
-        pool.add(PlasmidInstance::new(plasmid(("UNSTABLE", 0.5, 0.1, "IncX"))));
+        pool.add(PlasmidInstance::new(plasmid((
+            "UNSTABLE", 0.5, 0.1, "IncX",
+        ))));
 
         let mut any_lost = false;
         for _ in 0..10 {

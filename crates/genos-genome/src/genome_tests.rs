@@ -5,34 +5,34 @@ use rand::SeedableRng;
 #[test]
 fn test_yamanaka_reprogramming() {
     let mut genome = Genome::new("ATGC");
-    
+
     let mut gene1 = Gene::new("HOX_A1", "ATGC");
     gene1.chromatin_state = ChromatinState::HeterochromatinFacultative;
     gene1.developmentally_locked = true;
     gene1.is_methylated = true;
-    
+
     let mut gene2 = Gene::new("HOUSEKEEPING_1", "ATGC");
     gene2.chromatin_state = ChromatinState::Euchromatin;
     gene2.developmentally_locked = false;
     gene2.is_methylated = false;
-    
+
     let mut gene3 = Gene::new("VIRAL_INSERT", "ATGC");
     gene3.chromatin_state = ChromatinState::HeterochromatinConstitutive;
     gene3.developmentally_locked = true;
     gene3.is_methylated = true;
-    
+
     genome.insert_gene(gene1);
     genome.insert_gene(gene2);
     genome.insert_gene(gene3);
-    
+
     let cocktail = YamanakaCocktail {
         chromatin_decondensation_rate: 1.0,
         synaptic_retention_ratio: 0.9,
         target_potency: "Pluripotent".to_string(),
     };
-    
+
     genome.reprogram_epigenetics(&cocktail);
-    
+
     // gene1 (Facultative) should be reprogrammed
     let g1 = genome.genes.get("HOX_A1").unwrap();
     assert_eq!(g1.chromatin_state, ChromatinState::Euchromatin);
@@ -42,16 +42,19 @@ fn test_yamanaka_reprogramming() {
     let g1 = genome.genes.get("HOX_A1").unwrap();
     assert_eq!(g1.bound_repressor, None);
     assert_eq!(g1.expression_volume, 1.0);
-    
+
     // gene2 (Euchromatin) should be untouched
     let g2 = genome.genes.get("HOUSEKEEPING_1").unwrap();
     assert_eq!(g2.chromatin_state, ChromatinState::Euchromatin);
     assert_eq!(g2.developmentally_locked, false);
     assert_eq!(g2.is_methylated, false);
-    
+
     // gene3 (Constitutive) should be untouched
     let g3 = genome.genes.get("VIRAL_INSERT").unwrap();
-    assert_eq!(g3.chromatin_state, ChromatinState::HeterochromatinConstitutive);
+    assert_eq!(
+        g3.chromatin_state,
+        ChromatinState::HeterochromatinConstitutive
+    );
     assert_eq!(g3.developmentally_locked, true);
     assert_eq!(g3.is_methylated, true);
 }
@@ -158,7 +161,10 @@ fn reproductive_child_partially_resets_facultative_epigenetics() {
     assert_eq!(facultative.bound_repressor, None);
     assert_eq!(facultative.expression_volume, 1.0);
     assert!(child.genes.get("CONSTITUTIVE").unwrap().is_methylated);
-    assert_eq!(child.genes.get("CONSTITUTIVE").unwrap().chromatin_state, ChromatinState::HeterochromatinConstitutive);
+    assert_eq!(
+        child.genes.get("CONSTITUTIVE").unwrap().chromatin_state,
+        ChromatinState::HeterochromatinConstitutive
+    );
 }
 
 #[test]

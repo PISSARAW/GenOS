@@ -1,5 +1,5 @@
-use crate::genome::Genome;
 use crate::gene::Gene;
+use crate::genome::Genome;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -50,7 +50,9 @@ pub struct EpistasisResult {
 pub struct LinkageEpistasisEngine;
 
 impl LinkageEpistasisEngine {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 
     pub fn compute_linkage_groups(genome: &Genome) -> Vec<LinkageResult> {
         Self::compute_linkage_groups_with_threshold(genome, 0.5)
@@ -61,7 +63,9 @@ impl LinkageEpistasisEngine {
         recombination_threshold: f64,
     ) -> Vec<LinkageResult> {
         let loci: Vec<String> = genome.genes.keys().cloned().collect();
-        if loci.is_empty() { return Vec::new(); }
+        if loci.is_empty() {
+            return Vec::new();
+        }
         let mut groups: Vec<LinkageResult> = Vec::new();
         let mut assigned: BTreeMap<String, usize> = BTreeMap::new();
         let mut next_id = 0usize;
@@ -70,7 +74,9 @@ impl LinkageEpistasisEngine {
                 let mut group_loci = vec![locus.clone()];
                 assigned.insert(locus.clone(), next_id);
                 for other in &loci {
-                    if locus == other { continue; }
+                    if locus == other {
+                        continue;
+                    }
                     let rate = Self::estimate_recombination(genome, locus, other);
                     if rate < recombination_threshold {
                         group_loci.push(other.clone());
@@ -115,19 +121,11 @@ impl LinkageEpistasisEngine {
         results
     }
 
-    pub fn recombination_fraction(
-        genome: &Genome,
-        locus_a: &str,
-        locus_b: &str,
-    ) -> f64 {
+    pub fn recombination_fraction(genome: &Genome, locus_a: &str, locus_b: &str) -> f64 {
         Self::estimate_recombination(genome, locus_a, locus_b)
     }
 
-    fn estimate_recombination(
-        genome: &Genome,
-        locus_a: &str,
-        locus_b: &str,
-    ) -> f64 {
+    fn estimate_recombination(genome: &Genome, locus_a: &str, locus_b: &str) -> f64 {
         let a_idx = genome.genes.get(locus_a).map(|g| g.dna.len()).unwrap_or(0);
         let b_idx = genome.genes.get(locus_b).map(|g| g.dna.len()).unwrap_or(0);
         let dist = (a_idx as i64 - b_idx as i64).unsigned_abs();
@@ -171,5 +169,7 @@ impl LinkageEpistasisEngine {
 }
 
 impl Default for LinkageEpistasisEngine {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

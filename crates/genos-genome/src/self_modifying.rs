@@ -23,16 +23,27 @@ impl SelfModifyingMutator {
     }
 
     /// Mutation multi-scale avec les taux auto-ajustés.
-    pub fn mutate<R: Rng + ?Sized>(&mut self, genome: &mut Genome, rng: &mut R) -> Vec<MutationResult> {
+    pub fn mutate<R: Rng + ?Sized>(
+        &mut self,
+        genome: &mut Genome,
+        rng: &mut R,
+    ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        for strand in [&mut genome.chromosome_maternal, &mut genome.chromosome_paternal] {
+        for strand in [
+            &mut genome.chromosome_maternal,
+            &mut genome.chromosome_paternal,
+        ] {
             results.extend(self.mutate_strand(strand, rng));
         }
         results.extend(self.mutate_genes(genome, rng));
         results
     }
 
-    fn mutate_strand<R: Rng + ?Sized>(&self, strand: &mut crate::dna::DnaStrand, rng: &mut R) -> Vec<MutationResult> {
+    fn mutate_strand<R: Rng + ?Sized>(
+        &self,
+        strand: &mut crate::dna::DnaStrand,
+        rng: &mut R,
+    ) -> Vec<MutationResult> {
         let len = strand.len();
         if len == 0 {
             return Vec::new();
@@ -56,9 +67,15 @@ impl SelfModifyingMutator {
         results
     }
 
-    fn mutate_genes<R: Rng + ?Sized>(&self, genome: &mut Genome, rng: &mut R) -> Vec<MutationResult> {
+    fn mutate_genes<R: Rng + ?Sized>(
+        &self,
+        genome: &mut Genome,
+        rng: &mut R,
+    ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        let loci: Vec<String> = genome.genes.keys()
+        let loci: Vec<String> = genome
+            .genes
+            .keys()
             .filter(|l| !l.starts_with("LOCUS_INSTINCT_"))
             .cloned()
             .collect();
@@ -73,7 +90,9 @@ impl SelfModifyingMutator {
                         gene.expression_volume = (gene.expression_volume + 0.1).min(2.0);
                         results.push(MutationResult {
                             scale: MutationScale::Gene,
-                            effect: crate::mutation_scales::MutationEffect::Amplification { factor: 1 },
+                            effect: crate::mutation_scales::MutationEffect::Amplification {
+                                factor: 1,
+                            },
                             affected_locus: Some(locus.clone()),
                             positions_changed: 0,
                             successful: true,

@@ -53,15 +53,20 @@ impl DnaStrand {
         Self { sequence }
     }
 
-    pub fn as_slice(&self) -> &[DnaNucleotide] { &self.sequence }
+    pub fn as_slice(&self) -> &[DnaNucleotide] {
+        &self.sequence
+    }
 
     pub fn as_str(&self) -> String {
-        self.sequence.iter().map(|n| match n {
-            DnaNucleotide::A => 'A',
-            DnaNucleotide::C => 'C',
-            DnaNucleotide::G => 'G',
-            DnaNucleotide::T => 'T',
-        }).collect()
+        self.sequence
+            .iter()
+            .map(|n| match n {
+                DnaNucleotide::A => 'A',
+                DnaNucleotide::C => 'C',
+                DnaNucleotide::G => 'G',
+                DnaNucleotide::T => 'T',
+            })
+            .collect()
     }
 
     pub fn decode_instruction(&self) -> String {
@@ -84,11 +89,17 @@ impl DnaStrand {
         String::from_utf8_lossy(&bytes).to_string()
     }
 
-    pub fn len(&self) -> usize { self.sequence.len() }
+    pub fn len(&self) -> usize {
+        self.sequence.len()
+    }
 
-    pub fn is_empty(&self) -> bool { self.sequence.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.sequence.is_empty()
+    }
 
-    pub fn replace_sequence(&mut self, sequence: Vec<DnaNucleotide>) { self.sequence = sequence; }
+    pub fn replace_sequence(&mut self, sequence: Vec<DnaNucleotide>) {
+        self.sequence = sequence;
+    }
 
     pub fn mutate_point(&mut self, position: usize, nucleotide: DnaNucleotide) {
         if position < self.sequence.len() {
@@ -97,7 +108,9 @@ impl DnaStrand {
     }
 
     pub fn mutate_stochastic<R: rand::RngExt + ?Sized>(&mut self, rate: f64, rng: &mut R) -> usize {
-        if rate <= 0.0 { return 0; }
+        if rate <= 0.0 {
+            return 0;
+        }
         let mut count = 0;
         for nucleotide in &mut self.sequence {
             if rng.random_bool(rate.clamp(0.0, 1.0)) {
