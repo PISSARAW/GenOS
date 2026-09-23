@@ -212,6 +212,10 @@ const migrationRunners = [
     const { run } = require('./migrateAnalyticsViews');
     await run(db);
   }),
+  createMigrationRunner('062-integrity-hardening', 'Add FK to daemon_finding_evidence and json_valid checks', async (db) => {
+    const { migrateIntegrityHardening } = require('./migrateIntegrityHardening');
+    await migrateIntegrityHardening(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
