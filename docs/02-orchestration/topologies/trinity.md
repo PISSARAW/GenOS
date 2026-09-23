@@ -15,7 +15,7 @@ Trinity n'est pas une orchestration par consensus : c'est une **expérimentation
 Le cœur fonctionnel est réparti entre :
 
 - [backend/src/services/trinityService.js](../../../backend/src/services/trinityService.js) : analyse de mission, détection de domaine, composition des trois mondes.
-- [backend/src/services/deploy/trinityDeploy.service.js](../../../backend/src/services/deploy/trinityDeploy.service.js) : déploiement des trois agents workers, création des "worlds" isolées.
+- [backend/src/services/trinityComparativeBarrier.js](../../../backend/src/services/trinityComparativeBarrier.js) : barrière de fusion et promotion du monde gagnant.
 - [backend/src/services/agentAutonomyPlanService.js](../../../backend/src/services/agentAutonomyPlanService.js) : activation conditionnelle de Trinity selon budget et recommandation.
 - [backend/src/services/agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état partagé, synchronisation des trois mondes, barrière de fusion.
 - [backend/src/db/schema-tables-core.js](../../../backend/src/db/schema-tables-core.js) : table `trinity_worlds` pour le suivi des trois instances.

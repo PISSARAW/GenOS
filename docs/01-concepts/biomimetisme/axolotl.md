@@ -134,7 +134,7 @@ justifie la plasticité (haute incertitude, problème structurel), les stratégi
 - Recovery classique (checkpoint/restore) : complémentaire, pas concurrent — l'axolotl intervient quand la restauration identique est insuffisante
 - Cryptobiose (`cryptobiosis`) : la cryptobiose est "mise en sommeil et repli" ; l'axolotl est "reconstruction active avec nouvelle forme"
 - Apoptose : l'apoptose élimine les composants défaillants ; l'axolotl les remplace par des équivalents fonctionnels nouveaux
-- Biological topology : l'axolotl est un mode de la topologie biologique, pas un remplacement
+- Biological topology : l'axolotl est géré séparément dans `biologicalTopologyService` (clé `axolotl`/`plastique`) avec `axolotlTopologyService` dédié, pas via `biologicalModeService.compose`.
 
 ---
 
