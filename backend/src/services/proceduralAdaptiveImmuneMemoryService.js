@@ -58,8 +58,8 @@ function checkPolicyWeakened(mutation, pattern) {
 
 function checkEvidenceRequirementReduced(mutation, pattern) {
   if (pattern.evidenceRequirementReduced !== true) return true;
-  const before = mutation?.before?.evidenceLevel || 1;
-  const after = mutation?.after?.evidenceLevel || 1;
+  const before = mutation?.before?.evidenceLevel ?? 1;
+  const after = mutation?.after?.evidenceLevel ?? 1;
   return after < before;
 }
 

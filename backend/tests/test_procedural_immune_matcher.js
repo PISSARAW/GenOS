@@ -125,6 +125,15 @@ function mutation(overrides = {}) {
   const r = immune.matchSignature(s, m);
   assert.ok(!r.matched, "evidenceRequirementReduced: increased level must not match");
 }
+{
+  const s = sig({ evidenceRequirementReduced: true });
+  const m = mutation({
+    before: { evidenceLevel: 0.8 },
+    after: { evidenceLevel: 0 },
+  });
+  const r = immune.matchSignature(s, m);
+  assert.ok(r.matched, "evidenceRequirementReduced: 0.8→0 must match (nullish coalescing, not falsy ||)");
+}
 
 // ── 5. sandboxBoundaryChanged ──────────────────────────────────────
 {

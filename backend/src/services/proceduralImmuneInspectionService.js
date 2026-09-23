@@ -76,8 +76,8 @@ const STRUCTURAL_CHECKS = [
     test: (mutation) => {
       const ops = mutation?.operations || [];
       return ops.some((op) => {
-        const before = op?.before?.evidenceLevel || 1;
-        const after = op?.after?.evidenceLevel || 1;
+        const before = op?.before?.evidenceLevel ?? 1;
+        const after = op?.after?.evidenceLevel ?? 1;
         return after < before;
       });
     },

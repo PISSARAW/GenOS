@@ -4,7 +4,7 @@
   les services associés), avec cycle DRAFT → SEALED, validation sémantique, preuve causale (prototype
   comparatif accouplé), promotion sous preuve, persistance versionnée, lignée, immunité innée +
   adaptative, registre de runners/evaluateurs et primitives MCP. Tests : `npm run test:procedural`
-  (12 fichiers).
+  (13 fichiers).
 |- **Portée** : `backend/src/services/procedural*Service.js`, `backend/src/services/proceduralRegistryService.js`,
   `backend/src/services/primitiveHandlers/proceduralHandlers.js`, `backend/tests/test_procedural_*.js`,
   `backend/bin/genos-registry-tool.cjs`.
@@ -691,8 +691,9 @@ Chaque mécanisme biologique doit correspondre à un invariant informatique mesu
 
 ## 7. Tests
 
-`npm run test:procedural` exécute **12 fichiers** :
+`npm run test:procedural` exécute **13 fichiers** :
 
+- `backend/tests/test_procedural_immune_matcher.js` — couverture exhaustive des STRUCTURAL_CHECKS (capabilityExpansion, leaseExpansion, policyWeakened, evidenceRequirementReduced, sandboxBoundaryChanged, authorityChanged, patterns combinés)
 - `backend/tests/test_procedural_organism_foundations.js` — Points 1-8 (genome, synapse, plasticity, consolidation, pruning, inhibition, action selection, prediction error)
 - `backend/tests/test_procedural_organism_9_12.js` — Points 9-12 (fitness, homeostatic plasticity, epigenetic, methylation)
 - `backend/tests/test_procedural_organism_13_24.js` — Points 13-24 (immune, mutation, ecology, holobionte, rhizome, metapopulation, apoptosis, cryptobiosis, fossilization)
