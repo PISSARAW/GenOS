@@ -33,11 +33,22 @@ const WINDOW_STRESS_MS = 10 * 60 * 1000;   // 10 min
 const MAX_EXPECTED_EPISODES = 500;
 
 /**
+ * Format de comparaison SQLite : telemetry_events.stocke created_at en
+ * 'YYYY-MM-DD HH:MM:SS' (UTC, CURRENT_TIMESTAMP). Un filtre ISO
+ * ('...THH:MM:SS.sssZ') est TOUJOURS supérieur lexicographiquement
+ * ('T' > ' ') et ne sélectionne jamais aucune ligne. On formate donc
+ * le filtre dans le format de stockage.
+ */
+function sqliteUtcNow(nowMs) {
+  return new Date(nowMs).toISOString().slice(0, 19).replace('T', ' ');
+}
+
+/**
  * Requêtes SQL brutes sur la télémétrie réelle — une par variable.
  */
 async function sampleRuntime(db, agentId, now) {
-  const recent = new Date(now - WINDOW_RECENT_MS).toISOString();
-  const stressWindow = new Date(now - WINDOW_STRESS_MS).toISOString();
+  const recent = sqliteUtcNow(now - WINDOW_RECENT_MS);
+  const stressWindow = sqliteUtcNow(now - WINDOW_STRESS_MS);
 
   const [inference, episodes, social, integrity, stress, context] = await Promise.all([
     db.get(
@@ -91,7 +102,9 @@ async function sampleRuntime(db, agentId, now) {
  */
 function deriveHomeostaticVariables(sample) {
   const { inference, episodes, social, integrity, stress, context } = sample;
-  const attempted = Math.max(inference?.started || 0, inference?.route_failed || 0);
+  // Tentatives totales : chaque started ET chaque échec de routage comptent
+  // (un ROUTE_FAILED est une tentative qui n'a jamais démarré).
+  const attempted = (inference?.started || 0) + (inference?.route_failed || 0);
 
   return {
     energy: deriveEnergy(inference, attempted),
@@ -105,7 +118,8 @@ function deriveHomeostaticVariables(sample) {
 }
 
 function deriveEnergy(inference, attempted) {
-  // Inferences complétées / démarrées.
+  // Inferences complétées / tentatives totales (started + échecs de routage,
+  // un échec de routage est une tentative qui n'a pas abouti à un started).
   // Sans activité mesurée → neutre (0.5), pas « énergie nulle » :
   // l'absence de données n'est pas une défaillance.
   if (attempted === 0) return 0.5;

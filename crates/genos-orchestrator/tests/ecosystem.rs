@@ -14,6 +14,7 @@ use genos_orchestrator::genos_immune::AntibodyDetector;
 use genos_orchestrator::genos_signal::SignalingMode;
 use genos_orchestrator::phylogeny::PhylogenyLab;
 use genos_orchestrator::GenosEcosystem;
+use genos_orchestrator::{CrossoverParams, FreezeParams, OscillatorParams, ThawParams};
 use std::collections::HashMap;
 
 #[test]
@@ -26,13 +27,24 @@ fn ecosystem_gives_access_to_every_subsystem() {
         .orchestrator
         .add_worker("Core", AgentCell::new("Kwame", "k", "Worker"))
         .unwrap();
-    assert!(eco.orchestrator.delegate_task("Core", (worker, "tache")).is_ok());
+    assert!(eco
+        .orchestrator
+        .delegate_task("Core", (worker, "tache"))
+        .is_ok());
 
     // Signalisation : stigmergie + Kuramoto + quorum
     eco.deposit_trail("OPTIMAL_PATH", 5.0);
     assert_eq!(eco.read_trail("OPTIMAL_PATH"), 5.0);
-    eco.add_oscillator("a", 0.0, 1.0);
-    eco.add_oscillator("b", 0.5, 1.1);
+    eco.add_oscillator(OscillatorParams {
+        id: "a",
+        phase: 0.0,
+        natural_frequency: 1.0,
+    });
+    eco.add_oscillator(OscillatorParams {
+        id: "b",
+        phase: 0.5,
+        natural_frequency: 1.1,
+    });
     eco.couple_oscillators(0.5, 0.01);
     eco.quorum_step(0.1);
 
@@ -53,7 +65,11 @@ fn ecosystem_gives_access_to_every_subsystem() {
     };
     eco.remember(entry).unwrap();
     let found = eco
-        .recall(SearchQuery { text: None, vector: Some(vec![1.0, 0.0]), limit: 1 })
+        .recall(SearchQuery {
+            text: None,
+            vector: Some(vec![1.0, 0.0]),
+            limit: 1,
+        })
         .unwrap();
     assert_eq!(found.len(), 1);
 
@@ -61,7 +77,11 @@ fn ecosystem_gives_access_to_every_subsystem() {
     let genome = Genome::new("BASE");
     assert_eq!(eco.mitosis(&genome).unwrap().len(), 2);
     assert!(!eco.meiosis(&genome, Some(2)).unwrap().is_empty());
-    let (_child_a, _child_b) = eco.crossover(&genome, &Genome::new("BASE2"), 3);
+    let (_child_a, _child_b) = eco.crossover(CrossoverParams {
+        a: &genome,
+        b: &Genome::new("BASE2"),
+        point: 3,
+    });
 
     // Biologie appliquée : thérapie systémique
     let mut patient = AgentCell::new("Patient", "p", "Worker");
@@ -160,12 +180,15 @@ fn ecosystem_exposes_neuro_and_virology() {
     let mut eco = GenosEcosystem::new("Overmind");
 
     // Neuro : réception synaptique, intégration somatique, plasticité.
-    eco.neuro.receive("axon-1", Neurotransmitter::Glutamate, 5.0);
+    eco.neuro
+        .receive("axon-1", Neurotransmitter::Glutamate, 5.0);
     let _spikes = eco.neuro.fire();
     eco.neuro.apply_plasticity();
 
     // Virologie : synthèse d'un bactériophage.
-    let idx = eco.virology.synthesize_bacteriophage("INJECTION_RECEPTOR", "KILL_HOST");
+    let idx = eco
+        .virology
+        .synthesize_bacteriophage("INJECTION_RECEPTOR", "KILL_HOST");
     assert_eq!(eco.virology.virions.len(), 1);
     assert!(
         !eco.neutralize_virion(idx, 0.9),
@@ -185,7 +208,9 @@ fn ecosystem_exposes_neuro_and_virology() {
 
     // Empaquetage erroné (transduction spécialisée).
     let pidx = eco.virology.engineer_phage("STEAL_GENE");
-    assert!(eco.virology.package_specialized(pidx, Gene::new("LOCUS_A", "PAYLOAD")));
+    assert!(eco
+        .virology
+        .package_specialized(pidx, Gene::new("LOCUS_A", "PAYLOAD")));
     assert!(eco.virology.phages[pidx].is_specialized);
 }
 
@@ -266,8 +291,21 @@ fn ecosystem_exposes_store_and_reproduction_complements() {
     // Cryptobiose : gel/dégel standard et vitrifié.
     eco.freeze_agent("a-frozen", serde_json::json!({ "m": 1 }));
     assert!(eco.thaw_agent("a-frozen").is_some());
-    eco.freeze_vitrified("a-vitri", b"payload", 0.8, 500);
-    assert_eq!(eco.thaw_vitrified("a-vitri", true, true).unwrap(), b"payload");
+    eco.freeze_vitrified(FreezeParams {
+        agent_id: "a-vitri",
+        data: b"payload",
+        trehalose: 0.8,
+        armor: 500,
+    });
+    assert_eq!(
+        eco.thaw_vitrified(ThawParams {
+            agent_id: "a-vitri",
+            warm_and_wet: true,
+            nutrients: true
+        })
+        .unwrap(),
+        b"payload"
+    );
 
     // Reproduction : bourgeonnement + schizogonie.
     let genome = Genome::new("BASE");
@@ -324,8 +362,3 @@ fn ecosystem_exposes_genome_ops_snapshots_and_sensorimotor_bridge() {
     };
     assert_eq!(step.action, "click");
 }
-
-
-
-
-

@@ -55,7 +55,11 @@ def top_level_count(text: str, separator: str = ',') -> int:
             depths[closing[char]] -= 1
         elif char == separator and not any(depths.values()):
             count += 1
-    return count
+    # Une virgule finale (trailing comma avant la fermeture) ne sépare
+    # rien : 'a, b, c,' = 3 paramètres, pas 4.
+    if text.rstrip().endswith(separator):
+        count -= 1
+    return max(count, 0)
 
 
 def line_number(source: str, index: int) -> int:
@@ -124,7 +128,10 @@ def python_functions(source: str) -> list[tuple[int, int, str]]:
 
 
 def rust_functions(source: str) -> list[tuple[int, int, str]]:
-    masked = re.sub(r'//.*|/\*.*?\*/', '', source, flags=re.DOTALL)
+    # NB: '//[^\n]*' et non '//' + DOTALL — avec DOTALL, '.' traverse les
+    # retours à la ligne et le premier // du fichier masquait TOUT le reste
+    # (aucune fonction détectée → violations de params invisibles).
+    masked = re.sub(r'//[^\n]*|/\*.*?\*/', ' ', source, flags=re.DOTALL)
     functions = []
     for match in re.finditer(r'\bfn\s+\w+\s*\(', masked):
         open_paren = masked.find('(', match.start())

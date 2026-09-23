@@ -138,12 +138,14 @@ impl GenosEcosystem {
                     });
                 }
                 "dissonance" => {
-                    // Dissonance élevée → le Directeur marque un épisode
-                    // d'apprentissage négatif (poids de révision accru).
-                    self.director.learner.episodes += 1;
+                    // Dissonance élevée → trace de diffusion dédiée. On ne
+                    // touche PAS learner.episodes : episodes mesure l'expérience
+                    // réelle d'apprentissage (Learner::update), l'incrémenter
+                    // ici fausse metacognitive_confidence.
+                    self.workspace_broadcasts += 1;
                     effects.push(BroadcastEffect {
-                        module: "learner".into(),
-                        adjustment: "revision_episode".into(),
+                        module: "workspace".into(),
+                        adjustment: "dissonance_broadcast".into(),
                     });
                 }
                 "survie" => {
@@ -156,11 +158,12 @@ impl GenosEcosystem {
                     });
                 }
                 "desir_libre" => {
-                    // Désir libre dominant → l'exploration est renforcée.
-                    self.director.learner.episodes += 1;
+                    // Désir libre dominant → trace de diffusion dédiée
+                    // (même raison : ne pas polluer learner.episodes).
+                    self.workspace_broadcasts += 1;
                     effects.push(BroadcastEffect {
-                        module: "learner".into(),
-                        adjustment: "exploration_episode".into(),
+                        module: "workspace".into(),
+                        adjustment: "free_desire_broadcast".into(),
                     });
                 }
                 _ => {}

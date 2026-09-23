@@ -39,8 +39,8 @@ use genos_reproduction::{CellDivision, MeioticCrossover};
 use genos_signal::{ExtracellularMatrix, KuramotoOscillator, KuramotoStep, StigmergyField};
 use genos_store::{
     BurialContext, Capsule, CapsuleStore, CryptobiosisStore, FossilRecord, FossilRegistry,
-    FossilSpecimen, InMemoryEventStore, InMemoryVectorRepository, SedimentStratum,
-    VitrifiedFreeze, VitrifiedThaw,
+    FossilSpecimen, InMemoryEventStore, InMemoryVectorRepository, SedimentStratum, VitrifiedFreeze,
+    VitrifiedThaw,
 };
 use serde_json::Value;
 use std::collections::HashMap;
@@ -114,8 +114,15 @@ pub struct GenosEcosystem {
     pub director: Director,
     /// Instincts innés (bibliothèque + dernières activations par tick).
     pub instincts: InstinctState,
+    /// Diffusions du workspace global (compteur dédié — ne JAMAIS
+    /// incrémenter learner.episodes pour un broadcast : episodes mesure
+    /// l'expérience réelle d'apprentissage, le polluer fausse
+    /// metacognitive_confidence).
+    pub workspace_broadcasts: u64,
     pub population: Option<Population>,
 }
+
+use crate::ecosystem_params::{CrossoverParams, FreezeParams, OscillatorParams, ThawParams};
 
 impl GenosEcosystem {
     /// Construit un écosystème complet autour d'un nouvel orchestrateur.
@@ -161,11 +168,14 @@ impl GenosEcosystem {
             agent_dna: HashMap::new(),
             director: Director::default(),
             instincts: InstinctState::default(),
+            workspace_broadcasts: 0,
             population: None,
         }
     }
 
-    pub fn attach_population(&mut self, population: Population) { self.population = Some(population); }
+    pub fn attach_population(&mut self, population: Population) {
+        self.population = Some(population);
+    }
 
     // --- Signalisation ---
 
@@ -177,7 +187,12 @@ impl GenosEcosystem {
         self.stigmergy.read(marker)
     }
 
-    pub fn add_oscillator(&mut self, id: &str, phase: f64, natural_frequency: f64) {
+    pub fn add_oscillator(&mut self, params: OscillatorParams) {
+        let OscillatorParams {
+            id,
+            phase,
+            natural_frequency,
+        } = params;
         self.oscillators
             .push(KuramotoOscillator::new(id, phase, natural_frequency));
     }
@@ -185,7 +200,11 @@ impl GenosEcosystem {
     pub fn couple_oscillators(&mut self, coupling: f64, dt: f64) {
         let snapshot = self.oscillators.clone();
         for osc in self.oscillators.iter_mut() {
-            osc.step(KuramotoStep { peers: &snapshot, coupling_k: coupling, dt });
+            osc.step(KuramotoStep {
+                peers: &snapshot,
+                coupling_k: coupling,
+                dt,
+            });
         }
     }
 
@@ -248,7 +267,8 @@ impl GenosEcosystem {
         CellDivision::meiosis(genome, crossover)
     }
 
-    pub fn crossover(&self, a: &Genome, b: &Genome, point: usize) -> (Genome, Genome) {
+    pub fn crossover(&self, params: CrossoverParams) -> (Genome, Genome) {
+        let CrossoverParams { a, b, point } = params;
         MeioticCrossover::single_point_crossover(a, b, point)
     }
 
@@ -262,16 +282,6 @@ impl GenosEcosystem {
 
     pub fn encode_dna(&self, dna: &AgentDna) -> Result<Vec<u8>, String> {
         genos_dna::codec::encode(dna)
-    }
-
-    pub fn express_dna(&self, dna: &AgentDna) -> genos_dna::Phenotype {
-        genos_dna::express::express(dna)
-    }
-
-    // --- Pathologie / diagnostic ---
-
-    pub fn assess_health(&self, cell: &AgentCell) -> ClinicalStatusReport {
-        assess_agent_clinical_status(cell)
     }
 
     // --- Glie ---
@@ -362,22 +372,6 @@ impl GenosEcosystem {
 
     pub fn thaw_agent(&mut self, agent_id: &str) -> Option<genos_store::FrozenAgent> {
         self.cryptobiosis.thaw(agent_id)
-    }
-
-    pub fn freeze_vitrified(&mut self, agent_id: &str, data: &[u8], trehalose: f64, armor: u32) {
-        let _ = self
-            .cryptobiosis
-            .freeze_vitrified(VitrifiedFreeze { agent_id, data, trehalose, armor });
-    }
-
-    pub fn thaw_vitrified(
-        &mut self,
-        agent_id: &str,
-        warm_and_wet: bool,
-        nutrients: bool,
-    ) -> Result<Vec<u8>, String> {
-        self.cryptobiosis
-            .thaw_vitrified(VitrifiedThaw { agent_id, warm_and_wet, nutrients })
     }
 
     // --- Reproduction (compléments) ---

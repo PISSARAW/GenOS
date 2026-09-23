@@ -53,7 +53,11 @@ fn qd_engine_insert() {
         best_fitness: 0.0,
     }]);
     let g = genome();
-    let inserted = engine.evaluate_and_insert(&g, "g1", 50.0);
+    let inserted = engine.evaluate_and_insert(QdCandidate {
+        genome: &g,
+        id: "g1",
+        fitness: 50.0,
+    });
     assert!(inserted);
 }
 

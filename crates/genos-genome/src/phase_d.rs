@@ -81,6 +81,13 @@ pub struct QDDiversityEngine {
     pub max_niches: usize,
 }
 
+/// Candidat d'insertion dans l'archive QD (règle repo : ≤3 params).
+pub struct QdCandidate<'a> {
+    pub genome: &'a Genome,
+    pub id: &'a str,
+    pub fitness: f64,
+}
+
 impl QDDiversityEngine {
     pub fn new(niches: Vec<Niche>) -> Self {
         Self {
@@ -91,8 +98,9 @@ impl QDDiversityEngine {
     }
 
     /// Insère dans l'archive si amélioration de la niche cible.
-    pub fn evaluate_and_insert(&mut self, genome: &Genome, id: &str, fitness: f64) -> bool {
-        self.archive.insert(genome, id, fitness)
+    pub fn evaluate_and_insert(&mut self, candidate: QdCandidate<'_>) -> bool {
+        self.archive
+            .insert(candidate.genome, candidate.id, candidate.fitness)
     }
 
     /// Crée automatiquement une nouvelle niche pour un génome excentrique.

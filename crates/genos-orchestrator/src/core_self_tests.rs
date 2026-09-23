@@ -49,19 +49,19 @@ fn executed_action_with_divergent_outcome_is_not_attributed() {
 #[test]
 fn record_cycle_builds_complete_core_self_state() {
     let mut core = CoreSelf::new();
-    let state = core.record_cycle(
-        vec![0.5, 0.5],
-        Some(Claim {
+    let state = core.record_cycle(CoreSelfCycleInput {
+        before: vec![0.5, 0.5],
+        event: Some(Claim {
             content: "contradiction détectée".into(),
             provenance: CognitiveProvenance::EnvironmentObserved,
             owner: "world".into(),
             confidence: 0.9,
         }),
-        Some(intention("a4", 0.7)),
-        Some(observed("a4", 0.72, true)),
-        vec![0.6, 0.4],
-        vec![0.8],
-    );
+        intention: Some(intention("a4", 0.7)),
+        observed: Some(observed("a4", 0.72, true)),
+        after: vec![0.6, 0.4],
+        world_after: vec![0.8],
+    });
     assert!(state.agency_attribution.is_some());
     assert_eq!(state.ownership_attribution, Some(true));
     assert_eq!(state.predicted_effect, Some(0.7));
@@ -96,14 +96,14 @@ fn provenance_distinguishes_self_from_world() {
 #[test]
 fn record_cycle_without_intention_has_no_attribution() {
     let mut core = CoreSelf::new();
-    let state = core.record_cycle(
-        vec![0.5],
-        None,
-        None,
-        Some(observed("a5", 0.9, false)),
-        vec![0.5],
-        vec![0.9],
-    );
+    let state = core.record_cycle(CoreSelfCycleInput {
+        before: vec![0.5],
+        event: None,
+        intention: None,
+        observed: Some(observed("a5", 0.9, false)),
+        after: vec![0.5],
+        world_after: vec![0.9],
+    });
     assert!(state.agency_attribution.is_none());
     assert_eq!(state.ownership_attribution, None);
 }

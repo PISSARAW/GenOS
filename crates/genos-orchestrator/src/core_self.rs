@@ -152,6 +152,18 @@ pub struct CoreSelfState {
 }
 
 /// Le CoreSelf maintient l'historique des cycles et la calibration.
+/// Contexte d'un cycle CoreSelf : regroupe les entrées de record_cycle
+/// (la règle repo limite les signatures à 3 paramètres).
+#[derive(Clone, Debug, Default)]
+pub struct CoreSelfCycleInput {
+    pub before: Vec<f64>,
+    pub event: Option<Claim>,
+    pub intention: Option<Intention>,
+    pub observed: Option<ObservedOutcome>,
+    pub after: Vec<f64>,
+    pub world_after: Vec<f64>,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct CoreSelf {
     pub history: Vec<CoreSelfState>,
@@ -167,17 +179,9 @@ impl CoreSelf {
 
     /// Enregistre un cycle complet (self avant → événement → intention →
     /// action → self après → monde après) et produit l'attribution.
-    pub fn record_cycle(
-        &mut self,
-        before: Vec<f64>,
-        event: Option<Claim>,
-        intention: Option<Intention>,
-        observed: Option<ObservedOutcome>,
-        after: Vec<f64>,
-        world_after: Vec<f64>,
-    ) -> CoreSelfState {
+    pub fn record_cycle(&mut self, input: CoreSelfCycleInput) -> CoreSelfState {
         let comparator = AgencyComparator::default();
-        let attribution = match (&intention, &observed) {
+        let attribution = match (&input.intention, &input.observed) {
             (Some(i), Some(o)) => Some(comparator.compare(i, o)),
             _ => None,
         };
@@ -187,12 +191,12 @@ impl CoreSelf {
             }
         }
         let state = CoreSelfState {
-            self_state_before: before,
-            perceived_event: event,
-            intended_action: intention.clone(),
-            predicted_effect: intention.as_ref().map(|i| i.predicted_outcome),
-            self_state_after: after,
-            world_state_after: world_after,
+            self_state_before: input.before,
+            perceived_event: input.event,
+            intended_action: input.intention.clone(),
+            predicted_effect: input.intention.as_ref().map(|i| i.predicted_outcome),
+            self_state_after: input.after,
+            world_state_after: input.world_after,
             agency_attribution: attribution.clone(),
             ownership_attribution: attribution.as_ref().map(|a| a.attributed_to_self),
         };
