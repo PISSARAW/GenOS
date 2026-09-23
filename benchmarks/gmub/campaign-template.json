@@ -1,0 +1,40 @@
+{
+  "suite": "gmub-r1",
+  "model": "CHANGEME-base-model-uri",
+  "genos_commit": "CHANGEME-git-rev-parse-HEAD",
+  "topology": "CHANGEME-trinity|a-team|biome|...",
+  "seed": 42,
+  "budgets": { "tokens": null, "cost_usd": null, "time_s": null },
+  "stats": { "reps": 2000, "seed": 42, "alpha": 0.05, "delta": 0 },
+  "cost": { "soloQuality": null, "genosQuality": null, "soloCost": null, "genosCost": null, "soloTokens": null, "genosTokens": null },
+  "wmc": { "frontier": "CHANGEME-frontier-model-uri", "margin": 0 },
+  "runs": [
+    {
+      "suite": "gmub-r1",
+      "case_id": "CHANGEME-case-id",
+      "model": "CHANGEME-model-uri",
+      "mode": "solo|genos|compute_control|ablation",
+      "genos_commit": "CHANGEME-git-rev-parse-HEAD",
+      "topology": "CHANGEME",
+      "declared_capabilities": [],
+      "activated_capabilities": [],
+      "observed_capabilities": [],
+      "seed": 42,
+      "tokens": null,
+      "cost_usd": null,
+      "latency_ms": null,
+      "score": null
+    }
+  ],
+  "gcab": {
+    "run": {
+      "topology": "CHANGEME",
+      "declared_capabilities": [],
+      "activated_capabilities": [],
+      "observed_capabilities": []
+    },
+    "contract": { "required": [] },
+    "ablations": [{ "capability": "CHANGEME-memory|epistemics|biomimicry|evolution|recovery|topology", "pairs": [{ "full": null, "ablated": null }] }],
+    "biomimicry": [{ "dimension": "exploration|recovery|diversity", "bio": null, "nonbio": null }]
+  }
+}

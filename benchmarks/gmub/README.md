@@ -3,6 +3,13 @@
 Protocole longitudinal (ADR 0035) : `solo` vs `genos` vs `compute_control`,
 paires appariées même cas, bootstrap 95%, ladder émergente, HMB.
 
+Première campagne réelle : voir `PROTOCOL.md` (phases 0–4),
+`campaign-template.json` et :
+
+```bash
+node benchmarks/gmub/new-campaign.cjs --suite gmub-r1 --model <base> --models <m1,m2,m3> --cases <c1,c2> --out campaign.json
+```
+
 ## Règle de victoire
 
 `LCB95(D) > margin` => battu, sinon **inconclusif**. Jamais `73.2 > 72.8`.
