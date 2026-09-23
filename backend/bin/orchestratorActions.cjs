@@ -35,6 +35,36 @@ function getRunnerStdio(processId) {
     return 'ignore';
   }
 }
+function buildRunnerEnv() {
+  return {
+    ...process.env,
+    GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || '',
+    GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || '',
+    GENOS_DEFAULT_MODEL: process.env.GENOS_DEFAULT_MODEL || '',
+    GENOS_RUNNER_LOG_DIR: process.env.GENOS_RUNNER_LOG_DIR || '',
+    GENOS_EXECUTION_MODE: process.env.GENOS_EXECUTION_MODE || 'orchestrator'
+  };
+}
+
+function spawnDetachedRunner(context, runnerRequest, runnerEnv) {
+  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, shell: true, stdio: getRunnerStdio(runnerRequest.detachedProcessId), env: runnerEnv });
+  runner.unref();
+  return runner;
+}
+
+async function trackDetachedProcess(context, detachedProcessId, runner) {
+  const trackingDb = await context.getDatabase();
+  try {
+    await trackingDb.exec(`CREATE TABLE IF NOT EXISTS detached_processes (id TEXT PRIMARY KEY, pid INTEGER NOT NULL, kind TEXT NOT NULL, owner_id TEXT, command TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+    await trackingDb.run('INSERT INTO detached_processes (id, pid, kind, owner_id, command) VALUES (?, ?, ?, ?, ?)', detachedProcessId, runner.pid, 'orchestrator', context.orchestratorId, process.execPath);
+  } catch (error) {
+    try { runner.kill('SIGTERM'); } catch (_) { /* best effort cleanup */ }
+    throw new Error(`Detached runner tracking failed: ${error.message}`, { cause: error });
+  } finally {
+    await context.closeDatabase();
+  }
+}
+
 async function handleBackground(context) {
   let reusableWorker = null;
   if (context.action === 'dispatch_worker') {
@@ -51,27 +81,9 @@ async function handleBackground(context) {
     workerId: context.action === 'dispatch_worker' ? context.id : context.request.workerId,
     ...(context.action === 'dispatch_worker' ? { reuseChecked: true, reuseWorkerId: reusableWorker?.id || null } : {})
   };
-  const runnerEnv = {
-    ...process.env,
-    GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || '',
-    GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || '',
-    GENOS_DEFAULT_MODEL: process.env.GENOS_DEFAULT_MODEL || '',
-    GENOS_RUNNER_LOG_DIR: process.env.GENOS_RUNNER_LOG_DIR || '',
-    GENOS_EXECUTION_MODE: process.env.GENOS_EXECUTION_MODE || 'orchestrator'
-  };
-  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, shell: true, stdio: getRunnerStdio(detachedProcessId), env: runnerEnv });
-  runner.unref();
-  let trackingDb = null;
-  try {
-    trackingDb = await context.getDatabase();
-    await trackingDb.exec(`CREATE TABLE IF NOT EXISTS detached_processes (id TEXT PRIMARY KEY, pid INTEGER NOT NULL, kind TEXT NOT NULL, owner_id TEXT, command TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-    await trackingDb.run('INSERT INTO detached_processes (id, pid, kind, owner_id, command) VALUES (?, ?, ?, ?, ?)', detachedProcessId, runner.pid, 'orchestrator', context.orchestratorId, process.execPath);
-  } catch (error) {
-    try { runner.kill('SIGTERM'); } catch (_) { /* best effort cleanup */ }
-    throw new Error(`Detached runner tracking failed: ${error.message}`, { cause: error });
-  } finally {
-    if (trackingDb) await context.closeDatabase();
-  }
+  const runnerEnv = buildRunnerEnv();
+  const runner = spawnDetachedRunner(context, runnerRequest, runnerEnv);
+  await trackDetachedProcess(context, detachedProcessId, runner);
   process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, detachedProcessId, runnerPid: runner.pid, ...(context.action === 'dispatch_worker' ? { workerId: context.id, reusedWorker: Boolean(reusableWorker), ...(reusableWorker ? { matchedScope: reusableWorker.affinity.shared } : {}) } : {}), status: 'accepted', acceptedAt: new Date().toISOString(), task: context.task }));
 }
 async function initializeMission({ db, action, orchestratorId, task }) {

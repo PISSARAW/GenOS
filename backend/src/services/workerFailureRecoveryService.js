@@ -7,18 +7,28 @@ function compact(value, max = 4000) {
   return text.length <= max ? text : text.slice(0, max - 1) + '...';
 }
 
+const FAILURE_PATTERNS = Object.freeze([
+  { pattern: /\b(?:mutated output|mutation|apoptosis|chaperone repair|malformed json)\b/, category: 'mutated_output' },
+  { pattern: /contradict|counterexample|falsif|invalid hypothesis|wrong assumption/, category: 'falsified_hypothesis' },
+  { pattern: /test failure|failed test|assertion|invariant|regression|exit code [1-9]|npm test|cargo test|pytest/, category: 'test_failure' },
+  { pattern: /permission|forbidden|policy|not allowed|unauthori|missing (tool|dependency)|unsupported|cannot execute|command not found/, category: 'capability_mismatch' },
+  { pattern: /timeout|temporar|rate limit|connection|unavailable|econn|deadlock/, category: 'transient_runtime' },
+]);
+
+function matchFailureCategory(text) {
+  const lower = text.toLowerCase();
+  for (const { pattern, category } of FAILURE_PATTERNS) {
+    if (pattern.test(lower)) return category;
+  }
+  return null;
+}
+
 function classifyFailure(event = {}) {
   const payload = event.payload || {};
   const declared = String(payload.failure?.category || payload.category || '').toLowerCase();
   if (declared) return declared;
   const text = (event.detail || '') + ' ' + (payload.failure?.reason || '') + ' ' + (payload.stderr || '');
-  if (/permission|forbidden|policy|not allowed|unauthori/.test(text.toLowerCase())) return 'capability_mismatch';
-  if (/test failure|failed test|assertion|invariant|regression|exit code [1-9]|npm test|cargo test|pytest/.test(text.toLowerCase())) return 'test_failure';
-  if (/\b(?:mutated output|mutation|apoptosis|chaperone repair|malformed json)\b/.test(text.toLowerCase())) return 'mutated_output';
-  if (/contradict|counterexample|falsif|invalid hypothesis|wrong assumption/.test(text.toLowerCase())) return 'falsified_hypothesis';
-  if (/timeout|temporar|rate limit|connection|unavailable|econn|deadlock/.test(text.toLowerCase())) return 'transient_runtime';
-  if (/missing (tool|dependency)|unsupported|cannot execute|command not found/.test(text.toLowerCase())) return 'capability_mismatch';
-  return event.eventType === 'WORKER_TASK_FAILED' ? 'unresolved_task' : 'runtime_failure';
+  return matchFailureCategory(text) || (event.eventType === 'WORKER_TASK_FAILED' ? 'unresolved_task' : 'runtime_failure');
 }
 
 function proofOfNoAnswer(payload = {}) {
@@ -32,67 +42,85 @@ function proofOfNoAnswer(payload = {}) {
   return evidence.length ? { ...proof, method, evidence } : null;
 }
 
-function classifyFinalReport(report = {}, isWorker = true) {
-  const noAnswerProof = proofOfNoAnswer(report);
-  if (report.outcome === 'no_answer' && noAnswerProof) return { outcome: 'no_answer', noAnswerProof };
-  if (report.outcome === 'failed') {
-    return {
-      outcome: 'failed',
-      failure: report.failure && typeof report.failure === 'object'
-        ? report.failure
-        : { category: 'unresolved_task', reason: isWorker ? 'Worker reported mission failure.' : 'Orchestrator reported mission failure.', evidence: [] }
-    };
-  }
-  const claims = Array.isArray(report.claims) ? report.claims : [];
-  const hasUnevidencedClaims = claims.some((c) => {
+function hasClaimWithoutEvidence(claims) {
+  return claims.some((c) => {
     if (!c) return true;
     if (Array.isArray(c.evidence)) return c.evidence.length === 0;
     if (typeof c.evidence === 'string') return !c.evidence.trim();
     return true;
   });
+}
 
-  if (
-    report.outcome === 'no_answer'
-    || claims.length === 0
-    || hasUnevidencedClaims
-  ) {
-    return {
-      outcome: 'failed',
-      failure: report.failure && typeof report.failure === 'object'
-        ? report.failure
-        : {
-            category: 'unresolved_task',
-            reason: claims.length === 0
-              ? 'Worker returned no verified claim.'
-              : (hasUnevidencedClaims ? 'Worker returned claims lacking verifiable evidence.' : 'Worker did not produce verified proof.'),
-            evidence: []
-          }
-    };
-  }
+function makeFailure(reason, category = 'unresolved_task') {
+  return { outcome: 'failed', failure: { category, reason, evidence: [] } };
+}
+
+function classifyNoAnswer(report) {
+  const noAnswerProof = proofOfNoAnswer(report);
+  if (report.outcome === 'no_answer' && noAnswerProof) return { outcome: 'no_answer', noAnswerProof };
+  return null;
+}
+
+function classifyNoAnswer(report) {
+  const noAnswerProof = proofOfNoAnswer(report);
+  if (report.outcome === 'no_answer' && noAnswerProof) return { outcome: 'no_answer', noAnswerProof };
+  return null;
+}
+
+function classifyClaims(report) {
+  const claims = Array.isArray(report.claims) ? report.claims : [];
+  if (report.outcome === 'no_answer' || claims.length === 0) return makeFailure(claims.length === 0 ? 'Worker returned no verified claim.' : 'Worker did not produce verified proof.');
+  if (hasClaimWithoutEvidence(claims)) return makeFailure('Worker returned claims lacking verifiable evidence.');
+  return null;
+}
+
+function classifyFinalReport(report = {}, isWorker = true) {
+  const noAnswer = classifyNoAnswer(report);
+  if (noAnswer) return noAnswer;
+  if (report.outcome === 'failed') return { outcome: 'failed', failure: report.failure && typeof report.failure === 'object' ? report.failure : makeFailure(isWorker ? 'Worker reported mission failure.' : 'Orchestrator reported mission failure.') };
+  const claimsResult = classifyClaims(report);
+  if (claimsResult) return claimsResult;
   return { outcome: 'success' };
 }
 
-function failureReport(event = {}, mission = {}) {
+function reportFailureReason(payload, event) {
+  return compact(payload.failure?.reason || event.detail || 'Worker did not produce a verified answer.');
+}
+
+function reportEvidence(payload) {
+  return Array.isArray(payload.failure?.evidence) ? payload.failure.evidence.map(String).filter(Boolean) : [];
+}
+
+function reportUncertainties(payload) {
+  return Array.isArray(payload.evidenceReport?.uncertainties) ? payload.evidenceReport.uncertainties.map(String).filter(Boolean) : [];
+}
+
+function reportCulprit(payload, mission) {
+  return payload.culpritReport || payload.bisection?.culpritReport || mission.culpritReport || null;
+}
+
+function buildFailureReportFromMission(mission, event) {
   const payload = event.payload || {};
   return {
-    schema: 'genos.worker-failure/v1',
     workerId: mission.agentId || mission.id,
     orchestratorId: mission.orchestratorAgentId,
     mission: compact(mission.originalMission || mission.prompt || mission.currentTask),
     category: classifyFailure(event),
-    reason: compact(payload.failure?.reason || event.detail || 'Worker did not produce a verified answer.'),
-    evidence: Array.isArray(payload.failure?.evidence) ? payload.failure.evidence.map(String).filter(Boolean) : [],
-    uncertainties: Array.isArray(payload.evidenceReport?.uncertainties)
-      ? payload.evidenceReport.uncertainties.map(String).filter(Boolean)
-      : [],
+    reason: reportFailureReason(payload, event),
+    evidence: reportEvidence(payload),
+    uncertainties: reportUncertainties(payload),
     noAnswerProof: proofOfNoAnswer(payload),
     bisection: payload.bisection || mission.bisection || null,
-    culpritReport: payload.culpritReport || payload.bisection?.culpritReport || mission.culpritReport || null,
+    culpritReport: reportCulprit(payload, mission),
     attempt: Math.max(0, Number(mission.recoveryAttempt || 0)),
     maxAttempts: Math.max(1, Number(mission.recoveryMaxAttempts || MAX_RECOVERY_ATTEMPTS)),
     sourceEvent: event.eventType,
     sourceEventId: event.id
   };
+}
+
+function failureReport(event = {}, mission = {}) {
+  return { schema: 'genos.worker-failure/v1', ...buildFailureReportFromMission(mission, event) };
 }
 
 function isOperationalFailure(category) {
