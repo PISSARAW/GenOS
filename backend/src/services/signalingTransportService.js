@@ -185,8 +185,6 @@ async function routeAndDispatch(signal, params) {
     .map((r) => r.agentId);
   // F2: Ne pas envoyer aux workers si aucun récepteur n'a matché (LLM escalation uniquement)
   if (dispatchResult.llmRequired) {
-    // Don't route to workers — let the LLM escalation handler deal with it
-    await recordPendingDeliveries(signal.id, []);
     emitToBus({ ...signal, recipientAgentIds: [], llmRequired: true });
     return {
       signalId: signal.id,
