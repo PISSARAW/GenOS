@@ -112,8 +112,15 @@ class FormalizationArtifact {
   generateLeanSource(options = {}) {
     const header = this.generateLeanHeader(options);
     const proofBody = options.proofBody || '';
-    if (!proofBody) return header + '\n:= by\n  sorry'; // never actually used for verification
-    return header + '\n:= by\n' + proofBody;
+    const imports = (this.imports || []).map((name) => {
+      if (typeof name !== 'string' || !/^[\w.]+$/.test(name)) {
+        throw new Error(`Invalid Lean import name: ${name}`);
+      }
+      return `import ${name}`;
+    }).join('\n');
+    const prefix = imports ? `${imports}\n\n` : '';
+    if (!proofBody) return prefix + header + '\n:= by\n  sorry'; // never actually used for verification
+    return prefix + header + '\n:= by\n' + proofBody;
   }
 
   /**
@@ -130,10 +137,20 @@ class FormalizationArtifact {
       return { matched: false, headerStatement: null, error: 'Source is empty or not a string.' };
     }
     const trimmed = source.trim();
+    // Les imports générés par generateLeanSource() précèdent le header :
+    // on ignore les lignes d'import (et lignes vides) de tête avant
+    // d'extraire le header `theorem`. Seules les lignes de tête sont
+    // ignorées, le header reste soumis au contrôle de fingerprint exact.
+    const lines = trimmed.split('\n');
+    let start = 0;
+    while (start < lines.length && (/^\s*$/.test(lines[start]) || /^\s*import\s+[\w.]+/.test(lines[start]))) {
+      start++;
+    }
+    const body = lines.slice(start).join('\n').trim();
     // Extract the theorem header from the source.
     // We match: theorem <name> : <statement>
     // The statement is everything between `:` and `:=` (or end of line if no `:=`).
-    const headerMatch = trimmed.match(/^theorem\s+\w+\s*:\s*([\s\S]*?)\s*(:=|$)/);
+    const headerMatch = body.match(/^theorem\s+\w+\s*:\s*([\s\S]*?)\s*(:=|$)/);
     if (!headerMatch) {
       return { matched: false, headerStatement: null, error: 'Could not extract theorem header from Lean source.' };
     }
