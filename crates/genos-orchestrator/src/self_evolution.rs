@@ -4,18 +4,17 @@
 //! survie où chaque mécanisme du soi a un COÛT, lesquels sont sélectionnés
 //! spontanément — et dans quels environnements ?
 //!
-//!     Population A — architecture prescrite (toutes strates actives)
-//!     Population B — primitives minimales (strates évolutables)
+//! Population A : architecture prescrite (toutes strates actives).
+//! Population B : primitives minimales (strates évolutables).
 //!
 //! Si B développe spontanément attention/self-model/workspace/agency/
 //! metacognition parce qu'ils améliorent la survie, ces mécanismes sont
 //! une RÉPONSE ADAPTATIVE, pas une décoration.
 //!
 //! Le génotype encode l'activation des strates du soi :
-//!     [self_model, memory, interoception, workspace, agency,
-//!      homeostasis, metacognition]
-//! Chaque gène ∈ [0,1] : 0 = strate inactive, 1 = pleinement active.
-//! La fitness est la SURVIE mesurée dans un environnement simulé où :
+//! self_model, memory, interoception, workspace, agency, homeostasis,
+//! metacognition. Chaque gène ∈ [0,1] : 0 = strate inactive, 1 = pleinement
+//! active. La fitness est la SURVIE mesurée dans un environnement simulé où :
 //!   - les environnements hostiles récompensent l'interoception/homeostasis
 //!   - les environnements prévisibles rendent le self-model coûteux
 //!   - les environnements trompeurs récompensent l'agency comparator
