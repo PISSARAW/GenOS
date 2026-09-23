@@ -178,7 +178,16 @@ function selectTopClones(catalog, antigen, opts = {}) {
   const strategyBias = opts.strategyBias || null;
   const count = opts.count || 1;
   const ranked = clonalRank(catalog, antigen, strategyBias);
-  return ranked.slice(0, Math.max(1, count)).map((r) => r.verifier);
+  const selected = ranked.slice(0, Math.max(1, count)).map((r) => r.verifier);
+  if (selected.length >= Math.max(1, count)) return selected;
+  const seen = new Set(selected.map((v) => v.type));
+  for (const kind of VERIFIER_KINDS) {
+    if (selected.length >= Math.max(1, count)) break;
+    if (seen.has(kind) || !catalog[kind]) continue;
+    seen.add(kind);
+    selected.push(catalog[kind]);
+  }
+  return selected;
 }
 
 module.exports = {

@@ -34,7 +34,7 @@ function buildAssignments(topClones) {
 function adaptiveImmuneResponse(claim, antigen, context = {}) {
   const decision = decisionFromAdaptive(claim, antigen, context);
   const catalog = context.catalog || defaultCatalog();
-  const topClones = selectTopClones(catalog, antigen, { strategyBias: context.strategyBias || null, count: context.cloneCount || 1 });
+  const topClones = selectTopClones(catalog, antigen, { strategyBias: context.strategyBias || null, count: context.cloneCount || 2 });
   return {
     ...decision,
     assignedVerifiers: buildAssignments(topClones),

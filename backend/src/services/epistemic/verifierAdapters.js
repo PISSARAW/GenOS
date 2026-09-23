@@ -304,8 +304,20 @@ const ADAPTER_MAP = {
   artifact: runArtifactAdapter,
 };
 
+const ADAPTER_ALIASES = {
+  testResult: 'test',
+  replay: 'test',
+  counterexample: 'behavior',
+  source: 'behavior',
+  proof: 'artifact',
+  repro: 'artifact',
+  benchmark: 'artifact',
+};
+
 function selectAdapter(verifierType) {
-  return ADAPTER_MAP[verifierType] || null;
+  if (ADAPTER_MAP[verifierType]) return ADAPTER_MAP[verifierType];
+  const aliased = ADAPTER_ALIASES[verifierType];
+  return (aliased && ADAPTER_MAP[aliased]) || null;
 }
 
 async function executeVerifierWithAdapter(antigen, verifier, context) {
