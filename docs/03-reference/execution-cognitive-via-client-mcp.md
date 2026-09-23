@@ -86,10 +86,38 @@ ou Ollama.
 
 ## Compatibilité
 
-Les exécutions backend directes conservent les modes historiques `codex` et
-`local`. Le mode automatique décrit ici concerne le chemin du serveur
-`genos-mcp`, qui force `caller_mcp` pour que le modèle appelant soit le moteur
-cognitif de la mission.
+Les exécutions backend directes conservent les modes historiques `codex`,
+`local` et `solar-direct`. Le mode automatique décrit ici concerne le chemin
+du serveur `genos-mcp`, qui force `caller_mcp` pour que le modèle appelant
+soit le moteur cognitif de la mission.
+
+## Registre de harnesses (HCL, ADR 0036)
+
+Depuis l'[ADR 0036](../adr/0036-harness-compatibility-layer.md), les
+exécuteurs historiques sont normalisés en drivers derrière un registre :
+[backend/src/services/harnessRegistry.js](../../backend/src/services/harnessRegistry.js),
+[backend/src/services/harnessCatalog.js](../../backend/src/services/harnessCatalog.js)
+et
+[backend/src/services/harnessDrivers/](../../backend/src/services/harnessDrivers/).
+
+| Driver | Exécuteur | Capacités déclarées |
+|---|---|---|
+| `callerMcpDriver` | `caller_mcp` | `cognitive-generation`, `mcp-sampling`, `human-in-loop` |
+| `codexDriver` | `codex` | `cognitive-generation`, `tool-execution`, `local-supervision` |
+| `localDriver` | `local` | `cognitive-generation`, `tool-execution`, `offline-capable` |
+| `solarDriver` | `solar-direct` | `cognitive-generation`, `tool-execution`, `direct-channel` |
+
+`configuredExecutable`
+([agentRuntimeExecutable.js](../../backend/src/services/agentRuntimeExecutable.js))
+délègue d'abord au catalogue et conserve le dispatch historique en fallback :
+le comportement des missions existantes est inchangé. GenOS reste l'autorité
+sur l'identité, les contrats, les budgets, les leases, les snapshots et la
+promotion ; un transport réussi n'est pas une preuve de décision valide.
+
+La comparaison entre harnesses (migration progressive, fork + replay d'un
+même snapshot, diff puis evidence) est outillée par
+[harnessExperiment.js](../../backend/src/services/harnessExperiment.js) :
+`planExperiment`, `diffResults`, `buildEvidence`, `runComparison`.
 
 ## Relais explicite pour un hôte sans Sampling natif
 

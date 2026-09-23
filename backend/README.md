@@ -202,7 +202,7 @@ genos_sk_admin_...
 | `GENOS_SQLITE_MMAP_SIZE` | `268435456` | SQLite mmap size in bytes; bounded to 1 GiB |
 | `GENOS_SQLITE_SYNCHRONOUS` | `FULL` | SQLite durability mode: `NORMAL`, `FULL`, or `EXTRA` |
 | `GENOS_PROCESS_GRACE_MS` | `5000` | Child-process graceful termination period, bounded to 30 seconds |
-| `GENOS_AGENT_EXECUTOR` | `codex` | Set `local` in containers to use the bundled runtime |
+| `GENOS_AGENT_EXECUTOR` | `codex` | Cognitive harness: `codex`, `local`, `caller_mcp` or `solar-direct`. Resolved via the harness catalog (`src/services/harnessCatalog.js` + `src/services/harnessDrivers/`); set `local` in containers to use the bundled runtime |
 | `GENOS_GRPC_TLS_KEY` / `GENOS_GRPC_TLS_CERT` | *None* | Pair of regular files required to expose gRPC beyond loopback |
 | `GENOS_ADMIN_TOKEN` | *Generated* | Administrator API token |
 | `GENOS_ADMIN_PASSWORD` | `genos-admin` | Default password for local `admin` account |

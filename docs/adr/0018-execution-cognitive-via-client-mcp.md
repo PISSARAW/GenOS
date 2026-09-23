@@ -2,7 +2,8 @@
 
 ## Statut
 
-Proposé — première étape du mode `caller_mcp`.
+Proposé — première étape du mode `caller_mcp`. Suivi par l'[ADR 0036](0036-harness-compatibility-layer.md)
+qui généralise la séparation au niveau harness (Harness Compatibility Layer).
 
 ## Contexte
 
