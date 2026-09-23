@@ -204,6 +204,14 @@ const migrationRunners = [
     const { run } = require('./migrateDaemonEvidenceView');
     await run(db);
   }),
+  createMigrationRunner('060-telemetry-hourly-stats', 'Materialized hourly telemetry stats with incremental triggers', async (db) => {
+    const { run } = require('./migrateTelemetryHourlyStats');
+    await run(db);
+  }),
+  createMigrationRunner('061-analytics-views', 'Create job queue health, agent operational state, communication efficiency and uplift views', async (db) => {
+    const { run } = require('./migrateAnalyticsViews');
+    await run(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
