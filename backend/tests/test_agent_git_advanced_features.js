@@ -7,6 +7,7 @@ const state = { schema: 'genos.agent-git-state/v1', agent: { id: 'agent-1', work
 // Install mock BEFORE loading service
 dbModule.getDatabase = async () => ({
   get: async (sql) => {
+    if (sql.includes('agent_git_objects') && sql.includes('WHERE id = ?')) return null;
     if (sql.includes('agent_git_objects')) return { id: 'one', agent_id: 'agent-1', object_kind: 'commit', ref_name: 'main', remote_name: null, state_hash: 'hash-one', state_json: JSON.stringify(state), metadata_json: JSON.stringify({ locked: false }), signature: 'sig-one', created_at: '2026-01-01' };
     if (sql.includes('FROM agents a')) return state.agent;
     return null;
