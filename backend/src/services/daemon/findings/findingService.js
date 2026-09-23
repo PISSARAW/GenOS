@@ -139,7 +139,11 @@ async function transitionFinding(db, change) {
     return { transitioned: false, errors: [`forbidden-transition:${current.status}->${change.toStatus}`] };
   }
   await applyTransition(db, change, current.status);
-  return getFinding(db, { id: change.id });
+  const updated = await getFinding(db, { id: change.id });
+  try {
+    await lifecycle.onPostTransition(db, updated.finding, change.toStatus);
+  } catch (_) {}
+  return updated;
 }
 
 async function applyTransition(db, change, fromStatus) {

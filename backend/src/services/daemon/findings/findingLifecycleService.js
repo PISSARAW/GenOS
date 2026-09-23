@@ -37,4 +37,14 @@ function isInitial(status) {
   return INITIAL.includes(status);
 }
 
-module.exports = { TRANSITIONS, TERMINAL, INITIAL, canTransition, isTerminal, isInitial };
+async function onPostTransition(db, finding, toStatus) {
+  if (toStatus !== 'REPAIRABLE') return null;
+  if (!db || !finding || !finding.id) return null;
+  const repair = require('../repair/repairEpisodeService');
+  return repair.openEpisode(db, {
+    findingId: finding.id,
+    createdBy: finding.createdBy || 'daemon.resident'
+  });
+}
+
+module.exports = { TRANSITIONS, TERMINAL, INITIAL, canTransition, isTerminal, isInitial, onPostTransition };
