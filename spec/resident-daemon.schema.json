@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/resident-daemon.schema.json",
+  "title": "ResidentDaemon",
+  "description": "Contrat d'un daemon résident GenOS (ADR 0034). Un daemon résident est un processus agentique persistant, lié à un territoire, dont la fonction première est de maintenir un modèle evidence-grounded de son environnement à travers les missions. Il observe et connaît ; l'orchestrateur décide ; le worker intervient. La réparation n'est PAS dans le génome de base.",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "id",
+    "territoryId",
+    "genomeRef",
+    "activity",
+    "health",
+    "authority",
+    "organelles",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "apiVersion": { "type": "string", "const": "genos.daemon/v1" },
+    "kind": { "type": "string", "const": "ResidentDaemon" },
+    "id": {
+      "type": "string",
+      "pattern": "^daemon\\.[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "territoryId": {
+      "type": "string",
+      "pattern": "^territory\\.[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "genomeRef": { "type": "string", "minLength": 1 },
+    "activity": {
+      "type": "string",
+      "enum": [
+        "BOOTSTRAPPING",
+        "SURVEYING",
+        "DORMANT",
+        "FOCUSED",
+        "INVESTIGATING",
+        "VERIFYING",
+        "REPORTING"
+      ]
+    },
+    "health": {
+      "type": "string",
+      "enum": ["HEALTHY", "STRESSED", "DEGRADED", "SENESCENT", "APOPTOTIC"]
+    },
+    "authority": {
+      "type": "object",
+      "required": ["filesystemWrite", "gitPush", "merge"],
+      "properties": {
+        "filesystemWrite": { "type": "boolean", "const": false },
+        "gitPush": { "type": "boolean", "const": false },
+        "merge": { "type": "boolean", "const": false },
+        "allowedSignals": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["READ", "INDEX", "OBSERVE", "TEST_SAFE", "SNAPSHOT", "SIGNAL"] }
+        }
+      },
+      "additionalProperties": false,
+      "description": "Autorité par défaut : observation seule. Toute mutation exige lease/gate explicite (RepairEpisode)."
+    },
+    "organelles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "cartography",
+          "interoception",
+          "natural-search",
+          "findings",
+          "verification",
+          "stigmergy",
+          "handoff",
+          "reconciliation"
+        ]
+      }
+    },
+    "cognitiveRevisions": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Compteur Hayflick redéfini : révisions cognitives coûteuses (mutations phénotype, rebuilds territoire, promotions repair échouées, réécritures mémoire). Pas des ticks."
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

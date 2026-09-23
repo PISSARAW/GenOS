@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/daemon-finding.schema.json",
+  "title": "DaemonFinding",
+  "description": "Objet épistémique canonique produit par un daemon résident. L'algèbre de preuve est TYPÉE, pas réduite à un score (Constitution GenOS : claim != evidence). Un finding n'est jamais 'vrai' : il a un statut, des preuves supportantes/contredisant typées, des limitations explicites, et une provenance traçable.",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "id",
+    "territoryId",
+    "claim",
+    "scope",
+    "headSha",
+    "status",
+    "supporting",
+    "contradicting",
+    "dependencies",
+    "limitations",
+    "hypothesisId",
+    "createdBy",
+    "createdAt"
+  ],
+  "properties": {
+    "apiVersion": { "type": "string", "const": "genos.daemon/v1" },
+    "kind": { "type": "string", "const": "DaemonFinding" },
+    "id": {
+      "type": "string",
+      "pattern": "^finding\\.[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Identifiant unique du finding, ex: finding.auth-contract-drift-001"
+    },
+    "territoryId": {
+      "type": "string",
+      "pattern": "^territory\\.[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Territoire dont relève ce finding"
+    },
+    "claim": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Revendication précise, formulée de façon falsifiable"
+    },
+    "scope": {
+      "type": "object",
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "type": "string", "enum": ["file", "symbol", "directory", "module", "test", "endpoint", "schema", "config", "dependency", "invariant", "cross-cutting"] },
+        "value": { "type": "string", "minLength": 1 },
+        "subScope": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false,
+      "description": "Portée précise du finding dans le territoire"
+    },
+    "headSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$",
+      "description": "SHA du commit sur lequel ce finding a été établi. Invalide si HEAD change sans revalidation."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "OBSERVED",
+        "HYPOTHESIZED",
+        "SUPPORTED",
+        "REPRODUCED",
+        "CAUSALLY_SUPPORTED",
+        "REPAIRABLE",
+        "REFUTED",
+        "STALE",
+        "EXPIRED"
+      ],
+      "description": "Lifecycle épistémique. JAMAIS choisi uniquement par LLM."
+    },
+    "supporting": {
+      "type": "object",
+      "required": ["observational", "experimental", "formal", "causal", "replicated", "adversarial"],
+      "properties": {
+        "observational": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "experimental": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "formal": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "causal": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "replicated": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "adversarial": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } }
+      },
+      "additionalProperties": false,
+      "description": "Preuves supportantes, typées par nature. Chaque type a des critères d'admission distincts."
+    },
+    "contradicting": {
+      "type": "object",
+      "required": ["observational", "experimental", "formal", "causal", "replicated", "adversarial"],
+      "properties": {
+        "observational": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "experimental": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "formal": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "causal": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "replicated": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "adversarial": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } }
+      },
+      "additionalProperties": false,
+      "description": "Preuves contredisant le finding. Doivent être activement recherchées (falsification)."
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^finding\\.[a-z0-9]+(?:-[a-z0-9]+)*$" },
+      "description": "Autres findings dont celui-ci dépend logiquement"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Limitations explicites déclarées (ex: 'not causally verified', 'single test run', 'assumes test determinism'). Obligatoire : un finding sans limitations sur-déclare sa portée."
+    },
+    "hypothesisId": {
+      "type": ["string", "null"],
+      "pattern": "^hypothesis\\.[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Hypothèse Natural Search dont ce finding est issu (si applicable)"
+    },
+    "naturalSearchPressure": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Pression de recherche Natural Search au moment de la création (pour traçabilité ablation)"
+    },
+    "createdBy": {
+      "type": "string",
+      "pattern": "^(daemon|natural-search|orchestrator|worker|human)\\.[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Agent/processus créateur"
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Expiration automatique si non revalidé. Défaut: 30 jours."
+    },
+    "lastValidatedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Dernière revalidation contre HEAD actuel"
+    },
+    "validationCount": { "type": "integer", "minimum": 0, "default": 0 },
+    "refutationCount": { "type": "integer", "minimum": 0, "default": 0 },
+    "handoffCount": { "type": "integer", "minimum": 0, "default": 0 },
+    "handoffUsefulness": {
+      "type": "object",
+      "properties": {
+        "used": { "type": "integer", "minimum": 0 },
+        "decisive": { "type": "integer", "minimum": 0 },
+        "irrelevant": { "type": "integer", "minimum": 0 },
+        "stale": { "type": "integer", "minimum": 0 },
+        "wrong": { "type": "integer", "minimum": 0 },
+        "incomplete": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false,
+      "description": "Feedback orchestrateur pour plasticité handoff"
+    },
+    "provenanceRecordIds": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs provenance_records existants (pas de daemon_provenance parallèle)"
+    },
+    "stigmergyMarkers": {
+      "type": "object",
+      "additionalProperties": { "type": "number" },
+      "description": "Pheromones/repulsifs territoriaux associés (attention, pas vérité)"
+    }
+  },
+  "$defs": {
+    "evidenceRef": {
+      "type": "object",
+      "required": ["id", "type", "description", "provenanceRecordId", "collectedAt"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "enum": ["test_failure", "test_pass", "static_analysis", "type_check", "build_log", "runtime_trace", "snapshot_diff", "git_diff", "dependency_audit", "contract_check", "manual_inspection", "causal_receipt"] },
+        "description": { "type": "string", "minLength": 1 },
+        "provenanceRecordId": { "type": "string", "minLength": 1 },
+        "collectedAt": { "type": "string", "format": "date-time" },
+        "metadata": { "type": "object", "additionalProperties": true }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

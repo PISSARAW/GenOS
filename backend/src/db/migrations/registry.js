@@ -112,6 +112,10 @@ const migrationRunners = [
     const { migrateCognitiveRecipePerformance } = require('./migrateCognitiveRecipePerformance');
     await migrateCognitiveRecipePerformance(db);
   }),
+  createMigrationRunner('037-daemon-territory', 'Persist resident daemon territories and runtime state (ADR 0034 Phase 1)', async (db) => {
+    const { migrateDaemonTerritory } = require('./migrateDaemonTerritory');
+    await migrateDaemonTerritory(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

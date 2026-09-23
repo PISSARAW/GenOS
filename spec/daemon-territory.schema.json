@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/daemon-territory.schema.json",
+  "title": "DaemonTerritory",
+  "description": "Territoire d'un daemon résident GenOS. Un territoire est un espace délimité (repo/ref/path/commit) dont le daemon maintient un modèle evidence-grounded. Toute connaissance est scoping territory+HEAD : un finding établi sur HEAD=ABC ne doit jamais être injecté comme vérité à HEAD=XYZ sans revalidation.",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "id",
+    "organizationId",
+    "projectId",
+    "workspaceId",
+    "repoIdentity",
+    "rootPath",
+    "scopePath",
+    "ref",
+    "headSha",
+    "createdAt",
+    "lastObservedAt",
+    "state"
+  ],
+  "properties": {
+    "apiVersion": { "type": "string", "const": "genos.daemon/v1" },
+    "kind": { "type": "string", "const": "DaemonTerritory" },
+    "id": {
+      "type": "string",
+      "pattern": "^territory\\.[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Identifiant unique du territoire, ex: territory.genos, territory.genos-backend, territory.genos-backend-services"
+    },
+    "organizationId": { "type": "string", "minLength": 1 },
+    "projectId": { "type": "string", "minLength": 1 },
+    "workspaceId": { "type": "string", "minLength": 1 },
+    "repoIdentity": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identité stable du repository (ex: git remote URL hash, ou nom normalisé)"
+    },
+    "rootPath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Chemin racine absolu du workspace sur disque"
+    },
+    "scopePath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Chemin relatif depuis rootPath délimitant le territoire (ex: backend/src/services/)"
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Référence git surveillée (ex: main, develop, refs/heads/feature/xyz)"
+    },
+    "headSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$",
+      "description": "SHA du commit HEAD au dernier point d'observation. Toute connaissance est liée à ce SHA."
+    },
+    "parentTerritoryId": {
+      "type": ["string", "null"],
+      "pattern": "^territory\\.[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Territoire parent pour hiérarchie (ex: territory.genos est parent de territory.genos-backend)"
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "lastObservedAt": { "type": "string", "format": "date-time" },
+    "state": {
+      "type": "string",
+      "enum": ["BOOTSTRAPPING", "SURVEYING", "ACTIVE", "DORMANT", "STALE", "DEGRADED", "APOPTOTIC"],
+      "description": "État du territoire du point de vue du daemon"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "languageDistribution": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "fileCount": { "type": "integer", "minimum": 0 },
+        "symbolCount": { "type": "integer", "minimum": 0 },
+        "graphNodeCount": { "type": "integer", "minimum": 0 },
+        "graphEdgeCount": { "type": "integer", "minimum": 0 },
+        "lastGraphRebuiltAt": { "type": ["string", "null"], "format": "date-time" },
+        "lastIncrementalUpdateAt": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
