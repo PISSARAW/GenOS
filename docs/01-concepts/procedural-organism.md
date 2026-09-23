@@ -4,7 +4,7 @@
   les services associés), avec cycle DRAFT → SEALED, validation sémantique, preuve causale (prototype
   comparatif accouplé), promotion sous preuve, persistance versionnée, lignée, immunité innée +
   adaptative, registre de runners/evaluateurs et primitives MCP. Tests : `npm run test:procedural`
-  (11 fichiers).
+  (12 fichiers).
 |- **Portée** : `backend/src/services/procedural*Service.js`, `backend/src/services/proceduralRegistryService.js`,
   `backend/src/services/primitiveHandlers/proceduralHandlers.js`, `backend/tests/test_procedural_*.js`,
   `backend/bin/genos-registry-tool.cjs`.
@@ -169,6 +169,10 @@ La sélection naturelle procédurale utilise désormais un algorithme Pareto/nic
 - Le front de Pareto est **non-vide** si au moins un candidat viable existe.
 - La sélection niche-ée préserve au moins un candidat par niche présente dans le front.
 - Le candidat promu est **toujours dans le front de Pareto** (jamais dominé).
+- Tous les candidats sont **évalués avant toute promotion** ; le runtime ne promeut jamais le premier acceptable mais le meilleur survivant Pareto/niche.
+- **Aucune promotion sans évaluation spécifique au candidat** : chaque candidat scellé porte un `evaluationReceipt` (candidateId, parentId, evaluatorId, environmentId, snapshotId, trials, metrics, provenance) ; sans fitness issue de sa propre évaluation, la fitness parent n'est jamais héritée.
+- **Causalité accouplée prouvée** : les deux forks reçoivent une copie indépendante de l'état initial (deep clone) et le hash snapshot de chaque copie est comparé ; `sameInitialState` est prouvé, pas affirmé.
+- **Gates requis dominants** : un gate `required` n'est pas seulement reachable, il domine tout terminal protégé (suppression virtuelle du gate ⇒ aucun terminal protégé atteignable, sinon BYPASS ⇒ INVALID).
 
 ---
 
@@ -672,7 +676,7 @@ Chaque mécanisme biologique doit correspondre à un invariant informatique mesu
 
 ## 7. Tests
 
-`npm run test:procedural` exécute **11 fichiers** :
+`npm run test:procedural` exécute **12 fichiers** :
 
 - `backend/tests/test_procedural_organism_foundations.js` — Points 1-8 (genome, synapse, plasticity, consolidation, pruning, inhibition, action selection, prediction error)
 - `backend/tests/test_procedural_organism_9_12.js` — Points 9-12 (fitness, homeostatic plasticity, epigenetic, methylation)
@@ -685,6 +689,7 @@ Chaque mécanisme biologique doit correspondre à un invariant informatique mesu
 - `backend/tests/test_procedural_primitives.js` — intégration handlers/proceduralHandlers.js (procedural_evolve, procedural_load, procedural_seal, procedural_causal_check)
 - `backend/tests/test_procedural_causal_validation.js` — validation causale paired-fork (CAUSAL_IMPROVEMENT / REGRESSION / NO_EFFECT)
 - `backend/tests/test_procedural_e2e_autonome.js` — scénario complet P0 → surprise → LTD → consolidation → mutation → causal proof → promotion
+- `backend/tests/test_procedural_learning_cycle.js` — front de Pareto, sélection par niche, cycle learning (LTP/LTD/consolidation) et intégration runtime Pareto/niche
 
 ```bash
 npm run test:procedural

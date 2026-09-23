@@ -92,6 +92,24 @@ assert.ok(leakResult.errors.some((e) => e.includes("terminal 'end' has an outgoi
 assert.strictEqual(semantics.validateGraphSemantics({}).valid, false);
 assert.strictEqual(semantics.validateGraphSemantics(null).valid, false);
 
+// 6b. Bypass d'un required gate : START -> END contourne VERIFY.
+// VERIFY est reachable, mais un terminal protege reste atteignable sans lui.
+const bypassed = makeOrganism(
+  [
+    { id: 'start', type: 'action' },
+    { id: 'verify', type: 'gate', required: true },
+    { id: 'end', type: 'terminal' },
+  ],
+  [
+    { from: 'start', to: 'verify', type: 'excitatory', weight: 0.8 },
+    { from: 'verify', to: 'end', type: 'excitatory', weight: 0.9 },
+    { from: 'start', to: 'end', type: 'excitatory', weight: 0.9 },
+  ]
+);
+const bypassResult = semantics.validateGraphSemantics(bypassed);
+assert.strictEqual(bypassResult.valid, false, 'bypassed required gate must be invalid');
+assert.ok(bypassResult.errors.some((e) => e.includes("bypassable")), `got: ${bypassResult.errors.join('; ')}`);
+
 // 7. Pureté : validateGraphSemantics ne modifie pas l'organisme
 const frozen = JSON.parse(JSON.stringify(unreachableB));
 semantics.validateGraphSemantics(unreachableB);
@@ -120,12 +138,15 @@ const parent = {
 };
 const variants = mutation.generateVariants(parent, 5);
 assert.ok(variants.length >= 1);
-const SAFE_OPS = ['ADD_NODE', 'ADD_SYNAPSE', 'ADJUST_WEIGHT'];
+const SAFE_OPS = ['ADD_NODE', 'ADJUST_WEIGHT'];
 for (const v of variants) {
   const sealed = mutation.sealCandidate(parent, v, null);
   const semRes = semantics.validateGraphSemantics(sealed);
   if (SAFE_OPS.includes(v.operations[0].op)) {
     assert.strictEqual(semRes.valid, true, `sealed variant (${v.operations[0].op}) must stay semantically valid: ${semRes.errors.join('; ')}`);
+  }
+  if (v.operations[0].op === 'ADD_SYNAPSE' && !semRes.valid) {
+    assert.ok(semRes.errors.some((e) => e.includes('bypassable') || e.includes('reachable')), `ADD_SYNAPSE rejection must be semantic: ${semRes.errors.join('; ')}`);
   }
   const schemaRes = identity.validateOrganism(sealed);
   assert.strictEqual(schemaRes.valid, true, `sealed variant must stay schema-valid: ${schemaRes.errors.join('; ')}`);

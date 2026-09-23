@@ -184,10 +184,22 @@ function withoutIdentity(metadata) {
   return meta;
 }
 
+function canonicalValue(value) {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  const sorted = {};
+  for (const key of Object.keys(value).sort()) sorted[key] = canonicalValue(value[key]);
+  return sorted;
+}
+
 function mutationSignature(operations) {
   const canonical = (operations || []).map((op) => ({
     op: op.op,
-    target: op.target || null,
+    target: canonicalValue(op.target || null),
+    before: canonicalValue(op.before ?? null),
+    after: canonicalValue(op.after ?? null),
+    delta: op.delta ?? null,
+    removedSynapses: canonicalValue(op.removedSynapses ?? null),
   }));
   return crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex').slice(0, 16);
 }
@@ -206,6 +218,15 @@ function sealCandidate(parent, variant, evaluation) {
   };
   if (evaluation?.fitness != null) {
     organism.fitness = evaluation.fitness;
+  } else {
+    // No candidate-specific evaluation -> no inherited fitness.
+    // A candidate must never be promotable on the parent's score.
+    organism.fitness = null;
+  }
+  if (evaluation?.receipt != null) {
+    organism.evaluationReceipt = evaluation.receipt;
+  } else {
+    delete organism.evaluationReceipt;
   }
   if (evaluation?.immune) {
     organism.immune = evaluation.immune;
@@ -233,6 +254,10 @@ function generateVariants(parent = {}, count = 4) {
     // NO_OP (mutation non applicable) — on ne garde pas le variant
     if (!result.operation.target) continue;
     result.organism.metadata = draftMetadata(parent);
+    // Draft candidates carry NO fitness: only a candidate-specific
+    // evaluation (sealCandidate) may attach one.
+    result.organism.fitness = null;
+    delete result.organism.evaluationReceipt;
     const contentId = crypto.createHash('sha256')
       .update(JSON.stringify(result.organism.structure))
       .digest('hex').slice(0, 12);
@@ -265,11 +290,69 @@ function survivorsDiversity(survivors) {
   return new Set(survivors.map((s) => s.parentId)).size;
 }
 
+const PARETO_OBJECTIVES = ['success', 'robustness', 'evidence', 'generalization'];
+
+function objectiveVector(variant, objectives) {
+  const comps = variant?.fitness?.components || {};
+  return (objectives || PARETO_OBJECTIVES).map((k) => {
+    const raw = comps[k] != null ? comps[k] : variant?.fitness?.[k];
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  });
+}
+
+function dominates(vecA, vecB) {
+  let strictlyGreater = false;
+  for (let i = 0; i < vecA.length; i++) {
+    if (vecA[i] < vecB[i]) return false;
+    if (vecA[i] > vecB[i]) strictlyGreater = true;
+  }
+  return strictlyGreater;
+}
+
+function paretoFront(variants, objectives) {
+  const list = Array.isArray(variants) ? variants : [];
+  const objs = Array.isArray(objectives) && objectives.length ? objectives : PARETO_OBJECTIVES;
+  const vectors = list.map((v) => objectiveVector(v, objs));
+  return list.filter((candidate, i) => {
+    for (let j = 0; j < list.length; j++) {
+      if (i !== j && dominates(vectors[j], vectors[i])) return false;
+    }
+    return true;
+  });
+}
+
+function fitnessScore(variant) {
+  const s = Number(variant?.fitness?.score);
+  return Number.isFinite(s) ? s : 0;
+}
+
+function nicheSelection(variants, options) {
+  const list = Array.isArray(variants) ? variants : [];
+  const maxPer = Number(options?.maxPerNiche);
+  const cap = Number.isFinite(maxPer) && maxPer > 0 ? Math.floor(maxPer) : 2;
+  const groups = new Map();
+  for (const v of list) {
+    const key = v.parentId || v?.organism?.metadata?.parentId || 'unknown';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(v);
+  }
+  const out = [];
+  for (const group of groups.values()) {
+    const sorted = [...group].sort((a, b) => fitnessScore(b) - fitnessScore(a));
+    out.push(...sorted.slice(0, cap));
+  }
+  return out.sort((a, b) => fitnessScore(b) - fitnessScore(a));
+}
+
 module.exports = {
   generateVariants,
   evaluateVariants,
   selectSurvivors,
   survivorsDiversity,
+  paretoFront,
+  nicheSelection,
+  PARETO_OBJECTIVES,
   sealCandidate,
   mutationSignature,
   MUTATION_OPS,

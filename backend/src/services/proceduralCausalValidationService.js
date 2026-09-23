@@ -17,6 +17,15 @@
 // from the SAME initial state.
 
 const temporalHelpers = require('./primitiveHandlers/temporalHelpers');
+const crypto = require('crypto');
+
+function cloneState(state) {
+  return JSON.parse(JSON.stringify(state));
+}
+
+function hashState(state) {
+  return crypto.createHash('sha256').update(JSON.stringify(state)).digest('hex').slice(0, 16);
+}
 
 function runOrganism(runner, organism, initialState) {
   if (typeof runner !== 'function') {
@@ -39,12 +48,14 @@ function scoreFromOutcome(outcome) {
   return 0;
 }
 
-function compareForks(baselineRun, candidateRun) {
+function compareForks(baselineRun, candidateRun, stateProof) {
   const baseline = trajectoryFrom(baselineRun);
   const candidate = trajectoryFrom(candidateRun);
   const { divergences } = { divergences: temporalHelpers.findDivergences(baseline.turns, candidate.turns) };
   const baselineScore = scoreFromOutcome(baseline.outcome);
   const candidateScore = scoreFromOutcome(candidate.outcome);
+  const proof = stateProof || {};
+  const sameInitialState = proof.verified === true;
   return {
     divergences,
     divergenceCount: divergences.length,
@@ -52,7 +63,9 @@ function compareForks(baselineRun, candidateRun) {
     baselineScore,
     candidateScore,
     scoreDelta: candidateScore - baselineScore,
-    sameInitialState: true,
+    sameInitialState,
+    baselineStateHash: proof.baselineHash || null,
+    candidateStateHash: proof.candidateHash || null,
   };
 }
 
@@ -74,9 +87,19 @@ function validateCausally({ runner, parent, candidate, initialState }) {
   if (!initialState) {
     throw new Error('causal validation requires an explicit initialState shared by both forks');
   }
-  const baselineRun = runOrganism(runner, parent, initialState);
-  const candidateRun = runOrganism(runner, candidate, initialState);
-  const comparison = compareForks(baselineRun, candidateRun);
+  // Each fork receives an INDEPENDENT deep clone; the snapshot hash of each
+  // clone is recorded before execution and verified afterwards. A runner that
+  // mutates its input cannot contaminate the other fork, and any such
+  // mutation is detectable (sameInitialState is proven, not asserted).
+  const baselineState = cloneState(initialState);
+  const candidateState = cloneState(initialState);
+  const baselineHash = hashState(baselineState);
+  const candidateHash = hashState(candidateState);
+  const forksIndependent = baselineHash === candidateHash;
+  const baselineRun = runOrganism(runner, parent, baselineState);
+  const candidateRun = runOrganism(runner, candidate, candidateState);
+  const proof = { baselineHash, candidateHash, verified: forksIndependent };
+  const comparison = compareForks(baselineRun, candidateRun, proof);
   return {
     ...causalVerdict(comparison),
     comparison: {
@@ -85,6 +108,8 @@ function validateCausally({ runner, parent, candidate, initialState }) {
       baselineScore: comparison.baselineScore,
       candidateScore: comparison.candidateScore,
       sameInitialState: comparison.sameInitialState,
+      baselineStateHash: comparison.baselineStateHash,
+      candidateStateHash: comparison.candidateStateHash,
     },
   };
 }

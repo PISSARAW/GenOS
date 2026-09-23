@@ -28,13 +28,19 @@ const consolidation = require('./proceduralConsolidationService');
  * @param {object} params.options — policy, thresholds
  * @returns {object} cycle result with plasticity, consolidation, and evolution trigger
  */
+function num(value, fallback) {
+  if (value == null) return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function runLearningCycle({ expectedReward, observedReward, synapse, episodes, options = {} }) {
   const pe = predictionError.computePredictionError({ expectedReward, observedReward });
   const action = predictionError.peAction(pe, options.policy || {});
   return {
     predictionError: pe,
     action,
-    plasticity: applyPlasticity(synapse, { action, metrics: { success: observedReward, evidence: options.evidence || 0.5, cost: options.cost || 0.2, safety: options.safety || 0.5 }, policy: options.policy }),
+    plasticity: applyPlasticity(synapse, { action, metrics: { success: observedReward, evidence: num(options.evidence, 0.5), cost: num(options.cost, 0.2), safety: num(options.safety, 0.5) }, policy: options.policy }),
     consolidation: consolidateIfReady(episodes, options),
     shouldEvolve: action.triggerMutationSearch,
     surprise: {
@@ -46,6 +52,17 @@ function runLearningCycle({ expectedReward, observedReward, synapse, episodes, o
     },
     timestamp: new Date().toISOString(),
   };
+}
+
+async function observeOutcomeAndAdapt(db, parent, cycleInput) {
+  const input = cycleInput || {};
+  const cycle = runLearningCycle(input);
+  if (!cycle.shouldEvolve) {
+    return { evolved: false, cycle };
+  }
+  const runtime = require('./proceduralRuntimeService');
+  const evolution = await runtime.runEvolutionCycle(db, parent, input.evolution || {});
+  return { evolved: true, cycle, evolution };
 }
 
 function applyPlasticity(synapse, ctx) {
@@ -78,5 +95,6 @@ function buildEpisodes(outcomes) {
 
 module.exports = {
   runLearningCycle,
+  observeOutcomeAndAdapt,
   buildEpisodes,
 };

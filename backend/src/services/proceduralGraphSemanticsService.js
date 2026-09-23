@@ -67,6 +67,37 @@ function validateRequiredGates(nodes, reachable, errors) {
   }
 }
 
+function adjacencyWithout(adjacency, removedId) {
+  const copy = new Map();
+  for (const [from, targets] of adjacency.entries()) {
+    if (from === removedId) continue;
+    copy.set(from, (targets || []).filter((t) => t !== removedId));
+  }
+  return copy;
+}
+
+function validateRequiredDominance(nodes, synapses, errors) {
+  const list = nodes || [];
+  const required = list.filter((n) => n.type === 'gate' && n.required === true);
+  if (!required.length) return;
+  if (!list.length) return;
+  const entry = list[0];
+  const fullAdj = buildAdjacency(synapses);
+  const fullReach = reachableFrom(entry.id, fullAdj);
+  const terminals = list.filter((n) => n.type === 'terminal');
+  const protectedTerms = terminals.filter((t) => fullReach.has(t.id));
+  if (!protectedTerms.length) return;
+  for (const gateNode of required) {
+    if (!fullReach.has(gateNode.id)) continue;
+    const pruned = adjacencyWithout(fullAdj, gateNode.id);
+    const reach = reachableFrom(entry.id, pruned);
+    const bypassed = protectedTerms.filter((t) => reach.has(t.id));
+    if (bypassed.length) {
+      errors.push(`semantics: required gate '${gateNode.id}' is bypassable (terminal '${bypassed[0].id}' reachable without it)`);
+    }
+  }
+}
+
 function validateReachability(nodes, reachable, errors) {
   const entry = nodes && nodes[0];
   if (!entry) return;
@@ -109,6 +140,7 @@ function validateGraphSemantics(organism) {
 
   validateEntryAndTerminal(nodes, reachable, errors);
   validateRequiredGates(nodes, reachable, errors);
+  validateRequiredDominance(nodes, synapses, errors);
   validateReachability(nodes, reachable, errors);
   validateTerminalOutputs({ terminals, nodeIds, synapses }, errors);
 
