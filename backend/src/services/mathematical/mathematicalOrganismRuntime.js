@@ -181,7 +181,7 @@ class MathematicalOrganismRuntime {
       // par la prochaine boucle). generateQuestion crée immédiatement la niche
       // si la valeur de la question dépasse le seuil.
       if (concept.type === 'structural_invariant' || concept.type === 'numerical_invariant') {
-        runtime.questionogenesis.generateQuestion({
+        this.questionogenesis.generateQuestion({
           id: `anom-${Date.now()}`,
           type: 'invariant_opportunity',
           description: concept.statement,
@@ -189,7 +189,7 @@ class MathematicalOrganismRuntime {
           confidence: concept.confidence || 0.5,
           observedAt: new Date().toISOString(),
         }, {
-          domain: runtime.environment?.problem?.domain || 'general',
+          domain: this.environment?.problem?.domain || 'general',
           object: 'structure',
           property: 'property',
           createNiche: true,
