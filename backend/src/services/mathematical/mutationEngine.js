@@ -125,14 +125,21 @@ class MutationEngine {
     this.hgtRate = opts.hgtRate ?? 0.05;
     this.exaptationRate = opts.exaptationRate ?? 0.1;
     this.history = [];
-    this.assimilatedPlasmids = new Set(); // Track globally assimilated plasmids
+    this.assimilatedPlasmids = new Set();
+    // Compteurs d'ablation distincts pour FULL-NCE vs mécanisme désactivé.
+    this.pointMutations = 0;
+    this.recombinations = 0;
+    this.exaptations = 0;
+    this.hgtAttempts = 0;
+    this.hgtAssimilations = 0;
+    this.hgtRejections = 0;
   }
 
   /**
    * Point mutation: change one strategy in a lineage.
    */
   pointMutate(lineage) {
-    if (Math.random() > this.mutationRate) return null;
+    if (Math.random() >= this.mutationRate) return null;
     const strategies = lineage.genome.strategies;
     if (strategies.length === 0) return null;
     const idx = Math.floor(Math.random() * strategies.length);
@@ -140,6 +147,7 @@ class MutationEngine {
     const alternatives = ['induction', 'contradiction', 'normalization', 'linarith', 'ring', 'omega', 'simp', 'rewrite', 'existing_theorem_retrieval', 'auxiliary_lemma_generation', 'representation_change'];
     const newStrategy = alternatives[Math.floor(Math.random() * alternatives.length)];
     strategies[idx] = newStrategy;
+    this.pointMutations++;
     const result = { type: 'point', lineageId: lineage.id, oldStrategy, newStrategy };
     this.history.push(result);
     return result;
@@ -149,7 +157,7 @@ class MutationEngine {
    * Recombination: combine strategies from two parent lineages.
    */
   recombine(parent1, parent2) {
-    if (Math.random() > this.recombinationRate) return null;
+    if (Math.random() >= this.recombinationRate) return null;
     const childGenome = {
       strategies: [...new Set([...parent1.genome.strategies, ...parent2.genome.strategies])].slice(0, 5),
       representationOperators: [...new Set([...parent1.genome.representationOperators, ...parent2.genome.representationOperators])],
@@ -164,6 +172,7 @@ class MutationEngine {
       genome: childGenome,
       parents: [parent1.id, parent2.id],
     });
+    this.recombinations++;
     const result = { type: 'recombine', parents: [parent1.id, parent2.id], childId: child.id };
     this.history.push(result);
     return { child, result };
@@ -173,10 +182,11 @@ class MutationEngine {
    * Exaptation: reuse a strategy from one context in a new context.
    */
   exapt(lineage, targetContext) {
-    if (Math.random() > this.exaptationRate) return null;
+    if (Math.random() >= this.exaptationRate) return null;
     const strategies = lineage.genome.strategies;
     if (strategies.length === 0) return null;
     const exaptedStrategy = strategies[Math.floor(Math.random() * strategies.length)];
+    this.exaptations++;
     const result = {
       type: 'exaptation',
       lineageId: lineage.id,
@@ -194,10 +204,11 @@ class MutationEngine {
    * The plasmid carries the specific ProofArtifact's proof receipt.
    */
   horizontalGeneTransfer(sourceLineage, targetLineage, proofArtifact, immuneReport) {
-    if (Math.random() > this.hgtRate) return null;
+    if (Math.random() >= this.hgtRate) return null;
+    this.hgtAttempts++;
     if (!proofArtifact || !proofArtifact.isVerified()) return null;
-
     if (immuneReport && immuneReport.blocked) {
+      this.hgtRejections++;
       return null;
     }
 
@@ -238,6 +249,7 @@ class MutationEngine {
     const aeisResult = aeisGate(sourceLineage, targetLineage, plasmid);
     if (aeisResult.blocked) {
       plasmid.assimilationStatus = 'rejected';
+      this.hgtRejections++;
       const result = {
         type: 'hgt',
         source: sourceLineage.id,
@@ -251,7 +263,6 @@ class MutationEngine {
       return result;
     }
 
-    // Assimilate: add the proven capability to target lineage
     if (plasmidType === 'knowledge') {
       if (!targetLineage._knowledge) targetLineage._knowledge = [];
       const alreadyAssimilated = targetLineage._knowledge?.some(
@@ -272,11 +283,11 @@ class MutationEngine {
       targetLineage.genome.strategies.push(capability);
     }
 
-    // Track assimilated plasmids
     if (!targetLineage._assimilatedPlasmids) targetLineage._assimilatedPlasmids = [];
     targetLineage._assimilatedPlasmids.push(plasmid.semanticFingerprint);
     this.assimilatedPlasmids.add(plasmid.semanticFingerprint);
     plasmid.assimilationStatus = 'assimilated';
+    this.hgtAssimilations++;
 
     const result = {
       type: 'hgt',
@@ -298,6 +309,13 @@ class MutationEngine {
         return acc;
       }, {}),
       assimilatedPlasmids: this.assimilatedPlasmids.size,
+      // Compteurs d'ablation distincts
+      pointMutations: this.pointMutations,
+      recombinations: this.recombinations,
+      exaptations: this.exaptations,
+      hgtAttempts: this.hgtAttempts,
+      hgtAssimilations: this.hgtAssimilations,
+      hgtRejections: this.hgtRejections,
     };
   }
 }
