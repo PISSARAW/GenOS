@@ -35,6 +35,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | [0038](0038-boucle-controle-cognitif-morphogenese.md) | Boucle de controle cognitif de la morphogenese | Accepte | 2026-09-23 | Orchestration, epistemologie, memoire, cognition, strategie, regulation |
 | [0040](0040-morphogenese-git-contrefactuel.md) | Morphogenèse versionnée Git et contrefactuelle | Proposé | 2026-09-23 | Orchestration, morphogenèse, Git agentique, contrefactuel, substrat |
+| [0041](0041-medecine-immunite-graduee.md) | Médecine graduée et immunité proportionnée | Proposé | 2026-09-23 | Santé agentique, immunité, thérapies, quarantaine, iatrogénie |
 
 ## Cycle de vie d'un ADR
 
