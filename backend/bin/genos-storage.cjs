@@ -78,21 +78,27 @@ async function rebuild(target) {
     const { GraphProjector } = require('../src/storage/projection/graphProjector');
     const db = await getDatabase();
     const projector = new GraphProjector(db);
-    await projector.rebuild();
-    console.log('Graph projection rebuilt.');
+    await projector.init();
+    const graphResult = await projector.rebuild();
+    console.log(`Graph projection rebuilt: ${JSON.stringify(graphResult.counts)} checksum=${graphResult.checksum}`);
   }
   if (target === 'analytics' || target === 'all') {
     console.log('Rebuilding analytics projection...');
-    // DuckDB rebuild: re-attach SQLite and refresh
-    const { DuckDBAnalyticsStore } = require('../src/storage/analytics/duckdbStore');
-    const store = new DuckDBAnalyticsStore();
-    await store.init();
-    console.log('Analytics projection ready.');
+    const { AnalyticsProjector } = require('../src/storage/projection/analyticsProjector');
+    const db = await getDatabase();
+    const analyticsProjector = new AnalyticsProjector(db);
+    await analyticsProjector.init();
+    const analyticsResult = await analyticsProjector.rebuild();
+    console.log(`Analytics projection rebuilt: ${JSON.stringify(analyticsResult.datasets)} checksum=${analyticsResult.checksum}`);
   }
   if (target === 'search' || target === 'all') {
     console.log('Rebuilding search projection...');
-    // FTS5/vec rebuild is handled by synchronizeSearchIndexes
-    console.log('Search projection ready.');
+    const { SearchProjector } = require('../src/storage/projection/searchProjector');
+    const db = await getDatabase();
+    const searchProjector = new SearchProjector(db);
+    await searchProjector.init();
+    const searchResult = await searchProjector.rebuild();
+    console.log(`Search projection rebuilt: ${JSON.stringify(searchResult.counts)} checksum=${searchResult.checksum}`);
   }
   await closeDatabase();
 }

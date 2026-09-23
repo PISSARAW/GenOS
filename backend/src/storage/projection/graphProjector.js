@@ -29,15 +29,8 @@ class GraphProjector {
   }
 
   async init() {
-    const { LadybugStore } = require('../graph/ladybugStore');
-    const { SQLiteGraphRepository } = require('../graph/graphRepository');
-    try {
-      const store = new LadybugStore();
-      await store.init();
-      this._graph = store;
-    } catch (_) {
-      this._graph = new SQLiteGraphRepository(this._db);
-    }
+    const { createGraphRepository } = require('../graph/graphRepository');
+    this._graph = await createGraphRepository(this._db);
     return this;
   }
 
@@ -113,17 +106,36 @@ class GraphProjector {
       case 'TRINITY_WORLD_UPDATED':
         await this._upsertTrinityWorld(aggregate_id);
         break;
+      case 'TRINITY_WORLD_REMOVED':
+        await this._deleteNode(aggregate_id);
+        break;
       case 'COLLECTIVE_DECISION_CREATED':
       case 'COLLECTIVE_DECISION_UPDATED':
         await this._upsertCollectiveDecision(aggregate_id);
+        break;
+      case 'COLLECTIVE_DECISION_REMOVED':
+        await this._deleteNode(aggregate_id);
         break;
       case 'CONTINUATION_QUEUED':
       case 'CONTINUATION_UPDATED':
         await this._upsertContinuation(aggregate_id);
         break;
+      case 'CONTINUATION_REMOVED':
+        await this._deleteNode(aggregate_id);
+        break;
       case 'DAEMON_TERRITORY_GRAPH_CREATED':
       case 'DAEMON_TERRITORY_GRAPH_UPDATED':
         await this._upsertDaemonTerritory(aggregate_id);
+        break;
+      case 'DAEMON_TERRITORY_GRAPH_REMOVED':
+        await this._deleteNode(aggregate_id);
+        break;
+      case 'VOTE_CAST':
+      case 'VOTE_UPDATED':
+      case 'VOTE_REMOVED':
+        // Explicit NO_GRAPH_EFFECT: votes live in canonical SQLite only.
+        // The graph stores decision nodes, never individual votes, so there
+        // is nothing to add or remove. Marked projected honestly.
         break;
       default:
         throw new Error(`UNSUPPORTED_EVENT: ${event_type}`);
@@ -142,17 +154,27 @@ class GraphProjector {
   async _upsertRelation(id) {
     const row = await this._db.get('SELECT id, source_agent_id, target_agent_id, relation_type FROM agent_relations WHERE id = ?', id);
     if (!row) return;
-    await this._graph.upsertEdge({ id: row.id, source: row.source_agent_id, target: row.target_agent_id, label: row.relation_type || 'RELATION', properties: row });
+    const { normalizeEdgeType } = require('../graph/ladybugStore');
+    await this._graph.upsertEdge({ id: row.id, source: row.source_agent_id, target: row.target_agent_id, label: normalizeEdgeType(row.relation_type), properties: row });
   }
 
   async _upsertLineage(id) {
     const row = await this._db.get('SELECT id, source_node_id, target_node_id, edge_type FROM lineage_edges WHERE id = ?', id);
     if (!row) return;
-    await this._graph.upsertEdge({ id: row.id, source: row.source_node_id, target: row.target_node_id, label: row.edge_type || 'DESCENDS_FROM', properties: row });
+    const { normalizeEdgeType } = require('../graph/ladybugStore');
+    await this._graph.upsertEdge({ id: row.id, source: row.source_node_id, target: row.target_node_id, label: normalizeEdgeType(row.edge_type), properties: row });
+  }
+
+  static parseSynapseKey(id) {
+    const parts = String(id || '').split(':');
+    if (parts.length < 3 || parts[0] !== 'memory') return null;
+    return { sourceId: parts[1], targetId: parts.slice(2).join(':') };
   }
 
   async _upsertSynapse(id) {
-    const row = await this._db.get('SELECT source_id, target_id, weight FROM memory_synapses WHERE source_id = ? AND target_id = ?', id.split(':')[1], id.split(':')[2]);
+    const key = GraphProjector.parseSynapseKey(id);
+    if (!key) return;
+    const row = await this._db.get('SELECT source_id, target_id, weight FROM memory_synapses WHERE source_id = ? AND target_id = ?', [key.sourceId, key.targetId]);
     if (!row) return;
     await this._graph.upsertEdge({ id: id, source: row.source_id, target: row.target_id, label: 'SYNAPSE', properties: row });
   }
@@ -160,13 +182,15 @@ class GraphProjector {
   async _upsertConceptRelation(id) {
     const row = await this._db.get('SELECT id, source_id, target_id, relation_type FROM knowledge_graph_relations WHERE id = ?', id);
     if (!row) return;
-    await this._graph.upsertEdge({ id: row.id, source: row.source_id, target: row.target_id, label: row.relation_type || 'RELATED_TO', properties: row });
+    const { normalizeEdgeType } = require('../graph/ladybugStore');
+    await this._graph.upsertEdge({ id: row.id, source: row.source_id, target: row.target_id, label: normalizeEdgeType(row.relation_type), properties: row });
   }
 
   async _upsertTerritoryEdge(id) {
     const row = await this._db.get('SELECT id, source_id, target_id, relation FROM territory_graph_edges WHERE id = ?', id);
     if (!row) return;
-    await this._graph.upsertEdge({ id: row.id, source: row.source_id, target: row.target_id, label: row.relation || 'TERRITORY_EDGE', properties: row });
+    const { normalizeEdgeType } = require('../graph/ladybugStore');
+    await this._graph.upsertEdge({ id: row.id, source: row.source_id, target: row.target_id, label: normalizeEdgeType(row.relation), properties: row });
   }
 
   async _upsertTrinityWorld(id) {
@@ -188,7 +212,7 @@ class GraphProjector {
   }
 
   async _upsertDaemonTerritory(id) {
-    const row = await this._db.get('SELECT id, territory_id, node_id, node_type FROM daemon_territory_graph WHERE id = ?', id);
+    const row = await this._db.get('SELECT id, territory_id, kind, path, name FROM territory_graph_nodes WHERE id = ?', [id]);
     if (!row) return;
     await this._graph.upsertNode({ id: row.id, label: 'Daemon', properties: row });
   }
@@ -202,41 +226,57 @@ class GraphProjector {
   }
 
   async rebuild() {
+    if (!this._graph) await this.init();
+    const { normalizeEdgeType } = require('../graph/ladybugStore');
     const rebuildId = await startRebuild(CONSUMER_NAME, 0);
+    const counts = {};
+    const safeAll = async (sql) => {
+      try { return await this._db.all(sql); } catch (_) { return []; }
+    };
     try {
-      const agents = await this._db.all('SELECT id, name, role, status, parent_agent_id FROM agents');
+      const agents = await safeAll('SELECT id, name, role, status, parent_agent_id FROM agents');
       for (const agent of agents) {
         await this._graph.upsertNode({ id: agent.id, label: 'Agent', properties: agent });
         if (agent.parent_agent_id) {
           await this._graph.upsertEdge({ id: `parent_${agent.id}`, source: agent.parent_agent_id, target: agent.id, label: 'PARENT_OF', properties: {} });
         }
       }
-      const relations = await this._db.all('SELECT id, source_agent_id, target_agent_id, relation_type FROM agent_relations');
+      counts.agents = agents.length;
+      const relations = await safeAll('SELECT id, source_agent_id, target_agent_id, relation_type FROM agent_relations');
       for (const rel of relations) {
-        await this._graph.upsertEdge({ id: rel.id, source: rel.source_agent_id, target: rel.target_agent_id, label: rel.relation_type || 'RELATION', properties: rel });
+        await this._graph.upsertEdge({ id: rel.id, source: rel.source_agent_id, target: rel.target_agent_id, label: normalizeEdgeType(rel.relation_type), properties: rel });
       }
-      const lineage = await this._db.all('SELECT id, source_node_id, target_node_id, edge_type FROM lineage_edges');
+      counts.relations = relations.length;
+      const lineage = await safeAll('SELECT id, source_node_id, target_node_id, edge_type FROM lineage_edges');
       for (const edge of lineage) {
-        await this._graph.upsertEdge({ id: edge.id, source: edge.source_node_id, target: edge.target_node_id, label: edge.edge_type || 'DESCENDS_FROM', properties: edge });
+        await this._graph.upsertEdge({ id: edge.id, source: edge.source_node_id, target: edge.target_node_id, label: normalizeEdgeType(edge.edge_type), properties: edge });
       }
-      const synapses = await this._db.all('SELECT source_id, target_id, weight FROM memory_synapses');
+      counts.lineage = lineage.length;
+      const synapses = await safeAll('SELECT source_id, target_id, weight FROM memory_synapses');
       for (const syn of synapses) {
         await this._graph.upsertEdge({ id: `memory:${syn.source_id}:${syn.target_id}`, source: syn.source_id, target: syn.target_id, label: 'SYNAPSE', properties: syn });
       }
-      const concepts = await this._db.all('SELECT id, source_id, target_id, relation_type FROM knowledge_graph_relations');
+      counts.synapses = synapses.length;
+      const concepts = await safeAll('SELECT id, source_id, target_id, relation_type FROM knowledge_graph_relations');
       for (const rel of concepts) {
-        await this._graph.upsertEdge({ id: rel.id, source: rel.source_id, target: rel.target_id, label: rel.relation_type || 'RELATED_TO', properties: rel });
+        await this._graph.upsertEdge({ id: rel.id, source: rel.source_id, target: rel.target_id, label: normalizeEdgeType(rel.relation_type), properties: rel });
       }
-      const territoryEdges = await this._db.all('SELECT id, source_id, target_id, relation FROM territory_graph_edges');
+      counts.concepts = concepts.length;
+      const territoryEdges = await safeAll('SELECT id, source_id, target_id, relation FROM territory_graph_edges');
       for (const edge of territoryEdges) {
-        await this._graph.upsertEdge({ id: edge.id, source: edge.source_id, target: edge.target_id, label: edge.relation || 'TERRITORY_EDGE', properties: edge });
+        await this._graph.upsertEdge({ id: edge.id, source: edge.source_id, target: edge.target_id, label: normalizeEdgeType(edge.relation), properties: edge });
       }
-      const territoryNodes = await this._db.all('SELECT id, node_id, node_type FROM territory_graph_nodes');
+      counts.territoryEdges = territoryEdges.length;
+      const territoryNodes = await safeAll('SELECT id, territory_id, kind, path, name FROM territory_graph_nodes');
       for (const node of territoryNodes) {
         await this._graph.upsertNode({ id: node.id, label: 'Daemon', properties: node });
       }
+      counts.territoryNodes = territoryNodes.length;
+      const crypto = require('crypto');
+      const checksum = crypto.createHash('sha256').update(JSON.stringify(counts)).digest('hex');
       await markConsumed(CONSUMER_NAME, 0);
       await completeRebuild(rebuildId, { toSequence: 0, status: 'completed' });
+      return { counts, checksum };
     } catch (error) {
       await completeRebuild(rebuildId, { toSequence: 0, status: 'failed', errorMessage: error.message });
       throw error;

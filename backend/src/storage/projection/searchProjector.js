@@ -27,7 +27,28 @@ class SearchProjector {
   }
 
   async init() {
+    await this.ensureIndexes();
     return this;
+  }
+
+  async ensureIndexes() {
+    const stmts = [
+      `CREATE VIRTUAL TABLE IF NOT EXISTS agents_fts USING fts5(id UNINDEXED, name, role, status, content)`,
+      `CREATE VIRTUAL TABLE IF NOT EXISTS concepts_fts USING fts5(id UNINDEXED, content)`,
+      `CREATE VIRTUAL TABLE IF NOT EXISTS synapses_fts USING fts5(id UNINDEXED, content)`,
+    ];
+    const fallbacks = [
+      `CREATE TABLE IF NOT EXISTS agents_fts (id TEXT PRIMARY KEY, name TEXT, role TEXT, status TEXT, content TEXT)`,
+      `CREATE TABLE IF NOT EXISTS concepts_fts (id TEXT PRIMARY KEY, content TEXT)`,
+      `CREATE TABLE IF NOT EXISTS synapses_fts (id TEXT PRIMARY KEY, content TEXT)`,
+    ];
+    for (let i = 0; i < stmts.length; i++) {
+      try {
+        await this._db.exec(stmts[i]);
+      } catch (_) {
+        await this._db.exec(fallbacks[i]);
+      }
+    }
   }
 
   async processBatch(limit = 100) {
@@ -100,13 +121,31 @@ class SearchProjector {
   }
 
   async _upsertSynapseSearch(id) {
-    const [sourceId, targetId] = id.split(':').slice(1);
+    const key = String(id || '').split(':');
+    if (key.length < 3 || key[0] !== 'memory') return;
+    const sourceId = key[1];
+    const targetId = key.slice(2).join(':');
     const row = await this._db.get('SELECT source_id, target_id, weight FROM memory_synapses WHERE source_id = ? AND target_id = ?', [sourceId, targetId]);
     if (!row) return;
     await this._db.run(
       `INSERT OR REPLACE INTO synapses_fts (id, content) VALUES (?, ?)`,
       [id, `${row.source_id} ${row.target_id} weight:${row.weight}`]
     );
+  }
+
+  async rebuild() {
+    await this.ensureIndexes();
+    const crypto = require('crypto');
+    const counts = {};
+    try {
+      const agents = await this._db.all('SELECT id, name, role, status FROM agents');
+      for (const a of agents) {
+        await this._upsertAgentSearch(a.id);
+      }
+      counts.agents = agents.length;
+    } catch (_) { counts.agents = null; }
+    const checksum = crypto.createHash('sha256').update(JSON.stringify(counts)).digest('hex');
+    return { counts, checksum };
   }
 
   async retryFailures() {

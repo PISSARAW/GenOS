@@ -37,23 +37,11 @@ class SQLiteGraphRepository extends GraphRepository {
   }
 
   async upsertEdge(edge) {
-    const { id, source, target, label, properties } = edge;
-    const props = JSON.stringify(properties || {});
-    if (label === 'DESCENDS_FROM') {
-      await this._db.run(
-        `INSERT INTO lineage_edges (id, source_node_id, target_node_id, edge_type, metadata)
-         VALUES (?, ?, ?, 'descends_from', ?)
-         ON CONFLICT(id) DO UPDATE SET source_node_id = excluded.source_node_id, target_node_id = excluded.target_node_id`,
-        [id, source, target, props]
-      );
-    } else {
-      await this._db.run(
-        `INSERT INTO agent_relations (id, source_agent_id, target_agent_id, relation_type, provenance_hash)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET source_agent_id = excluded.source_agent_id, target_agent_id = excluded.target_agent_id, relation_type = excluded.relation_type`,
-        [id, source, target, label, props]
-      );
-    }
+    // No-op by design: the fallback reads canonical tables directly
+    // (agent_relations, lineage_edges, memory_synapses). Writing here would
+    // duplicate or misroute edges (e.g. territory edges into agent_relations)
+    // and corrupt the source of truth. The projector re-reads canonical rows;
+    // nothing needs to be written for the SQLite fallback.
   }
 
   async deleteNode(id) {
@@ -63,6 +51,16 @@ class SQLiteGraphRepository extends GraphRepository {
   async deleteEdge(id) {
     await this._db.run('DELETE FROM agent_relations WHERE id = ?', [id]);
     await this._db.run('DELETE FROM lineage_edges WHERE id = ?', [id]);
+  }
+
+  async deleteEdgesFrom(nodeId) {
+    await this._db.run('DELETE FROM agent_relations WHERE source_agent_id = ?', [nodeId]);
+    await this._db.run('DELETE FROM lineage_edges WHERE source_node_id = ?', [nodeId]);
+  }
+
+  async deleteEdgesTo(nodeId) {
+    await this._db.run('DELETE FROM agent_relations WHERE target_agent_id = ?', [nodeId]);
+    await this._db.run('DELETE FROM lineage_edges WHERE target_node_id = ?', [nodeId]);
   }
 
   async neighbors(query) {
@@ -136,18 +134,21 @@ class SQLiteGraphRepository extends GraphRepository {
 }
 
 /**
- * Graph Repository Factory — returns LadybugStore if available, SQLite fallback otherwise.
+ * Graph Repository Factory — returns an initialized LadybugStore if the
+ * engine loads AND initializes, otherwise the SQLite bounded fallback.
+ * Async: LadybugStore.init() must be awaited — never guess availability.
  */
-function createGraphRepository(db) {
+async function createGraphRepository(db, options = {}) {
   try {
     const { LadybugStore } = require('./ladybugStore');
-    const store = new LadybugStore();
-    // LadybugStore.init() is async, but we can check if the module loads
-    // The actual availability check happens in capabilityRegistry
-    return store;
+    const store = new LadybugStore(options);
+    await store.init();
+    if (store.available) return store;
+    await store.close();
   } catch (_) {
-    return new SQLiteGraphRepository(db);
+    // Fall through to SQLite fallback.
   }
+  return new SQLiteGraphRepository(db);
 }
 
 module.exports = {

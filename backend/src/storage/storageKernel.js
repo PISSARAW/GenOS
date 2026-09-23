@@ -1,122 +1,108 @@
 'use strict';
 
 /**
- * Storage Kernel — the single entry point for all GenOS storage needs.
+ * GenOS Storage Kernel
  *
- * The kernel exposes typed namespaces:
- *   storage.operational    — SQLite: agents, jobs, missions, claims, evidence, genomes
- *   storage.graph          — LadybugDB (or SQLite CTE fallback): lineage, relations, provenance
- *   storage.analytics      — DuckDB: benchmarks, uplift, telemetry aggregation
- *   storage.search         — FTS5 + sqlite-vec: lexical and semantic retrieval
- *   storage.objects        — CAS/filesystem: snapshots, blobs, artefacts
- *
- * Authority rule: SQLite is the canonical source of truth. All other stores
- * are rebuildable projections. A projection failure never blocks an operational write.
+ * Provides unified access to polyglot stores:
+ *   - storage.operational  -> SQLite (OLTP, source of truth)
+ *   - storage.graph        -> LadybugDB (graph traversal)
+ *   - storage.analytics    -> DuckDB (OLAP)
+ *   - storage.search       -> FTS5 + sqlite-vec (hybrid retrieval)
+ *   - storage.objects      -> filesystem/CAS (snapshots, artefacts)
  */
 
-const { createStorageBackend } = require('./services/storageBackend');
-
-const AGGREGATE_TYPES = new Set([
-  'agent', 'genome', 'mission', 'claim', 'evidence', 'finding', 'daemon',
-  'territory', 'commit', 'snapshot', 'phenotype', 'capability', 'memory',
-  'concept', 'experiment', 'tool',
-]);
-
-const EVENT_TYPES = new Set([
-  'AGENT_STATUS', 'AGENT_CREATED', 'AGENT_REMOVED', 'AGENT_UPDATED',
-  'GENOME_UPDATED', 'MISSION_STARTED', 'MISSION_COMPLETED',
-  'CLAIM_ADDED', 'EVIDENCE_ADDED', 'EVIDENCE_CONTRADICTED',
-  'FINDING_ADDED', 'FINDING_REFUTED', 'FINDING_VALIDATED',
-  'RELATION_ADDED', 'RELATION_REMOVED',
-  'SNAPSHOT_CREATED', 'SNAPSHOT_ROLLED_BACK',
-]);
-
-/**
- * StorageKernel — routes storage requests to the appropriate backend.
- * No false universal API: callers express intent, kernel selects engine.
- */
 class StorageKernel {
   constructor() {
-    this._backend = null;
+    this._operational = null;
+    this._graph = null;
+    this._analytics = null;
+    this._initialized = false;
   }
 
-  async init(config) {
-    this._backend = createStorageBackend(config);
-    await this._backend.open(config);
+  async init() {
+    if (this._initialized) return this;
+    const { SQLiteStore } = require('./operational/sqliteStore');
+    this._operational = new SQLiteStore();
+    await this._operational.init();
+
+    try {
+      const { createGraphRepository } = require('./graph/graphRepository');
+      this._graph = await createGraphRepository(this._operational.db);
+    } catch (err) {
+      console.warn('[StorageKernel] Ladybug unavailable:', err.message);
+      this._graph = null;
+    }
+
+    try {
+      const { DuckDBStore } = require('./analytics/duckdbStore');
+      this._analytics = new DuckDBStore();
+      await this._analytics.init();
+    } catch (err) {
+      console.warn('[StorageKernel] DuckDB unavailable:', err.message);
+      this._analytics = null;
+    }
+    this._initialized = true;
     return this;
   }
 
-  async destroy() {
-    if (this._backend) {
-      await this._backend.close();
-      this._backend = null;
-    }
-  }
-
   get operational() {
-    return this._backend;
+    if (!this._operational) throw new Error('StorageKernel not initialized');
+    return this._operational;
   }
 
   get graph() {
-    return this._backend;
+    if (!this._graph) throw new Error('Graph store unavailable');
+    return this._graph;
   }
 
   get analytics() {
-    return this._backend;
+    if (!this._analytics) throw new Error('Analytics store unavailable');
+    return this._analytics;
   }
 
   get search() {
-    return this._backend;
+    if (!this._operational) throw new Error('StorageKernel not initialized');
+    return this._operational;
   }
 
   get objects() {
-    return this._backend;
+    const { PATHS, ensureDirs } = require('./storagePaths');
+    ensureDirs();
+    return { root: PATHS.objects };
   }
 
-  // Projection outbox — transactional write to SQLite + append event
-  async writeProjectionEvent(event) {
-    const {
-      aggregate_type, aggregate_id, event_type, payload_json,
-      organization_id, project_id, created_at,
-    } = event;
-    if (!AGGREGATE_TYPES.has(aggregate_type)) {
-      throw new Error(`Unknown aggregate_type: ${aggregate_type}`);
+  get vectorPromotion() {
+    return { current: 'sqlite-vec', candidate: 'lancedb', promoted: false };
+  }
+
+  get capabilities() {
+    return {
+      operational: !!this._operational,
+      graph: !!this._graph,
+      analytics: !!this._analytics,
+      graphProvider: this._graph ? this._graph.constructor.name : null,
+      search: !!this._operational,
+      objects: true,
+    };
+  }
+
+  async close() {
+    if (this._graph && this._graph.constructor.name !== 'SQLiteGraphRepository') {
+      await this._graph.close();
     }
-    if (!EVENT_TYPES.has(event_type)) {
-      throw new Error(`Unknown event_type: ${event_type}`);
-    }
-    const eventId = `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-    const payload = JSON.stringify(payload_json || {});
-    const now = created_at || new Date().toISOString();
-    await this._backend.run(
-      `INSERT INTO projection_events (event_id, aggregate_type, aggregate_id, event_type, payload_json, organization_id, project_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [eventId, aggregate_type, aggregate_id, event_type, payload, organization_id || null, project_id || null, now]
-    );
-    return eventId;
-  }
-
-  async getProjectionEvents(sinceSequence, limit = 100) {
-    return this._backend.all(
-      `SELECT * FROM projection_events WHERE sequence > ? ORDER BY sequence ASC LIMIT ?`,
-      [sinceSequence || 0, limit]
-    );
-  }
-
-  async getProjectionState() {
-    const row = await this._backend.get(
-      `SELECT COALESCE(MAX(sequence), 0) AS last_sequence FROM projection_events`
-    );
-    return { lastSequence: row ? row.last_sequence : 0 };
-  }
-
-  async markProjected(eventId, target) {
-    const column = `${target}_projected_at`;
-    return this._backend.run(
-      `UPDATE projection_events SET ${column} = ? WHERE event_id = ?`,
-      [new Date().toISOString(), eventId]
-    );
+    this._graph = null;
+    if (this._analytics) await this._analytics.close();
+    this._analytics = null;
+    this._operational = null;
+    this._initialized = false;
   }
 }
 
-module.exports = { StorageKernel };
+let instance = null;
+
+function getStorageKernel() {
+  if (!instance) instance = new StorageKernel();
+  return instance;
+}
+
+module.exports = { StorageKernel, getStorageKernel };

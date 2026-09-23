@@ -97,47 +97,67 @@ class AnalyticsProjector {
     if (!this._store) return;
     const row = await this._db.get('SELECT id, name, role, status, created_at, updated_at FROM agents WHERE id = ?', id);
     if (!row) return;
-    await this._store.query(`INSERT OR REPLACE INTO agents VALUES ('${row.id}', '${row.name}', '${row.role}', '${row.status}', '${row.created_at}', '${row.updated_at}')`);
+    await this._store.exec(`CREATE TABLE IF NOT EXISTS agents (id VARCHAR PRIMARY KEY, name VARCHAR, role VARCHAR, status VARCHAR, created_at VARCHAR, updated_at VARCHAR)`);
+    await this._store.all(`INSERT OR REPLACE INTO agents VALUES (?, ?, ?, ?, ?, ?)`,
+      [row.id, row.name, row.role, row.status, row.created_at, row.updated_at]);
   }
 
   async _deleteAgent(id) {
     if (!this._store) return;
-    await this._store.query(`DELETE FROM agents WHERE id = '${id}'`);
+    await this._store.all(`DELETE FROM agents WHERE id = ?`, [id]);
   }
 
   async _upsertRelation(id) {
     if (!this._store) return;
     const row = await this._db.get('SELECT id, source_agent_id, target_agent_id, relation_type FROM agent_relations WHERE id = ?', id);
     if (!row) return;
-    await this._store.query(`INSERT OR REPLACE INTO agent_relations VALUES ('${row.id}', '${row.source_agent_id}', '${row.target_agent_id}', '${row.relation_type}')`);
+    await this._store.exec(`CREATE TABLE IF NOT EXISTS agent_relations (id VARCHAR PRIMARY KEY, source_agent_id VARCHAR, target_agent_id VARCHAR, relation_type VARCHAR)`);
+    await this._store.all(`INSERT OR REPLACE INTO agent_relations VALUES (?, ?, ?, ?)`,
+      [row.id, row.source_agent_id, row.target_agent_id, row.relation_type]);
   }
 
   async _upsertLineage(id) {
     if (!this._store) return;
     const row = await this._db.get('SELECT id, source_node_id, target_node_id, edge_type FROM lineage_edges WHERE id = ?', id);
     if (!row) return;
-    await this._store.query(`INSERT OR REPLACE INTO lineage_edges VALUES ('${row.id}', '${row.source_node_id}', '${row.target_node_id}', '${row.edge_type}')`);
+    await this._store.exec(`CREATE TABLE IF NOT EXISTS lineage_edges (id VARCHAR PRIMARY KEY, source_node_id VARCHAR, target_node_id VARCHAR, edge_type VARCHAR)`);
+    await this._store.all(`INSERT OR REPLACE INTO lineage_edges VALUES (?, ?, ?, ?)`,
+      [row.id, row.source_node_id, row.target_node_id, row.edge_type]);
   }
 
   async _upsertTelemetry(id) {
     if (!this._store) return;
     const row = await this._db.get('SELECT id, agent_id, event_type, severity, created_at FROM telemetry_events WHERE id = ?', id);
     if (!row) return;
-    await this._store.query(`INSERT OR REPLACE INTO telemetry_events VALUES ('${row.id}', '${row.agent_id}', '${row.event_type}', '${row.severity}', '${row.created_at}')`);
+    await this._store.exec(`CREATE TABLE IF NOT EXISTS telemetry_events (id VARCHAR PRIMARY KEY, agent_id VARCHAR, event_type VARCHAR, severity VARCHAR, created_at VARCHAR)`);
+    await this._store.all(`INSERT OR REPLACE INTO telemetry_events VALUES (?, ?, ?, ?, ?)`,
+      [row.id, row.agent_id, row.event_type, row.severity, row.created_at]);
   }
 
   async _upsertEvaluation(id) {
     if (!this._store) return;
     const row = await this._db.get('SELECT id, benchmark, created_at FROM evaluation_runs WHERE id = ?', id);
     if (!row) return;
-    await this._store.query(`INSERT OR REPLACE INTO evaluation_runs VALUES ('${row.id}', '${row.benchmark}', '${row.created_at}')`);
+    await this._store.exec(`CREATE TABLE IF NOT EXISTS evaluation_runs (id VARCHAR PRIMARY KEY, benchmark VARCHAR, created_at VARCHAR)`);
+    await this._store.all(`INSERT OR REPLACE INTO evaluation_runs VALUES (?, ?, ?)`,
+      [row.id, row.benchmark, row.created_at]);
   }
 
   async _upsertUplift(id) {
     if (!this._store) return;
     const row = await this._db.get('SELECT id, suite, case_id, solo_run_id, genos_run_id, delta FROM uplift_runs WHERE id = ?', id);
     if (!row) return;
-    await this._store.query(`INSERT OR REPLACE INTO uplift_runs VALUES ('${row.id}', '${row.suite}', '${row.case_id}', '${row.solo_run_id}', '${row.genos_run_id}', ${row.delta})`);
+    await this._store.exec(`CREATE TABLE IF NOT EXISTS uplift_runs (id VARCHAR PRIMARY KEY, suite VARCHAR, case_id VARCHAR, solo_run_id VARCHAR, genos_run_id VARCHAR, delta DOUBLE)`);
+    await this._store.all(`INSERT OR REPLACE INTO uplift_runs VALUES (?, ?, ?, ?, ?, ?)`,
+      [row.id, row.suite, row.case_id, row.solo_run_id, row.genos_run_id, row.delta]);
+  }
+
+  async rebuild() {
+    if (!this._store) await this.init();
+    if (!this._store) throw new Error('Analytics store unavailable — SQLite remains canonical');
+    const datasets = await this._store.materialize('operational');
+    const checksum = await this._store.checksum();
+    return { datasets, checksum };
   }
 
   async retryFailures() {

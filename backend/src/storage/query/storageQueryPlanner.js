@@ -68,27 +68,40 @@ class StorageQueryPlanner {
   }
 
   async _semanticQuery(params) {
-    if (this._registry.isAvailable('vector')) {
+    // Policy: sqlite-vec is primary. LanceDB is used only when the
+    // capability registry reports a completed promotion benchmark.
+    const vectorCap = this._registry.get('vector');
+    const promoted = !!(vectorCap && vectorCap.promotionPolicy && vectorCap.promotionPolicy.promoted);
+    if (promoted && this._registry.isAvailable('vector')) {
       const { LanceVectorRepository } = require('../vector/lanceVectorRepository');
-      const repo = new LanceVectorRepository();
+      const { FILES } = require('../storagePaths');
+      const repo = new LanceVectorRepository(FILES.lancedb);
       await repo.init();
       const results = await repo.search(params.table, params.vector, params.limit || 10);
       return { engine: 'lancedb', results };
     }
     const { getDatabase } = require('../../db');
     const db = await getDatabase();
+    // NOTE: never close the shared singleton — we did not create it.
     const result = await db.all(params.sql, params.args || []);
     return { engine: 'sqlite-vec', results: result };
   }
 
   async _graphQuery(params) {
     if (this._registry.isAvailable('graph')) {
-      const { LadybugStore } = require('../graph/ladybugStore');
-      const store = new LadybugStore();
-      await store.init();
-      const results = await store.traverse(params);
-      await store.close();
-      return { engine: 'ladybug', results };
+      const { createGraphRepository } = require('../graph/graphRepository');
+      const { getDatabase } = require('../../db');
+      const db = await getDatabase();
+      // NOTE: never close the shared singleton — we did not create it.
+      const store = await createGraphRepository(db);
+      try {
+        const results = await store.traverse(params);
+        return { engine: store.constructor.name === 'SQLiteGraphRepository' ? 'sqlite-cte' : 'ladybug', results };
+      } finally {
+        if (store.constructor.name !== 'SQLiteGraphRepository' && typeof store.close === 'function') {
+          await store.close();
+        }
+      }
     }
     const { SQLiteGraphRepository } = require('../graph/graphRepository');
     const { getDatabase } = require('../../db');
@@ -100,8 +113,8 @@ class StorageQueryPlanner {
 
   async _analyticsQuery(params) {
     if (this._registry.isAvailable('analytics')) {
-      const { DuckDBAnalyticsStore } = require('../analytics/duckdbStore');
-      const store = new DuckDBAnalyticsStore();
+      const { DuckDBStore } = require('../analytics/duckdbStore');
+      const store = new DuckDBStore();
       await store.init();
       if (params.sqlitePath) {
         await store.attachSqlite(params.sqlitePath, 'operational');

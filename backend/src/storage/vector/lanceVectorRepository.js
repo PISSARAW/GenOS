@@ -13,8 +13,10 @@
 const lancedb = require('@lancedb/lancedb');
 
 class LanceVectorRepository {
-  constructor(dbPath = './genos.lance') {
-    this._dbPath = dbPath;
+  constructor(dbPath = null) {
+    const { FILES, ensureDirs } = require('../storagePaths');
+    ensureDirs();
+    this._dbPath = dbPath || FILES.lancedb;
     this._db = null;
     this._available = false;
   }

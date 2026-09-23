@@ -44,4 +44,29 @@ function getProjectRoot() {
   return path.resolve(__dirname, '../../../');
 }
 
-module.exports = { PATHS, FILES, ensureDirs, getProjectRoot };
+function writeManifest(extra = {}) {
+  ensureDirs();
+  const manifest = {
+    version: 1,
+    created_at: new Date().toISOString(),
+    files: {
+      sqlite: path.relative(ROOT, FILES.sqlite),
+      ladybug: path.relative(ROOT, FILES.ladybug),
+      duckdb: path.relative(ROOT, FILES.duckdb),
+      lancedb: path.relative(ROOT, FILES.lancedb),
+    },
+    ...extra,
+  };
+  fs.writeFileSync(FILES.manifest, JSON.stringify(manifest, null, 2));
+  return manifest;
+}
+
+function readManifest() {
+  try {
+    return JSON.parse(fs.readFileSync(FILES.manifest, 'utf8'));
+  } catch (_) {
+    return null;
+  }
+}
+
+module.exports = { PATHS, FILES, ensureDirs, getProjectRoot, writeManifest, readManifest };

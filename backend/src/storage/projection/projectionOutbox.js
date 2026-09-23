@@ -169,15 +169,16 @@ async function resolveFailure(failureId) {
 }
 
 /**
- * Start a rebuild for a consumer.
+ * Start a rebuild for a consumer. Returns the rebuild row id.
  */
 async function startRebuild(consumerName, fromSequence) {
   const db = await getDatabase();
-  return db.run(
-    `INSERT INTO projection_rebuilds (consumer_name, from_sequence, status)
-     VALUES (?, ?, 'running')`,
-    [consumerName, fromSequence]
+  const result = await db.run(
+    `INSERT INTO projection_rebuilds (consumer_name, from_sequence, to_sequence, status)
+     VALUES (?, ?, ?, 'running')`,
+    [consumerName, fromSequence, fromSequence]
   );
+  return result && result.lastID !== undefined ? result.lastID : result;
 }
 
 /**
