@@ -120,6 +120,10 @@ const migrationRunners = [
     const { migrateDaemonEvents } = require('./migrateDaemonEvents');
     await migrateDaemonEvents(db);
   }),
+  createMigrationRunner('039-territory-graph', 'Persist derived territorial knowledge graph (ADR 0034 D5)', async (db) => {
+    const { migrateTerritoryGraph } = require('./migrateTerritoryGraph');
+    await migrateTerritoryGraph(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
