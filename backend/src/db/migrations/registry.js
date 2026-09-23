@@ -224,6 +224,10 @@ const migrationRunners = [
     const { run } = require('./migrateAnalyticsViewsP1');
     await run(db);
   }),
+  createMigrationRunner('065-analytics-p1p2', 'Create telemetry trends, territory health, phenotype evolution, search status, capability registry and query planner', async (db) => {
+    const { run } = require('./migrateAnalyticsP1P2');
+    await run(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
