@@ -27,9 +27,20 @@ metadata:
   lineageId: "lineage-debug-1"
   structureHash: "9f2c..."      # SHA256 du squelette canonique (nodes + synapses)
   stateHash: "7b1e..."          # SHA256 de l'état canonique (weights + phenotype + immune + fitness + plasticity)
-  mutationSignature: "c48a..."  # SHA256 des opérations canoniques de la mutation
+  mutationSignature: "c48a..."  # SHA256 des opérations canoniques (op + target + before + after + delta + removedSynapses)
   createdAt: "2026-09-21T..."
   updatedAt: "2026-09-21T..."
+
+evaluationReceipt:               # preuve d'évaluation spécifique au candidat (reçue au scellement)
+  candidateId: "v-a1b2c3d4e5f6"
+  parentId: "po-abc120"
+  evaluatorId: "test-fixed"      # ou "inline" (fonction directe) / "causal-fork"
+  runnerId: null
+  environmentId: null
+  snapshotId: null
+  trials: 1
+  metrics: { success: 0.9, robustness: 0.8, evidence: 0.9 }
+  provenance: { at: "2026-09-23T...", causal: false }
 
 structure:
   nodes:
@@ -166,7 +177,8 @@ evidence:
 | `metadata.version` | integer | version incrémentée à chaque mutation (entier ≥ 1) |
 | `metadata.structureHash` | string | SHA256 du squelette canonique (nodes + synapses, triés) |
 | `metadata.stateHash` | string | SHA256 de l'état canonique (weights + phenotype + immune + fitness + plasticity) |
-| `metadata.mutationSignature` | string | SHA256 des opérations canoniques de la mutation |
+| `metadata.mutationSignature` | string | SHA256 des opérations canoniques (op, target, before, after, delta, removedSynapses) |
+| `evaluationReceipt` | object | preuve d'évaluation spécifique au candidat (candidateId, parentId, evaluatorId, environmentId, snapshotId, trials, metrics, provenance) ; absente sur un DRAFT, obligatoire pour toute promotion |
 | `structure.nodes` | array | nœuds du graphe procédural |
 | `structure.synapses` | array | arêtes plastiques avec poids et preuve |
 
@@ -198,8 +210,9 @@ Cela garantit :
 
 Un variant généré par `generateVariants()` est un **DRAFT** : il ne porte
 **aucun** champ d'identité (`id`, `version`, `structureHash`, `stateHash`,
-`mutationSignature` sont absents de ses métadonnées). Un draft n'est pas un
-organisme valide au sens du validateur.
+`mutationSignature` sont absents de ses métadonnées), **aucune** fitness et
+**aucun** `evaluationReceipt`. Un draft n'est pas un organisme valide au sens
+du validateur, et n'est jamais promouvable en l'état.
 
 Le scellement (`sealCandidate(parent, variant, evaluation)` dans
 `proceduralMutationSelectionService.js`, ou `sealOrganism(organism)` dans
@@ -208,11 +221,19 @@ Le scellement (`sealCandidate(parent, variant, evaluation)` dans
 ```
 metadata.parentId          = parent.metadata.id
 metadata.version           = parent.metadata.version + 1
-metadata.mutationSignature = SHA256(operations)
+metadata.mutationSignature = SHA256(opérations canoniques complètes)
 metadata.structureHash     = recomputé
 metadata.stateHash         = recomputé
 metadata.id                = versionId(...)
+organism.fitness           = evaluation.fitness (ou null sans évaluation)
+organism.evaluationReceipt = evaluation.receipt (ou absent sans évaluation)
 ```
+
+Règle d'invariant : **sans évaluation spécifique au candidat, pas de
+promotion**. `sealCandidate()` n'hérite jamais la fitness du parent : sans
+`evaluation.fitness`, la fitness scellée vaut `null` et le runtime rejette le
+candidat au stage `evaluation` avant tout gate. Le gate de promotion exige un
+`evaluationReceipt` attaché.
 
 `validateOrganism()` est **pur** : il vérifie `metadata.structureHash` et
 `metadata.stateHash` contre les valeurs recalculées (invariant
@@ -229,7 +250,12 @@ validator de schema) exige :
 - **Entrée** : le premier nœud de `structure.nodes` est l'entrypoint.
 - **Sortie** : tout nœud `type: "terminal"` est atteignable depuis l'entrypoint.
 - **Gates obligatoires** : tout nœud `type: "gate"` avec `required: true` est
-  atteignable depuis l'entrypoint.
+  atteignable depuis l'entrypoint, **et domine** tout terminal protégé :
+  si un terminal atteignable dans le graphe complet reste atteignable après
+  suppression virtuelle du gate, le gate est contournable (BYPASS) et le
+  graphe est **invalide**. Un graphe `START → VERIFY → END` muni d'une arête
+  directe `START → END` est donc sémantiquement invalide malgré l'accessibilité
+  de `VERIFY`.
 - **Accessibilité** : tous les nœuds sont accessibles depuis l'entrypoint
   (un nœud orphelin `B → TERMINAL` sans chemin depuis l'entrée est invalide).
 - **Terminals sans sortie** : un nœud terminal n'a pas de synapse sortante
@@ -256,11 +282,14 @@ Consolidation (sleep/replay)
   ↓
 Mutation (si surprise > seuil)
   ↓
-Immune inspection
+Immune inspection (innée + mémoire adaptative : recall avant, record après rejet)
   ↓
-Causal trials + fitness
+Causal trials + fitness spécifique au candidat (+ evaluationReceipt)
   ↓
-Promotion gate
+Tous les candidats évalués AVANT toute promotion → front de Pareto →
+sélection par niche → meilleur survivant promu (jamais le premier acceptable)
+  ↓
+Promotion gate (exige l'evaluationReceipt)
   ↓
 Promu ou Rejeté
   ↓

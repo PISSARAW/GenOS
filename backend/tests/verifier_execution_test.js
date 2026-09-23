@@ -32,7 +32,8 @@ async function run() {
   assert.ok(result.receipt.evidenceDigest || result.receipt.signature, 'receipt devrait avoir un digest ou une signature');
   assert.strictEqual(result.resultId, 'ag-1');
   assert.strictEqual(result.evidenceDigest, 'sha256:abc');
-  assert.strictEqual(result.verifierDigest, 'testResult');
+  assert.ok(result.verifierDigest.startsWith('sha256:'), 'verifierDigest doit venir du trust registry');
+  assert.strictEqual(result.receipt.verifierDigest, result.verifierDigest);
   assert.ok(result.executedAt);
 
   const verifiers = [

@@ -19,6 +19,7 @@ const { executeVerifierWithAdapter } = require('./verifierAdapters');
 const { buildPreReceipt } = require('./verifierReceiptBuilder');
 const { issueReceipt } = require('../epistemicVerifierReceiptService');
 const { evaluateIndependence } = require('../epistemicScheduler/independencePolicy');
+const { resolveVerifierDigest } = require('../verifierTrustRegistry');
 
 function buildVerifierWorker(antigen, verifier) {
   const agentId = `verifier-${verifier.type}-${verifier.id || 'anon'}`;
@@ -134,10 +135,11 @@ function aggregateStatus(summary) {
 }
 
 function signVerifierResult(antigen, verifier, signed) {
+  const verifierDigest = resolveVerifierDigest(verifier);
   const preReceipt = buildPreReceipt({
     resultId: antigen.id,
     evidenceDigest: antigen.epitopes?.evidence?.digest,
-    verifierDigest: verifier.type,
+    verifierDigest,
     status: signed.outcome.status,
     observations: signed.outcome.observations,
     counterexamples: signed.outcome.counterexamples,
@@ -150,7 +152,7 @@ function signVerifierResult(antigen, verifier, signed) {
     status: signed.outcome.status,
     resultId: antigen.id,
     evidenceDigest: antigen.epitopes?.evidence?.digest || signedReceipt.evidenceDigest || 'none',
-    verifierDigest: verifier.type,
+    verifierDigest,
     observations: signed.outcome.observations,
     counterexamples: signed.outcome.counterexamples,
     receipt: signedReceipt,
@@ -161,7 +163,7 @@ function signVerifierResult(antigen, verifier, signed) {
 function errorVerifierResult(verifier, err) {
   return {
     status: 'error',
-    verifierDigest: verifier.type,
+    verifierDigest: resolveVerifierDigest(verifier),
     error: err.message,
     observations: [],
     counterexamples: [],

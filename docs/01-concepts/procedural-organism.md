@@ -138,6 +138,7 @@ evolution trigger (si surprise > seuil)
 | Fonction | Rôle |
 |---|---|
 | `runLearningCycle({ expectedReward, observedReward, synapse, episodes, options })` | Orchestre le cycle complet: prediction error → plasticity → consolidation → evolution trigger |
+| `observeOutcomeAndAdapt(db, parent, cycleInput)` | Boucle autonome réelle: exécute `runLearningCycle`, puis appelle `runEvolutionCycle()` si `shouldEvolve` (sinon retourne le cycle seul) |
 | `buildEpisodes(outcomes)` | Construit des épisodes structurés à partir de résultats d'exécution |
 
 **Propriétés :**
@@ -214,13 +215,15 @@ reproduced    candidate variant
 path                  │
               immune inspection
                      │
-              sandbox / challenge
-                     │
-              causal trials + fitness
-                     │
-           ┌─────────┴─────────┐
-           ↓                   ↓
-        survive             reject
+               sandbox / challenge
+                      │
+               causal trials + fitness (+ evaluationReceipt)
+                      │
+               tous évalués → Pareto → niches → meilleur
+                      │
+            ┌─────────┴─────────┐
+            ↓                   ↓
+         survive             reject
            │                   │
            ↓                   ↓
       reproduce        immune memory
@@ -576,6 +579,8 @@ L'immunité innée détecte : bypass de politique, suppression de vérification,
 
 L'immunité adaptative transforme les mutations rejetées en **signatures** pour un rejet rapide des mutations similaires.
 
+**Câblage runtime effectif** (`proceduralRuntimeService.js`) : `recallRejection()` est appelé avant toute mutation (un variant reconnu est rejeté au stage `immune`), et `recordRejection()` mémorise chaque rejet immunitaire ou gate. La mémoire adaptative vit dans le runtime, pas à côté.
+
 **Services :** `proceduralImmuneInspectionService.js`, `proceduralAdaptiveImmuneMemoryService.js`
 
 ---
@@ -605,6 +610,8 @@ Plusieurs lignées peuvent coexister si elles occupent des **niches procédurale
 - PG-C → code legacy sans tests
 
 Le biome gère des populations par niche. L'environnement détermine fitness, resource allocation, replication, dormancy, extinction.
+
+**Contrat runtime :** `runEvolutionCycle()` évalue tous les candidats avant toute promotion (fitness + `evaluationReceipt` par candidat), applique `paretoFront` puis `nicheSelection`, et promeut le meilleur survivant — jamais le premier acceptable. Sans évaluation spécifique au candidat, la fitness scellée vaut `null` et la promotion est refusée.
 
 **Services :** `proceduralMutationSelectionService.js`, `proceduralEcologicalDiversityService.js`, `proceduralBiomePopulationService.js`, `proceduralEcologicalNicheService.js`
 
@@ -668,7 +675,11 @@ Chaque mécanisme biologique doit correspondre à un invariant informatique mesu
 | Inhibition | type d'arête `inhibitory`, condition exprimable, force mesurable |
 | Homéostasie | coût total `C(G)` et fitness multi-objectif réels |
 | Épigénétique | même genome, phénotype exprimé différent selon environnement |
-| Immunité | mutations rejetées mémorisées comme signatures, pas juste un log |
+| Immunité | mutations rejetées mémorisées comme signatures, pas juste un log ; mémoire adaptative branchée au runtime (recall avant, record après) |
+| Promotion | `evaluationReceipt` obligatoire par candidat, fitness parent jamais héritée |
+| Sélection | tous évalués avant promotion, promu = meilleur survivant Pareto/niche |
+| Causalité | forks isolés (deep clone + hash snapshot), `sameInitialState` prouvé |
+| Gates requis | dominance vérifiée (bypass ⇒ INVALID), pas simple accessibilité |
 | Niches | fitness calculée dans un environnement délimité, pas globalement |
 | Apoptose / fossilisation | mort explicite, autopsie, archive reconstituable |
 

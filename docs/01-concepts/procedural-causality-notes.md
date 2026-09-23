@@ -20,8 +20,9 @@ causal verdict    (CAUSAL_IMPROVEMENT / CAUSAL_REGRESSION / NO_CAUSAL_EFFECT)
 
 Propriétés actuelles :
 
-- Les deux forks reçoivent une **cohée indépendante** de l'état initial
-  (`deepClone` avant exécution, assertion `baselineSnapshotHash === candidateSnapshotHash`).
+- Les deux forks reçoivent une **copie indépendante** de l'état initial
+  (deep clone avant exécution, un par fork ; comparaison
+  `baselineStateHash === candidateStateHash` exposée dans `comparison`).
 - Le verdict de promotion est bloqué si `divergenceCount === 0` ou
   `scoreDelta <= 0` (pas de faux positif de causalité).
 - La preuve est attachée au candidat (`causal` dans l'assessment, visible dans
@@ -92,4 +93,4 @@ Quand ces points seront présents, on pourra remonter le vocabulaire
 - `backend/tests/test_procedural_causal_validation.js`
 - `backend/tests/test_procedural_e2e_autonome.js` (scénario P0 → causal repair → P1)
 - `backend/src/services/primitiveHandlers/proceduralHandlers.js` (primitive MCP `procedural_causal_check`)
-- `backend/src/services/proceduralRegistryService.js` (résolution de runnerId / evaluatorId)
+- `backend/src/services/proceduralRegistryService.js` (résolution de runnerId / evaluatorId / environmentId / snapshotId, branchée aux handlers et au runtime : `procedural_evolve` accepte ces IDs sans fonctions dans le payload)

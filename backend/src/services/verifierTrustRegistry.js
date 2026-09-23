@@ -22,6 +22,44 @@ const crypto = require('node:crypto');
 
 const registry = new Map();
 
+const REGISTRY_VERSION = '1.0';
+const REGISTRY_POLICY = 'aeis-v3';
+
+function computeVerifierDigest(type, version) {
+  const normalizedType = String(type || 'unknown');
+  const normalizedVersion = String(version || REGISTRY_VERSION);
+  const identity = `genos-verifier:v1:type:${normalizedType}:version:${normalizedVersion}:policy:${REGISTRY_POLICY}`;
+  return `sha256:${crypto.createHash('sha256').update(identity).digest('hex')}`;
+}
+
+function findByType(type) {
+  for (const entry of registry.values()) {
+    if (entry.type === type) return entry;
+  }
+  return null;
+}
+
+function ensureVerifier(type, version) {
+  const existing = findByType(type);
+  if (existing) return existing;
+  const digest = computeVerifierDigest(type, version);
+  return registerVerifier({
+    id: String(type),
+    type: String(type),
+    digest,
+    description: `Auto-registered verifier ${type}`,
+  });
+}
+
+function resolveVerifierDigest(verifier) {
+  if (!verifier || typeof verifier !== 'object') return computeVerifierDigest('unknown', REGISTRY_VERSION);
+  if (verifier.verifierDigest && isTrusted(verifier.verifierDigest)) return verifier.verifierDigest;
+  if (verifier.id && registry.has(verifier.id)) return registry.get(verifier.id).digest;
+  const byType = findByType(verifier.type);
+  if (byType) return byType.digest;
+  return ensureVerifier(verifier.type || 'unknown', verifier.version).digest;
+}
+
 function registerVerifier({ id, type, digest, description = '' }) {
   if (!id || typeof id !== 'string') throw new Error('verifier.id must be a non-empty string');
   if (!type || typeof type !== 'string') throw new Error('verifier.type must be a non-empty string');
@@ -79,19 +117,30 @@ function clear() {
   registry.clear();
 }
 
-// Pré-enregistrer les types de base
-registerVerifier({
-  id: 'testResult',
-  type: 'test',
-  digest: 'sha256:' + 'a'.repeat(64),
-  description: 'Default test result verifier',
-});
-registerVerifier({
-  id: 'artifact',
-  type: 'artifact',
-  digest: 'sha256:' + 'b'.repeat(64),
-  description: 'Artifact build verifier',
-});
+// Pré-enregistrer les types de base avec digests dérivés de l'identité stable
+// digest = hash(implementation + version + policy + adapter), jamais un placeholder.
+const KNOWN_VERIFIER_TYPES = [
+  'test',
+  'testResult',
+  'coverage',
+  'behavior',
+  'artifact',
+  'replay',
+  'source',
+  'proof',
+  'benchmark',
+  'counterexample',
+  'repro',
+];
+
+for (const type of KNOWN_VERIFIER_TYPES) {
+  registerVerifier({
+    id: type,
+    type,
+    digest: computeVerifierDigest(type, REGISTRY_VERSION),
+    description: `Default ${type} verifier`,
+  });
+}
 
 module.exports = {
   registerVerifier,
@@ -101,5 +150,8 @@ module.exports = {
   listVerifierDigests,
   isTrusted,
   resolveTrustedVerifierDigests,
+  resolveVerifierDigest,
+  computeVerifierDigest,
+  ensureVerifier,
   clear,
 };

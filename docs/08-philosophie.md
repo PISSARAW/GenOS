@@ -623,12 +623,14 @@ plasticity (Δw = η·reward, reward riche)
                            ↓
                     immune inspection
                            ↓
-                    sandbox / challenge
-                           ↓
-                    causal trials + fitness
-                           ↓
-              ┌─────────────┴─────────────┐
-              │ survive                  │ reject
+                     sandbox / challenge
+                            ↓
+                     causal trials + fitness (+ evaluationReceipt)
+                            ↓
+                     tous évalués → Pareto → niches → meilleur
+                            ↓
+               ┌─────────────┴─────────────┐
+               │ survive                  │ reject
               │                         │
               ▼                         ▼
          reproduce              immune memory
@@ -647,7 +649,11 @@ Sinon, le vocabulaire reste décoratif.
 - Inhibition : type d'arête `inhibitory`, condition exprimable, force mesurable.
 - Homéostasie : coût total `C(G)` et fitness multi-objectif réels.
 - Épigénétique : même genome, phénotype exprimé différent selon environnement.
-- Immunité : mutations rejetées mémorisées comme signatures, pas juste un log.
+- Immunité : mutations rejetées mémorisées comme signatures, pas juste un log ; mémoire adaptative branchée au runtime (recall avant, record après).
+- Promotion : `evaluationReceipt` obligatoire par candidat, fitness parent jamais héritée.
+- Sélection : tous évalués avant promotion, promu = meilleur survivant Pareto/niche.
+- Causalité : forks isolés (deep clone + hash snapshot), `sameInitialState` prouvé.
+- Gates requis : dominance vérifiée (bypass ⇒ INVALID), pas simple accessibilité.
 - Niches : fitness calculée dans un environnement délimité, pas globalement.
 - Apoptose / fossilisation : mort explicite, autopsie, archive reconstituable.
 

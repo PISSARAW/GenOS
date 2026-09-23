@@ -3,6 +3,7 @@
 const { executeVerifierWithAdapter, computeEvidenceDigest } = require('./verifierAdapters');
 const { buildPreReceipt } = require('./verifierReceiptBuilder');
 const { issueReceipt } = require('../epistemicVerifierReceiptService');
+const { resolveVerifierDigest } = require('../verifierTrustRegistry');
 
 function mapVerifierTypeToAdapter(verifierType) {
   const map = {
@@ -38,10 +39,11 @@ async function executeVerifier(antigen, verifier, context = {}) {
     adapterContext
   );
 
+  const verifierDigest = resolveVerifierDigest(verifier);
   const preReceipt = buildPreReceipt({
     resultId: antigen.id,
     evidenceDigest: antigen.epitopes?.evidence?.digest || computeEvidenceDigest(observations),
-    verifierDigest: verifier.type,
+    verifierDigest,
     status,
     observations,
     counterexamples,
@@ -53,7 +55,7 @@ async function executeVerifier(antigen, verifier, context = {}) {
     status,
     resultId: antigen.id,
     evidenceDigest: antigen.epitopes?.evidence?.digest || signedReceipt.evidenceDigest,
-    verifierDigest: verifier.type,
+    verifierDigest,
     observations,
     counterexamples,
     receipt: signedReceipt,
