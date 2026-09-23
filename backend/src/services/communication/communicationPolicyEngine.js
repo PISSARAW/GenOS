@@ -163,36 +163,45 @@ function necessityPass(intent) {
 }
 
 function audienceQueryOf(intent, refs, input) {
-  return {
-    db: input.db, senderId: intent.senderAgentId, domain: intent.domain,
-    semanticRefs: refs, maxCandidates: input.maxCandidates,
-    independenceFrom: intent.independenceRequired ? [intent.senderAgentId] : [],
-    independenceThreshold: input.independenceThreshold, maxCost: input.maxCost, weights: input.weights
-  };
+  const independent = intent.independenceRequired ? [intent.senderAgentId] : [];
+  return { db: input.db, senderId: intent.senderAgentId, domain: intent.domain, semanticRefs: refs,
+    maxCandidates: input.maxCandidates, independenceFrom: independent,
+    independenceThreshold: input.independenceThreshold, maxCost: input.maxCost, weights: input.weights };
 }
 
 function gainPartsOf(intent, novelty, capability) {
-  return {
-    novelty, relevance: 1, actionability: intent.requiresAction ? 1 : 0.4,
-    urgency: intent.urgency, capability, riskLevel: riskLevelOf(intent.risk), baseRate: baseRateOf()
-  };
+  const actionable = intent.requiresAction ? 1 : 0.4;
+  return { novelty, relevance: 1, actionability: actionable, urgency: intent.urgency,
+    capability, riskLevel: riskLevelOf(intent.risk), baseRate: baseRateOf() };
 }
 
 function selectionOf(ctx) {
-  return selectEncoding({
-    novelty: ctx.novelty, purpose: ctx.intent.purpose, commonGround: ctx.ground,
+  const human = ctx.intent.risk === 'critical' && ctx.input.humanRequired !== false;
+  return selectEncoding({ novelty: ctx.novelty, purpose: ctx.intent.purpose, commonGround: ctx.ground,
     dialectAvailable: Boolean(ctx.input.dialectAvailable), riskLevel: riskLevelOf(ctx.intent.risk),
-    trigger: ctx.input.trigger, negotiation: Boolean(ctx.input.negotiation),
-    humanRequired: ctx.intent.risk === 'critical' && ctx.input.humanRequired !== false
-  });
+    trigger: ctx.input.trigger, negotiation: Boolean(ctx.input.negotiation), humanRequired: human });
 }
 
 function costOf(ctx) {
-  return estimateCost({
-    encoding: ctx.selection.encoding, recipientCount: ctx.count, grounding: ctx.grounding,
-    contaminationRisk: ctx.intent.independenceRequired ? 0.05 : 0.2,
-    disclosureRisk: disclosureOf(ctx.intent.risk), coefficients: ctx.input.coefficients
-  });
+  const contamination = ctx.intent.independenceRequired ? 0.05 : 0.2;
+  return estimateCost({ encoding: ctx.selection.encoding, recipientCount: ctx.count, grounding: ctx.grounding,
+    contaminationRisk: contamination, disclosureRisk: disclosureOf(ctx.intent.risk), coefficients: ctx.input.coefficients });
+}
+
+const VERBAL_ACTIONS = new Set(['MICRO_UTTERANCE', 'DIALOGUE', 'HUMAN']);
+
+function escalationMetaOf(action, input) {
+  if (!VERBAL_ACTIONS.has(action)) return null;
+  if (action === 'MICRO_UTTERANCE') {
+    return { trigger: input.trigger || 'AMBIGUOUS_INTENT', maxTurns: 1, tokenBudget: 200 };
+  }
+  if (action === 'DIALOGUE') {
+    return {
+      trigger: input.trigger || 'AMBIGUOUS_INTENT',
+      maxTurns: input.maxTurns || 8, tokenBudget: input.tokenBudget || 2000
+    };
+  }
+  return { trigger: 'HUMAN_EXPLANATION_REQUIRED', maxTurns: 1, tokenBudget: 0 };
 }
 
 function finalizeDecision(ctx) {
@@ -201,10 +210,8 @@ function finalizeDecision(ctx) {
     action: ctx.selection.action, scope: scopeFor(ids.length), recipients: ids,
     encoding: ctx.selection.encoding, grounding: ctx.grounding, ttlMs: ctx.input.ttlMs || 60000,
     reasonCodes: reasonCodesFor(ctx.selection, ctx.capability, Boolean(ctx.intent.independenceRequired)),
-    meta: {
-      utility: ctx.utility, gain: ctx.gain, cost: ctx.cost.total,
-      breakdown: ctx.cost.breakdown, novelty: ctx.novelty, groups: ctx.groups
-    }
+    meta: { utility: ctx.utility, gain: ctx.gain, cost: ctx.cost.total, breakdown: ctx.cost.breakdown,
+      novelty: ctx.novelty, groups: ctx.groups, escalation: escalationMetaOf(ctx.selection.action, ctx.input) }
   };
 }
 
@@ -230,11 +237,9 @@ async function decideStigmergy(input, intent, refs) {
   if (utility <= 0) {
     return silenceDecision('TOKEN_SAVINGS', { stage: 'utility', utility, gain, cost: cost.total });
   }
-  return {
-    action: 'STIGMERGY', scope: 'STIGMERGY', recipients: [], encoding: 'semantic-fingerprint',
-    grounding: 'none', ttlMs: input.ttlMs || 60000, reasonCodes: ['TOKEN_SAVINGS'],
-    meta: { utility, gain, cost: cost.total, breakdown: cost.breakdown, channel: 'environment' }
-  };
+  const meta = { utility, gain, cost: cost.total, breakdown: cost.breakdown, channel: 'environment' };
+  return { action: 'STIGMERGY', scope: 'STIGMERGY', recipients: [], encoding: 'semantic-fingerprint',
+    grounding: 'none', ttlMs: input.ttlMs || 60000, reasonCodes: ['TOKEN_SAVINGS'], meta };
 }
 
 function broadcastGrounding(risk, requiresAction) {
@@ -263,11 +268,9 @@ async function decideLocalBroadcast(input, intent, refs) {
   if (utility <= 0) {
     return silenceDecision('TOKEN_SAVINGS', { stage: 'utility', utility, gain, cost: cost.total });
   }
-  return {
-    action: 'SIGNAL', scope: 'LOCAL_BROADCAST', recipients, encoding: 'semantic-fingerprint',
-    grounding, ttlMs: input.ttlMs || 60000, reasonCodes: ['BROADCAST_FANOUT'],
-    meta: { utility, gain, cost: cost.total, breakdown: cost.breakdown, variants: 1, receptorTopic: input.receptorTopic }
-  };
+  const meta = { utility, gain, cost: cost.total, breakdown: cost.breakdown, variants: 1, receptorTopic: input.receptorTopic };
+  return { action: 'SIGNAL', scope: 'LOCAL_BROADCAST', recipients, encoding: 'semantic-fingerprint',
+    grounding, ttlMs: input.ttlMs || 60000, reasonCodes: ['BROADCAST_FANOUT'], meta };
 }
 
 async function decideGlobalBroadcast(input, intent, refs) {
@@ -286,11 +289,9 @@ async function decideGlobalBroadcast(input, intent, refs) {
   if (utility <= 0) {
     return silenceDecision('TOKEN_SAVINGS', { stage: 'utility', utility, gain, cost: cost.total });
   }
-  return {
-    action: 'SIGNAL', scope: 'GLOBAL_BROADCAST', recipients: [], encoding: 'semantic-fingerprint',
-    grounding, ttlMs: input.ttlMs || 60000, reasonCodes: ['BROADCAST_FANOUT', 'COGNITIVE_WAKE'],
-    meta: { utility, gain, cost: cost.total, breakdown: cost.breakdown, variants: 1, fleetSize: fleet }
-  };
+  const meta = { utility, gain, cost: cost.total, breakdown: cost.breakdown, variants: 1, fleetSize: fleet };
+  return { action: 'SIGNAL', scope: 'GLOBAL_BROADCAST', recipients: [], encoding: 'semantic-fingerprint',
+    grounding, ttlMs: input.ttlMs || 60000, reasonCodes: ['BROADCAST_FANOUT', 'COGNITIVE_WAKE'], meta };
 }
 
 async function tryPrescoped(input, intent, refs) {

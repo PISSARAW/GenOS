@@ -168,6 +168,14 @@ const migrationRunners = [
     const { migrateDaemonRepair } = require('./migrateDaemonRepair');
     await migrateDaemonRepair(db);
   }),
+  createMigrationRunner('051-dialect-contracts', 'Persist relational dialect contracts, symbols and compilation candidates (Phase 8)', async (db) => {
+    const { migrateDialectContracts } = require('./migrateDialectContracts');
+    await migrateDialectContracts(db);
+  }),
+  createMigrationRunner('052-verbal-escalation', 'Persist bounded verbal escalations, dialogue turns and closing artifacts (Phase 9)', async (db) => {
+    const { migrateVerbalEscalation } = require('./migrateVerbalEscalation');
+    await migrateVerbalEscalation(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

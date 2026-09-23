@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/dialect-contract.schema.json",
+  "title": "DialectContract",
+  "description": "Langage relationnel entre une paire d'agents : symboles denses liés à des empreintes sémantiques canoniques, versionnés, fail-closed. Jamais de devinette sur chemin critique.",
+  "type": "object",
+  "required": ["dialectId", "participants", "domain", "version", "baseVocabulary", "symbols", "commonGroundHash", "status"],
+  "properties": {
+    "dialectId": { "type": "string", "minLength": 1 },
+    "participants": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "Paire ordonnée canoniquement."
+    },
+    "domain": { "type": "string", "minLength": 1 },
+    "version": { "type": "integer", "minimum": 1 },
+    "baseVocabulary": { "type": "string", "minLength": 1 },
+    "symbols": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["semanticFingerprint", "canonicalMeaning"],
+        "properties": {
+          "semanticFingerprint": { "type": "string", "pattern": "^sha256:" },
+          "canonicalMeaning": { "type": "string", "minLength": 1 },
+          "payloadSchema": { "type": "object" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "commonGroundHash": { "type": "string", "pattern": "^sha256:" },
+    "status": { "type": "string", "enum": ["active", "retired"] },
+    "expiresAt": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "additionalProperties": false
+}
