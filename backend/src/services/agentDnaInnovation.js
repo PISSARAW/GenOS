@@ -144,12 +144,14 @@ async function captureFromSuccess(ctx) {
 
   // B4: croiser les outils loués avec les événements d'exécution pour vérifier l'usage effectif
   const contributionEvidence = await findToolUsageEvidence(db, { agentId, concepts });
+  const demonstrated = demonstratedConcepts(concepts, contributionEvidence);
+  if (!demonstrated.length) return null;
 
   return captureCandidate(db, {
     baseGenomeRef: base.id,
-    name: `${base.model.meta.name}-${concepts[0].locus.toLowerCase().slice(0, 24)}`,
-    concept: concepts.map((concept) => concept.instruction).join(','),
-    concepts,
+    name: `${base.model.meta.name}-${demonstrated[0].locus.toLowerCase().slice(0, 24)}`,
+    concept: demonstrated.map((concept) => concept.instruction).join(','),
+    concepts: demonstrated,
     sourceAgentId: agentId,
     evidence: { ...evidenceSummary(event), contributionEvidence },
     scope
@@ -239,12 +241,13 @@ async function evaluateCandidate(db, id) {
   const evidence = parseEvidence(row.evidence_json);
   const sourceEvidence = hasTrustedEvidence(evidence);
   const scope = { organizationId: row.organization_id, projectId: row.project_id };
-  const signatureRequired = await require('./agentDnaPolicy').isSignatureRequired(db, scope);
+  const trust = await require('./agentDnaTrust').evaluateGenomeTrust(db, model, scope);
   const checks = evaluationChecks({
     model,
     parent,
     evidence: sourceEvidence,
-    signature: signatureRequired
+    signature: trust.trusted,
+    trustReason: trust.reason
   });
   const evaluation = { evaluatedAt: new Date().toISOString(), checks, eligible: Object.values(checks).every(Boolean) };
   await db.run('UPDATE agent_genome_innovations SET evaluation_json = ? WHERE id = ?', JSON.stringify(evaluation), id);
@@ -260,8 +263,13 @@ function contributionPasses(evidence) {
   if (!contribution || typeof contribution !== 'object') return false;
   const entries = Object.values(contribution);
   if (entries.length === 0) return false;
-  const observed = entries.filter((entry) => entry && entry.observed === true).length;
-  return observed > 0 && observed >= entries.length / 2;
+  return entries.every((entry) => entry && entry.observed === true);
+}
+
+function demonstratedConcepts(concepts, contributionEvidence) {
+  return (concepts || []).filter((concept) => contributionEvidence
+    && contributionEvidence[concept.locus]
+    && contributionEvidence[concept.locus].observed === true);
 }
 
 function hasTrustedEvidence(evidence) {
@@ -276,7 +284,7 @@ function evaluationChecks({ model, parent, evidence, signature }) {
   return {
     genomeValid: Boolean(model && model.meta && model.genes && model.provenance),
     sourceEvidence: evidence,
-    signaturePolicy: !signature || Boolean(model && model.signatureValid),
+    signaturePolicy: Boolean(signature),
     superiorToParent: parent ? isSuperiorToParent(model, parent) : null
   };
 }

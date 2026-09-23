@@ -93,7 +93,8 @@ function gatherParentRefs(operation, params) {
   if (operation === 'speciate' && params.genomeId) {
     return [params.genomeId];
   }
-  return null;
+  if (params.genomeId) return [params.genomeId];
+  return [];
 }
 
 function eventTypeName(operation) {
@@ -113,7 +114,9 @@ async function logGenomeEvent({ db, operation, params, scope, model, id }) {
     geneCount: Object.keys(model.genes).length,
   };
   await genomeEventLog.recordEvent(db, genomeEventLog.makeEvent(eventTypeName(operation), id, {
-    parentRefs: parentRefs || undefined,
+    parentGenomeRefs: parentRefs,
+    previousEventId: params.previousEventId || params.previous_event_id || null,
+    commit_id: params.commit_id ?? params.commitId ?? null,
     payload: operation === 'decoy' ? { ...eventPayload, decoy: true } : eventPayload,
     organizationId: scope.organizationId,
     projectId: scope.projectId,

@@ -44,15 +44,42 @@ function extractSalience(signal) {
   return 0;
 }
 
+const LLM_COGNITION_COST = 0.4;
+const ESCALATION_THRESHOLD = 0;
+const URGENCY_OVERRIDE = 0.9;
+
+function estimateExpectedImpact() {
+  try {
+    const metrics = require('./signalMetricsService');
+    const voi = metrics.getVoIMetrics();
+    if (voi.totalSignals > 10) return Math.max(0, voi.avgImpact);
+    return 0.8;
+  } catch {
+    return 0.8;
+  }
+}
+
+function getVoiGateEstimate(signal) {
+  const salience = extractSalience(signal);
+  const expectedImpact = estimateExpectedImpact();
+  const expectedGain = salience * expectedImpact;
+  const net = expectedGain - LLM_COGNITION_COST;
+  return { salience, expectedImpact, expectedGain, cost: LLM_COGNITION_COST, net };
+}
+
 /**
- * Returns true if the signal genuinely needs LLM cognitive processing.
- * Heuristic: unknown type, salience > 0.5, and no receptor matched.
+ * VoI-gated escalation: Escalate(s) iff E[ΔUtility|s] − CognitionCost > threshold.
+ * Unknown types always escalate (novelty = high information).
+ * Salience > 0.9 overrides a negative VoI (urgency).
  */
 function shouldEscalate(signal) {
   if (!signal) return false;
   if (signal.llmRequired !== true) return false;
   if (isUnknownSignalType(signal.signalType)) return true;
-  return extractSalience(signal) > 0.5;
+  const salience = extractSalience(signal);
+  if (salience > URGENCY_OVERRIDE) return true;
+  const gate = getVoiGateEstimate(signal);
+  return gate.net > ESCALATION_THRESHOLD;
 }
 
 async function fetchParentOrchestrator(senderAgentId) {
@@ -108,20 +135,69 @@ async function selectCognitiveTarget(signal) {
   return bestId || parentId || senderId || 'cognitive-fallback';
 }
 
+function signalDataOf(signal) {
+  const data = signal.signalData;
+  return data && typeof data === 'object' ? data : {};
+}
+
+function resolveSemanticType(signal, data) {
+  return signal.semanticType || data.semanticType || signal.signalType;
+}
+
+function resolveConfidence(signal, data) {
+  const raw = Number(data.confidence ?? signal.confidence ?? 1);
+  return raw || 1;
+}
+
+function resolvePayloadRef(signal) {
+  return signal.payloadRef || signal.signalId || signal.id || null;
+}
+
+function resolveArtifactRef(signal, data) {
+  return signal.artifactRef || data.artifactRef || data.artifact_id || data.artifactId || null;
+}
+
+function resolveDataKeys(signal, data) {
+  if (signal.dataKeys) return signal.dataKeys;
+  return Object.keys(data).filter((k) => k !== 'artifactRef').slice(0, 20);
+}
+
+function resolveConcentration(signal, data) {
+  return data.concentration ?? data.intensity ?? signal.concentration ?? null;
+}
+
+function envelopeRefs(signal, data) {
+  return {
+    payloadRef: resolvePayloadRef(signal),
+    artifactRef: resolveArtifactRef(signal, data),
+    causalParent: data.causalParent || signal.causalParent || null,
+  };
+}
+
+function envelopeData(signal, data) {
+  return {
+    dataKeys: resolveDataKeys(signal, data),
+    dataSize: JSON.stringify(data).length,
+    concentration: resolveConcentration(signal, data),
+  };
+}
+
 /**
- * Returns a minimal prompt context from the signal.
- * Zero-prompt principle: only structural metadata, never raw content.
+ * Minimal SignalEnvelope: structural metadata + refs, never raw payload.
+ * Heavy payload stays in signal_blobs, fetched via payloadRef if needed.
  */
 function buildMinimalContext(signal) {
-  const data = signal.signalData && typeof signal.signalData === 'object'
-    ? signal.signalData
-    : {};
+  const data = signalDataOf(signal);
   return {
     signalType: signal.signalType,
+    semanticType: resolveSemanticType(signal, data),
+    confidence: resolveConfidence(signal, data),
+    scope: { topic: signal.topic || null, sender: signal.senderAgentId || null },
     topic: signal.topic || null,
     sender: signal.senderAgentId || null,
     signalId: signal.signalId || signal.id || null,
-    data: data,
+    ...envelopeRefs(signal, data),
+    ...envelopeData(signal, data),
     salience: extractSalience(signal),
     escalatedAt: new Date().toISOString(),
   };
@@ -158,9 +234,11 @@ function getEscalationMetrics() {
 
 module.exports = {
   shouldEscalate,
+  getVoiGateEstimate,
   selectCognitiveTarget,
   buildMinimalContext,
   recordEscalationOutcome,
   getEscalationMetrics,
   ESCALATION_METRICS,
+  LLM_COGNITION_COST,
 };

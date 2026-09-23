@@ -196,4 +196,5 @@ module.exports = {
   parseAndValidate,
   repairOutput,
   getSchema,
+  extractJson,
 };

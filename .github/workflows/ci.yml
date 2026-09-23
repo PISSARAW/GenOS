@@ -72,6 +72,37 @@ jobs:
         working-directory: backend
         run: node tests/test_primitive_handlers.js
 
+  commit-receipt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify Commit Receipt on code commits (fail-closed)
+        run: |
+          set -e
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            SHAS="$HEAD"
+          else
+            SHAS=$(git rev-list --no-merges "$BASE..$HEAD" 2>/dev/null || echo "$HEAD")
+          fi
+          [ -n "$SHAS" ] || SHAS="$HEAD"
+          echo "Checking receipt for: $SHAS"
+          for SHA in $SHAS; do
+            echo "--- $SHA $(git log --format=%s -n 1 "$SHA")"
+            python3 scripts/ci/commit_receipt.py --sha "$SHA"
+          done
+
   # Champs secrets : aucun secret n'est requis pour les tests publics ci-dessus.
   # Si plus tard un job dépend d'un secret (ex. MCP host distant), il doit :
   #   - être marqué explicitement dans le workflow et la doc,

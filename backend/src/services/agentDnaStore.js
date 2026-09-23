@@ -4,8 +4,7 @@ const path = require('path');
 
 const { packBioPolymer, unpackBioPolymer } = require('./bioPolymerPersistenceService');
 const { decodeBuffer, decodeFile, workerGenes } = require('./agentDna');
-const policy = require('./agentDnaPolicy');
-const { verifySignerTrust } = require('./agentDna/container');
+const { evaluateGenomeTrust } = require('./agentDnaTrust');
 
 const ROLE_STOPWORDS = new Set([
   'worker', 'agent', 'the', 'and', 'for', 'from', 'with', 'mission', 'task',
@@ -98,11 +97,8 @@ function dnaEnabled() {
 }
 
 async function acceptGenome(db, model, scope) {
-  const required = await policy.isSignatureRequired(db, scope);
-  if (!required) return true;
-  if (!model.signatureValid) return false;
-  if (!model.signer) return false;
-  return verifySignerTrust(model.signer, scope, db);
+  const verdict = await evaluateGenomeTrust(db, model, scope);
+  return verdict.trusted;
 }
 
 async function ensureImported(db) {
@@ -175,7 +171,7 @@ async function selectExplicit(db, assignment, scope) {
 }
 
 async function genomeAllowed(db, id, scope) {
-  const row = await db.get('SELECT status, organization_id, project_id FROM agent_genomes WHERE id = ?', id);
+  const row = await db.get('SELECT status, organization_id, project_id FROM agent_genomes WHERE id = ? OR name = ? LIMIT 1', id, id);
   if (!row || row.status === 'rejected') return false;
   const ids = scope || {};
   if (!ids.organizationId || !ids.projectId) return !row.organization_id && !row.project_id;
@@ -198,17 +194,9 @@ async function workerGenesForAssignment(db, assignment, scope) {
   const selection = await selectGenome(db, assignment, scope);
   if (!selection) return null;
   const ids = scope || {};
-  const innovation = await db.get('SELECT id FROM agent_genome_innovations WHERE candidate_genome_ref = ? AND status = ?', selection.id, 'promoted');
+  const innovation = await findPromotion(db, selection.id);
   const selectionId = crypto.randomUUID();
-  await db.run(
-    'INSERT INTO agent_genome_selections (id, agent_id, genome_ref, innovation_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?)',
-    selectionId,
-    assignment.agentId || null,
-    selection.id,
-    innovation && innovation.id,
-    ids.organizationId || null,
-    ids.projectId || null
-  );
+  await recordSelection(db, selectionId, assignment, selection, innovation, ids);
   return {
     genomeRef: selection.id,
     selectionId,
@@ -217,11 +205,36 @@ async function workerGenesForAssignment(db, assignment, scope) {
   };
 }
 
+async function findPromotion(db, genomeRef) {
+  try {
+    return await db.get('SELECT id FROM agent_genome_innovations WHERE candidate_genome_ref = ? AND status = ?', genomeRef, 'promoted');
+  } catch (_) {
+    return null;
+  }
+}
+
+async function recordSelection(db, selectionId, assignment, selection, innovation, ids) {
+  try {
+    await db.run(
+      'INSERT INTO agent_genome_selections (id, agent_id, genome_ref, innovation_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?)',
+      selectionId,
+      assignment.agentId || null,
+      selection.id,
+      innovation && innovation.id,
+      ids.organizationId || null,
+      ids.projectId || null
+    );
+  } catch (_) {
+    // Best effort: selection trace must never block worker recruitment.
+  }
+}
+
 module.exports = {
   saveGenome,
   loadGenome,
   selectGenome,
   workerGenesForAssignment,
+  acceptGenome,
   importDirectory,
   walkDnaFiles,
   dnaEnabled,

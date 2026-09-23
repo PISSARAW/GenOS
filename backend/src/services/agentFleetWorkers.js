@@ -15,16 +15,48 @@ const { withTransaction } = require('../db');
 const config = require('../config/orchestratorConfig');
 
 async function applyAgentDna(ctx) {
-  const { db, parent, assignment, mission, evolution } = ctx;
+  const { db, parent, assignment, mission } = ctx;
   const scope = { organizationId: parent.organization_id, projectId: parent.project_id };
   const missionText = (mission && mission.prompt) || parent.current_task || '';
   const selection = await agentDnaStore.workerGenesForAssignment(db, { ...assignment, agentId: parent.id, mission: missionText }, scope);
   if (!selection) return null;
-  evolution.genes = { ...evolution.genes, ...selection.genes };
-  evolution.source = 'agent_dna';
-  evolution.dnaGenomeRef = selection.genomeRef;
   assignment.genomeRef = selection.genomeRef;
-  return { genes: selection.genes, genomeRef: selection.genomeRef };
+  return selection;
+}
+
+function dnaAuthorityEvolution(selection) {
+  return {
+    genes: selection.genes,
+    genomeRef: selection.genomeRef,
+    dnaGenomeRef: selection.genomeRef,
+    genomeContentHash: selection.genomeContentHash,
+    source: 'agent_dna_authority',
+    predictedFitness: null
+  };
+}
+
+function intersectLease(dnaTools, lease) {
+  if (!Array.isArray(dnaTools) || !dnaTools.length) return lease;
+  const allowed = new Set(dnaTools.map((tool) => String(tool)));
+  return lease.filter((tool) => allowed.has(String(tool)));
+}
+
+function effectiveToolLease(assignment, capabilityContract, dnaSelection) {
+  const base = workerToolLeaseForCapabilities(assignment.role, capabilityContract);
+  if (!dnaSelection || !dnaSelection.genes) return base;
+  const dnaTools = dnaSelection.genes.tools;
+  const assignmentTools = assignment.tools;
+  let lease = intersectLease(dnaTools, base);
+  if (Array.isArray(assignmentTools) && assignmentTools.length) {
+    lease = intersectLease(assignmentTools, lease);
+  }
+  return lease;
+}
+
+function phenotypeHash(selection) {
+  if (!selection || !selection.genes) return null;
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(JSON.stringify(selection.genes)).digest('hex').slice(0, 16);
 }
 
 function calculateInheritedCognitiveBudget(parentBudget, workerShare, workerCount) {
@@ -144,14 +176,16 @@ async function prepareWorkerAssets(workerContext) {
   const id = autonomousWorkerId(orchestrator.id, index + 1);
   const identity = agentIdentity.generateAgentIdentity({ preferredName: assignment.preferredName || assignment.name, role: assignment.role, excludeNames: usedNames, stableKey: id });
   usedNames.push(identity.name);
-  const evolution = await agentEvolution.evolveWorkerGenome(parent, assignment, { strategy: plan.strategyContract?.primary || 'tree-search', db });
-  const dnaSelection = await applyAgentDna({ db, parent, assignment, mission, evolution });
+  const dnaSelection = await applyAgentDna({ db, parent, assignment, mission });
+  const evolution = dnaSelection
+    ? dnaAuthorityEvolution(dnaSelection)
+    : await agentEvolution.evolveWorkerGenome(parent, assignment, { strategy: plan.strategyContract?.primary || 'tree-search', db });
   const conscience = agentConscience.createConscienceState({ currentBudget: perWorkerCognitiveBudget, baselineBudget: perWorkerCognitiveBudget });
   const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext, dnaSelection });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
   const route = mission.executor === 'caller_mcp' ? {} : await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
   const workspaceRoot = await createWorkerWorkspace(workerContext, id);
-  return { ...workerContext, id, identity, conscience, prompt, assignedTokens, route, workspaceRoot, evolution, mission };
+  return { ...workerContext, id, identity, conscience, prompt, assignedTokens, route, workspaceRoot, evolution, dnaSelection, mission };
 }
 
 function createWorkerWorkspace(workerContext, id) {
@@ -217,11 +251,12 @@ function workerInsertValues(details) {
 }
 
 function formatWorker(details) {
-  const { id, identity, assignment, parent, plan, mission, route, workspaceRoot, prompt, assignedTokens, index, evolution, orchestrator } = details;
+  const { id, identity, assignment, parent, plan, mission, route, workspaceRoot, prompt, assignedTokens, index, evolution, orchestrator, dnaSelection } = details;
   const capabilityContract = plan && plan.capabilityContract ? plan.capabilityContract.required : [];
-  const toolLease = workerToolLeaseForCapabilities(assignment.role, capabilityContract);
+  const toolLease = effectiveToolLease(assignment, capabilityContract, dnaSelection);
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
-  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, assignments: assignmentList, mission }), executionPolicy: mission.executionPolicy, executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens, index, assignmentCount: assignmentList.length || 1 }), orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }, genome: evolution.genes, genomeRef: evolution.genomeRef, predictedFitness: evolution.predictedFitness };
+  const genotypeRef = (evolution && (evolution.dnaGenomeRef || evolution.genomeRef)) || null;
+  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, assignments: assignmentList, mission }), executionPolicy: mission.executionPolicy, executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens, index, assignmentCount: assignmentList.length || 1 }), orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }, genome: evolution.genes, genomeRef: genotypeRef, genotypeRef, phenotypeHash: phenotypeHash(dnaSelection), genomeContentHash: (evolution && evolution.genomeContentHash) || null, dnaAuthority: Boolean(dnaSelection), predictedFitness: evolution.predictedFitness };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
   return worker;
 }

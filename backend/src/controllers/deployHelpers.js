@@ -78,7 +78,11 @@ async function startWorkerMissionWithFallback(opts) {
     executionBudget: opts.req.body.executionBudget || {}
   });
   startPromise.catch(async (error) => {
-    await opts.db.run("UPDATE agents SET status='idle', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", `Dispatch failed: ${error.message}`, opts.workerId).catch(() => {});
+    try {
+      const garage = require('../services/workerGarageService');
+      await garage.enterIdleState(opts.db, opts.workerId, opts.orchestratorId);
+      await opts.db.run('UPDATE agents SET current_task=? WHERE id=?', `Dispatch failed: ${error.message}`, opts.workerId).catch(() => {});
+    } catch (_) {}
   });
 }
 

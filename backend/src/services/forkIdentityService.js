@@ -72,17 +72,34 @@ function phenotypicSimilarityOf(a, b) {
   const onlyA = [...capabilitiesA].filter(c => !capabilitiesB.has(c));
   const onlyB = [...capabilitiesB].filter(c => !capabilitiesA.has(c));
   const totalSize = capabilitiesA.size + capabilitiesB.size;
-  // Two empty phenotype sets are not "maximally similar" — they share no
-  // information. Ratio defaults to 1 only to avoid division by zero.
-  const similarityRatio = totalSize > 0 ? (2 * shared.length) / totalSize : 1;
+  // Two empty phenotype sets carry no information: similarity is unknown,
+  // not maximal. Callers must handle similarityRatio === null.
+  if (totalSize === 0) return buildEmptyPhenotypeReport();
+  const similarityRatio = (2 * shared.length) / totalSize;
+  const rounded = Math.round(similarityRatio * 1000) / 1000;
   return {
     value: {
       sharedCapabilities: shared,
       onlyInA: onlyA,
       onlyInB: onlyB,
-      similarityRatio: Math.round(similarityRatio * 1000) / 1000,
+      similarityRatio: rounded,
     },
+    similarityRatio: rounded,
+    sharedCapabilities: shared,
+    onlyInA: onlyA,
+    onlyInB: onlyB,
     note: `Phenotypes share ${shared.length} capability(ies); A has ${onlyA.length} unique, B has ${onlyB.length} unique.`,
+  };
+}
+
+function buildEmptyPhenotypeReport() {
+  return {
+    value: 'unknown',
+    similarityRatio: null,
+    sharedCapabilities: [],
+    onlyInA: [],
+    onlyInB: [],
+    note: 'Both phenotype sets are empty: similarity is unknown, not maximal.',
   };
 }
 
