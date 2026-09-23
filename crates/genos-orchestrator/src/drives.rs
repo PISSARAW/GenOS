@@ -34,34 +34,52 @@ pub struct AutonomyGateReport {
     pub reasons: Vec<String>,
 }
 
+fn clamp01(v: f64) -> f64 {
+    v.clamp(0.0, 1.0)
+}
+
+/// Calcul de la pression de survie (extraite pour réduire la complexité).
+fn survival_from(state: &WorldState, integrity: f64) -> f64 {
+    clamp01(
+        0.35 * state.budget_pressure
+            + 0.25 * state.stress
+            + 0.20 * state.threat
+            + 0.20 * (1.0 - integrity),
+    )
+}
+
+/// Calcul de l'intégrité (extraite pour réduire la complexité).
+fn integrity_from(state: &WorldState) -> f64 {
+    let traitor_penalty = if state.traitor { 1.0 } else { 0.0 };
+    clamp01(1.0 - state.diseased as f64 / 3.0 - traitor_penalty - 0.5 * state.stress)
+}
+
+/// Calcul de la curiosité par défaut (extraite pour réduire la complexité).
+fn default_curiosity_from(state: &WorldState) -> f64 {
+    let stress_factor = clamp01(1.0 - state.stress);
+    let observed_factor = if state.observed { 0.3 } else { 1.0 };
+    stress_factor * observed_factor
+}
+
+/// Calcul de la curiosité NCE (extraite pour réduire la complexité).
+fn nce_curiosity_from(state: &WorldState, default: f64) -> f64 {
+    let nce = clamp01(state.curiosity_hint);
+    if nce > 0.0 {
+        nce * (1.0 - state.stress * 0.5)
+    } else {
+        default
+    }
+}
+
 impl Drives {
     pub fn from_state(state: &WorldState) -> Self {
-        let integrity = (1.0
-            - state.diseased as f64 / 3.0
-            - if state.traitor { 1.0 } else { 0.0 }
-            - 0.5 * state.stress)
-            .clamp(0.0, 1.0);
-        let stress_factor = (1.0 - state.stress).clamp(0.0, 1.0);
-        let default_curiosity = stress_factor
-            * if state.observed { 0.3 } else { 1.0 };
-        // Pont NCE → Rust : le signal de curiosité du backend Node.js
-        // (basé sur learning progress, IG, novelty, affordances, risk, cost)
-        // pilote Goal::Explore quand il est disponible.
-        let nce_curiosity = state.curiosity_hint.clamp(0.0, 1.0);
-        let curiosity = if nce_curiosity > 0.0 {
-            nce_curiosity * (1.0 - state.stress * 0.5)
-        } else {
-            default_curiosity
-        };
+        let integrity = integrity_from(state);
+        let curiosity = nce_curiosity_from(state, default_curiosity_from(state));
         Self {
-            energy: (1.0 - state.budget_pressure).clamp(0.0, 1.0),
+            energy: clamp01(1.0 - state.budget_pressure),
             integrity,
-            curiosity: curiosity.clamp(0.0, 1.0),
-            survival: (0.35 * state.budget_pressure
-                + 0.25 * state.stress
-                + 0.20 * state.threat
-                + 0.20 * (1.0 - integrity))
-                .clamp(0.0, 1.0),
+            curiosity: clamp01(curiosity),
+            survival: survival_from(state, integrity),
         }
     }
 
@@ -78,24 +96,32 @@ impl Drives {
 /// Sélectionne un but endogène à partir des drives et de l'état.
 pub struct GoalSelector;
 
+/// But d'urgence (extraite pour réduire la complexité de `select`).
+fn emergency_goal(state: &WorldState) -> Option<Goal> {
+    if state.apoptotic {
+        return Some(Goal::Conserve);
+    }
+    if state.diseased > 0 || state.traitor {
+        return Some(Goal::RecoverAgent);
+    }
+    if (state.threat > 0.0 || state.adversary) && !state.observed {
+        return Some(Goal::SecurePerimeter);
+    }
+    None
+}
+
 impl GoalSelector {
     pub fn drives(state: &WorldState) -> Drives {
         Drives::from_state(state)
     }
 
     pub fn select(state: &WorldState) -> Goal {
-        if state.apoptotic {
-            return Goal::Conserve;
+        if let Some(goal) = emergency_goal(state) {
+            return goal;
         }
         let drives = Drives::from_state(state);
         if drives.survival >= 0.7 {
             return Goal::Conserve;
-        }
-        if state.diseased > 0 || state.traitor {
-            return Goal::RecoverAgent;
-        }
-        if (state.threat > 0.0 || state.adversary) && !state.observed {
-            return Goal::SecurePerimeter;
         }
         if drives.energy < 0.4 {
             return Goal::Conserve;

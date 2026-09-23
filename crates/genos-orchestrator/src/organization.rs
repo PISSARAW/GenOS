@@ -176,32 +176,42 @@ impl Superorganism {
     }
 }
 
-/// Le directeur choisit l'organisation la plus adaptée à l'état.
-pub fn select_organization(state: &WorldState, goal: &Goal) -> &'static Organization {
-    if state.adversary {
-        return org("red_blue_coevolution");
-    }
-    if state.traitor {
-        return org("strategy_arena");
-    }
-    if state.stress >= 0.75 {
-        // Stress élevé : mise au silence, traitement critique uniquement.
-        return org("network_silence");
-    }
-    if state.uncertain {
-        return org("brier_weighted_consensus");
-    }
-    if state.diseased > 0 {
-        return org("isolated_recovery");
-    }
+fn threat_organization(state: &WorldState) -> Option<&'static Organization> {
     if state.budget < 20.0 || state.budget_pressure >= 0.8 {
-        return org("energy_huddle");
+        return Some(org("energy_huddle"));
     }
     if state.workers >= 5 {
-        return org("quorum_with_abstention");
+        return Some(org("quorum_with_abstention"));
     }
     if state.threat > 0.0 && !state.observed {
-        return org("stigmergy");
+        return Some(org("stigmergy"));
+    }
+    None
+}
+
+fn priority_organization(state: &WorldState) -> Option<&'static Organization> {
+    if state.adversary {
+        return Some(org("red_blue_coevolution"));
+    }
+    if state.traitor {
+        return Some(org("strategy_arena"));
+    }
+    if state.stress >= 0.75 {
+        return Some(org("network_silence"));
+    }
+    if state.uncertain {
+        return Some(org("brier_weighted_consensus"));
+    }
+    if state.diseased > 0 {
+        return Some(org("isolated_recovery"));
+    }
+    threat_organization(state)
+}
+
+/// Le directeur choisit l'organisation la plus adaptée à l'état.
+pub fn select_organization(state: &WorldState, goal: &Goal) -> &'static Organization {
+    if let Some(org) = priority_organization(state) {
+        return org;
     }
     match goal {
         Goal::RepairModule => org("hierarchical_merge"),
@@ -212,10 +222,10 @@ pub fn select_organization(state: &WorldState, goal: &Goal) -> &'static Organiza
     }
 }
 
-/// Choisit la forme supérieure, avec repli sur les formes disponibles.
-pub fn select_superorganism(state: &WorldState, goal: &Goal) -> Superorganism {
+/// Forme supérieure préférée selon l'état (extraite pour réduire la complexité).
+fn preferred_superorganism(state: &WorldState, goal: &Goal) -> Superorganism {
     use Superorganism::*;
-    let preferred = if state.adversary {
+    if state.adversary {
         Rhizome
     } else if matches!(goal, Goal::RepairModule) {
         Syncytium
@@ -229,7 +239,13 @@ pub fn select_superorganism(state: &WorldState, goal: &Goal) -> Superorganism {
         Biome
     } else {
         Swarm
-    };
+    }
+}
+
+/// Choisit la forme supérieure, avec repli sur les formes disponibles.
+pub fn select_superorganism(state: &WorldState, goal: &Goal) -> Superorganism {
+    use Superorganism::*;
+    let preferred = preferred_superorganism(state, goal);
     for candidate in [preferred, Biocenose, Biome, Swarm] {
         if candidate.is_available(state) {
             return candidate;

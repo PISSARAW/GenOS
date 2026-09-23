@@ -39,7 +39,6 @@ pub enum Action {
         path: String,
     },
     List,
-    /// Exécute un binaire autorisé sans passer par un shell.
     Run {
         program: String,
         args: Vec<String>,
@@ -73,40 +72,35 @@ impl FileSandbox {
         Ok(Self { root, ops: 0 })
     }
 
-    /// Résout un chemin relatif en interdisant toute remontée hors racine.
     fn resolve(&self, path: &str) -> Result<PathBuf, String> {
         let candidate = PathBuf::from(path);
         if candidate.is_absolute() {
             return Err("chemin absolu interdit".to_string());
         }
-        if candidate
-            .components()
-            .any(|c| matches!(c, Component::ParentDir))
-        {
+        if candidate.components().any(|c| matches!(c, Component::ParentDir)) {
             return Err("remontee interdite (..)".to_string());
         }
         Ok(self.root.join(candidate))
     }
-}
 
-impl Environment for FileSandbox {
-    fn sense(&self, key: &str) -> Percept {
-        if key.is_empty() || key == "." {
-            let names: Vec<String> = std::fs::read_dir(&self.root)
-                .map(|entries| {
-                    entries
-                        .flatten()
-                        .map(|e| e.file_name().to_string_lossy().to_string())
-                        .collect()
-                })
-                .unwrap_or_default();
-            return Percept {
-                key: key.to_string(),
-                exists: true,
-                content: names.join("\n"),
-                size: names.len(),
-            };
+    fn sense_directory(&self, key: &str) -> Percept {
+        let names: Vec<String> = std::fs::read_dir(&self.root)
+            .map(|entries| {
+                entries
+                    .flatten()
+                    .map(|e| e.file_name().to_string_lossy().to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+        Percept {
+            key: key.to_string(),
+            exists: true,
+            content: names.join("\n"),
+            size: names.len(),
         }
+    }
+
+    fn sense_file(&self, key: &str) -> Percept {
         match self.resolve(key) {
             Ok(path) => match std::fs::read_to_string(&path) {
                 Ok(content) => Percept {
@@ -131,49 +125,65 @@ impl Environment for FileSandbox {
         }
     }
 
+    fn read_file(&self, path: &str) -> Result<Percept, String> {
+        let target = self.resolve(path)?;
+        let content = std::fs::read_to_string(&target).map_err(|e| e.to_string())?;
+        Ok(Percept {
+            key: path.to_string(),
+            exists: true,
+            size: content.len(),
+            content,
+        })
+    }
+
+    fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
+        let target = self.resolve(path)?;
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        std::fs::write(&target, content).map_err(|e| e.to_string())
+    }
+
+    fn append_file(&self, path: &str, content: &str) -> Result<(), String> {
+        use std::io::Write;
+        let target = self.resolve(path)?;
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&target)
+            .map_err(|e| e.to_string())?;
+        file.write_all(content.as_bytes())
+            .map_err(|e| e.to_string())
+    }
+
+    fn delete_file(&self, path: &str) -> Result<(), String> {
+        let target = self.resolve(path)?;
+        std::fs::remove_file(&target).map_err(|e| e.to_string())
+    }
+}
+
+impl Environment for FileSandbox {
+    fn sense(&self, key: &str) -> Percept {
+        if key.is_empty() || key == "." {
+            return self.sense_directory(key);
+        }
+        self.sense_file(key)
+    }
+
     fn act(&mut self, action: Action) -> Feedback {
         self.ops += 1;
-        let result = (|| -> Result<Option<Percept>, String> {
-            match action {
-                Action::Read { path } => {
-                    let target = self.resolve(&path)?;
-                    let content = std::fs::read_to_string(&target).map_err(|e| e.to_string())?;
-                    Ok(Some(Percept {
-                        key: path,
-                        exists: true,
-                        size: content.len(),
-                        content,
-                    }))
-                }
-                Action::Write { path, content } => {
-                    let target = self.resolve(&path)?;
-                    if let Some(parent) = target.parent() {
-                        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-                    }
-                    std::fs::write(&target, content).map_err(|e| e.to_string())?;
-                    Ok(None)
-                }
-                Action::Append { path, content } => {
-                    let target = self.resolve(&path)?;
-                    use std::io::Write;
-                    let mut file = std::fs::OpenOptions::new()
-                        .create(true)
-                        .append(true)
-                        .open(&target)
-                        .map_err(|e| e.to_string())?;
-                    file.write_all(content.as_bytes())
-                        .map_err(|e| e.to_string())?;
-                    Ok(None)
-                }
-                Action::Delete { path } => {
-                    let target = self.resolve(&path)?;
-                    std::fs::remove_file(&target).map_err(|e| e.to_string())?;
-                    Ok(None)
-                }
-                Action::List => Ok(Some(self.sense(""))),
-                Action::Run { .. } => Err("execution interdite dans FileSandbox".to_string()),
+        let result = match action {
+            Action::Read { path } => self.read_file(&path).map(Some),
+            Action::Write { path, content } => {
+                self.write_file(&path, &content).map(|_| None)
             }
-        })();
+            Action::Append { path, content } => {
+                self.append_file(&path, &content).map(|_| None)
+            }
+            Action::Delete { path } => self.delete_file(&path).map(|_| None),
+            Action::List => Ok(Some(self.sense(""))),
+            Action::Run { .. } => Err("execution interdite dans FileSandbox".to_string()),
+        };
         match result {
             Ok(percept) => Feedback {
                 success: true,
@@ -294,10 +304,6 @@ pub struct EmbodiedReport {
 }
 
 impl GenosEcosystem {
-    /// Boucle incarnée concrète : rendre `out_path` conforme à `spec_path`.
-    ///
-    /// Perçoit le monde, agit, reçoit une récompense **externe** (conformité de
-    /// la sortie) et enregistre le tout pour l'apprentissage du directeur.
     pub fn embodied_task<E: Environment>(
         &mut self,
         env: &mut E,
@@ -343,7 +349,6 @@ impl GenosEcosystem {
                 path: out_path.to_string(),
                 content: spec.content.clone(),
             };
-            // Métabolisme réel : agir coûte de l'ATP.
             if !self.orchestrator.metabolism.consume(1.0) {
                 return EmbodiedReport {
                     iterations,

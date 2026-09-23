@@ -1,21 +1,30 @@
-use genos_orchestrator::{Candidate, Demand, GenosEcosystem, RecruitmentPlanner};
+use genos_orchestrator::{Candidate, Demand, GenosEcosystem, RecruitRequest, RecruitmentPlanner};
 
-fn cand(id: &str, role: &str, caps: &[&str], proven: &[&str], cost: f64) -> Candidate {
+/// Paramètres de construction d'un candidat (limite de 3 paramètres).
+struct CandInput<'a> {
+    id: &'a str,
+    role: &'a str,
+    caps: &'a [&'a str],
+    proven: &'a [&'a str],
+    cost: f64,
+}
+
+fn cand(input: CandInput<'_>) -> Candidate {
     Candidate {
-        id: id.to_string(),
-        role: role.to_string(),
-        capabilities: caps.iter().map(|s| s.to_string()).collect(),
-        proven: proven.iter().map(|s| s.to_string()).collect(),
-        cost,
+        id: input.id.to_string(),
+        role: input.role.to_string(),
+        capabilities: input.caps.iter().map(|s| s.to_string()).collect(),
+        proven: input.proven.iter().map(|s| s.to_string()).collect(),
+        cost: input.cost,
     }
 }
 
 #[test]
 fn licence_recruits_one_agent_per_required_role() {
     let cands = vec![
-        cand("CnidocyteGuard", "sentinel", &["interception"], &["interception"], 10.0),
-        cand("GuardCellThrottler", "regulator", &["throttle"], &["throttle"], 10.0),
-        cand("Noise", "worker", &["misc"], &["misc"], 1.0),
+        cand(CandInput { id: "CnidocyteGuard", role: "sentinel", caps: &["interception"], proven: &["interception"], cost: 10.0 }),
+        cand(CandInput { id: "GuardCellThrottler", role: "regulator", caps: &["throttle"], proven: &["throttle"], cost: 10.0 }),
+        cand(CandInput { id: "Noise", role: "worker", caps: &["misc"], proven: &["misc"], cost: 1.0 }),
     ];
     let demand = Demand {
         roles: vec!["sentinel".into(), "regulator".into()],
@@ -30,7 +39,7 @@ fn licence_recruits_one_agent_per_required_role() {
 
     // L'orchestrateur exécute la décision : tissu créé + 2 cellules.
     let mut eco = GenosEcosystem::new("Overmind");
-    let executed = eco.recruit("Biome", &demand, &cands);
+    let executed = eco.recruit(RecruitRequest { tissue: "Biome", demand: &demand, candidates: &cands });
     assert!(executed.feasible);
     assert_eq!(
         eco.orchestrator.tissues.get("Biome").unwrap().somatic_cells.len(),
@@ -41,9 +50,9 @@ fn licence_recruits_one_agent_per_required_role() {
 #[test]
 fn master_covers_capabilities_and_prefers_trusted_candidates() {
     let cands = vec![
-        cand("Trusted", "analyst", &["parse", "verify"], &["parse", "verify"], 20.0),
-        cand("Weak", "analyst", &["parse", "verify"], &["parse"], 5.0),
-        cand("Solver", "solver", &["verify"], &["verify"], 8.0),
+        cand(CandInput { id: "Trusted", role: "analyst", caps: &["parse", "verify"], proven: &["parse", "verify"], cost: 20.0 }),
+        cand(CandInput { id: "Weak", role: "analyst", caps: &["parse", "verify"], proven: &["parse"], cost: 5.0 }),
+        cand(CandInput { id: "Solver", role: "solver", caps: &["verify"], proven: &["verify"], cost: 8.0 }),
     ];
     let demand = Demand {
         roles: vec![],
@@ -61,8 +70,8 @@ fn master_covers_capabilities_and_prefers_trusted_candidates() {
 #[test]
 fn doctorat_refuses_on_budget_and_rejects_impostors() {
     let cands = vec![
-        cand("Impostor", "sentinel", &["interception"], &[], 1.0),
-        cand("Expensive", "sentinel", &["interception"], &["interception"], 500.0),
+        cand(CandInput { id: "Impostor", role: "sentinel", caps: &["interception"], proven: &[], cost: 1.0 }),
+        cand(CandInput { id: "Expensive", role: "sentinel", caps: &["interception"], proven: &["interception"], cost: 500.0 }),
     ];
     let demand = Demand {
         roles: vec!["sentinel".into()],

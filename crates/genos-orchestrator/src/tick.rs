@@ -4,7 +4,7 @@
 use crate::GenosEcosystem;
 use crate::clinical_therapy::{diagnose_active_virions, first_pathology_for_cell, therapy_for_pathology};
 use crate::{director::Strategy, learning::context_from_state};
-use crate::planner::{Concept, Goal};
+use crate::planner::{Concept, Goal, WorldState};
 use crate::plasmids::Skill;
 use crate::signaling::SignalingCascade;
 use crate::trace::Verdict;
@@ -42,6 +42,23 @@ pub struct MissionReport {
     pub traces: usize,
     pub goals: Vec<String>,
 }
+
+/// Vérifications pré-délibération (extraites pour réduire la complexité).
+fn pre_deliberation(eco: &mut GenosEcosystem, state: &WorldState) -> Option<TickReport> {
+    eco.maintain_autopoiesis();
+    diagnose_active_virions(eco);
+    if state.apoptotic {
+        return Some(eco.halted_report("etat apoptotique: volition inhibee"));
+    }
+    eco.propagate_volition(state);
+    if eco.vital_reflex() {
+        return Some(eco.reflex_report());
+    }
+    eco.express_free_desire(state);
+    eco.run_instincts(state);
+    None
+}
+
 impl GenosEcosystem {
 pub fn tick(&mut self, goal: &Goal) -> TickReport {
         // Autopoïèse : la frontière se dégrade ; rompue, l'organisme meurt.
@@ -52,22 +69,12 @@ pub fn tick(&mut self, goal: &Goal) -> TickReport {
         if self.orchestrator.metabolism.is_starved() {
             return self.halted_report("budget epuise: atp insuffisant");
         }
-        self.maintain_autopoiesis();
-        diagnose_active_virions(self);
         let state = self.observe();
-        if state.apoptotic {
-            return self.halted_report("etat apoptotique: volition inhibee");
+        if let Some(report) = pre_deliberation(self, &state) {
+            return report;
         }
-        // Volition endogène avant délibération.
-        self.propagate_volition(&state);
-        if self.vital_reflex() {
-            return self.reflex_report();
-        }
-        self.express_free_desire(&state);
-        // Instincts avant délibération.
-        self.run_instincts(&state);
         self.director.set_context(context_from_state(&state));
-        let (mut decision, physical) = crate::physical_telemetry::decide(&self.director, &state, goal);
+        let (decision, physical) = crate::physical_telemetry::decide(&self.director, &state, goal);
         self.director.physical_memory = Some((physical, decision.strategy));
         let mut report = TickReport {
             tick: self.events.count() as u64,
