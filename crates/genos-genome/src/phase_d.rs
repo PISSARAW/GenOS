@@ -5,7 +5,7 @@
 use crate::fitness::{CausalAblation, FitnessExperiment};
 use crate::genome::Genome;
 use crate::niches::{euclidean_distance, EnvironmentState, Niche, QDArchive};
-use crate::reproduction::MeioticCrossover;
+use crate::reproduction::{fertilize, GenealogyTree};
 use crate::self_modifying::SelfModifyingMutator;
 use rand::Rng;
 use rand::RngExt;
@@ -291,9 +291,9 @@ impl PhaseDCycle {
         let mut i = 0;
         while i < population.len() {
             if i + 1 < population.len() && self.decide_crossover(&mut rng) {
-                let child = MeioticCrossover::fertilize(
-                    &population[i].clone(),
-                    &population[i + 1].clone(),
+                let child = fertilize(
+                    &population[i],
+                    &population[i + 1],
                     &mut rng,
                 );
                 population[i + 1] = child;

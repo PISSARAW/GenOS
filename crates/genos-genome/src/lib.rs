@@ -47,5 +47,5 @@ pub use metacognition::{
 };
 pub use mutation_rates::MutationRates;
 pub use plasmid_v2::{PlasmidCycleResult, PlasmidInstance, PlasmidParams, PlasmidPool};
-pub use reproduction::{GenealogyTree, MeioticCrossover};
+pub use reproduction::{fertilize, strand_crossover, GenealogyTree};
 pub use translation::{AminoAcidToken, Codon, Ribosome, UnfoldedProtein};

@@ -175,7 +175,7 @@ impl AgentDna {
             enhancers: genome.regulatory_enhancers.clone(),
             extra_chromosomes: genome.extra_chromosomes.clone(),
             scars: genome.bud_scars.clone(),
-            epigenome: default_epigenome(genome),
+            epigenome: Self::convert_from_genome_epigenome(&genome.epigenome),
             grn: default_grn(genome),
             development: DevelopmentState::new(),
             unknown_sections: Vec::new(),
@@ -199,7 +199,64 @@ impl AgentDna {
         genome.generation = self.meta.generation;
         genome.ploidy = self.meta.ploidy.clone();
         genome.hayflick_limit = self.meta.hayflick_limit;
+        genome.epigenome = Self::convert_epigenome_state(&self.epigenome, self.meta.generation);
         Ok(genome)
+    }
+
+    fn convert_epigenome_state(epi: &EpigenomeState, generation: u32) -> genos_genome::Epigenome {
+        use genos_genome::{DevelopmentalStage, EpigeneticMark};
+        let stage = match epi.stage.as_str() {
+            "Zygote" => DevelopmentalStage::Zygote,
+            "Pluripotent" => DevelopmentalStage::Pluripotent,
+            "LineageCommitted" => DevelopmentalStage::LineageCommitted,
+            "Differentiated" => DevelopmentalStage::Differentiated,
+            "Mature" => DevelopmentalStage::Mature,
+            "Senescent" => DevelopmentalStage::Senescent,
+            _ => DevelopmentalStage::Zygote,
+        };
+        let mut marks = std::collections::HashMap::new();
+        for (locus, mark) in &epi.marks {
+            let kind = match mark.kind.as_str() {
+                "Methylation" => EpigeneticMark::Methylation,
+                "Acetylation" => EpigeneticMark::Acetylation,
+                "Phosphorylation" => EpigeneticMark::Phosphorylation,
+                _ => EpigeneticMark::Methylation,
+            };
+            marks.insert(locus.clone(), genos_genome::Mark { kind, level: mark.level });
+        }
+        let stress_memory = epi.stress_memory.iter().map(|s| genos_genome::StressRecord {
+            signal: s.clone(),
+            intensity: 1.0,
+            acquired_at: u64::from(generation),
+        }).collect();
+        let mut epigenome = genos_genome::Epigenome::new();
+        epigenome.marks = marks;
+        epigenome.stage = stage;
+        epigenome.stress_memory = stress_memory;
+        epigenome.generation = u64::from(generation);
+        epigenome
+    }
+
+    fn convert_from_genome_epigenome(epi: &genos_genome::Epigenome) -> EpigenomeState {
+        let stage = match epi.stage {
+            genos_genome::DevelopmentalStage::Zygote => "Zygote".to_string(),
+            genos_genome::DevelopmentalStage::Pluripotent => "Pluripotent".to_string(),
+            genos_genome::DevelopmentalStage::LineageCommitted => "LineageCommitted".to_string(),
+            genos_genome::DevelopmentalStage::Differentiated => "Differentiated".to_string(),
+            genos_genome::DevelopmentalStage::Mature => "Mature".to_string(),
+            genos_genome::DevelopmentalStage::Senescent => "Senescent".to_string(),
+        };
+        let mut marks = BTreeMap::new();
+        for (locus, mark) in &epi.marks {
+            let kind = match mark.kind {
+                genos_genome::EpigeneticMark::Methylation => "Methylation".to_string(),
+                genos_genome::EpigeneticMark::Acetylation => "Acetylation".to_string(),
+                genos_genome::EpigeneticMark::Phosphorylation => "Phosphorylation".to_string(),
+            };
+            marks.insert(locus.clone(), EpiMark { kind, level: mark.level });
+        }
+        let stress_memory = epi.stress_memory.iter().map(|r| r.signal.clone()).collect();
+        EpigenomeState { marks, stage, stress_memory, generation: epi.generation }
     }
 }
 
@@ -210,20 +267,7 @@ fn epoch_seconds() -> i64 {
     }
 }
 
-fn default_epigenome(genome: &Genome) -> EpigenomeState {
-    let mut marks = BTreeMap::new();
-    for (locus, gene) in &genome.genes {
-        if gene.is_methylated {
-            marks.insert(locus.clone(), EpiMark { kind: "Methylation".to_string(), level: 1.0 });
-        }
-    }
-    EpigenomeState {
-        marks,
-        stage: "Zygote".to_string(),
-        stress_memory: Vec::new(),
-        generation: u64::from(genome.generation),
-    }
-}
+
 
 fn default_grn(genome: &Genome) -> GrnState {
     let mut nodes = BTreeMap::new();

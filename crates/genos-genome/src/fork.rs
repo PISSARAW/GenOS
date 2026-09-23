@@ -1,5 +1,5 @@
 use crate::genome::Genome;
-use crate::reproduction::MeioticCrossover;
+use crate::reproduction::fertilize;
 use rand::RngExt;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -37,7 +37,7 @@ impl ForkOperator {
         divergence_rate: f64,
         rng: &mut R,
     ) -> ForkResult {
-        let mut child = MeioticCrossover::fertilize(parent_a, parent_b, rng);
+        let mut child = fertilize(parent_a, parent_b, rng);
         let clamped = divergence_rate.clamp(0.0, 1.0);
         if clamped > 0.0 {
             child.chromosome_maternal.mutate_stochastic(clamped, rng);

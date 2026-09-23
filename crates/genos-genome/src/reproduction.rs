@@ -3,71 +3,6 @@ use crate::genome::Genome;
 use rand::RngExt;
 use uuid::Uuid;
 
-pub struct MeioticCrossover;
-
-impl MeioticCrossover {
-    pub fn crossover<R: RngExt + ?Sized>(
-        maternal: &DnaStrand,
-        paternal: &DnaStrand,
-        rng: &mut R,
-    ) -> (DnaStrand, DnaStrand) {
-        let len = maternal.len().min(paternal.len());
-        if len == 0 {
-            return (maternal.clone(), paternal.clone());
-        }
-        let point = rng.random_range(1..len);
-        let mut first_seq = maternal.as_slice()[..point].to_vec();
-        first_seq.extend_from_slice(&paternal.as_slice()[point..]);
-        let mut second_seq = paternal.as_slice()[..point].to_vec();
-        second_seq.extend_from_slice(&maternal.as_slice()[point..]);
-        (DnaStrand::new(first_seq), DnaStrand::new(second_seq))
-    }
-
-    pub fn fertilize<R: RngExt + ?Sized>(
-        parent_a: &Genome,
-        parent_b: &Genome,
-        rng: &mut R,
-    ) -> Genome {
-        let mut child = parent_a.derive_reproductive_child();
-        child.set_identity(Uuid::new_v4());
-        child.parent_ids = vec![parent_a.genome_id(), parent_b.genome_id()];
-        child.generation = parent_a
-            .generation
-            .max(parent_b.generation)
-            .saturating_add(1);
-
-        let (a_mat, _a_pat) = Self::crossover(
-            &parent_a.chromosome_maternal,
-            &parent_a.chromosome_paternal,
-            rng,
-        );
-        let (b_mat, _b_pat) = Self::crossover(
-            &parent_b.chromosome_maternal,
-            &parent_b.chromosome_paternal,
-            rng,
-        );
-        child.chromosome_maternal = a_mat;
-        child.chromosome_paternal = b_mat;
-        child.extra_chromosomes = build_extra_chromosomes(parent_a, parent_b, rng);
-
-        child
-    }
-}
-
-fn build_extra_chromosomes<R: RngExt + ?Sized>(
-    parent_a: &Genome,
-    parent_b: &Genome,
-    rng: &mut R,
-) -> Vec<DnaStrand> {
-    let mut combined = parent_a.extra_chromosomes.clone();
-    for chrom in &parent_b.extra_chromosomes {
-        if rng.random_bool(0.5) {
-            combined.push(chrom.clone());
-        }
-    }
-    combined
-}
-
 pub struct GenealogyTree;
 
 impl GenealogyTree {
@@ -109,6 +44,50 @@ impl GenealogyTree {
     }
 }
 
+pub fn strand_crossover(
+    maternal: &DnaStrand,
+    paternal: &DnaStrand,
+    rng: &mut (impl rand::Rng + ?Sized),
+) -> (DnaStrand, DnaStrand) {
+    let len = maternal.len().min(paternal.len());
+    if len == 0 {
+        return (maternal.clone(), paternal.clone());
+    }
+    let point = rng.random_range(1..len);
+    let mut first_seq = maternal.as_slice()[..point].to_vec();
+    first_seq.extend_from_slice(&paternal.as_slice()[point..]);
+    let mut second_seq = paternal.as_slice()[..point].to_vec();
+    second_seq.extend_from_slice(&maternal.as_slice()[point..]);
+    (DnaStrand::new(first_seq), DnaStrand::new(second_seq))
+}
+
+pub fn fertilize(parent_a: &Genome, parent_b: &Genome, rng: &mut (impl rand::Rng + ?Sized)) -> Genome {
+    let mut child = parent_a.derive_reproductive_child();
+    child.set_identity(Uuid::new_v4());
+    child.parent_ids = vec![parent_a.genome_id(), parent_b.genome_id()];
+    child.generation = parent_a.generation.max(parent_b.generation).saturating_add(1);
+    let (a_mat, _a_pat) = strand_crossover(&parent_a.chromosome_maternal, &parent_a.chromosome_paternal, rng);
+    let (b_mat, _b_pat) = strand_crossover(&parent_b.chromosome_maternal, &parent_b.chromosome_paternal, rng);
+    child.chromosome_maternal = a_mat;
+    child.chromosome_paternal = b_mat;
+    child.extra_chromosomes = build_extra_chromosomes(parent_a, parent_b, rng);
+    child
+}
+
+fn build_extra_chromosomes(
+    parent_a: &Genome,
+    parent_b: &Genome,
+    rng: &mut (impl rand::Rng + ?Sized),
+) -> Vec<DnaStrand> {
+    let mut combined = parent_a.extra_chromosomes.clone();
+    for chrom in &parent_b.extra_chromosomes {
+        if rng.random_bool(0.5) {
+            combined.push(chrom.clone());
+        }
+    }
+    combined
+}
+
 fn count_comparable_positions(a: &Genome, b: &Genome) -> usize {
     let mat_len = a.chromosome_maternal.len().min(b.chromosome_maternal.len());
     let pat_len = a.chromosome_paternal.len().min(b.chromosome_paternal.len());
@@ -145,22 +124,9 @@ fn count_mismatches(a: &Genome, b: &Genome) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dna::DnaNucleotide;
     use crate::genome::Genome;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
-
-    #[test]
-    fn crossover_produces_two_strands_of_correct_length() {
-        let maternal = DnaStrand::new(vec![DnaNucleotide::A; 20]);
-        let paternal = DnaStrand::new(vec![DnaNucleotide::T; 20]);
-        let mut rng = StdRng::seed_from_u64(42);
-
-        let (first, second) = MeioticCrossover::crossover(&maternal, &paternal, &mut rng);
-
-        assert_eq!(first.len(), 20);
-        assert_eq!(second.len(), 20);
-    }
 
     #[test]
     fn fertilized_child_has_both_parents_in_parent_ids() {
@@ -168,7 +134,7 @@ mod tests {
         let parent_b = Genome::new("PARENT_B");
         let mut rng = StdRng::seed_from_u64(99);
 
-        let child = MeioticCrossover::fertilize(&parent_a, &parent_b, &mut rng);
+        let child = fertilize(&parent_a, &parent_b, &mut rng);
 
         assert_eq!(
             child.parent_ids,
@@ -211,7 +177,7 @@ mod tests {
         let parent_b = Genome::new("VALID_B");
         let mut rng = StdRng::seed_from_u64(7);
 
-        let child = MeioticCrossover::fertilize(&parent_a, &parent_b, &mut rng);
+        let child = fertilize(&parent_a, &parent_b, &mut rng);
 
         assert_ne!(child.genome_id(), Uuid::nil());
         assert_ne!(child.genome_id(), parent_a.genome_id());

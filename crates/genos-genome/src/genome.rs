@@ -1,5 +1,7 @@
 use crate::dna::DnaStrand;
+use crate::epigenome::Epigenome;
 use crate::gene::{ChromatinState, Gene, Plasmid};
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -41,6 +43,8 @@ pub struct Genome {
     pub bud_scars: Vec<Uuid>,
     #[serde(default = "default_hayflick_limit")]
     pub hayflick_limit: u32,
+    #[serde(default)]
+    pub epigenome: Epigenome,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -121,6 +125,7 @@ impl Genome {
                 gene.expression_volume = 1.0;
             }
         }
+        child.epigenome = Epigenome::with_generation(u64::from(child.generation));
         child
     }
 
@@ -147,29 +152,51 @@ impl Genome {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        if self.genome_id == Uuid::nil() { return Err("genome_id must not be nil".into()); }
-        if self.lineage_id == Uuid::nil() { return Err("lineage_id must not be nil".into()); }
+        if self.genome_id == Uuid::nil() {
+            return Err("genome_id must not be nil".into());
+        }
+        if self.lineage_id == Uuid::nil() {
+            return Err("lineage_id must not be nil".into());
+        }
         if self.chromosome_maternal.is_empty() || self.chromosome_paternal.is_empty() {
             return Err("chromosomes must not be empty".into());
         }
+        self.validate_genes()?;
+        self.validate_plasmids()?;
+        self.validate_chromosomes()
+    }
+
+    fn validate_genes(&self) -> Result<(), String> {
         for (key, gene) in &self.genes {
             if key.trim().is_empty() || gene.locus.trim().is_empty() || gene.dna.is_empty() {
                 return Err(format!("gene '{key}' has an invalid locus or empty DNA"));
             }
-            if key != &gene.locus { return Err(format!("gene map key does not match locus '{key}'")); }
+            if key != &gene.locus {
+                return Err(format!("gene map key does not match locus '{key}'"));
+            }
             for &(start, end) in &gene.default_exons {
                 if start >= end || end > gene.dna.len() {
                     return Err(format!("gene '{key}' has an invalid exon range"));
                 }
             }
         }
+        Ok(())
+    }
+
+    fn validate_plasmids(&self) -> Result<(), String> {
         for plasmid in &self.plasmids {
             if plasmid.id == Uuid::nil() || plasmid.instruction.trim().is_empty() {
                 return Err("plasmids must have a non-nil id and non-empty instruction".into());
             }
         }
+        Ok(())
+    }
+
+    fn validate_chromosomes(&self) -> Result<(), String> {
         for chromosome in &self.extra_chromosomes {
-            if chromosome.is_empty() { return Err("extra chromosomes must not be empty".into()); }
+            if chromosome.is_empty() {
+                return Err("extra chromosomes must not be empty".into());
+            }
         }
         Ok(())
     }
@@ -201,7 +228,9 @@ impl Genome {
         hasher.update(serde_json::to_vec(&content).unwrap_or_default());
         hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect()
     }
+}
 
+impl Genome {
     pub fn new(base_instruction: &str) -> Self {
         let id = Uuid::new_v4();
         let strand = DnaStrand::synthesize(base_instruction);
@@ -220,6 +249,7 @@ impl Genome {
             parent_ids: Vec::new(),
             generation: 0,
             ploidy: default_ploidy(),
+            epigenome: Epigenome::new(),
         }
     }
 
