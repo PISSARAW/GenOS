@@ -100,6 +100,7 @@ flowchart TD
 | `npm --prefix backend run test:providers` | valide les configurations/protocoles providers |
 | `npm --prefix backend run test:concurrency` | valide le seed concurrent SQLite |
 | `npm --prefix backend run test:grpc` | lance l'intégration gRPC locale |
+| `npm --prefix backend run test:aeis` | exécute la suite AEIS (e2e, sandbox, holobionte, verifiers, clonal, maturation) |
 | `npm run test:fpamb` | exécute la suite First-Person Agent Memory Benchmark (FP-AMB, 262/262) |
 | `npm run test:bfcl` | exécute la suite Berkeley Function Calling Leaderboard (BFCL, 1040/1040) |
 | `cargo test --workspace` | exécute les tests unitaires Rust disponibles dans les crates |

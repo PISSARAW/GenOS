@@ -34,9 +34,15 @@ La gate est volontairement explicite afin de préserver les contrats historiques
 Le secret `GENOS_EPISTEMIC_RECEIPT_SECRET` doit être injecté par l'opérateur. Il ne
 doit jamais être placé dans le contrat, le rapport d'agent ou le dépôt.
 
-Quand la politique est active, le rapport final doit porter
-`report.epistemicAssembly`. L'absence de cet objet bloque la promotion avec la
-politique `require_epistemic_assurance`.
+Quand la politique est active, la gate exige un assemblage épistémique complet.
+Deux chemins d'alimentation existent :
+
+- `report.epistemicAssembly` porté par le rapport final ;
+- `aeisEvaluation.assembly` calculé par `evaluateReportWithAeis()` pendant
+  `approveRun()` et injecté par `buildGateContext()` (`promotionGateContext.js`).
+
+L'absence des deux bloque la promotion avec la politique
+`require_epistemic_assurance`.
 
 ## Contrat de l'assemblage
 
@@ -47,7 +53,7 @@ L'assemblage contient les sections suivantes :
 | `results` | Résultats formels canoniques à assembler |
 | `obligations` | Contraintes et questions qui doivent être couvertes |
 | `coverage` | Liens entre obligation, résultat et digest de preuve |
-| `constraintAttestations` | Deux recensements indépendants du même ensemble d'obligations |
+| `constraintAttestations` | Deux recensements indépendants du même ensemble d'obligations (construits depuis les receipts indépendants par `buildConstraintAttestations`) |
 | `verifications` | Reçus authentifiés de vérificateurs indépendants |
 | `equivalences` | Équivalences accompagnées d'un témoin |
 | `deduplications` | Groupes équivalents coalescés vers un résultat canonique |
@@ -63,21 +69,31 @@ agent n'est donc pas accepté sur la seule foi de ses empreintes déclarées.
 
 ## Reçus de vérification
 
-Un adaptateur de domaine exécute son vérificateur, puis appelle
-`issueReceipt()` avec le `resultId`, le digest de preuve et le digest immuable du
-vérificateur. Le reçu lie aussi la date, un nonce, le statut et l'indépendance du
-vérificateur. La signature HMAC couvre tous ces champs.
+Le FormalResult est créé **avant** la vérification (`bindAntigenToFormalResult`) :
+l'antigène porte ensuite `id = resultId` et `evidence.digest` du FormalResult.
+Un adaptateur de domaine exécute son vérificateur — les adapters test/artifact
+lancent réellement leur commande via `sandboxExecutor.runIsolated()` sous
+allowlist, et `verified` dépend du exit code réel — puis appelle
+`issueReceipt()` avec ce `resultId`, ce digest de preuve et le digest du
+vérificateur résolu dans le registre central (`verifierTrustRegistry`, digest
+stable `type + version + policy`, source unique des contrats et des reçus).
+L'indépendance est évaluée **avant** signature, contre le **producer** du claim
+puis contre les verifiers précédents ; le reçu lie aussi la date, un nonce, le
+statut et cette indépendance. La signature HMAC couvre tous ces champs.
 
 À la promotion, `validateReceipt()` vérifie simultanément :
 
 1. la signature en temps constant ;
-2. l'appartenance du vérificateur à la liste pré-engagée du contrat ;
-3. la liaison au résultat et à son digest de preuve ;
+2. l'appartenance du vérificateur à la liste du contrat (résolue depuis le
+   registre central, jamais vide par défaut) ;
+3. la liaison au résultat et à son digest de preuve (`receipt.resultId` et
+   `evidenceDigest` identiques à ceux du FormalResult) ;
 4. le statut réussi et l'indépendance déclarée.
 
 Modifier un champ après émission invalide le reçu. Ajouter une nouvelle empreinte
 de vérificateur dans le rapport ne donne aucun droit : seule la liste du contrat est
-utilisée par la politique de promotion.
+utilisée par la politique de promotion. Un verifier sans commande configurée rend
+`inconclusive` au lieu de simuler un succès.
 
 ## Sémantique des refus
 
@@ -117,6 +133,7 @@ la spécification humaine initiale était exhaustive.
 ## Vérification locale
 
 ```powershell
+npm run test:aeis
 node backend/tests/test_formal_result_contract.js
 node backend/tests/test_epistemic_assurance.js
 npm test

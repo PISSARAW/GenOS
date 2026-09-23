@@ -1006,7 +1006,11 @@ spécialisé produit après reconnaissance.
 ### 29.4. Sélection clonale
 
 Quand un nouvel antigène apparaît, les vérificateurs les plus affins sont
-recrutés. L'expansion clonale favorise les vérificateurs historiquement
+recrutés (au moins deux, second avis falsification prioritaire). Le meilleur
+parent est cloné en deux mutants de stratégie, les clones sont réellement
+exécutés, puis `selectWinningClones` tranche — mais seulement sur résolution
+oracle : sans vérité externe, les clones restent `pending` et le parent est
+conservé. L'expansion clonale favorise les vérificateurs historiquement
 fiables (Brier corrigé), pas des IA au hasard.
 
 ### 29.5. Affinity maturation
@@ -1020,6 +1024,9 @@ prediction + verification + oracle truth
   → mutation / sélection
   → meilleure stratégie de vérification
 ```
+
+Sans oracle truth, aucune maturation n'est appliquée : `host.accepted` ne vaut
+pas succès, l'affinité est inchangée et le clone reste `pending`.
 
 ### 29.6. Mémoire immunitaire épistémique
 
@@ -1113,7 +1120,7 @@ Le Host garde l'autorité finale.
 
 ### 29.14. Challenge immunitaire épistémique
 
-Le benchmark EAB attaque le système avec des pathogènes épistémiques :
+Le challenge immunitaire attaque le système avec des pathogènes épistémiques :
 
 ```text
 P01 fake evidence           P06 self-verification
@@ -1126,6 +1133,11 @@ P05 verifier gaming         P10 correlated model failure
 Mesures : recognition rate, neutralization rate, false-positive rate,
 immune escape rate, response cost, response latency, memory response gain,
 autoimmune rate.
+
+L'intégration benchmark (`epistemicBenchmarkIntegrationService`) sépare
+`solverAnswer`, `groundTruth`, `answerCorrect` et `aeisDecision` ; le taux de
+faux positifs vaut (`answerCorrect` = false AND `aeisDecision` = PROMOTE).
+Ce n'est pas un benchmark EAB complet : aucun dataset externe n'est branché.
 
 ### 29.15. Règle de biométisme
 
@@ -1152,6 +1164,10 @@ d'étiquettes biologiques.
 | Immunité innée | `epistemic/innateEpistemicImmunity.js` |
 | Immunité adaptative | `epistemic/adaptiveImmuneResponse.js` |
 | Vérificateurs spécialisés | `epistemic/verifierCatalogService.js` |
+| Exécution sandbox des verifiers | `epistemic/verifierAdapters.js` + `services/sandboxExecutor.js` |
+| Pont runtime + indépendance vs producer | `epistemic/verifierRuntimeBridge.js` |
+| Registre de confiance des verifiers | `services/verifierTrustRegistry.js` |
+| Pont AEIS → promotion (binding + census) | `epistemic/aeisPromotionBridge.js` |
 | Mémoire immunitaire | `epistemic/immuneMemoryService.js` |
 | Inflammation + régulation | `epistemic/epistemicInflammationAndRegulation.js` |
 | Apoptose épistémique | `epistemic/epistemicApoptosisService.js` |

@@ -1,7 +1,7 @@
 ---
 title: "Adaptive Epistemic Immune System"
 description: "Système immunitaire épistémique adaptatif pour GenOS — reconnaissance, vérification et neutralisation des formes de conviction trompeuses."
-version: 1.0.0
+version: 1.1.0
 author: GenOS
 created: 2026-09-21
 tags: [epistemology, immunity, biomimicry, verification, adaptive]
@@ -117,9 +117,9 @@ seuil apoptosis = 50
 | Antigène | `EpistemicAntigen` — unité claim + epitopes + producer + risk + state | Pas de protéine ; une structure de données |
 | Immunité innée | `innateEpistemicImmunity` — PPR déterministes (EMPTY_EVIDENCE, SELF_VERIFICATION, etc.) | Pas de cellule ; des fonctions synchrones |
 | Immunité adaptative | `adaptiveImmuneResponse` — vérificateurs spécialisés avec affinité | Pas de lymphocyte ; des objets avec `affinity` et `strategy` |
-| Sélection clonale | `verifierCatalogService.selectTopClones` + `clonalExpansionService.expandClone` — recrute et clone les vérificateurs les plus affins | Pas de réplication ; un tri par `fit = affinity × success_rate` + 4 mutations de stratégie |
-| Affinity maturation | `affinityMaturationService.matureStrategy` — mutation ciblée après résolution oracle truth | Pas de mutation génétique ; 5 mutations de stratégie diagnostiquées |
-| Mémoire immunitaire | `immuneMemoryService` — signature, recall, fuzzyRecall, recordOutcome | Pas de cellule mémoire ; un tableau en mémoire |
+| Sélection clonale | `verifierCatalogService.selectTopClones` (≥2, falsification prioritaire) + `clonalExpansionService` (`expandClone` exécutés, `selectWinningClones` tranche sur oracle) | Pas de réplication ; tri par `fit`, 4 mutations, clones réellement exécutés, oracle requis pour trancher |
+| Affinity maturation | `affinityMaturationService.matureStrategy` — mutation ciblée après résolution oracle truth, sinon `pending` | Pas de mutation génétique ; 5 mutations diagnostiquées, jamais de succès auto-déclaré |
+| Mémoire immunitaire | `immuneMemoryService` — signature, recall, fuzzyRecall Jaccard, thresholdRecall, recordOutcome | Pas de cellule mémoire ; un tableau en mémoire |
 | Inflammation | `epistemicInflammationAndRegulation` — pression → effort | Pas de cytokine ; un calcul de pression |
 | Tolérance / T-reg | `regulatoryReview` — inhibe les rejets injustifiés | Pas de cellule T ; une fonction qui vérifie la justification |
 | Apoptose | `epistemicApoptosisService` + `epistemicApoptosisAuthorityBridge` — dissonance → seuils → autopsie → révocation runtime | Pas de mort cellulaire ; un agent marqué `apoptotique` + statut DB mis à jour |
@@ -267,9 +267,13 @@ Une information arrive dans l'organisme GenOS
 | Immunité adaptative | `epistemic/adaptiveEpistemicResponse.js` | `adaptiveCheck`, `adaptiveResponse`, `scanAntigen` |
 | Décision adaptative | `epistemic/adaptiveEpistemicDecision.js` | `decisionFromAdaptive`, `summarize`, `describe` |
 | Vérificateurs spécialisés | `epistemic/verifierCatalogService.js` | `defaultCatalog`, `selectTopClones`, `clonalRank` |
-| Exécution des verifiers | `epistemic/verifierExecutionService.js` | `executeVerifier`, `executeVerifiers`, `createReceipt` |
-| Pont runtime worker | `epistemic/verifierRuntimeBridge.js` | `buildVerifierWorker`, `executeVerifierWorkers` |
-| Mémoire immunitaire | `epistemic/immuneMemoryService.js` | `recall`, `fuzzyRecall`, `recordOutcome`, `signatureFrom` |
+| Exécution des verifiers | `epistemic/verifierExecutionService.js` | `executeVerifier`, `executeVerifiers` (digests via trust registry) |
+| Pont runtime worker | `epistemic/verifierRuntimeBridge.js` | `buildVerifierWorker`, `executeVerifierWorkers`, indépendance vs producer avant signature |
+| Registre de confiance | `services/verifierTrustRegistry.js` | `registerVerifier`, `resolveVerifierDigest`, `listVerifierDigests` (source unique) |
+| Adapters sandbox | `epistemic/verifierAdapters.js` + `services/sandboxExecutor.js` | `runTestAdapter`, `runArtifactAdapter` via `runIsolated` (allowlist) |
+| Pont AEIS → promotion | `epistemic/aeisPromotionBridge.js` | `bindAntigenToFormalResult`, `buildConstraintAttestations`, `evaluateReportWithAeis` |
+| Contexte de gate | `services/promotionGateContext.js` | `buildGateContext` injecte `epistemicAssembly` depuis `aeisEvaluation` |
+| Mémoire immunitaire | `epistemic/immuneMemoryService.js` | `recall`, `fuzzyRecall` (Jaccard), `thresholdRecall`, `recordOutcome`, `signatureFrom` |
 | Réponse adaptative | `epistemic/adaptiveImmuneResponse.js` | `assembleAntigen`, `adaptiveImmuneResponse`, `runAdaptivePipeline` |
 | Inflammation + régulation | `epistemic/epistemicInflammationAndRegulation.js` | `assignPressureTier`, `shouldInflame`, `recommendedEffort`, `regulatoryReview` |
 | Apoptose épistémique | `epistemic/epistemicApoptosisService.js` | `dissonanceFrom`, `niveauCorpsent`, `accumulate`, `apoptose`, `autopsy` |
@@ -291,7 +295,7 @@ Une information arrive dans l'organisme GenOS
 ```text
 epistemicHolobionte(antigen, context)
   ├── specialistSymbioteSolve(antigen)        → Specialist output
-  ├── memorySymbiontLookup(antigen, context)   → Memory report (recall/fuzzy)
+  ├── memorySymbiontLookup(antigen, context)   → Memory report (recall/fuzzy Jaccard)
   ├── immuneSymbiontReview(antigen, context)
   │     ├── runAdaptivePipeline(antigen, context)
   │     │     ├── assembleAntigen(input)       → EpistemicAntigen
@@ -301,17 +305,20 @@ epistemicHolobionte(antigen, context)
   │     │     │     │     ├── neededSignals(antigen, context)
   │     │     │     │     └── adaptiveTriggerScore(antigen, context)
   │     │     │     └── adaptiveResponse(evaluation)
-  │     │     ├── selectTopClones(catalog, antigen, opts)  [clonal selection]
+  │     │     └── selectTopClones(catalog, antigen, opts)  [clonal selection, ≥2 verifiers, falsification prioritaire]
+  │     ├── executeVerifierWorkers(antigen, verifiers) [adapters, sandbox réel si commande configurée]
+  │     ├── runClonalSelectionCycle(parent, antigen, context) [cycle clonal exécuté]
   │     │     ├── expandClone(parent, opts)                [clonal expansion]
-  │     │     ├── executeVerifierWorkers(antigen, verifiers) [exécution réelle]
-  │     │     ├── matureStrategy(verification, oracleTruth) [affinity maturation]
-  │     │     └── depositPheromone(signal)                 [stigmergie inter-process]
+  │     │     ├── executeVerifierWorkers(antigen, clones)  [exécution des clones]
+  │     │     ├── selectWinningClones(parent, clones)      [sélection, oracle requis pour trancher]
+  │     │     └── matureStrategy(verification, oracleTruth) [affinity maturation, oracle requis sinon pending]
+  │     ├── depositPheromone(signal)                 [stigmergie inter-process]
   │     └── regulatoryReview(antigen, blockReason, context) [T-reg]
   ├── hostDecision({ specialist, immune, memory }, opts)   [host veto]
   ├── cognitiveBiocenose(reviewers)                          [diversité]
   ├── computePressure(antigen)                               [homéostasie]
   ├── applyEpistemicApoptosis(db, agentId, signals)          [apoptose → révocation]
-  └── recordOutcome(memory, antigen, opts)                   [affinity maturation]
+  └── recordOutcome(memory, antigen, opts)                   [pending sans oracle, jamais success auto]
 ```
 
 ### Schéma de la réponse immunitaire
@@ -369,37 +376,57 @@ epistemicHolobionte(antigen, context)
 
 4. CLONAL SELECTION
    epitopeHint(antigen) → "testResult" | "replay" | ...
-   matchingVerifiers(catalog, antigen) → [verifier]
    clonalRank(catalog, antigen, strategyBias) → sorted by fit
-   selectTopClones(catalog, antigen, opts) → [top verifier]
+   selectTopClones(catalog, antigen, opts) → ≥2 verifiers (falsification prioritaire en top-up)
 
-5. RÉGULATION
+5. VÉRIFICATION BINDÉE (aeisPromotionBridge)
+   bindAntigenToFormalResult(antigen) → FormalResult créé AVANT vérification
+   antigen.id = formalResult.resultId, evidence.digest = formalResult.evidence.digest
+   executeVerifierWorkers → receipts avec resultId/evidenceDigest du FormalResult
+   indépendance évaluée vs PRODUCTEUR puis vs verifiers précédents, AVANT signature
+   verifierDigest résolu via le trust registry (identité stable, jamais le type brut)
+
+6. EXÉCUTION RÉELLE
+   test/artifact → sandboxExecutor.runIsolated (allowlist sandboxCommandPolicy)
+   verified dépend du exit code réel ; sans commande configurée → inconclusive (jamais simulé)
+   coverage/behavior → mesures et recherches réelles sur l'antigène
+
+7. CENSUS + GATE
+   buildConstraintAttestations(verifications, obligationIds) → 2 acteurs indépendants requis
+   buildGateContext injecte aeisEvaluation.assembly dans epistemicAssembly
+   epistemicAssurancePolicy évalue l'assembly injectée (pas de "missing assembly" si AEIS a tourné)
+
+8. RÉGULATION
    regulatoryReview(antigen, blockReason, context) → { inhibit, reason }
    si inhibit: suppression du rejet
 
-6. HOST DECISION
+9. HOST DECISION
    hostDecision({ specialist, immune, memory }, opts) → { accepted, reason }
 
-7. MÉMOIRE
-   recordOutcome(memory, antigen, { domain, success, effectiveResponse })
+10. MÉMOIRE
+    recordOutcome(memory, antigen, { domain, outcome })
+    outcome pending sans oracle (host.accepted ≠ success) ; seul un oracle tranche
 
-8. HOMÉOSTASIE
-   computePressure(antigen) → 0.0 - 1.0
-   tierFromPressure(pressure) → "baseline" | "lean" | "adaptive" | "inflamed" | "systemic"
+11. HOMÉOSTASIE
+    computePressure(antigen) → 0.0 - 1.0
+    tierFromPressure(pressure) → "baseline" | "lean" | "adaptive" | "inflamed" | "systemic"
 ```
 
 ### Validation des tests
 
-Tous les services ont des tests unitaires dans `backend/tests/epistemic_*_test.js` :
+Suite AEIS complète (`backend/package.json` → `test:aeis`) :
 
 ```bash
-node backend/tests/epistemic_homeostasis_test.js        # OK
-node backend/tests/epistemic_biocenose_test.js          # OK
-node backend/tests/epistemic_metapopulation_test.js     # OK
-node backend/tests/epistemic_stigmergy_test.js          # OK
-node backend/tests/epistemic_challenge_test.js          # OK
-node backend/tests/epistemic_holobionte_test.js         # OK
+npm run test:aeis
+# test_aeis_e2e.js      # holobionte, adapters, receipts, binding, bon claim eligible + gate OK
+# test_aeis_sandbox.js  # sandbox réel, adapters via runIsolated, indépendance avant signature
+# epistemic_holobionte_test.js
+# verifier_execution_test.js
+# clonal_expansion_test.js
+# affinity_maturation_test.js
 ```
+
+Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
 
 ## 9. Comparaison avec le marché
 
@@ -437,8 +464,10 @@ node backend/tests/epistemic_holobionte_test.js         # OK
   (pas persistante entre sessions). Pour une persistance, il faudrait une table
   SQLite dédiée.
 
-- **Mock dans les tests** : le challenge immunitaire utilise un mock
-  (`mockImmune`). L'intégration réelle avec le pipeline complet reste à faire.
+- **Pas de benchmark EAB complet** : l'intégration sépare `solverAnswer`,
+  `groundTruth`, `answerCorrect` et `aeisDecision`, avec
+  FAR = (`answerCorrect` = false AND `aeisDecision` = PROMOTE). Un vrai dataset
+  benchmark branché reste à faire.
 
 ### Garde-fous
 
@@ -467,20 +496,27 @@ node backend/tests/epistemic_holobionte_test.js         # OK
 - modèle antigène (EpistemicAntigen)
 - reconnaissance innée (PPR déterministes)
 - calcul homéostasie (pression D = f(risk, uncertainty, contradiction, novelty, cost, evidence))
-- sélection de verifiers (affinity-based)
-- mémoire immunitaire (signature, recall, fuzzyRecall, recordOutcome)
+- sélection de verifiers (affinity-based, ≥2 avec second avis falsification)
+- mémoire immunitaire (signature, recall, fuzzyRecall Jaccard, thresholdRecall, recordOutcome)
 - métriques de diversité (effectiveDiversity, shannonDiversity, errorDiversity, toolDiversity)
 - biocénose / métapopulation / stigmergie / holobionte
 - exécution réelle des verifiers (verifierExecutionService + verifierRuntimeBridge)
-- clonal expansion (clonalExpansionService : mutateStrategy, expandClone, selectWinningClones)
-- affinity maturation (affinityMaturationService : diagnoseError, targetedMutation, matureStrategy)
+- adapters test/artifact via sandbox réel (sandboxExecutor, allowlist, exit code réel)
+- trust registry central (digests stables type+version+policy, source unique contrats + receipts)
+- indépendance vs producer évaluée avant signature du receipt (immuable après)
+- FormalResult créé avant vérification, receipts bindés (resultId + evidenceDigest)
+- census de contraintes depuis receipts indépendants (2 acteurs requis)
+- AEIS → promotion gate injectée (epistemicAssembly depuis aeisEvaluation)
+- clonal expansion exécutée (clonalExpansionService : mutateStrategy, expandClone, selectWinningClones)
+- affinity maturation branchée avec oracle requis (affinityMaturationService : diagnoseError, targetedMutation, matureStrategy)
 - stigmergie inter-process (stigmergyInterProcessBridge via biomimeticSignalingBus)
 - apoptose intégrée à l'autorité runtime (epistemicApoptosisAuthorityBridge)
 - AEIS → promotion gate (require_epistemic_assurance = true)
 - Intégration benchmark partielle (epistemicBenchmarkIntegrationService : cas → EpistemicAntigen avec solverAnswer/groundTruth séparés, FAR = answerCorrect=false AND aeisDecision=PROMOTE) — pas de benchmark EAB complet
 
 **Partiel** :
-- vérification indépendante forte (receipts signés mais pas de vérification croisée multi-provider)
-- recrutement réel de niches (biocénose statique, pas de recrutement dynamique)
+- vérification indépendante forte (receipts signés et comparés au producer, mais pas de vérification croisée multi-provider)
+- recrutement réel de niches (top-up falsification prioritaire, mais biocénose sans recrutement dynamique)
 - isolation réelle des métapopulations (isolation logique, pas processuelle)
 - feedback homéostatique runtime (feedbackEffect implémenté mais pas encore dans la boucle de contrôle)
+- `approveRun()` complet avec DB non couvert par un test E2E bon/bloqué (gate testée via buildGateContext + policy)

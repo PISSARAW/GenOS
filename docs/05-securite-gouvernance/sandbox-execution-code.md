@@ -79,6 +79,8 @@ Une commande est compacte, limitee a 512 caracteres et 32 segments. Les argument
 
 Le worker ne transmet pas une ligne complete a un shell : il separe programme et arguments, et utilise `shell: false`. Cette combinaison bloque la forme habituelle d'injection par concatenation de texte.
 
+Les verifiers AEIS `test`/`artifact` executent leur commande via [backend/src/services/sandboxExecutor.js](../../backend/src/services/sandboxExecutor.js) (`runIsolated`), sous cette meme allowlist, avec environnement minimal (sans secrets), timeout avec terminaison, et sortie bornee. Une commande hors allowlist est rejetee et le verifier rend `inconclusive` : un succes n'est jamais simule. Voir [adaptive-epistemic-immune-system.md](../01-concepts/adaptive-epistemic-immune-system.md).
+
 Le hook PreToolUse est plus strict encore pour l'outil `Bash` : la commande normalisee doit correspondre exactement a un element de `GENOS_ALLOWED_COMMANDS_JSON`. Il refuse aussi `apply_patch` sauf lorsque `GENOS_ALLOW_FILE_EDITS` vaut `1` ou `true`. Cette politique ne protege que les runtimes qui installent effectivement ce hook ; elle ne remplace pas l'autorisation applicative ni une isolation OS.
 
 Attention : `executeSandboxed()` du VFS lance explicitement `cmd.exe /c` sous Windows ou `sh -lc` sous Unix pour son mode reel. Il ne passe pas par l'allowlist de tests. Son usage doit donc rester limite a des commandes construites par un controleur de confiance, avec `workspaceRoot` et `env` explicitement maitrises. Le nom "sandbox" sur cette API ne doit pas etre interprete comme une permission d'executer toute entree utilisateur.
