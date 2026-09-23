@@ -24,7 +24,7 @@ const { MathematicalDependencyGraph } = require('../epistemicScheduler/mathemati
 const { createFormalizationRegistry } = require('./formalizationArtifact');
 
 const { observe, extractMotifs } = require('./mathematicalOrganismObserve');
-const { question } = require('./mathematicalOrganismQuestion');
+const { question, materializeQuestionNiche } = require('./mathematicalOrganismQuestion');
 const { allocate, explore, verify } = require('./mathematicalOrganismExplore');
 const { select, mutate, transmit, horizontalTransfer, evaluate, hasConverged, getSummary } = require('./mathematicalOrganismSelectMutate');
 const { createConceptogenesisEngine } = require('./conceptogenesisService');
@@ -181,7 +181,7 @@ class MathematicalOrganismRuntime {
       // par la prochaine boucle). generateQuestion crée immédiatement la niche
       // si la valeur de la question dépasse le seuil.
       if (concept.type === 'structural_invariant' || concept.type === 'numerical_invariant') {
-        this.questionogenesis.generateQuestion({
+        const q = this.questionogenesis.generateQuestion({
           id: `anom-${Date.now()}`,
           type: 'invariant_opportunity',
           description: concept.statement,
@@ -194,6 +194,9 @@ class MathematicalOrganismRuntime {
           property: 'property',
           createNiche: true,
         });
+        // M7 causal : la niche du descriptor devient une vraie niche écologique.
+        materializeQuestionNiche(this, q);
+        this.metrics.totalQuestions++;
       }
     }
 

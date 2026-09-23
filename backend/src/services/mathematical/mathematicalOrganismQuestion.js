@@ -36,26 +36,33 @@ function question(runtime, observations) {
   }
 
   for (const q of questions) {
-    if (q.createdNiche) {
-      const niche = runtime.environment.createNiche({
-        name: `Question-${q.id}`,
-        representation: 'general',
-        formulation: q.text,
-      });
-      runtime.nicheService.addNiche(niche);
-      q.niche = niche.id;
-    } else if (q.niche && !runtime.nicheService.niches.has(q.niche)) {
-      const niche = runtime.environment.createNiche({
-        name: `Question-${q.id}`,
-        representation: 'general',
-        formulation: q.text,
-      });
-      runtime.nicheService.addNiche(niche);
-      q.niche = niche.id;
-    }
+    materializeQuestionNiche(runtime, q);
   }
 
   return questions;
 }
 
-module.exports = { question };
+/**
+ * materializeQuestionNiche — installe réellement la niche d'une question
+ * dans l'écosystème : Concept → Question → Niche → Population.
+ *
+ * Voie commune utilisée par M8 (question) et M7 (conceptogenesis) : si
+ * generateQuestion() a produit un descriptor `createdNiche`, il est
+ * matérialisé via environment.createNiche + nicheService.addNiche et
+ * l'id réel est rattaché à la question. Retourne la niche créée ou null.
+ */
+function materializeQuestionNiche(runtime, q) {
+  if (!q || (!q.createdNiche && !q.niche)) return null;
+  if (!q.createdNiche && runtime.nicheService.niches.has(q.niche)) return null;
+  const descriptor = q.createdNiche || {};
+  const niche = runtime.environment.createNiche({
+    name: descriptor.name || `Question-${q.id}`,
+    representation: descriptor.representation || 'general',
+    formulation: q.text,
+  });
+  runtime.nicheService.addNiche(niche);
+  q.niche = niche.id;
+  return niche;
+}
+
+module.exports = { question, materializeQuestionNiche };
