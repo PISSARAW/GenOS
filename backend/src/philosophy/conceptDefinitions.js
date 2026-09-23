@@ -41,6 +41,13 @@ const { CORE_DEFINITIONS } = require('./coreDefinitions');
 const { AESTHETICS_DEFINITIONS } = require('./aestheticsDefinitions');
 const { LOGIC_DEFINITIONS } = require('./logicDefinitions');
 const { MATHEMATICS_DEFINITIONS } = require('./mathematicsDefinitions');
+const {
+  CORE_COMMITMENT_DEFINITIONS,
+  BIOMIMETIC_DEFINITIONS,
+  LENS_DEFINITIONS,
+  EPISTEMOLOGY_EXTENSIONS,
+  METHOD_EXTENSIONS,
+} = require('./operationalDefinitions');
 
 // Rôles déclaratifs et valeurs par défaut (conceptRoles.js)
 const { DEFAULTS_BY_ROLE, ROLE_BY_ID } = require('./conceptRoles');
@@ -327,10 +334,20 @@ const FINALIZED_LEGACY = LEGACY_DEFINITIONS.map(finalizeConcept);
 const FINALIZED_AESTHETICS = AESTHETICS_DEFINITIONS.map(finalizeConcept);
 const FINALIZED_LOGIC = LOGIC_DEFINITIONS.map(finalizeConcept);
 const FINALIZED_MATHEMATICS = MATHEMATICS_DEFINITIONS.map(finalizeConcept);
+const FINALIZED_CORE_COMMITMENTS = CORE_COMMITMENT_DEFINITIONS.map(finalizeConcept);
+const FINALIZED_BIOMIMETIC = BIOMIMETIC_DEFINITIONS.map(finalizeConcept);
+const FINALIZED_LENS = LENS_DEFINITIONS.map(finalizeConcept);
+const FINALIZED_EPISTEMOLOGY_EXT = EPISTEMOLOGY_EXTENSIONS.map(finalizeConcept);
+const FINALIZED_METHOD_EXT = METHOD_EXTENSIONS.map(finalizeConcept);
 
 const CONCEPT_DEFINITIONS = Object.freeze([
   ...FINALIZED_CORE,
+  ...FINALIZED_CORE_COMMITMENTS,
   ...FINALIZED_LEGACY,
+  ...FINALIZED_BIOMIMETIC,
+  ...FINALIZED_LENS,
+  ...FINALIZED_EPISTEMOLOGY_EXT,
+  ...FINALIZED_METHOD_EXT,
   ...FINALIZED_AESTHETICS,
   ...FINALIZED_LOGIC,
   ...FINALIZED_MATHEMATICS,
