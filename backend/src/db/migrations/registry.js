@@ -232,6 +232,18 @@ const migrationRunners = [
     const { run } = require('./migrateOutboxTriggers');
     await run(db);
   }),
+  createMigrationRunner('067-compute-substrates', 'Persist compute substrates registry for dynamic CPU/GPU/VFS/solver/model/QPU scheduling', async (db) => {
+    const { migrateComputeSubstrates } = require('./migrateComputeSubstrates');
+    await migrateComputeSubstrates(db);
+  }),
+  createMigrationRunner('068-medical-tables', 'Create clinical_states, pathologies, treatments, and immune_events tables', async (db) => {
+    const { migrateMedicalTables } = require('./migrateMedicalTables');
+    await migrateMedicalTables(db);
+  }),
+  createMigrationRunner('069-agent-git-commits', 'Add normalized agent_git_commits table for fast lineage traversal and morphogenesis provenance', async (db) => {
+    const { migrateAgentGitCommits } = require('./migrateAgentGitCommits');
+    await migrateAgentGitCommits(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

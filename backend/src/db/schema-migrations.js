@@ -77,6 +77,8 @@ async function applyVersionedMigrations(db) {
   await migrationV018.run(db);
   const { migrationV019 } = require('./migrations/migrateAgentPermissionsNotNull');
   await migrationV019.run(db);
+  const { migrateCounterfactualTables } = require('./migrations/migrateCounterfactualTables');
+  await migrateCounterfactualTables(db);
   await runRegistryMigrations(db);
 }
 
@@ -183,6 +185,11 @@ async function ensureAgentGitObjectColumns(db) {
 async function createAgentGitHistoryTables(db) {
   await db.exec(`CREATE TABLE IF NOT EXISTS agent_git_refs (ref_key TEXT PRIMARY KEY, agent_id TEXT NOT NULL, ref_name TEXT NOT NULL, object_id TEXT, version INTEGER NOT NULL DEFAULT 0, lease_token TEXT, tracking_remote TEXT, tracking_ref TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(agent_id, ref_name));
   CREATE TABLE IF NOT EXISTS agent_git_reflog (id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, ref_name TEXT NOT NULL, old_object_id TEXT, new_object_id TEXT, action TEXT NOT NULL, actor TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+  CREATE TABLE IF NOT EXISTS agent_git_commits (commit_id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, workspace_id TEXT, parent_commit_id TEXT, tree_hash TEXT NOT NULL, commit_hash TEXT NOT NULL, state_hash TEXT NOT NULL, message TEXT, reason TEXT, evidence_json TEXT NOT NULL DEFAULT '{}', changes_json TEXT NOT NULL DEFAULT '[]', committed_by TEXT NOT NULL, committed_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE, FOREIGN KEY (parent_commit_id) REFERENCES agent_git_commits(commit_id) ON DELETE SET NULL);
+  CREATE INDEX IF NOT EXISTS idx_agent_git_commits_agent ON agent_git_commits(agent_id, committed_at);
+  CREATE INDEX IF NOT EXISTS idx_agent_git_commits_parent ON agent_git_commits(parent_commit_id);
+  CREATE INDEX IF NOT EXISTS idx_agent_git_commits_hash ON agent_git_commits(commit_hash);
+  CREATE INDEX IF NOT EXISTS idx_agent_git_commits_reason ON agent_git_commits(reason);
   CREATE TABLE IF NOT EXISTS agent_git_notes (id TEXT PRIMARY KEY, object_id TEXT NOT NULL, agent_id TEXT NOT NULL, note_json TEXT NOT NULL, created_by TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS agent_git_hooks (hook_key TEXT PRIMARY KEY, agent_id TEXT NOT NULL, hook_name TEXT NOT NULL, policy_json TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE IF NOT EXISTS agent_git_archives (id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, object_id TEXT NOT NULL, archive_hash TEXT NOT NULL, archive_json TEXT NOT NULL, created_by TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
