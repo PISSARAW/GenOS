@@ -7,28 +7,36 @@ Measures LLM alone vs GenOS current vs Capability Resolver vs Resolver+Memory vs
 | Arm | Configuration |
 | --- | --- |
 | A | LLM alone (no GenOS) |
-| B | GenOS current (baseline) |
+| B | GenOS static (fixed capabilities, fixed topology) |
 | C | GenOS Capability Resolver |
-| D | GenOS Resolver + Memory (learning service) |
-| E | GenOS Resolver + Adaptive Workers (full stack) |
+| D | C + Adaptive Workers |
+| E | D + Dynamic Topology |
+| F | E + Relations |
+| G | F + Warm ResidentDaemon |
+| H | FULL MORPHOGENESIS (G + Morphology Learning) |
 
 ## Metrics
 
 | # | Metric | Description |
 | --- | --- | --- |
 | 1 | taskSuccess | 1 if all tasks in scenario pass |
-| 2 | tokensUsed | Total tokens consumed |
-| 3 | wallClockMs | Wall-clock time in milliseconds |
-| 4 | correctLocalization | 1 if right code/concept found |
+| 2 | verifiedSuccess | 1 if solution passes verification |
+| 3 | tokensUsed | Total tokens consumed |
+| 4 | latencyMs | Wall-clock time in milliseconds |
 | 5 | toolCalls | Number of tool invocations |
-| 6 | wrongHypotheses | Incorrect approaches tried |
-| 7 | repeatedInvestigation | Revisiting same code area |
-| 8 | patchCorrectness | 1 if change matches ground truth |
-| 9 | regressionsIntroduced | Breaking other system parts |
-| 10 | daemonComputeCost | CPU/IO from GenOS daemons |
-| 11 | handoffUsefulness | Usefulness of inter-component handoff |
-| 12 | falseFindingRate | Fraction of incorrect findings |
-| 13 | stalenessErrors | Acting on outdated knowledge |
+| 6 | workersSpawned | Adaptive workers created |
+| 7 | unnecessaryWorkers | Workers that added no value |
+| 8 | topologySwitches | Dynamic topology changes |
+| 9 | failedSwitches | Topology switches that failed |
+| 10 | usefulCapabilities | Capabilities that contributed |
+| 11 | missedCapabilities | Needed capabilities not found |
+| 12 | wrongHypotheses | Incorrect approaches tried |
+| 13 | timeToRelevantEvidence | Time to find relevant evidence |
+| 14 | communicationVolume | Inter-agent message volume |
+| 15 | duplicateInvestigations | Redundant investigation paths |
+| 16 | daemonContribution | ResidentDaemon value-add |
+| 17 | rollbackCount | Number of rollbacks needed |
+| 18 | regressionCount | Regressions introduced |
 
 ## Scenarios
 
