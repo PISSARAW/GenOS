@@ -8,7 +8,7 @@ const { createOrchestratorId } = require('../src/services/orchestratorIdFactory'
 const telemetry = require('../src/services/telemetryObserver');
 const missionContinuity = require('../src/services/missionContinuityService');
 const { maybeDispatchContinuation } = require('./homeostasisContinuationHelper.cjs');
-const { waitForContinuationAndReevaluate } = require('./continuationFeedbackLoop.cjs');
+const { waitForContinuationAndReevaluate, runBoundedContinuationLoop } = require('./continuationFeedbackLoop.cjs');
 const { handleAction, handleBackground, initializeMission } = require('./orchestratorActions.cjs');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 const helpers = require('./orchestratorMissionHelpers.cjs');
@@ -131,25 +131,21 @@ async function evaluateMissionContinuity(opts) {
 
 async function handleHomeostasisContinuation({ db, id, task, request, mission, completionGate, evaluation, organism, finalVerdict, continuity }) {
   const summarizeAgents = require('../src/services/orchestratorOutcome').summarizeAgents;
-  const result = await maybeDispatchContinuation({
-    db, orchestratorId: id, task, request, mission: { ...mission, id },
-    completionGate, evaluation, organism, finalVerdict, continuity
+  const safeMission = { ...(mission || {}), id: (mission && mission.id) || id };
+  const seed = { continuity: continuity || {}, completionGate, evaluation, organism, finalVerdict };
+  const dispatchOne = (state) => maybeDispatchContinuation({
+    db, orchestratorId: id, task, request, mission: safeMission,
+    completionGate: state.completionGate, evaluation: state.evaluation,
+    organism: state.organism, finalVerdict: state.finalVerdict, continuity: state.continuity
   });
-  if (!result.dispatched || !result.dispatched.targetAgentId) {
-    return { continuity, completionGate, evaluation, organism, finalVerdict: result.finalVerdict };
+  const first = await dispatchOne(seed);
+  if (!first.dispatched || !first.dispatched.targetAgentId) {
+    return { continuity: seed.continuity, completionGate, evaluation, organism, finalVerdict: first.finalVerdict };
   }
-  if (!continuity) continuity = {};
-  continuity.dispatched = result.dispatched;
-  const reeval = await waitForContinuationAndReevaluate({
-    db, id, task, evaluateMissionContinuity, summarizeAgents, continuationResult: result
+  return runBoundedContinuationLoop({
+    db, id, task, evaluateMissionContinuity, summarizeAgents,
+    seed, dispatchOne
   });
-  return {
-    continuity: reeval.continuity || continuity,
-    completionGate: reeval.completionGate || completionGate,
-    evaluation: reeval.evaluation || evaluation,
-    organism: reeval.organism || organism,
-    finalVerdict: (reeval.completionGate && reeval.completionGate.allowed) ? 'completed' : result.finalVerdict
-  };
 }
 
 async function executeMission(db, state) {
@@ -184,9 +180,10 @@ async function executeMission(db, state) {
   evaluation = contResult.evaluation;
   organism = contResult.organism;
   finalVerdict = contResult.finalVerdict;
+  const finalSuccess = completionGate.allowed === true || finalVerdict === 'completed';
 
-  emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate, id });
-  if (!missionSuccess && finalVerdict !== 'completed') process.exitCode = 2;
+  emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess: finalSuccess, finalVerdict, continuity, completionGate, id });
+  if (!finalSuccess) process.exitCode = 2;
 }
 
 async function cleanupFailure(db, state, error) {

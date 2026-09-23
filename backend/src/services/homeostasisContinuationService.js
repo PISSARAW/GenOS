@@ -27,13 +27,21 @@ function getImmuneAdvice(organismState, deviation) {
 
 // Immune advice becomes a hard constraint: if the category itself is prohibited
 // (not just the exact signature), reject the candidate continuation strategy.
+// Also enforced across categories: any memory prohibiting this strategy
+// (e.g. cell_death enrollments) blocks an identical autonomous retry.
 function isImmuneBlocked(organismState, deviation, strategy) {
   const response = immuneMemory.immuneResponse(organismState, {
     failureCategory: `homeostasis:${deviation}`,
     strategy
   });
-  if (!response || !response.recognized) return false;
-  return response.response.prohibitExactRetry === true;
+  if (response && response.recognized && response.response.prohibitExactRetry === true) return true;
+  const memories = immuneMemory.immuneMemoryFromOrganism(organismState);
+  if (!Array.isArray(memories)) return false;
+  return memories.some((entry) => entry.strategy === strategy && entry.prohibitedExactRetry !== false
+    && immuneMemory.isExactRetryProhibited(memories, {
+      failureCategory: entry.failureCategory,
+      strategy
+    }));
 }
 
 function findMissingEvidence(evaluation = {}) {
@@ -77,23 +85,20 @@ function resolveRole(advice) {
   return 'homeostasis_continuation';
 }
 
-function continuationDecisionId(missionId, deviation, stateVersion) {
+function continuationFingerprint(evaluation = {}) {
+  const missing = findMissingEvidence(evaluation).slice().sort();
+  const failed = findFailedLabels(evaluation).slice().sort();
   return crypto.createHash('sha256')
-    .update(JSON.stringify({ missionId, deviation, stateVersion }))
-    .digest('hex');
+    .update(JSON.stringify({ missing, failed }))
+    .digest('hex')
+    .slice(0, 16);
 }
 
-function countContinuationRounds(db, missionId, stateVersion) {
-  // Count prior continuation attempts for this mission+state in the
-  // continuation_queue. Synchronous read via the shared connection.
-  return new Promise((resolve) => {
-    db.get(
-      `SELECT COUNT(*) AS n FROM continuation_queue
-       WHERE json_extract(mission_json, '$.homeostasisMissionId') = ?
-         AND json_extract(mission_json, '$.homeostasisStateVersion') = ?`,
-      missionId, stateVersion
-    ).then((row) => resolve(row ? row.n : 0)).catch(() => resolve(0));
-  });
+function continuationDecisionId(input = {}) {
+  const { missionId, deviation, fingerprint, round } = input;
+  return crypto.createHash('sha256')
+    .update(JSON.stringify({ missionId, deviation, fingerprint, round }))
+    .digest('hex');
 }
 
 async function countHomeostasisContinuations(db, missionId, deviation) {
@@ -174,17 +179,28 @@ function emitDispatchTelemetry(info) {
 async function dispatchHomeostasisContinuation(input = {}) {
   const { db, orchestratorId, mission, organismState, evaluation } = input;
   const deviation = classifyDeviation(evaluation);
+  if (deviation === 'unsafe_action') {
+    telemetry.emitEvent({
+      eventType: 'HOMEOSTASIS_UNSAFE_QUARANTINED',
+      agentId: orchestratorId,
+      action: 'WAIT_HUMAN',
+      detail: 'Unsafe homeostasis: continuation refused, quarantine / human gate required.',
+      payload: { missionId: mission.id, deviation },
+      severity: 'error'
+    });
+    return { targetAgentId: null, deviation, quarantined: true, exhausted: false };
+  }
   const advice = getImmuneAdvice(organismState, deviation);
-  const prompt = buildPrompt(mission, deviation, evaluation);
-  const orchCtx = await getOrchContext(db, orchestratorId);
-  const agent = buildAgentValues(deviation, advice, orchCtx);
-  agent.prompt = prompt;
-
-  // Budget guard: count prior continuations for this (mission, deviation) pair.
-  // Refuse to dispatch beyond MAX_HOMEOSTASIS_CONTINUATIONS.
-  const stateVersion = evaluation.state?.stateVersion || evaluation.evaluatedAt || Date.now();
-  const decisionId = continuationDecisionId(mission.id, deviation, String(stateVersion));
+  const fingerprint = continuationFingerprint(evaluation);
   const priorRounds = await countHomeostasisContinuations(db, mission.id, deviation);
+  const decisionId = continuationDecisionId({ missionId: mission.id, deviation, fingerprint, round: priorRounds });
+
+  // Idempotency first: an active continuation for the same blocked fingerprint
+  // must not spawn a duplicate worker.
+  const activeRecord = await findActiveContinuation({ db, missionId: mission.id, deviation, fingerprint });
+  if (activeRecord) {
+    return { targetAgentId: activeRecord.agent_id, deviation, preferredResponse: advice?.preferredResponse || null, decisionId: activeRecord.id, continuationRound: priorRounds, exhausted: false, idempotent: true };
+  }
 
   if (priorRounds >= MAX_HOMEOSTASIS_CONTINUATIONS) {
     telemetry.emitEvent({
@@ -211,27 +227,39 @@ async function dispatchHomeostasisContinuation(input = {}) {
     return { targetAgentId: null, deviation, immuneBlocked: true, decisionId, continuationRound: priorRounds };
   }
 
+  const prompt = buildPrompt(mission, deviation, evaluation);
+  const orchCtx = await getOrchContext(db, orchestratorId);
+  const agent = buildAgentValues(deviation, advice, orchCtx);
+  agent.prompt = prompt;
   await persistHomeostasisAgent(db, agent, orchestratorId);
-  // Idempotency: if a continuation with this decision identity already exists
-  // and is still active (pending/dispatched), return it without re-dispatching.
-  const existingRecord = await db.get(
-    `SELECT id, status FROM continuation_queue WHERE id = ?`,
-    decisionId
-  );
-  if (existingRecord && (existingRecord.status === 'dispatched' || existingRecord.status === 'pending')) {
-    return { targetAgentId: agent.id, deviation, preferredResponse: agent.role, decisionId, continuationRound: priorRounds, exhausted: false, idempotent: true };
-  }
   await db.run(
     `INSERT INTO continuation_queue (id, agent_id, orchestrator_id, mission_json, status, attempts)
      VALUES (?, ?, ?, ?, 'dispatched', ?)`,
     decisionId, agent.id, orchestratorId,
-    JSON.stringify({ homeostasisMissionId: mission.id, homeostasisStateVersion: String(stateVersion), deviation }),
+    JSON.stringify({ homeostasisMissionId: mission.id, homeostasisFingerprint: fingerprint, deviation }),
     priorRounds + 1
   );
   const { startMission } = require('./agentRuntimeAdapter');
   await startMission(buildRecoveryMission(agent, mission, orchestratorId));
   emitDispatchTelemetry({ orchestratorId, missionId: mission.id, targetAgentId: agent.id, deviation, role: agent.role, decisionId, continuationRound: priorRounds + 1 });
   return { targetAgentId: agent.id, deviation, preferredResponse: agent.role, decisionId, continuationRound: priorRounds + 1, exhausted: false };
+}
+
+async function findActiveContinuation(input = {}) {
+  const { db, missionId, deviation, fingerprint } = input;
+  try {
+    return await db.get(
+      `SELECT id, agent_id, status FROM continuation_queue
+       WHERE json_extract(mission_json, '$.homeostasisMissionId') = ?
+         AND json_extract(mission_json, '$.deviation') = ?
+         AND json_extract(mission_json, '$.homeostasisFingerprint') = ?
+         AND status IN ('pending', 'dispatched')
+       ORDER BY created_at DESC LIMIT 1`,
+      missionId, deviation, fingerprint
+    );
+  } catch {
+    return null;
+  }
 }
 
 module.exports = {
@@ -241,6 +269,7 @@ module.exports = {
   buildPrompt,
   dispatchHomeostasisContinuation,
   continuationDecisionId,
+  continuationFingerprint,
   countHomeostasisContinuations,
   MAX_HOMEOSTASIS_CONTINUATIONS
 };

@@ -181,32 +181,38 @@ test('continuation budget is enforced', async () => {
   const db = await getDatabase(TMP_DB);
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, current_task) VALUES (?, 'orch_budget', 'orchestrator', 'idle', 'orchestrator', NULL, NULL, 'standard', 'TypeScript', 'Branch', 'test')`, 'orch_budget');
   const org = organism.newOrganism({ genome: { objective: 'x' } });
+  const evalInput = { status: 'evidence_missing', state: { evidence: { satisfied: false, missing: ['test_suite_passed'] } } };
   let lastResult;
-  // Simulate successive re-evaluations with new state versions (as would happen
-  // after each continuation worker terminates and homeostasis is re-evaluated).
+  // Simulate successive rounds: each worker terminates (row completed) then
+  // homeostasis is re-evaluated still blocked, so the next round is a new
+  // decision, until the budget is exhausted.
   for (let i = 0; i < 5; i++) {
     lastResult = await continuation.dispatchHomeostasisContinuation({
       db,
       orchestratorId: 'orch_budget',
       mission: { id: 'm_budget', task: 'test task', objective: 'test' },
       organismState: org,
-      evaluation: { status: 'evidence_missing', state: { evidence: { satisfied: false }, stateVersion: `v${i}` } }
+      evaluation: evalInput
     });
+    if (lastResult.targetAgentId) {
+      await db.run(`UPDATE continuation_queue SET status = 'completed' WHERE id = ?`, lastResult.decisionId).catch(() => {});
+    }
   }
   assert.ok(lastResult.exhausted, 'after exceeding MAX_HOMEOSTASIS_CONTINUATIONS, dispatch must report exhausted');
   assert.strictEqual(lastResult.targetAgentId, null, 'exhausted dispatch must not create an agent');
 });
 
-test('continuation idempotency: same stateVersion dispatches once', async () => {
+test('continuation idempotency: same blocked fingerprint dispatches once', async () => {
   const db = await getDatabase(TMP_DB);
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, current_task) VALUES (?, 'orch_idem', 'orchestrator', 'idle', 'orchestrator', NULL, NULL, 'standard', 'TypeScript', 'Branch', 'test')`, 'orch_idem');
   const org = organism.newOrganism({ genome: { objective: 'x' } });
+  const evalInput = { status: 'evidence_missing', state: { evidence: { satisfied: false, missing: ['test_suite_passed'] } } };
   const result1 = await continuation.dispatchHomeostasisContinuation({
     db,
     orchestratorId: 'orch_idem',
     mission: { id: 'm_idem', task: 'test task', objective: 'test' },
     organismState: org,
-    evaluation: { status: 'evidence_missing', state: { evidence: { satisfied: false }, stateVersion: 'idem_v1' } }
+    evaluation: evalInput
   });
   assert.ok(result1.targetAgentId, 'first dispatch must create agent');
   const result2 = await continuation.dispatchHomeostasisContinuation({
@@ -214,12 +220,52 @@ test('continuation idempotency: same stateVersion dispatches once', async () => 
     orchestratorId: 'orch_idem',
     mission: { id: 'm_idem', task: 'test task', objective: 'test' },
     organismState: org,
-    evaluation: { status: 'evidence_missing', state: { evidence: { satisfied: false }, stateVersion: 'idem_v1' } }
+    evaluation: evalInput
   });
-  assert.ok(result2.idempotent, 'second dispatch with same stateVersion must be idempotent');
-  // Only one continuation_queue record for this (mission, stateVersion)
-  const rows = await db.all(`SELECT id FROM continuation_queue WHERE json_extract(mission_json, '$.homeostasisStateVersion') = 'idem_v1'`);
+  assert.ok(result2.idempotent, 'second dispatch with same blocked fingerprint must be idempotent');
+  // Only one active continuation_queue record for this (mission, deviation)
+  const rows = await db.all(`SELECT id FROM continuation_queue WHERE json_extract(mission_json, '$.homeostasisMissionId') = 'm_idem'`);
   assert.strictEqual(rows.length, 1, 'idempotent dispatch must not create a duplicate continuation record');
+});
+
+test('unsafe deviation is quarantined without spawning a worker', async () => {
+  const db = await getDatabase(TMP_DB);
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, current_task) VALUES (?, 'orch_unsafe', 'orchestrator', 'idle', 'orchestrator', 'test')`, 'orch_unsafe');
+  const org = organism.newOrganism({ genome: { objective: 'x' } });
+  const before = await db.all("SELECT id FROM agents WHERE id LIKE 'worker_homeostasis_%'");
+  const result = await continuation.dispatchHomeostasisContinuation({
+    db,
+    orchestratorId: 'orch_unsafe',
+    mission: { id: 'm_unsafe', task: 'test task', objective: 'test' },
+    organismState: org,
+    evaluation: { status: 'unsafe', state: { failedInvariants: [{ id: 'safety_x', label: 'safety_x' }] } }
+  });
+  assert.strictEqual(result.quarantined, true, 'unsafe must quarantine');
+  assert.strictEqual(result.targetAgentId, null, 'unsafe must not spawn a worker');
+  const after = await db.all("SELECT id FROM agents WHERE id LIKE 'worker_homeostasis_%'");
+  assert.strictEqual(after.length, before.length, 'no new worker agent may be inserted for unsafe');
+});
+
+test('maybeDispatchContinuation quarantines unsafe without dispatch', async () => {
+  const db = await getDatabase(TMP_DB);
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, current_task) VALUES (?, 'orch_unsafe2', 'orchestrator', 'idle', 'orchestrator', 'test')`, 'orch_unsafe2');
+  const org = organism.newOrganism({ genome: { objective: 'x' } });
+  const continuity = {};
+  const result = await maybeDispatchContinuation({
+    db,
+    orchestratorId: 'orch_unsafe2',
+    task: 'test',
+    request: {},
+    mission: { id: 'm_unsafe2', task: 'test task', objective: 'test' },
+    completionGate: { allowed: false },
+    evaluation: { status: 'unsafe', state: { failedInvariants: [{ id: 'safety_x' }] } },
+    organism: org,
+    finalVerdict: 'homeostasis_blocked',
+    continuity
+  });
+  assert.strictEqual(result.quarantined, true);
+  assert.strictEqual(result.dispatched, null);
+  assert.strictEqual(result.finalVerdict, 'homeostasis_quarantined');
 });
 
 test('isImmuneBlocked rejects continuation when category is prohibited', () => {

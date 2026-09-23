@@ -14,6 +14,7 @@ const os = require('os');
 
 const TMP_DB = path.join(os.tmpdir(), `genos_continuity_test_${Date.now()}.db`);
 process.env.GENOS_DB_PATH = TMP_DB;
+process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'test-only';
 
 const { getDatabase, closeDatabase } = require('../src/db');
 const contract = require('../src/services/homeostasisContractService');
@@ -182,8 +183,35 @@ test('cell state interpretation thresholds', async () => {
   assert.strictEqual(vitalSignals.interpretCellState(stalePulse, 5000, 100), 'unresponsive');
   const starvedPulse = vitalSignals.buildPulse({ cell: 'c2', mission: 'm', state: 'active', tokens: 50 });
   assert.strictEqual(vitalSignals.interpretCellState(starvedPulse, 60000, 100), 'starved');
-  const stressedPulse = vitalSignals.buildPulse({ cell: 'c3', mission: 'm', state: 'active', stress: 0.9 });
-  assert.strictEqual(vitalSignals.interpretCellState(stressedPulse, 60000, 100), 'stressed');
+  const stressedCheck = vitalSignals.buildPulse({ cell: 'c3', mission: 'm', state: 'active', stress: 0.9 });
+  assert.strictEqual(vitalSignals.interpretCellState(stressedCheck, 60000, 100), 'stressed');
+});
+
+// 11. Empty contract is fail-closed: 0 invariants can never complete.
+test('empty contract cannot complete', async () => {
+  const mission = { id: 'empty_1', objective: 'nothing declared', context: {} };
+  const organism = missionOrganism.newOrganism({ genome: { objective: 'x' } });
+  const withContract = homeostasis.attachHomeostasisToOrganism(organism, mission);
+  const gate = await homeostasis.transitionMissionToComplete(db, {
+    organism: withContract,
+    mission,
+    context: { flags: {}, evidence: [] }
+  });
+  assert.strictEqual(gate.allowed, false, 'empty contract must stay blocked (fail-closed)');
+});
+
+// 12. Persistence/restart: memory survives, tissues come from live agents.
+test('organism memory persists across restart, tissues refresh live', async () => {
+  const missionId = 'restart_1';
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, current_task) VALUES (?, 'orch_restart', 'orchestrator', 'idle', 'orchestrator', 'test')`, missionId);
+  const mission = { id: missionId, objective: 'restart test', context: {} };
+  const first = await missionContinuity.evaluateContinuity(db, mission);
+  assert.ok(first.organism, 'first evaluation must assemble an organism');
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, parent_agent_id, current_task) VALUES (?, 'w1', 'worker', 'running', 'worker', ?, 'test')`, `${missionId}_w1`, missionId);
+  const second = await missionContinuity.evaluateContinuity(db, mission);
+  const liveIds = second.organism.tissues.map((t) => t.identifier);
+  assert.ok(liveIds.includes(`${missionId}_w1`), 'tissues must refresh from live agents after restart');
+  assert.ok(second.organism.memory, 'memory must survive across evaluations');
 });
 
 async function main() {

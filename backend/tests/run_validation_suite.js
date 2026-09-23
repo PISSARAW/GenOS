@@ -41,6 +41,7 @@ const suites = {
     ['natural search controller', 'search/test_natural_search_controller.js'],
     ['natural search runtime E2E', 'search/test_natural_search_runtime_e2e.js'],
     ['natural search pipeline E2E', 'search/test_natural_search_e2e_pipeline.js'],
+    ['natural search full pipeline E2E', 'search/test_natural_search_full_pipeline_e2e.js'],
     ['natural search evolution', 'search/test_search_evolution.js']
   ],
   grpc: [
