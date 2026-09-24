@@ -31,6 +31,7 @@ const graphProjector = require('./rhizome/graph/rhizomeGraphProjector');
 const capabilityAdmission = require('./rhizome/security/capabilityAdmissionService');
 const directMemberRouter = require('./rhizome/routing/directMemberRouter');
 const variantPolicyService = require('./rhizome/variants/variantPolicyService');
+const nestedTopologyService = require('./rhizome/nested/nestedTopologyService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -40,7 +41,6 @@ const ROLE_CAPABILITIES = Object.freeze({
   boundary_scout: ['observation', 'capability_discovery']
 });
 const sessions = new Map();
-
 function normalizeMembers(members) {
   const roles = new Set();
   return members.map((member) => {
@@ -342,6 +342,22 @@ async function admitCapabilityNode(sessionId, input, options = {}) {
     }
   });
 }
+
+async function proposeNestedTopology(sessionId, input, options = {}) {
+  return mutateSession(sessionId, options, {
+    type: 'SUB_TOPOLOGY_PROPOSED',
+    payload: { needKind: input.needKind, topology: input.topology || null },
+    apply: (session) => {
+      const proposal = nestedTopologyService.propose({
+        ...input, missionId: input.missionId || session.missionId,
+        mission: input.mission || session.mission, currentTopology: 'rhizome'
+      });
+      const node = nestedTopologyService.candidateNode(input, proposal);
+      Object.assign(session, capabilityGraph.addNode(session, node));
+      return { sessionId, ...proposal, candidateNode: node };
+    }
+  });
+}
 async function coherence(sessionId, options = {}) {
   const session = await getSession(sessionId, options.db);
   return { sessionId, ...session.matrix.computeKuramotoOrder() };
@@ -381,4 +397,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, projectGraph, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, projectGraph, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
