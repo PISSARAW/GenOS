@@ -2,23 +2,37 @@
 
 const communityStore = require('../communityStore');
 const controller = require('./communityController');
+const protocolHandlers = require('./protocolHandlers');
 const { createHash } = require('crypto');
 
 async function runRound(input) {
-  const session = await communityStore.loadSession(input.db, input.communityId);
+  let session = await communityStore.loadSession(input.db, input.communityId);
   if (!session) throw Object.assign(new Error('Biocenose community not found.'), { code: 'BIOCENOSE_COMMUNITY_UNKNOWN' });
   const constitution = await communityStore.latestConstitution(input.db, input.communityId);
   if (!constitution) throw Object.assign(new Error('Biocenose constitution is missing.'), { code: 'BIOCENOSE_CONSTITUTION_UNKNOWN' });
-  try {
-    return await controller.runRound({
-      session, constitution: constitution.constitution, handlers: input.handlers,
+  const handlers = { ...protocolHandlers.createHandlers(input), ...(input.handlers || {}) };
+  let result;
+  do {
+    try {
+      result = await controller.runRound({
+      session, constitution: constitution.constitution,
+      handlers,
       context: { db: input.db, communityId: input.communityId, session, constitution: constitution.constitution },
       onStepComplete: (step) => recordStep(input, step)
+      });
+    } catch (error) {
+      await recordBlockedStep(input, error);
+      throw error;
+    }
+    if (result.status !== 'IN_PROGRESS') return result;
+    session = await communityStore.loadSession(input.db, input.communityId);
+    if (session.round + 1 >= constitution.constitution.roundLimit) return result;
+    session = await communityStore.appendEvent(input.db, {
+      communityId: input.communityId, actorId: input.actorId,
+      type: 'PHASE_CHANGED', payload: { from: session.phase, to: 'SEALED_JUDGMENT', reason: 'CONTINUE_DELIBERATION' },
+      patch: { phase: 'SEALED_JUDGMENT', round: session.round + 1 }
     });
-  } catch (error) {
-    await recordBlockedStep(input, error);
-    throw error;
-  }
+  } while (true);
 }
 
 async function recordStep(input, step) {

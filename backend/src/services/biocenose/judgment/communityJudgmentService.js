@@ -34,8 +34,7 @@ async function criticalDissent(db, communityId) {
 
 function judgmentRecord(input, context) {
   const humanReview = input.aggregation.humanJudgmentRequired === true;
-  const unresolved = ['UNRESOLVED', 'INSUFFICIENT_FORECASTS', 'NO_COMPARABLE_OPTIONS', 'REVIEW_REQUIRED']
-    .includes(input.aggregation.outcome)
+  const unresolved = hasUnresolvedOutcome(input.aggregation)
     || (input.aggregation.unresolvedClaimIds || []).length > 0;
   const status = context.openCriticalDissent.length ? 'ESCALATED'
     : humanReview ? 'HUMAN_REVIEW_REQUIRED'
@@ -45,6 +44,17 @@ function judgmentRecord(input, context) {
     uncertainty: input.uncertainty ?? null, openCriticalDissentIds: context.openCriticalDissent.map((item) => item.dissentId),
     stopReason: context.stop.reason
   };
+}
+
+function hasUnresolvedOutcome(aggregation) {
+  if (['UNRESOLVED', 'INSUFFICIENT_FORECASTS', 'NO_COMPARABLE_OPTIONS', 'REVIEW_REQUIRED']
+    .includes(aggregation.outcome)) return true;
+  if (['PARETO_FRONT', 'DESIGN_OPTIONS_REVIEW'].includes(aggregation.outcome)) {
+    return !(aggregation.options || []).length;
+  }
+  if (aggregation.outcome === 'PROBABILITY_ESTIMATE') return !(aggregation.estimates || []).length;
+  if (aggregation.outcome === 'CLAIM_MAP') return (aggregation.openQuestions || []).length > 0;
+  return false;
 }
 
 module.exports = { finalize };

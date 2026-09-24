@@ -120,10 +120,15 @@ Cette distinction est essentielle : les sections qui suivent décrivent le modè
   alimentent le plan Morphogenèse et gardent les identifiants de communauté et de jugement
   en provenance. Direct/Human restent des recommandations de handoff, car ce ne sont pas
   des topologies de son registre ;
-- `runBiocenoseRound` déroule un plan borné et exige un handler pour chaque étape. Chaque
-  étape terminée est auditée par hash ; toute étape manquante ou en échec stoppe le tour
-  et produit un événement de blocage. Les handlers restent responsables des appels aux
-  agents et de l'application des services d'écriture ; le runtime ne simule pas leur résultat.
+- `runBiocenoseRound` fournit ses handlers internes pour les neuf étapes : engagements et
+  révélation, publication des claims, routage de revue/vérification, graphe d'arguments,
+  révisions, mesure d'indépendance, agrégation, dissent et jugement final. Les membres sont
+  invoqués individuellement par le routeur de modèles, ou par un unique `memberInvoker`
+  fourni par l'intégration. Une capacité de vérification déterministe reste un
+  `verificationExecutor` explicite ; sans elle, les claims routés restent `UNVERIFIED`.
+  Chaque étape terminée est auditée par hash ; une erreur de modèle, une réponse invalide
+  ou une capacité requise absente bloque le parcours et produit un événement de blocage.
+  Le runtime poursuit les tours suivants jusqu'à un jugement final ou à la limite de tours.
   `summarizeBiocenoseBenchmark` calcule le taux de faux consensus, la préservation des
   minorités correctes et le budget de tokens sur des cas marqués comme évalués ;
 - `evaluateMinorityEvidenceVeto` requiert un reçu de vérification fourni par un
@@ -154,12 +159,12 @@ services de métriques ne prouvent pas à eux seuls que toutes les étapes sont 
 dans un cycle de délibération.
 
 Les composants de claims, d'arguments, de dissent, de révision des croyances, de
-calibration et de jugement communautaire sont persistants et disposent de points
-d'entrée dédiés. `runBiocenoseRound` fournit le plan borné des neuf étapes et audite
-leurs résultats, mais chaque handler doit être fourni par l'appelant ; c'est à lui
-d'appeler les services d'écriture et les agents appropriés. Le contrôleur ne relie donc
-pas encore seul chaque sortie à l'étape suivante et ne constitue pas un cycle autonome
-prêt à exécuter sans intégration.
+calibration et de jugement communautaire sont persistants. `runBiocenoseRound` relie
+maintenant leurs neuf étapes, invoque les membres à chaque phase et continue les tours
+jusqu'à une décision, un désaccord irréductible ou la limite constitutionnelle. Une
+intégration peut remplacer l'invocation des membres et fournir un exécuteur de
+vérifications déterministes ; le runtime ne transforme pas une vérification absente en
+preuve ni une sortie de modèle invalide en jugement.
 
 La constitution est persistée, versionnée et validée. La porte de commit/révélation
 des jugements et plusieurs évaluateurs de politique sont implémentés, mais les exigences
@@ -179,7 +184,7 @@ bloquées.
 
 ## 1. Définition
 
-Dans son modèle cible, Biocénose traite une mission comme un **collectif délibérant formant un jugement partagé à partir de connaissances distribuées, de perspectives indépendantes et de désaccords légitimes**. Les services runtime composent les membres et fournissent plusieurs mécanismes de délibération ; le contrôleur borné n'impose pas encore à lui seul l'enchaînement complet de ces mécanismes ni l'indépendance cognitive réelle des membres.
+Dans son modèle cible, Biocénose traite une mission comme un **collectif délibérant formant un jugement partagé à partir de connaissances distribuées, de perspectives indépendantes et de désaccords légitimes**. Le runtime relie les mécanismes de délibération et leurs tours ; l'indépendance cognitive réelle des membres dépend toujours de leurs fournisseurs, lignées et historiques d'erreurs, et n'est pas garantie par la seule orchestration.
 
 Le mot « Biocénose » vient de l'écologie : une biocénose est l'ensemble des organismes vivants partageant un même biotope, en interaction constante — compétition, coopération, prédation, symbiose — mais sans fusion en un super-organisme. GenOS emprunte ce concept : les agents ne partagent pas un état viscéral ; ils maintiennent des **cognitions distinctes** qui interagissent par des mécanismes épistémiques explicites.
 

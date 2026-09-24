@@ -12,7 +12,9 @@ async function runRound(input) {
   const result = await executor.execute({
     plan, handlers: input.handlers || {}, context: input.context || {}, onStepComplete: input.onStepComplete
   });
-  return { ...result, communityId: input.session.communityId, plan };
+  const finalStep = result.receipts[result.receipts.length - 1]?.result;
+  const status = finalStep?.finalized === false ? 'IN_PROGRESS' : result.status;
+  return { ...result, status, communityId: input.session.communityId, plan };
 }
 
 module.exports = { runRound };
