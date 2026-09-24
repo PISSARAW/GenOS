@@ -99,6 +99,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0086](0086-branche-rhizome-morphogenese.md) | Branche Rhizome dans la Morphogenèse | Proposé | 2026-09-24 | Morphogenèse, Rhizome, exploration, preuves, budgets |
 | [0093](0093-conditions-arret-holobionte.md) | Conditions d'arrêt du Holobionte | Accepté | 2026-09-24 | Holobionte, cycle de vie, missions, gouvernance |
 
+| [0094](0094-calibration-immunitaire-holobionte.md) | Calibration immunitaire du Holobionte | Accepté | 2026-09-24 | Holobionte, immunité, épistémologie |
+
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.
