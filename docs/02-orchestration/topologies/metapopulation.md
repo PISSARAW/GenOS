@@ -1,5 +1,9 @@
 # Metapopulation : Persistance Régionale malgré l'Instabilité Locale
 
+- **Statut** : spécification de conception
+- **Portée** : persistance régionale par populations semi-indépendantes, migration et recolonisation
+- **Dernière revue** : 2026-09-24
+
 ## 1. Définition
 
 Metapopulation dans GenOS est le mécanisme d'orchestration qui exécute une mission comme un **réseau de populations semi-indépendantes, localement adaptées et partiellement redondantes, capables d'échanger sélectivement des individus ou des connaissances, de survivre à des extinctions locales et de recoloniser les capacités perdues sans synchroniser tout le collectif**.
@@ -1500,3 +1504,90 @@ Capacités requises : `QUORUM`, `SYNAPTIC_PLASTICITY`, `RESILIENCE_RECOVERY`, `G
 Contrat exposé par `topologyCapabilityService` et rendu effectif dans les leases d'outils.
 
 Les dômes sont instanciés par `biologicalModeService.compose('metapopulation', mission)` avec les cinq services de contrôle. Le moteur évolutionnaire Rust (`crates/genos-orchestrator/src/evolution.rs`) gère la dynamique génétique haute-performance pour la variante Evolutionary. La cryptobiose, la fossilisation, et la recolonisation sont opérées par leurs services respectifs.
+
+---
+
+## 32. Architecture cible et plan d'évolution
+
+Cette section décrit l'architecture visée et l'ordre proposé des travaux. Les étapes constituent un plan, pas une affirmation que tous ces mécanismes sont déjà disponibles. La façade publique reste `metapopulationCoordinationService.js`. Les dynamiques multi-îlots réutilisent `crates/genos-orchestrator/src/evolution.rs`, les lignées procédurales `proceduralMetapopulationService.js`, les individus `AgentDNA` et `agentEvolutionService`, ainsi que les services existants de cryptobiose, snapshots, fossilisation, signaling bus et indépendance épistémique. Le plan ne crée pas un troisième moteur évolutionnaire.
+
+### 32.1 Modèle cible
+
+Mission / région → registre de patches → dèmes locaux → corridors de migration dirigés → observateur régional → contrôleur régional → persistance régionale.
+
+L'observateur régional suit liveness, fitness, diversité, lignées, synchronie, défaillances et connectivité. Le contrôleur peut migrer, secourir, isoler, diversifier, réorganiser les corridors, faire évoluer ou recoloniser selon l'état observé et les preuves disponibles.
+
+L'ontologie sépare explicitement :
+
+`Metapopulation ≠ Patch ≠ Deme ≠ Individual`
+
+Le patch décrit le contexte local disponible ; le dème est la population qui l'occupe ; les individus sont les membres du dème. Les quatre rôles historiques (`population_isolator`, `quorum_sensor`, `synaptic_adaptor`, `regeneration_steward`) deviennent progressivement des fonctions de contrôle, pas des membres obligatoires de chaque population.
+
+### 32.2 Invariants d'architecture
+
+- Un dème ne peut écrire qu'à l'intérieur de sa frontière locale : `writes(deme_i) ⊆ localBoundary_i`.
+- Les échanges inter-dèmes passent par un corridor ou un contrat régional explicite.
+- Un corridor est dirigé : `A → B` n'implique pas `B → A`.
+- Un propagule est évalué par le receveur en quarantaine avant assimilation : `ACCEPT`, `ADAPT_AND_ACCEPT`, `REJECT` ou `REQUEST_MORE_EVIDENCE`.
+- La fitness d'un propagule à la source ne prédit pas sa fitness dans le dème receveur.
+- Une extinction locale ne devient pas automatiquement un échec régional ; une recolonisation n'est réussie qu'après un essai local viable.
+- Tout événement régional déterminant conserve séquence, révision, provenance, acteur et horodatage.
+
+### 32.3 Ordre de réalisation en 18 PR
+
+Les chantiers de conception sont regroupés en 18 livrables cohérents. L'ordre suit les dépendances entre contrats, persistance, isolation, migration et contrôle autonome.
+
+| PR | Livrable | Contenu principal |
+|---|---|---|
+| **PR1 — en cours** | Contrats et session persistante | Corriger l'ontologie ; définir la session Métapopulation, les contrats canoniques et un stockage événementiel versionné, reconstructible après redémarrage. |
+| **PR2** | Modèle Patch / Deme | Registre et cycle de vie des patches et dèmes ; distinguer localité, population et individu. |
+| **PR3** | Isolation et liveness | Frontières workspace, état, mémoire, budget et procédures par dème ; heartbeat, santé locale et quarantaine sur violation. |
+| **PR4** | Graphe et corridors | Graphe dirigé, qualité/capacité des corridors et politiques ring, stepping-stone, star, small-world, fully-connected, source-sink, hierarchical et adaptive. |
+| **PR5** | Propagules et quarantaine receveur | Types de propagules, provenance, quarantaine, validation locale, assimilation ou rejet ; registre d'adaptateurs de migration. |
+| **PR6** | Politiques de migration | Sélection elite, novelty, rescue, complementary, counterexample, cultural et founder ; push/pull et requêtes ciblées. |
+| **PR7** | Déclencheurs adaptatifs | Déclencher la migration selon stagnation, amélioration, génération, coût, risque de synchronisation et budget. |
+| **PR8** | Source/sink et contribution régionale | Détecter les populations sources et sinks, mesurer la couverture unique et protéger les dèmes régionaux utiles malgré une fitness locale faible. |
+| **PR9** | Rescue effect | Secours depuis une source compatible, essai borné, mesure du bénéfice et rollback si le dème receveur régresse. |
+| **PR10** | Extinction et reprise | Modéliser l'extinction locale, dormance/cryptobiose, snapshots, fossilisation et prise en compte des échecs passés. |
+| **PR11** | Recolonisation vérifiée | Détecter les patches vacants, choisir des founder sets multi-lignées, exécuter un essai local et enregistrer les échecs de colonisation. |
+| **PR12** | Quorum indépendant | Remplacer le quorum simple par un calcul tenant compte de l'indépendance ; traiter abstention, silence et diversité des sources/modèles. |
+| **PR13** | Anti-synchronie | Détecter les échecs corrélés et l'homogénéisation ; réduire ou geler les corridors et préserver la diversité régionale. |
+| **PR14** | Utilité et capacité régionale | Remplacer l'ajustement linéaire ad hoc par une utilité fondée sur bénéfice/coût ; calculer capacité métapopulationnelle et contribution régionale. |
+| **PR15** | Pont Rust et procédural | Relier les dynamiques multi-îlots Rust et les lignées de `proceduralMetapopulationService.js` sans dupliquer leurs moteurs. |
+| **PR16** | Variantes et persistance | Définir les variantes comme politiques ; couvrir fédération, souveraineté des données, scopes persistants et daemons résidents locaux. |
+| **PR17** | Topologies imbriquées et Morphogenèse | Autoriser une topologie locale par dème tout en conservant Métapopulation au niveau régional ; définir signaux et transitions Morphogenèse. |
+| **PR18** | Runtime régional autonome | Ajouter le cycle `OBSERVE → DIAGNOSE → PLAN → EXECUTE → VERIFY → RECORD`, conditions d'arrêt, intégration bout en bout et benchmarks reproductibles. |
+
+### 32.4 Tests d'acceptation régionaux
+
+| Scénario | Résultat attendu |
+|---|---|
+| Un worker tombe, mais la fonction locale reste viable | Le dème n'est pas déclaré éteint. |
+| Tous les workers d'un dème disparaissent | Dème `COLLAPSED`, patch `VACANT` ; les autres continuent si les fonctions régionales restent couvertes. |
+| Un migrant performant à la source est inadapté à la cible | Le receveur le rejette après évaluation locale. |
+| Un claim migré n'a pas de provenance | Rejet. |
+| Une procédure migrée est incompatible | Adaptateur applicable ou rejet explicite. |
+| Un dème demande une compétence absente | Migration pull ciblée vers une source compatible. |
+| Le rescue détériore le dème cible | Rollback et corridor pénalisé selon le résultat. |
+| Une recolonisation échoue à l'essai local | Échec enregistré et patch laissé vacant. |
+| Une lignée a échoué pour la même cause | Elle est pénalisée comme fondatrice. |
+| Plusieurs dèmes partagent modèle et source | Leur poids de quorum indépendant diminue. |
+| Un dème est silencieux | Le silence n'est jamais interprété automatiquement comme une bonne santé. |
+| Les migrations homogénéisent les stratégies | Le contrôle anti-synchronie intervient. |
+| Un dème a une fitness basse, mais une couverture unique | Il est conservé si sa contribution régionale le justifie. |
+| Un corridor est utile dans un sens et nuisible dans l'autre | Les poids A→B et B→A divergent. |
+| Un ring est coupé ou un provider tombe | Fragmentation détectée ; les autres domaines de panne continuent. |
+| Le runtime redémarre | Patches, dèmes, routes et événements sont reconstruits depuis la persistance. |
+| Un dème exécute Trinity | Le niveau régional reste Métapopulation. |
+
+### 32.5 Benchmarks à budget égal
+
+Comparer modèle unique, agents parallèles statiques, A-Team, Biome, modèle à îlots fixes, migration en ring périodique et variantes Métapopulation avec/sans validation receveur, anti-synchronie, rescue et migration adaptative. Couvrir optimisation difficile, panne multi-provider, CI multiplateforme, maintenance multi-repo, débogage distribué, recherche longue, partitions réseau et flottes de workers avec pannes injectées.
+
+Mesurer réussite de mission et survie des fonctions régionales après défaillance locale, taux d'extinction locale et d'échec global, temps de reprise et réussite de recolonisation, qualité par coût, bénéfice/coût de migration, diversité conservée, corrélation des erreurs, concentration des sources, exposition aux points uniques de défaillance, couverture unique et volume de communication. Maintenir le budget identique et publier protocole, fixtures et seuils. La métrique centrale est la performance régionale après défaillance locale.
+
+### 32.6 Critère de réussite
+
+Une Métapopulation réussit si les fonctions régionales critiques sont préservées, les défaillances locales contenues, les migrations sélectivement utiles, la diversité régionale suffisante, la capacité de recolonisation disponible et aucune défaillance systémique non résolue.
+
+> Une bonne Métapopulation GenOS n'est pas celle où aucun dème ne meurt. C'est celle où des dèmes peuvent mourir sans que l'intelligence collective perde sa capacité à continuer, apprendre et recoloniser.

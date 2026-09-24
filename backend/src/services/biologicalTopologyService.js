@@ -29,7 +29,9 @@ async function composeMode(input = {}) {
     return composition;
   }
   if (key === 'metapopulation') {
-    const composition = metapopulationCoordinationService.composeMetapopulation(mission);
+    const composition = await metapopulationCoordinationService.createMetapopulationSession(mission, {
+      ...options, db, orchestratorId
+    });
     await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Metapopulation mode activation' });
     return composition;
   }

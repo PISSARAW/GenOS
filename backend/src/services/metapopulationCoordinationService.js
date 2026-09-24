@@ -9,9 +9,13 @@
  */
 const biologicalModeService = require('./biologicalModeService');
 const topologyCapabilityService = require('./topologyCapabilityService');
+const metapopulationStore = require('./metapopulation/metapopulationStore');
+const { validateMetapopulationSession } = require('./metapopulation/contracts/metapopulationContract');
+const { validateRegionalEvent } = require('./metapopulation/contracts/regionalEventContract');
 
 const DEFAULT_ORGANIZATION = 'quorum_with_abstention';
 const DEFAULT_QUORUM_RATIO = 0.5;
+const sessions = new Map();
 
 function composeMetapopulation(mission, options = {}) {
   const goal = String(mission || '').trim();
@@ -28,6 +32,78 @@ function composeMetapopulation(mission, options = {}) {
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'metapopulation', organization }),
     members
   };
+}
+
+async function createMetapopulationSession(mission, options = {}) {
+  const composition = composeMetapopulation(mission, options);
+  const id = options.metapopulationId || require('crypto').randomUUID();
+  const now = new Date().toISOString();
+  const session = validateMetapopulationSession({
+    metapopulationId: id,
+    missionId: options.missionId || id,
+    mission: composition.mission,
+    organization: composition.organization,
+    scope: options.scope || 'mission',
+    patches: [],
+    demes: [],
+    migrationGraph: { corridors: [] },
+    regionalMemory: {},
+    status: 'FORMING',
+    generation: 0,
+    revision: 1,
+    createdAt: now,
+    updatedAt: now
+  });
+  const event = {
+    type: 'SESSION_CREATED',
+    payload: { missionId: session.missionId, scope: session.scope },
+    provenance: options.provenance || { source: 'metapopulationCoordinationService' },
+    actor: options.actor || options.orchestratorId || 'metapopulation-runtime',
+    occurredAt: now
+  };
+  if (options.db) await metapopulationStore.createSession(options.db, session, event);
+  const result = { ...composition, ...session, sessionId: id, persistence: options.db ? 'durable' : 'memory' };
+  sessions.set(id, result);
+  return result;
+}
+
+async function getMetapopulationSession(metapopulationId, options = {}) {
+  const stored = options.db ? await metapopulationStore.loadSession(options.db, metapopulationId) : null;
+  const session = stored || sessions.get(metapopulationId);
+  if (!session) {
+    throw Object.assign(new Error('Unknown metapopulation session.'), { code: 'METAPOPULATION_SESSION_UNKNOWN' });
+  }
+  const composition = composeMetapopulation(session.mission, { organization: session.organization });
+  const hydrated = { ...composition, ...session, sessionId: session.metapopulationId || session.sessionId };
+  sessions.set(hydrated.sessionId, hydrated);
+  return hydrated;
+}
+
+async function recordMetapopulationEvent(metapopulationId, event, options = {}) {
+  const session = await getMetapopulationSession(metapopulationId, options);
+  const nextRevision = session.revision + 1;
+  const proposed = validateRegionalEvent({
+    ...event,
+    sequence: nextRevision,
+    revision: nextRevision,
+    actor: event.actor || options.actor || 'metapopulation-runtime',
+    provenance: event.provenance || options.provenance || {},
+    occurredAt: event.occurredAt || new Date().toISOString()
+  });
+  const committed = options.db
+    ? await metapopulationStore.appendEvent(options.db, metapopulationId, proposed)
+    : proposed;
+  session.revision = committed.revision;
+  session.updatedAt = committed.occurredAt;
+  sessions.set(metapopulationId, session);
+  return committed;
+}
+
+async function listMetapopulationEvents(metapopulationId, options = {}) {
+  if (!options.db) {
+    throw Object.assign(new Error('A database is required to read the regional event journal.'), { code: 'METAPOPULATION_DB_REQUIRED' });
+  }
+  return metapopulationStore.listEvents(options.db, metapopulationId);
 }
 
 function senseQuorum(members, options = {}) {
@@ -67,4 +143,13 @@ function connectionWeights(connections, outcomes = {}) {
   });
 }
 
-module.exports = { composeMetapopulation, senseQuorum, regenerationPlan, connectionWeights };
+module.exports = {
+  composeMetapopulation,
+  createMetapopulationSession,
+  getMetapopulationSession,
+  recordMetapopulationEvent,
+  listMetapopulationEvents,
+  senseQuorum,
+  regenerationPlan,
+  connectionWeights
+};

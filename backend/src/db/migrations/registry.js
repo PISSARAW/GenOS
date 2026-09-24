@@ -252,6 +252,11 @@ const migrationRunners = [
     const { migrateRequestMemory } = require('./migrateRequestMemory');
     await migrateRequestMemory(db);
   }),
+
+  createMigrationRunner('073-metapopulation-sessions', 'Persist metapopulation sessions, regional events and normalized population records (ADR 0047)', async (db) => {
+    const { migrateMetapopulation } = require('./migrateMetapopulation');
+    await migrateMetapopulation(db);
+  }),
   createMigrationRunner('074-holobiont-sessions', 'Persist Holobiont sessions and append-only symbiosis event history (ADR 0048)', async (db) => {
     const { migrateHolobiontSessions } = require('./migrateHolobiontSessions');
     await migrateHolobiontSessions(db);
