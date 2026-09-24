@@ -78,6 +78,9 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 15. Recoloniser un patch par un essai local porté par au moins deux lignées
     distinctes. Un échec est persisté avec son founder set et le patch demeure
     vacant ; seul un résultat viable permet de créer le nouveau dème.
+16. Le quorum déduplique les votes corrélés par groupe indépendant, source ou
+    modèle. Les abstentions et silences sont des observations sans soutien ;
+    ils ne sont jamais convertis en votes positifs.
 
 ## Conséquences
 
