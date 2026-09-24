@@ -20,9 +20,14 @@ const clean = [
   { workerId: 'w2', events: [report('Express API routes')] },
   { workerId: 'w3', events: [report('Integrated evidence', { integrationConstraints: ['frontend must expose /me'] })] }
 ];
+const completeCoverage = {
+  ratio: 1,
+  missionCoverage: { ratio: 1 }, staffedCoverage: { ratio: 1 },
+  runtimeToolCoverage: { ratio: 1 }, verifiedCoverage: { ratio: 1 }
+};
 
 (async () => {
-  const aTeam = { activated: true, members, capabilityCoverage: { ratio: 1 } };
+  const aTeam = { activated: true, members, capabilityCoverage: completeCoverage };
   await applyAteamIntegration({ agentId: 'orch-metrics-test', workers, usable: clean, autonomyPlan: { aTeam } });
   assert.equal(aTeam.metrics.fusionDecision, 'merged');
   assert.equal(aTeam.metrics.integrationConstraintViolations, 0);
@@ -32,7 +37,7 @@ const clean = [
 
   // A frontend worker claiming backend work escalates the fusion.
   const contaminated = [ { workerId: 'w1', events: [report('Express API routes')] }, clean[1], clean[2] ];
-  const escalated = { activated: true, members, capabilityCoverage: { ratio: 1 } };
+  const escalated = { activated: true, members, capabilityCoverage: completeCoverage };
   await applyAteamIntegration({ agentId: 'orch-metrics-test', workers, usable: contaminated, autonomyPlan: { aTeam: escalated } });
   assert.equal(escalated.metrics.fusionDecision, 'escalated');
   assert.ok(escalated.metrics.integrationConstraintViolations >= 1);

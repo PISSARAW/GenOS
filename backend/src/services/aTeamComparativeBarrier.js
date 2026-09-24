@@ -7,7 +7,7 @@
  */
 const { workerEvidenceDossiers } = require('./agentEvidenceService');
 const { latestReport } = require('./trinityComparativeBarrier');
-const { observeAteamIntegration } = require('./aTeamIntegrationObserver');
+const continuousIntegration = require('./aTeam/integration/continuousIntegrationService');
 const { reportIsUsable } = require('./aTeamHandoffEvidenceService');
 const { emit } = require('./agentOrchestrationState');
 
@@ -84,12 +84,18 @@ async function applyAteamIntegration(ctx) {
   if (!aTeam || aTeam.activated !== true) return null;
   const workers = ctx.workers || [];
   const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, workers);
-  const observation = observeAteamIntegration({ members: aTeam.members, workers, dossiers });
   const evidenceFailures = coverageFailures(aTeam, workers, dossiers);
-  const failures = [...evidenceFailures, ...observation.failures];
-  const canMerge = failures.length === 0 && observation.integrationFailures.length === 0;
+  const integration = continuousIntegration.runContinuousIntegration({ aTeam, workers, dossiers, failures: evidenceFailures });
+  const observation = integration.observation;
+  const failures = integration.blockingFailures;
+  const canMerge = integration.readyToIntegrate;
   aTeam.integration = {
     canMerge,
+    readyToIntegrate: integration.readyToIntegrate,
+    warnings: integration.warnings,
+    integrationGraphHealth: integration.integrationGraphHealth,
+    uncoveredCapabilities: integration.uncoveredCapabilities,
+    unresolvedContracts: integration.unresolvedContracts,
     totalEvaluated: 0,
     paretoFrontCount: 0,
     paretoScope: 'domain_local_alternatives_only',
