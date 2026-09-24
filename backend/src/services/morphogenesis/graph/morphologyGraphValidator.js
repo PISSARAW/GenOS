@@ -1,6 +1,7 @@
 'use strict';
 
 const { EDGE_TYPES } = require('./morphologyEdge');
+const { FIREWALL_CONTROLS } = require('../firewalls/firewallTypes');
 
 function validateMorphologyGraph(graph) {
   const errors = [];
@@ -38,10 +39,19 @@ function edgeErrors(edges, byId) {
     if (!EDGE_TYPES.includes(edge.type)) errors.push(`unsupported edge type: ${edge.type}`);
     if (!byId.has(edge.fromNodeId) || !byId.has(edge.toNodeId)) errors.push(`edge ${edge.edgeId} references an unknown node`);
     if (edge.fromNodeId === edge.toNodeId) errors.push(`edge ${edge.edgeId} cannot connect a node to itself`);
+    if (edge.type === 'FIREWALL') errors.push(...firewallErrors(edge));
     if (edgeIds.has(edge.edgeId)) errors.push('edgeId values must be unique');
     edgeIds.add(edge.edgeId);
   }
   return errors;
+}
+
+function firewallErrors(edge) {
+  const controls = edge.properties && edge.properties.controls;
+  if (!Array.isArray(controls) || controls.length === 0) return [`firewall ${edge.edgeId} requires controls`];
+  return controls.some((control) => !FIREWALL_CONTROLS.includes(control))
+    ? [`firewall ${edge.edgeId} declares an unsupported control`]
+    : [];
 }
 
 function hasContainmentCycle(nodes, edges = []) {

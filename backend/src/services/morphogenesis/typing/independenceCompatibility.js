@@ -1,11 +1,13 @@
 'use strict';
 
 const { contractFor, nodesById } = require('./typingHelpers');
+const { permitsCommunication } = require('../firewalls/independenceFirewall');
 
 function checkIndependence(graph, contracts = {}) {
   const byId = nodesById(graph);
   const nodeErrors = (graph.nodes || []).flatMap((node) => independenceNodeErrors(node, graph, contracts));
-  return nodeErrors.concat((graph.edges || []).flatMap((edge) => communicationErrors(edge, byId, contracts)));
+  const context = { byId, contracts, graph };
+  return nodeErrors.concat((graph.edges || []).flatMap((edge) => communicationErrors(edge, context)));
 }
 
 function independenceNodeErrors(parent, graph, contracts) {
@@ -21,14 +23,15 @@ function independenceNodeErrors(parent, graph, contracts) {
   return errors;
 }
 
-function communicationErrors(edge, byId, contracts) {
+function communicationErrors(edge, context) {
   if (edge.type !== 'COMMUNICATES') return [];
+  const { byId, contracts, graph } = context;
   const source = byId.get(edge.fromNodeId);
   const target = byId.get(edge.toNodeId);
   if (!source.parentNodeId || source.parentNodeId !== target.parentNodeId) return [];
   const owner = byId.get(source.parentNodeId);
   const model = contractFor(owner, contracts).independenceModel || {};
-  if (model.required && !(edge.properties && edge.properties.firewall)) {
+  if (model.required && !permitsCommunication(graph, edge)) {
     return [`communication edge ${edge.edgeId} crosses independent branches without a firewall`];
   }
   return [];

@@ -3,7 +3,8 @@
 const { randomUUID } = require('crypto');
 
 const EDGE_TYPES = Object.freeze([
-  'CONTAINS', 'COMMUNICATES', 'AUTHORIZES', 'SHARES_STATE', 'EXCHANGES_EVIDENCE', 'ALLOCATES_RESOURCE', 'MIGRATES'
+  'CONTAINS', 'COMMUNICATES', 'AUTHORIZES', 'SHARES_STATE', 'EXCHANGES_EVIDENCE',
+  'ALLOCATES_RESOURCE', 'MIGRATES', 'FIREWALL'
 ]);
 
 function createMorphologyEdge(input = {}) {

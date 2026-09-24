@@ -1,6 +1,7 @@
 'use strict';
 
 const { lifecycleIsSealed, nodesById, parentOf } = require('./typingHelpers');
+const { permitsSharedState } = require('../firewalls/stateFirewall');
 
 function findTrinityBranch(node, byId) {
   let branch = node;
@@ -15,15 +16,15 @@ function findTrinityBranch(node, byId) {
 
 function checkState(graph) {
   const byId = nodesById(graph);
-  return (graph.edges || []).flatMap((edge) => stateEdgeErrors(edge, byId));
+  return (graph.edges || []).flatMap((edge) => stateEdgeErrors(edge, byId, graph));
 }
 
-function stateEdgeErrors(edge, byId) {
+function stateEdgeErrors(edge, byId, graph) {
   if (edge.type !== 'SHARES_STATE') return [];
   const sourceBranch = findTrinityBranch(byId.get(edge.fromNodeId), byId);
   const targetBranch = findTrinityBranch(byId.get(edge.toNodeId), byId);
   if (!crossesBranches(sourceBranch, targetBranch)) return [];
-  if (!isLive(edge) || !isSealed(sourceBranch, targetBranch) || hasFirewall(edge)) return [];
+  if (!isLive(edge) || !isSealed(sourceBranch, targetBranch) || permitsSharedState(graph, edge)) return [];
   return [`live shared state edge ${edge.edgeId} crosses a sealed boundary without a firewall`];
 }
 
@@ -34,10 +35,6 @@ function crossesBranches(source, target) {
 
 function isLive(edge) {
   return Boolean(edge.properties && edge.properties.mode === 'live');
-}
-
-function hasFirewall(edge) {
-  return Boolean(edge.properties && edge.properties.firewall === true);
 }
 
 function isSealed(source, target) {
