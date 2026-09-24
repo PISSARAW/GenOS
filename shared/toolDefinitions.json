@@ -516,7 +516,7 @@
       "name": "genos_topology_session",
       "category": "Swarm Biomimicry",
       "risk": "Amber",
-      "description": "Read or update a persisted Rhizome, Biome, or Syncytium topology session.",
+      "description": "Inspect or update a persisted Syncytium, Rhizome, or Biome topology session.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -528,6 +528,16 @@
             "enum": [
               "snapshot",
               "apply",
+              "schema",
+              "domains",
+              "history",
+              "explain",
+              "branch",
+              "promote",
+              "invariants",
+              "conflicts",
+              "replicas",
+              "health",
               "deposit",
               "direct_member",
               "route",
@@ -549,6 +559,24 @@
           },
           "op": {
             "type": "object"
+          },
+          "transaction": {
+            "type": "object"
+          },
+          "branch": {
+            "type": "object"
+          },
+          "branch_id": {
+            "type": "string"
+          },
+          "domain_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "version": {
+            "type": ["string", "number", "object"]
           },
           "marker": {
             "type": "string"
@@ -680,8 +708,44 @@
           "elapsed_time_sec": {
             "type": "number"
           },
+          "current_patch_id": {
+            "type": "string"
+          },
+          "current_descriptor": {
+            "type": "string"
+          },
+          "current_marginal_return": {
+            "type": "number"
+          },
+          "alternative_patch": {
+            "type": "string"
+          },
+          "alternative_patches": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "switch_cost": {
+            "type": "number"
+          },
+          "population_id": {
+            "type": "string"
+          },
+          "individual_id": {
+            "type": "string"
+          },
+          "migration_cost": {
+            "type": "object"
+          },
           "observations": {
             "type": "array"
+          },
+          "current_space": {
+            "type": "object"
+          },
+          "steps_without_progress": {
+            "type": "number"
           }
         },
         "required": [
