@@ -77,6 +77,7 @@ function designHypotheses(mission, supplied = {}) {
   const selectedTriplet = hypothesisDesign.selectTriplet(candidates)
     || analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis, sourceRefs: ['mission'] }));
   const scores = hypothesisDesign.scoreTriplet(selectedTriplet);
+  const experimentDesign = hypothesisDesign.buildDiscriminatingExperiment(selectedTriplet);
   const integrationChecks = normalizeIntegrationChecks(supplied.integrationChecks);
   const claimVerificationChecks = normalizeClaimVerificationChecks(supplied.claimVerificationChecks);
   return {
@@ -87,6 +88,7 @@ function designHypotheses(mission, supplied = {}) {
     candidateHypotheses: candidates.length ? candidates : analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis, sourceRefs: ['mission'] })),
     selectedTriplet,
     ...scores,
+    experimentDesign,
     integrationChecks,
     claimVerificationChecks,
     selectionMethod: candidates.length >= 3 && hypothesisDesign.selectTriplet(candidates) ? 'supplied_candidates_v1' : 'fixed_v1',

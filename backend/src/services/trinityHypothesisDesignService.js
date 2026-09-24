@@ -23,6 +23,14 @@ function stringList(value) {
   return values;
 }
 
+function normalizeExperiment(value) {
+  if (!value || typeof value !== 'object') return null;
+  const protocol = String(value.protocol || '').trim();
+  const expectedOutcome = String(value.expectedOutcome || '').trim();
+  if (protocol.length < 12 || expectedOutcome.length < 3) return null;
+  return { protocol, expectedOutcome };
+}
+
 function candidateSourceRefs(candidate) {
   const sourceRefs = Array.isArray(candidate.sourceRefs) && candidate.sourceRefs.length
     ? [...new Set(candidate.sourceRefs.map(String))]
@@ -43,7 +51,8 @@ function normalizeCandidate(candidate, knownSources) {
     sourceRefs,
     assumptions: stringList(candidate.assumptions),
     predictions: stringList(candidate.predictions),
-    falsificationCriteria: stringList(candidate.falsificationCriteria)
+    falsificationCriteria: stringList(candidate.falsificationCriteria),
+    experiment: normalizeExperiment(candidate.experiment)
   };
 }
 
@@ -88,7 +97,28 @@ function hypothesisText(candidate, fallback) {
   if (assumptions.length) lines.push(`Assumptions to test: ${assumptions.join('; ')}`);
   if (predictions.length) lines.push(`Predictions: ${predictions.join('; ')}`);
   if (falsificationCriteria.length) lines.push(`Falsification criteria: ${falsificationCriteria.join('; ')}`);
+  if (candidate.experiment) {
+    lines.push(`Discriminating protocol: ${candidate.experiment.protocol}`);
+    lines.push(`Expected observation for this hypothesis: ${candidate.experiment.expectedOutcome}`);
+  }
   return lines.join('\n');
+}
+
+function buildDiscriminatingExperiment(selectedTriplet) {
+  const proposals = selectedTriplet.map((candidate) => candidate.experiment);
+  if (proposals.some((proposal) => !proposal)) return null;
+  const protocols = new Set(proposals.map((proposal) => proposal.protocol.toLowerCase().replace(/\s+/g, ' ')));
+  const outcomes = new Set(proposals.map((proposal) => proposal.expectedOutcome.toLowerCase().replace(/\s+/g, ' ')));
+  if (protocols.size !== 1 || outcomes.size < 2) return null;
+  const protocol = proposals[0].protocol;
+  const predictions = selectedTriplet.map((candidate) => ({
+    hypothesisId: candidate.id || null,
+    chamber: candidate.chamber,
+    expectedOutcome: candidate.experiment.expectedOutcome,
+    sourceRefs: candidate.sourceRefs || ['mission']
+  }));
+  const digest = crypto.createHash('sha256').update(JSON.stringify({ protocol, predictions })).digest('hex').slice(0, 16);
+  return { id: `experiment_${digest}`, protocol, predictions, status: 'proposed', method: 'shared_protocol_divergent_predictions_v1' };
 }
 
 function hypothesisTokens(candidate) {
@@ -116,4 +146,4 @@ function scoreTriplet(selectedTriplet) {
   };
 }
 
-module.exports = { normalizeCandidates, selectTriplet, hypothesisText, scoreTriplet };
+module.exports = { normalizeCandidates, selectTriplet, hypothesisText, scoreTriplet, buildDiscriminatingExperiment };
