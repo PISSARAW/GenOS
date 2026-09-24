@@ -165,10 +165,11 @@ async function createMergeArtifact(db, params) {
   const { result, context, orchestratorId } = params;
   const { winnerAgent, workspace: winnerWorkspace, sourcePath } = context;
   if (!winnerAgent?.workspace_id || !winnerWorkspace?.path || !sourcePath) return null;
+  let targetDir = null;
   try {
     const sourceDir = sourcePath;
     const candidateId = `trinity_candidate_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
-    const targetDir = await workspaceLifecycle.createIsolatedWorkspace(sourceDir, candidateId);
+    targetDir = await workspaceLifecycle.createIsolatedWorkspace(sourceDir, candidateId);
     let contentHash;
     try {
       contentHash = await hashWorkspace(targetDir);
@@ -183,15 +184,17 @@ async function createMergeArtifact(db, params) {
     const candidateWorkspaceId = `trinity_candidate_${crypto.randomBytes(8).toString('hex')}`;
     await db.run(
       `INSERT INTO workspaces (id, name, path, visibility, language, description, tags, organization_id, project_id)
-       VALUES (?, ?, ?, 'Private', ?, ?, '[]', ?, ?)`,
+       VALUES (?, ?, ?, 'Private', ?, ?, ?, ?, ?)`,
       candidateWorkspaceId, `Trinity candidate World ${result.selectedWorld}`, targetDir,
-      winnerWorkspace.language || 'Mixed', `Candidate artifact for Trinity world ${result.selectedWorld}.`,
+      winnerWorkspace.language || 'Mixed', `Quarantined Trinity candidate awaiting verification for world ${result.selectedWorld}.`,
+      JSON.stringify(['trinity_candidate', 'quarantined']),
       winnerWorkspace.organization_id || null, winnerWorkspace.project_id || null
     );
-    const artifact = { sourceWorkspace: sourceDir, targetWorkspace: targetDir, candidateWorkspaceId, contentHash, worldNumber: result.selectedWorld, role: result.selectedRole, status: 'candidate' };
+    const artifact = { sourceWorkspace: sourceDir, targetWorkspace: targetDir, candidateWorkspaceId, contentHash, worldNumber: result.selectedWorld, role: result.selectedRole, status: 'quarantined' };
     emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_CREATED', 'MERGE', `Created isolated candidate artifact from World ${result.selectedWorld} (${result.selectedRole}).`, artifact, 'info');
     return artifact;
   } catch (mergeError) {
+    if (targetDir) await workspaceLifecycle.cleanupWorkspace(targetDir).catch(() => {});
     emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_FAILED', 'MERGE', `Failed to create merge artifact from World ${result.selectedWorld}: ${mergeError.message}`, { error: mergeError.message }, 'error');
     return null;
   }
@@ -229,22 +232,28 @@ async function promoteWinner(db, input = {}) {
     const stored = await git.getObject(db, gitRequest, commit.id);
     if (!stored || !git.verifyObjectSignature(stored)) throw new Error('AgentGit candidate reference signature is invalid.');
     decision.agentGit = { objectId: commit.id, refName: commit.refName, commitHash: commit.commitHash, stateHash: commit.stateHash };
+    artifact.status = 'promoted';
+    artifact.agentGit = decision.agentGit;
     const { withTransaction } = require('../db');
     await withTransaction(db, async (tx) => {
       await updateWorldStatuses(tx, result, winner);
       await tx.run("UPDATE trinity_worlds SET status = 'promoted', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId);
+      await tx.run(
+        'UPDATE workspaces SET tags = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        JSON.stringify(['trinity_candidate', 'promoted']), `Verified Trinity candidate for experiment ${experiment.id}.`, artifact.candidateWorkspaceId
+      );
       await trinityExperimentStore.transition(tx, {
         id: experiment.id, status: 'promoted', decision,
         reason: 'candidate_checks_hash_and_agent_git_verified', evidenceRef: commit.id
       });
     });
-    artifact.status = 'promoted';
     emit(orchestratorId, 'TRINITY_WINNER_SELECTED', 'SELECT_TRINITY', `Promoted verified candidate from World ${result.selectedWorld} (${result.selectedRole}).`, { missionId, worldNumber: result.selectedWorld, role: result.selectedRole, artifact, verification, agentGit: decision.agentGit }, 'info');
     return { promoted: true, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId, artifact, verification, agentGit: decision.agentGit };
   } catch (error) {
-    await failPromotion({ db, missionId, reason: error.code || 'candidate_verification_failed', artifact: { ...artifact, failure: error.message } });
+    const quarantinedArtifact = { ...artifact, status: 'quarantined', failure: error.message };
+    await failPromotion({ db, missionId, reason: error.code || 'candidate_verification_failed', artifact: quarantinedArtifact });
     emit(orchestratorId, 'TRINITY_PROMOTION_FAILED', 'PROMOTE_TRINITY', `Candidate promotion failed: ${error.message}`, { missionId, artifact }, 'error');
-    return { promoted: false, candidateCreated: true, reason: error.code || 'candidate_verification_failed', artifact };
+    return { promoted: false, candidateCreated: true, reason: error.code || 'candidate_verification_failed', artifact: quarantinedArtifact };
   }
 }
 
