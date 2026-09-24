@@ -84,6 +84,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | [0069](0069-graphe-interactions-symbiontes-holobionte.md) | Graphe des interactions symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, graphe, relations, preuves, autorité |
 | [0071](0071-sanctions-progressives-holobionte.md) | Sanctions progressives des symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, gouvernance, contrats, immunité |
+| [0072](0072-classification-defaillances-symbiontes.md) | Classification des défaillances de symbiontes | Accepté | 2026-09-24 | Holobionte, santé, résilience, gouvernance |
 
 ## Cycle de vie d'un ADR
 
@@ -103,4 +104,5 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 - [../CONVENTIONS.md](../CONVENTIONS.md) — conventions de rédaction et de nommage.
 - [../GENOME_EPIGENETIQUE.md](../01-concepts/genome-et-epigenetique.md), [../INSTINCT.md](../01-concepts/instinct.md), [../FOSSILISATION.md](../01-concepts/fossilisation.md), [../AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — documents concernés par les ADR ci-dessus.
+
 
