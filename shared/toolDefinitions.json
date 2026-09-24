@@ -541,6 +541,7 @@
               "signal",
               "locus",
               "repair",
+              "prune",
               "allocate",
               "forage",
               "health"
@@ -639,6 +640,15 @@
           },
           "locus_id": {
             "type": "string"
+          },
+          "now": {
+            "type": "number"
+          },
+          "max_idle_ms": {
+            "type": "number"
+          },
+          "utility_threshold": {
+            "type": "number"
           },
           "edges": {
             "type": "array",

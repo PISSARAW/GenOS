@@ -25,6 +25,7 @@ const propagationService = require('./rhizome/propagation/proceduralPropagationS
 const locusService = require('./rhizome/coordination/coordinationLocusService');
 const routeRepairService = require('./rhizome/resilience/routeRepairService');
 const graphAnalytics = require('./rhizome/analytics/graphAnalyticsService');
+const pruningService = require('./rhizome/pruning/pruningService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -294,6 +295,10 @@ async function graphHealth(sessionId, options = {}) {
   return graphAnalytics.assess(await getSession(sessionId, options.db));
 }
 
+async function inspectPruning(sessionId, options = {}) {
+  return pruningService.inspect(await getSession(sessionId, options.db), options);
+}
+
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -350,4 +355,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, inspectPruning, coherence, runSlimeMouldStep, closeSession, rehydrate };
