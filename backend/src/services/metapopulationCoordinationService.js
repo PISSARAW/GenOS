@@ -32,6 +32,7 @@ const demeRecoveryService = require('./metapopulation/demes/demeRecoveryService'
 const recolonizationService = require('./metapopulation/patches/recolonizationService');
 const independentQuorumService = require('./metapopulation/observability/independentQuorumService');
 const antiSynchronyService = require('./metapopulation/observability/antiSynchronyService');
+const regionalUtilityService = require('./metapopulation/observability/regionalUtilityService');
 
 const DEFAULT_ORGANIZATION = 'quorum_with_abstention';
 const DEFAULT_QUORUM_RATIO = 0.5;
@@ -324,6 +325,7 @@ module.exports = {
   ...recolonizationService,
   ...independentQuorumService,
   ...antiSynchronyService,
+  ...regionalUtilityService,
   senseQuorum,
   regenerationPlan,
   connectionWeights

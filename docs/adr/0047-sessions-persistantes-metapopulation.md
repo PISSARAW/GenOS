@@ -84,6 +84,9 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 17. Réguler la migration à partir de la corrélation d'erreurs et du
     recouvrement stratégique. La réduction ou le gel des corridors est dirigé ;
     les dèmes porteurs d'une capacité unique sont retournés comme protégés.
+18. Présenter utilité de migration et capacité du réseau comme indicateurs
+    calculés, avec coût explicite et convergence de l'estimation, sans en faire
+    une preuve autonome de succès ou une décision de promotion.
 
 ## Conséquences
 
