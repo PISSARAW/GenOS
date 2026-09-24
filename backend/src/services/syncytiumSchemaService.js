@@ -61,9 +61,17 @@ function normalizeDefinition(path, definition = {}) {
     invariantRefs: Array.isArray(definition.invariantRefs) ? [...definition.invariantRefs] : [],
     allowedTransitions: normalizeTransitions(definition.allowedTransitions),
     escrowAllocations: normalizeEscrowAllocations(definition.escrowAllocations),
+    maxStalenessMs: normalizeStaleness(definition.maxStalenessMs),
     visibility: definition.visibility || 'DOMAIN',
     replicationPolicy: definition.replicationPolicy || 'ALL_SUBSCRIBED'
   };
+}
+
+function normalizeStaleness(value) {
+  if (value === undefined || value === null) return null;
+  const budget = Number(value);
+  if (!Number.isSafeInteger(budget) || budget < 0) throw schemaError('maxStalenessMs must be a non-negative integer.');
+  return budget;
 }
 
 function normalizeEscrowAllocations(allocations) {

@@ -10,6 +10,7 @@ const router = require('../consistency/coordinationRouter');
 const schemaService = require('../../syncytiumSchemaService');
 const deltaRouter = require('../sync/deltaRouter');
 const projectionMaterializer = require('../sync/projectionMaterializer');
+const adaptiveSync = require('../sync/adaptiveSyncService');
 
 async function apply(context) {
   validateTransaction(context.transaction);
@@ -182,7 +183,12 @@ async function persistCandidate(context) {
   }) : candidate.getSnapshot();
   const deltas = accepted.map((operation) => ({
     opId: operation.opId,
-    recipients: deltaRouter.route({ operation, schema: session.schema, domains: session.domains })
+    recipients: deltaRouter.route({ operation, schema: session.schema, domains: session.domains }),
+    plan: adaptiveSync.plan({
+      operation, schema: session.schema, domains: session.domains,
+      telemetry: context.options.syncTelemetry || {},
+      coordination: { classification: 'RED' }
+    })
   }));
   return {
     sessionId,

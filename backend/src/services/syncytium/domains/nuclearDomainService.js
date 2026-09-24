@@ -21,8 +21,22 @@ function normalizeDomain(domainId, definition = {}) {
     mayPropose: normalizeList(definition.mayPropose),
     mayVeto: normalizeList(definition.mayVeto),
     subscriptions: normalizeList(definition.subscriptions),
+    maxStalenessMs: normalizeBudget(definition.maxStalenessMs),
+    stalenessBudgets: normalizeBudgetMap(definition.stalenessBudgets),
     localCachePolicy: definition.localCachePolicy || 'DEFAULT'
   };
+}
+
+function normalizeBudgetMap(budgets) {
+  if (!budgets || typeof budgets !== 'object' || Array.isArray(budgets)) return {};
+  return Object.fromEntries(Object.entries(budgets).map(([path, value]) => [path, normalizeBudget(value)]));
+}
+
+function normalizeBudget(value) {
+  if (value === undefined || value === null) return null;
+  const budget = Number(value);
+  if (!Number.isSafeInteger(budget) || budget < 0) throw domainError('Staleness budgets must be non-negative integers.');
+  return budget;
 }
 
 function normalizeList(values) {

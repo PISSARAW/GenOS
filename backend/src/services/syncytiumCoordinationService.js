@@ -22,6 +22,7 @@ const semanticConflicts = require('./syncytium/conflicts/semanticConflictService
 const transactionService = require('./syncytium/transactions/transactionService');
 const deltaRouter = require('./syncytium/sync/deltaRouter');
 const projectionMaterializer = require('./syncytium/sync/projectionMaterializer');
+const adaptiveSync = require('./syncytium/sync/adaptiveSyncService');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -190,7 +191,11 @@ async function applyAdmittedOperation(context) {
     consistency: assessConsistency(session),
     coordination: decision,
     invariants: invariantReceipts,
-    deltaRecipients: deltaRouter.route({ operation: op, schema: session.schema, domains: session.domains })
+    deltaRecipients: deltaRouter.route({ operation: op, schema: session.schema, domains: session.domains }),
+    syncPlan: adaptiveSync.plan({
+      operation: op, schema: session.schema, domains: session.domains,
+      telemetry: options.syncTelemetry || {}, coordination: decision
+    })
   };
   session.pendingOperation = session.crdt.getHistory().at(-1);
   await persist(options.db, session);
