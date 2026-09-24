@@ -1547,16 +1547,16 @@ Les chantiers de conception sont regroupés en 18 livrables cohérents. L'ordre 
 | **PR6 — livré** | Politiques de migration | Sélection elite, novelty, rescue, complementary, counterexample, cultural et founder ; plan push par receveur et requêtes pull ciblées. |
 | **PR7 — livré** | Déclencheurs adaptatifs | Déclencher selon stagnation, amélioration ou génération, sous les limites de coût, risque de synchronisation et budget. |
 | **PR8 — livré** | Source/sink et contribution régionale | Classer sources/sinks, mesurer la couverture de capacités distinctes et protéger les dèmes uniques malgré une fitness locale faible. |
-| **PR9** | Rescue effect | Secours depuis une source compatible, essai borné, mesure du bénéfice et rollback si le dème receveur régresse. |
-| **PR10** | Extinction et reprise | Modéliser l'extinction locale, dormance/cryptobiose, snapshots, fossilisation et prise en compte des échecs passés. |
-| **PR11** | Recolonisation vérifiée | Détecter les patches vacants, choisir des founder sets multi-lignées, exécuter un essai local et enregistrer les échecs de colonisation. |
-| **PR12** | Quorum indépendant | Remplacer le quorum simple par un calcul tenant compte de l'indépendance ; traiter abstention, silence et diversité des sources/modèles. |
-| **PR13** | Anti-synchronie | Détecter les échecs corrélés et l'homogénéisation ; réduire ou geler les corridors et préserver la diversité régionale. |
-| **PR14** | Utilité et capacité régionale | Remplacer l'ajustement linéaire ad hoc par une utilité fondée sur bénéfice/coût ; calculer capacité métapopulationnelle et contribution régionale. |
-| **PR15** | Pont Rust et procédural | Relier les dynamiques multi-îlots Rust et les lignées de `proceduralMetapopulationService.js` sans dupliquer leurs moteurs. |
-| **PR16** | Variantes et persistance | Définir les variantes comme politiques ; couvrir fédération, souveraineté des données, scopes persistants et daemons résidents locaux. |
-| **PR17** | Topologies imbriquées et Morphogenèse | Autoriser une topologie locale par dème tout en conservant Métapopulation au niveau régional ; définir signaux et transitions Morphogenèse. |
-| **PR18** | Runtime régional autonome | Ajouter le cycle `OBSERVE → DIAGNOSE → PLAN → EXECUTE → VERIFY → RECORD`, conditions d'arrêt, intégration bout en bout et benchmarks reproductibles. |
+| **PR9 — livré** | Rescue effect | Essais bornés depuis une source compatible, mesure du bénéfice et rollback avec reçu si le dème cible régresse ; corridor pénalisé. |
+| **PR10 — livré** | Extinction et reprise | Déclarer l'extinction seulement si tous les workers sont indisponibles et qu'aucune fonction locale ne reste viable ; libérer le patch, conserver l'historique des causes et préparer la reprise avec références cryptobiose/snapshot/fossile et exclusion des lignées ayant déjà échoué. |
+| **PR11 — livré** | Recolonisation vérifiée | Détecter les patches vacants, filtrer les lignées déjà échouées sur le patch, exiger deux lignées distinctes, garder le patch vacant pendant l'essai et ne créer le nouveau dème qu'après preuve locale de viabilité ; enregistrer les échecs. |
+| **PR12 — livré** | Quorum indépendant | Pondérer une seule preuve par groupe indépendant (source ou modèle), garder abstentions et silences dans le dénominateur sans les compter comme soutien, et exposer la diversité des sources/modèles. |
+| **PR13 — livré** | Anti-synchronie | Détecter les erreurs corrélées et le recouvrement de stratégies ; réduire le poids ou geler les corridors dirigés exposés et signaler les dèmes portant une capacité régionale unique. |
+| **PR14 — livré** | Utilité et capacité régionale | Calculer la valeur nette bénéfice/coût de chaque migration, conserver les exceptions de rescue critique, estimer la capacité du réseau par itération de la matrice de corridors et exposer les mesures comme observations régionales. |
+| **PR15 — livré** | Pont Rust et procédural | Ajouter l'adaptateur de contrat d'îlot vers le moteur multi-îlots Rust, valider ses rapports et synchroniser extinctions/recolonisations avec `proceduralMetapopulationService.js` ; l'évolution Rust échoue explicitement si son adaptateur d'exécution n'est pas configuré. |
+| **PR16 — livré** | Variantes et persistance | Définir les profils équilibré/résilient/exploratoire/conservateur comme politiques ; appliquer une autorisation de souveraineté fail-closed aux références fédérées, reconnaître les scopes persistants et valider explicitement les baux de daemons résidents. |
+| **PR17 — livré** | Topologies imbriquées et Morphogenèse | Proposer une topologie locale par dème à partir de son fitness, de ses échecs et de sa stagnation ; exclure Métapopulation du niveau local et exécuter le changement uniquement via la transition Morphogenèse transactionnelle et réversible. |
+| **PR18 — livré** | Runtime régional autonome | Exécuter les cycles `OBSERVE → DIAGNOSE → PLAN → EXECUTE → VERIFY → RECORD`, borner leur nombre, respecter demande d'arrêt/session inactive/budget épuisé, bloquer les actions incomplètes ou non vérifiées et inscrire chaque issue au journal de session. Fournir un benchmark déterministe des métriques de capacité et de synchronie : `node backend/bin/metapopulation-benchmark.cjs [répétitions]`. |
 
 ### 32.4 Tests d'acceptation régionaux
 

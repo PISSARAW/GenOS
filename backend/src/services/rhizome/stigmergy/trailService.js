@@ -2,6 +2,7 @@
 
 const { normalizeTrail } = require('../contracts/trailContract');
 const decayService = require('./trailDecayService');
+const trailTrustService = require('../security/trailTrustService');
 
 function trailMetadata(marker, options, matrix) {
   const kind = options.kind || 'CAPABILITY_FOUND';
@@ -13,6 +14,8 @@ function trailMetadata(marker, options, matrix) {
     capability: options.capability,
     source: options.source || 'system',
     evidenceRefs: options.evidenceRefs || [],
+    supporters: options.supporters || [],
+    trustWeight: options.trustWeight,
     intensity: 0,
     confidence,
     createdAt: new Date(Number.isFinite(options.now) ? options.now : Date.now()).toISOString(),
@@ -22,8 +25,16 @@ function trailMetadata(marker, options, matrix) {
 }
 
 function deposit(matrix, marker, options = {}) {
-  const metadata = trailMetadata(marker, options, matrix);
-  const entry = matrix.depositTrace(marker, options.amount, options.isRepellent === true);
+  const current = matrix.trails.get(marker);
+  const trust = options.identityContext
+    ? trailTrustService.contribution({
+      current, identityContext: options.identityContext, amount: options.amount,
+      confidence: options.confidence, isRepellent: options.isRepellent === true,
+      trustedDigests: options.trustedIdentityDigests
+    })
+    : { amount: options.amount, supporters: current?.supporters || [], trustWeight: current?.trustWeight ?? 1 };
+  const metadata = trailMetadata(marker, { ...options, supporters: trust.supporters, trustWeight: trust.trustWeight }, matrix);
+  const entry = matrix.depositTrace(marker, trust.amount, options.isRepellent === true);
   const typed = {
     ...entry,
     ...metadata,

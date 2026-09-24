@@ -77,6 +77,25 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0065](0065-transfert-controle-procedures-holobionte.md) | Transfert contrôlé de procédures Holobionte | Accepté | 2026-09-24 | Holobionte, procédures, provenance, AEIS, mémoire |
 | [0089](0089-gates-decision-biocenose.md) | Gates de promotion au jugement Biocénose | Accepté | 2026-09-24 | Biocénose, épistémologie, gouvernance, audit |
 
+| [0063](0063-contrats-worker-autorite-bornee.md) | Contrats worker avec autorité et délégation bornées | Accepté | 2026-09-24 | Workers, contrats, autorité, délégation, budgets |
+| [0064](0064-registre-workerkind-node-et-dispatch.md) | Registre WorkerKind Node et propagation au dispatch | Accepté | 2026-09-24 | Workers, registre, dispatch, autorité, preuves |
+| [0070](0070-syncytium-variant-code.md) | Variant Code pour Syncytium | Accepté | 2026-09-24 | Syncytium, code partagé, symboles, conflits sémantiques |
+| [0071](0071-morphogenese-fractale-et-controle-local.md) | Morphogenèse fractale et contrôle local | Accepté | 2026-09-24 | Orchestration, morphogenèse, autorités déléguées |
+| [0073](0073-sanctions-progressives-holobionte.md) | Sanctions progressives des symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, gouvernance, contrats, immunité |
+| [0074](0074-classification-defaillances-symbiontes.md) | Classification des défaillances de symbiontes | Accepté | 2026-09-24 | Holobionte, santé, résilience, gouvernance |
+| [0075](0075-routage-moteur-contrat-symbionte.md) | Routage du moteur selon le contrat du symbionte | Accepté | 2026-09-24 | Holobionte, runtime, routage, confidentialité |
+| [0076](0076-kinds-non-agentiques-symbiontes-holobionte.md) | Kinds non agentiques pour les symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, symbiontes, modèles, outils, runtime |
+| [0077](0077-variants-policies-holobionte.md) | Variants du Holobionte comme policies | Accepté | 2026-09-24 | Holobionte, composition, configuration, résilience |
+| [0078](0078-holobionte-persistant.md) | Host Holobionte persistant entre missions | Accepté | 2026-09-24 | Holobionte, identité, mémoire, continuité, capacités |
+| [0079](0079-daemons-symbiontes-residents.md) | Daemons comme symbiontes résidents | Accepté | 2026-09-24 | Holobionte, daemons, continuité, admission |
+| [0080](0080-integration-rhizome-holobionte.md) | Intégration de Rhizome au Holobionte | Accepté | 2026-09-24 | Holobionte, Rhizome, découverte, admission |
+| [0081](0081-integration-trinity-holobionte.md) | Intégration de Trinity au Holobionte | Accepté | 2026-09-24 | Holobionte, Trinity, sélection, admission |
+| [0082](0082-integration-biocenose-holobionte.md) | Intégration de Biocénose au Holobionte | Accepté | 2026-09-24 | Holobionte, Biocénose, jugement, autorité |
+| [0083](0083-integration-a-team-holobionte.md) | Intégration A-Team et Holobionte | Accepté | 2026-09-24 | Holobionte, A-Team, sous-topologies, autorité |
+| [0084](0084-integration-syncytium-holobionte.md) | Intégration de Syncytium au Holobionte | Accepté | 2026-09-24 | Holobionte, Syncytium, cohérence, sous-topologies |
+| [0085](0085-integration-morphogenese-holobionte.md) | Intégration de Morphogenèse au Holobionte persistant | Accepté | 2026-09-24 | Holobionte, Morphogenèse, identité, capacités résidentes |
+| [0086](0086-runtime-evenementiel-holobionte.md) | Runtime événementiel Holobionte | Accepté | 2026-09-24 | Holobionte, runtime, contrats, contribution, mémoire |
+| [0086](0086-branche-rhizome-morphogenese.md) | Branche Rhizome dans la Morphogenèse | Proposé | 2026-09-24 | Morphogenèse, Rhizome, exploration, preuves, budgets |
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.

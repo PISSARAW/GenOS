@@ -4,6 +4,7 @@ const { randomUUID } = require('crypto');
 const { withTransaction } = require('../../db');
 const { EVENT_TYPES } = require('./constants');
 const { createHolobiontSession } = require('./contracts/holobiontSession');
+const { normalizeSymbiontKind } = require('./symbionts/symbiontKinds');
 
 function parseSession(row) {
   if (!row) return null;
@@ -62,7 +63,10 @@ function updateConstitution(session, payload) {
 function recordCandidate(session, payload) {
   const symbiontId = String(payload.symbiontId || '').trim();
   if (!symbiontId) return session;
-  session.candidateSymbionts = [...session.candidateSymbionts, { ...(payload.symbiont || {}), id: symbiontId, status: 'CANDIDATE' }];
+  const symbiont = payload.symbiont || {};
+  session.candidateSymbionts = [...session.candidateSymbionts, {
+    ...symbiont, id: symbiontId, kind: normalizeSymbiontKind(symbiont.kind), status: 'CANDIDATE'
+  }];
   return session;
 }
 
@@ -77,6 +81,14 @@ function beginCandidateTrial(session, payload) {
 
 function admitSymbiont(session, payload) {
   const symbiontId = String(payload.symbiontId || '');
+  const dormant = session.residentSymbionts.find((item) => item.id === symbiontId && item.status === 'DORMANT');
+  if (dormant) {
+    if (payload.receipt?.immuneReview?.allowed !== true) {
+      throw Object.assign(new Error('Resuming a dormant symbiont requires an allowed immune receipt.'), { code: 'HOLOBIONT_RESUMPTION_REVIEW_REQUIRED' });
+    }
+    updateSymbiont(session.residentSymbionts, symbiontId, { status: 'RESIDENT', admissionReceipt: payload.receipt });
+    return session;
+  }
   const candidate = session.candidateSymbionts.find((item) => item.id === symbiontId) || { id: symbiontId };
   session.candidateSymbionts = session.candidateSymbionts.filter((item) => item.id !== symbiontId);
   session.residentSymbionts = [...session.residentSymbionts, {
@@ -90,7 +102,8 @@ function changeSymbiontStatus(session, payload, status) {
   const admission = payload.receipt ? { admissionReceipt: payload.receipt } : {};
   const replacement = payload.replacementSymbiontId
     ? { replacementSymbiontId: payload.replacementSymbiontId, statusReason: payload.reason || null } : {};
-  const update = { ...admission, ...replacement, status };
+  const reason = payload.reason ? { statusReason: payload.reason } : {};
+  const update = { ...admission, ...replacement, ...reason, status };
   updateSymbiont(session.candidateSymbionts, symbiontId, update);
   updateSymbiont(session.residentSymbionts, symbiontId, update);
   return session;

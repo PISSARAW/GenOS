@@ -8,6 +8,7 @@ const { checkLifecycle } = require('./lifecycleCompatibility');
 const { checkPrivacy } = require('./privacyCompatibility');
 const { checkResources } = require('./resourceCompatibility');
 const { checkState } = require('./stateCompatibility');
+const { compositionAdapterErrors } = require('./compositionAdapterCompatibility');
 
 function checkTopologyContracts(graph, contracts) {
   const errors = [];
@@ -23,7 +24,8 @@ function runCompatibilityChecks(graph, contracts) {
   return [
     ...checkAuthority(graph), ...checkState(graph), ...checkIndependence(graph, contracts),
     ...checkPrivacy(graph), ...checkEvidence(graph), ...checkResources(graph),
-    ...checkLifecycle(graph, contracts), ...checkTopologyContracts(graph, contracts)
+    ...checkLifecycle(graph, contracts), ...checkTopologyContracts(graph, contracts),
+    ...compositionAdapterErrors(graph, contracts)
   ];
 }
 

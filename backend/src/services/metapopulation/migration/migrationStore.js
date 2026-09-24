@@ -43,6 +43,12 @@ async function listQuarantine(db, metapopulationId, targetDemeId) {
   return rows.map(toMigration);
 }
 
+async function countRescueAttempts(db, metapopulationId, targetDemeId) {
+  await migrateMetapopulation(db);
+  const rows = await db.all('SELECT evidence_json FROM metapopulation_migrations WHERE metapopulation_id = ? AND target_deme_id = ?', metapopulationId, targetDemeId);
+  return rows.filter((row) => parseJson(row.evidence_json).migrationReason === 'rescue').length;
+}
+
 async function resolveMigration(db, metapopulationId, decision) {
   await migrateMetapopulation(db);
   const { migrationId } = decision;
@@ -60,6 +66,21 @@ async function resolveMigration(db, metapopulationId, decision) {
   });
   const row = await readMigrationRow(db, metapopulationId, migrationId);
   return toMigration(row);
+}
+
+async function rollbackAcceptedMigration(db, metapopulationId, input) {
+  await migrateMetapopulation(db);
+  await withTransaction(db, async () => {
+    const row = await db.get('SELECT * FROM metapopulation_migrations WHERE metapopulation_id = ? AND migration_id = ?', metapopulationId, input.migrationId);
+    if (!row) throw storeError('METAPOPULATION_MIGRATION_UNKNOWN', 'Unknown migration.');
+    if (row.status !== 'ACCEPTED') throw storeError('METAPOPULATION_RESCUE_NOT_REVERSIBLE', 'Only an accepted migration can be rolled back.');
+    const evidence = { ...parseJson(row.evidence_json), rescueRollback: input.receipt, rescueReason: input.reason };
+    const now = new Date().toISOString();
+    await db.run('UPDATE metapopulation_migrations SET status = ?, evidence_json = ?, resolved_at = ? WHERE migration_id = ? AND status = ?', 'ROLLED_BACK', JSON.stringify(evidence), now, input.migrationId, 'ACCEPTED');
+    await db.run('UPDATE metapopulation_corridors SET weight = MAX(0, weight - ?), updated_at = ? WHERE corridor_id = ?', input.penalty, now, row.corridor_id);
+    await appendEvent(db, metapopulationId, { type: 'MIGRATION_ROLLED_BACK', payload: { migrationId: input.migrationId, corridorId: row.corridor_id, reason: input.reason, penalty: input.penalty } });
+  });
+  return toMigration(await readMigrationRow(db, metapopulationId, input.migrationId));
 }
 
 async function readMigrationRow(db, metapopulationId, migrationId) {
@@ -89,4 +110,4 @@ function toMigration(row) {
 function parseJson(value) { try { return JSON.parse(value || '{}'); } catch (_) { return {}; } }
 function storeError(code, message) { return Object.assign(new Error(message), { code }); }
 
-module.exports = { offerMigration, getMigration, listQuarantine, resolveMigration };
+module.exports = { offerMigration, getMigration, listQuarantine, countRescueAttempts, resolveMigration, rollbackAcceptedMigration };

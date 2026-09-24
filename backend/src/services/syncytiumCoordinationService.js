@@ -29,6 +29,7 @@ const offlineMutation = require('./syncytium/replicas/offlineMutationService');
 const { createSyncytiumDiagnosticsService } = require('./syncytiumDiagnosticsService');
 const { createSyncytiumSpeculationService } = require('./syncytiumSpeculationService');
 const { createCodeVariantService } = require('./syncytium/variants/code/codeVariantService');
+const { createVariantFacade } = require('./syncytium/variants/variantFacade');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -370,6 +371,10 @@ const applyCodeChange = (sessionId, change, options = {}) => codeVariant.applyCh
 const recordCodeTestResult = (sessionId, result, options = {}) => codeVariant.recordTestResult(sessionId, result, options);
 const recordCodeBuildState = (sessionId, build, options = {}) => codeVariant.recordBuildState(sessionId, build, options);
 const codeSnapshot = (sessionId, options = {}) => codeVariant.snapshot(sessionId, options);
+const variantFacade = createVariantFacade({
+  createSession, applyOperation, applyTransaction, snapshot, createSnapshot, listSnapshots,
+  explain, localizeFaults, chooseRepairCandidates, repairInvariant
+});
 
 async function closeSession(sessionId, options = {}) {
   const existed = sessions.delete(sessionId);
@@ -387,5 +392,6 @@ module.exports = {
   chooseRepairCandidates,
   createSpeculativeBranch, applySpeculativeOperation, compareSpeculativeBranch, promoteSpeculativeBranch,
   createCodeSession, applyCodeChange, recordCodeTestResult, recordCodeBuildState, codeSnapshot,
+  ...variantFacade,
   assessConsistency, closeSession, isIonicFlux, rehydrate
 };
