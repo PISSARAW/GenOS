@@ -151,6 +151,7 @@ function buildMember(candidate, selected) {
     role,
     modelTier,
     capabilities: [domain],
+    authority: { owns: [domain], mayModify: [domain], mayPropose: [], mustConsult: [], mayRead: [], cannotOverride: [] },
     relevanceScore: score,
     pipelineStage: isObserverRole(role) ? 1 : 0,
     dependsOn
@@ -258,6 +259,7 @@ function buildAssignment(composition, member, context) {
     role: member.role,
     modelTier: member.modelTier,
     capabilities: [member.subSystem],
+    authority: { owns: [member.subSystem], mayModify: [member.subSystem], mayPropose: [], mustConsult: [], mayRead: [], cannotOverride: [] },
     relevanceScore: Number(member.relevanceScore) || 1,
     pipelineStage: observer || dependsOn.length ? 1 : 0,
     dependsOn,

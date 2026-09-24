@@ -10,6 +10,7 @@
  */
 const { detectTechnicalDomains } = require('./aTeamService');
 const { latestReport } = require('./trinityComparativeBarrier');
+const { assessMutation } = require('./aTeam/responsibility/boundaryPolicyService');
 
 function memberDomain(member) {
   if (!member) return null;
@@ -33,6 +34,7 @@ function foreignDomain(text, domain, teamDomains) {
 }
 
 function contaminationFailure({ worker, member, report, teamDomains }) {
+  if (member.authority || member.responsibility) return null;
   const domain = memberDomain(member) || memberDomain(worker);
   for (const claim of Array.isArray(report.claims) ? report.claims : []) {
     const foreign = foreignDomain(claimText(claim), domain, teamDomains);
@@ -47,6 +49,20 @@ function contaminationFailure({ worker, member, report, teamDomains }) {
     }
   }
   return null;
+}
+
+function authorityFailures(worker, member, report, members) {
+  const mutations = Array.isArray(report.mutations) ? report.mutations : [];
+  return mutations.map((mutation) => assessMutation(mutation, member, members))
+    .filter((decision) => !decision.allowed)
+    .map((decision) => ({
+      code: decision.code,
+      workerId: worker.agentId,
+      domain: memberDomain(member),
+      scope: decision.scope,
+      ownerId: decision.ownerId,
+      message: `Worker '${worker.agentId}' cannot modify '${decision.scope || 'unknown scope'}': ${decision.code}.`
+    }));
 }
 
 function constraintFailure(worker, member, report) {
@@ -80,6 +96,7 @@ function observeAteamIntegration({ members, workers, dossiers } = {}) {
     const member = memberForWorker(worker, memberList, index);
     const report = latestReport(byWorker.get(worker.agentId));
     if (!report) return;
+    failures.push(...authorityFailures(worker, member, report, memberList));
     const contamination = contaminationFailure({ worker, member, report, teamDomains });
     if (contamination) failures.push(contamination);
     const constraints = constraintFailure(worker, member, report);
