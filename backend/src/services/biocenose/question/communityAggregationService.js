@@ -31,13 +31,19 @@ function factual(input) {
 }
 
 function probability(input) {
-  const values = (input.forecasts || []).filter(validForecast);
+  const values = (input.forecasts || []).filter((item) => validForecast(item)
+    && (!input.variantPolicy?.requireCalibrationWeights || hasCalibrationWeights(item)));
   if (!values.length) return { outcome: 'INSUFFICIENT_FORECASTS', estimates: [] };
   const eventIds = [...new Set(values.map((item) => item.eventId))];
   return {
     outcome: 'PROBABILITY_ESTIMATE',
     estimates: eventIds.map((eventId) => poolEvent(eventId, values.filter((item) => item.eventId === eventId)))
   };
+}
+
+function hasCalibrationWeights(item) {
+  return Number.isFinite(item.calibrationWeight) && item.calibrationWeight > 0
+    && Number.isFinite(item.independenceWeight) && item.independenceWeight > 0;
 }
 
 function poolEvent(eventId, forecasts) {

@@ -7,6 +7,7 @@ const promotionGate = require('./promotionGateService');
 const stoppingRule = require('./stoppingRuleService');
 const { assertValidConstitution } = require('../governance/constitutionValidator');
 const { constitutionHash } = require('../governance/protocolVersioning');
+const variantPolicies = require('../variants/variantPolicyRouter');
 
 async function finalize(input) {
   const session = await communityStore.loadSession(input.db, input.communityId);
@@ -16,14 +17,19 @@ async function finalize(input) {
   const constitution = await communityStore.latestConstitution(input.db, input.communityId);
   if (!constitution) throw Object.assign(new Error('Community constitution is missing.'), { code: 'BIOCENOSE_CONSTITUTION_UNKNOWN' });
   validateActiveConstitution(constitution, session);
-  const stop = stoppingRule.evaluate({ ...input.stopping, round: session.round, constitution: constitution.constitution });
+  const variantPolicy = variantPolicies.select(constitution.constitution.variant);
+  const stopping = { ...input.stopping };
+  if (variantPolicy.minimumRounds > session.round + 1) stopping.stableRoundCount = 0;
+  const effectiveInput = { ...input, variantPolicy };
+  const stop = stoppingRule.evaluate({ ...stopping, round: session.round, constitution: constitution.constitution });
   if (!stop.stop) return { finalized: false, status: 'IN_PROGRESS', stopReason: stop.reason };
   const persistedClaims = await communityStore.listClaims(input.db, input.communityId, session.round);
-  const gates = await promotionGate.evaluate({ ...input,
+  const gates = await promotionGate.evaluate({ ...effectiveInput,
     persistedClaimIds: persistedClaims.map((item) => item.claimId) }, session, persistedClaims);
   const decision = judgmentRecord({ ...input, aggregation: gates.aggregation }, {
-    stop, openCriticalDissent: gates.dissent.filter((item) => item.promotion !== 'ALLOWED'),
-    dissentGates: gates.dissent, promotionGate: gates.gate
+    stop, openCriticalDissent: gates.dissent.gates.filter((item) => item.promotion !== 'ALLOWED'),
+    dissentGates: gates.dissent.gates, preservedDissentIds: gates.dissent.preservedIds,
+    promotionGate: gates.gate, variantPolicy
   });
   const saved = await judgmentStore.record(input.db, {
     judgmentId: randomUUID(), communityId: input.communityId, round: session.round,
@@ -54,7 +60,9 @@ function judgmentRecord(input, context) {
   return {
     status, questionType: input.aggregation.questionType, aggregation: input.aggregation,
     uncertainty: input.uncertainty ?? null, openCriticalDissentIds: context.openCriticalDissent.map((item) => item.dissentId),
-    dissentGates: context.dissentGates, promotionGate: context.promotionGate,
+    dissentGates: context.dissentGates, preservedDissentIds: context.preservedDissentIds,
+    variant: context.variantPolicy.name, variantExecutionLevel: context.variantPolicy.executionLevel,
+    promotionGate: context.promotionGate,
     stopReason: context.stop.reason
   };
 }

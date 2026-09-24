@@ -85,27 +85,48 @@ async function reviewAndVerify(context) {
   const reviews = [];
   const verificationReceipts = [];
   for (const claim of claims) {
-    const publicClaim = stripOwner(claim);
-    const route = reviewerRouter.route({ claim: publicClaim, members: session.members });
-    for (const reviewer of route.reviewers) {
-      const member = findMember(session, reviewer.memberId);
-      const review = await invokeMember(context, {
-        member, phase: 'REVIEW', task: 'Review the assigned claim and return objections, arguments, and dissent as JSON.',
-        details: { claim: publicClaim, specialties: reviewer.specialties, prompts: reviewer.prompts }
-      });
-      reviews.push({ claimId: claim.claimId, reviewerId: reviewer.memberId, review });
-    }
-    const verification = verifierRouter.route({ claim: publicClaim, members: session.members });
-    if (verification.deterministicAvailable && typeof context.verificationExecutor === 'function') {
-      for (const verifier of verification.verifiers) {
-        const receipt = await context.verificationExecutor({ claim: publicClaim, verifier, communityId: session.communityId });
-        if (isTrustedVerifiedReceipt(receipt, context.isTrustedReceipt)) {
-          verificationReceipts.push({ ...receipt, claimId: claim.claimId });
-        }
-      }
-    }
+    const publicClaim = context.variantPolicy?.name === 'delphi_community'
+      ? stripAttribution(claim) : stripOwner(claim);
+    await collectClaimReviews({ context, session, claim: publicClaim, reviews });
+    await verifyClaim({ context, session, claim: publicClaim, receipts: verificationReceipts });
   }
   return { reviews, verificationReceipts };
+}
+
+async function collectClaimReviews(input) {
+  const { context, session, claim, reviews } = input;
+  const route = reviewerRouter.route({ claim, members: session.members, policy: context.variantPolicy });
+  if (route.requiredReviewerMissing) throw Object.assign(
+    new Error('Adversarial Assembly requires at least one active adversarial reviewer.'),
+    { code: 'BIOCENOSE_VARIANT_REVIEWER_REQUIRED' }
+  );
+  for (const reviewer of route.reviewers) {
+    const member = findMember(session, reviewer.memberId);
+    const review = await invokeMember(context, {
+      member, phase: 'REVIEW', task: 'Review the assigned claim and return objections, arguments, and dissent as JSON.',
+      details: { claim, specialties: reviewer.specialties, prompts: reviewer.prompts }
+    });
+    reviews.push({ claimId: claim.claimId, reviewerId: reviewer.memberId, review });
+  }
+}
+
+async function verifyClaim(input) {
+  const { context, session, claim, receipts } = input;
+  const verification = verifierRouter.route({ claim, members: session.members });
+  assertVariantVerifier(context, session, verification);
+  if (!verification.deterministicAvailable || typeof context.verificationExecutor !== 'function') return;
+  for (const verifier of verification.verifiers) {
+    const receipt = await context.verificationExecutor({ claim, verifier, communityId: session.communityId });
+    if (isTrustedVerifiedReceipt(receipt, context.isTrustedReceipt)) receipts.push({ ...receipt, claimId: claim.claimId });
+  }
+}
+
+function assertVariantVerifier(context, session, verification) {
+  if (!context.variantPolicy?.requireDeterministicVerifier || session.questionType !== 'FACTUAL'
+    || verification.deterministicAvailable) return;
+  throw Object.assign(new Error('Hybrid Oracle Community requires a deterministic verifier for factual claims.'), {
+    code: 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED'
+  });
 }
 
 async function buildArgumentGraph(context) {
@@ -134,9 +155,16 @@ async function collectBeliefRevisions(context) {
   const updates = [];
   for (const item of initial) {
     const member = findMember(session, item.memberId);
+    const anonymous = context.variantPolicy?.name === 'delphi_community';
     const response = await invokeMember(context, {
       member, phase: 'REVISION', task: 'Revise only claims affected by evidence or arguments; return an empty changes list otherwise.',
-      details: { initialJudgment: item.judgment, claims, reviews, arguments: argumentsList }
+      details: {
+        initialJudgment: item.judgment,
+        claims: anonymous ? claims.map(stripAttribution) : claims,
+        reviews: anonymous ? undefined : reviews,
+        arguments: anonymous ? argumentsList.map(anonymousArgument) : argumentsList,
+        anonymousFeedback: anonymous ? anonymousFeedback(initial, reviews) : undefined
+      }
     });
     if (!response.changedClaims?.length) continue;
     updates.push(await beliefRevision.revise({
@@ -165,7 +193,7 @@ async function aggregateByQuestionType(context) {
   return aggregationService.aggregate({
     ...options, questionType: session.questionType, claims, judgments,
     forecasts: options.forecasts || judgments.flatMap((item) => item.judgment.probabilities || []),
-    verificationReceipts: reviewResult.verificationReceipts
+    verificationReceipts: reviewResult.verificationReceipts, variantPolicy: context.variantPolicy
   });
 }
 
@@ -201,12 +229,36 @@ async function recordCommunityJudgment(context) {
     ...(context.stopping || {}),
     stableRoundCount: context.stopping?.stableRoundCount ?? (decisionReady(aggregation) || openGate ? 1 : 0)
   };
+  if (context.variantPolicy?.minimumRounds > context.session.round + 1) stopping.stableRoundCount = 0;
   return judgmentService.finalize({
     db: context.db, communityId: context.communityId, actorId: context.actorId,
-    aggregation, verificationReceipts: prior(context, 2).verificationReceipts,
+    aggregation, variantPolicy: context.variantPolicy,
+    verificationReceipts: prior(context, 2).verificationReceipts,
     isTrustedReceipt: context.isTrustedReceipt,
     uncertainty: context.uncertainty ?? { independence: prior(context, 5).report }, stopping
   });
+}
+
+function anonymousFeedback(judgments, reviews) {
+  const positions = new Map();
+  for (const item of judgments) {
+    const position = String(item.judgment.position ?? 'ABSTAIN');
+    positions.set(position, (positions.get(position) || 0) + 1);
+  }
+  return {
+    positionCounts: [...positions].map(([position, count]) => ({ position, count })),
+    reviewSummaries: reviews.map((item) => ({ claimId: item.claimId, review: anonymousReview(item.review) }))
+  };
+}
+
+function anonymousReview(review) {
+  const allowed = ['summary', 'objections', 'evidenceRefs', 'counterexamples'];
+  return Object.fromEntries(allowed.filter((key) => review?.[key] !== undefined)
+    .map((key) => [key, review[key]]));
+}
+
+function anonymousArgument(item) {
+  return { claimId: item.claimId, relation: item.relation, argument: item.argument };
 }
 
 function isTrustedVerifiedReceipt(receipt, validator) {
@@ -242,6 +294,11 @@ function normalizeClaims(values) {
 
 function stripOwner(claim) {
   const { createdBy, ...value } = claim;
+  return value;
+}
+
+function stripAttribution(claim) {
+  const { createdBy, owners, ...value } = claim;
   return value;
 }
 

@@ -4,20 +4,28 @@ const communityStore = require('../communityStore');
 const controller = require('./communityController');
 const protocolHandlers = require('./protocolHandlers');
 const { createHash } = require('crypto');
+const variantPolicies = require('../variants/variantPolicyRouter');
 
 async function runRound(input) {
   let session = await communityStore.loadSession(input.db, input.communityId);
   if (!session) throw Object.assign(new Error('Biocenose community not found.'), { code: 'BIOCENOSE_COMMUNITY_UNKNOWN' });
   const constitution = await communityStore.latestConstitution(input.db, input.communityId);
   if (!constitution) throw Object.assign(new Error('Biocenose constitution is missing.'), { code: 'BIOCENOSE_CONSTITUTION_UNKNOWN' });
-  const handlers = { ...protocolHandlers.createHandlers(input), ...(input.handlers || {}) };
+  const variantPolicy = variantPolicies.select(constitution.constitution.variant);
+  if (input.variant && variantPolicies.select(input.variant).name !== variantPolicy.name) {
+    throw Object.assign(new Error('The selected Biocenose variant differs from the committed constitution.'), {
+      code: 'BIOCENOSE_VARIANT_CONSTITUTION_MISMATCH'
+    });
+  }
+  variantPolicies.assertCompatible(variantPolicy, constitution.constitution.questionType);
+  const handlers = { ...protocolHandlers.createHandlers({ ...input, variantPolicy }), ...(input.handlers || {}) };
   let result;
   do {
     try {
       result = await controller.runRound({
       session, constitution: constitution.constitution,
       handlers,
-      context: { db: input.db, communityId: input.communityId, session, constitution: constitution.constitution },
+      context: { db: input.db, communityId: input.communityId, session, constitution: constitution.constitution, variantPolicy },
       onStepComplete: (step) => recordStep(input, step)
       });
     } catch (error) {

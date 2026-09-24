@@ -5,6 +5,7 @@ const { semanticsFor } = require('../question/decisionSemantics');
 const { routeAggregationPolicy } = require('../question/aggregationPolicyRouter');
 const { assertValidConstitution } = require('./constitutionValidator');
 const protocolVersioning = require('./protocolVersioning');
+const variantPolicies = require('../variants/variantPolicyRouter');
 
 const EVIDENCE_STANDARDS = Object.freeze({
   FACTUAL: 'primary_sources_or_deterministic_verification',
@@ -22,8 +23,10 @@ function buildConstitution(input) {
   });
   const semantics = semanticsFor(classification.questionType);
   const route = routeAggregationPolicy(classification.questionType);
+  const variant = variantPolicies.select(input.variant || input.overrides?.variant);
+  variantPolicies.assertCompatible(variant, classification.questionType);
   const base = defaultConstitution({ questionType: classification.questionType, roles: input.roles || [], semantics, route });
-  const constitution = { ...base, ...(input.overrides || {}), questionType: classification.questionType };
+  const constitution = { ...base, ...(input.overrides || {}), questionType: classification.questionType, variant: variant.name };
   assertValidConstitution({
     constitutionId: 'draft', communityId: input.communityId, version: 1,
     constitution, constitutionHash: 'draft'

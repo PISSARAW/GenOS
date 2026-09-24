@@ -6,8 +6,10 @@ const { open } = require('sqlite');
 const store = require('../src/services/biocenose/communityStore');
 const biocenose = require('../src/services/biocenoseService');
 
-async function makeAggregationReady(db, mission) {
-  const community = await biocenose.prepareCommunity({ db, orchestratorId: 'orchestrator', mission });
+async function makeAggregationReady(db, mission, variant) {
+  const community = await biocenose.prepareCommunity({
+    db, orchestratorId: 'orchestrator', mission, options: { variant }
+  });
   await store.appendEvent(db, {
     communityId: community.communityId, actorId: 'orchestrator', type: 'PHASE_CHANGED', payload: {},
     patch: { phase: 'AGGREGATION' }
@@ -52,6 +54,34 @@ async function run() {
     assert.equal(untrusted.judgment.status, 'IRREDUCIBLE_DISAGREEMENT');
     assert.equal(untrusted.judgment.aggregation.outcome, 'REVIEW_REQUIRED');
     assert.equal(untrusted.judgment.promotionGate.status, 'REVIEW_REQUIRED');
+
+    const human = await makeAggregationReady(db, 'Compare these two options.', 'human_ai_deliberation');
+    const humanReview = await biocenose.finalizeCommunityJudgment({
+      db, communityId: human.communityId, actorId: 'orchestrator',
+      aggregation: { questionType: 'MULTI_CRITERIA', outcome: 'PARETO_FRONT', options: ['option-a'] },
+      stopping: { stableRoundCount: 1 }
+    });
+    assert.equal(humanReview.judgment.status, 'HUMAN_REVIEW_REQUIRED');
+    assert.equal(humanReview.judgment.variant, 'human_ai_deliberation');
+
+    const delphi = await makeAggregationReady(db, 'Compare two possible outcomes.', 'delphi');
+    const firstRound = await biocenose.finalizeCommunityJudgment({
+      db, communityId: delphi.communityId, actorId: 'orchestrator',
+      aggregation: { questionType: 'MULTI_CRITERIA', outcome: 'PARETO_FRONT', options: ['option-a'] },
+      stopping: { stableRoundCount: 1 }
+    });
+    assert.equal(firstRound.finalized, false);
+    await store.appendEvent(db, {
+      communityId: delphi.communityId, actorId: 'orchestrator', type: 'PHASE_CHANGED', payload: {},
+      patch: { round: 1 }
+    });
+    const secondRound = await biocenose.finalizeCommunityJudgment({
+      db, communityId: delphi.communityId, actorId: 'orchestrator',
+      aggregation: { questionType: 'MULTI_CRITERIA', outcome: 'PARETO_FRONT', options: ['option-a'] },
+      stopping: { stableRoundCount: 1 }
+    });
+    assert.equal(secondRound.judgment.status, 'DECIDED');
+    assert.equal(secondRound.judgment.variant, 'delphi_community');
   } finally {
     await db.close();
   }

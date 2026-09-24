@@ -18,6 +18,13 @@ const probabilistic = aggregateCommunityJudgments({
 assert.ok(Math.abs(probabilistic.estimates[0].probability - 0.6) < 1e-9);
 assert.equal(probabilistic.estimates[0].weighting, 'equal_fallback');
 
+const forecasting = aggregateCommunityJudgments({
+  questionType: 'PROBABILISTIC', variantPolicy: { requireCalibrationWeights: true }, forecasts: [
+    { eventId: 'e1', probability: 0.4 }, { eventId: 'e1', probability: 0.8 }
+  ]
+});
+assert.equal(forecasting.outcome, 'INSUFFICIENT_FORECASTS');
+
 const normative = aggregateCommunityJudgments({
   questionType: 'NORMATIVE', judgments: [
     { memberId: 'm1', judgment: { position: 'A' } }, { memberId: 'm2', judgment: { position: 'B' } }

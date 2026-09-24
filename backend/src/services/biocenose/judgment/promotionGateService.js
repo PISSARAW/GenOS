@@ -2,6 +2,9 @@
 
 async function evaluate(input, session, persistedClaims) {
   const result = evaluateAggregation(input, persistedClaims);
+  if (input.variantPolicy?.requireHumanReview) {
+    result.aggregation = { ...result.aggregation, humanJudgmentRequired: true };
+  }
   return {
     aggregation: result.aggregation,
     gate: result.gate,
@@ -55,9 +58,13 @@ async function evaluateDissent(input, communityId) {
   const ledger = require('../dissent/dissentLedger');
   const veto = require('../dissent/minorityEvidenceVetoService');
   const entries = await ledger.list({ db: input.db, communityId });
-  return entries.filter(isCriticalOpen).map((dissent) => ({ dissentId: dissent.dissentId,
+  return {
+    preservedIds: entries.filter((entry) => input.variantPolicy?.preserveAllDissent || isCriticalOpen(entry))
+      .map((entry) => entry.dissentId),
+    gates: entries.filter(isCriticalOpen).map((dissent) => ({ dissentId: dissent.dissentId,
     ...veto.evaluate({ dissent, receipts: input.verificationReceipts, isTrustedReceipt: input.isTrustedReceipt })
-  }));
+    }))
+  };
 }
 
 function isCriticalOpen(entry) {

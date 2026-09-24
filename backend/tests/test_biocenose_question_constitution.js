@@ -57,6 +57,21 @@ async function verifyConstitutionLifecycle() {
       'CONSTITUTION_COMMITTED', 'CONSTITUTION_VERSIONED'
     ]);
     assert.equal((await store.loadSession(db, prepared.communityId)).constitutionId, revised.constitutionId);
+    const forecasting = constitutionService.buildConstitution({
+      communityId: 'forecast-community', question: 'Estimate the probability of this failure.',
+      roles: ['forecaster'], variant: 'forecasting_crowd'
+    });
+    assert.equal(forecasting.constitution.variant, 'forecasting_crowd');
+    const persistedForecasting = await biocenose.prepareCommunity({
+      db, orchestratorId: 'orchestrator-1', mission: 'Estimate the probability of failure.',
+      options: { variant: 'forecasting_crowd' }
+    });
+    const forecastingRecord = await store.latestConstitution(db, persistedForecasting.communityId);
+    assert.equal(forecastingRecord.constitution.variant, 'forecasting_crowd');
+    assert.throws(() => constitutionService.buildConstitution({
+      communityId: 'fact-community', question: 'What is the API contract?', roles: ['reviewer'],
+      variant: 'forecasting_crowd'
+    }), (error) => error.code === 'BIOCENOSE_VARIANT_QUESTION_TYPE_INVALID');
   } finally {
     await db.close();
   }

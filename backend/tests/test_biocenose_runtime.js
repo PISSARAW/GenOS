@@ -17,6 +17,9 @@ async function run() {
     assert.equal(result.receipts.length, ROUND_STEPS.length);
     const events = await store.listEvents(db, community.communityId);
     assert.equal(events.filter((event) => event.type === 'DELIBERATION_STEP_COMPLETED').length, ROUND_STEPS.length);
+    await assert.rejects(() => biocenose.runBiocenoseRound({
+      db, communityId: community.communityId, variant: 'delphi', handlers
+    }), (error) => error.code === 'BIOCENOSE_VARIANT_CONSTITUTION_MISMATCH');
     await assert.rejects(() => biocenose.runBiocenoseRound({ db, communityId: community.communityId, handlers: {} }),
       (error) => error.code === 'BIOCENOSE_RUNTIME_STEP_BLOCKED');
     assert.equal((await store.listEvents(db, community.communityId)).filter((event) => event.type === 'DELIBERATION_STEP_BLOCKED').length, 1);

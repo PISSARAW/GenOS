@@ -10,8 +10,7 @@ const REVIEWERS = Object.freeze([
 
 function route(input) {
   const required = claimTags(input.claim);
-  const quarantine = new Set(input.quarantinedMemberIds || []);
-  const available = (input.members || []).filter((member) => isReviewer(member) && !quarantine.has(member.memberId || member.id));
+  const available = availableReviewers(input);
   const assigned = available.map((member) => assignment(member, required));
   const matching = assigned.filter((item) => item.specialties.length);
   const selected = matching.length ? matching : assigned.slice(0, 1);
@@ -22,8 +21,19 @@ function route(input) {
       prompts: item.specialties.map((name) => REVIEWERS.find((reviewer) => reviewer.specialty === name).prompt)
     })),
     unassigned: selected.length === 0,
+    requiredReviewerMissing: Boolean(input.policy?.requireAdversarialReviewer && !available.length),
     reason: matching.length ? 'specialty_match' : 'fallback_review'
   };
+}
+
+function availableReviewers(input) {
+  const quarantine = new Set(input.quarantinedMemberIds || []);
+  return (input.members || []).filter((member) => isReviewer(member)
+    && !quarantine.has(member.memberId || member.id) && matchesPolicy(member, input.policy));
+}
+
+function matchesPolicy(member, policy) {
+  return !policy?.requireAdversarialReviewer || member.role === 'adversarial_reviewer';
 }
 
 function isReviewer(member) {
