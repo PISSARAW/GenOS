@@ -104,7 +104,8 @@ function buildComparison(result) {
     selectedRole: result.selectedRole || null,
     bestScore: result.bestScore,
     paretoFrontier: result.comparativeAnalysis?.pareto?.frontier?.map((world) => world.worldNumber) || [],
-    tied: result.comparativeAnalysis?.tied === true
+    tied: result.comparativeAnalysis?.tied === true,
+    jury: result.jury || null
   };
 }
 
@@ -113,7 +114,7 @@ async function recordComparison(ctx, trinity, result) {
     missionId: trinity.missionId,
     orchestratorId: ctx.agentId,
     comparison: result.comparativeAnalysis,
-    decision: { canMerge: result.canMerge, outcome: result.outcome }
+    decision: { canMerge: result.canMerge, outcome: result.outcome, jury: result.jury || null }
   });
 }
 
@@ -124,6 +125,7 @@ async function applyTrinityComparison(ctx) {
   const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, ctx.workers || []);
   const worldReports = buildWorldReports(ctx.workers || [], dossiers, { members: trinity.members || [] });
   const result = trinityService.mergeTrinityEvidence(worldReports, { domain: trinity.domain, threshold });
+  result.jury = { status: 'unavailable', reason: 'judge_dispatch_not_configured', votes: [] };
   await recordComparison(ctx, trinity, result);
   trinity.comparison = buildComparison(result);
   trinity.comparison.promotion = await promoteWinner(ctx.db, { missionId: trinity.missionId, orchestratorId: ctx.agentId, result });
@@ -222,7 +224,7 @@ async function promoteWinner(db, input = {}) {
     const verification = await verifyCandidate(db, { missionId, winner, artifact });
     const experiment = await db.get('SELECT id FROM trinity_experiments WHERE mission_id = ?', missionId);
     if (!experiment) throw new Error('Trinity experiment disappeared before final promotion.');
-    const decision = { outcome: 'PROMOTED', worldNumber: result.selectedWorld, artifact, verification };
+    const decision = { outcome: 'PROMOTED', worldNumber: result.selectedWorld, artifact, verification, jury: result.jury || null };
     const git = require('./agentGitService');
     const gitRequest = { user: { username: 'trinity-runtime' }, body: {} };
     const commit = await git.createCommit(gitRequest, {
@@ -270,6 +272,7 @@ async function previousPromotion(input) {
     idempotent: true,
     reason: decision.reason || experiment.failure_reason || null,
     worldNumber: decision.worldNumber,
+    jury: decision.jury || null,
     artifact: decision.artifact || decision.candidateArtifact || null,
     verification: decision.verification || null,
     agentGit: decision.agentGit || null
@@ -327,7 +330,7 @@ async function updateExperimentDecision(db, missionId, result) {
   if (status === 'sealed_running') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'sealed_complete', reason: 'all_worlds_terminal' })).status;
   if (status === 'sealed_complete') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'cross_examining', reason: 'comparative_review_started' })).status;
   const outcome = result?.outcome || (result?.canMerge ? 'PROMOTE_WORLD' : 'ESCALATE_EXPERIMENT');
-  const decision = { outcome, reason: result?.reason || null, bestScore: result?.bestScore || 0, evidenceVectorDecision: vectorDecisionSummary(result?.comparativeAnalysis?.pareto) };
+  const decision = { outcome, reason: result?.reason || null, bestScore: result?.bestScore || 0, evidenceVectorDecision: vectorDecisionSummary(result?.comparativeAnalysis?.pareto), jury: result?.jury || null };
   const next = result?.canMerge || outcome === 'KEEP_PARETO_SET' ? 'decided' : 'escalated';
   if (status === 'cross_examining') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: next, decision, reason: decision.reason || outcome })).status;
   if (status === 'decided' && result?.canMerge) await trinityExperimentStore.transition(db, { id: experiment.id, status: 'promotion_preparing', decision, reason: 'candidate_promotion_prepared' });
