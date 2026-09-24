@@ -22,13 +22,14 @@ function expandState(state, edges, activeIds) {
     .map((edge) => ({ nodeIds: [...state.nodeIds, edge.to], edges: [...state.edges, edge] }));
 }
 
-function findPaths(session, starts, activeIds) {
-  const pending = starts.map((nodeId) => ({ nodeIds: [nodeId], edges: [] }));
+function findPaths(input) {
+  const pending = input.starts.map((nodeId) => ({ nodeIds: [nodeId], edges: [] }));
   const found = [];
+  const maxHops = Math.min(input.activeIds.size, input.maxHops);
   while (pending.length) {
     const current = pending.shift();
     found.push(current);
-    if (current.edges.length < activeIds.size) pending.push(...expandState(current, session.edges || [], activeIds));
+    if (current.edges.length < maxHops) pending.push(...expandState(current, input.session.edges || [], input.activeIds));
   }
   return found;
 }
@@ -53,11 +54,12 @@ function buildAlternatives(paths, nodes, need) {
   }).sort((left, right) => right.utility - left.utility || left.routeId.localeCompare(right.routeId));
 }
 
-function plan(session, value) {
+function plan(session, value, policy = {}) {
   const need = normalizeCapabilityNeed(value);
   const nodes = activeNodes(session);
   const activeIds = new Set(nodes.map((node) => node.nodeId));
-  const paths = findPaths(session, startNodeIds(session, nodes), activeIds);
+  const configuredHops = Number(policy.maxHops) || activeIds.size;
+  const paths = findPaths({ session, starts: startNodeIds(session, nodes), activeIds, maxHops: configuredHops });
   const alternatives = buildAlternatives(paths, nodes, need);
   if (!alternatives.length) return { needId: need.needId, capability: need.capability, selected: false, verdict: 'unreachable', alternatives: [] };
   return { needId: need.needId, capability: need.capability, selected: true, verdict: 'route_selected', route: alternatives[0], alternatives };

@@ -29,6 +29,8 @@ const pruningService = require('./rhizome/pruning/pruningService');
 const routeQuarantineService = require('./rhizome/security/routeQuarantineService');
 const graphProjector = require('./rhizome/graph/rhizomeGraphProjector');
 const capabilityAdmission = require('./rhizome/security/capabilityAdmissionService');
+const directMemberRouter = require('./rhizome/routing/directMemberRouter');
+const variantPolicyService = require('./rhizome/variants/variantPolicyService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -66,6 +68,7 @@ function serialize(session) {
     mission: session.mission,
     organization: session.organization,
     members: session.members,
+    variant: session.variant,
     trails: [...session.matrix.trails.entries()],
     oscillators: [...session.matrix.oscillators.entries()]
   };
@@ -103,12 +106,15 @@ function rehydrate(record, graph = {}) {
     graphVersion: graph.graphVersion ?? state.graphVersion
   }, record.id);
   const organization = state.organization || DEFAULT_ORGANIZATION;
+  const variant = variantPolicyService.resolve(state.variant);
   return {
     ...canonical,
     sessionId: record.id,
     revision: Number(record.revision) || 0,
     mission: state.mission || '',
     organization,
+    variant: variant.name,
+    variantPolicy: variant,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'rhizome', organization }),
     matrix: restoreMatrix(state),
     members: normalizeMembers(Array.isArray(state.members) ? state.members : [])
@@ -121,6 +127,7 @@ async function composeRhizome(mission, options = {}) {
     throw Object.assign(new Error('Rhizome mission is required.'), { code: 'RHIZOME_MISSION_REQUIRED' });
   }
   const organization = options.organization || DEFAULT_ORGANIZATION;
+  const variant = variantPolicyService.resolve(options.variant);
   const sessionId = options.rhizomeId || `rhizome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const session = {
     ...normalizeRhizomeSession({
@@ -139,6 +146,8 @@ async function composeRhizome(mission, options = {}) {
     sessionId,
     mission: goal,
     organization,
+    variant: variant.name,
+    variantPolicy: variant,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'rhizome', organization }),
     matrix: createSwarmMatrix(),
     members: normalizeMembers(Array.isArray(options.members) ? options.members : biologicalModeService.compose('rhizome', goal))
@@ -182,11 +191,7 @@ async function depositTrail(sessionId, marker, options = {}) {
 
 async function routeDirectMember(sessionId, need, options = {}) {
   const session = await getSession(sessionId, options.db);
-  const target = String(need || '').trim();
-  if (!target) throw Object.assign(new Error('A non-empty capability need is required.'), { code: 'RHIZOME_NEED_REQUIRED' });
-  const now = Number.isFinite(options.now) ? options.now : Date.now();
-  const alternatives = routeAlternatives(session, target, now);
-  return directMemberDecision({ sessionId, target, alternatives, coherent: options.coherent });
+  return directMemberRouter.route({ session, sessionId, need, coherent: options.coherent, now: options.now });
 }
 
 async function graphSnapshot(sessionId, options = {}) {
@@ -235,11 +240,12 @@ async function planGrowth(sessionId, gapId, options = {}) {
   const session = await getSession(sessionId, options.db);
   const gap = session.openGaps.find((item) => item.gapId === gapId);
   if (!gap) throw Object.assign(new Error(`Unknown Rhizome gap '${gapId}'.`), { code: 'RHIZOME_GAP_UNKNOWN' });
-  return growthPlanner.plan({ session, gap, values: options.candidates, options });
+  return growthPlanner.plan({ session, gap, values: options.candidates, options: { ...options, threshold: options.threshold ?? session.variantPolicy.growth.threshold } });
 }
 
 async function routeToCapability(sessionId, need, options = {}) {
-  return routePlanner.plan(await getSession(sessionId, options.db), need);
+  const session = await getSession(sessionId, options.db);
+  return routePlanner.plan(session, need, session.variantPolicy.routing);
 }
 
 async function evaporateTrails(sessionId, options = {}) {
@@ -336,28 +342,6 @@ async function admitCapabilityNode(sessionId, input, options = {}) {
     }
   });
 }
-function routeAlternatives(session, target, now) {
-  const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
-  const marker = `route:capability/${target}`;
-  return capable.map((member) => {
-    const trail = session.matrix.getDecayedIntensity(marker, now);
-    const routeMarker = `route:member/${member.role}/${target}`;
-    const memberTrail = session.matrix.getDecayedIntensity(routeMarker, now);
-    return { role: member.role, score: Number((trail + memberTrail).toFixed(4)), signals: [
-      ...(trail ? [{ marker, intensity: trail }] : []),
-      ...(memberTrail ? [{ marker: routeMarker, intensity: memberTrail }] : [])
-    ] };
-  }).sort((left, right) => right.score - left.score || left.role.localeCompare(right.role));
-}
-
-function directMemberDecision({ sessionId, target, alternatives, coherent }) {
-  if (!alternatives.length) return { sessionId, need: target, memberRole: null, selected: false, verdict: 'no_capable_member', alternatives: [] };
-  const best = alternatives[0];
-  if (best.score < 0) return { sessionId, need: target, memberRole: null, selected: false, verdict: 'repelled', alternatives };
-  if (coherent === false) return { sessionId, need: target, memberRole: null, selected: false, verdict: 'incoherent', alternatives };
-  return { sessionId, need: target, memberRole: best.role, selected: true, verdict: 'member_selected', score: best.score, signals: best.signals, alternatives };
-}
-
 async function coherence(sessionId, options = {}) {
   const session = await getSession(sessionId, options.db);
   return { sessionId, ...session.matrix.computeKuramotoOrder() };
