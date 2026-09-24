@@ -5,6 +5,8 @@ const ROLE_COLORS = {
   integration_executor: '#8b5cf6'
 };
 const typedCrdt = require('./syncytiumCrdtTypeRegistry');
+const causalClock = require('./syncytium/causality/causalClockService');
+const versionVectors = require('./syncytium/causality/versionVectorService');
 
 function roleColor(role) {
   return ROLE_COLORS[role] || '#06b6d4';
@@ -100,11 +102,13 @@ class SyncytiumCrdt {
     this.opLog = [];
     this.lamportClock = 0;
     this.appliedOpIds = new Set();
+    this.causalFrontier = {};
   }
 
   applyOp(op) {
     const opId = typeof op.opId === 'string' ? op.opId.trim() : '';
     if (opId && this.appliedOpIds.has(opId)) return this.getSnapshot();
+    const causalOperation = causalClock.record(op, this.causalFrontier);
     // Lamport receive rule: advance the local clock past any remote timestamp,
     // then stamp local events with max(local, remote) + 1. A remote op keeps
     // its own stamp.
@@ -119,8 +123,9 @@ class SyncytiumCrdt {
     }
     // `??` so an explicit 0 timestamp is honored instead of replaced.
     const timestampMs = op.timestampMs ?? Date.now();
-    const recordedOp = { ...op, ...(opId ? { opId } : {}), lamport, timestampMs };
+    const recordedOp = { ...causalOperation, ...(opId ? { opId } : {}), lamport, timestampMs };
     this.opLog.push(recordedOp);
+    this.causalFrontier = versionVectors.merge(this.causalFrontier, recordedOp.versionVector);
     if (opId) this.appliedOpIds.add(opId);
     return this.getSnapshot();
   }
@@ -129,8 +134,12 @@ class SyncytiumCrdt {
     return this.appliedOpIds.has(String(opId || '').trim());
   }
 
+  getCausalFrontier() {
+    return { ...this.causalFrontier };
+  }
+
   getSnapshot(targetMs = null, maxOps = null) {
-    const state = { text: '', fields: {}, typedFields: {}, cursors: {}, invariants: {} };
+    const state = { text: '', fields: {}, typedFields: {}, cursors: {}, invariants: {}, causalFrontier: {} };
     let lastMs = 0;
     let applied = 0;
 
@@ -139,6 +148,7 @@ class SyncytiumCrdt {
       if (maxOps !== null && applied >= maxOps) break;
       applied += 1;
       lastMs = Math.max(lastMs, op.timestampMs);
+      state.causalFrontier = versionVectors.merge(state.causalFrontier, op.versionVector || {});
       applyKind(state, op.kind, op);
       updateCursor(state, op);
       updateInvariant(state, op);
@@ -157,6 +167,7 @@ class SyncytiumCrdt {
       invariants: Object.values(state.invariants).sort((a, b) => a.name.localeCompare(b.name)),
       totalOps: applied,
       logSize: this.opLog.length,
+      causalFrontier: state.causalFrontier,
       isTimeTravel,
       rewindTargetMs
     };
