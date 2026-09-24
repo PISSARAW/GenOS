@@ -20,6 +20,8 @@ const coordinationRouter = require('./syncytium/consistency/coordinationRouter')
 const invariantGate = require('./syncytium/invariants/invariantGate');
 const semanticConflicts = require('./syncytium/conflicts/semanticConflictService');
 const transactionService = require('./syncytium/transactions/transactionService');
+const deltaRouter = require('./syncytium/sync/deltaRouter');
+const projectionMaterializer = require('./syncytium/sync/projectionMaterializer');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -146,6 +148,7 @@ function assessConsistency(session) {
 
 async function applyOperation(sessionId, op, options = {}) {
   const session = await getSession(sessionId, options.db);
+  validateConsumerDomain(session, options.domainId);
   const admission = schemaService.admitOperation(session.schema, op);
   op = admission.operation;
   const decision = operationClassifier.classify(session.schema, op);
@@ -160,7 +163,7 @@ async function applyAdmittedOperation(context) {
   const { sessionId, session, op, options, admission, decision } = context;
   mutationAuthority.authorize(session.domains, session.schema, op);
   if (op?.opId && (session.crdt.hasOpId(op.opId) || session.fluxOps.some((flux) => flux.opId === op.opId))) {
-    return { sessionId, snapshot: session.crdt.getSnapshot(), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session), coordination: decision, duplicate: true };
+    return operationResult(context, session.crdt.getSnapshot(), { duplicate: true });
   }
   if (op.fieldType === 'ESCROW_COUNTER' && op.kind?.action === 'allocate') {
     throw Object.assign(new Error('Escrow allocation changes must use applyTransaction.'), { code: 'SYNCYTIUM_TRANSACTION_REQUIRED' });
@@ -169,7 +172,7 @@ async function applyAdmittedOperation(context) {
   if (isIonicFlux(op)) {
     const flux = { opId: op.opId, ion: op.kind.type.slice('flux_'.length), deltaFlux: Number(op.kind.deltaFlux) || 0, agentId: op.agentId };
     session.fluxOps.push(flux);
-    const result = { sessionId, ion: session.cytoplasm.propagateIonicFlux(flux.ion, flux.deltaFlux, flux.agentId), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session), coordination: decision };
+    const result = { sessionId, ion: session.cytoplasm.propagateIonicFlux(flux.ion, flux.deltaFlux, flux.agentId), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session), coordination: decision, deltaRecipients: [] };
     session.pendingOperation = op;
     await persist(options.db, session);
     return result;
@@ -179,7 +182,16 @@ async function applyAdmittedOperation(context) {
   });
   const invariantReceipts = invariantGate.evaluateCandidate({ schema: session.schema, crdt: session.crdt, operation: op });
   session.crdt.applyOp(op);
-  const result = { sessionId, snapshot: session.crdt.getSnapshot(), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session), coordination: decision, invariants: invariantReceipts };
+  const result = {
+    sessionId,
+    snapshot: projectedSnapshot(session, session.crdt.getSnapshot(), options.domainId),
+    schema: projectedSchema(session, options.domainId),
+    warnings: admission.warnings,
+    consistency: assessConsistency(session),
+    coordination: decision,
+    invariants: invariantReceipts,
+    deltaRecipients: deltaRouter.route({ operation: op, schema: session.schema, domains: session.domains })
+  };
   session.pendingOperation = session.crdt.getHistory().at(-1);
   await persist(options.db, session);
   return result;
@@ -187,7 +199,45 @@ async function applyAdmittedOperation(context) {
 
 async function snapshot(sessionId, options = {}) {
   const session = await getSession(sessionId, options.db);
-  return { sessionId, shared: session.crdt.getSnapshot(), schema: session.schema, domains: session.domains, cytoplasm: session.cytoplasm.snapshotState(), consistency: assessConsistency(session) };
+  validateConsumerDomain(session, options.domainId);
+  const shared = session.crdt.getSnapshot();
+  return {
+    sessionId,
+    shared: projectedSnapshot(session, shared, options.domainId),
+    schema: projectedSchema(session, options.domainId),
+    domains: options.domainId ? { [options.domainId]: session.domains[options.domainId] } : session.domains,
+    cytoplasm: session.cytoplasm.snapshotState(),
+    consistency: assessConsistency(session)
+  };
+}
+
+function validateConsumerDomain(session, domainId) {
+  if (domainId && !session.domains[domainId]) {
+    throw Object.assign(new Error(`Unknown Syncytium domain '${domainId}'.`), { code: 'SYNCYTIUM_DOMAIN_UNKNOWN' });
+  }
+}
+
+function projectedSnapshot(session, shared, domainId) {
+  const domain = domainId ? session.domains[domainId] : null;
+  return domain ? projectionMaterializer.projectSnapshot({ snapshot: shared, schema: session.schema, domain }) : shared;
+}
+
+function projectedSchema(session, domainId) {
+  const domain = domainId ? session.domains[domainId] : null;
+  return domain ? projectionMaterializer.projectSchema(session.schema, domain) : session.schema;
+}
+
+function operationResult(context, shared, flags = {}) {
+  const { sessionId, session, admission, decision, options } = context;
+  return {
+    sessionId,
+    snapshot: projectedSnapshot(session, shared, options.domainId),
+    schema: projectedSchema(session, options.domainId),
+    warnings: admission.warnings,
+    consistency: assessConsistency(session),
+    coordination: decision,
+    ...flags
+  };
 }
 
 async function applyTransaction(sessionId, transaction, options = {}) {

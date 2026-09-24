@@ -8,11 +8,14 @@ const conflicts = require('../conflicts/semanticConflictService');
 const invariantEvaluator = require('../invariants/invariantEvaluator');
 const router = require('../consistency/coordinationRouter');
 const schemaService = require('../../syncytiumSchemaService');
+const deltaRouter = require('../sync/deltaRouter');
+const projectionMaterializer = require('../sync/projectionMaterializer');
 
 async function apply(context) {
   validateTransaction(context.transaction);
   return router.run({ coordinationRequired: true }, context.sessionId, async () => {
     const session = await context.getSession(context.sessionId, context.options.db);
+    validateConsumerDomain(session, context.options.domainId);
     return execute({ ...context, session });
   });
 }
@@ -66,8 +69,22 @@ function duplicateStatus(history, transaction) {
   return 'NONE';
 }
 
-function duplicateResult({ sessionId, session, transaction }) {
-  return { sessionId, txId: transaction.txId, duplicate: true, snapshot: session.crdt.getSnapshot(), operationIds: transaction.operations.map((item) => item.opId) };
+function duplicateResult({ sessionId, session, transaction, options }) {
+  const snapshot = session.crdt.getSnapshot();
+  const domain = options.domainId ? session.domains[options.domainId] : null;
+  return {
+    sessionId,
+    txId: transaction.txId,
+    duplicate: true,
+    snapshot: domain ? projectionMaterializer.projectSnapshot({ snapshot, schema: session.schema, domain }) : snapshot,
+    operationIds: transaction.operations.map((item) => item.opId)
+  };
+}
+
+function validateConsumerDomain(session, domainId) {
+  if (domainId && !session.domains[domainId]) {
+    throw transactionError('SYNCYTIUM_DOMAIN_UNKNOWN', `Unknown Syncytium domain '${domainId}'.`);
+  }
 }
 
 function checkPreconditions(preconditions = [], snapshot, stateVersion) {
@@ -158,13 +175,23 @@ async function persistCandidate(context) {
     session.pendingOperations = null;
     throw error;
   }
+  const projected = context.options.domainId ? projectionMaterializer.projectSnapshot({
+    snapshot: candidate.getSnapshot(),
+    schema: session.schema,
+    domain: session.domains[context.options.domainId]
+  }) : candidate.getSnapshot();
+  const deltas = accepted.map((operation) => ({
+    opId: operation.opId,
+    recipients: deltaRouter.route({ operation, schema: session.schema, domains: session.domains })
+  }));
   return {
     sessionId,
     txId: transaction.txId,
-    snapshot: candidate.getSnapshot(),
+    snapshot: projected,
     operationIds: accepted.map((item) => item.opId),
     invariants: receipts,
-    coordination: { zone: 'SERIALIZABLE', classification: 'RED', coordinationRequired: true }
+    coordination: { zone: 'SERIALIZABLE', classification: 'RED', coordinationRequired: true },
+    deltas
   };
 }
 
