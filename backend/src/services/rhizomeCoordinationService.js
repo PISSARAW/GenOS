@@ -28,10 +28,6 @@ const graphAnalytics = require('./rhizome/analytics/graphAnalyticsService');
 const pruningService = require('./rhizome/pruning/pruningService');
 const routeQuarantineService = require('./rhizome/security/routeQuarantineService');
 const graphProjector = require('./rhizome/graph/rhizomeGraphProjector');
-const capabilityAdmission = require('./rhizome/security/capabilityAdmissionService');
-const directMemberRouter = require('./rhizome/routing/directMemberRouter');
-const variantPolicyService = require('./rhizome/variants/variantPolicyService');
-const nestedTopologyService = require('./rhizome/nested/nestedTopologyService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -41,6 +37,7 @@ const ROLE_CAPABILITIES = Object.freeze({
   boundary_scout: ['observation', 'capability_discovery']
 });
 const sessions = new Map();
+
 function normalizeMembers(members) {
   const roles = new Set();
   return members.map((member) => {
@@ -68,7 +65,6 @@ function serialize(session) {
     mission: session.mission,
     organization: session.organization,
     members: session.members,
-    variant: session.variant,
     trails: [...session.matrix.trails.entries()],
     oscillators: [...session.matrix.oscillators.entries()]
   };
@@ -106,15 +102,12 @@ function rehydrate(record, graph = {}) {
     graphVersion: graph.graphVersion ?? state.graphVersion
   }, record.id);
   const organization = state.organization || DEFAULT_ORGANIZATION;
-  const variant = variantPolicyService.resolve(state.variant);
   return {
     ...canonical,
     sessionId: record.id,
     revision: Number(record.revision) || 0,
     mission: state.mission || '',
     organization,
-    variant: variant.name,
-    variantPolicy: variant,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'rhizome', organization }),
     matrix: restoreMatrix(state),
     members: normalizeMembers(Array.isArray(state.members) ? state.members : [])
@@ -127,7 +120,6 @@ async function composeRhizome(mission, options = {}) {
     throw Object.assign(new Error('Rhizome mission is required.'), { code: 'RHIZOME_MISSION_REQUIRED' });
   }
   const organization = options.organization || DEFAULT_ORGANIZATION;
-  const variant = variantPolicyService.resolve(options.variant);
   const sessionId = options.rhizomeId || `rhizome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const session = {
     ...normalizeRhizomeSession({
@@ -146,8 +138,6 @@ async function composeRhizome(mission, options = {}) {
     sessionId,
     mission: goal,
     organization,
-    variant: variant.name,
-    variantPolicy: variant,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'rhizome', organization }),
     matrix: createSwarmMatrix(),
     members: normalizeMembers(Array.isArray(options.members) ? options.members : biologicalModeService.compose('rhizome', goal))
@@ -191,7 +181,11 @@ async function depositTrail(sessionId, marker, options = {}) {
 
 async function routeDirectMember(sessionId, need, options = {}) {
   const session = await getSession(sessionId, options.db);
-  return directMemberRouter.route({ session, sessionId, need, coherent: options.coherent, now: options.now });
+  const target = String(need || '').trim();
+  if (!target) throw Object.assign(new Error('A non-empty capability need is required.'), { code: 'RHIZOME_NEED_REQUIRED' });
+  const now = Number.isFinite(options.now) ? options.now : Date.now();
+  const alternatives = routeAlternatives(session, target, now);
+  return directMemberDecision({ sessionId, target, alternatives, coherent: options.coherent });
 }
 
 async function graphSnapshot(sessionId, options = {}) {
@@ -240,12 +234,11 @@ async function planGrowth(sessionId, gapId, options = {}) {
   const session = await getSession(sessionId, options.db);
   const gap = session.openGaps.find((item) => item.gapId === gapId);
   if (!gap) throw Object.assign(new Error(`Unknown Rhizome gap '${gapId}'.`), { code: 'RHIZOME_GAP_UNKNOWN' });
-  return growthPlanner.plan({ session, gap, values: options.candidates, options: { ...options, threshold: options.threshold ?? session.variantPolicy.growth.threshold } });
+  return growthPlanner.plan({ session, gap, values: options.candidates, options });
 }
 
 async function routeToCapability(sessionId, need, options = {}) {
-  const session = await getSession(sessionId, options.db);
-  return routePlanner.plan(session, need, session.variantPolicy.routing);
+  return routePlanner.plan(await getSession(sessionId, options.db), need);
 }
 
 async function evaporateTrails(sessionId, options = {}) {
@@ -322,6 +315,7 @@ async function graphHealth(sessionId, options = {}) {
 async function inspectPruning(sessionId, options = {}) {
   return pruningService.inspect(await getSession(sessionId, options.db), options);
 }
+
 async function quarantineRoute(sessionId, input, options = {}) {
   return mutateSession(sessionId, options, {
     type: 'EDGE_QUARANTINED',
@@ -329,35 +323,29 @@ async function quarantineRoute(sessionId, input, options = {}) {
     apply: (session) => Object.assign(session, routeQuarantineService.quarantine(session, input, options.trustedVerifierDigests))
   });
 }
-async function admitCapabilityNode(sessionId, input, options = {}) {
-  return mutateSession(sessionId, options, {
-    type: 'NODE_ACTIVATED',
-    payload: { nodeId: input.nodeId, evidenceId: input.proof?.evidenceId },
-    apply: (session) => {
-      const index = session.nodes.findIndex((node) => node.nodeId === input.nodeId);
-      if (index < 0) throw Object.assign(new Error(`Unknown Rhizome node '${input.nodeId}'.`), { code: 'RHIZOME_NODE_UNKNOWN' });
-      session.nodes[index] = capabilityAdmission.admit(session.nodes[index], input.proof, options.admissionPolicy);
-      session.graphVersion += 1;
-      return { sessionId, node: session.nodes[index], graphVersion: session.graphVersion };
-    }
-  });
+
+function routeAlternatives(session, target, now) {
+  const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
+  const marker = `route:capability/${target}`;
+  return capable.map((member) => {
+    const trail = session.matrix.getDecayedIntensity(marker, now);
+    const routeMarker = `route:member/${member.role}/${target}`;
+    const memberTrail = session.matrix.getDecayedIntensity(routeMarker, now);
+    return { role: member.role, score: Number((trail + memberTrail).toFixed(4)), signals: [
+      ...(trail ? [{ marker, intensity: trail }] : []),
+      ...(memberTrail ? [{ marker: routeMarker, intensity: memberTrail }] : [])
+    ] };
+  }).sort((left, right) => right.score - left.score || left.role.localeCompare(right.role));
 }
 
-async function proposeNestedTopology(sessionId, input, options = {}) {
-  return mutateSession(sessionId, options, {
-    type: 'SUB_TOPOLOGY_PROPOSED',
-    payload: { needKind: input.needKind, topology: input.topology || null },
-    apply: (session) => {
-      const proposal = nestedTopologyService.propose({
-        ...input, missionId: input.missionId || session.missionId,
-        mission: input.mission || session.mission, currentTopology: 'rhizome'
-      });
-      const node = nestedTopologyService.candidateNode(input, proposal);
-      Object.assign(session, capabilityGraph.addNode(session, node));
-      return { sessionId, ...proposal, candidateNode: node };
-    }
-  });
+function directMemberDecision({ sessionId, target, alternatives, coherent }) {
+  if (!alternatives.length) return { sessionId, need: target, memberRole: null, selected: false, verdict: 'no_capable_member', alternatives: [] };
+  const best = alternatives[0];
+  if (best.score < 0) return { sessionId, need: target, memberRole: null, selected: false, verdict: 'repelled', alternatives };
+  if (coherent === false) return { sessionId, need: target, memberRole: null, selected: false, verdict: 'incoherent', alternatives };
+  return { sessionId, need: target, memberRole: best.role, selected: true, verdict: 'member_selected', score: best.score, signals: best.signals, alternatives };
 }
+
 async function coherence(sessionId, options = {}) {
   const session = await getSession(sessionId, options.db);
   return { sessionId, ...session.matrix.computeKuramotoOrder() };
@@ -397,4 +385,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, projectGraph, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, projectGraph, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };

@@ -57,9 +57,7 @@ function emitPartialTerminal(ctx) {
 function emitSatisfiedTerminal(ctx) {
   const evidenceCount = ctx.usable.reduce((count, dossier) => count + dossier.events.length, 0);
   emit(ctx.agentId, 'WORKER_EVIDENCE_BARRIER_SATISFIED', 'SYNTHESIZE', 'Every delegated worker is terminal and all collected dossiers were attached to the official root synthesis.', {
-    workerIds: workerIdList(ctx.workers), workersCompleted: ctx.workers.length,
-    workersVerified: ctx.usable.length, dossierCount: ctx.usable.length,
-    partial: false, evidenceEventCount: evidenceCount
+    workerIds: workerIdList(ctx.workers), dossierCount: ctx.usable.length, partial: false, evidenceEventCount: evidenceCount
   }, 'info', 'running');
 }
 

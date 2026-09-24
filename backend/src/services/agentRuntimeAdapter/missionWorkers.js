@@ -113,117 +113,17 @@ function registerAutonomousRound(ctx, autonomousWorkers) {
 }
 
 async function orchestrateAutonomousWorkers(ctx) {
-  if (ctx.dispatchedAgent.execution_mode !== 'orchestrator') return [];
-  const assignments = Array.isArray(ctx.autonomyPlan?.dispatchWorkers) ? ctx.autonomyPlan.dispatchWorkers : [];
-  if (ctx.normalizedMission.autonomousOrchestration === false) {
-    emitDispatchDeferred(ctx, assignments);
-    return [];
-  }
-  const autonomousWorkers = await dispatchSelectedWorkers(ctx, assignments);
-  emitDispatchReconciled(ctx, assignments, autonomousWorkers);
-  await activateCreatedWorkers(ctx, autonomousWorkers);
-  return autonomousWorkers;
-}
-
-function emitDispatchSelected(ctx, assignments) {
-  if (!assignments.length) return;
-  emit(ctx.agentId, 'WORKER_DISPATCH_SELECTED', 'DISPATCH_WORKERS', `Selected ${assignments.length} worker assignment(s) for dispatch.`, {
-    requestedWorkers: ctx.autonomyPlan.workers?.length || assignments.length,
-    selectedWorkers: assignments.length,
-    assignments: assignments.map((assignment) => ({ label: assignment.label, role: assignment.role }))
-  }, 'info');
-}
-
-async function dispatchSelectedWorkers(ctx, assignments) {
-  emitDispatchSelected(ctx, assignments);
+  const { db, dispatchedAgent, autonomyPlan, normalizedMission } = ctx;
   let autonomousWorkers = [];
-  try {
-    autonomousWorkers = await createAutonomousWorkers(ctx.db, ctx.dispatchedAgent, ctx.autonomyPlan, ctx.normalizedMission);
-    assertWorkerDispatchMatches(assignments, autonomousWorkers);
-  } catch (error) {
-    autonomousWorkers = Array.isArray(error.createdWorkers) ? error.createdWorkers : autonomousWorkers;
-    await cleanupUnlaunchedWorkers(ctx, autonomousWorkers, error);
-    emitDispatchFailed(ctx, assignments, { workers: autonomousWorkers, error: error });
-    throw error;
+  if (dispatchedAgent.execution_mode === 'orchestrator' && normalizedMission.autonomousOrchestration !== false) {
+    autonomousWorkers = await createAutonomousWorkers(db, dispatchedAgent, autonomyPlan, normalizedMission);
+    emitTeamComposition(ctx, autonomousWorkers);
+    await launchTrinityWorlds(ctx, autonomousWorkers);
+    emitWorkerCreations(ctx.agentId, autonomousWorkers);
+    reportWorkerDispatch(ctx, autonomousWorkers);
+    registerAutonomousRound(ctx, autonomousWorkers);
   }
   return autonomousWorkers;
 }
 
-async function cleanupUnlaunchedWorkers(ctx, workers, error) {
-  const cleanup = require('../agentWorkspaceLifecycleService').scheduleWorkspaceCleanup;
-  await Promise.allSettled(workers.map(async (worker) => {
-    await ctx.db.run(
-      "UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      `Dispatch failed: ${error.code || 'worker_creation_error'}`,
-      worker.agentId
-    );
-    await cleanup(worker.agentId);
-  }));
-}
-
-function emitDispatchFailed(ctx, assignments, outcome) {
-  const { workers, error } = outcome;
-  emit(ctx.agentId, 'WORKER_DISPATCH_FAILED', 'DISPATCH_WORKERS', `Worker dispatch failed: ${error.message}`, {
-      requestedWorkers: ctx.autonomyPlan.workers?.length || assignments.length,
-      selectedWorkers: assignments.length,
-      createdWorkers: workers.length,
-      errorCode: error.code || 'WORKER_DISPATCH_FAILED'
-  }, 'error');
-}
-
-function emitDispatchReconciled(ctx, assignments, workers) {
-  if (assignments.length) {
-    emit(ctx.agentId, 'WORKER_DISPATCH_RECONCILED', 'DISPATCH_WORKERS', `Created all ${workers.length} selected worker(s).`, {
-      requestedWorkers: ctx.autonomyPlan.workers?.length || assignments.length,
-      selectedWorkers: assignments.length,
-      createdWorkers: workers.length,
-      workerIds: workers.map((worker) => worker.agentId),
-      status: 'created'
-    }, 'info');
-  }
-}
-
-async function activateCreatedWorkers(ctx, workers) {
-  if (!workers.length) return;
-  emitTeamComposition(ctx, workers);
-  await launchTrinityWorlds(ctx, workers);
-  emitWorkerCreations(ctx.agentId, workers);
-  reportWorkerDispatch(ctx, workers);
-  registerAutonomousRound(ctx, workers);
-}
-
-function assertWorkerDispatchMatches(assignments, workers) {
-  if (workers.length !== assignments.length) {
-    throw Object.assign(new Error(`Worker dispatch count mismatch: selected ${assignments.length}, created ${workers.length}.`), {
-      code: 'WORKER_DISPATCH_COUNT_MISMATCH',
-      selectedWorkers: assignments.length,
-      createdWorkers: workers.length
-    });
-  }
-  const assignmentMismatch = assignments.some((assignment, index) => {
-    const worker = workers[index];
-    return !worker?.agentId
-      || (assignment.label && assignment.label !== worker.label)
-      || (assignment.role && assignment.role !== worker.role);
-  });
-  const duplicateIds = new Set(workers.map((worker) => worker.agentId)).size !== workers.length;
-  if (!assignmentMismatch && !duplicateIds) return;
-  throw Object.assign(new Error('Created workers do not match the selected assignment identities.'), {
-    code: 'WORKER_DISPATCH_ASSIGNMENT_MISMATCH',
-    selectedWorkers: assignments.length,
-    createdWorkers: workers.length
-  });
-}
-
-function emitDispatchDeferred(ctx, assignments) {
-  if (!assignments.length) return;
-  emit(ctx.agentId, 'WORKER_DISPATCH_DEFERRED', 'DISPATCH_WORKERS', 'Selected worker assignments were not dispatched because autonomous orchestration is disabled by mission policy.', {
-    requestedWorkers: ctx.autonomyPlan.workers?.length || assignments.length,
-    selectedWorkers: assignments.length,
-    createdWorkers: 0,
-    reason: 'autonomous_orchestration_disabled',
-    policy: ctx.normalizedMission.executionPolicy || {}
-  }, 'warning');
-}
-
-module.exports = { orchestrateAutonomousWorkers, assertWorkerDispatchMatches };
+module.exports = { orchestrateAutonomousWorkers };

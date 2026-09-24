@@ -68,40 +68,6 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 12. Mesurer la contribution régionale séparément de la fitness locale. Une
     capacité portée par un seul dème viable compte dans la couverture unique
     et le protège d'une élimination fondée seulement sur sa faible fitness.
-13. Borner les essais rescue par receveur. Comparer la fitness du dème avant et
-    après assimilation ; une régression confirmée ne peut être annulée que par
-    un adaptateur réversible avec reçu, puis pénalise le corridor concerné.
-14. Déclarer l'extinction locale seulement sur preuve que tous les workers
-    sont indisponibles et qu'aucune fonction locale ne reste viable. Persister
-    la transition dème/patch et les causes ; la reprise consomme des références
-    cryptobiose, snapshot ou fossile sans prétendre les capturer elle-même.
-15. Recoloniser un patch par un essai local porté par au moins deux lignées
-    distinctes. Un échec est persisté avec son founder set et le patch demeure
-    vacant ; seul un résultat viable permet de créer le nouveau dème.
-16. Le quorum déduplique les votes corrélés par groupe indépendant, source ou
-    modèle. Les abstentions et silences sont des observations sans soutien ;
-    ils ne sont jamais convertis en votes positifs.
-17. Réguler la migration à partir de la corrélation d'erreurs et du
-    recouvrement stratégique. La réduction ou le gel des corridors est dirigé ;
-    les dèmes porteurs d'une capacité unique sont retournés comme protégés.
-18. Présenter utilité de migration et capacité du réseau comme indicateurs
-    calculés, avec coût explicite et convergence de l'estimation, sans en faire
-    une preuve autonome de succès ou une décision de promotion.
-19. Relier l'orchestrateur aux moteurs multi-îlots Rust et procédural par
-    adaptateurs validés. En l'absence de binding Rust configuré, retourner une
-    indisponibilité explicite au lieu de simuler une évolution réussie.
-20. Traiter les variantes comme des politiques déclaratives. Les transferts
-    fédérés doivent satisfaire classification et souveraineté ; un daemon
-    résident n'est actif que sur scope persistant avec bail non expiré et
-    heartbeat actif.
-21. Garder Métapopulation au niveau régional et laisser Morphogenèse proposer
-    des topologies internes par dème. Une transition locale passe par le moteur
-    validé avec snapshot et rollback ; elle ne remplace jamais le graphe régional.
-22. Faire avancer le runtime par cycles bornés OBSERVE, DIAGNOSE, PLAN,
-    EXECUTE, VERIFY et RECORD. Aucun plan incomplet ou résultat non vérifié ne
-    devient un succès ; enregistrer les issues dans le journal régional. Le
-    benchmark de capacité/synchronie utilise des scénarios synthétiques
-    déterministes et publie la version Node, les tailles, répétitions et médianes.
 
 ## Conséquences
 

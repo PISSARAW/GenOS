@@ -165,52 +165,6 @@ function workerIdList(workers) {
   return workers.map((worker) => worker.agentId);
 }
 
-async function telemetryWatermark(db) {
-  const row = await db.get('SELECT COALESCE(MAX(rowid), 0) AS watermark FROM telemetry_events');
-  return Number(row?.watermark || 0);
-}
-
-async function countStartedWorkers(ctx, watermark) {
-  const workerIds = workerIdList(ctx.stageWorkers);
-  if (!workerIds.length) return 0;
-  const placeholders = workerIds.map(() => '?').join(', ');
-  const row = await ctx.db.get(
-    `SELECT COUNT(DISTINCT agent_id) AS count FROM telemetry_events WHERE event_type = 'AGENT_RUNTIME_STARTED' AND rowid > ? AND agent_id IN (${placeholders})`,
-    watermark,
-    ...workerIds
-  );
-  return Number(row?.count || 0);
-}
-
-async function readWorkerOutcomes(ctx) {
-  const workerIds = workerIdList(ctx.stageWorkers);
-  if (!workerIds.length) return [];
-  const placeholders = workerIds.map(() => '?').join(', ');
-  return ctx.db.all(`SELECT id, status FROM agents WHERE id IN (${placeholders})`, ...workerIds);
-}
-
-function isFailedWorkerStatus(status) {
-  return ['error', 'failed', 'terminated', 'apoptosis', 'quarantined', 'unverified'].includes(String(status).toLowerCase());
-}
-
-function emitStageReconciliation(ctx, outcome) {
-  const { startedWorkers, rows, dispatchFailures } = outcome;
-  const completedWorkers = rows.filter((row) => String(row.status).toLowerCase() === 'completed').length;
-  const failedWorkers = rows.filter((row) => isFailedWorkerStatus(row.status)).length + dispatchFailures;
-  const blockedWorkers = rows.filter((row) => String(row.status).toLowerCase() === 'blocked').length;
-  const pendingWorkers = rows.length - completedWorkers - failedWorkers - blockedWorkers;
-  emit(ctx.orchestratorId, 'WORKER_STAGE_DISPATCH_RECONCILED', 'RECONCILE', 'Reconciled terminal worker states for pipeline stage ' + String(ctx.stage) + '.', {
-    stage: ctx.stage,
-    selectedWorkers: ctx.stageWorkers.length,
-    startedWorkers: startedWorkers,
-    completedWorkers: completedWorkers,
-    failedWorkers: failedWorkers,
-    blockedWorkers: blockedWorkers,
-    pendingWorkers: pendingWorkers,
-    workerIds: workerIdList(ctx.stageWorkers)
-  }, failedWorkers || blockedWorkers || pendingWorkers ? 'warning' : 'info');
-}
-
 async function reserveStageSlots(ctx) {
   for (const worker of ctx.stageWorkers) {
     await workerGarage.reserveSlot(ctx.db, {
@@ -231,20 +185,18 @@ function startMissionFor(worker, contract) {
   return adapter.startMission(payload);
 }
 
-async function dispatchStageWorkers(ctx, launchWorker = startMissionFor) {
-  emit(ctx.orchestratorId, 'WORKER_STAGE_DISPATCH_REQUESTED', 'DISPATCH', 'Starting every worker in the current pipeline stage concurrently.', {
-    stage: ctx.stage,
-    selectedWorkers: ctx.stageWorkers.length,
-    workerIds: workerIdList(ctx.stageWorkers)
-  }, 'info');
-  return Promise.all(ctx.stageWorkers.map(async (worker) => {
+async function dispatchStageWorkers(ctx) {
+  const results = [];
+  for (const worker of ctx.stageWorkers) {
     try {
-      await launchWorker(worker, ctx.contract);
-      return { ok: true, worker: worker };
+      await startMissionFor(worker, ctx.contract);
+
+      results.push({ ok: true, worker: worker });
     } catch (reason) {
-      return { ok: false, worker: worker, reason: reason };
+      results.push({ ok: false, worker: worker, reason: reason });
     }
-  }));
+  }
+  return results;
 }
 
 async function releaseSlotAfterFailure(ctx, worker) {
@@ -324,28 +276,16 @@ async function runSingleStage(ctx) {
     });
   }
   await reserveStageSlots({ db: ctx.db, orchestratorId: ctx.orchestratorId, stageWorkers: ctx.stageWorkers });
-  const watermark = await telemetryWatermark(ctx.db);
   const results = await dispatchStageWorkers({ stageWorkers: ctx.stageWorkers, contract: ctx.contract });
   await reconcileDispatchResults({ orchestratorId: ctx.orchestratorId, stage: ctx.stage }, results);
-  let waitError = null;
-  try {
-    await waitStageQuiescence({
-      db: ctx.db,
-      orchestratorId: ctx.orchestratorId,
-      workers: ctx.workers,
-      timeoutMs: ctx.timeoutMs,
-      isCancelled: cancelFlagReader(ctx.barrier),
-      ignoreRound: ctx.ignoreRound
-    });
-  } catch (error) {
-    waitError = error;
-  }
-  emitStageReconciliation(ctx, {
-    startedWorkers: await countStartedWorkers(ctx, watermark),
-    rows: await readWorkerOutcomes(ctx),
-    dispatchFailures: results.filter((result) => !result.ok).length
+  await waitStageQuiescence({
+    db: ctx.db,
+    orchestratorId: ctx.orchestratorId,
+    workers: ctx.workers,
+    timeoutMs: ctx.timeoutMs,
+    isCancelled: cancelFlagReader(ctx.barrier),
+    ignoreRound: ctx.ignoreRound
   });
-  if (waitError) throw waitError;
 }
 
 async function executeWorkerPipeline(pipelineContext) {
@@ -375,4 +315,4 @@ async function executeWorkerPipeline(pipelineContext) {
   }
 }
 
-module.exports = { executeWorkerPipeline, dispatchStageWorkers };
+module.exports = { executeWorkerPipeline };

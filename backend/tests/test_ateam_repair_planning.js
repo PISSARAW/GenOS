@@ -8,7 +8,6 @@ const recruited = planRepair({ gaps: [{ capability: 'security', weight: 1 }], ca
 assert.equal(recruited.status, 'RECRUIT');
 assert.equal(recruited.candidate.agentId, 'security-new');
 assert.equal(recruited.workGraphNeedsRecompile, true);
-assert.equal(recruited.morphogenesis.plan.morphologyPatch.graph.nodes.find((node) => node.nodeId === recruited.morphogenesis.plan.morphologyPatch.graph.rootNodeId).topology, 'a_team');
 
 const blocked = planRepair({ gaps: [{ capability: 'security' }], candidates: [candidate], budget: 2, availableSlots: 1 });
 assert.equal(blocked.status, 'BLOCKED');

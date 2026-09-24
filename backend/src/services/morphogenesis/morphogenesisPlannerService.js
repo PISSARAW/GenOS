@@ -11,10 +11,6 @@ const controlLoop = require('./cognitiveControlLoopService');
 const { compileFlatTopology } = require('./graph/compileFlatTopology');
 const biocenoseMorphogenesisAdapter = require('../biocenose/integration/biocenoseMorphogenesisAdapter');
 
-function contractForTopology(topology) {
-  return contractFor({ mode: topology, organization: topology });
-}
-
 function candidateFor(topology, contracts, cost) {
   const base = { topology, requiredCapabilities: contracts.pc.required || [] };
   base.tokenCost = cost && cost.tokens ? Math.min(1, cost.tokens / 10000) : 0.2;
@@ -73,7 +69,7 @@ function classifyAgents(agents, targetTopology) {
 
 function planSpawns(missingCapabilities, targetTopology, budget) {
   const spawns = [];
-  const contract = contractForTopology(targetTopology);
+  const contract = contractFor(targetTopology);
   for (const cap of missingCapabilities) {
     spawns.push({ phenotype: targetTopology, capabilities: [cap], budget: budget / Math.max(1, missingCapabilities.length) });
   }
@@ -124,8 +120,7 @@ function availableCapsOf(state) {
 
 function buildContracts(ctx) {
   const targetTopology = ctx.proposedTopology || 'specialist_expert_committee';
-  const pc = contractForTopology(targetTopology);
-  const contracts = { pc, required: pc.required || [] };
+  const contracts = { pc: contractFor(targetTopology), required: contractFor(targetTopology).required || [] };
   contracts.missing = missingCapabilities(contracts.pc, availableCapsOf(ctx.currentState));
   return contracts;
 }
@@ -256,8 +251,7 @@ function buildMorphogenesisPlan(ctx) {
     missionId: ctx.missionId || ctx.problemId,
     mission: ctx.problem || ctx.mission,
     budget: ctx.budget,
-    workers: targetAgents,
-    rhizomeBranch: ctx.rhizomeBranch === true
+    workers: targetAgents
   });
   plan.morphologyGraphRef = { graphId: graph.graphId, version: graph.version };
   plan.morphologyPatch = { operation: 'replace_root', graph };
@@ -296,4 +290,4 @@ function estimateCost(plan) {
   return plan.expectedCost || { tokens: 0, latency: 0, risk: 0 };
 }
 
-module.exports = { planMorphogenesis, validatePlan, estimateCost, generateRollbackPlan, phenotypeFitnessForTopology, diffTopology, classifyAgents, planSpawns, computeBudgetReallocation, buildTransitionSequence, planGenotypeActions, planEpigeneticChanges, planPlasmidActions, annotatePlanWithSubstrates, computeMorphologyUtility, selectTopology, candidateFor, contractForTopology };
+module.exports = { planMorphogenesis, validatePlan, estimateCost, generateRollbackPlan, phenotypeFitnessForTopology, diffTopology, classifyAgents, planSpawns, computeBudgetReallocation, buildTransitionSequence, planGenotypeActions, planEpigeneticChanges, planPlasmidActions, annotatePlanWithSubstrates, computeMorphologyUtility, selectTopology, candidateFor };

@@ -76,8 +76,3 @@ La décision rend ses motifs et ses blocages explicites pour le runtime appelant
 Le PR8 classe les dèmes source/sink à partir de leur fitness et de la connectivité
 active, calcule la couverture de capacités distinctes et marque les dèmes à
 protéger quand ils portent une capacité régionale unique.
-
-Le PR9 prépare au plus trois essais rescue (plafond configurable), à partir
-d'une source compatible vers une cible en difficulté. Le résultat compare la
-fitness avant/après ; une régression vérifiée peut appeler l'adaptateur de
-rollback, tracer son reçu et diminuer le poids du corridor.

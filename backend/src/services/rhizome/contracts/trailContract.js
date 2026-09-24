@@ -16,13 +16,6 @@ function normalizeTrail(value) {
     capability: trail.capability == null ? null : textValue(trail.capability, 'capability'),
     source: textValue(trail.source, 'source'),
     evidenceRefs: listValue(trail.evidenceRefs, 'evidenceRefs'),
-    supporters: Array.isArray(trail.supporters) ? trail.supporters.map((item) => ({
-      supporterId: textValue(item.supporterId, 'supporters.supporterId'),
-      providerId: item.providerId == null ? null : textValue(item.providerId, 'supporters.providerId'),
-      lineageId: item.lineageId == null ? null : textValue(item.lineageId, 'supporters.lineageId'),
-      creditedAmount: numberValue(item.creditedAmount, 'supporters.creditedAmount', { maximum: 100 })
-    })) : [],
-    trustWeight: numberValue(trail.trustWeight, 'trustWeight', { maximum: 1, fallback: 1 }),
     intensity: numberValue(trail.intensity, 'intensity', { minimum: -100, maximum: 100 }),
     confidence: numberValue(trail.confidence, 'confidence', { maximum: 1, fallback: 0.5 }),
     createdAt: textValue(trail.createdAt, 'createdAt'),

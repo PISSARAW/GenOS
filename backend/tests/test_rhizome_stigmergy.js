@@ -26,28 +26,6 @@ function run() {
   });
   assert.equal(repellent.intensity, -7);
   assert.equal(repellent.halfLifeMs, 40000);
-
-  const guarded = createSwarmMatrix(10000);
-  const trustNow = Date.now();
-  const identityContext = { identityDigest: 'identity-a', providerId: 'provider-a' };
-  trails.deposit(guarded, 'route:shared', { amount: 10, confidence: 1, identityContext, trustedIdentityDigests: ['identity-a'], now: trustNow });
-  const clone = trails.deposit(guarded, 'route:shared', { amount: 10, confidence: 1,
-    identityContext: { identityDigest: 'identity-a', providerId: 'provider-a' },
-    trustedIdentityDigests: ['identity-a'], now: trustNow + 1
-  });
-  assert.ok(clone.intensity > 9.9 && clone.intensity <= 10);
-  assert.equal(clone.supporters.length, 1);
-  const independent = trails.deposit(guarded, 'route:shared', { amount: 10, confidence: 1,
-    identityContext: { identityDigest: 'identity-b', providerId: 'provider-b' },
-    trustedIdentityDigests: ['identity-b'], now: trustNow + 2
-  });
-  assert.ok(independent.intensity > 19.9 && independent.intensity <= 20);
-  assert.equal(independent.supporters.length, 2);
-  const untrusted = trails.deposit(guarded, 'route:spoofed', { amount: 50, confidence: 1,
-    identityContext: { identityDigest: 'spoofed', providerId: 'provider-x' },
-    trustedIdentityDigests: ['identity-a'], now: trustNow + 3
-  });
-  assert.equal(untrusted.intensity, 0);
 }
 
 run();

@@ -31,69 +31,6 @@ function engineFor(role) {
   return isSymbioteRole(role) ? 'local' : 'cloud';
 }
 
-function normalizedSet(value) {
-  return new Set(Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : []);
-}
-
-function supportsRequirements(candidate, context) {
-  const capabilities = normalizedSet(candidate.capabilities);
-  const tools = normalizedSet(candidate.tools);
-  const requiredCapabilities = normalizedSet(context.requiredCapabilities);
-  const requiredTools = normalizedSet(context.requiredTools);
-  if (candidate.available === false || candidate.available === 0) return false;
-  if ([...requiredCapabilities].some((item) => !capabilities.has(item))) return false;
-  if ([...requiredTools].some((item) => !tools.has(item))) return false;
-  return true;
-}
-
-function satisfiesPrivacy(candidate, context) {
-  return context.privacy !== 'LOCAL_ONLY' || candidate.local === true || candidate.engine === 'local';
-}
-
-function satisfiesLimits(candidate, context) {
-  if (!withinLimit(candidate.latencyMs, context.maxLatencyMs, true)) return false;
-  if (!withinLimit(candidate.cost, context.maxCost, true)) return false;
-  if (!withinLimit(candidate.providerReliability, context.minProviderReliability, false)) return false;
-  return true;
-}
-
-function withinLimit(value, limit, isMaximum) {
-  if (!Number.isFinite(limit)) return true;
-  const measured = Number(value);
-  if (!Number.isFinite(measured)) return false;
-  return isMaximum ? measured <= limit : measured >= limit;
-}
-
-function candidateFits(candidate, contract, context) {
-  const policyData = contract.privacyBoundary?.forbiddenData;
-  const forbiddenData = Array.isArray(policyData) ? policyData
-    : Array.isArray(context.restrictedData) ? context.restrictedData : [];
-  if (contract.dataAccess?.some((item) => forbiddenData.includes(item))) return false;
-  return supportsRequirements(candidate, context)
-    && satisfiesPrivacy(candidate, context) && satisfiesLimits(candidate, context);
-}
-
-function candidateScore(candidate, context) {
-  const latency = Number(candidate.latencyMs) || 0;
-  const cost = Number(candidate.cost) || 0;
-  const reliability = Number(candidate.providerReliability);
-  const reliabilityPenalty = Number.isFinite(reliability) ? (1 - reliability) * 1000 : 0;
-  return reliabilityPenalty + latency * (context.latencyWeight || 1) + cost * (context.costWeight || 1);
-}
-
-function engineForSymbiont(contract = {}, context = {}) {
-  if (context.requiresLLM === false) return 'no_llm';
-  const available = Array.isArray(context.engines) ? context.engines : [];
-  const candidates = available
-    .filter((candidate) => candidate && candidate.engine && candidateFits(candidate, contract, context));
-  if (!candidates.length && available.length) {
-    throw Object.assign(new Error('No available engine satisfies the symbiont contract.'), { code: 'HOLOBIONT_ENGINE_UNAVAILABLE' });
-  }
-  if (!candidates.length) return context.privacy === 'LOCAL_ONLY' ? 'local' : 'cloud';
-  candidates.sort((left, right) => candidateScore(left, context) - candidateScore(right, context));
-  return String(candidates[0].engine);
-}
-
 /** Local-only embedding call: never falls back to a cloud provider or its cost. */
 function localEmbeddingBase() {
   const configured = process.env.GENOS_EMBEDDING_URL || process.env.GENOS_OLLAMA_URL || process.env.OLLAMA_HOST || process.env.GENOS_DEFAULT_EMBEDDING_URL;
@@ -222,7 +159,6 @@ module.exports = {
   isHostRole,
   isSymbioteRole,
   engineFor,
-  engineForSymbiont,
   embedForSymbiote,
   validateSchemaLocally,
   localRouteFor

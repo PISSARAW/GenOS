@@ -1,4 +1,4 @@
-module.exports = { createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers };
+module.exports = { createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt };
 
 const path = require('path');
 const circuitBreaker = require('./circuitBreaker');
@@ -93,7 +93,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   if (!circuit.allowed) {
     throw new Error(`Worker deployment rejected: ${circuit.message}`);
   }
-
+  
   const plan = options.plan ?? options;
   const mission = options.mission ?? (arguments[3] || {});
   const assignments = plan.dispatchWorkers || [];
@@ -108,29 +108,10 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const context = buildWorkerContext({ parent, plan, mission, assignments });
   const usedNames = [];
   const workers = [];
-  const workerIds = assignments.map((_, index) => autonomousWorkerId(orchestrator.id, index + 1));
-  try {
-    for (const [index, assignment] of assignments.entries()) {
-      workers.push(await createWorker({ db, orchestrator, assignment, index, id: workerIds[index], usedNames, ...context }));
-    }
-  } catch (error) {
-    error.createdWorkers = await includePersistedWorkers(db, parent.id, { workers, workerIds });
-    throw error;
+  for (const [index, assignment] of assignments.entries()) {
+    workers.push(await createWorker({ db, orchestrator, assignment, index, usedNames, ...context }));
   }
   return workers;
-}
-
-async function includePersistedWorkers(db, parentId, context) {
-  const { workers, workerIds } = context;
-  if (!workerIds.length) return workers;
-  const placeholders = workerIds.map(() => '?').join(', ');
-  const rows = await db.all(
-    `SELECT id AS agentId, name, role FROM agents WHERE parent_agent_id = ? AND id IN ()`,
-    parentId,
-    ...workerIds
-  );
-  const knownIds = new Set(workers.map((worker) => worker.agentId));
-  return [...workers, ...rows.filter((worker) => !knownIds.has(worker.agentId))];
 }
 
 function validateAssignments(assignments) {
@@ -213,7 +194,7 @@ async function createWorker(workerContext) {
 async function prepareWorkerAssets(workerContext) {
   const { db, orchestrator, assignment, index, usedNames, parent, plan, mission, initialWorkerTokens, perWorkerTokens, perWorkerCognitiveBudget } = workerContext;
   const assignedTokens = initialWorkerTokens?.[index] || perWorkerTokens;
-  const id = workerContext.id || autonomousWorkerId(orchestrator.id, index + 1);
+  const id = autonomousWorkerId(orchestrator.id, index + 1);
   const identity = agentIdentity.generateAgentIdentity({ preferredName: assignment.preferredName || assignment.name, role: assignment.role, excludeNames: usedNames, stableKey: id });
   usedNames.push(identity.name);
   const dnaSelection = await applyAgentDna({ db, parent, assignment, mission });

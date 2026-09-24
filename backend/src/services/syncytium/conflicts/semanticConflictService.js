@@ -6,9 +6,7 @@ const detectors = [
   require('./dependencyConflictDetector'),
   require('./intentConflictDetector'),
   require('./authorityConflictDetector'),
-  require('../variants/code/codeConflictDetector'),
-  require('../variants/graph/graphConflictDetector'),
-  require('../variants/epistemic/epistemicConflictDetector')
+  require('../variants/code/codeConflictDetector')
 ];
 
 function detectCandidate(context) {

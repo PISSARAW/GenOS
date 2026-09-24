@@ -161,12 +161,7 @@ const CAPABILITY_TOOLS = Object.freeze({
   PROCEDURAL_MEMORY: ['genos_record_experience', 'genos_cherry_pick_experience'],
   PROCEDURAL_GUIDANCE: ['genos_execute_strategy_pipeline'],
   PROCEDURAL_EVOLUTION: ['genos_resilience_hypermutation', 'genos_repository_genome'],
-  PROCEDURAL_CAUSAL_VALIDATION: ['genos_causal_replay_experiment', 'genos_workspace_experiment'],
-  CAUSAL_STATE: ['genos_causal_replay_experiment', 'genos_topology_session'],
-  SEMANTIC_CONFLICTS: ['genos_adversarial_review', 'genos_topology_session'],
-  INVARIANT_GATES: ['genos_guardrails_verify', 'genos_topology_session'],
-  SELECTIVE_SYNC: ['genos_topology_session'],
-  TRANSACTIONAL_SHARED_STATE: ['genos_topology_session']
+  PROCEDURAL_CAUSAL_VALIDATION: ['genos_causal_replay_experiment', 'genos_workspace_experiment']
 });
 
 function normalizeToolName(value) {

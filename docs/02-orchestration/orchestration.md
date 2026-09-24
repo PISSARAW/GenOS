@@ -41,20 +41,6 @@ Les mécanismes de sécurité sont explicites :
 - détection de boucles de reprise ;
 - filtre d’équité des tâches par tenant/projet.
 
-### Contrat de dispatch vérifiable
-
-Le runtime distingue désormais le nombre d’affectations demandées, sélectionnées,
-créées, démarrées, terminées et vérifiées. `WORKER_DISPATCH_RECONCILED` confirme
-que chaque affectation sélectionnée a un worker créé ; tout écart produit
-`WORKER_DISPATCH_FAILED` et bloque le lancement de la synthèse. Si la politique
-suspend le dispatch, `WORKER_DISPATCH_DEFERRED` en donne la raison. Les workers
-d’un même étage de pipeline sont démarrés concurremment ;
-`WORKER_STAGE_DISPATCH_REQUESTED` expose la demande de lancement et
-`WORKER_STAGE_DISPATCH_RECONCILED` rapporte les démarrages confirmés par les
-événements runtime et les fins d’exécution. La barrière `WORKER_EVIDENCE_BARRIER_*`
-reste la source de vérité pour la terminaison et la vérification des dossiers :
-un worker créé n’est ni un worker terminé, ni une preuve vérifiée.
-
 ---
 
 ## 3. Définition mathématique de l’orchestration

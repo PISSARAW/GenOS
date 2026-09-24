@@ -1,12 +1,11 @@
 'use strict';
 
 const { createMorphologyGraph } = require('./morphologyGraph');
-const { createRhizomeBranch } = require('../rhizomeBranchAdapter');
 
 function compileFlatTopology(input = {}) {
   const { selectedTopology = 'single_agent', graphId, missionId, version = 1, status = 'proposed', budget = {}, globalInvariants = [], variant = null, mission = null, scope = 'mission', workers = [] } = input;
   const topology = selectedTopology ?? 'single_agent';
-  const graph = createMorphologyGraph({
+  return createMorphologyGraph({
     graphId,
     missionId,
     version,
@@ -23,14 +22,6 @@ function compileFlatTopology(input = {}) {
       budget
     }
   });
-  if (input.rhizomeBranch) {
-    graph.nodes.push(createRhizomeBranch({
-      parentNodeId: graph.rootNodeId,
-      mission,
-      growthBudget: budget.growth
-    }));
-  }
-  return graph;
 }
 
 module.exports = { compileFlatTopology };

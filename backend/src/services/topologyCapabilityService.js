@@ -19,8 +19,7 @@ const GENOS_CAPABILITIES = Object.freeze([
   'VFS_SANDBOX', 'CAPSULES_SNAPSHOTS', 'MODEL_ROUTING', 'LOCAL_INFERENCE', 'INFERENCE_GATEWAY',
   'OBSERVABILITY', 'GOVERNANCE_APPROVAL', 'COMPLIANCE', 'WEB_FORAGING', 'FOVEAL_PERCEPTION',
   'COMPUTER_USE', 'PROCEDURAL_MEMORY', 'PROCEDURAL_GUIDANCE', 'PROCEDURAL_EVOLUTION',
-  'PROCEDURAL_CAUSAL_VALIDATION', 'CAUSAL_STATE', 'SEMANTIC_CONFLICTS', 'INVARIANT_GATES',
-  'SELECTIVE_SYNC', 'TRANSACTIONAL_SHARED_STATE'
+  'PROCEDURAL_CAUSAL_VALIDATION'
 ]);
 
 const MODE_CAPABILITIES = Object.freeze({
@@ -29,11 +28,7 @@ const MODE_CAPABILITIES = Object.freeze({
   biome: ['TOKEN_ECONOMY', 'STIGMERGY', 'SWARM_METRICS', 'QUORUM', 'WEB_FORAGING', 'FOVEAL_PERCEPTION', 'EPISODIC_MEMORY', 'RESILIENCE_RECOVERY'],
   biocenose: ['QUORUM', 'EPISTEMICS_BRIER', 'ARENA_COMPETITION', 'EVIDENCE_BARRIER', 'SWARM_METRICS', 'SIGNALING_BUS', 'PROMOTION_GATE'],
   holobionte: ['IMMUNE_SYSTEM', 'CONSCIENCE_HOMEOSTASIS', 'LOCAL_INFERENCE', 'INFERENCE_GATEWAY', 'GRAPH_MEMORY', 'EPISODIC_MEMORY', 'GENOME_EPIGENETICS', 'SIGNALING_BUS', 'PROCEDURAL_MEMORY', 'PROCEDURAL_GUIDANCE', 'PROCEDURAL_EVOLUTION', 'PROCEDURAL_CAUSAL_VALIDATION'],
-  syncytium: [
-    'CRDT_SHARED_STATE', 'SIGNALING_BUS', 'VFS_SANDBOX', 'OUTPUT_GOVERNOR', 'LOCAL_INFERENCE',
-    'OBSERVABILITY', 'PROVENANCE', 'CAPSULES_SNAPSHOTS', 'EVIDENCE_BARRIER', 'RESILIENCE_RECOVERY',
-    'CAUSAL_STATE', 'SEMANTIC_CONFLICTS', 'INVARIANT_GATES', 'SELECTIVE_SYNC', 'TRANSACTIONAL_SHARED_STATE'
-  ],
+  syncytium: ['CRDT_SHARED_STATE', 'SIGNALING_BUS', 'VFS_SANDBOX', 'OUTPUT_GOVERNOR', 'LOCAL_INFERENCE', 'OBSERVABILITY'],
   rhizome: ['SIGNALING_BUS', 'LIGAND_RECEPTOR', 'STIGMERGY', 'STRATEGY_ADAPTATION', 'GRAPH_MEMORY', 'WEB_FORAGING'],
   metapopulation: ['QUORUM', 'SYNAPTIC_PLASTICITY', 'RESILIENCE_RECOVERY', 'GENOME_EPIGENETICS', 'SWARM_METRICS', 'EPISODIC_MEMORY']
 });
@@ -44,7 +39,7 @@ const MODE_PROFILES = Object.freeze({
   biome: { evidence: 'ecological_observation', memory: 'environmental', budget: 'pooled', communication: 'shared_trail', engines: { coordinator: 'frontier', worker: 'mixed' } },
   biocenose: { evidence: 'weighted_consensus', memory: 'shared_read', budget: 'pooled', communication: 'broadcast', engines: { coordinator: 'frontier', worker: 'mixed' } },
   holobionte: { evidence: 'host_veto', memory: 'vertical_transmission', budget: 'host_controlled', communication: 'capability', engines: { coordinator: 'frontier', worker: 'local' } },
-  syncytium: { evidence: 'evidence_guarded_consistency', memory: 'causal_snapshots', budget: 'pooled', communication: 'selective_causal_sync', engines: { coordinator: 'frontier', worker: 'local' } },
+  syncytium: { evidence: 'invariant_consistency', memory: 'crdt_shared', budget: 'pooled', communication: 'continuous_sync', engines: { coordinator: 'frontier', worker: 'local' } },
   rhizome: { evidence: 'distributed_dossier', memory: 'distributed', budget: 'per_branch', communication: 'capability_mesh', engines: { coordinator: 'frontier', worker: 'mixed' } },
   metapopulation: { evidence: 'quorum_dossier', memory: 'lineage_recovery', budget: 'pooled', communication: 'adaptive_neighbors', engines: { coordinator: 'frontier', worker: 'mixed' } }
 });

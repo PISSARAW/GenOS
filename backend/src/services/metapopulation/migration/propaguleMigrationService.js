@@ -24,33 +24,6 @@ async function reviewPropagule(input, options = {}) {
   return validateAndAssimilate(migration, { ...input, db: options.db });
 }
 
-async function rollbackRescue(input, options = {}) {
-  requireDatabase(options);
-  if (input?.outcome?.rollback !== true) throw Object.assign(new Error('Rollback requires a verified regression outcome.'), { code: 'METAPOPULATION_RESCUE_ROLLBACK_INVALID' });
-  const migration = await migrationStore.getMigration(options.db, input.metapopulationId, input.migrationId);
-  if (!migration || migration.status !== 'ACCEPTED' || migration.evidence.migrationReason?.toLowerCase() !== 'rescue') {
-    throw Object.assign(new Error('An accepted rescue migration is required.'), { code: 'METAPOPULATION_RESCUE_NOT_REVERSIBLE' });
-  }
-  const adapter = adapterRegistry.resolveAdapter(migration.type);
-  if (!adapter?.rollback) throw Object.assign(new Error('The receiver adapter does not support rollback.'), { code: 'METAPOPULATION_RESCUE_ROLLBACK_UNAVAILABLE' });
-  const receipt = await adapter.rollback({ migration, receiver: input.receiver, idempotencyKey: `rollback:${migration.migrationId}` });
-  if (!hasProvenanceReceipt(receipt) || !isPenaltyValid(input.corridorPenalty)) {
-    throw Object.assign(new Error('A provenance receipt and bounded corridor penalty are required.'), { code: 'METAPOPULATION_RESCUE_ROLLBACK_INVALID' });
-  }
-  return migrationStore.rollbackAcceptedMigration(options.db, input.metapopulationId, {
-    migrationId: migration.migrationId, receipt, reason: input.reason || 'RECEIVER_REGRESSION', penalty: input.corridorPenalty
-  });
-}
-
-function hasProvenanceReceipt(receipt) {
-  return typeof receipt?.receiptId === 'string' && Boolean(receipt.receiptId.trim()) &&
-    Boolean(receipt.provenance) && typeof receipt.provenance === 'object' && !Array.isArray(receipt.provenance);
-}
-
-function isPenaltyValid(penalty) {
-  return Number.isFinite(penalty) && penalty >= 0 && penalty <= 1;
-}
-
 async function validateAndAssimilate(migration, input) {
   const adapter = adapterRegistry.resolveAdapter(migration.type);
   if (!adapter) throw Object.assign(new Error(`No migration adapter is registered for ${migration.type}.`), { code: 'METAPOPULATION_ADAPTER_UNAVAILABLE' });
@@ -85,4 +58,4 @@ function requireDatabase(options) {
 
 function contextError() { return Object.assign(new Error('Metapopulation and migration context are required.'), { code: 'METAPOPULATION_CONTEXT_REQUIRED' }); }
 
-module.exports = { offerPropagule, listPropaguleQuarantine, reviewPropagule, rollbackRescue };
+module.exports = { offerPropagule, listPropaguleQuarantine, reviewPropagule };

@@ -141,7 +141,7 @@ que le comportement correspondant est déjà complet.
 
 | Contrat | Point d'intégration principal | Résultat à vérifier |
 |---|---|---|
-| Runtime canonique, run et Work Graph | `backend/src/services/aTeam/aTeamRuntime.js`, `backend/src/services/aTeam/teamRunStore.js`, `backend/src/services/aTeam/workGraph/`, `backend/src/services/agentAutonomyPlanService.js` et `backend/src/services/aTeamDispatchService.js` | L'autoplanification et le dispatch explicite partagent la création idempotente du run et du DAG persistant. Le graphe `a_team_work_graph` est lié au run `a_team`, ses couches sont projetées sur les membres, les identifiants de workers sont conservés et les transitions de statut/phase sont vérifiées avec la révision attendue. Un bail CAS interdit deux stage runners concurrents ; après son expiration, la reprise saute les workers déjà présents et ne relance que les workers absents du premier étage, puis laisse le scheduler traiter les étages dépendants. Les workers échoués restent bloqués pour le lot de réparation. |
+| Run canonique, Work Graph et membres | `backend/src/services/aTeam/teamRunStore.js`, `backend/src/services/aTeam/workGraph/` et `backend/src/services/aTeam/contracts/` | Un plan A-Team activé compile et valide un DAG avant dispatch, persiste le graphe sous `a_team_work_graph`, le lie au run `a_team`, puis projette ses couches sur `pipelineStage`. Les mises à jour du run exigent sa révision courante. |
 | Éligibilité, capacités et composition | `backend/src/services/aTeamService.js` | Mission mono-domaine refusée ; exigences, membres retenus et gaps explicités. |
 | Graphe, dépendances et exécution par étapes | `backend/src/services/aTeamStageScheduler.js` | Graphe validé avant dispatch ; consumers bloqués tant que leurs producteurs ne sont pas promus. |
 | Contrat d'équipe et handoffs | `backend/src/services/aTeamCoordinationService.js` | Handoffs typés, interfaces et propriétaires cohérents avec le Work Graph. |
@@ -149,11 +149,7 @@ que le comportement correspondant est déjà complet.
 | Compatibilité, ownership et blocages | `backend/src/services/aTeamIntegrationObserver.js` | Chaque violation rapporte le worker, le domaine, le contrat et la raison. |
 | Couverture indépendante | `backend/src/services/aTeamQualityGateService.js` | MCC, TSC, RCA et VEC sont restitués séparément et leurs données manquantes sont visibles. |
 | Mémoire transactive | `backend/src/services/communication/transactiveMemoryService.js` | Entrées sourcées, datées et consultées via les accès autorisés. |
-| Recrutement et changement de topologie | `backend/src/services/aTeam/adaptation/teamRepairService.js` → `backend/src/services/aTeam/learning/aTeamMorphogenesisBridge.js` → `backend/src/services/morphogenesis/morphogenesisPlannerService.js` | Une réparation RECRUIT, REPLACE ou REASSIGN joint au résultat un plan Morphogenesis `a_team` ; c'est une proposition, pas une transition appliquée. L'application reste sous le contrôle du moteur transactionnel Morphogenesis et ses validations. |
-| Variantes et transitions d'organisation | `backend/src/services/aTeam/variants/` | Politique explicite par variante, choix conservateur depuis les signaux de mission et plan par phase ; les politiques ne changent pas seules les droits d'exécution. |
-| Risques d'interface et budget adaptatif | `backend/src/services/aTeam/boundaries/` et `backend/src/services/aTeam/budget/` | Risque borné, responsable de liaison limité au contrat d'interface, allocations dont la somme ne dépasse jamais le budget fourni. |
-| Système multi-équipe | `backend/src/services/aTeam/multiteam/` | Contrats vérifiés, dépendances acycliques, conseil de coordination et limites configurables de taille/profondeur. |
-| Débrief, mémoire et Morphogenèse | `backend/src/services/aTeam/learning/` | Le débrief conserve les références de preuve ; les signaux de staffing ne reprennent que les leçons réutilisables ; le pont produit un plan Morphogenesis `a_team` sans l'appliquer. |
+| Recrutement et changement de topologie | `backend/src/services/morphogenesis/transitionEngineService.js` et `backend/src/services/agentFleetService.js` | Toute transition respecte budget, capacité, leases et contrats du dispatch. |
 
 ### Invariants d'acceptation d'une implémentation
 

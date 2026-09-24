@@ -4,15 +4,8 @@ const { nodesById, parentOf } = require('./typingHelpers');
 
 function checkResources(graph) {
   const byId = nodesById(graph);
-  const nodeErrors = (graph.nodes || []).flatMap((node) => nodeResourceErrors(node, byId).concat(rhizomeGrowthErrors(node, graph)));
+  const nodeErrors = (graph.nodes || []).flatMap((node) => nodeResourceErrors(node, byId));
   return nodeErrors.concat((graph.edges || []).flatMap(resourceEdgeErrors));
-}
-
-function rhizomeGrowthErrors(node, graph) {
-  if (String(node.topology).toLowerCase() !== 'rhizome') return [];
-  const growth = node.budget && node.budget.growth;
-  const globalGrowth = graph.globalBudget && graph.globalBudget.growth;
-  return Number(growth || globalGrowth) > 0 ? [] : [`rhizome node ${node.nodeId} requires a growth budget`];
 }
 
 function nodeResourceErrors(node, byId) {

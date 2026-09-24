@@ -63,14 +63,7 @@ async function startMissionInternal(mission) {
     } catch (barrierErr) {
       if (barrierErr.code === 'WORKER_BARRIER_NO_EVIDENCE' || barrierErr.code === 'WORKER_BARRIER_TIMEOUT') {
         const { emit } = require('../agentOrchestrationState');
-        emit(agentId, 'WORKER_EVIDENCE_BARRIER_BLOCKED', 'BARRIER', 'Worker evidence barrier produced no usable dossiers; orchestrator supervision is blocked.', {
-          error: barrierErr.message,
-          barrierCode: barrierErr.code,
-          requestedWorkers: ctx.autonomyPlan?.workers?.length || 0,
-          selectedWorkers: ctx.autonomyPlan?.dispatchWorkers?.length || 0,
-          createdWorkers: autonomousWorkers.length,
-          verifiedWorkers: 0
-        }, 'critical');
+        emit(agentId, 'WORKER_EVIDENCE_BARRIER_BLOCKED', 'BARRIER', 'Worker evidence barrier produced no usable dossiers; orchestrator supervision is blocked.', { error: barrierErr.message, barrierCode: barrierErr.code }, 'critical');
         throw Object.assign(new Error(`Worker evidence barrier blocked mission startup: ${barrierErr.message}`), {
           code: 'WORKER_EVIDENCE_BARRIER_BLOCKED',
           cause: barrierErr

@@ -25,16 +25,6 @@ for (const capability of ['EVIDENCE_BARRIER', 'EPISTEMICS_BRIER', 'ARENA_COMPETI
   assert.ok(trinity.includes(capability), `Trinity must require ${capability}`);
 }
 assert.ok(topology.capabilitiesForMode('syncytium').required.includes('CRDT_SHARED_STATE'));
-const syncytiumCapabilities = topology.capabilitiesForMode('syncytium').required;
-for (const capability of [
-  'PROVENANCE', 'CAPSULES_SNAPSHOTS', 'EVIDENCE_BARRIER', 'RESILIENCE_RECOVERY',
-  'CAUSAL_STATE', 'SEMANTIC_CONFLICTS', 'INVARIANT_GATES', 'SELECTIVE_SYNC', 'TRANSACTIONAL_SHARED_STATE'
-]) {
-  assert.ok(syncytiumCapabilities.includes(capability), `Syncytium must require ${capability}`);
-}
-const capabilityGraph = require('../src/services/capabilityGraphService');
-assert.equal(capabilityGraph.getConcept('capability:CAUSAL_STATE').category, 'capability');
-assert.equal(capabilityGraph.getConcept('capability:TRANSACTIONAL_SHARED_STATE').category, 'capability');
 assert.ok(topology.capabilitiesForMode('biocenose').required.includes('QUORUM'));
 assert.ok(topology.capabilitiesForMode('holobionte').required.includes('LOCAL_INFERENCE'));
 assert.ok(topology.capabilitiesForMode('a_team').required.includes('LIGAND_RECEPTOR'));

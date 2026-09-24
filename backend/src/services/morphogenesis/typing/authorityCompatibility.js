@@ -5,18 +5,7 @@ const { filterActions } = require('../firewalls/authorityFirewall');
 
 function checkAuthority(graph) {
   const byId = nodesById(graph);
-  const edgeErrors = (graph.edges || []).flatMap((edge) => authorityEdgeErrors(edge, byId, graph));
-  const nodeErrors = (graph.nodes || []).flatMap((node) => nodeAuthorityErrors(node, byId));
-  return edgeErrors.concat(nodeErrors);
-}
-
-function nodeAuthorityErrors(node, byId) {
-  const parent = byId.get(node.parentNodeId);
-  const parentCeiling = parent && parent.authorityBoundary && parent.authorityBoundary.maxActions;
-  const childActions = node.authorityBoundary && node.authorityBoundary.maxActions;
-  if (!Array.isArray(parentCeiling) || !Array.isArray(childActions)) return [];
-  const excess = childActions.filter((action) => !parentCeiling.includes(action));
-  return excess.length ? [`node ${node.nodeId} exceeds its parent authority envelope`] : [];
+  return (graph.edges || []).flatMap((edge) => authorityEdgeErrors(edge, byId, graph));
 }
 
 function authorityEdgeErrors(edge, byId, graph) {
