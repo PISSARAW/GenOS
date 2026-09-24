@@ -10,7 +10,8 @@ const REVIEWERS = Object.freeze([
 
 function route(input) {
   const required = claimTags(input.claim);
-  const available = (input.members || []).filter(isReviewer);
+  const quarantine = new Set(input.quarantinedMemberIds || []);
+  const available = (input.members || []).filter((member) => isReviewer(member) && !quarantine.has(member.memberId || member.id));
   const assigned = available.map((member) => assignment(member, required));
   const matching = assigned.filter((item) => item.specialties.length);
   const selected = matching.length ? matching : assigned.slice(0, 1);

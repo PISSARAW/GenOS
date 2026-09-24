@@ -2,7 +2,8 @@
 
 function route(input) {
   const requested = verificationKinds(input.claim);
-  const candidates = (input.members || []).filter(isVerifier);
+  const quarantine = new Set(input.quarantinedMemberIds || []);
+  const candidates = (input.members || []).filter((member) => isVerifier(member) && !quarantine.has(member.memberId || member.id));
   const verifiers = candidates.map((member) => match(member, requested)).filter((entry) => entry.kinds.length);
   return {
     claimId: input.claim.claimId || null,

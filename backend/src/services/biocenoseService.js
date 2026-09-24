@@ -24,6 +24,11 @@ const calibration = require('./biocenose/calibration/calibrationService');
 const communityJudgment = require('./biocenose/judgment/communityJudgmentService');
 const adaptiveRecruitment = require('./biocenose/formation/adaptiveRecruitmentService');
 const hierarchicalDeliberation = require('./biocenose/deliberation/hierarchicalDeliberationService');
+const memberTrustBoundary = require('./biocenose/byzantine/memberTrustBoundaryService');
+const maliciousSignalDetector = require('./biocenose/byzantine/maliciousSignalDetector');
+const localEvidenceFilter = require('./biocenose/byzantine/localEvidenceFilter');
+const quarantine = require('./biocenose/byzantine/quarantineService');
+const variantPolicies = require('./biocenose/variants/variantPolicyRouter');
 const questionClassifier = require('./biocenose/question/questionClassifier');
 const constitutionService = require('./biocenose/governance/constitutionService');
 const communityFormationService = require('./biocenose/formation/communityFormationService');
@@ -241,6 +246,11 @@ module.exports = {
   finalizeCommunityJudgment: communityJudgment.finalize,
   recruitForDiversityGap: adaptiveRecruitment.recruit,
   aggregateHierarchicalDeliberation: hierarchicalDeliberation.aggregateAtParent,
+  evaluateMemberTrust: memberTrustBoundary.evaluate,
+  inspectMemberSignal: maliciousSignalDetector.inspect,
+  filterLocalEvidence: localEvidenceFilter.filter,
+  setMemberQuarantine: quarantine.setStatus,
+  selectBiocenoseVariant: variantPolicies.select,
   brierConsensus,
   quorumWithAbstention,
   hierarchicalQuorumPlan: hierarchicalQuorum.planForAgentCount
