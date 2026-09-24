@@ -58,17 +58,13 @@ function rehydrate(record) {
   for (const [agentId, entry] of state.oscillators || []) matrix.oscillators.set(agentId, entry);
   return {
     sessionId: record.id,
+    revision: Number(record.revision) || 0,
     mission: state.mission || '',
     organization,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'rhizome', organization }),
     matrix,
     members: normalizeMembers(Array.isArray(state.members) ? state.members : [])
   };
-}
-
-async function persist(db, session) {
-  if (!db) return;
-  await store.save(db, { id: session.sessionId, topology: 'rhizome', state: serialize(session) });
 }
 
 async function composeRhizome(mission, options = {}) {
@@ -85,8 +81,13 @@ async function composeRhizome(mission, options = {}) {
     matrix: createSwarmMatrix(),
     members: normalizeMembers(Array.isArray(options.members) ? options.members : biologicalModeService.compose('rhizome', goal))
   };
+  if (options.db) {
+    const created = await store.createRhizome(options.db, { id: session.sessionId, state: serialize(session) }, {
+      type: 'SESSION_CREATED', payload: { mission: goal, organization }
+    });
+    session.revision = created.revision;
+  }
   sessions.set(session.sessionId, session);
-  await persist(options.db, session);
   return session;
 }
 
@@ -105,19 +106,24 @@ async function getSession(sessionId, db) {
 }
 
 async function depositTrail(sessionId, marker, options = {}) {
-  const session = await getSession(sessionId, options.db);
-  const trail = session.matrix.depositTrace(String(marker), Number(options.amount) || 0, options.isRepellent === true);
-  await persist(options.db, session);
-  return { sessionId, marker: String(marker), trail, dominant: session.matrix.selectDominantPath() };
+  const normalizedMarker = String(marker);
+  return mutateSession(sessionId, options, {
+    type: options.isRepellent === true ? 'TRAIL_REPELLED' : 'TRAIL_DEPOSITED',
+    payload: { marker: normalizedMarker, amount: Number(options.amount) || 0, isRepellent: options.isRepellent === true },
+    apply: (session) => {
+      const trail = session.matrix.depositTrace(normalizedMarker, Number(options.amount) || 0, options.isRepellent === true);
+      return { sessionId, marker: normalizedMarker, trail, dominant: session.matrix.selectDominantPath() };
+    }
+  });
 }
 
-async function routeToCapability(sessionId, need, options = {}) {
+async function routeDirectMember(sessionId, need, options = {}) {
   const session = await getSession(sessionId, options.db);
   const target = String(need || '').trim();
   if (!target) throw Object.assign(new Error('A non-empty capability need is required.'), { code: 'RHIZOME_NEED_REQUIRED' });
   const now = Number.isFinite(options.now) ? options.now : Date.now();
   const alternatives = routeAlternatives(session, target, now);
-  return routeDecision({ sessionId, target, alternatives, coherent: options.coherent });
+  return directMemberDecision({ sessionId, target, alternatives, coherent: options.coherent });
 }
 
 function routeAlternatives(session, target, now) {
@@ -134,12 +140,12 @@ function routeAlternatives(session, target, now) {
   }).sort((left, right) => right.score - left.score || left.role.localeCompare(right.role));
 }
 
-function routeDecision({ sessionId, target, alternatives, coherent }) {
-  if (!alternatives.length) return { sessionId, need: target, branch: null, routed: false, verdict: 'no_capable_member', alternatives: [] };
+function directMemberDecision({ sessionId, target, alternatives, coherent }) {
+  if (!alternatives.length) return { sessionId, need: target, memberRole: null, selected: false, verdict: 'no_capable_member', alternatives: [] };
   const best = alternatives[0];
-  if (best.score < 0) return { sessionId, need: target, branch: null, routed: false, verdict: 'repelled', alternatives };
-  if (coherent === false) return { sessionId, need: target, branch: null, routed: false, verdict: 'incoherent', alternatives };
-  return { sessionId, need: target, branch: best.role, routed: true, verdict: 'routed', score: best.score, signals: best.signals, alternatives };
+  if (best.score < 0) return { sessionId, need: target, memberRole: null, selected: false, verdict: 'repelled', alternatives };
+  if (coherent === false) return { sessionId, need: target, memberRole: null, selected: false, verdict: 'incoherent', alternatives };
+  return { sessionId, need: target, memberRole: best.role, selected: true, verdict: 'member_selected', score: best.score, signals: best.signals, alternatives };
 }
 
 async function coherence(sessionId, options = {}) {
@@ -148,16 +154,32 @@ async function coherence(sessionId, options = {}) {
 }
 
 async function runSlimeMouldStep(sessionId, edges, options = {}) {
-  const session = await getSession(sessionId, options.db);
-  const edgesResult = swarmTopologyAlgorithms.slimeMouldNetwork(edges, { matrix: session.matrix, ...options });
-  await persist(options.db, session);
-  return { sessionId, edges: edgesResult };
+  return mutateSession(sessionId, options, {
+    type: 'PHYSARUM_STEP',
+    payload: { edgeCount: Array.isArray(edges) ? edges.length : 0 },
+    apply: (session) => ({ sessionId, edges: swarmTopologyAlgorithms.slimeMouldNetwork(edges, { matrix: session.matrix, ...options }) })
+  });
+}
+
+async function mutateSession(sessionId, options, change) {
+  if (!options.db) {
+    const session = await getSession(sessionId);
+    const result = change.apply(session);
+    session.revision += 1;
+    return { ...result, revision: session.revision };
+  }
+  const saved = await store.mutateRhizome(options.db, sessionId, async (record) => {
+    const session = rehydrate(record);
+    const result = change.apply(session);
+    return { state: serialize(session), event: { type: change.type, payload: change.payload }, result };
+  });
+  return { ...saved };
 }
 
 async function closeSession(sessionId, options = {}) {
+  if (options.db) await store.closeRhizome(options.db, sessionId);
   sessions.delete(sessionId);
-  if (options.db) await store.remove(options.db, sessionId).catch(() => {});
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeToCapability, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, coherence, runSlimeMouldStep, closeSession, rehydrate };

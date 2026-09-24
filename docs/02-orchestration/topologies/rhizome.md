@@ -24,7 +24,7 @@ Le principe collectif est :
 Le cœur fonctionnel est réparti entre :
 
 - [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des quatre rôles rhizomatiques.
-- [backend/src/services/rhizomeCoordinationService.js](../../../backend/src/services/rhizomeCoordinationService.js) : sessions, traces stigmergiques, recherche de membres et pas Physarum.
+- [backend/src/services/rhizomeCoordinationService.js](../../../backend/src/services/rhizomeCoordinationService.js) : sessions, traces stigmergiques, sélection directe d'un membre et pas Physarum.
 
 ---
 
@@ -1322,9 +1322,12 @@ les composants ci-dessous décrivent son ancrage actuel et les responsabilités
 attendues du runtime. Voir [Topologies et capacités](../topologies-et-capacites.md).
 
 - Composition des rôles `rootless_coordinator`, `capability_offshoot`, `local_bridge` et `boundary_scout` par `biologicalModeService`.
-- Coordination, sessions, traces stigmergiques, routage et calcul de cohérence par `rhizomeCoordinationService`.
+- Sessions, traces stigmergiques, sélection directe d'un membre, cohérence et pas Physarum par `rhizomeCoordinationService` ; les mutations persistées sont versionnées et journalisées.
 - Contrat de capacités Rhizome fourni par `topologyCapabilityService` et utilisé par la politique de leases.
 - Graphe de télémétrie, export JSON et serveur du CLI dans `crates/genos-cli/src/commands/rhizome_telemetry/`.
+
+Le graphe du CLI est une simulation de télémétrie (`simulator.rs`) ; il ne constitue
+pas encore le graphe opérationnel de capacités du backend.
 
 Les équations, invariants et variantes des sections précédentes expriment le
 comportement visé par le modèle Rhizome ; leur présence formalise la spécification

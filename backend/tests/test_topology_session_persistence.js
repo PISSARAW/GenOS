@@ -5,18 +5,51 @@ const rhizome = require('../src/services/rhizomeCoordinationService');
 const biome = require('../src/services/biomeCoordinationService');
 const tools = require('../src/services/topologySessionTools');
 
+function eventRow(params) {
+  return { session_id: params[0], topology: params[1], revision: params[2], event_type: params[3], payload_json: params[4] };
+}
+
+function runStatement(state, sql, params) {
+  const statement = String(sql).trim().toUpperCase();
+  if (statement.startsWith('INSERT INTO TOPOLOGY_SESSIONS')) return insertSession(state.rows, statement, params);
+  if (statement.startsWith('INSERT INTO TOPOLOGY_SESSION_EVENTS')) return insertEvent(state.events, params);
+  if (statement.startsWith('UPDATE TOPOLOGY_SESSIONS')) return updateSession(state.rows, statement, params);
+  if (statement.startsWith('DELETE')) return deleteSession(state.rows, params);
+  return { changes: 0 };
+}
+
+function insertSession(rows, statement, params) {
+  const current = rows.get(params[0]);
+  const revision = statement.includes('VALUES (?, ?, ?, 1') ? 1 : (current?.revision || 0) + (current ? 1 : 0);
+  rows.set(params[0], { topology: params[1], state_json: params[2], revision });
+  return { changes: 1 };
+}
+
+function insertEvent(events, params) {
+  events.push(eventRow(params));
+  return { changes: 1 };
+}
+
+function updateSession(rows, params) {
+  const current = rows.get(params[2]);
+  if (!current || current.revision !== params[3]) return { changes: 0 };
+  rows.set(params[2], { ...current, state_json: params[0], revision: params[1] });
+  return { changes: 1 };
+}
+
+function deleteSession(rows, params) {
+  rows.delete(params[0]);
+  return { changes: 1 };
+}
+
 function fakeDb() {
-  const rows = new Map();
+  const state = { rows: new Map(), events: [] };
   return {
-    run: async (sql, ...params) => {
-      const statement = String(sql).trim().toUpperCase();
-      if (statement.startsWith('CREATE TABLE')) return { changes: 0 };
-      if (statement.startsWith('INSERT INTO TOPOLOGY_SESSIONS')) { rows.set(params[0], { topology: params[1], state_json: params[2] }); return { changes: 1 }; }
-      if (statement.startsWith('DELETE')) { rows.delete(params[0]); return { changes: 1 }; }
-      return { changes: 0 };
-    },
-    get: async (sql, ...params) => rows.get(params[0]),
-    all: async () => []
+    run: async (sql, ...params) => runStatement(state, sql, params),
+    get: async (sql, ...params) => state.rows.get(params[0]),
+    all: async (sql, ...params) => String(sql).includes('topology_session_events')
+      ? state.events.filter((event) => event.session_id === params[0]).sort((a, b) => a.revision - b.revision)
+      : [{ name: 'revision' }]
   };
 }
 
@@ -35,7 +68,9 @@ function fakeDb() {
   await rhizome.depositTrail(rhiz.sessionId, 'edge:e1', { amount: 4, db });
   const rhizRecord = await store.load(db, rhiz.sessionId);
   assert.equal(rhizRecord.topology, 'rhizome');
+  assert.equal(rhizRecord.revision, 2);
   assert.equal(rhizRecord.state.trails.length, 1);
+  assert.deepEqual((await store.events(db, rhiz.sessionId)).map((event) => event.type), ['SESSION_CREATED', 'TRAIL_DEPOSITED']);
   const revivedRhiz = rhizome.rehydrate(rhizRecord);
   assert.ok(revivedRhiz.matrix.getDecayedIntensity('edge:e1') > 0);
 

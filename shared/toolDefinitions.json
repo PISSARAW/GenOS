@@ -529,7 +529,7 @@
               "snapshot",
               "apply",
               "deposit",
-              "route",
+              "direct_member",
               "slime",
               "allocate",
               "forage",

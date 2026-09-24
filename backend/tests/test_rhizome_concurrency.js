@@ -1,0 +1,46 @@
+const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
+const sqlite3 = require('sqlite3').verbose();
+const { open } = require('sqlite');
+const rhizome = require('../src/services/rhizomeCoordinationService');
+const store = require('../src/services/topologySessionStore');
+
+async function run() {
+  const filename = path.join(os.tmpdir(), `rhizome-${crypto.randomUUID()}.db`);
+  const primaryDb = await open({ filename, driver: sqlite3.Database });
+  const workerDb = await open({ filename, driver: sqlite3.Database });
+  try {
+    await primaryDb.exec('PRAGMA busy_timeout = 5000');
+    await workerDb.exec('PRAGMA busy_timeout = 5000');
+    const session = await rhizome.composeRhizome('Preserve concurrent session changes.', { db: primaryDb });
+    const deposits = Array.from({ length: 20 }, (_, index) => {
+      const db = index % 2 ? primaryDb : workerDb;
+      return rhizome.depositTrail(session.sessionId, `edge:${index}`, { amount: index + 1, db });
+    });
+    await Promise.all(deposits);
+
+    const record = await store.load(primaryDb, session.sessionId);
+    const events = await store.events(primaryDb, session.sessionId);
+    assert.equal(record.state.trails.length, deposits.length);
+    assert.equal(record.revision, deposits.length + 1);
+    assert.equal(events.length, deposits.length + 1);
+    assert.deepEqual(events.map((event) => event.revision), Array.from({ length: events.length }, (_, index) => index + 1));
+    assert.ok(record.state.trails.some(([marker]) => marker === 'edge:0'));
+    assert.ok(record.state.trails.some(([marker]) => marker === 'edge:19'));
+    await rhizome.closeSession(session.sessionId, { db: primaryDb });
+    assert.equal((await store.events(primaryDb, session.sessionId)).at(-1).type, 'SESSION_CLOSED');
+    assert.equal(await store.load(primaryDb, session.sessionId), null);
+  } finally {
+    await primaryDb.close();
+    await workerDb.close();
+    await fs.rm(filename, { force: true });
+  }
+}
+
+run().then(() => console.log('Rhizome concurrent persistence checks: PASS')).catch((error) => {
+  console.error('Rhizome concurrent persistence test failed:', error);
+  process.exit(1);
+});

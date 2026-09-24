@@ -17,10 +17,10 @@ const rhizome = require('../src/services/rhizomeCoordinationService');
   const dominated = await rhizome.depositTrail(session.sessionId, 'route:other', { amount: 7 });
   assert.equal(dominated.dominant.dominantPath, 'route:other');
 
-  const routed = await rhizome.routeToCapability(session.sessionId, 'boundary_scout');
-  assert.equal(routed.routed, true);
-  assert.equal(routed.branch, 'boundary_scout');
-  assert.equal((await rhizome.routeToCapability(session.sessionId, 'missing_skill')).routed, false);
+  const selected = await rhizome.routeDirectMember(session.sessionId, 'boundary_scout');
+  assert.equal(selected.selected, true);
+  assert.equal(selected.memberRole, 'boundary_scout');
+  assert.equal((await rhizome.routeDirectMember(session.sessionId, 'missing_skill')).selected, false);
 
   const coherence = await rhizome.coherence(session.sessionId);
   assert.ok(typeof coherence.orderParameter === 'number');
