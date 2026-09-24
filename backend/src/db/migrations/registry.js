@@ -255,6 +255,9 @@ const migrationRunners = [
   createMigrationRunner('074-holobiont-sessions', 'Persist Holobiont sessions and append-only symbiosis event history (ADR 0048)', async (db) => {
     const { migrateHolobiontSessions } = require('./migrateHolobiontSessions');
     await migrateHolobiontSessions(db);
+  }),  createMigrationRunner('075-holobiont-contracts', 'Persist immutable Host-Symbiont contracts and revisions (ADR 0052)', async (db) => {
+    const { migrateHolobiontContracts } = require('./migrateHolobiontContracts');
+    await migrateHolobiontContracts(db);
   }),
 ];
 
