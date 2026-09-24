@@ -1,1190 +1,734 @@
-# Biocénose : Orchestration Communautaire par Coopération, Compétition et Validation
+# Biocénose : Système de Délibération Collective et de Formation de Jugement
 
-## 1. Définition
+## 1. Principe fondamental
 
-Biocénose dans GenOS est le mécanisme d'orchestration qui structure une mission comme une **communauté autonome d'agents** coordonnant par coopération, compétition et validation collective. Contrairement aux modèles précédents (Trinity = trois hypothèses, A-Team = domaines multidisciplinaires), la Biocénose repose sur l'**émergence d'ordre à partir de l'interaction décentralisée**.
+> **Biocénose est le système de délibération collective, de contestation et de formation de jugement de GenOS lorsque la réponse ne peut pas être confiée à une seule autorité, qu'il existe plusieurs perspectives légitimes ou incomplètes, et que la qualité du résultat dépend de la diversité, de l'indépendance, de la confrontation et de l'agrégation des connaissances.**
 
-Les quatre rôles de la Biocénose sont :
+Biocénose n'est pas un « consensus multi-agent ». C'est **l'épidémiologie collective** de GenOS : la façon dont la communauté construit un jugement partagé à partir de connaissances distribuées, de désaccords légitimes et de preuves contestées.
 
-1. **Community Facilitator** : définit le protocole de la communauté, les seuils d'évidence, les limites de décision, sans résoudre le problème pour le groupe ;
-2. **Independent Solver** : développe une solution indépendante et publie ses preuves, hypothèses et tensions non résolues ;
-3. **Adversarial Reviewer** : essaie de falsifier les propositions concurrentes, expose la collusion, les angles morts et les preuves faibles ;
-4. **Consensus Observer** : mesure la diversité, la convergence et la qualité du consensus avant de recommander un résultat collectif.
-
-Biocénose n'est pas une hiérarchie où le Facilitator commande. C'est une **structure de gouvernance décentralisée** où :
-
-- le Facilitator pose les règles du jeu ;
-- les Solvers jouent indépendamment ;
-- le Revieweur agit comme antagoniste ;
-- l'Observer mesure l'équilibre collectif.
-
-Le cœur fonctionnel est réparti entre :
-
-- [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des quatre rôles.
-- [backend/src/services/biocenoseService.js](../../../backend/src/services/biocenoseService.js) : analyse de mission et activation de Biocénose.
-- [backend/src/services/agentRuntimeAdapter/index.js](../../../backend/src/services/agentRuntimeAdapter/index.js) : dispatch des agents de Biocénose.
-- [backend/src/services/agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état partagé, synchronisation communautaire, barrière de fusion.
-
-Le principe est : une communauté bien structurée résout souvent des problèmes complexes mieux qu'une autorité centrale, à condition que les règles du jeu, les seuils d'évidence et les mécanismes de détection de collusion soient clairs.
-
----
-
-## 2. Non un comité démocratique, mais une structure d'ordre décentralisé
-
-GenOS applique une logique de coordination communautaire :
-
-1. **le Facilitator ne décide pas seul** : il pose le cadre et l'arbitre, mais les Solvers agissent indépendamment ;
-2. **les Solvers ne se concertent pas avant d'agir** : chacun publie ses travaux sans coordination préalable ;
-3. **l'Adversarial Reviewer n'est pas juré de justice** : son rôle est de falsifier, non de juger ;
-4. **l'Consensus Observer mesure l'ordre émergent** : diversité, convergence, cohérence des preuves ;
-5. **la fusion exige un protocole clair** : seuils d'évidence, mécanismes de détection d'anomalie, escalade vers humain si pas de consensus robuste.
-
-Les mécanismes de sécurité sont explicites :
-
-- **isolation des Solvers** : chaque Solver agit dans un environnement isolé, sans accès aux solutions des autres avant validation ;
-- **asynchronicité** : les Solvers ne s'attendent pas l'un l'autre, ils publient et se synchronisent au Revieweur ;
-- **antagonisme structuré** : le Revieweur ne collabore pas avec les Solvers, il les contredit pour révéler les faiblesses ;
-- **mesure d'ordre** : l'Observer calcule la diversité, la chevauchement, la force du consensus ;
-- **escalade graduée** : si pas de consensus, le système refuse la fusion et demande réajustement ou escalade humaine.
-
----
-
-## 3. Définition mathématique de l'orchestration communautaire
-
-L'orchestration Biocénose est un problème de **coordination sans autorité centrale** et **validation par adversité**.
-
-Soit :
-
-- $M$ : mission partagée par la communauté ;
-- $n$ : nombre de Solvers indépendants (souvent $n \ge 2$) ;
-- $S_i$ : la solution proposée par le Solver $i$ ;
-- $C_i$ : dossier d'évidence (claims, tests, provenance) du Solver $i$ ;
-- $F_i$ : falsifications découvertes par l'Adversarial Reviewer sur $S_i$ ;
-- $\text{consensus}$ : accord mesurable entre les Solvers ;
-- $\text{diversity}$ : différence structurelle entre les solutions.
-
-Chaque Solver publie une solution avec preuves :
-
-$$
-(S_i, C_i) = \text{Solve}(M)
-$$
-
-Le Revieweur teste la solidité de chaque solution :
-
-$$
-F_i = \text{Falsify}(S_i, C_i)
-$$
-
-où $F_i$ retourne un ensemble de défauts, d'hypothèses non justifiées, ou d'évidences manquantes.
-
-Le consensus est mesuré par :
-
-$$
-\text{agreement}(S_1, S_2, ..., S_n) = \frac{\sum_{i<j} \text{overlap}(S_i, S_j)}{n \times (n-1)/2}
-$$
-
-où $\text{overlap}$ mesure le degré de chevauchement structural ou thématique.
-
-La diversité est :
-
-$$
-\text{diversity} = 1 - \text{agreement}
-$$
-
-La fusion est possible si :
-
-$$
-\text{canMerge} = 
-\begin{cases}
-1 & \text{si } \text{agreement} \ge \alpha \text{ et } |F_{\text{critical}}| = 0 \\
-0 & \text{sinon (escalade requise)}
-\end{cases}
-$$
-
-où $\alpha$ est le seuil de consensus (souvent 0.7–0.8) et $|F_{\text{critical}}|$ est le nombre de falsifications critiques.
-
----
-
-## 4. Les quatre rôles et hypothèses
-
-Biocénose toujours crée exactement 4 agents, avec des rôles et des modèles distincts :
-
-### 4.1 Community Facilitator (Frontier)
-
-```
-Role: community_facilitator
-ModelTier: frontier
-Member Number: 1
-```
-
-**Hypothèse :**
-> "Set the community protocol, evidence threshold, and decision boundaries without solving for the group."
-
-**Mission assignée :**
-```
-Biocenose shared mission: [shared mission]
-Collective principle: A community of autonomous agents coordinating through cooperation, competition, and validation.
-Role hypothesis: Set the community protocol, evidence threshold, and decision boundaries without solving for the group.
-
-Your task (community_facilitator):
-1. Define the protocol for how agents will share work
-2. Set clarity thresholds (e.g., what counts as sufficient evidence?)
-3. Define decision boundaries (e.g., when can we merge or escalate?)
-4. Monitor fairness and prevent collusion
-5. Do NOT solve the problem yourself; facilitate the community solving it
-
-Return: Protocol document, thresholds, boundaries, and fairness assessment
-```
-
-**Rôle dans la communauté :**
-- Pose les règles sans imposer la solution
-- Veille à la transparence et à la non-collusion
-- Décide si le consensus est suffisant pour fusionner
-- Escalade vers humain si la communauté ne peut pas converger
-
-### 4.2 Independent Solver (Standard)
-
-```
-Role: independent_solver
-ModelTier: standard
-Member Number: 2
-```
-
-**Hypothèse :**
-> "Develop an independent solution and publish evidence, assumptions, and unresolved tensions."
-
-**Mission assignée :**
-```
-Biocenose shared mission: [shared mission]
-Collective principle: A community of autonomous agents coordinating through cooperation, competition, and validation.
-Role hypothesis: Develop an independent solution and publish evidence, assumptions, and unresolved tensions.
-
-Your task (independent_solver):
-1. Develop a complete solution to the mission
-2. Publish all assumptions (what did you take for granted?)
-3. Publish all evidence (tests, proofs, validation)
-4. Publish unresolved tensions (what parts are fragile or uncertain?)
-5. Do NOT coordinate with other Solvers before publishing
-
-Return: Solution document with assumptions, evidence, and tensions
-```
-
-**Rôle dans la communauté :**
-- Agit en isolation, sans consultation des autres Solvers
-- Publie une solution complète avec preuves
-- Énumère explicitement les hypothèses
-- Signale les domaines d'incertitude
-
-### 4.3 Adversarial Reviewer (Frontier)
-
-```
-Role: adversarial_reviewer
-ModelTier: frontier
-Member Number: 3
-```
-
-**Hypothèse :**
-> "Try to falsify competing proposals and expose collusion, blind spots, or weak evidence."
-
-**Mission assignée :**
-```
-Biocenose shared mission: [shared mission]
-Collective principle: A community of autonomous agents coordinating through cooperation, competition, and validation.
-Role hypothesis: Try to falsify competing proposals and expose collusion, blind spots, or weak evidence.
-
-Your task (adversarial_reviewer):
-1. Analyze all competing solutions (from Solvers)
-2. Try to find counter-examples or logical flaws in each solution
-3. Expose hidden assumptions that are not justified
-4. Detect if multiple Solvers are suspiciously aligned (collusion indicator)
-5. Identify blind spots (domains not addressed by any Solver)
-6. Report all falsifications and weaknesses
-
-Return: Falsification report with identified flaws, gaps, and risk areas
-```
-
-**Rôle dans la communauté :**
-- Agit comme antagoniste délibéré
-- Cherche activement les défauts
-- Teste les hypothèses du groupe
-- Signale la collusion si détectée
-
-### 4.4 Consensus Observer (Standard)
-
-```
-Role: consensus_observer
-ModelTier: standard
-Member Number: 4
-```
-
-**Hypothèse :**
-> "Measure diversity, convergence, and consensus quality before recommending a collective result."
-
-**Mission assignée :**
-```
-Biocenose shared mission: [shared mission]
-Collective principle: A community of autonomous agents coordinating through cooperation, competition, and validation.
-Role hypothesis: Measure diversity, convergence, and consensus quality before recommending a collective result.
-
-Your task (consensus_observer):
-1. Measure how much Solvers agree on key points (convergence)
-2. Measure how much Solvers differ in approach (diversity)
-3. Evaluate the quality of evidence (are the claims well-supported?)
-4. Count how many falsifications are "critical" vs "minor"
-5. Assess if the consensus is robust or fragile
-6. Recommend merge, refinement, or escalation based on metrics
-
-Return: Consensus analysis with metrics, strength assessment, and recommendation
-```
-
-**Rôle dans la communauté :**
-- Mesure l'ordre émergent
-- Calcule les métriques de convergence
-- Évalue la robustesse du consensus
-- Recommande action (fusion, continuation, escalade)
-
----
-
-## 5. Architecture du système
+La distinction avec les autres topologies est fondamentale :
 
 ```text
-Client / Mission
-        |
-        v
-[biocenoseService.analyzeMission]
-        |
-        +--> valide que Biocénose est appropriée
-        +--> prépare le contexte partagé
-        |
-        v
-[biologicalModeService.compose]
-        |
-        +--> crée 4 agents avec rôles distincts
-        +--> 1 Facilitator (frontier)
-        +--> 1 Solver (standard)
-        +--> 1 Reviewer (frontier)
-        +--> 1 Observer (standard)
-        |
-        v
-[Exécution parallèle de la communauté]
-        |
-        +--> Facilitator: définit protocole + seuils
-        +--> Solver: développe solution indépendante
-        +--> Reviewer: falsifie et expose faiblesses
-        +--> Observer: mesure convergence
-        |
-        v
-[Barrière de preuve communautaire]
-        |
-        +--> collecte protocole, solution, falsifications, analyse
-        +--> valide que tous les rôles ont produit
-        +--> mesure qualité de consensus
-        |
-        v
-[Décision de fusion]
-        |
-        +--> agreement ≥ seuil ET pas de falsification critique
-        |      → canMerge = true
-        +--> sinon
-        |      → escalade ou continuation
-        |
-        v
-[Résultat collectif ou escalade]
+Trinity
+    plusieurs hypothèses concurrentes
+    → laquelle résiste à l'expérience contrôlée ?
+
+A-Team
+    plusieurs expertises complémentaires
+    → comment construire ensemble un artefact ?
+
+Biome
+    environnement + populations + niches + ressources
+    → où investir les ressources collectivement ?
+
+Métapopulation
+    plusieurs dèmes semi-indépendants
+    → comment survivre aux extinctions locales ?
+
+Biocénose
+    plusieurs perspectives légitimes ou incomplètes
+    → que doit croire/décider la communauté
+      après délibération, confrontation et agrégation ?
+```
+
+Biocénose demande :
+> **« Que doit croire ou décider la communauté après que ses membres ont raisonné indépendamment, confronté leurs preuves, exposé leurs désaccords et mis à jour leurs positions sans écraser les minorités utiles ? »**
+
+Et surtout :
+> **Le but de Biocénose n'est pas de fabriquer du consensus. Le but est de fabriquer un désaccord bien traité.**
+
+---
+
+## 2. L'implémentation actuelle n'est pas encore réellement une communauté
+
+Dans `backend/src/services/biocenoseService.js`, la composition produit exactement :
+```text
+community_facilitator
+independent_solver
+adversarial_reviewer
+consensus_observer
+```
+
+Donc il n'y a en réalité qu'**un seul solver indépendant**. C'est incompatible avec la documentation qui raisonne elle-même sur $S_1, S_2, \ldots, S_n$. Une communauté où une seule proposition est formulée puis critiquée ressemble davantage à author → reviewer → judge qu'à une véritable Biocénose.
+
+Le premier changement conceptuel est :
+```text
+Biocénose ≠ 4 rôles = 4 agents
+```
+mais :
+```text
+Biocénose
+    governance plane
+    +
+    N independent contributors
+    +
+    M reviewers/verifiers
+    +
+    aggregation/observer plane
+```
+
+Les rôles actuels peuvent rester, mais comme **fonctions communautaires**, pas comme cardinalité fixe.
+
+---
+
+## 3. Le `kneePoint` Pareto n'est pas un consensus
+
+`evaluateCommunity()` appelle actuellement `arenaTaskEvaluation.evaluateDossiersPareto(...)` puis expose `consensus: evaluation.kneePoint`. Cela mélange deux concepts. Arena répond « quel candidat présente le meilleur compromis multiobjectif ? ». Un consensus répond « quelles propositions la communauté accepte-t-elle après confrontation ? ». Ce n'est pas la même question.
+
+Et surtout, Arena compare aujourd'hui potentiellement Solver, Reviewer, Observer comme candidats. Or le Reviewer n'est pas une solution concurrente au Solver — il produit une fonction différente.
+
+Biocénose ultime doit abandonner comme primitive centrale `candidate ranking` et utiliser `claim-level deliberation + argument graph + belief aggregation + decision rule`. Arena/Pareto reste utile à l'intérieur d'une décision lorsqu'il existe réellement plusieurs options concurrentes.
+
+---
+
+## 4. La diversité actuelle mesure la mauvaise chose
+
+`communityDiversity()` calcule une entropie de Shannon sur EXECUTE, VERIFY, OBSERVE... Donc Solver executes + Reviewer verifies + Observer observes produit mécaniquement de la diversité. Mais cela ne prouve absolument pas : diversité d'évidence, diversité de raisonnement, erreurs indépendantes, sources indépendantes.
+
+Heureusement, GenOS possède déjà un meilleur embryon dans `backend/src/services/epistemic/epistemicBiocenoseService.js` avec : functional diversity, error diversity, tool diversity, provider diversity, strategy diversity, effective diversity, monoculture detection. C'est ce service qui devrait devenir une composante centrale de la vraie Biocénose.
+
+---
+
+## 5. Le Brier actuel a un problème conceptuel subtil
+
+Le code a correctement corrigé une première erreur : sans oracle externe, il refuse de fabriquer une vérité circulaire. C'est très bien. Mais si l'oracle est déjà disponible, pourquoi demander à la communauté de déterminer la réponse ? L'oracle donne déjà la réponse.
+
+Le Brier doit surtout servir à apprendre : Agent A historical calibration excellent, Agent B historical overconfidence high — et influencer les futurs jugements. Pas découvrir rétroactivement la vérité du problème qu'on vient de résoudre.
+
+Le bon cycle est :
+```text
+t0 agent predicts P=.80
+t1 community aggregates
+t2 external truth becomes known
+t3 Brier score calculated
+t4 future calibration/reputation updated
+```
+
+Les proper scoring rules sont précisément destinées à évaluer la qualité de probabilités déclarées ([PubsOnline:Neyman][1]). Je transformerais `brier_weighted_consensus` en `historically_calibrated_probability_pooling`.
+
+---
+
+## 6. Une communauté ne doit pas rechercher le consensus à tout prix
+
+C'est probablement **le principe le plus important de Biocénose ultime**. Consensus n'est pas synonyme de vérité.
+
+Une étude ACL 2026 sur le multi-agent debate conclut que le débat homogène classique peut être moins performant qu'un simple vote majoritaire et identifie deux facteurs décisifs : diversité initiale et communication explicite de confiance calibrée ([ACL Anthology:Zhu 2026][2]).
+
+Un autre travail de 2026 met en évidence l'émergence possible de consensus collectifs biaisés dans des débats LLM, avec un rôle de la conformité et une réduction de ce phénomène avec davantage d'hétérogénéité ([arXiv:Okawa 2026][3]).
+
+La littérature sur les groupes humains montre depuis longtemps que le dissent peut faire émerger des informations qui seraient perdues par une convergence prématurée ([PubMed:Hidden Profiles][4]).
+
+Donc CONVERGENCE ↑ n'est pas toujours QUALITY ↑.
+
+---
+
+## 7. La sortie fondamentale doit devenir un `CommunityJudgment`
+
+Pas simplement `consensus = candidate A`. Je définirais :
+```text
+CommunityJudgment {
+    acceptedClaims, rejectedClaims, contestedClaims, unresolvedQuestions
+    supportedOptions, dominatedOptions
+    majorityPosition, minorityPositions
+    evidenceGraph
+    confidence, calibrationBasis
+    dissentReport
+    decisionStatus
+}
+```
+
+Et surtout plusieurs sorties possibles :
+
+| Outcome | Significance |
+|---------|--------------|
+| `VERIFIED_CONSENSUS` | preuves externes + accord |
+| `ROBUST_CONSENSUS` | accord indépendant fort sans oracle décisif |
+| `QUALIFIED_CONSENSUS` | accord avec réserves importantes |
+| `PLURALITY_WITH_DISSENT` | une position domine mais minorité substantielle |
+| `PARETO_PLURALISM` | plusieurs options légitimes non dominées |
+| `IRREDUCIBLE_DISAGREEMENT` | désaccord raisonnable persistant |
+| `REQUEST_MORE_EVIDENCE` | preuve insuffisante |
+| `ESCALATE_EXPERIMENT` | question empirique à tester |
+| `HUMAN_JUDGMENT_REQUIRED` | décision normative/préférentielle non délégable |
+
+---
+
+## 8. Avant la communauté : classifier le type de question
+
+### Question factuelle vérifiable
+« Cette fonction produit-elle une race condition ? » Priorité : test, reproduction, formal verifier, evidence. Pas 7 agents disent oui.
+
+### Question probabiliste
+« Probabilité que cette migration échoue ? » Ici probability pooling, historical calibration, Brier/log scoring est approprié.
+
+### Question de conception
+« Quelle architecture conserver ? » Plusieurs compromis peuvent être valides. Utiliser criteria, Pareto, argumentation, trade-offs.
+
+### Question normative
+« Quel compromis est acceptable ? » Il n'existe parfois pas de vérité technique unique. Préserver values, stakeholder constraints, plural alternatives et éventuellement renvoyer à l'humain.
+
+### Question exploratoire
+Plusieurs cadrages du problème peuvent être légitimes. Le résultat peut rester pluraliste.
+
+---
+
+## 9. La constitution de la communauté doit être définie AVANT de voir les réponses
+
+C'est une faiblesse potentielle de la documentation actuelle. Le Facilitator est censé définir thresholds, decision boundaries, rules — mais la simulation documentée place aussi le Facilitator vers la fin après Solver/Reviewer/Observer. C'est dangereux.
+
+Je créerais donc un `Community Constitution` scellé avant la première réponse :
+```text
+question type, eligibility, roles
+evidence standard, independence requirements
+aggregation method, quorum policy, abstention policy
+dissent policy, round limit, stopping rule
+escalation rule, verification policy
+constitutionHash
+```
+
+Puis constitutionHash. Une modification après commencement doit être versionnée et visible.
+
+---
+
+## 10. Les membres doivent d'abord répondre en isolation
+
+Phase SEALED INDEPENDENT JUDGMENT. Chaque membre produit position, claims, probabilities, assumptions, evidence, unknowns et signe commitmentHash avant de voir les autres.
+
+C'est essentiel parce que la sagesse d'une foule dépend fortement de l'indépendance des erreurs ; des erreurs corrélées réduisent fortement l'intérêt de l'agrégation ([PMC:Wisdom Crowd Diversity][5]).
+
+---
+
+## 11. Puis seulement vient la délibération
+
+Le protocole cible devrait être :
+```text
+INDEPENDENT → COMMIT → BLIND AGGREGATE → EXPOSE ARGUMENTS → CHALLENGE → REQUEST EVIDENCE → REVISE → RE-AGGREGATE → DECIDE OR PRESERVE DISSENT
+```
+
+Cela permet de mesurer séparément private belief et post-social belief. Donc GenOS peut observer « Agent A changed because evidence E » versus « Agent A changed merely because majority=7/10 ». Cette distinction est extrêmement importante.
+
+---
+
+## 12. La délibération doit être claim-level
+
+Pas Solution A vs Solution B, mais Claim C1, Claim C2, Claim C3... Une proposition peut être correcte sur C1, fausse sur C2, incertaine sur C3. Le verdict collectif doit pouvoir recombiner les claims.
+
+---
+
+## 13. Créer un Argument Graph
+
+Je connecterais cela directement au système épistémique existant :
+```text
+Claim ↑ support Evidence
+Claim A ├── SUPPORT ← Claim B
+         ├── ATTACK ← Claim C
+         ├── UNDERCUT ← Evidence D
+         └── DEPENDS_ON → Assumption E
+```
+
+Relations : SUPPORT, ATTACK, REFUTE, UNDERCUT, DEPEND_ON, QUALIFY, COUNTEREXAMPLE. Les recherches récentes sur la délibération LLM explorent justement des argument graphs et des cadres de bipolar/quantitative argumentation pour rendre les désaccords auditable plutôt que d'utiliser une simple synthèse textuelle ([ACL Anthology:ARGSBASE][6]).
+
+GenOS possède déjà presque toutes les briques dans son EpistemicState : claims, refutations, contradictions, evidenceLinks, uncertainties. Il faut les réutiliser.
+
+---
+
+## 14. Chaque changement d'avis doit avoir une raison
+
+Au lieu de before=.2 après=.8 enregistrer BELIEF_UPDATE reason : NEW_EVIDENCE, COUNTEREXAMPLE, FORMAL_REFUTATION, BETTER_ARGUMENT, MAJORITY_SIGNAL, AUTHORITY_SIGNAL, SELF_CORRECTION. Le système peut ensuite détecter social conformity si des agents changent massivement après exposition à la majorité sans nouvelles preuves.
+
+---
+
+## 15. Introduire un `Conformity Monitor`
+
+Mesures : beliefUpdateAfterEvidence, beliefUpdateAfterMajority, beliefUpdateAfterHighStatusAgent, beliefUpdateWithoutNewInformation. Si social updates >> evidential updates alors GROUPTHINK_RISK. Actions : reblind round, recruit dissent, hide vote counts, introduce independent verifier.
+
+---
+
+## 16. Ne surtout pas afficher le score global trop tôt
+
+Si les agents voient 8/10 support A avant leur seconde analyse, on fabrique potentiellement de l'ancrage. Donc rounds initiaux : argument-visible, vote-hidden, identity-hidden. Puis seulement plus tard aggregate statistics. Le Delphi classique repose justement sur anonymat, itération, feedback contrôlé et synthèse statistique ([BMJ:DCAT][7]).
+
+---
+
+## 17. Le dissent doit être un objet persistant
+
+Créer DissentLedger. Chaque position minoritaire possède claimRefs, supportingEvidence, supporters, independence, materiality, counterexamples, status. Jamais `minority lost vote → delete`. Mais `majority accepted + minority preserved`. Parce qu'une position minoritaire peut contenir l'information rare correcte.
+
+---
+
+## 18. Introduire le `Minority Veto` limité
+
+Pas un veto politique général. Un veto épistémique lorsque la minorité possède : deterministic counterexample, formal contradiction, critical safety evidence, unique verified evidence. Exemple : 9 agents « patch works » mais 1 agent a un test reproductable qui crash → PROMOTION BLOCKED. L'évidence bat le nombre.
+
+---
+
+## 19. Il faut protéger le dissent utile, pas n'importe quel dissent
+
+$$DissentValue = EvidenceStrength \times Independence \times Materiality \times Novelty$$
+
+et non minority = automatically valuable.
+
+---
+
+## 20. La diversité doit être multi-dimensionnelle
+
+Je mesurerais au moins : modèle, provider, stratégie, cognitive recipe, source, evidence type, lineage, retrieval, error history, position. Et construire Community Independence Graph réutilisant epistemicIndependenceService.
+
+---
+
+## 21. Le nombre de personnes n'est pas la diversité effective
+
+100 agents + même modèle + même prompt + même sources peut représenter effective community size ≈ 1. Il faudrait calculer $N_{eff}$ à partir des corrélations/indépendances. Cela empêche de présenter 93 votes / 100 comme très fort si les 100 sont des clones cognitifs.
+
+---
+
+## 22. Recrutement adaptatif
+
+Si community monoculture detected le système doit chercher : different provider, different evidence modality, different strategy, different expertise, different retrieval corpus. Le service épistémique actuel possède déjà shouldRecruit() et recommendNiche(). C'est une excellente base. Il faut le rendre causal au runtime.
+
+---
+
+## 23. Le Reviewer unique doit disparaître
+
+Un reviewer unique devient un goulot d'étranglement. Il peut miss flaws, be biased, anchor everyone. Il faut une Reviewer Population : factual verifier, counterexample hunter, assumption auditor, security reviewer, logic reviewer. Chaque claim est routé vers les reviewers appropriés.
+
+---
+
+## 24. Generator ≠ Reviewer ≠ Aggregator
+
+Séparation obligatoire : Generators produisent positions, Reviewers attack/support claims, Verifiers test empirical assertions, Aggregator combine judgments, Observer monitors social dynamics. Aucun agent ne doit contrôler simultanément toutes ces fonctions sur une décision importante.
+
+---
+
+## 25. La vraie Biocénose est donc une communauté de niches épistémiques
+
+On pourrait avoir : Population of generators, Population of skeptics, Population of empirical verifiers, Population of formal verifiers, Population of minority scouts, Population of intégrateurs. Chaque population occupe une niche cognitive.
+
+---
+
+## 26. L'agrégation doit dépendre de la question
+
+Il ne faut jamais un algorithme unique. Faits avec oracle : oracle > community. Probabilités : weighted probability pool. Les travaux récents comparant différentes règles montrent que les agrégations probabilistes peuvent offrir un meilleur compromis exactitude/décisivité que des règles majoritaires dans certains contextes, et que la corrélation des jugements compte fortement ([Wiley:Condorcet][8]). Options multicritères : Pareto. Arguments complexes : argument graph semantics. Valeurs/préférences : preserve pluralism.
+
+---
+
+## 27. Brier weighting doit devenir historique
+
+Pour chaque membre : CalibrationProfile contenant domain, sampleCount, Brier, logScore, reliabilityCurve, overconfidence, underconfidence. Par domaine. Un excellent forecaster en backend n'obtient pas automatiquement la même autorité en droit ou en mathématiques.
+
+---
+
+## 28. Il faut aussi un score de spécialisation
+
+Poids final d'un jugement : $w_i = Calibration_i \times ExpertiseFit_i \times Independence_i \times EvidenceQuality_i$ avec limites pour éviter un agent dominant. Pas historically good → dictator.
+
+---
+
+## 29. Un marché prédictif interne peut devenir un variant
+
+Pas besoin d'argent réel. Chaque agent reçoit un budget virtuel de conviction. Il peut distribuer 70 units on A, 20 on B, 10 abstain. Le système calcule une probabilité agrégée. Après résolution externe : proper scoring met à jour la calibration. Des recherches sur prediction markets montrent que combinaison statistique, pondération historique et recalibration peuvent extraire efficacement l'information distribuée ([PubsOnline:Atanasov][9]). Très intéressant pour un variant Forecasting Biocenose.
+
+---
+
+## 30. Les variants de Biocénose
+
+| Variant | Structure | Usage |
+|---------|-----------|-------|
+| **Epistemic Jury** | jugements indépendants → preuves → verdict | validation technique |
+| **Delphi Community** | rounds anonymes + feedback contrôlé | expertise incertaine |
+| **Adversarial Assembly** | propositions + attaque/défense | robustesse |
+| **Forecasting Crowd** | probabilités calibrées | prévision |
+| **Argumentation Community** | claim/argument graph | raisonnements contestables |
+| **Polycentric Council** | plusieurs sous-communautés | grands systèmes |
+| **Byzantine-Resilient Community** | filtrage de membres malveillants | environnements non fiables |
+| **Minority-Preserving Jury** | consensus + dissent ledger | décisions à fort risque |
+| **Representative Community** | échantillonnage de perspectives | énorme population |
+| **Persistent Community** | réputation et culture long terme | projet durable |
+| **Human–AI Deliberation** | humain comme participant/arbitre | valeurs et ambiguïtés |
+| **Hybrid Oracle Community** | crowd + verifiers déterministes | science/code/math |
+
+Les cinq que je prioriserais : Epistemic Jury, Delphi, Adversarial Assembly, Argumentation Community, Minority-Preserving Jury.
+
+---
+
+## 31. Variant Delphi
+
+Très naturel pour Biocénose. Round 0 private answer, Round 1 anonymous aggregate + reasons, Round 2 agents reconsider, Round 3 stability test. Mais avec un garde-fou majeur : convergence is not mandatory. La littérature Delphi avertit qu'un nombre excessif de rounds peut encourager un consensus forcé ; les méthodes modernes conservent donc des stopping rules explicites ([BMJ:DCAT][7]).
+
+---
+
+## 32. Variant Adversarial Assembly
+
+Plusieurs propositions. Puis red reviewers, blue defenders, neutral verifier — mais avec engagements initiaux scellés. Important : le débat peut aussi propager de mauvaises convictions. Des travaux récents montrent que des agents persuasifs/adversariaux peuvent influencer négativement une délibération multi-agent ([Nature:Kraidia 2026][10]). Donc persuasion power ≠ epistemic authority.
+
+---
+
+## 33. Variant Byzantine-Resilient
+
+Si certains membres peuvent être compromised, malfunctioning, prompt-injected, strategically deceptive — ne pas utiliser simple majority. Le système doit permettre local filtering, evidence verification, reputation bounds, graph robustness, quarantine. Un travail de 2026 propose un protocole de consensus multi-LLM visant explicitement la tolérance à des agents byzantins, avec filtrage local ([arXiv:Lee 2026][11]). GenOS a déjà beaucoup des primitives nécessaires avec immune system, quarantine, provenance, independence graph.
+
+---
+
+## 34. Biocénose massive : 100 ou 1000 agents
+
+Le `hierarchicalQuorumService` possède déjà local quorum → global quorum pour de grands groupes. Mais l'implémentation actuelle réduit chaque cluster à one winning value puis les winners votent. Cela peut détruire une minorité importante. Exemple : Cluster A 51 X / 49 Y → X ; Cluster B 51 X / 49 Y → X → 100% X alors que la population réelle était 51% X / 49% Y. C'est une perte catastrophique d'information.
+
+---
+
+## 35. Le hierarchical quorum doit transmettre une distribution
+
+Chaque cluster doit retourner distribution, confidence, effectiveDiversity, evidence refs, minority claims, critical objections. Pas juste winner=X.
+
+---
+
+## 36. Et la minorité doit disposer d'un bypass
+
+Si un cluster contient 1 verified counterexample il doit pouvoir atteindre directement le niveau supérieur même si 99 autres agents ne le soutiennent pas. Appelons cela Minority Evidence Escalation Channel.
+
+---
+
+## 37. Representative sampling pour 1000 agents
+
+Créer des sous-panels selon expertise, independence, evidence niche, error history. Puis recruter davantage seulement si uncertainty remains high. Donc la taille communautaire devient adaptative.
+
+---
+
+## 38. Community stopping rule
+
+On arrête lorsque ExpectedValueOfAnotherRound < RoundCost. Approximé avec belief change rate, new evidence rate, remaining contradictions, confidence interval, critical dissent. Si trois rounds ne changent plus rien : stop. Mais stable disagreement peut être la bonne sortie.
+
+---
+
+## 39. Cas : revue de code à haut risque
+
+« Cette modification auth peut-elle être mergée ? » Biocénose : 2 independent code reviewers + security reviewer + test verifier + invariant reviewer + observer. Sortie : accepted token validation correct, contested refresh rotation, blocking dissent : reproducible replay attack. Même si quatre reviewers approuvent, le test bloquant empêche le merge.
+
+---
+
+## 40. Cas : recherche scientifique
+
+Mission : « Quelle conclusion les données permettent-elles réellement ? » Populations : literature reviewers, methodology reviewers, statistical reviewer, replication reviewer, skeptic. La sortie n'est pas answer=A mais well-supported claims, weak claims, open controversies, missing experiments.
+
+---
+
+## 41. Cas : deep research sur sources contradictoires
+
+official sources, academic literature, industry, independent audits, community reports. Chaque sous-communauté produit une position. Puis claims, sources, contradictions sont confrontés. C'est nettement meilleur qu'une synthèse LLM qui lisse les contradictions.
+
+---
+
+## 42. Cas : architecture logicielle sans oracle unique
+
+« Monolithe modulaire ou microservices ? » La communauté peut représenter operations, developer productivity, security, cost, scalability. La sortie correcte peut être : Option A dominates under conditions X / Option B dominates under conditions Y. Donc PARETO_PLURALISM est souvent meilleur que consensus forcé.
+
+---
+
+## 43. Cas : sécurité
+
+Plusieurs équipes : defender, attacker, implementation reviewer, incident responder, formal verifier. Le consensus n'autorise pas une vulnérabilité. Une seule faille reproductible : critical dissent bloque le résultat.
+
+---
+
+## 44. Cas : validation modèle ML/IA
+
+Communauté : performance, bias/fairness evaluation, distribution shift, adversarial evaluation, calibration, operational monitoring. Les désaccords sont conservés par dimension. Cela évite qu'un bon score moyen efface une faille critique.
+
+---
+
+## 45. Cas : jugement de benchmarks LLM
+
+Très intéressant pour GenOS lui-même. Plutôt qu'un seul LLM-as-judge : independent judges, blind answer identity, claim-level scoring, calibration, adversarial critic, puis agrégation. Des travaux récents tels que D3 utilisent justement anonymisation, diversification de rôles et débat budgété pour améliorer l'évaluation multi-agent ([ACL Anthology:D3][12]).
+
+---
+
+## 46. Cas : décision organisationnelle
+
+Lorsque plusieurs critères légitimes s'opposent : engineering, cost, operations, security, user experience. La Biocénose peut expliciter facts, trade-offs, disagreements mais laisser le choix de valeurs final à l'humain.
+
+---
+
+## 47. Biocénose vs Trinity
+
+Si on peut construire un test discriminant : Trinity. Si la qualité dépend surtout de connaissances distribuées, contestation et jugement : Biocénose.
+
+---
+
+## 48. Et les deux peuvent être imbriquées
+
+Biocénose identifie deux affirmations irréconciliables (C17 true / C17 false) mais constate qu'une expérience peut trancher. Alors ESCALATE_EXPERIMENT → local Trinity → result → Biocénose updates beliefs. C'est une excellente composition.
+
+---
+
+## 49. Biocénose vs A-Team
+
+A-Team = different responsibilities. Biocénose = different judgments. A-Team construit. Biocénose juge, confronte et légitime épistémiquement.
+
+---
+
+## 50. Biocénose vs Métapopulation
+
+Métapopulation cherche à conserver des populations semi-indépendantes over time. Biocénose cherche collective judgment. Une Métapopulation peut contenir plusieurs communautés Biocénose locales.
+
+---
+
+## 51. Biocénose vs Syncytium
+
+Syncytium veut shared state convergence. Biocénose doit préserver independent private belief jusqu'au bon moment. Trop de Syncytium détruirait précisément la valeur de Biocénose.
+
+---
+
+## 52. Architecture ultime
+
+```text
+                         QUESTION
+                            │
+                            ▼
+                    Question Classifier
+                            │
+                            ▼
+                 Community Constitution
+                       [COMMITTED]
+                            │
+                            ▼
+                  Community Formation
+          expertise + diversity + independence
+                            │
+            ┌───────────────┼───────────────┐
+            ▼               ▼               ▼
+        Member A        Member B         Member C...
+            │               │               │
+            └──── SEALED INDEPENDENT ───────┘
+                            │
+                            ▼
+                     Commitments
+                            │
+                            ▼
+                       Claim Graph
+                            │
+            ┌───────────────┼────────────────┐
+            ▼               ▼                ▼
+         Reviewers       Verifiers       Dissent scouts
+            │               │                │
+            └────── structured challenge ────┘
+                            │
+                            ▼
+                    Evidence Resolution
+                            │
+                            ▼
+                    Belief Revision Round
+                            │
+                            ▼
+                Independence / Groupthink Gate
+                            │
+                            ▼
+                  Aggregation Policy Router
+             ┌──────────────┼──────────────┐
+             ▼              ▼              ▼
+          Oracle       Probability       Argument/
+          based          pooling          pluralism
+             │              │              │
+             └──────────────┴──────────────┘
+                            │
+                            ▼
+                    Community Judgment
+                            │
+          ┌─────────────────┼─────────────────┐
+          ▼                 ▼                 ▼
+       consensus          dissent         unresolved
+          │                 │                 │
+          └─────────────────┴─────────────────┘
+                            │
+                            ▼
+                      Learning
+           calibration / reputation / protocol
 ```
 
 ---
 
-## 6. Activation et analyse de mission
+## 53. Ce qui rendrait Biocénose vraiment exceptionnelle
 
-La Biocénose est activée par [backend/src/services/biocenoseService.js](../../../backend/src/services/biocenoseService.js) et [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js).
+Pas : plusieurs agents votent. Pas : plusieurs agents débattent.
 
-### Processus d'activation
-
-Biocénose s'active quand :
-
-1. **demande explicite** : "utilise biocénose", "mode biocénose" ;
-2. **mission complexe sans profil spécialisé** : plusieurs domaines sans profil Trinity/A-Team ;
-3. **besoin de validation antagoniste** : mission critique où la falsification est importante ;
-4. **apprentissage par diversité** : explorer plusieurs approches en parallèle.
-
-Exemple :
-
-```javascript
-const mission = "Designe un système de paiement sécurisé et équitable pour un marché de travail décentralisé.";
-const analysis = biologicalModeService.compose('biocenose', mission);
-
-// Résultat:
-// [
-//   {
-//     role: "community_facilitator",
-//     modelTier: "frontier",
-//     memberNumber: 1,
-//     mission: "Biocenose shared mission: ... \nRole hypothesis: Set the community protocol..."
-//   },
-//   {
-//     role: "independent_solver",
-//     modelTier: "standard",
-//     memberNumber: 2,
-//     mission: "Biocenose shared mission: ... \nRole hypothesis: Develop an independent solution..."
-//   },
-//   {
-//     role: "adversarial_reviewer",
-//     modelTier: "frontier",
-//     memberNumber: 3,
-//     mission: "Biocenose shared mission: ... \nRole hypothesis: Try to falsify..."
-//   },
-//   {
-//     role: "consensus_observer",
-//     modelTier: "standard",
-//     memberNumber: 4,
-//     mission: "Biocenose shared mission: ... \nRole hypothesis: Measure diversity, convergence..."
-//   }
-// ]
+Le différenciateur potentiel serait :
+```text
+protocol committed before answers
++ sealed independent judgments
++ effective cognitive diversity
++ error-correlation measurement
++ claim-level argument graphs
++ evidence-first authority
++ historical calibration
++ domain-specific reputation
++ anonymous structured deliberation
++ explicit belief updates
++ groupthink/conformity detection
++ minority evidence preservation
++ adaptive recruitment
++ aggregation rule chosen by question type
++ Byzantine resistance
++ hierarchical deliberation without losing dissent
++ experiment escalation into Trinity
++ pluralism as valid final outcome
 ```
 
-### Conditions d'exclusion
-
-Biocénose est **dégradée** si :
-
-- **budget insuffisant** : moins de 4 workers ne peuvent être financés ;
-- **mission triviale** : domaine simple sans besoin de validation adversaire ;
-- **priorité à autre mode** : A-Team ou Trinity est activée en première position.
+C'est une combinaison beaucoup plus ambitieuse qu'un « council of LLMs ».
 
 ---
 
-## 7. Composition et allocation
+## 54. L'invariant fondamental
 
-La fonction `compose(mode, mission)` crée les quatre agents contextualisés.
+Je résumerais Biocénose ultime par :
+> **A community is not successful because everyone agrees.**
+> **A community is successful when every material claim has been independently proposed, properly challenged, evidentially evaluated, and the final judgment preserves both what the evidence supports and what remains legitimately disputé.**
 
-### Contrat d'entrée
+Si le processus aboutit à un consensus robuste, très bien. S'il aboutit à 60% A / 35% B / 5% abstention avec une objection minoritaire parfaitement valide, **le bon fonctionnement du système consiste précisément à ne pas faire disparaître cette objection**.
 
-```javascript
-biologicalModeService.compose('biocenose', "Designe une architecture de sécurité pour un système multi-tenant.")
-```
-
-### Validation stricte
-
-La composition valide :
-
-1. **mission présente** : aucune Biocénose sans mission explicite ;
-2. **mode reconnu** : 'biocenose' dans les 4 modes (biome, syncytium, holobionte, biocenose) ;
-3. **quatre agents générés** : toujours exactement 4 rôles.
-
-Si validation échoue :
-
-- `BIOLOGICAL_MISSION_REQUIRED` : pas de mission
-- `BIOLOGICAL_MODE_UNKNOWN` : mode inconnu
-
-### Sortie
-
-La composition retourne un tableau de 4 agents :
-
-```javascript
-[
-  { role: 'community_facilitator', modelTier: 'frontier', memberNumber: 1, mission: '...' },
-  { role: 'independent_solver', modelTier: 'standard', memberNumber: 2, mission: '...' },
-  { role: 'adversarial_reviewer', modelTier: 'frontier', memberNumber: 3, mission: '...' },
-  { role: 'consensus_observer', modelTier: 'standard', memberNumber: 4, mission: '...' }
-]
-```
+C'est là que Biocénose pourrait devenir l'une des topologies les plus importantes de GenOS : **Trinity permettrait à GenOS de faire de la science expérimentale ; Biocénose lui permettrait de construire une véritable épistémologie collective.**
 
 ---
 
-## 8. Allocation de budget par rôle
+## 55. Contrat runtime
 
-Le budget est réparti équitablement entre les quatre rôles :
+### CommunitySession
 
-$$
-T_{\text{per\_agent}} = \frac{T_{\text{worker}} \times s}{4}
-$$
-
-où :
-- $T_{\text{worker}}$ est le budget alloué aux workers
-- $s$ est le ratio d'allocation (typiquement 0.6–0.8)
-- 4 est le nombre de rôles Biocénose
-
-### Modèles utilisés
-
-- **Facilitator** : modèle `frontier` (réfléchi, orchestration complexe)
-- **Solver** : modèle `standard` (rapide, exécution directe)
-- **Reviewer** : modèle `frontier` (réfléchi, falsification complexe)
-- **Observer** : modèle `standard` (rapide, mesure et analyse)
-
-Cette alternance frontier/standard équilibre coût et réflexion.
-
----
-
-## 9. Exécution en isolation et publication de preuves
-
-Les quatre rôles s'exécutent en **isolation structurée** :
-
-### Phase 1 : Isolement des Solvers
-
-Le Solver s'exécute sans accès aux travaux des autres Solvers. Il publie :
-
-1. **Solution** : la réponse à la mission
-2. **Preuves** : tests, validations, métriques
-3. **Hypothèses** : ce qu'il a pris pour acquis
-4. **Tensions non résolues** : domaines incertains ou fragiles
-
-Exemple de publication :
-
-```
-## Independent Solver Report
-
-### Solution
-A multi-tenant payment system with:
-- Ledger-based transaction model
-- Escrow mechanism for dispute resolution
-- Role-based access control
-
-### Evidence
-- 95% test coverage for transaction logic
-- Load testing: 10,000 TPS sustained
-- Security audit: OAuth 2.0 compliant
-
-### Assumptions
-- Assumed all users trust the escrow mechanism
-- Assumed no Byzantine actors
-- Assumed network latency < 500ms
-
-### Unresolved Tensions
-- How to handle dispute timeouts fairly?
-- Should fee structure be transparent or dynamic?
+```typescript
+CommunitySession {
+    sessionId
+    missionId
+    constitutionHash
+    questionType  // factual | probabilistic | design | normative | exploratory
+    variant  // epistemic_jury | delphi | adversarial_assembly | forecasting_crowd | argumentation | polycentric | byzantine_resilient | minority_preserving | representative | persistent | human_ai | hybrid_oracle
+    members[]
+    claimGraph
+    argumentGraph
+    dissentLedger
+    conformityMonitor
+    observer
+    aggregationPolicy
+    status
+    roundCount
+    judgment
+}
 ```
 
-### Phase 2 : Falsification antagoniste
+### CommunityMember
 
-Le Reviewer reçoit la solution du Solver et essaie activement de la démolir :
-
-1. **Cherche les contre-exemples** : peut-on briser la logique ?
-2. **Teste les hypothèses** : sont-elles justifiées ?
-3. **Expose les angles morts** : quels domaines ne sont pas adressés ?
-4. **Signale la collusion** : plusieurs Solvers trop alignés ?
-
-Exemple de rapport de falsification :
-
-```
-## Adversarial Reviewer Report
-
-### Falsifications identifiées
-
-1. **Escrow Timeout Assumption**
-   - Solver assumes disputes resolve within 30 days
-   - Counter-example: What if the parties collude to delay?
-   - Risk: System can be DoS'd by extended disputes
-   - Recommendation: Add absolute deadline with arbitration fallback
-
-2. **Byzantine Resilience Missing**
-   - Solver assumes honest majority
-   - Counter-example: What if 2 out of 5 auditors are compromised?
-   - Risk: Silent transaction corruption
-   - Recommendation: Require independent validation from 3 sources
-
-3. **Fee Transparency Gap**
-   - Solver avoids specifying fee structure
-   - Impact: Users can't predict costs
-   - Recommendation: Publish fee table or use auction-based pricing
+```typescript
+CommunityCommunityMember {
+    memberId
+    role  // generator | reviewer | verifier | dissent_scout | aggregator | observer
+    model
+    provider
+    cognitiveRecipe
+    capabilities
+    calibrationProfile
+    independenceScore
+    sealedCommitment
+    currentPosition
+    beliefUpdateHistory
+}
 ```
 
-### Phase 3 : Mesure de l'ordre
+### Claim
 
-L'Observer reçoit tous les dossiers et mesure :
-
-1. **Convergence** : quels points les autres Solvers partagent ?
-2. **Diversité** : où divergent-ils structurellement ?
-3. **Qualité d'évidence** : les preuves sont-elles solides ?
-4. **Falsifications critiques** : combien de défauts majeurs identifiés ?
-
-Exemple d'analyse :
-
-```
-## Consensus Observer Report
-
-### Metrics
-
-| Metric | Value | Interpretation |
-|--------|-------|-----------------|
-| Convergence | 0.68 | Moderate: 68% overlap on core components |
-| Diversity | 0.32 | Healthy: Different approaches on storage/consensus |
-| Evidence Quality | 0.82 | Good: Most claims are supported |
-| Critical Falsifications | 2 | Warning: Two major flaws need fixing |
-
-### Strengths
-- All Solvers agree on multi-tenant isolation model
-- Transaction consistency is well-supported
-- Role-based access control is standard
-
-### Weaknesses
-- Byzantine resilience not addressed (critical)
-- Dispute resolution timeout not specified (critical)
-- Fee structure undefined (moderate)
-
-### Recommendation
-**MERGE WITH REFINEMENTS**: Address critical falsifications before production.
+```typescript
+Claim {
+    claimId
+    statement
+    proposerId
+    evidenceRefs[]
+    argumentRefs[]
+    supportScore
+    attackScore
+    status  // accepted | rejected | contested | unresolved
+}
 ```
 
-### Phase 4 : Facilitation de gouvernance
+### CommunityJudgment
 
-Le Facilitator coordonne :
-
-1. **Protocole** : comment la communauté progresse-t-elle ?
-2. **Seuils** : qu'est-ce qui compte comme "suffisant" ?
-3. **Détection de collusion** : les Solvers sont-ils réellement indépendants ?
-4. **Escalade** : quand le groupe doit-il faire appel à l'humain ?
-
-Exemple de protocole :
-
-```
-## Community Protocol
-
-### Evidence Thresholds
-- Minimum test coverage: 70%
-- Minimum security audit: Yes (at least self-audit)
-- Minimum falsifications addressed: All critical ones
-
-### Decision Boundaries
-- Merge if: convergence ≥ 0.70 AND no critical unaddressed flaws
-- Refine if: convergence ≥ 0.60 AND < 3 critical flaws
-- Escalate if: convergence < 0.60 OR > 3 critical flaws OR collusion detected
-
-### Fairness Check
-- All Solvers had equal isolation time
-- All Solvers published complete evidence
-- Reviewer had complete access to all dossiers
-- Observer measured without bias
-
-### Collusion Detection
-- Solvers too aligned (> 95% overlap) → investigate
-- Reviewer too lenient (< 1 flaw per solver) → investigate
-- Observer contradicts Reviewer critically → investigate
-```
-
----
-
-## 10. Barrière de preuve et fusion
-
-La fusion d'une Biocénose exige une **validation croisée complexe**.
-
-### Processus de fusion
-
-1. **collecter tous les dossiers** : protocole, solution(s), falsifications, analyse ;
-2. **valider complétude** : chaque rôle a-t-il produit ? ;
-3. **calculer convergence** : quels points sont partagés ? ;
-4. **compter falsifications critiques** : combien de défauts majeurs ? ;
-5. **décider** : fusion, refinement, ou escalade.
-
-### Matrice de validation croisée
-
-Pour chaque falsification $F_i$ identifiée par le Reviewer :
-
-$$
-\text{addressed}(F_i) = 
-\begin{cases}
-1 & \text{si le Solver reconnaît et propose une solution} \\
-0.5 & \text{si le Solver reconnaît mais n'a pas de solution} \\
-0 & \text{si le Solver ignore la falsification}
-\end{cases}
-$$
-
-La qualité de réponse est :
-
-$$
-\text{responsiveness} = \frac{\sum_{i} \text{addressed}(F_i)}{|F|}
-$$
-
-où $|F|$ est le nombre total de falsifications.
-
-### Décision de fusion
-
-```javascript
-const convergence = measureConvergence(solutions);
-const criticalFlaws = falsifications.filter(f => f.severity === 'critical').length;
-const responsiveness = measureResponsiveness(falsifications, solver_responses);
-
-const canMerge = 
-  convergence >= threshold_convergence     // Généralement 0.70
-  && criticalFlaws === 0                    // Aucune faille critique non résolue
-  && responsiveness >= 0.8;                 // Au moins 80% des failles adressées
-
-if (canMerge) {
-  return { decision: 'MERGE', recommendation: 'community_consensus' };
-} else if (convergence >= 0.60 && criticalFlaws <= 3 && responsiveness >= 0.6) {
-  return { decision: 'REFINE', recommendation: 'address_critical_flaws_then_merge' };
-} else {
-  return { decision: 'ESCALATE', reason: 'insufficient_consensus_or_too_many_flaws' };
+```typescript
+CommunityJudgment {
+    acceptedClaims[]
+    rejectedClaims[]
+    contestedClaims[]
+    unresolvedQuestions[]
+    supportedOptions[]
+    dominatedOptions[]
+    majorityPosition
+    minorityPositions[]
+    evidenceGraph
+    confidence
+    calibrationBasis
+    dissentReport
+    decisionStatus  // VERIFIED_CONSENSUS | ROBUST_CONSENSUS | QUALIFIED_CONSENSUS | PLURALITY_WITH_DISSENT | PARETO_PLURALISM | IRREDUCIBLE_DISAGREEMENT | REQUEST_MORE_EVIDENCE | ESCALATE_EXPERIMENT | HUMAN_JUDGMENT_REQUIRED
 }
 ```
 
 ---
 
-## 11. Continuations et adaptations
+## 56. Architecture du système (fichiers)
 
-Si la fusion détecte des failles mineures, la Biocénose peut lancer des **continuation rounds** ciblés.
-
-### Allocation de continuation
-
-Le budget de continuation est alloué à :
-
-- **Solver** : affiner la solution pour adresser les failles ;
-- **Reviewer** : vérifier que les affinements résolvent les falsifications ;
-- **Observer** : réévaluer la convergence après refinements.
-
-Le Facilitator reste statique (ne relance pas dans continuations).
-
-### Exemple de continuation
-
-**Round 1 Result:**
-- Convergence: 0.65
-- Critical flaws: 1 (Byzantine resilience)
-- Recommendation: Refine then merge
-
-**Continuation Prompt (Solver):**
-```
-Previous community analysis found 1 critical flaw:
-- Byzantine resilience not addressed
-
-Revised task:
-1. Propose a solution to Byzantine resilience
-2. Explain how it integrates with your existing design
-3. Return updated evidence and re-assessment of assumptions
-
-Perform this refinement and return updated solution.
-```
-
-**Continuation (Reviewer):**
-```
-The Solver has proposed a solution to Byzantine resilience.
-New task:
-1. Try to falsify the new Byzantine proposal
-2. Check for new contradictions with other parts
-3. Report whether this resolves the original flaw or creates new ones
-
-Return updated falsification report.
-```
-
-**Continuation (Observer):**
-```
-Community has entered refinement phase.
-New task:
-1. Re-measure convergence on the updated solution
-2. Check if falsifications are adequately addressed
-3. Recommend: merge, another refinement, or escalate
-
-Return updated consensus analysis.
-```
-
-### Critères d'arrêt
-
-Une continuation s'arrête si :
-
-- convergence atteint le seuil ≥ 0.70 ;
-- toutes les failles critiques sont adressées ;
-- budget est épuisé ;
-- cycle de refinement détecté (même problème relancé 2x sans progression) ;
-- escalade humaine demandée.
+| Fichier | Rôle |
+|---------|------|
+| `backend/src/services/biocenoseService.js` | Analyse de mission et activation |
+| `backend/src/services/biologicalModeService.js` | Composition des rôles |
+| `backend/src/services/epistemic/epistemicBiocenoseService.js` | Diversité fonctionnelle, détection monoculture |
+| `backend/src/services/epistemic/epistemicIndependenceService.js` | Indépendance épistémique |
+| `backend/src/services/agentRuntimeAdapter/index.js` | Dispatch des agents |
+| `backend/src/services/hierarchicalQuorumService.js` | Quorum hiérarchique |
 
 ---
 
-## 12. Détection de collusion et d'anomalies
+## 57. Télémétrie et observabilité
 
-La Biocénose inclut des mécanismes explicites de détection d'anomalie :
-
-### Métriques de collusion
-
-**Trop d'alignement entre Solvers :**
-
-$$
-\text{overlap}(S_1, S_2) > 0.95 \Rightarrow \text{COLLUSION_SUSPECT}
-$$
-
-**Reviewer trop lenient :**
-
-$$
-\frac{|F|}{n_{\text{solvers}}} < 1 \Rightarrow \text{REVIEWER_COMPLACENCY}
-$$
-
-**Observer contradictant le Reviewer :**
-
-$$
-\text{convergence}_{\text{observer}} > 0.80 \text{ ET } |F|_{\text{reviewer}} > 10 \Rightarrow \text{CONTRADICTION_ALERT}
-$$
-
-### Actions en cas d'anomalie
-
-| Anomalie | Action |
-|----------|--------|
-| Solvers trop alignés | Relancer Reviewer avec focus sur les points de divergence |
-| Reviewer trop lenient | Relancer Reviewer avec hypothèse d'adversité plus forte |
-| Observer/Reviewer contradiction | Demander une médiation du Facilitator |
-| Facilitator ne règle pas disputes | Escalade vers humain |
-
----
-
-## 13. Télémétrie et observabilité
-
-Le système enregistre pour chaque mission Biocénose :
-
-- **roleCompleteness** : chaque rôle a-t-il produit ?
-- **convergence** : accord mesuré entre Solvers
-- **diversity** : différence structurelle
-- **falsificationCount** : nombre total de failles identifiées
-- **criticalFlawCount** : nombre de failles critiques
-- **collisionDetections** : anomalies détectées
-- **continuationRounds** : nombre de refinements
-- **fusionDecision** : merge, refine, or escalate
-
-Ces métriques aident à :
-
-- **valider l'efficacité** : Biocénose offre-t-elle une meilleure robustesse que Trinity/A-Team ?
-- **détecter la corruption** : y a-t-il des signaux de collusion ?
-- **optimiser les rôles** : quel rôle génère le plus de valeur ?
-- **prédire la convergence** : peut-on estimer si une communauté convergera ?
-
----
-
-## 14. Cas d'usage typiques
-
-### Cas 1 : Conception d'architecture de sécurité
-
-**Mission :** "Designe une architecture de sécurité pour un système de paiement multi-tenant."
-
-**Biocénose activée :** 4 rôles
-
-**Exécution :**
-- **Facilitator** : définit seuils d'évidence de sécurité (pentest, audit, coverage) ;
-- **Solver 1** : propose architecture basée sur secrets management centralisé ;
-- **Reviewer** : falsifie, trouve 3 vecteurs d'attaque (key rotation, audit trail, Byzantine actors) ;
-- **Observer** : mesure convergence = 0.6 (architecture good, mais sécurité diverge) ;
-
-**Résultat :** Refinement. Solver reprend, ajoute Byzantine resilience. Reviewer valide. Observer recommande merge.
-
-### Cas 2 : Stratégie de gouvernance décentralisée
-
-**Mission :** "Propose un modèle de gouvernance pour une DAO sans gouvernance centrale."
-
-**Biocénose activée :** 4 rôles
-
-**Exécution :**
-- **Facilitator** : définit protocole de vote et seuils de participation ;
-- **Solver 1** : propose quorum-based governance (50% + 1) ;
-- **Reviewer** : falsifie, trouve voter apathy, whale capture, gridlock risks ;
-- **Observer** : convergence = 0.5 (trop divergent) ;
-
-**Résultat :** Escalade. Aucune Biocénose ne peut résoudre sans paramètres supplémentaires de l'humain.
-
-### Cas 3 : Validation de machine learning model
-
-**Mission :** "Valide la robustesse d'un modèle de détection de fraude avant production."
-
-**Biocénose activée :** 4 rôles
-
-**Exécution :**
-- **Facilitator** : définit seuils d'acceptable false positive/negative ;
-- **Solver** : teste le modèle sur données de base ;
-- **Reviewer** : teste sur adversarial examples, données biaisées, edge cases ;
-- **Observer** : mesure robustesse, découvre 2 cas de drift significatif ;
-
-**Résultat :** Merge avec monitoring. Le modèle passe seuils, mais Observer recommande surveillance d'anomalie.
-
----
-
-## 14.4 Simulation complète (CLI + Pipeline)
-
-### Commande de déploiement
-
-```bash
-cargo run -p genos-cli -- biological --mode biocenose \
-  --mission "Design a secure multi-tenant payment system architecture"
-```
-
-### Sortie de composition (JSON)
-
-```json
-{
-  "mode": "biocenose",
-  "mission": "Design a secure multi-tenant payment system architecture",
-  "mechanisms": [],
-  "members": [
-    {"member_number": 1, "role": "community_facilitator"},
-    {"member_number": 2, "role": "independent_solver"},
-    {"member_number": 3, "role": "adversarial_reviewer"},
-    {"member_number": 4, "role": "consensus_observer"}
-  ],
-  "operation": "biological_mode",
-  "success": true
-}
-```
-
-### Pipeline d'exécution simulé (4 phases)
-
-```
-Mission: "Design a secure multi-tenant payment system architecture"
-   │
-   ▼
-[biocenoseService.analyzeMission] → validation appropriation Biocénose
-   │
-   ▼
-[biologicalModeService.compose('biocenose', mission)]
-   │  → crée 4 agents contextualisés avec missions distinctes
-   ▼
-┌──────────────────────────────────────────────────────────────┐
-│ PHASE 1 — ISOLATION DU SOLVER (standard model)              │
-│ Développe solution SANS accès aux autres Solvers             │
-│ Publie: Solution + Preuves + Hypothèses + Tensions non résolues
-│
-│ Exemple sortie Solver:
-│   Solution: Ledger-based transactions + Escrow + RBAC
-│   Evidence: 95% coverage, 10k TPS, OAuth 2.0 compliant
-│   Assumptions: Trusted escrow, no Byzantine actors, <500ms latency
-│   Tensions: Dispute timeout fairness? Fee transparency?
-└──────────────────────────────────────────────────────────────┘
-   │
-   ▼
-┌──────────────────────────────────────────────────────────────┐
-│ PHASE 2 — FALSIFICATION ANTAGONISTE (frontier model)        │
-│ Reviewer reçoit solution et essaie activement de la DÉMOLIR  │
-│
-│ Exemple rapport Reviewer:
-│   1. Escrow Timeout Assumption — Counter-example: collusion delay
-│      Risk: DoS via extended disputes → Rec: absolute deadline
-│   2. Byzantine Resilience Missing — Counter-example: 2/5 auditors compromised
-│      Risk: Silent corruption → Rec: independent validation from 3 sources
-│   3. Fee Transparency Gap — Impact: unpredictable costs
-│      Rec: publish fee table or auction-based pricing
-└──────────────────────────────────────────────────────────────┘
-   │
-   ▼
-┌──────────────────────────────────────────────────────────────┐
-│ PHASE 3 — MESURE DE L'ORDRE / CONSENSUS OBSERVER (standard) │
-│ Calcule métriques sur tous dossiers (Solver + Reviewer)      │
-│
-│ Exemple analyse Observer:
-│   | Metric              | Value | Interpretation              |
-│   |---------------------|-------|------------------------------|
-│   | Convergence         | 0.68  | Moderate: 68% overlap core   |
-│   | Diversity           | 0.32  | Healthy: different approaches|
-│   | Evidence Quality    | 0.82  | Good: claims well-supported  |
-│   | Critical Falsifications| 2  | Warning: 2 major flaws       |
-│
-│   Strengths: Multi-tenant isolation, transaction consistency, RBAC
-│   Weaknesses: Byzantine resilience (critical), dispute timeout (critical)
-│   Recommendation: MERGE WITH REFINEMENTS
-└──────────────────────────────────────────────────────────────┘
-   │
-   ▼
-┌──────────────────────────────────────────────────────────────┐
-│ PHASE 4 — GOUVERNANCE / FACILITATOR (frontier model)        │
-│ Définit protocole, seuils, détection collusion, escalade     │
-│
-│ Exemple protocole Facilitator:
-│   Evidence Thresholds: coverage ≥70%, security audit required,
-│                        all critical falsifications addressed
-│   Decision Boundaries:
-│     - MERGE if: convergence ≥ 0.70 AND no critical unaddressed
-│     - REFINE if: convergence ≥ 0.60 AND < 3 critical flaws
-│     - ESCALATE if: convergence < 0.60 OR > 3 critical flaws
-│   Collusion Detection:
-│     - Solvers >95% overlap → investigate
-│     - Reviewer <1 flaw/solver → investigate
-└──────────────────────────────────────────────────────────────┘
-   │
-   ▼
-[Décision de fusion]
-   convergence=0.68, criticalFlaws=2, responsiveness=0.75
-   → REFINE (continuation round ciblé sur flaws critiques)
-```
-
-### Validation automatisée (tests)
-
-```bash
-# Tests unitaires Biocénose — tous PASS
-node backend/tests/test_biocenose_brier.js
-# Biocenose Brier/quorum checks: PASS
-
-node backend/tests/test_biocenose_wiring.js
-# Biocenose wiring checks: PASS
-
-node backend/tests/test_biocenose_holobionte_services.js
-# ✅ Biocenose and Holobionte service tests passed.
-```
-
-### Métriques de décision (code)
-
-```javascript
-const convergence = measureConvergence(solutions);      // 0.68
-const criticalFlaws = falsifications.filter(f => f.severity === 'critical').length; // 2
-const responsiveness = measureResponsiveness(falsifications, solver_responses); // 0.75
-
-const canMerge = 
-  convergence >= 0.70      // seuil convergence
-  && criticalFlaws === 0   // aucune faille critique non résolue
-  && responsiveness >= 0.8; // ≥80% failles adressées
-
-// Résultat: canMerge = false → REFINE
+Nouvelles métriques enregistrées pour chaque session Biocénose :
+```text
+sessionId, variant, questionType, roundCount, constitutionHash
+members: [{memberId, role, model, provider, independenceScore, calibrationScore}]
+claimGraph: {nodes, edges, accepted, rejected, contested}
+dissentLedger: [{claimId, supporters, evidenceStrength, independence, status}]
+conformity: {socialUpdates, evidentialUpdates, groupthinkRisk}
+aggregation: {method, weights, diversityDimensions}
+judgment: {decisionStatus, confidence, dissentPreserved}
+calibration: [{memberId, brierBefore, brierAfter, logScore}]
 ```
 
 ---
 
-## 15. Cas d'erreur et escalade
+## 58. Références internes
 
-### Erreur 1 : Budget insuffisant
-
-```
-BIOCENOSE_BUDGET_INSUFFICIENT:
-  Biocenose requires 4 agents (160,000 tokens total)
-  but the budget permits only 1 agent (20,000 tokens)
-  Action: Biocenose is not activated. Falling back to orchestration.
-```
-
-### Erreur 2 : Collusion détectée
-
-```
-COLLUSION_DETECTED:
-  Solver 1 and Solver 2 overlap 97% on proposed solutions
-  Likelihood: Solvers consulted each other before publishing (violation)
-  Action: Relance les deux Solvers avec strict isolation vérifiée
-```
-
-### Erreur 3 : Reviewer trop lenient
-
-```
-REVIEWER_COMPLACENCY:
-  2 Solvers, 0 falsifications reported
-  Average: should report ~1-2 faults per solver
-  Action: Relance Reviewer avec hypothèse d'adversité maximale
-```
-
-### Erreur 4 : Aucun consensus émergent
-
-```
-COMMUNITY_DIVERGENCE:
-  Convergence: 0.35 (threshold: 0.60)
-  Critical flaws: 7 (threshold: 0)
-  Action: Community cannot reach consensus.
-  Recommendation: Escalate to human arbitration or break problem into sub-missions.
-```
+- [ORCHESTRATION.md](../orchestration.md) : orchestration générale, gates et preuves
+- [TRINITY.md](trinity.md) : orchestration comparative par hypothèses
+- [A_TEAM.md](a-team.md) : orchestration multidisciplinaire par domaines
+- [BIOME.md](biome.md) : orchestration par environnement et populations
+- [METAPOPULATION.md](metapopulation.md) : orchestration par populations semi-indépendantes
+- [biocenoseService.js](../../../backend/src/services/biocenoseService.js) : activation de Biocénose
+- [epistemicBiocenoseService.js](../../../backend/src/services/epistemic/epistemicBiocenoseService.js) : diversité épistémique
 
 ---
 
-## 16. Configuration et paramètres
+## 59. Références externes
 
-### Variables d'environnement
-
-```bash
-# Nombre de rôles Biocénose (toujours 4, non configurable)
-export GENOS_BIOCENOSE_ROLES=4
-
-# Nombre maximal de workers autonomes (partagé avec Trinity, A-Team)
-export GENOS_MAX_AUTONOMOUS_WORKERS=6
-
-# Budget alloué aux workers
-export GENOS_WORKER_ALLOCATION_RATIO=0.6
-
-# Tokens minimum par agent Biocénose
-export GENOS_MIN_TOKENS_PER_WORKER=8000
-
-# Seuil de convergence pour fusion
-export GENOS_BIOCENOSE_CONVERGENCE_THRESHOLD=0.70
-
-# Nombre maximal de failles critiques tolérées
-export GENOS_BIOCENOSE_MAX_CRITICAL_FLAWS=0
-```
-
-### Tuning de Convergence
-
-Si le système fusion trop rapidement ou trop lentement, ajuster :
-
-```bash
-# Fusion plus permissive (accepte plus de divergence)
-export GENOS_BIOCENOSE_CONVERGENCE_THRESHOLD=0.60
-
-# Fusion plus stricte (demande plus d'accord)
-export GENOS_BIOCENOSE_CONVERGENCE_THRESHOLD=0.80
-```
+| Référence | Apport pour Biocénose |
+|-----------|----------------------|
+| [Neyman & Roughgarden, Scoring Rules 2023](https://pubsonline.informs.org/doi/10.1287/opre.2022.2414) | Proper scoring rules pour agrégation de probabilités |
+| [Zhu et al., MAD Confidence & Diversity 2026](https://aclanthology.org/2026.findings-acl.1694/) | Diversité initiale + confiance calibrée dans le débat multi-agent |
+| [Okawa, Biased Consensus 2026](https://arxiv.org/abs/2608.02827) | Émergence de consensus biaisés, rôle de la conformité |
+| [PubMed, Hidden Profiles](https://pubmed.ncbi.nlm.nih.gov/17144766/) | Le dissent améliore la qualité de décision en hidden profile |
+| [PMC, Wisdom Crowd Diversity](https://pmc.ncbi.nlm.nih.gov/articles/PMC7549292/) | Indépendance des erreurs et sagesse des foules |
+| [ACL:ARGSBASE, Structured Deliberation 2026](https://aclanthology.org/2026.eacl-demo.39/) | Interface multi-agent pour délibération structurée |
+| [BMJ:DCAT, Delphi Appraisal 2025](https://www.bmj.com/content/391/bmj-2025-084509) | Outil d'évaluation critique de la méthode Delphi |
+| [Wiley:Condorcet, Voting Rules 2025](https://onlinelibrary.wiley.com/doi/epdf/10.1111/cogs.70242) | Comparaison empirique de règles de vote |
+| [PubsOnline:Atanasov, Prediction Markets 2016](https://pubsonline.informs.org/doi/10.1287/mnsc.2015.2374) | Agrégation statistique vs sondages de prévision |
+| [Nature:Kraidia, Adversarial Persuasion 2026](https://www.nature.com/articles/s41598-026-42705-7) | Persuasion adverse dans le débat multi-agent |
+| [arXiv:Lee, Byzantine Faults 2026](https://arxiv.org/abs/2605.09076) | Tolérance aux fautes byzantines dans consensus multi-LLM |
+| [ACL:D3, Adversarial Evaluation 2026](https://aclanthology.org/2026.eacl-long.392/) | Débat budgété pour évaluation fiable et interprétable |
 
 ---
 
-## 17. Limitations et design notes
+## 60. Implementation & capacités (GenOS v3)
 
-### Pourquoi 4 rôles et pas 3 ou 5 ?
-
-- **3 rôles** : pas assez de diversité. On perd soit le Facilitator, soit le Reviewer, soit l'Observer.
-- **4 rôles** : équilibre optimal. Chacun apporte une dimension : structure, résolution, critique, mesure.
-- **5+ rôles** : explosion combinatoire. On rentre dans la politique plutôt que la gouvernance.
-
-### Pourquoi l'antagonisme est-il structuré ?
-
-L'Adversarial Reviewer n'est pas un "critique" passif. C'est un rôle actif, adversaire, chargé de falsifier. Cela évite :
-
-- **consensus mou** : accord superficiel sans examen critique ;
-- **angles morts** : le groupe n'adresse pas les problèmes cachés ;
-- **groupthink** : la pression sociale efface les dissenters ;
-
-L'antagonisme structuré force la communauté à justifier chaque décision.
-
-### Pourquoi la mesure d'ordre est un rôle distinct ?
-
-L'Observer mesure, il ne décide pas. Cette séparation évite :
-
-- **mesure biaisée** : l'Observer favorisant un Solver ;
-- **manque de transparence** : les métriques sont publiques et neutres ;
-- **perte de données** : toutes les dimensions de convergence sont capturées.
-
-### Décentralisation sans chaos
-
-Biocénose est décentralisée (pas de Solver avec plus de pouvoir qu'un autre), mais n'est pas du chaos :
-
-- le Facilitator pose les règles ;
-- l'Adversarial Reviewer impose des standards minimums ;
-- l'Observer mesure objectivement ;
-- escalade vers humain si pas de consensus.
-
----
-
-## 18. Compute Tokenomics : Ordonnanceur Token Bucket en Rust
-
-Pour gérer la rareté du calcul et pénaliser les agents produisant du déchet (hallucinations, preuves invalides, boucles infinies), le runtime Rust intègre un ordonnanceur natif de type **Token Bucket** (`crates/genos-orchestrator/src/token_bucket.rs`).
-
-### Modèle Mathématique de Survie
-
-Chaque agent $i$ dispose d'un bucket de calcul $B_i = (T_i, C_i, r_i)$ :
-- $T_i$ : jetons de calcul CPU disponibles ;
-- $C_i$ : capacité maximale de calcul (headroom burst) ;
-- $r_i$ : taux de régénération baseline.
-
-### Dynamique d'Allouage et de Rareté
-
-1. **Consommation de Quantum CPU :** L'agent consomme $k$ jetons pour obtenir un intervalle d'exécution CPU ($\text{time\_slice\_ms}$).
-2. **Récompense sur Preuve Valide (Evidence Inflow) :** À chaque preuve solide soumise ($E \ge E_{\text{threshold}}$) :
-   $$\Delta T = \text{base\_reward} \times E_i$$
-   Si le score est exemplaire ($E_i \ge 0.85$), la capacité maximale $C_i$ est augmentée (burst d'exploration).
-3. **Pénalité sur Déchet (Waste Drain & Starvation) :** Si l'agent produit du déchet ($W_i > 0$) :
-   $$\Delta T_{\text{waste}} = \text{waste\_cost} \times (1.0 + W_i)$$
-   - Si les jetons diminuent sous le seuil d'épuisement, l'agent est mis en sommeil (`Throttled / sleep`).
-   - Si l'agent persiste à épuiser son budget ($T_i \le 0$), il subit la famine computationnelle (`Starvation`) et son thread est terminé par apoptose (`Apoptotic`).
-
----
-
-## 19. Comparaison avec Trinity et A-Team
-
-| Aspect | Trinity | A-Team | Biocénose |
-|--------|---------|--------|-----------|
-| **Décomposition** | Temporelle (3 hypothèses) | Spatiale (N domaines) | Communautaire (4 rôles) |
-| **Workers** | 3 (worlds) | N (2–3 domaines) | 4 (rôles) |
-| **Coordination** | Orchestrateur central choisit | Chaque domaine isolé | Facilitator arbitre, pas décide |
-| **Critique** | Implicite (self-correcting world) | Implicite (security_reviewer) | Explicite (Adversarial Reviewer) |
-| **Consensus** | Scoring comparatif | Fusion multi-domaine | Mesure communautaire |
-| **Meilleur pour** | Exploration d'hypothèses | Projets multidisciplinaires | Validation antagoniste, robustesse |
-
----
-
-## Références internes
-
-- [ORCHESTRATION.md](../orchestration.md) : orchestration générale, gates et phases
-- [A_TEAM.md](a-team.md) : orchestration multidisciplinaire
-- [TRINITY.md](trinity.md) : orchestration comparative en trois mondes
-- [BIOLOGIE_COMPUTATIONNELLE.md](../../01-concepts/biologie-computationnelle.md) : cadre biologique général
-- [biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : implémentation des quatre modes
-- [biocenoseService.js](../../../backend/src/services/biocenoseService.js) : service Biocénose
-- [agentRuntimeAdapter/index.js](../../../backend/src/services/agentRuntimeAdapter/index.js) : dispatch des agents
-- Commandes CLI : `genos-cli biological deploy --mode biocenose`
-
-
-
----
-
-## Schémas de Dynamique Écologique et Communautaire
-
-### 1. Structure d'Ordre Décentralisé de la Biocénose
-
-```mermaid
-flowchart TB
-    subgraph Communaute["Écosystème Biocénose"]
-        Facilitator["Community Facilitator (Coordination Écologique)"]
-        
-        subgraph Solvers["Pool de Solvers Indépendants (Compétition)"]
-            S1["Solver Alpha (Approche Algorithmique)"]
-            S2["Solver Beta (Approche Heuristique)"]
-            S3["Solver Gamma (Approche Brute-Force)"]
-        end
-        
-        subgraph Adversaries["Reviewers Adversariaux (Critique Sévère)"]
-            Adv1["Adversarial Auditor 1"]
-            Adv2["Adversarial Auditor 2"]
-        end
-        
-        NicheStig["Tableau Stigmergique des Tâches & Traces"]
-    end
-
-    Facilitator --> NicheStig
-    NicheStig --> S1 & S2 & S3
-    S1 & S2 & S3 --> Adversaries
-    Adversaries --> Facilitator
-```
-
-### 2. Séquence de Compétition, Revue et Sélection de Survie
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Fac as Community Facilitator
-    participant S1 as Solver Alpha
-    participant S2 as Solver Beta
-    participant Adv as Adversarial Reviewer
-    participant Ledger as Registre de Consensus
-
-    Fac->>Fac: Publication de la niche écologique (Tâche)
-    Fac->>S1: Notification
-    Fac->>S2: Notification
-    
-    par Résolution concurrente
-        S1->>S1: Génère Solution A + Métriques
-        S2->>S2: Génère Solution B + Métriques
-    end
-    
-    S1->>Adv: Soumission Solution A
-    S2->>Adv: Soumission Solution B
-    
-    activate Adv
-    Adv->>Adv: Injection de cas limites & fuzzing
-    Adv-->>Fac: Rapport comparatif (A: 98% efficacité, B: 72%)
-    deactivate Adv
-    
-    Fac->>Ledger: Enregistrement Solution A (Sélection naturelle)
-    Fac->>S1: Récompense métabolique (+Budget)
-    Fac->>S2: Élagage / Réallocation sur autre niche
-```
-
-### 3. Machine à états de Dynamique des Populations
-
-```mermaid
-stateDiagram-v2
-    [*] --> NicheVacante : Détection d'un besoin fonctionnel
-    NicheVacante --> Colonisation : Arrivée de Solvers candidats
-    
-    state Colonisation {
-        [*] --> CompetitionIntraspecifique
-        CompetitionIntraspecifique --> EmergenceDominant : Différenciation de performance
-        EmergenceDominant --> StabilisationNiche : Élimination des solutions sous-optimales
-    }
-    
-    Colonisation --> EquilibreClimax : Solution optimale adoptée
-    EquilibreClimax --> PerturbationEnvironnement : Changement de specs
-    PerturbationEnvironnement --> NicheVacante : Nouvelle dynamique
-    
-    EquilibreClimax --> [*]
-```
-
-
----
-
-## Implementation & capacites (GenOS v3)
-
-Depuis la v3, cette topologie est cablee au runtime : voir
-[TOPOLOGIES_CAPACITES.md](../topologies-et-capacites.md).
-
+Depuis la v3, cette topologie est câblée au runtime :
 - Service de coordination : `biocenoseService.js`.
-- Capacites requises : QUORUM, EPISTEMICS_BRIER, ARENA_COMPETITION, SWARM_METRICS.
-- Contrat expose par `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
-
+- Capacités requises : `EVIDENCE_BARRIER`, `EPISTEMIC_INDEPENDENCE`, `ARGUMENT_GRAPH`, `DELIBERATION_PROTOCOL`, `CALIBRATION_ENGINE`, `CONFORMITY_MONITOR`, `BYZANTINE_RESISTANCE`, `DISSENT_PRESERVATION`.
+- Contrat exposé par `topologyCapabilityService` et rendu effectif dans les leases d'outils.
