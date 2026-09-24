@@ -71,6 +71,10 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 13. Borner les essais rescue par receveur. Comparer la fitness du dème avant et
     après assimilation ; une régression confirmée ne peut être annulée que par
     un adaptateur réversible avec reçu, puis pénalise le corridor concerné.
+14. Déclarer l'extinction locale seulement sur preuve que tous les workers
+    sont indisponibles et qu'aucune fonction locale ne reste viable. Persister
+    la transition dème/patch et les causes ; la reprise consomme des références
+    cryptobiose, snapshot ou fossile sans prétendre les capturer elle-même.
 
 ## Conséquences
 

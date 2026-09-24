@@ -28,6 +28,7 @@ const migrationPolicyService = require('./metapopulation/migration/migrationPoli
 const adaptiveMigrationTriggerService = require('./metapopulation/migration/adaptiveMigrationTriggerService');
 const regionalContributionService = require('./metapopulation/observability/regionalContributionService');
 const rescueEffectService = require('./metapopulation/migration/rescueEffectService');
+const demeRecoveryService = require('./metapopulation/demes/demeRecoveryService');
 
 const DEFAULT_ORGANIZATION = 'quorum_with_abstention';
 const DEFAULT_QUORUM_RATIO = 0.5;
@@ -316,6 +317,7 @@ module.exports = {
   planRescueMigration,
   evaluateRescueOutcome,
   rollbackRescueMigration,
+  ...demeRecoveryService,
   senseQuorum,
   regenerationPlan,
   connectionWeights
