@@ -34,6 +34,7 @@ const independentQuorumService = require('./metapopulation/observability/indepen
 const antiSynchronyService = require('./metapopulation/observability/antiSynchronyService');
 const regionalUtilityService = require('./metapopulation/observability/regionalUtilityService');
 const evolutionBridge = require('./metapopulation/evolution/metapopulationEvolutionBridge');
+const metapopulationPolicyService = require('./metapopulation/policy/metapopulationPolicyService');
 
 const DEFAULT_ORGANIZATION = 'quorum_with_abstention';
 const DEFAULT_QUORUM_RATIO = 0.5;
@@ -328,6 +329,7 @@ module.exports = {
   ...antiSynchronyService,
   ...regionalUtilityService,
   ...evolutionBridge,
+  ...metapopulationPolicyService,
   senseQuorum,
   regenerationPlan,
   connectionWeights

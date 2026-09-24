@@ -90,6 +90,10 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 19. Relier l'orchestrateur aux moteurs multi-îlots Rust et procédural par
     adaptateurs validés. En l'absence de binding Rust configuré, retourner une
     indisponibilité explicite au lieu de simuler une évolution réussie.
+20. Traiter les variantes comme des politiques déclaratives. Les transferts
+    fédérés doivent satisfaire classification et souveraineté ; un daemon
+    résident n'est actif que sur scope persistant avec bail non expiré et
+    heartbeat actif.
 
 ## Conséquences
 
