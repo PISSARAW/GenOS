@@ -41,7 +41,34 @@ function createTopologyRegistry() {
   }
 
   context.relationRegistry.register({ left: 'biocenose', right: 'holobionte', relation: 'SYNERGISTIC', evidenceStatus: 'conceptual' });
-  context.relationRegistry.register({ left: 'trinity', right: 'syncytium', relation: 'SYNERGISTIC', evidenceStatus: 'conceptual' });
+  context.relationRegistry.register({
+    left: 'trinity',
+    right: 'syncytium',
+    relation: 'ANTAGONISTIC',
+    evidenceStatus: 'conceptual',
+    default: { relation: 'ANTAGONISTIC', evidenceStatus: 'conceptual', reason: 'no safe lifecycle context matched' },
+    rules: [
+      {
+        when: { scope: 'same_chamber' },
+        relation: 'SYNERGISTIC',
+        evidenceStatus: 'conceptual',
+        reason: 'shared state remains within one independent chamber'
+      },
+      {
+        when: { scope: 'across_chambers', lifecycle: 'before_commitment' },
+        relation: 'FORBIDDEN',
+        evidenceStatus: 'conceptual',
+        reason: 'live coupling would compromise independent comparison'
+      },
+      {
+        when: { scope: 'across_chambers', lifecycle: 'after_commitment' },
+        relation: 'COMPATIBLE_WITH_ADAPTER',
+        adapterRequired: true,
+        evidenceStatus: 'conceptual',
+        reason: 'committed results may migrate through a controlled adapter'
+      }
+    ]
+  });
   context.relationRegistry.register({ left: 'syncytium', right: 'biocenose', relation: 'COMPATIBLE_WITH_ADAPTER', adapterRequired: true, evidenceStatus: 'conceptual' });
   context.relationRegistry.register({ left: 'a_team', right: 'rhizome', relation: 'COMPATIBLE_WITH_ADAPTER', adapterRequired: true, evidenceStatus: 'conceptual' });
 
