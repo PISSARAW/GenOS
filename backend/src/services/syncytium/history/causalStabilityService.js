@@ -4,7 +4,7 @@ const vectors = require('../causality/versionVectorService');
 
 function stableFrontier(session) {
   const current = session.crdt.getCausalFrontier();
-  const active = Object.values(session.replicas || {}).filter((replica) => ['ACTIVE', 'LAGGING', 'REJOINING'].includes(replica.status));
+  const active = Object.values(session.replicas || {}).filter((replica) => ['ACTIVE', 'LAGGING', 'REJOINING', 'PARTITIONED'].includes(replica.status));
   if (!active.length) return current;
   const actors = new Set(Object.keys(current));
   for (const replica of active) Object.keys(replica.causalFrontier || {}).forEach((actor) => actors.add(actor));

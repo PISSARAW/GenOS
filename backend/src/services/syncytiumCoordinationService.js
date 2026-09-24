@@ -25,6 +25,7 @@ const projectionMaterializer = require('./syncytium/sync/projectionMaterializer'
 const adaptiveSync = require('./syncytium/sync/adaptiveSyncService');
 const reflexSignals = require('./syncytium/reflex/reflexSignalService');
 const { createSessionHistoryService } = require('./syncytium/history/sessionHistoryService');
+const offlineMutation = require('./syncytium/replicas/offlineMutationService');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -213,6 +214,8 @@ async function applyAdmittedOperation(context) {
     throw Object.assign(new Error('Escrow allocation changes must use applyTransaction.'), { code: 'SYNCYTIUM_TRANSACTION_REQUIRED' });
   }
   consistencyZones.validateMutation(decision.zone, op, session.crdt.getSnapshot().sharedFields);
+  const offline = offlineMutation.stage({ session, options, operation: op });
+  if (offline) return persistOfflineOperation(context, offline);
   if (isIonicFlux(op)) {
     const flux = { opId: op.opId, ion: op.kind.type.slice('flux_'.length), deltaFlux: Number(op.kind.deltaFlux) || 0, agentId: op.agentId };
     session.fluxOps.push(flux);
@@ -243,6 +246,25 @@ async function applyAdmittedOperation(context) {
   session.pendingOperation = session.crdt.getHistory().at(-1);
   await persist(options.db, session);
   return result;
+}
+
+async function persistOfflineOperation(context, offline) {
+  const { sessionId, session, options, op } = context;
+  if (offline.duplicate) return { sessionId, offline: true, duplicate: true, snapshot: offline.snapshot };
+  session.pendingReplicaEvent = {
+    type: 'OFFLINE_OPERATION', replicaId: options.replicaId, opId: op.opId, policy: offline.policy
+  };
+  try {
+    await persist(options.db, session);
+  } catch (error) {
+    offline.rollback();
+    session.pendingReplicaEvent = null;
+    throw error;
+  }
+  return {
+    sessionId, offline: true, queued: offline.policy === 'QUEUE_UNTIL_CONNECTED',
+    policy: offline.policy, snapshot: offline.snapshot
+  };
 }
 
 async function snapshot(sessionId, options = {}) {
@@ -321,6 +343,8 @@ const compactHistory = (sessionId, options = {}) => sessionHistory.compactHistor
 const joinReplica = (sessionId, replica, options = {}) => sessionHistory.joinReplica(sessionId, replica, options);
 const acknowledgeReplica = (sessionId, replicaId, request = {}) => sessionHistory.acknowledgeReplica(sessionId, replicaId, request);
 const leaveReplica = (sessionId, replicaId, options = {}) => sessionHistory.leaveReplica(sessionId, replicaId, options);
+const partitionReplica = (sessionId, replicaId, options = {}) => sessionHistory.partitionReplica(sessionId, replicaId, options);
+const reconcileReplica = (sessionId, replicaId, request = {}) => sessionHistory.reconcileReplica(sessionId, replicaId, request);
 const inspectReplicas = (sessionId, options = {}) => sessionHistory.inspectReplicas(sessionId, options);
 
 async function closeSession(sessionId, options = {}) {
@@ -333,5 +357,6 @@ module.exports = {
   createSession, applyOperation, applyTransaction, publishReflexSignal,
   snapshot, createSnapshot, listSnapshots, compactHistory,
   joinReplica, acknowledgeReplica, leaveReplica, inspectReplicas,
+  partitionReplica, reconcileReplica,
   assessConsistency, closeSession, isIonicFlux, rehydrate
 };

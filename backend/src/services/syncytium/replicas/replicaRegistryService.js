@@ -17,6 +17,8 @@ function join(session, input) {
     causalFrontier: { ...snapshot.causalFrontier },
     subscriptions: normalizeSubscriptions(input.subscriptions),
     authority: input.authority || {},
+    offlineOperations: [],
+    offlineCrdtState: null,
     status: 'ACTIVE',
     lastSeenMs: Date.now()
   };
@@ -44,6 +46,14 @@ function leave(session, replicaId) {
   return replica;
 }
 
+function partition(session, replicaId) {
+  const replica = findReplica(session, replicaId);
+  if (replica.status === 'RETIRED') throw replicaError('SYNCYTIUM_REPLICA_RETIRED', 'A retired replica cannot enter a partition.');
+  replica.status = 'PARTITIONED';
+  replica.lastSeenMs = Date.now();
+  return replica;
+}
+
 function findReplica(session, replicaId) {
   const replica = session.replicas[replicaId];
   if (!replica) throw replicaError('SYNCYTIUM_REPLICA_UNKNOWN', `Unknown Syncytium replica '${replicaId}'.`);
@@ -58,4 +68,4 @@ function replicaError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { join, acknowledge, leave };
+module.exports = { join, acknowledge, leave, partition };

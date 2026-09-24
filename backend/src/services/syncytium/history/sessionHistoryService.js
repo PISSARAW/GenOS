@@ -4,6 +4,7 @@ const snapshotService = require('./snapshotService');
 const garbageCollection = require('./garbageCollectionService');
 const replicaRegistry = require('../replicas/replicaRegistryService');
 const replicaHealth = require('../replicas/replicaHealthService');
+const replicaReconciliation = require('../replicas/replicaReconciliationService');
 const coordinationRouter = require('../consistency/coordinationRouter');
 
 function createSessionHistoryService(dependencies) {
@@ -19,8 +20,50 @@ function createSessionHistoryService(dependencies) {
     leaveReplica: (sessionId, replicaId, options) => mutateReplica({
       sessionId, options, dependencies, mutate: (session) => replicaRegistry.leave(session, replicaId)
     }),
+    partitionReplica: (sessionId, replicaId, options) => mutateReplica({
+      sessionId, options, dependencies, mutate: (session) => replicaRegistry.partition(session, replicaId)
+    }),
+    reconcileReplica: (sessionId, replicaId, request) => reconcileReplica({
+      sessionId, replicaId, input: request, options: request.options || {}, dependencies
+    }),
     inspectReplicas: (sessionId, options) => inspectReplicas(sessionId, options, dependencies)
   };
+}
+
+async function reconcileReplica(context) {
+  const { sessionId, replicaId, input, options, dependencies } = context;
+  return coordinationRouter.run({ coordinationRequired: true }, sessionId, async () => {
+    const session = await dependencies.getSession(sessionId, options.db);
+    const replica = session.replicas[replicaId];
+    if (!replica || replica.status === 'RETIRED') throw Object.assign(new Error(`Unknown active replica '${replicaId}'.`), { code: 'SYNCYTIUM_REPLICA_UNKNOWN' });
+    const previousCrdt = session.crdt;
+    const previousReplica = structuredClone(replica);
+    const result = replicaReconciliation.reconcile(session, replica, {
+      ...input, operations: input.operations || replica.offlineOperations
+    });
+    session.crdt = result.candidate;
+    replica.causalFrontier = result.remoteFrontier;
+    replica.lastSeenVersion = Object.values(result.remoteFrontier).reduce((total, value) => total + value, 0);
+    replica.offlineOperations = [];
+    replica.offlineCrdtState = null;
+    replica.status = result.snapshotRequired || result.missingOperations.length ? 'REJOINING' : 'ACTIVE';
+    replica.lastSeenMs = Date.now();
+    session.pendingOperations = result.accepted;
+    session.pendingReplicaEvent = { type: 'RECONCILED', replicaId, snapshotRequired: result.snapshotRequired };
+    try {
+      await dependencies.persist(options.db, session);
+    } catch (error) {
+      session.crdt = previousCrdt;
+      Object.assign(replica, previousReplica);
+      session.pendingOperations = null;
+      session.pendingReplicaEvent = null;
+      throw error;
+    }
+    return {
+      replicaId, status: replica.status, accepted: result.accepted.map((operation) => operation.opId),
+      missingOperations: result.missingOperations, snapshotRequired: result.snapshotRequired, snapshot: result.snapshot
+    };
+  });
 }
 
 async function createSnapshot(sessionId, options, dependencies) {

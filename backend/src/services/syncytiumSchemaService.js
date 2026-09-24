@@ -7,6 +7,7 @@ const DATA_TYPES = new Set([
 const CONSISTENCY_ZONES = new Set([
   'EVENTUAL', 'CAUSAL', 'INVARIANT_PRESERVING', 'SERIALIZABLE', 'APPEND_ONLY', 'IMMUTABLE'
 ]);
+const OFFLINE_POLICIES = new Set(['ALLOW_LOCAL_MUTATION', 'ALLOW_READ_ONLY', 'QUEUE_UNTIL_CONNECTED', 'REJECT']);
 const crdtTypes = require('./syncytiumCrdtTypeRegistry');
 const invariantRegistry = require('./syncytium/invariants/invariantRegistry');
 const invariantDependencyIndex = require('./syncytium/invariants/invariantDependencyIndex');
@@ -62,9 +63,17 @@ function normalizeDefinition(path, definition = {}) {
     allowedTransitions: normalizeTransitions(definition.allowedTransitions),
     escrowAllocations: normalizeEscrowAllocations(definition.escrowAllocations),
     maxStalenessMs: normalizeStaleness(definition.maxStalenessMs),
+    offlinePolicy: normalizeOfflinePolicy(definition.offlinePolicy, consistencyZone),
     visibility: definition.visibility || 'DOMAIN',
     replicationPolicy: definition.replicationPolicy || 'ALL_SUBSCRIBED'
   };
+}
+
+function normalizeOfflinePolicy(value, zone) {
+  const fallback = ['EVENTUAL', 'APPEND_ONLY'].includes(zone) ? 'ALLOW_LOCAL_MUTATION' : 'REJECT';
+  const policy = String(value || fallback).toUpperCase();
+  if (!OFFLINE_POLICIES.has(policy)) throw schemaError(`Unsupported offline policy '${policy}'.`);
+  return policy;
 }
 
 function normalizeStaleness(value) {
