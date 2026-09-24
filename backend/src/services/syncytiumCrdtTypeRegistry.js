@@ -8,14 +8,16 @@ const HANDLERS = Object.freeze({
   ADD_WINS_SET: applyAddWinsSet,
   MAP: applyMap,
   SEQUENCE: applySequence,
-  STATE_MACHINE: applyStateMachine
+  STATE_MACHINE: applyStateMachine,
+  ESCROW_COUNTER: applyEscrowCounter
 });
 
 function supports(dataType, action) {
   const actions = {
     LWW_REGISTER: ['assign'], MV_REGISTER: ['assign'], G_COUNTER: ['increment'],
     PN_COUNTER: ['increment'], ADD_WINS_SET: ['add', 'remove'], MAP: ['set', 'delete'],
-    SEQUENCE: ['insert', 'delete'], STATE_MACHINE: ['transition']
+    SEQUENCE: ['insert', 'delete'], STATE_MACHINE: ['transition'],
+    ESCROW_COUNTER: ['consume', 'release', 'allocate']
   };
   return Boolean(actions[dataType]?.includes(action));
 }
@@ -107,6 +109,46 @@ function applyStateMachine(entry, kind, operation) {
   entry.value = kind.to;
 }
 
+function applyEscrowCounter(entry, kind, operation) {
+  if (!entry.allocations) entry.allocations = { ...(operation.fieldRules?.escrowAllocations || {}) };
+  entry.consumed = entry.consumed || {};
+  if (kind.action === 'allocate') return transferAllocation(entry, kind, operation);
+  const actor = operation.actorId || operation.agentId || 'unknown';
+  const amount = positiveAmount(kind.amount);
+  if (kind.action === 'consume') consumeAllocation(entry, actor, amount);
+  else releaseAllocation(entry, actor, amount);
+}
+
+function transferAllocation(entry, kind, operation) {
+  if (!operation.transactionId) throw typedError('ESCROW allocation changes require an atomic transaction.');
+  const amount = positiveAmount(kind.amount);
+  const from = String(kind.fromActorId || '');
+  const to = String(kind.toActorId || '');
+  if (!from || !to || from === to || available(entry, from) < amount) throw typedError('ESCROW allocation transfer exceeds available funds.');
+  entry.allocations[from] = (entry.allocations[from] || 0) - amount;
+  entry.allocations[to] = (entry.allocations[to] || 0) + amount;
+}
+
+function consumeAllocation(entry, actor, amount) {
+  if (available(entry, actor) < amount) throw typedError(`ESCROW actor '${actor}' has insufficient allocation.`);
+  entry.consumed[actor] = (entry.consumed[actor] || 0) + amount;
+}
+
+function releaseAllocation(entry, actor, amount) {
+  if ((entry.consumed[actor] || 0) < amount) throw typedError(`ESCROW actor '${actor}' cannot release unconsumed funds.`);
+  entry.consumed[actor] -= amount;
+}
+
+function available(entry, actor) {
+  return (entry.allocations[actor] || 0) - (entry.consumed[actor] || 0);
+}
+
+function positiveAmount(value) {
+  const amount = Number(value);
+  if (!Number.isSafeInteger(amount) || amount < 1) throw typedError('ESCROW amount must be a positive integer.');
+  return amount;
+}
+
 function materialize(fields) {
   return Object.fromEntries(Object.entries(fields).map(([key, entry]) => [key, materializeEntry(entry)]));
 }
@@ -118,8 +160,13 @@ const MATERIALIZERS = Object.freeze({
   PN_COUNTER: (entry) => sum(Object.values(entry.positive || {})) - sum(Object.values(entry.negative || {})),
   ADD_WINS_SET: materializeSet,
   MAP: materializeMap,
-  SEQUENCE: materializeSequence
+  SEQUENCE: materializeSequence,
+  ESCROW_COUNTER: materializeEscrow
 });
+
+function materializeEscrow(entry) {
+  return sum(Object.values(entry.allocations || {})) - sum(Object.values(entry.consumed || {}));
+}
 
 function materializeEntry(entry) {
   return (MATERIALIZERS[entry.dataType] || (() => entry.value))(entry);

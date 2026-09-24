@@ -31,18 +31,38 @@ async function createSession(db, session) {
 async function commitSession(db, session, operation) {
   return withTransaction(db, async (tx) => {
     await ensureTables(tx);
-    if (operation?.opId && await hasOperation(tx, session.sessionId, operation.opId)) {
-      return { revision: await getRevision(tx, session.sessionId), duplicate: true };
-    }
+    const operations = normalizeOperations(operation);
+    const duplicateCount = await countExistingOperations(tx, session.sessionId, operations);
+    if (duplicateCount === operations.length && operations.length) return { revision: await getRevision(tx, session.sessionId), duplicate: true };
+    if (duplicateCount) throw transactionDuplicateConflict(session.sessionId);
     const revision = session.revision + 1;
     const compare = await tx.run('UPDATE syncytium_session_revisions SET revision = ? WHERE session_id = ? AND revision = ?', revision, session.sessionId, session.revision);
     if (compare.changes !== 1) throw revisionConflict(session.sessionId, session.revision);
     const update = await tx.run("UPDATE topology_sessions SET state_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND topology = 'syncytium'", JSON.stringify(session.state), session.sessionId);
     if (update.changes !== 1) throw missingSession(session.sessionId);
-    if (operation?.opId) await recordOperation(tx, session, operation);
-    await appendEvent(tx, { session, revision, type: 'OPERATION_APPLIED', payload: operation });
+    for (const item of operations) await recordOperation(tx, session, item);
+    const grouped = operations.length > 1 || operations.some((item) => item.transactionId);
+    await appendEvent(tx, {
+      session,
+      revision,
+      type: grouped ? 'TRANSACTION_COMMITTED' : 'OPERATION_APPLIED',
+      payload: grouped ? { operations } : operations[0]
+    });
     return { revision, duplicate: false };
   });
+}
+
+function normalizeOperations(operation) {
+  if (Array.isArray(operation)) return operation;
+  return operation ? [operation] : [];
+}
+
+async function countExistingOperations(db, sessionId, operations) {
+  let duplicates = 0;
+  for (const operation of operations) {
+    if (operation.opId && await hasOperation(db, sessionId, operation.opId)) duplicates += 1;
+  }
+  return duplicates;
 }
 
 async function loadSession(db, sessionId) {
@@ -91,6 +111,10 @@ function missingSession(sessionId) {
 
 function revisionConflict(sessionId, revision) {
   return Object.assign(new Error(`Syncytium session '${sessionId}' changed from revision ${revision}.`), { code: 'SYNCYTIUM_SESSION_CONFLICT' });
+}
+
+function transactionDuplicateConflict(sessionId) {
+  return Object.assign(new Error(`Syncytium transaction for '${sessionId}' is only partially duplicated.`), { code: 'SYNCYTIUM_TRANSACTION_PARTIAL_DUPLICATE' });
 }
 
 module.exports = { createSession, commitSession, loadSession, loadEvents, removeSession };

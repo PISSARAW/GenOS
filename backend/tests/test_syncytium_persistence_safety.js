@@ -73,6 +73,24 @@ async function main() {
   assert.equal(record.state.ops.length, 1);
   assert.equal(syncytium.rehydrate(record).crdt.getSnapshot().textContent, 'safe');
   assert.deepEqual((await persistence.loadEvents(db, session.sessionId)).map((event) => event.type), ['SESSION_CREATED', 'OPERATION_APPLIED']);
+  const transactionSession = await syncytium.createSession('Persistent atomic operations.', {
+    db,
+    schema: { fields: [{ path: 'owner', dataType: 'LWW_REGISTER' }, { path: 'status', dataType: 'LWW_REGISTER' }] }
+  });
+  await syncytium.applyTransaction(transactionSession.sessionId, {
+    txId: 'persisted-tx',
+    operations: [
+      { opId: 'persisted-owner', actorId: 'operator', kind: { type: 'set_field', key: 'owner', value: 'B' } },
+      { opId: 'persisted-status', actorId: 'operator', kind: { type: 'set_field', key: 'status', value: 'ready' } }
+    ]
+  }, { db });
+  const transactionRecord = await persistence.loadSession(db, transactionSession.sessionId);
+  const transactionEvents = await persistence.loadEvents(db, transactionSession.sessionId);
+  assert.equal(transactionRecord.revision, 1);
+  assert.equal(transactionRecord.state.ops.length, 2);
+  assert.equal(transactionRecord.state.ops.every((item) => item.transactionId === 'persisted-tx'), true);
+  assert.equal(transactionEvents.at(-1).type, 'TRANSACTION_COMMITTED');
+  assert.equal(transactionEvents.at(-1).payload.operations.length, 2);
   await assert.rejects(
     () => persistence.commitSession(db, { sessionId: session.sessionId, revision: 0, state: {} }, { opId: 'stale-op' }),
     (error) => error.code === 'SYNCYTIUM_SESSION_CONFLICT'

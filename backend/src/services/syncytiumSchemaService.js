@@ -60,9 +60,21 @@ function normalizeDefinition(path, definition = {}) {
     ...authority,
     invariantRefs: Array.isArray(definition.invariantRefs) ? [...definition.invariantRefs] : [],
     allowedTransitions: normalizeTransitions(definition.allowedTransitions),
+    escrowAllocations: normalizeEscrowAllocations(definition.escrowAllocations),
     visibility: definition.visibility || 'DOMAIN',
     replicationPolicy: definition.replicationPolicy || 'ALL_SUBSCRIBED'
   };
+}
+
+function normalizeEscrowAllocations(allocations) {
+  if (!allocations || typeof allocations !== 'object' || Array.isArray(allocations)) return {};
+  const result = {};
+  for (const [actor, value] of Object.entries(allocations)) {
+    const amount = Number(value);
+    if (!actor || !Number.isSafeInteger(amount) || amount < 0) throw schemaError('Escrow allocations must be non-negative integer values.');
+    result[actor] = amount;
+  }
+  return result;
 }
 
 function normalizeAuthority(definition) {
@@ -110,7 +122,7 @@ function admitTypedOperation(schema, operation) {
       ...operation,
       schemaVersion: schema.schemaVersion,
       fieldType: field.dataType,
-      fieldRules: { allowedTransitions: field.allowedTransitions }
+      fieldRules: { allowedTransitions: field.allowedTransitions, escrowAllocations: field.escrowAllocations }
     },
     warnings: []
   };

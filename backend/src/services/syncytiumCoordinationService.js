@@ -19,6 +19,7 @@ const consistencyZones = require('./syncytium/consistency/consistencyZoneService
 const coordinationRouter = require('./syncytium/consistency/coordinationRouter');
 const invariantGate = require('./syncytium/invariants/invariantGate');
 const semanticConflicts = require('./syncytium/conflicts/semanticConflictService');
+const transactionService = require('./syncytium/transactions/transactionService');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -67,16 +68,22 @@ function sessionRevision(record) {
 }
 
 async function persist(db, session) {
-  if (!db) return;
+  if (!db) {
+    session.pendingOperation = null;
+    session.pendingOperations = null;
+    return;
+  }
   try {
     const record = { sessionId: session.sessionId, revision: session.revision, state: serialize(session) };
     if (!session.persisted) {
       session.revision = await persistence.createSession(db, record);
       session.persisted = true;
     } else {
-      session.revision = (await persistence.commitSession(db, record, session.pendingOperation)).revision;
+      const pending = session.pendingOperations || session.pendingOperation;
+      session.revision = (await persistence.commitSession(db, record, pending)).revision;
     }
     session.pendingOperation = null;
+    session.pendingOperations = null;
   } catch (cause) {
     if (cause.code === 'SYNCYTIUM_SESSION_CONFLICT') throw cause;
     throw Object.assign(new Error('Syncytium session persistence failed.', { cause }), { code: 'SYNCYTIUM_PERSISTENCE_FAILURE' });
@@ -155,6 +162,9 @@ async function applyAdmittedOperation(context) {
   if (op?.opId && (session.crdt.hasOpId(op.opId) || session.fluxOps.some((flux) => flux.opId === op.opId))) {
     return { sessionId, snapshot: session.crdt.getSnapshot(), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session), coordination: decision, duplicate: true };
   }
+  if (op.fieldType === 'ESCROW_COUNTER' && op.kind?.action === 'allocate') {
+    throw Object.assign(new Error('Escrow allocation changes must use applyTransaction.'), { code: 'SYNCYTIUM_TRANSACTION_REQUIRED' });
+  }
   consistencyZones.validateMutation(decision.zone, op, session.crdt.getSnapshot().sharedFields);
   if (isIonicFlux(op)) {
     const flux = { opId: op.opId, ion: op.kind.type.slice('flux_'.length), deltaFlux: Number(op.kind.deltaFlux) || 0, agentId: op.agentId };
@@ -180,10 +190,20 @@ async function snapshot(sessionId, options = {}) {
   return { sessionId, shared: session.crdt.getSnapshot(), schema: session.schema, domains: session.domains, cytoplasm: session.cytoplasm.snapshotState(), consistency: assessConsistency(session) };
 }
 
+async function applyTransaction(sessionId, transaction, options = {}) {
+  return transactionService.apply({
+    sessionId,
+    transaction,
+    options,
+    getSession,
+    persist: (session) => persist(options.db, session)
+  });
+}
+
 async function closeSession(sessionId, options = {}) {
   const existed = sessions.delete(sessionId);
   if (options.db) await persistence.removeSession(options.db, sessionId);
   return true;
 }
 
-module.exports = { createSession, applyOperation, snapshot, assessConsistency, closeSession, isIonicFlux, rehydrate };
+module.exports = { createSession, applyOperation, applyTransaction, snapshot, assessConsistency, closeSession, isIonicFlux, rehydrate };
