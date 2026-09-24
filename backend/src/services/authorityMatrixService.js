@@ -1,17 +1,25 @@
 'use strict';
 
 /**
- * Authority Matrix — M3
+ * Authority Matrix — M3 (unifiée spec, ADR 0043)
  *
- * Defines what each phenotype can do independently of their social role.
- * Separation: cognitive capability != organizational authority.
+ * Profils canoniques : les 8 phénotypes de la spec
+ * (ScoutCell, BoundedWorker, AdaptiveWorker, Specialist, Verifier,
+ * SubOrchestrator, Orchestrator, ResidentDaemon), alignés sur
+ * `agents/phenotypeRegistryService.js` (authorityProfile).
  *
- * This service is a pure lookup table. No DB, no side effects.
+ * Séparation : cognitive capability != organizational authority.
+ * Service pur : lookup table, sans DB ni effets de bord.
+ *
+ * Compatibilité : les anciens ids snake_case restent résolus via
+ * LEGACY_ALIASES (insensible à la casse). `Reconciler` est une
+ * extension hors spec (hygiène post-mission), pas un phénotype canonique.
  */
 
 const AUTHORITY_DIMENSIONS = Object.freeze([
   'read',
   'analyze',
+  'signal',
   'execute',
   'write',
   'delegate',
@@ -25,192 +33,155 @@ const AUTHORITY_DIMENSIONS = Object.freeze([
 ]);
 
 const PROFILES = Object.freeze({
-  adaptive_worker: {
-    description: 'General-purpose worker agent. Can observe and execute but cannot restructure the organization.',
+  ScoutCell: {
+    description: 'Ephemeral observation unit — surfaces signals only, no execution.',
     authorities: {
-      read: true,
-      analyze: true,
-      execute: true,
-      write: false,
-      delegate: false,
-      spawn: false,
-      promote: false,
-      mutate: false,
-      topology: false,
-      strategy: false,
-      escalate: true,
-      reconcile: false
+      read: true, analyze: true, signal: true, execute: false,
+      write: false, delegate: false, spawn: false, promote: false,
+      mutate: false, topology: false, strategy: false,
+      escalate: false, reconcile: false
     }
   },
-  security_analyst: {
-    description: 'Security-focused phenotype. Observes, analyzes threats, and escalates. Cannot mutate or restructure.',
+  BoundedWorker: {
+    description: 'Mission task executor — read/execute within lease, no spawn, no topology.',
     authorities: {
-      read: true,
-      analyze: true,
-      execute: true,
-      write: false,
-      delegate: false,
-      spawn: false,
-      promote: false,
-      mutate: false,
-      topology: false,
-      strategy: false,
-      escalate: true,
-      reconcile: true
+      read: true, analyze: false, signal: true, execute: true,
+      write: false, delegate: false, spawn: false, promote: false,
+      mutate: false, topology: false, strategy: false,
+      escalate: true, reconcile: false
     }
   },
-  contract_auditor: {
-    description: 'Contract drift detection and enforcement. Can read and analyze, escalate for repairs.',
+  AdaptiveWorker: {
+    description: 'Self-adjusting worker — local strategy change, no spawn, no global topology.',
     authorities: {
-      read: true,
-      analyze: true,
-      execute: false,
-      write: false,
-      delegate: false,
-      spawn: false,
-      promote: false,
-      mutate: false,
-      topology: false,
-      strategy: false,
-      escalate: true,
-      reconcile: false
+      read: true, analyze: true, signal: true, execute: true,
+      write: false, delegate: false, spawn: false, promote: false,
+      mutate: false, topology: false, strategy: true,
+      escalate: true, reconcile: false
     }
   },
-  dependency_manager: {
-    description: 'Dependency health monitoring and repair. Can write to fix issues, escalate for deeper problems.',
+  Specialist: {
+    description: 'Deep single-domain expertise — write within domain, no spawn, no topology.',
     authorities: {
-      read: true,
-      analyze: true,
-      execute: true,
-      write: true,
-      delegate: false,
-      spawn: false,
-      promote: false,
-      mutate: false,
-      topology: false,
-      strategy: false,
-      escalate: true,
-      reconcile: true
+      read: true, analyze: true, signal: true, execute: true,
+      write: true, delegate: false, spawn: false, promote: false,
+      mutate: false, topology: false, strategy: false,
+      escalate: true, reconcile: false
     }
   },
-  documentation_curator: {
-    description: 'Documentation health and staleness. Can read, write docs, escalate for restructuring.',
+  Verifier: {
+    description: 'Independent validation — adversarial review, no write, no topology.',
     authorities: {
-      read: true,
-      analyze: true,
-      execute: false,
-      write: true,
-      delegate: false,
-      spawn: false,
-      promote: false,
-      mutate: false,
-      topology: false,
-      strategy: false,
-      escalate: true,
-      reconcile: false
+      read: true, analyze: true, signal: true, execute: true,
+      write: false, delegate: false, spawn: false, promote: false,
+      mutate: false, topology: false, strategy: false,
+      escalate: true, reconcile: true
     }
   },
-  strategist: {
-    description: 'High-level planning and strategy. Can propose strategy changes but not execute directly.',
+  SubOrchestrator: {
+    description: 'Bounded subgraph coordinator — local topology only, spawn within budget.',
     authorities: {
-      read: true,
-      analyze: true,
-      execute: false,
-      write: false,
-      delegate: true,
-      spawn: false,
-      promote: false,
-      mutate: false,
-      topology: false,
-      strategy: true,
-      escalate: true,
-      reconcile: false
+      read: true, analyze: true, signal: true, execute: true,
+      write: true, delegate: true, spawn: true, promote: false,
+      mutate: false, topology: false, strategy: true,
+      escalate: true, reconcile: true
     }
   },
-  orchestrator: {
-    description: 'Full organizational authority. Can delegate, spawn, change topology and strategy.',
+  Orchestrator: {
+    description: 'Full mission authority — spawn, global topology, strategy, promotion.',
     authorities: {
-      read: true,
-      analyze: true,
-      execute: true,
-      write: true,
-      delegate: true,
-      spawn: true,
-      promote: true,
-      mutate: false,
-      topology: true,
-      strategy: true,
-      escalate: true,
-      reconcile: true
+      read: true, analyze: true, signal: true, execute: true,
+      write: true, delegate: true, spawn: true, promote: true,
+      mutate: false, topology: true, strategy: true,
+      escalate: true, reconcile: true
     }
   },
-  elder: {
-    description: 'Senior phenotype with full authority including mutation and promotion.',
+  ResidentDaemon: {
+    description: 'Long-lived observer — report only, no mission decisions, no writes.',
     authorities: {
-      read: true,
-      analyze: true,
-      execute: true,
-      write: true,
-      delegate: true,
-      spawn: true,
-      promote: true,
-      mutate: true,
-      topology: true,
-      strategy: true,
-      escalate: true,
-      reconcile: true
+      read: true, analyze: true, signal: true, execute: false,
+      write: false, delegate: false, spawn: false, promote: false,
+      mutate: false, topology: false, strategy: false,
+      escalate: false, reconcile: false
+    }
+  },
+  Reconciler: {
+    description: 'EXTENSION hors spec — cleanup post-mission, no spawn, no topology.',
+    authorities: {
+      read: true, analyze: true, signal: false, execute: true,
+      write: true, delegate: false, spawn: false, promote: false,
+      mutate: false, topology: false, strategy: false,
+      escalate: false, reconcile: true
     }
   }
+});
+
+// Ancienne taxonomie opérationnelle -> phénotype canonique (ADR 0043).
+const LEGACY_ALIASES = Object.freeze({
+  adaptive_worker: 'AdaptiveWorker',
+  security_analyst: 'Specialist',
+  contract_auditor: 'Verifier',
+  dependency_manager: 'Specialist',
+  documentation_curator: 'Specialist',
+  strategist: 'SubOrchestrator',
+  orchestrator: 'Orchestrator',
+  elder: 'Orchestrator'
 });
 
 function normalizePhenotypeId(id) {
   return String(id || '').trim();
 }
 
+function resolveCanonical(id) {
+  const raw = normalizePhenotypeId(id);
+  if (PROFILES[raw]) return raw;
+  const lower = raw.toLowerCase();
+  const byLower = Object.keys(PROFILES).find((k) => k.toLowerCase() === lower);
+  if (byLower) return byLower;
+  if (LEGACY_ALIASES[lower]) return LEGACY_ALIASES[lower];
+  return null;
+}
+
 function can(phenotypeId, action) {
-  const id = normalizePhenotypeId(phenotypeId);
-  const profile = PROFILES[id];
-  if (!profile) return false;
-  const authorities = profile.authorities || {};
+  const canonical = resolveCanonical(phenotypeId);
+  if (!canonical) return false;
+  const authorities = PROFILES[canonical].authorities || {};
   return Boolean(authorities[action]);
 }
 
 function getAuthorityProfile(phenotypeId) {
-  const id = normalizePhenotypeId(phenotypeId);
-  const profile = PROFILES[id];
-  if (!profile) return null;
+  const canonical = resolveCanonical(phenotypeId);
+  if (!canonical) return null;
   return {
-    phenotypeId: id,
-    description: profile.description,
-    authorities: Object.assign({}, profile.authorities)
+    phenotypeId: canonical,
+    description: PROFILES[canonical].description,
+    authorities: Object.assign({}, PROFILES[canonical].authorities)
   };
 }
 
 function validateAction(agent, action) {
   if (!agent) return { allowed: false, reason: 'No agent provided.' };
   if (!action) return { allowed: false, reason: 'No action specified.' };
-  const phenotypeId = agent.phenotype_id || agent.phenotypeId;
-  if (!phenotypeId) return { allowed: false, reason: 'Agent has no phenotype.' };
-  if (!PROFILES[phenotypeId]) return { allowed: false, reason: `Unknown phenotype: '${phenotypeId}'.` };
+  const raw = agent.phenotype_id || agent.phenotypeId;
+  if (!raw) return { allowed: false, reason: 'Agent has no phenotype.' };
+  const canonical = resolveCanonical(raw);
+  if (!canonical) return { allowed: false, reason: `Unknown phenotype: '${raw}'.` };
   if (!AUTHORITY_DIMENSIONS.includes(action)) return { allowed: false, reason: `Unknown action: '${action}'.` };
-  const allowed = can(phenotypeId, action);
-  if (allowed) return { allowed: true, reason: null };
-  return { allowed: false, reason: `Phenotype '${phenotypeId}' is not authorized to perform '${action}'.` };
+  if (can(canonical, action)) return { allowed: true, reason: null };
+  return { allowed: false, reason: `Phenotype '${canonical}' is not authorized to perform '${action}'.` };
 }
 
 function getAllowedActions(phenotypeId) {
-  const id = normalizePhenotypeId(phenotypeId);
-  const profile = PROFILES[id];
-  if (!profile) return [];
-  const authorities = profile.authorities || {};
+  const canonical = resolveCanonical(phenotypeId);
+  if (!canonical) return [];
+  const authorities = PROFILES[canonical].authorities || {};
   return Object.keys(authorities).filter((action) => authorities[action]);
 }
 
 function getForbiddenActions(phenotypeId) {
-  const id = normalizePhenotypeId(phenotypeId);
-  const profile = PROFILES[id];
-  if (!profile) return [];
-  const authorities = profile.authorities || {};
+  const canonical = resolveCanonical(phenotypeId);
+  if (!canonical) return [];
+  const authorities = PROFILES[canonical].authorities || {};
   return Object.keys(authorities).filter((action) => !authorities[action]);
 }
 
@@ -221,6 +192,8 @@ function listPhenotypes() {
 module.exports = {
   AUTHORITY_DIMENSIONS,
   PROFILES,
+  LEGACY_ALIASES,
+  resolveCanonical,
   can,
   getAuthorityProfile,
   validateAction,
