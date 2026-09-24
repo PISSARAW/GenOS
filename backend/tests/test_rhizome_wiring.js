@@ -2,7 +2,14 @@ const assert = require('node:assert/strict');
 const rhizome = require('../src/services/rhizomeCoordinationService');
 
 (async () => {
-  const session = await rhizome.composeRhizome('Grow a decentralized capability network without a permanent central authority.');
+  const session = await rhizome.composeRhizome('Grow a decentralized capability network without a permanent central authority.', {
+    nodes: [
+      { nodeId: 'source', kind: 'AGENT', capabilities: ['search'], state: 'ACTIVE' },
+      { nodeId: 'target', kind: 'TOOL', capabilities: ['verify'], state: 'ACTIVE' }
+    ],
+    edges: [{ edgeId: 'verified-route', from: 'source', to: 'target', relation: 'ROUTES_TO' }],
+    coordinationLoci: [{ locusId: 'mission-locus', holderNodeId: 'source' }]
+  });
   assert.equal(session.members.length, 4);
   assert.equal(session.organization, 'mycelial_routing');
   assert.ok(session.capabilityContract.required.includes('LIGAND_RECEPTOR'));
@@ -11,6 +18,8 @@ const rhizome = require('../src/services/rhizomeCoordinationService');
   const graph = await rhizome.graphSnapshot(session.sessionId);
   assert.equal(graph.contract, 'RhizomeGraphSnapshot/v1');
   assert.equal(graph.graphVersion, 0);
+  const route = await rhizome.routeToCapability(session.sessionId, { needId: 'verify', capability: 'verify' });
+  assert.deepEqual(route.route.nodeIds, ['source', 'target']);
   const gap = await rhizome.inspectCapabilityNeed(session.sessionId, {
     needId: 'missing-tool', capability: 'missing_tool', criticality: 0.7
   });

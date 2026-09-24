@@ -530,7 +530,10 @@
               "apply",
               "deposit",
               "direct_member",
+              "route",
               "slime",
+              "gap",
+              "grow",
               "allocate",
               "forage",
               "health"
@@ -549,7 +552,22 @@
             "type": "boolean"
           },
           "need": {
+            "type": [
+              "string",
+              "object"
+            ]
+          },
+          "gap_id": {
             "type": "string"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "threshold": {
+            "type": "number"
           },
           "edges": {
             "type": "array",

@@ -28,6 +28,10 @@ async function selectRhizomeMember(db, sessionId, args) {
   return rhizome.routeDirectMember(sessionId, args.need, { db });
 }
 
+ async function routeRhizomeNeed(db, sessionId, args) {
+  return rhizome.routeToCapability(sessionId, args.need || {}, { db });
+}
+
 async function stepRhizome(db, sessionId, args) {
   return rhizome.runSlimeMouldStep(sessionId, args.edges || [], { db });
 }
@@ -54,7 +58,7 @@ async function assessBiome(db, sessionId, args) {
 
 const OPERATIONS = {
   syncytium: { snapshot: (db, id) => syncytium.snapshot(id, { db }), apply: applySyncytium },
-  rhizome: { snapshot: rhizomeSnapshot, deposit: depositRhizome, direct_member: selectRhizomeMember, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth },
+  rhizome: { snapshot: rhizomeSnapshot, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth },
   biome: { snapshot: (db, id) => biome.sessionSnapshot(id, { db }), allocate: allocateBiome, forage: forageBiome, health: assessBiome }
 };
 
