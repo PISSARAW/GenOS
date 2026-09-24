@@ -1,7 +1,7 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
 - **Statut** : Topologie disponible ; le service assemble une communauté et expose des évaluations et métriques. Le protocole épistémique complet décrit dans cette page n'est pas implémenté de bout en bout.
-- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, évaluation Pareto et métriques de diversité.
+- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, jugement communautaire persisté et règles d'arrêt, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-09-24
 
 Biocénose est une topologie spécialisée dans le cadre morphogénétique de GenOS : la
@@ -91,6 +91,12 @@ présentes dans `biocenoseService` sont les suivantes :
   seule fois par événement/membre/domaine ; `communityMemberReputation` calcule ensuite
   une moyenne Brier et une réputation séparément pour chaque domaine. La référence d'oracle
   est enregistrée comme provenance, mais sa validité doit être assurée par l'appelant ;
+- `finalizeCommunityJudgment` s'exécute après l'agrégation et applique la limite de tours,
+  la stabilité et la valeur marginale de preuve définies dans la constitution. Il conserve
+  explicitement l'incertitude et choisit `DECIDED`, `IRREDUCIBLE_DISAGREEMENT` ou une
+  escalade lorsque persistent un dissent critique ou une revue humaine requise. Le
+  jugement est append-only et la session passe à `DECIDED` ou `ESCALATED` ; il ne produit
+  pas un état « consensus » par défaut ;
 - `evaluateMinorityEvidenceVeto` requiert un reçu de vérification fourni par un
   vérificateur de confiance avant de retourner `PROMOTION_BLOCKED`. C'est un évaluateur
   de politique ; il n'est pas encore branché sur la porte générale de promotion et ne
