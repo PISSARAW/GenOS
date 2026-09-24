@@ -1,5 +1,7 @@
 'use strict';
 
+const rhizomeStore = require('./rhizome/rhizomeStore');
+
 /**
  * @file topologySessionStore.js
  * @description Durable store for topology sessions (Syncytium CRDT, Rhizome
@@ -45,10 +47,14 @@ async function load(db, id) {
 async function createRhizome(db, record, event) {
   return withTransaction(db, async () => {
     await ensureTable(db);
+    await rhizomeStore.ensureGraphTables(db);
     await db.run(
       'INSERT INTO topology_sessions (id, topology, state_json, revision, updated_at) VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)',
       record.id, 'rhizome', JSON.stringify(record.state || {})
     );
+    if (record.graph?.nodes?.length || record.graph?.edges?.length) {
+      await rhizomeStore.replaceGraph(db, record.id, record.graph);
+    }
     await appendEvent(db, { sessionId: record.id, revision: 1, ...event });
     return { id: record.id, revision: 1 };
   });
@@ -71,6 +77,7 @@ async function mutateRhizome(db, id, mutator) {
     if (result.changes !== 1) {
       throw Object.assign(new Error(`Rhizome session revision conflict for '${id}'.`), { code: 'RHIZOME_SESSION_CONFLICT' });
     }
+    if (change.graph) await rhizomeStore.replaceGraph(db, id, change.graph);
     await appendEvent(db, { sessionId: id, revision, ...change.event });
     return { ...change.result, revision };
   });
@@ -93,6 +100,7 @@ async function closeRhizome(db, id) {
     if (removed.changes !== 1) {
       throw Object.assign(new Error(`Rhizome session revision conflict for '${id}'.`), { code: 'RHIZOME_SESSION_CONFLICT' });
     }
+    await rhizomeStore.deleteGraph(db, id);
     return true;
   });
 }
@@ -124,4 +132,4 @@ async function remove(db, id) {
   return db.run('DELETE FROM topology_sessions WHERE id = ?', id);
 }
 
-module.exports = { save, load, remove, ensureTable, createRhizome, mutateRhizome, closeRhizome, events };
+module.exports = { save, load, remove, ensureTable, createRhizome, mutateRhizome, closeRhizome, events, loadRhizomeGraph: rhizomeStore.loadGraph };

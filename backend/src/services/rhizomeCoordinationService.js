@@ -56,8 +56,10 @@ function normalizeMembers(members) {
 }
 
 function serialize(session) {
+  const canonical = normalizeRhizomeSession(session);
+  const { nodes, edges, ...state } = canonical;
   return {
-    ...normalizeRhizomeSession(session),
+    ...state,
     mission: session.mission,
     organization: session.organization,
     members: session.members,
@@ -89,9 +91,14 @@ function restoreMatrix(state) {
   return matrix;
 }
 
-function rehydrate(record) {
+function rehydrate(record, graph = {}) {
   const state = record.state || {};
-  const canonical = canonicalSession(state, record.id);
+  const canonical = canonicalSession({
+    ...state,
+    nodes: graph.nodes ?? state.nodes,
+    edges: graph.edges ?? state.edges,
+    graphVersion: graph.graphVersion ?? state.graphVersion
+  }, record.id);
   const organization = state.organization || DEFAULT_ORGANIZATION;
   return {
     ...canonical,
@@ -134,7 +141,7 @@ async function composeRhizome(mission, options = {}) {
     members: normalizeMembers(Array.isArray(options.members) ? options.members : biologicalModeService.compose('rhizome', goal))
   };
   if (options.db) {
-    const created = await store.createRhizome(options.db, { id: session.sessionId, state: serialize(session) }, {
+    const created = await store.createRhizome(options.db, { id: session.sessionId, state: serialize(session), graph: graphProjection(session) }, {
       type: 'SESSION_CREATED', payload: { mission: goal, organization }
     });
     session.revision = created.revision;
@@ -147,7 +154,8 @@ async function getSession(sessionId, db) {
   if (db) {
     const record = await store.load(db, sessionId);
     if (record && record.topology === 'rhizome') {
-      const session = rehydrate(record);
+      const graph = await store.loadRhizomeGraph(db, sessionId);
+      const session = rehydrate(record, graph);
       sessions.set(sessionId, session);
       return session;
     }
@@ -342,11 +350,16 @@ async function mutateSession(sessionId, options, change) {
     return { ...result, revision: session.revision };
   }
   const saved = await store.mutateRhizome(options.db, sessionId, async (record) => {
-    const session = rehydrate(record);
+    const graph = await store.loadRhizomeGraph(options.db, sessionId);
+    const session = rehydrate(record, graph);
     const result = change.apply(session);
-    return { state: serialize(session), event: { type: change.type, payload: change.payload }, result };
+    return { state: serialize(session), graph: graphProjection(session), event: { type: change.type, payload: change.payload }, result };
   });
   return { ...saved };
+}
+
+function graphProjection(session) {
+  return { nodes: session.nodes, edges: session.edges, graphVersion: session.graphVersion };
 }
 
 async function closeSession(sessionId, options = {}) {

@@ -28,20 +28,27 @@ async function run() {
       return rhizome.depositTrail(session.sessionId, `edge:${index}`, { amount: index + 1, db });
     });
     await Promise.all(deposits);
+    await rhizome.addCapabilityNode(session.sessionId, { nodeId: 'follow-up', kind: 'AGENT', capabilities: ['deploy'] }, { db: workerDb });
 
     const record = await store.load(primaryDb, session.sessionId);
+    const graph = await store.loadRhizomeGraph(primaryDb, session.sessionId);
     const events = await store.events(primaryDb, session.sessionId);
     assert.equal(record.state.trails.length, deposits.length);
-    assert.equal(record.state.nodes.length, 2);
-    assert.equal(record.state.edges[0].edgeId, 'local-bridge');
-    assert.equal(record.revision, deposits.length + 1);
-    assert.equal(events.length, deposits.length + 1);
+    assert.equal(record.state.nodes, undefined);
+    assert.equal(record.state.edges, undefined);
+    assert.equal(graph.nodes.length, 3);
+    assert.ok(graph.nodes.some((node) => node.nodeId === 'follow-up'));
+    assert.equal(graph.edges[0].edgeId, 'local-bridge');
+    assert.equal(graph.graphVersion, 1);
+    assert.equal(record.revision, deposits.length + 2);
+    assert.equal(events.length, deposits.length + 2);
     assert.deepEqual(events.map((event) => event.revision), Array.from({ length: events.length }, (_, index) => index + 1));
     assert.ok(record.state.trails.some(([marker]) => marker === 'edge:0'));
     assert.ok(record.state.trails.some(([marker]) => marker === 'edge:19'));
     await rhizome.closeSession(session.sessionId, { db: primaryDb });
     assert.equal((await store.events(primaryDb, session.sessionId)).at(-1).type, 'SESSION_CLOSED');
     assert.equal(await store.load(primaryDb, session.sessionId), null);
+    assert.equal((await store.loadRhizomeGraph(primaryDb, session.sessionId)).nodes.length, 0);
   } finally {
     await primaryDb.close();
     await workerDb.close();
