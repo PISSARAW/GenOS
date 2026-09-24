@@ -74,6 +74,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | [0064](0064-transmission-mixte-holobionte.md) | Transmission mixte Holobionte | Accepté | 2026-09-24 | Holobionte, génération, noyau, périphérie, transmission |
 
+| [0065](0065-transfert-controle-procedures-holobionte.md) | Transfert contrôlé de procédures Holobionte | Accepté | 2026-09-24 | Holobionte, procédures, provenance, AEIS, mémoire |
+
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.
