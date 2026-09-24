@@ -11,7 +11,8 @@ const topologyCapabilityService = require('./topologyCapabilityService');
 const swarmMetricsService = require('./swarmMetricsService');
 const { defaultForaging } = require('./foragingScoutHarvesterService');
 const biofilmMatrix = require('./biofilmMatrixService');
-const topologySessionStore = require('./topologySessionStore');
+const biomeSessionStore = require('./biome/biomeSessionStore');
+const crypto = require('crypto');
 
 const DEFAULT_ORGANIZATION = 'energy_huddle';
 const MECHANISMS = ['resource_allocation', 'optimal_foraging', 'quorum_sensing'];
@@ -20,6 +21,8 @@ const sessions = new Map();
 function serialize(session) {
   return {
     mission: session.mission,
+    biomeId: session.biomeId,
+    revision: session.revision,
     organization: session.organization,
     mechanisms: session.mechanisms,
     capabilityContract: session.capabilityContract,
@@ -40,11 +43,14 @@ function rehydrate(record) {
   matrix.version = Number(state.matrix?.version) || 0;
   for (const [key, entry] of state.matrix?.entries || []) matrix.entries.set(key, entry);
   matrix.history = Array.isArray(state.matrix?.history) ? state.matrix.history : [];
-  return { sessionId: record.id, ...state, matrix };
+  return { sessionId: record.id, biomeId: state.biomeId || record.id, revision: record.revision, ...state, matrix };
 }
 
 async function persist(session, db) {
-  if (db) await topologySessionStore.save(db, { id: session.sessionId, topology: 'biome', state: serialize(session) });
+  if (db) {
+    const saved = await biomeSessionStore.create(db, { id: session.sessionId, state: serialize(session) });
+    session.revision = saved.revision;
+  }
 }
 
 async function composeBiome(mission, options = {}) {
@@ -53,15 +59,26 @@ async function composeBiome(mission, options = {}) {
     throw Object.assign(new Error('Biome mission is required.'), { code: 'BIOME_MISSION_REQUIRED' });
   }
   const organization = options.organization || DEFAULT_ORGANIZATION;
+  const sessionId = `biome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const session = {
-    sessionId: `biome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    sessionId,
+    biomeId: sessionId,
+    revision: null,
     mode: 'biome',
     mission: goal,
     organization,
     mechanisms: MECHANISMS,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'biome', organization }),
     matrix: biofilmMatrix.createMatrix(`biome-${Date.now()}`, options),
-    members: biologicalModeService.compose('biome', goal)
+    members: biologicalModeService.compose('biome', goal).map((member) => ({
+      ...member,
+      runtimeContext: {
+        biomeId: sessionId,
+        sessionId,
+        populationId: `population-${member.role}`,
+        nicheId: `niche-${member.role}`
+      }
+    }))
   };
   sessions.set(session.sessionId, session);
   await persist(session, options.db);
@@ -70,8 +87,8 @@ async function composeBiome(mission, options = {}) {
 
 async function getSession(sessionId, db) {
   if (db) {
-    const record = await topologySessionStore.load(db, sessionId);
-    if (record && record.topology === 'biome') {
+    const record = await biomeSessionStore.load(db, sessionId);
+    if (record) {
       const session = rehydrate(record);
       sessions.set(sessionId, session);
       return session;
@@ -88,29 +105,66 @@ async function sessionSnapshot(sessionId, options = {}) {
 }
 
 async function allocateSessionResources(sessionId, populations, options = {}) {
-  const session = await getSession(sessionId, options.db);
   const result = allocateResources(populations, options);
-  for (const allocation of result.allocations) {
-    biofilmMatrix.deposit(session.matrix, { key: `resource:${allocation.id}`, kind: 'resource_allocation', ...allocation });
-  }
-  await persist(session, options.db);
-  return { sessionId, ...result, matrixVersion: session.matrix.version };
+  return applyOperation({ sessionId, options, operation: 'allocate', input: { populations, totalBudget: options.totalBudget, minimumPerPopulation: options.minimumPerPopulation }, apply: (session) => {
+    for (const allocation of result.allocations) {
+      biofilmMatrix.deposit(session.matrix, { key: `resource:${allocation.id}`, kind: 'resource_allocation', ...allocation });
+    }
+    return { ...result, matrixVersion: session.matrix.version };
+  } });
 }
 
 async function forageSession(sessionId, patchHistory, options = {}) {
-  const session = await getSession(sessionId, options.db);
   const result = forageStep(patchHistory, options);
-  biofilmMatrix.deposit(session.matrix, { key: `forage:${session.matrix.version + 1}`, kind: 'foraging_observation', ...result });
-  await persist(session, options.db);
-  return { sessionId, ...result, matrixVersion: session.matrix.version };
+  return applyOperation({ sessionId, options, operation: 'forage', input: { patchHistory, iteration: options.iteration, elapsedTimeSec: options.elapsedTimeSec, alternativePatch: options.alternativePatch }, apply: (session) => {
+    const action = result.patchYield.decision === 'PATCH_DEPARTURE'
+      ? { type: 'MIGRATE_PATCH', status: 'requested', targetPatch: options.alternativePatch || null }
+      : { type: 'CONTINUE_FORAGING', status: 'applied' };
+    biofilmMatrix.deposit(session.matrix, { key: `forage:${session.matrix.version + 1}`, kind: 'foraging_observation', ...result, action });
+    return { ...result, action, matrixVersion: session.matrix.version };
+  } });
 }
 
 async function assessSessionHealth(sessionId, observations, options = {}) {
-  const session = await getSession(sessionId, options.db);
   const result = ecosystemHealth(observations);
-  biofilmMatrix.deposit(session.matrix, { key: `health:${session.matrix.version + 1}`, kind: 'ecosystem_health', ...result });
-  await persist(session, options.db);
-  return { sessionId, ...result, matrixVersion: session.matrix.version };
+  return applyOperation({ sessionId, options, operation: 'health', input: { observations }, apply: (session) => {
+    biofilmMatrix.deposit(session.matrix, { key: `health:${session.matrix.version + 1}`, kind: 'ecosystem_health', ...result });
+    return { ...result, matrixVersion: session.matrix.version };
+  } });
+}
+
+async function applyOperation({ sessionId, options, operation, input, apply }) {
+  const context = { sessionId, options, operation, input, apply, operationId: crypto.randomUUID(), timestamp: new Date().toISOString(), actorId: options.actorId || 'system' };
+  return options.db ? applyPersistedOperation(context) : applyMemoryOperation(context);
+}
+
+async function applyPersistedOperation(context) {
+  const { sessionId, options, operation, input, apply, operationId, timestamp, actorId } = context;
+  return biomeSessionStore.mutate({ db: options.db, id: sessionId, actorId, operation, mutator: (record) => {
+    const session = rehydrate(record);
+    const output = apply(session);
+    const resultingRevision = record.revision + 1;
+    const receipt = makeReceipt({ ...context, output, previousRevision: record.revision, resultingRevision });
+    return { state: serialize(session), event: { ...receipt }, result: { sessionId, ...output, receipt } };
+  } });
+}
+
+async function applyMemoryOperation(context) {
+  const session = await getSession(context.sessionId);
+  const previousRevision = session.revision || 0;
+  const output = context.apply(session);
+  session.revision = previousRevision + 1;
+  const receipt = makeReceipt({ ...context, output, previousRevision, resultingRevision: session.revision });
+  return { sessionId: context.sessionId, ...output, receipt };
+}
+
+function makeReceipt(context) {
+  const { sessionId, options, operation, input, operationId, timestamp, actorId, output, previousRevision, resultingRevision } = context;
+  const appliedActions = output.action ? [output.action]
+    : (output.allocations || []).map((allocation) => ({ type: 'RESOURCE_ALLOCATION', ...allocation }));
+  return { operationId, sessionId, actorId, previousRevision, resultingRevision, input,
+    decision: output.patchYield?.decision || operation, appliedActions,
+    evidenceRefs: options.evidenceRefs || [], timestamp };
 }
 
 function allocateResources(populations, options = {}) {
@@ -162,17 +216,18 @@ function allocationError(message) { return Object.assign(new Error(message), { c
 function forageStep(patchHistory, options = {}) {
   const iteration = Number.isFinite(options.iteration) ? options.iteration : 1;
   const elapsedTimeSec = Number.isFinite(options.elapsedTimeSec) ? options.elapsedTimeSec : 1;
+  const patchYield = defaultForaging.evaluatePatchYield(Array.isArray(patchHistory) ? patchHistory : [], elapsedTimeSec);
   return {
-    patchYield: defaultForaging.evaluatePatchYield(Array.isArray(patchHistory) ? patchHistory : [], elapsedTimeSec),
+    patchYield,
     levyStep: defaultForaging.computeLevyFlightStep(iteration)
   };
 }
 
 function ecosystemHealth(observations) {
   const labels = (Array.isArray(observations) ? observations : []).map((observation) => (typeof observation === 'string' ? observation : observation?.label)).filter(Boolean);
-  if (!labels.length) return { entropy: null, verdict: 'unknown' };
+  if (!labels.length) return { behavioralDiversity: null, ecosystemHealth: 'unknown', verdict: 'unknown' };
   const entropy = swarmMetricsService.calculateShannonEntropy(labels);
-  return { entropy, verdict: entropy.normalizedEntropy >= 0.5 ? 'resilient' : 'fragile' };
+  return { behavioralDiversity: entropy.normalizedEntropy, ecosystemHealth: 'unknown', verdict: 'unknown' };
 }
 
 module.exports = {

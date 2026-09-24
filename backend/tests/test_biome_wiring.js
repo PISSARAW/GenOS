@@ -6,8 +6,10 @@ const composition = await biome.composeBiome('Operate an environment with specia
 assert.equal(composition.members.length, 4);
 assert.ok(composition.sessionId);
 assert.equal(composition.organization, 'energy_huddle');
-assert.deepEqual(composition.capabilityContract.required, ['SWARM_METRICS', 'TOKEN_ECONOMY']);
+assert.deepEqual(composition.capabilityContract.required, ['EPISODIC_MEMORY', 'FOVEAL_PERCEPTION', 'QUORUM', 'RESILIENCE_RECOVERY', 'STIGMERGY', 'SWARM_METRICS', 'TOKEN_ECONOMY', 'WEB_FORAGING']);
 assert.deepEqual(composition.mechanisms, ['resource_allocation', 'optimal_foraging', 'quorum_sensing']);
+assert.ok(composition.members.every((member) => member.runtimeContext.sessionId === composition.sessionId));
+assert.ok(composition.members.every((member) => member.runtimeContext.biomeId && member.runtimeContext.populationId && member.runtimeContext.nicheId));
 
 const allocation = biome.allocateResources([
   { id: 'population_a', demand: 2, priority: 2 },
@@ -20,24 +22,33 @@ const rounded = biome.allocateResources([
   { id: 'b', demand: 1, priority: 1 }, { id: 'a', demand: 1, priority: 1 }, { id: 'c', demand: 1, priority: 1 }
 ], { totalBudget: 10, minimumPerPopulation: 1 });
 assert.equal(rounded.allocations.reduce((sum, item) => sum + item.budget, 0), 10);
-assert.deepEqual(rounded.allocations.map((item) => item.budget), [4, 4, 2]);
+assert.deepEqual(rounded.allocations.map((item) => item.budget), [3, 4, 3]);
 assert.throws(() => biome.allocateResources([{ id: 'a', demand: 1, priority: 1 }], { totalBudget: 2, minimumPerPopulation: 3 }), { code: 'BIOME_ALLOCATION_INVALID' });
 assert.throws(() => biome.allocateResources([{ id: 'a', demand: -1, priority: 1 }], { totalBudget: 2 }), { code: 'BIOME_ALLOCATION_INVALID' });
 assert.throws(() => biome.allocateResources([{ id: 'a', demand: 1, priority: 1 }, { id: 'a', demand: 1, priority: 1 }], { totalBudget: 2 }), { code: 'BIOME_ALLOCATION_INVALID' });
 const sessionAllocation = await biome.allocateSessionResources(composition.sessionId, [{ id: 'session_pop', demand: 1, priority: 1 }], { totalBudget: 20 });
 assert.equal(sessionAllocation.allocations[0].budget, 20);
+assert.equal(sessionAllocation.receipt.previousRevision, 0);
+assert.equal(sessionAllocation.receipt.resultingRevision, 1);
 
 const step = biome.forageStep([{ infoGain: 3 }], { iteration: 3, elapsedTimeSec: 2 });
 assert.ok(typeof step.patchYield.decision === 'string');
 assert.ok(Number.isFinite(step.levyStep.stepLength));
 assert.ok(typeof step.levyStep.mode === 'string');
 await biome.forageSession(composition.sessionId, [{ infoGain: 3 }], { iteration: 2, elapsedTimeSec: 1 });
+const departure = await biome.forageSession(composition.sessionId, [{ infoGain: 0 }], {
+  iteration: 3, elapsedTimeSec: 1, alternativePatch: 'timing-anomalies'
+});
+assert.equal(departure.patchYield.decision, 'PATCH_DEPARTURE');
+assert.deepEqual(departure.receipt.appliedActions, [{ type: 'MIGRATE_PATCH', status: 'requested', targetPatch: 'timing-anomalies' }]);
 
 const resilient = biome.ecosystemHealth(['pollinate', 'graze', 'scout', 'harvest', 'migrate', 'burrow']);
-assert.equal(resilient.verdict, 'resilient');
+assert.equal(resilient.ecosystemHealth, 'unknown');
+assert.equal(resilient.behavioralDiversity, 1);
+assert.equal(resilient.verdict, 'unknown');
 assert.equal(biome.ecosystemHealth([]).verdict, 'unknown');
 await biome.assessSessionHealth(composition.sessionId, ['pollinate', 'graze']);
-assert.equal((await biome.sessionSnapshot(composition.sessionId)).entries.length, 3);
+assert.equal((await biome.sessionSnapshot(composition.sessionId)).entries.length, 4);
 
 await assert.rejects(() => biome.composeBiome(''), (error) => error.code === 'BIOME_MISSION_REQUIRED');
 console.log('Biome wiring checks: PASS');
