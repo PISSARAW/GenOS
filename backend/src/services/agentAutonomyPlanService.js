@@ -3,6 +3,7 @@ const { buildAllocation } = require('./tokenAllocationService');
 const { regulateAutonomyPlan } = require('./controlRegulationService');
 const trinityService = require('./trinityService');
 const aTeamService = require('./aTeamService');
+const aTeamRunStore = require('./aTeam/teamRunStore');
 const aTeamCoordination = require('./aTeamCoordinationService');
 const dynamicOrganization = require('./dynamicOrganizationService');
 const { emit } = require('./agentOrchestrationState');
@@ -171,6 +172,26 @@ function applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWor
   }
 }
 
+async function persistATeamRun({ db, agentId, normalizedMission, autonomyPlan }) {
+  const aTeam = autonomyPlan.aTeam;
+  if (!aTeam || aTeam.activated !== true) return;
+  const run = await aTeamRunStore.create(db, {
+    missionId: agentId,
+    goal: missionText(normalizedMission),
+    successCriteria: normalizedMission.successCriteria || normalizedMission.acceptanceCriteria || [],
+    organization: aTeam.organization || autonomyPlan.organization || null,
+    requiredCapabilities: aTeam.requiredCapabilities || [],
+    capabilityGaps: aTeam.capabilityCoverage?.uncovered || [],
+    members: aTeam.members || []
+  });
+  aTeam.teamRun = run;
+  emit(agentId, 'A_TEAM_RUN_CREATED', 'PERSIST_TEAM_RUN', `Persisted canonical A-Team run '${run.teamRunId}'.`, {
+    teamRunId: run.teamRunId,
+    revision: run.revision,
+    memberCount: run.members.length
+  }, 'info');
+}
+
 async function applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan }) {
   const provider = String(normalizedMission.provider || '').toLowerCase();
   if (normalizedMission.executor === 'caller_mcp' || provider.includes('codex') || provider.includes('mcp')) {
@@ -257,6 +278,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   const effectiveOrchestratorReserve = resolveEffectiveOrchestratorReserve(autonomyPlan, configuredOrchestratorReserve);
   applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
   applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
+  await persistATeamRun({ db, agentId, normalizedMission, autonomyPlan });
   const phenotypeReport = cognitivePhenotype.attachPhenotypesToPlan({
     plan: autonomyPlan,
     missionText: missionText(normalizedMission)

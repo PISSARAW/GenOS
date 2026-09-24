@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const aTeamService = require('../src/services/aTeamService');
 const { attachAteamCoordination } = require('../src/services/agentAutonomyPlanService');
 
-const aTeam = aTeamService.analyzeMission('Intégrer une interface React avec une API Express.');
+const aTeam = aTeamService.analyzeMission('Integration: connect a React frontend to an Express backend.');
 aTeam.activated = true;
 assert.equal(aTeam.members.some((member) => member.role === 'integration_observer'), true);
 

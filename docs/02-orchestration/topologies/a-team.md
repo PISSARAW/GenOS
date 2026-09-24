@@ -141,6 +141,7 @@ que le comportement correspondant est déjà complet.
 
 | Contrat | Point d'intégration principal | Résultat à vérifier |
 |---|---|---|
+| Run canonique et membres | `backend/src/services/aTeam/teamRunStore.js` et `backend/src/services/aTeam/contracts/` | Un plan A-Team activé est validé puis persisté dans `topology_sessions` sous `a_team`; chaque mise à jour exige sa révision courante. Le Work Graph reste nul jusqu'au lot qui introduira son compilateur. |
 | Éligibilité, capacités et composition | `backend/src/services/aTeamService.js` | Mission mono-domaine refusée ; exigences, membres retenus et gaps explicités. |
 | Graphe, dépendances et exécution par étapes | `backend/src/services/aTeamStageScheduler.js` | Graphe validé avant dispatch ; consumers bloqués tant que leurs producteurs ne sont pas promus. |
 | Contrat d'équipe et handoffs | `backend/src/services/aTeamCoordinationService.js` | Handoffs typés, interfaces et propriétaires cohérents avec le Work Graph. |
