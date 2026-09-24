@@ -439,6 +439,12 @@ Les huit topologies entretiennent trois types de relations :
 
 Les organisations historiques telles que `specialist_expert_committee`, `red_blue_coevolution` et `strategy_arena` sont des **patterns d'organisation**, variantes ou politiques de communication composés à partir de ces primitives. Elles ne constituent pas des topologies de même niveau que les huit primitives.
 
+### 4.4 Contrats de topologie et variants
+
+Le `TopologyContract v2` décrit pour chaque primitive ses sémantiques d'entrée et de sortie, modèles d'indépendance, d'état, d'autorité, de communication, de preuve, de ressources et de cycle de vie. Il documente aussi les forces, limites, modes de défaillance, relations, transitions et observables connus. Ces déclarations sont des contraintes de conception, pas une preuve que chaque runtime les applique déjà.
+
+Les variants gardent le même identifiant topologique et portent des paramètres explicites. Une relation absente du registre est considérée comme non spécifiée et requiert un adaptateur ou une décision de composition avant déploiement.
+
 ---
 
 ## 5. Activation
