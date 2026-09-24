@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+process.env.GENOS_MCP_LEASE = 'genos_snapshot,genos_replay';
 const mcpExecutor = require('../src/services/mcpExecutor');
 
 mcpExecutor.listTools().then((tools) => {

@@ -69,7 +69,7 @@ const departure = await biome.forageSession(composition.sessionId, [{ infoGain: 
   iteration: 3, elapsedTimeSec: 1, alternativePatch: 'timing-anomalies'
 });
 assert.equal(departure.patchYield.decision, 'PATCH_DEPARTURE');
-assert.deepEqual(departure.receipt.appliedActions, [{ type: 'MIGRATE_PATCH', status: 'requested', targetPatch: 'timing-anomalies' }]);
+assert.deepEqual(departure.receipt.appliedActions, [{ type: 'MIGRATE_AND_EXECUTE_PATCH', status: 'requested', targetPatch: 'timing-anomalies' }]);
 
 const resilient = biome.ecosystemHealth(['pollinate', 'graze', 'scout', 'harvest', 'migrate', 'burrow']);
 assert.equal(resilient.ecosystemHealth, 'unknown');

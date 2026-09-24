@@ -112,9 +112,10 @@ Cette distinction est essentielle : les sections qui suivent décrivent le modè
   provenance vérifiée/reproductible. La quarantaine met le membre à l'état `QUARANTINED`
   dans la session, ce qui le retire des participants actifs et des routeurs ; sa
   réintégration remet son état à `ACTIVE`. Les deux transitions sont atomiques et auditées.
-  La quarantaine ne supprime pas le membre et ne prouve aucune intention malveillante. Les presets
-  `epistemic_jury`, `delphi` et `adversarial_assembly` sont des configurations descriptives,
-  pas encore des variantes exécutant chacune leur protocole complet ;
+  La quarantaine ne supprime pas le membre et ne prouve aucune intention malveillante.
+  Les douze identifiants de variant sont reconnus et gelés dans la constitution. Les
+  comportements réellement appliqués et les variants encore partiels sont précisés à la
+  section 12 ; une sélection n'implique pas que tous les mécanismes théoriques soient présents ;
 - L'adaptateur Biocénose/Morphogenèse traduit le jugement final fourni au planner en
   signaux de transition : un désaccord testable propose Trinity, un jugement `DECIDED`
   avec exécution demandée propose A-Team, une résolution par preuves vérifiées propose
@@ -826,6 +827,22 @@ Un dissent de haute valeur est préservé même face à une large majorité. La 
 ## 12. Les douze variants de Biocénose
 
 Biocénose décline en douze variants, chacun adapté à un contexte spécifique.
+
+Le routeur `selectBiocenoseVariant` accepte les douze identifiants et le runtime applique
+les paramètres de protocole stockés dans la constitution. Les effets suivants sont
+exécutables : Delphi impose au moins deux tours et transmet un retour agrégé sans identité ;
+Adversarial Assembly exige et route vers un reviewer adversarial ; Forecasting Crowd refuse
+les prévisions dépourvues de poids de calibration et d'indépendance ; Minority-Preserving
+Jury référence tous les dissents persistés dans le jugement ; Human–AI Deliberation impose
+une revue humaine ; Hybrid Oracle Community bloque le traitement factuel sans vérificateur
+déterministe. Epistemic Jury reste le protocole par défaut, et le graphe d'arguments est
+construit par le runtime commun.
+
+`argumentation_community`, `polycentric_council`, `representative_community`, `persistent_community` et
+`byzantine_resilient_community` sont reconnus mais retournent `executionLevel: PARTIAL` :
+le runtime n'implémente pas encore la composition de sous-communautés, l'échantillonnage
+représentatif, la mémoire de réputation inter-missions ou les garanties BFT. Le registre
+ne présente donc pas ces capacités comme exécutées.
 
 ### 12.1 Epistemic Jury
 

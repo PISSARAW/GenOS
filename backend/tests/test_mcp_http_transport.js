@@ -1,5 +1,6 @@
 const assert = require('assert');
 const http = require('http');
+process.env.GENOS_MCP_LEASE = 'genos_snapshot';
 const mcpExecutor = require('../src/services/mcpExecutor');
 
 async function main() {

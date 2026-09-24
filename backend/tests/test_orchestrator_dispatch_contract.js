@@ -6,6 +6,8 @@ assert.equal(mission.agentId, 'worker');
 assert.equal(mission.orchestratorAgentId, 'root');
 assert.equal(mission.autonomousOrchestration, false);
 assert.equal(mission.role, 'worker');
+assert.equal(mission.workerKind, 'bounded_worker');
+assert.equal(mission.workerContract.identity.workerKind, 'bounded_worker');
 assert.deepEqual(mission.executionBudget, {});
 assert.deepEqual(mission.executionPolicy, {});
 console.log('CLI and gRPC worker dispatch share one normalized mission contract.');

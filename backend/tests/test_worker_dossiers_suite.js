@@ -130,7 +130,7 @@ async function runSuite() {
         { workerId: 'w1', influence: 'used data', usedClaims: ['c1'] },
         { workerId: 'unexpected-worker', influence: 'extra', usedClaims: ['c2'] }
       ]
-    }, ['w1']),
+    }, ['w1'], { dossiers: [{ workerId: 'w1', events: [{ evidenceReport: { claims: [{ statement: 'c1', evidence: ['source-ref'] }] } }] }] }),
     (err) => {
       assert.equal(err.code, 'INVALID_DOSSIER_INFLUENCE');
       assert.ok(err.message.includes('unexpected: unexpected-worker'), 'Should report unexpected worker');

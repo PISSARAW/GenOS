@@ -106,6 +106,33 @@ simples.
 - Non-objectifs : remplacer le control plane Node, appeler un LLM par
   défaut, garantir l'optimalité des choix morphologiques.
 
+## 11. État du runtime morphogénétique v2
+
+Le runtime Node v2 orchestre désormais une décision en plusieurs étapes :
+validation de la proposition, évaluation des contraintes et du coût,
+adjudication du noyau, autorisation, application de la transition et émission
+d'un reçu d'observabilité. Une décision `NO_CHANGE` est une issue explicite
+et ne déclenche pas de transition.
+
+Cette chaîne reste intégrée par adaptateurs fournis par l'application. En
+particulier, `kernel.adjudicate` doit déléguer au noyau Rust; le service échoue
+fermement si cet adaptateur manque. La présence du runtime Node et des tests
+ne démontre donc pas, à elle seule, qu'une liaison Rust–Node est déployée ni
+qu'une mission réelle a franchi toute la chaîne.
+
+Les services de graphe, typage, évaluation, transitions, baux, reçus,
+observabilité, Rhizome et Holobionte fournissent les composants du parcours.
+Leur composition opérationnelle dépend encore des adaptateurs et des
+services injectés. Les benchmarks non stationnaires définissent des scénarios
+et des métriques comparables; aucun résultat ne doit être interprété comme
+une supériorité mesurée tant que les baselines et les exécutions n'ont pas
+été effectivement raccordées et rapportées.
+
+Les vérifications automatisées couvrent les invariants, certaines
+compositions, le contrat du benchmark et le noyau Rust. Elles étayent les
+comportements testés, sans valoir preuve de déploiement intégré, d'optimalité
+ou de performance en production.
+
 ## Voir aussi
 
 - [ADR 0045](../adr/0045-noyau-controle-morphogenetique.md) — décision.

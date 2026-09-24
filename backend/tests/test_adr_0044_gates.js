@@ -29,6 +29,11 @@ check(
 );
 check('matrix grants Orchestrator topology', matrix.can('Orchestrator', 'topology') === true);
 check('matrix denies daemon write', matrix.can('ResidentDaemon', 'write') === false);
+check('matrix supports canonical red worker kind', matrix.can('red_worker', 'execute') === true);
+check('creative worker cannot execute tools', matrix.can('creative_worker', 'execute') === false);
+check('specialist worker kind cannot write', matrix.can('specialist', 'write') === false);
+check('resident daemon may use bounded probe tools', matrix.can('resident_daemon', 'execute') === true);
+check('metadata worker kind enforces creative read-only profile', matrix.validateAction({ metadata_json: '{"workerKind":"creative_worker"}' }, 'execute').allowed === false);
 
 // 2. Aliases legacy résolus, inconnus rejetés.
 check('alias adaptive_worker', matrix.resolveCanonical('adaptive_worker') === 'AdaptiveWorker');

@@ -4,16 +4,18 @@
  */
 
 const assert = require('assert');
-const path = require('path');
+const crypto = require('crypto');
 const grpc = require('@grpc/grpc-js');
 const loadAllProtos = require('../proto/index');
 const registerAllServices = require('../src/grpc_services/index');
+const runtimeAdapter = require('../src/services/agentRuntimeAdapter');
 const { getDatabase } = require('../src/db');
 const { ensureAgentStrategyContracts } = require('../src/db/seed');
 const swarmMetrics = require('../src/services/swarmMetricsService');
-const crypto = require('crypto');
+const workspaceLifecycle = require('../src/services/agentWorkspaceLifecycleService');
 
 const TEST_PORT = 50059;
+const testWorkerId = `worker-sub-${crypto.randomBytes(5).toString('hex')}`;
 const testGrpcSecret = `grpc-test-${crypto.randomBytes(24).toString('hex')}`;
 process.env.GENOS_GRPC_SHARED_SECRET = testGrpcSecret;
 
@@ -234,13 +236,12 @@ async function runGrpcSuite() {
     await db.run("INSERT OR REPLACE INTO organizations (id, name) VALUES (?, ?)", 'grpc-org', 'gRPC test organization');
     await db.run("INSERT OR REPLACE INTO projects (id, organization_id, name) VALUES (?, ?, ?)", 'grpc-project', 'grpc-org', 'gRPC test project');
     await db.run(
-      "INSERT OR REPLACE INTO workspaces (id, name, path, organization_id, project_id, isolated) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT OR REPLACE INTO workspaces (id, name, path, organization_id, project_id) VALUES (?, ?, ?, ?, ?)",
       'ws-test-identity',
       'gRPC identity workspace',
       process.cwd(),
       'grpc-org',
-      'grpc-project',
-      1
+      'grpc-project'
     );
     const provRes = await callRpc(wsClient, 'ProvisionWorkspace', {
       workspace_id: 'ws-test-identity',
@@ -288,21 +289,41 @@ async function runGrpcSuite() {
       `INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id, is_apoptotic)
        VALUES (?, ?, ?, 'idle', 'worker', ?, ?, 0)
        ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role, status=excluded.status, execution_mode=excluded.execution_mode, workspace_id=excluded.workspace_id, parent_agent_id=excluded.parent_agent_id, is_apoptotic=0`,
-      'worker-sub-1',
+      testWorkerId,
       'gRPC worker',
       'worker',
       'ws-test-identity',
       'orch-prime'
     );
     await ensureAgentStrategyContracts(db);
-    const orchRes = await callRpc(orchClient, 'DispatchWorker', {
-      orchestrator_id: 'orch-prime',
-      worker_id: 'worker-sub-1',
-      prompt: 'Verify gRPC fleet dispatch',
-      organization_id: 'grpc-org',
-      project_id: 'grpc-project'
-    });
-    assert.strictEqual(orchRes.success, true);
+    const originalStartMission = runtimeAdapter.startMission;
+    const originalCreateIsolatedWorkspace = workspaceLifecycle.createIsolatedWorkspace;
+    workspaceLifecycle.createIsolatedWorkspace = async (sourceRoot, workerId) => {
+      assert.strictEqual(sourceRoot, process.cwd());
+      assert.strictEqual(workerId, testWorkerId);
+      return sourceRoot;
+    };
+    runtimeAdapter.startMission = async (mission) => {
+      assert.strictEqual(mission.agentId, testWorkerId);
+      assert.strictEqual(mission.orchestratorAgentId, 'orch-prime');
+      assert.strictEqual(mission.workerKind, 'bounded_worker');
+      assert.strictEqual(mission.autonomousOrchestration, false);
+      return { started: true };
+    };
+    let orchRes;
+    try {
+      orchRes = await callRpc(orchClient, 'DispatchWorker', {
+        orchestrator_id: 'orch-prime',
+        worker_id: testWorkerId,
+        prompt: 'Verify gRPC fleet dispatch',
+        organization_id: 'grpc-org',
+        project_id: 'grpc-project'
+      });
+    } finally {
+      runtimeAdapter.startMission = originalStartMission;
+      workspaceLifecycle.createIsolatedWorkspace = originalCreateIsolatedWorkspace;
+    }
+    assert.strictEqual(orchRes.success, true, `DispatchWorker failed: ${orchRes.status}`);
     console.log(`  ✅ PASS: OrchestratorService DispatchWorker -> status: ${orchRes.status}`);
 
     // --- 10. McpService ---

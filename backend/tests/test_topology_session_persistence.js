@@ -12,6 +12,9 @@ function eventRow(params) {
 function runStatement(state, sql, params) {
   const statement = String(sql).trim().toUpperCase();
   if (statement.startsWith('INSERT INTO TOPOLOGY_SESSIONS')) return insertSession(state.rows, statement, params);
+  if (statement.startsWith('INSERT INTO SYNCYTIUM_SESSION_REVISIONS')) { state.syncytiumRevisions.set(params[0], params[1] ?? 0); return { changes: 1 }; }
+  if (statement.startsWith('UPDATE SYNCYTIUM_SESSION_REVISIONS')) return updateRevision(state.syncytiumRevisions, params);
+  if (statement.startsWith('INSERT INTO SYNCYTIUM_APPLIED_OPS')) { state.syncytiumOps.add(`${params[0]}:${params[1]}`); return { changes: 1 }; }
   if (statement.startsWith('INSERT INTO TOPOLOGY_SESSION_EVENTS')) return insertEvent(state.events, params);
   if (statement.startsWith('UPDATE TOPOLOGY_SESSIONS')) return updateSession(state.rows, statement, params);
   if (statement.startsWith('DELETE')) return deleteSession(state.rows, params);
@@ -30,10 +33,22 @@ function insertEvent(events, params) {
   return { changes: 1 };
 }
 
-function updateSession(rows, params) {
-  const current = rows.get(params[2]);
-  if (!current || current.revision !== params[3]) return { changes: 0 };
-  rows.set(params[2], { ...current, state_json: params[0], revision: params[1] });
+function updateSession(rows, statement, params) {
+  const isSave = statement.includes('SET TOPOLOGY = ?');
+  const isSyncytium = statement.includes("TOPOLOGY = 'SYNCYTIUM'");
+  const idIndex = isSyncytium ? 1 : isSave ? 3 : 2;
+  const revisionIndex = params.length === 4 ? 3 : 4;
+  const current = rows.get(params[idIndex]);
+  if (!current || (!isSyncytium && current.revision !== params[revisionIndex])) return { changes: 0 };
+  const revision = isSyncytium ? current.revision : params[1];
+  rows.set(params[idIndex], { ...current, state_json: params[0], revision });
+  return { changes: 1 };
+}
+
+function updateRevision(revisions, params) {
+  const [revision, sessionId, expected] = params;
+  if (revisions.get(sessionId) !== expected) return { changes: 0 };
+  revisions.set(sessionId, revision);
   return { changes: 1 };
 }
 
@@ -43,14 +58,21 @@ function deleteSession(rows, params) {
 }
 
 function fakeDb() {
-  const state = { rows: new Map(), events: [] };
+  const state = { rows: new Map(), events: [], syncytiumRevisions: new Map(), syncytiumOps: new Set() };
   return {
     run: async (sql, ...params) => runStatement(state, sql, params),
-    get: async (sql, ...params) => state.rows.get(params[0]),
+    get: async (sql, ...params) => readRecord(state, sql, params),
     all: async (sql, ...params) => String(sql).includes('topology_session_events')
       ? state.events.filter((event) => event.session_id === params[0]).sort((a, b) => a.revision - b.revision)
       : [{ name: 'revision' }]
   };
+}
+
+function readRecord(state, sql, params) {
+  const statement = String(sql).toUpperCase();
+  if (statement.includes('SYNCYTIUM_SESSION_REVISIONS')) return { revision: state.syncytiumRevisions.get(params[0]) };
+  if (statement.includes('SYNCYTIUM_APPLIED_OPS')) return state.syncytiumOps.has(`${params[0]}:${params[1]}`) ? { op_id: params[1] } : null;
+  return state.rows.get(params[0]);
 }
 
 (async () => {
@@ -87,9 +109,19 @@ function fakeDb() {
     total_budget: 80
   });
   assert.equal(allocation.allocations[0].budget, 80);
+  assert.equal(allocation.receipt.previousRevision, 0);
+  assert.equal(allocation.receipt.resultingRevision, 1);
   const ecoRecord = await store.load(db, eco.sessionId);
   assert.equal(ecoRecord.topology, 'biome');
   assert.equal(ecoRecord.state.matrix.version, 1);
+  const biomeEvents = await store.events(db, eco.sessionId);
+  assert.equal(biomeEvents.length, 1);
+  assert.equal(biomeEvents[0].payload.actorId, 'system');
+  await assert.rejects(
+    () => store.save(db, { id: eco.sessionId, topology: 'biome', revision: 0, state: {} }),
+    (error) => error.code === 'TOPOLOGY_SESSION_CONFLICT'
+  );
+  assert.equal((await store.load(db, eco.sessionId)).state.matrix.version, 1);
   const ecoSnapshot = await tools.applyTopologyOperation(db, { session_id: eco.sessionId, operation: 'snapshot' });
   assert.equal(ecoSnapshot.entries[0].kind, 'resource_allocation');
 

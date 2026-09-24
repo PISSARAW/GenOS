@@ -2082,3 +2082,27 @@ La Morphogenèse GenOS est le système de contrôle vivant qui donne aux organis
 ---
 
 *Fiche au standard Syncytium. Pour toute référence croisée, voir [syncytium.md](syncytium.md).*
+
+## 45. État d'implémentation du runtime
+
+Le dépôt contient des services Node pour le graphe morphologique, son
+validation et son typage, l'évaluation et les contraintes, les transitions,
+les baux, les reçus et l'observabilité. Des adaptateurs relient également
+plusieurs topologies, dont Rhizome et Holobionte, au parcours morphogénétique.
+Le runtime v2 sépare l'évaluation de la proposition, l'adjudication du noyau,
+l'autorisation et l'application.
+
+Cette architecture ne signifie pas que toutes les topologies ni tous les
+adaptateurs sont raccordés dans une exécution de bout en bout. L'adjudication
+Rust est fournie au runtime Node par l'application via `kernel.adjudicate`;
+en son absence, le runtime refuse de poursuivre. Il faut donc distinguer les
+composants présents, les parcours testés et les intégrations effectivement
+déployées.
+
+Les tests d'invariants, de compositions et de contrat du benchmark vérifient
+des propriétés ciblées. Le benchmark non stationnaire fournit un protocole et
+des métriques; il ne constitue pas un résultat comparatif tant que les
+baselines sont raccordées et qu'une exécution mesurée n'est pas publiée.
+Aucune optimalité globale, supériorité empirique ni intégration de production
+ne découle de la seule présence de ces composants. Pour l'état précis du
+noyau de contrôle et ses limites, voir [noyau de contrôle morphogénétique](../noyau-controle-morphogenetique.md).

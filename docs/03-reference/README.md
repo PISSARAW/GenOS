@@ -4,6 +4,7 @@ Contrats et surfaces exposées par GenOS. Ces documents décrivent des interface
 stables (REST, gRPC, MCP, CLI) et le modèle de données.
 
 - [api-et-contrats.md](api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
+- [types-de-workers.md](types-de-workers.md) — catalogue des 19 types Rust et correspondance avec les profils Node.
 - [outils-mcp.md](outils-mcp.md) — catalogue d'outils, leases, gating, permissions.
 - [mcp-transport-config.md](mcp-transport-config.md) — transport MCP binaire, config profil, vérification.
 - [modeles-providers-routage.md](modeles-providers-routage.md) — providers, modèles, routage codex/hermes/local.
