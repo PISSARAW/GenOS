@@ -14,6 +14,9 @@ const persistence = require('./syncytiumPersistenceService');
 const schemaService = require('./syncytiumSchemaService');
 const nuclearDomains = require('./syncytium/domains/nuclearDomainService');
 const mutationAuthority = require('./syncytium/security/mutationAuthorityService');
+const operationClassifier = require('./syncytium/consistency/operationClassifier');
+const consistencyZones = require('./syncytium/consistency/consistencyZoneService');
+const coordinationRouter = require('./syncytium/consistency/coordinationRouter');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -136,20 +139,31 @@ async function applyOperation(sessionId, op, options = {}) {
   const session = await getSession(sessionId, options.db);
   const admission = schemaService.admitOperation(session.schema, op);
   op = admission.operation;
+  const decision = operationClassifier.classify(session.schema, op);
+  const context = { sessionId, session, op, options, admission, decision };
+  return coordinationRouter.run(decision, sessionId, async () => {
+    if (decision.coordinationRequired) context.session = await getSession(sessionId, options.db);
+    return applyAdmittedOperation(context);
+  });
+}
+
+async function applyAdmittedOperation(context) {
+  const { sessionId, session, op, options, admission, decision } = context;
   mutationAuthority.authorize(session.domains, session.schema, op);
   if (op?.opId && (session.crdt.hasOpId(op.opId) || session.fluxOps.some((flux) => flux.opId === op.opId))) {
-    return { sessionId, snapshot: session.crdt.getSnapshot(), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session), duplicate: true };
+    return { sessionId, snapshot: session.crdt.getSnapshot(), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session), coordination: decision, duplicate: true };
   }
+  consistencyZones.validateMutation(decision.zone, op, session.crdt.getSnapshot().sharedFields);
   if (isIonicFlux(op)) {
     const flux = { opId: op.opId, ion: op.kind.type.slice('flux_'.length), deltaFlux: Number(op.kind.deltaFlux) || 0, agentId: op.agentId };
     session.fluxOps.push(flux);
-    const result = { sessionId, ion: session.cytoplasm.propagateIonicFlux(flux.ion, flux.deltaFlux, flux.agentId), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session) };
+    const result = { sessionId, ion: session.cytoplasm.propagateIonicFlux(flux.ion, flux.deltaFlux, flux.agentId), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session), coordination: decision };
     session.pendingOperation = op;
     await persist(options.db, session);
     return result;
   }
   session.crdt.applyOp(op);
-  const result = { sessionId, snapshot: session.crdt.getSnapshot(), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session) };
+  const result = { sessionId, snapshot: session.crdt.getSnapshot(), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session), coordination: decision };
   session.pendingOperation = session.crdt.getHistory().at(-1);
   await persist(options.db, session);
   return result;
