@@ -1,6 +1,6 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
-- **Statut** : Topologie disponible ; le service assemble une communauté et expose des évaluations et métriques. Le protocole épistémique complet décrit dans cette page n'est pas implémenté de bout en bout.
+- **Statut** : Topologie disponible avec sessions persistées, services de délibération et contrôleur de tours bornés. Le parcours de bout en bout dépend encore des handlers fournis par l'appelant.
 - **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, jugement communautaire persisté et règles d'arrêt, recrutement adaptatif sur déficit de rôles ou de fournisseurs, conservation de la pluralité entre sous-communautés et bypass de preuves minoritaires vérifiées, frontière de confiance/quarantaine auditée, presets descriptifs de protocole, recommandations de transition à la Morphogenèse et contrôleur de tours piloté par handlers explicites, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-09-24
 
@@ -16,8 +16,8 @@ d'organisations cognitives.
 ## État réel de l'implémentation
 
 Cette distinction est essentielle : les sections qui suivent décrivent le modèle
-épistémique visé, pas un protocole entièrement exécuté par le runtime. Les capacités
-présentes dans `biocenoseService` sont les suivantes :
+épistémique visé et les composants runtime disponibles. Les capacités présentes dans
+`biocenoseService` sont les suivantes :
 
 - `composeBiocenose` valide la mission, compose les membres via
   `biologicalModeService`, puis retourne le seuil, le contrat de capacités et un plan
@@ -151,26 +151,33 @@ Le contrat de capacités déclaré pour ce mode est
 services de métriques ne prouvent pas à eux seuls que toutes les étapes sont reliées
 dans un cycle de délibération.
 
-Ne sont pas établis par ce chemin d'exécution : la délibération réellement exécutée
-claim par claim, un registre de dissent, le suivi de
-conformité sociale, ni un recrutement dynamique déclenché par la monoculture. Les
-sections suivantes exposent ces éléments comme modèle cible ou pistes de conception ;
-elles ne doivent pas être lues comme des garanties runtime.
+Les composants de claims, d'arguments, de dissent, de révision des croyances, de
+calibration et de jugement communautaire sont persistants et disposent de points
+d'entrée dédiés. `runBiocenoseRound` fournit le plan borné des neuf étapes et audite
+leurs résultats, mais chaque handler doit être fourni par l'appelant ; c'est à lui
+d'appeler les services d'écriture et les agents appropriés. Le contrôleur ne relie donc
+pas encore seul chaque sortie à l'étape suivante et ne constitue pas un cycle autonome
+prêt à exécuter sans intégration.
 
-La constitution persistée est une politique déclarée ; elle n'applique pas encore de
-gates d'indépendance, de divulgation, de vérification ou d'agrégation. La fonction de
-compatibilité `activateBiocenose` reste synchrone et ne crée pas de session persistée ;
-c'est `prepareCommunity` qui suit le parcours persistant.
+La constitution est persistée, versionnée et validée. La porte de commit/révélation
+des jugements et plusieurs évaluateurs de politique sont implémentés, mais les exigences
+de la constitution ne sont pas toutes appliquées comme des gates transversaux : en
+particulier, la vérification des reçus et le veto minoritaire ne sont pas reliés à la
+porte générale de promotion. `recruitForDiversityGap` recrute à partir de rôles cibles ou
+d'un minimum de fournisseurs explicitement demandé ; la détection de monoculture ne
+déclenche pas encore automatiquement ce recrutement. `activateBiocenose` reste synchrone
+et sans session persistée ; `prepareCommunity` crée le parcours persistant.
 
-Les claims, leurs attributions et les relations d'argument sont persistés après
-divulgation. Les tables de révisions de croyance, dissent et jugements restent
-préparatoires ; les engagements initiaux sont conservés dans la table des commitments.
+Les claims et attributions, engagements initiaux, arguments, dissent, révisions de
+croyance, calibrations et jugements sont conservés dans leurs tables append-only. Les
+événements audités tracent leurs opérations et les étapes de runtime terminées ou
+bloquées.
 
 ---
 
 ## 1. Définition
 
-Dans son modèle cible, Biocénose traite une mission comme un **collectif délibérant formant un jugement partagé à partir de connaissances distribuées, de perspectives indépendantes et de désaccords légitimes**. Le service runtime disponible compose les membres et fournit des évaluations communautaires ; il n'impose pas à lui seul une indépendance cognitive scellée ni une délibération structurée par type de question.
+Dans son modèle cible, Biocénose traite une mission comme un **collectif délibérant formant un jugement partagé à partir de connaissances distribuées, de perspectives indépendantes et de désaccords légitimes**. Les services runtime composent les membres et fournissent plusieurs mécanismes de délibération ; le contrôleur borné n'impose pas encore à lui seul l'enchaînement complet de ces mécanismes ni l'indépendance cognitive réelle des membres.
 
 Le mot « Biocénose » vient de l'écologie : une biocénose est l'ensemble des organismes vivants partageant un même biotope, en interaction constante — compétition, coopération, prédation, symbiose — mais sans fusion en un super-organisme. GenOS emprunte ce concept : les agents ne partagent pas un état viscéral ; ils maintiennent des **cognitions distinctes** qui interagissent par des mécanismes épistémiques explicites.
 
