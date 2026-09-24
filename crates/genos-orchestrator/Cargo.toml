@@ -18,6 +18,7 @@ genos-store = { path = "../genos-store" }
 genos-reproduction = { path = "../genos-reproduction" }
 genos-sensorimotor = { path = "../genos-sensorimotor" }
 genos-dna = { path = "../genos-dna" }
+genos-worker = { path = "../genos-worker" }
 genos-api = { path = "../genos-api", optional = true }
 rand = "0.10"
 tokio = { version = "1", features = ["sync", "macros", "time"] }

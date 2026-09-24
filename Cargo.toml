@@ -11,6 +11,7 @@ members = [
     "crates/genos-immune",
     "crates/genos-reproduction",
     "crates/genos-orchestrator",
+    "crates/genos-worker",
     "crates/genos-api",
     "crates/genos-cli",
     "crates/genos-mcp",

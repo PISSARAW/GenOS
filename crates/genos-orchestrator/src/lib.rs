@@ -101,6 +101,7 @@ pub use genos_reproduction;
 pub use genos_sensorimotor;
 pub use genos_signal;
 pub use genos_store;
+pub use genos_worker;
 
 /// Accès à la couche API GenOS (activé par la feature `api`).
 #[cfg(feature = "api")]
