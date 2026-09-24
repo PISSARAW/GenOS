@@ -3,6 +3,7 @@ const { analyzeMissionCapabilities } = require('./aTeam/capabilities/missionCapa
 const { findCapabilityGaps } = require('./aTeam/capabilities/capabilityGapService');
 const { measureCapabilityCoverage } = require('./aTeam/capabilities/capabilityCoverageService');
 const teamFormationOptimizer = require('./aTeam/teamFormation/teamFormationOptimizer');
+const knowledgeRouting = require('./aTeam/memory/knowledgeRoutingService');
 const DEFAULT_MAX_MEMBERS = 3;
 
 function maxMembers() {
@@ -312,6 +313,7 @@ module.exports = {
   maxMembers,
   analyzeMission,
   optimizeFormation: teamFormationOptimizer.optimizeTeam,
+  routeKnowledgeNeed: knowledgeRouting.routeKnowledgeNeed,
   compose,
   detectTechnicalDomains,
   isObserverRole,
