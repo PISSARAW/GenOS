@@ -8,6 +8,7 @@ const { createHierarchicalVariantService } = require('./hierarchical/hierarchica
 const { createHumanAiVariantService } = require('./humanAi/humanAiVariantService');
 const { createRoleServiceDirectory } = require('../runtime/roleServiceDirectory');
 const { createVariantPolicyService } = require('./variantPolicyRegistry');
+const { createNestedTopologyService } = require('../runtime/nestedTopologyService');
 
 function createVariantFacade(syncytium) {
   return {
@@ -18,7 +19,8 @@ function createVariantFacade(syncytium) {
     ...createHierarchicalVariantService(syncytium),
     ...createHumanAiVariantService(syncytium),
     ...createRoleServiceDirectory(syncytium),
-    ...createVariantPolicyService(syncytium)
+    ...createVariantPolicyService(syncytium),
+    ...createNestedTopologyService(syncytium)
   };
 }
 
