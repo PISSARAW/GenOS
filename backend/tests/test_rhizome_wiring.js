@@ -28,6 +28,7 @@ const rhizome = require('../src/services/rhizomeCoordinationService');
 
   const positive = await rhizome.depositTrail(session.sessionId, 'route:capability/gap', { amount: 5 });
   assert.equal(positive.trail.intensity, 5);
+  assert.equal(positive.trail.kind, 'CAPABILITY_FOUND');
   assert.equal(positive.dominant.dominantPath, 'route:capability/gap');
 
   await rhizome.depositTrail(session.sessionId, 'route:capability/gap', { amount: 8, isRepellent: true });

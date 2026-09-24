@@ -16,6 +16,7 @@ const capabilityGraph = require('./rhizome/graph/capabilityGraphService');
 const boundaryDetector = require('./rhizome/boundary/boundaryDetector');
 const growthPlanner = require('./rhizome/growth/growthPlanner');
 const routePlanner = require('./rhizome/routing/routePlanner');
+const trailService = require('./rhizome/stigmergy/trailService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -151,9 +152,9 @@ async function depositTrail(sessionId, marker, options = {}) {
   const normalizedMarker = String(marker);
   return mutateSession(sessionId, options, {
     type: options.isRepellent === true ? 'TRAIL_REPELLED' : 'TRAIL_DEPOSITED',
-    payload: { marker: normalizedMarker, amount: Number(options.amount) || 0, isRepellent: options.isRepellent === true },
+    payload: { marker: normalizedMarker, amount: Number(options.amount) || 0, isRepellent: options.isRepellent === true, kind: options.kind || 'CAPABILITY_FOUND' },
     apply: (session) => {
-      const trail = session.matrix.depositTrace(normalizedMarker, Number(options.amount) || 0, options.isRepellent === true);
+      const trail = trailService.deposit(session.matrix, normalizedMarker, { ...options, amount: Number(options.amount) || 0, scope: options.scope || session.scope });
       return { sessionId, marker: normalizedMarker, trail, dominant: session.matrix.selectDominantPath() };
     }
   });
@@ -214,6 +215,14 @@ async function routeToCapability(sessionId, need, options = {}) {
   return routePlanner.plan(await getSession(sessionId, options.db), need);
 }
 
+async function evaporateTrails(sessionId, options = {}) {
+  return mutateSession(sessionId, options, {
+    type: 'TRAILS_EVAPORATED',
+    payload: {},
+    apply: (session) => ({ sessionId, trails: trailService.evaporate(session.matrix, options.now) })
+  });
+}
+
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -270,4 +279,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, coherence, runSlimeMouldStep, closeSession, rehydrate };

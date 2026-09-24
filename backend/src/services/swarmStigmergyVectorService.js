@@ -28,7 +28,8 @@ class SwarmPheromoneMatrix {
     const entry = this.trails.get(marker);
     if (!entry) return 0.0;
     const elapsedMs = Math.max(0, now - entry.lastUpdatedMs);
-    const decayFactor = Math.pow(0.5, elapsedMs / this.halfLifeMs);
+    const halfLife = Number(entry.halfLifeMs) > 0 ? Number(entry.halfLifeMs) : this.halfLifeMs;
+    const decayFactor = Math.pow(0.5, elapsedMs / halfLife);
     return Number((entry.intensity * decayFactor).toFixed(4));
   }
 

@@ -21,7 +21,11 @@ async function applySyncytium(db, sessionId, args) {
 }
 
 async function depositRhizome(db, sessionId, args) {
-  return rhizome.depositTrail(sessionId, args.marker || args.key, { db, amount: args.amount, isRepellent: args.is_repellent });
+  return rhizome.depositTrail(sessionId, args.marker || args.key, {
+    db, amount: args.amount, isRepellent: args.is_repellent, kind: args.trail_kind,
+    capability: args.capability, source: args.source, evidenceRefs: args.evidence_refs,
+    confidence: args.confidence, halfLifeMs: args.half_life_ms, scope: args.scope
+  });
 }
 
 async function selectRhizomeMember(db, sessionId, args) {
@@ -30,6 +34,9 @@ async function selectRhizomeMember(db, sessionId, args) {
 
  async function routeRhizomeNeed(db, sessionId, args) {
   return rhizome.routeToCapability(sessionId, args.need || {}, { db });
+}
+ function evaporateRhizomeTrails(db, sessionId) {
+  return rhizome.evaporateTrails(sessionId, { db });
 }
 
 async function stepRhizome(db, sessionId, args) {
@@ -58,7 +65,7 @@ async function assessBiome(db, sessionId, args) {
 
 const OPERATIONS = {
   syncytium: { snapshot: (db, id) => syncytium.snapshot(id, { db }), apply: applySyncytium },
-  rhizome: { snapshot: rhizomeSnapshot, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth },
+  rhizome: { snapshot: rhizomeSnapshot, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails },
   biome: { snapshot: (db, id) => biome.sessionSnapshot(id, { db }), allocate: allocateBiome, forage: forageBiome, health: assessBiome }
 };
 

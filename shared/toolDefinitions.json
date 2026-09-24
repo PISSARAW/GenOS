@@ -534,6 +534,7 @@
               "slime",
               "gap",
               "grow",
+              "evaporate",
               "allocate",
               "forage",
               "health"
@@ -568,6 +569,35 @@
           },
           "threshold": {
             "type": "number"
+          },
+          "trail_kind": {
+            "type": "string"
+          },
+          "capability": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "half_life_ms": {
+            "type": "number"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "mission",
+              "workspace",
+              "persistent"
+            ]
           },
           "edges": {
             "type": "array",
