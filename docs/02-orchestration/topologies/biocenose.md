@@ -1,7 +1,7 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
 - **Statut** : Topologie disponible ; le service assemble une communauté et expose des évaluations et métriques. Le protocole épistémique complet décrit dans cette page n'est pas implémenté de bout en bout.
-- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, évaluation Pareto et métriques de diversité.
+- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-09-24
 
 Biocénose est une topologie spécialisée dans le cadre morphogénétique de GenOS : la
@@ -72,6 +72,12 @@ présentes dans `biocenoseService` sont les suivantes :
 - `recordDissent` conserve les claims concernés, les membres de soutien, les preuves
   citées et les évaluations de matérialité/sévérité. Les changements de statut sont
   des événements append-only ; l'entrée d'origine reste intacte ;
+- `reviseBelief` persiste les positions précédente/nouvelle, les claims modifiés, les
+  motifs et les références de preuve. Une majorité ou une autorité seule est refusée
+  pour les claims que l'appelant déclare critiques ; les révisions sociales sans preuve
+  sont signalées comme conformité, et des changements rapprochés sur le même claim
+  sont signalés comme risque de groupthink. Ces signaux restent des indicateurs, pas
+  une détection de causalité ni un blocage automatique ;
 - `evaluateMinorityEvidenceVeto` requiert un reçu de vérification fourni par un
   vérificateur de confiance avant de retourner `PROMOTION_BLOCKED`. C'est un évaluateur
   de politique ; il n'est pas encore branché sur la porte générale de promotion et ne
