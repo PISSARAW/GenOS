@@ -373,7 +373,8 @@ const recordCodeBuildState = (sessionId, build, options = {}) => codeVariant.rec
 const codeSnapshot = (sessionId, options = {}) => codeVariant.snapshot(sessionId, options);
 const variantFacade = createVariantFacade({
   createSession, applyOperation, applyTransaction, snapshot, createSnapshot, listSnapshots,
-  compactHistory, explain, localizeFaults, chooseRepairCandidates, repairInvariant
+  compactHistory, explain, localizeFaults, chooseRepairCandidates, repairInvariant,
+  inspectHistory: sessionHistory.inspectHistory, inspectConflicts: diagnostics.inspectConflicts
 });
 
 async function closeSession(sessionId, options = {}) {

@@ -22,6 +22,7 @@ const { evolveWorkerGenome } = require('../agentEvolutionService');
 const { buildCapabilityManifest } = require('../capabilityResolverService');
 const { getRelations, getState: getCollectiveState } = require('../collectiveStateService');
 const { getPhenotype, getAuthorityProfile } = require('./phenotypeRegistryService');
+const { resolveWorkerKind } = require('./workerKindService');
 const { phenotypeFromRecipe } = require('../cognitivePhenotypeService');
 const { getClinicalState, refreshClinicalState, getClinicalSummary } = require('../medical/clinicalStateService');
 
@@ -117,9 +118,10 @@ function derivePlasmids(genotype) {
 function computePhenotype({ genotype, epigeneticState, assignment }) {
   const genes = genotype?.genes || {};
   const role = genes.role || assignment?.role || 'worker';
-  const registryPhenotype = getPhenotype(role);
+  const workerKind = resolveWorkerKind(assignment?.workerKind || genes.workerKind, role);
+  const registryPhenotype = getPhenotype(workerKind);
   return {
-    role, strategy: genes.strategy || 'tree-search',
+    role, workerKind, strategy: genes.strategy || 'tree-search',
     capabilities: safeArray(genes.capabilities), tools: safeArray(genes.tools),
     cognitiveRecipe: assignment?.cognitiveRecipe || null, artifact: assignment?.artifact || null,
     neotenicMode: epigeneticState?.neotenicMode || 'plastique',
@@ -144,7 +146,7 @@ function buildManifest({ phenotype, mission, assignment, budget }) {
 
 // Step 8
 function loadAuthority({ phenotype, assignment, parentOrchestrator }) {
-  const registryAuth = getAuthorityProfile(phenotype.role);
+  const registryAuth = getAuthorityProfile(phenotype.workerKind || phenotype.role);
   const ap = assignment?.authorityProfile || {};
   return {
     constraints: ap.constraints || {}, maxBlastRadius: firstDef(ap.maxBlastRadius, 0.4),
@@ -163,7 +165,7 @@ function loadRelations({ agentId, assignment }) {
 
 // Step 10
 function buildCommunicationManifest({ phenotype, assignment }) {
-  const commProfile = getPhenotype(phenotype.role)?.communicationProfile || {};
+  const commProfile = getPhenotype(phenotype.workerKind || phenotype.role)?.communicationProfile || {};
   return {
     signal: firstDef(commProfile.signal, true), publish: firstDef(commProfile.publish, false),
     inbox: firstDef(commProfile.inbox, false), broadcast: firstDef(commProfile.broadcast, false),

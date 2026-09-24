@@ -9,6 +9,7 @@ function createPopulation(input = {}) {
   return {
     populationId: requiredId(input.populationId, 'populationId'),
     nicheId: requiredId(input.nicheId, 'nicheId'),
+    patchId: input.patchId || null,
     individuals: Array.isArray(input.individuals) ? input.individuals.map(createIndividual) : [],
     spores: Array.isArray(input.spores) ? input.spores : [],
     strategies: Array.isArray(input.strategies) ? input.strategies : [],

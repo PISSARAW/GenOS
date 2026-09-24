@@ -3,19 +3,25 @@
 const { requiredId } = require('./contractHelpers');
 
 function createIndividual(input = {}) {
+  const phenotype = input.phenotype || {};
   return {
     individualId: requiredId(input.individualId, 'individualId'),
-    role: String(input.role || 'worker').trim(),
-    genome: input.genome || null,
-    phenotype: input.phenotype || {},
-    cognitiveRecipe: input.cognitiveRecipe || input.phenotype?.cognitiveRecipe || null,
+    role: String(defaulted(input, 'role', 'worker')).trim(),
+    genome: defaulted(input, 'genome', null),
+    phenotype,
+    cognitiveRecipe: defaulted(input, 'cognitiveRecipe', defaulted(phenotype, 'cognitiveRecipe', null)),
     capabilities: stringList(input.capabilities),
     fundamentalNicheIds: stringList(input.fundamentalNicheIds),
-    realizedNicheId: input.realizedNicheId || null,
-    nicheAssessment: input.nicheAssessment || null,
+    realizedNicheId: defaulted(input, 'realizedNicheId', null),
+    patchId: defaulted(input, 'patchId', null),
+    nicheAssessment: defaulted(input, 'nicheAssessment', null),
     fitnessReceipts: Array.isArray(input.fitnessReceipts) ? input.fitnessReceipts : [],
-    status: input.status || 'active'
+    status: defaulted(input, 'status', 'active')
   };
+}
+
+function defaulted(source, key, fallback) {
+  return source[key] || fallback;
 }
 
 function stringList(value) {

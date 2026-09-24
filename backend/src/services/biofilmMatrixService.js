@@ -1,5 +1,8 @@
 'use strict';
 
+const environmentalTrailStore = require('./biome/environmentalMemory/environmentalTrailStore');
+const stigmergicRoutingService = require('./biome/environmentalMemory/stigmergicRoutingService');
+
 function createMatrix(matrixId, options = {}) {
   return {
     matrixId: String(matrixId || `matrix-${Date.now()}`),
@@ -37,4 +40,7 @@ function compact(matrix, keepKinds = []) {
   return { matrixId: matrix.matrixId, version: matrix.version, entries: matrix.entries.size };
 }
 
-module.exports = { createMatrix, deposit, read, compact };
+module.exports = { createMatrix, deposit, read, compact,
+  depositEnvironmentalTrail: environmentalTrailStore.deposit,
+  readEnvironmentalTrails: environmentalTrailStore.read,
+  rankEnvironmentalLocations: stigmergicRoutingService.rankLocations };

@@ -86,7 +86,8 @@ function enforceMissionToolLease(ctx) {
     ctx.autonomyPlan
   );
   const policy = leasePolicy.derivePolicyLease({ executionMode: dispatched.execution_mode, role, plan: ctx.autonomyPlan, capabilities });
-  mission.toolLease = leasePolicy.restrictProvidedLease(provided, policy);
+  const bounded = leasePolicy.restrictProvidedLease(provided, policy);
+  mission.toolLease = mission.workerContract?.authority?.execute === false ? [] : bounded;
   ctx.normalizedMission = mission;
 }
 

@@ -22,6 +22,7 @@ const FULL_MEMORY = Object.freeze({
 const ALL_COMM = Object.freeze({
   signal: true, publish: true, inbox: true, broadcast: true
 });
+const workerKinds = require('./workerKindService');
 
 const PHENOTYPES = Object.freeze({
   ScoutCell: Object.freeze({
@@ -211,7 +212,22 @@ const PHENOTYPES_BY_ID = Object.freeze(
 );
 
 function getPhenotype(id) {
-  return PHENOTYPES_BY_ID.get(id) || null;
+  const existing = PHENOTYPES_BY_ID.get(id);
+  if (existing) return existing;
+  const normalized = workerKinds.normalize(id);
+  const kind = workerKinds.KINDS[normalized] ? normalized : workerKinds.ROLE_ALIASES[normalized];
+  if (!kind) return null;
+  const definition = workerKinds.kindDefinition(kind);
+  const base = PHENOTYPES_BY_ID.get(definition.authorityPhenotype);
+  if (!base) return null;
+  const idValue = kind.split('_').map((part) => part[0].toUpperCase() + part.slice(1)).join('');
+  return Object.freeze({
+    ...base,
+    id: idValue,
+    workerKind: kind,
+    description: `${base.description} (${kind})`,
+    authorityProfile: Object.freeze(workerKinds.applyAuthorityOverrides(kind, base.authorityProfile))
+  });
 }
 
 function listPhenotypes() {

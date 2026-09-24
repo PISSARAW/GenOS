@@ -31,6 +31,7 @@ const AUTHORITY_DIMENSIONS = Object.freeze([
   'escalate',
   'reconcile'
 ]);
+const workerKinds = require('./agents/workerKindService');
 
 const PROFILES = Object.freeze({
   ScoutCell: {
@@ -139,50 +140,72 @@ function resolveCanonical(id) {
   const byLower = Object.keys(PROFILES).find((k) => k.toLowerCase() === lower);
   if (byLower) return byLower;
   if (LEGACY_ALIASES[lower]) return LEGACY_ALIASES[lower];
+  const normalized = workerKinds.normalize(raw);
+  const kind = workerKinds.KINDS[normalized] ? normalized : workerKinds.ROLE_ALIASES[normalized];
+  if (kind) return workerKinds.kindDefinition(kind).authorityPhenotype;
   return null;
+}
+
+function resolveKind(id) {
+  const normalized = workerKinds.normalize(id);
+  if (workerKinds.KINDS[normalized]) return normalized;
+  return workerKinds.ROLE_ALIASES[normalized] || null;
 }
 
 function can(phenotypeId, action) {
   const canonical = resolveCanonical(phenotypeId);
   if (!canonical) return false;
-  const authorities = PROFILES[canonical].authorities || {};
+  const base = PROFILES[canonical].authorities || {};
+  const kind = resolveKind(phenotypeId);
+  const authorities = kind ? workerKinds.applyAuthorityOverrides(kind, base) : base;
   return Boolean(authorities[action]);
 }
 
 function getAuthorityProfile(phenotypeId) {
   const canonical = resolveCanonical(phenotypeId);
   if (!canonical) return null;
+  const kind = resolveKind(phenotypeId);
+  const authorities = kind
+    ? workerKinds.applyAuthorityOverrides(kind, PROFILES[canonical].authorities)
+    : PROFILES[canonical].authorities;
   return {
     phenotypeId: canonical,
     description: PROFILES[canonical].description,
-    authorities: Object.assign({}, PROFILES[canonical].authorities)
+    authorities: Object.assign({}, authorities)
   };
 }
 
 function validateAction(agent, action) {
   if (!agent) return { allowed: false, reason: 'No agent provided.' };
   if (!action) return { allowed: false, reason: 'No action specified.' };
-  const raw = agent.phenotype_id || agent.phenotypeId;
+  const raw = agent.phenotype_id || agent.phenotypeId || agent.workerKind || metadataWorkerKind(agent.metadata_json);
   if (!raw) return { allowed: false, reason: 'Agent has no phenotype.' };
   const canonical = resolveCanonical(raw);
   if (!canonical) return { allowed: false, reason: `Unknown phenotype: '${raw}'.` };
   if (!AUTHORITY_DIMENSIONS.includes(action)) return { allowed: false, reason: `Unknown action: '${action}'.` };
-  if (can(canonical, action)) return { allowed: true, reason: null };
+  if (can(raw, action)) return { allowed: true, reason: null };
   return { allowed: false, reason: `Phenotype '${canonical}' is not authorized to perform '${action}'.` };
+}
+
+function metadataWorkerKind(value) {
+  try {
+    const metadata = typeof value === 'string' ? JSON.parse(value) : value || {};
+    return metadata.workerKind || null;
+  } catch (_) {
+    return null;
+  }
 }
 
 function getAllowedActions(phenotypeId) {
   const canonical = resolveCanonical(phenotypeId);
   if (!canonical) return [];
-  const authorities = PROFILES[canonical].authorities || {};
-  return Object.keys(authorities).filter((action) => authorities[action]);
+  return AUTHORITY_DIMENSIONS.filter((action) => can(phenotypeId, action));
 }
 
 function getForbiddenActions(phenotypeId) {
   const canonical = resolveCanonical(phenotypeId);
   if (!canonical) return [];
-  const authorities = PROFILES[canonical].authorities || {};
-  return Object.keys(authorities).filter((action) => !authorities[action]);
+  return AUTHORITY_DIMENSIONS.filter((action) => !can(phenotypeId, action));
 }
 
 function listPhenotypes() {

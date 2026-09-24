@@ -1,8 +1,9 @@
-module.exports = { createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers };
+module.exports = { createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers, workerIdentity };
 
 const path = require('path');
 const circuitBreaker = require('./circuitBreaker');
 const workerGarage = require('./workerGarageService');
+const workerKinds = require('./agents/workerKindService');
 const { localWorkerRoute } = require('./agentModelRoutingService');
 const { autonomousWorkerId } = require('./agentRoundService');
 const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
@@ -93,7 +94,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   if (!circuit.allowed) {
     throw new Error(`Worker deployment rejected: ${circuit.message}`);
   }
-
+  
   const plan = options.plan ?? options;
   const mission = options.mission ?? (arguments[3] || {});
   const assignments = plan.dispatchWorkers || [];
@@ -111,7 +112,8 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const workerIds = assignments.map((_, index) => autonomousWorkerId(orchestrator.id, index + 1));
   try {
     for (const [index, assignment] of assignments.entries()) {
-      workers.push(await createWorker({ db, orchestrator, assignment, index, id: workerIds[index], usedNames, ...context }));
+      const typedAssignment = { ...assignment, workerKind: workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role) };
+      workers.push(await createWorker({ db, orchestrator, assignment: typedAssignment, index, id: workerIds[index], usedNames, ...context }));
     }
   } catch (error) {
     error.createdWorkers = await includePersistedWorkers(db, parent.id, { workers, workerIds });
@@ -125,7 +127,7 @@ async function includePersistedWorkers(db, parentId, context) {
   if (!workerIds.length) return workers;
   const placeholders = workerIds.map(() => '?').join(', ');
   const rows = await db.all(
-    `SELECT id AS agentId, name, role FROM agents WHERE parent_agent_id = ? AND id IN ()`,
+    `SELECT id AS agentId, name, role FROM agents WHERE parent_agent_id = ? AND id IN (${placeholders})`,
     parentId,
     ...workerIds
   );
@@ -198,6 +200,7 @@ function buildWorkerPrompt(details) {
     dnaPrompt,
     Array.isArray(assignment.capabilities) && assignment.capabilities.length ? `Owned capabilities: ${assignment.capabilities.join(', ')}.` : null,
     `Hypothesis: ${assignment.hypothesis}`,
+    `Worker kind: ${assignment.workerKind}. ${workerKinds.promptRule(assignment.workerKind)}`,
     phenotypeBlock,
     creative ? 'Creative evidence must include artifact="creative", artifactText, and creativeEvaluation with a 0..1 rubric for craft, coherence, originality, emotionalImpact, and constraintCoverage; include revisions and criticEvidence when available.' : null,
     context.plan.tokenPolicy.allocation === 'successive_halving_with_reallocation' ? `Budget round: initial screening. Use at most ${context.perWorkerTokens} tokens.` : `Budget allocation: ${context.perWorkerTokens} tokens.`
@@ -273,7 +276,7 @@ async function persistWorker(db, details) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       await withTransaction(db, async () => {
-        await db.run(`INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, dissonance_level, eureka_count, cognitive_budget, is_apoptotic) VALUES (?, ?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?, ?, ?, ?, ?)`, ...workerInsertValues(details));
+        await db.run(`INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, dissonance_level, eureka_count, cognitive_budget, is_apoptotic, metadata_json) VALUES (?, ?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?, ?, ?, ?, ?, ?)`, ...workerInsertValues(details));
         const debit = await db.run(`UPDATE agents SET cognitive_budget = ROUND(MAX(0, COALESCE(cognitive_budget, 0) - ?), 6), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND (cognitive_budget >= ? OR (? - cognitive_budget) < 0.0001)`, perWorkerCognitiveBudget, parent.id, perWorkerCognitiveBudget, perWorkerCognitiveBudget);
         if (debit.changes !== 1) {
           throw Object.assign(new Error(`Unable to debit inherited cognitive budget from orchestrator '${parent.id}'.`), { code: 'BUDGET_INHERITANCE_FAILURE' });
@@ -299,8 +302,9 @@ async function persistWorker(db, details) {
 }
 
 function workerInsertValues(details) {
-  const { id, identity, assignment, parent, route, conscience, prompt, assignedTokens } = details;
-  return [id, identity.name, identity.name_meaning, assignment.role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null, route.selectedModel || assignment.modelTier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id, `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt, conscience.dissonanceLevel, conscience.eurekaMoments, conscience.currentBudget, conscience.isApoptotic ? 1 : 0];
+  const { id, identity, assignment, parent, route, conscience, prompt, assignedTokens, mission } = details;
+  const workerContract = workerKinds.buildWorkerContract(assignment.workerKind, { prompt: mission.prompt, scope: mission.workspaceRoot, orchestratorAgentId: parent.id });
+  return [id, identity.name, identity.name_meaning, assignment.role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null, route.selectedModel || assignment.modelTier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id, `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt, conscience.dissonanceLevel, conscience.eurekaMoments, conscience.currentBudget, conscience.isApoptotic ? 1 : 0, JSON.stringify({ workerKind: assignment.workerKind, workerContract })];
 }
 
 function resolveGenotypeRef(evolution) {
@@ -331,14 +335,14 @@ function formatWorker(details) {
   const capabilities = assignmentCapabilities(assignment);
   const toolLease = effectiveToolLease(assignment, capabilities, dnaSelection);
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
-  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, capabilities, assignments: assignmentList, mission }), ...buildWorkerMeta(details) };
+  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt, mission }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, capabilities, assignments: assignmentList, mission }), ...buildWorkerMeta(details) };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
   return worker;
 }
 
 function workerIdentity(details) {
-  const { id, identity, assignment, parent, plan, prompt } = details;
-  return { agentId: id, label: assignment.label || id, name: identity.name, nameMeaning: identity.name_meaning, introduction: identity.introduction, role: assignment.role, prompt, branchAssignment: `${assignment.label}: ${assignment.hypothesis}`, artifact: assignment.artifact || plan.aTeam?.artifact || plan.trinity?.artifact || null, pipelineStage: Math.max(0, Number(assignment.pipelineStage || 0)), dependsOn: Array.isArray(assignment.dependsOn) ? assignment.dependsOn : [], modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, cognitiveRecipe: assignment.cognitiveRecipe || null };
+  const { id, identity, assignment, parent, plan, prompt, mission } = details;
+  return { agentId: id, label: assignment.label || id, name: identity.name, nameMeaning: identity.name_meaning, introduction: identity.introduction, role: assignment.role, workerKind: assignment.workerKind, workerContract: workerKinds.buildWorkerContract(assignment.workerKind, { prompt: mission.prompt, scope: mission.workspaceRoot, orchestratorAgentId: parent.id }), prompt, branchAssignment: `${assignment.label}: ${assignment.hypothesis}`, artifact: assignment.artifact || plan.aTeam?.artifact || plan.trinity?.artifact || null, pipelineStage: Math.max(0, Number(assignment.pipelineStage || 0)), dependsOn: Array.isArray(assignment.dependsOn) ? assignment.dependsOn : [], modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, cognitiveRecipe: assignment.cognitiveRecipe || null };
 }
 
 function inheritedWorkerEngine(mission) {

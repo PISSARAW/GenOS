@@ -1,6 +1,7 @@
 'use strict';
 
 const { assessCompatibility } = require('./nicheCompatibilityService');
+const { createIndividual } = require('../contracts/individual');
 
 function assessIndividual(individual = {}, niches = []) {
   const capabilities = resolveCapabilities(individual);
@@ -18,6 +19,18 @@ function assessIndividual(individual = {}, niches = []) {
       reason: realized ? 'best_available_fit' : 'no_available_compatible_niche'
     }
   };
+}
+
+function assessAndStore(ecology, individuals) {
+  const assessed = (Array.isArray(individuals) ? individuals : []).map((input) => {
+    const individual = createIndividual(input);
+    const result = assessIndividual(individual, ecology.niches);
+    return createIndividual({ ...individual, ...result, nicheAssessment: result.assessment });
+  });
+  const stored = new Map((ecology.ecologicalState.individuals || []).map((item) => [item.individualId, item]));
+  for (const individual of assessed) stored.set(individual.individualId, individual);
+  ecology.ecologicalState.individuals = [...stored.values()];
+  return assessed;
 }
 
 function resolveCapabilities(individual) {
@@ -53,4 +66,4 @@ function asList(value) {
   return typeof value === 'string' ? [value] : [];
 }
 
-module.exports = { assessIndividual };
+module.exports = { assessIndividual, assessAndStore };

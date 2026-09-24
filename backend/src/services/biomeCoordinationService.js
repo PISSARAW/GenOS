@@ -20,6 +20,8 @@ const nicheLifecycleService = require('./biome/niches/nicheLifecycleService');
 const nicheStore = require('./biome/niches/nicheStore');
 const agentNicheService = require('./biome/niches/agentNicheService');
 const populationRuntimeService = require('./biome/populations/populationRuntimeService');
+const ecologicalForagingController = require('./biome/foraging/ecologicalForagingController');
+const foragingActionExecutor = require('./biome/foraging/foragingActionExecutor');
 const crypto = require('crypto');
 
 const DEFAULT_ORGANIZATION = 'energy_huddle';
@@ -229,14 +231,41 @@ async function allocateSessionResources(sessionId, populations, options = {}) {
 }
 
 async function forageSession(sessionId, patchHistory, options = {}) {
-  const result = forageStep(patchHistory, options);
-  return applyOperation({ sessionId, options, operation: 'forage', input: { patchHistory, iteration: options.iteration, elapsedTimeSec: options.elapsedTimeSec, alternativePatch: options.alternativePatch }, apply: (session) => {
-    const action = result.patchYield.decision === 'PATCH_DEPARTURE'
-      ? { type: 'MIGRATE_PATCH', status: 'requested', targetPatch: options.alternativePatch || null }
-      : { type: 'CONTINUE_FORAGING', status: 'applied' };
-    biofilmMatrix.deposit(session.matrix, { key: `forage:${session.matrix.version + 1}`, kind: 'foraging_observation', ...result, action });
-    return { ...result, action, matrixVersion: session.matrix.version };
+  return applyOperation({ sessionId, options, operation: 'forage', input: {
+    patchHistory, currentPatchId: options.currentPatchId, alternativePatches: options.alternativePatches,
+    alternativePatch: options.alternativePatch, populationId: options.populationId,
+    individualId: options.individualId, migrationCost: options.migrationCost,
+    switchCost: options.switchCost, elapsedTimeSec: options.elapsedTimeSec
+  }, apply: (session) => {
+    const alternatives = options.alternativePatches || legacyAlternative(options);
+    const decision = ecologicalForagingController.decide({
+      ecology: session.ecology, patchHistory, currentPatchId: currentPatch(options),
+      currentDescriptor: options.currentDescriptor, currentMarginalReturn: options.currentMarginalReturn,
+      currentSpace: options.currentSpace, stepsWithoutProgress: options.stepsWithoutProgress, iteration: options.iteration,
+      alternatives, switchCost: options.switchCost, elapsedTimeSec: options.elapsedTimeSec,
+      environmentThreshold: options.environmentThreshold
+    });
+    persistPatchHistory(session.ecology, currentPatch(options), patchHistory);
+    const executed = foragingActionExecutor.execute(session.ecology, decision, options);
+    const result = { ...decision, ...executed, levyStep: forageStep(patchHistory, options).levyStep };
+    biofilmMatrix.deposit(session.matrix, { key: `forage:${session.matrix.version + 1}`, kind: 'foraging_observation', ...result });
+    return { ...result, matrixVersion: session.matrix.version };
   } });
+}
+
+function legacyAlternative(options) {
+  return options.alternativePatch ? [{ patchId: options.alternativePatch, descriptor: options.alternativePatch,
+    expectedReturn: options.alternativeReturn, switchCost: options.switchCost }] : [];
+}
+
+function currentPatch(options) {
+  return options.currentPatchId || options.currentPatch || null;
+}
+
+function persistPatchHistory(ecology, patchId, patchHistory) {
+  if (!patchId) return;
+  const histories = ecology.ecologicalState.patchHistories || {};
+  ecology.ecologicalState.patchHistories = { ...histories, [patchId]: patchHistory };
 }
 
 async function assessSessionHealth(sessionId, observations, options = {}) {
@@ -277,7 +306,7 @@ function makeReceipt(context) {
   const appliedActions = output.action ? [output.action]
     : (output.allocations || []).map((allocation) => ({ type: 'RESOURCE_ALLOCATION', ...allocation }));
   return createEcologicalEvent({ operationId, sessionId, actorId, previousRevision, resultingRevision, input,
-    decision: output.patchYield?.decision || operation, appliedActions,
+    decision: output.decision || output.patchYield?.decision || operation, appliedActions,
     evidenceRefs: options.evidenceRefs || [], timestamp });
 }
 

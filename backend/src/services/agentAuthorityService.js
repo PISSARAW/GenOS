@@ -61,8 +61,14 @@ function assertToolLeaseFresh(agent, toolLease, plan) {
 async function authorizeMission(db, agentOrOptions, ...legacyArgs) {
   const options = normalizeMissionArgs(agentOrOptions, legacyArgs);
   const { agentId, orchestratorAgentId, workspaceId } = options;
-  const agent = await db.get('SELECT id, name, execution_mode, parent_agent_id, workspace_id, status, isolation_mode, role FROM agents WHERE id = ?', agentId);
+  const agent = await db.get('SELECT id, name, execution_mode, parent_agent_id, workspace_id, status, isolation_mode, role, metadata_json FROM agents WHERE id = ?', agentId);
   assertMissionAgent(agent, agentId, workspaceId);
+  if (agent.execution_mode === 'worker') {
+    try {
+      const metadata = typeof agent.metadata_json === 'string' ? JSON.parse(agent.metadata_json) : agent.metadata_json || {};
+      agent.workerKind = metadata.workerKind || null;
+    } catch (_) { agent.workerKind = null; }
+  }
   const caps = options.capabilities !== undefined ? options.capabilities : (options.plan || options.autonomyPlan);
   assertToolLeaseFresh({ ...agent, capabilities: caps }, options.toolLease, options.plan || options.autonomyPlan);
   if (agent.execution_mode === 'orchestrator') return agent;

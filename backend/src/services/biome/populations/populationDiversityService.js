@@ -19,8 +19,9 @@ function measureDiversity(individuals) {
 function phenotypeSignature(individual) {
   const capabilities = Array.isArray(individual.capabilities) ? [...individual.capabilities].sort() : [];
   const phenotype = individual.phenotype || {};
-  const strategy = phenotype.strategy || phenotype.cognitiveRecipe || '';
-  return JSON.stringify({ role: individual.role || 'worker', capabilities, strategy });
+  const strategy = phenotype.strategy || '';
+  const recipeId = individual.cognitiveRecipe?.id || phenotype.cognitiveRecipe?.id || '';
+  return JSON.stringify({ role: individual.role || 'worker', capabilities, strategy, recipeId });
 }
 
 module.exports = { measureDiversity };
