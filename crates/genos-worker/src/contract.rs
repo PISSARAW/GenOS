@@ -34,12 +34,14 @@ pub struct WorkerNiche {
 
 /// Autorite effective. Jamais auto-extensible (invariant 1).
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct AuthorityProfile {
     pub read: bool,
     pub execute: bool,
     pub write: bool,
     pub delegate: bool,
     pub spawn: bool,
+    pub promote: bool,
     pub topology_change: bool,
     pub genome_change: bool,
 }
@@ -52,6 +54,7 @@ impl Default for AuthorityProfile {
             write: false,
             delegate: false,
             spawn: false,
+            promote: false,
             topology_change: false,
             genome_change: false,
         }
@@ -119,6 +122,7 @@ pub struct LifecycleSpec {
 
 /// Contrat runtime commun. Rempli differemment par chaque phenotype.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct WorkerRuntimeContract {
     pub identity: WorkerIdentity,
     pub mission: WorkerMission,
@@ -130,6 +134,8 @@ pub struct WorkerRuntimeContract {
     pub expressed_capabilities: Vec<String>,
     pub requestable_capabilities: Vec<String>,
     pub authority: AuthorityProfile,
+    pub delegation_depth: u32,
+    pub spawn_budget: u32,
     pub tool_lease: Vec<String>,
     pub memory: MemoryProfile,
     pub comms: CommsProfile,
@@ -165,11 +171,24 @@ fn check_mission(contract: &WorkerRuntimeContract, out: &mut Vec<ContractError>)
 }
 
 fn check_spawn_coherence(contract: &WorkerRuntimeContract, out: &mut Vec<ContractError>) {
-    if !contract.authority.spawn && contract.lifecycle.max_iterations.is_none() {
-        return;
+    if contract.authority.spawn {
+        if contract.spawn_budget == 0 {
+            out.push(err("spawn_budget", "spawn exige un budget positif"));
+        }
+        if !contract.tool_lease.iter().any(|tool| tool == "spawn_capped") {
+            out.push(err("tool_lease", "spawn exige le lease spawn_capped"));
+        }
+        if contract.resources.tokens == 0 {
+            out.push(err("resources.tokens", "spawn exige un budget tokens"));
+        }
+    } else if contract.spawn_budget > 0 {
+        out.push(err("spawn_budget", "sans autorite spawn, le budget doit etre nul"));
     }
-    if contract.authority.spawn && contract.resources.tokens == 0 {
-        out.push(err("resources.tokens", "spawn exige un budget tokens"));
+    if contract.authority.delegate && contract.delegation_depth == 0 {
+        out.push(err("delegation_depth", "delegation exige une profondeur positive"));
+    }
+    if !contract.authority.delegate && contract.delegation_depth > 0 {
+        out.push(err("delegation_depth", "sans autorite delegate, la profondeur doit etre nulle"));
     }
 }
 

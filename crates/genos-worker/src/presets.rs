@@ -265,6 +265,8 @@ pub fn suborchestrator_preset(input: &PresetInput) -> WorkerRuntimeContract {
     c.authority.delegate = true;
     c.authority.spawn = true;
     c.tool_lease = vec!["spawn_capped".to_string()];
+    c.delegation_depth = 1;
+    c.spawn_budget = 5;
     c.resources.tokens = 20_000;
     c.lifecycle.max_iterations = Some(30);
     c

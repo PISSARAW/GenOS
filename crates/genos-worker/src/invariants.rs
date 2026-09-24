@@ -7,11 +7,16 @@ use serde::{Deserialize, Serialize};
 
 /// Action a impact proposee par un worker.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ActionRequest {
     pub kind: String,
     pub uses_lease: bool,
     pub tool: Option<String>,
     pub wants_spawn: bool,
+    pub wants_delegate: bool,
+    pub wants_promotion: bool,
+    pub active_spawn_count: u32,
+    pub requested_delegation_depth: u32,
     pub wants_authority_gain: bool,
     pub wants_topology_change: bool,
     pub wants_genome_change: bool,
@@ -37,6 +42,9 @@ fn check_authority_gain(contract: &WorkerRuntimeContract, action: &ActionRequest
     if action.wants_authority_gain {
         return Some(deny(1, "un worker ne peut jamais augmenter sa propre autorite"));
     }
+    if action.wants_promotion && !contract.authority.promote {
+        return Some(deny(4, "promotion non autorisee par le contrat"));
+    }
     if action.wants_topology_change && !contract.authority.topology_change {
         return Some(deny(5, "changement de topologie non autorise"));
     }
@@ -58,8 +66,36 @@ fn check_lease(contract: &WorkerRuntimeContract, action: &ActionRequest) -> Opti
 }
 
 fn check_spawn(contract: &WorkerRuntimeContract, action: &ActionRequest) -> Option<InvariantViolation> {
-    if action.wants_spawn && !contract.authority.spawn {
+    if !action.wants_spawn {
+        return None;
+    }
+    if !contract.authority.spawn {
         return Some(deny(8, "spawn exige une permission explicite"));
+    }
+    if !action.uses_lease {
+        return Some(deny(2, "spawn exige le lease courant"));
+    }
+    if action.active_spawn_count >= contract.spawn_budget {
+        return Some(deny(8, "budget de spawn epuise"));
+    }
+    if action.requested_delegation_depth > contract.delegation_depth {
+        return Some(deny(8, "profondeur de delegation depassee"));
+    }
+    None
+}
+
+fn check_delegate(contract: &WorkerRuntimeContract, action: &ActionRequest) -> Option<InvariantViolation> {
+    if !action.wants_delegate {
+        return None;
+    }
+    if !contract.authority.delegate {
+        return Some(deny(8, "delegation exige une permission explicite"));
+    }
+    if !action.uses_lease {
+        return Some(deny(2, "delegation exige le lease courant"));
+    }
+    if action.requested_delegation_depth > contract.delegation_depth {
+        return Some(deny(8, "profondeur de delegation depassee"));
     }
     None
 }
@@ -75,8 +111,11 @@ fn check_scope(contract: &WorkerRuntimeContract, action: &ActionRequest) -> Opti
 }
 
 fn check_receipt(action: &ActionRequest) -> Option<InvariantViolation> {
-    let impacting = ["write", "spawn", "delegate", "topology", "execute"];
-    let is_impacting = impacting.iter().any(|k| action.kind.contains(k));
+    let impacting = ["write", "spawn", "delegate", "promote", "topology", "execute"];
+    let is_impacting = action.wants_spawn
+        || action.wants_delegate
+        || action.wants_promotion
+        || impacting.iter().any(|k| action.kind.contains(k));
     if is_impacting && !action.has_receipt {
         return Some(deny(15, "toute action a impact produit un receipt"));
     }
@@ -90,6 +129,7 @@ pub fn check_action(contract: &WorkerRuntimeContract, action: &ActionRequest) ->
         check_authority_gain(contract, action),
         check_lease(contract, action),
         check_spawn(contract, action),
+        check_delegate(contract, action),
         check_scope(contract, action),
         check_receipt(action),
     ] {

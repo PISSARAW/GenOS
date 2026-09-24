@@ -23,6 +23,36 @@ mod worker_tests {
             let c = preset_for(kind, &input());
             assert_eq!(c.identity.phenotype, kind.name());
             assert!(!c.evidence.required_artifacts.is_empty());
+            assert!(validate_contract(&c).is_empty(), "invalid preset: {}", kind.name());
+        }
+    }
+
+    #[test]
+    fn each_kind_declares_its_expected_artifact() {
+        use WorkerKind::*;
+        let expected = [
+            (ScoutCell, "scout_observation"),
+            (ResidentDaemon, "dossier"),
+            (BoundedWorker, "dossier"),
+            (AdaptiveWorker, "dossier"),
+            (Specialist, "dossier"),
+            (ProceduralExecutor, "dossier"),
+            (SymbioticWorker, "dossier"),
+            (VerifierWorker, "verification_report"),
+            (RedWorker, "verification_report"),
+            (ExperimentalWorker, "experiment_record"),
+            (FormalWorker, "formal_certificate"),
+            (SynthesisWorker, "synthesis_dossier"),
+            (CreativeWorker, "creative_candidate"),
+            (MedicalWorker, "clinical_report"),
+            (RecoveryWorker, "dossier"),
+            (ForensicWorker, "causal_dossier"),
+            (LiaisonWorker, "dossier"),
+            (TeachingWorker, "training_packet"),
+            (SubOrchestrator, "dossier"),
+        ];
+        for (kind, artifact) in expected {
+            assert_eq!(preset_for(kind, &input()).evidence.required_artifacts, [artifact]);
         }
     }
 
@@ -39,8 +69,63 @@ mod worker_tests {
     fn suborchestrator_can_spawn_bounded_can_not() {
         let sub = preset_for(WorkerKind::SubOrchestrator, &input());
         assert!(sub.authority.spawn);
+        assert_eq!(sub.spawn_budget, 5);
+        assert_eq!(sub.delegation_depth, 1);
         let bounded = preset_for(WorkerKind::BoundedWorker, &input());
         assert!(!bounded.authority.spawn);
+        assert_eq!(bounded.spawn_budget, 0);
+        assert_eq!(bounded.delegation_depth, 0);
+    }
+
+    #[test]
+    fn worker_presets_cannot_promote() {
+        for kind in WorkerKind::all() {
+            let c = preset_for(kind, &input());
+            assert!(!c.authority.promote, "{} can promote", kind.name());
+            let action = ActionRequest {
+                kind: "promote".to_string(),
+                wants_promotion: true,
+                has_receipt: true,
+                ..Default::default()
+            };
+            assert!(check_action(&c, &action).iter().any(|v| v.rule == 4));
+        }
+    }
+
+    #[test]
+    fn suborchestrator_spawn_and_delegation_are_capped() {
+        let c = preset_for(WorkerKind::SubOrchestrator, &input());
+        let spawn = ActionRequest {
+            kind: "spawn".to_string(),
+            uses_lease: true,
+            tool: Some("spawn_capped".to_string()),
+            wants_spawn: true,
+            has_receipt: true,
+            ..Default::default()
+        };
+        assert!(check_action(&c, &spawn).is_empty());
+        let no_lease = ActionRequest { uses_lease: false, ..spawn.clone() };
+        assert!(check_action(&c, &no_lease).iter().any(|v| v.rule == 2));
+        let exhausted = ActionRequest { active_spawn_count: 5, ..spawn.clone() };
+        assert!(check_action(&c, &exhausted).iter().any(|v| v.message.contains("budget")));
+        let too_deep = ActionRequest {
+            kind: "delegate".to_string(),
+            uses_lease: true,
+            tool: Some("spawn_capped".to_string()),
+            wants_delegate: true,
+            requested_delegation_depth: 2,
+            has_receipt: true,
+            ..Default::default()
+        };
+        assert!(check_action(&c, &too_deep).iter().any(|v| v.message.contains("profondeur")));
+    }
+
+    #[test]
+    fn older_serialized_authority_defaults_to_no_promotion() {
+        let authority: crate::contract::AuthorityProfile = serde_json::from_str(
+            r#"{"read":true,"execute":false,"write":false,"delegate":false,"spawn":false,"topology_change":false,"genome_change":false}"#,
+        ).unwrap();
+        assert!(!authority.promote);
     }
 
     #[test]

@@ -83,7 +83,7 @@ impl Default for AgentPhenotype {
     }
 }
 
-/// Les 18 types de workers GenOS.
+/// Les 19 types de workers GenOS.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WorkerKind {
     ScoutCell,
@@ -253,7 +253,8 @@ pub fn default_phenotype(kind: WorkerKind) -> AgentPhenotype {
         SubOrchestrator => {
             base.organizational_role = OrgRole::SubOrchestrator;
             base.adaptation_level = AdaptationLevel::BoundedCollective;
-            base.delegation_depth = 2;
+            base.delegation_depth = 1;
+            base.spawn_budget = 5;
         }
     }
     base
