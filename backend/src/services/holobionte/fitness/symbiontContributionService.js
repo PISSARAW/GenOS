@@ -4,6 +4,7 @@ const { randomUUID } = require('crypto');
 const { withTransaction } = require('../../../db');
 const store = require('../holobiontStore');
 const contracts = require('../contracts/symbiosisContractService');
+const immunePlane = require('../immune/holobiontImmunePlane');
 
 function contributionError(message, code = 'HOLOBIONT_CONTRIBUTION_INVALID') {
   return Object.assign(new Error(message), { code });
@@ -94,6 +95,21 @@ function contributionRecord(input, context) {
 async function recordContribution(db, input = {}) {
   const context = await contributionContext(db, input);
   const record = contributionRecord(input, context);
+  const immuneReview = await immunePlane.reviewSymbiontOutput({
+    symbiontId: record.symbiontId, resultHash: record.resultHash,
+    evidenceRefs: record.evidenceRefs, verifierId: record.verifierId,
+    claim: `Verified ${record.capability} contribution with score ${record.contributionScore}`,
+    riskScore: record.riskScore, selfVerified: input.selfVerified === true
+  });
+  record.immuneReview = immuneReview;
+  if (!immuneReview.allowed) {
+    const revision = await store.appendEvent(db, {
+      holobiontId: context.session.holobiontId, eventType: 'IMMUNE_REJECTION',
+      expectedRevision: context.session.revision, actorId: record.verifierId,
+      payload: { symbiontId: record.symbiontId, receiptId: record.receiptId, immuneReview }
+    });
+    return { accepted: false, reason: 'AEIS_IMMUNE_REJECTION', immuneReview, sessionRevision: revision };
+  }
   await withTransaction(db, async (tx) => {
     await store.appendEvent(tx, {
       holobiontId: context.session.holobiontId,
@@ -104,14 +120,15 @@ async function recordContribution(db, input = {}) {
     await tx.run(`INSERT INTO holobiont_symbiosis_ledger
       (ledger_id, receipt_id, holobiont_id, contract_id, contract_revision, symbiont_id,
        capability, benefit_score, contribution_score, cost_score, risk_score,
-       resources_used_json, evidence_refs_json, verifier_id, result_hash,
+       resources_used_json, evidence_refs_json, verifier_id, result_hash, immune_review_json,
        host_interventions, failures, false_alerts)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     record.ledgerId, record.receiptId, record.holobiontId, record.contractId,
     record.contractRevision, record.symbiontId, record.capability, record.benefitScore,
     record.contributionScore, record.costScore, record.riskScore,
     JSON.stringify(record.resourcesConsumed), JSON.stringify(record.evidenceRefs),
-    record.verifierId, record.resultHash, record.hostInterventions, record.failures, record.falseAlerts);
+    record.verifierId, record.resultHash, JSON.stringify(record.immuneReview),
+    record.hostInterventions, record.failures, record.falseAlerts);
   });
   return record;
 }
@@ -124,7 +141,8 @@ async function relationshipLedger(db, holobiontId, symbiontId) {
     benefitScore: row.benefit_score, contributionScore: row.contribution_score,
     costScore: row.cost_score, riskScore: row.risk_score,
     resourcesConsumed: JSON.parse(row.resources_used_json), evidenceRefs: JSON.parse(row.evidence_refs_json),
-    verifierId: row.verifier_id, resultHash: row.result_hash, hostInterventions: row.host_interventions,
+    verifierId: row.verifier_id, resultHash: row.result_hash,
+    immuneReview: JSON.parse(row.immune_review_json), hostInterventions: row.host_interventions,
     failures: row.failures, falseAlerts: row.false_alerts, createdAt: row.created_at
   }));
 }

@@ -61,6 +61,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0054](0054-classement-partenaires-holobionte.md) | Classement des partenaires Holobionte | Accepté | 2026-09-24 | Holobionte, sélection, capacités, risques, dépendance |
 | [0055](0055-plan-metabolique-ressources-holobionte.md) | Plan métabolique des ressources Holobionte | Accepté | 2026-09-24 | Holobionte, ressources, allocations, contribution, coûts |
 | [0056](0056-contribution-verifiee-ledger-holobionte.md) | Contribution vérifiée et ledger symbiotique Holobionte | Accepté | 2026-09-24 | Holobionte, contribution, preuves, fitness, persistance |
+| [0057](0057-plan-immunitaire-aeis-holobionte.md) | Plan immunitaire AEIS obligatoire pour Holobionte | Accepté | 2026-09-24 | Holobionte, AEIS, admission, preuves, sécurité |
 | [0051](0051-morphology-graph-and-topology-contracts.md) | Graphe morphologique et contrats typés de topologie | Proposé | 2026-09-24 | Orchestration, morphogenèse, topologies, preuves, budget |
 
 ## Cycle de vie d'un ADR

@@ -268,6 +268,10 @@ const migrationRunners = [
     const { migrateHolobiontLedger } = require('./migrateHolobiontLedger');
     await migrateHolobiontLedger(db);
   }),
+  createMigrationRunner('077-holobiont-immune-plane', 'Persist AEIS decisions attached to symbiotic contribution receipts (ADR 0057)', async (db) => {
+    const { migrateHolobiontImmunePlane } = require('./migrateHolobiontImmunePlane');
+    await migrateHolobiontImmunePlane(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

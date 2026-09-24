@@ -3,6 +3,7 @@
 const { randomUUID } = require('crypto');
 const store = require('../holobiontStore');
 const contracts = require('../contracts/symbiosisContractService');
+const immunePlane = require('../immune/holobiontImmunePlane');
 
 const MINIMUM_TRIAL_CONTRIBUTION = 0.6;
 
@@ -98,9 +99,19 @@ function trialReceipt(input, candidate) {
   return { receipt, contribution };
 }
 
-function decisionFor(input, contribution) {
-  if (input.contractCompliant !== true || input.unsafeBehavior === true) return 'QUARANTINED';
+function decisionFor(input, contribution, immuneReview) {
+  if (input.contractCompliant !== true || input.unsafeBehavior === true || !immuneReview.allowed) return 'QUARANTINED';
   return contribution >= MINIMUM_TRIAL_CONTRIBUTION ? 'ADMITTED' : 'REJECTED';
+}
+
+async function reviewTrial(input, receipt) {
+  return immunePlane.reviewSymbiontOutput({
+    symbiontId: input.symbiontId, resultHash: receipt.trialId,
+    evidenceRefs: receipt.evidenceRefs, verifierId: input.verifierId,
+    claim: `Trial contribution ${receipt.contributionScore} for ${receipt.capability}`,
+    riskScore: input.unsafeBehavior ? 0.95 : input.riskScore,
+    selfVerified: input.unsafeBehavior === true || input.selfVerified === true
+  });
 }
 
 async function evaluateTrial(db, input = {}) {
@@ -111,7 +122,9 @@ async function evaluateTrial(db, input = {}) {
   const candidate = candidateFor(session, symbiontId, 'TRIAL');
   if (!candidate.admissionTrial) throw admissionError('Trial sandbox record is missing.');
   const { receipt, contribution } = trialReceipt(input, candidate);
-  const decision = decisionFor(input, contribution);
+  const immuneReview = await reviewTrial(input, receipt);
+  receipt.immuneReview = immuneReview;
+  const decision = decisionFor(input, contribution, immuneReview);
   const eventType = decision === 'ADMITTED' ? 'SYMBIONT_ADMITTED'
     : decision === 'QUARANTINED' ? 'SYMBIONT_QUARANTINED' : 'SYMBIONT_REJECTED';
   const revision = await store.appendEvent(db, {

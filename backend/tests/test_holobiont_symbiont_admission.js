@@ -60,6 +60,7 @@ async function testRestrictedTrialAndAdmission(db, holobiontId) {
   const restored = await store.getSession(db, holobiontId);
   assert.strictEqual(restored.residentSymbionts[0].id, 'candidate-admission');
   assert.strictEqual(restored.residentSymbionts[0].admissionReceipt.receiptId, result.receipt.receiptId);
+  assert.strictEqual(restored.residentSymbionts[0].admissionReceipt.immuneReview.allowed, true);
 }
 
 async function testTrialRejectionAndBounds(db, holobiontId) {

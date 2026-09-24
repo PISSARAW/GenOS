@@ -6,6 +6,7 @@ const { open } = require('sqlite');
 const { migrateHolobiontSessions } = require('../src/db/migrations/migrateHolobiontSessions');
 const { migrateHolobiontContracts } = require('../src/db/migrations/migrateHolobiontContracts');
 const { migrateHolobiontLedger } = require('../src/db/migrations/migrateHolobiontLedger');
+const { migrateHolobiontImmunePlane } = require('../src/db/migrations/migrateHolobiontImmunePlane');
 const store = require('../src/services/holobionte/holobiontStore');
 const constitution = require('../src/services/holobionte/host/hostConstitutionService');
 const contracts = require('../src/services/holobionte/contracts/symbiosisContractService');
@@ -16,6 +17,7 @@ async function setup(db) {
   await migrateHolobiontSessions(db);
   await migrateHolobiontContracts(db);
   await migrateHolobiontLedger(db);
+  await migrateHolobiontImmunePlane(db);
   const session = await store.createSession(db, { hostId: 'host-ledger', missionId: 'mission-ledger' });
   await store.appendEvent(db, {
     holobiontId: session.holobiontId, eventType: 'SYMBIONT_DISCOVERED', expectedRevision: 1,
@@ -67,6 +69,7 @@ async function testVerifiedLedger(db, holobiontId) {
   const records = await ledger.relationshipLedger(db, holobiontId, 'sym-ledger');
   assert.strictEqual(records.length, 1);
   assert.strictEqual(records[0].resourcesConsumed.tokens, 35);
+  assert.strictEqual(records[0].immuneReview.allowed, true);
   assert.strictEqual(ledger.relationshipFitness(records).classification, 'MUTUALISTIC');
   const afterWrite = await store.getSession(db, holobiontId);
   assert.strictEqual(afterWrite.verifiedContributions.length, 1);

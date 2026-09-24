@@ -6,6 +6,7 @@ const { open } = require('sqlite');
 const { migrateHolobiontSessions } = require('../src/db/migrations/migrateHolobiontSessions');
 const { migrateHolobiontContracts } = require('../src/db/migrations/migrateHolobiontContracts');
 const { migrateHolobiontLedger } = require('../src/db/migrations/migrateHolobiontLedger');
+const { migrateHolobiontImmunePlane } = require('../src/db/migrations/migrateHolobiontImmunePlane');
 const store = require('../src/services/holobionte/holobiontStore');
 const constitution = require('../src/services/holobionte/host/hostConstitutionService');
 const contracts = require('../src/services/holobionte/contracts/symbiosisContractService');
@@ -17,6 +18,7 @@ async function setup(db) {
   await migrateHolobiontSessions(db);
   await migrateHolobiontContracts(db);
   await migrateHolobiontLedger(db);
+  await migrateHolobiontImmunePlane(db);
   const session = await store.createSession(db, { hostId: 'host-resource', missionId: 'mission-resource' });
   await store.appendEvent(db, {
     holobiontId: session.holobiontId, eventType: 'SYMBIONT_DISCOVERED', expectedRevision: 1,
