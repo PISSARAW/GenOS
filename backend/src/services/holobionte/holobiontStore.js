@@ -67,7 +67,11 @@ function recordCandidate(session, payload) {
 }
 
 function beginCandidateTrial(session, payload) {
-  updateSymbiont(session.candidateSymbionts, String(payload.symbiontId || ''), 'TRIAL');
+  updateSymbiont(session.candidateSymbionts, String(payload.symbiontId || ''), {
+    status: 'TRIAL',
+    admissionTrial: payload.trial, contractId: payload.contractId,
+    contractRevision: payload.contractRevision
+  });
   return session;
 }
 
@@ -75,14 +79,18 @@ function admitSymbiont(session, payload) {
   const symbiontId = String(payload.symbiontId || '');
   const candidate = session.candidateSymbionts.find((item) => item.id === symbiontId) || { id: symbiontId };
   session.candidateSymbionts = session.candidateSymbionts.filter((item) => item.id !== symbiontId);
-  session.residentSymbionts = [...session.residentSymbionts, { ...candidate, status: 'RESIDENT' }];
+  session.residentSymbionts = [...session.residentSymbionts, {
+    ...candidate, status: 'RESIDENT', admissionReceipt: payload.receipt || null
+  }];
   return session;
 }
 
 function changeSymbiontStatus(session, payload, status) {
   const symbiontId = String(payload.symbiontId || '');
-  updateSymbiont(session.candidateSymbionts, symbiontId, status);
-  updateSymbiont(session.residentSymbionts, symbiontId, status);
+  const admission = payload.receipt ? { admissionReceipt: payload.receipt } : {};
+  const update = { ...admission, status };
+  updateSymbiont(session.candidateSymbionts, symbiontId, update);
+  updateSymbiont(session.residentSymbionts, symbiontId, update);
   return session;
 }
 
@@ -97,9 +105,9 @@ function removeExpelledSymbiont(session, payload) {
   return removeSymbiont(session, payload, 'residentSymbionts');
 }
 
-function updateSymbiont(collection, symbiontId, status) {
+function updateSymbiont(collection, symbiontId, update) {
   const index = collection.findIndex((item) => item.id === symbiontId);
-  if (index >= 0) collection[index] = { ...collection[index], status };
+  if (index >= 0) collection[index] = { ...collection[index], ...update };
 }
 
 function updateResources(session, payload, eventType) {
