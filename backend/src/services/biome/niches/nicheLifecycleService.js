@@ -14,12 +14,13 @@ function selectStatus(niche, measurements, options) {
   if (niche.status === 'candidate') return qualifiesForOpening(niche, options) ? 'open' : 'candidate';
   if (niche.status === 'dormant') return measurements.reactivated === true ? 'open' : 'dormant';
   if (niche.status === 'closed') return 'closed';
-  return activeStatus(niche.status, { occupancy, capacity, productivity }, options);
+  const capacityKnown = measurements.capacityKnown === undefined ? niche.capacityKnown : measurements.capacityKnown;
+  return activeStatus(niche.status, { occupancy, capacity, productivity, capacityKnown }, options);
 }
 
 function activeStatus(status, measure, options) {
   if (shouldDecline(measure.productivity, options.declineProductivityThreshold)) return 'declining';
-  if (measure.capacity > 0 && measure.occupancy >= measure.capacity) return 'saturated';
+  if (measure.capacityKnown && measure.occupancy >= measure.capacity) return 'saturated';
   if (measure.occupancy > 0 && ['open', 'saturated', 'declining'].includes(status)) return 'colonized';
   if (status === 'declining' && measure.occupancy === 0) return 'dormant';
   return status;

@@ -7,6 +7,7 @@ const nicheStore = require('../niches/nicheStore');
 const evolution = require('./populationEvolutionService');
 const mergeService = require('./populationMergeService');
 const resourceSteward = require('../resources/resourceStewardService');
+const ecologicalCapacity = require('../resources/ecologicalCapacityService');
 
 async function execute(ecology, command, options = {}) {
   const handler = operationHandlers[command.type];
@@ -26,7 +27,8 @@ const operationHandlers = {
   merge: (ecology, command) => mergePopulation(ecology, command),
   resource_allocate: (ecology, command) => allocateResources(ecology, command),
   resource_consume: (ecology, command) => consumeResources(ecology, command),
-  resource_release_reserve: (ecology) => releaseReserve(ecology)
+  resource_release_reserve: (ecology) => releaseReserve(ecology),
+  capacity_assess: (ecology, command) => ecologicalCapacity.assessAndApply(ecology, command)
 };
 
 function allocateResources(ecology, command) {
@@ -158,7 +160,7 @@ function findNiche(ecology, nicheId) {
 
 function isNicheAvailable(niche) {
   const active = ['open', 'colonized'].includes(niche.status);
-  const underCapacity = !niche.carryingCapacity || niche.occupancy < niche.carryingCapacity;
+  const underCapacity = !niche.capacityKnown || niche.occupancy < niche.carryingCapacity;
   return active && underCapacity;
 }
 

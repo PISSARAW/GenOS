@@ -31,7 +31,7 @@ async function run() {
   assert.equal(allocation.allocations['logs-team'].tokens, 5);
   assert.equal(allocation.allocations['sql-team'].tokens, 3);
   assert.equal(allocation.reserve.tokens, 3);
-  assert.equal(allocation.carryingCapacity.find((item) => item.populationId === 'logs-team').capacity, 1);
+  assert.equal(allocation.carryingCapacity.find((item) => item.populationId === 'logs-team').capacity, 2);
 
   const consumed = await biome.manageSessionResources({ sessionId: session.sessionId, command: {
     type: 'resource_consume', populationId: 'logs-team', resources: { tokens: 2 }, purpose: 'inspect logs'

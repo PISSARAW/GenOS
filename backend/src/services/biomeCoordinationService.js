@@ -210,6 +210,14 @@ async function manageSessionResources({ sessionId, command, options = {} }) {
   });
 }
 
+async function assessSessionCapacity({ sessionId, measurements = {}, thresholds = {}, garageCapacity, options = {} }) {
+  const command = { type: 'capacity_assess', measurements, thresholds, garageCapacity };
+  return applyOperation({
+    sessionId, options, operation: 'capacity_assess', input: command,
+    apply: (session) => populationRuntimeService.execute(session.ecology, command, options)
+  });
+}
+
 async function allocateSessionResources(sessionId, populations, options = {}) {
   const result = allocateResources(populations, options);
   return applyOperation({ sessionId, options, operation: 'allocate', input: { populations, totalBudget: options.totalBudget, minimumPerPopulation: options.minimumPerPopulation }, apply: (session) => {
@@ -351,5 +359,6 @@ module.exports = {
   assessSessionIndividuals,
   updateSessionPopulation,
   manageSessionResources,
+  assessSessionCapacity,
   rehydrate
 };
