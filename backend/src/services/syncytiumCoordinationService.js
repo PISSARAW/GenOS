@@ -27,11 +27,13 @@ const reflexSignals = require('./syncytium/reflex/reflexSignalService');
 const { createSessionHistoryService } = require('./syncytium/history/sessionHistoryService');
 const offlineMutation = require('./syncytium/replicas/offlineMutationService');
 const { createSyncytiumDiagnosticsService } = require('./syncytiumDiagnosticsService');
+const { createSyncytiumSpeculationService } = require('./syncytiumSpeculationService');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
 const sessionHistory = createSessionHistoryService({ getSession, persist });
 const diagnostics = createSyncytiumDiagnosticsService({ getSession, applyOperation });
+const speculation = createSyncytiumSpeculationService({ getSession, persist });
 
 function serialize(session) {
   return {
@@ -44,6 +46,7 @@ function serialize(session) {
     reflexSignals: session.reflexSignals,
     snapshots: session.snapshots,
     replicas: session.replicas,
+    speculativeBranches: session.speculativeBranches,
     ops: session.crdt.getHistory(),
     crdtState: session.crdt.serialize(),
     fluxOps: session.fluxOps
@@ -72,6 +75,7 @@ function createRestoredSession(record, state, organization) {
     reflexSignals: normalizeReflexSignals(state.reflexSignals),
     snapshots: Array.isArray(state.snapshots) ? state.snapshots : [],
     replicas: state.replicas && typeof state.replicas === 'object' ? state.replicas : {},
+    speculativeBranches: state.speculativeBranches && typeof state.speculativeBranches === 'object' ? state.speculativeBranches : {},
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'syncytium', organization }),
     crdt: createSyncytiumCrdt(),
     cytoplasm: createCytoplasm(),
@@ -148,6 +152,7 @@ async function createSession(mission, options = {}) {
     reflexSignals: [],
     snapshots: [],
     replicas: {},
+    speculativeBranches: {},
     revision: 0,
     persisted: false,
     schema: schemaService.compile(options.schema),
@@ -353,6 +358,11 @@ const simulateWithout = (sessionId, opId, options = {}) => diagnostics.simulateW
 const simulateReplacing = (sessionId, opId, request = {}) => diagnostics.simulateReplacing(sessionId, opId, request);
 const localizeFaults = (sessionId, options = {}) => diagnostics.localizeFaults(sessionId, options);
 const repairInvariant = (sessionId, request = {}) => diagnostics.repairInvariant(sessionId, request);
+const chooseRepairCandidates = (candidates = []) => diagnostics.chooseRepairCandidates(candidates);
+const createSpeculativeBranch = (sessionId, request = {}) => speculation.create(sessionId, request);
+const applySpeculativeOperation = (sessionId, request = {}) => speculation.apply(sessionId, request);
+const compareSpeculativeBranch = (sessionId, request = {}) => speculation.compare(sessionId, request);
+const promoteSpeculativeBranch = (sessionId, request = {}) => speculation.promote(sessionId, request);
 
 async function closeSession(sessionId, options = {}) {
   const existed = sessions.delete(sessionId);
@@ -367,5 +377,7 @@ module.exports = {
   partitionReplica, reconcileReplica,
   explain, simulateWithout, simulateReplacing, localizeFaults,
   repairInvariant,
+  chooseRepairCandidates,
+  createSpeculativeBranch, applySpeculativeOperation, compareSpeculativeBranch, promoteSpeculativeBranch,
   assessConsistency, closeSession, isIonicFlux, rehydrate
 };
