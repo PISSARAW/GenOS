@@ -180,6 +180,17 @@ Une seule violation rend `eligible: false`. Apres une promotion eligible, `apply
 
 Important : certains statuts de replay acceptes par la gate incluent `reconstructed`. Une reconstruction ou une chaine de hash valide n'est pas une re-execution deterministe de dependances externes. Pour une promotion a risque, exiger `replayVerified === true`, les artefacts de test et une approbation humaine liee au hash.
 
+### Mémoire des meilleurs résultats (ADR 0046)
+
+Le champion persistant (`request_problems` / `request_results`) suit le même
+principe : un statut n’est pas une preuve. `VERIFIED` est réservé aux résultats
+déterministes (ex. primitive arithmétique avec reçu `deterministic-eval`) ;
+tout résultat de mission archivé est `PROVISIONAL` avec dette épistémique
+explicite. `STALE` (dépendances changées ou horizon dépassé), `SUPERSEDED`
+(remplacé par un meilleur candidat comparé) et `REFUTED` (terminal) ne sont
+jamais réutilisés. La réutilisation d’un champion ne traverse donc pas la gate
+de promotion : elle restitue une décision déjà prouvée, elle n’en crée pas une.
+
 ## Succes technique versus verite metier
 
 | Signal | Ce qu'il etablit | Ce qu'il n'etablit pas |

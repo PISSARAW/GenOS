@@ -12,6 +12,7 @@ const { waitForContinuationAndReevaluate, runBoundedContinuationLoop } = require
 const { handleAction, handleBackground, initializeMission } = require('./orchestratorActions.cjs');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 const helpers = require('./orchestratorMissionHelpers.cjs');
+const requestMemory = require('./requestMemoryBridge.cjs');
 
 const {
   buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
@@ -149,6 +150,8 @@ async function handleHomeostasisContinuation({ db, id, task, request, mission, c
 }
 
 async function executeMission(db, state) {
+  const minimal = await checkMinimalShortcut(db);
+  if (minimal) return;
   await initializeMission({ db, action, orchestratorId, task });
   const actionContext = buildActionContext({ db, action, request, task, orchestratorId, id, waitForCompletion });
   const handled = await runActionWithCleanup(actionContext, handleAction, state);
@@ -184,8 +187,31 @@ async function executeMission(db, state) {
   finalVerdict = contResult.finalVerdict;
   const finalSuccess = completionGate.allowed === true || finalVerdict === 'completed';
 
+  await persistMissionChampion(db, outcome);
   emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess: finalSuccess, finalVerdict, continuity, completionGate, id });
   if (!finalSuccess) process.exitCode = 2;
+}
+
+async function checkMinimalShortcut(db) {
+  if (action !== 'orchestrate') return false;
+  const minimal = await requestMemory.maybeHandleMinimal(db, request, task);
+  stateOf(minimal);
+  if (!minimal.handled) return false;
+  process.stdout.write(JSON.stringify(minimal.payload));
+  return true;
+}
+
+function stateOf(minimal) {
+  if (minimal && minimal.minted) {
+    telemetry.emitEvent({ eventType: 'REQUEST_ROUTED', agentId: id, action: minimal.route.mode, detail: minimal.route.reason, payload: { requestClass: minimal.minted.profile.request_class }, severity: 'info' });
+  }
+}
+
+async function persistMissionChampion(db, outcome) {
+  try {
+    const checked = await requestMemory.checkReuse(db, request, task);
+    await requestMemory.storeMissionResult(db, { minted: checked.minted, route: checked.route, summary: outcome, request });
+  } catch (_) {}
 }
 
 async function cleanupFailure(db, state, error) {

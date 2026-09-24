@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RequestMemory",
+  "description": "Durable problem memory: semantic request id, candidate population, current champion and validity.",
+  "type": "object",
+  "required": ["semantic_id", "request_class", "champion"],
+  "properties": {
+    "semantic_id": { "type": "string", "pattern": "^req_[0-9a-f]{32}$" },
+    "request_class": { "type": "string", "minLength": 1 },
+    "profile": { "type": "object" },
+    "execution_path": {
+      "type": "string",
+      "enum": ["primitive", "procedure", "single_worker", "adaptive_worker", "specialists", "collective", "large_search"]
+    },
+    "champion": {
+      "type": "object",
+      "required": ["id", "status", "content"],
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "type": "string", "enum": ["PROVISIONAL", "VERIFIED", "STALE", "SUPERSEDED", "REFUTED"] },
+        "content": { "type": "object" },
+        "version": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

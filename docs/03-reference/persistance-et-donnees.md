@@ -66,6 +66,7 @@ Le schéma est distribué entre `schema-tables-core.js` et `schema-tables-extens
 | Mémoire et connaissance | `memory_synapses`, `episodic_memories`, `genome_decisions`, `rag_chunks` |
 | Trajectoires et observabilité | `trajectories`, `trace_spans`, `telemetry_events`, `audit_logs` |
 | Gouvernance | `provider_configs`, `agent_model_routing_policies`, `platform_approvals` |
+| Mémoire des requêtes (ADR 0046) | `request_problems`, `request_results` |
 | Biologie opérationnelle | `cryptobiosis_snapshots`, plasmids, décisions génomiques et synapses |
 | Archives terminales | `fossils`, `fossil_strata` |
 
@@ -139,6 +140,17 @@ C'est la propriété requise par un service qui redémarre, par un déploiement 
 - `018-ide-client-identity`.
 
 Les tables d'archives terminales sont créées par la migration idempotente `migrateFossilization()` (appelée depuis `applyVersionedMigrations`) : `fossils` et `fossil_strata`.
+
+La mémoire des requêtes (ADR 0046) est créée par la migration `071-request-memory`
+([backend/src/db/migrations/migrateRequestMemory.js](../../backend/src/db/migrations/migrateRequestMemory.js)) :
+`request_problems` (`semantic_id` PK = `req_<sha256-32>`, intention normalisée,
+`request_class`, `profile_json`, `champion_result_id`) et `request_results`
+(version, statut `PROVISIONAL / VERIFIED / STALE / SUPERSEDED / REFUTED`,
+contenu, evidence, incertitude, dépendances, exécution, horizon de validité,
+utilité, coût, `supersedes`). Cycle de vie : réutilisation si champion
+`VERIFIED`/`PROVISIONAL` non expiré à dépendances identiques, sinon `STALE` ;
+promotion explicite (`SUPERSEDED` pour l’ancien champion), `REFUTED` terminal.
+Contrat : [spec/request-memory.schema.json](../../spec/request-memory.schema.json).
 
 Le code complète également les anciennes tables en examinant réellement leurs colonnes. Ainsi, la migration ne suppose pas qu'une base installée possède déjà la dernière forme de `agents`, `workspaces`, `model_jobs`, `evaluation_jobs`, `memory_synapses` ou `cryptobiosis_snapshots`.
 

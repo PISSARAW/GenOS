@@ -248,6 +248,10 @@ const migrationRunners = [
     const { migrateCounterfactualTables } = require('./migrateCounterfactualTables');
     await migrateCounterfactualTables(db);
   }),
+  createMigrationRunner('071-request-memory', 'Persist request problems and best-known result champions with validity lifecycle', async (db) => {
+    const { migrateRequestMemory } = require('./migrateRequestMemory');
+    await migrateRequestMemory(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

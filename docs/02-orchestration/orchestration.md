@@ -16,6 +16,8 @@ Le cœur fonctionnel est réparti entre :
 
 Le principe est simple et strict : aucune conclusion d’un worker n’est promue comme “solution” sans preuve, provenance, tests, et validation de cohérence.
 
+> Avant-orchestration (ADR 0046) : depuis le routage minimal suffisant, l’orchestration lourde multi-branches n’est qu’un des modes d’exécution possibles. Toute requête `orchestrate` passe d’abord par `requestProfilerService.profileRequest` (intention, mode épistémique, environnement, complexité, vérification, temporalité, action, objectifs → `request_class`), puis par `executionRouterService.chooseExecutionPath` (échelle `primitive -> procedure -> single_worker -> adaptive_worker -> specialists -> collective -> large_search`, escalade uniquement sur preuve), avec consultation de la mémoire des meilleurs résultats (`bestKnownResultService`) : champion réutilisé s’il est valide, primitive déterministe exécutée sans worker (ex. `2+2`), résultat de mission archivé. Voir [contrats-strategie-et-execution.md](contrats-strategie-et-execution.md) §8 et [ADR 0046](../adr/0046-routage-minimal-memoire-resultats.md).
+
 ---
 
 ## 2. Peut-être pas un “orchestrateur générique”, mais un orchestrateur de preuve
@@ -522,6 +524,7 @@ Donc les 2 meilleurs candidats reçoivent un budget de continuation plus fort qu
 
 ## 16. Processus complet d’orchestration
 
+0. Étape −1 — routage minimal (ADR 0046) : normalisation + `RequestProfile` + `request_class`, consultation du champion (`request_problems` / `request_results`, statuts `PROVISIONAL / VERIFIED / STALE / SUPERSEDED / REFUTED`, invalidation sur dépendances ou expiration), court-circuit primitive ou réutilisation sans agent. Seules les requêtes qui le justifient atteignent les étapes ci-dessous.
 1. Étape 0 — validation du contrat : stratégie, portfolio, risk profile, budget.
 2. Étape 1 — plan d’autonomie : phases + workers + budget + gates.
 3. Étape 2 — création des workers avec isolation de workspace.
@@ -666,6 +669,12 @@ Le point fort du système est qu’il est “honest” : il ne prétend pas qu�
 - [backend/src/services/jobWorker.js](../../backend/src/services/jobWorker.js)
 - [backend/src/services/agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js)
 - [backend/src/services/orchestrationDecisionService.js](../../backend/src/services/orchestrationDecisionService.js)
+- [backend/src/services/requestProfilerService.js](../../backend/src/services/requestProfilerService.js)
+- [backend/src/services/executionRouterService.js](../../backend/src/services/executionRouterService.js)
+- [backend/src/services/bestKnownResultService.js](../../backend/src/services/bestKnownResultService.js)
+- [backend/bin/requestMemoryBridge.cjs](../../backend/bin/requestMemoryBridge.cjs)
+- [backend/src/db/migrations/migrateRequestMemory.js](../../backend/src/db/migrations/migrateRequestMemory.js)
+- [backend/tests/test_request_memory_routing.js](../../backend/tests/test_request_memory_routing.js)
 - [backend/tests/test_orchestration_evidence_barrier.js](../../backend/tests/test_orchestration_evidence_barrier.js)
 - [backend/tests/test_mirror_twin.js](../../backend/tests/test_mirror_twin.js)
 - [backend/tests/test_mission_decomposition_invariants.js](../../backend/tests/test_mission_decomposition_invariants.js)

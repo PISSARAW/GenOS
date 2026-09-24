@@ -87,3 +87,35 @@ stratégie/recette → expérience morphologique`) est assurée par le
 Limites : `MemoryRouter`, `StrategyResolver` et `PhenotypeResolver` ne sont pas
 encore appelés en live dans l'expression (stubs enrichis avec fallback) ; les
 priors empiriques inter-missions restent hors périmètre.
+
+## 8. Routage minimal et mémoire des meilleurs résultats (ADR 0046)
+
+- **Statut** : Implémenté (périmètre : heuristiques déterministes, primitive arithmétique, champion SQLite).
+- **Dernière revue** : 2026-09-24.
+
+Avant tout contrat, `backend/bin/genos-orchestrate.cjs` appelle
+`backend/bin/requestMemoryBridge.cjs` (`maybeHandleMinimal`) :
+
+1. `requestProfilerService.profileRequest` : normalisation (minuscules, espaces),
+   empreinte `req_<sha256-32>` et `RequestProfile` + `request_class`
+   (ex. `deterministic_trivial`, `repo_understanding`, `hard_combinatorial`).
+2. `bestKnownResultService.lookupReusable` : réutilisation du champion si statut
+   `VERIFIED` ou `PROVISIONAL`, non expiré et dépendances identiques
+   (`repo_head`, workspace) ; sinon marquage `STALE` et recalcul.
+3. `executionRouterService.chooseExecutionPath` : mode minimal suffisant
+   (`primitive -> procedure -> single_worker -> adaptive_worker ->
+   specialists -> collective -> large_search`) ; `2+2` s’exécute en
+   `primitive` sans agent, avec reçu `deterministic-eval:2+2=4`.
+4. Après mission : `storeMissionResult` archive le résumé en `PROVISIONAL`
+   (dette épistémique explicite) ; la primitive arithmétique est archivée en
+   `VERIFIED`. La promotion d’un meilleur candidat bascule l’ancien champion en
+   `SUPERSEDED` (`promoteChampion`), jamais par remplacement silencieux ;
+   `REFUTED` est terminal et non réutilisable.
+
+Contrat d’échange : [spec/request-memory.schema.json](../../spec/request-memory.schema.json).
+Tables : `request_problems`, `request_results` (migration `071-request-memory`).
+Test : [backend/tests/test_request_memory_routing.js](../../backend/tests/test_request_memory_routing.js).
+
+Limites : classification par heuristiques de mots-clés (pas de modèle), seule
+la primitive arithmétique est exécutée en direct, les classes non couvertes
+retombent sur `single_worker`.

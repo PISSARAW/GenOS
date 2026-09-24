@@ -241,6 +241,10 @@ La base est initialisée dans [backend/src/db/schema.js](../../backend/src/db/sc
 - `memory_synapses` : relations causales et poids ;
 - `trajectories` : séquences historiques ;
 - `provenance_records` : chaînes de preuve / hash.
+- `request_problems` / `request_results` (ADR 0046, migration `071-request-memory`) :
+  mémoire des requêtes — un problème (`semantic_id`, `request_class`,
+  `RequestProfile`) pointe vers une population de candidats et un champion
+  courant (`PROVISIONAL / VERIFIED / STALE / SUPERSEDED / REFUTED`).
 
 Le schéma ajoute également des index FTS5 et vec0 :
 
@@ -276,6 +280,19 @@ Le service [backend/src/services/vectorMemoryService.js](../../backend/src/servi
 - golden path prioritization ;
 - fail-safe knowledge ;
 - mémoire de sommeil.
+
+### 5.4 Mémoire des requêtes (problème → champion)
+
+La mémoire des requêtes ne stocke ni des épisodes ni des similarités : elle
+stocke des problèmes déjà rencontrés et leur meilleure solution connue
+([ADR 0046](../adr/0046-routage-minimal-memoire-resultats.md)). Clé :
+`semantic_id` (`req_<sha256-32>` sur intention normalisée + indices), valeur :
+population de candidats + champion + dépendances (`repo_head`, workspace) +
+horizon de validité. Réutilisation sans recalcul si le champion est
+`VERIFIED`/`PROVISIONAL`, non expiré et à dépendances identiques ; sinon
+`STALE` et recalcul incrémental. Ce n’est pas une mémoire sémantique (pas de
+recherche vectorielle) ni un cache question → réponse (le champion n’est
+remplacé que par un candidat comparé et promu).
 
 ---
 
