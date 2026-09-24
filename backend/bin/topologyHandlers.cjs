@@ -65,7 +65,7 @@ function launchCapabilities(context, member) {
     domain: context.request?.domain,
     mode: context.request?.mode,
     organization: context.request?.organization,
-    budgetTokens: context.request?.execution_budget?.tokens,
+    budgetTokens: Number.isFinite(member.executionBudgetTokens) ? member.executionBudgetTokens : context.request?.execution_budget?.tokens,
     capabilitiesHint: member.capabilities,
   });
 }

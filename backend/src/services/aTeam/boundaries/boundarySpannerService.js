@@ -14,8 +14,17 @@ function assignBoundarySpanners(interfaces = [], members = []) {
 function findOwner(boundary, members) {
   const list = Array.isArray(members) ? members : [];
   const domains = [boundary.from, boundary.to].filter(Boolean);
-  const match = list.find((member) => domains.includes(member.domain) && (member.capabilities || []).includes('boundary_spanning'));
-  return match?.memberId || match?.agentId || null;
+  const match = list.find((member) => isBoundarySpanner(member) && domains.includes(memberDomain(member)))
+    || list.find(isBoundarySpanner);
+  return match?.memberId || match?.agentId || match?.workerId || match?.domain || match?.subSystem || match?.label || null;
+}
+
+function isBoundarySpanner(member) {
+  return (member.capabilities || []).includes('boundary_spanning');
+}
+
+function memberDomain(member) {
+  return member.domain || member.subSystem || member.label;
 }
 
 module.exports = { assignBoundarySpanners };

@@ -16,7 +16,13 @@ function allocateTeamBudget(input = {}) {
 
 function weightFor(item) {
   const value = estimateMarginalValue(item).score;
-  return Math.max(0.01, value * unit(item.criticalPath) * (0.5 + unit(item.uncertainty) / 2) * (0.5 + unit(item.interfaceComplexity) / 2));
+  return Math.max(0.01, value * criticalityWeight(item.criticality) * unit(item.criticalPath) * (0.5 + unit(item.uncertainty) / 2) * (0.5 + unit(item.interfaceComplexity) / 2));
+}
+
+function criticalityWeight(value) {
+  const levels = { critical: 1, high: 0.8, medium: 0.55, low: 0.3 };
+  const score = typeof value === 'string' ? levels[value.toLowerCase()] : Number(value);
+  return 0.5 + (unit(score) || 0.4) / 2;
 }
 
 function unit(value) {

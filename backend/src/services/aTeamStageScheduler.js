@@ -36,6 +36,7 @@ function plannedMember({ member, index, orchestratorId, planId }) {
     agentId: withDefault(member.agentId, workerId),
     label: member.label,
     modelTier: member.modelTier,
+    executionBudgetTokens: member.executionBudgetTokens,
     mission: member.mission,
     requiredArtifacts: withDefault(member.requiredArtifacts, withDefault(member.outputs, [])),
     outputs: withDefault(member.outputs, []),
@@ -195,7 +196,7 @@ function launchCapabilities(member, request) {
       domain: request.domain,
       mode: request.mode,
       organization: request.organization,
-      budgetTokens: (request.execution_budget || request.executionBudget || {}).tokens,
+      budgetTokens: Number.isFinite(member.executionBudgetTokens) ? member.executionBudgetTokens : (request.execution_budget || request.executionBudget || {}).tokens,
       capabilitiesHint: member.capabilities,
     });
   } catch (_) {
@@ -205,6 +206,10 @@ function launchCapabilities(member, request) {
 
 function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }) {
   const launchCaps = launchCapabilities(member, request);
+  const budget = request.execution_budget || request.executionBudget;
+  const executionBudget = Number.isFinite(member.executionBudgetTokens)
+    ? { ...(budget || {}), tokens: member.executionBudgetTokens }
+    : budget;
   return {
     action: 'dispatch_worker',
     background: false,
@@ -219,7 +224,7 @@ function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }
     capabilities: launchCaps.capabilities,
     capabilityManifest: launchCaps.capabilityManifest,
     toolLease: launchCaps.toolLease,
-    execution_budget: request.execution_budget || request.executionBudget,
+    execution_budget: executionBudget,
     timeoutMs: request.timeoutMs,
     workspace_root: request.workspace_root || parentWorkspaceRoot,
     reuseChecked: true

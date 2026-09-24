@@ -15,6 +15,7 @@ const aTeamCoordination = require('./aTeamCoordinationService');
 const aTeamService = require('./aTeamService');
 const aTeamStageScheduler = require('./aTeamStageScheduler');
 const aTeamRuntime = require('./aTeam/aTeamRuntime');
+const { prepareDispatchPolicy } = require('./aTeam/dispatchPolicyService');
 const { emit } = require('./agentOrchestrationState');
 
 function stageRunnerPath() {
@@ -95,8 +96,19 @@ async function prepareDispatch({ db, context }) {
     successCriteria: requestedSuccessCriteria(request),
     available: garage.available
   });
+  const policy = prepareDispatchPolicy({
+    mission: { ...request, goal: projectGoal }, members: team.members,
+    totalBudget: requestedTokenBudget(request)
+  });
+  team.members = policy.members;
+  team.executionPolicy = policy.policy;
   requireReadyTeam(team.readiness);
   return { db, request, garage, projectGoal, team, context };
+}
+
+function requestedTokenBudget(request) {
+  const budget = request.execution_budget || request.executionBudget || {};
+  return Number.isFinite(Number(budget.tokens)) ? Number(budget.tokens) : null;
 }
 
 function createCanonicalRun(setup) {
@@ -108,6 +120,7 @@ function createCanonicalRun(setup) {
     goal: projectGoal,
     successCriteria: requestedSuccessCriteria(request) || [],
     organization: team.organization,
+    execution: { runnerLease: null, organizationPolicy: team.executionPolicy },
     requiredCapabilities: team.capabilityContract.required.map((capability) => ({ capability, weight: 1 })),
     status: 'READY',
     phase: 'PREBRIEF',
@@ -142,6 +155,7 @@ async function launchDispatch({ setup, activeRun, runnerToken, context, parent, 
       organization: team.organization,
       teamContractVersion: team.teamContract.version,
       teamContractHash: team.teamContract.contractHash,
+      executionPolicy: activeRun.execution?.organizationPolicy || null,
       readiness: team.readiness,
       capabilityContract: team.capabilityContract,
       capabilityAudit: team.capabilityAudit,

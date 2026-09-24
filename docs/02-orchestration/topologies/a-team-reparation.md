@@ -53,3 +53,19 @@ touchés et puisse redémarrer la branche. Le run ne revient à `RUNNING` qu'apr
 confirmations. Si recompilation, invalidation ou reprise échoue, le reçu est marqué
 `BLOCKED` et le run reste bloqué avec le code d'erreur ; les adaptateurs doivent accepter
 le même `repairId` pour reprendre sans dupliquer leurs effets.
+
+## Politique de dispatch et budgets
+
+`prepareDispatchPolicy` est appelé lors du dispatch canonique. Une variante demandée est
+validée avant lancement et ses règles de minimum d'effectif sont appliquées. `pipeline`
+et `relay_team` ordonnent les membres selon le DAG puis imposent les transferts sériels ;
+`cross_functional_pod` déclare les consultations entre pairs. Les autres variantes sont
+conservées dans `execution.organizationPolicy` avec leur communication, leur autorité,
+leurs phases et leurs évaluations d'interface.
+
+Quand un budget en tokens est fourni, le service calcule le chemin critique du WorkGraph,
+répartit le budget entre les responsabilités et transmet l'allocation à chaque worker,
+y compris ceux lancés par le runner détaché. Une allocation absente laisse la politique
+de budget globale du dispatch s'appliquer. Les interfaces inter-domaines sont évaluées et
+les membres disposant de la capacité `boundary_spanning` sont proposés comme propriétaires
+de contrat ; la composition n'invente pas un worker boundary spanner.

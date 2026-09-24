@@ -19,7 +19,12 @@ function enrichMission(context, mission, role) {
 
 function workerLaunchPayload(args) {
   const { context, member, workerId, parent, capabilities, capabilityManifest, toolLease } = args;
+  const workerKind = require('../src/services/agents/workerKindService').resolveWorkerKind(member.workerKind, member.role);
   const mission = enrichMission(context, member.mission || '', member.role);
+  const budget = context.request?.execution_budget || context.request?.executionBudget;
+  const executionBudget = Number.isFinite(member.executionBudgetTokens)
+    ? { ...(budget || {}), tokens: member.executionBudgetTokens }
+    : budget;
   return {
     action: 'dispatch_worker',
     background: false,
@@ -27,11 +32,12 @@ function workerLaunchPayload(args) {
     workerId,
     mission,
     role: member.role,
+    workerKind,
     model_tier: member.modelTier,
     capabilities: capabilities || [],
     capabilityManifest: capabilityManifest || null,
     toolLease: toolLease || [],
-    execution_budget: context.request?.execution_budget || context.request?.executionBudget,
+    execution_budget: executionBudget,
     timeoutMs: context.request?.timeoutMs,
     workspace_root: context.request?.workspace_root || parent?.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
     reuseChecked: true,
