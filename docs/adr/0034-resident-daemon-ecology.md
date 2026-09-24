@@ -638,7 +638,9 @@ Chaque sprint : suite de tests dédiée (`backend/tests/test_daemon_*.js`, 29 su
 
 ## Maturité du daemon (D20–D21)
 
-Statut : **EXPERIMENTAL**. Le gate de promotion est implémenté et testé (chemins STABLE et EXPERIMENTAL), et le harnais live A/B/C existe (`liveProtocolRunner.js`, bras persistés `kind='live-protocol'`). Mais aucun run live avec exécuteur réel (même modèle/tâche/repo/HEAD/budget, Phase 32-34) n'a été exécuté : sans exécuteur le runner retourne `ran:false` et n'écrit aucune ligne — par construction, aucun succès simulé ne peut débloquer STABLE. La promotion reste bloquée jusqu'à ces preuves. Le proxy déterministe montre un gain de rappel warm ≥ 0 ; les ablations montrent FULL dominant sur les vues.
+Statut : **EXPERIMENTAL**. Le gate de promotion est implémenté et testé (chemins STABLE et EXPERIMENTAL), et le harnais live A/B/C existe (`liveProtocolRunner.js`, bras persistés `kind='live-protocol'`, exécuteur `backend/bin/genos-live-protocol.cjs`).
+
+Premier point de données live (2026-09-24, hors ligne, modèle local `llama3.1:8b`, température 0, tâche de localisation d'un require fautif sur fixture, n=2 triples, reçus hors arbre) : bras A (LLM seul) échoue 2/2, bras B (digest brut) et C (TerritoryBrief warm, 10 observations) réussissent 2/2 — `warmSolved=true, coldSolved=false`, coût C ≈ B (~280 tokens vs 73 pour l'échec aveugle de A). C'est une première preuve directionnelle, pas une promotion : STABLE reste bloqué jusqu'à un protocole élargi (tâches variées, modèle frontière, décision opérateur via `promotionService`). Le proxy déterministe montre un gain de rappel warm ≥ 0 ; les ablations montrent FULL dominant sur les vues.
 
 ## Références
 
