@@ -17,6 +17,9 @@ const patchLifecycleService = require('./metapopulation/patches/patchLifecycleSe
 const demeService = require('./metapopulation/demes/demeService');
 const demeLifecycleService = require('./metapopulation/demes/demeLifecycleService');
 const demeLocalEvolutionService = require('./metapopulation/demes/demeLocalEvolutionService');
+const demeIsolationService = require('./metapopulation/demes/demeIsolationService');
+const demeHeartbeatService = require('./metapopulation/demes/demeHeartbeatService');
+const regionalLivenessService = require('./metapopulation/observability/regionalLivenessService');
 
 const DEFAULT_ORGANIZATION = 'quorum_with_abstention';
 const DEFAULT_QUORUM_RATIO = 0.5;
@@ -184,6 +187,27 @@ async function updateDemeLocalProfile(input, options = {}) {
   return demeLocalEvolutionService.updateLocalProfile(input, options);
 }
 
+async function provisionDemeWorkspace(input, options = {}) {
+  return demeIsolationService.provisionDemeWorkspace(input, options);
+}
+
+async function assertDemeLocalWrite(input, options = {}) {
+  return demeIsolationService.assertLocalWrite(input, options);
+}
+
+async function heartbeatDeme(input, options = {}) {
+  return demeHeartbeatService.heartbeat(input, options);
+}
+
+async function inspectRegionalLiveness(metapopulationId, options = {}) {
+  return regionalLivenessService.inspectRegion(metapopulationId, options);
+}
+
+async function consumeDemeBudget(input, options = {}) {
+  if (!options.db) throw Object.assign(new Error('A database is required.'), { code: 'METAPOPULATION_DB_REQUIRED' });
+  return metapopulationStore.consumeDemeBudget(options.db, input);
+}
+
 module.exports = {
   composeMetapopulation,
   createMetapopulationSession,
@@ -199,6 +223,11 @@ module.exports = {
   transitionPatch,
   transitionDeme,
   updateDemeLocalProfile,
+  provisionDemeWorkspace,
+  assertDemeLocalWrite,
+  heartbeatDeme,
+  inspectRegionalLiveness,
+  consumeDemeBudget,
   senseQuorum,
   regenerationPlan,
   connectionWeights

@@ -44,6 +44,13 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 5. Réutiliser le moteur multi-îlots Rust, le service procédural et les
    mécanismes existants d'AgentDNA, cryptobiose, snapshots et fossilisation.
    Cette évolution ne crée pas de moteur évolutionnaire parallèle.
+6. Donner à chaque dème une capsule créée par le cycle de vie workspace existant.
+   La frontière locale est vérifiée par l'API d'écriture GenOS ; une violation
+   journalisée met le dème en quarantaine. Les budgets locaux sont plafonnés
+   et consommés dans une transaction.
+7. Conserver chaque heartbeat du dème en historique append-only. La vue
+   régionale classe le silence à partir de sa fraîcheur, de la dernière preuve
+   et des signaux runtime fournis ; l'absence de heartbeat reste inconnue.
 
 ## Conséquences
 
@@ -52,15 +59,15 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 - Une session peut être rechargée après redémarrage sans reconstruire son état
   à partir d'un JSON monolithique.
 - Les événements régionaux disposent d'un ordre et d'une provenance auditables.
-- Les prochains livrables peuvent ajouter des projections normalisées sans
-  modifier le contrat de la façade.
+- Les capsules réutilisent le provisionnement workspace existant, et les
+  heartbeats permettent une vue régionale sans écraser l'historique.
 
 ### Négatives
 
-- Une session persistée nécessite une base initialisée avec la migration
-  073-metapopulation-sessions.
-- Les entités patch, dème et corridor sont définies par contrat et schéma, mais
-  leur création et leurs transitions seront livrées par les PR suivantes.
+- Une session persistée nécessite une base initialisée avec les migrations
+  Métapopulation correspondantes.
+- Le garde de frontière protège les écritures transitant par la façade ; il
+  n'intercepte pas un accès direct au système de fichiers hors du runtime GenOS.
 - La voie sans base de données reste volatile et ne promet pas la reprise après
   redémarrage.
 

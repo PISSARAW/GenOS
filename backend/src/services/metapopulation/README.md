@@ -38,7 +38,15 @@ composition sans base reste en mémoire.
 
 ## Portée des lots
 
-La frontière d'écriture n'est pas encore une sandbox : le garde local du dème
-est un contrat préliminaire. L'isolation réelle, les heartbeats et la liveness
-régionale relèvent du PR3. Les corridors, propagules et mécanismes de reprise
-arrivent dans les lots suivants.
+Le PR3 provisionne une capsule workspace distincte par dème et conserve sa
+frontière locale, ses références d'état et mémoire ainsi que son budget. Toute
+écriture effectuée via `assertDemeLocalWrite` est résolue dans cette capsule et
+quarantaine le dème si le chemin sort de la frontière. Ce garde s'applique aux
+écritures qui passent par l'API ; il ne prétend pas intercepter un accès direct
+au système de fichiers par un processus externe. `consumeDemeBudget` applique
+les plafonds locaux de manière transactionnelle. Les heartbeats append-only
+alimentent `inspectRegionalLiveness`, qui distingue silence sain, absence de
+nouvelle preuve, déconnexion, blocage, crash et état inconnu.
+
+Les corridors dirigés, propagules et mécanismes de reprise arrivent dans les
+lots suivants.

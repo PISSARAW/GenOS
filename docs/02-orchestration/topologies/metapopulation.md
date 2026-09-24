@@ -1541,7 +1541,7 @@ Les chantiers de conception sont regroupés en 18 livrables cohérents. L'ordre 
 |---|---|---|
 | **PR1 — livré** | Contrats et session persistante | Corriger l'ontologie ; définir la session Métapopulation, les contrats canoniques et un stockage événementiel versionné, reconstructible après redémarrage. |
 | **PR2 — livré** | Modèle Patch / Deme | Registre et cycle de vie des patches et dèmes ; distinguer localité, population et individu. |
-| **PR3** | Isolation et liveness | Frontières workspace, état, mémoire, budget et procédures par dème ; heartbeat, santé locale et quarantaine sur violation. |
+| **PR3 — livré** | Isolation et liveness | Capsules workspace par dème, frontières d'écriture via l'API, état/mémoire/budget locaux ; heartbeats append-only, santé et quarantaine sur violation. |
 | **PR4** | Graphe et corridors | Graphe dirigé, qualité/capacité des corridors et politiques ring, stepping-stone, star, small-world, fully-connected, source-sink, hierarchical et adaptive. |
 | **PR5** | Propagules et quarantaine receveur | Types de propagules, provenance, quarantaine, validation locale, assimilation ou rejet ; registre d'adaptateurs de migration. |
 | **PR6** | Politiques de migration | Sélection elite, novelty, rescue, complementary, counterexample, cultural et founder ; push/pull et requêtes ciblées. |

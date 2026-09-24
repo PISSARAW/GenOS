@@ -2,6 +2,7 @@
 
 const { withTransaction } = require('../../db');
 const { migrateMetapopulation } = require('../../db/migrations/migrateMetapopulation');
+const { migrateMetapopulationRuntime } = require('../../db/migrations/migrateMetapopulationRuntime');
 const { validateRegionalEvent } = require('./contracts/regionalEventContract');
 const { validatePatch } = require('./contracts/patchContract');
 const { validateDeme } = require('./contracts/demeContract');
@@ -214,6 +215,54 @@ async function updateDemeProfile(db, input) {
   return getDeme(db, metapopulationId, demeId);
 }
 
+async function attachDemeWorkspace(db, input) {
+  await migrateMetapopulationRuntime(db);
+  const { metapopulationId, demeId, workspacePath, workspaceOwnerId } = input;
+  await withTransaction(db, async () => {
+    await requireSession(db, metapopulationId);
+    const result = await db.run(
+      'UPDATE metapopulation_demes SET workspace_path = ?, workspace_owner_id = ?, local_boundary_json = ?, budget_json = ?, updated_at = ? WHERE metapopulation_id = ? AND deme_id = ? AND workspace_path IS NULL',
+      workspacePath, workspaceOwnerId, JSON.stringify(input.localBoundary || []), JSON.stringify(input.budget || {}),
+      new Date().toISOString(), metapopulationId, demeId
+    );
+    if (result.changes !== 1) throw storeError('METAPOPULATION_DEME_WORKSPACE_CONFLICT', 'Deme is missing or already has a workspace.');
+    await commitEvent(db, metapopulationId, { type: 'DEME_WORKSPACE_ATTACHED', payload: { demeId, workspaceOwnerId } });
+  });
+  return getDeme(db, metapopulationId, demeId);
+}
+
+async function quarantineDemeForBoundaryViolation(db, input) {
+  await migrateMetapopulationRuntime(db);
+  const { metapopulationId, demeId, relativePath } = input;
+  await withTransaction(db, async () => {
+    await requireSession(db, metapopulationId);
+    const result = await db.run(
+      'UPDATE metapopulation_demes SET status = ?, updated_at = ? WHERE metapopulation_id = ? AND deme_id = ?',
+      'QUARANTINED', new Date().toISOString(), metapopulationId, demeId
+    );
+    if (result.changes !== 1) throw storeError('METAPOPULATION_DEME_UNKNOWN', 'Unknown deme.');
+    await commitEvent(db, metapopulationId, { type: 'DEME_BOUNDARY_VIOLATION', payload: { demeId, relativePath } });
+  });
+}
+
+async function consumeDemeBudget(db, input) {
+  await migrateMetapopulationRuntime(db);
+  const { metapopulationId, demeId, budgetKey, amount } = input;
+  if (!budgetKey || !Number.isFinite(amount) || amount <= 0) throw storeError('METAPOPULATION_BUDGET_INPUT_INVALID', 'A budget key and positive amount are required.');
+  return withTransaction(db, async () => {
+    const row = await db.get('SELECT budget_json FROM metapopulation_demes WHERE metapopulation_id = ? AND deme_id = ?', metapopulationId, demeId);
+    if (!row) throw storeError('METAPOPULATION_DEME_UNKNOWN', 'Unknown deme.');
+    const budget = parseJson(row.budget_json);
+    const limit = Number(budget.limits?.[budgetKey]);
+    const used = Number(budget.used?.[budgetKey] || 0);
+    if (!Number.isFinite(limit) || used + amount > limit) throw storeError('METAPOPULATION_DEME_BUDGET_EXHAUSTED', 'Deme budget is exhausted.');
+    budget.used = { ...(budget.used || {}), [budgetKey]: used + amount };
+    await db.run('UPDATE metapopulation_demes SET budget_json = ?, updated_at = ? WHERE metapopulation_id = ? AND deme_id = ?', JSON.stringify(budget), new Date().toISOString(), metapopulationId, demeId);
+    await commitEvent(db, metapopulationId, { type: 'DEME_BUDGET_CONSUMED', payload: { demeId, budgetKey, amount, used: used + amount, limit } });
+    return budget;
+  });
+}
+
 async function requireSession(db, metapopulationId) {
   const found = await db.get('SELECT id FROM metapopulation_sessions WHERE id = ?', metapopulationId);
   if (!found) throw storeError('METAPOPULATION_SESSION_UNKNOWN', 'Unknown metapopulation session.');
@@ -255,7 +304,9 @@ function toDeme(row) {
     localStateRef: row.local_state_ref, localMemoryRef: row.local_memory_ref,
     localStrategies: parseJson(row.local_strategies_json), localProcedures: parseJson(row.local_procedures_json),
     lineage: parseJson(row.lineage_json), fitness: parseJson(row.fitness_json), diversity: row.diversity,
-    lastHeartbeatAt: row.last_heartbeat_at, createdAt: row.created_at, updatedAt: row.updated_at
+    lastHeartbeatAt: row.last_heartbeat_at, createdAt: row.created_at, updatedAt: row.updated_at,
+    workspacePath: row.workspace_path || null, workspaceOwnerId: row.workspace_owner_id || null,
+    localBoundary: parseJson(row.local_boundary_json || '[]'), budget: parseJson(row.budget_json)
   };
 }
 
@@ -278,4 +329,4 @@ function storeError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { createSession, loadSession, appendEvent, listEvents, createPatch, getPatch, listPatches, transitionPatch, createDeme, getDeme, listDemes, transitionDeme, updateDemeProfile };
+module.exports = { createSession, loadSession, appendEvent, listEvents, createPatch, getPatch, listPatches, transitionPatch, createDeme, getDeme, listDemes, transitionDeme, updateDemeProfile, attachDemeWorkspace, quarantineDemeForBoundaryViolation, consumeDemeBudget };

@@ -104,7 +104,7 @@ const migrationRunners = [
     CREATE INDEX IF NOT EXISTS idx_agent_phenotype_genome ON agent_phenotype_states(genome_id);
     CREATE INDEX IF NOT EXISTS idx_agent_phenotype_strength ON agent_phenotype_states(strength);`);
   }),
-  createMigrationRunner('V015_genome_event_log', 'Table genome_events pour l\'event sourcing unifié du génome', async (db) => {
+  createMigrationRunner('V015_genome_event_log', 'Table genome_events pour l\'event sourcing unifiÃ© du gÃ©nome', async (db) => {
     const { migrationV015 } = require('./migrateGenomeEventLog');
     await migrationV015.run(db);
   }),
@@ -275,6 +275,10 @@ const migrationRunners = [
   createMigrationRunner('078-morphology-graph-versions', 'Persist immutable versioned MorphologyGraph snapshots (ADR 0051)', async (db) => {
     const { migrateMorphologyGraph } = require('./migrateMorphologyGraph');
     await migrateMorphologyGraph(db);
+  }),
+  createMigrationRunner('079-metapopulation-isolation-liveness', 'Persist deme workspace boundaries, budgets and liveness heartbeats (ADR 0047)', async (db) => {
+    const { migrateMetapopulationRuntime } = require('./migrateMetapopulationRuntime');
+    await migrateMetapopulationRuntime(db);
   }),
   createMigrationRunner('080-holobiont-memory', 'Persist scoped Host-Symbiont episodic and continuity memory (ADR 0059)', async (db) => {
     const { migrateHolobiontMemory } = require('./migrateHolobiontMemory');
