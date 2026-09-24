@@ -14,6 +14,7 @@ const workerGarage = require('./workerGarageService');
 const aTeamCoordination = require('./aTeamCoordinationService');
 const aTeamService = require('./aTeamService');
 const aTeamStageScheduler = require('./aTeamStageScheduler');
+const aTeamRuntime = require('./aTeam/aTeamRuntime');
 const { emit } = require('./agentOrchestrationState');
 
 function stageRunnerPath() {
@@ -63,6 +64,14 @@ function emitImmediateCompletion({ runner, orchestratorId, planId }) {
 }
 
 async function dispatchTeam({ db, context, parent, launchWorker }) {
+  const setup = await prepareDispatch({ db, context });
+  const canonical = await createCanonicalRun(setup);
+  if (shouldReturnExisting(canonical)) return existingRunResponse(context, canonical, setup.team);
+  const activeRun = await advanceRunToExecution(db, canonical.run);
+  return launchDispatch({ setup, activeRun, context, parent, launchWorker });
+}
+
+async function prepareDispatch({ db, context }) {
   const request = context.request || {};
   const garage = await workerGarage.state(db, context.orchestratorId);
   const projectGoal = request.project_goal || request.projectGoal || request.goal || request.mission || context.task;
@@ -75,7 +84,32 @@ async function dispatchTeam({ db, context, parent, launchWorker }) {
     available: garage.available
   });
   requireReadyTeam(team.readiness);
-  const plan = aTeamStageScheduler.stagePlanFor({ orchestratorId: context.orchestratorId, members: team.members });
+  return { db, request, garage, projectGoal, team, context };
+}
+
+function createCanonicalRun(setup) {
+  const { db, request, projectGoal, team, context } = setup;
+  return aTeamRuntime.createRun({
+    db,
+    idempotencyKey: request.idempotencyKey || request.requestId || context.requestId || context.orchestratorId,
+    missionId: context.orchestratorId,
+    goal: projectGoal,
+    successCriteria: requestedSuccessCriteria(request) || [],
+    organization: team.organization,
+    requiredCapabilities: team.capabilityContract.required.map((capability) => ({ capability, weight: 1 })),
+    status: 'READY',
+    phase: 'PREBRIEF',
+    members: team.members
+  });
+}
+
+function shouldReturnExisting(canonical) {
+  return !canonical.created && !['FORMING', 'READY'].includes(canonical.run.status);
+}
+
+async function launchDispatch({ setup, activeRun, context, parent, launchWorker }) {
+  const { team, garage, projectGoal } = setup;
+  const plan = aTeamStageScheduler.stagePlanFor({ orchestratorId: context.orchestratorId, members: activeRun.members, planId: activeRun.teamRunId });
   // Independent producers start now; the detached runner waits for them before
   // launching the consumer stages.
   const stageZero = plan.members.filter((member) => member.pipelineStage === 0);
@@ -86,6 +120,9 @@ async function dispatchTeam({ db, context, parent, launchWorker }) {
     orchestratorId: context.orchestratorId,
     aTeam: {
       status: 'accepted',
+      teamRunId: activeRun.teamRunId,
+      workGraphId: activeRun.workGraphId,
+      runRevision: activeRun.revision,
       projectGoal,
       capacity: workerGarage.MAX_ACTIVE_WORKERS,
       organization: team.organization,
@@ -103,4 +140,33 @@ async function dispatchTeam({ db, context, parent, launchWorker }) {
   };
 }
 
-module.exports = { dispatchTeam, spawnStageRunner, readSubSystems };
+async function advanceRunToExecution(db, run) {
+  let current = run;
+  if (current.status === 'FORMING') {
+    current = await aTeamRuntime.transitionRun({ db, teamRunId: current.teamRunId, revision: current.revision, patch: { status: 'READY', phase: 'FORMATION' } });
+  }
+  if (current.phase === 'FORMATION') {
+    current = await aTeamRuntime.transitionRun({ db, teamRunId: current.teamRunId, revision: current.revision, patch: { phase: 'PREBRIEF' } });
+  }
+  if (current.status === 'READY') {
+    current = await aTeamRuntime.transitionRun({ db, teamRunId: current.teamRunId, revision: current.revision, patch: { status: 'RUNNING', phase: 'EXECUTION' } });
+  }
+  return current;
+}
+
+function existingRunResponse(context, canonical, team) {
+  return {
+    orchestratorId: context.orchestratorId,
+    aTeam: {
+      status: canonical.run.status.toLowerCase(),
+      teamRunId: canonical.run.teamRunId,
+      workGraphId: canonical.run.workGraphId,
+      runRevision: canonical.run.revision,
+      reused: true,
+      organization: canonical.run.organization || team.organization,
+      members: []
+    }
+  };
+}
+
+module.exports = { dispatchTeam, spawnStageRunner, readSubSystems, advanceRunToExecution };

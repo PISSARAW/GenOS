@@ -3,10 +3,7 @@ const { buildAllocation } = require('./tokenAllocationService');
 const { regulateAutonomyPlan } = require('./controlRegulationService');
 const trinityService = require('./trinityService');
 const aTeamService = require('./aTeamService');
-const aTeamRunStore = require('./aTeam/teamRunStore');
-const workGraphCompiler = require('./aTeam/workGraph/workGraphCompiler');
-const workGraphStore = require('./aTeam/workGraph/workGraphStore');
-const topologySessionStore = require('./topologySessionStore');
+const aTeamRuntime = require('./aTeam/aTeamRuntime');
 const aTeamCoordination = require('./aTeamCoordinationService');
 const dynamicOrganization = require('./dynamicOrganizationService');
 const { emit } = require('./agentOrchestrationState');
@@ -198,7 +195,7 @@ async function persistATeamRun({ db, agentId, normalizedMission, autonomyPlan })
   const aTeam = autonomyPlan.aTeam;
   if (!aTeam || aTeam.activated !== true) return;
   const runDraft = buildATeamRunDraft({ agentId, normalizedMission, autonomyPlan });
-  const persisted = await persistRunAndGraph({ db, runDraft, members: aTeam.members });
+  const persisted = await aTeamRuntime.createRun({ db, ...runDraft, members: aTeam.members, status: 'READY', phase: 'PREBRIEF' });
   applyWorkGraphStages(aTeam.members || [], persisted.graph);
   aTeam.teamRun = persisted.run;
   aTeam.workGraph = persisted.graph;
@@ -210,7 +207,7 @@ async function persistATeamRun({ db, agentId, normalizedMission, autonomyPlan })
 
 function buildATeamRunDraft({ agentId, normalizedMission, autonomyPlan }) {
   const aTeam = autonomyPlan.aTeam;
-  return aTeamRunStore.teamRunRecord({
+  return {
     missionId: agentId,
     goal: missionText(normalizedMission),
     successCriteria: normalizedMission.successCriteria || normalizedMission.acceptanceCriteria || [],
@@ -218,20 +215,7 @@ function buildATeamRunDraft({ agentId, normalizedMission, autonomyPlan }) {
     requiredCapabilities: aTeam.requiredCapabilities || [],
     capabilityGaps: aTeam.capabilityCoverage?.uncovered || [],
     members: aTeam.members || []
-  });
-}
-
-async function persistRunAndGraph({ db, runDraft, members }) {
-  const graphDraft = workGraphCompiler.compileWorkGraph({ teamRunId: runDraft.teamRunId, members: members || [] });
-  const graph = await workGraphStore.create(db, graphDraft);
-  let run;
-  try {
-    run = await aTeamRunStore.create(db, { ...runDraft, workGraphId: graph.workGraphId });
-  } catch (error) {
-    await topologySessionStore.remove(db, graph.workGraphId);
-    throw error;
-  }
-  return { run, graph };
+  };
 }
 
 function applyWorkGraphStages(members, graph) {
