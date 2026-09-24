@@ -7,6 +7,7 @@ reproduction, et les 8 modes de composition (topologies).
 
 - [orchestration.md](orchestration.md) — branches, preuve avant validation, survivants, fan-out.
 - [corps-orchestrator.md](corps-orchestrator.md) — percepts typés, WorldState, actionneurs bornés, réflexes.
+- [noyau-controle-morphogenetique.md](noyau-controle-morphogenetique.md) — kernel Rust : état global, diagnostic causal, résolveurs, plan morphogénétique, incarnation, gouvernance.
 - [regulation-multi-boucles.md](regulation-multi-boucles.md) — signaux de contrôle, boucles rapides/lentes, arbitrage.
 - [theorie-du-soi-orchestrator.md](theorie-du-soi-orchestrator.md) — modèle opérationnel, calibration, biais et contraintes de décision.
 - [memoire-autobiographique.md](memoire-autobiographique.md) — épisodes vécus, saillance, consolidation en leçons, rappel avant décision, oubli.

@@ -39,6 +39,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0042](0042-qpu-organe-specialise.md) | QPU comme organe spécialisé et sélection quantum-inspired | Proposé | 2026-09-23 | Substrat de calcul, quantum-inspired, QPU, GPU, VFS |
 | [0043](0043-runtime-worker-phenotypes.md) | Runtime worker commun et phenotypes composables | Accepté | 2026-09-24 | Workers, phenotypes, autorité, cycle de vie |
 | [0044](0044-matrice-autorite-gates-double-runtime.md) | Matrice d'autorité unifiée, gates de provenance et d'observabilité, double runtime | Proposé | 2026-09-24 | Autorité, gouvernance, provenance, observabilité, runtime |
+| [0045](0045-noyau-controle-morphogenetique.md) | Noyau de contrôle morphogénétique de l'orchestrateur Rust | Proposé | 2026-09-24 | Orchestration, morphogenèse, gouvernance, incarnation, santé |
 
 ## Cycle de vie d'un ADR
 
