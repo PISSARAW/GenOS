@@ -1,7 +1,8 @@
 'use strict';
 
 const { NICHE_STATUSES } = require('../constants');
-const { requiredId, enumValue, nonNegative } = require('./contractHelpers');
+const { RESOURCE_KEYS } = require('../constants');
+const { requiredId, enumValue, nonNegative, invalid } = require('./contractHelpers');
 
 function createNiche(input = {}) {
   return {
@@ -16,7 +17,7 @@ function createNiche(input = {}) {
     entryConditions: input.entryConditions || [],
     survivalConditions: input.survivalConditions || [],
     exitConditions: input.exitConditions || [],
-    resourceProfile: input.resourceProfile || {},
+    resourceProfile: normalizeResourceProfile(input.resourceProfile),
     carryingCapacity: nonNegative(input.carryingCapacity, 'carryingCapacity'),
     productivity: nonNegative(input.productivity, 'productivity'),
     uncertainty: nonNegative(input.uncertainty, 'uncertainty'),
@@ -25,6 +26,23 @@ function createNiche(input = {}) {
     occupancy: nonNegative(input.occupancy, 'occupancy'),
     status: enumValue({ value: input.status, choices: NICHE_STATUSES, field: 'status', fallback: 'candidate' })
   };
+}
+
+function normalizeResourceProfile(profile = {}) {
+  return Object.fromEntries(RESOURCE_KEYS.map((key) => [key, normalizeRequirement(profile[key], key)]));
+}
+
+function normalizeRequirement(value, key) {
+  const entry = typeof value === 'number' ? { preferred: value, maximum: value } : (value || {});
+  const requirement = {
+    minimum: nonNegative(entry.minimum, `${key}.minimum`),
+    preferred: nonNegative(entry.preferred, `${key}.preferred`),
+    maximum: nonNegative(entry.maximum, `${key}.maximum`, Number.MAX_SAFE_INTEGER)
+  };
+  if (requirement.minimum > requirement.preferred || requirement.preferred > requirement.maximum) {
+    throw invalid(`Resource profile '${key}' must satisfy minimum <= preferred <= maximum.`);
+  }
+  return requirement;
 }
 
 function stringList(value) {

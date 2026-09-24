@@ -129,6 +129,7 @@ async function sessionSnapshot(sessionId, options = {}) {
     environment: session.ecology.environment,
     environmentConstraints: session.ecology.environmentConstraints,
     ecologicalState: session.ecology.ecologicalState,
+    resourcePool: session.ecology.resourcePool,
     opportunities: session.ecology.opportunityMap,
     niches: session.ecology.niches,
     populations: session.ecology.populations,
@@ -198,6 +199,13 @@ async function assessSessionIndividuals(sessionId, individuals, options = {}) {
 async function updateSessionPopulation({ sessionId, command, options = {} }) {
   return applyOperation({
     sessionId, options, operation: `population_${command.type}`, input: command,
+    apply: (session) => populationRuntimeService.execute(session.ecology, command, options)
+  });
+}
+
+async function manageSessionResources({ sessionId, command, options = {} }) {
+  return applyOperation({
+    sessionId, options, operation: command.type, input: command,
     apply: (session) => populationRuntimeService.execute(session.ecology, command, options)
   });
 }
@@ -342,5 +350,6 @@ module.exports = {
   updateNicheLifecycle,
   assessSessionIndividuals,
   updateSessionPopulation,
+  manageSessionResources,
   rehydrate
 };

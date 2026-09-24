@@ -6,18 +6,50 @@ const nicheLifecycle = require('../niches/nicheLifecycleService');
 const nicheStore = require('../niches/nicheStore');
 const evolution = require('./populationEvolutionService');
 const mergeService = require('./populationMergeService');
+const resourceSteward = require('../resources/resourceStewardService');
 
 async function execute(ecology, command, options = {}) {
-  if (command.type === 'create') return createPopulation(ecology, command.population);
-  if (command.type === 'spawn') return spawnPopulation(ecology, command.populationId, command.individuals);
-  if (command.type === 'advance') return advancePopulation(ecology, command.populationId, command.measurements);
-  if (command.type === 'select') return selectPopulation(ecology, command.populationId, command.count);
-  if (command.type === 'migrate') return migrateIndividual(ecology, command);
-  if (command.type === 'mutate') return mutatePopulation(ecology, command, options);
-  if (command.type === 'freeze') return freezeIndividual(ecology, command, options);
-  if (command.type === 'thaw') return thawIndividual(ecology, command);
-  if (command.type === 'merge') return mergePopulation(ecology, command);
-  throw Object.assign(new Error(`Unknown population operation '${command.type}'.`), { code: 'BIOME_POPULATION_OPERATION_UNKNOWN' });
+  const handler = operationHandlers[command.type];
+  if (!handler) throw Object.assign(new Error(`Unknown population operation '${command.type}'.`), { code: 'BIOME_POPULATION_OPERATION_UNKNOWN' });
+  return handler(ecology, command, options);
+}
+
+const operationHandlers = {
+  create: (ecology, command) => createPopulation(ecology, command.population),
+  spawn: (ecology, command) => spawnPopulation(ecology, command.populationId, command.individuals),
+  advance: (ecology, command) => advancePopulation(ecology, command.populationId, command.measurements),
+  select: (ecology, command) => selectPopulation(ecology, command.populationId, command.count),
+  migrate: (ecology, command) => migrateIndividual(ecology, command),
+  mutate: (ecology, command, options) => mutatePopulation(ecology, command, options),
+  freeze: (ecology, command, options) => freezeIndividual(ecology, command, options),
+  thaw: (ecology, command) => thawIndividual(ecology, command),
+  merge: (ecology, command) => mergePopulation(ecology, command),
+  resource_allocate: (ecology, command) => allocateResources(ecology, command),
+  resource_consume: (ecology, command) => consumeResources(ecology, command),
+  resource_release_reserve: (ecology) => releaseReserve(ecology)
+};
+
+function allocateResources(ecology, command) {
+  const result = resourceSteward.allocate(ecology, command);
+  return { ...result, action: { type: 'ECOLOGICAL_RESOURCES_ALLOCATED', status: 'applied', populations: Object.keys(result.allocations).length } };
+}
+
+function consumeResources(ecology, command) {
+  const population = findPopulation(ecology, command.populationId);
+  const niche = findNiche(ecology, population.nicheId);
+  const result = resourceSteward.consume(population, niche, command.resources);
+  replacePopulation(ecology, result.population);
+  const transactions = ecology.ecologicalState.resourceTransactions || [];
+  ecology.ecologicalState.resourceTransactions = [...transactions, {
+    populationId: population.populationId, purpose: command.purpose || 'unspecified',
+    resources: result.consumed, pressure: result.pressure, timestamp: new Date().toISOString()
+  }];
+  return { ...result, action: { type: 'POPULATION_RESOURCES_CONSUMED', status: 'applied', populationId: population.populationId } };
+}
+
+function releaseReserve(ecology) {
+  const resourcePool = resourceSteward.releaseReserve(ecology);
+  return { resourcePool, action: { type: 'RECOVERY_RESERVE_RELEASED', status: 'applied' } };
 }
 
 async function mutatePopulation(ecology, command, options) {
