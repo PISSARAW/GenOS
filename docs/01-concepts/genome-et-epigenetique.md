@@ -291,6 +291,12 @@ Le dernier test depend du binaire Rust `target/debug/genos.exe`. Un passage de c
 
 ### 1. Structure Hiérarchique du Génome et de la Chromatine
 
+> Note : le diagramme ci-dessous est une vue conceptuelle (métaphore objet pour
+> comparer avec le marché). Il ne décrit pas des structs Rust existantes :
+> `AgentGenome`, `Chromosome`, `Locus`, `ChromatinState` et `evaluate_fitness()`
+> n'existent pas tels quels dans `crates/` — voir le runtime réel (`genome.rs`,
+> `phylogeny.rs`, `geneticsConstants.js`).
+
 ```mermaid
 classDiagram
     class AgentGenome {

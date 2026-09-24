@@ -72,7 +72,7 @@ signalReceptorService.registerReceptor({
 | `emit_signal` | Cascade de signal | `ctx.publishSignal` |
 | `wake_worker` | Réveille un agent | `ctx.startMission` |
 | `update_agent` | Met à jour statut/tâche | `ctx.updateAgent` |
-| `change_organisation` | Change la topologie | `ctx.changeOrganization` |
+| `change_organization` | Change la topologie | `ctx.changeOrganization` |
 
 Si une dépendance est absente, l'action renvoie `{ executed: false, reason: 'NO_*_FN' }`.
 

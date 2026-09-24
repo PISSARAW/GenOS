@@ -74,6 +74,8 @@ function applyPlasticity(synapse, ctx) {
 }
 
 function consolidateIfReady(episodes, options) {
+  // Pre-check: LCS needs >= 2 episodes. The policy threshold
+  // (minEpisodes: 3 by default) is enforced inside consolidatePath.
   if (!episodes || episodes.length < 2) return null;
   return consolidation.consolidatePath(options.policy || {}, episodes);
 }
