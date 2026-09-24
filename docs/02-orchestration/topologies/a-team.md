@@ -1,19 +1,185 @@
 # A-Team — Organisation Adaptative du Travail Spécialisé
+
+> **Statut :** Partiel. Cette fiche contient des mécanismes présents dans le runtime,
+> des contrats normatifs à implémenter et des pistes conceptuelles. Une formule ou une
+> métaphore ne constitue pas une garantie runtime tant qu'elle n'a pas de données
+> d'entrée définies, de règle de décision déterministe et de vérification associée.
+>
+> **Portée :** composition, graphe de travail, dispatch, handoffs, preuves et intégration
+> des spécialistes A-Team. Les décisions normatives d'implémentation ci-dessous priment
+> sur les exemples et formules exploratoires des parties suivantes.
+
+## Contrat normatif d'implémentation
+
+Cette section tranche les ambiguïtés qui empêchent de transformer les parties suivantes
+en comportements vérifiables. Toute modification du runtime A-Team doit préserver ces
+invariants ou proposer explicitement une nouvelle décision.
+
+### Éligibilité et choix de topologie
+
+Une mission est éligible à A-Team si elle requiert au moins deux compétences distinctes
+qui doivent contribuer au même livrable ou à des livrables intégrés, et si aucun spécialiste
+unique disponible ne couvre ces besoins. Le nombre de compétences n'est pas fixé à trois.
+Une tâche mono-domaine reste Solo. Une mission dont le but principal est de comparer des
+hypothèses ou de prendre une décision entre options concurrentes relève d'une topologie
+de comparaison telle que Trinity ; elle peut contenir des décisions Pareto locales.
+
+L'interdépendance est portée par des dépendances explicites entre tâches, et non inférée
+du seul fait que deux spécialistes participent à une mission. Le Work Graph peut contenir
+plusieurs composantes indépendantes : chacune est ordonnancée séparément et toutes
+contribuent au résultat global. Chaque composante doit être acyclique. Une dépendance
+inconnue ou un cycle invalide le plan et doit être signalé avant le dispatch.
+
+### Work Graph et états runtime
+
+Le graphe est $G=(V,E)$ : $V$ contient des tâches de travail, chacune ayant un identifiant
+stable, un domaine, un propriétaire, des entrées, des sorties et des critères d'acceptation ;
+$E$ contient les dépendances producteur-vers-consommateur et leur contrat d'interface.
+Un agent peut posséder plusieurs tâches, mais chaque tâche et chaque artefact versionné
+ont exactement un propriétaire actif. Les consultants peuvent conseiller sans devenir
+propriétaires.
+
+États normatifs d'une tâche :
+
+| État | Signification | Conséquence |
+|---|---|---|
+| `READY` | Toutes les dépendances sont promues et la tâche peut démarrer. | Le dispatch est autorisé. |
+| `RUNNING` | Le worker exécute la tâche. | Aucun consumer ne reçoit encore sa sortie comme validée. |
+| `BLOCKED` | Une dépendance n'est pas promue ; une raison structurée est requise. | La tâche attend ou fait l'objet d'une escalade. |
+| `SUCCEEDED` | La sortie a satisfait le contrat et sa preuve a été promue. | Les consumers peuvent devenir `READY`. |
+| `FAILED` | Le worker a échoué ou le contrat a été rejeté sans réparation disponible. | Seuls les nœuds dépendants sont bloqués. |
+| `TIMED_OUT` | Le délai d'exécution ou de validation est dépassé. | Seuls les nœuds dépendants sont bloqués. |
+
+Les statuts historiques du runtime doivent être normalisés vers ces états à la frontière
+du scheduler. `completed` ne signifie `SUCCEEDED` que si la barrière de preuves a promu
+la sortie. Timeout, absence de worker, échec, rejet et sortie non vérifiée ne débloquent
+jamais un consumer. Une branche indépendante peut continuer.
+
+### Handoff, preuves et intégration
+
+Un handoff est un objet versionné avec au minimum : identifiants du producteur et du
+consumer, type de handoff, références d'artefacts, claims, hypothèses, contrat d'interface,
+préconditions, postconditions, invariants, références de preuves, questions ouvertes,
+risques, critères d'acceptation et état. Les champs structurants (identifiants, type,
+version, statut et références requises par le contrat) sont obligatoires. Les listes
+`assumptions`, `openQuestions` et `knownRisks` peuvent être vides ; une liste vide est une
+information explicite et n'invalide pas le handoff.
+
+Les types sont `DELIVERY`, `DELEGATION`, `CONSULTATION`, `VALIDATION` et `ESCALATION`.
+Une livraison ne passe à `ACCEPTED` que si ses critères sont évalués et ses preuves
+disponibles. Les autres réponses possibles sont `PARTIAL_ACCEPT`, `REJECT`,
+`REQUEST_REPAIR` et `REQUEST_CLARIFICATION`. Un rejet de consumer est routé au propriétaire
+de l'artefact ; il ne modifie pas directement un artefact d'un autre spécialiste.
+
+La promotion est une décision de la barrière de preuves, jamais une simple conséquence
+d'un dispatch réussi ou d'un statut terminal. Une preuve doit référencer la tâche ou
+l'artefact concerné, son résultat de validation et sa provenance. Les champs absents ou
+les preuves invalides produisent un refus explicite avec les critères manquants.
+
+### Couverture, capacité et sélection d'équipe
+
+Les dimensions MCC, TSC, RCA et VEC sont publiées séparément avec leur numérateur,
+dénominateur et source. MCC mesure les compétences requises couvertes par le contrat des
+membres retenus ; TSC mesure les tâches requises ayant un propriétaire affecté ; RCA mesure
+les workers affectés qui peuvent effectivement être dispatchés ; VEC mesure les compétences
+requises couvertes par des preuves d'expertise vérifiées. Une expertise sans preuve compte
+comme non vérifiée. Si le dénominateur est nul, la métrique est `null` et la mission est
+refusée comme A-Team mal formée au lieu d'être déclarée couverte.
+
+La couverture combinée est le produit MCC × TSC × RCA × VEC, mais le runtime doit également
+exposer les quatre facteurs : le produit seul ne constitue pas un motif d'acceptation et
+ne doit pas masquer une dimension nulle. Une dimension obligatoire nulle bloque la promotion.
+
+La taille de l'équipe est adaptative, sans plafond métier fixe de trois. La taille effective
+est bornée par les tâches nécessaires, le budget restant, les slots disponibles du garage
+et toute limite opérateur explicitement configurée. La formule de taille de la section 12
+de la partie 2 reste indicative tant que les unités et les paramètres $C$, $\kappa$ et
+$\bar{c}$ ne sont pas calibrés sur des mesures runtime. Le runtime ne doit pas inventer ces
+valeurs ni revendiquer une optimisation globale qu'il ne calcule pas.
+
+Pour une première implémentation, la formation applique les contraintes dures avant tout
+score : couvrir chaque tâche requise, disposer des outils nécessaires, respecter le budget
+et les slots, puis préférer les profils vérifiés et les interfaces compatibles. Les scores
+de coût, fiabilité, complémentarité et compatibilité ne participent à une décision qu'une
+fois leur échelle, leur provenance et leurs valeurs manquantes définies. Le recuit simulé
+décrit plus loin est une option de recherche, pas une exigence du runtime actuel.
+
+### Arbitrage Pareto et décisions locales
+
+Les spécialistes et leurs dossiers ne sont pas des options concurrentes : leurs contributions
+complémentaires sont évaluées par leurs contrats d'interface et leurs preuves. Pareto ne
+classe donc pas les spécialistes pour décider quelle contribution conserver.
+
+Pareto peut comparer des options mutuellement substituables à l'intérieur d'une tâche
+identifiée (par exemple plusieurs choix de base de données). Chaque option indique ses
+dimensions, sa provenance et la décision locale retenue. Cette décision devient une entrée
+ou une contrainte des tâches aval. Une frontière Pareto globale de dossiers A-Team ne prouve
+ni la compatibilité des artefacts ni la couverture du Work Graph.
+
+### Mémoire transactive et communication
+
+La mémoire transactive est un index détenu par le runtime, pas une affirmation de mémoire
+interne partagée entre workers. Une entrée référence un agent, un domaine ou contrat connu,
+la source de cette connaissance, sa date de vérification et son niveau de confiance. Les
+workers reçoivent uniquement les informations nécessaires à leurs tâches et les handoffs
+autorisés. La décroissance de confiance ou le routage par latence/charge restent désactivés
+tant que le runtime ne collecte pas ces mesures et ne définit pas leurs seuils.
+
+### Statut des mécanismes
+
+Les propriétés ci-dessus sont les critères normatifs à atteindre ; elles ne déclarent pas
+que le dépôt les satisfait déjà. Les parties 1 à 4 décrivent aussi des mécanismes
+conceptuels. Chaque mécanisme doit être présenté comme `Implémenté`, `Partiel` ou `Cadre
+conceptuel`, avec une preuve runtime ou un écart identifié. Les affirmations de type
+« théorème » ne sont garanties que si les préconditions de ce contrat sont vérifiées par
+le code.
+
+### Découpage cible dans le backend
+
+Ce tableau indique où implémenter les contrats ; la présence d'un fichier ne signifie pas
+que le comportement correspondant est déjà complet.
+
+| Contrat | Point d'intégration principal | Résultat à vérifier |
+|---|---|---|
+| Éligibilité, capacités et composition | `backend/src/services/aTeamService.js` | Mission mono-domaine refusée ; exigences, membres retenus et gaps explicités. |
+| Graphe, dépendances et exécution par étapes | `backend/src/services/aTeamStageScheduler.js` | Graphe validé avant dispatch ; consumers bloqués tant que leurs producteurs ne sont pas promus. |
+| Contrat d'équipe et handoffs | `backend/src/services/aTeamCoordinationService.js` | Handoffs typés, interfaces et propriétaires cohérents avec le Work Graph. |
+| Promotion des preuves et intégration | `backend/src/services/workerEvidenceBarrier.js` et `backend/src/services/aTeamComparativeBarrier.js` | Aucune fusion sur la seule base d'un dispatch ou d'un statut `completed`. |
+| Compatibilité, ownership et blocages | `backend/src/services/aTeamIntegrationObserver.js` | Chaque violation rapporte le worker, le domaine, le contrat et la raison. |
+| Couverture indépendante | `backend/src/services/aTeamQualityGateService.js` | MCC, TSC, RCA et VEC sont restitués séparément et leurs données manquantes sont visibles. |
+| Mémoire transactive | `backend/src/services/communication/transactiveMemoryService.js` | Entrées sourcées, datées et consultées via les accès autorisés. |
+| Recrutement et changement de topologie | `backend/src/services/morphogenesis/transitionEngineService.js` et `backend/src/services/agentFleetService.js` | Toute transition respecte budget, capacité, leases et contrats du dispatch. |
+
+### Invariants d'acceptation d'une implémentation
+
+Une version ne satisfait cette spécification que si les vérifications suivantes sont
+automatisées :
+
+1. Un graphe cyclique ou avec dépendance inconnue est refusé avant création de workers.
+2. Un consumer n'est jamais lancé si une dépendance est échouée, expirée, manquante ou non promue ; une branche indépendante peut continuer.
+3. Un handoff incomplet, rejeté ou sans preuve requise ne débloque pas le graphe aval.
+4. Une modification d'artefact respecte son propriétaire et une interface déclarée ; toute exception est enregistrée comme consultation autorisée.
+5. Le gate restitue les quatre couvertures et bloque une couverture obligatoire nulle, sans substituer un score moyen ou global.
+6. Un recrutement ou remplacement ne dépasse ni le budget ni les slots disponibles et laisse une trace de décision.
+7. Les décisions Pareto sont liées à une tâche et à ses options substituables ; elles ne servent pas à élire une contribution métier parmi des spécialistes complémentaires.
+
 ## 1. Définition
 
 **A-Team** est le protocole de GenOS pour les problèmes dont la solution exige plusieurs compétences complémentaires, interdépendantes et non substituables, qui doivent produire ensemble un artefact cohérent.
 
 Formellement, soit $\mathcal{M}$ une mission et $\mathcal{A}$ l'ensemble des agents disponibles. Une mission est classée **A-Team** si et seulement si :
 
-$$\exists \, S \subseteq \mathcal{A}, \; |S| \geq 2, \; \text{tel que} \; \forall i \in S: \; \nexists \, j \in \mathcal{A} \setminus \{i\} \; \text{avec} \; C_j \supseteq C_i$$
+$$\exists \, S \subseteq \mathcal{A}, \; |S| \geq 2, \; \bigcup_{i \in S} C_i \supseteq R(\mathcal{M}), \; \nexists \, j \in \mathcal{A}: C_j \supseteq R(\mathcal{M})$$
 
-où $C_i$ désigne le contrat de capacités de l'agent $i$. Autrement dit, aucun agent ne peut être remplacé par un autre sans perte de couverture fonctionnelle.
+où $C_i$ désigne les capacités vérifiées de l'agent $i$ et $R(\mathcal{M})$ les capacités
+requises par la mission. Autrement dit, aucun agent disponible seul ne couvre toutes les
+capacités requises ; l'équipe retenue doit les couvrir collectivement.
 
 La condition d'interdépendance s'exprime par la matrice de dépendance $\mathbf{D} \in \{0,1\}^{n \times n}$ :
 
 $$\forall (i,j) \in S \times S, \; i \neq j: \; D_{ij} = 1 \iff \text{la sortie de } i \text{ est une entrée requise de } j$$
 
-Un cas A-Team exige que le graphe de dépendance $\mathcal{G} = (S, E)$ où $E = \{(i,j) \mid D_{ij} = 1\}$ soit **connexe** et **acyclique** (DAG), garantissant un ordonnancement topologique valide.
+Un Work Graph A-Team doit être **acyclique** (DAG), mais n'a pas besoin d'être connexe : les composantes indépendantes représentent des tâches sans dépendance directe. Un cycle ou une référence de dépendance inconnue invalide le plan avant dispatch. Voir le contrat normatif d'implémentation ci-dessus.
 
 La production finale est un artefact composite $\mathcal{X}$ défini comme :
 
@@ -58,11 +224,13 @@ TRINITY                          A-TEM
 
 Le choix entre Trinity et A-Team suit les règles suivantes :
 
-- Si la mission nécessite **plus de 2 compétences orthogonales** et un artefact composite → A-Team
+- Si la mission nécessite **au moins 2 compétences complémentaires** et un livrable intégré → A-Team
 - Si la mission nécessite **décision → exécution → validation** → Trinity
 - Si une seule compétence suffit → Solo
 
-**Formule de priorité** :
+**Règle normative de priorité** : une mission de construction multi-compétences relève d'A-Team si elle satisfait les critères d'éligibilité ci-dessus. Une mission de comparaison d'options relève d'une topologie de comparaison ; si cette mission contient des tâches de construction, celles-ci peuvent être organisées en A-Team. Le mot « priorité » ne signifie pas qu'un Pareto global départage les topologies.
+
+La formule suivante est conservée comme intuition historique et ne définit pas le dispatch runtime :
 
 $$\text{choix}(\mathcal{M}) = \begin{cases} \text{A-Team} & \text{si } |\mathcal{G}_{\text{ICG}}| \geq 3 \text{ et } \mathcal{G} \text{ est non trivial} \\ \text{Trinity} & \text{si } \mathcal{M} \text{ est une décision sous contrainte} \\ \text{Solo} & \text{si } \exists \, i \in \mathcal{A}: \; C_i \supseteq \text{requis}(\mathcal{M}) \end{cases}$$
 ### 2.4 Exemples de missions par type
@@ -78,7 +246,7 @@ Soit $\mathcal{P}$ une mission. La fonction de classification $\chi: \mathcal{P}
 
 $$\chi(\mathcal{P}) = \begin{cases} \text{A-Team} & \text{si } \exists \, \text{DAG de spécialistes } \mathcal{G} \text{ avec } |\mathcal{G}| \geq 2 \\ \text{Trinity} & \text{si } \mathcal{P} \text{ exige décision + exécution + validation} \\ \text{Solo} & \text{si } \exists \, \text{agent unique couvrant } \mathcal{P} \end{cases}$$
 
-La décision A-Team est prioritaire sur Trinity quand les deux conditions sont satisfaites, car la construction d'un artefact composite domine la séquence décision-exécution.
+Quand les deux formes de travail sont présentes, le plan doit séparer les décisions concurrentielles des tâches de construction et relier les choix retenus aux tâches aval par des dépendances explicites.
 
 ---
 ## 3. Ce que l'implémentation fait bien
@@ -129,6 +297,10 @@ $$\bigcup_{i \in S} d_i \supseteq \text{domaine}(\mathcal{M})$$
 ---
 ## 4. La question conceptuelle fondamentale
 ### 4.1 Pourquoi Pareto(frontend, backend, security) est une mauvaise abstraction
+
+Cette critique concerne uniquement l'emploi de Pareto pour classer les spécialistes ou
+leurs contributions complémentaires. Elle n'interdit pas Pareto pour comparer des options
+mutuellement substituables au sein d'une décision locale (voir partie 3, section 5).
 
 L'approche Pareto traite les spécialistes comme des candidats concurrents sur un front d'optimalité multi-objectif. Cette abstraction est inadaptée car :
 
@@ -207,14 +379,22 @@ où :
 
 **Formule de complétude** :
 
-$$\text{complet}(H_{i \to j}) = \begin{cases} 1 & \text{si } \forall \, \text{champ} \in H_{i \to j}: \; \text{champ} \neq \emptyset \\ 0 & \text{sinon} \end{cases}$$
+Les références obligatoires dépendent du type de handoff et du contrat d'interface. Les
+listes `assumptions`, `unresolved` et `knownRisks` peuvent être vides ; leurs clés doivent
+être présentes pour distinguer « connu vide » de « champ omis ».
+
+$$\text{complet}(H_{i \to j}) = 1 \iff \text{champs obligatoires présents} \land \text{références valides} \land \text{preuve exigée disponible}$$
 
 Le handoff est valide si et seulement si $\text{complet}(H_{i \to j}) = 1$.
 ### 5.2 Scheduler timeout incohérent
 
-**État actuel** : Quand un spécialiste dépasse son timeout, le scheduler lance quand même le consumer en aval.
+**Constat initial** : l'ancien scheduler pouvait lancer le consumer après un timeout. Le
+contrat normatif corrige ce comportement : chaque consumer attend la promotion de toutes
+ses dépendances et reste bloqué après timeout ou échec. Les branches indépendantes restent
+exécutables. Cette règle doit être couverte par les tests du scheduler.
 
-**État requis** : En A-Team rigoureuse, le timeout d'un spécialiste doit **bloquer** le DAG en aval, car la contribution est soit incomplète, soit non vérifiée.
+**Règle normative** : un timeout de spécialiste bloque les seuls nœuds aval dépendants,
+car la contribution est incomplète ou non vérifiée.
 
 **Formule de propagation** :
 
@@ -230,19 +410,23 @@ $$\text{sécurité}(\mathcal{G}) = \forall j \in S: \; \text{démarrer}(j) \Righ
 **État requis** : Les quatre métriques doivent être séparées et évaluées indépendamment :
 | Métrique | Notation | Formule |
 |----------|----------|---------|
-| **Mission Capability Coverage** | $MCC$ | $\frac{|\bigcup_{i \in S} C_i \cap \text{requis}(\mathcal{M})|}{|\text{requis}(\mathcal{M})|}$ |
-| **Team Staffed Coverage** | $TSC$ | $\frac{|\{i \in S \mid \text{actif}(i)\}|}{|S|}$ |
-| **Runtime Capability Availability** | $RCA$ | $\frac{|\{i \in S \mid \text{disponible}(i)\}|}{|S|}$ |
-| **Verified Expertise Coverage** | $VEC$ | $\frac{|\{i \in S \mid \text{vérifié}(i)\}|}{|S|}$ |
+| **Mission Capability Coverage** | $MCC$ | Compétences requises couvertes par les capacités vérifiées des membres / compétences requises. |
+| **Team Staffed Coverage** | $TSC$ | Tâches requises ayant un propriétaire affecté / tâches requises. |
+| **Runtime Capability Availability** | $RCA$ | Workers affectés qui peuvent être dispatchés / workers affectés. |
+| **Verified Expertise Coverage** | $VEC$ | Compétences requises soutenues par des preuves d'expertise / compétences requises. |
 
 **Formule de couverture réelle** :
 
 $$\text{couverture}(\mathcal{M}, S) = MCC \times TSC \times RCA \times VEC$$
 
-Le produit (et non la moyenne) garantit qu'une dégradation sur une dimension n'est pas masquée par les autres.
+Le produit est un indicateur global et non un substitut aux quatre valeurs : une dimension
+obligatoire nulle bloque la promotion. Si un dénominateur est nul, la métrique est `null`
+et la mission est mal formée ; elle ne compte pas comme couverture parfaite.
 ### 5.4 Détecteur de contamination naïf
 
-**État actuel** : Le détecteur vérifie uniquement l'isolation des domaines (DOMAIN ISOLATION).
+**Constat** : l'observateur actuel détecte notamment les claims hors domaine et l'absence
+de contraintes d'intégration ; il ne prouve pas à lui seul l'ownership des artefacts ni
+l'autorité d'interface de chaque modification.
 
 **État requis** : Le détecteur doit vérifier trois propriétés :
 
@@ -287,7 +471,10 @@ La matrice de mémoire transactive $\mathbf{MT} \in \{0,1\}^{n \times n \times |
 
 $$\forall i, j \in S, \; \forall d \in \mathcal{D}: \; \text{MT}(i, j, d) = \text{MT}(j, i, d)$$
 
-La mémoire transactive est symétrique : si $i$ sait que $j$ maîtrise $d$, alors $j$ sait que $i$ sait.
+La symétrie ci-dessus est une propriété du registre central si elle est explicitement
+propagée ; elle n'est pas présumée vraie des connaissances internes des agents. Tant
+qu'aucun mécanisme de propagation n'existe, le runtime expose l'information aux agents
+uniquement dans leurs prompts ou handoffs autorisés.
 ### 6.3 Handoffs typés
 
 Les handoffs A-Team sont **typés** selon la nature de la transition :
@@ -539,7 +726,12 @@ La latence moyenne de livraison d'un artefact :$$\bar{\tau}_{\text{delivery}} = 
 ## 3. Team Formation
 ### 3.1 Problème d'optimisation
 
-Étant donné un pool de candidats $\mathcal{C} = \{c_1, \ldots, c_m\}$ et le Work Graph $G$, le runtime sélectionne $T \subseteq \mathcal{C}$ maximisant :$$\text{TeamUtility}(T) = \text{Coverage}(T) + \alpha \cdot \text{ExpertiseFit}(T) + \beta \cdot \text{Complementarity}(T) + \gamma \cdot \text{HistoricalPerformance}(T) + \delta \cdot \text{InterfaceCompatibility}(T) - \lambda \cdot \text{CoordCost}(T) - \mu \cdot \text{Redundancy}(T) - \rho \cdot \text{Risk}(T)$$
+Le modèle suivant décrit les facteurs souhaitables pour la formation d'équipe ; il ne prétend
+pas qu'ils sont déjà mesurés ni optimisés par le runtime. Pour l'implémentation normative,
+appliquer d'abord les contraintes dures et la règle de sélection simplifiée de la section
+« Couverture, capacité et sélection d'équipe » au début de cette fiche. Cette fonction
+ne devient un score exécutable qu'après définition des unités, des sources de données, des
+valeurs manquantes et du calibrage des coefficients :$$\text{TeamUtility}(T) = \text{Coverage}(T) + \alpha \cdot \text{ExpertiseFit}(T) + \beta \cdot \text{Complementarity}(T) + \gamma \cdot \text{HistoricalPerformance}(T) + \delta \cdot \text{InterfaceCompatibility}(T) - \lambda \cdot \text{CoordCost}(T) - \mu \cdot \text{Redundancy}(T) - \rho \cdot \text{Risk}(T)$$
 
 où les coefficients $\alpha, \beta, \gamma, \delta, \lambda, \mu, \rho \in \mathbb{R}^+$ sont calibrés par le profil de mission.
 ### 3.2 Composantes de l'utilité
@@ -578,7 +770,9 @@ où $\text{compat}(a, b) \in [0, 1]$ est calculé à partir des schémas d'inter
 **Deadlines** : $\max_{\text{path } P \text{ in } G} \sum_{V_i \in P} \text{effort}(V_i, \text{assigned}(V_i)) \leq D_{\max}$
 ### 3.4 Résolution
 
-Le runtime résout ce problème par pré-filtrage par contraintes dures, puis recherche heuristique (recuit simulé) et affinement par échanges locaux :$$\hat{T} = \arg\max_{T \subseteq \mathcal{C}} \text{TeamUtility}(T) \quad \text{s.c.} \, \text{constraints}(T) = \text{true}$$
+Une version future peut résoudre ce problème par pré-filtrage puis recherche heuristique
+(par exemple recuit simulé) et échanges locaux. Cette méthode n'est pas une exigence de
+la première implémentation et ne doit pas être annoncée comme une capacité actuelle :$$\hat{T} = \arg\max_{T \subseteq \mathcal{C}} \text{TeamUtility}(T) \quad \text{s.c.} \, \text{constraints}(T) = \text{true}$$
 
 La température du recuit : $T_k = T_0 \cdot \alpha^k$, avec acceptance probability $p = e^{-\Delta E / T_k}$.
 
@@ -852,7 +1046,7 @@ Le runtime reconfigure la topologie lorsque les conditions changent :$$\text{rec
 La reconfiguration est atomique : elle ne perturbe pas les handoffs en cours et préserve les liaisons existantes compatibles.
 
 ---
-## 12. Plafond de trois spécialistes : disparition
+## 12. Dimensionnement adaptatif de l'équipe (sans plafond fixe de trois)
 
 L'A-Team de GenOS n'a pas de limite arbitraire de trois agents. La taille maximale est fonction des contraintes réelles du système.
 ### 12.1 Fonction de taille maximale
@@ -911,14 +1105,14 @@ La consolidation fusionne les rôles de plusieurs agents en un seul agent à cap
 L'A-Team de GenOS est un système de coordination riche, formel et adaptable — où chaque décision de composition, communication et transfert est pilotée par des modèles mathématiques explicites et vérifiables.
 # A-Team Topology — Part 3: Variantes, Intégration, Biomimétisme, Communications
 
-> **Version**: Final Operational State
-> **Scope**: A-Team variant taxonomy, continuous integration mechanics, organizational failure recovery, biological analogy mapping, and communication protocol design.
-> **Prerequisites**: A-Team Part 1 (fundamental primitives), A-Team Part 2 (coordination, Pareto layer, dependency graphs).
+> **Statut** : Cadre conceptuel à réaliser progressivement. Les variantes décrites ne sont pas toutes exécutables par le runtime.
+> **Portée** : taxonomie de variantes, intégration continue, recovery organisationnel, biomimétisme et communications.
+> **Prérequis** : les contrats normatifs de cette fiche ; Pareto ne s'applique qu'aux décisions locales entre options substituables.
 
 ---
 ## 1. Taxonomie Complète des 11 Variantes A-Team
 
-Chaque variante est une spécialisation du même noyau d'orchestration, adaptée à une forme de structure de mission. Le noyau reste identique : agents autonomes, graphe de dépendances explicite, couche Pareto pour la sélection, et boundary spanners pour les interfaces.
+Chaque variante est une spécialisation visée du même noyau d'orchestration, adaptée à une forme de structure de mission. Le noyau visé est : graphe de dépendances explicite, sélection contrainte par couverture et budget, contrats d'interface et, pour les décisions locales seulement, comparaison Pareto d'options substituables. Les boundary spanners sont une option d'organisation, pas une condition de toute A-Team.
 ### 1.1 Tableau Synoptique
 | # | Variante | Description | Structure | Cas Idéal | Propriété Clé |
 |---|----------|-------------|-----------|-----------|---------------|
@@ -2457,4 +2651,3 @@ Toutes les formules de ce document sont cohérentes avec celles de `a-team.md` :
 
 ---
 *Document A-Team — Partie 4 de 4. Cas d'usage, anti-usages, comparaisons, architecture ultime. Toutes les formules sont exprimées en LaTeX et sont cohérentes avec la spécification complète.*
-

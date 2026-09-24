@@ -1,6 +1,88 @@
 # Trinity — Laboratoire Scientifique Interne de GenOS
 
+- **Statut** : Partiel ; le contrat opérationnel v1 ci-dessous est la cible d'implémentation, pas une description de fonctionnalités déjà toutes disponibles.
+- **Portée v1** : exactement trois mondes logiciels indépendants, comparaison de leurs preuves, décision comparative et promotion d'un artefact candidat. Les variantes de recherche restent hors du runtime v1.
+- **Dernière revue** : 2026-09-24
+
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
+
+## Contrat opérationnel v1 — référence d'implémentation
+
+Cette section répond aux choix nécessaires pour transformer les parties conceptuelles ci-dessous en comportement déterministe. Elle prévaut en cas de contradiction avec une formule, un exemple ou une variante de recherche ultérieurs. « Doit » désigne une exigence runtime. Un mécanisme explicitement reporté ne doit pas être présenté comme actif.
+
+### Décisions de périmètre
+
+| Question à trancher | Décision v1 |
+|---|---|
+| Combien de mondes une expérience contient-elle ? | Exactement trois : `direct`, `structured`, `falsification`. Une exécution avec moins ou plus de trois dossiers est invalide. |
+| Les mondes peuvent-ils communiquer avant la comparaison ? | Non. Aucun canal ou dossier mutable partagé n'est fourni en phase scellée. Les dossiers ne sont lus qu'après la fin des trois tentatives ou leur échec définitif. |
+| Les mondes partent-ils du même état ? | Oui. Ils reçoivent le même snapshot en lecture seule et des workspaces d'écriture distincts créés depuis ce snapshot. Si l'égalité des empreintes n'est pas vérifiable, le lancement échoue fermé. |
+| Que signifie « modèles hétérogènes » ? | Une préférence de sélection, pas une garantie. En v1, la stratégie cognitive est obligatoirement distincte ; le fournisseur peut être identique. Toute diversité de fournisseur réellement obtenue est enregistrée, jamais supposée. |
+| Le runtime calcule-t-il une probabilité EV calibrée ? | Non. V1 calcule un indice de valeur déterministe à partir des signaux fournis et le nomme `evIndex`, pas probabilité. Aucun poids ne peut être décrit comme appris/calibré sans jeu de données et preuve de calibration. |
+| Que fait une demande explicite de Trinity ? | Elle demande le protocole mais ne contourne ni budget, ni isolation, ni garde de sécurité. Le runtime refuse avec un motif explicite si l'une de ces garanties manque. |
+| Que fait le jury multi-modèle ? | Il est optionnel et n'est appelé qu'après les vérificateurs déterministes et les preuves externes. Sans au moins deux juges configurés indépendamment, il retourne `unavailable` et ne vote pas. |
+| Que signifie « promouvoir » ? | V1 promeut vers un artefact candidat versionné et vérifié dans GenOS. Cela ne déploie pas en production et ne modifie pas la branche de travail de l'utilisateur. |
+| L'atomicité couvre-t-elle Git, fichiers et base dans une transaction ACID unique ? | Non. V1 utilise une promotion en deux phases avec candidat temporaire, commit/hash vérifiés, changement d'état final et compensation/rollback en cas d'échec. L'état `promoted` n'est écrit qu'en dernier. |
+
+### Entrées et sortie du concepteur d'hypothèses
+
+Le concepteur v1 est déterministe et n'invente pas de faits. Il prend la mission, les contraintes et le contexte autorisé en entrée. Il produit `centralProblem`, `assumptions[]`, `uncertainties[]`, `decisionVariables[]`, `selectedTriplet` et `selectionMethod: "fixed_v1"`. Les listes restent vides si aucune donnée explicite ne permet de les identifier. Il n'émet pas de `utilityScore` pour ce triplet fixe ; l'optimisation de la fonction d'utilité est reportée.
+
+Les trois stratégies v1 sont fixes :
+
+| Chambre | Travail indépendant | Livrable minimal |
+|---|---|---|
+| `direct` | Répondre à la mission brute avec le minimum d'hypothèses ajoutées. | Artefact ou réponse, critères satisfaits, preuves disponibles et incertitudes. |
+| `structured` | Construire un plan explicite depuis les contraintes et critères, puis produire la solution. | Plan, artefact ou réponse, vérifications et preuves. |
+| `falsification` | Construire sa propre solution ou analyse, puis rechercher activement les contre-exemples et corriger les défauts établis. Elle ne reçoit pas les sorties des deux autres pendant la phase scellée. | Artefact ou réponse, tentatives de réfutation, résultats reproductibles et incertitudes restantes. |
+
+L'adaptation du gabarit au domaine ne change pas l'identité de la chambre. Les prompts effectifs et leur version sont conservés dans la provenance.
+
+### Règle d'engagement et budgets
+
+Les signaux EV acceptés sont normalisés dans `[0,1]` : `hypothesisCount = min(nombre de pistes plausibles, 3) / 3`, `domainUncertainty`, `errorCost`, `irreversibility`, `oracleAvailability`, `errorCorrelation` et `budgetRatio = tokens prévus pour Trinity / tokens alloués à Trinity`. Si le budget alloué vaut zéro, le lancement est refusé avant le calcul. `errorCost` utilise l'échelle de politique versionnée : 0 aucun coût, 0,25 faible, 0,50 modéré, 0,75 élevé, 1 critique. `irreversibility` est fourni directement selon cette échelle (0 réversible, 1 irréversible). `domainUncertainty` vaut le nombre d'assumptions et variables de décision non résolues, plafonné à trois puis divisé par trois. `oracleAvailability` vaut 0 sans vérificateur, 0,5 avec revue non déterministe seulement, 1 avec au moins un vérificateur déterministe ou une source de vérité externe. `errorCorrelation` provient de résultats comparables historiques ; faute de données, v1 utilise le prior neutre versionné `0.50` et l'enregistre avec `correlationSource: "policy_prior"`, sans prétendre qu'il est appris.
+
+V1 calcule `evIndex = clamp01(0.20·hypothesisCount + 0.15·domainUncertainty + 0.20·errorCost + 0.15·irreversibility + 0.15·oracleAvailability + 0.10·(1-errorCorrelation) - 0.15·budgetRatio)`. Ces coefficients sont des paramètres de politique versionnés, pas un modèle probabiliste. Les poids, entrées et résultat sont enregistrés.
+
+Le lancement automatique est autorisé lorsque `evIndex >= 0.50`, `budgetRatio <= 1`, et le budget disponible couvre trois allocations minimales configurées. Une demande explicite peut ignorer le seuil `evIndex`, mais pas les limites de budget, de sécurité ou d'isolation. Si un signal obligatoire autre que `errorCorrelation` est inconnu, l'engagement automatique est refusé avec `insufficient_inputs`; l'appel explicite peut continuer et consigne les inconnues.
+
+Le budget total est réparti également entre les trois chambres après réservation du budget orchestrateur. Aucun worker ne peut dépasser son budget en empruntant à un autre. À épuisement, le monde termine avec `budget_exhausted`; il n'y a pas de réallocation en v1. La limite de durée est appliquée par expérience et par monde.
+
+### Contrat de preuve et comparaison
+
+Chaque monde rapporte les dix dimensions de l'Evidence Vector documentées en Partie 2, ainsi que les mesures brutes et références aux preuves. Une dimension non mesurable vaut `null`, jamais zéro ni un. Les seuils d'élimination ne s'appliquent qu'aux dimensions mesurées ; toute contrainte dure de mission non satisfaite élimine le monde. Les seuils de l'Appendice B sont les valeurs par défaut v1 et peuvent être resserrés par mission, jamais relâchés sous les planchers de sécurité.
+
+Les valeurs v1 sont orientées ainsi : correctness ≥ 0,70 ; coverage ≥ 0,60 ; robustness ≥ 0,50 ; reproducibility ≥ 0,80 ; novelty ≥ 0 ; risk ≤ 0,30 ; uncertainty ≤ 0,50 ; constraint coverage ≥ 0,90. Cost doit rester dans le budget et latency dans le SLA. Les seuils cibles de l'Appendice B sont des objectifs, pas des conditions obligatoires de promotion. Si une dimension requise par le profil de vérification est inconnue, le résultat est `ESCALATE_EXPERIMENT` ; une dimension optionnelle inconnue ne sert pas au classement.
+
+Règles d'agrégation, dans cet ordre :
+
+1. Rejeter les dossiers invalides, incomplets ou sans preuve de provenance.
+2. Éliminer les mondes échouant une contrainte dure ou un plancher mesurable.
+3. Calculer le front de Pareto sur correctness, coverage, robustness, reproducibility, novelty, cost, latency, risk, uncertainty et constraint coverage, en utilisant le même ensemble de dimensions mesurées pour tous les candidats comparés. Les dimensions de coût, latence, risque et incertitude sont minimisées ; les autres sont maximisées.
+4. S'il reste un seul monde, retourner `PROMOTE_WORLD` uniquement après passage des vérificateurs requis.
+5. Si plusieurs mondes non dominés ont des revendications compatibles et que chaque revendication fusionnée a une preuve, retourner `SYNTHESIZE_CLAIMS`.
+6. Si plusieurs mondes non dominés restent et qu'une synthèse sûre n'est pas possible, retourner `KEEP_PARETO_SET`.
+7. Si aucun monde ne passe les gardes ou si des preuves requises manquent, retourner `ESCALATE_EXPERIMENT`.
+
+Une égalité de score scalaire ne départage jamais les mondes. Un juge ne peut pas annuler un échec de test, une contradiction avec une preuve externe ou un échec de contrainte dure.
+
+### Fusion des revendications
+
+Chaque revendication possède un identifiant stable, un énoncé, une provenance vers le monde, une liste de preuves, un niveau de vérification, une confiance rapportée et des relations typées (`supports`, `contradicts`, `verifies`, `complements`). La confiance déclarée par un modèle n'est pas une preuve.
+
+Une revendication n'entre dans la synthèse que si elle est substantielle, référencée par au moins une preuve, non réfutée par un vérificateur de priorité supérieure, et reliée au graphe. Une revendication perdante n'est fusionnée que si le graphe établit `complements` avec les revendications retenues ; une simple propriété textuelle `relation: "complements"` fournie par le worker ne suffit pas à établir ce lien. Les revendications contradictoires sont toutes deux conservées dans le rapport de comparaison, marquées en conflit, et exclues de la synthèse jusqu'à résolution par vérification.
+
+### Cycle de vie, échec et reprise
+
+Les états d'expérience sont `designed → sealed_running → sealed_complete → cross_examining → decided → promotion_preparing → promoted`. Les sorties terminales alternatives sont `rejected`, `escalated` et `promotion_failed`. Chaque transition est enregistrée avec horodatage, acteur, motif et référence de preuve. Une reprise est idempotente : elle ne relance pas un monde déjà terminé avec un dossier valide. Une transition partielle ne peut pas rendre un gagnant promu.
+
+Si un monde échoue, son dossier d'échec est conservé. L'expérience ne passe pas à la décision tant que les trois mondes n'ont pas un résultat terminal. L'absence de preuve sur l'un des trois mène à `ESCALATE_EXPERIMENT`; elle ne réduit pas silencieusement le nombre de mondes.
+
+La promotion prépare un candidat distinct, exécute les vérifications d'intégration configurées, revérifie les revendications retenues, calcule le hash du contenu final et enregistre la référence AgentGit. Le passage à `promoted` est la dernière écriture. Tout échec supprime ou met en quarantaine le candidat, enregistre `promotion_failed` et conserve les mondes sources intacts.
+
+### Portée explicitement reportée
+
+V1 n'implémente pas Trinity-Factorial, Trinity-Recursive, l'adaptation du nombre de replicas en cours de run, l'apprentissage des poids, l'estimation statistique de corrélation d'erreurs, les solveurs formels non présents dans le runtime, ni une garantie de diversité des fournisseurs. Ces propositions restent des variantes de recherche ; elles ne sont pas des critères d'acceptation du runtime v1.
 
 ## 1. Définition
 
@@ -70,6 +152,8 @@ Trinity **ne dialogue pas**. Chaque chambre travaille sur le même problème san
 
 ## 4. Le Hypothesis Designer
 
+Les optimisations et composantes informationnelles de cette section sont des objectifs de recherche. Le runtime v1 utilise le concepteur déterministe et les trois rôles définis dans le contrat opérationnel en tête de document ; il ne prétend pas mesurer l'information mutuelle ni maximiser exactement la fonction ci-dessous.
+
 Avant toute exécution, Trinity passe par un **Hypothesis Designer** qui extrait et structure le problème.
 
 ### 4.1 Extraction
@@ -133,6 +217,8 @@ $$
 $$
 
 ## 5. Calcul de l'espérance de valeur EV(Trinity)
+
+Les équations de cette section décrivent le modèle conceptuel. Pour le runtime v1, appliquer exclusivement l'indice `evIndex`, ses signaux normalisés, son seuil et les règles d'inconnues du contrat opérationnel. `evIndex` n'est pas une probabilité estimée.
 
 Trinity n'est pas exécutée pour toute mission. Le **Expected Value** du protocole est calculé avant engagement :
 
@@ -221,7 +307,8 @@ interface TrinityExperiment {
     decisionVariables: DecisionVariable[];
     candidateHypotheses: Hypothesis[];
     selectedTriplet: [Hypothesis, Hypothesis, Hypothesis];
-    utilityScore: number;
+    selectionMethod: "fixed_v1" | "utility_optimized";
+    utilityScore: number | null;
   };
 
   // Chambres
@@ -251,7 +338,7 @@ interface TrinityExperiment {
   };
 
   // État
-  status: "designed" | "sealed-phase" | "cross-examination" | "aggregated" | "decided";
+  status: "designed" | "sealed_running" | "sealed_complete" | "cross_examining" | "decided" | "promotion_preparing" | "promoted" | "rejected" | "escalated" | "promotion_failed";
   decision: TrinityDecision | null;
 }
 ```
@@ -285,13 +372,13 @@ interface TrinityWorld {
   };
 
   // Aléatoire maîtrisé
-  randomSeed: number;             // Seed reproductible
+  randomSeed: number | null;      // Seed fourni et effectivement appliqué, sinon null
   tokenBudget: number;            // Budget maximal de tokens
 
   // Provenance & reproductibilité
   workspaceSnapshot: string;      // Hash de l'état initial du workspace
-  initialCommit: string;          // Commit git du point de départ
-  finalCommit: string;            // Commit git produit par la chambre
+  initialCommit: string | null;   // Commit git initial si le workspace est un dépôt
+  finalCommit: string | null;     // Commit git final si la chambre en a produit un
 
   // Sorties
   evidenceDossier: EvidenceDossier;  // Toutes les preuves collectées
@@ -332,6 +419,8 @@ Les trois `TrinityWorld` sont révélés simultanément. Le système procède à
 
 ### Schéma de séquence Mermaid
 
+Le diagramme illustre le flux cible. En v1, l'optimisation $U$ et l'EV probabiliste sont remplacées par la sélection `fixed_v1` et l'indice `evIndex` définis dans le contrat opérationnel.
+
 ```mermaid
 sequenceDiagram
     participant M as Mission
@@ -345,13 +434,12 @@ sequenceDiagram
 
     M->>HD: mission description
     HD->>HD: extraction problème/assumptions/uncertainties
-    HD->>HD: génération candidats H*
-    HD->>HD: optimisation U(H1,H2,H3)
+    HD->>HD: sélection fixed_v1 des trois chambres
     HD->>EV: hypothèses retenues + signaux
-    EV->>EV: calcul P_useful × I × V - C_compute
+    EV->>EV: calcul de evIndex non calibré
     EV->>M: EV(Trimony) vs seuil
 
-    alt EV ≥ seuil (engagement)
+    alt evIndex ≥ 0.50 ou demande explicite, budget et gardes admissibles
         M->>C1: TrinityWorld(direct, H1, snapshot)
         M->>C2: TrinityWorld(structured, H2, snapshot)
         M->>C3: TrinityWorld(falsification, H3, snapshot)
@@ -414,37 +502,34 @@ $$
 
 ### 9.5 Recorded Randomness (aléatoire enregistré)
 
-Tout appel à l'aléatoire (sampling du modèle, sélection de contre-exemples, ordre de recherche) utilise un **seed explicite et enregistré**. Toute exécution est donc **reproductible**.
+V1 enregistre le seed demandé et indique s'il a été effectivement accepté par le fournisseur et les outils. Si un composant ne permet pas de fixer le seed, `randomSeed` vaut `null` pour ce composant et la reproductibilité de la sortie est mesurée comme partielle ; le système ne promet pas une reproduction exacte.
 
 $$
-\forall c_i : \quad \text{randomSeed}_i \text{ est fixe et enregistré dans TrinityWorld}_i
+\forall c_i : \quad \text{seedApplied}_i \in \{\text{true}, \text{false}\} \land \text{seed provenance enregistrée}
 $$
 
-Cela permet :
-- La **reproductibilité exacte** d'un run
-- L'**analyse de sensibilité** (quel changement de seed change la conclusion ?)
-- La **détection de survenue chanceuse** (une chambre a-t-elle eu « de la chance » ?)
+Cela permet d'indiquer précisément la portée de reproduction obtenue, et de mesurer la reproductibilité par réexécution lorsque l'environnement le permet. L'analyse de sensibilité et la détection d'une réussite due au hasard restent hors de v1.
 
 ## 10. Résumé opérationnel
 
-Trinity est un protocole en **quatre étapes** :
+La cible opérationnelle v1 suit quatre étapes :
 
-1. **Hypothesis Designer** → structure le problème, génère les hypothèses, sélectionne le triplet optimal
-2. **EV Calculator** → décide si Trinity est justifiée (rapport coût/bénéfice explicite)
+1. **Hypothesis Designer** → structure le problème et applique le triplet fixe direct, structuré, falsification
+2. **EV Calculator** → calcule l'indice `evIndex` non calibré et vérifie les budgets
 3. **Phase A (Sealed)** → trois chambres indépendantes produisent des `TrinityWorld`
 4. **Phase B (Cross-Examination)** → alignement, conflit, agrégation → décision finale
 
-Chaque étape est **traçable**, **reproductible**, **auditable**. La sortie n'est pas une réponse — c'est une **décision justifiée par un processus épistémique explicite**.
+Chaque étape cible est traçable et auditable. La reproductibilité est mesurée et limitée aux composants capables d'appliquer un seed. Le statut « Partiel » en tête de document reflète que ce contrat n'est pas encore entièrement câblé.
 
 *Prochaine partie : Trinity — Implémentation & Runtime (Partie 2)*
 
 # Trinity Topology — Part 2: Scoring, Claim Graph, Merge & Verification
 
-> **Scope:** This document specifies the decision plane of the Trinity topology — how candidate worlds are scored, how claims are merged, and how verification gates enforce correctness before promotion. It is normative: every formula, threshold, and procedure described here is the intended operational state of the system.
+> **Scope:** This part details the decision plane. The operational v1 contract at the start of this file is authoritative where this part conflicts with it. Equations that require unavailable calibration data or verifier integrations describe research targets, not implemented runtime behavior.
 
 ## 1. Evidence Vector
 
-Each candidate world $W_i$ produces an **evidence vector** $\mathbf{E}_i$ that captures ten orthogonal dimensions of quality. The vector is the atomic unit of comparison; no single scalar is ever used to rank worlds.
+Each candidate world $W_i$ produces an **evidence vector** $\mathbf{E}_i$ that captures ten orthogonal dimensions of quality. The vector is the atomic unit of comparison. The operational v1 contract above defines how missing dimensions, threshold direction, and Pareto decisions are handled.
 
 ### 1.1 Definition
 
@@ -467,11 +552,12 @@ $$
 
 ### 1.2 Per-Dimension Thresholds
 
-Each dimension has a **hard floor** $\theta_{\min}$ and a **target** $\theta_{\star}$. A world that fails any hard floor is eliminated regardless of its score on other dimensions.
+Quality dimensions have a hard floor $\theta_{\min}$; risk and uncertainty instead have hard ceilings. Cost and latency are bounded by budget and SLA. The operational v1 contract at the start of this document defines the direction for each dimension.
 
 $$
 \begin{aligned}
-\theta_{\min} &= \langle 0.70, \, 0.60, \, 0.50, \, 0.80, \, 0.00, \, \infty, \, \infty, \, 0.30, \, 0.50, \, 0.90 \rangle \\
+\theta_{\min} &= \langle 0.70, \, 0.60, \, 0.50, \, 0.80, \, 0.00, \, \infty, \, \infty, \, -, \, -, \, 0.90 \rangle \\
+\theta_{\max} &= \langle -, \, -, \, -, \, -, \, -, \, \text{budget}, \, \text{SLA}, \, 0.30, \, 0.50, \, - \rangle \\
 \theta_{\star} &= \langle 0.95, \, 0.90, \, 0.85, \, 0.95, \, 0.40, \, \text{budget}, \, \text{SLA}, \, 0.05, \, 0.10, \, 1.00 \rangle
 \end{aligned}
 $$
@@ -479,7 +565,7 @@ $$
 **Elimination rule:**
 
 $$
-\text{eliminate}(W_i) \iff \exists d \in \text{dims} : \mathbf{E}_i[d] < \theta_{\min}[d]
+\text{eliminate}(W_i) \iff \exists d \in \text{required dims} : \begin{cases} \mathbf{E}_i[d] < \theta_{\min}[d] & d \text{ is a quality floor} \\ \mathbf{E}_i[d] > \theta_{\max}[d] & d \in \{\text{risk, uncertainty}\} \\ \mathbf{E}_i[d] > \text{budget/SLA}[d] & d \in \{\text{cost, latency}\} \end{cases}
 $$
 
 Dimensions $k$ (cost) and $\ell$ (latency) are treated as **budget-constrained** rather than threshold-gated: they enter the Pareto frontier but do not trigger automatic elimination unless they exceed the mission budget.
@@ -492,7 +578,7 @@ $$
 \hat{\mathbf{E}}_i[d] = \mathbf{E}_i[d] \cdot (1 - u_i)
 $$
 
-This ensures that worlds with high self-reported uncertainty are penalized proportionally, preventing overconfident but poorly-evidenced candidates from dominating the ranking.
+This uncertainty adjustment is a research proposal and is not applied by runtime v1. V1 ranks the uncertainty dimension directly on the Pareto frontier and does not treat model-reported confidence as evidence.
 
 ## 2. Scalar Score — V1 vs. Evidence Vector
 
@@ -513,9 +599,9 @@ where $\alpha + \beta + \gamma = 1$ and $\alpha, \beta, \gamma > 0$.
 - No mechanism for hard constraints — a world with $\text{ConstraintCoverage} = 0.2$ could still win if Claims and Tests are high.
 - Weights $\alpha, \beta, \gamma$ are global and cannot adapt to mission priorities.
 
-### 2.2 Evidence Vector (Current)
+### 2.2 Evidence Vector (cible v1)
 
-The current system uses the full 10-dimensional vector $\mathbf{E}_i$ with Pareto-based elimination (§3). Scalar aggregation is applied **only after** Pareto filtering, using a mission-specific utility function:
+La cible v1 utilisera le vecteur à 10 dimensions $\mathbf{E}_i$ avec élimination Pareto (§3). L'implémentation actuelle reste partielle et utilise encore un score scalaire pondéré. Si une agrégation scalaire est ajoutée après filtrage Pareto, elle devra suivre une fonction d'utilité spécifique à la mission :
 
 $$
 U_i = \sum_{d \in \text{dims}} w_d \cdot f_d(\mathbf{E}_i[d])
@@ -525,7 +611,7 @@ where $w_d$ are mission weights and $f_d$ are per-dimension shaping functions (t
 
 ### 2.3 Comparative Summary
 
-| Property | $S_i^{(V1)}$ | $\mathbf{E}_i$ (Current) |
+| Property | $S_i^{(V1)}$ | $\mathbf{E}_i$ (target v1) |
 |----------|-------------|--------------------------|
 | Dimensions | 3 | 10 |
 | Hard constraints | No | Yes ($\theta_{\min}$) |
@@ -535,7 +621,7 @@ where $w_d$ are mission weights and $f_d$ are per-dimension shaping functions (t
 | Elimination | Score threshold | Multi-stage Pareto |
 | Expressiveness | Scalar only | Full vector + utility |
 
-**Justification:** The evidence vector preserves information that scalar aggregation destroys. Two worlds with identical $S_i^{(V1)}$ may have radically different profiles (one may be fast but fragile, another slow but robust). The vector representation enables the Pareto frontier to separate them.
+**Justification:** The evidence vector is intended to preserve information that scalar aggregation destroys. Two worlds with identical $S_i^{(V1)}$ may have radically different profiles (one may be fast but fragile, another slow but robust). The vector representation enables the Pareto frontier to separate them once implemented.
 
 ## 3. Pareto Elimination — Three Stages
 
@@ -687,6 +773,13 @@ World C: "Throughput < 900 req/s"      [benchmark: 870 req/s]
 When multiple worlds make related claims, the system performs **claim-level fusion** to produce a unified knowledge base.
 
 ### 5.1 Fusion Rules
+
+Le contrat opérationnel v1 ci-dessus fait autorité. Les revendications
+substantielles appuyées par une preuve restent candidates à la fusion après
+vérification. Pour un monde perdant, le runtime doit établir un lien
+`complements` dans le ClaimGraph ; une propriété `relationToWinner` ou `relation`
+déclarée par le worker n'est qu'une proposition à vérifier. Sans lien établi,
+la revendication reste dans le dossier comparatif et n'est pas fusionnée.
 
 Given a set of claims $\mathcal{C} = \{c_1, c_2, \dots, c_n\}$ about the same proposition:
 
@@ -857,6 +950,8 @@ When deterministic verification is impossible and external evidence is unavailab
 
 ### 8.1 Configuration
 
+Exemple de configuration cible, sans garantie de disponibilité des fournisseurs ni valeurs par défaut du runtime v1 :
+
 ```json
 {
   "jury_config": {
@@ -984,13 +1079,13 @@ $$
                 └───────────────┘
 ```
 
-## 10. Transactional Promotion
+## 10. Promotion transactionnelle en deux phases
 
-Promotion is an **atomic, transactional operation** that moves a winning world from candidate status to production status.
+La promotion v1 est une opération en deux phases vers un artefact candidat GenOS ; elle ne déploie pas en production. L'état `promoted` n'est enregistré qu'après vérification de l'artefact et de son hash. Comme les fichiers, AgentGit et la base ne partagent pas une transaction ACID, les échecs sont compensés par suppression ou mise en quarantaine du candidat et rollback de l'état.
 
 ### 10.1 Promotion Protocol
 
-The promotion protocol consists of the following steps, executed as a single transaction:
+Le protocole exécute les étapes suivantes dans l'ordre avec une phase de préparation et une finalisation compensable :
 
 ```
 1. WINNER_SELECTED      → W* identified by decision plane
@@ -1012,7 +1107,7 @@ $$
 \text{promote}(W^\star) : \mathcal{S} \to \mathcal{S}'
 $$
 
-with the **atomicity guarantee**:
+with the **logical all-or-compensated guarantee** (not a distributed ACID transaction):
 
 $$
 \text{promote}(W^\star) = \begin{cases}
@@ -1103,7 +1198,7 @@ If post-verification fails, the system triggers an **alert** and initiates recov
 
 ## Appendix B — Threshold Reference
 
-| Dimension | $\theta_{\min}$ | $\theta_{\star}$ |
+| Dimension | Hard floor or ceiling | Target |
 |-----------|-----------------|------------------|
 | Correctness | 0.70 | 0.95 |
 | Coverage | 0.60 | 0.90 |
@@ -1112,8 +1207,8 @@ If post-verification fails, the system triggers an **alert** and initiates recov
 | Novelty | 0.00 | 0.40 |
 | Cost | $\infty$ (budget-gated) | Mission budget |
 | Latency | $\infty$ (SLA-gated) | Mission SLA |
-| Risk | 0.30 | 0.05 |
-| Uncertainty | 0.50 | 0.10 |
+| Risk (ceiling) | ≤ 0.30 | 0.05 |
+| Uncertainty (ceiling) | ≤ 0.50 | 0.10 |
 | Constraint Coverage | 0.90 | 1.00 |
 
 *End of Trinity Part 2 — Scoring, Claim Graph, Merge & Verification.*

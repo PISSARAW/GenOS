@@ -4,7 +4,7 @@
 
 ---
 
-## 1. Définition et positionnement
+## 1. Définition
 
 ### 1.1 Définition formelle
 
@@ -104,6 +104,37 @@ Exemples de niches GenOS :
 
 **Une même mission backend peut contenir dix niches distinctes.**
 
+```typescript
+// Exemple de définition de niche en TypeScript
+interface Niche {
+    nicheId: string;
+    opportunity: string;           // "Investigate auth latency spike"
+    environmentDescriptor: {
+        repo: string;
+        language: string;
+        dependencies: string[];
+    };
+    requiredCapabilities: string[]; // ["sql", "profiling", "git-history"]
+    availableResources: ResourceVector;
+    entryConditions: () => boolean;
+    survivalConditions: (metrics: EcologicalMetrics) => boolean;
+    exitConditions: (metrics: EcologicalMetrics) => boolean;
+    rewardSignals: string[];       // ["query_latency_reduced", "root_cause_found"]
+    competitors: string[];         // niches en compétition pour mêmes ressources
+    mutualists: string[];          // niches synergiques
+    predators: string[];           // niches qui consomment ses outputs
+    dependencies: string[];        // niches dont elle dépend
+    carryingCapacity: number;       // K_i
+    occupancy: number;             // population actuelle
+    productivity: number;          // rendement marginal actuel
+    novelty: number;               // nouveauté des découvertes
+    informationGain: number;       // gain d'information attendu
+    uncertainty: number;           // incertitude sur l'opportunité
+    stability: number;             // stabilité historique
+    disturbanceLevel: number;      // niveau de perturbation actuel
+}
+```
+
 ### 1.6 Niche fondamentale vs réalisée
 
 Un agent possède une **niche fondamentale** :
@@ -166,6 +197,41 @@ Chaque niche possède une demande différente :
 
 Cela devient une véritable **économie écologique**.
 
+```typescript
+interface ResourceVector {
+    tokens: number;
+    time: number;           // wall-clock seconds
+    calls: number;          // LLM API calls
+    gpu: number;            // GPU compute units
+    memory: number;         // MB
+    tools: ToolLease[];     // tool access slots
+    concurrency: number;    // parallel workers
+    risk: number;           // risk budget
+    attention: number;      // context window units
+}
+
+// Allocation optimale
+function allocateResources(
+    niches: Niche[],
+    populations: Population[],
+    totalResources: ResourceVector
+): Allocation {
+    // Allocation_i ∝ (MarginalValue × InfoGain × Criticality × LearningProgress × KeystoneValue)
+    //                ÷ (Cost × Pressure × Redundancy × Risk)
+    const allocations = niches.map(n => {
+        const numerator = 
+            n.productivity * n.informationGain * n.criticality *
+            n.learningProgress * n.keystoneValue;
+        const denominator = 
+            n.cost * n.resourcePressure * (1 + n.redundancy) * (1 + n.risk);
+        return { nicheId: n.nicheId, weight: numerator / denominator };
+    });
+
+    // Normaliser avec contraintes R_i ≥ R_min,i et ΣR_i + R_reserve ≤ R
+    return applyConstraints(allocations, totalResources);
+}
+```
+
 ### 2.2 Carrying capacity réelle
 
 La documentation mentionne déjà $K$, mais le code ne l'implique pas comme mécanisme vivant.
@@ -196,6 +262,27 @@ Exemple : Agent A avec $\text{fitness}(\text{repo\_scan}) = .91$, $\text{fitness
 Sa fitness moyenne vaut $.48`, mais il possède une niche où il est excellent. **Il ne faut pas le tuer.**
 
 C'est précisément l'esprit Quality-Diversity. [[@arxiv:1504.04909]]
+
+```typescript
+function computeFitness(
+    agent: Agent,
+    niche: Niche,
+    tick: number
+): number {
+    const success = agent.successRate(niche, tick);
+    const evidence = agent.evidenceQuality(niche, tick);
+    const infoGain = agent.informationGain(niche, tick);
+    const novelty = agent.noveltyContribution(niche, tick);
+    const complementarity = agent.complementarityScore(niche, tick);
+    const cost = agent.resourceCost(niche, tick);
+    const risk = agent.riskScore(niche, tick);
+    const pressure = niche.resourcePressure;
+
+    return ALPHA * success + BETA * evidence + GAMMA * infoGain +
+           DELTA * novelty + EPSILON * complementarity -
+           ZETA * cost - ETA * risk - THETA * pressure;
+}
+```
 
 ### 2.4 EcologicalArchive
 
@@ -277,6 +364,7 @@ La littérature sur la résilience écologique insiste sur la distinction entre 
 Les populations utiles au début d'une mission ne sont pas celles utiles à la fin.
 
 Exemple développement :
+
 ```
 EARLY SUCCESSION          MID SUCCESSION           LATE SUCCESSION
 exploration               architecture             hardening
@@ -494,6 +582,7 @@ Les plus importants pour la V1 ultime : **Exploration, Resource, Resilience, Per
 ### 4.2 Cas d'usage typiques
 
 **Bug inconnu** :
+
 ```
 Environment: repository
 
