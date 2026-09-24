@@ -86,9 +86,12 @@ class SyncytiumCrdt {
   constructor() {
     this.opLog = [];
     this.lamportClock = 0;
+    this.appliedOpIds = new Set();
   }
 
   applyOp(op) {
+    const opId = typeof op.opId === 'string' ? op.opId.trim() : '';
+    if (opId && this.appliedOpIds.has(opId)) return this.getSnapshot();
     // Lamport receive rule: advance the local clock past any remote timestamp,
     // then stamp local events with max(local, remote) + 1. A remote op keeps
     // its own stamp.
@@ -103,9 +106,14 @@ class SyncytiumCrdt {
     }
     // `??` so an explicit 0 timestamp is honored instead of replaced.
     const timestampMs = op.timestampMs ?? Date.now();
-    const recordedOp = { ...op, lamport, timestampMs };
+    const recordedOp = { ...op, ...(opId ? { opId } : {}), lamport, timestampMs };
     this.opLog.push(recordedOp);
+    if (opId) this.appliedOpIds.add(opId);
     return this.getSnapshot();
+  }
+
+  hasOpId(opId) {
+    return this.appliedOpIds.has(String(opId || '').trim());
   }
 
   getSnapshot(targetMs = null, maxOps = null) {

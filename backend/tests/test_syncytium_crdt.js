@@ -39,7 +39,15 @@ let snapshot = crdt.getSnapshot();
 assert.equal(snapshot.textContent, 'export function processBatch() {}');
 assert.equal(snapshot.sharedFields.typeSafetyChecked, true);
 assert.equal(snapshot.totalOps, 2);
+const duplicate = {
+  opId: 'op-exec-1', agentId: 'agent-exec', role: 'parallel_executor', timestampMs: 1000,
+  kind: { type: 'insert_text', index: 0, text: 'export function processBatch() {}' }
+};
+crdt.applyOp(duplicate);
+crdt.applyOp(duplicate);
+assert.equal(crdt.getSnapshot().totalOps, 2);
 console.log('  ✅ Opérations concurrentes CRDT sans corruption validées.');
+console.log('  ✅ Réapplication du même opId sans effet supplémentaire validée.');
 
 console.log('\n=== TEST 3: Multi-Agent Cursors Tracking (4 Roles) ===');
 const roles = [

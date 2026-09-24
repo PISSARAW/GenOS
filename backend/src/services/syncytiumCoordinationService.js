@@ -10,7 +10,7 @@ const syncytiumService = require('./syncytiumService');
 const { createSyncytiumCrdt } = require('./syncytiumCrdtService');
 const { createCytoplasm } = require('./syncytiumCytoplasmService');
 const topologyCapabilityService = require('./topologyCapabilityService');
-const store = require('./topologySessionStore');
+const persistence = require('./syncytiumPersistenceService');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -31,6 +31,8 @@ function rehydrate(record) {
   const organization = state.organization || DEFAULT_ORGANIZATION;
   const session = {
     sessionId: record.id,
+    revision: sessionRevision(record),
+    persisted: true,
     mission: state.mission || '',
     recommended: state.recommended === true,
     members: Array.isArray(state.members) ? state.members : [],
@@ -48,9 +50,25 @@ function rehydrate(record) {
   return session;
 }
 
+function sessionRevision(record) {
+  return Number.isInteger(record.revision) ? record.revision : 0;
+}
+
 async function persist(db, session) {
   if (!db) return;
-  await store.save(db, { id: session.sessionId, topology: 'syncytium', state: serialize(session) }).catch(() => {});
+  try {
+    const record = { sessionId: session.sessionId, revision: session.revision, state: serialize(session) };
+    if (!session.persisted) {
+      session.revision = await persistence.createSession(db, record);
+      session.persisted = true;
+    } else {
+      session.revision = (await persistence.commitSession(db, record, session.pendingOperation)).revision;
+    }
+    session.pendingOperation = null;
+  } catch (cause) {
+    if (cause.code === 'SYNCYTIUM_SESSION_CONFLICT') throw cause;
+    throw Object.assign(new Error('Syncytium session persistence failed.', { cause }), { code: 'SYNCYTIUM_PERSISTENCE_FAILURE' });
+  }
 }
 
 async function createSession(mission, options = {}) {
@@ -62,6 +80,8 @@ async function createSession(mission, options = {}) {
     recommended: syncytiumService.analyzeMission(mission).recommended,
     members: syncytiumService.compose(mission),
     organization,
+    revision: 0,
+    persisted: false,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'syncytium', organization }),
     crdt: createSyncytiumCrdt(),
     cytoplasm: createCytoplasm(),
@@ -73,13 +93,15 @@ async function createSession(mission, options = {}) {
 }
 
 async function getSession(sessionId, db) {
-  if (sessions.has(sessionId)) return sessions.get(sessionId);
-  if (!db) throw Object.assign(new Error(`Unknown syncytium session '${sessionId}'.`), { code: 'SYNCYTIUM_SESSION_UNKNOWN' });
-  const record = await store.load(db, sessionId);
-  if (!record || record.topology !== 'syncytium') throw Object.assign(new Error(`Unknown syncytium session '${sessionId}'.`), { code: 'SYNCYTIUM_SESSION_UNKNOWN' });
-  const session = rehydrate(record);
-  sessions.set(sessionId, session);
-  return session;
+  if (db) {
+    const record = await persistence.loadSession(db, sessionId);
+    if (!record) throw Object.assign(new Error(`Unknown syncytium session '${sessionId}'.`), { code: 'SYNCYTIUM_SESSION_UNKNOWN' });
+    const session = rehydrate(record);
+    sessions.set(sessionId, session);
+    return session;
+  }
+  if (!sessions.has(sessionId)) throw Object.assign(new Error(`Unknown syncytium session '${sessionId}'.`), { code: 'SYNCYTIUM_SESSION_UNKNOWN' });
+  return sessions.get(sessionId);
 }
 
 function isIonicFlux(op) {
@@ -103,15 +125,20 @@ function assessConsistency(session) {
 
 async function applyOperation(sessionId, op, options = {}) {
   const session = await getSession(sessionId, options.db);
+  if (op?.opId && (session.crdt.hasOpId(op.opId) || session.fluxOps.some((flux) => flux.opId === op.opId))) {
+    return { sessionId, snapshot: session.crdt.getSnapshot(), consistency: assessConsistency(session), duplicate: true };
+  }
   if (isIonicFlux(op)) {
-    const flux = { ion: op.kind.type.slice('flux_'.length), deltaFlux: Number(op.kind.deltaFlux) || 0, agentId: op.agentId };
+    const flux = { opId: op.opId, ion: op.kind.type.slice('flux_'.length), deltaFlux: Number(op.kind.deltaFlux) || 0, agentId: op.agentId };
     session.fluxOps.push(flux);
     const result = { sessionId, ion: session.cytoplasm.propagateIonicFlux(flux.ion, flux.deltaFlux, flux.agentId), consistency: assessConsistency(session) };
+    session.pendingOperation = op;
     await persist(options.db, session);
     return result;
   }
   session.crdt.applyOp(op);
   const result = { sessionId, snapshot: session.crdt.getSnapshot(), consistency: assessConsistency(session) };
+  session.pendingOperation = session.crdt.getHistory().at(-1);
   await persist(options.db, session);
   return result;
 }
@@ -123,7 +150,7 @@ async function snapshot(sessionId, options = {}) {
 
 async function closeSession(sessionId, options = {}) {
   const existed = sessions.delete(sessionId);
-  if (options.db) await store.remove(options.db, sessionId).catch(() => {});
+  if (options.db) await persistence.removeSession(options.db, sessionId);
   return true;
 }
 
