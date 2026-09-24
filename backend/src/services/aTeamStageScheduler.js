@@ -74,6 +74,26 @@ async function waitForWorkersTerminal(db, workerIds, options = {}) {
   return { timedOut: pending.size > 0, pendingWorkerIds: [...pending], elapsedMs: now() - startedAt };
 }
 
+async function dependencyStatusSnapshot(db, dependencyIds) {
+  const entries = await Promise.all(dependencyIds.map(async (workerId) => {
+    const row = await db.get('SELECT status FROM agents WHERE id = ?', workerId);
+    return [workerId, row?.status || 'missing'];
+  }));
+  return new Map(entries);
+}
+
+async function waitForStageDependencies(context) {
+  const { db, dependencyIds, options, sleep, now } = context;
+  const wait = await waitForWorkersTerminal(db, dependencyIds, {
+    pollMs: options.pollMs, timeoutMs: options.timeoutMs, sleep, now
+  });
+  return {
+    timedOut: wait.timedOut,
+    pendingWorkerIds: wait.pendingWorkerIds,
+    statuses: await dependencyStatusSnapshot(db, dependencyIds)
+  };
+}
+
 async function runStagePlan({ db, plan, launch, options = {} }) {
   const skip = new Set(options.skipWorkerIds || []);
   const sleep = options.sleep || defaultSleep;
@@ -83,14 +103,22 @@ async function runStagePlan({ db, plan, launch, options = {} }) {
   for (let stage = 0; stage <= plan.maxStage; stage += 1) {
     const stageMembers = plan.members.filter((member) => member.pipelineStage === stage);
     const dependencyIds = [...new Set(stageMembers.flatMap((member) => dependencyWorkerIds(plan, member, index)))];
+    let dependencyStatuses = new Map();
+    let timedOut = false;
     if (dependencyIds.length) {
-      const wait = await waitForWorkersTerminal(db, dependencyIds, {
-        pollMs: options.pollMs, timeoutMs: options.timeoutMs, sleep, now
-      });
-      results.push({ stage, waitedFor: dependencyIds, timedOut: wait.timedOut, pendingWorkerIds: wait.pendingWorkerIds });
+      const wait = await waitForStageDependencies({ db, dependencyIds, options, sleep, now });
+      timedOut = wait.timedOut;
+      dependencyStatuses = wait.statuses;
+      results.push({ stage, waitedFor: dependencyIds, timedOut, pendingWorkerIds: wait.pendingWorkerIds });
     }
     for (const member of stageMembers) {
       if (skip.has(member.workerId)) continue;
+      const failedDependencies = dependencyWorkerIds(plan, member, index)
+        .filter((workerId) => dependencyStatuses.get(workerId) !== 'completed');
+      if (failedDependencies.length) {
+        results.push({ stage, blockedWorker: member.workerId, failedDependencies, reason: timedOut ? 'dependency_timeout' : 'dependency_failure' });
+        continue;
+      }
       await launch(member);
       results.push({ stage, launched: member.workerId, subSystem: member.subSystem });
     }

@@ -51,7 +51,7 @@ function buildAteamMetrics({ aTeam, workers, observation, arbitration, canMerge 
     fusionDecision: canMerge ? 'merged' : 'escalated',
     integrationConstraintViolations: observation.failures.length + observation.integrationFailures.length,
     continuationRounds: Number(aTeam.continuationRounds) || 0,
-    paretoFrontCount: Number(arbitration.paretoFrontCount || 0),
+    paretoFrontCount: Array.isArray(arbitration.paretoFront) ? arbitration.paretoFront.length : 0,
     totalEvaluated: Number(arbitration.totalEvaluated || 0)
   };
 }
@@ -69,7 +69,7 @@ async function applyAteamIntegration(ctx) {
   aTeam.integration = {
     canMerge,
     totalEvaluated: arbitration.totalEvaluated,
-    paretoFrontCount: arbitration.paretoFrontCount,
+    paretoFrontCount: Array.isArray(arbitration.paretoFront) ? arbitration.paretoFront.length : 0,
     kneePoint: arbitration.kneePoint,
     leaderboard: arbitration.leaderboard,
     failures: observation.failures,

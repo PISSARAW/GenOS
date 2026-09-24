@@ -57,8 +57,8 @@ function constraintFailure(worker, member, report) {
   return {
     code: 'WORKER_INTEGRATION_CONSTRAINT_MISSING',
     workerId: worker.agentId,
-    domain: member.domain,
-    message: `Consumer '${member.domain || worker.agentId}' returned no integration constraints.`
+    domain: memberDomain(member),
+    message: `Consumer '${memberDomain(member) || worker.agentId}' returned no integration constraints.`
   };
 }
 
