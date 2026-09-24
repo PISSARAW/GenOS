@@ -56,6 +56,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0045](0045-noyau-controle-morphogenetique.md) | Noyau de contrôle morphogénétique de l'orchestrateur Rust | Proposé | 2026-09-24 | Orchestration, morphogenèse, gouvernance, incarnation, santé |
 | [0046](0046-routage-minimal-memoire-resultats.md) | Routage minimal suffisant et mémoire des meilleurs résultats | Accepté | 2026-09-24 | Orchestration, routage, mémoire, preuve, persistance |
 | [0047](0047-sessions-persistantes-metapopulation.md) | Sessions persistantes de Métapopulation | Accepté | 2026-09-24 | Orchestration, Métapopulation, persistance, lignées, provenance |
+| [0051](0051-morphology-graph-and-topology-contracts.md) | Graphe morphologique et contrats typés de topologie | Proposé | 2026-09-24 | Orchestration, morphogenèse, topologies, preuves, budget |
 | [0052](0052-contrat-symbiotique-holobionte.md) | Contrat symbiotique Holobionte | Accepté | 2026-09-24 | Holobionte, autorité, capacités, confidentialité, persistance |
 | [0053](0053-admission-sandbox-symbiontes-holobionte.md) | Admission sandbox des symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, admission, sandbox, permissions, preuves |
 | [0054](0054-classement-partenaires-holobionte.md) | Classement des partenaires Holobionte | Accepté | 2026-09-24 | Holobionte, sélection, capacités, risques, dépendance |
@@ -66,25 +67,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0059](0059-plan-memoire-holobionte.md) | Plan mémoire Holobionte | Accepté | 2026-09-24 | Holobionte, mémoire, continuité, confidentialité, persistance |
 | [0060](0060-redundance-et-dependance-holobionte.md) | Redondance fonctionnelle et contrôle de dépendance Holobionte | Accepté | 2026-09-24 | Holobionte, résilience, redondance, dépendance, keystone |
 | [0061](0061-remplacement-et-reprise-symbionte.md) | Remplacement et reprise d'un symbionte | Accepté | 2026-09-24 | Holobionte, reprise, backup, substitution, ressources |
-| [0051](0051-morphology-graph-and-topology-contracts.md) | Graphe morphologique et contrats typés de topologie | Proposé | 2026-09-24 | Orchestration, morphogenèse, topologies, preuves, budget |
-
 | [0062](0062-transmission-verticale-holobionte.md) | Transmission verticale Holobionte | Accepté | 2026-09-24 | Holobionte, génération, héritage, AEIS, admission |
-
-| [0063](0063-acquisition-horizontale-holobionte.md) | Acquisition horizontale Holobionte | Accepté | 2026-09-24 | Holobionte, acquisition, quarantaine, AEIS, admission |
-
-| [0064](0064-transmission-mixte-holobionte.md) | Transmission mixte Holobionte | Accepté | 2026-09-24 | Holobionte, génération, noyau, périphérie, transmission |
-
-| [0065](0065-transfert-controle-procedures-holobionte.md) | Transfert contrôlé de procédures Holobionte | Accepté | 2026-09-24 | Holobionte, procédures, provenance, AEIS, mémoire |
-
-| [0066](0066-co-adaptation-holobionte.md) | Co-adaptation Holobionte | Accepté | 2026-09-24 | Holobionte, apprentissage, compatibilité, adaptation contractuelle |
-
-| [0067](0067-succession-symbiontes-holobionte.md) | Succession des symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, phases, dormance, reprise, ressources |
-
-| [0068](0068-cross-feeding-symbiotique-holobionte.md) | Cross-feeding symbiotique Holobionte | Accepté | 2026-09-24 | Holobionte, interactions, preuves, crédit, provenance |
-
-| [0069](0069-graphe-interactions-symbiontes-holobionte.md) | Graphe des interactions symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, graphe, relations, preuves, autorité |
-| [0071](0071-sanctions-progressives-holobionte.md) | Sanctions progressives des symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, gouvernance, contrats, immunité |
-| [0072](0072-classification-defaillances-symbiontes.md) | Classification des défaillances de symbiontes | Accepté | 2026-09-24 | Holobionte, santé, résilience, gouvernance |
+| [0063](0063-contrats-worker-autorite-bornee.md) | Contrats worker avec autorité et délégation bornées | Accepté | 2026-09-24 | Workers, contrats, autorité, délégation, budgets |
+| [0064](0064-registre-workerkind-node-et-dispatch.md) | Registre WorkerKind Node et propagation au dispatch | Accepté | 2026-09-24 | Workers, registre, dispatch, autorité, preuves |
+| [0070](0070-syncytium-variant-code.md) | Variant Code pour Syncytium | Accepté | 2026-09-24 | Syncytium, code partagé, symboles, conflits sémantiques |
+| [0071](0071-morphogenese-fractale-et-controle-local.md) | Morphogenèse fractale et contrôle local | Accepté | 2026-09-24 | Orchestration, morphogenèse, autorités déléguées |
 
 ## Cycle de vie d'un ADR
 
@@ -104,5 +91,3 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 - [../CONVENTIONS.md](../CONVENTIONS.md) — conventions de rédaction et de nommage.
 - [../GENOME_EPIGENETIQUE.md](../01-concepts/genome-et-epigenetique.md), [../INSTINCT.md](../01-concepts/instinct.md), [../FOSSILISATION.md](../01-concepts/fossilisation.md), [../AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — documents concernés par les ADR ci-dessus.
-
-
