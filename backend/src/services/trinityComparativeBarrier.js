@@ -263,10 +263,10 @@ async function verifyCandidate(db, input) {
     integrationChecks.push({ commandId, exitCode: receipt.exitCode, signal: receipt.signal || null, passed: receipt.exitCode === 0 && !receipt.signal });
     if (receipt.exitCode !== 0 || receipt.signal) throw Object.assign(new Error(`Integration check failed: ${commandId}`), { code: 'TRINITY_INTEGRATION_CHECK_FAILED' });
   }
-  const contentHash = await hashWorkspace(artifact.targetWorkspace);
-  if (contentHash !== artifact.contentHash) throw Object.assign(new Error('Candidate changed during integration verification.'), { code: 'TRINITY_CANDIDATE_HASH_CHANGED' });
   const claims = Array.isArray(winner.report?.claims) ? winner.report.claims : [];
   const claimChecks = await verifyClaimChecks({ claims, plans: design.claimVerificationChecks, commands, diagnostics, workspaceId: artifact.candidateWorkspaceId });
+  const contentHash = await hashWorkspace(artifact.targetWorkspace);
+  if (contentHash !== artifact.contentHash) throw Object.assign(new Error('Candidate changed during verification.'), { code: 'TRINITY_CANDIDATE_HASH_CHANGED' });
   return { contentHash, integrationChecks, claimChecks, claimsCoveredByChecks: true, sourceAgentId: winner.agentId };
 }
 
