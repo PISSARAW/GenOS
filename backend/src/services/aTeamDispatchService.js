@@ -21,14 +21,19 @@ function stageRunnerPath() {
   return path.resolve(__dirname, '../../bin/genos-ateam-stage-runner.cjs');
 }
 
-function spawnStageRunner({ context, plan, parentWorkspaceRoot }) {
+function spawnStageRunner({ context, plan, parentWorkspaceRoot, skipWorkerIds, runnerToken }) {
   const payload = {
     plan,
+    teamRunId: plan.planId,
+    runnerToken,
     bridgePath: context.bridgePath,
     repoRoot: context.repoRoot,
     request: context.request,
     parentWorkspaceRoot,
-    skipWorkerIds: plan.members.filter((member) => member.pipelineStage === 0).map((member) => member.workerId),
+    skipWorkerIds: [...new Set([
+      ...plan.members.filter((member) => member.pipelineStage === 0).map((member) => member.workerId),
+      ...(Array.isArray(skipWorkerIds) ? skipWorkerIds : [])
+    ])],
     pollMs: 500,
     timeoutMs: Number(context.request.timeoutMs) || 15 * 60 * 1000
   };
@@ -68,7 +73,14 @@ async function dispatchTeam({ db, context, parent, launchWorker }) {
   const canonical = await createCanonicalRun(setup);
   if (shouldReturnExisting(canonical)) return existingRunResponse(context, canonical, setup.team);
   const activeRun = await advanceRunToExecution(db, canonical.run);
-  return launchDispatch({ setup, activeRun, context, parent, launchWorker });
+  const execution = await aTeamRuntime.claimExecution({ db, teamRunId: activeRun.teamRunId, ownerId: context.orchestratorId });
+  if (!execution.claimed) return existingRunResponse(context, { run: execution.run }, setup.team);
+  try {
+    return await launchDispatch({ setup, activeRun: execution.run, runnerToken: execution.token, context, parent, launchWorker });
+  } catch (error) {
+    await aTeamRuntime.releaseExecution({ db, teamRunId: activeRun.teamRunId, token: execution.token });
+    throw error;
+  }
 }
 
 async function prepareDispatch({ db, context }) {
@@ -104,17 +116,19 @@ function createCanonicalRun(setup) {
 }
 
 function shouldReturnExisting(canonical) {
-  return !canonical.created && !['FORMING', 'READY'].includes(canonical.run.status);
+  return !canonical.created && !['FORMING', 'READY', 'RUNNING'].includes(canonical.run.status);
 }
 
-async function launchDispatch({ setup, activeRun, context, parent, launchWorker }) {
+async function launchDispatch({ setup, activeRun, runnerToken, context, parent, launchWorker }) {
   const { team, garage, projectGoal } = setup;
   const plan = aTeamStageScheduler.stagePlanFor({ orchestratorId: context.orchestratorId, members: activeRun.members, planId: activeRun.teamRunId });
+  const existingWorkerIds = await workersAlreadyPresent(setup.db, plan.members);
   // Independent producers start now; the detached runner waits for them before
   // launching the consumer stages.
-  const stageZero = plan.members.filter((member) => member.pipelineStage === 0);
-  const accepted = stageZero.map((member, index) => launchWorker({ context, member, index: index + 1, parent, suppliedWorkerId: member.workerId }));
-  const runner = plan.maxStage > 0 ? spawnStageRunner({ context, plan, parentWorkspaceRoot: parent.workspace_root }) : null;
+  const stageZero = plan.members.filter((member) => member.pipelineStage === 0 && !existingWorkerIds.has(member.workerId));
+  const accepted = await Promise.all(stageZero.map((member, index) => launchWorker({ context, member, index: index + 1, parent, suppliedWorkerId: member.workerId })));
+  const runner = plan.maxStage > 0 ? spawnStageRunner({ context, plan, parentWorkspaceRoot: parent.workspace_root, skipWorkerIds: [...existingWorkerIds], runnerToken }) : null;
+  if (!runner) await aTeamRuntime.releaseExecution({ db: setup.db, teamRunId: activeRun.teamRunId, token: runnerToken });
   emitImmediateCompletion({ runner, orchestratorId: context.orchestratorId, planId: plan.planId });
   return {
     orchestratorId: context.orchestratorId,
@@ -138,6 +152,14 @@ async function launchDispatch({ setup, activeRun, context, parent, launchWorker 
       members: accepted
     }
   };
+}
+
+async function workersAlreadyPresent(db, members) {
+  const rows = await Promise.all(members.map(async (member) => {
+    const row = await db.get('SELECT id FROM agents WHERE id = ?', member.workerId);
+    return row ? member.workerId : null;
+  }));
+  return new Set(rows.filter(Boolean));
 }
 
 async function advanceRunToExecution(db, run) {

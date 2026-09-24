@@ -41,6 +41,14 @@ async function main() {
   const { plan, bridgePath, repoRoot, request = {}, parentWorkspaceRoot } = payload;
   if (!plan || !plan.members || !bridgePath) throw new Error('Stage runner requires plan, members and bridgePath.');
   const db = await getDatabase();
+  try {
+    await runStages({ db, payload, plan, bridgePath, repoRoot, request, parentWorkspaceRoot });
+  } finally {
+    await releaseRuntimeLease(db, payload);
+  }
+}
+
+async function runStages({ db, payload, plan, bridgePath, repoRoot, request, parentWorkspaceRoot }) {
   const launch = async (member) => {
     const handoff = await handoffEvidence.buildHandoffsFromTelemetry({ db, plan, consumer: member });
     if (!handoff.ok) {
@@ -74,6 +82,12 @@ async function main() {
   emit(plan.orchestratorId, 'A_TEAM_STAGES_COMPLETED', 'SCHEDULE_STAGES',
     timedOut ? 'A-Team stage scheduling finished with a dependency timeout.' : 'A-Team stage scheduling finished.',
     { planId: plan.planId, results }, timedOut ? 'warning' : 'info');
+}
+
+async function releaseRuntimeLease(db, payload) {
+  if (!payload.teamRunId || !payload.runnerToken) return;
+  const runtime = require('../src/services/aTeam/aTeamRuntime');
+  await runtime.releaseExecution({ db, teamRunId: payload.teamRunId, token: payload.runnerToken });
 }
 
 main()

@@ -9,8 +9,9 @@ const runtime = require('../src/services/aTeam/aTeamRuntime');
 const { dispatchTeam } = require('../src/services/aTeamDispatchService');
 
 async function run() {
-  const originals = { garage: garage.state, compose: coordination.composeTeam, stage: scheduler.stagePlanFor, planStages: teamService.planStages, create: runtime.createRun, transition: runtime.transitionRun };
+  const originals = { garage: garage.state, compose: coordination.composeTeam, stage: scheduler.stagePlanFor, planStages: teamService.planStages, create: runtime.createRun, transition: runtime.transitionRun, claim: runtime.claimExecution, release: runtime.releaseExecution };
   let createCount = 0;
+  let claimCount = 0;
   let launches = 0;
   garage.state = async () => ({ available: 2 });
   coordination.composeTeam = () => ({
@@ -26,14 +27,25 @@ async function run() {
     return { created: createCount === 1, run: { teamRunId: 'run-stable', workGraphId: 'graph-stable', revision: createCount - 1, status: createCount === 1 ? 'READY' : 'RUNNING', members: [{ workerId: 'worker-a', memberId: 'member-a', subSystem: 'api', pipelineStage: 0 }] } };
   };
   runtime.transitionRun = async (input) => ({ ...runtimeSnapshotRun(), status: input.patch.status, phase: input.patch.phase, revision: input.revision + 1 });
+  runtime.claimExecution = async () => {
+    claimCount += 1;
+    const run = runtimeSnapshotRun();
+    run.status = 'RUNNING';
+    return claimCount === 2 ? { claimed: false, run } : { claimed: true, token: `lease-${claimCount}`, run };
+  };
+  runtime.releaseExecution = async () => true;
   try {
     const context = { orchestratorId: 'mission-dispatch', task: 'Build API', repoRoot: process.cwd(), request: {} };
-    const first = await dispatchTeam({ db: {}, context, parent: { workspace_root: process.cwd() }, launchWorker: () => { launches += 1; return { workerId: 'worker-a' }; } });
+    const db = { get: async () => createCount >= 3 ? { id: 'worker-a' } : null };
+    const first = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: () => { launches += 1; return { workerId: 'worker-a' }; } });
     assert.equal(first.aTeam.teamRunId, 'run-stable');
     assert.equal(first.aTeam.workGraphId, 'graph-stable');
     assert.equal(launches, 1);
-    const second = await dispatchTeam({ db: {}, context, parent: { workspace_root: process.cwd() }, launchWorker: () => { launches += 1; } });
+    const second = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: () => { launches += 1; } });
     assert.equal(second.aTeam.reused, true);
+    assert.equal(launches, 1);
+    const resumed = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: () => { launches += 1; } });
+    assert.equal(resumed.aTeam.teamRunId, 'run-stable');
     assert.equal(launches, 1);
   } finally {
     garage.state = originals.garage;
@@ -42,6 +54,8 @@ async function run() {
     teamService.planStages = originals.planStages;
     runtime.createRun = originals.create;
     runtime.transitionRun = originals.transition;
+    runtime.claimExecution = originals.claim;
+    runtime.releaseExecution = originals.release;
   }
   console.log('A-Team dispatch persists one canonical run and does not duplicate a retry.');
 }

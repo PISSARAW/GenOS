@@ -1,6 +1,6 @@
 'use strict';
 
-const { createHash } = require('crypto');
+const { createHash, randomUUID } = require('crypto');
 const teamRunStore = require('./teamRunStore');
 const graphCompiler = require('./workGraph/workGraphCompiler');
 const graphStore = require('./workGraph/workGraphStore');
@@ -122,4 +122,34 @@ async function transitionRun(input = {}) {
   return teamRunStore.update({ db: input.db, teamRunId: input.teamRunId, revision: input.revision, patch });
 }
 
-module.exports = { STATUS_TRANSITIONS, PHASE_TRANSITIONS, stableId, createRun, transitionRun };
+async function claimExecution(input = {}) {
+  const run = await teamRunStore.load(input.db, input.teamRunId);
+  if (!run) throw Object.assign(new Error(`Unknown A-Team run '${input.teamRunId}'.`), { code: 'ATEAM_RUN_UNKNOWN' });
+  if (run.status !== 'RUNNING') return { claimed: false, run };
+  const lease = run.execution?.runnerLease;
+  const now = Number(input.now) || Date.now();
+  if (lease && Date.parse(lease.expiresAt) > now) return { claimed: false, run };
+  const token = randomUUID();
+  const updated = await teamRunStore.update({
+    db: input.db, teamRunId: run.teamRunId, revision: run.revision,
+    patch: { execution: { ...run.execution, runnerLease: { token, ownerId: input.ownerId || 'dispatcher', expiresAt: new Date(now + (Number(input.leaseMs) || 20 * 60 * 1000)).toISOString() } } }
+  });
+  return { claimed: true, token, run: updated };
+}
+
+async function releaseExecution(input = {}) {
+  const run = await teamRunStore.load(input.db, input.teamRunId);
+  if (!run || run.execution?.runnerLease?.token !== input.token) return false;
+  try {
+    await teamRunStore.update({
+      db: input.db, teamRunId: run.teamRunId, revision: run.revision,
+      patch: { execution: { ...run.execution, runnerLease: null } }
+    });
+    return true;
+  } catch (error) {
+    if (error.code === 'ATEAM_RUN_CONFLICT') return false;
+    throw error;
+  }
+}
+
+module.exports = { STATUS_TRANSITIONS, PHASE_TRANSITIONS, stableId, createRun, transitionRun, claimExecution, releaseExecution };
