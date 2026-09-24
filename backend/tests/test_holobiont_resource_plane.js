@@ -5,15 +5,18 @@ const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const { migrateHolobiontSessions } = require('../src/db/migrations/migrateHolobiontSessions');
 const { migrateHolobiontContracts } = require('../src/db/migrations/migrateHolobiontContracts');
+const { migrateHolobiontLedger } = require('../src/db/migrations/migrateHolobiontLedger');
 const store = require('../src/services/holobionte/holobiontStore');
 const constitution = require('../src/services/holobionte/host/hostConstitutionService');
 const contracts = require('../src/services/holobionte/contracts/symbiosisContractService');
 const admission = require('../src/services/holobionte/symbionts/symbiontAdmissionService');
 const resources = require('../src/services/holobionte/resources/symbioticResourceService');
+const contribution = require('../src/services/holobionte/fitness/symbiontContributionService');
 
 async function setup(db) {
   await migrateHolobiontSessions(db);
   await migrateHolobiontContracts(db);
+  await migrateHolobiontLedger(db);
   const session = await store.createSession(db, { hostId: 'host-resource', missionId: 'mission-resource' });
   await store.appendEvent(db, {
     holobiontId: session.holobiontId, eventType: 'SYMBIONT_DISCOVERED', expectedRevision: 1,
@@ -44,9 +47,15 @@ async function setup(db) {
     holobiontId: session.holobiontId, symbiontId: 'sym-resource', expectedSessionRevision: 4,
     contributionScore: 0.8, evidenceRefs: ['sha256:admission'], contractCompliant: true
   });
-  await store.appendEvent(db, {
-    holobiontId: session.holobiontId, eventType: 'CONTRIBUTION_VERIFIED', expectedRevision: 5,
-    payload: { symbiontId: 'sym-resource', contributionScore: 0.8, evidenceRefs: ['sha256:verified-output'] }
+  await contribution.recordContribution(db, {
+    holobiontId: session.holobiontId, symbiontId: 'sym-resource', capability: 'analyze',
+    expectedSessionRevision: 5, receiptId: 'receipt-resource-verified',
+    benefitScore: 0.8, evidenceQuality: 1, costScore: 0.2, riskScore: 0.1,
+    resourcesConsumed: {},
+    verification: {
+      status: 'VERIFIED', verifierId: 'evidence-gate', resultHash: 'sha256:verified-output',
+      evidenceRefs: ['result:sha256:verified-output']
+    }
   });
   return session.holobiontId;
 }

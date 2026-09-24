@@ -264,6 +264,10 @@ const migrationRunners = [
     const { migrateHolobiontContracts } = require('./migrateHolobiontContracts');
     await migrateHolobiontContracts(db);
   }),
+  createMigrationRunner('076-holobiont-symbiosis-ledger', 'Persist verified contribution receipts for Host-Symbiont relationships (ADR 0056)', async (db) => {
+    const { migrateHolobiontLedger } = require('./migrateHolobiontLedger');
+    await migrateHolobiontLedger(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
