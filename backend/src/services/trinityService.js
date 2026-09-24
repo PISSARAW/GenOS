@@ -60,6 +60,9 @@ function compose(mission) {
 
 function designHypotheses(mission, supplied = {}) {
   const analysis = analyzeMission(mission);
+  const integrationChecks = Array.isArray(supplied.integrationChecks)
+    ? [...new Set(supplied.integrationChecks.map((id) => String(id).trim()).filter(Boolean))]
+    : [];
   return {
     centralProblem: String(supplied.centralProblem || mission || '').trim(),
     assumptions: Array.isArray(supplied.assumptions) ? supplied.assumptions : [],
@@ -67,6 +70,7 @@ function designHypotheses(mission, supplied = {}) {
     decisionVariables: Array.isArray(supplied.decisionVariables) ? supplied.decisionVariables : [],
     candidateHypotheses: analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis })),
     selectedTriplet: analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis })),
+    integrationChecks,
     selectionMethod: 'fixed_v1',
     utilityScore: null
   };

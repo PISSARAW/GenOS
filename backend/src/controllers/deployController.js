@@ -107,7 +107,8 @@ async function deployTrinity(req, res, next) {
       resolvedAgentType,
       workspaceId: req.body.workspaceId,
       workspace,
-      executionBudget: req.body?.executionBudget
+      executionBudget: req.body?.executionBudget,
+      integrationChecks: req.body?.integrationChecks
     });
 
     res.status(201).json({

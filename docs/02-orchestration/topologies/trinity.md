@@ -78,7 +78,7 @@ Les états d'expérience sont `designed → sealed_running → sealed_complete �
 
 Si un monde échoue, son dossier d'échec est conservé. L'expérience ne passe pas à la décision tant que les trois mondes n'ont pas un résultat terminal. L'absence de preuve sur l'un des trois mène à `ESCALATE_EXPERIMENT`; elle ne réduit pas silencieusement le nombre de mondes.
 
-La promotion prépare un candidat distinct, exécute les vérifications d'intégration configurées, revérifie les revendications retenues, calcule le hash du contenu final et enregistre la référence AgentGit. Le passage à `promoted` est la dernière écriture. Tout échec supprime ou met en quarantaine le candidat, enregistre `promotion_failed` et conserve les mondes sources intacts.
+La promotion prépare un candidat distinct depuis le workspace isolé du monde gagnant et exécute les vérifications d'intégration configurées par identifiants de commandes découverts. Sans commande configurée, si une commande est indisponible, ou si une revendication doit être revérifiée sans vérificateur indépendant disponible, la promotion échoue fermé. Le hash du candidat est recalculé après les contrôles. AgentGit reçoit une référence `trinity/<experimentId>` dont les métadonnées lient le hash du contenu et les reçus de vérification ; son hash d'état n'est pas le hash des fichiers du workspace. Le passage à `promoted` est la dernière écriture DB après vérification de la signature AgentGit. Tout échec enregistre `promotion_failed` et conserve le candidat isolé pour inspection, sans modifier le workspace source.
 
 ### Portée explicitement reportée
 

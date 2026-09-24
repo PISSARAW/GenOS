@@ -147,7 +147,9 @@ function validateMergeInput(db, result) {
 
 async function loadMergeContext(db, winner) {
   const winnerAgent = await db.get("SELECT workspace_id, id, name FROM agents WHERE id = ?", winner.agentId);
-  return { winnerAgent };
+  const workspace = await db.get('SELECT * FROM workspaces WHERE id = ?', winnerAgent?.workspace_id);
+  const world = await db.get('SELECT workspace_root FROM trinity_worlds WHERE agent_id = ?', winner.agentId);
+  return { winnerAgent, workspace, sourcePath: world?.workspace_root || workspace?.path };
 }
 
 async function updateWorldStatuses(db, result, winner) {
@@ -161,12 +163,10 @@ async function updateWorldStatuses(db, result, winner) {
 
 async function createMergeArtifact(db, params) {
   const { result, context, orchestratorId } = params;
-  const { winnerAgent } = context;
-  if (!winnerAgent?.workspace_id) return null;
-  const winnerWorkspace = await db.get("SELECT path FROM workspaces WHERE id = ?", winnerAgent.workspace_id);
-  if (!winnerWorkspace?.path) return null;
+  const { winnerAgent, workspace: winnerWorkspace, sourcePath } = context;
+  if (!winnerAgent?.workspace_id || !winnerWorkspace?.path || !sourcePath) return null;
   try {
-    const sourceDir = winnerWorkspace.path;
+    const sourceDir = sourcePath;
     const candidateId = `trinity_candidate_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
     const targetDir = await workspaceLifecycle.createIsolatedWorkspace(sourceDir, candidateId);
     let contentHash;
@@ -180,7 +180,15 @@ async function createMergeArtifact(db, params) {
       await workspaceLifecycle.cleanupWorkspace(targetDir).catch(() => {});
       throw error;
     }
-    const artifact = { sourceWorkspace: sourceDir, targetWorkspace: targetDir, contentHash, worldNumber: result.selectedWorld, role: result.selectedRole, status: 'candidate' };
+    const candidateWorkspaceId = `trinity_candidate_${crypto.randomBytes(8).toString('hex')}`;
+    await db.run(
+      `INSERT INTO workspaces (id, name, path, visibility, language, description, tags, organization_id, project_id)
+       VALUES (?, ?, ?, 'Private', ?, ?, '[]', ?, ?)`,
+      candidateWorkspaceId, `Trinity candidate World ${result.selectedWorld}`, targetDir,
+      winnerWorkspace.language || 'Mixed', `Candidate artifact for Trinity world ${result.selectedWorld}.`,
+      winnerWorkspace.organization_id || null, winnerWorkspace.project_id || null
+    );
+    const artifact = { sourceWorkspace: sourceDir, targetWorkspace: targetDir, candidateWorkspaceId, contentHash, worldNumber: result.selectedWorld, role: result.selectedRole, status: 'candidate' };
     emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_CREATED', 'MERGE', `Created isolated candidate artifact from World ${result.selectedWorld} (${result.selectedRole}).`, artifact, 'info');
     return artifact;
   } catch (mergeError) {
@@ -204,10 +212,62 @@ async function promoteWinner(db, input = {}) {
     await failPromotion({ db, missionId, reason: 'candidate_artifact_creation_failed' });
     return { promoted: false, reason: 'candidate_artifact_creation_failed' };
   }
-  await updateWorldStatuses(db, result, winner);
-  await failPromotion({ db, missionId, reason: 'integration_verification_and_agent_git_commit_required', artifact });
-  emit(orchestratorId, 'TRINITY_WINNER_SELECTED', 'SELECT_TRINITY', `Selected World ${result.selectedWorld} (${result.selectedRole}); integration verification and AgentGit commit are pending.`, { missionId, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, artifact }, 'warning');
-  return { promoted: false, candidateCreated: true, reason: 'integration_verification_and_agent_git_commit_required', worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId, artifact };
+  try {
+    const verification = await verifyCandidate(db, { missionId, winner, artifact });
+    const experiment = await db.get('SELECT id FROM trinity_experiments WHERE mission_id = ?', missionId);
+    if (!experiment) throw new Error('Trinity experiment disappeared before final promotion.');
+    const decision = { outcome: 'PROMOTED', worldNumber: result.selectedWorld, artifact, verification };
+    const git = require('./agentGitService');
+    const gitRequest = { user: { username: 'trinity-runtime' }, body: {} };
+    const commit = await git.createCommit(gitRequest, {
+      agentId: winner.agentId,
+      refName: `trinity/${experiment.id}`,
+      metadata: { experimentId: experiment.id, worldNumber: result.selectedWorld, contentHash: verification.contentHash, candidateWorkspaceId: artifact.candidateWorkspaceId, integrationChecks: verification.integrationChecks }
+    });
+    const stored = await git.getObject(db, gitRequest, commit.id);
+    if (!stored || !git.verifyObjectSignature(stored)) throw new Error('AgentGit candidate reference signature is invalid.');
+    decision.agentGit = { objectId: commit.id, refName: commit.refName, commitHash: commit.commitHash, stateHash: commit.stateHash };
+    const { withTransaction } = require('../db');
+    await withTransaction(db, async (tx) => {
+      await updateWorldStatuses(tx, result, winner);
+      await tx.run("UPDATE trinity_worlds SET status = 'promoted', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId);
+      await trinityExperimentStore.transition(tx, {
+        id: experiment.id, status: 'promoted', decision,
+        reason: 'candidate_checks_hash_and_agent_git_verified', evidenceRef: commit.id
+      });
+    });
+    artifact.status = 'promoted';
+    emit(orchestratorId, 'TRINITY_WINNER_SELECTED', 'SELECT_TRINITY', `Promoted verified candidate from World ${result.selectedWorld} (${result.selectedRole}).`, { missionId, worldNumber: result.selectedWorld, role: result.selectedRole, artifact, verification, agentGit: decision.agentGit }, 'info');
+    return { promoted: true, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId, artifact, verification, agentGit: decision.agentGit };
+  } catch (error) {
+    await failPromotion({ db, missionId, reason: error.code || 'candidate_verification_failed', artifact: { ...artifact, failure: error.message } });
+    await db.run("UPDATE agents SET status = 'blocked', updated_at = CURRENT_TIMESTAMP WHERE id = ?", winner.agentId).catch(() => {});
+    emit(orchestratorId, 'TRINITY_PROMOTION_FAILED', 'PROMOTE_TRINITY', `Candidate promotion failed: ${error.message}`, { missionId, artifact }, 'error');
+    return { promoted: false, candidateCreated: true, reason: error.code || 'candidate_verification_failed', artifact };
+  }
+}
+
+async function verifyCandidate(db, input) {
+  const { missionId, winner, artifact } = input;
+  const row = await db.get('SELECT design_json FROM trinity_experiments WHERE mission_id = ?', missionId);
+  const design = JSON.parse(row?.design_json || '{}');
+  const required = Array.isArray(design.integrationChecks) ? design.integrationChecks : [];
+  if (!required.length) throw Object.assign(new Error('No integration checks were configured.'), { code: 'TRINITY_INTEGRATION_CHECKS_REQUIRED' });
+  const diagnostics = require('./workspaceDiagnosticsService');
+  const available = await diagnostics.inspectWorkspace(artifact.candidateWorkspaceId);
+  const commands = new Set(available.testCommands.map((command) => command.id));
+  if (required.some((id) => !commands.has(id))) throw Object.assign(new Error('A configured integration check is unavailable in the candidate.'), { code: 'TRINITY_INTEGRATION_CHECK_UNAVAILABLE' });
+  const integrationChecks = [];
+  for (const commandId of required) {
+    const receipt = await diagnostics.runWorkspaceTest(artifact.candidateWorkspaceId, commandId);
+    integrationChecks.push({ commandId, exitCode: receipt.exitCode, signal: receipt.signal || null, passed: receipt.exitCode === 0 && !receipt.signal });
+    if (receipt.exitCode !== 0 || receipt.signal) throw Object.assign(new Error(`Integration check failed: ${commandId}`), { code: 'TRINITY_INTEGRATION_CHECK_FAILED' });
+  }
+  const contentHash = await hashWorkspace(artifact.targetWorkspace);
+  if (contentHash !== artifact.contentHash) throw Object.assign(new Error('Candidate changed during integration verification.'), { code: 'TRINITY_CANDIDATE_HASH_CHANGED' });
+  const claims = Array.isArray(winner.report?.claims) ? winner.report.claims : [];
+  if (claims.length) throw Object.assign(new Error('Independent claim reverification is not yet wired; claims cannot be promoted.'), { code: 'TRINITY_CLAIM_REVERIFICATION_UNAVAILABLE' });
+  return { contentHash, integrationChecks, claimsReverified: true, sourceAgentId: winner.agentId };
 }
 
 async function updateExperimentDecision(db, missionId, result) {

@@ -48,7 +48,8 @@ class TrinityDeployService {
       resolvedAgentType, 
       workspaceId, 
       workspace,
-      executionBudget
+      executionBudget,
+      integrationChecks
     } = params;
 
     const db = await this.initRepo();
@@ -92,7 +93,7 @@ class TrinityDeployService {
         missionId,
         domain: analysis.domain,
         snapshotHash: isolatedWorlds[0].snapshotHash,
-        design: trinityService.designHypotheses(taskPrompt),
+        design: trinityService.designHypotheses(taskPrompt, { integrationChecks }),
         isolationPolicy: { sharedMemory: 'read-only-snapshot', communication: 'forbidden', provenanceTracking: 'full', randomSeedPerChamber: false },
         budgetPolicy
       });
