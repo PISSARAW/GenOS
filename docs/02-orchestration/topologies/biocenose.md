@@ -1,7 +1,7 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
 - **Statut** : Topologie disponible ; le service assemble une communauté et expose des évaluations et métriques. Le protocole épistémique complet décrit dans cette page n'est pas implémenté de bout en bout.
-- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, jugement communautaire persisté et règles d'arrêt, recrutement adaptatif sur déficit de rôles ou de fournisseurs, conservation de la pluralité entre sous-communautés et bypass de preuves minoritaires vérifiées, frontière de confiance/quarantaine auditée, presets descriptifs de protocole et recommandations de transition à la Morphogenèse, évaluation Pareto et métriques de diversité.
+- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, jugement communautaire persisté et règles d'arrêt, recrutement adaptatif sur déficit de rôles ou de fournisseurs, conservation de la pluralité entre sous-communautés et bypass de preuves minoritaires vérifiées, frontière de confiance/quarantaine auditée, presets descriptifs de protocole, recommandations de transition à la Morphogenèse et contrôleur de tours piloté par handlers explicites, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-09-24
 
 Biocénose est une topologie spécialisée dans le cadre morphogénétique de GenOS : la
@@ -118,6 +118,12 @@ présentes dans `biocenoseService` sont les suivantes :
   déterministe a résolu la question, et Human en cas de désaccord normatif. Le planner
   Morphogenèse consomme ces signaux pour Trinity/A-Team ; Direct/Human restent des
   recommandations de handoff, car ce ne sont pas des topologies de son registre ;
+- `runBiocenoseRound` déroule un plan borné et exige un handler pour chaque étape. Chaque
+  étape terminée est auditée par hash ; toute étape manquante ou en échec stoppe le tour
+  et produit un événement de blocage. Les handlers restent responsables des appels aux
+  agents et de l'application des services d'écriture ; le runtime ne simule pas leur résultat.
+  `summarizeBiocenoseBenchmark` calcule le taux de faux consensus, la préservation des
+  minorités correctes et le budget de tokens sur des cas marqués comme évalués ;
 - `evaluateMinorityEvidenceVeto` requiert un reçu de vérification fourni par un
   vérificateur de confiance avant de retourner `PROMOTION_BLOCKED`. C'est un évaluateur
   de politique ; il n'est pas encore branché sur la porte générale de promotion et ne

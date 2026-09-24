@@ -30,6 +30,8 @@ const localEvidenceFilter = require('./biocenose/byzantine/localEvidenceFilter')
 const quarantine = require('./biocenose/byzantine/quarantineService');
 const variantPolicies = require('./biocenose/variants/variantPolicyRouter');
 const biocenoseMorphogenesisAdapter = require('./biocenose/integration/biocenoseMorphogenesisAdapter');
+const biocenoseRuntime = require('./biocenose/runtime/biocenoseRuntime');
+const benchmarkMetrics = require('./biocenose/runtime/benchmarkMetrics');
 const questionClassifier = require('./biocenose/question/questionClassifier');
 const constitutionService = require('./biocenose/governance/constitutionService');
 const communityFormationService = require('./biocenose/formation/communityFormationService');
@@ -253,6 +255,8 @@ module.exports = {
   setMemberQuarantine: quarantine.setStatus,
   selectBiocenoseVariant: variantPolicies.select,
   recommendBiocenoseTransition: biocenoseMorphogenesisAdapter.recommend,
+  runBiocenoseRound: biocenoseRuntime.runRound,
+  summarizeBiocenoseBenchmark: benchmarkMetrics.summarize,
   brierConsensus,
   quorumWithAbstention,
   hierarchicalQuorumPlan: hierarchicalQuorum.planForAgentCount

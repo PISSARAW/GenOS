@@ -1,0 +1,40 @@
+'use strict';
+
+const communityStore = require('../communityStore');
+const controller = require('./communityController');
+const { createHash } = require('crypto');
+
+async function runRound(input) {
+  const session = await communityStore.loadSession(input.db, input.communityId);
+  if (!session) throw Object.assign(new Error('Biocenose community not found.'), { code: 'BIOCENOSE_COMMUNITY_UNKNOWN' });
+  const constitution = await communityStore.latestConstitution(input.db, input.communityId);
+  if (!constitution) throw Object.assign(new Error('Biocenose constitution is missing.'), { code: 'BIOCENOSE_CONSTITUTION_UNKNOWN' });
+  try {
+    return await controller.runRound({
+      session, constitution: constitution.constitution, handlers: input.handlers,
+      context: { db: input.db, communityId: input.communityId, session, constitution: constitution.constitution },
+      onStepComplete: (step) => recordStep(input, step)
+    });
+  } catch (error) {
+    await recordBlockedStep(input, error);
+    throw error;
+  }
+}
+
+async function recordStep(input, step) {
+  const resultHash = createHash('sha256').update(JSON.stringify(step.result)).digest('hex');
+  return communityStore.appendEvent(input.db, {
+    communityId: input.communityId, type: 'DELIBERATION_STEP_COMPLETED',
+    payload: { step: step.step, resultHash }, patch: {}
+  });
+}
+
+async function recordBlockedStep(input, error) {
+  if (error.code !== 'BIOCENOSE_RUNTIME_STEP_BLOCKED') return;
+  return communityStore.appendEvent(input.db, {
+    communityId: input.communityId, type: 'DELIBERATION_STEP_BLOCKED',
+    payload: error.details, patch: {}
+  });
+}
+
+module.exports = { runRound };
