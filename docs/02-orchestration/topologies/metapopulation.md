@@ -1556,7 +1556,7 @@ Les chantiers de conception sont regroupés en 18 livrables cohérents. L'ordre 
 | **PR15 — livré** | Pont Rust et procédural | Ajouter l'adaptateur de contrat d'îlot vers le moteur multi-îlots Rust, valider ses rapports et synchroniser extinctions/recolonisations avec `proceduralMetapopulationService.js` ; l'évolution Rust échoue explicitement si son adaptateur d'exécution n'est pas configuré. |
 | **PR16 — livré** | Variantes et persistance | Définir les profils équilibré/résilient/exploratoire/conservateur comme politiques ; appliquer une autorisation de souveraineté fail-closed aux références fédérées, reconnaître les scopes persistants et valider explicitement les baux de daemons résidents. |
 | **PR17 — livré** | Topologies imbriquées et Morphogenèse | Proposer une topologie locale par dème à partir de son fitness, de ses échecs et de sa stagnation ; exclure Métapopulation du niveau local et exécuter le changement uniquement via la transition Morphogenèse transactionnelle et réversible. |
-| **PR18** | Runtime régional autonome | Ajouter le cycle `OBSERVE → DIAGNOSE → PLAN → EXECUTE → VERIFY → RECORD`, conditions d'arrêt, intégration bout en bout et benchmarks reproductibles. |
+| **PR18 — livré** | Runtime régional autonome | Exécuter les cycles `OBSERVE → DIAGNOSE → PLAN → EXECUTE → VERIFY → RECORD`, borner leur nombre, respecter demande d'arrêt/session inactive/budget épuisé, bloquer les actions incomplètes ou non vérifiées et inscrire chaque issue au journal de session. Fournir un benchmark déterministe des métriques de capacité et de synchronie : `node backend/bin/metapopulation-benchmark.cjs [répétitions]`. |
 
 ### 32.4 Tests d'acceptation régionaux
 

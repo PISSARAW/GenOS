@@ -97,6 +97,11 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 21. Garder Métapopulation au niveau régional et laisser Morphogenèse proposer
     des topologies internes par dème. Une transition locale passe par le moteur
     validé avec snapshot et rollback ; elle ne remplace jamais le graphe régional.
+22. Faire avancer le runtime par cycles bornés OBSERVE, DIAGNOSE, PLAN,
+    EXECUTE, VERIFY et RECORD. Aucun plan incomplet ou résultat non vérifié ne
+    devient un succès ; enregistrer les issues dans le journal régional. Le
+    benchmark de capacité/synchronie utilise des scénarios synthétiques
+    déterministes et publie la version Node, les tailles, répétitions et médianes.
 
 ## Conséquences
 

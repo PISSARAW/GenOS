@@ -31,13 +31,32 @@ function normalizeMembers(members, threshold) {
 }
 
 function selectIndependent(members) {
-  const groups = new Map();
+  const groups = [];
   for (const member of members) {
-    const key = member.group || member.source || member.model || member.id;
-    const previous = groups.get(key);
-    if (!previous || member.weight > previous.weight || member.support && !previous.support) groups.set(key, member);
+    const matching = groups.filter((group) => group.some((item) => sharesOrigin(item, member)));
+    if (!matching.length) groups.push([member]);
+    else mergeOriginGroups(groups, matching, member);
   }
-  return [...groups.values()];
+  return groups.map(selectRepresentative);
+}
+
+function mergeOriginGroups(groups, matching, member) {
+  const primary = matching[0];
+  primary.push(member);
+  for (const duplicate of matching.slice(1)) {
+    primary.push(...duplicate);
+    groups.splice(groups.indexOf(duplicate), 1);
+  }
+}
+
+function sharesOrigin(left, right) {
+  return sameNonempty(left.group, right.group) || sameNonempty(left.source, right.source) || sameNonempty(left.model, right.model);
+}
+
+function sameNonempty(left, right) { return Boolean(left && right && left === right); }
+
+function selectRepresentative(group) {
+  return [...group].sort((left, right) => Number(right.support) - Number(left.support) || right.weight - left.weight)[0];
 }
 
 function distinctCount(values) { return new Set(values.filter(Boolean)).size; }

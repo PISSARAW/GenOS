@@ -36,6 +36,7 @@ const regionalUtilityService = require('./metapopulation/observability/regionalU
 const evolutionBridge = require('./metapopulation/evolution/metapopulationEvolutionBridge');
 const metapopulationPolicyService = require('./metapopulation/policy/metapopulationPolicyService');
 const nestedTopologyService = require('./metapopulation/evolution/nestedTopologyService');
+const regionalRuntimeService = require('./metapopulation/runtime/regionalRuntimeService');
 
 const DEFAULT_ORGANIZATION = 'quorum_with_abstention';
 const DEFAULT_QUORUM_RATIO = 0.5;
@@ -332,6 +333,7 @@ module.exports = {
   ...evolutionBridge,
   ...metapopulationPolicyService,
   ...nestedTopologyService,
+  ...regionalRuntimeService,
   senseQuorum,
   regenerationPlan,
   connectionWeights
