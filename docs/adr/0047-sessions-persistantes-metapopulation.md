@@ -68,6 +68,9 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 12. Mesurer la contribution régionale séparément de la fitness locale. Une
     capacité portée par un seul dème viable compte dans la couverture unique
     et le protège d'une élimination fondée seulement sur sa faible fitness.
+13. Borner les essais rescue par receveur. Comparer la fitness du dème avant et
+    après assimilation ; une régression confirmée ne peut être annulée que par
+    un adaptateur réversible avec reçu, puis pénalise le corridor concerné.
 
 ## Conséquences
 

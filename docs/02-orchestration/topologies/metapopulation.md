@@ -1547,7 +1547,7 @@ Les chantiers de conception sont regroupés en 18 livrables cohérents. L'ordre 
 | **PR6 — livré** | Politiques de migration | Sélection elite, novelty, rescue, complementary, counterexample, cultural et founder ; plan push par receveur et requêtes pull ciblées. |
 | **PR7 — livré** | Déclencheurs adaptatifs | Déclencher selon stagnation, amélioration ou génération, sous les limites de coût, risque de synchronisation et budget. |
 | **PR8 — livré** | Source/sink et contribution régionale | Classer sources/sinks, mesurer la couverture de capacités distinctes et protéger les dèmes uniques malgré une fitness locale faible. |
-| **PR9** | Rescue effect | Secours depuis une source compatible, essai borné, mesure du bénéfice et rollback si le dème receveur régresse. |
+| **PR9 — livré** | Rescue effect | Essais bornés depuis une source compatible, mesure du bénéfice et rollback avec reçu si le dème cible régresse ; corridor pénalisé. |
 | **PR10** | Extinction et reprise | Modéliser l'extinction locale, dormance/cryptobiose, snapshots, fossilisation et prise en compte des échecs passés. |
 | **PR11** | Recolonisation vérifiée | Détecter les patches vacants, choisir des founder sets multi-lignées, exécuter un essai local et enregistrer les échecs de colonisation. |
 | **PR12** | Quorum indépendant | Remplacer le quorum simple par un calcul tenant compte de l'indépendance ; traiter abstention, silence et diversité des sources/modèles. |
