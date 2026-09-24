@@ -538,6 +538,7 @@
               "record_outcome",
               "conductivity",
               "bridge",
+              "signal",
               "allocate",
               "forage",
               "health"
@@ -618,6 +619,9 @@
             "type": "object"
           },
           "proof": {
+            "type": "object"
+          },
+          "signal": {
             "type": "object"
           },
           "edges": {

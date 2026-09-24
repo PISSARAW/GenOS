@@ -20,6 +20,8 @@ const trailService = require('./rhizome/stigmergy/trailService');
 const routeOutcomeService = require('./rhizome/learning/routeOutcomeService');
 const conductivityService = require('./rhizome/routing/conductivityService');
 const bridgeService = require('./rhizome/bridges/bridgeService');
+const ligandService = require('./rhizome/signaling/capabilityLigandService');
+const propagationService = require('./rhizome/propagation/proceduralPropagationService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -258,6 +260,18 @@ async function integrateBridge(sessionId, input, options = {}) {
   });
 }
 
+async function signalCapability(sessionId, ligand, options = {}) {
+  return mutateSession(sessionId, options, {
+    type: 'CAPABILITY_SIGNAL_PUBLISHED',
+    payload: { signalId: ligand.signalId, capability: ligand.capability },
+    apply: (session) => ligandService.publish(session, ligand)
+  });
+}
+
+function propagateProcedure(input) {
+  return propagationService.propagate(input);
+}
+
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -314,4 +328,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, coherence, runSlimeMouldStep, closeSession, rehydrate };

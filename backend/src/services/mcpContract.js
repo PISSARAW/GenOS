@@ -250,7 +250,7 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       session_id: { type: 'string' },
-      operation: { type: 'string', enum: ['snapshot', 'apply', 'deposit', 'direct_member', 'route', 'slime', 'gap', 'grow', 'evaporate', 'record_outcome', 'conductivity', 'bridge', 'allocate', 'forage', 'health'] },
+      operation: { type: 'string', enum: ['snapshot', 'apply', 'deposit', 'direct_member', 'route', 'slime', 'gap', 'grow', 'evaporate', 'record_outcome', 'conductivity', 'bridge', 'signal', 'allocate', 'forage', 'health'] },
       op: { type: 'object' }, marker: { type: 'string' }, amount: { type: 'number' },
       is_repellent: { type: 'boolean' }, need: { type: ['string', 'object'] }, edges: { type: 'array', items: { type: 'object' } },
       gap_id: { type: 'string' }, candidates: { type: 'array', items: { type: 'object' } }, threshold: { type: 'number' },
@@ -259,7 +259,7 @@ const TOOL_BASE_SCHEMAS = {
       scope: { type: 'string', enum: ['mission', 'workspace', 'persistent'] },
       receipt: { type: 'object' },
       alpha: { type: 'number' }, beta: { type: 'number' }, decay: { type: 'number' },
-      bridge: { type: 'object' }, proof: { type: 'object' },
+      bridge: { type: 'object' }, proof: { type: 'object' }, signal: { type: 'object' },
       populations: { type: 'array', items: { type: 'object' } }, total_budget: { type: 'number' },
       minimum_per_population: { type: 'number' }, patch_history: { type: 'array', items: { type: 'object' } },
       iteration: { type: 'number' }, elapsed_time_sec: { type: 'number' }, observations: { type: 'array' }
