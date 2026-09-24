@@ -1,7 +1,7 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
 - **Statut** : Topologie disponible ; le service assemble une communauté et expose des évaluations et métriques. Le protocole épistémique complet décrit dans cette page n'est pas implémenté de bout en bout.
-- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, évaluation Pareto et métriques de diversité.
+- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-09-24
 
 Biocénose est une topologie spécialisée dans le cadre morphogénétique de GenOS : la
@@ -69,6 +69,13 @@ présentes dans `biocenoseService` sont les suivantes :
   Les claims source et cible doivent appartenir à la communauté et au tour courant ;
   chaque ajout produit un événement append-only. Le graphe n'évalue pas lui-même la
   validité logique d'un argument ;
+- `recordDissent` conserve les claims concernés, les membres de soutien, les preuves
+  citées et les évaluations de matérialité/sévérité. Les changements de statut sont
+  des événements append-only ; l'entrée d'origine reste intacte ;
+- `evaluateMinorityEvidenceVeto` requiert un reçu de vérification fourni par un
+  vérificateur de confiance avant de retourner `PROMOTION_BLOCKED`. C'est un évaluateur
+  de politique ; il n'est pas encore branché sur la porte générale de promotion et ne
+  valide pas lui-même la provenance des reçus ;
 - `evaluateCommunity` n'envoie à l'arène Pareto que les dossiers explicitement
   identifiés comme générateurs ou options candidates. Les rôles de revue,
   vérification, facilitation et observation en sont exclus. Le point genou est exposé

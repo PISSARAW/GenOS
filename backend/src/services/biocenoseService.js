@@ -16,6 +16,8 @@ const communityClaimGraph = require('./biocenose/claims/communityClaimGraph');
 const reviewerRouter = require('./biocenose/review/reviewerRouter');
 const verifierRouter = require('./biocenose/verification/verifierRouter');
 const communityArgumentGraph = require('./biocenose/argumentation/communityArgumentGraph');
+const dissentLedger = require('./biocenose/dissent/dissentLedger');
+const minorityEvidenceVeto = require('./biocenose/dissent/minorityEvidenceVetoService');
 const questionClassifier = require('./biocenose/question/questionClassifier');
 const constitutionService = require('./biocenose/governance/constitutionService');
 const communityFormationService = require('./biocenose/formation/communityFormationService');
@@ -222,6 +224,10 @@ module.exports = {
   routeClaimVerification: verifierRouter.route,
   publishArgument: communityArgumentGraph.publish,
   argumentGraphSnapshot: communityArgumentGraph.snapshot,
+  recordDissent: dissentLedger.record,
+  changeDissentStatus: dissentLedger.changeStatus,
+  listDissent: dissentLedger.list,
+  evaluateMinorityEvidenceVeto: minorityEvidenceVeto.evaluate,
   brierConsensus,
   quorumWithAbstention,
   hierarchicalQuorumPlan: hierarchicalQuorum.planForAgentCount
