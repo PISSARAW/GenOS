@@ -37,6 +37,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0040](0040-morphogenese-git-contrefactuel.md) | Morphogenèse versionnée Git et contrefactuelle | Proposé | 2026-09-23 | Orchestration, morphogenèse, Git agentique, contrefactuel, substrat |
 | [0041](0041-medecine-immunite-graduee.md) | Médecine graduée et immunité proportionnée | Proposé | 2026-09-23 | Santé agentique, immunité, thérapies, quarantaine, iatrogénie |
 | [0042](0042-qpu-organe-specialise.md) | QPU comme organe spécialisé et sélection quantum-inspired | Proposé | 2026-09-23 | Substrat de calcul, quantum-inspired, QPU, GPU, VFS |
+| [0043](0043-runtime-worker-phenotypes.md) | Runtime worker commun et phenotypes composables | Accepté | 2026-09-24 | Workers, phenotypes, autorité, cycle de vie |
+| [0044](0044-matrice-autorite-gates-double-runtime.md) | Matrice d'autorité unifiée, gates de provenance et d'observabilité, double runtime | Proposé | 2026-09-24 | Autorité, gouvernance, provenance, observabilité, runtime |
 
 ## Cycle de vie d'un ADR
 
