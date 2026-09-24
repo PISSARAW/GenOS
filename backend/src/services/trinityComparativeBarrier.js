@@ -279,7 +279,7 @@ async function verifyCandidate(db, input) {
   const integrationChecks = [];
   for (const commandId of required) {
     const receipt = await diagnostics.runWorkspaceTest(artifact.candidateWorkspaceId, commandId);
-    integrationChecks.push({ commandId, exitCode: receipt.exitCode, signal: receipt.signal || null, passed: receipt.exitCode === 0 && !receipt.signal });
+    integrationChecks.push(commandReceipt(receipt, { commandId }));
     if (receipt.exitCode !== 0 || receipt.signal) throw Object.assign(new Error(`Integration check failed: ${commandId}`), { code: 'TRINITY_INTEGRATION_CHECK_FAILED' });
   }
   const claims = Array.isArray(winner.report?.claims) ? winner.report.claims : [];
@@ -301,9 +301,26 @@ function claimCommandIds(claim, plans, availableCommands) {
 async function runClaimCommand(input) {
   const { claimKey, commandId, diagnostics, workspaceId } = input;
   const result = await diagnostics.runWorkspaceTest(workspaceId, commandId);
-  const receipt = { claim: claimKey, commandId, exitCode: result.exitCode, signal: result.signal || null, passed: result.exitCode === 0 && !result.signal };
+  const receipt = commandReceipt(result, { claim: claimKey, commandId });
   if (!receipt.passed) throw Object.assign(new Error(`Claim verification failed: ${claimKey} (${commandId})`), { code: 'TRINITY_CLAIM_VERIFICATION_FAILED' });
   return receipt;
+}
+
+function outputHash(value) {
+  return crypto.createHash('sha256').update(String(value || ''), 'utf8').digest('hex');
+}
+
+function commandReceipt(result, context) {
+  return {
+    ...context,
+    command: result.command,
+    exitCode: result.exitCode,
+    signal: result.signal || null,
+    durationMs: result.durationMs,
+    stdoutHash: outputHash(result.stdout),
+    stderrHash: outputHash(result.stderr),
+    passed: result.exitCode === 0 && !result.signal
+  };
 }
 
 async function verifyClaimChecks(input) {
