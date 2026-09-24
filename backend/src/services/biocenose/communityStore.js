@@ -169,6 +169,71 @@ async function latestConstitution(db, communityId) {
   return row ? mapConstitution(row) : null;
 }
 
+async function saveCommitment(db, record) {
+  await ensureSchema(db);
+  return withTransaction(db, async () => {
+    const member = await db.get(
+      'SELECT member_id FROM biocenose_members WHERE community_id = ? AND member_id = ? AND status = ?',
+      record.communityId, record.memberId, 'ACTIVE'
+    );
+    if (!member) throw unknownMember(record.communityId, record.memberId);
+    const duplicate = await db.get(
+      `SELECT commitment_id FROM biocenose_commitments
+       WHERE community_id = ? AND member_id = ? AND round = ? AND commitment_type = ?`,
+      record.communityId, record.memberId, record.round, record.commitmentType
+    );
+    if (duplicate) throw duplicateCommitment(record.memberId, record.round);
+    await db.run(
+      `INSERT INTO biocenose_commitments
+        (commitment_id, community_id, member_id, round, commitment_type, commitment_hash, payload_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      record.commitmentId, record.communityId, record.memberId, record.round,
+      record.commitmentType, record.commitmentHash, JSON.stringify(record.payload), new Date().toISOString()
+    );
+    const session = await appendEvent(db, {
+      communityId: record.communityId, actorId: record.memberId, type: 'JUDGMENT_COMMITTED',
+      payload: { memberId: record.memberId, round: record.round, commitmentHash: record.commitmentHash },
+      patch: { phase: 'SEALED_JUDGMENT', round: record.round }
+    });
+    return { commitmentId: record.commitmentId, revision: session.revision };
+  });
+}
+
+async function participantIds(db, communityId) {
+  await ensureSchema(db);
+  const rows = await db.all(
+    `SELECT member_id FROM biocenose_members WHERE community_id = ? AND status = 'ACTIVE'
+     AND role != 'community_facilitator' ORDER BY member_id`, communityId
+  );
+  return rows.map((row) => row.member_id);
+}
+
+async function listCommitments(db, communityId, round) {
+  await ensureSchema(db);
+  const rows = await db.all(
+    `SELECT commitment_id, member_id, round, commitment_hash, created_at FROM biocenose_commitments
+     WHERE community_id = ? AND round = ? AND commitment_type = 'SEALED_JUDGMENT' ORDER BY created_at, member_id`,
+    communityId, round
+  );
+  return rows.map((row) => ({
+    commitmentId: row.commitment_id, memberId: row.member_id, round: Number(row.round),
+    commitmentHash: row.commitment_hash, createdAt: row.created_at
+  }));
+}
+
+async function sealedPayloads(db, communityId, round) {
+  await ensureSchema(db);
+  const rows = await db.all(
+    `SELECT commitment_id, member_id, round, commitment_hash, payload_json FROM biocenose_commitments
+     WHERE community_id = ? AND round = ? AND commitment_type = 'SEALED_JUDGMENT' ORDER BY member_id`,
+    communityId, round
+  );
+  return rows.map((row) => ({
+    commitmentId: row.commitment_id, memberId: row.member_id, round: Number(row.round),
+    commitmentHash: row.commitment_hash, payload: parseJson(row.payload_json)
+  }));
+}
+
 function mapConstitution(row) {
   return {
     constitutionId: row.constitution_id,
@@ -281,7 +346,16 @@ function versionConflict(id, version) {
   return Object.assign(new Error(`Biocenose constitution for '${id}' must use version ${version}.`), { code: 'BIOCENOSE_CONSTITUTION_VERSION_CONFLICT' });
 }
 
+function unknownMember(communityId, memberId) {
+  return Object.assign(new Error(`Unknown active member '${memberId}' in Biocenose community '${communityId}'.`), { code: 'BIOCENOSE_MEMBER_UNKNOWN' });
+}
+
+function duplicateCommitment(memberId, round) {
+  return Object.assign(new Error(`Member '${memberId}' already committed a judgment for round ${round}.`), { code: 'BIOCENOSE_COMMITMENT_DUPLICATE' });
+}
+
 module.exports = {
   createSession, appendEvent, loadSession, listEvents,
-  saveConstitution, loadConstitution, latestConstitution, ensureSchema
+  saveConstitution, loadConstitution, latestConstitution,
+  saveCommitment, participantIds, listCommitments, sealedPayloads, ensureSchema
 };

@@ -1,7 +1,7 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
 - **Statut** : Topologie disponible ; le service assemble une communauté et expose des évaluations et métriques. Le protocole épistémique complet décrit dans cette page n'est pas implémenté de bout en bout.
-- **Portée implémentée** : composition des rôles, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, évaluation Pareto et métriques de diversité.
+- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec divulgation gated, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-09-24
 
 Biocénose est une topologie spécialisée dans le cadre morphogénétique de GenOS : la
@@ -22,8 +22,16 @@ présentes dans `biocenoseService` sont les suivantes :
 - `composeBiocenose` valide la mission, compose les membres via
   `biologicalModeService`, puis retourne le seuil, le contrat de capacités et un plan
   de communication hiérarchique. L'option `population` permet de configurer plusieurs
-  générateurs, reviewers et vérificateurs ; sans elle, la composition historique à
-  quatre membres reste utilisée ;
+  générateurs, reviewers et vérificateurs. `memberCandidates` permet de sélectionner
+  parmi des profils fournis ; sans candidats ni population, la composition historique
+  à quatre membres reste utilisée ;
+- `communityFormationService` classe les profils fournis par rôle et privilégie la
+  couverture d'expertise, les fournisseurs, stratégies et sources distincts, avec une
+  pénalité de redondance. Sans assez de profils, il complète avec les gabarits de rôle ;
+- `effectiveCommunitySizeService` calcule $N_{eff}=N/(1+(N-1)\bar{\rho})$ uniquement
+  quand tous les membres ont des vecteurs d'erreurs historiques alignés sur le même
+  périmètre. Sinon `effectiveSize` reste `null` ; un nombre d'agents seul n'est pas
+  traité comme une mesure d'indépendance ;
 - `prepareCommunity` demande à `dynamicOrganizationService` de changer d'organisation,
   crée d'abord une `BiocenoseSession` persistée avec ses membres et son événement
   `COMMUNITY_CREATED`, classe la question, enregistre la constitution initiale et son
@@ -39,6 +47,12 @@ présentes dans `biocenoseService` sont les suivantes :
   sont ajoutés dans la même transaction que la révision de session, avec contrôle de
   révision optimiste ; les journaux et artefacts sont stockés dans des tables
   append-only ;
+- `commitJudgment` enregistre un engagement par membre et par tour, avec un hash
+  SHA-256 du jugement canonique et un nonce aléatoire. `revealJudgments` refuse la
+  divulgation tant que tous les membres actifs (hors facilitateur) n'ont pas engagé,
+  vérifie les hashes puis ouvre la phase de revue. Le contenu JSON reste lisible dans
+  la base : le scellement empêche la divulgation par cette API avant la porte, mais
+  ne chiffre pas les données au repos ;
 - `evaluateCommunity` n'envoie à l'arène Pareto que les dossiers explicitement
   identifiés comme générateurs ou options candidates. Les rôles de revue,
   vérification, facilitation et observation en sont exclus. Le point genou est exposé
@@ -62,12 +76,11 @@ Le contrat de capacités déclaré pour ce mode est
 services de métriques ne prouvent pas à eux seuls que toutes les étapes sont reliées
 dans un cycle de délibération.
 
-Ne sont pas établis par ce chemin d'exécution : le commit-reveal cryptographique des
-jugements, la délibération réellement exécutée claim par claim, un argument graph
-persisté, un registre de dissent, le suivi de conformité sociale, ni un recrutement
-dynamique déclenché par la monoculture. Les sections suivantes exposent ces éléments
-comme modèle cible ou pistes de conception ; elles ne doivent pas être lues comme des
-garanties runtime.
+Ne sont pas établis par ce chemin d'exécution : la délibération réellement exécutée
+claim par claim, un argument graph persisté, un registre de dissent, le suivi de
+conformité sociale, ni un recrutement dynamique déclenché par la monoculture. Les
+sections suivantes exposent ces éléments comme modèle cible ou pistes de conception ;
+elles ne doivent pas être lues comme des garanties runtime.
 
 La constitution persistée est une politique déclarée ; elle n'applique pas encore de
 gates d'indépendance, de divulgation, de vérification ou d'agrégation. La fonction de
@@ -100,6 +113,7 @@ Les services associés actuellement sont :
 
 - [backend/src/services/biocenoseService.js](../../../backend/src/services/biocenoseService.js) : composition, préparation, activation et évaluation ;
 - [backend/src/services/biocenose/communityStore.js](../../../backend/src/services/biocenose/communityStore.js) : création, rechargement et journalisation versionnée des sessions ;
+- [backend/src/services/biocenose/formation/](../../../backend/src/services/biocenose/formation/communityFormationService.js) : sélection de profils, diversité des niches et taille effective conditionnelle ;
 - [backend/src/services/epistemic/epistemicBiocenoseService.js](../../../backend/src/services/epistemic/epistemicBiocenoseService.js) : calcul de métriques de diversité ;
 - [backend/src/services/epistemic/epistemicIndependenceService.js](../../../backend/src/services/epistemic/epistemicIndependenceService.js) : service d'indépendance épistémique distinct, dont la présence ne signifie pas qu'il est appelé par le parcours Biocénose ;
 - [backend/src/services/hierarchicalQuorumService.js](../../../backend/src/services/hierarchicalQuorumService.js) : production d'un plan de communication hiérarchique ;

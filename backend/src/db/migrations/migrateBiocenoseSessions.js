@@ -62,6 +62,8 @@ async function migrateBiocenoseSessions(db) {
       FOREIGN KEY (community_id) REFERENCES biocenose_communities(community_id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_biocenose_commitments_round ON biocenose_commitments(community_id, round);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_biocenose_commitments_member_round
+      ON biocenose_commitments(community_id, member_id, round, commitment_type);
 
     CREATE TABLE IF NOT EXISTS biocenose_claims (
       claim_id TEXT PRIMARY KEY,

@@ -6,14 +6,16 @@
  * candidate-option evaluation, and community calibration metrics.
  */
 
-const biologicalModeService = require('./biologicalModeService');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const arenaTaskEvaluation = require('./arenaTaskEvaluation');
 const epistemicBiocenose = require('./epistemic/epistemicBiocenoseService');
 const hierarchicalQuorum = require('./hierarchicalQuorumService');
 const communityStore = require('./biocenose/communityStore');
+const judgmentCommitmentService = require('./biocenose/deliberation/commitmentService');
 const questionClassifier = require('./biocenose/question/questionClassifier');
 const constitutionService = require('./biocenose/governance/constitutionService');
+const communityFormationService = require('./biocenose/formation/communityFormationService');
+const { effectiveCommunitySize } = require('./biocenose/formation/effectiveCommunitySizeService');
 
 const NON_CANDIDATE_ROLES = new Set([
   'adversarial_reviewer', 'reviewer', 'consensus_observer', 'observer',
@@ -134,7 +136,7 @@ function evaluateCommunity(dossiers, options = {}) {
     leaderboard: evaluation.leaderboard,
     paretoFront: evaluation.paretoFront,
     diversity: communityDiversity(dossiers),
-    independence: { measured: false, reason: 'No validated member-independence data is available in dossiers.' },
+    independence: effectiveCommunitySize(dossiers),
     brier: brierConsensus(dossiers, options),
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'biocenose', organization })
   };
@@ -147,7 +149,9 @@ function composeBiocenose(mission, options = {}) {
       code: 'BIOCENOSE_MISSION_REQUIRED'
     });
   }
-  const members = composeMembers(goal, options.population);
+  const formation = communityFormationService.formCommunity({
+    mission: goal, population: options.population, candidates: options.memberCandidates
+  });
   const organization = options.organization || 'blind_adversarial_review';
   return {
     mode: 'biocenose',
@@ -156,33 +160,9 @@ function composeBiocenose(mission, options = {}) {
     organization,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'biocenose', organization }),
     communicationPlan: hierarchicalQuorum.planForAgentCount(options.agentCount || 4, options),
-    members
+    members: formation.members,
+    formation: formation.metrics
   };
-}
-
-function composePopulationRole(template, role, count) {
-  return Array.from({ length: count }, (_, index) => ({
-    ...template,
-    role,
-    memberNumber: index + 1,
-    mission: `${template.mission}\nPopulation member ${index + 1}; work independently and return evidence, assumptions, and unresolved claims.`
-  }));
-}
-
-function populationCount(population, key) {
-  const count = Number(population?.[key]);
-  return Number.isInteger(count) && count > 0 ? count : 1;
-}
-
-function composeMembers(mission, population) {
-  const templates = biologicalModeService.compose('biocenose', mission);
-  if (!population || typeof population !== 'object') return templates;
-  return [
-    templates[0],
-    ...composePopulationRole(templates[1], 'generator', populationCount(population, 'generators')),
-    ...composePopulationRole(templates[2], 'reviewer', populationCount(population, 'reviewers')),
-    ...composePopulationRole(templates[3], 'verifier', populationCount(population, 'verifiers'))
-  ];
 }
 
 async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
@@ -230,6 +210,8 @@ module.exports = {
   activateBiocenose,
   evaluateCommunity,
   prepareCommunity,
+  commitJudgment: judgmentCommitmentService.commitJudgment,
+  revealJudgments: judgmentCommitmentService.revealJudgments,
   brierConsensus,
   quorumWithAbstention,
   hierarchicalQuorumPlan: hierarchicalQuorum.planForAgentCount
