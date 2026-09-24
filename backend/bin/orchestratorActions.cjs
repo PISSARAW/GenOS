@@ -20,6 +20,7 @@ const { dispatchWorkerMission } = require('../src/services/orchestratorDispatchS
 const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
 const { workerToolLeaseForCapabilities } = require('../src/services/agentOrchestrationState');
 const { buildCapabilityManifest } = require('../src/services/capabilityResolverService');
+const autoReeval = require('../src/services/morphogenesis/autoReevaluationHook');
 async function findReusableWorker({ context, db }) {
   if (context.action !== 'dispatch_worker' || context.request.workerId) return null;
   return workerGarage.findReusableWorker(db, context.orchestratorId, {
@@ -40,12 +41,13 @@ function getRunnerStdio(processId) {
 
 function launchDetached(context, runnerRequest, detachedProcessId) {
   const stdio = getRunnerStdio(detachedProcessId);
+  const env = buildRunnerEnv();
   if (process.platform === 'win32') {
-    const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: false, windowsHide: true, stdio });
+    const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, windowsHide: true, stdio: 'ignore', env });
     runner.unref();
     return runner;
   }
-  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, stdio });
+  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, stdio, env });
   runner.unref();
   return runner;
 }
@@ -182,11 +184,17 @@ async function handleOrganizationChange({ db, request, orchestratorId }) {
     orchestratorId, organization: request.organization || request.topology, reason: request.reason,
     changedBy: process.env.GENOS_AGENT_ID || orchestratorId
   });
-  if (transition.changed) telemetry.emitEvent({
-    eventType: 'ORGANIZATION_CHANGED', agentId: orchestratorId, action: 'REORGANIZE',
-    detail: `Changed organization from '${transition.previous || 'none'}' to '${transition.organization}'.`,
-    payload: transition, severity: 'info'
-  });
+  if (transition.changed) {
+    telemetry.emitEvent({
+      eventType: 'ORGANIZATION_CHANGED', agentId: orchestratorId, action: 'REORGANIZE',
+      detail: `Changed organization from '${transition.previous || 'none'}' to '${transition.organization}'.`,
+      payload: transition, severity: 'info'
+    });
+    const reeval = await autoReeval.maybeAutoReevaluate({ db, orchestratorId, transition });
+    if (reeval.evaluated || (reeval.receipt && reeval.receipt.plan)) {
+      process.stderr.write(`[morphogenesis] auto-reevaluation: ${reeval.reason}\n`);
+    }
+  }
   process.stdout.write(JSON.stringify(transition));
 }
 async function handleOrganizationPublish({ db, request, orchestratorId }) {

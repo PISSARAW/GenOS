@@ -5,7 +5,7 @@
  * This module re-exports the consolidated Counterfactual Runtime.
  */
 
-const counterfactualPlanner = require('../../counterfactual/counterfactualPlanner');
+const counterfactualPlanner = require('../counterfactual/counterfactualPlanner');
 
 module.exports = {
   runCounterfactualLifecycle: counterfactualPlanner.runCounterfactualLifecycle,
@@ -16,7 +16,6 @@ module.exports = {
   listWorlds: counterfactualPlanner.listWorlds,
   getExperiment: counterfactualPlanner.getExperiment,
   listExperiments: counterfactualPlanner.listExperiments,
-  getLineageEdges: counterfactualPlanner.getLineageEdges,
   getStats: counterfactualPlanner.getStats,
   COUNTERFACTUAL_TYPES: counterfactualPlanner.COUNTERFACTUAL_TYPES,
   WORLD_STATUS: counterfactualPlanner.WORLD_STATUS,

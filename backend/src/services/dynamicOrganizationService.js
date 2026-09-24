@@ -1,5 +1,11 @@
 const crypto = require('crypto');
-const { withTransaction } = require('../db');
+// `../db` réassigne `module.exports` en fin de chargement et forme un cycle
+// avec les services : toute capture au chargement (déstructuration ou
+// référence) fige un objet vide selon le point d'entrée. Résolution
+// au moment de l'appel uniquement.
+function withTransactionDb(db, callback) {
+  return require('../db').withTransaction(db, callback);
+}
 const { formatSignalForTransport, unpackSignalPayload } = require('./biomimeticSignalingBus');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
@@ -214,7 +220,7 @@ async function changeOrganization(db, options = {}) {
   const version = Number(current ? current.version : 0) + 1;
   const finalReason = String(reason || 'Runtime need changed.');
   const ctx = { orchestratorId, organization, version, profile, reason: finalReason, actor, prevOrg };
-  await withTransaction(db, async (tx) => {
+  await withTransactionDb(db, async (tx) => {
     await recordOrganizationTransition(tx, ctx);
     await flushBufferedMessages(tx, ctx);
   });

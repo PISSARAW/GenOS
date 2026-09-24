@@ -244,6 +244,10 @@ const migrationRunners = [
     const { migrateAgentGitCommits } = require('./migrateAgentGitCommits');
     await migrateAgentGitCommits(db);
   }),
+  createMigrationRunner('070-counterfactual-tables', 'Create counterfactual worlds, experiments, results and lineage tables for the Morphogenesis counterfactual runtime', async (db) => {
+    const { migrateCounterfactualTables } = require('./migrateCounterfactualTables');
+    await migrateCounterfactualTables(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

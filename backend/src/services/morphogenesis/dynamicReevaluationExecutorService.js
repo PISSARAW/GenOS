@@ -10,6 +10,7 @@
 const adaptiveReevaluationService = require('../adaptiveReevaluationService');
 const morphogenesisPlannerService = require('./morphogenesisPlannerService');
 const transitionEngineService = require('./transitionEngineService');
+const counterfactualPlannerService = require('./counterfactualPlannerService');
 
 const PROVENANCE_SOURCE = 'dynamicReevaluationExecutorService';
 const reevaluationHistory = [];
@@ -87,6 +88,21 @@ async function executeReevaluation(ctx) {
     return { executed: false, reason: proposal.reason, regret: proposal.regret };
   }
 
+  // 1.5 Counterfactual analysis: fork worlds, compare causal effects
+  let counterfactualReceipt = null;
+  try {
+    counterfactualReceipt = await counterfactualPlannerService.runCounterfactualLifecycle({
+      db,
+      collectiveState,
+      agentId,
+      types: ['strategy', 'capability', 'dna', 'plasmid', 'communication_policy', 'relationship', 'worker_allocation'],
+      protocol: { steps: ['evaluate', 'compare', 'promote'] },
+    });
+    logProvenance({ agentId, stage: 'counterfactual', status: 'completed', receipt: counterfactualReceipt });
+  } catch (cfErr) {
+    logProvenance({ agentId, stage: 'counterfactual', status: 'failed', error: cfErr.message });
+  }
+
   // 2. Plan morphogenesis
   const plannerCtx = buildPlannerCtx(collectiveState, proposal);
   let plan;
@@ -94,20 +110,20 @@ async function executeReevaluation(ctx) {
     plan = morphogenesisPlannerService.planMorphogenesis(plannerCtx);
   } catch (err) {
     logProvenance({ agentId, stage: 'planning', status: 'failed', error: err.message });
-    return { executed: false, reason: 'planning_failed', error: err.message };
+    return { executed: false, reason: 'planning_failed', error: err.message, proposal, counterfactualReceipt };
   }
 
   // 3. Validate plan
   const validation = morphogenesisPlannerService.validatePlan({ plan, constraints: policy });
   if (!validation.valid) {
     logProvenance({ agentId, stage: 'validation', status: 'failed', errors: validation.errors });
-    return { executed: false, reason: 'validation_failed', errors: validation.errors, plan };
+    return { executed: false, reason: 'validation_failed', errors: validation.errors, plan, proposal, counterfactualReceipt };
   }
 
   // 4. Auto-approve gate
   if (!policy.autoApprove) {
     logProvenance({ agentId, stage: 'approval', status: 'pending', plan });
-    return { executed: false, reason: 'pending_approval', plan, validation };
+    return { executed: false, reason: 'pending_approval', plan, validation, proposal, counterfactualReceipt };
   }
 
   // 5. Execute transition
@@ -134,6 +150,7 @@ async function executeReevaluation(ctx) {
     plan,
     receipt,
     provenanceRecord,
+    counterfactualReceipt,
   };
 }
 
@@ -156,6 +173,7 @@ function setReevaluationPolicy(ctx) {
 
 module.exports = {
   executeReevaluation,
+  counterfactualPlannerService,
   getReevaluationHistory,
   setReevaluationPolicy,
 };
