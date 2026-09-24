@@ -2,22 +2,38 @@
 
 /**
  * @file biocenoseService.js
- * @description Biocenose collective coordination service: mission analysis,
- * role composition, and community-driven solver-reviewer orchestration.
- * Community evaluation now runs on the impartial Pareto arena and the swarm
- * diversity metric instead of being prompt-only.
+ * @description Biocenose compatibility facade for role composition,
+ * candidate-option evaluation, and community calibration metrics.
  */
 
 const biologicalModeService = require('./biologicalModeService');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const arenaTaskEvaluation = require('./arenaTaskEvaluation');
-const swarmMetricsService = require('./swarmMetricsService');
+const epistemicBiocenose = require('./epistemic/epistemicBiocenoseService');
 const hierarchicalQuorum = require('./hierarchicalQuorumService');
 
+const NON_CANDIDATE_ROLES = new Set([
+  'adversarial_reviewer', 'reviewer', 'consensus_observer', 'observer',
+  'verifier', 'community_facilitator', 'aggregator', 'social_observer'
+]);
+const CANDIDATE_ROLES = new Set([
+  'independent_solver', 'generator', 'candidate_solution', 'solution_candidate'
+]);
+
+function isCandidateOption(dossier) {
+  const role = String(dossier?.role || '').trim().toLowerCase();
+  if (NON_CANDIDATE_ROLES.has(role)) return false;
+  return CANDIDATE_ROLES.has(role) || dossier?.candidateType === 'solution'
+    || dossier?.candidateType === 'option' || dossier?.isCandidate === true;
+}
+
 function communityDiversity(dossiers) {
-  const actions = (dossiers || []).flatMap((dossier) => (dossier.events || []).map((event) => event.action || event.eventType)).filter(Boolean);
-  if (!actions.length) return null;
-  return swarmMetricsService.calculateShannonEntropy(actions);
+  const members = (Array.isArray(dossiers) ? dossiers : []).map((dossier) => ({
+    ...dossier,
+    type: dossier?.type || dossier?.role,
+    errorPatterns: dossier?.errorPatterns || dossier?.errorClaims
+  }));
+  return members.length ? epistemicBiocenose.cognitiveBiocenose(members) : null;
 }
 
 function clamp01(value) {
@@ -100,21 +116,22 @@ function brierConsensus(dossiers, options = {}) {
   };
 }
 
-function recommendedOrganization(evaluation) {
-  return evaluation && evaluation.leaderboard && evaluation.leaderboard.length > 0
-    ? 'brier_weighted_consensus'
-    : 'blind_adversarial_review';
+function candidateDossiers(dossiers) {
+  return (Array.isArray(dossiers) ? dossiers : []).filter(isCandidateOption);
 }
 
 function evaluateCommunity(dossiers, options = {}) {
-  const evaluation = arenaTaskEvaluation.evaluateDossiersPareto(dossiers, options);
-  const organization = options.organization || recommendedOrganization(evaluation);
+  const candidates = candidateDossiers(dossiers);
+  const evaluation = arenaTaskEvaluation.evaluateDossiersPareto(candidates, options);
+  const organization = options.organization || 'blind_adversarial_review';
   return {
     organization,
-    consensus: evaluation.kneePoint,
+    arenaRecommendation: evaluation.leaderboard.length > 1 ? evaluation.kneePoint : null,
+    candidateCount: candidates.length,
     leaderboard: evaluation.leaderboard,
     paretoFront: evaluation.paretoFront,
     diversity: communityDiversity(dossiers),
+    independence: { measured: false, reason: 'No validated member-independence data is available in dossiers.' },
     brier: brierConsensus(dossiers, options),
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'biocenose', organization })
   };
@@ -127,8 +144,8 @@ function composeBiocenose(mission, options = {}) {
       code: 'BIOCENOSE_MISSION_REQUIRED'
     });
   }
-  const members = biologicalModeService.compose('biocenose', goal);
-  const organization = options.organization || 'brier_weighted_consensus';
+  const members = composeMembers(goal, options.population);
+  const organization = options.organization || 'blind_adversarial_review';
   return {
     mode: 'biocenose',
     mission: goal,
@@ -138,6 +155,31 @@ function composeBiocenose(mission, options = {}) {
     communicationPlan: hierarchicalQuorum.planForAgentCount(options.agentCount || 4, options),
     members
   };
+}
+
+function composePopulationRole(template, role, count) {
+  return Array.from({ length: count }, (_, index) => ({
+    ...template,
+    role,
+    memberNumber: index + 1,
+    mission: `${template.mission}\nPopulation member ${index + 1}; work independently and return evidence, assumptions, and unresolved claims.`
+  }));
+}
+
+function populationCount(population, key) {
+  const count = Number(population?.[key]);
+  return Number.isInteger(count) && count > 0 ? count : 1;
+}
+
+function composeMembers(mission, population) {
+  const templates = biologicalModeService.compose('biocenose', mission);
+  if (!population || typeof population !== 'object') return templates;
+  return [
+    templates[0],
+    ...composePopulationRole(templates[1], 'generator', populationCount(population, 'generators')),
+    ...composePopulationRole(templates[2], 'reviewer', populationCount(population, 'reviewers')),
+    ...composePopulationRole(templates[3], 'verifier', populationCount(population, 'verifiers'))
+  ];
 }
 
 async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {

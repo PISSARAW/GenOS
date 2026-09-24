@@ -21,14 +21,23 @@ présentes dans `biocenoseService` sont les suivantes :
 
 - `composeBiocenose` valide la mission, compose les membres via
   `biologicalModeService`, puis retourne le seuil, le contrat de capacités et un plan
-  de communication hiérarchique ;
+  de communication hiérarchique. L'option `population` permet de configurer plusieurs
+  générateurs, reviewers et vérificateurs ; sans elle, la composition historique à
+  quatre membres reste utilisée ;
 - `prepareCommunity` demande à `dynamicOrganizationService` de changer d'organisation,
   mais ignore les erreurs de cette étape ;
-- `evaluateCommunity` évalue les dossiers avec l'arène Pareto et retourne le point
-  genou, le classement, le front de Pareto, une diversité d'actions et un consensus
-  Brier ;
-- `brierConsensus` nécessite un résultat d'oracle pour calculer le score et le soutien
-  pondéré ; sans oracle, il retourne `oracleMissing` ;
+- `evaluateCommunity` n'envoie à l'arène Pareto que les dossiers explicitement
+  identifiés comme générateurs ou options candidates. Les rôles de revue,
+  vérification, facilitation et observation en sont exclus. Le point genou est exposé
+  comme `arenaRecommendation` uniquement lorsque l'arène classe au moins deux
+  candidats ; il n'est jamais nommé « consensus » ;
+- `diversity` utilise les indicateurs de diversité fonctionnelle, d'erreurs,
+  fournisseurs, stratégies et outils de `epistemicBiocenoseService`. Ces proxys ne
+  mesurent pas l'indépendance réelle des jugements ; le résultat l'indique comme non
+  mesurée en l'absence de données de dépendance validées ;
+- `brierConsensus` reste disponible pour compatibilité et nécessite un résultat
+  d'oracle pour calculer le score et le soutien pondéré ; sans oracle, il retourne
+  `oracleMissing`. Ce score n'est pas la règle de décision de `evaluateCommunity` ;
 - `quorumWithAbstention` calcule un quorum pondéré simple et compte les abstentions ;
 - `epistemicBiocenoseService` calcule des indicateurs de diversité et recommande une
   niche. `shouldRecruit` est une recommandation calculée : ce service ne recrute pas
