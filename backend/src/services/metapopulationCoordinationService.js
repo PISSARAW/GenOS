@@ -12,6 +12,11 @@ const topologyCapabilityService = require('./topologyCapabilityService');
 const metapopulationStore = require('./metapopulation/metapopulationStore');
 const { validateMetapopulationSession } = require('./metapopulation/contracts/metapopulationContract');
 const { validateRegionalEvent } = require('./metapopulation/contracts/regionalEventContract');
+const patchService = require('./metapopulation/patches/patchService');
+const patchLifecycleService = require('./metapopulation/patches/patchLifecycleService');
+const demeService = require('./metapopulation/demes/demeService');
+const demeLifecycleService = require('./metapopulation/demes/demeLifecycleService');
+const demeLocalEvolutionService = require('./metapopulation/demes/demeLocalEvolutionService');
 
 const DEFAULT_ORGANIZATION = 'quorum_with_abstention';
 const DEFAULT_QUORUM_RATIO = 0.5;
@@ -143,12 +148,57 @@ function connectionWeights(connections, outcomes = {}) {
   });
 }
 
+async function createPatch(metapopulationId, patch, options = {}) {
+  return patchService.createPatch(patch, { ...options, metapopulationId });
+}
+
+async function listPatches(metapopulationId, options = {}) {
+  return patchService.listPatches({ ...options, metapopulationId });
+}
+
+async function getPatch(metapopulationId, patchId, options = {}) {
+  return patchService.getPatch(patchId, { ...options, metapopulationId });
+}
+
+async function createDeme(metapopulationId, deme, options = {}) {
+  return demeService.createDeme(deme, { ...options, metapopulationId });
+}
+
+async function getDeme(metapopulationId, demeId, options = {}) {
+  return demeService.getDeme(demeId, { ...options, metapopulationId });
+}
+
+async function listDemes(metapopulationId, options = {}) {
+  return demeService.listDemes({ ...options, metapopulationId });
+}
+
+async function transitionPatch(input, options = {}) {
+  return patchLifecycleService.transitionPatch(input, options);
+}
+
+async function transitionDeme(input, options = {}) {
+  return demeLifecycleService.transitionDeme(input, options);
+}
+
+async function updateDemeLocalProfile(input, options = {}) {
+  return demeLocalEvolutionService.updateLocalProfile(input, options);
+}
+
 module.exports = {
   composeMetapopulation,
   createMetapopulationSession,
   getMetapopulationSession,
   recordMetapopulationEvent,
   listMetapopulationEvents,
+  createPatch,
+  getPatch,
+  listPatches,
+  createDeme,
+  getDeme,
+  listDemes,
+  transitionPatch,
+  transitionDeme,
+  updateDemeLocalProfile,
   senseQuorum,
   regenerationPlan,
   connectionWeights

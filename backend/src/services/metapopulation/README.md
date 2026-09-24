@@ -1,7 +1,7 @@
 # Domaine Métapopulation
 
-Ce dossier définit les contrats et la persistance du modèle cible. La façade
-publique reste `../metapopulationCoordinationService.js`.
+Ce dossier définit les contrats, la persistance et les services du modèle cible.
+La façade publique reste `../metapopulationCoordinationService.js`.
 
 ## Ontologie
 
@@ -16,21 +16,29 @@ L'invariant est : `population ≠ dème ≠ patch`. Une population ne devient pa
 un patch parce qu'elle disparaît ; le patch peut rester disponible pour un autre
 dème.
 
-## Contrats
+## Contrats et services
 
-`contracts/` valide les sessions, patches, dèmes, propagules, corridors dirigés
-et événements régionaux. Les validations rejettent les identifiants vides,
-états inconnus et mesures hors bornes avec des codes d'erreur dédiés.
+`contracts/` valide sessions, patches, dèmes, propagules, corridors dirigés et
+événements régionaux. Les services `patches/` et `demes/` exposent la création,
+la lecture, les transitions de cycle de vie, l'évaluation de convenance locale
+et la mise à jour du profil d'un dème. Les transitions sont validées avant
+persistance.
 
 ## Persistance
 
-`metapopulationStore.js` persiste la session dans des colonnes dédiées, les
-futurs patches/dèmes/corridors dans leurs propres tables et les transitions dans
-un journal régional append-only. Une session créée avec une base reçoit un
-événement `SESSION_CREATED` en révision 1 dans la même transaction. Une
-composition sans base reste en mémoire et n'est pas récupérable après
-redémarrage.
+`metapopulationStore.js` persiste les sessions, patches et dèmes dans des tables
+normalisées. Les créations, changements de statut et mises à jour du profil local
+sont ajoutés au journal régional append-only. Les corridors et migrations ont
+leurs tables, mais leur cycle de vie sera livré dans un lot ultérieur.
 
-La migration `073-metapopulation-sessions` crée le schéma. Elle ne crée pas
-encore de patches ou de dèmes : leur cycle de vie appartient aux étapes
-suivantes de la feuille de route.
+La migration `073-metapopulation-sessions` crée le schéma. La façade
+`metapopulationCoordinationService.js` expose les opérations du modèle local.
+Une session créée avec une base est récupérable après redémarrage ; une
+composition sans base reste en mémoire.
+
+## Portée des lots
+
+La frontière d'écriture n'est pas encore une sandbox : le garde local du dème
+est un contrat préliminaire. L'isolation réelle, les heartbeats et la liveness
+régionale relèvent du PR3. Les corridors, propagules et mécanismes de reprise
+arrivent dans les lots suivants.

@@ -90,6 +90,145 @@ async function listEvents(db, metapopulationId) {
   }));
 }
 
+async function createPatch(db, metapopulationId, input) {
+  await migrateMetapopulation(db);
+  const patch = validatePatch(input);
+  const now = patch.createdAt || new Date().toISOString();
+  await withTransaction(db, async () => {
+    await requireSession(db, metapopulationId);
+    await db.run(
+      `INSERT INTO metapopulation_patches
+       (patch_id, metapopulation_id, environment_json, requirements_json, resources_json,
+        carrying_capacity, quality, accessibility, status, current_deme_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+      patch.patchId, metapopulationId, JSON.stringify(patch.environment), JSON.stringify(patch.requirements),
+      JSON.stringify(patch.resources), patch.carryingCapacity, patch.quality, patch.accessibility,
+      patch.status, now, now
+    );
+    await commitEvent(db, metapopulationId, { type: 'PATCH_CREATED', payload: { patchId: patch.patchId } });
+  });
+  return getPatch(db, metapopulationId, patch.patchId);
+}
+
+async function getPatch(db, metapopulationId, patchId) {
+  await migrateMetapopulation(db);
+  const row = await db.get('SELECT * FROM metapopulation_patches WHERE metapopulation_id = ? AND patch_id = ?', metapopulationId, patchId);
+  return row ? toPatch(row) : null;
+}
+
+async function listPatches(db, metapopulationId) {
+  await migrateMetapopulation(db);
+  const rows = await db.all('SELECT * FROM metapopulation_patches WHERE metapopulation_id = ? ORDER BY patch_id', metapopulationId);
+  return rows.map(toPatch);
+}
+
+async function transitionPatch(db, input) {
+  const { metapopulationId, patchId, status } = input;
+  await migrateMetapopulation(db);
+  await withTransaction(db, async () => {
+    await requireSession(db, metapopulationId);
+    const result = await db.run(
+      'UPDATE metapopulation_patches SET status = ?, updated_at = ? WHERE metapopulation_id = ? AND patch_id = ?',
+      status, new Date().toISOString(), metapopulationId, patchId
+    );
+    if (result.changes !== 1) throw storeError('METAPOPULATION_PATCH_UNKNOWN', 'Unknown patch.');
+    await commitEvent(db, metapopulationId, { type: 'PATCH_STATUS_CHANGED', payload: { patchId, status } });
+  });
+  return getPatch(db, metapopulationId, patchId);
+}
+
+async function createDeme(db, metapopulationId, input) {
+  await migrateMetapopulation(db);
+  const deme = validateDeme(input);
+  const now = deme.createdAt || new Date().toISOString();
+  await withTransaction(db, async () => {
+    await requireSession(db, metapopulationId);
+    const patch = await db.get('SELECT status, current_deme_id FROM metapopulation_patches WHERE patch_id = ? AND metapopulation_id = ?', deme.patchId, metapopulationId);
+    if (!patch) throw storeError('METAPOPULATION_PATCH_UNKNOWN', 'Deme patch does not exist in this session.');
+    if (!['AVAILABLE', 'VACANT'].includes(patch.status) || patch.current_deme_id) throw storeError('METAPOPULATION_PATCH_NOT_COLONIZABLE', 'Patch is not available for a deme.');
+    await db.run(
+      `INSERT INTO metapopulation_demes
+       (deme_id, metapopulation_id, patch_id, status, members_json, local_state_ref, local_memory_ref,
+        local_strategies_json, local_procedures_json, lineage_json, fitness_json, diversity,
+        last_heartbeat_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      deme.demeId, metapopulationId, deme.patchId, deme.status, JSON.stringify(deme.members),
+      deme.localStateRef || null, deme.localMemoryRef || null, JSON.stringify(deme.localStrategies),
+      JSON.stringify(deme.localProcedures), JSON.stringify(deme.lineage), JSON.stringify(deme.fitness),
+      deme.diversity, now, now, now
+    );
+    await db.run('UPDATE metapopulation_patches SET status = ?, current_deme_id = ?, updated_at = ? WHERE patch_id = ?', 'OCCUPIED', deme.demeId, now, deme.patchId);
+    await commitEvent(db, metapopulationId, { type: 'DEME_CREATED', payload: { demeId: deme.demeId, patchId: deme.patchId } });
+  });
+  return getDeme(db, metapopulationId, deme.demeId);
+}
+
+async function getDeme(db, metapopulationId, demeId) {
+  await migrateMetapopulation(db);
+  const row = await db.get('SELECT * FROM metapopulation_demes WHERE metapopulation_id = ? AND deme_id = ?', metapopulationId, demeId);
+  return row ? toDeme(row) : null;
+}
+
+async function listDemes(db, metapopulationId) {
+  await migrateMetapopulation(db);
+  const rows = await db.all('SELECT * FROM metapopulation_demes WHERE metapopulation_id = ? ORDER BY deme_id', metapopulationId);
+  return rows.map(toDeme);
+}
+
+async function transitionDeme(db, input) {
+  const { metapopulationId, demeId, status } = input;
+  await migrateMetapopulation(db);
+  await withTransaction(db, async () => {
+    await requireSession(db, metapopulationId);
+    const result = await db.run(
+      'UPDATE metapopulation_demes SET status = ?, updated_at = ? WHERE metapopulation_id = ? AND deme_id = ?',
+      status, new Date().toISOString(), metapopulationId, demeId
+    );
+    if (result.changes !== 1) throw storeError('METAPOPULATION_DEME_UNKNOWN', 'Unknown deme.');
+    await commitEvent(db, metapopulationId, { type: status === 'AT_RISK' ? 'DEME_AT_RISK' : 'DEME_STATUS_CHANGED', payload: { demeId, status } });
+  });
+  return getDeme(db, metapopulationId, demeId);
+}
+
+async function updateDemeProfile(db, input) {
+  await migrateMetapopulation(db);
+  const { metapopulationId, demeId } = input;
+  const changes = input.changes || {};
+  const mutableFields = ['localStrategies', 'localProcedures', 'fitness', 'diversity'];
+  if (Object.keys(changes).some((field) => !mutableFields.includes(field))) {
+    throw storeError('METAPOPULATION_DEME_PROFILE_FIELD_INVALID', 'Deme profile contains a protected field.');
+  }
+  await withTransaction(db, async () => {
+    await requireSession(db, metapopulationId);
+    const currentRow = await db.get('SELECT * FROM metapopulation_demes WHERE metapopulation_id = ? AND deme_id = ?', metapopulationId, demeId);
+    if (!currentRow) throw storeError('METAPOPULATION_DEME_UNKNOWN', 'Unknown deme.');
+    const updated = validateDeme({ ...toDeme(currentRow), ...changes });
+    const now = new Date().toISOString();
+    await db.run(
+      'UPDATE metapopulation_demes SET local_strategies_json = ?, local_procedures_json = ?, fitness_json = ?, diversity = ?, updated_at = ? WHERE metapopulation_id = ? AND deme_id = ?',
+      JSON.stringify(updated.localStrategies), JSON.stringify(updated.localProcedures),
+      JSON.stringify(updated.fitness), updated.diversity, now, metapopulationId, demeId
+    );
+    await commitEvent(db, metapopulationId, { type: 'DEME_PROFILE_UPDATED', payload: { demeId, fields: Object.keys(changes) } });
+  });
+  return getDeme(db, metapopulationId, demeId);
+}
+
+async function requireSession(db, metapopulationId) {
+  const found = await db.get('SELECT id FROM metapopulation_sessions WHERE id = ?', metapopulationId);
+  if (!found) throw storeError('METAPOPULATION_SESSION_UNKNOWN', 'Unknown metapopulation session.');
+}
+
+async function commitEvent(db, metapopulationId, event) {
+  const row = await db.get('SELECT revision FROM metapopulation_sessions WHERE id = ?', metapopulationId);
+  const revision = Number(row.revision) + 1;
+  const now = new Date().toISOString();
+  const sequence = await db.get('SELECT COALESCE(MAX(sequence), 0) + 1 AS value FROM metapopulation_events WHERE metapopulation_id = ?', metapopulationId);
+  const committed = validateRegionalEvent({ ...event, sequence: Number(sequence.value), revision, actor: 'metapopulation-runtime', provenance: { source: 'metapopulationStore' }, occurredAt: now });
+  await db.run('UPDATE metapopulation_sessions SET revision = ?, updated_at = ? WHERE id = ?', revision, now, metapopulationId);
+  await insertEvent(db, metapopulationId, committed);
+}
+
 async function insertEvent(db, metapopulationId, event) {
   const valid = validateRegionalEvent(event);
   await db.run(
@@ -139,4 +278,4 @@ function storeError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { createSession, loadSession, appendEvent, listEvents };
+module.exports = { createSession, loadSession, appendEvent, listEvents, createPatch, getPatch, listPatches, transitionPatch, createDeme, getDeme, listDemes, transitionDeme, updateDemeProfile };
