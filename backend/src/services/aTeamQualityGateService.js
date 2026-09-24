@@ -20,16 +20,32 @@ function normalizeObserverFailures(report) {
     .filter(Boolean);
 }
 
+function coverageDimensions(coverage) {
+  return ['missionCoverage', 'staffedCoverage', 'runtimeToolCoverage', 'verifiedCoverage']
+    .map((name) => ({ name, ...(coverage[name] || {}), ratio: coverage[name]?.ratio ?? null }));
+}
+
+function invalidDimensions(dimensions) {
+  return dimensions.filter((dimension) => dimension.ratio === null
+    || !Number.isFinite(Number(dimension.ratio)) || Number(dimension.ratio) <= 0);
+}
+
 function normalizeCoverage(analysis) {
   const coverage = analysis?.capabilityCoverage || {};
   const ratio = Number(coverage.ratio);
+  const dimensions = coverageDimensions(coverage);
+  const failedDimensions = invalidDimensions(dimensions);
   return {
     ratio: Number.isFinite(ratio) ? ratio : 0,
     coveredSum: Number(coverage.coveredSum || 0),
     requiredSum: Number(coverage.requiredSum || 0),
     covered: coverage.covered || [],
     uncovered: coverage.uncovered || [],
-    failed: !Number.isFinite(ratio) || ratio < MIN_COVERAGE
+    dimensions,
+    failedDimensions,
+    failed: dimensions.length === 0
+      ? !Number.isFinite(ratio) || ratio < MIN_COVERAGE
+      : failedDimensions.length > 0
   };
 }
 
@@ -46,7 +62,9 @@ function evaluateQualityGate(analysis, observerReport = null) {
       failures: integrationFailures
     },
     reasons: [
-      ...(coverage.failed ? [`coverage ${coverage.ratio || 'invalid'} is below ${MIN_COVERAGE}`] : []),
+      ...(coverage.failedDimensions.length
+        ? coverage.failedDimensions.map(({ name, ratio }) => `${name} is ${ratio === null ? 'unavailable' : 'zero or invalid'}`)
+        : coverage.failed ? [`coverage ${coverage.ratio || 'invalid'} is below ${MIN_COVERAGE}`] : []),
       ...(integrationFailed ? ['integration observer reported a failure'] : [])
     ]
   };

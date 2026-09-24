@@ -1,4 +1,7 @@
 const config = require('../config/orchestratorConfig');
+const { analyzeMissionCapabilities } = require('./aTeam/capabilities/missionCapabilityAnalyzer');
+const { findCapabilityGaps } = require('./aTeam/capabilities/capabilityGapService');
+const { measureCapabilityCoverage } = require('./aTeam/capabilities/capabilityCoverageService');
 const DEFAULT_MAX_MEMBERS = 3;
 
 function maxMembers() {
@@ -112,31 +115,22 @@ function detectTechnicalDomains(text) {
     .sort((left, right) => right.score - left.score || left.priority - right.priority || left.index - right.index);
 }
 
-function coverage(requiredCapabilities, members) {
-  const supplied = new Set(members.flatMap((member) => member.capabilities || []));
-  const totalWeight = requiredCapabilities.reduce((total, capability) => total + capability.weight, 0);
-  const coveredWeight = requiredCapabilities.reduce(
-    (total, capability) => total + (supplied.has(capability.name) ? capability.weight : 0),
-    0
-  );
-  return {
-    ratio: totalWeight > 0 ? Number((coveredWeight / totalWeight).toFixed(3)) : 1,
-    coveredSum: coveredWeight,
-    requiredSum: totalWeight,
-    covered: requiredCapabilities.filter((capability) => supplied.has(capability.name)).map((capability) => capability.name),
-    uncovered: requiredCapabilities.filter((capability) => !supplied.has(capability.name)).map((capability) => capability.name)
-  };
-}
-
 function fictionAnalysis() {
   const members = FICTION_TEAM.map((member) => ({ ...member, capabilities: [...member.capabilities] }));
+  const required = FICTION_CAPABILITIES.map((capability) => ({
+    ...capability,
+    capability: capability.name,
+    criticality: 'normal',
+    evidenceRequired: true
+  }));
   return {
     recommended: true,
     artifact: 'fiction',
     primaryDomain: 'creative_writing',
-    requiredCapabilities: FICTION_CAPABILITIES.map((capability) => ({ ...capability })),
+    requiredCapabilities: required,
     detectedDomains: members.map((member) => member.label),
-    capabilityCoverage: coverage(FICTION_CAPABILITIES, members),
+    capabilityCoverage: measureCapabilityCoverage({ requirements: required, members, analysisCoverage: 1 }),
+    capabilityGaps: findCapabilityGaps(required, members),
     members
   };
 }
@@ -171,7 +165,13 @@ function buildMembers(selected) {
 }
 
 function technicalResult(selectedDomains, members, extra = {}) {
-  const required = requiredCapabilities(selectedDomains);
+  const required = extra.requiredCapabilities || requiredCapabilities(selectedDomains);
+  const capabilityCoverage = measureCapabilityCoverage({
+    requirements: required,
+    members,
+    analysisCoverage: extra.missionCoverage ?? null
+  });
+  const capabilityGaps = findCapabilityGaps(required, members);
   return {
     recommended: selectedDomains.length >= 2,
     artifact: null,
@@ -180,23 +180,33 @@ function technicalResult(selectedDomains, members, extra = {}) {
     detectedDomains: selectedDomains.map(({ domain }) => domain),
     // Detected-but-not-staffed domains are surfaced instead of silently dropped:
     // "no domain may be ignored without justification".
-    overflowDomains: Array.isArray(extra.overflowDomains) ? extra.overflowDomains : [],
+    overflowDomains: [],
+    capabilityGaps,
     totalDetected: Number.isFinite(extra.totalDetected) ? extra.totalDetected : selectedDomains.length,
-    capabilityCoverage: coverage(required, members),
+    capabilityCoverage,
     members
   };
 }
 
-function technicalAnalysis(domains) {
+function technicalAnalysis(domains, analysis) {
   const selected = domains.slice(0, maxMembers());
-  const overflowDomains = domains.slice(maxMembers()).map(({ domain }) => domain);
-  return technicalResult(selected, buildMembers(selected), { overflowDomains, totalDetected: domains.length });
+  const requirements = analysis.requirements.map((requirement) => ({
+    ...requirement,
+    name: requirement.capability
+  }));
+  return technicalResult(selected, buildMembers(selected), {
+    requiredCapabilities: requirements,
+    missionCoverage: analysis.missionCoverage,
+    totalDetected: domains.length
+  });
 }
 
 function analyzeMission(mission) {
   const text = (typeof mission === 'string' ? mission : '').normalize('NFD').replace(/\p{M}/gu, '');
   if (FICTION_ARTIFACT.test(text) && CREATIVE_ACTION.test(text)) return fictionAnalysis();
-  return technicalAnalysis(detectTechnicalDomains(text));
+  const domains = detectTechnicalDomains(text);
+  const analysis = analyzeMissionCapabilities(text);
+  return technicalAnalysis(domains, analysis);
 }
 
 function normalizeDependencies(dependencies) {

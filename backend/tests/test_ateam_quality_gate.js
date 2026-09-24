@@ -3,10 +3,12 @@ const { analyzeMission } = require('../src/services/aTeamService');
 const { evaluateQualityGate, buildEvidence } = require('../src/services/aTeamQualityGateService');
 
 const analysis = analyzeMission('Construire une interface React, une API Express et sécuriser OAuth avec des tests.');
-assert.equal(analysis.capabilityCoverage.coveredSum, 5);
-assert.equal(analysis.capabilityCoverage.requiredSum, 5);
+assert.equal(analysis.capabilityCoverage.coveredSum, 4);
+assert.equal(analysis.capabilityCoverage.requiredSum, 4);
 assert.equal(analysis.capabilityCoverage.ratio, 1);
-assert.equal(evaluateQualityGate(analysis).passed, true);
+assert.deepEqual(analysis.capabilityCoverage.missionCoverage.ratio, 1);
+assert.equal(evaluateQualityGate(analysis).passed, false);
+assert.deepEqual(evaluateQualityGate(analysis).coverage.failedDimensions.map((item) => item.name), ['runtimeToolCoverage', 'verifiedCoverage']);
 
 const blocked = evaluateQualityGate(analyzeMission('Construire une interface React et une API Express.'), {
   integrationFailures: [{ code: 'CONTRACT_MISMATCH', message: 'API contract diverged' }]
