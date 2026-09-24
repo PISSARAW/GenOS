@@ -8,6 +8,7 @@ function createIndividual(input = {}) {
     role: String(input.role || 'worker').trim(),
     genome: input.genome || null,
     phenotype: input.phenotype || {},
+    cognitiveRecipe: input.cognitiveRecipe || input.phenotype?.cognitiveRecipe || null,
     capabilities: stringList(input.capabilities),
     fundamentalNicheIds: stringList(input.fundamentalNicheIds),
     realizedNicheId: input.realizedNicheId || null,

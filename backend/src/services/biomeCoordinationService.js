@@ -198,7 +198,7 @@ async function assessSessionIndividuals(sessionId, individuals, options = {}) {
 async function updateSessionPopulation({ sessionId, command, options = {} }) {
   return applyOperation({
     sessionId, options, operation: `population_${command.type}`, input: command,
-    apply: (session) => populationRuntimeService.execute(session.ecology, command)
+    apply: (session) => populationRuntimeService.execute(session.ecology, command, options)
   });
 }
 
@@ -238,9 +238,9 @@ async function applyOperation({ sessionId, options, operation, input, apply }) {
 
 async function applyPersistedOperation(context) {
   const { sessionId, options, operation, input, apply, operationId, timestamp, actorId } = context;
-  return biomeSessionStore.mutate({ db: options.db, id: sessionId, actorId, operation, mutator: (record) => {
+  return biomeSessionStore.mutate({ db: options.db, id: sessionId, actorId, operation, mutator: async (record) => {
     const session = rehydrate(record);
-    const output = apply(session);
+    const output = await apply(session);
     const resultingRevision = record.revision + 1;
     const receipt = makeReceipt({ ...context, output, previousRevision: record.revision, resultingRevision });
     return { state: serialize(session), event: { ...receipt }, result: { sessionId, ...output, receipt } };
@@ -250,7 +250,7 @@ async function applyPersistedOperation(context) {
 async function applyMemoryOperation(context) {
   const session = await getSession(context.sessionId);
   const previousRevision = session.revision || 0;
-  const output = context.apply(session);
+  const output = await context.apply(session);
   session.revision = previousRevision + 1;
   const receipt = makeReceipt({ ...context, output, previousRevision, resultingRevision: session.revision });
   return { sessionId: context.sessionId, ...output, receipt };

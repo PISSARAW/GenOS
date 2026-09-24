@@ -10,6 +10,7 @@ function createPopulation(input = {}) {
     populationId: requiredId(input.populationId, 'populationId'),
     nicheId: requiredId(input.nicheId, 'nicheId'),
     individuals: Array.isArray(input.individuals) ? input.individuals.map(createIndividual) : [],
+    spores: Array.isArray(input.spores) ? input.spores : [],
     strategies: Array.isArray(input.strategies) ? input.strategies : [],
     cognitiveRecipes: Array.isArray(input.cognitiveRecipes) ? input.cognitiveRecipes : [],
     localMemory: input.localMemory || [],

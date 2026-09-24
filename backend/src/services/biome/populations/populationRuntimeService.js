@@ -4,14 +4,59 @@ const populations = require('./populationService');
 const agentNicheService = require('../niches/agentNicheService');
 const nicheLifecycle = require('../niches/nicheLifecycleService');
 const nicheStore = require('../niches/nicheStore');
+const evolution = require('./populationEvolutionService');
+const mergeService = require('./populationMergeService');
 
-function execute(ecology, command) {
+async function execute(ecology, command, options = {}) {
   if (command.type === 'create') return createPopulation(ecology, command.population);
   if (command.type === 'spawn') return spawnPopulation(ecology, command.populationId, command.individuals);
   if (command.type === 'advance') return advancePopulation(ecology, command.populationId, command.measurements);
   if (command.type === 'select') return selectPopulation(ecology, command.populationId, command.count);
   if (command.type === 'migrate') return migrateIndividual(ecology, command);
+  if (command.type === 'mutate') return mutatePopulation(ecology, command, options);
+  if (command.type === 'freeze') return freezeIndividual(ecology, command, options);
+  if (command.type === 'thaw') return thawIndividual(ecology, command);
+  if (command.type === 'merge') return mergePopulation(ecology, command);
   throw Object.assign(new Error(`Unknown population operation '${command.type}'.`), { code: 'BIOME_POPULATION_OPERATION_UNKNOWN' });
+}
+
+async function mutatePopulation(ecology, command, options) {
+  const current = findPopulation(ecology, command.populationId);
+  const result = await evolution.mutatePopulation(current, command.variants, options);
+  const niche = findNiche(ecology, current.nicheId);
+  validateMembers(current, niche, result.variants);
+  replacePopulation(ecology, result.population);
+  refreshNicheOccupancy(ecology, current.nicheId);
+  return { ...result, action: { type: 'POPULATION_VARIANTS_CREATED', status: 'applied', populationId: current.populationId, count: result.variants.length } };
+}
+
+function freezeIndividual(ecology, command, options) {
+  const current = findPopulation(ecology, command.populationId);
+  const result = evolution.freezeIndividual(current, command.individualId, options);
+  replacePopulation(ecology, result.population);
+  refreshNicheOccupancy(ecology, current.nicheId);
+  return { ...result, action: { type: 'INDIVIDUAL_VITRIFIED', status: 'applied', individualId: command.individualId } };
+}
+
+function thawIndividual(ecology, command) {
+  const current = findPopulation(ecology, command.populationId);
+  const niche = findNiche(ecology, current.nicheId);
+  if (!isNicheAvailable(niche)) throw populationError('BIOME_NICHE_UNAVAILABLE', current.nicheId);
+  const result = evolution.thawIndividual(current, command.individualId, command.environment);
+  validateMembers(current, niche, [result.individual]);
+  replacePopulation(ecology, result.population);
+  refreshNicheOccupancy(ecology, current.nicheId);
+  return { ...result, action: { type: 'INDIVIDUAL_GERMINATED', status: 'applied', individualId: command.individualId } };
+}
+
+function mergePopulation(ecology, command) {
+  const target = findPopulation(ecology, command.targetPopulationId);
+  const source = findPopulation(ecology, command.sourcePopulationId);
+  const population = mergeService.mergePopulations(target, source);
+  replacePopulation(ecology, population);
+  ecology.populations = ecology.populations.filter((item) => item.populationId !== source.populationId);
+  refreshNicheOccupancy(ecology, target.nicheId);
+  return { population, mergedPopulationId: source.populationId, action: { type: 'POPULATIONS_MERGED', status: 'applied', targetPopulationId: target.populationId, sourcePopulationId: source.populationId } };
 }
 
 function selectPopulation(ecology, populationId, count) {
