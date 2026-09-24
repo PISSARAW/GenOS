@@ -12,7 +12,8 @@ const rhizome = require('./rhizomeCoordinationService');
 const biome = require('./biomeCoordinationService');
 
 async function rhizomeSnapshot(db, sessionId) {
-  return { sessionId, ...(await rhizome.coherence(sessionId, { db })) };
+  const graph = await rhizome.graphSnapshot(sessionId, { db });
+  return { sessionId, graph, ...(await rhizome.coherence(sessionId, { db })) };
 }
 
 async function applySyncytium(db, sessionId, args) {

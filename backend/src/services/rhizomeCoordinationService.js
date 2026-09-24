@@ -12,6 +12,7 @@ const { createSwarmMatrix } = require('./swarmStigmergyVectorService');
 const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 const store = require('./topologySessionStore');
 const { normalizeRhizomeSession } = require('./rhizome/contracts/rhizomeSession');
+const capabilityGraph = require('./rhizome/graph/capabilityGraphService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -164,6 +165,26 @@ async function routeDirectMember(sessionId, need, options = {}) {
   return directMemberDecision({ sessionId, target, alternatives, coherent: options.coherent });
 }
 
+async function graphSnapshot(sessionId, options = {}) {
+  return capabilityGraph.snapshot(await getSession(sessionId, options.db));
+}
+
+async function addCapabilityNode(sessionId, node, options = {}) {
+  return mutateSession(sessionId, options, {
+    type: 'NODE_DISCOVERED',
+    payload: { nodeId: node.nodeId },
+    apply: (session) => Object.assign(session, capabilityGraph.addNode(session, node))
+  });
+}
+
+async function addCapabilityEdge(sessionId, edge, options = {}) {
+  return mutateSession(sessionId, options, {
+    type: 'EDGE_CREATED',
+    payload: { edgeId: edge.edgeId, from: edge.from, to: edge.to },
+    apply: (session) => Object.assign(session, capabilityGraph.addEdge(session, edge))
+  });
+}
+
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -220,4 +241,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, graphSnapshot, addCapabilityNode, addCapabilityEdge, coherence, runSlimeMouldStep, closeSession, rehydrate };

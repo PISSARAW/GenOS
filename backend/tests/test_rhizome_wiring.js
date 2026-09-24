@@ -8,6 +8,9 @@ const rhizome = require('../src/services/rhizomeCoordinationService');
   assert.ok(session.capabilityContract.required.includes('LIGAND_RECEPTOR'));
   assert.ok(session.capabilityContract.required.includes('STIGMERGY'));
   assert.ok(session.capabilityContract.required.includes('STRATEGY_ADAPTATION'));
+  const graph = await rhizome.graphSnapshot(session.sessionId);
+  assert.equal(graph.contract, 'RhizomeGraphSnapshot/v1');
+  assert.equal(graph.graphVersion, 0);
 
   const positive = await rhizome.depositTrail(session.sessionId, 'route:capability/gap', { amount: 5 });
   assert.equal(positive.trail.intensity, 5);
