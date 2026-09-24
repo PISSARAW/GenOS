@@ -65,7 +65,7 @@ async function assessBiome(db, sessionId, args) {
 
 const OPERATIONS = {
   syncytium: { snapshot: (db, id) => syncytium.snapshot(id, { db }), apply: applySyncytium },
-  rhizome: { snapshot: rhizomeSnapshot, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails },
+  rhizome: { snapshot: rhizomeSnapshot, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails, record_outcome: recordRhizomeOutcome },
   biome: { snapshot: (db, id) => biome.sessionSnapshot(id, { db }), allocate: allocateBiome, forage: forageBiome, health: assessBiome }
 };
 

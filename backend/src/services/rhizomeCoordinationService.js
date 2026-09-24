@@ -17,6 +17,7 @@ const boundaryDetector = require('./rhizome/boundary/boundaryDetector');
 const growthPlanner = require('./rhizome/growth/growthPlanner');
 const routePlanner = require('./rhizome/routing/routePlanner');
 const trailService = require('./rhizome/stigmergy/trailService');
+const routeOutcomeService = require('./rhizome/learning/routeOutcomeService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -223,6 +224,18 @@ async function evaporateTrails(sessionId, options = {}) {
   });
 }
 
+async function recordRouteOutcome(sessionId, receipt, options = {}) {
+  const succeeded = receipt?.outcome === 'SUCCESS';
+  return mutateSession(sessionId, options, {
+    type: succeeded ? 'ROUTE_SUCCEEDED' : 'ROUTE_FAILED',
+    payload: { routeId: receipt?.routeId, outcome: receipt?.outcome, verificationId: receipt?.verification?.verificationId },
+    apply: (session) => routeOutcomeService.applyOutcome({
+      session, receipt, now: options.now, gamma: options.gamma, amount: options.amount,
+      trustedVerifierDigests: options.trustedVerifierDigests
+    })
+  });
+}
+
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -279,4 +292,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, coherence, runSlimeMouldStep, closeSession, rehydrate };
