@@ -28,7 +28,12 @@ function bestByScore(portfolio, decisions) {
 function resolvePrimary(portfolio, decisions, requestedPrimary) {
   const requested = portfolio.find((strategy) => strategy.id === requestedPrimary);
   if (requested) return requested;
-  return bestByScore(portfolio, decisions);
+  const best = bestByScore(portfolio, decisions);
+  if (best) return best;
+  // Last resort: return the first eligible decision
+  const eligible = sortEligible(decisions);
+  if (eligible.length > 0) return eligible[0].strategy;
+  return null;
 }
 
 function reasonForFallback(decision) {

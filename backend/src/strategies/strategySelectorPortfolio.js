@@ -22,10 +22,16 @@ function portfolioEligible(strategy, inhibited, decisions) {
 }
 
 function composePortfolio(ids, inhibited, decisions) {
-  return [...ids]
-    .map(getStrategy)
-    .filter(Boolean)
-    .filter((strategy) => portfolioEligible(strategy, inhibited, decisions));
+  const result = [];
+  for (const id of [...ids]) {
+    if (!id || id === 'undefined') continue;
+    const strategy = getStrategy(id);
+    if (!strategy) continue;
+    if (portfolioEligible(strategy, inhibited, decisions)) {
+      result.push(strategy);
+    }
+  }
+  return result;
 }
 
 function preferredStrategyIds(profile) {
