@@ -2,6 +2,9 @@ const { createAutonomousWorkers } = require('../agentFleetService');
 const { emit, autonomousRounds } = require('../agentOrchestrationState');
 const userProgress = require('../userProgressService');
 const { withTransaction } = require('../../db');
+const trinityExperimentStore = require('../trinityExperimentStore');
+const { hashWorkspace } = require('../trinitySnapshotService');
+const trinityService = require('../trinityService');
 
 function emitTeamComposition(ctx, autonomousWorkers) {
   const { agentId, autonomyPlan } = ctx;
@@ -13,22 +16,60 @@ function emitTeamComposition(ctx, autonomousWorkers) {
   }
 }
 
+function assertTrinitySnapshot(autonomousWorkers, snapshotHashes) {
+  if (autonomousWorkers.length !== 3) throw Object.assign(new Error('Trinity requires exactly three isolated worlds.'), { code: 'TRINITY_WORLD_COUNT_INVALID' });
+  if (new Set(snapshotHashes).size !== 1) throw Object.assign(new Error('Trinity worlds do not share an identical workspace snapshot.'), { code: 'TRINITY_SNAPSHOT_MISMATCH' });
+}
+
+function trinityBudgetPolicy(autonomyPlan, normalizedMission) {
+  const initialRound = autonomyPlan.tokenPolicy.rounds?.initial || {};
+  const perChamberTokens = Array.isArray(initialRound.workerTokens)
+    ? initialRound.workerTokens
+    : Array(3).fill(initialRound.perWorkerTokens || 0);
+  return {
+    totalTokens: autonomyPlan.tokenPolicy.total,
+    perChamberTokens,
+    maxLatencyMs: normalizedMission.executionBudget?.latencyMs || null,
+    overflowBehavior: 'escalate'
+  };
+}
+
+async function persistTrinityExperiment(db, input) {
+  const { trinityMissionId, snapshotHashes, autonomyPlan, normalizedMission, autonomousWorkers, budgetPolicy } = input;
+  await withTransaction(db, async (tx) => {
+    await trinityExperimentStore.create(tx, {
+      id: trinityMissionId,
+      missionId: trinityMissionId,
+      domain: autonomyPlan.trinity.domain,
+      snapshotHash: snapshotHashes[0],
+      design: trinityService.designHypotheses(normalizedMission.prompt || normalizedMission.currentTask || ''),
+      isolationPolicy: { sharedMemory: 'read-only-snapshot', communication: 'forbidden', provenanceTracking: 'full', randomSeedPerChamber: false },
+      budgetPolicy
+    });
+    for (const [index, worker] of autonomousWorkers.entries()) {
+      const member = autonomyPlan.trinity.members[index];
+      await trinityExperimentStore.createWorld(tx, {
+        id: `${trinityMissionId}_world_${index + 1}`,
+        experimentId: trinityMissionId,
+        mission: normalizedMission.prompt || normalizedMission.currentTask || 'Trinity mission',
+        worldNumber: index + 1, name: worker.name, strategy: member.role, chamber: member.chamber,
+        status: 'running', agentId: worker.agentId, snapshotHash: snapshotHashes[index], workspaceRoot: worker.workspaceRoot
+      });
+    }
+  });
+}
+
 async function launchTrinityWorlds(ctx, autonomousWorkers) {
   const { db, agentId, normalizedMission, autonomyPlan } = ctx;
   if (!(autonomyPlan.trinity?.activated && autonomousWorkers.length)) return;
+  const snapshotHashes = await Promise.all(autonomousWorkers.map((worker) => hashWorkspace(worker.workspaceRoot)));
+  assertTrinitySnapshot(autonomousWorkers, snapshotHashes);
   const trinityMissionId = `trinity_${agentId}_${Date.now()}`;
   autonomyPlan.trinity.missionId = trinityMissionId;
-  await withTransaction(db, async (tx) => {
-    for (const [index, worker] of autonomousWorkers.entries()) {
-      const member = autonomyPlan.trinity.members[index];
-      await tx.run(
-        `INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id)
-           VALUES (?, ?, ?, ?, ?, 'running', ?)`,
-        `${trinityMissionId}_world_${index + 1}`,
-        normalizedMission.prompt || normalizedMission.currentTask || 'Trinity mission',
-        index + 1, worker.name, member.role, worker.agentId
-      );
-    }
+  autonomyPlan.trinity.experimentId = trinityMissionId;
+  await persistTrinityExperiment(db, {
+    trinityMissionId, snapshotHashes, autonomyPlan, normalizedMission, autonomousWorkers,
+    budgetPolicy: trinityBudgetPolicy(autonomyPlan, normalizedMission)
   });
   emit(agentId, 'TRINITY_LAUNCHED', 'COMPOSE_TRINITY', 'Launched three isolated Trinity comparison worlds.', {
     missionId: trinityMissionId,

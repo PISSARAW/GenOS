@@ -13,7 +13,9 @@ function domainProfile(text) {
 }
 
 function membersFor(profile) {
+  const chambers = ['direct', 'structured', 'falsification'];
   return ['basic_world', 'planned_world', 'ai_corrected_world'].map((label, i) => ({
+    chamber: chambers[i],
     label, hypothesis: profile.hypotheses[i], role: profile.roles[i],
     modelTier: i === 0 ? 'standard' : 'frontier', domain: profile.domain,
     artifact: profile.artifact, pipelineStage: 0
@@ -52,12 +54,27 @@ function compose(mission) {
   const analysis = analyzeMission(goal);
   return analysis.members.map((member, index) => ({
     ...member, worldNumber: index + 1,
-    mission: `Trinity shared mission: ${goal}\nDomain: ${analysis.domain}\nWorld strategy: ${member.hypothesis}\nReturn domain-appropriate evidence and integration constraints to the orchestrator.`
+    mission: `Trinity mission: ${goal}\nDomain: ${analysis.domain}\nSealed chamber: ${member.chamber}\nWorld strategy: ${member.hypothesis}\nDo not request, read, or infer other chamber outputs. Return an artifact, acceptance checks, evidence, uncertainties, and execution limits.`
   }));
+}
+
+function designHypotheses(mission, supplied = {}) {
+  const analysis = analyzeMission(mission);
+  return {
+    centralProblem: String(supplied.centralProblem || mission || '').trim(),
+    assumptions: Array.isArray(supplied.assumptions) ? supplied.assumptions : [],
+    uncertainties: Array.isArray(supplied.uncertainties) ? supplied.uncertainties : [],
+    decisionVariables: Array.isArray(supplied.decisionVariables) ? supplied.decisionVariables : [],
+    candidateHypotheses: analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis })),
+    selectedTriplet: analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis })),
+    selectionMethod: 'fixed_v1',
+    utilityScore: null
+  };
 }
 
 const telemetry = require('./telemetryObserver');
 const adaptive = require('./adaptiveParameterService');
+const { calculateEvIndex } = require('./trinityValueService');
 
 const DOMAIN_WEIGHTS = {
   creative_writing: { alpha: 0.30, beta: 0.25, gamma: 0.45 },
@@ -167,6 +184,32 @@ async function recordWorldComparison(db, comparisonData) {
   return comparison;
 }
 
+function evidenceBackedClaim(claim) {
+  return Boolean(claim && isSubstantiveClaim(claim) && evidenceWeightOf(claim) > 0);
+}
+
+function complementaryClaimsFrom(worlds, winner, claimGraph) {
+  const claims = [];
+  for (const world of worlds) {
+    if (world.worldNumber === winner.worldNumber) continue;
+    const worldClaims = Array.isArray(world.report?.claims) ? world.report.claims : [];
+    for (const claim of worldClaims) {
+      if (!evidenceBackedClaim(claim) || !hasComplementEdge(claim, winner.report?.claims, claimGraph)) continue;
+      claims.push({ ...claim, statement: `[World ${world.worldNumber} complementary] ${claim.statement}` });
+    }
+  }
+  return claims;
+}
+
+function hasComplementEdge(claim, winnerClaims, claimGraph) {
+  if (!claim?.id || !Array.isArray(winnerClaims) || !Array.isArray(claimGraph?.edges)) return false;
+  return winnerClaims.some((winnerClaim) => winnerClaim?.id && claimGraph.edges.some((edge) => {
+    if (edge?.type !== 'complements') return false;
+    return (edge.from === claim.id && edge.to === winnerClaim.id)
+      || (edge.to === claim.id && edge.from === winnerClaim.id);
+  }));
+}
+
 function mergeTrinityEvidence(worldEntries, options = {}) {
   const domain = options.domain || 'software_engineering';
   const threshold = typeof options.threshold === 'number' ? options.threshold : adaptive.currentValue('gate.evidence_threshold', domain);
@@ -179,15 +222,9 @@ function mergeTrinityEvidence(worldEntries, options = {}) {
   adaptive.observeRoute(domain, { quality: comparison.bestScore, success: accepted, route }).catch(() => {});
   if (accepted) {
     const winnerReport = comparison.bestWorld.report || {};
-    const complementaryClaims = [];
-    for (const w of comparison.scoredWorlds) {
-      if (w.worldNumber === comparison.bestWorld.worldNumber) continue;
-      const otherClaims = Array.isArray(w.report?.claims) ? w.report.claims : [];
-      for (const claim of otherClaims) {
-        if (claim && claim.statement) complementaryClaims.push({ ...claim, statement: `[World ${w.worldNumber} cross-perspective] ${claim.statement}`, evidence: Array.isArray(claim.evidence) ? claim.evidence : [] });
-      }
-    }
-    return { canMerge: true, selectedWorld: comparison.bestWorld.worldNumber, selectedRole: comparison.bestWorld.role, bestScore: comparison.bestScore, comparativeAnalysis: comparison, mergedEvidence: { ...winnerReport, author: { name: 'Trinity Consolidated Synthesis', selectedWorld: comparison.bestWorld.worldNumber, selectedRole: comparison.bestWorld.role }, outcome: 'success', claims: [...(Array.isArray(winnerReport.claims) ? winnerReport.claims : []), ...complementaryClaims], comparativeAnalysis: { winner: comparison.bestWorld.worldNumber, winningRole: comparison.bestWorld.role, score: comparison.bestScore, matrix: comparison.comparisonMatrix } } };
+    const winnerClaims = Array.isArray(winnerReport.claims) ? winnerReport.claims.filter(evidenceBackedClaim) : [];
+    const complementaryClaims = complementaryClaimsFrom(comparison.scoredWorlds, comparison.bestWorld, options.claimGraph);
+    return { canMerge: true, selectedWorld: comparison.bestWorld.worldNumber, selectedRole: comparison.bestWorld.role, bestScore: comparison.bestScore, comparativeAnalysis: comparison, mergedEvidence: { ...winnerReport, author: { name: 'Trinity Consolidated Synthesis', selectedWorld: comparison.bestWorld.worldNumber, selectedRole: comparison.bestWorld.role }, outcome: 'success', claims: [...winnerClaims, ...complementaryClaims], comparativeAnalysis: { winner: comparison.bestWorld.worldNumber, winningRole: comparison.bestWorld.role, score: comparison.bestScore, matrix: comparison.comparisonMatrix } } };
   }
   return { canMerge: false, selectedWorld: null, bestScore: comparison.bestScore, reason: rejectionReason(validation, comparison, threshold), recommendation: 'Escalate to human review or re-launch with modified mission.', comparativeAnalysis: comparison, mergedEvidence: null };
 }
@@ -212,4 +249,4 @@ function rejectionReason(validation, comparison, threshold) {
   return `All three worlds failed to meet the evidence threshold of ${threshold} (best score: ${comparison.bestScore}).`;
 }
 
-module.exports = { analyzeMission, compose, domainProfile, DOMAIN_WEIGHTS, scoreWorldEvidence, compareWorlds, recordWorldComparison, mergeTrinityEvidence };
+module.exports = { analyzeMission, compose, designHypotheses, calculateEvIndex, domainProfile, DOMAIN_WEIGHTS, scoreWorldEvidence, compareWorlds, recordWorldComparison, mergeTrinityEvidence };

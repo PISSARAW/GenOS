@@ -6,6 +6,30 @@ const strategyContracts = require('../strategyContractService');
 const workerGarage = require('../workerGarageService');
 const AgentRepository = require('../../repositories/agent.repository');
 const trinityService = require('../trinityService');
+const workspaceLifecycle = require('../agentWorkspaceLifecycleService');
+const { hashWorkspace } = require('../trinitySnapshotService');
+const trinityExperimentStore = require('../trinityExperimentStore');
+const { normalizeMissionBudget } = require('../budgetCoherenceService');
+
+async function createIsolatedWorlds(worlds, sourceRoot) {
+  if (!sourceRoot) throw Object.assign(new Error('Trinity requires a source workspace to seal its three worlds.'), { code: 'TRINITY_WORKSPACE_REQUIRED' });
+  const prepared = [];
+  try {
+    for (const world of worlds) {
+      const workspaceRoot = await workspaceLifecycle.createIsolatedWorkspace(sourceRoot, world.agentId);
+      const isolatedWorld = { ...world, workspaceRoot, snapshotHash: null };
+      prepared.push(isolatedWorld);
+      isolatedWorld.snapshotHash = await hashWorkspace(workspaceRoot);
+    }
+    if (new Set(prepared.map((world) => world.snapshotHash)).size !== 1) {
+      throw Object.assign(new Error('Trinity worlds do not share an identical workspace snapshot.'), { code: 'TRINITY_SNAPSHOT_MISMATCH' });
+    }
+    return prepared;
+  } catch (error) {
+    await Promise.all(prepared.map((world) => workspaceLifecycle.cleanupWorkspace(world.workspaceRoot).catch(() => {})));
+    throw error;
+  }
+}
 
 class TrinityDeployService {
   constructor() {
@@ -23,11 +47,13 @@ class TrinityDeployService {
       prompt, 
       resolvedAgentType, 
       workspaceId, 
-      workspace 
+      workspace,
+      executionBudget
     } = params;
 
     const db = await this.initRepo();
     const taskPrompt = prompt || 'Trinity mission';
+    const budget = normalizeMissionBudget(executionBudget || {});
     const analysis = trinityService.analyzeMission(taskPrompt);
     const composed = trinityService.compose(taskPrompt);
 
@@ -45,6 +71,35 @@ class TrinityDeployService {
     const missionId = `trinity_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
     const orchestratorId = `agent_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
     const orchestratorName = `Trinity Orchestrator ${missionId.slice(-4)}`;
+    const isolatedWorlds = await createIsolatedWorlds(worlds.map((world, index) => ({
+      ...world,
+      agentId: `agent_${Date.now()}_${index + 1}_${crypto.randomBytes(3).toString('hex')}`
+    })), workspace?.path);
+    const perChamberTokens = Math.floor((budget.tokens * budget.workerShare) / 3);
+    if (perChamberTokens < 1) {
+      await Promise.all(isolatedWorlds.map((world) => workspaceLifecycle.cleanupWorkspace(world.workspaceRoot).catch(() => {})));
+      throw Object.assign(new Error('Trinity budget must allocate at least one token to each chamber.'), { code: 'TRINITY_BUDGET_TOO_SMALL' });
+    }
+    const budgetPolicy = {
+      totalTokens: budget.tokens,
+      perChamberTokens: [perChamberTokens, perChamberTokens, perChamberTokens],
+      maxLatencyMs: budget.latencyMs,
+      overflowBehavior: 'escalate'
+    };
+    try {
+      await trinityExperimentStore.create(db, {
+        id: missionId,
+        missionId,
+        domain: analysis.domain,
+        snapshotHash: isolatedWorlds[0].snapshotHash,
+        design: trinityService.designHypotheses(taskPrompt),
+        isolationPolicy: { sharedMemory: 'read-only-snapshot', communication: 'forbidden', provenanceTracking: 'full', randomSeedPerChamber: false },
+        budgetPolicy
+      });
+    } catch (error) {
+      await Promise.all(isolatedWorlds.map((world) => workspaceLifecycle.cleanupWorkspace(world.workspaceRoot).catch(() => {})));
+      throw error;
+    }
     
     await this.agentRepo.create({
       id: orchestratorId, 
@@ -70,13 +125,12 @@ class TrinityDeployService {
       createdBy: 'trinity_orchestrator'
     });
     
-    const agentIds = [];
+    const agentIds = isolatedWorlds.map((world) => world.agentId);
     const persistedWorlds = [];
     
-    for (let index = 0; index < worlds.length; index += 1) {
-      const w = worlds[index];
-      const id = `agent_${Date.now()}_${index + 1}_${crypto.randomBytes(3).toString('hex')}`;
-      agentIds.push(id);
+    for (let index = 0; index < isolatedWorlds.length; index += 1) {
+      const w = isolatedWorlds[index];
+      const id = w.agentId;
       const worldId = `${missionId}_world_${index + 1}`;
       
       await this.agentRepo.create({
@@ -96,22 +150,26 @@ class TrinityDeployService {
         current_task: w.mission || `${taskPrompt} — ${w.task}`
       });
 
-      await db.run(
-        `INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        worldId, taskPrompt, w.worldNumber, w.name, w.role, 'queued', id
-      );
+      await trinityExperimentStore.createWorld(db, {
+        id: worldId, mission: taskPrompt, worldNumber: w.worldNumber, name: w.name,
+        strategy: w.role, status: 'queued', agentId: id, experimentId: missionId,
+        chamber: composed[index].chamber, snapshotHash: w.snapshotHash, workspaceRoot: w.workspaceRoot
+      });
       persistedWorlds.push({
         id: worldId,
         mission: taskPrompt,
         worldNumber: w.worldNumber,
         name: w.name,
+        chamber: composed[index].chamber,
         strategy: w.role,
         hypothesis: w.task,
         domain: w.domain,
         artifact: w.artifact,
         status: 'queued',
         agentId: id,
-        fleetId: missionId
+        fleetId: missionId,
+        workspaceRoot: w.workspaceRoot,
+        snapshotHash: w.snapshotHash
       });
       
       telemetry.emitEvent({
@@ -119,22 +177,32 @@ class TrinityDeployService {
         agentId: id,
         action: 'FORK',
         detail: `Spawned ${w.name} [${w.domain}]`,
-        severity: 'info'
+        severity: 'info',
+        payload: { experimentId: missionId, worldNumber: w.worldNumber, snapshotHash: w.snapshotHash }
       });
     }
 
     // Each isolated world must actually run: reserve its garage slot and start
     // its mission. The orchestrator is started without its own autonomous fleet
     // so it does not fabricate a second, duplicate set of Trinity worlds.
-    for (let index = 0; index < worlds.length; index += 1) {
-      const w = worlds[index];
+    for (let index = 0; index < isolatedWorlds.length; index += 1) {
+      const w = isolatedWorlds[index];
       const id = agentIds[index];
       await workerGarage.reserveSlot(db, {
         orchestratorId, workerId: id, name: w.name, role: w.role, mission: taskPrompt
-      }).catch(() => {});
+      });
       runtimeAdapter.startMission({
         agentId: id, name: w.name, role: w.role, prompt: w.mission || `${taskPrompt} — ${w.task}`,
-        modelTier: w.modelTier, workspaceIsolation: 'Branch', workspaceId, workspaceRoot: workspace?.path,
+        modelTier: w.modelTier, workspaceIsolation: 'Branch', workspaceId, workspaceRoot: w.workspaceRoot,
+        workspaceProvisioned: true,
+        executionBudget: {
+          tokens: perChamberTokens,
+          costUsd: budget.costUsd * budget.workerShare / 3,
+          latencyMs: budget.latencyMs,
+          events: Math.max(1, Math.floor(budget.events / 3)),
+          workerShare: 1,
+          orchestratorReserve: 0
+        },
         fleetId: missionId, agentType: resolvedAgentType, orchestratorAgentId: orchestratorId,
         strategyContract: orchestratorContract.contract, autonomousOrchestration: false,
         toolLease: runtimeAdapter.workerToolLease(w.role)
@@ -148,6 +216,14 @@ class TrinityDeployService {
     runtimeAdapter.startMission({
       agentId: orchestratorId, name: orchestratorName, role: 'Trinity Orchestrator', prompt: taskPrompt,
       modelTier: 'Pro', workspaceIsolation: 'Branch', workspaceId, workspaceRoot: workspace?.path, fleetId: missionId,
+      executionBudget: {
+        tokens: Math.max(1, Math.floor(budget.tokens * budget.orchestratorReserve)),
+        costUsd: budget.costUsd * budget.orchestratorReserve,
+        latencyMs: budget.latencyMs,
+        events: Math.max(1, Math.floor(budget.events * budget.orchestratorReserve)),
+        workerShare: 0,
+        orchestratorReserve: 1
+      },
       agentType: resolvedAgentType, strategyContract: orchestratorContract.contract,
       autonomousOrchestration: false
     }).catch(async (error) => {

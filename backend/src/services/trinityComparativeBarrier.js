@@ -8,6 +8,10 @@
  * merge/escalation decision on the autonomy plan.
  */
 const trinityService = require('./trinityService');
+const crypto = require('crypto');
+const trinityExperimentStore = require('./trinityExperimentStore');
+const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
+const { hashWorkspace } = require('./trinitySnapshotService');
 const { workerEvidenceDossiers } = require('./agentEvidenceService');
 const { emit } = require('./agentOrchestrationState');
 
@@ -138,14 +142,13 @@ function validateMergeInput(db, result) {
   return { valid: true, winner };
 }
 
-async function loadMergeContext(db, winner, orchestratorId) {
+async function loadMergeContext(db, winner) {
   const winnerAgent = await db.get("SELECT workspace_id, id, name FROM agents WHERE id = ?", winner.agentId);
-  const orchestratorAgent = await db.get("SELECT workspace_id, id, name FROM agents WHERE id = ?", orchestratorId);
-  return { winnerAgent, orchestratorAgent };
+  return { winnerAgent };
 }
 
 async function updateWorldStatuses(db, result, winner) {
-  await db.run("UPDATE trinity_worlds SET status = 'merged', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId);
+  await db.run("UPDATE trinity_worlds SET status = 'candidate', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId);
   const scored = result.comparativeAnalysis?.scoredWorlds || [];
   for (const world of scored) {
     if (world.worldNumber === result.selectedWorld || !world.agentId) continue;
@@ -155,22 +158,23 @@ async function updateWorldStatuses(db, result, winner) {
 
 async function createMergeArtifact(db, params) {
   const { result, context, orchestratorId } = params;
-  const { winnerAgent, orchestratorAgent } = context;
-  if (!winnerAgent?.workspace_id || !orchestratorAgent?.workspace_id) return null;
+  const { winnerAgent } = context;
+  if (!winnerAgent?.workspace_id) return null;
   const winnerWorkspace = await db.get("SELECT path FROM workspaces WHERE id = ?", winnerAgent.workspace_id);
-  const orchestratorWorkspace = await db.get("SELECT path FROM workspaces WHERE id = ?", orchestratorAgent.workspace_id);
-  if (!winnerWorkspace?.path || !orchestratorWorkspace?.path) return null;
+  if (!winnerWorkspace?.path) return null;
   try {
-    const fs = require('fs/promises');
-    const path = require('path');
-    const { copyTree, removeSensitiveFiles } = require('../agentWorkspaceLifecycle/copy');
     const sourceDir = winnerWorkspace.path;
-    const targetDir = path.join(orchestratorWorkspace.path, `merged_world_${result.selectedWorld}_${Date.now()}`);
-    await fs.mkdir(targetDir, { recursive: true });
-    await copyTree({ state: { bytes: 0, limit: Infinity, entries: 0 }, isExcluded: () => false }, { source: sourceDir, destination: targetDir, relative: '' });
-    await removeSensitiveFiles(targetDir);
-    const artifact = { sourceWorkspace: sourceDir, targetWorkspace: targetDir, worldNumber: result.selectedWorld, role: result.selectedRole };
-    emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_CREATED', 'MERGE', `Created merge artifact from World ${result.selectedWorld} (${result.selectedRole}).`, artifact, 'info');
+    const candidateId = `trinity_candidate_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    const targetDir = await workspaceLifecycle.createIsolatedWorkspace(sourceDir, candidateId);
+    let contentHash;
+    try {
+      contentHash = await hashWorkspace(targetDir);
+    } catch (error) {
+      await workspaceLifecycle.cleanupWorkspace(targetDir).catch(() => {});
+      throw error;
+    }
+    const artifact = { sourceWorkspace: sourceDir, targetWorkspace: targetDir, contentHash, worldNumber: result.selectedWorld, role: result.selectedRole, status: 'candidate' };
+    emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_CREATED', 'MERGE', `Created isolated candidate artifact from World ${result.selectedWorld} (${result.selectedRole}).`, artifact, 'info');
     return artifact;
   } catch (mergeError) {
     emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_FAILED', 'MERGE', `Failed to create merge artifact from World ${result.selectedWorld}: ${mergeError.message}`, { error: mergeError.message }, 'error');
@@ -180,14 +184,47 @@ async function createMergeArtifact(db, params) {
 
 async function promoteWinner(db, input = {}) {
   const { missionId, orchestratorId, result } = input;
+  await updateExperimentDecision(db, missionId, result);
   const validation = validateMergeInput(db, result);
   if (!validation.valid) return { promoted: false, reason: validation.reason };
   const { winner } = validation;
-  const context = await loadMergeContext(db, winner, orchestratorId);
-  await updateWorldStatuses(db, result, winner);
+  const context = await loadMergeContext(db, winner);
   const artifact = await createMergeArtifact(db, { result, context, orchestratorId });
-  emit(orchestratorId, 'TRINITY_WINNER_SELECTED', 'SELECT_TRINITY', `Selected World ${result.selectedWorld} (${result.selectedRole}) merged.`, { missionId, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, artifact }, 'info');
-  return { promoted: true, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId, artifact };
+  if (!artifact) {
+    await failPromotion({ db, missionId, reason: 'candidate_artifact_creation_failed' });
+    return { promoted: false, reason: 'candidate_artifact_creation_failed' };
+  }
+  await updateWorldStatuses(db, result, winner);
+  await failPromotion({ db, missionId, reason: 'integration_verification_and_agent_git_commit_required', artifact });
+  emit(orchestratorId, 'TRINITY_WINNER_SELECTED', 'SELECT_TRINITY', `Selected World ${result.selectedWorld} (${result.selectedRole}); integration verification and AgentGit commit are pending.`, { missionId, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, artifact }, 'warning');
+  return { promoted: false, candidateCreated: true, reason: 'integration_verification_and_agent_git_commit_required', worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId, artifact };
+}
+
+async function updateExperimentDecision(db, missionId, result) {
+  if (!missionId) return;
+  const experiment = await db.get('SELECT id, status FROM trinity_experiments WHERE mission_id = ?', missionId);
+  if (!experiment) return;
+  let status = experiment.status;
+  if (status === 'sealed_running') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'sealed_complete' })).status;
+  if (status === 'sealed_complete') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'cross_examining' })).status;
+  const decision = { outcome: result?.canMerge ? 'PROMOTE_WORLD' : 'ESCALATE_EXPERIMENT', reason: result?.reason || null, bestScore: result?.bestScore || 0 };
+  const next = result?.canMerge ? 'decided' : 'escalated';
+  if (status === 'cross_examining') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: next, decision })).status;
+  if (status === 'decided') await trinityExperimentStore.transition(db, { id: experiment.id, status: 'promotion_preparing', decision });
+}
+
+async function failPromotion(input) {
+  const { db, missionId, reason, artifact = null } = input;
+  if (!missionId) return;
+  const experiment = await db.get('SELECT id, status FROM trinity_experiments WHERE mission_id = ?', missionId);
+  if (experiment?.status === 'promotion_preparing') {
+    await trinityExperimentStore.transition(db, {
+      id: experiment.id,
+      status: 'promotion_failed',
+      failureReason: reason,
+      decision: { outcome: 'PROMOTION_FAILED', reason, candidateArtifact: artifact }
+    });
+  }
 }
 
 module.exports = { applyTrinityComparison, buildWorldReports, buildWorldReportsFromMission, latestReport, promoteWinner };

@@ -267,3 +267,7 @@ async function runMigration(db, version, description) {
 }
 
 module.exports = { migrationRunners, runMigration };
+  createMigrationRunner('072-trinity-experiments', 'Persist Trinity experiment lifecycle, snapshot hashes and world evidence metadata', async (db) => {
+    const { migrateTrinityExperiments } = require('./migrateTrinityExperiments');
+    await migrateTrinityExperiments(db);
+  }),

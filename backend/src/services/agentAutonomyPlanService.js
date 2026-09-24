@@ -100,19 +100,44 @@ function activateTrinity({ autonomyPlan, agentId, effectiveWorkerShare, effectiv
   emit(agentId, 'TRINITY_PLANNED', 'COMPOSE_TRINITY', 'The mission explicitly requested Trinity; three evidence-comparison worlds were planned.', autonomyPlan.trinity, 'info');
 }
 
-function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve }) {
-  autonomyPlan.trinity = trinityService.analyzeMission(missionText(normalizedMission));
+function calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWorkerShare) {
   const trinityWorkerCount = autonomyPlan.trinity.members.length;
   const affordableTrinityMembers = affordableWorkerCount(autonomyPlan.tokenPolicy, effectiveWorkerShare);
   autonomyPlan.trinity.budgetPermitsLaunch = affordableTrinityMembers >= trinityWorkerCount;
-  autonomyPlan.trinity.activated = autonomyPlan.trinity.explicitlyRequested && autonomyPlan.trinity.budgetPermitsLaunch;
+  const minimumTokens = autonomyPlan.tokenPolicy.minimumWorkerTokens * trinityWorkerCount;
+  const availableTokens = autonomyPlan.tokenPolicy.total * effectiveWorkerShare;
+  autonomyPlan.trinity.ev = trinityService.calculateEvIndex({
+    ...(normalizedMission.trinitySignals || {}),
+    budgetRatio: availableTokens > 0 ? minimumTokens / availableTokens : Infinity
+  });
+  const automaticRequest = normalizedMission.trinityMode === 'auto';
+  autonomyPlan.trinity.activated = (autonomyPlan.trinity.explicitlyRequested
+    || (automaticRequest && autonomyPlan.trinity.ev.eligible))
+    && autonomyPlan.trinity.budgetPermitsLaunch;
+  return { trinityWorkerCount, affordableTrinityMembers, automaticRequest };
+}
+
+function reportTrinityPlan({ autonomyPlan, agentId, automaticRequest, trinityWorkerCount, affordableTrinityMembers }) {
   if (autonomyPlan.trinity.activated) {
-    activateTrinity({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, trinityWorkerCount });
+    return;
+  } else if (automaticRequest && autonomyPlan.trinity.ev.missing.length) {
+    autonomyPlan.trinity.reason = `Automatic Trinity engagement needs explicit EV inputs: ${autonomyPlan.trinity.ev.missing.join(', ')}.`;
+    emit(agentId, 'TRINITY_SKIPPED', 'INSUFFICIENT_EV_INPUTS', autonomyPlan.trinity.reason, autonomyPlan.trinity.ev, 'warning');
   } else if (autonomyPlan.trinity.recommended && autonomyPlan.trinity.budgetPermitsLaunch) {
     emit(agentId, 'TRINITY_CONSIDERED', 'INTERVIEW_PLAN', 'Trinity is available after the interview if three comparative worlds remain useful; the base worker plan remains active meanwhile.', autonomyPlan.trinity, 'info');
   } else if (autonomyPlan.trinity.recommended) {
     autonomyPlan.trinity.reason = `Trinity needs ${trinityWorkerCount} workers, but the token budget funds only ${affordableTrinityMembers}.`;
     emit(agentId, 'TRINITY_SKIPPED', 'BUDGET_GUARD', autonomyPlan.trinity.reason, autonomyPlan.trinity, 'warning');
+  }
+}
+
+function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve }) {
+  autonomyPlan.trinity = trinityService.analyzeMission(missionText(normalizedMission));
+  const engagement = calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWorkerShare);
+  if (autonomyPlan.trinity.activated) {
+    activateTrinity({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, trinityWorkerCount: engagement.trinityWorkerCount });
+  } else {
+    reportTrinityPlan({ autonomyPlan, agentId, ...engagement });
   }
 }
 
