@@ -11,6 +11,7 @@ function createSessionHistoryService(dependencies) {
   return {
     createSnapshot: (sessionId, options) => createSnapshot(sessionId, options, dependencies),
     listSnapshots: (sessionId, options) => listSnapshots(sessionId, options, dependencies),
+    inspectHistory: (sessionId, options) => inspectHistory(sessionId, options, dependencies),
     compactHistory: (sessionId, options) => compactHistory(sessionId, options, dependencies),
     joinReplica: (sessionId, replica, options) => mutateReplica({ sessionId, options, dependencies, mutate: (session) => replicaRegistry.join(session, replica) }),
     acknowledgeReplica: (sessionId, replicaId, request) => mutateReplica({
@@ -80,6 +81,15 @@ async function createSnapshot(sessionId, options, dependencies) {
 
 async function listSnapshots(sessionId, options, dependencies) {
   return snapshotService.list(await dependencies.getSession(sessionId, options.db));
+}
+
+async function inspectHistory(sessionId, options = {}, dependencies) {
+  const session = await dependencies.getSession(sessionId, options.db);
+  return {
+    sessionId, operations: session.crdt.getHistory(),
+    causalFrontier: session.crdt.getCausalFrontier(),
+    compactedOpCount: session.crdt.serialize().compactedOpCount
+  };
 }
 
 async function compactHistory(sessionId, options, dependencies) {

@@ -1,7 +1,7 @@
 'use strict';
 
 const utils = require('./conflictUtils');
-const MERGE_SAFE_TYPES = new Set(['MV_REGISTER', 'G_COUNTER', 'PN_COUNTER', 'ADD_WINS_SET', 'SEQUENCE']);
+const MERGE_SAFE_TYPES = new Set(['MV_REGISTER', 'G_COUNTER', 'PN_COUNTER', 'ADD_WINS_SET', 'SEQUENCE', 'ESCROW_COUNTER']);
 
 function detect({ operation, history, schema }) {
   const conflicts = [];
