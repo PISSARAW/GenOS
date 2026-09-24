@@ -36,6 +36,7 @@ function createHolobiontSession(input = {}) {
     hostId: requireText(input.hostId, 'hostId'),
     missionId: fallback(input.missionId, null),
     constitutionId: fallback(input.constitutionId, null),
+    constitution: objectValue(input.constitution, null),
     scope,
     workspaceId: fallback(input.workspaceId, null),
     projectId: fallback(input.projectId, null),

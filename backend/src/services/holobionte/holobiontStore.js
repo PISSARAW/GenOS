@@ -23,9 +23,9 @@ async function appendEventRow(db, input) {
   JSON.stringify(input.payload || {}), input.actorId || null);
   const session = reduceEvent(JSON.parse(row.session_json), input.eventType, input.payload || {});
   session.revision = revision;
-  await db.run(`UPDATE holobiont_sessions SET revision = ?, status = ?, session_json = ?,
+  await db.run(`UPDATE holobiont_sessions SET revision = ?, status = ?, constitution_id = ?, session_json = ?,
     updated_at = CURRENT_TIMESTAMP WHERE holobiont_id = ? AND revision = ?`,
-  revision, session.status, JSON.stringify(session), input.holobiontId, row.revision);
+  revision, session.status, session.constitutionId, JSON.stringify(session), input.holobiontId, row.revision);
   return revision;
 }
 
