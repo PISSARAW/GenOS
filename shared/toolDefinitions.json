@@ -539,6 +539,7 @@
               "conductivity",
               "bridge",
               "signal",
+              "locus",
               "allocate",
               "forage",
               "health"
@@ -623,6 +624,20 @@
           },
           "signal": {
             "type": "object"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "assign",
+              "transfer",
+              "drop"
+            ]
+          },
+          "locus": {
+            "type": "object"
+          },
+          "locus_id": {
+            "type": "string"
           },
           "edges": {
             "type": "array",

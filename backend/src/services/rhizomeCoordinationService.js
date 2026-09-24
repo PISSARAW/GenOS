@@ -22,6 +22,7 @@ const conductivityService = require('./rhizome/routing/conductivityService');
 const bridgeService = require('./rhizome/bridges/bridgeService');
 const ligandService = require('./rhizome/signaling/capabilityLigandService');
 const propagationService = require('./rhizome/propagation/proceduralPropagationService');
+const locusService = require('./rhizome/coordination/coordinationLocusService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -272,6 +273,14 @@ function propagateProcedure(input) {
   return propagationService.propagate(input);
 }
 
+async function manageCoordinationLocus(sessionId, input, options = {}) {
+  return mutateSession(sessionId, options, {
+    type: `LOCUS_${String(input.action || '').toUpperCase()}`,
+    payload: { locusId: input.locus?.locusId || input.locusId || null, action: input.action },
+    apply: (session) => locusService.apply({ ...input, session })
+  });
+}
+
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -328,4 +337,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, coherence, runSlimeMouldStep, closeSession, rehydrate };
