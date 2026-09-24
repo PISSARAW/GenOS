@@ -260,7 +260,7 @@ Chaque observation/finding/evidence/handoff/repair référence `provenance_recor
 
 Utiliser `crates/genos-signal/src/stigmergy.rs` : `deposit`, `deposit_repellent`, `evaporate`, `dominant_trail`.
 
-Exemple territoire `backend/auth` :
+Exemple territoire `backend/auth` (scope d'exemple, pas un chemin de fichier existant — illustration du scoping `repo/ref/path/commit`) :
 ```
 AUTH_CONTRACT_DRIFT      +4.5
 TEST_INSTABILITY         +2.1

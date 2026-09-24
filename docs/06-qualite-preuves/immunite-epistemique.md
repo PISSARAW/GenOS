@@ -79,12 +79,21 @@ vérificateur résolu dans le registre central (`verifierTrustRegistry`, digest
 stable `type + version + policy`, source unique des contrats et des reçus).
 L'indépendance est évaluée **avant** signature, contre le **producer** du claim
 puis contre les verifiers précédents ; le reçu lie aussi la date, un nonce, le
+<<<<<<< HEAD
 statut et cette indépendance. La signature HMAC (`epistemicVerifierReceiptService.js`,
 `crypto.createHmac('sha256', secretKey)`) couvre tous ces champs, uniquement si
 `GENOS_EPISTEMIC_RECEIPT_SECRET` est injecté par l'opérateur : sans ce secret,
 `issueReceipt()` lève une erreur et `validateReceipt()` retourne `false`, ce qui
 bloque la promotion. Le secret ne doit jamais figurer dans le contrat, le rapport
 d'agent ou le dépôt.
+=======
+statut et cette indépendance. La signature HMAC-SHA256 couvre tous ces champs
+(`backend/src/services/epistemicVerifierReceiptService.js` : `signatureFor`,
+`issueReceipt`, `validateReceipt` en temps constant via `timingSafeEqual`).
+Conditionnalité : l'émission et la validation exigent `GENOS_EPISTEMIC_RECEIPT_SECRET`
+(`secretKey()` lève si absent, `validateReceipt` retourne `false`) — sans secret
+configuré, aucun reçu ne peut être signé ni validé.
+>>>>>>> 00205b1d9 ([DOC] Corrige chemins docs vers code reel (AEIS, search, crates, ADR))
 
 À la promotion, `validateReceipt()` vérifie simultanément :
 

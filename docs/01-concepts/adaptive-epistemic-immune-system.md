@@ -261,34 +261,34 @@ Une information arrive dans l'organisme GenOS
 
 | Service | Fichier | Rôle |
 |---|---|---|
-| Antigène épistémique | `epistemic/antigenModel.js` | `toAntigen`, `computeRisk`, `stateTransition`, `cloneAntigen` |
-| Immunité innée | `epistemic/innateEpistemicImmunity.js` | `scan`, `classifyDanger`, `innateFirstPass` |
-| Signaux de danger | `epistemic/dangerSignals.js` | `DANGER_SIGNALS`, `byCategory`, `signalByName` |
-| Immunité adaptative | `epistemic/adaptiveEpistemicResponse.js` | `adaptiveCheck`, `adaptiveResponse`, `scanAntigen` |
-| Décision adaptative | `epistemic/adaptiveEpistemicDecision.js` | `decisionFromAdaptive`, `summarize`, `describe` |
-| Vérificateurs spécialisés | `epistemic/verifierCatalogService.js` | `defaultCatalog`, `selectTopClones`, `clonalRank` |
-| Exécution des verifiers | `epistemic/verifierExecutionService.js` | `executeVerifier`, `executeVerifiers` (digests via trust registry) |
-| Pont runtime worker | `epistemic/verifierRuntimeBridge.js` | `buildVerifierWorker`, `executeVerifierWorkers`, indépendance vs producer avant signature |
-| Registre de confiance | `services/verifierTrustRegistry.js` | `registerVerifier`, `resolveVerifierDigest`, `listVerifierDigests` (source unique) |
-| Adapters sandbox | `epistemic/verifierAdapters.js` + `services/sandboxExecutor.js` | `runTestAdapter`, `runArtifactAdapter` via `runIsolated` (allowlist) |
-| Pont AEIS → promotion | `epistemic/aeisPromotionBridge.js` | `bindAntigenToFormalResult`, `buildConstraintAttestations`, `evaluateReportWithAeis` |
-| Contexte de gate | `services/promotionGateContext.js` | `buildGateContext` injecte `epistemicAssembly` depuis `aeisEvaluation` |
-| Mémoire immunitaire | `epistemic/immuneMemoryService.js` | `recall`, `fuzzyRecall` (Jaccard), `thresholdRecall`, `recordOutcome`, `signatureFrom` |
-| Réponse adaptative | `epistemic/adaptiveImmuneResponse.js` | `assembleAntigen`, `adaptiveImmuneResponse`, `runAdaptivePipeline` |
-| Inflammation + régulation | `epistemic/epistemicInflammationAndRegulation.js` | `assignPressureTier`, `shouldInflame`, `recommendedEffort`, `regulatoryReview` |
-| Apoptose épistémique | `epistemic/epistemicApoptosisService.js` | `dissonanceFrom`, `niveauCorpsent`, `accumulate`, `apoptose`, `autopsy` |
-| Pont autorité runtime | `epistemic/epistemicApoptosisAuthorityBridge.js` | `createApoptosisAuthorityBridge`, `applyEpistemicApoptosis`, `revokeAuthority` |
-| Biocénose cognitive | `epistemic/epistemicBiocenoseService.js` | `cognitiveBiocenose`, `effectiveDiversity`, `isMonoculture`, `shouldRecruit` |
-| Métapopulation | `epistemic/epistemicMetapopulationService.js` | `createPopulation`, `migrateResults`, `independentConvergence`, `metapopulationReport` |
-| Stigmergie | `epistemic/epistemicStigmergyService.js` | `createPheromone`, `broadcast`, `deposit`, `subscribe`, `sharedEpistemicEnvironment` |
-| Pont inter-process | `epistemic/stigmergyInterProcessBridge.js` | `depositPheromone`, `readPheromones` |
-| Sélection écologique | `epistemic/epistemicEcologicalSelectionService.js` | `brierScore`, `weightedConsensus`, `consensusQuality`, `ecologicalSelection` |
-| Challenge immunitaire | `epistemic/epistemicChallengeService.js` | `createPathogen`, `runChallenge`, `challengeReport`, `challengeMetrics` |
-| Intégration benchmarks | `epistemic/epistemicBenchmarkIntegrationService.js` | `transformBenchmarkCase`, `executeBenchmarkCase`, `runBenchmarkSuite` |
-| Expansion clonale | `epistemic/clonalExpansionService.js` | `expandClone`, `mutateStrategy`, `selectWinningClones` |
-| Affinity maturation | `epistemic/affinityMaturationService.js` | `diagnoseError`, `targetedMutation`, `matureStrategy` |
-| Homéostasie | `epistemic/epistemicHomeostasisService.js` | `computePressure`, `tierFromPressure`, `feedbackEffect` |
-| Holobionte | `epistemic/epistemicHolobionteService.js` | `epistemicHolobionte`, `hostDecision`, `immuneSymbiontReview`, `memorySymbiontLookup` |
+| Antigène épistémique | `backend/src/services/epistemic/antigenModel.js` | `toAntigen`, `computeRisk`, `stateTransition`, `cloneAntigen` |
+| Immunité innée | `backend/src/services/epistemic/innateEpistemicImmunity.js` | `scan`, `classifyDanger`, `innateFirstPass` |
+| Signaux de danger | `backend/src/services/epistemic/dangerSignals.js` | `DANGER_SIGNALS`, `byCategory`, `signalByName` |
+| Immunité adaptative | `backend/src/services/epistemic/adaptiveEpistemicResponse.js` | `adaptiveCheck`, `adaptiveResponse`, `scanAntigen` |
+| Décision adaptative | `backend/src/services/epistemic/adaptiveEpistemicDecision.js` | `decisionFromAdaptive`, `summarize`, `describe` |
+| Vérificateurs spécialisés | `backend/src/services/epistemic/verifierCatalogService.js` | `defaultCatalog`, `selectTopClones`, `clonalRank` |
+| Exécution des verifiers | `backend/src/services/epistemic/verifierExecutionService.js` | `executeVerifier`, `executeVerifiers` (digests via trust registry) |
+| Pont runtime worker | `backend/src/services/epistemic/verifierRuntimeBridge.js` | `buildVerifierWorker`, `executeVerifierWorkers`, indépendance vs producer avant signature |
+| Registre de confiance | `backend/src/services/verifierTrustRegistry.js` | `registerVerifier`, `resolveVerifierDigest`, `listVerifierDigests` (source unique) |
+| Adapters sandbox | `backend/src/services/epistemic/verifierAdapters.js` + `backend/src/services/sandboxExecutor.js` | `runTestAdapter`, `runArtifactAdapter` via `runIsolated` (allowlist) |
+| Pont AEIS → promotion | `backend/src/services/epistemic/aeisPromotionBridge.js` | `bindAntigenToFormalResult`, `buildConstraintAttestations`, `evaluateReportWithAeis` |
+| Contexte de gate | `backend/src/services/promotionGateContext.js` | `buildGateContext` injecte `epistemicAssembly` depuis `aeisEvaluation` |
+| Mémoire immunitaire | `backend/src/services/epistemic/immuneMemoryService.js` | `recall`, `fuzzyRecall` (Jaccard), `thresholdRecall`, `recordOutcome`, `signatureFrom` |
+| Réponse adaptative | `backend/src/services/epistemic/adaptiveImmuneResponse.js` | `assembleAntigen`, `adaptiveImmuneResponse`, `runAdaptivePipeline` |
+| Inflammation + régulation | `backend/src/services/epistemic/epistemicInflammationAndRegulation.js` | `assignPressureTier`, `shouldInflame`, `recommendedEffort`, `regulatoryReview` |
+| Apoptose épistémique | `backend/src/services/epistemic/epistemicApoptosisService.js` | `dissonanceFrom`, `niveauCorpsent`, `accumulate`, `apoptose`, `autopsy` |
+| Pont autorité runtime | `backend/src/services/epistemic/epistemicApoptosisAuthorityBridge.js` | `createApoptosisAuthorityBridge`, `applyEpistemicApoptosis`, `revokeAuthority` |
+| Biocénose cognitive | `backend/src/services/epistemic/epistemicBiocenoseService.js` | `cognitiveBiocenose`, `effectiveDiversity`, `isMonoculture`, `shouldRecruit` |
+| Métapopulation | `backend/src/services/epistemic/epistemicMetapopulationService.js` | `createPopulation`, `migrateResults`, `independentConvergence`, `metapopulationReport` |
+| Stigmergie | `backend/src/services/epistemic/epistemicStigmergyService.js` | `createPheromone`, `broadcast`, `deposit`, `subscribe`, `sharedEpistemicEnvironment` |
+| Pont inter-process | `backend/src/services/epistemic/stigmergyInterProcessBridge.js` | `depositPheromone`, `readPheromones` |
+| Sélection écologique | `backend/src/services/epistemic/epistemicEcologicalSelectionService.js` | `brierScore`, `weightedConsensus`, `consensusQuality`, `ecologicalSelection` |
+| Challenge immunitaire | `backend/src/services/epistemic/epistemicChallengeService.js` | `createPathogen`, `runChallenge`, `challengeReport`, `challengeMetrics` |
+| Intégration benchmarks | `backend/src/services/epistemic/epistemicBenchmarkIntegrationService.js` | `transformBenchmarkCase`, `executeBenchmarkCase`, `runBenchmarkSuite` |
+| Expansion clonale | `backend/src/services/epistemic/clonalExpansionService.js` | `expandClone`, `mutateStrategy`, `selectWinningClones` |
+| Affinity maturation | `backend/src/services/epistemic/affinityMaturationService.js` | `diagnoseError`, `targetedMutation`, `matureStrategy` |
+| Homéostasie | `backend/src/services/epistemic/epistemicHomeostasisService.js` | `computePressure`, `tierFromPressure`, `feedbackEffect` |
+| Holobionte | `backend/src/services/epistemic/epistemicHolobionteService.js` | `epistemicHolobionte`, `hostDecision`, `immuneSymbiontReview`, `memorySymbiontLookup` |
 
 ### Hiérarchie d'appel
 

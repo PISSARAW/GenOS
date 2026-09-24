@@ -24,7 +24,7 @@ a révélé trois divergences :
 1. `authorityMatrixService.js` utilisait une taxonomie opérationnelle propre
    (`adaptive_worker, security_analyst, contract_auditor, dependency_manager,
    documentation_curator, strategist, orchestrator, elder`) alors que
-   `agents/phenotypeRegistryService.js` expose les 8 phénotypes de la spec
+   `backend/src/services/agents/phenotypeRegistryService.js` expose les 8 phénotypes de la spec
    (`ScoutCell, BoundedWorker, AdaptiveWorker, Specialist, Verifier,
    SubOrchestrator, Orchestrator, ResidentDaemon`).
 2. Les invariants `all_high_impact_changes_require_provenance` et
@@ -40,7 +40,7 @@ a révélé trois divergences :
 
 1. **Matrice unifiée sur les 8 phénotypes spec.** `authorityMatrixService.js`
    expose désormais les 8 profils canoniques alignés sur
-   `phenotypeRegistryService.js`, avec la dimension `signal` de la spec en plus
+   `backend/src/services/agents/phenotypeRegistryService.js`, avec la dimension `signal` de la spec en plus
    des 12 dimensions existantes. Les anciens ids restent résolus via
    `LEGACY_ALIASES` (insensible à la casse) : `adaptive_worker→AdaptiveWorker`,
    `security_analyst/dependency_manager/documentation_curator→Specialist`,
@@ -73,7 +73,7 @@ a révélé trois divergences :
    `CognitivePhenotypeResolver→cognition/cognitivePhenotypeResolverService.js`,
    `StrategyResolver→strategies/ + strategyExecutionService.js`,
    `CapabilityResolver→capabilityResolverService.js`,
-   `PhenotypeResolver→agents/phenotypeRegistryService.js`,
+   `PhenotypeResolver→backend/src/services/agents/phenotypeRegistryService.js`,
    `DevelopmentResolver→development/developmentalStateService.js`,
    `GenotypeResolver→morphogenesis/genotypeResolverService.js`,
    `PlasmidResolver→morphogenesis/plasmidResolverService.js`,

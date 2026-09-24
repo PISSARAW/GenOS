@@ -30,7 +30,7 @@ GenOS.
 - `backend/src/services/cognitiveExecutor.js` — ensemble fermé `caller_mcp, codex, local, solar-direct`.
 - `backend/src/services/agentRuntimeExecutable.js` — dispatch `configuredExecutable`.
 - `backend/src/services/agentRuntimeAdapter/missionBootstrap.js` — bootstrap mission.
-- `crates/genos-store/src/snapshot.rs`, `crates/genos-genome/src/fork.rs`, `replay.rs` — primitives fork/replay.
+- `crates/genos-store/src/snapshot.rs`, `crates/genos-genome/src/fork.rs`, `crates/genos-genome/src/replay.rs` — primitives fork/replay.
 
 ## Contexte
 

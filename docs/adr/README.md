@@ -9,8 +9,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
-| [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Proposé | 2026-09-13 | Génome, reproduction, runtime, persistance |
-| [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Proposé | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
+| [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
+| [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Accepté | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Proposé | 2026-09-14 | Persistance, mémoire, orchestration, preuve |
 | [0004](0004-instinct-innate-circuits.md) | Instinct : circuits innés et PAF | Proposé | 2026-09-14 | Biomimétique, génome, neurobiologie, sûreté |
 | [0005](0005-reorganisation-arborescence-documentaire.md) | Réorganisation de l'arborescence documentaire | Accepté | 2026-09-14 | Documentation, provenance, distribution |

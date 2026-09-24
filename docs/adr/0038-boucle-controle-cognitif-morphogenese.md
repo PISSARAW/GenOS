@@ -33,7 +33,7 @@ Fermer les cinq systèmes dans une seule boucle causale runtime :
 - `AgentExpressionContext` charge l'état épistémique réel et le snapshot réel
   avec fallback (littéraux déplacés dans `agentExpressionContextContracts`
   pour tenir le gate CC <= 10) ;
-- `causalLoopService.processActionReceipt` applique le RPE au régulateur ;
+- `backend/src/services/morphogenesis/causalLoopService.js` (`processActionReceipt`) applique le RPE au régulateur ;
 - corriger l'ordre des arguments de `missingCapabilities` (`(contrat, disponibles)`).
 
 ## Conséquences

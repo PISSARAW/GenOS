@@ -1160,24 +1160,24 @@ d'étiquettes biologiques.
 
 | Service | Fichier |
 |---------|---------|
-| Antigène épistémique | `epistemic/antigenModel.js` |
-| Immunité innée | `epistemic/innateEpistemicImmunity.js` |
-| Immunité adaptative | `epistemic/adaptiveImmuneResponse.js` |
-| Vérificateurs spécialisés | `epistemic/verifierCatalogService.js` |
-| Exécution sandbox des verifiers | `epistemic/verifierAdapters.js` + `services/sandboxExecutor.js` |
-| Pont runtime + indépendance vs producer | `epistemic/verifierRuntimeBridge.js` |
-| Registre de confiance des verifiers | `services/verifierTrustRegistry.js` |
-| Pont AEIS → promotion (binding + census) | `epistemic/aeisPromotionBridge.js` |
-| Mémoire immunitaire | `epistemic/immuneMemoryService.js` |
-| Inflammation + régulation | `epistemic/epistemicInflammationAndRegulation.js` |
-| Apoptose épistémique | `epistemic/epistemicApoptosisService.js` |
-| Biocénose cognitive | `epistemic/epistemicBiocenoseService.js` |
-| Métapopulation épistémique | `epistemic/epistemicMetapopulationService.js` |
-| Stigmergie épistémique | `epistemic/epistemicStigmergyService.js` |
-| Sélection écologique | `epistemic/epistemicEcologicalSelectionService.js` |
-| Holobionte épistémique | `epistemic/epistemicHolobionteService.js` |
-| Challenge immunitaire | `epistemic/epistemicChallengeService.js` |
-| Homéostasie épistémique | `epistemic/epistemicHomeostasisService.js` |
+| Antigène épistémique | `backend/src/services/epistemic/antigenModel.js` |
+| Immunité innée | `backend/src/services/epistemic/innateEpistemicImmunity.js` |
+| Immunité adaptative | `backend/src/services/epistemic/adaptiveImmuneResponse.js` |
+| Vérificateurs spécialisés | `backend/src/services/epistemic/verifierCatalogService.js` |
+| Exécution sandbox des verifiers | `backend/src/services/epistemic/verifierAdapters.js` + `backend/src/services/sandboxExecutor.js` |
+| Pont runtime + indépendance vs producer | `backend/src/services/epistemic/verifierRuntimeBridge.js` |
+| Registre de confiance des verifiers | `backend/src/services/verifierTrustRegistry.js` |
+| Pont AEIS → promotion (binding + census) | `backend/src/services/epistemic/aeisPromotionBridge.js` |
+| Mémoire immunitaire | `backend/src/services/epistemic/immuneMemoryService.js` |
+| Inflammation + régulation | `backend/src/services/epistemic/epistemicInflammationAndRegulation.js` |
+| Apoptose épistémique | `backend/src/services/epistemic/epistemicApoptosisService.js` |
+| Biocénose cognitive | `backend/src/services/epistemic/epistemicBiocenoseService.js` |
+| Métapopulation épistémique | `backend/src/services/epistemic/epistemicMetapopulationService.js` |
+| Stigmergie épistémique | `backend/src/services/epistemic/epistemicStigmergyService.js` |
+| Sélection écologique | `backend/src/services/epistemic/epistemicEcologicalSelectionService.js` |
+| Holobionte épistémique | `backend/src/services/epistemic/epistemicHolobionteService.js` |
+| Challenge immunitaire | `backend/src/services/epistemic/epistemicChallengeService.js` |
+| Homéostasie épistémique | `backend/src/services/epistemic/epistemicHomeostasisService.js` |
 
 La fiche de concept complète (10 sections, statut Implémenté) se trouve dans
 [`docs/01-concepts/adaptive-epistemic-immune-system.md`](01-concepts/adaptive-epistemic-immune-system.md).

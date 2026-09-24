@@ -24,44 +24,44 @@ Implémenter un **Natural Search Control Plane** en plusieurs phases au-dessus d
 
 | Phase | Composant | Statut | Fichier |
 | --- | --- | --- | --- |
-|| 1 | Causal Progress Sensor | ✅ intégré | `causalProgressService.js` |
-|| 2 | Entropy × Progression Classifier | ✅ intégré | `entropyProgressClassifier.js` |
-|| 3 | Hypothesis Ledger | ✅ intégré | `hypothesisLedgerService.js` |
-|| 4 | Search Pressure Model | ✅ intégré | `searchPressureService.js` |
-|| 5 | Natural Search Controller | ✅ intégré | `naturalSearchController.js` |
-|| 5.5 | Natural Search Actuator | ✅ intégré | `naturalSearchActuatorService.js` + `naturalSearchActuatorPrimitives.js` |
-|| 5.5 | SearchPersistence (SQLite) | ✅ intégré | `searchPersistenceService.js` |
-|| 5.5 | Runtime Integration via `checkNaturalSearchControl()` | ✅ intégré | `agentProcessEventPipeline.js` |
-|| 6 | SearchIntegration (CognitiveAffinity + NegativeSearchMemory + SearchCulture) | ✅ intégré | `searchIntegrationService.js` |
+| 1 | Causal Progress Sensor | ✅ intégré | `backend/src/services/search/causalProgressService.js` |
+| 2 | Entropy × Progression Classifier | ✅ intégré | `backend/src/services/search/entropyProgressClassifier.js` |
+| 3 | Hypothesis Ledger | ✅ intégré | `backend/src/services/search/hypothesisLedgerService.js` |
+| 4 | Search Pressure Model | ✅ intégré | `backend/src/services/search/searchPressureService.js` |
+| 5 | Natural Search Controller | ✅ intégré | `backend/src/services/search/naturalSearchController.js` |
+| 5.5 | Natural Search Actuator | ✅ intégré | `backend/src/services/search/naturalSearchActuatorService.js` + `backend/src/services/search/naturalSearchActuatorPrimitives.js` |
+| 5.5 | SearchPersistence (SQLite) | ✅ intégré | `backend/src/services/search/searchPersistenceService.js` |
+| 5.5 | Runtime Integration via `checkNaturalSearchControl()` | ✅ intégré | `backend/src/services/agentProcessEventPipeline.js` |
+| 6 | SearchIntegration (CognitiveAffinity + NegativeSearchMemory + SearchCulture) | ✅ intégré | `backend/src/services/search/searchIntegrationService.js` |
 
-### Primitives consommées via `naturalSearchActuatorPrimitives.js`
+### Primitives consommées via `backend/src/services/search/naturalSearchActuatorPrimitives.js`
 
-|| Processus | Primitive utilisée |
-|| --- | --- |
-|| FORAGE | `SearchPatchService` (évaluation départ/continuation) |
-|| PLASTICITE | `UPDATE agents.topology/tools` (DB) |
-|| CLONAL_AFFINITY_SEARCH | `mutateGenome` + `createRandomGenome` (SearchGenome) |
-|| STRESS_HYPERMUTATION | `mutateGenome` (SearchGenome) + `SearchPersistence.saveGenomeSnapshot` |
-|| SPECIATION | `cloneFromAgent` (lineage) + `INSERT` niches (DB) |
-|| EVOLUTION | `crossoverGenome` + `mutateGenome` (SearchGenome) + `SearchEvolutionEngine` |
-|| REPLAY_CAUSAL | `SELECT snapshot` + `applySnapshotState` (DB) + `CausalReplayService` |
+| Processus | Primitive utilisée |
+| --- | --- |
+| FORAGE | `SearchPatchService` (évaluation départ/continuation) |
+| PLASTICITE | `UPDATE agents.topology/tools` (DB) |
+| CLONAL_AFFINITY_SEARCH | `mutateGenome` + `createRandomGenome` (SearchGenome) |
+| STRESS_HYPERMUTATION | `mutateGenome` (SearchGenome) + `SearchPersistence.saveGenomeSnapshot` |
+| SPECIATION | `cloneFromAgent` (lineage) + `INSERT` niches (DB) |
+| EVOLUTION | `crossoverGenome` + `mutateGenome` (SearchGenome) + `SearchEvolutionEngine` |
+| REPLAY_CAUSAL | `SELECT snapshot` + `applySnapshotState` (DB) + `CausalReplayService` |
 
 ### Tests
 
-|| Couverture | Statut | Fichier |
-|| --- | --- | --- |
-|| Composants isolés (LED, Controller, Actuator, Persistence en mémoire) | ✅ | `test_natural_search_runtime_e2e.js` |
-|| `checkNaturalSearchControl()` avec DB SQLite | ✅ | `test_natural_search_e2e_pipeline.js` |
-|| Full pipeline (checkNaturalSearchControl + persistence + negative memory + proactive) | ✅ | `test_natural_search_full_pipeline_e2e.js` |
+| Couverture | Statut | Fichier |
+| --- | --- | --- |
+| Composants isolés (LED, Controller, Actuator, Persistence en mémoire) | ✅ | `backend/tests/search/test_natural_search_runtime_e2e.js` |
+| `checkNaturalSearchControl()` avec DB SQLite | ✅ | `backend/tests/search/test_natural_search_e2e_pipeline.js` |
+| Full pipeline (checkNaturalSearchControl + persistence + negative memory + proactive) | ✅ | `backend/tests/search/test_natural_search_full_pipeline_e2e.js` |
 
 ### Fonctionnalités cross-cutting
 
-|| Fonctionnalité | Implémentation |
-|| --- | --- |
-|| Routage de provenance | `resolveProvenance()` — autorité runtime uniquement (payload ignoré) : LLM→SELF_REPORTED / event→INFERRED / tool→OBSERVED / evidence→VERIFIED |
-|| Protocole hypothèses | `hypothesisEventProtocol.js` — HYPOTHESIS_PROPOSED / TEST_STARTED / PROGRESS / FALSIFIED / SUSPENDED |
-|| Flush garanti | `clearSearchState()` → `flushSearchState()` avant suppression mémoire |
-|| Création proactive d'hypothèses | `proactiveHypothesis()` après 5 étapes sans progrès |
+| Fonctionnalité | Implémentation |
+| --- | --- |
+| Routage de provenance | `resolveProvenance()` — autorité runtime uniquement (payload ignoré) : LLM→SELF_REPORTED / event→INFERRED / tool→OBSERVED / evidence→VERIFIED |
+| Protocole hypothèses | `backend/src/services/search/hypothesisEventProtocol.js` — HYPOTHESIS_PROPOSED / TEST_STARTED / PROGRESS / FALSIFIED / SUSPENDED |
+| Flush garanti | `clearSearchState()` → `flushSearchState()` avant suppression mémoire |
+| Création proactive d'hypothèses | `proactiveHypothesis()` après 5 étapes sans progrès |
 
 ### Limitations connues
 
