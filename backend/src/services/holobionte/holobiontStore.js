@@ -4,6 +4,7 @@ const { randomUUID } = require('crypto');
 const { withTransaction } = require('../../db');
 const { EVENT_TYPES } = require('./constants');
 const { createHolobiontSession } = require('./contracts/holobiontSession');
+const { normalizeSymbiontKind } = require('./symbionts/symbiontKinds');
 
 function parseSession(row) {
   if (!row) return null;
@@ -62,7 +63,10 @@ function updateConstitution(session, payload) {
 function recordCandidate(session, payload) {
   const symbiontId = String(payload.symbiontId || '').trim();
   if (!symbiontId) return session;
-  session.candidateSymbionts = [...session.candidateSymbionts, { ...(payload.symbiont || {}), id: symbiontId, status: 'CANDIDATE' }];
+  const symbiont = payload.symbiont || {};
+  session.candidateSymbionts = [...session.candidateSymbionts, {
+    ...symbiont, id: symbiontId, kind: normalizeSymbiontKind(symbiont.kind), status: 'CANDIDATE'
+  }];
   return session;
 }
 
