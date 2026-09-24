@@ -27,6 +27,7 @@ const routeRepairService = require('./rhizome/resilience/routeRepairService');
 const graphAnalytics = require('./rhizome/analytics/graphAnalyticsService');
 const pruningService = require('./rhizome/pruning/pruningService');
 const routeQuarantineService = require('./rhizome/security/routeQuarantineService');
+const graphProjector = require('./rhizome/graph/rhizomeGraphProjector');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -189,6 +190,13 @@ async function routeDirectMember(sessionId, need, options = {}) {
 
 async function graphSnapshot(sessionId, options = {}) {
   return capabilityGraph.snapshot(await getSession(sessionId, options.db));
+}
+
+async function projectGraph(sessionId, options = {}) {
+  if (!options.db || !options.graphStore) {
+    throw Object.assign(new Error('Rhizome graph projection requires SQLite and a graph repository.'), { code: 'RHIZOME_PROJECTION_DEPENDENCIES_REQUIRED' });
+  }
+  return graphProjector.project(options.db, options.graphStore, sessionId);
 }
 
 async function addCapabilityNode(sessionId, node, options = {}) {
@@ -377,4 +385,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, projectGraph, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
