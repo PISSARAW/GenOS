@@ -3,13 +3,14 @@
 /**
  * @file dynamicReevaluationExecutorService.js
  * @description Connects adaptiveReevaluationService → MorphogenesisPlanner →
- * MorphogenesisValidator → TransitionEngine, closing the re-evaluation loop.
+ * MorphogenesisValidator → VersionedTransition (ADR 0040 §10 : toute
+ * transition appliquée produit un commit AgentGit parenté).
  * Produces a MorphogenesisReceipt with full provenance for every transition.
  */
 
 const adaptiveReevaluationService = require('../adaptiveReevaluationService');
 const morphogenesisPlannerService = require('./morphogenesisPlannerService');
-const transitionEngineService = require('./transitionEngineService');
+const { executeVersionedTransition } = require('./morphogenesisGitService');
 const counterfactualPlannerService = require('./counterfactualPlannerService');
 
 const PROVENANCE_SOURCE = 'dynamicReevaluationExecutorService';
@@ -126,13 +127,17 @@ async function executeReevaluation(ctx) {
     return { executed: false, reason: 'pending_approval', plan, validation, proposal, counterfactualReceipt };
   }
 
-  // 5. Execute transition
+  // 5. Execute versioned transition (ADR 0040 §10) : l'application passe
+  // par executeVersionedTransition pour produire un commit AgentGit parenté.
   const transitionPlan = buildTransitionPlan(plan);
-  const receipt = await transitionEngineService.executeTransition({
+  const versioned = await executeVersionedTransition({
     plan: transitionPlan,
     collectiveState,
     db,
+    agentId,
+    counterfactual: counterfactualReceipt,
   });
+  const receipt = versioned.receipt;
 
   // 6. Log receipt to provenance
   const provenanceRecord = logProvenance({

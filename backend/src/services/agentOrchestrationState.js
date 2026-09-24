@@ -5,7 +5,12 @@
  * importing the adapter itself.
  */
 const { getDatabase } = require('../db');
-const telemetry = require('./telemetryObserver');
+// `telemetryObserver` forme un cycle avec les services (via `../db` et les
+// bus) : toute capture au chargement fige un objet vide selon le point
+// d'entrée. Résolution au moment de l'appel uniquement.
+function telemetry() {
+  return require('./telemetryObserver');
+}
 const leasePolicy = require('./toolLeasePolicy');
 
 const activeProcesses = new Map();
@@ -57,7 +62,7 @@ function emit(..._args) {
   const [agentId, eventType, action, detail, optionsOrPayload = {}, severityArg, statusArg] = _args;
   const { payload, severity, status } = resolveEmitArgs(optionsOrPayload, severityArg, statusArg);
   const sessionId = payload.sessionId || payload.executionRunId || payload.runId || `agent-session-${agentId}`;
-  return telemetry.emitEvent({ eventType, agentId, action, detail, payload: { ...payload, sessionId }, sessionId, severity, status });
+  return telemetry().emitEvent({ eventType, agentId, action, detail, payload: { ...payload, sessionId }, sessionId, severity, status });
 }
 
 function workerToolLease(role) {

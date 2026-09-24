@@ -16,6 +16,13 @@ const { recordFossil } = require('../fossilizationService');
 
 function uuid() { return crypto.randomUUID(); }
 
+// storeObject: camelCase (treeHash/...) ; DB: snake_case. Première clé
+// présente, sans gonfler la complexité des appelants.
+function firstHash(candidate, keys) {
+  for (const key of keys) if (candidate && candidate[key]) return candidate[key];
+  return null;
+}
+
 function collectActionChanges(receipt) {
   const changes = [];
   for (const a of receipt.actionsTaken || []) {
@@ -140,7 +147,10 @@ async function commitTransition(db, ctx) {
     parentCommitId,
   });
 
-  // Mirror into agent_git_commits for fast lineage queries
+  // Mirror into agent_git_commits for fast lineage queries.
+  const treeHash = firstHash(result, ['treeHash', 'tree_hash', 'stateHash', 'state_hash']);
+  const commitHash = firstHash(result, ['commitHash', 'commit_hash', 'stateHash', 'state_hash']);
+  const stateHash = firstHash(result, ['stateHash', 'state_hash']);
   await db.run(
     `INSERT OR REPLACE INTO agent_git_commits
      (commit_id, agent_id, workspace_id, parent_commit_id, tree_hash, commit_hash,
@@ -150,9 +160,9 @@ async function commitTransition(db, ctx) {
     agentId,
     workspaceId || state.agent?.workspace_id || null,
     parentCommitId,
-    result.tree_hash || result.state_hash,
-    result.commit_hash || result.state_hash,
-    result.state_hash,
+    treeHash,
+    commitHash,
+    stateHash,
     message,
     reason,
     JSON.stringify(evidence),
@@ -259,9 +269,9 @@ async function fossiliseLineage(db, input) {
       agentId,
       state.agent?.workspace_id || null,
       null,
-      commitResult.tree_hash || commitResult.state_hash,
-      commitResult.commit_hash || commitResult.state_hash,
-      commitResult.state_hash,
+      firstHash(commitResult, ['treeHash', 'tree_hash', 'stateHash', 'state_hash']),
+      firstHash(commitResult, ['commitHash', 'commit_hash', 'stateHash', 'state_hash']),
+      firstHash(commitResult, ['stateHash', 'state_hash']),
       `[FOSSIL] lineage ${lineageId} extinct — ${reason || 'stratigraphic extinction'}`,
       'fossil:lineage-extinct',
       JSON.stringify({ fossilId: fossilResult.fossil.fossil_id, lineageId }),

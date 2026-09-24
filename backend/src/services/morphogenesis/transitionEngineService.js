@@ -291,8 +291,10 @@ async function executeTransition(ctx) {
     }
 
     // VERIFY
+    // Note : verifyTransition consomme l'état collectif muté (agents: Map,
+    // topologyState), pas les snapshots sérialisés (agentIds: [], sans Map).
     postSnapshot = createStateSnapshot(collectiveState);
-    const verification = verifyTransition({ plan, preState: preSnapshot, postState: postSnapshot });
+    const verification = verifyTransition({ plan, preState: preSnapshot, postState: collectiveState });
     if (!verification.verified) {
       throw new Error(`verification failed: ${verification.failures.join('; ')}`);
     }

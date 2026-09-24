@@ -10,7 +10,11 @@ const { formatSignalForTransport, unpackSignalPayload } = require('./biomimeticS
 const topologyCapabilityService = require('./topologyCapabilityService');
 const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 const { routeMessage, assertRoutingAuthority } = require('./organizationRouting');
-const { routeCollectiveSignal, proposedRoute } = require('./collectiveSignalOrganizationRouter');
+// Même cycle que `../db` (voir withTransactionDb) : `collectiveSignalOrganizationRouter`
+// capturé au chargement arrive vide selon le point d'entrée. Résolution à l'appel.
+function signalRouter() {
+  return require('./collectiveSignalOrganizationRouter');
+}
 
 const ORGANIZATIONS = Object.freeze({
   specialist_expert_committee: { topology: 'hub_and_spoke', exchange: 'indirect', visibility: 'attributed', routing: 'orchestrator' },
@@ -281,12 +285,12 @@ async function publish(db, options = {}) {
     signalInfo.signalType, signalInfo.signalBlob, route.delivery,
     scope.organizationId, scope.projectId
   );
-  const routing = await routeCollectiveSignal({
+  const routing = await signalRouter().routeCollectiveSignal({
     db, signalId: `organization-message-${result.lastID}`, signalType: signalInfo.signalType,
     signalData: signalInfo.signalType === 'text' ? null : unpackSignalPayload(signalInfo.signalBlob, signalInfo.signalType),
     orchestratorId, changedBy: orchestratorId
   });
-  const proposal = proposedRoute(signalInfo.signalType, signalInfo.signalType === 'text' ? {} : unpackSignalPayload(signalInfo.signalBlob, signalInfo.signalType));
+  const proposal = signalRouter().proposedRoute(signalInfo.signalType, signalInfo.signalType === 'text' ? {} : unpackSignalPayload(signalInfo.signalBlob, signalInfo.signalType));
   const changed = Boolean(proposal && proposal.organization !== state.organization);
   if (changed) {
     await changeOrganization(db, {

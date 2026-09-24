@@ -14,7 +14,9 @@ const remotePersist = require('./remotePersist.cjs');
 const { assertRemoteGitUrl, executeRemotePush, resolvePushTip, recordPushReceipt } = require('./pushTransport.cjs');
 
 function scopeSql(req, alias = 'w') {
-  if (!req.tenant) return { clause: '1 = 1', params: [] };
+  // req peut être absent sur les chemins runtime non-HTTP (CLI, morphogenèse) :
+  // pas de confinement tenant, clause neutre.
+  if (!req || !req.tenant) return { clause: '1 = 1', params: [] };
   const prefix = alias ? `${alias}.` : '';
   return { clause: `${prefix}organization_id = ? AND ${prefix}project_id = ?`, params: [req.tenant.organizationId, req.tenant.projectId] };
 }
