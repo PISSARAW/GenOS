@@ -62,7 +62,7 @@ const TABLES_CORE_BASE = [
 "    name TEXT NOT NULL,",
 "    name_meaning TEXT,",
 "    role TEXT NOT NULL,",
-"    status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'completed', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis')),",
+"    status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'completed', 'unverified', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis')),",
 "    agent_type TEXT NOT NULL DEFAULT 'GenOS',",
 "    execution_mode TEXT NOT NULL DEFAULT 'orchestrator' CHECK (execution_mode IN ('orchestrator', 'worker')),",
 "    workspace_id TEXT,",
