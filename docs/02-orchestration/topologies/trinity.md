@@ -2,13 +2,6 @@
 
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
 
----
-
-
-<!-- === PARTIE 1 === -->
-
-# Trinity — Fondations & Architecture
-
 ## 1. Définition
 
 **Trinity** est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.
@@ -19,8 +12,6 @@ Contrairement à un simple passage multi-essai, Trinity structure l'espace des p
 - Une chambre **adversariale** (falsification, recherche de contre-exemples)
 
 Chaque chambre produit un monde d'expérimentation scellé, indépendant, traçable. La décision finale agrège leurs résultats selon un calcul explicite de valeur d'information.
-
----
 
 ## 2. Comparaison conceptuelle
 
@@ -39,8 +30,6 @@ Best-of-N suppose que la réponse correcte apparaîtra statistiquement dans l'é
 
 Trinity **ne dialogue pas**. Chaque chambre travaille sur le même problème sans connaître les autres. L'indépendance est contractuelle et vérifiable. La divergence est donc structurelle, pas accidentelle — c'est ce qui lui permet de détecter des erreurs que les autres paradigmes ratent systématiquement (biais partagés, erreurs de modèle partillées, aveuglements communs).
 
----
-
 ## 3. Les trois chambres épistémiques
 
 ### 3.1 Chambre Directe / Parsimonieuse
@@ -55,8 +44,6 @@ Trinity **ne dialogue pas**. Chaque chambre travaille sur le même problème san
 
 **Risque :** Illusion de familiarité. Pattern-matching superficiel. Confirmation du cadre existant.
 
----
-
 ### 3.2 Chambre Structurée / Model-Based
 
 **Principe :** Construire un modèle explicite du problème (formel ou semi-formel), le parcourir méthodiquement, produire une déduction.
@@ -69,8 +56,6 @@ Trinity **ne dialogue pas**. Chaque chambre travaille sur le même problème san
 
 **Risque :** Surconfiance dans le modèle. Erreur de modélisation non détectée. Lourdeur computationnelle.
 
----
-
 ### 3.3 Chambre Falsification / Adversarial
 
 **Principe :** Chercher activement à réfuter les conclusions des deux autres chambres. « Qu'est-ce qui pourrait faire échouer cette réponse ? Quel contre-exemple existe ? »
@@ -82,8 +67,6 @@ Trinity **ne dialogue pas**. Chaque chambre travaille sur le même problème san
 **Hypothèse sous-jacente :** La vérité résiste mieux à la réfutation que l'erreur — la falsification est asymétriquement informative.
 
 **Risque :** Skepticisme excessif. Coût de la recherche de contre-exemples inexistants. Découragement de réponses correctes mais fragiles.
-
----
 
 ## 4. Le Hypothesis Designer
 
@@ -148,8 +131,6 @@ $$
 $$
 \text{s.c.} \quad \forall i \neq j : O(H_i, H_j) \geq \theta_{\text{orth}} \quad \text{et} \quad \sum_{i} \text{cost}(H_i) \leq B_{\text{total}}
 $$
-
----
 
 ## 5. Calcul de l'espérance de valeur EV(Trinity)
 
@@ -217,8 +198,6 @@ $$
 
 où $\tau_{\text{engagement}}$ est un seuil calibré selon la politique de risque de l'organisation.
 
----
-
 ## 6. Contrat TrinityExperiment
 
 Le contrat d'expérience Trinity définit l'ensemble des paramètres qui gouvernent un run complet :
@@ -277,8 +256,6 @@ interface TrinityExperiment {
 }
 ```
 
----
-
 ## 7. Contrat TrinityWorld
 
 Chaque chambre produit un **TrinityWorld** — l'enregistrement complet du raisonnement et des artefacts d'une chambre :
@@ -329,8 +306,6 @@ G = (V, E), \quad V = \{c_1, \ldots, c_n\} \text{ (revendications)}, \quad E = \
 $$
 
 Chaque nœud $c_i$ porte un **confidence score** $s_i \in [0,1]$ et une **traçabilité** vers la source de l'évidence.
-
----
 
 ## 8. Phases d'exécution
 
@@ -401,8 +376,6 @@ sequenceDiagram
     end
 ```
 
----
-
 ## 9. Critères d'indépendance explicites
 
 L'indépendance des chambres n'est pas une promesse — c'est un ensemble de propriétés **vérifiables** enregistrées dans `isolationPolicy` et contrôlées à l'exécution.
@@ -452,8 +425,6 @@ Cela permet :
 - L'**analyse de sensibilité** (quel changement de seed change la conclusion ?)
 - La **détection de survenue chanceuse** (une chambre a-t-elle eu « de la chance » ?)
 
----
-
 ## 10. Résumé opérationnel
 
 Trinity est un protocole en **quatre étapes** :
@@ -465,19 +436,11 @@ Trinity est un protocole en **quatre étapes** :
 
 Chaque étape est **traçable**, **reproductible**, **auditable**. La sortie n'est pas une réponse — c'est une **décision justifiée par un processus épistémique explicite**.
 
----
-
 *Prochaine partie : Trinity — Implémentation & Runtime (Partie 2)*
-
-
-
-<!-- === PARTIE 2 === -->
 
 # Trinity Topology — Part 2: Scoring, Claim Graph, Merge & Verification
 
 > **Scope:** This document specifies the decision plane of the Trinity topology — how candidate worlds are scored, how claims are merged, and how verification gates enforce correctness before promotion. It is normative: every formula, threshold, and procedure described here is the intended operational state of the system.
-
----
 
 ## 1. Evidence Vector
 
@@ -531,8 +494,6 @@ $$
 
 This ensures that worlds with high self-reported uncertainty are penalized proportionally, preventing overconfident but poorly-evidenced candidates from dominating the ranking.
 
----
-
 ## 2. Scalar Score — V1 vs. Evidence Vector
 
 ### 2.1 Historical Scalar (V1)
@@ -575,8 +536,6 @@ where $w_d$ are mission weights and $f_d$ are per-dimension shaping functions (t
 | Expressiveness | Scalar only | Full vector + utility |
 
 **Justification:** The evidence vector preserves information that scalar aggregation destroys. Two worlds with identical $S_i^{(V1)}$ may have radically different profiles (one may be fast but fragile, another slow but robust). The vector representation enables the Pareto frontier to separate them.
-
----
 
 ## 3. Pareto Elimination — Three Stages
 
@@ -632,8 +591,6 @@ Correctness ↑
     ☆ = Dominated (eliminated in Stage 2)
     W₆ = Eliminated in Stage 1 (correctness < θ_min)
 ```
-
----
 
 ## 4. Claim Graph
 
@@ -725,8 +682,6 @@ World C: "Throughput < 900 req/s"      [benchmark: 870 req/s]
 
 **Resolution:** Claim A is the strongest verified claim. Claim B is weaker but consistent. Claim C contradicts the verified evidence and is rejected.
 
----
-
 ## 5. Claim-Level Fusion
 
 When multiple worlds make related claims, the system performs **claim-level fusion** to produce a unified knowledge base.
@@ -783,8 +738,6 @@ $$
 
 where $w(c)$ is the claim weight and $\text{ev}(c)$ is the evidence strength.
 
----
-
 ## 6. Verification Hierarchy
 
 Verification is organized as a strict hierarchy. Higher-priority verifiers **override** lower-priority ones.
@@ -836,8 +789,6 @@ External evidence is weighted by **source authority** $a_s \in [0, 1]$:
 $$
 \text{ev}_{\text{ext}}(c) = a_s \cdot \text{consistency}(c, \text{observation})
 $$
-
----
 
 ## 7. Verification Plane
 
@@ -899,8 +850,6 @@ Before any world is promoted, it must pass **integration tests** that verify:
 $$
 \text{integration_pass}(W_i) = \bigwedge_{t \in \text{integration\_suite}} \text{PASS}(t, W_i)
 $$
-
----
 
 ## 8. Blind Multi-Model Jury
 
@@ -964,8 +913,6 @@ X^\star = \arg\max_{X \in \text{candidates}} \text{PoLL}(X)
 $$
 
 A candidate is promoted only if $\text{PoLL}(X^\star) \geq \tau_{\text{jury}}$, where $\tau_{\text{jury}}$ is the mission-specific threshold (default: $0.7$).
-
----
 
 ## 9. Four Possible Results
 
@@ -1036,8 +983,6 @@ $$
                 │  EXPERIMENT   │
                 └───────────────┘
 ```
-
----
 
 ## 10. Transactional Promotion
 
@@ -1140,8 +1085,6 @@ $$
 
 If post-verification fails, the system triggers an **alert** and initiates recovery procedures.
 
----
-
 ## Appendix A — Notation Summary
 
 | Symbol | Meaning |
@@ -1173,19 +1116,11 @@ If post-verification fails, the system triggers an **alert** and initiates recov
 | Uncertainty | 0.50 | 0.10 |
 | Constraint Coverage | 0.90 | 1.00 |
 
----
-
 *End of Trinity Part 2 — Scoring, Claim Graph, Merge & Verification.*
-
-
-
-<!-- === PARTIE 3 === -->
 
 # Trinity — Variants & Expérimentation Avancée
 
 > Partie 3 de la documentation Trinity : les 12 variantes, leurs formulations mathématiques, et les stratégies d'expérimentation avancées.
-
----
 
 ## 1. Les 12 variantes de Trinity
 
@@ -1207,8 +1142,6 @@ Trinity est une architecture d'orchestration multi-agents dont le principe fonda
 | 10 | **Trinity-Temporal** | Les mondes opèrent à des **horizons temporels** différents : l'un réagit vite (court terme), un autre raisonne longuement (long terme). | Tâches urgentes vs tâches de fond. | Court terme = réponse immédiate, Moyen terme = synthèse, Long terme = réflexion stratégique. |
 | 11 | **Trinity-Oracular** | Un monde fait office d'**oracle** : il ne résout pas la tâche, il **prédit quel monde** produira la meilleure réponse, et pourquoi. | Méta-raisonnement, sélection a priori. | L'oracle prédit que le Monde 2 réussira car la tâche est dans sa zone de compétence. |
 | 12 | **Trinity-Exploratory** | Les mondes sont encourgés à **diverger maximalement** (température élevée, objectifs opposés). La sélection se fait par novelty search. | Créativité, découverte, innovation. | Génération de concepts radicalement différents pour un problème ouvert. |
-
----
 
 ## 2. Trinity-Factorial : le plan d'expérimentation complet
 
@@ -1263,8 +1196,6 @@ Supposons que Falsification ($F$) produise des résultats exceptionnels uniqueme
 
 Inversement, si le Modèle C domine uniformément toutes les stratégies, alors $\beta_C$ est le facteur déterminant et l'architecture peut être simplifiée : un seul modèle avec la stratégie la plus légère en coût.
 
----
-
 ## 3. Trinity-Heterogeneous : sélection anti-monoculture
 
 ### 3.1 Problème de la monoculture
@@ -1313,8 +1244,6 @@ où $\bar{e}_i = \frac{1}{N_{\text{tasks}}} \sum_{t=1}^{N_{\text{tasks}}} e_i(t)
 - $\rho_{ij} \approx 0$ : les mondes échouent indépendamment → **forte valeur de diversité**.
 - $\rho_{ij} \approx 1$ : les mondes échouent ensemble → **monoculture implicite**, un des deux est redondant.
 - $\rho_{ij} \approx -1$ : quand l'un réussit, l'autre échoue → **complémentarité maximale**.
-
----
 
 ## 4. Métrique de diversité $D_{ij}$
 
@@ -1371,8 +1300,6 @@ $$\mathcal{D}(W) = \frac{2}{k(k-1)} \sum_{\substack{i,j \in W \\ i < j}} \mathca
 
 et la contrainte de sélection impose $\mathcal{D}(W) \geq \mathcal{D}_{\min}$.
 
----
-
 ## 5. Trinity-Controlled vs Trinity-Heterogeneous
 
 ### 5.1 Différences fondamentales
@@ -1417,8 +1344,6 @@ où :
 - $C_{\max}$ est le budget maximum acceptable.
 
 **Décision :** choisir Trinity-Heterogeneous si $\text{Score}_{\text{het}} > \tau$ (seuil par défaut 0.5), sinon Trinity-Controlled.
-
----
 
 ## 6. Budgets adaptatifs
 
@@ -1470,8 +1395,6 @@ Autrement dit, un monde minoritaire est retenu s'il apporte une **diversité cog
 
 Cela évite l'élimination prématurée de mondes moins performants individuellement mais **complémentaires** collectivement.
 
----
-
 ## 7. Compute adaptatif
 
 ### 7.1 Référence : Adaptive Inference-Time Compute
@@ -1515,8 +1438,6 @@ $$\boxed{
 \end{aligned}
 }$$
 
----
-
 ## 8. Trinity-Adaptive : évolution dynamique des replicas et budgets
 
 ### 8.1 Principe
@@ -1559,8 +1480,6 @@ Le processus est garanti de converger en un nombre fini d'étapes car :
 - Chaque suppression augmente la qualité moyenne, donc $\text{Remove}$ est fini.
 
 **Temps de convergence typique :** 2 à 5 cycles de réallocation pour les tâches standard.
-
----
 
 ## 9. Trinity-Recursive : sous-Trinity locale
 
@@ -1609,8 +1528,6 @@ La profondeur de récursion est bornée par $L_{\max}$ (par défaut 2). Au-delà
 $$\text{Profondeur}(T) \leq L_{\max}$$
 
 Cela garantit la terminaison et évite les boucles infinies de sous-Trinities.
-
----
 
 ## 10. Trinity-Jury : évaluation anonyme
 
@@ -1682,8 +1599,6 @@ $$\alpha^* = \arg\max_{\alpha} \, S_\alpha$$
 
 avec éventuel **ex-aequo** résolu par diversification : si $|S_{\alpha_1} - S_{\alpha_2}| < \epsilon$, on retient les deux et on les fusionne.
 
----
-
 ## 11. Résumé des formules clés
 
 | Formule | Référence | Expression |
@@ -1699,8 +1614,6 @@ avec éventuel **ex-aequo** résolu par diversification : si $|S_{\alpha_1} - S_
 | Déclenchement récursion | §9.3 | $\text{Complexity} > \tau_{\text{rec}} \land \text{Confidence} < \theta_{\text{rec}}$ |
 | Score Jury | §10.4 | $S_\alpha = \text{median}_j(S_{j\alpha})$ |
 
----
-
 ## 12. Bonnes pratiques et recommandations
 
 1. **Commencer simple :** utiliser Trinity-Controlled comme baseline avant d'introduire l'hétérogénéité ou l'adaptivité.
@@ -1710,19 +1623,11 @@ avec éventuel **ex-aequo** résolu par diversification : si $|S_{\alpha_1} - S_
 5. **Valider le Jury :** s'assurer que les juges ne peuvent pas identifier la source par des caractéristiques stylistiques (anonymisation rigoureuse).
 6. **Journaliser les $\rho_{ij}$** dans la mémoire de l'agent pour affiner la sélection hétérogène au fil du temps.
 
----
-
 *Documentation Trinity — Partie sur 3. Pour la Partie 1 (fondamentaux), voir `trinity_part1.md`. Pour la Partie 2 (architecture), voir `trinity_part2.md`.*
-
-
-
-<!-- === PARTIE 4 === -->
 
 # Trinity — Partie 4 : Cas d'usage, Anti-usages, Benchmarks, Métriques
 
 > Trinity est une topologie d'orchestration multi-monde pour GenOS. Elle ne cherche pas la meilleure réponse : elle cherche laquelle de plusieurs hypothèses plausibles survit à l'expérience.
-
----
 
 ## 1. Cas d'usage typiques
 
@@ -1740,8 +1645,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 
 **Résultat attendu** : H1 falsifiée (aucun pattern mémoire détecté). H2 reproduite sous charge. H3 confirmée comme problème secondaire corrélé. Rapport : race condition dans le pool de connexions, lifecycle invalide en cascade.
 
----
-
 ### 1.2 Architecture logicielle
 
 **Mission** : Concevoir l'architecture d'un nouveau module critique avec des exigences contradictoires (performance, maintenabilité, sécurité).
@@ -1751,8 +1654,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 - Chaque monde simule les 3 options sous les mêmes contraintes (charge, évolution, audit).
 
 **Résultat attendu** : Aucun monde ne « gagne » absolument. Le *Claim Graph* révèle que H1 excelle en isolation des pannes, H2 en simplicité de déploiement, H3 en auditabilité. Trinity produit un design hybride documenté : event-sourcing pour le core transactionnel, microservices pour les adapters, interfaces internes modulaires.
-
----
 
 ### 1.3 Algorithme difficile
 
@@ -1764,8 +1665,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 
 **Résultat attendu** : H1 domine les instances petites, H3 domine les instances grandes, H2 est optimal pour les contraintes strictes. Trinity produit un méta-solveur qui sélectionne l'approche selon les caractéristiques de l'instance.
 
----
-
 ### 1.4 Sécurité
 
 **Mission** : Auditer un module d'authentification contre des vecteurs d'attaque connus et inconnus.
@@ -1775,8 +1674,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 - Chaque monde emploie un modèle adversaire spécialisé dans un vecteur.
 
 **Résultat attendu** : Les trois mondes découvrent des vulnérabilités distinctes. Le *Claim Graph* montre qu'aucun vecteur ne couvre les autres. Trinity produit un rapport consolidé avec preuves d'exploitation pour chaque faille et remédiation priorisée.
-
----
 
 ### 1.5 Migration base de données
 
@@ -1788,8 +1685,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 
 **Résultat attendu** : H1 fonctionne mais introduit une fenêtre de cohérence eventual. H2 est trop lente. H3 est la plus sûre mais nécessite un cutover complexe. Trinity produit un plan hybride : snapshot incrémental pour les données historiques, CDC pour les données chaudes, cutover orchestré avec vérification de cohérence.
 
----
-
 ### 1.6 Science
 
 **Mission** : Expliquer un résultat expérimental anomal dans une publication.
@@ -1799,8 +1694,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 - Chaque monde conçoit des expériences discriminantes.
 
 **Résultat attendu** : H3 confirmée par recalibration. H1 et H2 produisent des prédictions distinctes pour une expérience de validation. Trinity produit un protocole expérimental qui discrimine les trois hypothèses en un seul jeu de mesures.
-
----
 
 ### 1.7 Enquête technique
 
@@ -1812,8 +1705,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 
 **Résultat attendu** : H2 confirmée (un commit récent a introduit une complexité quadratique). H1 est un faux positif corrélé à la charge. H3 est un bruit non reproductible. Trinity produit une analyse causale avec preuve de corrélation temporelle.
 
----
-
 ### 1.8 Optimisation
 
 **Mission** : Optimiser les coûts d'infrastructure cloud sans dégrader la latence.
@@ -1823,8 +1714,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 - Chaque monde simule 30 jours de trafic.
 
 **Résultat attendu** : H1 économise 15 %, H2 économise 40 % avec un risque de interruption de 2 %, H3 économise 50 % mais augmente la latence p99. Trinity produit un plan de migration par phases avec seuils d'acceptation explicites.
-
----
 
 ### 1.9 Puzzle complexe
 
@@ -1836,8 +1725,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 
 **Résultat attendu** : H3 trouve la solution optimale. H1 prouve l'unicité. H2 trouve une solution quasi-optime en temps sous-linéaire. Trinity produit la solution, la preuve d'unicité, et un algorithme d'approximation avec borne d'erreur.
 
----
-
 ### 1.10 Recherche
 
 **Mission** : Synthétiser l'état de l'art sur un sujet émergent avec des sources contradictoires.
@@ -1847,8 +1734,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 - Chaque monde effectue une analyse documentaire indépendante.
 
 **Résultat attendu** : H3 confirmée (deux sources sont obsolètes). H1 et H2 sont partiellement correctes mais leurs conclusions respectives ne sont pas mutuellement exclusives. Trinity produit une synthèse avec un graphe de consensus et un graphe de dissensus documenté.
-
----
 
 ### 1.11 Produit / UX
 
@@ -1860,8 +1745,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 
 **Résultat attendu** : Aucun design ne domine sur toutes les métriques. Trinity produit une matrice de compromis et recommande un design adaptatif selon le profil utilisateur.
 
----
-
 ### 1.12 Créativité
 
 **Mission** : Générer un concept créatif (nom de produit, campagne publicitaire, scénario).
@@ -1871,8 +1754,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 - Chaque monde génère 50 candidats et évalue selon des critères distincts.
 
 **Résultat attendu** : Les meilleurs candidats proviennent de H2 et H3. Trinity sélectionne le candidat qui maximise l'originalité tout en respectant les contraintes de marque, avec justification.
-
----
 
 ### 1.13 Planification sous incertitude
 
@@ -1884,8 +1765,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 
 **Résultat attendu** : Aucun plan ne domine. Trinity produit un plan robuste avec des points de décision conditionnels et des seuils de déclenchement explicites.
 
----
-
 ### 1.14 Reverse engineering
 
 **Mission** : Comprendre le comportement d'un système binaire fermé.
@@ -1895,8 +1774,6 @@ Trinity excelle chaque fois que la résolution exige de discriminer entre plusie
 - Chaque monde émet des entrées et observe les sorties.
 
 **Résultat attendu** : H3 confirmée. Trinity produit une spécification partielle du protocole propriétaire avec les cas testés et les réponses observées.
-
----
 
 ## 2. Bug inconnu — Exemple complet
 
@@ -1949,8 +1826,6 @@ Le rapport Trinity contient :
 3. Remédiation proposée : verrou ordered dans le thread de nettoyage.
 4. Vérification post-remédiation : 0 reproduction sur 500h simulées.
 
----
-
 ## 3. Quand NE PAS utiliser Trinity
 
 Trinity est une topologie puissante mais coûteuse. Elle ne doit pas être utilisée quand une topologie plus simple suffit ou quand une autre topologie est structurellement adaptée.
@@ -1967,8 +1842,6 @@ Trinity est une topologie puissante mais coûteuse. Elle ne doit pas être utili
 | **Holobionte** (hôte + symbiotes) | La structure est celle d'un hôte avec des dépendances symbiotes ; pas de compétition d'hypothèses. | Holobionte. |
 | **Métapopulation** (persistence à long terme) | L'objectif est la persistance de l'information dans le temps, pas la résolution d'une question immédiate. | Métapopulation. |
 
----
-
 ## 4. Question déclanchante
 
 Avant d'activer Trinity, répondre à cette question :
@@ -1979,8 +1852,6 @@ Avant d'activer Trinity, répondre à cette question :
 - **Non** → Utiliser une topologie plus simple ou différente.
 
 Cette question filtre 80 % des cas où Trinity serait un surcoût injustifié.
-
----
 
 ## 5. Benchmarks à budget égal
 
@@ -1997,8 +1868,6 @@ Tous les systèmes ci-dessous sont évalués à **budget fixe X** (même nombre 
 | **Mixture-of-Agents (MoA)** | Pool d'agents, aggregation itérative | 0.80 | 10.0 s | 0.015 |
 | **Trinity actuelle** | 3 mondes, isolation partielle | 0.85 | 12.0 s | 0.020 |
 | **Trinity ultime** | 3 mondes, isolation complète, modèles hétérogènes, verifyers déterministes | 0.91 | 15.0 s | 0.025 |
-
----
 
 ## 6. Métriques
 
@@ -2064,8 +1933,6 @@ $$\text{CER} = 1 - \frac{\text{Erreurs corrélées entre mondes}}{\text{Total er
 
 Capacité à détecter que plusieurs mondes échouent de la même manière (indiquant une erreur systémique).
 
----
-
 ## 7. Ablations
 
 Chaque ablation teste une composante spécifique de Trinity en la retirant et en mesurant la dégradation.
@@ -2079,8 +1946,6 @@ Chaque ablation teste une composante spécifique de Trinity en la retirant et en
 | **Without Adaptive Budgets** | Budget fixe par monde | L'adaptation du budget améliore l'efficacité. |
 | **Without Independent Jury** | Pas de jury indépendant | Le jury indépendant réduit le taux de fausses promotions. |
 | **Without Deterministic Verifiers** | Pas de verifyers déterministes | Les verifyers détermissent garantissent la reproductibilité des résultats. |
-
----
 
 ## 8. Apprentissage
 
@@ -2121,8 +1986,6 @@ Pour chaque mission, Trinity enregistre :
 - **Famille d'hypothèses fécondes** : Dcouvrabilité, Efficacité, Charge cognitive.
 - **Verifier critique** : Tests utilisateurs synthétiques avec personas diversifiés.
 
----
-
 ## 9. Objectif final
 
 > **Quand GenOS ne sait pas quelle représentation du problème est correcte, Trinity fabrique trois mondes suffisamment différents pour que la réalité puisse les départager.**
@@ -2134,8 +1997,6 @@ Pour chaque mission, Trinity enregistre :
 > **Et si les trois échouent de la même manière : Trinity doit détecter la monoculture cognitive et générer une nouvelle expérience.**
 
 Trinity n'est pas un système qui trouve la bonne réponse. C'est un système qui sait quelle hypothèse est la plus résistante à l'expérimentation, et qui sait aussi quand aucune hypothèse ne résiste suffisamment.
-
----
 
 ## 10. Références scientifiques
 
@@ -2155,8 +2016,4 @@ Trinity n'est pas un système qui trouve la bonne réponse. C'est un système qu
 
 8. **Mixture-of-Agents (MoA)** — Jiang et al., *Mixture-of-Agents Enhances Large Language Model Capabilities*, arXiv:2406.04692. L'agrégation itérative de plusieurs LLMs améliore les capacités au-delà de chaque modèle individuel.
 
----
-
 *Document généré pour GenOS — Orchestration Topologies — Trinity v4.*
-
-
