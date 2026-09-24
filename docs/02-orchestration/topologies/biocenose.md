@@ -1,7 +1,7 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
 - **Statut** : Topologie disponible ; le service assemble une communauté et expose des évaluations et métriques. Le protocole épistémique complet décrit dans cette page n'est pas implémenté de bout en bout.
-- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, jugement communautaire persisté et règles d'arrêt, évaluation Pareto et métriques de diversité.
+- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, jugement communautaire persisté et règles d'arrêt, recrutement adaptatif sur déficit de rôles ou de fournisseurs, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-09-24
 
 Biocénose est une topologie spécialisée dans le cadre morphogénétique de GenOS : la
@@ -97,6 +97,11 @@ présentes dans `biocenoseService` sont les suivantes :
   escalade lorsque persistent un dissent critique ou une revue humaine requise. Le
   jugement est append-only et la session passe à `DECIDED` ou `ESCALATED` ; il ne produit
   pas un état « consensus » par défaut ;
+- `recruitForDiversityGap` compare les rôles de la session aux cibles déclarées et peut
+  persister des candidats qui remplissent les rôles manquants. Une cible explicite de
+  fournisseurs distincts peut aussi recruter un profil d'un fournisseur absent. La
+  sélection ne déclenche pas d'elle-même un appel à un fournisseur externe ni la création
+  d'un agent ; les profils candidats doivent être fournis par l'appelant ;
 - `evaluateMinorityEvidenceVeto` requiert un reçu de vérification fourni par un
   vérificateur de confiance avant de retourner `PROMOTION_BLOCKED`. C'est un évaluateur
   de politique ; il n'est pas encore branché sur la porte générale de promotion et ne
