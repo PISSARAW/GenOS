@@ -101,7 +101,7 @@ async function countHomeostasisContinuations(db, missionId, deviation) {
       `SELECT COUNT(*) AS n FROM continuation_queue
        WHERE json_extract(mission_json, '$.homeostasisMissionId') = ?
          AND json_extract(mission_json, '$.deviation') = ?
-         AND status IN ('dispatched', 'completed', 'failed')`,
+         AND status IN ('pending', 'dispatched', 'completed', 'failed')`,
       missionId, deviation
     );
     return row ? row.n : 0;
@@ -134,6 +134,22 @@ function persistHomeostasisAgent(db, agent, orchestratorId) {
   );
 }
 
+function capBudgetValue(value, fallback) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return fallback;
+  return Math.min(fallback, num);
+}
+
+function continuationBudget(parentBudget) {
+  const base = { tokens: 8000, events: 5, costUsd: 0.5 };
+  if (!parentBudget || typeof parentBudget !== 'object') return base;
+  return {
+    tokens: Math.floor(capBudgetValue(parentBudget.tokens, base.tokens)),
+    events: Math.floor(capBudgetValue(parentBudget.events, base.events)),
+    costUsd: capBudgetValue(parentBudget.costUsd, base.costUsd)
+  };
+}
+
 function buildRecoveryMission({ agent, mission, orchestratorId, queueJson = {} }) {
   const inheritedPolicy = queueJson?.executionPolicy || mission.executionPolicy || {};
   return {
@@ -141,7 +157,7 @@ function buildRecoveryMission({ agent, mission, orchestratorId, queueJson = {} }
     name: agent.name,
     role: agent.role,
     prompt: agent.prompt,
-    executionBudget: { tokens: 8000, events: 5, costUsd: 0.5 },
+    executionBudget: continuationBudget(mission.executionBudget),
     executionPolicy: inheritedPolicy,
     workspaceRoot: queueJson?.workspaceRoot || mission.workspaceRoot,
     workspaceId: agent.workspaceId,
@@ -182,22 +198,45 @@ async function findActiveContinuation({ db, missionId, deviation, fingerprint })
   }
 }
 
+async function findQueueRecordById(db, decisionId) {
+  try {
+    return await db.get('SELECT id, agent_id, status FROM continuation_queue WHERE id = ?', decisionId);
+  } catch {
+    return null;
+  }
+}
+
+function isConstraintError(err) {
+  if (!err) return false;
+  if (err.code === 'SQLITE_CONSTRAINT') return true;
+  return /constraint/i.test(String(err.message || ''));
+}
+
 async function persistQueueRecord({ db, decisionId, agent, orchestratorId, mission, fingerprint, deviation, priorRounds }) {
-  await db.run(
-    `INSERT INTO continuation_queue (id, agent_id, orchestrator_id, mission_json, status, attempts)
-     VALUES (?, ?, ?, ?, 'pending', ?)`,
-    decisionId, agent.id, orchestratorId,
-    JSON.stringify({
-      homeostasisMissionId: mission.id,
-      homeostasisFingerprint: fingerprint,
-      deviation,
-      executionPolicy: mission.executionPolicy || null,
-      workspaceRoot: mission.workspaceRoot || null,
-      allowedCommands: mission.allowedCommands || null,
-      toolLease: mission.toolLease || null,
-    }),
-    priorRounds + 1
-  );
+  const missionJson = JSON.stringify({
+    homeostasisMissionId: mission.id,
+    homeostasisFingerprint: fingerprint,
+    deviation,
+    executionPolicy: mission.executionPolicy || null,
+    workspaceRoot: mission.workspaceRoot || null,
+    allowedCommands: mission.allowedCommands || null,
+    toolLease: mission.toolLease || null,
+  });
+  try {
+    const res = await db.run(
+      `INSERT INTO continuation_queue (id, agent_id, orchestrator_id, mission_json, status, attempts)
+       VALUES (?, ?, ?, ?, 'pending', ?)
+       ON CONFLICT DO NOTHING`,
+      decisionId, agent.id, orchestratorId, missionJson, priorRounds + 1
+    );
+    return { inserted: (res?.changes ?? 1) > 0 };
+  } catch (err) {
+    if (isConstraintError(err)) {
+      const existing = await findQueueRecordById(db, decisionId);
+      if (existing) return { inserted: false };
+    }
+    throw err;
+  }
 }
 
 async function startContinuationRuntime({ db, agent, mission, orchestratorId, decisionId }) {
@@ -277,6 +316,10 @@ async function checkEarlyExit({ db, mission, organismState, evaluation, advice, 
   return null;
 }
 
+function idempotentContinuation({ existing, deviation, decisionId, priorRounds }) {
+  return { targetAgentId: existing?.agent_id || null, deviation, preferredResponse: null, decisionId: existing?.id || decisionId, continuationRound: priorRounds, exhausted: false, idempotent: true };
+}
+
 async function dispatchHomeostasisContinuation({ db, mission, organismState, evaluation }) {
   const orchestratorId = mission.orchestratorId;
   const deviation = classifyDeviation(evaluation);
@@ -286,12 +329,18 @@ async function dispatchHomeostasisContinuation({ db, mission, organismState, eva
   const earlyExit = await checkEarlyExit({ db, mission, organismState, evaluation, advice, fingerprint, priorRounds });
   if (earlyExit) return earlyExit;
   const decisionId = continuationDecisionId({ missionId: mission.id, deviation, fingerprint, round: priorRounds });
+  const existingClaim = await findQueueRecordById(db, decisionId);
+  if (existingClaim) return idempotentContinuation({ existing: existingClaim, deviation, decisionId, priorRounds });
   const prompt = buildPrompt(mission, deviation, evaluation);
   const orchCtx = await getOrchContext(db, orchestratorId);
   const agent = buildAgentValues(deviation, advice, orchCtx);
   agent.prompt = prompt;
   await persistHomeostasisAgent(db, agent, orchestratorId);
-  await persistQueueRecord({ db, decisionId, agent, orchestratorId, mission, fingerprint, deviation, priorRounds });
+  const queueWrite = await persistQueueRecord({ db, decisionId, agent, orchestratorId, mission, fingerprint, deviation, priorRounds });
+  if (!queueWrite.inserted) {
+    const existing = await findQueueRecordById(db, decisionId);
+    return idempotentContinuation({ existing, deviation, decisionId, priorRounds });
+  }
   const started = await startContinuationRuntime({ db, agent, mission, orchestratorId, decisionId });
   if (!started) {
     return { targetAgentId: agent.id, deviation, decisionId, continuationRound: priorRounds + 1, exhausted: false, startFailed: true };

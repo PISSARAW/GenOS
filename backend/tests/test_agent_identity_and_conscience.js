@@ -51,13 +51,21 @@ async function runTests() {
   console.log(`   [OK] 4 erreurs -> Dissonance = ${state.dissonanceLevel}, Harmonie = ${step1.harmony}%`);
 
   // Moment Eurêka diminue la dissonance par deux et augmente le budget
-  agentConscience.triggerEureka(state);
+  // (Eurêka exige une preuve réelle : sans evidence, no-op).
+  agentConscience.triggerEureka(state, { evidence: { breakthrough: 'test_insight' } });
   assert.strictEqual(state.eurekaMoments, 1);
   assert.strictEqual(state.dissonanceLevel, 5.0);
   console.log(`   [OK] Eurêka ! Dissonance réduite à = ${state.dissonanceLevel}, Eurêkas = ${state.eurekaMoments}`);
 
+  // Eurêka sans preuve : refusé (pas de dissonance gratuite)
+  const noEvidence = agentConscience.createConscienceState({ dissonanceLevel: 8 });
+  agentConscience.triggerEureka(noEvidence);
+  assert.strictEqual(noEvidence.eurekaMoments, 0);
+  assert.strictEqual(noEvidence.dissonanceLevel, 8);
+  console.log(`   [OK] Eurêka sans preuve refusé (no-op).`);
+
   const rateLimited = agentConscience.createConscienceState({ dissonanceLevel: 32 });
-  for (let index = 0; index < 4; index += 1) agentConscience.triggerEureka(rateLimited, { now: 1000 + index, limit: 3, windowMs: 60000 });
+  for (let index = 0; index < 4; index += 1) agentConscience.triggerEureka(rateLimited, { now: 1000 + index, limit: 3, windowMs: 60000, evidence: { step: index } });
   assert.strictEqual(rateLimited.eurekaMoments, 3);
   console.log(`   [OK] Limite Eureka par fenêtre respectée (${rateLimited.eurekaMoments}/3).`);
 
@@ -134,8 +142,8 @@ async function runTests() {
   assert.strictEqual(reloadedState.revision, 1);
   assert.strictEqual(reloadedState.dissonanceLevel, 5.0);
 
-  // Deuxième transition : Eurêka
-  agentConscience.triggerEureka(reloadedState);
+  // Deuxième transition : Eurêka (avec preuve)
+  agentConscience.triggerEureka(reloadedState, { evidence: { breakthrough: 'persisted_insight' } });
   await agentConscience.persistConscienceState(db, agentId, reloadedState, { reason: 'eureka_breakthrough' });
   assert.strictEqual(reloadedState.revision, 2);
   assert.strictEqual(reloadedState.dissonanceLevel, 2.5);

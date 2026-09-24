@@ -88,7 +88,9 @@ async function runSynapticIntegritySuite() {
   check(hasExcitatory, 'GraphRAG successfully propagated across excitatory glutamate synapse');
   check(!hasGaba, 'GraphRAG strictly excluded GABAergic inhibitory synapse from spreading activation');
 
-  const searchInhib = await vectorMemory.searchMemory('Deprecate old vector algorithm', { limit: 5, ownerId: testAgent }, db);
+  // includeInhibited:true : les mémoires inhibées restent observables avec
+  // leur flag (sinon le filtre GABA les exclut — c'est son rôle).
+  const searchInhib = await vectorMemory.searchMemory('Deprecate old vector algorithm', { limit: 5, ownerId: testAgent, includeInhibited: true }, db);
   const isTargetInhibited = searchInhib.allScoredExperiences.some(e => e.id === idTargetGaba && e.inhibitorySignal === 'active');
   check(isTargetInhibited, 'GABA synapse with positive conductance triggers active inhibitorySignal');
 
@@ -160,7 +162,7 @@ async function runSynapticIntegritySuite() {
   check(ltpAfter && ltpAfter.weight > 1.0, 'Active synapse underwent LTP weight potentiation during sleep');
   check(ltpAfter && ltpAfter.c3_opsonization === 0.0 && ltpAfter.cd47_expression > 0.2, 'Active synapse cleared C3 opsonization and upregulated CD47 protection');
   check(ltdAfter && ltdAfter.weight < 1.0, 'Inactive synapse underwent LTD synaptic depression');
-  check(ltpAfter && ltpAfter.activity_history === 0 && ltdAfter && ltdAfter.activity_history === 0, 'Activity history was reset to 0 across all synapses after consolidation');
+  check(ltpAfter && ltpAfter.activity_history === 2 && ltdAfter && ltdAfter.activity_history === 0, 'Activity history decayed (halved, not brutally reset) after consolidation');
 
   // -------------------------------------------------------------
   // Point 5: Synaptic Vesicles & Prompt Force Injection

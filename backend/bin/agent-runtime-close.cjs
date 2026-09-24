@@ -61,7 +61,8 @@ function handleBudgetStop(ctx, budgetStopped) {
 async function persistConscience(ctx, code, missingTools) {
   const { db, agentConscience, conscienceState, pendingConscienceOp, mission } = ctx;
   if (code === 0 && !missingTools.length) {
-    agentConscience.triggerEureka(conscienceState);
+    // Eurêka adossé à la complétion mission (preuve réelle), pas gratuit.
+    agentConscience.triggerEureka(conscienceState, { evidence: { missionCompleted: true, agentId: mission.agentId } });
   }
   try {
     await pendingConscienceOp;

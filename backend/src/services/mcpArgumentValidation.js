@@ -175,8 +175,30 @@ function validateString(value, field, required = false) {
   return null;
 }
 
+function bioRequiredArgs(toolName) {
+  try {
+    const required = require('./mcpBioTools/handlers').HANDLER_REQUIRED;
+    if (required && Array.isArray(required[toolName])) return required[toolName];
+  } catch (_) {}
+  return null;
+}
+
 function validateToolArguments(toolName, args = {}) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return invalid('args', 'must be an object.');
+  // Validation générique: si le handler déclare required[], chaque champ doit
+  // être fourni (non vide). Rejet => invalid_args, jamais de défaut silencieux.
+  const required = bioRequiredArgs(toolName);
+  if (required) {
+    for (const field of required) {
+      // 'a|b' = au moins l'un des deux doit être fourni (alias acceptés).
+      const alternatives = String(field).split('|');
+      const provided = alternatives.some((name) => {
+        const value = args[name];
+        return value !== undefined && value !== null && String(value).trim() !== '';
+      });
+      if (!provided) return invalid(alternatives[0], 'is required.');
+    }
+  }
 
   if (toolName === 'genos_synaptic_stdp_update') {
     const aliasGroups = [

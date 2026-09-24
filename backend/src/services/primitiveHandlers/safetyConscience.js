@@ -54,7 +54,12 @@ async function conscienceEureka(context = {}) {
   const agentId = context.targetId || context.agentId || 'strategy_agent';
   const state = await agentConscience.loadConscienceState(db, agentId);
 
-  agentConscience.triggerEureka(state);
+  const before = state.eurekaMoments;
+  agentConscience.triggerEureka(state, {
+    evidence: context.evidence !== undefined ? context.evidence : (context.proof !== undefined ? context.proof : context.successEvidence),
+    validated: context.validated === true
+  });
+  const granted = state.eurekaMoments > before;
   try {
     await agentConscience.persistConscienceState(db, agentId, state, { reason: 'primitive_eureka' });
   } catch (_) {}
@@ -73,6 +78,7 @@ async function conscienceEureka(context = {}) {
     agentId,
     dissonanceLevel: state.dissonanceLevel,
     eurekaMoments: state.eurekaMoments,
+    eurekaGranted: granted,
     currentBudget: state.currentBudget
   };
 }

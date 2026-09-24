@@ -1,4 +1,5 @@
 const config = require('../../config/orchestratorConfig');
+const { hasEvidenceItem } = require('./evidenceHelpers');
 
 /**
  * Dossier validation: worker coverage, report coherence, and synthesis
@@ -31,17 +32,27 @@ function collectEmptyDossiers(dossiers, expected) {
   return empty;
 }
 
+function missingDossierError(missing) {
+  const error = new Error(`Worker evidence is incomplete. Missing dossiers for: ${missing.join(', ')}.`);
+  error.code = 'INCOMPLETE_WORKER_EVIDENCE';
+  error.missingWorkerIds = missing;
+  error.emptyWorkerIds = [];
+  return error;
+}
+
 function validateWorkerDossiers(dossiers, workers, options = {}) {
   const expected = new Set();
   const actual = new Set();
   const coveredBranches = new Set();
   for (const worker of workers) expected.add(worker.agentId);
-  for (const dossier of dossiers) {
+  const realDossiers = Array.isArray(dossiers) ? dossiers : [];
+  if (expected.size > 0 && realDossiers.length === 0) throw missingDossierError([...expected]);
+  for (const dossier of realDossiers) {
     actual.add(dossier.workerId);
     if (dossier.assignedBranch) coveredBranches.add(dossier.assignedBranch);
   }
   const missing = collectMissingWorkers(workers, actual, coveredBranches);
-  const empty = collectEmptyDossiers(dossiers, expected);
+  const empty = collectEmptyDossiers(realDossiers, expected);
   if (missing.length || empty.length) {
     const error = new Error(`Worker evidence is incomplete. Missing: ${missing.join(', ') || 'none'}; unusable: ${empty.join(', ') || 'none'}.`);
     error.code = 'INCOMPLETE_WORKER_EVIDENCE';
@@ -52,9 +63,14 @@ function validateWorkerDossiers(dossiers, workers, options = {}) {
   return true;
 }
 
+function claimHasUsableEvidence(claim) {
+  if (!claim || !Array.isArray(claim.evidence)) return false;
+  return claim.evidence.some(hasEvidenceItem);
+}
+
 function hasUnsubstantiatedClaim(claims) {
   for (const claim of claims) {
-    if (!claim || !Array.isArray(claim.evidence) || claim.evidence.length === 0) return true;
+    if (!claimHasUsableEvidence(claim)) return true;
   }
   return false;
 }
@@ -199,23 +215,25 @@ function incompleteInfluenceError(groups) {
 function validateDossierInfluence(report, workerIds, options = {}) {
   const entries = readInfluenceEntries(report);
   const dossiers = Array.isArray(options.dossiers) ? options.dossiers : [];
+  const ids = Array.isArray(workerIds) ? workerIds : [];
+  if (ids.length > 0 && dossiers.length === 0) throw missingDossierError(ids);
   const claimsByWorker = buildClaimsByWorker(dossiers);
   const byWorker = new Map();
   for (const entry of entries) byWorker.set(entry.workerId, entry);
   const missing = [];
-  for (const workerId of workerIds) {
+  for (const workerId of ids) {
     if (!byWorker.has(workerId)) missing.push(workerId);
   }
-  const isLargeFleet = isLargeDossierFleet(workerIds, options);
+  const isLargeFleet = isLargeDossierFleet(ids, options);
   const invalid = isLargeFleet
     ? collectInvalidFromEntries(entries, claimsByWorker)
-    : collectInvalidFromWorkers(workerIds, byWorker, claimsByWorker);
-  const unexpected = collectUnexpected(entries, workerIds);
+    : collectInvalidFromWorkers(ids, byWorker, claimsByWorker);
+  const unexpected = collectUnexpected(entries, ids);
   const duplicate = collectDuplicates(entries);
   const groups = {
     isLargeFleet,
     entryCount: entries.length,
-    workerCount: workerIds.length,
+    workerCount: ids.length,
     missing,
     invalid,
     unexpected,

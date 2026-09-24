@@ -12,7 +12,7 @@ pub mod paf;
 pub mod sign_stimulus;
 
 pub use innate_releasing::{HormoneState, InnateReleasingMechanism, TriggerEvaluation};
-pub use paf::{ExecutionContext, FixedActionPattern, InstinctOutcome, MotorStep, is_supported_action};
+pub use paf::{ExecutionContext, FixedActionPattern, InstinctOutcome, MotorStep, is_supported_action, MAX_CHAIN_DEPTH};
 pub use sign_stimulus::{Modality, SignStimulus, StimulusField};
 
 use genos_genome::Gene;
@@ -68,8 +68,22 @@ impl InstinctProgram {
         gene
     }
 
-    /// Déclenche et exécute le PAF, ou explique le non-déclenchement / veto.
+    /// Déclenche et valide le PAF, ou explique le non-déclenchement / veto.
+    ///
+    /// Ne retourne JAMAIS Complete : la validation du plan donne Pending, et
+    /// seule l'exécution réelle pas-à-pas par l'executor externe (avec
+    /// receipts) convertit Pending en Complete.
     pub fn run(&self, ctx: &InstinctRunContext) -> InstinctOutcome {
+        // Anti-boucle : une chaîne de redéclenchements trop profonde est bloquée.
+        if ctx.execution.chain_depth >= paf::MAX_CHAIN_DEPTH {
+            return InstinctOutcome::Blocked {
+                reason: format!(
+                    "Instinct chain depth {} exceeds anti-loop bound {}",
+                    ctx.execution.chain_depth,
+                    paf::MAX_CHAIN_DEPTH
+                ),
+            };
+        }
         let evaluation = self.releasing_mechanism.evaluate(ctx.field, ctx.hormones);
         if !evaluation.released {
             return InstinctOutcome::NotTriggered {
@@ -91,25 +105,26 @@ impl InstinctProgram {
                 ),
             };
         }
-        let mut executed = 0;
+        let mut authorized = 0;
         for (index, step) in self.paf.steps.iter().enumerate() {
-            let authorized = ctx.execution.is_tool_authorized(&step.tool);
+            let is_authorized = ctx.execution.is_tool_authorized(&step.tool);
             if !is_supported_action(&step.action, &step.tool) {
                 return InstinctOutcome::Interrupt {
                     at_step: index,
                     reason: format!("Unsupported action/tool pair: {}::{}", step.tool, step.action),
                 };
             }
-            if !authorized {
+            if !is_authorized {
                 return InstinctOutcome::Interrupt {
                     at_step: index,
                     reason: format!("Tool not authorized: {}", step.tool),
                 };
             }
-            executed += 1;
+            authorized += 1;
         }
-        InstinctOutcome::Complete {
-            steps_executed: executed,
+        // Plan validé : en attente d'exécution réelle (executor + receipts).
+        InstinctOutcome::Pending {
+            steps_ready: authorized,
             gain: evaluation.execution_gain,
         }
     }

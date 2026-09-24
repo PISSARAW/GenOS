@@ -31,7 +31,9 @@ function conservationQuality(hardParts, softParts) {
   const hard = Array.isArray(hardParts) ? hardParts.length : 0;
   const soft = Array.isArray(softParts) ? softParts.length : 0;
   const total = hard + soft;
-  return total === 0 ? DEFAULT_QUALITY : hard / total;
+  // Vide = rien de conservé : qualité 0, pas 1.0 (un fossile vide n'est
+  // pas une conservation parfaite).
+  return total === 0 ? 0 : hard / total;
 }
 
 // JSON canonique stable : clés triées récursivement, aligné sur serde_json (BTreeMap).
@@ -69,6 +71,16 @@ function verifyFossilIntegrity(record) {
 function stratumOf(recordedAt) {
   const day = String(recordedAt || '').split('T')[0].trim();
   return day ? `stratum-${day}` : 'stratum-unknown';
+}
+
+// Une strate globale mélangerait les fossiles de tous les tenants dans un
+// seul compteur (conflit ON CONFLICT). Scopée par org/projet quand présents,
+// globale sinon (rétrocompatible : `stratum-<jour>`).
+function scopedStratum(base, organizationId, projectId) {
+  const org = String(organizationId || '').trim();
+  const proj = String(projectId || '').trim();
+  if (!org && !proj) return base;
+  return `${base}::${org || '-'}::${proj || '-'}`;
 }
 
 function decodePhenotype(markers) {
@@ -110,19 +122,23 @@ function buildFossilRecord(input = {}) {
   const lineageId = coalesce(input.lineageId, input.lineage_id);
   if (!lineageId) throw new Error('lineageId required for fossilization');
   const recordedAt = coalesce(input.recordedAt, new Date().toISOString());
+  const organizationId = coalesce(input.organizationId, input.organization_id, null);
+  const projectId = coalesce(input.projectId, input.project_id, null);
   const record = {
     fossil_id: coalesce(input.fossilId, crypto.randomUUID()),
     extinct_lineage_id: String(lineageId),
     reason: coalesce(input.reason, 'Stratigraphic extinction event'),
     recorded_at: recordedAt,
     mode: normalizeMode(input.mode),
-    stratum_id: coalesce(input.stratumId, stratumOf(recordedAt)),
+    // Strate explicite respectée telle quelle ; sinon strate dérivée scopée.
+    stratum_id: coalesce(input.stratumId, input.stratum_id, null)
+      || scopedStratum(stratumOf(recordedAt), organizationId, projectId),
     hard_parts: asArray(input.hardParts),
     soft_parts_lost: asArray(input.softPartsLost),
     phenotype_markers: asArray(input.phenotypeMarkers),
     mineral_payload: input.mineralPayload === undefined ? null : input.mineralPayload,
-    organization_id: coalesce(input.organizationId, input.organization_id, null),
-    project_id: coalesce(input.projectId, input.project_id, null)
+    organization_id: organizationId,
+    project_id: projectId
   };
   record.conservation_quality = conservationQuality(record.hard_parts, record.soft_parts_lost);
   record.payload_hash = computePayloadHash(record);
@@ -191,14 +207,19 @@ async function recordFossil(input = {}, db, options = {}) {
   if (!lineageId) {
     return { success: false, error: 'lineageId required for fossilization' };
   }
+  // Sans base, rien n'est indexé ni vérifiable : success:false explicite
+  // (un artefact fichier seul n'est pas une fossilisation).
+  if (!db) {
+    return { success: false, error: 'Database required: fossil not indexed.', indexed: false };
+  }
   const record = buildFossilRecord(input);
-  if (db) await persistFossil(db, record);
+  await persistFossil(db, record);
   if (options.writeArtifact !== false && process.env.GENOS_FOSSIL_ARTIFACT !== '0') {
     try {
       writeFossilArtifact(record);
     } catch (_) { /* l'artefact opérateur est best-effort, l'index DB prime */ }
   }
-  return { success: true, indexed: Boolean(db), fossil: record };
+  return { success: true, indexed: true, fossil: record };
 }
 
 function scopeClauses(scope = {}, alias = '') {
@@ -251,6 +272,8 @@ async function listFossils(db, options = {}) {
 }
 
 async function listStrata(db, options = {}) {
+  // Compteur cohérent : recompté depuis fossils (source de vérité), pas
+  // depuis le compteur fossil_strata qui peut diverger (archives best-effort).
   const scope = scopeClauses(options, 'f');
   return db.all(
     `SELECT f.stratum_id, MIN(f.recorded_at) AS deposited_at,
@@ -284,11 +307,24 @@ async function excavateFossil(db, fossilId, options = {}) {
   const row = await db.get(`SELECT * FROM fossils WHERE fossil_id = ?${scope.sql ? scope.sql.replace(' WHERE ', ' AND ') : ''}`, fossilId, ...scope.params);
   if (!row) return { success: false, error: 'Fossil not found in stratigraphic registry.' };
   const record = fossilFromRow(row);
+  const integrity_verified = verifyFossilIntegrity(record);
+  // Corrompu = inexploitable : success:false explicite, pas de lecture
+  // présentée comme valide.
+  if (!integrity_verified) {
+    return {
+      success: false,
+      read_only: true,
+      resurrection: 'forbidden',
+      integrity_verified: false,
+      error: 'Fossil integrity check failed: specimen is corrupted.',
+      specimen: record
+    };
+  }
   return {
     success: true,
     read_only: true,
     resurrection: 'forbidden',
-    integrity_verified: verifyFossilIntegrity(record),
+    integrity_verified,
     reading: decodePhenotype(record.phenotype_markers),
     specimen: record
   };

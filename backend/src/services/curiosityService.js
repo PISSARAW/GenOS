@@ -94,6 +94,16 @@ function learningProgressScore(domainRecord) {
   return clamp01(rate * remainingPotential);
 }
 
+const LP_GATE = 0.01;
+
+function learningProgressGate(domainRecord, lp) {
+  const history = Array.isArray(domainRecord.errorHistory) ? domainRecord.errorHistory : [];
+  // Sans historique suffisant, la nouveauté décide (pas de blocage).
+  if (history.length < 2) return true;
+  // Avec observations et LP nul: domaine non-apprenable (noise TV) → bloqué.
+  return lp > LP_GATE;
+}
+
 // ---------- affordance uncertainty ----------
 
 function affordanceUncertaintyScore(domainRecord) {
@@ -123,6 +133,11 @@ function computeCuriosity(domainRecord, options = {}) {
     Number(options.predictionVariance ?? domainRecord.predictionVariance ?? 0)
   );
   const LP = learningProgressScore(domainRecord);
+  // Gate LP réel: sans progrès démontré après observations, curiosité nulle.
+  if (!learningProgressGate(domainRecord, LP)) return 0;
+  // wL architecturalement dominant: les poids appelants ne peuvent pas le
+  // rétrograder sous les autres termes (Ten et al., 2021).
+  const dominantLP = Math.max(wLP, wN, wIG, wA);
   // L'incertitude d'affordance n'est pertinente que si le domaine est
   // apprenable (LP > 0) : sinon on risque d'explorer des noise TV.
   const A = LP > 0.01
@@ -131,7 +146,7 @@ function computeCuriosity(domainRecord, options = {}) {
   const cost = clamp01(Number(options.cost ?? domainRecord.cost ?? 0));
   const risk = clamp01(Number(options.risk ?? domainRecord.risk ?? 0));
 
-  const raw = N * wN + IG * wIG + LP * wLP + A * wA - cost * wC - risk * wR;
+  const raw = N * wN + IG * wIG + LP * dominantLP + A * wA - cost * wC - risk * wR;
   return Math.max(0, Math.min(1, raw));
 }
 

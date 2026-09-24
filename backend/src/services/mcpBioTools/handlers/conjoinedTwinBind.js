@@ -24,18 +24,27 @@ function getPair(pairId) {
 
 async function handleConjoinedTwinBind(args = {}, run) {
   const action = args.action || 'status';
-  const pairId = args.pair_id || `conjoined-pair-${Date.now()}`;
+  // pair_id obligatoire: aucun défaut Date.now() silencieux (rejet invalid_args).
+  if (args.pair_id === undefined || args.pair_id === null || String(args.pair_id).trim() === '') {
+    return { configured: true, success: false, status: 'invalid_args', error: 'pair_id: is required.' };
+  }
+  const pairId = args.pair_id;
   const twinA = args.twin_a || 'agent-core-A';
   const twinB = args.twin_b || 'agent-core-B';
   const initialPool = Number(args.shared_tokens) || 50000;
   const organs = Array.isArray(args.shared_organs) ? args.shared_organs : ['shared_token_pool', 'thalamic_sensory_bridge', 'atomic_io_lock'];
 
   let cliOutput = null;
+  let cliFailed = false;
+  let cliErrorText = null;
   if (typeof run === 'function') {
     try {
       const out = run(`genos biomimicry bio-feature --feature conjoined_twin --action ${quoteCliArg(action)} --param pair_id=${quoteCliArg(pairId)}`);
       cliOutput = out ? out.toString() : null;
-    } catch (_) {}
+    } catch (cliProbeError) { cliFailed = true; cliErrorText = cliProbeError && cliProbeError.message ? cliProbeError.message : String(cliProbeError); }
+  }
+  if (cliFailed) {
+    return { configured: true, success: false, status: 'tool_error', error: cliErrorText };
   }
 
   const pair = getPair(pairId);

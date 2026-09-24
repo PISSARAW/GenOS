@@ -35,11 +35,17 @@ L'agent a terminé la tâche.
 "statement": "Base de données synchronisée"
 `;
   const res2 = immune.chaperoneRepairJson(mutatedText);
-  assert.strictEqual(res2.ok, true, 'La sortie fragmentée doit être restaurée par heuristique');
+  // L'heuristique ne promeut JAMAIS seule : ok:false + heuristic:true,
+  // brouillon conservé pour validation explicite (allowHeuristic + validateur).
+  assert.strictEqual(res2.ok, false, 'La reconstruction heuristique exige une validation explicite');
   assert.strictEqual(res2.heuristic, true, 'L indicateur heuristic doit être true');
   assert.strictEqual(res2.data.outcome, 'success');
   assert.ok(res2.data.claims.length >= 2, 'Les claims doivent être reconstituées');
-  console.log('-> Cas 1.2 Validé : Reconstruction heuristique de la protéine Chaperon.');
+  const res2validated = immune.chaperoneRepairJson(mutatedText, (data) => {
+    if (!Array.isArray(data.claims)) throw new Error('claims doit être un tableau');
+  }, { allowHeuristic: true });
+  assert.strictEqual(res2validated.ok, true, 'Heuristique + validateur passant + opt-in explicite => ok:true');
+  console.log('-> Cas 1.2 Validé : Reconstruction heuristique non promue sans validation.');
 
   console.log('=== TEST 2 : Phagocytose Codex & Signal de Douleur Inflammatoire ===');
   // Cas 2.1 : Rapport valide via phagocytose

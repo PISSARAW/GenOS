@@ -60,7 +60,8 @@ const PATHOLOGY_DEFINITIONS = {
     detect: (state) => state.inflammatoryIndex > 0.8,
     severity: (state) => clamp01(state.inflammatoryIndex),
     evidence: (state) => ['inflammatory_index:' + state.inflammatoryIndex.toFixed(2)],
-    therapy: 'immune_stimulation', minConfidence: 0.4,
+    // Un orage cytokinique exige un immunosuppresseur (jamais de stimulation).
+    therapy: 'immunosuppressive_wash', minConfidence: 0.4,
   },
   quarantine_breach: {
     detect: (state) => state.pathogenBurden > 0.8 && state.immuneTiter < 0.3,
@@ -76,8 +77,18 @@ const PATHOLOGY_DEFINITIONS = {
   },
 };
 
+async function loadScanState(db, agentId, context) {
+  if (context && Object.keys(context).length > 0) {
+    return refreshClinicalState(db, agentId, context);
+  }
+  return getClinicalState(db, agentId);
+}
+
 async function surveillanceScan(db, agentId, context = {}) {
-  const state = await refreshClinicalState(db, agentId, context);
+  // Seuils atteignables: sans observations, relit l'état persisté au lieu de
+  // réinitialiser (refreshClinicalState avec contexte vide remettrait les
+  // charges à zéro et aucun seuil ne pourrait jamais se déclencher).
+  const state = await loadScanState(db, agentId, context);
   if (!state) return { state, detections: [], quarantine: false };
 
   const detections = [];

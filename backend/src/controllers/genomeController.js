@@ -196,6 +196,19 @@ async function setGenomePolicy(req, res, next) {
 async function operateGenome(req, res, next) {
   try {
     const db = await getDatabase();
+    // speciate/graft passent par la gate: rôle admin exigé + audit log.
+    if (req.params.operation === 'speciate' || req.params.operation === 'graft') {
+      const role = req.user && req.user.role;
+      if (role !== 'admin') {
+        return res.status(403).json({ error: { code: 'GENOME_GATE_FORBIDDEN', message: 'speciate/graft require admin role.' } });
+      }
+      await db.run(
+        'INSERT INTO audit_logs (actor, agent_id, action, resource, decision, reason, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        (req.user && req.user.id) || 'unknown', null, 'GENOME_GATED_OPERATION',
+        `genomes/${req.params.id}`, 'allow', req.params.operation,
+        JSON.stringify({ operation: req.params.operation, genomeId: req.params.id })
+      );
+    }
     const params = Object.assign({}, req.body || {}, { genomeId: req.params.id });
     const result = await operations.runOperation(db, {
       operation: req.params.operation,

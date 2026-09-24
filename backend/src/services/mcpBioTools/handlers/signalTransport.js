@@ -16,6 +16,9 @@ const {
 
 async function handleSignalPublish(args, run) {
   const { signal_type, signal_data, topic, ttl_ms, signal_id, orchestrator_id } = args || {};
+  if (signal_type === undefined || signal_type === null || String(signal_type).trim() === '') {
+    return { configured: true, success: false, status: 'invalid_args', error: 'signal_type: is required.', transport: 'zero_text' };
+  }
   const result = await publishSignal({
     signalType: signal_type,
     signalData: signal_data || {},
@@ -48,6 +51,9 @@ function handleSignalPublishError(e) {
 
 async function handleSignalRead(args, run) {
   const { agent_id, since, limit } = args || {};
+  if (agent_id === undefined || agent_id === null || String(agent_id).trim() === '') {
+    return { configured: true, success: false, status: 'invalid_args', error: 'agent_id: is required.', transport: 'zero_text' };
+  }
   const signals = await readSignalsForAgent(
     agent_id || 'unknown',
     since || null,
@@ -143,6 +149,9 @@ function handleSignalElectrocyteVoteError(e) {
 
 async function handleSignalChemotacticFollow(args, run) {
   const { agent_id, locus_hash, since } = args || {};
+  if (agent_id === undefined || agent_id === null || String(agent_id).trim() === '') {
+    return { configured: true, success: false, status: 'invalid_args', error: 'agent_id: is required.', transport: 'zero_text' };
+  }
   const result = await chemotacticFollow(
     agent_id || 'unknown',
     locus_hash || '',

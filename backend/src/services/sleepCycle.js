@@ -13,6 +13,7 @@
 const { withTransaction, getDatabase } = require('../db/index');
 const synapticTransmission = require('./synapticTransmissionService');
 const proceduralConsolidation = require('./proceduralConsolidationService');
+const fossilization = require('./fossilizationService');
 
 /**
  * Fetch unconsolidated episodic memories for procedural consolidation
@@ -64,17 +65,23 @@ function buildTrajectoryEpisodes(sessions) {
 }
 
 /**
- * Store a golden path result in genome_decisions
+ * Store a golden path result in genome_decisions (dédupliqué sur contenu).
  */
 async function storeGoldenPath(tx, result, opts) {
   const crypto = require('crypto');
-  const gpId = crypto.randomUUID();
   const title = `Golden Path (${result.path.length} steps, ${Math.round((result.provenance?.successRate || 0) * 100)}% success)`;
   const content = JSON.stringify({
     path: result.path,
     provenance: result.provenance,
     transitionContrast: result.transitionContrast,
   });
+  // Dédup : le même chemin consolidé deux fois ne crée qu'une entrée.
+  const duplicate = await tx.get(
+    `SELECT id FROM genome_decisions WHERE category = 'golden_path' AND content = ? LIMIT 1`,
+    content
+  ).catch(() => null);
+  if (duplicate) return duplicate.id;
+  const gpId = crypto.randomUUID();
   await tx.run(
     `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight, organization_id, project_id)
      VALUES (?, ?, ?, ?, 'golden_path', 1.5, ?, ?)`,
@@ -170,25 +177,60 @@ async function pruneDeadSynapses(tx, opts) {
 }
 
 async function resetActivityHistory(tx) {
-  await tx.run('UPDATE memory_synapses SET activity_history = 0');
+  // Decay, pas reset brutal : diviser par deux préserve la trace d'activité
+  // récente (LTP/LTD différentielle du cycle suivant) au lieu d'amnésier.
+  await tx.run('UPDATE memory_synapses SET activity_history = CAST(activity_history / 2 AS INTEGER)');
+}
+
+async function archiveDecisions(tx, doomedIds) {
+  // Archive terminale vers le registre fossile AVANT suppression : la prune
+  // reste excavable en lecture seule. Passe par fossilizationService pour
+  // garder le compteur fossil_strata cohérent avec la table fossils.
+  if (doomedIds.length === 0) return 0;
+  const placeholders = doomedIds.map(() => '?').join(',');
+  let archived = 0;
+  try {
+    const rows = await tx.all(
+      `SELECT id, title, content, category, created_by, organization_id, project_id
+         FROM genome_decisions WHERE id IN (${placeholders})`,
+      ...doomedIds
+    );
+    for (const row of rows) {
+      try {
+        const record = fossilization.buildFossilRecord({
+          fossilId: `fossil-pruned-${row.id}`,
+          lineageId: row.id,
+          reason: 'sleep-cycle pruning (apoptosis)',
+          mode: 'trace',
+          mineralPayload: { title: row.title, category: row.category, created_by: row.created_by },
+          organizationId: row.organization_id || null,
+          projectId: row.project_id || null
+        });
+        await fossilization.persistFossil(tx, record);
+        archived += 1;
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return archived;
 }
 
 async function pruneOrphanedDecisions(tx, opts) {
   const { orphanWeightThreshold, organizationId, projectId } = opts;
   const doomed = await tx.all(`
-    SELECT g.id 
+    SELECT g.id
     FROM genome_decisions g
     LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
     WHERE g.synaptic_weight < ?
       AND (g.category IS NULL OR g.category NOT IN ('core', 'golden_path', 'architecture', 'invariant'))
-      AND (g.organization_id = ? OR g.organization_id IS NULL)
-      AND (g.project_id = ? OR g.project_id IS NULL)
+      AND (g.organization_id = ? OR (g.organization_id IS NULL AND ? IS NULL))
+      AND (g.project_id = ? OR (g.project_id IS NULL AND ? IS NULL))
     GROUP BY g.id
     HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
-  `, orphanWeightThreshold, organizationId || null, projectId || null);
+  `, orphanWeightThreshold, organizationId || null, organizationId || null, projectId || null, projectId || null);
 
   const doomedIds = doomed.map(d => d.id);
   if (doomedIds.length > 0) {
+    await archiveDecisions(tx, doomedIds);
     const placeholders = doomedIds.map(() => '?').join(',');
     await tx.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, doomedIds);
   }
@@ -197,12 +239,32 @@ async function pruneOrphanedDecisions(tx, opts) {
 
 async function pruneTrajectories(tx, trajectoryRetentionDays) {
   try {
-    const res = await tx.run(`
-      DELETE FROM trajectories 
-      WHERE is_exceptional = 0 
-        AND status = 'rejected' 
+    const doomed = await tx.all(`
+      SELECT id, status, created_at FROM trajectories
+      WHERE is_exceptional = 0
+        AND status = 'rejected'
         AND datetime(created_at) < datetime('now', '-' || ? || ' days')
     `, trajectoryRetentionDays);
+    if (doomed.length === 0) return 0;
+    // Archive vers le fossile avant suppression (best-effort, via le
+    // service canonique pour garder fossil_strata cohérent).
+    for (const row of doomed) {
+      try {
+        const record = fossilization.buildFossilRecord({
+          fossilId: `fossil-traj-${row.id}`,
+          lineageId: String(row.id),
+          reason: 'sleep-cycle trajectory pruning',
+          mode: 'trace',
+          mineralPayload: { status: row.status, created_at: row.created_at }
+        });
+        await fossilization.persistFossil(tx, record);
+      } catch (_) {}
+    }
+    const placeholders = doomed.map(() => '?').join(',');
+    const res = await tx.run(
+      `DELETE FROM trajectories WHERE id IN (${placeholders})`,
+      doomed.map(r => r.id)
+    );
     return res?.changes || 0;
   } catch (_) { return 0; }
 }

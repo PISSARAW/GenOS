@@ -15,6 +15,9 @@ const crypto = require('node:crypto');
 
 const SEUIL_RAPPEL_AUTOMATIQUE = 0.7;
 const SEUIL_SIGNATURE_FAIBLE = 0.4;
+// Borne LRU : la mémoire immunitaire ne croît pas sans limite (éviction
+// plus faible affinité / plus ancienne au-delà).
+const MAX_MEMORY_ENTRIES = 1000;
 
 function signatureFrom(entry) {
   if (typeof entry === 'string') return stableFingerprint(entry);
@@ -36,7 +39,9 @@ function antigenSignature(antigen) {
 
 function stableFingerprint(text) {
   const normalized = String(text || '').normalize('NFC').trim();
-  return crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 16);
+  // 128 bits (32 hex) : 64 bits exposaient aux collisions de second
+  // préimage sur des corpus adverses de patterns.
+  return crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 32);
 }
 
 function makeEntry(pattern, opts = {}) {
@@ -141,10 +146,21 @@ function updateEntryAffinity(entry, success) {
   entry.affinity = Math.min(1, Math.max(0, entry.affinity));
 }
 
+function evictIfFull(memory) {
+  while (memory.length >= MAX_MEMORY_ENTRIES) {
+    let victim = 0;
+    for (let i = 1; i < memory.length; i++) {
+      if (memory[i].affinity < memory[victim].affinity) victim = i;
+    }
+    memory.splice(victim, 1);
+  }
+}
+
 function recordOutcome(memory, pattern, opts = {}) {
   const sig = signatureFrom(pattern);
   let entry = memory.find((e) => e.signature === sig);
   if (!entry) {
+    evictIfFull(memory);
     entry = makeEntry(pattern, {
       domain: opts.domain,
       evidence: opts.evidence,
@@ -196,6 +212,8 @@ module.exports = {
   recordOutcome,
   priorityRank,
   jaccardSimilarity,
+  evictIfFull,
+  MAX_MEMORY_ENTRIES,
   SEUIL_RAPPEL_AUTOMATIQUE,
   SEUIL_SIGNATURE_FAIBLE,
 };

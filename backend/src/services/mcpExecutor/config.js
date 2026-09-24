@@ -23,6 +23,13 @@ function normalizeMcpTimeout(value, fallback = DEFAULT_MCP_TIMEOUT_MS) {
   return Math.min(Math.floor(numeric), MAX_MCP_TIMEOUT_MS);
 }
 
+function exposeAllEnabled() {
+  const expose = /^(1|true|yes)$/i.test(String(process.env.GENOS_MCP_EXPOSE_ALL || '').trim());
+  if (!expose) return false;
+  if (String(process.env.NODE_ENV || '').toLowerCase() !== 'production') return true;
+  return /^(1|true|yes)$/i.test(String(process.env.GENOS_MCP_ALLOW_UNSAFE_EXPOSE_ALL || '').trim());
+}
+
 function directToolLeaseAllows(toolName) {
   if (process.env.GENOS_MCP_LEASE_EXPIRES_AT) {
     const expiresAt = Number(process.env.GENOS_MCP_LEASE_EXPIRES_AT);
@@ -31,9 +38,11 @@ function directToolLeaseAllows(toolName) {
   const disabled = String(process.env.GENOS_MCP_DISABLED_TOOLS || '').split(',').map((name) => name.trim()).filter(Boolean);
   if (disabled.includes(toolName)) return false;
   const leaseEnv = process.env.GENOS_MCP_LEASE;
-  if (leaseEnv === undefined || leaseEnv === null) return true;
+  // Fail-closed like mcp/lease.js: no explicit lease => deny, never allow.
+  if (leaseEnv === undefined || leaseEnv === null) return exposeAllEnabled();
   const lease = String(leaseEnv).split(',').map((name) => name.trim()).filter(Boolean);
-  return lease.length === 0 ? false : lease.includes(toolName);
+  if (lease.length === 0) return exposeAllEnabled();
+  return lease.includes(toolName);
 }
 
 function getToolRegistry() {

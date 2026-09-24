@@ -28,9 +28,12 @@ const receptors = new Map(); // receptorId -> receptor
 const actionDispatchers = {
   /**
    * Emit a follow-up signal (cascade). E.g. TEST_READY → ARTIFACT_READY.
+   * Profondeur bornée (MAX_CASCADE_DEPTH) : au-delà, refus anti-boucle.
    */
   emit_signal: async (receptor, signal, ctx) => {
     if (!ctx.publishSignal) return { executed: false, reason: 'NO_PUBLISH_FN' };
+    const depth = Number(signal.depth || 0);
+    if (depth >= MAX_CASCADE_DEPTH) return { executed: false, reason: 'MAX_CASCADE_DEPTH' };
     const cascadeData = receptor.actionData?.signalData || {};
     const result = await ctx.publishSignal({
       signalType: receptor.actionData?.signalType || SIGNAL_TYPES.LIGAND,
@@ -41,6 +44,7 @@ const actionDispatchers = {
       },
       topic: receptor.actionData?.topic || signal.topic,
       senderAgentId: signal.senderAgentId,
+      depth: depth + 1,
       ttlMs: receptor.actionData?.ttlMs,
     });
     return { executed: true, signalId: result.signalId, action: 'emit_signal' };
@@ -153,6 +157,50 @@ function listReceptors(filter = {}) {
 // ── Matching & dispatch ──────────────────────────────────────────────────────
 
 /**
+ * Profondeur maximale de cascade émettrice : au-delà, les récepteurs
+ * `emit_signal` refusent (anti-boucle : A → B → A ...).
+ */
+const MAX_CASCADE_DEPTH = 5;
+
+/**
+ * Destinataires déclarés d'un signal (jamais l'émetteur).
+ */
+function signalRecipients(signal) {
+  const source = signal || {};
+  const list = [];
+  if (Array.isArray(source.recipientAgentIds)) list.push(...source.recipientAgentIds);
+  for (const key of ['recipientAgentId', 'targetAgentId', 'recipientId']) {
+    if (source[key]) list.push(source[key]);
+  }
+  return list;
+}
+
+/**
+ * Un récepteur ciblé (targetAgentId) ne matche que si le récepteur est le
+ * destinataire du signal. Comparer à l'émetteur (senderAgentId) inversait
+ * le filtre : n'importe quel émetteur usurpant l'id déclenchait le récepteur.
+ * Sans destinataire déclaré, un récepteur ciblé ne matche pas.
+ */
+function receptorTargetMatches(receptor, signal) {
+  if (!receptor.targetAgentId) return true;
+  return signalRecipients(signal).includes(receptor.targetAgentId);
+}
+
+/**
+ * Un signal orphelin (ni émetteur, ni topic, ni destinataire) n'a aucun
+ * contexte à escalader : llmRequired=false par défaut au lieu de réveiller
+ * un LLM pour rien.
+ */
+function hasRoutingContext(signal) {
+  const source = signal || {};
+  return Boolean(
+    source.senderAgentId || source.topic ||
+    source.recipientAgentId || source.targetAgentId ||
+    (Array.isArray(source.recipientAgentIds) && source.recipientAgentIds.length > 0)
+  );
+}
+
+/**
  * Match a signal against all registered receptors.
  * Returns triggered receptors with their cascade signals.
  */
@@ -160,7 +208,7 @@ function matchReceptors(signal) {
   const triggered = [];
   for (const receptor of receptors.values()) {
     if (!receptor.enabled) continue;
-    if (receptor.targetAgentId && receptor.targetAgentId !== signal.senderAgentId) {
+    if (!receptorTargetMatches(receptor, signal)) {
       continue;
     }
     const ligandData = {
@@ -209,13 +257,14 @@ async function dispatchActions(triggered, signal, ctx = {}) {
 async function matchAndDispatch(signal, ctx = {}) {
   const triggered = matchReceptors(signal);
   if (triggered.length === 0) {
-    return { triggered: [], dispatched: [], llmRequired: true };
+    return { triggered: [], dispatched: [], llmRequired: hasRoutingContext(signal) };
   }
   const dispatched = await dispatchActions(triggered, signal, ctx);
   return { triggered: triggered.map((t) => t.receptor.id), dispatched, llmRequired: false };
 }
 
 module.exports = {
+  MAX_CASCADE_DEPTH,
   registerReceptor,
   unregisterReceptor,
   getReceptor,

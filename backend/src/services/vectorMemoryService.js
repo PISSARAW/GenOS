@@ -41,8 +41,8 @@ class VectorMemoryService {
     const orgId = optionsOrTenant.organizationId || optionsOrTenant.organization_id || null;
     const projId = optionsOrTenant.projectId || optionsOrTenant.project_id || null;
     const id = optionsOrTenant.id || `mem_${crypto.createHash('sha256').update(`${orgId || ''}\0${projId || ''}\0${agentId}\0${normalizedContent}`).digest('hex').slice(0, 32)}`;
-    const existing = await db.get('SELECT id FROM genome_decisions WHERE id = ?', id);
-    if (existing) return existing.id;
+    // Pas de retour anticipé sur doublon : l'INSERT ... ON CONFLICT ci-dessous
+    // réconcilie contenu/embedding au lieu d'ignorer silencieusement la mise à jour.
 
     const title = optionsOrTenant.title || 'Agent Experience';
     const category = optionsOrTenant.category || 'Experience';
@@ -56,10 +56,18 @@ class VectorMemoryService {
     }
     const float32 = new Float32Array(vec);
     const buffer = Buffer.from(float32.buffer);
+    // Un contenu identique ne doit pas ressusciter l'ancien embedding :
+    // le conflit met à jour contenu + embedding + métadonnées.
     await db.run(
       `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET synaptic_weight = excluded.synaptic_weight`,
+       ON CONFLICT(id) DO UPDATE SET
+         title = excluded.title,
+         content = excluded.content,
+         embedding_blob = excluded.embedding_blob,
+         category = excluded.category,
+         synaptic_weight = excluded.synaptic_weight,
+         last_accessed_at = CURRENT_TIMESTAMP`,
       id, title, normalizedContent, buffer, agentId, category, synapticWeight,
       orgId, projId
     );
@@ -126,11 +134,14 @@ class VectorMemoryService {
     if (candidateIds.length > 0 && db) {
       try {
         const placeholders = candidateIds.map(() => '?').join(',');
+        // Scope strict : sans includeGlobal explicite, les synapses globales
+        // (organization_id NULL) d'autres tenants sont exclues.
+        const globalClause = options.includeGlobal === true ? 'OR s.organization_id IS NULL' : '';
         const inhibitions = await db.all(
           `SELECT s.target_id FROM memory_synapses s
              JOIN genome_decisions source_node ON source_node.id = s.source_id
             WHERE s.target_id IN (${placeholders}) AND (s.weight < 0 OR s.transmitter_type = 'gaba')
-              ${options.organizationId ? 'AND (s.organization_id = ? OR s.organization_id IS NULL)' : ''}
+              ${options.organizationId ? `AND (s.organization_id = ? ${globalClause})` : ''}
             GROUP BY s.target_id
             HAVING SUM(CASE WHEN s.transmitter_type = 'gaba' THEN -ABS(s.weight) ELSE s.weight END) < 0`,
           options.organizationId ? [...candidateIds, options.organizationId] : candidateIds
@@ -181,7 +192,9 @@ class VectorMemoryService {
     }
     const allScored = [...new Map(mergedPool.map((item) => [item.id, item])).values()];
 
-    // Reconsolidation par le rappel (Active Retrieval Potentiation)
+    // Reconsolidation par le rappel (Active Retrieval Potentiation), bornée :
+    // +0.05 par rappel, plafonné à 20.0, au plus 1 fois/jour/mémoire
+    // (garde-fou via last_accessed_at) pour éviter l'emballement hebbien.
     if (db && topItems.length > 0) {
       const recalledIds = topItems
         .filter(i => i.id && !String(i.id).startsWith('seed-') && i.id !== 'signal_ignorance' && i.category !== 'Trajectory')
@@ -190,9 +203,11 @@ class VectorMemoryService {
         try {
           const placeholders = recalledIds.map(() => '?').join(',');
           await db.run(
-            `UPDATE genome_decisions 
-             SET synaptic_weight = MIN(20.0, COALESCE(synaptic_weight, 1.0) + 0.05)
-             WHERE id IN (${placeholders})`,
+            `UPDATE genome_decisions
+             SET synaptic_weight = MIN(20.0, COALESCE(synaptic_weight, 1.0) + 0.05),
+                 last_accessed_at = CURRENT_TIMESTAMP
+             WHERE id IN (${placeholders})
+               AND (last_accessed_at IS NULL OR last_accessed_at < datetime('now', '-1 day'))`,
             ...recalledIds
           );
         } catch {}

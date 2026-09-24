@@ -190,19 +190,19 @@ pub fn handle_fossil_excavate(fossil_id: &str) -> Result<(), String> {
     let id = uuid::Uuid::parse_str(fossil_id)
         .map_err(|e| format!("Invalid fossil id '{}': {}", fossil_id, e))?;
 
-    let output = match registry.excavate(&id) {
-        Some(specimen) => json!({
+    let output = match registry.excavate_result(&id) {
+        Ok(specimen) => json!({
             "success": true,
             "operation": "fossil_excavate",
             "read_only": true,
             "resurrection": "forbidden",
             "specimen": specimen,
         }),
-        None => json!({
+        Err(e) => json!({
             "success": false,
             "operation": "fossil_excavate",
             "fossil_id": fossil_id,
-            "error": "Fossil not found in stratigraphic registry.",
+            "error": e.message(),
         }),
     };
     println!("{}", serde_json::to_string_pretty(&output).unwrap());

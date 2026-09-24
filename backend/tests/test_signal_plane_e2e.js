@@ -164,10 +164,11 @@ function testCoalescingPath() {
   }, opts);
   assert.strictEqual(result3, null, 'Third signal buffered, not emitted');
 
-  assert.strictEqual(signalCoalescer.getBufferedCount(topic), 2, 'Two signals buffered');
+  // S1 (émis + inclus au buffer, jamais perdu), S2, S3 : tous agrégés.
+  assert.strictEqual(signalCoalescer.getBufferedCount(topic), 3, 'Three signals buffered (first included)');
   const aggregated = signalCoalescer.flushAndAggregate(topic);
   assert.ok(aggregated, 'Flush produces one aggregated emission');
-  assert.strictEqual(aggregated.coalescedCount, 2, 'Aggregate covers buffered signals');
+  assert.strictEqual(aggregated.coalescedCount, 3, 'Aggregate covers all buffered signals');
   console.log('[PASS] testCoalescingPath');
 }
 

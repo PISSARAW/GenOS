@@ -58,6 +58,15 @@ const THERAPIES = {
       { type: 'inflammatory_spike', severity: clamp01(dos * 0.2) },
     ],
   },
+  immunosuppressive_wash: {
+    maxDosage: 1.0, baseIatrogenicRisk: 0.25, wellnessDelta: -0.05,
+    inflammatoryDelta: (dos) => -clamp01(dos * 0.7),
+    efficacyCurve: (sev, dos) => clamp01(sev * 0.85 * dos),
+    iatrogenicManifestations: (dos) => [
+      { type: 'opportunistic_infection_risk', severity: clamp01(dos * 0.3) },
+      { type: 'transient_immune_gap', severity: clamp01(dos * 0.2) },
+    ],
+  },
   apoptosis_induction: {
     maxDosage: 0.5, baseIatrogenicRisk: 0.5, wellnessDelta: -0.3,
     apoptosisRisk: (dos) => clamp01(dos * 0.4),

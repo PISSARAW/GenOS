@@ -10,8 +10,10 @@ async function runTemporalSuite() {
   const sId = 'node_src_' + Date.now();
   const tId = 'node_tgt_' + Date.now();
   const dummyBuf = Buffer.from(new Float32Array(768).buffer);
-  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, category, embedding_blob) VALUES (?, "Src", "A", "ag_test", "Experience", ?)', sId, dummyBuf);
-  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, category, embedding_blob) VALUES (?, "Tgt", "B", "ag_test", "Experience", ?)', tId, dummyBuf);
+  // created_at explicites distincts : l'auto-fallback STDP relit de vrais
+  // spikeTimes (précision seconde en SQLite, pas de timestamps fabriqués).
+  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, category, embedding_blob, created_at) VALUES (?, "Src", "A", "ag_test", "Experience", ?, ?)', sId, dummyBuf, '2026-01-01T10:00:00.000Z');
+  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, category, embedding_blob, created_at) VALUES (?, "Tgt", "B", "ag_test", "Experience", ?, ?)', tId, dummyBuf, '2026-01-01T10:00:03.000Z');
 
   const ltpRes = await memoryPrimitives.stdpUpdate({ sourceId: sId, targetId: tId, preSpikeAt: 1000, postSpikeAt: 1020, learningRate: 1.0, transmitterType: 'glutamate' });
   assert.ok(ltpRes.success && ltpRes.newWeight > 0, 'LTP doit reussir');

@@ -248,7 +248,30 @@ impl Material {
 }
 
 pub fn classify_material(path: &str) -> Material {
-    material_from_prefix(&path.to_lowercase())
+    // Nom seul : heuristique plafonnée. Un grade à preuve forte
+    // (Crystal/Membrane) n'est JAMAIS conféré par le nommage seul : il exige
+    // un type de contenu déclaré explicite (classify_material_explicit).
+    match material_from_prefix(&path.to_lowercase()) {
+        Material::Crystal | Material::Membrane => Material::Gel,
+        other => other,
+    }
+}
+
+/// Classification avec type de contenu déclaré explicite (ex. "schema",
+/// "contract", "log"). Seule la déclaration explicite, croisée avec le nom,
+/// peut conférer un grade à preuve forte.
+pub fn classify_material_explicit(path: &str, declared_type: &str) -> Material {
+    let declared = material_from_prefix(&declared_type.to_lowercase());
+    match declared {
+        Material::Crystal | Material::Membrane => {
+            if material_from_prefix(&path.to_lowercase()) == declared {
+                declared
+            } else {
+                classify_material(path)
+            }
+        }
+        _ => classify_material(path),
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

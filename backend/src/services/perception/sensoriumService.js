@@ -27,7 +27,10 @@ function createSensorium(opts) {
   if (!o.agentId) throw new Error('createSensorium requires agentId');
   const state = defaultSensorium(o.agentId);
   state.sensors = Array.isArray(o.sensors) ? [...o.sensors] : [];
-  state.attentionBudget = Number.isFinite(o.attentionBudget) ? o.attentionBudget : 10;
+  // Budget validé : jamais négatif (un budget négatif fausserait le focus).
+  const budget = Number.isFinite(o.attentionBudget) ? o.attentionBudget : 10;
+  if (budget < 0) throw new Error('createSensorium requires attentionBudget >= 0');
+  state.attentionBudget = budget;
   store.set(String(o.agentId), state);
   return state;
 }
@@ -39,7 +42,10 @@ function getSensorium(agentId) {
 
 function recordObservation(opts) {
   const o = opts || {};
-  const state = store.get(String(o.agentId)) || defaultSensorium(o.agentId);
+  // Pas d'état fantôme : observer sans sensorium créé explicite retourne
+  // null au lieu de fabriquer un état hors piste.
+  const state = store.get(String(o.agentId));
+  if (!state) return null;
   state.observations.push(o.observation);
   if (state.observations.length > 200) state.observations.shift();
   state.revision += 1;
@@ -50,7 +56,9 @@ function recordObservation(opts) {
 
 function setFocus(opts) {
   const o = opts || {};
-  const state = store.get(String(o.agentId)) || defaultSensorium(o.agentId);
+  // Idem : pas de création implicite hors createSensorium.
+  const state = store.get(String(o.agentId));
+  if (!state) return null;
   state.activeFocus = o.focus || null;
   state.revision += 1;
   state.updatedAt = new Date().toISOString();

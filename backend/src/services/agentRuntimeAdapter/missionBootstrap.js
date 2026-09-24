@@ -3,7 +3,7 @@ const agentCapsules = require('../agentCapsuleService');
 const { localWorkerRoute } = require('../agentModelRoutingService');
 const { provisionMissionWorkspace } = require('../agentWorkspaceLifecycleService');
 const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability } = require('../agentRuntimeExecutable');
-const { validateBudgetCoherence, normalizeMissionBudget } = require('../budgetCoherenceService');
+const { validateBudgetCoherence, normalizeMissionBudget, validateShareSum } = require('../budgetCoherenceService');
 const { emit, cancelledStarts } = require('../agentOrchestrationState');
 const { assertCallerMcpConfiguration } = require('../cognitiveExecutor');
 
@@ -59,6 +59,12 @@ async function provisionWorkspaceAndModel(ctx) {
   }
 }
 
+function resolvePlanForCheck(normalizedMission) {
+  const planPolicy = normalizedMission.autonomyPlan?.tokenPolicy || normalizedMission.tokenPolicy || null;
+  if (planPolicy) return { tokenPolicy: planPolicy };
+  return null;
+}
+
 function normalizeMissionBudgets(ctx) {
   const { normalizedMission } = ctx;
   if (normalizedMission.timeoutMs && !normalizedMission.workerBarrierTimeoutMs) {
@@ -66,10 +72,15 @@ function normalizeMissionBudgets(ctx) {
   }
   const runtimeEnvironment = bundledRuntimeEnvironment();
   const normalizedExecutionBudget = normalizeMissionBudget(normalizedMission.executionBudget || {});
-  const budgetCoherence = validateBudgetCoherence({
+  const planForCheck = resolvePlanForCheck(normalizedMission);
+  const shareError = planForCheck ? null : validateShareSum([normalizedExecutionBudget.workerShare, normalizedExecutionBudget.orchestratorReserve]);
+  if (shareError) {
+    throw Object.assign(new Error(`Budget coherence validation failed: ${shareError}`), { code: 'BUDGET_COHERENCE_FAILURE' });
+  }
+  const budgetCoherence = planForCheck ? validateBudgetCoherence({
     executionBudget: normalizedExecutionBudget,
-    autonomyPlan: { tokenPolicy: { total: normalizedExecutionBudget.tokens, workerShare: normalizedExecutionBudget.workerShare, orchestratorReserve: normalizedExecutionBudget.orchestratorReserve } }
-  });
+    autonomyPlan: planForCheck
+  }) : { valid: true };
   if (!budgetCoherence.valid) {
     throw Object.assign(new Error(`Budget coherence validation failed: ${budgetCoherence.reason}`), { code: 'BUDGET_COHERENCE_FAILURE' });
   }

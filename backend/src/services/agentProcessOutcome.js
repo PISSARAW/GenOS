@@ -17,19 +17,28 @@ function isSensitiveEnvironmentName(name) {
   return /(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL|API)/i.test(name);
 }
 
+function isPropagatableGenosEnv(name) {
+  return SAFE_GENOS_ENV.has(name) && !isSensitiveEnvironmentName(name);
+}
+
+function isAllowedRuntimeEnv(name) {
+  if (SAFE_RUNTIME_ENV.has(name)) return true;
+  return isPropagatableGenosEnv(name);
+}
+
 function buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates) {
   const environment = {};
   for (const [name, value] of Object.entries(process.env)) {
     // Bloquer les variables sensibles au profil utilisateur
     if (BLOCKED_RUNTIME_ENV.has(name)) continue;
-    // Propager uniquement les variables sécurisées
-    if (SAFE_RUNTIME_ENV.has(name) || SAFE_GENOS_ENV.has(name)) {
+    // Propager uniquement les variables sécurisées (filtre sensible sur GENOS)
+    if (isAllowedRuntimeEnv(name)) {
       environment[name] = value;
     }
   }
   for (const [name, value] of Object.entries(runtimeEnvironment || {})) {
     if (BLOCKED_RUNTIME_ENV.has(name)) continue;
-    if (SAFE_RUNTIME_ENV.has(name) || SAFE_GENOS_ENV.has(name)) environment[name] = value;
+    if (isAllowedRuntimeEnv(name)) environment[name] = value;
   }
   return {
     ...environment,

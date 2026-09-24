@@ -131,10 +131,11 @@ async function testCoalescerDifferentSenders() {
   const sig2 = { signalId: 's2', signalType: 'ligand', topic, senderAgentId: 'b', signalData: {} };
   const result2 = coalescer.coalesce(sig2, { refractoryMs: 0, coalesceMs: 60000 });
   assert.strictEqual(result2, null, 'Second sender buffered inside open window (true coalescing)');
-  assert.strictEqual(coalescer.getBufferedCount(topic), 1, 'One signal buffered');
+  // Le premier signal est inclus dans le buffer (jamais perdu) : [s1, s2].
+  assert.strictEqual(coalescer.getBufferedCount(topic), 2, 'Both signals buffered (first included)');
   const aggregated = coalescer.flushAndAggregate(topic);
   assert.ok(aggregated, 'Buffered signals aggregate into one emission');
-  assert.strictEqual(aggregated.coalescedCount, 1, 'Aggregate covers buffered signal');
+  assert.strictEqual(aggregated.coalescedCount, 2, 'Aggregate covers both buffered signals');
 }
 
 async function testCheckRefractory() {

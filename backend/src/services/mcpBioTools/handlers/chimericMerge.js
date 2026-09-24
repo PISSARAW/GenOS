@@ -30,11 +30,16 @@ async function handleChimericMerge(args = {}, run) {
   const vaccinesProvided = Array.isArray(args.vaccines) ? args.vaccines : ['vaccine_null_deref', 'vaccine_timeout_guard'];
 
   let cliOutput = null;
+  let cliFailed = false;
+  let cliErrorText = null;
   if (typeof run === 'function') {
     try {
       const out = run(`genos biomimicry bio-feature --feature chimeric_merge --action ${quoteCliArg(action)} --param mosaic_id=${quoteCliArg(mosaicId)}`);
       cliOutput = out ? out.toString() : null;
-    } catch (_) {}
+    } catch (cliProbeError) { cliFailed = true; cliErrorText = cliProbeError && cliProbeError.message ? cliProbeError.message : String(cliProbeError); }
+  }
+  if (cliFailed) {
+    return { configured: true, success: false, status: 'tool_error', error: cliErrorText };
   }
 
   const mosaic = getMosaic(mosaicId);

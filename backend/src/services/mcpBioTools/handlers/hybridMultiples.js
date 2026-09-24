@@ -27,11 +27,16 @@ function handleHybridMultiples(args = {}, run) {
   ];
 
   let cliOutput = null;
+  let cliFailed = false;
+  let cliErrorText = null;
   if (typeof run === 'function') {
     try {
       const out = run(`genos biomimicry bio-feature --feature hybrid_multiples --action ${quoteCliArg(action)} --param cluster_id=${quoteCliArg(clusterId)}`);
       cliOutput = out ? out.toString() : null;
-    } catch (_) {}
+    } catch (cliProbeError) { cliFailed = true; cliErrorText = cliProbeError && cliProbeError.message ? cliProbeError.message : String(cliProbeError); }
+  }
+  if (cliFailed) {
+    return { configured: true, success: false, status: 'tool_error', error: cliErrorText };
   }
 
   const cluster = getCluster(clusterId);

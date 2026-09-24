@@ -63,7 +63,7 @@ fn orchestrator_encodes_and_runs_an_instinct_at_will() {
     };
     assert!(matches!(
         program.run(&ctx),
-        InstinctOutcome::Complete { steps_executed: 2, .. }
+        InstinctOutcome::Pending { steps_ready: 2, .. }
     ));
 }
 

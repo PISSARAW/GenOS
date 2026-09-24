@@ -34,11 +34,16 @@ function splitEvenly(total, counts) {
   return out;
 }
 
+function budgetOf(scope) {
+  const state = getMetabolic(scope);
+  return (state && state.tokenBudget) || 0;
+}
+
 function childExceedsParent(opts) {
   const o = opts || {};
-  const parent = getMetabolic(o.parentScope);
-  const childSum = (o.childScopes || []).reduce((s, c) => s + (getMetabolic(c).tokenBudget || 0), 0);
-  return childSum > (parent.tokenBudget || 0);
+  const parent = budgetOf(o.parentScope);
+  const childSum = (o.childScopes || []).reduce((s, c) => s + budgetOf(c), 0);
+  return childSum > parent;
 }
 
 module.exports = { allocateHierarchy, childExceedsParent, scopeKey, ORDER };

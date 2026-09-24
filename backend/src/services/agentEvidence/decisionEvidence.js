@@ -30,9 +30,15 @@ function hasNoAnswerProof(report) {
   return false;
 }
 
+function hasUsablePayload(payload) {
+  return Boolean(payload && typeof payload === 'object' && Object.keys(payload).length > 0);
+}
+
 function hasFailureEvidence(event, payload) {
-  if (payload.failure || payload.noAnswerProof) return true;
-  return FAILURE_EVENT_TYPES.includes(event.eventType);
+  const body = payload || {};
+  if (hasEvidenceItem(body.failure)) return true;
+  if (hasEvidenceItem(body.noAnswerProof)) return true;
+  return FAILURE_EVENT_TYPES.includes(event.eventType) && hasUsablePayload(body);
 }
 
 function hasDecisionEvidence(event = {}) {

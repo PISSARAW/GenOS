@@ -10,13 +10,29 @@ function extractEvidenceReport(value) {
   return value;
 }
 
+function isPlaceholderText(value) {
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === '' || ['none', 'n/a', 'na', 'null', 'nil', 'todo', 'tbd', 'fake', '-', '...'].includes(normalized);
+}
+
 function isTextItem(item) {
-  return typeof item === 'string' && Boolean(item.trim());
+  return typeof item === 'string' && !isPlaceholderText(item);
+}
+
+function hasUsableValue(value) {
+  if (typeof value === 'string') return !isPlaceholderText(value);
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value === 'boolean') return true;
+  if (Array.isArray(value)) return value.some(hasEvidenceItem);
+  if (value && typeof value === 'object') return Object.values(value).some(hasUsableValue);
+  return false;
 }
 
 function hasEvidenceItem(item) {
-  if (typeof item === 'string' && item.trim()) return true;
-  return Boolean(item && typeof item === 'object' && Object.keys(item).length > 0);
+  if (typeof item === 'string') return isTextItem(item);
+  if (Array.isArray(item)) return item.some(hasEvidenceItem);
+  if (item && typeof item === 'object') return Object.values(item).some(hasUsableValue);
+  return false;
 }
 
 function boundedScore(value) {

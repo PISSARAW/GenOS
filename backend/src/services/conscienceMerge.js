@@ -48,8 +48,10 @@ function adoptSnapshot(state, row) {
 
 function resolveConflictIntoState(state, previous, current) {
   const winner = pickWinningSnapshot(previous, current);
-  if (winner === 'current') adoptSnapshot(state, current);
-  state.revision = rowRevision(current);
+  if (winner === 'current') {
+    adoptSnapshot(state, current);
+    state.revision = rowRevision(current);
+  }
   return winner;
 }
 

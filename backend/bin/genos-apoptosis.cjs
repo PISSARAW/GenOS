@@ -5,6 +5,22 @@ const fs = require('fs');
 const { terminatePid, processMatches } = require('../src/services/processTermination');
 const { cleanupWorkspace } = require('../src/services/agentWorkspaceLifecycleService');
 
+async function killVerifiedAgent(db, agent) {
+  // Re-read the row inside the transaction and re-verify the cmdline at the
+  // moment of the kill, so a recycled PID is never signalled. The executable
+  // is compared exactly (strict mode: no basename fallback).
+  const fresh = await db.get('SELECT id, runtime_pid, runtime_executable FROM agents WHERE id = ?', agent.id);
+  if (!fresh || !fresh.runtime_pid) return { id: agent.id, terminated: false, reason: 'NO_PID' };
+  if (!processMatches(fresh.runtime_pid, fresh.runtime_executable, true)) return { id: fresh.id, terminated: false, reason: 'PID_EXECUTABLE_MISMATCH' };
+  return { id: fresh.id, terminated: terminatePid(fresh.runtime_pid), reason: 'TERMINATION_REQUESTED' };
+}
+
+async function terminateActiveAgents(db, activeAgents) {
+  const terminationResults = [];
+  for (const agent of activeAgents) terminationResults.push(await killVerifiedAgent(db, agent));
+  return terminationResults;
+}
+
 async function apoptosis(customDbPath = null) {
   let db;
   try {
@@ -16,16 +32,21 @@ async function apoptosis(customDbPath = null) {
 
     db = await open({ filename: dbPath, driver: sqlite3.Database });
     await db.run('PRAGMA busy_timeout = 5000;').catch(() => {});
-    const activeAgents = await db.all("SELECT id, runtime_pid, runtime_executable FROM agents WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')");
-    const terminationResults = activeAgents.map((agent) => {
-      if (!agent.runtime_pid) return { id: agent.id, terminated: false, reason: 'NO_PID' };
-      if (!processMatches(agent.runtime_pid, agent.runtime_executable)) return { id: agent.id, terminated: false, reason: 'PID_EXECUTABLE_MISMATCH' };
-      return { id: agent.id, terminated: terminatePid(agent.runtime_pid), reason: 'TERMINATION_REQUESTED' };
-    });
-    const res = await db.run(
-      "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = 'Emergency apoptosis triggered', updated_at = CURRENT_TIMESTAMP WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')"
-    );
-    const stopped = res.changes || 0;
+    await db.exec('BEGIN IMMEDIATE');
+    let terminationResults = [];
+    let stopped = 0;
+    try {
+      const activeAgents = await db.all("SELECT id, runtime_pid, runtime_executable FROM agents WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')");
+      terminationResults = await terminateActiveAgents(db, activeAgents);
+      const res = await db.run(
+        "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = 'Emergency apoptosis triggered', updated_at = CURRENT_TIMESTAMP WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')"
+      );
+      stopped = res.changes || 0;
+      await db.exec('COMMIT');
+    } catch (txErr) {
+      await db.exec('ROLLBACK').catch(() => {});
+      throw txErr;
+    }
     const cleanups = await db.all('SELECT agent_id, workspace_root FROM agent_capsule_cleanup LIMIT 25').catch(() => []);
     if (cleanups.length > 0) {
       await Promise.race([

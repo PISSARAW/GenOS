@@ -21,18 +21,27 @@ function getBridge(bridgeId) {
 
 function handleThalamicBridge(args = {}, run) {
   const action = args.action || 'status';
-  const bridgeId = args.bridge_id || 'thalamus-default';
+  // bridge_id obligatoire: aucun défaut silencieux (rejet invalid_args).
+  if (args.bridge_id === undefined || args.bridge_id === null || String(args.bridge_id).trim() === '') {
+    return { configured: true, success: false, status: 'invalid_args', transport: 'thalamic_bus', error: 'bridge_id: is required.' };
+  }
+  const bridgeId = args.bridge_id;
   const agentId = args.agent_id || 'agent-primary';
   const twinAgentId = args.twin_agent_id || 'agent-mirror';
   const modality = args.modality || 'embeddings';
   const payload = args.payload || null;
 
   let cliOutput = null;
+  let cliFailed = false;
+  let cliErrorText = null;
   if (typeof run === 'function') {
     try {
       const out = run(`genos biomimicry bio-feature --feature thalamic_bridge --action ${quoteCliArg(action)} --param bridge_id=${quoteCliArg(bridgeId)} --param agent_id=${quoteCliArg(agentId)}`);
       cliOutput = out ? out.toString() : null;
-    } catch (_) {}
+    } catch (cliProbeError) { cliFailed = true; cliErrorText = cliProbeError && cliProbeError.message ? cliProbeError.message : String(cliProbeError); }
+  }
+  if (cliFailed) {
+    return { configured: true, success: false, status: 'tool_error', error: cliErrorText };
   }
 
   const bridge = getBridge(bridgeId);

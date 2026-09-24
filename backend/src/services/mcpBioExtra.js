@@ -1,5 +1,27 @@
 const { handleBioExtraTool, BIO_EXTRA_HANDLERS } = require('./mcpBioExtra/handlers/extraHandlers');
 const { runGenosSync } = require('./genosCli');
+const { quoteCliArg } = require('./mcpBioTools/shellQuote');
+
+// Refuse les flags injectés: seuls les tokens simples sont acceptés.
+function safeToken(value, fallback) {
+  const text = String(value === undefined || value === null ? fallback : value);
+  if (!/^[a-z0-9-_]+$/i.test(text)) {
+    throw Object.assign(new Error(`Refused unsafe CLI flag value: ${text}`), { code: 'INVALID_TOOL_ARGUMENTS' });
+  }
+  return text;
+}
+
+function q(value) {
+  return quoteCliArg(value === undefined || value === null ? '' : value);
+}
+
+function num(value, fallback) {
+  const parsed = Number(value === undefined || value === null ? fallback : value);
+  if (!Number.isFinite(parsed)) {
+    throw Object.assign(new Error('Refused non-numeric CLI value.'), { code: 'INVALID_TOOL_ARGUMENTS' });
+  }
+  return parsed;
+}
 
 function handleBioCall(cmd, timeoutMs) {
   try {
@@ -33,14 +55,14 @@ function appendOptionalParam(params, args, spec) {
   for (const key of keys) {
     const value = args[key];
     if (value !== undefined && value !== null) {
-      params.push(`${flag} ${value}`);
+      params.push(`${flag} ${quoteCliArg(value)}`);
       return;
     }
   }
 }
 
 function appendQuotedParam(params, flag, value) {
-  if (value) params.push(`${flag} "${value}"`);
+  if (value) params.push(`${flag} ${quoteCliArg(value)}`);
 }
 
 function formatEcho(echo) {
@@ -55,28 +77,28 @@ function formatEchoes(samples) {
 
 const TOOL_HANDLERS = {
   'genos_biomimicry_spore': (args, timeoutMs) => {
-    const params = [`--action ${firstTruthy(args.action, 'create')}`, `--agent-id ${firstTruthy(args.agent_id, 'griot-01')}`, `--spore-type ${firstTruthy(args.spore_type, 'bacterial')}`];
+    const params = [`--action ${safeToken(firstTruthy(args.action, 'create'), 'create')}`, `--agent-id ${q(firstTruthy(args.agent_id, 'griot-01'))}`, `--spore-type ${safeToken(firstTruthy(args.spore_type, 'bacterial'), 'bacterial')}`];
     appendOptionalParam(params, args, ['--warm-and-wet', 'warm_and_wet']);
     appendOptionalParam(params, args, ['--nutrients', 'nutrients']);
     return handleBioCall(`genos biomimicry spore ${params.join(' ')}`, timeoutMs);
   },
   'genos_biomimicry_bioluminescence': (args, timeoutMs) => {
-    return handleBioCall(`genos biomimicry bioluminescence --agent-id ${firstTruthy(args.agent_id, 'griot-01')} --color ${firstTruthy(args.color, 'green')} --organelle "${firstTruthy(args.organelle, 'mitochondria')}" --event-type "${firstTruthy(args.event_type, 'TELEMETRY')}" --details "${firstTruthy(args.details, '')}"`, timeoutMs);
+    return handleBioCall(`genos biomimicry bioluminescence --agent-id ${q(firstTruthy(args.agent_id, 'griot-01'))} --color ${safeToken(firstTruthy(args.color, 'green'), 'green')} --organelle ${q(firstTruthy(args.organelle, 'mitochondria'))} --event-type ${q(firstTruthy(args.event_type, 'TELEMETRY'))} --details ${q(firstTruthy(args.details, ''))}`, timeoutMs);
   },
   'genos_biomimicry_anti_collusion': (args, timeoutMs) => {
     const agentId = firstTruthy(args.agent_id, 'griot-01');
-    const tokens = firstTruthy(args.consumed_tokens, 600);
+    const tokens = num(firstTruthy(args.consumed_tokens, 600), 600);
     const physical = args.physical_test_passed ? '--physical-test-passed' : '';
-    return handleBioCall(`genos biomimicry anti-collusion --agent-id ${agentId} --consumed-tokens ${tokens} ${physical}`.trim(), timeoutMs);
+    return handleBioCall(`genos biomimicry anti-collusion --agent-id ${q(agentId)} --consumed-tokens ${tokens} ${physical}`.trim(), timeoutMs);
   },
   'genos_biomimicry_redundancy': (args, timeoutMs) => {
     const expected = firstTruthy(args.expected_tool, 'default_tool');
     const mutated = firstTruthy(args.mutated_tool, args.expected_tool, 'default_tool');
     const fallback = args.fallback ? '--fallback' : '';
-    return handleBioCall(`genos biomimicry redundancy --expected-tool "${expected}" --mutated-tool "${mutated}" ${fallback}`.trim(), timeoutMs);
+    return handleBioCall(`genos biomimicry redundancy --expected-tool ${q(expected)} --mutated-tool ${q(mutated)} ${fallback}`.trim(), timeoutMs);
   },
   'genos_biomimicry_tissue': (args, timeoutMs) => {
-    const params = [`--action ${firstTruthy(args.action, 'create')}`, `--name "${firstTruthy(args.name, 'Tissue_Collective')}"`];
+    const params = [`--action ${safeToken(firstTruthy(args.action, 'create'), 'create')}`, `--name ${q(firstTruthy(args.name, 'Tissue_Collective'))}`];
     appendQuotedParam(params, '--role', args.role);
     appendQuotedParam(params, '--stem-id', args.stem_id);
     appendQuotedParam(params, '--worker-id', args.worker_id);
@@ -84,10 +106,10 @@ const TOOL_HANDLERS = {
     return handleBioCall(`genos biomimicry tissue ${params.join(' ')}`, timeoutMs);
   },
   'genos_biomimicry_embryology': (args, timeoutMs) => {
-    return handleBioCall(`genos biomimicry embryology --divisions ${firstTruthy(args.divisions, 2)} --gradient ${firstTruthy(args.gradient, 1.0)}`, timeoutMs);
+    return handleBioCall(`genos biomimicry embryology --divisions ${num(firstTruthy(args.divisions, 2), 2)} --gradient ${num(firstTruthy(args.gradient, 1.0), 1.0)}`, timeoutMs);
   },
   'genos_biomimicry_therapy': (args, timeoutMs) => {
-    return handleBioCall(`genos biomimicry therapy --agent-id ${firstTruthy(args.agent_id, 'griot-01')} --therapy-type "${firstTruthy(args.therapy_type, 'targeted')}"`, timeoutMs);
+    return handleBioCall(`genos biomimicry therapy --agent-id ${q(firstTruthy(args.agent_id, 'griot-01'))} --therapy-type ${q(firstTruthy(args.therapy_type, 'targeted'))}`, timeoutMs);
   },
   'genos_biomimicry_vomeronasal': (args, timeoutMs) => {
     const agentId = firstTruthy(args.agent_id, args.agentId, 'agent_0');
@@ -95,7 +117,7 @@ const TOOL_HANDLERS = {
     const ptype = firstTruthy(args.pheromone_type, args.pheromoneType, 'alarm');
     const concentration = definedOr(args.concentration, 0.8);
     const sensitivity = definedOr(args.sensitivity, 0.15);
-    return handleBioCall(`genos biomimicry vomeronasal --agent-id ${agentId} --locus "${locus}" --pheromone-type "${ptype}" --concentration ${concentration} --sensitivity ${sensitivity}`, timeoutMs);
+    return handleBioCall(`genos biomimicry vomeronasal --agent-id ${q(agentId)} --locus ${q(locus)} --pheromone-type ${safeToken(ptype, 'alarm')} --concentration ${num(concentration, 0.8)} --sensitivity ${num(sensitivity, 0.15)}`, timeoutMs);
   },
   'genos_biomimicry_electrosensory': (args, timeoutMs) => {
     const agentId = firstTruthy(args.agent_id, args.agentId, 'mormyro_0');
@@ -104,7 +126,7 @@ const TOOL_HANDLERS = {
     const sensitivity = definedOr(args.sensitivity, 0.05);
     const threshold = definedOr(args.distortion_threshold, 0.12);
     const samples = Array.isArray(args.samples) ? args.samples.join(',') : firstTruthy(args.samples, '100.0,102.0,98.0,105.0,99.0');
-    return handleBioCall(`genos biomimicry electrosensory --agent-id ${agentId} --action "${action}" --frequency-hz ${freq} --sensitivity ${sensitivity} --distortion-threshold ${threshold} --samples "${samples}"`, timeoutMs);
+    return handleBioCall(`genos biomimicry electrosensory --agent-id ${q(agentId)} --action ${q(action)} --frequency-hz ${num(freq, 800.0)} --sensitivity ${num(sensitivity, 0.05)} --distortion-threshold ${num(threshold, 0.12)} --samples ${q(samples)}`, timeoutMs);
   },
   'genos_biomimicry_cluster_n': (args, timeoutMs) => {
     const agentId = firstTruthy(args.agent_id, args.agentId, 'migratory_0');
@@ -113,7 +135,7 @@ const TOOL_HANDLERS = {
     const tolerance = firstTruthy(args.tolerance_deg, args.toleranceDeg, 15.0);
     const goal = Array.isArray(args.goal_vector) ? args.goal_vector.join(',') : firstTruthy(args.goal_vector, '1.0,0.0,0.0');
     const current = Array.isArray(args.current_vector) ? args.current_vector.join(',') : firstTruthy(args.current_vector, '0.96,0.15,0.0');
-    return handleBioCall(`genos biomimicry cluster-n --agent-id ${agentId} --action "${action}" --sensitivity ${sensitivity} --tolerance-deg ${tolerance} --goal-vector "${goal}" --current-vector "${current}"`, timeoutMs);
+    return handleBioCall(`genos biomimicry cluster-n --agent-id ${q(agentId)} --action ${q(action)} --sensitivity ${num(sensitivity, 0.02)} --tolerance-deg ${num(tolerance, 15.0)} --goal-vector ${q(goal)} --current-vector ${q(current)}`, timeoutMs);
   },
   'genos_biomimicry_tectum_thermal': (args, timeoutMs) => {
     const agentId = firstTruthy(args.agent_id, args.agentId, 'viper_0');
@@ -123,7 +145,7 @@ const TOOL_HANDLERS = {
     const threshold = definedOr(args.threshold, 0.70);
     const visual = firstTruthy(args.visual_nodes, 'src/auth.rs:0.8,src/db.rs:0.4,src/api.rs:0.3');
     const thermal = firstTruthy(args.thermal_readings, 'src/auth.rs:0.95,src/db.rs:0.2,src/api.rs:0.1');
-    return handleBioCall(`genos biomimicry tectum-thermal --agent-id ${agentId} --action "${action}" --sensitivity-mk ${sensitivityMk} --fusion-weight ${fusionWeight} --threshold ${threshold} --visual-nodes "${visual}" --thermal-readings "${thermal}"`, timeoutMs);
+    return handleBioCall(`genos biomimicry tectum-thermal --agent-id ${q(agentId)} --action ${q(action)} --sensitivity-mk ${num(sensitivityMk, 3.0)} --fusion-weight ${num(fusionWeight, 0.65)} --threshold ${num(threshold, 0.70)} --visual-nodes ${q(visual)} --thermal-readings ${q(thermal)}`, timeoutMs);
   },
   'genos_biomimicry_echolocation': (args, timeoutMs) => {
     const agentId = firstTruthy(args.agent_id, args.agentId, 'bat_0');
@@ -131,11 +153,11 @@ const TOOL_HANDLERS = {
     const baseFreq = definedOr(args.base_frequency_khz, firstTruthy(args.baseFrequencyKhz, 60.0));
     const thresholdM = definedOr(args.obstacle_threshold_m, firstTruthy(args.obstacleThresholdM, 2.5));
     const echoes = formatEchoes(args.echoes);
-    return handleBioCall(`genos biomimicry echolocation --agent-id ${agentId} --action "${action}" --base-frequency-khz ${baseFreq} --obstacle-threshold-m ${thresholdM} --echoes "${echoes}"`, timeoutMs);
+    return handleBioCall(`genos biomimicry echolocation --agent-id ${q(agentId)} --action ${q(action)} --base-frequency-khz ${num(baseFreq, 60.0)} --obstacle-threshold-m ${num(thresholdM, 2.5)} --echoes ${q(echoes)}`, timeoutMs);
   },
   'genos_cell_division': (args, timeoutMs) => {
     const agentId = firstTruthy(args.agent_id, args.agentId, 'cell_division_root');
-    const params = [`--agent-id ${agentId}`, `--mode ${firstTruthy(args.mode, 'mitosis')}`];
+    const params = [`--agent-id ${q(agentId)}`, `--mode ${safeToken(firstTruthy(args.mode, 'mitosis'), 'mitosis')}`];
     appendOptionalParam(params, args, ['--daughter-volume', 'daughter_volume', 'daughterVolume']);
     appendOptionalParam(params, args, ['--mutation-rate', 'mutation_rate', 'mutationRate']);
     appendOptionalParam(params, args, ['--hayflick-limit', 'hayflick_limit', 'hayflickLimit']);
@@ -148,14 +170,14 @@ const TOOL_HANDLERS = {
     const locus = firstTruthy(args.locus, args.gene, 'promoter_locus');
     const state = firstTruthy(args.state, args.methylated === false ? 'Euchromatin' : 'HeterochromatinFacultative');
     const pioneer = firstTruthy(args.pioneer_factor, args.pioneerFactor) ? ' --pioneer-factor' : '';
-    return handleBioCall(`genos biomimicry epigenetic-chromatin --agent-id ${agentId} --locus "${locus}" --state ${state}${pioneer}`, timeoutMs);
+    return handleBioCall(`genos biomimicry epigenetic-chromatin --agent-id ${q(agentId)} --locus ${q(locus)} --state ${safeToken(state, 'HeterochromatinFacultative')}${pioneer}`, timeoutMs);
   },
   'genos_grns': (args, timeoutMs) => {
-    return handleBioCall(`genos biomimicry gene-regulatory-network --agent-id ${firstTruthy(args.agent_id, 'global')} --condition "${firstTruthy(args.condition, 'environmental_trigger')}" --action-script "${firstTruthy(args.action, args.action_script, 'upregulate')}"`, timeoutMs);
+    return handleBioCall(`genos biomimicry gene-regulatory-network --agent-id ${q(firstTruthy(args.agent_id, 'global'))} --condition ${q(firstTruthy(args.condition, 'environmental_trigger'))} --action-script ${q(firstTruthy(args.action, args.action_script, 'upregulate'))}`, timeoutMs);
   },
   'genos_lamarckian_mutation': (args, timeoutMs) => {
     const agentId = firstTruthy(args.agent_id, 'global');
-    const res = handleBioCall(`genos biomimicry hypermutation --agent-id ${agentId}`, timeoutMs);
+    const res = handleBioCall(`genos biomimicry hypermutation --agent-id ${q(agentId)}`, timeoutMs);
     if (res && res.success) return res;
     return { configured: true, success: false, status: 'tool_error', transport: 'local', output: firstTruthy(res && res.output, `Lamarckian mutation failed for agent '${agentId}'.`), error: `Lamarckian mutation was not applied for agent '${agentId}'.` };
   },

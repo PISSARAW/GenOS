@@ -49,10 +49,16 @@ function summarizeMetrics(metrics) {
 function computePenalty(summary) {
   let penalty = summary.errorsInLoop * 2.5;
   if (summary.repetitionScore > 0.15) penalty += 5.0;
-  if (summary.semanticDrift > 0) penalty += 6.0;
+  // Dérive proportionnelle, pas binaire : +drift * échelle (plafonné à 1.0).
+  // L'ancien `+6.0 dès drift > 0` punissait un frémissement comme une rupture.
+  penalty += Math.max(0, Math.min(1, summary.semanticDrift)) * 6.0;
   const deficit = (0.5 - summary.healthScore) * 10.0;
   if (deficit > 0) penalty += deficit;
   return penalty;
+}
+
+function harmonyOf(state) {
+  return Math.max(0, Math.min(100, Math.round(((state.maxDissonanceThreshold - state.dissonanceLevel) / state.maxDissonanceThreshold) * 100)));
 }
 
 /**
@@ -67,7 +73,9 @@ function evaluateBranch(state, metrics = {}) {
   }
 
   if (metrics.isWaitingQueue || metrics.inQueue) {
-    return { state, apoptoticTriggered: false, harmony: 100 };
+    // En file d'attente, aucune observation : pas de bonus d'harmonie 100,
+    // on expose l'harmonie courante dérivée de la dissonance réelle.
+    return { state, apoptoticTriggered: false, harmony: harmonyOf(state) };
   }
 
   const summary = summarizeMetrics(metrics);
@@ -83,7 +91,7 @@ function evaluateBranch(state, metrics = {}) {
     apoptoticTriggered = true;
   }
 
-  const harmonyPercentage = Math.max(0, Math.min(100, Math.round(((state.maxDissonanceThreshold - state.dissonanceLevel) / state.maxDissonanceThreshold) * 100)));
+  const harmonyPercentage = harmonyOf(state);
 
   return {
     state,
@@ -94,9 +102,24 @@ function evaluateBranch(state, metrics = {}) {
 
 /**
  * Déclenche un moment Eurêka : divise la dissonance par deux et augmente le capital cognitif.
+ * Exige une preuve réelle (options.evidence non vide ou options.validated === true) :
+ * sans évidence, no-op (un Eurêka gratuit fausserait la régulation).
+ * Rate-limit : au plus `limit` Eurêkas par `windowMs` (défaut 3/min).
  */
+function hasEurekaEvidence(options) {
+  const opts = options || {};
+  if (opts.validated === true) return true;
+  const evidence = opts.evidence;
+  if (evidence === undefined || evidence === null) return false;
+  if (typeof evidence === 'string') return evidence.trim().length > 0;
+  if (Array.isArray(evidence)) return evidence.length > 0;
+  if (typeof evidence === 'object') return Object.keys(evidence).length > 0;
+  return true;
+}
+
 function triggerEureka(state, options = {}) {
   if (state.isApoptotic) return state;
+  if (!hasEurekaEvidence(options)) return state;
   const now = Number(options.now || Date.now());
   const windowMs = Math.max(1, Number(options.windowMs || DEFAULT_EUREKA_WINDOW_MS));
   const limit = Math.max(1, Math.floor(Number(options.limit || DEFAULT_EUREKA_LIMIT)));
@@ -125,7 +148,7 @@ function markApoptotic(state) {
  */
 function formatCognitiveRegulationPrompt(state) {
   const safeState = createCognitiveRegulationState(state);
-  const harmony = Math.max(0, Math.min(100, Math.round(((safeState.maxDissonanceThreshold - safeState.dissonanceLevel) / safeState.maxDissonanceThreshold) * 100)));
+  const harmony = harmonyOf(safeState);
   return [
     `[ÉTAT DE RÉGULATION COGNITIVE & HARMONIE INTERNE]`,
     `- Dissonance cognitive : ${safeState.dissonanceLevel.toFixed(1)} / ${safeState.maxDissonanceThreshold.toFixed(1)} (Seuil d'apoptose)`,
@@ -172,6 +195,13 @@ async function recordCognitiveRegulationTransition(db, transition) {
   );
 }
 
+function persistFailure(agentId, revision, cause) {
+  throw Object.assign(
+    new Error(`Cognitive regulation persist failed for agent ${agentId} at revision ${revision}: ${cause?.message || cause}`),
+    { code: 'CONSCIENCE_PERSIST_FAILED', agentId, revision, cause }
+  );
+}
+
 async function persistStateNow(..._args) {
   const [db, agentId, state, retryArg, optionsArg] = _args;
   const retry = retryArg === undefined ? true : retryArg;
@@ -213,7 +243,7 @@ async function persistStateNow(..._args) {
     resolveConflictIntoState(state, previous, current);
     return persistStateNow(db, agentId, state, false, options);
   }
-  await recordCognitiveRegulationTransition(db, { agentId, previous, state, options });
+  await recordCognitiveRegulationTransition(db, { agentId, previous, state, options }).catch((cause) => persistFailure(agentId, state.revision, cause));
   state.revision += 1;
 }
 
@@ -271,6 +301,7 @@ module.exports = {
   createConscienceState,
   evaluateBranch,
   triggerEureka,
+  hasEurekaEvidence,
   markApoptotic,
   formatCognitiveRegulationPrompt,
   formatConsciencePrompt,

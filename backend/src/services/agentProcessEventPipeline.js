@@ -159,7 +159,8 @@ async function runConscienceCheck(ctx, event, observation) {
     return false;
   }
   if (isSuccessEvent) {
-    agentConscience.triggerEureka(conscienceState);
+    // Eurêka adossé à l'événement de succès observé (preuve réelle).
+    agentConscience.triggerEureka(conscienceState, { evidence: { eventType: event.eventType, action: event.action } });
     emit(agentId, 'COGNITIVE_EUREKA', 'EUREKA', `Événement Eurêka enregistré ! Dissonance réduite à ${conscienceState.dissonanceLevel.toFixed(1)}.`, { conscienceState }, 'info');
     await agentConscience.persistConscienceState(db, agentId, conscienceState, { reason: 'supervisor_eureka' });
   }

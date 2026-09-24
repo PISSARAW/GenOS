@@ -28,7 +28,11 @@ function buildScope(options) {
   const ownerId = String(options.ownerId || '').trim();
   const orgId = String(options.organizationId || '').trim();
   const projectId = String(options.projectId || '').trim();
-  return { ownerId, orgId, projectId };
+  // Les lignes globales (organisation/projet NULL) ne sont visibles que si
+  // l'appelant demande explicitement un scope global partagé. Sans cela,
+  // `OR ... IS NULL` fuirait les mémoires d'autres tenants.
+  const includeGlobal = options.includeGlobal === true;
+  return { ownerId, orgId, projectId, includeGlobal };
 }
 
 function tokenizeQuery(query) {
@@ -68,7 +72,9 @@ function reciprocalRank(entry) {
 }
 
 function clampSynaptic(weight) {
-  return Math.max(0.1, Math.min(5.0, Number(weight || 1.0)));
+  // Poids signés : l'inhibition GABAergique s'exprime par des poids
+  // négatifs (plancher -5.0), le clamp positif les effaçait.
+  return Math.max(-5.0, Math.min(5.0, Number(weight || 1.0)));
 }
 
 function collectRowIds(vectorMap, ftsMap) {
@@ -111,23 +117,41 @@ async function fetchFtsMap(db, table, ftsMatch) {
   return map;
 }
 
+function trajectoryScopeClause(scope, alias) {
+  // Sans includeGlobal explicite, les trajectoires sans workspace sont
+  // exclues : elles peuvent appartenir à un autre tenant.
+  if (!scope.orgId) return { sql: '', params: [] };
+  if (scope.includeGlobal) {
+    const inner = scope.projectId ? ' AND project_id = ?' : '';
+    const params = scope.projectId ? [scope.orgId, scope.projectId] : [scope.orgId];
+    return { sql: ` AND (${alias}.workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?${inner}) OR ${alias}.workspace_id IS NULL)`, params };
+  }
+  const inner = scope.projectId ? ' AND project_id = ?' : '';
+  const params = scope.projectId ? [scope.orgId, scope.projectId] : [scope.orgId];
+  return { sql: ` AND (${alias}.workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?${inner}))`, params };
+}
+
 function trajectoryHydrateQuery(rowIds, scope) {
   const placeholders = rowIds.map(() => {
     return '?';
   }).join(',');
   const params = [...rowIds];
-  let sql = `SELECT rowid, id, title, status, author_name, semantic_summary, diff_lines, created_at, embedding_blob 
+  let sql = `SELECT rowid, id, title, status, author_name, semantic_summary, diff_lines, created_at, embedding_blob
                  FROM trajectories t WHERE rowid IN (${placeholders})`;
   if (scope.ownerId) {
     sql += ' AND t.author_id = ?';
     params.push(scope.ownerId);
   }
-  if (scope.orgId) {
-    sql += ' AND (t.workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?' + (scope.projectId ? ' AND project_id = ?' : '') + ') OR t.workspace_id IS NULL)';
-    params.push(scope.orgId);
-    if (scope.projectId) params.push(scope.projectId);
-  }
+  const clause = trajectoryScopeClause(scope, 't');
+  sql += clause.sql;
+  params.push(...clause.params);
   return { sql, params };
+}
+
+function tenantScopeClause(scope, alias, column) {
+  // Sans includeGlobal explicite : égalité stricte, pas de `OR ... IS NULL`.
+  if (scope.includeGlobal) return { sql: ` AND (${alias}.${column} = ? OR ${alias}.${column} IS NULL)`, params: null };
+  return { sql: ` AND ${alias}.${column} = ?`, params: null };
 }
 
 function decisionHydrateQuery(rowIds, scope) {
@@ -135,18 +159,20 @@ function decisionHydrateQuery(rowIds, scope) {
     return '?';
   }).join(',');
   const params = [...rowIds];
-  let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob 
+  let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob
                  FROM genome_decisions t WHERE rowid IN (${placeholders})`;
   if (scope.ownerId) {
     sql += ' AND t.created_by = ?';
     params.push(scope.ownerId);
   }
   if (scope.orgId) {
-    sql += ' AND (t.organization_id = ? OR t.organization_id IS NULL)';
+    const clause = tenantScopeClause(scope, 't', 'organization_id');
+    sql += clause.sql;
     params.push(scope.orgId);
   }
   if (scope.projectId) {
-    sql += ' AND (t.project_id = ? OR t.project_id IS NULL)';
+    const clause = tenantScopeClause(scope, 't', 'project_id');
+    sql += clause.sql;
     params.push(scope.projectId);
   }
   return { sql, params };
@@ -220,9 +246,14 @@ async function hydrateDecisions(db, rowIds, ctx) {
   }
 }
 
-function trajectoryFallbackOrg(projectId) {
-  const inner = projectId ? ' AND project_id = ?' : '';
-  return '(workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?' + inner + ') OR workspace_id IS NULL)';
+function trajectoryFallbackOrg(scope) {
+  // Même règle qu'en hydration : pas de `OR ... IS NULL` sans scope global.
+  if (scope.includeGlobal) {
+    const inner = scope.projectId ? ' AND project_id = ?' : '';
+    return '(workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?' + inner + ') OR workspace_id IS NULL)';
+  }
+  const inner = scope.projectId ? ' AND project_id = ?' : '';
+  return '(workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?' + inner + '))';
 }
 
 function trajectoryFallbackQuery(scope) {
@@ -233,13 +264,20 @@ function trajectoryFallbackQuery(scope) {
     params.push(scope.ownerId);
   }
   if (scope.orgId) {
-    conditions.push(trajectoryFallbackOrg(scope.projectId));
+    conditions.push(trajectoryFallbackOrg(scope));
     params.push(scope.orgId);
     if (scope.projectId) params.push(scope.projectId);
   }
   const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
-  const sql = `SELECT id, title, status, author_name, semantic_summary, diff_lines, created_at, embedding_blob FROM trajectories${where} ORDER BY created_at DESC LIMIT 50`;
+  // RRF après fetch complet : on ramène un large candidat (200) et c'est le
+  // scoring RRF/similarité en aval qui trie avant de slicer, pas ce LIMIT.
+  const sql = `SELECT id, title, status, author_name, semantic_summary, diff_lines, created_at, embedding_blob FROM trajectories${where} ORDER BY created_at DESC LIMIT 200`;
   return { sql, params };
+}
+
+function scopedEquality(scope, column) {
+  if (scope.includeGlobal) return `(${column} = ? OR ${column} IS NULL)`;
+  return `${column} = ?`;
 }
 
 function decisionFallbackQuery(scope) {
@@ -250,15 +288,15 @@ function decisionFallbackQuery(scope) {
     params.push(scope.ownerId);
   }
   if (scope.orgId) {
-    conditions.push('(organization_id = ? OR organization_id IS NULL)');
+    conditions.push(scopedEquality(scope, 'organization_id'));
     params.push(scope.orgId);
   }
   if (scope.projectId) {
-    conditions.push('(project_id = ? OR project_id IS NULL)');
+    conditions.push(scopedEquality(scope, 'project_id'));
     params.push(scope.projectId);
   }
   const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
-  const sql = `SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions${where} ORDER BY created_at DESC LIMIT 50`;
+  const sql = `SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions${where} ORDER BY created_at DESC LIMIT 200`;
   return { sql, params };
 }
 

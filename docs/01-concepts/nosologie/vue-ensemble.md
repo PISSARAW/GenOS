@@ -93,7 +93,12 @@ Document de référence transversal : [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.m
 | `SystemicTherapy::TelomeraseActivation` | Rallonge la limite de Hayflick | Dégénératives |
 | `SystemicTherapy::StemCellReplacement` | Remplace l'agent par une cellule souche neuve | Dégénératives, Cancers |
 
-### 4.2 Thérapies computationnelles implémentées
+### 4.2 Thérapies computationnelles proposées (NON implémentées)
+
+Les thérapies du tableau ci-dessous sont des opérateurs proposés par les
+rapports de nosologie, NON implémentés dans `therapy.rs` à ce jour. Elles ne
+doivent pas être présentées comme disponibles : aucun succès ne peut en être
+attesté. Les implémentations réelles sont celles du §4.1 uniquement.
 
 Les thérapies du tableau ci-dessous sont des opérateurs déterministes sur des marqueurs GenOS normalisés. Elles n'implémentent pas les médicaments humains correspondants.
 
@@ -115,7 +120,7 @@ Les thérapies du tableau ci-dessous sont des opérateurs déterministes sur des
 | `SystemicTherapy::CFTRModulatorTriad` | Génétiques | Nosologie 4 |
 | `SystemicTherapy::ChelationTherapy` | Environnementales | Nosologie 9 |
 
-Les rapports spécialisés ajoutent également les opérateurs `AllopurinolXanthineInhibitor`, `LysosomalUraturicPurge`, `DeepBrainStimulation`, `Viscosupplementation`, `SenolyticPurge`, `FetalCarrierReactivation`, `AntiAdhesionVasodilator`, `AntiNmdReadthrough`, `NeuroprotectiveAstrocyticFlush` et `BloodBrainBarrierSealant`. Ils agissent sur les marqueurs analogues du runtime; la thrombolyse est bloquée si l'état indique une barrière hémorragique.
+Les rapports spécialisés proposent également les opérateurs `AllopurinolXanthineInhibitor`, `LysosomalUraturicPurge`, `DeepBrainStimulation`, `Viscosupplementation`, `SenolyticPurge`, `FetalCarrierReactivation`, `AntiAdhesionVasodilator`, `AntiNmdReadthrough`, `NeuroprotectiveAstrocyticFlush` et `BloodBrainBarrierSealant` (tous NON implémentés — propositions uniquement).
 
 ---
 

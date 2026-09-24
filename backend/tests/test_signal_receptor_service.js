@@ -187,27 +187,40 @@ async function testTargetAgentFilter() {
     action: 'emit_signal',
   });
 
-  // Signal from matching agent
+  // Signal destiné à l'agent ciblé (destinataire, pas émetteur)
   const signalMatch = {
     signalId: 'sig-m',
     signalType: 'ligand',
     semanticType: 'TEST_READY',
     concentration: 0.95,
     topic: 'auth',
-    senderAgentId: 'orch-alpha',
+    senderAgentId: 'worker-a',
+    recipientAgentId: 'orch-alpha',
   };
   assert.strictEqual(receptor.matchReceptors(signalMatch).length, 1);
 
-  // Signal from different agent
+  // Signal d'un autre destinataire : pas de match même si l'émetteur colle
   const signalNoMatch = {
     signalId: 'sig-nm',
     signalType: 'ligand',
     semanticType: 'TEST_READY',
     concentration: 0.95,
     topic: 'auth',
-    senderAgentId: 'orch-beta',
+    senderAgentId: 'orch-alpha',
+    recipientAgentId: 'orch-beta',
   };
   assert.strictEqual(receptor.matchReceptors(signalNoMatch).length, 0);
+
+  // Sans destinataire déclaré, un récepteur ciblé ne matche pas
+  const signalOrphan = {
+    signalId: 'sig-or',
+    signalType: 'ligand',
+    semanticType: 'TEST_READY',
+    concentration: 0.95,
+    topic: 'auth',
+    senderAgentId: 'orch-alpha',
+  };
+  assert.strictEqual(receptor.matchReceptors(signalOrphan).length, 0);
 }
 
 async function testUpdateAgentAction() {

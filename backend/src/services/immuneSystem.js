@@ -220,9 +220,11 @@ function evaluateCognitiveDrift(text, options = {}) {
     const clean = text.trim();
     const expectedTerms = options.expectedTerms || clean.split(/\s+/).filter(w => w.length > 5).slice(0, 5);
     const health = evaluateCognitiveHealth(clean, expectedTerms, options.forbiddenTerms || []);
+    // Seuils cohérents avec withTextImmunity : critique < 0.3, alerte < 0.6.
     return {
-        healthy: health.health_score >= 0.5,
-        warning: health.health_score < 0.5,
+        healthy: health.health_score >= 0.6,
+        warning: health.health_score < 0.6,
+        critical: health.health_score < 0.3,
         health
     };
 }
@@ -253,27 +255,19 @@ function heuristicReconstruction(raw, err) {
     };
 }
 
-function chaperoneRepairJson(rawText, validatorFn = null) {
+function chaperoneRepairJson(rawText, validatorFn = null, options = {}) {
     if (!rawText || typeof rawText !== 'string' || !rawText.trim()) {
         return { ok: false, error: 'Empty output', painSignal: formatPainSignal('Sortie vide ou absente') };
     }
     const cleaned = immuneJson.cleanMarkdownAndNoise(rawText);
     let parsed = null;
     let repaired = false;
-    let heuristic = false;
 
     try {
         parsed = JSON.parse(cleaned);
         repaired = cleaned !== rawText.trim();
     } catch (parseError) {
-        const reconstructed = heuristicReconstruction(rawText, parseError);
-        if (reconstructed) {
-            parsed = reconstructed;
-            repaired = true;
-            heuristic = true;
-        } else {
-            return { ok: false, error: parseError.message, painSignal: formatPainSignal(parseError.message, rawText) };
-        }
+        return chaperoneHeuristicFallback(rawText, validatorFn, options, parseError);
     }
 
     if (validatorFn && typeof validatorFn === 'function') {
@@ -284,31 +278,49 @@ function chaperoneRepairJson(rawText, validatorFn = null) {
         }
     }
 
-    return { ok: true, data: parsed, repaired, heuristic };
+    return { ok: true, data: parsed, repaired, heuristic: false };
 }
 
-function phagocytoseCodexReport(rawText, options = {}) {
-    const agentName = options.agentName || 'GenOS Agent';
-    const nameMeaning = options.nameMeaning || 'Autonomous agent';
-    const role = options.role || 'Autonomous implementation agent';
-
-    const repair = chaperoneRepairJson(rawText, (data) => {
-        if (data && !Array.isArray(data.claims)) throw new Error("L'attribut 'claims' doit être un tableau.");
-    });
-
-    if (repair.ok) {
-        const report = repair.data;
-        report.author = report.author || { name: agentName, meaning: nameMeaning, role };
-        if (!Array.isArray(report.claims)) report.claims = [];
-        return { ok: true, report, repaired: repair.repaired, heuristic: repair.heuristic };
+function chaperoneHeuristicFallback(rawText, validatorFn, options, parseError) {
+    const reconstructed = heuristicReconstruction(rawText, parseError);
+    if (!reconstructed) {
+        return { ok: false, error: parseError.message, painSignal: formatPainSignal(parseError.message, rawText) };
     }
+    // L'heuristique ne promeut JAMAIS seule en ok:true : le contenu est
+    // reconstitué, pas prouvé. Validation exigée + opt-in explicite.
+    if (typeof validatorFn === 'function') {
+        try {
+            validatorFn(reconstructed);
+        } catch (valErr) {
+            return { ok: false, heuristic: true, data: reconstructed, repaired: true, error: valErr.message, painSignal: formatPainSignal(valErr.message, rawText) };
+        }
+    }
+    if (!options || options.allowHeuristic !== true) {
+        return { ok: false, heuristic: true, data: reconstructed, repaired: true, error: 'Heuristic reconstruction requires explicit validation (allowHeuristic:true + passing validator).', painSignal: formatPainSignal('Reconstruction heuristique non validée', rawText) };
+    }
+    return { ok: true, data: reconstructed, repaired: true, heuristic: true };
+}
 
+function codexClaimsValidator(data) {
+    if (data && !Array.isArray(data.claims)) throw new Error("L'attribut 'claims' doit être un tableau.");
+}
+
+function promoteRepairedReport(repair, identity) {
+    const report = repair.data;
+    report.author = report.author || { name: identity.name, meaning: identity.meaning, role: identity.role };
+    if (!Array.isArray(report.claims)) report.claims = [];
+    return { ok: true, report, repaired: repair.repaired, heuristic: repair.heuristic };
+}
+
+function apoptoticFallbackReport(repair, identity) {
     return {
         ok: false,
         error: repair.error,
         painSignal: repair.painSignal,
+        heuristic: repair.heuristic === true,
+        heuristicDraft: repair.heuristic === true ? repair.data : undefined,
         fallbackReport: {
-            author: { name: agentName, meaning: nameMeaning, role },
+            author: { name: identity.name, meaning: identity.meaning, role: identity.role },
             outcome: 'failed',
             failure: {
                 category: 'mutated_output',
@@ -319,6 +331,17 @@ function phagocytoseCodexReport(rawText, options = {}) {
             unverifiedClaims: ["Le rapport a muté et n'a pas pu être réparé par le Chaperon Moléculaire."]
         }
     };
+}
+
+function phagocytoseCodexReport(rawText, options = {}) {
+    const identity = {
+        name: options.agentName || 'GenOS Agent',
+        meaning: options.nameMeaning || 'Autonomous agent',
+        role: options.role || 'Autonomous implementation agent'
+    };
+    const repair = chaperoneRepairJson(rawText, codexClaimsValidator);
+    if (repair.ok) return promoteRepairedReport(repair, identity);
+    return apoptoticFallbackReport(repair, identity);
 }
 
 /**

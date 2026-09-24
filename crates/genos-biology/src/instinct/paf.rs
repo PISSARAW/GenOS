@@ -81,7 +81,13 @@ pub struct ExecutionContext {
     pub authorized_tools: Vec<String>,
     pub atp_budget: f64,
     pub apoptotic: bool,
+    /// Profondeur de chaîne instinct->instinct (anti-boucle : un pas dont
+    /// l'exécution redéclenche un instinct incrémente ce compteur).
+    pub chain_depth: u32,
 }
+
+/// Profondeur maximale de redéclenchement en chaîne avant blocage.
+pub const MAX_CHAIN_DEPTH: u32 = 8;
 
 impl Default for ExecutionContext {
     fn default() -> Self {
@@ -89,6 +95,7 @@ impl Default for ExecutionContext {
             authorized_tools: Vec::new(),
             atp_budget: 0.0,
             apoptotic: false,
+            chain_depth: 0,
         }
     }
 }
@@ -99,6 +106,17 @@ impl ExecutionContext {
             authorized_tools,
             atp_budget,
             apoptotic: false,
+            chain_depth: 0,
+        }
+    }
+
+    /// Contexte chaîné : propage l'autorisation en incrémentant l'anti-boucle.
+    pub fn chained(&self) -> Self {
+        Self {
+            authorized_tools: self.authorized_tools.clone(),
+            atp_budget: self.atp_budget,
+            apoptotic: self.apoptotic,
+            chain_depth: self.chain_depth.saturating_add(1),
         }
     }
 
@@ -117,6 +135,10 @@ impl ExecutionContext {
 pub enum InstinctOutcome {
     NotTriggered { salience: f64, threshold: f64 },
     Blocked { reason: String },
+    /// Plan validé mais NON exécuté : l'exécution réelle passe par
+    /// l'executor externe qui émet un receipt par pas. Seul l'executor
+    /// peut convertir Pending en Complete.
+    Pending { steps_ready: usize, gain: f64 },
     Complete { steps_executed: usize, gain: f64 },
     Interrupt { at_step: usize, reason: String },
 }

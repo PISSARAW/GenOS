@@ -27,11 +27,16 @@ async function handleSomaticResonance(args = {}, run) {
   const stressLevel = args.stress_level || (entropy > 0.8 ? 'critical_panic' : (entropy > 0.5 ? 'elevated_tension' : 'nominal'));
 
   let cliOutput = null;
+  let cliFailed = false;
+  let cliErrorText = null;
   if (typeof run === 'function') {
     try {
       const out = run(`genos biomimicry bio-feature --feature somatic_resonance --action ${quoteCliArg(action)} --param mesh_id=${quoteCliArg(meshId)} --param entropy=${entropy}`);
       cliOutput = out ? out.toString() : null;
-    } catch (_) {}
+    } catch (cliProbeError) { cliFailed = true; cliErrorText = cliProbeError && cliProbeError.message ? cliProbeError.message : String(cliProbeError); }
+  }
+  if (cliFailed) {
+    return { configured: true, success: false, status: 'tool_error', error: cliErrorText };
   }
 
   const mesh = getMesh(meshId);

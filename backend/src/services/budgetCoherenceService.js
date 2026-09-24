@@ -35,6 +35,13 @@ function resolveShares({ workerShare, reserve, fallbackWorker, fallbackReserve }
   return [fallbackWorker, fallbackReserve];
 }
 
+function validateShareSum(shares) {
+  const sum = Number(shares[0]) + Number(shares[1]);
+  if (!Number.isFinite(sum)) return 'worker/orchestrator shares must be finite numbers';
+  if (Math.abs(sum - 1) > 0.01) return `worker/orchestrator shares must sum to 1 (±0.01), got ${sum}`;
+  return null;
+}
+
 function readRoundsPool(rounds, key) {
   const round = rounds[key];
   if (round == null) {
@@ -116,13 +123,12 @@ function validateBudgetCoherence({ executionBudget = {}, autonomyPlan = {}, scop
     return { valid: false, reason: 'budget total must be positive' };
   }
 
-  const expectedWorkerBudget = total * shares[0];
+  const shareError = validateShareSum(shares);
+  if (shareError) return { valid: false, reason: shareError };
+
   const expectedOrchestratorBudget = total * shares[1];
   if (totalDispatched > total) {
     return { valid: false, reason: `budget envelope exceeded: dispatched ${totalDispatched} > total ${total}` };
-  }
-  if (Math.abs(expectedWorkerBudget + expectedOrchestratorBudget - total) > 0.001) {
-    return { valid: false, reason: `worker/orchestrator split is inconsistent with total budget: ${expectedWorkerBudget} + ${expectedOrchestratorBudget} != ${total}` };
   }
 
   const activeScope = executionBudget.scope || scope;
@@ -136,5 +142,6 @@ function validateBudgetCoherence({ executionBudget = {}, autonomyPlan = {}, scop
 
 module.exports = {
   normalizeMissionBudget,
-  validateBudgetCoherence
+  validateBudgetCoherence,
+  validateShareSum
 };

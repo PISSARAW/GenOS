@@ -151,15 +151,22 @@ const TOOL_HANDLERS = {
   genos_biomimicry_hybrid_multiples: { handle: handleHybridMultiples, error: handleHybridMultiplesError },
   genos_biomimicry_conjoined_twin_bind: { handle: handleConjoinedTwinBind, error: handleConjoinedTwinBindError },
   genos_biomimicry_parasitic_graft: { handle: handleParasiticGraft, error: handleParasiticGraftError },
-  genos_biomimicry_fetus_in_fetu: { handle: handleFetusInFetu, error: (e) => ({ configured: false, error: e.message }) },
-  genos_biomimicry_sesquizygotic_split: { handle: handleSesquizygoticSplit, error: (e) => ({ configured: false, error: e.message }) },
-  genos_biomimicry_heteropaternal_superfecundation: { handle: handleHeteropaternalSuperfecundation, error: (e) => ({ configured: false, error: e.message }) },
-  genos_biomimicry_superfetation_pipeline: { handle: handleSuperfetationPipeline, error: (e) => ({ configured: false, error: e.message }) },
-  genos_biomimicry_tissue_chimerism: { handle: handleTissueChimerism, error: (e) => ({ configured: false, error: e.message }) },
-  genos_biomimicry_obligate_polyembryony: { handle: handleObligatePolyembryony, error: (e) => ({ configured: false, error: e.message }) },
-  genos_biomimicry_marmoset_germline_chimerism: { handle: handleMarmosetGermlineChimerism, error: (e) => ({ configured: false, error: e.message }) },
-  genos_biomimicry_freemartin_endocrine_inhibition: { handle: handleFreemartinInhibition, error: (e) => ({ configured: false, error: e.message }) },
-  genos_biomimicry_embryonic_diapause_pipeline: { handle: handleEmbryonicDiapause, error: (e) => ({ configured: false, error: e.message }) },
+  genos_signal_publish: { handle: handleSignalPublish, error: handleSignalPublishError },
+  genos_signal_read: { handle: handleSignalRead, error: handleSignalReadError },
+  genos_signal_purge: { handle: handleSignalPurge, error: handleSignalPurgeError },
+  genos_signal_electrocyte_vote: { handle: handleSignalElectrocyteVote, error: handleSignalElectrocyteVoteError },
+  genos_signal_chemotactic_follow: { handle: handleSignalChemotacticFollow, error: handleSignalChemotacticFollowError },
+  genos_signal_plasmid_transfer: { handle: handleSignalPlasmidTransfer, error: handleSignalPlasmidTransferError },
+  genos_signal_collective_decision: { handle: handleSignalCollectiveDecision, error: handleSignalCollectiveDecisionError },
+  genos_biomimicry_fetus_in_fetu: { handle: handleFetusInFetu, error: (e) => ({ configured: true, error: e.message }) },
+  genos_biomimicry_sesquizygotic_split: { handle: handleSesquizygoticSplit, error: (e) => ({ configured: true, error: e.message }) },
+  genos_biomimicry_heteropaternal_superfecundation: { handle: handleHeteropaternalSuperfecundation, error: (e) => ({ configured: true, error: e.message }) },
+  genos_biomimicry_superfetation_pipeline: { handle: handleSuperfetationPipeline, error: (e) => ({ configured: true, error: e.message }) },
+  genos_biomimicry_tissue_chimerism: { handle: handleTissueChimerism, error: (e) => ({ configured: true, error: e.message }) },
+  genos_biomimicry_obligate_polyembryony: { handle: handleObligatePolyembryony, error: (e) => ({ configured: true, error: e.message }) },
+  genos_biomimicry_marmoset_germline_chimerism: { handle: handleMarmosetGermlineChimerism, error: (e) => ({ configured: true, error: e.message }) },
+  genos_biomimicry_freemartin_endocrine_inhibition: { handle: handleFreemartinInhibition, error: (e) => ({ configured: true, error: e.message }) },
+  genos_biomimicry_embryonic_diapause_pipeline: { handle: handleEmbryonicDiapause, error: (e) => ({ configured: true, error: e.message }) },
   genos_biomimicry_point_mutation: { handle: handlePointMutation, error: handlePointMutationError },
   genos_biomimicry_frameshift_mutation: { handle: handleFrameshiftMutation, error: handleFrameshiftMutationError },
   genos_biomimicry_chromosomal_deletion: { handle: handleChromosomalDeletion, error: handleChromosomalDeletionError },
@@ -180,6 +187,15 @@ const TOOL_HANDLERS = {
   genos_biomimicry_yamanaka_reprogramming: { handle: handleYamanakaReprogramming, error: handleYamanakaError },
   genos_temporal_consciousness_transfer: { handle: handleConsciousnessTransfer, error: handleConsciousnessError },
   genos_temporal_novikov_causal_rebase: { handle: handleNovikovCausalRebase, error: handleNovikovError },
+  // H38/H39: canonical temporal names above; biomimicry aliases below for doc
+  // compatibility. Doc historically referenced genos_biomimicry_* names while
+  // the registry exposed genos_temporal_* (desync). Both spellings are now
+  // accepted and route to the same handler.
+  genos_biomimicry_consciousness_transfer: { handle: handleConsciousnessTransfer, error: handleConsciousnessError },
+  genos_biomimicry_novikov_causal_rebase: { handle: handleNovikovCausalRebase, error: handleNovikovError },
+  // NOTE: genos_biomimicry_distributed_huddle and genos_biomimicry_axolotl_*
+  // are intentionally NOT duplicated here: executeBioTool() in mcpBioTools.js
+  // routes them explicitly to mcpBioExtra (single source of truth).
   genos_biomimicry_affordances_scanner: { handle: handleAffordancesScanner, error: handleAffordancesScannerError },
   genos_biomimicry_tool_health_probe: { handle: handleToolHealthProbe, error: handleToolHealthProbeError },
   genos_biomimicry_extended_body_schema: { handle: handleExtendedBodySchema, error: handleExtendedBodySchemaError },
@@ -188,3 +204,21 @@ const TOOL_HANDLERS = {
 };
 
 module.exports = { TOOL_HANDLERS };
+
+// Champs obligatoires par outil bio. validateToolArguments() les vérifie de
+// façon générique: tout handler qui déclare required[] est contrôlé, aucun
+// bridge_id/pair_id/host_id ne doit recevoir de valeur par défaut silencieuse.
+const HANDLER_REQUIRED = {
+  genos_biomimicry_thalamic_bridge: ['bridge_id'],
+  genos_biomimicry_conjoined_twin_bind: ['pair_id'],
+  genos_biomimicry_mirror_twin_fork: ['pair_id'],
+  genos_biomimicry_sesquizygotic_split: ['pair_id'],
+  genos_biomimicry_fetus_in_fetu: ['host_agent_id'],
+  genos_biomimicry_parasitic_graft: ['host_id|autosite_id'],
+  genos_biomimicry_agrobacterium_tdna_hijack: ['host_id'],
+  genos_signal_publish: ['signal_type'],
+  genos_signal_read: ['agent_id'],
+  genos_signal_chemotactic_follow: ['agent_id'],
+};
+
+module.exports.HANDLER_REQUIRED = HANDLER_REQUIRED;

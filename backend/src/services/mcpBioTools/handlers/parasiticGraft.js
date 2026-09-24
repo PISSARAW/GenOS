@@ -22,8 +22,12 @@ function getGraft(graftId) {
 
 function handleParasiticGraft(args = {}, run) {
   const action = args.action || 'status';
+  // Hôte obligatoire (host_id ou autosite_id): aucun défaut silencieux.
+  const autositeId = args.host_id || args.autosite_id;
+  if (autositeId === undefined || autositeId === null || String(autositeId).trim() === '') {
+    return { configured: true, success: false, status: 'invalid_args', error: 'host_id: is required.' };
+  }
   const graftId = args.graft_id || `graft-${Date.now()}`;
-  const autositeId = args.autosite_id || 'agent-autosite-primary';
   const arrestedId = args.arrested_twin_id || 'agent-twin-stalled';
   const limbs = Array.isArray(args.limbs) ? args.limbs : [
     { limbName: 'auxiliary_ast_parser', capability: 'ast_analysis', costRating: 0.1 },
@@ -31,11 +35,16 @@ function handleParasiticGraft(args = {}, run) {
   ];
 
   let cliOutput = null;
+  let cliFailed = false;
+  let cliErrorText = null;
   if (typeof run === 'function') {
     try {
       const out = run(`genos biomimicry bio-feature --feature parasitic_graft --action ${quoteCliArg(action)} --param graft_id=${quoteCliArg(graftId)}`);
       cliOutput = out ? out.toString() : null;
-    } catch (_) {}
+    } catch (cliProbeError) { cliFailed = true; cliErrorText = cliProbeError && cliProbeError.message ? cliProbeError.message : String(cliProbeError); }
+  }
+  if (cliFailed) {
+    return { configured: true, success: false, status: 'tool_error', error: cliErrorText };
   }
 
   const graft = getGraft(graftId);

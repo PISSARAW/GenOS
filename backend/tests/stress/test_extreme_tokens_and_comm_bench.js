@@ -152,6 +152,20 @@ async function testStdpSynapticPruning() {
   const sourceDec = `stdp_node_cause_${Date.now()}`;
   const targetDec = `stdp_node_effect_${Date.now()}`;
 
+  // STDP refuse les paires fantômes : les décisions doivent exister
+  // (aucune décision synthétique créée).
+  const { getDatabase } = require('../../src/db');
+  const benchDb = await getDatabase();
+  const dummyBuf = Buffer.from(new Float32Array(768).buffer);
+  await benchDb.run(
+    'INSERT OR IGNORE INTO genome_decisions (id, title, content, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, ?, ?)',
+    sourceDec, 'STDP cause', 'bench cause', 'bench-agent', 'Experience', dummyBuf
+  );
+  await benchDb.run(
+    'INSERT OR IGNORE INTO genome_decisions (id, title, content, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, ?, ?)',
+    targetDec, 'STDP effect', 'bench effect', 'bench-agent', 'Experience', dummyBuf
+  );
+
   // Hebbian LTP: Pre-synaptic spike precedes Post-synaptic spike (causal correlation + Dopamine)
   const potentiation = await stdpUpdate({
     sourceId: sourceDec,

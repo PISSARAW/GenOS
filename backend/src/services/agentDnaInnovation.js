@@ -89,8 +89,22 @@ function evidenceSummary(event) {
   };
 }
 
+function requireTrustedEvidence(evidence) {
+  if (!hasTrustedEvidence(evidence || {})) {
+    throw Object.assign(new Error('Caller-provided evidence is not verified by a trust hook.'), { code: 'INNOVATION_EVIDENCE_UNVERIFIED' });
+  }
+}
+
+function resolvedInnovationStatus(row) {
+  if (!row) return 'candidate';
+  if (!row.status) return 'candidate';
+  return row.status;
+}
+
 async function captureCandidate(db, request) {
   const scope = request.scope || {};
+  // Evidence caller-fournie refusée sauf vérification par hook de confiance.
+  requireTrustedEvidence(request.evidence);
   const result = await operations.runOperation(db, {
     operation: 'speciate',
     params: {
@@ -103,11 +117,14 @@ async function captureCandidate(db, request) {
   });
   const id = `innovation-${result.contentHash.slice(0, 16)}`;
   await db.run('UPDATE agent_genomes SET status = ?, concept = ? WHERE id = ?', 'candidate', request.concept || null, result.genomeRef);
+  // ID non-écrasant: une innovation déjà décidée (promoted/rejected) n'est
+  // jamais réinitialisée en candidate avec évaluation effacée.
   await db.run(
     `INSERT INTO agent_genome_innovations (id, source_agent_id, base_genome_ref, candidate_genome_ref, concept, evidence_json, status, organization_id, project_id)
      VALUES (?, ?, ?, ?, ?, ?, 'candidate', ?, ?)
      ON CONFLICT(id) DO UPDATE SET source_agent_id = excluded.source_agent_id, evidence_json = excluded.evidence_json,
-       status = 'candidate', evaluation_json = NULL, decision_at = NULL`,
+       status = 'candidate', evaluation_json = NULL, decision_at = NULL
+       WHERE agent_genome_innovations.status = 'candidate'`,
     id,
     request.sourceAgentId || null,
     request.baseGenomeRef,
@@ -117,44 +134,57 @@ async function captureCandidate(db, request) {
     scope.organizationId || null,
     scope.projectId || null
   );
+  const current = await safeGet(db, 'SELECT status FROM agent_genome_innovations WHERE id = ?', id);
   return {
     id,
-    status: 'candidate',
+    status: resolvedInnovationStatus(current),
     baseGenomeRef: request.baseGenomeRef,
     candidateGenomeRef: result.genomeRef,
     concept: request.concept
   };
 }
 
-async function captureFromSuccess(ctx) {
-  if (!store.dnaEnabled()) return null;
-  const { db, mission, event } = ctx;
+async function loadCaptureContext(db, ctx) {
+  const { mission, event } = ctx;
   if (!require('./agentEvidenceService').hasDecisionEvidence(event)) return null;
   const agentId = mission && mission.agentId;
   if (!agentId) return null;
   const agent = await safeGet(db, 'SELECT role, workspace_id FROM agents WHERE id = ?', agentId);
   if (!agent) return null;
   const scope = await scopeForWorkspace(db, agent.workspace_id);
+  return { agentId, agent, scope, mission };
+}
+
+async function findDemonstrated(db, agentCtx) {
+  const { agent, mission, agentId } = agentCtx;
   const missionText = (mission.prompt || mission.currentTask || '');
-  const base = await store.selectGenome(db, { role: agent.role, mission: missionText }, scope);
+  const base = await store.selectGenome(db, { role: agent.role, mission: missionText }, agentCtx.scope);
   if (!base) return null;
   const tools = await latestToolLease(db, agentId);
   const concepts = detectNovelConcepts(base.model, tools);
   if (!concepts.length) return null;
-
-  // B4: croiser les outils loués avec les événements d'exécution pour vérifier l'usage effectif
   const contributionEvidence = await findToolUsageEvidence(db, { agentId, concepts });
   const demonstrated = demonstratedConcepts(concepts, contributionEvidence);
   if (!demonstrated.length) return null;
+  return { base, demonstrated, contributionEvidence };
+}
 
+async function captureFromSuccess(ctx) {
+  if (!store.dnaEnabled()) return null;
+  const { db, event } = ctx;
+  const agentCtx = await loadCaptureContext(db, ctx);
+  if (!agentCtx) return null;
+  const found = await findDemonstrated(db, agentCtx);
+  if (!found) return null;
+  const { base, demonstrated, contributionEvidence } = found;
   return captureCandidate(db, {
     baseGenomeRef: base.id,
     name: `${base.model.meta.name}-${demonstrated[0].locus.toLowerCase().slice(0, 24)}`,
     concept: demonstrated.map((concept) => concept.instruction).join(','),
     concepts: demonstrated,
-    sourceAgentId: agentId,
+    sourceAgentId: agentCtx.agentId,
     evidence: { ...evidenceSummary(event), contributionEvidence },
-    scope
+    scope: agentCtx.scope
   });
 }
 
@@ -285,7 +315,8 @@ function evaluationChecks({ model, parent, evidence, signature }) {
     genomeValid: Boolean(model && model.meta && model.genes && model.provenance),
     sourceEvidence: evidence,
     signaturePolicy: Boolean(signature),
-    superiorToParent: parent ? isSuperiorToParent(model, parent) : null
+    // Sans parent, le check est neutre (true) au lieu de bloquer sur null.
+    superiorToParent: parent ? isSuperiorToParent(model, parent) : true
   };
 }
 

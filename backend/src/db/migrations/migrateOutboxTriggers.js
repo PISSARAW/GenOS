@@ -36,7 +36,12 @@ function getEventType(aggregate, op) {
 
 function getIdExpr(def, payload) {
   if (def.idColumn) return payload + '.' + def.idColumn;
-  return def.idExpr;
+  // Les expressions custom utilisent NEW : sur DELETE, seul OLD existe.
+  return String(def.idExpr).split('NEW').join(payload);
+}
+
+function dropTriggerSql(def, operation) {
+  return 'DROP TRIGGER IF EXISTS trg_outbox_' + def.table + '_' + operation.toLowerCase();
 }
 
 function buildTrigger(def, operation) {
@@ -78,6 +83,7 @@ module.exports = {
     `);
     for (const def of GRAPH_TABLES) {
       for (const op of ['INSERT', 'UPDATE', 'DELETE']) {
+        await db.exec(dropTriggerSql(def, op));
         await db.exec(buildTrigger(def, op));
       }
     }

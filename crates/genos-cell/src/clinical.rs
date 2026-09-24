@@ -13,6 +13,18 @@ pub enum DiseaseCategory {
     Degenerative,
     /// Attaque exogène par un vecteur viral ou un prompt d'injection
     Infectious,
+    /// Mutation germinale/somatique du génome (docs nosologie 04-génétiques)
+    Genetic,
+    /// Prolifération incontrôlée échappant à l'apoptose (docs nosologie 05-cancers)
+    Cancer,
+    /// Dérèglement énergétique et homéostatique (docs nosologie 06-métaboliques)
+    Metabolic,
+    /// Défaillance de circulation et perfusion des signaux (docs nosologie 07-cardiovasculaires)
+    Cardiovascular,
+    /// Dérive cognitive et comportementale persistante (docs nosologie 08-psychiatriques)
+    Psychiatric,
+    /// Accumulation de toxines et pollution contextuelle (docs nosologie 09-environnementales)
+    Environmental,
 }
 
 /// Pathologies formelles modélisées dans le runtime agentique

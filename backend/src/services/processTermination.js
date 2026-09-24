@@ -38,25 +38,42 @@ function readProcessCommandLine(pid) {
 
 // A substring match on `node`/`python` is far too loose. Prefer an exact path
 // match when the expected executable is a path, otherwise match a whole token.
-function commandMatches(commandLine, executable) {
-  const expected = String(executable || '').trim().toLowerCase();
-  if (!expected) return false;
-  const line = String(commandLine || '').toLowerCase();
-  if (expected.includes('/') || expected.includes('\\')) {
-    return line.includes(expected) || line.includes(expected.replace(/\\/g, '/'));
-  }
-  const base = path.basename(expected);
-  return line.split(/\s+/).some((token) => path.basename(token.replace(/["']/g, '')) === base);
+// In strict mode (emergency kill paths) the basename fallback is disabled:
+// a whitespace-separated argv token must equal the expected executable
+// exactly, so an unrelated process that merely shares a basename is never
+// signalled.
+function tokenEqualsExpected(token, expected) {
+  const clean = String(token || '').replace(/["']/g, '');
+  if (clean === expected) return true;
+  if (path.isAbsolute(expected) && path.isAbsolute(clean)) return path.normalize(clean) === path.normalize(expected);
+  return false;
 }
 
-function processMatches(pid, executable) {
+function commandMatches(commandLine, executable, strict = false) {
+  const expected = String(executable || '').trim();
+  if (!expected) return false;
+  const line = String(commandLine || '');
+  if (expected.includes('/') || expected.includes('\\')) {
+    if (strict) return line.toLowerCase().split(/\s+/).some((token) => tokenEqualsExpected(token.toLowerCase(), expected.toLowerCase()));
+    const lowered = line.toLowerCase();
+    const wanted = expected.toLowerCase();
+    return lowered.includes(wanted) || lowered.includes(wanted.replace(/\\/g, '/'));
+  }
+  if (strict) return line.split(/\s+/).some((token) => tokenEqualsExpected(token, expected));
+  const loweredExpected = expected.toLowerCase();
+  const loweredLine = line.toLowerCase();
+  const base = path.basename(loweredExpected);
+  return loweredLine.split(/\s+/).some((token) => path.basename(token.replace(/["']/g, '')) === base);
+}
+
+function processMatches(pid, executable, strict = false) {
   const numericPid = normalizePid(pid);
   if (!numericPid) return false;
   // An empty executable cannot be verified: never treat it as a match, so
   // reconciliation never kills a PID whose identity is unknown.
   if (!String(executable || '').trim()) return false;
   try {
-    return commandMatches(readProcessCommandLine(numericPid), executable);
+    return commandMatches(readProcessCommandLine(numericPid), executable, strict);
   } catch (_) {
     return false;
   }

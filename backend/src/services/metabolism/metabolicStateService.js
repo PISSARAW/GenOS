@@ -20,14 +20,33 @@ function defaultMetabolic(scopeId) {
 }
 
 function getMetabolic(scopeId) {
+  // Pas d'état fantôme : scope inconnu → null (l'appelant alloue
+  // explicitement via setMetabolic au lieu de travailler sur un défaut).
   if (!scopeId) return null;
-  return store.get(String(scopeId)) || defaultMetabolic(scopeId);
+  return store.get(String(scopeId)) || null;
+}
+
+const NON_NEGATIVE_FIELDS = [
+  'tokenBudget', 'monetaryBudget', 'latencyBudget',
+  'cpu', 'gpu', 'memory', 'io',
+  'contextWindow', 'toolCalls', 'workerSlots', 'modelCapacity',
+  'energyReserve', 'burnRate', 'pressure', 'starvationRisk'
+];
+
+function assertNonNegativeBudgets(patch) {
+  for (const field of NON_NEGATIVE_FIELDS) {
+    const value = patch[field];
+    if (value !== undefined && Number.isFinite(Number(value)) && Number(value) < 0) {
+      throw new Error(`setMetabolic requires ${field} >= 0`);
+    }
+  }
 }
 
 function setMetabolic(opts) {
   const o = opts || {};
   if (!o.scopeId) throw new Error('setMetabolic requires scopeId');
-  const prev = getMetabolic(o.scopeId);
+  assertNonNegativeBudgets(o.patch || {});
+  const prev = store.get(String(o.scopeId)) || defaultMetabolic(o.scopeId);
   const next = { ...prev, ...o.patch, scopeId: String(o.scopeId), updatedAt: new Date().toISOString() };
   store.set(String(o.scopeId), next);
   return next;

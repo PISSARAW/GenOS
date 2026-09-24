@@ -131,12 +131,18 @@ function enqueueTrackedEvent(ctx, event) {
   haltRuntimeImpl(ctx, 'event_queue_overflow', 'Runtime event queue capacity exceeded.', 'Runtime halted because event persistence could no longer keep up with the child process.', { droppedEventCount: state.droppedEventCount, capacity: state.maxEventQueue });
 }
 
+function isDetachedChild(child) {
+  if (!child) return false;
+  if (typeof child.genosDetached === 'boolean') return child.genosDetached;
+  return process.platform !== 'win32';
+}
+
 function haltRuntimeImpl(ctx, ...args) {
   const [kind, reason, detail, payload = {}] = args;
   if (ctx.state.termination) return false;
   ctx.state.termination = { kind, reason };
   emit(ctx.agentId, 'AGENT_RUNTIME_HALT_REQUESTED', kind.toUpperCase(), detail, { reason, ...payload }, 'critical', 'blocked');
-  terminateChild(ctx.child);
+  terminateChild(ctx.child, isDetachedChild(ctx.child));
   return true;
 }
 
@@ -224,15 +230,40 @@ function ensureCwd(spawnOptions) {
   try { fsSync.mkdirSync(spawnOptions.cwd, { recursive: true }); } catch (_) {}
 }
 
-function probeCommand(spawnSpec) {
-  const { spawnSync } = require('child_process');
-  const fsSync = require('fs');
+function sleepMs(ms) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    if (typeof timer.unref === 'function') timer.unref();
+  });
+}
+
+function probeArgs(spawnSpec) {
   const isNodeScript = spawnSpec.cmd === process.execPath;
+  return isNodeScript ? ['-e', ''] : ['--version'];
+}
+
+function probeAttempt(spawnSpec) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (ok) => { if (!settled) { settled = true; resolve(ok); } };
+    let probe;
+    try {
+      probe = spawn(spawnSpec.cmd, probeArgs(spawnSpec), { stdio: 'ignore' });
+    } catch (_) { done(false); return; }
+    const timer = setTimeout(() => { try { probe.kill('SIGKILL'); } catch (_) {} done(false); }, 5000);
+    if (typeof timer.unref === 'function') timer.unref();
+    probe.on('error', () => { clearTimeout(timer); done(false); });
+    probe.on('close', (code) => { clearTimeout(timer); done(code === 0); });
+  });
+}
+
+async function probeCommand(spawnSpec) {
+  const fsSync = require('fs');
   for (let attempt = 0; attempt < 3; attempt++) {
-    const probe = spawnSync(spawnSpec.cmd, isNodeScript ? ['-e', ''] : ['--version'], { stdio: 'ignore', timeout: 5000 });
-    if (!probe.error) return true;
+    const ok = await probeAttempt(spawnSpec);
+    if (ok) return true;
     if (!fsSync.existsSync(spawnSpec.cmd) || attempt === 2) return false;
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
+    await sleepMs(200);
   }
   return false;
 }
@@ -247,8 +278,7 @@ function isTransientSpawnError(err) {
   return err.code === 'ENOTCONN' || err.code === 'ECONNREFUSED' || err.code === 'EPERM' || err.code === 'EACCES';
 }
 
-function spawnWithRetry(spawnSpec, spawnOptions, maxAttempts) {
-  const { spawn } = require('child_process');
+async function spawnWithRetry(spawnSpec, spawnOptions, maxAttempts) {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const child = spawn(spawnSpec.cmd, spawnSpec.args, spawnOptions);
@@ -257,17 +287,17 @@ function spawnWithRetry(spawnSpec, spawnOptions, maxAttempts) {
     } catch (err) {
       const canRetry = attempt < maxAttempts - 1 && isTransientSpawnError(err);
       if (!canRetry) throw err;
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
+      await sleepMs(400);
     }
   }
 }
 
-function spawnRuntimeWithRetry(spawnSpec, spawnOptions) {
+async function spawnRuntimeWithRetry(spawnSpec, spawnOptions) {
   // A missing spawn cwd reports as a misleading `spawn <exe> ENOENT` on
   // Windows. Recreate the cwd before spawning, and probe the command so a
   // transient antivirus lock does not kill the mission either.
   ensureCwd(spawnOptions);
-  probeCommand(spawnSpec);
+  await probeCommand(spawnSpec);
   // Windows can emit an unhandled 'error' on a stdio Socket immediately after
   // spawn returns. Attach no-op error sinks and retry on transient errors.
   return spawnWithRetry(spawnSpec, spawnOptions, 3);
@@ -282,12 +312,13 @@ async function superviseMission(options) {
   const workspaceRoot = normalizedMission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
   const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
   const { spawnCmd, spawnArgs } = resolveSpawnCommand(resolvedExecutable);
-  const child = spawnRuntimeWithRetry({ cmd: spawnCmd, args: spawnArgs }, {
+  const child = await spawnRuntimeWithRetry({ cmd: spawnCmd, args: spawnArgs }, {
     cwd: workspaceRoot,
     env: buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates),
     stdio: ['pipe', 'pipe', 'pipe'],
     detached: process.platform !== 'win32'
   });
+  child.genosDetached = process.platform !== 'win32';
   // Attach the error handler synchronously: a spawn that fails immediately
   // (ENOENT under antivirus scan, missing runtime) emits 'error' before the
   // async setup below completes, and an unhandled 'error' event crashes the

@@ -24,8 +24,9 @@ function utilityOf(req) {
 function decide(opts) {
   const o = opts ?? {};
   const req = o.request ?? {};
-  const free = num(o.free, 0);
-  const need = num(req.tokens, 0);
+  // Capacité négative = 0 (jamais de budget fantôme négatif).
+  const free = Math.max(0, num(o.free, 0));
+  const need = Math.max(0, num(req.tokens, 0));
   const u = utilityOf(req);
   if (need <= 0) return { verdict: 'DENY', utility: u, reason: 'no_cost_declared' };
   return decideSized({ need, free, utility: u, substitute: o.substitute });

@@ -39,6 +39,8 @@ function createPlaySession(agentId, options) {
     db: options.db || null,
     workspaceId: options.workspaceId || null,
     constraints: {
+      // Sandbox exigé par défaut; aucun chemin d'exécution hors sandbox
+      // n'existe: une désactivation explicite bloque au lieu d'exécuter.
       requireSandbox: options.requireSandbox !== false,
       allowNetwork: options.allowNetwork === true,
       allowFileSystem: options.allowFileSystem !== false,
@@ -68,6 +70,13 @@ function createPlayIteration(iterationIndex, input) {
 
 async function executeInSandbox(session, input, workspacePath) {
   const iteration = createPlayIteration(session.iterations.length, input);
+
+  // Fail-closed: sans sandbox exigé et actif, on bloque au lieu d'exécuter.
+  if (!session || !session.constraints || session.constraints.requireSandbox !== true) {
+    iteration.outcome = 'blocked';
+    iteration.observation = 'Play execution blocked: requireSandbox must be true.';
+    return iteration;
+  }
 
   try {
     // 1. Capture : retourne { id, workspaceId, snapshotHash, metadata, snapshotPath }

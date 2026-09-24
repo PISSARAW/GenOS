@@ -50,11 +50,14 @@ function textToVector(text = '', dim = VECTOR_DIM) {
 
 function cosineSimilarity(vecA = [], vecB = []) {
   if (!vecA.length || !vecB.length) return 0;
+  // Refuse les comparaisons inter-dimensions : tronquer masquerait une
+  // incompatibilité d'embedding (faux positifs silencieux).
+  if (vecA.length !== vecB.length) return 0;
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
 
-  const len = Math.min(vecA.length, vecB.length);
+  const len = vecA.length;
   for (let i = 0; i < len; i++) {
     dotProduct += vecA[i] * vecB[i];
     normA += vecA[i] * vecA[i];
@@ -65,12 +68,19 @@ function cosineSimilarity(vecA = [], vecB = []) {
   return Number((dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))).toFixed(4));
 }
 
+// Seuils documentés (cf. scoreCorpusItem / evaluateMetacognition) :
+// - boost crédibilité x1.2 : réservé aux faits système signés (voir ci-dessous).
+// - nouveauté : top cosine < 0.50.
+// - inhibition GABA : top1 < 0.45 ET (top1 - top3) < 0.005 (plateau ambigu, n >= 3).
+// - adrénaline : annule le score si cosScore < 0.75 (rappel de survie strict).
+// - neurogenèse : bonus x1.15 si créé il y a < 24h ; déclin temporel tau 7j, plancher 0.4.
 function isAuthenticSystemFact(item) {
   if (!item) return false;
+  // Signature interne exigée : un préfixe d'id ("seed-*", "exp-001") ou un
+  // auteur/category auto-déclaré est spoofable par n'importe quel écrivain
+  // de genome_decisions, donc ne confère plus aucun boost.
   if (item.verified === true || item.is_verified === 1) return true;
-  if (item.category === 'SystemSignal') return true;
-  const id = String(item.id || '');
-  if (id.startsWith('seed-') || id === 'exp-001') return true;
+  if (item.internalSignature === true || item.systemSigned === true) return true;
   return false;
 }
 
@@ -200,8 +210,11 @@ function readSynapticWeight(item) {
 }
 
 function computeWeightFactor(weight) {
-  const normalizedWeight = Number.isFinite(weight) ? Math.max(0.0, weight) : 1.0;
-  return 0.3 + 0.7 * Math.min(1.5, normalizedWeight);
+  // Poids signés : un poids synaptique négatif (inhibition GABAergique)
+  // doit dégrader le score, pas être clampé à 0 comme une absence de poids.
+  const raw = Number.isFinite(weight) ? Number(weight) : 1.0;
+  const clamped = Math.max(-1.5, Math.min(1.5, raw));
+  return 0.3 + 0.7 * clamped;
 }
 
 function applyNeuromodulation(score, options, cosScore) {

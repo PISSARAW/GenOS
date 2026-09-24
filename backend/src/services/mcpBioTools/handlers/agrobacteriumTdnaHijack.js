@@ -58,7 +58,11 @@ function handleHarvestOpines(record, hostId) {
 
 function handleAgrobacteriumTdnaHijack(args = {}) {
   const action = args.action || 'status';
-  const hostId = args.host_id || 'host-plant-agent-1';
+  // host_id obligatoire: aucun hôte par défaut silencieux (rejet invalid_args).
+  if (args.host_id === undefined || args.host_id === null || String(args.host_id).trim() === '') {
+    return { configured: true, success: false, status: 'invalid_args', transport: 'agrobacterium_hijack_engine', error: 'host_id: is required.' };
+  }
+  const hostId = args.host_id;
   const record = getInfectionRecord(hostId);
 
   if (action === 'inject_tdna_payload') {

@@ -27,6 +27,10 @@ function executeDeletion(record, targetLocus) {
   if (index === -1) {
     return { success: false, msg: `Segment '${targetLocus}' not found on chromosome.` };
   }
+  // Refus : un locus essentiel ne peut pas être supprimé.
+  if (ESSENTIAL_LOCI.has(targetLocus) || record.segments[index].essential) {
+    return { success: false, essential: true, msg: `Refused: '${targetLocus}' is an essential locus.` };
+  }
   const [deleted] = record.segments.splice(index, 1);
   record.deletedSegments.push(deleted);
   record.prunedFootprintKb += deleted.weightKb;
@@ -60,7 +64,7 @@ function handleChromosomalDeletion(args = {}) {
     return {
       configured: true,
       success: delRes.success,
-      status: delRes.success ? 'segment_deleted' : 'locus_not_found',
+      status: delRes.success ? 'segment_deleted' : (delRes.essential ? 'essential_locus_refused' : 'locus_not_found'),
       transport: 'chromosomal_deletion_engine',
       chromosome_id: chromId,
       target_locus: targetLocus,

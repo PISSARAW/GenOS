@@ -265,7 +265,7 @@ async function runIdBatches(db, ids, buildStatement) {
  */
 async function consolidateEpisodes(options = {}, dbOverride = null) {
   const db = dbOverride || await getDatabase();
-  const { agentId, sessionId, scoreThreshold = 0.7, purgeBelowThreshold = true } = options;
+  const { agentId, sessionId, scoreThreshold = 0.7, purgeBelowThreshold = false } = options;
   const threshold = normalizeThreshold(scoreThreshold);
   const { query, params } = consolidationFilter(agentId, sessionId);
   const unconsolidated = await db.all(query, ...params);

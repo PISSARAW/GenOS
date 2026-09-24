@@ -45,7 +45,14 @@ pub struct Genome {
     pub hayflick_limit: u32,
     #[serde(default)]
     pub epigenome: Epigenome,
+    /// Compteur monotonique de duplications (jamais réutilisé après
+    /// suppression : évite les collisions de loci `_COPY_n`).
+    #[serde(default)]
+    pub duplication_seq: u64,
 }
+
+/// Nombre maximal de copies en tandem d'un même locus (anti-emballement).
+pub const MAX_GENE_COPIES: usize = 8;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct YamanakaCocktail {
@@ -250,6 +257,7 @@ impl Genome {
             generation: 0,
             ploidy: default_ploidy(),
             epigenome: Epigenome::new(),
+            duplication_seq: 0,
         }
     }
 
@@ -290,8 +298,19 @@ impl Genome {
 
     pub fn duplicate_gene(&mut self, target_locus: &str) -> Result<String, String> {
         if let Some(original) = self.genes.get(target_locus) {
+            // Plafond : refuse au-delà de MAX_GENE_COPIES copies.
+            let copies = self
+                .genes
+                .keys()
+                .filter(|locus| *locus == target_locus || locus.starts_with(&format!("{}_COPY_", target_locus)))
+                .count();
+            if copies >= MAX_GENE_COPIES {
+                return Err(format!("Copy cap reached for {}", target_locus));
+            }
             let mut duplicate = original.clone();
-            let new_locus = format!("{}_COPY_{}", target_locus, self.genes.len());
+            // Compteur monotonique, pas genes.len() : pas de collision après suppression.
+            self.duplication_seq = self.duplication_seq.saturating_add(1);
+            let new_locus = format!("{}_COPY_{}", target_locus, self.duplication_seq);
             duplicate.locus = new_locus.clone();
             self.genes.insert(new_locus.clone(), duplicate);
             Ok(new_locus)

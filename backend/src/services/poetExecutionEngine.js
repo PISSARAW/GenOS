@@ -28,25 +28,88 @@ const TERMINAL_EVENTS = new Set([
   'MISSION_NO_ANSWER_PROVEN',
 ]);
 
+const TERMINAL_EVENT_TYPES = [...TERMINAL_EVENTS];
+const TERMINATION_POLL_INTERVAL_MS = 1000;
+
 /**
- * Attend la fin réelle de la mission de l'agent via le flux telemetry.
- * Résout quand un événement terminal est émis pour cet agent.
+ * Interroge la table partagée telemetry_events (visible inter-processus).
+ * Retourne l'événement terminal le plus récent pour l'agent, ou null.
+ */
+async function pollTerminalEvent(agentId) {
+  try {
+    const { getDatabase } = require('../db');
+    const db = await getDatabase();
+    const placeholders = TERMINAL_EVENT_TYPES.map(() => '?').join(',');
+    const row = await db.get(
+      `SELECT event_type, payload_json FROM telemetry_events WHERE agent_id = ? AND event_type IN (${placeholders}) ORDER BY id DESC LIMIT 1`,
+      agentId, ...TERMINAL_EVENT_TYPES
+    );
+    if (!row) return null;
+    let event = null;
+    try { event = JSON.parse(row.payload_json || '{}'); } catch (_) { event = {}; }
+    return { eventType: row.event_type, event };
+  } catch (_) {
+    return null;
+  }
+}
+
+function newTerminationState(deadline) {
+  return { settled: false, timer: null, poller: null, deadline };
+}
+
+function newTerminationTrack(agentId, deadline, resolve) {
+  return { agentId, state: newTerminationState(deadline), handler: null, resolve };
+}
+
+function finishTermination(track, result) {
+  const state = track.state;
+  if (state.settled) return;
+  state.settled = true;
+  if (state.timer) clearTimeout(state.timer);
+  if (state.poller) clearInterval(state.poller);
+  telemetry.removeListener('telemetry', track.handler);
+  track.resolve(result);
+}
+
+function isTerminalFor(event, agentId) {
+  if (!event) return false;
+  if (event.agentId !== agentId) return false;
+  return TERMINAL_EVENTS.has(event.eventType);
+}
+
+function timeoutResult() {
+  return { terminated: false, eventType: 'TIMEOUT' };
+}
+
+async function checkTerminationDatabase(track) {
+  if (track.state.settled) return;
+  const found = await pollTerminalEvent(track.agentId);
+  if (found) {
+    finishTermination(track, { terminated: true, eventType: found.eventType, event: found.event, source: 'database' });
+    return;
+  }
+  if (Date.now() >= track.state.deadline) {
+    finishTermination(track, timeoutResult());
+  }
+}
+
+/**
+ * Attend la fin réelle de la mission de l'agent.
+ * Robuste multi-processus: écoute locale EventEmitter (rapide) + sondage DB
+ * (termine même si l'événement a été émis par un autre processus), avec timeout.
  */
 function waitForMissionTermination(agentId, timeoutMs) {
+  const deadline = Date.now() + Math.max(1, Number(timeoutMs) || 60000);
   return new Promise((resolve) => {
-    let timer = null;
-    const handler = (event) => {
-      if (event.agentId !== agentId) return;
-      if (!TERMINAL_EVENTS.has(event.eventType)) return;
-      clearTimeout(timer);
-      telemetry.removeListener('telemetry', handler);
-      resolve({ terminated: true, eventType: event.eventType, event });
+    const track = newTerminationTrack(agentId, deadline, resolve);
+    track.handler = (event) => {
+      if (!isTerminalFor(event, agentId)) return;
+      finishTermination(track, { terminated: true, eventType: event.eventType, event, source: 'telemetry' });
     };
-    telemetry.on('telemetry', handler);
-    timer = setTimeout(() => {
-      telemetry.removeListener('telemetry', handler);
-      resolve({ terminated: false, eventType: 'TIMEOUT' });
-    }, timeoutMs);
+    telemetry.on('telemetry', track.handler);
+    track.state.poller = setInterval(() => checkTerminationDatabase(track), TERMINATION_POLL_INTERVAL_MS);
+    track.state.timer = setTimeout(() => finishTermination(track, timeoutResult()), Math.max(1, deadline - Date.now()));
+    checkTerminationDatabase(track);
   });
 }
 

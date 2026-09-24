@@ -8,6 +8,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -216,6 +217,22 @@ pub struct FossilSpecimen {
     pub reading: PhenotypeReading,
 }
 
+/// Échec d'excavation : absence vs corruption (les deux valent success:false).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExcavateError {
+    NotFound,
+    Corrupted,
+}
+
+impl ExcavateError {
+    pub fn message(&self) -> &'static str {
+        match self {
+            Self::NotFound => "Fossil not found in stratigraphic registry.",
+            Self::Corrupted => "Fossil integrity check failed: specimen is corrupted.",
+        }
+    }
+}
+
 /// Une strate sédimentaire : lot daté de fossiles (datation stratigraphique).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SedimentStratum {
@@ -285,13 +302,19 @@ impl FossilRegistry {
             .collect()
     }
 
-    /// Excavation en lecture seule. Aucune résurrection n'est possible.
+    /// Excavation en lecture seule, jamais de résurrection. Un spécimen
+    /// corrompu n'est pas retourné : voir `excavate_result` (absence vs corruption).
     pub fn excavate(&self, fossil_id: &Uuid) -> Option<FossilSpecimen> {
-        self.find(fossil_id).map(|record| FossilSpecimen {
-            integrity_verified: record.verify_integrity(),
-            reading: record.reading(),
-            record: record.clone(),
-        })
+        self.excavate_result(fossil_id).ok()
+    }
+
+    /// Excavation typée : `NotFound` vs `Corrupted` (les deux valent success:false).
+    pub fn excavate_result(&self, fossil_id: &Uuid) -> Result<FossilSpecimen, ExcavateError> {
+        let record = self.find(fossil_id).ok_or(ExcavateError::NotFound)?;
+        if !record.verify_integrity() {
+            return Err(ExcavateError::Corrupted);
+        }
+        Ok(FossilSpecimen { integrity_verified: true, reading: record.reading(), record: record.clone() })
     }
 
     /// Regroupe les fossiles par strate, dans l'ordre de dépôt.
@@ -334,9 +357,22 @@ fn stratum_of(recorded_at: &str) -> String {
 fn conservation_quality(hard: &[String], soft: &[String]) -> f64 {
     let total = hard.len() + soft.len();
     if total == 0 {
-        1.0
+        0.0
     } else {
         hard.len() as f64 / total as f64
+    }
+}
+
+/// JSON canonique : objets triés récursivement (BTreeMap), aligné sur le
+/// `stableStringify` JS. Sans tri, Rust et JS hachent des octets différents.
+fn canonical_json(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let sorted: BTreeMap<String, Value> = map.iter().map(|(k, v)| (k.clone(), canonical_json(v))).collect();
+            Value::Object(sorted.into_iter().collect())
+        }
+        Value::Array(items) => Value::Array(items.iter().map(canonical_json).collect()),
+        other => other.clone(),
     }
 }
 
@@ -352,7 +388,7 @@ fn mineral_hash_of(record: &FossilRecord) -> String {
         "phenotype_markers": record.phenotype_markers,
         "mineral_payload": record.mineral_payload,
     });
-    let bytes = serde_json::to_vec(&material).unwrap_or_default();
+    let bytes = serde_json::to_vec(&canonical_json(&material)).unwrap_or_default();
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
     format!("{:x}", hasher.finalize())

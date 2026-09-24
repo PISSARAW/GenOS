@@ -14,18 +14,18 @@ async function testStdpPromotionResilience() {
   console.log('-> Cas 1 Validé : Skip gracieux sans échec du pipeline de promotion.');
 
   // Cas 2 : Agent avec 2 décisions récentes -> Doit auto-lier les décisions pré et post
+  // created_at explicites distincts (précision seconde en SQLite) : l'auto-
+  // association relit de VRAIS spikeTimes depuis les lignes, jamais fabriqués.
   const dec1 = `dec_pre_${Date.now()}`;
   const dec2 = `dec_post_${Date.now()}`;
   const dummyBuf = Buffer.from(new Float32Array(768).buffer);
   await db.run(
-    'INSERT INTO genome_decisions (id, title, content, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, ?, ?)',
-    dec1, 'Pre-synaptic Cause', 'First step resolution', agentId, 'Experience', dummyBuf
+    'INSERT INTO genome_decisions (id, title, content, created_by, category, embedding_blob, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    dec1, 'Pre-synaptic Cause', 'First step resolution', agentId, 'Experience', dummyBuf, '2026-01-01T10:00:00.000Z'
   );
-  // Simuler un léger décalage temporel
-  await new Promise(r => setTimeout(r, 15));
   await db.run(
-    'INSERT INTO genome_decisions (id, title, content, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, ?, ?)',
-    dec2, 'Post-synaptic Outcome', 'Second step breakthrough', agentId, 'Experience', dummyBuf
+    'INSERT INTO genome_decisions (id, title, content, created_by, category, embedding_blob, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    dec2, 'Post-synaptic Outcome', 'Second step breakthrough', agentId, 'Experience', dummyBuf, '2026-01-01T10:00:02.000Z'
   );
 
   const autoRes = await memoryPrimitives.stdpUpdate({ agentId });

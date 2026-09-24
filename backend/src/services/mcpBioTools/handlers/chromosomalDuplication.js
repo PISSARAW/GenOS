@@ -1,6 +1,9 @@
 // Registry for Chromosomal Duplications
 const chromosomalDuplicationRegistry = new Map(); /* persisterHook: chromosomalDuplicationRegistry */
 
+// Plafond de copies en tandem par locus (anti-emballement).
+const MAX_TANDEM_COPIES = 8;
+
 function getDuplicationRecord(id) {
   if (!chromosomalDuplicationRegistry.has(id)) {
     chromosomalDuplicationRegistry.set(id, {
@@ -8,10 +11,17 @@ function getDuplicationRecord(id) {
       segments: [
         { locus: 'LOCUS_REASONING_ENGINE', copyIndex: 1, heuristic: 'strict_deductive', isNeoFunctionalized: false }
       ],
+      // Compteur monotonique : jamais réutilisé après suppression (anti-collision).
+      nextCopyIndex: 2,
       updatedAt: new Date().toISOString()
     });
   }
-  return chromosomalDuplicationRegistry.get(id);
+  const record = chromosomalDuplicationRegistry.get(id);
+  if (record.nextCopyIndex === undefined) {
+    const maxSeen = record.segments.reduce((m, s) => Math.max(m, s.copyIndex || 1), 1);
+    record.nextCopyIndex = maxSeen + 1;
+  }
+  return record;
 }
 
 function duplicateSegment(record, targetLocus) {
@@ -19,7 +29,12 @@ function duplicateSegment(record, targetLocus) {
   if (existing.length === 0) {
     return { success: false, msg: `Locus '${targetLocus}' not found.` };
   }
-  const nextCopyIndex = existing.length + 1;
+  // Plafond : refuse au-delà de MAX_TANDEM_COPIES copies.
+  if (existing.length >= MAX_TANDEM_COPIES) {
+    return { success: false, capped: true, totalCopies: existing.length, msg: `Refused: '${targetLocus}' already at cap (${MAX_TANDEM_COPIES} copies).` };
+  }
+  const nextCopyIndex = record.nextCopyIndex;
+  record.nextCopyIndex += 1;
   const newSegment = {
     locus: targetLocus,
     copyIndex: nextCopyIndex,
@@ -49,7 +64,7 @@ function handleDuplicateAction(record, dupId, args) {
   return {
     configured: true,
     success: res.success,
-    status: res.success ? 'segment_duplicated' : 'locus_not_found',
+    status: res.success ? 'segment_duplicated' : (res.capped ? 'copy_cap_reached' : 'locus_not_found'),
     transport: 'chromosomal_duplication_engine',
     duplication_id: dupId,
     target_locus: targetLocus,

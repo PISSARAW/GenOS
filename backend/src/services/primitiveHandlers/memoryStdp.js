@@ -51,15 +51,10 @@ function buildSkipResult(context, ids) {
 }
 
 function normalizeSpikeTimes(preSpikeAt, postSpikeAt) {
-  if (!Number.isFinite(preSpikeAt) || !Number.isFinite(postSpikeAt) || preSpikeAt === postSpikeAt) {
-    if (Number.isFinite(preSpikeAt) && !Number.isFinite(postSpikeAt)) {
-      postSpikeAt = preSpikeAt + 10;
-    } else if (!Number.isFinite(preSpikeAt) && Number.isFinite(postSpikeAt)) {
-      preSpikeAt = postSpikeAt - 10;
-    } else {
-      preSpikeAt = Date.now() - 20;
-      postSpikeAt = Date.now();
-    }
+  // Aucun timestamp fabriqué : sans spikeTimes réels (fournis ou relus depuis
+  // les décisions appariées), la mise à jour est refusée par l'appelant.
+  if (!Number.isFinite(preSpikeAt) || !Number.isFinite(postSpikeAt)) {
+    return { error: 'Real preSpikeAt and postSpikeAt are required for STDP; refusing to fabricate spike times.' };
   }
   return { preSpikeAt, postSpikeAt };
 }
@@ -99,15 +94,9 @@ function computeStdpUpdate(params) {
   return Number((baseUpdate * neuromodulationFactor).toFixed(6));
 }
 
-async function ensureDecisionRow(db, payload) {
-  const { id, row, context } = payload;
-  if (row) {
-    return row;
-  }
-  await db.run(
-    'INSERT OR IGNORE INTO genome_decisions (id, title, content, created_by, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?)',
-    id, `Decision ${id}`, `Synthetic decision ${id}`, firstTruthy(context.agentId, 'system'), firstTruthy(context.organizationId, null), firstTruthy(context.projectId, null)
-  );
+async function lookupDecisionRow(db, id) {
+  // Lecture seule : aucune décision synthétique n'est créée. Si la paire
+  // causale est introuvable, l'appelant refuse la mise à jour STDP.
   return db.get('SELECT id, organization_id, project_id FROM genome_decisions WHERE id = ?', id);
 }
 
@@ -148,6 +137,9 @@ async function stdpUpdate(context) {
   }
 
   const times = normalizeSpikeTimes(ids.preSpikeAt, ids.postSpikeAt);
+  if (times.error) {
+    return { success: false, error: times.error };
+  }
   const preSpikeAt = times.preSpikeAt;
   const postSpikeAt = times.postSpikeAt;
 
@@ -168,14 +160,12 @@ async function stdpUpdate(context) {
   const neuromodulationFactor = resolveNeuromodulationFactor(transmitterType, context);
   const update = computeStdpUpdate({ learningRate, deltaT, tauPlus, tauMinus, neuromodulationFactor });
 
-  const [sourceInitial, targetInitial] = await Promise.all([
-    db.get('SELECT id, organization_id, project_id FROM genome_decisions WHERE id = ?', ids.sourceId),
-    db.get('SELECT id, organization_id, project_id FROM genome_decisions WHERE id = ?', ids.targetId)
+  const [sRow, tRow] = await Promise.all([
+    lookupDecisionRow(db, ids.sourceId),
+    lookupDecisionRow(db, ids.targetId)
   ]);
-  const sRow = await ensureDecisionRow(db, { id: ids.sourceId, row: sourceInitial, context });
-  const tRow = await ensureDecisionRow(db, { id: ids.targetId, row: targetInitial, context });
   if (!sRow || !tRow) {
-    return { success: false, error: `Invalid foreign keys for STDP: sourceId=${ids.sourceId}, targetId=${ids.targetId}` };
+    return { success: false, error: `STDP refused: causal pair not found (sourceId=${ids.sourceId}, targetId=${ids.targetId}). No synthetic decision is created.` };
   }
   const orgId = firstTruthy(context.organizationId, sRow.organization_id, null);
   const projId = firstTruthy(context.projectId, sRow.project_id, null);
@@ -186,13 +176,15 @@ async function stdpUpdate(context) {
 
   let row;
   await withTransaction(db, async (tx) => {
-    const initialWeight = Math.max(0.01, Math.min(20.0, update > 0 ? update : 1.0 + update));
+    // Poids signés : l'inhibition (GABA/LTD) vit sous zéro, plancher -20.0.
+    // Clamper à 0.01 effaçait toute plasticité négative.
+    const initialWeight = Math.max(-20.0, Math.min(20.0, update > 0 ? update : 1.0 + update));
     await tx.run(
       `INSERT INTO memory_synapses
       (source_id, target_id, weight, transmitter_type, pre_spike_at, post_spike_at, delta_t_ms, organization_id, project_id, last_updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(source_id, target_id) DO UPDATE SET
-        weight = MIN(20.0, MAX(0.01, memory_synapses.weight + ?)),
+        weight = MIN(20.0, MAX(-20.0, memory_synapses.weight + ?)),
         transmitter_type = COALESCE(memory_synapses.transmitter_type, excluded.transmitter_type),
         pre_spike_at = excluded.pre_spike_at,
         post_spike_at = excluded.post_spike_at,

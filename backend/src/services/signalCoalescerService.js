@@ -102,8 +102,10 @@ function bufferSignal(signal, topic) {
     existing.lastEmitAt = Date.now();
     return;
   }
+  // Le premier signal ouvre la fenêtre : il est inclus dans le buffer
+  // (push avant tout return), sinon l'agrégat suivant le perdrait.
   coalescingBuffer.set(key, {
-    signals: [],
+    signals: [signal],
     firstEmitAt: Date.now(),
     lastEmitAt: Date.now(),
   });

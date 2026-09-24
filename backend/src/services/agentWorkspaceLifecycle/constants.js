@@ -4,8 +4,7 @@
  * Reclamation is delayed by GENOS_WORKTREE_GC_DELAY_MS (default 10 minutes)
  * so post-close consumers — evidence-aware merging, recovery dispatch, action
  * execution — can finish reading the capsule before it disappears. A configured
- * value of `0` is clamped up to MIN_GC_DELAY_MS so it cannot race live readers;
- * `-1` disables reclamation. Setting GENOS_DISABLE_WORKSPACE_GC=1 disables
+ * value of `0` means immediate reclamation; `-1` disables reclamation. Setting GENOS_DISABLE_WORKSPACE_GC=1 disables
  * reclamation outright and is the documented escape hatch for tuning.
  */
 const DEFAULT_GC_DELAY_MS = 10 * 60 * 1000;
@@ -41,7 +40,8 @@ function gcDelayMs() {
   if (process.env.GENOS_DISABLE_WORKSPACE_GC === '1') return -1;
   const configured = Number(process.env.GENOS_WORKTREE_GC_DELAY_MS);
   if (!Number.isFinite(configured)) return DEFAULT_GC_DELAY_MS;
-  if (configured < 0) return configured;
+  if (configured < 0) return -1;
+  if (configured === 0) return 0;
   return Math.max(configured, MIN_GC_DELAY_MS);
 }
 

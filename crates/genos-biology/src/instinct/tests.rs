@@ -63,15 +63,22 @@ fn stimulus_below_threshold_is_not_triggered() {
 }
 
 #[test]
-fn authorized_paf_runs_to_completion() {
+fn authorized_paf_validates_to_pending() {
+    // run() ne fait que valider le plan : Pending, jamais Complete mensonger.
+    // Seul l'executor externe (avec receipts) convertit Pending en Complete.
     let outcome = run_forage(&capable_execution());
     assert!(matches!(
         outcome,
-        InstinctOutcome::Complete {
-            steps_executed: 2,
-            ..
-        }
+        InstinctOutcome::Pending { steps_ready: 2, .. }
     ));
+}
+
+#[test]
+fn chain_depth_overflow_is_blocked() {
+    // Anti-boucle : une chaîne de redéclenchements trop profonde est bloquée.
+    let mut execution = capable_execution();
+    execution.chain_depth = MAX_CHAIN_DEPTH;
+    assert!(matches!(run_forage(&execution), InstinctOutcome::Blocked { .. }));
 }
 
 #[test]

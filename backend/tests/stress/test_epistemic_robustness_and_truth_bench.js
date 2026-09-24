@@ -310,7 +310,7 @@ async function testCognitiveHealthAndApoptosis() {
     state.dissonanceLevel = 28.0;
     const initialDissonance = state.dissonanceLevel;
 
-    triggerEureka(state);
+    triggerEureka(state, { evidence: { insight: 'validated_breakthrough' } });
     assert.strictEqual(state.dissonanceLevel, initialDissonance / 2);
     assert.strictEqual(state.eurekaMoments, 1);
   });

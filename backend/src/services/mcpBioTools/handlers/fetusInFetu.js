@@ -16,7 +16,11 @@ function computeChecksum(data) {
 }
 
 function handleEncapsulate(args) {
-  const hostId = args.host_agent_id || `host_${Date.now()}`;
+  // host_agent_id obligatoire: aucun défaut Date.now() silencieux.
+  if (args.host_agent_id === undefined || args.host_agent_id === null || String(args.host_agent_id).trim() === '') {
+    return { configured: true, success: false, status: 'invalid_args', error: 'host_agent_id: is required.' };
+  }
+  const hostId = args.host_agent_id;
   const fetusId = args.fetus_agent_id || `fetus_in_fetu_${Math.random().toString(36).substring(2, 9)}`;
   const cleanCheckpoint = args.clean_checkpoint || { step: 0, memory: [], tools: [] };
   const dormancyChecksum = computeChecksum(cleanCheckpoint);

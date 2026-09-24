@@ -42,6 +42,23 @@ function changesOf(res) {
   return res && res.changes ? res.changes : 0;
 }
 
+function revalidateToolCall(toolName, args) {
+  const { directToolLeaseAllows } = require('../../mcpExecutor/config');
+  const { validateToolArguments } = require('../../mcpArgumentValidation');
+  if (!directToolLeaseAllows(toolName)) {
+    return { configured: false, success: false, status: 'lease_denied', error: `Tool '${toolName}' is outside the active MCP lease.`, code: 'MCP_TOOL_LEASE_DENIED' };
+  }
+  const argumentError = validateToolArguments(toolName, args || {});
+  if (argumentError) {
+    return { configured: true, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code };
+  }
+  const circuit = require('../../circuitBreaker').canExecute(toolName, 'operator', 'global', args);
+  if (!circuit.allowed) {
+    return { configured: true, success: false, status: 'circuit_open', error: circuit.message, code: circuit.reason || 'MCP_CIRCUIT_OPEN' };
+  }
+  return null;
+}
+
 const LOCAL_COMMAND_TOOLS = {
   genos_agent_world_capsule: (args) => `genos capsule create --snapshot ${args.snapshot_id}` + (args.seed ? ` --seed "${args.seed}"` : '') + (args.budget_steps ? ` --budget-steps ${args.budget_steps}` : ''),
   genos_world_sandbox_execute: (args) => `genos world run --provider directory --root .genos/world --world-id ${args.world_id} --command "${args.command}" --sandbox-backend ${args.backend}`,
@@ -350,6 +367,9 @@ async function dispatchToTransport(toolName, args, timeoutMs) {
 
 async function executeToolLogic(toolName, args, context = {}) {
   const { runLocal, timeoutMs = 30000 } = context;
+  // Re-validation fail-closed: ne jamais faire confiance à preValidated.
+  const revalidation = revalidateToolCall(toolName, args);
+  if (revalidation) return revalidation;
   const genomeResult = await require('../../mcpGenomeTools').executeGenomeTool(toolName, args, runLocal);
   if (genomeResult) return genomeResult;
   const commandBuilder = LOCAL_COMMAND_TOOLS[toolName];

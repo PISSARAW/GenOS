@@ -38,6 +38,9 @@ const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
 async function runTests() {
   console.log('=== STARTING GENOS BACKEND VERIFICATION SUITE ===\n');
+  if (!process.env.GENOS_MCP_LEASE && !process.env.GENOS_MCP_EXPOSE_ALL) {
+    process.env.GENOS_MCP_EXPOSE_ALL = '1';
+  }
 
   const testDbPath = createTestDbPath();
   const coreWorkspacePath = createTestWorkspacePath();

@@ -168,7 +168,8 @@ impl GenosEcosystem {
             })
             .collect();
         for (program, activation) in programs.iter().zip(&mut activations) {
-            if let InstinctOutcome::Complete { gain, .. } = &activation.outcome {
+            // Seul l'executor (avec receipts) convertit Pending en Complete.
+            if let InstinctOutcome::Pending { gain, .. } = &activation.outcome {
                 activation.outcome = self.dispatch_instinct_steps(program, *gain);
             }
         }
@@ -181,6 +182,7 @@ impl GenosEcosystem {
             }
             let event_type = match activation.outcome {
                 InstinctOutcome::Complete { .. } => "INSTINCT_COMPLETE",
+                InstinctOutcome::Pending { .. } => "INSTINCT_PENDING",
                 InstinctOutcome::Interrupt { .. } => "INSTINCT_INTERRUPT",
                 InstinctOutcome::Blocked { .. } => "INSTINCT_BLOCKED",
                 InstinctOutcome::NotTriggered { .. } => continue,

@@ -52,10 +52,23 @@ mod tests {
     }
 
     #[test]
-    fn fichier_schema_est_classe_cristal_et_exige_preuve_forte() {
+    fn nom_seul_ne_confere_pas_de_grade_a_preuve_forte() {
+        // Le nommage seul est plafonné : pas de Crystal sans type explicite.
         let material = classify_material("backend/src/db/schema.js");
+        assert!(material.required_evidence() < 0.9);
+    }
+
+    #[test]
+    fn type_explicite_croise_avec_nom_confere_cristal() {
+        let material = classify_material_explicit("backend/src/db/schema.js", "schema");
         assert_eq!(material, Material::Crystal);
         assert!(material.required_evidence() >= 0.9);
+    }
+
+    #[test]
+    fn type_explicite_incoherent_avec_nom_reste_plafonne() {
+        let material = classify_material_explicit("backend/logs/trace.log", "schema");
+        assert!(material.required_evidence() < 0.9);
     }
 
     #[test]
