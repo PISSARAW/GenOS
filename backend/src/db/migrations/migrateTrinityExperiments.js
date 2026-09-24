@@ -20,6 +20,17 @@ async function migrateTrinityExperiments(db) {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_trinity_experiments_status ON trinity_experiments(status, updated_at);
+    CREATE TABLE IF NOT EXISTS trinity_experiment_transitions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      experiment_id TEXT NOT NULL REFERENCES trinity_experiments(id) ON DELETE CASCADE,
+      from_status TEXT NOT NULL,
+      to_status TEXT NOT NULL,
+      actor TEXT NOT NULL,
+      reason TEXT,
+      evidence_ref TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_trinity_transitions_experiment ON trinity_experiment_transitions(experiment_id, id);
   `);
   await addWorldColumns(db);
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_trinity_worlds_experiment ON trinity_worlds(experiment_id, world_number);`);

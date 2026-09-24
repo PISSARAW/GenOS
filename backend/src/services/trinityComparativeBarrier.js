@@ -94,12 +94,15 @@ function buildWorldReports(workers, dossiers, options = {}) {
   return (workers || []).map((worker, index) => worldReportFor({ worker, member: members[index] || {}, byWorker, index }));
 }
 
-function buildComparison(trinity, result) {
+function buildComparison(result) {
   return {
     canMerge: result.canMerge,
+    outcome: result.outcome,
+    reason: result.reason || null,
     selectedWorld: result.selectedWorld,
     selectedRole: result.selectedRole || null,
     bestScore: result.bestScore,
+    paretoFrontier: result.comparativeAnalysis?.pareto?.frontier?.map((world) => world.worldNumber) || [],
     tied: result.comparativeAnalysis?.tied === true
   };
 }
@@ -109,7 +112,7 @@ async function recordComparison(ctx, trinity, result) {
     missionId: trinity.missionId,
     orchestratorId: ctx.agentId,
     comparison: result.comparativeAnalysis,
-    decision: { canMerge: result.canMerge, threshold: Number(trinity.threshold) || 0.70 }
+    decision: { canMerge: result.canMerge, outcome: result.outcome }
   });
 }
 
@@ -121,7 +124,7 @@ async function applyTrinityComparison(ctx) {
   const worldReports = buildWorldReports(ctx.workers || [], dossiers, { members: trinity.members || [] });
   const result = trinityService.mergeTrinityEvidence(worldReports, { domain: trinity.domain, threshold });
   await recordComparison(ctx, trinity, result);
-  trinity.comparison = buildComparison(trinity, result);
+  trinity.comparison = buildComparison(result);
   trinity.comparison.promotion = await promoteWinner(ctx.db, { missionId: trinity.missionId, orchestratorId: ctx.agentId, result });
   emitComparison(ctx, trinity, result);
   return result;
@@ -129,8 +132,8 @@ async function applyTrinityComparison(ctx) {
 
 function emitComparison(ctx, trinity, result) {
   const detail = result.canMerge
-    ? `Trinity merged World ${result.selectedWorld} (${result.selectedRole}) score=${result.bestScore}.`
-    : `Trinity escalated: no world met the evidence threshold (best ${result.bestScore}).`;
+    ? `Trinity selected World ${result.selectedWorld} (${result.selectedRole}) as a candidate; promotion checks are still pending.`
+    : `Trinity decision ${result.outcome || 'ESCALATE_EXPERIMENT'}: ${result.reason || 'no unique verified Pareto winner'}.`;
   emit(ctx.agentId, 'TRINITY_COMPARATIVE_BARRIER', 'COMPARE_TRINITY', detail, trinity.comparison, result.canMerge ? 'info' : 'warning');
 }
 
@@ -169,6 +172,10 @@ async function createMergeArtifact(db, params) {
     let contentHash;
     try {
       contentHash = await hashWorkspace(targetDir);
+      if (contentHash !== await hashWorkspace(sourceDir)) {
+        await workspaceLifecycle.cleanupWorkspace(targetDir).catch(() => {});
+        throw Object.assign(new Error('Trinity candidate differs from the selected world.'), { code: 'TRINITY_CANDIDATE_HASH_MISMATCH' });
+      }
     } catch (error) {
       await workspaceLifecycle.cleanupWorkspace(targetDir).catch(() => {});
       throw error;
@@ -186,7 +193,10 @@ async function promoteWinner(db, input = {}) {
   const { missionId, orchestratorId, result } = input;
   await updateExperimentDecision(db, missionId, result);
   const validation = validateMergeInput(db, result);
-  if (!validation.valid) return { promoted: false, reason: validation.reason };
+  if (!validation.valid) {
+    await failPromotion({ db, missionId, reason: validation.reason });
+    return { promoted: false, reason: validation.reason };
+  }
   const { winner } = validation;
   const context = await loadMergeContext(db, winner);
   const artifact = await createMergeArtifact(db, { result, context, orchestratorId });
@@ -205,12 +215,29 @@ async function updateExperimentDecision(db, missionId, result) {
   const experiment = await db.get('SELECT id, status FROM trinity_experiments WHERE mission_id = ?', missionId);
   if (!experiment) return;
   let status = experiment.status;
-  if (status === 'sealed_running') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'sealed_complete' })).status;
-  if (status === 'sealed_complete') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'cross_examining' })).status;
-  const decision = { outcome: result?.canMerge ? 'PROMOTE_WORLD' : 'ESCALATE_EXPERIMENT', reason: result?.reason || null, bestScore: result?.bestScore || 0 };
-  const next = result?.canMerge ? 'decided' : 'escalated';
-  if (status === 'cross_examining') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: next, decision })).status;
-  if (status === 'decided') await trinityExperimentStore.transition(db, { id: experiment.id, status: 'promotion_preparing', decision });
+  if (status === 'sealed_running') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'sealed_complete', reason: 'all_worlds_terminal' })).status;
+  if (status === 'sealed_complete') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'cross_examining', reason: 'comparative_review_started' })).status;
+  const outcome = result?.outcome || (result?.canMerge ? 'PROMOTE_WORLD' : 'ESCALATE_EXPERIMENT');
+  const decision = { outcome, reason: result?.reason || null, bestScore: result?.bestScore || 0, evidenceVectorDecision: vectorDecisionSummary(result?.comparativeAnalysis?.pareto) };
+  const next = result?.canMerge || outcome === 'KEEP_PARETO_SET' ? 'decided' : 'escalated';
+  if (status === 'cross_examining') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: next, decision, reason: decision.reason || outcome })).status;
+  if (status === 'decided' && result?.canMerge) await trinityExperimentStore.transition(db, { id: experiment.id, status: 'promotion_preparing', decision, reason: 'candidate_promotion_prepared' });
+}
+
+function vectorDecisionSummary(pareto) {
+  if (!pareto) return null;
+  return {
+    outcome: pareto.outcome,
+    reason: pareto.reason || null,
+    dimensions: pareto.dimensions || [],
+    frontier: (pareto.frontier || []).map((world) => world.worldNumber),
+    worlds: (pareto.worlds || []).map((world) => ({
+      worldNumber: world.worldNumber,
+      vector: world.vector,
+      missing: world.missing,
+      gateFailures: world.gateFailures || []
+    }))
+  };
 }
 
 async function failPromotion(input) {

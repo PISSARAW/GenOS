@@ -22,7 +22,7 @@ async function create(db, input) {
     input.id, input.missionId, input.domain, input.snapshotHash,
     JSON.stringify(input.design || {}), JSON.stringify(input.isolationPolicy || {}), JSON.stringify(input.budgetPolicy || {})
   );
-  return transition(db, { id: input.id, status: 'sealed_running' });
+  return transition(db, { id: input.id, status: 'sealed_running', reason: 'three_worlds_sealed' });
 }
 
 async function createWorld(db, input) {
@@ -48,6 +48,11 @@ async function transition(db, input) {
     input.status, input.decision ? JSON.stringify(input.decision) : null, input.failureReason || null, input.id, current.status
   );
   if (result?.changes !== 1) throw Object.assign(new Error('Trinity experiment changed concurrently.'), { code: 'TRINITY_CONCURRENT_TRANSITION' });
+  await db.run(
+    `INSERT INTO trinity_experiment_transitions (experiment_id, from_status, to_status, actor, reason, evidence_ref)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    input.id, current.status, input.status, input.actor || 'trinity_runtime', input.reason || null, input.evidenceRef || null
+  );
   return { ...current, status: input.status };
 }
 

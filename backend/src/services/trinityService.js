@@ -16,7 +16,7 @@ function membersFor(profile) {
   const chambers = ['direct', 'structured', 'falsification'];
   return ['basic_world', 'planned_world', 'ai_corrected_world'].map((label, i) => ({
     chamber: chambers[i],
-    label, hypothesis: profile.hypotheses[i], role: profile.roles[i],
+    label, hypothesis: `${profile.hypotheses[i]} Report evidenceVector (correctness, coverage, robustness, reproducibility, novelty, cost, latency, risk, uncertainty, constraintCoverage), hardConstraintsPassed, and budgetStatus. Use null for unmeasured dimensions and cite each measured dimension in evidenceVectorEvidence using IDs from evidence[]. Never invent measurements or evidence.`, role: profile.roles[i],
     modelTier: i === 0 ? 'standard' : 'frontier', domain: profile.domain,
     artifact: profile.artifact, pipelineStage: 0
   }));
@@ -75,6 +75,7 @@ function designHypotheses(mission, supplied = {}) {
 const telemetry = require('./telemetryObserver');
 const adaptive = require('./adaptiveParameterService');
 const { calculateEvIndex } = require('./trinityValueService');
+const trinityPareto = require('./trinityParetoService');
 
 const DOMAIN_WEIGHTS = {
   creative_writing: { alpha: 0.30, beta: 0.25, gamma: 0.45 },
@@ -165,22 +166,23 @@ function compareWorlds(worldEntries, domain = 'software_engineering') {
 function comparisonDetail(comparison, decision) {
   const count = comparison?.scoredWorlds?.length || 0;
   if (decision && decision.canMerge === false) {
-    const t = typeof decision.threshold === 'number' ? ` (${decision.threshold})` : '';
-    return `Compared ${count} Trinity worlds in domain '${comparison?.domain}'. No world met the evidence threshold${t}; escalation required (best score: ${comparison?.bestScore}).`;
+    return `Compared ${count} Trinity worlds in domain '${comparison?.domain}'. Outcome: ${comparison?.pareto?.outcome || 'ESCALATE_EXPERIMENT'} (${comparison?.pareto?.reason || 'no unique verified Pareto winner'}).`;
   }
-  return `Compared ${count} Trinity worlds in domain '${comparison?.domain}'. Winner: World ${comparison?.bestWorld?.worldNumber} (${comparison?.bestWorld?.role}) score=${comparison?.bestScore}`;
+  const winner = comparison?.scoredWorlds?.find((world) => world.worldNumber === comparison?.pareto?.selectedWorld);
+  return `Compared ${count} Trinity worlds in domain '${comparison?.domain}'. Unique verified Pareto candidate: World ${winner?.worldNumber} (${winner?.role}).`;
 }
 
 async function recordWorldComparison(db, comparisonData) {
   const { missionId, orchestratorId, comparison, decision } = comparisonData || {};
   if (db && missionId) {
-    try {
-      for (const w of (comparison?.scoredWorlds || [])) {
-        if (w.agentId) await db.run(`UPDATE trinity_worlds SET status = 'compared', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?`, w.agentId).catch(() => {});
+    for (const w of (comparison?.scoredWorlds || [])) {
+      if (w.agentId) {
+        const vector = comparison.pareto?.worlds?.find((candidate) => candidate.worldNumber === w.worldNumber)?.vector;
+        await db.run(`UPDATE trinity_worlds SET status = 'compared', evidence_vector_json = ?, updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?`, vector ? JSON.stringify(vector) : null, w.agentId);
       }
-    } catch (_) {}
+    }
   }
-  telemetry.emitEvent({ eventType: 'TRINITY_WORLD_COMPARISON_RECORDED', agentId: orchestratorId || 'trinity_orchestrator', action: 'COMPARE', detail: comparisonDetail(comparison, decision), severity: 'info', payload: { missionId, bestWorldNumber: comparison?.bestWorld?.worldNumber, bestRole: comparison?.bestWorld?.role, bestScore: comparison?.bestScore, tied: comparison?.tied === true, tiedWorlds: comparison?.tiedWorlds || [], merged: decision && typeof decision.canMerge === 'boolean' ? decision.canMerge : null, comparisonMatrix: comparison?.comparisonMatrix } });
+  telemetry.emitEvent({ eventType: 'TRINITY_WORLD_COMPARISON_RECORDED', agentId: orchestratorId || 'trinity_orchestrator', action: 'COMPARE', detail: comparisonDetail(comparison, decision), severity: 'info', payload: { missionId, outcome: comparison?.pareto?.outcome, frontier: comparison?.pareto?.frontier?.map((world) => world.worldNumber) || [], bestScore: comparison?.bestScore, merged: decision && typeof decision.canMerge === 'boolean' ? decision.canMerge : null, comparisonMatrix: comparison?.comparisonMatrix } });
   return comparison;
 }
 
@@ -212,21 +214,19 @@ function hasComplementEdge(claim, winnerClaims, claimGraph) {
 
 function mergeTrinityEvidence(worldEntries, options = {}) {
   const domain = options.domain || 'software_engineering';
-  const threshold = typeof options.threshold === 'number' ? options.threshold : adaptive.currentValue('gate.evidence_threshold', domain);
   const entries = Array.isArray(worldEntries) ? worldEntries : [];
   const comparison = compareWorlds(entries, domain);
-  const validation = validateWorldEntries(entries);
-  const accepted = validation.valid && !comparison.tied && comparison.bestScore >= threshold && Boolean(comparison.bestWorld);
-  const route = comparison.bestWorld?.breakdown?.testsCoverage >= comparison.bestWorld?.breakdown?.claimsScore ? 'beta' : 'alpha';
-  adaptive.observe('gate.evidence_threshold', { signal: comparison.bestScore, success: accepted }, domain).catch(() => {});
-  adaptive.observeRoute(domain, { quality: comparison.bestScore, success: accepted, route }).catch(() => {});
+  const pareto = trinityPareto.compare(entries);
+  comparison.pareto = pareto;
+  const accepted = pareto.outcome === 'PROMOTE_WORLD';
   if (accepted) {
-    const winnerReport = comparison.bestWorld.report || {};
+    const winner = comparison.scoredWorlds.find((world) => world.worldNumber === pareto.selectedWorld);
+    const winnerReport = winner.report || {};
     const winnerClaims = Array.isArray(winnerReport.claims) ? winnerReport.claims.filter(evidenceBackedClaim) : [];
-    const complementaryClaims = complementaryClaimsFrom(comparison.scoredWorlds, comparison.bestWorld, options.claimGraph);
-    return { canMerge: true, selectedWorld: comparison.bestWorld.worldNumber, selectedRole: comparison.bestWorld.role, bestScore: comparison.bestScore, comparativeAnalysis: comparison, mergedEvidence: { ...winnerReport, author: { name: 'Trinity Consolidated Synthesis', selectedWorld: comparison.bestWorld.worldNumber, selectedRole: comparison.bestWorld.role }, outcome: 'success', claims: [...winnerClaims, ...complementaryClaims], comparativeAnalysis: { winner: comparison.bestWorld.worldNumber, winningRole: comparison.bestWorld.role, score: comparison.bestScore, matrix: comparison.comparisonMatrix } } };
+    const complementaryClaims = complementaryClaimsFrom(comparison.scoredWorlds, winner, options.claimGraph);
+    return { canMerge: true, outcome: pareto.outcome, selectedWorld: winner.worldNumber, selectedRole: winner.role, bestScore: comparison.bestScore, comparativeAnalysis: comparison, mergedEvidence: { ...winnerReport, author: { name: 'Trinity Consolidated Synthesis', selectedWorld: winner.worldNumber, selectedRole: winner.role }, outcome: 'success', claims: [...winnerClaims, ...complementaryClaims], comparativeAnalysis: { winner: winner.worldNumber, winningRole: winner.role, score: comparison.bestScore, matrix: comparison.comparisonMatrix, evidenceVector: winner.vector } } };
   }
-  return { canMerge: false, selectedWorld: null, bestScore: comparison.bestScore, reason: rejectionReason(validation, comparison, threshold), recommendation: 'Escalate to human review or re-launch with modified mission.', comparativeAnalysis: comparison, mergedEvidence: null };
+  return { canMerge: false, outcome: pareto.outcome, selectedWorld: null, bestScore: comparison.bestScore, reason: pareto.reason || `Pareto frontier retained ${pareto.frontier.length} candidates.`, recommendation: 'Escalate to human review or re-launch with modified mission.', comparativeAnalysis: comparison, mergedEvidence: null };
 }
 
 function validateWorldEntries(entries) {

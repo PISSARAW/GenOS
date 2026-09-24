@@ -21,4 +21,4 @@ La comparaison prépare un artefact isolé. Tant que les vérifications d'intég
 
 ## Portée
 
-Les variantes Trinity de recherche et l'agrégation Pareto de l'Evidence Vector ne sont pas couvertes par cette décision. Le contrat fonctionnel de référence reste [`trinity.md`](../02-orchestration/topologies/trinity.md).
+Les variantes Trinity de recherche restent hors de cette décision. La comparaison Pareto v1 exige des dimensions requises prouvées, un statut de contraintes dures validé et un budget déclaré dans les limites ; sinon elle escalade. Le contrat fonctionnel de référence reste [`trinity.md`](../02-orchestration/topologies/trinity.md).
