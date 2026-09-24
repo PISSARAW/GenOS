@@ -11,6 +11,7 @@ const topologyCapabilityService = require('./topologyCapabilityService');
 const arenaTaskEvaluation = require('./arenaTaskEvaluation');
 const epistemicBiocenose = require('./epistemic/epistemicBiocenoseService');
 const hierarchicalQuorum = require('./hierarchicalQuorumService');
+const communityStore = require('./biocenose/communityStore');
 
 const NON_CANDIDATE_ROLES = new Set([
   'adversarial_reviewer', 'reviewer', 'consensus_observer', 'observer',
@@ -184,6 +185,13 @@ function composeMembers(mission, population) {
 
 async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
   const composition = composeBiocenose(mission, options);
+  const session = await communityStore.createSession(db, {
+    missionId: options.missionId,
+    question: mission,
+    questionType: options.questionType,
+    members: composition.members,
+    actorId: orchestratorId
+  });
   if (composition.organization) {
     const dynamicOrganization = require('./dynamicOrganizationService');
     await dynamicOrganization.changeOrganization(db, {
@@ -191,7 +199,7 @@ async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
       reason: 'Biocenose mode activation', changedBy: orchestratorId
     }).catch(() => {});
   }
-  return composition;
+  return { ...composition, communityId: session.communityId, sessionRevision: session.revision };
 }
 
 function activateBiocenose(mission, context = {}) {

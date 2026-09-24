@@ -25,7 +25,12 @@ présentes dans `biocenoseService` sont les suivantes :
   générateurs, reviewers et vérificateurs ; sans elle, la composition historique à
   quatre membres reste utilisée ;
 - `prepareCommunity` demande à `dynamicOrganizationService` de changer d'organisation,
-  mais ignore les erreurs de cette étape ;
+  crée d'abord une `BiocenoseSession` persistée avec ses membres et son événement
+  `COMMUNITY_CREATED`, puis ignore les erreurs du changement d'organisation ;
+- `communityStore` restaure la session et ses membres depuis SQLite. Les événements
+  sont ajoutés dans la même transaction que la révision de session, avec contrôle de
+  révision optimiste ; les journaux et artefacts sont stockés dans des tables
+  append-only ;
 - `evaluateCommunity` n'envoie à l'arène Pareto que les dossiers explicitement
   identifiés comme générateurs ou options candidates. Les rôles de revue,
   vérification, facilitation et observation en sont exclus. Le point genou est exposé
@@ -56,6 +61,10 @@ dynamique déclenché par la monoculture. Les sections suivantes exposent ces é
 comme modèle cible ou pistes de conception ; elles ne doivent pas être lues comme des
 garanties runtime.
 
+Les tables des claims, arguments, engagements, révisions de croyance, dissent et
+jugements sont créées pour préparer ces étapes, mais le parcours actuel ne les remplit
+pas encore.
+
 ---
 
 ## 1. Définition
@@ -77,6 +86,7 @@ Dans le modèle cible, Biocénose n'est pas un vote multi-agent, mais une **form
 Les services associés actuellement sont :
 
 - [backend/src/services/biocenoseService.js](../../../backend/src/services/biocenoseService.js) : composition, préparation, activation et évaluation ;
+- [backend/src/services/biocenose/communityStore.js](../../../backend/src/services/biocenose/communityStore.js) : création, rechargement et journalisation versionnée des sessions ;
 - [backend/src/services/epistemic/epistemicBiocenoseService.js](../../../backend/src/services/epistemic/epistemicBiocenoseService.js) : calcul de métriques de diversité ;
 - [backend/src/services/epistemic/epistemicIndependenceService.js](../../../backend/src/services/epistemic/epistemicIndependenceService.js) : service d'indépendance épistémique distinct, dont la présence ne signifie pas qu'il est appelé par le parcours Biocénose ;
 - [backend/src/services/hierarchicalQuorumService.js](../../../backend/src/services/hierarchicalQuorumService.js) : production d'un plan de communication hiérarchique ;
