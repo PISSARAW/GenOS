@@ -1,6 +1,5 @@
 'use strict';
 
-const { createSyncytiumCrdt } = require('../../syncytiumCrdtService');
 const authority = require('../security/mutationAuthorityService');
 const classifier = require('../consistency/operationClassifier');
 const zones = require('../consistency/consistencyZoneService');
@@ -24,12 +23,13 @@ async function apply(context) {
 async function execute(context) {
   const { transaction, session } = context;
   const history = session.crdt.getHistory();
-  const duplicate = duplicateStatus(history, transaction);
+  const duplicate = duplicateStatus(session.crdt, transaction);
   if (duplicate === 'ALL') return duplicateResult(context);
   if (duplicate === 'PARTIAL') throw transactionError('SYNCYTIUM_TRANSACTION_PARTIAL_DUPLICATE', 'Only part of this transaction was already applied.');
-  checkPreconditions(transaction.preconditions, session.crdt.getSnapshot(), history.length);
+  const snapshot = session.crdt.getSnapshot();
+  checkPreconditions(transaction.preconditions, snapshot, snapshot.totalOps);
   validateInvariantSelection(transaction.invariants, session.schema?.invariants || {});
-  const candidate = replay(history);
+  const candidate = session.crdt.fork();
   const accepted = applyOperations({ ...context, candidate });
   const receipts = evaluateInvariants(session.schema, candidate);
   validateReceipts(receipts);
@@ -62,10 +62,9 @@ function validateCommitPolicy(policy) {
   if (policy && !['SERIALIZABLE', 'ALL_OR_NOTHING'].includes(policy)) throw transactionError('SYNCYTIUM_TRANSACTION_INVALID', 'Transaction commitPolicy must be SERIALIZABLE or ALL_OR_NOTHING.');
 }
 
-function duplicateStatus(history, transaction) {
-  const known = new Map(history.filter((item) => item.opId).map((item) => [item.opId, item]));
-  const existing = transaction.operations.map((operation) => known.get(operation.opId));
-  if (existing.every((item) => item?.transactionId === transaction.txId)) return 'ALL';
+function duplicateStatus(crdt, transaction) {
+  const existing = transaction.operations.map((operation) => crdt.hasOpId(operation.opId));
+  if (existing.every(Boolean)) return 'ALL';
   if (existing.some(Boolean)) return 'PARTIAL';
   return 'NONE';
 }
@@ -118,12 +117,6 @@ function validateInvariantSelection(ids, registry) {
   for (const id of ids || []) {
     if (!registry[id]) throw transactionError('SYNCYTIUM_TRANSACTION_INVALID', `Unknown invariant '${id}'.`);
   }
-}
-
-function replay(history) {
-  const candidate = createSyncytiumCrdt();
-  history.forEach((operation) => candidate.applyOp(operation));
-  return candidate;
 }
 
 function applyOperations(context) {

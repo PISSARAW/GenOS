@@ -47,19 +47,22 @@ async function commitSession(db, session, operation) {
 }
 
 async function appendSessionEvent({ db, session, revision, operations }) {
-  const reflex = session.pendingReflexSignal;
-  const payload = eventPayload(reflex, operations);
-  await appendEvent(db, { session, revision, type: eventType(reflex, operations), payload });
+  const event = pendingEvent(session, operations);
+  await appendEvent(db, { session, revision, ...event });
 }
 
-function eventPayload(reflex, operations) {
-  if (reflex) return reflex;
-  return isGroupedOperations(operations) ? { operations } : operations[0];
-}
-
-function eventType(reflex, operations) {
-  if (reflex) return 'REFLEX_SIGNAL';
-  return isGroupedOperations(operations) ? 'TRANSACTION_COMMITTED' : 'OPERATION_APPLIED';
+function pendingEvent(session, operations) {
+  const events = [
+    ['pendingReflexSignal', 'REFLEX_SIGNAL'],
+    ['pendingSnapshot', 'STATE_SNAPSHOT'],
+    ['pendingCompaction', 'STATE_COMPACTED'],
+    ['pendingReplicaEvent', 'REPLICA_CHANGED']
+  ];
+  const selected = events.find(([key]) => session[key]);
+  if (selected) return { type: selected[1], payload: session[selected[0]] };
+  return isGroupedOperations(operations)
+    ? { type: 'TRANSACTION_COMMITTED', payload: { operations } }
+    : { type: 'OPERATION_APPLIED', payload: operations[0] };
 }
 
 function isGroupedOperations(operations) {

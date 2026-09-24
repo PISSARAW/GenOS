@@ -24,9 +24,11 @@ const deltaRouter = require('./syncytium/sync/deltaRouter');
 const projectionMaterializer = require('./syncytium/sync/projectionMaterializer');
 const adaptiveSync = require('./syncytium/sync/adaptiveSyncService');
 const reflexSignals = require('./syncytium/reflex/reflexSignalService');
+const { createSessionHistoryService } = require('./syncytium/history/sessionHistoryService');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
+const sessionHistory = createSessionHistoryService({ getSession, persist });
 
 function serialize(session) {
   return {
@@ -37,7 +39,10 @@ function serialize(session) {
     schema: session.schema,
     domains: session.domains,
     reflexSignals: session.reflexSignals,
+    snapshots: session.snapshots,
+    replicas: session.replicas,
     ops: session.crdt.getHistory(),
+    crdtState: session.crdt.serialize(),
     fluxOps: session.fluxOps
   };
 }
@@ -45,7 +50,13 @@ function serialize(session) {
 function rehydrate(record) {
   const state = record.state || {};
   const organization = state.organization || DEFAULT_ORGANIZATION;
-  const session = {
+  const session = createRestoredSession(record, state, organization);
+  restoreSessionState(session, state);
+  return session;
+}
+
+function createRestoredSession(record, state, organization) {
+  return {
     sessionId: record.id,
     revision: sessionRevision(record),
     persisted: true,
@@ -56,17 +67,22 @@ function rehydrate(record) {
     schema: schemaService.compile(state.schema),
     domains: nuclearDomains.compile(state.domains),
     reflexSignals: normalizeReflexSignals(state.reflexSignals),
+    snapshots: Array.isArray(state.snapshots) ? state.snapshots : [],
+    replicas: state.replicas && typeof state.replicas === 'object' ? state.replicas : {},
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'syncytium', organization }),
     crdt: createSyncytiumCrdt(),
     cytoplasm: createCytoplasm(),
     fluxOps: []
   };
-  for (const op of state.ops || []) session.crdt.applyOp(op);
+}
+
+function restoreSessionState(session, state) {
+  if (state.crdtState) session.crdt.restore(state.crdtState);
+  else for (const op of state.ops || []) session.crdt.applyOp(op);
   for (const flux of state.fluxOps || []) {
     session.cytoplasm.propagateIonicFlux(flux.ion, Number(flux.deltaFlux) || 0, flux.agentId);
     session.fluxOps.push(flux);
   }
-  return session;
 }
 
 function normalizeReflexSignals(signals) {
@@ -82,6 +98,9 @@ async function persist(db, session) {
     session.pendingOperation = null;
     session.pendingOperations = null;
     session.pendingReflexSignal = null;
+    session.pendingSnapshot = null;
+    session.pendingCompaction = null;
+    session.pendingReplicaEvent = null;
     return;
   }
   try {
@@ -89,7 +108,10 @@ async function persist(db, session) {
       sessionId: session.sessionId,
       revision: session.revision,
       state: serialize(session),
-      pendingReflexSignal: session.pendingReflexSignal
+      pendingReflexSignal: session.pendingReflexSignal,
+      pendingSnapshot: session.pendingSnapshot,
+      pendingCompaction: session.pendingCompaction,
+      pendingReplicaEvent: session.pendingReplicaEvent
     };
     if (!session.persisted) {
       session.revision = await persistence.createSession(db, record);
@@ -101,6 +123,9 @@ async function persist(db, session) {
     session.pendingOperation = null;
     session.pendingOperations = null;
     session.pendingReflexSignal = null;
+    session.pendingSnapshot = null;
+    session.pendingCompaction = null;
+    session.pendingReplicaEvent = null;
   } catch (cause) {
     if (cause.code === 'SYNCYTIUM_SESSION_CONFLICT') throw cause;
     throw Object.assign(new Error('Syncytium session persistence failed.', { cause }), { code: 'SYNCYTIUM_PERSISTENCE_FAILURE' });
@@ -118,6 +143,8 @@ async function createSession(mission, options = {}) {
     organization,
     domains: nuclearDomains.compile(options.nuclearDomains || options.domains),
     reflexSignals: [],
+    snapshots: [],
+    replicas: {},
     revision: 0,
     persisted: false,
     schema: schemaService.compile(options.schema),
@@ -288,10 +315,23 @@ async function publishReflexSignal(sessionId, signal, options = {}) {
   return { ...result, delivery: 'IMMEDIATE' };
 }
 
+const createSnapshot = (sessionId, options = {}) => sessionHistory.createSnapshot(sessionId, options);
+const listSnapshots = (sessionId, options = {}) => sessionHistory.listSnapshots(sessionId, options);
+const compactHistory = (sessionId, options = {}) => sessionHistory.compactHistory(sessionId, options);
+const joinReplica = (sessionId, replica, options = {}) => sessionHistory.joinReplica(sessionId, replica, options);
+const acknowledgeReplica = (sessionId, replicaId, request = {}) => sessionHistory.acknowledgeReplica(sessionId, replicaId, request);
+const leaveReplica = (sessionId, replicaId, options = {}) => sessionHistory.leaveReplica(sessionId, replicaId, options);
+const inspectReplicas = (sessionId, options = {}) => sessionHistory.inspectReplicas(sessionId, options);
+
 async function closeSession(sessionId, options = {}) {
   const existed = sessions.delete(sessionId);
   if (options.db) await persistence.removeSession(options.db, sessionId);
   return true;
 }
 
-module.exports = { createSession, applyOperation, applyTransaction, publishReflexSignal, snapshot, assessConsistency, closeSession, isIonicFlux, rehydrate };
+module.exports = {
+  createSession, applyOperation, applyTransaction, publishReflexSignal,
+  snapshot, createSnapshot, listSnapshots, compactHistory,
+  joinReplica, acknowledgeReplica, leaveReplica, inspectReplicas,
+  assessConsistency, closeSession, isIonicFlux, rehydrate
+};
