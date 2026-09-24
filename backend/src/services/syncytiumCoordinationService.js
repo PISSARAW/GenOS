@@ -26,10 +26,12 @@ const adaptiveSync = require('./syncytium/sync/adaptiveSyncService');
 const reflexSignals = require('./syncytium/reflex/reflexSignalService');
 const { createSessionHistoryService } = require('./syncytium/history/sessionHistoryService');
 const offlineMutation = require('./syncytium/replicas/offlineMutationService');
+const { createSyncytiumDiagnosticsService } = require('./syncytiumDiagnosticsService');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
 const sessionHistory = createSessionHistoryService({ getSession, persist });
+const diagnostics = createSyncytiumDiagnosticsService({ getSession, applyOperation });
 
 function serialize(session) {
   return {
@@ -346,6 +348,11 @@ const leaveReplica = (sessionId, replicaId, options = {}) => sessionHistory.leav
 const partitionReplica = (sessionId, replicaId, options = {}) => sessionHistory.partitionReplica(sessionId, replicaId, options);
 const reconcileReplica = (sessionId, replicaId, request = {}) => sessionHistory.reconcileReplica(sessionId, replicaId, request);
 const inspectReplicas = (sessionId, options = {}) => sessionHistory.inspectReplicas(sessionId, options);
+const explain = (sessionId, request = {}) => diagnostics.explain(sessionId, request);
+const simulateWithout = (sessionId, opId, options = {}) => diagnostics.simulateWithout(sessionId, opId, options);
+const simulateReplacing = (sessionId, opId, request = {}) => diagnostics.simulateReplacing(sessionId, opId, request);
+const localizeFaults = (sessionId, options = {}) => diagnostics.localizeFaults(sessionId, options);
+const repairInvariant = (sessionId, request = {}) => diagnostics.repairInvariant(sessionId, request);
 
 async function closeSession(sessionId, options = {}) {
   const existed = sessions.delete(sessionId);
@@ -358,5 +365,7 @@ module.exports = {
   snapshot, createSnapshot, listSnapshots, compactHistory,
   joinReplica, acknowledgeReplica, leaveReplica, inspectReplicas,
   partitionReplica, reconcileReplica,
+  explain, simulateWithout, simulateReplacing, localizeFaults,
+  repairInvariant,
   assessConsistency, closeSession, isIonicFlux, rehydrate
 };

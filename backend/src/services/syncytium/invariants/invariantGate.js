@@ -2,6 +2,7 @@
 
 const evaluator = require('./invariantEvaluator');
 const dependencyIndex = require('./invariantDependencyIndex');
+const localRepair = require('../repair/localRepairService');
 
 function evaluateCandidate({ schema, crdt, operation }) {
   const registry = schema?.invariants || {};
@@ -14,7 +15,8 @@ function evaluateCandidate({ schema, crdt, operation }) {
   const violations = receipts.filter((receipt) => !receipt.passed && receipt.severity !== 'WARNING');
   if (violations.length) {
     throw Object.assign(new Error('Syncytium operation would violate a blocking invariant.'), {
-      code: 'SYNCYTIUM_INVARIANT_VIOLATION', violations
+      code: 'SYNCYTIUM_INVARIANT_VIOLATION', violations,
+      repair: localRepair.rejectionPlan(operation, violations)
     });
   }
   return receipts;
