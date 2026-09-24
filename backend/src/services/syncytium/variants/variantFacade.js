@@ -10,6 +10,7 @@ const { createRoleServiceDirectory } = require('../runtime/roleServiceDirectory'
 const { createVariantPolicyService } = require('./variantPolicyRegistry');
 const { createNestedTopologyService } = require('../runtime/nestedTopologyService');
 const { createMorphogenesisAdvisor } = require('../runtime/morphogenesisAdvisor');
+const { createSyncytiumRuntime } = require('../runtime/syncytiumRuntime');
 
 function createVariantFacade(syncytium) {
   return {
@@ -22,7 +23,8 @@ function createVariantFacade(syncytium) {
     ...createRoleServiceDirectory(syncytium),
     ...createVariantPolicyService(syncytium),
     ...createNestedTopologyService(syncytium),
-    ...createMorphogenesisAdvisor(syncytium)
+    ...createMorphogenesisAdvisor(syncytium),
+    createAutonomousRuntime: (options) => createSyncytiumRuntime(syncytium, options || {})
   };
 }
 
