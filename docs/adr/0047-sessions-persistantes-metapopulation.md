@@ -51,6 +51,10 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 7. Conserver chaque heartbeat du dème en historique append-only. La vue
    régionale classe le silence à partir de sa fraîcheur, de la dernière preuve
    et des signaux runtime fournis ; l'absence de heartbeat reste inconnue.
+8. Représenter chaque corridor comme une arête dirigée. Les politiques de
+   topologie régénèrent les arêtes actives dans une transaction ; une arête
+   retirée est désactivée et conserve ses compteurs et son historique de
+   bénéfices pour l'analyse ultérieure.
 
 ## Conséquences
 

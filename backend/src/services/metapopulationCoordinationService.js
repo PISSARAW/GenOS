@@ -20,6 +20,8 @@ const demeLocalEvolutionService = require('./metapopulation/demes/demeLocalEvolu
 const demeIsolationService = require('./metapopulation/demes/demeIsolationService');
 const demeHeartbeatService = require('./metapopulation/demes/demeHeartbeatService');
 const regionalLivenessService = require('./metapopulation/observability/regionalLivenessService');
+const corridorGraphService = require('./metapopulation/migration/corridorGraphService');
+const { buildCorridors } = require('./metapopulation/migration/corridorTopologyService');
 
 const DEFAULT_ORGANIZATION = 'quorum_with_abstention';
 const DEFAULT_QUORUM_RATIO = 0.5;
@@ -208,6 +210,22 @@ async function consumeDemeBudget(input, options = {}) {
   return metapopulationStore.consumeDemeBudget(options.db, input);
 }
 
+function buildMigrationGraph(demes, options = {}) {
+  return buildCorridors(demes, options);
+}
+
+async function planMigrationTopology(metapopulationId, options = {}) {
+  return corridorGraphService.planTopology(metapopulationId, options);
+}
+
+async function applyMigrationTopology(metapopulationId, options = {}) {
+  return corridorGraphService.applyTopology(metapopulationId, options);
+}
+
+async function listMigrationCorridors(metapopulationId, options = {}) {
+  return corridorGraphService.listCorridors(metapopulationId, options);
+}
+
 module.exports = {
   composeMetapopulation,
   createMetapopulationSession,
@@ -228,6 +246,10 @@ module.exports = {
   heartbeatDeme,
   inspectRegionalLiveness,
   consumeDemeBudget,
+  buildMigrationGraph,
+  planMigrationTopology,
+  applyMigrationTopology,
+  listMigrationCorridors,
   senseQuorum,
   regenerationPlan,
   connectionWeights

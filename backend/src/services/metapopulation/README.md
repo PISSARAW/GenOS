@@ -48,5 +48,11 @@ les plafonds locaux de manière transactionnelle. Les heartbeats append-only
 alimentent `inspectRegionalLiveness`, qui distingue silence sain, absence de
 nouvelle preuve, déconnexion, blocage, crash et état inconnu.
 
-Les corridors dirigés, propagules et mécanismes de reprise arrivent dans les
-lots suivants.
+Le PR4 expose un graphe de corridors dirigés et ses politiques ring,
+stepping-stone, star, small-world, fully-connected, source-sink, hierarchical
+et adaptive. La qualité combine compatibilité, qualité/accessibilité des deux
+patches et risque d'homogénéisation ; la capacité découle de la capacité
+minimale des patches et de cette qualité. La régénération du graphe désactive
+les corridors retirés et conserve leurs compteurs et historiques.
+
+Les propagules et mécanismes de reprise arrivent dans les lots suivants.
