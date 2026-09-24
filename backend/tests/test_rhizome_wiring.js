@@ -11,6 +11,11 @@ const rhizome = require('../src/services/rhizomeCoordinationService');
   const graph = await rhizome.graphSnapshot(session.sessionId);
   assert.equal(graph.contract, 'RhizomeGraphSnapshot/v1');
   assert.equal(graph.graphVersion, 0);
+  const gap = await rhizome.inspectCapabilityNeed(session.sessionId, {
+    needId: 'missing-tool', capability: 'missing_tool', criticality: 0.7
+  });
+  assert.equal(gap.gap.reason, 'CAPABILITY_ABSENT');
+  assert.equal(gap.growthPermitted, true);
 
   const positive = await rhizome.depositTrail(session.sessionId, 'route:capability/gap', { amount: 5 });
   assert.equal(positive.trail.intensity, 5);

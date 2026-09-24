@@ -13,6 +13,7 @@ const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 const store = require('./topologySessionStore');
 const { normalizeRhizomeSession } = require('./rhizome/contracts/rhizomeSession');
 const capabilityGraph = require('./rhizome/graph/capabilityGraphService');
+const boundaryDetector = require('./rhizome/boundary/boundaryDetector');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -185,6 +186,21 @@ async function addCapabilityEdge(sessionId, edge, options = {}) {
   });
 }
 
+async function inspectCapabilityNeed(sessionId, need, options = {}) {
+  const session = await getSession(sessionId, options.db);
+  const outcome = boundaryDetector.inspect(session, need);
+  if (!outcome.gap) return outcome;
+  return mutateSession(sessionId, options, {
+    type: 'GAP_DETECTED',
+    payload: { gapId: outcome.gap.gapId, needId: outcome.gap.needId, evidenceId: outcome.gap.evidence.evidenceId },
+    apply: (current) => {
+      if (!current.activeNeeds.some((item) => item.needId === need.needId)) current.activeNeeds.push(need);
+      if (!current.openGaps.some((item) => item.gapId === outcome.gap.gapId)) current.openGaps.push(outcome.gap);
+      return outcome;
+    }
+  });
+}
+
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -241,4 +257,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, graphSnapshot, addCapabilityNode, addCapabilityEdge, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, coherence, runSlimeMouldStep, closeSession, rehydrate };

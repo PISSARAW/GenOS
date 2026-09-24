@@ -32,6 +32,10 @@ async function stepRhizome(db, sessionId, args) {
   return rhizome.runSlimeMouldStep(sessionId, args.edges || [], { db });
 }
 
+async function inspectRhizomeGap(db, sessionId, args) {
+  return rhizome.inspectCapabilityNeed(sessionId, args.need || {}, { db });
+}
+
 async function allocateBiome(db, sessionId, args) {
   return biome.allocateSessionResources(sessionId, args.populations || [], { db, totalBudget: args.total_budget, minimumPerPopulation: args.minimum_per_population });
 }
@@ -46,7 +50,7 @@ async function assessBiome(db, sessionId, args) {
 
 const OPERATIONS = {
   syncytium: { snapshot: (db, id) => syncytium.snapshot(id, { db }), apply: applySyncytium },
-  rhizome: { snapshot: rhizomeSnapshot, deposit: depositRhizome, direct_member: selectRhizomeMember, slime: stepRhizome },
+  rhizome: { snapshot: rhizomeSnapshot, deposit: depositRhizome, direct_member: selectRhizomeMember, slime: stepRhizome, gap: inspectRhizomeGap },
   biome: { snapshot: (db, id) => biome.sessionSnapshot(id, { db }), allocate: allocateBiome, forage: forageBiome, health: assessBiome }
 };
 
