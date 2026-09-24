@@ -1,54 +1,61 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use std::time::Duration;
+use criterion::{criterion_group, criterion_main, Criterion, black_box};
 
-fn bench_sqlite_query(c: &mut Criterion) {
-    let conn = rusqlite::Connection::open_in_memory().unwrap();
-    conn.execute_batch(
-        "CREATE TABLE agents (id TEXT PRIMARY KEY, name TEXT, role TEXT, status TEXT);
-         INSERT INTO agents VALUES ('a1', 'Alice', 'worker', 'idle'),
-                                  ('a2', 'Bob', 'worker', 'running'),
-                                  ('a3', 'Charlie', 'worker', 'completed');",
-    ).unwrap();
-
-    c.bench_function("sqlite_select_agents", |b| {
+fn bench_insert_1000(c: &mut Criterion) {
+    c.bench_function("sqlite_insert_1000", |b| {
         b.iter(|| {
-            let mut stmt = conn.prepare("SELECT * FROM agents WHERE status = ?").unwrap();
-            let rows: Vec<(String, String, String, String)> = stmt
-                .query_map(black_box("idle"), |row| {
-                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-                })
-                .unwrap()
-                .collect::<Result<Vec<_>, _>>()
+            let conn = rusqlite::Connection::open_in_memory().unwrap();
+            conn.execute(
+                "CREATE TABLE agents (id TEXT PRIMARY KEY, name TEXT, status TEXT, tokens REAL)",
+                [],
+            )
+            .unwrap();
+            for i in 0..1000 {
+                conn.execute(
+                    "INSERT INTO agents (id, name, status, tokens) VALUES (?1, ?2, ?3, ?4)",
+                    rusqlite::params![
+                        black_box(format!("agent_{}", i)),
+                        black_box("test"),
+                        black_box("active"),
+                        black_box(i as f64 * 100.0),
+                    ],
+                )
                 .unwrap();
-            black_box(rows)
+            }
         })
     });
 }
 
-fn bench_serialization(c: &mut Criterion) {
-    let payload = r#"{"table":"agents","operation":"INSERT","id":"agent-42","name":"Test","role":"worker"}"#;
-    c.bench_function("json_parse_small", |b| {
+fn bench_olap_aggregation(c: &mut Criterion) {
+    c.bench_function("sqlite_olap_aggregation", |b| {
         b.iter(|| {
-            let parsed: serde_json::Value = serde_json::from_str(black_box(payload)).unwrap();
-            black_box(parsed)
+            let conn = rusqlite::Connection::open_in_memory().unwrap();
+            conn.execute(
+                "CREATE TABLE telemetry (id INTEGER PRIMARY KEY, agent_id TEXT, tokens REAL, cost REAL, created_at TEXT)",
+                [],
+            )
+            .unwrap();
+            for i in 0..10000 {
+                conn.execute(
+                    "INSERT INTO telemetry (agent_id, tokens, cost, created_at) VALUES (?1, ?2, ?3, ?4)",
+                    rusqlite::params![
+                        black_box(format!("agent_{}", i % 100)),
+                        black_box(i as f64),
+                        black_box(i as f64 * 0.01),
+                        black_box("2026-09-23"),
+                    ],
+                )
+                .unwrap();
+            }
+            let _: f64 = conn
+                .query_row(
+                    "SELECT SUM(tokens) FROM telemetry WHERE agent_id LIKE 'agent_%'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
         })
     });
 }
 
-fn bench_scope_key(c: &mut Criterion) {
-    c.bench_function("scope_key_generation", |b| {
-        b.iter(|| {
-            let key = format!("{}:{}", black_box("org-123"), black_box("proj-456"));
-            black_box(key)
-        })
-    });
-}
-
-criterion_group! {
-    name = benches;
-    config = Criterion::default()
-        .measurement_time(Duration::from_secs(5))
-        .sample_size(50);
-    targets = bench_sqlite_query, bench_serialization, bench_scope_key
-}
+criterion_group!(benches, bench_insert_1000, bench_olap_aggregation);
 criterion_main!(benches);

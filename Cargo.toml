@@ -17,4 +17,6 @@ members = [
     "crates/genos-mcp",
     "crates/genos-simple-cli",
     "crates/genos-sensorimotor",
+    "packages/sqlite-udfs",
+    "packages/storage-gate",
 ]

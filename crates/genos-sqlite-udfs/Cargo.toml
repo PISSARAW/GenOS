@@ -1,0 +1,16 @@
+[package]
+name = "genos-sqlite-udfs"
+version = "0.1.0"
+edition = "2024"
+description = "Deterministic mathematical UDFs for GenOS SQLite"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+[features]
+default = ["extension"]
+extension = ["rusqlite/loadable_extension"]

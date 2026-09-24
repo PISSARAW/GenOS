@@ -1754,6 +1754,7 @@ name = "genos-store"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "criterion",
  "genos-common",
  "serde",
  "serde_json",
