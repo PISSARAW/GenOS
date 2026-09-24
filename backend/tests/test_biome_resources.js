@@ -26,11 +26,12 @@ async function run() {
   await biome.updateSessionPopulation({ sessionId: session.sessionId, command: { type: 'create', population: { populationId: 'sql-team', nicheId: 'niche-sql' } } });
 
   const allocation = await biome.manageSessionResources({ sessionId: session.sessionId, command: {
-    type: 'resource_allocate', resources: { tokens: 12 }, reserveRatio: 0.25
+    type: 'resource_allocate', resources: { tokens: 12 },
+    reserveRatios: { recovery: 0.1, verification: 0.1, exploration: 0.1 }
   } });
   assert.equal(allocation.allocations['logs-team'].tokens, 5);
   assert.equal(allocation.allocations['sql-team'].tokens, 3);
-  assert.equal(allocation.reserve.tokens, 3);
+  assert.ok(Math.abs(allocation.reserve.tokens - 3.6) < 1e-9);
   assert.equal(allocation.carryingCapacity.find((item) => item.populationId === 'logs-team').capacity, 2);
 
   const consumed = await biome.manageSessionResources({ sessionId: session.sessionId, command: {
@@ -43,9 +44,11 @@ async function run() {
   } }), { code: 'BIOME_RESOURCE_INSUFFICIENT' });
 
   const released = await biome.manageSessionResources({ sessionId: session.sessionId, command: { type: 'resource_release_reserve' } });
-  assert.equal(released.resourcePool.tokens, 4);
+  assert.ok(Math.abs(released.resourcePool.tokens - 1.6) < 1e-9);
   const snapshot = await biome.sessionSnapshot(session.sessionId);
   assert.equal(snapshot.ecologicalState.recoveryReserve.tokens, 0);
+  assert.ok(Math.abs(snapshot.ecologicalState.verificationReserve.tokens - 1.2) < 1e-9);
+  assert.ok(Math.abs(snapshot.ecologicalState.explorationReserve.tokens - 1.2) < 1e-9);
   assert.equal(snapshot.ecologicalState.resourceTransactions.length, 1);
   console.log('Biome resource checks: PASS');
 }

@@ -10,15 +10,21 @@ const reserveService = require('./recoveryReserveService');
 function allocate(ecology, command = {}) {
   const incoming = createResourceVector(command.resources);
   const available = addVectors(ecology.resourcePool, incoming);
-  const reserved = reserveService.reserveResources(available, command.reserveRatio ?? 0.1);
-  const result = allocator.allocateBudget({ available: reserved.spendable, populations: ecology.populations, niches: ecology.niches });
+  const reserved = reserveService.reserveResources(available, command.reserveRatios ?? command.reserveRatio ?? 0.1);
+  const result = allocator.allocateBudget({ available: reserved.spendable, populations: ecology.populations, niches: ecology.niches, signals: command.signals });
   ecology.populations = ecology.populations.map((population) => withAllocation(population, result.allocations[population.populationId]));
   ecology.resourcePool = remainingResources(reserved.spendable, result.allocations);
-  ecology.ecologicalState.recoveryReserve = addVectors(ecology.ecologicalState.recoveryReserve, reserved.reserve);
+  ecology.ecologicalState.recoveryReserve = addVectors(ecology.ecologicalState.recoveryReserve, reserved.reserves.recovery);
+  ecology.ecologicalState.verificationReserve = addVectors(ecology.ecologicalState.verificationReserve, reserved.reserves.verification);
+  ecology.ecologicalState.explorationReserve = addVectors(ecology.ecologicalState.explorationReserve, reserved.reserves.exploration);
   const measurements = ecology.populations.map((population) => assessPopulation(population, ecology.niches));
   ecology.ecologicalState.resourcePressure = measurements.map((item) => item.pressure);
   ecology.ecologicalState.carryingCapacity = measurements.map((item) => item.capacity);
-  return { ...result, reserve: ecology.ecologicalState.recoveryReserve, remaining: ecology.resourcePool,
+  return { ...result, reserve: reserved.reserve, reserves: {
+    recovery: ecology.ecologicalState.recoveryReserve,
+    verification: ecology.ecologicalState.verificationReserve,
+    exploration: ecology.ecologicalState.explorationReserve
+  }, remaining: ecology.resourcePool,
     pressure: ecology.ecologicalState.resourcePressure, carryingCapacity: ecology.ecologicalState.carryingCapacity };
 }
 
@@ -31,8 +37,8 @@ function consume(population, niche, requested) {
   return { population: updated, consumed: resources, pressure: pressureService.assessPressure(updated, niche) };
 }
 
-function releaseReserve(ecology) {
-  return reserveService.releaseReserve(ecology);
+function releaseReserve(ecology, category) {
+  return reserveService.releaseReserve(ecology, category);
 }
 
 function assessPopulation(population, niches) {

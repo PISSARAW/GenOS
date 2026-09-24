@@ -27,7 +27,7 @@ const operationHandlers = {
   merge: (ecology, command) => mergePopulation(ecology, command),
   resource_allocate: (ecology, command) => allocateResources(ecology, command),
   resource_consume: (ecology, command) => consumeResources(ecology, command),
-  resource_release_reserve: (ecology) => releaseReserve(ecology),
+  resource_release_reserve: (ecology, command) => releaseReserve(ecology, command),
   capacity_assess: (ecology, command) => ecologicalCapacity.assessAndApply(ecology, command)
 };
 
@@ -49,9 +49,10 @@ function consumeResources(ecology, command) {
   return { ...result, action: { type: 'POPULATION_RESOURCES_CONSUMED', status: 'applied', populationId: population.populationId } };
 }
 
-function releaseReserve(ecology) {
-  const resourcePool = resourceSteward.releaseReserve(ecology);
-  return { resourcePool, action: { type: 'RECOVERY_RESERVE_RELEASED', status: 'applied' } };
+function releaseReserve(ecology, command = {}) {
+  const category = command.category;
+  const resourcePool = resourceSteward.releaseReserve(ecology, category);
+  return { resourcePool, action: { type: 'RESOURCE_RESERVE_RELEASED', status: 'applied', category: category || 'recovery' } };
 }
 
 async function mutatePopulation(ecology, command, options) {

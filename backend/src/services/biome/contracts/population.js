@@ -15,6 +15,7 @@ function createPopulation(input = {}) {
     cognitiveRecipes: Array.isArray(input.cognitiveRecipes) ? input.cognitiveRecipes : [],
     localMemory: input.localMemory || [],
     resourcePool: createResourceVector(input.resourcePool),
+    allocationSignals: signalObject(input.allocationSignals),
     diversity: nonNegative(input.diversity, 'diversity'),
     productivity: nonNegative(input.productivity, 'productivity'),
     marginalProductivity: Number.isFinite(input.marginalProductivity) ? input.marginalProductivity : 0,
@@ -25,6 +26,10 @@ function createPopulation(input = {}) {
     lineage: input.lineage || [],
     status: enumValue({ value: input.status, choices: POPULATION_STATUSES, field: 'status', fallback: 'seed' })
   };
+}
+
+function signalObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? { ...value } : {};
 }
 
 module.exports = { createPopulation };
