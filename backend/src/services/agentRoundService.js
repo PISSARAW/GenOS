@@ -154,6 +154,19 @@ async function advanceAutonomousRound(mission, event) {
   if (!registered) return;
   const { state, orchestratorId } = registered;
 
+  if (state.plan.trinity?.activated === true) {
+    autonomousRounds.delete(orchestratorId);
+    emit(
+      orchestratorId,
+      'TRINITY_ADAPTIVE_CONTINUATION_SUPPRESSED',
+      'PRESERVE_TRINITY_WORLDS',
+      'Trinity keeps all three sealed worlds; adaptive survivor selection is disabled.',
+      { worldCount: state.workerIds.size, continuationPool: state.plan.tokenPolicy.rounds?.continuation?.pool || 0 },
+      'info'
+    );
+    return;
+  }
+
   const continuation = state.plan.tokenPolicy.rounds?.continuation;
   const policyError = continuationPolicyError(continuation);
   if (policyError) return abortRound(orchestratorId, policyError, { continuation });
