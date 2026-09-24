@@ -79,7 +79,7 @@ async function main() {
   const dormant = await phenotype.assignPhenotypes(db, { territoryId: T });
   assert.ok(dormant.phenotypes.every((p) => p.status === 'DORMANT'));
   const rows = await phenotype.getPhenotypes(db, { territoryId: T });
-  assert.equal(rows.length, 4, 'phenotypes persist, never deleted');
+  assert.equal(rows.length, 10, 'phenotypes persist, never deleted');
   const contract = rows.find((r) => r.family === 'contract');
   assert.ok(contract.budded_at, 'bud scar kept after dormancy');
 

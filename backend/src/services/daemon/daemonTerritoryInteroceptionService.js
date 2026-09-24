@@ -28,7 +28,11 @@ const MEASURED = [
   'build_failure_pressure',
   'knowledge_staleness',
   'handoff_demand',
-  'orphan_pressure'
+  'orphan_pressure',
+  'repeated_failure_pressure',
+  'integration_pressure',
+  'repair_backlog_pressure',
+  'knowledge_gap_pressure'
 ];
 
 const DEFERRED = [
@@ -97,8 +101,26 @@ function deriveTerritoryVariables(sample) {
     build_failure_pressure: clamp01(countOf(counts, 'BUILD_FAILED') / 5),
     knowledge_staleness: stalenessOf(sample.territory, sample.now),
     handoff_demand: clamp01(countOf(counts, 'ORCHESTRATOR_ENTERED') / 3),
-    orphan_pressure: clamp01(countOf(counts, 'RESOURCE_ORPHANED') / 3)
+    orphan_pressure: clamp01(countOf(counts, 'RESOURCE_ORPHANED') / 3),
+    repeated_failure_pressure: repeatedFailureOf(counts),
+    integration_pressure: clamp01(countOf(counts, 'AGENT_FAILED') / 3),
+    repair_backlog_pressure: clamp01(countOf(counts, 'FINDING_CREATED') / 5),
+    knowledge_gap_pressure: knowledgeGapOf(counts)
   };
+}
+
+function repeatedFailureOf(counts) {
+  return clamp01(Math.max(
+    countOf(counts, 'TEST_FAILED') / 8,
+    countOf(counts, 'FINDING_REFUTED') / 3
+  ));
+}
+
+function knowledgeGapOf(counts) {
+  return clamp01(Math.max(
+    countOf(counts, 'KNOWLEDGE_STALE') / 3,
+    countOf(counts, 'FINDING_REFUTED') / 5
+  ));
 }
 
 /**

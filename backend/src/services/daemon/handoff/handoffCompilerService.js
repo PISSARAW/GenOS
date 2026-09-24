@@ -17,6 +17,7 @@ const territoryService = require('../daemonTerritoryService');
 const findingService = require('../findings/findingService');
 const graphStore = require('../cartography/graphStore');
 const stigmergyService = require('../daemonStigmergyService');
+const phenotypeService = require('../specialization/phenotypeService');
 const relevance = require('./handoffRelevanceService');
 
 const MAX_BRIEF_FINDINGS = 20;
@@ -113,12 +114,15 @@ async function buildBrief(db, job) {
   const top = ranked.slice(0, MAX_BRIEF_FINDINGS);
   const briefId = briefIdFor(args.territoryId, territory.headSha, args.mission);
   const attention = await stigmergyService.readAttention(db, { territoryId: args.territoryId, limit: 5 });
+  const phenotypes = await activePhenotypeSection(db, args.territoryId);
   return {
     briefId,
     territoryId: args.territoryId,
     headSha: territory.headSha,
     mission: args.mission || null,
     relevanceClass: relevance.relevanceClass(ranked),
+    activePhenotypes: phenotypes.active,
+    phenotypeFocus: phenotypes.focus,
     summary: {
       ...(await graphSummary(db, args.territoryId)),
       openFindings: ranked.length,
@@ -131,6 +135,24 @@ async function buildBrief(db, job) {
     stalenessWarnings: stalenessWarnings(territory, ranked.map((r) => r.finding)),
     generatedAt: new Date().toISOString()
   };
+}
+
+/**
+ * Contribution des phénotypes actifs au brief : le daemon n'envoie
+ * jamais "tout ce qu'il sait", seulement l'orientation écologique
+ * (quels organes ont modulé l'attention) + provenance.
+ */
+async function activePhenotypeSection(db, territoryId) {
+  try {
+    const active = await phenotypeService.getActivePhenotypes(db, { territoryId });
+    const focus = (active || []).map((family) => {
+      const described = phenotypeService.describePhenotype(family);
+      return { family, memory: described.memory, organs: described.organs };
+    });
+    return { active: active || [], focus };
+  } catch (_) {
+    return { active: [], focus: [] };
+  }
 }
 
 function toReadySignal(brief) {

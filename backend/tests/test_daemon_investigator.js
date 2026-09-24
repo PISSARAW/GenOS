@@ -57,7 +57,7 @@ async function main() {
 
   // 1. Détecteurs purs : pas de LLM, pas de mtime
   const detectors = detectorRegistry.defaultDetectors();
-  assert.equal(detectors.length, 4);
+  assert.equal(detectors.length, 8);
 
   // 2. Investigation bout-en-bout avec vrai ledger
   const ledger = new HypothesisLedger();

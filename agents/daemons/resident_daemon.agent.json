@@ -21,7 +21,10 @@
       "max_dissonance_threshold": 50.0,
       "revision": 0
     },
-    "organelles": ["cartography", "interoception", "natural-search", "findings", "verification", "stigmergy", "handoff", "reconciliation"]
+    "organelles": ["cartography", "interoception", "natural-search", "findings", "verification", "stigmergy", "handoff", "reconciliation"],
+    "archetype": "single-resident-archetype",
+    "ecological_phenotypes": ["security", "contract", "historian", "chaperone", "metabolic", "dependency", "documentation", "cross_repo", "repair", "deep_research"],
+    "phenotype_rule": "ResidentDaemon + phenotype ACTIVE under ecological pressure; never a separate daemon class/process per pressure"
   },
   "objectives": {
     "primary": "Maintain an evidence-grounded, revision-aware model of a territory across missions.",

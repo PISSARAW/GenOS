@@ -33,7 +33,11 @@ function defaultDetectors() {
     { id: 'test-regression', detect: detectTestRegression },
     { id: 'flaky-signal', detect: detectFlakySignal },
     { id: 'broken-import', detect: detectBrokenImport },
-    { id: 'missing-sibling-test', detect: detectMissingSiblingTest }
+    { id: 'missing-sibling-test', detect: detectMissingSiblingTest },
+    { id: 'secret-exposure', detect: detectSecretExposure },
+    { id: 'repeated-failure', detect: detectRepeatedFailure },
+    { id: 'unintegrated-component', detect: detectUnintegratedComponent },
+    { id: 'stale-documentation', detect: detectStaleDocumentation }
   ];
 }
 
@@ -189,6 +193,151 @@ function hasSiblingTest(context, file) {
     }
   }
   return false;
+}
+
+/**
+ * Security phenotype sensor (déterministe) : n'affirme jamais une
+ * compromission, signale un motif à vérifier en sandbox par un worker.
+ */
+function detectSecretExposure(context) {
+  const observations = [];
+  for (const file of context.files || []) {
+    const hit = firstSecretHit(context, file);
+    if (hit) {
+      observations.push({
+        territoryId: context.territoryId,
+        headSha: context.headSha,
+        claim: `${file} contains secret-like pattern (${hit}) — map, do not touch`,
+        scope: { type: 'file', value: file },
+        severity: 'high',
+        falsification: 'pattern is a placeholder, test fixture, or vault reference'
+      });
+    }
+  }
+  return observations;
+}
+
+const SECRET_PATTERNS = [
+  'AKIA[0-9A-Z]{16}',
+  'xox[baprs]-[A-Za-z0-9-]+',
+  'ghp_[A-Za-z0-9]{20,}',
+  '-----BEGIN (RSA )?PRIVATE KEY-----',
+  'sk-live-[A-Za-z0-9]+'
+];
+
+function firstSecretHit(context, file) {
+  let content = null;
+  try {
+    content = fs.readFileSync(path.join(context.rootPath, file), 'utf8');
+  } catch (_) {
+    return null;
+  }
+  if (content.length > 500000) return null;
+  for (const pattern of SECRET_PATTERNS) {
+    try {
+      if (new RegExp(pattern).test(content)) return pattern.slice(0, 24);
+    } catch (_) {
+      continue;
+    }
+  }
+  return null;
+}
+
+/**
+ * Historian phenotype sensor : échec répété dans la durée (prior
+ * historique, pas vérité). Se distingue de test-regression (fenêtre
+ * courte) par l'exigence fail → recovered → fail.
+ */
+function detectRepeatedFailure(context) {
+  const failed = groupByScope(context.events, 'TEST_FAILED');
+  const recovered = groupByScope(context.events, 'TEST_RECOVERED');
+  const observations = [];
+  for (const [scope, failures] of failed) {
+    if (scope === 'unknown' || failures.length < 3) continue;
+    if (!(recovered.get(scope) || []).length) continue;
+    observations.push({
+      territoryId: context.territoryId,
+      headSha: context.headSha,
+      claim: `test scope ${scope} failed ${failures.length} times with recovery in between — recurrent history`,
+      scope: scopeOfFile(scope),
+      severity: 'medium',
+      falsification: 'scope passes 5 times consecutively without code change'
+    });
+  }
+  return observations;
+}
+
+/**
+ * Chaperone phenotype sensor : structure neuve (fichier changé) non
+ * intégrée — ni test sibling, ni import relatif entrant/sortant
+ * (défaut de repliement d'intégration).
+ */
+function detectUnintegratedComponent(context) {
+  const observations = [];
+  for (const file of context.files || []) {
+    if (!isSourceFile(file) || hasSiblingTest(context, file)) continue;
+    if (relativeImportCount(context, file) > 0) continue;
+    observations.push({
+      territoryId: context.territoryId,
+      headSha: context.headSha,
+      claim: `new component ${file} has no sibling test and no relative imports — possibly unfolded`,
+      scope: { type: 'file', value: file },
+      severity: 'medium',
+      falsification: 'component is registered, imported, or tested elsewhere'
+    });
+  }
+  return observations;
+}
+
+function relativeImportCount(context, file) {
+  let content = null;
+  try {
+    content = fs.readFileSync(path.join(context.rootPath, file), 'utf8');
+  } catch (_) {
+    return 1;
+  }
+  const parsed = jsAdapter.parseJavaScript(content);
+  return (parsed.imports || []).filter((spec) => spec.startsWith('.')).length;
+}
+
+/**
+ * Documentation phenotype sensor : source changée dont le doc sibling
+ * (.md même basename) existe mais n'a pas changé dans la fenêtre.
+ */
+function detectStaleDocumentation(context) {
+  const observations = [];
+  const changed = new Set(context.files || []);
+  for (const file of changed) {
+    const doc = siblingDocPath(context, file);
+    if (!doc || changed.has(doc)) continue;
+    observations.push({
+      territoryId: context.territoryId,
+      headSha: context.headSha,
+      claim: `changed source ${file} has sibling doc ${doc} unchanged in window — drift candidate`,
+      scope: { type: 'file', value: file },
+      severity: 'low',
+      falsification: 'doc does not describe the changed behavior'
+    });
+  }
+  return observations;
+}
+
+function siblingDocPath(context, file) {
+  if (!isSourceFile(file)) return null;
+  const dir = path.dirname(path.join(context.rootPath, file));
+  const base = path.basename(file).replace(/\.(js|ts|cjs|mjs)$/, '');
+  const candidates = [`${base}.md`, `${base}.doc.md`, `${base}.README.md`];
+  const relDir = path.dirname(file);
+  for (const candidate of candidates) {
+    try {
+      if (fs.statSync(path.join(dir, candidate)).isFile()) {
+        return relDir === '.' ? candidate : `${relDir}/${candidate}`;
+      }
+    } catch (_) {
+      continue;
+    }
+  }
+  return null;
 }
 
 module.exports = {

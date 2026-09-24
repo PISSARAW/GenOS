@@ -27,7 +27,10 @@
     "primary": "Creer un worktree isole sur branche genos-daemon/..., le resynchroniser par rebase sur la branche humaine, appliquer un correctif verifie et pousser la branche.",
     "operational_mode": "autonomous",
     "source_doc": "docs/02-orchestration/git-agents.md",
-    "concepts": ["git du workspace", "worktree persistant", "branche genos-daemon", "rebase de resynchronisation", "pull request via gh"]
+    "concepts": ["git du workspace", "worktree persistant", "branche genos-daemon", "rebase de resynchronisation", "pull request via gh"],
+    "lifecycle": "legacy-compat",
+    "lifecycle_note": "Ancien modele daemon=cron/autofix worker. Canonique : ResidentDaemon observe, Finding ouvre RepairEpisode, Worker repare sous lease, Verifier controle, Gouvernance autorise push/merge. Cet agent reste un adaptateur de compatibilite, pas un type canonique.",
+    "successor": "DaemonRepairEpisode + Worker (backend/src/services/daemon/repair/repairEpisodeService.js)"
   },
   "policies": {
     "hayflick_limit": 50,

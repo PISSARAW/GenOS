@@ -6,9 +6,9 @@
     "version": "0.1.0"
   },
   "identity": {
-    "role": "sentinel",
+    "role": "supervisor",
     "name": "SentinelDaemonKeeper",
-    "name_meaning": "Fait tourner le daemon Sentinel, gere l'autostart Windows et la retention bornee des rapports d'audit.",
+    "name_meaning": "Superviseur du control plane des daemons (DaemonSupervisor) : lifecycle, heartbeat, recovery des ResidentDaemons. Ne produit pas de findings metier.",
     "cell_id": "e0f4beb2-4e1b-48d1-accd-172d49ec2c61"
   },
   "cognition": {
@@ -24,10 +24,13 @@
     "organelles": ["sentinel-daemon", "windows-autostart", "report-retention", "installer-packaging"]
   },
   "objectives": {
-    "primary": "Operer le daemon Sentinel, l'installateur Windows et la retention des rapports d'audit proactifs.",
+    "primary": "Superviser les daemons residents (alive, heartbeat, health, territory ownership, lease, recovery). Control plane, pas ecologie cognitive territoriale.",
     "operational_mode": "autonomous",
     "source_doc": "docs/04-exploitation/deploiement.md",
-    "concepts": ["genos-daemon.cjs et .genos/daemon_agent.json", "autostart via Startup folder utilisateur", "cycle audit, rebase, patch, tests, commit", "GENOS_DAEMON_DISABLE_AUTOFIX et GENOS_DAEMON_DISABLE_PR", "retention de 30 rapports horodates", "build-installer.ps1 et GenOS-Setup.exe"]
+    "concepts": ["genos-daemon.cjs et .genos/daemon_agent.json", "autostart via Startup folder utilisateur", "cycle audit, rebase, patch, tests, commit", "GENOS_DAEMON_DISABLE_AUTOFIX et GENOS_DAEMON_DISABLE_PR", "retention de 30 rapports horodates", "build-installer.ps1 et GenOS-Setup.exe"],
+    "lifecycle": "reclassified-control-plane",
+    "lifecycle_note": "Reclasse DaemonSupervisor : surveille les daemons eux-memes, ne produit pas de findings metier sur le code. Voir ADR 0034.",
+    "authority_scope": "process-lifecycle-only"
   },
   "policies": {
     "hayflick_limit": 50,
