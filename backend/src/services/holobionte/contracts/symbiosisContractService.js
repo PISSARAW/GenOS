@@ -2,6 +2,8 @@
 
 const { randomUUID } = require('crypto');
 const { withTransaction } = require('../../../db');
+const immunePlane = require('../immune/holobiontImmunePlane');
+const { authorizeHostDecision } = require('../host/hostConstitutionService');
 
 const AUTHORITY_SCOPES = Object.freeze(['LOCAL', 'CAPABILITY', 'MISSION']);
 const CONTRACT_STATUSES = Object.freeze(['ACTIVE', 'REVOKED', 'TERMINATED', 'EXPIRED']);
@@ -180,4 +182,90 @@ async function revokeContract(db, input = {}) {
   return appendStatusRevision(db, input, { status: 'REVOKED', reason });
 }
 
-module.exports = { validateContract, createContract, getContract, listContractHistory, authorizeSymbiontWork, revokeContract };
+function includesOnly(next, previous) {
+  return next.every((item) => previous.includes(item));
+}
+
+function boundedCosts(next, previous) {
+  return Object.entries(next).every(([key, value]) => value <= Number(previous[key] || 0));
+}
+
+function ensureContractTightening(next, previous) {
+  const valid = includesOnly(next.capabilitiesOffered, previous.capabilitiesOffered)
+    && includesOnly(next.dataAccess, previous.dataAccess)
+    && includesOnly(next.toolLeases, previous.toolLeases)
+    && next.dependencyCeiling <= previous.dependencyCeiling
+    && boundedCosts(next.resourcesRequested, previous.resourcesRequested)
+    && boundedCosts(next.maxCost, previous.maxCost)
+    && next.authorityScope.level === previous.authorityScope.level
+    && includesOnly(next.authorityScope.actions, previous.authorityScope.actions);
+  if (!valid) throw contractError('Contract adaptation may only narrow existing permissions and budgets.', 'HOLOBIONT_ADAPTATION_ESCALATION');
+}
+
+function validateAdaptationChanges(changes) {
+  const allowedChanges = new Set(['capabilitiesOffered', 'dataAccess', 'toolLeases', 'dependencyCeiling',
+    'resourcesRequested', 'maxCost', 'authorityScope']);
+  if (Object.keys(changes).some((key) => !allowedChanges.has(key))) {
+    throw contractError('Contract adaptation contains an unsupported change.');
+  }
+}
+
+async function prepareAdaptation(db, input) {
+  const changes = record(input.changes, 'changes');
+  validateAdaptationChanges(changes);
+  const context = await sessionForContract(db, input);
+  const previous = await getContract(db, input.holobiontId, input.symbiontId);
+  if (!previous || previous.status !== 'ACTIVE') throw contractError('Only an active contract can be adapted.', 'HOLOBIONT_CONTRACT_NOT_ACTIVE');
+  if (Number(input.expectedContractRevision) !== previous.revision) throw contractError('SymbiosisContract revision conflict.', 'HOLOBIONT_CONTRACT_REVISION_CONFLICT');
+  if (input.expectedSessionRevision !== undefined && Number(input.expectedSessionRevision) !== context.row.revision) {
+    throw contractError('Holobiont session revision conflict.', 'HOLOBIONT_REVISION_CONFLICT');
+  }
+  const decision = authorizeHostDecision({
+    constitution: context.session.constitution, requestedAuthority: 'HOST',
+    changedInvariants: input.changedInvariants || []
+  });
+  const next = validateContract({ ...previous, ...changes, contractId: previous.contractId }, context.session.constitution);
+  ensureContractTightening(next, previous);
+  const evidenceRefs = textList(input.evidenceRefs, 'evidenceRefs', true);
+  return { context, previous, next, evidenceRefs, decision, changes };
+}
+
+async function reviewAdaptation(input, proposed) {
+  const { next, previous, changes, evidenceRefs } = proposed;
+  const review = await immunePlane.reviewSymbiontOutput({
+    symbiontId: next.symbiontId, claim: `Bounded contract adaptation ${JSON.stringify(changes)}`,
+    resultHash: `${previous.contractId}:${previous.revision + 1}`,
+    evidenceRefs, verifierId: input.verifierId, riskScore: input.riskScore,
+    selfVerified: input.selfVerified === true
+  });
+  return review;
+}
+
+async function persistAdaptation(context) {
+  const { db, input, proposed, review } = context;
+  const { context: contractContext, previous, next, evidenceRefs, decision } = proposed;
+  return withTransaction(db, async (tx) => {
+    const current = await tx.get(`SELECT revision, status FROM holobiont_symbiosis_contracts
+      WHERE holobiont_id = ? AND symbiont_id = ? ORDER BY revision DESC LIMIT 1`, input.holobiontId, input.symbiontId);
+    if (current.revision !== previous.revision || current.status !== 'ACTIVE') {
+      throw contractError('SymbiosisContract changed during adaptation.', 'HOLOBIONT_CONTRACT_REVISION_CONFLICT');
+    }
+    const revision = previous.revision + 1;
+    const contract = { ...next, revision, adaptation: { evidenceRefs, immuneReview: review, authority: decision } };
+    await tx.run(`INSERT INTO holobiont_symbiosis_contracts
+      (contract_id, revision, holobiont_id, host_id, symbiont_id, constitution_revision, status, contract_json, reason, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?)`, contract.contractId, revision,
+    input.holobiontId, contractContext.session.hostId, contract.symbiontId,
+    contractContext.session.constitution.revision, JSON.stringify(contract), 'BOUNDED_ADAPTATION', input.actorId || null);
+    return contract;
+  });
+}
+
+async function adaptContract(db, input = {}) {
+  const proposed = await prepareAdaptation(db, input);
+  const review = await reviewAdaptation(input, proposed);
+  if (!review.allowed) throw contractError('AEIS rejected the contract adaptation.', 'HOLOBIONT_ADAPTATION_IMMUNE_REJECTION');
+  return persistAdaptation({ db, input, proposed, review });
+}
+
+module.exports = { validateContract, createContract, getContract, listContractHistory, authorizeSymbiontWork, revokeContract, adaptContract };
