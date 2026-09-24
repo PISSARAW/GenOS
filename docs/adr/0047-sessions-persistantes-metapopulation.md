@@ -75,6 +75,9 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
     sont indisponibles et qu'aucune fonction locale ne reste viable. Persister
     la transition dème/patch et les causes ; la reprise consomme des références
     cryptobiose, snapshot ou fossile sans prétendre les capturer elle-même.
+15. Recoloniser un patch par un essai local porté par au moins deux lignées
+    distinctes. Un échec est persisté avec son founder set et le patch demeure
+    vacant ; seul un résultat viable permet de créer le nouveau dème.
 
 ## Conséquences
 

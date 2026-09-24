@@ -1549,7 +1549,7 @@ Les chantiers de conception sont regroupés en 18 livrables cohérents. L'ordre 
 | **PR8 — livré** | Source/sink et contribution régionale | Classer sources/sinks, mesurer la couverture de capacités distinctes et protéger les dèmes uniques malgré une fitness locale faible. |
 | **PR9 — livré** | Rescue effect | Essais bornés depuis une source compatible, mesure du bénéfice et rollback avec reçu si le dème cible régresse ; corridor pénalisé. |
 | **PR10 — livré** | Extinction et reprise | Déclarer l'extinction seulement si tous les workers sont indisponibles et qu'aucune fonction locale ne reste viable ; libérer le patch, conserver l'historique des causes et préparer la reprise avec références cryptobiose/snapshot/fossile et exclusion des lignées ayant déjà échoué. |
-| **PR11** | Recolonisation vérifiée | Détecter les patches vacants, choisir des founder sets multi-lignées, exécuter un essai local et enregistrer les échecs de colonisation. |
+| **PR11 — livré** | Recolonisation vérifiée | Détecter les patches vacants, filtrer les lignées déjà échouées sur le patch, exiger deux lignées distinctes, garder le patch vacant pendant l'essai et ne créer le nouveau dème qu'après preuve locale de viabilité ; enregistrer les échecs. |
 | **PR12** | Quorum indépendant | Remplacer le quorum simple par un calcul tenant compte de l'indépendance ; traiter abstention, silence et diversité des sources/modèles. |
 | **PR13** | Anti-synchronie | Détecter les échecs corrélés et l'homogénéisation ; réduire ou geler les corridors et préserver la diversité régionale. |
 | **PR14** | Utilité et capacité régionale | Remplacer l'ajustement linéaire ad hoc par une utilité fondée sur bénéfice/coût ; calculer capacité métapopulationnelle et contribution régionale. |
