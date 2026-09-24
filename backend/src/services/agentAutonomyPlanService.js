@@ -126,11 +126,11 @@ function calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWo
   const trinityWorkerCount = autonomyPlan.trinity.members.length;
   const affordableTrinityMembers = affordableWorkerCount(autonomyPlan.tokenPolicy, effectiveWorkerShare);
   autonomyPlan.trinity.budgetPermitsLaunch = affordableTrinityMembers >= trinityWorkerCount;
-  const minimumTokens = autonomyPlan.tokenPolicy.minimumWorkerTokens * trinityWorkerCount;
   const availableTokens = autonomyPlan.tokenPolicy.total * effectiveWorkerShare;
+  const plannedTokens = Math.floor(availableTokens);
   autonomyPlan.trinity.ev = trinityService.calculateEvIndex({
     ...(normalizedMission.trinitySignals || {}),
-    budgetRatio: availableTokens > 0 ? minimumTokens / availableTokens : Infinity
+    budgetRatio: availableTokens > 0 ? plannedTokens / availableTokens : Infinity
   });
   const automaticRequest = normalizedMission.trinityMode === 'auto';
   autonomyPlan.trinity.activated = (autonomyPlan.trinity.explicitlyRequested
