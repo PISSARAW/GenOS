@@ -1,7 +1,7 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
 - **Statut** : Topologie disponible ; le service assemble une communauté et expose des évaluations et métriques. Le protocole épistémique complet décrit dans cette page n'est pas implémenté de bout en bout.
-- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, évaluation Pareto et métriques de diversité.
+- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-09-24
 
 Biocénose est une topologie spécialisée dans le cadre morphogénétique de GenOS : la
@@ -64,6 +64,11 @@ présentes dans `biocenoseService` sont les suivantes :
   dont les capacités déterministes déclarées correspondent aux contrôles requis, ou
   `UNVERIFIED` si aucun ne correspond. L'exécution du contrôle et sa preuve restent à
   fournir par le plan de vérification ;
+- `publishArgument` persiste une relation du vocabulaire contrôlé (`SUPPORT`, `ATTACK`,
+  `REFUTE`, `UNDERCUT`, `QUALIFY`, `DEPENDS_ON`, `COUNTEREXAMPLE`) pendant la délibération.
+  Les claims source et cible doivent appartenir à la communauté et au tour courant ;
+  chaque ajout produit un événement append-only. Le graphe n'évalue pas lui-même la
+  validité logique d'un argument ;
 - `evaluateCommunity` n'envoie à l'arène Pareto que les dossiers explicitement
   identifiés comme générateurs ou options candidates. Les rôles de revue,
   vérification, facilitation et observation en sont exclus. Le point genou est exposé
@@ -87,9 +92,8 @@ Le contrat de capacités déclaré pour ce mode est
 services de métriques ne prouvent pas à eux seuls que toutes les étapes sont reliées
 dans un cycle de délibération.
 
-Ne sont pas établis par ce chemin d'exécution : les relations d'argument persistées
-entre claims, la délibération réellement exécutée claim par claim, un registre de
-dissent, le suivi de
+Ne sont pas établis par ce chemin d'exécution : la délibération réellement exécutée
+claim par claim, un registre de dissent, le suivi de
 conformité sociale, ni un recrutement dynamique déclenché par la monoculture. Les
 sections suivantes exposent ces éléments comme modèle cible ou pistes de conception ;
 elles ne doivent pas être lues comme des garanties runtime.
@@ -99,9 +103,9 @@ gates d'indépendance, de divulgation, de vérification ou d'agrégation. La fon
 compatibilité `activateBiocenose` reste synchrone et ne crée pas de session persistée ;
 c'est `prepareCommunity` qui suit le parcours persistant.
 
-Les claims et leurs attributions sont maintenant persistés après divulgation. Les
-tables d'arguments, révisions de croyance, dissent et jugements restent préparatoires ;
-les engagements de jugement sont conservés dans la table des commitments.
+Les claims, leurs attributions et les relations d'argument sont persistés après
+divulgation. Les tables de révisions de croyance, dissent et jugements restent
+préparatoires ; les engagements initiaux sont conservés dans la table des commitments.
 
 ---
 
