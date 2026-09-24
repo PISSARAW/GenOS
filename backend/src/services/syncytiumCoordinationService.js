@@ -31,6 +31,7 @@ const { createSyncytiumSpeculationService } = require('./syncytiumSpeculationSer
 const { createCodeVariantService } = require('./syncytium/variants/code/codeVariantService');
 const { createGraphVariantService } = require('./syncytium/variants/graph/graphVariantService');
 const { createTransactionalVariantService } = require('./syncytium/variants/transactional/transactionalVariantService');
+const { createEpistemicVariantService } = require('./syncytium/variants/epistemic/epistemicVariantService');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -374,6 +375,7 @@ const recordCodeBuildState = (sessionId, build, options = {}) => codeVariant.rec
 const codeSnapshot = (sessionId, options = {}) => codeVariant.snapshot(sessionId, options);
 const graphVariant = createGraphVariantService({ createSession, applyOperation, snapshot });
 const transactionalVariant = createTransactionalVariantService({ createSession, snapshot, applyTransaction });
+const epistemicVariant = createEpistemicVariantService({ createSession, applyOperation, snapshot });
 
 async function closeSession(sessionId, options = {}) {
   const existed = sessions.delete(sessionId);
@@ -393,5 +395,6 @@ module.exports = {
   createCodeSession, applyCodeChange, recordCodeTestResult, recordCodeBuildState, codeSnapshot,
   ...graphVariant,
   ...transactionalVariant,
+  ...epistemicVariant,
   assessConsistency, closeSession, isIonicFlux, rehydrate
 };
