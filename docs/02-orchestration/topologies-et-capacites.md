@@ -32,7 +32,7 @@ capacités requises + un profil (preuve, mémoire, budget, communication, moteur
 
 | Topologie | Câblé dans le runtime | Contrat seulement / proposé |
 | --- | --- | --- |
-| **Trinity** | Parcours dédié via `agentAutonomyPlanService`, `trinityDeployService` et `trinityComparativeBarrier` ; le chemin d'orchestration et `merge_trinity` appliquent la barrière comparative. | Les capacités listées par `topologyCapabilityService` ne sont pas toutes des leases ni des effets exécutés par chaque dossier. |
+| **Trinity** | Parcours dédié via `agentAutonomyPlanService`, `deploy/trinityDeploy.service` et `trinityComparativeBarrier` ; le chemin d'orchestration et `merge_trinity` appliquent la barrière comparative. | Les capacités listées par `topologyCapabilityService` ne sont pas toutes des leases ni des effets exécutés par chaque dossier. |
 | **A-Team** | Parcours dédié via `agentAutonomyPlanService`, `aTeamDispatchService` et `aTeamCoordinationService` : domaines, handoffs et intégration. | Le contrat de capacités reste descriptif ; l'arbitrage Pareto n'est effectif que là où l'évaluateur A-Team l'appelle. |
 | **Biocénose** | `genos_biological_mode` → `biologicalTopologyService` → `biocenoseService.prepareCommunity`; évaluation communautaire et préparation d'organisation. | Les capacités du profil qui n'apparaissent pas dans ce chemin ne sont pas activées automatiquement. |
 | **Syncytium** | `genos_biological_mode` crée une session persistée ; `genos_topology_session` expose snapshot et opérations CRDT, puis évaluation de cohérence. | Le contrat ne signifie pas que chaque mission utilise ce mode ou que toute mutation passe par un opérateur humain. |

@@ -436,5 +436,9 @@
   },
   "scripts/orchestration/orchestrator_cli.mjs": {
     "COMPLEXITY": 2
+  },
+  "backend/src/services/morphogenesis/morphogenesisPlannerService.js": {
+    "PARAMETERS": 4,
+    "COMPLEXITY": 14
   }
 }

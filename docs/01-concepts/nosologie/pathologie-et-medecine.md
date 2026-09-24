@@ -226,7 +226,7 @@ stateDiagram-v2
 
 ## Runtime clinique gradué (implémenté)
 
-Le backend porte le runtime médical permanent : [clinicalStateService.js](../../../backend/src/services/clinicalStateService.js) (tables `clinical_states`, `immune_events`, `pathologies`, `treatments`), consommé par [immuneSurveillanceService.js](../../../backend/src/services/immuneSurveillanceService.js).
+Le backend porte le runtime médical permanent : [clinicalStateService.js](../../../backend/src/services/medical/clinicalStateService.js) (tables `clinical_states`, `immune_events`, `pathologies`, `treatments`), consommé par [immuneSurveillanceService.js](../../../backend/src/services/medical/immuneSurveillanceService.js).
 
 Un échec ordinaire de tâche n’est pas une maladie. Un processus pathologique est une dysfonction persistante : réplication incontrôlée, attaque de composants légitimes, signal nuisible transmis entre agents, dégradation progressive de mémoire, mutation héréditaire invalidante, consommation incontrôlée de ressources.
 
