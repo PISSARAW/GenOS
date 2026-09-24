@@ -33,10 +33,15 @@ impl AutonomyLevel {
     }
 
     pub fn can_change_topology(self) -> bool {
-        match self {
-            Self::PrincipalOrchestrator => true,
-            _ => false,
-        }
+        self.can_change_global_topology()
+    }
+
+    pub fn can_change_global_topology(self) -> bool {
+        matches!(self, Self::PrincipalOrchestrator)
+    }
+
+    pub fn can_request_local_topology_change(self) -> bool {
+        matches!(self, Self::SubOrchestrator | Self::PrincipalOrchestrator)
     }
 
     pub fn can_change_local_strategy(self) -> bool {

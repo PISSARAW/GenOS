@@ -50,6 +50,7 @@ pub mod kernel_diagnosis;
 pub mod kernel_resolvers;
 pub mod kernel_morphogenesis;
 pub mod kernel_incarnation;
+pub mod kernel_morphogenesis_lease;
 pub mod kernel_governance;
 pub mod kernel_cycle;
 
