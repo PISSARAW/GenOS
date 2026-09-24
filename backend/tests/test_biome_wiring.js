@@ -12,7 +12,7 @@ assert.deepEqual(composition.mechanisms, ['resource_allocation', 'optimal_foragi
 assert.ok(composition.members.every((member) => member.runtimeContext.sessionId === composition.sessionId));
 assert.ok(composition.members.every((member) => member.runtimeContext.biomeId && member.runtimeContext.populationId && member.runtimeContext.nicheId));
 assert.deepEqual(Object.keys(composition.ecology), [
-  'biomeId', 'missionId', 'scope', 'environment', 'niches', 'populations', 'resourcePool',
+  'biomeId', 'missionId', 'scope', 'environment', 'environmentConstraints', 'opportunityMap', 'niches', 'populations', 'resourcePool',
   'interactionGraph', 'archive', 'ecologicalState', 'tick', 'status'
 ]);
 
@@ -50,6 +50,15 @@ const sessionAllocation = await biome.allocateSessionResources(composition.sessi
 assert.equal(sessionAllocation.allocations[0].budget, 20);
 assert.equal(sessionAllocation.receipt.previousRevision, 0);
 assert.equal(sessionAllocation.receipt.resultingRevision, 1);
+const environmentChange = await biome.updateSessionEnvironment(composition.sessionId, {
+  constraints: [{ id: 'token-cap', resource: 'tokens', maximum: 50 }],
+  opportunities: [{ id: 'logs', descriptor: 'Inspect logs', evidenceRefs: ['artifact:logs'], opportunityScore: 0.8 }]
+}, { reason: 'explicit environment evidence', evidenceRefs: ['artifact:logs'] });
+assert.equal(environmentChange.environment.version, 2);
+assert.equal(environmentChange.receipt.resultingRevision, 2);
+const ecologySnapshot = await biome.sessionSnapshot(composition.sessionId);
+assert.equal(ecologySnapshot.opportunities[0].status, 'candidate');
+assert.equal(ecologySnapshot.environment.version, 2);
 
 const step = biome.forageStep([{ infoGain: 3 }], { iteration: 3, elapsedTimeSec: 2 });
 assert.ok(typeof step.patchYield.decision === 'string');

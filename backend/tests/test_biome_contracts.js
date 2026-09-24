@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const { createBiomeState } = require('../src/services/biome/biomeStore');
 const { createIndividual } = require('../src/services/biome/contracts/individual');
 const { createEcologicalEvent } = require('../src/services/biome/contracts/ecologicalEvent');
+const environmentModel = require('../src/services/biome/environment/environmentModelService');
 const biome = require('../src/services/biomeCoordinationService');
 
 const state = createBiomeState({
@@ -26,6 +27,26 @@ assert.throws(() => createBiomeState({ biomeId: 'bad', resourcePool: { tokens: -
 const event = createEcologicalEvent({ operationId: 'op-1', sessionId: 'session-1', actorId: 'worker-2' });
 assert.equal(event.actorId, 'worker-2');
 assert.ok(event.timestamp);
+const mappedEnvironment = environmentModel.createEnvironmentModel({
+  environmentId: 'env-map', mission: 'Find the regression.',
+  environment: {
+    constraints: [{ id: 'token-cap', resource: 'tokens', maximum: 5, blocking: true }],
+    opportunities: [
+      { id: 'logs', descriptor: 'Inspect runtime logs', opportunityScore: 0.8, evidenceRefs: ['artifact:logs'] },
+      { id: 'guess', descriptor: 'Unverified idea', opportunityScore: 0.9 }
+    ]
+  }
+});
+assert.equal(mappedEnvironment.environment.version, 1);
+assert.equal(mappedEnvironment.environment.unresolvedProblems[0].description, 'Find the regression.');
+assert.equal(mappedEnvironment.opportunities[0].status, 'candidate');
+assert.equal(mappedEnvironment.opportunities[1].status, 'insufficient_evidence');
+assert.equal(mappedEnvironment.constraints.evaluations[0].status, 'unmeasurable');
+const versioned = environmentModel.applyEnvironmentUpdate({
+  environment: mappedEnvironment.environment, patch: { currentPhase: 'verification' }, reason: 'phase shift'
+});
+assert.equal(versioned.environment.version, 2);
+assert.deepEqual(versioned.receipt.changedFields, ['currentPhase']);
 
 async function checkPersistence() {
   const db = fakeDatabase();
@@ -37,8 +58,16 @@ async function checkPersistence() {
   assert.equal(result.receipt.resultingRevision, 1);
   assert.equal(db.state.events[0].event_type, 'allocate');
   assert.equal(JSON.parse(db.state.events[0].payload_json).actorId, 'allocator');
+  const updated = await biome.updateSessionEnvironment(session.sessionId, {
+    opportunities: [{ id: 'logs', evidenceRefs: ['artifact:logs'], opportunityScore: 0.8 }]
+  }, { db, actorId: 'mapper', reason: 'logs discovered', evidenceRefs: ['artifact:logs'] });
+  assert.equal(updated.environment.version, 2);
+  assert.equal(updated.receipt.resultingRevision, 2);
+  assert.equal(db.state.events[1].event_type, 'environment');
   const snapshot = await biome.sessionSnapshot(session.sessionId, { db });
   assert.equal(snapshot.version, 1);
+  assert.equal(snapshot.environment.version, 2);
+  assert.equal(snapshot.opportunities[0].status, 'candidate');
 }
 
 function fakeDatabase() {

@@ -14,6 +14,7 @@ const biofilmMatrix = require('./biofilmMatrixService');
 const biomeSessionStore = require('./biome/biomeSessionStore');
 const biomeStore = require('./biome/biomeStore');
 const { createEcologicalEvent } = require('./biome/contracts/ecologicalEvent');
+const environmentModelService = require('./biome/environment/environmentModelService');
 const crypto = require('crypto');
 
 const DEFAULT_ORGANIZATION = 'energy_huddle';
@@ -70,11 +71,17 @@ async function composeBiome(mission, options = {}) {
   }
   const organization = options.organization || DEFAULT_ORGANIZATION;
   const sessionId = `biome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const environmentModel = environmentModelService.createEnvironmentModel({
+    environmentId: `${sessionId}:environment`, mission: goal, scope: options.scope, environment: options.environment
+  });
   const session = {
     sessionId,
     biomeId: sessionId,
     revision: null,
-    ecology: biomeStore.createBiomeState({ biomeId: sessionId, missionId: sessionId }),
+    ecology: biomeStore.createBiomeState({
+      biomeId: sessionId, missionId: sessionId, scope: options.scope,
+      environment: environmentModel.environment
+    }),
     mode: 'biome',
     mission: goal,
     organization,
@@ -112,7 +119,28 @@ async function getSession(sessionId, db) {
 
 async function sessionSnapshot(sessionId, options = {}) {
   const session = await getSession(sessionId, options.db);
-  return { sessionId, mode: 'biome', version: session.matrix.version, entries: biofilmMatrix.read(session.matrix) };
+  return {
+    sessionId, mode: 'biome', version: session.matrix.version,
+    environment: session.ecology.environment,
+    environmentConstraints: session.ecology.environmentConstraints,
+    opportunities: session.ecology.opportunityMap,
+    entries: biofilmMatrix.read(session.matrix)
+  };
+}
+
+async function updateSessionEnvironment(sessionId, patch, options = {}) {
+  return applyOperation({
+    sessionId, options, operation: 'environment', input: { patch, reason: options.reason, evidenceRefs: options.evidenceRefs },
+    apply: (session) => {
+      const updated = environmentModelService.applyEnvironmentUpdate({
+        environment: session.ecology.environment, patch, reason: options.reason, evidenceRefs: options.evidenceRefs
+      });
+      session.ecology.environment = updated.environment;
+      session.ecology.environmentConstraints = updated.constraints.evaluations;
+      session.ecology.opportunityMap = updated.opportunities;
+      return { ...updated, action: { type: 'ENVIRONMENT_VERSIONED', status: 'applied', version: updated.environment.version } };
+    }
+  });
 }
 
 async function allocateSessionResources(sessionId, populations, options = {}) {
@@ -250,5 +278,6 @@ module.exports = {
   allocateSessionResources,
   forageSession,
   assessSessionHealth,
+  updateSessionEnvironment,
   rehydrate
 };

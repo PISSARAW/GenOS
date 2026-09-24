@@ -10,19 +10,33 @@ function createBiomeSession(input = {}) {
     missionId: optionalId(input.missionId),
     scope: enumValue({ value: input.scope, choices: SCOPES, field: 'scope', fallback: 'mission' }),
     environment: input.environment || null,
-    niches: Array.isArray(input.niches) ? input.niches : [],
-    populations: Array.isArray(input.populations) ? input.populations : [],
-    resourcePool: input.resourcePool || {},
-    interactionGraph: Array.isArray(input.interactionGraph) ? input.interactionGraph : [],
-    archive: Array.isArray(input.archive) ? input.archive : [],
-    ecologicalState: input.ecologicalState || { health: 'unknown' },
-    tick: Number.isSafeInteger(input.tick) && input.tick >= 0 ? input.tick : 0,
+    environmentConstraints: list(input.environmentConstraints),
+    opportunityMap: list(input.opportunityMap),
+    niches: list(input.niches),
+    populations: list(input.populations),
+    resourcePool: object(input.resourcePool),
+    interactionGraph: list(input.interactionGraph),
+    archive: list(input.archive),
+    ecologicalState: object(input.ecologicalState, { health: 'unknown' }),
+    tick: validTick(input.tick),
     status: enumValue({ value: input.status, choices: SESSION_STATUSES, field: 'status', fallback: 'active' })
   };
 }
 
 function optionalId(value) {
   return value ? requiredId(value, 'missionId') : null;
+}
+
+function list(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function object(value, fallback = {}) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : fallback;
+}
+
+function validTick(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
 
 module.exports = { createBiomeSession };
