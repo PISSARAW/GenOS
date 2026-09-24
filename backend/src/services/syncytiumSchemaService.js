@@ -9,6 +9,7 @@ const CONSISTENCY_ZONES = new Set([
 ]);
 const crdtTypes = require('./syncytiumCrdtTypeRegistry');
 const invariantRegistry = require('./syncytium/invariants/invariantRegistry');
+const invariantDependencyIndex = require('./syncytium/invariants/invariantDependencyIndex');
 
 function compile(input) {
   if (input == null) return null;
@@ -28,7 +29,8 @@ function schemaEnvelope(source, fields, invariants) {
     schemaId: String(source.schemaId || source.id || 'syncytium-schema-v1'),
     schemaVersion: Number.isInteger(source.schemaVersion || source.version) ? (source.schemaVersion || source.version) : 1,
     fields,
-    invariants
+    invariants,
+    invariantIndex: invariantDependencyIndex.compile(invariants)
   };
 }
 
