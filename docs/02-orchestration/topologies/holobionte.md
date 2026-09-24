@@ -1,12 +1,18 @@
 # Holobionte : Protocole de Symbiose Cognitive Host-Symbionte avec Immunité Adaptative
 
+- **Statut** : Partiel
+- **Portée** : composition de quatre rôles, routage local des symbiotes, contrat de capacités et veto immunitaire côté backend Node.js.
+- **Dernière revue** : 2026-09-24
+
+Les sections qui décrivent un cycle de vie complet, une constitution persistante, une allocation adaptative ou des métriques de fitness présentent un **cadre conceptuel**. Elles ne décrivent pas des garanties du runtime actuel.
+
 ## 1. Définition
 
-Holobionte dans GenOS est le protocole d'orchestration qui structure une mission comme une **collectivité intégrée host-symbiontes** où une identité cognitive stable (Host) acquiert, héberge, contrôle, nourrit, remplace et co-adapte des capacités symbiotiques spécialisées.
+Holobionte dans GenOS est un mode d'orchestration qui compose une mission en quatre rôles complémentaires : un hôte, un spécialiste, un validateur immunitaire et un rôle mémoire. Le runtime expose aussi un contrat de capacités et un contrôle de veto sur les sorties. L'acquisition dynamique, la résidence et la co-adaptation décrites ci-dessous sont des objectifs de conception, pas un cycle complet implémenté.
 
-Contrairement aux topologies fondées sur l'égalité des agents, Holobionte repose sur une **symbiologie fonctionnelle avec autorité centrale** où :
+Le modèle conceptuel repose sur une **symbiologie fonctionnelle avec autorité centrale** où :
 
-1. **HostIdentity** : définit la mission, la constitution, la mémoire, l'autorité et la lignée ;
+1. **HostIdentity** : définit la mission, la constitution, la mémoire, l'autorité et la lignée (modèle visé) ;
 2. **SymbiosisContract** : formalise capacités offertes, ressources demandées, limites d'autorité et conditions de résiliation ;
 3. **RelationshipValue** : mesure la valeur nette de chaque relation symbiotique ;
 4. **Symbiont Lifecycle** : régit acquisition, quarantaine, essai, résidence, confiance et départ ;
@@ -15,20 +21,21 @@ Contrairement aux topologies fondées sur l'égalité des agents, Holobionte rep
 
 Le mot « Holobionte » vient de la biologie : un holobionte est un organisme hôte et l'ensemble de ses micro-organismes symbiotiques formant une unité fonctionnelle cohérente.
 
-Le cœur fonctionnel est réparti entre :
-- [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des rôles symbiotiques.
-- [backend/src/services/holobionteService.js](../../../backend/src/services/holobionteService.js) : analyse de mission et activation.
-- [backend/src/services/immuneSystem.js](../../../backend/src/services/immuneSystem.js) : système immunitaire adaptatif.
-- [backend/src/services/agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état partagé et synchronisation.
-- [backend/src/services/symbioteRuntimeService.js](../../../backend/src/services/symbioteRuntimeService.js) : routage Cloud + Local.
+Les services effectivement reliés sont :
+- [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des quatre rôles et définition de leurs consignes.
+- [backend/src/services/holobionteService.js](../../../backend/src/services/holobionteService.js) : composition et activation déclarative d'une mission.
+- [backend/src/services/holobionteCoordinationService.js](../../../backend/src/services/holobionteCoordinationService.js) : contrat de capacités, résumé de composition et veto de l'hôte.
+- [backend/src/services/immuneSystem.js](../../../backend/src/services/immuneSystem.js) : fonctions de contrôle de sortie utilisées par le veto.
+- [backend/src/services/symbioteRuntimeService.js](../../../backend/src/services/symbioteRuntimeService.js) : politique de routage local pour les rôles symbiotiques, embeddings locaux et validation de schéma.
+- [backend/src/services/topologyCapabilityService.js](../../../backend/src/services/topologyCapabilityService.js) : capacités requises déclarées pour la topologie.
 
-Le principe : un hôte qui co-évolue avec son microbiome d'experts atteint robustesse, couverture capacitaire et adaptabilité qu'aucun agent isolé ne peut égaler.
+Le principe de conception est qu'un hôte entouré de capacités spécialisées puisse gagner en robustesse et en couverture. Le dépôt ne fournit pas de mesure démontrant un gain par rapport à un agent isolé.
 
 ---
 
 ## 2. Non une équipe égalitaire, mais une symbiologie fonctionnelle
 
-GenOS applique une logique d'intégration avec autorité centrale :
+La composition et le veto traduisent partiellement cette logique. Les responsabilités détaillées ci-dessous décrivent le protocole visé et les consignes données aux rôles :
 
 1. **l'Host commande** : il pose l'objectif, la constitution, les seuils et les décisions finales ;
 2. **les Symbiontes servent** : ils fournissent des capacités sans déborder du contrat ;
@@ -47,7 +54,9 @@ Mécanismes explicites :
 
 ---
 
-## 3. Définition mathématique du protocole symbiotique
+## 3. Modèle conceptuel du protocole symbiotique
+
+Les équations de cette section formalisent le modèle visé. Le runtime actuel ne calcule pas ces fonctions de valeur, de fitness, de dysbiose ou de cycle de vie.
 
 L'orchestration Holobionte est un problème de **délégation sécurisée, d'évaluation continue et d'allocation optimale**.
 
@@ -390,13 +399,13 @@ graph TD
 
 ---
 
-## 6. Activation et analyse de mission
+## 6. Activation et choix du mode
 
-Holobionte s'active par [holobionteService.js](../../../backend/src/services/holobionteService.js) et [biologicalModeService.js](../../../backend/src/services/biologicalModeService.js).
+La composition est exposée par [holobionteService.js](../../../backend/src/services/holobionteService.js), puis déléguée à [biologicalModeService.js](../../../backend/src/services/biologicalModeService.js). `activateHolobionte` retourne un état d'activation déclaratif ; il ne lance pas à lui seul les quatre agents.
 
 ### Processus d'activation
 
-Holobionte s'active quand :
+Ce mode convient conceptuellement quand :
 1. **mission critique pour la sécurité** : intégrité et validation vitales ;
 2. **besoin d'autorité centrale** : une autorité doit décider définitivement ;
 3. **consolidation d'apprentissage** : préserver le contexte pour le futur ;
@@ -406,21 +415,14 @@ Exemple :
 
 ```javascript
 const mission = "Déploie une mise à jour de sécurité critique dans la base de données.";
-const analysis = biologicalModeService.compose('holobionte', mission);
-// [
-//   { role: "host_orchestrator",   modelTier: "frontier", engine: "cloud", memberNumber: 1, ... },
-//   { role: "specialist_symbiont", modelTier: "standard", engine: "local", memberNumber: 2, ... },
-//   { role: "immune_symbiont",     modelTier: "frontier", engine: "local", memberNumber: 3, ... },
-//   { role: "memory_symbiont",     modelTier: "standard", engine: "local", memberNumber: 4, ... }
-// ]
+const { composeHolobionte } = require('./backend/src/services/holobionteService');
+const composition = composeHolobionte(mission);
+// composition.members contient quatre rôles et leurs consignes.
 ```
 
 ### Conditions d'exclusion
 
-Holobionte est **dégradée** si :
-- **budget insuffisant** : moins de 4 workers ;
-- **mission non-critique** : pas besoin d'autorité centrale ;
-- **exploration pure** : hypothèses concurrentes sans a priori.
+Le service ne choisit pas automatiquement une autre topologie selon le budget ou la criticité. Ces exclusions sont des recommandations d'usage : pour une exploration concurrente, préférer Biocénose ou Trinity ; pour une mission simple, un seul agent peut suffire.
 
 ---
 
@@ -432,14 +434,14 @@ Holobionte est **dégradée** si :
 biologicalModeService.compose('holobionte', "Déploie une mise à jour de sécurité critique.")
 ```
 
-### Validation stricte
+### Validation effectuée
 
-1. **mission présente** : aucun Holobionte sans mission explicite ;
-2. **mode reconnu** : 'holobionte' dans les modes biologiques ;
-3. **quatre agents générés** : toujours exactement 4 rôles.
+1. **mission présente** : le service rejette une mission vide ;
+2. **mode reconnu** : le compositeur rejette un mode inconnu ;
+3. **quatre rôles** : la définition Holobionte produit quatre membres.
 
 Erreurs :
-- `BIOLOGICAL_MISSION_REQUIRED` : pas de mission
+- `HOLOBIONTE_MISSION_REQUIRED` : pas de mission via `composeHolobionte` ; le compositeur générique utilise `BIOLOGICAL_MISSION_REQUIRED`
 - `BIOLOGICAL_MODE_UNKNOWN` : mode inconnu
 
 ### Sortie
@@ -457,16 +459,14 @@ Erreurs :
 
 ## 8. Allocation de budget et modèles
 
-$$
-T_{\text{per\_agent}} = \frac{T_{\text{worker}} \times s}{4}
-$$
+La répartition égale du budget ci-dessous est une hypothèse de modèle. Aucun calcul de budget par rôle n'est réalisé par les services de composition documentés ici.
 
 - **Host Orchestrator** : modèle `frontier` (décision complexe), moteur `cloud` ;
 - **Specialist Symbiont** : modèle `standard` (exécution rapide), moteur `local` ;
 - **Immune Symbiont** : modèle `frontier` (validation complexe), moteur `local` ;
 - **Memory Symbiont** : modèle `standard` (consolidation), moteur `local`.
 
-Asymétrie cloud/host + local/symbiotes : le Host accède au modèle lourd pour les décisions finales ; les Symbiotes opèrent en local pour les tâches à haute fréquence et faible latence.
+La politique d'exécution distingue le rôle hôte des rôles symbiotiques. Le tier (`frontier` ou `standard`) est une indication de composition ; le routage effectif des appels dépend du runtime et de sa configuration. Le service de symbiotes fournit notamment un routage local de modèles et d'embeddings, avec validation JSON Schema en processus.
 
 ---
 
@@ -616,6 +616,8 @@ Le Host Orchestrator ne relance pas directement (il reste en attente d'approbati
 ---
 
 ## 12. Sécurité
+
+Les formules de cette section sont des propriétés souhaitées, pas des contrôles tous implémentés par le mode Holobionte. Les garanties effectivement appliquées dépendent des services backend cités en section 26.
 
 ### 12.1 Provenance
 
@@ -782,20 +784,17 @@ HOLOBIONTE_SAFETY_IMPOSSIBLE:
 
 ---
 
-## 17. Système immunitaire : mécanismes détaillés
+## 17. Contrôle immunitaire disponible et modèle visé
 
-L'Immune Symbiont met en œuvre un système immunitaire logique en trois couches, inspiré par [immuneSystem.js](../../../backend/src/services/immuneSystem.js).
+Le contrôle réellement appelé par le veto de l'hôte se trouve dans [immuneSystem.js](../../../backend/src/services/immuneSystem.js) : inspection/assainissement de sortie (`chaperoneAgentOutput`) et évaluation de dérive (`evaluateCognitiveDrift`). Ce chemin ne réalise pas le cycle immunitaire adaptatif complet décrit par les trois couches ci-dessous.
 
-### Immunité innée
-Réponse immédiate basée sur signatures connues : safety checks, integrity checks, contract checks, coherence checks.
+### Fonctions du runtime
+Le service immunitaire global comprend aussi le balayage de menaces, l'arrêt d'urgence par coupe-circuit, la validation/réparation de formats et des boucles de nouvelle tentative pour certaines sorties de modèle. Le veto Holobionte utilise l'inspection de sortie et le score de santé ; ce n'est pas une approbation de sécurité métier ni une preuve de sûreté.
 
-### Immunité adaptative
-Apprentissage continu : mémoire immunitaire (pathogènes archivés), tolérance (commensaux approuvés), escalade (antigènes ambigus).
+### Modèle conceptuel
+Les catégories innée, adaptative et régulatoire restent une manière de concevoir une immunité plus complète. L'archivage des pathogènes, la tolérance par partenaire et la régulation homéostatique spécifiques à Holobionte ne sont pas reliés à un cycle de vie de symbiote dans le service de coordination.
 
-### Immunité régulatoire
-Contrôle homéostatique : atténuation si pression trop élevée, potentialisation si pathogènes actifs, maintien de l'équilibre tolérance/vigilance.
-
-### Niveaux de rejection
+### Niveaux de rejet proposés
 
 | Level | Example | Action |
 |-------|---------|--------|
@@ -806,7 +805,9 @@ Contrôle homéostatique : atténuation si pression trop élevée, potentialisat
 
 ---
 
-## 18. Télémétrie et observabilité
+## 18. Indicateurs proposés
+
+Les noms ci-dessous constituent un catalogue de métriques souhaitées. Ils ne correspondent pas tous à des mesures émises par les services Holobionte actuels.
 
 ### Métriques de performance
 - **hostCapabilityCoverage** : pourcentage des capacités requises couvertes ;
@@ -834,24 +835,15 @@ Contrôle homéostatique : atténuation si pression trop élevée, potentialisat
 
 ---
 
-## 19. Configuration et paramètres
+## 19. Configuration
 
-```bash
-export GENOS_HOLOBIONTE_ROLES=4
-export GENOS_WORKER_ALLOCATION_RATIO=0.6
-export GENOS_MIN_TOKENS_PER_WORKER=8000
-export GENOS_HOLOBIONTE_MAX_REFINEMENTS=2
-export GENOS_SYMBIONT_RETENTION_THRESHOLD=0.3
-export GENOS_DEPENDENCY_AVERSION_LAMBDA=0.5
-export GENOS_DYSBIOSIS_ALERT_THRESHOLD=0.7
-export GENOS_IMMUNE_EVALUATION_TICK=100
-export GENOS_IMMUNE_MEMORY_SIZE=1000
-export GENOS_DEFAULT_TRANSMOTION_POLICY=VERTICAL_PREFERRED
-```
+Le mode ne propose pas de paramètres d'environnement dédiés à la constitution, au budget, aux refinements, à la rétention ou à l'immunité adaptative. Le routage local des embeddings utilise les paramètres génériques `GENOS_EMBEDDING_URL`, `GENOS_OLLAMA_URL`, `OLLAMA_HOST` et `GENOS_EMBEDDING_MODEL` (voir [symbioteRuntimeService.js](../../../backend/src/services/symbioteRuntimeService.js)). Les valeurs par défaut ciblent Ollama sur l'adresse locale.
 
 ---
 
-## 20. Douze variantes d'Holobionte
+## 20. Variantes conceptuelles
+
+Les variantes suivantes sont des pistes de conception et ne sont pas des options activables dans le code actuel.
 
 | # | Variante | Description | Host Engine | Symbiont Engine | Cas d'usage |
 |---|----------|-------------|-------------|-----------------|-------------|
@@ -878,9 +870,9 @@ export GENOS_DEFAULT_TRANSMOTION_POLICY=VERTICAL_PREFERRED
 
 **Pourquoi Immune en frontier :** validation complexe, falsification sophistiquée, erreur catastrophique.
 
-**Pourquoi Symbiotes en local :** coût zéro pour embedding/validation, latence ms vs 100ms+, autorité préservée (Host seul décide).
+**Pourquoi router certains traitements en local :** réduire les appels réseau pour les embeddings et traitements locaux. La latence et le coût dépendent de l'environnement ; le routage ne garantit pas à lui seul que le Host détient toutes les décisions.
 
-**Pourquoi cycle de vie continu :** besoins évolutifs, commensal peut devenir pathogène, acquisition continue adaptée.
+**Cycle de vie continu :** objectif d'évolution du modèle ; le runtime actuel ne met pas en œuvre l'acquisition continue, la quarantaine ou l'expulsion des symbiotes.
 
 ---
 
@@ -1055,105 +1047,37 @@ sequenceDiagram
 
 ---
 
-## 26. Implementation & capacités (GenOS v3)
+## 26. Implémentation et capacités (GenOS v3)
 
-Câblé au runtime : voir [TOPOLOGIES_CAPACITES.md](../topologies-et-capacites.md).
+La topologie est partiellement intégrée au backend. Voir la [matrice des capacités](../topologies-et-capacites.md) et le contrat déclaré dans `topologyCapabilityService`.
 
-- Service de coordination : `holobionteCoordinationService.js`
-- Capacités requises : IMMUNE_SYSTEM, LOCAL_INFERENCE, GRAPH_MEMORY, GENOME_EPIGENETICS
-- Contrat exposé par `topologyCapabilityService` et effectif dans `toolLeasePolicy.leaseForCapabilities`
+### Comportements disponibles
 
-### Exemple CLI
+- `composeHolobionte(mission, options)` produit le mode et les quatre membres. Les options exposées par ce service permettent notamment de définir `hostAuthority`.
+- `activateHolobionte(mission, context)` renvoie une activation horodatée ; elle n'exécute pas les membres.
+- `holobionteCoordinationService.composeHolobiont(mission, options)` ajoute un résumé hôte/symbiotes, les moteurs calculés par rôle et le contrat de capacités.
+- `holobionteCoordinationService.hostVeto(dossier)` extrait le texte de preuve du dossier et retourne `allowed`, `reason`, les informations de santé et l'indicateur de dérive. Un dossier sans livrable est refusé.
+- `symbioteRuntimeService` route les rôles symbiotiques vers l'inférence locale lorsqu'un modèle adapté est configuré. Les embeddings utilisent l'endpoint local configuré, sans bascule vers un fournisseur cloud.
+- Le contrat Holobionte déclare des capacités comme `IMMUNE_SYSTEM`, `LOCAL_INFERENCE`, `GRAPH_MEMORY`, `GENOME_EPIGENETICS` et plusieurs capacités procédurales. Cette déclaration décrit les prérequis attendus ; elle n'implémente pas à elle seule ces mécanismes.
 
-```bash
-genos-cli biological deploy --mode holobionte \
-  --mission "Deploy security patch" \
-  --constitution host_constitution.json \
-  --immune-threshold 0.9 \
-  --max-refinements 2 \
-  --symbiote-engine local \
-  --host-engine cloud
-```
-
-### Exemple programmatique
+### Exemple vérifiable
 
 ```javascript
-const { biologicalModeService } = require('./backend/src/services/biologicalModeService');
-const { holobionteService } = require('./backend/src/services/holobionteService');
+const coordination = require('./backend/src/services/holobionteCoordinationService');
 
-const mission = "Deploy critical security patch to production database.";
-const constitution = {
-  identity: "production-deployer-v3",
-  primaryObjectives: ["secure-deployment", "zero-downtime"],
-  nonNegotiableInvariants: ["data-integrity: 100%", "rollback: always"],
-  authorityModel: "central-host",
-  riskTolerance: "low",
-  requiredEvidence: ["checksums", "tests", "rollback-verification"],
-  maxDependency: 0.7,
-  inheritancePolicy: "vertical-preferred"
-};
+const composition = coordination.composeHolobiont('Examiner cette proposition et ses preuves.');
+console.log(composition.host.role);
+console.log(composition.symbiotes.map((member) => member.role));
+console.log(composition.capabilityContract.required);
 
-const analysis = holobionteService.analyzeMission(mission, constitution);
-const agents = biologicalModeService.compose('holobionte', mission, {
-  constitution,
-  hostEngine: 'cloud',
-  symbioteEngine: 'local',
-  immuneThreshold: 0.9,
-  maxRefinements: 2
+const decision = coordination.hostVeto({
+  events: [{ evidenceReport: { claims: [{ statement: 'Résultat avec éléments vérifiables.' }] } }]
 });
-
-const result = await holobionteService.execute(agents, {
-  onImmuneAlert: (alert) => console.warn('Immune:', alert),
-  onLifecycleChange: (c) => console.log('Lifecycle:', c),
-  onDysbiosisRisk: (r) => console.warn('Dysbiosis:', r)
-});
-
-console.log('Decision:', result.hostDecision);
-console.log('Fitness:', result.fitness);
-console.log('Artifacts:', result.memoryArtifacts);
+console.log(decision.allowed, decision.reason);
 ```
 
-### Exemple de rapport de télémétrie
+Les tests d'intégration correspondants sont `backend/tests/test_biocenose_holobionte_services.js` et `backend/tests/test_holobionte_wiring.js`.
 
-```javascript
-{
-  missionId: "holob_20240115_1000",
-  hostDecision: "APPROVED",
-  totalCycleTime: 45000,
-  symbiontContributions: {
-    specialist: { utility: 0.92, cost: 0.15, classification: "MUTUALISTIC" },
-    immune: { utility: 0.88, cost: 0.12, classification: "MUTUALISTIC" },
-    memory: { utility: 0.75, cost: 0.08, classification: "COMMENSAL" }
-  },
-  fitness: {
-    hostPerformance: 0.95,
-    hostSafety: 0.98,
-    resilience: 0.87,
-    capabilityCoverage: 0.93,
-    symbiontContribution: 0.85,
-    symbiontReliability: 0.91,
-    metabolicCost: 0.35,
-    dependencyRisk: 0.22,
-    monocultureRisk: 0.15,
-    mutualismQuality: 0.89
-  },
-  immuneStats: {
-    falsePositiveRate: 0.02,
-    falseNegativeRate: 0.01,
-    validationsPerformed: 47,
-    rejections: 3,
-    approvals: 44
-  },
-  lifecycleEvents: [
-    { symbiont: "specialist-v2", event: "PROMOTED_TO_TRUSTED", timestamp: "2024-01-15T10:05:00Z" },
-    { symbiont: "immune-v1", event: "QUARANTINE_EXPIRED", timestamp: "2024-01-15T10:03:00Z" }
-  ],
-  dysbiosisRisk: 0.18,
-  resourceConcentration: 0.25,
-  memoryArtifacts: [
-    "template: safe-database-patch",
-    "pattern: rollback-verification-checklist",
-    "anti-pattern: deploy-without-dependency-check"
-  ]
-}
-```
+### Écarts avec le modèle
+
+Le backend ne fournit pas ici de moteur `holobionteService.execute`, d'analyse `analyzeMission`, de mémoire de lignée Holobionte, de cycle de vie avec quarantaine/promotion/expulsion, de score de dysbiose, ni des métriques de fitness présentées dans les sections conceptuelles. Aucune commande CLI `biological deploy` ni les variables de configuration Holobionte proposées dans d'anciennes versions de cette fiche ne sont exposées par cette implémentation.
