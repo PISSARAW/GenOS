@@ -78,6 +78,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | [0066](0066-co-adaptation-holobionte.md) | Co-adaptation Holobionte | Accepté | 2026-09-24 | Holobionte, apprentissage, compatibilité, adaptation contractuelle |
 
+| [0067](0067-succession-symbiontes-holobionte.md) | Succession des symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, phases, dormance, reprise, ressources |
+
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.
