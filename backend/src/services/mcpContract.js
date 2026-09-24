@@ -250,7 +250,7 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       session_id: { type: 'string' },
-      operation: { type: 'string', enum: ['snapshot', 'apply', 'deposit', 'direct_member', 'route', 'slime', 'gap', 'grow', 'evaporate', 'record_outcome', 'conductivity', 'bridge', 'signal', 'locus', 'allocate', 'forage', 'health'] },
+      operation: { type: 'string', enum: ['snapshot', 'apply', 'deposit', 'direct_member', 'route', 'slime', 'gap', 'grow', 'evaporate', 'record_outcome', 'conductivity', 'bridge', 'signal', 'locus', 'repair', 'allocate', 'forage', 'health'] },
       op: { type: 'object' }, marker: { type: 'string' }, amount: { type: 'number' },
       is_repellent: { type: 'boolean' }, need: { type: ['string', 'object'] }, edges: { type: 'array', items: { type: 'object' } },
       gap_id: { type: 'string' }, candidates: { type: 'array', items: { type: 'object' } }, threshold: { type: 'number' },

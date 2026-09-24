@@ -540,6 +540,7 @@
               "bridge",
               "signal",
               "locus",
+              "repair",
               "allocate",
               "forage",
               "health"

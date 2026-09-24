@@ -23,6 +23,8 @@ const bridgeService = require('./rhizome/bridges/bridgeService');
 const ligandService = require('./rhizome/signaling/capabilityLigandService');
 const propagationService = require('./rhizome/propagation/proceduralPropagationService');
 const locusService = require('./rhizome/coordination/coordinationLocusService');
+const routeRepairService = require('./rhizome/resilience/routeRepairService');
+const graphAnalytics = require('./rhizome/analytics/graphAnalyticsService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -281,6 +283,17 @@ async function manageCoordinationLocus(sessionId, input, options = {}) {
   });
 }
 
+async function repairRoute(sessionId, input, options = {}) {
+  return routeRepairService.repair({
+    session: await getSession(sessionId, options.db), need: input.need, receipt: input.receipt,
+    trustedVerifierDigests: options.trustedVerifierDigests
+  });
+}
+
+async function graphHealth(sessionId, options = {}) {
+  return graphAnalytics.assess(await getSession(sessionId, options.db));
+}
+
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -337,4 +350,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, coherence, runSlimeMouldStep, closeSession, rehydrate };
