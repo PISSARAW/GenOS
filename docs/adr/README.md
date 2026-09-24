@@ -82,6 +82,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0080](0080-integration-rhizome-holobionte.md) | Intégration de Rhizome au Holobionte | Accepté | 2026-09-24 | Holobionte, Rhizome, découverte, admission |
 | [0081](0081-integration-trinity-holobionte.md) | Intégration de Trinity au Holobionte | Accepté | 2026-09-24 | Holobionte, Trinity, sélection, admission |
 | [0082](0082-integration-biocenose-holobionte.md) | Intégration de Biocénose au Holobionte | Accepté | 2026-09-24 | Holobionte, Biocénose, jugement, autorité |
+| [0083](0083-integration-a-team-holobionte.md) | Intégration A-Team et Holobionte | Accepté | 2026-09-24 | Holobionte, A-Team, sous-topologies, autorité |
 
 ## Cycle de vie d'un ADR
 
@@ -101,6 +102,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 - [../CONVENTIONS.md](../CONVENTIONS.md) — conventions de rédaction et de nommage.
 - [../GENOME_EPIGENETIQUE.md](../01-concepts/genome-et-epigenetique.md), [../INSTINCT.md](../01-concepts/instinct.md), [../FOSSILISATION.md](../01-concepts/fossilisation.md), [../AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — documents concernés par les ADR ci-dessus.
+
 
 
 
