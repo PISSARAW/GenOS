@@ -1,6 +1,6 @@
-# Routage du moteur selon le contrat du symbionte — chemin historique 0073
+# ADR 0075 — Routage du moteur selon le contrat du symbionte
 
-- **Statut** : Remplacé — voir ADR 0075
+- **Statut** : Accepté
 - **Date** : 2026-09-24
 - **Domaine** : Holobionte, runtime, routage, confidentialité
 - **Décideurs** : GenOS
