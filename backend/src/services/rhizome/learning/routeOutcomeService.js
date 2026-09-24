@@ -21,7 +21,12 @@ function updateEdge(edge, context) {
   return {
     ...edge,
     lastUsed: new Date(now).toISOString(),
-    trailState: { ...edge.trailState, [field]: Math.min(100, edge.trailState[field] + value), updatedAt: new Date(now).toISOString() }
+    trailState: {
+      ...edge.trailState,
+      [field]: Math.min(100, edge.trailState[field] + value),
+      verifiedFlow: outcome === 'SUCCESS' ? Math.min(100, (edge.trailState.verifiedFlow || 0) + value) : (edge.trailState.verifiedFlow || 0),
+      updatedAt: new Date(now).toISOString()
+    }
   };
 }
 

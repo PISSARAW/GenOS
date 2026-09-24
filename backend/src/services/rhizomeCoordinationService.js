@@ -18,6 +18,7 @@ const growthPlanner = require('./rhizome/growth/growthPlanner');
 const routePlanner = require('./rhizome/routing/routePlanner');
 const trailService = require('./rhizome/stigmergy/trailService');
 const routeOutcomeService = require('./rhizome/learning/routeOutcomeService');
+const conductivityService = require('./rhizome/routing/conductivityService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -236,6 +237,16 @@ async function recordRouteOutcome(sessionId, receipt, options = {}) {
   });
 }
 
+async function runConductivityStep(sessionId, options = {}) {
+  return mutateSession(sessionId, options, {
+    type: 'CONDUCTIVITY_UPDATED',
+    payload: { alpha: options.alpha, beta: options.beta, decay: options.decay },
+    apply: (session) => ({ sessionId, ...conductivityService.step({
+      session, alpha: options.alpha, beta: options.beta, decay: options.decay
+    }) })
+  });
+}
+
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -292,4 +303,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, coherence, runSlimeMouldStep, closeSession, rehydrate };

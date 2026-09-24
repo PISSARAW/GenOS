@@ -8,6 +8,7 @@ function normalizeTrailState(value) {
   return {
     positive: numberValue(trail.positive, 'trailState.positive', { maximum: 100 }),
     negative: numberValue(trail.negative, 'trailState.negative', { maximum: 100 }),
+    verifiedFlow: numberValue(trail.verifiedFlow, 'trailState.verifiedFlow', { maximum: 100 }),
     updatedAt: isoDateOrNull(trail.updatedAt, 'trailState.updatedAt')
   };
 }

@@ -41,6 +41,7 @@ function run() {
   const result = outcomes.applyOutcome({ session: successful, receipt: receipt(), trustedVerifierDigests: ['trusted-verifier-digest'], now: 1000, amount: 10, gamma: 0.8 });
   assert.deepEqual(result.credits.map((item) => item.credit), [0.8, 1]);
   assert.equal(successful.edges[0].trailState.positive, 8);
+  assert.equal(successful.edges[0].trailState.verifiedFlow, 8);
   assert.equal(successful.edges[1].trailState.positive, 10);
   assert.equal(successful.graphVersion, 2);
 

@@ -25,6 +25,7 @@ async function run() {
   });
   assert.equal(graph.edges[0].from, 'source');
   assert.equal(graph.activeNeeds[0].constraints.privacy, 'ANY');
+  assert.equal(graph.edges[0].trailState.verifiedFlow, 0);
   assert.equal(graph.nodes[0].providers[0].providerId, 'mcp-search');
   assert.notEqual(graph.nodes[0].nodeId, graph.nodes[0].providers[0].providerId);
   assert.throws(() => normalizeCapabilityEdge({ edgeId: 'bad', from: 'same', to: 'same', relation: 'BRIDGES' }), { code: 'RHIZOME_CONTRACT_INVALID' });

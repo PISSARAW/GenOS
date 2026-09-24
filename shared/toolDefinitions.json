@@ -536,6 +536,7 @@
               "grow",
               "evaporate",
               "record_outcome",
+              "conductivity",
               "allocate",
               "forage",
               "health"
@@ -602,6 +603,15 @@
           },
           "receipt": {
             "type": "object"
+          },
+          "alpha": {
+            "type": "number"
+          },
+          "beta": {
+            "type": "number"
+          },
+          "decay": {
+            "type": "number"
           },
           "edges": {
             "type": "array",
