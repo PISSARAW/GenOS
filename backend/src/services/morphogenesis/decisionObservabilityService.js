@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const observability = require('../observabilityUncertaintyService');
 
 // In-memory store for decision receipts
 const receipts = new Map(); // decisionId -> receipt
@@ -48,13 +49,24 @@ function recordDecision(ctx) {
   return receipt;
 }
 
-function extractEpistemicPressure(ctx) {
-  if (!ctx) return { uncertainty: 0, contradiction: 0, evidenceDeficit: 0 };
+function baseEpistemicPressure(ctx) {
   return {
     uncertainty: ctx.uncertainty ?? ctx.epistemic?.uncertainty ?? 0,
     contradiction: ctx.contradiction ?? ctx.epistemic?.contradiction ?? 0,
     evidenceDeficit: ctx.evidenceDeficit ?? ctx.epistemic?.evidenceDeficit ?? 0
   };
+}
+
+function observabilityHealthOf(ctx) {
+  return ctx.observability || ctx.telemetryHealth || null;
+}
+
+function extractEpistemicPressure(ctx) {
+  if (!ctx) return { uncertainty: 0, contradiction: 0, evidenceDeficit: 0 };
+  const base = baseEpistemicPressure(ctx);
+  const health = observabilityHealthOf(ctx);
+  if (!health) return base;
+  return observability.pressureWithObservability({ epistemic: base, health });
 }
 
 function extractRegulatoryPressure(ctx) {

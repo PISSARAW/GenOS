@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const provenanceGate = require('./highImpactProvenanceGateService');
 
 function safeInput(input) {
   if (input === undefined) return {};
@@ -71,7 +72,44 @@ function evaluate(input) {
   const context = safeInput(source.context);
   const action = riskOfAction({ action: safeInput(source.action) });
   const risk = textField(context, 'actionRisk', action.risk);
-  return decision({ verdict: verdictForRisk(risk), context, action });
+  const base = decision({ verdict: verdictForRisk(risk), context, action });
+  return escalateForMissingProvenance({ base, context, action });
+}
+
+function isFinalVerdict(base) {
+  if (!base) return false;
+  return base.verdict === 'HUMAN_REVIEW' || base.verdict === 'DENY';
+}
+
+function gateInputFor(context, action) {
+  const ctx = safeInput(context);
+  const act = safeInput(action);
+  return {
+    action: textField(act, 'name', 'read'),
+    risk: textField(act, 'risk', 'LOW'),
+    reversibility: textField(act, 'reversibility', 'reversible'),
+    blastRadius: textField(act, 'blastRadius', 'local'),
+    evidenceRefs: Array.isArray(ctx.evidenceRefs) ? ctx.evidenceRefs : [],
+    provenanceHash: textField(ctx, 'provenanceHash', '')
+  };
+}
+
+function deniedVerdict(gate) {
+  if (gate.verdict === 'DENY') return 'DENY';
+  return 'HUMAN_REVIEW';
+}
+
+function escalateForMissingProvenance(input) {
+  const source = safeInput(input);
+  if (isFinalVerdict(source.base)) return source.base;
+  const gate = provenanceGate.gate(gateInputFor(source.context, source.action));
+  if (gate.verdict === 'ALLOW') return source.base;
+  return decision({
+    verdict: deniedVerdict(gate),
+    context: source.context,
+    action: source.action,
+    reason: gate.reason
+  });
 }
 
 function boundsForVerdict(verdict) {
