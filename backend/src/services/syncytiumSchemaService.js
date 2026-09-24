@@ -8,12 +8,13 @@ const CONSISTENCY_ZONES = new Set([
   'EVENTUAL', 'CAUSAL', 'INVARIANT_PRESERVING', 'SERIALIZABLE', 'APPEND_ONLY', 'IMMUTABLE'
 ]);
 const crdtTypes = require('./syncytiumCrdtTypeRegistry');
+const invariantRegistry = require('./syncytium/invariants/invariantRegistry');
 
 function compile(input) {
   if (input == null) return null;
   const source = normalizeSource(input);
   const fields = normalizeFields(source.fields);
-  return schemaEnvelope(source, fields);
+  return schemaEnvelope(source, fields, invariantRegistry.compile(source.invariants));
 }
 
 function normalizeSource(input) {
@@ -22,11 +23,12 @@ function normalizeSource(input) {
   return source;
 }
 
-function schemaEnvelope(source, fields) {
+function schemaEnvelope(source, fields, invariants) {
   return {
     schemaId: String(source.schemaId || source.id || 'syncytium-schema-v1'),
     schemaVersion: Number.isInteger(source.schemaVersion || source.version) ? (source.schemaVersion || source.version) : 1,
-    fields
+    fields,
+    invariants
   };
 }
 
