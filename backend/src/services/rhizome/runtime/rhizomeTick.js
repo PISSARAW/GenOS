@@ -33,7 +33,11 @@ async function inspectGap(context) {
   const growth = await rhizome.planGrowth(input.sessionId, gap.gap.gapId, {
     ...options, candidates: input.candidates, threshold: input.growthThreshold
   });
-  return { status: growth.permitted ? 'GROWTH_PROPOSED' : 'GAP_OPEN', snapshot, route, action, gap, growth };
+  if (!growth.permitted) return { status: 'GAP_OPEN', snapshot, route, action, gap, growth };
+  const executeGrowth = input.services?.executeGrowth;
+  if (typeof executeGrowth !== 'function') return { status: 'GROWTH_PROPOSED', snapshot, route, action, gap, growth };
+  const execution = await executeGrowth({ sessionId: input.sessionId, need: input.need, gap: gap.gap, growth, options });
+  return { status: execution.status, snapshot, route, action, gap, growth, execution };
 }
 
 module.exports = { tick };
