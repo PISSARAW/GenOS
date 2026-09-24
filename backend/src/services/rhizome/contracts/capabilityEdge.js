@@ -13,6 +13,18 @@ function normalizeTrailState(value) {
   };
 }
 
+function normalizeQuarantine(value) {
+  if (value === undefined || value === null) return null;
+  const evidence = objectValue(value, 'quarantine');
+  return {
+    evidenceId: textValue(evidence.evidenceId, 'quarantine.evidenceId'),
+    kind: enumValue(evidence.kind, { allowed: ['SECURITY_VIOLATION', 'PROVEN_COMPROMISE', 'UNTRUSTED_BRIDGE'], field: 'quarantine.kind' }),
+    reason: textValue(evidence.reason, 'quarantine.reason'),
+    verifierDigest: textValue(evidence.verifierDigest, 'quarantine.verifierDigest'),
+    recordedAt: isoDateOrNull(evidence.recordedAt, 'quarantine.recordedAt')
+  };
+}
+
 function normalizeCapabilityEdge(value) {
   const edge = objectValue(value, 'CapabilityEdge');
   const from = textValue(edge.from, 'from');
@@ -32,7 +44,8 @@ function normalizeCapabilityEdge(value) {
     evidenceQuality: numberValue(edge.evidenceQuality, 'evidenceQuality', { maximum: 1, fallback: 0 }),
     trailState: normalizeTrailState(edge.trailState),
     lastUsed: isoDateOrNull(edge.lastUsed, 'lastUsed'),
-    status: enumValue(edge.status, { allowed: EDGE_STATES, field: 'status', fallback: 'ACTIVE' })
+    status: enumValue(edge.status, { allowed: EDGE_STATES, field: 'status', fallback: 'ACTIVE' }),
+    quarantine: normalizeQuarantine(edge.quarantine)
   };
 }
 

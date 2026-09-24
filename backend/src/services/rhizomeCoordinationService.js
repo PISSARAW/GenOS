@@ -26,6 +26,7 @@ const locusService = require('./rhizome/coordination/coordinationLocusService');
 const routeRepairService = require('./rhizome/resilience/routeRepairService');
 const graphAnalytics = require('./rhizome/analytics/graphAnalyticsService');
 const pruningService = require('./rhizome/pruning/pruningService');
+const routeQuarantineService = require('./rhizome/security/routeQuarantineService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -307,6 +308,14 @@ async function inspectPruning(sessionId, options = {}) {
   return pruningService.inspect(await getSession(sessionId, options.db), options);
 }
 
+async function quarantineRoute(sessionId, input, options = {}) {
+  return mutateSession(sessionId, options, {
+    type: 'EDGE_QUARANTINED',
+    payload: { edgeIds: input.edgeIds, evidenceId: input.evidence?.evidenceId, kind: input.evidence?.kind },
+    apply: (session) => Object.assign(session, routeQuarantineService.quarantine(session, input, options.trustedVerifierDigests))
+  });
+}
+
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -368,4 +377,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, inspectPruning, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
