@@ -28,6 +28,7 @@ const { createSessionHistoryService } = require('./syncytium/history/sessionHist
 const offlineMutation = require('./syncytium/replicas/offlineMutationService');
 const { createSyncytiumDiagnosticsService } = require('./syncytiumDiagnosticsService');
 const { createSyncytiumSpeculationService } = require('./syncytiumSpeculationService');
+const { createCodeVariantService } = require('./syncytium/variants/code/codeVariantService');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -363,6 +364,12 @@ const createSpeculativeBranch = (sessionId, request = {}) => speculation.create(
 const applySpeculativeOperation = (sessionId, request = {}) => speculation.apply(sessionId, request);
 const compareSpeculativeBranch = (sessionId, request = {}) => speculation.compare(sessionId, request);
 const promoteSpeculativeBranch = (sessionId, request = {}) => speculation.promote(sessionId, request);
+const codeVariant = createCodeVariantService({ createSession, applyOperation, snapshot });
+const createCodeSession = (mission, options = {}) => codeVariant.createSession(mission, options);
+const applyCodeChange = (sessionId, change, options = {}) => codeVariant.applyChange(sessionId, change, options);
+const recordCodeTestResult = (sessionId, result, options = {}) => codeVariant.recordTestResult(sessionId, result, options);
+const recordCodeBuildState = (sessionId, build, options = {}) => codeVariant.recordBuildState(sessionId, build, options);
+const codeSnapshot = (sessionId, options = {}) => codeVariant.snapshot(sessionId, options);
 
 async function closeSession(sessionId, options = {}) {
   const existed = sessions.delete(sessionId);
@@ -379,5 +386,6 @@ module.exports = {
   repairInvariant,
   chooseRepairCandidates,
   createSpeculativeBranch, applySpeculativeOperation, compareSpeculativeBranch, promoteSpeculativeBranch,
+  createCodeSession, applyCodeChange, recordCodeTestResult, recordCodeBuildState, codeSnapshot,
   assessConsistency, closeSession, isIonicFlux, rehydrate
 };
