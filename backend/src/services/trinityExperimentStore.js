@@ -16,6 +16,16 @@ async function create(db, input) {
   if (!HASH_PATTERN.test(String(input.snapshotHash || ''))) {
     throw Object.assign(new Error('Trinity requires a SHA-256 snapshot hash.'), { code: 'TRINITY_SNAPSHOT_REQUIRED' });
   }
+  const existing = await db.get(
+    'SELECT mission_id, domain, mission_snapshot_hash, design_json, isolation_policy_json, budget_policy_json, status FROM trinity_experiments WHERE id = ?',
+    input.id
+  );
+  if (existing) {
+    if (!sameExperimentInput(existing, input)) {
+      throw Object.assign(new Error('Trinity experiment identity was reused for different inputs.'), { code: 'TRINITY_EXPERIMENT_ID_CONFLICT' });
+    }
+    return { ...existing, id: input.id, idempotent: true };
+  }
   await db.run(
     `INSERT INTO trinity_experiments
       (id, mission_id, domain, mission_snapshot_hash, design_json, isolation_policy_json, budget_policy_json, status)
@@ -26,7 +36,21 @@ async function create(db, input) {
   return transition(db, { id: input.id, status: 'sealed_running', reason: 'three_worlds_sealed' });
 }
 
+function sameExperimentInput(existing, input) {
+  return existing.mission_id === input.missionId
+    && existing.domain === input.domain
+    && existing.mission_snapshot_hash === input.snapshotHash
+    && existing.design_json === JSON.stringify(input.design || {})
+    && existing.isolation_policy_json === JSON.stringify(input.isolationPolicy || {})
+    && existing.budget_policy_json === JSON.stringify(input.budgetPolicy || {});
+}
+
 async function createWorld(db, input) {
+  const existing = await db.get(
+    'SELECT id, agent_id, experiment_id, world_number, snapshot_hash, workspace_root, status FROM trinity_worlds WHERE id = ? OR (experiment_id = ? AND world_number = ?)',
+    input.id, input.experimentId, input.worldNumber
+  );
+  if (existing) return existingWorld(existing, input);
   await assertWorkspaceIsUnique(db, input);
   await db.run(
     `INSERT INTO trinity_worlds
@@ -35,6 +59,17 @@ async function createWorld(db, input) {
     input.id, input.mission, input.worldNumber, input.name, input.strategy, input.status, input.agentId,
     input.experimentId, input.chamber, input.snapshotHash, input.workspaceRoot
   );
+  return { ...input, idempotent: false };
+}
+
+function existingWorld(existing, input) {
+  const sameIdentity = existing.agent_id === input.agentId
+    && existing.experiment_id === input.experimentId
+    && Number(existing.world_number) === Number(input.worldNumber)
+    && existing.snapshot_hash === input.snapshotHash
+    && normalizeWorkspaceRoot(existing.workspace_root) === normalizeWorkspaceRoot(input.workspaceRoot);
+  if (!sameIdentity) throw Object.assign(new Error('Trinity world identity was reused for different inputs.'), { code: 'TRINITY_WORLD_ID_CONFLICT' });
+  return { ...existing, idempotent: true };
 }
 
 async function assertWorkspaceIsUnique(db, input) {
@@ -54,11 +89,9 @@ function normalizeWorkspaceRoot(value) {
 }
 
 async function transition(db, input) {
-  const current = await db.get('SELECT status FROM trinity_experiments WHERE id = ?', input.id);
-  if (!current) throw Object.assign(new Error(`Trinity experiment '${input.id}' was not found.`), { code: 'TRINITY_EXPERIMENT_NOT_FOUND' });
-  if (!(TRANSITIONS[current.status] || []).includes(input.status)) {
-    throw Object.assign(new Error(`Invalid Trinity experiment transition ${current.status} -> ${input.status}.`), { code: 'TRINITY_INVALID_TRANSITION' });
-  }
+  const current = await db.get('SELECT status, decision_json FROM trinity_experiments WHERE id = ?', input.id);
+  const replay = validateTransition(current, input);
+  if (replay) return replay;
   const result = await db.run(
     `UPDATE trinity_experiments SET status = ?, decision_json = COALESCE(?, decision_json),
       failure_reason = COALESCE(?, failure_reason), updated_at = CURRENT_TIMESTAMP
@@ -72,6 +105,22 @@ async function transition(db, input) {
     input.id, current.status, input.status, input.actor || 'trinity_runtime', input.reason || null, input.evidenceRef || null
   );
   return { ...current, status: input.status };
+}
+
+function validateTransition(current, input) {
+  if (!current) throw Object.assign(new Error(`Trinity experiment '${input.id}' was not found.`), { code: 'TRINITY_EXPERIMENT_NOT_FOUND' });
+  if (current.status === input.status) return existingTransition(current, input);
+  if (!(TRANSITIONS[current.status] || []).includes(input.status)) {
+    throw Object.assign(new Error(`Invalid Trinity experiment transition ${current.status} -> ${input.status}.`), { code: 'TRINITY_INVALID_TRANSITION' });
+  }
+  return null;
+}
+
+function existingTransition(current, input) {
+  if (input.decision && JSON.stringify(input.decision) !== current.decision_json) {
+    throw Object.assign(new Error('Trinity transition was replayed with a different decision.'), { code: 'TRINITY_TRANSITION_CONFLICT' });
+  }
+  return { ...current, idempotent: true };
 }
 
 module.exports = { create, createWorld, transition };
