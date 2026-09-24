@@ -15,7 +15,14 @@ async function run() {
   try {
     await primaryDb.exec('PRAGMA busy_timeout = 5000');
     await workerDb.exec('PRAGMA busy_timeout = 5000');
-    const session = await rhizome.composeRhizome('Preserve concurrent session changes.', { db: primaryDb });
+    const session = await rhizome.composeRhizome('Preserve concurrent session changes.', {
+      db: primaryDb,
+      nodes: [
+        { nodeId: 'origin', kind: 'AGENT', capabilities: ['investigate'] },
+        { nodeId: 'review', kind: 'TOOL', capabilities: ['verify'] }
+      ],
+      edges: [{ edgeId: 'local-bridge', from: 'origin', to: 'review', relation: 'VERIFIES' }]
+    });
     const deposits = Array.from({ length: 20 }, (_, index) => {
       const db = index % 2 ? primaryDb : workerDb;
       return rhizome.depositTrail(session.sessionId, `edge:${index}`, { amount: index + 1, db });
@@ -25,6 +32,8 @@ async function run() {
     const record = await store.load(primaryDb, session.sessionId);
     const events = await store.events(primaryDb, session.sessionId);
     assert.equal(record.state.trails.length, deposits.length);
+    assert.equal(record.state.nodes.length, 2);
+    assert.equal(record.state.edges[0].edgeId, 'local-bridge');
     assert.equal(record.revision, deposits.length + 1);
     assert.equal(events.length, deposits.length + 1);
     assert.deepEqual(events.map((event) => event.revision), Array.from({ length: events.length }, (_, index) => index + 1));

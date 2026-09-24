@@ -11,6 +11,7 @@ const topologyCapabilityService = require('./topologyCapabilityService');
 const { createSwarmMatrix } = require('./swarmStigmergyVectorService');
 const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 const store = require('./topologySessionStore');
+const { normalizeRhizomeSession } = require('./rhizome/contracts/rhizomeSession');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -42,6 +43,7 @@ function normalizeMembers(members) {
 
 function serialize(session) {
   return {
+    ...normalizeRhizomeSession(session),
     mission: session.mission,
     organization: session.organization,
     members: session.members,
@@ -50,19 +52,41 @@ function serialize(session) {
   };
 }
 
-function rehydrate(record) {
-  const state = record.state || {};
-  const organization = state.organization || DEFAULT_ORGANIZATION;
+function canonicalSession(state, id) {
+  return normalizeRhizomeSession({
+    rhizomeId: state.rhizomeId || id,
+    missionId: state.missionId || id,
+    scope: state.scope,
+    graphVersion: state.graphVersion,
+    nodes: state.nodes,
+    edges: state.edges,
+    activeNeeds: state.activeNeeds,
+    openGaps: state.openGaps,
+    coordinationLoci: state.coordinationLoci,
+    budgets: state.budgets,
+    status: state.status
+  });
+}
+
+function restoreMatrix(state) {
   const matrix = createSwarmMatrix();
   for (const [marker, entry] of state.trails || []) matrix.trails.set(marker, entry);
   for (const [agentId, entry] of state.oscillators || []) matrix.oscillators.set(agentId, entry);
+  return matrix;
+}
+
+function rehydrate(record) {
+  const state = record.state || {};
+  const canonical = canonicalSession(state, record.id);
+  const organization = state.organization || DEFAULT_ORGANIZATION;
   return {
+    ...canonical,
     sessionId: record.id,
     revision: Number(record.revision) || 0,
     mission: state.mission || '',
     organization,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'rhizome', organization }),
-    matrix,
+    matrix: restoreMatrix(state),
     members: normalizeMembers(Array.isArray(state.members) ? state.members : [])
   };
 }
@@ -73,8 +97,22 @@ async function composeRhizome(mission, options = {}) {
     throw Object.assign(new Error('Rhizome mission is required.'), { code: 'RHIZOME_MISSION_REQUIRED' });
   }
   const organization = options.organization || DEFAULT_ORGANIZATION;
+  const sessionId = options.rhizomeId || `rhizome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const session = {
-    sessionId: `rhizome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    ...normalizeRhizomeSession({
+      rhizomeId: sessionId,
+      missionId: options.missionId || sessionId,
+      scope: options.scope,
+      graphVersion: options.graphVersion,
+      nodes: options.nodes,
+      edges: options.edges,
+      activeNeeds: options.activeNeeds,
+      openGaps: options.openGaps,
+      coordinationLoci: options.coordinationLoci,
+      budgets: options.budgets,
+      status: options.status
+    }),
+    sessionId,
     mission: goal,
     organization,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'rhizome', organization }),

@@ -1,0 +1,18 @@
+'use strict';
+
+const NODE_KINDS = Object.freeze([
+  'AGENT', 'DAEMON', 'TOOL', 'PROCEDURE', 'DATABASE', 'MEMORY', 'RETRIEVER',
+  'SOLVER', 'EXTERNAL_SERVICE', 'SUB_TOPOLOGY', 'HUMAN_GATEWAY'
+]);
+const NODE_STATES = Object.freeze([
+  'DISCOVERED', 'AVAILABLE', 'ACTIVE', 'DEGRADED', 'DORMANT', 'QUARANTINED', 'RETIRED'
+]);
+const EDGE_RELATIONS = Object.freeze([
+  'ROUTES_TO', 'TRANSLATES_TO', 'DEPENDS_ON', 'VERIFIES', 'PROVIDES_INPUT',
+  'PRODUCES_FOR', 'BRIDGES'
+]);
+const EDGE_STATES = Object.freeze(['ACTIVE', 'DORMANT', 'QUARANTINED', 'RETIRED']);
+const SESSION_SCOPES = Object.freeze(['mission', 'workspace', 'persistent']);
+const SESSION_STATES = Object.freeze(['ACTIVE', 'DORMANT', 'QUARANTINED', 'CLOSED']);
+
+module.exports = { NODE_KINDS, NODE_STATES, EDGE_RELATIONS, EDGE_STATES, SESSION_SCOPES, SESSION_STATES };
