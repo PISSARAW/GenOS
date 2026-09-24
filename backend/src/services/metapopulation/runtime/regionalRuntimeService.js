@@ -60,7 +60,7 @@ async function recordCycleFailure(input, options, error) {
 }
 
 async function recordCycle(input, options, outcome) {
-  const coordination = require('../metapopulationCoordinationService');
+  const coordination = require('../../metapopulationCoordinationService');
   return coordination.recordMetapopulationEvent(input.metapopulationId, {
     type: outcome.type,
     payload: { cycle: input.cycle || null, status: outcome.type === 'REGIONAL_CYCLE_RECORDED' ? 'VERIFIED' : 'FAILED',
