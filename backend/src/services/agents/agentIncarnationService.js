@@ -1,13 +1,5 @@
 'use strict';
 
-/**
- * Agent Incarnation Service — the single spawn path for all GenOS agents.
- *
- * Every agent (worker, sub-orchestrator, verifier, scout, daemon) passes
- * through incarnateAgent(). Fleet workers, direct dispatch, A-Team, Trinity,
- * biological daemons: all converge here.
- */
-
 const crypto = require('crypto');
 const { workerToolLeaseForCapabilities, emit } = require('../agentOrchestrationState');
 const { generateAgentIdentity } = require('../agentIdentityService');
@@ -23,6 +15,7 @@ const { formatPhenotypePrompt } = require('../cognitivePhenotypeService');
 const { buildExpressionContext } = require('./agentExpressionContextService');
 const { initClinicalState } = require('../medical/clinicalStateService');
 const { surveillanceScan } = require('../medical/immuneSurveillanceService');
+const workerKinds = require('./workerKindService');
 
 function uuid() { return crypto.randomUUID(); }
 function safeArray(v) { return Array.isArray(v) ? v : []; }
@@ -55,10 +48,6 @@ function computeCognitiveBudget(parent, request, workerCount) {
   const share = request.budget?.cognitiveShare || 0.6;
   return ((parent.cognitive_budget || 100) * share) / count;
 }
-
-// ---------------------------------------------------------------------------
-// Step 1 — Build DNA
-// ---------------------------------------------------------------------------
 
 async function buildDna(ctx) {
   const { db, parent, request } = ctx;
@@ -113,10 +102,6 @@ function dnaPromptBlock(sel) {
   return p.join(' ');
 }
 
-// ---------------------------------------------------------------------------
-// Step 2 — WorkerSelf
-// ---------------------------------------------------------------------------
-
 async function buildSelf(ctx) {
   const { db, agentId, request } = ctx;
   try {
@@ -127,10 +112,6 @@ async function buildSelf(ctx) {
     return formatWorkerSelfPrompt(ws);
   } catch (_) { return ''; }
 }
-
-// ---------------------------------------------------------------------------
-// Step 3 — Dynamic tool lease
-// ---------------------------------------------------------------------------
 
 function restrictByTools(dnaSelection, base) {
   if (dnaSelection?.genes?.tools) return intersectLease(dnaSelection.genes.tools, base);
@@ -149,12 +130,8 @@ function computeLease(ctx) {
   const afterDna = restrictByTools(dnaSelection, base);
   const afterPheno = restrictByPhenotype(request, afterDna);
   const final = providedLease ? restrictProvidedLease(providedLease, afterPheno) : afterPheno;
-  return stripOrchestrate(final);
+  return request.workerContract?.authority?.execute === false ? [] : stripOrchestrate(final);
 }
-
-// ---------------------------------------------------------------------------
-// Step 4 — Full prompt
-// ---------------------------------------------------------------------------
 
 function promptMissionLines(mission) {
   const lines = [];
@@ -176,19 +153,17 @@ function buildPrompt(ctx) {
   const phenotype = request.phenotype || {};
   const lines = [identity.introduction, selfBlock || null, formatConsciencePrompt(conscience)];
   lines.push(...promptMissionLines(mission));
+  lines.push(`Worker kind: ${request.workerKind}. ${workerKinds.promptRule(request.workerKind)}`);
+  lines.push(workerKinds.evidenceRule(request.workerContract));
   const dnaBlock = dnaPromptBlock(dnaSelection);
   if (dnaBlock) lines.push(dnaBlock);
   if (request.capabilityManifest?.owned?.length) lines.push(`Owned capabilities: ${request.capabilityManifest.owned.join(', ')}.`);
   if (phenotype.cognitiveRecipe) lines.push(formatPhenotypePrompt(phenotype.cognitiveRecipe));
-  if (phenotype.artifact === 'creative') lines.push('Creative evidence must include artifact="creative", artifactText, and creativeEvaluation with a 0..1 rubric for craft, coherence, originality, emotionalImpact, and constraintCoverage; include revisions and criticEvidence when available.');
+  if (phenotype.artifact === 'creative') lines.push('Creative evidence must include artifact=\"creative\", artifactText, and creativeEvaluation with a 0..1 rubric for craft, coherence, originality, emotionalImpact, and constraintCoverage; include revisions and criticEvidence when available.');
   const budgetLine = promptBudgetLine(request);
   if (budgetLine) lines.push(budgetLine);
   return lines.filter(Boolean).join('\n');
 }
-
-// ---------------------------------------------------------------------------
-// Step 5 — Workspace
-// ---------------------------------------------------------------------------
 
 function useVfsWorkspace(request, role) {
   if (request.mission?.vfsWorkspace === true) return true;
@@ -207,15 +182,11 @@ async function setupWorkspace(ctx) {
   } catch (_) { return null; }
 }
 
-// ---------------------------------------------------------------------------
-// Step 6 — Authority
-// ---------------------------------------------------------------------------
-
 function authorityConstraints(ap) {
   return {
     constraints: ap.constraints || {},
     maxBlastRadius: ap.maxBlastRadius || 0.4,
-    allowFileEdits: ap.allowFileEdits || false,
+    allowFileEdits: ap.allowFileEdits === true,
     allowNetworkAccess: ap.allowNetworkAccess || false
   };
 }
@@ -223,9 +194,10 @@ function authorityConstraints(ap) {
 function setupAuthority(ctx) {
   const { request, agentId, lease } = ctx;
   const ap = request.authorityProfile || {};
-  const ac = authorityConstraints(ap);
+  const workerContract = request.workerContract;
+  const ac = authorityConstraints({ ...ap, allowFileEdits: ap.allowFileEdits === true && workerContract?.authority?.write === true });
   return {
-    agentId, executionMode: 'worker', role: request.role, toolLease: lease,
+    agentId, executionMode: 'worker', role: request.role, workerKind: request.workerKind, workerContract, toolLease: lease,
     parentAgentId: request.parentAgentId,
     scope: { organizationId: request.workspace?.organizationId, projectId: request.workspace?.projectId },
     constraints: ac.constraints, maxBlastRadius: ac.maxBlastRadius,
@@ -236,10 +208,6 @@ function setupAuthority(ctx) {
     maxTokenBudget: request.budget?.tokens || ap.maxTokenBudget || 0
   };
 }
-
-// ---------------------------------------------------------------------------
-// Step 7 — Compose descriptor
-// ---------------------------------------------------------------------------
 
 function descriptorIdentity(d) {
   return { agentId: d.agentId, name: d.identity.name, nameMeaning: d.identity.name_meaning, introduction: d.identity.introduction, role: d.request.role, executionMode: 'worker', parentAgentId: d.request.parentAgentId, parentName: d.request.parent?.name || null };
@@ -281,6 +249,7 @@ function descriptorContracts(d) {
   const mission = descriptorMission(d);
   return {
     budget: d.request.budget || null, authorityProfile: d.authorityProfile,
+    workerKind: d.request.workerKind, workerContract: d.request.workerContract,
     topologyMembership: d.request.topologyMembership || null, relations: d.request.relations || [],
     evidenceContract: d.request.evidenceContract || null,
     strategyContract: strategy, mission
@@ -302,13 +271,8 @@ function descriptorExpressionContext(d) {
   if (!ec) return { expressionContext: null };
   return {
     expressionContext: {
-      agentId: ec.agentId,
-      phenotype: ec.phenotype,
-      capabilities: ec.capabilities,
-      budget: ec.budget,
-      uncertainty: ec.uncertainty,
-      currentPressure: ec.currentPressure,
-      builtAt: ec.builtAt
+      agentId: ec.agentId, phenotype: ec.phenotype, capabilities: ec.capabilities,
+      budget: ec.budget, uncertainty: ec.uncertainty, currentPressure: ec.currentPressure, builtAt: ec.builtAt
     }
   };
 }
@@ -323,10 +287,6 @@ function composeDescriptor(ctx) {
     ...descriptorExpressionContext(ctx)
   };
 }
-
-// ---------------------------------------------------------------------------
-// Helpers for main entry point
-// ---------------------------------------------------------------------------
 
 async function tryEvolveFallback(parent, request, db) {
   try { return await evolveWorkerGenome(parent || {}, { role: request.role }, { strategy: request.strategyContract?.primary || 'tree-search', db }); }
@@ -346,22 +306,28 @@ function emitIncarnation(params) {
   catch (_) {}
 }
 
-// ---------------------------------------------------------------------------
-// Main entry point
-// ---------------------------------------------------------------------------
+async function initClinicalAndScan(db, agentId) {
+  try {
+    await initClinicalState(db, agentId);
+    await surveillanceScan(db, agentId, {});
+  } catch (_) { /* medical runtime best-effort */ }
+}
 
 async function incarnateAgent(opts) {
   if (!opts || !opts.request || !opts.request.role) throw new Error('incarnateAgent requires opts.request.role');
-  const request = opts.request;
+  const request = { ...opts.request };
+  request.workerKind = workerKinds.resolveWorkerKind(request.workerKind, request.role);
+  request.workerContract = workerKinds.buildWorkerContract(request.workerKind, {
+    ...request.mission, orchestratorAgentId: request.parentAgentId,
+    scope: request.mission?.scope || request.workspace?.root || request.workspace?.projectId
+  });
   const c = opts.ctx || {};
   const db = c.db;
   const parent = safeParent(c, request);
   const agentId = agentIdFor(parent, request);
-
   const dnaSelection = await buildDna({ db, parent, request });
   let evolution = dnaAuthority(dnaSelection);
   if (!evolution) evolution = await tryEvolveFallback(parent, request, db);
-
   const selfBlock = await buildSelf({ db, agentId, request });
   const lease = computeLease({ request, dnaSelection, providedLease: request.providedLease });
   const identity = generateAgentIdentity({ preferredName: request.phenotype?.preferredName, role: request.role, excludeNames: c.usedNames || [], stableKey: agentId });
@@ -371,8 +337,6 @@ async function incarnateAgent(opts) {
   const workspaceRoot = await setupWorkspace({ agentId, parent, request });
   const authorityProfile = setupAuthority({ request, agentId, lease });
   const route = await tryRoute({ db, parent, request });
-
-  // Build unified expression context — single operational identity for all decision services
   let expressionContext = null;
   try {
     expressionContext = await buildExpressionContext({
@@ -380,17 +344,10 @@ async function incarnateAgent(opts) {
       mission: request.mission, assignment: request
     });
   } catch (_) { expressionContext = null; }
-
   const descriptor = composeDescriptor({ agentId, identity, request, lease, workspaceRoot, authorityProfile, evolution, dnaSelection, route, prompt, conscience, expressionContext });
-  const incSummary = { agentId, role: request.role, leaseCount: lease.length };
+  const incSummary = { agentId, role: request.role, workerKind: request.workerKind, leaseCount: lease.length };
   emitIncarnation({ parent, identity, role: request.role, summary: incSummary });
-
-  // Initialize clinical state for the new agent and run initial surveillance scan
-  try {
-    await initClinicalState(db, agentId);
-    await surveillanceScan(db, agentId, {});
-  } catch (_) { /* medical runtime best-effort */ }
-
+  await initClinicalAndScan(db, agentId);
   return descriptor;
 }
 

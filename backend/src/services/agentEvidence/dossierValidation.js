@@ -1,10 +1,6 @@
 const config = require('../../config/orchestratorConfig');
 const { hasEvidenceItem } = require('./evidenceHelpers');
-
-/**
- * Dossier validation: worker coverage, report coherence, and synthesis
- * influence citation integrity.
- */
+const { validateWorkerArtifact } = require('../agents/workerArtifactContract');
 
 function dossierHasUsableEvent(dossier) {
   for (const event of dossier.events) {
@@ -40,17 +36,22 @@ function missingDossierError(missing) {
   return error;
 }
 
-function validateWorkerDossiers(dossiers, workers, options = {}) {
-  const expected = new Set();
+function collectValidDossiers(realDossiers, expected) {
   const actual = new Set();
   const coveredBranches = new Set();
-  for (const worker of workers) expected.add(worker.agentId);
-  const realDossiers = Array.isArray(dossiers) ? dossiers : [];
-  if (expected.size > 0 && realDossiers.length === 0) throw missingDossierError([...expected]);
   for (const dossier of realDossiers) {
     actual.add(dossier.workerId);
     if (dossier.assignedBranch) coveredBranches.add(dossier.assignedBranch);
   }
+  return { actual, coveredBranches };
+}
+
+function validateWorkerDossiers(dossiers, workers, options = {}) {
+  const expected = new Set();
+  for (const worker of workers) expected.add(worker.agentId);
+  const realDossiers = Array.isArray(dossiers) ? dossiers : [];
+  if (expected.size > 0 && realDossiers.length === 0) throw missingDossierError([...expected]);
+  const { actual, coveredBranches } = collectValidDossiers(realDossiers, expected);
   const missing = collectMissingWorkers(workers, actual, coveredBranches);
   const empty = collectEmptyDossiers(realDossiers, expected);
   if (missing.length || empty.length) {
@@ -59,6 +60,11 @@ function validateWorkerDossiers(dossiers, workers, options = {}) {
     error.missingWorkerIds = missing;
     error.emptyWorkerIds = empty;
     throw error;
+  }
+  const dossiersByWorker = new Map(realDossiers.map((dossier) => [dossier.workerId, dossier]));
+  for (const worker of workers) {
+    const dossier = dossiersByWorker.get(worker.agentId);
+    if (dossier) validateWorkerArtifact(dossier, worker);
   }
   return true;
 }

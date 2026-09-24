@@ -15,6 +15,18 @@ function assertMissionNotCancelled(agentId) {
   }
 }
 
+async function resolveWorkerIdentity(normalizedMission, dispatchedAgent) {
+  const workerKinds = require('../agents/workerKindService');
+  if (dispatchedAgent.execution_mode !== 'worker') return;
+  const requestedKind = workerKinds.resolveWorkerKind(normalizedMission.workerKind, normalizedMission.role || dispatchedAgent.role);
+  if (dispatchedAgent.workerKind && dispatchedAgent.workerKind !== requestedKind) {
+    throw Object.assign(new Error('Dispatched worker kind does not match the persisted worker identity.'), { code: 'WORKER_KIND_MISMATCH' });
+  }
+  normalizedMission.workerKind = dispatchedAgent.workerKind || requestedKind;
+  normalizedMission.workerContract = workerKinds.buildWorkerContract(normalizedMission.workerKind, normalizedMission);
+  require('../agents/workerContractEnforcement').assertRuntimeContract(normalizedMission.workerContract, normalizedMission.workerKind);
+}
+
 async function initializeMissionContext(mission) {
   const agentId = mission.agentId || mission.id;
   assertMissionNotCancelled(agentId);
@@ -25,6 +37,7 @@ async function initializeMissionContext(mission) {
   const db = await require('../../db').getDatabase();
   assertMissionNotCancelled(agentId);
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId, normalizedMission.workspaceId || null);
+  await resolveWorkerIdentity(normalizedMission, dispatchedAgent);
   normalizedMission.name = normalizedMission.name || dispatchedAgent.name;
   normalizedMission.nameMeaning = normalizedMission.nameMeaning || dispatchedAgent.name_meaning;
   return { mission, agentId, normalizedMission, executable, db, dispatchedAgent };
@@ -44,19 +57,23 @@ async function resolveMissionContract(ctx) {
   ctx.contractRecord = contractRecord;
 }
 
+async function resolveLocalModel(ctx) {
+  const nm = ctx.normalizedMission;
+  if (nm.executor === 'caller_mcp' || ctx.dispatchedAgent.execution_mode !== 'worker' || (nm.localModel && nm.disableLocalModel !== true)) return;
+  const workerTenant = nm.workspaceId
+    ? await ctx.db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', nm.workspaceId)
+    : null;
+  const route = await localWorkerRoute(ctx.db, ctx.agentId, nm.role, nm.modelTier, workerTenant || {});
+  nm.localModel = route.selectedModel;
+  nm.localRoutingPolicy = route.policy;
+  nm.localRoutingCriteria = route.criteria;
+}
+
 async function provisionWorkspaceAndModel(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent } = ctx;
   Object.assign(normalizedMission, await provisionMissionWorkspace(normalizedMission, dispatchedAgent.execution_mode));
   assertMissionNotCancelled(agentId);
-  if (normalizedMission.executor !== 'caller_mcp' && dispatchedAgent.execution_mode === 'worker' && !normalizedMission.localModel && normalizedMission.disableLocalModel !== true) {
-    const workerTenant = normalizedMission.workspaceId
-      ? await db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', normalizedMission.workspaceId)
-      : null;
-    const route = await localWorkerRoute(db, agentId, normalizedMission.role, normalizedMission.modelTier, workerTenant || {});
-    normalizedMission.localModel = route.selectedModel;
-    normalizedMission.localRoutingPolicy = route.policy;
-    normalizedMission.localRoutingCriteria = route.criteria;
-  }
+  await resolveLocalModel(ctx);
 }
 
 function resolvePlanForCheck(normalizedMission) {

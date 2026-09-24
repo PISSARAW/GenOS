@@ -1,11 +1,5 @@
 'use strict';
 
-/**
- * @file rhizomeCoordinationService.js
- * @description Rhizome coordination: a decentralized capability mesh directed
- * by stigmergic pheromone trails. Sessions are persisted so workers (separate
- * processes) can deposit trails and read the shared medium.
- */
 const biologicalModeService = require('./biologicalModeService');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const { createSwarmMatrix } = require('./swarmStigmergyVectorService');
@@ -41,6 +35,7 @@ const ROLE_CAPABILITIES = Object.freeze({
   boundary_scout: ['observation', 'capability_discovery']
 });
 const sessions = new Map();
+
 function normalizeMembers(members) {
   const roles = new Set();
   return members.map((member) => {
@@ -177,32 +172,24 @@ async function getSession(sessionId, db) {
   throw Object.assign(new Error(`Unknown rhizome session '${sessionId}'.`), { code: 'RHIZOME_SESSION_UNKNOWN' });
 }
 
-async function depositTrail(sessionId, marker, options = {}) {
-  const normalizedMarker = String(marker);
-  return mutateSession(sessionId, options, {
-    type: options.isRepellent === true ? 'TRAIL_REPELLED' : 'TRAIL_DEPOSITED',
-    payload: { marker: normalizedMarker, amount: Number(options.amount) || 0, isRepellent: options.isRepellent === true, kind: options.kind || 'CAPABILITY_FOUND' },
-    apply: (session) => {
-      const trail = trailService.deposit(session.matrix, normalizedMarker, { ...options, amount: Number(options.amount) || 0, scope: options.scope || session.scope });
-      return { sessionId, marker: normalizedMarker, trail, dominant: session.matrix.selectDominantPath() };
-    }
-  });
-}
-
-async function routeDirectMember(sessionId, need, options = {}) {
-  const session = await getSession(sessionId, options.db);
-  return directMemberRouter.route({ session, sessionId, need, coherent: options.coherent, now: options.now });
-}
-
-async function graphSnapshot(sessionId, options = {}) {
-  return capabilityGraph.snapshot(await getSession(sessionId, options.db));
-}
-
-async function projectGraph(sessionId, options = {}) {
-  if (!options.db || !options.graphStore) {
-    throw Object.assign(new Error('Rhizome graph projection requires SQLite and a graph repository.'), { code: 'RHIZOME_PROJECTION_DEPENDENCIES_REQUIRED' });
+async function mutateSession(sessionId, options, change) {
+  if (!options.db) {
+    const session = await getSession(sessionId);
+    const result = change.apply(session);
+    session.revision += 1;
+    return { ...result, revision: session.revision };
   }
-  return graphProjector.project(options.db, options.graphStore, sessionId);
+  const saved = await store.mutateRhizome(options.db, sessionId, async (record) => {
+    const graph = await store.loadRhizomeGraph(options.db, sessionId);
+    const session = rehydrate(record, graph);
+    const result = change.apply(session);
+    return { state: serialize(session), graph: graphProjection(session), event: { type: change.type, payload: change.payload }, result };
+  });
+  return { ...saved };
+}
+
+function graphProjection(session) {
+  return { nodes: session.nodes, edges: session.edges, graphVersion: session.graphVersion };
 }
 
 async function addCapabilityNode(sessionId, node, options = {}) {
@@ -241,6 +228,31 @@ async function planGrowth(sessionId, gapId, options = {}) {
   const gap = session.openGaps.find((item) => item.gapId === gapId);
   if (!gap) throw Object.assign(new Error(`Unknown Rhizome gap '${gapId}'.`), { code: 'RHIZOME_GAP_UNKNOWN' });
   return growthPlanner.plan({ session, gap, values: options.candidates, options: { ...options, threshold: options.threshold ?? session.variantPolicy.growth.threshold } });
+}
+
+function applyGrowthAdmission(session, input, admissionPolicy) {
+  if (!Number.isInteger(input.expectedGraphVersion) || input.expectedGraphVersion !== session.graphVersion) {
+    throw Object.assign(new Error('Growth candidate was planned against a stale graph.'), { code: 'RHIZOME_GROWTH_STALE' });
+  }
+  if (!Array.isArray(input.edges)) {
+    throw Object.assign(new Error('Growth edges must be an array.'), { code: 'RHIZOME_GROWTH_INVALID' });
+  }
+  const discovered = { ...input.node, state: 'DISCOVERED' };
+  const active = capabilityAdmission.admit(discovered, input.proof, admissionPolicy);
+  let updated = capabilityGraph.addNode(session, discovered);
+  for (const edge of input.edges) updated = capabilityGraph.addEdge(updated, edge);
+  updated.nodes = updated.nodes.map((node) => node.nodeId === active.nodeId ? active : node);
+  updated.graphVersion += 1;
+  Object.assign(session, updated);
+  return { sessionId: session.sessionId, node: active, graphVersion: session.graphVersion };
+}
+
+async function admitGrowthCandidate(sessionId, input, options = {}) {
+  return mutateSession(sessionId, options, {
+    type: 'GROWTH_ADMITTED',
+    payload: { candidateId: input.candidateId, nodeId: input.node?.nodeId },
+    apply: (session) => applyGrowthAdmission(session, input, options.admissionPolicy)
+  });
 }
 
 async function routeToCapability(sessionId, need, options = {}) {
@@ -315,13 +327,10 @@ async function repairRoute(sessionId, input, options = {}) {
   });
 }
 
-async function graphHealth(sessionId, options = {}) {
-  return graphAnalytics.assess(await getSession(sessionId, options.db));
-}
-
 async function inspectPruning(sessionId, options = {}) {
   return pruningService.inspect(await getSession(sessionId, options.db), options);
 }
+
 async function quarantineRoute(sessionId, input, options = {}) {
   return mutateSession(sessionId, options, {
     type: 'EDGE_QUARANTINED',
@@ -329,6 +338,7 @@ async function quarantineRoute(sessionId, input, options = {}) {
     apply: (session) => Object.assign(session, routeQuarantineService.quarantine(session, input, options.trustedVerifierDigests))
   });
 }
+
 async function admitCapabilityNode(sessionId, input, options = {}) {
   return mutateSession(sessionId, options, {
     type: 'NODE_ACTIVATED',
@@ -358,6 +368,7 @@ async function proposeNestedTopology(sessionId, input, options = {}) {
     }
   });
 }
+
 async function coherence(sessionId, options = {}) {
   const session = await getSession(sessionId, options.db);
   return { sessionId, ...session.matrix.computeKuramotoOrder() };
@@ -371,30 +382,10 @@ async function runSlimeMouldStep(sessionId, edges, options = {}) {
   });
 }
 
-async function mutateSession(sessionId, options, change) {
-  if (!options.db) {
-    const session = await getSession(sessionId);
-    const result = change.apply(session);
-    session.revision += 1;
-    return { ...result, revision: session.revision };
-  }
-  const saved = await store.mutateRhizome(options.db, sessionId, async (record) => {
-    const graph = await store.loadRhizomeGraph(options.db, sessionId);
-    const session = rehydrate(record, graph);
-    const result = change.apply(session);
-    return { state: serialize(session), graph: graphProjection(session), event: { type: change.type, payload: change.payload }, result };
-  });
-  return { ...saved };
-}
-
-function graphProjection(session) {
-  return { nodes: session.nodes, edges: session.edges, graphVersion: session.graphVersion };
-}
-
 async function closeSession(sessionId, options = {}) {
   if (options.db) await store.closeRhizome(options.db, sessionId);
   sessions.delete(sessionId);
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, projectGraph, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail: null, routeDirectMember: null, routeToCapability, graphSnapshot: null, projectGraph: null, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, admitGrowthCandidate, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth: null, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
