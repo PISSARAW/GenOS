@@ -1,7 +1,7 @@
 const path = require('path');
 const { dispatchWorkerMission } = require('../services/orchestratorDispatchService');
 const { getDatabase } = require('../db');
-const { createIsolatedWorkspace } = require('../services/agentRuntimeAdapter');
+const workspaceLifecycle = require('../services/agentWorkspaceLifecycleService');
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Orchestrator is alive via gRPC!" }),
@@ -28,8 +28,8 @@ async function dispatchWorker(ctx) {
   if (!worker) throw new Error(`Worker ${worker_id} is not assigned to orchestrator ${orchestrator_id}`);
   assertTenantScope(worker, organization_id, project_id);
   assertWorkspacePresent(worker, worker_id);
-  await assertWorkspaceIsolated(db, worker);
-  const workspaceRoot = await createIsolatedWorkspace(worker.workspaceRoot, worker_id, { capsuleRoot: path.dirname(worker.workspaceRoot) });
+  assertWorkspaceIsolated(worker);
+  const workspaceRoot = await workspaceLifecycle.createIsolatedWorkspace(worker.workspaceRoot, worker_id);
   const result = await dispatchWorkerMission({
     agentId: worker_id, orchestratorAgentId: orchestrator_id, prompt, role: 'worker',
     workspaceId: call.request.workspace_id || worker.workspaceId || undefined,
@@ -42,7 +42,7 @@ async function dispatchWorker(ctx) {
 
 async function fetchWorker(db, worker_id, orchestrator_id) {
   return db.get(
-    `SELECT a.id AS worker_id, a.workspace_id AS workspace_id, w.organization_id AS organizationId, w.project_id AS projectId, w.path AS workspaceRoot, a.model_tier AS modelTier
+    `SELECT a.id AS worker_id, a.workspace_id AS workspace_id, w.organization_id AS organizationId, w.project_id AS projectId, w.path AS workspaceRoot, a.model_tier AS modelTier, a.isolation_mode AS isolationMode
      FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
      WHERE a.id = ? AND a.parent_agent_id = ? AND a.execution_mode = 'worker'`,
     worker_id, orchestrator_id
@@ -59,9 +59,9 @@ function assertWorkspacePresent(worker, worker_id) {
   if (!worker.workspaceRoot) throw new Error(`Worker ${worker_id} has no source workspace`);
 }
 
-async function assertWorkspaceIsolated(db, worker) {
-  const existing = await db.get(`SELECT id, path, isolated FROM workspaces WHERE id = ?`, worker.workspace_id);
-  if (!existing || !existing.isolated) throw new Error(`Worker ${worker.worker_id || 'unknown'} workspace is not isolated`);
+function assertWorkspaceIsolated(worker) {
+  const isolatedModes = ['Branch', 'VFS_Branch', 'Snapshot'];
+  if (!isolatedModes.includes(worker.isolationMode)) throw new Error(`Worker ${worker.worker_id || 'unknown'} is not configured for isolated execution`);
 }
 
 function callbackResult(result, callback) {

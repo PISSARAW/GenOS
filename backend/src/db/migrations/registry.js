@@ -104,7 +104,7 @@ const migrationRunners = [
     CREATE INDEX IF NOT EXISTS idx_agent_phenotype_genome ON agent_phenotype_states(genome_id);
     CREATE INDEX IF NOT EXISTS idx_agent_phenotype_strength ON agent_phenotype_states(strength);`);
   }),
-  createMigrationRunner('V015_genome_event_log', 'Table genome_events pour l\'event sourcing unifiÃ© du gÃ©nome', async (db) => {
+  createMigrationRunner('V015_genome_event_log', 'Table genome_events pour l\'event sourcing unifié du génome', async (db) => {
     const { migrationV015 } = require('./migrateGenomeEventLog');
     await migrationV015.run(db);
   }),
@@ -252,7 +252,10 @@ const migrationRunners = [
     const { migrateRequestMemory } = require('./migrateRequestMemory');
     await migrateRequestMemory(db);
   }),
-
+  createMigrationRunner('072-trinity-experiments', 'Persist Trinity experiment lifecycle, snapshot hashes and world evidence metadata', async (db) => {
+    const { migrateTrinityExperiments } = require('./migrateTrinityExperiments');
+    await migrateTrinityExperiments(db);
+  }),
   createMigrationRunner('073-metapopulation-sessions', 'Persist metapopulation sessions, regional events and normalized population records (ADR 0047)', async (db) => {
     const { migrateMetapopulation } = require('./migrateMetapopulation');
     await migrateMetapopulation(db);
@@ -260,7 +263,8 @@ const migrationRunners = [
   createMigrationRunner('074-holobiont-sessions', 'Persist Holobiont sessions and append-only symbiosis event history (ADR 0048)', async (db) => {
     const { migrateHolobiontSessions } = require('./migrateHolobiontSessions');
     await migrateHolobiontSessions(db);
-  }),  createMigrationRunner('075-holobiont-contracts', 'Persist immutable Host-Symbiont contracts and revisions (ADR 0052)', async (db) => {
+  }),
+  createMigrationRunner('075-holobiont-contracts', 'Persist immutable Host-Symbiont contracts and revisions (ADR 0052)', async (db) => {
     const { migrateHolobiontContracts } = require('./migrateHolobiontContracts');
     await migrateHolobiontContracts(db);
   }),
@@ -295,7 +299,3 @@ async function runMigration(db, version, description) {
 }
 
 module.exports = { migrationRunners, runMigration };
-  createMigrationRunner('072-trinity-experiments', 'Persist Trinity experiment lifecycle, snapshot hashes and world evidence metadata', async (db) => {
-    const { migrateTrinityExperiments } = require('./migrateTrinityExperiments');
-    await migrateTrinityExperiments(db);
-  }),

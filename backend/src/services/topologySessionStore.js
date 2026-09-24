@@ -28,13 +28,31 @@ async function ensureTable(db) {
 
 async function save(db, record) {
   await ensureTable(db);
-  await db.run(
-    `INSERT INTO topology_sessions (id, topology, state_json, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-     ON CONFLICT(id) DO UPDATE SET topology = excluded.topology, state_json = excluded.state_json, updated_at = CURRENT_TIMESTAMP`,
-    record.id, record.topology, JSON.stringify(record.state || {})
-  );
-  return record.id;
+  return withTransaction(db, async () => {
+    const stateJson = JSON.stringify(record.state || {});
+    if (record.revision === undefined || record.revision === null) {
+      const result = await db.run(
+        `INSERT INTO topology_sessions (id, topology, state_json, revision, updated_at)
+         VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING`,
+        record.id, record.topology, stateJson
+      );
+      if (result.changes !== 1) throw revisionConflict(record.id);
+      return { id: record.id, revision: 0 };
+    }
+    const nextRevision = Number(record.revision) + 1;
+    const result = await db.run(
+      `UPDATE topology_sessions SET topology = ?, state_json = ?, revision = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND revision = ?`,
+      record.topology, stateJson, nextRevision, record.id, Number(record.revision)
+    );
+    if (result.changes !== 1) throw revisionConflict(record.id);
+    return { id: record.id, revision: nextRevision };
+  });
 }
+
+function revisionConflict(id) {
+  return Object.assign(new Error(`Topology session revision conflict for '${id}'.`), { code: 'TOPOLOGY_SESSION_CONFLICT' });
+}
+
 async function load(db, id) {
   await ensureTable(db);
   const row = await db.get('SELECT topology, state_json, revision FROM topology_sessions WHERE id = ?', id);
@@ -91,6 +109,31 @@ async function appendEvent(db, event) {
   );
 }
 
+async function mutate(options) {
+  const { db, id, topology, actorId, operation, mutator } = options;
+  return withTransaction(db, async () => {
+    await ensureTable(db);
+    const record = await load(db, id);
+    if (!record || record.topology !== topology) {
+      throw Object.assign(new Error(`Unknown ${topology} session '${id}'.`), { code: 'TOPOLOGY_SESSION_UNKNOWN' });
+    }
+    const change = await mutator(record);
+    const revision = record.revision + 1;
+    const result = await db.run(
+      `UPDATE topology_sessions SET state_json = ?, revision = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND topology = ? AND revision = ?`,
+      JSON.stringify(change.state), revision, id, topology, record.revision
+    );
+    if (result.changes !== 1) throw revisionConflict(id);
+    await db.run(
+      `INSERT INTO topology_session_events (session_id, topology, revision, event_type, payload_json)
+       VALUES (?, ?, ?, ?, ?)`,
+      id, topology, revision, operation, JSON.stringify({ actorId: actorId || 'system', ...(change.event || {}) })
+    );
+    return { ...change.result, revision };
+  });
+}
+
 async function closeRhizome(db, id) {
   return withTransaction(db, async () => {
     const record = await load(db, id);
@@ -132,4 +175,4 @@ async function remove(db, id) {
   return db.run('DELETE FROM topology_sessions WHERE id = ?', id);
 }
 
-module.exports = { save, load, remove, ensureTable, createRhizome, mutateRhizome, closeRhizome, events, loadRhizomeGraph: rhizomeStore.loadGraph };
+module.exports = { save, load, remove, ensureTable, createRhizome, mutateRhizome, mutate, closeRhizome, events, loadRhizomeGraph: rhizomeStore.loadGraph };

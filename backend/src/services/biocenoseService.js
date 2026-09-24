@@ -198,6 +198,7 @@ async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
   const constitution = await constitutionService.commitInitial({
     db, communityId: session.communityId, classification,
     roles: composition.members.map((member) => member.role),
+    variant: options.variant,
     overrides: options.constitution, actorId: orchestratorId
   });
   if (composition.organization) {

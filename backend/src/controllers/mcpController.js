@@ -6,6 +6,7 @@ const mcpExecutor = require('../services/mcpExecutor');
 const vfsSandboxService = require('../services/vfsSandboxService');
 const { MCP_CONTRACT_VERSION, getToolInputSchema, getFullToolSchema, normalizeMcpEnvelope } = require('../services/mcpContract');
 const { directToolLeaseAllows } = require('../services/mcpExecutor/config');
+const { enforcePersistedWorkerTool } = require('../services/agents/workerContractEnforcement');
 
 function requestUser(req) {
   return req.user || {};
@@ -131,6 +132,11 @@ async function resolveToolAuthorization(input) {
   const identity = resolveAgentIdOrError(req);
   if (identity.error) return { error: identity.error };
   const permissionRow = await loadPermissionRow(db, req, identity.agentId);
+  try {
+    await enforcePersistedWorkerTool(db, identity.agentId, toolName);
+  } catch (error) {
+    return { error: { status: 403, code: error.code || 'WORKER_CONTRACT_DENIED', message: error.message } };
+  }
   const user = requestUser(req);
   const permissions = permissionSet(user, permissionRow);
   const deniedTools = deniedToolList(permissionRow);
