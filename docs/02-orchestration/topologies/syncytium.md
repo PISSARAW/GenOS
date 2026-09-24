@@ -1,5 +1,9 @@
 # Syncytium : Protocole de Fusion Cytoplasmique Multinucléée
 
+- **Statut** : Cadre conceptuel — architecture cible planifiée pour une orchestration à état partagé, multinucléée et convergente.
+- **Portée** : modèle complet du protocole Syncytium, de la composition et du commit causal à la convergence, la reprise et l'exploitation.
+- **Dernière revue** : 2026-09-24
+
 ## 1. Définition
 
 Syncytium est le **protocole d'orchestration par état partagé vivant** de GenOS, dans lequel plusieurs unités cognitives spécialisées travaillent simultanément sur un même état continu, convergent par fusion cytoplasmique et maintiennent des garanties de cohérence causale stricte à chaque tick de synchronisation.
@@ -967,23 +971,27 @@ stateDiagram-v2
 
 ---
 
-## 15. Implémentation
+## 15. Architecture technique prévue
 
-Le syncytium est câblé au runtime GenOS v3 via les services suivants :
+Cette section décrit les composants visés par la conception Syncytium. Elle présente les responsabilités attendues une fois l'architecture raccordée au runtime ; les jalons d'implémentation et les écarts observés sont suivis séparément dans [l'audit de cohérence](syncytium_audit_report.json).
 
-- **Service de coordination :** `syncytiumCoordinationService.js` — commit pipeline, barrière de convergence, classification des opérations.
-- **Moteur CRDT Rust :** `crates/genos-cli/src/commands/syncytium_crdt/` — structures de données conflict-free avec horloges causales et journal immuable.
-- **Service de mission :** `syncytiumService.js` — analyse de mission et activation du syncytium.
-- **État partagé :** `agentOrchestrationState.js` — cytoplasme partagé, vecteur de version global, registre des invariants.
+Le Syncytium doit s'intégrer au runtime GenOS au moyen des composants suivants :
+
+- **Service de coordination :** `syncytiumCoordinationService.js` — commit pipeline, barrière de convergence et classification des opérations.
+- **Moteur CRDT Rust :** `crates/genos-cli/src/commands/syncytium_crdt/` — structures conflict-free avec horloges causales et journal immuable.
+- **Service de mission :** `syncytiumService.js` — analyse de mission et recommandation d'activation.
+- **État partagé :** registre de session et stockage de la topologie — cytoplasme partagé, versions causales et invariants.
 
 ### Capacités requises
 
-Le syncytium requiert les capacités runtime suivantes :
+Le contrat cible requiert les capacités runtime suivantes :
 - `CRDT_SHARED_STATE` — structures CRDT sémantiques avec fusion commutative.
 - `SIGNALING_BUS` — diffusion causale des mutations avec métadonnées complètes.
 - `OUTPUT_GOVERNOR` — contrôle des émissions pour éviter la saturation (backpressure).
 
-### Commande CLI
+### Interface d'exploitation prévue
+
+Les commandes ci-dessous illustrent l'interface visée pour le déploiement, l'analyse et l'exécution headless :
 
 ```bash
 # Déployer un syncytium avec dashboard web et WebSocket
@@ -1670,15 +1678,12 @@ flowchart LR
 
 ## Annexes T : Références Internes
 
-- [ORCHESTRATION.md](../orchestration.md) : orchestration générale, gates et phases
-- [A_TEAM.md](a-team.md) : orchestration multidisciplinaire
-- [TRINITY.md](trinity.md) : orchestration comparative
-- [BIOCENOSE.md](biocenose.md) : orchestration communautaire
-- [HOLOBIONTE.md](holobionte.md) : orchestration hiérarchisée intégrée
-- [RHIZOME.md](rhizome.md) : orchestration décentralisée par ramification
-- [BIOLOGIE_COMPUTATIONNELLE.md](../../01-concepts/biologie-computationnelle.md) : cadre biologique général
-- [biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : implémentation des quatre modes
-- [syncytiumService.js](../../../backend/src/services/syncytiumService.js) : service Syncytium
-- [syncytiumCoordinationService.js](../../../backend/src/services/syncytiumCoordinationService.js) : coordination du commit pipeline
-- [agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état partagé et synchronisation
-- [agentRuntimeAdapter/index.js](../../../backend/src/services/agentRuntimeAdapter/index.js) : dispatch des agents
+- [Orchestration](../README.md) : index des concepts et contrats d'orchestration.
+- [A-Team](a-team.md), [Trinity](trinity.md), [Biocénose](biocenose.md), [Holobionte](holobionte.md) et [Rhizome](rhizome.md) : autres topologies.
+- [Biologie computationnelle](../../01-concepts/biologie-computationnelle.md) : cadre biologique général.
+- [biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition actuelle des rôles.
+- [syncytiumService.js](../../../backend/src/services/syncytiumService.js) : analyse de mission et journal actuel.
+- [syncytiumCoordinationService.js](../../../backend/src/services/syncytiumCoordinationService.js) : service de session actuel.
+- [syncytiumCrdtService.js](../../../backend/src/services/syncytiumCrdtService.js) : journal et reconstruction actuels.
+- [syncytiumCytoplasmService.js](../../../backend/src/services/syncytiumCytoplasmService.js) : modèle heuristique des flux.
+- [Audit de cohérence](syncytium_audit_report.json) : écarts d'implémentation et défauts relevés.
