@@ -48,8 +48,9 @@ comme exécutables des fonctions encore conceptuelles.
 4. Garder la sélection et l'exécution liées aux preuves et aux budgets. Une
    morphologie n'est déclarée que valide et meilleure connue sous les éléments
    disponibles; aucune optimalité globale n'est supposée.
-5. Livrer les capacités par incréments. La persistance durable, la composition
-   runtime et l'évolution restent hors de cette première tranche.
+5. Persister les snapshots versionnés du graphe dans SQLite, sous contrainte
+   d'augmentation monotone des versions. Livrer les autres capacités par
+   incréments.
 
 ## Conséquences
 
@@ -65,8 +66,8 @@ comme exécutables des fonctions encore conceptuelles.
 
 - Des consommateurs doivent migrer avant que les champs plats puissent devenir
   de simples projections du graphe.
-- Le store livré dans la première tranche est en mémoire; il ne constitue pas
-  une persistance durable.
+- Les snapshots sont durables et immuables par version; les mutations produisent
+  une nouvelle version du graphe.
 - Le graphe et les contrats typés n'implémentent pas à eux seuls l'exécution
   récursive ou la reconfiguration en direct.
 

@@ -272,6 +272,10 @@ const migrationRunners = [
     const { migrateHolobiontImmunePlane } = require('./migrateHolobiontImmunePlane');
     await migrateHolobiontImmunePlane(db);
   }),
+  createMigrationRunner('078-morphology-graph-versions', 'Persist immutable versioned MorphologyGraph snapshots (ADR 0051)', async (db) => {
+    const { migrateMorphologyGraph } = require('./migrateMorphologyGraph');
+    await migrateMorphologyGraph(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
