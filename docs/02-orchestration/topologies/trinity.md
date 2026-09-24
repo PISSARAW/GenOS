@@ -30,6 +30,8 @@ Le concepteur v1 est déterministe et n'invente pas de faits. Il prend la missio
 
 Un appelant peut fournir `trinityHypothesisDesign.candidateHypotheses`, jusqu'à douze objets `{ id?, chamber?, hypothesis|statement, sourceRefs?, assumptions?, predictions?, falsificationCriteria? }`, et `sourceEvidence` comme liste d'identifiants ou d'objets `{ id }`. Une référence de source doit être `mission` ou correspondre à un identifiant fourni ; sinon la candidate est écartée. Le runtime normalise les candidats, supprime les textes ou identifiants dupliqués et sélectionne un triplet déterministe, une candidate par chambre. Les hypothèses sélectionnées sont ajoutées aux prompts et à la provenance persistée. Si moins de trois candidates valides restent, le runtime garde les trois stratégies fixes et marque `selectionMethod: "fixed_v1"`. Cette interface sélectionne des candidates fournies ; elle ne prétend pas générer de nouvelles hypothèses à partir des faits. La génération autonome, le score d'orthogonalité et l'optimisation expérimentale restent différés.
 
+Pour un triplet fourni, le runtime enregistre aussi `orthogonalityScore` (1 moins la similarité Jaccard moyenne des tokens, avec stopwords v1) et `falsifiabilityScore` (part des hypothèses ayant au moins une prédiction et un critère de réfutation explicites), ainsi que `scoringMethod`. Ce sont des heuristiques lexicales/descriptives non calibrées : elles ne choisissent pas le gagnant, ne prouvent pas la diversité sémantique et ne remplacent aucune vérification. Elles ne sont pas présentées comme générées par apprentissage.
+
 Les trois stratégies v1 sont fixes :
 
 | Chambre | Travail indépendant | Livrable minimal |
