@@ -33,7 +33,9 @@ async function create(db, input) {
     input.id, input.missionId, input.domain, input.snapshotHash,
     JSON.stringify(input.design || {}), JSON.stringify(input.isolationPolicy || {}), JSON.stringify(input.budgetPolicy || {})
   );
-  return transition(db, { id: input.id, status: 'sealed_running', reason: 'three_worlds_sealed' });
+  return transition(db, {
+    id: input.id, status: 'sealed_running', reason: 'three_worlds_sealed', evidenceRef: input.snapshotHash
+  });
 }
 
 function sameExperimentInput(existing, input) {

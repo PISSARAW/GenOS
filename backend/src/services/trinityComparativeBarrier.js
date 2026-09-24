@@ -337,14 +337,27 @@ async function updateExperimentDecision(db, missionId, result) {
   if (!missionId) return;
   const experiment = await db.get('SELECT id, status FROM trinity_experiments WHERE mission_id = ?', missionId);
   if (!experiment) return;
+  const evidenceRef = comparisonEvidenceRef(missionId, result);
   let status = experiment.status;
-  if (status === 'sealed_running') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'sealed_complete', reason: 'all_worlds_terminal' })).status;
-  if (status === 'sealed_complete') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'cross_examining', reason: 'comparative_review_started' })).status;
+  if (status === 'sealed_running') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'sealed_complete', reason: 'all_worlds_terminal', evidenceRef })).status;
+  if (status === 'sealed_complete') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'cross_examining', reason: 'comparative_review_started', evidenceRef })).status;
   const outcome = result?.outcome || (result?.canMerge ? 'PROMOTE_WORLD' : 'ESCALATE_EXPERIMENT');
   const decision = { outcome, reason: result?.reason || null, bestScore: result?.bestScore || 0, evidenceVectorDecision: vectorDecisionSummary(result?.comparativeAnalysis?.pareto), jury: result?.jury || null };
   const next = result?.canMerge || outcome === 'KEEP_PARETO_SET' ? 'decided' : 'escalated';
-  if (status === 'cross_examining') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: next, decision, reason: decision.reason || outcome })).status;
-  if (status === 'decided' && result?.canMerge) await trinityExperimentStore.transition(db, { id: experiment.id, status: 'promotion_preparing', decision, reason: 'candidate_promotion_prepared' });
+  if (status === 'cross_examining') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: next, decision, reason: decision.reason || outcome, evidenceRef })).status;
+  if (status === 'decided' && result?.canMerge) await trinityExperimentStore.transition(db, { id: experiment.id, status: 'promotion_preparing', decision, reason: 'candidate_promotion_prepared', evidenceRef });
+}
+
+function comparisonEvidenceRef(missionId, result) {
+  const worlds = (result?.comparativeAnalysis?.scoredWorlds || []).map((world) => ({
+    worldNumber: world.worldNumber,
+    agentId: world.agentId,
+    evidence: world.report?.evidence,
+    vector: world.report?.evidenceVector,
+    vectorRefs: world.report?.evidenceVectorEvidence
+  }));
+  const digest = crypto.createHash('sha256').update(JSON.stringify(worlds)).digest('hex');
+  return `trinity-comparison:${missionId}:${digest}`;
 }
 
 function vectorDecisionSummary(pareto) {
@@ -373,7 +386,8 @@ async function failPromotion(input) {
       id: experiment.id,
       status: 'promotion_failed',
       failureReason: reason,
-      decision: { outcome: 'PROMOTION_FAILED', reason, candidateArtifact: artifact }
+      decision: { outcome: 'PROMOTION_FAILED', reason, candidateArtifact: artifact },
+      evidenceRef: artifact?.candidateWorkspaceId || `trinity-failure:${reason}`
     });
   }
 }
