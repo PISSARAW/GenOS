@@ -15,6 +15,8 @@ const { createMorphologyPatch, validateMorphologyPatch } = require('../src/servi
 const { assessNecessity } = require('../src/services/morphogenesis/health/morphologicalNecessityService');
 const { planPruning } = require('../src/services/morphogenesis/pruning/morphologyPruner');
 const { repairSmallestRegion } = require('../src/services/morphogenesis/control/localFirstMorphogenesisService');
+const { runLocalMorphogenesis } = require('../src/services/morphogenesis/transitions/localMorphogenesisController');
+const { createMorphologyConstitution } = require('../src/services/morphogenesis/genome/morphologyConstitution');
 
 function sealedTrinityGraph() {
   return {
@@ -50,6 +52,7 @@ async function run() {
   assert.equal(authorizeLocalMorphogenesis(lease, { ...request, affectedNodeIds: ['branch-b'] }).allowed, false, 'child authority cannot cross its subtree');
   assert.equal(authorizeLocalMorphogenesis(lease, { ...request, globalMutation: true }).allowed, false, 'global change must be rejected');
   assert.equal(authorizeLocalMorphogenesis(lease, { ...request, tokenCost: 11 }).allowed, false, 'child budget cannot exceed its lease');
+  assert.equal((await runLocalMorphogenesis({ lease, request, context: {}, adapters: {} })).authorization.allowed, false, 'runtime rejects leases without an issuer verifier');
   assert.equal(evaluateWorkerMigration({ scores: { phenotypeFit: 1, capabilityFit: 1, memoryRelevance: 1, stateCompatibility: 1, relationshipContinuity: 1, migrationCost: 0 } }).action, 'reuse', 'compatible worker should be reused');
   assert.equal(validateMorphologyPatch({ operations: [{ type: 'NEST' }], baseGraphVersion: 1, reason: 'test', evidence: [], rollbackPlan: {} }).valid, false, 'structural transition without state migration must fail');
   assert.equal(validateMorphogenesisProposal({ decision: 'NO_CHANGE', reason: 'no gain', evidence: [], expectedGainOfBestAlternative: 0, transitionCost: 0 }).valid, true, 'NO_CHANGE is a valid decision');
@@ -61,6 +64,8 @@ async function run() {
   assert.equal(repair.level, 'node');
   const flatPatch = createMorphologyPatch({ baseGraphVersion: 1, operations: [{ type: 'CHANGE_PARAMETERS' }], reason: 'parameter change', evidence: [], rollbackPlan: { restoreDomains: ['graph', 'workers', 'leases', 'state', 'budgets'] } });
   assert.equal(flatPatch.operations.length, 1, 'parameter-only update requires no worker spawn');
+  const constitution = createMorphologyConstitution({ systemPolicy: { controls: ['human'] }, humanAuthority: {}, securitySandbox: {}, privacyConstraints: {}, maxAutonomy: 1, governanceRequirements: [] });
+  assert.equal(Object.isFrozen(constitution.systemPolicy.controls), true, 'nested constitutional policy is immutable');
   console.log('Morphogenesis invariants: passed');
 }
 

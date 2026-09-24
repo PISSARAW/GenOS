@@ -1,6 +1,6 @@
 'use strict';
 
-const { authorizeLocalMorphogenesis } = require('./morphogenesisLease');
+const { LEASE_ERROR, authorizeLocalMorphogenesis } = require('./morphogenesisLease');
 const { transitionMorphology } = require('./morphologyTransitionService');
 
 function operationTargets(patch) {
@@ -21,9 +21,20 @@ function buildAuthorizationRequest(input) {
 }
 
 async function runLocalMorphogenesis(input) {
+  if (typeof input.verifyLease !== 'function') return verifierRequired();
+  const verified = await input.verifyLease(input.lease);
+  if (!verified || verified.valid !== true) return verificationFailed();
   const authorization = authorizeLocalMorphogenesis(input.lease, buildAuthorizationRequest(input));
   if (!authorization.allowed) return { committed: false, authorization };
   return transitionMorphology(input.context, input.adapters);
+}
+
+function verifierRequired() {
+  return { committed: false, authorization: { allowed: false, code: LEASE_ERROR, errors: ['issuing authority lease verifier is required'] } };
+}
+
+function verificationFailed() {
+  return { committed: false, authorization: { allowed: false, code: LEASE_ERROR, errors: ['lease was not verified by the issuing authority'] } };
 }
 
 module.exports = { runLocalMorphogenesis };

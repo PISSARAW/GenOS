@@ -8,7 +8,13 @@ const CONSTITUTION_FIELDS = Object.freeze([
 function createMorphologyConstitution(input = {}) {
   const missing = CONSTITUTION_FIELDS.filter((field) => input[field] === undefined);
   if (missing.length) throw new Error(`missing constitutional fields: ${missing.join(', ')}`);
-  return Object.freeze(Object.fromEntries(CONSTITUTION_FIELDS.map((field) => [field, structuredClone(input[field])])));
+  return deepFreeze(Object.fromEntries(CONSTITUTION_FIELDS.map((field) => [field, structuredClone(input[field])])));
+}
+
+function deepFreeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  Object.values(value).forEach(deepFreeze);
+  return Object.freeze(value);
 }
 
 function assertConstitutionUnchanged(before, after) {
