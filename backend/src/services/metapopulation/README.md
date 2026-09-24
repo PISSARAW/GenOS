@@ -68,3 +68,7 @@ Le PR6 fournit les stratégies `elite`, `novelty`, `rescue`, `complementary`,
 par dème receveur ; une requête pull peut cibler une source, des types, des
 seuils de preuve ou des lignées exclues. Ces fonctions planifient la sélection ;
 les offres restent soumises à la capacité du corridor et à la quarantaine PR5.
+
+Le PR7 évalue des déclencheurs de stagnation, amélioration et génération,
+puis applique les plafonds de coût, de risque de synchronisation et de budget.
+La décision rend ses motifs et ses blocages explicites pour le runtime appelant.

@@ -62,6 +62,9 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 10. Séparer la sélection des propagules de leur émission. Les stratégies
     produisent un plan push ou une réponse à une requête pull ciblée ; chaque
     offre suit ensuite la capacité du corridor et la validation receveur.
+11. Évaluer les déclencheurs adaptatifs par des conditions observables et des
+    garde-fous explicites de coût, risque de synchronisation et budget. La
+    décision reste une preuve exploitable par le runtime, pas un envoi implicite.
 
 ## Conséquences
 

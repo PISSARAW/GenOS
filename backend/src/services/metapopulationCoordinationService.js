@@ -25,6 +25,7 @@ const { buildCorridors } = require('./metapopulation/migration/corridorTopologyS
 const propaguleMigrationService = require('./metapopulation/migration/propaguleMigrationService');
 const migrationAdapterRegistry = require('./metapopulation/migration/migrationAdapterRegistry');
 const migrationPolicyService = require('./metapopulation/migration/migrationPolicyService');
+const adaptiveMigrationTriggerService = require('./metapopulation/migration/adaptiveMigrationTriggerService');
 
 const DEFAULT_ORGANIZATION = 'quorum_with_abstention';
 const DEFAULT_QUORUM_RATIO = 0.5;
@@ -257,6 +258,10 @@ function queryPullMigration(input) {
   return migrationPolicyService.queryPull(input);
 }
 
+function evaluateMigrationTrigger(input) {
+  return adaptiveMigrationTriggerService.evaluateTrigger(input);
+}
+
 module.exports = {
   composeMetapopulation,
   createMetapopulationSession,
@@ -288,6 +293,7 @@ module.exports = {
   selectMigrationCandidates,
   planPushMigration,
   queryPullMigration,
+  evaluateMigrationTrigger,
   senseQuorum,
   regenerationPlan,
   connectionWeights
