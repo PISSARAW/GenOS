@@ -19,7 +19,7 @@ const nicheDiscoveryService = require('./biome/niches/nicheDiscoveryService');
 const nicheLifecycleService = require('./biome/niches/nicheLifecycleService');
 const nicheStore = require('./biome/niches/nicheStore');
 const agentNicheService = require('./biome/niches/agentNicheService');
-const { createIndividual } = require('./biome/contracts/individual');
+const populationRuntimeService = require('./biome/populations/populationRuntimeService');
 const crypto = require('crypto');
 
 const DEFAULT_ORGANIZATION = 'energy_huddle';
@@ -131,6 +131,7 @@ async function sessionSnapshot(sessionId, options = {}) {
     ecologicalState: session.ecology.ecologicalState,
     opportunities: session.ecology.opportunityMap,
     niches: session.ecology.niches,
+    populations: session.ecology.populations,
     entries: biofilmMatrix.read(session.matrix)
   };
 }
@@ -185,20 +186,19 @@ async function assessSessionIndividuals(sessionId, individuals, options = {}) {
   return applyOperation({
     sessionId, options, operation: 'individual_niche_assessment', input: { individuals },
     apply: (session) => {
-      const assessments = (Array.isArray(individuals) ? individuals : []).map((input) => {
-        const individual = createIndividual(input);
-        const assessment = agentNicheService.assessIndividual(individual, session.ecology.niches);
-        return createIndividual({ ...individual, ...assessment, nicheAssessment: assessment.assessment });
-      });
-      const current = session.ecology.ecologicalState.individuals || [];
-      const indexed = new Map(current.map((item) => [item.individualId, item]));
-      for (const individual of assessments) indexed.set(individual.individualId, individual);
-      session.ecology.ecologicalState.individuals = [...indexed.values()];
+      const assessments = agentNicheService.assessAndStore(session.ecology, individuals);
       return {
         individuals: assessments,
         action: { type: 'INDIVIDUAL_NICHES_ASSESSED', status: 'applied', count: assessments.length }
       };
     }
+  });
+}
+
+async function updateSessionPopulation({ sessionId, command, options = {} }) {
+  return applyOperation({
+    sessionId, options, operation: `population_${command.type}`, input: command,
+    apply: (session) => populationRuntimeService.execute(session.ecology, command)
   });
 }
 
@@ -341,5 +341,6 @@ module.exports = {
   discoverSessionNiches,
   updateNicheLifecycle,
   assessSessionIndividuals,
+  updateSessionPopulation,
   rehydrate
 };

@@ -3,7 +3,7 @@
 const { createBiomeSession } = require('./contracts/biomeSession');
 const { createEnvironment } = require('./contracts/environment');
 const { createNiche } = require('./contracts/niche');
-const { createPopulation } = require('./contracts/population');
+const populationService = require('./populations/populationService');
 const { createResourceVector } = require('./contracts/resourceVector');
 const { createEcologicalLink } = require('./contracts/ecologicalLink');
 const { evaluateConstraints } = require('./environment/environmentalConstraintService');
@@ -18,7 +18,7 @@ function createBiomeState(input = {}) {
     environmentConstraints: evaluateConstraints(environment).evaluations,
     opportunityMap: buildOpportunityMap(environment),
     niches: (input.niches || []).map(createNiche),
-    populations: (input.populations || []).map(createPopulation),
+    populations: (input.populations || []).map(populationService.normalizePopulation),
     resourcePool: createResourceVector(input.resourcePool),
     interactionGraph: (input.interactionGraph || []).map(createEcologicalLink)
   });
