@@ -79,6 +79,13 @@ async function inspectWorkspace(workspaceId) {
 }
 
 async function runWorkspaceTest(workspaceId, commandId) {
+  const resolved = await resolveWorkspaceTestCommand(workspaceId, commandId);
+  const { workspace, command } = resolved;
+  const result = await run(command.executable, command.args, path.join(workspace.path, command.cwd || ''), TEST_TIMEOUT_MS);
+  return { workspace: { id: workspace.id, name: workspace.name }, command: { id: command.id, label: command.label }, ...result };
+}
+
+async function resolveWorkspaceTestCommand(workspaceId, commandId) {
   const workspace = await getWorkspace(workspaceId);
   const command = (await discoverCommands(workspace.path)).find((item) => item.id === commandId);
   if (!command) {
@@ -86,8 +93,7 @@ async function runWorkspaceTest(workspaceId, commandId) {
     error.statusCode = 400;
     throw error;
   }
-  const result = await run(command.executable, command.args, path.join(workspace.path, command.cwd || ''), TEST_TIMEOUT_MS);
-  return { workspace: { id: workspace.id, name: workspace.name }, command: { id: command.id, label: command.label }, ...result };
+  return { workspace, command };
 }
 
-module.exports = { inspectWorkspace, runWorkspaceTest };
+module.exports = { inspectWorkspace, runWorkspaceTest, resolveWorkspaceTestCommand };

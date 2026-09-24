@@ -14,6 +14,7 @@ const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const { hashWorkspace } = require('./trinitySnapshotService');
 const { workerEvidenceDossiers } = require('./agentEvidenceService');
 const { emit } = require('./agentOrchestrationState');
+const trinityClaimVerification = require('./trinityClaimVerificationService');
 
 function reportOf(event) {
   if (!event) return null;
@@ -292,27 +293,13 @@ async function verifyCandidate(db, input) {
     if (receipt.exitCode !== 0 || receipt.signal) throw Object.assign(new Error(`Integration check failed: ${commandId}`), { code: 'TRINITY_INTEGRATION_CHECK_FAILED' });
   }
   const claims = Array.isArray(winner.report?.claims) ? winner.report.claims : [];
-  const claimChecks = await verifyClaimChecks({ claims, plans: design.claimVerificationChecks, commands, diagnostics, workspaceId: artifact.candidateWorkspaceId });
+  const claimChecks = await trinityClaimVerification.verify({
+    claims, plans: design.claimVerificationChecks, commands, candidate: artifact,
+    sourceAgentId: winner.agentId, report: winner.report
+  });
   const contentHash = await hashWorkspace(artifact.targetWorkspace);
   if (contentHash !== artifact.contentHash) throw Object.assign(new Error('Candidate changed during verification.'), { code: 'TRINITY_CANDIDATE_HASH_CHANGED' });
   return { contentHash, integrationChecks, claimChecks, claimsCoveredByChecks: true, sourceAgentId: winner.agentId };
-}
-
-function claimCommandIds(claim, plans, availableCommands) {
-  const claimKey = String(claim?.id || claim?.statement || claim || '').trim();
-  const commandIds = new Map((Array.isArray(plans) ? plans : []).map((plan) => [plan.claim, plan.commandIds])).get(claimKey) || [];
-  if (!commandIds.length || commandIds.some((id) => !availableCommands.has(id))) {
-    throw Object.assign(new Error(`Claim lacks an available verification command: ${claimKey}`), { code: 'TRINITY_CLAIM_VERIFICATION_REQUIRED' });
-  }
-  return { claimKey, commandIds };
-}
-
-async function runClaimCommand(input) {
-  const { claimKey, commandId, diagnostics, workspaceId } = input;
-  const result = await diagnostics.runWorkspaceTest(workspaceId, commandId);
-  const receipt = commandReceipt(result, { claim: claimKey, commandId });
-  if (!receipt.passed) throw Object.assign(new Error(`Claim verification failed: ${claimKey} (${commandId})`), { code: 'TRINITY_CLAIM_VERIFICATION_FAILED' });
-  return receipt;
 }
 
 function outputHash(value) {
@@ -330,19 +317,6 @@ function commandReceipt(result, context) {
     stderrHash: outputHash(result.stderr),
     passed: result.exitCode === 0 && !result.signal
   };
-}
-
-async function verifyClaimChecks(input) {
-  const { claims, plans, commands, diagnostics, workspaceId } = input;
-  if (!claims.length) return [];
-  const receipts = [];
-  for (const claim of claims) {
-    const plan = claimCommandIds(claim, plans, commands);
-    for (const commandId of plan.commandIds) {
-      receipts.push(await runClaimCommand({ claimKey: plan.claimKey, commandId, diagnostics, workspaceId }));
-    }
-  }
-  return receipts;
 }
 
 async function updateExperimentDecision(db, missionId, result) {
