@@ -18,6 +18,8 @@ const environmentModelService = require('./biome/environment/environmentModelSer
 const nicheDiscoveryService = require('./biome/niches/nicheDiscoveryService');
 const nicheLifecycleService = require('./biome/niches/nicheLifecycleService');
 const nicheStore = require('./biome/niches/nicheStore');
+const agentNicheService = require('./biome/niches/agentNicheService');
+const { createIndividual } = require('./biome/contracts/individual');
 const crypto = require('crypto');
 
 const DEFAULT_ORGANIZATION = 'energy_huddle';
@@ -126,6 +128,7 @@ async function sessionSnapshot(sessionId, options = {}) {
     sessionId, mode: 'biome', version: session.matrix.version,
     environment: session.ecology.environment,
     environmentConstraints: session.ecology.environmentConstraints,
+    ecologicalState: session.ecology.ecologicalState,
     opportunities: session.ecology.opportunityMap,
     niches: session.ecology.niches,
     entries: biofilmMatrix.read(session.matrix)
@@ -174,6 +177,27 @@ async function updateNicheLifecycle({ sessionId, nicheId, measurements = {}, opt
       const updated = nicheLifecycleService.advanceNiche(niche, measurements, options);
       session.ecology.niches = nicheStore.upsertNiche(session.ecology.niches, updated);
       return { niche: updated, action: { type: 'NICHE_STATUS_CHANGED', status: updated.status, nicheId } };
+    }
+  });
+}
+
+async function assessSessionIndividuals(sessionId, individuals, options = {}) {
+  return applyOperation({
+    sessionId, options, operation: 'individual_niche_assessment', input: { individuals },
+    apply: (session) => {
+      const assessments = (Array.isArray(individuals) ? individuals : []).map((input) => {
+        const individual = createIndividual(input);
+        const assessment = agentNicheService.assessIndividual(individual, session.ecology.niches);
+        return createIndividual({ ...individual, ...assessment, nicheAssessment: assessment.assessment });
+      });
+      const current = session.ecology.ecologicalState.individuals || [];
+      const indexed = new Map(current.map((item) => [item.individualId, item]));
+      for (const individual of assessments) indexed.set(individual.individualId, individual);
+      session.ecology.ecologicalState.individuals = [...indexed.values()];
+      return {
+        individuals: assessments,
+        action: { type: 'INDIVIDUAL_NICHES_ASSESSED', status: 'applied', count: assessments.length }
+      };
     }
   });
 }
@@ -316,5 +340,6 @@ module.exports = {
   updateSessionEnvironment,
   discoverSessionNiches,
   updateNicheLifecycle,
+  assessSessionIndividuals,
   rehydrate
 };

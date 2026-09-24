@@ -23,6 +23,16 @@ async function run() {
   assert.equal(opened.niche.status, 'open');
   const colonized = await biome.updateNicheLifecycle({ sessionId: session.sessionId, nicheId: 'niche-logs', measurements: { occupancy: 1, carryingCapacity: 2 } });
   assert.equal(colonized.niche.status, 'colonized');
+  const assignments = await biome.assessSessionIndividuals(session.sessionId, [
+    { individualId: 'worker-sql', capabilities: ['python', 'sql', 'log-analysis'] },
+    { individualId: 'worker-python', phenotype: { skills: ['python'] } }
+  ]);
+  assert.deepEqual(assignments.individuals[0].fundamentalNicheIds, ['niche-logs', 'niche-failure-two']);
+  assert.equal(assignments.individuals[0].realizedNicheId, 'niche-logs');
+  assert.equal(assignments.individuals[1].realizedNicheId, null);
+  const refreshed = await biome.sessionSnapshot(session.sessionId);
+  assert.equal(refreshed.ecologicalState.individuals.length, 2);
+
   const saturated = await biome.updateNicheLifecycle({ sessionId: session.sessionId, nicheId: 'niche-logs', measurements: { occupancy: 2, carryingCapacity: 2 } });
   assert.equal(saturated.niche.status, 'saturated');
 
