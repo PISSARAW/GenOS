@@ -1,6 +1,6 @@
-# ADR 0072 — Classification des défaillances de symbiontes
+# Classification des défaillances de symbiontes — identifiant historique 0072
 
-- **Statut** : Accepté
+- **Statut** : Remplacé — voir ADR 0074
 - **Date** : 2026-09-24
 - **Domaine** : Holobionte, santé, résilience, gouvernance
 - **Décideurs** : GenOS

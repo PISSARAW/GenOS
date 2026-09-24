@@ -72,6 +72,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0064](0064-registre-workerkind-node-et-dispatch.md) | Registre WorkerKind Node et propagation au dispatch | Accepté | 2026-09-24 | Workers, registre, dispatch, autorité, preuves |
 | [0070](0070-syncytium-variant-code.md) | Variant Code pour Syncytium | Accepté | 2026-09-24 | Syncytium, code partagé, symboles, conflits sémantiques |
 | [0071](0071-morphogenese-fractale-et-controle-local.md) | Morphogenèse fractale et contrôle local | Accepté | 2026-09-24 | Orchestration, morphogenèse, autorités déléguées |
+| [0073](0073-sanctions-progressives-holobionte.md) | Sanctions progressives des symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, gouvernance, contrats, immunité |
+| [0074](0074-classification-defaillances-symbiontes.md) | Classification des défaillances de symbiontes | Accepté | 2026-09-24 | Holobionte, santé, résilience, gouvernance |
 
 ## Cycle de vie d'un ADR
 
@@ -91,3 +93,4 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 - [../CONVENTIONS.md](../CONVENTIONS.md) — conventions de rédaction et de nommage.
 - [../GENOME_EPIGENETIQUE.md](../01-concepts/genome-et-epigenetique.md), [../INSTINCT.md](../01-concepts/instinct.md), [../FOSSILISATION.md](../01-concepts/fossilisation.md), [../AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — documents concernés par les ADR ci-dessus.
+

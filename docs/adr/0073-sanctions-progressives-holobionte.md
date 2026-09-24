@@ -1,6 +1,6 @@
-# Sanctions progressives des symbiontes Holobionte — identifiant historique 0071
+# ADR 0073 — Sanctions progressives des symbiontes Holobionte
 
-- **Statut** : Remplacé — voir ADR 0073
+- **Statut** : Accepté
 - **Date** : 2026-09-24
 - **Domaine** : Holobionte, gouvernance, contrats, immunité
 - **Décideurs** : GenOS
@@ -32,16 +32,15 @@ révoque les ressources ainsi que le contrat actif.
 
 - Les sanctions sont graduées, justifiées et auditables.
 - Les réductions de permissions restent soumises aux invariants des contrats.
-- Les actions irréversibles comme l'expulsion nécessitent une approbation explicite.
+- L'expulsion exige une approbation explicite.
 
 ### Négatives
 
 - Une sanction peut être rejetée si les preuves ne passent pas AEIS.
-- Les actions affectant un contrat dépendent de la disponibilité du service de contrats.
+- Les actions sur un contrat dépendent du service de contrats.
 
 ## Alternatives
 
-- Retirer immédiatement tout symbionte en faute : rejeté, car cela ne permet ni
-  réponse proportionnée ni récupération contrôlée.
-- Autoriser les sanctions sans preuve persistée : rejeté, car la décision ne serait
-  pas auditable.
+- Retirer immédiatement tout symbionte en faute : rejeté, car cela interdit une
+  réponse proportionnée et une récupération contrôlée.
+- Sanctionner sans preuve persistée : rejeté, car la décision ne serait pas auditable.
