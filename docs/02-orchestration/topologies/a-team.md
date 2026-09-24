@@ -1,863 +1,1049 @@
-# A-Team : Orchestration Multidisciplinaire d'Agents Autonomes
+# A-Team : Organisation Adaptative du Travail Spécialisé
 
-## 1. Définition
+## 1. Principe fondamental
 
-La A-Team dans GenOS est le mécanisme de composition, d'activation et de coordination d'une équipe multidisciplinaire d'agents autonomes, chacun spécialisé dans un domaine de compétence distinct et borné. Contrairement à l'orchestration générale qui fragmente une mission en phases et en gates, l'A-Team fragmente une mission en *domaines d'expertise* et assigne un agent à chacun.
+> **A-Team est le protocole de GenOS pour les problèmes dont la solution exige plusieurs compétences complémentaires, interdépendantes et non substituables, qui doivent produire ensemble un artefact cohérent.**
 
-L'A-Team n'est pas une simple distribution de tâches : c'est une allocation de responsabilité avec preuves d'intégration. Chaque membre doit :
-
-- posséder une hypothèse claire sur son domaine ;
-- retourner des preuves et des contraintes d'intégration ;
-- reconnaître ses limites de domaine ;
-- valider l'interopérabilité avec les autres branches.
-
-Le cœur fonctionnel est réparti entre :
-
-- [backend/src/services/aTeamService.js](../../../backend/src/services/aTeamService.js) : analyse de mission, détection de domaines, composition de l'équipe, planification des étages.
-- [backend/src/services/aTeamCoordinationService.js](../../../backend/src/services/aTeamCoordinationService.js) : coordination (organisation, contrat de capacités, handoffs ligand).
-- [backend/src/services/aTeamComparativeBarrier.js](../../../backend/src/services/aTeamComparativeBarrier.js) : arbitrage d'intégration (Pareto/Elo), `canMerge` et métriques.
-- [backend/src/services/aTeamIntegrationObserver.js](../../../backend/src/services/aTeamIntegrationObserver.js) : observateur impartial (contamination, contraintes d'intégration).
-- [backend/src/services/aTeamStageScheduler.js](../../../backend/src/services/aTeamStageScheduler.js) : ordonnancement bloquant des étages (plan déterministe, attente des dépendances).
-- [backend/src/services/aTeamDispatchService.js](../../../backend/src/services/aTeamDispatchService.js) : lancement de l'étage 0 et détachement du runner d'étages.
-- [backend/src/services/agentAutonomyPlanService.js](../../../backend/src/services/agentAutonomyPlanService.js) : activation conditionnelle de l'A-Team selon le budget et la recommandation d'analyse.
-- [backend/src/services/agentFleetService.js](../../../backend/src/services/agentFleetService.js) : création des workers multidisciplinaires avec prompts contextualisés.
-- [backend/src/services/agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état partagé, barrières d'évidence, continuations.
-- [backend/src/services/workerGarageService.js](../../../backend/src/services/workerGarageService.js) : gestion des slots de workers, allocation des capacités.
-
-Le principe est strict : aucun domaine ne peut être ignoré sans justification, aucun agent ne peut dépasser ses bornes sans escalade, et la fusion finale exige des preuves d'interopérabilité.
-
----
-
-## 2. Non une équipe générique, mais une équipe cohérente
-
-GenOS applique une logique de détection et de validation multidisciplinaire :
-
-1. **analyser la mission** pour détecter les domaines implicites ;
-2. **valider la multidisciplinarité** (au moins 2 domaines, au maximum 3) ;
-3. **allouer des agents spécialisés** avec des modèles adaptés ;
-4. **définir des hypothèses contextualisées** pour chaque branche ;
-5. **exécuter en isolation de domaine** ;
-6. **mesurer les preuves d'intégration** ;
-7. **fusionner avec validation de cohérence** ;
-8. **escalader les incohérences** sans forcer la fusion.
-
-Les mécanismes de sécurité et de cohérence sont explicites :
-
-- **capacité maximale** : 3 domaines actifs simultanément ;
-- **slots de workers** : limite globale sur les agents autonomes ;
-- **modèles recommandés** : différenciation frontier/standard selon le domaine ;
-- **dépendances de pipeline** : certains domaines peuvent dépendre d'autres (ex: intégrateur dépend des implémenteurs) ;
-- **preuve d'intégrabilité** : chaque agent doit retourner les contraintes de son domaine ;
-- **arrêt sur incohérence** : fusion refusée si les contraintes ne peuvent être réconciliées.
-
----
-
-## 3. Définition mathématique de la composition
-
-La composition d'une A-Team est un problème d'allocation de responsabilité et de couverture de capacités.
-
-Soit :
-
-- $D$ : ensemble des domaines détectés dans la mission,
-- $k$ : capacité maximale de l'A-Team (typiquement 3),
-- $|D|$ : nombre de domaines détectés,
-- $S$ : score de pertinence par domaine,
-- $C_i$ : ensemble des capacités requises du domaine $i$,
-- $M_i$ : ensemble des capacités fournies par l'agent assigné au domaine $i$.
-
-La recommandation d'activation de l'A-Team suit :
-
-$$
-\text{recommended} = |D| \ge 2
-$$
-
-et la composition est valide si :
-
-$$
-2 \le |D| \le k
-$$
-
-La sélection des domaines pour former l'équipe active suit un classement par score :
-
-$$
-D_{\text{active}} = \text{topK}(D, k, \text{score})
-$$
-
-où les domaines sont triés en ordre décroissant de pertinence.
-
-La couverture de capacités globales est mesurée par :
-
-$$
-\text{coverage} = \frac{\sum_{d \in D_{\text{active}}} |C_d \cap M_d|}{\sum_{d \in D_{\text{active}}} |C_d|}
-$$
-
-Une couverture < 0.8 indique une équipe sous-dotée. Le système refuse l'activation si la couverture tombe en dessous du seuil critique.
-
-## 3.1 Quality Gate CI/CD
-
-Le point d'entrée `backend/bin/genos-ateam-audit.js` transforme cette barrière en contrôle bloquant pour les pipelines. Il accepte `--mission` ou `--mission-file`, écrit une preuve JSON avec le schéma `genos.ateam-quality-gate/v1`, et accepte le rapport optionnel de l'observateur via `--observer-report`.
-
-Le processus retourne `0` si la couverture est au moins `0.8` et qu'aucun échec d'intégration n'est signalé. Il retourne intentionnellement `2` dans les autres cas, afin que GitHub Actions, GitLab CI ou un ordonnanceur industriel puisse bloquer la livraison. L'action locale `.github/actions/genos-ateam-audit` et le workflow `.github/workflows/genos-ateam-audit.yml` exécutent ce contrôle sur chaque Pull Request.
-
----
-
-## 4. Domaines reconnus et rôles
-
-Le service d'analyse détecte les domaines suivants par signaux textuels :
-
-| Domaine | Rôle | Modèle | Signaux clés |
-|---------|------|--------|-------------|
-| `mathematics` | mathematician | **frontier** | maths, mathématiques, équation, intégrale, dérivée, algèbre, théorème, matrice, probabilité |
-| `frontend` | frontend_engineer | standard | React, Vue, Angular, UI, CSS, design system |
-| `backend` | backend_engineer | standard | API, serveur, Express, Node.js, microservice |
-| `data` | data_engineer | standard | database, SQL, SQLite, Postgres, ETL, analytics |
-| `security` | security_reviewer | **frontier** | OAuth, permissions, vulnérabilités, authentification |
-| `quality` | quality_engineer | standard | tests, QA, vérification, benchmark, évaluation |
-| `operations` | operations_engineer | standard | DevOps, déploiement, Docker, Kubernetes, CI/CD |
-| `ai` | ai_engineer | **frontier** | IA, Machine Learning, modèles, prompts, agents, RAG, LLM |
-| `product` | product_specialist | standard | produit, business, accessibilité, user research |
-| `science` | research_scientist | **frontier** | découverte, recherche, hypothèse, falsification, académie |
-| `integration` | integration_observer | standard | intégration, fusion, interopérabilité, dépendances |
-
-Les domaines marqués **frontier** reçoivent des modèles premium pour des décisions critiques.
-
-Le domaine `integration` joue un rôle spécial : c'est un observateur qui dépend des autres domaines et valide la cohérence globale.
-
----
-
-## 5. Architecture du système
+C'est la distinction fondamentale avec Trinity :
 
 ```text
-Client / Mission
-        |
-        v
-[aTeamService.analyzeMission]
-        |
-        +--> détecte domaines implicites
-        +--> valide multidisciplinarité
-        +--> retourne recommandation + members
-        |
-        v
-[agentAutonomyPlanService]
-        |
-        +--> teste budget et capacité
-        +--> active l'A-Team si recommandée
-        +--> configure ateam.activated, workers count
-        |
-        v
-[agentFleetService.createAutonomousWorkers]
-        |
-        +--> instancie agents spécialisés
-        +--> injecte prompt contextualisé par domaine
-        +--> assigne budget initial
-        |
-        v
-[Exécution isolée par domaine]
-        |
-        +--> frontend_engineer : UI/UX, composants
-        +--> backend_engineer : logique métier, API
-        +--> data_engineer : persistance, requêtes
-        +--> security_reviewer : preuves de sécurité
-        +--> quality_engineer : tests, validation
-        +--> ... autres domaines
-        |
-        v
-[agentFleetService / workerEvidenceBarrier.js]
-        |
-        +--> collecte preuves structurées par domaine
-        +--> vérifie conformité des claims et non-contradiction
-        +--> valide l'intégrabilité cross-domaines
-        +--> décide fusion unifiée ou escalade
-        |
-        v
-[Synthèse et fusion]
-        |
-        +--> merge_domain_solutions
-        +--> record_integration_constraints
-        +--> return unified_evidence
+Trinity
+    plusieurs hypothèses concurrentes
+    → laquelle résiste aux preuves ?
+
+A-Team
+    plusieurs expertises complémentaires
+    → comment faire fonctionner leurs contributions ensemble ?
 ```
 
-Les composants interagissent via l'état partagé dans [`backend/src/services/agentOrchestrationState.js`](../../../backend/src/services/agentOrchestrationState.js) et le moteur de barrière [`backend/src/services/workerEvidenceBarrier.js`](../../../backend/src/services/workerEvidenceBarrier.js), qui valide de manière unifiée les preuves émises par chaque domaine spécialisé avant toute réconciliation.
+Une A-Team n'a donc pas pour objectif de trouver **le meilleur expert**. Elle doit fabriquer **une équipe qui soit meilleure que la somme de ses membres**.
+
+La recherche sur les équipes humaines va exactement dans cette direction : performance collective ne signifie pas seulement avoir des experts, mais aussi clarifier les rôles, partager une compréhension de la mission, coordonner les dépendances et disposer de protocoles de communication adaptés. Les travaux sur les systèmes de mémoire transactive ajoutent une idée particulièrement importante : chacun n'a pas besoin de tout savoir, mais l'équipe doit savoir **qui sait quoi** ([APA][1]).
+
+C'est très compatible avec le principe GenOS de **0 prompt inutile**.
 
 ---
 
-## 6. Analyse et détection de domaines
+## 2. Ce que l'implémentation actuelle fait déjà bien
 
-L'analyse de mission est effectuée par [backend/src/services/aTeamService.js](../../../backend/src/services/aTeamService.js).
+`aTeamService.js`, `aTeamCoordinationService.js`, `aTeamStageScheduler.js`, `aTeamComparativeBarrier.js` et `aTeamIntegrationObserver.js` donnent déjà plusieurs fondations importantes.
 
-### Processus de détection
+| Mécanisme actuel | État |
+|------------------|------|
+| Détection de plusieurs domaines | réel |
+| Rôles spécialisés | réel |
+| Workspaces de workers isolés | réel |
+| Dépendances et stages | réel |
+| Ordonnancement déterministe | réel |
+| Domaines non staffés exposés via `overflowDomains` | réel |
+| Capability contract | réel |
+| Tool leases | réel |
+| 19 organisations possibles | présentes |
+| Handoffs ligand/receptor | structurés mais pas runtime-driving |
+| Evidence barrier | réel |
+| Integration observer | réel mais faible |
+| Pareto/Elo | réel mais mal appliqué conceptuellement |
+| Adaptation dynamique de l'équipe | presque absente |
 
-La fonction `analyzeMission(text)` :
-
-1. **teste les artefacts spécialisés** (ex: fiction, créativité littéraire) ;
-2. **applique les règles de domaines techniques** via signaux regex ;
-3. **compte les correspondances par domaine** ;
-4. **classe les domaines par score de pertinence** (départage explicite par `priority`) ;
-5. **retourne une analyse complète avec recommandation**.
-
-### Débordement de capacité
-
-Quand plus de domaines sont détectés que la capacité de l'équipe, les domaines non
-retenus ne sont plus abandonnés en silence : l'analyse expose `overflowDomains`
-(domaines détectés non staffés) et `totalDetected`. Cela matérialise la règle
-« aucun domaine ne peut être ignoré sans justification » et permet à
-l'orchestrateur d'escalader ou de lancer une continuation.
-
-```javascript
-const analysis = analyzeMission('frontend React + backend Express + data SQL + sécurité OAuth + tests QA');
-analysis.detectedDomains; // top-K staffés
-analysis.overflowDomains; // domaines détectés mais non staffés
-analysis.totalDetected;   // nombre total détecté
-```
-
-Exemple de détection pour :
-
-```
-"Construire une interface React, une API Express et sécuriser OAuth avec des tests."
-```
-
-Résultat attendu :
-
-- Domaines détectés : `frontend` (score=2), `backend` (score=2), `security` (score=1), `quality` (score=1)
-- Sélection : `frontend`, `backend`, `security` (3 domaines, max atteint)
-- Recommandation : `true` (au moins 2 domaines) ✓
-- Members : 3 agents avec rôles, hypothèses et missions contextualisées
-
-### Cas spéciaux : Artefacts créatifs
-
-Si la mission implique une création littéraire ou narrative (signaux : `histoire`, `roman`, `fiction`, `écriture créative`), l'analyse bascule vers une équipe dédiée :
-
-```javascript
-const FICTION_TEAM = [
-  {
-    label: 'literary_creation',
-    role: 'literary_author',
-    modelTier: 'frontier',
-    capabilities: ['literary_voice', 'character_psychology'],
-    hypothesis: 'Créer la fiction avec une voix distinctive et des personnages psychologiquement spécifiques.',
-    pipelineStage: 0,
-    dependsOn: []
-  },
-  {
-    label: 'dramaturgy',
-    role: 'dramaturg',
-    modelTier: 'frontier',
-    capabilities: ['dramaturgy', 'twist_design'],
-    hypothesis: 'Valider le conflit, le rythme et l\'architecture narrative.',
-    pipelineStage: 1,
-    dependsOn: ['literary_creation']
-  },
-  {
-    label: 'literary_criticism',
-    role: 'literary_critic',
-    modelTier: 'standard',
-    capabilities: ['literary_criticism'],
-    hypothesis: 'Évaluer la prose, la profondeur et la crédibilité émotionnelle.',
-    pipelineStage: 2,
-    dependsOn: ['literary_creation', 'dramaturgy']
-  }
-];
-```
-
-Cette équipe est activée automatiquement si la mission porte sur la création littéraire.
+A-Team n'est pas décorative. Mais plusieurs mécanismes importants n'ont pas encore la sémantique qu'ils prétendent avoir.
 
 ---
 
-## 7. Composition et allocation
+## 3. Le problème conceptuel majeur : les spécialistes ne sont pas des candidats concurrents
 
-La fonction `compose()` dans [backend/src/services/aTeamService.js](../../../backend/src/services/aTeamService.js) construit l'équipe à partir de paramètres explicites.
+Actuellement `aTeamComparativeBarrier.js` transforme les dossiers des spécialistes en candidats Arena puis cherche notamment un `kneePoint`.
 
-### Contrat d'entrée
+Pour Trinity, comparer des mondes concurrents a du sens. Pour Frontend, Backend, Security, Database, cela n'en a quasiment aucun.
 
-```javascript
-compose({
-  projectGoal: "string",           // objectif du projet
-  subSystems: ["domain1", "domain2", ...],  // domaines requis
-  assignedRoles: ["role1", "role2", ...],   // rôles (optionnel)
-  modelTiers: ["standard", "frontier", ...], // modèles (optionnel)
-  available: 3                     // slots libres dans le garage
-})
-```
+Le frontend n'est pas censé « battre » le backend. Le security engineer n'est pas un candidat alternatif au data engineer. Ce sont des **organes différents du même système**.
 
-### Validation stricte
+Donc `Pareto(frontend, backend, security)` est une mauvaise abstraction pour l'intégration générale.
 
-La composition valide :
+Le bon problème est plutôt :
 
-1. **objectif présent** : aucune A-Team sans mission explicite ;
-2. **multidisciplinarité minimale** : au moins 2 domaines distincts ;
-3. **capacité respektée** : au maximum 3 domaines ;
-4. **slots disponibles** : l'orchestre doit avoir des places libres dans le garage de workers.
+$$
+\forall (i,j) \in E: Contract_{i\rightarrow j}\; satisfied?
+$$
 
-Si une validation échoue, une exception est levée avec code d'erreur précis :
+où $E$ représente les dépendances entre spécialistes.
 
-- `A_TEAM_GOAL_REQUIRED` : pas d'objectif
-- `A_TEAM_MULTIDISCIPLINARY_REQUIRED` : moins de 2 domaines
-- `A_TEAM_CAPACITY_EXCEEDED` : plus de 3 domaines
-- `WORKER_GARAGE_FULL` : pas de slots libres
-
-### Sortie
-
-La composition retourne un tableau d'agents contextualisés :
-
-```javascript
-[
-  {
-    subSystem: "frontend",
-    role: "frontend_engineer",
-    modelTier: "standard",
-    mission: "Project goal: ...\nOwned competency domain: frontend\nWork only on this bounded domain and return evidence plus integration constraints to the orchestrator."
-  },
-  { subSystem: "backend", ... },
-  { subSystem: "security", ... }
-]
-```
-
-Chaque agent reçoit une mission explicite qui borne son domaine et l'invite à retourner des preuves d'intégration.
+La structure centrale d'A-Team ne devrait donc pas être une leaderboard. Elle devrait être un **Integration Contract Graph**.
 
 ---
 
-## 8. Activation et allocation de budget
+## 4. L'autre problème majeur : le handoff n'est pas réellement un handoff
 
-L'A-Team est activée conditionnellement par [backend/src/services/agentAutonomyPlanService.js](../../../backend/src/services/agentAutonomyPlanService.js).
+Le code actuel possède `buildHandoff()`, `evaluateHandoff()`, `handoffLigand()` avec ligand, receptor et concentration.
 
-### Décision d'activation
+Mais `evaluateHandoff()` n'est utilisé que dans les tests et son service. Le runtime explicite `dispatch_team` transmet surtout `depends_on` et `pipeline_stage` au membre suivant. Il attend que les producteurs terminent puis lance le consommateur.
 
-```javascript
-autonomyPlan.aTeam = aTeamService.analyzeMission(mission);
-const aTeamWorkerCount = autonomyPlan.aTeam.members.length;
-const affordableAteamMembers = Math.floor(
-  (tokenBudget * workerAllocationRatio) / minTokensPerWorker
-);
-
-autonomyPlan.aTeam.activated = 
-  !autonomyPlan.trinity.activated  // A-Team et Trinity s'excluent mutuellement
-  && autonomyPlan.aTeam.recommended // Au moins 2 domaines détectés
-  && affordableAteamMembers >= aTeamWorkerCount; // Budget suffisant
+Il ne transmet pas réellement :
+```text
+artifact, claims, interface, assumptions, unresolved questions, evidence, required decisions
 ```
+du producteur au consommateur.
 
-### Conditions d'exclusion
+C'est donc davantage « A finished → start B » que « A produced X → B validates X against receptor R → accept / reject / repair ».
 
-- **Trinity activée** : Trinity (pipeline spécialisé) et A-Team ne s'activent jamais ensemble.
-- **Pas assez de budget** : si le budget ne peut pas supporter le nombre d'agents, l'A-Team est dégradée ou bloquée.
-- **Pas de multidisciplinarité** : si moins de 2 domaines sont détectés, l'analyse ne recommande pas l'A-Team.
+Et le chemin autonome a un problème similaire : `workerEvidenceBarrierPipeline.js` construit bien un digest amont puis écrit ce digest dans `agents.current_task`, mais le worker est ensuite lancé avec l'objet worker et son `prompt` déjà construit. Il n'y a pas de mécanisme garantissant que le digest modifié devienne effectivement l'entrée de mission du worker.
 
-### Allocation de budget par agent
-
-Le budget est réparti équitablement entre les agents actifs :
-
-$$
-T_{\text{per\_agent}} = \frac{T_{\text{worker}} \times s}{|D_{\text{active}}|}
-$$
-
-où :
-- $T_{\text{worker}}$ est le budget alloué aux workers
-- $s$ est le ratio d'allocation (typiquement 0.6–0.8)
-- $|D_{\text{active}}|$ est le nombre de domaines actifs
-
-Chaque agent doit atteindre un minimum viable de tokens pour effectuer une exploration significative dans son domaine.
+Le « ligand » est donc actuellement surtout une **bonne abstraction non encore devenue physiologie runtime**.
 
 ---
 
-## 9. Exécution isolée et preuves d'intégration
+## 5. Il y a aussi un bug de scheduler à corriger
 
-Les agents de l'A-Team s'exécutent en isolation stricte de domaine. Le prompt injecté pour chaque agent impose :
-
-- **une hypothèse claire** : ce que l'agent doit accomplir et prouver dans son domaine
-- **des contraintes de domaine** : quelles sont les limites de sa responsabilité
-- **un contrat de preuve** : quels types de preuves doivent être retournées (code, tests, métriques, audit)
-- **des contraintes d'intégration** : quelles dépendances vis-à-vis d'autres domaines existent
-
-Exemple pour un agent `backend_engineer` :
-
-```
-Project goal: Construire une interface React, une API Express et sécuriser OAuth avec des tests.
-Owned competency domain: backend
-Work only on this bounded domain and return evidence plus integration constraints to the orchestrator.
-
-Hypothesis: Own the backend competency for the shared mission and return evidence to the orchestrator.
-
-Deliverables:
-1. API design compliant with frontend expectations
-2. Authentication hooks for OAuth integration (delegate implementation to security agent)
-3. Database schema and query patterns (coordinate with data agent)
-4. Test suite for backend logic
-5. Integration constraints: list what the frontend must provide, what security must implement, etc.
+`aTeamStageScheduler.runStagePlan()` fait :
+```text
+wait dependencies
+↓
+timeout ?
+↓
+oui → note timedOut
+↓
+lance quand même le consumer
 ```
 
-### Barrière d'évidence
+Le test `test_ateam_stage_scheduler.js` exige même actuellement `assert.ok(blockedLaunches.includes('w-integ'))` après timeout.
 
-Avant fusion, chaque agent doit franchir une barrière d'évidence :
+Ce comportement est exactement opposé à une A-Team rigoureuse. Et une dépendance simplement `error`, `blocked` ou `unverified` est considérée terminale exactement comme `completed`.
 
-1. **évidence collectée** : preuves, tests, rapports ;
-2. **validité du domaine** : les preuves correspondent-elles au domaine assigné ? ;
-3. **contraintes d'intégration explicites** : quels problèmes ou dépendances doivent être adressés ? ;
-4. **absence de débordement** : l'agent n'a-t-il pas colonisé d'autres domaines ? ;
-5. **complétude** : a-t-on raisonnablement couvert le domaine assigné ?
+Donc actuellement « Backend FAILED, Frontend COMPLETED → Integration starts » est possible.
 
-Si l'évidence est insuffisante, le runtime émet :
-- `WORKER_EVIDENCE_INSUFFICIENT` : preuve manquante ou fragile
-- `WORKER_DOMAIN_CONTAMINATION` : débordement hors du domaine assigné
-- `WORKER_INTEGRATION_CONSTRAINT_MISSING` : pas de contraintes d'intégration explicitées
+La bonne condition doit être :
+```text
+dependency terminal
+AND required deliverable exists
+AND required evidence valid
+AND handoff contract accepted
+```
+sinon `REPAIR / REPLACE / ESCALATE / REPLAN` mais jamais « continuer parce que le timeout a expiré ».
 
 ---
 
-## 10. Intégration et fusion
+## 6. Le Quality Gate actuel donne une impression de couverture plus forte qu'elle ne l'est
 
-La fusion d'une A-Team n'est pas une concaténation. C'est une validation d'interopérabilité multidisciplinaire.
+Pour les missions techniques, `requiredCapabilities(selectedDomains)` est construit à partir des domaines sélectionnés. Puis chaque membre reçoit `capabilities: [domain]`.
 
-### Processus de fusion
+La couverture devient donc presque tautologiquement :
+```text
+frontend required → frontend member supplies frontend
+backend required → backend member supplies backend
+```
 
-1. **collecter les dossiers d'évidence** de tous les agents
-2. **valider la cohérence** : les contraintes d'intégration déclarées par chaque domaine sont-elles satisfaites par les solutions proposées ?
-3. **détecter les conflits** : y a-t-il des exigences incompatibles ?
-4. **mesurer la couverture** : tous les domaines requis sont-ils couverts ?
-5. **décider** : fusionner, escalader ou bifurquer
+Et les domaines dans `overflowDomains` ne participent pas au dénominateur. Une mission peut donc détecter 6 domaines, n'en staffer que 3, et afficher malgré tout une excellente couverture des **domaines qu'elle a choisi de compter**.
 
-### Matrice de fusion
+Il faut séparer :
+```text
+mission capability coverage
+team staffed coverage
+runtime capability availability
+verified expertise coverage
+```
 
-Pour chaque paire de domaines $(d_i, d_j)$, on valide :
-
-$$
-\text{compatible}(d_i, d_j) = 
-\begin{cases}
-1 & \text{si } \text{constraints}(d_i) \cap \text{solutions}(d_j) \text{ satisfait} \\
-0 & \text{sinon (escalade requise)}
-\end{cases}
-$$
-
-Si toutes les paires sont compatibles :
-
-$$
-\text{canMerge} = \prod_{i<j} \text{compatible}(d_i, d_j) = 1
-$$
-
-Sinon, le système génère un rapport de conflits et demande l'escalade humaine ou l'orchestration secondaire.
-
-### Exemple d'incohérence
-
-**Frontend propose :** API doit retourner un objet User avec `id`, `name`, `email`, `roles`
-
-**Backend propose :** API retourne minimalement `id`, `name`
-
-**Security propose :** l'email ne doit pas être exposé directement (utiliser une clé de déréférence)
-
-**Résultat :** Conflit détecté. L'orchestrateur demande à backend et security de se coordonner via une continuation.
+Ce sont quatre métriques différentes.
 
 ---
 
-## 11. Continuations et adaptations
+## 7. Le détecteur de « contamination » est trop naïf
 
-Après la première barrière d'évidence, si la fusion détecte des conflits mineurs, l'orchestrateur peut lancer des **continuation workers** dans les domaines critiques.
+`aTeamIntegrationObserver.js` analyse le texte des claims avec les regex de détection de domaine.
 
-### Allocation de continuation
+Ainsi un frontend engineer déclarant « le frontend doit appeler l'API OAuth » peut mentionner un domaine étranger et être considéré comme contaminant. Mais dans une vraie équipe multidisciplinaire, connaître ses interfaces avec les autres domaines est précisément souhaitable.
 
-Le budget de continuation est réparti entre les domaines qui doivent se resynchroniser :
+La frontière correcte n'est pas « Tu ne dois jamais parler du domaine des autres » mais « Tu sais ce que les autres possèdes, mais tu ne revendiques pas leur responsabilité ou leur autorité sans coordination ».
 
-$$
-T_{\text{cont}} = T_{\text{worker}} - T_{\text{initial}}
-$$
-
-Les agents reçoivent une continuation contextualisée :
-
+Il faut donc passer d'un modèle `DOMAIN ISOLATION` à `OWNERSHIP + CONSULTATION + INTERFACE AUTHORITY`. Exemple :
+```text
+frontend:
+    owns: UI components
+    consumes: API schema
+    consults: security
+    may_propose: API changes
+    may_not_commit: auth policy
 ```
-Previous evidence summary from all domains:
-- Frontend: expects [ ... ]
-- Backend: proposes [ ... ]
-- Security: requires [ ... ]
-
-Detected inconsistency: [ ... ]
-
-Your task (backend_engineer): resolve the inconsistency by adapting your solution to satisfy:
-1. Frontend's expectations
-2. Security's constraints
-Integration constraint: coordinate with security on OAuth implementation.
-Return updated evidence.
-```
-
-### Critères d'arrêt de continuation
-
-Une continuation s'arrête si :
-
-- la cohérence est atteinte (compatible = 1) ;
-- le budget est épuisé ;
-- un cycle de rejet est détecté (même domaine relancé 3 fois sans progression) ;
-- une escalade humaine est demandée.
 
 ---
 
-## 12. Gestion des slots et du garage de workers
+## 8. A-Team ultime : le Work Graph
 
-La capacité globale de workers autonomes est limitée par [backend/src/services/workerGarageService.js](../../../backend/src/services/workerGarageService.js).
+L'élément central devrait être un graphe de travail $G=(V,E)$ où chaque nœud $V_i$ représente une responsabilité spécialisée et chaque arête $E_{ij}$ un contrat de dépendance.
 
-### Limite de slots
-
-```javascript
-const DEFAULT_MAX_ACTIVE_WORKERS = 6;
-const MAX_ATEAM_MEMBERS = 3;
+Exemple :
+```text
+                    Product
+                      │
+              ┌───────┴────────┐
+              ▼                ▼
+            UX/UI          Architecture
+              │                │
+              ▼                ▼
+          Frontend ───────► Backend
+                               │
+                    ┌──────────┼─────────┐
+                    ▼          ▼         ▼
+                  Data      Security    Ops
+                    │          │         │
+                    └──────┬───┴─────────┘
+                           ▼
+                          QA
+                           │
+                           ▼
+                     Integration
 ```
 
-L'A-Team réserve jusqu'à 3 slots. Les autres slots sont partagés avec Trinity et les workers génériques.
+Ce graphe doit déterminer : qui travaille, qui attend, qui produit quoi, qui consomme quoi, qui doit être consulté, qui peut bloquer, quels artefacts doivent circuler.
 
-### Remplissage du garage
+A-Team devient alors beaucoup plus proche d'un **compilateur d'organisation**.
 
-Avant d'activer l'A-Team :
+---
 
-```javascript
-const freeSlots = totalSlots - (activeWorkers + activeTrinity + reservedContinuations);
-if (freeSlots < ateamMemberCount) {
-  throw new Error('WORKER_GARAGE_FULL: insufficient free slots for A-Team activation');
+## 9. Team Formation : choisir les bons agents
+
+Aujourd'hui A-Team choisit surtout `domain → role → modelTier`. L'implémentation ultime doit choisir un **agent réel** parmi les candidats.
+
+On peut formaliser :
+$$
+TeamUtility(T) = Coverage(T) + \alpha ExpertiseFit + \beta Complementarity + \gamma HistoricalPerformance + \delta InterfaceCompatibility - \lambda CoordinationCost - \mu Redundancy - \rho Risk
+$$
+sous contraintes de Budget, Capacity, Tools, Dependencies, Deadlines.
+
+L'agent `backend_engineer` idéal ne serait donc pas simplement « standard model + backend prompt » mais celui dont GenOS sait :
+```text
+expérience backend, outils disponibles, génome/capacités, cognitive recipe, historique sur tâches similaires, fiabilité, coût, compatibilité avec les agents voisins
+```
+
+DyLAN a déjà montré l'intérêt d'une sélection dynamique des agents plutôt qu'une équipe fixe, avec une phase explicite de team optimization avant la résolution ([arXiv][2]).
+
+---
+
+## 10. Le Transactive Memory System : cerveau social de A-Team
+
+Chaque agent n'a pas besoin de connaître toutes les informations. Il doit connaître :
+```text
+what I know, what I own, what I don't know, who knows it, how to reach them, how trustworthy/recent that knowledge is
+```
+
+Exemple :
+```text
+Frontend worker
+I own: React components, accessibility implementation
+I know that: Backend owns API contracts, Security owns authentication invariants, Product owns acceptance criteria
+I do NOT need: complete security reasoning, complete DB internals
+```
+
+Cela produit un **Knowledge Location Graph** :
+```text
+Need OAuth invariant → who knows? → security_worker_17 → request only relevant contract
+```
+
+Au lieu de recopier tout le contexte à tous les agents. C'est exactement l'une des idées des systèmes de mémoire transactive : performance par spécialisation combinée à la connaissance de « qui sait quoi » ([APA][3]).
+
+---
+
+## 11. Le handoff ultime doit devenir un contrat typé
+
+Je remplacerais le simple ligand `handoff:backend->frontend` par un objet ressemblant à :
+```text
+HandoffContract
+────────────────────────────
+producer, consumer
+artifactRefs, claims, assumptions
+interfaceSchema, preconditions, postconditions, invariants
+evidenceRefs
+openQuestions, knownRisks
+acceptanceCriteria
+version, status
+```
+
+Le récepteur peut répondre : `ACCEPT / PARTIAL_ACCEPT / REJECT / REQUEST_REPAIR / REQUEST_CLARIFICATION`.
+
+Le ligand/receptor biomimétique devient alors réellement utile :
+```text
+ligand      = typed offer / event
+receptor    = consumer acceptance contract
+binding     = compatibility verified
+cascade     = downstream work allowed
+```
+
+C'est beaucoup plus biologique que simplement appeler un JSON « ligand ».
+
+---
+
+## 12. Les handoffs ne doivent pas transmettre tout
+
+Les recherches sur les équipes montrent un problème connu : les groupes ont tendance à discuter beaucoup plus les informations déjà partagées que les informations uniques. Une méta-analyse sur 65 études de « hidden profiles » observe que les groupes mentionnaient beaucoup plus d'informations communes que d'informations uniques, et que la couverture des informations uniques était liée à la qualité de décision ([PubMed][4]).
+
+A-Team devrait donc optimiser $Value(message) = Novelty \times Relevance \times DecisionImpact` et non `broadcast everything`.
+
+Chaque message pourrait être classé : already known / new but irrelevant / new + relevant / critical contradiction / contract update. Seules les dernières catégories circulent.
+
+Cela rejoint AgentPrune, qui a montré que l'élagage du graphe de communication pouvait fortement diminuer les tokens tout en conservant ou améliorant les performances ([arXiv][5]).
+
+---
+
+## 13. Une organisation modérément sparse est probablement préférable
+
+GenOS possède déjà 19 organisations. Mais A-Team devrait arrêter de penser `A-Team organization = specialist_expert_committee` comme une organisation unique.
+
+Les travaux récents sur les topologies multi-agents indiquent que la structure de communication change matériellement la propagation des bonnes et mauvaises informations, et qu'une connectivité modérément sparse peut être préférable à un graphe trop dense ou trop pauvre ([arXiv][6]).
+
+Donc A-Team ultime devrait pouvoir faire :
+```text
+DISCOVERY           → specialist_expert_committee
+IMPLEMENTATION      → dependency DAG
+SECURITY SUBGRAPH   → red_blue_coevolution
+INTEGRATION         → hierarchical_merge
+LEARNING            → memory_compilation
+```
+
+Autrement dit : **une A-Team n'a pas une topologie de communication ; elle peut avoir une topologie différente par phase et même par sous-graphe.**
+
+---
+
+## 14. Les variantes utiles de A-Team
+
+| Variante | Structure | Cas idéal |
+|----------|-----------|-----------|
+| **Expert Committee** | experts parallèles + intégrateur | audit, diagnostic multidomaine |
+| **Pipeline** | A → B → C → D | artefact transformé étape par étape |
+| **Project DAG** | graphe arbitraire de dépendances | logiciel, ingénierie, recherche |
+| **Cross-Functional Pod** | petite équipe fortement couplée | feature produit complète |
+| **Boundary-Spanner** | experts + agents d'interface | domaines avec interfaces difficiles |
+| **Matrix Team** | rôles métier × expertises transverses | gros projet complexe |
+| **Tiger Team** | équipe minimale créée autour d'un blocage | bug critique, incident localisé |
+| **Incident Command** | commandement + fonctions spécialisées | panne, cyberincident, urgence |
+| **Multiteam System** | plusieurs A-Teams coordonnées | projet trop grand pour une seule équipe |
+| **Adaptive A-Team** | recrutement/libération/réaffectation dynamiques | mission longue et incertaine |
+| **Relay Team** | transfert temporel d'un même artefact | travail long / environnements asynchrones |
+
+La plus importante est probablement **Project DAG**, car elle généralise la majorité des autres.
+
+---
+
+## 15. Le plafond de trois spécialistes doit disparaître
+
+Trois est un bon budget initial. Ce n'est pas une propriété d'une équipe multidisciplinaire.
+
+Les travaux MacNet ont exploré des graphes de collaboration beaucoup plus grands et montrent que la structure du réseau est elle-même un facteur important de performance. La limite pertinente est la complexité de coordination, pas le chiffre trois ([arXiv][7]).
+
+Je remplacerais `MAX_A_TEAM_MEMBERS = 3` par :
+```text
+maxTeamSize = function(budget, coordinationCapacity, taskGraph, communicationCost)
+```
+
+Exemples :
+```text
+mission simple multidomaine     → 3 agents
+application complète            → 6 agents
+gros projet                     → 3 sous-A-Teams de 4 agents
+```
+
+Le garage peut toujours imposer une limite physique. Ce n'est simplement plus une limite conceptuelle.
+
+---
+
+## 16. A-Team doit supporter des équipes de teams
+
+Prenons « Crée toute une application mobile bancaire ». Une seule équipe frontend/backend/security serait insuffisante.
+
+Une structure ultime :
+```text
+                     Program Orchestrator
+                            │
+        ┌───────────────────┼───────────────────┐
+        ▼                   ▼                   ▼
+    Product Team       Platform Team       Assurance Team
+    ────────────       ─────────────       ──────────────
+    UX                 Backend             Security
+    Mobile             Data                QA
+    Accessibility      Infra               Compliance
+```
+
+Chaque groupe est une A-Team locale. Les interfaces entre équipes deviennent elles-mêmes des contrats. C'est le modèle **Multiteam System**.
+
+---
+
+## 17. La spécialisation doit aussi être temporelle
+
+Un security engineer ne doit pas nécessairement attendre la fin. Il peut avoir plusieurs modes :
+```text
+DESIGN CONSULTANT → CHECKPOINT REVIEWER → RED TEAM → FINAL GATE
+```
+
+Même agent, différents droits au cours de la mission.
+
+Le code actuel déduit le statut de consommateur/reviewer depuis le nom du rôle (`/reviewer|observer|integration/`). Ainsi `security_reviewer` est automatiquement mis après les producteurs. Ce n'est pas toujours souhaitable — la sécurité doit parfois intervenir **avant** le backend pour définir les invariants.
+
+Il faut remplacer cette inférence par :
+```text
+participationMode: producer | consultant | reviewer | integrator | verifier | decision_owner
+```
+et permettre plusieurs modes au fil des phases.
+
+---
+
+## 18. A-Team doit savoir créer des Boundary Spanners
+
+Certaines erreurs apparaissent précisément entre deux disciplines : Frontend ↔ Backend, Backend ↔ Data, Backend ↔ Security, ML ↔ Product, Research ↔ Engineering.
+
+Un spécialiste de chaque côté peut être excellent et produire néanmoins une mauvaise interface. Il peut donc être rentable de créer un agent temporaire :
+```text
+API contract integrator
+security/backend boundary reviewer
+```
+qui ne possède aucun domaine complet. Son domaine est **l'interface**. C'est une capacité qui manque beaucoup aux architectures multi-agents centrées uniquement sur les rôles.
+
+---
+
+## 19. L'intégration doit être continue, pas finale
+
+Aujourd'hui la logique ressemble encore trop à « specialists work → all finish → integration ». Pour un travail complexe, il faut :
+```text
+produce → integrate → detect mismatch → repair locally → continue
+```
+
+Exemple :
+```text
+Backend publishes API Contract v1
+        ↓
+Frontend receptor validates
+        ↓
+REJECT: missing pagination metadata
+        ↓
+Backend repairs
+        ↓
+API Contract v2
+        ↓
+ACCEPT
+```
+
+On évite ainsi de découvrir tout à la fin que les différentes branches sont incompatibles.
+
+---
+
+## 20. Le véritable Integration Graph
+
+Une A-Team ultime pourrait maintenir :
+```text
+Frontend
+ ├── consumes API_SCHEMA#12      ✓
+ ├── consumes AUTH_POLICY#4     ✓
+ └── exports UI_EVENTS#8        ✓
+
+Backend
+ ├── consumes DATA_SCHEMA#7     ✓
+ ├── exports API_SCHEMA#12      ✓
+ └── must satisfy AUTH_INV#17   ✗
+
+Security
+ └── owns AUTH_INV#17
+
+Data
+ └── exports DATA_SCHEMA#7
+```
+
+À cet instant :
+```text
+Team status = BLOCKED
+Reason = backend violates AUTH_INV#17
+```
+
+Pas besoin d'un LLM intégrateur pour deviner que quelque chose va mal. C'est un système de **contracts + evidence**.
+
+---
+
+## 21. Le Pareto reste utile, mais ailleurs
+
+Il ne faut pas supprimer Arena/Pareto. Il faut l'appliquer au bon niveau :
+```text
+3 database implementations → Pareto
+3 API designs → Pareto
+3 deployment strategies → Pareto
+```
+
+Puis la branche Data ou Backend transmet la solution retenue à l'équipe. Pareto peut également gérer cost, latency, robustness, maintainability au niveau d'une décision commune.
+
+Mais pas `frontend vs backend vs security`.
+
+---
+
+## 22. L'équipe doit recruter lorsque le problème change
+
+Imagine : Frontend + Backend + Data travaillent. Le backend découvre « OAuth multi-tenant is much harder than expected ».
+
+Aujourd'hui cela devient surtout une contrainte/escalade. A-Team ultime doit pouvoir :
+```text
+detect capability gap → search expertise graph → recruit security specialist → recompute dependency graph → adjust budget → continue
+```
+
+Puis libérer cet agent quand son rôle n'est plus utile.
+
+AgentVerse explore déjà la composition dynamique de groupes et DyLAN la sélection dynamique d'agents ; A-Team peut aller plus loin en liant le recrutement à son graphe de capacités, son ADN, sa mémoire et Morphogenesis ([arXiv][8]).
+
+---
+
+## 23. Le failure recovery doit être organisationnel
+
+Si le spécialiste Data échoue, ne pas nécessairement tuer la mission. A-Team doit demander :
+```text
+Is Data on critical path?
+Is another member capable of temporary coverage?
+Is replacement available?
+Can work continue without this deliverable?
+```
+
+Puis : replace specialist / reassign responsibility / split domain / defer branch / block mission. Cela ressemble davantage à une vraie équipe résiliente.
+
+---
+
+## 24. Le biomimétisme peut devenir beaucoup plus profond
+
+Le meilleur analogue biologique n'est pas « on appelle le message ligand ». Ce sont les mécanismes derrière.
+
+| Mécanisme naturel | Traduction utile |
+|-------------------|------------------|
+| différenciation cellulaire | agents spécialisés exprimant des capacités différentes |
+| ligand/récepteur | communication uniquement vers agents capables/intéressés |
+| tissus | groupes de fonctions fortement couplées |
+| membranes | frontières de responsabilité/interface |
+| jonctions cellulaires | contrats directs entre voisins |
+| système nerveux | signaux rapides et critiques |
+| hormones | broadcast rares et globaux |
+| système immunitaire | validation des outputs à risque |
+| cicatrisation | recrutement/reconfiguration après panne |
+| apoptose | retrait d'un membre nuisible/inutile |
+| homéostasie | régulation charge/budget/capacité |
+
+La règle biomimétique devient : **Communication sélective, différenciation fonctionnelle et adaptation structurelle.** Pas nomenclature biologique.
+
+---
+
+## 25. Les communications devraient avoir plusieurs vitesses
+
+```text
+fast path     → interface changed, test failed, security invariant broken
+slow path     → architecture rationale, lessons learned, long-term memory
+broadcast     → mission objective changed
+unicast       → API schema changed for frontend
+multicast     → authentication contract changed → frontend + backend + security
+```
+
+Cela exploite directement le système de communication GenOS déjà développé.
+
+---
+
+## 26. Prébrief et debrief doivent devenir obligatoires
+
+La science des équipes humaines apporte ici quelque chose de très concret.
+
+Avant exécution, **TEAM PREBRIEF** doit établir :
+```text
+goal, success criteria, roles, ownership, dependencies, communication protocol, decision authority, expected risks
+```
+
+Après mission, **TEAM DEBRIEF** doit enregistrer :
+```text
+what worked, what failed, bad handoffs, wrong staffing, missing expertise, communication waste, unexpected expertise
+```
+
+Une méta-analyse de 46 échantillons a trouvé une amélioration moyenne substantielle des performances avec des debriefs structurés, autour de 20–25 % par rapport aux contrôles ([PubMed][9]).
+
+Pour GenOS, cela peut directement alimenter Agent memory, AgentDNA, relationship history, team formation priors, communication policies.
+
+---
+
+## 27. Les cas d'utilisation où A-Team est vraiment naturelle
+
+| Mission | Composition possible |
+|---------|----------------------|
+| Feature full-stack | Product + Frontend + Backend + Data + QA |
+| Authentification complexe | Backend + Security + Data + QA |
+| Incident production | Incident lead + Ops + Backend + Data + Security |
+| Migration majeure | Data + Backend + Ops + QA |
+| Projet IA | ML/AI + Data + Backend + Product + Evaluation |
+| Recherche scientifique appliquée | Researcher + Statistician + Engineer + Reviewer |
+| Architecture complexe | Architect + Domain specialists + Security + Operations |
+| Application mobile | Mobile + Backend + UX + Data + QA |
+| Création narrative | Author + Dramaturg + Critic |
+| Benchmark GenOS | Research + Experiment design + Implementation + Statistics |
+| Optimisation mathématique industrialisée | Mathematician + Solver engineer + Software engineer + Verifier |
+
+La condition générale est $Solution = f(Specialty_1,\ldots,Specialty_n)$ où aucune spécialité seule ne suffit.
+
+---
+
+## 28. Quand A-Team ne doit pas être utilisée
+
+| Forme du problème | Topologie plus naturelle |
+|-------------------|--------------------------|
+| une seule tâche simple | direct |
+| plusieurs solutions concurrentes | Trinity |
+| agents partageant un état extrêmement couplé | Syncytium |
+| décision communautaire/consensus | Biocénose |
+| exploration sans structure prédéfinie | Rhizome |
+| populations + environnement + ressources | Biome |
+| noyau + extensions symbiotiques | Holobionte |
+| populations semi-autonomes résilientes | Métapopulation |
+
+Le test mental :
+> **Ai-je besoin de plusieurs façons de résoudre la même chose ? → Trinity.**
+> **Ai-je besoin de plusieurs compétences différentes pour construire la même chose ? → A-Team.**
+
+---
+
+## 29. Comparaison avec les architectures de recherche
+
+MetaGPT a montré l'intérêt de transformer des workflows humains en SOP et rôles spécialisés, dans une logique d'assembly line ([arXiv][10]).
+
+Magentic-One utilise un orchestrateur qui planifie, suit l'avancement et replanifie, avec plusieurs agents spécialisés ([arXiv][11]).
+
+DyLAN pousse davantage la sélection dynamique des agents ([arXiv][2]).
+
+MacNet explore le problème comme un graphe de collaboration et montre l'intérêt de topologies non triviales ([ICLR Proceedings][12]).
+
+AgentPrune attaque l'autre extrême : trop de communication est coûteux et peut propager de mauvaises informations ([arXiv][5]).
+
+L'A-Team ultime de GenOS devrait réunir ces dimensions mais ajouter :
+```text
+persistent specialist identities
++ capability/genome-based staffing
++ transactive memory
++ typed ownership
++ typed producer/consumer contracts
++ selective communication
++ continuous integration
++ dynamic organizational topology
++ adaptive recruitment
++ team-of-teams
++ evidence before handoff
++ Morphogenesis
++ team learning across missions
+```
+
+---
+
+## 30. Architecture ultime
+
+```text
+                         MISSION
+                            │
+                            ▼
+                    [A-Team Eligibility]
+                 complementary skills needed?
+                            │
+                            ▼
+                    [Work Graph Compiler]
+                   tasks + interfaces + risks
+                            │
+                            ▼
+                  [Capability Gap Analysis]
+                            │
+                            ▼
+                  [Team Formation Optimizer]
+               ┌────────────┼──────────────┐
+               ▼            ▼              ▼
+            agent A       agent B        agent C...
+               │            │              │
+               └────── Team Prebrief ──────┘
+                            │
+                            ▼
+                   [Transactive Memory]
+                     "who knows what?"
+                            │
+                            ▼
+                   [Adaptive Work Graph]
+                            │
+          ┌─────────────────┼──────────────────┐
+          ▼                 ▼                  ▼
+       specialist       specialist         specialist
+          │                 │                  │
+          └────── typed handoffs/contracts ────┘
+                            │
+                            ▼
+                 [Continuous Integration]
+                   contracts + evidence
+                            │
+              mismatch ─────┼───── success
+                  │         │
+                  ▼         ▼
+             repair /       next stages
+             recruit
+                  │
+                  ▼
+                 [Morphogenesis]
+                            │
+                            ▼
+                    FINAL INTEGRATION
+                            │
+                            ▼
+                       TEAM DEBRIEF
+                            │
+                            ▼
+              Memory / DNA / Relations / Priors
+```
+
+---
+
+## 31. Ce qui pourrait réellement rendre A-Team exceptionnelle
+
+Le différenciateur ne serait pas « GenOS dispose de spécialistes ». C'est désormais courant.
+
+Le vrai différenciateur serait qu'A-Team devienne capable de répondre en continu à sept questions :
+```text
+WHO should be in this team?
+WHAT exactly does each member own?
+WHO needs WHAT from whom?
+WHEN is that information needed?
+HOW should it be communicated?
+IS the produced interface actually compatible?
+SHOULD the organization change now?
+```
+
+Et surtout qu'elle puisse **modifier ses réponses pendant la mission**.
+
+À ce stade, A-Team ne serait plus un pattern de prompts. Ce serait véritablement **le système d'organisation adaptative de GenOS : une équipe capable de se composer, se spécialiser, communiquer sélectivement, intégrer son travail, se réparer et apprendre à mieux travailler ensemble.**
+
+A-Team ultime ne doit pas être organisée autour d'une « fusion des réponses », mais autour de la fabrication vérifiable d'un système de contributions compatibles.
+
+---
+
+## 32. Contrat runtime
+
+### ATeamMission
+
+```typescript
+ATeamMission {
+    missionId
+    missionSnapshotHash
+    domain
+    variant  // expert_committee | pipeline | project_dag | cross_functional_pod | boundary_spanner | matrix_team | tiger_team | incident_command | multiteam_system | adaptive | relay_team
+    workGraph
+    capabilityGapAnalysis
+    teamFormation
+    transactiveMemory
+    prebrief
+    debrief
+    status
+    decision
 }
 ```
 
-Si le garage est plein, l'activation est reportée ou l'A-Team est dégradée (nombre réduit d'agents).
+### ATeamMember
 
----
-
-## 13. Télémétrie et observabilité
-
-Le système enregistre pour chaque mission A-Team :
-
-- **analysisFit** : score d'adéquation de la mission à l'A-Team (ratio de couverture des capacités)
-- **memberActivationOrder** : ordre d'activation des domaines
-- **memberCount** : nombre de membres effectivement évalués
-- **fusionDecision** : résultat (`merged`, `escalated`)
-- **integrationConstraintViolations** : nombre de conflits détectés (contamination + contraintes manquantes)
-- **continuationRounds** : nombre de relances de synchronisation
-- **paretoFrontCount** / **totalEvaluated** : taille du front de Pareto et des candidats évalués
-
-Ces métriques sont calculées par `aTeamComparativeBarrier.buildAteamMetrics`, attachées
-à `aTeam.metrics` et émises sous l'événement **`A_TEAM_METRICS`** au moment de la fusion.
-
-Ces métriques aident à :
-
-- **valider l'efficacité** : l'A-Team résout-elle les missions multidisciplinaires plus vite qu'un orchestrateur générique ?
-- **détecter les domaines problématiques** : quels domaines produisent le plus d'incohérences ?
-- **optimiser l'allocation** : peut-on prédire le succès avant d'allouer le budget ?
-
----
-
-## 14. Cas d'usage typiques
-
-### Cas 1 : Développement d'application full-stack
-
-**Mission :** Construire un système de gestion de tâches collaborative avec authentification sécurisée et tests complets.
-
-**A-Team activée :**
-- `frontend_engineer` : interface réactive, gestion d'état
-- `backend_engineer` : API RESTful, persistence
-- `security_reviewer` : audit OAuth, validation des permissions
-- `quality_engineer` : tests e2e, couverture de code
-
-**Barrière d'évidence :**
-- Frontend propose des maquettes + composants React
-- Backend propose des endpoints + schéma DB
-- Security certifie OAuth + CSRF mitigation
-- Quality rapporte couverture de tests > 80%
-
-**Fusion :** Cohérent. Tous les agents acceptent de converger.
-
-### Cas 2 : Recherche et développement d'algorithme
-
-**Mission :** Implémenter une pipeline de machine learning avec découverte automatique d'hyperparamètres et audit de biais.
-
-**A-Team activée :**
-- `ai_engineer` : architecture du modèle, entraînement
-- `data_engineer` : ETL, validation des données
-- `science_reviewer` : falsification d'hypothèses, reproductibilité
-- `quality_engineer` : benchmarks, ablation studies
-
-**Barrière d'évidence :**
-- AI Engineer propose modèle + code d'entraînement
-- Data Engineer valide la qualité du dataset
-- Science Reviewer demande : "Quelle est la null hypothesis ?"
-- Quality Engineer propose ablation matrix
-
-**Fusion :** Avec escalade science. La falsification de l'hypothèse doit être explicite.
-
-### Cas 3 : Simplification (pas d'A-Team)
-
-**Mission :** Écrire une fonction de tri en TypeScript.
-
-**Analyse :** 1 domaine détecté (`backend`). A-Team non recommandée.
-
-**Résultat :** Orchestrateur générique ou worker unique.
-
----
-
-## 15. Cas d'erreur et escalade
-
-### Erreur 1 : Garage plein
-
-```
-WORKER_GARAGE_FULL: A-Team requires 3 free slots, but worker garage is full (slots: 2/3 used — wait or increase MAX_ACTIVE_WORKERS).
-Action: attendre la libération d'un ouvrier ou augmenter GENOS_MAX_ACTIVE_WORKERS.
+```typescript
+ATeamMember {
+    memberId
+    subSystem
+    role
+    model
+    provider
+    cognitiveRecipe
+    capabilities
+    ownedDomain
+    consumedInterfaces
+    consultedAgents
+    participationModes  // producer | consultant | reviewer | integrator | verifier | decision_owner
+    tokenBudget
+    workspaceSnapshot
+    handoffContracts
+    evidenceDossier
+    claimGraph
+}
 ```
 
-### Erreur 2 : Incohérence de fusion
+### HandoffContract
 
-```
-INTEGRATION_CONSTRAINT_VIOLATED:
-  - Backend promises email field in User API
-  - Security forbids exposing email
-  - Action: dispatch continuation to backend + security or escalade.
-```
-
-### Erreur 3 : Domaine contaminé
-
-```
-WORKER_DOMAIN_CONTAMINATION:
-  - Backend agent proposed database schema (valid: backend domain)
-  - BUT ALSO proposed API authentication logic (invalid: security domain)
-  - Action: reject backend evidence, request re-focus.
-```
-
-### Erreur 4 : Preuve insuffisante
-
-```
-WORKER_EVIDENCE_INSUFFICIENT:
-  - Frontend agent returned UI components
-  - BUT no accessibility audit (expected for quality assurance)
-  - Action: dispatch quality_engineer for supplementary audit.
+```typescript
+HandoffContract {
+    contractId
+    producerId
+    consumerId
+    artifactRefs
+    claims
+    assumptions
+    interfaceSchema
+    preconditions
+    postconditions
+    invariants
+    evidenceRefs
+    openQuestions
+    knownRisks
+    acceptanceCriteria
+    version
+    status  // pending | accepted | partial_accept | reject | request_repair | request_clarification
+}
 ```
 
 ---
 
-## 16. Configuration et paramètres
+## 33. Architecture du système (fichiers)
 
-### Variables d'environnement
+| Fichier | Rôle |
+|---------|------|
+| `backend/src/services/aTeamService.js` | Analyse de mission, détection de domaines, composition de l'équipe |
+| `backend/src/services/aTeamCoordinationService.js` | Coordination (organisation, contrat de capacités, handoffs) |
+| `backend/src/services/aTeamComparativeBarrier.js` | Arbitrage d'intégration (Pareto/Elo), `canMerge` et métriques |
+| `backend/src/services/aTeamIntegrationObserver.js` | Observateur impartial (contamination, contraintes d'intégration) |
+| `backend/src/services/aTeamStageScheduler.js` | Ordonnancement bloquant des étages |
+| `backend/src/services/aTeamDispatchService.js` | Lancement de l'étage 0 et détachement du runner |
+| `backend/src/services/agentAutonomyPlanService.js` | Activation conditionnelle selon budget et recommandation |
+| `backend/src/services/agentFleetService.js` | Création des workers multidisciplinaires |
+| `backend/src/services/agentOrchestrationState.js` | État partagé, barrières d'évidence |
+| `backend/src/services/workerGarageService.js` | Gestion des slots de workers |
+
+---
+
+## 34. Télémétrie et observabilités
+
+Nouvelles métriques enregistrées pour chaque mission A-Team :
+
+```text
+missionId, variant
+workGraph: { nodes, edges, contracts }
+capabilityGapAnalysis: { required, staffed, gaps }
+teamFormation: { agents, expertiseFit, complementarity, coordinationCost }
+transactiveMemory: { knowledgeLocations, queries, hits }
+prebrief: { goal, roles, dependencies, protocol }
+handoffs: { total, accepted, rejected, repaired, avgLatency }
+integrationGraph: { contracts, satisfied, violated, blocked }
+continuousIntegration: { cycles, mismatches, repairs, recruits }
+debrief: { worked, failed, badHandoffs, missingExpertise, communicationWaste }
+learningFeedback: { teamFormationPriors, communicationPolicies }
+```
+
+---
+
+## 35. Moniteur TUI natif (`genos run --mode ateam --monitor`)
+
+```text
+backend/src/services/aTeamMonitorServer.js
+  ↓ NDJSON TCP 127.0.0.1:4591
+genos-tui (crates/genos-cli/src/commands/ateam_tui/)
+  ├── live.rs      : client TCP, reconnexion automatique
+  ├── model.rs     : applique snapshot / log / barrier / handoff
+  └── view.rs      : rend Work Graph + panneau Integration Contracts
+```
+
+Protocole NDJSON :
+
+```json
+{"type":"snapshot", missionId, prompt, workGraph:[...], integration:{status, contracts:[...]}}
+{"type":"log", missionId, memberId, line, severity, timestamp}
+{"type":"handoff", missionId, contractId, producer, consumer, status}
+{"type":"integration", missionId, status, violated:[...], blocked:[...]}
+{"type":"decision", missionId, decision, reasoning}
+```
+
+Commande :
 
 ```bash
-# Nombre maximal de membres de l'A-Team
-export GENOS_MAX_ATEAM_MEMBERS=3
-
-# Nombre maximal de workers autonomes (partagé avec Trinity)
-export GENOS_MAX_AUTONOMOUS_WORKERS=6
-
-# Budget alloué aux workers (ratio du budget total)
-export GENOS_WORKER_ALLOCATION_RATIO=0.6
-
-# Tokens minimum par worker
-export GENOS_MIN_TOKENS_PER_WORKER=8000
-```
-
-### Configuration de domaines personnalisés
-
-Pour ajouter un domaine personnalisé, modifier [backend/src/services/aTeamService.js](../../../backend/src/services/aTeamService.js) :
-
-```javascript
-TECHNICAL_DOMAIN_RULES.push({
-  domain: 'custom_domain',
-  role: 'custom_specialist',
-  modelTier: 'standard',
-  signals: [/your regex patterns/i]
-});
+genos run --mode ateam --monitor
+genos run --mode ateam --monitor --mission-id ateam_1234567890_ab12
 ```
 
 ---
 
-## 17. Limitations et design notes
-
-### Limitation de capacité (3 domaines max)
-
-Pourquoi 3 et pas plus ?
-
-- **Explosion combinatoire** : fusionner $n$ domaines exige $O(n^2)$ validations de compatibilité.
-- **Complexité cognitive** : au-delà de 3, les orchestrateurs humains perdent le contexte.
-- **Efficacité de preuve** : avec 3 agents dédiés, la couverture et la qualité surpassent les generic workers.
-
-### Exclusion mutuelle Trinity/A-Team
-
-Pourquoi pas les deux ?
-
-- Trinity est un pipeline d'orchestration *temporelle* (séquence de phases).
-- A-Team est une décomposition *spatiale* (domaines parallèles).
-- Les deux interfèrent sur la gestion du budget et les décisions de gate.
-- Empiriquement, activer les deux produit des cycles de synchronisation inefficaces.
-
-### Pas de vraie "intelligence d'équipe"
-
-La A-Team ne négocie pas, ne débat pas, ne vote pas. Elle :
-
-- exécute en parallèle dans les domaines assignés ;
-- retourne des preuves et des contraintes ;
-- accepte ou refuse la fusion selon une logique de satisfaction de contraintes.
-
-Toute négociation ou dépassement est une escalade vers l'orchestrateur ou l'humain.
-
----
-
-## Références internes
+## 36. Références internes
 
 - [ORCHESTRATION.md](../orchestration.md) : orchestration générale, gates et phases
+- [TRINITY.md](trinity.md) : orchestration comparative par hypothèses
 - [RUNTIME_AGENTIQUE.md](../../01-concepts/runtime-agentique.md) : runtime des agents autonomes
 - [PRIMITIVES_EXECUTABLES.md](../primitives-executables.md) : outils d'exécution et isolation
-- [aTeamService.js](../../../backend/src/services/aTeamService.js) : implémentation de l'analyse
-- [agentAutonomyPlanService.js](../../../backend/src/services/agentAutonomyPlanService.js) : activation et allocation
-- [agentFleetService.js](../../../backend/src/services/agentFleetService.js) : création et gestion des workers
-- Tests : [backend/tests/test_a_team.js](../../../backend/tests/test_a_team.js)
-
-
+- [TOPOLOGIES_ET_CAPACITES.md](../topologies-et-capacites.md) : capacités A-Team dans v3
+- [aTeamService.js](../../../backend/src/services/aTeamService.js) : implémentation analyse
+- [aTeamCoordinationService.js](../../../backend/src/services/aTeamCoordinationService.js) : coordination
+- [aTeamComparativeBarrier.js](../../../backend/src/services/aTeamComparativeBarrier.js) : arbitrage
+- [aTeamIntegrationObserver.js](../../../backend/src/services/aTeamIntegrationObserver.js) : observateur
+- [aTeamStageScheduler.js](../../../backend/src/services/aTeamStageScheduler.js) : ordonnancement
+- [aTeamDispatchService.js](../../../backend/src/services/aTeamDispatchService.js) : déploiement
+- [agentAutonomyPlanService.js](../../../backend/src/services/agentAutonomyPlanService.js) : activation
+- Tests : [backend/tests/test_ateam_stage_scheduler.js](../../../backend/tests/test_ateam_stage_scheduler.js)
 
 ---
 
-## Schémas d'Architecture et d'Orchestration A-Team
+## 37. Références externes
 
-### 1. Architecture Topologique de la A-Team
+| Référence | Apport pour A-Team |
+|-----------|---------------------|
+| [APA, Salas — Teamwork](https://www.apa.org/news/podcasts/speaking-of-psychology/teamwork) | Les 7 Cs de l'équipe efficace : capability, cooperation, coordination, cognition, communication, coaching, conditions |
+| [DyLAN, Liu 2023](https://arxiv.org/abs/2310.02170) | Sélection dynamique des agents, team optimization avant résolution |
+| [APA, Fisher 2015 — Transactive Memory](https://www.apa.org/pubs/highlights/spotlight/issue-39) | Systèmes de mémoire transactive : « qui sait quoi » |
+| [PubMed, Hidden Profiles](https://pubmed.ncbi.nlm.nih.gov/21896790/) | Groupes discutent plus les infos communes que les infos uniques |
+| [AgentPrune, Zhang 2024](https://arxiv.org/abs/2410.02506) | Élagage du graphe de communication : −72.8% tokens, performances conservées |
+| [Shen 2025, Communication Topologies](https://arxiv.org/abs/2505.23352) | Connectivité modérément sparse préférable à dense/pauvre |
+| [MacNet, Qian 2024](https://arxiv.org/abs/2406.07155) | Graphe de collaboration multi-agent, scaling law collaborative |
+| [AgentVerse, Chen 2023](https://arxiv.org/abs/2308.10848) | Composition dynamique de groupes, comportements émergents |
+| [PubMed, Debriefs Meta-Analysis](https://pubmed.ncbi.nlm.nih.gov/23516804/) | Debriefs structurés → +20–25% performance |
+| [MetaGPT, Hong 2023](https://arxiv.org/abs/2308.00352) | SOP et rôles spécialisés en assembly line |
+| [Magentic-One, Fourney 2024](https://arxiv.org/abs/2411.04468) | Orchestrateur planifie/suit/replanifie avec agents spécialisés |
+| [ICLR, MacNet Proceedings](https://proceedings.iclr.cc/paper_files/paper/2025/hash/66a026c0d17040889b50f0dfa650e5e0-Abstract-Conference.html) | Topologies non triviales, collaborative emergence |
+
+---
+
+## 38. Implementation & capacités (GenOS v3)
+
+Depuis la v3, cette topologie est câblée au runtime :
+
+- Service de coordination : `aTeamCoordinationService.js + aTeamService.js`.
+- Capacités requises : `EVIDENCE_BARRIER`, `EPISTEMICS_BARRIER`, `ARENA_COMPETITION`, `PROMOTION_GATE`, `INTEGRATION_CONTRACT_GRAPH`, `TRANSACTIVE_MEMORY`, `ADAPTIVE_WORK_GRAPH`.
+- Contrat exposé par `topologyCapabilityService` et rendu effectif dans les leases d'outils.
+
+---
+
+*Schémas d'architecture*
+
+### Architecture A-Team ultime
 
 ```mermaid
 flowchart TB
-    subgraph Input["Entrée Mission"]
-        Task["Spécification de Mission & Contraintes"]
-        DomainAnalyzer["Analyseur de Domaine (AST / Heuristique)"]
-    end
+    Mission["Mission multi-compétences"] --> Gate["A-Team Eligibility\ncompétences complémentaires requises?"]
 
-    subgraph A_Team_Core["Cœur A-Team (Équipe Spécialisée)"]
-        LeadArch["Lead Architect (Frontier LLM)"]
-        SpecDev["Core Developer (Standard LLM)"]
-        SpecSec["Security Officer (SecOps / Rust)"]
-        SpecDoc["Doc & Compliance Writer"]
-    end
+    Gate --> Compiler["Work Graph Compiler\ntâches + interfaces + risques"]
+    Compiler --> Gap["Capability Gap Analysis\nrequis vs staffés vs gaps"]
+    Gap --> Formation["Team Formation Optimizer\nCoverage + ExpertiseFit + Complementarity - CoordinationCost"]
 
-    subgraph QualityControl["Quality Gate & CI/CD"]
-        CI_Test["Suite de Tests Déterministes"]
-        SecAudit["Audit de Sécurité & Non-Régression"]
-        JudgeGate["Gate de Promotion Finale"]
-    end
+    Formation --> Agents["Agents spécialisés\navec participationModes"]
+    Agents --> Prebrief["Team Prebrief\nrôles, ownership, protocole"]
 
-    Task --> DomainAnalyzer
-    DomainAnalyzer --> LeadArch
-    LeadArch --> SpecDev
-    LeadArch --> SpecSec
-    LeadArch --> SpecDoc
-    SpecDev --> CI_Test
-    SpecSec --> SecAudit
-    SpecDoc --> JudgeGate
-    CI_Test --> JudgeGate
-    SecAudit --> JudgeGate
+    Prebrief --> Memory["Transactive Memory\nwho knows what?"]
+    Memory --> WorkGraph["Adaptive Work Graph"]
+
+    WorkGraph --> Specialists["Spécialistes en parallèle"]
+    Specialists --> Handoffs["Typed Handoffs / Contracts\nartifact + claims + interface + invariants"]
+
+    Handoffs --> Integration["Continuous Integration\ncontracts + evidence"]
+
+    Integration --> Decision{"Décision"}
+    Decision --> Success["Suivre prochaines étapes"]
+    Decision --> Mismatch["Mismatch détecté"]
+    Decision --> Recruit["Nouvelle compétence requise"]
+
+    Mismatch --> Repair["Repair / Replace / Escalate"]
+    Recruit --> Morpho["Morphogenesis\nrecruitement dynamique"]
+
+    Repair --> WorkGraph
+    Morpho --> WorkGraph
+
+    Success --> Final["Final Integration"]
+    Final --> Debrief["Team Debrief"]
+    Debrief --> Learning["Memory / DNA / Relations / Priors"]
 ```
 
-### 2. Séquence d'Interactions et Convergence A-Team
+### Séquence A-Team avec Handoffs Typés
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as Opérateur
-    participant Lead as Lead Architect
-    participant Dev as Core Developer
-    participant Sec as Security Specialist
-    participant Gate as Quality Gate CI/CD
+    participant Compiler as Work Graph Compiler
+    participant Formation as Team Formation
+    participant A as Frontend Engineer
+    participant B as Backend Engineer
+    participant C as Security Engineer
+    participant I as Integration Graph
+    participant DG as Decision Gate
 
-    User->>Lead: Objectif Complexe (ex: Refactor Auth gRPC)
-    activate Lead
-    Lead->>Lead: Décomposition modulaire & Contrats d'interfaces
-    Lead->>Dev: Mandat d'implémentation (Code & Tests)
-    Lead->>Sec: Mandat d'audit de menaces (Threat Model)
-    deactivate Lead
-    
-    activate Dev
-    Dev->>Dev: Écriture du code & assertions unitaires
-    Dev->>Gate: Soumission Pull-Request locale
-    deactivate Dev
-    
-    activate Sec
-    Sec->>Gate: Règles de validation & Vecteurs d'attaque testés
-    deactivate Sec
-    
-    activate Gate
-    Gate->>Gate: Exécution build, fuzzing & analyse statique
-    alt Gate PASS (Score >= 0.95)
-        Gate-->>Lead: Validation formelle
-        Lead-->>User: Mission accomplie avec rapport d'audit
-    else Gate FAIL
-        Gate-->>Dev: Logs d'erreur & rejet
-        Dev->>Dev: Cycle correctif
+    User->>Compiler: Mission multi-compétences
+    Compiler->>Compiler: Extrait tâches, interfaces, risques
+    Compiler->>Formation: Domaines requis
+
+    Formation->>Formation: Optimise TeamUtility sous contraintes
+    Formation->>A: Sélectionné (frontend, outils, historique)
+    Formation->>B: Sélectionné (backend, outils, historique)
+    Formation->>C: Sélectionné (security, outils, historique)
+
+    par Prebrief
+        Formation->>A: Rôle, ownership, dépendances
+        Formation->>B: Rôle, ownership, dépendances
+        Formation->>C: Rôle, ownership, dépendances
     end
-    deactivate Gate
+
+    par Exécution parallèle
+        A-->>A: Produit UI + API schema attendu
+        B-->>B: Produit API + DB schema
+        C-->>C: Produit auth invariants
+    end
+
+    par Handoffs typés
+        B->>A: HandoffContract(API_SCHEMA#12)
+        A->>I: ACCEPT / PARTIAL / REJECT / REPAIR
+        C->>B: HandoffContract(AUTH_INV#17)
+        B->>I: must satisfy AUTH_INV#17
+    end
+
+    I->>I: Vérifie tous les contrats
+    I->>DG: Statut intégration
+
+    alt Tous contrats satisfaits
+        DG-->>User: Solution intégrée
+    else Contrat violé
+        DG->>B: Repair requis
+        B-->>B: Répare
+        B->>I: Nouveau contrat
+        I->>DG: Re-vérifie
+    end
+
+    DG->>DG: Debrief
+    DG-->>User: Résultat + leçons
 ```
 
-### 3. Machine à états du Cycle de Collaboration
+### Machine à états A-Team
 
 ```mermaid
 stateDiagram-v2
-    [*] --> CompositionEquipe : Analyse des compétences requises
-    CompositionEquipe --> Briefing : Attribution des rôles
-    
-    state PhaseExecution {
-        [*] --> TravailParallele
-        TravailParallele --> RevueCroisee : Diff et claims prêts
-        RevueCroisee --> ArbitrageArchitecte : Conflit d'architecture
-        ArbitrageArchitecte --> TravailParallele : Consensus résolu
+    [*] --> Eligibilité
+
+    state Eligibilité {
+        [*] --> Analyse
+        Analyse --> Activé : Compétences complémentaires requises
+        Analyse --> Refusé : Tâche simple ou mono-compétence
     }
-    
-    Briefing --> PhaseExecution
-    PhaseExecution --> QualityGateEvaluation : Soumission globale
-    
-    QualityGateEvaluation --> DeploiementSucces : Tous critères validés
-    QualityGateEvaluation --> PhaseExecution : Échec de tests (Feedback)
-    
-    DeploiementSucces --> [*]
+
+    Eligibilité --> WorkGraphCompiler : Activé
+    WorkGraphCompiler --> CapabilityGapAnalysis
+    CapabilityGapAnalysis --> TeamFormation
+
+    state TeamFormation {
+        [*] --> SélectionAgents
+        SélectionAgents --> VérificationBudget
+        VérificationBudget --> Prébrief
+    }
+
+    TeamFormation --> TransactiveMemory
+    TransactiveMemory --> AdaptiveWorkGraph
+
+    AdaptiveWorkGraph --> Exécution
+
+    state Exécution {
+        [*] --> SpécialistesParallèles
+        SpécialistesParallèles --> Handoffs
+        Handoffs --> IntégrationContinue
+    }
+
+    Exécution --> Intégration
+
+    state Intégration {
+        [*] --> VérificationContrats
+        VérificationContrats --> Satisfait : Tous contrats OK
+        VérificationContrats --> Violé : Contrat non satisfait
+        Violé --> Repair
+        Repair --> VérificationContrats
+    }
+
+    Intégration --> DecisionGate
+
+    state DecisionGate {
+        [*] --> Évalue
+        Évalue --> FinalIntegration : Succès
+        Évalue --> Recrutement : Nouvelle compétence
+        Évalue --> Escalade : Blocage irréductible
+    }
+
+    FinalIntegration --> Debrief
+    Recrutement --> Morphogenesis
+    Morphogenesis --> AdaptiveWorkGraph
+
+    Debrief --> Learning
+    Learning --> [*]
 ```
-
-
----
-
-## Implementation & capacites (GenOS v3)
-
-Depuis la v3, cette topologie est cablee au runtime : voir
-[TOPOLOGIES_CAPACITES.md](../topologies-et-capacites.md).
-
-- Service de coordination : `aTeamCoordinationService.js`.
-- Capacites requises : SIGNALING_BUS, LIGAND_RECEPTOR, ARENA_COMPETITION, EVIDENCE_BARRIER.
-- Contrat expose par `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
-
-### Coordination inter-domaines
-
-- **Handoffs ligand** : `compose()` attache `label`, `capabilities`, `pipelineStage`
-  et `dependsOn` a chaque membre. Un observateur dépend de tous les domaines
-  producteurs ; des dépendances explicites peuvent être fournies via l'option
-  `dependencies`. `buildHandoffs` produit alors des signaux ligand
-  récepteur-compatibles (`ligand`, `concentration`, `receptor`), évaluables par
-  `evaluateHandoff`.
-- **Étages (bloquant)** : `planStages`/`orderByStage` ordonnent les producteurs
-  avant l'observateur. `dispatch_team` lance immédiatement l'étage 0, puis
-  détache `genos-ateam-stage-runner.cjs` (`aTeamStageScheduler.runStagePlan`) qui
-  attend que chaque worker d'un étage inférieur atteigne un état terminal avant
-  de lancer les membres dépendants. Les identifiants de worker sont déterministes
-  (`worker_<orchestrator>_<planId>_<index>`), ce qui rend les dépendances
-  résolvables entre le lanceur et le runner. Un garde-fou de timeout évite le
-  blocage si une dépendance n'atteint jamais un état terminal. `depends_on` et
-  `pipeline_stage` sont transmis, et `dependencyPrompt` injecte les domaines amont
-  à consommer avant finalisation.
-- **Organisation** : `selectOrganization` choisit la topologie de communication
-  (comité par défaut, red/blue coevolution, blind review, quorum, stigmergie,
-  arène, compilation mémoire) à partir de signaux forts ou d'un override
-  explicite ; une organisation inconnue est refusée (`A_TEAM_UNKNOWN_ORGANIZATION`).
-
-### Contrat de capacités
-
-`aTeamCoordinationService.auditCapabilities` vérifie que chaque capacité requise
-est adossée à au moins un outil (`toolLeasePolicy.CAPABILITY_TOOLS`). Une
-capacité non servie lève **`A_TEAM_CAPABILITY_MISSING`** (désactivable via
-`enforceCapabilities: false`). Le plan d'autonomie partage le même contrat
-(`coordinateMembers` / `attachAteamCoordination`) : une capacité manquante
-désactive l'équipe avec une raison au lieu d'échouer la mission.
-
-### Fusion, observateur et arbitrage
-
-À la barrière d'évidence, `aTeamComparativeBarrier.applyAteamIntegration` :
-
-1. transforme les dossiers de domaine en candidats et les classe par
-   Pareto/Elo (`arenaTaskEvaluation`) ;
-2. interroge l'observateur impartial `aTeamIntegrationObserver`, qui signale
-   **`WORKER_DOMAIN_CONTAMINATION`** (un worker revendique un domaine de
-   l'équipe autre que le sien) et **`WORKER_INTEGRATION_CONSTRAINT_MISSING`**
-   (un consommateur ne retourne pas de contraintes d'intégration) ;
-3. calcule `canMerge` (knee-point de Pareto présent **et** aucun défaut) ;
-4. expose `aTeam.integration` (`canMerge`, `leaderboard`, `kneePoint`,
-   `observerReport`) et émet `A_TEAM_INTEGRATION_ARBITRATED` puis
-   `A_TEAM_METRICS`.
-
-Le `observerReport` est compatible avec `aTeamQualityGateService` : il peut
-alimenter `genos-ateam-audit --observer-report` pour bloquer une livraison.
-
-
