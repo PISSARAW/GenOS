@@ -28,6 +28,7 @@ const graphAnalytics = require('./rhizome/analytics/graphAnalyticsService');
 const pruningService = require('./rhizome/pruning/pruningService');
 const routeQuarantineService = require('./rhizome/security/routeQuarantineService');
 const graphProjector = require('./rhizome/graph/rhizomeGraphProjector');
+const capabilityAdmission = require('./rhizome/security/capabilityAdmissionService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -315,7 +316,6 @@ async function graphHealth(sessionId, options = {}) {
 async function inspectPruning(sessionId, options = {}) {
   return pruningService.inspect(await getSession(sessionId, options.db), options);
 }
-
 async function quarantineRoute(sessionId, input, options = {}) {
   return mutateSession(sessionId, options, {
     type: 'EDGE_QUARANTINED',
@@ -323,7 +323,19 @@ async function quarantineRoute(sessionId, input, options = {}) {
     apply: (session) => Object.assign(session, routeQuarantineService.quarantine(session, input, options.trustedVerifierDigests))
   });
 }
-
+async function admitCapabilityNode(sessionId, input, options = {}) {
+  return mutateSession(sessionId, options, {
+    type: 'NODE_ACTIVATED',
+    payload: { nodeId: input.nodeId, evidenceId: input.proof?.evidenceId },
+    apply: (session) => {
+      const index = session.nodes.findIndex((node) => node.nodeId === input.nodeId);
+      if (index < 0) throw Object.assign(new Error(`Unknown Rhizome node '${input.nodeId}'.`), { code: 'RHIZOME_NODE_UNKNOWN' });
+      session.nodes[index] = capabilityAdmission.admit(session.nodes[index], input.proof, options.admissionPolicy);
+      session.graphVersion += 1;
+      return { sessionId, node: session.nodes[index], graphVersion: session.graphVersion };
+    }
+  });
+}
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -385,4 +397,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, projectGraph, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, projectGraph, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
