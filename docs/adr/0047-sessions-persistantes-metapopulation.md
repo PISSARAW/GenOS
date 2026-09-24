@@ -94,6 +94,9 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
     fédérés doivent satisfaire classification et souveraineté ; un daemon
     résident n'est actif que sur scope persistant avec bail non expiré et
     heartbeat actif.
+21. Garder Métapopulation au niveau régional et laisser Morphogenèse proposer
+    des topologies internes par dème. Une transition locale passe par le moteur
+    validé avec snapshot et rollback ; elle ne remplace jamais le graphe régional.
 
 ## Conséquences
 
