@@ -592,8 +592,11 @@ Rejeté : le graphe doit être index dérivé reconstructible, pas cache opaque.
 20. ✅ **D18** — ablations biomimétiques (6 bras, FULL domine)
 21. ✅ **D19** — ordonnanceur métabolique U(a) (LLM gaté, budgets)
 22. ✅ **D20** — gate de promotion experimental → stable (reçus persistés)
+23. ✅ **D21** — protocole live A/B/C (harnais honnête, runs réels restant à exécuter hors ligne)
+24. ✅ **D22** — pont production (ORCHESTRATOR_ENTERED au bootstrap mission, lookup seule)
+25. ✅ **D23** — single-archetype au génome + legacy reclassés (compat, superviseur)
 
-## État d'implémentation (2026-09-23, D0–D20)
+## État d'implémentation (2026-09-24, D0–D23)
 
 | Sprint | Livraison | Fichiers | Écart au plan |
 | ------ | --------- | -------- | ------------- |
@@ -601,29 +604,32 @@ Rejeté : le graphe doit être index dérivé reconstructible, pas cache opaque.
 | D1 | migration 037 + `daemonTerritoryService` + migration legacy | `migrateDaemonTerritory.js`, `daemonTerritoryService.js`, `daemonLegacyMigration.js` | — |
 | D2 | runtime + génome `resident_daemon` | `residentDaemonRuntime.js`, `agents/daemons/resident_daemon.agent.json` | pas de `daemonRegistryService`/`daemonLifecycleService` séparés (fonctions dans le runtime v1) |
 | D3 | bridge + registre + wake policy | `daemonEventBridgeService.js`, `daemonReceptorRegistry.js`, `daemonWakePolicyService.js` | réutilise `signalReceptorService` comme transport, pas de doublon |
-| D4 | journal 038 + interoception + `combinePressures` | `migrateDaemonEvents.js`, `daemonTerritoryInteroceptionService.js` | 6 variables mesurées, 10 déclarées `deferred` (D5/D6) — aucune valeur fantôme |
+| D4 | journal 038 + interoception + `combinePressures` | `migrateDaemonEvents.js`, `daemonTerritoryInteroceptionService.js` | 10 variables mesurées, 10 déclarées `deferred` (D5/D6) — aucune valeur fantôme |
 | D5 | graphe 039 + scan/incrémental + adapter JS | `cartography/` (4 fichiers), `migrateTerritoryGraph.js` | relations CALLS/EXTENDS/etc. différées ; invariant `rebuild == incremental` tenu après correction d'un vrai bug (IMPORTS entrants) |
 | D6 | findings 040 + lifecycle + preuve typée | `findings/` (3 fichiers), `migrateDaemonFindings.js` | `confidence` interdit ; provenance par référence uniquement |
 | D7 | adapter ledger + pression | `daemonNaturalSearchAdapter.js` | testé contre les vraies classes `HypothesisLedger`/`SearchPressureModel` |
-| D8 | payload 041 + journal lecture + 4 détecteurs + investigateur | `daemonEventLog.js`, `investigation/` (2 fichiers), `migrateDaemonEventPayload.js` | `pickCandidateFile()` non réutilisé (obsolète comme prévu) |
+| D8 | payload 041 + journal lecture + 8 détecteurs + investigateur | `daemonEventLog.js`, `investigation/` (2 fichiers), `migrateDaemonEventPayload.js` | noyau v1 (test-regression, flaky-signal, broken-import, missing-sibling-test) + capteurs phénotypiques (secret-exposure, repeated-failure, unintegrated-component, stale-documentation) ; `pickCandidateFile()` non réutilisé (obsolète comme prévu) |
 | D9 | `detector_id` 042 + verifier + reproduction | `verification/` (2 fichiers), `migrateDaemonFindingDetector.js` | reproduction causale complète (snapshot+contrôle) différée ; v1 = re-observation d'événements indépendants |
 | D10 | marqueurs 043 + decay + pont partagé | `daemonStigmergyService.js`, `migrateDaemonStigmergy.js` | `PERFORMANCE_REGRESSION` sans mapping pont (local-only, honnête) ; `genos-signal` Rust non branché (pont JS utilisé) |
 | D11 | handoffs 044 + brief mission-first + signal zero-text | `handoff/` (3 fichiers), `migrateDaemonHandoffs.js` | brief complet récupéré sur demande uniquement, jamais dans le signal |
 | D12 | feedback 045 + plasticité par démotion | `handoffFeedbackService.js`, `migrateDaemonHandoffFeedback.js` | comptage explicite, pas d'entraînement de modèle |
-| D13 | reconciler + expiry déclarée + rétention journal | `reconciliation/reconcilerService.js` | PIDs/capsules/leases orphelins hors scope tant que D14 non persisté |
+| D13 | reconciler + expiry déclarée + rétention journal + suspects + liveness | `reconciliation/reconcilerService.js`, `reconciliation/suspectService.js`, `migrateDaemonSuspects.js` | tables daemon possédées → mutation (épisodes orphelins, briefs à HEAD périmé, arêtes pendantes) ; tables étrangères (agents, workspaces, cryptobiosis) → registre de suspects + reçu, jamais de mutation ; PIDs stale, capsules/worktrees orphelins, leases, branches abandonnées, blocked jobs couverts en suspect → owner |
 | D14 | repair episodes 050 + lease scopée + exécution worker | `repair/repairEpisodeService.js`, `migrateDaemonRepair.js` | service sans filesystem (capsule provisionnée par le worker) ; reconciler expire les épisodes périmés |
 | D15 | suppression `pickCandidateFile()` + autofix en no-op déprécié | `daemonRepoWorkerService.js`, `daemonAgentAutostart.js` | `runAutofixCycle` conservé comme stub (compat) pointant vers RepairEpisode ; sync de branches + MR inchangés |
-| D16 | phénotypes 054 + budding/dormance par pression | `specialization/phenotypeService.js`, `migrateDaemonPhenotype.js` | 4/10 familles (security, contract, dependency, documentation) ; 6 autres différées faute de signaux mesurés ; hystérésis 0.3/0.6 |
+| D16 | phénotypes 054 + budding/dormance par pression, 10/10 familles | `specialization/phenotypeService.js`, `migrateDaemonPhenotype.js` | security, contract, dependency, documentation (v1) + historian, chaperone, metabolic, cross_repo, repair, deep_research (v2, signaux tous mesurés) ; hystérésis 0.3/0.6 ; profils organiques par phénotype (`PHENOTYPE_PROFILES`) ; brief enrichi des phénotypes actifs |
 | D17 | benchmark warm-start + runs 055 | `evaluation/warmStartBenchmark.js` | proxy déterministe (rappel de connaissance), pas succès LLM bout en bout — protocole live A/B/C reste hors ligne |
 | D18 | 6 bras d'ablation + deltas vs FULL | `evaluation/ablationRunner.js` | vues filtrées d'un même brief (pas de re-compilation dupliquée) ; FULL domine par construction des vues |
 | D19 | ordonnanceur U(a) + plan métabolique | `scheduling/computeScheduler.js` | pur, sans IO ; sensing toujours, LLM gaté (seuil + budget + machine) |
-| D20 | gate experimental → stable + reçus | `maturity/promotionService.js` | seuils : ≥3 paires warm, gain moyen ≥1, FULL dominant, faux-findings ≤0.5, 0 staleness, suites vertes |
+| D20 | gate experimental → stable + reçus | `maturity/promotionService.js` | seuils : ≥3 paires warm, gain moyen ≥1, FULL dominant, faux-findings ≤0.5, 0 staleness, suites vertes ; STABLE exige en plus une preuve live (D21), jamais accordé sur proxy seul |
+| D21 | protocole live A/B/C + harnais honnête | `evaluation/liveProtocolRunner.js` | bras A/B/C exécutés par un exécuteur injecté ; sans exécuteur → `ran:false`, zéro ligne, promotion bloquée (jamais de succès simulé) ; reçus persistés `kind='live-protocol'` |
+| D22 | pont production (système nerveux live) | `daemonProductionBridge.js` + annonce au bootstrap mission | `ORCHESTRATOR_ENTERED` émis au démarrage mission si un territoire est enregistré sur le workspace (lookup seule, jamais de création fantôme) ; dégradation gracieuse si aucun daemon |
+| D23 | génome single-archetype + legacy reclassés | `agents/daemons/resident_daemon.agent.json`, `workspace_git_daemon` (legacy-compat), `sentinel_daemon_keeper` (superviseur control-plane) | aucun nouveau `*_daemon.agent.json` ; les fichiers sont conservés (provenance scellée), pas renommés |
 
-Chaque sprint : suite de tests dédiée (`backend/tests/test_daemon_*.js`, 24 suites vertes), quality gate 0 violation sur les fichiers du sprint. Deux bugs réels trouvés par les tests : parsing TZ de `last_observed_at`, comparaison de formats `created_at` mixtes.
+Chaque sprint : suite de tests dédiée (`backend/tests/test_daemon_*.js`, 29 suites vertes), quality gate 0 violation sur les fichiers du sprint. Deux bugs réels trouvés par les tests : parsing TZ de `last_observed_at`, comparaison de formats `created_at` mixtes.
 
-## Maturité du daemon (D20)
+## Maturité du daemon (D20–D21)
 
-Statut : **EXPERIMENTAL**. Le gate de promotion est implémenté et testé (chemins STABLE et EXPERIMENTAL), mais le protocole live complet (runs LLM A/B/C Phase 32-34 sur même modèle/tâche/repo/HEAD/budget) n'a pas été exécuté : la promotion reste bloquée jusqu'à ces preuves. Le proxy déterministe montre un gain de rappel warm ≥ 0 ; les ablations montrent FULL dominant sur les vues.
+Statut : **EXPERIMENTAL**. Le gate de promotion est implémenté et testé (chemins STABLE et EXPERIMENTAL), et le harnais live A/B/C existe (`liveProtocolRunner.js`, bras persistés `kind='live-protocol'`). Mais aucun run live avec exécuteur réel (même modèle/tâche/repo/HEAD/budget, Phase 32-34) n'a été exécuté : sans exécuteur le runner retourne `ran:false` et n'écrit aucune ligne — par construction, aucun succès simulé ne peut débloquer STABLE. La promotion reste bloquée jusqu'à ces preuves. Le proxy déterministe montre un gain de rappel warm ≥ 0 ; les ablations montrent FULL dominant sur les vues.
 
 ## Références
 

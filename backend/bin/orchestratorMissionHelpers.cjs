@@ -124,13 +124,20 @@ async function prepareMission(opts) {
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task, metadata_json) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?, ?)`, id, enhancedPrompt, metadataJson);
   await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = ? WHERE id = ?`, enhancedPrompt, metadataJson, id);
   const strategyContract = await contracts.saveContract(db, { agentId: id, problem: enhancedPrompt, createdBy: 'mcp_orchestrate' });
-  const garageDecision = decideGarageCapacity({ contract: strategyContract.contract, topology: request.action });
-  await db.run(`UPDATE agents SET metadata_json = ? WHERE id = ?`, mergeMetadataJson(metadataJson, { garageCapacity: garageDecision.capacity, garageDecision }), id);
+
+  // Morphogenesis: determine topology, agents, and substrate requirements
+  const morphogenesis = require('../src/services/morphogenesis/morphogenesisRuntime');
+  const morphoRuntime = morphogenesis.getMorphogenesisRuntime();
+  await morphoRuntime.init();
+  const morphology = await morphoRuntime.prepareMorphology(strategyContract.contract, { profile: strategyContract.profile, fork_count: request.fork_count, domains: request.domains });
+
+  const garageDecision = decideGarageCapacity({ contract: strategyContract.contract, topology: request.action, teamMembers: morphology.agents?.length });
+  await db.run(`UPDATE agents SET metadata_json = ? WHERE id = ?`, mergeMetadataJson(metadataJson, { garageCapacity: garageDecision.capacity, garageDecision, morphology: { topology: morphology.topology, agentCount: morphology.agents?.length, strategy: morphology.strategy } }), id);
   const requestTimeoutMs = policyRequest.timeoutMs || request.timeoutMs;
   const missionBudget = { ...(policyRequest.executionBudget || policyRequest.execution_budget || request.executionBudget || request.execution_budget || {}) };
   applyLatencyBudget(missionBudget, requestTimeoutMs);
   const useLocalRuntime = checkLocalRuntime(policyRequest, request);
-  return { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision };
+  return { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology };
 }
 
 function applyLatencyBudget(budget, timeoutMs) {
@@ -147,8 +154,28 @@ function checkLocalRuntime(policyRequest, request) {
 }
 
 async function startOrchestratorMission(opts) {
-  const { db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime } = opts;
-  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: enhancedPrompt, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider });
+  const { db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology } = opts;
+  await announceTerritoryEntry(db, request);
+  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: enhancedPrompt, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false, timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider, morphology });
+}
+
+/**
+ * Phase 28 : l'orchestrateur s'annonce au daemon résident du
+ * territoire (ORCHESTRATOR_ENTERED → TerritoryBrief). Best-effort :
+ * le pont ne throw jamais et ne crée aucun territoire — sans
+ * résident enregistré, la mission continue inchangée.
+ */
+async function announceTerritoryEntry(db, request) {
+  try {
+    const productionBridge = require('../src/services/daemon/daemonProductionBridge');
+    await productionBridge.announceMissionStart({
+      db,
+      request,
+      repoRoot: path.resolve(__dirname, '../..')
+    });
+  } catch (_) {
+    /* Pont daemon absent ou cassé : la mission continue inchangée. */
+  }
 }
 
 const { buildMissionContext } = require('./orchestratorMissionHelpersBuildContext.cjs');

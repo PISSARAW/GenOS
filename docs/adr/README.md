@@ -28,6 +28,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0031](0031-scheduler-epistemique-mathematique.md) | Scheduler épistémique mathématique | Accepté | 2026-09-19 | Orchestration, mathématiques, preuves, budgets |
 | [0032](0032-natural-search-control-plane.md) | Natural Search Control Plane | Accepté | 2026-09-21 | Recherche naturelle, contrôle, ledger, pression |
 | [0033](0033-cognitive-key-system.md) | Cognitive Key System | Accepté | 2026-09-22 | Cognition, philosophie, orchestration, phénotype |
+| [0034](0034-resident-daemon-ecology.md) | Écologie de daemons résidents : territoire, evidence, stigmergie, handoff | Accepté | 2026-09-23 | Daemons, territoires, evidence, stigmergie, handoff |
 | [0035](0035-model-uplift-benchmark.md) | GMUB / GCAB — Model Uplift longitudinal et ablations | Proposé | 2026-09-23 | Évaluation, preuve, ladder, ablations |
 | [0036](0036-harness-compatibility-layer.md) | Harness Compatibility Layer — rendre le harness remplaçable | Proposé | 2026-09-23 | Orchestration, runtime, exécution, preuve |
 | [0037](0037-ecosysteme-agentique-11-15.md) | Écosystème agentique 11-15 : environnement, substrat, physiologie, gouvernance, interoception | Accepté | 2026-09-23 | Environnement, cognition, collectif, gouvernance, santé |
@@ -40,6 +41,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0043](0043-runtime-worker-phenotypes.md) | Runtime worker commun et phenotypes composables | Accepté | 2026-09-24 | Workers, phenotypes, autorité, cycle de vie |
 | [0044](0044-matrice-autorite-gates-double-runtime.md) | Matrice d'autorité unifiée, gates de provenance et d'observabilité, double runtime | Proposé | 2026-09-24 | Autorité, gouvernance, provenance, observabilité, runtime |
 | [0045](0045-noyau-controle-morphogenetique.md) | Noyau de contrôle morphogénétique de l'orchestrateur Rust | Proposé | 2026-09-24 | Orchestration, morphogenèse, gouvernance, incarnation, santé |
+| [0046](0046-routage-minimal-memoire-resultats.md) | Routage minimal suffisant et mémoire des meilleurs résultats | Accepté | 2026-09-24 | Orchestration, routage, mémoire, preuve, persistance |
 
 ## Cycle de vie d'un ADR
 
