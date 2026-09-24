@@ -257,7 +257,8 @@ function buildMorphogenesisPlan(ctx) {
     mission: ctx.problem || ctx.mission,
     budget: ctx.budget,
     workers: targetAgents,
-    rhizomeBranch: ctx.rhizomeBranch === true
+    rhizomeBranch: ctx.rhizomeBranch === true,
+    trinityBranch: ctx.trinityBranch === true
   });
   plan.morphologyGraphRef = { graphId: graph.graphId, version: graph.version };
   plan.morphologyPatch = { operation: 'replace_root', graph };

@@ -2,6 +2,7 @@
 
 const { createMorphologyGraph } = require('./morphologyGraph');
 const { createRhizomeBranch } = require('../rhizomeBranchAdapter');
+const { createTrinityBranch } = require('../trinityBranchAdapter');
 
 function compileFlatTopology(input = {}) {
   const { selectedTopology = 'single_agent', graphId, missionId, version = 1, status = 'proposed', budget = {}, globalInvariants = [], variant = null, mission = null, scope = 'mission', workers = [] } = input;
@@ -28,6 +29,13 @@ function compileFlatTopology(input = {}) {
       parentNodeId: graph.rootNodeId,
       mission,
       growthBudget: budget.growth
+    }));
+  }
+  if (input.trinityBranch) {
+    graph.nodes.push(createTrinityBranch({
+      parentNodeId: graph.rootNodeId,
+      mission,
+      tokenBudget: budget.trinityTokens
     }));
   }
   return graph;
