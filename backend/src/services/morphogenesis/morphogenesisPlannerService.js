@@ -8,6 +8,7 @@ const { buildIdentityExtensions } = require('./morphogenesisPlanIdentity');
 const { annotatePlanWithSubstrates } = require('../../storage/compute/computeSubstrateResolver');
 const { extendPlan } = require('./morphogenesisPlanExtensions');
 const controlLoop = require('./cognitiveControlLoopService');
+const { compileFlatTopology } = require('./graph/compileFlatTopology');
 
 function candidateFor(topology, contracts, cost) {
   const base = { topology, requiredCapabilities: contracts.pc.required || [] };
@@ -226,6 +227,15 @@ function planMorphogenesis(ctx) {
   plan.rollbackPlan = generateRollbackPlan(plan);
   const selection = selectTopology(ctx, contracts, plan.expectedCost);
   plan.selectedTopology = selection.topology;
+  const graph = compileFlatTopology({
+    selectedTopology: selection.topology,
+    missionId: ctx.missionId || ctx.problemId,
+    mission: ctx.problem || ctx.mission,
+    budget: ctx.budget,
+    workers: targetAgents
+  });
+  plan.morphologyGraphRef = { graphId: graph.graphId, version: graph.version };
+  plan.morphologyPatch = { operation: 'replace_root', graph };
   plan.controlReceipt = selection.receipt;
   const utilityCtx = {
     morphology: { requiredCapabilities: contracts.pc.required || [], topology: ctx.proposedTopology || 'specialist_expert_committee', tokenCost: plan.expectedCost ? plan.expectedCost.tokens : 0, latency: plan.expectedCost ? plan.expectedCost.latency : 0, transitionCost: plan.expectedCost ? plan.expectedCost.risk : 0, coordinationCost: 0, risk: plan.expectedCost ? plan.expectedCost.risk : 0 },

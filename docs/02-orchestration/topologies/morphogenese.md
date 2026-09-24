@@ -10,7 +10,7 @@
 
 La **Morphogenèse** GenOS est le système de contrôle qui construit, compose, imbrique, sépare, fusionne, transforme et détruit dynamiquement les organisations cognitives nécessaires à une mission, en utilisant les topologies comme primitives spécialisées.
 
-Contrairement à un orchestrateur qui exécute un plan fixe, la Morphogenèse maintient un **MorphologyGraph** vivant — un arbre récursif de nœuds morphologiques — et le restructure en temps réel en réponse aux changements de problème, de ressources, de preuves et de contexte.
+Contrairement à un orchestrateur qui exécute un plan fixe, la Morphogenèse maintient un **MorphologyGraph** vivant. Son graphe de containment/autorité peut être arborescent, tandis que les communications, le partage d'état, les preuves, les ressources et les migrations sont représentés par des liens transversaux.
 
 La Morphogenèse opère à l'intersection de trois boucles de contrôle :
 
@@ -22,7 +22,7 @@ La Morphogenèse opère à l'intersection de trois boucles de contrôle :
 
 $$\text{Morphogenèse} : \text{Mission} \times \text{Contexte} \times \text{Preuves} \mapsto \text{MorphologyGraph}$$
 
-La Morphogenèse est une fonction totale : pour toute mission, tout contexte et toute base de preuves, elle produit un graphe morphologique valide et optimal sous contrainte.
+La Morphogenèse vise, pour toute mission et tout contexte, une morphologie **valide**, **bornée par le budget**, et **la meilleure connue au vu des preuves courantes**; elle peut être Pareto-efficiente lorsque les éléments disponibles le permettent. Elle ne prétend pas démontrer une optimalité globale.
 
 ---
 
@@ -30,7 +30,7 @@ La Morphogenèse est une fonction totale : pour toute mission, tout contexte et 
 
 ### 2.1 MorphologyGraph Récursif
 
-Le MorphologyGraph est un arbre récursif dontca nœud est un **MorphologyNode**.
+Le MorphologyGraph est un graphe dont chaque sommet est un **MorphologyNode**. Le containment définit une hiérarchie acyclique; les autres relations sont des arêtes typées transversales.
 
 $$\text{MorphologyGraph} = \langle \text{root} : \text{MorphologyNode}, \; \mathcal{T} : \text{TopologyRegistry}, \; \mathcal{P} : \text{ProblemMorphologyProfile} \rangle$$
 
@@ -61,9 +61,11 @@ où :
 
 $$\forall n \in \text{MorphologyGraph} : \; n \notin \text{descendants}(n) \;\land\; |\text{children}(n)| \le \text{MaxChildren}$$
 
+Le graphe comprend des vues distinctes pour le containment, la communication, l'autorité, le partage d'état, les preuves, les ressources et les migrations. Une arête doit déclarer son type et ses extrémités; elle ne modifie pas implicitement l'autorité ou le containment.
+
 ### 2.2 ProblemMorphologyProfile
 
-Le **ProblemMorphologyProfile** caractérise le problème pour guider le choix morphologique. C'est un vecteur de 18 dimensions normalisées dans $[0, 1]$.
+Le **ProblemMorphologyProfile** caractérise le problème pour guider le choix morphologique. Il définit 19 dimensions normalisées dans $[0, 1]$. Dans la version évoluée, chaque dimension porte aussi sa confiance, ses références de preuve et sa date d'observation.
 
 $$\text{ProblemMorphologyProfile} = \langle \; \sigma_{\text{epistemic}}, \; \sigma_{\text{separability}}, \; \sigma_{\text{decidability}}, \; \sigma_{\text{decomposability}}, \; \sigma_{\text{coupling}}, \; \sigma_{\text{staleReadCost}}, \; \sigma_{\text{authorityAsymmetry}}, \; \sigma_{\text{deliberativeNeed}}, \; \sigma_{\text{dissentImportance}}, \; \sigma_{\text{structureUnknownness}}, \; \sigma_{\text{ecologicalComplexity}}, \; \sigma_{\text{resourceCompetition}}, \; \sigma_{\text{localAutonomy}}, \; \sigma_{\text{persistenceNeed}}, \; \sigma_{\text{failureCorrelation}}, \; \sigma_{\text{capabilityUncertainty}}, \; \sigma_{\text{adversarialRisk}}, \; \sigma_{\text{privacySeparation}}, \; \sigma_{\text{temporalHorizon}} \; \rangle$$
 
@@ -434,6 +436,8 @@ Les huit topologies entretiennent trois types de relations :
 | **Syncytium** | État nucléaire partagé, convergence | Cohérence temps réel | σ_coupling, σ_staleReadCost |
 | **Rhizome** | Connexions horizontales, pas de centre | Exploration non dirigée | σ_structureUnknownness, σ_dissentImportance |
 | **Métapopulation** | Populations isolées, migration | Parallélisme avec partage tardif | σ_localAutonomy, σ_resourceCompetition |
+
+Les organisations historiques telles que `specialist_expert_committee`, `red_blue_coevolution` et `strategy_arena` sont des **patterns d'organisation**, variantes ou politiques de communication composés à partir de ces primitives. Elles ne constituent pas des topologies de même niveau que les huit primitives.
 
 ---
 
