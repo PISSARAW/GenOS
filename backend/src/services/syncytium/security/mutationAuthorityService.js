@@ -9,14 +9,15 @@ function authorize(domains, schema, operation) {
   const field = schema?.fields?.[path];
   const owner = resolveOwner(domains, field, path);
   const actorId = String(operation.actorId || operation.agentId || '').trim();
-  if (!validAuthorityRequest(owner, actorId, operation.domainId)) return authorityViolation(path);
-  const access = { owner, domains, actorId, path, policy: field?.authorityPolicy || 'MEMBERS' };
+  const source = actorDomain(domains, actorId, operation.domainId);
+  if (!validAuthorityRequest(owner, actorId, source)) return authorityViolation(path);
+  const access = { owner, source, actorId, path, policy: field?.authorityPolicy || 'MEMBERS' };
   if (isAuthorizedWriter(access)) return { allowed: true, domainId: owner.domainId };
   return authorityViolation(path);
 }
 
-function validAuthorityRequest(owner, actorId, requestedDomain) {
-  return Boolean(owner && actorId && requestedDomainMatches(requestedDomain, owner.domainId));
+function validAuthorityRequest(owner, actorId, source) {
+  return Boolean(owner && actorId && source?.members.includes(actorId));
 }
 
 function isSharedWrite(operation) {
@@ -30,22 +31,19 @@ function resolveOwner(domains, field, path) {
   return owner ? { ...owner, owns: [...owner.owns, path] } : null;
 }
 
-function requestedDomainMatches(requested, ownerId) {
-  return !requested || requested === ownerId;
+function actorDomain(domains, actorId, requestedDomain) {
+  if (requestedDomain) return domains[requestedDomain] || null;
+  return Object.values(domains).find((domain) => domain.members.includes(actorId)) || null;
 }
 
 function isAuthorizedWriter(access) {
-  const ownerMember = access.owner.members.includes(access.actorId)
+  const ownerMember = access.source.domainId === access.owner.domainId
+    && access.owner.members.includes(access.actorId)
     && domainsService.matchesAny(access.owner.owns, access.path);
   if (access.policy === 'OWNER_ONLY') return ownerMember;
-  const delegated = hasDelegatedWrite(access.domains, access.actorId, access.path);
+  const delegated = access.source.members.includes(access.actorId)
+    && domainsService.matchesAny(access.source.mayWrite, access.path);
   return access.policy === 'EXPLICIT' ? delegated : ownerMember || delegated;
-}
-
-function hasDelegatedWrite(domains, actorId, path) {
-  return Object.values(domains).some((domain) =>
-    domain.members.includes(actorId) && domainsService.matchesAny(domain.mayWrite, path)
-  );
 }
 
 function authorityViolation(path) {

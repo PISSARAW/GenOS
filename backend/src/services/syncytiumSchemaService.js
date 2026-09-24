@@ -106,7 +106,12 @@ function admitTypedOperation(schema, operation) {
     throw Object.assign(new Error(`Action '${operation.kind.action}' is not supported for ${field.dataType}.`), { code: 'SYNCYTIUM_TYPED_OPERATION_INVALID' });
   }
   return {
-    operation: { ...operation, fieldType: field.dataType, fieldRules: { allowedTransitions: field.allowedTransitions } },
+    operation: {
+      ...operation,
+      schemaVersion: schema.schemaVersion,
+      fieldType: field.dataType,
+      fieldRules: { allowedTransitions: field.allowedTransitions }
+    },
     warnings: []
   };
 }

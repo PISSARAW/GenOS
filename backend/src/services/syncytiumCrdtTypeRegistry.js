@@ -99,6 +99,7 @@ function applySequence(entry, kind, operation) {
 }
 
 function applyStateMachine(entry, kind, operation) {
+  if (entry.value === kind.to) return;
   const from = entry.value === undefined ? kind.from : entry.value;
   const allowed = Array.isArray(operation.fieldRules?.allowedTransitions) ? operation.fieldRules.allowedTransitions : [];
   const permitted = allowed.some((item) => item.from === from && item.to === kind.to);

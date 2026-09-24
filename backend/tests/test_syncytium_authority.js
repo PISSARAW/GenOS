@@ -22,7 +22,7 @@ async function main() {
   assert.equal(ownerWrite.snapshot.sharedFields['api.contract'], 'v2');
 
   const delegatedWrite = await syncytium.applyOperation(session.sessionId, {
-    opId: 'delegated-write', actorId: 'security-agent', domainId: 'backend',
+    opId: 'delegated-write', actorId: 'security-agent', domainId: 'security',
     kind: { type: 'set_field', key: 'api.security', value: 'verified' }
   });
   assert.equal(delegatedWrite.snapshot.sharedFields['api.security'], 'verified');

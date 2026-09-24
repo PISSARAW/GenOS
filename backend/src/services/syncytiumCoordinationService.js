@@ -18,6 +18,7 @@ const operationClassifier = require('./syncytium/consistency/operationClassifier
 const consistencyZones = require('./syncytium/consistency/consistencyZoneService');
 const coordinationRouter = require('./syncytium/consistency/coordinationRouter');
 const invariantGate = require('./syncytium/invariants/invariantGate');
+const semanticConflicts = require('./syncytium/conflicts/semanticConflictService');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -163,6 +164,9 @@ async function applyAdmittedOperation(context) {
     await persist(options.db, session);
     return result;
   }
+  semanticConflicts.assertNoBlockingConflicts({
+    operation: op, history: session.crdt.getHistory(), schema: session.schema, domains: session.domains
+  });
   const invariantReceipts = invariantGate.evaluateCandidate({ schema: session.schema, crdt: session.crdt, operation: op });
   session.crdt.applyOp(op);
   const result = { sessionId, snapshot: session.crdt.getSnapshot(), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session), coordination: decision, invariants: invariantReceipts };
