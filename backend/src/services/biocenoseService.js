@@ -12,6 +12,7 @@ const epistemicBiocenose = require('./epistemic/epistemicBiocenoseService');
 const hierarchicalQuorum = require('./hierarchicalQuorumService');
 const communityStore = require('./biocenose/communityStore');
 const judgmentCommitmentService = require('./biocenose/deliberation/commitmentService');
+const communityClaimGraph = require('./biocenose/claims/communityClaimGraph');
 const questionClassifier = require('./biocenose/question/questionClassifier');
 const constitutionService = require('./biocenose/governance/constitutionService');
 const communityFormationService = require('./biocenose/formation/communityFormationService');
@@ -212,6 +213,8 @@ module.exports = {
   prepareCommunity,
   commitJudgment: judgmentCommitmentService.commitJudgment,
   revealJudgments: judgmentCommitmentService.revealJudgments,
+  publishClaim: communityClaimGraph.publish,
+  listClaims: communityClaimGraph.list,
   brierConsensus,
   quorumWithAbstention,
   hierarchicalQuorumPlan: hierarchicalQuorum.planForAgentCount

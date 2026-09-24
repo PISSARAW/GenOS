@@ -3,7 +3,7 @@
 const TABLES = [
   'biocenose_communities', 'biocenose_members', 'biocenose_constitutions',
   'biocenose_commitments', 'biocenose_claims', 'biocenose_arguments',
-  'biocenose_belief_updates', 'biocenose_dissent', 'biocenose_judgments',
+  'biocenose_claim_owners', 'biocenose_belief_updates', 'biocenose_dissent', 'biocenose_judgments',
   'biocenose_events'
 ];
 
@@ -75,6 +75,16 @@ async function migrateBiocenoseSessions(db) {
       FOREIGN KEY (community_id) REFERENCES biocenose_communities(community_id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_biocenose_claims_community ON biocenose_claims(community_id, round);
+
+    CREATE TABLE IF NOT EXISTS biocenose_claim_owners (
+      claim_id TEXT NOT NULL,
+      community_id TEXT NOT NULL,
+      member_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (claim_id, member_id),
+      FOREIGN KEY (claim_id) REFERENCES biocenose_claims(claim_id) ON DELETE CASCADE,
+      FOREIGN KEY (community_id, member_id) REFERENCES biocenose_members(community_id, member_id) ON DELETE CASCADE
+    );
 
     CREATE TABLE IF NOT EXISTS biocenose_arguments (
       argument_id TEXT PRIMARY KEY,

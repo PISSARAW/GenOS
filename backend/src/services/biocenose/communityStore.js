@@ -7,6 +7,7 @@ const { COMMUNITY_EVENTS } = require('./constants');
 const { validateSession } = require('./contracts/communitySessionContract');
 const { validateConstitution } = require('./contracts/constitutionContract');
 const { validateMember } = require('./contracts/memberContract');
+const claimStore = require('./claims/claimStore');
 
 const initializedDatabases = new WeakSet();
 
@@ -354,8 +355,13 @@ function duplicateCommitment(memberId, round) {
   return Object.assign(new Error(`Member '${memberId}' already committed a judgment for round ${round}.`), { code: 'BIOCENOSE_COMMITMENT_DUPLICATE' });
 }
 
+function claimRoundConflict(id) {
+  return Object.assign(new Error(`Claim round does not match Biocenose community '${id}'.`), { code: 'BIOCENOSE_CLAIM_ROUND_CONFLICT' });
+}
+
 module.exports = {
   createSession, appendEvent, loadSession, listEvents,
   saveConstitution, loadConstitution, latestConstitution,
-  saveCommitment, participantIds, listCommitments, sealedPayloads, ensureSchema
+  saveCommitment, participantIds, listCommitments, sealedPayloads,
+  publishClaim: claimStore.publishClaim, listClaims: claimStore.listClaims, ensureSchema
 };
