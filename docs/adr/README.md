@@ -76,6 +76,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0074](0074-classification-defaillances-symbiontes.md) | Classification des défaillances de symbiontes | Accepté | 2026-09-24 | Holobionte, santé, résilience, gouvernance |
 | [0075](0075-routage-moteur-contrat-symbionte.md) | Routage du moteur selon le contrat du symbionte | Accepté | 2026-09-24 | Holobionte, runtime, routage, confidentialité |
 | [0076](0076-kinds-non-agentiques-symbiontes-holobionte.md) | Kinds non agentiques pour les symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, symbiontes, modèles, outils, runtime |
+| [0077](0077-variants-policies-holobionte.md) | Variants du Holobionte comme policies | Accepté | 2026-09-24 | Holobionte, composition, configuration, résilience |
 
 ## Cycle de vie d'un ADR
 
@@ -95,6 +96,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 - [../CONVENTIONS.md](../CONVENTIONS.md) — conventions de rédaction et de nommage.
 - [../GENOME_EPIGENETIQUE.md](../01-concepts/genome-et-epigenetique.md), [../INSTINCT.md](../01-concepts/instinct.md), [../FOSSILISATION.md](../01-concepts/fossilisation.md), [../AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — documents concernés par les ADR ci-dessus.
+
 
 
 
