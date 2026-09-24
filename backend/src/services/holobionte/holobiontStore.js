@@ -114,8 +114,16 @@ function updateResources(session, payload, eventType) {
   const allocations = { ...(session.resourceState.allocations || {}) };
   const key = String(payload.symbiontId || 'host');
   if (eventType === 'RESOURCE_REVOKED') delete allocations[key];
-  else allocations[key] = payload.resources || {};
+  else allocations[key] = {
+    allocationId: payload.allocationId || null,
+    resources: payload.resources || {},
+    explanation: payload.explanation || {},
+    contractId: payload.contractId || null,
+    contractRevision: payload.contractRevision || null,
+    contributionScore: payload.contributionScore || 0
+  };
   session.resourceState = { ...session.resourceState, allocations };
+  return session;
 }
 
 function recordContribution(session, payload) {
