@@ -254,13 +254,14 @@ async function selectWorker({ db, context }) {
 async function prepareWorker({ db, context, parent, reusable }) {
   const { request } = context;
   const role = workerRole(request);
+  const workerKind = require('../src/services/agents/workerKindService').resolveWorkerKind(request.workerKind, role);
   await workerGarage.requireAvailableSlot(db, context.orchestratorId, workerSlotId(context));
   const name = workerName(request, role, context.task);
   const sourceWorkspace = workspaceFor(parent, context);
   validateWorkspace(request.workspace_root, sourceWorkspace);
   const workspaceRoot = await runtime.createIsolatedWorkspace(sourceWorkspace, workerCapsuleId(context), path.dirname(sourceWorkspace));
-  await insertWorker({ db, context, parent, request, name, role });
-  return { name, role, workspaceRoot };
+  await insertWorker({ db, context, parent, request, name, role, workerKind });
+  return { name, role, workerKind, workspaceRoot };
 }
 function workerRole(request) { return String(request.role || 'implementation'); }
 function workerSlotId(context) { return context.reusedWorker ? context.id : null; }
@@ -276,9 +277,14 @@ function validateWorkspace(requested, source) {
   const norm = (value) => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
   if (requested && norm(requested) !== norm(source)) throw new Error(`Requested workspace root does not match orchestrator workspace '${source}'.`);
 }
-async function insertWorker({ db, context, parent, request, name, role }) {
-  if (context.reusedWorker) return;
-  await db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'garage_delegation', ?, ?)`, context.id, name, role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null, request.model_tier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', context.orchestratorId, `Worker scope: ${context.task}`, context.task);
+async function insertWorker({ db, context, parent, request, name, role, workerKind }) {
+  const contract = require('../src/services/agents/workerKindService').buildWorkerContract(workerKind, { prompt: context.task, scope: context.task, orchestratorAgentId: context.orchestratorId });
+  const metadata = JSON.stringify({ workerKind, workerContract: contract });
+  if (context.reusedWorker) {
+    await db.run('UPDATE agents SET metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', metadata, context.id);
+    return;
+  }
+  await db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, metadata_json) VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'garage_delegation', ?, ?, ?)`, context.id, name, role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null, request.model_tier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', context.orchestratorId, `Worker scope: ${context.task}`, context.task, metadata);
 }
 async function startWorker({ db, context, parent, reusable, worker }) {
   context.delegatedWorkerId = context.id; const garage = await workerGarage.reserveSlot(db, { orchestratorId: context.orchestratorId, workerId: context.id, name: worker.name, role: worker.role, mission: context.task });
@@ -304,9 +310,9 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
   const capabilities = capabilityManifest.owned || [];
   const toolLease = workerToolLeaseForCapabilities(worker.role, capabilities);
 
-  const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, modelTier: parent.model_tier }, workerId: context.id, parent, capabilities, capabilityManifest, toolLease });
+  const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, workerKind: worker.workerKind, modelTier: parent.model_tier }, workerId: context.id, parent, capabilities, capabilityManifest, toolLease });
 
-  await dispatchWorkerMission({ agentId: context.id, name: worker.name, role: worker.role, prompt: workerLaunch.mission, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease, capabilityManifest, capabilities, timeoutMs: context.request.timeoutMs, localRuntime });
+  await dispatchWorkerMission({ agentId: context.id, name: worker.name, role: worker.role, workerKind: worker.workerKind, prompt: workerLaunch.mission, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease, capabilityManifest, capabilities, timeoutMs: context.request.timeoutMs, localRuntime });
 }
 
 function buildCapabilityContext(context, parent, missionBudget) {
