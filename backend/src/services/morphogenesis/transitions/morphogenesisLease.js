@@ -20,14 +20,21 @@ function emptyLeaseLists(lease) {
     .map((field) => `empty ${field}`);
 }
 
-function graphSubtreeIds(graph, rootId) {
-  const nodes = Array.isArray(graph && graph.nodes) ? graph.nodes : [];
+function nodeKey(node) {
+  return node.nodeId || node.id;
+}
+
+function childMap(nodes) {
   const byParent = new Map();
   for (const node of nodes) {
     const children = byParent.get(node.parentNodeId) || [];
-    children.push(node.id);
+    children.push(nodeKey(node));
     byParent.set(node.parentNodeId, children);
   }
+  return byParent;
+}
+
+function subtreeIds(byParent, rootId) {
   const scope = new Set([rootId]);
   const pending = [rootId];
   while (pending.length) {
@@ -35,7 +42,12 @@ function graphSubtreeIds(graph, rootId) {
       if (!scope.has(child)) { scope.add(child); pending.push(child); }
     }
   }
-  return { scope, rootExists: nodes.some((node) => node.id === rootId) };
+  return scope;
+}
+
+function graphSubtreeIds(graph, rootId) {
+  const nodes = Array.isArray(graph && graph.nodes) ? graph.nodes : [];
+  return { scope: subtreeIds(childMap(nodes), rootId), rootExists: nodes.some((node) => nodeKey(node) === rootId) };
 }
 
 function checkScope(lease, request, graph) {
@@ -65,17 +77,30 @@ function authorizeLocalMorphogenesis(lease, request = {}) {
 }
 
 function authorizationErrors(lease, request) {
-  const graph = request.graphContext;
+  return leaseErrors(lease, request).concat(scopeErrors(lease, request), operationErrors(lease, request), budgetErrors(lease, request), boundaryErrors(lease, request));
+}
+
+function leaseErrors(lease, request) {
   const now = request.now === undefined ? Date.now() : request.now;
   const errors = [];
   if (lease.expiresAt <= now) errors.push('lease expired');
   if (request.globalMutation === true) errors.push('global morphology changes are not delegated');
-  if (!request.nodeId || request.nodeId !== lease.nodeId) errors.push('request must remain in the leased subtree');
-  if (!Array.isArray(request.operations) || !checkOperations(lease, request)) errors.push('operator is outside the lease');
-  if (!checkScope(lease, request, graph)) errors.push('patch references nodes outside the leased subtree');
-  if (!checkBounds(lease, request)) errors.push('worker, depth or transition budget exceeded');
-  errors.push(...boundaryErrors(lease, request));
   return errors;
+}
+
+function scopeErrors(lease, request) {
+  const errors = [];
+  if (!request.nodeId || request.nodeId !== lease.nodeId) errors.push('request must remain in the leased subtree');
+  if (!checkScope(lease, request, request.graphContext)) errors.push('patch references nodes outside the leased subtree');
+  return errors;
+}
+
+function operationErrors(lease, request) {
+  return !Array.isArray(request.operations) || !checkOperations(lease, request) ? ['operator is outside the lease'] : [];
+}
+
+function budgetErrors(lease, request) {
+  return checkBounds(lease, request) ? [] : ['worker, depth or transition budget exceeded'];
 }
 
 function boundaryErrors(lease, request) {

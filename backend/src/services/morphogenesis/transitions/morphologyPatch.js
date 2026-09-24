@@ -9,7 +9,8 @@ const PATCH_OPERATIONS = Object.freeze([
 ]);
 
 function hasStructuralOperation(operations) {
-  return operations.some((operation) => operation && operation.type !== 'CHANGE_COMMUNICATION');
+  const nonStructural = ['CHANGE_COMMUNICATION', 'CHANGE_PARAMETERS'];
+  return operations.some((operation) => operation && !nonStructural.includes(operation.type));
 }
 
 function validateMorphologyPatch(patch) {

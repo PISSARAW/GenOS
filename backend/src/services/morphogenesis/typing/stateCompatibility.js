@@ -21,11 +21,28 @@ function checkState(graph) {
 
 function stateEdgeErrors(edge, byId, graph) {
   if (edge.type !== 'SHARES_STATE') return [];
+  if (forcesGlobalPopulationSync(edge, byId)) return [`state edge ${edge.edgeId} forces population-wide synchronization`];
   const sourceBranch = findTrinityBranch(byId.get(edge.fromNodeId), byId);
   const targetBranch = findTrinityBranch(byId.get(edge.toNodeId), byId);
   if (!crossesBranches(sourceBranch, targetBranch)) return [];
   if (!isLive(edge) || !isSealed(sourceBranch, targetBranch) || permitsSharedState(graph, edge)) return [];
   return [`live shared state edge ${edge.edgeId} crosses a sealed boundary without a firewall`];
+}
+
+function forcesGlobalPopulationSync(edge, byId) {
+  const properties = edge.properties || {};
+  if (!(properties.force === true || properties.synchronizeAll === true)) return false;
+  return populationAncestor(byId.get(edge.fromNodeId), byId) === populationAncestor(byId.get(edge.toNodeId), byId)
+    && Boolean(populationAncestor(byId.get(edge.fromNodeId), byId));
+}
+
+function populationAncestor(node, byId) {
+  let current = node;
+  while (current) {
+    if (String(current.topology).toLowerCase() === 'metapopulation') return current.nodeId;
+    current = parentOf(current, byId);
+  }
+  return null;
 }
 
 function crossesBranches(source, target) {

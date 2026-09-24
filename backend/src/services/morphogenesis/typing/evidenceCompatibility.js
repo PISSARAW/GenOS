@@ -11,12 +11,21 @@ function evidenceEdgeErrors(edge, byId) {
   if (edge.type !== 'EXCHANGES_EVIDENCE') return [];
   const source = byId.get(edge.fromNodeId);
   const target = byId.get(edge.toNodeId);
+  if (exposesUnsealedVotes(source, target, edge)) return [`evidence edge ${edge.edgeId} exposes votes before judgment is sealed`];
   const produced = source && source.evidencePolicy && source.evidencePolicy.produces;
   const accepted = target && target.evidencePolicy && target.evidencePolicy.accepts;
   const errors = [];
   if (incompatibleEvidence(produced, accepted)) errors.push(`evidence edge ${edge.edgeId} carries unsupported evidence types`);
   if (requiresEvidence(target) && !Array.isArray(produced)) errors.push(`evidence edge ${edge.edgeId} has no declared source evidence`);
   return errors;
+}
+
+function exposesUnsealedVotes(source, target, edge) {
+  const produced = source && source.evidencePolicy && source.evidencePolicy.produces;
+  const isVote = Array.isArray(produced) && produced.includes('vote');
+  const isBiocenose = String(source && source.topology).toLowerCase() === 'biocenose';
+  const isSealed = ['sealed', 'committed', 'after_commitment'].includes(source && source.lifecycle);
+  return isVote && isBiocenose && !isSealed && target && target.parentNodeId !== source.nodeId;
 }
 
 function incompatibleEvidence(produced, accepted) {
