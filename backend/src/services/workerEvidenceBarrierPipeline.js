@@ -5,6 +5,7 @@ const { emit, updateAgent } = require('./agentOrchestrationState');
 const { workerEvidenceDossiers, recordWorkerEvidence } = require('./agentEvidenceService');
 const { latestReport } = require('./trinityComparativeBarrier');
 const handoffEvidence = require('./aTeamHandoffEvidenceService');
+const handoffService = require('./aTeam/handoff/handoffService');
 const workerGarage = require('./workerGarageService');
 const { advanceAutonomousRound } = require('./agentRoundService');
 const { scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
@@ -145,6 +146,9 @@ async function prepareStageHandoff(ctx) {
     const handoff = buildStageHandoff(ctx.orchestratorId, ctx.workers, worker);
     if (!handoff.ok) {
       throw Object.assign(new Error(`No validated evidence handoff exists for dependency '${handoff.missingDependency}'.`), { code: 'WORKER_DEPENDENCY_NOT_READY' });
+    }
+    if (!handoff.handoffs.every((item) => handoffService.validate(item).valid)) {
+      throw Object.assign(new Error(`Stage ${ctx.stage} contains an invalid typed handoff.`), { code: 'INVALID_A_TEAM_HANDOFF' });
     }
     worker.handoffContext = handoff.handoffs;
     worker.prompt = handoffEvidence.missionWithHandoffs(worker.prompt, worker.handoffContext);

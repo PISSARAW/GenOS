@@ -1,6 +1,7 @@
 'use strict';
 
 const { latestReport } = require('./trinityComparativeBarrier');
+const handoffService = require('./aTeam/handoff/handoffService');
 
 function records(value) {
   return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object') : [];
@@ -49,7 +50,7 @@ function reportArray(report, field) {
 function handoffForDossier({ producer, consumer, dossier }) {
   const report = latestReport(dossier);
   if (!reportIsUsable(report, consumer.requiredArtifacts || consumer.outputs || [])) return null;
-  return {
+  const handoff = {
     handoffId: `${producer.agentId}->${consumer.agentId}:${Date.now()}`,
     type: 'DELIVERY',
     producer: { agentId: producer.agentId, domain: memberDomain(producer) },
@@ -67,8 +68,10 @@ function handoffForDossier({ producer, consumer, dossier }) {
     acceptanceCriteria: reportArray(consumer, 'acceptanceCriteria'),
     version: 1,
     status: 'READY_FOR_REVIEW',
+    blocking: true,
     outcome: report.outcome
   };
+  return handoffService.validate(handoff).valid ? handoff : null;
 }
 
 function addMemberKeys(index, member) {
