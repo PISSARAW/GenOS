@@ -22,19 +22,35 @@ function memberId(orchestratorId, planId, index) {
   return `worker_${orchestratorId}_${planId}_${index}`;
 }
 
+function withDefault(value, fallback) {
+  return value === undefined || value === null ? fallback : value;
+}
+
 // Deterministic plan: the launcher and the runner derive the same worker ids.
-function stagePlanFor({ orchestratorId, members, planId } = {}) {
-  const id = planId || `ateam_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const planned = (Array.isArray(members) ? members : []).map((member, index) => ({
+function plannedMember({ member, index, orchestratorId, planId }) {
+  const workerId = member.workerId || memberId(orchestratorId, planId, index);
+  return {
     index,
-    subSystem: member.subSystem || member.label || member.role || `member_${index}`,
+    subSystem: withDefault(member.subSystem, withDefault(member.label, withDefault(member.role, `member_${index}`))),
     role: member.role,
+    agentId: withDefault(member.agentId, workerId),
+    label: member.label,
     modelTier: member.modelTier,
     mission: member.mission,
+    requiredArtifacts: withDefault(member.requiredArtifacts, withDefault(member.outputs, [])),
+    outputs: withDefault(member.outputs, []),
+    outputSchema: withDefault(member.outputSchema, null),
+    acceptanceCriteria: withDefault(member.acceptanceCriteria, []),
+    capabilities: withDefault(member.capabilities, []),
     dependsOn: [...new Set((Array.isArray(member.dependsOn) ? member.dependsOn : []).map(String))],
     pipelineStage: Math.max(0, Number(member.pipelineStage) || 0),
-    workerId: member.workerId || memberId(orchestratorId, id, index)
-  }));
+    workerId
+  };
+}
+
+function stagePlanFor({ orchestratorId, members, planId } = {}) {
+  const id = planId ?? `ateam_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const planned = (Array.isArray(members) ? members : []).map((member, index) => plannedMember({ member, index, orchestratorId, planId: id }));
   return validateAndStageGraph({ planId: id, orchestratorId, maxStage: 0, members: planned });
 }
 
@@ -135,34 +151,37 @@ async function waitForStageDependencies(context) {
   };
 }
 
+async function launchStageMembers({ stageMembers, plan, index, statuses, timedOut, skip, launch, stage }) {
+  const results = [];
+  for (const member of stageMembers) {
+    if (skip.has(member.workerId)) continue;
+    const failedDependencies = dependencyWorkerIds(plan, member, index)
+      .filter((workerId) => statuses.get(workerId) !== 'completed');
+    if (failedDependencies.length) {
+      results.push({ stage, status: 'blocked', blockedWorker: member.workerId, failedDependencies, reason: timedOut ? 'dependency_timeout' : 'dependency_failure' });
+      continue;
+    }
+    if (await launch(member) === false) {
+      results.push({ stage, status: 'blocked', blockedWorker: member.workerId, failedDependencies: member.dependsOn, reason: 'dependency_evidence_unavailable' });
+      continue;
+    }
+    results.push({ stage, launched: member.workerId, subSystem: member.subSystem });
+  }
+  return results;
+}
+
 async function runStagePlan({ db, plan, launch, options = {} }) {
   const skip = new Set(options.skipWorkerIds || []);
-  const sleep = options.sleep || defaultSleep;
-  const now = options.now || Date.now;
   const index = domainIndex(plan);
   const results = [];
   for (let stage = 0; stage <= plan.maxStage; stage += 1) {
     const stageMembers = plan.members.filter((member) => member.pipelineStage === stage);
     const dependencyIds = [...new Set(stageMembers.flatMap((member) => dependencyWorkerIds(plan, member, index)))];
-    let dependencyStatuses = new Map();
-    let timedOut = false;
-    if (dependencyIds.length) {
-      const wait = await waitForStageDependencies({ db, dependencyIds, options, sleep, now });
-      timedOut = wait.timedOut;
-      dependencyStatuses = wait.statuses;
-      results.push({ stage, waitedFor: dependencyIds, timedOut, pendingWorkerIds: wait.pendingWorkerIds });
-    }
-    for (const member of stageMembers) {
-      if (skip.has(member.workerId)) continue;
-      const failedDependencies = dependencyWorkerIds(plan, member, index)
-        .filter((workerId) => dependencyStatuses.get(workerId) !== 'completed');
-      if (failedDependencies.length) {
-        results.push({ stage, blockedWorker: member.workerId, failedDependencies, reason: timedOut ? 'dependency_timeout' : 'dependency_failure' });
-        continue;
-      }
-      await launch(member);
-      results.push({ stage, launched: member.workerId, subSystem: member.subSystem });
-    }
+    const wait = dependencyIds.length
+      ? await waitForStageDependencies({ db, dependencyIds, options, sleep: options.sleep || defaultSleep, now: options.now || Date.now })
+      : { timedOut: false, pendingWorkerIds: [], statuses: new Map() };
+    if (dependencyIds.length) results.push({ stage, waitedFor: dependencyIds, timedOut: wait.timedOut, pendingWorkerIds: wait.pendingWorkerIds });
+    results.push(...await launchStageMembers({ stageMembers, plan, index, statuses: wait.statuses, timedOut: wait.timedOut, skip, launch, stage }));
   }
   return results;
 }
@@ -192,6 +211,7 @@ function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }
     orchestratorId: plan.orchestratorId,
     workerId: member.workerId,
     mission: member.mission,
+    handoffContext: Array.isArray(member.handoffContext) ? member.handoffContext : [],
     role: member.role,
     model_tier: member.modelTier,
     ...(member.dependsOn.length ? { depends_on: member.dependsOn } : {}),

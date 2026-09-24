@@ -51,8 +51,9 @@ function fakeDb(statuses) {
     launch: async (member) => blockedLaunches.push(member.workerId),
     options: { sleep: async () => {}, pollMs: 0, timeoutMs: 0 }
   });
-  assert.ok(blockedLaunches.includes('w-integ'));
+  assert.ok(!blockedLaunches.includes('w-integ'));
   assert.equal(blockedResults.some((entry) => entry.timedOut === true), true);
+  assert.equal(blockedResults.some((entry) => entry.reason === 'dependency_timeout' && entry.status === 'blocked'), true);
 
   // Payload carries the dependency metadata to the worker.
   const payload = scheduler.workerLaunchPayload({ plan, member: plan.members[2], parentWorkspaceRoot: 'C:/ws', request: { timeoutMs: 1000 } });
@@ -60,6 +61,13 @@ function fakeDb(statuses) {
   assert.equal(payload.workerId, 'worker_orch-1_plan-x_2');
   assert.deepEqual(payload.depends_on, ['frontend', 'backend']);
   assert.equal(payload.pipeline_stage, 1);
+
+  assert.throws(() => scheduler.stagePlanFor({ orchestratorId: 'o', planId: 'p', members: [
+    { subSystem: 'x', dependsOn: ['missing'] }
+  ] }), { code: 'A_TEAM_UNKNOWN_DEPENDENCY' });
+  assert.throws(() => scheduler.stagePlanFor({ orchestratorId: 'o', planId: 'p', members: [
+    { subSystem: 'x', dependsOn: ['y'] }, { subSystem: 'y', dependsOn: ['x'] }
+  ] }), { code: 'A_TEAM_DEPENDENCY_CYCLE' });
 
   console.log('A-Team stage scheduler blocks consumers until producers are terminal.');
 })().catch((error) => { console.error(error); process.exit(1); });

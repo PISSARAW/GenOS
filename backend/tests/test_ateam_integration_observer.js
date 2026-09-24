@@ -29,7 +29,7 @@ const clean = [
 
   const autonomousPlan = { aTeam: { activated: true, members } };
   const arbitration = await applyAteamIntegration({ agentId: 'orch-observer-test', workers, usable: clean, autonomyPlan: autonomousPlan });
-  assert.ok(arbitration.kneePoint);
+  assert.equal(arbitration.canMerge, true);
   assert.equal(autonomousPlan.aTeam.integration.canMerge, true);
   assert.deepEqual(autonomousPlan.aTeam.integration.failures, []);
 

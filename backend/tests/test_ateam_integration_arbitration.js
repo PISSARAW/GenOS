@@ -23,10 +23,10 @@ const usable = [
 
   const autonomyPlan = { aTeam: { activated: true } };
   const arbitration = await applyAteamIntegration({ agentId: 'orch-ateam-test', workers, usable, autonomyPlan });
-  assert.ok(arbitration.leaderboard.length >= 1);
-  assert.ok(arbitration.kneePoint);
+  assert.deepEqual(arbitration.paretoFront, []);
+  assert.equal(arbitration.totalEvaluated, 0);
   assert.equal(autonomyPlan.aTeam.integration.canMerge, true);
-  assert.equal(autonomyPlan.aTeam.integration.totalEvaluated, 3);
+  assert.equal(autonomyPlan.aTeam.integration.paretoScope, 'domain_local_alternatives_only');
 
   assert.equal(await applyAteamIntegration({ autonomyPlan: { aTeam: { activated: false } } }), null);
   console.log('A-Team integration arbitration is wired to the evidence barrier.');

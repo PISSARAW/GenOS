@@ -2,16 +2,13 @@
 
 /**
  * @file aTeamComparativeBarrier.js
- * @description Integration arbitration for the A-Team. It turns the domain
- * worker dossiers into arena candidates, ranks them with the Pareto/Elo model
- * and exposes the merge decision on the autonomy plan, mirroring the Trinity
- * comparative barrier. Without this step the A-Team produced dossiers but never
- * arbitrated them.
+ * @description Gates A-Team integration on domain coverage, validated worker
+ * evidence, satisfied dependency handoffs and an impartial observer report.
  */
-const coordination = require('./aTeamCoordinationService');
 const { workerEvidenceDossiers } = require('./agentEvidenceService');
 const { latestReport } = require('./trinityComparativeBarrier');
 const { observeAteamIntegration } = require('./aTeamIntegrationObserver');
+const { reportIsUsable } = require('./aTeamHandoffEvidenceService');
 const { emit } = require('./agentOrchestrationState');
 
 function dossierFor(worker, dossier) {
@@ -34,57 +31,80 @@ function buildDossiers(workers, dossiers) {
   return (workers || []).map((worker) => dossierFor(worker, byWorker.get(worker.agentId)));
 }
 
-function mergeDecision(arbitration) {
-  const scored = Number(arbitration?.totalEvaluated || 0);
-  const front = Array.isArray(arbitration?.paretoFront) ? arbitration.paretoFront : [];
-  return scored > 0 && front.length > 0 && Boolean(arbitration?.kneePoint);
+function workerForMember(member, workers) {
+  return workers.find((worker) => worker.agentId === member.agentId || worker.agentId === member.workerId
+    || worker.label === member.label || worker.subSystem === member.subSystem || worker.role === member.role);
 }
 
-// Observable facts for every A-Team fusion, as promised by the docs.
-function buildAteamMetrics({ aTeam, workers, observation, arbitration, canMerge }) {
+function coverageFailures(aTeam, workers, dossiers) {
+  const failures = [];
+  const members = Array.isArray(aTeam.members) ? aTeam.members : [];
+  const byDossier = new Map((dossiers || []).map((dossier) => [dossier.workerId, dossier]));
+  for (const member of members) {
+    const worker = workerForMember(member, workers);
+    if (!worker) {
+      failures.push({ code: 'ATEAM_DOMAIN_UNCOVERED', domain: member.label || member.subSystem || member.role, message: 'A-Team member has no launched worker.' });
+      continue;
+    }
+    const dossier = byDossier.get(worker.agentId);
+    const report = latestReport(dossier);
+    const required = member.requiredArtifacts || member.outputs || worker.requiredArtifacts || worker.outputs || [];
+    if (!reportIsUsable(report, required)) {
+      failures.push({ code: 'ATEAM_EVIDENCE_UNAVAILABLE', workerId: worker.agentId, message: `Worker '${worker.agentId}' has no successful evidence report satisfying its artifact contract.` });
+    }
+  }
+  const ratio = aTeam.capabilityCoverage && Number(aTeam.capabilityCoverage.ratio);
+  if (Number.isFinite(ratio) && ratio < 1) {
+    failures.push({ code: 'ATEAM_CAPABILITY_COVERAGE_INCOMPLETE', message: 'Required A-Team capability coverage is incomplete.' });
+  }
+  return failures;
+}
+
+function activationOrder(members) {
+  return members.map((member) => member.label || member.subSystem || member.role).filter(Boolean);
+}
+
+function buildAteamMetrics({ aTeam, workers, observation, canMerge }) {
   const members = Array.isArray(aTeam.members) ? aTeam.members : [];
   const coverage = aTeam.capabilityCoverage;
   return {
     analysisFit: coverage ? Number(coverage.ratio) : (aTeam.recommended === true ? 1 : 0),
-    memberActivationOrder: members.map((member) => member.label || member.subSystem || member.role).filter(Boolean),
+    memberActivationOrder: activationOrder(members),
     memberCount: (Array.isArray(workers) ? workers : members).length,
     fusionDecision: canMerge ? 'merged' : 'escalated',
     integrationConstraintViolations: observation.failures.length + observation.integrationFailures.length,
     continuationRounds: Number(aTeam.continuationRounds) || 0,
-    paretoFrontCount: Array.isArray(arbitration.paretoFront) ? arbitration.paretoFront.length : 0,
-    totalEvaluated: Number(arbitration.totalEvaluated || 0)
+    paretoFrontCount: 0,
+    totalEvaluated: 0
   };
 }
 
 async function applyAteamIntegration(ctx) {
   const aTeam = ctx && ctx.autonomyPlan ? ctx.autonomyPlan.aTeam : null;
   if (!aTeam || aTeam.activated !== true) return null;
-  const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, ctx.workers || []);
-  const candidates = buildDossiers(ctx.workers || [], dossiers);
-  const arbitration = coordination.arbitrateIntegration(candidates);
-  const observation = observeAteamIntegration({ members: aTeam.members, workers: ctx.workers || [], dossiers });
-  const canMerge = mergeDecision(arbitration)
-    && observation.failures.length === 0
-    && observation.integrationFailures.length === 0;
+  const workers = ctx.workers || [];
+  const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, workers);
+  const observation = observeAteamIntegration({ members: aTeam.members, workers, dossiers });
+  const evidenceFailures = coverageFailures(aTeam, workers, dossiers);
+  const failures = [...evidenceFailures, ...observation.failures];
+  const canMerge = failures.length === 0 && observation.integrationFailures.length === 0;
   aTeam.integration = {
     canMerge,
-    totalEvaluated: arbitration.totalEvaluated,
-    paretoFrontCount: Array.isArray(arbitration.paretoFront) ? arbitration.paretoFront.length : 0,
-    kneePoint: arbitration.kneePoint,
-    leaderboard: arbitration.leaderboard,
-    failures: observation.failures,
+    totalEvaluated: 0,
+    paretoFrontCount: 0,
+    paretoScope: 'domain_local_alternatives_only',
+    failures,
     integrationFailures: observation.integrationFailures,
     observerReport: observation.observerReport
   };
-  const leader = arbitration.kneePoint;
-  const blocking = observation.failures[0] || observation.integrationFailures[0];
+  const blocking = failures[0] || observation.integrationFailures[0];
   const detail = canMerge
-    ? `A-Team integration arbitrated; knee-point candidate '${leader?.candidateId || leader?.name || 'unknown'}' leads the Pareto front.`
-    : (blocking ? `A-Team integration blocked (${blocking.code}): ${blocking.message}` : 'A-Team integration arbitrated but no scored candidate could be promoted.');
-  emit(ctx.agentId, 'A_TEAM_INTEGRATION_ARBITRATED', 'ARBITRATE_INTEGRATION', detail, aTeam.integration, canMerge ? 'info' : 'warning');
-  aTeam.metrics = buildAteamMetrics({ aTeam, workers: ctx.workers || [], observation, arbitration, canMerge });
-  emit(ctx.agentId, 'A_TEAM_METRICS', 'OBSERVE', `A-Team fusion=${aTeam.metrics.fusionDecision}, violations=${aTeam.metrics.integrationConstraintViolations}.`, aTeam.metrics, 'info');
-  return arbitration;
+    ? 'A-Team integration accepted: required domains, evidence handoffs and integration constraints are satisfied.'
+    : `A-Team integration blocked (${blocking.code}): ${blocking.message}`;
+  emit(ctx.agentId, 'A_TEAM_INTEGRATION_ARBITRATED', 'VALIDATE_INTEGRATION', detail, aTeam.integration, canMerge ? 'info' : 'warning');
+  aTeam.metrics = buildAteamMetrics({ aTeam, workers, observation, canMerge });
+  emit(ctx.agentId, 'A_TEAM_METRICS', 'OBSERVE', `A-Team fusion=${aTeam.metrics.fusionDecision}, violations=${aTeam.metrics.integrationConstraintViolations + failures.length}.`, aTeam.metrics, 'info');
+  return { canMerge, failures, integrationFailures: observation.integrationFailures, paretoFront: [], totalEvaluated: 0 };
 }
 
-module.exports = { applyAteamIntegration, buildDossiers, mergeDecision, buildAteamMetrics };
+module.exports = { applyAteamIntegration, buildDossiers, buildAteamMetrics };

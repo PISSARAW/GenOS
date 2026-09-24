@@ -12,7 +12,8 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { getDatabase, closeDatabase } = require('../src/db');
 const scheduler = require('../src/services/aTeamStageScheduler');
-const { emit } = require('../src/services/agentOrchestrationState');
+const { emit, updateAgent } = require('../src/services/agentOrchestrationState');
+const handoffEvidence = require('../src/services/aTeamHandoffEvidenceService');
 
 function parseArgs(argv) {
   try {
@@ -41,12 +42,23 @@ async function main() {
   if (!plan || !plan.members || !bridgePath) throw new Error('Stage runner requires plan, members and bridgePath.');
   const db = await getDatabase();
   const launch = async (member) => {
-    const child = spawn(process.execPath, [bridgePath, JSON.stringify(scheduler.workerLaunchPayload({ plan, member, parentWorkspaceRoot, request }))], {
+    const handoff = await handoffEvidence.buildHandoffsFromTelemetry({ db, plan, consumer: member });
+    if (!handoff.ok) {
+      await updateAgent(member.workerId, 'blocked', `A-Team dependency evidence unavailable: ${handoff.missingDependency}`);
+      return false;
+    }
+    const enrichedMember = {
+      ...member,
+      handoffContext: handoff.handoffs,
+      mission: handoffEvidence.missionWithHandoffs(member.mission, handoff.handoffs)
+    };
+    const child = spawn(process.execPath, [bridgePath, JSON.stringify(scheduler.workerLaunchPayload({ plan, member: enrichedMember, parentWorkspaceRoot, request }))], {
       cwd: repoRoot || process.cwd(),
       detached: true,
       stdio: runnerStdio(member.workerId)
     });
     child.unref();
+    return true;
   };
   const results = await scheduler.runStagePlan({
     db,
