@@ -276,6 +276,10 @@ const migrationRunners = [
     const { migrateMorphologyGraph } = require('./migrateMorphologyGraph');
     await migrateMorphologyGraph(db);
   }),
+  createMigrationRunner('080-holobiont-memory', 'Persist scoped Host-Symbiont episodic and continuity memory (ADR 0059)', async (db) => {
+    const { migrateHolobiontMemory } = require('./migrateHolobiontMemory');
+    await migrateHolobiontMemory(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
