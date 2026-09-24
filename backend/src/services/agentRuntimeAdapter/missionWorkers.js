@@ -67,7 +67,11 @@ async function launchTrinityWorlds(ctx, autonomousWorkers) {
   if (!(autonomyPlan.trinity?.activated && autonomousWorkers.length)) return;
   const snapshotHashes = await Promise.all(autonomousWorkers.map((worker) => hashWorkspace(worker.workspaceRoot)));
   assertTrinitySnapshot(autonomousWorkers, snapshotHashes);
-  const trinityMissionId = `trinity_${agentId}_${Date.now()}`;
+  const executionRunId = ctx.executionRun?.id;
+  if (!executionRunId) {
+    throw Object.assign(new Error('Trinity requires a persisted execution run id.'), { code: 'TRINITY_EXECUTION_RUN_REQUIRED' });
+  }
+  const trinityMissionId = `trinity_${agentId}_${executionRunId}`;
   autonomyPlan.trinity.missionId = trinityMissionId;
   autonomyPlan.trinity.experimentId = trinityMissionId;
   await persistTrinityExperiment(db, {
