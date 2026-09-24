@@ -14,6 +14,7 @@ const store = require('./topologySessionStore');
 const { normalizeRhizomeSession } = require('./rhizome/contracts/rhizomeSession');
 const capabilityGraph = require('./rhizome/graph/capabilityGraphService');
 const boundaryDetector = require('./rhizome/boundary/boundaryDetector');
+const growthPlanner = require('./rhizome/growth/growthPlanner');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -201,6 +202,13 @@ async function inspectCapabilityNeed(sessionId, need, options = {}) {
   });
 }
 
+async function planGrowth(sessionId, gapId, options = {}) {
+  const session = await getSession(sessionId, options.db);
+  const gap = session.openGaps.find((item) => item.gapId === gapId);
+  if (!gap) throw Object.assign(new Error(`Unknown Rhizome gap '${gapId}'.`), { code: 'RHIZOME_GAP_UNKNOWN' });
+  return growthPlanner.plan({ session, gap, values: options.candidates, options });
+}
+
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -257,4 +265,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, coherence, runSlimeMouldStep, closeSession, rehydrate };
