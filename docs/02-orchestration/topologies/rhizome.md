@@ -1,5 +1,9 @@
 # Rhizome : Orchestration Décentralisée par Ramification de Capacités
 
+- **Statut** : Cadre opérationnel
+- **Portée** : orchestration décentralisée par ramification de capacités, coordination locale, routage, croissance et résilience du réseau
+- **Dernière revue** : 2026-09-24
+
 ## 1. Définition
 
 Rhizome dans GenOS est le protocole d'orchestration qui fait croître une mission comme un **réseau décentralisé de capacités reliées par des ponts locaux**. Au lieu de construire une hiérarchie fixe ou de répartir la mission dans des branches isolées, Rhizome ajoute des points de coordination là où le réseau rencontre un manque, une frontière ou une nouvelle dépendance.
@@ -1311,13 +1315,20 @@ Si la mission est un bloc monolithique qui ne peut pas être décomposé en capa
 
 ---
 
-## 22. Implementation & capacités
+## 22. Implémentation prévue et capacités
 
-Cette topologie est câblée au runtime. Voir [TOPOLOGIES_CAPACITES.md](../topologies-et-capacites.md).
+Le mode Rhizome s'appuie sur les capacités déclarées dans le contrat de topologie ;
+les composants ci-dessous décrivent son ancrage actuel et les responsabilités
+attendues du runtime. Voir [Topologies et capacités](../topologies-et-capacites.md).
 
-- Service de coordination : `rhizomeCoordinationService.js`.
-- Capacités requises : `DYNAMIC_GRAPH`, `STIGMERGIC_TRAIL`, `PHYSARUM_CONDUCTIVITY`, `LOCAL_ROUTING`.
-- Contrat exposé par `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
+- Composition des rôles `rootless_coordinator`, `capability_offshoot`, `local_bridge` et `boundary_scout` par `biologicalModeService`.
+- Coordination, sessions, traces stigmergiques, routage et calcul de cohérence par `rhizomeCoordinationService`.
+- Contrat de capacités Rhizome fourni par `topologyCapabilityService` et utilisé par la politique de leases.
+- Graphe de télémétrie, export JSON et serveur du CLI dans `crates/genos-cli/src/commands/rhizome_telemetry/`.
+
+Les équations, invariants et variantes des sections précédentes expriment le
+comportement visé par le modèle Rhizome ; leur présence formalise la spécification
+et ne signifie pas que chaque mécanisme est déjà réalisé dans le runtime.
 
 ---
 
