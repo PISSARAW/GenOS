@@ -23,6 +23,7 @@ const communityAggregation = require('./biocenose/question/communityAggregationS
 const calibration = require('./biocenose/calibration/calibrationService');
 const communityJudgment = require('./biocenose/judgment/communityJudgmentService');
 const adaptiveRecruitment = require('./biocenose/formation/adaptiveRecruitmentService');
+const hierarchicalDeliberation = require('./biocenose/deliberation/hierarchicalDeliberationService');
 const questionClassifier = require('./biocenose/question/questionClassifier');
 const constitutionService = require('./biocenose/governance/constitutionService');
 const communityFormationService = require('./biocenose/formation/communityFormationService');
@@ -239,6 +240,7 @@ module.exports = {
   communityMemberReputation: calibration.reputation,
   finalizeCommunityJudgment: communityJudgment.finalize,
   recruitForDiversityGap: adaptiveRecruitment.recruit,
+  aggregateHierarchicalDeliberation: hierarchicalDeliberation.aggregateAtParent,
   brierConsensus,
   quorumWithAbstention,
   hierarchicalQuorumPlan: hierarchicalQuorum.planForAgentCount
