@@ -217,14 +217,20 @@ function computeMorphologyUtility(ctx) {
 }
 
 function planMorphogenesis(ctx) {
+  const judgment = ctx.communityJudgment;
   const transition = biocenoseMorphogenesisAdapter.recommend({
     currentTopology: ctx.currentState?.topology,
+    ...biocenoseMorphogenesisAdapter.signalsFromJudgment(judgment),
     ...(ctx.biocenoseSignals || {})
   });
   const adjusted = transition?.kind === 'TOPOLOGY_TRANSITION'
     ? { ...ctx, proposedTopology: transition.target, reason: transition.reason } : ctx;
   const plan = buildMorphogenesisPlan(adjusted);
-  if (transition) plan.biocenoseTransition = transition;
+  if (transition) plan.biocenoseTransition = {
+    ...transition,
+    communityId: judgment?.communityId || ctx.communityId || null,
+    judgmentId: judgment?.judgmentId || null
+  };
   return plan;
 }
 

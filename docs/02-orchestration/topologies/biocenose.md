@@ -113,11 +113,13 @@ Cette distinction est essentielle : les sections qui suivent décrivent le modè
   supprime pas le membre et ne prouve aucune intention malveillante. Les presets
   `epistemic_jury`, `delphi` et `adversarial_assembly` sont des configurations descriptives,
   pas encore des variantes exécutant chacune leur protocole complet ;
-- L'adaptateur Biocénose/Morphogenèse propose Trinity pour un désaccord testable, A-Team
-  quand le jugement est stabilisé et que l'exécution commence, Direct quand un vérificateur
-  déterministe a résolu la question, et Human en cas de désaccord normatif. Le planner
-  Morphogenèse consomme ces signaux pour Trinity/A-Team ; Direct/Human restent des
-  recommandations de handoff, car ce ne sont pas des topologies de son registre ;
+- L'adaptateur Biocénose/Morphogenèse traduit le jugement final fourni au planner en
+  signaux de transition : un désaccord testable propose Trinity, un jugement `DECIDED`
+  avec exécution demandée propose A-Team, une résolution par preuves vérifiées propose
+  Direct, et un jugement nécessitant une revue propose Human. Les propositions Trinity/A-Team
+  alimentent le plan Morphogenèse et gardent les identifiants de communauté et de jugement
+  en provenance. Direct/Human restent des recommandations de handoff, car ce ne sont pas
+  des topologies de son registre ;
 - `runBiocenoseRound` déroule un plan borné et exige un handler pour chaque étape. Chaque
   étape terminée est auditée par hash ; toute étape manquante ou en échec stoppe le tour
   et produit un événement de blocage. Les handlers restent responsables des appels aux
