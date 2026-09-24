@@ -88,7 +88,9 @@ function admitSymbiont(session, payload) {
 function changeSymbiontStatus(session, payload, status) {
   const symbiontId = String(payload.symbiontId || '');
   const admission = payload.receipt ? { admissionReceipt: payload.receipt } : {};
-  const update = { ...admission, status };
+  const replacement = payload.replacementSymbiontId
+    ? { replacementSymbiontId: payload.replacementSymbiontId, statusReason: payload.reason || null } : {};
+  const update = { ...admission, ...replacement, status };
   updateSymbiont(session.candidateSymbionts, symbiontId, update);
   updateSymbiont(session.residentSymbionts, symbiontId, update);
   return session;
