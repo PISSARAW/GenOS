@@ -87,6 +87,9 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 18. Présenter utilité de migration et capacité du réseau comme indicateurs
     calculés, avec coût explicite et convergence de l'estimation, sans en faire
     une preuve autonome de succès ou une décision de promotion.
+19. Relier l'orchestrateur aux moteurs multi-îlots Rust et procédural par
+    adaptateurs validés. En l'absence de binding Rust configuré, retourner une
+    indisponibilité explicite au lieu de simuler une évolution réussie.
 
 ## Conséquences
 
