@@ -81,6 +81,9 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 16. Le quorum déduplique les votes corrélés par groupe indépendant, source ou
     modèle. Les abstentions et silences sont des observations sans soutien ;
     ils ne sont jamais convertis en votes positifs.
+17. Réguler la migration à partir de la corrélation d'erreurs et du
+    recouvrement stratégique. La réduction ou le gel des corridors est dirigé ;
+    les dèmes porteurs d'une capacité unique sont retournés comme protégés.
 
 ## Conséquences
 
