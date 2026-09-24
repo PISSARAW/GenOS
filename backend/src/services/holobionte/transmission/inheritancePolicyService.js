@@ -14,13 +14,14 @@ function normalize(value) {
 function decideInheritance(hostPolicy, contractPolicy) {
   const host = normalize(hostPolicy);
   const contract = normalize(contractPolicy);
-  if (contract === 'VERTICAL_REQUIRED' && !['VERTICAL_REQUIRED', 'VERTICAL_PREFERRED'].includes(host)) {
+  if (contract === 'VERTICAL_REQUIRED' && ['NEVER_INHERIT', 'REACQUIRE', 'REACQUIRE_EACH_GENERATION'].includes(host)) {
     throw policyError('Host policy conflicts with a required vertical contract.', 'HOLOBIONT_TRANSMISSION_CONFLICT');
   }
   if (host === 'NEVER_INHERIT' || contract === 'NEVER_INHERIT') return { inherit: false, reason: 'NEVER_INHERIT' };
   if (REACQUIRE_POLICIES.includes(host) || REACQUIRE_POLICIES.includes(contract)) {
     return { inherit: false, reacquire: true, reason: 'REACQUIRE_EACH_GENERATION' };
   }
+  if (contract === 'HORIZONTAL_OK') return { inherit: false, horizontalAcquisition: true, reason: 'HORIZONTAL_ACQUISITION_REQUIRED' };
   if (!VERTICAL_POLICIES.includes(host) || !VERTICAL_POLICIES.includes(contract)) {
     throw policyError('Unknown Host or contract transmission policy.');
   }
