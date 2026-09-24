@@ -82,6 +82,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | [0068](0068-cross-feeding-symbiotique-holobionte.md) | Cross-feeding symbiotique Holobionte | Accepté | 2026-09-24 | Holobionte, interactions, preuves, crédit, provenance |
 
+| [0069](0069-graphe-interactions-symbiontes-holobionte.md) | Graphe des interactions symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, graphe, relations, preuves, autorité |
+
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.
