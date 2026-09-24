@@ -91,6 +91,14 @@ async function main() {
   assert.equal(transactionRecord.state.ops.every((item) => item.transactionId === 'persisted-tx'), true);
   assert.equal(transactionEvents.at(-1).type, 'TRANSACTION_COMMITTED');
   assert.equal(transactionEvents.at(-1).payload.operations.length, 2);
+  await syncytium.publishReflexSignal(transactionSession.sessionId, {
+    signalId: 'persistent-reflex', type: 'STOP', actorId: 'operator'
+  }, { db });
+  const afterReflex = await persistence.loadSession(db, transactionSession.sessionId);
+  const eventsAfterReflex = await persistence.loadEvents(db, transactionSession.sessionId);
+  assert.equal(afterReflex.state.reflexSignals[0].signalId, 'persistent-reflex');
+  assert.equal(eventsAfterReflex.at(-1).type, 'REFLEX_SIGNAL');
+  assert.equal(syncytium.rehydrate(afterReflex).reflexSignals.length, 1);
   await assert.rejects(
     () => persistence.commitSession(db, { sessionId: session.sessionId, revision: 0, state: {} }, { opId: 'stale-op' }),
     (error) => error.code === 'SYNCYTIUM_SESSION_CONFLICT'

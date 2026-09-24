@@ -41,15 +41,29 @@ async function commitSession(db, session, operation) {
     const update = await tx.run("UPDATE topology_sessions SET state_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND topology = 'syncytium'", JSON.stringify(session.state), session.sessionId);
     if (update.changes !== 1) throw missingSession(session.sessionId);
     for (const item of operations) await recordOperation(tx, session, item);
-    const grouped = operations.length > 1 || operations.some((item) => item.transactionId);
-    await appendEvent(tx, {
-      session,
-      revision,
-      type: grouped ? 'TRANSACTION_COMMITTED' : 'OPERATION_APPLIED',
-      payload: grouped ? { operations } : operations[0]
-    });
+    await appendSessionEvent({ db: tx, session, revision, operations });
     return { revision, duplicate: false };
   });
+}
+
+async function appendSessionEvent({ db, session, revision, operations }) {
+  const reflex = session.pendingReflexSignal;
+  const payload = eventPayload(reflex, operations);
+  await appendEvent(db, { session, revision, type: eventType(reflex, operations), payload });
+}
+
+function eventPayload(reflex, operations) {
+  if (reflex) return reflex;
+  return isGroupedOperations(operations) ? { operations } : operations[0];
+}
+
+function eventType(reflex, operations) {
+  if (reflex) return 'REFLEX_SIGNAL';
+  return isGroupedOperations(operations) ? 'TRANSACTION_COMMITTED' : 'OPERATION_APPLIED';
+}
+
+function isGroupedOperations(operations) {
+  return operations.length > 1 || operations.some((item) => item.transactionId);
 }
 
 function normalizeOperations(operation) {

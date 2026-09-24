@@ -23,6 +23,7 @@ const transactionService = require('./syncytium/transactions/transactionService'
 const deltaRouter = require('./syncytium/sync/deltaRouter');
 const projectionMaterializer = require('./syncytium/sync/projectionMaterializer');
 const adaptiveSync = require('./syncytium/sync/adaptiveSyncService');
+const reflexSignals = require('./syncytium/reflex/reflexSignalService');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -35,6 +36,7 @@ function serialize(session) {
     organization: session.organization,
     schema: session.schema,
     domains: session.domains,
+    reflexSignals: session.reflexSignals,
     ops: session.crdt.getHistory(),
     fluxOps: session.fluxOps
   };
@@ -53,6 +55,7 @@ function rehydrate(record) {
     organization,
     schema: schemaService.compile(state.schema),
     domains: nuclearDomains.compile(state.domains),
+    reflexSignals: normalizeReflexSignals(state.reflexSignals),
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'syncytium', organization }),
     crdt: createSyncytiumCrdt(),
     cytoplasm: createCytoplasm(),
@@ -66,6 +69,10 @@ function rehydrate(record) {
   return session;
 }
 
+function normalizeReflexSignals(signals) {
+  return Array.isArray(signals) ? signals : [];
+}
+
 function sessionRevision(record) {
   return Number.isInteger(record.revision) ? record.revision : 0;
 }
@@ -74,10 +81,16 @@ async function persist(db, session) {
   if (!db) {
     session.pendingOperation = null;
     session.pendingOperations = null;
+    session.pendingReflexSignal = null;
     return;
   }
   try {
-    const record = { sessionId: session.sessionId, revision: session.revision, state: serialize(session) };
+    const record = {
+      sessionId: session.sessionId,
+      revision: session.revision,
+      state: serialize(session),
+      pendingReflexSignal: session.pendingReflexSignal
+    };
     if (!session.persisted) {
       session.revision = await persistence.createSession(db, record);
       session.persisted = true;
@@ -87,6 +100,7 @@ async function persist(db, session) {
     }
     session.pendingOperation = null;
     session.pendingOperations = null;
+    session.pendingReflexSignal = null;
   } catch (cause) {
     if (cause.code === 'SYNCYTIUM_SESSION_CONFLICT') throw cause;
     throw Object.assign(new Error('Syncytium session persistence failed.', { cause }), { code: 'SYNCYTIUM_PERSISTENCE_FAILURE' });
@@ -103,6 +117,7 @@ async function createSession(mission, options = {}) {
     members: syncytiumService.compose(mission),
     organization,
     domains: nuclearDomains.compile(options.nuclearDomains || options.domains),
+    reflexSignals: [],
     revision: 0,
     persisted: false,
     schema: schemaService.compile(options.schema),
@@ -136,11 +151,12 @@ function assessConsistency(session) {
   const snapshot = session.crdt.getSnapshot();
   const failed = snapshot.invariants.filter((invariant) => !invariant.passed);
   const membranePotentialMv = session.cytoplasm.snapshotState().membranePotentialMv;
-  const unstable = membranePotentialMv < -85 || membranePotentialMv > 30;
+  const physiology = membranePotentialMv < -85 || membranePotentialMv > 30 ? 'unstable' : 'normal';
   return {
-    verdict: failed.length ? 'divergent' : (unstable ? 'unstable' : 'consistent'),
+    verdict: failed.length ? 'divergent' : 'consistent',
     failedInvariants: failed.map((invariant) => invariant.name),
     membranePotentialMv,
+    physiology,
     step: snapshot.step,
     totalOps: snapshot.totalOps,
     textLength: snapshot.textContent.length
@@ -211,6 +227,7 @@ async function snapshot(sessionId, options = {}) {
     shared: projectedSnapshot(session, shared, options.domainId),
     schema: projectedSchema(session, options.domainId),
     domains: options.domainId ? { [options.domainId]: session.domains[options.domainId] } : session.domains,
+    reflex: reflexSignals.snapshot(session, options.domainId),
     cytoplasm: session.cytoplasm.snapshotState(),
     consistency: assessConsistency(session)
   };
@@ -255,10 +272,26 @@ async function applyTransaction(sessionId, transaction, options = {}) {
   });
 }
 
+async function publishReflexSignal(sessionId, signal, options = {}) {
+  const session = await getSession(sessionId, options.db);
+  validateConsumerDomain(session, options.domainId);
+  const result = reflexSignals.append(session, signal);
+  if (result.duplicate) return result;
+  session.pendingReflexSignal = result.signal;
+  try {
+    await persist(options.db, session);
+  } catch (error) {
+    session.reflexSignals = session.reflexSignals.filter((item) => item.signalId !== result.signal.signalId);
+    session.pendingReflexSignal = null;
+    throw error;
+  }
+  return { ...result, delivery: 'IMMEDIATE' };
+}
+
 async function closeSession(sessionId, options = {}) {
   const existed = sessions.delete(sessionId);
   if (options.db) await persistence.removeSession(options.db, sessionId);
   return true;
 }
 
-module.exports = { createSession, applyOperation, applyTransaction, snapshot, assessConsistency, closeSession, isIonicFlux, rehydrate };
+module.exports = { createSession, applyOperation, applyTransaction, publishReflexSignal, snapshot, assessConsistency, closeSession, isIonicFlux, rehydrate };
