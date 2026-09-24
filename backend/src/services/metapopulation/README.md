@@ -55,4 +55,10 @@ patches et risque d'homogénéisation ; la capacité découle de la capacité
 minimale des patches et de cette qualité. La régénération du graphe désactive
 les corridors retirés et conserve leurs compteurs et historiques.
 
-Les propagules et mécanismes de reprise arrivent dans les lots suivants.
+Le PR5 place les propagules offertes en quarantaine chez le dème receveur.
+Seul un adaptateur enregistré pour le type concerné peut valider localement
+le payload puis l'assimiler. Un rejet de validation est journalisé ; une
+assimilation acceptée exige un reçu avec provenance. Les adaptateurs reçoivent
+l'identifiant de migration comme clé d'idempotence afin qu'une reprise après
+erreur ne duplique pas leurs effets. Les politiques de sélection et déclencheurs
+de migration arrivent dans les lots suivants.

@@ -7,6 +7,7 @@ function validatePropagule(input) {
   const propagule = record(input, 'METAPOPULATION_PROPAGULE_INVALID');
   const code = 'METAPOPULATION_PROPAGULE_INVALID';
   for (const field of ['propaguleId', 'sourceDemeId', 'targetDemeId', 'payloadRef', 'migrationReason']) string(propagule[field], field, code);
+  if (propagule.sourceDemeId === propagule.targetDemeId) throw Object.assign(new Error('A propagule must cross between distinct demes.'), { code });
   enumValue(propagule.type, 'type', { allowed: PROPAGULE_TYPES, code });
   array(propagule.lineageRefs, 'lineageRefs', code);
   array(propagule.sourceEvidence, 'sourceEvidence', code);

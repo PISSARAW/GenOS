@@ -55,6 +55,10 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
    topologie régénèrent les arêtes actives dans une transaction ; une arête
    retirée est désactivée et conserve ses compteurs et son historique de
    bénéfices pour l'analyse ultérieure.
+9. Placer les migrations offertes en quarantaine jusqu'à la validation du
+   dème receveur par un adaptateur enregistré selon le type. Une assimilation
+   n'est acceptée qu'avec un reçu de provenance ; l'adaptateur reçoit l'identité
+   de migration comme clé d'idempotence.
 
 ## Conséquences
 
