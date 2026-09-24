@@ -12,6 +12,8 @@ const arenaTaskEvaluation = require('./arenaTaskEvaluation');
 const epistemicBiocenose = require('./epistemic/epistemicBiocenoseService');
 const hierarchicalQuorum = require('./hierarchicalQuorumService');
 const communityStore = require('./biocenose/communityStore');
+const questionClassifier = require('./biocenose/question/questionClassifier');
+const constitutionService = require('./biocenose/governance/constitutionService');
 
 const NON_CANDIDATE_ROLES = new Set([
   'adversarial_reviewer', 'reviewer', 'consensus_observer', 'observer',
@@ -185,12 +187,18 @@ function composeMembers(mission, population) {
 
 async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
   const composition = composeBiocenose(mission, options);
+  const classification = questionClassifier.classifyQuestion(mission, { questionType: options.questionType });
   const session = await communityStore.createSession(db, {
     missionId: options.missionId,
     question: mission,
-    questionType: options.questionType,
+    questionType: classification.questionType,
     members: composition.members,
     actorId: orchestratorId
+  });
+  const constitution = await constitutionService.commitInitial({
+    db, communityId: session.communityId, classification,
+    roles: composition.members.map((member) => member.role),
+    overrides: options.constitution, actorId: orchestratorId
   });
   if (composition.organization) {
     const dynamicOrganization = require('./dynamicOrganizationService');
@@ -199,7 +207,11 @@ async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
       reason: 'Biocenose mode activation', changedBy: orchestratorId
     }).catch(() => {});
   }
-  return { ...composition, communityId: session.communityId, sessionRevision: session.revision };
+  return {
+    ...composition, communityId: session.communityId, sessionRevision: constitution.committed.sessionRevision,
+    questionClassification: classification, constitutionId: constitution.committed.constitutionId,
+    constitutionVersion: constitution.committed.version
+  };
 }
 
 function activateBiocenose(mission, context = {}) {

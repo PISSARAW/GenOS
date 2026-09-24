@@ -5,6 +5,7 @@ const { withTransaction } = require('../../db');
 const { migrateBiocenoseSessions } = require('../../db/migrations/migrateBiocenoseSessions');
 const { COMMUNITY_EVENTS } = require('./constants');
 const { validateSession } = require('./contracts/communitySessionContract');
+const { validateConstitution } = require('./contracts/constitutionContract');
 const { validateMember } = require('./contracts/memberContract');
 
 const initializedDatabases = new WeakSet();
@@ -126,6 +127,59 @@ async function appendEvent(db, input) {
   });
 }
 
+async function saveConstitution(db, record) {
+  await ensureSchema(db);
+  assertValid(validateConstitution(record), 'BIOCENOSE_CONSTITUTION_INVALID');
+  return withTransaction(db, async () => {
+    const session = await db.get('SELECT community_id FROM biocenose_communities WHERE community_id = ?', record.communityId);
+    if (!session) throw unknownCommunity(record.communityId);
+    const latest = await latestConstitution(db, record.communityId);
+    const expectedVersion = Number(latest?.version || 0) + 1;
+    if (record.version !== expectedVersion) throw versionConflict(record.communityId, expectedVersion);
+    const createdAt = record.createdAt || new Date().toISOString();
+    await db.run(
+      `INSERT INTO biocenose_constitutions
+        (constitution_id, community_id, version, constitution_json, constitution_hash, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      record.constitutionId, record.communityId, record.version, JSON.stringify(record.constitution),
+      record.constitutionHash, createdAt
+    );
+    const event = await appendEvent(db, {
+      communityId: record.communityId, actorId: record.actorId,
+      type: latest ? 'CONSTITUTION_VERSIONED' : 'CONSTITUTION_COMMITTED',
+      payload: { constitutionId: record.constitutionId, version: record.version, reason: record.reason || null },
+      patch: { constitutionId: record.constitutionId }
+    });
+    return { ...record, createdAt, sessionRevision: event.revision };
+  });
+}
+
+async function loadConstitution(db, constitutionId) {
+  await ensureSchema(db);
+  const row = await db.get('SELECT * FROM biocenose_constitutions WHERE constitution_id = ?', constitutionId);
+  return row ? mapConstitution(row) : null;
+}
+
+async function latestConstitution(db, communityId) {
+  await ensureSchema(db);
+  const row = await db.get(
+    'SELECT * FROM biocenose_constitutions WHERE community_id = ? ORDER BY version DESC LIMIT 1',
+    communityId
+  );
+  return row ? mapConstitution(row) : null;
+}
+
+function mapConstitution(row) {
+  return {
+    constitutionId: row.constitution_id,
+    communityId: row.community_id,
+    version: Number(row.version),
+    constitution: parseJson(row.constitution_json),
+    constitutionHash: row.constitution_hash,
+    createdAt: row.created_at
+  };
+}
+
 function validateEvent(input) {
   if (!input || typeof input.communityId !== 'string' || !input.communityId.trim()) {
     throw Object.assign(new Error('communityId is required.'), { code: 'BIOCENOSE_EVENT_INVALID' });
@@ -223,4 +277,11 @@ function conflict(id) {
   return Object.assign(new Error(`Biocenose session revision conflict for '${id}'.`), { code: 'BIOCENOSE_SESSION_CONFLICT' });
 }
 
-module.exports = { createSession, appendEvent, loadSession, listEvents, ensureSchema };
+function versionConflict(id, version) {
+  return Object.assign(new Error(`Biocenose constitution for '${id}' must use version ${version}.`), { code: 'BIOCENOSE_CONSTITUTION_VERSION_CONFLICT' });
+}
+
+module.exports = {
+  createSession, appendEvent, loadSession, listEvents,
+  saveConstitution, loadConstitution, latestConstitution, ensureSchema
+};

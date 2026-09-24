@@ -1,7 +1,7 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
 - **Statut** : Topologie disponible ; le service assemble une communauté et expose des évaluations et métriques. Le protocole épistémique complet décrit dans cette page n'est pas implémenté de bout en bout.
-- **Portée implémentée** : composition des rôles, contrat de capacités, préparation d'organisation, évaluation Pareto, consensus Brier avec oracle, quorum avec abstention et métriques de diversité.
+- **Portée implémentée** : composition des rôles, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-09-24
 
 Biocénose est une topologie spécialisée dans le cadre morphogénétique de GenOS : la
@@ -26,7 +26,15 @@ présentes dans `biocenoseService` sont les suivantes :
   quatre membres reste utilisée ;
 - `prepareCommunity` demande à `dynamicOrganizationService` de changer d'organisation,
   crée d'abord une `BiocenoseSession` persistée avec ses membres et son événement
-  `COMMUNITY_CREATED`, puis ignore les erreurs du changement d'organisation ;
+  `COMMUNITY_CREATED`, classe la question, enregistre la constitution initiale et son
+  hash avant de retourner, puis ignore les erreurs du changement d'organisation ;
+- `questionClassifier` classe par mots-clés (`FACTUAL`, `PROBABILISTIC`, `DESIGN`,
+  `MULTI_CRITERIA`, `NORMATIVE`, `EXPLORATORY`, `MIXED`). Cette heuristique accepte un
+  type explicite via `options.questionType` ; elle n'évalue pas la sémantique par un
+  modèle ni un arbitre externe ;
+- `constitutionService` associe les sémantiques et une politique d'agrégation par type
+  de question, valide les champs et versionne la constitution. Toute nouvelle version
+  après la première exige une raison et produit un événement d'audit ;
 - `communityStore` restaure la session et ses membres depuis SQLite. Les événements
   sont ajoutés dans la même transaction que la révision de session, avec contrôle de
   révision optimiste ; les journaux et artefacts sont stockés dans des tables
@@ -60,6 +68,11 @@ persisté, un registre de dissent, le suivi de conformité sociale, ni un recrut
 dynamique déclenché par la monoculture. Les sections suivantes exposent ces éléments
 comme modèle cible ou pistes de conception ; elles ne doivent pas être lues comme des
 garanties runtime.
+
+La constitution persistée est une politique déclarée ; elle n'applique pas encore de
+gates d'indépendance, de divulgation, de vérification ou d'agrégation. La fonction de
+compatibilité `activateBiocenose` reste synchrone et ne crée pas de session persistée ;
+c'est `prepareCommunity` qui suit le parcours persistant.
 
 Les tables des claims, arguments, engagements, révisions de croyance, dissent et
 jugements sont créées pour préparer ces étapes, mais le parcours actuel ne les remplit
