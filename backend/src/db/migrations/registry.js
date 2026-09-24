@@ -252,6 +252,10 @@ const migrationRunners = [
     const { migrateRequestMemory } = require('./migrateRequestMemory');
     await migrateRequestMemory(db);
   }),
+  createMigrationRunner('074-holobiont-sessions', 'Persist Holobiont sessions and append-only symbiosis event history (ADR 0048)', async (db) => {
+    const { migrateHolobiontSessions } = require('./migrateHolobiontSessions');
+    await migrateHolobiontSessions(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
