@@ -72,3 +72,7 @@ les offres restent soumises à la capacité du corridor et à la quarantaine PR5
 Le PR7 évalue des déclencheurs de stagnation, amélioration et génération,
 puis applique les plafonds de coût, de risque de synchronisation et de budget.
 La décision rend ses motifs et ses blocages explicites pour le runtime appelant.
+
+Le PR8 classe les dèmes source/sink à partir de leur fitness et de la connectivité
+active, calcule la couverture de capacités distinctes et marque les dèmes à
+protéger quand ils portent une capacité régionale unique.

@@ -65,6 +65,9 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
 11. Évaluer les déclencheurs adaptatifs par des conditions observables et des
     garde-fous explicites de coût, risque de synchronisation et budget. La
     décision reste une preuve exploitable par le runtime, pas un envoi implicite.
+12. Mesurer la contribution régionale séparément de la fitness locale. Une
+    capacité portée par un seul dème viable compte dans la couverture unique
+    et le protège d'une élimination fondée seulement sur sa faible fitness.
 
 ## Conséquences
 

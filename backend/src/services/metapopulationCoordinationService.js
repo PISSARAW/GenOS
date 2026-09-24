@@ -26,6 +26,7 @@ const propaguleMigrationService = require('./metapopulation/migration/propaguleM
 const migrationAdapterRegistry = require('./metapopulation/migration/migrationAdapterRegistry');
 const migrationPolicyService = require('./metapopulation/migration/migrationPolicyService');
 const adaptiveMigrationTriggerService = require('./metapopulation/migration/adaptiveMigrationTriggerService');
+const regionalContributionService = require('./metapopulation/observability/regionalContributionService');
 
 const DEFAULT_ORGANIZATION = 'quorum_with_abstention';
 const DEFAULT_QUORUM_RATIO = 0.5;
@@ -262,6 +263,10 @@ function evaluateMigrationTrigger(input) {
   return adaptiveMigrationTriggerService.evaluateTrigger(input);
 }
 
+function analyzeRegionalContribution(demes, corridors, options = {}) {
+  return regionalContributionService.analyzeContribution(demes, corridors, options);
+}
+
 module.exports = {
   composeMetapopulation,
   createMetapopulationSession,
@@ -294,6 +299,7 @@ module.exports = {
   planPushMigration,
   queryPullMigration,
   evaluateMigrationTrigger,
+  analyzeRegionalContribution,
   senseQuorum,
   regenerationPlan,
   connectionWeights
