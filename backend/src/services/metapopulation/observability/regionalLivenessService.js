@@ -1,12 +1,13 @@
 'use strict';
 const { latestHeartbeats } = require('../demes/demeHeartbeatStore');
-const { getMetapopulationSession } = require('../../metapopulationCoordinationService');
+const metapopulationStore = require('../metapopulationStore');
 const { classifySilence } = require('./silenceClassifier');
 async function inspectRegion(metapopulationId, options = {}) {
   if (!options.db) throw Object.assign(new Error('Database is required.'), { code: 'METAPOPULATION_DB_REQUIRED' });
   const [session, rows] = await Promise.all([
-    getMetapopulationSession(metapopulationId, options), latestHeartbeats(options.db, metapopulationId)
+    metapopulationStore.loadSession(options.db, metapopulationId), latestHeartbeats(options.db, metapopulationId)
   ]);
+  if (!session) throw Object.assign(new Error('Unknown metapopulation session.'), { code: 'METAPOPULATION_SESSION_UNKNOWN' });
   const indexed = new Map(rows.map((row) => [row.deme_id, row]));
   const demes = session.demes.map((deme) => ({
     demeId: deme.demeId, status: deme.status,
