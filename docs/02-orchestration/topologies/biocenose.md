@@ -1,12 +1,61 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
+- **Statut** : Topologie disponible ; le service assemble une communauté et expose des évaluations et métriques. Le protocole épistémique complet décrit dans cette page n'est pas implémenté de bout en bout.
+- **Portée implémentée** : composition des rôles, contrat de capacités, préparation d'organisation, évaluation Pareto, consensus Brier avec oracle, quorum avec abstention et métriques de diversité.
+- **Dernière revue** : 2026-09-24
+
+Biocénose est une topologie spécialisée dans le cadre morphogénétique de GenOS : la
+Morphogenèse choisit et compose les organisations adaptées à une mission ; Biocénose
+fournit le protocole de jugement collectif lorsqu'une communauté délibérante est
+appropriée. Elle reste l'un des huit modes de composition, pas un mécanisme de
+reconfiguration structurelle.
+
+Voir aussi : [Morphogenèse](morphogenese.md), cadre de construction et de composition
+d'organisations cognitives.
+
+## État réel de l'implémentation
+
+Cette distinction est essentielle : les sections qui suivent décrivent le modèle
+épistémique visé, pas un protocole entièrement exécuté par le runtime. Les capacités
+présentes dans `biocenoseService` sont les suivantes :
+
+- `composeBiocenose` valide la mission, compose les membres via
+  `biologicalModeService`, puis retourne le seuil, le contrat de capacités et un plan
+  de communication hiérarchique ;
+- `prepareCommunity` demande à `dynamicOrganizationService` de changer d'organisation,
+  mais ignore les erreurs de cette étape ;
+- `evaluateCommunity` évalue les dossiers avec l'arène Pareto et retourne le point
+  genou, le classement, le front de Pareto, une diversité d'actions et un consensus
+  Brier ;
+- `brierConsensus` nécessite un résultat d'oracle pour calculer le score et le soutien
+  pondéré ; sans oracle, il retourne `oracleMissing` ;
+- `quorumWithAbstention` calcule un quorum pondéré simple et compte les abstentions ;
+- `epistemicBiocenoseService` calcule des indicateurs de diversité et recommande une
+  niche. `shouldRecruit` est une recommandation calculée : ce service ne recrute pas
+  lui-même d'agent.
+
+Le contrat de capacités déclaré pour ce mode est
+`QUORUM`, `EPISTEMICS_BRIER`, `ARENA_COMPETITION`, `EVIDENCE_BARRIER`,
+`SWARM_METRICS`, `SIGNALING_BUS` et `PROMOTION_GATE`. Ce contrat et la présence de
+services de métriques ne prouvent pas à eux seuls que toutes les étapes sont reliées
+dans un cycle de délibération.
+
+Ne sont pas établis par ce chemin d'exécution : le commit-reveal cryptographique des
+jugements, la délibération réellement exécutée claim par claim, un argument graph
+persisté, un registre de dissent, le suivi de conformité sociale, ni un recrutement
+dynamique déclenché par la monoculture. Les sections suivantes exposent ces éléments
+comme modèle cible ou pistes de conception ; elles ne doivent pas être lues comme des
+garanties runtime.
+
+---
+
 ## 1. Définition
 
-Biocénose dans GenOS est le mécanisme d'orchestration qui exécute une mission comme un **collectif délibérant formant un jugement partagé à partir de connaissances distribuées, de perspectives indépendantes et de désaccords légitimes**. Contrairement aux autres topologies (Trinity = hypothèses concurrentes, A-Team = expertises complémentaires, Syncytium = fusion d'état continu, Holobionte = hiérarchie), Biocénose impose une **indépendance cognitive scellée, une délibération structurée et une agrégation par type de question**.
+Dans son modèle cible, Biocénose traite une mission comme un **collectif délibérant formant un jugement partagé à partir de connaissances distribuées, de perspectives indépendantes et de désaccords légitimes**. Le service runtime disponible compose les membres et fournit des évaluations communautaires ; il n'impose pas à lui seul une indépendance cognitive scellée ni une délibération structurée par type de question.
 
 Le mot « Biocénose » vient de l'écologie : une biocénose est l'ensemble des organismes vivants partageant un même biotope, en interaction constante — compétition, coopération, prédation, symbiose — mais sans fusion en un super-organisme. GenOS emprunte ce concept : les agents ne partagent pas un état viscéral ; ils maintiennent des **cognitions distinctes** qui interagissent par des mécanismes épistémiques explicites.
 
-Les principes fondateurs sont :
+Les principes du modèle cible sont :
 
 1. **Indépendance cognitive scellée** : chaque agent forme sa position avant de voir les autres ;
 2. **Constitution communautaire antérieure** : les règles de décision sont fixées avant toute réponse ;
@@ -14,23 +63,23 @@ Les principes fondateurs sont :
 4. **Agrégation adaptée au type de question** : pas d'algorithme unique ;
 5. **Préservation du désaccord légitime** : le dissent utile n'est jamais écrasé par la majorité.
 
-Biocénose n'est pas un vote multi-agent. C'est une **formation de jugement collectif**. Le but n'est pas que tout le monde soit d'accord ; le but est que chaque claim matérielle ait été indépendamment proposée, proprement contestée, évidentiellement évaluée, et que le jugement final préserve à la fois ce que les preuves supportent et ce qui reste légitimement disputé.
+Dans le modèle cible, Biocénose n'est pas un vote multi-agent, mais une **formation de jugement collectif**. Le but visé est que chaque claim matérielle soit indépendamment proposée, contestée et évaluée, et que le jugement final préserve ce que les preuves supportent comme ce qui reste disputé. Le runtime actuel ne garantit pas ce protocole complet.
 
-Le cœur fonctionnel est réparti entre :
+Les services associés actuellement sont :
 
-- [backend/src/services/biocenoseService.js](../../../backend/src/services/biocenoseService.js) : analyse de mission et activation ;
-- [backend/src/services/epistemic/epistemicBiocenoseService.js](../../../backend/src/services/epistemic/epistemicBiocenoseService.js) : diversité fonctionnelle, détection monoculture ;
-- [backend/src/services/epistemic/epistemicIndependenceService.js](../../../backend/src/services/epistemic/epistemicIndependenceService.js) : indépendance épistémique ;
-- [backend/src/services/hierarchicalQuorumService.js](../../../backend/src/services/hierarchicalQuorumService.js) : quorum hiérarchique pour communautés massives ;
-- [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des rôles communautaires.
+- [backend/src/services/biocenoseService.js](../../../backend/src/services/biocenoseService.js) : composition, préparation, activation et évaluation ;
+- [backend/src/services/epistemic/epistemicBiocenoseService.js](../../../backend/src/services/epistemic/epistemicBiocenoseService.js) : calcul de métriques de diversité ;
+- [backend/src/services/epistemic/epistemicIndependenceService.js](../../../backend/src/services/epistemic/epistemicIndependenceService.js) : service d'indépendance épistémique distinct, dont la présence ne signifie pas qu'il est appelé par le parcours Biocénose ;
+- [backend/src/services/hierarchicalQuorumService.js](../../../backend/src/services/hierarchicalQuorumService.js) : production d'un plan de communication hiérarchique ;
+- [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des rôles.
 
-Le principe est : une communauté cognitivement diversifiée, dont les membres jugent indépendamment puis délibèrent structurellement, forme un jugement plus robuste qu'une autorité unique — non parce qu'elle converge, mais parce qu'elle cartographie correctement l'espace du désaccord.
+Le principe visé est qu'une communauté diverse, si elle juge indépendamment puis délibère correctement, puisse cartographier le désaccord mieux qu'une autorité unique. C'est une hypothèse de conception, pas un résultat garanti par l'implémentation actuelle.
 
 ---
 
 ## 2. Non un consensus multi-agent, mais une épistémologie collective
 
-GenOS applique une logique de délibération épistémique :
+Le modèle cible de GenOS propose une logique de délibération épistémique :
 
 1. **Cognitions distinctes** : chaque agent maintient sa propre position jusqu'au moment prévu par le protocole ;
 2. **Commitment scellé** : les jugements initiaux sont signés cryptographiquement avant exposition ;
@@ -1100,17 +1149,17 @@ flowchart LR
 
 ---
 
-## 24. Implementation & capacités (GenOS v3)
+## 24. Implémentation et capacités (GenOS v3)
 
-Depuis la v3, cette topologie est câblée au runtime :
+Le runtime fournit les points d'entrée décrits dans « État réel de l'implémentation ». Le contrat actuellement déclaré est :
 
-- Service de coordination : `biocenoseService.js`.
-- Capacités requises : `EVIDENCE_BARRIER`, `EPISTEMIC_INDEPENDENCE`, `ARGUMENT_GRAPH`, `DELIBERATION_PROTOCOL`, `CALIBRATION_ENGINE`, `CONFORMITY_MONITOR`, `BYZANTINE_RESISTANCE`, `DISSENT_PRESERVATION`.
-- Contrat exposé par `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
+- Service : `backend/src/services/biocenoseService.js`.
+- Capacités déclarées dans `topologyCapabilityService` : `QUORUM`, `EPISTEMICS_BRIER`, `ARENA_COMPETITION`, `EVIDENCE_BARRIER`, `SWARM_METRICS`, `SIGNALING_BUS`, `PROMOTION_GATE`.
+- Ces étiquettes décrivent le contrat exposé par le service de capacités. Elles ne prouvent pas que le protocole cible de cette documentation est exécuté intégralement ni que chaque capacité est appliquée à chaque appel.
 
 ---
 
-## 25. L'invariant fondamental
+## 25. Invariant visé
 
 > **Une communauté n'est pas réussie parce que tout le monde est d'accord.**
 > **Une communauté est réussie lorsque chaque claim matérielle a été indépendamment proposée, proprement contestée, évidentiellement évaluée, et que le jugement final préserve à la fois ce que les preuves supportent et ce qui reste légitimement disputé.**

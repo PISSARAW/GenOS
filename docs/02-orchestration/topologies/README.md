@@ -3,6 +3,9 @@
 Les 8 modes de composition supportés par GenOS. Le contrat de capacités et le câblage
 runtime sont décrits dans [../topologies-et-capacites.md](../topologies-et-capacites.md).
 
+La [Morphogenèse](morphogenese.md) est le cadre transversal qui construit et compose
+ces organisations ; elle n'est pas un neuvième mode.
+
 - [trinity.md](trinity.md) — orchestration comparée en trois mondes.
 - [a-team.md](a-team.md) — équipe multidisciplinaire d'agents autonomes.
 - [biome.md](biome.md) — orchestration par environnement et populations spécialisées.
