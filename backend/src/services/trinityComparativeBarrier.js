@@ -118,13 +118,24 @@ async function recordComparison(ctx, trinity, result) {
   });
 }
 
+async function experimentLatencySla(db, missionId) {
+  const row = await db.get('SELECT budget_policy_json FROM trinity_experiments WHERE mission_id = ?', missionId);
+  let budget = {};
+  try { budget = JSON.parse(row?.budget_policy_json || '{}'); } catch (_) {}
+  const latency = Number(budget.maxLatencyMs);
+  return Number.isFinite(latency) && latency >= 0 ? latency : null;
+}
+
 async function applyTrinityComparison(ctx) {
   const trinity = ctx && ctx.autonomyPlan ? ctx.autonomyPlan.trinity : null;
   if (!trinity || trinity.activated !== true) return null;
   const threshold = Number(trinity.threshold) || 0.70;
   const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, ctx.workers || []);
   const worldReports = buildWorldReports(ctx.workers || [], dossiers, { members: trinity.members || [] });
-  const result = trinityService.mergeTrinityEvidence(worldReports, { domain: trinity.domain, threshold });
+  const maxLatencyMs = await experimentLatencySla(ctx.db, trinity.missionId);
+  const result = trinityService.mergeTrinityEvidence(worldReports, {
+    domain: trinity.domain, threshold, maxLatencyMs, dimensionThresholds: trinity.dimensionThresholds
+  });
   result.jury = { status: 'unavailable', reason: 'judge_dispatch_not_configured', votes: [] };
   await recordComparison(ctx, trinity, result);
   trinity.comparison = buildComparison(result);
@@ -342,6 +353,7 @@ function vectorDecisionSummary(pareto) {
     outcome: pareto.outcome,
     reason: pareto.reason || null,
     dimensions: pareto.dimensions || [],
+    thresholds: pareto.thresholds || null,
     frontier: (pareto.frontier || []).map((world) => world.worldNumber),
     worlds: (pareto.worlds || []).map((world) => ({
       worldNumber: world.worldNumber,

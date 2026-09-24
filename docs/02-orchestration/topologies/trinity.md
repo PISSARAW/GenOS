@@ -20,7 +20,7 @@ Cette section répond aux choix nécessaires pour transformer les parties concep
 | Que signifie « modèles hétérogènes » ? | Une préférence de sélection, pas une garantie. En v1, la stratégie cognitive est obligatoirement distincte ; le fournisseur peut être identique. Toute diversité de fournisseur réellement obtenue est enregistrée, jamais supposée. |
 | Le runtime calcule-t-il une probabilité EV calibrée ? | Non. V1 calcule un indice de valeur déterministe à partir des signaux fournis et le nomme `evIndex`, pas probabilité. Aucun poids ne peut être décrit comme appris/calibré sans jeu de données et preuve de calibration. |
 | Que fait une demande explicite de Trinity ? | Elle demande le protocole mais ne contourne ni budget, ni isolation, ni garde de sécurité. Le runtime refuse avec un motif explicite si l'une de ces garanties manque. |
-| Que fait le jury multi-modèle ? | Il est optionnel et n'est appelé qu'après les vérificateurs déterministes et les preuves externes. Sans au moins deux juges configurés indépendamment, il retourne `unavailable` et ne vote pas. |
+| Que fait le jury multi-modèle ? | Il est optionnel et ne s'exécute qu'après les vérificateurs déterministes et les preuves externes. Le runtime v1 n'a pas de dispatch de jury configuré : le résultat persiste donc `status: unavailable`, sans vote, et ne peut jamais remplacer les gardes déterministes. |
 | Que signifie « promouvoir » ? | V1 promeut vers un artefact candidat versionné et vérifié dans GenOS. Cela ne déploie pas en production et ne modifie pas la branche de travail de l'utilisateur. |
 | L'atomicité couvre-t-elle Git, fichiers et base dans une transaction ACID unique ? | Non. V1 utilise une promotion en deux phases avec candidat temporaire, commit/hash vérifiés, changement d'état final et compensation/rollback en cas d'échec. L'état `promoted` n'est écrit qu'en dernier. |
 
@@ -54,6 +54,10 @@ Chaque monde rapporte les dix dimensions de l'Evidence Vector documentées en Pa
 
 Les valeurs v1 sont orientées ainsi : correctness ≥ 0,70 ; coverage ≥ 0,60 ; robustness ≥ 0,50 ; reproducibility ≥ 0,80 ; novelty ≥ 0 ; risk ≤ 0,30 ; uncertainty ≤ 0,50 ; constraint coverage ≥ 0,90. Cost doit rester dans le budget et latency dans le SLA. Les seuils cibles de l'Appendice B sont des objectifs, pas des conditions obligatoires de promotion. Si une dimension requise par le profil de vérification est inconnue, le résultat est `ESCALATE_EXPERIMENT` ; une dimension optionnelle inconnue ne sert pas au classement.
 
+Une mission peut fournir `trinityDimensionThresholds` pour resserrer les seuils v1. Le runtime ignore toute valeur qui les relâcherait ; les seuils effectivement appliqués sont persistés dans `evidenceVectorDecision.thresholds`.
+
+Le statut `budgetStatus: "within"` atteste le respect du budget de coût. Si un `maxLatencyMs` est configuré, chaque monde doit fournir `latencyMs` et des références valides dans `evidenceVectorEvidence.latency`; l'absence de mesure ou une valeur supérieure au SLA élimine ce monde.
+
 Règles d'agrégation, dans cet ordre :
 
 1. Rejeter les dossiers invalides, incomplets ou sans preuve de provenance.
@@ -82,7 +86,7 @@ La promotion prépare un candidat distinct depuis le workspace isolé du monde g
 
 ### Portée explicitement reportée
 
-V1 n'implémente pas Trinity-Factorial, Trinity-Recursive, l'adaptation du nombre de replicas en cours de run, l'apprentissage des poids, l'estimation statistique de corrélation d'erreurs, les solveurs formels non présents dans le runtime, ni une garantie de diversité des fournisseurs. Ces propositions restent des variantes de recherche ; elles ne sont pas des critères d'acceptation du runtime v1.
+V1 n'implémente pas le dispatch d'un jury multi-modèle, Trinity-Factorial, Trinity-Recursive, l'adaptation du nombre de replicas en cours de run, l'apprentissage des poids, l'estimation statistique de corrélation d'erreurs, les solveurs formels non présents dans le runtime, ni une garantie de diversité des fournisseurs. Ces propositions restent des variantes de recherche ; elles ne sont pas des critères d'acceptation du runtime v1.
 
 ## 1. Définition
 

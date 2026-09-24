@@ -155,6 +155,7 @@ function reportTrinityPlan({ autonomyPlan, agentId, automaticRequest, trinityWor
 
 function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve }) {
   autonomyPlan.trinity = trinityService.analyzeMission(missionText(normalizedMission));
+  autonomyPlan.trinity.dimensionThresholds = normalizedMission.trinityDimensionThresholds || {};
   const engagement = calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWorkerShare);
   if (autonomyPlan.trinity.activated) {
     activateTrinity({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, trinityWorkerCount: engagement.trinityWorkerCount });

@@ -17,7 +17,7 @@ function defaultIfMissing(value, fallback) {
   return value === null || value === undefined ? fallback : value;
 }
 
-function normalizeWorld(entry, index) {
+function normalizeWorld(entry, index, options = {}) {
   const report = defaultIfMissing(entry?.report, defaultIfMissing(entry?.evidenceReport, defaultIfMissing(entry, {})));
   const values = defaultIfMissing(report.evidenceVector, {});
   const refs = defaultIfMissing(report.evidenceVectorEvidence, {});
@@ -32,7 +32,10 @@ function normalizeWorld(entry, index) {
     vector,
     missing,
     hardConstraintsPassed: report.hardConstraintsPassed === true,
-    budgetStatus: defaultIfMissing(report.budgetStatus, null)
+    budgetStatus: defaultIfMissing(report.budgetStatus, null),
+    latencyMs: finiteMetric(report.latencyMs),
+    latencyEvidenceValid: hasEvidenceReferences(refs.latency, evidenceIds),
+    latencySlaMs: finiteMetric(options.maxLatencyMs)
   };
 }
 
@@ -45,20 +48,63 @@ function finiteMetric(value) {
 function validMeasuredDimension(value, refs, evidenceIds) {
   const number = finiteMetric(value);
   return number !== null && number <= 1 && Array.isArray(refs)
-    && refs.length > 0 && refs.every((id) => evidenceIds.has(id));
+    && hasEvidenceReferences(refs, evidenceIds);
+}
+
+function hasEvidenceReferences(refs, evidenceIds) {
+  if (!Array.isArray(refs)) return false;
+  if (refs.length === 0) return false;
+  return refs.every((id) => evidenceIds.has(id));
 }
 
 function gateFailures(world) {
   const failures = [];
+  addBaseFailures(world, failures);
+  addLatencyFailure(world, failures);
+  addThresholdFailures(world, failures);
+  return failures;
+}
+
+function addBaseFailures(world, failures) {
   if (!world.hardConstraintsPassed) failures.push('hard_constraints_not_verified');
   if (world.budgetStatus !== 'within') failures.push('budget_not_verified_within_limit');
-  for (const [dimension, threshold] of Object.entries(THRESHOLDS)) {
+}
+
+function addLatencyFailure(world, failures) {
+  if (world.latencySlaMs === null) return;
+  if (!world.latencyEvidenceValid || world.latencyMs === null) failures.push('latency_sla_evidence_missing');
+  else if (world.latencyMs > world.latencySlaMs) failures.push('latency_sla_exceeded');
+}
+
+function addThresholdFailures(world, failures) {
+  for (const [dimension, threshold] of Object.entries(world.thresholds)) {
     const value = world.vector[dimension];
     if (value === null) continue;
-    const failed = dimension === 'risk' || dimension === 'uncertainty' ? value > threshold : value < threshold;
-    if (failed) failures.push(`${dimension}_below_gate`);
+    if (failsThreshold(dimension, value, threshold)) failures.push(`${dimension}_below_gate`);
   }
-  return failures;
+}
+
+function tightenedThresholds(requested = {}) {
+  const values = requested && typeof requested === 'object' ? requested : {};
+  return Object.fromEntries(Object.entries(THRESHOLDS).map(([dimension, minimum]) => [
+    dimension, thresholdForDimension(dimension, minimum, values[dimension])
+  ]));
+}
+
+function thresholdForDimension(dimension, minimum, raw) {
+  if (raw === null || raw === undefined || raw === '') return minimum;
+  const candidate = Number(raw);
+  if (!Number.isFinite(candidate) || candidate < 0 || candidate > 1) return minimum;
+  return isCeilingDimension(dimension) ? Math.min(minimum, candidate) : Math.max(minimum, candidate);
+}
+
+function isCeilingDimension(dimension) {
+  return dimension === 'risk' || dimension === 'uncertainty';
+}
+
+function failsThreshold(dimension, value, threshold) {
+  if (dimension === 'risk' || dimension === 'uncertainty') return value > threshold;
+  return value < threshold;
 }
 
 function sharedDimensions(worlds) {
@@ -76,23 +122,26 @@ function dominates(left, right, dimensions) {
   return strictlyBetter;
 }
 
-function compare(worldReports) {
-  const worlds = (Array.isArray(worldReports) ? worldReports : []).map(normalizeWorld);
-  if (worlds.length !== 3) return escalation(worlds, 'exactly_three_worlds_required');
-  if (worlds.some((world) => world.missing.length)) return escalation(worlds, 'required_evidence_vector_or_provenance_missing');
+function compare(worldReports, options = {}) {
+  const thresholds = tightenedThresholds(options.dimensionThresholds);
+  const worlds = (Array.isArray(worldReports) ? worldReports : []).map((entry, index) => ({
+    ...normalizeWorld(entry, index, options), thresholds
+  }));
+  if (worlds.length !== 3) return escalation(worlds, 'exactly_three_worlds_required', thresholds);
+  if (worlds.some((world) => world.missing.length)) return escalation(worlds, 'required_evidence_vector_or_provenance_missing', thresholds);
   const gated = worlds.map((world) => ({ ...world, gateFailures: gateFailures(world) }));
   const candidates = gated.filter((world) => !world.gateFailures.length);
-  if (!candidates.length) return escalation(gated, 'all_worlds_failed_verification_gates');
+  if (!candidates.length) return escalation(gated, 'all_worlds_failed_verification_gates', thresholds);
   const dimensions = sharedDimensions(candidates);
   const frontier = candidates.filter((world) => {
     return !candidates.some((other) => { return other !== world && dominates(other, world, dimensions); });
   });
-  if (frontier.length !== 1) return { ...escalation(gated, 'pareto_frontier_requires_human_or_synthesis'), outcome: 'KEEP_PARETO_SET', frontier, dimensions };
-  return { outcome: 'PROMOTE_WORLD', selectedWorld: frontier[0].worldNumber, frontier, worlds: gated, dimensions, missing: [] };
+  if (frontier.length !== 1) return { ...escalation(gated, 'pareto_frontier_requires_human_or_synthesis', thresholds), outcome: 'KEEP_PARETO_SET', frontier, dimensions };
+  return { outcome: 'PROMOTE_WORLD', selectedWorld: frontier[0].worldNumber, frontier, worlds: gated, dimensions, thresholds, missing: [] };
 }
 
-function escalation(worlds, reason) {
-  return { outcome: 'ESCALATE_EXPERIMENT', reason, worlds, frontier: [], dimensions: [], missing: worlds.flatMap((world) => { return world.missing || []; }) };
+function escalation(worlds, reason, thresholds = THRESHOLDS) {
+  return { outcome: 'ESCALATE_EXPERIMENT', reason, worlds, frontier: [], dimensions: [], thresholds, missing: worlds.flatMap((world) => { return world.missing || []; }) };
 }
 
 module.exports = { compare, normalizeWorld, REQUIRED, THRESHOLDS };

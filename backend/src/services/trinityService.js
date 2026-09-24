@@ -233,7 +233,7 @@ function mergeTrinityEvidence(worldEntries, options = {}) {
   const domain = options.domain || 'software_engineering';
   const entries = Array.isArray(worldEntries) ? worldEntries : [];
   const comparison = compareWorlds(entries, domain);
-  const pareto = trinityPareto.compare(entries);
+  const pareto = trinityPareto.compare(entries, options);
   comparison.pareto = pareto;
   const accepted = pareto.outcome === 'PROMOTE_WORLD';
   if (accepted) {
