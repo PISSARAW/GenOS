@@ -2,6 +2,7 @@ const { buildAutonomyPlan, applySurvivalConstraints } = require('./autonomousOrc
 const { buildAllocation } = require('./tokenAllocationService');
 const { regulateAutonomyPlan } = require('./controlRegulationService');
 const trinityService = require('./trinityService');
+const hypothesisDesign = require('./trinityHypothesisDesignService');
 const aTeamService = require('./aTeamService');
 const aTeamRuntime = require('./aTeam/aTeamRuntime');
 const aTeamCoordination = require('./aTeamCoordinationService');
@@ -152,6 +153,7 @@ function reportTrinityPlan({ autonomyPlan, agentId, automaticRequest, trinityWor
 
 function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve }) {
   autonomyPlan.trinity = trinityService.analyzeMission(missionText(normalizedMission));
+  applyTrinityHypothesisDesign(autonomyPlan.trinity, normalizedMission);
   autonomyPlan.trinity.dimensionThresholds = normalizedMission.trinityDimensionThresholds || {};
   const engagement = calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWorkerShare);
   if (autonomyPlan.trinity.activated) {
@@ -159,6 +161,24 @@ function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, effectiveW
   } else {
     reportTrinityPlan({ autonomyPlan, agentId, ...engagement });
   }
+}
+
+function applyTrinityHypothesisDesign(trinity, normalizedMission) {
+  const supplied = {
+    ...(normalizedMission.trinityHypothesisDesign || {}),
+    integrationChecks: normalizedMission.trinityIntegrationChecks,
+    claimVerificationChecks: normalizedMission.trinityClaimVerificationChecks
+  };
+  const design = trinityService.designHypotheses(missionText(normalizedMission), supplied);
+  trinity.hypothesisDesign = design;
+  trinity.members = trinity.members.map((member, index) => {
+    const selected = design.selectedTriplet[index];
+    return selected ? {
+      ...member,
+      hypothesis: hypothesisDesign.hypothesisText(selected, member.hypothesis),
+      hypothesisId: selected.id || null
+    } : member;
+  });
 }
 
 function activateATeam({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, aTeamWorkerCount }) {

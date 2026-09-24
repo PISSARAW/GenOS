@@ -42,7 +42,8 @@ async function persistTrinityExperiment(db, input) {
       missionId: trinityMissionId,
       domain: autonomyPlan.trinity.domain,
       snapshotHash: snapshotHashes[0],
-      design: trinityService.designHypotheses(normalizedMission.prompt || normalizedMission.currentTask || '', {
+      design: autonomyPlan.trinity.hypothesisDesign || trinityService.designHypotheses(normalizedMission.prompt || normalizedMission.currentTask || '', {
+        ...(normalizedMission.trinityHypothesisDesign || {}),
         integrationChecks: normalizedMission.trinityIntegrationChecks,
         claimVerificationChecks: normalizedMission.trinityClaimVerificationChecks
       }),

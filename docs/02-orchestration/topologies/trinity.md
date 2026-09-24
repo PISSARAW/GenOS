@@ -26,7 +26,9 @@ Cette section répond aux choix nécessaires pour transformer les parties concep
 
 ### Entrées et sortie du concepteur d'hypothèses
 
-Le concepteur v1 est déterministe et n'invente pas de faits. Il prend la mission, les contraintes et le contexte autorisé en entrée. Il produit `centralProblem`, `assumptions[]`, `uncertainties[]`, `decisionVariables[]`, `selectedTriplet` et `selectionMethod: "fixed_v1"`. Les listes restent vides si aucune donnée explicite ne permet de les identifier. Il n'émet pas de `utilityScore` pour ce triplet fixe ; l'optimisation de la fonction d'utilité est reportée.
+Le concepteur v1 est déterministe et n'invente pas de faits. Il prend la mission, les contraintes et le contexte autorisé en entrée. Il produit `centralProblem`, `assumptions[]`, `uncertainties[]`, `decisionVariables[]`, `selectedTriplet` et `selectionMethod`. Les listes restent vides si aucune donnée explicite ne permet de les identifier. Il n'émet pas de `utilityScore` ; l'optimisation de la fonction d'utilité reste reportée.
+
+Un appelant peut fournir `trinityHypothesisDesign.candidateHypotheses`, jusqu'à douze objets `{ id?, chamber?, hypothesis|statement, sourceRefs?, assumptions?, predictions?, falsificationCriteria? }`, et `sourceEvidence` comme liste d'identifiants ou d'objets `{ id }`. Une référence de source doit être `mission` ou correspondre à un identifiant fourni ; sinon la candidate est écartée. Le runtime normalise les candidats, supprime les textes ou identifiants dupliqués et sélectionne un triplet déterministe, une candidate par chambre. Les hypothèses sélectionnées sont ajoutées aux prompts et à la provenance persistée. Si moins de trois candidates valides restent, le runtime garde les trois stratégies fixes et marque `selectionMethod: "fixed_v1"`. Cette interface sélectionne des candidates fournies ; elle ne prétend pas générer de nouvelles hypothèses à partir des faits. La génération autonome, le score d'orthogonalité et l'optimisation expérimentale restent différés.
 
 Les trois stratégies v1 sont fixes :
 

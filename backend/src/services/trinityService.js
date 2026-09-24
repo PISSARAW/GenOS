@@ -73,6 +73,9 @@ function normalizeClaimVerificationChecks(checks) {
 
 function designHypotheses(mission, supplied = {}) {
   const analysis = analyzeMission(mission);
+  const candidates = hypothesisDesign.normalizeCandidates(supplied);
+  const selectedTriplet = hypothesisDesign.selectTriplet(candidates)
+    || analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis, sourceRefs: ['mission'] }));
   const integrationChecks = normalizeIntegrationChecks(supplied.integrationChecks);
   const claimVerificationChecks = normalizeClaimVerificationChecks(supplied.claimVerificationChecks);
   return {
@@ -80,11 +83,11 @@ function designHypotheses(mission, supplied = {}) {
     assumptions: Array.isArray(supplied.assumptions) ? supplied.assumptions : [],
     uncertainties: Array.isArray(supplied.uncertainties) ? supplied.uncertainties : [],
     decisionVariables: Array.isArray(supplied.decisionVariables) ? supplied.decisionVariables : [],
-    candidateHypotheses: analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis })),
-    selectedTriplet: analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis })),
+    candidateHypotheses: candidates.length ? candidates : analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis, sourceRefs: ['mission'] })),
+    selectedTriplet,
     integrationChecks,
     claimVerificationChecks,
-    selectionMethod: 'fixed_v1',
+    selectionMethod: candidates.length >= 3 && hypothesisDesign.selectTriplet(candidates) ? 'supplied_candidates_v1' : 'fixed_v1',
     utilityScore: null
   };
 }
@@ -93,6 +96,7 @@ const telemetry = require('./telemetryObserver');
 const adaptive = require('./adaptiveParameterService');
 const { calculateEvIndex } = require('./trinityValueService');
 const trinityPareto = require('./trinityParetoService');
+const hypothesisDesign = require('./trinityHypothesisDesignService');
 
 const DOMAIN_WEIGHTS = {
   creative_writing: { alpha: 0.30, beta: 0.25, gamma: 0.45 },
