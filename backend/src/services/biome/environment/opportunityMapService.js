@@ -15,9 +15,16 @@ function scoreOpportunity(opportunity, index) {
     descriptor: String(opportunity?.descriptor || '').trim(),
     opportunityScore: score,
     evidenceRefs,
+    requiredCapabilities: stringList(opportunity?.requiredCapabilities),
+    resourceProfile: opportunity?.resourceProfile || {},
+    novelty: bounded(opportunity?.novelty),
     justifiedUncertainty: uncertainty,
     status: evidenceSupported ? 'candidate' : 'insufficient_evidence'
   };
+}
+
+function stringList(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim()) : [];
 }
 
 function bounded(value) {

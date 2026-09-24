@@ -6,9 +6,13 @@ const { requiredId, enumValue, nonNegative } = require('./contractHelpers');
 function createNiche(input = {}) {
   return {
     nicheId: requiredId(input.nicheId, 'nicheId'),
+    opportunityId: input.opportunityId || null,
     descriptor: String(input.descriptor || '').trim(),
     requiredCapabilities: stringList(input.requiredCapabilities),
     opportunityScore: nonNegative(input.opportunityScore, 'opportunityScore'),
+    evidenceRefs: stringList(input.evidenceRefs),
+    sourceSignals: stringList(input.sourceSignals),
+    justifiedUncertainty: nonNegative(input.justifiedUncertainty, 'justifiedUncertainty'),
     entryConditions: input.entryConditions || [],
     survivalConditions: input.survivalConditions || [],
     exitConditions: input.exitConditions || [],

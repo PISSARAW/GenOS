@@ -15,6 +15,9 @@ const biomeSessionStore = require('./biome/biomeSessionStore');
 const biomeStore = require('./biome/biomeStore');
 const { createEcologicalEvent } = require('./biome/contracts/ecologicalEvent');
 const environmentModelService = require('./biome/environment/environmentModelService');
+const nicheDiscoveryService = require('./biome/niches/nicheDiscoveryService');
+const nicheLifecycleService = require('./biome/niches/nicheLifecycleService');
+const nicheStore = require('./biome/niches/nicheStore');
 const crypto = require('crypto');
 
 const DEFAULT_ORGANIZATION = 'energy_huddle';
@@ -124,6 +127,7 @@ async function sessionSnapshot(sessionId, options = {}) {
     environment: session.ecology.environment,
     environmentConstraints: session.ecology.environmentConstraints,
     opportunities: session.ecology.opportunityMap,
+    niches: session.ecology.niches,
     entries: biofilmMatrix.read(session.matrix)
   };
 }
@@ -139,6 +143,37 @@ async function updateSessionEnvironment(sessionId, patch, options = {}) {
       session.ecology.environmentConstraints = updated.constraints.evaluations;
       session.ecology.opportunityMap = updated.opportunities;
       return { ...updated, action: { type: 'ENVIRONMENT_VERSIONED', status: 'applied', version: updated.environment.version } };
+    }
+  });
+}
+
+async function discoverSessionNiches(sessionId, failureClusters = [], options = {}) {
+  return applyOperation({
+    sessionId, options, operation: 'niche_discovery', input: { failureClusters },
+    apply: (session) => {
+      const candidates = nicheDiscoveryService.discoverNiches({
+        opportunityMap: session.ecology.opportunityMap,
+        failureClusters,
+        existingNiches: session.ecology.niches
+      });
+      for (const candidate of candidates) session.ecology.niches = nicheStore.upsertNiche(session.ecology.niches, candidate);
+      return {
+        candidates,
+        action: { type: 'NICHE_CANDIDATES_RECORDED', status: 'applied', candidateCount: candidates.length }
+      };
+    }
+  });
+}
+
+async function updateNicheLifecycle({ sessionId, nicheId, measurements = {}, options = {} }) {
+  return applyOperation({
+    sessionId, options, operation: 'niche_lifecycle', input: { nicheId, measurements },
+    apply: (session) => {
+      const niche = session.ecology.niches.find((item) => item.nicheId === nicheId);
+      if (!niche) throw Object.assign(new Error(`Unknown biome niche '${nicheId}'.`), { code: 'BIOME_NICHE_UNKNOWN' });
+      const updated = nicheLifecycleService.advanceNiche(niche, measurements, options);
+      session.ecology.niches = nicheStore.upsertNiche(session.ecology.niches, updated);
+      return { niche: updated, action: { type: 'NICHE_STATUS_CHANGED', status: updated.status, nicheId } };
     }
   });
 }
@@ -279,5 +314,7 @@ module.exports = {
   forageSession,
   assessSessionHealth,
   updateSessionEnvironment,
+  discoverSessionNiches,
+  updateNicheLifecycle,
   rehydrate
 };
