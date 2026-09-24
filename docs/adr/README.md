@@ -101,6 +101,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | [0094](0094-calibration-immunitaire-holobionte.md) | Calibration immunitaire du Holobionte | Accepté | 2026-09-24 | Holobionte, immunité, épistémologie |
 
+| [0095](0095-detection-surreaction-immunitaire-holobionte.md) | Détection de sur-réaction immunitaire Holobionte | Accepté | 2026-09-24 | Holobionte, immunité, gouvernance |
+
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.
