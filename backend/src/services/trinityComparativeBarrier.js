@@ -199,6 +199,8 @@ async function createMergeArtifact(db, params) {
 
 async function promoteWinner(db, input = {}) {
   const { missionId, orchestratorId, result } = input;
+  const previous = await previousPromotion({ db, missionId });
+  if (previous) return previous;
   await updateExperimentDecision(db, missionId, result);
   const validation = validateMergeInput(db, result);
   if (!validation.valid) {
@@ -241,10 +243,27 @@ async function promoteWinner(db, input = {}) {
     return { promoted: true, worldNumber: result.selectedWorld, role: result.selectedRole, score: result.bestScore, agentId: winner.agentId, artifact, verification, agentGit: decision.agentGit };
   } catch (error) {
     await failPromotion({ db, missionId, reason: error.code || 'candidate_verification_failed', artifact: { ...artifact, failure: error.message } });
-    await db.run("UPDATE agents SET status = 'blocked', updated_at = CURRENT_TIMESTAMP WHERE id = ?", winner.agentId).catch(() => {});
     emit(orchestratorId, 'TRINITY_PROMOTION_FAILED', 'PROMOTE_TRINITY', `Candidate promotion failed: ${error.message}`, { missionId, artifact }, 'error');
     return { promoted: false, candidateCreated: true, reason: error.code || 'candidate_verification_failed', artifact };
   }
+}
+
+async function previousPromotion(input) {
+  const { db, missionId } = input;
+  if (!missionId) return null;
+  const experiment = await db.get('SELECT status, decision_json, failure_reason FROM trinity_experiments WHERE mission_id = ?', missionId);
+  if (!experiment || !['promoted', 'promotion_failed'].includes(experiment.status)) return null;
+  let decision = {};
+  try { decision = JSON.parse(experiment.decision_json || '{}'); } catch (_) {}
+  return {
+    promoted: experiment.status === 'promoted',
+    idempotent: true,
+    reason: decision.reason || experiment.failure_reason || null,
+    worldNumber: decision.worldNumber,
+    artifact: decision.artifact || decision.candidateArtifact || null,
+    verification: decision.verification || null,
+    agentGit: decision.agentGit || null
+  };
 }
 
 async function verifyCandidate(db, input) {
