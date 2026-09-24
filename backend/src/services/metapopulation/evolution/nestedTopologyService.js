@@ -46,11 +46,54 @@ function transitionSignal(deme) {
 }
 
 async function executeNestedTransition(input = {}) {
-  if (!input.context?.patch || !input.context?.graph) {
-    return { committed: false, errors: ['deme morphology patch and graph are required'], regionalTopologyUnchanged: true };
-  }
-  const result = await transitionMorphology(input.context, input.adapters || {});
+  const errors = validateNestedTransition(input);
+  if (errors.length) return { committed: false, errors, regionalTopologyUnchanged: false };
+  const adapters = scopedTransitionAdapters(input);
+  const result = await transitionMorphology(input.context, adapters);
   return { ...result, demeId: input.demeId, regionalTopologyUnchanged: true };
+}
+
+function validateNestedTransition(input) {
+  const context = input.context || {};
+  return [
+    ...planErrors(input), ...graphErrors(input, context), ...patchErrors(input, context),
+    ...invariantErrors(input, context)
+  ];
+}
+
+function planErrors(input) {
+  return input.demeId && input.plan?.transitionRequested ? [] : ['an approved local transition plan is required'];
+}
+
+function graphErrors(input, context) {
+  const errors = [];
+  if (context.graph?.scope !== 'deme' || context.graph.demeId !== input.demeId) errors.push('current graph must be scoped to this deme');
+  if (context.graph?.topology !== input.plan?.currentTopology) errors.push('local graph topology does not match the plan');
+  return errors;
+}
+
+function patchErrors(input, context) {
+  return context.patch?.demeId === input.demeId && context.patch?.targetTopology === input.plan?.proposedTopology
+    ? [] : ['patch must target the planned deme topology'];
+}
+
+function invariantErrors(input, context) {
+  const errors = [];
+  if (!context.regionalTopology) errors.push('regional topology invariant is required');
+  if (typeof input.adapters?.verifyRegionalInvariant !== 'function') errors.push('regional invariant verification adapter is required');
+  return errors;
+}
+
+function scopedTransitionAdapters(input) {
+  const adapters = input.adapters;
+  return { ...adapters, verify: async (applied, patch) => {
+    const local = await adapters.verify(applied, patch);
+    const regional = await adapters.verifyRegionalInvariant({ demeId: input.demeId,
+      expectedTopology: input.context.regionalTopology, applied });
+    return { ...local, valid: local?.valid === true && regional?.valid === true &&
+      regional.topology === input.context.regionalTopology, regionalTopologyUnchanged: regional?.valid === true &&
+      regional.topology === input.context.regionalTopology };
+  } };
 }
 
 function finiteSignal(value, fallback) { return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback; }
