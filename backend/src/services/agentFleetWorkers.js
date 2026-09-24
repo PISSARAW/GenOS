@@ -55,12 +55,14 @@ function manifestFallbackCaps(assignment) {
   }
 }
 
-function effectiveToolLease(assignment, capabilityContract, dnaSelection) {
-  const hinted = Array.isArray(assignment.capabilities) && assignment.capabilities.length
-    ? assignment.capabilities
+function assignmentCapabilities(assignment) {
+  return Array.isArray(assignment.capabilities) && assignment.capabilities.length
+    ? [...new Set(assignment.capabilities)]
     : manifestFallbackCaps(assignment);
-  const merged = [...new Set([...(capabilityContract || []), ...hinted])];
-  const base = workerToolLeaseForCapabilities(assignment.role, merged);
+}
+
+function effectiveToolLease(assignment, capabilities, dnaSelection) {
+  const base = workerToolLeaseForCapabilities(assignment.role, capabilities);
   if (!dnaSelection || !dnaSelection.genes) return base;
   const dnaTools = dnaSelection.genes.tools;
   const assignmentTools = assignment.tools;
@@ -307,10 +309,10 @@ function buildWorkerMeta(details) {
 
 function formatWorker(details) {
   const { id, identity, assignment, parent, plan, mission, route, workspaceRoot, prompt, evolution, orchestrator, dnaSelection } = details;
-  const capabilityContract = plan && plan.capabilityContract ? plan.capabilityContract.required : [];
-  const toolLease = effectiveToolLease(assignment, capabilityContract, dnaSelection);
+  const capabilities = assignmentCapabilities(assignment);
+  const toolLease = effectiveToolLease(assignment, capabilities, dnaSelection);
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
-  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, assignments: assignmentList, mission }), ...buildWorkerMeta(details) };
+  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, capabilities, assignments: assignmentList, mission }), ...buildWorkerMeta(details) };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
   return worker;
 }
@@ -328,9 +330,9 @@ function inheritedWorkerEngine(mission) {
 }
 
 function workerRuntime(details) {
-  const { parent, route, workspaceRoot, toolLease, assignments, mission } = details;
+  const { parent, route, workspaceRoot, toolLease, capabilities, assignments, mission } = details;
   const inProcessWorker = config.inProcessWorkers() || (Array.isArray(assignments) && assignments.length > 12);
-  return { workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, toolLease, workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider, ...inheritedWorkerEngine(mission) };
+  return { workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, capabilities, toolLease, workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider, ...inheritedWorkerEngine(mission) };
 }
 
 function buildExecutionBudget(details) {

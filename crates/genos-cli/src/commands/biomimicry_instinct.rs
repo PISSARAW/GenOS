@@ -68,6 +68,7 @@ fn read_execution(params: &[String]) -> ExecutionContext {
         authorized_tools,
         atp_budget: read_f64(params, "atp", 100.0),
         apoptotic: read_bool(params, "apoptotic", false),
+        chain_depth: 0,
     }
 }
 

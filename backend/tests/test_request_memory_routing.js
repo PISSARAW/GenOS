@@ -57,6 +57,11 @@ async function main() {
   check('reuse hit', hit.hit === true);
   check('reuse value 4', JSON.parse(hit.champion.content_json).value === 4);
 
+  await db.run("UPDATE request_results SET status = 'PROVISIONAL' WHERE id = ?", hit.champion.id);
+  const provisional = await registry.lookupReusable(db, { semanticId: trivial.semanticId, dependencies: {} });
+  check('provisional result is not reusable', provisional.hit === false && provisional.reason === 'status-not-reusable');
+  await db.run("UPDATE request_results SET status = 'VERIFIED' WHERE id = ?", hit.champion.id);
+
   const stale = await registry.lookupReusable(db, { semanticId: trivial.semanticId, dependencies: { repo_head: 'xyz' } });
   check('deps change invalidates', stale.hit === false);
   await db.close();

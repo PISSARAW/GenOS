@@ -41,7 +41,7 @@ function parseJson(text) {
 async function lookupReusable(db, input) {
   const found = await getChampion(db, input.semanticId);
   if (!found.champion) return { hit: false, problem: found.problem };
-  if (found.champion.status !== 'VERIFIED' && found.champion.status !== 'PROVISIONAL') {
+  if (found.champion.status !== 'VERIFIED') {
     return { hit: false, problem: found.problem, champion: found.champion, reason: 'status-not-reusable' };
   }
   if (isExpired(found.champion)) {

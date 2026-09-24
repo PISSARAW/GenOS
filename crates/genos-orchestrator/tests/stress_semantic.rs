@@ -33,13 +33,7 @@ fn beam_search_produit_un_plan_qui_atteint_le_but() {
         diseased: 1,
         ..Default::default()
     };
-use genos_orchestrator::director::PlanRequest;
-    let request = PlanRequest {
-        strategy: Strategy::Biome,
-        state: state.clone(),
-        goal: goal.clone(),
-    };
-    let steps = director.plan_strategy(&request);
+    let steps = director.plan_strategy(Strategy::Biome, &state, &goal);
     assert!(!steps.is_empty());
     assert!(steps.len() <= director.max_steps + 4);
     for step in &steps {

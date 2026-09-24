@@ -2,6 +2,11 @@
 // MCP-to-backend bridge. It owns one complete GenOS mission, including the
 // authority contract and bounded worker fleet, then returns its telemetry.
 const path = require('path');
+try {
+  process.loadEnvFile(path.resolve(__dirname, '../../.env'));
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
+}
 const { getDatabase, closeDatabase } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const { createOrchestratorId } = require('../src/services/orchestratorIdFactory');

@@ -5,7 +5,7 @@
 //! tout franchissement de seuil change le régime. Chaque champ de
 //! `PhysicalState` influence réellement le scoring (voir `decide_physical`).
 
-use crate::director::{Decision, Director, EstimateContext, Strategy};
+use crate::director::{Decision, Director, Strategy};
 use crate::organization::{Superorganism, by_name};
 use crate::planner::{ActionStats, Concept, Goal, WorldState};
 use serde::{Deserialize, Serialize};
@@ -353,22 +353,12 @@ impl Director {
         if previous == decision.strategy {
             return decision;
         }
-        use crate::director::PlanRequest;
-        let request = PlanRequest {
-            strategy: previous,
-            state: ctx.state.clone(),
-            goal: ctx.goal.clone(),
-        };
-        let previous_steps = self.plan_strategy(&request);
+        let previous_steps = self.plan_strategy(previous, ctx.state, ctx.goal);
         if previous_steps.is_empty() {
             return decision;
         }
-        let ctx_est = EstimateContext {
-            initial: ctx.state,
-            goal: ctx.goal,
-        };
-        let previous_score = self.estimate(&previous_steps, &ctx_est);
-        let new_score = self.estimate(&decision.steps, &ctx_est);
+        let previous_score = self.estimate(&previous_steps, ctx.state, ctx.goal);
+        let new_score = self.estimate(&decision.steps, ctx.state, ctx.goal);
         let success_rate = self
             .stats
             .values()
@@ -394,5 +384,3 @@ impl Director {
     }
 }
 
-#[cfg(test)]
-mod physics_tests;

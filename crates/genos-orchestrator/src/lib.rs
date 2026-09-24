@@ -7,9 +7,6 @@ pub mod autopoiesis;
 pub mod behaviors;
 pub mod diagnostics;
 pub mod director;
-pub(crate) mod director_beam;
-pub(crate) mod director_learning;
-pub(crate) mod director_planning;
 pub mod director_persistence;
 pub mod dna_ops;
 pub mod drives;
@@ -88,13 +85,12 @@ pub use physics::{
 };
 pub use physical_telemetry::PhysicalTelemetry;
 pub use plasmids::{PlasmidBank, Skill};
-pub use diagnostics::RecordAction;
 pub use trace::{Outcome, ReplayReport, Verdict};
 pub use tick::{MissionReport, TickReport};
 pub use volition::VolitionState;
 pub use worlds::{Hypothesis, Multiverse, WorldOutcome};
 pub use planner::{Concept, Goal, WorldState, ActionStats};
-pub use recruitment::{Candidate, Demand, ExecuteRequest, RecruitRequest, RecruitmentDecision, RecruitmentPlanner, Selection};
+pub use recruitment::{Candidate, Demand, RecruitmentDecision, RecruitmentPlanner, Selection};
 pub use token_bucket::{AgentComputeBucket, BucketState, PenaltyReport, RewardReport, SchedulingDecision, TokenBucketScheduler};
 pub use tissue_scheduler::{
     InProcessPoolConfig, InProcessTask, InProcessTaskResult, InProcessWorkerPool, PoolHealth,
@@ -148,48 +144,26 @@ mod tests {
         let worker_id = orch.add_worker("Core_Engine", worker).unwrap();
 
         // 2. Délégation Desmosome
-        let delegation = orch.delegate_task(crate::orchestrator::DelegateTaskConfig {
-            tissue_name: "Core_Engine",
-            target_id: worker_id,
-            target_task: "Compiler les noyaux",
-        });
+        let delegation = orch.delegate_task("Core_Engine", (worker_id, "Compiler les noyaux"));
         assert!(delegation.is_ok());
         assert!(delegation.unwrap().contains("Desmosome"));
 
         // 3. Anti-collusion : échec si signal trop peu cher (< 500 tokens)
-        let cheap_audit = orch.audit_collusion(crate::orchestrator::AuditCollusionConfig {
-            tissue_name: "Core_Engine",
-            agent_id: "Chidi",
-            consumed_tokens: 100,
-            physical_test_passed: true,
-        });
+        let cheap_audit = orch.audit_collusion("Core_Engine", ("Chidi", 100, true));
         assert!(cheap_audit.is_err());
 
         // 4. Anti-collusion : succès si signal cher (>= 500 tokens) et réalité validée
-        let good_audit = orch.audit_collusion(crate::orchestrator::AuditCollusionConfig {
-            tissue_name: "Core_Engine",
-            agent_id: "Chidi",
-            consumed_tokens: 600,
-            physical_test_passed: true,
-        });
+        let good_audit = orch.audit_collusion("Core_Engine", ("Chidi", 600, true));
         assert!(good_audit.is_ok());
 
         // 5. Évaluation de la Conscience
-        let state = orch.evaluate_worker(crate::orchestrator::EvaluateWorkerConfig {
-            worker_id,
-            errors_in_loop: 0,
-            progress_score: 10.0,
-        }).unwrap();
+        let state = orch.evaluate_worker(worker_id, (0, 10.0)).unwrap();
         assert!(!state.is_apoptotic);
 
         // 6. Sporulation & Germination
         let spore_idx = orch.sporulate_cell(worker_id, SporeType::BacterialEndospore).unwrap();
         assert_eq!(orch.dormant_spores.len(), 1);
-        let revived = orch.germinate_spore(crate::orchestrator::GerminateSporeConfig {
-            index: spore_idx,
-            warm_and_wet: true,
-            nutrients_available: true,
-        }).unwrap();
+        let revived = orch.germinate_spore(spore_idx, (true, true)).unwrap();
         assert_eq!(revived.role, "Bacterial Vegetative Cell");
 
         // 7. Résilience génétique (dégénérescence du codon)
@@ -202,11 +176,11 @@ mod tests {
         assert!(!swarm.is_empty());
 
         // 9. Télémétrie bioluminescente
-        orch.emit_bioluminescence(crate::orchestrator::BioluminescenceEvent {
-            color: FluorophoreColor::Green,
-            organelle: "Ribosome",
-            event_type: "TRANSLATION_SUCCESS",
-        });
+        orch.emit_bioluminescence(
+            FluorophoreColor::Green,
+            "Ribosome",
+            ("TRANSLATION_SUCCESS", "translation completed"),
+        );
     }
 
     #[test]
@@ -221,7 +195,7 @@ mod tests {
     #[test]
     fn test_token_bucket_scheduler_lifecycle() {
         let mut scheduler = TokenBucketScheduler::new();
-        scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "worker-1", initial_tokens: 50.0, capacity: 100.0 });
+        scheduler.register_agent("worker-1", 50.0, 100.0);
 
         // 1. Initial compute step allowed
         let decision = scheduler.schedule_step("worker-1", 20.0);
@@ -235,15 +209,15 @@ mod tests {
 
         // 2. Proof reward adds tokens and expands capacity on high score
         let report = scheduler.reward_proof("worker-1", 0.95).unwrap();
-        assert_eq!(report.reward_info.capacity, 120.0);
-        assert!(report.reward_info.new_balance > 30.0);
+        assert_eq!(report.capacity, 120.0);
+        assert!(report.new_balance > 30.0);
 
         // 3. Waste penalty drains tokens
         let penalty = scheduler.penalize_waste("worker-1", 0.8).unwrap();
-        assert!(penalty.penalty_info.deducted_tokens >= 25.0);
+        assert!(penalty.deducted_tokens >= 25.0);
 
         // 4. Heavy waste causes throttling / sleep
         let drain = scheduler.penalize_waste("worker-1", 1.0).unwrap();
-        assert!(matches!(drain.penalty_info.state, BucketState::Throttled { .. } | BucketState::Apoptotic));
+        assert!(matches!(drain.state, BucketState::Throttled { .. } | BucketState::Apoptotic));
     }
 }

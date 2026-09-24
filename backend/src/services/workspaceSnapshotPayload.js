@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
+const { withTransaction } = require('../db');
 const { snapshotRoot, containedJoin, assertNoSymlinkPath, exists } = require('./workspaceSnapshotPaths');
 const { collectFiles, manifestHash, sha256 } = require('./workspaceSnapshotCollect');
 
@@ -128,18 +129,16 @@ async function verifyStableWorkspace(options) {
 
 async function insertSnapshotRow(options) {
   const { db, id, workspace, hash, label, author, reason, files, metadata, root } = options;
-  await db.exec('BEGIN IMMEDIATE;');
   try {
-    await db.run(
-      `INSERT INTO workspace_snapshots (id, workspace_id, snapshot_hash, step_number, label, author, reason, diff_summary, metadata)
-       SELECT ?, ?, ?, COALESCE(MAX(step_number), 0) + 1, ?, ?, ?, ?, ? FROM workspace_snapshots WHERE workspace_id = ?`,
-      id, workspace.id, hash, label, author, reason, JSON.stringify({ fileCount: files.length }), JSON.stringify(metadata), workspace.id
-    );
-    const inserted = await db.get('SELECT step_number FROM workspace_snapshots WHERE id = ?', id);
-    await db.exec('COMMIT;');
-    return inserted;
+    return await withTransaction(db, async () => {
+      await db.run(
+        `INSERT INTO workspace_snapshots (id, workspace_id, snapshot_hash, step_number, label, author, reason, diff_summary, metadata)
+         SELECT ?, ?, ?, COALESCE(MAX(step_number), 0) + 1, ?, ?, ?, ?, ? FROM workspace_snapshots WHERE workspace_id = ?`,
+        id, workspace.id, hash, label, author, reason, JSON.stringify({ fileCount: files.length }), JSON.stringify(metadata), workspace.id
+      );
+      return db.get('SELECT step_number FROM workspace_snapshots WHERE id = ?', id);
+    });
   } catch (error) {
-    try { await db.exec('ROLLBACK;'); } catch (_) {}
     const reference = await db.get('SELECT 1 FROM workspace_snapshots WHERE snapshot_hash = ? LIMIT 1', hash).catch(() => null);
     if (!reference) await fsp.rm(path.join(root, hash), { recursive: true, force: true }).catch(() => {});
     throw error;

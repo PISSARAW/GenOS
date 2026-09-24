@@ -21,6 +21,11 @@ function homeostasisStateId(missionId) {
 function buildDefaultFunctionalInvariants(mission) {
   const invariants = [];
   const goal = (mission?.objective || '').toLowerCase();
+  invariants.push({
+    kind: 'functional',
+    label: 'mission_outcome_success',
+    check: (ctx) => ctx?.missionOutcome === true
+  });
   if (goal.includes('auth') || goal.includes('authentifi')) {
     invariants.push({
       kind: 'functional',

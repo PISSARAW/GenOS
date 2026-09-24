@@ -20,7 +20,7 @@ const temporalHelpers = require('./temporalHelpers');
 
 async function causalReplay(context) {
   // Rejoue une séquence d'événements passés avec une intervention pour observer la divergence causale.
-  const strategyId = agentId || 'strategy_adapter';
+  const strategyId = context.agentId || context.orchestratorId || 'strategy_adapter';
   if (context.trajectory || context.turns || context.trajectoryId) {
     const { replayResult, trajId } = await temporalHelpers.handleTrajectoryReplay(context);
 

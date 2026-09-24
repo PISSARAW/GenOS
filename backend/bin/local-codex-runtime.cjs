@@ -222,11 +222,17 @@ function emitCompletion(state, reply) {
     author: { name: state.agentName, meaning: state.nameMeaning, role: state.mission.role || 'Assistant IA de développement' }
   };
   emitEvent(state, {
+    eventType: 'EVIDENCE_REPORT',
+    action: 'VERIFY_CLAIMS',
+    detail: 'Local runtime emitted its structured evidence report.',
+    payload: report
+  });
+  emitEvent(state, {
     eventType: 'AGENT_COMPLETED',
     action: 'COMPLETE',
     detail: 'Local cognitive router completed with Epigenetic Canalization.',
     status: 'completed',
-    payload: { evidenceReport: report }
+    payload: {}
   });
 }
 

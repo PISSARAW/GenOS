@@ -1,4 +1,4 @@
-use genos_orchestrator::{Candidate, Demand, GenosEcosystem, RecruitRequest, RecruitmentPlanner};
+use genos_orchestrator::{Candidate, Demand, GenosEcosystem, RecruitmentPlanner};
 
 /// Paramètres de construction d'un candidat (limite de 3 paramètres).
 struct CandInput<'a> {
@@ -39,7 +39,7 @@ fn licence_recruits_one_agent_per_required_role() {
 
     // L'orchestrateur exécute la décision : tissu créé + 2 cellules.
     let mut eco = GenosEcosystem::new("Overmind");
-    let executed = eco.recruit(RecruitRequest { tissue: "Biome", demand: &demand, candidates: &cands });
+    let executed = eco.recruit("Biome", &demand, &cands);
     assert!(executed.feasible);
     assert_eq!(
         eco.orchestrator.tissues.get("Biome").unwrap().somatic_cells.len(),
