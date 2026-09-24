@@ -38,7 +38,7 @@ Les mécanismes de sécurité sont explicites :
 
 - **autorité centrale** : le host décide, les symbiontes exécutent ;
 - **contrat explicite** : chaque symbiote connaît ses limites et ses responsabilités ;
-- **barrière immunitaire** : aucune sortie ne passe sans validation du Immune Symbiont ;
+- **barrière immunitaire prévue (non systématique sur tous les chemins au 2026-09-24)** : `hostVeto` (`holobionteCoordinationService.js:43`) et `epistemicHolobionteService.js:51-52` existent, mais voir [topologies-et-capacites.md](../topologies-et-capacites.md) §Holobionte : l'appel n'est pas garanti sur chaque exécution — vérifier le chemin avant de dépendre d'un veto ;
 - **traçabilité** : le Memory Symbiont enregistre chaque étape pour auditabilité ;
 - **escalade graduée** : si un symbiote ne peut pas résoudre son domaine, il escalade au host.
 
@@ -568,7 +568,7 @@ Exemple de rapport mémoire :
 
 ## 10. Barrière d'intégrité et fusion
 
-La fusion d'un Holobionte exige une **validation d'intégrité stricte par le Immune Symbiont** et une **approbation finale du Host**.
+La fusion d'un Holobionte prévoit une **validation par le Immune Symbiont** (`hostVeto`, `evaluateCognitiveDrift`) et une **approbation finale du Host**. Au 2026-09-24, ce veto n'est pas appelé systématiquement sur tous les chemins d'exécution (voir contrat de capacités) : traiter toute sortie non revêtue d'un rapport immunitaire comme non validée.
 
 ### Processus de fusion
 

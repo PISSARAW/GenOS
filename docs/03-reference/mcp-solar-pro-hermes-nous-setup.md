@@ -1,6 +1,8 @@
 # Utilisation de Solar Pro avec MCP, Hermes et le provider Nous
 
-- **Statut** : Implémenté (configuration vérifiée le 2026-09-20).
+> Note 2026-09-24 : configuration opérateur locale (profil Hermes `genos-v3` sous `%LOCALAPPDATA%/hermes`, chemins `C:/Users/Shadow/...`), non versionnée dans ce dépôt. Le binaire `target/release/genos-mcp.exe` est à compiler (`cargo build -p genos-mcp --release`). `tools/list` = 20 outils `genos_*` dans `crates/genos-mcp/src/tools.rs` (pas 22).
+
+- **Statut** : Configuration opérateur vérifiée le 2026-09-20 sur poste local.
 - **Portée** : profiler Hermes `genos-v3`, config MCP binaire, provider LLM `nous` (OAuth),
   modèles disponibles, méthodes d'usage, vérifications.
 - **Dernière revue** : 2026-09-20.
@@ -111,7 +113,7 @@ Réponse attendue :
 echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | ./target/release/genos-mcp.exe
 ```
 
-Réponse attendue : liste de 22 outils (genos_orchestrate, genos_snapshot, genos_replay,
+Réponse attendue : liste de 20 outils `genos_*` (genos_orchestrate, genos_snapshot, genos_replay,
 genos_trinity_launch, genos_a_team_preview, genos_biological_mode, genos_biomimicry…).
 
 ---
@@ -148,8 +150,8 @@ Pas de `base_url` à configurer manuellement dans `config.yaml`.
 
 ### 5.1 Gratuits (free tier)
 
-7 modèles gratuits sont listés dans le cache de découverte
-(`cache/nous_recommended_cache.json`) :
+7 modèles gratuits décrits d'après le cache de découverte local
+(`cache/nous_recommended_cache.json`, absent du dépôt — reconstituer via la découverte provider) :
 
 | Modèle | Source | Contexte |
 | --- | --- | --- |

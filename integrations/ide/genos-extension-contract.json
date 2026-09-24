@@ -19,7 +19,7 @@
 			"id": "workspace.inspect",
 			"label": "Inspect workspace",
 			"method": "GET",
-			"path": "/api/product-proofs/workspaces/:workspaceId"
+			"path": "/api/product-proofs/safe-debugging/workspaces/:workspaceId"
 		}
 	]
 }

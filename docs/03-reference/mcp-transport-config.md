@@ -1,10 +1,10 @@
 # Transport et configuration MCP dans GenOS
 
-- **Statut** : Implémenté.
+- **Statut** : Implémenté (partiel, exemple opérateur Windows).
 - **Portée** : serveur MCP stdio, transport binaire Rust vs SDK Node, configuration
-  du profil Hermes `genos-v3` et du fichier `.mcp.json` du dépôt, vérification
+  du profil Hermes `genos-v3` (exemple local `C:/Users/Shadow/...`, hors dépôt) et du fichier `.mcp.json` du dépôt, vérification
   directe du serveur.
-- **Dernière revue** : 2026-09-20.
+- **Dernière revue** : 2026-09-24.
 
 ---
 
@@ -49,15 +49,9 @@ Ce comportement est documenté dans le skill
 
 ---
 
-## 3. Solution : binaire direct
+## 3. Solution : binaire direct (à compiler — `target/release/genos-mcp.exe` absent du dépôt au 2026-09-24, construire via `cargo build -p genos-mcp --release`)
 
-Le fichier binaire existe déjà :
-
-```
-target/release/genos-mcp.exe  (605 Ko, compilé)
-```
-
-Le profil `genos-v3` pointe maintenant dessus :
+L'exemple opérateur ci-dessous pointe vers un binaire local :
 
 ```yaml
 mcp_servers:
@@ -118,8 +112,8 @@ echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | ./target/rel
 ```
 
 L'INIT doit renvoyer `serverInfo.name = "genos-mcp"` et
-`protocolVersion = "2024-11-05"`. `tools/list` expose les 22 outils du serveur
-Rust.
+`protocolVersion = "2024-11-05"`. `tools/list` expose les 20 outils `genos_*` distincts du serveur
+Rust (`crates/genos-mcp/src/tools.rs` au 2026-09-24, vs 27 dans `shared/toolDefinitions.json`).
 
 Une fois ces deux commandes passées, le transport est considéré comme stable.
 

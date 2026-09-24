@@ -1,7 +1,7 @@
 ## Timeout MCP pour outils asynchrones
 
 Les outils MCP qui déclenchent des missions asynchrones longues (`genos_orchestrate`, `genos_biological_mode`, `genos_delegate_worker`) peuvent
-timeouter à 30s côté CLIENT HERMES MCP. Ce n'est pas une limitation du serveur GenOS (DEFAULT_TOOL_TIMEOUT_MS = 300000ms = 5min).
+timeouter à 30s côté CLIENT HERMES MCP. Le serveur GenOS applique lui aussi un timeout court : `DEFAULT_TOOL_TIMEOUT_MS = 30000ms = 30s` (`mcp/index.js:30`).
 
 Cause : le bridge MCP client Hermes impose un timeout de 30s sur les appels d'outils. Les outils asynchrones qui attendent la fin de la mission
 dépassent ce budget.

@@ -32,7 +32,7 @@ GenOS applique une logique de synchronisation dense :
 
 1. **État partagé unique** : un seul état de mission, visible à tous les agents ;
 2. **Publication continue** : chaque agent publie ses changements immédiatement ;
-3. **Détection de conflit instantanée** : les violations d'invariants sont détectées en <1s ;
+3. **Détection de conflit visée en <1s (objectif configurable, non garanti temps réel)** : `GENOS_SYNCYTIUM_SYNC_TICK` (défaut 100ms) règle la fréquence ; au-delà d'1s sans sync, risque de divergence irréductible ;
 4. **Intégration sans divergence** : aucune branche ne peut survivre sans consensus ;
 5. **Transparence totale** : chaque décision de coordination est enregistrée et visible.
 
@@ -101,7 +101,7 @@ $$
 $$
 
 ### 3.3 Modèle Cytoplasmique Continu : Flux Ioniques et Diffusion Moléculaire
-Pour s'affranchir de la latence de sérialisation et de l'overhead de paquets JSON discrets (`SetField`), le Syncytium intègre un mode de transport cytoplasmique électrochimique continu :
+Les primitives `syncytiumCytoplasmService.js` (côté backend) et le CRDT Rust (`crates/genos-cli/src/commands/syncytium_crdt/`) existent, mais le transport électrochimique continu (`IonicFlux`, Nernst-Planck) est une heuristique de coordination, pas une mesure biophysique. Ne pas présenter `V_m` comme une tension mesurée.
 * **Flux Ioniques (`IonicFlux`)** : Les agents modulent les concentrations transmembranaires de $\text{Ca}^{2+}$, $\text{K}^+$, et $\text{Na}^+$. Les changements d'état provoquent des dépolarisations instantanées selon l'équation de Nernst-Planck :
   $$
   V_m = V_{\text{repos}} + \sum_j z_j \Delta c_j \cdot k_{\text{nernst}}
@@ -939,7 +939,7 @@ Il est possible de rembobiner l'état exact du document et des variables à n'im
 
 ## 18. Serveur WebSocket et Intégration Éditeur (Monaco Editor)
 
-Le binaire `genos` expose un serveur HTTP et WebSocket temps réel dédié au Syncytium.
+Le crate `syncytium_crdt` (`crates/genos-cli/src/commands/syncytium_crdt/mod.rs`, `server.rs`) expose un serveur HTTP/WebSocket loopback opt-in (port passé en paramètre, ex. 4791 dans l'exemple ci-dessous — pas de port auto-ouvert).
 
 ```bash
 # Lancer le serveur Syncytium CRDT avec dashboard web et WebSocket

@@ -1,5 +1,7 @@
 # Modèles, providers et routage dans GenOS
 
+> Note 2026-09-24 : configuration opérateur locale (profil Hermes `genos-v3`, provider `nous` OAuth, chemins `C:/Users/Shadow/...`), non versionnée dans ce dépôt. Le cache `cache/nous_recommended_cache.json` est absent du dépôt ; les listes de modèles ci-dessous datent de la découverte locale du 2026-09-20. Pour le routeur backend versionné, voir [modeles-et-providers.md](modeles-et-providers.md).
+
 - **Statut** : Implémenté.
 - **Portée** : configuration du provider LLM `nous` (OAuth), modèles disponibles
   (gratuits et payants), routage par contexte (Codex / Hermès / Local), cinq

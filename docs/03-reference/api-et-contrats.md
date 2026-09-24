@@ -37,14 +37,14 @@ Les modules de routes declarent l'URL, les permissions et le controller. Le cont
 | `/api/workspaces`, `/api/workflows`, `/api/releases` | etat de travail, workflows et promotion |
 | `/api/memory`, `/api/lineage`, `/api/trajectories`, `/api/traces` | memoire, provenance et traces |
 | `/api/swarm`, `/api/arena`, `/api/strategies`, `/api/experiments` | orchestration et evaluation |
-| `/api/mcp/*`, `/api/rust/*` | outils MCP et pont CLI natif |
+| `/api/mcp/*`, `/api/rust/*` | outils MCP et pont CLI natif (`POST /api/rust/models/generate` inclus, voir `rustBridgeRoutes.js`) |
 | `/api/ide`, `/api/integrations`, `/api/webhooks`, `/api/plugins` | integrations externes |
 | `/api/schema/*`, `/api/config/*`, `/api/control-plane/*` | metadonnees et operations |
 
-Exemple REST pour executer un outil MCP :
+Exemple REST pour executer un outil MCP (`backend/src/routes/mcpRoutes.js` monté sous `/api`, soit `POST /api/mcp/execute` ; variantes `POST /api/mcp/tools/test` et `POST /api/mcp/tools/dry-run`) :
 
 ```http
-POST /api/mcp/tools/execute
+POST /api/mcp/execute
 Authorization: Bearer <access-token>
 Content-Type: application/json
 

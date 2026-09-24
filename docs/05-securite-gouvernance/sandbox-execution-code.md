@@ -257,11 +257,11 @@ flowchart TB
     end
 
     subgraph IsolationLayer["Niveaux d'Isolation Sandboxed"]
-        subgraph Level1["Niveau 1 : Analyse Statique & AST"]
-            ASTChecker["Détecteur d'imports & commandes interdites (sandboxExecutionService)"]
+        subgraph Level1["Niveau 1 : Analyse Statique & allowlist"]
+            ASTChecker["Politique de commandes (sandboxExecutor.js runIsolated + sandboxCommandPolicy.js)"]
         end
         subgraph Level2["Niveau 2 : Système de Fichiers Virtuel (VFS Mémoire)"]
-            MemVFS["VFS en mémoire (GENOS_MAX_VFS_FILES, limite 5MB par fichier)"]
+            MemVFS["VFS en mémoire (8 MiB/fichier, 64 MiB total, 10000 fichiers — vfsSandboxService.js)"]
         end
         subgraph Level3["Niveau 3 : Isolation d'Exécution & Quotas"]
             DockerBox["Conteneur Docker éphémère (si daemon dispo) ou Child Process timé"]
@@ -285,7 +285,7 @@ flowchart TB
 sequenceDiagram
     autonumber
     actor Agent as Agent Exécuteur
-    participant Sandbox as Moteur de Sandbox (sandboxExecutionService)
+    participant Sandbox as Moteur de Sandbox (sandboxExecutor.js runIsolated)
     participant VFS as VFS en Mémoire
     participant Runner as Exécuteur (Docker / Process timé)
 
