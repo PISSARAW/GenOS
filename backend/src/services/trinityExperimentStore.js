@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('path');
 const HASH_PATTERN = /^[a-f0-9]{64}$/i;
 const TRANSITIONS = {
   designed: ['sealed_running', 'rejected'],
@@ -26,6 +27,7 @@ async function create(db, input) {
 }
 
 async function createWorld(db, input) {
+  await assertWorkspaceIsUnique(db, input);
   await db.run(
     `INSERT INTO trinity_worlds
       (id, mission, world_number, name, strategy, status, agent_id, experiment_id, chamber, snapshot_hash, workspace_root)
@@ -33,6 +35,22 @@ async function createWorld(db, input) {
     input.id, input.mission, input.worldNumber, input.name, input.strategy, input.status, input.agentId,
     input.experimentId, input.chamber, input.snapshotHash, input.workspaceRoot
   );
+}
+
+async function assertWorkspaceIsUnique(db, input) {
+  const workspaceRoot = normalizeWorkspaceRoot(input.workspaceRoot);
+  if (!workspaceRoot) {
+    throw Object.assign(new Error('Every Trinity world requires an isolated workspace.'), { code: 'TRINITY_WORKSPACE_REQUIRED' });
+  }
+  const worlds = await db.all('SELECT workspace_root FROM trinity_worlds WHERE experiment_id = ?', input.experimentId);
+  const duplicate = worlds.some((world) => normalizeWorkspaceRoot(world.workspace_root) === workspaceRoot);
+  if (duplicate) throw Object.assign(new Error('Trinity worlds must use distinct workspace roots.'), { code: 'TRINITY_WORKSPACE_NOT_ISOLATED' });
+}
+
+function normalizeWorkspaceRoot(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const resolved = path.resolve(value.trim());
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
 async function transition(db, input) {
