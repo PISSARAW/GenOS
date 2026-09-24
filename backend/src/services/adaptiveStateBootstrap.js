@@ -82,13 +82,13 @@ async function bindAxolotlRegeneration(persister) {
 
 async function bindMcpBiomimicryRegistries(persister) {
   const registries = [
-    { name: 'agrobacterium', mod: mcpBioHandlers.handleAgrobacteriumTdnaHijack, registryKey: 'agrobacteriumRegistry' },
-    { name: 'aneuploidy', mod: mcpBioHandlers.handleAneuploidy, registryKey: 'aneuploidyRegistry' },
-    { name: 'chromosomal_deletion', mod: mcpBioHandlers.handleChromosomalDeletion, registryKey: 'chromosomalDeletionRegistry' },
-    { name: 'chimeric_merge', mod: mcpBioHandlers.handleChimericMerge, registryKey: 'chimericRegistry' },
-    { name: 'conjoined_twin', mod: mcpBioHandlers.handleConjoinedTwinBind, registryKey: 'conjoinedTwinRegistry' },
-    { name: 'consciousness_transfer', mod: mcpBioHandlers.handleConsciousnessTransfer, registryKey: 'consciousnessRegistry' },
-    { name: 'affordances_scanner', mod: mcpBioHandlers.handleAffordancesScanner, registryKey: 'affordancesLedger' }
+    { name: 'agrobacterium', mod: require('./mcpBioTools/handlers/agrobacteriumTdnaHijack'), registryKey: 'agrobacteriumRegistry' },
+    { name: 'aneuploidy', mod: require('./mcpBioTools/handlers/aneuploidy'), registryKey: 'aneuploidyRegistry' },
+    { name: 'chromosomal_deletion', mod: require('./mcpBioTools/handlers/chromosomalDeletion'), registryKey: 'chromosomalDeletionRegistry' },
+    { name: 'chimeric_merge', mod: require('./mcpBioTools/handlers/chimericMerge'), registryKey: 'chimericRegistry' },
+    { name: 'conjoined_twin', mod: require('./mcpBioTools/handlers/conjoinedTwinBind'), registryKey: 'conjoinedTwinRegistry' },
+    { name: 'consciousness_transfer', mod: require('./mcpBioTools/handlers/consciousnessTransfer'), registryKey: 'consciousnessRegistry' },
+    { name: 'affordances_scanner', mod: require('./mcpBioTools/handlers/affordancesScanner'), registryKey: 'affordancesLedger' }
   ];
 
   for (const reg of registries) {

@@ -32,7 +32,8 @@ function foreignDomain(text, domain, teamDomains) {
   return primary !== domain ? primary : null;
 }
 
-function contaminationFailure(worker, domain, report, teamDomains) {
+function contaminationFailure(worker, report, teamDomains) {
+  const domain = memberDomain(worker);
   for (const claim of Array.isArray(report.claims) ? report.claims : []) {
     const foreign = foreignDomain(claimText(claim), domain, teamDomains);
     if (foreign) {
@@ -74,7 +75,7 @@ function observeAteamIntegration({ members, workers, dossiers } = {}) {
     const domain = memberDomain(member);
     const report = latestReport(byWorker.get(worker.agentId));
     if (!report) return;
-    const contamination = contaminationFailure(worker, domain, report, teamDomains);
+    const contamination = contaminationFailure(worker, report, teamDomains);
     if (contamination) failures.push(contamination);
     const constraints = constraintFailure(worker, member, report);
     if (constraints) integrationFailures.push(constraints);

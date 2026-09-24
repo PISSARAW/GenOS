@@ -39,7 +39,8 @@ function senseQuorum(members, options = {}) {
   for (const member of list) {
     const weight = Number.isFinite(member?.weight) && member.weight > 0 ? member.weight : 1;
     totalWeight += weight;
-    if (Number.isFinite(member?.evidenceScore) && member.evidenceScore >= threshold) supportWeight += weight;
+    const score = Number(member?.evidenceScore);
+    if (Number.isFinite(score) && score >= threshold) supportWeight += weight;
   }
   const support = totalWeight > 0 ? Number((supportWeight / totalWeight).toFixed(3)) : 0;
   return { reached: support >= quorumRatio, support, quorumRatio, threshold, responders: list.length };

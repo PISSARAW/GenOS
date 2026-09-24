@@ -9,9 +9,11 @@
  * - stabilisé : la topologie est figée (état adulte)
  *
  * La transition entre les deux modes est délibérée (pas automatique).
+ *
+ * NB : pas de require vers biologicalTopologyService ici (dépendance
+ * circulaire volontairement évitée : biologicalTopologyService compose
+ * l'axolotl, pas l'inverse).
  */
-
-const biologicalTopology = require('./biologicalTopologyService');
 
 // État interne : mode actuel par orchestrateur — perdu au redémarrage
 const topologyModes = new Map();

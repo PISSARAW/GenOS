@@ -277,5 +277,6 @@ module.exports = {
   persistCognitiveRegulationState,
   loadCognitiveRegulationState,
   loadConscienceState: loadCognitiveRegulationState,
-  getCognitiveRegulationTransitions
+  getCognitiveRegulationTransitions,
+  persistConscienceState: require('./_shared').persistConscienceState
 };

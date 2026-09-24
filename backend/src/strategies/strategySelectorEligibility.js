@@ -54,7 +54,7 @@ function eligibility(strategy, profile, options) {
 
 function baseTraitPoints(strategy, profile) {
   let score = strategy.problemTypes.includes(profile.type) ? 48 : 24;
-  if (PREFERRED_PRIMARY[profile.type] === strategy.id) score += 100;
+  if (PREFERRED_PRIMARY[profile.type] === strategy.id) score += 12;
   return score;
 }
 

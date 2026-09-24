@@ -8,6 +8,26 @@ const orchestratorBody = require('../orchestratorBodyService');
 async function planMission(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord } = ctx;
   ctx.autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
+  await attachMorphogenesisPlan(ctx);
+}
+
+async function attachMorphogenesisPlan(ctx) {
+  try {
+    const { planMorphogenesis } = require('../morphogenesis/morphogenesisPlannerService');
+    const plan = planMorphogenesis({
+      db: ctx.db,
+      currentState: { agents: new Map(), topology: ctx.autonomyPlan?.organization || 'specialist_expert_committee', currentMorphologyVersion: 0 },
+      proposedTopology: ctx.autonomyPlan?.organization || 'specialist_expert_committee',
+      reason: 'orchestrator_plan',
+      budget: ctx.autonomyPlan?.tokenPolicy?.total || 10000,
+      expression: {},
+      pressure: 0.5
+    });
+    ctx.morphogenesisPlan = plan;
+    ctx.autonomyPlan.morphogenesisPlan = plan;
+  } catch (_) {
+    ctx.morphogenesisPlan = null;
+  }
 }
 
 function assertAutonomyPlanExecutable(ctx) {

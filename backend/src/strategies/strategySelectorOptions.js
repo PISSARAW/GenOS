@@ -9,7 +9,7 @@ const { firstDefined } = require('./strategySelectorHelpers');
 const { resolvePortfolioSize } = require('./strategySelectorPortfolio');
 
 function resolveProblem(input) {
-  return String(input.problem || input.prompt || '').trim();
+  return String(input.problem || input.prompt || input.mission || '').trim();
 }
 
 function getMemoryInhibitedIds(input) {

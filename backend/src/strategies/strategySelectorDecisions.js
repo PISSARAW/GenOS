@@ -20,6 +20,7 @@ function buildDecisions(profile, options) {
   return listStrategies().map((strategy) => {
     const constraint = eligibility(strategy, profile, options);
     return {
+      id: strategy.id,
       strategy,
       eligible: constraint.eligible,
       score: constraint.eligible ? scoreStrategy(strategy, profile) : null,
@@ -37,7 +38,19 @@ function selectStrategyPortfolio(input = {}) {
   const requestedPrimary = PREFERRED_PRIMARY[profile.type];
   const requestedDecision = decisions.find((item) => item.strategy.id === requestedPrimary);
   const primary = resolvePrimary(portfolio, decisions, requestedPrimary);
-  if (!primary) throw new Error('No strategy satisfies the problem constraints and maturity policy');
+  if (!primary) {
+    const eligible = decisions.filter((d) => d.eligible);
+    const pool = eligible.length > 0 ? eligible : decisions;
+    const fallback = bestByScore(pool, decisions);
+    if (!fallback) throw new Error('No strategy available');
+    process.stderr.write(`[selectStrategyPortfolio] fallback strategy=${fallback.strategy.id}\n`);
+    const fallbackObj = { requested: requestedPrimary, selected: fallback.strategy.id, reason: 'primary unavailable' };
+    const fallbackDecision = { ...fallback, id: fallback.strategy.id, status: 'selected', eligible: true, score: fallback.score ?? 0.001 };
+    const decisionsWithFallback = decisions.concat([fallbackDecision]);
+    const summary = summarizeDecisions(decisions, [fallback.strategy]);
+    const policies = planPolicies(profile);
+    return { problem, profile, options, primary: fallback.strategy, requestedPrimary, primaryFallback: fallbackObj, portfolio: [fallback.strategy], policies, branches: BRANCHES[profile.type], decisions: sortDecisions(decisionsWithFallback), summary };
+  }
   const summary = summarizeDecisions(decisions, portfolio);
   const policies = planPolicies(profile);
   return {

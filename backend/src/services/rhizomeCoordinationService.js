@@ -26,8 +26,14 @@ function normalizeMembers(members) {
   return members.map((member) => {
     const role = String(member?.role || '').trim();
     const capabilities = member?.capabilities || ROLE_CAPABILITIES[role];
-    if (!role || roles.has(role) || !Array.isArray(capabilities) || !capabilities.length || capabilities.some((item) => typeof item !== 'string' || !item.trim())) {
-      throw Object.assign(new Error('Rhizome members require unique roles and non-empty typed capabilities.'), { code: 'RHIZOME_MEMBER_INVALID' });
+    if (!role) {
+      throw Object.assign(new Error('Rhizome member requires a non-empty role.'), { code: 'RHIZOME_MEMBER_INVALID' });
+    }
+    if (roles.has(role)) {
+      throw Object.assign(new Error(`Rhizome member role '${role}' is duplicated.`), { code: 'RHIZOME_MEMBER_INVALID' });
+    }
+    if (!Array.isArray(capabilities) || !capabilities.length || capabilities.some((item) => typeof item !== 'string' || !item.trim())) {
+      throw Object.assign(new Error(`Rhizome member '${role}' requires non-empty typed string capabilities.`), { code: 'RHIZOME_MEMBER_INVALID' });
     }
     roles.add(role);
     return { ...member, role, capabilities: [...new Set(capabilities.map((item) => item.trim()))] };

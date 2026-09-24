@@ -66,7 +66,7 @@ const ORGANIZATION_CAPABILITIES = Object.freeze({
   memory_compilation: ['GRAPH_MEMORY', 'VECTOR_MEMORY', 'EPISODIC_MEMORY']
 });
 
-const MODE_ALIASES = Object.freeze({ a_team: 'a_team', ateam: 'a_team', 'a-team': 'a_team' });
+const MODE_ALIASES = Object.freeze({ ateam: 'a_team', 'a-team': 'a_team' });
 
 function normalizeKey(value) {
   const key = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');

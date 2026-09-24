@@ -69,20 +69,25 @@ function buildTopologyOptions(context, topology) {
 
 async function computeNCEForTopology(task, options) {
   options = options || {};
-  const enhancements = await nceIntegration.enhanceMissionWithNCE({
-    prompt: task,
-    domain: options.domain,
-    keywords: options.keywords,
-    budget: options.budget,
-    explorationDomains: options.explorationDomains,
-    knownConcepts: options.knownConcepts,
-    existingCapabilities: options.existingCapabilities,
-    culturalTraits: options.culturalTraits,
-    nceOptions: options.nceOptions,
-    workspacePath: options.workspacePath,
-    workspaceId: options.workspaceId,
-    agentId: options.agentId,
-  }, options.db);
+  let enhancements = {};
+  try {
+    enhancements = await nceIntegration.enhanceMissionWithNCE({
+      prompt: task,
+      domain: options.domain,
+      keywords: options.keywords,
+      budget: options.budget,
+      explorationDomains: options.explorationDomains,
+      knownConcepts: options.knownConcepts,
+      existingCapabilities: options.existingCapabilities,
+      culturalTraits: options.culturalTraits,
+      nceOptions: options.nceOptions,
+      workspacePath: options.workspacePath,
+      workspaceId: options.workspaceId,
+      agentId: options.agentId,
+    }, options.db);
+  } catch (nceError) {
+    enhancements = { error: nceError.message };
+  }
 
   return {
     topology: options.topology || 'worker',

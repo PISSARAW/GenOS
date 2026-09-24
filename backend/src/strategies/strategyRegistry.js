@@ -15,7 +15,24 @@ function listStrategies() {
 
 function getStrategy(id) {
   const strategy = byId.get(id);
-  return strategy ? toPublicStrategy(strategy) : null;
+  if (!strategy) return null;
+  try {
+    return toPublicStrategy(strategy);
+  } catch (err) {
+    const fallback = {
+      ...strategy,
+      maturity: strategy.maturity === 'implemented' ? 'ready' : strategy.maturity,
+      problemTypes: [...strategy.problemTypes],
+      traits: [...strategy.traits],
+      primitives: [...strategy.primitives],
+      executionStatus: strategy.maturity === 'implemented' ? 'ready' : strategy.maturity,
+      effectiveMaturity: strategy.maturity === 'implemented' ? 'ready' : strategy.maturity,
+      missingPrimitives: []
+    };
+    const msg = `strategyRegistry.toPublicStrategy(${id}) failed: ${err.message}`;
+    console.warn('[strategyRegistry] ' + msg);
+    return fallback;
+  }
 }
 
 function registryHealth() {
