@@ -1,1228 +1,2162 @@
-# Trinity : Laboratoire Expérimental Interne de GenOS
+# Trinity — Laboratoire Scientifique Interne de GenOS
 
-## 1. Définition
-
-Trinity dans GenOS est le **protocole d'expérimentation comparative sous incertitude**, capable de concevoir automatiquement des expériences indépendantes, de maximiser la diversité épistémique utile, de mesurer les preuves produites par chaque chambre, de localiser les désaccords et de décider s'il faut sélectionner un monde, synthétiser les claims acceptés, conserver un front de Pareto, ou refuser de conclure et escalader.
-
-Trinity n'est pas un ensemble de trois agents. C'est un **protocole expérimental** où chaque « monde » est une épistémie indépendante qui teste une hypothèse distincte. La structure ternaire (3 chambres épistémiques) permet : majorité + diversité + gestion de budget — le nombre 3 est le sweet spot empirique entre couverture et coût.
-
-Le principe fondamental est :
-> **Quand GenOS ne sait pas quelle représentation du problème est correcte, Trinity fabrique trois mondes suffisamment différents pour que la réalité puisse les départager.**
-
-Et s'il n'est pas possible de les départager : **Trinity doit le savoir.**
-
-Et si deux mondes possèdent chacun une partie de la vérité : **Trinity doit savoir recomposer cette vérité sans importer leurs erreurs.**
-
-Et si les trois échouent de la même manière : **Trinity doit détecter la monoculture cognitive et générer une nouvelle expérience.**
-
-Le cœur fonctionnel est réparti entre :
-- [backend/src/services/trinityService.js](../../../backend/src/services/trinityService.js) : analyse, composition et sélection.
-- [backend/src/services/trinityComparativeBarrier.js](../../../backend/src/services/trinityComparativeBarrier.js) : barrière de fusion et promotion transactionnelle.
+> *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
 
 ---
 
-## 2. Non trois agents, mais un protocole expérimental
 
-GenOS applique une logique d'indépendance épistémique stricte :
+<!-- === PARTIE 1 === -->
+
+1|# Trinity — Fondations & Architecture
+2|
+3|## 1. Définition
+4|
+5|**Trinity** est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.
+6|
+7|Contrairement à un simple passage multi-essai, Trinity structure l'espace des possibles en **trois chambres épistémiques** distinctes, chacune portant un rapport différent à la vérité :
+8|- Une chambre **directe** (rapide, heuristique)
+9|- Une chambre **structurée** (modèle formel, chaîne de raisonnement)
+10|- Une chambre **adversariale** (falsification, recherche de contre-exemples)
+11|
+12|Chaque chambre produit un monde d'expérimentation scellé, indépendant, traçable. La décision finale agrège leurs résultats selon un calcul explicite de valeur d'information.
+13|
+14|---
+15|
+16|## 2. Comparaison conceptuelle
+17|
+18|### Tableau comparatif
+19|
+20|| Paradigme | Mécanisme principal | Diversité cognitive | Garantie de sortie | Coût relatif |
+21||-----------|---------------------|---------------------|--------------------|--------------|
+22|| **Best-of-N** | Générations parallèles, sélection par score | Faible (même prompt, même cadre) | Meilleur des N, mais biais partagé | N × coût unitaire |
+23|| **Self-consistency** | Majorité/consensus sur sorties multiples | Très faible (même chambre, même biais) | Stabilité apparente, pas justesse | N × coût unitaire |
+24|| **Débat** | Dialogue itératif agent↔agent | Modérée (perspectives en interaction) | Argument le plus convaincant, mais convergence précoce possible | Itérations × 2 × coût |
+25|| **Trinity** | Trois chambres aux épistémies **orthogonales** | Élevée (chambre indépendante, pas de communication) | Agrégation pondérée par valeur d'information | 3 × coût (constant, maîtrisé) |
+26|
+27|### Explication
+28|
+29|Best-of-N suppose que la réponse correcte apparaîtra statistiquement dans l'échantillon — vrai seulement si le générateur couvre l'espace des solutions, ce qui n'est pas garanti. Self-consistency amplifie ce biais : le consensus mesure l'accord entre copies, pas la vérité. Le Débat introduit de la divergence par l'interaction, mais crée une pression de convergence sociale (le plus persuasif ne raisonne pas forcément le mieux).
+30|
+31|Trinity **ne dialogue pas**. Chaque chambre travaille sur le même problème sans connaître les autres. L'indépendance est contractuelle et vérifiable. La divergence est donc structurelle, pas accidentelle — c'est ce qui lui permet de détecter des erreurs que les autres paradigmes ratent systématiquement (biais partagés, erreurs de modèle partillées, aveuglements communs).
+32|
+33|---
+34|
+35|## 3. Les trois chambres épistémiques
+36|
+37|### 3.1 Chambre Directe / Parsimonieuse
+38|
+39|**Principe :** Produire la réponse la plus naturelle, la plus économique en raisonnement. « Qu'est-ce qu'un expert compétent répondrait intuitivement ? »
+40|
+41|**Force :** Rapidité. Représentativité du jugement typique. Base de comparaison.
+42|
+43|**Modèles :** Modèles « généraux », prompts courts, chaîne de pensée minimale mais complète.
+44|
+45|**Hypothèse sous-jacente :** Pour les problèmes bien posés, l'intuition experte est calibrée — la première réponse correcte vaut souvent les suivantes.
+46|
+47|**Risque :** Illusion de familiarité. Pattern-matching superficiel. Confirmation du cadre existant.
+48|
+49|---
+50|
+51|### 3.2 Chambre Structurée / Model-Based
+52|
+53|**Principe :** Construire un modèle explicite du problème (formel ou semi-formel), le parcourir méthodiquement, produire une déduction.
+54|
+55|**Force :** Vérifiabilité pas-à-pas. Explicabilité. Robustesse sur les problèmes compositionnels.
+56|
+57|**Modèles :** Modèles « raisonnement », outils formels (preuve, calcul, simulation), structuration en hypothèses → déduction → conclusion.
+58|
+59|**Hypothèse sous-jacente :** L'erreur vient souvent de raisonnements incomplets ou sautés — un modèle explicite force la complétude locale.
+60|
+61|**Risque :** Surconfiance dans le modèle. Erreur de modélisation non détectée. Lourdeur computationnelle.
+62|
+63|---
+64|
+65|### 3.3 Chambre Falsification / Adversarial
+66|
+67|**Principe :** Chercher activement à réfuter les conclusions des deux autres chambres. « Qu'est-ce qui pourrait faire échouer cette réponse ? Quel contre-exemple existe ? »
+68|
+69|**Force :** Détection des erreurs partagées. Test des limites. Résistance au biais de confirmation.
+70|
+71|**Modèles :** Modèles « critiques », prompts adversariaux, génération de contre-exemples, test de robustesse.
+72|
+73|**Hypothèse sous-jacente :** La vérité résiste mieux à la réfutation que l'erreur — la falsification est asymétriquement informative.
+74|
+75|**Risque :** Skepticisme excessif. Coût de la recherche de contre-exemples inexistants. Découragement de réponses correctes mais fragiles.
+76|
+77|---
+78|
+79|## 4. Le Hypothesis Designer
+80|
+81|Avant toute exécution, Trinity passe par un **Hypothesis Designer** qui extrait et structure le problème.
+82|
+83|### 4.1 Extraction
+84|
+85|À partir de la mission, le Hypothesis Designer produit :
+86|
+87|- **Problème central** : formulation en une phrase, sans ambiguïté de portée
+88|- **Assumptions** : liste explicite des présupposés (chaque assumption est une proposition testable)
+89|- **Uncertainties** : variables dont la valeur réelle est inconnue (classifiées par impact et réversibilité)
+90|- **Decision variables** : choix discrets ou continus que la décision finale doit fixer
+91|
+92|### 4.2 Fonction d'utilité inter-hypothèses
+93|
+94|Pour trois hypothèses candidates $H_1, H_2, H_3$, Trinity évalue leur couverture conjointe via la fonction d'utilité :
+95|
+96|$$
+97|U(H_1, H_2, H_3) = \underbrace{C(H_1, H_2, H_3)}_{\text{coverage}} \;+\; \underbrace{O(H_1, H_2, H_3)}_{\text{orthogonality}} \;+\; \underbrace{F(H_1, H_2, H_3)}_{\text{falsifiability}} \;-\; \underbrace{R(H_1, H_2, H_3)}_{\text{redundancy}} \;-\; \underbrace{C_{\text{computational}}(H_1, H_2, H_3)}_{\text{cost}}
+98|$$
+99|
+100|Où chaque composante est définie comme suit :
+101|
+102|**Coverage** (étendue de l'espace des solutions couvert) :
+103|$$
+104|C(H_1, H_2, H_3) = \frac{|\mathcal{S}(H_1) \cup \mathcal{S}(H_2) \cup \mathcal{S}(H_3)|}{|\mathcal{S}_{\text{possible}}|}}
+105|$$
+106|
+107|**Orthogonalité** (dépendance minimale entre hypothèses) :
+108|$$
+109|O(H_1, H_2, H_3) = 1 - \frac{1}{3}\sum_{i < j} \text{Jaccard}\big(\mathcal{B}(H_i), \mathcal{B}(H_j)\big)
+110|$$
+111|
+112|avec $\mathcal{B}(H)$ l'ensemble des croyances/axiomes mobilisés par l'hypothèse $H$.
+113|
+114|**Falsifiabilité** (capacité de chaque hypothèse à être réfutée) :
+115|$$
+116|F(H_1, H_2, H_3) = \min_{i \in \{1,2,3\}} \; \mathbb{P}\big(\text{observer un contre-exemple} \mid H_i \text{ fausse}\big)
+117|$$
+118|
+119|**Redondance** (information partagée, pénalité) :
+120|$$
+121|R(H_1, H_2, H_3) = \sum_{i < j} I(H_i ; H_j)
+122|$$
+123|
+124|où $I(H_i ; H_j)$ est l'information mutuelle entre les distributions de sortie de $H_i$ et $H_j$.
+125|
+126|**Coût** (ressources requises) :
+127|$$
+128|C_{\text{computational}}(H_1, H_2, H_3) = \alpha \cdot \sum_{i=1}^{3} \text{tokenBudget}(H_i) + \beta \cdot \max_i \text{latency}(H_i)
+129|$$
+130|
+131|### 4.3 Sélection des trois hypothèses
+132|
+133|Le Hypothesis Designer sélectionne le triplet $(H_1^*, H_2^*, H_3^*)$ qui maximise $U$ sous contraintes :
+134|
+135|$$
+136|(H_1^*, H_2^*, H_3^*) = \underset{(H_1, H_2, H_3) \in \mathcal{H}^3}{\arg\max} \; U(H_1, H_2, H_3)
+137|$$
+138|
+139|$$
+140|\text{s.c.} \quad \forall i \neq j : O(H_i, H_j) \geq \theta_{\text{orth}} \quad \text{et} \quad \sum_{i} \text{cost}(H_i) \leq B_{\text{total}}
+141|$$
+142|
+143|---
+144|
+145|## 5. Calcul de l'espérance de valeur EV(Trinity)
+146|
+147|Trinity n'est pas exécutée pour toute mission. Le **Expected Value** du protocole est calculé avant engagement :
+148|
+149|$$
+150|\text{EV}(\text{Trinity}) = \underbrace{P_{\text{useful}}}_{\text{alt. utile existe}} \times \underbrace{I}_{\text{impact}} \times \underbrace{V}_{\text{verifiability}} \;-\; \underbrace{C_{\text{compute}}}_{\text{coût d'exécution}}
+151|$$
+152|
+153|### 5.1 Signaux composant $P_{\text{useful}}$
+154|
+155|$P_{\text{useful}}$ est la probabilité qu'une alternative meilleure existe. Elle est estimée par combinaison des signaux :
+156|
+157|$$
+158|P_{\text{useful}} = \sigma\!\left( w_1 \cdot \underbrace{N_{\text{plausible}}}_{\text{hypothèses plausibles}} + w_2 \cdot \underbrace{U_{\text{domain}}}_{\text{incertitude}} + w_3 \cdot \underbrace{C_{\text{wrong}}}_{\text{coût erreur}} + w_4 \cdot \underbrace{(1 - R_{\text{rev}})}_{\text{irréversibilité}} + w_5 \cdot \underbrace{A_{\text{oracle}}}_{\text{oracles disponibles}} - w_6 \cdot \underbrace{\rho_{\text{err}}}_{\text{corrélation erreurs}} - w_7 \cdot \underbrace{(1 - B_{\text{ratio}})}_{\text{budget ratio}} \right)
+159|$$
+160|
+161|où $\sigma(x) = \frac{1}{1 + e^{-x}}$ est la fonction logistique, et les poids $w_i$ sont calibrés par méta-apprentissage sur les expériences passées.
+162|
+163|### 5.2 Décomposition des signaux
+164|
+165|| Signal | Symbole | Nature | Effet sur $P_{\text{useful}}$ |
+166||--------|---------|--------|-------------------------------|
+167|| Nombre d'hypothèses plausibles | $N_{\text{plausible}}$ | Compteur ($\geq 3$) | Plus il y a de candidates, plus une alternative meilleure est probable |
+168|| Incertitude du domaine | $U_{\text{domain}}$ | Entropie subjective $[0,1]$ | Plus le domaine est incertain, plus un simple passage rate |
+169|| Coût d'une mauvaise décision | $C_{\text{wrong}}$ | Monétaire/temporel | Plus l'erreur coûte cher, plus explorer est rationnel |
+170|| Réversibilité | $R_{\text{rev}}$ | Probabilité $[0,1]$ | Si l'erreur est réversible, Trinity est moins nécessaire |
+171|| Disponibilité d'oracles | $A_{\text{oracle}}$ | Booléen pondéré | Un oracle (test, simulation, humain) augmente la valeur de l'expérience |
+172|| Corrélation probable des erreurs | $\rho_{\text{err}}$ | Coefficient $[-1,1]$ | Si les chambres risquent de se tromper ensemble, Trinity perd en valeur |
+173|| Ratio budget | $B_{\text{ratio}} = \frac{C_{\text{compute}}}{B_{\text{total}}}$ | Fraction $[0,1]$ | Si le coût excède le budget, le protocole est non-viable |
+174|
+175|### 5.3 Impact $I$
+176|
+177|$$
+178|I = \mathbb{E}\big[ \text{gain qualité} \mid \text{meilleure alternative trouvée} \big] \times \text{proba de la choisir}
+179|$$
+180|
+181|Modélisé comme la différence espérée entre la qualité de la réponse « simple » et la qualité de la réponse Trinity :
+182|
+183|$$
+184|I = Q_{\text{baseline}} \cdot \left( \frac{Q_{\text{trinity}}}{Q_{\text{baseline}}} - 1 \right)
+185|$$
+186|
+187|### 5.4 Vérifiabilité $V$
+188|
+189|$$
+190|V = \mathbb{P}\big( \text{identifier correctement la meilleure chambre} \mid \text{réponses produites} \big)
+191|$$
+192|
+193|Dépend de la disponibilité d'oracles externes (tests unitaires, simulations, juges humains, métriques objectives).
+194|
+195|### 5.5 Coût $C_{\text{compute}}$
+196|
+197|$$
+198|C_{\text{compute}} = \sum_{c \in \{\text{direct, structured, falsification}\}} \big( \text{tokenBudget}_c \times \text{unitCost}_{\text{token}} + \text{latency}_c \times \text{unitCost}_{\text{time}} \big)
+199|$$
+200|
+201|### 5.6 Condition d'engagement
+202|
+203|Trinity est engagée si et seulement si :
+204|
+205|$$
+206|\text{EV}(\text{Trinity}) > \tau_{\text{engagement}} \quad \text{et} \quad B_{\text{ratio}} \leq 1
+207|$$
+208|
+209|où $\tau_{\text{engagement}}$ est un seuil calibré selon la politique de risque de l'organisation.
+210|
+211|---
+212|
+213|## 6. Contrat TrinityExperiment
+214|
+215|Le contrat d'expérience Trinity définit l'ensemble des paramètres qui gouvernent un run complet :
+216|
+217|```typescript
+218|interface TrinityExperiment {
+219|  // Identité
+220|  experimentId: string;           // UUID v7
+221|  missionId: string;              // Référence à la mission parente
+222|  missionSnapshotHash: string;    // SHA-256 de l'état de mission au moment du lancement
+223|
+224|  // Classification
+225|  domain: DomainLabel;            // e.g., "architecture", "algorithm", "design"
+226|  variant: TrinityVariant;        // e.g., "standard", "compressed", "extended"
+227|
+228|  // Design
+229|  hypothesisDesign: {
+230|    centralProblem: string;
+231|    assumptions: Assumption[];
+232|    uncertainties: Uncertainty[];
+233|    decisionVariables: DecisionVariable[];
+234|    candidateHypotheses: Hypothesis[];
+235|    selectedTriplet: [Hypothesis, Hypothesis, Hypothesis];
+236|    utilityScore: number;
+237|  };
+238|
+239|  // Chambres
+240|  chambers: [ChamberConfig, ChamberConfig, ChamberConfig];
+241|
+242|  // Variables expérimentales
+243|  controlledVariables: Record<string, unknown>;  // Fixées identiques pour les 3 chambres
+244|  independentVariables: Record<string, ChamberId, unknown>;  // Propres à chaque chambre
+245|
+246|  // Politiques
+247|  isolationPolicy: {
+248|    sharedMemory: "none" | "read-only-snapshot";
+249|    communication: "forbidden" | "structured-only";
+250|    provenanceTracking: "full" | "hashes-only";
+251|    randomSeedPerChamber: boolean;
+252|  };
+253|  budgetPolicy: {
+254|    totalTokens: number;
+255|    perChamberTokens: [number, number, number];
+256|    maxLatencyMs: number;
+257|    overflowBehavior: "truncate" | "escalate" | "reject";
+258|  };
+259|  verifierPolicy: {
+260|    oracleType: "test" | "simulation" | "human" | "metric" | "none";
+261|    votingRule: "majority" | "weighted" | "ev-based" | "falsification-priority";
+262|    tieBreaker: "falsification-wins" | "structured-wins" | "human-judge";
+263|  };
+264|
+265|  // État
+266|  status: "designed" | "sealed-phase" | "cross-examination" | "aggregated" | "decided";
+267|  decision: TrinityDecision | null;
+268|}
+269|```
+270|
+271|---
+272|
+273|## 7. Contrat TrinityWorld
+274|
+275|Chaque chambre produit un **TrinityWorld** — l'enregistrement complet du raisonnement et des artefacts d'une chambre :
+276|
+277|```typescript
+278|interface TrinityWorld {
+279|  // Identité
+280|  worldId: string;                // UUID v7
+281|  chamber: "direct" | "structured" | "falsification";
+282|  hypothesis: Hypothesis;         // L'hypothèse assignée à cette chambre
+283|
+284|  // État épistémique
+285|  assumptions: Assumption[];      // Hypothèses de travail explicites
+286|  falsificationCriteria: FalsificationCriteria;  // Conditions de réfutabilité
+287|  model: ModelArtifact;           // Le modèle construit (formel, code, graphe...)
+288|
+289|  // Configuration d'exécution
+290|  provider: ProviderConfig;       // Modèle, paramètres, endpoint
+291|  cognitiveRecipe: CognitiveRecipe; // Prompt template, chaîne d'outils mentale
+292|  toolchain: Tool[];              // Outils disponibles (calcul, recherche, preuve...)
+293|
+294|  // Politiques de connaissance
+295|  retrievalPolicy: {
+296|    type: "none" | "structured" | "rag";
+297|    allowedSources: string[];
+298|    maxRetrievalTokens: number;
+299|  };
+300|
+301|  // Aléatoire maîtrisé
+302|  randomSeed: number;             // Seed reproductible
+303|  tokenBudget: number;            // Budget maximal de tokens
+304|
+305|  // Provenance & reproductibilité
+306|  workspaceSnapshot: string;      // Hash de l'état initial du workspace
+307|  initialCommit: string;          // Commit git du point de départ
+308|  finalCommit: string;            // Commit git produit par la chambre
+309|
+310|  // Sorties
+311|  evidenceDossier: EvidenceDossier;  // Toutes les preuves collectées
+312|  claimGraph: ClaimGraph;            // Graphe des revendications → inférences
+313|}
+314|```
+315|
+316|Le `ClaimGraph` est un DAG orienté :
+317|
+318|$$
+319|G = (V, E), \quad V = \{c_1, \ldots, c_n\} \text{ (revendications)}, \quad E = \{(c_i, c_j) \mid c_i \text{ soutient } c_j\}
+320|$$
+321|
+322|Chaque nœud $c_i$ porte un **confidence score** $s_i \in [0,1]$ et une **traçabilité** vers la source de l'évidence.
+323|
+324|---
+325|
+326|## 8. Phases d'exécution
+327|
+328|### Phase A — SEALED (Scellée)
+329|
+330|Chaque chambre travaille **isolément** sur le même problème, avec sa propre épistémie et son propre modèle. Aucune communication. Aucune lecture des sorties des autres. Les sorties ne sont révélées qu'à la fin de la phase.
+331|
+332|**Objectif :** Maximiser la divergence des approches (indépendance cognitive).
+333|
+334|**Livrables par chambre :**
+335|- Un `TrinityWorld` complet
+336|- Un ensemble de revendications avec confidences
+337|- Un dossier de preuves
+338|- Un modèle/raisonnement explicite
+339|
+340|### Phase B — CROSS-EXAMINATION (Examen croisé)
+341|
+342|Les trois `TrinityWorld` sont révélés simultanément. Le système procède à :
+343|
+344|1. **Alignement sémantique** : identifier les revendications équivalentes entre chambres
+345|2. **Conflit detection** : repérer les revendications contradictoires
+346|3. **Robustesse evaluation** : chaque revendication est notée par les autres chambres (la directe évalue la falsification, etc.)
+347|4. **Agrégation** : application de la règle de vote pondérée par $V$ et l'EV calculée
+348|
+349|### Schéma de séquence Mermaid
+350|
+351|```mermaid
+352|sequenceDiagram
+353|    participant M as Mission
+354|    participant HD as Hypothesis Designer
+355|    participant EV as EV Calculator
+356|    participant C1 as Chambre Directe
+357|    participant C2 as Chambre Structurée
+358|    participant C3 as Chambre Falsification
+359|    participant XA as Cross-Examiner
+360|    participant D as Décision
+361|
+362|    M->>HD: mission description
+363|    HD->>HD: extraction problème/assumptions/uncertainties
+364|    HD->>HD: génération candidats H*
+365|    HD->>HD: optimisation U(H1,H2,H3)
+366|    HD->>EV: hypothèses retenues + signaux
+367|    EV->>EV: calcul P_useful × I × V - C_compute
+368|    EV->>M: EV(Trimony) vs seuil
+369|
+370|    alt EV ≥ seuil (engagement)
+371|        M->>C1: TrinityWorld(direct, H1, snapshot)
+372|        M->>C2: TrinityWorld(structured, H2, snapshot)
+373|        M->>C3: TrinityWorld(falsification, H3, snapshot)
+374|
+375|        Note over C1,C3: PHASE A — SEALED
+376|        C1->>C1: raisonnement + model
+377|        C2->>C2: raisonnement + model
+378|        C3->>C3: raisonnement + model
+379|
+380|        C1->>XA: TrinityWorld complet
+381|        C2->>XA: TrinityWorld complet
+382|        C3->>XA: TrinityWorld complet
+383|
+384|        Note over XA: PHASE B — CROSS-EXAMINATION
+385|        XA->>XA: alignement sémantique
+386|        XA->>XA: détection de conflits
+387|        XA->>XA: évaluation croisée
+388|        XA->>XA: agrégation pondérée
+389|        XA->>D: TrinityDecision
+390|    else EV < seuil
+391|        M->>D: réponse simple (pas Trinity)
+392|    end
+393|```
+394|
+395|---
+396|
+397|## 9. Critères d'indépendance explicites
+398|
+399|L'indépendance des chambres n'est pas une promesse — c'est un ensemble de propriétés **vérifiables** enregistrées dans `isolationPolicy` et contrôlées à l'exécution.
+400|
+401|### 9.1 Same Snapshot (même état de départ)
+402|
+403|Les trois chambres reçoivent **exactement le même état initial** : même commit git, mêmes fichiers, mêmes variables contrôlées. Aucune chambre ne part d'un état privilégié ou antérieur.
+404|
+405|$$
+406|\forall c_i, c_j : \quad \text{workspaceSnapshot}_i = \text{workspaceSnapshot}_j
+407|$$
+408|
+409|### 9.2 No Communication (aucune communication)
+410|
+411|Pendant la Phase A, il est **structurellement impossible** pour une chambre de lire ou écrire dans l'espace d'une autre. Pas de canal de message, pas de fichier partagé mutable, pas d'appel de service croisé.
+412|
+413|$$
+414|\forall t \in \text{Phase A}, \; \forall c_i \neq c_j : \quad \text{messages}(c_i, c_j, t) = \emptyset
+415|$$
+416|
+417|### 9.3 No Shared Writable Memory (pas de mémoire partagée modifiable)
+418|
+419|Le workspace est **cloné** par chambre. Chacune écrit dans son propre espace. Les artefacts ne deviennent partagés qu'au moment du Cross-Examination (Phase B), en lecture seule.
+420|
+421|$$
+422|\forall c_i : \quad \text{writeSet}(c_i) \cap \text{writeSet}(c_j) = \emptyset, \quad i \neq j
+423|$$
+424|
+425|### 9.4 Provenance Tracking (traçabilité complète)
+426|
+427|Chaque revendication, chaque donnée, chaque paramètre est tracé jusqu'à sa source. Le `ClaimGraph` et le `evidenceDossier` de chaque `TrinityWorld` permettent de reconstruire **pourquoi** chaque conclusion a été atteinte.
+428|
+429|$$
+430|\forall \text{claim } c \in \text{ClaimGraph} : \quad \text{provenance}(c) \in \text{EvidenceDossier}
+431|$$
+432|
+433|### 9.5 Recorded Randomness (aléatoire enregistré)
+434|
+435|Tout appel à l'aléatoire (sampling du modèle, sélection de contre-exemples, ordre de recherche) utilise un **seed explicite et enregistré**. Toute exécution est donc **reproductible**.
+436|
+437|$$
+438|\forall c_i : \quad \text{randomSeed}_i \text{ est fixe et enregistré dans TrinityWorld}_i
+439|$$
+440|
+441|Cela permet :
+442|- La **reproductibilité exacte** d'un run
+443|- L'**analyse de sensibilité** (quel changement de seed change la conclusion ?)
+444|- La **détection de survenue chanceuse** (une chambre a-t-elle eu « de la chance » ?)
+445|
+446|---
+447|
+448|## 10. Résumé opérationnel
+449|
+450|Trinity est un protocole en **quatre étapes** :
+451|
+452|1. **Hypothesis Designer** → structure le problème, génère les hypothèses, sélectionne le triplet optimal
+453|2. **EV Calculator** → décide si Trinity est justifiée (rapport coût/bénéfice explicite)
+454|3. **Phase A (Sealed)** → trois chambres indépendantes produisent des `TrinityWorld`
+455|4. **Phase B (Cross-Examination)** → alignement, conflit, agrégation → décision finale
+456|
+457|Chaque étape est **traçable**, **reproductible**, **auditable**. La sortie n'est pas une réponse — c'est une **décision justifiée par un processus épistémique explicite**.
+458|
+459|---
+460|
+461|*Prochaine partie : Trinity — Implémentation & Runtime (Partie 2)*
+462|
+
+
+<!-- === PARTIE 2 === -->
+
+1|# Trinity Topology — Part 2: Scoring, Claim Graph, Merge & Verification
+2|
+3|> **Scope:** This document specifies the decision plane of the Trinity topology — how candidate worlds are scored, how claims are merged, and how verification gates enforce correctness before promotion. It is normative: every formula, threshold, and procedure described here is the intended operational state of the system.
+4|
+5|---
+6|
+7|## 1. Evidence Vector
+8|
+9|Each candidate world $W_i$ produces an **evidence vector** $\mathbf{E}_i$ that captures ten orthogonal dimensions of quality. The vector is the atomic unit of comparison; no single scalar is ever used to rank worlds.
+10|
+11|### 1.1 Definition
+12|
+13|$$
+14|\mathbf{E}_i = \langle c, \, r, \, b, \, p, \, n, \, k, \, \ell, \, \sigma, \, u, \, \gamma \rangle
+15|$$
+16|
+17|| Symbol | Dimension | Range | Description |
+18||--------|-----------|-------|-------------|
+19|| $c$ | Correctness | $[0, 1]$ | Fraction of acceptance criteria satisfied |
+20|| $r$ | Coverage | $[0, 1]$ | Fraction of the specification surface exercised |
+21|| $b$ | Robustness | $[0, 1]$ | Resistance to adversarial or edge-case inputs |
+22|| $p$ | Reproducibility | $[0, 1]$ | Probability of identical output on re-execution |
+23|| $n$ | Novelty | $[0, 1]$ | Degree of non-trivial innovation beyond the baseline |
+24|| $k$ | Cost | $\mathbb{R}_{\geq 0}$ | Total resource expenditure (compute, tokens, time) |
+25|| $\ell$ | Latency | $\mathbb{R}_{\geq 0}$ | Wall-clock time to produce the artifact (ms) |
+26|| $\sigma$ | Risk | $[0, 1]$ | Probability of catastrophic failure in production |
+27|| $u$ | Uncertainty | $[0, 1]$ | Epistemic uncertainty of the evidence itself |
+28|| $\gamma$ | Constraint Coverage | $[0, 1]$ | Fraction of hard constraints satisfied |
+29|
+30|### 1.2 Per-Dimension Thresholds
+31|
+32|Each dimension has a **hard floor** $\theta_{\min}$ and a **target** $\theta_{\star}$. A world that fails any hard floor is eliminated regardless of its score on other dimensions.
+33|
+34|$$
+35|\begin{aligned}
+36|\theta_{\min} &= \langle 0.70, \, 0.60, \, 0.50, \, 0.80, \, 0.00, \, \infty, \, \infty, \, 0.30, \, 0.50, \, 0.90 \rangle \\
+37|\theta_{\star} &= \langle 0.95, \, 0.90, \, 0.85, \, 0.95, \, 0.40, \, \text{budget}, \, \text{SLA}, \, 0.05, \, 0.10, \, 1.00 \rangle
+38|\end{aligned}
+39|$$
+40|
+41|**Elimination rule:**
+42|
+43|$$
+44|\text{eliminate}(W_i) \iff \exists d \in \text{dims} : \mathbf{E}_i[d] < \theta_{\min}[d]
+45|$$
+46|
+47|Dimensions $k$ (cost) and $\ell$ (latency) are treated as **budget-constrained** rather than threshold-gated: they enter the Pareto frontier but do not trigger automatic elimination unless they exceed the mission budget.
+48|
+49|### 1.3 Uncertainty Propagation
+50|
+51|The uncertainty dimension $u$ modulates confidence in all other dimensions. For any dimension $d$, the **confidence-adjusted value** is:
+52|
+53|$$
+54|\hat{\mathbf{E}}_i[d] = \mathbf{E}_i[d] \cdot (1 - u_i)
+55|$$
+56|
+57|This ensures that worlds with high self-reported uncertainty are penalized proportionally, preventing overconfident but poorly-evidenced candidates from dominating the ranking.
+58|
+59|---
+60|
+61|## 2. Scalar Score — V1 vs. Evidence Vector
+62|
+63|### 2.1 Historical Scalar (V1)
+64|
+65|The original Trinity scoring used a weighted linear combination:
+66|
+67|$$
+68|S_i^{(V1)} = \alpha \cdot \text{Claims}_i + \beta \cdot \text{Tests}_i + \gamma \cdot \text{Robustness}_i
+69|$$
+70|
+71|where $\alpha + \beta + \gamma = 1$ and $\alpha, \beta, \gamma > 0$.
+72|
+73|**Limitations of V1:**
+74|
+75|- Collapses ten dimensions into three, losing orthogonality.
+76|- Cannot express trade-offs (e.g., high correctness but high cost).
+77|- No mechanism for hard constraints — a world with $\text{ConstraintCoverage} = 0.2$ could still win if Claims and Tests are high.
+78|- Weights $\alpha, \beta, \gamma$ are global and cannot adapt to mission priorities.
+79|
+80|### 2.2 Evidence Vector (Current)
+81|
+82|The current system uses the full 10-dimensional vector $\mathbf{E}_i$ with Pareto-based elimination (§3). Scalar aggregation is applied **only after** Pareto filtering, using a mission-specific utility function:
+83|
+84|$$
+85|U_i = \sum_{d \in \text{dims}} w_d \cdot f_d(\mathbf{E}_i[d])
+86|$$
+87|
+88|where $w_d$ are mission weights and $f_d$ are per-dimension shaping functions (typically sigmoid or linear).
+89|
+90|### 2.3 Comparative Summary
+91|
+92|| Property | $S_i^{(V1)}$ | $\mathbf{E}_i$ (Current) |
+93||----------|-------------|--------------------------|
+94|| Dimensions | 3 | 10 |
+95|| Hard constraints | No | Yes ($\theta_{\min}$) |
+96|| Pareto awareness | No | Yes |
+97|| Uncertainty handling | None | $u$-modulated |
+98|| Mission adaptability | Fixed weights | Configurable $w_d$ |
+99|| Elimination | Score threshold | Multi-stage Pareto |
+100|| Expressiveness | Scalar only | Full vector + utility |
+101|
+102|**Justification:** The evidence vector preserves information that scalar aggregation destroys. Two worlds with identical $S_i^{(V1)}$ may have radically different profiles (one may be fast but fragile, another slow but robust). The vector representation enables the Pareto frontier to separate them.
+103|
+104|---
+105|
+106|## 3. Pareto Elimination — Three Stages
+107|
+108|Pareto elimination proceeds in three sequential stages, each reducing the candidate set.
+109|
+110|### 3.1 Stage 1 — Hard Invariants
+111|
+112|Eliminate any world that violates a hard constraint:
+113|
+114|$$
+115|\mathcal{W}_1 = \{ W_i \in \mathcal{W}_0 \mid \forall d : \mathbf{E}_i[d] \geq \theta_{\min}[d] \}
+116|$$
+117|
+118|This is a **non-negotiable gate**. No world proceeds if it fails any invariant.
+119|
+120|### 3.2 Stage 2 — Domain Preferences
+121|
+122|Apply mission-specific preference ordering. For each pair $(W_i, W_j)$, $W_i$ **dominates** $W_j$ if:
+123|
+124|$$
+125|W_i \succ W_j \iff \forall d : \mathbf{E}_i[d] \geq \mathbf{E}_j[d] \;\land\; \exists d : \mathbf{E}_i[d] > \mathbf{E}_j[d]
+126|$$
+127|
+128|The **Pareto frontier** is the set of non-dominated worlds:
+129|
+130|$$
+131|\mathcal{W}_2 = \{ W_i \in \mathcal{W}_1 \mid \nexists W_j \in \mathcal{W}_1 : W_j \succ W_i \}
+132|$$
+133|
+134|### 3.3 Stage 3 — Final Utility
+135|
+136|If $|\mathcal{W}_2| > 1$, apply the mission utility function $U_i$ to select the winner:
+137|
+138|$$
+139|W^\star = \arg\max_{W_i \in \mathcal{W}_2} U_i
+140|$$
+141|
+142|### 3.4 Pareto Diagram (ASCII)
+143|
+144|```
+145|Correctness ↑
+146|    1.0 │          ★ W₃
+147|        │       ★ W₂
+148|    0.8 │    ★ W₁
+149|        │  ☆ W₄  ☆ W₅
+150|    0.6 │☆ W₆
+151|        │
+152|    0.4 │
+153|        └──────────────────→ Cost
+154|         0.0   0.5   1.0
+155|
+156|    ★ = Pareto frontier (W₁, W₂, W₃)
+157|    ☆ = Dominated (eliminated in Stage 2)
+158|    W₆ = Eliminated in Stage 1 (correctness < θ_min)
+159|```
+160|
+161|---
+162|
+163|## 4. Claim Graph
+164|
+165|The **Claim Graph** $\mathcal{G} = (\mathcal{N}, \mathcal{E})$ is a directed hypergraph that represents the logical structure of all claims produced by all candidate worlds.
+166|
+167|### 4.1 Node Structure
+168|
+169|Each node $n \in \mathcal{N}$ represents a single claim:
+170|
+171|```json
+172|{
+173|  "id": "claim://world-3/claim-7",
+174|  "claim": "The sorting algorithm is O(n log n) in the worst case",
+175|  "evidence": [
+176|    {"type": "benchmark", "value": "n=10^6, time=1.2s", "confidence": 0.98},
+177|    {"type": "proof", "value": "master-theorem-case-2", "confidence": 0.95}
+178|  ],
+179|  "status": "verified",
+180|  "source_world": "W_3",
+181|  "timestamp": "2026-09-24T10:30:00Z"
+182|}
+183|```
+184|
+185|**Status values:**
+186|
+187|| Status | Meaning |
+188||--------|---------|
+189|| `proposed` | Claim submitted, not yet evaluated |
+190|| `verified` | Passed deterministic verification |
+191|| `conditionally_accepted` | Accepted pending dependency resolution |
+192|| `rejected` | Failed verification |
+193|| `superseded` | Replaced by a stronger claim |
+194|
+195|### 4.2 Edge Structure
+196|
+197|Each edge $e \in \mathcal{E}$ represents a logical relationship:
+198|
+199|```json
+200|{
+201|  "source": "claim://world-1/claim-3",
+202|  "target": "claim://world-2/claim-5",
+203|  "relation": "supports",
+204|  "weight": 0.85
+205|}
+206|```
+207|
+208|**Relation types:**
+209|
+210|| Relation | Semantics |
+211||----------|-----------|
+212|| `supports` | Source increases confidence in target |
+213|| `contradicts` | Source decreases confidence in target |
+214|| `depends_on` | Source must be verified before target can be verified |
+215|| `refines` | Target is a stricter version of source |
+216|| `equivalent` | Source and target are logically equivalent |
+217|
+218|### 4.3 Example — Three Worlds
+219|
+220|Consider three worlds $W_A$, $W_B$, $W_C$ that each propose a claim about system throughput:
+221|
+222|```
+223|World A: "Throughput ≥ 1000 req/s"     [benchmark: 1050 req/s]
+224|World B: "Throughput ≥ 800 req/s"      [benchmark: 820 req/s]
+225|World C: "Throughput < 900 req/s"      [benchmark: 870 req/s]
+226|```
+227|
+228|**Claim Graph:**
+229|
+230|```
+231|                    ┌─────────────────────┐
+232|                    │  claim-A: ≥1000     │
+233|                    │  status: verified   │
+234|                    │  evidence: 1050     │
+235|                    └─────────┬───────────┘
+236|                              │ refines
+237|                              ▼
+238|                    ┌─────────────────────┐
+239|                    │  claim-B: ≥800      │◄──── contradicts ────┐
+240|                    │  status: verified   │                      │
+241|                    │  evidence: 820      │                      │
+242|                    └─────────────────────┘                      │
+243|                                                                   │
+244|                    ┌─────────────────────┐                      │
+245|                    │  claim-C: <900      │──────────────────────┘
+246|                    │  status: rejected   │
+247|                    │  evidence: 870      │
+248|                    └─────────────────────┘
+249|```
+250|
+251|**Resolution:** Claim A is the strongest verified claim. Claim B is weaker but consistent. Claim C contradicts the verified evidence and is rejected.
+252|
+253|---
+254|
+255|## 5. Claim-Level Fusion
+256|
+257|When multiple worlds make related claims, the system performs **claim-level fusion** to produce a unified knowledge base.
+258|
+259|### 5.1 Fusion Rules
+260|
+261|Given a set of claims $\mathcal{C} = \{c_1, c_2, \dots, c_n\}$ about the same proposition:
+262|
+263|| Condition | Action |
+264||-----------|--------|
+265|| All claims agree | Accept with maximum confidence |
+266|| Claims contradict | Accept the one with strongest evidence; reject others |
+267|| Claims are complementary | Merge into a conjunction |
+268|| One claim is negation of another | Apply §5.2 (negation handling) |
+269|
+270|### 5.2 Negation Handling
+271|
+272|For a claim $A$ and its negation $\neg B$:
+273|
+274|- If $A$ is verified and $\neg B$ is equivalent to $A$: **accept $A$, reject $B$**.
+275|- If $A$ is verified and $B$ is independent: **accept $A$, accept $\neg B$** (they may both be true in different contexts).
+276|- If neither is verified: **conditionally accept both** with confidence proportional to evidence strength.
+277|
+278|### 5.3 Fusion Output (JSON)
+279|
+280|```json
+281|{
+282|  "fusion_id": "fuse://throughput-claim",
+283|  "proposition": "System throughput under load",
+284|  "result": "accepted",
+285|  "winning_claim": "claim://world-A/claim-1",
+286|  "confidence": 0.97,
+287|  "supporting_claims": [
+288|    {"id": "claim://world-A/claim-1", "weight": 0.6},
+289|    {"id": "claim://world-B/claim-3", "weight": 0.3}
+290|  ],
+291|  "rejected_claims": [
+292|    {"id": "claim://world-C/claim-2", "reason": "contradicts_verified_evidence"}
+293|  ],
+294|  "conditional_claims": [
+295|    {"id": "claim://world-D/claim-5", "condition": "latency < 50ms"}
+296|  ],
+297|  "fused_at": "2026-09-24T10:35:00Z"
+298|}
+299|```
+300|
+301|### 5.4 Formal Fusion Semantics
+302|
+303|Let $\mathcal{C}_A$ be the set of claims supporting proposition $P$, and $\mathcal{C}_{\neg P}$ the set supporting its negation. The **fused confidence** in $P$ is:
+304|
+305|$$
+306|\text{conf}(P) = \frac{\sum_{c \in \mathcal{C}_A} w(c) \cdot \text{ev}(c)}{\sum_{c \in \mathcal{C}_A \cup \mathcal{C}_{\neg P}} w(c) \cdot \text{ev}(c)}
+307|$$
+308|
+309|where $w(c)$ is the claim weight and $\text{ev}(c)$ is the evidence strength.
+310|
+311|---
+312|
+313|## 6. Verification Hierarchy
+314|
+315|Verification is organized as a strict hierarchy. Higher-priority verifiers **override** lower-priority ones.
+316|
+317|### 6.1 Hierarchy (Highest to Lowest Priority)
+318|
+319|| Priority | Verifier | Description | Override Rule |
+320||----------|----------|-------------|---------------|
+321|| 1 | Deterministic Verifier | Formal proof, SAT/SMT, type checking | Absolute — cannot be overridden |
+322|| 2 | External Evidence | Ground truth from authoritative sources | Overrides all below |
+323|| 3 | Independent Reproducibility | Re-execution yields identical result | Overrides all below |
+324|| 4 | Validated Process | Process with proven track record | Overrides all below |
+325|| 5 | Multi-Judge | Agreement among independent judges | Overrides all below |
+326|| 6 | Model Confidence | Self-reported confidence by the model | Overrides majority |
+327|| 7 | Majority | Most models agree | Lowest priority |
+328|
+329|### 6.2 Formal Priority Relation
+330|
+331|Let $\mathcal{V} = \{v_1, v_2, \dots, v_7\}$ be the set of verifiers ordered by priority. For any claim $c$:
+332|
+333|$$
+334|\text{verdict}(c) = \text{verdict}(v_k) \quad \text{where } k = \min\{ i \mid v_i \text{ produces a verdict on } c \}
+335|$$
+336|
+337|That is, the **highest-priority verifier that produces a verdict determines the outcome**.
+338|
+339|### 6.3 Deterministic Verifier Details
+340|
+341|Deterministic verifiers produce **binary, reproducible verdicts**:
+342|
+343|- **SAT/SMT solvers:** Check logical satisfiability of claim constraints.
+344|- **Type checkers:** Verify type safety claims.
+345|- **Model checkers:** Verify temporal logic properties.
+346|- **Proof assistants (Lean, Coq):** Verify formal mathematical claims.
+347|
+348|A claim verified by a deterministic verifier is marked `verified` with confidence $1.0$.
+349|
+350|### 6.4 External Evidence
+351|
+352|External evidence comes from sources outside the Trinity system:
+353|
+354|- Benchmark results from standardized suites.
+355|- API responses from production systems.
+356|- Published scientific results.
+357|- Regulatory compliance certificates.
+358|
+359|External evidence is weighted by **source authority** $a_s \in [0, 1]$:
+360|
+361|$$
+362|\text{ev}_{\text{ext}}(c) = a_s \cdot \text{consistency}(c, \text{observation})
+363|$$
+364|
+365|---
+366|
+367|## 7. Verification Plane
+368|
+369|The verification plane is the complete set of tools and procedures available to verify claims.
+370|
+371|### 7.1 Mermaid Diagram
+372|
+373|```mermaid
+374|graph TD
+375|    A[Claim Submitted] --> B{Deterministic<br/>Verifier?}
+376|    B -->|Yes| C[SAT/SMT/Lean/Type]
+377|    B -->|No| D{External<br/>Evidence?}
+378|    C --> E[Verdict: PASS/FAIL]
+379|    D -->|Yes| F[Benchmark/API/Publication]
+380|    D -->|No| G{Reproducible?}
+381|    F --> H[Weighted Confidence]
+382|    G -->|Yes| I[Independent Re-execution]
+383|    G -->|No| J{Validated<br/>Process?}
+384|    I --> K[Match? → PASS]
+385|    J -->|Yes| L[Process Audit Trail]
+386|    J -->|No| M{Multi-Judge<br/>Panel?}
+387|    L --> N[Process Score]
+388|    M -->|Yes| O[Blind Jury]
+389|    M -->|No| P{LLM Jury<br/>Last Resort}
+390|    O --> Q[PoLL Score]
+391|    P --> R[Model Confidence]
+392|    E --> S[Final Verdict]
+393|    H --> S
+394|    K --> S
+395|    N --> S
+396|    Q --> S
+397|    R --> S
+398|```
+399|
+400|### 7.2 Verification Tools
+401|
+402|| Tool | Type | Priority | Output |
+403||------|------|----------|--------|
+404|| Unit tests | Deterministic | 1 | PASS/FAIL per test |
+405|| Property tests (QuickCheck) | Deterministic | 1 | PASS/FAIL + counterexample |
+406|| SAT/SMT (Z3, CVC5) | Deterministic | 1 | SAT/UNSAT + model |
+407|| Lean 4 | Deterministic | 1 | Proof term or error |
+408|| SQL invariants | Deterministic | 1 | Constraint violation or clean |
+409|| Static analysis (Clippy, Pylint) | Validated Process | 4 | Warning/error levels |
+410|| Security scanners (Semgrep, Trivy) | Validated Process | 4 | Vulnerability report |
+411|| Benchmark suites | External Evidence | 2 | Performance metrics |
+412|| External source validation | External Evidence | 2 | Ground truth match |
+413|| LLM jury | Last Resort | 6-7 | Confidence score |
+414|
+415|### 7.3 Integration Test Gate
+416|
+417|Before any world is promoted, it must pass **integration tests** that verify:
+418|
+419|1. The artifact compiles and links correctly.
+420|2. All public API contracts are satisfied.
+421|3. No regressions against the baseline.
+422|4. Performance within SLA bounds.
+423|
+424|$$
+425|\text{integration_pass}(W_i) = \bigwedge_{t \in \text{integration\_suite}} \text{PASS}(t, W_i)
+426|$$
+427|
+428|---
+429|
+430|## 8. Blind Multi-Model Jury
+431|
+432|When deterministic verification is impossible and external evidence is unavailable, Trinity convenes a **blind multi-model jury** as a last-resort verifier.
+433|
+434|### 8.1 Configuration
+435|
+436|```json
+437|{
+438|  "jury_config": {
+439|    "anonymization": true,
+440|    "candidate_ids": ["X", "Y", "Z"],
+441|    "models": [
+442|      {"id": "judge-1", "model": "claude-sonnet-4-20250514", "role": "evaluator"},
+443|      {"id": "judge-2", "model": "gpt-5", "role": "evaluator"},
+444|      {"id": "judge-3", "model": "gemini-2.5-pro", "role": "evaluator"},
+445|      {"id": "judge-4", "model": "llama-4-maverick", "role": "evaluator"},
+446|      {"id": "judge-5", "model": "deepseek-v3", "role": "evaluator"}
+447|    ],
+448|    "evaluation_criteria": ["correctness", "completeness", "safety", "efficiency"],
+449|    "scoring_scale": {"min": 0, "max": 10, "precision": 0.5},
+450|    "deliberation_rounds": 2,
+451|    "confidence_threshold": 0.7
+452|  }
+453|}
+454|```
+455|
+456|### 8.2 Anonymization Protocol
+457|
+458|To prevent brand bias:
+459|
+460|1. All candidate outputs are stripped of model identifiers.
+461|2. Candidates are assigned random IDs (X, Y, Z).
+462|3. Output formatting is normalized to a common template.
+463|4. Judges evaluate **without knowing** which model produced which output.
+464|
+465|### 8.3 Bias Avoidance
+466|
+467|| Bias | Mitigation |
+468||------|------------|
+469|| Brand bias | Anonymization (§8.2) |
+470|| Order bias | Random presentation order per judge |
+471|| Anchoring | Independent scoring before deliberation |
+472|| Halo effect | Per-criterion scoring, not global |
+473|| Social pressure | Independent voting before aggregation |
+474|
+475|### 8.4 PoLL (Probability of Logically Correct)
+476|
+477|The jury produces a **PoLL score** for each candidate:
+478|
+479|$$
+480|\text{PoLL}(X) = \frac{1}{|J|} \sum_{j \in J} \text{score}_j(X) \cdot \text{confidence}_j(X)
+481|$$
+482|
+483|where $J$ is the set of judges, $\text{score}_j(X)$ is the raw score, and $\text{confidence}_j(X)$ is the judge's self-reported confidence.
+484|
+485|**Winner selection:**
+486|
+487|$$
+488|X^\star = \arg\max_{X \in \text{candidates}} \text{PoLL}(X)
+489|$$
+490|
+491|A candidate is promoted only if $\text{PoLL}(X^\star) \geq \tau_{\text{jury}}$, where $\tau_{\text{jury}}$ is the mission-specific threshold (default: $0.7$).
+492|
+493|---
+494|
+495|## 9. Four Possible Results
+496|
+497|The decision plane produces exactly one of four outcomes for each candidate set.
+498|
+499|### 9.1 PROMOTE_WORLD
+500|
+501|**Condition:** A single world dominates all others on the Pareto frontier and passes all verification gates.
+502|
+503|$$
+504|\text{PROMOTE\_WORLD}(W^\star) \iff W^\star = \arg\max_{W_i \in \mathcal{W}_2} U_i \;\land\; \text{verification\_pass}(W^\star) \;\land\; |\mathcal{W}_2| = 1
+505|$$
+506|
+507|**Example:** World A achieves correctness $0.98$, cost within budget, and all claims verified by Lean. All other worlds are dominated.
+508|
+509|### 9.2 SYNTHESIZE_CLAIMS
+510|
+511|**Condition:** Multiple worlds contribute verified claims, but no single world dominates.
+512|
+513|$$
+514|\text{SYNTHESIZE\_CLAIMS} \iff |\mathcal{W}_2| > 1 \;\land\; \forall W_i, W_j \in \mathcal{W}_2 : |U_i - U_j| < \epsilon
+515|$$
+516|
+517|**Example:** World A has the best performance; World B has the best safety properties. Claims from both are fused into a new artifact.
+518|
+519|### 9.3 KEEP_PARETO_SET
+520|
+521|**Condition:** Multiple non-dominated worlds exist and the utility difference is insufficient to select a winner.
+522|
+523|$$
+524|\text{KEEP\_PARETO\_SET} \iff |\mathcal{W}_2| > 1 \;\land\; \text{synthesis\_fails}
+525|$$
+526|
+527|**Example:** Three worlds are on the Pareto frontier with complementary strengths. The system retains all three for the next iteration.
+528|
+529|### 9.4 ESCALATE_EXPERIMENT
+530|
+531|**Condition:** No world passes the verification gate, or the evidence is insufficient.
+532|
+533|$$
+534|\text{ESCALATE\_EXPERIMENT} \iff \forall W_i \in \mathcal{W}_2 : \neg \text{verification\_pass}(W_i) \;\lor\; \max_{W_i} U_i < \tau_{\text{experiment}}
+535|$$
+536|
+537|**Example:** All worlds have high uncertainty ($u > 0.5$) and no deterministic verification is available. The system requests additional evidence or human judgment.
+538|
+539|### 9.5 Decision Flow
+540|
+541|```
+542|                    ┌──────────────────┐
+543|                    │  Pareto Frontier  │
+544|                    └────────┬─────────┘
+545|                             │
+546|                    ┌────────▼─────────┐
+547|                    │ |W₂| = 1 ?       │
+548|                    └────┬────────┬────┘
+549|                         │Yes     │No
+550|                ┌────────▼──┐  ┌──▼──────────────┐
+551|                │ Verified? │  │ |Uᵢ - Uⱼ| < ε ? │
+552|                └────┬──────┘  └──┬───────────┬───┘
+553|                     │Yes        │Yes         │No
+554|                ┌────▼─────┐  ┌───▼─────┐  ┌──▼──────────┐
+555|                │ PROMOTE  │  │SYNTHESIZE│  │KEEP_PARETO  │
+556|                │ WORLD    │  │ CLAIMS   │  │ SET         │
+557|                └──────────┘  └──────────┘  └─────────────┘
+558|                     │No
+559|                ┌────▼──────────┐
+560|                │  ESCALATE     │
+561|                │  EXPERIMENT   │
+562|                └───────────────┘
+563|```
+564|
+565|---
+566|
+567|## 10. Transactional Promotion
+568|
+569|Promotion is an **atomic, transactional operation** that moves a winning world from candidate status to production status.
+570|
+571|### 10.1 Promotion Protocol
+572|
+573|The promotion protocol consists of the following steps, executed as a single transaction:
+574|
+575|```
+576|1. WINNER_SELECTED      → W* identified by decision plane
+577|2. PREPARE_MERGE        → Create isolated merge candidate
+578|3. APPLY_ARTIFACT       → Apply W* artifact to staging
+579|4. RUN_INTEGRATION      → Execute integration test suite
+580|5. VERIFY_EVIDENCE      → Re-verify all claims in W*
+581|6. HASH_RESULT          → Compute content hash of promoted artifact
+582|7. COMMIT_AGENTGIT      → Commit to AgentGit with evidence
+583|8. ATOMIC_PROMOTION     → Flip status: candidate → promoted
+584|9. MARK_PROMOTED        → Set promoted=true on W*
+585|```
+586|
+587|### 10.2 Formal Transaction Semantics
+588|
+589|Let $\mathcal{S}$ be the system state. Promotion is a function:
+590|
+591|$$
+592|\text{promote}(W^\star) : \mathcal{S} \to \mathcal{S}'
+593|$$
+594|
+595|with the **atomicity guarantee**:
+596|
+597|$$
+598|\text{promote}(W^\star) = \begin{cases}
+599|\mathcal{S}' & \text{if all steps succeed} \\
+600|\mathcal{S} & \text{if any step fails (full rollback)}
+601|\end{cases}
+602|$$
+603|
+604|### 10.3 Rollback Procedure
+605|
+606|If any step fails:
+607|
+608|```
+609|ON FAILURE:
+610|  1. Discard merge candidate
+611|  2. Restore staging to pre-promotion state
+612|  3. Log failure with evidence
+613|  4. Mark W* as "promotion_failed"
+614|  5. Trigger ESCALATE_EXPERIMENT
+615|```
+616|
+617|### 10.4 Invariant
+618|
+619|The system maintains the following invariant:
+620|
+621|$$
+622|\text{promoted}(W_i) = \text{true} \implies \exists \, \text{artifact } a : \text{verified}(a) \land \text{hash}(a) = \text{commit\_hash}(W_i)
+623|$$
+624|
+625|**In words:** If a world is marked as promoted, then a verified artifact with a matching hash **must exist** in AgentGit. This invariant is checked on every state transition.
+626|
+627|### 10.5 AgentGit Commit Structure
+628|
+629|```json
+630|{
+631|  "commit": {
+632|    "hash": "a1b2c3d4e5f6...",
+633|    "parent": "f6e5d4c3b2a1...",
+634|    "message": "Promote W* to production",
+635|    "author": "trinity-decision-plane",
+636|    "timestamp": "2026-09-24T11:00:00Z"
+637|  },
+638|  "evidence": {
+639|    "world_id": "W*",
+640|    "evidence_vector": [0.98, 0.92, 0.88, 0.96, 0.45, 120.0, 340.0, 0.03, 0.08, 1.0],
+641|    "pareto_stage": 3,
+642|    "utility_score": 0.94,
+643|    "verification_status": "all_passed",
+644|    "claim_graph_root": "claim://root/throughput"
+645|  },
+646|  "artifact": {
+647|    "path": "artifacts/W*/production/",
+648|    "content_hash": "sha256:deadbeef...",
+649|    "size_bytes": 4096
+650|  },
+651|  "rollback_point": {
+652|    "previous_commit": "f6e5d4c3b2a1...",
+653|    "previous_artifact_hash": "sha256:cafebabe..."
+654|  }
+655|}
+656|```
+657|
+658|### 10.6 Post-Promotion Verification
+659|
+660|After promotion, the system performs a **post-promotion verification** to ensure the invariant holds:
+661|
+662|$$
+663|\text{post\_verify}(W_i) = \text{promoted}(W_i) \implies \text{AgentGit.contains}(\text{commit\_hash}(W_i)) \land \text{artifact\_exists}(\text{content\_hash}(W_i))
+664|$$
+665|
+666|If post-verification fails, the system triggers an **alert** and initiates recovery procedures.
+667|
+668|---
+669|
+670|## Appendix A — Notation Summary
+671|
+672|| Symbol | Meaning |
+673||--------|---------|
+674|| $\mathbf{E}_i$ | Evidence vector for world $W_i$ |
+675|| $U_i$ | Utility score for world $W_i$ |
+676|| $\theta_{\min}$ | Per-dimension hard floors |
+677|| $\theta_{\star}$ | Per-dimension targets |
+678|| $\mathcal{G}$ | Claim graph |
+679|| $\mathcal{N}$ | Set of claim nodes |
+680|| $\mathcal{E}$ | Set of claim edges |
+681|| $\text{PoLL}(X)$ | Probability of logically correct for candidate $X$ |
+682|| $\tau_{\text{jury}}$ | Jury confidence threshold |
+683|| $\tau_{\text{experiment}}$ | Experiment escalation threshold |
+684|| $\epsilon$ | Utility difference tolerance |
+685|
+686|## Appendix B — Threshold Reference
+687|
+688|| Dimension | $\theta_{\min}$ | $\theta_{\star}$ |
+689||-----------|-----------------|------------------|
+690|| Correctness | 0.70 | 0.95 |
+691|| Coverage | 0.60 | 0.90 |
+692|| Robustness | 0.50 | 0.85 |
+693|| Reproducibility | 0.80 | 0.95 |
+694|| Novelty | 0.00 | 0.40 |
+695|| Cost | $\infty$ (budget-gated) | Mission budget |
+696|| Latency | $\infty$ (SLA-gated) | Mission SLA |
+697|| Risk | 0.30 | 0.05 |
+698|| Uncertainty | 0.50 | 0.10 |
+699|| Constraint Coverage | 0.90 | 1.00 |
+700|
+701|---
+702|
+703|*End of Trinity Part 2 — Scoring, Claim Graph, Merge & Verification.*
+704|
+
+
+<!-- === PARTIE 3 === -->
+
+1|# Trinity — Variants & Expérimentation Avancée
+2|
+3|> Partie 3 de la documentation Trinity : les 12 variantes, leurs formulations mathématiques, et les stratégies d'expérimentation avancées.
+4|
+5|---
+6|
+7|## 1. Les 12 variantes de Trinity
+8|
+9|Trinity est une architecture d'orchestration multi-agents dont le principe fondamental est la **triangulation cognitive** : soumettre une tâche à plusieurs « mondes » (workways) indépendants, puis sélectionner ou synthétiser la meilleure réponse. Chaque variante décline ce principe selon une stratégie spécifique.
+10|
+11|### 1.1 Tableau complet des variantes
+12|
+13|| # | Variante | Description | Usage principal | Exemple |
+14||---|----------|-------------|-----------------|---------|
+15|| 1 | **Trinity-Controlled** | Trois mondes avec stratégies **fixes et prédéfinies**. Chaque monde est configuré explicitement (prompt, modèle, outils). | Baseline reproductible, comparaison contrôlée de stratégies pures. | Monde 1 = Planification, Monde 2 = Raffinement, Monde 3 = Falsification. |
+16|| 2 | **Trinity-Heterogeneous** | Trois mondes **maximisant la diversité** selon une métrique composite (provider, architecture, stratégie, historique). | Réduction des erreurs systémiques par anti-monoculture. | Un monde GPT-4o + un Claude + un modèle open-weight avec stratégies cognitive-recipe distinctes. |
+17|| 3 | **Trinity-Adversarial** | Monde 3 est explicitement **adversaire** : il tente de réfuter la sortie du Monde 1. Le Monde 2 observe et arbitre. | Détection de fausses pistes, robustesse épistémique. | Monde 1 propose, Monde 3 attaque, Monde 2 évalue la solidité de l'argument. |
+18|| 4 | **Trinity-Counterfactual** | Chaque monde raisonne sous une **prémisse contrefactuelle** différente. Le synthèse explore l'espace des possibles. | Analyse de sensibilité, planification sous incertitude. | Monde 1 = « si on a le budget », Monde 2 = « si le budget est coupé », Monde 3 = « si le double ». |
+19|| 5 | **Trinity-Factorial** | Plan d'expératoire complet : toutes les combinaisons de stratégies × modèles (matrice 3×3 ou plus). | Attribution causale de la performance au modèle vs à la stratégie. | 3 stratégies × 3 modèles = 9 cellules, analyse d'interaction. |
+20|| 6 | **Trinity-Pareto** | Les mondes optimisent des **objectifs orthogonaux** (qualité, coût, latence). Le front de Pareto détermine l'élite. | Optimisation multi-objectif explicite. | Monde 1 = max qualité, Monde 2 = min latence, Monde 3 = min coût. |
+21|| 7 | **Trinity-Jury** | Les sorties de chaque monde sont évaluées **anonymement** par des vérificateurs indépendants qui ne connaissent pas la source. | Évaluation impartiale, détection de biais de source. | 5 juges évaluent 3 propositions anonymisées sur des critères normalisés. |
+22|| 8 | **Trinity-Recursive** | Si un monde identifie la tâche comme « difficile », il peut **lancer localement une sous-Trinity** pour résoudre un sous-problème. | Décomposition hiérarchique, escalation contrôlée. | Un module de raisonnement complexe invoque une micro-Trinity pour explorer 3 sous-approches. |
+23|| 9 | **Trinity-Adaptive** | Le nombre de replicas et le **budget de calcul** de chaque monde évoluent **en cours d'exécution** selon les signaux intermédiaires. | Allocation dynamique des ressources. | Un monde qui progresse vite reçoit plus de tokens ; un autre stagne est réduit. |
+24|| 10 | **Trinity-Temporal** | Les mondes opèrent à des **horizons temporels** différents : l'un réagit vite (court terme), un autre raisonne longuement (long terme). | Tâches urgentes vs tâches de fond. | Court terme = réponse immédiate, Moyen terme = synthèse, Long terme = réflexion stratégique. |
+25|| 11 | **Trinity-Oracular** | Un monde fait office d'**oracle** : il ne résout pas la tâche, il **prédit quel monde** produira la meilleure réponse, et pourquoi. | Méta-raisonnement, sélection a priori. | L'oracle prédit que le Monde 2 réussira car la tâche est dans sa zone de compétence. |
+26|| 12 | **Trinity-Exploratory** | Les mondes sont encourgés à **diverger maximalement** (température élevée, objectifs opposés). La sélection se fait par novelty search. | Créativité, découverte, innovation. | Génération de concepts radicalement différents pour un problème ouvert. |
+27|
+28|---
+29|
+30|## 2. Trinity-Factorial : le plan d'expérimentation complet
+31|
+32|### 2.1 Matrice stratégies × modèles
+33|
+34|La variante **Factorial** constitue un plan d'expérimentation orthogonal complet. Soit $\mathcal{S} = \{s_1, s_2, s_3\}$ l'ensemble des stratégies et $\mathcal{M} = \{m_A, m_B, m_C\}$ l'ensemble des modèles. Le plan factoriel définit $3 \times 3 = 9$ cellules expérimentales :
+35|
+36|```
+37|                     Modèle A        Modèle B        Modèle C
+38|                 ┌───────────────┬───────────────┬───────────────┐
+39|  Planified     │  (P, A)       │  (P, B)       │  (P, C)       │
+40|  (s₁)          │   Cellule 1   │   Cellule 2   │   Cellule 3   │
+41|                 ├───────────────┼───────────────┼───────────────┤
+42|  Refinement    │  (R, A)       │  (R, B)       │  (R, C)       │
+43|  (s₂)          │   Cellule 4   │   Cellule 5   │   Cellule 6   │
+44|                 ├───────────────┼───────────────┼───────────────┤
+45|  Falsification │  (F, A)       │  (F, B)       │  (F, C)       │
+46|  (s₃)          │   Cellule 7   │   Cellule 8   │   Cellule 9   │
+47|                 └───────────────┴───────────────┴───────────────┘
+48|
+49|  Légende :
+50|  P = Planified : décomposition hiérarchique, puis exécution
+51|  R = Refinement : itératif, amélioration progressive d'un draft
+52|  F = Falsification : générer puis réfuter, ne garder que l'irréfutable
+53|```
+54|
+55|### 2.2 Analyse d'interaction
+56|
+57|Soit $Q(s_i, m_j)$ la qualité mesurée de la sortie pour la stratégie $i$ et le modèle $j$. On décompose selon le modèle d'analyse de variance :
+58|
+59|$$Q(s_i, m_j) = \mu + \alpha_i + \beta_j + (\alpha\beta)_{ij} + \epsilon_{ij}$$
+60|
+61|où :
+62|- $\mu$ est la moyenne globale,
+63|- $\alpha_i$ est l'effet principal de la stratégie $i$,
+64|- $\beta_j$ est l'effet principal du modèle $j$,
+65|- $(\alpha\beta)_{ij}$ est l'effet d'interaction,
+66|- $\epsilon_{ij}$ est le résidu (bruit expérimental).
+67|
+68|**Règles d'interprétation :**
+69|
+70|| Observation | Interprétation | Action |
+71||-------------|----------------|--------|
+72|| $\alpha_i \gg \alpha_k$ pour tout $k \neq i$ (et ce, pour tout $j$) | La stratégie $i$ domine — c'est elle qui détermine la performance. | Adopter la stratégie $i$ par défaut ; le choix du modèle devient secondaire. |
+73|| $\beta_j \gg \beta_k$ pour tout $k \neq j$ (et ce, pour tout $i$) | Le modèle $j$ domine — la stratégie a peu d'impact. | Investir dans le modèle $j$ ; les stratégies sont interchangeables. |
+74|| $(\alpha\beta)_{ij}$ exceptionnellement grand pour un couple $(i, j)$ | **Interaction positive** : la stratégie $i$ révèle la force spécifique du modèle $j$. | Coupler explicitement stratégie $i$ + modèle $j$ dans la configuration de production. |
+75|| $(\alpha\beta)_{ij}$ exceptionnellement négatif | **Interaction négative** : la stratégie $i$ et le modèle $j$ se nuisent mutuellement. | Éviter ce couplage. |
+76|
+77|### 2.3 Exemple d'analyse
+78|
+79|Supposons que Falsification ($F$) produise des résultats exceptionnels uniquement avec le Modèle C, tandis que les autres couplages sont médiocres. L'interaction $(\alpha\beta)_{FC}$ est alors très fortement positif. Cela suggère que le Modèle C possède une capacité spécifique de raisonnement contrefactuel que la stratégie Falsification exploite. La configuration de production devrait alors intégrer ce couplage privilégié.
+80|
+81|Inversement, si le Modèle C domine uniformément toutes les stratégies, alors $\beta_C$ est le facteur déterminant et l'architecture peut être simplifiée : un seul modèle avec la stratégie la plus légère en coût.
+82|
+83|---
+84|
+85|## 3. Trinity-Heterogeneous : sélection anti-monoculture
+86|
+87|### 3.1 Problème de la monoculture
+88|
+89|Un système multi-agents partageant le même modèle de base, la même architecture et la même stratégie est vulnérable aux **failles systémiques** : un biais du modèle, une faiblesse architecturale ou un prompt mal calibré se répliquent identiquement dans tous les mondes, annulant le bénéfice de la redondance.
+90|
+91|### 3.2 Formule de sélection
+92|
+93|L'ensemble des mondes sélectionnés $W \subseteq \mathcal{C}$ (où $\mathcal{C}$ est l'ensemble des candidats disponibles) est déterminé par le programme d'optimisation suivant :
+94|
+95|$$\boxed{
+96|W^* = \arg\max_{W \subseteq \mathcal{C},\, |W| = k} \left[ \sum_{i \in W} Q_i \;-\; \lambda \sum_{\substack{i,j \in W \\ i \neq j}} \rho_{ij} \;+\; \mu \, \text{Coverage}(W) \;-\; \kappa \, \text{Cost}(W) \right]
+97|}$$
+98|
+99|**Contraintes :**
+100|
+101|$$
+102|\begin{cases}
+103||W| = k & \text{(cardinal fixé, par défaut 3)} \\
+104|\text{Provider}(i) \neq \text{Provider}(j), & \forall i \neq j \in W \quad \text{(anti-monoculture stricte optionnelle)} \\
+105|\rho_{ij} \leq \rho_{\max}, & \forall i \neq j \in W \quad \text{(plafond de corrélation)}
+106|\end{cases}
+107|$$
+108|
+109|**Définition des termes :**
+110|
+111|| Terme | Définition | Calcul |
+112||-------|-----------|--------|
+113|| $Q_i$ | Qualité intrinsèque du monde $i$ | Score moyen historique sur un benchmark de référence |
+114|| $\rho_{ij}$ | Corrélation historique d'erreurs entre $i$ et $j$ | $\rho_{ij} = \frac{\text{Cov}(e_i, e_j)}{\sigma_{e_i} \sigma_{e_j}}$ où $e_i \in \{0,1\}$ indique l'échec |
+115|| $\text{Coverage}(W)$ | Couverture cognitive de l'ensemble | Nombre de dimensions cognitives distinctes couvertes par au moins un monde de $W$ |
+116|| $\text{Cost}(W)$ | Coût total d'inférence | $\sum_{i \in W} c_i$ où $c_i$ est le coût par token × budget alloué |
+117|| $\lambda$ | Pénalité de corrélation | Contrôle le compromis qualité vs diversité |
+118|| $\mu$ | Bonus de couvertage | Récompense la complémentarité |
+119|| $\kappa$ | Pénalité de coût | Contrôle le compromis qualité vs dépense |
+120|
+121|### 3.3 Calcul de la corrélation historique $\rho_{ij}$
+122|
+123|Soit $N_{\text{tasks}}$ le nombre de tâches passées. Pour chaque tâche $t$, $e_i(t) = 1$ si le monde $i$ a échoué, $0$ sinon.
+124|
+125|$$\rho_{ij} = \frac{\sum_{t=1}^{N_{\text{tasks}}} (e_i(t) - \bar{e}_i)(e_j(t) - \bar{e}_j)}{\sqrt{\sum_{t=1}^{N_{\text{tasks}}} (e_i(t) - \bar{e}_i)^2} \sqrt{\sum_{t=1}^{N_{\text{tasks}}} (e_j(t) - \bar{e}_j)^2}}$$
+126|
+127|où $\bar{e}_i = \frac{1}{N_{\text{tasks}}} \sum_{t=1}^{N_{\text{tasks}}} e_i(t)$ est le taux d'échec historique du monde $i$.
+128|
+129|**Interprétation :**
+130|- $\rho_{ij} \approx 0$ : les mondes échouent indépendamment → **forte valeur de diversité**.
+131|- $\rho_{ij} \approx 1$ : les mondes échouent ensemble → **monoculture implicite**, un des deux est redondant.
+132|- $\rho_{ij} \approx -1$ : quand l'un réussit, l'autre échoue → **complémentarité maximale**.
+133|
+134|---
+135|
+136|## 4. Métrique de diversité $D_{ij}$
+137|
+138|### 4.1 Définition de base
+139|
+140|La métrique de diversité fondamentale entre deux mondes $i$ et $j$ est :
+141|
+142|$$\boxed{
+143|D_{ij} = 1 - \rho_{ij} = 1 - \text{Correlation}(\text{Error}_i, \text{Error}_j)
+144|}$$
+145|
+146|Cette métrique fondamentale est **étendue** en une métrique multidimensionnelle de diversité. On définit sept dimensions complémentaires :
+147|
+148|### 4.2 Les sept dimensions de diversité
+149|
+150|| Dimension | Notation | Définition | Formule |
+151||-----------|----------|------------|---------|
+152|| **Provider** | $D^{\text{prov}}_{ij}$ | Différence de fournisseur de modèle | $D^{\text{prov}}_{ij} = \mathbb{1}[\text{Provider}_i \neq \text{Provider}_j]$ |
+153|| **Architecture** | $D^{\text{arch}}_{ij}$ | Différence d'architecture sous-jacente | $D^{\text{arch}}_{ij} = 1 - \mathbb{1}[\text{Arch}_i = \text{Arch}_j]$ |
+154|| **Prompt Strategy** | $D^{\text{prompt}}_{ij}$ | Différence de stratégie de prompt | $D^{\text{prompt}}_{ij} = \mathbb{1}[\text{Strategy}_i \neq \text{Strategy}_j]$ |
+155|| **Retrieval** | $D^{\text{retr}}_{ij}$ | Différence de sources de données / RAG | $D^{\text{retr}}_{ij} = 1 - \frac{|R_i \cap R_j|}{|R_i \cup R_j|}$ (Jaccard inverse) |
+156|| **Tool** | $D^{\text{tool}}_{ij}$ | Différence d'outils disponibles | $D^{\text{tool}}_{ij} = 1 - \frac{|T_i \cap T_j|}{|T_i \cup T_j|}$ |
+157|| **Cognitive Recipe** | $D^{\text{cog}}_{ij}$ | Différence de « recette cognitive » (chaîne de pensée) | $D^{\text{cog}}_{ij} = 1 - \text{sim}(\text{recipe}_i, \text{recipe}_j)$ |
+158|| **Historical Disagreement** | $D^{\text{dis}}_{ij}$ | Taux de désaccord historique sur les tâches passées | $D^{\text{dis}}_{ij} = \frac{1}{N} \sum_{t=1}^{N} \mathbb{1}[\text{outcome}_i(t) \neq \text{outcome}_j(t)]$ |
+159|| **Historical Complementarity** | $D^{\text{comp}}_{ij}$ | Succès de l'un quand l'autre échoue | $D^{\text{comp}}_{ij} = \frac{\sum_t \mathbb{1}[\text{success}_i(t) \land \text{failure}_j(t)] + \mathbb{1}[\text{failure}_i(t) \land \text{success}_j(t)]}{\sum_t \mathbb{1}[\text{failure}_i(t) \lor \text{failure}_j(t)]}$ |
+160|
+161|### 4.3 Métrique composite de diversité
+162|
+163|La diversité globale entre deux mondes est la moyenne pondérée des sept dimensions :
+164|
+165|$$\boxed{
+166|\mathcal{D}_{ij} = \sum_{d=1}^{7} w_d \cdot D^{(d)}_{ij}
+167|}$$
+168|
+169|où les poids $w_d \geq 0$ vérifient $\sum_{d=1}^{7} w_d = 1$.
+170|
+171|**Poids par défaut :**
+172|
+173|| Dimension | Poids par défaut | Justification |
+174||-----------|-----------------|---------------|
+175|| Provider | $w_1 = 0.15$ | Indicateur faible seul, mais filtre évident |
+176|| Architecture | $w_2 = 0.15$ | Réduit les failles communes au niveau structurel |
+177|| Prompt Strategy | $w_3 = 0.20$ | Impact direct sur le comportement |
+178|| Retrieval | $w_4 = 0.10$ | Diversité informationnelle |
+179|| Tool | $w_5 = 0.10$ | Diversité d'action |
+180|| Cognitive Recipe | $w_6 = 0.15$ | Diversité de raisonnement |
+181|| Historical Disagreement / Complementarity | $w_7 = 0.15$ | Validation empirique |
+182|
+183|### 4.4 Matrice de diversité pour l'ensemble $W$
+184|
+185|Pour un ensemble de $k$ mondes, la diversité totale est :
+186|
+187|$$\mathcal{D}(W) = \frac{2}{k(k-1)} \sum_{\substack{i,j \in W \\ i < j}} \mathcal{D}_{ij}$$
+188|
+189|et la contrainte de sélection impose $\mathcal{D}(W) \geq \mathcal{D}_{\min}$.
+190|
+191|---
+192|
+193|## 5. Trinity-Controlled vs Trinity-Heterogeneous
+194|
+195|### 5.1 Différences fondamentales
+196|
+197|| Aspect | Trinity-Controlled | Trinity-Heterogeneous |
+198||--------|--------------------|-----------------------|
+199|| **Objectif** | Comparer des stratégies pures | Maximiser la couverture cognitive |
+200|| **Sélection** | Manuelle, par le concepteur | Algorithmique, par optimisation |
+201|| **Modèles** | Peuvent être identiques | Doivent être distincts (anti-monoculture) |
+202|| **Stratégies** | Fixées à l'avance | Peuvent se chevaucher ou diverger |
+203|| **Budget** | Réparti uniformément | Pondéré par $Q_i$ et $\mathcal{D}_{ij}$ |
+204|| **Reproductibilité** | Élevée (configuration fixe) | Variable (sélection dépend de l'historique) |
+205|
+206|### 5.2 Règles de décision
+207|
+208|$$\text{Choisir Trinity-Controlled} \iff
+209|\begin{cases}
+210|\text{Le but est la comparaison de stratégies} \\
+211|\text{La reproductibilité est prioritaire} \\
+212|\text{L'environnement de test est stable} \\
+213|\text{On dispose de peu d'historique}
+214|\end{cases}$$
+215|
+216|$$\text{Choisir Trinity-Heterogeneous} \iff
+217|\begin{cases}
+218|\text{La robustesse en production est prioritaire} \\
+219|\text{On dispose d'un historique suffisant pour calculer } \rho_{ij} \\
+220|\text{La tâche est sujette à des failles systémiques} \\
+221|\text{Le coût supplémentaire de la diversité est acceptable} \\
+222|\text{On veut minimiser le risque d'erreur commune}
+223|\end{cases}$$
+224|
+225|### 5.3 Règle composite
+226|
+227|Soit $R$ le risque de faille systémique (entre 0 et 1) et $H$ la quantité d'historique disponible (en nombre de tâches). On définit le score de pertinence pour Heterogeneous :
+228|
+229|$$\text{Score}_{\text{het}} = R \cdot \tanh\left(\frac{H}{H_0}\right) \cdot \left(1 - \frac{C_{\text{het}}}{C_{\max}}\right)$$
+230|
+231|où :
+232|- $H_0$ est le seuil d'historique nécessaire (par défaut 50 tâches),
+233|- $C_{\text{het}}$ est le coût de la configuration hétérogène,
+234|- $C_{\max}$ est le budget maximum acceptable.
+235|
+236|**Décision :** choisir Trinity-Heterogeneous si $\text{Score}_{\text{het}} > \tau$ (seuil par défaut 0.5), sinon Trinity-Controlled.
+237|
+238|---
+239|
+240|## 6. Budgets adaptatifs
+241|
+242|### 6.1 Principe de la sonde initiale
+243|
+244|Chaque monde reçoit une **sonde initiale** de budget réduit pour produire une première réponse partielle. Cette sonde permet d'évaluer la trajectoire de qualité de chaque monde sans engager le budget complet.
+245|
+246|**Budget de sonde initiale :** $B_{\text{probe}} = 800$ tokens par monde (par défaut).
+247|
+248|### 6.2 Observation et réallocation
+249|
+250|Après la sonde, on mesure pour chaque monde $i$ :
+251|
+252|- $\Delta Q_i$ : gain de qualité par rapport à la sonde précédente (pente de progression),
+253|- $\sigma_i$ : variance interne de la réponse (instabilité),
+254|- $c_i$ : coût marginal de la prochaine tranche de tokens.
+255|
+256|La réallocation $\Delta B_i$ du budget additionnel est :
+257|
+258|$$\Delta B_i = B_{\text{total}} \cdot \frac{\phi_i}{\sum_{j \in W} \phi_j}$$
+259|
+260|où $\phi_i$ est le score de promesse :
+261|
+262|$$\phi_i = \frac{\Delta Q_i}{\sigma_i + \epsilon} \cdot \left(1 - \frac{Q_i}{Q_{\max}}\right)$$
+263|
+264|Le facteur $(1 - Q_i/Q_{\max})$ pénalise les mondes déjà très bons (rendements décroissants).
+265|
+266|### 6.3 Exemple de réallocation
+267|
+268|Soit trois mondes avec les signaux suivants après la sonde :
+269|
+270|| Monde | Budget sonde | Signal observé | Réaction | Budget additionnel |
+271||-------|-------------|----------------|----------|-------------------|
+272|| W1 | 800 tokens | Qualité basse, pas de progression | Dominé | $+0$ tokens |
+273|| W2 | 800 tokens | Qualité haute, progression rapide | Prometteur | $+3000$ tokens |
+274|| W3 | 800 tokens | Qualité moyenne, progression stable | Incertain | $+2500$ tokens |
+275|
+276|**Budget total distribué :** $800 \times 3 + 0 + 3000 + 2500 = 7900$ tokens.
+277|
+278|### 6.4 Condition de conservation d'un minoritaire
+279|
+280|Un monde $i$ dont la qualité $Q_i$ est inférieure au maximum $Q_{\max}$ peut être **conservé malgré tout** si :
+281|
+282|$$\boxed{
+283|\mathcal{D}(\{i\} \mid W^*) > \delta \quad \text{et} \quad \text{Coverage}(W^* \cup \{i\}) > \text{Coverage}(W^*)
+284|}$$
+285|
+286|Autrement dit, un monde minoritaire est retenu s'il apporte une **diversité cognitive significative** (seuil $\delta$) et qu'il couvre une **dimension cognitive non encore représentée**.
+287|
+288|Cela évite l'élimination prématurée de mondes moins performants individuellement mais **complémentaires** collectivement.
+289|
+290|---
+291|
+292|## 7. Compute adaptatif
+293|
+294|### 7.1 Référence : Adaptive Inference-Time Compute
+295|
+296|Le mécanisme de budget adaptatif s'inspire directement des résultats de **Adaptive Inference-Time Compute** (arXiv:2410.02725). L'idée centrale est que le budget de calcul alloué à un système de raisonnement doit être **ajusté dynamiquement** selon la difficulté perçue de la tâche, plutôt qu'alléforcé à un maximum fixe.
+297|
+298|### 7.2 Application à Trinity
+299|
+300|L'application de ce principe à Trinity repose sur l'observation que **peu de mondes suffisent souvent** pour obtenir la majorité du bénéfice. La distribution du nombre de samples nécessaires suit une loi de puissance :
+301|
+302|$$\Pr(N_{\text{samples}} \leq n) = 1 - n^{-\alpha}$$
+303|
+304|Pour $\alpha \approx 1.5$ (valeur typique observée empiriquement), on a :
+305|
+306|$$\mathbb{E}[N_{\text{samples}}] \approx 1.2 \quad \text{en moyenne}$$
+307|
+308|et la **couverture du bénéfice** avec $n = 1.2$ samples (en moyenne) est de **74 %** de ce qu'obtiendrait un budget illimité.
+309|
+310|**Conséquence pour Trinity :** au lieu de lancer systématiquement $k = 3$ mondes complets avec budget maximal, le système peut :
+311|
+312|1. Lancer un seul monde avec budget maximal,
+313|2. Évaluer la confiance de la sortie,
+314|3. Si confiance $< \theta$, lancer un second monde,
+315|4. Itérer jusqu'à ce que la confiance cumulative dépasse $\theta_{\max}$ ou que le budget global soit épuisé.
+316|
+317|**Bénéfice en compute :** 74 % du bénéfice de la triangulation complète avec 1.2 mondes en moyenne, soit une **réduction de 60 % du coût de calcul**.
+318|
+319|### 7.3 Algorithme d'adaptation
+320|
+321|$$\boxed{
+322|\begin{aligned}
+323|& B_{\text{remaining}} \leftarrow B_{\text{total}} \\
+324|& W_{\text{active}} \leftarrow \emptyset \\
+325|& \text{while } B_{\text{remaining}} > 0 \text{ and } \text{Confidence}(W_{\text{active}}) < \theta_{\max} : \\
+326|& \quad \text{Sélectionner le monde } i \notin W_{\text{active}} \text{ maximisant } \mathcal{D}(W_{\text{active}} \cup \{i\}) \\
+327|& \quad \text{Allouer } B_{\text{sonde}} \text{ à } i \\
+328|& \quad W_{\text{active}} \leftarrow W_{\text{active}} \cup \{i\} \\
+329|& \quad B_{\text{remaining}} \leftarrow B_{\text{remaining}} - B_{\text{sonde}} \\
+330|& \quad \text{Si } \text{Confidence}(W_{\text{active}}) \geq \theta_{\max} : \text{ stop} \\
+331|& \quad \text{Sinon réallouer selon §6.2}
+332|\end{aligned}
+333|}$$
+334|
+335|---
+336|
+337|## 8. Trinity-Adaptive : évolution dynamique des replicas et budgets
+338|
+339|### 8.1 Principe
+340|
+341|La variante **Adaptive** étend le mécanisme de budget adaptatif en faisant également évoluer le **nombre de replicas** pendant l'expérience. Contrairement aux variantes fixes où $|W|$ est constant, ici le système peut :
+342|
+343|- **Ajouter** un nouveau monde si les existants ne convergent pas assez vite,
+344|- **Supprimer** un monde s'il est clairement dominé,
+345|- **Remplacer** un monde par un autre plus diversifié.
+346|
+347|### 8.2 Équations d'évolution
+348|
+349|Le nombre de mondes actifs à l'étape $t$ est noté $k(t)$. Il évolue selon :
+350|
+351|$$k(t+1) = k(t) + \text{Add}(t) - \text{Remove}(t)$$
+352|
+353|**Condition d'ajout :**
+354|
+355|$$\text{Add}(t) = 1 \iff \text{Var}_{i \in W(t)}[Q_i(t)] > \sigma^2_{\text{ajout}} \quad \text{et} \quad B_{\text{remaining}} > B_{\text{min-add}}$$
+356|
+357|(La variance inter-mondes est élevée → les mondes ne convergent pas → on en ajoute un.)
+358|
+359|**Condition de retrait :**
+360|
+361|$$\text{Remove}(t) = 1 \iff \exists i \in W(t) : Q_i(t) < Q_{\max}(t) - \Delta_{\text{dominance}} \quad \text{et} \quad k(t) > k_{\min}$$
+362|
+363|(Un monde est dominé de $\Delta_{\text{dominance}$ → on le retire.)
+364|
+365|**Condition de remplacement :**
+366|
+367|On remplace le monde $i$ par un candidat $j \notin W(t)$ si :
+368|
+369|$$\mathcal{D}(W(t) \setminus \{i\} \cup \{j\}) > \mathcal{D}(W(t)) + \delta_{\text{repl}}$$
+370|
+371|### 8.3 Convergence garantie
+372|
+373|Le processus est garanti de converger en un nombre fini d'étapes car :
+374|- $k(t)$ est borné : $k_{\min} \leq k(t) \leq k_{\max}$,
+375|- Chaque ajout consomme au moins $B_{\text{min-add}}$, donc $\text{Add}$ est fini,
+376|- Chaque suppression augmente la qualité moyenne, donc $\text{Remove}$ est fini.
+377|
+378|**Temps de convergence typique :** 2 à 5 cycles de réallocation pour les tâches standard.
+379|
+380|---
+381|
+382|## 9. Trinity-Recursive : sous-Trinity locale
+383|
+384|### 9.1 Principe
+385|
+386|Lorsqu'un monde identifie un sous-problème suffisamment complexe, il peut **lancer une sous-Trinity** pour le résoudre. Cette sous-Trinity est locale au monde parent et ne voit que le sous-problème, pas la tâche complète.
+387|
+388|### 9.2 Structure récursive
+389|
+390|```
+391|Tâche globale
+392|    │
+393|    ├── Monde 1 (Planified) ──► découpe en sous-problèmes
+394|    │       │
+395|    │       └── Sous-problème A [COMPLEXE]
+396|    │               │
+397|    │               └── Sous-Trinity locale :
+398|    │                       ├── Micro-Monde 1a (Raffinement)
+399|    │                       ├── Micro-Monde 1b (Falsification)
+400|    │                       └── Micro-Monde 1c (Planified)
+401|    │                               └── résultat ──► Monde 1
+402|    │
+403|    ├── Monde 2 (Raffinement) ──► résultat direct
+404|    │
+405|    └── Monde 3 (Falsification) ──► résultat direct
+406|```
+407|
+408|### 9.3 Condition de déclenchement
+409|
+410|Un monde parent $i$ lance une sous-Trinity sur le sous-problème $s$ si :
+411|
+412|$$\boxed{
+413|\text{Complexity}(s) > \tau_{\text{rec}} \quad \text{et} \quad \text{Confidence}_i(s) < \theta_{\text{rec}} \quad \text{et} \quad B_{\text{remaining}}^{(i)} > B_{\text{sous-trinity}}}
+414|$$
+415|
+416|où :
+417|- $\text{Complexity}(s)$ est estimée par la longueur de la description, le nombre d'étapes nécessaires, ou un modèle de complexité entraîné,
+418|- $\tau_{\text{rec}}$ est le seuil de complexité déclenchant la récursion,
+419|- $\theta_{\text{rec}}$ est le seuil de confiance en dessous duquel le monde parent doute,
+420|- $B_{\text{sous-trinity}}$ est le budget minimum pour une sous-Trinity.
+421|
+422|### 9.4 Profondeur de récursion
+423|
+424|La profondeur de récursion est bornée par $L_{\max}$ (par défaut 2). Au-delà, le monde doit produire sa meilleure réponse disponible sans recursion supplémentaire.
+425|
+426|$$\text{Profondeur}(T) \leq L_{\max}$$
+427|
+428|Cela garantit la terminaison et évite les boucles infinies de sous-Trinities.
+429|
+430|---
+431|
+432|## 10. Trinity-Jury : évaluation anonyme
+433|
+434|### 10.1 Principe
+435|
+436|Dans la variante **Jury**, les sorties de chaque monde sont évaluées par des **vérificateurs indépendants** qui ne connaissent pas la source de chaque proposition. Cela élimine les biais de réputation (un jugement favorisant un modèle prestigieux plutôt que le contenu).
+437|
+438|### 10.2 Architecture
+439|
+440|```
+441|┌──────────┐    ┌──────────┐    ┌──────────┐
+442|│ Monde 1  │    │ Monde 2  │    │ Monde 3  │
+443|│ Sortie O₁│    │ Sortie O₂│    │ Sortie O₃│
+444|└────┬─────┘    └────┬─────┘    └────┬─────┘
+445|     │               │               │
+446|     └───────────────┼───────────────┘
+447|                     │
+448|                     ▼
+449|           ┌─────────────────┐
+450|           │  ANONYMISATION  │
+451|           │  (suppression   │
+452|           │   de la source) │
+453|           └────────┬────────┘
+454|                    │
+455|        ┌───────────┼───────────┐
+456|        ▼           ▼           ▼
+457|  ┌──────────┐ ┌──────────┐ ┌──────────┐
+458|  │ Juge J₁  │ │ Juge J₂  │ │ Juge J₃  │
+459|  │ évalue   │ │ évalue   │ │ évale    │
+460|  │ Oα,Oβ,Oγ│ │ Oα,Oβ,Oγ│ │ Oα,Oβ,Oγ│
+461|  └────┬─────┘ └────┬─────┘ └────┬─────┘
+462|       │            │            │
+463|       └────────────┼────────────┘
+464|                    ▼
+465|           ┌─────────────────┐
+466|           │  AGGREGATION    │
+467|           │  (médiane ou    │
+468|           │   moyenne)      │
+469|           └────────┬────────┘
+470|                    ▼
+471|           ┌─────────────────┐
+472|           │  Résultat final │
+473|           └─────────────────┘
+474|```
+475|
+476|### 10.3 Protocole d'évaluation
+477|
+478|Chaque juge $j$ évalue chaque proposition anonymisée $O_\alpha$ selon $m$ critères $\{c_1, c_2, \ldots, c_m\}$ (exactitude, claude, complétude, rigueur, utilité). Le score du juge $j$ pour la proposition $\alpha$ est :
+479|
+480|$$S_{j\alpha} = \sum_{r=1}^{m} w_r^{(j)} \cdot s_{j\alpha r}$$
+481|
+482|où $s_{j\alpha r} \in [0, 1]$ est la note du critère $r$ par le juge $j$, et $w_r^{(j)}$ est le poids du critère pour le juge $j$ (avec $\sum_r w_r^{(j)} = 1$).
+483|
+484|### 10.4 Agrégation des scores
+485|
+486|Le score final de la proposition $\alpha$ est la **médiane** (robuste aux outliers) des scores de tous les juges :
+487|
+488|$$\boxed{
+489|S_\alpha = \text{median}_{j \in J} \left( S_{j\alpha} \right)
+490|}$$
+491|
+492|**Pourquoi la médiane plutôt que la moyenne :** un juge extrêmement sévère ou clément ne peut pas déformer le résultat, ce qui garantit la robustesse de l'évaluation face aux biais individuels.
+493|
+494|### 10.5 Sélection finale
+495|
+496|La proposition retenue est :
+497|
+498|$$\alpha^* = \arg\max_{\alpha} \, S_\alpha$$
+499|
+500|avec éventuel **ex-aequo** résolu par diversification : si $|S_{\alpha_1} - S_{\alpha_2}| < \epsilon$, on retient les deux et on les fusionne.
+501|
+502|---
+503|
+504|## 11. Résumé des formules clés
+505|
+506|| Formule | Référence | Expression |
+507||---------|-----------|------------|
+508|| Sélection hétérogène | §3.2 | $W^* = \arg\max_W [\sum Q_i - \lambda \sum \rho_{ij} + \mu \text{Coverage} - \kappa \text{Cost}]$ |
+509|| Corrélation d'erreurs | §3.3 | $\rho_{ij} = \text{Cov}(e_i, e_j) / (\sigma_{e_i} \sigma_{e_j})$ |
+510|| Diversité fondamentale | §4.1 | $D_{ij} = 1 - \rho_{ij}$ |
+511|| Diversité composite | §4.3 | $\mathcal{D}_{ij} = \sum_{d=1}^{7} w_d \cdot D^{(d)}_{ij}$ |
+512|| Réallocation budget | §6.2 | $\Delta B_i = B_{\text{total}} \cdot \phi_i / \sum \phi_j$ |
+513|| Score de promesse | §6.2 | $\phi_i = (\Delta Q_i / (\sigma_i + \epsilon)) \cdot (1 - Q_i / Q_{\max})$ |
+514|| Décision Controlled vs Heterogeneous | §5.3 | $\text{Score}_{\text{het}} = R \cdot \tanh(H/H_0) \cdot (1 - C_{\text{het}}/C_{\max})$ |
+515|| Compute adaptatif | §7.2 | $\mathbb{E}[N] \approx 1.2$, couverture 74 % |
+516|| Déclenchement récursion | §9.3 | $\text{Complexity} > \tau_{\text{rec}} \land \text{Confidence} < \theta_{\text{rec}}$ |
+517|| Score Jury | §10.4 | $S_\alpha = \text{median}_j(S_{j\alpha})$ |
+518|
+519|---
+520|
+521|## 12. Bonnes pratiques et recommandations
+522|
+523|1. **Commencer simple :** utiliser Trinity-Controlled comme baseline avant d'introduire l'hétérogénéité ou l'adaptivité.
+524|2. **Mesurer la diversité :** avant toute sélection Heterogeneous, s'assurer que $\mathcal{D}_{ij}$ est calculable sur au moins 50 tâches historiques.
+525|3. **Plafonner la récursion :** toujours borner $L_{\max}$ pour garantir la terminaison.
+526|4. **Calibrer $\theta_{\max}$** du compute adaptatif selon le coût acceptable d'un faux négatif.
+527|5. **Valider le Jury :** s'assurer que les juges ne peuvent pas identifier la source par des caractéristiques stylistiques (anonymisation rigoureuse).
+528|6. **Journaliser les $\rho_{ij}$** dans la mémoire de l'agent pour affiner la sélection hétérogène au fil du temps.
+529|
+530|---
+531|
+532|*Documentation Trinity — Partie sur 3. Pour la Partie 1 (fondamentaux), voir `trinity_part1.md`. Pour la Partie 2 (architecture), voir `trinity_part2.md`.*
+533|
+
+
+<!-- === PARTIE 4 === -->
+
+1|# Trinity — Partie 4 : Cas d'usage, Anti-usages, Benchmarks, Métriques
+2|
+3|> Trinity est une topologie d'orchestration multi-monde pour GenOS. Elle ne cherche pas la meilleure réponse : elle cherche laquelle de plusieurs hypothèses plausibles survit à l'expérience.
+4|
+5|---
+6|
+7|## 1. Cas d'usage typiques
+8|
+9|Trinity excelle chaque fois que la résolution exige de discriminer entre plusieurs explications plausibles d'un même phénomène. Voici 14 cas détaillés.
+10|
+11|### 1.1 Bug inconnu
+12|
+13|**Mission** : Un crash intermittent apparaît en production, sans stack trace, sans pattern temporel identifiable. Aucun test unitaire ne le reproduit.
+14|
+15|**Exécution Trinity** :
+16|- *Hypothesis Designer* : H1 = corruption d'état mémoire ; H2 = race condition dans le pool de connexions ; H3 = lifecycle invalidé d'un objet partagé.
+17|- *World-1* : Exécute le service avec instrumentation mémoire (valgrind/asan), charge nominale.
+18|- *World-2* : Exécute le service avec stress sur les connexions parallèles, synchronisation instrumentée.
+19|- *World-3* : Exécute le service avec traçage lifecycle complet, assertions sur les invariants.
+20|
+21|**Résultat attendu** : H1 falsifiée (aucun pattern mémoire détecté). H2 reproduite sous charge. H3 confirmée comme problème secondaire corrélé. Rapport : race condition dans le pool de connexions, lifecycle invalide en cascade.
+22|
+23|---
+24|
+25|### 1.2 Architecture logicielle
+26|
+27|**Mission** : Concevoir l'architecture d'un nouveau module critique avec des exigences contradictoires (performance, maintenabilité, sécurité).
+28|
+29|**Exécution Trinity** :
+30|- H1 = architecture microservices ; H2 = monolith modulaire ; H3 = event-sourcing avec CQRS.
+31|- Chaque monde simule les 3 options sous les mêmes contraintes (charge, évolution, audit).
+32|
+33|**Résultat attendu** : Aucun monde ne « gagne » absolument. Le *Claim Graph* révèle que H1 excelle en isolation des pannes, H2 en simplicité de déploiement, H3 en auditabilité. Trinity produit un design hybride documenté : event-sourcing pour le core transactionnel, microservices pour les adapters, interfaces internes modulaires.
+34|
+35|---
+36|
+37|### 1.3 Algorithme difficile
+38|
+39|**Mission** : Optimiser un algorithme de recherche de chemin avec contraintes multiples (distance, risque, coût énergétique).
+40|
+41|**Exécution Trinity** :
+42|- H1 = A* avec heuristique admissible ; H2 = programmation par contraintes (OR-Tools) ; H3 = algorithme génétique multi-objectif (NSGA-II).
+43|- Chaque monde implémente et benchmark sur 1000 instances identiques.
+44|
+45|**Résultat attendu** : H1 domine les instances petites, H3 domine les instances grandes, H2 est optimal pour les contraintes strictes. Trinity produit un méta-solveur qui sélectionne l'approche selon les caractéristiques de l'instance.
+46|
+47|---
+48|
+49|### 1.4 Sécurité
+50|
+51|**Mission** : Auditer un module d'authentification contre des vecteurs d'attaque connus et inconnus.
+52|
+53|**Exécution Trinity** :
+54|- H1 = surface d'attaque = injection SQL ; H2 = surface = timing attack sur la comparaison de tokens ; H3 = surface = session fixation via CSRF.
+55|- Chaque monde emploie un modèle adversaire spécialisé dans un vecteur.
+56|
+57|**Résultat attendu** : Les trois mondes découvrent des vulnérabilités distinctes. Le *Claim Graph* montre qu'aucun vecteur ne couvre les autres. Trinity produit un rapport consolidé avec preuves d'exploitation pour chaque faille et remédiation priorisée.
+58|
+59|---
+60|
+61|### 1.5 Migration base de données
+62|
+63|**Mission** : Migrer une base de 500 Go avec downtime < 5 min, sans perte de cohérence.
+64|
+65|**Exécution Trinity** :
+66|- H1 = migration online (CDC + dual-write) ; H2 = migration par snapshot incrémental ; H3 = migration logique via views temporaires.
+67|- Chaque monde simule la migration sur un clone avec workload représentatif.
+68|
+69|**Résultat attendu** : H1 fonctionne mais introduit une fenêtre de cohérence eventual. H2 est trop lente. H3 est la plus sûre mais nécessite un cutover complexe. Trinity produit un plan hybride : snapshot incrémental pour les données historiques, CDC pour les données chaudes, cutover orchestré avec vérification de cohérence.
+70|
+71|---
+72|
+73|### 1.6 Science
+74|
+75|**Mission** : Expliquer un résultat expérimental anomal dans une publication.
+76|
+77|**Exécution Trinity** :
+78|- H1 = artefact expérimental (contamination) ; H2 = nouvelle physique (effet non modélisé) ; H3 = erreur systématique de calibration.
+79|- Chaque monde conçoit des expériences discriminantes.
+80|
+81|**Résultat attendu** : H3 confirmée par recalibration. H1 et H2 produisent des prédictions distinctes pour une expérience de validation. Trinity produit un protocole expérimental qui discrimine les trois hypothèses en un seul jeu de mesures.
+82|
+83|---
+84|
+85|### 1.7 Enquête technique
+86|
+87|**Mission** : Diagnostiquer une dégradation de performance d'un service cloud.
+88|
+89|**Exécution Trinity** :
+90|- H1 = bottleneck réseau ; H2 = saturation CPU due à un changement de code ; H3 = throttling côté provider.
+91|- Chaque monde active un jeu d'instruments différent.
+92|
+93|**Résultat attendu** : H2 confirmée (un commit récent a introduit une complexité quadratique). H1 est un faux positif corrélé à la charge. H3 est un bruit non reproductible. Trinity produit une analyse causale avec preuve de corrélation temporelle.
+94|
+95|---
+96|
+97|### 1.8 Optimisation
+98|
+99|**Mission** : Optimiser les coûts d'infrastructure cloud sans dégrader la latence.
+100|
+101|**Exécution Trinity** :
+102|- H1 = rightsizing des instances ; H2 = spot instances avec fallback ; H3 = refactoring serverless.
+103|- Chaque monde simule 30 jours de trafic.
+104|
+105|**Résultat attendu** : H1 économise 15 %, H2 économise 40 % avec un risque de interruption de 2 %, H3 économise 50 % mais augmente la latence p99. Trinity produit un plan de migration par phases avec seuils d'acceptation explicites.
+106|
+107|---
+108|
+109|### 1.9 Puzzle complexe
+110|
+111|**Mission** : Résoudre un problème ouvert de combinatoire (puzzle cryptarithmique avec contraintes).
+112|
+113|**Exécution Trinity** :
+114|- H1 = propagation de contraintes avec forward checking ; H2 = recherche locale (simulated annealing) ; H3 = réduction à SAT via encodeur dédié.
+115|- Chaque monde explore l'espace avec une stratégie distincte.
+116|
+117|**Résultat attendu** : H3 trouve la solution optimale. H1 prouve l'unicité. H2 trouve une solution quasi-optime en temps sous-linéaire. Trinity produit la solution, la preuve d'unicité, et un algorithme d'approximation avec borne d'erreur.
+118|
+119|---
+120|
+121|### 1.10 Recherche
+122|
+123|**Mission** : Synthétiser l'état de l'art sur un sujet émergent avec des sources contradictoires.
+124|
+125|**Exécution Trinity** :
+126|- H1 = les sources A, B, C convergent vers la conclusion X ; H2 = les sources D, E convergent vers Y ; H3 = les sources A et D sont obsolètes.
+127|- Chaque monde effectue une analyse documentaire indépendante.
+128|
+129|**Résultat attendu** : H3 confirmée (deux sources sont obsolètes). H1 et H2 sont partiellement correctes mais leurs conclusions respectives ne sont pas mutuellement exclusives. Trinity produit une synthèse avec un graphe de consensus et un graphe de dissensus documenté.
+130|
+131|---
+132|
+133|### 1.11 Produit / UX
+134|
+135|**Mission** : Décider entre trois designs d'interface pour une fonctionnalité critique.
+136|
+137|**Exécution Trinity** :
+138|- H1 = Design A (maximise la découverte) ; H2 = Design B (maximise l'efficacité) ; H3 = Design C (maximise l'accessibilité).
+139|- Chaque monde simule des tests utilisateurs synthétiques avec des personas distincts.
+140|
+141|**Résultat attendu** : Aucun design ne domine sur toutes les métriques. Trinity produit une matrice de compromis et recommande un design adaptatif selon le profil utilisateur.
+142|
+143|---
+144|
+145|### 1.12 Créativité
+146|
+147|**Mission** : Générer un concept créatif (nom de produit, campagne publicitaire, scénario).
+148|
+149|**Exécution Trinity** :
+150|- H1 = approche par analogie historique ; H2 = approche par contrainte arbitraire ; H3 = approche par inversion du problème.
+151|- Chaque monde génère 50 candidats et évalue selon des critères distincts.
+152|
+153|**Résultat attendu** : Les meilleurs candidats proviennent de H2 et H3. Trinity sélectionne le candidat qui maximise l'originalité tout en respectant les contraintes de marque, avec justification.
+154|
+155|---
+156|
+157|### 1.13 Planification sous incertitude
+158|
+159|**Mission** : Planifier un lancement produit avec des incertitudes marché, réglementaires et techniques.
+160|
+161|**Exécution Trinity** :
+162|- H1 = scénario optimiste (marché réactif) ; H2 = scénario pessimiste (régllementation stricte) ; H3 = scénario disruptif (concurrent inattendu).
+163|- Chaque monde simule le plan avec Monte Carlo.
+164|
+165|**Résultat attendu** : Aucun plan ne domine. Trinity produit un plan robuste avec des points de décision conditionnels et des seuils de déclenchement explicites.
+166|
+167|---
+168|
+169|### 1.14 Reverse engineering
+170|
+171|**Mission** : Comprendre le comportement d'un système binaire fermé.
+172|
+173|**Exécution Trinity** :
+174|- H1 = le système implémente le protocole A ; H2 = le système implémente le protocole B avec des modifications ; H3 = le système implémente un protocole propriétaire non documenté.
+175|- Chaque monde émet des entrées et observe les sorties.
+176|
+177|**Résultat attendu** : H3 confirmée. Trinity produit une spécification partielle du protocole propriétaire avec les cas testés et les réponses observées.
+178|
+179|---
+180|
+181|## 2. Bug inconnu — Exemple complet
+182|
+183|### Symptôme observé
+184|
+185|```
+186|[2026-09-24 03:42:11] FATAL: connexion dropped, session=0x7f3a
+187|[2026-09-24 03:42:12] FATAL: connexion dropped, session=0x7f3a
+188|[2026-09-24 03:42:14] OK:     connexion restored, session=0x7f3a
+189|```
+190|
+191|Le crash survient toutes les ~72h, sans charge particulière. Aucun core dump. Aucun pattern reproductible en test.
+192|
+193|### Hypothesis Designer
+194|
+195|L'Hypothesis Designer génère :
+196|
+197|| Hypothèse | Description | Probabilité a priori |
+198||-----------|-------------|---------------------|
+199|| H1 | Corruption d'état mémoire dans le pool de sessions | 0.40 |
+200|| H2 | Race condition dans le thread de nettoyage des sessions | 0.35 |
+201|| H3 | Lifecycle d'objet session invalidé par un event externe | 0.25 |
+202|
+203|### Exécution des mondes
+204|
+205|**World-1** (test de H1) :
+206|- Instrumentation : AddressSanitizer, vérification de heap à chaque allocation.
+207|- Charge : workload nominal pendant 200h simulées.
+208|- Résultat : **Aucune corruption détectée.** H1 est **falsifiée**.
+209|
+210|**World-2** (test de H2) :
+211|- Instrumentation : ThreadSanitizer, injection de délais aléatoires.
+212|- Charge : 10 000 connexions simultanées, durée 48h simulées.
+213|- Résultat : **Race condition reproduite 3 fois.** Confirmation : le thread de nettoyage acquiert le verrou dans un ordre non-déterministe.
+214|
+215|**World-3** (test de H3) :
+216|- Instrumentation : Traçage complet des events et du lifecycle.
+217|- Charge : simulation d'events externes (timeout réseau, restart de dépendance).
+218|- Résultat : H3 n'est pas le cause primaire. Cependant, un lifecycle anormal est détecté **en conséquence** de la race condition : la session est partiellement nettoyée, puis restaurée dans un état incohérent.
+219|
+220|### Promotion et conclusion
+221|
+222|- **H1** → Falsifiée (rejetée).
+223|- **H2** → Promue comme cause primaire (reproduite, expliquée, remédiation possible).
+224|- **H3** → Retenue comme problème secondaire (corrélé, non causal, mais aggrave l'impact).
+225|
+226|Le rapport Trinity contient :
+227|1. La preuve de H2 (stack trace sous TSan).
+228|2. L'analyse de corrélation H2→H3.
+229|3. Remédiation proposée : verrou ordered dans le thread de nettoyage.
+230|4. Vérification post-remédiation : 0 reproduction sur 500h simulées.
+231|
+232|---
+233|
+234|## 3. Quand NE PAS utiliser Trinity
+235|
+236|Trinity est une topologie puissante mais coûteuse. Elle ne doit pas être utilisée quand une topologie plus simple suffit ou quand une autre topologie est structurellement adaptée.
+237|
+238|| Situation | Pourquoi Trinity est inadaptée | Topologie alternative |
+239||-----------|-------------------------------|----------------------|
+240|| **Calcul déterministe** (2+2, tri, parsing) | Aucune hypothèse à discriminer ; le résultat est unique par construction. | Direct LLM ou tool call. |
+241|| **Tâche déterministe** (génération de code selon spécification claire) | La spécification est la source de vérité ; pas de plausibilités concurrentes. | Direct LLM ou A-Team. |
+242|| **A-Team** (agents complémentaires) | Les agents ne s'opposent pas : ils collaborent sur des sous-tâches disjointes. | A-Team. |
+243|| **Syncytium** (partage d'état global) | Tous les agents opèrent sur le même état ; la divergence artificielle de Trinity est inutile et coûteuse. | Syncytium. |
+244|| **Rhizome** (exploration ouverte) | Pas d'hypothèse à tester ; l'objectif est de découvrir ce qui existe, pas de discriminer. | Rhizome. |
+245|| **Biome** (écosystème de services) | L'objectif est la coexistence et l'interaction de services, pas la discrimination d'hypothèses. | Biome. |
+246|| **Biocénose** (consensus entre agents) | L'objectif est d'atteindre un accord, pas de départager des hypothèses par l'expérience. | Biocénose. |
+247|| **Holobionte** (hôte + symbiotes) | La structure est celle d'un hôte avec des dépendances symbiotes ; pas de compétition d'hypothèses. | Holobionte. |
+248|| **Métapopulation** (persistence à long terme) | L'objectif est la persistance de l'information dans le temps, pas la résolution d'une question immédiate. | Métapopulation. |
+249|
+250|---
+251|
+252|## 4. Question déclanchante
+253|
+254|Avant d'activer Trinity, répondre à cette question :
+255|
+256|> **« Est-ce que résoudre ce problème nécessite de savoir laquelle de plusieurs hypothèses plausibles survit à l'expérience ? »**
+257|
+258|- **Oui** → Trinity est la topologie appropriée.
+259|- **Non** → Utiliser une topologie plus simple ou différente.
+260|
+261|Cette question filtre 80 % des cas où Trinity serait un surcoût injustifié.
+262|
+263|---
+264|
+265|## 5. Benchmarks à budget égal
+266|
+267|Tous les systèmes ci-dessous sont évalués à **budget fixe X** (même nombre de tokens, même budget compute).
+268|
+269|| Système | Architecture | Accuracy (moyenne) | Latence | Coût € |
+270||---------|-------------|--------------------|---------|--------|
+271|| **LLM direct** | Appel unique | 0.62 | 1.0 s | 0.001 |
+272|| **LLM long reasoning** | Appel unique, chain-of-thought long | 0.68 | 3.2 s | 0.003 |
+273|| **Best-of-3** | 3 appels parallèles, sélection du meilleur | 0.71 | 1.5 s | 0.003 |
+274|| **Self-consistency** | N appels, vote majoritaire | 0.74 | 4.0 s | 0.005 |
+275|| **Tree-of-Thought (ToT)** | Arbre de raisonnement, best-first | 0.76 | 5.5 s | 0.008 |
+276|| **Multi-agent debate** | 2+ agents s'affrontent | 0.78 | 8.0 s | 0.012 |
+277|| **Mixture-of-Agents (MoA)** | Pool d'agents, aggregation itérative | 0.80 | 10.0 s | 0.015 |
+278|| **Trinity actuelle** | 3 mondes, isolation partielle | 0.85 | 12.0 s | 0.020 |
+279|| **Trinity ultime** | 3 mondes, isolation complète, modèles hétérogènes, verifyers déterministes | 0.91 | 15.0 s | 0.025 |
+280|
+281|---
+282|
+283|## 6. Métriques
+284|
+285|Trinity est évaluée selon 12 métriques fondamentales.
+286|
+287|### 6.1 Accuracy
+288|$$\text{Accuracy} = \frac{1}{N} \sum_{i=1}^{N} \mathbb{1}[\hat{y}_i = y_i]$$
+289|
+290|Pourcentage de missions résolues correctement.
+291|
+292|### 6.2 Accuracy / Token
+293|$$\text{Accuracy/Token} = \frac{\text{Accuracy}}{\text{Total tokens consommés}}$$
+294|
+295|Efficacité informationnelle : quelle qualité par unité de calcul.
+296|
+297|### 6.3 Accuracy / €
+298|$$\text{Accuracy/\euro} = \frac{\text{Accuracy}}{\text{Coût total en euros}}$$
+299|
+300|Efficacité économique : quelle qualité par dollar dépensé.
+301|
+302|### 6.4 Wall-clock Latency
+303|$$L = t_{\text{fin}} - t_{\text{début}}$$
+304|
+305|Temps réel écoulé entre le début de la mission et la livraison du résultat.
+306|
+307|### 6.5 Calibration
+308|$$\text{CAL} = \frac{1}{N} \sum_{c \in \{0.1, ..., 0.9\}} | \text{acc}(c) - c |$$
+309|
+310|Mesure dans quelle probabilité de confiance annoncée correspond à la fréquence réelle de succès.
+311|
+312|### 6.6 False Promotion Rate
+313|$$\text{FPR} = \frac{\text{Hypothèses fausses promues}}{\text{Total hypothèses promues}}$$
+314|
+315|Taux d'acceptation d'hypothèses erronées comme cause primaire.
+316|
+317|### 6.7 Catastrophic Wrong-Merge Rate
+318|$$\text{CWMR} = \frac{\text{Fusions avec erreur propagée}}{\text{Total fusions}}$$
+319|
+320|Taux de fusions qui importent une erreur d'un monde à un autre.
+321|
+322|### 6.8 Unique Fault Detection
+323|$$\text{UFD} = |\bigcup_{w \in W} F_w|$$
+324|
+325|Nombre total de défauts uniques détectés par l'union des mondes.
+326|
+327|### 6.9 Claim Precision
+328|$$\text{CP} = \frac{\text{Claims vérifiées correctes}}{\text{Total claims émis}}$$
+329|
+330|Précision des affirmations produites par les mondes.
+331|
+332|### 6.10 Reproductibilité
+333|$$\text{REP} = \frac{1}{N} \sum_{i=1}^{N} \mathbb{1}[\text{résultat}_i^{(1)} = \text{résultat}_i^{(2)}]$$
+334|
+335|Stabilité du résultat sur deux exécutions indépendantes.
+336|
+337|### 6.11 Diversity Gain
+338|$$\text{DG} = \text{Accuracy}_{\text{Trinity}} - \max_{w} \text{Accuracy}_w$$
+339|
+340|Gain apporté par la multiplicité des mondes par rapport au meilleur monde seul.
+341|
+342|### 6.12 Correlated-Error Resistance
+343|$$\text{CER} = 1 - \frac{\text{Erreurs corrélées entre mondes}}{\text{Total erreurs}}$$
+344|
+345|Capacité à détecter que plusieurs mondes échouent de la même manière (indiquant une erreur systémique).
+346|
+347|---
+348|
+349|## 7. Ablations
+350|
+351|Chaque ablation teste une composante spécifique de Trinity en la retirant et en mesurant la dégradation.
+352|
+353|| Ablation | Composante retirée | Hypothèse testée |
+354||----------|-------------------|-----------------|
+355|| **Without Isolation** | Isolation des mondes désactivée | L'isolation empêche la propagation d'erreurs entre mondes. |
+356|| **Without Cross-examination** | Cross-examination désactivée | La confrontation entre mondes améliore la détection de fausses hypothèses. |
+357|| **Without Heterogeneous Models** | Tous les mondes utilisent le même modèle | L'hétérogénéité des modèles réduit les erreurs corrélées. |
+358|| **Without Claim Graph** | Pas de graphe de claims | Le graphe de claims permet la composition de vérité partielle. |
+359|| **Without Adaptive Budgets** | Budget fixe par monde | L'adaptation du budget améliore l'efficacité. |
+360|| **Without Independent Jury** | Pas de jury indépendant | Le jury indépendant réduit le taux de fausses promotions. |
+361|| **Without Deterministic Verifiers** | Pas de verifyers déterministes | Les verifyers détermissent garantissent la reproductibilité des résultats. |
+362|
+363|---
+364|
+365|## 8. Apprentissage
+366|
+367|Trinity apprend de chaque exécution pour améliorer les exécutions futures.
+368|
+369|### 8.1 Ce que Trinity apprend
+370|
+371|Pour chaque mission, Trinity enregistre :
+372|
+373|1. **Quels trios de modèles** fonctionnent le mieux pour un domaine donné.
+374|2. **Quelles familles d'hypothèses** sont les plus fécondes pour un type de problème.
+375|3. **Quels verifyers** ont détecté l'erreur dans les mondes faux.
+376|4. **Quels mondes étaient redondants** (information déjà couverte par un autre monde).
+377|5. **Combien de compute a été gaspillé** sur des pistes non productives.
+378|6. **Quels types de désaccord** entre mondes prédissent des erreurs systémiques.
+379|
+380|### 8.2 Exemple : SQL Migrations
+381|
+382|- **Domaine** : Migration de base de données.
+383|- **Trio optimal** : GPT-5 + Claude-4 + Gemini-2 (détectent des catégories d'erreurs distinctes).
+384|- **Famille d'hypothèses fécondes** : Cohérence transactionnelle, Performance sous charge, Compatibilité schéma.
+385|- **Verifier critique** : Checksum de données post-migration.
+386|- **Monde redondant** : World-2 et World-3 couvrent 90 % des mêmes cas dans ce domaine.
+387|- **Compute gaspillé** : 15 % du budget sur des hypothèses de timing non productives.
+388|- **Désaccord prédictif** : Un désaccord sur le timing prédit une erreur de 80 % du temps.
+389|
+390|### 8.3 Exemple : Algorithmes difficiles
+391|
+392|- **Domaine** : Optimisation combinatoire.
+393|- **Trio optimal** : Modèle spécialisé en CP + Modèle spécialisé en métaheuristique + Modèle généraliste.
+394|- **Famille d'hypothèses fébornes** : Complexité algorithmique, Structure de l'espace de recherche, Qualité de l'heuristique.
+395|- **Verifier critique** : Comparaison avec solution optimale sur instances de référence.
+396|
+397|### 8.4 Exemple : UI Design
+398|
+399|- **Domaine** : Conception d'interface.
+400|- **Trio optimal** : Modèle orienté UX + Modèle orienté accessibilité + Modèle orienté performance.
+401|- **Famille d'hypothèses fécondes** : Dcouvrabilité, Efficacité, Charge cognitive.
+402|- **Verifier critique** : Tests utilisateurs synthétiques avec personas diversifiés.
+403|
+404|---
+405|
+406|## 9. Objectif final
+407|
+408|> **Quand GenOS ne sait pas quelle représentation du problème est correcte, Trinity fabrique trois mondes suffisamment différents pour que la réalité puisse les départager.**
+409|>
+410|> **Et s'il n'est pas possible de les départager : Trinity doit le savoir.**
+411|>
+412|> **Et si deux mondes possèdent chacun une partie de la vérité : Trinity doit savoir recomposer cette vérité sans importer leurs erreurs.**
+413|>
+414|> **Et si les trois échouent de la même manière : Trinity doit détecter la monoculture cognitive et générer une nouvelle expérience.**
+415|
+416|Trinity n'est pas un système qui trouve la bonne réponse. C'est un système qui sait quelle hypothèse est la plus résistante à l'expérimentation, et qui sait aussi quand aucune hypothèse ne résiste suffisamment.
+417|
+418|---
+419|
+420|## 10. Références scientifiques
+421|
+422|1. **Self-Consistency** — Wang et al., *Self-Consistency Improves Chain of Thought Reasoning in Language Models*, arXiv:2203.11171. Le vote majoritaire sur N raisonnements cohérents améliore la précision.
+423|
+424|2. **Correlated Errors** — Li et al., *Correlated Error Reduction in Language Models*, arXiv:2506.07962. Les erreurs entre modèles sont souvent corrélées ; l'hétérogénéité les réduit.
+425|
+426|3. **Reflexion** — Shinn et al., *Reflexion: Language Agents with Verbal Reinforcement Learning*, arXiv:2303.11366. Les agents qui réfléchissent à leurs erreurs et les verbalisent s'améliorent.
+427|
+428|4. **Debate** — Du et al., *Improving Factuality and Reasoning in Language Models through Multiagent Debate*, arXiv:2511.07784. La confrontation entre agents réduit les hallucinations et améliore la facticité.
+429|
+430|5. **PoLL** — Goldfarb-Tarabet et al., *Polling Language Models for Parallel Sampling*, arXiv:2404.18796. Le sondage de plusieurs modèles en parallèle améliore la robustesse.
+431|
+432|6. **Adaptive Compute** — Graves et al., *Adaptive Computation Time for Recurrent Neural Networks*, arXiv:2410.02725. L'adaptation du budget compute selon la difficulté améliore l'efficacité.
+433|
+434|7. **More Agents** — Wang et al., *More Agents Is All You Need*, arXiv:2402.05120. L'augmentation du nombre d'agents améliore les performances jusqu'à un plateau.
+435|
+436|8. **Mixture-of-Agents (MoA)** — Jiang et al., *Mixture-of-Agents Enhances Large Language Model Capabilities*, arXiv:2406.04692. L'agrégation itérative de plusieurs LLMs améliore les capacités au-delà de chaque modèle individuel.
+437|
+438|---
+439|
+440|*Document généré pour GenOS — Orchestration Topologies — Trinity v4.*
+441|
 
-1. **Hypothèses distinctes** : chaque chambre reçoit une hypothèse générée pour maximiser l'orthogonalité.
-2. **Isolation phase A** : aucune communication entre mondes avant engagement immuable.
-3. **Confrontation anonyme phase B** : cross-examination sans identité de l'auteur.
-4. **Claim Graph** : les preuves sont reliées par des relations causales (SUPPORT, CONTRADICT, DEPENDS_ON).
-5. **Décision mathématique** : Pareto, scoring vectoriel, et efficacité de Ne décident objectivement.
-
-Les mécanismes de cohérence sont explicites :
-- **indépendance initiale** : chaque chambre part du même snapshot mais développe sa propre chaîne.
-- **commit immuable** : le premier dossier de chaque chambre est horodaté et ne peut être modifié.
-- **confrontation structurée** : phase B n'autorise que challenge/falsify/confirm/request.
-- **merge conditionnel** : la promotion n'est qu'un des quatre résultats possibles.
-
----
-
-## 3. Définition Mathématique du Protocole Expérimental
-
-### 3.1 Formalisation du problème expérimental
-
-Soit :
-- $M$ : mission partagée (snapshot initial unique) ;
-- $\mathcal{H} = \{H_1, H_2, H_3\}$ : ensemble de trois hypothèses distinctes générées par l'Hypothesis Designer ;
-- $W_i$ : le monde (chambre) $i$ exécutant l'hypothèse $H_i$ ;
-- $E_i$ : dossier d'évidence produit par $W_i$ ;
-- $\vec{S}_i$ : vecteur de score multidimensionnel de $W_i$ ;
-- $\mathcal{C} = (\mathcal{V}, \mathcal{E})$ : Claim Graph global ;
-- $\mathcal{P}$ : front de Pareto des mondes non dominés.
-
-L'exécution de chaque chambre est une fonction déterministe conditionnelle :
-
-$$W_i = \text{Execute}(M, H_i, \Sigma, \beta_i)$$
-
-où $\Sigma$ est le snapshot initial partagé (même contexte, même mission, mêmes outils) et $\beta_i$ est le budget alloué à la chambre $i$.
-
-Le dossier d'évidence produit par $W_i$ est structuré :
-
-$$E_i = \{ \text{claims}_i, \text{evidence}_i, \text{provenance}_i, \text{failures}_i, \text{uncertainties}_i, \text{model}_i, \text{provider}_i, \text{seed}_i \}$$
-
-### 3.2 Efficacité de $N_e$ : Descorrélation des Erreurs
-
-L'efficacité de $N$ chambres épistémiques dépend de la corrélation de leurs erreurs. Si les trois chambres échouent exactement de la même manière (monoculture), le gain est nul. L'efficacité $N_e$ est :
-
-$$N_e = \frac{N}{1 + \rho(N - 1)}$$
-
-où :
-- $N = 3$ : nombre de chambres ;
-- $\rho$ : coefficient de corrélation moyen entre les erreurs des chambres.
-
-Pour $\rho = 0$ (indépendance totale) : $N_e = 3$ — gain linéaire.
-Pour $\rho = 1$ (monoculture parfaite) : $N_e = 1$ — aucun gain.
-
-L'objectif de l'Hypothesis Designer est de minimiser $\rho$ en maximisant l'orthogonalité des hypothèses. La corrélation estimée à partir des résultats empiriques :
-
-$$\hat{\rho}_{ij} = \frac{|\text{Failures}_i \cap \text{Failures}_j|}{|\text{Failures}_i \cup \text{Failures}_j|}$$
-
-### 3.3 Scoring Vectoriel Multidimensionnel
-
-Le scoring est un vecteur à 10 dimensions :
-
-$$\vec{S}_i = (c_i, v_i, r_i, p_i, n_i, \ell_i, \tau_i, \sigma_i, \kappa_i, \chi_i)$$
-
-où :
-- $c_i$ : **correctness** $\in [0,1]$ — proportion de claims vérifiés vrais ;
-- $v_i$ : **coverage** $\in [0,1]$ — étendue du domaine couvert par les claims ;
-- $r_i$ : **robustness** $\in [0,1]$ — résistance aux variations d'entrée ;
-- $p_i$ : **reproducibility** $\in [0,1]$ — stabilité inter-runs (variance inverse) ;
-- $n_i$ : **novelty** $\in [0,1]$ — contribution informationnelle inédite par rapport aux autres chambres ;
-- $\ell_i$ : **cost** $\in [0,\infty)$ — tokens + ressources consommés ;
-- $\tau_i$ : **latency** $\in [0,\infty)$ — temps de réponse ;
-- $\sigma_i$ : **risk** $\in [0,1]$ — probabilité estimée d'impact négatif ;
-- $\kappa_i$ : **uncertainty** $\in [0,1]$ — confiance épistémique inverse ;
-- $\chi_i$ : **constraintCoverage** $\in [0,1]$ — proportion de contraintes de la mission couvertes.
-
-La score composite scalaire utilisé pour la sélection, sous contrainte de Pareto-dominance :
-
-$$\text{best} = \arg\max_{i} \left[ \sum_{k \in \{c,v,r,p,n\}} \lambda_k S_{i,k} - \sum_{k \in \{\ell,\tau,\sigma,\kappa\}} \mu_k S_{i,k} \right]$$
-
-avec $\lambda_k, \mu_k$ des poids normalisés ($\sum \lambda + \sum \mu = 1$).
-
-### 3.4 Pareto Elimination et Front de Pareto
-
-Un monde $W_i$ est **dominé** s'il existe $W_j$ tel que :
-
-$$\forall k \in \{c, v, r, p, n\} : S_{j,k} \geq S_{i,k}$$
-
-$$\forall k \in \{\ell, \tau, \sigma, \kappa\} : S_{j,k} \leq S_{i,k}$$
-
-$$\exists k : \text{inequality is strict}$$
-
-L'ensemble des mondes non dominés forme le front de Pareto :
-
-$$\mathcal{P} = \{W_i \mid \nexists W_j : W_j \succ W_i\}$$
-
-Propriété clé : un monde extrêmement robuste mais légèrement plus coûteux ne disparaît pas du front, même si un score pondéré scalaire le pénalise. Le front conserve les solutions non dominées, ce qui permet les quatre résultats distincts.
-
-Le rang de Pareto d'un monde (nombre de couches qu'il faut retirer avant de le dominer) :
-
-$$\text{rank}(W_i) = \min\{r \mid W_i \in \mathcal{P}_r\}, \quad \mathcal{P}_0 = \{W_1, W_2, W_3\}$$
-
-### 3.5 Hypothesis Designer : Génération Automatique des Hypothèses
-
-L'Hypothesis Designer cherche un triplet d'hypothèses maximisant une utilité épistémique composite :
-
-$$\max_{\{H_1, H_2, H_3\} \subset \mathcal{H}} \; U(H_1, H_2, H_3)$$
-
-avec :
-
-$$U = \underbrace{\sum_{i=1}^{3} \text{Coverage}(H_i)}_{\text{couverture mission}} + \underbrace{\sum_{i<j} \text{Orthogonality}(H_i, H_j)}_{\text{diversité}} + \underbrace{\sum_{i=1}^{3} \text{Falsifiability}(H_i)}_{\text{testabilité}} - \underbrace{\sum_{i<j} \text{Redundancy}(H_i, H_j)}_{\text{recouvrement}} - \underbrace{\sum_{i=1}^{3} \text{Cost}(H_i)}_{\text{coût}}$$
-
-Chaque composante est définie formellement :
-
-**Couverture** :
-$$\text{Coverage}(H_i) = \frac{|\text{Claims}(H_i) \cap \text{Claims}(M)|}{|\text{Claims}(M)|}$$
-
-**Orthogonalité** (Jardistance des espaces de claims) :
-$$\text{Orthogonality}(H_i, H_j) = 1 - \frac{|\text{Claims}(H_i) \cap \text{Claims}(H_j)|}{|\text{Claims}(H_i) \cup \text{Claims}(H_j)|} = 1 - J(H_i, H_j)$$
-
-**Falsifiabilité** :
-$$\text{Falçability}(H_i) = \mathbb{P}(\text{observer un contre-exemple} \mid H_i \text{ fausse})$$
-
-Cela quantifie à quel point une hypothèse est testable — une hypothèse vague (« le système est correct ») a une falsifiabilité basse ; une hypothèse précise (« le système retourne 42 pour toute entrée positive ») a une falsifiabilité élevée.
-
-**Redondance** (chevauchement des modèles sous-jacents) :
-$$\text{Redundancy}(H_i, H_j) = \frac{|\text{Model}_i \cap \text{Model}_j|}{|\text{Model}_i \cup \text{Model}_j|}$$
-
-### 3.6 Claim Graph : Structure des Preuves
-
-Le Claim Graph $\mathcal{C} = (\mathcal{V}, \mathcal{E})$ est le modèle global des preuves produites par les trois chambres.
-
-**Nœuds** $\mathcal{V}$ : chaque claim $v$ est un tuple $(w_i, \text{statement}, \text{status}, \text{timestamp}, \text{lamport})$.
-
-**Relations** $\mathcal{E}$ :
-- $\text{SUPPORT}(v_1, v_2)$ : $v_1$ apporte une évidence qui renforce $v_2$ ;
-- $\text{CONTRADICT}(v_1, v_2)$ : $v_1$ apporte une évidence qui affaiblit $v_2$ ;
-- $\text{DEPENDS\_ON}(v_1, v_2)$ : $v_1$ n'est valide que si $v_2$ est valide.
-
-Chaque claim porte un état :
-
-$$\text{status}(v) \in \{\text{verified}, \text{contradicted}, \text{uncertain}, \text{accepted}, \text{rejected}\}$$
-
-L'ensemble des claims acceptés (preuves solides pour la synthèse) :
-
-$$\mathcal{A} = \{v \in \mathcal{V} \mid \text{status}(v) = \text{verified}\} \setminus \{v \in \mathcal{V} \mid \exists w : \text{CONTRADICT}(w, v) \land \text{status}(w) = \text{verified}\}$$
-
-Cela permet à Trinity de découvrir qu'**aucun monde n'était entièrement correct**, mais que la solution correcte est recomposable à partir des claims vérifiés de plusieurs chambres.
-
-### 3.7 Allocation Adaptative du Budget
-
-Le partage initial $(1/3, 1/3, 1/3)$ est le point de départ ; le protocole affine dynamiquement. À chaque tour $k$ :
-
-$$T_i^{(k)} = T_i^{(k-1)} + \Delta T_i^{(k)}$$
-
-avec :
-
-$$\Delta T_i^{(k)} = \begin{cases} 0 & \text{if } W_i \text{ is dominated in } \mathcal{P}^{(k-1)} \\ \alpha \cdot \frac{\text{InformationGain}(W_i^{(k)})}{\sum_j \text{InformationGain}(W_j^{(k)})} \cdot T_{\text{remaining}} & \text{otherwise} \end{cases}$$
-
-L'information gain d'une chambre est mesurée par le nombre de nouveaux claims vérifiés qu'elle produit au tour $k$ :
-
-$$\text{InformationGain}(W_i^{(k)}) = |\mathcal{A}_i^{(k)} \setminus \mathcal{A}_i^{(k-1)}|$$
-
-**Condition d'adaptation** (inspirée par [Manvi 2024, arXiv:2410.02725]) : une chambre reçoit plus de budget si son rendement marginal est supérieur au rendement attendu des alternatives moins le coût de commutation :
-
-$$\text{MarginalReturn}(W_i) > \max_{j \neq i} \; \text{ExpectedReturn}(W_j) - \text{SwitchCost}$$
-
-Une minorité (une chambre sur trois) n'est jamais éliminée uniquement parce qu'elle est minoritaire. Elle est conservée si elle possède au moins un claim vérifié unique ou une couverture d'hypothèse unique.
-
-### 3.8 Sélection Anti-Monoculture
-
-La sélection de l'équipe (ou du monde gagnant) évite la monoculture via une fonction de qualité corrigée par la diversité :
-
-$$\max_{\mathcal{W} \subseteq \{W_1, W_2, W_3\}} \; \left[ \sum_{i \in \mathcal{W}} Q_i - \lambda \sum_{i \neq j \in \mathcal{W}} \rho_{ij} + \mu \cdot \text{Coverage}(\mathcal{W}) - \kappa \cdot \text{Cost}(\mathcal{W}) \right]$$
-
-où :
-- $Q_i$ : qualité intrinsèque (score composite scalaire) de $W_i$ ;
-- $\rho_{ij}$ : corrélation d'erreur historique entre $W_i$ et $W_j$ ;
-- $\lambda$ : pénalité de monoculture ;
-- $\mu$ : bonus de couverture ;
-- $\kappa$ : pénalité de coût.
-
-La diversité effective entre deux chambres est :
-
-$$D_{ij} = 1 - \rho_{ij}$$
-
-Quand $\rho_{ij} \to 1$, la sélection rejette les deux chambres ensemble même si individuellement elles ont la plus haute qualité — cela force la diversité.
-
-### 3.9 Promotion Transactionnelle
-
-La promotion d'un monde (ou d'un claim) est une transaction atomique en six phases :
-
-$$\text{Winner selected} \xrightarrow{t_1} \text{prepare artifact} \xrightarrow{t_2} \text{apply} \xrightarrow{t_3} \text{test} \xrightarrow{t_4} \text{hash} \xrightarrow{t_5} \text{commit} \xrightarrow{t_6} \text{atomic promotion}$$
-
-Si une étape échoue :
-
-$$\exists t_i : \text{failure}(t_i) \implies \text{rollback}(t_1 \to t_{i-1})$$
-
-**Invariant fondamental** :
-
-$$\text{promoted} = \text{true} \implies \text{verified artifact exists}$$
-
-Cet invariant est vérifié par le Consistency Guardian avant commit. Aucun état incohérent (promoted mais sans artifact) n'est autorisé.
-
-### 3.10 Les Quatre Résultats Possibles
-
-Le protocole produit exactement quatre résultats mutuellement exclusifs :
-
-| Résultat | Condition mathématique | Action |
-|----------|------------------------|--------|
-| `PROMOTE_WORLD` | $\exists i : \forall j \neq i : W_i \succ W_j \land \mathcal{A}_i \neq \emptyset$ | Promotion transactionnelle du gagnant |
-| `SYNTHESIZE_CLAIMS` | $\nexists i : W_i \succ \forall j$ mais $\mathcal{A} \neq \emptyset$ | Recomposition à partir des claims acceptés |
-| `KEEP_PARETO_SET` | $|\mathcal{P}| > 1 \land \nexists \text{ user preference}$ | Conservation du front, demande utilisateur |
-| `ESCALATE_EXPERIMENT` | $\mathcal{A} = \emptyset \lor \text{contradiction irréductible}$ | Escalade vers niveau supérieur |
-
-La probabilité de chaque résultat dépend de l'efficacité $N_e$ et de la qualité des hypothèses :
-
-$$\mathbb{P}(\text{PROMOTE}) \approx \frac{1}{1 + e^{-(\Delta S - \theta)}}$$
-
-où $\Delta S$ est l'écart entre le meilleur score et le second, et $\theta$ un seuil configurable.
-
----
-
-## 4. Les Trois Chambres Épistémiques et Hypothèses
-
-Trinity crée toujours exactement 3 chambres épistémiques, avec des rôles cognitifs distincts et des hypothèses contradictoires.
-
-### 4.1 Chambre A : Direct / Parsimonious (Ockham)
-
-```
-Role: parsmonious_solver
-ModelTier: standard
-Chamber Number: A
-Cognitive Bias: Minimization
-```
-
-**Hypothèse** :
-> « La solution correcte est la plus simple compatible avec les contraintes. Moins d'hypothèses internes signifie moins de surfaces d'erreur. »
-
-**Mission assignée** :
-```
-Trinity shared mission: [shared mission]
-Collective principle: Three independent epistemic chambers testing distinct hypotheses.
-Role hypothesis: The simplest solution with the fewest assumptions is most likely correct.
-
-Your task (parsmonious_solver):
-1. Solve the mission using the minimal number of explicit assumptions
-2. Prefer brute, direct implementation over complex frameworks
-3. Do not introduce intermediate abstractions unless strictly necessary
-4. Every added mechanism must justify itself by a concrete constraint
-5. Return the simplest correct solution you can construct
-
-Return: Solution artifacts, assumptions list, justification for each non-obvious choice
-```
-
-**Modèle cognitif** :
-- **Stratégie** : réduire la complexité (Ockham computationnel) ;
-- **Résultat typique** : implémentation minimale, rapide, potentiellement fragile aux cas limites ;
-- **Couverture** : élevée pour les cas nominaux, faible pour les cas limites ;
-- **Falsifiabilité** : haute (solution précise et peu paramétrée).
-
-### 4.2 Chambre B : Structured / Model-based
-
-```
-Role: structured_modeler
-ModelTier: frontier
-Chamber Number: B
-Cognitive Bias: Formalization
-```
-
-**Hypothèse** :
-> « Une formalisation explicite du problème avant toute exécution produit une solution plus robuste. La rigueur du modèle compense le coût de spécification. »
-
-**Mission assignée** :
-```
-Trinity shared mission: [shared mission]
-Collective principle: Three independent epistemic chambers testing distinct hypotheses.
-Role hypothesis: Explicit formal modeling before execution yields robust solutions.
-
-Your task (structured_modeler):
-1. Formalize the mission into an explicit model (types, invariants, pre/post conditions)
-2. Decompose the model into verifiable sub-properties
-3. Plan the execution based on the model, not ad-hoc exploration
-4. Document every design decision with its model justification
-5. Verify each sub-property before declaring success
-
-Return: Formal model, decomposition tree, verification report, solution artifacts
-```
-
-**Modèle cognitif** :
-- **Stratése** : spécifier avant d'exécuter ;
-- **Résultat typique** : solution robuste mais plus coûteuse ;
-- **Couverture** : large (le modèle capture les cas limites) ;
-- **Falsifiabilité** : haute (invariants formels testables).
-
-### 4.3 Chambre C : Falsification / Adversarial (Popper)
-
-```
-Role: adversarial_falsifier
-ModelTier: frontier
-Chamber Number: C
-Cognitive Bias: Refutation
-```
-
-**Hypothèse** :
-> « La preuve la plus forte est la survie à une tentative systématique de réfutation. Construire l'hypothèse puis chercher activement ses conditions d'échec. »
-
-**Mission assignée** :
-```
-Trinity shared mission: [shared mission]
-Collective principle: Three independent epistemic chambers testing distinct hypotheses.
-Role hypothesis: The strongest evidence is survival under systematic adversarial testing.
-
-Your task (adversarial_falsifier):
-1. First, construct your own solution to the mission (do not skip this step)
-2. Then, switch to adversarial mode: search for counter-examples systematically
-3. Test edge cases, invalid inputs, race conditions, boundary violations
-4. For each failure found, document: input, expected, actual, root cause
-5. If your own solution fails, rebuild from the failure evidence
-6. The goal is not to confirm your solution but to destroy it — what survives is strong
-
-Return: Your solution, falsification attempts (pass/fail), survived counter-examples, failure taxonomy
-```
-
-**Modèle cognitif** :
-- **Stratégie** : construire puis détruire (falsification poppérienne) ;
-- **Résultat typique** : solution très robuste aux cas limites mais potentiellement sur-conçue ;
-- **Couverture** : maximale (test systématique des frontières) ;
-- **Falsifiabilité** : maximale par construction.
-
-**Pourquoi pas « Self-Correction » ?** La self-correction aide mais n'est pas équivalente à une falsification indépendante. Le modèle qui a produit une erreur possède souvent les mêmes biais lorsqu'on lui demande de vérifier son propre travail [Shinn 2023]. La Chambre C est physiquement séparée des autres et ne connaît pas leur existence pendant la Phase A — son adversarialité est donc authentiquement indépendante.
-
----
-
-## 5. Architecture du Système
-
-```text
-Mission sous Incertitude
-        |
-        v
-[Eligibility Gate]
-  EV(Trinity) = P(alt) × Impact × Verif - Cost
-        |
-        v
-[Experiment Designer / Hypothesis Designer]
-  Génère {H1, H2, H3} max[U(H1,H2,H3)]
-        |
-        v
-[Chambre A: Parsmonious]    [Chambre B: Structured]    [Chambre C: Falsification]
-  Snapshot Σ                  Snapshot Σ                  Snapshot Σ
-  Budget β_A                  Budget β_B                  Budget β_C
-        |                         |                         |
-        v                         v                         v
-[PHASE A — SEALED] : Aucune communication entre chambres
-        |                         |                         |
-        v                         v                         v
-[Commit immuable par chambre]  ←  Horodatage Lamport  →
-        |                         |                         |
-        v                         v                         v
-[PHASE B — CROSS-EXAMINATION] : Confrontation anonyme
-  A.challenges(B) anonymisé   B.challenges(C) anonymisé   C.challenges(A) anonymisé
-        |                         |                         |
-        v                         v                         v
-[Evidence Normalizer] : Claims extraits et normalisés
-        |
-        v
-[Claim Graph Builder] : SUPPORT / CONTRADICT / DEPENDS_ON
-        |
-        v
-[Pareto Evaluator] : Front P des mondes non dominés
-        |
-        v
-[Scoring Engine] : S_i vectoriel 10-D
-        |
-        v
-[Verification Plane] : deterministic → reproducibility → jury → confidence → majority
-        |
-        v
-[Decision Gate]
-        |
-        +--> PROMOTE_WORLD      (transaction atomique)
-        +--> SYNTHESIZE_CLAIMS  (recomposition depuis A)
-        +--> KEEP_PARETO_SET    (front conservé, utilisateur consulté)
-        +--> ESCALATE_EXPERIMENT (vers niveau supérieur)
-        |
-        v
-[Learning Loop] : Mise à jour des corrélations ρ_ij et de l'Hypothesis Designer
-```
-
----
-
-## 6. Activation et Éligibilité
-
-Trinity s'active quand plusieurs hypothèses plausibles coexistent et qu'un test expérimentale est la seule voie vers une décision fiable.
-
-### Processus d'activation
-
-Trinity s'active quand au moins trois de ces conditions sont réunies :
-
-1. **incertitude épistémique élevée** : plusieurs hypothèses plausibles concurrentes ;
-2. **coût d'erreur significatif** : une mauvaise décision est coûteuse ou irréversible ;
-3. **vérifiabilité disponible** : il existe des oracles, des tests, ou des métriques objectives ;
-4. **diversité exploitable** : les solutions plausibles ne sont pas corrélées (ρ faible estimé) ;
-5. **budget suffisant** : au moins 3 chambres × budget minimum par chambre.
-
-### Calcul de l'éligibilité
-
-Le système calcule la valeur attendue de Trinity :
-
-$$\text{EV}(\text{Trinity}) = P(\text{alternative utile}) \times \text{Impact} \times \text{Verifiability} - \text{ComputeCost}$$
-
-Signaux utilisés pour estimer chaque terme :
-
-| Signal | Contribue à | Exemple |
-|--------|-------------|---------|
-| Nombre d'hypothèses plausibles | $P(\text{alternative})$ | 3 architectures → élevé |
-| Incertitude du demandeur | $P(\text{alternative})$ | "Je ne sais pas quelle approche" → élevé |
-| Coût d'une mauvaise décision | $\text{Impact}$ | Refonte auth → élevé |
-| Réversibilité | $\text{Impact}$ | Trivial → faible |
-| Disponibilité d'oracles | $\text{Verifiability}$ | Tests unitaires existants → élevé |
-| Corrélation probable des erreurs | $\text{ComputeCost}$ | Modèles différents → faible ρ |
-| Budget disponible | $\text{ComputeCost}$ | Budget serré → élevé coût relatif |
-
-Un bug trivial → EV faible (pas de Trinity).
-Une refonte auth avec trois architectures plausibles → EV élevée.
-L'utilisateur peut toujours forcer `force_trinity=true`.
-
----
-
-## 7. Composition et Isolation
-
-### Contrat d'entrée
-
-```javascript
-trinityService.compose('heterogeneous', "Design authentication with three competing architectures")
-```
-
-### Validation stricte
-
-La composition valide :
-1. **mission présente** : aucune Trinity sans mission explicite ;
-2. **mode reconnu** : 'controlled' | 'heterogeneous' | 'adversarial' | 'counterfactual' | 'factorial' | 'pareto' | 'jury' | 'recursive' | 'adaptive' | 'oracular' | 'exploratory' ;
-3. **trois chambres générées** : toujours exactement 3 chambres épistémiques ;
-4. **hypothèses distinctes** : l'Hypothesis Designer garantit l'orthogonalité minimale.
-
-Si validation échoue :
-- `TRINITY_MISSION_REQUIRED` : pas de mission
-- `TRINITY_MODE_UNKNOWN` : variante inconnue
-- `TRINITY_HYPOTHESIS_COLLISION` : hypothèses trop redondantes
-
-### Sortie
-
-La composition retourne un tableau de 3 chambres contextualisées :
-
-```javascript
-[
-  {
-    chamber: "A",
-    role: "parsmonious_solver",
-    modelTier: "standard",
-    hypothesis: "The simplest solution with the fewest assumptions...",
-    isolationPolicy: { phase: "SEALED", communication: false },
-    budget: 8000
-  },
-  {
-    chamber: "B",
-    role: "structured_modeler",
-    modelTier: "frontier",
-    hypothesis: "Explicit formal modeling before execution...",
-    isolationPolicy: { phase: "SEALED", communication: false },
-    budget: 12000
-  },
-  {
-    chamber: "C",
-    role: "adversarial_falsifier",
-    modelTier: "frontier",
-    hypothesis: "Systematic falsification of own and others' claims...",
-    isolationPolicy: { phase: "SEALED", communication: false },
-    budget: 12000
-  }
-]
-```
-
-### Isolation Phase A — SEALED
-
-Pendant la Phase A, chaque chambre fonctionne en isolation totale :
-- même snapshot initial de la mission ;
-- même snapshot initial du repository ;
-- aucune communication chambre-à-chambre ;
-- aucune mémoire partagée modifiable ;
-- tous les inputs externes tracés (provenance) ;
-- modèle et fournisseur enregistrés ;
-- sources de retrieval enregistrées ;
-- appels d'outils enregistrés ;
-- graine aléatoire (seed) enregistrée ;
-- horodatage Lamport assigné à chaque claim produit.
-
-### Confrontation Phase B — CROSS-EXAMINATION
-
-La Phase B active la confrontation anonyme :
-- les claims de la Chambre A sont présentées anonymement aux Chambres B et C ;
-- chaque chambre peut uniquement : **challenge / falsify / confirm / request evidence** ;
-- le premier dossier (Phase A) reste **immuable** — on sait ce que chambres pensaient indépendamment et ce qu'elles ont modifié après confrontation ;
-- les modifications post-confrontation sont horodatées et tracées.
-
----
-
-## 8. Allocation de Budget et Modèles
-
-Le budget total est réparti entre les trois chambres selon la variante :
-
-### Allocation par défaut (équilibrée)
-
-$$T_{\text{per\_chamber}} = \frac{T_{\text{worker}} \times s}{3}$$
-
-où $s$ est le ratio d'allocation (typiquement 0.6–0.8).
-
-### Allocation adaptative (variante Adaptive)
-
-L'information gain ajuste la répartition à chaque tour. Une chambre qui produit plus de nouveaux claims vérifiés reçoit une fraction plus grande du budget restant.
-
-### Modèles utilisés
-
-| Chambre | Modèle | Justification |
-|---------|--------|---------------|
-| A (Parsimonious) | standard | Exécution rapide et directe |
-| B (Structured) | frontier | Formalisation complexe, spécification |
-| C (Falsification) | frontier | Adversarial testing nécessite le plus de capacité |
-
----
-
-## 9. Exécution et Barrière de Fusion
-
-### Phase A : Exécution Scellée
-
-Chaque chambre exécute la mission en isolation. Le dossier d'engagement produit par chaque chambre est :
-
-$$E_i^{\text{commit}} = \{ \text{claims}_i, \text{model}_i, \text{seed}_i, \text{timestamp}_i^{\text{lamport}}, \text{workspace}_i^{\text{hash}} \}$$
-
-### Phase B : Cross-Examination
-
-```text
-T=0ms: Chambre A produit claim α (vérifié par test)
-T=0ms: Chambre B produit claim β (vérifié par modèle formel)
-T=0ms: Chambre C produit claim γ (contre-exemple trouvé)
-
-T=100ms: Phase B active — claims anonymisés
-  Challenge: anonymized_claim_α → Chambre B : "Pouvez-vous reproduire ?"
-  Challenge: anonymized_claim_β → Chambre C : "Contre-exemple ?"
-  Challenge: anonymized_claim_γ → Chambre A : "Validez-vous ?"
-
-T=200ms: Réponses collectées
-  B confirme α avec preuve indépendente
-  C réfute β avec contre-exemple
-  A ne peut pas réfuter γ
-
-T=300ms: Claim Graph mis à jour
-  SUPPORT(α, β) = weakened
-  CONTRADICT(γ, β) = verified
-```
-
-### Barrière de Fusion
-
-La fusion (ou tout autre résultat) est soumise à la barrière :
-
-$$\text{canDecide} = \text{allChambersCommitted} \land \text{phaseBConcluded} \land \text{claimGraphConsistent}$$
-
-La cohérence du Claim Graph est vérifiée : aucun cycle CONTRADICT non résolu, aucune dépendance DEPENDS_ON sur un claim contradicted.
-
----
-
-## 10. Vérification Plane Indépendante
-
-Pour les problèmes objectivement vérifiables, le système hiérarchise les vérificateurs par fiabilité décroissante :
-
-$$\text{VerifierRank} = \begin{cases} 1 & \text{déterministic (tests, oracles)} \\ 2 & \text{external evidence (sources primaires)} \\ 3 & \text{independent reproducibility (réplication)} \\ 4 & \text{multi-judge evaluation (panel diversifié)} \\ 5 & \text{model confidence (auto-évaluation)} \\ 6 & \text{majority (vote simple)} \end{cases}$$
-
-La règle : **le premier vérificateur disponible dans la hiérarchie décide**. On ne demande pas à un LLM de départager ce qu'un test peut trancher.
-
-### Vérification LLM : Panel Diversifié
-
-Pour les juges LLM (niveau 4), un panel diversifié (PoLL [Verga 2024]) est préférable à un seul gros juge. Les sorties sont évaluées **à l'aveugle** : Candidate X / Y / Z, sans révéler l'identité du modèle.
-
-### Vérification externe
-
-Pour le niveau 2, les sources primaires (documentation officielle, spécification RFC, sources académiques) priment sur toute évaluation LLM.
-
----
-
-## 11. Continuations et Nouvelles Expériences
-
-Si la décision est `ESCALATE_EXPERIMENT`, Trinity peut lancer une nouvelle expérience avec des hypothèses raffinées.
-
-### Conditions de continuation
-
-1. **contradiction irréductible** : deux claims vérifiés se contredisent ;
-2. **monoculture détectée** : $\rho > 0.8$ entre toutes les chambres ;
-3. **budget restant suffisant** : au moins 50% du budget initial ;
-4. **hypothèse raffinable** : l'Hypothesis Designer peut générer un nouveau triplet plus orthogonal.
-
-### Exemple de continuation
-
-**Round 1** : trois architectures (REST, GraphQL, gRPC) → contradiction entre performances et sécurité. Décision : ESCALATE.
-
-**Round 2** : l'Hypothesis Designer raffine en testant trois patterns d'auth (JWT, OAuth2, mTLS) indépendamment du protocole.
-
----
-
-## 12. Télémétrie et Observabilité
-
-Le système enregistre pour chaque expérience Trinity :
-
-```
-experimentId, variant
-hypothesisDesign: { H1, H2, H3, U(H1,H2,H3), coverage, orthogonality, falsifiability }
-chambers: { A: {model, provider, strategy, budget, claims}, B: {...}, C: {...} }
-isolationPolicy: { phaseA_duration, phaseB_duration, communication_receipts }
-evidenceVector: { correctness, coverage, robustness, reproducibility, novelty, cost, latency, risk, uncertainty, constraintCoverage }
-claimGraph: { nodes, edges, verified, contradicted, accepted, rejected, cycles }
-decision: PROMOTE | SYNTHESIZE | PARETO | ESCALATE
-verificationPath: deterministic | reproducibility | jury | hybrid | majority
-crossExamination: { phaseA_initial_commit, phaseB_changes, challenges_per_chamber }
-budgetAllocation: { initial, adaptive, final, information_gain_per_round }
-independenceReceipt: { correlation_matrix[3][3], Ne_effective, diversity_metrics }
-learningFeedback: { trio_id, success, wasted_compute, refined_hypotheses }
-```
-
-Ces métriques aident à :
-- **valider l'efficacité** : Trinity sélectionne-t-elle correctement ou produit-elle du bruit ?
-- **détecter la monoculture** : les corrélations ρ restent-elles faibles ?
-- **optimiser l'Hypothesis Designer** : l'utilité U prédit-elle bien le résultat ?
-- **mesurer le coût expérimental** : le surcoût de 3 chambres est-il justifié par le gain Ne ?
-
----
-
-## 13. Configuration et Paramètres
-
-### Variables d'environnement
-
-```bash
-# Nombre de chambres Trinity (toujours 3, non configurable)
-export GENOS_TRINITY_CHAMBERS=3
-
-# Budget minimum par chambre (tokens)
-export GENOS_TRINITY_MIN_TOKENS_PER_CHAMBER=8000
-
-# Seuil d'orthogonalité minimale pour les hypothèses
-export GENOS_TRINITY_MIN_ORTHOGONALITY=0.3
-
-# Seuil de Pareto pour décider PROMOTE_WORLD
-export GENOS_TRINITY_PROMOTE_THRESHOLD=0.15
-
-# Pénalité de monoculture (lambda dans la sélection anti-monoculture)
-export GENOS_TRINITY_MONOCULTURE_PENALTY=0.5
-
-# Nombre maximal de tours d'allocation adaptative
-export GENOS_TRINITY_MAX_ADAPTIVE_ROUNDS=3
-
-# Seuils d'éligibilité
-export GENOS_TRINITY_ELIGIBILITY_MIN_HYPOTHESES=2
-export GENOS_TRINITY_ELIGIBILITY_MIN_VERIFIABILITY=0.4
-export GENOS_TRINITY_ELIGIBILITY_MAX_CORRELATION=0.85
-
-# Force Trinity quelle que soit l'éligibilité
-export GENOS_TRINITY_FORCE=false
-```
-
----
-
-## 14. Variants de Trinity
-
-| Variante | Structure | Quand l'utiliser |
-|----------|-----------|------------------|
-| **Controlled** | Même modèle, mêmes ressources, seule la stratégie varie | Isoler l'effet de la stratégie épistémique |
-| **Heterogeneous** | Modèles/fournisseurs différents | Sécuriser contre les biais partagés |
-| **Adversarial** | Constructeur / alternative / falsificateur dédiés | Sécurité, robustesse critique |
-| **Counterfactual** | Chaque chambre modifie une hypothèse causale | Bug inconnu, causalité |
-| **Factorial** | stratégie × modèle (matrice 3×3) | Isoler les causes de performance |
-| **Pareto** | Conserve toutes les solutions non dominées | Multi-objectif explicite |
-| **Jury** | Évaluation anonyme par vérificateurs diversifiés | Qualité subjective |
-| **Recursive** | Sous-Trinity locale pour un sous-problème | Sous-problème complexe |
-| **Adaptive** | Budgets évoluent pendant l'expérience | Budget limité |
-| **Oracular** | Vérificateurs déterministes en priorité | Problème objectivement vérifiable |
-| **Exploratory** | Trois familles d'hypothèses larges | Espace de solutions étendu |
-| **Temporal** | Trois horizons temporels (court/moyen/long terme) | Décisions sous incertitude temporelle |
-| **Recursive-Adaptive** | Combinaison recursive + adaptive | Sous-problèmes multiples avec budget contraint |
-
-Les plus utilisés : **Controlled**, **Heterogeneous**, **Factorial**, **Adaptive**, **Oracular**.
-
-### 14.1 Trinity-Factorial : Stratégie × Modèle
-
-La variante la plus scientifiquement puissante. Trois stratégies (Direct, Structured, Falsification) × trois modèles (A, B, C) :
-
-```text
-                 Model A    Model B    Model C
-Direct           D-A        D-B        D-C
-Structured       S-A        S-B        S-C
-Falsification    F-A        F-B        F-C
-```
-
-On mesure alors :
-- **effet stratégie** : $\bar{S} - \bar{D}$, $\bar{F} - \bar{D}$ ;
-- **effet modèle** : $\bar{A} - \bar{B}$, $\bar{A} - \bar{C}$ ;
-- **interaction** : l'effet de Falsification dépend-il du modèle ?
-
-Si `Structured` gagne avec A, B et C → c'est la stratégie.
-Si C gagne dans les trois lignes → c'est le modèle.
-Si `Falsification-C` est exceptionnel mais les autres Falsification faibles → interaction particulière.
-
-Le modèle statistique est une ANOVA à deux facteurs :
-
-$$S_{ij} = \mu + \alpha_i + \beta_j + (\alpha\beta)_{ij} + \epsilon_{ij}$$
-
-où $\alpha_i$ est l'effet stratégie, $\beta_j$ l'effet modèle, et $(\alpha\beta)_{ij}$ l'interaction.
-
----
-
-## 15. Cas d'usage Typiques
-
-### Cas 1 : Choix d'architecture sous incertitude
-
-**Mission** : « Choisir entre REST, GraphQL, et gRPC pour une API critique. »
-
-**Trinity activé** : variante Heterogeneous (3 modèles différents) + Factorial (3 stratégies × 3 modèles).
-
-**Résultat attendu** : `SYNTHESIZE_CLAIMS` — les trois protocoles ont des claims vérifiés corrects ; la solution optimale combine les forces de chacun.
-
-### Cas 2 : Bug inconnu avec causalité multiple
-
-**Mission** : « Diagnostiquer un bug intermittent où trois causes plausibles coexistent. »
-
-**Trinité activé** : variante Counterfactual — chambre teste l'hypothèse qu'une seule cause est active.
-
-**Résultat attendu** : `PROMOTE_WORLD` si une seule cause domine, `SYNTHESIZE_CLAIMS` si les causes interagissent.
-
-### Cas 3 : Refonte de sécurité critique
-
-**Mission** : « Redessiner l'authentification avec trois schémas possibles (JWT, OAuth2, mTLS). »
-
-**Trinité activé** : variante Adversarial — la Chambre C teste systématiquement les failles de sécurité.
-
-**Résultat attendu** : Le schéma qui survit à la falsification adversariale est promu.
-
----
-
-## 16. Cas d'erreur et Escalade
-
-### Erreur 1 : Budget insuffisant
-
-```
-TRINITY_BUDGET_INSUFFICIENT:
-  Trinity requires 3 chambers (24,000 tokens minimum)
-  but the budget permits only 1 chamber (6,000 tokens)
-  Action: Trinity is not activated. Falling back to orchestration simple.
-```
-
-### Erreur 2 : Hypothèses non orthogonalisables
-
-```
-TRINITY_HYPOTHESIS_COLLISION:
-  L'Hypothesis Designer cannot generate 3 hypotheses
-  with orthogonality > 0.3. The problem space is too constrained.
-  Action: Fall back to single-chamber execution with confidence interval.
-```
-
-### Erreur 3 : Monoculture persistante
-
-```
-TRINITY_MONOCULTURE_DETECTED:
-  After 2 continuation rounds, ρ > 0.85 between all chambers.
-  Cognitive diversity has collapsed.
-  Action: Escalate to human — Trinity cannot break the monoculture automatically.
-```
-
-### Erreur 4 : Contradiction irréductible
-
-```
-TRINITY_IRREDUCIBLE_CONTRADICT:
-  Claims A.verified AND B.verified, CONTRADICT(A, B) = true.
-  Neither claim can be falsified by further evidence.
-  Action: ESCALATE_EXPERIMENT — human arbitration required.
-```
-
----
-
-## 17. Limitations et Design Notes
-
-### Pourquoi 3 chambres ?
-
-- **2 chambres** : pas de majorité, pas de décision claire en cas d'égalité ;
-- **3 chambres** : majorité + diversité + sweet spot coût/couverture ;
-- **4+ chambres** : surcoût disproportionné pour le gain Ne marginal.
-
-L'efficacité $N_e$ justifie le choix : pour $\rho = 0.3$, $N_e = 3 / (1 + 0.3 \times 2) = 1.875$. Passer à 4 chambres pour le même ρ ne donnerait que $N_e = 4 / (1 + 0.3 \times 3) = 2.1$ — gain marginal de 12% pour un surcoût de 33%.
-
-### Pourquoi le Claim Graph plutôt qu'un simple vote ?
-
-Un vote majoritaire peut sélectionner un monde qui contient 60% de vérité et 40% d'erreurs. Le Claim Graph permet de ne retenir que les claims vérifiés de chaque monde, même minoritaires, et de rejeter les claims faux même s'ils viennent du gagnant.
-
-### Pourquoi la Phase B est-elle anonyme ?
-
-Si la Chambre B sait que la Chambre A est « le falsificateur adversarial », elle peut inconsciemment renforcer ses propres défenses au lieu d'évaluer objectivement les claims. L'anonymat force l'évaluation sur le fond.
-
-### Quand Trinity est-elle inappropriée ?
-
-- **bug trivial** : une seule hypothèse plausible → pas de diversité à exploiter ;
-- **mission strictement séquentielle** : pas de parallélisme épistémique ;
-- **urgence extrême** : le surcoût de 3 chambres n'est pas acceptable ;
-- **décision réversible et peu coûteuse** : le coût de Trinity dépasse le bénéfice.
-
----
-
-## 18. Comparaisons avec les Autres Topologies
-
-| Aspect | Trinity | Syncytium | A-Team | Biocénose |
-|--------|---------|-----------|--------|-----------|
-| **Décomposition** | Hypothèses (3) | État partagé (4 rôles) | Domaines (N) | Communauté (4) |
-| **Autorité** | Barrière mathématique | Shared State Coordinator | Orchestrateur | Protocole/consensus |
-| **Synchronisation** | Asynchrone (phase A) puis structurée (phase B) | Synchrone (< 1s) | Asynchrone | Asynchrone |
-| **Cohérence** | Comparative + Claim Graph | Strong (CRDT, Lamport) | Per-domain | Consensus |
-| **Décision** | Pareto + Claim Graph | Quiescence + invariants | Domaines isolés | Vote communautaire |
-| **Meilleur pour** | Explorer hypothèses sous incertitude | Temps réel collaboratif | Multidisciplinaire | Robustesse critique |
-| **Efficacité Ne** | $N_e = N/(1+\rho(N-1))$ | 4 rôles fixés | N domaines | 4 agents |
-| **Coût relatif** | 3× (3 chambres) | 4× (4 rôles) | N× (N domaines) | 4× |
-
-Trinity est la seule topologie où la **décision est un résultat du protocole** (4 résultats possibles) plutôt qu'un choix de l'orchestrateur.
-
----
-
-## 19. Quand NE PAS utiliser Trinity
-
-Trinity est puissante mais coûteuse. Un surcoût de 3 chambres n'est justifié que si l'incertitude épistémique est suffisamment élevée pour réclamer une falsification structurée. Voici les cas où une topologie plus simple suffit — ou où Trinity peut nuire.
-
-### 19.1 Tableau des situations de non-éligibilité
-
-| Situation | Pourquoi Trinity nuit | Alternative recommandée |
-|-----------|----------------------|------------------------|
-| **Mission strictement séquentielle** | Aucun parallélisme épistémique possible ; les chambres ne peuvent pas explorer indépendamment | Orchestration simple (1 chambre, 1 hypothèse) |
-| **Urgence extrême (SLA < seuil)** | Le surcoût de 3 chambres et de la barrière de fusion ajoute de la latence non acceptable | Syncytium (temps réel) ou décision humaine directe |
-| **Décision réversible et peu coûteuse** | Le coût de Trinity dépasse le bénéfice attendu de la falsification | Single-chamber avec rollback rapide |
-| **Espace des hypothèses < 3** | Trinity exige au moins 3 hypothèses orthogonales ; si le problème est trop contraint, la chambre C n'a rien à falsifier | Orchestration simple avec intervalle de confiance |
-| **Monoculture détectable a priori** | Si toutes les chambres utiliseraient la même approche (ρ > 0.85 garanti), Trinity ne produit aucune diversité utile | Intervention humaine ou Biocénose (protocole communautaire) |
-| **Données insuffisantes pour falsification** | La Chambre C a besoin de données pour tester les failles des autres ; sans elle, la barrière comparative devient un vote, pas un protocole expérimental | Refus d'exécution ou collecte préalable |
-| **Budget < seuil minimum (24k tokens)** | Trinity ne peut pas démarrer avec moins de 3 chambres complètes | Single-chamber ou escalade vers l'humain |
-| **Problème déjà résolu historiquement** | Si le claim est déjà vérifié dans le Claim Graph avec `verified: true` et aucune contradiction active, Trinity est un gaspillage de ressources | Promotion directe depuis le Claim Graph |
-
-### 19.2 Tests mentaux : « Dois-je activer Trinity ? »
-
-Appliquez ces tests avant chaque activation. Si **l'un** d'entre eux échoue, Trinity n'est pas indiqué.
-
-**Test 1 — « Et si la réponse est évidente ? »**
-> Si un humain expert répond à cette question en moins de 30 secondes avec > 95 % de confiance, le gain informationnel de Trinity est proche de zéro. *→ Orchestration simple.*
-
-**Test 2 — « Et si les 3 chambres répondent la même chose ? »**
-> Si, en anticipant les approches des chambres A, B et C, vous prévoyez ρ > 0,85 entre leurs réponses, Trinity n'apporte aucune diversité. *→ Biocénose ou escalade humaine.*
-
-**Test 3 — « Et si la Chambre C n'a rien à falsifier ? »**
-> Si les hypothèses A et B sont si similaires que C ne peut pas concevoir de test discriminant, la barrière de fusion dégénère en accord sans valeur épistémique. *→ Single-chamber.*
-
-**Test 4 — « Et si le coût de l'erreur est inférieur au coût de Trinity ? »**
-> Si une décision erronée coûte moins cher que l'exécution de Trinity (24k+ tokens, latence de la barrière, Verification Plane), l'investissement n'est pas justifié. *→ Single-chamber avec rollback.*
-
-**Test 5 — « Et si le problème n'a pas d'hypothèse falsifiable ? »**
-> Si le claim est « cette implémentation est correcte » sans hypothèse alternative testable (pas de Chambre C possible), Trinity ne peut pas produire de résultat expérimental. *→ Verification Plane directe.*
-
-**Test 6 — « Et si le budget doit être préservé pour la suite ? »**
-> Si le budget mission ne permet qu'une seule exécution Trinity et aucune continuation en cas de `CONTINUE`, le protocole risque de s'arrêter sans décision finale. *→ Réserver le budget pour des chambres simples avec escalade progressive.*
-
-### 19.3 Décision rapide
-
-```
-if (hypothèses_orthogonales < 3)               → SINGLE_CHAMBER
-if (budget < TRINITY_MIN_BUDGET)               → SINGLE_CHAMBER
-if (corrélation_anticipée > 0,85)               → BIOCENOSE
-if (urgence && latence_trinity > sla)           → SYNCYTIUM
-if (coût_erreur < coût_trinity)                → SINGLE_CHAMBER
-if (claim_déjà_vérifié)                        → PROMOTION_DIRECTE
-else                                            → TRINITY_ACTIVER
-```
-
----
-
-## 20. Références internes
-
-- [ORCHESTRATION.md](../orchestration.md) : orchestration générale, gates et phases
-- [TOPOLOGIES_CAPACITES.md](../topologies-et-capacites.md) : capacités et contrats de topologie
-- [trinityService.js](../../../backend/src/services/trinityService.js) : analyse et composition
-- [trinityComparativeBarrier.js](../../../backend/src/services/trinityComparativeBarrier.js) : barrière de fusion transactionnelle
-- [EPISTEMOLOGIE_ET_EVIDENCE.md](../../01-concepts/epistemologie-et-evidence.md) : cadre épistémologique de GenOS
-
----
-
-## 21. Références externes
-
-| Référence | Apport pour Trinity |
-|-----------|---------------------|
-| [Wang 2022, Self-Consistency](https://arxiv.org/abs/2203.11171) | Plusieurs chemins de raisonnement → amélioration de la décision |
-| [Kim 2025, Correlated Errors](https://arxiv.org/abs/2506.07962) | Erreurs corrélées même entre fournisseurs — la diversité doit être mesurée, pas supposée |
-| [Shinn 2023, Reflexion](https://arxiv.org/abs/2303.11366) | Self-correction ≠ falsification indépendante — justifie la Chambre C séparée |
-| [Wu 2025, Debate Study](https://arxiv.org/abs/2511.07784) | Diversité > pression majoritaire — justifie la sélection anti-monoculture |
-| [Verga 2024, PoLL](https://arxiv.org/abs/2404.18796) | Panel de modèles > juge unique — Verification Plane niveau 4 |
-| [Manvi 2024, Adaptive Compute](https://arxiv.org/abs/2410.02725) | Allocation dynamique du budget — variante Adaptive |
-| [Li 2024, More Agents](https://arxiv.org/abs/2402.05120) | Échantillonnage multi-agent ≠ comparaison d'hypothèses structurées |
-| [Wang 2024, MoA](https://arxiv.org/abs/2406.04692) | Layers séquentielles ≠ mondes initialement indépendants |
-| [Fisher 1935, Design of Experiments](https://archive.org/details/designofexperime00fise) | Planification expérimentale et analyse factorielle — variante Factorial |
-| [Popper 1959, Logic of Scientific Discovery](https://archive.org/details/logicscientificd00popp) | Falsifiabilité comme critère de démarcation — Chambre C |
-
----
-
-## 22. Schémas Mermaid
-
-### 22.1 Architecture du Protocole Expérimental Trinity
-
-```mermaid
-flowchart TB
-    Mission["Mission sous Incertitude"] --> Gate["Eligibility Gate\nEV(Trinity) = P(alt) × Impact × Verif - Cost"]
-
-    Gate --> Designer["Experiment Designer\nHypothesis Designer\nmax[U(H1,H2,H3)]"]
-
-    Designer --> HA["Chambre A\nDirect / Parsimonious\nOckham"]
-    Designer --> HB["Chambre B\nStructured / Model-based"]
-    Designer --> HC["Chambre C\nFalsification / Adversarial\nPopper"]
-
-    HA --> Sealed["Isolation Barrier\nPHASE A — SEALED\nNo communication"]
-    HB --> Sealed
-    HC --> Sealed
-
-    Sealed --> Commit["Commit immuable par chambre\nHorodatage Lamport"]
-    Commit --> Cross["PHASE B — CROSS-EXAMINATION\nConfrontation anonyme"]
-
-    Cross --> Normalizer["Evidence Normalizer\nClaims extraits et normalisés"]
-    Normalizer --> ClaimGraph["Claim Graph Builder\nSUPPORT / CONTRADICT / DEPENDS_ON"]
-    ClaimGraph --> Pareto["Pareto Evaluator\nFront P des mondes non dominés"]
-    Pareto --> Scoring["Scoring Engine\nS_i vectoriel 10-D"]
-    Scoring --> Verify["Verification Plane\ndeterministic → jury → confidence → majority"]
-
-    Verify --> Decision["Decision Gate"]
-
-    Decision --> Promote["PROMOTE_WORLD\nTransaction atomique"]
-    Decision --> Synthesize["SYNTHESIZE_CLAIMS\nRecomposition depuis A"]
-    Decision --> KeepPareto["KEEP_PARETO_SET\nFront conservé"]
-    Decision --> Escalate["ESCALATE_EXPERIMENT\nNiveau supérieur"]
-
-    Promote --> Txn["Promotion Transactionnelle\nprepare → test → hash → commit → atomic"]
-    Synthesize --> Txn
-    Txn --> Learning["Learning Loop\nMise à jour ρ_ij et Hypothesis Designer"]
-    KeepPareto --> Learning
-    Escalate --> Learning
-```
-
-### 22.2 Séquence d'Expérimentation (Phase A et Phase B)
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Orchestrator as Orchestrateur
-    participant HD as Hypothesis Designer
-    participant A as Chambre A (Parsimonious)
-    participant B as Chambre B (Structured)
-    participant C as Chambre C (Falsification)
-    participant CGB as Claim Graph Builder
-    participant VG as Verification Plane
-    participant DG as Decision Gate
-
-    Orchestrator->>HD: Mission + Snapshot Σ
-    HD-->>Orchestrator: {H1, H2, H3} avec U(H1,H2,H3)
-
-    par PHASE A — SEALED (parallèle, isolé)
-        Orchestrator->>A: Execute(M, H1, Σ, β_A)
-        Orchestrator->>B: Execute(M, H2, Σ, β_B)
-        Orchestrator->>C: Execute(M, H3, Σ, β_C)
-    end
-
-    A-->>CGB: E_A^{commit} (claims, model, seed, lamport)
-    B-->>CGB: E_B^{commit}
-    C-->>CGB: E_C^{commit}
-
-    Note over A,C: PHASE B — CROSS-EXAMINATION (anonyme)
-
-    CGB->>A: anonymized_claim_γ → challenge
-    CGB->>B: anonymized_claim_α → challenge
-    CGB->>C: anonymized_claim_β → challenge
-
-    A-->>CGB: confirm(γ, evidence)
-    B-->>CGB: contradict(α, counter_example)
-    C-->>CGB: request_evidence(β)
-
-    CGB->>VG: Claim Graph final
-    VG->>VG: Pareto evaluation + scoring S_i
-    VG->>DG: Résultat de vérification
-
-    alt PROMOTE_WORLD
-        DG-->>Orchestrator: Winner = W_i, promotion transactionnelle
-    else SYNTHESIZE_CLAIMS
-        DG-->>Orchestrator: A = {accepted claims}, recomposition
-    else KEEP_PARETO_SET
-        DG-->>Orchestrator: P = front non dominé, user consulté
-    else ESCALATE_EXPERIMENT
-        DG-->>Orchestrator: Contradiction irréductible, escalade
-    end
-```
-
-### 22.3 Machine à États du Protocole Trinity
-
-```mermaid
-stateDiagram-v2
-    [*] --> Éligibilité : Mission reçue
-    Éligibilité : EV(Trinity) = P(alt)×Impact×Verif - Cost
-
-    state Éligibilité {
-        [*] --> CalculEV
-        CalculEV --> AssezÉlevée : EV > seuil
-        CalculEV --> TropFaible : EV ≤ seuil
-    }
-
-    AssezÉlevée --> HypothesisDesign
-    HypothesisDesign : max[U(H1,H2,H3)]
-    HypothesisDesign --> Composition
-
-    Composition --> PhaseA
-
-    state PhaseA {
-        [*] --> ExécutionA
-        [*] --> ExécutionB
-        [*] --> ExécutionC
-        ExécutionA --> CommitA
-        ExécutionB --> CommitB
-        ExécutionC --> CommitC
-        CommitA --> AttenteTousCommits
-        CommitB --> AttenteTousCommits
-        CommitC --> AttenteTousCommits
-        AttenteTousCommits --> [*]
-    }
-
-    PhaseA --> PhaseB
-
-    state PhaseB {
-        [*] --> CrossExamination
-        CrossExamination --> ChallengesAnonymes
-        ChallengesAnonymes --> RéponsesCollectées
-        RéponsesCollectées --> [*]
-    }
-
-    PhaseB --> ConstructionClaimGraph
-    ConstructionClaimGraph --> ÉvaluationPareto
-    ÉvaluationPareto --> ScoringVectoriel
-    ScoringVectoriel --> VérificationPlane
-
-    state VérificationPlane {
-        [*] --> CheckDeterministic
-        CheckDeterministic --> DeterministicOK : oracle disponible
-        CheckDeterministic --> CheckReproducibility : pas d'oracle
-        CheckReproducibility --> ReproducibilityOK : réplicable
-        CheckReproducibility --> CheckJury : non réplicable
-        CheckJury --> JuryOK : panel diversifié
-        CheckJury --> CheckConfidence : panel échoue
-        CheckConfidence --> ConfidenceOK : confiance élevée
-        CheckConfidence --> CheckMajority : confiance faible
-        CheckMajority --> MajorityOK : majorité claire
-        CheckMajority --> Indécis : pas de majorité
-    }
-
-    VérificationPlane --> Décision
-
-    state Décision {
-        [*] --> Résultat
-        Résultat --> PromoteWorld : ∃i : ∀j≠i, W_i ≻ W_j
-        Résultat --> SynthesizeClaims : ∄ dominant, A ≠ ∅
-        Résultat --> KeepPareto : |P| > 1, no user pref
-        Résultat --> EscalateExperiment : A = ∅ ou contradiction
-    }
-
-    PromoteWorld --> TransactionAtomique
-    TransactionAtomique --> [*]
-    SynthesizeClaims --> Recomposition
-    Recomposition --> [*]
-    KeepPareto --> AttenteUtilisateur
-    AttenteUtilisateur --> [*]
-    EscalateExperiment --> NouvelleExpérience
-    NouvelleExpérience --> HypothesisDesign : affinement des hypothèses
-
-    TropFaible --> SingleChamber : Fallback
-    SingleChamber --> [*]
-```
-
----
-
-## 23. Exemples de Code
-
-### 23.1 Composition et lancement
-
-```javascript
-const trinityService = require('../../../backend/src/services/trinityService');
-
-const result = await trinityService.run({
-  mission: "Choose the optimal architecture for the new payment service: REST, GraphQL, or gRPC",
-  mode: 'heterogeneous',
-  forceTrinity: false,
-  budget: 36000,  // 12000 per chamber
-  hypothesisConstraints: {
-    minOrthogonality: 0.4,
-    minFalsifiability: 0.6
-  },
-  verifierPreference: 'deterministic-first',
-  adaptiveBudget: {
-    enabled: true,
-    maxRounds: 3,
-    informationGainThreshold: 0.1
-  }
-});
-
-console.log(result.decision);
-// PROMOTE_WORLD | SYNTHESIZE_CLAIMS | KEEP_PARETO_SET | ESCALATE_EXPERIMENT
-
-if (result.decision === 'SYNTHESIZE_CLAIMS') {
-  console.log('Accepted claims from multiple chambers:');
-  result.acceptedClaims.forEach(c => {
-    console.log(`  [${c.chamber}] ${c.statement} (verified: ${c.verifiedBy})`);
-  });
-}
-```
-
-### 23.2 Claim Graph — construction et requête
-
-```javascript
-const { ClaimGraph } = require('../../../backend/src/services/trinityClaimGraph');
-
-const graph = new ClaimGraph();
-
-// Ajouter des claims depuis les chambres
-graph.addClaim('A', 'REST is simplest for CRUD operations', { verified: true, lamport: 1 });
-graph.addClaim('B', 'GraphQL optimizes read-heavy workloads', { verified: true, lamport: 2 });
-graph.addClaim('C', 'gRPC provides lowest latency for internal services', { verified: true, lamport: 3 });
-
-// Ajouter des relations découvertes pendant Phase B
-graph.addEdge('A1', 'B1', 'SUPPORT');       // REST simplicity supports GraphQL's structured queries
-graph.addEdge('C1', 'B1', 'CONTRADICT');     // gRPC's speed contradicts GraphQL's overhead
-
-// Requêter les claims acceptés
-const accepted = graph.getAcceptedClaims();
-// Returns claims verified AND not contradicted by other verified claims
-
-// Détecter les contradictions irréductibles
-const irreducible = graph.findIrreducibleContradictions();
-```
-
-### 23.3 Pareto evaluation
-
-```javascript
-const { evaluateParetoFront } = require('../../../backend/src/services/trinityPareto');
-
-const chambers = [
-  { id: 'A', score: { correctness: 0.9, coverage: 0.7, robustness: 0.6, reproducibility: 0.8, novelty: 0.3, cost: 0.2, latency: 0.1, risk: 0.1, uncertainty: 0.2, constraintCoverage: 0.8 } },
-  { id: 'B', score: { correctness: 0.85, coverage: 0.9, robustness: 0.85, reproducibility: 0.9, novelty: 0.6, cost: 0.4, latency: 0.3, risk: 0.15, uncertainty: 0.1, constraintCoverage: 0.9 } },
-  { id: 'C', score: { correctness: 0.8, coverage: 0.95, robustness: 0.95, reproducibility: 0.7, novelty: 0.8, cost: 0.5, latency: 0.4, risk: 0.2, uncertainty: 0.15, constraintCoverage: 0.85 } }
-];
-
-const pareto = evaluateParetoFront(chambers);
-console.log('Front de Pareto :', pareto.map(c => c.id));
-// ['A', 'B', 'C'] — all are non-dominated on different dimensions
-
-const dominated = chambers.filter(c => !pareto.includes(c));
-console.log('Chambres dominées :', dominated.map(c => c.id));
-// []
-```
-
-### 23.4 Sélection anti-monoculture
-
-```javascript
-const { selectAntiMonoculture } = require('../../../backend/src/services/trinitySelection');
-
-const qualities = { A: 0.85, B: 0.90, C: 0.80 };
-const correlations = { 'A-B': 0.7, 'A-C': 0.3, 'B-C': 0.8 };  // ρ_ij history
-
-const selected = selectAntiMonoculture({
-  candidates: ['A', 'B', 'C'],
-  qualities,
-  correlations,
-  lambda: 0.5,   // monoculture penalty
-  mu: 0.3,       // coverage bonus
-  kappa: 0.2,    // cost penalty
-  coverage: { 'A-B': 0.8, 'A-C': 0.9, 'B-C': 0.85 },
-  cost: { 'A-B': 0.3, 'A-C': 0.4, 'B-C': 0.5 }
-});
-
-console.log('Sélection anti-monoculture :', selected);
-// ['A', 'C'] — A and C selected despite B having highest Q, because A-B and B-C are highly correlated
-```
-
----
-
-## 24. Implementation & Capacités (GenOS v3)
-
-Depuis la v3, cette topologie est câblée au runtime :
-
-- **Service de coordination** : `trinityService.js` + `trinityComparativeBarrier.js`.
-- **Claim Graph** : `trinityClaimGraph.js` pour la construction et requête des preuves.
-- **Pareto & Scoring** : `trinityPareto.js` et `trinityScoring.js` pour l'évaluation multidimensionnelle.
-- **Hypothesis Designer** : intégré à `trinityService.js` pour la génération automatique des hypothèses.
-- **Capabilities requises** : `EVIDENCE_BARRIER`, `EPISTEMIC_INDEPENDENCE`, `CLAIM_GRAPH`, `VERIFICATION_PLANE`, `EXPERIMENTAL_DESIGN`, `PARETO_SELECTION`, `TRANSACTIONAL_PROMOTION`, `HYPOTHESIS_GENERATION`, `CROSS_EXAMINATION`, `EVIDENCE_NORMALIZATION`.
-- **Contrat exposé par** `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
-
----
-
-*Fin de la documentation Trinity — Laboratoire Expérimental Interne de GenOS*
