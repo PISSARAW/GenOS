@@ -24,7 +24,8 @@ function verificationKinds(claim) {
 }
 
 function isVerifier(member) {
-  return member.role === 'verifier' && (member.deterministicChecks || member.verificationKinds || member.capabilities);
+  return member.status !== 'QUARANTINED' && member.role === 'verifier'
+    && (member.deterministicChecks || member.verificationKinds || member.capabilities);
 }
 
 function match(member, requested) {

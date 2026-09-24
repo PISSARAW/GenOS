@@ -27,7 +27,7 @@ function route(input) {
 }
 
 function isReviewer(member) {
-  return ['reviewer', 'adversarial_reviewer'].includes(member.role);
+  return member.status !== 'QUARANTINED' && ['reviewer', 'adversarial_reviewer'].includes(member.role);
 }
 
 function assignment(member, required) {

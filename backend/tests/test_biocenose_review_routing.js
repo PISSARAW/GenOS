@@ -14,10 +14,20 @@ const securityClaim = { claimId: 'claim-1', type: 'security', verificationKinds:
 const review = reviewerRouter.route({ claim: securityClaim, members });
 const verification = verifierRouter.route({ claim: securityClaim, members });
 const noVerifier = verifierRouter.route({ claim: { type: 'normative' }, members });
+const quarantined = reviewerRouter.route({
+  claim: securityClaim,
+  members: [{ memberId: 'blocked-reviewer', role: 'reviewer', status: 'QUARANTINED', expertise: ['security'] }]
+});
+const quarantinedVerifier = verifierRouter.route({
+  claim: securityClaim,
+  members: [{ memberId: 'blocked-verifier', role: 'verifier', status: 'QUARANTINED', deterministicChecks: ['replay'] }]
+});
 
 assert.deepEqual(review.reviewers.map((entry) => entry.memberId), ['reviewer-1']);
 assert.equal(review.reviewers[0].specialties.includes('adversarial'), true);
 assert.deepEqual(verification.verifiers, [{ memberId: 'verifier-1', kinds: ['replay'] }]);
 assert.equal(verification.priority, 'DETERMINISTIC_VERIFIER_FIRST');
 assert.equal(noVerifier.status, 'UNVERIFIED');
+assert.equal(quarantined.unassigned, true);
+assert.equal(quarantinedVerifier.deterministicAvailable, false);
 process.stdout.write('Biocenose reviewer/verifier routing checks: PASS\n');

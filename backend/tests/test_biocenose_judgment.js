@@ -41,6 +41,17 @@ async function run() {
     });
     assert.equal(decision.judgment.status, 'DECIDED');
     assert.equal((await store.loadSession(db, resolved.communityId)).phase, 'DECIDED');
+
+    const fact = await makeAggregationReady(db, 'Verify a factual claim');
+    const untrusted = await biocenose.finalizeCommunityJudgment({
+      db, communityId: fact.communityId, actorId: 'orchestrator',
+      aggregation: { questionType: 'FACTUAL', outcome: 'EVIDENCE_SUPPORTED', verifiedClaimIds: ['claim-1'] },
+      verificationReceipts: [{ claimId: 'claim-1', status: 'VERIFIED' }],
+      stopping: { stableRoundCount: 1 }
+    });
+    assert.equal(untrusted.judgment.status, 'IRREDUCIBLE_DISAGREEMENT');
+    assert.equal(untrusted.judgment.aggregation.outcome, 'REVIEW_REQUIRED');
+    assert.equal(untrusted.judgment.promotionGate.status, 'REVIEW_REQUIRED');
   } finally {
     await db.close();
   }

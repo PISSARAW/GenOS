@@ -19,11 +19,10 @@ async function validateRecord(db, record) {
   const session = await db.get('SELECT round FROM biocenose_communities WHERE community_id = ?', record.communityId);
   if (!session) throw Object.assign(new Error('Biocenose community not found.'), { code: 'BIOCENOSE_COMMUNITY_UNKNOWN' });
   if (Number(session.round) !== record.round) throw Object.assign(new Error('Claim round is not active.'), { code: 'BIOCENOSE_CLAIM_ROUND_CONFLICT' });
-  const member = await db.get(
-    `SELECT member_id FROM biocenose_members WHERE community_id = ? AND member_id = ? AND status = 'ACTIVE'`,
-    record.communityId, record.createdBy
-  );
-  if (!member) throw Object.assign(new Error('Claim author is not an active community member.'), { code: 'BIOCENOSE_MEMBER_UNKNOWN' });
+  const communityStore = require('../communityStore');
+  if (!await communityStore.isActiveMember(db, record.communityId, record.createdBy)) {
+    throw Object.assign(new Error('Claim author is not an active community member.'), { code: 'BIOCENOSE_MEMBER_UNKNOWN' });
+  }
 }
 
 async function findDuplicate(db, record) {

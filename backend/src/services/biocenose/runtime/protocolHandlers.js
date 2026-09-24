@@ -99,7 +99,9 @@ async function reviewAndVerify(context) {
     if (verification.deterministicAvailable && typeof context.verificationExecutor === 'function') {
       for (const verifier of verification.verifiers) {
         const receipt = await context.verificationExecutor({ claim: publicClaim, verifier, communityId: session.communityId });
-        if (receipt) verificationReceipts.push({ ...receipt, claimId: claim.claimId });
+        if (isTrustedVerifiedReceipt(receipt, context.isTrustedReceipt)) {
+          verificationReceipts.push({ ...receipt, claimId: claim.claimId });
+        }
       }
     }
   }
@@ -201,8 +203,15 @@ async function recordCommunityJudgment(context) {
   };
   return judgmentService.finalize({
     db: context.db, communityId: context.communityId, actorId: context.actorId,
-    aggregation, uncertainty: context.uncertainty ?? { independence: prior(context, 5).report }, stopping
+    aggregation, verificationReceipts: prior(context, 2).verificationReceipts,
+    isTrustedReceipt: context.isTrustedReceipt,
+    uncertainty: context.uncertainty ?? { independence: prior(context, 5).report }, stopping
   });
+}
+
+function isTrustedVerifiedReceipt(receipt, validator) {
+  if (!receipt || receipt.status !== 'VERIFIED' || typeof validator !== 'function') return false;
+  try { return validator(receipt) === true; } catch (_) { return false; }
 }
 
 function decisionReady(aggregation) {

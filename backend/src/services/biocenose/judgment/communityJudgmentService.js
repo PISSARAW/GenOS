@@ -2,9 +2,11 @@
 
 const { randomUUID } = require('crypto');
 const communityStore = require('../communityStore');
-const dissentLedger = require('../dissent/dissentLedger');
 const judgmentStore = require('./judgmentStore');
+const promotionGate = require('./promotionGateService');
 const stoppingRule = require('./stoppingRuleService');
+const { assertValidConstitution } = require('../governance/constitutionValidator');
+const { constitutionHash } = require('../governance/protocolVersioning');
 
 async function finalize(input) {
   const session = await communityStore.loadSession(input.db, input.communityId);
@@ -13,10 +15,16 @@ async function finalize(input) {
   }
   const constitution = await communityStore.latestConstitution(input.db, input.communityId);
   if (!constitution) throw Object.assign(new Error('Community constitution is missing.'), { code: 'BIOCENOSE_CONSTITUTION_UNKNOWN' });
+  validateActiveConstitution(constitution, session);
   const stop = stoppingRule.evaluate({ ...input.stopping, round: session.round, constitution: constitution.constitution });
   if (!stop.stop) return { finalized: false, status: 'IN_PROGRESS', stopReason: stop.reason };
-  const openCriticalDissent = await criticalDissent(input.db, input.communityId);
-  const decision = judgmentRecord(input, { stop, openCriticalDissent });
+  const persistedClaims = await communityStore.listClaims(input.db, input.communityId, session.round);
+  const gates = await promotionGate.evaluate({ ...input,
+    persistedClaimIds: persistedClaims.map((item) => item.claimId) }, session, persistedClaims);
+  const decision = judgmentRecord({ ...input, aggregation: gates.aggregation }, {
+    stop, openCriticalDissent: gates.dissent.filter((item) => item.promotion !== 'ALLOWED'),
+    dissentGates: gates.dissent, promotionGate: gates.gate
+  });
   const saved = await judgmentStore.record(input.db, {
     judgmentId: randomUUID(), communityId: input.communityId, round: session.round,
     actorId: input.actorId, judgment: decision,
@@ -26,10 +34,14 @@ async function finalize(input) {
   return { finalized: true, ...saved };
 }
 
-async function criticalDissent(db, communityId) {
-  const entries = await dissentLedger.list({ db, communityId });
-  return entries.filter((entry) => ['OPEN', 'ESCALATED', 'VALIDATED'].includes(entry.status)
-    && entry.dissent.severity >= 0.8 && entry.dissent.materiality >= 0.8);
+function validateActiveConstitution(constitution, session) {
+  assertValidConstitution(constitution);
+  const identityMatches = constitution.communityId === session.communityId
+    && constitution.constitutionId === session.constitutionId;
+  if (identityMatches && constitutionHash(constitution.constitution) === constitution.constitutionHash) return;
+  throw Object.assign(new Error('The active community constitution does not match its persisted identity and hash.'), {
+    code: 'BIOCENOSE_CONSTITUTION_INTEGRITY_FAILED'
+  });
 }
 
 function judgmentRecord(input, context) {
@@ -42,6 +54,7 @@ function judgmentRecord(input, context) {
   return {
     status, questionType: input.aggregation.questionType, aggregation: input.aggregation,
     uncertainty: input.uncertainty ?? null, openCriticalDissentIds: context.openCriticalDissent.map((item) => item.dissentId),
+    dissentGates: context.dissentGates, promotionGate: context.promotionGate,
     stopReason: context.stop.reason
   };
 }

@@ -109,8 +109,10 @@ Cette distinction est essentielle : les sections qui suivent décrivent le modè
   ne sont pas encore branchés dans la Morphogenèse ;
 - Les helpers de résilience peuvent exclure des identifiants mis en quarantaine du routage,
   signaler une confiance élevée sans preuve et filtrer des références dépourvues de
-  provenance vérifiée/reproductible. La quarantaine est un événement d'audit ; elle ne
-  supprime pas le membre et ne prouve aucune intention malveillante. Les presets
+  provenance vérifiée/reproductible. La quarantaine met le membre à l'état `QUARANTINED`
+  dans la session, ce qui le retire des participants actifs et des routeurs ; sa
+  réintégration remet son état à `ACTIVE`. Les deux transitions sont atomiques et auditées.
+  La quarantaine ne supprime pas le membre et ne prouve aucune intention malveillante. Les presets
   `epistemic_jury`, `delphi` et `adversarial_assembly` sont des configurations descriptives,
   pas encore des variantes exécutant chacune leur protocole complet ;
 - L'adaptateur Biocénose/Morphogenèse traduit le jugement final fourni au planner en
@@ -132,9 +134,13 @@ Cette distinction est essentielle : les sections qui suivent décrivent le modè
   `summarizeBiocenoseBenchmark` calcule le taux de faux consensus, la préservation des
   minorités correctes et le budget de tokens sur des cas marqués comme évalués ;
 - `evaluateMinorityEvidenceVeto` requiert un reçu de vérification fourni par un
-  vérificateur de confiance avant de retourner `PROMOTION_BLOCKED`. C'est un évaluateur
-  de politique ; il n'est pas encore branché sur la porte générale de promotion et ne
-  valide pas lui-même la provenance des reçus ;
+  vérificateur de confiance avant de retourner `PROMOTION_BLOCKED`. Le jugement final
+  relit les dissents critiques et applique ce veto lui-même ; un reçu absent ou non
+  approuvé par le validateur de confiance entraîne `ESCALATED`. Pour les claims factuels,
+  la finalisation vérifie aussi que chaque claim annoncé comme vérifié possède un reçu
+  `VERIFIED` accepté par ce validateur ; sans validateur ou en cas de couverture incomplète,
+  le résultat est rétrogradé en `REVIEW_REQUIRED`. La constitution active est validée et
+  son identité ainsi que son hash sont contrôlés avant toute finalisation ;
 - `evaluateCommunity` n'envoie à l'arène Pareto que les dossiers explicitement
   identifiés comme générateurs ou options candidates. Les rôles de revue,
   vérification, facilitation et observation en sont exclus. Le point genou est exposé
@@ -166,11 +172,9 @@ intégration peut remplacer l'invocation des membres et fournir un exécuteur de
 vérifications déterministes ; le runtime ne transforme pas une vérification absente en
 preuve ni une sortie de modèle invalide en jugement.
 
-La constitution est persistée, versionnée et validée. La porte de commit/révélation
-des jugements et plusieurs évaluateurs de politique sont implémentés, mais les exigences
-de la constitution ne sont pas toutes appliquées comme des gates transversaux : en
-particulier, la vérification des reçus et le veto minoritaire ne sont pas reliés à la
-porte générale de promotion. `recruitForDiversityGap` recrute à partir de rôles cibles ou
+La constitution est persistée, versionnée et validée. La finalisation contrôle son
+identité et son hash, et applique les gates de reçus factuels et de dissent critique,
+même si elle est appelée en dehors du runtime. `recruitForDiversityGap` recrute à partir de rôles cibles ou
 d'un minimum de fournisseurs explicitement demandé ; la détection de monoculture ne
 déclenche pas encore automatiquement ce recrutement. `activateBiocenose` reste synchrone
 et sans session persistée ; `prepareCommunity` crée le parcours persistant.

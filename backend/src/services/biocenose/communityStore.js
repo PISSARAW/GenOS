@@ -173,11 +173,7 @@ async function latestConstitution(db, communityId) {
 async function saveCommitment(db, record) {
   await ensureSchema(db);
   return withTransaction(db, async () => {
-    const member = await db.get(
-      'SELECT member_id FROM biocenose_members WHERE community_id = ? AND member_id = ? AND status = ?',
-      record.communityId, record.memberId, 'ACTIVE'
-    );
-    if (!member) throw unknownMember(record.communityId, record.memberId);
+    if (!await isActiveMember(db, record.communityId, record.memberId)) throw unknownMember(record.communityId, record.memberId);
     const duplicate = await db.get(
       `SELECT commitment_id FROM biocenose_commitments
        WHERE community_id = ? AND member_id = ? AND round = ? AND commitment_type = ?`,
@@ -203,10 +199,43 @@ async function saveCommitment(db, record) {
 async function participantIds(db, communityId) {
   await ensureSchema(db);
   const rows = await db.all(
-    `SELECT member_id FROM biocenose_members WHERE community_id = ? AND status = 'ACTIVE'
+    `SELECT member_id FROM biocenose_members WHERE community_id = ?
      AND role != 'community_facilitator' ORDER BY member_id`, communityId
   );
+  const statuses = await memberStatuses(db, communityId);
+  return rows.map((row) => row.member_id).filter((id) => statuses.get(id) !== 'QUARANTINED');
+}
+
+async function memberIds(db, communityId) {
+  await ensureSchema(db);
+  const rows = await db.all(
+    'SELECT member_id FROM biocenose_members WHERE community_id = ? ORDER BY member_id', communityId
+  );
   return rows.map((row) => row.member_id);
+}
+
+async function isActiveMember(db, communityId, memberId) {
+  const row = await db.get(
+    'SELECT status FROM biocenose_members WHERE community_id = ? AND member_id = ?', communityId, memberId
+  );
+  return Boolean(row && (await memberStatuses(db, communityId)).get(memberId) !== 'QUARANTINED');
+}
+
+async function memberStatuses(db, communityId) {
+  const rows = await db.all(
+    'SELECT member_id, status FROM biocenose_members WHERE community_id = ?', communityId
+  );
+  const statuses = new Map(rows.map((row) => [row.member_id, row.status]));
+  const events = await db.all(
+    `SELECT event_type, payload_json FROM biocenose_events WHERE community_id = ?
+     AND event_type IN ('MEMBER_QUARANTINED', 'MEMBER_REINSTATED') ORDER BY revision`, communityId
+  );
+  for (const event of events) {
+    const payload = parseJson(event.payload_json);
+    if (statuses.has(payload.memberId)) statuses.set(payload.memberId,
+      event.event_type === 'MEMBER_QUARANTINED' ? 'QUARANTINED' : 'ACTIVE');
+  }
+  return statuses;
 }
 
 async function listCommitments(db, communityId, round) {
@@ -290,7 +319,10 @@ async function loadSession(db, communityId) {
     'SELECT member_id, role, attributes_json, status FROM biocenose_members WHERE community_id = ? ORDER BY rowid',
     communityId
   );
-  return { ...mapSession(row), members: members.map(mapMember) };
+  const statuses = await memberStatuses(db, communityId);
+  return { ...mapSession(row), members: members.map((member) => ({
+    ...mapMember(member), status: statuses.get(member.member_id) || member.status
+  })) };
 }
 
 function mapSession(row) {
@@ -362,6 +394,6 @@ function claimRoundConflict(id) {
 module.exports = {
   createSession, appendEvent, loadSession, listEvents,
   saveConstitution, loadConstitution, latestConstitution,
-  saveCommitment, participantIds, listCommitments, sealedPayloads,
+  saveCommitment, participantIds, memberIds, isActiveMember, listCommitments, sealedPayloads,
   publishClaim: claimStore.publishClaim, listClaims: claimStore.listClaims, ensureSchema
 };

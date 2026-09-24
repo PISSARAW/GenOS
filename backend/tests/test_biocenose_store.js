@@ -6,6 +6,7 @@ const { open } = require('sqlite');
 const store = require('../src/services/biocenose/communityStore');
 const biocenose = require('../src/services/biocenoseService');
 const { migrateBiocenoseSessions } = require('../src/db/migrations/migrateBiocenoseSessions');
+const quarantine = require('../src/services/biocenose/byzantine/quarantineService');
 
 async function run() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
@@ -28,6 +29,18 @@ async function run() {
     assert.equal(restored.members[0].memberId, 'generator-1');
     assert.equal(restored.members[0].provider, 'provider-a');
 
+    await quarantine.setStatus({
+      db, communityId: created.communityId, memberId: 'reviewer-1', actorId: 'orchestrator-1',
+      quarantined: true, reason: 'untrusted signal'
+    });
+    assert.equal((await store.loadSession(db, created.communityId)).members[1].status, 'QUARANTINED');
+    assert.deepEqual(await store.participantIds(db, created.communityId), ['generator-1']);
+    await quarantine.setStatus({
+      db, communityId: created.communityId, memberId: 'reviewer-1', actorId: 'orchestrator-1',
+      quarantined: false, reason: 'review completed'
+    });
+    assert.equal((await store.loadSession(db, created.communityId)).members[1].status, 'ACTIVE');
+
     const changed = await store.appendEvent(db, {
       communityId: created.communityId,
       actorId: 'orchestrator-1',
@@ -36,9 +49,10 @@ async function run() {
       patch: { phase: 'FORMATION', round: 1 }
     });
     assert.equal(changed.phase, 'FORMATION');
-    assert.equal(changed.revision, 3);
+    assert.equal(changed.revision, 5);
     assert.deepEqual((await store.listEvents(db, created.communityId)).map((event) => event.type), [
-      'COMMUNITY_CREATED', 'MEMBER_RECRUITED', 'MEMBER_RECRUITED', 'PHASE_CHANGED'
+      'COMMUNITY_CREATED', 'MEMBER_RECRUITED', 'MEMBER_RECRUITED',
+      'MEMBER_QUARANTINED', 'MEMBER_REINSTATED', 'PHASE_CHANGED'
     ]);
 
     await assert.rejects(
