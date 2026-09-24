@@ -45,6 +45,7 @@ function normalizeFields(input) {
 function normalizeDefinition(path, definition = {}) {
   const dataType = String(definition.dataType || 'LEGACY_LWW').toUpperCase();
   const consistencyZone = String(definition.consistencyZone || 'EVENTUAL').toUpperCase();
+  const authority = normalizeAuthority(definition);
   if (!DATA_TYPES.has(dataType)) throw schemaError(`Unsupported Syncytium field type '${dataType}'.`);
   if (!CONSISTENCY_ZONES.has(consistencyZone)) throw schemaError(`Unsupported consistency zone '${consistencyZone}'.`);
   return {
@@ -52,11 +53,18 @@ function normalizeDefinition(path, definition = {}) {
     dataType,
     mergeSemantics: String(definition.mergeSemantics || defaultMerge(dataType)).toUpperCase(),
     consistencyZone,
-    authorityPolicy: definition.authorityPolicy || 'MEMBERS',
+    ...authority,
     invariantRefs: Array.isArray(definition.invariantRefs) ? [...definition.invariantRefs] : [],
     allowedTransitions: normalizeTransitions(definition.allowedTransitions),
     visibility: definition.visibility || 'DOMAIN',
     replicationPolicy: definition.replicationPolicy || 'ALL_SUBSCRIBED'
+  };
+}
+
+function normalizeAuthority(definition) {
+  return {
+    authorityPolicy: definition.authorityPolicy || 'MEMBERS',
+    ownerDomain: definition.ownerDomain || definition.domainId || null
   };
 }
 

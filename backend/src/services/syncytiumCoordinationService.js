@@ -12,6 +12,8 @@ const { createCytoplasm } = require('./syncytiumCytoplasmService');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const persistence = require('./syncytiumPersistenceService');
 const schemaService = require('./syncytiumSchemaService');
+const nuclearDomains = require('./syncytium/domains/nuclearDomainService');
+const mutationAuthority = require('./syncytium/security/mutationAuthorityService');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -23,6 +25,7 @@ function serialize(session) {
     members: session.members,
     organization: session.organization,
     schema: session.schema,
+    domains: session.domains,
     ops: session.crdt.getHistory(),
     fluxOps: session.fluxOps
   };
@@ -40,6 +43,7 @@ function rehydrate(record) {
     members: Array.isArray(state.members) ? state.members : [],
     organization,
     schema: schemaService.compile(state.schema),
+    domains: nuclearDomains.compile(state.domains),
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'syncytium', organization }),
     crdt: createSyncytiumCrdt(),
     cytoplasm: createCytoplasm(),
@@ -83,6 +87,7 @@ async function createSession(mission, options = {}) {
     recommended: syncytiumService.analyzeMission(mission).recommended,
     members: syncytiumService.compose(mission),
     organization,
+    domains: nuclearDomains.compile(options.nuclearDomains || options.domains),
     revision: 0,
     persisted: false,
     schema: schemaService.compile(options.schema),
@@ -131,6 +136,7 @@ async function applyOperation(sessionId, op, options = {}) {
   const session = await getSession(sessionId, options.db);
   const admission = schemaService.admitOperation(session.schema, op);
   op = admission.operation;
+  mutationAuthority.authorize(session.domains, session.schema, op);
   if (op?.opId && (session.crdt.hasOpId(op.opId) || session.fluxOps.some((flux) => flux.opId === op.opId))) {
     return { sessionId, snapshot: session.crdt.getSnapshot(), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session), duplicate: true };
   }
@@ -151,7 +157,7 @@ async function applyOperation(sessionId, op, options = {}) {
 
 async function snapshot(sessionId, options = {}) {
   const session = await getSession(sessionId, options.db);
-  return { sessionId, shared: session.crdt.getSnapshot(), schema: session.schema, cytoplasm: session.cytoplasm.snapshotState(), consistency: assessConsistency(session) };
+  return { sessionId, shared: session.crdt.getSnapshot(), schema: session.schema, domains: session.domains, cytoplasm: session.cytoplasm.snapshotState(), consistency: assessConsistency(session) };
 }
 
 async function closeSession(sessionId, options = {}) {
