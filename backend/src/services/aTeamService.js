@@ -2,6 +2,7 @@ const config = require('../config/orchestratorConfig');
 const { analyzeMissionCapabilities } = require('./aTeam/capabilities/missionCapabilityAnalyzer');
 const { findCapabilityGaps } = require('./aTeam/capabilities/capabilityGapService');
 const { measureCapabilityCoverage } = require('./aTeam/capabilities/capabilityCoverageService');
+const teamFormationOptimizer = require('./aTeam/teamFormation/teamFormationOptimizer');
 const DEFAULT_MAX_MEMBERS = 3;
 
 function maxMembers() {
@@ -308,6 +309,7 @@ module.exports = {
   },
   maxMembers,
   analyzeMission,
+  optimizeFormation: teamFormationOptimizer.optimizeTeam,
   compose,
   detectTechnicalDomains,
   isObserverRole,
