@@ -23,6 +23,18 @@ function run() {
   const pod = prepareDispatchPolicy({ mission: { goal: 'Product feature', variant: 'cross_functional_pod' }, members });
   assert.ok(pod.members.find((member) => member.subSystem === 'api').consults.includes('web'));
   assert.equal(pod.policy.boundarySpanners[0].ownerMemberId, 'security');
+  const incident = prepareDispatchPolicy({ mission: { variant: 'incident_command' }, members });
+  assert.equal(incident.policy.commanderMemberId, 'api');
+  assert.match(incident.members[0].mission, /Coordinate the incident response/);
+  const matrix = prepareDispatchPolicy({ mission: { variant: 'matrix_team', functionalOwnerId: 'fn-1', productOwnerId: 'pd-1' }, members });
+  assert.deepEqual(matrix.policy.authorityMatrix.axes, ['functional', 'product']);
+  const adaptive = prepareDispatchPolicy({ mission: { variant: 'adaptive', phases: [{ id: 'build', variant: 'pipeline' }, { id: 'review', variant: 'incident_command' }] }, members });
+  assert.deepEqual(adaptive.policy.phases.map((phase) => phase.variant), ['pipeline', 'incident_command']);
+  const multi = prepareDispatchPolicy({
+    mission: { variant: 'multiteam', teams: [{ teamId: 'product', members: [] }, { teamId: 'platform', members: [] }] },
+    members: [...members, { subSystem: 'qa', role: 'qa', capabilities: ['qa'] }]
+  });
+  assert.equal(multi.policy.multiteamPlan.graph.nodes.length, 2);
   assert.throws(() => prepareDispatchPolicy({ mission: { variant: 'incident_command' }, members: members.slice(0, 2) }), { code: 'ATEAM_VARIANT_TEAM_TOO_SMALL' });
 }
 

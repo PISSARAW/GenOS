@@ -1,27 +1,83 @@
 'use strict';
 
-const { buildVariantPlan, planOrganizations } = require('./variants/variantRegistry');
+const { buildVariantPlan } = require('./variants/variantRegistry');
+const { planOrganizations } = require('./variants/teamOrganizationController');
 const { compileWorkGraph } = require('./workGraph/workGraphCompiler');
 const { allocateCriticalPathBudget } = require('./budget/criticalPathBudgetService');
 const { assessBoundaryRisk } = require('./boundaries/boundaryRiskService');
 const { assignBoundarySpanners } = require('./boundaries/boundarySpannerService');
+const { composeMultiteam } = require('./multiteam/multiteamComposer');
 
 function prepareDispatchPolicy(input = {}) {
   const mission = input.mission || {};
-  const memberCount = input.members?.length || 0;
   const plan = buildVariantPlan({ ...mission, interfaceCount: countInterfaces(input.members), parallelWorkstreams: countIndependent(input.members) });
+  const memberCount = declaredMemberCount(mission, plan, input.members);
   if (mission.variant && memberCount < plan.minMembers) throw coded(`Variant '${plan.variant}' requires at least ${plan.minMembers} members.`, 'ATEAM_VARIANT_TEAM_TOO_SMALL');
+  if (plan.variant === 'multiteam' && !Array.isArray(mission.teams)) throw coded('Multiteam dispatch requires explicit subteam definitions.', 'ATEAM_MULTITEAM_INPUT_REQUIRED');
   const members = applyMemberPolicy(input.members || [], plan);
   const graph = compileWorkGraph({ teamRunId: input.teamRunId, members });
   const boundaries = assessBoundaries(graph, members);
   const budget = allocateBudget(input.totalBudget, members, graph);
-  const phases = Array.isArray(mission.phases) ? planOrganizations({ mission, phases: mission.phases }) : [];
+  const details = variantRuntime({ mission, plan, members, boundaries });
   const policy = {
-    ...plan, phases, boundaryAssessment: boundaries,
-    boundarySpanners: assignBoundarySpanners(boundaries.interfaces, members),
-    budgetAllocation: budget
+    ...plan, ...details, boundaryAssessment: boundaries,
+    boundarySpanners: assignBoundarySpanners(boundaries.interfaces, members), budgetAllocation: budget
   };
-  return { members: attachBudgets(members, budget), policy };
+  return { members: attachVariantInstructions(attachBudgets(members, budget), policy), policy };
+}
+
+function declaredMemberCount(mission, plan, members) {
+  if (plan.variant !== 'multiteam' || !Array.isArray(mission.teams)) return members?.length || 0;
+  return mission.teams.reduce((count, team) => count + (Array.isArray(team.members) ? team.members.length : 0), 0);
+}
+
+function variantRuntime({ mission, plan, members, boundaries }) {
+  const runtime = { phases: [], commanderMemberId: null, authorityMatrix: null, multiteamPlan: null };
+  if (['tiger_team', 'incident_command'].includes(plan.variant)) runtime.commanderMemberId = chooseCommander(members);
+  if (plan.variant === 'matrix_team') runtime.authorityMatrix = matrixAuthority(mission);
+  if (plan.variant === 'multiteam' && Array.isArray(mission.teams)) {
+    runtime.multiteamPlan = composeMultiteam({ teams: mission.teams, contracts: mission.interTeamContracts, limits: mission.multiteamLimits });
+  }
+  if (plan.variant === 'adaptive') runtime.phases = adaptivePhases(mission);
+  if (plan.variant === 'boundary_spanner') runtime.boundaryOwnersRequired = boundaries.level === 'high';
+  return runtime;
+}
+
+function chooseCommander(members) {
+  const member = members.find((entry) => /commander|lead|manager/i.test(entry.role || '')) || members[0];
+  return member?.memberId || member?.agentId || member?.workerId || memberDomain(member || {});
+}
+
+function matrixAuthority(mission) {
+  return {
+    functionalOwnerId: mission.functionalOwnerId || null,
+    productOwnerId: mission.productOwnerId || null,
+    axes: ['functional', 'product'], decisionRule: 'consult_both_owners'
+  };
+}
+
+function adaptivePhases(mission) {
+  if (!Array.isArray(mission.phases)) return [];
+  const context = { ...mission };
+  delete context.variant;
+  return planOrganizations({ mission: context, phases: mission.phases });
+}
+
+function attachVariantInstructions(members, policy) {
+  return members.map((member) => ({
+    ...member,
+    mission: `${member.mission || ''}\n\nTEAM ORGANIZATION POLICY\n${policy.variant}: ${policy.communication}; authority=${policy.authority}. ${instructionFor(member, policy)}`.trim()
+  }));
+}
+
+function instructionFor(member, policy) {
+  const ownedInterfaces = policy.boundarySpanners.filter((entry) => entry.ownerMemberId === memberKey(member));
+  if (ownedInterfaces.length) return `Own and validate these interfaces only: ${ownedInterfaces.map((entry) => entry.boundaryId).join(', ')}.`;
+  if (memberKey(member) === policy.commanderMemberId) return 'Coordinate the incident response within the declared team scope and escalate decisions outside your authority.';
+  if (policy.variant === 'matrix_team') return `Consult functional owner ${policy.authorityMatrix.functionalOwnerId || 'TBD'} and product owner ${policy.authorityMatrix.productOwnerId || 'TBD'} for cross-axis decisions.`;
+  if (policy.variant === 'boundary_spanner') return 'Own only the interfaces assigned to you; validate both sides of each contract.';
+  if (policy.variant === 'relay_team') return 'Receive context from the previous owner and pass a typed, evidence-backed handoff to the next owner.';
+  return 'Follow the persisted WorkGraph and the team contract for this responsibility.';
 }
 
 function countInterfaces(members) {
