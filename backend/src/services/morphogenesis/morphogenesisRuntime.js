@@ -86,18 +86,27 @@ class MorphogenesisRuntime {
       return this._executeSimple(morphology, options);
     }
 
+    const plan = {
+      id: `morpho_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      targetOrganization: morphology.topology || 'single_agent',
+      actions: (morphology.agents || []).map((a, i) => ({ action: 'incarnate', role: a.role || `agent_${i}`, modelTier: a.modelTier || 'standard' })),
+    };
+
     const transitionSpec = {
+      transitionId: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      plan,
       targetTopology: morphology.topology,
       agents: morphology.agents,
       reason: options.reason || `morphogenesis strategy=${morphology.strategy}`,
       evidence: options.evidence || null,
+      committedBy: options.orchestratorId || 'morphogenesis_runtime',
     };
 
     if (this._agentGit) {
       transitionSpec.agentGit = {
         reason: transitionSpec.reason,
         evidence: transitionSpec.evidence,
-        committedBy: options.orchestratorId || 'morphogenesis_runtime',
+        committedBy: transitionSpec.committedBy,
       };
     }
 
@@ -108,7 +117,8 @@ class MorphogenesisRuntime {
       agents: morphology.agents,
       topology: morphology.topology,
       commitId: result?.commitId || null,
-      transitionId: result?.transitionId || null,
+      transitionId: result?.transitionId || transitionSpec.transitionId,
+      receipt: result?.receipt || null,
     };
   }
 

@@ -2,7 +2,6 @@ const fs = require('fs/promises');
 const fsSync = require('fs');
 const path = require('path');
 const { spawnGit } = require('../../utils/fs');
-const { getDatabase } = require('../../db');
 const { runCommand, withGitRepoLock } = require('./git');
 const { bestEffort } = require('./support');
 const { CLEANUP_RETRY_DELAY_MS, RUNTIME_DIR_NAME, gcDelayMs } = require('./constants');
@@ -66,7 +65,7 @@ async function trackWorkspace(agentId, workspaceRoot) {
   const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
   const epoch = await ensureEpochMarker(resolvedWorkspaceRoot);
   activeWorktrees.set(agentId, { workspaceRoot: resolvedWorkspaceRoot, epoch });
-  const db = await getDatabase();
+  const db = await require('../../db').getDatabase();
   await ensureCleanupTable(db);
   await db.run(
     'INSERT INTO agent_capsule_cleanup(agent_id, workspace_root) VALUES (?, ?) ON CONFLICT(agent_id) DO UPDATE SET workspace_root = excluded.workspace_root',

@@ -1,5 +1,3 @@
-const { getDatabase } = require('../../db');
-const strategyContracts = require('../strategyContractService');
 const agentAuthority = require('../agentAuthorityService');
 const agentCapsules = require('../agentCapsuleService');
 const { localWorkerRoute } = require('../agentModelRoutingService');
@@ -24,7 +22,7 @@ async function initializeMissionContext(mission) {
   assertCallerMcpConfiguration(normalizedMission);
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
   const executable = configuredExecutable(normalizedMission);
-  const db = await getDatabase();
+  const db = await require('../../db').getDatabase();
   assertMissionNotCancelled(agentId);
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId, normalizedMission.workspaceId || null);
   normalizedMission.name = normalizedMission.name || dispatchedAgent.name;
@@ -36,6 +34,7 @@ async function resolveMissionContract(ctx) {
   const { executable, db, agentId, normalizedMission, dispatchedAgent } = ctx;
   const availability = runtimeAvailability(executable);
   if (!availability.available) throw new Error(availability.reason);
+  const strategyContracts = require('../strategyContractService');
   let contractRecord = await strategyContracts.getLatestContract(db, agentId, dispatchedAgent.workspace_id);
   if (!contractRecord && normalizedMission.orchestratorAgentId) {
     const parent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', normalizedMission.orchestratorAgentId);

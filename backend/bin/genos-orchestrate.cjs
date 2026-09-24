@@ -162,10 +162,10 @@ async function executeMission(db, state) {
 
   const nceEnhancements = await applyNceEnhancements(buildNceInput(request), db, orchestratorId);
   const { enhancedPrompt, nceMetadata } = buildEnhancedPrompt(nceEnhancements, task);
-  const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });
+  const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
-  await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime });
+  await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology });
   const agents = await waitForCompletion(db);
   const { summarizeAgents } = require('../src/services/orchestratorOutcome');
   const outcome = summarizeAgents(agents);
@@ -178,6 +178,13 @@ async function executeMission(db, state) {
   const { telemetryRows, runs, coverage } = await gatherTelemetryAndCoverage(db, id);
   const missionSuccess = completionGate.allowed === true;
   let finalVerdict = missionSuccess ? outcome.verdict : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.verdict);
+
+  // Execute morphology (fork agents, topology transitions)
+  if (morphology?.agents?.length > 0) {
+    const morphoRuntime = require('../src/services/morphogenesis/morphogenesisRuntime').getMorphogenesisRuntime();
+    const morphoResult = await morphoRuntime.executeMorphology(morphology, { orchestratorId: id, evidence: outcome.evidence, reason: `post-mission morphogenesis (verdict=${finalVerdict})` });
+    telemetry.emitEvent({ eventType: 'MORPHOGENESIS_COMPLETED', agentId: id, action: 'MORPHO_EXECUTED', detail: `Applied ${morphoResult.topology} with ${morphoResult.agents?.length || 0} agents`, payload: { topology: morphoResult.topology, commitId: morphoResult.commitId }, severity: 'info' });
+  }
 
   const contResult = await handleHomeostasisContinuation({ db, id, task, request, mission, completionGate, evaluation, organism, finalVerdict, continuity });
   continuity = contResult.continuity;

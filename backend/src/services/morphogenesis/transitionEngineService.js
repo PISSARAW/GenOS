@@ -225,7 +225,7 @@ function buildReceipt(params) {
   return {
     transitionId,
     timestamp: nowIso(),
-    plan: { id: plan.id, targetOrganization: plan.targetOrganization, actionCount: plan.actions.length },
+    plan: { id: plan?.id || transitionId, targetOrganization: plan?.targetOrganization || 'unknown', actionCount: plan?.actions?.length || 0 },
     preStateSnapshot: preSnapshot,
     postStateSnapshot: postSnapshot,
     actionsTaken,
