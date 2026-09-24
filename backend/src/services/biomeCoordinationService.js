@@ -12,6 +12,8 @@ const swarmMetricsService = require('./swarmMetricsService');
 const { defaultForaging } = require('./foragingScoutHarvesterService');
 const biofilmMatrix = require('./biofilmMatrixService');
 const biomeSessionStore = require('./biome/biomeSessionStore');
+const biomeStore = require('./biome/biomeStore');
+const { createEcologicalEvent } = require('./biome/contracts/ecologicalEvent');
 const crypto = require('crypto');
 
 const DEFAULT_ORGANIZATION = 'energy_huddle';
@@ -22,6 +24,7 @@ function serialize(session) {
   return {
     mission: session.mission,
     biomeId: session.biomeId,
+    ecology: session.ecology,
     revision: session.revision,
     organization: session.organization,
     mechanisms: session.mechanisms,
@@ -43,7 +46,14 @@ function rehydrate(record) {
   matrix.version = Number(state.matrix?.version) || 0;
   for (const [key, entry] of state.matrix?.entries || []) matrix.entries.set(key, entry);
   matrix.history = Array.isArray(state.matrix?.history) ? state.matrix.history : [];
-  return { sessionId: record.id, biomeId: state.biomeId || record.id, revision: record.revision, ...state, matrix };
+  return {
+    sessionId: record.id,
+    biomeId: state.biomeId || record.id,
+    revision: record.revision,
+    ...state,
+    ecology: state.ecology || biomeStore.createBiomeState({ biomeId: state.biomeId || record.id, missionId: record.id }),
+    matrix
+  };
 }
 
 async function persist(session, db) {
@@ -64,6 +74,7 @@ async function composeBiome(mission, options = {}) {
     sessionId,
     biomeId: sessionId,
     revision: null,
+    ecology: biomeStore.createBiomeState({ biomeId: sessionId, missionId: sessionId }),
     mode: 'biome',
     mission: goal,
     organization,
@@ -162,9 +173,9 @@ function makeReceipt(context) {
   const { sessionId, options, operation, input, operationId, timestamp, actorId, output, previousRevision, resultingRevision } = context;
   const appliedActions = output.action ? [output.action]
     : (output.allocations || []).map((allocation) => ({ type: 'RESOURCE_ALLOCATION', ...allocation }));
-  return { operationId, sessionId, actorId, previousRevision, resultingRevision, input,
+  return createEcologicalEvent({ operationId, sessionId, actorId, previousRevision, resultingRevision, input,
     decision: output.patchYield?.decision || operation, appliedActions,
-    evidenceRefs: options.evidenceRefs || [], timestamp };
+    evidenceRefs: options.evidenceRefs || [], timestamp });
 }
 
 function allocateResources(populations, options = {}) {

@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const biome = require('../src/services/biomeCoordinationService');
+const biomeStore = require('../src/services/biome/biomeStore');
 
 async function run() {
 const composition = await biome.composeBiome('Operate an environment with specialized agent populations and shared resources.');
@@ -10,6 +11,25 @@ assert.deepEqual(composition.capabilityContract.required, ['EPISODIC_MEMORY', 'F
 assert.deepEqual(composition.mechanisms, ['resource_allocation', 'optimal_foraging', 'quorum_sensing']);
 assert.ok(composition.members.every((member) => member.runtimeContext.sessionId === composition.sessionId));
 assert.ok(composition.members.every((member) => member.runtimeContext.biomeId && member.runtimeContext.populationId && member.runtimeContext.nicheId));
+assert.deepEqual(Object.keys(composition.ecology), [
+  'biomeId', 'missionId', 'scope', 'environment', 'niches', 'populations', 'resourcePool',
+  'interactionGraph', 'archive', 'ecologicalState', 'tick', 'status'
+]);
+
+const canonical = biomeStore.createBiomeState({
+  biomeId: 'biome-canonical',
+  scope: 'workspace',
+  niches: [{ nicheId: 'niche-tests', opportunityScore: 0.8 }],
+  populations: [{ populationId: 'population-tests', nicheId: 'niche-tests', resourcePool: { tokens: 10 } }],
+  interactionGraph: [{ sourceId: 'search', targetId: 'verify', type: 'mutualism', strength: 0.6 }],
+  resourcePool: { tokens: 100, workerSlots: 4 }
+});
+assert.equal(canonical.environment.version, 1);
+assert.equal(canonical.niches[0].status, 'candidate');
+assert.equal(canonical.populations[0].resourcePool.tokens, 10);
+assert.equal(canonical.interactionGraph[0].type, 'mutualism');
+assert.equal(canonical.resourcePool.tokens, 100);
+assert.throws(() => biomeStore.createBiomeState({ biomeId: 'bad', scope: 'planet' }), { code: 'BIOME_CONTRACT_INVALID' });
 
 const allocation = biome.allocateResources([
   { id: 'population_a', demand: 2, priority: 2 },
