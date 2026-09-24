@@ -103,6 +103,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | [0095](0095-detection-surreaction-immunitaire-holobionte.md) | Détection de sur-réaction immunitaire Holobionte | Accepté | 2026-09-24 | Holobionte, immunité, gouvernance |
 
+| [0096](0096-impact-keystone-holobionte.md) | Mesure de impact des symbiontes keystone | Accepté | 2026-09-24 | Holobionte, résilience, contribution |
+
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.
