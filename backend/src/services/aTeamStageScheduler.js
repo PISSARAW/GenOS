@@ -35,8 +35,7 @@ function stagePlanFor({ orchestratorId, members, planId } = {}) {
     pipelineStage: Math.max(0, Number(member.pipelineStage) || 0),
     workerId: member.workerId || memberId(orchestratorId, id, index)
   }));
-  const maxStage = planned.reduce((max, member) => Math.max(max, member.pipelineStage), 0);
-  return { planId: id, orchestratorId, maxStage, members: planned };
+  return validateAndStageGraph({ planId: id, orchestratorId, maxStage: 0, members: planned });
 }
 
 function domainIndex(plan) {
@@ -50,6 +49,48 @@ function domainIndex(plan) {
 function dependencyWorkerIds(plan, member, index) {
   const lookup = index || domainIndex(plan);
   return member.dependsOn.map((domain) => lookup.get(domain)).filter(Boolean);
+}
+
+function validateAndStageGraph(plan) {
+  const membersByDomain = new Map();
+  const remainingDependencies = new Map();
+  const consumersByDomain = new Map();
+  const stages = new Map();
+  for (const member of plan.members) {
+    if (membersByDomain.has(member.subSystem)) {
+      throw Object.assign(new Error(`Duplicate A-Team domain '${member.subSystem}'.`), { code: 'A_TEAM_DUPLICATE_DOMAIN' });
+    }
+    membersByDomain.set(member.subSystem, member);
+    consumersByDomain.set(member.subSystem, []);
+    stages.set(member.subSystem, member.pipelineStage);
+  }
+  for (const member of plan.members) {
+    for (const dependency of member.dependsOn) {
+      if (!membersByDomain.has(dependency)) {
+        throw Object.assign(new Error(`Unknown A-Team dependency '${dependency}' for '${member.subSystem}'.`), { code: 'A_TEAM_UNKNOWN_DEPENDENCY' });
+      }
+      consumersByDomain.get(dependency).push(member.subSystem);
+    }
+    remainingDependencies.set(member.subSystem, member.dependsOn.length);
+  }
+  const ready = plan.members.filter((member) => remainingDependencies.get(member.subSystem) === 0);
+  let visited = 0;
+  while (ready.length) {
+    const producer = ready.shift();
+    visited += 1;
+    for (const consumerDomain of consumersByDomain.get(producer.subSystem)) {
+      stages.set(consumerDomain, Math.max(stages.get(consumerDomain), stages.get(producer.subSystem) + 1));
+      const remaining = remainingDependencies.get(consumerDomain) - 1;
+      remainingDependencies.set(consumerDomain, remaining);
+      if (remaining === 0) ready.push(membersByDomain.get(consumerDomain));
+    }
+  }
+  if (visited !== plan.members.length) {
+    throw Object.assign(new Error('A-Team dependencies must form an acyclic graph.'), { code: 'A_TEAM_DEPENDENCY_CYCLE' });
+  }
+  plan.members = plan.members.map((member) => ({ ...member, pipelineStage: stages.get(member.subSystem) }));
+  plan.maxStage = plan.members.reduce((max, member) => Math.max(max, member.pipelineStage), 0);
+  return plan;
 }
 
 async function isTerminal(db, workerId) {
