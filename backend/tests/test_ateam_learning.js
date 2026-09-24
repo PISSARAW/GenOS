@@ -5,6 +5,7 @@ const { buildTeamDebrief } = require('../src/services/aTeam/learning/teamDebrief
 const { summarizePerformance } = require('../src/services/aTeam/learning/teamPerformanceMemory');
 const { deriveStaffingSignals } = require('../src/services/aTeam/learning/staffingLearningService');
 const { buildMorphologyCandidate, planTeamMorphogenesis } = require('../src/services/aTeam/learning/aTeamMorphogenesisBridge');
+const { validatePlan } = require('../src/services/morphogenesis/morphogenesisPlannerService');
 
 function run() {
   const debrief = buildTeamDebrief({ teamRun: { teamRunId: 'run-1', status: 'COMPLETED' }, objectiveMet: true, evidenceIds: ['ev-1'], metrics: { completionRate: 1, reworkRate: 0.1 }, lessons: [{ statement: 'Add a security specialist', category: 'staffing', reusable: true, evidenceId: 'ev-1' }] });
@@ -18,6 +19,7 @@ function run() {
   assert.equal(transition.variantPlan.variant, 'project_dag');
   const graph = transition.plan.morphologyPatch.graph;
   assert.equal(graph.nodes.find((node) => node.nodeId === graph.rootNodeId).topology, 'a_team');
+  assert.equal(validatePlan({ plan: transition.plan }).valid, true);
 }
 
 run();
