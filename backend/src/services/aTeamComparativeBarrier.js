@@ -10,6 +10,10 @@ const { latestReport } = require('./trinityComparativeBarrier');
 const continuousIntegration = require('./aTeam/integration/continuousIntegrationService');
 const { reportIsUsable } = require('./aTeamHandoffEvidenceService');
 const { emit } = require('./agentOrchestrationState');
+const { usableEvidenceReferences } = require('./aTeamHandoffEvidenceService');
+const teamRunStore = require('./aTeam/teamRunStore');
+const aTeamRuntime = require('./aTeam/aTeamRuntime');
+const teamLearning = require('./aTeam/learning/teamLearningService');
 
 function dossierFor(worker, dossier) {
   const events = Array.isArray(dossier?.events) ? dossier.events : [];
@@ -110,7 +114,41 @@ async function applyAteamIntegration(ctx) {
   emit(ctx.agentId, 'A_TEAM_INTEGRATION_ARBITRATED', 'VALIDATE_INTEGRATION', detail, aTeam.integration, canMerge ? 'info' : 'warning');
   aTeam.metrics = buildAteamMetrics({ aTeam, workers, observation, canMerge });
   emit(ctx.agentId, 'A_TEAM_METRICS', 'OBSERVE', `A-Team fusion=${aTeam.metrics.fusionDecision}, violations=${aTeam.metrics.integrationConstraintViolations + failures.length}.`, aTeam.metrics, 'info');
+  if (canMerge) await persistSuccessfulLearning({ ...ctx, aTeam, dossiers });
   return { canMerge, failures, integrationFailures: observation.integrationFailures, paretoFront: [], totalEvaluated: 0 };
 }
 
-module.exports = { applyAteamIntegration, buildDossiers, buildAteamMetrics };
+async function persistSuccessfulLearning({ db, agentId, aTeam, dossiers }) {
+  const draft = aTeam.teamRun;
+  if (!db || !draft?.teamRunId) return;
+  try {
+    const run = await teamRunStore.load(db, draft.teamRunId);
+    if (run.status === 'RUNNING') {
+      const completed = await aTeamRuntime.transitionRun({
+        db, teamRunId: run.teamRunId, revision: run.revision,
+        patch: { status: 'COMPLETED', phase: 'INTEGRATION' }
+      });
+      aTeam.teamRun = completed;
+    }
+    await persistDebrief({ db, agentId, aTeam, dossiers });
+  } catch (error) {
+    emit(agentId, 'A_TEAM_LEARNING_PERSISTENCE_FAILED', 'DEBRIEF', error.message, { teamRunId: draft.teamRunId, code: error.code || 'ATEAM_LEARNING_FAILED' }, 'warning');
+  }
+}
+
+async function persistDebrief({ db, aTeam, dossiers }) {
+  const reports = (dossiers || []).map((dossier) => ({ dossier, report: latestReport(dossier) || {} }));
+  const evidenceIds = [...new Set(reports.flatMap(({ report }) => usableEvidenceReferences(report)))];
+  const memberOutcomes = Object.fromEntries(reports.map(({ dossier, report }) => [dossier.workerId, {
+    successRate: 1, evidenceId: usableEvidenceReferences(report)[0]
+  }]).filter(([, outcome]) => outcome.evidenceId));
+  const validEvidence = new Set(evidenceIds);
+  await teamLearning.persistTeamDebrief({
+    db, teamRunId: aTeam.teamRun.teamRunId, taskProfile: aTeam.primaryDomain || aTeam.organization,
+    objectiveMet: true, evidenceIds, memberOutcomes,
+    metrics: { completionRate: 1, reworkRate: 0, handoffAcceptanceRate: 1 },
+    evidenceIsUsable: async ({ evidenceId }) => validEvidence.has(evidenceId)
+  });
+}
+
+module.exports = { applyAteamIntegration, buildDossiers, buildAteamMetrics, persistSuccessfulLearning };

@@ -143,6 +143,7 @@ function missionWithHandoffs(prompt, handoffs) {
 
 module.exports = {
   reportIsUsable,
+  usableEvidenceReferences,
   handoffForDossier,
   buildHandoffsFromDossiers,
   buildHandoffsFromTelemetry,

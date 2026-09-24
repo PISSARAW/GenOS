@@ -27,7 +27,7 @@ function planReplacement(input = {}) {
   if (!failed || !responsibilities.length) return blocked('FAILED_MEMBER_HAS_NO_RECOVERABLE_RESPONSIBILITY');
   const requirements = replacementRequirements(responsibilities);
   const candidates = affordableCandidates(input);
-  const selection = optimizeTeam({ requirements, candidates, capacity: 1 });
+  const selection = optimizeTeam({ requirements, candidates, capacity: 1, performancePriors: input.performancePriors });
   if (selection.gaps.length) return blocked('REPLACEMENT_CANNOT_COVER_ALL_RESPONSIBILITIES');
   const winner = selection.selected[0];
   if (!winner) return blocked('REPLACEMENT_CANDIDATE_UNAVAILABLE');

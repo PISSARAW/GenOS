@@ -57,10 +57,21 @@ function prepareContext(options) {
   const requestedCapacity = Number(options.capacity);
   return {
     requirements: Array.isArray(options.requirements) ? options.requirements : [],
-    candidates: Array.isArray(options.candidates) ? options.candidates : [],
+    candidates: applyPerformancePriors(options.candidates, options.performancePriors),
     capacity: Number.isFinite(requestedCapacity) ? Math.max(0, Math.floor(requestedCapacity)) : 3,
     selected: [], assigned: new Set(), covered: new Set()
   };
+}
+
+function applyPerformancePriors(candidates, priors) {
+  const source = Array.isArray(candidates) ? candidates : [];
+  if (!priors || typeof priors !== 'object') return source;
+  return source.map((candidate) => {
+    const id = candidate.agentId || candidate.id;
+    const prior = priors[id];
+    if (!prior || !Number.isFinite(Number(prior.successRate))) return candidate;
+    return { ...candidate, historicalFitness: Number(prior.successRate), history: { ...candidate.history, sampleCount: prior.sampleCount, successRate: Number(prior.successRate) } };
+  });
 }
 
 function optimizeTeam(options = {}) {

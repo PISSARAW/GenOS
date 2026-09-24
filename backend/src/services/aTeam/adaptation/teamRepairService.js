@@ -9,7 +9,7 @@ const { planTeamMorphogenesis } = require('../learning/aTeamMorphogenesisBridge'
 function planForGap(input, gap, failedMember) {
   const reassignment = planReassignment({ gap, members: input.members, failedMemberId: failedMember?.agentId || failedMember?.memberId });
   if (reassignment.status === 'REASSIGN') return reassignment;
-  return planRecruitment({ gap, candidates: input.candidates, budget: input.budget, availableSlots: input.availableSlots });
+  return planRecruitment({ gap, candidates: input.candidates, budget: input.budget, availableSlots: input.availableSlots, performancePriors: input.performancePriors });
 }
 
 function planRepair(input = {}) {
@@ -18,7 +18,7 @@ function planRepair(input = {}) {
   if (failed) {
     const replacement = planReplacement({
       failedMember: failed, candidates: input.candidates,
-      budget: input.budget, availableSlots: input.availableSlots
+      budget: input.budget, availableSlots: input.availableSlots, performancePriors: input.performancePriors
     });
     if (replacement.status === 'REPLACE') return attachMorphogenesis(input, { ...replacement, workGraphNeedsRecompile: true });
   }

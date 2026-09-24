@@ -5,6 +5,8 @@ const { withTransaction } = require('../../db');
 const trinityExperimentStore = require('../trinityExperimentStore');
 const { hashWorkspace } = require('../trinitySnapshotService');
 const trinityService = require('../trinityService');
+const aTeamRuntime = require('../aTeam/aTeamRuntime');
+const teamRunStore = require('../aTeam/teamRunStore');
 
 function emitTeamComposition(ctx, autonomousWorkers) {
   const { agentId, autonomyPlan } = ctx;
@@ -185,11 +187,33 @@ function emitDispatchReconciled(ctx, assignments, workers) {
 
 async function activateCreatedWorkers(ctx, workers) {
   if (!workers.length) return;
+  await activateATeamRun(ctx, workers);
   emitTeamComposition(ctx, workers);
   await launchTrinityWorlds(ctx, workers);
   emitWorkerCreations(ctx.agentId, workers);
   reportWorkerDispatch(ctx, workers);
   registerAutonomousRound(ctx, workers);
+}
+
+async function activateATeamRun(ctx, workers) {
+  const draft = ctx.autonomyPlan.aTeam?.teamRun;
+  if (!draft?.teamRunId) return null;
+  const run = await teamRunStore.load(ctx.db, draft.teamRunId);
+  if (!run || run.status !== 'READY') return run;
+  const members = run.members.map((member) => linkWorker(member, workers));
+  const active = await aTeamRuntime.transitionRun({
+    db: ctx.db, teamRunId: run.teamRunId, revision: run.revision,
+    patch: { status: 'RUNNING', phase: 'EXECUTION', members }
+  });
+  ctx.autonomyPlan.aTeam.teamRun = active;
+  return active;
+}
+
+function linkWorker(member, workers) {
+  const worker = workers.find((entry) => entry.label === member.label || entry.subSystem === member.subSystem
+    || entry.role === member.role);
+  if (!worker) return member;
+  return { ...member, agentId: worker.agentId, workerId: worker.agentId, status: 'ACTIVE' };
 }
 
 function assertWorkerDispatchMatches(assignments, workers) {
@@ -226,4 +250,4 @@ function emitDispatchDeferred(ctx, assignments) {
   }, 'warning');
 }
 
-module.exports = { orchestrateAutonomousWorkers, assertWorkerDispatchMatches };
+module.exports = { orchestrateAutonomousWorkers, assertWorkerDispatchMatches, activateATeamRun, linkWorker };

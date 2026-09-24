@@ -14,7 +14,7 @@ function planRecruitment(input = {}) {
   const slots = Math.max(0, Math.floor(Number(input.availableSlots) || 0));
   if (!input.gap || slots === 0 || budget <= 0) return { status: 'BLOCKED', candidate: null, reason: 'CAPACITY_OR_BUDGET_UNAVAILABLE' };
   const candidates = affordableCandidates(input.candidates, budget);
-  const selection = optimizeTeam({ requirements: [input.gap], candidates, capacity: 1 });
+  const selection = optimizeTeam({ requirements: [input.gap], candidates, capacity: 1, performancePriors: input.performancePriors });
   const winner = selection.selected[0];
   if (!winner) return { status: 'BLOCKED', candidate: null, reason: 'NO_AFFORDABLE_CAPABLE_CANDIDATE' };
   return {
