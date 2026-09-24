@@ -7,10 +7,10 @@ use std::time::{Duration, Instant};
 #[test]
 fn register_agent_does_not_resurrect_a_dead_bucket() {
     let mut scheduler = TokenBucketScheduler::new();
-    scheduler.register_agent("agent-a", 50.0, DEFAULT_BUCKET_CAPACITY);
+    scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "agent-a", initial_tokens: 50.0, capacity: DEFAULT_BUCKET_CAPACITY });
     scheduler.buckets.get_mut("agent-a").unwrap().state = BucketState::Apoptotic;
 
-    scheduler.register_agent("agent-a", 100.0, DEFAULT_BUCKET_CAPACITY);
+    scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "agent-a", initial_tokens: 100.0, capacity: DEFAULT_BUCKET_CAPACITY });
 
     let bucket = scheduler.buckets.get("agent-a").unwrap();
     assert_eq!(bucket.state, BucketState::Apoptotic);
@@ -20,7 +20,7 @@ fn register_agent_does_not_resurrect_a_dead_bucket() {
 #[test]
 fn reward_proof_rejects_dead_agents() {
     let mut scheduler = TokenBucketScheduler::new();
-    scheduler.register_agent("agent-a", 10.0, DEFAULT_BUCKET_CAPACITY);
+    scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "agent-a", initial_tokens: 10.0, capacity: DEFAULT_BUCKET_CAPACITY });
     scheduler.buckets.get_mut("agent-a").unwrap().state = BucketState::Starved;
 
     assert!(scheduler.reward_proof("agent-a", 1.0).is_err());
@@ -31,7 +31,7 @@ fn reward_proof_rejects_dead_agents() {
 fn penalize_waste_rejects_dead_agents() {
     for dead in [BucketState::Starved, BucketState::Apoptotic] {
         let mut scheduler = TokenBucketScheduler::new();
-        scheduler.register_agent("agent-a", 50.0, DEFAULT_BUCKET_CAPACITY);
+        scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "agent-a", initial_tokens: 50.0, capacity: DEFAULT_BUCKET_CAPACITY });
         scheduler.buckets.get_mut("agent-a").unwrap().state = dead.clone();
 
         assert!(scheduler.penalize_waste("agent-a", 0.5).is_err());
@@ -42,7 +42,7 @@ fn penalize_waste_rejects_dead_agents() {
 #[test]
 fn severe_waste_triggers_apoptosis_even_with_tokens() {
     let mut scheduler = TokenBucketScheduler::new();
-    scheduler.register_agent("agent-a", 100.0, DEFAULT_BUCKET_CAPACITY);
+    scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "agent-a", initial_tokens: 100.0, capacity: DEFAULT_BUCKET_CAPACITY });
 
     let report = scheduler.penalize_waste("agent-a", 1.0).unwrap();
 
@@ -53,7 +53,7 @@ fn severe_waste_triggers_apoptosis_even_with_tokens() {
 #[test]
 fn zero_score_reward_does_not_clear_starvation() {
     let mut scheduler = TokenBucketScheduler::new();
-    scheduler.register_agent("agent-a", 5.0, DEFAULT_BUCKET_CAPACITY);
+    scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "agent-a", initial_tokens: 5.0, capacity: DEFAULT_BUCKET_CAPACITY });
     scheduler.schedule_step("agent-a", 20.0);
     assert_eq!(scheduler.buckets.get("agent-a").unwrap().starvation_count, 1);
 
@@ -67,7 +67,7 @@ fn zero_score_reward_does_not_clear_starvation() {
 #[test]
 fn reward_proof_capacity_is_capped() {
     let mut scheduler = TokenBucketScheduler::new();
-    scheduler.register_agent("agent-a", 0.0, DEFAULT_BUCKET_CAPACITY);
+    scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "agent-a", initial_tokens: 0.0, capacity: DEFAULT_BUCKET_CAPACITY });
 
     for _ in 0..200 {
         scheduler.reward_proof("agent-a", 1.0).unwrap();
@@ -80,7 +80,7 @@ fn reward_proof_capacity_is_capped() {
 fn bad_scores_do_not_corrupt_the_bucket() {
     for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
         let mut scheduler = TokenBucketScheduler::new();
-        scheduler.register_agent("agent-a", 50.0, DEFAULT_BUCKET_CAPACITY);
+        scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "agent-a", initial_tokens: 50.0, capacity: DEFAULT_BUCKET_CAPACITY });
         assert!(scheduler.reward_proof("agent-a", bad).is_err());
         assert!(scheduler.penalize_waste("agent-a", bad).is_err());
         let bucket = scheduler.buckets.get("agent-a").unwrap();
@@ -92,7 +92,7 @@ fn bad_scores_do_not_corrupt_the_bucket() {
         assert!(!bucket.is_dead(), "NaN/{bad} bricked the bucket");
     }
     let mut scheduler = TokenBucketScheduler::new();
-    scheduler.register_agent("agent-a", 50.0, DEFAULT_BUCKET_CAPACITY);
+    scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "agent-a", initial_tokens: 50.0, capacity: DEFAULT_BUCKET_CAPACITY });
     let reward = scheduler.reward_proof("agent-a", -3.0).unwrap();
     assert_eq!(reward.added_tokens, 0.0);
     assert_eq!(reward.new_balance, 50.0);
@@ -105,7 +105,7 @@ fn bad_scores_do_not_corrupt_the_bucket() {
 fn schedule_step_sanitizes_invalid_token_cost() {
     for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -5.0] {
         let mut scheduler = TokenBucketScheduler::new();
-        scheduler.register_agent("agent-a", 50.0, DEFAULT_BUCKET_CAPACITY);
+        scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "agent-a", initial_tokens: 50.0, capacity: DEFAULT_BUCKET_CAPACITY });
         match scheduler.schedule_step("agent-a", bad) {
             SchedulingDecision::Allowed { allocated_tokens, remaining_tokens, .. } => {
                 assert_eq!(allocated_tokens, 0.0, "bad cost {bad} must sanitize to zero");
@@ -120,7 +120,7 @@ fn schedule_step_sanitizes_invalid_token_cost() {
 #[test]
 fn starvation_is_counted_once_per_event() {
     let mut scheduler = TokenBucketScheduler::new();
-    scheduler.register_agent("agent-a", 5.0, DEFAULT_BUCKET_CAPACITY);
+    scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "agent-a", initial_tokens: 5.0, capacity: DEFAULT_BUCKET_CAPACITY });
     assert!(matches!(
         scheduler.schedule_step("agent-a", 20.0),
         SchedulingDecision::Suspended { .. }
@@ -136,9 +136,9 @@ fn starvation_is_counted_once_per_event() {
 #[test]
 fn time_slice_increases_with_available_tokens() {
     let mut poor = TokenBucketScheduler::new();
-    poor.register_agent("poor", 20.0, DEFAULT_BUCKET_CAPACITY);
+    poor.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "poor", initial_tokens: 20.0, capacity: DEFAULT_BUCKET_CAPACITY });
     let mut rich = TokenBucketScheduler::new();
-    rich.register_agent("rich", 80.0, DEFAULT_BUCKET_CAPACITY);
+    rich.register_agent(crate::token_bucket::RegistrationConfig { agent_id: "rich", initial_tokens: 80.0, capacity: DEFAULT_BUCKET_CAPACITY });
     let poor_slice = allowed_slice(&mut poor, "poor");
     let rich_slice = allowed_slice(&mut rich, "rich");
     assert!(rich_slice > poor_slice, "rich={rich_slice} poor={poor_slice}");
@@ -164,7 +164,7 @@ fn allowed_slice(scheduler: &mut TokenBucketScheduler, agent_id: &str) -> u64 {
 fn invariants_hold_under_random_operations() {
     let mut scheduler = TokenBucketScheduler::new();
     for id in ["a", "b", "c"] {
-        scheduler.register_agent(id, 50.0, DEFAULT_BUCKET_CAPACITY);
+        scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: id, initial_tokens: 50.0, capacity: DEFAULT_BUCKET_CAPACITY });
     }
     let mut seed = 0xdead_beef_1234_5678_u64;
     let mut next = move || {
@@ -186,7 +186,7 @@ fn invariants_hold_under_random_operations() {
                 let _ = scheduler.penalize_waste(id, (next() % 100) as f64 / 100.0);
             }
             3 => {
-                scheduler.register_agent(id, 10.0, DEFAULT_BUCKET_CAPACITY);
+                scheduler.register_agent(crate::token_bucket::RegistrationConfig { agent_id: id, initial_tokens: 10.0, capacity: DEFAULT_BUCKET_CAPACITY });
             }
             _ => {
                 scheduler.schedule_step(id, 0.0);

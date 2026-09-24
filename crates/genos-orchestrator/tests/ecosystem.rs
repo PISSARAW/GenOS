@@ -226,7 +226,11 @@ fn ecosystem_exposes_signaling_dna_cyber_senses_phylogeny() {
     );
     let idx = eco.signaling.emit(ligand);
     eco.signaling
-        .express_receptor("ATP", "ACTIVATE_GLYCOLYSIS", 1.0);
+        .express_receptor(crate::signaling::ReceptorConfig {
+            target_ligand: "ATP",
+            cascade_signal: "ACTIVATE_GLYCOLYSIS",
+            threshold: 1.0,
+        });
     assert_eq!(
         eco.signaling.transduce(idx).as_deref(),
         Some("ACTIVATE_GLYCOLYSIS")
