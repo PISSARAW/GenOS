@@ -5,7 +5,8 @@
  * WORKER_EVIDENCE_DOSSIERS_ATTACHED, WORKER_EVIDENCE_BARRIER_SATISFIED,
  * immuneSystem.phagocytoseCodexReport, IMMUNE_OUTPUT_REJECTED.
  */
-const { createAutonomousWorkers } = require('./agentFleetWorkers');
+const { createAutonomousWorkers: createWorkers } = require('./agentFleetWorkers');
+const { buildAllocation } = require('./tokenAllocationService');
 const quiescence = require('./workerEvidenceBarrierQuiescence');
 const localWorker = require('./workerEvidenceBarrierLocal');
 const pipeline = require('./workerEvidenceBarrierPipeline');
@@ -18,6 +19,32 @@ async function waitForAutonomousWorkerQuiescence() {
 
 async function runLocalWorker(db, mission, executionRun) {
   return localWorker.runLocalWorker(db, mission, executionRun);
+}
+
+async function createAutonomousWorkers(...args) {
+  const plan = args[2];
+  enforceTrinityBudget(plan);
+  return createWorkers(...args);
+}
+
+function enforceTrinityBudget(plan) {
+  if (plan?.trinity?.activated !== true) return;
+  const assignments = Array.isArray(plan.dispatchWorkers) ? plan.dispatchWorkers : [];
+  if (assignments.length !== 3) {
+    throw Object.assign(new Error('Trinity requires exactly three dispatched worlds.'), { code: 'TRINITY_WORLD_COUNT_INVALID' });
+  }
+  const policy = plan.tokenPolicy || {};
+  policy.allocation = 'equal_minimum_then_score_weighted';
+  policy.rounds = buildAllocation({
+    totalTokens: policy.total,
+    workerShare: policy.workerShare,
+    workerCount: 3,
+    minimumWorkerTokens: policy.minimumWorkerTokens,
+    mode: policy.allocation
+  });
+  if (policy.rounds.initial.workerCount !== 3) {
+    throw Object.assign(new Error('The available budget cannot fund three Trinity worlds.'), { code: 'TRINITY_BUDGET_INSUFFICIENT' });
+  }
 }
 
 function normalizeParentBudget(parentBudget) {
