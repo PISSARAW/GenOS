@@ -149,7 +149,11 @@ que le comportement correspondant est déjà complet.
 | Compatibilité, ownership et blocages | `backend/src/services/aTeamIntegrationObserver.js` | Chaque violation rapporte le worker, le domaine, le contrat et la raison. |
 | Couverture indépendante | `backend/src/services/aTeamQualityGateService.js` | MCC, TSC, RCA et VEC sont restitués séparément et leurs données manquantes sont visibles. |
 | Mémoire transactive | `backend/src/services/communication/transactiveMemoryService.js` | Entrées sourcées, datées et consultées via les accès autorisés. |
-| Recrutement et changement de topologie | `backend/src/services/morphogenesis/transitionEngineService.js` et `backend/src/services/agentFleetService.js` | Toute transition respecte budget, capacité, leases et contrats du dispatch. |
+| Recrutement et changement de topologie | `backend/src/services/aTeam/adaptation/teamRepairService.js` → `backend/src/services/aTeam/learning/aTeamMorphogenesisBridge.js` → `backend/src/services/morphogenesis/morphogenesisPlannerService.js` | Une réparation RECRUIT, REPLACE ou REASSIGN joint au résultat un plan Morphogenesis `a_team` ; c'est une proposition, pas une transition appliquée. L'application reste sous le contrôle du moteur transactionnel Morphogenesis et ses validations. |
+| Variantes et transitions d'organisation | `backend/src/services/aTeam/variants/` | Politique explicite par variante, choix conservateur depuis les signaux de mission et plan par phase ; les politiques ne changent pas seules les droits d'exécution. |
+| Risques d'interface et budget adaptatif | `backend/src/services/aTeam/boundaries/` et `backend/src/services/aTeam/budget/` | Risque borné, responsable de liaison limité au contrat d'interface, allocations dont la somme ne dépasse jamais le budget fourni. |
+| Système multi-équipe | `backend/src/services/aTeam/multiteam/` | Contrats vérifiés, dépendances acycliques, conseil de coordination et limites configurables de taille/profondeur. |
+| Débrief, mémoire et Morphogenèse | `backend/src/services/aTeam/learning/` | Le débrief conserve les références de preuve ; les signaux de staffing ne reprennent que les leçons réutilisables ; le pont produit un plan Morphogenesis `a_team` sans l'appliquer. |
 
 ### Invariants d'acceptation d'une implémentation
 
