@@ -9,6 +9,7 @@ const { annotatePlanWithSubstrates } = require('../../storage/compute/computeSub
 const { extendPlan } = require('./morphogenesisPlanExtensions');
 const controlLoop = require('./cognitiveControlLoopService');
 const { compileFlatTopology } = require('./graph/compileFlatTopology');
+const biocenoseMorphogenesisAdapter = require('../biocenose/integration/biocenoseMorphogenesisAdapter');
 
 function candidateFor(topology, contracts, cost) {
   const base = { topology, requiredCapabilities: contracts.pc.required || [] };
@@ -216,6 +217,18 @@ function computeMorphologyUtility(ctx) {
 }
 
 function planMorphogenesis(ctx) {
+  const transition = biocenoseMorphogenesisAdapter.recommend({
+    currentTopology: ctx.currentState?.topology,
+    ...(ctx.biocenoseSignals || {})
+  });
+  const adjusted = transition?.kind === 'TOPOLOGY_TRANSITION'
+    ? { ...ctx, proposedTopology: transition.target, reason: transition.reason } : ctx;
+  const plan = buildMorphogenesisPlan(adjusted);
+  if (transition) plan.biocenoseTransition = transition;
+  return plan;
+}
+
+function buildMorphogenesisPlan(ctx) {
   const contracts = buildContracts(ctx);
   const components = buildPlanComponents(ctx, contracts);
   const targetAgents = components.preserve.concat(components.rebind).map((a) => ({ id: a.agentId, capabilities: (getPhenotype(a.phenotype) || {}).capabilities || [] }));
