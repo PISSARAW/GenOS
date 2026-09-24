@@ -68,6 +68,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0061](0061-remplacement-et-reprise-symbionte.md) | Remplacement et reprise d'un symbionte | Accepté | 2026-09-24 | Holobionte, reprise, backup, substitution, ressources |
 | [0051](0051-morphology-graph-and-topology-contracts.md) | Graphe morphologique et contrats typés de topologie | Proposé | 2026-09-24 | Orchestration, morphogenèse, topologies, preuves, budget |
 
+| [0062](0062-transmission-verticale-holobionte.md) | Transmission verticale Holobionte | Accepté | 2026-09-24 | Holobionte, génération, héritage, AEIS, admission |
+
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.
